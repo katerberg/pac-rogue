@@ -29,6 +29,27 @@ async function waitForServer(timeoutMs = 30_000) {
   throw new Error(`Timed out waiting for preview server at ${url}`);
 }
 
+async function stopPreview(preview) {
+  if (preview.exitCode !== null || preview.signalCode !== null) {
+    return;
+  }
+
+  const exited = new Promise((resolve) => {
+    preview.once("exit", resolve);
+  });
+
+  preview.kill("SIGTERM");
+  const timedOut = await Promise.race([
+    exited.then(() => false),
+    sleep(2_000).then(() => true),
+  ]);
+
+  if (timedOut) {
+    preview.kill("SIGKILL");
+    await Promise.race([exited, sleep(1_000)]);
+  }
+}
+
 async function main() {
   mkdirSync(dirname(artifactPath), { recursive: true });
 
@@ -74,11 +95,16 @@ async function main() {
     }
     throw error;
   } finally {
-    preview.kill("SIGTERM");
+    await stopPreview(preview);
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    // Preview child stdio can keep the event loop alive after SIGTERM.
+    setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref();
+  });
