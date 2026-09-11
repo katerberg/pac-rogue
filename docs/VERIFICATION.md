@@ -84,11 +84,11 @@ Agents must **read that image** (or an equivalent live capture) when claiming vi
 
 ## What each change class requires
 
-| Change type                        | Verification level                   | Minimum bar                          |
-| ---------------------------------- | ------------------------------------ | ------------------------------------ |
-| Tooling / docs / pure domain logic | `verify`                             | `npm run verify`                     |
-| Phaser presentation / gameplay     | `verify` + live visual               | `npm run verify` **and** live visual |
-| Anything touching boot/canvas path | `verify` + inspect smoke screenshot  | Confirm `artifacts/visual-smoke.png` |
+| Change type                        | Verification level                  | Minimum bar                          |
+| ---------------------------------- | ----------------------------------- | ------------------------------------ |
+| Tooling / docs / pure domain logic | `verify`                            | `npm run verify`                     |
+| Phaser presentation / gameplay     | `verify` + live visual              | `npm run verify` **and** live visual |
+| Anything touching boot/canvas path | `verify` + inspect smoke screenshot | Confirm `artifacts/visual-smoke.png` |
 
 Choose the level **before** coding. If the change spans classes, use the stricter level.
 
