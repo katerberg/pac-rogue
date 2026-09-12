@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -44,3 +45,35 @@ jobs:
           name: visual-smoke
           path: artifacts/visual-smoke.png
           if-no-files-found: ignore
+
+      - name: Prepare visual smoke PR comment
+        if: always() && github.event_name == 'pull_request'
+        id: smoke_comment
+        run: |
+          if [ ! -f artifacts/visual-smoke.png ]; then
+            STATUS="screenshot missing"
+          elif [ "${{ job.status }}" = "success" ]; then
+            STATUS="passed"
+          else
+            STATUS="failed"
+          fi
+
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            echo "body<<EOF"
+            echo "## Visual smoke"
+            echo
+            echo "**Status:** ${STATUS}"
+            echo
+            echo "- [Workflow run](${RUN_URL})"
+            echo "- Download the \`visual-smoke\` artifact from that run for \`artifacts/visual-smoke.png\` (when present)."
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment visual smoke link on PR
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: visual-smoke
+          message: ${{ steps.smoke_comment.outputs.body }}
