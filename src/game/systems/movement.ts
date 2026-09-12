@@ -28,9 +28,6 @@ export function movement(world: World, deltaMs: number): void {
     } else if (direction === DIRECTION.right) {
       Velocity.x[eid] = PLAYER_SPEED;
       Velocity.y[eid] = 0;
-    } else {
-      Velocity.x[eid] = 0;
-      Velocity.y[eid] = 0;
     }
 
     const nextX = (Position.x[eid] ?? 0) + (Velocity.x[eid] ?? 0) * dt;
