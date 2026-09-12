@@ -36,4 +36,62 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ["src/game/components/**/*.ts", "src/domain/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "phaser",
+              message: "Components and domain helpers are Phaser-free data/logic.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/domain/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "phaser",
+              message: "Domain helpers are Phaser-free.",
+            },
+            {
+              name: "bitecs",
+              message: "Domain helpers must not call bitECS world APIs.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/game/systems/**/*.ts"],
+    ignores: [
+      "src/game/systems/playerInput.ts",
+      "src/game/systems/render.ts",
+      "src/game/systems/**/*.test.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "phaser",
+              message:
+                "Logic systems are Phaser-free. Only playerInput.ts and render.ts may import Phaser.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

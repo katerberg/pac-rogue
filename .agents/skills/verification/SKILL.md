@@ -32,6 +32,7 @@ In addition to `npm run verify`:
 3. **Inspect** a screenshot or live capture and **actually look at it** (e.g. Read `artifacts/visual-smoke.png`).
 4. **Record** what was verified: what launched, what you exercised, what you observed.
 5. Do not claim visual pass from compile/test/`visual` exit-code success alone.
+6. Gameplay changes must keep `npm run check:ecs` green (`npm run verify` includes it). Live inspect on **5174** is still required.
 
 ## Never
 

@@ -14,6 +14,8 @@ Rules:
 - Do not introduce dependencies without a concrete justification.
 - Do not create god objects or global mutable state.
 - Separate game/domain logic from Phaser presentation where practical (`src/domain` vs `src/game`).
+- Gameplay logic goes in **systems**. Scenes only wire the world, spawn entities, and run the pipeline — do not put movement (or other simulation) rules in the scene.
+- Keep `npm run check:ecs` green. Do not bypass ECS layer boundaries (see `docs/ARCHITECTURE.md`).
 - Use agent ports only (`npm run dev:agent` / preview+visual on 5174/4174). Never bind to or kill human ports 5173/4173.
 - Do not bypass, weaken, or delete verification.
 - After implementation: run the appropriate checks → inspect failures → fix → rerun until green.

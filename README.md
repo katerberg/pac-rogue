@@ -1,6 +1,6 @@
 # pac-rogue
 
-Phaser + TypeScript foundation for a future Pac-Man-like game. Gameplay is intentionally minimal: a boot scene proves the pipeline.
+Phaser + bitECS 0.4 Pac-Man-like game. One player entity moves smoothly on an open playfield; ECS owns position and velocity.
 
 ## Requirements
 
@@ -25,6 +25,7 @@ npx playwright install chromium
 | `npm run lint`          | ESLint                                           |
 | `npm run format`        | Prettier write                                   |
 | `npm run visual`        | Headless canvas smoke on agent preview port      |
+| `npm run check:ecs`     | ECS layer boundaries (also part of `verify`)     |
 | `npm run verify`        | **Canonical gate** — all checks + build + visual |
 
 Humans and agents use different ports (see `scripts/ports.json` / `docs/VERIFICATION.md`) so they do not collide.
@@ -41,4 +42,4 @@ Pull requests and pushes to `main` run `npm run verify` (typecheck, lint, format
 
 ## Status
 
-Foundation only. No maze, ghosts, or player yet.
+ECS Pac-Man moves smoothly on an open playfield (arrows + WASD, instant turns). No maze, ghosts, or pellets yet.

@@ -44,11 +44,14 @@ npm run verify
 Runs, in order:
 
 1. `typecheck` — TypeScript (`tsc --noEmit`)
-2. `lint` — ESLint
+2. `lint` — ESLint (includes Phaser import bans for components, domain, and logic systems)
 3. `format:check` — Prettier
-4. `test` — Vitest unit tests
-5. `build` — production Vite build (after typecheck again via the build script)
-6. `visual` — headless boot of the production build + canvas screenshot
+4. `check:ecs` — ECS boundary script (`scripts/check-ecs-boundaries.mjs`)
+5. `test` — Vitest unit tests
+6. `build` — production Vite build (after typecheck again via the build script)
+7. `visual` — headless boot of the production build + canvas screenshot
+
+Gameplay and presentation changes must keep `check:ecs` green. Do not skip, weaken, or delete that gate.
 
 GitHub Actions runs the same command on pull requests, pushes to `main`, and manual `workflow_dispatch` (see `.github/workflows/verify.yml`). The visual smoke screenshot is uploaded as a workflow artifact. On pull requests, CI publishes the PNG to a short-lived `ci/visual-smoke/pr-<n>` branch and leaves a sticky comment that embeds the image (plus a link to the workflow run).
 
@@ -99,6 +102,7 @@ Choose the level **before** coding. If the change spans classes, use the stricte
 - Read this file and `docs/ARCHITECTURE.md` before substantial changes.
 - Follow `AGENTS.md` and `.agents/skills/verification/SKILL.md`.
 - Determine verification level before implementation; run → inspect → fix → rerun after.
+- Gameplay changes must keep `check:ecs` green and still require live inspect on **5174**.
 - Use agent ports only; leave human ports alone.
 - If verification fails, fix it — do not redefine success.
 - If you cannot run visual checks in the environment, say so explicitly and leave the task incomplete.
