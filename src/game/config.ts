@@ -1,8 +1,9 @@
 import Phaser from "phaser";
-import { BootScene } from "./scenes/BootScene";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../domain/playfield";
+import { PlayScene } from "./scenes/PlayScene";
 
-export const GAME_WIDTH = 800;
-export const GAME_HEIGHT = 600;
+export const GAME_WIDTH = PLAYFIELD_WIDTH;
+export const GAME_HEIGHT = PLAYFIELD_HEIGHT;
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -10,7 +11,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: "#1a1a2e",
-  scene: [BootScene],
+  scene: [PlayScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
