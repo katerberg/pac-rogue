@@ -43,6 +43,7 @@ In addition to `npm run verify`:
 
 - Automated: verify exit code 0.
 - Visual: screenshot path or equivalent browser capture, plus a brief note of what was observed.
+- On pull requests, CI posts a sticky comment that embeds the visual-smoke PNG (hosted on `ci/visual-smoke/pr-<n>`) and links the workflow run — useful when reviewing a PR. Gameplay/presentation work still requires local pixel inspection; do not treat the CI comment alone as visual verification.
 
 ## See also
 

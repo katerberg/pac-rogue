@@ -50,7 +50,7 @@ Runs, in order:
 5. `build` — production Vite build (after typecheck again via the build script)
 6. `visual` — headless boot of the production build + canvas screenshot
 
-GitHub Actions runs the same command on pull requests, pushes to `main`, and manual `workflow_dispatch` (see `.github/workflows/verify.yml`). The visual smoke screenshot is uploaded as a workflow artifact.
+GitHub Actions runs the same command on pull requests, pushes to `main`, and manual `workflow_dispatch` (see `.github/workflows/verify.yml`). The visual smoke screenshot is uploaded as a workflow artifact. On pull requests, CI publishes the PNG to a short-lived `ci/visual-smoke/pr-<n>` branch and leaves a sticky comment that embeds the image (plus a link to the workflow run).
 
 ## Ports (humans vs agents)
 
