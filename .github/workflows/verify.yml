@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 concurrency:
@@ -46,6 +46,39 @@ jobs:
           path: artifacts/visual-smoke.png
           if-no-files-found: ignore
 
+      - name: Publish visual smoke image for PR
+        if: always() && github.event_name == 'pull_request'
+        id: publish_smoke
+        continue-on-error: true
+        env:
+          BRANCH: ci/visual-smoke/pr-${{ github.event.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f artifacts/visual-smoke.png ]; then
+            echo "has_image=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          WORK=$(mktemp -d)
+          cp artifacts/visual-smoke.png "$WORK/visual-smoke.png"
+          cd "$WORK"
+
+          git init -q
+          git checkout -q -b "$BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add visual-smoke.png
+          git commit -q -m "Visual smoke for PR #${{ github.event.number }} (run ${{ github.run_id }})"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push -qf origin "HEAD:refs/heads/${BRANCH}"
+
+          {
+            echo "has_image=true"
+            echo "image_url=https://raw.githubusercontent.com/${{ github.repository }}/${BRANCH}/visual-smoke.png?run=${{ github.run_id }}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Prepare visual smoke PR comment
         if: always() && github.event_name == 'pull_request'
         id: smoke_comment
@@ -65,12 +98,16 @@ jobs:
             echo
             echo "**Status:** ${STATUS}"
             echo
+            if [ "${{ steps.publish_smoke.outputs.has_image }}" = "true" ]; then
+              echo "![Visual smoke](${{ steps.publish_smoke.outputs.image_url }})"
+              echo
+            fi
             echo "- [Workflow run](${RUN_URL})"
-            echo "- Download the \`visual-smoke\` artifact from that run for \`artifacts/visual-smoke.png\` (when present)."
+            echo "- Screenshot also available as the \`visual-smoke\` workflow artifact."
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Comment visual smoke link on PR
+      - name: Comment visual smoke on PR
         if: always() && github.event_name == 'pull_request'
         continue-on-error: true
         uses: marocchino/sticky-pull-request-comment@v3
