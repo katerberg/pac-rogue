@@ -29,6 +29,10 @@ npx playwright install chromium
 
 Humans and agents use different ports (see `scripts/ports.json` / `docs/VERIFICATION.md`) so they do not collide.
 
+## Continuous integration
+
+Pull requests and pushes to `main` run `npm run verify` (typecheck, lint, format, tests, production build, and visual smoke) via [`.github/workflows/verify.yml`](./.github/workflows/verify.yml).
+
 ## Docs for agents
 
 - [AGENTS.md](./AGENTS.md) — guardrails
