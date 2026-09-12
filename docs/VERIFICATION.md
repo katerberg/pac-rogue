@@ -53,6 +53,8 @@ Runs, in order:
 
 Gameplay and presentation changes must keep `check:ecs` green. Do not skip, weaken, or delete that gate.
 
+GitHub Actions runs the same command on pull requests, pushes to `main`, and manual `workflow_dispatch` (see `.github/workflows/verify.yml`). The visual smoke screenshot is uploaded as a workflow artifact. On pull requests, CI publishes the PNG to a short-lived `ci/visual-smoke/pr-<n>` branch and leaves a sticky comment that embeds the image (plus a link to the workflow run).
+
 ## Ports (humans vs agents)
 
 Ports are defined in `scripts/ports.json`. Do not share listeners.

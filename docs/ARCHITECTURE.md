@@ -33,9 +33,11 @@ src/
     scenes/
       PlayScene.ts            # createWorld, spawn player, run the pipeline
 scripts/
-  ports.json                  # Human vs agent local ports
-  visual-smoke.mjs            # Headless boot + screenshot
+  ports.json                  # Human vs agent local ports (single source of truth)
+  visual-smoke.mjs            # Headless boot + screenshot for agents/CI
   check-ecs-boundaries.mjs    # Hard ECS layer gate (`npm run check:ecs`)
+.github/workflows/
+  verify.yml                  # CI: npm run verify on PRs and main
 docs/
   ARCHITECTURE.md             # This file
   VERIFICATION.md             # How to prove changes

@@ -1,0 +1,23 @@
+name: Cleanup visual smoke
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  delete-branch:
+    name: Delete ci/visual-smoke branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete published screenshot branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ci/visual-smoke/pr-${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin --delete "$BRANCH" || echo "Branch ${BRANCH} already absent"
