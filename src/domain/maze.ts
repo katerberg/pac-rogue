@@ -272,3 +272,22 @@ export function solidCellCenters(
   }
   return cells;
 }
+
+export function walkableCellCenters(
+  solids: SolidGrid = MAZE_SOLIDS,
+): { col: number; row: number; x: number; y: number }[] {
+  const cells: { col: number; row: number; x: number; y: number }[] = [];
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (isWalkable(col, row, solids)) {
+        cells.push({
+          col,
+          row,
+          x: cellCenterX(col),
+          y: cellCenterY(row),
+        });
+      }
+    }
+  }
+  return cells;
+}

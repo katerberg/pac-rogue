@@ -12,6 +12,14 @@ export const PLAYER_COLOR = 0xffe066;
 
 export const PLAYER_DRAWABLE_ID = "player";
 
+/** Visual / collision radius of a regular pellet (pixels). */
+export const PELLET_RADIUS = 2;
+
+/** Cream pellet fill. Stored on Drawable; Phaser must not own the color. */
+export const PELLET_COLOR = 0xffeebb;
+
+export const PELLET_DRAWABLE_ID = "pellet";
+
 export function playfieldMinX(radius = PLAYER_RADIUS): number {
   return radius;
 }

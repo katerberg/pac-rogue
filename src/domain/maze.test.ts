@@ -18,6 +18,7 @@ import {
   pipeEdges,
   playerSpawnCenter,
   solidCellCenters,
+  walkableCellCenters,
 } from "./maze";
 
 describe("maze", () => {
@@ -60,6 +61,13 @@ describe("maze", () => {
 
     const edges = pipeEdges();
     expect(edges.length).toBeGreaterThan(0);
+  });
+
+  it("lists walkable centers for every non-solid cell", () => {
+    const centers = walkableCellCenters();
+    expect(centers.length).toBe(356);
+    expect(centers.every((c) => isWalkable(c.col, c.row))).toBe(true);
+    expect(centers.length + solidCellCenters().length).toBe(MAZE_COLS * MAZE_ROWS);
   });
 
   it("reports enterable neighbors from a corridor cell", () => {
