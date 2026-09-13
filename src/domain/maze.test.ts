@@ -17,6 +17,7 @@ import {
   parseMaze,
   pipeEdges,
   playerSpawnCenter,
+  pelletCellCenters,
   solidCellCenters,
   walkableCellCenters,
 } from "./maze";
@@ -68,6 +69,13 @@ describe("maze", () => {
     expect(centers.length).toBe(356);
     expect(centers.every((c) => isWalkable(c.col, c.row))).toBe(true);
     expect(centers.length + solidCellCenters().length).toBe(MAZE_COLS * MAZE_ROWS);
+  });
+
+  it("lists pellet centers only for . and @ cells", () => {
+    const pellets = pelletCellCenters();
+    expect(pellets.length).toBe(244);
+    expect(pellets.every((c) => isWalkable(c.col, c.row))).toBe(true);
+    expect(pellets.length).toBeLessThan(walkableCellCenters().length);
   });
 
   it("reports enterable neighbors from a corridor cell", () => {

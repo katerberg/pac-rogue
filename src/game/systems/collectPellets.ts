@@ -4,10 +4,6 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-/**
- * Remove pellets overlapping the player. Returns how many were collected this frame.
- * Scene owns the cumulative counter — this system stays Phaser-free.
- */
 export function collectPellets(world: World): number {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {

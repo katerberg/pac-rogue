@@ -1,6 +1,6 @@
 import { addComponent, addEntity, createWorld, type World } from "bitecs";
 import Phaser from "phaser";
-import { playerSpawnCenter, solidCellCenters, walkableCellCenters } from "../../domain/maze";
+import { pelletCellCenters, playerSpawnCenter, solidCellCenters } from "../../domain/maze";
 import {
   PELLET_COLOR,
   PELLET_DRAWABLE_ID,
@@ -75,7 +75,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private spawnPellets(): void {
-    for (const cell of walkableCellCenters()) {
+    for (const cell of pelletCellCenters()) {
       const eid = addEntity(this.world);
       addComponent(this.world, eid, Pellet);
       addComponent(this.world, eid, Position);

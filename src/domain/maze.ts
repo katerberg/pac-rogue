@@ -58,6 +58,7 @@ export type PipeEdge = {
 };
 
 const SOLID_CHARS = new Set(["#", "-"]);
+const PELLET_CHARS = new Set([".", "@"]);
 
 export function parseMaze(ascii: string = MAZE_ASCII): boolean[][] {
   const rows = ascii.split("\n");
@@ -280,6 +281,28 @@ export function walkableCellCenters(
   for (let row = 0; row < MAZE_ROWS; row += 1) {
     for (let col = 0; col < MAZE_COLS; col += 1) {
       if (isWalkable(col, row, solids)) {
+        cells.push({
+          col,
+          row,
+          x: cellCenterX(col),
+          y: cellCenterY(row),
+        });
+      }
+    }
+  }
+  return cells;
+}
+
+export function pelletCellCenters(
+  ascii: string = MAZE_ASCII,
+): { col: number; row: number; x: number; y: number }[] {
+  const rows = ascii.split("\n");
+  const cells: { col: number; row: number; x: number; y: number }[] = [];
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    const line = rows[row] ?? "";
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      const ch = line[col] ?? "";
+      if (PELLET_CHARS.has(ch)) {
         cells.push({
           col,
           row,
