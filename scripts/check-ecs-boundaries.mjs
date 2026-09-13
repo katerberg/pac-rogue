@@ -7,9 +7,12 @@ const srcRoot = join(root, "src");
 
 const requiredPaths = [
   "src/domain/playfield.ts",
+  "src/domain/maze.ts",
   "src/game/components/Position.ts",
   "src/game/components/Velocity.ts",
   "src/game/components/Input.ts",
+  "src/game/components/Facing.ts",
+  "src/game/components/Wall.ts",
   "src/game/components/Player.ts",
   "src/game/components/Drawable.ts",
   "src/game/systems/playerInput.ts",

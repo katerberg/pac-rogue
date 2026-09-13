@@ -7,7 +7,7 @@ Current shape of pac-rogue. Keep this document short and truthful — update it 
 - Fast local iteration (`npm run dev`).
 - Hard verification before claiming work is done (`npm run verify`, including `check:ecs`).
 - Small, composable modules over frameworks-of-frameworks.
-- ECS (bitECS 0.4) is the gameplay model: components are data, systems are behavior, scenes only wire and tick.
+- ECS (bitecs 0.4) is the gameplay model: components are data, systems are behavior, scenes only wire and tick.
 
 ## Layout
 
@@ -15,23 +15,26 @@ Current shape of pac-rogue. Keep this document short and truthful — update it 
 src/
   main.ts                     # Phaser.Game bootstrap only
   styles.css                  # Page chrome around the canvas
-  domain/                     # Pure helpers (no Phaser, no bitECS world APIs)
+  domain/                     # Pure helpers (no Phaser, no bitecs world APIs)
     clamp.ts
     playfield.ts              # speed, size, bounds helpers
+    maze.ts                   # static maze ASCII, solids, centers, pipe edges, collision
   game/
     config.ts                 # Phaser GameConfig + shared dimensions
     components/               # data only — no Phaser
       Position.ts             # world x/y floats (pixels)
       Velocity.ts             # vx/vy floats (pixels per second)
-      Input.ts                # direction: none|up|down|left|right
+      Input.ts                # sticky next direction intent
+      Facing.ts               # current travel direction (movement-owned)
       Player.ts               # tag
-      Drawable.ts             # presentation id / color / radius
+      Wall.ts                 # tag — solid maze cell
+      Drawable.ts             # presentation id / color / radius (player)
     systems/
-      playerInput.ts          # Phaser keys → Input (bridge)
-      movement.ts             # Input → Velocity; integrate; clamp (Phaser-free)
-      render.ts               # Position + Drawable → GameObjects (bridge)
+      playerInput.ts          # Phaser keys → sticky Input (bridge)
+      movement.ts             # Facing + maze collision / turns (Phaser-free)
+      render.ts               # player arcs + wall pipe Graphics (bridge)
     scenes/
-      PlayScene.ts            # createWorld, spawn player, run the pipeline
+      PlayScene.ts            # createWorld, spawn walls/player, run the pipeline
 scripts/
   ports.json                  # Human vs agent local ports (single source of truth)
   visual-smoke.mjs            # Headless boot + screenshot for agents/CI
@@ -55,13 +58,13 @@ docs/
 PlayScene.update → playerInput → movement → render → Phaser GameObjects
 ```
 
-1. `create()`: `createWorld()`, spawn one player with `Position` + `Velocity` + `Input` + `Player` + `Drawable`, build the input/render bridges.
+1. `create()`: `createWorld()`, spawn Wall entities (one per solid cell) with `Position`, spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, build the input/render bridges.
 2. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `render(world)`.
-3. `playerInput` writes keyboard intent (arrows and WASD) into `Input`. Most recently pressed direction wins.
-4. `movement` immediately replaces `Velocity` from `Input` (direction × `PLAYER_SPEED`, or `0,0` when idle), then `Position += Velocity * (delta/1000)`, then clamps to the playfield.
-5. `render` mirrors `Position` + `Drawable` onto a local `Map<eid, GameObject>`.
+3. `playerInput` writes sticky next intent into `Input.direction` (most recent held key; never cleared on release).
+4. `movement` tries to apply `Input` into `Facing` when centerline-aligned and the neighbor cell is open; otherwise keeps `Facing` if open, else stops. Integrates position, snaps perpendicular to the corridor centerline, clamps against solid cells, then playfield safety-clamps.
+5. `render` draws maze pipe outlines once from domain edges, and mirrors player `Position` + `Drawable` onto Arc GameObjects.
 
-Movement is smooth and continuous. Direction changes are instant — no acceleration, deceleration, momentum, or grid stepping.
+Movement is continuous along corridor centerlines with buffered turns. No tunnels, pellets, or enemies yet.
 
 ## ECS boundary
 
@@ -80,15 +83,16 @@ Movement is smooth and continuous. Direction changes are instant — no accelera
 A violation of these is a failed architecture check:
 
 - Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
-- `playerInput` writes intent into `Input`; only `movement` updates `Velocity` and `Position`.
+- `playerInput` writes sticky next intent into `Input`; only `movement` updates `Facing`, `Velocity`, and `Position`.
 - Scenes wire the world, spawn entities, and run the pipeline — **no movement rules in the scene**.
-- One local `Map<eid, GameObject>` inside the render bridge is enough — do not build a sync framework.
-- Do not invent Entity/Component/System manager classes around bitECS.
-- bitECS **0.4** only. No `bitecs/legacy`, no second ECS library.
+- Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; pipe Graphics mirror domain edges.
+- One local GameObject map inside the render bridge is enough — do not build a sync framework.
+- Do not invent Entity/Component/System manager classes around bitecs.
+- bitecs **0.4** only. No `bitecs/legacy`, no second ECS library.
 
 ## Principles
 
-1. **Domain vs presentation** — Pure math and playfield helpers live in `src/domain`. Gameplay rules live in Phaser-free systems. Scenes gather input and present; they do not own simulation.
+1. **Domain vs presentation** — Pure math, maze, and playfield helpers live in `src/domain`. Gameplay rules live in Phaser-free systems. Scenes gather input and present; they do not own simulation.
 2. **Composition** — Prefer small functions and SoA components wired together. Do not introduce a god `GameManager` or global mutable singleton.
 3. **Dependencies** — Add a package only with a concrete need. Prefer stdlib and existing tooling.
 4. **Verification** — Automated checks (including `check:ecs`) and production build are mandatory. Gameplay/visual changes also require runtime inspection (see `docs/VERIFICATION.md`).
@@ -96,5 +100,6 @@ A violation of these is a failed architecture check:
 ## Current runtime
 
 - One Phaser scene (`PlayScene`) owns world creation and the system pipeline.
-- One player entity (yellow circle) moves smoothly on an open rectangular playfield.
-- `clamp` + `playfield` helpers are Phaser-free; `movement` is unit-tested without Phaser.
+- Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls.
+- One player entity (yellow circle) moves continuously along centerlines with sticky next-direction turns; walls block travel.
+- `clamp` + `playfield` + `maze` helpers are Phaser-free; `movement` is unit- and integration-tested without Phaser.

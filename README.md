@@ -1,6 +1,6 @@
 # pac-rogue
 
-Phaser + bitECS 0.4 Pac-Man-like game. One player entity moves smoothly on an open playfield; ECS owns position and velocity.
+Phaser + bitECS 0.4 Pac-Man-like game. One player entity traverses a static maze; ECS owns position, facing, and velocity.
 
 ## Requirements
 
@@ -42,4 +42,4 @@ Pull requests and pushes to `main` run `npm run verify` (typecheck, lint, format
 
 ## Status
 
-ECS Pac-Man moves smoothly on an open playfield (arrows + WASD, instant turns). No maze, ghosts, or pellets yet.
+ECS Pac-Man traverses a static maze (blue pipe walls, centerline movement, sticky next-direction turns). No ghosts or pellets yet.
