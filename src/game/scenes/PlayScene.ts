@@ -13,10 +13,6 @@ import { movement } from "../systems/movement";
 import { createPlayerInput } from "../systems/playerInput";
 import { createRender } from "../systems/render";
 
-/**
- * Wires the ECS world and runs the system pipeline.
- * Movement rules live in systems — this scene only spawns and ticks.
- */
 export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;

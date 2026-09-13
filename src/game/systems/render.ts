@@ -3,13 +3,7 @@ import Phaser from "phaser";
 import { pipeEdges, WALL_COLOR } from "../../domain/maze";
 import { Drawable } from "../components/Drawable";
 import { Position } from "../components/Position";
-import { Wall } from "../components/Wall";
 
-/**
- * ECS → Phaser presentation.
- * - Players: Arc GameObjects mirroring Position + Drawable.
- * - Walls: one Graphics pipe outline from domain edges (Wall entities remain ECS truth for layout).
- */
 export function createRender(scene: Phaser.Scene): (world: World) => void {
   const playerObjects = new Map<number, Phaser.GameObjects.Arc>();
   const wallGraphics = scene.add.graphics();
@@ -17,8 +11,6 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
 
   return (world: World) => {
     if (!pipesDrawn) {
-      // Ensure wall entities exist before drawing; pipes come from the maze grid.
-      query(world, [Wall, Position]);
       wallGraphics.clear();
       wallGraphics.lineStyle(2, WALL_COLOR, 1);
       for (const edge of pipeEdges()) {

@@ -1,4 +1,3 @@
-/** Sticky next-direction intent. Keyboard writes this; movement owns Facing/Velocity. */
 export const DIRECTION = {
   none: 0,
   up: 1,

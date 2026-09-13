@@ -5,12 +5,6 @@ import { Player } from "../components/Player";
 
 type MoveKey = Phaser.Input.Keyboard.Key;
 
-/**
- * Phaser keyboard → sticky Input.direction (queued next intent).
- *
- * While any move key is held, the most recently pressed direction wins.
- * On release, Input.direction is left unchanged (never cleared to none).
- */
 export function createPlayerInput(scene: Phaser.Scene): (world: World) => void {
   const keyboard = scene.input.keyboard;
   if (!keyboard) {

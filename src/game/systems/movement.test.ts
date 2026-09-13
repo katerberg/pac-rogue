@@ -8,7 +8,6 @@ import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 import { movement } from "./movement";
 
-/** Open corridor cell on row 1 (top lane). */
 function spawnAt(col: number, row: number) {
   const world = createWorld();
   const eid = addEntity(world);
@@ -52,10 +51,41 @@ describe("movement", () => {
     expect(Position.y[eid]).toBe(cellCenterY(1));
   });
 
+  it("approaches a facing wall continuously instead of snapping to center", () => {
+    const { world, eid } = spawnAt(1, 1);
+    const startX = cellCenterX(1) + 7;
+    Position.x[eid] = startX;
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+
+    movement(world, 16);
+
+    const expected = startX - PLAYER_SPEED * 0.016;
+    expect(Position.x[eid]).toBeCloseTo(expected, 5);
+    expect(Position.x[eid]).toBeGreaterThan(cellCenterX(1));
+    expect(Facing.direction[eid]).toBe(DIRECTION.left);
+  });
+
+  it("commits a 90-degree turn at the cell center without jumping back", () => {
+    const { world, eid } = spawnAt(6, 5);
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    Position.x[eid] = cx + 2;
+    Position.y[eid] = cy;
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.up;
+
+    movement(world, 16);
+
+    expect(Facing.direction[eid]).toBe(DIRECTION.up);
+    expect(Position.x[eid]).toBeCloseTo(cx, 5);
+    expect(Position.y[eid]).toBeLessThan(cy);
+  });
+
   it("keeps traveling on Facing when sticky Input is blocked", () => {
     const { world, eid } = spawnAt(1, 1);
     Facing.direction[eid] = DIRECTION.right;
-    Input.direction[eid] = DIRECTION.up; // wall above — cannot turn yet
+    Input.direction[eid] = DIRECTION.up;
 
     movement(world, 16);
 

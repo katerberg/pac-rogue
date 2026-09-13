@@ -41,6 +41,8 @@ scripts/
   check-ecs-boundaries.mjs    # Hard ECS layer gate (`npm run check:ecs`)
 .github/workflows/
   verify.yml                  # CI: npm run verify on PRs and main
+.githooks/
+  pre-commit                  # Runs npm run verify:precommit (no build/visual)
 docs/
   ARCHITECTURE.md             # This file
   VERIFICATION.md             # How to prove changes
@@ -61,7 +63,7 @@ PlayScene.update → playerInput → movement → render → Phaser GameObjects
 1. `create()`: `createWorld()`, spawn Wall entities (one per solid cell) with `Position`, spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, build the input/render bridges.
 2. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `render(world)`.
 3. `playerInput` writes sticky next intent into `Input.direction` (most recent held key; never cleared on release).
-4. `movement` tries to apply `Input` into `Facing` when centerline-aligned and the neighbor cell is open; otherwise keeps `Facing` if open, else stops. Integrates position, snaps perpendicular to the corridor centerline, clamps against solid cells, then playfield safety-clamps.
+4. `movement` applies sticky `Input` into `Facing` (reverse immediately; 90° turns when travel reaches the cell center). Integrates position, snaps only the perpendicular axis to the corridor centerline, clamps smoothly against facing walls (no teleport-to-center), then playfield safety-clamps.
 5. `render` draws maze pipe outlines once from domain edges, and mirrors player `Position` + `Drawable` onto Arc GameObjects.
 
 Movement is continuous along corridor centerlines with buffered turns. No tunnels, pellets, or enemies yet.

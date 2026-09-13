@@ -21,7 +21,9 @@
     "test:watch": "vitest",
     "visual": "node scripts/visual-smoke.mjs",
     "check:ecs": "node scripts/check-ecs-boundaries.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run check:ecs && npm run test && npm run build && npm run visual"
+    "verify:precommit": "npm run typecheck && npm run lint && npm run format:check && npm run check:ecs && npm run test",
+    "verify": "npm run verify:precommit && npm run build && npm run visual",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "bitecs": "^0.4.0",

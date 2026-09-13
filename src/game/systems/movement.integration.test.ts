@@ -2,15 +2,11 @@ import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { cellCenterX, cellCenterY, isSolid, worldToCol, worldToRow } from "../../domain/maze";
 import { Facing } from "../components/Facing";
-import { DIRECTION, Input } from "../components/Input";
+import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 import { movement } from "./movement";
 
-/**
- * Integration: real maze grid + ECS movement (no Phaser).
- * Guards wall blocking and buffered corridor turns.
- */
 function spawnPlayer(col: number, row: number) {
   const world = createWorld();
   const eid = addEntity(world);
@@ -33,6 +29,10 @@ function tick(world: ReturnType<typeof createWorld>, ms: number, steps = 1): voi
   }
 }
 
+function facingOf(eid: number): Direction {
+  return Facing.direction[eid] ?? DIRECTION.none;
+}
+
 describe("movement integration (real maze)", () => {
   it("cannot move through a wall", () => {
     const startCol = 1;
@@ -53,7 +53,6 @@ describe("movement integration (real maze)", () => {
   });
 
   it("can turn at a corridor junction when next direction becomes valid", () => {
-    // Row 5 corridor; col 6 is a T-junction with an opening upward.
     const startCol = 9;
     const startRow = 5;
     const junctionCol = 6;
@@ -67,8 +66,7 @@ describe("movement integration (real maze)", () => {
     let turned = false;
     for (let i = 0; i < 120; i += 1) {
       movement(world, 16);
-      // Read via Number so TS does not narrow the SoA slot to DIRECTION.left.
-      if (Number(Facing.direction[eid]) === DIRECTION.up) {
+      if (facingOf(eid) === DIRECTION.up) {
         turned = true;
         break;
       }

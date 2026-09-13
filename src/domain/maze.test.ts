@@ -11,6 +11,7 @@ import {
   canEnterDirection,
   cellCenterX,
   cellCenterY,
+  clampAgainstFacingWall,
   isSolid,
   isWalkable,
   parseMaze,
@@ -36,10 +37,8 @@ describe("maze", () => {
   it("treats # and - as solid and . @ space as walkable", () => {
     expect(isSolid(1, 1)).toBe(false);
     expect(isWalkable(1, 1)).toBe(true);
-    expect(isSolid(2, 2)).toBe(true); // wall block on row 2
-    // Ghost-house '-' on row 12
+    expect(isSolid(2, 2)).toBe(true);
     expect(isSolid(13, 12)).toBe(true);
-    // Interior space near ghost house
     expect(isWalkable(11, 11)).toBe(true);
   });
 
@@ -64,10 +63,17 @@ describe("maze", () => {
   });
 
   it("reports enterable neighbors from a corridor cell", () => {
-    // Top corridor under the outer wall: row 1
     const x = cellCenterX(1);
     const y = cellCenterY(1);
     expect(canEnterDirection(x, y, 1, 0)).toBe(true);
-    expect(canEnterDirection(x, y, 0, -1)).toBe(false); // outer wall above
+    expect(canEnterDirection(x, y, 0, -1)).toBe(false);
+  });
+
+  it("clamps facing-wall overshoot back to the open cell center", () => {
+    const x = cellCenterX(1);
+    const openY = cellCenterY(1);
+    const overshot = clampAgainstFacingWall(x, cellCenterY(0), 0, -1);
+    expect(overshot.x).toBe(x);
+    expect(overshot.y).toBe(openY);
   });
 });
