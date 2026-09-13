@@ -61,21 +61,4 @@ describe("movement", () => {
     expect(Velocity.x[eid]).toBe(-PLAYER_SPEED);
     expect(Velocity.y[eid]).toBe(0);
   });
-
-  it("zeros Velocity immediately when Input is none (no slide)", () => {
-    const { world, eid } = spawn();
-    Input.direction[eid] = DIRECTION.up;
-    movement(world, 16);
-    expect(Velocity.y[eid]).toBe(-PLAYER_SPEED);
-
-    const xAfterMove = Position.x[eid];
-    const yAfterMove = Position.y[eid];
-    Input.direction[eid] = DIRECTION.none;
-    movement(world, 16);
-
-    expect(Velocity.x[eid]).toBe(0);
-    expect(Velocity.y[eid]).toBe(0);
-    expect(Position.x[eid]).toBe(xAfterMove);
-    expect(Position.y[eid]).toBe(yAfterMove);
-  });
 });

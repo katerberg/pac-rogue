@@ -14,19 +14,22 @@ npx playwright install chromium
 
 ## Commands
 
-| Command                 | Purpose                                          |
-| ----------------------- | ------------------------------------------------ |
-| `npm run dev`           | Human dev server — http://127.0.0.1:5173         |
-| `npm run dev:agent`     | Agent dev server — http://127.0.0.1:5174         |
-| `npm run build`         | Typecheck + production build → `dist/`           |
-| `npm run preview`       | Human production preview — :4173                 |
-| `npm run preview:agent` | Agent production preview — :4174                 |
-| `npm run test`          | Unit tests (Vitest)                              |
-| `npm run lint`          | ESLint                                           |
-| `npm run format`        | Prettier write                                   |
-| `npm run visual`        | Headless canvas smoke on agent preview port      |
-| `npm run check:ecs`     | ECS layer boundaries (also part of `verify`)     |
-| `npm run verify`        | **Canonical gate** — all checks + build + visual |
+| Command                    | Purpose                                         |
+| -------------------------- | ----------------------------------------------- |
+| `npm run dev`              | Human dev server — http://127.0.0.1:5173        |
+| `npm run dev:agent`        | Agent dev server — http://127.0.0.1:5174        |
+| `npm run build`            | Typecheck + production build → `dist/`          |
+| `npm run preview`          | Human production preview — :4173                |
+| `npm run preview:agent`    | Agent production preview — :4174                |
+| `npm run test`             | Unit tests (Vitest)                             |
+| `npm run lint`             | ESLint                                          |
+| `npm run format`           | Prettier write                                  |
+| `npm run visual`           | Headless canvas smoke on agent preview port     |
+| `npm run check:ecs`        | ECS layer boundaries (also part of `verify`)    |
+| `npm run verify:precommit` | Fast gate — typecheck, lint, format, ECS, tests |
+| `npm run verify`           | **Canonical gate** — precommit + build + visual |
+
+`npm install` points Git at `.githooks/` (`core.hooksPath`). The pre-commit hook runs `npm run verify:precommit` (no build/visual). Full `npm run verify` remains the CI and completion gate.
 
 Humans and agents use different ports (see `scripts/ports.json` / `docs/VERIFICATION.md`) so they do not collide.
 

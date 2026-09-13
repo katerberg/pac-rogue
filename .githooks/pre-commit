@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Fast local gate: typecheck, lint, format, ECS boundaries, and unit tests.
+# Skips production build and visual smoke (those stay in `npm run verify` / CI).
+set -e
+cd "$(dirname "$0")/.."
+npm run verify:precommit
