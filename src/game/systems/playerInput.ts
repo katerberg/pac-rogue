@@ -5,13 +5,6 @@ import { Player } from "../components/Player";
 
 type MoveKey = Phaser.Input.Keyboard.Key;
 
-/**
- * Phaser keyboard → Input.direction.
- *
- * Arrows and WASD write the same four intents. When several movement keys are
- * held, the most recently pressed direction wins (Phaser Key.timeDown). Ties
- * break in up → down → left → right order.
- */
 export function createPlayerInput(scene: Phaser.Scene): (world: World) => void {
   const keyboard = scene.input.keyboard;
   if (!keyboard) {
@@ -34,14 +27,17 @@ export function createPlayerInput(scene: Phaser.Scene): (world: World) => void {
   ];
 
   return (world: World) => {
-    const direction = readDirection(bindings);
+    const held = readHeldDirection(bindings);
+    if (held === DIRECTION.none) {
+      return;
+    }
     for (const eid of query(world, [Input, Player])) {
-      Input.direction[eid] = direction;
+      Input.direction[eid] = held;
     }
   };
 }
 
-function readDirection(bindings: { direction: Direction; keys: MoveKey[] }[]): Direction {
+function readHeldDirection(bindings: { direction: Direction; keys: MoveKey[] }[]): Direction {
   let best: Direction = DIRECTION.none;
   let bestTime = -1;
 

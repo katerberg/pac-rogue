@@ -1,4 +1,3 @@
-/** Discrete movement intent. Keyboard writes this; only movement reads it into Velocity. */
 export const DIRECTION = {
   none: 0,
   up: 1,
