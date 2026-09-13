@@ -51,6 +51,8 @@ Runs, in order:
 6. `build` — production Vite build (after typecheck again via the build script)
 7. `visual` — headless boot of the production build + canvas screenshot
 
+Steps 1–5 are also available as `npm run verify:precommit` (no build/visual). The Git pre-commit hook in `.githooks/pre-commit` runs that script. `npm install` sets `core.hooksPath` to `.githooks` via the `prepare` script.
+
 Gameplay and presentation changes must keep `check:ecs` green. Do not skip, weaken, or delete that gate.
 
 GitHub Actions runs the same command on pull requests, pushes to `main`, and manual `workflow_dispatch` (see `.github/workflows/verify.yml`). The visual smoke screenshot is uploaded as a workflow artifact. On pull requests, CI publishes the PNG to a short-lived `ci/visual-smoke/pr-<n>` branch and leaves a sticky comment that embeds the image (plus a link to the workflow run).

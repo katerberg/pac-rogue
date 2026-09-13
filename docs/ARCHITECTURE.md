@@ -38,6 +38,8 @@ scripts/
   check-ecs-boundaries.mjs    # Hard ECS layer gate (`npm run check:ecs`)
 .github/workflows/
   verify.yml                  # CI: npm run verify on PRs and main
+.githooks/
+  pre-commit                  # Runs npm run verify:precommit (no build/visual)
 docs/
   ARCHITECTURE.md             # This file
   VERIFICATION.md             # How to prove changes
