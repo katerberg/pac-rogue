@@ -1,0 +1,21 @@
+{
+  "name": "pac-rogue",
+  "install": "npm ci && npx playwright install chromium",
+  "terminals": [
+    {
+      "name": "dev:agent",
+      "command": "npm run dev:agent",
+      "description": "Vite dev server on the agent port (http://127.0.0.1:5174). Never bind human ports 5173/4173."
+    }
+  ],
+  "ports": [
+    {
+      "name": "agent dev",
+      "port": 5174
+    },
+    {
+      "name": "agent preview",
+      "port": 4174
+    }
+  ]
+}
