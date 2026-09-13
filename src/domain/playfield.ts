@@ -12,6 +12,12 @@ export const PLAYER_COLOR = 0xffe066;
 
 export const PLAYER_DRAWABLE_ID = "player";
 
+export const PELLET_RADIUS = 2;
+
+export const PELLET_COLOR = 0xffeebb;
+
+export const PELLET_DRAWABLE_ID = "pellet";
+
 export function playfieldMinX(radius = PLAYER_RADIUS): number {
   return radius;
 }

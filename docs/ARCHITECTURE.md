@@ -17,7 +17,7 @@ src/
   styles.css                  # Page chrome around the canvas
   domain/                     # Pure helpers (no Phaser, no bitecs world APIs)
     clamp.ts
-    playfield.ts              # speed, size, bounds helpers
+    playfield.ts              # speed, size, bounds, pellet presentation constants
     maze.ts                   # static maze ASCII, solids, centers, pipe edges, collision
   game/
     config.ts                 # Phaser GameConfig + shared dimensions
@@ -28,13 +28,15 @@ src/
       Facing.ts               # current travel direction (movement-owned)
       Player.ts               # tag
       Wall.ts                 # tag — solid maze cell
-      Drawable.ts             # presentation id / color / radius (player)
+      Pellet.ts               # tag — collectible regular pellet
+      Drawable.ts             # presentation id / color / radius (player + pellets)
     systems/
       playerInput.ts          # Phaser keys → sticky Input (bridge)
       movement.ts             # Facing + maze collision / turns (Phaser-free)
-      render.ts               # player arcs + wall pipe Graphics (bridge)
+      collectPellets.ts       # player–pellet overlap → removeEntity (Phaser-free)
+      render.ts               # drawable arcs + wall pipe Graphics (bridge)
     scenes/
-      PlayScene.ts            # createWorld, spawn walls/player, run the pipeline
+      PlayScene.ts            # createWorld, spawn walls/pellets/player, HUD, pipeline
 scripts/
   ports.json                  # Human vs agent local ports (single source of truth)
   visual-smoke.mjs            # Headless boot + screenshot for agents/CI
@@ -57,26 +59,27 @@ docs/
 ## Game loop
 
 ```text
-PlayScene.update → playerInput → movement → render → Phaser GameObjects
+PlayScene.update → playerInput → movement → collectPellets → render → Phaser GameObjects
 ```
 
-1. `create()`: `createWorld()`, spawn Wall entities (one per solid cell) with `Position`, spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, build the input/render bridges.
-2. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `render(world)`.
+1. `create()`: `createWorld()`, spawn Wall entities (one per solid cell) with `Position`, spawn Pellet entities (one per walkable cell) with `Position` + `Drawable` + `Pellet`, spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, create the top collected-count Text, build the input/render bridges.
+2. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `collectPellets(world)` → `render(world)`.
 3. `playerInput` writes sticky next intent into `Input.direction` (most recent held key; never cleared on release).
 4. `movement` applies sticky `Input` into `Facing` (reverse immediately; 90° turns when travel reaches the cell center). Integrates position, snaps only the perpendicular axis to the corridor centerline, clamps smoothly against facing walls (no teleport-to-center), then playfield safety-clamps.
-5. `render` draws maze pipe outlines once from domain edges, and mirrors player `Position` + `Drawable` onto Arc GameObjects.
+5. `collectPellets` removes pellets overlapping the player (circle radii from `Drawable`) and returns the frame count; the scene accumulates `Collected: N` on the HUD Text.
+6. `render` draws maze pipe outlines once from domain edges, mirrors `Position` + `Drawable` onto Arc GameObjects, and destroys arcs for removed entities.
 
-Movement is continuous along corridor centerlines with buffered turns. No tunnels, pellets, or enemies yet.
+Movement is continuous along corridor centerlines with buffered turns. Regular pellets on every walkable cell for now. No tunnels, power pellets, or enemies yet.
 
 ## ECS boundary
 
-| Layer                                               | May import Phaser? | May mutate component arrays? | Role                |
-| --------------------------------------------------- | ------------------ | ---------------------------- | ------------------- |
-| `game/components/**`                                | No                 | Define storage only          | Data                |
-| `game/systems/movement.ts` (+ future logic systems) | No                 | Yes                          | Pure simulation     |
-| `game/systems/playerInput.ts`, `render.ts`          | Yes                | Yes (input / drawable sync)  | Bridges             |
-| `game/scenes/**`                                    | Yes                | Spawn / init only            | Wire + run pipeline |
-| `domain/**`                                         | No                 | No bitecs world APIs         | Pure helpers        |
+| Layer                                                                    | May import Phaser? | May mutate component arrays? | Role                |
+| ------------------------------------------------------------------------ | ------------------ | ---------------------------- | ------------------- |
+| `game/components/**`                                                     | No                 | Define storage only          | Data                |
+| `game/systems/movement.ts`, `collectPellets.ts` (+ future logic systems) | No                 | Yes                          | Pure simulation     |
+| `game/systems/playerInput.ts`, `render.ts`                               | Yes                | Yes (input / drawable sync)  | Bridges             |
+| `game/scenes/**`                                                         | Yes                | Spawn / init only            | Wire + run pipeline |
+| `domain/**`                                                              | No                 | No bitecs world APIs         | Pure helpers        |
 
 `npm run verify` enforces this via ESLint `no-restricted-imports` and `npm run check:ecs`. Docs are not the gate.
 
@@ -104,4 +107,5 @@ A violation of these is a failed architecture check:
 - One Phaser scene (`PlayScene`) owns world creation and the system pipeline.
 - Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls.
 - One player entity (yellow circle) moves continuously along centerlines with sticky next-direction turns; walls block travel.
-- `clamp` + `playfield` + `maze` helpers are Phaser-free; `movement` is unit- and integration-tested without Phaser.
+- Regular pellets on every walkable cell; touching removes them and increments a top `Collected` counter.
+- `clamp` + `playfield` + `maze` helpers are Phaser-free; `movement` and `collectPellets` are unit-tested without Phaser.
