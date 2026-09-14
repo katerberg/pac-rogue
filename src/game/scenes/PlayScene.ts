@@ -2,10 +2,8 @@ import { addComponent, addEntity, createWorld, type World } from "bitecs";
 import Phaser from "phaser";
 import { pelletCellCenters, playerSpawnCenter, wallCellCenters } from "../../domain/maze";
 import {
-  PELLET_COLOR,
   PELLET_DRAWABLE_ID,
   PELLET_RADIUS,
-  PLAYER_COLOR,
   PLAYER_DRAWABLE_ID,
   PLAYER_RADIUS,
 } from "../../domain/playfield";
@@ -20,7 +18,7 @@ import { Wall } from "../components/Wall";
 import { collectPellets } from "../systems/collectPellets";
 import { movement } from "../systems/movement";
 import { createPlayerInput } from "../systems/playerInput";
-import { createRender } from "../systems/render";
+import { createRender, preloadPlayArt } from "../systems/render";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
@@ -31,6 +29,10 @@ export class PlayScene extends Phaser.Scene {
 
   constructor() {
     super("PlayScene");
+  }
+
+  preload(): void {
+    preloadPlayArt(this);
   }
 
   create(): void {
@@ -83,7 +85,6 @@ export class PlayScene extends Phaser.Scene {
       Position.x[eid] = cell.x;
       Position.y[eid] = cell.y;
       Drawable.id[eid] = PELLET_DRAWABLE_ID;
-      Drawable.color[eid] = PELLET_COLOR;
       Drawable.radius[eid] = PELLET_RADIUS;
     }
   }
@@ -105,7 +106,6 @@ export class PlayScene extends Phaser.Scene {
     Input.direction[eid] = DIRECTION.none;
     Facing.direction[eid] = DIRECTION.none;
     Drawable.id[eid] = PLAYER_DRAWABLE_ID;
-    Drawable.color[eid] = PLAYER_COLOR;
     Drawable.radius[eid] = PLAYER_RADIUS;
   }
 }
