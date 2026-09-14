@@ -1,6 +1,14 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
-import { cellCenterX, cellCenterY, isSolid, worldToCol, worldToRow } from "../../domain/maze";
+import {
+  cellCenterX,
+  cellCenterY,
+  isSolid,
+  MAZE_COLS,
+  worldToCol,
+  worldToRow,
+} from "../../domain/maze";
+import { PLAYER_SPEED } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
@@ -75,5 +83,50 @@ describe("movement integration (real maze)", () => {
     expect(turned).toBe(true);
     expect(worldToCol(Position.x[eid] ?? 0)).toBe(junctionCol);
     expect(Position.y[eid] ?? 0).toBeLessThan(cellCenterY(startRow));
+  });
+
+  it("wraps left through the side tunnel without losing facing or speed", () => {
+    const tunnelRow = 14;
+    const { world, eid } = spawnPlayer(0, tunnelRow);
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+    const speedBefore = PLAYER_SPEED;
+
+    let crossed = false;
+    for (let i = 0; i < 40; i += 1) {
+      movement(world, 16);
+      if (worldToCol(Position.x[eid] ?? 0) >= MAZE_COLS - 3) {
+        crossed = true;
+        break;
+      }
+    }
+
+    expect(crossed).toBe(true);
+    expect(Facing.direction[eid]).toBe(DIRECTION.left);
+    expect(Velocity.x[eid]).toBe(-speedBefore);
+    expect(Velocity.y[eid]).toBe(0);
+    expect(Position.y[eid]).toBeCloseTo(cellCenterY(tunnelRow), 5);
+  });
+
+  it("wraps right through the side tunnel without losing facing or speed", () => {
+    const tunnelRow = 14;
+    const { world, eid } = spawnPlayer(MAZE_COLS - 1, tunnelRow);
+    Facing.direction[eid] = DIRECTION.right;
+    Input.direction[eid] = DIRECTION.right;
+
+    let crossed = false;
+    for (let i = 0; i < 40; i += 1) {
+      movement(world, 16);
+      if (worldToCol(Position.x[eid] ?? 0) <= 2) {
+        crossed = true;
+        break;
+      }
+    }
+
+    expect(crossed).toBe(true);
+    expect(Facing.direction[eid]).toBe(DIRECTION.right);
+    expect(Velocity.x[eid]).toBe(PLAYER_SPEED);
+    expect(Velocity.y[eid]).toBe(0);
+    expect(Position.y[eid]).toBeCloseTo(cellCenterY(tunnelRow), 5);
   });
 });

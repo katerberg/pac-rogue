@@ -1,11 +1,11 @@
 import { query, type World } from "bitecs";
 import Phaser from "phaser";
-import { pipeEdges, WALL_COLOR } from "../../domain/maze";
+import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
 import { Drawable } from "../components/Drawable";
 import { Position } from "../components/Position";
 
 export function createRender(scene: Phaser.Scene): (world: World) => void {
-  const drawableObjects = new Map<number, Phaser.GameObjects.Arc>();
+  const drawableObjects = new Map<string, Phaser.GameObjects.Arc>();
   const wallGraphics = scene.add.graphics();
   let pipesDrawn = false;
 
@@ -19,31 +19,48 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
       pipesDrawn = true;
     }
 
-    const alive = new Set<number>();
+    const alive = new Set<string>();
     for (const eid of query(world, [Position, Drawable])) {
-      alive.add(eid);
+      const primaryKey = String(eid);
+      const twinKey = `${eid}:twin`;
+      alive.add(primaryKey);
+
       const x = Position.x[eid] ?? 0;
       const y = Position.y[eid] ?? 0;
       const color = Drawable.color[eid] ?? 0xffe066;
       const radius = Drawable.radius[eid] ?? 16;
       const id = Drawable.id[eid] ?? "unknown";
 
-      let go = drawableObjects.get(eid);
+      let go = drawableObjects.get(primaryKey);
       if (!go) {
         go = scene.add.circle(x, y, radius, color);
-        drawableObjects.set(eid, go);
+        drawableObjects.set(primaryKey, go);
       }
 
       go.setName(id);
       go.setFillStyle(color);
       go.setRadius(radius);
       go.setPosition(x, y);
+
+      const twin = wrappedTwinPosition(x, y, radius);
+      if (twin) {
+        alive.add(twinKey);
+        let twinGo = drawableObjects.get(twinKey);
+        if (!twinGo) {
+          twinGo = scene.add.circle(twin.x, twin.y, radius, color);
+          drawableObjects.set(twinKey, twinGo);
+        }
+        twinGo.setName(`${id}:twin`);
+        twinGo.setFillStyle(color);
+        twinGo.setRadius(radius);
+        twinGo.setPosition(twin.x, twin.y);
+      }
     }
 
-    for (const [eid, go] of drawableObjects) {
-      if (!alive.has(eid)) {
+    for (const [key, go] of drawableObjects) {
+      if (!alive.has(key)) {
         go.destroy();
-        drawableObjects.delete(eid);
+        drawableObjects.delete(key);
       }
     }
   };

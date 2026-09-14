@@ -18,7 +18,7 @@ src/
   domain/                     # Pure helpers (no Phaser, no bitecs world APIs)
     clamp.ts
     playfield.ts              # speed, size, bounds, pellet presentation constants
-    maze.ts                   # static maze ASCII, solids, centers, pipe edges, collision
+    maze.ts                   # static maze ASCII, walls/exterior/tunnels, centers, pipe edges, wrap
   game/
     config.ts                 # Phaser GameConfig + shared dimensions
     components/               # data only — no Phaser
@@ -65,11 +65,11 @@ PlayScene.update → playerInput → movement → collectPellets → render → 
 1. `create()`: `createWorld()`, spawn Wall entities (one per solid cell) with `Position`, spawn Pellet entities (one per walkable cell) with `Position` + `Drawable` + `Pellet`, spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, create the top collected-count Text, build the input/render bridges.
 2. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `collectPellets(world)` → `render(world)`.
 3. `playerInput` writes sticky next intent into `Input.direction` (most recent held key; never cleared on release).
-4. `movement` applies sticky `Input` into `Facing` (reverse immediately; 90° turns when travel reaches the cell center). Integrates position, snaps only the perpendicular axis to the corridor centerline, clamps smoothly against facing walls (no teleport-to-center), then playfield safety-clamps.
+4. `movement` applies sticky `Input` into `Facing` (reverse immediately; 90° turns when travel reaches the cell center). Integrates position, snaps only the perpendicular axis to the corridor centerline, wraps through paired tunnel mouths (preserving facing/velocity), clamps smoothly against facing walls (no teleport-to-center), then playfield safety-clamps.
 5. `collectPellets` removes pellets overlapping the player (circle radii from `Drawable`) and returns the frame count; the scene accumulates `Collected: N` on the HUD Text.
-6. `render` draws maze pipe outlines once from domain edges, mirrors `Position` + `Drawable` onto Arc GameObjects, and destroys arcs for removed entities.
+6. `render` draws maze pipe outlines once from domain wall edges, mirrors `Position` + `Drawable` onto Arc GameObjects, dual-draws a twin arc while the player straddles a tunnel seam, and destroys arcs for removed entities.
 
-Movement is continuous along corridor centerlines with buffered turns. Regular pellets on every walkable cell for now. No tunnels, power pellets, or enemies yet.
+Movement is continuous along corridor centerlines with buffered turns. Side tunnels wrap when both opposite edge cells are walkable; disconnected near-edge pockets are exterior (blocked, not drawn as wall pipes). Regular pellets on playable cells for now. No power pellets or enemies yet.
 
 ## ECS boundary
 
@@ -105,7 +105,7 @@ A violation of these is a failed architecture check:
 ## Current runtime
 
 - One Phaser scene (`PlayScene`) owns world creation and the system pipeline.
-- Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls.
-- One player entity (yellow circle) moves continuously along centerlines with sticky next-direction turns; walls block travel.
-- Regular pellets on every walkable cell; touching removes them and increments a top `Collected` counter.
+- Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls and a mid-maze horizontal tunnel.
+- One player entity (yellow circle) moves continuously along centerlines with sticky next-direction turns; walls/exterior block travel; tunnels wrap with dual-draw while straddling.
+- Regular pellets on playable cells; touching removes them and increments a top `Collected` counter.
 - `clamp` + `playfield` + `maze` helpers are Phaser-free; `movement` and `collectPellets` are unit-tested without Phaser.
