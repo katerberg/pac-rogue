@@ -24,7 +24,6 @@ function isRunRecord(value: unknown): value is RunRecord {
   );
 }
 
-/** Parse stored JSON; corrupt / wrong-version payloads become an empty history. */
 export function parseRunHistory(raw: string | null): RunHistory {
   if (raw === null || raw === "") {
     return emptyRunHistory();
@@ -58,7 +57,6 @@ export function serializeRunHistory(history: RunHistory): string {
   return JSON.stringify(history);
 }
 
-/** Append a successful run; newest is last. */
 export function appendRun(history: RunHistory, score: number, clearedAt: string): RunHistory {
   return {
     version: RUN_HISTORY_VERSION,

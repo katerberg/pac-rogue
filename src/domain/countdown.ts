@@ -6,7 +6,6 @@ export type CountdownState = {
   carryMs: number;
 };
 
-/** Advance a countdown by frame delta; −1 per COUNTDOWN_TICK_MS, clamp at 0. */
 export function advanceCountdown(
   remaining: number,
   carryMs: number,
