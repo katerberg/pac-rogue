@@ -1,6 +1,7 @@
 import { query, type World } from "bitecs";
 import Phaser from "phaser";
 import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
+import { PLAYER_DRAWABLE_ID } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Position } from "../components/Position";
 
@@ -42,18 +43,20 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
       go.setRadius(radius);
       go.setPosition(x, y);
 
-      const twin = wrappedTwinPosition(x, y, radius);
-      if (twin) {
-        alive.add(twinKey);
-        let twinGo = drawableObjects.get(twinKey);
-        if (!twinGo) {
-          twinGo = scene.add.circle(twin.x, twin.y, radius, color);
-          drawableObjects.set(twinKey, twinGo);
+      if (id === PLAYER_DRAWABLE_ID) {
+        const twin = wrappedTwinPosition(x, y, radius);
+        if (twin) {
+          alive.add(twinKey);
+          let twinGo = drawableObjects.get(twinKey);
+          if (!twinGo) {
+            twinGo = scene.add.circle(twin.x, twin.y, radius, color);
+            drawableObjects.set(twinKey, twinGo);
+          }
+          twinGo.setName(`${id}:twin`);
+          twinGo.setFillStyle(color);
+          twinGo.setRadius(radius);
+          twinGo.setPosition(twin.x, twin.y);
         }
-        twinGo.setName(`${id}:twin`);
-        twinGo.setFillStyle(color);
-        twinGo.setRadius(radius);
-        twinGo.setPosition(twin.x, twin.y);
       }
     }
 
