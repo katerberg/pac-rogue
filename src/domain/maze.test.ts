@@ -74,6 +74,25 @@ describe("maze", () => {
     expect(wrappedRight.x).toBeCloseTo(pastRight - MAZE_PIXEL_WIDTH, 5);
   });
 
+  it("requires wrap before clamp so tunnel exit past the seam is not snapped back", () => {
+    const y = cellCenterY(14);
+    const pastLeft = MAZE_OFFSET_X - 4;
+    const pastRight = MAZE_OFFSET_X + MAZE_PIXEL_WIDTH + 3;
+
+    expect(clampAgainstFacingWall(pastLeft, y, -1, 0).x).toBe(cellCenterX(0));
+    expect(clampAgainstFacingWall(pastRight, y, 1, 0).x).toBe(cellCenterX(MAZE_COLS - 1));
+
+    const wrappedLeft = wrapPosition(pastLeft, y);
+    const afterLeft = clampAgainstFacingWall(wrappedLeft.x, wrappedLeft.y, -1, 0);
+    expect(afterLeft.x).toBeCloseTo(wrappedLeft.x, 5);
+    expect(afterLeft.x).toBeGreaterThan(cellCenterX(MAZE_COLS - 2));
+
+    const wrappedRight = wrapPosition(pastRight, y);
+    const afterRight = clampAgainstFacingWall(wrappedRight.x, wrappedRight.y, 1, 0);
+    expect(afterRight.x).toBeCloseTo(wrappedRight.x, 5);
+    expect(afterRight.x).toBeLessThan(cellCenterX(1));
+  });
+
   it("does not wrap on non-tunnel rows", () => {
     const y = cellCenterY(1);
     const pastLeft = MAZE_OFFSET_X - 4;
