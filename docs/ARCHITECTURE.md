@@ -47,6 +47,11 @@ scripts/
   verify.yml                  # CI: npm run verify on PRs and main
 .githooks/
   pre-commit                  # Runs npm run verify:precommit (no build/visual)
+.agents/skills/
+  verification/               # verify level + evidence workflow
+  no-comments/                # /no-comments — required on every code-changing plan
+.cursor/rules/
+  plans-include-no-comments.mdc  # always-on: plans must include /no-comments
 docs/
   ARCHITECTURE.md             # This file
   VERIFICATION.md             # How to prove changes
