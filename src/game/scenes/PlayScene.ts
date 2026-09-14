@@ -1,6 +1,11 @@
-import { addComponent, addEntity, createWorld, query, type World } from "bitecs";
+import { addComponent, addEntity, createWorld, type World } from "bitecs";
 import Phaser from "phaser";
-import { advanceCountdown, COUNTDOWN_START } from "../../domain/countdown";
+import {
+  createPelletProgress,
+  applyPelletCollect,
+  type PelletProgress,
+} from "../../domain/pelletProgress";
+import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
 import { pelletCellCenters, playerSpawnCenter, wallCellCenters } from "../../domain/maze";
 import {
   PELLET_DRAWABLE_ID,
@@ -20,6 +25,7 @@ import { Wall } from "../components/Wall";
 import { saveSuccessfulRun } from "../storage/runHistoryStorage";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { movement } from "../systems/movement";
+import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { createRender, preloadPlayArt } from "../systems/render";
 
@@ -33,12 +39,9 @@ export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;
   private runRender!: (world: World) => void;
-  private collectedCount = 0;
+  private clock: RunClock = createRunClock();
+  private pelletProgress: PelletProgress = createPelletProgress(0);
   private collectedText!: Phaser.GameObjects.Text;
-  private remainingTime = COUNTDOWN_START;
-  private countdownStarted = false;
-  private countdownCarryMs = 0;
-  private runRecorded = false;
   private timerText!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -55,11 +58,8 @@ export class PlayScene extends Phaser.Scene {
     this.spawnPellets();
     this.spawnPlayer();
 
-    this.collectedCount = 0;
-    this.remainingTime = COUNTDOWN_START;
-    this.countdownStarted = false;
-    this.countdownCarryMs = 0;
-    this.runRecorded = false;
+    this.clock = createRunClock();
+    this.pelletProgress = createPelletProgress(countPellets(this.world));
 
     this.collectedText = this.add.text(12, 8, this.collectedLabel(), HUD_TEXT_STYLE).setDepth(10);
     this.timerText = this.add
@@ -73,47 +73,29 @@ export class PlayScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.runPlayerInput(this.world);
-
-    if (!this.countdownStarted && this.playerHasDirectionInput()) {
-      this.countdownStarted = true;
-    }
-
     movement(this.world, delta);
 
-    if (this.countdownStarted && this.remainingTime > 0) {
-      const next = advanceCountdown(this.remainingTime, this.countdownCarryMs, delta);
-      this.remainingTime = next.remaining;
-      this.countdownCarryMs = next.carryMs;
-    }
-
+    this.clock = tickRunClock(this.clock, hasPlayerDirectionInput(this.world), delta);
     this.timerText.setText(this.timerLabel());
 
-    this.collectedCount += collectPellets(this.world);
+    const removed = collectPellets(this.world);
+    const collectResult = applyPelletCollect(this.pelletProgress, removed);
+    this.pelletProgress = collectResult.progress;
     this.collectedText.setText(this.collectedLabel());
 
-    if (!this.runRecorded && countPellets(this.world) === 0 && this.collectedCount > 0) {
-      saveSuccessfulRun(this.remainingTime);
-      this.runRecorded = true;
+    if (collectResult.shouldRecordClear) {
+      saveSuccessfulRun(this.clock.remaining);
     }
 
     this.runRender(this.world);
   }
 
   private collectedLabel(): string {
-    return `Collected: ${this.collectedCount}`;
+    return `Collected: ${this.pelletProgress.collectedCount}`;
   }
 
   private timerLabel(): string {
-    return `Time: ${this.remainingTime}`;
-  }
-
-  private playerHasDirectionInput(): boolean {
-    const players = query(this.world, [Player, Input]);
-    if (players.length === 0) {
-      return false;
-    }
-    const eid = players[0]!;
-    return (Input.direction[eid] ?? DIRECTION.none) !== DIRECTION.none;
+    return `Time: ${this.clock.remaining}`;
   }
 
   private spawnWalls(): void {

@@ -1,4 +1,5 @@
 export const RUN_HISTORY_VERSION = 1 as const;
+export const RUN_HISTORY_MAX_RUNS = 100;
 
 export type RunRecord = {
   score: number;
@@ -12,6 +13,13 @@ export type RunHistory = {
 
 export function emptyRunHistory(): RunHistory {
   return { version: RUN_HISTORY_VERSION, runs: [] };
+}
+
+function trimRuns(runs: RunRecord[]): RunRecord[] {
+  if (runs.length <= RUN_HISTORY_MAX_RUNS) {
+    return runs;
+  }
+  return runs.slice(runs.length - RUN_HISTORY_MAX_RUNS);
 }
 
 function isRunRecord(value: unknown): value is RunRecord {
@@ -43,10 +51,12 @@ export function parseRunHistory(raw: string | null): RunHistory {
     }
     return {
       version: RUN_HISTORY_VERSION,
-      runs: payload.runs.map((run) => ({
-        score: run.score,
-        clearedAt: run.clearedAt,
-      })),
+      runs: trimRuns(
+        payload.runs.map((run) => ({
+          score: run.score,
+          clearedAt: run.clearedAt,
+        })),
+      ),
     };
   } catch {
     return emptyRunHistory();
@@ -60,6 +70,6 @@ export function serializeRunHistory(history: RunHistory): string {
 export function appendRun(history: RunHistory, score: number, clearedAt: string): RunHistory {
   return {
     version: RUN_HISTORY_VERSION,
-    runs: [...history.runs, { score, clearedAt }],
+    runs: trimRuns([...history.runs, { score, clearedAt }]),
   };
 }

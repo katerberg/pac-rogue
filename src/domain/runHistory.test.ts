@@ -3,6 +3,7 @@ import {
   appendRun,
   emptyRunHistory,
   parseRunHistory,
+  RUN_HISTORY_MAX_RUNS,
   RUN_HISTORY_VERSION,
   serializeRunHistory,
 } from "./runHistory";
@@ -50,5 +51,25 @@ describe("appendRun / serializeRunHistory", () => {
       { score: 0, clearedAt: "2026-01-02T00:00:00.000Z" },
     ]);
     expect(parseRunHistory(serializeRunHistory(second))).toEqual(second);
+  });
+
+  it("drops oldest runs when append would overflow the cap", () => {
+    let history = emptyRunHistory();
+    for (let i = 0; i < RUN_HISTORY_MAX_RUNS + 3; i += 1) {
+      history = appendRun(history, i, `2026-01-01T00:00:00.${String(i).padStart(3, "0")}Z`);
+    }
+    expect(history.runs).toHaveLength(RUN_HISTORY_MAX_RUNS);
+    expect(history.runs[0]?.score).toBe(3);
+    expect(history.runs.at(-1)?.score).toBe(RUN_HISTORY_MAX_RUNS + 2);
+  });
+
+  it("trims oversized payloads on parse", () => {
+    const runs = Array.from({ length: RUN_HISTORY_MAX_RUNS + 5 }, (_, i) => ({
+      score: i,
+      clearedAt: `2026-01-01T00:00:00.${String(i).padStart(3, "0")}Z`,
+    }));
+    const parsed = parseRunHistory(JSON.stringify({ version: RUN_HISTORY_VERSION, runs }));
+    expect(parsed.runs).toHaveLength(RUN_HISTORY_MAX_RUNS);
+    expect(parsed.runs[0]?.score).toBe(5);
   });
 });
