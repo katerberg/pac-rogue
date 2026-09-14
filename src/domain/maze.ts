@@ -446,6 +446,16 @@ export function clampAgainstFacingWall(
   return { x: nextX, y: nextY };
 }
 
+function shouldDrawPipeAgainst(col: number, row: number, walls: SolidGrid): boolean {
+  if (isWall(col, row, walls)) {
+    return false;
+  }
+  if (isExterior(col, row)) {
+    return false;
+  }
+  return true;
+}
+
 export function pipeEdges(walls: SolidGrid = MAZE_WALLS): PipeEdge[] {
   const edges: PipeEdge[] = [];
 
@@ -459,16 +469,16 @@ export function pipeEdges(walls: SolidGrid = MAZE_WALLS): PipeEdge[] {
       const top = cellOriginY(row);
       const bottom = top + TILE_SIZE;
 
-      if (!isWall(col, row - 1, walls)) {
+      if (shouldDrawPipeAgainst(col, row - 1, walls)) {
         edges.push({ x1: left, y1: top, x2: right, y2: top });
       }
-      if (!isWall(col, row + 1, walls)) {
+      if (shouldDrawPipeAgainst(col, row + 1, walls)) {
         edges.push({ x1: left, y1: bottom, x2: right, y2: bottom });
       }
-      if (!isWall(col - 1, row, walls)) {
+      if (shouldDrawPipeAgainst(col - 1, row, walls)) {
         edges.push({ x1: left, y1: top, x2: left, y2: bottom });
       }
-      if (!isWall(col + 1, row, walls)) {
+      if (shouldDrawPipeAgainst(col + 1, row, walls)) {
         edges.push({ x1: right, y1: top, x2: right, y2: bottom });
       }
     }

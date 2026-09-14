@@ -12,6 +12,8 @@ import {
   canEnterDirection,
   cellCenterX,
   cellCenterY,
+  cellOriginX,
+  cellOriginY,
   clampAgainstFacingWall,
   isExterior,
   isSolid,
@@ -122,6 +124,21 @@ describe("maze", () => {
 
     const edges = pipeEdges();
     expect(edges.length).toBeGreaterThan(0);
+  });
+
+  it("does not outline exterior voids that touch the outer map edge", () => {
+    const edges = pipeEdges();
+    const left = cellOriginX(0);
+    const top = cellOriginY(13);
+
+    const outlinesExteriorAboveTunnelStub = edges.some(
+      (edge) =>
+        edge.y1 === top && edge.y2 === top && edge.x1 >= left && edge.x2 <= left + TILE_SIZE * 6,
+    );
+    expect(outlinesExteriorAboveTunnelStub).toBe(false);
+
+    expect(isExterior(0, 12)).toBe(true);
+    expect(isWall(0, 13)).toBe(true);
   });
 
   it("lists walkable centers for the playable flood only", () => {

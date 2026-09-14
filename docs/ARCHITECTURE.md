@@ -69,7 +69,7 @@ PlayScene.update → playerInput → movement → collectPellets → render → 
 5. `collectPellets` removes pellets overlapping the player (circle radii from `Drawable`) and returns the frame count; the scene accumulates `Collected: N` on the HUD Text.
 6. `render` draws maze pipe outlines once from domain wall edges, mirrors `Position` + `Drawable` onto Arc GameObjects, dual-draws a twin arc while the player straddles a tunnel seam, and destroys arcs for removed entities.
 
-Movement is continuous along corridor centerlines with buffered turns. Side tunnels wrap when both opposite edge cells are walkable; disconnected near-edge pockets are exterior (blocked, not drawn as wall pipes). Regular pellets on playable cells for now. No power pellets or enemies yet.
+Movement is continuous along corridor centerlines with buffered turns. Side tunnels wrap when both opposite edge cells are walkable; disconnected near-edge pockets are exterior (blocked, and wall pipes do not outline faces that touch exterior). Regular pellets on playable cells for now. No power pellets or enemies yet.
 
 ## ECS boundary
 
