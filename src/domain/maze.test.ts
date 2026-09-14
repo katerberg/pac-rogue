@@ -6,9 +6,11 @@ import {
   MAZE_PIXEL_WIDTH,
   MAZE_ROWS,
   MAZE_SOLIDS,
+  MAZE_WALLS,
   PLAYER_SPAWN_COL,
   PLAYER_SPAWN_ROW,
   TILE_SIZE,
+  buildExterior,
   canEnterDirection,
   cellCenterX,
   cellCenterY,
@@ -24,7 +26,7 @@ import {
   pipeEdges,
   playerSpawnCenter,
   pelletCellCenters,
-  solidCellCenters,
+  wallCellCenters,
   walkableCellCenters,
   wrapPosition,
   wrappedTwinPosition,
@@ -117,7 +119,7 @@ describe("maze", () => {
   });
 
   it("lists wall centers and pipe edges without treating exterior as walls", () => {
-    const centers = solidCellCenters();
+    const centers = wallCellCenters();
     expect(centers.length).toBe(498);
     expect(centers.every((c) => isWall(c.col, c.row))).toBe(true);
     expect(centers.every((c) => !isExterior(c.col, c.row))).toBe(true);
@@ -145,7 +147,7 @@ describe("maze", () => {
     const centers = walkableCellCenters();
     expect(centers.length).toBe(300);
     expect(centers.every((c) => isWalkable(c.col, c.row))).toBe(true);
-    expect(centers.length + solidCellCenters().length).toBeLessThan(MAZE_COLS * MAZE_ROWS);
+    expect(centers.length + wallCellCenters().length).toBeLessThan(MAZE_COLS * MAZE_ROWS);
   });
 
   it("lists pellet centers only for . and @ cells", () => {
@@ -175,5 +177,26 @@ describe("maze", () => {
     const y = cellCenterY(14);
     const clamped = clampAgainstFacingWall(x, y, -1, 0);
     expect(clamped.x).toBe(x);
+  });
+
+  it("fails fast when exterior flood finds no playable cells from spawn", () => {
+    const walls = parseMaze().map((row) => [...row]);
+    walls[PLAYER_SPAWN_ROW]![PLAYER_SPAWN_COL] = true;
+    expect(() => buildExterior(walls)).toThrow(/no playable cells from spawn/);
+  });
+
+  it("clamps out-of-bounds samples before tunnel mouth enter checks", () => {
+    const y = cellCenterY(14);
+    expect(canEnterDirection(MAZE_OFFSET_X - 1, y, -1, 0)).toBe(true);
+    expect(canEnterDirection(MAZE_OFFSET_X + MAZE_PIXEL_WIDTH + 1, y, 1, 0)).toBe(true);
+  });
+
+  it("accepts injectable exterior grids for pipe edge rules", () => {
+    const emptyExterior = Array.from({ length: MAZE_ROWS }, () =>
+      Array.from({ length: MAZE_COLS }, () => false),
+    );
+    const withDefault = pipeEdges();
+    const withEmptyExterior = pipeEdges(MAZE_WALLS, emptyExterior);
+    expect(withEmptyExterior.length).toBeGreaterThan(withDefault.length);
   });
 });

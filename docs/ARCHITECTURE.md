@@ -62,7 +62,7 @@ docs/
 PlayScene.update → playerInput → movement → collectPellets → render → Phaser GameObjects
 ```
 
-1. `create()`: `createWorld()`, spawn Wall entities (one per solid cell) with `Position`, spawn Pellet entities (one per walkable cell) with `Position` + `Drawable` + `Pellet`, spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, create the top collected-count Text, build the input/render bridges.
+1. `create()`: `createWorld()`, spawn Wall entities (one per wall cell) with `Position`, spawn Pellet entities (one per walkable cell) with `Position` + `Drawable` + `Pellet`, spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, create the top collected-count Text, build the input/render bridges.
 2. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `collectPellets(world)` → `render(world)`.
 3. `playerInput` writes sticky next intent into `Input.direction` (most recent held key; never cleared on release).
 4. `movement` applies sticky `Input` into `Facing` (reverse immediately; 90° turns when travel reaches the cell center). Integrates position, snaps only the perpendicular axis to the corridor centerline, wraps through paired tunnel mouths (preserving facing/velocity), clamps smoothly against facing walls (no teleport-to-center), then playfield safety-clamps.

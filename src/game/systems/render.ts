@@ -1,8 +1,8 @@
-import { query, type World } from "bitecs";
+import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
-import { PLAYER_DRAWABLE_ID } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
+import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
 export function createRender(scene: Phaser.Scene): (world: World) => void {
@@ -43,7 +43,7 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
       go.setRadius(radius);
       go.setPosition(x, y);
 
-      if (id === PLAYER_DRAWABLE_ID) {
+      if (hasComponent(world, eid, Player)) {
         const twin = wrappedTwinPosition(x, y, radius);
         if (twin) {
           alive.add(twinKey);

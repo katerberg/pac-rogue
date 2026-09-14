@@ -112,14 +112,16 @@ export function parseMaze(ascii: string = MAZE_ASCII): boolean[][] {
   return grid;
 }
 
-function buildExterior(walls: SolidGrid): boolean[][] {
+export function buildExterior(walls: SolidGrid): boolean[][] {
   const exterior = emptyFlagGrid();
   const visited = emptyFlagGrid();
   const queue: { col: number; row: number }[] = [];
+  let visitedCount = 0;
 
   if (!(walls[PLAYER_SPAWN_ROW]?.[PLAYER_SPAWN_COL] ?? true)) {
     queue.push({ col: PLAYER_SPAWN_COL, row: PLAYER_SPAWN_ROW });
     visited[PLAYER_SPAWN_ROW]![PLAYER_SPAWN_COL] = true;
+    visitedCount = 1;
   }
 
   while (queue.length > 0) {
@@ -144,8 +146,13 @@ function buildExterior(walls: SolidGrid): boolean[][] {
         continue;
       }
       visited[next.row]![next.col] = true;
+      visitedCount += 1;
       queue.push(next);
     }
+  }
+
+  if (visitedCount === 0) {
+    throw new Error("maze exterior flood found no playable cells from spawn");
   }
 
   for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -202,25 +209,6 @@ export function isWalkable(col: number, row: number, solids: SolidGrid = MAZE_SO
   return !isSolid(col, row, solids);
 }
 
-export function isTunnelMouth(col: number, row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
-  if (!isWalkable(col, row, solids)) {
-    return false;
-  }
-  if (col === 0) {
-    return isWalkable(MAZE_COLS - 1, row, solids);
-  }
-  if (col === MAZE_COLS - 1) {
-    return isWalkable(0, row, solids);
-  }
-  if (row === 0) {
-    return isWalkable(col, MAZE_ROWS - 1, solids);
-  }
-  if (row === MAZE_ROWS - 1) {
-    return isWalkable(col, 0, solids);
-  }
-  return false;
-}
-
 export function oppositeTunnelCell(col: number, row: number): { col: number; row: number } | null {
   if (col === 0) {
     return { col: MAZE_COLS - 1, row };
@@ -235,6 +223,14 @@ export function oppositeTunnelCell(col: number, row: number): { col: number; row
     return { col, row: 0 };
   }
   return null;
+}
+
+export function isTunnelMouth(col: number, row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+  if (!isWalkable(col, row, solids)) {
+    return false;
+  }
+  const opposite = oppositeTunnelCell(col, row);
+  return opposite !== null && isWalkable(opposite.col, opposite.row, solids);
 }
 
 function hasHorizontalTunnel(row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
@@ -401,8 +397,8 @@ export function canEnterDirection(
   dy: number,
   solids: SolidGrid = MAZE_SOLIDS,
 ): boolean {
-  const col = worldToCol(x);
-  const row = worldToRow(y);
+  const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
+  const row = Math.min(MAZE_ROWS - 1, Math.max(0, worldToRow(y)));
   return neighborOpen(col, row, dx, dy, solids);
 }
 
@@ -446,17 +442,25 @@ export function clampAgainstFacingWall(
   return { x: nextX, y: nextY };
 }
 
-function shouldDrawPipeAgainst(col: number, row: number, walls: SolidGrid): boolean {
+function shouldDrawPipeAgainst(
+  col: number,
+  row: number,
+  walls: SolidGrid,
+  exterior: SolidGrid,
+): boolean {
   if (isWall(col, row, walls)) {
     return false;
   }
-  if (isExterior(col, row)) {
+  if (isExterior(col, row, exterior)) {
     return false;
   }
   return true;
 }
 
-export function pipeEdges(walls: SolidGrid = MAZE_WALLS): PipeEdge[] {
+export function pipeEdges(
+  walls: SolidGrid = MAZE_WALLS,
+  exterior: SolidGrid = MAZE_EXTERIOR,
+): PipeEdge[] {
   const edges: PipeEdge[] = [];
 
   for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -469,16 +473,16 @@ export function pipeEdges(walls: SolidGrid = MAZE_WALLS): PipeEdge[] {
       const top = cellOriginY(row);
       const bottom = top + TILE_SIZE;
 
-      if (shouldDrawPipeAgainst(col, row - 1, walls)) {
+      if (shouldDrawPipeAgainst(col, row - 1, walls, exterior)) {
         edges.push({ x1: left, y1: top, x2: right, y2: top });
       }
-      if (shouldDrawPipeAgainst(col, row + 1, walls)) {
+      if (shouldDrawPipeAgainst(col, row + 1, walls, exterior)) {
         edges.push({ x1: left, y1: bottom, x2: right, y2: bottom });
       }
-      if (shouldDrawPipeAgainst(col - 1, row, walls)) {
+      if (shouldDrawPipeAgainst(col - 1, row, walls, exterior)) {
         edges.push({ x1: left, y1: top, x2: left, y2: bottom });
       }
-      if (shouldDrawPipeAgainst(col + 1, row, walls)) {
+      if (shouldDrawPipeAgainst(col + 1, row, walls, exterior)) {
         edges.push({ x1: right, y1: top, x2: right, y2: bottom });
       }
     }
@@ -487,7 +491,7 @@ export function pipeEdges(walls: SolidGrid = MAZE_WALLS): PipeEdge[] {
   return edges;
 }
 
-export function solidCellCenters(
+export function wallCellCenters(
   walls: SolidGrid = MAZE_WALLS,
 ): { col: number; row: number; x: number; y: number }[] {
   const cells: { col: number; row: number; x: number; y: number }[] = [];
