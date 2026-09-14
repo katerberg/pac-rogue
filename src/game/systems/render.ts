@@ -1,10 +1,11 @@
-import { query, type World } from "bitecs";
+import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
-import { pipeEdges, WALL_COLOR } from "../../domain/maze";
+import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
 import { PELLET_DRAWABLE_ID, PLAYER_DRAWABLE_ID } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction } from "../components/Input";
+import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
 const SPRITE_DISPLAY_SIZE = 16;
@@ -75,7 +76,7 @@ function ensurePlayerVisual(
 }
 
 export function createRender(scene: Phaser.Scene): (world: World) => void {
-  const drawableObjects = new Map<number, Phaser.GameObjects.Image>();
+  const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
   let pipesDrawn = false;
@@ -90,18 +91,22 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
       pipesDrawn = true;
     }
 
-    const alive = new Set<number>();
+    const alive = new Set<string>();
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
       if (id !== PLAYER_DRAWABLE_ID && id !== PELLET_DRAWABLE_ID) {
         continue;
       }
 
-      alive.add(eid);
+      const primaryKey = String(eid);
+      const twinKey = `${eid}:twin`;
+      alive.add(primaryKey);
+
       const x = Position.x[eid] ?? 0;
       const y = Position.y[eid] ?? 0;
+      const radius = Drawable.radius[eid] ?? SPRITE_DISPLAY_SIZE / 2;
 
-      let go = drawableObjects.get(eid);
+      let go = drawableObjects.get(primaryKey);
       if (!go) {
         const textureKey =
           id === PLAYER_DRAWABLE_ID
@@ -110,7 +115,7 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
         go = scene.add.image(x, y, textureKey);
         go.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
         go.setName(id);
-        drawableObjects.set(eid, go);
+        drawableObjects.set(primaryKey, go);
         if (id === PLAYER_DRAWABLE_ID) {
           ensurePlayerVisual(playerVisuals, eid, x, y);
         }
@@ -144,14 +149,36 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
         }
         visual.lastX = x;
         visual.lastY = y;
+
+        if (hasComponent(world, eid, Player)) {
+          const twin = wrappedTwinPosition(x, y, radius);
+          if (twin) {
+            alive.add(twinKey);
+            let twinGo = drawableObjects.get(twinKey);
+            if (!twinGo) {
+              twinGo = scene.add.image(twin.x, twin.y, visual.textureKey);
+              twinGo.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
+              twinGo.setName(`${id}:twin`);
+              drawableObjects.set(twinKey, twinGo);
+            } else {
+              twinGo.setPosition(twin.x, twin.y);
+              if (twinGo.texture.key !== visual.textureKey) {
+                twinGo.setTexture(visual.textureKey);
+                twinGo.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
+              }
+            }
+          }
+        }
       }
     }
 
-    for (const [eid, go] of drawableObjects) {
-      if (!alive.has(eid)) {
+    for (const [key, go] of drawableObjects) {
+      if (!alive.has(key)) {
         go.destroy();
-        drawableObjects.delete(eid);
-        playerVisuals.delete(eid);
+        drawableObjects.delete(key);
+        if (!key.includes(":")) {
+          playerVisuals.delete(Number(key));
+        }
       }
     }
   };

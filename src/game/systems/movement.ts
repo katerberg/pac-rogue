@@ -9,6 +9,7 @@ import {
   snapPerpendicularToCenterline,
   worldToCol,
   worldToRow,
+  wrapPosition,
 } from "../../domain/maze";
 import { clampPositionToPlayfield, PLAYER_SPEED } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
@@ -129,6 +130,10 @@ export function movement(world: World, deltaMs: number): void {
     const centered = snapPerpendicularToCenterline(nextX, nextY, step.dx, step.dy);
     nextX = centered.x;
     nextY = centered.y;
+
+    const wrapped = wrapPosition(nextX, nextY);
+    nextX = wrapped.x;
+    nextY = wrapped.y;
 
     const wallClamped = clampAgainstFacingWall(nextX, nextY, step.dx, step.dy);
     nextX = wallClamped.x;

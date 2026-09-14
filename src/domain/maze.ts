@@ -60,6 +60,34 @@ export type PipeEdge = {
 const SOLID_CHARS = new Set(["#", "-"]);
 const PELLET_CHARS = new Set([".", "@"]);
 
+function emptyFlagGrid(): boolean[][] {
+  return Array.from({ length: MAZE_ROWS }, () => Array.from({ length: MAZE_COLS }, () => false));
+}
+
+function applyOppositeEdgeSafety(walls: boolean[][]): void {
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    const left = walls[row]?.[0] ?? true;
+    const right = walls[row]?.[MAZE_COLS - 1] ?? true;
+    if (!left && right && walls[row]) {
+      walls[row][0] = true;
+    }
+    if (!right && left && walls[row]) {
+      walls[row][MAZE_COLS - 1] = true;
+    }
+  }
+
+  for (let col = 0; col < MAZE_COLS; col += 1) {
+    const top = walls[0]?.[col] ?? true;
+    const bottom = walls[MAZE_ROWS - 1]?.[col] ?? true;
+    if (!top && bottom && walls[0]) {
+      walls[0][col] = true;
+    }
+    if (!bottom && top && walls[MAZE_ROWS - 1]) {
+      walls[MAZE_ROWS - 1][col] = true;
+    }
+  }
+}
+
 export function parseMaze(ascii: string = MAZE_ASCII): boolean[][] {
   const rows = ascii.split("\n");
   if (rows.length !== MAZE_ROWS) {
@@ -72,24 +100,102 @@ export function parseMaze(ascii: string = MAZE_ASCII): boolean[][] {
     if (line.length !== MAZE_COLS) {
       throw new Error(`maze row ${row} must have ${MAZE_COLS} cols, got ${line.length}`);
     }
-    const solids: boolean[] = [];
+    const walls: boolean[] = [];
     for (let col = 0; col < MAZE_COLS; col += 1) {
       const ch = line[col] ?? "#";
-      let solid = SOLID_CHARS.has(ch);
-      if (col === 0 || col === MAZE_COLS - 1) {
-        solid = true;
-      }
-      solids.push(solid);
+      walls.push(SOLID_CHARS.has(ch));
     }
-    grid.push(solids);
+    grid.push(walls);
   }
+
+  applyOppositeEdgeSafety(grid);
   return grid;
 }
 
-export const MAZE_SOLIDS: SolidGrid = parseMaze(MAZE_ASCII);
+export function buildExterior(walls: SolidGrid): boolean[][] {
+  const exterior = emptyFlagGrid();
+  const visited = emptyFlagGrid();
+  const queue: { col: number; row: number }[] = [];
+  let visitedCount = 0;
+
+  if (!(walls[PLAYER_SPAWN_ROW]?.[PLAYER_SPAWN_COL] ?? true)) {
+    queue.push({ col: PLAYER_SPAWN_COL, row: PLAYER_SPAWN_ROW });
+    visited[PLAYER_SPAWN_ROW]![PLAYER_SPAWN_COL] = true;
+    visitedCount = 1;
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) {
+      break;
+    }
+    const neighbors = [
+      { col: current.col - 1, row: current.row },
+      { col: current.col + 1, row: current.row },
+      { col: current.col, row: current.row - 1 },
+      { col: current.col, row: current.row + 1 },
+    ];
+    for (const next of neighbors) {
+      if (next.col < 0 || next.col >= MAZE_COLS || next.row < 0 || next.row >= MAZE_ROWS) {
+        continue;
+      }
+      if (visited[next.row]?.[next.col]) {
+        continue;
+      }
+      if (walls[next.row]?.[next.col]) {
+        continue;
+      }
+      visited[next.row]![next.col] = true;
+      visitedCount += 1;
+      queue.push(next);
+    }
+  }
+
+  if (visitedCount === 0) {
+    throw new Error("maze exterior flood found no playable cells from spawn");
+  }
+
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (!(walls[row]?.[col] ?? true) && !visited[row]?.[col]) {
+        exterior[row]![col] = true;
+      }
+    }
+  }
+
+  return exterior;
+}
+
+function buildBlocked(walls: SolidGrid, exterior: SolidGrid): boolean[][] {
+  const blocked = emptyFlagGrid();
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      blocked[row]![col] = Boolean(walls[row]?.[col] || exterior[row]?.[col]);
+    }
+  }
+  return blocked;
+}
+
+export const MAZE_WALLS: SolidGrid = parseMaze(MAZE_ASCII);
+export const MAZE_EXTERIOR: SolidGrid = buildExterior(MAZE_WALLS);
+export const MAZE_SOLIDS: SolidGrid = buildBlocked(MAZE_WALLS, MAZE_EXTERIOR);
 
 export function inBounds(col: number, row: number): boolean {
   return col >= 0 && col < MAZE_COLS && row >= 0 && row < MAZE_ROWS;
+}
+
+export function isWall(col: number, row: number, walls: SolidGrid = MAZE_WALLS): boolean {
+  if (!inBounds(col, row)) {
+    return true;
+  }
+  return walls[row]?.[col] ?? true;
+}
+
+export function isExterior(col: number, row: number, exterior: SolidGrid = MAZE_EXTERIOR): boolean {
+  if (!inBounds(col, row)) {
+    return false;
+  }
+  return exterior[row]?.[col] ?? false;
 }
 
 export function isSolid(col: number, row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
@@ -101,6 +207,65 @@ export function isSolid(col: number, row: number, solids: SolidGrid = MAZE_SOLID
 
 export function isWalkable(col: number, row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
   return !isSolid(col, row, solids);
+}
+
+export function oppositeTunnelCell(col: number, row: number): { col: number; row: number } | null {
+  if (col === 0) {
+    return { col: MAZE_COLS - 1, row };
+  }
+  if (col === MAZE_COLS - 1) {
+    return { col: 0, row };
+  }
+  if (row === 0) {
+    return { col, row: MAZE_ROWS - 1 };
+  }
+  if (row === MAZE_ROWS - 1) {
+    return { col, row: 0 };
+  }
+  return null;
+}
+
+export function isTunnelMouth(col: number, row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+  if (!isWalkable(col, row, solids)) {
+    return false;
+  }
+  const opposite = oppositeTunnelCell(col, row);
+  return opposite !== null && isWalkable(opposite.col, opposite.row, solids);
+}
+
+function hasHorizontalTunnel(row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+  return isWalkable(0, row, solids) && isWalkable(MAZE_COLS - 1, row, solids);
+}
+
+function hasVerticalTunnel(col: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+  return isWalkable(col, 0, solids) && isWalkable(col, MAZE_ROWS - 1, solids);
+}
+
+function neighborOpen(
+  col: number,
+  row: number,
+  dx: number,
+  dy: number,
+  solids: SolidGrid = MAZE_SOLIDS,
+): boolean {
+  const nextCol = col + dx;
+  const nextRow = row + dy;
+  if (inBounds(nextCol, nextRow)) {
+    return isWalkable(nextCol, nextRow, solids);
+  }
+  if (dx < 0 && col === 0 && dy === 0) {
+    return isTunnelMouth(col, row, solids);
+  }
+  if (dx > 0 && col === MAZE_COLS - 1 && dy === 0) {
+    return isTunnelMouth(col, row, solids);
+  }
+  if (dy < 0 && row === 0 && dx === 0) {
+    return isTunnelMouth(col, row, solids);
+  }
+  if (dy > 0 && row === MAZE_ROWS - 1 && dx === 0) {
+    return isTunnelMouth(col, row, solids);
+  }
+  return false;
 }
 
 export function cellOriginX(col: number): number {
@@ -155,8 +320,8 @@ export function snapPerpendicularToCenterline(
   dx: number,
   dy: number,
 ): { x: number; y: number } {
-  const col = worldToCol(x);
-  const row = worldToRow(y);
+  const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
+  const row = Math.min(MAZE_ROWS - 1, Math.max(0, worldToRow(y)));
   if (dx !== 0) {
     return { x, y: cellCenterY(row) };
   }
@@ -166,6 +331,65 @@ export function snapPerpendicularToCenterline(
   return { x, y };
 }
 
+export function wrapPosition(
+  x: number,
+  y: number,
+  solids: SolidGrid = MAZE_SOLIDS,
+): { x: number; y: number } {
+  let nextX = x;
+  let nextY = y;
+  const row = Math.min(MAZE_ROWS - 1, Math.max(0, worldToRow(y)));
+  const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
+
+  if (hasHorizontalTunnel(row, solids)) {
+    if (nextX < MAZE_OFFSET_X) {
+      nextX += MAZE_PIXEL_WIDTH;
+    } else if (nextX >= MAZE_OFFSET_X + MAZE_PIXEL_WIDTH) {
+      nextX -= MAZE_PIXEL_WIDTH;
+    }
+  }
+
+  if (hasVerticalTunnel(col, solids)) {
+    if (nextY < MAZE_OFFSET_Y) {
+      nextY += MAZE_PIXEL_HEIGHT;
+    } else if (nextY >= MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT) {
+      nextY -= MAZE_PIXEL_HEIGHT;
+    }
+  }
+
+  return { x: nextX, y: nextY };
+}
+
+export function wrappedTwinPosition(
+  x: number,
+  y: number,
+  radius: number,
+  solids: SolidGrid = MAZE_SOLIDS,
+): { x: number; y: number } | null {
+  const row = Math.min(MAZE_ROWS - 1, Math.max(0, worldToRow(y)));
+  const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
+
+  if (hasHorizontalTunnel(row, solids)) {
+    if (x - radius < MAZE_OFFSET_X) {
+      return { x: x + MAZE_PIXEL_WIDTH, y };
+    }
+    if (x + radius > MAZE_OFFSET_X + MAZE_PIXEL_WIDTH) {
+      return { x: x - MAZE_PIXEL_WIDTH, y };
+    }
+  }
+
+  if (hasVerticalTunnel(col, solids)) {
+    if (y - radius < MAZE_OFFSET_Y) {
+      return { x, y: y + MAZE_PIXEL_HEIGHT };
+    }
+    if (y + radius > MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT) {
+      return { x, y: y - MAZE_PIXEL_HEIGHT };
+    }
+  }
+
+  return null;
+}
+
 export function canEnterDirection(
   x: number,
   y: number,
@@ -173,9 +397,9 @@ export function canEnterDirection(
   dy: number,
   solids: SolidGrid = MAZE_SOLIDS,
 ): boolean {
-  const col = worldToCol(x);
-  const row = worldToRow(y);
-  return isWalkable(col + dx, row + dy, solids);
+  const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
+  const row = Math.min(MAZE_ROWS - 1, Math.max(0, worldToRow(y)));
+  return neighborOpen(col, row, dx, dy, solids);
 }
 
 export function clampAgainstFacingWall(
@@ -194,14 +418,8 @@ export function clampAgainstFacingWall(
     if (!isWalkable(col, row, solids)) {
       return { x, y };
     }
-    if (dx > 0) {
+    if (dx > 0 || dx < 0) {
       return { x: cellCenterX(col), y };
-    }
-    if (dx < 0) {
-      return { x: cellCenterX(col), y };
-    }
-    if (dy > 0) {
-      return { x, y: cellCenterY(row) };
     }
     return { x, y: cellCenterY(row) };
   }
@@ -209,27 +427,45 @@ export function clampAgainstFacingWall(
   let nextX = x;
   let nextY = y;
 
-  if (dx > 0 && !isWalkable(col + 1, row, solids)) {
+  if (dx > 0 && !neighborOpen(col, row, 1, 0, solids)) {
     nextX = Math.min(nextX, cellCenterX(col));
-  } else if (dx < 0 && !isWalkable(col - 1, row, solids)) {
+  } else if (dx < 0 && !neighborOpen(col, row, -1, 0, solids)) {
     nextX = Math.max(nextX, cellCenterX(col));
   }
 
-  if (dy > 0 && !isWalkable(col, row + 1, solids)) {
+  if (dy > 0 && !neighborOpen(col, row, 0, 1, solids)) {
     nextY = Math.min(nextY, cellCenterY(row));
-  } else if (dy < 0 && !isWalkable(col, row - 1, solids)) {
+  } else if (dy < 0 && !neighborOpen(col, row, 0, -1, solids)) {
     nextY = Math.max(nextY, cellCenterY(row));
   }
 
   return { x: nextX, y: nextY };
 }
 
-export function pipeEdges(solids: SolidGrid = MAZE_SOLIDS): PipeEdge[] {
+function shouldDrawPipeAgainst(
+  col: number,
+  row: number,
+  walls: SolidGrid,
+  exterior: SolidGrid,
+): boolean {
+  if (isWall(col, row, walls)) {
+    return false;
+  }
+  if (isExterior(col, row, exterior)) {
+    return false;
+  }
+  return true;
+}
+
+export function pipeEdges(
+  walls: SolidGrid = MAZE_WALLS,
+  exterior: SolidGrid = MAZE_EXTERIOR,
+): PipeEdge[] {
   const edges: PipeEdge[] = [];
 
   for (let row = 0; row < MAZE_ROWS; row += 1) {
     for (let col = 0; col < MAZE_COLS; col += 1) {
-      if (!isSolid(col, row, solids)) {
+      if (!isWall(col, row, walls)) {
         continue;
       }
       const left = cellOriginX(col);
@@ -237,16 +473,16 @@ export function pipeEdges(solids: SolidGrid = MAZE_SOLIDS): PipeEdge[] {
       const top = cellOriginY(row);
       const bottom = top + TILE_SIZE;
 
-      if (!isSolid(col, row - 1, solids)) {
+      if (shouldDrawPipeAgainst(col, row - 1, walls, exterior)) {
         edges.push({ x1: left, y1: top, x2: right, y2: top });
       }
-      if (!isSolid(col, row + 1, solids)) {
+      if (shouldDrawPipeAgainst(col, row + 1, walls, exterior)) {
         edges.push({ x1: left, y1: bottom, x2: right, y2: bottom });
       }
-      if (!isSolid(col - 1, row, solids)) {
+      if (shouldDrawPipeAgainst(col - 1, row, walls, exterior)) {
         edges.push({ x1: left, y1: top, x2: left, y2: bottom });
       }
-      if (!isSolid(col + 1, row, solids)) {
+      if (shouldDrawPipeAgainst(col + 1, row, walls, exterior)) {
         edges.push({ x1: right, y1: top, x2: right, y2: bottom });
       }
     }
@@ -255,13 +491,13 @@ export function pipeEdges(solids: SolidGrid = MAZE_SOLIDS): PipeEdge[] {
   return edges;
 }
 
-export function solidCellCenters(
-  solids: SolidGrid = MAZE_SOLIDS,
+export function wallCellCenters(
+  walls: SolidGrid = MAZE_WALLS,
 ): { col: number; row: number; x: number; y: number }[] {
   const cells: { col: number; row: number; x: number; y: number }[] = [];
   for (let row = 0; row < MAZE_ROWS; row += 1) {
     for (let col = 0; col < MAZE_COLS; col += 1) {
-      if (isSolid(col, row, solids)) {
+      if (isWall(col, row, walls)) {
         cells.push({
           col,
           row,
@@ -302,7 +538,7 @@ export function pelletCellCenters(
     const line = rows[row] ?? "";
     for (let col = 0; col < MAZE_COLS; col += 1) {
       const ch = line[col] ?? "";
-      if (PELLET_CHARS.has(ch)) {
+      if (PELLET_CHARS.has(ch) && isWalkable(col, row)) {
         cells.push({
           col,
           row,
