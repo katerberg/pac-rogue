@@ -6,6 +6,7 @@ Before making substantial changes:
 2. Read docs/VERIFICATION.md.
 3. Read the relevant skill under .agents/skills/ (especially verification).
 4. **Determine the verification level** for the change (see docs/VERIFICATION.md) before coding.
+5. **Every plan** (Plan mode, `/plan`, or any written implementation plan) must include a final `/no-comments` step on the plan's scoped diff. Follow `.agents/skills/no-comments/SKILL.md`. Do not treat the plan or implementation as done until that step has run (skip only for pure docs/tooling plans that touch no `src/` application code).
 
 Rules:
 
