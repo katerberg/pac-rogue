@@ -45,6 +45,6 @@ export function saveSuccessfulRun(
     const next = appendRun(loadRunHistory(), score, clearedAt);
     storage.setItem(RUN_HISTORY_STORAGE_KEY, serializeRunHistory(next));
   } catch {
-    // Persistence must never break the game loop.
+    return;
   }
 }

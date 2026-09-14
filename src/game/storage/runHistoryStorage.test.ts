@@ -63,4 +63,14 @@ describe("runHistoryStorage", () => {
     installMemoryStorage({ [RUN_HISTORY_STORAGE_KEY]: "{broken" });
     expect(loadRunHistory()).toEqual(emptyRunHistory());
   });
+
+  it("does not throw when setItem fails", () => {
+    const store = installMemoryStorage();
+    const memory = globalThis.localStorage;
+    memory.setItem = () => {
+      throw new Error("quota");
+    };
+    expect(() => saveSuccessfulRun(1, "2026-01-01T00:00:00.000Z")).not.toThrow();
+    expect(store.size).toBe(0);
+  });
 });
