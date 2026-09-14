@@ -1,4 +1,4 @@
-export const COUNTDOWN_START = 9999;
+export const COUNTDOWN_START = 999;
 export const COUNTDOWN_TICK_MS = 100;
 
 export type CountdownState = {
