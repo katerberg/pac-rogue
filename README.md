@@ -45,7 +45,7 @@ Pull requests and pushes to `main` run `npm run verify` (typecheck, lint, format
 
 ## Status
 
-ECS Pac-Man traverses a static maze (blue pipe walls, centerline movement, sticky next-direction turns, side tunnels with wrap). Regular pellets on playable cells with a collected counter. No ghosts yet.
+ECS Pac-Man traverses a static maze (blue pipe walls, centerline movement, sticky next-direction turns, side tunnels with wrap). Regular pellets with a collected counter, a top-right countdown, and localStorage history of successful clears (score = remaining time). No ghosts yet.
 
 ## Art
 

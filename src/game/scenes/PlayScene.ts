@@ -1,11 +1,13 @@
-import { addComponent, addEntity, createWorld, type World } from "bitecs";
+import { addComponent, addEntity, createWorld, query, type World } from "bitecs";
 import Phaser from "phaser";
+import { advanceCountdown, COUNTDOWN_START } from "../../domain/countdown";
 import { pelletCellCenters, playerSpawnCenter, wallCellCenters } from "../../domain/maze";
 import {
   PELLET_DRAWABLE_ID,
   PELLET_RADIUS,
   PLAYER_DRAWABLE_ID,
   PLAYER_RADIUS,
+  PLAYFIELD_WIDTH,
 } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -15,10 +17,17 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
-import { collectPellets } from "../systems/collectPellets";
+import { saveSuccessfulRun } from "../storage/runHistoryStorage";
+import { collectPellets, countPellets } from "../systems/collectPellets";
 import { movement } from "../systems/movement";
 import { createPlayerInput } from "../systems/playerInput";
 import { createRender, preloadPlayArt } from "../systems/render";
+
+const HUD_TEXT_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
+  fontFamily: "monospace",
+  fontSize: "16px",
+  color: "#ffffff",
+};
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
@@ -26,6 +35,11 @@ export class PlayScene extends Phaser.Scene {
   private runRender!: (world: World) => void;
   private collectedCount = 0;
   private collectedText!: Phaser.GameObjects.Text;
+  private remainingTime = COUNTDOWN_START;
+  private countdownStarted = false;
+  private countdownCarryMs = 0;
+  private runRecorded = false;
+  private timerText!: Phaser.GameObjects.Text;
 
   constructor() {
     super("PlayScene");
@@ -42,12 +56,15 @@ export class PlayScene extends Phaser.Scene {
     this.spawnPlayer();
 
     this.collectedCount = 0;
-    this.collectedText = this.add
-      .text(12, 8, this.collectedLabel(), {
-        fontFamily: "monospace",
-        fontSize: "16px",
-        color: "#ffffff",
-      })
+    this.remainingTime = COUNTDOWN_START;
+    this.countdownStarted = false;
+    this.countdownCarryMs = 0;
+    this.runRecorded = false;
+
+    this.collectedText = this.add.text(12, 8, this.collectedLabel(), HUD_TEXT_STYLE).setDepth(10);
+    this.timerText = this.add
+      .text(PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_TEXT_STYLE)
+      .setOrigin(1, 0)
       .setDepth(10);
 
     this.runPlayerInput = createPlayerInput(this);
@@ -56,14 +73,47 @@ export class PlayScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.runPlayerInput(this.world);
+
+    if (!this.countdownStarted && this.playerHasDirectionInput()) {
+      this.countdownStarted = true;
+    }
+
     movement(this.world, delta);
+
+    if (this.countdownStarted && this.remainingTime > 0) {
+      const next = advanceCountdown(this.remainingTime, this.countdownCarryMs, delta);
+      this.remainingTime = next.remaining;
+      this.countdownCarryMs = next.carryMs;
+    }
+
+    this.timerText.setText(this.timerLabel());
+
     this.collectedCount += collectPellets(this.world);
     this.collectedText.setText(this.collectedLabel());
+
+    if (!this.runRecorded && countPellets(this.world) === 0 && this.collectedCount > 0) {
+      saveSuccessfulRun(this.remainingTime);
+      this.runRecorded = true;
+    }
+
     this.runRender(this.world);
   }
 
   private collectedLabel(): string {
     return `Collected: ${this.collectedCount}`;
+  }
+
+  private timerLabel(): string {
+    return `Time: ${this.remainingTime}`;
+  }
+
+  private playerHasDirectionInput(): boolean {
+    const players = query(this.world, [Player, Input]);
+    if (players.length === 0) {
+      return false;
+    }
+    const eid = players[0]!;
+    return (Input.direction[eid] ?? DIRECTION.none) !== DIRECTION.none;
   }
 
   private spawnWalls(): void {
