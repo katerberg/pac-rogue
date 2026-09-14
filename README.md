@@ -46,3 +46,7 @@ Pull requests and pushes to `main` run `npm run verify` (typecheck, lint, format
 ## Status
 
 ECS Pac-Man traverses a static maze (blue pipe walls, centerline movement, sticky next-direction turns). Regular pellets on walkable cells with a collected counter. No ghosts yet.
+
+## Art
+
+Art courtesy of [Pixelaholic](https://pixelaholic.itch.io/pac-man-game-art)
