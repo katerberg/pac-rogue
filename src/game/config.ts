@@ -1,5 +1,7 @@
 import Phaser from "phaser";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../domain/playfield";
+import { HighScoresScene } from "./scenes/HighScoresScene";
+import { MenuScene } from "./scenes/MenuScene";
 import { PlayScene } from "./scenes/PlayScene";
 
 export const GAME_WIDTH = PLAYFIELD_WIDTH;
@@ -11,7 +13,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: "#1a1a2e",
-  scene: [PlayScene],
+  scene: [MenuScene, HighScoresScene, PlayScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

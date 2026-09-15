@@ -76,7 +76,7 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
     await page.goto(url, { waitUntil: "networkidle" });
     await page.waitForSelector("canvas", { timeout: 15_000 });
-    // Give Phaser a moment to paint the player.
+    // Give Phaser a moment to paint the boot scene (menu).
     await sleep(500);
 
     const canvas = page.locator("canvas").first();
