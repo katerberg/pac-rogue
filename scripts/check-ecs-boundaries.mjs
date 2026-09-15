@@ -25,6 +25,7 @@ const phaserAllow = [
   /^src\/main\.ts$/,
   /^src\/game\/config\.ts$/,
   /^src\/game\/scenes\//,
+  /^src\/game\/audio\//,
   /^src\/game\/systems\/playerInput\.ts$/,
   /^src\/game\/systems\/render\.ts$/,
 ];

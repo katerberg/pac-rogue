@@ -126,7 +126,9 @@ describe("maze", () => {
     expect(isWalkable(11, 11)).toBe(true);
   });
 
-  it("keeps the locked spawn cell open", () => {
+  it("spawns in the lowest empty center cell", () => {
+    expect(PLAYER_SPAWN_COL).toBe(13);
+    expect(PLAYER_SPAWN_ROW).toBe(23);
     expect(isWalkable(PLAYER_SPAWN_COL, PLAYER_SPAWN_ROW)).toBe(true);
     const spawn = playerSpawnCenter();
     expect(spawn.x).toBe(cellCenterX(PLAYER_SPAWN_COL));

@@ -43,9 +43,6 @@ export const MAZE_OFFSET_Y = Math.floor((600 - MAZE_PIXEL_HEIGHT) / 2);
 
 export const WALL_COLOR = 0x2121ff;
 
-export const PLAYER_SPAWN_ROW = 29;
-export const PLAYER_SPAWN_COL = 13;
-
 export const TURN_ALIGN_EPS = 2;
 
 export type SolidGrid = readonly (readonly boolean[])[];
@@ -59,6 +56,35 @@ export type PipeEdge = {
 
 const SOLID_CHARS = new Set(["#", "-"]);
 const PELLET_CHARS = new Set([".", "@"]);
+const EMPTY_CELL_CHAR = " ";
+
+function resolvePlayerSpawn(ascii: string = MAZE_ASCII): { col: number; row: number } {
+  const rows = ascii.split("\n");
+  const centerLeft = Math.floor((MAZE_COLS - 1) / 2);
+  const centerRight = Math.ceil((MAZE_COLS - 1) / 2);
+  let best: { col: number; row: number } | null = null;
+
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    const line = rows[row] ?? "";
+    for (const col of [centerLeft, centerRight]) {
+      if (line[col] !== EMPTY_CELL_CHAR) {
+        continue;
+      }
+      if (!best || row > best.row || (row === best.row && col < best.col)) {
+        best = { col, row };
+      }
+    }
+  }
+
+  if (!best) {
+    throw new Error("maze has no empty center cell for player spawn");
+  }
+  return best;
+}
+
+const PLAYER_SPAWN = resolvePlayerSpawn();
+export const PLAYER_SPAWN_COL = PLAYER_SPAWN.col;
+export const PLAYER_SPAWN_ROW = PLAYER_SPAWN.row;
 
 function emptyFlagGrid(): boolean[][] {
   return Array.from({ length: MAZE_ROWS }, () => Array.from({ length: MAZE_COLS }, () => false));

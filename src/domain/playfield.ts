@@ -4,7 +4,7 @@ import { TILE_SIZE } from "./maze";
 export const PLAYFIELD_WIDTH = 800;
 export const PLAYFIELD_HEIGHT = 600;
 
-export const PLAYER_SPEED = 200;
+export const PLAYER_SPEED = 150;
 
 export const PLAYER_RADIUS = TILE_SIZE / 2;
 

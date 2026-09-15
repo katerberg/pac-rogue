@@ -22,6 +22,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
+import { playPelletCollectSfx, preloadSfx } from "../audio/sfx";
 import { saveSuccessfulRun } from "../storage/runHistoryStorage";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { movement } from "../systems/movement";
@@ -46,6 +47,7 @@ export class PlayScene extends Phaser.Scene {
 
   preload(): void {
     preloadPlayArt(this);
+    preloadSfx(this);
   }
 
   create(): void {
@@ -76,6 +78,9 @@ export class PlayScene extends Phaser.Scene {
     this.timerText.setText(this.timerLabel());
 
     const removed = collectPellets(this.world);
+    if (removed > 0) {
+      playPelletCollectSfx(this, this.pelletProgress.collectedCount, removed);
+    }
     const collectResult = applyPelletCollect(this.pelletProgress, removed);
     this.pelletProgress = collectResult.progress;
     this.collectedText.setText(this.collectedLabel());

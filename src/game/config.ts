@@ -7,6 +7,15 @@ import { PlayScene } from "./scenes/PlayScene";
 export const GAME_WIDTH = PLAYFIELD_WIDTH;
 export const GAME_HEIGHT = PLAYFIELD_HEIGHT;
 
+function createInteractiveAudioContext(): AudioContext | undefined {
+  if (typeof AudioContext === "undefined") {
+    return undefined;
+  }
+  return new AudioContext({ latencyHint: "interactive" });
+}
+
+const audioContext = createInteractiveAudioContext();
+
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "game-container",
@@ -18,4 +27,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+  audio: audioContext ? { context: audioContext } : undefined,
 };
