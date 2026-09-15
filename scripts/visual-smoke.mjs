@@ -63,6 +63,17 @@ async function clickGamePoint(page, canvas, gameX, gameY) {
   await page.mouse.click(x, y);
 }
 
+async function waitForActiveScene(page, sceneKey, timeoutMs = 15_000) {
+  await page.waitForFunction(
+    (key) => {
+      const game = globalThis.__PAC_ROGUE_GAME__;
+      return game?.scene?.isActive(key) === true;
+    },
+    sceneKey,
+    { timeout: timeoutMs },
+  );
+}
+
 async function main() {
   mkdirSync(dirname(playArtifactPath), { recursive: true });
 
@@ -92,13 +103,13 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
     await page.goto(url, { waitUntil: "networkidle" });
     await page.waitForSelector("canvas", { timeout: 15_000 });
-    await sleep(500);
+    await waitForActiveScene(page, "MenuScene");
 
     const canvas = page.locator("canvas").first();
     await canvas.screenshot({ path: menuArtifactPath });
 
     await clickGamePoint(page, canvas, MENU_START_X, MENU_START_Y);
-    await sleep(800);
+    await waitForActiveScene(page, "PlayScene");
 
     await canvas.screenshot({ path: playArtifactPath });
     await browser.close();
