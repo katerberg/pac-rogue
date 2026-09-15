@@ -1,31 +1,29 @@
-import type Phaser from "phaser";
-
-export const hudTextStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+export const hudTextStyle = {
   fontFamily: "monospace",
   fontSize: "16px",
   color: "#ffffff",
-};
+} as const;
 
-export const menuTitleStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+export const menuTitleStyle = {
   fontFamily: "monospace",
   fontSize: "32px",
   color: "#ffffff",
-};
+} as const;
 
-export const menuOptionStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+export const menuOptionStyle = {
   fontFamily: "monospace",
   fontSize: "20px",
   color: "#ffffff",
-};
+} as const;
 
-export const menuOptionSelectedStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+export const menuOptionSelectedStyle = {
   fontFamily: "monospace",
   fontSize: "20px",
   color: "#ffff00",
-};
+} as const;
 
-export const scoresLineStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+export const scoresLineStyle = {
   fontFamily: "monospace",
   fontSize: "16px",
   color: "#ffffff",
-};
+} as const;

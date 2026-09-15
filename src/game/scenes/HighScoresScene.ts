@@ -18,50 +18,62 @@ import {
 const SCROLL = DEFAULT_SCORE_LIST_SCROLL;
 const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 const LIST_TOP = 200;
+const BG = 0x1a1a2e;
 
 export class HighScoresScene extends Phaser.Scene {
   private scrollState: ScoreListScrollState = createScoreListScroll(0, SCROLL);
   private itemCount = 0;
-  private listContainer!: Phaser.GameObjects.Container;
-  private keyEsc!: Phaser.Input.Keyboard.Key;
-  private keyBackspace!: Phaser.Input.Keyboard.Key;
+  private rowTexts: Phaser.GameObjects.Text[] = [];
 
   constructor() {
     super("HighScoresScene");
   }
 
   create(): void {
-    this.add.text(PLAYFIELD_WIDTH / 2, 80, "HIGH SCORES", menuTitleStyle).setOrigin(0.5, 0.5);
-
     const rows = toHighScoreRows(loadRunHistory());
     this.itemCount = rows.length;
     this.scrollState = createScoreListScroll(this.itemCount, SCROLL);
-
-    const maskGraphics = this.make.graphics();
-    maskGraphics.fillStyle(0xffffff);
-    maskGraphics.fillRect(PLAYFIELD_WIDTH / 2 - 200, LIST_TOP, 400, VIEWPORT_HEIGHT);
-    const geometryMask = maskGraphics.createGeometryMask();
-
-    this.listContainer = this.add.container(PLAYFIELD_WIDTH / 2, LIST_TOP);
-    this.listContainer.setMask(geometryMask);
+    this.rowTexts = [];
 
     if (rows.length === 0) {
       this.add
         .text(PLAYFIELD_WIDTH / 2, LIST_TOP + VIEWPORT_HEIGHT / 2, "NO SCORES YET", scoresLineStyle)
-        .setOrigin(0.5, 0.5);
+        .setOrigin(0.5, 0.5)
+        .setDepth(1);
     } else {
       for (const [index, row] of rows.entries()) {
         const text = this.add
-          .text(0, index * SCROLL.rowHeight, formatHighScoreLine(row), scoresLineStyle)
-          .setOrigin(0.5, 0);
-        this.listContainer.add(text);
+          .text(
+            PLAYFIELD_WIDTH / 2,
+            LIST_TOP + index * SCROLL.rowHeight,
+            formatHighScoreLine(row),
+            scoresLineStyle,
+          )
+          .setOrigin(0.5, 0)
+          .setDepth(1);
+        this.rowTexts.push(text);
       }
       this.applyScrollOffset();
     }
 
+    this.add
+      .rectangle(PLAYFIELD_WIDTH / 2, LIST_TOP / 2, PLAYFIELD_WIDTH, LIST_TOP, BG)
+      .setDepth(5);
+    const belowTop = LIST_TOP + VIEWPORT_HEIGHT;
+    const belowHeight = PLAYFIELD_HEIGHT - belowTop;
+    this.add
+      .rectangle(PLAYFIELD_WIDTH / 2, belowTop + belowHeight / 2, PLAYFIELD_WIDTH, belowHeight, BG)
+      .setDepth(5);
+
+    this.add
+      .text(PLAYFIELD_WIDTH / 2, 80, "HIGH SCORES", menuTitleStyle)
+      .setOrigin(0.5, 0.5)
+      .setDepth(10);
+
     const back = this.add
       .text(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, "> BACK", menuOptionSelectedStyle)
       .setOrigin(0.5, 0.5)
+      .setDepth(10)
       .setInteractive({ useHandCursor: true });
     back.on("pointerover", () => {
       back.setText("> BACK");
@@ -75,12 +87,8 @@ export class HighScoresScene extends Phaser.Scene {
       this.goBack();
     });
 
-    if (this.input.keyboard === null) {
-      return;
-    }
-
-    this.keyEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    this.keyBackspace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE);
+    this.input.keyboard?.on("keydown-ESC", this.goBack, this);
+    this.input.keyboard?.on("keydown-BACKSPACE", this.goBack, this);
   }
 
   update(_time: number, delta: number): void {
@@ -88,24 +96,16 @@ export class HighScoresScene extends Phaser.Scene {
       this.scrollState = tickScoreListScroll(this.scrollState, this.itemCount, delta, SCROLL);
       this.applyScrollOffset();
     }
-
-    if (this.input.keyboard === null) {
-      return;
-    }
-
-    if (
-      Phaser.Input.Keyboard.JustDown(this.keyEsc) ||
-      Phaser.Input.Keyboard.JustDown(this.keyBackspace)
-    ) {
-      this.goBack();
-    }
   }
 
   private applyScrollOffset(): void {
-    this.listContainer.setY(LIST_TOP - this.scrollState.offsetY);
+    const offsetY = this.scrollState.offsetY;
+    for (const [index, text] of this.rowTexts.entries()) {
+      text.setY(LIST_TOP + index * SCROLL.rowHeight - offsetY);
+    }
   }
 
-  private goBack(): void {
+  private goBack = (): void => {
     this.scene.start("MenuScene");
-  }
+  };
 }
