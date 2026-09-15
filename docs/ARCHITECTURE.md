@@ -90,7 +90,9 @@ HighScoresScene --Back--> MenuScene
 PlayScene --caught--> MenuScene
 ```
 
-**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline.
+**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (Text, keyboard, pointer). Do not put bitecs in UI scenes.
+
+High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (score desc). Storage remains chronological append order.
 
 ## Game loop
 
@@ -120,25 +122,41 @@ PlayScene.update →
 
 ## ECS boundary
 
-| Layer                                                      | May import Phaser? | May mutate component arrays? | Role            |
-| ---------------------------------------------------------- | ------------------ | ---------------------------- | --------------- |
-| `game/components/**`                                       | No                 | Define storage only          | Data            |
-| logic systems (`movement`, `ghostAi`, `collectPellets`, …) | No                 | Yes                          | Pure simulation |
-| `playerInput`, `render`                                    | Yes                | Yes                          | Bridges         |
-| `game/scenes/**`                                           | Yes                | Spawn / init only            | Wire + pipeline |
-| `domain/**`                                                | No                 | No bitecs                    | Pure helpers    |
+| Layer                                                      | May import Phaser? | May mutate component arrays? | Role                |
+| ---------------------------------------------------------- | ------------------ | ---------------------------- | ------------------- |
+| `game/components/**`                                       | No                 | Define storage only          | Data                |
+| logic systems (`movement`, `ghostAi`, `collectPellets`, …) | No                 | Yes                          | Pure simulation     |
+| `game/systems/playerDirection.ts`                          | No                 | No (reads `Input` only)      | Pure query helper   |
+| `game/systems/playerInput.ts`, `render.ts`                 | Yes                | Yes (input / drawable sync)  | Bridges             |
+| `game/scenes/**`                                           | Yes                | Spawn / init only            | Wire + run pipeline |
+| `domain/**`                                                | No                 | No bitecs world APIs         | Pure helpers        |
+
+`npm run verify` enforces this via ESLint `no-restricted-imports` and `npm run check:ecs`. Docs are not the gate.
 
 ## Anti-abstraction rules
 
-- Phaser GameObjects mirror ECS `Position`; they are not the source of truth.
+A violation of these is a failed architecture check:
+
+- Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
 - Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse; only `movement` updates `Facing`, `Velocity`, and `Position`.
-- Scenes wire/spawn/tick — no movement or AI rules in the scene body beyond calling systems and domain clocks.
-- bitecs **0.4** only.
+- Scenes wire the world, spawn entities, and run the pipeline — **no movement or AI rules in the scene** beyond calling systems and domain clocks.
+- Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; pipe Graphics mirror domain edges.
+- One local GameObject map inside the render bridge is enough — do not build a sync framework.
+- Do not invent Entity/Component/System manager classes around bitecs.
+- bitecs **0.4** only. No `bitecs/legacy`, no second ECS library.
+
+## Principles
+
+1. **Domain vs presentation** — Pure math, maze, and playfield helpers live in `src/domain`. Gameplay rules live in Phaser-free systems. Scenes gather input and present; they do not own simulation.
+2. **Composition** — Prefer small functions and SoA components wired together. Do not introduce a god `GameManager` or global mutable singleton.
+3. **Dependencies** — Add a package only with a concrete need. Prefer stdlib and existing tooling.
+4. **Verification** — Automated checks (including `check:ecs`) and production build are mandatory. Gameplay/visual changes also require runtime inspection (see `docs/VERIFICATION.md`).
 
 ## Current runtime
 
 - Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores). Start opens `PlayScene`; High Scores opens `HighScoresScene` (score+date list from localStorage; empty → `NO SCORES YET`; >5 rows pause-at-top then scroll with trail loop).
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
+<<<<<<< HEAD
 - Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls and a mid-maze horizontal tunnel.
 - One player entity (16×16 directional pac-man sprites; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX.
@@ -146,3 +164,12 @@ PlayScene.update →
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
 - Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `pelletProgress`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, ghost path/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost helpers are unit-tested without Phaser.
 - No frightened mode, energizers behavior, or other ghosts yet (`@` cells are visual/audio power pellets with the same collect rules as dots).
+=======
+- Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls, dual solids (player blocked from house/door; ghosts allowed), and a mid-maze horizontal tunnel.
+- One player entity (16×16 directional pac-man sprites; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
+- One Blinky: house spawn, 1s release after first direction input, scatter/chase waves + Cruise Elroy, tunnel slowdown; circle overlap catch returns to menu (no high-score write).
+- Regular pellets (`dot.png`) on playable cells; touching removes them, plays pickup SFX, and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX.
+- Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
+- Domain helpers (`clamp`, `countdown`, `runClock`, `pelletProgress`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, ghost path/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost helpers are unit-tested without Phaser.
+- No frightened mode, energizers, or other ghosts yet.
+>>>>>>> 18dfd4a (Fixes play scene minor ordering bug)

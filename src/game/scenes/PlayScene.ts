@@ -118,9 +118,8 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    const hasInput = hasPlayerDirectionInput(this.world);
-
     this.runPlayerInput(this.world);
+    const hasInput = hasPlayerDirectionInput(this.world);
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
     ghostRelease(this.world, this.ghostReleaseClock);
