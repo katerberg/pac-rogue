@@ -31,6 +31,8 @@ export function toHighScoreRows(history: RunHistory): HighScoreRow[] {
     });
 }
 
+export const HIGH_SCORE_COLUMN_HEADER = "TIME  DATE";
+
 export function formatHighScoreLine(row: HighScoreRow): string {
-  return `${row.score}  ${row.dateLabel}`;
+  return `${String(row.score).padStart(4, " ")}  ${row.dateLabel}`;
 }

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { RUN_HISTORY_VERSION } from "./runHistory";
-import { dateLabelFromClearedAt, formatHighScoreLine, toHighScoreRows } from "./highScoresView";
+import {
+  dateLabelFromClearedAt,
+  formatHighScoreLine,
+  HIGH_SCORE_COLUMN_HEADER,
+  toHighScoreRows,
+} from "./highScoresView";
 
 describe("dateLabelFromClearedAt", () => {
   it("uses the YYYY-MM-DD prefix from ISO timestamps", () => {
@@ -37,13 +42,14 @@ describe("toHighScoreRows", () => {
 });
 
 describe("formatHighScoreLine", () => {
-  it("joins score and date label", () => {
+  it("joins padded time and date label under the column header", () => {
+    expect(HIGH_SCORE_COLUMN_HEADER).toBe("TIME  DATE");
     expect(
       formatHighScoreLine({
         score: 880,
         dateLabel: "2026-01-01",
         clearedAt: "2026-01-01T00:00:00.000Z",
       }),
-    ).toBe("880  2026-01-01");
+    ).toBe(" 880  2026-01-01");
   });
 });

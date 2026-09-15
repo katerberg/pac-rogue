@@ -1,5 +1,9 @@
 import Phaser from "phaser";
-import { formatHighScoreLine, toHighScoreRows } from "../../domain/highScoresView";
+import {
+  formatHighScoreLine,
+  HIGH_SCORE_COLUMN_HEADER,
+  toHighScoreRows,
+} from "../../domain/highScoresView";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
   createScoreListScroll,
@@ -18,6 +22,9 @@ import {
 const SCROLL = DEFAULT_SCORE_LIST_SCROLL;
 const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 const LIST_TOP = 200;
+const HEADER_Y = LIST_TOP - 36;
+const HEADER_LINE_Y = LIST_TOP - 10;
+const HEADER_LINE_WIDTH = 220;
 const BG = 0x1a1a2e;
 
 export class HighScoresScene extends Phaser.Scene {
@@ -68,6 +75,14 @@ export class HighScoresScene extends Phaser.Scene {
     this.add
       .text(PLAYFIELD_WIDTH / 2, 80, "HIGH SCORES", menuTitleStyle)
       .setOrigin(0.5, 0.5)
+      .setDepth(10);
+
+    this.add
+      .text(PLAYFIELD_WIDTH / 2, HEADER_Y, HIGH_SCORE_COLUMN_HEADER, scoresLineStyle)
+      .setOrigin(0.5, 0)
+      .setDepth(10);
+    this.add
+      .rectangle(PLAYFIELD_WIDTH / 2, HEADER_LINE_Y, HEADER_LINE_WIDTH, 2, 0xffffff)
       .setDepth(10);
 
     const back = this.add
