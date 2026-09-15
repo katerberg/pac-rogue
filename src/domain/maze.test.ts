@@ -7,6 +7,8 @@ import {
   MAZE_ROWS,
   MAZE_SOLIDS,
   MAZE_WALLS,
+  GHOST_HOUSE_EXIT_COL,
+  GHOST_HOUSE_EXIT_ROW,
   PLAYER_SPAWN_COL,
   PLAYER_SPAWN_ROW,
   TILE_SIZE,
@@ -18,6 +20,8 @@ import {
   cellOriginY,
   clampAgainstFacingWall,
   isExterior,
+  isGhostWalkable,
+  isHouse,
   isSolid,
   isTunnelMouth,
   isWalkable,
@@ -117,13 +121,25 @@ describe("maze", () => {
     expect(isTunnelMouth(13, MAZE_ROWS - 1)).toBe(false);
   });
 
-  it("treats # and - as walls and keeps corridors walkable", () => {
+  it("treats # as walls and keeps corridors walkable", () => {
     expect(isSolid(1, 1)).toBe(false);
     expect(isWalkable(1, 1)).toBe(true);
     expect(isSolid(2, 2)).toBe(true);
     expect(isWall(2, 2)).toBe(true);
     expect(isSolid(13, 12)).toBe(true);
+    expect(isWall(13, 12)).toBe(false);
     expect(isWalkable(11, 11)).toBe(true);
+  });
+
+  it("carves a ghost house walkable for ghosts but blocked for the player", () => {
+    expect(isHouse(13, 12)).toBe(true);
+    expect(isHouse(13, 14)).toBe(true);
+    expect(isGhostWalkable(13, 12)).toBe(true);
+    expect(isGhostWalkable(13, 14)).toBe(true);
+    expect(isWalkable(13, 12)).toBe(false);
+    expect(isWalkable(13, 14)).toBe(false);
+    expect(isWalkable(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
+    expect(isGhostWalkable(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
   });
 
   it("spawns in the lowest empty center cell", () => {
@@ -141,7 +157,7 @@ describe("maze", () => {
 
   it("lists wall centers and pipe edges without treating exterior as walls", () => {
     const centers = wallCellCenters();
-    expect(centers.length).toBe(498);
+    expect(centers.length).toBe(478);
     expect(centers.every((c) => isWall(c.col, c.row))).toBe(true);
     expect(centers.every((c) => !isExterior(c.col, c.row))).toBe(true);
 

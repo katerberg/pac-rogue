@@ -2,6 +2,7 @@ import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
 import {
+  GHOST_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
@@ -15,6 +16,7 @@ import { Position } from "../components/Position";
 const SPRITE_DISPLAY_SIZE = 16;
 const PELLET_TEXTURE_KEY = "pellet-dot";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
+const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const CHOMP_PIXELS_PER_FRAME = 12;
 const CHOMP_CYCLE = [1, 2, 3, 2] as const;
 const CLOSED_MOUTH_FRAME = 3;
@@ -47,6 +49,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   }
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
+  scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
 }
 
 function facingToDir(facing: Direction): PacmanDir | null {
@@ -107,7 +110,8 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
       if (
         id !== PLAYER_DRAWABLE_ID &&
         id !== PELLET_DRAWABLE_ID &&
-        id !== POWER_PELLET_DRAWABLE_ID
+        id !== POWER_PELLET_DRAWABLE_ID &&
+        id !== GHOST_DRAWABLE_ID
       ) {
         continue;
       }
@@ -125,7 +129,9 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
         const textureKey =
           id === PLAYER_DRAWABLE_ID
             ? pacmanTextureKey("right", CLOSED_MOUTH_FRAME)
-            : pelletTextureKey(id);
+            : id === GHOST_DRAWABLE_ID
+              ? BLINKY_TEXTURE_KEY
+              : pelletTextureKey(id);
         go = scene.add.image(x, y, textureKey);
         go.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
         go.setName(id);
