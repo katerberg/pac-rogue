@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { RUN_HISTORY_VERSION } from "./runHistory";
 import {
   dateLabelFromClearedAt,
+  formatHighScoreHeader,
   formatHighScoreLine,
-  HIGH_SCORE_COLUMN_HEADER,
+  HIGH_SCORE_DATE_WIDTH,
+  HIGH_SCORE_TIME_WIDTH,
   toHighScoreRows,
 } from "./highScoresView";
 
@@ -41,15 +43,18 @@ describe("toHighScoreRows", () => {
   });
 });
 
-describe("formatHighScoreLine", () => {
-  it("joins padded time and date label under the column header", () => {
-    expect(HIGH_SCORE_COLUMN_HEADER).toBe("TIME  DATE");
-    expect(
-      formatHighScoreLine({
-        score: 880,
-        dateLabel: "2026-01-01",
-        clearedAt: "2026-01-01T00:00:00.000Z",
-      }),
-    ).toBe(" 880  2026-01-01");
+describe("formatHighScoreHeader / formatHighScoreLine", () => {
+  it("uses one fixed-width template so header and rows share columns", () => {
+    const header = formatHighScoreHeader();
+    const line = formatHighScoreLine({
+      score: 880,
+      dateLabel: "2026-01-01",
+      clearedAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(header).toBe("TIME  DATE      ");
+    expect(line).toBe(" 880  2026-01-01");
+    expect(header.length).toBe(line.length);
+    expect(header.length).toBe(HIGH_SCORE_TIME_WIDTH + 2 + HIGH_SCORE_DATE_WIDTH);
+    expect(header.indexOf("DATE")).toBe(line.indexOf("2026"));
   });
 });

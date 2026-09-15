@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import {
+  formatHighScoreHeader,
   formatHighScoreLine,
-  HIGH_SCORE_COLUMN_HEADER,
   toHighScoreRows,
 } from "../../domain/highScoresView";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -24,13 +24,14 @@ const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 const LIST_TOP = 200;
 const HEADER_Y = LIST_TOP - 36;
 const HEADER_LINE_Y = LIST_TOP - 10;
-const HEADER_LINE_WIDTH = 220;
 const BG = 0x1a1a2e;
 
 export class HighScoresScene extends Phaser.Scene {
   private scrollState: ScoreListScrollState = createScoreListScroll(0, SCROLL);
   private itemCount = 0;
   private rowTexts: Phaser.GameObjects.Text[] = [];
+  private keyEsc!: Phaser.Input.Keyboard.Key;
+  private keyBackspace!: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super("HighScoresScene");
@@ -42,21 +43,30 @@ export class HighScoresScene extends Phaser.Scene {
     this.scrollState = createScoreListScroll(this.itemCount, SCROLL);
     this.rowTexts = [];
 
+    const headerLine = formatHighScoreHeader();
+    const probe = this.add.text(0, 0, headerLine, scoresLineStyle).setVisible(false);
+    const listLeftX = PLAYFIELD_WIDTH / 2 - probe.width / 2;
+    const listWidth = probe.width;
+    probe.destroy();
+
     if (rows.length === 0) {
       this.add
         .text(PLAYFIELD_WIDTH / 2, LIST_TOP + VIEWPORT_HEIGHT / 2, "NO SCORES YET", scoresLineStyle)
         .setOrigin(0.5, 0.5)
         .setDepth(1);
     } else {
+      this.add.text(listLeftX, HEADER_Y, headerLine, scoresLineStyle).setOrigin(0, 0).setDepth(10);
+      this.add.rectangle(PLAYFIELD_WIDTH / 2, HEADER_LINE_Y, listWidth, 2, 0xffffff).setDepth(10);
+
       for (const [index, row] of rows.entries()) {
         const text = this.add
           .text(
-            PLAYFIELD_WIDTH / 2,
+            listLeftX,
             LIST_TOP + index * SCROLL.rowHeight,
             formatHighScoreLine(row),
             scoresLineStyle,
           )
-          .setOrigin(0.5, 0)
+          .setOrigin(0, 0)
           .setDepth(1);
         this.rowTexts.push(text);
       }
@@ -77,14 +87,6 @@ export class HighScoresScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(10);
 
-    this.add
-      .text(PLAYFIELD_WIDTH / 2, HEADER_Y, HIGH_SCORE_COLUMN_HEADER, scoresLineStyle)
-      .setOrigin(0.5, 0)
-      .setDepth(10);
-    this.add
-      .rectangle(PLAYFIELD_WIDTH / 2, HEADER_LINE_Y, HEADER_LINE_WIDTH, 2, 0xffffff)
-      .setDepth(10);
-
     const back = this.add
       .text(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, "> BACK", menuOptionSelectedStyle)
       .setOrigin(0.5, 0.5)
@@ -102,14 +104,29 @@ export class HighScoresScene extends Phaser.Scene {
       this.goBack();
     });
 
-    this.input.keyboard?.on("keydown-ESC", this.goBack, this);
-    this.input.keyboard?.on("keydown-BACKSPACE", this.goBack, this);
+    if (this.input.keyboard === null) {
+      return;
+    }
+
+    this.keyEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    this.keyBackspace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE);
   }
 
   update(_time: number, delta: number): void {
     if (this.itemCount > SCROLL.scrollWhenMoreThan) {
       this.scrollState = tickScoreListScroll(this.scrollState, this.itemCount, delta, SCROLL);
       this.applyScrollOffset();
+    }
+
+    if (this.input.keyboard === null) {
+      return;
+    }
+
+    if (
+      Phaser.Input.Keyboard.JustDown(this.keyEsc) ||
+      Phaser.Input.Keyboard.JustDown(this.keyBackspace)
+    ) {
+      this.goBack();
     }
   }
 
