@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { PLAYFIELD_WIDTH } from "../../domain/playfield";
+import { bindDisplayTextResolution } from "./textResolution";
 import { menuOptionSelectedStyle, menuOptionStyle, menuTitleStyle } from "../ui/textStyles";
 
 const OPTIONS = [
@@ -10,6 +11,7 @@ const OPTIONS = [
 export class MenuScene extends Phaser.Scene {
   private selectedIndex = 0;
   private optionTexts: Phaser.GameObjects.Text[] = [];
+  private titleText!: Phaser.GameObjects.Text;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
@@ -26,7 +28,9 @@ export class MenuScene extends Phaser.Scene {
     this.optionTexts = [];
     this.moveCooldownMs = 0;
 
-    this.add.text(PLAYFIELD_WIDTH / 2, 120, "PAC-ROGUE", menuTitleStyle).setOrigin(0.5, 0.5);
+    this.titleText = this.add
+      .text(PLAYFIELD_WIDTH / 2, 120, "PAC-ROGUE", menuTitleStyle)
+      .setOrigin(0.5, 0.5);
 
     const startY = 280;
     const gap = 48;
@@ -49,6 +53,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.refreshOptions();
+    bindDisplayTextResolution(this, () => [this.titleText, ...this.optionTexts]);
 
     if (this.input.keyboard === null) {
       return;
