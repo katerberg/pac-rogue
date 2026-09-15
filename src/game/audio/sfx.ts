@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
 
-export type SfxId = "pelletMunch" | "pelletPickup2";
+export type SfxId = "pelletMunch" | "pelletMunch2" | "siren" | "levelComplete";
 
 type SfxEntry = {
   key: string;
@@ -11,18 +11,28 @@ type SfxEntry = {
 const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
   pelletMunch: {
     key: "pellet-munch",
-    url: "sound/zapsplat-munch.ogg",
+    url: "sound/pickup1.ogg",
     volume: 0.5,
   },
-  pelletPickup2: {
-    key: "pellet-pickup2",
+  pelletMunch2: {
+    key: "pellet-munch2",
     url: "sound/pickup2.ogg",
     volume: 0.5,
+  },
+  siren: {
+    key: "siren",
+    url: "sound/siren.ogg",
+    volume: 0.3,
+  },
+  levelComplete: {
+    key: "level-complete",
+    url: "sound/levelComplete.ogg",
+    volume: 0.6,
   },
 };
 
 export function pelletCollectSfxId(pickupNumber: number): SfxId {
-  return pickupNumber > 0 && pickupNumber % 2 === 0 ? "pelletPickup2" : "pelletMunch";
+  return pickupNumber > 0 && pickupNumber % 2 === 0 ? "pelletMunch2" : "pelletMunch";
 }
 
 export function preloadSfx(scene: Phaser.Scene): void {
@@ -37,6 +47,19 @@ export function playSfx(scene: Phaser.Scene, id: SfxId): void {
     return;
   }
   scene.sound.play(entry.key, { volume: entry.volume });
+}
+
+export function startLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
+  const entry = SFX_MANIFEST[id];
+  if (!scene.cache.audio.exists(entry.key) || scene.sound.isPlaying(entry.key)) {
+    return;
+  }
+  scene.sound.play(entry.key, { volume: entry.volume, loop: true });
+}
+
+export function stopLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
+  const entry = SFX_MANIFEST[id];
+  scene.sound.stopByKey(entry.key);
 }
 
 export function playPelletCollectSfx(

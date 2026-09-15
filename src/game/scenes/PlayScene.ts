@@ -22,7 +22,13 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
-import { playPelletCollectSfx, preloadSfx } from "../audio/sfx";
+import {
+  playPelletCollectSfx,
+  playSfx,
+  preloadSfx,
+  startLoopingSfx,
+  stopLoopingSfx,
+} from "../audio/sfx";
 import { saveSuccessfulRun } from "../storage/runHistoryStorage";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { movement } from "../systems/movement";
@@ -68,6 +74,11 @@ export class PlayScene extends Phaser.Scene {
 
     this.runPlayerInput = createPlayerInput(this);
     this.runRender = createRender(this);
+
+    startLoopingSfx(this, "siren");
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      stopLoopingSfx(this, "siren");
+    });
   }
 
   update(_time: number, delta: number): void {
@@ -86,6 +97,8 @@ export class PlayScene extends Phaser.Scene {
     this.collectedText.setText(this.collectedLabel());
 
     if (collectResult.shouldRecordClear) {
+      stopLoopingSfx(this, "siren");
+      playSfx(this, "levelComplete");
       saveSuccessfulRun(this.clock.remaining);
     }
 

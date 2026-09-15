@@ -10,9 +10,9 @@ describe("pelletCollectSfxId", () => {
   });
 
   it("uses pickup2 every other pellet", () => {
-    expect(pelletCollectSfxId(2)).toBe("pelletPickup2");
-    expect(pelletCollectSfxId(4)).toBe("pelletPickup2");
-    expect(pelletCollectSfxId(6)).toBe("pelletPickup2");
+    expect(pelletCollectSfxId(2)).toBe("pelletMunch2");
+    expect(pelletCollectSfxId(4)).toBe("pelletMunch2");
+    expect(pelletCollectSfxId(6)).toBe("pelletMunch2");
   });
 
   it("treats non-positive pickup numbers as munch", () => {
