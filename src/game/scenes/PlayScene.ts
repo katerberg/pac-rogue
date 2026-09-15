@@ -1,11 +1,18 @@
 import { addComponent, addEntity, createWorld, type World } from "bitecs";
 import Phaser from "phaser";
+import {
+  createPelletProgress,
+  applyPelletCollect,
+  type PelletProgress,
+} from "../../domain/pelletProgress";
+import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
 import { pelletCellCenters, playerSpawnCenter, wallCellCenters } from "../../domain/maze";
 import {
   PELLET_DRAWABLE_ID,
   PELLET_RADIUS,
   PLAYER_DRAWABLE_ID,
   PLAYER_RADIUS,
+  PLAYFIELD_WIDTH,
 } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -15,17 +22,27 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
-import { collectPellets } from "../systems/collectPellets";
+import { saveSuccessfulRun } from "../storage/runHistoryStorage";
+import { collectPellets, countPellets } from "../systems/collectPellets";
 import { movement } from "../systems/movement";
+import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { createRender, preloadPlayArt } from "../systems/render";
+
+const HUD_TEXT_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
+  fontFamily: "monospace",
+  fontSize: "16px",
+  color: "#ffffff",
+};
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;
   private runRender!: (world: World) => void;
-  private collectedCount = 0;
+  private clock: RunClock = createRunClock();
+  private pelletProgress: PelletProgress = createPelletProgress(0);
   private collectedText!: Phaser.GameObjects.Text;
+  private timerText!: Phaser.GameObjects.Text;
 
   constructor() {
     super("PlayScene");
@@ -41,13 +58,13 @@ export class PlayScene extends Phaser.Scene {
     this.spawnPellets();
     this.spawnPlayer();
 
-    this.collectedCount = 0;
-    this.collectedText = this.add
-      .text(12, 8, this.collectedLabel(), {
-        fontFamily: "monospace",
-        fontSize: "16px",
-        color: "#ffffff",
-      })
+    this.clock = createRunClock();
+    this.pelletProgress = createPelletProgress(countPellets(this.world));
+
+    this.collectedText = this.add.text(12, 8, this.collectedLabel(), HUD_TEXT_STYLE).setDepth(10);
+    this.timerText = this.add
+      .text(PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_TEXT_STYLE)
+      .setOrigin(1, 0)
       .setDepth(10);
 
     this.runPlayerInput = createPlayerInput(this);
@@ -57,13 +74,28 @@ export class PlayScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.runPlayerInput(this.world);
     movement(this.world, delta);
-    this.collectedCount += collectPellets(this.world);
+
+    this.clock = tickRunClock(this.clock, hasPlayerDirectionInput(this.world), delta);
+    this.timerText.setText(this.timerLabel());
+
+    const removed = collectPellets(this.world);
+    const collectResult = applyPelletCollect(this.pelletProgress, removed);
+    this.pelletProgress = collectResult.progress;
     this.collectedText.setText(this.collectedLabel());
+
+    if (collectResult.shouldRecordClear) {
+      saveSuccessfulRun(this.clock.remaining);
+    }
+
     this.runRender(this.world);
   }
 
   private collectedLabel(): string {
-    return `Collected: ${this.collectedCount}`;
+    return `Collected: ${this.pelletProgress.collectedCount}`;
+  }
+
+  private timerLabel(): string {
+    return `Time: ${this.clock.remaining}`;
   }
 
   private spawnWalls(): void {

@@ -5,7 +5,7 @@ import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
-import { collectPellets } from "./collectPellets";
+import { collectPellets, countPellets } from "./collectPellets";
 
 function spawnPlayer(x: number, y: number) {
   const world = createWorld();
@@ -55,5 +55,17 @@ describe("collectPellets", () => {
 
     expect(collectPellets(world)).toBe(2);
     expect(query(world, [Pellet, Position])).toHaveLength(1);
+  });
+});
+
+describe("countPellets", () => {
+  it("counts remaining pellet entities", () => {
+    const { world } = spawnPlayer(100, 100);
+    expect(countPellets(world)).toBe(0);
+    spawnPellet(world, 100, 100);
+    spawnPellet(world, 200, 200);
+    expect(countPellets(world)).toBe(2);
+    collectPellets(world);
+    expect(countPellets(world)).toBe(1);
   });
 });
