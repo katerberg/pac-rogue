@@ -6,8 +6,14 @@ import { chromium } from "playwright";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ports = JSON.parse(readFileSync(join(root, "scripts", "ports.json"), "utf8"));
-const artifactPath = join(root, "artifacts", "visual-smoke.png");
+const playArtifactPath = join(root, "artifacts", "visual-smoke.png");
+const menuArtifactPath = join(root, "artifacts", "visual-smoke-menu.png");
 const url = `http://127.0.0.1:${ports.agentPreview}/`;
+
+const GAME_WIDTH = 800;
+const GAME_HEIGHT = 600;
+const MENU_START_X = GAME_WIDTH / 2;
+const MENU_START_Y = 280;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -47,8 +53,18 @@ async function stopPreview(preview) {
   }
 }
 
+async function clickGamePoint(page, canvas, gameX, gameY) {
+  const box = await canvas.boundingBox();
+  if (box === null) {
+    throw new Error("Canvas has no bounding box");
+  }
+  const x = box.x + (gameX / GAME_WIDTH) * box.width;
+  const y = box.y + (gameY / GAME_HEIGHT) * box.height;
+  await page.mouse.click(x, y);
+}
+
 async function main() {
-  mkdirSync(dirname(artifactPath), { recursive: true });
+  mkdirSync(dirname(playArtifactPath), { recursive: true });
 
   const preview = spawn(
     "npx",
@@ -79,10 +95,16 @@ async function main() {
     await sleep(500);
 
     const canvas = page.locator("canvas").first();
-    await canvas.screenshot({ path: artifactPath });
+    await canvas.screenshot({ path: menuArtifactPath });
+
+    await clickGamePoint(page, canvas, MENU_START_X, MENU_START_Y);
+    await sleep(800);
+
+    await canvas.screenshot({ path: playArtifactPath });
     await browser.close();
 
-    console.log(`Visual smoke OK — screenshot written to ${artifactPath}`);
+    console.log(`Visual smoke OK — menu: ${menuArtifactPath}`);
+    console.log(`Visual smoke OK — play: ${playArtifactPath}`);
   } catch (error) {
     console.error("Visual smoke failed.");
     if (previewLog.trim()) {
@@ -101,6 +123,5 @@ main()
     process.exitCode = 1;
   })
   .finally(() => {
-    // Preview child stdio can keep the event loop alive after SIGTERM.
     setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref();
   });
