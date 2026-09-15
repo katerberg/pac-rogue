@@ -123,5 +123,6 @@ main()
     process.exitCode = 1;
   })
   .finally(() => {
+    // Preview child stdio can keep the event loop alive after SIGTERM.
     setTimeout(() => process.exit(process.exitCode ?? 0), 100).unref();
   });
