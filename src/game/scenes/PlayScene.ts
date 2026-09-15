@@ -28,6 +28,7 @@ import { movement } from "../systems/movement";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { createRender, preloadPlayArt } from "../systems/render";
+import { bindDisplayTextResolution } from "./textResolution";
 import { hudTextStyle } from "../ui/textStyles";
 
 export class PlayScene extends Phaser.Scene {
@@ -61,6 +62,7 @@ export class PlayScene extends Phaser.Scene {
       .text(PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), hudTextStyle)
       .setOrigin(1, 0)
       .setDepth(10);
+    bindDisplayTextResolution(this, () => [this.collectedText, this.timerText]);
 
     this.runPlayerInput = createPlayerInput(this);
     this.runRender = createRender(this);
