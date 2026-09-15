@@ -1,7 +1,7 @@
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
-import { PELLET_DRAWABLE_ID, PLAYER_DRAWABLE_ID } from "../../domain/playfield";
+import { GHOST_DRAWABLE_ID, PELLET_DRAWABLE_ID, PLAYER_DRAWABLE_ID } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction } from "../components/Input";
@@ -10,6 +10,7 @@ import { Position } from "../components/Position";
 
 const SPRITE_DISPLAY_SIZE = 16;
 const PELLET_TEXTURE_KEY = "pellet-dot";
+const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const CHOMP_PIXELS_PER_FRAME = 12;
 const CHOMP_CYCLE = [1, 2, 3, 2] as const;
 const CLOSED_MOUTH_FRAME = 3;
@@ -37,6 +38,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
     }
   }
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
+  scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
 }
 
 function facingToDir(facing: Direction): PacmanDir | null {
@@ -94,7 +96,7 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
     const alive = new Set<string>();
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
-      if (id !== PLAYER_DRAWABLE_ID && id !== PELLET_DRAWABLE_ID) {
+      if (id !== PLAYER_DRAWABLE_ID && id !== PELLET_DRAWABLE_ID && id !== GHOST_DRAWABLE_ID) {
         continue;
       }
 
@@ -111,7 +113,9 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
         const textureKey =
           id === PLAYER_DRAWABLE_ID
             ? pacmanTextureKey("right", CLOSED_MOUTH_FRAME)
-            : PELLET_TEXTURE_KEY;
+            : id === GHOST_DRAWABLE_ID
+              ? BLINKY_TEXTURE_KEY
+              : PELLET_TEXTURE_KEY;
         go = scene.add.image(x, y, textureKey);
         go.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
         go.setName(id);

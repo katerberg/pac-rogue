@@ -14,6 +14,10 @@ export const PELLET_RADIUS = 2;
 
 export const PELLET_DRAWABLE_ID = "pellet";
 
+export const GHOST_DRAWABLE_ID = "blinky";
+
+export const GHOST_RADIUS = PLAYER_RADIUS;
+
 export function playfieldMinX(radius = PLAYER_RADIUS): number {
   return radius;
 }
