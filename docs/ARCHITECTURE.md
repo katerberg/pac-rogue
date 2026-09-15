@@ -21,47 +21,44 @@ src/
     runClock.ts               # start-on-input countdown state machine
     pelletProgress.ts         # collect totals + once-per-run clear detection
     runHistory.ts             # successful-run history schema + capped append
+    highScoresView.ts         # display sort/format for high-score list (Phaser-free)
+    scoreListScroll.ts        # pause/scroll/loop state machine for long lists
     playfield.ts              # speed, size, bounds, drawable id / radius constants
     maze.ts                   # static maze ASCII, walls/exterior/tunnels, centers, pipe edges, wrap
   game/
     config.ts                 # Phaser GameConfig + shared dimensions
+    ui/
+      textStyles.ts           # shared monospace Phaser Text styles (HUD + menus)
     components/               # data only — no Phaser
-      Position.ts             # world x/y floats (pixels)
-      Velocity.ts             # vx/vy floats (pixels per second)
-      Input.ts                # sticky next direction intent
-      Facing.ts               # current travel direction (movement-owned)
-      Player.ts               # tag
-      Wall.ts                 # tag — solid maze cell
-      Pellet.ts               # tag — collectible regular pellet
-      Drawable.ts             # presentation id / radius (player + pellets)
+      Position.ts
+      Velocity.ts
+      Input.ts
+      Facing.ts
+      Player.ts
+      Wall.ts
+      Pellet.ts
+      Drawable.ts
     storage/
       runHistoryStorage.ts    # localStorage adapter for successful runs
     systems/
       playerInput.ts          # Phaser keys → sticky Input (bridge)
       movement.ts             # Facing + maze collision / turns (Phaser-free)
-      collectPellets.ts       # player–pellet overlap → removeEntity; countPellets (Phaser-free)
+      collectPellets.ts       # player–pellet overlap → removeEntity (Phaser-free)
       playerDirection.ts      # read sticky Input for countdown start (Phaser-free)
       render.ts               # sprites + wall pipe Graphics; preloadPlayArt (bridge)
     scenes/
+      MenuScene.ts            # boot title + Start / High Scores (no ECS)
+      HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
 public/
   art/                        # Pac-Man / pellet / (unused) ghost & fruit PNGs
 scripts/
-  ports.json                  # Human vs agent local ports (single source of truth)
-  visual-smoke.mjs            # Headless boot + screenshot for agents/CI
-  check-ecs-boundaries.mjs    # Hard ECS layer gate (`npm run check:ecs`)
-.github/workflows/
-  verify.yml                  # CI: npm run verify on PRs and main
-.githooks/
-  pre-commit                  # Runs npm run verify:precommit (no build/visual)
-.agents/skills/
-  verification/               # verify level + evidence workflow
-  no-comments/                # /no-comments — required on every code-changing plan
-.cursor/rules/
-  plans-include-no-comments.mdc  # always-on: plans must include /no-comments
+  ports.json
+  visual-smoke.mjs
+  check-ecs-boundaries.mjs
 docs/
-  ARCHITECTURE.md             # This file
-  VERIFICATION.md             # How to prove changes
+  ARCHITECTURE.md
+  VERIFICATION.md
 ```
 
 ## Ports
@@ -69,6 +66,22 @@ docs/
 - Humans: `npm run dev` → 5173, `npm run preview` → 4173
 - Agents: `npm run dev:agent` → 5174, preview/visual → 4174
 - Agents may kill/restart only their ports.
+
+## Scenes
+
+Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `HighScoresScene`, `PlayScene`.
+
+Transitions use exclusive `scene.start` only (no parallel `launch` for v1):
+
+```text
+MenuScene --Start--> PlayScene
+MenuScene --High Scores--> HighScoresScene
+HighScoresScene --Back--> MenuScene
+```
+
+**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (Text, keyboard, pointer). Do not put bitecs in UI scenes.
+
+High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (score desc). Storage remains chronological append order.
 
 ## Game loop
 
@@ -121,9 +134,11 @@ A violation of these is a failed architecture check:
 
 ## Current runtime
 
-- One Phaser scene (`PlayScene`) owns world creation and the system pipeline.
+- Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores). Start opens `PlayScene`; High Scores opens `HighScoresScene` (score+date list from localStorage; empty → `NO SCORES YET`; >5 rows pause-at-top then scroll with trail loop).
+- Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
 - Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls and a mid-maze horizontal tunnel.
 - One player entity (16×16 directional pac-man sprites; closed mouth when idle) moves continuously along centerlines with sticky next-direction turns; walls/exterior block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) on playable cells; touching removes them and increments a top-left `Collected` counter.
-- Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest); no on-canvas history UI.
-- `clamp` + `countdown` + `runClock` + `pelletProgress` + `runHistory` + `playfield` + `maze` helpers are Phaser-free; `movement`, `collectPellets`, `runClock`, and `pelletProgress` are unit-tested without Phaser.
+- Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
+- `clamp` + `countdown` + `runClock` + `pelletProgress` + `runHistory` + `highScoresView` + `scoreListScroll` + `playfield` + `maze` helpers are Phaser-free; movement/collect/clock/progress/scroll/view helpers are unit-tested without Phaser.
+- No in-play return to menu yet.

@@ -43,7 +43,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: visual-smoke
-          path: artifacts/visual-smoke.png
+          path: |
+            artifacts/visual-smoke.png
+            artifacts/visual-smoke-menu.png
           if-no-files-found: ignore
 
       - name: Publish visual smoke image for PR
@@ -63,6 +65,9 @@ jobs:
 
           WORK=$(mktemp -d)
           cp artifacts/visual-smoke.png "$WORK/visual-smoke.png"
+          if [ -f artifacts/visual-smoke-menu.png ]; then
+            cp artifacts/visual-smoke-menu.png "$WORK/visual-smoke-menu.png"
+          fi
           cd "$WORK"
 
           git init -q
@@ -70,6 +75,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add visual-smoke.png
+          if [ -f visual-smoke-menu.png ]; then
+            git add visual-smoke-menu.png
+          fi
           git commit -q -m "Visual smoke for PR #${{ github.event.number }} (run ${{ github.run_id }})"
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git push -qf origin "HEAD:refs/heads/${BRANCH}"
@@ -77,6 +85,9 @@ jobs:
           {
             echo "has_image=true"
             echo "image_url=https://raw.githubusercontent.com/${{ github.repository }}/${BRANCH}/visual-smoke.png?run=${{ github.run_id }}"
+            if [ -f visual-smoke-menu.png ]; then
+              echo "menu_image_url=https://raw.githubusercontent.com/${{ github.repository }}/${BRANCH}/visual-smoke-menu.png?run=${{ github.run_id }}"
+            fi
           } >> "$GITHUB_OUTPUT"
 
       - name: Prepare visual smoke PR comment
@@ -99,11 +110,19 @@ jobs:
             echo "**Status:** ${STATUS}"
             echo
             if [ "${{ steps.publish_smoke.outputs.has_image }}" = "true" ]; then
-              echo "![Visual smoke](${{ steps.publish_smoke.outputs.image_url }})"
+              echo "### PlayScene"
               echo
+              echo "![Visual smoke — play](${{ steps.publish_smoke.outputs.image_url }})"
+              echo
+              if [ -n "${{ steps.publish_smoke.outputs.menu_image_url }}" ]; then
+                echo "### MenuScene"
+                echo
+                echo "![Visual smoke — menu](${{ steps.publish_smoke.outputs.menu_image_url }})"
+                echo
+              fi
             fi
             echo "- [Workflow run](${RUN_URL})"
-            echo "- Screenshot also available as the \`visual-smoke\` workflow artifact."
+            echo "- Screenshots also available as the \`visual-smoke\` workflow artifact."
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 

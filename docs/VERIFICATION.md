@@ -76,8 +76,8 @@ Agents may freely kill and restart **5174** / **4174**. Do not bind to or kill t
 
 - Serves `dist/` via Vite preview on the **agent** preview port (`http://127.0.0.1:4174`)
 - Opens the page with Playwright Chromium
-- Waits for a `canvas` element
-- Writes `artifacts/visual-smoke.png`
+- Waits for a `canvas` element, captures `artifacts/visual-smoke-menu.png`
+- Clicks **Start** on the menu, then captures `artifacts/visual-smoke.png` (**PlayScene** maze/HUD — primary CI smoke image)
 
 Agents must **read that image** (or an equivalent live capture) when claiming visual verification — not merely note that the script exited 0.
 
