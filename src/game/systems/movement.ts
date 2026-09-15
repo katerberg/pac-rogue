@@ -168,7 +168,9 @@ export function movement(world: World, deltaMs: number): void {
       !canEnterStep(nextX, nextY, facing, solids) &&
       isAlignedForTurn(nextX, nextY, TURN_ALIGN_EPS)
     ) {
-      facing = DIRECTION.none;
+      if (!hasComponent(world, eid, Ghost)) {
+        facing = DIRECTION.none;
+      }
       Velocity.x[eid] = 0;
       Velocity.y[eid] = 0;
     }
