@@ -1,4 +1,7 @@
-export const GHOST_RELEASE_DELAY_MS = 100;
+import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+
+export const BLINKY_RELEASE_DELAY_MS = 100;
+export const PINKY_RELEASE_DELAY_MS = 5_000;
 
 export type GhostReleaseClock = {
   started: boolean;
@@ -24,6 +27,16 @@ export function tickGhostRelease(
   };
 }
 
-export function shouldReleaseGhost(clock: GhostReleaseClock): boolean {
-  return clock.started && clock.elapsedMs >= GHOST_RELEASE_DELAY_MS;
+export function releaseDelayForKind(kind: GhostKindId): number {
+  switch (kind) {
+    case GHOST_KIND.pinky:
+      return PINKY_RELEASE_DELAY_MS;
+    case GHOST_KIND.blinky:
+    default:
+      return BLINKY_RELEASE_DELAY_MS;
+  }
+}
+
+export function shouldReleaseGhostAt(clock: GhostReleaseClock, delayMs: number): boolean {
+  return clock.started && clock.elapsedMs >= delayMs;
 }

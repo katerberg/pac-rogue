@@ -28,11 +28,12 @@ src/
     maze.ts                   # ASCII maze, dual solids (player/ghost), house, tunnels
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
-    ghostTarget.ts            # Blinky chase/scatter/Elroy target tile
+    ghostKind.ts              # blinky / pinky kind ids
+    ghostTarget.ts            # Blinky/Pinky chase/scatter/Elroy target tiles
     ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-1 scatter/chase wave clock
-    ghostRelease.ts           # 0.1s release-after-input clock
-    ghostSpeed.ts             # base / Elroy / tunnel speed resolve
+    ghostRelease.ts           # per-kind release delays after first input
+    ghostSpeed.ts             # base / Elroy (Blinky) / tunnel speed resolve
   game/
     config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
     audio/sfx.ts
@@ -44,6 +45,7 @@ src/
       Speed.ts
       Player.ts
       Ghost.ts
+      GhostKind.ts
       GhostPhase.ts
       Wall.ts
       Pellet.ts
@@ -53,9 +55,9 @@ src/
       runHistoryStorage.ts    # localStorage adapter for successful runs
     systems/
       playerInput.ts          # Phaser keys → sticky Input
-      ghostRelease.ts         # inHouse → leaving after delay
-      ghostAi.ts              # target tile → sticky Input (once per tile)
-      ghostSpeed.ts           # Speed from Elroy + tunnel
+      ghostRelease.ts         # inHouse → leaving per kind delay
+      ghostAi.ts              # kind target tile → sticky Input (once per tile)
+      ghostSpeed.ts           # Speed from Elroy (Blinky) + tunnel
       ghostReverse.ts         # mode-change reverse via Input
       ghostExitHouse.ts       # leaving → active once off house/door tiles
       movement.ts             # Facing + collision (per-eid Speed + solids)
@@ -106,7 +108,7 @@ PlayScene.update →
   tickGhostMode →
   (forceReverse ? forceGhostReverse : ghostAi) → applyGhostSpeed →
   movement →
-  ghostExitHouse (may startGhostModeClock) →
+  ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
   collectPellets → applyPelletCollect →
   catchPlayer →
@@ -114,14 +116,14 @@ PlayScene.update →
   (if caught: MenuScene)
 ```
 
-1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky, SFX.
-2. `create()`: world, walls, pellets (`.` / `@` with `PowerPellet` on `@`), player (`Speed = PLAYER_SPEED`), Blinky in house (`Speed = 0`, `GhostPhase = inHouse`), HUD, siren.
+1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky + Pinky, SFX.
+2. `create()`: world, walls, pellets (`.` / `@` with `PowerPellet` on `@`), player (`Speed = PLAYER_SPEED`), Blinky + Pinky in house (`Speed = 0`, `GhostPhase = inHouse`, `GhostKind`), HUD, siren.
 3. Ghost house / door are carved in ASCII (`=` door, `H` floor). `MAZE_PLAYER_SOLIDS` blocks the house; `MAZE_GHOST_SOLIDS` allows it.
-4. Release: 100ms after first player direction input → `leaving`, climb out through the door; once off house/door tiles → `active` and start mode waves in **chase** (arcade level-1 table, skipping the opening scatter so he does not begin in scatter; later scatter/chase durations stay arcade).
-5. Blinky targeting: chase / Elroy → player tile; scatter → fixed `(25, -3)`. Steering picks min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
-6. Speeds (vs `PLAYER_SPEED`): base 0.9375×, Elroy1 (≤20 pellets) 1.0×, Elroy2 (≤10) 1.0625×, tunnel 0.5×.
-7. Catch: circle overlap while Blinky is `leaving` or `active` → stop siren, `scene.start("MenuScene")` (no high-score write).
-8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws pipes, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, and tunnel twin.
+4. Release (shared clock starts on first player direction input): Blinky after `BLINKY_RELEASE_DELAY_MS` (100), Pinky after `PINKY_RELEASE_DELAY_MS` (5000) → `leaving`, climb out through the door. First ghost to leave house/door tiles → `active` and **start mode waves once** in **chase** (arcade level-1 table, skipping the opening scatter; later scatter/chase durations stay arcade). Later exits do not restart the clock.
+5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(BLINKY_SCATTER_COL, BLINKY_SCATTER_ROW)` default `(25, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(PINKY_SCATTER_COL, PINKY_SCATTER_ROW)` default `(2, -3)`. Delays and scatter coords are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
+6. Speeds (vs `PLAYER_SPEED`): base 0.9375×; Elroy1/2 only for Blinky (≤20 / ≤10 pellets → 1.0× / 1.0625×); tunnel 0.5× for all ghosts.
+7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, `scene.start("MenuScene")` (no high-score write).
+8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws pipes, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, Pinky, and tunnel twin.
 
 ## ECS boundary
 
@@ -162,7 +164,7 @@ A violation of these is a failed architecture check:
 - Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls, dual solids (player blocked from house/door; ghosts allowed), and a mid-maze horizontal tunnel.
 - One player entity (16×16 directional pac-man sprites; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX.
-- One Blinky: house spawn, 0.1s release after first direction input, starts in chase then arcade scatter/chase waves + Cruise Elroy, tunnel slowdown; circle overlap catch returns to menu (no high-score write).
+- One Blinky and one Pinky: shared house spawn, per-kind release after first direction input (Blinky 0.1s, Pinky 5s — tunable), chase-first arcade scatter/chase waves started once on first exit, Blinky Cruise Elroy, Pinky 4-tile look-ahead chase + NW scatter (tunable), tunnel slowdown; circle overlap catch returns to the menu (no high-score write).
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
-- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `pelletProgress`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, ghost path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost helpers are unit-tested without Phaser.
-- No frightened mode, energizers behavior, or other ghosts yet (`@` cells are visual/audio power pellets with the same collect rules as dots).
+- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `pelletProgress`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, ghost kind/path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost helpers are unit-tested without Phaser.
+- No frightened mode, energizers behavior, Inky, or Clyde yet (`@` cells are visual/audio power pellets with the same collect rules as dots).
