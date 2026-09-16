@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { font8x8Glyph } from "./font8x8Basic";
 
 export const PIXEL_FONT_KEY = "pac-pixel";
 const PIXEL_FONT_ATLAS_KEY = "pac-pixel-atlas";
@@ -23,20 +24,21 @@ export function ensurePixelFont(scene: Phaser.Scene): void {
     buildPixelFontAtlas(scene);
   }
 
-  const entry = Phaser.GameObjects.RetroFont.Parse(scene, {
-    image: PIXEL_FONT_ATLAS_KEY,
-    width: CHAR_SIZE,
-    height: CHAR_SIZE,
-    chars: CHARSET,
-    charsPerRow: CHARS_PER_ROW,
-    lineSpacing: 0,
-    "offset.x": 0,
-    "offset.y": 0,
-    "spacing.x": 0,
-    "spacing.y": 0,
-  });
-
-  scene.cache.bitmapFont.add(PIXEL_FONT_KEY, entry);
+  scene.cache.bitmapFont.add(
+    PIXEL_FONT_KEY,
+    Phaser.GameObjects.RetroFont.Parse(scene, {
+      image: PIXEL_FONT_ATLAS_KEY,
+      width: CHAR_SIZE,
+      height: CHAR_SIZE,
+      chars: CHARSET,
+      charsPerRow: CHARS_PER_ROW,
+      lineSpacing: 0,
+      "offset.x": 0,
+      "offset.y": 0,
+      "spacing.x": 0,
+      "spacing.y": 0,
+    }),
+  );
 }
 
 export function addPixelText(
@@ -81,34 +83,32 @@ function buildPixelFontAtlas(scene: Phaser.Scene): void {
   const ctx = canvasTexture.getContext();
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `bold ${CHAR_SIZE}px monospace`;
-  ctx.textBaseline = "top";
-  ctx.textAlign = "left";
+  const imageData = ctx.createImageData(width, height);
+  const pixels = imageData.data;
 
   for (let index = 0; index < CHARSET.length; index += 1) {
-    const glyph = CHARSET[index]!;
+    const glyph = font8x8Glyph(CHARSET.charCodeAt(index));
+    if (glyph === undefined) {
+      continue;
+    }
     const cellX = (index % CHARS_PER_ROW) * CHAR_SIZE;
     const cellY = Math.floor(index / CHARS_PER_ROW) * CHAR_SIZE;
-    ctx.fillText(glyph, cellX, cellY);
-  }
-
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const pixels = imageData.data;
-  for (let i = 0; i < pixels.length; i += 4) {
-    const luminance = pixels[i]! + pixels[i + 1]! + pixels[i + 2]!;
-    if (luminance > 200) {
-      pixels[i] = 255;
-      pixels[i + 1] = 255;
-      pixels[i + 2] = 255;
-      pixels[i + 3] = 255;
-    } else {
-      pixels[i] = 0;
-      pixels[i + 1] = 0;
-      pixels[i + 2] = 0;
-      pixels[i + 3] = 0;
+    for (let row = 0; row < CHAR_SIZE; row += 1) {
+      const bits = glyph[row]!;
+      for (let col = 0; col < CHAR_SIZE; col += 1) {
+        if ((bits & (1 << col)) === 0) {
+          continue;
+        }
+        const px = (cellY + row) * width + (cellX + col);
+        const offset = px * 4;
+        pixels[offset] = 255;
+        pixels[offset + 1] = 255;
+        pixels[offset + 2] = 255;
+        pixels[offset + 3] = 255;
+      }
     }
   }
+
   ctx.putImageData(imageData, 0, 0);
   canvasTexture.refresh();
 }
