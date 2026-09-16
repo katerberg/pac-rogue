@@ -24,6 +24,7 @@ src/
     highScoresView.ts         # display sort/format for high-score list (Phaser-free)
     scoreListScroll.ts        # pause/scroll/loop state machine for long lists
     playfield.ts              # speed, size, bounds, drawable id / radius constants
+    pixelZoom.ts              # integer upscale / FIT-like downscale factor
     maze.ts                   # static maze ASCII, walls/exterior/tunnels, centers, pipe edges, wrap
   game/
     config.ts                 # Phaser GameConfig + shared dimensions (pixelArt + integer zoom)
@@ -47,7 +48,7 @@ src/
       playerDirection.ts      # read sticky Input for countdown start (Phaser-free)
       render.ts               # sprites + wall pipe Graphics; preloadPlayArt (bridge)
     scenes/
-      integerScale.ts         # integer max-zoom letterbox (pixel-perfect CSS scale)
+      integerScale.ts         # letterbox scale: integer up, FIT-like down
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
       MenuScene.ts            # boot title + Start / High Scores (no ECS)

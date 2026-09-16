@@ -1,10 +1,10 @@
 import Phaser from "phaser";
 import { gameConfig } from "./game/config";
-import { bindIntegerMaxZoom } from "./game/scenes/integerScale";
+import { bindPixelLetterboxScale } from "./game/scenes/integerScale";
 import "./styles.css";
 
 const game = new Phaser.Game(gameConfig);
-bindIntegerMaxZoom(game);
+bindPixelLetterboxScale(game);
 
 declare global {
   interface Window {
