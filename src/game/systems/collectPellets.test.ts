@@ -5,6 +5,7 @@ import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { collectPellets, countPellets } from "./collectPellets";
 
 function spawnPlayer(x: number, y: number) {
@@ -19,11 +20,14 @@ function spawnPlayer(x: number, y: number) {
   return { world, eid };
 }
 
-function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number) {
+function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number, power = false) {
   const eid = addEntity(world);
   addComponent(world, eid, Pellet);
   addComponent(world, eid, Position);
   addComponent(world, eid, Drawable);
+  if (power) {
+    addComponent(world, eid, PowerPellet);
+  }
   Position.x[eid] = x;
   Position.y[eid] = y;
   Drawable.radius[eid] = PELLET_RADIUS;
@@ -31,19 +35,19 @@ function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number
 }
 
 describe("collectPellets", () => {
-  it("removes an overlapping pellet and returns 1", () => {
+  it("removes an overlapping pellet", () => {
     const { world } = spawnPlayer(100, 100);
     spawnPellet(world, 100, 100);
 
-    expect(collectPellets(world)).toBe(1);
+    expect(collectPellets(world)).toEqual({ removed: 1, powerRemoved: 0 });
     expect(query(world, [Pellet, Position])).toHaveLength(0);
   });
 
-  it("leaves a distant pellet and returns 0", () => {
+  it("leaves a distant pellet", () => {
     const { world } = spawnPlayer(100, 100);
     const pelletEid = spawnPellet(world, 400, 400);
 
-    expect(collectPellets(world)).toBe(0);
+    expect(collectPellets(world)).toEqual({ removed: 0, powerRemoved: 0 });
     expect(query(world, [Pellet, Position])).toEqual([pelletEid]);
   });
 
@@ -53,8 +57,16 @@ describe("collectPellets", () => {
     spawnPellet(world, 100, 100 + PLAYER_RADIUS);
     spawnPellet(world, 500, 500);
 
-    expect(collectPellets(world)).toBe(2);
+    expect(collectPellets(world)).toEqual({ removed: 2, powerRemoved: 0 });
     expect(query(world, [Pellet, Position])).toHaveLength(1);
+  });
+
+  it("counts power pellets among removed", () => {
+    const { world } = spawnPlayer(100, 100);
+    spawnPellet(world, 100, 100, true);
+    spawnPellet(world, 100 + PLAYER_RADIUS, 100);
+
+    expect(collectPellets(world)).toEqual({ removed: 2, powerRemoved: 1 });
   });
 });
 

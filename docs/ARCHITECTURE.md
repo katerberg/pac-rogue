@@ -37,6 +37,7 @@ src/
       Player.ts
       Wall.ts
       Pellet.ts
+      PowerPellet.ts
       Drawable.ts
     storage/
       runHistoryStorage.ts    # localStorage adapter for successful runs
@@ -51,7 +52,7 @@ src/
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
 public/
-  art/                        # Pac-Man / pellet / (unused) ghost & fruit PNGs
+  art/                        # Pac-Man / pellet / power-pellet / (unused) ghost & fruit PNGs
   sound/                      # SFX (pickups, looping siren, level complete)
 scripts/
   ports.json
@@ -90,16 +91,16 @@ High Scores reads `loadRunHistory()` and builds a **display-only** sorted view v
 PlayScene.update → playerInput → movement → tickRunClock → collectPellets → applyPelletCollect → (persist clear) → render
 ```
 
-1. `preload()`: load pac-man direction frames and pellet `dot.png` from `public/art/`, and game SFX (pickups, siren, level complete) from `public/sound/`.
-2. `create()`: `createWorld()`, spawn Wall entities (one per wall cell) with `Position`, spawn Pellet entities (one per walkable cell) with `Position` + `Drawable` + `Pellet`, spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, create top-left `Collected` and top-right `Time` HUD texts, build the input/render bridges, start looping siren (stops on scene shutdown or level clear).
-3. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `tickRunClock` (domain; starts on first non-`none` Input via `hasPlayerDirectionInput`) → `collectPellets(world)` → play pellet SFX per removed count → `applyPelletCollect` (domain) → on first full clear, stop siren, play level-complete SFX, append score to `localStorage` → `render(world)`.
+1. `preload()`: load pac-man direction frames, pellet `dot.png`, and power-pellet art from `public/art/`, and game SFX (pickups, siren, level complete) from `public/sound/`.
+2. `create()`: `createWorld()`, spawn Wall entities (one per wall cell) with `Position`, spawn Pellet entities (one per `.` / `@` cell) with `Position` + `Drawable` + `Pellet` (`PowerPellet` + `power-pellet` drawable for `@`), spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, create top-left `Collected` and top-right `Time` HUD texts, build the input/render bridges, start looping siren (stops on scene shutdown or level clear).
+3. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `tickRunClock` (domain; starts on first non-`none` Input via `hasPlayerDirectionInput`) → `collectPellets(world)` → play pellet SFX per removed count (power pellets play both munches) → `applyPelletCollect` (domain) → on first full clear, stop siren, play level-complete SFX, append score to `localStorage` → `render(world)`.
 4. `playerInput` writes sticky next intent into `Input.direction` (most recent held key; never cleared on release).
 5. `runClock` starts at 999 and decrements once per 100ms of real delta after the first direction input; clamps and stays at 0. Score for a successful clear is remaining time at the clear frame.
 6. `movement` applies sticky `Input` into `Facing` (reverse immediately; 90° turns when travel reaches the cell center). Integrates position, snaps only the perpendicular axis to the corridor centerline, wraps through paired tunnel mouths (preserving facing/velocity), clamps smoothly against facing walls (no teleport-to-center), then playfield safety-clamps.
-7. `collectPellets` removes pellets overlapping the player (circle radii from `Drawable`) and returns the frame count. The scene plays one SFX per removed pellet. `pelletProgress` tracks remaining/collected and signals a one-shot clear; the scene updates `Collected: N` and calls `runHistoryStorage` to append `{ score, clearedAt }` (oldest dropped when over cap).
-8. `render` draws maze pipe outlines once from domain wall edges, mirrors `Position` + `Drawable` (+ `Facing` for the player) onto 16×16 Image GameObjects (directional pac-man with distance-based chomp; `dot.png` pellets), dual-draws a twin player image while straddling a tunnel seam, and destroys images for removed entities.
+7. `collectPellets` removes pellets overlapping the player (circle radii from `Drawable`) and returns removed + power-removed counts (`PowerPellet` tag). The scene plays alternating SFX for dots and both munches for power pellets. `pelletProgress` tracks remaining/collected and signals a one-shot clear; the scene updates `Collected: N` and calls `runHistoryStorage` to append `{ score, clearedAt }` (oldest dropped when over cap).
+8. `render` draws maze pipe outlines once from domain wall edges, mirrors `Position` + `Drawable` (+ `Facing` for the player) onto 16×16 Image GameObjects (directional pac-man with distance-based chomp; `dot.png` / `power-pellet.png`), dual-draws a twin player image while straddling a tunnel seam, and destroys images for removed entities.
 
-Movement is continuous along corridor centerlines with buffered turns. Side tunnels wrap when both opposite edge cells are walkable; disconnected near-edge pockets are exterior (blocked, and wall pipes do not outline faces that touch exterior). Regular pellets on playable cells for now. No power pellets or enemies yet.
+Movement is continuous along corridor centerlines with buffered turns. Side tunnels wrap when both opposite edge cells are walkable; disconnected near-edge pockets are exterior (blocked, and wall pipes do not outline faces that touch exterior). `@` cells are visual/audio power pellets with the same collect rules as dots. No enemies yet.
 
 ## ECS boundary
 
@@ -139,7 +140,7 @@ A violation of these is a failed architecture check:
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
 - Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls and a mid-maze horizontal tunnel.
 - One player entity (16×16 directional pac-man sprites; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior block travel; tunnels wrap with dual-draw while straddling.
-- Regular pellets (`dot.png`) on playable cells; touching removes them, plays pickup SFX, and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear or shutdown; clearing all pellets plays level-complete SFX.
+- Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear or shutdown; clearing all pellets plays level-complete SFX.
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
 - `clamp` + `countdown` + `runClock` + `pelletProgress` + `runHistory` + `highScoresView` + `scoreListScroll` + `playfield` + `maze` helpers are Phaser-free; movement/collect/clock/progress/scroll/view helpers are unit-tested without Phaser.
 - No in-play return to menu yet.

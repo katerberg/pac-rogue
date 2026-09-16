@@ -14,6 +14,8 @@ export const PELLET_RADIUS = 2;
 
 export const PELLET_DRAWABLE_ID = "pellet";
 
+export const POWER_PELLET_DRAWABLE_ID = "power-pellet";
+
 export function playfieldMinX(radius = PLAYER_RADIUS): number {
   return radius;
 }

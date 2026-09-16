@@ -176,6 +176,8 @@ describe("maze", () => {
     expect(pellets.length).toBe(244);
     expect(pellets.every((c) => isWalkable(c.col, c.row))).toBe(true);
     expect(pellets.length).toBeLessThan(walkableCellCenters().length);
+    expect(pellets.filter((c) => c.kind === "power")).toHaveLength(4);
+    expect(pellets.every((c) => c.kind === "dot" || c.kind === "power")).toBe(true);
   });
 
   it("reports enterable neighbors from a corridor cell", () => {

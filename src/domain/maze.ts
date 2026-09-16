@@ -555,11 +555,13 @@ export function walkableCellCenters(
   return cells;
 }
 
+export type PelletKind = "dot" | "power";
+
 export function pelletCellCenters(
   ascii: string = MAZE_ASCII,
-): { col: number; row: number; x: number; y: number }[] {
+): { col: number; row: number; x: number; y: number; kind: PelletKind }[] {
   const rows = ascii.split("\n");
-  const cells: { col: number; row: number; x: number; y: number }[] = [];
+  const cells: { col: number; row: number; x: number; y: number; kind: PelletKind }[] = [];
   for (let row = 0; row < MAZE_ROWS; row += 1) {
     const line = rows[row] ?? "";
     for (let col = 0; col < MAZE_COLS; col += 1) {
@@ -570,6 +572,7 @@ export function pelletCellCenters(
           row,
           x: cellCenterX(col),
           y: cellCenterY(row),
+          kind: ch === "@" ? "power" : "dot",
         });
       }
     }

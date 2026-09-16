@@ -1,17 +1,23 @@
-import { query, removeEntity, type World } from "bitecs";
+import { hasComponent, query, removeEntity, type World } from "bitecs";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
+
+export type PelletCollectFrame = {
+  removed: number;
+  powerRemoved: number;
+};
 
 export function countPellets(world: World): number {
   return query(world, [Pellet]).length;
 }
 
-export function collectPellets(world: World): number {
+export function collectPellets(world: World): PelletCollectFrame {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {
-    return 0;
+    return { removed: 0, powerRemoved: 0 };
   }
 
   const playerEid = players[0]!;
@@ -30,9 +36,13 @@ export function collectPellets(world: World): number {
     }
   }
 
+  let powerRemoved = 0;
   for (const eid of toRemove) {
+    if (hasComponent(world, eid, PowerPellet)) {
+      powerRemoved += 1;
+    }
     removeEntity(world, eid);
   }
 
-  return toRemove.length;
+  return { removed: toRemove.length, powerRemoved };
 }
