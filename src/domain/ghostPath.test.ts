@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { GHOST_DIR, pickGhostDirection } from "./ghostPath";
+import {
+  GHOST_DIR,
+  isPerpendicularLCorner,
+  lCornerTurnDir,
+  openGhostDirsAt,
+  pickGhostDirection,
+  reverseGhostDir,
+} from "./ghostPath";
 import { MAZE_GHOST_SOLIDS, cellCenterX, cellCenterY } from "./maze";
 import { BLINKY_SCATTER_COL, BLINKY_SCATTER_ROW } from "./ghostTarget";
+
+const L_SAMPLES = [
+  { col: 26, row: 1, intoWall: GHOST_DIR.right, turn: GHOST_DIR.down },
+  { col: 15, row: 1, intoWall: GHOST_DIR.left, turn: GHOST_DIR.down },
+  { col: 1, row: 1, intoWall: GHOST_DIR.left, turn: GHOST_DIR.down },
+  { col: 15, row: 8, intoWall: GHOST_DIR.up, turn: GHOST_DIR.right },
+  { col: 18, row: 8, intoWall: GHOST_DIR.right, turn: GHOST_DIR.up },
+] as const;
 
 describe("ghostPath", () => {
   it("prefers the neighbor closer to the target", () => {
@@ -44,6 +59,46 @@ describe("ghostPath", () => {
       solids: MAZE_GHOST_SOLIDS,
     });
     expect(dir).not.toBe(GHOST_DIR.left);
+  });
+
+  it("identifies perpendicular L corners vs corridors", () => {
+    const ne = openGhostDirsAt(cellCenterX(26), cellCenterY(1), MAZE_GHOST_SOLIDS);
+    expect(isPerpendicularLCorner(ne)).toBe(true);
+    expect(lCornerTurnDir(ne, GHOST_DIR.right)).toBe(GHOST_DIR.down);
+
+    const corridor = openGhostDirsAt(cellCenterX(20), cellCenterY(1), MAZE_GHOST_SOLIDS);
+    expect(corridor).toEqual([GHOST_DIR.left, GHOST_DIR.right]);
+    expect(isPerpendicularLCorner(corridor)).toBe(false);
+  });
+
+  it("never reverses at common L corners for any scatter/chase target", () => {
+    const targets = [
+      { col: BLINKY_SCATTER_COL, row: BLINKY_SCATTER_ROW },
+      { col: 1, row: 1 },
+      { col: 26, row: 1 },
+      { col: 6, row: 23 },
+      { col: 13, row: 14 },
+    ];
+    for (const sample of L_SAMPLES) {
+      const opens = openGhostDirsAt(
+        cellCenterX(sample.col),
+        cellCenterY(sample.row),
+        MAZE_GHOST_SOLIDS,
+      );
+      expect(isPerpendicularLCorner(opens)).toBe(true);
+      for (const target of targets) {
+        const dir = pickGhostDirection({
+          x: cellCenterX(sample.col),
+          y: cellCenterY(sample.row),
+          facing: sample.intoWall,
+          targetCol: target.col,
+          targetRow: target.row,
+          solids: MAZE_GHOST_SOLIDS,
+        });
+        expect(dir).toBe(sample.turn);
+        expect(dir).not.toBe(reverseGhostDir(sample.intoWall));
+      }
+    }
   });
 
   it("turns down at Blinky NE tip when facing into the wall", () => {

@@ -49,6 +49,36 @@ export function reverseGhostDir(direction: GhostDir): GhostDir {
   }
 }
 
+export function openGhostDirsAt(x: number, y: number, solids: SolidGrid): GhostDir[] {
+  const opens: GhostDir[] = [];
+  for (const dir of TIE_ORDER) {
+    const { dx, dy } = directionStep(dir);
+    if (canEnterDirection(x, y, dx, dy, solids)) {
+      opens.push(dir);
+    }
+  }
+  return opens;
+}
+
+export function isPerpendicularLCorner(opens: readonly GhostDir[]): boolean {
+  if (opens.length !== 2) {
+    return false;
+  }
+  return reverseGhostDir(opens[0]!) !== opens[1];
+}
+
+/** Non-reverse exit at a perpendicular L given facing (into the blocked leg). */
+export function lCornerTurnDir(opens: readonly GhostDir[], facing: GhostDir): GhostDir {
+  if (!isPerpendicularLCorner(opens) || facing === GHOST_DIR.none) {
+    return GHOST_DIR.none;
+  }
+  const back = reverseGhostDir(facing);
+  if (!opens.includes(back)) {
+    return GHOST_DIR.none;
+  }
+  return opens.find((dir) => dir !== back) ?? GHOST_DIR.none;
+}
+
 export function pickGhostDirection(args: {
   x: number;
   y: number;
@@ -57,6 +87,12 @@ export function pickGhostDirection(args: {
   targetRow: number;
   solids: SolidGrid;
 }): GhostDir {
+  const opens = openGhostDirsAt(args.x, args.y, args.solids);
+  const forcedTurn = lCornerTurnDir(opens, args.facing);
+  if (forcedTurn !== GHOST_DIR.none) {
+    return forcedTurn;
+  }
+
   const candidates: GhostDir[] = [];
   for (const dir of TIE_ORDER) {
     const { dx, dy } = directionStep(dir);

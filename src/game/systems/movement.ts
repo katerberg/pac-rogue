@@ -1,4 +1,5 @@
 import { hasComponent, query, type World } from "bitecs";
+import { lCornerTurnDir, openGhostDirsAt, type GhostDir } from "../../domain/ghostPath";
 import {
   MAZE_GHOST_SOLIDS,
   MAZE_PLAYER_SOLIDS,
@@ -109,7 +110,7 @@ export function movement(world: World, deltaMs: number): void {
 
     let x = Position.x[eid] ?? 0;
     let y = Position.y[eid] ?? 0;
-    const nextIntent = Input.direction[eid] ?? DIRECTION.none;
+    let nextIntent = Input.direction[eid] ?? DIRECTION.none;
     let facing = Facing.direction[eid] ?? DIRECTION.none;
     let moveDt = dt;
 
@@ -124,7 +125,19 @@ export function movement(world: World, deltaMs: number): void {
           facing = nextIntent;
         }
       } else if (isReverse(facing, nextIntent)) {
-        facing = nextIntent;
+        if (hasComponent(world, eid, Ghost)) {
+          const opens = openGhostDirsAt(x, y, solids);
+          const turn = lCornerTurnDir(opens, facing as GhostDir) as Direction;
+          if (turn !== DIRECTION.none && canEnterStep(x, y, turn, solids)) {
+            nextIntent = turn;
+            Input.direction[eid] = turn;
+            facing = turn;
+          } else {
+            facing = nextIntent;
+          }
+        } else {
+          facing = nextIntent;
+        }
       } else {
         const committed = tryCommitCenterTurn(x, y, facing, frameTravel, speed);
         if (committed) {
