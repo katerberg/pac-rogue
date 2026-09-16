@@ -2,6 +2,7 @@ import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 
 export const BLINKY_RELEASE_DELAY_MS = 100;
 export const PINKY_RELEASE_DELAY_MS = 5_000;
+export const CLYDE_RELEASE_PELLETS = 60;
 
 export type GhostReleaseClock = {
   started: boolean;
@@ -39,4 +40,15 @@ export function releaseDelayForKind(kind: GhostKindId): number {
 
 export function shouldReleaseGhostAt(clock: GhostReleaseClock, delayMs: number): boolean {
   return clock.started && clock.elapsedMs >= delayMs;
+}
+
+export function shouldReleaseKind(
+  kind: GhostKindId,
+  clock: GhostReleaseClock,
+  collectedCount: number,
+): boolean {
+  if (kind === GHOST_KIND.clyde) {
+    return collectedCount >= CLYDE_RELEASE_PELLETS;
+  }
+  return shouldReleaseGhostAt(clock, releaseDelayForKind(kind));
 }

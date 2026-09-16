@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   BLINKY_SCATTER_COL,
   BLINKY_SCATTER_ROW,
+  CLYDE_SCATTER_COL,
+  CLYDE_SCATTER_ROW,
+  CLYDE_SHY_TILES,
   PINKY_LOOKAHEAD_TILES,
   PINKY_SCATTER_COL,
   PINKY_SCATTER_ROW,
   blinkyTarget,
+  clydeTarget,
   pinkyTarget,
   GHOST_PHASE,
 } from "./ghostTarget";
@@ -136,5 +140,59 @@ describe("pinkyTarget", () => {
         playerFacing: GHOST_DIR.none,
       }),
     ).toEqual({ col: 12 - PINKY_LOOKAHEAD_TILES, row: 18 });
+  });
+});
+
+describe("clydeTarget", () => {
+  it("targets the house exit while leaving", () => {
+    expect(
+      clydeTarget({
+        phase: GHOST_PHASE.leaving,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 20,
+        ghostCol: 13,
+        ghostRow: 14,
+      }),
+    ).toEqual({ col: GHOST_HOUSE_EXIT_COL, row: GHOST_HOUSE_EXIT_ROW });
+  });
+
+  it("uses the SW scatter corner in scatter mode", () => {
+    expect(
+      clydeTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.scatter,
+        playerCol: 10,
+        playerRow: 20,
+        ghostCol: 1,
+        ghostRow: 1,
+      }),
+    ).toEqual({ col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW });
+  });
+
+  it("chases the player when Euclidean distance is at least shy tiles", () => {
+    expect(
+      clydeTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 10,
+        ghostCol: 10 + CLYDE_SHY_TILES,
+        ghostRow: 10,
+      }),
+    ).toEqual({ col: 10, row: 10 });
+  });
+
+  it("targets scatter when closer than shy tiles", () => {
+    expect(
+      clydeTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 10,
+        ghostCol: 10 + CLYDE_SHY_TILES - 1,
+        ghostRow: 10,
+      }),
+    ).toEqual({ col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW });
   });
 });

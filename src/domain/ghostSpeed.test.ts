@@ -22,6 +22,7 @@ describe("ghostSpeed", () => {
   it("applies Elroy only to Blinky", () => {
     expect(resolveGhostSpeedForKind(GHOST_KIND.blinky, 10, false)).toBeCloseTo(GHOST_ELROY2_SPEED);
     expect(resolveGhostSpeedForKind(GHOST_KIND.pinky, 10, false)).toBeCloseTo(GHOST_SPEED);
+    expect(resolveGhostSpeedForKind(GHOST_KIND.clyde, 10, false)).toBeCloseTo(GHOST_SPEED);
     expect(resolveGhostSpeedForKind(GHOST_KIND.pinky, 10, true)).toBeCloseTo(GHOST_TUNNEL_SPEED);
   });
 });

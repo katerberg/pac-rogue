@@ -14,6 +14,11 @@ export const PINKY_SCATTER_ROW = -3;
 
 export const PINKY_LOOKAHEAD_TILES = 4;
 
+export const CLYDE_SCATTER_COL = 0;
+export const CLYDE_SCATTER_ROW = 33;
+
+export const CLYDE_SHY_TILES = 8;
+
 export type GhostTarget = {
   col: number;
   row: number;
@@ -66,4 +71,29 @@ export function pinkyTarget(args: {
     default:
       return { col: args.playerCol - n, row: args.playerRow };
   }
+}
+
+export function clydeTarget(args: {
+  phase: GhostPhaseValue;
+  mode: GhostAiMode;
+  playerCol: number;
+  playerRow: number;
+  ghostCol: number;
+  ghostRow: number;
+}): GhostTarget {
+  if (args.phase === GHOST_PHASE.leaving) {
+    return { col: GHOST_HOUSE_EXIT_COL, row: GHOST_HOUSE_EXIT_ROW };
+  }
+
+  if (args.mode === GHOST_AI_MODE.scatter) {
+    return { col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW };
+  }
+
+  const dx = args.ghostCol - args.playerCol;
+  const dy = args.ghostRow - args.playerRow;
+  const distance = Math.hypot(dx, dy);
+  if (distance < CLYDE_SHY_TILES) {
+    return { col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW };
+  }
+  return { col: args.playerCol, row: args.playerRow };
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import {
   BLINKY_RELEASE_DELAY_MS,
+  CLYDE_RELEASE_PELLETS,
   PINKY_RELEASE_DELAY_MS,
   createGhostReleaseClock,
   tickGhostRelease,
@@ -46,18 +47,27 @@ describe("ghostRelease per kind", () => {
     const { eid: pinky } = spawnHouseGhost(GHOST_KIND.pinky, world);
 
     let clock = tickGhostRelease(createGhostReleaseClock(), true, BLINKY_RELEASE_DELAY_MS);
-    ghostRelease(world, clock);
+    ghostRelease(world, clock, 0);
     expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.leaving);
     expect(GhostPhase.value[pinky]).toBe(GHOST_PHASE.inHouse);
 
     clock = tickGhostRelease(clock, true, PINKY_RELEASE_DELAY_MS - BLINKY_RELEASE_DELAY_MS);
-    ghostRelease(world, clock);
+    ghostRelease(world, clock, 0);
     expect(GhostPhase.value[pinky]).toBe(GHOST_PHASE.leaving);
   });
 
-  it("does nothing before the clock starts", () => {
+  it("releases Clyde only after the pellet threshold", () => {
+    const { world, eid: clyde } = spawnHouseGhost(GHOST_KIND.clyde);
+    const clock = tickGhostRelease(createGhostReleaseClock(), true, PINKY_RELEASE_DELAY_MS);
+    ghostRelease(world, clock, CLYDE_RELEASE_PELLETS - 1);
+    expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.inHouse);
+    ghostRelease(world, clock, CLYDE_RELEASE_PELLETS);
+    expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.leaving);
+  });
+
+  it("does nothing before the clock starts for time-based ghosts", () => {
     const { world, eid } = spawnHouseGhost(GHOST_KIND.blinky);
-    ghostRelease(world, createGhostReleaseClock());
+    ghostRelease(world, createGhostReleaseClock(), 0);
     expect(GhostPhase.value[eid]).toBe(GHOST_PHASE.inHouse);
   });
 });
