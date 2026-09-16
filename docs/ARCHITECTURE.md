@@ -48,7 +48,8 @@ src/
       render.ts               # sprites + wall pipe Graphics; preloadPlayArt (bridge)
     scenes/
       integerScale.ts         # integer max-zoom letterbox (pixel-perfect CSS scale)
-      pixelFont.ts            # RetroFont bitmap atlas + BitmapText helpers
+      pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
+      font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
       MenuScene.ts            # boot title + Start / High Scores (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
