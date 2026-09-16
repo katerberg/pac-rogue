@@ -285,7 +285,7 @@ describe("maze", () => {
 
   it("derives player display size from wall padding", () => {
     expect(playerDisplaySize()).toBe(TILE_SIZE - 2 * PLAYER_WALL_PADDING_PX);
-    expect(playerDisplaySize(4, 19)).toBe(11);
+    expect(playerDisplaySize(4, TILE_SIZE)).toBe(TILE_SIZE - 8);
   });
 
   it("clamps wall corner radius to a half tile", () => {
@@ -308,6 +308,7 @@ describe("maze", () => {
 
     const left = cellOriginX(0);
     const top = cellOriginY(13);
+    const tunnelStubTiles = 6;
     const outlinesExteriorAboveTunnelStub = commands.some((command, index) => {
       if (command.type !== "line") {
         return false;
@@ -317,7 +318,10 @@ describe("maze", () => {
         return false;
       }
       return (
-        prev.y === top && command.y === top && prev.x >= left && command.x <= left + TILE_SIZE * 6
+        prev.y === top &&
+        command.y === top &&
+        prev.x >= left &&
+        command.x <= left + TILE_SIZE * tunnelStubTiles
       );
     });
     expect(outlinesExteriorAboveTunnelStub).toBe(false);

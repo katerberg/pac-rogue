@@ -46,9 +46,9 @@ export const MAZE_OFFSET_Y = Math.floor((600 - MAZE_PIXEL_HEIGHT) / 2);
 export const MAZE_BACKGROUND_COLOR = 0x1a1a2e;
 export const WALL_FILL_COLOR = MAZE_BACKGROUND_COLOR;
 export const WALL_STROKE_COLOR = 0x2121ff;
-export const WALL_COLOR = WALL_STROKE_COLOR;
 export const WALL_STROKE_WEIGHT = 2;
 export const WALL_CORNER_RADIUS = 6;
+export const WALL_CORNER_CURVE_MIN_STEPS = 5;
 export const PLAYER_WALL_PADDING_PX = 5;
 export const PELLET_DISPLAY_SIZE = 6;
 export const POWER_PELLET_DISPLAY_SIZE = 10;
@@ -306,14 +306,6 @@ export function isDoor(col: number, row: number, door: SolidGrid = MAZE_DOOR): b
 
 export function hasLeftGhostHouse(col: number, row: number): boolean {
   return !isHouse(col, row);
-}
-
-export function isGhostSolid(
-  col: number,
-  row: number,
-  solids: SolidGrid = MAZE_GHOST_SOLIDS,
-): boolean {
-  return isSolid(col, row, solids);
 }
 
 export function isGhostWalkable(
@@ -677,31 +669,26 @@ export function pipeEdges(
   return edges;
 }
 
-function vertexPixelX(vc: number): number {
-  return MAZE_OFFSET_X + vc * TILE_SIZE;
+const VERTEX_STRIDE = MAZE_COLS + 1;
+
+function packVertex(vc: number, vr: number): number {
+  return vc + vr * VERTEX_STRIDE;
 }
 
-function vertexPixelY(vr: number): number {
-  return MAZE_OFFSET_Y + vr * TILE_SIZE;
+function vertexCol(id: number): number {
+  return id % VERTEX_STRIDE;
 }
 
-function isWallCell(col: number, row: number, walls: SolidGrid): boolean {
-  if (!inBounds(col, row)) {
-    return false;
-  }
-  return walls[row]?.[col] ?? false;
+function vertexRow(id: number): number {
+  return (id / VERTEX_STRIDE) | 0;
 }
 
-function vertexKey(vc: number, vr: number): string {
-  return `${vc},${vr}`;
+function packDirectedEdge(from: number, to: number): number {
+  return (from << 16) | to;
 }
 
-function parseVertexKey(key: string): { vc: number; vr: number } {
-  const [vc, vr] = key.split(",").map(Number) as [number, number];
-  return { vc, vr };
-}
-
-function quadraticCommands(
+function appendQuadratic(
+  commands: WallPathCommand[],
   x0: number,
   y0: number,
   cx: number,
@@ -709,20 +696,24 @@ function quadraticCommands(
   x1: number,
   y1: number,
   steps: number,
-): WallPathCommand[] {
-  const commands: WallPathCommand[] = [{ type: "move", x: x0, y: y0 }];
+): void {
+  commands.push({ type: "move", x: x0, y: y0 });
   for (let i = 1; i <= steps; i += 1) {
     const t = i / steps;
     const u = 1 - t;
-    const x = u * u * x0 + 2 * u * t * cx + t * t * x1;
-    const y = u * u * y0 + 2 * u * t * cy + t * t * y1;
-    commands.push({ type: "line", x, y });
+    commands.push({
+      type: "line",
+      x: u * u * x0 + 2 * u * t * cx + t * t * x1,
+      y: u * u * y0 + 2 * u * t * cy + t * t * y1,
+    });
   }
-  return commands;
 }
 
-function edgeEndKey(x1: number, y1: number, x2: number, y2: number): string {
-  return `${x1},${y1}>${x2},${y2}`;
+function pixelToVertex(x: number, y: number): number {
+  return packVertex(
+    Math.round((x - MAZE_OFFSET_X) / TILE_SIZE),
+    Math.round((y - MAZE_OFFSET_Y) / TILE_SIZE),
+  );
 }
 
 export function wallFillRects(
@@ -753,72 +744,57 @@ export function wallPathCommands(
   const r = clampedWallCornerRadius(cornerRadius);
   const edges = pipeEdges(walls, exterior);
   const commands: WallPathCommand[] = [];
+  const curveSteps = Math.max(WALL_CORNER_CURVE_MIN_STEPS, r);
 
-  const adj = new Map<string, Set<string>>();
-  const addAdj = (a: string, b: string): void => {
-    const set = adj.get(a) ?? new Set<string>();
-    set.add(b);
-    adj.set(a, set);
+  const adj = new Map<number, Set<number>>();
+  const addAdj = (a: number, b: number): void => {
+    const set = adj.get(a);
+    if (set) {
+      set.add(b);
+    } else {
+      adj.set(a, new Set([b]));
+    }
   };
 
   for (const edge of edges) {
-    const a = vertexKey(
-      Math.round((edge.x1 - MAZE_OFFSET_X) / TILE_SIZE),
-      Math.round((edge.y1 - MAZE_OFFSET_Y) / TILE_SIZE),
-    );
-    const b = vertexKey(
-      Math.round((edge.x2 - MAZE_OFFSET_X) / TILE_SIZE),
-      Math.round((edge.y2 - MAZE_OFFSET_Y) / TILE_SIZE),
-    );
+    const a = pixelToVertex(edge.x1, edge.y1);
+    const b = pixelToVertex(edge.x2, edge.y2);
     addAdj(a, b);
     addAdj(b, a);
   }
 
-  const trimmed = new Set<string>();
+  const trimmed = new Set<number>();
 
   if (r > 0) {
-    for (const [key, neighbors] of adj) {
-      const { vc, vr } = parseVertexKey(key);
-      const vx = vertexPixelX(vc);
-      const vy = vertexPixelY(vr);
-      const dirs = [...neighbors].map((nKey) => {
-        const n = parseVertexKey(nKey);
-        return {
-          key: nKey,
-          dc: Math.sign(n.vc - vc),
-          dr: Math.sign(n.vr - vr),
-        };
-      });
+    for (const [id, neighbors] of adj) {
+      const vc = vertexCol(id);
+      const vr = vertexRow(id);
+      const vx = cellOriginX(vc);
+      const vy = cellOriginY(vr);
+      const neighborList = [...neighbors];
 
-      for (let i = 0; i < dirs.length; i += 1) {
-        for (let j = i + 1; j < dirs.length; j += 1) {
-          const a = dirs[i];
-          const b = dirs[j];
-          if (!a || !b) {
+      for (let i = 0; i < neighborList.length; i += 1) {
+        for (let j = i + 1; j < neighborList.length; j += 1) {
+          const n1 = neighborList[i];
+          const n2 = neighborList[j];
+          if (n1 === undefined || n2 === undefined) {
             continue;
           }
-          if (a.dc * b.dc + a.dr * b.dr !== 0) {
+          const dc1 = Math.sign(vertexCol(n1) - vc);
+          const dr1 = Math.sign(vertexRow(n1) - vr);
+          const dc2 = Math.sign(vertexCol(n2) - vc);
+          const dr2 = Math.sign(vertexRow(n2) - vr);
+          if (dc1 * dc2 + dr1 * dr2 !== 0) {
             continue;
           }
 
-          const ax = vx + a.dc * r;
-          const ay = vy + a.dr * r;
-          const bx = vx + b.dc * r;
-          const by = vy + b.dr * r;
-
-          const towardC = a.dc + b.dc;
-          const towardR = a.dr + b.dr;
-          const wallInBisect = isWallCell(
-            vc + (towardC > 0 ? 0 : -1),
-            vr + (towardR > 0 ? 0 : -1),
-            walls,
-          );
-          const openInBisect = shouldDrawPipeAgainst(
-            vc + (towardC > 0 ? 0 : -1),
-            vr + (towardR > 0 ? 0 : -1),
-            walls,
-            exterior,
-          );
+          const towardC = dc1 + dc2;
+          const towardR = dr1 + dr2;
+          const bisectCol = vc + (towardC > 0 ? 0 : -1);
+          const bisectRow = vr + (towardR > 0 ? 0 : -1);
+          const wallInBisect =
+            inBounds(bisectCol, bisectRow) && (walls[bisectRow]?.[bisectCol] ?? false);
+          const openInBisect = shouldDrawPipeAgainst(bisectCol, bisectRow, walls, exterior);
 
           let cx: number;
           let cy: number;
@@ -832,33 +808,44 @@ export function wallPathCommands(
             continue;
           }
 
-          commands.push(...quadraticCommands(ax, ay, cx, cy, bx, by, Math.max(5, r)));
-          trimmed.add(edgeEndKey(vx, vy, vx + a.dc * TILE_SIZE, vy + a.dr * TILE_SIZE));
-          trimmed.add(edgeEndKey(vx, vy, vx + b.dc * TILE_SIZE, vy + b.dr * TILE_SIZE));
+          appendQuadratic(
+            commands,
+            vx + dc1 * r,
+            vy + dr1 * r,
+            cx,
+            cy,
+            vx + dc2 * r,
+            vy + dr2 * r,
+            curveSteps,
+          );
+          trimmed.add(packDirectedEdge(id, n1));
+          trimmed.add(packDirectedEdge(id, n2));
         }
       }
     }
   }
 
   for (const edge of edges) {
-    const x1 = edge.x1;
-    const y1 = edge.y1;
-    const x2 = edge.x2;
-    const y2 = edge.y2;
-    const dx = Math.sign(x2 - x1);
-    const dy = Math.sign(y2 - y1);
-    const trimStart = trimmed.has(edgeEndKey(x1, y1, x2, y2)) ? r : 0;
-    const trimEnd = trimmed.has(edgeEndKey(x2, y2, x1, y1)) ? r : 0;
-    const length = Math.abs(x2 - x1) + Math.abs(y2 - y1);
+    const from = pixelToVertex(edge.x1, edge.y1);
+    const to = pixelToVertex(edge.x2, edge.y2);
+    const dx = Math.sign(edge.x2 - edge.x1);
+    const dy = Math.sign(edge.y2 - edge.y1);
+    const trimStart = trimmed.has(packDirectedEdge(from, to)) ? r : 0;
+    const trimEnd = trimmed.has(packDirectedEdge(to, from)) ? r : 0;
+    const length = Math.abs(edge.x2 - edge.x1) + Math.abs(edge.y2 - edge.y1);
     if (length <= trimStart + trimEnd) {
       continue;
     }
-    const sx = x1 + dx * trimStart;
-    const sy = y1 + dy * trimStart;
-    const ex = x2 - dx * trimEnd;
-    const ey = y2 - dy * trimEnd;
-    commands.push({ type: "move", x: sx, y: sy });
-    commands.push({ type: "line", x: ex, y: ey });
+    commands.push({
+      type: "move",
+      x: edge.x1 + dx * trimStart,
+      y: edge.y1 + dy * trimStart,
+    });
+    commands.push({
+      type: "line",
+      x: edge.x2 - dx * trimEnd,
+      y: edge.y2 - dy * trimEnd,
+    });
   }
 
   return commands;
@@ -878,7 +865,7 @@ export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
       while (end + 1 < MAZE_COLS && (door[row]?.[end + 1] ?? false)) {
         end += 1;
       }
-      const y = cellOriginY(row) + TILE_SIZE * 0.5;
+      const y = cellCenterY(row);
       edges.push({
         x1: cellOriginX(col),
         y1: y,
