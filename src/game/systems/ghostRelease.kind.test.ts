@@ -1,4 +1,4 @@
-import { addComponent, addEntity, createWorld } from "bitecs";
+import { addComponent, addEntity, createWorld, type World } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import {
@@ -19,8 +19,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { ghostRelease } from "./ghostRelease";
 
-function spawnHouseGhost(kind: number) {
-  const world = createWorld();
+function spawnHouseGhost(kind: number, world: World = createWorld()) {
   const eid = addEntity(world);
   addComponent(world, eid, Position);
   addComponent(world, eid, Velocity);
@@ -43,30 +42,8 @@ function spawnHouseGhost(kind: number) {
 
 describe("ghostRelease per kind", () => {
   it("releases Blinky before Pinky on the shared clock", () => {
-    const world = createWorld();
-    const blinky = addEntity(world);
-    const pinky = addEntity(world);
-    for (const [eid, kind] of [
-      [blinky, GHOST_KIND.blinky],
-      [pinky, GHOST_KIND.pinky],
-    ] as const) {
-      addComponent(world, eid, Position);
-      addComponent(world, eid, Velocity);
-      addComponent(world, eid, Input);
-      addComponent(world, eid, Facing);
-      addComponent(world, eid, Speed);
-      addComponent(world, eid, Ghost);
-      addComponent(world, eid, GhostKind);
-      addComponent(world, eid, GhostPhase);
-      const spawn = ghostHouseSpawnCenter();
-      Position.x[eid] = spawn.x;
-      Position.y[eid] = spawn.y;
-      Input.direction[eid] = DIRECTION.none;
-      Facing.direction[eid] = DIRECTION.none;
-      Speed.px[eid] = 0;
-      GhostKind.kind[eid] = kind;
-      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
-    }
+    const { world, eid: blinky } = spawnHouseGhost(GHOST_KIND.blinky);
+    const { eid: pinky } = spawnHouseGhost(GHOST_KIND.pinky, world);
 
     let clock = tickGhostRelease(createGhostReleaseClock(), true, BLINKY_RELEASE_DELAY_MS);
     ghostRelease(world, clock);

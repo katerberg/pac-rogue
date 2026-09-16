@@ -1,6 +1,5 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 
-/** Tune per ghost — clock starts on first player direction input. */
 export const BLINKY_RELEASE_DELAY_MS = 100;
 export const PINKY_RELEASE_DELAY_MS = 5_000;
 

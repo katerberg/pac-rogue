@@ -6,11 +6,9 @@ import { GHOST_DIR, type GhostDir } from "./ghostPath";
 
 export { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 
-/** Tune freely — unreachable tile off the NE corner. */
 export const BLINKY_SCATTER_COL = 25;
 export const BLINKY_SCATTER_ROW = -3;
 
-/** Tune freely — unreachable tile off the NW corner. */
 export const PINKY_SCATTER_COL = 2;
 export const PINKY_SCATTER_ROW = -3;
 
@@ -40,10 +38,6 @@ export function blinkyTarget(args: {
   return { col: BLINKY_SCATTER_COL, row: BLINKY_SCATTER_ROW };
 }
 
-function pinkyChaseFacing(playerFacing: GhostDir): GhostDir {
-  return playerFacing === GHOST_DIR.none ? GHOST_DIR.left : playerFacing;
-}
-
 export function pinkyTarget(args: {
   phase: GhostPhaseValue;
   mode: GhostAiMode;
@@ -59,7 +53,7 @@ export function pinkyTarget(args: {
     return { col: PINKY_SCATTER_COL, row: PINKY_SCATTER_ROW };
   }
 
-  const facing = pinkyChaseFacing(args.playerFacing);
+  const facing = args.playerFacing === GHOST_DIR.none ? GHOST_DIR.left : args.playerFacing;
   const n = PINKY_LOOKAHEAD_TILES;
   switch (facing) {
     case GHOST_DIR.up:

@@ -41,7 +41,6 @@ export function resolveGhostSpeed(pelletsRemaining: number, inTunnel: boolean): 
   return GHOST_SPEED;
 }
 
-/** Elroy applies to Blinky only; other kinds use base corridor + tunnel. */
 export function resolveGhostSpeedForKind(
   kind: GhostKindId,
   pelletsRemaining: number,
