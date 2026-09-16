@@ -72,6 +72,29 @@ describe("movement", () => {
     expect(Position.y[eid]).toBe(cellCenterY(1));
   });
 
+  it("redirects sticky reverse Input to the turn at an L corner", () => {
+    const { world, eid } = spawnAt(26, 1, true);
+    Facing.direction[eid] = DIRECTION.right;
+    Input.direction[eid] = DIRECTION.left;
+
+    movement(world, 16);
+
+    expect(Facing.direction[eid]).toBe(DIRECTION.down);
+    expect(Input.direction[eid]).toBe(DIRECTION.down);
+    expect(Position.y[eid]).toBeGreaterThan(cellCenterY(1));
+  });
+
+  it("still allows reverse in a straight corridor", () => {
+    const { world, eid } = spawnAt(20, 1, true);
+    Facing.direction[eid] = DIRECTION.right;
+    Input.direction[eid] = DIRECTION.left;
+
+    movement(world, 16);
+
+    expect(Facing.direction[eid]).toBe(DIRECTION.left);
+    expect(Input.direction[eid]).toBe(DIRECTION.left);
+  });
+
   it("approaches a facing wall continuously instead of snapping to center", () => {
     const { world, eid } = spawnAt(1, 1);
     const startX = cellCenterX(1) + 7;

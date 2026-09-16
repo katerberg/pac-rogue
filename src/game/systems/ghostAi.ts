@@ -51,7 +51,9 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       playerRow: player.row,
     });
 
-    const facing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
+    const storedFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
+    const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
+    const facing = storedFacing !== DIRECTION.none ? storedFacing : intent;
     const next = pickGhostDirection({
       x,
       y,
