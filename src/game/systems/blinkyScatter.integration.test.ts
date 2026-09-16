@@ -8,7 +8,17 @@ import {
 } from "../../domain/ghostMode";
 import { createGhostReleaseClock, tickGhostRelease } from "../../domain/ghostRelease";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
-import { ghostHouseSpawnCenter, playerSpawnCenter } from "../../domain/maze";
+import {
+  GHOST_HOUSE_EXIT_COL,
+  GHOST_HOUSE_EXIT_ROW,
+  cellCenterX,
+  cellCenterY,
+  ghostHouseSpawnCenter,
+  isHouse,
+  playerSpawnCenter,
+  worldToCol,
+  worldToRow,
+} from "../../domain/maze";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -72,8 +82,12 @@ function tickPipeline(
 ) {
   const nextRelease = tickGhostRelease(release, true, dt);
   ghostRelease(world, nextRelease);
-  const modeTick = tickGhostMode(mode, dt);
-  let nextMode = modeTick.clock;
+  let nextMode = mode;
+  if (ghostExitHouse(world)) {
+    nextMode = startGhostModeClock();
+  }
+  const modeTick = tickGhostMode(nextMode, dt);
+  nextMode = modeTick.clock;
   if (modeTick.forceReverse) {
     forceGhostReverse(world);
   } else {
@@ -150,5 +164,55 @@ describe("blinky chase start integration", () => {
     expect(exited).toBe(true);
     expect(sawScatter).toBe(true);
     expect(mode.mode).toBe(GHOST_AI_MODE.scatter);
+  });
+
+  it("leaves through the middle door and never re-enters the house", () => {
+    const { world, player, ghost } = spawnActors();
+    Input.direction[player] = DIRECTION.left;
+    Speed.px[player] = PLAYER_SPEED;
+
+    let release = createGhostReleaseClock();
+    let mode = createGhostModeClock();
+    const pelletsRemaining = 244;
+    const dt = 16;
+    let exitedAt = -1;
+    let houseAfterExit = 0;
+
+    for (let i = 0; i < 900; i += 1) {
+      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt);
+      release = stepped.release;
+      mode = stepped.mode;
+
+      const col = worldToCol(Position.x[ghost] ?? 0);
+      const row = worldToRow(Position.y[ghost] ?? 0);
+      const active = (GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active;
+      if (active && exitedAt < 0) {
+        exitedAt = i;
+        expect(col).toBe(GHOST_HOUSE_EXIT_COL);
+        expect(row).toBe(GHOST_HOUSE_EXIT_ROW);
+      }
+      if (active && isHouse(col, row)) {
+        houseAfterExit += 1;
+      }
+    }
+
+    expect(exitedAt).toBeGreaterThanOrEqual(0);
+    expect(houseAfterExit).toBe(0);
+
+    Position.x[ghost] = cellCenterX(GHOST_HOUSE_EXIT_COL);
+    Position.y[ghost] = cellCenterY(GHOST_HOUSE_EXIT_ROW);
+    Facing.direction[ghost] = DIRECTION.down;
+    Input.direction[ghost] = DIRECTION.down;
+    Position.x[player] = cellCenterX(13);
+    Position.y[player] = cellCenterY(14);
+
+    for (let i = 0; i < 120; i += 1) {
+      ghostAi(world, GHOST_AI_MODE.chase, pelletsRemaining);
+      applyGhostSpeed(world, pelletsRemaining);
+      movement(world, dt);
+      const col = worldToCol(Position.x[ghost] ?? 0);
+      const row = worldToRow(Position.y[ghost] ?? 0);
+      expect(isHouse(col, row)).toBe(false);
+    }
   });
 });
