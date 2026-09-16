@@ -10,6 +10,7 @@ export type GhostModeWave = {
   durationMs: number;
 };
 
+/** Arcade level-1 scatter/chase table (seconds). */
 const LEVEL1_WAVES: readonly GhostModeWave[] = [
   { mode: GHOST_AI_MODE.scatter, durationMs: 7_000 },
   { mode: GHOST_AI_MODE.chase, durationMs: 20_000 },
@@ -20,6 +21,9 @@ const LEVEL1_WAVES: readonly GhostModeWave[] = [
   { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
   { mode: GHOST_AI_MODE.chase, durationMs: Number.POSITIVE_INFINITY },
 ];
+
+/** Skip opening arcade scatter so Blinky begins in chase; later waves stay arcade. */
+const START_WAVE_INDEX = 1;
 
 export type GhostModeClock = {
   active: boolean;
@@ -34,22 +38,22 @@ export type GhostModeTick = {
 };
 
 export function createGhostModeClock(): GhostModeClock {
-  const first = LEVEL1_WAVES[0]!;
+  const start = LEVEL1_WAVES[START_WAVE_INDEX]!;
   return {
     active: false,
-    waveIndex: 0,
+    waveIndex: START_WAVE_INDEX,
     elapsedMs: 0,
-    mode: first.mode,
+    mode: start.mode,
   };
 }
 
 export function startGhostModeClock(): GhostModeClock {
-  const first = LEVEL1_WAVES[0]!;
+  const start = LEVEL1_WAVES[START_WAVE_INDEX]!;
   return {
     active: true,
-    waveIndex: 0,
+    waveIndex: START_WAVE_INDEX,
     elapsedMs: 0,
-    mode: first.mode,
+    mode: start.mode,
   };
 }
 

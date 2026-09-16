@@ -10,9 +10,10 @@ describe("ghostRelease", () => {
   });
 
   it("releases after the delay once input has started the clock", () => {
-    let clock = tickGhostRelease(createGhostReleaseClock(), true, 200);
+    const beforeMs = Math.max(1, GHOST_RELEASE_DELAY_MS - 1);
+    let clock = tickGhostRelease(createGhostReleaseClock(), true, beforeMs);
     expect(shouldReleaseGhost(clock)).toBe(false);
-    clock = tickGhostRelease(clock, true, GHOST_RELEASE_DELAY_MS);
+    clock = tickGhostRelease(clock, true, 1);
     expect(shouldReleaseGhost(clock)).toBe(true);
   });
 });
