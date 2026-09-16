@@ -66,8 +66,14 @@ export function playPelletCollectSfx(
   scene: Phaser.Scene,
   previousCollected: number,
   removed: number,
+  powerRemoved = 0,
 ): void {
-  for (let i = 1; i <= removed; i += 1) {
+  const regularRemoved = Math.max(0, removed - powerRemoved);
+  for (let i = 1; i <= regularRemoved; i += 1) {
     playSfx(scene, pelletCollectSfxId(previousCollected + i));
+  }
+  for (let i = 0; i < powerRemoved; i += 1) {
+    playSfx(scene, "pelletMunch");
+    playSfx(scene, "pelletMunch2");
   }
 }

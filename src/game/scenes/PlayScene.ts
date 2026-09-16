@@ -13,6 +13,7 @@ import {
   PLAYER_DRAWABLE_ID,
   PLAYER_RADIUS,
   PLAYFIELD_WIDTH,
+  POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -88,9 +89,9 @@ export class PlayScene extends Phaser.Scene {
     this.clock = tickRunClock(this.clock, hasPlayerDirectionInput(this.world), delta);
     this.timerText.setText(this.timerLabel());
 
-    const removed = collectPellets(this.world);
+    const { removed, powerRemoved } = collectPellets(this.world);
     if (removed > 0) {
-      playPelletCollectSfx(this, this.pelletProgress.collectedCount, removed);
+      playPelletCollectSfx(this, this.pelletProgress.collectedCount, removed, powerRemoved);
     }
     const collectResult = applyPelletCollect(this.pelletProgress, removed);
     this.pelletProgress = collectResult.progress;
@@ -131,7 +132,7 @@ export class PlayScene extends Phaser.Scene {
       addComponent(this.world, eid, Drawable);
       Position.x[eid] = cell.x;
       Position.y[eid] = cell.y;
-      Drawable.id[eid] = PELLET_DRAWABLE_ID;
+      Drawable.id[eid] = cell.kind === "power" ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID;
       Drawable.radius[eid] = PELLET_RADIUS;
     }
   }
