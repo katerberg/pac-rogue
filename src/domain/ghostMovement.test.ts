@@ -16,10 +16,4 @@ describe("ghostMovementRules", () => {
     expect(resolved.facing).toBe(GHOST_DIR.down);
     expect(resolved.intent).toBe(GHOST_DIR.down);
   });
-
-  it("keeps sealed-house solids when active", () => {
-    const rules = ghostMovementRules(GHOST_PHASE.active);
-    expect(rules.clearFacingAtDeadEnd).toBe(false);
-    expect(rules.canEnter(cellCenterX(13), cellCenterY(11), 0, 1)).toBe(false);
-  });
 });

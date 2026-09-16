@@ -138,9 +138,9 @@ export function movement(world: World, deltaMs: number): void {
       } else if (isReverse(facing, nextIntent)) {
         if (ghost) {
           const resolved = ghost.resolveReverse(x, y, facing as GhostDir, nextIntent as GhostDir);
+          facing = resolved.facing as Direction;
           nextIntent = resolved.intent as Direction;
           Input.direction[eid] = nextIntent;
-          facing = resolved.facing as Direction;
         } else {
           facing = nextIntent;
         }
@@ -184,7 +184,7 @@ export function movement(world: World, deltaMs: number): void {
     nextY = wallClamped.y;
 
     if (!canEnterStep(nextX, nextY, facing) && isAlignedForTurn(nextX, nextY, TURN_ALIGN_EPS)) {
-      if (!ghost || ghost.clearFacingAtDeadEnd) {
+      if (!ghost) {
         facing = DIRECTION.none;
       }
       Velocity.x[eid] = 0;

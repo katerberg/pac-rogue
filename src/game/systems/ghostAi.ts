@@ -1,14 +1,9 @@
 import { query, type World } from "bitecs";
 import { pickGhostDirection, type GhostDir } from "../../domain/ghostPath";
 import type { GhostAiMode } from "../../domain/ghostMode";
+import { ghostMovementRules } from "../../domain/ghostMovement";
 import { blinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
-import {
-  MAZE_GHOST_SOLIDS,
-  TURN_ALIGN_EPS,
-  isAlignedForTurn,
-  worldToCol,
-  worldToRow,
-} from "../../domain/maze";
+import { TURN_ALIGN_EPS, isAlignedForTurn, worldToCol, worldToRow } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
@@ -57,6 +52,7 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       playerRow: player.row,
     });
 
+    const rules = ghostMovementRules(phase);
     const storedFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
     const facing = storedFacing !== DIRECTION.none ? storedFacing : intent;
@@ -66,7 +62,8 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       facing,
       targetCol: target.col,
       targetRow: target.row,
-      solids: MAZE_GHOST_SOLIDS,
+      solids: rules.solids,
+      canEnter: rules.canEnter,
     }) as Direction;
 
     if (next !== DIRECTION.none) {
