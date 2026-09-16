@@ -23,7 +23,7 @@ export function ensurePixelFont(scene: Phaser.Scene): void {
     buildPixelFontAtlas(scene);
   }
 
-  const data = Phaser.GameObjects.RetroFont.Parse(scene, {
+  const entry = Phaser.GameObjects.RetroFont.Parse(scene, {
     image: PIXEL_FONT_ATLAS_KEY,
     width: CHAR_SIZE,
     height: CHAR_SIZE,
@@ -36,11 +36,7 @@ export function ensurePixelFont(scene: Phaser.Scene): void {
     "spacing.y": 0,
   });
 
-  scene.cache.bitmapFont.add(PIXEL_FONT_KEY, {
-    data,
-    texture: PIXEL_FONT_ATLAS_KEY,
-    frame: null,
-  });
+  scene.cache.bitmapFont.add(PIXEL_FONT_KEY, entry);
 }
 
 export function addPixelText(
