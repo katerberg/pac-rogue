@@ -21,6 +21,7 @@ import { DIRECTION, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
 import {
@@ -130,6 +131,9 @@ export class PlayScene extends Phaser.Scene {
       addComponent(this.world, eid, Pellet);
       addComponent(this.world, eid, Position);
       addComponent(this.world, eid, Drawable);
+      if (cell.kind === "power") {
+        addComponent(this.world, eid, PowerPellet);
+      }
       Position.x[eid] = cell.x;
       Position.y[eid] = cell.y;
       Drawable.id[eid] = cell.kind === "power" ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID;

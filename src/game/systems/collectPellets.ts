@@ -1,9 +1,9 @@
-import { query, removeEntity, type World } from "bitecs";
-import { POWER_PELLET_DRAWABLE_ID } from "../../domain/playfield";
+import { hasComponent, query, removeEntity, type World } from "bitecs";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 
 export type PelletCollectFrame = {
   removed: number;
@@ -38,7 +38,7 @@ export function collectPellets(world: World): PelletCollectFrame {
 
   let powerRemoved = 0;
   for (const eid of toRemove) {
-    if (Drawable.id[eid] === POWER_PELLET_DRAWABLE_ID) {
+    if (hasComponent(world, eid, PowerPellet)) {
       powerRemoved += 1;
     }
     removeEntity(world, eid);

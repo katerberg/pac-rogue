@@ -1,15 +1,11 @@
 import { addComponent, addEntity, createWorld, query } from "bitecs";
 import { describe, expect, it } from "vitest";
-import {
-  PELLET_DRAWABLE_ID,
-  PELLET_RADIUS,
-  PLAYER_RADIUS,
-  POWER_PELLET_DRAWABLE_ID,
-} from "../../domain/playfield";
+import { PELLET_RADIUS, PLAYER_RADIUS } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { collectPellets, countPellets } from "./collectPellets";
 
 function spawnPlayer(x: number, y: number) {
@@ -24,25 +20,22 @@ function spawnPlayer(x: number, y: number) {
   return { world, eid };
 }
 
-function spawnPellet(
-  world: ReturnType<typeof createWorld>,
-  x: number,
-  y: number,
-  drawableId: string = PELLET_DRAWABLE_ID,
-) {
+function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number, power = false) {
   const eid = addEntity(world);
   addComponent(world, eid, Pellet);
   addComponent(world, eid, Position);
   addComponent(world, eid, Drawable);
+  if (power) {
+    addComponent(world, eid, PowerPellet);
+  }
   Position.x[eid] = x;
   Position.y[eid] = y;
-  Drawable.id[eid] = drawableId;
   Drawable.radius[eid] = PELLET_RADIUS;
   return eid;
 }
 
 describe("collectPellets", () => {
-  it("removes an overlapping pellet and returns 1", () => {
+  it("removes an overlapping pellet", () => {
     const { world } = spawnPlayer(100, 100);
     spawnPellet(world, 100, 100);
 
@@ -50,7 +43,7 @@ describe("collectPellets", () => {
     expect(query(world, [Pellet, Position])).toHaveLength(0);
   });
 
-  it("leaves a distant pellet and returns 0", () => {
+  it("leaves a distant pellet", () => {
     const { world } = spawnPlayer(100, 100);
     const pelletEid = spawnPellet(world, 400, 400);
 
@@ -70,7 +63,7 @@ describe("collectPellets", () => {
 
   it("counts power pellets among removed", () => {
     const { world } = spawnPlayer(100, 100);
-    spawnPellet(world, 100, 100, POWER_PELLET_DRAWABLE_ID);
+    spawnPellet(world, 100, 100, true);
     spawnPellet(world, 100 + PLAYER_RADIUS, 100);
 
     expect(collectPellets(world)).toEqual({ removed: 2, powerRemoved: 1 });
