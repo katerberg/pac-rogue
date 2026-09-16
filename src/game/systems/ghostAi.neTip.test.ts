@@ -1,11 +1,13 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { cellCenterX, cellCenterY, worldToCol, worldToRow } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
+import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Player } from "../components/Player";
@@ -20,9 +22,11 @@ function spawnScatterGhostAt(col: number, row: number, facing: Direction) {
 
   const player = addEntity(world);
   addComponent(world, player, Position);
+  addComponent(world, player, Facing);
   addComponent(world, player, Player);
   Position.x[player] = cellCenterX(1);
   Position.y[player] = cellCenterY(23);
+  Facing.direction[player] = DIRECTION.none;
 
   const ghost = addEntity(world);
   addComponent(world, ghost, Position);
@@ -31,6 +35,7 @@ function spawnScatterGhostAt(col: number, row: number, facing: Direction) {
   addComponent(world, ghost, Facing);
   addComponent(world, ghost, Speed);
   addComponent(world, ghost, Ghost);
+  addComponent(world, ghost, GhostKind);
   addComponent(world, ghost, GhostPhase);
   Position.x[ghost] = cellCenterX(col);
   Position.y[ghost] = cellCenterY(row);
@@ -39,6 +44,7 @@ function spawnScatterGhostAt(col: number, row: number, facing: Direction) {
   Input.direction[ghost] = facing;
   Facing.direction[ghost] = facing;
   Speed.px[ghost] = GHOST_SPEED;
+  GhostKind.kind[ghost] = GHOST_KIND.blinky;
   GhostPhase.value[ghost] = GHOST_PHASE.active;
   Ghost.decidedCol[ghost] = Number.NaN;
   Ghost.decidedRow[ghost] = Number.NaN;

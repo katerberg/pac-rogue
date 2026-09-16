@@ -2,31 +2,38 @@ import { query, type World } from "bitecs";
 import { pickGhostDirection, type GhostDir } from "../../domain/ghostPath";
 import type { GhostAiMode } from "../../domain/ghostMode";
 import { ghostMovementRules } from "../../domain/ghostMovement";
-import { blinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
+import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { blinkyTarget, pinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
 import { TURN_ALIGN_EPS, isAlignedForTurn, worldToCol, worldToRow } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
+import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-function playerTile(world: World): { col: number; row: number } {
-  const players = query(world, [Player, Position]);
+function playerTileAndFacing(world: World): {
+  col: number;
+  row: number;
+  facing: GhostDir;
+} {
+  const players = query(world, [Player, Position, Facing]);
   const eid = players[0];
   if (eid === undefined) {
-    return { col: 0, row: 0 };
+    return { col: 0, row: 0, facing: DIRECTION.none as GhostDir };
   }
   return {
     col: worldToCol(Position.x[eid] ?? 0),
     row: worldToRow(Position.y[eid] ?? 0),
+    facing: (Facing.direction[eid] ?? DIRECTION.none) as GhostDir,
   };
 }
 
 export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: number): void {
-  const player = playerTile(world);
+  const player = playerTileAndFacing(world);
 
-  for (const eid of query(world, [Ghost, GhostPhase, Position, Input, Facing])) {
+  for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
     if (phase === GHOST_PHASE.inHouse) {
       continue;
@@ -44,13 +51,23 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       continue;
     }
 
-    const target = blinkyTarget({
-      phase,
-      mode,
-      pelletsRemaining,
-      playerCol: player.col,
-      playerRow: player.row,
-    });
+    const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
+    const target =
+      kind === GHOST_KIND.pinky
+        ? pinkyTarget({
+            phase,
+            mode,
+            playerCol: player.col,
+            playerRow: player.row,
+            playerFacing: player.facing,
+          })
+        : blinkyTarget({
+            phase,
+            mode,
+            pelletsRemaining,
+            playerCol: player.col,
+            playerRow: player.row,
+          });
 
     const rules = ghostMovementRules(phase);
     const storedFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;

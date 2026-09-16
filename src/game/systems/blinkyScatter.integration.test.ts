@@ -7,6 +7,7 @@ import {
   tickGhostMode,
 } from "../../domain/ghostMode";
 import { createGhostReleaseClock, tickGhostRelease } from "../../domain/ghostRelease";
+import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
   GHOST_HOUSE_EXIT_COL,
@@ -22,6 +23,7 @@ import {
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
+import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, Input } from "../components/Input";
 import { Player } from "../components/Player";
@@ -59,6 +61,7 @@ function spawnActors() {
   addComponent(world, ghost, Facing);
   addComponent(world, ghost, Speed);
   addComponent(world, ghost, Ghost);
+  addComponent(world, ghost, GhostKind);
   addComponent(world, ghost, GhostPhase);
   const gSpawn = ghostHouseSpawnCenter();
   Position.x[ghost] = gSpawn.x;
@@ -68,6 +71,7 @@ function spawnActors() {
   Input.direction[ghost] = DIRECTION.none;
   Facing.direction[ghost] = DIRECTION.none;
   Speed.px[ghost] = 0;
+  GhostKind.kind[ghost] = GHOST_KIND.blinky;
   GhostPhase.value[ghost] = GHOST_PHASE.inHouse;
   Ghost.decidedCol[ghost] = Number.NaN;
   Ghost.decidedRow[ghost] = Number.NaN;
@@ -85,9 +89,6 @@ function tickPipeline(
   const nextRelease = tickGhostRelease(release, true, dt);
   ghostRelease(world, nextRelease);
   let nextMode = mode;
-  if (ghostExitHouse(world)) {
-    nextMode = startGhostModeClock();
-  }
   const modeTick = tickGhostMode(nextMode, dt);
   nextMode = modeTick.clock;
   if (modeTick.forceReverse) {
@@ -97,7 +98,7 @@ function tickPipeline(
   }
   applyGhostSpeed(world, pelletsRemaining);
   movement(world, dt);
-  if (ghostExitHouse(world)) {
+  if (ghostExitHouse(world) && !nextMode.active) {
     nextMode = startGhostModeClock();
   }
   return { release: nextRelease, mode: nextMode };
