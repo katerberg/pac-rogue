@@ -2,7 +2,7 @@
 
 ## Goal
 
-Ship one Blinky: spawn in a carved ghost house, release ~1s after the player first moves, animate out the door, then run arcade-style **scatter/chase** waves (Blinky scatter corner + player-tile chase) with dossier intersection steering (simplified decide-at-center). Include **Cruise Elroy** (dot-threshold speed + chase-during-scatter). Tunnel slowdown. Circle overlap ends the run → menu. No frightened mode or other ghosts.
+Ship one Blinky: spawn in a carved ghost house, release **0.1s** after the player first moves, animate out the door, then run arcade-style **scatter/chase** waves (Blinky scatter corner + player-tile chase) with dossier intersection steering (simplified decide-at-center). **Mode starts in chase** (skip opening arcade scatter; later wave durations stay arcade). Include **Cruise Elroy** (dot-threshold speed + chase-during-scatter). Tunnel slowdown. Circle overlap ends the run → menu. No frightened mode or other ghosts.
 
 ## Locked decisions
 
@@ -20,7 +20,7 @@ Ship one Blinky: spawn in a carved ghost house, release ~1s after the player fir
 | 8   | Collision = circle overlap.                                                                                            | user           |
 | A   | Blinky only.                                                                                                           | prior          |
 | B   | Chase target = player tile. Scatter target = Blinky corner (below). Elroy overrides scatter target → player tile.      | revised        |
-| C   | Release: 1000ms after first non-`none` player `Input`.                                                                 | prior          |
+| C   | Release: **100ms** after first non-`none` player `Input`.                                                              | revised        |
 | D   | Path pick: no voluntary reverse; min squared Euclidean; ties up > left > down > right.                                 | prior          |
 | E   | ECS + domain helpers; scene wires only; render `blinky.png`.                                                           | prior          |
 | F   | No fright / energizers / eaten-eyes.                                                                                   | user           |
@@ -34,10 +34,10 @@ Ship one Blinky: spawn in a carved ghost house, release ~1s after the player fir
 
 ### Scatter / chase schedule (level 1 only)
 
-Single board = dossier **level 1** table (seconds). Clock starts when Blinky reaches the **exit tile** (`leaving` → active), in the **first scatter** wave:
+Single board = dossier **level 1** table (seconds). Clock starts when Blinky reaches the **exit tile** (`leaving` → active). **Skip the opening scatter** so the first active wave is **chase 20s**; later scatter/chase durations stay arcade:
 
-1. Scatter 7s
-2. Chase 20s
+1. ~~Scatter 7s~~ (skipped at start)
+2. Chase 20s ← **start here**
 3. Scatter 7s
 4. Chase 20s
 5. Scatter 5s
@@ -75,9 +75,9 @@ Tunnel always wins while in a tunnel-slow cell: `PLAYER_SPEED * 0.5` (ignore Elr
 ```mermaid
 stateDiagram-v2
   direction LR
-  inHouse --> leaving: releaseTimer_1s
+  inHouse --> leaving: releaseTimer_0.1s
   leaving --> active: reachExitTile
-  active --> active: scatterChaseWaves
+  active --> active: scatterChaseWaves_chaseFirst
 ```
 
 ### 1. Maze: carve house + dual solids
@@ -107,8 +107,8 @@ Components:
 
 Domain:
 
-- [`ghostRelease.ts`](src/domain/ghostRelease.ts): start on first player direction input; at 1000ms `inHouse` → `leaving`.
-- Leaving: target = exit tile; on aligned arrival → `active`, **start mode schedule at scatter wave 0**.
+- [`ghostRelease.ts`](src/domain/ghostRelease.ts): start on first player direction input; at **100ms** `inHouse` → `leaving`.
+- Leaving: target = exit tile; on aligned arrival → `active`, **start mode schedule at chase** (`START_WAVE_INDEX = 1`, skip opening scatter).
 - [`ghostMode.ts`](src/domain/ghostMode.ts): wave table (level-1 durations); `tickGhostMode(state, deltaMs)` → `{ mode: scatter|chase, forceReverse: boolean }`.
 - On `forceReverse`: reverse Blinky’s `Facing` and `Input.direction` once.
 
@@ -161,7 +161,7 @@ Lethal once `leaving` or `active`. Circle overlap → menu; no high-score write.
 | Elroy        | derived from `pelletsRemaining` vs 20 / 10                            |
 | Speeds       | base 0.9375×, Elroy1 1.0×, Elroy2 1.0625×, tunnel 0.5× `PLAYER_SPEED` |
 | Scatter tile | `(25, -3)`                                                            |
-| Release      | 1000ms after first direction input                                    |
+| Release      | **100ms** after first direction input                                 |
 
 ## Failure behavior
 
@@ -180,12 +180,12 @@ Lethal once `leaving` or `active`. Circle overlap → menu; no high-score write.
 
 1. `pickGhostDirection` distance + tie-break + no voluntary reverse.
 2. Player blocked from house; ghost can use house/door; exit walkable.
-3. Release 1s after input; leaving → active at exit; mode starts in scatter.
+3. Release **0.1s** after input; leaving → active at exit; mode starts in **chase** (then arcade scatter/chase).
 4. Mode schedule durations; each wave boundary sets force reverse once.
 5. Scatter target `(25,-3)` when not Elroy; player tile in chase and when Elroy in scatter.
 6. Speeds: base / Elroy1 at ≤20 / Elroy2 at ≤10 / tunnel overrides.
 7. Catch → menu flag/transition; no score on catch.
-8. `npm run verify` + live 5174: house → release → NE corner during first scatter → chase → Elroy late → touch → Menu.
+8. `npm run verify` + live 5174: house → release → chase → first scatter NE corner → Elroy late → touch → Menu.
 9. `/no-comments` on scoped diff.
 
 ## Out of scope

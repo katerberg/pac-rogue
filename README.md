@@ -47,7 +47,7 @@ Pull requests and pushes to `main` run `npm run verify` (typecheck, lint, format
 
 ## Status
 
-Boots to a `PAC-ROGUE` menu (Start / High Scores). Start opens the maze; High Scores lists localStorage clears (score desc). ECS Pac-Man traverses a static maze (blue pipe walls, centerline movement, sticky next-direction turns, side tunnels with wrap). Regular pellets with a collected counter, a top-right countdown, and capped localStorage history of successful clears (score = remaining time). One Blinky ghost: ghost-house release after 1s, scatter/chase waves, Cruise Elroy, tunnel slowdown; contact returns to the menu. No power pellets / frightened mode / other ghosts yet.
+Boots to a `PAC-ROGUE` menu (Start / High Scores). Start opens the maze; High Scores lists localStorage clears (score desc). ECS Pac-Man traverses a static maze (blue pipe walls, centerline movement, sticky next-direction turns, side tunnels with wrap). Regular pellets with a collected counter, a top-right countdown, and capped localStorage history of successful clears (score = remaining time). One Blinky ghost: ghost-house release after 0.1s, starts in chase then arcade scatter/chase waves, Cruise Elroy, tunnel slowdown; contact returns to the menu. No power pellets / frightened mode / other ghosts yet.
 
 ## Art
 
