@@ -90,6 +90,8 @@ After answers (or “lock defaults”):
 
 Every plan includes a **docs** deliverable (`docs/`, README, folder READMEs) or **Docs: none** plus a one-line reason. Same PR as the code when the host repo expects that.
 
+Every **code-changing** plan ends with `/simplify-pr` then `/no-comments` on the scoped diff (see those skills). Skip both only for pure docs/tooling plans that touch no `src/` application code.
+
 ## Harness notes
 
 | Harness                        | Do this                                                                                                                                                                     |
@@ -108,6 +110,7 @@ If a tool **forces** a plan artifact on the first turn: the artifact is the inte
 - Omitting the Proposed locks section
 - “Any other preferences?” as a substitute for lens coverage
 - Creating todos for code/tests and omitting docs
+- Omitting `/simplify-pr` or `/no-comments` from a code-changing plan
 - Implementation starting during the question round
 
 ## Done when
@@ -115,3 +118,4 @@ If a tool **forces** a plan artifact on the first turn: the artifact is the inte
 - User received one Decide + Proposed locks dump covering the lenses
 - Plan has **zero** unresolved choices
 - A weaker model could implement from files + tests + docs sections alone
+- Code-changing plans name `/simplify-pr` then `/no-comments` as late steps

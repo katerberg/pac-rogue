@@ -39,9 +39,10 @@ Pull requests and pushes to `main` run `npm run verify` (typecheck, lint, format
 
 ## Docs for agents
 
-- [AGENTS.md](./AGENTS.md) — guardrails (every code-changing plan includes `/no-comments`)
+- [AGENTS.md](./AGENTS.md) — guardrails (every code-changing plan includes `/simplify-pr` then `/no-comments`)
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — structure and principles
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work
+- [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow
 
 ## Status
