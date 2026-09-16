@@ -17,24 +17,35 @@ src/
   styles.css                  # Page chrome around the canvas
   domain/                     # Pure helpers (no Phaser, no bitecs world APIs)
     clamp.ts
-    countdown.ts              # countdown start / tick interval / advance+clamp
-    runClock.ts               # start-on-input countdown state machine
-    pelletProgress.ts         # collect totals + once-per-run clear detection
-    runHistory.ts             # successful-run history schema + capped append
-    highScoresView.ts         # display sort/format for high-score list (Phaser-free)
-    scoreListScroll.ts        # pause/scroll/loop state machine for long lists
-    playfield.ts              # speed, size, bounds, drawable id / radius constants
-    maze.ts                   # static maze ASCII, walls/exterior/tunnels, centers, pipe edges, wrap
+    circles.ts                # circle overlap tests
+    countdown.ts
+    runClock.ts
+    pelletProgress.ts
+    runHistory.ts
+    highScoresView.ts
+    scoreListScroll.ts
+    playfield.ts              # speeds, sizes, drawable ids
+    maze.ts                   # ASCII maze, dual solids (player/ghost), house, tunnels
+    ghostPath.ts              # intersection direction pick + reverse helper
+    ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
+    ghostTarget.ts            # Blinky chase/scatter/Elroy target tile
+    ghostPhase.ts             # inHouse / leaving / active phase ids
+    ghostMode.ts              # level-1 scatter/chase wave clock
+    ghostRelease.ts           # 0.1s release-after-input clock
+    ghostSpeed.ts             # base / Elroy / tunnel speed resolve
   game/
-    config.ts                 # Phaser GameConfig + shared dimensions
-    ui/
-      textStyles.ts           # shared monospace Phaser Text styles (HUD + menus)
+    config.ts
+    audio/sfx.ts
+    ui/textStyles.ts
     components/               # data only — no Phaser
       Position.ts
       Velocity.ts
       Input.ts
       Facing.ts
+      Speed.ts
       Player.ts
+      Ghost.ts
+      GhostPhase.ts
       Wall.ts
       Pellet.ts
       PowerPellet.ts
@@ -42,25 +53,26 @@ src/
     storage/
       runHistoryStorage.ts    # localStorage adapter for successful runs
     systems/
-      playerInput.ts          # Phaser keys → sticky Input (bridge)
-      movement.ts             # Facing + maze collision / turns (Phaser-free)
-      collectPellets.ts       # player–pellet overlap → removeEntity (Phaser-free)
-      playerDirection.ts      # read sticky Input for countdown start (Phaser-free)
-      render.ts               # sprites + wall pipe Graphics; preloadPlayArt (bridge)
+      playerInput.ts          # Phaser keys → sticky Input
+      ghostRelease.ts         # inHouse → leaving after delay
+      ghostAi.ts              # target tile → sticky Input (once per tile)
+      ghostSpeed.ts           # Speed from Elroy + tunnel
+      ghostReverse.ts         # mode-change reverse via Input
+      ghostExitHouse.ts       # leaving → active once off house/door tiles
+      movement.ts             # Facing + collision (per-eid Speed + solids)
+      catchPlayer.ts          # circle overlap → caught
+      collectPellets.ts
+      playerDirection.ts
+      render.ts               # sprites + pipes; preloadPlayArt
     scenes/
-      MenuScene.ts            # boot title + Start / High Scores (no ECS)
-      HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
-      PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
+      MenuScene.ts
+      HighScoresScene.ts
+      PlayScene.ts
 public/
-  art/                        # Pac-Man / pellet / power-pellet / (unused) ghost & fruit PNGs
+  art/                        # Pac-Man / pellet / power-pellet / ghost / fruit PNGs
   sound/                      # SFX (pickups, looping siren, level complete)
 scripts/
-  ports.json
-  visual-smoke.mjs
-  check-ecs-boundaries.mjs
 docs/
-  ARCHITECTURE.md
-  VERIFICATION.md
 ```
 
 ## Ports
@@ -73,12 +85,11 @@ docs/
 
 Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `HighScoresScene`, `PlayScene`.
 
-Transitions use exclusive `scene.start` only (no parallel `launch` for v1):
-
 ```text
 MenuScene --Start--> PlayScene
 MenuScene --High Scores--> HighScoresScene
 HighScoresScene --Back--> MenuScene
+PlayScene --caught--> MenuScene
 ```
 
 **ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (Text, keyboard, pointer). Do not put bitecs in UI scenes.
@@ -88,30 +99,39 @@ High Scores reads `loadRunHistory()` and builds a **display-only** sorted view v
 ## Game loop
 
 ```text
-PlayScene.update → playerInput → movement → tickRunClock → collectPellets → applyPelletCollect → (persist clear) → render
+PlayScene.update →
+  playerInput →
+  tickGhostRelease + ghostRelease →
+  tickGhostMode →
+  (forceReverse ? forceGhostReverse : ghostAi) → applyGhostSpeed →
+  movement →
+  ghostExitHouse (may startGhostModeClock) →
+  tickRunClock →
+  collectPellets → applyPelletCollect →
+  catchPlayer →
+  render →
+  (if caught: MenuScene)
 ```
 
-1. `preload()`: load pac-man direction frames, pellet `dot.png`, and power-pellet art from `public/art/`, and game SFX (pickups, siren, level complete) from `public/sound/`.
-2. `create()`: `createWorld()`, spawn Wall entities (one per wall cell) with `Position`, spawn Pellet entities (one per `.` / `@` cell) with `Position` + `Drawable` + `Pellet` (`PowerPellet` + `power-pellet` drawable for `@`), spawn one player with `Position` + `Velocity` + `Input` + `Facing` + `Player` + `Drawable`, create top-left `Collected` and top-right `Time` HUD texts, build the input/render bridges, start looping siren (stops on scene shutdown or level clear).
-3. `update(_time, delta)`: `playerInput(world)` → `movement(world, delta)` → `tickRunClock` (domain; starts on first non-`none` Input via `hasPlayerDirectionInput`) → `collectPellets(world)` → play pellet SFX per removed count (power pellets play both munches) → `applyPelletCollect` (domain) → on first full clear, stop siren, play level-complete SFX, append score to `localStorage` → `render(world)`.
-4. `playerInput` writes sticky next intent into `Input.direction` (most recent held key; never cleared on release).
-5. `runClock` starts at 999 and decrements once per 100ms of real delta after the first direction input; clamps and stays at 0. Score for a successful clear is remaining time at the clear frame.
-6. `movement` applies sticky `Input` into `Facing` (reverse immediately; 90° turns when travel reaches the cell center). Integrates position, snaps only the perpendicular axis to the corridor centerline, wraps through paired tunnel mouths (preserving facing/velocity), clamps smoothly against facing walls (no teleport-to-center), then playfield safety-clamps.
-7. `collectPellets` removes pellets overlapping the player (circle radii from `Drawable`) and returns removed + power-removed counts (`PowerPellet` tag). The scene plays alternating SFX for dots and both munches for power pellets. `pelletProgress` tracks remaining/collected and signals a one-shot clear; the scene updates `Collected: N` and calls `runHistoryStorage` to append `{ score, clearedAt }` (oldest dropped when over cap).
-8. `render` draws maze pipe outlines once from domain wall edges, mirrors `Position` + `Drawable` (+ `Facing` for the player) onto 16×16 Image GameObjects (directional pac-man with distance-based chomp; `dot.png` / `power-pellet.png`), dual-draws a twin player image while straddling a tunnel seam, and destroys images for removed entities.
-
-Movement is continuous along corridor centerlines with buffered turns. Side tunnels wrap when both opposite edge cells are walkable; disconnected near-edge pockets are exterior (blocked, and wall pipes do not outline faces that touch exterior). `@` cells are visual/audio power pellets with the same collect rules as dots. No enemies yet.
+1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky, SFX.
+2. `create()`: world, walls, pellets (`.` / `@` with `PowerPellet` on `@`), player (`Speed = PLAYER_SPEED`), Blinky in house (`Speed = 0`, `GhostPhase = inHouse`), HUD, siren.
+3. Ghost house / door are carved in ASCII (`=` door, `H` floor). `MAZE_PLAYER_SOLIDS` blocks the house; `MAZE_GHOST_SOLIDS` allows it.
+4. Release: 100ms after first player direction input → `leaving`, climb out through the door; once off house/door tiles → `active` and start mode waves in **chase** (arcade level-1 table, skipping the opening scatter so he does not begin in scatter; later scatter/chase durations stay arcade).
+5. Blinky targeting: chase / Elroy → player tile; scatter → fixed `(25, -3)`. Steering picks min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
+6. Speeds (vs `PLAYER_SPEED`): base 0.9375×, Elroy1 (≤20 pellets) 1.0×, Elroy2 (≤10) 1.0625×, tunnel 0.5×.
+7. Catch: circle overlap while Blinky is `leaving` or `active` → stop siren, `scene.start("MenuScene")` (no high-score write).
+8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws pipes, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, and tunnel twin.
 
 ## ECS boundary
 
-| Layer                                                                    | May import Phaser? | May mutate component arrays? | Role                |
-| ------------------------------------------------------------------------ | ------------------ | ---------------------------- | ------------------- |
-| `game/components/**`                                                     | No                 | Define storage only          | Data                |
-| `game/systems/movement.ts`, `collectPellets.ts` (+ future logic systems) | No                 | Yes                          | Pure simulation     |
-| `game/systems/playerDirection.ts`                                        | No                 | No (reads `Input` only)      | Pure query helper   |
-| `game/systems/playerInput.ts`, `render.ts`                               | Yes                | Yes (input / drawable sync)  | Bridges             |
-| `game/scenes/**`                                                         | Yes                | Spawn / init only            | Wire + run pipeline |
-| `domain/**`                                                              | No                 | No bitecs world APIs         | Pure helpers        |
+| Layer                                                      | May import Phaser? | May mutate component arrays? | Role                |
+| ---------------------------------------------------------- | ------------------ | ---------------------------- | ------------------- |
+| `game/components/**`                                       | No                 | Define storage only          | Data                |
+| logic systems (`movement`, `ghostAi`, `collectPellets`, …) | No                 | Yes                          | Pure simulation     |
+| `game/systems/playerDirection.ts`                          | No                 | No (reads `Input` only)      | Pure query helper   |
+| `game/systems/playerInput.ts`, `render.ts`                 | Yes                | Yes (input / drawable sync)  | Bridges             |
+| `game/scenes/**`                                           | Yes                | Spawn / init only            | Wire + run pipeline |
+| `domain/**`                                                | No                 | No bitecs world APIs         | Pure helpers        |
 
 `npm run verify` enforces this via ESLint `no-restricted-imports` and `npm run check:ecs`. Docs are not the gate.
 
@@ -120,8 +140,8 @@ Movement is continuous along corridor centerlines with buffered turns. Side tunn
 A violation of these is a failed architecture check:
 
 - Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
-- `playerInput` writes sticky next intent into `Input`; only `movement` updates `Facing`, `Velocity`, and `Position`.
-- Scenes wire the world, spawn entities, and run the pipeline — **no movement rules in the scene**.
+- Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse. `movement` updates `Facing`, `Velocity`, and `Position` in normal play; `forceGhostReverse` also sets both `Facing` and `Input` on scatter↔chase boundaries (and that frame skips `ghostAi` so the reverse is not overwritten).
+- Scenes wire the world, spawn entities, and run the pipeline — **no movement or AI rules in the scene** beyond calling systems and domain clocks.
 - Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; pipe Graphics mirror domain edges.
 - One local GameObject map inside the render bridge is enough — do not build a sync framework.
 - Do not invent Entity/Component/System manager classes around bitecs.
@@ -138,9 +158,10 @@ A violation of these is a failed architecture check:
 
 - Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores). Start opens `PlayScene`; High Scores opens `HighScoresScene` (score+date list from localStorage; empty → `NO SCORES YET`; >5 rows pause-at-top then scroll with trail loop).
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
-- Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls and a mid-maze horizontal tunnel.
-- One player entity (16×16 directional pac-man sprites; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior block travel; tunnels wrap with dual-draw while straddling.
-- Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear or shutdown; clearing all pellets plays level-complete SFX.
+- Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls, dual solids (player blocked from house/door; ghosts allowed), and a mid-maze horizontal tunnel.
+- One player entity (16×16 directional pac-man sprites; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
+- Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX.
+- One Blinky: house spawn, 0.1s release after first direction input, starts in chase then arcade scatter/chase waves + Cruise Elroy, tunnel slowdown; circle overlap catch returns to menu (no high-score write).
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
-- `clamp` + `countdown` + `runClock` + `pelletProgress` + `runHistory` + `highScoresView` + `scoreListScroll` + `playfield` + `maze` helpers are Phaser-free; movement/collect/clock/progress/scroll/view helpers are unit-tested without Phaser.
-- No in-play return to menu yet.
+- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `pelletProgress`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, ghost path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost helpers are unit-tested without Phaser.
+- No frightened mode, energizers behavior, or other ghosts yet (`@` cells are visual/audio power pellets with the same collect rules as dots).

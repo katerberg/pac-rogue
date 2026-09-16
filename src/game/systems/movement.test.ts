@@ -3,24 +3,31 @@ import { describe, expect, it } from "vitest";
 import { cellCenterX, cellCenterY } from "../../domain/maze";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
+import { Ghost } from "../components/Ghost";
 import { DIRECTION, Input } from "../components/Input";
 import { Position } from "../components/Position";
+import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { movement } from "./movement";
 
-function spawnAt(col: number, row: number) {
+function spawnAt(col: number, row: number, ghost = false) {
   const world = createWorld();
   const eid = addEntity(world);
   addComponent(world, eid, Position);
   addComponent(world, eid, Velocity);
   addComponent(world, eid, Input);
   addComponent(world, eid, Facing);
+  addComponent(world, eid, Speed);
+  if (ghost) {
+    addComponent(world, eid, Ghost);
+  }
   Position.x[eid] = cellCenterX(col);
   Position.y[eid] = cellCenterY(row);
   Velocity.x[eid] = 0;
   Velocity.y[eid] = 0;
   Input.direction[eid] = DIRECTION.none;
   Facing.direction[eid] = DIRECTION.none;
+  Speed.px[eid] = PLAYER_SPEED;
   return { world, eid };
 }
 
@@ -49,6 +56,43 @@ describe("movement", () => {
     expect(Velocity.y[eid]).toBe(0);
     expect(Position.x[eid]).toBe(cellCenterX(1));
     expect(Position.y[eid]).toBe(cellCenterY(1));
+  });
+
+  it("keeps ghost Facing at a dead-end so reverse filtering still applies", () => {
+    const { world, eid } = spawnAt(26, 1, true);
+    Facing.direction[eid] = DIRECTION.right;
+    Input.direction[eid] = DIRECTION.right;
+
+    movement(world, 100);
+
+    expect(Facing.direction[eid]).toBe(DIRECTION.right);
+    expect(Velocity.x[eid]).toBe(0);
+    expect(Velocity.y[eid]).toBe(0);
+    expect(Position.x[eid]).toBe(cellCenterX(26));
+    expect(Position.y[eid]).toBe(cellCenterY(1));
+  });
+
+  it("redirects sticky reverse Input to the turn at an L corner", () => {
+    const { world, eid } = spawnAt(26, 1, true);
+    Facing.direction[eid] = DIRECTION.right;
+    Input.direction[eid] = DIRECTION.left;
+
+    movement(world, 16);
+
+    expect(Facing.direction[eid]).toBe(DIRECTION.down);
+    expect(Input.direction[eid]).toBe(DIRECTION.down);
+    expect(Position.y[eid]).toBeGreaterThan(cellCenterY(1));
+  });
+
+  it("still allows reverse in a straight corridor", () => {
+    const { world, eid } = spawnAt(20, 1, true);
+    Facing.direction[eid] = DIRECTION.right;
+    Input.direction[eid] = DIRECTION.left;
+
+    movement(world, 16);
+
+    expect(Facing.direction[eid]).toBe(DIRECTION.left);
+    expect(Input.direction[eid]).toBe(DIRECTION.left);
   });
 
   it("approaches a facing wall continuously instead of snapping to center", () => {

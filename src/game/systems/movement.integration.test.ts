@@ -12,6 +12,7 @@ import { PLAYER_SPEED } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
+import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { movement } from "./movement";
 
@@ -22,12 +23,14 @@ function spawnPlayer(col: number, row: number) {
   addComponent(world, eid, Velocity);
   addComponent(world, eid, Input);
   addComponent(world, eid, Facing);
+  addComponent(world, eid, Speed);
   Position.x[eid] = cellCenterX(col);
   Position.y[eid] = cellCenterY(row);
   Velocity.x[eid] = 0;
   Velocity.y[eid] = 0;
   Input.direction[eid] = DIRECTION.none;
   Facing.direction[eid] = DIRECTION.none;
+  Speed.px[eid] = PLAYER_SPEED;
   return { world, eid };
 }
 
