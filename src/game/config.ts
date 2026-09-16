@@ -24,11 +24,8 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   backgroundColor: "#1a1a2e",
   scene: [MenuScene, HighScoresScene, PlayScene],
   scale: {
-    mode: Phaser.Scale.NONE,
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-  render: {
-    pixelArt: true,
   },
   audio: audioContext ? { context: audioContext } : undefined,
 };

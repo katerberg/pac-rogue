@@ -12,15 +12,13 @@ import {
   type ScoreListScrollState,
 } from "../../domain/scoreListScroll";
 import { loadRunHistory } from "../storage/runHistoryStorage";
+import { bindDisplayTextResolution } from "./textResolution";
 import {
-  addPixelText,
-  MENU_OPTION_FONT_SIZE,
-  MENU_TITLE_FONT_SIZE,
-  placePixelText,
-  SCORES_FONT_SIZE,
-  TEXT_COLOR_WHITE,
-  TEXT_COLOR_YELLOW,
-} from "./pixelFont";
+  menuOptionSelectedStyle,
+  menuOptionStyle,
+  menuTitleStyle,
+  scoresLineStyle,
+} from "../ui/textStyles";
 
 const SCROLL = DEFAULT_SCORE_LIST_SCROLL;
 const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
@@ -32,8 +30,8 @@ const BG = 0x1a1a2e;
 export class HighScoresScene extends Phaser.Scene {
   private scrollState: ScoreListScrollState = createScoreListScroll(0, SCROLL);
   private itemCount = 0;
-  private rowTexts: Phaser.GameObjects.BitmapText[] = [];
-  private backText!: Phaser.GameObjects.BitmapText;
+  private rowTexts: Phaser.GameObjects.Text[] = [];
+  private crispTexts: Phaser.GameObjects.Text[] = [];
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private keyBackspace!: Phaser.Input.Keyboard.Key;
 
@@ -46,35 +44,47 @@ export class HighScoresScene extends Phaser.Scene {
     this.itemCount = rows.length;
     this.scrollState = createScoreListScroll(this.itemCount, SCROLL);
     this.rowTexts = [];
+    this.crispTexts = [];
 
     const headerLine = formatHighScoreHeader();
-    const probe = addPixelText(this, 0, 0, headerLine, SCORES_FONT_SIZE).setVisible(false);
+    const probe = this.add.text(0, 0, headerLine, scoresLineStyle).setVisible(false);
+    const listLeftX = PLAYFIELD_WIDTH / 2 - probe.width / 2;
     const listWidth = probe.width;
-    const listLeftX = Math.round(PLAYFIELD_WIDTH / 2 - listWidth / 2);
     probe.destroy();
 
     if (rows.length === 0) {
-      const empty = addPixelText(
-        this,
-        PLAYFIELD_WIDTH / 2,
-        LIST_TOP + VIEWPORT_HEIGHT / 2,
-        "NO SCORES YET",
-        SCORES_FONT_SIZE,
-      ).setDepth(1);
-      placePixelText(empty, PLAYFIELD_WIDTH / 2, LIST_TOP + VIEWPORT_HEIGHT / 2, 0.5, 0.5);
+      this.crispTexts.push(
+        this.add
+          .text(
+            PLAYFIELD_WIDTH / 2,
+            LIST_TOP + VIEWPORT_HEIGHT / 2,
+            "NO SCORES YET",
+            scoresLineStyle,
+          )
+          .setOrigin(0.5, 0.5)
+          .setDepth(1),
+      );
     } else {
-      addPixelText(this, listLeftX, HEADER_Y, headerLine, SCORES_FONT_SIZE).setDepth(10);
+      this.crispTexts.push(
+        this.add
+          .text(listLeftX, HEADER_Y, headerLine, scoresLineStyle)
+          .setOrigin(0, 0)
+          .setDepth(10),
+      );
       this.add.rectangle(PLAYFIELD_WIDTH / 2, HEADER_LINE_Y, listWidth, 2, 0xffffff).setDepth(10);
 
       for (const [index, row] of rows.entries()) {
-        const text = addPixelText(
-          this,
-          listLeftX,
-          LIST_TOP + index * SCROLL.rowHeight,
-          formatHighScoreLine(row),
-          SCORES_FONT_SIZE,
-        ).setDepth(1);
+        const text = this.add
+          .text(
+            listLeftX,
+            LIST_TOP + index * SCROLL.rowHeight,
+            formatHighScoreLine(row),
+            scoresLineStyle,
+          )
+          .setOrigin(0, 0)
+          .setDepth(1);
         this.rowTexts.push(text);
+        this.crispTexts.push(text);
       }
       this.applyScrollOffset();
     }
@@ -88,38 +98,32 @@ export class HighScoresScene extends Phaser.Scene {
       .rectangle(PLAYFIELD_WIDTH / 2, belowTop + belowHeight / 2, PLAYFIELD_WIDTH, belowHeight, BG)
       .setDepth(5);
 
-    const title = addPixelText(
-      this,
-      PLAYFIELD_WIDTH / 2,
-      80,
-      "HIGH SCORES",
-      MENU_TITLE_FONT_SIZE,
-    ).setDepth(10);
-    placePixelText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
+    this.crispTexts.push(
+      this.add
+        .text(PLAYFIELD_WIDTH / 2, 80, "HIGH SCORES", menuTitleStyle)
+        .setOrigin(0.5, 0.5)
+        .setDepth(10),
+    );
 
-    this.backText = addPixelText(
-      this,
-      PLAYFIELD_WIDTH / 2,
-      PLAYFIELD_HEIGHT - 80,
-      "> BACK",
-      MENU_OPTION_FONT_SIZE,
-      TEXT_COLOR_YELLOW,
-    ).setDepth(10);
-    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
-    this.backText.setInteractive({ useHandCursor: true });
-    this.backText.on("pointerover", () => {
-      this.backText.setText("> BACK");
-      this.backText.setTint(TEXT_COLOR_YELLOW);
-      placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
+    const back = this.add
+      .text(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, "> BACK", menuOptionSelectedStyle)
+      .setOrigin(0.5, 0.5)
+      .setDepth(10)
+      .setInteractive({ useHandCursor: true });
+    this.crispTexts.push(back);
+    back.on("pointerover", () => {
+      back.setText("> BACK");
+      back.setStyle(menuOptionSelectedStyle);
     });
-    this.backText.on("pointerout", () => {
-      this.backText.setText("  BACK");
-      this.backText.setTint(TEXT_COLOR_WHITE);
-      placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
+    back.on("pointerout", () => {
+      back.setText("  BACK");
+      back.setStyle(menuOptionStyle);
     });
-    this.backText.on("pointerdown", () => {
+    back.on("pointerdown", () => {
       this.goBack();
     });
+
+    bindDisplayTextResolution(this, () => this.crispTexts);
 
     if (this.input.keyboard === null) {
       return;
