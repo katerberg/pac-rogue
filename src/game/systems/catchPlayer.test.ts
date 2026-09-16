@@ -60,10 +60,17 @@ describe("catchPlayer", () => {
     expect(catchPlayer(world)).toBe(true);
   });
 
-  it("does not catch when an active ghost is far away", () => {
+  it("does not catch when ghosts are frozen", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
-    spawnGhost(world, 400, 400, GHOST_PHASE.active);
-    expect(catchPlayer(world)).toBe(false);
+    spawnGhost(world, 100, 100, GHOST_PHASE.active);
+    expect(catchPlayer(world, { ghostsFrozen: true })).toBe(false);
+  });
+
+  it("still catches overlapping ghosts when not frozen", () => {
+    const world = createWorld();
+    spawnPlayer(world, 100, 100);
+    spawnGhost(world, 100, 100, GHOST_PHASE.active);
+    expect(catchPlayer(world, { ghostsFrozen: false })).toBe(true);
   });
 });

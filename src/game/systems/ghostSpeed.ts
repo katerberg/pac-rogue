@@ -9,7 +9,12 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 
-export function applyGhostSpeed(world: World, pelletsRemaining: number): void {
+export function applyGhostSpeed(
+  world: World,
+  pelletsRemaining: number,
+  ghostSpeedMul = 1,
+  frozen = false,
+): void {
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Speed])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
     if (phase === GHOST_PHASE.inHouse) {
@@ -17,9 +22,15 @@ export function applyGhostSpeed(world: World, pelletsRemaining: number): void {
       continue;
     }
 
+    if (frozen) {
+      Speed.px[eid] = 0;
+      continue;
+    }
+
     const col = worldToCol(Position.x[eid] ?? 0);
     const row = worldToRow(Position.y[eid] ?? 0);
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
-    Speed.px[eid] = resolveGhostSpeedForKind(kind, pelletsRemaining, isGhostTunnelSlow(col, row));
+    Speed.px[eid] =
+      resolveGhostSpeedForKind(kind, pelletsRemaining, isGhostTunnelSlow(col, row)) * ghostSpeedMul;
   }
 }

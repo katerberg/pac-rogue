@@ -20,6 +20,7 @@ import {
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
+import { GHOST_FROZEN_TINT } from "../../domain/upgrades";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction } from "../components/Input";
@@ -148,14 +149,19 @@ function ensurePlayerVisual(
   return visual;
 }
 
-export function createRender(scene: Phaser.Scene): (world: World) => void {
+export type RenderOptions = {
+  ghostsFrozen?: boolean;
+};
+
+export function createRender(scene: Phaser.Scene): (world: World, opts?: RenderOptions) => void {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
   let wallsDrawn = false;
   const actorDisplaySize = playerDisplaySize();
 
-  return (world: World) => {
+  return (world: World, opts?: RenderOptions) => {
+    const ghostsFrozen = opts?.ghostsFrozen === true;
     if (!wallsDrawn) {
       wallGraphics.clear();
       wallGraphics.lineStyle(WALL_STROKE_WEIGHT, WALL_STROKE_COLOR, 1);
@@ -200,6 +206,14 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
       }
 
       go.setPosition(x, y);
+
+      if (ghostTexture !== undefined) {
+        if (ghostsFrozen) {
+          go.setTint(GHOST_FROZEN_TINT);
+        } else {
+          go.clearTint();
+        }
+      }
 
       if (id === PLAYER_DRAWABLE_ID) {
         const visual = ensurePlayerVisual(playerVisuals, eid, x, y);
