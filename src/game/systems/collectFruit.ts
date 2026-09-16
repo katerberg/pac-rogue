@@ -1,4 +1,5 @@
 import { query, removeEntity, type World } from "bitecs";
+import { circlesOverlap } from "../../domain/circles";
 import { Drawable } from "../components/Drawable";
 import { Fruit } from "../components/Fruit";
 import { Player } from "../components/Player";
@@ -21,11 +22,10 @@ export function collectFruit(world: World): FruitCollectFrame {
 
   const toRemove: number[] = [];
   for (const fruitEid of query(world, [Fruit, Position, Drawable])) {
-    const ox = (Position.x[fruitEid] ?? 0) - px;
-    const oy = (Position.y[fruitEid] ?? 0) - py;
+    const fx = Position.x[fruitEid] ?? 0;
+    const fy = Position.y[fruitEid] ?? 0;
     const fruitRadius = Drawable.radius[fruitEid] ?? 0;
-    const reach = playerRadius + fruitRadius;
-    if (ox * ox + oy * oy <= reach * reach) {
+    if (circlesOverlap(px, py, playerRadius, fx, fy, fruitRadius)) {
       toRemove.push(fruitEid);
     }
   }

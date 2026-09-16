@@ -1,5 +1,6 @@
 import { addComponent, addEntity, createWorld, query } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { TILE_SIZE } from "../../domain/maze";
 import { FRUIT_RADIUS, PLAYER_RADIUS } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Fruit } from "../components/Fruit";
@@ -45,6 +46,17 @@ describe("collectFruit", () => {
 
     expect(collectFruit(world)).toEqual({ removed: 0 });
     expect(query(world, [Fruit, Position])).toEqual([fruitEid]);
+  });
+
+  it("does not collect from an adjacent cell center", () => {
+    const fruitX = 200;
+    const fruitY = 200;
+    const { world } = spawnPlayer(fruitX - TILE_SIZE, fruitY);
+    spawnFruit(world, fruitX, fruitY);
+
+    expect(PLAYER_RADIUS + FRUIT_RADIUS).toBeLessThan(TILE_SIZE);
+    expect(collectFruit(world)).toEqual({ removed: 0 });
+    expect(query(world, [Fruit, Position])).toHaveLength(1);
   });
 
   it("returns zero when there is no player", () => {

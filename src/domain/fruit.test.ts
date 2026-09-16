@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellCenterX, cellCenterY } from "./maze";
+import { cellCenterX, cellCenterY, isWalkable, MAZE_PLAYER_SOLIDS } from "./maze";
 import {
   CURRENT_LEVEL,
   FRUIT_LIFETIME_MS,
@@ -31,16 +31,23 @@ describe("fruitArtPath", () => {
   it("uses strawberry art as cherries stand-in", () => {
     expect(fruitArtPath("cherries")).toBe("art/other/strawberry.png");
   });
+
+  it("maps strawberry and apple kinds to existing art", () => {
+    expect(fruitArtPath("strawberry")).toBe("art/other/strawberry.png");
+    expect(fruitArtPath("apple")).toBe("art/other/apple.png");
+    expect(fruitArtPath("key")).toBe("art/other/apple.png");
+  });
 });
 
 describe("fruitSpawnCenter", () => {
-  it("centers on cell (13, 17)", () => {
+  it("centers on a player-walkable cell under the ghost house", () => {
     expect(fruitSpawnCenter()).toEqual({
       x: cellCenterX(FRUIT_SPAWN_COL),
       y: cellCenterY(FRUIT_SPAWN_ROW),
     });
     expect(FRUIT_SPAWN_COL).toBe(13);
     expect(FRUIT_SPAWN_ROW).toBe(17);
+    expect(isWalkable(FRUIT_SPAWN_COL, FRUIT_SPAWN_ROW, MAZE_PLAYER_SOLIDS)).toBe(true);
   });
 });
 
