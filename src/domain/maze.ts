@@ -48,7 +48,7 @@ export const WALL_FILL_COLOR = MAZE_BACKGROUND_COLOR;
 export const WALL_STROKE_COLOR = 0x2121ff;
 export const WALL_COLOR = WALL_STROKE_COLOR;
 export const WALL_STROKE_WEIGHT = 2;
-export const WALL_CORNER_RADIUS = 5;
+export const WALL_CORNER_RADIUS = 6;
 export const PLAYER_WALL_PADDING_PX = 5;
 export const PELLET_DISPLAY_SIZE = 6;
 export const POWER_PELLET_DISPLAY_SIZE = 10;
@@ -66,17 +66,7 @@ export type PipeEdge = {
 };
 
 export type WallPathCommand =
-  | { type: "move"; x: number; y: number }
-  | { type: "line"; x: number; y: number }
-  | {
-      type: "arc";
-      x: number;
-      y: number;
-      radius: number;
-      startAngle: number;
-      endAngle: number;
-      anticlockwise: boolean;
-    };
+  { type: "move"; x: number; y: number } | { type: "line"; x: number; y: number };
 
 export function colorToCssHex(color: number): string {
   return `#${color.toString(16).padStart(6, "0")}`;
@@ -314,7 +304,6 @@ export function isDoor(col: number, row: number, door: SolidGrid = MAZE_DOOR): b
   return door[row]?.[col] ?? false;
 }
 
-/** True once the ghost has left house/door tiles (exit corridor and beyond). */
 export function hasLeftGhostHouse(col: number, row: number): boolean {
   return !isHouse(col, row);
 }
@@ -696,210 +685,44 @@ function vertexPixelY(vr: number): number {
   return MAZE_OFFSET_Y + vr * TILE_SIZE;
 }
 
-function wallCornerKind(
-  vc: number,
-  vr: number,
-  walls: SolidGrid,
-):
-  | "convex-se"
-  | "convex-sw"
-  | "convex-ne"
-  | "convex-nw"
-  | "concave-se"
-  | "concave-sw"
-  | "concave-ne"
-  | "concave-nw"
-  | null {
-  const nw = isWall(vc - 1, vr - 1, walls);
-  const ne = isWall(vc, vr - 1, walls);
-  const sw = isWall(vc - 1, vr, walls);
-  const se = isWall(vc, vr, walls);
-  const count = (nw ? 1 : 0) + (ne ? 1 : 0) + (sw ? 1 : 0) + (se ? 1 : 0);
-  if (count === 1) {
-    if (se) return "convex-se";
-    if (sw) return "convex-sw";
-    if (ne) return "convex-ne";
-    if (nw) return "convex-nw";
-  }
-  if (count === 3) {
-    if (!se) return "concave-se";
-    if (!sw) return "concave-sw";
-    if (!ne) return "concave-ne";
-    if (!nw) return "concave-nw";
-  }
-  return null;
-}
-
-function cornerUsesPipeFaces(
-  kind: NonNullable<ReturnType<typeof wallCornerKind>>,
-  vc: number,
-  vr: number,
-  walls: SolidGrid,
-  exterior: SolidGrid,
-): boolean {
-  switch (kind) {
-    case "convex-se":
-      return (
-        shouldDrawPipeAgainst(vc, vr - 1, walls, exterior) &&
-        shouldDrawPipeAgainst(vc - 1, vr, walls, exterior)
-      );
-    case "convex-sw":
-      return (
-        shouldDrawPipeAgainst(vc - 1, vr - 1, walls, exterior) &&
-        shouldDrawPipeAgainst(vc, vr, walls, exterior)
-      );
-    case "convex-ne":
-      return (
-        shouldDrawPipeAgainst(vc, vr, walls, exterior) &&
-        shouldDrawPipeAgainst(vc - 1, vr - 1, walls, exterior)
-      );
-    case "convex-nw":
-      return (
-        shouldDrawPipeAgainst(vc - 1, vr, walls, exterior) &&
-        shouldDrawPipeAgainst(vc, vr - 1, walls, exterior)
-      );
-    case "concave-se":
-      return shouldDrawPipeAgainst(vc, vr, walls, exterior);
-    case "concave-sw":
-      return shouldDrawPipeAgainst(vc - 1, vr, walls, exterior);
-    case "concave-ne":
-      return shouldDrawPipeAgainst(vc, vr - 1, walls, exterior);
-    case "concave-nw":
-      return shouldDrawPipeAgainst(vc - 1, vr - 1, walls, exterior);
-    default:
-      return false;
-  }
-}
-
-function emitCornerArc(
-  kind: NonNullable<ReturnType<typeof wallCornerKind>>,
-  vc: number,
-  vr: number,
-  r: number,
-): WallPathCommand[] {
-  const x = vertexPixelX(vc);
-  const y = vertexPixelY(vr);
-  switch (kind) {
-    case "convex-se":
-      return [
-        { type: "move", x: x + r, y },
-        {
-          type: "arc",
-          x: x + r,
-          y: y + r,
-          radius: r,
-          startAngle: -Math.PI / 2,
-          endAngle: Math.PI,
-          anticlockwise: true,
-        },
-      ];
-    case "convex-sw":
-      return [
-        { type: "move", x, y: y + r },
-        {
-          type: "arc",
-          x: x - r,
-          y: y + r,
-          radius: r,
-          startAngle: 0,
-          endAngle: -Math.PI / 2,
-          anticlockwise: true,
-        },
-      ];
-    case "convex-ne":
-      return [
-        { type: "move", x: x + r, y },
-        {
-          type: "arc",
-          x: x + r,
-          y: y - r,
-          radius: r,
-          startAngle: Math.PI / 2,
-          endAngle: Math.PI,
-          anticlockwise: false,
-        },
-      ];
-    case "convex-nw":
-      return [
-        { type: "move", x, y: y - r },
-        {
-          type: "arc",
-          x: x - r,
-          y: y - r,
-          radius: r,
-          startAngle: 0,
-          endAngle: Math.PI / 2,
-          anticlockwise: false,
-        },
-      ];
-    case "concave-se":
-      return [
-        { type: "move", x: x + r, y },
-        {
-          type: "arc",
-          x,
-          y,
-          radius: r,
-          startAngle: 0,
-          endAngle: Math.PI / 2,
-          anticlockwise: false,
-        },
-      ];
-    case "concave-sw":
-      return [
-        { type: "move", x, y: y + r },
-        {
-          type: "arc",
-          x,
-          y,
-          radius: r,
-          startAngle: -Math.PI / 2,
-          endAngle: Math.PI,
-          anticlockwise: true,
-        },
-      ];
-    case "concave-ne":
-      return [
-        { type: "move", x: x - r, y },
-        {
-          type: "arc",
-          x,
-          y,
-          radius: r,
-          startAngle: Math.PI,
-          endAngle: Math.PI / 2,
-          anticlockwise: true,
-        },
-      ];
-    case "concave-nw":
-      return [
-        { type: "move", x, y: y - r },
-        {
-          type: "arc",
-          x,
-          y,
-          radius: r,
-          startAngle: Math.PI / 2,
-          endAngle: 0,
-          anticlockwise: true,
-        },
-      ];
-    default:
-      return [];
-  }
-}
-
-function vertexHasDrawableCorner(
-  vc: number,
-  vr: number,
-  walls: SolidGrid,
-  exterior: SolidGrid,
-): boolean {
-  const kind = wallCornerKind(vc, vr, walls);
-  if (!kind) {
+function isWallCell(col: number, row: number, walls: SolidGrid): boolean {
+  if (!inBounds(col, row)) {
     return false;
   }
-  return cornerUsesPipeFaces(kind, vc, vr, walls, exterior);
+  return walls[row]?.[col] ?? false;
+}
+
+function vertexKey(vc: number, vr: number): string {
+  return `${vc},${vr}`;
+}
+
+function parseVertexKey(key: string): { vc: number; vr: number } {
+  const [vc, vr] = key.split(",").map(Number) as [number, number];
+  return { vc, vr };
+}
+
+function quadraticCommands(
+  x0: number,
+  y0: number,
+  cx: number,
+  cy: number,
+  x1: number,
+  y1: number,
+  steps: number,
+): WallPathCommand[] {
+  const commands: WallPathCommand[] = [{ type: "move", x: x0, y: y0 }];
+  for (let i = 1; i <= steps; i += 1) {
+    const t = i / steps;
+    const u = 1 - t;
+    const x = u * u * x0 + 2 * u * t * cx + t * t * x1;
+    const y = u * u * y0 + 2 * u * t * cy + t * t * y1;
+    commands.push({ type: "line", x, y });
+  }
+  return commands;
+}
+
+function edgeEndKey(x1: number, y1: number, x2: number, y2: number): string {
+  return `${x1},${y1}>${x2},${y2}`;
 }
 
 export function wallFillRects(
@@ -928,63 +751,114 @@ export function wallPathCommands(
   cornerRadius: number = WALL_CORNER_RADIUS,
 ): WallPathCommand[] {
   const r = clampedWallCornerRadius(cornerRadius);
+  const edges = pipeEdges(walls, exterior);
   const commands: WallPathCommand[] = [];
 
+  const adj = new Map<string, Set<string>>();
+  const addAdj = (a: string, b: string): void => {
+    const set = adj.get(a) ?? new Set<string>();
+    set.add(b);
+    adj.set(a, set);
+  };
+
+  for (const edge of edges) {
+    const a = vertexKey(
+      Math.round((edge.x1 - MAZE_OFFSET_X) / TILE_SIZE),
+      Math.round((edge.y1 - MAZE_OFFSET_Y) / TILE_SIZE),
+    );
+    const b = vertexKey(
+      Math.round((edge.x2 - MAZE_OFFSET_X) / TILE_SIZE),
+      Math.round((edge.y2 - MAZE_OFFSET_Y) / TILE_SIZE),
+    );
+    addAdj(a, b);
+    addAdj(b, a);
+  }
+
+  const trimmed = new Set<string>();
+
   if (r > 0) {
-    for (let vr = 0; vr <= MAZE_ROWS; vr += 1) {
-      for (let vc = 0; vc <= MAZE_COLS; vc += 1) {
-        const kind = wallCornerKind(vc, vr, walls);
-        if (!kind || !cornerUsesPipeFaces(kind, vc, vr, walls, exterior)) {
-          continue;
+    for (const [key, neighbors] of adj) {
+      const { vc, vr } = parseVertexKey(key);
+      const vx = vertexPixelX(vc);
+      const vy = vertexPixelY(vr);
+      const dirs = [...neighbors].map((nKey) => {
+        const n = parseVertexKey(nKey);
+        return {
+          key: nKey,
+          dc: Math.sign(n.vc - vc),
+          dr: Math.sign(n.vr - vr),
+        };
+      });
+
+      for (let i = 0; i < dirs.length; i += 1) {
+        for (let j = i + 1; j < dirs.length; j += 1) {
+          const a = dirs[i];
+          const b = dirs[j];
+          if (!a || !b) {
+            continue;
+          }
+          if (a.dc * b.dc + a.dr * b.dr !== 0) {
+            continue;
+          }
+
+          const ax = vx + a.dc * r;
+          const ay = vy + a.dr * r;
+          const bx = vx + b.dc * r;
+          const by = vy + b.dr * r;
+
+          const towardC = a.dc + b.dc;
+          const towardR = a.dr + b.dr;
+          const wallInBisect = isWallCell(
+            vc + (towardC > 0 ? 0 : -1),
+            vr + (towardR > 0 ? 0 : -1),
+            walls,
+          );
+          const openInBisect = shouldDrawPipeAgainst(
+            vc + (towardC > 0 ? 0 : -1),
+            vr + (towardR > 0 ? 0 : -1),
+            walls,
+            exterior,
+          );
+
+          let cx: number;
+          let cy: number;
+          if (wallInBisect) {
+            cx = vx;
+            cy = vy;
+          } else if (openInBisect) {
+            cx = vx + towardC * r;
+            cy = vy + towardR * r;
+          } else {
+            continue;
+          }
+
+          commands.push(...quadraticCommands(ax, ay, cx, cy, bx, by, Math.max(5, r)));
+          trimmed.add(edgeEndKey(vx, vy, vx + a.dc * TILE_SIZE, vy + a.dr * TILE_SIZE));
+          trimmed.add(edgeEndKey(vx, vy, vx + b.dc * TILE_SIZE, vy + b.dr * TILE_SIZE));
         }
-        commands.push(...emitCornerArc(kind, vc, vr, r));
       }
     }
   }
 
-  for (let row = 0; row < MAZE_ROWS; row += 1) {
-    for (let col = 0; col < MAZE_COLS; col += 1) {
-      if (!isWall(col, row, walls)) {
-        continue;
-      }
-      const left = cellOriginX(col);
-      const right = left + TILE_SIZE;
-      const top = cellOriginY(row);
-      const bottom = top + TILE_SIZE;
-
-      if (shouldDrawPipeAgainst(col, row - 1, walls, exterior)) {
-        const startX = left + (vertexHasDrawableCorner(col, row, walls, exterior) ? r : 0);
-        const endX = right - (vertexHasDrawableCorner(col + 1, row, walls, exterior) ? r : 0);
-        if (endX > startX) {
-          commands.push({ type: "move", x: startX, y: top });
-          commands.push({ type: "line", x: endX, y: top });
-        }
-      }
-      if (shouldDrawPipeAgainst(col, row + 1, walls, exterior)) {
-        const startX = left + (vertexHasDrawableCorner(col, row + 1, walls, exterior) ? r : 0);
-        const endX = right - (vertexHasDrawableCorner(col + 1, row + 1, walls, exterior) ? r : 0);
-        if (endX > startX) {
-          commands.push({ type: "move", x: startX, y: bottom });
-          commands.push({ type: "line", x: endX, y: bottom });
-        }
-      }
-      if (shouldDrawPipeAgainst(col - 1, row, walls, exterior)) {
-        const startY = top + (vertexHasDrawableCorner(col, row, walls, exterior) ? r : 0);
-        const endY = bottom - (vertexHasDrawableCorner(col, row + 1, walls, exterior) ? r : 0);
-        if (endY > startY) {
-          commands.push({ type: "move", x: left, y: startY });
-          commands.push({ type: "line", x: left, y: endY });
-        }
-      }
-      if (shouldDrawPipeAgainst(col + 1, row, walls, exterior)) {
-        const startY = top + (vertexHasDrawableCorner(col + 1, row, walls, exterior) ? r : 0);
-        const endY = bottom - (vertexHasDrawableCorner(col + 1, row + 1, walls, exterior) ? r : 0);
-        if (endY > startY) {
-          commands.push({ type: "move", x: right, y: startY });
-          commands.push({ type: "line", x: right, y: endY });
-        }
-      }
+  for (const edge of edges) {
+    const x1 = edge.x1;
+    const y1 = edge.y1;
+    const x2 = edge.x2;
+    const y2 = edge.y2;
+    const dx = Math.sign(x2 - x1);
+    const dy = Math.sign(y2 - y1);
+    const trimStart = trimmed.has(edgeEndKey(x1, y1, x2, y2)) ? r : 0;
+    const trimEnd = trimmed.has(edgeEndKey(x2, y2, x1, y1)) ? r : 0;
+    const length = Math.abs(x2 - x1) + Math.abs(y2 - y1);
+    if (length <= trimStart + trimEnd) {
+      continue;
     }
+    const sx = x1 + dx * trimStart;
+    const sy = y1 + dy * trimStart;
+    const ex = x2 - dx * trimEnd;
+    const ey = y2 - dy * trimEnd;
+    commands.push({ type: "move", x: sx, y: sy });
+    commands.push({ type: "line", x: ex, y: ey });
   }
 
   return commands;

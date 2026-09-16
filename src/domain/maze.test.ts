@@ -303,8 +303,8 @@ describe("maze", () => {
   it("emits rounded wall path commands and skips exterior faces", () => {
     const commands = wallPathCommands();
     expect(commands.length).toBeGreaterThan(0);
-    expect(commands.some((command) => command.type === "arc")).toBe(true);
     expect(commands.some((command) => command.type === "line")).toBe(true);
+    expect(commands.some((command) => command.type === "move")).toBe(true);
 
     const left = cellOriginX(0);
     const top = cellOriginY(13);
@@ -323,18 +323,38 @@ describe("maze", () => {
     expect(outlinesExteriorAboveTunnelStub).toBe(false);
   });
 
-  it("includes convex arcs at a known corridor corner", () => {
+  it("includes convex corner polylines at a known corridor corner", () => {
     const commands = wallPathCommands();
     const radius = clampedWallCornerRadius();
     const cornerX = cellOriginX(2);
     const cornerY = cellOriginY(2);
-    const hasConvexArc = commands.some(
+    const start = { x: cornerX + radius, y: cornerY };
+    const end = { x: cornerX, y: cornerY + radius };
+    const mid = {
+      x: cornerX + 0.25 * radius,
+      y: cornerY + 0.25 * radius,
+    };
+
+    const hasStart = commands.some(
       (command) =>
-        command.type === "arc" &&
-        Math.abs(command.x - (cornerX + radius)) < 0.01 &&
-        Math.abs(command.y - (cornerY + radius)) < 0.01 &&
-        Math.abs(command.radius - radius) < 0.01,
+        command.type === "move" &&
+        Math.abs(command.x - start.x) < 0.01 &&
+        Math.abs(command.y - start.y) < 0.01,
     );
-    expect(hasConvexArc).toBe(true);
+    const hasEnd = commands.some(
+      (command) =>
+        command.type === "line" &&
+        Math.abs(command.x - end.x) < 0.01 &&
+        Math.abs(command.y - end.y) < 0.01,
+    );
+    const hasMid = commands.some(
+      (command) =>
+        command.type === "line" &&
+        Math.abs(command.x - mid.x) < 0.75 &&
+        Math.abs(command.y - mid.y) < 0.75,
+    );
+    expect(hasStart).toBe(true);
+    expect(hasEnd).toBe(true);
+    expect(hasMid).toBe(true);
   });
 });

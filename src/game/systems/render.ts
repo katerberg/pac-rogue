@@ -68,17 +68,8 @@ function applyWallPathCommands(
   for (const command of commands) {
     if (command.type === "move") {
       graphics.moveTo(command.x, command.y);
-    } else if (command.type === "line") {
-      graphics.lineTo(command.x, command.y);
     } else {
-      graphics.arc(
-        command.x,
-        command.y,
-        command.radius,
-        command.startAngle,
-        command.endAngle,
-        command.anticlockwise,
-      );
+      graphics.lineTo(command.x, command.y);
     }
   }
 }
