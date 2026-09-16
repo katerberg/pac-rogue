@@ -28,6 +28,7 @@ src/
     maze.ts                   # ASCII maze, dual solids (player/ghost), house, tunnels
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostTarget.ts            # Blinky chase/scatter/Elroy target tile
+    ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-1 scatter/chase wave clock
     ghostRelease.ts           # 0.1s release-after-input clock
     ghostSpeed.ts             # base / Elroy / tunnel speed resolve

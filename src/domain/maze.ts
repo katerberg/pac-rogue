@@ -1,3 +1,5 @@
+import { GHOST_PHASE } from "./ghostPhase";
+
 export const MAZE_ASCII = `############################
 #............##............#
 #.####.#####.##.#####.####.#
@@ -42,6 +44,7 @@ export const MAZE_OFFSET_X = (800 - MAZE_PIXEL_WIDTH) / 2;
 export const MAZE_OFFSET_Y = Math.floor((600 - MAZE_PIXEL_HEIGHT) / 2);
 
 export const WALL_COLOR = 0x2121ff;
+export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export const TURN_ALIGN_EPS = 2;
 
@@ -161,6 +164,20 @@ export function parseHouse(ascii: string = MAZE_ASCII): boolean[][] {
   return house;
 }
 
+export function parseDoor(ascii: string = MAZE_ASCII): boolean[][] {
+  const rows = ascii.split("\n");
+  const door = emptyFlagGrid();
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    const line = rows[row] ?? "";
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (line[col] === DOOR_CHAR) {
+        door[row]![col] = true;
+      }
+    }
+  }
+  return door;
+}
+
 export function buildExterior(walls: SolidGrid): boolean[][] {
   const exterior = emptyFlagGrid();
   const visited = emptyFlagGrid();
@@ -238,6 +255,7 @@ function buildPlayerSolids(walls: SolidGrid, exterior: SolidGrid, house: SolidGr
 export const MAZE_WALLS: SolidGrid = parseMaze(MAZE_ASCII);
 export const MAZE_EXTERIOR: SolidGrid = buildExterior(MAZE_WALLS);
 export const MAZE_HOUSE: SolidGrid = parseHouse(MAZE_ASCII);
+export const MAZE_DOOR: SolidGrid = parseDoor(MAZE_ASCII);
 export const MAZE_GHOST_SOLIDS: SolidGrid = buildBlocked(MAZE_WALLS, MAZE_EXTERIOR);
 export const MAZE_PLAYER_SOLIDS: SolidGrid = buildPlayerSolids(
   MAZE_WALLS,
@@ -251,6 +269,13 @@ export function isHouse(col: number, row: number, house: SolidGrid = MAZE_HOUSE)
     return false;
   }
   return house[row]?.[col] ?? false;
+}
+
+export function isDoor(col: number, row: number, door: SolidGrid = MAZE_DOOR): boolean {
+  if (!inBounds(col, row)) {
+    return false;
+  }
+  return door[row]?.[col] ?? false;
 }
 
 export function isGhostSolid(
@@ -267,6 +292,31 @@ export function isGhostWalkable(
   solids: SolidGrid = MAZE_GHOST_SOLIDS,
 ): boolean {
   return isWalkable(col, row, solids);
+}
+
+export function ghostSolidsForPhase(phase: number): SolidGrid {
+  return phase === GHOST_PHASE.active ? MAZE_PLAYER_SOLIDS : MAZE_GHOST_SOLIDS;
+}
+
+export function canGhostEnterDirection(
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  phase: number,
+): boolean {
+  const solids = ghostSolidsForPhase(phase);
+  if (!canEnterDirection(x, y, dx, dy, solids)) {
+    return false;
+  }
+  if (dy > 0) {
+    const col = worldToCol(x);
+    const row = worldToRow(y);
+    if (isDoor(col + dx, row + dy)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function ghostHouseSpawnCenter(): { x: number; y: number } {
@@ -594,6 +644,32 @@ export function pipeEdges(
     }
   }
 
+  return edges;
+}
+
+export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
+  const edges: PipeEdge[] = [];
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (!(door[row]?.[col] ?? false)) {
+        continue;
+      }
+      if (col > 0 && (door[row]?.[col - 1] ?? false)) {
+        continue;
+      }
+      let end = col;
+      while (end + 1 < MAZE_COLS && (door[row]?.[end + 1] ?? false)) {
+        end += 1;
+      }
+      const y = cellOriginY(row) + TILE_SIZE * 0.5;
+      edges.push({
+        x1: cellOriginX(col),
+        y1: y,
+        x2: cellOriginX(end) + TILE_SIZE,
+        y2: y,
+      });
+    }
+  }
   return edges;
 }
 
