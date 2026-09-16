@@ -7,6 +7,7 @@ import {
   MAZE_ROWS,
   MAZE_SOLIDS,
   MAZE_WALLS,
+  MAZE_EXTERIOR,
   GHOST_HOUSE_EXIT_COL,
   GHOST_HOUSE_EXIT_ROW,
   PLAYER_SPAWN_COL,
@@ -33,9 +34,15 @@ import {
   isWall,
   parseMaze,
   pipeEdges,
+  playerDisplaySize,
   playerSpawnCenter,
   pelletCellCenters,
+  PLAYER_WALL_PADDING_PX,
+  WALL_CORNER_RADIUS,
+  WALL_CORNER_CURVE_MIN_STEPS,
+  clampedWallCornerRadius,
   wallCellCenters,
+  wallPathCommands,
   walkableCellCenters,
   wrapPosition,
   wrappedTwinPosition,
@@ -275,5 +282,101 @@ describe("maze", () => {
     const withDefault = pipeEdges();
     const withEmptyExterior = pipeEdges(MAZE_WALLS, emptyExterior);
     expect(withEmptyExterior.length).toBeGreaterThan(withDefault.length);
+  });
+
+  it("derives player display size from wall padding", () => {
+    expect(playerDisplaySize()).toBe(TILE_SIZE - 2 * PLAYER_WALL_PADDING_PX);
+    expect(playerDisplaySize(4, TILE_SIZE)).toBe(TILE_SIZE - 8);
+  });
+
+  it("clamps wall corner radius to a half tile", () => {
+    expect(clampedWallCornerRadius(WALL_CORNER_RADIUS)).toBe(WALL_CORNER_RADIUS);
+    expect(clampedWallCornerRadius(TILE_SIZE)).toBe(TILE_SIZE / 2);
+    expect(clampedWallCornerRadius(-3)).toBe(0);
+  });
+
+  it("emits rounded wall path commands and skips exterior faces", () => {
+    const commands = wallPathCommands();
+    expect(commands.length).toBeGreaterThan(0);
+    expect(commands.some((command) => command.type === "line")).toBe(true);
+    expect(commands.some((command) => command.type === "move")).toBe(true);
+
+    const left = cellOriginX(0);
+    const top = cellOriginY(13);
+    const tunnelStubTiles = 6;
+    const outlinesExteriorAboveTunnelStub = commands.some((command, index) => {
+      if (command.type !== "line") {
+        return false;
+      }
+      const prev = commands[index - 1];
+      if (!prev || prev.type !== "move") {
+        return false;
+      }
+      return (
+        prev.y === top &&
+        command.y === top &&
+        prev.x >= left &&
+        command.x <= left + TILE_SIZE * tunnelStubTiles
+      );
+    });
+    expect(outlinesExteriorAboveTunnelStub).toBe(false);
+  });
+
+  it("includes convex corner polylines at a known corridor corner", () => {
+    const commands = wallPathCommands();
+    const radius = clampedWallCornerRadius();
+    const cornerX = cellOriginX(2);
+    const cornerY = cellOriginY(2);
+    const start = { x: cornerX + radius, y: cornerY };
+    const end = { x: cornerX, y: cornerY + radius };
+    const mid = {
+      x: cornerX + 0.25 * radius,
+      y: cornerY + 0.25 * radius,
+    };
+
+    const hasStart = commands.some(
+      (command) =>
+        command.type === "move" &&
+        Math.abs(command.x - start.x) < 0.01 &&
+        Math.abs(command.y - start.y) < 0.01,
+    );
+    const hasEnd = commands.some(
+      (command) =>
+        command.type === "line" &&
+        Math.abs(command.x - end.x) < 0.01 &&
+        Math.abs(command.y - end.y) < 0.01,
+    );
+    const hasMid = commands.some(
+      (command) =>
+        command.type === "line" &&
+        Math.abs(command.x - mid.x) < 0.75 &&
+        Math.abs(command.y - mid.y) < 0.75,
+    );
+    expect(hasStart).toBe(true);
+    expect(hasEnd).toBe(true);
+    expect(hasMid).toBe(true);
+  });
+
+  it("ends half-tile fillets at the trimmed endpoint", () => {
+    const radius = TILE_SIZE / 2;
+    const commands = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, radius);
+    const cornerX = cellOriginX(2);
+    const cornerY = cellOriginY(2);
+    const a = { x: cornerX + radius, y: cornerY };
+    const b = { x: cornerX, y: cornerY + radius };
+    const near = (command: { x: number; y: number }, point: { x: number; y: number }) =>
+      Math.abs(command.x - point.x) < 0.01 && Math.abs(command.y - point.y) < 0.01;
+
+    const startIndex = commands.findIndex(
+      (command) => command.type === "move" && (near(command, a) || near(command, b)),
+    );
+    expect(startIndex).toBeGreaterThanOrEqual(0);
+    const start = commands[startIndex];
+    const expectedEnd = start && near(start, a) ? b : a;
+    const fillet = commands.slice(startIndex, startIndex + WALL_CORNER_CURVE_MIN_STEPS + 1);
+    const last = fillet[fillet.length - 1];
+    expect(fillet).toHaveLength(WALL_CORNER_CURVE_MIN_STEPS + 1);
+    expect(last?.type).toBe("line");
+    expect(last && near(last, expectedEnd)).toBe(true);
   });
 });

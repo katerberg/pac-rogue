@@ -4,6 +4,7 @@ import {
   formatHighScoreLine,
   toHighScoreRows,
 } from "../../domain/highScoresView";
+import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
   createScoreListScroll,
@@ -27,7 +28,7 @@ const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 const LIST_TOP = 200;
 const HEADER_Y = LIST_TOP - 36;
 const HEADER_LINE_Y = LIST_TOP - 10;
-const BG = 0x1a1a2e;
+const BG = MAZE_BACKGROUND_COLOR;
 
 export class HighScoresScene extends Phaser.Scene {
   private scrollState: ScoreListScrollState = createScoreListScroll(0, SCROLL);

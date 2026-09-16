@@ -43,7 +43,14 @@ export const MAZE_PIXEL_HEIGHT = MAZE_ROWS * TILE_SIZE;
 export const MAZE_OFFSET_X = (800 - MAZE_PIXEL_WIDTH) / 2;
 export const MAZE_OFFSET_Y = Math.floor((600 - MAZE_PIXEL_HEIGHT) / 2);
 
-export const WALL_COLOR = 0x2121ff;
+export const MAZE_BACKGROUND_COLOR = 0x1a1a2e;
+export const WALL_STROKE_COLOR = 0x2121ff;
+export const WALL_STROKE_WEIGHT = 2;
+export const WALL_CORNER_RADIUS = 6;
+export const WALL_CORNER_CURVE_MIN_STEPS = 5;
+export const PLAYER_WALL_PADDING_PX = 5;
+export const PELLET_DISPLAY_SIZE = 6;
+export const POWER_PELLET_DISPLAY_SIZE = 10;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export const TURN_ALIGN_EPS = 2;
@@ -56,6 +63,24 @@ export type PipeEdge = {
   x2: number;
   y2: number;
 };
+
+export type WallPathCommand =
+  { type: "move"; x: number; y: number } | { type: "line"; x: number; y: number };
+
+export function colorToCssHex(color: number): string {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
+
+export function clampedWallCornerRadius(radius: number = WALL_CORNER_RADIUS): number {
+  return Math.max(0, Math.min(radius, TILE_SIZE / 2));
+}
+
+export function playerDisplaySize(
+  paddingPx: number = PLAYER_WALL_PADDING_PX,
+  tileSize: number = TILE_SIZE,
+): number {
+  return Math.max(1, tileSize - 2 * paddingPx);
+}
 
 const WALL_CHAR = "#";
 const DOOR_CHAR = "=";
@@ -278,17 +303,8 @@ export function isDoor(col: number, row: number, door: SolidGrid = MAZE_DOOR): b
   return door[row]?.[col] ?? false;
 }
 
-/** True once the ghost has left house/door tiles (exit corridor and beyond). */
 export function hasLeftGhostHouse(col: number, row: number): boolean {
   return !isHouse(col, row);
-}
-
-export function isGhostSolid(
-  col: number,
-  row: number,
-  solids: SolidGrid = MAZE_GHOST_SOLIDS,
-): boolean {
-  return isSolid(col, row, solids);
 }
 
 export function isGhostWalkable(
@@ -652,6 +668,166 @@ export function pipeEdges(
   return edges;
 }
 
+function vertexKey(vc: number, vr: number): string {
+  return `${vc},${vr}`;
+}
+
+function parseVertexKey(key: string): { vc: number; vr: number } {
+  const [vc, vr] = key.split(",").map(Number) as [number, number];
+  return { vc, vr };
+}
+
+function pixelToVertexKey(x: number, y: number): string {
+  return vertexKey(
+    Math.round((x - MAZE_OFFSET_X) / TILE_SIZE),
+    Math.round((y - MAZE_OFFSET_Y) / TILE_SIZE),
+  );
+}
+
+function directedEdgeKey(from: string, to: string): string {
+  return `${from}>${to}`;
+}
+
+const CARDINAL_DIRS = [
+  { dc: 0, dr: -1 },
+  { dc: 1, dr: 0 },
+  { dc: 0, dr: 1 },
+  { dc: -1, dr: 0 },
+] as const;
+
+function appendQuadratic(
+  commands: WallPathCommand[],
+  x0: number,
+  y0: number,
+  cx: number,
+  cy: number,
+  x1: number,
+  y1: number,
+  steps: number,
+): void {
+  const n = Math.max(1, Math.round(steps));
+  commands.push({ type: "move", x: x0, y: y0 });
+  for (let i = 1; i <= n; i += 1) {
+    const t = i / n;
+    const u = 1 - t;
+    commands.push({
+      type: "line",
+      x: u * u * x0 + 2 * u * t * cx + t * t * x1,
+      y: u * u * y0 + 2 * u * t * cy + t * t * y1,
+    });
+  }
+}
+
+function pipeAdjacency(edges: readonly PipeEdge[]): Map<string, Set<string>> {
+  const adj = new Map<string, Set<string>>();
+  const link = (a: string, b: string): void => {
+    const set = adj.get(a);
+    if (set) {
+      set.add(b);
+    } else {
+      adj.set(a, new Set([b]));
+    }
+  };
+  for (const edge of edges) {
+    const a = pixelToVertexKey(edge.x1, edge.y1);
+    const b = pixelToVertexKey(edge.x2, edge.y2);
+    link(a, b);
+    link(b, a);
+  }
+  return adj;
+}
+
+export function wallPathCommands(
+  walls: SolidGrid = MAZE_WALLS,
+  exterior: SolidGrid = MAZE_EXTERIOR,
+  cornerRadius: number = WALL_CORNER_RADIUS,
+): WallPathCommand[] {
+  const r = clampedWallCornerRadius(cornerRadius);
+  const edges = pipeEdges(walls, exterior);
+  const commands: WallPathCommand[] = [];
+  const trimmed = new Set<string>();
+
+  if (r > 0) {
+    const adj = pipeAdjacency(edges);
+    for (const [key, neighbors] of adj) {
+      const { vc, vr } = parseVertexKey(key);
+      const vx = cellOriginX(vc);
+      const vy = cellOriginY(vr);
+
+      for (let i = 0; i < CARDINAL_DIRS.length; i += 1) {
+        const d1 = CARDINAL_DIRS[i];
+        const d2 = CARDINAL_DIRS[(i + 1) % CARDINAL_DIRS.length];
+        if (!d1 || !d2) {
+          continue;
+        }
+        const n1 = vertexKey(vc + d1.dc, vr + d1.dr);
+        const n2 = vertexKey(vc + d2.dc, vr + d2.dr);
+        if (!neighbors.has(n1) || !neighbors.has(n2)) {
+          continue;
+        }
+
+        const towardC = d1.dc + d2.dc;
+        const towardR = d1.dr + d2.dr;
+        const bisectCol = vc + (towardC > 0 ? 0 : -1);
+        const bisectRow = vr + (towardR > 0 ? 0 : -1);
+        const wallInBisect =
+          inBounds(bisectCol, bisectRow) && (walls[bisectRow]?.[bisectCol] ?? false);
+        const openInBisect = shouldDrawPipeAgainst(bisectCol, bisectRow, walls, exterior);
+
+        let cx: number;
+        let cy: number;
+        if (wallInBisect) {
+          cx = vx;
+          cy = vy;
+        } else if (openInBisect) {
+          cx = vx + towardC * r;
+          cy = vy + towardR * r;
+        } else {
+          continue;
+        }
+
+        appendQuadratic(
+          commands,
+          vx + d1.dc * r,
+          vy + d1.dr * r,
+          cx,
+          cy,
+          vx + d2.dc * r,
+          vy + d2.dr * r,
+          WALL_CORNER_CURVE_MIN_STEPS,
+        );
+        trimmed.add(directedEdgeKey(key, n1));
+        trimmed.add(directedEdgeKey(key, n2));
+      }
+    }
+  }
+
+  for (const edge of edges) {
+    const from = pixelToVertexKey(edge.x1, edge.y1);
+    const to = pixelToVertexKey(edge.x2, edge.y2);
+    const dx = Math.sign(edge.x2 - edge.x1);
+    const dy = Math.sign(edge.y2 - edge.y1);
+    const trimStart = trimmed.has(directedEdgeKey(from, to)) ? r : 0;
+    const trimEnd = trimmed.has(directedEdgeKey(to, from)) ? r : 0;
+    const length = Math.abs(edge.x2 - edge.x1) + Math.abs(edge.y2 - edge.y1);
+    if (length <= trimStart + trimEnd) {
+      continue;
+    }
+    commands.push({
+      type: "move",
+      x: edge.x1 + dx * trimStart,
+      y: edge.y1 + dy * trimStart,
+    });
+    commands.push({
+      type: "line",
+      x: edge.x2 - dx * trimEnd,
+      y: edge.y2 - dy * trimEnd,
+    });
+  }
+
+  return commands;
+}
+
 export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
   const edges: PipeEdge[] = [];
   for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -666,7 +842,7 @@ export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
       while (end + 1 < MAZE_COLS && (door[row]?.[end + 1] ?? false)) {
         end += 1;
       }
-      const y = cellOriginY(row) + TILE_SIZE * 0.5;
+      const y = cellCenterY(row);
       edges.push({
         x1: cellOriginX(col),
         y1: y,

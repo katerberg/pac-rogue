@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { colorToCssHex, MAZE_BACKGROUND_COLOR } from "../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../domain/playfield";
 import { HighScoresScene } from "./scenes/HighScoresScene";
 import { MenuScene } from "./scenes/MenuScene";
@@ -21,7 +22,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: "game-container",
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
-  backgroundColor: "#1a1a2e",
+  backgroundColor: colorToCssHex(MAZE_BACKGROUND_COLOR),
   scene: [MenuScene, HighScoresScene, PlayScene],
   scale: {
     mode: Phaser.Scale.FIT,
