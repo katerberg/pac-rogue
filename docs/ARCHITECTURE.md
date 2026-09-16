@@ -21,6 +21,7 @@ src/
     countdown.ts
     runClock.ts
     pelletProgress.ts
+    fruit.ts                  # bonus fruit kinds, 70/170 presence clock
     runHistory.ts
     highScoresView.ts
     scoreListScroll.ts
@@ -50,6 +51,7 @@ src/
       Wall.ts
       Pellet.ts
       PowerPellet.ts
+      Fruit.ts
       Drawable.ts
     storage/
       runHistoryStorage.ts    # localStorage adapter for successful runs
@@ -63,6 +65,7 @@ src/
       movement.ts             # Facing + collision (per-eid Speed + solids)
       catchPlayer.ts          # circle overlap → caught
       collectPellets.ts
+      collectFruit.ts
       playerDirection.ts
       render.ts               # sprites + pipes; preloadPlayArt
     scenes/
@@ -111,19 +114,21 @@ PlayScene.update →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
   collectPellets → applyPelletCollect →
+  tickFruitPresence (spawn/replace/despawn) → collectFruit →
   catchPlayer →
   render →
   (if caught: MenuScene)
 ```
 
-1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky + Pinky + Clyde, SFX.
+1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky + Pinky + Clyde, bonus fruit art, SFX.
 2. `create()`: world, walls, pellets (`.` / `@` with `PowerPellet` on `@`), player (`Speed = PLAYER_SPEED`), Blinky + Pinky + Clyde in house (`Speed = 0`, `GhostPhase = inHouse`, `GhostKind`), HUD, siren.
 3. Ghost house / door are carved in ASCII (`=` door, `H` floor). `MAZE_PLAYER_SOLIDS` blocks the house; `MAZE_GHOST_SOLIDS` allows it.
 4. Release: shared clock starts on first player direction input for Blinky (`BLINKY_RELEASE_DELAY_MS` = 100) and Pinky (`PINKY_RELEASE_DELAY_MS` = 5000). Clyde leaves when `collectedCount >= CLYDE_RELEASE_PELLETS` (60), independent of the time clock. Ghosts climb out through the door. First ghost to leave house/door tiles → `active` and **start mode waves once** in **chase** (arcade level-1 table, skipping the opening scatter; later scatter/chase durations stay arcade). Later exits do not restart the clock.
 5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(25, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(2, -3)`. Clyde chase → player tile when Euclidean tile distance `≥ CLYDE_SHY_TILES` (8), else Clyde scatter `(0, 33)`; Clyde scatter mode → same SW corner. Delays, pellet leave, shy radius, and scatter coords are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): base 0.9375×; Elroy1/2 only for Blinky (≤20 / ≤10 pellets → 1.0× / 1.0625×); tunnel 0.5× for all ghosts.
 7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, `scene.start("MenuScene")` (no high-score write).
-8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws pipes, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, Pinky, Clyde, and tunnel twin.
+8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws pipes, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, Pinky, Clyde, bonus fruit, and tunnel twin.
+9. Bonus fruit: after 70 and 170 pellets collected, spawn at cell `(13, 17)` for 10 real seconds (Phaser `delta` ms); level-1 cherries use `strawberry.png` stand-in; pickup removes the entity and plays both munches (no score yet).
 
 ## ECS boundary
 
@@ -164,7 +169,8 @@ A violation of these is a failed architecture check:
 - Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls, dual solids (player blocked from house/door; ghosts allowed), and a mid-maze horizontal tunnel.
 - One player entity (16×16 directional pac-man sprites; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX.
+- Bonus fruit appears under the ghost house at 70 and 170 pellets collected, lasts 10 real seconds, uses level-1 cherries (`strawberry.png` stand-in); pickup plays both munches and removes the fruit (no points yet).
 - Blinky, Pinky, and Clyde: shared house spawn; Blinky/Pinky time release after first input (0.1s / 5s — tunable); Clyde leaves at 60 pellets collected (tunable); chase-first arcade scatter/chase waves started once on first exit; Blinky Cruise Elroy; Pinky 4-tile look-ahead + NW scatter; Clyde shy chase (Euclidean `< 8` → SW scatter) + SW scatter (tunable); tunnel slowdown; circle overlap catch returns to the menu (no high-score write).
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
-- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `pelletProgress`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, ghost kind/path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost helpers are unit-tested without Phaser.
+- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `pelletProgress`, `fruit`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, ghost kind/path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost helpers are unit-tested without Phaser.
 - No frightened mode, energizers behavior, or Inky yet (`@` cells are visual/audio power pellets with the same collect rules as dots).
