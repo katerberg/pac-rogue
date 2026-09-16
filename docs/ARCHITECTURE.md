@@ -27,6 +27,7 @@ src/
     playfield.ts              # speeds, sizes, drawable ids
     maze.ts                   # ASCII maze, dual solids (player/ghost), house, tunnels
     ghostPath.ts              # intersection direction pick + reverse helper
+    ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostTarget.ts            # Blinky chase/scatter/Elroy target tile
     ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-1 scatter/chase wave clock

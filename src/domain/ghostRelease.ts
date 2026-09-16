@@ -1,4 +1,4 @@
-import { GHOST_RELEASE_DELAY_MS } from "./ghostSpeed";
+export const GHOST_RELEASE_DELAY_MS = 100;
 
 export type GhostReleaseClock = {
   started: boolean;

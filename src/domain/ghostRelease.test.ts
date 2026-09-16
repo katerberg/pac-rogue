@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createGhostReleaseClock, shouldReleaseGhost, tickGhostRelease } from "./ghostRelease";
-import { GHOST_RELEASE_DELAY_MS } from "./ghostSpeed";
+import {
+  GHOST_RELEASE_DELAY_MS,
+  createGhostReleaseClock,
+  shouldReleaseGhost,
+  tickGhostRelease,
+} from "./ghostRelease";
 
 describe("ghostRelease", () => {
   it("does not start without direction input", () => {

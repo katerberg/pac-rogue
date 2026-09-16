@@ -1,7 +1,8 @@
 import { hasComponent, query, type World } from "bitecs";
-import { lCornerTurnDir, openGhostDirsAt, type GhostDir } from "../../domain/ghostPath";
+import { type GhostDir } from "../../domain/ghostPath";
+import { ghostMovementRules } from "../../domain/ghostMovement";
+import { GHOST_PHASE } from "../../domain/ghostPhase";
 import {
-  MAZE_GHOST_SOLIDS,
   MAZE_PLAYER_SOLIDS,
   TURN_ALIGN_EPS,
   canEnterDirection,
@@ -18,6 +19,7 @@ import {
 import { clampPositionToPlayfield } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
+import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
@@ -91,13 +93,11 @@ function tryCommitCenterTurn(
   return { x: cx, y: cy, remainingDt: speed > 0 ? (frameTravel - dist) / speed : 0 };
 }
 
-function solidsFor(world: World, eid: number): SolidGrid {
-  return hasComponent(world, eid, Ghost) ? MAZE_GHOST_SOLIDS : MAZE_PLAYER_SOLIDS;
-}
-
-function canEnterStep(x: number, y: number, direction: Direction, solids: SolidGrid): boolean {
-  const { dx, dy } = directionStep(direction);
-  return canEnterDirection(x, y, dx, dy, solids);
+function ghostPhaseOf(world: World, eid: number): number {
+  if (!hasComponent(world, eid, GhostPhase)) {
+    return GHOST_PHASE.active;
+  }
+  return GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
 }
 
 export function movement(world: World, deltaMs: number): void {
@@ -105,7 +105,10 @@ export function movement(world: World, deltaMs: number): void {
 
   for (const eid of query(world, [Position, Velocity, Input, Facing, Speed])) {
     const speed = Speed.px[eid] ?? 0;
-    const solids = solidsFor(world, eid);
+    const ghost = hasComponent(world, eid, Ghost)
+      ? ghostMovementRules(ghostPhaseOf(world, eid))
+      : null;
+    const solids: SolidGrid = ghost?.solids ?? MAZE_PLAYER_SOLIDS;
     const frameTravel = speed * dt;
 
     let x = Position.x[eid] ?? 0;
@@ -114,27 +117,30 @@ export function movement(world: World, deltaMs: number): void {
     let facing = Facing.direction[eid] ?? DIRECTION.none;
     let moveDt = dt;
 
+    const canEnterStep = (px: number, py: number, direction: Direction): boolean => {
+      const { dx, dy } = directionStep(direction);
+      if (ghost) {
+        return ghost.canEnter(px, py, dx, dy);
+      }
+      return canEnterDirection(px, py, dx, dy, solids);
+    };
+
     if (
       speed > 0 &&
       nextIntent !== DIRECTION.none &&
       nextIntent !== facing &&
-      canEnterStep(x, y, nextIntent, solids)
+      canEnterStep(x, y, nextIntent)
     ) {
       if (facing === DIRECTION.none) {
         if (isAlignedForTurn(x, y, TURN_ALIGN_EPS)) {
           facing = nextIntent;
         }
       } else if (isReverse(facing, nextIntent)) {
-        if (hasComponent(world, eid, Ghost)) {
-          const opens = openGhostDirsAt(x, y, solids);
-          const turn = lCornerTurnDir(opens, facing as GhostDir) as Direction;
-          if (turn !== DIRECTION.none && canEnterStep(x, y, turn, solids)) {
-            nextIntent = turn;
-            Input.direction[eid] = turn;
-            facing = turn;
-          } else {
-            facing = nextIntent;
-          }
+        if (ghost) {
+          const resolved = ghost.resolveReverse(x, y, facing as GhostDir, nextIntent as GhostDir);
+          nextIntent = resolved.intent as Direction;
+          Input.direction[eid] = nextIntent;
+          facing = resolved.facing as Direction;
         } else {
           facing = nextIntent;
         }
@@ -177,11 +183,8 @@ export function movement(world: World, deltaMs: number): void {
     nextX = wallClamped.x;
     nextY = wallClamped.y;
 
-    if (
-      !canEnterStep(nextX, nextY, facing, solids) &&
-      isAlignedForTurn(nextX, nextY, TURN_ALIGN_EPS)
-    ) {
-      if (!hasComponent(world, eid, Ghost)) {
+    if (!canEnterStep(nextX, nextY, facing) && isAlignedForTurn(nextX, nextY, TURN_ALIGN_EPS)) {
+      if (!ghost || ghost.clearFacingAtDeadEnd) {
         facing = DIRECTION.none;
       }
       Velocity.x[eid] = 0;
