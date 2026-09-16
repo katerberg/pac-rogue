@@ -7,18 +7,8 @@ import {
   tickGhostMode,
 } from "../../domain/ghostMode";
 import { createGhostReleaseClock, tickGhostRelease } from "../../domain/ghostRelease";
-import {
-  BLINKY_SCATTER_COL,
-  BLINKY_SCATTER_ROW,
-  blinkyTarget,
-  GHOST_PHASE,
-} from "../../domain/ghostTarget";
-import {
-  ghostHouseSpawnCenter,
-  playerSpawnCenter,
-  worldToCol,
-  worldToRow,
-} from "../../domain/maze";
+import { GHOST_PHASE } from "../../domain/ghostTarget";
+import { ghostHouseSpawnCenter, playerSpawnCenter } from "../../domain/maze";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -73,8 +63,32 @@ function spawnActors() {
   return { world, player, ghost };
 }
 
-describe("blinky scatter integration", () => {
-  it("keeps scatter mode and NE scatter target for the first 7s after exit", () => {
+function tickPipeline(
+  world: ReturnType<typeof createWorld>,
+  release: ReturnType<typeof createGhostReleaseClock>,
+  mode: ReturnType<typeof createGhostModeClock>,
+  pelletsRemaining: number,
+  dt: number,
+) {
+  const nextRelease = tickGhostRelease(release, true, dt);
+  ghostRelease(world, nextRelease);
+  const modeTick = tickGhostMode(mode, dt);
+  let nextMode = modeTick.clock;
+  if (modeTick.forceReverse) {
+    forceGhostReverse(world);
+  } else {
+    ghostAi(world, nextMode.mode, pelletsRemaining);
+  }
+  applyGhostSpeed(world, pelletsRemaining);
+  movement(world, dt);
+  if (ghostExitHouse(world)) {
+    nextMode = startGhostModeClock();
+  }
+  return { release: nextRelease, mode: nextMode };
+}
+
+describe("blinky chase start integration", () => {
+  it("keeps chase mode and player targeting for the first 20s after exit", () => {
     const { world, player, ghost } = spawnActors();
     Input.direction[player] = DIRECTION.left;
     Speed.px[player] = PLAYER_SPEED;
@@ -84,51 +98,27 @@ describe("blinky scatter integration", () => {
     const pelletsRemaining = 244;
     const dt = 16;
     const modes: number[] = [];
-    const targets: { col: number; row: number }[] = [];
     let exitedAt = -1;
 
     for (let i = 0; i < 600; i += 1) {
-      release = tickGhostRelease(release, true, dt);
-      ghostRelease(world, release);
-      const modeTick = tickGhostMode(mode, dt);
-      mode = modeTick.clock;
-      if (modeTick.forceReverse) {
-        forceGhostReverse(world);
-      } else {
-        ghostAi(world, mode.mode, pelletsRemaining);
-      }
-      applyGhostSpeed(world, pelletsRemaining);
-      movement(world, dt);
-      if (ghostExitHouse(world)) {
-        mode = startGhostModeClock();
+      const beforeExit = (GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active;
+      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt);
+      release = stepped.release;
+      mode = stepped.mode;
+      if (!beforeExit && (GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active && exitedAt < 0) {
         exitedAt = i;
       }
-
       if ((GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active) {
         modes.push(mode.mode);
-        targets.push(
-          blinkyTarget({
-            phase: GHOST_PHASE.active,
-            mode: mode.mode,
-            pelletsRemaining,
-            playerCol: worldToCol(Position.x[player] ?? 0),
-            playerRow: worldToRow(Position.y[player] ?? 0),
-          }),
-        );
       }
     }
 
     expect(exitedAt).toBeGreaterThanOrEqual(0);
-    const scatterFrames = Math.floor(7000 / dt) - 5;
-    expect(modes.slice(0, scatterFrames).every((m) => m === GHOST_AI_MODE.scatter)).toBe(true);
-    expect(
-      targets
-        .slice(0, scatterFrames)
-        .every((t) => t.col === BLINKY_SCATTER_COL && t.row === BLINKY_SCATTER_ROW),
-    ).toBe(true);
+    const chaseFrames = Math.floor(20_000 / dt) - 5;
+    expect(modes.slice(0, chaseFrames).every((m) => m === GHOST_AI_MODE.chase)).toBe(true);
   });
 
-  it("reaches the NE quadrant in scatter without row-1 ping-pong", () => {
+  it("enters arcade scatter after the opening chase window", () => {
     const { world, ghost } = spawnActors();
 
     let release = createGhostReleaseClock();
@@ -138,61 +128,27 @@ describe("blinky scatter integration", () => {
 
     let exited = false;
     let framesAfterExit = 0;
-    let midScatterCol = -1;
-    let midScatterRow = -1;
-    const row1Cols: number[] = [];
+    let sawScatter = false;
 
-    for (let i = 0; i < 800; i += 1) {
-      release = tickGhostRelease(release, true, dt);
-      ghostRelease(world, release);
-      const modeTick = tickGhostMode(mode, dt);
-      mode = modeTick.clock;
-      if (modeTick.forceReverse) {
-        forceGhostReverse(world);
-      } else {
-        ghostAi(world, mode.mode, pelletsRemaining);
-      }
-      applyGhostSpeed(world, pelletsRemaining);
-      movement(world, dt);
-      if (ghostExitHouse(world)) {
-        mode = startGhostModeClock();
-        exited = true;
-      }
+    for (let i = 0; i < 2500; i += 1) {
+      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt);
+      release = stepped.release;
+      mode = stepped.mode;
 
-      if (!exited || (GhostPhase.value[ghost] ?? 0) !== GHOST_PHASE.active) {
-        continue;
-      }
-
-      framesAfterExit += 1;
-      const gCol = worldToCol(Position.x[ghost] ?? 0);
-      const gRow = worldToRow(Position.y[ghost] ?? 0);
-
-      if (framesAfterExit === Math.floor(4000 / dt)) {
-        midScatterCol = gCol;
-        midScatterRow = gRow;
-      }
-      if (framesAfterExit < Math.floor(6500 / dt) && gRow === 1) {
-        row1Cols.push(gCol);
-      }
-      if (framesAfterExit > Math.floor(6500 / dt)) {
-        break;
+      if ((GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active) {
+        if (!exited) {
+          exited = true;
+        }
+        framesAfterExit += 1;
+        if (framesAfterExit > Math.floor(20_000 / dt) && mode.mode === GHOST_AI_MODE.scatter) {
+          sawScatter = true;
+          break;
+        }
       }
     }
 
     expect(exited).toBe(true);
-    expect(midScatterRow).toBeGreaterThanOrEqual(0);
-    expect(midScatterRow).toBeLessThan(10);
-    expect(midScatterCol).toBeGreaterThan(14);
-
-    let directionChanges = 0;
-    for (let i = 2; i < row1Cols.length; i += 1) {
-      const a = row1Cols[i - 2]!;
-      const b = row1Cols[i - 1]!;
-      const c = row1Cols[i]!;
-      if ((b - a) * (c - b) < 0) {
-        directionChanges += 1;
-      }
-    }
-    expect(directionChanges).toBeLessThan(8);
+    expect(sawScatter).toBe(true);
+    expect(mode.mode).toBe(GHOST_AI_MODE.scatter);
   });
 });

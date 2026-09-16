@@ -8,7 +8,7 @@ export const GHOST_TUNNEL_SPEED = PLAYER_SPEED * 0.5;
 export const ELROY1_DOTS_LEFT = 20;
 export const ELROY2_DOTS_LEFT = 10;
 
-export const GHOST_RELEASE_DELAY_MS = 1000;
+export const GHOST_RELEASE_DELAY_MS = 100;
 
 export const ELROY_TIER = {
   none: 0,
