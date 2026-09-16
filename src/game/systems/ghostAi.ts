@@ -1,5 +1,5 @@
 import { query, type World } from "bitecs";
-import { pickGhostDirection, type GhostDir } from "../../domain/ghostPath";
+import { openGhostDirsAt, pickGhostDirection, type GhostDir } from "../../domain/ghostPath";
 import type { GhostAiMode } from "../../domain/ghostMode";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
@@ -49,47 +49,33 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
 
     const col = worldToCol(x);
     const row = worldToRow(y);
-    if (Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row) {
-      // #region agent log
-      if (kind === GHOST_KIND.clyde) {
-        const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
-        const intentNow = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
-        const rulesPeek = ghostMovementRules(phase);
-        const opens = [
-          rulesPeek.canEnter(x, y, 0, -1),
-          rulesPeek.canEnter(x, y, 0, 1),
-          rulesPeek.canEnter(x, y, -1, 0),
-          rulesPeek.canEnter(x, y, 1, 0),
-        ];
-        const facingBlocked =
-          facingNow !== DIRECTION.none &&
-          !rulesPeek.canEnter(
-            x,
-            y,
-            facingNow === DIRECTION.right ? 1 : facingNow === DIRECTION.left ? -1 : 0,
-            facingNow === DIRECTION.down ? 1 : facingNow === DIRECTION.up ? -1 : 0,
-          );
-        if (facingBlocked || intentNow === DIRECTION.none) {
-          agentLog({
-            hypothesisId: "B",
-            location: "ghostAi.ts:skipDecided",
-            message: "Clyde skip decided while facing blocked/none",
-            data: {
-              eid,
-              col,
-              row,
-              mode,
-              facing: facingNow,
-              intent: intentNow,
-              opens,
-              facingBlocked,
-            },
-          });
-        }
-      }
-      // #endregion
+    const rules = ghostMovementRules(phase);
+    const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
+    const opens = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
+    const facingBlocked = facingNow !== DIRECTION.none && !opens.includes(facingNow);
+    const alreadyDecided = Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row;
+    if (alreadyDecided && !facingBlocked) {
       continue;
     }
+    // #region agent log
+    if (alreadyDecided && facingBlocked) {
+      agentLog({
+        hypothesisId: "B",
+        location: "ghostAi.ts:repickBlocked",
+        message: "re-pick after decided facing blocked",
+        data: {
+          eid,
+          kind,
+          col,
+          row,
+          mode,
+          facing: facingNow,
+          intent: Input.direction[eid] ?? DIRECTION.none,
+          runId: "post-fix",
+        },
+      });
+    }
+    // #endregion
 
     let target;
     if (kind === GHOST_KIND.pinky) {
@@ -119,8 +105,7 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       });
     }
 
-    const rules = ghostMovementRules(phase);
-    const storedFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
+    const storedFacing = facingNow;
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
     const facing = storedFacing !== DIRECTION.none ? storedFacing : intent;
     const next = pickGhostDirection({
@@ -134,7 +119,7 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
     }) as Direction;
 
     // #region agent log
-    if (kind === GHOST_KIND.clyde || next === DIRECTION.none) {
+    if (kind === GHOST_KIND.clyde || next === DIRECTION.none || facingBlocked) {
       agentLog({
         hypothesisId: "B",
         location: "ghostAi.ts:decide",
@@ -151,6 +136,8 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
           next,
           target,
           applied: next !== DIRECTION.none,
+          facingBlocked,
+          runId: "post-fix",
         },
       });
     }
