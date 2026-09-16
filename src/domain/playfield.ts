@@ -16,9 +16,14 @@ export const PELLET_DRAWABLE_ID = "pellet";
 
 export const POWER_PELLET_DRAWABLE_ID = "power-pellet";
 
-export const GHOST_DRAWABLE_ID = "blinky";
+export const BLINKY_DRAWABLE_ID = "blinky";
+export const PINKY_DRAWABLE_ID = "pinky";
 
 export const GHOST_RADIUS = PLAYER_RADIUS;
+
+export const FRUIT_DRAWABLE_ID = "fruit";
+
+export const FRUIT_RADIUS = 8;
 
 export function playfieldMinX(radius = PLAYER_RADIUS): number {
   return radius;

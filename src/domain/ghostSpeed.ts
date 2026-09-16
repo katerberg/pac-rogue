@@ -1,3 +1,4 @@
+import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import { PLAYER_SPEED } from "./playfield";
 
 export const GHOST_SPEED = PLAYER_SPEED * 0.9375;
@@ -38,4 +39,15 @@ export function resolveGhostSpeed(pelletsRemaining: number, inTunnel: boolean): 
     return GHOST_ELROY1_SPEED;
   }
   return GHOST_SPEED;
+}
+
+export function resolveGhostSpeedForKind(
+  kind: GhostKindId,
+  pelletsRemaining: number,
+  inTunnel: boolean,
+): number {
+  if (kind === GHOST_KIND.blinky) {
+    return resolveGhostSpeed(pelletsRemaining, inTunnel);
+  }
+  return resolveGhostSpeed(Number.POSITIVE_INFINITY, inTunnel);
 }
