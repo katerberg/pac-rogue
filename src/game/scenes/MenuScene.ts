@@ -1,7 +1,13 @@
 import Phaser from "phaser";
 import { PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { bindDisplayTextResolution } from "./textResolution";
-import { menuOptionSelectedStyle, menuOptionStyle, menuTitleStyle } from "../ui/textStyles";
+import {
+  addPixelText,
+  MENU_OPTION_FONT_SIZE,
+  MENU_TITLE_FONT_SIZE,
+  placePixelText,
+  TEXT_COLOR_WHITE,
+  TEXT_COLOR_YELLOW,
+} from "./pixelFont";
 
 const OPTIONS = [
   { label: "START", scene: "PlayScene" },
@@ -10,8 +16,9 @@ const OPTIONS = [
 
 export class MenuScene extends Phaser.Scene {
   private selectedIndex = 0;
-  private optionTexts: Phaser.GameObjects.Text[] = [];
-  private titleText!: Phaser.GameObjects.Text;
+  private optionTexts: Phaser.GameObjects.BitmapText[] = [];
+  private optionCenters: { x: number; y: number }[] = [];
+  private titleText!: Phaser.GameObjects.BitmapText;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
@@ -26,19 +33,25 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     this.selectedIndex = 0;
     this.optionTexts = [];
+    this.optionCenters = [];
     this.moveCooldownMs = 0;
 
-    this.titleText = this.add
-      .text(PLAYFIELD_WIDTH / 2, 120, "PAC-ROGUE", menuTitleStyle)
-      .setOrigin(0.5, 0.5);
+    this.titleText = addPixelText(
+      this,
+      PLAYFIELD_WIDTH / 2,
+      120,
+      "PAC-ROGUE",
+      MENU_TITLE_FONT_SIZE,
+    );
+    placePixelText(this.titleText, PLAYFIELD_WIDTH / 2, 120, 0.5, 0.5);
 
     const startY = 280;
     const gap = 48;
     OPTIONS.forEach((option, index) => {
-      const text = this.add
-        .text(PLAYFIELD_WIDTH / 2, startY + index * gap, option.label, menuOptionStyle)
-        .setOrigin(0.5, 0.5)
-        .setInteractive({ useHandCursor: true });
+      const center = { x: PLAYFIELD_WIDTH / 2, y: startY + index * gap };
+      const text = addPixelText(this, center.x, center.y, option.label, MENU_OPTION_FONT_SIZE);
+      placePixelText(text, center.x, center.y, 0.5, 0.5);
+      text.setInteractive({ useHandCursor: true });
 
       text.on("pointerover", () => {
         this.selectedIndex = index;
@@ -49,11 +62,11 @@ export class MenuScene extends Phaser.Scene {
         this.activateSelected();
       });
 
+      this.optionCenters.push(center);
       this.optionTexts.push(text);
     });
 
     this.refreshOptions();
-    bindDisplayTextResolution(this, () => [this.titleText, ...this.optionTexts]);
 
     if (this.input.keyboard === null) {
       return;
@@ -103,8 +116,10 @@ export class MenuScene extends Phaser.Scene {
     this.optionTexts.forEach((text, index) => {
       const selected = index === this.selectedIndex;
       const label = OPTIONS[index].label;
+      const center = this.optionCenters[index]!;
       text.setText(selected ? `> ${label}` : `  ${label}`);
-      text.setStyle(selected ? menuOptionSelectedStyle : menuOptionStyle);
+      text.setTint(selected ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+      placePixelText(text, center.x, center.y, 0.5, 0.5);
     });
   }
 
