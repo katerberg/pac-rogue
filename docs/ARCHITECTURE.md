@@ -26,9 +26,8 @@ src/
     playfield.ts              # speed, size, bounds, drawable id / radius constants
     maze.ts                   # static maze ASCII, walls/exterior/tunnels, centers, pipe edges, wrap
   game/
-    config.ts                 # Phaser GameConfig + shared dimensions
-    ui/
-      textStyles.ts           # shared monospace Phaser Text styles (HUD + menus)
+    config.ts                 # Phaser GameConfig + shared dimensions (pixelArt + integer zoom)
+    audio/                    # SFX helpers
     components/               # data only — no Phaser
       Position.ts
       Velocity.ts
@@ -48,6 +47,8 @@ src/
       playerDirection.ts      # read sticky Input for countdown start (Phaser-free)
       render.ts               # sprites + wall pipe Graphics; preloadPlayArt (bridge)
     scenes/
+      integerScale.ts         # integer max-zoom letterbox (pixel-perfect CSS scale)
+      pixelFont.ts            # RetroFont bitmap atlas + BitmapText helpers
       MenuScene.ts            # boot title + Start / High Scores (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
@@ -81,7 +82,7 @@ MenuScene --High Scores--> HighScoresScene
 HighScoresScene --Back--> MenuScene
 ```
 
-**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (Text, keyboard, pointer). Do not put bitecs in UI scenes.
+**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
 
 High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (score desc). Storage remains chronological append order.
 
