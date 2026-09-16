@@ -50,8 +50,6 @@ export class MenuScene extends Phaser.Scene {
     OPTIONS.forEach((option, index) => {
       const center = { x: PLAYFIELD_WIDTH / 2, y: startY + index * gap };
       const text = addPixelText(this, center.x, center.y, option.label, MENU_OPTION_FONT_SIZE);
-      placePixelText(text, center.x, center.y, 0.5, 0.5);
-      text.setInteractive({ useHandCursor: true });
 
       text.on("pointerover", () => {
         this.selectedIndex = index;
@@ -67,6 +65,9 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.refreshOptions();
+    for (const text of this.optionTexts) {
+      text.setInteractive({ useHandCursor: true });
+    }
 
     if (this.input.keyboard === null) {
       return;

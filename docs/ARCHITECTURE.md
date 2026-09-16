@@ -13,19 +13,18 @@ Current shape of pac-rogue. Keep this document short and truthful — update it 
 
 ```text
 src/
-  main.ts                     # Phaser.Game bootstrap + letterbox zoom bind
+  main.ts                     # Phaser.Game bootstrap only
   styles.css                  # Page chrome around the canvas
   domain/                     # Pure helpers (no Phaser, no bitecs world APIs)
     clamp.ts
     circles.ts                # circle overlap tests
-    countdown.ts              # countdown start / tick interval / advance+clamp
-    runClock.ts               # start-on-input countdown state machine
-    pelletProgress.ts         # collect totals + once-per-run clear detection
-    runHistory.ts             # successful-run history schema + capped append
-    highScoresView.ts         # display sort/format for high-score list (Phaser-free)
-    scoreListScroll.ts        # pause/scroll/loop state machine for long lists
-    playfield.ts              # speeds, sizes, drawable ids / radius constants
-    pixelZoom.ts              # FIT-like letterbox zoom factor (continuous)
+    countdown.ts
+    runClock.ts
+    pelletProgress.ts
+    runHistory.ts
+    highScoresView.ts
+    scoreListScroll.ts
+    playfield.ts              # speeds, sizes, drawable ids
     maze.ts                   # ASCII maze, dual solids (player/ghost), house, tunnels
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
@@ -35,7 +34,7 @@ src/
     ghostRelease.ts           # 0.1s release-after-input clock
     ghostSpeed.ts             # base / Elroy / tunnel speed resolve
   game/
-    config.ts                 # Phaser GameConfig (pixelArt + letterbox zoom)
+    config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
     audio/sfx.ts
     components/               # data only — no Phaser
       Position.ts
