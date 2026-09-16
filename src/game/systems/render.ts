@@ -3,11 +3,13 @@ import Phaser from "phaser";
 import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
 import {
   BLINKY_DRAWABLE_ID,
+  FRUIT_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
   PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
+import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction } from "../components/Input";
@@ -19,6 +21,7 @@ const PELLET_TEXTURE_KEY = "pellet-dot";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
+const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -47,6 +50,20 @@ function pelletTextureKey(drawableId: string): string {
   return drawableId === POWER_PELLET_DRAWABLE_ID ? POWER_PELLET_TEXTURE_KEY : PELLET_TEXTURE_KEY;
 }
 
+function textureKeyForDrawable(drawableId: string): string {
+  if (drawableId === PLAYER_DRAWABLE_ID) {
+    return pacmanTextureKey("right", CLOSED_MOUTH_FRAME);
+  }
+  const ghostTexture = GHOST_TEXTURE_BY_ID[drawableId];
+  if (ghostTexture !== undefined) {
+    return ghostTexture;
+  }
+  if (drawableId === FRUIT_DRAWABLE_ID) {
+    return FRUIT_TEXTURE_KEY;
+  }
+  return pelletTextureKey(drawableId);
+}
+
 export function preloadPlayArt(scene: Phaser.Scene): void {
   for (const dir of PACMAN_DIRS) {
     for (const frame of [1, 2, 3] as const) {
@@ -57,6 +74,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
+  scene.load.image(FRUIT_TEXTURE_KEY, fruitArtPath(fruitSpecForLevel(CURRENT_LEVEL).kind));
 }
 
 function facingToDir(facing: Direction): PacmanDir | null {
@@ -119,6 +137,7 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
         id !== PLAYER_DRAWABLE_ID &&
         id !== PELLET_DRAWABLE_ID &&
         id !== POWER_PELLET_DRAWABLE_ID &&
+        id !== FRUIT_DRAWABLE_ID &&
         ghostTexture === undefined
       ) {
         continue;
@@ -134,13 +153,7 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
 
       let go = drawableObjects.get(primaryKey);
       if (!go) {
-        const textureKey =
-          id === PLAYER_DRAWABLE_ID
-            ? pacmanTextureKey("right", CLOSED_MOUTH_FRAME)
-            : ghostTexture !== undefined
-              ? ghostTexture
-              : pelletTextureKey(id);
-        go = scene.add.image(x, y, textureKey);
+        go = scene.add.image(x, y, textureKeyForDrawable(id));
         go.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
         go.setName(id);
         drawableObjects.set(primaryKey, go);

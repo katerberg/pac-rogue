@@ -21,6 +21,10 @@ export const PINKY_DRAWABLE_ID = "pinky";
 
 export const GHOST_RADIUS = PLAYER_RADIUS;
 
+export const FRUIT_DRAWABLE_ID = "fruit";
+
+export const FRUIT_RADIUS = 8;
+
 export function playfieldMinX(radius = PLAYER_RADIUS): number {
   return radius;
 }
