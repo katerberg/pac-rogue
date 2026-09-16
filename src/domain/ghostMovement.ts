@@ -1,5 +1,12 @@
+import { agentLog } from "../debug/agentLog";
 import { GHOST_DIR, lCornerTurnDir, openGhostDirsAt, type GhostDir } from "./ghostPath";
-import { canGhostEnterDirection, ghostSolidsForPhase, type SolidGrid } from "./maze";
+import {
+  canGhostEnterDirection,
+  ghostSolidsForPhase,
+  worldToCol,
+  worldToRow,
+  type SolidGrid,
+} from "./maze";
 
 export type GhostMovementRules = {
   solids: SolidGrid;
@@ -24,8 +31,37 @@ export function ghostMovementRules(phase: number): GhostMovementRules {
       const opens = openGhostDirsAt(x, y, solids, canEnter);
       const turn = lCornerTurnDir(opens, facing);
       if (turn !== GHOST_DIR.none) {
+        // #region agent log
+        agentLog({
+          hypothesisId: "A",
+          location: "ghostMovement.ts:resolveReverse",
+          message: "L reverse redirected to turn",
+          data: {
+            col: worldToCol(x),
+            row: worldToRow(y),
+            facing,
+            intent,
+            turn,
+            opens,
+          },
+        });
+        // #endregion
         return { facing: turn, intent: turn };
       }
+      // #region agent log
+      agentLog({
+        hypothesisId: "A",
+        location: "ghostMovement.ts:resolveReverse",
+        message: "reverse allowed (no L redirect)",
+        data: {
+          col: worldToCol(x),
+          row: worldToRow(y),
+          facing,
+          intent,
+          opens,
+        },
+      });
+      // #endregion
       return { facing: intent, intent };
     },
   };

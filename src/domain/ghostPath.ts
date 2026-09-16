@@ -1,3 +1,4 @@
+import { agentLog } from "../debug/agentLog";
 import { canEnterDirection, worldToCol, worldToRow, type SolidGrid } from "./maze";
 
 export const GHOST_DIR = {
@@ -98,8 +99,25 @@ export function pickGhostDirection(args: {
   const enter =
     args.canEnter ?? ((px, py, dx, dy) => canEnterDirection(px, py, dx, dy, args.solids));
   const opens = openGhostDirsAt(args.x, args.y, args.solids, enter);
+  const isL = isPerpendicularLCorner(opens);
   const forcedTurn = lCornerTurnDir(opens, args.facing);
   if (forcedTurn !== GHOST_DIR.none) {
+    // #region agent log
+    agentLog({
+      hypothesisId: "C",
+      location: "ghostPath.ts:pickGhostDirection",
+      message: "L forced turn",
+      data: {
+        col: worldToCol(args.x),
+        row: worldToRow(args.y),
+        facing: args.facing,
+        opens,
+        forcedTurn,
+        targetCol: args.targetCol,
+        targetRow: args.targetRow,
+      },
+    });
+    // #endregion
     return forcedTurn;
   }
 
@@ -120,9 +138,39 @@ export function pickGhostDirection(args: {
       const back = reverseGhostDir(args.facing);
       const { dx, dy } = directionStep(back);
       if (enter(args.x, args.y, dx, dy)) {
+        // #region agent log
+        agentLog({
+          hypothesisId: "D",
+          location: "ghostPath.ts:pickGhostDirection",
+          message: "fallback reverse only",
+          data: {
+            col: worldToCol(args.x),
+            row: worldToRow(args.y),
+            facing: args.facing,
+            opens,
+            isL,
+            back,
+          },
+        });
+        // #endregion
         return back;
       }
     }
+    // #region agent log
+    agentLog({
+      hypothesisId: "D",
+      location: "ghostPath.ts:pickGhostDirection",
+      message: "no candidates returning facing/none",
+      data: {
+        col: worldToCol(args.x),
+        row: worldToRow(args.y),
+        facing: args.facing,
+        opens,
+        isL,
+        result: args.facing,
+      },
+    });
+    // #endregion
     return args.facing;
   }
 
@@ -146,6 +194,27 @@ export function pickGhostDirection(args: {
     if (dist === bestDist && TIE_ORDER.indexOf(dir) < TIE_ORDER.indexOf(best)) {
       best = dir;
     }
+  }
+
+  if (isL || best === GHOST_DIR.none || opens.length === 0) {
+    // #region agent log
+    agentLog({
+      hypothesisId: "C",
+      location: "ghostPath.ts:pickGhostDirection",
+      message: "pick at L/empty/none",
+      data: {
+        col,
+        row,
+        facing: args.facing,
+        opens,
+        candidates,
+        best,
+        isL,
+        targetCol: args.targetCol,
+        targetRow: args.targetRow,
+      },
+    });
+    // #endregion
   }
 
   return best;

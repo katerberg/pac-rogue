@@ -5,6 +5,7 @@ import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { blinkyTarget, clydeTarget, pinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
 import { TURN_ALIGN_EPS, isAlignedForTurn, worldToCol, worldToRow } from "../../domain/maze";
+import { agentLog } from "../../debug/agentLog";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -41,6 +42,7 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
 
     const x = Position.x[eid] ?? 0;
     const y = Position.y[eid] ?? 0;
+    const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
     if (!isAlignedForTurn(x, y, TURN_ALIGN_EPS)) {
       continue;
     }
@@ -48,10 +50,47 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
     const col = worldToCol(x);
     const row = worldToRow(y);
     if (Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row) {
+      // #region agent log
+      if (kind === GHOST_KIND.clyde) {
+        const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
+        const intentNow = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
+        const rulesPeek = ghostMovementRules(phase);
+        const opens = [
+          rulesPeek.canEnter(x, y, 0, -1),
+          rulesPeek.canEnter(x, y, 0, 1),
+          rulesPeek.canEnter(x, y, -1, 0),
+          rulesPeek.canEnter(x, y, 1, 0),
+        ];
+        const facingBlocked =
+          facingNow !== DIRECTION.none &&
+          !rulesPeek.canEnter(
+            x,
+            y,
+            facingNow === DIRECTION.right ? 1 : facingNow === DIRECTION.left ? -1 : 0,
+            facingNow === DIRECTION.down ? 1 : facingNow === DIRECTION.up ? -1 : 0,
+          );
+        if (facingBlocked || intentNow === DIRECTION.none) {
+          agentLog({
+            hypothesisId: "B",
+            location: "ghostAi.ts:skipDecided",
+            message: "Clyde skip decided while facing blocked/none",
+            data: {
+              eid,
+              col,
+              row,
+              mode,
+              facing: facingNow,
+              intent: intentNow,
+              opens,
+              facingBlocked,
+            },
+          });
+        }
+      }
+      // #endregion
       continue;
     }
 
-    const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
     let target;
     if (kind === GHOST_KIND.pinky) {
       target = pinkyTarget({
@@ -93,6 +132,29 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       solids: rules.solids,
       canEnter: rules.canEnter,
     }) as Direction;
+
+    // #region agent log
+    if (kind === GHOST_KIND.clyde || next === DIRECTION.none) {
+      agentLog({
+        hypothesisId: "B",
+        location: "ghostAi.ts:decide",
+        message: next === DIRECTION.none ? "pick returned none" : "ghost decide",
+        data: {
+          eid,
+          kind,
+          col,
+          row,
+          mode,
+          phase,
+          facing,
+          intent,
+          next,
+          target,
+          applied: next !== DIRECTION.none,
+        },
+      });
+    }
+    // #endregion
 
     if (next !== DIRECTION.none) {
       Input.direction[eid] = next;
