@@ -37,6 +37,14 @@ Humans and agents use different ports (see `scripts/ports.json` / `docs/VERIFICA
 
 Pull requests and pushes to `main` run `npm run verify` (typecheck, lint, format, tests, production build, and visual smoke) via [`.github/workflows/verify.yml`](./.github/workflows/verify.yml).
 
+## Deploy (GitHub Pages)
+
+Live game: [https://katerberg.github.io/pac-rogue/](https://katerberg.github.io/pac-rogue/)
+
+Pushes to `main` run [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml): production `npm run build`, then publish `dist/` (plus `.nojekyll`) to the `gh-pages` branch via JamesIves.
+
+GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). After the first successful deploy, set that in the repo’s Pages settings if it is not already.
+
 ## Docs for agents
 
 - [AGENTS.md](./AGENTS.md) — guardrails (every code-changing plan includes `/simplify-pr` then `/no-comments`)
