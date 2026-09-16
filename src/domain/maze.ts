@@ -44,7 +44,6 @@ export const MAZE_OFFSET_X = (800 - MAZE_PIXEL_WIDTH) / 2;
 export const MAZE_OFFSET_Y = Math.floor((600 - MAZE_PIXEL_HEIGHT) / 2);
 
 export const MAZE_BACKGROUND_COLOR = 0x1a1a2e;
-export const WALL_FILL_COLOR = MAZE_BACKGROUND_COLOR;
 export const WALL_STROKE_COLOR = 0x2121ff;
 export const WALL_STROKE_WEIGHT = 2;
 export const WALL_CORNER_RADIUS = 6;
@@ -697,9 +696,10 @@ function appendQuadratic(
   y1: number,
   steps: number,
 ): void {
+  const n = Math.max(1, Math.round(steps));
   commands.push({ type: "move", x: x0, y: y0 });
-  for (let i = 1; i <= steps; i += 1) {
-    const t = i / steps;
+  for (let i = 1; i <= n; i += 1) {
+    const t = i / n;
     const u = 1 - t;
     commands.push({
       type: "line",
@@ -716,26 +716,6 @@ function pixelToVertex(x: number, y: number): number {
   );
 }
 
-export function wallFillRects(
-  walls: SolidGrid = MAZE_WALLS,
-): { x: number; y: number; width: number; height: number }[] {
-  const rects: { x: number; y: number; width: number; height: number }[] = [];
-  for (let row = 0; row < MAZE_ROWS; row += 1) {
-    for (let col = 0; col < MAZE_COLS; col += 1) {
-      if (!isWall(col, row, walls)) {
-        continue;
-      }
-      rects.push({
-        x: cellOriginX(col),
-        y: cellOriginY(row),
-        width: TILE_SIZE,
-        height: TILE_SIZE,
-      });
-    }
-  }
-  return rects;
-}
-
 export function wallPathCommands(
   walls: SolidGrid = MAZE_WALLS,
   exterior: SolidGrid = MAZE_EXTERIOR,
@@ -744,7 +724,7 @@ export function wallPathCommands(
   const r = clampedWallCornerRadius(cornerRadius);
   const edges = pipeEdges(walls, exterior);
   const commands: WallPathCommand[] = [];
-  const curveSteps = Math.max(WALL_CORNER_CURVE_MIN_STEPS, r);
+  const curveSteps = WALL_CORNER_CURVE_MIN_STEPS;
 
   const adj = new Map<number, Set<number>>();
   const addAdj = (a: number, b: number): void => {

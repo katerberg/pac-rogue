@@ -4,8 +4,6 @@ import {
   PELLET_DISPLAY_SIZE,
   playerDisplaySize,
   POWER_PELLET_DISPLAY_SIZE,
-  wallFillRects,
-  WALL_FILL_COLOR,
   wallPathCommands,
   WALL_STROKE_COLOR,
   WALL_STROKE_WEIGHT,
@@ -156,10 +154,6 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
   return (world: World) => {
     if (!wallsDrawn) {
       wallGraphics.clear();
-      wallGraphics.fillStyle(WALL_FILL_COLOR, 1);
-      for (const rect of wallFillRects()) {
-        wallGraphics.fillRect(rect.x, rect.y, rect.width, rect.height);
-      }
       wallGraphics.lineStyle(WALL_STROKE_WEIGHT, WALL_STROKE_COLOR, 1);
       wallGraphics.beginPath();
       applyWallPathCommands(wallGraphics, wallPathCommands());

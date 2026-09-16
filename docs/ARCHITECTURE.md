@@ -67,7 +67,7 @@ src/
       collectPellets.ts
       collectFruit.ts
       playerDirection.ts
-      render.ts               # sprites + rounded wall fill/stroke; preloadPlayArt
+      render.ts               # sprites + rounded wall stroke; preloadPlayArt
     scenes/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
@@ -127,7 +127,7 @@ PlayScene.update →
 5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(BLINKY_SCATTER_COL, BLINKY_SCATTER_ROW)` default `(25, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(PINKY_SCATTER_COL, PINKY_SCATTER_ROW)` default `(2, -3)`. Delays and scatter coords are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): base 0.9375×; Elroy1/2 only for Blinky (≤20 / ≤10 pellets → 1.0× / 1.0625×); tunnel 0.5× for all ghosts.
 7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, `scene.start("MenuScene")` (no high-score write).
-8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws rounded wall fill/stroke from maze knobs, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, Pinky, bonus fruit, and tunnel twin.
+8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws rounded wall stroke from maze knobs, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, Pinky, bonus fruit, and tunnel twin.
 9. Bonus fruit: after 70 and 170 pellets collected, spawn at cell `(13, 17)` for 10 real seconds (Phaser `delta` ms); level-1 cherries use `strawberry.png` stand-in; pickup removes the entity and plays both munches (no score yet).
 
 ## ECS boundary
@@ -150,7 +150,7 @@ A violation of these is a failed architecture check:
 - Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
 - Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse. `movement` updates `Facing`, `Velocity`, and `Position` in normal play; `forceGhostReverse` also sets both `Facing` and `Input` on scatter↔chase boundaries (and that frame skips `ghostAi` so the reverse is not overwritten).
 - Scenes wire the world, spawn entities, and run the pipeline — **no movement or AI rules in the scene** beyond calling systems and domain clocks.
-- Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; wall Graphics fill wall cells and stroke rounded outlines from domain path commands.
+- Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; wall Graphics stroke rounded outlines from domain path commands.
 - One local GameObject map inside the render bridge is enough — do not build a sync framework.
 - Do not invent Entity/Component/System manager classes around bitecs.
 - bitecs **0.4** only. No `bitecs/legacy`, no second ECS library.
@@ -166,7 +166,7 @@ A violation of these is a failed architecture check:
 
 - Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores). Start opens `PlayScene`; High Scores opens `HighScoresScene` (score+date list from localStorage; empty → `NO SCORES YET`; >5 rows pause-at-top then scroll with trail loop).
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
-- Static 28×31 maze (tile size 19, centered in 800×600) with fill+stroke walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_BACKGROUND_COLOR`, `WALL_FILL_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `PLAYER_WALL_PADDING_PX` (derives actor display size), `PELLET_DISPLAY_SIZE`, `POWER_PELLET_DISPLAY_SIZE`. Dual solids (player blocked from house/door; ghosts allowed), mid-maze horizontal tunnel.
+- Static 28×31 maze (tile size 19, centered in 800×600) with stroked walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_BACKGROUND_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `PLAYER_WALL_PADDING_PX` (actor display size only), `PELLET_DISPLAY_SIZE`, `POWER_PELLET_DISPLAY_SIZE`. Dual solids (player blocked from house/door; ghosts allowed), mid-maze horizontal tunnel.
 - One player entity (display size from wall padding; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX.
 - Bonus fruit appears under the ghost house at 70 and 170 pellets collected, lasts 10 real seconds, uses level-1 cherries (`strawberry.png` stand-in); pickup plays both munches and removes the fruit (no points yet).
