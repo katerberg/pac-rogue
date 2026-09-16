@@ -195,4 +195,27 @@ describe("clydeTarget", () => {
       }),
     ).toEqual({ col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW });
   });
+
+  it("uses Euclidean distance on diagonals", () => {
+    expect(
+      clydeTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 10,
+        ghostCol: 16,
+        ghostRow: 16,
+      }),
+    ).toEqual({ col: 10, row: 10 });
+    expect(
+      clydeTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 10,
+        ghostCol: 15,
+        ghostRow: 16,
+      }),
+    ).toEqual({ col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW });
+  });
 });

@@ -33,8 +33,9 @@ export function releaseDelayForKind(kind: GhostKindId): number {
     case GHOST_KIND.pinky:
       return PINKY_RELEASE_DELAY_MS;
     case GHOST_KIND.blinky:
-    default:
       return BLINKY_RELEASE_DELAY_MS;
+    case GHOST_KIND.clyde:
+      throw new Error("Clyde uses pellet release, not a time delay");
   }
 }
 

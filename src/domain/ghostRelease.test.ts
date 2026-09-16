@@ -37,6 +37,7 @@ describe("ghostRelease", () => {
   it("maps kinds to their release delays", () => {
     expect(releaseDelayForKind(GHOST_KIND.blinky)).toBe(BLINKY_RELEASE_DELAY_MS);
     expect(releaseDelayForKind(GHOST_KIND.pinky)).toBe(PINKY_RELEASE_DELAY_MS);
+    expect(() => releaseDelayForKind(GHOST_KIND.clyde)).toThrow(/pellet release/);
   });
 
   it("releases Clyde by pellet count, not the time clock", () => {
