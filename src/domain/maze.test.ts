@@ -33,9 +33,15 @@ import {
   isWall,
   parseMaze,
   pipeEdges,
+  playerDisplaySize,
   playerSpawnCenter,
   pelletCellCenters,
+  PLAYER_WALL_PADDING_PX,
+  WALL_CORNER_RADIUS,
+  clampedWallCornerRadius,
   wallCellCenters,
+  wallFillRects,
+  wallPathCommands,
   walkableCellCenters,
   wrapPosition,
   wrappedTwinPosition,
@@ -275,5 +281,60 @@ describe("maze", () => {
     const withDefault = pipeEdges();
     const withEmptyExterior = pipeEdges(MAZE_WALLS, emptyExterior);
     expect(withEmptyExterior.length).toBeGreaterThan(withDefault.length);
+  });
+
+  it("derives player display size from wall padding", () => {
+    expect(playerDisplaySize()).toBe(TILE_SIZE - 2 * PLAYER_WALL_PADDING_PX);
+    expect(playerDisplaySize(4, 19)).toBe(11);
+  });
+
+  it("clamps wall corner radius to a half tile", () => {
+    expect(clampedWallCornerRadius(WALL_CORNER_RADIUS)).toBe(WALL_CORNER_RADIUS);
+    expect(clampedWallCornerRadius(TILE_SIZE)).toBe(TILE_SIZE / 2);
+    expect(clampedWallCornerRadius(-3)).toBe(0);
+  });
+
+  it("builds wall fill rects for wall cells only", () => {
+    const rects = wallFillRects();
+    expect(rects.length).toBe(wallCellCenters().length);
+    expect(rects.every((rect) => rect.width === TILE_SIZE && rect.height === TILE_SIZE)).toBe(true);
+  });
+
+  it("emits rounded wall path commands and skips exterior faces", () => {
+    const commands = wallPathCommands();
+    expect(commands.length).toBeGreaterThan(0);
+    expect(commands.some((command) => command.type === "arc")).toBe(true);
+    expect(commands.some((command) => command.type === "line")).toBe(true);
+
+    const left = cellOriginX(0);
+    const top = cellOriginY(13);
+    const outlinesExteriorAboveTunnelStub = commands.some((command, index) => {
+      if (command.type !== "line") {
+        return false;
+      }
+      const prev = commands[index - 1];
+      if (!prev || prev.type !== "move") {
+        return false;
+      }
+      return (
+        prev.y === top && command.y === top && prev.x >= left && command.x <= left + TILE_SIZE * 6
+      );
+    });
+    expect(outlinesExteriorAboveTunnelStub).toBe(false);
+  });
+
+  it("includes convex arcs at a known corridor corner", () => {
+    const commands = wallPathCommands();
+    const radius = clampedWallCornerRadius();
+    const cornerX = cellOriginX(2);
+    const cornerY = cellOriginY(2);
+    const hasConvexArc = commands.some(
+      (command) =>
+        command.type === "arc" &&
+        Math.abs(command.x - (cornerX + radius)) < 0.01 &&
+        Math.abs(command.y - (cornerY + radius)) < 0.01 &&
+        Math.abs(command.radius - radius) < 0.01,
+    );
+    expect(hasConvexArc).toBe(true);
   });
 });

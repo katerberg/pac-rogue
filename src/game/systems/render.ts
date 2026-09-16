@@ -1,6 +1,17 @@
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
-import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
+import {
+  PELLET_DISPLAY_SIZE,
+  playerDisplaySize,
+  POWER_PELLET_DISPLAY_SIZE,
+  wallFillRects,
+  WALL_FILL_COLOR,
+  wallPathCommands,
+  WALL_STROKE_COLOR,
+  WALL_STROKE_WEIGHT,
+  wrappedTwinPosition,
+  type WallPathCommand,
+} from "../../domain/maze";
 import {
   GHOST_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
@@ -13,7 +24,6 @@ import { DIRECTION, type Direction } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-const SPRITE_DISPLAY_SIZE = 16;
 const PELLET_TEXTURE_KEY = "pellet-dot";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
@@ -39,6 +49,38 @@ function pacmanTextureKey(dir: PacmanDir, frame: number): string {
 
 function pelletTextureKey(drawableId: string): string {
   return drawableId === POWER_PELLET_DRAWABLE_ID ? POWER_PELLET_TEXTURE_KEY : PELLET_TEXTURE_KEY;
+}
+
+function displaySizeForDrawable(drawableId: string): number {
+  if (drawableId === PELLET_DRAWABLE_ID) {
+    return PELLET_DISPLAY_SIZE;
+  }
+  if (drawableId === POWER_PELLET_DRAWABLE_ID) {
+    return POWER_PELLET_DISPLAY_SIZE;
+  }
+  return playerDisplaySize();
+}
+
+function applyWallPathCommands(
+  graphics: Phaser.GameObjects.Graphics,
+  commands: readonly WallPathCommand[],
+): void {
+  for (const command of commands) {
+    if (command.type === "move") {
+      graphics.moveTo(command.x, command.y);
+    } else if (command.type === "line") {
+      graphics.lineTo(command.x, command.y);
+    } else {
+      graphics.arc(
+        command.x,
+        command.y,
+        command.radius,
+        command.startAngle,
+        command.endAngle,
+        command.anticlockwise,
+      );
+    }
+  }
 }
 
 export function preloadPlayArt(scene: Phaser.Scene): void {
@@ -92,16 +134,21 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
-  let pipesDrawn = false;
+  let wallsDrawn = false;
+  const actorDisplaySize = playerDisplaySize();
 
   return (world: World) => {
-    if (!pipesDrawn) {
+    if (!wallsDrawn) {
       wallGraphics.clear();
-      wallGraphics.lineStyle(2, WALL_COLOR, 1);
-      for (const edge of pipeEdges()) {
-        wallGraphics.lineBetween(edge.x1, edge.y1, edge.x2, edge.y2);
+      wallGraphics.fillStyle(WALL_FILL_COLOR, 1);
+      for (const rect of wallFillRects()) {
+        wallGraphics.fillRect(rect.x, rect.y, rect.width, rect.height);
       }
-      pipesDrawn = true;
+      wallGraphics.lineStyle(WALL_STROKE_WEIGHT, WALL_STROKE_COLOR, 1);
+      wallGraphics.beginPath();
+      applyWallPathCommands(wallGraphics, wallPathCommands());
+      wallGraphics.strokePath();
+      wallsDrawn = true;
     }
 
     const alive = new Set<string>();
@@ -122,7 +169,8 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
 
       const x = Position.x[eid] ?? 0;
       const y = Position.y[eid] ?? 0;
-      const radius = Drawable.radius[eid] ?? SPRITE_DISPLAY_SIZE / 2;
+      const radius = Drawable.radius[eid] ?? actorDisplaySize / 2;
+      const size = displaySizeForDrawable(id);
 
       let go = drawableObjects.get(primaryKey);
       if (!go) {
@@ -133,7 +181,7 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
               ? BLINKY_TEXTURE_KEY
               : pelletTextureKey(id);
         go = scene.add.image(x, y, textureKey);
-        go.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
+        go.setDisplaySize(size, size);
         go.setName(id);
         drawableObjects.set(primaryKey, go);
         if (id === PLAYER_DRAWABLE_ID) {
@@ -164,7 +212,7 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
         }
         if (nextKey !== visual.textureKey) {
           go.setTexture(nextKey);
-          go.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
+          go.setDisplaySize(actorDisplaySize, actorDisplaySize);
           visual.textureKey = nextKey;
         }
         visual.lastX = x;
@@ -177,14 +225,14 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
             let twinGo = drawableObjects.get(twinKey);
             if (!twinGo) {
               twinGo = scene.add.image(twin.x, twin.y, visual.textureKey);
-              twinGo.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
+              twinGo.setDisplaySize(actorDisplaySize, actorDisplaySize);
               twinGo.setName(`${id}:twin`);
               drawableObjects.set(twinKey, twinGo);
             } else {
               twinGo.setPosition(twin.x, twin.y);
               if (twinGo.texture.key !== visual.textureKey) {
                 twinGo.setTexture(visual.textureKey);
-                twinGo.setDisplaySize(SPRITE_DISPLAY_SIZE, SPRITE_DISPLAY_SIZE);
+                twinGo.setDisplaySize(actorDisplaySize, actorDisplaySize);
               }
             }
           }

@@ -25,7 +25,7 @@ src/
     highScoresView.ts
     scoreListScroll.ts
     playfield.ts              # speeds, sizes, drawable ids
-    maze.ts                   # ASCII maze, dual solids (player/ghost), house, tunnels
+    maze.ts                   # ASCII maze, solids, visual knobs, wall path cmds
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostTarget.ts            # Blinky chase/scatter/Elroy target tile
@@ -62,7 +62,7 @@ src/
       catchPlayer.ts          # circle overlap → caught
       collectPellets.ts
       playerDirection.ts
-      render.ts               # sprites + pipes; preloadPlayArt
+      render.ts               # sprites + rounded wall fill/stroke; preloadPlayArt
     scenes/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
@@ -121,7 +121,7 @@ PlayScene.update →
 5. Blinky targeting: chase / Elroy → player tile; scatter → fixed `(25, -3)`. Steering picks min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): base 0.9375×, Elroy1 (≤20 pellets) 1.0×, Elroy2 (≤10) 1.0625×, tunnel 0.5×.
 7. Catch: circle overlap while Blinky is `leaving` or `active` → stop siren, `scene.start("MenuScene")` (no high-score write).
-8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws pipes, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, and tunnel twin.
+8. Pellet clear still records score + level-complete SFX; power pellets play both munches. `render` draws rounded wall fill/stroke from maze knobs, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, and tunnel twin.
 
 ## ECS boundary
 
@@ -143,7 +143,7 @@ A violation of these is a failed architecture check:
 - Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
 - Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse. `movement` updates `Facing`, `Velocity`, and `Position` in normal play; `forceGhostReverse` also sets both `Facing` and `Input` on scatter↔chase boundaries (and that frame skips `ghostAi` so the reverse is not overwritten).
 - Scenes wire the world, spawn entities, and run the pipeline — **no movement or AI rules in the scene** beyond calling systems and domain clocks.
-- Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; pipe Graphics mirror domain edges.
+- Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; wall Graphics fill wall cells and stroke rounded outlines from domain path commands.
 - One local GameObject map inside the render bridge is enough — do not build a sync framework.
 - Do not invent Entity/Component/System manager classes around bitecs.
 - bitecs **0.4** only. No `bitecs/legacy`, no second ECS library.
@@ -159,8 +159,8 @@ A violation of these is a failed architecture check:
 
 - Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores). Start opens `PlayScene`; High Scores opens `HighScoresScene` (score+date list from localStorage; empty → `NO SCORES YET`; >5 rows pause-at-top then scroll with trail loop).
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
-- Static 28×31 maze (tile size 19, centered in 800×600) with blue pipe-outline walls, dual solids (player blocked from house/door; ghosts allowed), and a mid-maze horizontal tunnel.
-- One player entity (16×16 directional pac-man sprites; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
+- Static 28×31 maze (tile size 19, centered in 800×600) with fill+stroke walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_BACKGROUND_COLOR`, `WALL_FILL_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `PLAYER_WALL_PADDING_PX` (derives actor display size), `PELLET_DISPLAY_SIZE`, `POWER_PELLET_DISPLAY_SIZE`. Dual solids (player blocked from house/door; ghosts allowed), mid-maze horizontal tunnel.
+- One player entity (display size from wall padding; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX.
 - One Blinky: house spawn, 0.1s release after first direction input, starts in chase then arcade scatter/chase waves + Cruise Elroy, tunnel slowdown; circle overlap catch returns to menu (no high-score write).
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).

@@ -43,7 +43,15 @@ export const MAZE_PIXEL_HEIGHT = MAZE_ROWS * TILE_SIZE;
 export const MAZE_OFFSET_X = (800 - MAZE_PIXEL_WIDTH) / 2;
 export const MAZE_OFFSET_Y = Math.floor((600 - MAZE_PIXEL_HEIGHT) / 2);
 
-export const WALL_COLOR = 0x2121ff;
+export const MAZE_BACKGROUND_COLOR = 0x1a1a2e;
+export const WALL_FILL_COLOR = MAZE_BACKGROUND_COLOR;
+export const WALL_STROKE_COLOR = 0x2121ff;
+export const WALL_COLOR = WALL_STROKE_COLOR;
+export const WALL_STROKE_WEIGHT = 2;
+export const WALL_CORNER_RADIUS = 4;
+export const PLAYER_WALL_PADDING_PX = 4;
+export const PELLET_DISPLAY_SIZE = 6;
+export const POWER_PELLET_DISPLAY_SIZE = 10;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export const TURN_ALIGN_EPS = 2;
@@ -56,6 +64,34 @@ export type PipeEdge = {
   x2: number;
   y2: number;
 };
+
+export type WallPathCommand =
+  | { type: "move"; x: number; y: number }
+  | { type: "line"; x: number; y: number }
+  | {
+      type: "arc";
+      x: number;
+      y: number;
+      radius: number;
+      startAngle: number;
+      endAngle: number;
+      anticlockwise: boolean;
+    };
+
+export function colorToCssHex(color: number): string {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
+
+export function clampedWallCornerRadius(radius: number = WALL_CORNER_RADIUS): number {
+  return Math.max(0, Math.min(radius, TILE_SIZE / 2));
+}
+
+export function playerDisplaySize(
+  paddingPx: number = PLAYER_WALL_PADDING_PX,
+  tileSize: number = TILE_SIZE,
+): number {
+  return Math.max(1, tileSize - 2 * paddingPx);
+}
 
 const WALL_CHAR = "#";
 const DOOR_CHAR = "=";
@@ -650,6 +686,308 @@ export function pipeEdges(
   }
 
   return edges;
+}
+
+function vertexPixelX(vc: number): number {
+  return MAZE_OFFSET_X + vc * TILE_SIZE;
+}
+
+function vertexPixelY(vr: number): number {
+  return MAZE_OFFSET_Y + vr * TILE_SIZE;
+}
+
+function wallCornerKind(
+  vc: number,
+  vr: number,
+  walls: SolidGrid,
+):
+  | "convex-se"
+  | "convex-sw"
+  | "convex-ne"
+  | "convex-nw"
+  | "concave-se"
+  | "concave-sw"
+  | "concave-ne"
+  | "concave-nw"
+  | null {
+  const nw = isWall(vc - 1, vr - 1, walls);
+  const ne = isWall(vc, vr - 1, walls);
+  const sw = isWall(vc - 1, vr, walls);
+  const se = isWall(vc, vr, walls);
+  const count = (nw ? 1 : 0) + (ne ? 1 : 0) + (sw ? 1 : 0) + (se ? 1 : 0);
+  if (count === 1) {
+    if (se) return "convex-se";
+    if (sw) return "convex-sw";
+    if (ne) return "convex-ne";
+    if (nw) return "convex-nw";
+  }
+  if (count === 3) {
+    if (!se) return "concave-se";
+    if (!sw) return "concave-sw";
+    if (!ne) return "concave-ne";
+    if (!nw) return "concave-nw";
+  }
+  return null;
+}
+
+function cornerUsesPipeFaces(
+  kind: NonNullable<ReturnType<typeof wallCornerKind>>,
+  vc: number,
+  vr: number,
+  walls: SolidGrid,
+  exterior: SolidGrid,
+): boolean {
+  switch (kind) {
+    case "convex-se":
+      return (
+        shouldDrawPipeAgainst(vc, vr - 1, walls, exterior) &&
+        shouldDrawPipeAgainst(vc - 1, vr, walls, exterior)
+      );
+    case "convex-sw":
+      return (
+        shouldDrawPipeAgainst(vc - 1, vr - 1, walls, exterior) &&
+        shouldDrawPipeAgainst(vc, vr, walls, exterior)
+      );
+    case "convex-ne":
+      return (
+        shouldDrawPipeAgainst(vc, vr, walls, exterior) &&
+        shouldDrawPipeAgainst(vc - 1, vr - 1, walls, exterior)
+      );
+    case "convex-nw":
+      return (
+        shouldDrawPipeAgainst(vc - 1, vr, walls, exterior) &&
+        shouldDrawPipeAgainst(vc, vr - 1, walls, exterior)
+      );
+    case "concave-se":
+      return shouldDrawPipeAgainst(vc, vr, walls, exterior);
+    case "concave-sw":
+      return shouldDrawPipeAgainst(vc - 1, vr, walls, exterior);
+    case "concave-ne":
+      return shouldDrawPipeAgainst(vc, vr - 1, walls, exterior);
+    case "concave-nw":
+      return shouldDrawPipeAgainst(vc - 1, vr - 1, walls, exterior);
+    default:
+      return false;
+  }
+}
+
+function emitCornerArc(
+  kind: NonNullable<ReturnType<typeof wallCornerKind>>,
+  vc: number,
+  vr: number,
+  r: number,
+): WallPathCommand[] {
+  const x = vertexPixelX(vc);
+  const y = vertexPixelY(vr);
+  switch (kind) {
+    case "convex-se":
+      return [
+        { type: "move", x: x + r, y },
+        {
+          type: "arc",
+          x: x + r,
+          y: y + r,
+          radius: r,
+          startAngle: -Math.PI / 2,
+          endAngle: Math.PI,
+          anticlockwise: true,
+        },
+      ];
+    case "convex-sw":
+      return [
+        { type: "move", x, y: y + r },
+        {
+          type: "arc",
+          x: x - r,
+          y: y + r,
+          radius: r,
+          startAngle: 0,
+          endAngle: -Math.PI / 2,
+          anticlockwise: true,
+        },
+      ];
+    case "convex-ne":
+      return [
+        { type: "move", x: x + r, y },
+        {
+          type: "arc",
+          x: x + r,
+          y: y - r,
+          radius: r,
+          startAngle: Math.PI / 2,
+          endAngle: Math.PI,
+          anticlockwise: false,
+        },
+      ];
+    case "convex-nw":
+      return [
+        { type: "move", x, y: y - r },
+        {
+          type: "arc",
+          x: x - r,
+          y: y - r,
+          radius: r,
+          startAngle: 0,
+          endAngle: Math.PI / 2,
+          anticlockwise: false,
+        },
+      ];
+    case "concave-se":
+      return [
+        { type: "move", x: x + r, y },
+        {
+          type: "arc",
+          x,
+          y,
+          radius: r,
+          startAngle: 0,
+          endAngle: Math.PI / 2,
+          anticlockwise: false,
+        },
+      ];
+    case "concave-sw":
+      return [
+        { type: "move", x, y: y + r },
+        {
+          type: "arc",
+          x,
+          y,
+          radius: r,
+          startAngle: -Math.PI / 2,
+          endAngle: Math.PI,
+          anticlockwise: true,
+        },
+      ];
+    case "concave-ne":
+      return [
+        { type: "move", x: x - r, y },
+        {
+          type: "arc",
+          x,
+          y,
+          radius: r,
+          startAngle: Math.PI,
+          endAngle: Math.PI / 2,
+          anticlockwise: true,
+        },
+      ];
+    case "concave-nw":
+      return [
+        { type: "move", x, y: y - r },
+        {
+          type: "arc",
+          x,
+          y,
+          radius: r,
+          startAngle: Math.PI / 2,
+          endAngle: 0,
+          anticlockwise: true,
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
+function vertexHasDrawableCorner(
+  vc: number,
+  vr: number,
+  walls: SolidGrid,
+  exterior: SolidGrid,
+): boolean {
+  const kind = wallCornerKind(vc, vr, walls);
+  if (!kind) {
+    return false;
+  }
+  return cornerUsesPipeFaces(kind, vc, vr, walls, exterior);
+}
+
+export function wallFillRects(
+  walls: SolidGrid = MAZE_WALLS,
+): { x: number; y: number; width: number; height: number }[] {
+  const rects: { x: number; y: number; width: number; height: number }[] = [];
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (!isWall(col, row, walls)) {
+        continue;
+      }
+      rects.push({
+        x: cellOriginX(col),
+        y: cellOriginY(row),
+        width: TILE_SIZE,
+        height: TILE_SIZE,
+      });
+    }
+  }
+  return rects;
+}
+
+export function wallPathCommands(
+  walls: SolidGrid = MAZE_WALLS,
+  exterior: SolidGrid = MAZE_EXTERIOR,
+  cornerRadius: number = WALL_CORNER_RADIUS,
+): WallPathCommand[] {
+  const r = clampedWallCornerRadius(cornerRadius);
+  const commands: WallPathCommand[] = [];
+
+  if (r > 0) {
+    for (let vr = 0; vr <= MAZE_ROWS; vr += 1) {
+      for (let vc = 0; vc <= MAZE_COLS; vc += 1) {
+        const kind = wallCornerKind(vc, vr, walls);
+        if (!kind || !cornerUsesPipeFaces(kind, vc, vr, walls, exterior)) {
+          continue;
+        }
+        commands.push(...emitCornerArc(kind, vc, vr, r));
+      }
+    }
+  }
+
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (!isWall(col, row, walls)) {
+        continue;
+      }
+      const left = cellOriginX(col);
+      const right = left + TILE_SIZE;
+      const top = cellOriginY(row);
+      const bottom = top + TILE_SIZE;
+
+      if (shouldDrawPipeAgainst(col, row - 1, walls, exterior)) {
+        const startX = left + (vertexHasDrawableCorner(col, row, walls, exterior) ? r : 0);
+        const endX = right - (vertexHasDrawableCorner(col + 1, row, walls, exterior) ? r : 0);
+        if (endX > startX) {
+          commands.push({ type: "move", x: startX, y: top });
+          commands.push({ type: "line", x: endX, y: top });
+        }
+      }
+      if (shouldDrawPipeAgainst(col, row + 1, walls, exterior)) {
+        const startX = left + (vertexHasDrawableCorner(col, row + 1, walls, exterior) ? r : 0);
+        const endX = right - (vertexHasDrawableCorner(col + 1, row + 1, walls, exterior) ? r : 0);
+        if (endX > startX) {
+          commands.push({ type: "move", x: startX, y: bottom });
+          commands.push({ type: "line", x: endX, y: bottom });
+        }
+      }
+      if (shouldDrawPipeAgainst(col - 1, row, walls, exterior)) {
+        const startY = top + (vertexHasDrawableCorner(col, row, walls, exterior) ? r : 0);
+        const endY = bottom - (vertexHasDrawableCorner(col, row + 1, walls, exterior) ? r : 0);
+        if (endY > startY) {
+          commands.push({ type: "move", x: left, y: startY });
+          commands.push({ type: "line", x: left, y: endY });
+        }
+      }
+      if (shouldDrawPipeAgainst(col + 1, row, walls, exterior)) {
+        const startY = top + (vertexHasDrawableCorner(col + 1, row, walls, exterior) ? r : 0);
+        const endY = bottom - (vertexHasDrawableCorner(col + 1, row + 1, walls, exterior) ? r : 0);
+        if (endY > startY) {
+          commands.push({ type: "move", x: right, y: startY });
+          commands.push({ type: "line", x: right, y: endY });
+        }
+      }
+    }
+  }
+
+  return commands;
 }
 
 export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
