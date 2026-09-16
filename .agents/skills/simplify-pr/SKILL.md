@@ -3,15 +3,22 @@ name: simplify-pr
 description: >-
   Audit a PR or branch diff for agent-style complexity: oversized classes,
   premature abstractions, duplicated helpers, ceremony, and other additive
-  smells. Prefer findings that remove, simplify, or consolidate. Use when the
-  user asks to simplify a PR, declutter a diff, hunt agent bloat, reduce
-  complexity, or consolidate overlapping code before merge.
+  smells. Prefer findings that remove, simplify, or consolidate. Required on
+  every code-changing implementation plan for this project (run before
+  /no-comments). Use when implementing a plan, or when the user asks to
+  simplify a PR, declutter a diff, hunt agent bloat, reduce complexity, or
+  consolidate overlapping code before merge.
 ---
 
 # Simplify PR
 
 Hunt additive agent bloat on a scoped diff. Goal: **delete, simplify, or
 consolidate** — not a general correctness or security review.
+
+Required on every code-changing plan: run after implementation/verification
+and **before** `/no-comments`. Do not treat the plan or implementation as done
+until this skill has run (same skip rule as `/no-comments`: pure docs/tooling
+with no `src/` edits).
 
 ## Scope
 
@@ -66,22 +73,32 @@ rules in scenes, Phaser GameObjects as position source of truth.
    helpers/classes — one consumer usually means inline or delete.
 3. Rank findings by **simplification value** (bytes/concepts removed, fewer
    types/layers, clearer ownership).
-4. Report using the format below. Do **not** implement fixes unless the user
-   asks to apply them.
-5. If asked to apply: smallest in-scope deletes/inlines/merges only; then run
-   the verification skill / `npm run verify` as appropriate. Do not widen the
-   fence.
+4. **Apply** every actionable in-scope finding (remove / simplify /
+   consolidate). Smallest edits only; do not widen the fence. Leave open only
+   items that need product judgment or would change behavior outside the PR
+   intent — name each in the report.
+5. Re-scan the scoped diff once after edits. Fix any new obvious additive
+   smells introduced by step 4.
+6. Report using the format below. Plan/implementation gates are not done while
+   actionable in-scope findings remain unapplied.
+7. If code changed, run the verification skill / `npm run verify` as
+   appropriate for the touch surface. Then proceed to `/no-comments` when this
+   was a plan gate.
+
+**Report-only mode:** if the user asks only to audit/review (no apply, not a
+plan gate), stop after the ranked report and do not edit.
 
 ## Output format
 
 Lead with a one-line verdict (`clean`, `a few cuts`, `needs consolidation`).
 
-Then a ranked list:
+Then a ranked list (applied and left-open):
 
 ```markdown
 ## N. <short title>
 
 **Action:** remove | simplify | consolidate
+**Status:** applied | open
 **Where:** `path/to/file.ts` L<a>-L<b> (and related paths if consolidating)
 **Smell:** <lens name>
 **Why:** <1-2 sentences — what the additive pattern is costing>
@@ -99,3 +116,4 @@ End with:
 - Propose new abstractions to “clean up” complexity.
 - Recommend dependencies as the fix.
 - Claim architecture violations without citing the Architecture / AGENTS rule.
+- Skip this skill on a code-changing plan while still claiming the plan done.
