@@ -128,9 +128,9 @@ export class PlayScene extends Phaser.Scene {
     this.ghostModeClock = modeTick.clock;
     if (modeTick.forceReverse) {
       forceGhostReverse(this.world);
+    } else {
+      ghostAi(this.world, this.ghostModeClock.mode, this.pelletProgress.pelletsRemaining);
     }
-
-    ghostAi(this.world, this.ghostModeClock.mode, this.pelletProgress.pelletsRemaining);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining);
     movement(this.world, delta);
 

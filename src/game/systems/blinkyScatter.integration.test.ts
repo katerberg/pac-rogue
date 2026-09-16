@@ -94,8 +94,9 @@ describe("blinky scatter integration", () => {
       mode = modeTick.clock;
       if (modeTick.forceReverse) {
         forceGhostReverse(world);
+      } else {
+        ghostAi(world, mode.mode, pelletsRemaining);
       }
-      ghostAi(world, mode.mode, pelletsRemaining);
       applyGhostSpeed(world, pelletsRemaining);
       movement(world, dt);
       if (ghostExitHouse(world)) {
@@ -148,8 +149,9 @@ describe("blinky scatter integration", () => {
       mode = modeTick.clock;
       if (modeTick.forceReverse) {
         forceGhostReverse(world);
+      } else {
+        ghostAi(world, mode.mode, pelletsRemaining);
       }
-      ghostAi(world, mode.mode, pelletsRemaining);
       applyGhostSpeed(world, pelletsRemaining);
       movement(world, dt);
       if (ghostExitHouse(world)) {

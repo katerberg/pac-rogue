@@ -11,6 +11,7 @@ export function forceGhostReverse(world: World): void {
     if (reversed === DIRECTION.none) {
       continue;
     }
+    Facing.direction[eid] = reversed;
     Input.direction[eid] = reversed;
   }
 }

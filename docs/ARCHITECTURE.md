@@ -100,8 +100,8 @@ High Scores reads `loadRunHistory()` and builds a **display-only** sorted view v
 PlayScene.update →
   playerInput →
   tickGhostRelease + ghostRelease →
-  tickGhostMode (+ forceGhostReverse) →
-  ghostAi → applyGhostSpeed →
+  tickGhostMode →
+  (forceReverse ? forceGhostReverse : ghostAi) → applyGhostSpeed →
   movement →
   ghostExitHouse (may startGhostModeClock) →
   tickRunClock →
@@ -138,7 +138,7 @@ PlayScene.update →
 A violation of these is a failed architecture check:
 
 - Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
-- Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse; only `movement` updates `Facing`, `Velocity`, and `Position`.
+- Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse. `movement` updates `Facing`, `Velocity`, and `Position` in normal play; `forceGhostReverse` also sets both `Facing` and `Input` on scatter↔chase boundaries (and that frame skips `ghostAi` so the reverse is not overwritten).
 - Scenes wire the world, spawn entities, and run the pipeline — **no movement or AI rules in the scene** beyond calling systems and domain clocks.
 - Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; pipe Graphics mirror domain edges.
 - One local GameObject map inside the render bridge is enough — do not build a sync framework.
