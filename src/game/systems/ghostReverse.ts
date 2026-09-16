@@ -9,9 +9,7 @@ import {
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { worldToCol, worldToRow } from "../../domain/maze";
-import { agentLog } from "../../debug/agentLog";
 import { Ghost } from "../components/Ghost";
-import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction, Input } from "../components/Input";
@@ -40,25 +38,6 @@ export function forceGhostReverse(world: World): void {
         next = turn as Direction;
       }
     }
-
-    // #region agent log
-    agentLog({
-      hypothesisId: "B",
-      location: "ghostReverse.ts:forceGhostReverse",
-      message: "mode reverse resolve",
-      data: {
-        eid,
-        kind: GhostKind.kind[eid] ?? -1,
-        col,
-        row,
-        facing,
-        reversed,
-        next,
-        opens,
-        runId: "post-fix",
-      },
-    });
-    // #endregion
 
     Facing.direction[eid] = next;
     Input.direction[eid] = next;

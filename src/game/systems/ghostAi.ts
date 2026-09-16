@@ -5,7 +5,6 @@ import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { blinkyTarget, clydeTarget, pinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
 import { TURN_ALIGN_EPS, isAlignedForTurn, worldToCol, worldToRow } from "../../domain/maze";
-import { agentLog } from "../../debug/agentLog";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -57,25 +56,6 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
     if (alreadyDecided && !facingBlocked) {
       continue;
     }
-    // #region agent log
-    if (alreadyDecided && facingBlocked) {
-      agentLog({
-        hypothesisId: "B",
-        location: "ghostAi.ts:repickBlocked",
-        message: "re-pick after decided facing blocked",
-        data: {
-          eid,
-          kind,
-          col,
-          row,
-          mode,
-          facing: facingNow,
-          intent: Input.direction[eid] ?? DIRECTION.none,
-          runId: "post-fix",
-        },
-      });
-    }
-    // #endregion
 
     let target;
     if (kind === GHOST_KIND.pinky) {
@@ -117,31 +97,6 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       solids: rules.solids,
       canEnter: rules.canEnter,
     }) as Direction;
-
-    // #region agent log
-    if (kind === GHOST_KIND.clyde || next === DIRECTION.none || facingBlocked) {
-      agentLog({
-        hypothesisId: "B",
-        location: "ghostAi.ts:decide",
-        message: next === DIRECTION.none ? "pick returned none" : "ghost decide",
-        data: {
-          eid,
-          kind,
-          col,
-          row,
-          mode,
-          phase,
-          facing,
-          intent,
-          next,
-          target,
-          applied: next !== DIRECTION.none,
-          facingBlocked,
-          runId: "post-fix",
-        },
-      });
-    }
-    // #endregion
 
     if (next !== DIRECTION.none) {
       Input.direction[eid] = next;

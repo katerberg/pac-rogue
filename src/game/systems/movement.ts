@@ -17,10 +17,8 @@ import {
   type SolidGrid,
 } from "../../domain/maze";
 import { clampPositionToPlayfield } from "../../domain/playfield";
-import { agentLog } from "../../debug/agentLog";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
-import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
@@ -162,24 +160,6 @@ export function movement(world: World, deltaMs: number): void {
     Velocity.y[eid] = step.dy * speed;
 
     if (facing === DIRECTION.none || speed <= 0) {
-      // #region agent log
-      if (ghost) {
-        agentLog({
-          hypothesisId: "E",
-          location: "movement.ts:zeroEarly",
-          message: "ghost zero velocity early exit",
-          data: {
-            eid,
-            kind: hasComponent(world, eid, GhostKind) ? GhostKind.kind[eid] : -1,
-            col: worldToCol(x),
-            row: worldToRow(y),
-            facing,
-            intent: nextIntent,
-            speed,
-          },
-        });
-      }
-      // #endregion
       Facing.direction[eid] = facing;
       Velocity.x[eid] = 0;
       Velocity.y[eid] = 0;
@@ -207,27 +187,6 @@ export function movement(world: World, deltaMs: number): void {
       if (!ghost) {
         facing = DIRECTION.none;
       }
-      // #region agent log
-      if (ghost) {
-        agentLog({
-          hypothesisId: "A",
-          location: "movement.ts:wallStop",
-          message: "ghost wall-stop zero velocity",
-          data: {
-            eid,
-            kind: hasComponent(world, eid, GhostKind) ? GhostKind.kind[eid] : -1,
-            col: worldToCol(nextX),
-            row: worldToRow(nextY),
-            facing,
-            intent: Input.direction[eid] ?? DIRECTION.none,
-            decidedCol: Ghost.decidedCol[eid],
-            decidedRow: Ghost.decidedRow[eid],
-            x: nextX,
-            y: nextY,
-          },
-        });
-      }
-      // #endregion
       Velocity.x[eid] = 0;
       Velocity.y[eid] = 0;
     }
