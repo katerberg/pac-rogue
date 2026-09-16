@@ -1,7 +1,7 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
-import { GHOST_PHASE } from "../../domain/ghostTarget";
+import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { cellCenterX, cellCenterY } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -51,7 +51,32 @@ describe("forceGhostReverse", () => {
     expect(Input.direction[ghost]).toBe(DIRECTION.left);
   });
 
-  it("would overwrite an Input-only reverse when ghostAi runs while aligned", () => {
+  it("holds reverse on the same tile when ghostAi runs the next aligned frame", () => {
+    const { world, ghost } = spawnAlignedGhost(6, 5, DIRECTION.right);
+    Ghost.decidedCol[ghost] = 6;
+    Ghost.decidedRow[ghost] = 5;
+    forceGhostReverse(world);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.left);
+    expect(Input.direction[ghost]).toBe(DIRECTION.left);
+    expect(Ghost.decidedCol[ghost]).toBe(6);
+    expect(Ghost.decidedRow[ghost]).toBe(5);
+
+    ghostAi(world, GHOST_AI_MODE.scatter, 244);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.left);
+    expect(Input.direction[ghost]).toBe(DIRECTION.left);
+  });
+
+  it("locks the current tile when reverse fires before a decision on that tile", () => {
+    const { world, ghost } = spawnAlignedGhost(6, 5, DIRECTION.right);
+    forceGhostReverse(world);
+    ghostAi(world, GHOST_AI_MODE.scatter, 244);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.left);
+    expect(Input.direction[ghost]).toBe(DIRECTION.left);
+    expect(Ghost.decidedCol[ghost]).toBe(6);
+    expect(Ghost.decidedRow[ghost]).toBe(5);
+  });
+
+  it("would overwrite an Input-only reverse when ghostAi runs while unlocked", () => {
     const { world, ghost } = spawnAlignedGhost(6, 5, DIRECTION.right);
     Input.direction[ghost] = DIRECTION.left;
     Facing.direction[ghost] = DIRECTION.right;
