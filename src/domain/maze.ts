@@ -1,3 +1,5 @@
+import { GHOST_PHASE } from "./ghostPhase";
+
 export const MAZE_ASCII = `############################
 #............##............#
 #.####.#####.##.#####.####.#
@@ -10,10 +12,10 @@ export const MAZE_ASCII = `############################
 ######.##### ## #####.######
      #.##### ## #####.#     
      #.##          ##.#     
-     #.## ###--### ##.#     
-######.## #------# ##.######
-      .   #------#   .      
-######.## #------# ##.######
+     #.## ###==### ##.#     
+######.## #HHHHHH# ##.######
+      .   #HHHHHH#   .      
+######.## #HHHHHH# ##.######
      #.## ######## ##.#     
      #.##          ##.#     
      #.## ######## ##.#     
@@ -42,6 +44,7 @@ export const MAZE_OFFSET_X = (800 - MAZE_PIXEL_WIDTH) / 2;
 export const MAZE_OFFSET_Y = Math.floor((600 - MAZE_PIXEL_HEIGHT) / 2);
 
 export const WALL_COLOR = 0x2121ff;
+export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export const TURN_ALIGN_EPS = 2;
 
@@ -54,9 +57,17 @@ export type PipeEdge = {
   y2: number;
 };
 
-const SOLID_CHARS = new Set(["#", "-"]);
+const WALL_CHAR = "#";
+const DOOR_CHAR = "=";
+const HOUSE_FLOOR_CHAR = "H";
 const PELLET_CHARS = new Set([".", "@"]);
 const EMPTY_CELL_CHAR = " ";
+const HOUSE_CHARS = new Set([DOOR_CHAR, HOUSE_FLOOR_CHAR]);
+
+export const GHOST_HOUSE_SPAWN_COL = 13;
+export const GHOST_HOUSE_SPAWN_ROW = 14;
+export const GHOST_HOUSE_EXIT_COL = 13;
+export const GHOST_HOUSE_EXIT_ROW = 11;
 
 function resolvePlayerSpawn(ascii: string = MAZE_ASCII): { col: number; row: number } {
   const rows = ascii.split("\n");
@@ -128,14 +139,43 @@ export function parseMaze(ascii: string = MAZE_ASCII): boolean[][] {
     }
     const walls: boolean[] = [];
     for (let col = 0; col < MAZE_COLS; col += 1) {
-      const ch = line[col] ?? "#";
-      walls.push(SOLID_CHARS.has(ch));
+      const ch = line[col] ?? WALL_CHAR;
+      walls.push(ch === WALL_CHAR);
     }
     grid.push(walls);
   }
 
   applyOppositeEdgeSafety(grid);
   return grid;
+}
+
+export function parseHouse(ascii: string = MAZE_ASCII): boolean[][] {
+  const rows = ascii.split("\n");
+  const house = emptyFlagGrid();
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    const line = rows[row] ?? "";
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      const ch = line[col] ?? "";
+      if (HOUSE_CHARS.has(ch)) {
+        house[row]![col] = true;
+      }
+    }
+  }
+  return house;
+}
+
+export function parseDoor(ascii: string = MAZE_ASCII): boolean[][] {
+  const rows = ascii.split("\n");
+  const door = emptyFlagGrid();
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    const line = rows[row] ?? "";
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (line[col] === DOOR_CHAR) {
+        door[row]![col] = true;
+      }
+    }
+  }
+  return door;
 }
 
 export function buildExterior(walls: SolidGrid): boolean[][] {
@@ -202,9 +242,99 @@ function buildBlocked(walls: SolidGrid, exterior: SolidGrid): boolean[][] {
   return blocked;
 }
 
+function buildPlayerSolids(walls: SolidGrid, exterior: SolidGrid, house: SolidGrid): boolean[][] {
+  const blocked = emptyFlagGrid();
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      blocked[row]![col] = Boolean(walls[row]?.[col] || exterior[row]?.[col] || house[row]?.[col]);
+    }
+  }
+  return blocked;
+}
+
 export const MAZE_WALLS: SolidGrid = parseMaze(MAZE_ASCII);
 export const MAZE_EXTERIOR: SolidGrid = buildExterior(MAZE_WALLS);
-export const MAZE_SOLIDS: SolidGrid = buildBlocked(MAZE_WALLS, MAZE_EXTERIOR);
+export const MAZE_HOUSE: SolidGrid = parseHouse(MAZE_ASCII);
+export const MAZE_DOOR: SolidGrid = parseDoor(MAZE_ASCII);
+export const MAZE_GHOST_SOLIDS: SolidGrid = buildBlocked(MAZE_WALLS, MAZE_EXTERIOR);
+export const MAZE_PLAYER_SOLIDS: SolidGrid = buildPlayerSolids(
+  MAZE_WALLS,
+  MAZE_EXTERIOR,
+  MAZE_HOUSE,
+);
+export const MAZE_SOLIDS: SolidGrid = MAZE_PLAYER_SOLIDS;
+
+export function isHouse(col: number, row: number, house: SolidGrid = MAZE_HOUSE): boolean {
+  if (!inBounds(col, row)) {
+    return false;
+  }
+  return house[row]?.[col] ?? false;
+}
+
+export function isDoor(col: number, row: number, door: SolidGrid = MAZE_DOOR): boolean {
+  if (!inBounds(col, row)) {
+    return false;
+  }
+  return door[row]?.[col] ?? false;
+}
+
+export function isGhostSolid(
+  col: number,
+  row: number,
+  solids: SolidGrid = MAZE_GHOST_SOLIDS,
+): boolean {
+  return isSolid(col, row, solids);
+}
+
+export function isGhostWalkable(
+  col: number,
+  row: number,
+  solids: SolidGrid = MAZE_GHOST_SOLIDS,
+): boolean {
+  return isWalkable(col, row, solids);
+}
+
+export function ghostSolidsForPhase(phase: number): SolidGrid {
+  return phase === GHOST_PHASE.active ? MAZE_PLAYER_SOLIDS : MAZE_GHOST_SOLIDS;
+}
+
+export function canGhostEnterDirection(
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  phase: number,
+): boolean {
+  const solids = ghostSolidsForPhase(phase);
+  if (!canEnterDirection(x, y, dx, dy, solids)) {
+    return false;
+  }
+  if (dy > 0) {
+    const col = worldToCol(x);
+    const row = worldToRow(y);
+    if (isDoor(col + dx, row + dy)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function ghostHouseSpawnCenter(): { x: number; y: number } {
+  return {
+    x: cellCenterX(GHOST_HOUSE_SPAWN_COL),
+    y: cellCenterY(GHOST_HOUSE_SPAWN_ROW),
+  };
+}
+
+export function isGhostTunnelSlow(col: number, row: number): boolean {
+  if (!isWalkable(col, row, MAZE_GHOST_SOLIDS)) {
+    return false;
+  }
+  if (!hasHorizontalTunnel(row, MAZE_GHOST_SOLIDS)) {
+    return false;
+  }
+  return col <= 5 || col >= MAZE_COLS - 6;
+}
 
 export function inBounds(col: number, row: number): boolean {
   return col >= 0 && col < MAZE_COLS && row >= 0 && row < MAZE_ROWS;
@@ -514,6 +644,32 @@ export function pipeEdges(
     }
   }
 
+  return edges;
+}
+
+export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
+  const edges: PipeEdge[] = [];
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (!(door[row]?.[col] ?? false)) {
+        continue;
+      }
+      if (col > 0 && (door[row]?.[col - 1] ?? false)) {
+        continue;
+      }
+      let end = col;
+      while (end + 1 < MAZE_COLS && (door[row]?.[end + 1] ?? false)) {
+        end += 1;
+      }
+      const y = cellOriginY(row) + TILE_SIZE * 0.5;
+      edges.push({
+        x1: cellOriginX(col),
+        y1: y,
+        x2: cellOriginX(end) + TILE_SIZE,
+        y2: y,
+      });
+    }
+  }
   return edges;
 }
 
