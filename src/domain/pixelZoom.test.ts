@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { computePixelZoom } from "./pixelZoom";
 
 describe("computePixelZoom", () => {
-  it("uses integer zoom when the parent fits at least 1x", () => {
+  it("fills the parent with continuous FIT-like zoom", () => {
     expect(computePixelZoom(800, 600)).toBe(1);
     expect(computePixelZoom(1600, 1200)).toBe(2);
-    expect(computePixelZoom(1920, 1080)).toBe(1);
+    expect(computePixelZoom(1920, 1080)).toBeCloseTo(1080 / 600);
     expect(computePixelZoom(1920, 1200)).toBe(2);
   });
 

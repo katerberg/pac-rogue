@@ -5,10 +5,5 @@ export function computePixelZoom(parentWidth: number, parentHeight: number): num
     return 1;
   }
 
-  const fit = Math.min(parentWidth / PLAYFIELD_WIDTH, parentHeight / PLAYFIELD_HEIGHT);
-  if (fit >= 1) {
-    return Math.max(1, Math.floor(fit));
-  }
-
-  return fit;
+  return Math.min(parentWidth / PLAYFIELD_WIDTH, parentHeight / PLAYFIELD_HEIGHT);
 }

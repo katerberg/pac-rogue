@@ -25,7 +25,7 @@ src/
     highScoresView.ts         # display sort/format for high-score list (Phaser-free)
     scoreListScroll.ts        # pause/scroll/loop state machine for long lists
     playfield.ts              # speeds, sizes, drawable ids / radius constants
-    pixelZoom.ts              # integer upscale / FIT-like downscale factor
+    pixelZoom.ts              # FIT-like letterbox zoom factor (continuous)
     maze.ts                   # ASCII maze, dual solids (player/ghost), house, tunnels
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
