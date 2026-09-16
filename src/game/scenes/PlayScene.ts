@@ -31,23 +31,26 @@ import {
   wallCellCenters,
 } from "../../domain/maze";
 import {
+  BLINKY_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
   FRUIT_RADIUS,
-  GHOST_DRAWABLE_ID,
   GHOST_RADIUS,
   PELLET_DRAWABLE_ID,
   PELLET_RADIUS,
+  PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
   PLAYER_RADIUS,
   PLAYER_SPEED,
   PLAYFIELD_WIDTH,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
+import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
+import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
@@ -106,6 +109,7 @@ export class PlayScene extends Phaser.Scene {
     this.spawnPellets();
     this.spawnPlayer();
     this.spawnBlinky();
+    this.spawnPinky();
 
     this.clock = createRunClock();
     this.ghostReleaseClock = createGhostReleaseClock();
@@ -151,7 +155,7 @@ export class PlayScene extends Phaser.Scene {
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining);
     movement(this.world, delta);
 
-    if (ghostExitHouse(this.world)) {
+    if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
       this.ghostModeClock = startGhostModeClock();
     }
 
@@ -273,6 +277,14 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private spawnBlinky(): void {
+    this.spawnGhost(GHOST_KIND.blinky, BLINKY_DRAWABLE_ID);
+  }
+
+  private spawnPinky(): void {
+    this.spawnGhost(GHOST_KIND.pinky, PINKY_DRAWABLE_ID);
+  }
+
+  private spawnGhost(kind: number, drawableId: string): void {
     const eid = addEntity(this.world);
     addComponent(this.world, eid, Position);
     addComponent(this.world, eid, Velocity);
@@ -280,6 +292,7 @@ export class PlayScene extends Phaser.Scene {
     addComponent(this.world, eid, Facing);
     addComponent(this.world, eid, Speed);
     addComponent(this.world, eid, Ghost);
+    addComponent(this.world, eid, GhostKind);
     addComponent(this.world, eid, GhostPhase);
     addComponent(this.world, eid, Drawable);
 
@@ -291,10 +304,11 @@ export class PlayScene extends Phaser.Scene {
     Input.direction[eid] = DIRECTION.none;
     Facing.direction[eid] = DIRECTION.none;
     Speed.px[eid] = 0;
+    GhostKind.kind[eid] = kind;
     GhostPhase.value[eid] = GHOST_PHASE.inHouse;
     Ghost.decidedCol[eid] = Number.NaN;
     Ghost.decidedRow[eid] = Number.NaN;
-    Drawable.id[eid] = GHOST_DRAWABLE_ID;
+    Drawable.id[eid] = drawableId;
     Drawable.radius[eid] = GHOST_RADIUS;
   }
 }

@@ -16,7 +16,8 @@ export const PELLET_DRAWABLE_ID = "pellet";
 
 export const POWER_PELLET_DRAWABLE_ID = "power-pellet";
 
-export const GHOST_DRAWABLE_ID = "blinky";
+export const BLINKY_DRAWABLE_ID = "blinky";
+export const PINKY_DRAWABLE_ID = "pinky";
 
 export const GHOST_RADIUS = PLAYER_RADIUS;
 

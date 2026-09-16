@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { BLINKY_SCATTER_COL, BLINKY_SCATTER_ROW, blinkyTarget, GHOST_PHASE } from "./ghostTarget";
+import {
+  BLINKY_SCATTER_COL,
+  BLINKY_SCATTER_ROW,
+  PINKY_LOOKAHEAD_TILES,
+  PINKY_SCATTER_COL,
+  PINKY_SCATTER_ROW,
+  blinkyTarget,
+  pinkyTarget,
+  GHOST_PHASE,
+} from "./ghostTarget";
 import { GHOST_AI_MODE } from "./ghostMode";
+import { GHOST_DIR } from "./ghostPath";
 import { GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW } from "./maze";
 
-describe("ghostTarget", () => {
+describe("blinkyTarget", () => {
   it("targets the house exit while leaving", () => {
     expect(
       blinkyTarget({
@@ -48,5 +58,83 @@ describe("ghostTarget", () => {
         playerRow: 8,
       }),
     ).toEqual({ col: 9, row: 8 });
+  });
+});
+
+describe("pinkyTarget", () => {
+  it("targets the house exit while leaving", () => {
+    expect(
+      pinkyTarget({
+        phase: GHOST_PHASE.leaving,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 20,
+        playerFacing: GHOST_DIR.right,
+      }),
+    ).toEqual({ col: GHOST_HOUSE_EXIT_COL, row: GHOST_HOUSE_EXIT_ROW });
+  });
+
+  it("uses the NW scatter corner", () => {
+    expect(
+      pinkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.scatter,
+        playerCol: 10,
+        playerRow: 20,
+        playerFacing: GHOST_DIR.right,
+      }),
+    ).toEqual({ col: PINKY_SCATTER_COL, row: PINKY_SCATTER_ROW });
+  });
+
+  it("targets four clean tiles ahead in chase", () => {
+    const n = PINKY_LOOKAHEAD_TILES;
+    expect(
+      pinkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 15,
+        playerFacing: GHOST_DIR.left,
+      }),
+    ).toEqual({ col: 10 - n, row: 15 });
+    expect(
+      pinkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 15,
+        playerFacing: GHOST_DIR.right,
+      }),
+    ).toEqual({ col: 10 + n, row: 15 });
+    expect(
+      pinkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 15,
+        playerFacing: GHOST_DIR.up,
+      }),
+    ).toEqual({ col: 10, row: 15 - n });
+    expect(
+      pinkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 15,
+        playerFacing: GHOST_DIR.down,
+      }),
+    ).toEqual({ col: 10, row: 15 + n });
+  });
+
+  it("treats none facing as left for look-ahead", () => {
+    expect(
+      pinkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 12,
+        playerRow: 18,
+        playerFacing: GHOST_DIR.none,
+      }),
+    ).toEqual({ col: 12 - PINKY_LOOKAHEAD_TILES, row: 18 });
   });
 });

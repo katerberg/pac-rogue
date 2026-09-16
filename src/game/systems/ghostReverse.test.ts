@@ -1,10 +1,12 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { cellCenterX, cellCenterY } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
+import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Player } from "../components/Player";
@@ -16,20 +18,24 @@ function spawnAlignedGhost(col: number, row: number, facing: Direction) {
   const world = createWorld();
   const player = addEntity(world);
   addComponent(world, player, Position);
+  addComponent(world, player, Facing);
   addComponent(world, player, Player);
   Position.x[player] = cellCenterX(1);
   Position.y[player] = cellCenterY(1);
+  Facing.direction[player] = DIRECTION.none;
 
   const ghost = addEntity(world);
   addComponent(world, ghost, Position);
   addComponent(world, ghost, Input);
   addComponent(world, ghost, Facing);
   addComponent(world, ghost, Ghost);
+  addComponent(world, ghost, GhostKind);
   addComponent(world, ghost, GhostPhase);
   Position.x[ghost] = cellCenterX(col);
   Position.y[ghost] = cellCenterY(row);
   Facing.direction[ghost] = facing;
   Input.direction[ghost] = facing;
+  GhostKind.kind[ghost] = GHOST_KIND.blinky;
   GhostPhase.value[ghost] = GHOST_PHASE.active;
   Ghost.decidedCol[ghost] = Number.NaN;
   Ghost.decidedRow[ghost] = Number.NaN;

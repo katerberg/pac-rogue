@@ -2,9 +2,10 @@ import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
 import {
+  BLINKY_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
-  GHOST_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
+  PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
@@ -19,7 +20,12 @@ const SPRITE_DISPLAY_SIZE = 16;
 const PELLET_TEXTURE_KEY = "pellet-dot";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
+const PINKY_TEXTURE_KEY = "ghost-pinky";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
+const GHOST_TEXTURE_BY_ID: Record<string, string> = {
+  [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
+  [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
+};
 const CHOMP_PIXELS_PER_FRAME = 12;
 const CHOMP_CYCLE = [1, 2, 3, 2] as const;
 const CLOSED_MOUTH_FRAME = 3;
@@ -48,8 +54,9 @@ function textureKeyForDrawable(drawableId: string): string {
   if (drawableId === PLAYER_DRAWABLE_ID) {
     return pacmanTextureKey("right", CLOSED_MOUTH_FRAME);
   }
-  if (drawableId === GHOST_DRAWABLE_ID) {
-    return BLINKY_TEXTURE_KEY;
+  const ghostTexture = GHOST_TEXTURE_BY_ID[drawableId];
+  if (ghostTexture !== undefined) {
+    return ghostTexture;
   }
   if (drawableId === FRUIT_DRAWABLE_ID) {
     return FRUIT_TEXTURE_KEY;
@@ -66,6 +73,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
+  scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
   scene.load.image(FRUIT_TEXTURE_KEY, fruitArtPath(fruitSpecForLevel(CURRENT_LEVEL).kind));
 }
 
@@ -124,12 +132,13 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
     const alive = new Set<string>();
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
+      const ghostTexture = GHOST_TEXTURE_BY_ID[id];
       if (
         id !== PLAYER_DRAWABLE_ID &&
         id !== PELLET_DRAWABLE_ID &&
         id !== POWER_PELLET_DRAWABLE_ID &&
-        id !== GHOST_DRAWABLE_ID &&
-        id !== FRUIT_DRAWABLE_ID
+        id !== FRUIT_DRAWABLE_ID &&
+        ghostTexture === undefined
       ) {
         continue;
       }
