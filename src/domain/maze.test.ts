@@ -41,6 +41,7 @@ import {
   PLAYER_WALL_PADDING_PX,
   WALL_CORNER_RADIUS,
   WALL_CORNER_CURVE_MIN_STEPS,
+  WALL_CORNER_CURVE_KIND,
   WALL_INSET_PX,
   clampedWallCornerRadius,
   clampedWallInset,
@@ -367,6 +368,10 @@ describe("maze", () => {
     expect(outlinesExteriorAboveTunnelStub).toBe(false);
   });
 
+  it("defaults wall corner curves to circular", () => {
+    expect(WALL_CORNER_CURVE_KIND).toBe("circular");
+  });
+
   it("includes convex corner polylines at a known corridor corner", () => {
     const commands = wallPathCommands();
     const radius = clampedWallCornerRadius();
@@ -376,8 +381,8 @@ describe("maze", () => {
     const start = { x: cornerX + radius, y: cornerY };
     const end = { x: cornerX, y: cornerY + radius };
     const mid = {
-      x: cornerX + 0.25 * radius,
-      y: cornerY + 0.25 * radius,
+      x: cornerX + radius * (1 - Math.SQRT1_2),
+      y: cornerY + radius * (1 - Math.SQRT1_2),
     };
 
     const hasStart = commands.some(
@@ -401,6 +406,82 @@ describe("maze", () => {
     expect(hasStart).toBe(true);
     expect(hasEnd).toBe(true);
     expect(hasMid).toBe(true);
+  });
+
+  it("places concave fillet midpoints in the open quadrant", () => {
+    const radius = clampedWallCornerRadius();
+    const inset = clampedWallInset();
+    const commands = wallPathCommands();
+    const tipX = cellOriginX(1) - inset;
+    const tipY = cellOriginY(1) - inset;
+    const start = { x: tipX + radius, y: tipY };
+    const end = { x: tipX, y: tipY + radius };
+    const openMid = {
+      x: tipX + radius * (1 - Math.SQRT1_2),
+      y: tipY + radius * (1 - Math.SQRT1_2),
+    };
+
+    const hasStart = commands.some(
+      (command) =>
+        command.type === "move" &&
+        Math.abs(command.x - start.x) < 0.01 &&
+        Math.abs(command.y - start.y) < 0.01,
+    );
+    const hasEnd = commands.some(
+      (command) =>
+        command.type === "line" &&
+        Math.abs(command.x - end.x) < 0.01 &&
+        Math.abs(command.y - end.y) < 0.01,
+    );
+    const hasOpenMid = commands.some(
+      (command) =>
+        command.type === "line" &&
+        Math.abs(command.x - openMid.x) < 0.75 &&
+        Math.abs(command.y - openMid.y) < 0.75,
+    );
+    const hasWallTipNibble = commands.some(
+      (command) =>
+        command.type === "line" &&
+        Math.abs(command.x - (tipX - radius * 0.25)) < 0.75 &&
+        Math.abs(command.y - (tipY - radius * 0.25)) < 0.75,
+    );
+    expect(hasStart).toBe(true);
+    expect(hasEnd).toBe(true);
+    expect(hasOpenMid).toBe(true);
+    expect(hasWallTipNibble).toBe(false);
+  });
+
+  it("shares tangent endpoints for circular and quadratic corner kinds", () => {
+    const radius = clampedWallCornerRadius();
+    const inset = clampedWallInset();
+    const circular = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, radius, inset, "circular");
+    const quadratic = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, radius, inset, "quadratic");
+    const cornerX = cellOriginX(2) + inset;
+    const cornerY = cellOriginY(2) + inset;
+    const a = { x: cornerX + radius, y: cornerY };
+    const b = { x: cornerX, y: cornerY + radius };
+    const near = (command: { x: number; y: number }, point: { x: number; y: number }) =>
+      Math.abs(command.x - point.x) < 0.01 && Math.abs(command.y - point.y) < 0.01;
+
+    const tangentPair = (commands: ReturnType<typeof wallPathCommands>) => {
+      const startIndex = commands.findIndex(
+        (command) => command.type === "move" && (near(command, a) || near(command, b)),
+      );
+      expect(startIndex).toBeGreaterThanOrEqual(0);
+      const start = commands[startIndex];
+      const expectedEnd = start && near(start, a) ? b : a;
+      const fillet = commands.slice(startIndex, startIndex + WALL_CORNER_CURVE_MIN_STEPS + 1);
+      const last = fillet[fillet.length - 1];
+      expect(fillet).toHaveLength(WALL_CORNER_CURVE_MIN_STEPS + 1);
+      expect(last?.type).toBe("line");
+      expect(last && near(last, expectedEnd)).toBe(true);
+      return { start, last };
+    };
+
+    const circ = tangentPair(circular);
+    const quad = tangentPair(quadratic);
+    expect(circ.start && quad.start && near(circ.start, quad.start)).toBe(true);
+    expect(circ.last && quad.last && near(circ.last, quad.last)).toBe(true);
   });
 
   it("ends half-tile fillets at the trimmed endpoint", () => {

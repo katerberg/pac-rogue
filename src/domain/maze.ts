@@ -53,6 +53,8 @@ export const WALL_STROKE_COLOR = 0x2121ff;
 export const WALL_STROKE_WEIGHT = 2;
 export const WALL_CORNER_RADIUS = 6;
 export const WALL_CORNER_CURVE_MIN_STEPS = 5;
+export type WallCornerCurveKind = "circular" | "quadratic";
+export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
 export const PLAYER_WALL_PADDING_PX = 0;
 export const PELLET_DISPLAY_SIZE = 16;
@@ -698,13 +700,6 @@ function directedEdgeKey(from: string, to: string): string {
   return `${from}>${to}`;
 }
 
-const CARDINAL_DIRS = [
-  { dc: 0, dr: -1 },
-  { dc: 1, dr: 0 },
-  { dc: 0, dr: 1 },
-  { dc: -1, dr: 0 },
-] as const;
-
 function appendQuadratic(
   commands: WallPathCommand[],
   x0: number,
@@ -726,6 +721,47 @@ function appendQuadratic(
       y: u * u * y0 + 2 * u * t * cy + t * t * y1,
     });
   }
+}
+
+function appendCircular(
+  commands: WallPathCommand[],
+  x0: number,
+  y0: number,
+  centerX: number,
+  centerY: number,
+  x1: number,
+  y1: number,
+  steps: number,
+): void {
+  const n = Math.max(1, Math.round(steps));
+  const radius = Math.hypot(x0 - centerX, y0 - centerY);
+  if (radius <= 0) {
+    commands.push({ type: "move", x: x0, y: y0 });
+    commands.push({ type: "line", x: x1, y: y1 });
+    return;
+  }
+  const a0 = Math.atan2(y0 - centerY, x0 - centerX);
+  const a1 = Math.atan2(y1 - centerY, x1 - centerX);
+  let delta = a1 - a0;
+  while (delta > Math.PI) {
+    delta -= Math.PI * 2;
+  }
+  while (delta < -Math.PI) {
+    delta += Math.PI * 2;
+  }
+  commands.push({ type: "move", x: x0, y: y0 });
+  for (let i = 1; i <= n; i += 1) {
+    const angle = a0 + (delta * i) / n;
+    commands.push({
+      type: "line",
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle),
+    });
+  }
+}
+
+function isMaskWall(col: number, row: number, walls: SolidGrid): boolean {
+  return inBounds(col, row) && (walls[row]?.[col] ?? false);
 }
 
 function pipeAdjacency(edges: readonly PipeEdge[]): Map<string, Set<string>> {
@@ -816,11 +852,25 @@ function insetVertexPositions(
   return positions;
 }
 
+function vertexCornerQuads(
+  vc: number,
+  vr: number,
+  walls: SolidGrid,
+): { ox: number; oy: number; wall: boolean }[] {
+  return [
+    { ox: -1, oy: -1, wall: isMaskWall(vc - 1, vr - 1, walls) },
+    { ox: 1, oy: -1, wall: isMaskWall(vc, vr - 1, walls) },
+    { ox: -1, oy: 1, wall: isMaskWall(vc - 1, vr, walls) },
+    { ox: 1, oy: 1, wall: isMaskWall(vc, vr, walls) },
+  ];
+}
+
 export function wallPathCommands(
   walls: SolidGrid = MAZE_WALLS,
   exterior: SolidGrid = MAZE_EXTERIOR,
   cornerRadius: number = WALL_CORNER_RADIUS,
   insetPx: number = WALL_INSET_PX,
+  curveKind: WallCornerCurveKind = WALL_CORNER_CURVE_KIND,
 ): WallPathCommand[] {
   const r = clampedWallCornerRadius(cornerRadius);
   const inset = clampedWallInset(insetPx);
@@ -838,51 +888,40 @@ export function wallPathCommands(
         continue;
       }
 
-      for (let i = 0; i < CARDINAL_DIRS.length; i += 1) {
-        const d1 = CARDINAL_DIRS[i];
-        const d2 = CARDINAL_DIRS[(i + 1) % CARDINAL_DIRS.length];
-        if (!d1 || !d2) {
-          continue;
-        }
-        const n1 = vertexKey(vc + d1.dc, vr + d1.dr);
-        const n2 = vertexKey(vc + d2.dc, vr + d2.dr);
-        if (!neighbors.has(n1) || !neighbors.has(n2)) {
-          continue;
-        }
-
-        const towardC = d1.dc + d2.dc;
-        const towardR = d1.dr + d2.dr;
-        const bisectCol = vc + (towardC > 0 ? 0 : -1);
-        const bisectRow = vr + (towardR > 0 ? 0 : -1);
-        const wallInBisect =
-          inBounds(bisectCol, bisectRow) && (walls[bisectRow]?.[bisectCol] ?? false);
-        const openInBisect = shouldDrawPipeAgainst(bisectCol, bisectRow, walls, exterior);
-
-        let cx: number;
-        let cy: number;
-        if (wallInBisect) {
-          cx = pos.x;
-          cy = pos.y;
-        } else if (openInBisect) {
-          cx = pos.x + towardC * r;
-          cy = pos.y + towardR * r;
-        } else {
-          continue;
-        }
-
-        appendQuadratic(
-          commands,
-          pos.x + d1.dc * r,
-          pos.y + d1.dr * r,
-          cx,
-          cy,
-          pos.x + d2.dc * r,
-          pos.y + d2.dr * r,
-          WALL_CORNER_CURVE_MIN_STEPS,
-        );
-        trimmed.add(directedEdgeKey(key, n1));
-        trimmed.add(directedEdgeKey(key, n2));
+      const quads = vertexCornerQuads(vc, vr, walls);
+      const wallCount = quads.reduce((count, quad) => count + (quad.wall ? 1 : 0), 0);
+      let feature: { ox: number; oy: number } | null = null;
+      if (wallCount === 1) {
+        feature = quads.find((quad) => quad.wall) ?? null;
+      } else if (wallCount === 3) {
+        feature = quads.find((quad) => !quad.wall) ?? null;
       }
+      if (!feature) {
+        continue;
+      }
+
+      const e1 = { dc: feature.ox, dr: 0 };
+      const e2 = { dc: 0, dr: feature.oy };
+      const n1 = vertexKey(vc + e1.dc, vr + e1.dr);
+      const n2 = vertexKey(vc + e2.dc, vr + e2.dr);
+      if (!neighbors.has(n1) || !neighbors.has(n2)) {
+        continue;
+      }
+
+      const x0 = pos.x + e1.dc * r;
+      const y0 = pos.y + e1.dr * r;
+      const x1 = pos.x + e2.dc * r;
+      const y1 = pos.y + e2.dr * r;
+      const centerX = pos.x + feature.ox * r;
+      const centerY = pos.y + feature.oy * r;
+
+      if (curveKind === "quadratic") {
+        appendQuadratic(commands, x0, y0, pos.x, pos.y, x1, y1, WALL_CORNER_CURVE_MIN_STEPS);
+      } else {
+        appendCircular(commands, x0, y0, centerX, centerY, x1, y1, WALL_CORNER_CURVE_MIN_STEPS);
+      }
+      trimmed.add(directedEdgeKey(key, n1));
+      trimmed.add(directedEdgeKey(key, n2));
     }
   }
 
