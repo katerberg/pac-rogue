@@ -35,22 +35,28 @@ export const MAZE_ASCII = `############################
 export const MAZE_COLS = 28;
 export const MAZE_ROWS = 31;
 
-export const TILE_SIZE = Math.floor(Math.min(800 / MAZE_COLS, 600 / MAZE_ROWS));
+export const MAZE_TOP_MARGIN_PX = 28;
+
+export const TILE_SIZE = Math.floor(
+  Math.min(800 / MAZE_COLS, Math.max(1, 600 - MAZE_TOP_MARGIN_PX) / MAZE_ROWS),
+);
 
 export const MAZE_PIXEL_WIDTH = MAZE_COLS * TILE_SIZE;
 export const MAZE_PIXEL_HEIGHT = MAZE_ROWS * TILE_SIZE;
 
 export const MAZE_OFFSET_X = (800 - MAZE_PIXEL_WIDTH) / 2;
-export const MAZE_OFFSET_Y = Math.floor((600 - MAZE_PIXEL_HEIGHT) / 2);
+export const MAZE_OFFSET_Y =
+  MAZE_TOP_MARGIN_PX + Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_PIXEL_HEIGHT) / 2);
 
 export const MAZE_BACKGROUND_COLOR = 0x1a1a2e;
 export const WALL_STROKE_COLOR = 0x2121ff;
 export const WALL_STROKE_WEIGHT = 2;
 export const WALL_CORNER_RADIUS = 6;
 export const WALL_CORNER_CURVE_MIN_STEPS = 5;
-export const PLAYER_WALL_PADDING_PX = 5;
-export const PELLET_DISPLAY_SIZE = 6;
-export const POWER_PELLET_DISPLAY_SIZE = 10;
+export const WALL_INSET_PX = 12;
+export const PLAYER_WALL_PADDING_PX = 0;
+export const PELLET_DISPLAY_SIZE = 16;
+export const POWER_PELLET_DISPLAY_SIZE = 16;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export const TURN_ALIGN_EPS = 2;
@@ -73,6 +79,10 @@ export function colorToCssHex(color: number): string {
 
 export function clampedWallCornerRadius(radius: number = WALL_CORNER_RADIUS): number {
   return Math.max(0, Math.min(radius, TILE_SIZE / 2));
+}
+
+export function clampedWallInset(inset: number = WALL_INSET_PX): number {
+  return Math.max(0, Math.min(inset, Math.floor((TILE_SIZE - 1) / 2)));
 }
 
 export function playerDisplaySize(
@@ -737,22 +747,96 @@ function pipeAdjacency(edges: readonly PipeEdge[]): Map<string, Set<string>> {
   return adj;
 }
 
+function edgeInsetOffset(
+  edge: PipeEdge,
+  walls: SolidGrid,
+  inset: number,
+): { ox: number; oy: number } {
+  if (inset <= 0) {
+    return { ox: 0, oy: 0 };
+  }
+  const mx = (edge.x1 + edge.x2) / 2;
+  const my = (edge.y1 + edge.y2) / 2;
+  if (edge.y1 === edge.y2) {
+    const col = Math.floor((mx - MAZE_OFFSET_X) / TILE_SIZE);
+    const row = Math.floor((my - MAZE_OFFSET_Y) / TILE_SIZE);
+    if (isWall(col, row, walls)) {
+      return { ox: 0, oy: inset };
+    }
+    if (isWall(col, row - 1, walls)) {
+      return { ox: 0, oy: -inset };
+    }
+    return { ox: 0, oy: 0 };
+  }
+  if (edge.x1 === edge.x2) {
+    const col = Math.floor((mx - MAZE_OFFSET_X) / TILE_SIZE);
+    const row = Math.floor((my - MAZE_OFFSET_Y) / TILE_SIZE);
+    if (isWall(col, row, walls)) {
+      return { ox: inset, oy: 0 };
+    }
+    if (isWall(col - 1, row, walls)) {
+      return { ox: -inset, oy: 0 };
+    }
+  }
+  return { ox: 0, oy: 0 };
+}
+
+function insetVertexPositions(
+  adj: Map<string, Set<string>>,
+  walls: SolidGrid,
+  inset: number,
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const [key, neighbors] of adj) {
+    const { vc, vr } = parseVertexKey(key);
+    const vx = cellOriginX(vc);
+    const vy = cellOriginY(vr);
+    if (inset <= 0) {
+      positions.set(key, { x: vx, y: vy });
+      continue;
+    }
+    let x = vx;
+    let y = vy;
+    for (const nKey of neighbors) {
+      const n = parseVertexKey(nKey);
+      const { ox, oy } = edgeInsetOffset(
+        { x1: vx, y1: vy, x2: cellOriginX(n.vc), y2: cellOriginY(n.vr) },
+        walls,
+        inset,
+      );
+      if (ox !== 0) {
+        x = vx + ox;
+      }
+      if (oy !== 0) {
+        y = vy + oy;
+      }
+    }
+    positions.set(key, { x, y });
+  }
+  return positions;
+}
+
 export function wallPathCommands(
   walls: SolidGrid = MAZE_WALLS,
   exterior: SolidGrid = MAZE_EXTERIOR,
   cornerRadius: number = WALL_CORNER_RADIUS,
+  insetPx: number = WALL_INSET_PX,
 ): WallPathCommand[] {
   const r = clampedWallCornerRadius(cornerRadius);
+  const inset = clampedWallInset(insetPx);
   const edges = pipeEdges(walls, exterior);
   const commands: WallPathCommand[] = [];
   const trimmed = new Set<string>();
+  const adj = pipeAdjacency(edges);
+  const positions = insetVertexPositions(adj, walls, inset);
 
   if (r > 0) {
-    const adj = pipeAdjacency(edges);
     for (const [key, neighbors] of adj) {
       const { vc, vr } = parseVertexKey(key);
-      const vx = cellOriginX(vc);
-      const vy = cellOriginY(vr);
+      const pos = positions.get(key);
+      if (!pos) {
+        continue;
+      }
 
       for (let i = 0; i < CARDINAL_DIRS.length; i += 1) {
         const d1 = CARDINAL_DIRS[i];
@@ -777,23 +861,23 @@ export function wallPathCommands(
         let cx: number;
         let cy: number;
         if (wallInBisect) {
-          cx = vx;
-          cy = vy;
+          cx = pos.x;
+          cy = pos.y;
         } else if (openInBisect) {
-          cx = vx + towardC * r;
-          cy = vy + towardR * r;
+          cx = pos.x + towardC * r;
+          cy = pos.y + towardR * r;
         } else {
           continue;
         }
 
         appendQuadratic(
           commands,
-          vx + d1.dc * r,
-          vy + d1.dr * r,
+          pos.x + d1.dc * r,
+          pos.y + d1.dr * r,
           cx,
           cy,
-          vx + d2.dc * r,
-          vy + d2.dr * r,
+          pos.x + d2.dc * r,
+          pos.y + d2.dr * r,
           WALL_CORNER_CURVE_MIN_STEPS,
         );
         trimmed.add(directedEdgeKey(key, n1));
@@ -805,23 +889,28 @@ export function wallPathCommands(
   for (const edge of edges) {
     const from = pixelToVertexKey(edge.x1, edge.y1);
     const to = pixelToVertexKey(edge.x2, edge.y2);
-    const dx = Math.sign(edge.x2 - edge.x1);
-    const dy = Math.sign(edge.y2 - edge.y1);
+    const fromPos = positions.get(from);
+    const toPos = positions.get(to);
+    if (!fromPos || !toPos) {
+      continue;
+    }
+    const dx = Math.sign(toPos.x - fromPos.x);
+    const dy = Math.sign(toPos.y - fromPos.y);
     const trimStart = trimmed.has(directedEdgeKey(from, to)) ? r : 0;
     const trimEnd = trimmed.has(directedEdgeKey(to, from)) ? r : 0;
-    const length = Math.abs(edge.x2 - edge.x1) + Math.abs(edge.y2 - edge.y1);
+    const length = Math.abs(toPos.x - fromPos.x) + Math.abs(toPos.y - fromPos.y);
     if (length <= trimStart + trimEnd) {
       continue;
     }
     commands.push({
       type: "move",
-      x: edge.x1 + dx * trimStart,
-      y: edge.y1 + dy * trimStart,
+      x: fromPos.x + dx * trimStart,
+      y: fromPos.y + dy * trimStart,
     });
     commands.push({
       type: "line",
-      x: edge.x2 - dx * trimEnd,
-      y: edge.y2 - dy * trimEnd,
+      x: toPos.x - dx * trimEnd,
+      y: toPos.y - dy * trimEnd,
     });
   }
 

@@ -4,6 +4,7 @@ import {
   MAZE_OFFSET_X,
   MAZE_OFFSET_Y,
   MAZE_PIXEL_WIDTH,
+  MAZE_TOP_MARGIN_PX,
   MAZE_ROWS,
   MAZE_SOLIDS,
   MAZE_WALLS,
@@ -40,7 +41,9 @@ import {
   PLAYER_WALL_PADDING_PX,
   WALL_CORNER_RADIUS,
   WALL_CORNER_CURVE_MIN_STEPS,
+  WALL_INSET_PX,
   clampedWallCornerRadius,
+  clampedWallInset,
   wallCellCenters,
   wallPathCommands,
   walkableCellCenters,
@@ -53,9 +56,14 @@ describe("maze", () => {
   it("parses to 28×31 with narrower opposite-edge safety", () => {
     expect(MAZE_SOLIDS).toHaveLength(MAZE_ROWS);
     expect(MAZE_SOLIDS[0]).toHaveLength(MAZE_COLS);
-    expect(TILE_SIZE).toBe(19);
-    expect(MAZE_OFFSET_X).toBe(134);
-    expect(MAZE_OFFSET_Y).toBe(5);
+    expect(TILE_SIZE).toBe(
+      Math.floor(Math.min(800 / MAZE_COLS, Math.max(1, 600 - MAZE_TOP_MARGIN_PX) / MAZE_ROWS)),
+    );
+    expect(MAZE_OFFSET_X).toBe((800 - MAZE_PIXEL_WIDTH) / 2);
+    expect(MAZE_OFFSET_Y).toBe(
+      MAZE_TOP_MARGIN_PX + Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2),
+    );
+    expect(MAZE_OFFSET_Y).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
 
     expect(isWall(0, 0)).toBe(true);
     expect(isWall(MAZE_COLS - 1, 0)).toBe(true);
@@ -295,6 +303,43 @@ describe("maze", () => {
     expect(clampedWallCornerRadius(-3)).toBe(0);
   });
 
+  it("clamps wall inset within a half tile", () => {
+    const maxInset = Math.floor((TILE_SIZE - 1) / 2);
+    expect(clampedWallInset(WALL_INSET_PX)).toBe(Math.min(WALL_INSET_PX, maxInset));
+    expect(clampedWallInset(TILE_SIZE)).toBe(maxInset);
+    expect(clampedWallInset(-2)).toBe(0);
+  });
+
+  it("pulls corridor-facing wall strokes into the wall by the inset", () => {
+    const inset = 3;
+    const boundaryY = cellOriginY(1);
+    const left = cellOriginX(1);
+    const right = cellOriginX(2);
+    const insetCommands = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, WALL_CORNER_RADIUS, inset);
+    const flushCommands = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, WALL_CORNER_RADIUS, 0);
+
+    const hasHorizontalAt = (commands: ReturnType<typeof wallPathCommands>, y: number) =>
+      commands.some((command, index) => {
+        if (command.type !== "line") {
+          return false;
+        }
+        const prev = commands[index - 1];
+        if (!prev || prev.type !== "move") {
+          return false;
+        }
+        return (
+          Math.abs(prev.y - y) < 0.01 &&
+          Math.abs(command.y - y) < 0.01 &&
+          prev.x >= left - TILE_SIZE &&
+          command.x <= right + TILE_SIZE
+        );
+      });
+
+    expect(hasHorizontalAt(flushCommands, boundaryY)).toBe(true);
+    expect(hasHorizontalAt(insetCommands, boundaryY - inset)).toBe(true);
+    expect(hasHorizontalAt(insetCommands, boundaryY)).toBe(false);
+  });
+
   it("emits rounded wall path commands and skips exterior faces", () => {
     const commands = wallPathCommands();
     expect(commands.length).toBeGreaterThan(0);
@@ -325,8 +370,9 @@ describe("maze", () => {
   it("includes convex corner polylines at a known corridor corner", () => {
     const commands = wallPathCommands();
     const radius = clampedWallCornerRadius();
-    const cornerX = cellOriginX(2);
-    const cornerY = cellOriginY(2);
+    const inset = clampedWallInset();
+    const cornerX = cellOriginX(2) + inset;
+    const cornerY = cellOriginY(2) + inset;
     const start = { x: cornerX + radius, y: cornerY };
     const end = { x: cornerX, y: cornerY + radius };
     const mid = {
@@ -359,9 +405,10 @@ describe("maze", () => {
 
   it("ends half-tile fillets at the trimmed endpoint", () => {
     const radius = TILE_SIZE / 2;
+    const inset = clampedWallInset();
     const commands = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, radius);
-    const cornerX = cellOriginX(2);
-    const cornerY = cellOriginY(2);
+    const cornerX = cellOriginX(2) + inset;
+    const cornerY = cellOriginY(2) + inset;
     const a = { x: cornerX + radius, y: cornerY };
     const b = { x: cornerX, y: cornerY + radius };
     const near = (command: { x: number; y: number }, point: { x: number; y: number }) =>
