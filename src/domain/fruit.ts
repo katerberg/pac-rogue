@@ -8,7 +8,6 @@ export type FruitLevelSpec = {
   points: number;
 };
 
-/** Holenet Table A.1 bonus symbols / points by level. */
 export const FRUIT_BY_LEVEL: readonly FruitLevelSpec[] = [
   { kind: "cherries", points: 100 },
   { kind: "strawberry", points: 300 },
@@ -34,15 +33,10 @@ export const FRUIT_SPAWN_ROW = 17;
 
 export const CURRENT_LEVEL = 1;
 
-const FRUIT_ART_BY_KIND: Record<FruitKind, string> = {
+const FRUIT_ART_BY_KIND: Partial<Record<FruitKind, string>> = {
   cherries: "art/other/strawberry.png",
   strawberry: "art/other/strawberry.png",
-  peach: "art/other/apple.png",
   apple: "art/other/apple.png",
-  grapes: "art/other/apple.png",
-  galaxian: "art/other/apple.png",
-  bell: "art/other/apple.png",
-  key: "art/other/apple.png",
 };
 
 export function fruitSpecForLevel(level: number): FruitLevelSpec {
@@ -54,7 +48,7 @@ export function fruitSpecForLevel(level: number): FruitLevelSpec {
 }
 
 export function fruitArtPath(kind: FruitKind): string {
-  return FRUIT_ART_BY_KIND[kind];
+  return FRUIT_ART_BY_KIND[kind] ?? "art/other/apple.png";
 }
 
 export function fruitSpawnCenter(): { x: number; y: number } {
