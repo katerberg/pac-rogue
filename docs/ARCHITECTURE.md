@@ -34,9 +34,8 @@ src/
     ghostRelease.ts           # 0.1s release-after-input clock
     ghostSpeed.ts             # base / Elroy / tunnel speed resolve
   game/
-    config.ts
+    config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
     audio/sfx.ts
-    ui/textStyles.ts
     components/               # data only — no Phaser
       Position.ts
       Velocity.ts
@@ -65,9 +64,11 @@ src/
       playerDirection.ts
       render.ts               # sprites + pipes; preloadPlayArt
     scenes/
-      MenuScene.ts
-      HighScoresScene.ts
-      PlayScene.ts
+      pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
+      font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
+      MenuScene.ts            # boot title + Start / High Scores (no ECS)
+      HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
+      PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
 public/
   art/                        # Pac-Man / pellet / power-pellet / ghost / fruit PNGs
   sound/                      # SFX (pickups, looping siren, level complete)
@@ -92,7 +93,7 @@ HighScoresScene --Back--> MenuScene
 PlayScene --caught--> MenuScene
 ```
 
-**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (Text, keyboard, pointer). Do not put bitecs in UI scenes.
+**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
 
 High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (score desc). Storage remains chronological append order.
 

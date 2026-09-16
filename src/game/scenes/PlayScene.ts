@@ -66,8 +66,7 @@ import { movement } from "../systems/movement";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { createRender, preloadPlayArt } from "../systems/render";
-import { bindDisplayTextResolution } from "./textResolution";
-import { hudTextStyle } from "../ui/textStyles";
+import { addPixelText, HUD_FONT_SIZE, placePixelText } from "./pixelFont";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
@@ -77,8 +76,8 @@ export class PlayScene extends Phaser.Scene {
   private ghostReleaseClock: GhostReleaseClock = createGhostReleaseClock();
   private ghostModeClock: GhostModeClock = createGhostModeClock();
   private pelletProgress: PelletProgress = createPelletProgress(0);
-  private collectedText!: Phaser.GameObjects.Text;
-  private timerText!: Phaser.GameObjects.Text;
+  private collectedText!: Phaser.GameObjects.BitmapText;
+  private timerText!: Phaser.GameObjects.BitmapText;
 
   constructor() {
     super("PlayScene");
@@ -101,12 +100,17 @@ export class PlayScene extends Phaser.Scene {
     this.ghostModeClock = createGhostModeClock();
     this.pelletProgress = createPelletProgress(countPellets(this.world));
 
-    this.collectedText = this.add.text(12, 8, this.collectedLabel(), hudTextStyle).setDepth(10);
-    this.timerText = this.add
-      .text(PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), hudTextStyle)
-      .setOrigin(1, 0)
-      .setDepth(10);
-    bindDisplayTextResolution(this, () => [this.collectedText, this.timerText]);
+    this.collectedText = addPixelText(this, 12, 8, this.collectedLabel(), HUD_FONT_SIZE).setDepth(
+      10,
+    );
+    this.timerText = addPixelText(
+      this,
+      PLAYFIELD_WIDTH - 12,
+      8,
+      this.timerLabel(),
+      HUD_FONT_SIZE,
+    ).setDepth(10);
+    placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
     this.runPlayerInput = createPlayerInput(this);
     this.runRender = createRender(this);
@@ -140,6 +144,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.clock = tickRunClock(this.clock, hasInput, delta);
     this.timerText.setText(this.timerLabel());
+    placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
     const { removed, powerRemoved } = collectPellets(this.world);
     if (removed > 0) {
