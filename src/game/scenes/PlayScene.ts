@@ -32,6 +32,7 @@ import {
 } from "../../domain/maze";
 import {
   BLINKY_DRAWABLE_ID,
+  CLYDE_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
   FRUIT_RADIUS,
   GHOST_RADIUS,
@@ -110,6 +111,7 @@ export class PlayScene extends Phaser.Scene {
     this.spawnPlayer();
     this.spawnBlinky();
     this.spawnPinky();
+    this.spawnClyde();
 
     this.clock = createRunClock();
     this.ghostReleaseClock = createGhostReleaseClock();
@@ -143,7 +145,7 @@ export class PlayScene extends Phaser.Scene {
     const hasInput = hasPlayerDirectionInput(this.world);
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
-    ghostRelease(this.world, this.ghostReleaseClock);
+    ghostRelease(this.world, this.ghostReleaseClock, this.pelletProgress.collectedCount);
 
     const modeTick = tickGhostMode(this.ghostModeClock, delta);
     this.ghostModeClock = modeTick.clock;
@@ -282,6 +284,10 @@ export class PlayScene extends Phaser.Scene {
 
   private spawnPinky(): void {
     this.spawnGhost(GHOST_KIND.pinky, PINKY_DRAWABLE_ID);
+  }
+
+  private spawnClyde(): void {
+    this.spawnGhost(GHOST_KIND.clyde, CLYDE_DRAWABLE_ID);
   }
 
   private spawnGhost(kind: number, drawableId: string): void {

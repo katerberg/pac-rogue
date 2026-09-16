@@ -87,7 +87,7 @@ function tickPipeline(
   dt: number,
 ) {
   const nextRelease = tickGhostRelease(release, true, dt);
-  ghostRelease(world, nextRelease);
+  ghostRelease(world, nextRelease, 0);
   let nextMode = mode;
   const modeTick = tickGhostMode(nextMode, dt);
   nextMode = modeTick.clock;

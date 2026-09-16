@@ -1,9 +1,9 @@
 import { query, type World } from "bitecs";
-import { pickGhostDirection, type GhostDir } from "../../domain/ghostPath";
+import { openGhostDirsAt, pickGhostDirection, type GhostDir } from "../../domain/ghostPath";
 import type { GhostAiMode } from "../../domain/ghostMode";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { blinkyTarget, pinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
+import { blinkyTarget, clydeTarget, pinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
 import { TURN_ALIGN_EPS, isAlignedForTurn, worldToCol, worldToRow } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -41,36 +41,52 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
 
     const x = Position.x[eid] ?? 0;
     const y = Position.y[eid] ?? 0;
+    const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
     if (!isAlignedForTurn(x, y, TURN_ALIGN_EPS)) {
       continue;
     }
 
     const col = worldToCol(x);
     const row = worldToRow(y);
-    if (Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row) {
-      continue;
+    const rules = ghostMovementRules(phase);
+    const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
+    const alreadyDecided = Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row;
+    if (alreadyDecided) {
+      const opens = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
+      if (facingNow === DIRECTION.none || opens.includes(facingNow)) {
+        continue;
+      }
     }
 
-    const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
-    const target =
-      kind === GHOST_KIND.pinky
-        ? pinkyTarget({
-            phase,
-            mode,
-            playerCol: player.col,
-            playerRow: player.row,
-            playerFacing: player.facing,
-          })
-        : blinkyTarget({
-            phase,
-            mode,
-            pelletsRemaining,
-            playerCol: player.col,
-            playerRow: player.row,
-          });
+    let target;
+    if (kind === GHOST_KIND.pinky) {
+      target = pinkyTarget({
+        phase,
+        mode,
+        playerCol: player.col,
+        playerRow: player.row,
+        playerFacing: player.facing,
+      });
+    } else if (kind === GHOST_KIND.clyde) {
+      target = clydeTarget({
+        phase,
+        mode,
+        playerCol: player.col,
+        playerRow: player.row,
+        ghostCol: col,
+        ghostRow: row,
+      });
+    } else {
+      target = blinkyTarget({
+        phase,
+        mode,
+        pelletsRemaining,
+        playerCol: player.col,
+        playerRow: player.row,
+      });
+    }
 
-    const rules = ghostMovementRules(phase);
-    const storedFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
+    const storedFacing = facingNow;
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
     const facing = storedFacing !== DIRECTION.none ? storedFacing : intent;
     const next = pickGhostDirection({

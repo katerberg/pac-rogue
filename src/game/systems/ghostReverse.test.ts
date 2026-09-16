@@ -89,4 +89,13 @@ describe("forceGhostReverse", () => {
     ghostAi(world, GHOST_AI_MODE.scatter, 244);
     expect(Input.direction[ghost]).not.toBe(DIRECTION.left);
   });
+
+  it("redirects to the open L turn when reverse would enter a wall", () => {
+    const { world, ghost } = spawnAlignedGhost(1, 29, DIRECTION.right);
+    forceGhostReverse(world);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.up);
+    expect(Input.direction[ghost]).toBe(DIRECTION.up);
+    expect(Ghost.decidedCol[ghost]).toBe(1);
+    expect(Ghost.decidedRow[ghost]).toBe(29);
+  });
 });
