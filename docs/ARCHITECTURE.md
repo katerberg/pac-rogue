@@ -58,7 +58,7 @@ src/
       ghostAi.ts              # target tile → sticky Input (once per tile)
       ghostSpeed.ts           # Speed from Elroy + tunnel
       ghostReverse.ts         # mode-change reverse via Input
-      ghostExitHouse.ts       # leaving → active at exit tile
+      ghostExitHouse.ts       # leaving → active once off house/door tiles
       movement.ts             # Facing + collision (per-eid Speed + solids)
       catchPlayer.ts          # circle overlap → caught
       collectPellets.ts
@@ -116,7 +116,7 @@ PlayScene.update →
 1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky, SFX.
 2. `create()`: world, walls, pellets (`.` / `@` with `PowerPellet` on `@`), player (`Speed = PLAYER_SPEED`), Blinky in house (`Speed = 0`, `GhostPhase = inHouse`), HUD, siren.
 3. Ghost house / door are carved in ASCII (`=` door, `H` floor). `MAZE_PLAYER_SOLIDS` blocks the house; `MAZE_GHOST_SOLIDS` allows it.
-4. Release: 100ms after first player direction input → `leaving`, move to exit tile above the door, then `active` and start mode waves in **chase** (arcade level-1 table, skipping the opening scatter so he does not begin in scatter; later scatter/chase durations stay arcade).
+4. Release: 100ms after first player direction input → `leaving`, climb out through the door; once off house/door tiles → `active` and start mode waves in **chase** (arcade level-1 table, skipping the opening scatter so he does not begin in scatter; later scatter/chase durations stay arcade).
 5. Blinky targeting: chase / Elroy → player tile; scatter → fixed `(25, -3)`. Steering picks min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): base 0.9375×, Elroy1 (≤20 pellets) 1.0×, Elroy2 (≤10) 1.0625×, tunnel 0.5×.
 7. Catch: circle overlap while Blinky is `leaving` or `active` → stop siren, `scene.start("MenuScene")` (no high-score write).

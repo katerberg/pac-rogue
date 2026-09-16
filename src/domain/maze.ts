@@ -278,6 +278,11 @@ export function isDoor(col: number, row: number, door: SolidGrid = MAZE_DOOR): b
   return door[row]?.[col] ?? false;
 }
 
+/** True once the ghost has left house/door tiles (exit corridor and beyond). */
+export function hasLeftGhostHouse(col: number, row: number): boolean {
+  return !isHouse(col, row);
+}
+
 export function isGhostSolid(
   col: number,
   row: number,

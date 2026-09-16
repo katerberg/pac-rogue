@@ -14,11 +14,16 @@ import {
   TILE_SIZE,
   buildExterior,
   canEnterDirection,
+  canGhostEnterDirection,
   cellCenterX,
   cellCenterY,
   cellOriginX,
   cellOriginY,
   clampAgainstFacingWall,
+  doorGateEdges,
+  ghostSolidsForPhase,
+  hasLeftGhostHouse,
+  isDoor,
   isExterior,
   isGhostWalkable,
   isHouse,
@@ -35,6 +40,7 @@ import {
   wrapPosition,
   wrappedTwinPosition,
 } from "./maze";
+import { GHOST_PHASE } from "./ghostTarget";
 
 describe("maze", () => {
   it("parses to 28×31 with narrower opposite-edge safety", () => {
@@ -140,6 +146,38 @@ describe("maze", () => {
     expect(isWalkable(13, 14)).toBe(false);
     expect(isWalkable(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
     expect(isGhostWalkable(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
+  });
+
+  it("marks the middle house door tiles and draws one gate edge across them", () => {
+    expect(isDoor(13, 12)).toBe(true);
+    expect(isDoor(14, 12)).toBe(true);
+    expect(isDoor(12, 12)).toBe(false);
+    expect(isDoor(13, 11)).toBe(false);
+    const gates = doorGateEdges();
+    expect(gates).toHaveLength(1);
+    expect(gates[0]!.x1).toBe(cellOriginX(13));
+    expect(gates[0]!.x2).toBe(cellOriginX(14) + TILE_SIZE);
+  });
+
+  it("treats the exit corridor as outside the house", () => {
+    expect(hasLeftGhostHouse(13, 14)).toBe(false);
+    expect(hasLeftGhostHouse(13, 12)).toBe(false);
+    expect(hasLeftGhostHouse(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
+    expect(hasLeftGhostHouse(12, GHOST_HOUSE_EXIT_ROW)).toBe(true);
+  });
+
+  it("allows leaving ghosts up through the door but blocks re-entry once active", () => {
+    const doorX = cellCenterX(13);
+    const doorY = cellCenterY(12);
+    const exitX = cellCenterX(GHOST_HOUSE_EXIT_COL);
+    const exitY = cellCenterY(GHOST_HOUSE_EXIT_ROW);
+
+    expect(canGhostEnterDirection(doorX, doorY, 0, -1, GHOST_PHASE.leaving)).toBe(true);
+    expect(canGhostEnterDirection(exitX, exitY, 0, 1, GHOST_PHASE.leaving)).toBe(false);
+    expect(canGhostEnterDirection(exitX, exitY, 0, 1, GHOST_PHASE.active)).toBe(false);
+    expect(isGhostWalkable(13, 14, ghostSolidsForPhase(GHOST_PHASE.leaving))).toBe(true);
+    expect(isGhostWalkable(13, 14, ghostSolidsForPhase(GHOST_PHASE.active))).toBe(false);
+    expect(isGhostWalkable(13, 12, ghostSolidsForPhase(GHOST_PHASE.active))).toBe(false);
   });
 
   it("spawns in the lowest empty center cell", () => {

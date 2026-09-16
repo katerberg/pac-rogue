@@ -190,8 +190,8 @@ describe("blinky chase start integration", () => {
       const active = (GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active;
       if (active && exitedAt < 0) {
         exitedAt = i;
-        expect(col).toBe(GHOST_HOUSE_EXIT_COL);
-        expect(row).toBe(GHOST_HOUSE_EXIT_ROW);
+        expect(isHouse(col, row)).toBe(false);
+        expect(row).toBeLessThanOrEqual(GHOST_HOUSE_EXIT_ROW);
       }
       if (active && isHouse(col, row)) {
         houseAfterExit += 1;
