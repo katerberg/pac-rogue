@@ -1,3 +1,5 @@
+import { GHOST_PHASE } from "./ghostPhase";
+
 export const MAZE_ASCII = `############################
 #............##............#
 #.####.#####.##.#####.####.#
@@ -254,9 +256,7 @@ export const MAZE_WALLS: SolidGrid = parseMaze(MAZE_ASCII);
 export const MAZE_EXTERIOR: SolidGrid = buildExterior(MAZE_WALLS);
 export const MAZE_HOUSE: SolidGrid = parseHouse(MAZE_ASCII);
 export const MAZE_DOOR: SolidGrid = parseDoor(MAZE_ASCII);
-/** Ghosts may traverse the house only while exiting (inHouse / leaving). */
 export const MAZE_GHOST_SOLIDS: SolidGrid = buildBlocked(MAZE_WALLS, MAZE_EXTERIOR);
-/** Sealed house: player always, and ghosts after they leave. */
 export const MAZE_PLAYER_SOLIDS: SolidGrid = buildPlayerSolids(
   MAZE_WALLS,
   MAZE_EXTERIOR,
@@ -294,16 +294,10 @@ export function isGhostWalkable(
   return isWalkable(col, row, solids);
 }
 
-/** Active ghosts use sealed-house solids; exiting ghosts may walk the pen. */
 export function ghostSolidsForPhase(phase: number): SolidGrid {
-  // GHOST_PHASE.active === 2; avoid importing ghostTarget into maze cycle.
-  return phase === 2 ? MAZE_PLAYER_SOLIDS : MAZE_GHOST_SOLIDS;
+  return phase === GHOST_PHASE.active ? MAZE_PLAYER_SOLIDS : MAZE_GHOST_SOLIDS;
 }
 
-/**
- * House door is one-way upward: nobody may step down onto a door tile.
- * That seals the pen from the maze side while still allowing an exit climb.
- */
 export function canGhostEnterDirection(
   x: number,
   y: number,
@@ -653,7 +647,6 @@ export function pipeEdges(
   return edges;
 }
 
-/** Horizontal gate across house door tiles so the pen reads as a closed room. */
 export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
   const edges: PipeEdge[] = [];
   for (let row = 0; row < MAZE_ROWS; row += 1) {

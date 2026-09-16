@@ -1,17 +1,12 @@
 import { GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW } from "./maze";
 import { ELROY_TIER, elroyTier, type ElroyTier } from "./ghostSpeed";
 import { GHOST_AI_MODE, type GhostAiMode } from "./ghostMode";
+import { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
+
+export { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 
 export const BLINKY_SCATTER_COL = 25;
 export const BLINKY_SCATTER_ROW = -3;
-
-export const GHOST_PHASE = {
-  inHouse: 0,
-  leaving: 1,
-  active: 2,
-} as const;
-
-export type GhostPhaseValue = (typeof GHOST_PHASE)[keyof typeof GHOST_PHASE];
 
 export type GhostTarget = {
   col: number;

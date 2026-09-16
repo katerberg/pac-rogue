@@ -75,7 +75,6 @@ export function isPerpendicularLCorner(opens: readonly GhostDir[]): boolean {
   return reverseGhostDir(opens[0]!) !== opens[1];
 }
 
-/** Non-reverse exit at a perpendicular L given facing (into the blocked leg). */
 export function lCornerTurnDir(opens: readonly GhostDir[], facing: GhostDir): GhostDir {
   if (!isPerpendicularLCorner(opens) || facing === GHOST_DIR.none) {
     return GHOST_DIR.none;
