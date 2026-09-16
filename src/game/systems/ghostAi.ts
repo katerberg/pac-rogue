@@ -50,11 +50,12 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
     const row = worldToRow(y);
     const rules = ghostMovementRules(phase);
     const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
-    const opens = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
-    const facingBlocked = facingNow !== DIRECTION.none && !opens.includes(facingNow);
     const alreadyDecided = Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row;
-    if (alreadyDecided && !facingBlocked) {
-      continue;
+    if (alreadyDecided) {
+      const opens = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
+      if (facingNow === DIRECTION.none || opens.includes(facingNow)) {
+        continue;
+      }
     }
 
     let target;
