@@ -13,5 +13,7 @@ export function forceGhostReverse(world: World): void {
     }
     Facing.direction[eid] = reversed;
     Input.direction[eid] = reversed;
+    Ghost.decidedCol[eid] = Number.NaN;
+    Ghost.decidedRow[eid] = Number.NaN;
   }
 }

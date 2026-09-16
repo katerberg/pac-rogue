@@ -240,6 +240,8 @@ export class PlayScene extends Phaser.Scene {
     Facing.direction[eid] = DIRECTION.none;
     Speed.px[eid] = 0;
     GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+    Ghost.decidedCol[eid] = Number.NaN;
+    Ghost.decidedRow[eid] = Number.NaN;
     Drawable.id[eid] = GHOST_DRAWABLE_ID;
     Drawable.radius[eid] = GHOST_RADIUS;
   }

@@ -69,6 +69,8 @@ function spawnActors() {
   Facing.direction[ghost] = DIRECTION.none;
   Speed.px[ghost] = 0;
   GhostPhase.value[ghost] = GHOST_PHASE.inHouse;
+  Ghost.decidedCol[ghost] = Number.NaN;
+  Ghost.decidedRow[ghost] = Number.NaN;
 
   return { world, player, ghost };
 }

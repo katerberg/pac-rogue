@@ -31,6 +31,8 @@ function spawnAlignedGhost(col: number, row: number, facing: Direction) {
   Facing.direction[ghost] = facing;
   Input.direction[ghost] = facing;
   GhostPhase.value[ghost] = GHOST_PHASE.active;
+  Ghost.decidedCol[ghost] = Number.NaN;
+  Ghost.decidedRow[ghost] = Number.NaN;
   return { world, ghost };
 }
 

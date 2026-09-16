@@ -54,7 +54,7 @@ src/
     systems/
       playerInput.ts          # Phaser keys → sticky Input
       ghostRelease.ts         # inHouse → leaving after delay
-      ghostAi.ts              # target tile → sticky Input (aligned)
+      ghostAi.ts              # target tile → sticky Input (once per tile)
       ghostSpeed.ts           # Speed from Elroy + tunnel
       ghostReverse.ts         # mode-change reverse via Input
       ghostExitHouse.ts       # leaving → active at exit tile

@@ -43,6 +43,12 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       continue;
     }
 
+    const col = worldToCol(x);
+    const row = worldToRow(y);
+    if (Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row) {
+      continue;
+    }
+
     const target = blinkyTarget({
       phase,
       mode,
@@ -65,6 +71,8 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
 
     if (next !== DIRECTION.none) {
       Input.direction[eid] = next;
+      Ghost.decidedCol[eid] = col;
+      Ghost.decidedRow[eid] = row;
     }
   }
 }
