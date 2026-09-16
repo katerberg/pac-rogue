@@ -49,11 +49,19 @@ export function reverseGhostDir(direction: GhostDir): GhostDir {
   }
 }
 
-export function openGhostDirsAt(x: number, y: number, solids: SolidGrid): GhostDir[] {
+export type GhostCanEnter = (x: number, y: number, dx: number, dy: number) => boolean;
+
+export function openGhostDirsAt(
+  x: number,
+  y: number,
+  solids: SolidGrid,
+  canEnter?: GhostCanEnter,
+): GhostDir[] {
+  const enter = canEnter ?? ((px, py, dx, dy) => canEnterDirection(px, py, dx, dy, solids));
   const opens: GhostDir[] = [];
   for (const dir of TIE_ORDER) {
     const { dx, dy } = directionStep(dir);
-    if (canEnterDirection(x, y, dx, dy, solids)) {
+    if (enter(x, y, dx, dy)) {
       opens.push(dir);
     }
   }
@@ -85,8 +93,11 @@ export function pickGhostDirection(args: {
   targetCol: number;
   targetRow: number;
   solids: SolidGrid;
+  canEnter?: GhostCanEnter;
 }): GhostDir {
-  const opens = openGhostDirsAt(args.x, args.y, args.solids);
+  const enter =
+    args.canEnter ?? ((px, py, dx, dy) => canEnterDirection(px, py, dx, dy, args.solids));
+  const opens = openGhostDirsAt(args.x, args.y, args.solids, enter);
   const forcedTurn = lCornerTurnDir(opens, args.facing);
   if (forcedTurn !== GHOST_DIR.none) {
     return forcedTurn;
@@ -95,7 +106,7 @@ export function pickGhostDirection(args: {
   const candidates: GhostDir[] = [];
   for (const dir of TIE_ORDER) {
     const { dx, dy } = directionStep(dir);
-    if (!canEnterDirection(args.x, args.y, dx, dy, args.solids)) {
+    if (!enter(args.x, args.y, dx, dy)) {
       continue;
     }
     if (args.facing !== GHOST_DIR.none && reverseGhostDir(args.facing) === dir) {
@@ -108,7 +119,7 @@ export function pickGhostDirection(args: {
     if (args.facing !== GHOST_DIR.none) {
       const back = reverseGhostDir(args.facing);
       const { dx, dy } = directionStep(back);
-      if (canEnterDirection(args.x, args.y, dx, dy, args.solids)) {
+      if (enter(args.x, args.y, dx, dy)) {
         return back;
       }
     }
