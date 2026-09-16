@@ -7,8 +7,8 @@ import {
   pickGhostDirection,
   reverseGhostDir,
 } from "./ghostPath";
-import { MAZE_GHOST_SOLIDS, cellCenterX, cellCenterY } from "./maze";
-import { BLINKY_SCATTER_COL, BLINKY_SCATTER_ROW } from "./ghostTarget";
+import { MAZE_GHOST_SOLIDS, canGhostEnterDirection, cellCenterX, cellCenterY } from "./maze";
+import { BLINKY_SCATTER_COL, BLINKY_SCATTER_ROW, GHOST_PHASE } from "./ghostTarget";
 
 const L_SAMPLES = [
   { col: 26, row: 1, intoWall: GHOST_DIR.right, turn: GHOST_DIR.down },
@@ -166,5 +166,18 @@ describe("ghostPath", () => {
     expect(visits26).toBeGreaterThan(0);
     expect(downFrom26).toBe(visits26);
     expect(maxRow1Streak).toBeLessThan(20);
+  });
+
+  it("never chooses down onto the house door from the exit tile", () => {
+    const dir = pickGhostDirection({
+      x: cellCenterX(13),
+      y: cellCenterY(11),
+      facing: GHOST_DIR.none,
+      targetCol: 13,
+      targetRow: 14,
+      solids: MAZE_GHOST_SOLIDS,
+      canEnter: (x, y, dx, dy) => canGhostEnterDirection(x, y, dx, dy, GHOST_PHASE.active),
+    });
+    expect(dir).not.toBe(GHOST_DIR.down);
   });
 });

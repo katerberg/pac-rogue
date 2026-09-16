@@ -1,13 +1,15 @@
 import { hasComponent, query, type World } from "bitecs";
 import { lCornerTurnDir, openGhostDirsAt, type GhostDir } from "../../domain/ghostPath";
+import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
-  MAZE_GHOST_SOLIDS,
   MAZE_PLAYER_SOLIDS,
   TURN_ALIGN_EPS,
   canEnterDirection,
+  canGhostEnterDirection,
   cellCenterX,
   cellCenterY,
   clampAgainstFacingWall,
+  ghostSolidsForPhase,
   isAlignedForTurn,
   snapPerpendicularToCenterline,
   worldToCol,
@@ -18,6 +20,7 @@ import {
 import { clampPositionToPlayfield } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
+import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
@@ -91,12 +94,32 @@ function tryCommitCenterTurn(
   return { x: cx, y: cy, remainingDt: speed > 0 ? (frameTravel - dist) / speed : 0 };
 }
 
-function solidsFor(world: World, eid: number): SolidGrid {
-  return hasComponent(world, eid, Ghost) ? MAZE_GHOST_SOLIDS : MAZE_PLAYER_SOLIDS;
+function ghostPhaseOf(world: World, eid: number): number {
+  if (!hasComponent(world, eid, GhostPhase)) {
+    return GHOST_PHASE.active;
+  }
+  return GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
 }
 
-function canEnterStep(x: number, y: number, direction: Direction, solids: SolidGrid): boolean {
+function solidsFor(world: World, eid: number): SolidGrid {
+  if (!hasComponent(world, eid, Ghost)) {
+    return MAZE_PLAYER_SOLIDS;
+  }
+  return ghostSolidsForPhase(ghostPhaseOf(world, eid));
+}
+
+function canEnterStep(
+  world: World,
+  eid: number,
+  x: number,
+  y: number,
+  direction: Direction,
+  solids: SolidGrid,
+): boolean {
   const { dx, dy } = directionStep(direction);
+  if (hasComponent(world, eid, Ghost)) {
+    return canGhostEnterDirection(x, y, dx, dy, ghostPhaseOf(world, eid));
+  }
   return canEnterDirection(x, y, dx, dy, solids);
 }
 
@@ -118,7 +141,7 @@ export function movement(world: World, deltaMs: number): void {
       speed > 0 &&
       nextIntent !== DIRECTION.none &&
       nextIntent !== facing &&
-      canEnterStep(x, y, nextIntent, solids)
+      canEnterStep(world, eid, x, y, nextIntent, solids)
     ) {
       if (facing === DIRECTION.none) {
         if (isAlignedForTurn(x, y, TURN_ALIGN_EPS)) {
@@ -126,9 +149,12 @@ export function movement(world: World, deltaMs: number): void {
         }
       } else if (isReverse(facing, nextIntent)) {
         if (hasComponent(world, eid, Ghost)) {
-          const opens = openGhostDirsAt(x, y, solids);
+          const phase = ghostPhaseOf(world, eid);
+          const opens = openGhostDirsAt(x, y, solids, (px, py, dx, dy) =>
+            canGhostEnterDirection(px, py, dx, dy, phase),
+          );
           const turn = lCornerTurnDir(opens, facing as GhostDir) as Direction;
-          if (turn !== DIRECTION.none && canEnterStep(x, y, turn, solids)) {
+          if (turn !== DIRECTION.none && canEnterStep(world, eid, x, y, turn, solids)) {
             nextIntent = turn;
             Input.direction[eid] = turn;
             facing = turn;
@@ -178,7 +204,7 @@ export function movement(world: World, deltaMs: number): void {
     nextY = wallClamped.y;
 
     if (
-      !canEnterStep(nextX, nextY, facing, solids) &&
+      !canEnterStep(world, eid, nextX, nextY, facing, solids) &&
       isAlignedForTurn(nextX, nextY, TURN_ALIGN_EPS)
     ) {
       if (!hasComponent(world, eid, Ghost)) {

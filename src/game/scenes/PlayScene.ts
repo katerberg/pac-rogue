@@ -121,6 +121,9 @@ export class PlayScene extends Phaser.Scene {
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
     ghostRelease(this.world, this.ghostReleaseClock);
+    if (ghostExitHouse(this.world)) {
+      this.ghostModeClock = startGhostModeClock();
+    }
 
     const modeTick = tickGhostMode(this.ghostModeClock, delta);
     this.ghostModeClock = modeTick.clock;

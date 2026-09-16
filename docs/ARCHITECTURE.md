@@ -25,7 +25,7 @@ src/
     highScoresView.ts
     scoreListScroll.ts
     playfield.ts              # speeds, sizes, drawable ids
-    maze.ts                   # ASCII maze, dual solids (player/ghost), house, tunnels
+    maze.ts                   # ASCII maze, dual solids, one-way house door, tunnels
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostTarget.ts            # Blinky chase/scatter/Elroy target tile
     ghostMode.ts              # level-1 scatter/chase wave clock

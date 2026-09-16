@@ -3,8 +3,9 @@ import { pickGhostDirection, type GhostDir } from "../../domain/ghostPath";
 import type { GhostAiMode } from "../../domain/ghostMode";
 import { blinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
 import {
-  MAZE_GHOST_SOLIDS,
   TURN_ALIGN_EPS,
+  canGhostEnterDirection,
+  ghostSolidsForPhase,
   isAlignedForTurn,
   worldToCol,
   worldToRow,
@@ -60,7 +61,8 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
       facing,
       targetCol: target.col,
       targetRow: target.row,
-      solids: MAZE_GHOST_SOLIDS,
+      solids: ghostSolidsForPhase(phase),
+      canEnter: (px, py, dx, dy) => canGhostEnterDirection(px, py, dx, dy, phase),
     }) as Direction;
 
     if (next !== DIRECTION.none) {

@@ -1,6 +1,12 @@
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
-import { pipeEdges, WALL_COLOR, wrappedTwinPosition } from "../../domain/maze";
+import {
+  pipeEdges,
+  doorGateEdges,
+  DOOR_GATE_COLOR,
+  WALL_COLOR,
+  wrappedTwinPosition,
+} from "../../domain/maze";
 import { GHOST_DRAWABLE_ID, PELLET_DRAWABLE_ID, PLAYER_DRAWABLE_ID } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -88,6 +94,10 @@ export function createRender(scene: Phaser.Scene): (world: World) => void {
       wallGraphics.clear();
       wallGraphics.lineStyle(2, WALL_COLOR, 1);
       for (const edge of pipeEdges()) {
+        wallGraphics.lineBetween(edge.x1, edge.y1, edge.x2, edge.y2);
+      }
+      wallGraphics.lineStyle(2, DOOR_GATE_COLOR, 1);
+      for (const edge of doorGateEdges()) {
         wallGraphics.lineBetween(edge.x1, edge.y1, edge.x2, edge.y2);
       }
       pipesDrawn = true;
