@@ -3,8 +3,20 @@ import { openGhostDirsAt, pickGhostDirection, type GhostDir } from "../../domain
 import type { GhostAiMode } from "../../domain/ghostMode";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { blinkyTarget, clydeTarget, pinkyTarget, GHOST_PHASE } from "../../domain/ghostTarget";
-import { TURN_ALIGN_EPS, isAlignedForTurn, worldToCol, worldToRow } from "../../domain/maze";
+import {
+  blinkyTarget,
+  clydeTarget,
+  inkyTarget,
+  pinkyTarget,
+  GHOST_PHASE,
+} from "../../domain/ghostTarget";
+import {
+  TURN_ALIGN_EPS,
+  getActiveLayout,
+  isAlignedForTurn,
+  worldToCol,
+  worldToRow,
+} from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -30,6 +42,18 @@ function playerTileAndFacing(world: World): {
   };
 }
 
+function blinkyTile(world: World): { col: number; row: number } {
+  for (const eid of query(world, [Ghost, GhostKind, Position])) {
+    if ((GhostKind.kind[eid] ?? GHOST_KIND.blinky) === GHOST_KIND.blinky) {
+      return {
+        col: worldToCol(Position.x[eid] ?? 0),
+        row: worldToRow(Position.y[eid] ?? 0),
+      };
+    }
+  }
+  return getActiveLayout().ghostHouseSpawn;
+}
+
 export function ghostAi(
   world: World,
   mode: GhostAiMode,
@@ -37,6 +61,7 @@ export function ghostAi(
   opts: { ignoreElroy?: boolean } = {},
 ): void {
   const player = playerTileAndFacing(world);
+  const blinky = blinkyTile(world);
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
@@ -71,6 +96,16 @@ export function ghostAi(
         playerCol: player.col,
         playerRow: player.row,
         playerFacing: player.facing,
+      });
+    } else if (kind === GHOST_KIND.inky) {
+      target = inkyTarget({
+        phase,
+        mode,
+        playerCol: player.col,
+        playerRow: player.row,
+        playerFacing: player.facing,
+        blinkyCol: blinky.col,
+        blinkyRow: blinky.row,
       });
     } else if (kind === GHOST_KIND.clyde) {
       target = clydeTarget({

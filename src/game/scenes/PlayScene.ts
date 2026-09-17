@@ -51,6 +51,7 @@ import {
   FRUIT_DRAWABLE_ID,
   FRUIT_RADIUS,
   GHOST_RADIUS,
+  INKY_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
   PELLET_RADIUS,
   PINKY_DRAWABLE_ID,
@@ -430,6 +431,7 @@ export class PlayScene extends Phaser.Scene {
     this.spawnPlayer();
     this.spawnBlinky();
     this.spawnPinky();
+    this.spawnInky();
     this.spawnClyde();
 
     this.clock = createRunClock();
@@ -765,6 +767,10 @@ export class PlayScene extends Phaser.Scene {
 
   private spawnPinky(): void {
     this.spawnGhost(GHOST_KIND.pinky, PINKY_DRAWABLE_ID);
+  }
+
+  private spawnInky(): void {
+    this.spawnGhost(GHOST_KIND.inky, INKY_DRAWABLE_ID);
   }
 
   private spawnClyde(): void {

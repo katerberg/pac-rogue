@@ -24,6 +24,7 @@ describe("maze layouts", () => {
     expect(maze1.fruitSpawn).toEqual({ col: 13, row: 17 });
     expect(maze1.pelletCount).toBe(244);
     expect(maze1.fruitThresholds).toEqual([70, 170]);
+    expect(maze1.inkyReleasePellets).toBe(30);
     expect(maze1.clydeReleasePellets).toBe(60);
     expect(maze1.elroy1DotsLeft).toBe(20);
     expect(maze1.elroy2DotsLeft).toBe(10);
@@ -69,6 +70,7 @@ describe("maze layouts", () => {
     expect(layout.fruitThresholds).toEqual([64, 156]);
     expect(layout.elroy1DotsLeft).toBe(18);
     expect(layout.elroy2DotsLeft).toBe(9);
+    expect(layout.inkyReleasePellets).toBe(28);
     expect(layout.clydeReleasePellets).toBe(55);
   });
 });
