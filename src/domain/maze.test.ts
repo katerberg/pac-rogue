@@ -275,7 +275,9 @@ describe("maze", () => {
   it("fails fast when exterior flood finds no playable cells from spawn", () => {
     const walls = parseMaze().map((row) => [...row]);
     walls[PLAYER_SPAWN_ROW]![PLAYER_SPAWN_COL] = true;
-    expect(() => buildExterior(walls)).toThrow(/no playable cells from spawn/);
+    expect(() => buildExterior(walls, { col: PLAYER_SPAWN_COL, row: PLAYER_SPAWN_ROW })).toThrow(
+      /no playable cells from spawn/,
+    );
   });
 
   it("clamps out-of-bounds samples before tunnel mouth enter checks", () => {

@@ -1,36 +1,8 @@
 import { GHOST_PHASE } from "./ghostPhase";
+import { MAZE_ASCII_BY_ID, type MazeLayoutId } from "./mazeLayouts";
 
-export const MAZE_ASCII = `############################
-#............##............#
-#.####.#####.##.#####.####.#
-#@#  #.#   #.##.#   #.#  #@#
-#.####.#####.##.#####.####.#
-#..........................#
-#.####.##.########.##.####.#
-#.####.##.########.##.####.#
-#......##....##....##......#
-######.##### ## #####.######
-     #.##### ## #####.#     
-     #.##          ##.#     
-     #.## ###==### ##.#     
-######.## #HHHHHH# ##.######
-      .   #HHHHHH#   .      
-######.## #HHHHHH# ##.######
-     #.## ######## ##.#     
-     #.##          ##.#     
-     #.## ######## ##.#     
-######.## ######## ##.######
-#............##............#
-#.####.#####.##.#####.####.#
-#.####.#####.##.#####.####.#
-#@..##.......  .......##..@#
-###.##.##.########.##.##.###
-###.##.##.########.##.##.###
-#......##....##....##......#
-#.##########.##.##########.#
-#.##########.##.##########.#
-#..........................#
-############################`;
+export type { MazeLayoutId } from "./mazeLayouts";
+export { pickLayoutId, parseMazeParam, MAZE_LAYOUT_IDS } from "./mazeLayouts";
 
 export const MAZE_COLS = 28;
 export const MAZE_ROWS = 31;
@@ -63,7 +35,34 @@ export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export const TURN_ALIGN_EPS = 2;
 
+export const BASE_FRUIT_SPAWN_THRESHOLDS = [70, 170] as const;
+export const BASE_CLYDE_RELEASE_PELLETS = 60;
+export const BASE_ELROY1_DOTS_LEFT = 20;
+export const BASE_ELROY2_DOTS_LEFT = 10;
+
 export type SolidGrid = readonly (readonly boolean[])[];
+
+export type MazeTile = { col: number; row: number };
+
+export type MazeLayout = {
+  id: MazeLayoutId;
+  ascii: string;
+  walls: SolidGrid;
+  exterior: SolidGrid;
+  house: SolidGrid;
+  door: SolidGrid;
+  ghostSolids: SolidGrid;
+  playerSolids: SolidGrid;
+  playerSpawn: MazeTile;
+  ghostHouseSpawn: MazeTile;
+  ghostHouseExit: MazeTile;
+  fruitSpawn: MazeTile;
+  pelletCount: number;
+  fruitThresholds: readonly [number, number];
+  clydeReleasePellets: number;
+  elroy1DotsLeft: number;
+  elroy2DotsLeft: number;
+};
 
 export type PipeEdge = {
   x1: number;
@@ -101,16 +100,45 @@ const PELLET_CHARS = new Set([".", "@"]);
 const EMPTY_CELL_CHAR = " ";
 const HOUSE_CHARS = new Set([DOOR_CHAR, HOUSE_FLOOR_CHAR]);
 
-export const GHOST_HOUSE_SPAWN_COL = 13;
-export const GHOST_HOUSE_SPAWN_ROW = 14;
-export const GHOST_HOUSE_EXIT_COL = 13;
-export const GHOST_HOUSE_EXIT_ROW = 11;
+export function scaleCount(n: number, pelletCount: number, basePelletCount: number): number {
+  return Math.max(1, Math.round((n * pelletCount) / basePelletCount));
+}
 
-function resolvePlayerSpawn(ascii: string = MAZE_ASCII): { col: number; row: number } {
+function scaleFruitThresholds(
+  pelletCount: number,
+  basePelletCount: number,
+): readonly [number, number] {
+  let first = scaleCount(BASE_FRUIT_SPAWN_THRESHOLDS[0], pelletCount, basePelletCount);
+  let second = scaleCount(BASE_FRUIT_SPAWN_THRESHOLDS[1], pelletCount, basePelletCount);
+  if (second <= first) {
+    second = Math.min(pelletCount - 1, first + 1);
+  }
+  if (first >= pelletCount) {
+    first = Math.max(1, pelletCount - 2);
+  }
+  if (second >= pelletCount) {
+    second = Math.max(first + 1, pelletCount - 1);
+  }
+  return [first, second];
+}
+
+function scaleElroyCutoffs(
+  pelletCount: number,
+  basePelletCount: number,
+): { elroy1DotsLeft: number; elroy2DotsLeft: number } {
+  const elroy1DotsLeft = scaleCount(BASE_ELROY1_DOTS_LEFT, pelletCount, basePelletCount);
+  let elroy2DotsLeft = scaleCount(BASE_ELROY2_DOTS_LEFT, pelletCount, basePelletCount);
+  if (elroy2DotsLeft >= elroy1DotsLeft) {
+    elroy2DotsLeft = Math.max(1, elroy1DotsLeft - 1);
+  }
+  return { elroy1DotsLeft, elroy2DotsLeft };
+}
+
+function resolvePlayerSpawn(ascii: string): MazeTile {
   const rows = ascii.split("\n");
   const centerLeft = Math.floor((MAZE_COLS - 1) / 2);
   const centerRight = Math.ceil((MAZE_COLS - 1) / 2);
-  let best: { col: number; row: number } | null = null;
+  let best: MazeTile | null = null;
 
   for (let row = 0; row < MAZE_ROWS; row += 1) {
     const line = rows[row] ?? "";
@@ -130,9 +158,114 @@ function resolvePlayerSpawn(ascii: string = MAZE_ASCII): { col: number; row: num
   return best;
 }
 
-const PLAYER_SPAWN = resolvePlayerSpawn();
-export const PLAYER_SPAWN_COL = PLAYER_SPAWN.col;
-export const PLAYER_SPAWN_ROW = PLAYER_SPAWN.row;
+function collectCharCells(ascii: string, match: (ch: string) => boolean): MazeTile[] {
+  const rows = ascii.split("\n");
+  const cells: MazeTile[] = [];
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    const line = rows[row] ?? "";
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (match(line[col] ?? "")) {
+        cells.push({ col, row });
+      }
+    }
+  }
+  return cells;
+}
+
+function nearestHouseFloor(target: MazeTile, floors: readonly MazeTile[]): MazeTile {
+  let best = floors[0];
+  if (!best) {
+    throw new Error("maze has no ghost house floor cells");
+  }
+  let bestDist = Math.abs(best.col - target.col) + Math.abs(best.row - target.row);
+  for (const cell of floors) {
+    const dist = Math.abs(cell.col - target.col) + Math.abs(cell.row - target.row);
+    if (dist < bestDist) {
+      best = cell;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+function deriveGhostHouseSpawn(ascii: string): MazeTile {
+  const floors = collectCharCells(ascii, (ch) => ch === HOUSE_FLOOR_CHAR);
+  if (floors.length === 0) {
+    throw new Error("maze has no ghost house floor cells");
+  }
+  let minCol = floors[0]!.col;
+  let maxCol = floors[0]!.col;
+  let minRow = floors[0]!.row;
+  let maxRow = floors[0]!.row;
+  for (const cell of floors) {
+    minCol = Math.min(minCol, cell.col);
+    maxCol = Math.max(maxCol, cell.col);
+    minRow = Math.min(minRow, cell.row);
+    maxRow = Math.max(maxRow, cell.row);
+  }
+  const target = {
+    col: Math.floor((minCol + maxCol) / 2),
+    row: Math.floor((minRow + maxRow) / 2),
+  };
+  if (floors.some((cell) => cell.col === target.col && cell.row === target.row)) {
+    return target;
+  }
+  return nearestHouseFloor(target, floors);
+}
+
+function deriveGhostHouseExit(ascii: string, playerSolids: SolidGrid): MazeTile {
+  const doors = collectCharCells(ascii, (ch) => ch === DOOR_CHAR);
+  if (doors.length === 0) {
+    throw new Error("maze has no ghost house door");
+  }
+  let minCol = doors[0]!.col;
+  let maxCol = doors[0]!.col;
+  let doorRow = doors[0]!.row;
+  for (const cell of doors) {
+    minCol = Math.min(minCol, cell.col);
+    maxCol = Math.max(maxCol, cell.col);
+    doorRow = cell.row;
+  }
+  const col = Math.floor((minCol + maxCol) / 2);
+  for (let row = doorRow - 1; row >= 0; row -= 1) {
+    if (!(playerSolids[row]?.[col] ?? true)) {
+      return { col, row };
+    }
+  }
+  throw new Error("maze has no ghost house exit above the door");
+}
+
+function deriveFruitSpawn(
+  ascii: string,
+  playerSolids: SolidGrid,
+  houseCenterCol: number,
+): MazeTile {
+  const floors = collectCharCells(ascii, (ch) => ch === HOUSE_FLOOR_CHAR);
+  if (floors.length === 0) {
+    throw new Error("maze has no ghost house floor cells");
+  }
+  const maxHouseRow = floors.reduce((max, cell) => Math.max(max, cell.row), floors[0]!.row);
+  for (let row = maxHouseRow + 1; row < MAZE_ROWS; row += 1) {
+    if (!(playerSolids[row]?.[houseCenterCol] ?? true)) {
+      return { col: houseCenterCol, row };
+    }
+  }
+  throw new Error("maze has no fruit spawn below the ghost house");
+}
+
+function countPelletsInAscii(ascii: string, playerSolids: SolidGrid): number {
+  const rows = ascii.split("\n");
+  let count = 0;
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    const line = rows[row] ?? "";
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (PELLET_CHARS.has(line[col] ?? "") && !(playerSolids[row]?.[col] ?? true)) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
 
 function emptyFlagGrid(): boolean[][] {
   return Array.from({ length: MAZE_ROWS }, () => Array.from({ length: MAZE_COLS }, () => false));
@@ -162,7 +295,7 @@ function applyOppositeEdgeSafety(walls: boolean[][]): void {
   }
 }
 
-export function parseMaze(ascii: string = MAZE_ASCII): boolean[][] {
+export function parseMaze(ascii: string = MAZE_ASCII_BY_ID.classic): boolean[][] {
   const rows = ascii.split("\n");
   if (rows.length !== MAZE_ROWS) {
     throw new Error(`maze must have ${MAZE_ROWS} rows, got ${rows.length}`);
@@ -186,7 +319,7 @@ export function parseMaze(ascii: string = MAZE_ASCII): boolean[][] {
   return grid;
 }
 
-export function parseHouse(ascii: string = MAZE_ASCII): boolean[][] {
+export function parseHouse(ascii: string = MAZE_ASCII_BY_ID.classic): boolean[][] {
   const rows = ascii.split("\n");
   const house = emptyFlagGrid();
   for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -201,7 +334,7 @@ export function parseHouse(ascii: string = MAZE_ASCII): boolean[][] {
   return house;
 }
 
-export function parseDoor(ascii: string = MAZE_ASCII): boolean[][] {
+export function parseDoor(ascii: string = MAZE_ASCII_BY_ID.classic): boolean[][] {
   const rows = ascii.split("\n");
   const door = emptyFlagGrid();
   for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -215,15 +348,15 @@ export function parseDoor(ascii: string = MAZE_ASCII): boolean[][] {
   return door;
 }
 
-export function buildExterior(walls: SolidGrid): boolean[][] {
+export function buildExterior(walls: SolidGrid, spawn: MazeTile): boolean[][] {
   const exterior = emptyFlagGrid();
   const visited = emptyFlagGrid();
   const queue: { col: number; row: number }[] = [];
   let visitedCount = 0;
 
-  if (!(walls[PLAYER_SPAWN_ROW]?.[PLAYER_SPAWN_COL] ?? true)) {
-    queue.push({ col: PLAYER_SPAWN_COL, row: PLAYER_SPAWN_ROW });
-    visited[PLAYER_SPAWN_ROW]![PLAYER_SPAWN_COL] = true;
+  if (!(walls[spawn.row]?.[spawn.col] ?? true)) {
+    queue.push({ col: spawn.col, row: spawn.row });
+    visited[spawn.row]![spawn.col] = true;
     visitedCount = 1;
   }
 
@@ -289,17 +422,111 @@ function buildPlayerSolids(walls: SolidGrid, exterior: SolidGrid, house: SolidGr
   return blocked;
 }
 
-export const MAZE_WALLS: SolidGrid = parseMaze(MAZE_ASCII);
-export const MAZE_EXTERIOR: SolidGrid = buildExterior(MAZE_WALLS);
-export const MAZE_HOUSE: SolidGrid = parseHouse(MAZE_ASCII);
-export const MAZE_DOOR: SolidGrid = parseDoor(MAZE_ASCII);
-export const MAZE_GHOST_SOLIDS: SolidGrid = buildBlocked(MAZE_WALLS, MAZE_EXTERIOR);
-export const MAZE_PLAYER_SOLIDS: SolidGrid = buildPlayerSolids(
-  MAZE_WALLS,
-  MAZE_EXTERIOR,
-  MAZE_HOUSE,
-);
-export const MAZE_SOLIDS: SolidGrid = MAZE_PLAYER_SOLIDS;
+export function buildLayout(id: MazeLayoutId, ascii: string = MAZE_ASCII_BY_ID[id]): MazeLayout {
+  const playerSpawn = resolvePlayerSpawn(ascii);
+  const walls = parseMaze(ascii);
+  const exterior = buildExterior(walls, playerSpawn);
+  const house = parseHouse(ascii);
+  const door = parseDoor(ascii);
+  const ghostSolids = buildBlocked(walls, exterior);
+  const playerSolids = buildPlayerSolids(walls, exterior, house);
+  const ghostHouseSpawn = deriveGhostHouseSpawn(ascii);
+  const ghostHouseExit = deriveGhostHouseExit(ascii, playerSolids);
+  const fruitSpawn = deriveFruitSpawn(ascii, playerSolids, ghostHouseSpawn.col);
+  const pelletCount = countPelletsInAscii(ascii, playerSolids);
+  if (pelletCount <= 0) {
+    throw new Error(`maze ${id} has no pellets`);
+  }
+
+  const basePelletCount =
+    id === "classic" ? pelletCount : (LAYOUT_CACHE.classic?.pelletCount ?? pelletCount);
+  const fruitThresholds = scaleFruitThresholds(pelletCount, basePelletCount);
+  const { elroy1DotsLeft, elroy2DotsLeft } = scaleElroyCutoffs(pelletCount, basePelletCount);
+
+  return {
+    id,
+    ascii,
+    walls,
+    exterior,
+    house,
+    door,
+    ghostSolids,
+    playerSolids,
+    playerSpawn,
+    ghostHouseSpawn,
+    ghostHouseExit,
+    fruitSpawn,
+    pelletCount,
+    fruitThresholds,
+    clydeReleasePellets: scaleCount(BASE_CLYDE_RELEASE_PELLETS, pelletCount, basePelletCount),
+    elroy1DotsLeft,
+    elroy2DotsLeft,
+  };
+}
+
+const LAYOUT_CACHE: Partial<Record<MazeLayoutId, MazeLayout>> = {};
+
+export function getLayout(id: MazeLayoutId): MazeLayout {
+  const cached = LAYOUT_CACHE[id];
+  if (cached) {
+    return cached;
+  }
+  if (id !== "classic" && !LAYOUT_CACHE.classic) {
+    LAYOUT_CACHE.classic = buildLayout("classic");
+  }
+  const layout = buildLayout(id);
+  LAYOUT_CACHE[id] = layout;
+  return layout;
+}
+
+let activeLayout: MazeLayout = getLayout("classic");
+
+function bindActiveLayout(layout: MazeLayout): void {
+  activeLayout = layout;
+  MAZE_ASCII = layout.ascii;
+  MAZE_WALLS = layout.walls;
+  MAZE_EXTERIOR = layout.exterior;
+  MAZE_HOUSE = layout.house;
+  MAZE_DOOR = layout.door;
+  MAZE_GHOST_SOLIDS = layout.ghostSolids;
+  MAZE_PLAYER_SOLIDS = layout.playerSolids;
+  MAZE_SOLIDS = layout.playerSolids;
+  PLAYER_SPAWN_COL = layout.playerSpawn.col;
+  PLAYER_SPAWN_ROW = layout.playerSpawn.row;
+  GHOST_HOUSE_SPAWN_COL = layout.ghostHouseSpawn.col;
+  GHOST_HOUSE_SPAWN_ROW = layout.ghostHouseSpawn.row;
+  GHOST_HOUSE_EXIT_COL = layout.ghostHouseExit.col;
+  GHOST_HOUSE_EXIT_ROW = layout.ghostHouseExit.row;
+  FRUIT_SPAWN_COL = layout.fruitSpawn.col;
+  FRUIT_SPAWN_ROW = layout.fruitSpawn.row;
+}
+
+export function getActiveLayout(): MazeLayout {
+  return activeLayout;
+}
+
+export function activateLayout(id: MazeLayoutId): MazeLayout {
+  const layout = getLayout(id);
+  bindActiveLayout(layout);
+  return layout;
+}
+
+export let MAZE_ASCII = activeLayout.ascii;
+export let MAZE_WALLS: SolidGrid = activeLayout.walls;
+export let MAZE_EXTERIOR: SolidGrid = activeLayout.exterior;
+export let MAZE_HOUSE: SolidGrid = activeLayout.house;
+export let MAZE_DOOR: SolidGrid = activeLayout.door;
+export let MAZE_GHOST_SOLIDS: SolidGrid = activeLayout.ghostSolids;
+export let MAZE_PLAYER_SOLIDS: SolidGrid = activeLayout.playerSolids;
+export let MAZE_SOLIDS: SolidGrid = activeLayout.playerSolids;
+export let PLAYER_SPAWN_COL = activeLayout.playerSpawn.col;
+export let PLAYER_SPAWN_ROW = activeLayout.playerSpawn.row;
+export let GHOST_HOUSE_SPAWN_COL = activeLayout.ghostHouseSpawn.col;
+export let GHOST_HOUSE_SPAWN_ROW = activeLayout.ghostHouseSpawn.row;
+export let GHOST_HOUSE_EXIT_COL = activeLayout.ghostHouseExit.col;
+export let GHOST_HOUSE_EXIT_ROW = activeLayout.ghostHouseExit.row;
+export let FRUIT_SPAWN_COL = activeLayout.fruitSpawn.col;
+export let FRUIT_SPAWN_ROW = activeLayout.fruitSpawn.row;
 
 export function isHouse(col: number, row: number, house: SolidGrid = MAZE_HOUSE): boolean {
   if (!inBounds(col, row)) {
@@ -1023,7 +1250,7 @@ export function walkableCellCenters(
 export type PelletKind = "dot" | "power";
 
 export function pelletCellCenters(
-  ascii: string = MAZE_ASCII,
+  ascii: string = getActiveLayout().ascii,
 ): { col: number; row: number; x: number; y: number; kind: PelletKind }[] {
   const rows = ascii.split("\n");
   const cells: { col: number; row: number; x: number; y: number; kind: PelletKind }[] = [];

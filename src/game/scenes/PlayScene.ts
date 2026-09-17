@@ -31,8 +31,11 @@ import {
   type DeathSequenceState,
 } from "../../domain/deathSequence";
 import {
+  activateLayout,
   ghostHouseSpawnCenter,
+  parseMazeParam,
   pelletCellCenters,
+  pickLayoutId,
   playerSpawnCenter,
   wallCellCenters,
 } from "../../domain/maze";
@@ -131,6 +134,12 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     this.world = createWorld();
     this.death = null;
+    const urlParams = new URLSearchParams(location.search);
+    const mazeOverride = parseMazeParam(urlParams);
+    if (urlParams.has("maze") && mazeOverride === null) {
+      console.warn(`Unknown ?maze= value; expected classic|mspac`);
+    }
+    activateLayout(pickLayoutId(Math.random, mazeOverride));
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
@@ -143,7 +152,6 @@ export class PlayScene extends Phaser.Scene {
     this.ghostModeClock = createGhostModeClock();
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.fruitPresence = createFruitPresence();
-    const urlParams = new URLSearchParams(location.search);
     this.runUpgrades = createRunUpgrades(
       parseUpgradeId(urlParams.get("forceUpgrade")),
       parseEnableUpgradeParams(urlParams),

@@ -29,7 +29,7 @@ npx playwright install chromium
 | `npm run verify:precommit` | Fast gate — typecheck, lint, format, ECS, tests |
 | `npm run verify`           | **Canonical gate** — precommit + build + visual |
 
-Dev upgrade URL flags (see [docs/upgrades.md](./docs/upgrades.md)): `?forceUpgrade=<id>` forces the next fruit grant; repeat `?enableUpgrade=<id>` to own upgrades immediately (`powerPelletFreeze` | `playerSpeedUp` | `ghostSlow`).
+Dev URL flags: `?maze=classic|mspac` forces a layout (otherwise random each Start); upgrade flags (see [docs/upgrades.md](./docs/upgrades.md)): `?forceUpgrade=<id>` forces the next fruit grant; repeat `?enableUpgrade=<id>` to own upgrades immediately (`powerPelletFreeze` | `playerSpeedUp` | `ghostSlow`).
 
 `npm install` points Git at `.githooks/` (`core.hooksPath`). The pre-commit hook runs `npm run verify:precommit` (no build/visual). Full `npm run verify` remains the CI and completion gate.
 
@@ -58,7 +58,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 
 ## Status
 
-Boots to a `PAC-ROGUE` menu (Start / High Scores). Start opens the maze; High Scores lists localStorage clears (score desc). ECS Pac-Man traverses a static maze (blue pipe walls, centerline movement, sticky next-direction turns, side tunnels with wrap). Regular pellets with a collected counter, a top-right countdown, and capped localStorage history of successful clears (score = remaining time). Bonus fruit appears under the ghost house after 70 and 170 pellets for 10 real seconds (level-1 cherries via strawberry art stand-in; pickup plays double munch, no score yet) and grants one random distinct run upgrade (Power Freeze / Speed Up / Ghost Slow — see [docs/upgrades.md](./docs/upgrades.md)). Blinky + Pinky + Clyde: shared house spawn; Blinky/Pinky time release (0.1s / 5s, tunable); Clyde leaves after 60 pellets (tunable); chase-first arcade scatter/chase waves; Blinky Cruise Elroy; Pinky 4-tile look-ahead + NW scatter; Clyde shy chase + SW scatter (tunable); tunnel slowdown; contact returns to the menu. Power pellets are inert unless an owned upgrade reacts (freeze); no arcade fright / Inky yet.
+Boots to a `PAC-ROGUE` menu (Start / High Scores). Start opens a randomly chosen maze (`classic` or arcade Ms. Pac-Man Maze 1 `mspac`; override with `?maze=`); High Scores lists localStorage clears (score desc). ECS Pac-Man traverses the active maze (blue pipe walls, centerline movement, sticky next-direction turns, side tunnels with wrap). Regular pellets with a collected counter, a top-right countdown, and capped localStorage history of successful clears (score = remaining time). Bonus fruit appears under the ghost house after layout-scaled pellet thresholds (classic 70/170) for 10 real seconds (level-1 cherries via strawberry art stand-in; pickup plays double munch, no score yet) and grants one random distinct run upgrade (Power Freeze / Speed Up / Ghost Slow — see [docs/upgrades.md](./docs/upgrades.md)). Blinky + Pinky + Clyde: shared house spawn; Blinky/Pinky time release (0.1s / 5s, tunable); Clyde leaves after layout-scaled pellets (classic 60); chase-first arcade scatter/chase waves; Blinky Cruise Elroy; Pinky 4-tile look-ahead + NW scatter; Clyde shy chase + SW scatter (tunable); tunnel slowdown; contact returns to the menu. Power pellets are inert unless an owned upgrade reacts (freeze); no arcade fright / Inky yet.
 
 ## Art
 

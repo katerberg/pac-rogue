@@ -8,7 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ports = JSON.parse(readFileSync(join(root, "scripts", "ports.json"), "utf8"));
 const playArtifactPath = join(root, "artifacts", "visual-smoke.png");
 const menuArtifactPath = join(root, "artifacts", "visual-smoke-menu.png");
-const url = `http://127.0.0.1:${ports.agentPreview}/`;
+const url = `http://127.0.0.1:${ports.agentPreview}/?maze=classic`;
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;

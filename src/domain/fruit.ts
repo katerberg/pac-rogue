@@ -1,4 +1,10 @@
-import { cellCenterX, cellCenterY } from "./maze";
+import {
+  cellCenterX,
+  cellCenterY,
+  FRUIT_SPAWN_COL,
+  FRUIT_SPAWN_ROW,
+  getActiveLayout,
+} from "./maze";
 
 export type FruitKind =
   "cherries" | "strawberry" | "peach" | "apple" | "grapes" | "galaxian" | "bell" | "key";
@@ -24,12 +30,9 @@ export const FRUIT_BY_LEVEL: readonly FruitLevelSpec[] = [
   { kind: "key", points: 5000 },
 ];
 
-export const FRUIT_SPAWN_THRESHOLDS = [70, 170] as const;
-
 export const FRUIT_LIFETIME_MS = 10_000;
 
-export const FRUIT_SPAWN_COL = 13;
-export const FRUIT_SPAWN_ROW = 17;
+export { FRUIT_SPAWN_COL, FRUIT_SPAWN_ROW };
 
 export const CURRENT_LEVEL = 1;
 
@@ -38,6 +41,10 @@ const FRUIT_ART_BY_KIND: Partial<Record<FruitKind, string>> = {
   strawberry: "art/other/strawberry.png",
   apple: "art/other/apple.png",
 };
+
+export function fruitSpawnThresholds(): readonly [number, number] {
+  return getActiveLayout().fruitThresholds;
+}
 
 export function fruitSpecForLevel(level: number): FruitLevelSpec {
   if (level < 1) {
@@ -52,9 +59,10 @@ export function fruitArtPath(kind: FruitKind): string {
 }
 
 export function fruitSpawnCenter(): { x: number; y: number } {
+  const { fruitSpawn } = getActiveLayout();
   return {
-    x: cellCenterX(FRUIT_SPAWN_COL),
-    y: cellCenterY(FRUIT_SPAWN_ROW),
+    x: cellCenterX(fruitSpawn.col),
+    y: cellCenterY(fruitSpawn.row),
   };
 }
 
@@ -98,9 +106,10 @@ export function tickFruitPresence(
   let next = state;
   let action: FruitPresenceAction = "none";
 
+  const thresholds = fruitSpawnThresholds();
   while (
-    next.nextThresholdIndex < FRUIT_SPAWN_THRESHOLDS.length &&
-    collectedCount >= FRUIT_SPAWN_THRESHOLDS[next.nextThresholdIndex]!
+    next.nextThresholdIndex < thresholds.length &&
+    collectedCount >= thresholds[next.nextThresholdIndex]!
   ) {
     const wasActive = next.active;
     next = {
