@@ -30,6 +30,25 @@ const ALL_IDS: UpgradeId[] = [
   "scatterBurst",
   "ghostRecall",
   "warpTop",
+  "pickupRange",
+  "ghostHouseDelay",
+  "extraLife",
+  "pelletToPower",
+  "powerCollectThree",
+  "powerWallPass",
+  "powerSpeedBurst",
+  "powerInvuln",
+];
+
+const STUB_IDS: UpgradeId[] = [
+  "pickupRange",
+  "ghostHouseDelay",
+  "extraLife",
+  "pelletToPower",
+  "powerCollectThree",
+  "powerWallPass",
+  "powerSpeedBurst",
+  "powerInvuln",
 ];
 
 function withForce(forceNextId: UpgradeId | null, owned: UpgradeId[] = []): RunUpgrades {
@@ -44,6 +63,9 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId("scatterBurst")).toBe("scatterBurst");
     expect(parseUpgradeId("ghostRecall")).toBe("ghostRecall");
     expect(parseUpgradeId("warpTop")).toBe("warpTop");
+    for (const id of STUB_IDS) {
+      expect(parseUpgradeId(id)).toBe(id);
+    }
     expect(parseUpgradeId("nope")).toBeNull();
     expect(parseUpgradeId(null)).toBeNull();
     expect(parseUpgradeId("")).toBeNull();
@@ -99,12 +121,7 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   });
 
   it("re-includes lastDeclined when needed to form a pair", () => {
-    const owned: UpgradeId[] = [
-      "powerPelletFreeze",
-      "playerSpeedUp",
-      "scatterBurst",
-      "ghostRecall",
-    ];
+    const owned = ALL_IDS.filter((id) => id !== "ghostSlow" && id !== "warpTop");
     const options = pickUpgradeChoiceOffer(owned, "ghostSlow", () => 0, null);
     expect(options).toEqual(expect.arrayContaining(["ghostSlow", "warpTop"]));
     expect(options!).toHaveLength(2);
@@ -159,6 +176,21 @@ describe("grantUpgrade", () => {
   it("is idempotent for already owned", () => {
     const once = grantUpgrade(createRunUpgrades(), "ghostSlow");
     expect(grantUpgrade(once, "ghostSlow")).toEqual(once);
+  });
+
+  it("grants stub ids with no power-pellet side effects", () => {
+    let state = createRunUpgrades();
+    for (const id of STUB_IDS) {
+      state = grantUpgrade(state, id);
+    }
+    expect(state.owned).toEqual(STUB_IDS);
+    expect(applyPowerPelletEffects(state, 1)).toEqual({
+      state,
+      recallClosestGhost: false,
+      warpPlayerTopCenter: false,
+    });
+    expect(playerSpeedMultiplier(state.owned)).toBe(1);
+    expect(ghostSpeedMultiplier(state.owned)).toBe(1);
   });
 });
 

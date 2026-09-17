@@ -45,7 +45,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `enableUpgrade` | upgrade id (repeatable) | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Combines with `forceUpgrade`.             |
 | `sound`         | `1`                     | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                      |
 
-Upgrade ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`, `scatterBurst`, `ghostRecall`, `warpTop`.
+Upgrade ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`, `scatterBurst`, `ghostRecall`, `warpTop`, `pickupRange`, `ghostHouseDelay`, `extraLife`, `pelletToPower`, `powerCollectThree`, `powerWallPass`, `powerSpeedBurst`, `powerInvuln`.
 
 ```text
 http://127.0.0.1:5174/?maze=maze2

@@ -1,5 +1,18 @@
 export type UpgradeId =
-  "powerPelletFreeze" | "playerSpeedUp" | "ghostSlow" | "scatterBurst" | "ghostRecall" | "warpTop";
+  | "powerPelletFreeze"
+  | "playerSpeedUp"
+  | "ghostSlow"
+  | "scatterBurst"
+  | "ghostRecall"
+  | "warpTop"
+  | "pickupRange"
+  | "ghostHouseDelay"
+  | "extraLife"
+  | "pelletToPower"
+  | "powerCollectThree"
+  | "powerWallPass"
+  | "powerSpeedBurst"
+  | "powerInvuln";
 
 export type UpgradeDef = {
   id: UpgradeId;
@@ -56,6 +69,46 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     label: "Warp Top",
     description: "Power pellet flings you to the top of the maze.",
     onPowerPellet: { warpPlayerTopCenter: true },
+  },
+  {
+    id: "pickupRange",
+    label: "Pickup Range",
+    description: "Pellets within a cell of you snap into your mouth.",
+  },
+  {
+    id: "ghostHouseDelay",
+    label: "House Delay",
+    description: "Ghosts linger longer in the house before the hunt.",
+  },
+  {
+    id: "extraLife",
+    label: "Extra Life",
+    description: "One more chance before the maze goes dark.",
+  },
+  {
+    id: "pelletToPower",
+    label: "Pellet Surge",
+    description: "A quiet pellet turns hot — and another may follow.",
+  },
+  {
+    id: "powerCollectThree",
+    label: "Triple Chomp",
+    description: "Power pellet gulps three more pellets with it.",
+  },
+  {
+    id: "powerWallPass",
+    label: "Wall Pass",
+    description: "Power pellet lets you slip through walls for a breath.",
+  },
+  {
+    id: "powerSpeedBurst",
+    label: "Speed Burst",
+    description: "Power pellet spikes your pace for a few seconds.",
+  },
+  {
+    id: "powerInvuln",
+    label: "Ghost Proof",
+    description: "Power pellet lets you pass through ghosts briefly.",
   },
 ];
 
