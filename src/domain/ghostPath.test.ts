@@ -7,7 +7,7 @@ import {
   pickGhostDirection,
   reverseGhostDir,
 } from "./ghostPath";
-import { MAZE_GHOST_SOLIDS, canGhostEnterDirection, cellCenterX, cellCenterY } from "./maze";
+import { getActiveLayout, canGhostEnterDirection, cellCenterX, cellCenterY } from "./maze";
 import { BLINKY_SCATTER_COL, BLINKY_SCATTER_ROW, GHOST_PHASE } from "./ghostTarget";
 
 const L_SAMPLES = [
@@ -19,6 +19,8 @@ const L_SAMPLES = [
 ] as const;
 
 describe("ghostPath", () => {
+  const ghostSolids = getActiveLayout().ghostSolids;
+
   it("prefers the neighbor closer to the target", () => {
     const x = cellCenterX(6);
     const y = cellCenterY(5);
@@ -28,7 +30,7 @@ describe("ghostPath", () => {
       facing: GHOST_DIR.left,
       targetCol: 6,
       targetRow: 1,
-      solids: MAZE_GHOST_SOLIDS,
+      solids: ghostSolids,
     });
     expect(dir).toBe(GHOST_DIR.up);
   });
@@ -42,7 +44,7 @@ describe("ghostPath", () => {
       facing: GHOST_DIR.none,
       targetCol: 1,
       targetRow: 5,
-      solids: MAZE_GHOST_SOLIDS,
+      solids: ghostSolids,
     });
     expect(dir).toBe(GHOST_DIR.up);
   });
@@ -56,17 +58,17 @@ describe("ghostPath", () => {
       facing: GHOST_DIR.right,
       targetCol: 1,
       targetRow: 5,
-      solids: MAZE_GHOST_SOLIDS,
+      solids: ghostSolids,
     });
     expect(dir).not.toBe(GHOST_DIR.left);
   });
 
   it("identifies perpendicular L corners vs corridors", () => {
-    const ne = openGhostDirsAt(cellCenterX(26), cellCenterY(1), MAZE_GHOST_SOLIDS);
+    const ne = openGhostDirsAt(cellCenterX(26), cellCenterY(1), ghostSolids);
     expect(isPerpendicularLCorner(ne)).toBe(true);
     expect(lCornerTurnDir(ne, GHOST_DIR.right)).toBe(GHOST_DIR.down);
 
-    const corridor = openGhostDirsAt(cellCenterX(20), cellCenterY(1), MAZE_GHOST_SOLIDS);
+    const corridor = openGhostDirsAt(cellCenterX(20), cellCenterY(1), ghostSolids);
     expect(corridor).toEqual([GHOST_DIR.left, GHOST_DIR.right]);
     expect(isPerpendicularLCorner(corridor)).toBe(false);
   });
@@ -80,11 +82,7 @@ describe("ghostPath", () => {
       { col: 13, row: 14 },
     ];
     for (const sample of L_SAMPLES) {
-      const opens = openGhostDirsAt(
-        cellCenterX(sample.col),
-        cellCenterY(sample.row),
-        MAZE_GHOST_SOLIDS,
-      );
+      const opens = openGhostDirsAt(cellCenterX(sample.col), cellCenterY(sample.row), ghostSolids);
       expect(isPerpendicularLCorner(opens)).toBe(true);
       for (const target of targets) {
         const dir = pickGhostDirection({
@@ -93,7 +91,7 @@ describe("ghostPath", () => {
           facing: sample.intoWall,
           targetCol: target.col,
           targetRow: target.row,
-          solids: MAZE_GHOST_SOLIDS,
+          solids: ghostSolids,
         });
         expect(dir).toBe(sample.turn);
         expect(dir).not.toBe(reverseGhostDir(sample.intoWall));
@@ -108,7 +106,7 @@ describe("ghostPath", () => {
       facing: GHOST_DIR.right,
       targetCol: BLINKY_SCATTER_COL,
       targetRow: BLINKY_SCATTER_ROW,
-      solids: MAZE_GHOST_SOLIDS,
+      solids: ghostSolids,
     });
     expect(dir).toBe(GHOST_DIR.down);
   });
@@ -120,7 +118,7 @@ describe("ghostPath", () => {
       facing: GHOST_DIR.left,
       targetCol: BLINKY_SCATTER_COL,
       targetRow: BLINKY_SCATTER_ROW,
-      solids: MAZE_GHOST_SOLIDS,
+      solids: ghostSolids,
     });
     expect(dir).toBe(GHOST_DIR.down);
   });
@@ -141,7 +139,7 @@ describe("ghostPath", () => {
         facing,
         targetCol: BLINKY_SCATTER_COL,
         targetRow: BLINKY_SCATTER_ROW,
-        solids: MAZE_GHOST_SOLIDS,
+        solids: ghostSolids,
       });
       if (col === 26 && row === 1) {
         visits26 += 1;
@@ -175,7 +173,7 @@ describe("ghostPath", () => {
       facing: GHOST_DIR.none,
       targetCol: 13,
       targetRow: 14,
-      solids: MAZE_GHOST_SOLIDS,
+      solids: ghostSolids,
       canEnter: (x, y, dx, dy) => canGhostEnterDirection(x, y, dx, dy, GHOST_PHASE.active),
     });
     expect(dir).not.toBe(GHOST_DIR.down);

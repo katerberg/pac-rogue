@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { cellCenterX, cellCenterY, isWalkable, MAZE_PLAYER_SOLIDS } from "./maze";
+import { cellCenterX, cellCenterY, getActiveLayout, isWalkable } from "./maze";
 import {
   CURRENT_LEVEL,
   FRUIT_LIFETIME_MS,
-  FRUIT_SPAWN_COL,
-  FRUIT_SPAWN_ROW,
-  FRUIT_SPAWN_THRESHOLDS,
   createFruitPresence,
   fruitArtPath,
   fruitSpawnCenter,
@@ -40,23 +37,23 @@ describe("fruitArtPath", () => {
 });
 
 describe("fruitSpawnCenter", () => {
-  it("centers on a player-walkable cell under the ghost house", () => {
+  it("centers on the active layout fruit cell under the ghost house", () => {
+    const { fruitSpawn, playerSolids } = getActiveLayout();
     expect(fruitSpawnCenter()).toEqual({
-      x: cellCenterX(FRUIT_SPAWN_COL),
-      y: cellCenterY(FRUIT_SPAWN_ROW),
+      x: cellCenterX(fruitSpawn.col),
+      y: cellCenterY(fruitSpawn.row),
     });
-    expect(FRUIT_SPAWN_COL).toBe(13);
-    expect(FRUIT_SPAWN_ROW).toBe(17);
-    expect(isWalkable(FRUIT_SPAWN_COL, FRUIT_SPAWN_ROW, MAZE_PLAYER_SOLIDS)).toBe(true);
+    expect(isWalkable(fruitSpawn.col, fruitSpawn.row, playerSolids)).toBe(true);
   });
 });
 
 describe("tickFruitPresence", () => {
   it("spawns when collectedCount crosses 70", () => {
+    const [firstThreshold] = getActiveLayout().fruitThresholds;
     const idle = createFruitPresence();
-    expect(tickFruitPresence(idle, 69, 16).action).toBe("none");
+    expect(tickFruitPresence(idle, firstThreshold - 1, 16).action).toBe("none");
 
-    const crossed = tickFruitPresence(idle, 70, 16);
+    const crossed = tickFruitPresence(idle, firstThreshold, 16);
     expect(crossed.action).toBe("spawn");
     expect(crossed.state.active).toBe(true);
     expect(crossed.state.remainingMs).toBe(FRUIT_LIFETIME_MS);
@@ -64,24 +61,26 @@ describe("tickFruitPresence", () => {
   });
 
   it("expires after 10_000 ms of real delta, not countdown ticks", () => {
-    const { state } = tickFruitPresence(createFruitPresence(), 70, 0);
+    const [firstThreshold] = getActiveLayout().fruitThresholds;
+    const { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
     expect(state.active).toBe(true);
 
-    const mid = tickFruitPresence(state, 70, FRUIT_LIFETIME_MS - 1);
+    const mid = tickFruitPresence(state, firstThreshold, FRUIT_LIFETIME_MS - 1);
     expect(mid.action).toBe("none");
     expect(mid.state.active).toBe(true);
     expect(mid.state.remainingMs).toBe(1);
 
-    const end = tickFruitPresence(mid.state, 70, 1);
+    const end = tickFruitPresence(mid.state, firstThreshold, 1);
     expect(end.action).toBe("despawn");
     expect(end.state.active).toBe(false);
     expect(end.state.remainingMs).toBe(0);
   });
 
   it("does not treat run-clock 100ms ticks as fruit seconds", () => {
-    let { state } = tickFruitPresence(createFruitPresence(), 70, 0);
+    const [firstThreshold] = getActiveLayout().fruitThresholds;
+    let { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
     for (let i = 0; i < 10; i += 1) {
-      const tick = tickFruitPresence(state, 70, 100);
+      const tick = tickFruitPresence(state, firstThreshold, 100);
       state = tick.state;
       expect(tick.action).toBe("none");
       expect(state.active).toBe(true);
@@ -90,31 +89,34 @@ describe("tickFruitPresence", () => {
   });
 
   it("replaces when 170 fires while first fruit is still active", () => {
-    const first = tickFruitPresence(createFruitPresence(), 70, 0);
-    const aged = tickFruitPresence(first.state, 100, 3_000);
+    const [firstThreshold, secondThreshold] = getActiveLayout().fruitThresholds;
+    const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
+    const aged = tickFruitPresence(first.state, firstThreshold + 30, 3_000);
     expect(aged.state.active).toBe(true);
 
-    const second = tickFruitPresence(aged.state, 170, 16);
+    const second = tickFruitPresence(aged.state, secondThreshold, 16);
     expect(second.action).toBe("replace");
     expect(second.state.active).toBe(true);
     expect(second.state.remainingMs).toBe(FRUIT_LIFETIME_MS);
-    expect(second.state.nextThresholdIndex).toBe(FRUIT_SPAWN_THRESHOLDS.length);
+    expect(second.state.nextThresholdIndex).toBe(getActiveLayout().fruitThresholds.length);
   });
 
   it("spawns the second fruit after the first has despawned", () => {
-    let { state } = tickFruitPresence(createFruitPresence(), 70, 0);
-    state = tickFruitPresence(state, 100, FRUIT_LIFETIME_MS).state;
+    const [firstThreshold, secondThreshold] = getActiveLayout().fruitThresholds;
+    let { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
+    state = tickFruitPresence(state, firstThreshold + 30, FRUIT_LIFETIME_MS).state;
     expect(state.active).toBe(false);
 
-    const second = tickFruitPresence(state, 170, 0);
+    const second = tickFruitPresence(state, secondThreshold, 0);
     expect(second.action).toBe("spawn");
     expect(second.state.active).toBe(true);
     expect(second.state.remainingMs).toBe(FRUIT_LIFETIME_MS);
   });
 
   it("does not re-fire a consumed threshold", () => {
-    const first = tickFruitPresence(createFruitPresence(), 70, 0);
-    const again = tickFruitPresence(first.state, 70, 16);
+    const [firstThreshold] = getActiveLayout().fruitThresholds;
+    const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
+    const again = tickFruitPresence(first.state, firstThreshold, 16);
     expect(again.action).toBe("none");
     expect(again.state.nextThresholdIndex).toBe(1);
   });
@@ -122,7 +124,8 @@ describe("tickFruitPresence", () => {
 
 describe("markFruitCollected", () => {
   it("clears active fruit without consuming the next threshold", () => {
-    const spawned = tickFruitPresence(createFruitPresence(), 70, 0).state;
+    const [firstThreshold] = getActiveLayout().fruitThresholds;
+    const spawned = tickFruitPresence(createFruitPresence(), firstThreshold, 0).state;
     const cleared = markFruitCollected(spawned);
     expect(cleared.active).toBe(false);
     expect(cleared.nextThresholdIndex).toBe(1);

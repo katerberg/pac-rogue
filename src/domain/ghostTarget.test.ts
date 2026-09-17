@@ -15,7 +15,7 @@ import {
 } from "./ghostTarget";
 import { GHOST_AI_MODE } from "./ghostMode";
 import { GHOST_DIR } from "./ghostPath";
-import { GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW } from "./maze";
+import { getActiveLayout } from "./maze";
 
 describe("blinkyTarget", () => {
   it("targets the house exit while leaving", () => {
@@ -27,7 +27,7 @@ describe("blinkyTarget", () => {
         playerCol: 10,
         playerRow: 20,
       }),
-    ).toEqual({ col: GHOST_HOUSE_EXIT_COL, row: GHOST_HOUSE_EXIT_ROW });
+    ).toEqual(getActiveLayout().ghostHouseExit);
   });
 
   it("uses the scatter corner when not Elroy", () => {
@@ -88,7 +88,7 @@ describe("pinkyTarget", () => {
         playerRow: 20,
         playerFacing: GHOST_DIR.right,
       }),
-    ).toEqual({ col: GHOST_HOUSE_EXIT_COL, row: GHOST_HOUSE_EXIT_ROW });
+    ).toEqual(getActiveLayout().ghostHouseExit);
   });
 
   it("uses the NW scatter corner", () => {
@@ -167,7 +167,7 @@ describe("clydeTarget", () => {
         ghostCol: 13,
         ghostRow: 14,
       }),
-    ).toEqual({ col: GHOST_HOUSE_EXIT_COL, row: GHOST_HOUSE_EXIT_ROW });
+    ).toEqual(getActiveLayout().ghostHouseExit);
   });
 
   it("uses the SW scatter corner in scatter mode", () => {

@@ -3,13 +3,12 @@ import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import {
   BLINKY_RELEASE_DELAY_MS,
-  CLYDE_RELEASE_PELLETS,
   PINKY_RELEASE_DELAY_MS,
   createGhostReleaseClock,
   tickGhostRelease,
 } from "../../domain/ghostRelease";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
-import { ghostHouseSpawnCenter } from "../../domain/maze";
+import { BASE_CLYDE_RELEASE_PELLETS, ghostHouseSpawnCenter } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -72,7 +71,7 @@ describe("ghostRelease per kind", () => {
     const { eid: pinky } = spawnHouseGhost(GHOST_KIND.pinky, world);
     const { eid: clyde } = spawnHouseGhost(GHOST_KIND.clyde, world);
     const clock = createGhostReleaseClock();
-    ghostRelease(world, clock, CLYDE_RELEASE_PELLETS);
+    ghostRelease(world, clock, BASE_CLYDE_RELEASE_PELLETS);
     expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.leaving);
     expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.inHouse);
     expect(GhostPhase.value[pinky]).toBe(GHOST_PHASE.inHouse);

@@ -1,8 +1,8 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import { getActiveLayout } from "./maze";
 
 export const BLINKY_RELEASE_DELAY_MS = 100;
 export const PINKY_RELEASE_DELAY_MS = 5_000;
-export const CLYDE_RELEASE_PELLETS = 60;
 
 export type GhostReleaseClock = {
   started: boolean;
@@ -49,7 +49,7 @@ export function shouldReleaseKind(
   collectedCount: number,
 ): boolean {
   if (kind === GHOST_KIND.clyde) {
-    return collectedCount >= CLYDE_RELEASE_PELLETS;
+    return collectedCount >= getActiveLayout().clydeReleasePellets;
   }
   return shouldReleaseGhostAt(clock, releaseDelayForKind(kind));
 }

@@ -10,8 +10,7 @@ import { createGhostReleaseClock, tickGhostRelease } from "../../domain/ghostRel
 import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
-  GHOST_HOUSE_EXIT_COL,
-  GHOST_HOUSE_EXIT_ROW,
+  getActiveLayout,
   cellCenterX,
   cellCenterY,
   ghostHouseSpawnCenter,
@@ -192,7 +191,7 @@ describe("blinky chase start integration", () => {
       if (active && exitedAt < 0) {
         exitedAt = i;
         expect(isHouse(col, row)).toBe(false);
-        expect(row).toBeLessThanOrEqual(GHOST_HOUSE_EXIT_ROW);
+        expect(row).toBeLessThanOrEqual(getActiveLayout().ghostHouseExit.row);
       }
       if (active && isHouse(col, row)) {
         houseAfterExit += 1;
@@ -202,8 +201,9 @@ describe("blinky chase start integration", () => {
     expect(exitedAt).toBeGreaterThanOrEqual(0);
     expect(houseAfterExit).toBe(0);
 
-    Position.x[ghost] = cellCenterX(GHOST_HOUSE_EXIT_COL);
-    Position.y[ghost] = cellCenterY(GHOST_HOUSE_EXIT_ROW);
+    const exit = getActiveLayout().ghostHouseExit;
+    Position.x[ghost] = cellCenterX(exit.col);
+    Position.y[ghost] = cellCenterY(exit.row);
     Facing.direction[ghost] = DIRECTION.down;
     Input.direction[ghost] = DIRECTION.down;
     Position.x[player] = cellCenterX(13);

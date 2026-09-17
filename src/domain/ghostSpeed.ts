@@ -1,13 +1,11 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import { getActiveLayout } from "./maze";
 import { PLAYER_SPEED } from "./playfield";
 
 export const GHOST_SPEED = PLAYER_SPEED * 0.9375;
 export const GHOST_ELROY1_SPEED = PLAYER_SPEED * 1.0;
 export const GHOST_ELROY2_SPEED = PLAYER_SPEED * (85 / 80);
 export const GHOST_TUNNEL_SPEED = PLAYER_SPEED * 0.5;
-
-export const ELROY1_DOTS_LEFT = 20;
-export const ELROY2_DOTS_LEFT = 10;
 
 export const ELROY_TIER = {
   none: 0,
@@ -18,10 +16,11 @@ export const ELROY_TIER = {
 export type ElroyTier = (typeof ELROY_TIER)[keyof typeof ELROY_TIER];
 
 export function elroyTier(pelletsRemaining: number): ElroyTier {
-  if (pelletsRemaining <= ELROY2_DOTS_LEFT) {
+  const layout = getActiveLayout();
+  if (pelletsRemaining <= layout.elroy2DotsLeft) {
     return ELROY_TIER.elroy2;
   }
-  if (pelletsRemaining <= ELROY1_DOTS_LEFT) {
+  if (pelletsRemaining <= layout.elroy1DotsLeft) {
     return ELROY_TIER.elroy1;
   }
   return ELROY_TIER.none;

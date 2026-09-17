@@ -1,18 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  getActiveLayout,
   MAZE_COLS,
   MAZE_OFFSET_X,
   MAZE_OFFSET_Y,
   MAZE_PIXEL_WIDTH,
   MAZE_TOP_MARGIN_PX,
   MAZE_ROWS,
-  MAZE_SOLIDS,
-  MAZE_WALLS,
-  MAZE_EXTERIOR,
-  GHOST_HOUSE_EXIT_COL,
-  GHOST_HOUSE_EXIT_ROW,
-  PLAYER_SPAWN_COL,
-  PLAYER_SPAWN_ROW,
   TILE_SIZE,
   buildExterior,
   canEnterDirection,
@@ -40,7 +34,6 @@ import {
   playerTopCenterCell,
   playerTopCenterSpawn,
   pelletCellCenters,
-  MAZE_PLAYER_SOLIDS,
   PLAYER_WALL_PADDING_PX,
   WALL_CORNER_RADIUS,
   WALL_CORNER_CURVE_MIN_STEPS,
@@ -58,8 +51,8 @@ import { GHOST_PHASE } from "./ghostTarget";
 
 describe("maze", () => {
   it("parses to 28×31 with narrower opposite-edge safety", () => {
-    expect(MAZE_SOLIDS).toHaveLength(MAZE_ROWS);
-    expect(MAZE_SOLIDS[0]).toHaveLength(MAZE_COLS);
+    expect(getActiveLayout().playerSolids).toHaveLength(MAZE_ROWS);
+    expect(getActiveLayout().playerSolids[0]).toHaveLength(MAZE_COLS);
     expect(TILE_SIZE).toBe(
       Math.floor(Math.min(800 / MAZE_COLS, Math.max(1, 600 - MAZE_TOP_MARGIN_PX) / MAZE_ROWS)),
     );
@@ -163,8 +156,9 @@ describe("maze", () => {
     expect(isGhostWalkable(13, 14)).toBe(true);
     expect(isWalkable(13, 12)).toBe(false);
     expect(isWalkable(13, 14)).toBe(false);
-    expect(isWalkable(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
-    expect(isGhostWalkable(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
+    const exit = getActiveLayout().ghostHouseExit;
+    expect(isWalkable(exit.col, exit.row)).toBe(true);
+    expect(isGhostWalkable(exit.col, exit.row)).toBe(true);
   });
 
   it("marks the middle house door tiles and draws one gate edge across them", () => {
@@ -179,17 +173,19 @@ describe("maze", () => {
   });
 
   it("treats the exit corridor as outside the house", () => {
+    const exit = getActiveLayout().ghostHouseExit;
     expect(hasLeftGhostHouse(13, 14)).toBe(false);
     expect(hasLeftGhostHouse(13, 12)).toBe(false);
-    expect(hasLeftGhostHouse(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
-    expect(hasLeftGhostHouse(12, GHOST_HOUSE_EXIT_ROW)).toBe(true);
+    expect(hasLeftGhostHouse(exit.col, exit.row)).toBe(true);
+    expect(hasLeftGhostHouse(12, exit.row)).toBe(true);
   });
 
   it("allows leaving ghosts up through the door but blocks re-entry once active", () => {
     const doorX = cellCenterX(13);
     const doorY = cellCenterY(12);
-    const exitX = cellCenterX(GHOST_HOUSE_EXIT_COL);
-    const exitY = cellCenterY(GHOST_HOUSE_EXIT_ROW);
+    const exit = getActiveLayout().ghostHouseExit;
+    const exitX = cellCenterX(exit.col);
+    const exitY = cellCenterY(exit.row);
 
     expect(canGhostEnterDirection(doorX, doorY, 0, -1, GHOST_PHASE.leaving)).toBe(true);
     expect(canGhostEnterDirection(exitX, exitY, 0, 1, GHOST_PHASE.leaving)).toBe(false);
@@ -200,17 +196,18 @@ describe("maze", () => {
   });
 
   it("spawns in the lowest empty center cell", () => {
-    expect(PLAYER_SPAWN_COL).toBe(13);
-    expect(PLAYER_SPAWN_ROW).toBe(23);
-    expect(isWalkable(PLAYER_SPAWN_COL, PLAYER_SPAWN_ROW)).toBe(true);
+    const { playerSpawn } = getActiveLayout();
+    expect(playerSpawn.col).toBe(13);
+    expect(playerSpawn.row).toBe(23);
+    expect(isWalkable(playerSpawn.col, playerSpawn.row)).toBe(true);
     const spawn = playerSpawnCenter();
-    expect(spawn.x).toBe(cellCenterX(PLAYER_SPAWN_COL));
-    expect(spawn.y).toBe(cellCenterY(PLAYER_SPAWN_ROW));
+    expect(spawn.x).toBe(cellCenterX(playerSpawn.col));
+    expect(spawn.y).toBe(cellCenterY(playerSpawn.row));
   });
 
   it("picks the walkable cell closest to top-middle without hardcoding tiles", () => {
     const cell = playerTopCenterCell();
-    expect(isWalkable(cell.col, cell.row, MAZE_PLAYER_SOLIDS)).toBe(true);
+    expect(isWalkable(cell.col, cell.row, getActiveLayout().playerSolids)).toBe(true);
     expect(cell.row).toBe(1);
     expect(cell.col).toBe(12);
 
@@ -231,8 +228,7 @@ describe("maze", () => {
       Array.from({ length: MAZE_COLS }, () => true),
     );
     expect(playerTopCenterCell(solids)).toEqual({
-      col: PLAYER_SPAWN_COL,
-      row: PLAYER_SPAWN_ROW,
+      ...getActiveLayout().playerSpawn,
     });
   });
 
@@ -305,8 +301,11 @@ describe("maze", () => {
 
   it("fails fast when exterior flood finds no playable cells from spawn", () => {
     const walls = parseMaze().map((row) => [...row]);
-    walls[PLAYER_SPAWN_ROW]![PLAYER_SPAWN_COL] = true;
-    expect(() => buildExterior(walls)).toThrow(/no playable cells from spawn/);
+    const spawn = getActiveLayout().playerSpawn;
+    walls[spawn.row]![spawn.col] = true;
+    expect(() => buildExterior(walls, { col: spawn.col, row: spawn.row })).toThrow(
+      /no playable cells from spawn/,
+    );
   });
 
   it("clamps out-of-bounds samples before tunnel mouth enter checks", () => {
@@ -320,7 +319,7 @@ describe("maze", () => {
       Array.from({ length: MAZE_COLS }, () => false),
     );
     const withDefault = pipeEdges();
-    const withEmptyExterior = pipeEdges(MAZE_WALLS, emptyExterior);
+    const withEmptyExterior = pipeEdges(getActiveLayout().walls, emptyExterior);
     expect(withEmptyExterior.length).toBeGreaterThan(withDefault.length);
   });
 
@@ -347,8 +346,9 @@ describe("maze", () => {
     const boundaryY = cellOriginY(1);
     const left = cellOriginX(1);
     const right = cellOriginX(2);
-    const insetCommands = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, WALL_CORNER_RADIUS, inset);
-    const flushCommands = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, WALL_CORNER_RADIUS, 0);
+    const { walls, exterior } = getActiveLayout();
+    const insetCommands = wallPathCommands(walls, exterior, WALL_CORNER_RADIUS, inset);
+    const flushCommands = wallPathCommands(walls, exterior, WALL_CORNER_RADIUS, 0);
 
     const hasHorizontalAt = (commands: ReturnType<typeof wallPathCommands>, y: number) =>
       commands.some((command, index) => {
@@ -485,8 +485,9 @@ describe("maze", () => {
   it("shares tangent endpoints for circular and quadratic corner kinds", () => {
     const radius = clampedWallCornerRadius();
     const inset = clampedWallInset();
-    const circular = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, radius, inset, "circular");
-    const quadratic = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, radius, inset, "quadratic");
+    const { walls, exterior } = getActiveLayout();
+    const circular = wallPathCommands(walls, exterior, radius, inset, "circular");
+    const quadratic = wallPathCommands(walls, exterior, radius, inset, "quadratic");
     const cornerX = cellOriginX(2) + inset;
     const cornerY = cellOriginY(2) + inset;
     const a = { x: cornerX + radius, y: cornerY };
@@ -518,7 +519,8 @@ describe("maze", () => {
   it("ends half-tile fillets at the trimmed endpoint", () => {
     const radius = TILE_SIZE / 2;
     const inset = clampedWallInset();
-    const commands = wallPathCommands(MAZE_WALLS, MAZE_EXTERIOR, radius);
+    const { walls, exterior } = getActiveLayout();
+    const commands = wallPathCommands(walls, exterior, radius);
     const cornerX = cellOriginX(2) + inset;
     const cornerY = cellOriginY(2) + inset;
     const a = { x: cornerX + radius, y: cornerY };

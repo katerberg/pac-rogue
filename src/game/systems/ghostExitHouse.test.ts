@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import {
-  GHOST_HOUSE_EXIT_COL,
-  GHOST_HOUSE_EXIT_ROW,
+  getActiveLayout,
   TILE_SIZE,
   TURN_ALIGN_EPS,
   cellCenterX,
@@ -56,8 +55,9 @@ describe("ghostExitHouse", () => {
   });
 
   it("becomes active on the exit corridor tile above the door", () => {
-    const { world, ghost } = spawnLeavingGhost(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW);
-    expect(hasLeftGhostHouse(GHOST_HOUSE_EXIT_COL, GHOST_HOUSE_EXIT_ROW)).toBe(true);
+    const { col, row } = getActiveLayout().ghostHouseExit;
+    const { world, ghost } = spawnLeavingGhost(col, row);
+    expect(hasLeftGhostHouse(col, row)).toBe(true);
     expect(ghostExitHouse(world)).toBe(true);
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
@@ -70,8 +70,9 @@ describe("ghostExitHouse", () => {
 
     const x = Position.x[ghost] ?? 0;
     const y = Position.y[ghost] ?? 0;
-    expect(worldToCol(x)).toBe(GHOST_HOUSE_EXIT_COL);
-    expect(worldToRow(y)).toBe(GHOST_HOUSE_EXIT_ROW);
+    const exit = getActiveLayout().ghostHouseExit;
+    expect(worldToCol(x)).toBe(exit.col);
+    expect(worldToRow(y)).toBe(exit.row);
     expect(isAlignedForTurn(x, y, TURN_ALIGN_EPS)).toBe(false);
     expect(hasLeftGhostHouse(worldToCol(x), worldToRow(y))).toBe(true);
 
@@ -81,9 +82,10 @@ describe("ghostExitHouse", () => {
 
   it("becomes active when a hitch skips the exit cell entirely", () => {
     const { world, ghost } = spawnLeavingGhost(13, 12);
+    const exitRow = getActiveLayout().ghostHouseExit.row;
     Position.x[ghost] = cellCenterX(12);
-    Position.y[ghost] = cellCenterY(GHOST_HOUSE_EXIT_ROW);
-    expect(hasLeftGhostHouse(12, GHOST_HOUSE_EXIT_ROW)).toBe(true);
+    Position.y[ghost] = cellCenterY(exitRow);
+    expect(hasLeftGhostHouse(12, exitRow)).toBe(true);
     expect(ghostExitHouse(world)).toBe(true);
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });

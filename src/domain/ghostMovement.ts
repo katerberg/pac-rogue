@@ -1,5 +1,6 @@
 import { GHOST_DIR, lCornerTurnDir, openGhostDirsAt, type GhostDir } from "./ghostPath";
-import { canGhostEnterDirection, ghostSolidsForPhase, type SolidGrid } from "./maze";
+import { GHOST_PHASE } from "./ghostPhase";
+import { canGhostEnterDirection, getActiveLayout, type SolidGrid } from "./maze";
 
 export type GhostMovementRules = {
   solids: SolidGrid;
@@ -13,9 +14,11 @@ export type GhostMovementRules = {
 };
 
 export function ghostMovementRules(phase: number): GhostMovementRules {
-  const solids = ghostSolidsForPhase(phase);
+  const layout = getActiveLayout();
+  const solids = phase === GHOST_PHASE.active ? layout.playerSolids : layout.ghostSolids;
+  const { door } = layout;
   const canEnter = (x: number, y: number, dx: number, dy: number) =>
-    canGhostEnterDirection(x, y, dx, dy, phase);
+    canGhostEnterDirection(x, y, dx, dy, phase, solids, door);
 
   return {
     solids,
