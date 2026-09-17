@@ -1,4 +1,4 @@
-import { addComponent, addEntity, createWorld, query, type World } from "bitecs";
+import { addComponent, addEntity, createWorld, type World } from "bitecs";
 import Phaser from "phaser";
 import {
   createPelletProgress,
@@ -88,7 +88,6 @@ import {
   startLoopingSfx,
   stopLoopingSfx,
 } from "../audio/sfx";
-import { agentDebugLog } from "../debugAgentLog";
 import { saveSuccessfulRun } from "../storage/runHistoryStorage";
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
@@ -119,9 +118,6 @@ export class PlayScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private death: DeathSequenceState | null = null;
-  private deathFadeOverlay: Phaser.GameObjects.Rectangle | null = null;
-  private debugAliveAccumMs = 0;
-  private debugDeathLogAccumMs = 0;
 
   constructor() {
     super("PlayScene");
@@ -135,14 +131,6 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     this.world = createWorld();
     this.death = null;
-    this.deathFadeOverlay = null;
-    this.debugAliveAccumMs = 0;
-    this.debugDeathLogAccumMs = 0;
-    // #region agent log
-    agentDebugLog("E", "PlayScene.ts:create", "PlayScene create", {
-      sceneKey: this.scene.key,
-    });
-    // #endregion
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
@@ -191,50 +179,11 @@ export class PlayScene extends Phaser.Scene {
     if (this.death !== null) {
       const tick = tickDeathSequence(this.death, delta);
       this.death = tick.state;
-      // #region agent log
-      this.debugDeathLogAccumMs += delta;
-      if (
-        tick.shouldStartFade ||
-        tick.state.elapsedMs <= delta + 1 ||
-        this.debugDeathLogAccumMs >= 100
-      ) {
-        this.debugDeathLogAccumMs = 0;
-        agentDebugLog("F", "PlayScene.ts:deathTick", "death sequence tick", {
-          delta,
-          elapsedMs: tick.state.elapsedMs,
-          shouldStartFade: tick.shouldStartFade,
-          fadeStarted: tick.state.fadeStarted,
-          overlayAlpha: this.deathFadeOverlay?.alpha ?? null,
-          runId: "post-fix",
-        });
-      }
-      // #endregion
       if (tick.shouldStartFade) {
         this.startDeathFadeOverlay();
       }
       return;
     }
-
-    // #region agent log
-    this.debugAliveAccumMs += delta;
-    if (this.debugAliveAccumMs >= 1000) {
-      this.debugAliveAccumMs = 0;
-      let ghostsOutside = 0;
-      for (const eid of query(this.world, [Ghost, GhostPhase])) {
-        if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
-          ghostsOutside += 1;
-        }
-      }
-      agentDebugLog("E", "PlayScene.ts:alive", "PlayScene alive heartbeat", {
-        delta,
-        timerRemaining: this.clock.remaining,
-        collected: this.pelletProgress.collectedCount,
-        deathIsNull: this.death === null,
-        ghostsOutside,
-        runId: "post-fix",
-      });
-    }
-    // #endregion
 
     this.runPlayerInput(this.world);
     const hasInput = hasPlayerDirectionInput(this.world);
@@ -313,31 +262,10 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "siren");
       playSfx(this, "death");
       this.death = beginDeathSequence();
-      // #region agent log
-      let ghostsOutside = 0;
-      for (const eid of query(this.world, [Ghost, GhostPhase])) {
-        if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
-          ghostsOutside += 1;
-        }
-      }
-      agentDebugLog("E", "PlayScene.ts:caught", "catch → beginDeathSequence", {
-        delta,
-        deathElapsed: this.death.elapsedMs,
-        fadeStarted: this.death.fadeStarted,
-        sceneKey: this.scene.key,
-        sysSettingsStatus: this.sys.settings.status,
-        ghostsOutside,
-        collected: this.pelletProgress.collectedCount,
-        timerRemaining: this.clock.remaining,
-      });
-      // #endregion
     }
   }
 
   private startDeathFadeOverlay(): void {
-    if (this.deathFadeOverlay !== null) {
-      return;
-    }
     const overlay = this.add
       .rectangle(
         PLAYFIELD_WIDTH / 2,
@@ -348,25 +276,11 @@ export class PlayScene extends Phaser.Scene {
       )
       .setDepth(1000)
       .setAlpha(0);
-    this.deathFadeOverlay = overlay;
-    // #region agent log
-    agentDebugLog("F", "PlayScene.ts:startDeathFadeOverlay", "overlay fade tween start", {
-      fadeDurationMs: DEATH_FADE_DURATION_MS,
-      overlayAlpha: overlay.alpha,
-      runId: "post-fix",
-    });
-    // #endregion
     this.tweens.add({
       targets: overlay,
       alpha: 1,
       duration: DEATH_FADE_DURATION_MS,
       onComplete: () => {
-        // #region agent log
-        agentDebugLog("F", "PlayScene.ts:overlayComplete", "overlay fade complete → MenuScene", {
-          overlayAlpha: overlay.alpha,
-          runId: "post-fix",
-        });
-        // #endregion
         this.scene.start("MenuScene");
       },
     });
