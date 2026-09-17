@@ -16,6 +16,8 @@ export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
 const MODAL_DEPTH = 900;
 const BUTTON_WIDTH = 340;
 const BUTTON_HEIGHT = 220;
+const LABEL_MAX_CHARS = 9;
+const DESCRIPTION_MAX_CHARS = 28;
 const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 type Phase = "opening" | "armed" | "selecting";
@@ -125,12 +127,13 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     ids.forEach((id, index) => {
       const def = getUpgradeDef(id);
       const center = centers[index]!;
-      const descriptionText = wrapDescription(def.description);
+      const labelText = wrapText(def.label, LABEL_MAX_CHARS);
+      const descriptionText = wrapText(def.description, DESCRIPTION_MAX_CHARS);
       const bg = scene.add
         .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
         .setStrokeStyle(2, 0x888888)
         .setInteractive({ useHandCursor: true });
-      const label = addPixelText(scene, 0, 0, def.label, MENU_TITLE_FONT_SIZE, TEXT_COLOR_YELLOW);
+      const label = addPixelText(scene, 0, 0, labelText, MENU_TITLE_FONT_SIZE, TEXT_COLOR_YELLOW);
       const description = addPixelText(
         scene,
         0,
@@ -148,7 +151,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
         bg,
         label,
         description,
-        targetLabel: def.label,
+        targetLabel: labelText,
         targetDescription: descriptionText,
         baseX: center.x,
         baseY: center.y,
@@ -298,13 +301,13 @@ function placeButtonText(button: ButtonView): void {
   placePixelText(button.description, 0, 28, 0.5, 0.5);
 }
 
-function wrapDescription(text: string): string {
+function wrapText(text: string, maxCharsPerLine: number): string {
   const words = text.split(" ");
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
     const next = current.length === 0 ? word : `${current} ${word}`;
-    if (next.length > 28 && current.length > 0) {
+    if (next.length > maxCharsPerLine && current.length > 0) {
       lines.push(current);
       current = word;
     } else {
