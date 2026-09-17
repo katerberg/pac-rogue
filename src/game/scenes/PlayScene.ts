@@ -42,11 +42,25 @@ import {
   PLAYER_DRAWABLE_ID,
   PLAYER_RADIUS,
   PLAYER_SPEED,
+  PLAYFIELD_HEIGHT,
   PLAYFIELD_WIDTH,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
+import {
+  applyPowerPelletEffects,
+  createRunUpgrades,
+  ghostsAreFrozen,
+  ghostSpeedMultiplier,
+  grantRandomUpgrade,
+  parseEnableUpgradeParams,
+  parseUpgradeId,
+  playerSpeedMultiplier,
+  tickFreeze,
+  upgradeLabels,
+  type RunUpgrades,
+} from "../../domain/upgrades";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
@@ -80,20 +94,23 @@ import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { movement } from "../systems/movement";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
-import { createRender, preloadPlayArt } from "../systems/render";
-import { addPixelText, HUD_FONT_SIZE, placePixelText } from "./pixelFont";
+import { applyPlayerSpeed } from "../systems/playerSpeed";
+import { createRender, preloadPlayArt, type RenderOptions } from "../systems/render";
+import { addPixelText, HUD_FONT_SIZE, UPGRADES_HUD_FONT_SIZE, placePixelText } from "./pixelFont";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;
-  private runRender!: (world: World) => void;
+  private runRender!: (world: World, opts?: RenderOptions) => void;
   private clock: RunClock = createRunClock();
   private ghostReleaseClock: GhostReleaseClock = createGhostReleaseClock();
   private ghostModeClock: GhostModeClock = createGhostModeClock();
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private fruitPresence: FruitPresence = createFruitPresence();
+  private runUpgrades: RunUpgrades = createRunUpgrades();
   private collectedText!: Phaser.GameObjects.BitmapText;
   private timerText!: Phaser.GameObjects.BitmapText;
+  private upgradesText!: Phaser.GameObjects.BitmapText;
 
   constructor() {
     super("PlayScene");
@@ -118,6 +135,11 @@ export class PlayScene extends Phaser.Scene {
     this.ghostModeClock = createGhostModeClock();
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.fruitPresence = createFruitPresence();
+    const urlParams = new URLSearchParams(location.search);
+    this.runUpgrades = createRunUpgrades(
+      parseUpgradeId(urlParams.get("forceUpgrade")),
+      parseEnableUpgradeParams(urlParams),
+    );
 
     this.collectedText = addPixelText(this, 12, 8, this.collectedLabel(), HUD_FONT_SIZE).setDepth(
       10,
@@ -130,6 +152,11 @@ export class PlayScene extends Phaser.Scene {
       HUD_FONT_SIZE,
     ).setDepth(10);
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+
+    this.upgradesText = addPixelText(this, 12, PLAYFIELD_HEIGHT / 2, "", UPGRADES_HUD_FONT_SIZE)
+      .setDepth(10)
+      .setVisible(false);
+    this.refreshUpgradesHud();
 
     this.runPlayerInput = createPlayerInput(this);
     this.runRender = createRender(this);
@@ -154,7 +181,14 @@ export class PlayScene extends Phaser.Scene {
     } else {
       ghostAi(this.world, this.ghostModeClock.mode, this.pelletProgress.pelletsRemaining);
     }
-    applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining);
+
+    this.runUpgrades = tickFreeze(this.runUpgrades, delta);
+    const frozen = ghostsAreFrozen(this.runUpgrades);
+    applyPlayerSpeed(this.world, playerSpeedMultiplier(this.runUpgrades.owned));
+    applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
+      ghostSpeedMul: ghostSpeedMultiplier(this.runUpgrades.owned),
+      frozen,
+    });
     movement(this.world, delta);
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
@@ -169,6 +203,7 @@ export class PlayScene extends Phaser.Scene {
     if (removed > 0) {
       playPelletCollectSfx(this, this.pelletProgress.collectedCount, removed, powerRemoved);
     }
+    this.runUpgrades = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
     const collectResult = applyPelletCollect(this.pelletProgress, removed);
     this.pelletProgress = collectResult.progress;
     this.collectedText.setText(this.collectedLabel());
@@ -187,6 +222,8 @@ export class PlayScene extends Phaser.Scene {
       playSfx(this, "pelletMunch");
       playSfx(this, "pelletMunch2");
       this.fruitPresence = markFruitCollected(fruitTick.state);
+      this.runUpgrades = grantRandomUpgrade(this.runUpgrades, () => Math.random());
+      this.refreshUpgradesHud();
     } else if (fruitTick.action === "despawn") {
       removeAllFruit(this.world);
       this.fruitPresence = fruitTick.state;
@@ -200,13 +237,25 @@ export class PlayScene extends Phaser.Scene {
       saveSuccessfulRun(this.clock.remaining);
     }
 
-    const caught = catchPlayer(this.world);
-    this.runRender(this.world);
+    const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
+    const caught = catchPlayer(this.world, { ghostsFrozen });
+    this.runRender(this.world, { ghostsFrozen });
 
     if (caught) {
       stopLoopingSfx(this, "siren");
       this.scene.start("MenuScene");
     }
+  }
+
+  private refreshUpgradesHud(): void {
+    const labels = upgradeLabels(this.runUpgrades.owned);
+    if (labels.length === 0) {
+      this.upgradesText.setVisible(false);
+      return;
+    }
+    this.upgradesText.setVisible(true);
+    this.upgradesText.setText(labels.join("\n"));
+    placePixelText(this.upgradesText, 12, PLAYFIELD_HEIGHT / 2, 0, 0.5);
   }
 
   private collectedLabel(): string {

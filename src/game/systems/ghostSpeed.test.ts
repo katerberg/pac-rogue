@@ -1,0 +1,56 @@
+import { addComponent, addEntity, createWorld } from "bitecs";
+import { describe, expect, it } from "vitest";
+import { GHOST_KIND } from "../../domain/ghostKind";
+import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
+import { GHOST_SPEED } from "../../domain/ghostSpeed";
+import { cellCenterX, cellCenterY } from "../../domain/maze";
+import { Ghost } from "../components/Ghost";
+import { GhostKind } from "../components/GhostKind";
+import { GhostPhase } from "../components/GhostPhase";
+import { Position } from "../components/Position";
+import { Speed } from "../components/Speed";
+import { applyGhostSpeed } from "./ghostSpeed";
+
+function spawnGhost(
+  world: ReturnType<typeof createWorld>,
+  phase: GhostPhaseValue,
+  kind = GHOST_KIND.pinky,
+) {
+  const eid = addEntity(world);
+  addComponent(world, eid, Ghost);
+  addComponent(world, eid, GhostKind);
+  addComponent(world, eid, GhostPhase);
+  addComponent(world, eid, Position);
+  addComponent(world, eid, Speed);
+  GhostKind.kind[eid] = kind;
+  GhostPhase.value[eid] = phase;
+  Position.x[eid] = cellCenterX(13);
+  Position.y[eid] = cellCenterY(14);
+  Speed.px[eid] = 99;
+  return eid;
+}
+
+describe("applyGhostSpeed", () => {
+  it("applies ghostSpeedMul after resolved speed", () => {
+    const world = createWorld();
+    const eid = spawnGhost(world, GHOST_PHASE.active);
+    applyGhostSpeed(world, 100, { ghostSpeedMul: 0.75 });
+    expect(Speed.px[eid]).toBeCloseTo(GHOST_SPEED * 0.75);
+  });
+
+  it("zeros leaving/active when frozen", () => {
+    const world = createWorld();
+    const active = spawnGhost(world, GHOST_PHASE.active);
+    const leaving = spawnGhost(world, GHOST_PHASE.leaving);
+    applyGhostSpeed(world, 100, { ghostSpeedMul: 0.75, frozen: true });
+    expect(Speed.px[active]).toBe(0);
+    expect(Speed.px[leaving]).toBe(0);
+  });
+
+  it("keeps inHouse at zero even when not frozen", () => {
+    const world = createWorld();
+    const eid = spawnGhost(world, GHOST_PHASE.inHouse);
+    applyGhostSpeed(world, 100);
+    expect(Speed.px[eid]).toBe(0);
+  });
+});

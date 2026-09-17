@@ -7,7 +7,11 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-export function catchPlayer(world: World): boolean {
+export function catchPlayer(world: World, options?: { ghostsFrozen?: boolean }): boolean {
+  if (options?.ghostsFrozen === true) {
+    return false;
+  }
+
   const players = query(world, [Player, Position, Drawable]);
   const playerEid = players[0];
   if (playerEid === undefined) {
