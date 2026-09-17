@@ -60,6 +60,13 @@ describe("catchPlayer", () => {
     expect(catchPlayer(world)).toBe(true);
   });
 
+  it("does not catch when an active ghost is far away", () => {
+    const world = createWorld();
+    spawnPlayer(world, 100, 100);
+    spawnGhost(world, 400, 400, GHOST_PHASE.active);
+    expect(catchPlayer(world)).toBe(false);
+  });
+
   it("does not catch when ghosts are frozen", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);

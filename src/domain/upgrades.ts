@@ -92,7 +92,7 @@ export function grantRandomUpgrade(state: RunUpgrades, rng: () => number): RunUp
 
 export function tickFreeze(state: RunUpgrades, deltaMs: number): RunUpgrades {
   if (state.freezeRemainingMs <= 0) {
-    return state.freezeRemainingMs === 0 ? state : { ...state, freezeRemainingMs: 0 };
+    return state;
   }
   return {
     ...state,
@@ -119,10 +119,13 @@ export function applyPowerPelletEffects(state: RunUpgrades, powerRemoved: number
   return { ...state, freezeRemainingMs: freezeMs };
 }
 
-export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
+function speedMultiplier(
+  owned: readonly UpgradeId[],
+  key: "playerSpeedMul" | "ghostSpeedMul",
+): number {
   let mul = 1;
   for (const id of owned) {
-    const defMul = UPGRADE_BY_ID.get(id)?.playerSpeedMul;
+    const defMul = UPGRADE_BY_ID.get(id)?.[key];
     if (defMul !== undefined) {
       mul *= defMul;
     }
@@ -130,15 +133,12 @@ export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return mul;
 }
 
+export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
+  return speedMultiplier(owned, "playerSpeedMul");
+}
+
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
-  let mul = 1;
-  for (const id of owned) {
-    const defMul = UPGRADE_BY_ID.get(id)?.ghostSpeedMul;
-    if (defMul !== undefined) {
-      mul *= defMul;
-    }
-  }
-  return mul;
+  return speedMultiplier(owned, "ghostSpeedMul");
 }
 
 export function ghostsAreFrozen(state: RunUpgrades): boolean {
