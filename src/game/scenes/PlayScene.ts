@@ -237,7 +237,9 @@ export class PlayScene extends Phaser.Scene {
       forceGhostReverse(this.world);
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
-      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining);
+      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, {
+        ignoreElroy: scatterBurstActive(this.runUpgrades),
+      });
     }
     if (powerEffects.recallClosestGhost) {
       recallClosestGhostToHouse(this.world);
