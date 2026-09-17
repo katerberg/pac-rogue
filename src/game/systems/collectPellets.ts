@@ -6,8 +6,8 @@ import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 
 export type PelletCollectFrame = {
-  removed: number;
   powerRemoved: number;
+  removedEids: number[];
 };
 
 export function countPellets(world: World): number {
@@ -17,7 +17,7 @@ export function countPellets(world: World): number {
 export function collectPellets(world: World): PelletCollectFrame {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {
-    return { removed: 0, powerRemoved: 0 };
+    return { powerRemoved: 0, removedEids: [] };
   }
 
   const playerEid = players[0]!;
@@ -44,5 +44,5 @@ export function collectPellets(world: World): PelletCollectFrame {
     removeEntity(world, eid);
   }
 
-  return { removed: toRemove.length, powerRemoved };
+  return { powerRemoved, removedEids: toRemove };
 }

@@ -5,14 +5,10 @@ import { Fruit } from "../components/Fruit";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-export type FruitCollectFrame = {
-  removed: number;
-};
-
-export function collectFruit(world: World): FruitCollectFrame {
+export function collectFruit(world: World): number[] {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {
-    return { removed: 0 };
+    return [];
   }
 
   const playerEid = players[0]!;
@@ -34,11 +30,13 @@ export function collectFruit(world: World): FruitCollectFrame {
     removeEntity(world, eid);
   }
 
-  return { removed: toRemove.length };
+  return toRemove;
 }
 
-export function removeAllFruit(world: World): void {
-  for (const eid of query(world, [Fruit])) {
+export function removeAllFruit(world: World): number[] {
+  const removedEids = [...query(world, [Fruit])];
+  for (const eid of removedEids) {
     removeEntity(world, eid);
   }
+  return removedEids;
 }

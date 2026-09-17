@@ -68,6 +68,10 @@ Ports are defined in `scripts/ports.json`. Do not share listeners.
 
 Agents may freely kill and restart **5174** / **4174**. Do not bind to or kill the human ports.
 
+### Agent sound (muted by default)
+
+On agent ports (**5174** / **4174**), audio is disabled (`noAudio`) unless `?sound=1` — see [README Flags](../README.md#flags). Human ports keep sound on.
+
 ## Runtime / visual verification
 
 ### Automated smoke (part of `verify`)

@@ -35,12 +35,13 @@ Humans and agents use different ports (see `scripts/ports.json` / `docs/VERIFICA
 
 ## Flags
 
-Append query params to any local URL (`5173` / `5174` / preview ports). Invalid values are ignored. Behavior details: [docs/upgrades.md](./docs/upgrades.md).
+Append query params to any local URL (`5173` / `5174` / preview ports). Invalid values are ignored. Upgrade flag behavior: [docs/upgrades.md](./docs/upgrades.md).
 
 | Flag            | Values                  | Effect                                                                                                                       |
 | --------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `forceUpgrade`  | one upgrade id          | Next fruit grants that id if not already owned; then clears. Invalid → normal random.                                        |
 | `enableUpgrade` | upgrade id (repeatable) | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Combines with `forceUpgrade`. |
+| `sound`         | `1`                     | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                          |
 
 Upgrade ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`, `scatterBurst`, `ghostRecall`, `warpTop`.
 
@@ -49,6 +50,7 @@ http://127.0.0.1:5174/?forceUpgrade=ghostSlow
 http://127.0.0.1:5174/?enableUpgrade=scatterBurst
 http://127.0.0.1:5174/?enableUpgrade=ghostRecall&enableUpgrade=warpTop
 http://127.0.0.1:5173/?enableUpgrade=powerPelletFreeze&forceUpgrade=ghostSlow
+http://127.0.0.1:5174/?sound=1
 ```
 
 ## Continuous integration
@@ -68,7 +70,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [AGENTS.md](./AGENTS.md) — guardrails (every code-changing plan includes `/simplify-pr` then `/no-comments`)
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — structure and principles
 - [docs/upgrades.md](./docs/upgrades.md) — run upgrades from fruit
-- [Flags](#flags) — URL query params (`forceUpgrade`, `enableUpgrade`)
+- [Flags](#flags) — URL query params (`forceUpgrade`, `enableUpgrade`, `sound`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow
