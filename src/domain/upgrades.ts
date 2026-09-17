@@ -88,7 +88,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "pelletToPower",
     label: "Pellet Surge",
-    description: "A quiet pellet turns hot — and another may follow.",
+    description: "A quiet pellet turns hot, and another may follow.",
   },
   {
     id: "powerCollectThree",
