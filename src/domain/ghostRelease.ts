@@ -44,17 +44,13 @@ export function shouldReleaseGhostAt(clock: GhostReleaseClock, delayMs: number):
   return clock.started && clock.elapsedMs >= delayMs;
 }
 
-export function clydeReleasePellets(): number {
-  return getActiveLayout().clydeReleasePellets;
-}
-
 export function shouldReleaseKind(
   kind: GhostKindId,
   clock: GhostReleaseClock,
   collectedCount: number,
 ): boolean {
   if (kind === GHOST_KIND.clyde) {
-    return collectedCount >= clydeReleasePellets();
+    return collectedCount >= getActiveLayout().clydeReleasePellets;
   }
   return shouldReleaseGhostAt(clock, releaseDelayForKind(kind));
 }

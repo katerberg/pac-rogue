@@ -18,19 +18,12 @@ export const ELROY_TIER = {
 
 export type ElroyTier = (typeof ELROY_TIER)[keyof typeof ELROY_TIER];
 
-export function elroy1DotsLeft(): number {
-  return getActiveLayout().elroy1DotsLeft;
-}
-
-export function elroy2DotsLeft(): number {
-  return getActiveLayout().elroy2DotsLeft;
-}
-
 export function elroyTier(pelletsRemaining: number): ElroyTier {
-  if (pelletsRemaining <= elroy2DotsLeft()) {
+  const layout = getActiveLayout();
+  if (pelletsRemaining <= layout.elroy2DotsLeft) {
     return ELROY_TIER.elroy2;
   }
-  if (pelletsRemaining <= elroy1DotsLeft()) {
+  if (pelletsRemaining <= layout.elroy1DotsLeft) {
     return ELROY_TIER.elroy1;
   }
   return ELROY_TIER.none;
