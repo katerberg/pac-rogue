@@ -532,15 +532,16 @@ export function canGhostEnterDirection(
   dx: number,
   dy: number,
   phase: number,
+  solids: SolidGrid = ghostSolidsForPhase(phase),
+  door: SolidGrid = getActiveLayout().door,
 ): boolean {
-  const solids = ghostSolidsForPhase(phase);
   if (!canEnterDirection(x, y, dx, dy, solids)) {
     return false;
   }
   if (dy > 0) {
     const col = worldToCol(x);
     const row = worldToRow(y);
-    if (isDoor(col + dx, row + dy)) {
+    if (isDoor(col + dx, row + dy, door)) {
       return false;
     }
   }
