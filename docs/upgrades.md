@@ -7,6 +7,7 @@ Fruit grants **run-long** upgrades for the current `PlayScene` only. There is no
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS`, pure helpers, `RunUpgrades` state.
 - `PlayScene` owns one `RunUpgrades` per run (`owned` ids, `freezeRemainingMs`, `forceNextId`). Cleared when the scene is recreated.
 - No ECS upgrade components in v1.
+- Dev URL flags: `?forceUpgrade=` (next fruit) and repeated `?enableUpgrade=` (grant on create).
 
 ### Current defs
 
@@ -22,6 +23,7 @@ Fruit grants **run-long** upgrades for the current `PlayScene` only. There is no
 - Grant one **random distinct** upgrade among ids not already owned (`grantRandomUpgrade`).
 - Empty eligible pool: fruit still collected; no grant; no crash.
 - `?forceUpgrade=<id>` (any port): parsed at `PlayScene` create into `forceNextId`. On the next fruit collect, if that id is not owned it is granted; otherwise pick among remaining eligible. **`forceNextId` is always cleared on fruit collect**, even when nothing is granted.
+- `?enableUpgrade=<id>` (repeatable, any port): each valid id is granted into `owned` at `PlayScene` create (order preserved; duplicates ignored by `grantUpgrade`). Invalid values ignored. Combines with `forceUpgrade` (fruit force still applies among remaining eligible).
 
 ## Power pellets
 
@@ -48,11 +50,13 @@ Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`, 8px so lab
 2. If the effect is already covered (speed mul or freeze-on-power), stop there.
 3. If it is a **new kind** of effect, extend the def shape and add one resolve site (domain helper + PlayScene/system call). Do not add a plugin bus.
 
-## Force URL
+## Force / enable URL
 
 ```text
 http://127.0.0.1:5174/?forceUpgrade=ghostSlow
 http://127.0.0.1:5173/?forceUpgrade=powerPelletFreeze
+http://127.0.0.1:5174/?enableUpgrade=playerSpeedUp&enableUpgrade=ghostSlow
+http://127.0.0.1:5173/?enableUpgrade=powerPelletFreeze&forceUpgrade=ghostSlow
 ```
 
-Valid ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`. Invalid/missing → normal random.
+Valid ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`. Invalid `forceUpgrade` → normal random. Invalid `enableUpgrade` values are skipped.

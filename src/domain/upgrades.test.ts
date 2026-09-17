@@ -9,6 +9,7 @@ import {
   ghostsAreFrozen,
   grantRandomUpgrade,
   grantUpgrade,
+  parseEnableUpgradeParams,
   parseForceUpgradeParam,
   pickUpgrade,
   playerSpeedMultiplier,
@@ -31,6 +32,25 @@ describe("parseForceUpgradeParam", () => {
     expect(parseForceUpgradeParam("nope")).toBeNull();
     expect(parseForceUpgradeParam(null)).toBeNull();
     expect(parseForceUpgradeParam("")).toBeNull();
+  });
+});
+
+describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
+  it("collects all valid enableUpgrade values in order", () => {
+    const params = new URLSearchParams(
+      "enableUpgrade=ghostSlow&enableUpgrade=nope&enableUpgrade=playerSpeedUp&enableUpgrade=ghostSlow",
+    );
+    expect(parseEnableUpgradeParams(params)).toEqual(["ghostSlow", "playerSpeedUp", "ghostSlow"]);
+  });
+
+  it("returns empty when missing", () => {
+    expect(parseEnableUpgradeParams(new URLSearchParams())).toEqual([]);
+  });
+
+  it("seeds owned immediately and dedupes via grant", () => {
+    const state = createRunUpgrades(null, ["powerPelletFreeze", "ghostSlow", "powerPelletFreeze"]);
+    expect(state.owned).toEqual(["powerPelletFreeze", "ghostSlow"]);
+    expect(state.forceNextId).toBeNull();
   });
 });
 

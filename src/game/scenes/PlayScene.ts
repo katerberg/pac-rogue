@@ -54,6 +54,7 @@ import {
   ghostsAreFrozen,
   ghostSpeedMultiplier,
   grantRandomUpgrade,
+  parseEnableUpgradeParams,
   parseForceUpgradeParam,
   playerSpeedMultiplier,
   tickFreeze,
@@ -134,8 +135,10 @@ export class PlayScene extends Phaser.Scene {
     this.ghostModeClock = createGhostModeClock();
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.fruitPresence = createFruitPresence();
+    const urlParams = new URLSearchParams(location.search);
     this.runUpgrades = createRunUpgrades(
-      parseForceUpgradeParam(new URLSearchParams(location.search).get("forceUpgrade")),
+      parseForceUpgradeParam(urlParams.get("forceUpgrade")),
+      parseEnableUpgradeParams(urlParams),
     );
 
     this.collectedText = addPixelText(this, 12, 8, this.collectedLabel(), HUD_FONT_SIZE).setDepth(

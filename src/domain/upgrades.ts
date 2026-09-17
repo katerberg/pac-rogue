@@ -34,12 +34,19 @@ export type RunUpgrades = {
   forceNextId: UpgradeId | null;
 };
 
-export function createRunUpgrades(forceNextId: UpgradeId | null = null): RunUpgrades {
-  return {
+export function createRunUpgrades(
+  forceNextId: UpgradeId | null = null,
+  enabled: readonly UpgradeId[] = [],
+): RunUpgrades {
+  let state: RunUpgrades = {
     owned: [],
     freezeRemainingMs: 0,
     forceNextId,
   };
+  for (const id of enabled) {
+    state = grantUpgrade(state, id);
+  }
+  return state;
 }
 
 export function parseForceUpgradeParam(raw: string | null): UpgradeId | null {
@@ -47,6 +54,17 @@ export function parseForceUpgradeParam(raw: string | null): UpgradeId | null {
     return null;
   }
   return UPGRADE_BY_ID.has(raw as UpgradeId) ? (raw as UpgradeId) : null;
+}
+
+export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
+  const ids: UpgradeId[] = [];
+  for (const raw of params.getAll("enableUpgrade")) {
+    const id = parseForceUpgradeParam(raw);
+    if (id !== null) {
+      ids.push(id);
+    }
+  }
+  return ids;
 }
 
 export function eligibleUpgrades(owned: readonly UpgradeId[]): UpgradeId[] {

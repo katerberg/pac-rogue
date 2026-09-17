@@ -29,7 +29,7 @@ npx playwright install chromium
 | `npm run verify:precommit` | Fast gate — typecheck, lint, format, ECS, tests |
 | `npm run verify`           | **Canonical gate** — precommit + build + visual |
 
-Force next fruit upgrade (dev): append `?forceUpgrade=powerPelletFreeze` | `playerSpeedUp` | `ghostSlow` to the human or agent URL (see [docs/upgrades.md](./docs/upgrades.md)).
+Dev upgrade URL flags (see [docs/upgrades.md](./docs/upgrades.md)): `?forceUpgrade=<id>` forces the next fruit grant; repeat `?enableUpgrade=<id>` to own upgrades immediately (`powerPelletFreeze` | `playerSpeedUp` | `ghostSlow`).
 
 `npm install` points Git at `.githooks/` (`core.hooksPath`). The pre-commit hook runs `npm run verify:precommit` (no build/visual). Full `npm run verify` remains the CI and completion gate.
 
