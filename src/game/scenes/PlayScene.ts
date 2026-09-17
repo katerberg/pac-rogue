@@ -347,6 +347,7 @@ export class PlayScene extends Phaser.Scene {
         startLoopingSfx(this, "siren");
         break;
       case "goToMenu":
+        this.death = null;
         this.scene.start("MenuScene");
         break;
     }
