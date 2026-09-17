@@ -172,6 +172,7 @@ export class PlayScene extends Phaser.Scene {
     startLoopingSfx(this, "siren");
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "siren");
+      stopLoopingSfx(this, "death");
     });
   }
 
