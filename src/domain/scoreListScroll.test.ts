@@ -5,7 +5,6 @@ import {
   createScoreListScroll,
   DEFAULT_SCORE_LIST_SCROLL,
   fitScoreListViewportRows,
-  SCORE_LIST_ROW_HEIGHT,
   tickScoreListScroll,
 } from "./scoreListScroll";
 
@@ -14,10 +13,8 @@ const tallConfig = buildScoreListScrollConfig(11);
 
 describe("fitScoreListViewportRows", () => {
   it("floors available height into whole rows", () => {
-    expect(fitScoreListViewportRows(11 * SCORE_LIST_ROW_HEIGHT)).toBe(11);
-    expect(fitScoreListViewportRows(11 * SCORE_LIST_ROW_HEIGHT + SCORE_LIST_ROW_HEIGHT - 1)).toBe(
-      11,
-    );
+    expect(fitScoreListViewportRows(11 * config.rowHeight)).toBe(11);
+    expect(fitScoreListViewportRows(11 * config.rowHeight + config.rowHeight - 1)).toBe(11);
   });
 
   it("returns at least one row", () => {
@@ -31,7 +28,7 @@ describe("buildScoreListScrollConfig", () => {
     const built = buildScoreListScrollConfig(11);
     expect(built.viewportRows).toBe(11);
     expect(built.scrollWhenMoreThan).toBe(11);
-    expect(built.rowHeight).toBe(SCORE_LIST_ROW_HEIGHT);
+    expect(built.rowHeight).toBe(config.rowHeight);
   });
 });
 

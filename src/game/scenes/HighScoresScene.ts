@@ -11,7 +11,6 @@ import {
   createScoreListScroll,
   fitScoreListViewportRows,
   tickScoreListScroll,
-  type ScoreListScrollConfig,
   type ScoreListScrollState,
 } from "../../domain/scoreListScroll";
 import { loadRunHistory } from "../storage/runHistoryStorage";
@@ -32,9 +31,7 @@ const HEADER_LINE_Y = LIST_TOP - 10;
 const BG = MAZE_BACKGROUND_COLOR;
 
 const availableListHeight = BACK_Y - LIST_TOP - LIST_BOTTOM_CLEARANCE;
-const SCROLL: ScoreListScrollConfig = buildScoreListScrollConfig(
-  fitScoreListViewportRows(availableListHeight),
-);
+const SCROLL = buildScoreListScrollConfig(fitScoreListViewportRows(availableListHeight));
 const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 
 export class HighScoresScene extends Phaser.Scene {
