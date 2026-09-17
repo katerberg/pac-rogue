@@ -5,14 +5,14 @@ import {
   PLAYER_SPEED_UP_MUL,
   SCATTER_BURST_MS,
   applyPowerPelletEffects,
+  confirmUpgradeChoice,
   createRunUpgrades,
   eligibleUpgrades,
   ghostsAreFrozen,
-  grantRandomUpgrade,
   grantUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
-  pickUpgrade,
+  pickUpgradeChoiceOffer,
   playerSpeedMultiplier,
   ghostSpeedMultiplier,
   scatterBurstActive,
@@ -66,11 +66,86 @@ describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
     const state = createRunUpgrades(null, ["powerPelletFreeze", "ghostSlow", "powerPelletFreeze"]);
     expect(state.owned).toEqual(["powerPelletFreeze", "ghostSlow"]);
     expect(state.forceNextId).toBeNull();
+    expect(state.lastDeclinedUpgradeId).toBeNull();
     expect(state.scatterBurstRemainingMs).toBe(0);
   });
 });
 
-describe("eligibleUpgrades / pickUpgrade", () => {
+describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
+  it("returns null when pool empty", () => {
+    expect(pickUpgradeChoiceOffer(ALL_IDS, null, () => 0, null)).toBeNull();
+  });
+
+  it("returns a single option when only one eligible", () => {
+    const owned = ALL_IDS.filter((id) => id !== "warpTop");
+    expect(pickUpgradeChoiceOffer(owned, null, () => 0, null)).toEqual(["warpTop"]);
+  });
+
+  it("returns two distinct unowned options", () => {
+    const options = pickUpgradeChoiceOffer([], null, () => 0, null);
+    expect(options).not.toBeNull();
+    expect(options!).toHaveLength(2);
+    expect(new Set(options!).size).toBe(2);
+    for (const id of options!) {
+      expect(ALL_IDS).toContain(id);
+    }
+  });
+
+  it("excludes lastDeclined when enough eligible remain", () => {
+    const options = pickUpgradeChoiceOffer([], "ghostSlow", () => 0, null);
+    expect(options).not.toBeNull();
+    expect(options!).not.toContain("ghostSlow");
+    expect(options!).toHaveLength(2);
+  });
+
+  it("re-includes lastDeclined when needed to form a pair", () => {
+    const owned: UpgradeId[] = [
+      "powerPelletFreeze",
+      "playerSpeedUp",
+      "scatterBurst",
+      "ghostRecall",
+    ];
+    const options = pickUpgradeChoiceOffer(owned, "ghostSlow", () => 0, null);
+    expect(options).toEqual(expect.arrayContaining(["ghostSlow", "warpTop"]));
+    expect(options!).toHaveLength(2);
+  });
+
+  it("always includes force when eligible", () => {
+    const options = pickUpgradeChoiceOffer([], null, () => 0.99, "ghostRecall");
+    expect(options).not.toBeNull();
+    expect(options!).toContain("ghostRecall");
+    expect(options!).toHaveLength(2);
+  });
+
+  it("still includes force when that id was last declined", () => {
+    const options = pickUpgradeChoiceOffer([], "ghostRecall", () => 0, "ghostRecall");
+    expect(options).not.toBeNull();
+    expect(options!).toContain("ghostRecall");
+    expect(options!).toHaveLength(2);
+    expect(new Set(options!).size).toBe(2);
+  });
+
+  it("confirm grants chosen, sets declined, clears force", () => {
+    const state = withForce("playerSpeedUp");
+    const options: UpgradeId[] = ["playerSpeedUp", "ghostSlow"];
+    const next = confirmUpgradeChoice(state, options, "playerSpeedUp");
+    expect(next.owned).toEqual(["playerSpeedUp"]);
+    expect(next.forceNextId).toBeNull();
+    expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
+  });
+
+  it("confirm with one option leaves lastDeclined unchanged", () => {
+    const state = {
+      ...createRunUpgrades(),
+      lastDeclinedUpgradeId: "ghostSlow" as UpgradeId,
+    };
+    const next = confirmUpgradeChoice(state, ["warpTop"], "warpTop");
+    expect(next.owned).toEqual(["warpTop"]);
+    expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
+  });
+});
+
+describe("eligibleUpgrades", () => {
   it("excludes owned ids", () => {
     expect(eligibleUpgrades([])).toEqual(ALL_IDS);
     expect(eligibleUpgrades(["playerSpeedUp"])).toEqual(
@@ -78,49 +153,12 @@ describe("eligibleUpgrades / pickUpgrade", () => {
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
   });
-
-  it("picks forced id when not owned", () => {
-    expect(pickUpgrade([], () => 0, "ghostSlow")).toBe("ghostSlow");
-  });
-
-  it("ignores force when already owned and picks among eligible", () => {
-    expect(pickUpgrade(["ghostSlow"], () => 0, "ghostSlow")).toBe("powerPelletFreeze");
-  });
-
-  it("returns null when pool empty", () => {
-    expect(pickUpgrade(ALL_IDS, () => 0, null)).toBeNull();
-  });
-
-  it("uses rng for uniform pick", () => {
-    expect(pickUpgrade([], () => 0, null)).toBe("powerPelletFreeze");
-    expect(pickUpgrade([], () => 0.5, null)).toBe("scatterBurst");
-    expect(pickUpgrade([], () => 0.99, null)).toBe("warpTop");
-  });
 });
 
-describe("grantUpgrade / grantRandomUpgrade", () => {
+describe("grantUpgrade", () => {
   it("is idempotent for already owned", () => {
     const once = grantUpgrade(createRunUpgrades(), "ghostSlow");
     expect(grantUpgrade(once, "ghostSlow")).toEqual(once);
-  });
-
-  it("clears force even when pool empty", () => {
-    const full = withForce("ghostSlow", ALL_IDS);
-    const next = grantRandomUpgrade(full, () => 0);
-    expect(next.forceNextId).toBeNull();
-    expect(next.owned).toEqual(full.owned);
-  });
-
-  it("grants forced id and clears force", () => {
-    const next = grantRandomUpgrade(withForce("playerSpeedUp"), () => 0.99);
-    expect(next.owned).toEqual(["playerSpeedUp"]);
-    expect(next.forceNextId).toBeNull();
-  });
-
-  it("when force already owned, picks remaining and clears force", () => {
-    const next = grantRandomUpgrade(withForce("ghostSlow", ["ghostSlow"]), () => 0);
-    expect(next.owned).toEqual(["ghostSlow", "powerPelletFreeze"]);
-    expect(next.forceNextId).toBeNull();
   });
 });
 

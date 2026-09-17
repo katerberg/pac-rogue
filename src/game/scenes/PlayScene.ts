@@ -1,4 +1,4 @@
-import { addComponent, addEntity, createWorld, type World } from "bitecs";
+import { addComponent, addEntity, createWorld, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
   createPelletProgress,
@@ -29,14 +29,17 @@ import {
   beginDeathSequence,
   DEATH_FADE_DURATION_MS,
   tickDeathSequence,
+  type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
+import { START_LIVES, livesRemainingAfterCatch } from "../../domain/lives";
 import {
   activateLayout,
   ghostHouseSpawnCenter,
   parseMazeParam,
   pelletCellCenters,
   pickLayoutId,
+  playerDisplaySize,
   playerSpawnCenter,
   wallCellCenters,
 } from "../../domain/maze";
@@ -60,12 +63,13 @@ import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
   applyPowerPelletEffects,
+  confirmUpgradeChoice,
   createRunUpgrades,
   ghostsAreFrozen,
   ghostSpeedMultiplier,
-  grantRandomUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
+  pickUpgradeChoiceOffer,
   playerSpeedMultiplier,
   scatterBurstActive,
   tickFreeze,
@@ -109,12 +113,31 @@ import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
-import { createRender, preloadPlayArt, type PlayRender } from "../systems/render";
-import { addPixelText, HUD_FONT_SIZE, UPGRADES_HUD_FONT_SIZE, placePixelText } from "./pixelFont";
+import {
+  createRender,
+  preloadPlayArt,
+  PLAYER_OPEN_MOUTH_TEXTURE_KEY,
+  type PlayRender,
+} from "../systems/render";
+import {
+  addPixelText,
+  HUD_FONT_SIZE,
+  MENU_TITLE_FONT_SIZE,
+  placePixelText,
+  TEXT_COLOR_YELLOW,
+  UPGRADES_HUD_FONT_SIZE,
+} from "./pixelFont";
+import {
+  createUpgradeChoiceModal,
+  UPGRADE_RESUME_COUNTDOWN_MS,
+  type UpgradeChoiceModal,
+} from "./upgradeChoiceModal";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;
+  private anyPlayerMoveKeyDown!: () => boolean;
+  private suppressPlayerInputUntilKeyRelease = false;
   private playRender!: PlayRender;
   private clock: RunClock = createRunClock();
   private ghostReleaseClock: GhostReleaseClock = createGhostReleaseClock();
@@ -127,6 +150,13 @@ export class PlayScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private death: DeathSequenceState | null = null;
+  private lives = START_LIVES;
+  private afterLifeRelease = false;
+  private lifeIcons: Phaser.GameObjects.Image[] = [];
+  private upgradeChoiceModal!: UpgradeChoiceModal;
+  private resumeCountdownRemainingMs = 0;
+  private resumeCountdownDim: Phaser.GameObjects.Rectangle | null = null;
+  private resumeCountdownText: Phaser.GameObjects.BitmapText | null = null;
 
   constructor() {
     super("PlayScene");
@@ -140,6 +170,11 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     this.world = createWorld();
     this.death = null;
+    this.lives = START_LIVES;
+    this.afterLifeRelease = false;
+    this.clearUpgradeResumeCountdown();
+    this.upgradeChoiceModal?.destroy();
+    this.upgradeChoiceModal = createUpgradeChoiceModal(this);
     const urlParams = new URLSearchParams(location.search);
     const mazeOverride = parseMazeParam(urlParams);
     if (urlParams.has("maze") && mazeOverride === null) {
@@ -180,14 +215,21 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
     this.refreshUpgradesHud();
+    this.lifeIcons = [];
+    this.refreshLivesIcons();
 
-    this.runPlayerInput = createPlayerInput(this);
+    const playerInput = createPlayerInput(this);
+    this.runPlayerInput = playerInput.apply;
+    this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
+    this.suppressPlayerInputUntilKeyRelease = false;
     this.playRender = createRender(this);
 
     startLoopingSfx(this, "siren");
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "siren");
       stopLoopingSfx(this, "death");
+      this.upgradeChoiceModal.destroy();
+      this.clearUpgradeResumeCountdown();
     });
   }
 
@@ -195,17 +237,49 @@ export class PlayScene extends Phaser.Scene {
     if (this.death !== null) {
       const tick = tickDeathSequence(this.death, delta);
       this.death = tick.state;
-      if (tick.shouldStartFade) {
-        this.startDeathFadeOverlay();
+      for (const event of tick.events) {
+        this.handleDeathEvent(event);
       }
       return;
     }
 
-    this.runPlayerInput(this.world);
+    if (this.upgradeChoiceModal.isActive()) {
+      this.upgradeChoiceModal.tick(delta);
+      if (this.upgradeChoiceModal.isActive()) {
+        return;
+      }
+    }
+
+    if (this.resumeCountdownRemainingMs > 0) {
+      this.resumeCountdownRemainingMs = Math.max(0, this.resumeCountdownRemainingMs - delta);
+      this.refreshUpgradeResumeCountdownText();
+      if (this.resumeCountdownRemainingMs === 0) {
+        this.clearUpgradeResumeCountdown();
+        this.suppressPlayerInputUntilKeyRelease = true;
+      } else {
+        const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
+        this.playRender.draw(this.world, { ghostsFrozen });
+        return;
+      }
+    }
+
+    if (this.suppressPlayerInputUntilKeyRelease) {
+      if (!this.anyPlayerMoveKeyDown()) {
+        this.suppressPlayerInputUntilKeyRelease = false;
+        this.runPlayerInput(this.world);
+      }
+    } else {
+      this.runPlayerInput(this.world);
+    }
     const hasInput = hasPlayerDirectionInput(this.world);
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
-    ghostRelease(this.world, this.ghostReleaseClock, this.pelletProgress.collectedCount);
+    ghostRelease(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.collectedCount,
+      this.afterLifeRelease,
+    );
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
@@ -277,8 +351,24 @@ export class PlayScene extends Phaser.Scene {
       playSfx(this, "pelletMunch");
       playSfx(this, "pelletMunch2");
       this.fruitPresence = markFruitCollected(fruitTick.state);
-      this.runUpgrades = grantRandomUpgrade(this.runUpgrades, () => Math.random());
-      this.refreshUpgradesHud();
+      const options = pickUpgradeChoiceOffer(
+        this.runUpgrades.owned,
+        this.runUpgrades.lastDeclinedUpgradeId,
+        () => Math.random(),
+        this.runUpgrades.forceNextId,
+      );
+      if (options === null) {
+        this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
+      } else {
+        this.upgradeChoiceModal.open(options, (chosen) => {
+          this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, options, chosen);
+          this.refreshUpgradesHud();
+          this.beginUpgradeResumeCountdown();
+        });
+        const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
+        this.playRender.draw(this.world, { ghostsFrozen });
+        return;
+      }
     } else if (fruitTick.action === "despawn") {
       this.clearFruitEntities();
       this.fruitPresence = fruitTick.state;
@@ -298,8 +388,77 @@ export class PlayScene extends Phaser.Scene {
     if (caught) {
       stopLoopingSfx(this, "siren");
       playSfx(this, "death");
-      saveRun(this.pelletProgress.collectedCount, this.clock.remaining);
-      this.death = beginDeathSequence();
+      const result = livesRemainingAfterCatch(this.lives);
+      this.lives = result.lives;
+      this.refreshLivesIcons();
+      if (result.gameOver) {
+        saveRun(this.pelletProgress.collectedCount, this.clock.remaining);
+      }
+      this.death = beginDeathSequence(result.gameOver);
+    }
+  }
+
+  private beginUpgradeResumeCountdown(): void {
+    this.clearUpgradeResumeCountdown();
+    this.resumeCountdownRemainingMs = UPGRADE_RESUME_COUNTDOWN_MS;
+    this.resumeCountdownDim = this.add
+      .rectangle(
+        PLAYFIELD_WIDTH / 2,
+        PLAYFIELD_HEIGHT / 2,
+        PLAYFIELD_WIDTH,
+        PLAYFIELD_HEIGHT,
+        0x000000,
+        0.45,
+      )
+      .setDepth(900);
+    this.resumeCountdownText = addPixelText(
+      this,
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2,
+      "3",
+      MENU_TITLE_FONT_SIZE * 2,
+      TEXT_COLOR_YELLOW,
+    ).setDepth(901);
+    this.refreshUpgradeResumeCountdownText();
+  }
+
+  private refreshUpgradeResumeCountdownText(): void {
+    if (this.resumeCountdownText === null || this.resumeCountdownRemainingMs <= 0) {
+      return;
+    }
+    const seconds = Math.max(1, Math.ceil(this.resumeCountdownRemainingMs / 1000));
+    this.resumeCountdownText.setText(String(seconds));
+    placePixelText(this.resumeCountdownText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
+  }
+
+  private clearUpgradeResumeCountdown(): void {
+    this.resumeCountdownRemainingMs = 0;
+    this.resumeCountdownDim?.destroy();
+    this.resumeCountdownDim = null;
+    this.resumeCountdownText?.destroy();
+    this.resumeCountdownText = null;
+  }
+
+  private handleDeathEvent(event: DeathSequenceEvent): void {
+    switch (event) {
+      case "resetActors":
+        this.resetAfterLifeLoss();
+        this.playRender.draw(this.world, { ghostsFrozen: false });
+        break;
+      case "startFade":
+        this.startDeathFadeOverlay();
+        break;
+      case "showGameOver":
+        this.showGameOverText();
+        break;
+      case "resume":
+        this.death = null;
+        startLoopingSfx(this, "siren");
+        break;
+      case "goToMenu":
+        this.death = null;
+        this.scene.start("MenuScene");
+        break;
     }
   }
 
@@ -318,10 +477,102 @@ export class PlayScene extends Phaser.Scene {
       targets: overlay,
       alpha: 1,
       duration: DEATH_FADE_DURATION_MS,
-      onComplete: () => {
-        this.scene.start("MenuScene");
-      },
     });
+  }
+
+  private showGameOverText(): void {
+    const title = addPixelText(
+      this,
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2 - 20,
+      "GAME OVER",
+      MENU_TITLE_FONT_SIZE,
+      TEXT_COLOR_YELLOW,
+    ).setDepth(1001);
+    placePixelText(title, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 - 20, 0.5, 0.5);
+
+    const collected = addPixelText(
+      this,
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2 + 24,
+      this.collectedLabel(),
+      HUD_FONT_SIZE,
+    ).setDepth(1001);
+    placePixelText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
+  }
+
+  private resetAfterLifeLoss(): void {
+    const playerSpawn = playerSpawnCenter();
+    for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
+      Position.x[eid] = playerSpawn.x;
+      Position.y[eid] = playerSpawn.y;
+      Velocity.x[eid] = 0;
+      Velocity.y[eid] = 0;
+      Input.direction[eid] = DIRECTION.none;
+      Facing.direction[eid] = DIRECTION.none;
+    }
+
+    const houseSpawn = ghostHouseSpawnCenter();
+    for (const eid of query(this.world, [
+      Ghost,
+      GhostPhase,
+      Position,
+      Velocity,
+      Input,
+      Facing,
+      Speed,
+    ])) {
+      Position.x[eid] = houseSpawn.x;
+      Position.y[eid] = houseSpawn.y;
+      Velocity.x[eid] = 0;
+      Velocity.y[eid] = 0;
+      Input.direction[eid] = DIRECTION.none;
+      Facing.direction[eid] = DIRECTION.none;
+      Speed.px[eid] = 0;
+      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+      Ghost.decidedCol[eid] = Number.NaN;
+      Ghost.decidedRow[eid] = Number.NaN;
+    }
+
+    this.ghostReleaseClock = createGhostReleaseClock();
+    this.ghostModeClock = createGhostModeClock();
+    this.previousEffectiveGhostMode = this.ghostModeClock.mode;
+    this.afterLifeRelease = true;
+
+    this.clearFruitEntities();
+    this.fruitPresence = {
+      ...this.fruitPresence,
+      active: false,
+      remainingMs: 0,
+    };
+
+    this.runUpgrades = {
+      ...this.runUpgrades,
+      freezeRemainingMs: 0,
+      scatterBurstRemainingMs: 0,
+    };
+
+    this.clock = {
+      ...this.clock,
+      started: false,
+    };
+  }
+
+  private refreshLivesIcons(): void {
+    for (const icon of this.lifeIcons) {
+      icon.destroy();
+    }
+    this.lifeIcons = [];
+    const size = playerDisplaySize();
+    const y = PLAYFIELD_HEIGHT - 8 - size / 2;
+    for (let i = 0; i < this.lives; i += 1) {
+      const x = 12 + size / 2 + i * (size + 4);
+      const icon = this.add
+        .image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
+        .setDisplaySize(size, size)
+        .setDepth(10);
+      this.lifeIcons.push(icon);
+    }
   }
 
   private refreshUpgradesHud(): void {

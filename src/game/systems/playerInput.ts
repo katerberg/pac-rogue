@@ -5,7 +5,12 @@ import { Player } from "../components/Player";
 
 type MoveKey = Phaser.Input.Keyboard.Key;
 
-export function createPlayerInput(scene: Phaser.Scene): (world: World) => void {
+export type PlayerInputControl = {
+  apply: (world: World) => void;
+  anyMoveKeyDown: () => boolean;
+};
+
+export function createPlayerInput(scene: Phaser.Scene): PlayerInputControl {
   const keyboard = scene.input.keyboard;
   if (!keyboard) {
     throw new Error("playerInput requires Phaser's keyboard plugin");
@@ -26,14 +31,17 @@ export function createPlayerInput(scene: Phaser.Scene): (world: World) => void {
     { direction: DIRECTION.right, keys: [cursors.right, wasd.D] },
   ];
 
-  return (world: World) => {
-    const held = readHeldDirection(bindings);
-    if (held === DIRECTION.none) {
-      return;
-    }
-    for (const eid of query(world, [Input, Player])) {
-      Input.direction[eid] = held;
-    }
+  return {
+    apply: (world: World) => {
+      const held = readHeldDirection(bindings);
+      if (held === DIRECTION.none) {
+        return;
+      }
+      for (const eid of query(world, [Input, Player])) {
+        Input.direction[eid] = held;
+      }
+    },
+    anyMoveKeyDown: () => readHeldDirection(bindings) !== DIRECTION.none,
   };
 }
 

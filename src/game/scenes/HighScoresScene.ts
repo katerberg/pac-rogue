@@ -7,8 +7,9 @@ import {
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
+  buildScoreListScrollConfig,
   createScoreListScroll,
-  DEFAULT_SCORE_LIST_SCROLL,
+  fitScoreListViewportRows,
   tickScoreListScroll,
   type ScoreListScrollState,
 } from "../../domain/scoreListScroll";
@@ -22,12 +23,16 @@ import {
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
 
-const SCROLL = DEFAULT_SCORE_LIST_SCROLL;
-const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 const LIST_TOP = 200;
+const BACK_Y = PLAYFIELD_HEIGHT - 80;
+const LIST_BOTTOM_CLEARANCE = 48;
 const HEADER_Y = LIST_TOP - 36;
 const HEADER_LINE_Y = LIST_TOP - 10;
 const BG = MAZE_BACKGROUND_COLOR;
+
+const availableListHeight = BACK_Y - LIST_TOP - LIST_BOTTOM_CLEARANCE;
+const SCROLL = buildScoreListScrollConfig(fitScoreListViewportRows(availableListHeight));
+const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 
 export class HighScoresScene extends Phaser.Scene {
   private scrollState: ScoreListScrollState = createScoreListScroll(0, SCROLL);
@@ -104,12 +109,12 @@ export class HighScoresScene extends Phaser.Scene {
     this.backText = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
-      PLAYFIELD_HEIGHT - 80,
+      BACK_Y,
       "> BACK",
       MENU_OPTION_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(10);
-    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
+    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
     this.backText.setInteractive({ useHandCursor: true });
     this.backText.on("pointerdown", () => {
       this.goBack();
