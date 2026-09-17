@@ -1,6 +1,6 @@
 import { MAZE_COLS, cellCenterX, cellCenterY, getActiveLayout, isDoor, isHouse } from "./maze";
 
-export const HOUSE_SEAT_COUNT = 3;
+export const HOUSE_SEAT_COUNT = 4;
 
 export type HouseSeat = { x: number; y: number };
 

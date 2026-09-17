@@ -1,11 +1,22 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import { getActiveLayout } from "./maze";
 import {
   BLINKY_RELEASE_DELAY_MS,
   CLYDE_POST_LIFE_RELEASE_DELAY_MS,
+  INKY_POST_LIFE_RELEASE_DELAY_MS,
   PINKY_RELEASE_DELAY_MS,
   shouldReleaseKind,
   type GhostReleaseClock,
 } from "./ghostRelease";
+
+function isPelletGated(kind: GhostKindId): boolean {
+  return kind === GHOST_KIND.inky || kind === GHOST_KIND.clyde;
+}
+
+function pelletThresholdForKind(kind: GhostKindId): number {
+  const layout = getActiveLayout();
+  return kind === GHOST_KIND.inky ? layout.inkyReleasePellets : layout.clydeReleasePellets;
+}
 
 function effectiveDelayKey(
   kind: GhostKindId,
@@ -13,9 +24,11 @@ function effectiveDelayKey(
   collectedCount: number,
   afterLifeRelease: boolean,
 ): number {
-  if (kind === GHOST_KIND.clyde) {
+  if (isPelletGated(kind)) {
     if (afterLifeRelease) {
-      return CLYDE_POST_LIFE_RELEASE_DELAY_MS;
+      return kind === GHOST_KIND.inky
+        ? INKY_POST_LIFE_RELEASE_DELAY_MS
+        : CLYDE_POST_LIFE_RELEASE_DELAY_MS;
     }
     if (shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease)) {
       return 0;
@@ -30,15 +43,17 @@ function remainingTimeMs(
   clock: GhostReleaseClock,
   afterLifeRelease: boolean,
 ): number {
-  const delay =
-    kind === GHOST_KIND.clyde
-      ? CLYDE_POST_LIFE_RELEASE_DELAY_MS
-      : kind === GHOST_KIND.pinky
-        ? PINKY_RELEASE_DELAY_MS
-        : BLINKY_RELEASE_DELAY_MS;
-  if (kind === GHOST_KIND.clyde && !afterLifeRelease) {
+  if (isPelletGated(kind) && !afterLifeRelease) {
     return Number.POSITIVE_INFINITY;
   }
+  const delay =
+    kind === GHOST_KIND.inky
+      ? INKY_POST_LIFE_RELEASE_DELAY_MS
+      : kind === GHOST_KIND.clyde
+        ? CLYDE_POST_LIFE_RELEASE_DELAY_MS
+        : kind === GHOST_KIND.pinky
+          ? PINKY_RELEASE_DELAY_MS
+          : BLINKY_RELEASE_DELAY_MS;
   if (!clock.started) {
     return delay;
   }
@@ -65,10 +80,16 @@ export function compareInHouseReleaseOrder(
     );
   }
 
-  const aPelletWait = a === GHOST_KIND.clyde && !afterLifeRelease;
-  const bPelletWait = b === GHOST_KIND.clyde && !afterLifeRelease;
+  const aPelletWait = isPelletGated(a) && !afterLifeRelease;
+  const bPelletWait = isPelletGated(b) && !afterLifeRelease;
   if (aPelletWait !== bPelletWait) {
     return aPelletWait ? 1 : -1;
+  }
+  if (aPelletWait && bPelletWait) {
+    const byThreshold = pelletThresholdForKind(a) - pelletThresholdForKind(b);
+    if (byThreshold !== 0) {
+      return byThreshold;
+    }
   }
 
   const rem =

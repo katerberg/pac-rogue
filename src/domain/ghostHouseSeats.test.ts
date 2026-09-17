@@ -12,15 +12,17 @@ describe("ghostHouseSeats", () => {
     activateLayout("maze1");
   });
 
-  it("derives three distinct left-to-right seats on both layouts", () => {
+  it("derives four distinct left-to-right seats on both layouts", () => {
     for (const id of ["maze1", "maze2"] as const) {
       activateLayout(id);
       const seats = ghostHouseSeatCenters();
       expect(seats).toHaveLength(HOUSE_SEAT_COUNT);
       expect(seats[0]!.x).toBeLessThan(seats[1]!.x);
       expect(seats[1]!.x).toBeLessThan(seats[2]!.x);
+      expect(seats[2]!.x).toBeLessThan(seats[3]!.x);
       expect(seats[0]!.y).toBe(seats[1]!.y);
       expect(seats[1]!.y).toBe(seats[2]!.y);
+      expect(seats[2]!.y).toBe(seats[3]!.y);
       const spawn = getActiveLayout().ghostHouseSpawn;
       expect(seats[0]!.y).toBe(cellCenterY(spawn.row));
     }
@@ -61,12 +63,14 @@ describe("ghostHouseSeats", () => {
       { eid: 1, x: center.x, y: center.y },
       { eid: 2, x: center.x, y: center.y },
       { eid: 3, x: center.x, y: center.y },
+      { eid: 4, x: center.x, y: center.y },
     ];
-    const assigned = assignHouseSeats(ghosts, [1, 2, 3], seats);
+    const assigned = assignHouseSeats(ghosts, [1, 2, 3, 4], seats);
     expect([...assigned.entries()].sort((a, b) => a[0] - b[0])).toEqual([
       [1, 0],
       [2, 1],
       [3, 2],
+      [4, 3],
     ]);
     expect(nearestHouseSeatIndex(center.x, center.y, seats)).toBeGreaterThanOrEqual(0);
   });
