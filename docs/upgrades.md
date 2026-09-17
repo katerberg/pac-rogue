@@ -1,11 +1,12 @@
 # Run upgrades
 
-Fruit grants **run-long** upgrades for the current `PlayScene` only. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
+Fruit opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` only. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
 
 ## Model
 
-- [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS`, pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, `freezeRemainingMs`, `scatterBurstRemainingMs`, `forceNextId`). Cleared when the scene is recreated.
+- [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter timers, `forceNextId`, `lastDeclinedUpgradeId`). Cleared when the scene is recreated.
+- Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
 - Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
 
@@ -20,13 +21,24 @@ Fruit grants **run-long** upgrades for the current `PlayScene` only. There is no
 | `ghostRecall`       | Ghost Recall  | Power pellet teleports the closest leaving/active ghost to the house as `leaving`             |
 | `warpTop`           | Warp Top      | Power pellet warps the player to the dynamically nearest top-middle walkable cell             |
 
+Modal copy uses each def’s punchy `description` string (iterate freely).
+
 ## Grant rules
 
 - Collecting bonus fruit still plays both munches and despawns fruit (no fruit points).
-- Grant one **random distinct** upgrade among ids not already owned (`grantRandomUpgrade`).
-- Empty eligible pool: fruit still collected; no grant; no crash.
-- `forceUpgrade` → `forceNextId` at create. Next fruit: grant that id if not owned, else pick among remaining eligible. **`forceNextId` is always cleared on fruit collect**, even when nothing is granted.
-- `enableUpgrade` (repeatable) → each valid id granted into `owned` at create (order preserved; duplicates ignored by `grantUpgrade`). Combines with `forceUpgrade`. Flag catalog and examples: [README Flags](../README.md#flags).
+- Eligible pool = upgrade ids not already owned.
+- **0 eligible:** fruit collected; no modal; clear `forceNextId` if set; no grant.
+- **1 eligible:** one-button modal (must pick; no auto-grant).
+- **2+ eligible:** two-button modal. Options from `pickUpgradeChoiceOffer`:
+  - Never the same id on both sides.
+  - Prefer excluding `lastDeclinedUpgradeId` (the option **not** chosen on the previous two-option confirm).
+  - If excluding decline would leave fewer than two candidates, re-include last-declined only as needed.
+  - `forceUpgrade` / `forceNextId`: when still eligible, that id is guaranteed as one of the two sides; modal still opens.
+- While the modal is open, the play sim is fully frozen (death-style early-return).
+- **0.5s lockout** after open: fuzz-in (alpha ramp + light jitter + BitmapText scramble). Keyboard and click disabled.
+- After lockout: **click** a button to grant immediately, or **Up/W** enters selection mode (highlight + LEFT/RIGHT hints), then **Left/A** or **Right/D** confirms (one-button: either direction confirms). No Esc / dismiss — must pick.
+- On confirm: `grantUpgrade` chosen id; clear `forceNextId`; if two options were shown, set `lastDeclinedUpgradeId` to the other; one-button leaves prior decline unchanged. HUD refreshes.
+- `enableUpgrade` (repeatable) → each valid id granted into `owned` at create (order preserved; duplicates ignored by `grantUpgrade`). Combines with `forceUpgrade`.
 
 ## Power pellets
 
@@ -67,7 +79,7 @@ Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`, 8px so lab
 
 ## Adding an upgrade
 
-1. Add an `UpgradeId` and a row on `UPGRADE_DEFS` (label + passives / `onPowerPellet` as needed).
+1. Add an `UpgradeId` and a row on `UPGRADE_DEFS` (label, description, + passives / `onPowerPellet` as needed).
 2. If the effect is already covered (speed mul or existing `onPowerPellet` fields), stop there.
 3. If it is a **new kind** of effect, extend the def shape and add one resolve site (domain helper + PlayScene/system call). Do not add a plugin bus.
 4. Document the new id in [README Flags](../README.md#flags) and the defs table above.

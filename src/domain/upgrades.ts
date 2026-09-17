@@ -4,6 +4,7 @@ export type UpgradeId =
 export type UpgradeDef = {
   id: UpgradeId;
   label: string;
+  description: string;
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
   onPowerPellet?: {
@@ -23,23 +24,37 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletFreeze",
     label: "Power Freeze",
+    description: "Chomp a power pellet and ghosts lock solid for a few seconds.",
     onPowerPellet: { freezeGhostsMs: FREEZE_MS },
   },
-  { id: "playerSpeedUp", label: "Speed Up", playerSpeedMul: PLAYER_SPEED_UP_MUL },
-  { id: "ghostSlow", label: "Ghost Slow", ghostSpeedMul: GHOST_SLOW_MUL },
+  {
+    id: "playerSpeedUp",
+    label: "Speed Up",
+    description: "You run hotter. Corners feel closer.",
+    playerSpeedMul: PLAYER_SPEED_UP_MUL,
+  },
+  {
+    id: "ghostSlow",
+    label: "Ghost Slow",
+    description: "The hunt softens. Ghosts drag their feet.",
+    ghostSpeedMul: GHOST_SLOW_MUL,
+  },
   {
     id: "scatterBurst",
     label: "Scatter Burst",
+    description: "Power pellet scatters every ghost into the corners.",
     onPowerPellet: { scatterBurstMs: SCATTER_BURST_MS },
   },
   {
     id: "ghostRecall",
     label: "Ghost Recall",
+    description: "Power pellet yanks the nearest ghost straight home.",
     onPowerPellet: { recallClosestGhost: true },
   },
   {
     id: "warpTop",
     label: "Warp Top",
+    description: "Power pellet flings you to the top of the maze.",
     onPowerPellet: { warpPlayerTopCenter: true },
   },
 ];
@@ -55,6 +70,7 @@ export type RunUpgrades = {
   freezeRemainingMs: number;
   scatterBurstRemainingMs: number;
   forceNextId: UpgradeId | null;
+  lastDeclinedUpgradeId: UpgradeId | null;
 };
 
 export type PowerPelletApplyResult = {
@@ -72,6 +88,7 @@ export function createRunUpgrades(
     freezeRemainingMs: 0,
     scatterBurstRemainingMs: 0,
     forceNextId,
+    lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
     state = grantUpgrade(state, id);
@@ -97,6 +114,10 @@ export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
   return ids;
 }
 
+export function getUpgradeDef(id: UpgradeId): UpgradeDef {
+  return UPGRADE_BY_ID.get(id)!;
+}
+
 export function eligibleUpgrades(owned: readonly UpgradeId[]): UpgradeId[] {
   const ownedSet = new Set(owned);
   return ALL_UPGRADE_IDS.filter((id) => !ownedSet.has(id));
@@ -116,6 +137,85 @@ export function pickUpgrade(
   }
   const index = Math.min(eligible.length - 1, Math.floor(rng() * eligible.length));
   return eligible[index] ?? null;
+}
+
+function takeRandomFrom(pool: UpgradeId[], rng: () => number): UpgradeId {
+  const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
+  const picked = pool[index]!;
+  pool.splice(index, 1);
+  return picked;
+}
+
+function shuffleInPlace(ids: UpgradeId[], rng: () => number): void {
+  for (let i = ids.length - 1; i > 0; i -= 1) {
+    const j = Math.min(i, Math.floor(rng() * (i + 1)));
+    const tmp = ids[i]!;
+    ids[i] = ids[j]!;
+    ids[j] = tmp;
+  }
+}
+
+export function pickUpgradeChoiceOffer(
+  owned: readonly UpgradeId[],
+  lastDeclined: UpgradeId | null,
+  rng: () => number,
+  forceNext: UpgradeId | null,
+): UpgradeId[] | null {
+  const eligible = eligibleUpgrades(owned);
+  if (eligible.length === 0) {
+    return null;
+  }
+  if (eligible.length === 1) {
+    return [eligible[0]!];
+  }
+
+  const reservedForce = forceNext !== null && eligible.includes(forceNext) ? forceNext : null;
+  const pool = eligible.filter((id) => id !== reservedForce);
+  const needed = reservedForce === null ? 2 : 1;
+
+  const preferred = pool.filter((id) => id !== lastDeclined);
+  const picked: UpgradeId[] = [];
+  const drawPool = [...preferred];
+  while (picked.length < needed && drawPool.length > 0) {
+    picked.push(takeRandomFrom(drawPool, rng)!);
+  }
+
+  if (
+    picked.length < needed &&
+    lastDeclined !== null &&
+    pool.includes(lastDeclined) &&
+    !picked.includes(lastDeclined)
+  ) {
+    picked.push(lastDeclined);
+  }
+
+  while (picked.length < needed) {
+    const remaining = pool.filter((id) => !picked.includes(id));
+    if (remaining.length === 0) {
+      break;
+    }
+    picked.push(takeRandomFrom(remaining, rng)!);
+  }
+
+  const options: UpgradeId[] =
+    reservedForce === null ? picked.slice(0, 2) : [reservedForce, ...picked].slice(0, 2);
+  shuffleInPlace(options, rng);
+  return options;
+}
+
+export function confirmUpgradeChoice(
+  state: RunUpgrades,
+  options: readonly UpgradeId[],
+  chosenId: UpgradeId,
+): RunUpgrades {
+  const next = { ...grantUpgrade(state, chosenId), forceNextId: null };
+  if (options.length !== 2) {
+    return next;
+  }
+  return {
+    ...next,
+    lastDeclinedUpgradeId: options.find((id) => id !== chosenId) ?? null,
+  };
 }
 
 export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {

@@ -60,12 +60,13 @@ import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
   applyPowerPelletEffects,
+  confirmUpgradeChoice,
   createRunUpgrades,
   ghostsAreFrozen,
   ghostSpeedMultiplier,
-  grantRandomUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
+  pickUpgradeChoiceOffer,
   playerSpeedMultiplier,
   scatterBurstActive,
   tickFreeze,
@@ -111,6 +112,7 @@ import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
 import { createRender, preloadPlayArt, type PlayRender } from "../systems/render";
 import { addPixelText, HUD_FONT_SIZE, UPGRADES_HUD_FONT_SIZE, placePixelText } from "./pixelFont";
+import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
@@ -127,6 +129,7 @@ export class PlayScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private death: DeathSequenceState | null = null;
+  private upgradeChoiceModal!: UpgradeChoiceModal;
 
   constructor() {
     super("PlayScene");
@@ -140,6 +143,8 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     this.world = createWorld();
     this.death = null;
+    this.upgradeChoiceModal?.destroy();
+    this.upgradeChoiceModal = createUpgradeChoiceModal(this);
     const urlParams = new URLSearchParams(location.search);
     const mazeOverride = parseMazeParam(urlParams);
     if (urlParams.has("maze") && mazeOverride === null) {
@@ -188,6 +193,7 @@ export class PlayScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "siren");
       stopLoopingSfx(this, "death");
+      this.upgradeChoiceModal.destroy();
     });
   }
 
@@ -198,6 +204,11 @@ export class PlayScene extends Phaser.Scene {
       if (tick.shouldStartFade) {
         this.startDeathFadeOverlay();
       }
+      return;
+    }
+
+    if (this.upgradeChoiceModal.isActive()) {
+      this.upgradeChoiceModal.tick(delta);
       return;
     }
 
@@ -277,8 +288,23 @@ export class PlayScene extends Phaser.Scene {
       playSfx(this, "pelletMunch");
       playSfx(this, "pelletMunch2");
       this.fruitPresence = markFruitCollected(fruitTick.state);
-      this.runUpgrades = grantRandomUpgrade(this.runUpgrades, () => Math.random());
-      this.refreshUpgradesHud();
+      const options = pickUpgradeChoiceOffer(
+        this.runUpgrades.owned,
+        this.runUpgrades.lastDeclinedUpgradeId,
+        () => Math.random(),
+        this.runUpgrades.forceNextId,
+      );
+      if (options === null) {
+        this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
+      } else {
+        this.upgradeChoiceModal.open(options, (chosen) => {
+          this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, options, chosen);
+          this.refreshUpgradesHud();
+        });
+        const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
+        this.playRender.draw(this.world, { ghostsFrozen });
+        return;
+      }
     } else if (fruitTick.action === "despawn") {
       this.clearFruitEntities();
       this.fruitPresence = fruitTick.state;
