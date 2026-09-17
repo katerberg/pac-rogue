@@ -7,10 +7,6 @@ export type GhostRecallCandidate = {
   phase: GhostPhaseValue;
 };
 
-export function isGhostRecallEligible(phase: GhostPhaseValue): boolean {
-  return phase === GHOST_PHASE.leaving || phase === GHOST_PHASE.active;
-}
-
 export function pickClosestGhostEid(
   candidates: readonly GhostRecallCandidate[],
   fromX: number,
@@ -20,7 +16,7 @@ export function pickClosestGhostEid(
   let bestDist = Number.POSITIVE_INFINITY;
 
   for (const candidate of candidates) {
-    if (!isGhostRecallEligible(candidate.phase)) {
+    if (candidate.phase === GHOST_PHASE.inHouse) {
       continue;
     }
     const dx = candidate.x - fromX;

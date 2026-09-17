@@ -50,11 +50,9 @@ describe("ghostMode", () => {
     const paused = resolveGhostModeStep(clock, true, 5_000);
     expect(paused.clock).toEqual(clock);
     expect(paused.mode).toBe(GHOST_AI_MODE.scatter);
-    expect(paused.waveForceReverse).toBe(false);
 
     const resumed = resolveGhostModeStep(clock, false, 20_000);
     expect(resumed.clock.waveIndex).toBeGreaterThan(clock.waveIndex);
     expect(resumed.mode).toBe(GHOST_AI_MODE.scatter);
-    expect(resumed.waveForceReverse).toBe(true);
   });
 });

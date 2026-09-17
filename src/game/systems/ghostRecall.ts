@@ -2,7 +2,7 @@ import { query, type World } from "bitecs";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import { ghostHouseSpawnCenter } from "../../domain/maze";
-import { GHOST_PHASE } from "../../domain/ghostPhase";
+import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, Input } from "../components/Input";
@@ -18,8 +18,7 @@ export function recallClosestGhostToHouse(world: World, fromX: number, fromY: nu
       eid,
       x: Position.x[eid] ?? 0,
       y: Position.y[eid] ?? 0,
-      phase: (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) as
-        typeof GHOST_PHASE.inHouse | typeof GHOST_PHASE.leaving | typeof GHOST_PHASE.active,
+      phase: (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) as GhostPhaseValue,
     });
   }
 

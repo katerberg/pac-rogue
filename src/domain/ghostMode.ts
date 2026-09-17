@@ -60,10 +60,8 @@ export function startGhostModeClock(): GhostModeClock {
 export type GhostModeStep = {
   clock: GhostModeClock;
   mode: GhostAiMode;
-  waveForceReverse: boolean;
 };
 
-/** Pause wave clock while scatter burst is active; otherwise tick as usual. */
 export function resolveGhostModeStep(
   clock: GhostModeClock,
   scatterBurstActive: boolean,
@@ -73,14 +71,12 @@ export function resolveGhostModeStep(
     return {
       clock,
       mode: GHOST_AI_MODE.scatter,
-      waveForceReverse: false,
     };
   }
   const tick = tickGhostMode(clock, deltaMs);
   return {
     clock: tick.clock,
     mode: tick.clock.mode,
-    waveForceReverse: tick.forceReverse,
   };
 }
 
