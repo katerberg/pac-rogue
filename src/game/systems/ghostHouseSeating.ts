@@ -19,6 +19,8 @@ import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 
+type InHouseGhost = HouseSeatGhost & { kind: GhostKindId };
+
 function directionToward(fromX: number, fromY: number, toX: number, toY: number): Direction {
   if (Math.abs(fromX - toX) > TURN_ALIGN_EPS) {
     return fromX < toX ? DIRECTION.right : DIRECTION.left;
@@ -29,15 +31,8 @@ function directionToward(fromX: number, fromY: number, toX: number, toY: number)
   return DIRECTION.none;
 }
 
-export function ghostHouseSeating(
-  world: World,
-  clock: GhostReleaseClock,
-  collectedCount: number,
-  afterLifeRelease = false,
-): void {
-  const seats = ghostHouseSeatCenters();
-  const inHouse: (HouseSeatGhost & { kind: GhostKindId })[] = [];
-
+function collectInHouseGhosts(world: World): InHouseGhost[] {
+  const inHouse: InHouseGhost[] = [];
   for (const eid of query(world, [
     Ghost,
     GhostKind,
@@ -58,21 +53,40 @@ export function ghostHouseSeating(
       y: Position.y[eid] ?? 0,
     });
   }
+  return inHouse;
+}
 
-  if (inHouse.length === 0) {
-    return;
-  }
-
+function seatAssignment(
+  inHouse: InHouseGhost[],
+  clock: GhostReleaseClock,
+  collectedCount: number,
+  afterLifeRelease: boolean,
+) {
+  const seats = ghostHouseSeatCenters();
   const ordered = sortInHouseGhosts(inHouse, clock, collectedCount, afterLifeRelease);
   const assignment = assignHouseSeats(
     inHouse,
     ordered.map((g) => g.eid),
     seats,
   );
+  return { seats, assignment };
+}
+
+export function ghostHouseSeating(
+  world: World,
+  clock: GhostReleaseClock,
+  collectedCount: number,
+  afterLifeRelease = false,
+): void {
+  const inHouse = collectInHouseGhosts(world);
+  if (inHouse.length === 0) {
+    return;
+  }
+
+  const { seats, assignment } = seatAssignment(inHouse, clock, collectedCount, afterLifeRelease);
 
   for (const ghost of inHouse) {
-    const seatIndex = assignment.get(ghost.eid) ?? 0;
-    const seat = seats[seatIndex]!;
+    const seat = seats[assignment.get(ghost.eid) ?? 0]!;
     const dir = directionToward(ghost.x, ghost.y, seat.x, seat.y);
     if (dir === DIRECTION.none) {
       Position.x[ghost.eid] = seat.x;
@@ -96,36 +110,12 @@ export function placeInHouseGhostsAtPredictedSeats(
   collectedCount: number,
   afterLifeRelease = false,
 ): void {
-  const seats = ghostHouseSeatCenters();
-  const inHouse: (HouseSeatGhost & { kind: GhostKindId })[] = [];
-
-  for (const eid of query(world, [
-    Ghost,
-    GhostKind,
-    GhostPhase,
-    Position,
-    Velocity,
-    Input,
-    Facing,
-    Speed,
-  ])) {
-    if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
-      continue;
-    }
-    inHouse.push({
-      eid,
-      kind: (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId,
-      x: Position.x[eid] ?? 0,
-      y: Position.y[eid] ?? 0,
-    });
+  const inHouse = collectInHouseGhosts(world);
+  if (inHouse.length === 0) {
+    return;
   }
 
-  const ordered = sortInHouseGhosts(inHouse, clock, collectedCount, afterLifeRelease);
-  const assignment = assignHouseSeats(
-    inHouse,
-    ordered.map((g) => g.eid),
-    seats,
-  );
+  const { seats, assignment } = seatAssignment(inHouse, clock, collectedCount, afterLifeRelease);
 
   for (const ghost of inHouse) {
     const seat = seats[assignment.get(ghost.eid) ?? 0]!;
