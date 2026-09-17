@@ -9,7 +9,7 @@ Ship a 3-life run: ghost contact spends a life with the existing death SFX and a
 | ID  | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Source                 |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
 | 1   | Final life: hold for death-SFX length → fade → **GAME OVER** text + collected count → then `MenuScene` (no score write).                                                                                                                                                                                                                                                                                                                                                                                                              | user                   |
-| 2   | Non-final and final pre-fade hold duration = controllable knob `DEATH_HOLD_MS`, default **845** (measured `public/sound/death.ogg` ≈ 844.65ms). Replace today’s hard-coded use of `DEATH_FADE_START_MS` as the hold. Keep `DEATH_FADE_DURATION_MS = 500` for the fade into Game Over.                                                                                                                                                                                                                                                 | user                   |
+| 2   | Non-final and final pre-fade hold duration = controllable knob `DEATH_HOLD_MS`, default **845** (measured `public/sound/death.ogg` ≈ 844.65ms). Replace today’s hard-coded use of `DEATH_FADE_START_MS` as the hold, then **delete** `DEATH_FADE_START_MS`. Keep `DEATH_FADE_DURATION_MS = 500` for the fade into Game Over.                                                                                                                                                                                                          | user                   |
 | 3   | Lives HUD = **remaining Pac-Man icons**, bottom-left of the playfield (reuse existing player art / closed-mouth frame). Icon count = current `lives` (3 at start).                                                                                                                                                                                                                                                                                                                                                                    | user                   |
 | 4   | After ready pause, resume pipeline with cleared input; **wait for player direction** before run/release clocks start (same as level start).                                                                                                                                                                                                                                                                                                                                                                                           | user                   |
 | 5   | On life-loss reset: **despawn fruit** (clear fruit entities + clear active fruit presence; do **not** rewind `nextThresholdIndex`).                                                                                                                                                                                                                                                                                                                                                                                                   | user                   |
@@ -21,7 +21,7 @@ Ship a 3-life run: ghost contact spends a life with the existing death SFX and a
 | D   | No black fade on **non-final** deaths. Fade only on final-life → Game Over path.                                                                                                                                                                                                                                                                                                                                                                                                                                                      | default (updated by 1) |
 | E   | Ready pause = `READY_PAUSE_MS = 1000` after actors snap back; full freeze (no sim).                                                                                                                                                                                                                                                                                                                                                                                                                                                   | default                |
 | F   | Life-loss reset: player → `playerSpawnCenter`, clear velocity/input/facing; all ghosts → `ghostHouseSpawnCenter`, `inHouse`, speed 0, clear AI decision tiles; reset `GhostReleaseClock` + `GhostModeClock` to create/inactive defaults (waves restart on next first exit). All ghosts in house (product pitch; not arcade Blinky-outside).                                                                                                                                                                                           | default                |
-| G   | Keep `RunClock.remaining` (+ carry), `pelletProgress`, `runUpgrades.owned`, maze/layout across life loss.                                                                                                                                                                                                                                                                                                                                                                                                                             | default                |
+| G   | Keep `RunClock.remaining` + `carryMs`, `pelletProgress`, `runUpgrades.owned`, maze/layout across life loss. Reset `RunClock.started` to `false` so the timer waits for direction (decision 4).                                                                                                                                                                                                                                                                                                                                        | default                |
 | H   | Domain-first death/life sequence state machine (extend `deathSequence.ts` or split companion) unit-tested without Phaser; `PlayScene` applies world resets, HUD icons, Game Over text, scene transition.                                                                                                                                                                                                                                                                                                                              | default                |
 | I   | Docs same PR: `docs/ARCHITECTURE.md` (flow + catch bullet) + README Status (contact no longer always → menu).                                                                                                                                                                                                                                                                                                                                                                                                                         | default                |
 | J   | Unit tests for sequence phases/timings/lives branch + Clyde post-life time release; `npm run verify`; live visual on agent port.                                                                                                                                                                                                                                                                                                                                                                                                      | default                |
@@ -29,7 +29,7 @@ Ship a 3-life run: ghost contact spends a life with the existing death SFX and a
 | L   | Verification level: gameplay + presentation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | default                |
 | M   | Late: `/simplify-pr` then `/no-comments` on scoped diff.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | default                |
 | N   | Game Over hold on screen: `GAME_OVER_HOLD_MS = 2000` after fade completes, then `scene.start("MenuScene")`. Copy: title `GAME OVER`; second line `Collected: ${collectedCount}` using existing pixel font helpers.                                                                                                                                                                                                                                                                                                                    | default (needed by 1)  |
-| O   | `afterLifeRelease` flag: `false` on `PlayScene.create`; set `true` on every life-loss reset; while true, `shouldReleaseKind` (or successor) treats Clyde as time-gated via `CLYDE_POST_LIFE_RELEASE_DELAY_MS`.                                                                                                                                                                                                                                                                                                                        | default (from 7)       |
+| O   | `afterLifeRelease` flag: `false` on `PlayScene.create`; set `true` on every life-loss reset; while true, `shouldReleaseKind` treats Clyde as time-gated via `CLYDE_POST_LIFE_RELEASE_DELAY_MS`.                                                                                                                                                                                                                                                                                                                                       | default (from 7)       |
 
 ## Today’s world (brief)
 
@@ -78,6 +78,7 @@ tickDeathSequence(state, deltaMs): { state; events: DeathSequenceEvent[] }
 - Non-final: `hold` → emit `resetActors` → `ready` → `resume`.
 - Final: `hold` → `fadeToGameOver` (emit `startFade`) → `gameOver` (emit `showGameOver`) → `goToMenu`.
 - No fade on non-final.
+- A single large `deltaMs` that overshoots still emits skipped-phase events in order (non-final must emit `resetActors` before `resume`; final must emit `startFade` then `showGameOver` before `goToMenu`) so PlayScene never resumes or leaves without the side effects.
 
 Update `deathSequence.test.ts` for both branches and knob thresholds.
 
@@ -86,13 +87,13 @@ Update `deathSequence.test.ts` for both branches and knob thresholds.
 In `src/domain/ghostRelease.ts`:
 
 - Add `CLYDE_POST_LIFE_RELEASE_DELAY_MS = 9000`.
-- Extend `shouldReleaseKind` (or add `shouldReleaseKindWithMode`) with `afterLifeRelease: boolean`.
-- When `afterLifeRelease` and kind is Clyde: `shouldReleaseGhostAt(clock, CLYDE_POST_LIFE_RELEASE_DELAY_MS)` — **not** absolute pellets.
+- Extend `shouldReleaseKind` with `afterLifeRelease = false` (default so existing callers/tests stay first-life).
+- When `afterLifeRelease` and kind is Clyde: `shouldReleaseGhostAt(clock, CLYDE_POST_LIFE_RELEASE_DELAY_MS)` — **not** absolute pellets. Do **not** route Clyde through `releaseDelayForKind` (it throws `"Clyde uses pellet release"`).
 - When `!afterLifeRelease` and Clyde: today’s pellet rule.
 - Blinky/Pinky unchanged.
-- Unit tests: pellet path still works on first life; after-life path ignores high `collectedCount` until clock elapsed.
+- Unit tests: pellet path still works on first life; after-life path ignores high `collectedCount` until clock elapsed; Clyde after-life does not throw.
 
-Wire `afterLifeRelease` from `PlayScene` into `ghostRelease(...)`.
+Wire `afterLifeRelease` from `PlayScene` into `ghostRelease(...)` (same default `false`).
 
 ### 3. PlayScene wiring
 
@@ -103,6 +104,8 @@ State:
 - `private death: DeathSequenceState | null = null`
 - Lives icon GameObjects array (or container) bottom-left.
 
+Phaser reuses the `PlayScene` instance across `scene.start`. Field initializers run once — **`create()` must assign** `this.lives = START_LIVES`, `this.afterLifeRelease = false`, `this.death = null`, and rebuild lives icons (same pattern as today’s clocks/death reset).
+
 On catch (existing site after `catchPlayer`):
 
 1. Stop siren; `playSfx(this, "death")`.
@@ -112,10 +115,10 @@ On catch (existing site after `catchPlayer`):
 In `update`, when `death !== null`: tick machine; handle events:
 
 - `resetActors`: call private `resetAfterLifeLoss()` then refresh render once so icons/positions show during ready.
-- `startFade`: reuse overlay tween pattern; on complete advance is driven by tick/fade duration — prefer driving fade timing via domain `fadeToGameOver` phase (scene starts tween when event fires; domain already accounts for `DEATH_FADE_DURATION_MS`, **or** scene reports fade complete into tick — pick **domain-owned fade duration** matching today’s tween length so tests stay pure: scene starts visual tween of `DEATH_FADE_DURATION_MS` when event fires; domain independently moves hold→fade→gameOver using same constant).
+- `startFade`: reuse the overlay tween **visual only**. Today’s `startDeathFadeOverlay` `onComplete` calls `scene.start("MenuScene")` — **delete that**. Domain owns timing (`DEATH_FADE_DURATION_MS` then `GAME_OVER_HOLD_MS`); the tween must not change scenes.
 - `showGameOver`: add centered BitmapText `GAME OVER` + `Collected: N` (use `this.pelletProgress.collectedCount`); depth above overlay.
 - `resume`: `this.death = null`; `startLoopingSfx(this, "siren")`.
-- `goToMenu`: `this.scene.start("MenuScene")`.
+- `goToMenu`: **only** this event calls `this.scene.start("MenuScene")`.
 
 `resetAfterLifeLoss()`:
 
@@ -125,7 +128,7 @@ In `update`, when `death !== null`: tick machine; handle events:
 4. `afterLifeRelease = true`.
 5. Despawn fruit entities; set fruit presence `{ ...state, active: false, remainingMs: 0 }` (keep `nextThresholdIndex`).
 6. Clear upgrade transient ms (`freezeRemainingMs = 0`, `scatterBurstRemainingMs = 0`).
-7. Do **not** touch pellets, `pelletProgress`, `clock.remaining`, `owned`.
+7. Do **not** touch pellets, `pelletProgress`, `clock.remaining`, `clock.carryMs`, `owned`. Set `clock.started = false` (keep remaining + carry).
 
 Lives icons:
 
@@ -137,7 +140,7 @@ Lives icons:
 ### 4. Catch / systems
 
 - `catchPlayer` unchanged.
-- `ghostRelease` system gains `afterLifeRelease` boolean forwarded to domain helper.
+- `ghostRelease` system gains `afterLifeRelease` boolean (default `false`) forwarded to domain helper.
 
 ### 5. Docs
 
@@ -153,6 +156,7 @@ Lives icons:
 ## Failure behavior
 
 - Catch while `lives === 1`: Game Over path; never respawn; never write high score.
+- Next `PlayScene.create` after menu: `lives = START_LIVES` even if the previous run ended at 0.
 - Catch while freeze upgrade active: still impossible via existing `catchPlayer` skip; unchanged.
 - Shutdown during death/GO: existing SHUTDOWN stops siren/death keys; scene teardown is enough (no extra persistence).
 - If death SFX file changes length later: update `DEATH_HOLD_MS` knob deliberately (do not auto-detect at runtime in v1).
@@ -167,7 +171,7 @@ Lives icons:
 
 **Automated**
 
-- `deathSequence` unit: non-final emits reset then resume after `DEATH_HOLD_MS + READY_PAUSE_MS`; final never emits reset/resume; final reaches menu after hold + fade + `GAME_OVER_HOLD_MS`; large delta crosses thresholds once.
+- `deathSequence` unit: non-final emits reset then resume after `DEATH_HOLD_MS + READY_PAUSE_MS`; final never emits reset/resume; final reaches menu after hold + fade + `GAME_OVER_HOLD_MS`; large delta still emits skipped-phase events in order (reset before resume; fade then GO before menu).
 - `livesRemainingAfterCatch` unit: 3→2 not GO; 1→0 GO.
 - `ghostRelease` / `shouldReleaseKind`: first life Clyde still pellet-gated; `afterLifeRelease` + high pellets + clock not started → false; clock elapsed ≥ 9000 → true.
 - `npm run verify` green.
@@ -175,9 +179,10 @@ Lives icons:
 **Manual / visual** (`npm run dev:agent` → `http://127.0.0.1:5174`)
 
 1. Start run: 3 pac icons bottom-left.
-2. Die with lives left: death SFX, freeze ~0.85s, actors snap home/start, fruit gone if present, 1s ready freeze, icons decremented, no fade; after unfreeze nothing moves until a direction is pressed; then Blinky/Pinky/Clyde leave on post-life timers (Clyde not instantly).
-3. Die on last life: hold → fade → `GAME OVER` + collected → ~2s → menu.
-4. Pellets remain eaten across life loss; timer remaining preserved; owned upgrades labels still show; freeze/burst not stuck on.
+2. Die with lives left: death SFX, freeze ~0.85s, actors snap home/start, fruit gone if present, 1s ready freeze, icons decremented, no fade; after unfreeze nothing moves and the timer does not tick until a direction is pressed; then Blinky/Pinky/Clyde leave on post-life timers (Clyde not instantly).
+3. Die on last life: hold → fade → `GAME OVER` + collected → ~2s → menu (not at fade end).
+4. Pellets remain eaten across life loss; timer remaining preserved (does not reset to 999); owned upgrades labels still show; freeze/burst not stuck on.
+5. After Game Over → menu → Start: 3 lives again (scene instance reused).
 
 Record what was launched/exercised/observed per `docs/VERIFICATION.md`.
 
