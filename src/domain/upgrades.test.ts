@@ -10,6 +10,7 @@ import {
   eligibleUpgrades,
   ghostsAreFrozen,
   grantUpgrade,
+  grantLivesForUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickUpgradeChoiceOffer,
@@ -43,7 +44,6 @@ const ALL_IDS: UpgradeId[] = [
 const STUB_IDS: UpgradeId[] = [
   "pickupRange",
   "ghostHouseDelay",
-  "extraLife",
   "pelletToPower",
   "powerCollectThree",
   "powerWallPass",
@@ -191,6 +191,17 @@ describe("grantUpgrade", () => {
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
+  });
+
+  it("extraLife grants lives delta without power-pellet effects", () => {
+    expect(grantLivesForUpgrade("extraLife")).toBe(1);
+    expect(grantLivesForUpgrade("ghostSlow")).toBe(0);
+    const owned = grantUpgrade(createRunUpgrades(), "extraLife");
+    expect(applyPowerPelletEffects(owned, 1)).toEqual({
+      state: owned,
+      recallClosestGhost: false,
+      warpPlayerTopCenter: false,
+    });
   });
 });
 

@@ -70,6 +70,7 @@ import {
   createRunUpgrades,
   ghostsAreFrozen,
   ghostSpeedMultiplier,
+  grantLivesForUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickUpgradeChoiceOffer,
@@ -207,6 +208,9 @@ export class PlayScene extends Phaser.Scene {
       parseUpgradeId(urlParams.get("forceUpgrade")),
       parseEnableUpgradeParams(urlParams),
     );
+    for (const id of this.runUpgrades.owned) {
+      this.lives += grantLivesForUpgrade(id);
+    }
 
     this.collectedText = addPixelText(this, 12, 8, this.collectedLabel(), HUD_FONT_SIZE).setDepth(
       10,
@@ -397,7 +401,12 @@ export class PlayScene extends Phaser.Scene {
         this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
       } else {
         this.upgradeChoiceModal.open(options, (chosen) => {
+          const alreadyOwned = this.runUpgrades.owned.includes(chosen);
           this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, options, chosen);
+          if (!alreadyOwned) {
+            this.lives += grantLivesForUpgrade(chosen);
+            this.refreshLivesIcons();
+          }
           this.refreshUpgradesHud();
           this.beginUpgradeResumeCountdown();
         });
