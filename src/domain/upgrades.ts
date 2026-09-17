@@ -184,7 +184,8 @@ export function applyPowerPelletEffects(
         freezeMs === null ? onPower.freezeGhostsMs : Math.max(freezeMs, onPower.freezeGhostsMs);
     }
     if (onPower.scatterBurstMs !== undefined) {
-      scatterMs = onPower.scatterBurstMs;
+      scatterMs =
+        scatterMs === null ? onPower.scatterBurstMs : Math.max(scatterMs, onPower.scatterBurstMs);
     }
     if (onPower.recallClosestGhost) {
       recallClosestGhost = true;

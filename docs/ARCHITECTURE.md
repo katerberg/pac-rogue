@@ -119,9 +119,10 @@ PlayScene.update →
   movement →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
-  collectPellets → applyPowerPelletEffects → recallClosestGhost? → warpPlayerTopCenter? → applyPelletCollect →
-  resolveGhostModeStep (pause wave while scatter burst) →
+  collectPellets → applyPowerPelletEffects → applyPelletCollect →
+  resolveGhostModeStep (pause wave while scatter burst + clock active) →
   (effective mode changed ? forceGhostReverse : ghostAi) →
+  recallClosestGhost? → warpPlayerTopCenter? →
   tickFruitPresence (spawn/replace/despawn) → collectFruit → grantRandomUpgrade →
   catchPlayer (skip if frozen) →
   render (ghost freeze tint) →
@@ -183,4 +184,4 @@ A violation of these is a failed architecture check:
 - Blinky, Pinky, and Clyde: shared house spawn; Blinky/Pinky time release after first input (0.1s / 5s — tunable); Clyde leaves at 60 pellets collected (tunable); chase-first arcade scatter/chase waves started once on first exit; Blinky Cruise Elroy; Pinky 4-tile look-ahead + NW scatter; Clyde shy chase (Euclidean `< 8` → SW scatter) + SW scatter (tunable); tunnel slowdown; circle overlap catch freezes play, plays death SFX, fades to black (500ms fade starting at 500ms), then hard-cuts to the menu (no high-score write) unless freeze walk-through is active.
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
 - Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `pelletProgress`, `fruit`, `upgrades`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, `deathSequence`, ghost kind/path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost/deathSequence helpers are unit-tested without Phaser.
-- Power pellets are inert unless an owned upgrade reacts (v1: `powerPelletFreeze` → 3s freeze + cyan tint). No arcade fright / eatable ghosts / Inky yet.
+- Power pellets are inert unless an owned upgrade reacts (`powerPelletFreeze`, `scatterBurst`, `ghostRecall`, `warpTop` — see [docs/upgrades.md](./upgrades.md)). No arcade fright / eatable ghosts / Inky yet.

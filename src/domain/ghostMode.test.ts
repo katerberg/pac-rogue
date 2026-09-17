@@ -55,4 +55,11 @@ describe("ghostMode", () => {
     expect(resumed.clock.waveIndex).toBeGreaterThan(clock.waveIndex);
     expect(resumed.mode).toBe(GHOST_AI_MODE.scatter);
   });
+
+  it("ignores scatter burst while the wave clock is inactive", () => {
+    const idle = createGhostModeClock();
+    const step = resolveGhostModeStep(idle, true, 5_000);
+    expect(step.clock).toEqual(idle);
+    expect(step.mode).toBe(GHOST_AI_MODE.chase);
+  });
 });

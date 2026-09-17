@@ -7,6 +7,7 @@ import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, Input } from "../components/Input";
+import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
@@ -39,14 +40,24 @@ function spawnGhost(
   return eid;
 }
 
+function spawnPlayer(world: ReturnType<typeof createWorld>, col: number, row: number) {
+  const eid = addEntity(world);
+  addComponent(world, eid, Player);
+  addComponent(world, eid, Position);
+  Position.x[eid] = cellCenterX(col);
+  Position.y[eid] = cellCenterY(row);
+  return eid;
+}
+
 describe("recallClosestGhostToHouse", () => {
   it("teleports the closest eligible ghost into the house as leaving", () => {
     const world = createWorld();
+    spawnPlayer(world, 1, 1);
     const far = spawnGhost(world, 26, 1, GHOST_PHASE.active);
     const near = spawnGhost(world, 6, 5, GHOST_PHASE.active);
     const house = spawnGhost(world, 1, 1, GHOST_PHASE.inHouse);
 
-    recallClosestGhostToHouse(world, cellCenterX(1), cellCenterY(1));
+    recallClosestGhostToHouse(world);
 
     const spawn = ghostHouseSpawnCenter();
     expect(Position.x[near]).toBe(spawn.x);
@@ -65,10 +76,19 @@ describe("recallClosestGhostToHouse", () => {
 
   it("no-ops when only inHouse ghosts exist", () => {
     const world = createWorld();
+    spawnPlayer(world, 1, 1);
     const eid = spawnGhost(world, 6, 5, GHOST_PHASE.inHouse);
     const x = Position.x[eid];
-    recallClosestGhostToHouse(world, 0, 0);
+    recallClosestGhostToHouse(world);
     expect(Position.x[eid]).toBe(x);
     expect(GhostPhase.value[eid]).toBe(GHOST_PHASE.inHouse);
+  });
+
+  it("no-ops without a player", () => {
+    const world = createWorld();
+    const eid = spawnGhost(world, 6, 5, GHOST_PHASE.active);
+    const x = Position.x[eid];
+    recallClosestGhostToHouse(world);
+    expect(Position.x[eid]).toBe(x);
   });
 });

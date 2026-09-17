@@ -67,7 +67,7 @@ export function resolveGhostModeStep(
   scatterBurstActive: boolean,
   deltaMs: number,
 ): GhostModeStep {
-  if (scatterBurstActive) {
+  if (scatterBurstActive && clock.active) {
     return {
       clock,
       mode: GHOST_AI_MODE.scatter,

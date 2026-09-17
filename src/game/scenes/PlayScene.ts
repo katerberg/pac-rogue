@@ -1,4 +1,4 @@
-import { addComponent, addEntity, createWorld, query, type World } from "bitecs";
+import { addComponent, addEntity, createWorld, type World } from "bitecs";
 import Phaser from "phaser";
 import {
   createPelletProgress,
@@ -223,20 +223,6 @@ export class PlayScene extends Phaser.Scene {
     }
     const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
     this.runUpgrades = powerEffects.state;
-    if (powerEffects.recallClosestGhost) {
-      const players = query(this.world, [Player, Position]);
-      const playerEid = players[0];
-      if (playerEid !== undefined) {
-        recallClosestGhostToHouse(
-          this.world,
-          Position.x[playerEid] ?? 0,
-          Position.y[playerEid] ?? 0,
-        );
-      }
-    }
-    if (powerEffects.warpPlayerTopCenter) {
-      warpPlayerToTopCenter(this.world);
-    }
     const collectResult = applyPelletCollect(this.pelletProgress, removed);
     this.pelletProgress = collectResult.progress;
     this.collectedText.setText(this.collectedLabel());
@@ -252,6 +238,12 @@ export class PlayScene extends Phaser.Scene {
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
       ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining);
+    }
+    if (powerEffects.recallClosestGhost) {
+      recallClosestGhostToHouse(this.world);
+    }
+    if (powerEffects.warpPlayerTopCenter) {
+      warpPlayerToTopCenter(this.world);
     }
 
     const fruitTick = tickFruitPresence(

@@ -7,11 +7,20 @@ import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, Input } from "../components/Input";
 import { Facing } from "../components/Facing";
+import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 
-export function recallClosestGhostToHouse(world: World, fromX: number, fromY: number): void {
+export function recallClosestGhostToHouse(world: World): void {
+  const players = query(world, [Player, Position]);
+  const playerEid = players[0];
+  if (playerEid === undefined) {
+    return;
+  }
+  const fromX = Position.x[playerEid] ?? 0;
+  const fromY = Position.y[playerEid] ?? 0;
+
   const candidates = [];
   for (const eid of query(world, [Ghost, GhostPhase, Position, Velocity, Input, Facing, Speed])) {
     candidates.push({
