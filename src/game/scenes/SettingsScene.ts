@@ -1,7 +1,13 @@
 import Phaser from "phaser";
-import { AUDIO_LEVEL_MAX, clampLevel, type AudioSettings } from "../../domain/audioSettings";
+import {
+  AUDIO_LEVEL_MAX,
+  clampLevel,
+  defaultAudioSettings,
+  type AudioCategory,
+  type AudioSettings,
+} from "../../domain/audioSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { playMusicVolumePreview, playSfxVolumePreview, preloadSfx } from "../audio/sfx";
+import { playVolumePreview, preloadSfx } from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
 import {
   addPixelText,
@@ -12,13 +18,19 @@ import {
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
 
-const FOCUS_MUSIC = 0;
-const FOCUS_SFX = 1;
 const FOCUS_BACK = 2;
 const FOCUS_COUNT = 3;
 
-const ROW_MUSIC_Y = 220;
-const ROW_SFX_Y = 320;
+const ROW_Y: Record<AudioCategory, number> = {
+  music: 220,
+  sfx: 320,
+};
+const CATEGORIES: AudioCategory[] = ["music", "sfx"];
+const ROW_LABEL: Record<AudioCategory, string> = {
+  music: "MUSIC",
+  sfx: "SOUND EFFECTS",
+};
+
 const LABEL_X = 80;
 const TOGGLE_X = 320;
 const SLIDER_LEFT = 420;
@@ -32,27 +44,25 @@ const SLIDER_FILL_DIM = 0x666600;
 const SLIDER_NOTCH = 0xaaaaaa;
 const SLIDER_NOTCH_DIM = 0x555555;
 
-type CategoryKey = "music" | "sfx";
+type CategoryRow = {
+  category: AudioCategory;
+  focusIndex: number;
+  label: Phaser.GameObjects.BitmapText;
+  toggle: Phaser.GameObjects.BitmapText;
+  track: Phaser.GameObjects.Rectangle;
+  fill: Phaser.GameObjects.Rectangle;
+  notches: Phaser.GameObjects.Rectangle[];
+};
 
 export class SettingsScene extends Phaser.Scene {
-  private settings: AudioSettings = loadAudioSettings();
+  private settings: AudioSettings = defaultAudioSettings();
   private focusIndex = 0;
   private moveCooldownMs = 0;
   private pendingBack = false;
   private audioDisabled = false;
-
-  private musicLabel!: Phaser.GameObjects.BitmapText;
-  private musicToggle!: Phaser.GameObjects.BitmapText;
-  private sfxLabel!: Phaser.GameObjects.BitmapText;
-  private sfxToggle!: Phaser.GameObjects.BitmapText;
+  private rows: CategoryRow[] = [];
   private backText!: Phaser.GameObjects.BitmapText;
-
-  private musicTrack!: Phaser.GameObjects.Rectangle;
-  private musicFill!: Phaser.GameObjects.Rectangle;
-  private musicNotches: Phaser.GameObjects.Rectangle[] = [];
-  private sfxTrack!: Phaser.GameObjects.Rectangle;
-  private sfxFill!: Phaser.GameObjects.Rectangle;
-  private sfxNotches: Phaser.GameObjects.Rectangle[] = [];
+  private dragging: AudioCategory | null = null;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -63,8 +73,6 @@ export class SettingsScene extends Phaser.Scene {
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private keyBackspace!: Phaser.Input.Keyboard.Key;
-
-  private dragging: CategoryKey | null = null;
 
   constructor() {
     super("SettingsScene");
@@ -80,36 +88,15 @@ export class SettingsScene extends Phaser.Scene {
     this.moveCooldownMs = 0;
     this.pendingBack = false;
     this.dragging = null;
+    this.rows = [];
     this.audioDisabled = this.game.config.audio.noAudio === true;
 
     const title = addPixelText(this, PLAYFIELD_WIDTH / 2, 80, "SETTINGS", MENU_TITLE_FONT_SIZE);
     placePixelText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
 
-    this.musicLabel = addPixelText(this, LABEL_X, ROW_MUSIC_Y, "MUSIC", MENU_OPTION_FONT_SIZE);
-    this.musicToggle = addPixelText(this, TOGGLE_X, ROW_MUSIC_Y, "ON", MENU_OPTION_FONT_SIZE);
-    this.musicToggle.setInteractive({ useHandCursor: true });
-    this.musicToggle.on("pointerdown", () => {
-      this.focusIndex = FOCUS_MUSIC;
-      this.toggleCategory("music");
-    });
-
-    this.sfxLabel = addPixelText(this, LABEL_X, ROW_SFX_Y, "SOUND EFFECTS", MENU_OPTION_FONT_SIZE);
-    this.sfxToggle = addPixelText(this, TOGGLE_X, ROW_SFX_Y, "ON", MENU_OPTION_FONT_SIZE);
-    this.sfxToggle.setInteractive({ useHandCursor: true });
-    this.sfxToggle.on("pointerdown", () => {
-      this.focusIndex = FOCUS_SFX;
-      this.toggleCategory("sfx");
-    });
-
-    const musicSlider = this.createSlider(ROW_MUSIC_Y, "music");
-    this.musicTrack = musicSlider.track;
-    this.musicFill = musicSlider.fill;
-    this.musicNotches = musicSlider.notches;
-
-    const sfxSlider = this.createSlider(ROW_SFX_Y, "sfx");
-    this.sfxTrack = sfxSlider.track;
-    this.sfxFill = sfxSlider.fill;
-    this.sfxNotches = sfxSlider.notches;
+    for (const [index, category] of CATEGORIES.entries()) {
+      this.rows.push(this.createRow(category, index));
+    }
 
     if (this.audioDisabled) {
       const warning = addPixelText(
@@ -215,10 +202,11 @@ export class SettingsScene extends Phaser.Scene {
     ) {
       if (this.focusIndex === FOCUS_BACK) {
         this.pendingBack = true;
-      } else if (this.focusIndex === FOCUS_MUSIC) {
-        this.toggleCategory("music");
-      } else if (this.focusIndex === FOCUS_SFX) {
-        this.toggleCategory("sfx");
+      } else {
+        const row = this.rows[this.focusIndex];
+        if (row !== undefined) {
+          this.toggleCategory(row.category);
+        }
       }
     }
 
@@ -227,19 +215,21 @@ export class SettingsScene extends Phaser.Scene {
     }
   }
 
-  private createSlider(
-    centerY: number,
-    category: CategoryKey,
-  ): {
-    track: Phaser.GameObjects.Rectangle;
-    fill: Phaser.GameObjects.Rectangle;
-    notches: Phaser.GameObjects.Rectangle[];
-  } {
+  private createRow(category: AudioCategory, focusIndex: number): CategoryRow {
+    const centerY = ROW_Y[category];
+    const label = addPixelText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
+    const toggle = addPixelText(this, TOGGLE_X, centerY, "ON", MENU_OPTION_FONT_SIZE);
+    toggle.setInteractive({ useHandCursor: true });
+    toggle.on("pointerdown", () => {
+      this.focusIndex = focusIndex;
+      this.toggleCategory(category);
+    });
+
     const track = this.add
       .rectangle(SLIDER_LEFT + SLIDER_WIDTH / 2, centerY, SLIDER_WIDTH, SLIDER_HEIGHT, SLIDER_TRACK)
       .setInteractive({ useHandCursor: true });
     track.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      this.focusIndex = category === "music" ? FOCUS_MUSIC : FOCUS_SFX;
+      this.focusIndex = focusIndex;
       if (!this.isCategoryEnabled(category)) {
         this.refreshUi();
         return;
@@ -255,22 +245,21 @@ export class SettingsScene extends Phaser.Scene {
     const notches: Phaser.GameObjects.Rectangle[] = [];
     for (let i = 0; i < NOTCH_COUNT; i += 1) {
       const x = SLIDER_LEFT + (i / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
-      const notch = this.add.rectangle(x, centerY, 2, SLIDER_HEIGHT + 6, SLIDER_NOTCH);
-      notches.push(notch);
+      notches.push(this.add.rectangle(x, centerY, 2, SLIDER_HEIGHT + 6, SLIDER_NOTCH));
     }
 
-    return { track, fill, notches };
+    return { category, focusIndex, label, toggle, track, fill, notches };
   }
 
-  private isCategoryEnabled(category: CategoryKey): boolean {
+  private isCategoryEnabled(category: AudioCategory): boolean {
     return category === "music" ? this.settings.musicEnabled : this.settings.sfxEnabled;
   }
 
-  private getLevel(category: CategoryKey): number {
+  private getLevel(category: AudioCategory): number {
     return category === "music" ? this.settings.musicLevel : this.settings.sfxLevel;
   }
 
-  private setLevel(category: CategoryKey, level: number, preview: boolean): void {
+  private setLevel(category: AudioCategory, level: number): void {
     if (!this.isCategoryEnabled(category)) {
       return;
     }
@@ -283,26 +272,25 @@ export class SettingsScene extends Phaser.Scene {
     }
     saveAudioSettings(this.settings);
     this.refreshUi();
-    if (preview && next !== prev) {
-      this.previewCategory(category);
+    if (next !== prev && !this.audioDisabled) {
+      playVolumePreview(this, this.settings, category);
     }
   }
 
-  private setLevelFromPointer(category: CategoryKey, pointerX: number): void {
+  private setLevelFromPointer(category: AudioCategory, pointerX: number): void {
     const ratio = (pointerX - SLIDER_LEFT) / SLIDER_WIDTH;
-    const level = clampLevel(ratio * AUDIO_LEVEL_MAX);
-    this.setLevel(category, level, true);
+    this.setLevel(category, clampLevel(ratio * AUDIO_LEVEL_MAX));
   }
 
   private nudgeFocusedLevel(delta: number): void {
-    if (this.focusIndex === FOCUS_MUSIC) {
-      this.setLevel("music", this.settings.musicLevel + delta, true);
-    } else if (this.focusIndex === FOCUS_SFX) {
-      this.setLevel("sfx", this.settings.sfxLevel + delta, true);
+    const row = this.rows[this.focusIndex];
+    if (row === undefined) {
+      return;
     }
+    this.setLevel(row.category, this.getLevel(row.category) + delta);
   }
 
-  private toggleCategory(category: CategoryKey): void {
+  private toggleCategory(category: AudioCategory): void {
     if (category === "music") {
       this.settings = { ...this.settings, musicEnabled: !this.settings.musicEnabled };
     } else {
@@ -312,53 +300,28 @@ export class SettingsScene extends Phaser.Scene {
     this.refreshUi();
   }
 
-  private previewCategory(category: CategoryKey): void {
-    if (this.audioDisabled) {
-      return;
-    }
-    if (category === "music") {
-      playMusicVolumePreview(this, this.settings);
-    } else {
-      playSfxVolumePreview(this, this.settings);
-    }
-  }
-
   private refreshUi(): void {
-    this.musicToggle.setText(this.settings.musicEnabled ? "ON" : "OFF");
-    this.sfxToggle.setText(this.settings.sfxEnabled ? "ON" : "OFF");
+    for (const row of this.rows) {
+      const enabled = this.isCategoryEnabled(row.category);
+      const focused = this.focusIndex === row.focusIndex;
+      const tint = focused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
+      row.toggle.setText(enabled ? "ON" : "OFF");
+      row.label.setTint(tint);
+      row.toggle.setTint(tint);
 
-    this.applyFocusTint(this.musicLabel, this.focusIndex === FOCUS_MUSIC);
-    this.applyFocusTint(this.musicToggle, this.focusIndex === FOCUS_MUSIC);
-    this.applyFocusTint(this.sfxLabel, this.focusIndex === FOCUS_SFX);
-    this.applyFocusTint(this.sfxToggle, this.focusIndex === FOCUS_SFX);
+      const level = this.getLevel(row.category);
+      const width = (level / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
+      row.fill.setDisplaySize(Math.max(0, width), SLIDER_HEIGHT - 4);
+      row.fill.setFillStyle(enabled ? SLIDER_FILL : SLIDER_FILL_DIM);
+      row.track.setFillStyle(enabled ? SLIDER_TRACK : TEXT_COLOR_DIM);
+      for (const notch of row.notches) {
+        notch.setFillStyle(enabled ? SLIDER_NOTCH : SLIDER_NOTCH_DIM);
+      }
+    }
 
     this.backText.setText(this.focusIndex === FOCUS_BACK ? "> BACK" : "  BACK");
     this.backText.setTint(this.focusIndex === FOCUS_BACK ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
     placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
-
-    this.refreshSlider("music", this.musicFill, this.musicNotches, this.musicTrack);
-    this.refreshSlider("sfx", this.sfxFill, this.sfxNotches, this.sfxTrack);
-  }
-
-  private applyFocusTint(text: Phaser.GameObjects.BitmapText, focused: boolean): void {
-    text.setTint(focused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-  }
-
-  private refreshSlider(
-    category: CategoryKey,
-    fill: Phaser.GameObjects.Rectangle,
-    notches: Phaser.GameObjects.Rectangle[],
-    track: Phaser.GameObjects.Rectangle,
-  ): void {
-    const enabled = this.isCategoryEnabled(category);
-    const level = this.getLevel(category);
-    const width = (level / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
-    fill.setDisplaySize(Math.max(0, width), SLIDER_HEIGHT - 4);
-    fill.setFillStyle(enabled ? SLIDER_FILL : SLIDER_FILL_DIM);
-    track.setFillStyle(enabled ? SLIDER_TRACK : TEXT_COLOR_DIM);
-    for (const notch of notches) {
-      notch.setFillStyle(enabled ? SLIDER_NOTCH : SLIDER_NOTCH_DIM);
-    }
   }
 
   private goBack(): void {
