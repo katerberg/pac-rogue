@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyRunHistory, RUN_HISTORY_VERSION } from "../../domain/runHistory";
-import { loadRunHistory, RUN_HISTORY_STORAGE_KEY, saveSuccessfulRun } from "./runHistoryStorage";
+import { loadRunHistory, RUN_HISTORY_STORAGE_KEY, saveRun } from "./runHistoryStorage";
 
 function installMemoryStorage(initial: Record<string, string> = {}) {
   const store = new Map<string, string>(Object.entries(initial));
@@ -38,25 +38,34 @@ describe("runHistoryStorage", () => {
     expect(loadRunHistory()).toEqual(emptyRunHistory());
   });
 
-  it("saves and reloads successful runs", () => {
+  it("saves and reloads runs", () => {
     const store = installMemoryStorage();
-    saveSuccessfulRun(8800, "2026-01-01T00:00:00.000Z");
-    saveSuccessfulRun(0, "2026-01-02T00:00:00.000Z");
+    saveRun(42, 880, "2026-01-01T00:00:00.000Z");
+    saveRun(0, 50, "2026-01-02T00:00:00.000Z");
 
     expect(loadRunHistory()).toEqual({
       version: RUN_HISTORY_VERSION,
       runs: [
-        { score: 8800, clearedAt: "2026-01-01T00:00:00.000Z" },
-        { score: 0, clearedAt: "2026-01-02T00:00:00.000Z" },
+        {
+          collectedCount: 42,
+          remainingTime: 880,
+          recordedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          collectedCount: 0,
+          remainingTime: 50,
+          recordedAt: "2026-01-02T00:00:00.000Z",
+        },
       ],
     });
-    expect(store.get(RUN_HISTORY_STORAGE_KEY)).toContain('"score":8800');
+    expect(store.get(RUN_HISTORY_STORAGE_KEY)).toContain('"collectedCount":42');
+    expect(RUN_HISTORY_STORAGE_KEY).toBe("pac-rogue.run-history.v2");
   });
 
   it("returns empty history when localStorage is unavailable", () => {
     vi.stubGlobal("localStorage", undefined);
     expect(loadRunHistory()).toEqual(emptyRunHistory());
-    expect(() => saveSuccessfulRun(1)).not.toThrow();
+    expect(() => saveRun(1, 1)).not.toThrow();
   });
 
   it("tolerates corrupt stored JSON", () => {
@@ -70,7 +79,7 @@ describe("runHistoryStorage", () => {
     memory.setItem = () => {
       throw new Error("quota");
     };
-    expect(() => saveSuccessfulRun(1, "2026-01-01T00:00:00.000Z")).not.toThrow();
+    expect(() => saveRun(1, 1, "2026-01-01T00:00:00.000Z")).not.toThrow();
     expect(store.size).toBe(0);
   });
 });

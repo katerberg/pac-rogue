@@ -17,11 +17,23 @@ describe("parseRunHistory", () => {
   it("parses a valid payload", () => {
     const raw = JSON.stringify({
       version: RUN_HISTORY_VERSION,
-      runs: [{ score: 9000, clearedAt: "2026-01-01T00:00:00.000Z" }],
+      runs: [
+        {
+          collectedCount: 42,
+          remainingTime: 880,
+          recordedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
     });
     expect(parseRunHistory(raw)).toEqual({
       version: RUN_HISTORY_VERSION,
-      runs: [{ score: 9000, clearedAt: "2026-01-01T00:00:00.000Z" }],
+      runs: [
+        {
+          collectedCount: 42,
+          remainingTime: 880,
+          recordedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
     });
   });
 
@@ -29,13 +41,26 @@ describe("parseRunHistory", () => {
     expect(parseRunHistory("{not-json")).toEqual(emptyRunHistory());
   });
 
-  it("returns empty history for wrong version or bad rows", () => {
-    expect(parseRunHistory(JSON.stringify({ version: 2, runs: [] }))).toEqual(emptyRunHistory());
+  it("returns empty history for v1 payload or bad rows", () => {
+    expect(
+      parseRunHistory(
+        JSON.stringify({
+          version: 1,
+          runs: [{ score: 9000, clearedAt: "2026-01-01T00:00:00.000Z" }],
+        }),
+      ),
+    ).toEqual(emptyRunHistory());
     expect(
       parseRunHistory(
         JSON.stringify({
           version: RUN_HISTORY_VERSION,
-          runs: [{ score: "nope", clearedAt: "2026-01-01T00:00:00.000Z" }],
+          runs: [
+            {
+              collectedCount: "nope",
+              remainingTime: 100,
+              recordedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ],
         }),
       ),
     ).toEqual(emptyRunHistory());
@@ -44,11 +69,11 @@ describe("parseRunHistory", () => {
 
 describe("appendRun / serializeRunHistory", () => {
   it("appends newest runs at the end", () => {
-    const first = appendRun(emptyRunHistory(), 100, "2026-01-01T00:00:00.000Z");
-    const second = appendRun(first, 0, "2026-01-02T00:00:00.000Z");
+    const first = appendRun(emptyRunHistory(), 10, 100, "2026-01-01T00:00:00.000Z");
+    const second = appendRun(first, 0, 50, "2026-01-02T00:00:00.000Z");
     expect(second.runs).toEqual([
-      { score: 100, clearedAt: "2026-01-01T00:00:00.000Z" },
-      { score: 0, clearedAt: "2026-01-02T00:00:00.000Z" },
+      { collectedCount: 10, remainingTime: 100, recordedAt: "2026-01-01T00:00:00.000Z" },
+      { collectedCount: 0, remainingTime: 50, recordedAt: "2026-01-02T00:00:00.000Z" },
     ]);
     expect(parseRunHistory(serializeRunHistory(second))).toEqual(second);
   });
@@ -56,20 +81,21 @@ describe("appendRun / serializeRunHistory", () => {
   it("drops oldest runs when append would overflow the cap", () => {
     let history = emptyRunHistory();
     for (let i = 0; i < RUN_HISTORY_MAX_RUNS + 3; i += 1) {
-      history = appendRun(history, i, `2026-01-01T00:00:00.${String(i).padStart(3, "0")}Z`);
+      history = appendRun(history, i, i, `2026-01-01T00:00:00.${String(i).padStart(3, "0")}Z`);
     }
     expect(history.runs).toHaveLength(RUN_HISTORY_MAX_RUNS);
-    expect(history.runs[0]?.score).toBe(3);
-    expect(history.runs.at(-1)?.score).toBe(RUN_HISTORY_MAX_RUNS + 2);
+    expect(history.runs[0]?.collectedCount).toBe(3);
+    expect(history.runs.at(-1)?.collectedCount).toBe(RUN_HISTORY_MAX_RUNS + 2);
   });
 
   it("trims oversized payloads on parse", () => {
     const runs = Array.from({ length: RUN_HISTORY_MAX_RUNS + 5 }, (_, i) => ({
-      score: i,
-      clearedAt: `2026-01-01T00:00:00.${String(i).padStart(3, "0")}Z`,
+      collectedCount: i,
+      remainingTime: i,
+      recordedAt: `2026-01-01T00:00:00.${String(i).padStart(3, "0")}Z`,
     }));
     const parsed = parseRunHistory(JSON.stringify({ version: RUN_HISTORY_VERSION, runs }));
     expect(parsed.runs).toHaveLength(RUN_HISTORY_MAX_RUNS);
-    expect(parsed.runs[0]?.score).toBe(5);
+    expect(parsed.runs[0]?.collectedCount).toBe(5);
   });
 });

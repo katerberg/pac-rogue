@@ -94,7 +94,7 @@ import {
   startLoopingSfx,
   stopLoopingSfx,
 } from "../audio/sfx";
-import { saveSuccessfulRun } from "../storage/runHistoryStorage";
+import { saveRun } from "../storage/runHistoryStorage";
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets, countPellets } from "../systems/collectPellets";
@@ -289,7 +289,6 @@ export class PlayScene extends Phaser.Scene {
     if (collectResult.shouldRecordClear) {
       stopLoopingSfx(this, "siren");
       playSfx(this, "levelComplete");
-      saveSuccessfulRun(this.clock.remaining);
     }
 
     const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
@@ -299,6 +298,7 @@ export class PlayScene extends Phaser.Scene {
     if (caught) {
       stopLoopingSfx(this, "siren");
       playSfx(this, "death");
+      saveRun(this.pelletProgress.collectedCount, this.clock.remaining);
       this.death = beginDeathSequence();
     }
   }

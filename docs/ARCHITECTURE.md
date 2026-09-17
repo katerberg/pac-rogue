@@ -59,7 +59,7 @@ src/
       Fruit.ts
       Drawable.ts
     storage/
-      runHistoryStorage.ts    # localStorage adapter for successful runs
+      runHistoryStorage.ts    # localStorage adapter for death-run history
     systems/
       playerInput.ts          # Phaser keys → sticky Input
       ghostRelease.ts         # inHouse → leaving (time or Clyde pellets)
@@ -109,7 +109,7 @@ PlayScene --caught--> death freeze/SFX/fade --> MenuScene
 
 **ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
 
-High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (score desc). Storage remains chronological append order.
+High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (collected pellets desc, then remaining time desc). Storage remains chronological append order.
 
 ## Game loop
 
@@ -141,7 +141,7 @@ See also [docs/upgrades.md](./upgrades.md).
 4. Release: shared clock starts on first player direction input for Blinky (`BLINKY_RELEASE_DELAY_MS` = 100) and Pinky (`PINKY_RELEASE_DELAY_MS` = 5000). Clyde leaves when `collectedCount >=` layout-scaled pellets (classic baseline `BASE_CLYDE_RELEASE_PELLETS` = 60), independent of the time clock. Ghosts climb out through the door. First ghost to leave house/door tiles → `active` and **start mode waves once** in **chase** (arcade level-1 table, skipping the opening scatter; later scatter/chase durations stay arcade). Later exits do not restart the clock.
 5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(25, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(2, -3)`. Clyde chase → player tile when Euclidean tile distance `≥ CLYDE_SHY_TILES` (8), else Clyde scatter `(0, 33)`; Clyde scatter mode → same SW corner. Scatter corners are shared across layouts. Delays, shy radius, and scatter coords are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): base 0.9375×; Elroy1/2 only for Blinky (layout-scaled remaining-pellet cutoffs; classic ≤20 / ≤10 → 1.0× / 1.0625×); tunnel 0.5× for all ghosts; then run upgrade muls (`playerSpeedUp` / `ghostSlow`) each frame. Freeze sets leaving/active ghost speed to 0.
-7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, play death SFX, enter PlayScene death phase (full pipeline halt; no high-score write). After 500ms start a 500ms full-screen black overlay fade; on fade complete hard-cut `scene.start("MenuScene")`. Skipped while freeze is active; thaw while overlapping still kills.
+7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, play death SFX, append high-score run (collected pellets + remaining countdown), enter PlayScene death phase (full pipeline halt). After 500ms start a 500ms full-screen black overlay fade; on fade complete hard-cut `scene.start("MenuScene")`. Skipped while freeze is active; thaw while overlapping still kills.
 8. Pellet clear still records score + level-complete SFX; power pellets play both munches. Power pellets are inert unless an owned upgrade reacts (freeze, scatter burst, ghost recall, warp top — see [docs/upgrades.md](./upgrades.md)). `render` draws rounded wall stroke from maze knobs, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, Pinky, Clyde (cyan tint while frozen), bonus fruit, and tunnel twin.
 9. Bonus fruit: after layout-scaled pellet thresholds (classic 70 and 170), spawn at the derived under-house fruit cell for 10 real seconds (Phaser `delta` ms); level-1 cherries use `strawberry.png` stand-in; pickup removes the entity, plays both munches (no score yet), and grants one random distinct run upgrade (see [docs/upgrades.md](./upgrades.md)).
 
@@ -179,13 +179,13 @@ A violation of these is a failed architecture check:
 
 ## Current runtime
 
-- Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores). Start opens `PlayScene`; High Scores opens `HighScoresScene` (score+date list from localStorage; empty → `NO SCORES YET`; >5 rows pause-at-top then scroll with trail loop).
+- Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores). Start opens `PlayScene`; High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; >5 rows pause-at-top then scroll with trail loop).
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
 - Static 28×31 maze (tile size from fit under `MAZE_TOP_MARGIN_PX`, then centered in the leftover 800×600 band) with stroked walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_TOP_MARGIN_PX`, `MAZE_BACKGROUND_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `WALL_CORNER_CURVE_KIND`, `WALL_INSET_PX` (pull stroke into wall tiles), `PLAYER_WALL_PADDING_PX` (actor display size only), `PELLET_DISPLAY_SIZE`, `POWER_PELLET_DISPLAY_SIZE`. Dual solids (player blocked from house/door; ghosts allowed), mid-maze horizontal tunnel.
 - One player entity (display size from wall padding; closed mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left `Collected` counter. Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX; catch plays death SFX then freezes → fades → menu.
 - Bonus fruit appears under the ghost house at 70 and 170 pellets collected, lasts 10 real seconds, uses level-1 cherries (`strawberry.png` stand-in); pickup plays both munches, removes the fruit (no points yet), and grants one random distinct run upgrade (left mid-height labels; see [docs/upgrades.md](./upgrades.md)).
-- Blinky, Pinky, and Clyde: shared house spawn; Blinky/Pinky time release after first input (0.1s / 5s — tunable); Clyde leaves at 60 pellets collected (tunable); chase-first arcade scatter/chase waves started once on first exit; Blinky Cruise Elroy; Pinky 4-tile look-ahead + NW scatter; Clyde shy chase (Euclidean `< 8` → SW scatter) + SW scatter (tunable); tunnel slowdown; circle overlap catch freezes play, plays death SFX, fades to black (500ms fade starting at 500ms), then hard-cuts to the menu (no high-score write) unless freeze walk-through is active.
-- Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Clearing all pellets appends remaining time as score to capped `localStorage` run history (`pac-rogue.run-history.v1`, max 100, drop oldest).
+- Blinky, Pinky, and Clyde: shared house spawn; Blinky/Pinky time release after first input (0.1s / 5s — tunable); Clyde leaves at 60 pellets collected (tunable); chase-first arcade scatter/chase waves started once on first exit; Blinky Cruise Elroy; Pinky 4-tile look-ahead + NW scatter; Clyde shy chase (Euclidean `< 8` → SW scatter) + SW scatter (tunable); tunnel slowdown; circle overlap catch freezes play, plays death SFX, appends high-score run (collected + remaining time), fades to black (500ms fade starting at 500ms), then hard-cuts to the menu unless freeze walk-through is active.
+- Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0). Ghost catch appends collected pellets + remaining time + ISO date to capped `localStorage` run history (`pac-rogue.run-history.v2`, max 100, drop oldest). Clearing all pellets plays level-complete SFX only (no history write).
 - Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `pelletProgress`, `fruit`, `upgrades`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, `deathSequence`, ghost kind/path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost/deathSequence helpers are unit-tested without Phaser.
 - Power pellets are inert unless an owned upgrade reacts (`powerPelletFreeze`, `scatterBurst`, `ghostRecall`, `warpTop` — see [docs/upgrades.md](./upgrades.md)). No arcade fright / eatable ghosts / Inky yet.
