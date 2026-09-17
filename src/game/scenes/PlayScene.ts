@@ -88,6 +88,7 @@ import {
   startLoopingSfx,
   stopLoopingSfx,
 } from "../audio/sfx";
+import { agentDebugLog } from "../debugAgentLog";
 import { saveSuccessfulRun } from "../storage/runHistoryStorage";
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
@@ -179,11 +180,66 @@ export class PlayScene extends Phaser.Scene {
     if (this.death !== null) {
       const tick = tickDeathSequence(this.death, delta);
       this.death = tick.state;
+      // #region agent log
+      const fadeFx = this.cameras.main.fadeEffect as Phaser.Cameras.Scene2D.Effects.Fade & {
+        alpha: number;
+      };
+      agentDebugLog("A", "PlayScene.ts:deathTick", "death sequence tick", {
+        delta,
+        elapsedMs: tick.state.elapsedMs,
+        shouldStartFade: tick.shouldStartFade,
+        fadeStarted: tick.state.fadeStarted,
+        fadeIsRunning: fadeFx.isRunning,
+        fadeIsComplete: fadeFx.isComplete,
+        fadeDuration: fadeFx.duration,
+        fadeProgress: fadeFx.progress,
+        fadeAlpha: fadeFx.alpha,
+        camVisible: this.cameras.main.visible,
+      });
+      // #endregion
       if (tick.shouldStartFade) {
+        // #region agent log
+        agentDebugLog("B", "PlayScene.ts:shouldStartFade", "starting fadeOut", {
+          delta,
+          elapsedMs: tick.state.elapsedMs,
+          fadeDurationMs: DEATH_FADE_DURATION_MS,
+          eventName: Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
+          fadeIsRunningBefore: fadeFx.isRunning,
+          fadeIsCompleteBefore: fadeFx.isComplete,
+        });
+        // #endregion
         this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+          // #region agent log
+          agentDebugLog("B", "PlayScene.ts:FADE_OUT_COMPLETE", "fade complete → MenuScene", {
+            sceneKey: this.scene.key,
+            fadeIsRunning: this.cameras.main.fadeEffect.isRunning,
+            fadeIsComplete: this.cameras.main.fadeEffect.isComplete,
+            fadeProgress: this.cameras.main.fadeEffect.progress,
+          });
+          // #endregion
           this.scene.start("MenuScene");
         });
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_START, () => {
+          // #region agent log
+          agentDebugLog("C", "PlayScene.ts:FADE_OUT_START", "fade out start event", {
+            fadeIsRunning: this.cameras.main.fadeEffect.isRunning,
+            fadeDuration: this.cameras.main.fadeEffect.duration,
+          });
+          // #endregion
+        });
         this.cameras.main.fadeOut(DEATH_FADE_DURATION_MS, 0, 0, 0);
+        // #region agent log
+        const fadeAfter = this.cameras.main.fadeEffect as Phaser.Cameras.Scene2D.Effects.Fade & {
+          alpha: number;
+        };
+        agentDebugLog("C", "PlayScene.ts:afterFadeOut", "fadeOut returned", {
+          fadeIsRunning: fadeAfter.isRunning,
+          fadeIsComplete: fadeAfter.isComplete,
+          fadeDuration: fadeAfter.duration,
+          fadeAlpha: fadeAfter.alpha,
+          fadeDirection: fadeAfter.direction,
+        });
+        // #endregion
       }
       return;
     }
@@ -265,6 +321,15 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "siren");
       playSfx(this, "death");
       this.death = beginDeathSequence();
+      // #region agent log
+      agentDebugLog("E", "PlayScene.ts:caught", "catch → beginDeathSequence", {
+        delta,
+        deathElapsed: this.death.elapsedMs,
+        fadeStarted: this.death.fadeStarted,
+        sceneKey: this.scene.key,
+        sysSettingsStatus: this.sys.settings.status,
+      });
+      // #endregion
     }
   }
 
