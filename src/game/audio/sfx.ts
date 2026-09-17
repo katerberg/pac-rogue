@@ -40,13 +40,8 @@ export function pelletCollectSfxId(pickupNumber: number): SfxId {
   return pickupNumber > 0 && pickupNumber % 2 === 0 ? "pelletMunch2" : "pelletMunch";
 }
 
-function audioConfigNoAudio(scene: Phaser.Scene): boolean {
-  const audio = scene.game.config.audio;
-  return typeof audio === "object" && audio !== null && audio.noAudio === true;
-}
-
 export function preloadSfx(scene: Phaser.Scene): void {
-  if (audioConfigNoAudio(scene)) {
+  if (scene.game.config.audio.noAudio === true) {
     return;
   }
   for (const entry of Object.values(SFX_MANIFEST)) {
