@@ -25,7 +25,6 @@ export function applyGhostSpeed(
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Speed])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
     if (phase === GHOST_PHASE.inHouse) {
-      Speed.px[eid] = 0;
       continue;
     }
 

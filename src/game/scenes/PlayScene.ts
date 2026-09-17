@@ -35,7 +35,6 @@ import {
 import { START_LIVES, livesRemainingAfterCatch } from "../../domain/lives";
 import {
   activateLayout,
-  ghostHouseSpawnCenter,
   parseMazeParam,
   pelletCellCenters,
   pickLayoutId,
@@ -63,6 +62,7 @@ import {
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { GHOST_KIND } from "../../domain/ghostKind";
+import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
   applyPowerPelletEffects,
@@ -109,6 +109,10 @@ import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { recallClosestGhostToHouse } from "../systems/ghostRecall";
 import { ghostRelease } from "../systems/ghostRelease";
+import {
+  ghostHouseSeating,
+  placeInHouseGhostsAtPredictedSeats,
+} from "../systems/ghostHouseSeating";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { movement } from "../systems/movement";
@@ -291,6 +295,12 @@ export class PlayScene extends Phaser.Scene {
     const hasInput = hasPlayerDirectionInput(this.world);
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
+    ghostHouseSeating(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.boardCollected,
+      this.afterLifeRelease,
+    );
     ghostRelease(
       this.world,
       this.ghostReleaseClock,
@@ -349,7 +359,12 @@ export class PlayScene extends Phaser.Scene {
       });
     }
     if (powerEffects.recallClosestGhost) {
-      recallClosestGhostToHouse(this.world);
+      recallClosestGhostToHouse(
+        this.world,
+        this.ghostReleaseClock,
+        this.pelletProgress.boardCollected,
+        this.afterLifeRelease,
+      );
     }
     if (powerEffects.warpPlayerTopCenter) {
       warpPlayerToTopCenter(this.world);
@@ -441,6 +456,12 @@ export class PlayScene extends Phaser.Scene {
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.fruitPresence = createFruitPresence();
     this.afterLifeRelease = false;
+    placeInHouseGhostsAtPredictedSeats(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.boardCollected,
+      this.afterLifeRelease,
+    );
     this.death = null;
     this.suppressPlayerInputUntilKeyRelease = false;
 
@@ -612,7 +633,6 @@ export class PlayScene extends Phaser.Scene {
       Facing.direction[eid] = DIRECTION.none;
     }
 
-    const houseSpawn = ghostHouseSpawnCenter();
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -622,8 +642,6 @@ export class PlayScene extends Phaser.Scene {
       Facing,
       Speed,
     ])) {
-      Position.x[eid] = houseSpawn.x;
-      Position.y[eid] = houseSpawn.y;
       Velocity.x[eid] = 0;
       Velocity.y[eid] = 0;
       Input.direction[eid] = DIRECTION.none;
@@ -638,6 +656,12 @@ export class PlayScene extends Phaser.Scene {
     this.ghostModeClock = createGhostModeClock();
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.afterLifeRelease = true;
+    placeInHouseGhostsAtPredictedSeats(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.boardCollected,
+      this.afterLifeRelease,
+    );
 
     this.clearFruitEntities();
     this.fruitPresence = {
@@ -789,9 +813,10 @@ export class PlayScene extends Phaser.Scene {
     addComponent(this.world, eid, GhostPhase);
     addComponent(this.world, eid, Drawable);
 
-    const spawn = ghostHouseSpawnCenter();
-    Position.x[eid] = spawn.x;
-    Position.y[eid] = spawn.y;
+    const seats = ghostHouseSeatCenters();
+    const mid = seats[Math.floor(seats.length / 2)] ?? seats[0]!;
+    Position.x[eid] = mid.x;
+    Position.y[eid] = mid.y;
     Velocity.x[eid] = 0;
     Velocity.y[eid] = 0;
     Input.direction[eid] = DIRECTION.none;

@@ -47,10 +47,10 @@ describe("applyGhostSpeed", () => {
     expect(Speed.px[leaving]).toBe(0);
   });
 
-  it("keeps inHouse at zero even when not frozen", () => {
+  it("leaves inHouse speed untouched (owned by seating)", () => {
     const world = createWorld();
     const eid = spawnGhost(world, GHOST_PHASE.inHouse);
     applyGhostSpeed(world, 100);
-    expect(Speed.px[eid]).toBe(0);
+    expect(Speed.px[eid]).toBe(99);
   });
 });

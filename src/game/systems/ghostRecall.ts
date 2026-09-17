@@ -1,7 +1,6 @@
 import { query, type World } from "bitecs";
-import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
-import { ghostHouseSpawnCenter } from "../../domain/maze";
+import type { GhostReleaseClock } from "../../domain/ghostRelease";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
@@ -11,8 +10,14 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
+import { placeInHouseGhostsAtPredictedSeats } from "./ghostHouseSeating";
 
-export function recallClosestGhostToHouse(world: World): void {
+export function recallClosestGhostToHouse(
+  world: World,
+  clock: GhostReleaseClock,
+  collectedCount: number,
+  afterLifeRelease = false,
+): void {
   const players = query(world, [Player, Position]);
   const playerEid = players[0];
   if (playerEid === undefined) {
@@ -36,15 +41,14 @@ export function recallClosestGhostToHouse(world: World): void {
     return;
   }
 
-  const spawn = ghostHouseSpawnCenter();
-  Position.x[eid] = spawn.x;
-  Position.y[eid] = spawn.y;
+  GhostPhase.value[eid] = GHOST_PHASE.inHouse;
   Velocity.x[eid] = 0;
   Velocity.y[eid] = 0;
-  GhostPhase.value[eid] = GHOST_PHASE.leaving;
-  Input.direction[eid] = DIRECTION.up;
-  Facing.direction[eid] = DIRECTION.up;
-  Speed.px[eid] = GHOST_SPEED;
+  Input.direction[eid] = DIRECTION.none;
+  Facing.direction[eid] = DIRECTION.none;
+  Speed.px[eid] = 0;
   Ghost.decidedCol[eid] = Number.NaN;
   Ghost.decidedRow[eid] = Number.NaN;
+
+  placeInHouseGhostsAtPredictedSeats(world, clock, collectedCount, afterLifeRelease);
 }

@@ -22,7 +22,9 @@ import { GHOST_DIR } from "./ghostPath";
 import { getActiveLayout } from "./maze";
 
 describe("blinkyTarget", () => {
-  it("targets the house exit while leaving", () => {
+  it("approaches the door column while leaving from a side seat", () => {
+    const exit = getActiveLayout().ghostHouseExit;
+    const spawnRow = getActiveLayout().ghostHouseSpawn.row;
     expect(
       blinkyTarget({
         phase: GHOST_PHASE.leaving,
@@ -30,8 +32,25 @@ describe("blinkyTarget", () => {
         pelletsRemaining: 100,
         playerCol: 10,
         playerRow: 20,
+        ghostCol: exit.col - 2,
+        ghostRow: spawnRow,
       }),
-    ).toEqual(getActiveLayout().ghostHouseExit);
+    ).toEqual({ col: exit.col, row: spawnRow });
+  });
+
+  it("targets the house exit while leaving on the door column", () => {
+    const exit = getActiveLayout().ghostHouseExit;
+    expect(
+      blinkyTarget({
+        phase: GHOST_PHASE.leaving,
+        mode: GHOST_AI_MODE.scatter,
+        pelletsRemaining: 100,
+        playerCol: 10,
+        playerRow: 20,
+        ghostCol: exit.col,
+        ghostRow: exit.row + 1,
+      }),
+    ).toEqual(exit);
   });
 
   it("uses the scatter corner when not Elroy", () => {
@@ -83,7 +102,8 @@ describe("blinkyTarget", () => {
 });
 
 describe("pinkyTarget", () => {
-  it("targets the house exit while leaving", () => {
+  it("targets the house exit while leaving on the door column", () => {
+    const exit = getActiveLayout().ghostHouseExit;
     expect(
       pinkyTarget({
         phase: GHOST_PHASE.leaving,
@@ -91,8 +111,10 @@ describe("pinkyTarget", () => {
         playerCol: 10,
         playerRow: 20,
         playerFacing: GHOST_DIR.right,
+        ghostCol: exit.col,
+        ghostRow: exit.row + 1,
       }),
-    ).toEqual(getActiveLayout().ghostHouseExit);
+    ).toEqual(exit);
   });
 
   it("uses the NW scatter corner", () => {
@@ -238,7 +260,8 @@ describe("clydeTarget", () => {
 });
 
 describe("inkyTarget", () => {
-  it("targets the house exit while leaving", () => {
+  it("targets the house exit while leaving on the door column", () => {
+    const exit = getActiveLayout().ghostHouseExit;
     expect(
       inkyTarget({
         phase: GHOST_PHASE.leaving,
@@ -248,8 +271,10 @@ describe("inkyTarget", () => {
         playerFacing: GHOST_DIR.right,
         blinkyCol: 5,
         blinkyRow: 5,
+        ghostCol: exit.col,
+        ghostRow: exit.row + 1,
       }),
-    ).toEqual(getActiveLayout().ghostHouseExit);
+    ).toEqual(exit);
   });
 
   it("uses the SE scatter corner", () => {
