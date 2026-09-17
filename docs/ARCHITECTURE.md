@@ -39,6 +39,9 @@ src/
     ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-1 scatter/chase wave clock + scatter-burst pause
     ghostRelease.ts           # per-kind time delays + Clyde pellet / post-life leave
+    ghostHouseOrder.ts        # predicted in-house release sort (L→R seats)
+    ghostHouseSeats.ts        # derived seat centers + sticky seat assign
+    ghostHouseLeave.ts        # leaving: door-col approach then exit
     ghostSpeed.ts             # base / Elroy (Blinky) / tunnel speed resolve
     ghostRecall.ts            # closest eligible ghost pick for house recall
     deathSequence.ts          # catch → hold / ready / game-over timing
@@ -67,11 +70,12 @@ src/
     systems/
       playerInput.ts          # Phaser keys → sticky Input
       ghostRelease.ts         # inHouse → leaving (time or Clyde pellets)
+      ghostHouseSeating.ts    # inHouse seat steer + snap at predicted seats
       ghostAi.ts              # kind target tile → sticky Input (once per tile)
       ghostSpeed.ts           # Speed from Elroy (Blinky) + tunnel + upgrade mul/freeze
       ghostReverse.ts         # mode-change reverse via Input
       ghostExitHouse.ts       # leaving → active once off house/door tiles
-      ghostRecall.ts          # power-pellet house teleport for closest ghost
+      ghostRecall.ts          # power-pellet house teleport into inHouse seat
       movement.ts             # Facing + collision (per-eid Speed + solids)
       catchPlayer.ts          # circle overlap → caught (skip when frozen)
       collectPellets.ts
@@ -132,8 +136,8 @@ PlayScene.update →
   (if upgrade modal active: tick modal; return)
   (if resume countdown > 0: tick overlay; return until done → suppress input until key release)
   playerInput →
-  tickGhostRelease + ghostRelease (boardCollected + afterLifeRelease gates Clyde) →
-  tickFreeze + tickScatterBurst → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + freeze) →
+  tickGhostRelease + ghostHouseSeating + ghostRelease (boardCollected + afterLifeRelease gates Clyde) →
+  tickFreeze + tickScatterBurst → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + freeze; skips inHouse) →
   movement →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
@@ -155,7 +159,7 @@ See also [docs/upgrades.md](./upgrades.md).
 1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky + Pinky + Clyde, bonus fruit art, SFX.
 2. `create()`: optional `?maze=maze1|maze2` (else 50/50 random) and `?level=` (else 1), then board spawn (world, walls, pellets, player, ghosts), HUD (lifetime Collected, Time, lives icons, upgrade strip), `LEVEL N` fade banner, `lives = START_LIVES`, `RunUpgrades` from URL flags (`forceUpgrade` / `enableUpgrade` — see [README Flags](../README.md#flags)), siren.
 3. Two 28×31 layouts: `maze1` (Pac-Man board) and `maze2` (arcade Ms. Pac-Man Maze 1). Ghost house / door are carved in ASCII (`=` door, `H` floor). House spawn/exit and fruit cell are **derived** from ASCII; tunnels from edge walkability. `getActiveLayout().playerSolids` blocks the house; `ghostSolids` allows it. Helpers read the active layout set by `activateLayout`.
-4. Release: shared clock starts on first player direction input for Blinky (`BLINKY_RELEASE_DELAY_MS` = 100) and Pinky (`PINKY_RELEASE_DELAY_MS` = 5000). Clyde leaves when **board** `boardCollected >=` layout-scaled pellets (maze1 baseline `BASE_CLYDE_RELEASE_PELLETS` = 60) on the first life of a board; after a life loss (`afterLifeRelease`), Clyde uses `CLYDE_POST_LIFE_RELEASE_DELAY_MS` (9000) on the fresh release clock instead. Ghosts climb out through the door. First ghost to leave house/door tiles → `active` and **start mode waves once** in **chase** (arcade level-1 table, skipping the opening scatter; later scatter/chase durations stay arcade). Later exits do not restart the clock.
+4. House seats / release: in-house ghosts sit in three derived L→R seats on the spawn row (`ghostHouseSeatCenters`), ordered by **predicted** release (`ghostHouseOrder`). `ghostHouseSeating` animates reseating when that order changes (sticky: no cosmetic compact after someone leaves). Shared release clock starts on first player direction input for Blinky (`BLINKY_RELEASE_DELAY_MS` = 100) and Pinky (`PINKY_RELEASE_DELAY_MS` = 5000). Clyde leaves when **board** `boardCollected >=` layout-scaled pellets (maze1 baseline `BASE_CLYDE_RELEASE_PELLETS` = 60) on the first life of a board; after a life loss (`afterLifeRelease`), Clyde uses `CLYDE_POST_LIFE_RELEASE_DELAY_MS` (9000) on the fresh release clock instead. Leaving ghosts first steer to the door column, then up to the exit. First ghost to leave house/door tiles → `active` and **start mode waves once** in **chase** (arcade level-1 table, skipping the opening scatter; later scatter/chase durations stay arcade). Later exits do not restart the clock.
 5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(25, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(2, -3)`. Clyde chase → player tile when Euclidean tile distance `≥ CLYDE_SHY_TILES` (8), else Clyde scatter `(0, 33)`; Clyde scatter mode → same SW corner. Scatter corners are shared across layouts. Delays, shy radius, and scatter coords are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): base 0.9375×; Elroy1/2 only for Blinky (layout-scaled remaining-pellet cutoffs; maze1 ≤20 / ≤10 → 1.0× / 1.0625×); tunnel 0.5× for all ghosts; then × `ghostSpeedLevelMul(levelIndex)` (`1 + 0.1×(level−1)`) × run upgrade muls (`playerSpeedUp` / `ghostSlow`) each frame. Freeze sets leaving/active ghost speed to 0.
 7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, play death SFX, spend one life. Full pipeline halt for `DEATH_HOLD_MS` (845, knob). If lives remain: reset player/ghosts to start/house, despawn fruit, clear freeze/scatter-burst timers, reset release/mode clocks, set `afterLifeRelease`, `READY_PAUSE_MS` (1000) freeze, then resume (siren on); run/release clocks wait for direction again (`RunClock.started = false`); no high-score write. If last life: append high-score run (**lifetime** pellets + remaining countdown), then 500ms black fade (visual only) → `GAME OVER` + lifetime collected for `GAME_OVER_HOLD_MS` (2000) → `MenuScene`. Skipped while freeze is active; thaw while overlapping still kills.
@@ -202,7 +206,7 @@ A violation of these is a failed architecture check:
 - One player entity (display size from wall padding; open mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets; volumes from SFX settings), and increments a top-left **lifetime** `Collected` counter (board-local count drives Clyde/fruit/clear). Looping siren plays during `PlayScene` until clear, catch, or shutdown (volume from music settings); clearing all pellets plays level-complete SFX then advances to a new random maze; catch plays death SFX then life-loss reset (or Game Over on the last life).
 - Bonus fruit appears under the ghost house at board thresholds (maze1 70/170), lasts 10 real seconds, uses cherries (`strawberry.png` stand-in); pickup plays both munches, removes the fruit (no points yet), and opens a pick-one upgrade modal (left mid-height owned labels afterward; see [docs/upgrades.md](./upgrades.md)).
-- Start with 3 lives (pac icons bottom-left); lives carry across level advances. Blinky, Pinky, and Clyde: shared house spawn; Blinky/Pinky time release after first input (0.1s / 5s — tunable); Clyde leaves at board-scaled pellets on the first life of a board, or after a 9s post-life time gate after a life loss; chase-first arcade scatter/chase waves; Blinky Cruise Elroy; tunnel slowdown; ghosts gain +10% resolved speed per level index. Circle overlap spends a life (hold → reset actors / ready pause → resume) or last-life Game Over (hold → append high-score run → fade → `GAME OVER` + lifetime collected → menu) unless freeze walk-through is active.
+- Start with 3 lives (pac icons bottom-left); lives carry across level advances. Blinky, Pinky, and Clyde: predicted L→R house seats (not stacked); Blinky/Pinky time release after first input (0.1s / 5s — tunable); Clyde leaves at board-scaled pellets on the first life of a board, or after a 9s post-life time gate after a life loss; leave path approaches door column then up; chase-first arcade scatter/chase waves; Blinky Cruise Elroy; tunnel slowdown; ghosts gain +10% resolved speed per level index. Circle overlap spends a life (hold → reset actors / ready pause → resume) or last-life Game Over (hold → append high-score run → fade → `GAME OVER` + lifetime collected → menu) unless freeze walk-through is active.
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0; resets each level). Last-life Game Over appends **lifetime** pellets + remaining time + ISO date to capped `localStorage` run history (`pac-rogue.run-history.v2`, max 100, drop oldest). Clearing all pellets never writes history.
-- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `runLevel`, `pelletProgress`, `fruit`, `upgrades`, `runHistory`, `highScoresView`, `scoreListScroll`, `audioSettings`, `playfield`, `maze`, `lives`, `deathSequence`, ghost kind/path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/audioSettings/ghost/lives/deathSequence helpers are unit-tested without Phaser.
+- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `runLevel`, `pelletProgress`, `fruit`, `upgrades`, `runHistory`, `highScoresView`, `scoreListScroll`, `audioSettings`, `playfield`, `maze`, `lives`, `deathSequence`, ghost kind/path/movement/target/mode/release/house-order/seats/leave/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/audioSettings/ghost/lives/deathSequence helpers are unit-tested without Phaser.
 - Power pellets are inert unless an owned upgrade reacts (`powerPelletFreeze`, `scatterBurst`, `ghostRecall`, `warpTop` — see [docs/upgrades.md](./upgrades.md)). No arcade fright / eatable ghosts / Inky yet.

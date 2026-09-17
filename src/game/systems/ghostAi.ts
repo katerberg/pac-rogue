@@ -71,6 +71,8 @@ export function ghostAi(
         playerCol: player.col,
         playerRow: player.row,
         playerFacing: player.facing,
+        ghostCol: col,
+        ghostRow: row,
       });
     } else if (kind === GHOST_KIND.clyde) {
       target = clydeTarget({
@@ -88,6 +90,8 @@ export function ghostAi(
         pelletsRemaining,
         playerCol: player.col,
         playerRow: player.row,
+        ghostCol: col,
+        ghostRow: row,
         ignoreElroy: opts.ignoreElroy,
       });
     }

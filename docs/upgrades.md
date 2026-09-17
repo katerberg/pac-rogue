@@ -12,14 +12,14 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 
 ### Current defs
 
-| Id                  | Label         | Effect                                                                                        |
-| ------------------- | ------------- | --------------------------------------------------------------------------------------------- |
-| `powerPelletFreeze` | Power Freeze  | Power pellet freezes leaving/active ghosts for `FREEZE_MS` (3000); cyan tint on those sprites |
-| `playerSpeedUp`     | Speed Up      | Player speed × `PLAYER_SPEED_UP_MUL` (1.25)                                                   |
-| `ghostSlow`         | Ghost Slow    | Ghost resolved speed × `GHOST_SLOW_MUL` (0.75)                                                |
-| `scatterBurst`      | Scatter Burst | Power pellet forces scatter for `SCATTER_BURST_MS` (3000); wave clock pauses while active     |
-| `ghostRecall`       | Ghost Recall  | Power pellet teleports the closest leaving/active ghost to the house as `leaving`             |
-| `warpTop`           | Warp Top      | Power pellet warps the player to the dynamically nearest top-middle walkable cell             |
+| Id                  | Label         | Effect                                                                                            |
+| ------------------- | ------------- | ------------------------------------------------------------------------------------------------- |
+| `powerPelletFreeze` | Power Freeze  | Power pellet freezes leaving/active ghosts for `FREEZE_MS` (3000); cyan tint on those sprites     |
+| `playerSpeedUp`     | Speed Up      | Player speed × `PLAYER_SPEED_UP_MUL` (1.25)                                                       |
+| `ghostSlow`         | Ghost Slow    | Ghost resolved speed × `GHOST_SLOW_MUL` (0.75)                                                    |
+| `scatterBurst`      | Scatter Burst | Power pellet forces scatter for `SCATTER_BURST_MS` (3000); wave clock pauses while active         |
+| `ghostRecall`       | Ghost Recall  | Power pellet teleports the closest leaving/active ghost into an `inHouse` seat by predicted order |
+| `warpTop`           | Warp Top      | Power pellet warps the player to the dynamically nearest top-middle walkable cell                 |
 
 Modal copy uses each def’s punchy `description` string (iterate freely).
 
@@ -56,7 +56,7 @@ While `scatterBurstRemainingMs > 0` **and** the wave clock is active, `resolveGh
 
 ### Ghost recall
 
-Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the player by Euclidean `Position` (tie: lowest eid). Teleport to `ghostHouseSpawnCenter()`, set phase `leaving`, Input/Facing up, `Speed = GHOST_SPEED`. No eligible ghost → no-op.
+Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the player by Euclidean `Position` (tie: lowest eid). Set phase `inHouse`, place that ghost (and re-snap other in-house ghosts) into predicted L→R seats via `assignHouseSeats` / `ghostHouseSeatCenters`, zero Speed/Velocity. Existing release gates then re-admit them (often immediately if the gate already passed) with the normal door-approach leave path. No eligible ghost → no-op.
 
 ### Warp top
 
@@ -64,7 +64,7 @@ Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the play
 
 ## Freeze / catch / tint
 
-- While `freezeRemainingMs > 0`, `applyGhostSpeed(..., { frozen: true })` sets leaving/active ghost `Speed.px = 0` (house stays 0). Mode/release/run clocks keep ticking (except scatter-burst pause of the mode wave clock).
+- While `freezeRemainingMs > 0`, `applyGhostSpeed(..., { frozen: true })` sets leaving/active ghost `Speed.px = 0` (`inHouse` speed is owned by `ghostHouseSeating`). Mode/release/run clocks keep ticking (except scatter-burst pause of the mode wave clock).
 - Freeze + scatter together: freeze still zeros speed; scatter targeting only matters after thaw.
 - `catchPlayer({ ghostsFrozen: true })` skips kill (walk-through). When freeze expires while overlapping, the same update’s catch after `tickFreeze` can kill.
 - One-frame lag after a power pellet starts freeze is accepted: Speed may clear on the next frame while catch already skips.

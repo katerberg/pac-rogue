@@ -1,8 +1,8 @@
-import { getActiveLayout } from "./maze";
 import { ELROY_TIER, elroyTier, type ElroyTier } from "./ghostSpeed";
 import { GHOST_AI_MODE, type GhostAiMode } from "./ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 import { GHOST_DIR, type GhostDir } from "./ghostPath";
+import { leavingHouseTarget } from "./ghostHouseLeave";
 
 export { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 
@@ -30,10 +30,12 @@ export function blinkyTarget(args: {
   pelletsRemaining: number;
   playerCol: number;
   playerRow: number;
+  ghostCol?: number;
+  ghostRow?: number;
   ignoreElroy?: boolean;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
-    return getActiveLayout().ghostHouseExit;
+    return leavingHouseTarget(args.ghostCol ?? args.playerCol, args.ghostRow ?? args.playerRow);
   }
 
   const tier: ElroyTier = elroyTier(args.pelletsRemaining);
@@ -51,9 +53,11 @@ export function pinkyTarget(args: {
   playerCol: number;
   playerRow: number;
   playerFacing: GhostDir;
+  ghostCol?: number;
+  ghostRow?: number;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
-    return getActiveLayout().ghostHouseExit;
+    return leavingHouseTarget(args.ghostCol ?? args.playerCol, args.ghostRow ?? args.playerRow);
   }
 
   if (args.mode === GHOST_AI_MODE.scatter) {
@@ -84,7 +88,7 @@ export function clydeTarget(args: {
   ghostRow: number;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
-    return getActiveLayout().ghostHouseExit;
+    return leavingHouseTarget(args.ghostCol, args.ghostRow);
   }
 
   if (args.mode === GHOST_AI_MODE.scatter) {
