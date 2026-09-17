@@ -63,12 +63,13 @@ import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
   applyPowerPelletEffects,
+  confirmUpgradeChoice,
   createRunUpgrades,
   ghostsAreFrozen,
   ghostSpeedMultiplier,
-  grantRandomUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
+  pickUpgradeChoiceOffer,
   playerSpeedMultiplier,
   scatterBurstActive,
   tickFreeze,
@@ -122,14 +123,21 @@ import {
   addPixelText,
   HUD_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
+  placePixelText,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
-  placePixelText,
 } from "./pixelFont";
+import {
+  createUpgradeChoiceModal,
+  UPGRADE_RESUME_COUNTDOWN_MS,
+  type UpgradeChoiceModal,
+} from "./upgradeChoiceModal";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;
+  private anyPlayerMoveKeyDown!: () => boolean;
+  private suppressPlayerInputUntilKeyRelease = false;
   private playRender!: PlayRender;
   private clock: RunClock = createRunClock();
   private ghostReleaseClock: GhostReleaseClock = createGhostReleaseClock();
@@ -145,6 +153,10 @@ export class PlayScene extends Phaser.Scene {
   private lives = START_LIVES;
   private afterLifeRelease = false;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
+  private upgradeChoiceModal!: UpgradeChoiceModal;
+  private resumeCountdownRemainingMs = 0;
+  private resumeCountdownDim: Phaser.GameObjects.Rectangle | null = null;
+  private resumeCountdownText: Phaser.GameObjects.BitmapText | null = null;
 
   constructor() {
     super("PlayScene");
@@ -160,6 +172,9 @@ export class PlayScene extends Phaser.Scene {
     this.death = null;
     this.lives = START_LIVES;
     this.afterLifeRelease = false;
+    this.clearUpgradeResumeCountdown();
+    this.upgradeChoiceModal?.destroy();
+    this.upgradeChoiceModal = createUpgradeChoiceModal(this);
     const urlParams = new URLSearchParams(location.search);
     const mazeOverride = parseMazeParam(urlParams);
     if (urlParams.has("maze") && mazeOverride === null) {
@@ -203,13 +218,18 @@ export class PlayScene extends Phaser.Scene {
     this.lifeIcons = [];
     this.refreshLivesIcons();
 
-    this.runPlayerInput = createPlayerInput(this);
+    const playerInput = createPlayerInput(this);
+    this.runPlayerInput = playerInput.apply;
+    this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
+    this.suppressPlayerInputUntilKeyRelease = false;
     this.playRender = createRender(this);
 
     startLoopingSfx(this, "siren");
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "siren");
       stopLoopingSfx(this, "death");
+      this.upgradeChoiceModal.destroy();
+      this.clearUpgradeResumeCountdown();
     });
   }
 
@@ -223,7 +243,34 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
 
-    this.runPlayerInput(this.world);
+    if (this.upgradeChoiceModal.isActive()) {
+      this.upgradeChoiceModal.tick(delta);
+      if (this.upgradeChoiceModal.isActive()) {
+        return;
+      }
+    }
+
+    if (this.resumeCountdownRemainingMs > 0) {
+      this.resumeCountdownRemainingMs = Math.max(0, this.resumeCountdownRemainingMs - delta);
+      this.refreshUpgradeResumeCountdownText();
+      if (this.resumeCountdownRemainingMs === 0) {
+        this.clearUpgradeResumeCountdown();
+        this.suppressPlayerInputUntilKeyRelease = true;
+      } else {
+        const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
+        this.playRender.draw(this.world, { ghostsFrozen });
+        return;
+      }
+    }
+
+    if (this.suppressPlayerInputUntilKeyRelease) {
+      if (!this.anyPlayerMoveKeyDown()) {
+        this.suppressPlayerInputUntilKeyRelease = false;
+        this.runPlayerInput(this.world);
+      }
+    } else {
+      this.runPlayerInput(this.world);
+    }
     const hasInput = hasPlayerDirectionInput(this.world);
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
@@ -304,8 +351,24 @@ export class PlayScene extends Phaser.Scene {
       playSfx(this, "pelletMunch");
       playSfx(this, "pelletMunch2");
       this.fruitPresence = markFruitCollected(fruitTick.state);
-      this.runUpgrades = grantRandomUpgrade(this.runUpgrades, () => Math.random());
-      this.refreshUpgradesHud();
+      const options = pickUpgradeChoiceOffer(
+        this.runUpgrades.owned,
+        this.runUpgrades.lastDeclinedUpgradeId,
+        () => Math.random(),
+        this.runUpgrades.forceNextId,
+      );
+      if (options === null) {
+        this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
+      } else {
+        this.upgradeChoiceModal.open(options, (chosen) => {
+          this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, options, chosen);
+          this.refreshUpgradesHud();
+          this.beginUpgradeResumeCountdown();
+        });
+        const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
+        this.playRender.draw(this.world, { ghostsFrozen });
+        return;
+      }
     } else if (fruitTick.action === "despawn") {
       this.clearFruitEntities();
       this.fruitPresence = fruitTick.state;
@@ -331,6 +394,47 @@ export class PlayScene extends Phaser.Scene {
       this.refreshLivesIcons();
       this.death = beginDeathSequence(result.gameOver);
     }
+  }
+
+  private beginUpgradeResumeCountdown(): void {
+    this.clearUpgradeResumeCountdown();
+    this.resumeCountdownRemainingMs = UPGRADE_RESUME_COUNTDOWN_MS;
+    this.resumeCountdownDim = this.add
+      .rectangle(
+        PLAYFIELD_WIDTH / 2,
+        PLAYFIELD_HEIGHT / 2,
+        PLAYFIELD_WIDTH,
+        PLAYFIELD_HEIGHT,
+        0x000000,
+        0.45,
+      )
+      .setDepth(900);
+    this.resumeCountdownText = addPixelText(
+      this,
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2,
+      "3",
+      MENU_TITLE_FONT_SIZE * 2,
+      TEXT_COLOR_YELLOW,
+    ).setDepth(901);
+    this.refreshUpgradeResumeCountdownText();
+  }
+
+  private refreshUpgradeResumeCountdownText(): void {
+    if (this.resumeCountdownText === null || this.resumeCountdownRemainingMs <= 0) {
+      return;
+    }
+    const seconds = Math.max(1, Math.ceil(this.resumeCountdownRemainingMs / 1000));
+    this.resumeCountdownText.setText(String(seconds));
+    placePixelText(this.resumeCountdownText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
+  }
+
+  private clearUpgradeResumeCountdown(): void {
+    this.resumeCountdownRemainingMs = 0;
+    this.resumeCountdownDim?.destroy();
+    this.resumeCountdownDim = null;
+    this.resumeCountdownText?.destroy();
+    this.resumeCountdownText = null;
   }
 
   private handleDeathEvent(event: DeathSequenceEvent): void {
