@@ -25,6 +25,11 @@ describe("ghostHouseSeats", () => {
       expect(seats[2]!.y).toBe(seats[3]!.y);
       const spawn = getActiveLayout().ghostHouseSpawn;
       expect(seats[0]!.y).toBe(cellCenterY(spawn.row));
+      const gap01 = seats[1]!.x - seats[0]!.x;
+      const gap12 = seats[2]!.x - seats[1]!.x;
+      const gap23 = seats[3]!.x - seats[2]!.x;
+      expect(gap01).toBeCloseTo(gap12);
+      expect(gap12).toBeCloseTo(gap23);
     }
   });
 

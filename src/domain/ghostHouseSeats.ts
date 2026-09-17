@@ -30,16 +30,13 @@ function houseFloorColsOnSpawnRow(): number[] {
 export function ghostHouseSeatCenters(): HouseSeat[] {
   const floorCols = houseFloorColsOnSpawnRow();
   const row = getActiveLayout().ghostHouseSpawn.row;
+  const y = cellCenterY(row);
+  const leftX = cellCenterX(floorCols[0]!);
+  const rightX = cellCenterX(floorCols[floorCols.length - 1]!);
   const seats: HouseSeat[] = [];
   for (let i = 0; i < HOUSE_SEAT_COUNT; i += 1) {
     const t = i / (HOUSE_SEAT_COUNT - 1);
-    const idx = Math.round(t * (floorCols.length - 1));
-    const col = floorCols[idx]!;
-    seats.push({ x: cellCenterX(col), y: cellCenterY(row) });
-  }
-  const distinct = new Set(seats.map((s) => `${s.x},${s.y}`));
-  if (distinct.size < HOUSE_SEAT_COUNT) {
-    throw new Error("ghost house seat derivation produced overlapping seats");
+    seats.push({ x: leftX + t * (rightX - leftX), y });
   }
   return seats;
 }
