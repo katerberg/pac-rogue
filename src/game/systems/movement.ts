@@ -3,12 +3,12 @@ import { type GhostDir } from "../../domain/ghostPath";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import {
-  MAZE_PLAYER_SOLIDS,
   TURN_ALIGN_EPS,
   canEnterDirection,
   cellCenterX,
   cellCenterY,
   clampAgainstFacingWall,
+  getActiveLayout,
   isAlignedForTurn,
   snapPerpendicularToCenterline,
   worldToCol,
@@ -102,13 +102,14 @@ function ghostPhaseOf(world: World, eid: number): number {
 
 export function movement(world: World, deltaMs: number): void {
   const dt = deltaMs / 1000;
+  const playerSolids = getActiveLayout().playerSolids;
 
   for (const eid of query(world, [Position, Velocity, Input, Facing, Speed])) {
     const speed = Speed.px[eid] ?? 0;
     const ghost = hasComponent(world, eid, Ghost)
       ? ghostMovementRules(ghostPhaseOf(world, eid))
       : null;
-    const solids: SolidGrid = ghost?.solids ?? MAZE_PLAYER_SOLIDS;
+    const solids: SolidGrid = ghost?.solids ?? playerSolids;
     const frameTravel = speed * dt;
 
     let x = Position.x[eid] ?? 0;

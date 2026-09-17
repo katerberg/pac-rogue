@@ -7,9 +7,6 @@ export const GHOST_ELROY1_SPEED = PLAYER_SPEED * 1.0;
 export const GHOST_ELROY2_SPEED = PLAYER_SPEED * (85 / 80);
 export const GHOST_TUNNEL_SPEED = PLAYER_SPEED * 0.5;
 
-export const ELROY1_DOTS_LEFT = 20;
-export const ELROY2_DOTS_LEFT = 10;
-
 export const ELROY_TIER = {
   none: 0,
   elroy1: 1,

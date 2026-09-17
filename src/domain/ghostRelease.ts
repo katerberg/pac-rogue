@@ -3,7 +3,6 @@ import { getActiveLayout } from "./maze";
 
 export const BLINKY_RELEASE_DELAY_MS = 100;
 export const PINKY_RELEASE_DELAY_MS = 5_000;
-export const CLYDE_RELEASE_PELLETS = 60;
 
 export type GhostReleaseClock = {
   started: boolean;

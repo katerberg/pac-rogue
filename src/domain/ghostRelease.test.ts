@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "./ghostKind";
 import {
   BLINKY_RELEASE_DELAY_MS,
-  CLYDE_RELEASE_PELLETS,
   PINKY_RELEASE_DELAY_MS,
   createGhostReleaseClock,
   releaseDelayForKind,
@@ -10,6 +9,7 @@ import {
   shouldReleaseKind,
   tickGhostRelease,
 } from "./ghostRelease";
+import { BASE_CLYDE_RELEASE_PELLETS } from "./maze";
 
 describe("ghostRelease", () => {
   it("does not start without direction input", () => {
@@ -42,8 +42,8 @@ describe("ghostRelease", () => {
 
   it("releases Clyde by pellet count, not the time clock", () => {
     const clock = createGhostReleaseClock();
-    expect(shouldReleaseKind(GHOST_KIND.clyde, clock, CLYDE_RELEASE_PELLETS - 1)).toBe(false);
-    expect(shouldReleaseKind(GHOST_KIND.clyde, clock, CLYDE_RELEASE_PELLETS)).toBe(true);
+    expect(shouldReleaseKind(GHOST_KIND.clyde, clock, BASE_CLYDE_RELEASE_PELLETS - 1)).toBe(false);
+    expect(shouldReleaseKind(GHOST_KIND.clyde, clock, BASE_CLYDE_RELEASE_PELLETS)).toBe(true);
     const started = tickGhostRelease(createGhostReleaseClock(), true, PINKY_RELEASE_DELAY_MS);
     expect(shouldReleaseKind(GHOST_KIND.clyde, started, 0)).toBe(false);
   });

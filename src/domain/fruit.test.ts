@@ -1,13 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  cellCenterX,
-  cellCenterY,
-  FRUIT_SPAWN_COL,
-  FRUIT_SPAWN_ROW,
-  getActiveLayout,
-  isWalkable,
-  MAZE_PLAYER_SOLIDS,
-} from "./maze";
+import { cellCenterX, cellCenterY, getActiveLayout, isWalkable } from "./maze";
 import {
   CURRENT_LEVEL,
   FRUIT_LIFETIME_MS,
@@ -45,14 +37,13 @@ describe("fruitArtPath", () => {
 });
 
 describe("fruitSpawnCenter", () => {
-  it("centers on a player-walkable cell under the ghost house", () => {
+  it("centers on the active layout fruit cell under the ghost house", () => {
+    const { fruitSpawn, playerSolids } = getActiveLayout();
     expect(fruitSpawnCenter()).toEqual({
-      x: cellCenterX(FRUIT_SPAWN_COL),
-      y: cellCenterY(FRUIT_SPAWN_ROW),
+      x: cellCenterX(fruitSpawn.col),
+      y: cellCenterY(fruitSpawn.row),
     });
-    expect(FRUIT_SPAWN_COL).toBe(13);
-    expect(FRUIT_SPAWN_ROW).toBe(17);
-    expect(isWalkable(FRUIT_SPAWN_COL, FRUIT_SPAWN_ROW, MAZE_PLAYER_SOLIDS)).toBe(true);
+    expect(isWalkable(fruitSpawn.col, fruitSpawn.row, playerSolids)).toBe(true);
   });
 });
 

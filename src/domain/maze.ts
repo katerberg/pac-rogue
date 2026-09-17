@@ -100,7 +100,7 @@ const PELLET_CHARS = new Set([".", "@"]);
 const EMPTY_CELL_CHAR = " ";
 const HOUSE_CHARS = new Set([DOOR_CHAR, HOUSE_FLOOR_CHAR]);
 
-export function scaleCount(n: number, pelletCount: number, basePelletCount: number): number {
+function scaleCount(n: number, pelletCount: number, basePelletCount: number): number {
   return Math.max(1, Math.round((n * pelletCount) / basePelletCount));
 }
 
@@ -422,7 +422,8 @@ function buildPlayerSolids(walls: SolidGrid, exterior: SolidGrid, house: SolidGr
   return blocked;
 }
 
-export function buildLayout(id: MazeLayoutId, ascii: string = MAZE_ASCII_BY_ID[id]): MazeLayout {
+function buildLayout(id: MazeLayoutId): MazeLayout {
+  const ascii = MAZE_ASCII_BY_ID[id];
   const playerSpawn = resolvePlayerSpawn(ascii);
   const walls = parseMaze(ascii);
   const exterior = buildExterior(walls, playerSpawn);
@@ -438,8 +439,7 @@ export function buildLayout(id: MazeLayoutId, ascii: string = MAZE_ASCII_BY_ID[i
     throw new Error(`maze ${id} has no pellets`);
   }
 
-  const basePelletCount =
-    id === "classic" ? pelletCount : (LAYOUT_CACHE.classic?.pelletCount ?? pelletCount);
+  const basePelletCount = id === "classic" ? pelletCount : getLayout("classic").pelletCount;
   const fruitThresholds = scaleFruitThresholds(pelletCount, basePelletCount);
   const { elroy1DotsLeft, elroy2DotsLeft } = scaleElroyCutoffs(pelletCount, basePelletCount);
 
@@ -471,9 +471,6 @@ export function getLayout(id: MazeLayoutId): MazeLayout {
   if (cached) {
     return cached;
   }
-  if (id !== "classic" && !LAYOUT_CACHE.classic) {
-    LAYOUT_CACHE.classic = buildLayout("classic");
-  }
   const layout = buildLayout(id);
   LAYOUT_CACHE[id] = layout;
   return layout;
@@ -481,61 +478,31 @@ export function getLayout(id: MazeLayoutId): MazeLayout {
 
 let activeLayout: MazeLayout = getLayout("classic");
 
-function bindActiveLayout(layout: MazeLayout): void {
-  activeLayout = layout;
-  MAZE_ASCII = layout.ascii;
-  MAZE_WALLS = layout.walls;
-  MAZE_EXTERIOR = layout.exterior;
-  MAZE_HOUSE = layout.house;
-  MAZE_DOOR = layout.door;
-  MAZE_GHOST_SOLIDS = layout.ghostSolids;
-  MAZE_PLAYER_SOLIDS = layout.playerSolids;
-  MAZE_SOLIDS = layout.playerSolids;
-  PLAYER_SPAWN_COL = layout.playerSpawn.col;
-  PLAYER_SPAWN_ROW = layout.playerSpawn.row;
-  GHOST_HOUSE_SPAWN_COL = layout.ghostHouseSpawn.col;
-  GHOST_HOUSE_SPAWN_ROW = layout.ghostHouseSpawn.row;
-  GHOST_HOUSE_EXIT_COL = layout.ghostHouseExit.col;
-  GHOST_HOUSE_EXIT_ROW = layout.ghostHouseExit.row;
-  FRUIT_SPAWN_COL = layout.fruitSpawn.col;
-  FRUIT_SPAWN_ROW = layout.fruitSpawn.row;
-}
-
 export function getActiveLayout(): MazeLayout {
   return activeLayout;
 }
 
 export function activateLayout(id: MazeLayoutId): MazeLayout {
-  const layout = getLayout(id);
-  bindActiveLayout(layout);
-  return layout;
+  activeLayout = getLayout(id);
+  return activeLayout;
 }
 
-export let MAZE_ASCII = activeLayout.ascii;
-export let MAZE_WALLS: SolidGrid = activeLayout.walls;
-export let MAZE_EXTERIOR: SolidGrid = activeLayout.exterior;
-export let MAZE_HOUSE: SolidGrid = activeLayout.house;
-export let MAZE_DOOR: SolidGrid = activeLayout.door;
-export let MAZE_GHOST_SOLIDS: SolidGrid = activeLayout.ghostSolids;
-export let MAZE_PLAYER_SOLIDS: SolidGrid = activeLayout.playerSolids;
-export let MAZE_SOLIDS: SolidGrid = activeLayout.playerSolids;
-export let PLAYER_SPAWN_COL = activeLayout.playerSpawn.col;
-export let PLAYER_SPAWN_ROW = activeLayout.playerSpawn.row;
-export let GHOST_HOUSE_SPAWN_COL = activeLayout.ghostHouseSpawn.col;
-export let GHOST_HOUSE_SPAWN_ROW = activeLayout.ghostHouseSpawn.row;
-export let GHOST_HOUSE_EXIT_COL = activeLayout.ghostHouseExit.col;
-export let GHOST_HOUSE_EXIT_ROW = activeLayout.ghostHouseExit.row;
-export let FRUIT_SPAWN_COL = activeLayout.fruitSpawn.col;
-export let FRUIT_SPAWN_ROW = activeLayout.fruitSpawn.row;
-
-export function isHouse(col: number, row: number, house: SolidGrid = MAZE_HOUSE): boolean {
+export function isHouse(
+  col: number,
+  row: number,
+  house: SolidGrid = getActiveLayout().house,
+): boolean {
   if (!inBounds(col, row)) {
     return false;
   }
   return house[row]?.[col] ?? false;
 }
 
-export function isDoor(col: number, row: number, door: SolidGrid = MAZE_DOOR): boolean {
+export function isDoor(
+  col: number,
+  row: number,
+  door: SolidGrid = getActiveLayout().door,
+): boolean {
   if (!inBounds(col, row)) {
     return false;
   }
@@ -549,13 +516,14 @@ export function hasLeftGhostHouse(col: number, row: number): boolean {
 export function isGhostWalkable(
   col: number,
   row: number,
-  solids: SolidGrid = MAZE_GHOST_SOLIDS,
+  solids: SolidGrid = getActiveLayout().ghostSolids,
 ): boolean {
   return isWalkable(col, row, solids);
 }
 
 export function ghostSolidsForPhase(phase: number): SolidGrid {
-  return phase === GHOST_PHASE.active ? MAZE_PLAYER_SOLIDS : MAZE_GHOST_SOLIDS;
+  const layout = getActiveLayout();
+  return phase === GHOST_PHASE.active ? layout.playerSolids : layout.ghostSolids;
 }
 
 export function canGhostEnterDirection(
@@ -580,17 +548,19 @@ export function canGhostEnterDirection(
 }
 
 export function ghostHouseSpawnCenter(): { x: number; y: number } {
+  const { ghostHouseSpawn } = getActiveLayout();
   return {
-    x: cellCenterX(GHOST_HOUSE_SPAWN_COL),
-    y: cellCenterY(GHOST_HOUSE_SPAWN_ROW),
+    x: cellCenterX(ghostHouseSpawn.col),
+    y: cellCenterY(ghostHouseSpawn.row),
   };
 }
 
 export function isGhostTunnelSlow(col: number, row: number): boolean {
-  if (!isWalkable(col, row, MAZE_GHOST_SOLIDS)) {
+  const { ghostSolids } = getActiveLayout();
+  if (!isWalkable(col, row, ghostSolids)) {
     return false;
   }
-  if (!hasHorizontalTunnel(row, MAZE_GHOST_SOLIDS)) {
+  if (!hasHorizontalTunnel(row, ghostSolids)) {
     return false;
   }
   return col <= 5 || col >= MAZE_COLS - 6;
@@ -600,28 +570,44 @@ export function inBounds(col: number, row: number): boolean {
   return col >= 0 && col < MAZE_COLS && row >= 0 && row < MAZE_ROWS;
 }
 
-export function isWall(col: number, row: number, walls: SolidGrid = MAZE_WALLS): boolean {
+export function isWall(
+  col: number,
+  row: number,
+  walls: SolidGrid = getActiveLayout().walls,
+): boolean {
   if (!inBounds(col, row)) {
     return true;
   }
   return walls[row]?.[col] ?? true;
 }
 
-export function isExterior(col: number, row: number, exterior: SolidGrid = MAZE_EXTERIOR): boolean {
+export function isExterior(
+  col: number,
+  row: number,
+  exterior: SolidGrid = getActiveLayout().exterior,
+): boolean {
   if (!inBounds(col, row)) {
     return false;
   }
   return exterior[row]?.[col] ?? false;
 }
 
-export function isSolid(col: number, row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+export function isSolid(
+  col: number,
+  row: number,
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): boolean {
   if (!inBounds(col, row)) {
     return true;
   }
   return solids[row]?.[col] ?? true;
 }
 
-export function isWalkable(col: number, row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+export function isWalkable(
+  col: number,
+  row: number,
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): boolean {
   return !isSolid(col, row, solids);
 }
 
@@ -641,7 +627,11 @@ export function oppositeTunnelCell(col: number, row: number): { col: number; row
   return null;
 }
 
-export function isTunnelMouth(col: number, row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+export function isTunnelMouth(
+  col: number,
+  row: number,
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): boolean {
   if (!isWalkable(col, row, solids)) {
     return false;
   }
@@ -649,11 +639,17 @@ export function isTunnelMouth(col: number, row: number, solids: SolidGrid = MAZE
   return opposite !== null && isWalkable(opposite.col, opposite.row, solids);
 }
 
-function hasHorizontalTunnel(row: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+function hasHorizontalTunnel(
+  row: number,
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): boolean {
   return isWalkable(0, row, solids) && isWalkable(MAZE_COLS - 1, row, solids);
 }
 
-function hasVerticalTunnel(col: number, solids: SolidGrid = MAZE_SOLIDS): boolean {
+function hasVerticalTunnel(
+  col: number,
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): boolean {
   return isWalkable(col, 0, solids) && isWalkable(col, MAZE_ROWS - 1, solids);
 }
 
@@ -662,7 +658,7 @@ function neighborOpen(
   row: number,
   dx: number,
   dy: number,
-  solids: SolidGrid = MAZE_SOLIDS,
+  solids: SolidGrid = getActiveLayout().playerSolids,
 ): boolean {
   const nextCol = col + dx;
   const nextRow = row + dy;
@@ -709,20 +705,22 @@ export function worldToRow(y: number): number {
 }
 
 export function playerSpawnCenter(): { x: number; y: number } {
+  const { playerSpawn } = getActiveLayout();
   return {
-    x: cellCenterX(PLAYER_SPAWN_COL),
-    y: cellCenterY(PLAYER_SPAWN_ROW),
+    x: cellCenterX(playerSpawn.col),
+    y: cellCenterY(playerSpawn.row),
   };
 }
 
-export function playerTopCenterCell(solids: SolidGrid = MAZE_PLAYER_SOLIDS): {
+export function playerTopCenterCell(solids: SolidGrid = getActiveLayout().playerSolids): {
   col: number;
   row: number;
 } {
+  const { playerSpawn } = getActiveLayout();
   const idealCol = (MAZE_COLS - 1) / 2;
   const idealRow = 0;
-  let bestCol = PLAYER_SPAWN_COL;
-  let bestRow = PLAYER_SPAWN_ROW;
+  let bestCol = playerSpawn.col;
+  let bestRow = playerSpawn.row;
   let bestDist = Number.POSITIVE_INFINITY;
   let found = false;
 
@@ -747,12 +745,12 @@ export function playerTopCenterCell(solids: SolidGrid = MAZE_PLAYER_SOLIDS): {
   }
 
   if (!found) {
-    return { col: PLAYER_SPAWN_COL, row: PLAYER_SPAWN_ROW };
+    return { col: playerSpawn.col, row: playerSpawn.row };
   }
   return { col: bestCol, row: bestRow };
 }
 
-export function playerTopCenterSpawn(solids: SolidGrid = MAZE_PLAYER_SOLIDS): {
+export function playerTopCenterSpawn(solids: SolidGrid = getActiveLayout().playerSolids): {
   x: number;
   y: number;
 } {
@@ -795,7 +793,7 @@ export function snapPerpendicularToCenterline(
 export function wrapPosition(
   x: number,
   y: number,
-  solids: SolidGrid = MAZE_SOLIDS,
+  solids: SolidGrid = getActiveLayout().playerSolids,
 ): { x: number; y: number } {
   let nextX = x;
   let nextY = y;
@@ -825,7 +823,7 @@ export function wrappedTwinPosition(
   x: number,
   y: number,
   radius: number,
-  solids: SolidGrid = MAZE_SOLIDS,
+  solids: SolidGrid = getActiveLayout().playerSolids,
 ): { x: number; y: number } | null {
   const row = Math.min(MAZE_ROWS - 1, Math.max(0, worldToRow(y)));
   const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
@@ -856,7 +854,7 @@ export function canEnterDirection(
   y: number,
   dx: number,
   dy: number,
-  solids: SolidGrid = MAZE_SOLIDS,
+  solids: SolidGrid = getActiveLayout().playerSolids,
 ): boolean {
   const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
   const row = Math.min(MAZE_ROWS - 1, Math.max(0, worldToRow(y)));
@@ -868,7 +866,7 @@ export function clampAgainstFacingWall(
   y: number,
   dx: number,
   dy: number,
-  solids: SolidGrid = MAZE_SOLIDS,
+  solids: SolidGrid = getActiveLayout().playerSolids,
 ): { x: number; y: number } {
   let col = worldToCol(x);
   let row = worldToRow(y);
@@ -919,8 +917,8 @@ function shouldDrawPipeAgainst(
 }
 
 export function pipeEdges(
-  walls: SolidGrid = MAZE_WALLS,
-  exterior: SolidGrid = MAZE_EXTERIOR,
+  walls: SolidGrid = getActiveLayout().walls,
+  exterior: SolidGrid = getActiveLayout().exterior,
 ): PipeEdge[] {
   const edges: PipeEdge[] = [];
 
@@ -1138,8 +1136,8 @@ function vertexCornerQuads(
 }
 
 export function wallPathCommands(
-  walls: SolidGrid = MAZE_WALLS,
-  exterior: SolidGrid = MAZE_EXTERIOR,
+  walls: SolidGrid = getActiveLayout().walls,
+  exterior: SolidGrid = getActiveLayout().exterior,
   cornerRadius: number = WALL_CORNER_RADIUS,
   insetPx: number = WALL_INSET_PX,
   curveKind: WallCornerCurveKind = WALL_CORNER_CURVE_KIND,
@@ -1228,7 +1226,7 @@ export function wallPathCommands(
   return commands;
 }
 
-export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
+export function doorGateEdges(door: SolidGrid = getActiveLayout().door): PipeEdge[] {
   const edges: PipeEdge[] = [];
   for (let row = 0; row < MAZE_ROWS; row += 1) {
     for (let col = 0; col < MAZE_COLS; col += 1) {
@@ -1255,7 +1253,7 @@ export function doorGateEdges(door: SolidGrid = MAZE_DOOR): PipeEdge[] {
 }
 
 export function wallCellCenters(
-  walls: SolidGrid = MAZE_WALLS,
+  walls: SolidGrid = getActiveLayout().walls,
 ): { col: number; row: number; x: number; y: number }[] {
   const cells: { col: number; row: number; x: number; y: number }[] = [];
   for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -1274,7 +1272,7 @@ export function wallCellCenters(
 }
 
 export function walkableCellCenters(
-  solids: SolidGrid = MAZE_SOLIDS,
+  solids: SolidGrid = getActiveLayout().playerSolids,
 ): { col: number; row: number; x: number; y: number }[] {
   const cells: { col: number; row: number; x: number; y: number }[] = [];
   for (let row = 0; row < MAZE_ROWS; row += 1) {

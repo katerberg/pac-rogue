@@ -2,12 +2,7 @@ import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { createGhostModeClock, startGhostModeClock, tickGhostMode } from "../../domain/ghostMode";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
-import {
-  GHOST_HOUSE_EXIT_COL,
-  GHOST_HOUSE_EXIT_ROW,
-  cellCenterX,
-  cellCenterY,
-} from "../../domain/maze";
+import { getActiveLayout, cellCenterX, cellCenterY } from "../../domain/maze";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { Position } from "../components/Position";
@@ -19,8 +14,9 @@ function spawnLeavingAtExit() {
   addComponent(world, ghost, Position);
   addComponent(world, ghost, Ghost);
   addComponent(world, ghost, GhostPhase);
-  Position.x[ghost] = cellCenterX(GHOST_HOUSE_EXIT_COL);
-  Position.y[ghost] = cellCenterY(GHOST_HOUSE_EXIT_ROW);
+  const exit = getActiveLayout().ghostHouseExit;
+  Position.x[ghost] = cellCenterX(exit.col);
+  Position.y[ghost] = cellCenterY(exit.row);
   GhostPhase.value[ghost] = GHOST_PHASE.leaving;
   return { world, ghost };
 }

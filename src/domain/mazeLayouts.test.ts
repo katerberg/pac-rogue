@@ -9,7 +9,6 @@ import {
   MAZE_ROWS,
   parseMazeParam,
   pickLayoutId,
-  scaleCount,
 } from "./maze";
 
 describe("maze layouts", () => {
@@ -33,9 +32,14 @@ describe("maze layouts", () => {
   it("builds arcade Ms. Pac Maze 1 with required features", () => {
     const layout = activateLayout("mspac");
     expect(layout.id).toBe("mspac");
+    expect(getActiveLayout().id).toBe("mspac");
     expect(layout.ascii.split("\n")).toHaveLength(MAZE_ROWS);
     expect(layout.ascii.split("\n")[0]).toHaveLength(MAZE_COLS);
 
+    expect(layout.playerSpawn).toEqual({ col: 13, row: 23 });
+    expect(layout.ghostHouseSpawn).toEqual({ col: 13, row: 14 });
+    expect(layout.ghostHouseExit).toEqual({ col: 13, row: 11 });
+    expect(layout.fruitSpawn).toEqual({ col: 13, row: 17 });
     expect(isWalkable(layout.playerSpawn.col, layout.playerSpawn.row, layout.playerSolids)).toBe(
       true,
     );
@@ -48,9 +52,11 @@ describe("maze layouts", () => {
     expect(layout.house.some((row) => row.some(Boolean))).toBe(true);
     expect(layout.door.some((row) => row.some(Boolean))).toBe(true);
 
+    const dots = layout.ascii.split("").filter((ch) => ch === ".").length;
     const powerCount = layout.ascii.split("").filter((ch) => ch === "@").length;
+    expect(dots).toBe(220);
     expect(powerCount).toBe(4);
-    expect(layout.pelletCount).toBeGreaterThan(100);
+    expect(layout.pelletCount).toBe(224);
 
     const tunnelRows = [];
     for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -58,20 +64,12 @@ describe("maze layouts", () => {
         tunnelRows.push(row);
       }
     }
-    expect(tunnelRows.length).toBeGreaterThanOrEqual(1);
+    expect(tunnelRows).toEqual([8, 17]);
 
-    expect(layout.fruitThresholds[0]).toBeLessThan(layout.fruitThresholds[1]);
-    expect(layout.elroy2DotsLeft).toBeLessThan(layout.elroy1DotsLeft);
-    expect(layout.clydeReleasePellets).toBe(
-      scaleCount(60, layout.pelletCount, getLayout("classic").pelletCount),
-    );
-  });
-
-  it("activates layout exports for helpers", () => {
-    activateLayout("mspac");
-    expect(getActiveLayout().id).toBe("mspac");
-    activateLayout("classic");
-    expect(getActiveLayout().id).toBe("classic");
+    expect(layout.fruitThresholds).toEqual([64, 156]);
+    expect(layout.elroy1DotsLeft).toBe(18);
+    expect(layout.elroy2DotsLeft).toBe(9);
+    expect(layout.clydeReleasePellets).toBe(55);
   });
 });
 
