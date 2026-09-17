@@ -123,22 +123,6 @@ export function eligibleUpgrades(owned: readonly UpgradeId[]): UpgradeId[] {
   return ALL_UPGRADE_IDS.filter((id) => !ownedSet.has(id));
 }
 
-export function pickUpgrade(
-  owned: readonly UpgradeId[],
-  rng: () => number,
-  forceNext: UpgradeId | null,
-): UpgradeId | null {
-  if (forceNext !== null && !owned.includes(forceNext)) {
-    return forceNext;
-  }
-  const eligible = eligibleUpgrades(owned);
-  if (eligible.length === 0) {
-    return null;
-  }
-  const index = Math.min(eligible.length - 1, Math.floor(rng() * eligible.length));
-  return eligible[index] ?? null;
-}
-
 function takeRandomFrom(pool: UpgradeId[], rng: () => number): UpgradeId {
   const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
   const picked = pool[index]!;
@@ -177,7 +161,7 @@ export function pickUpgradeChoiceOffer(
   const picked: UpgradeId[] = [];
   const drawPool = [...preferred];
   while (picked.length < needed && drawPool.length > 0) {
-    picked.push(takeRandomFrom(drawPool, rng)!);
+    picked.push(takeRandomFrom(drawPool, rng));
   }
 
   if (
@@ -187,14 +171,6 @@ export function pickUpgradeChoiceOffer(
     !picked.includes(lastDeclined)
   ) {
     picked.push(lastDeclined);
-  }
-
-  while (picked.length < needed) {
-    const remaining = pool.filter((id) => !picked.includes(id));
-    if (remaining.length === 0) {
-      break;
-    }
-    picked.push(takeRandomFrom(remaining, rng)!);
   }
 
   const options: UpgradeId[] =
@@ -226,15 +202,6 @@ export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
     ...state,
     owned: [...state.owned, id],
   };
-}
-
-export function grantRandomUpgrade(state: RunUpgrades, rng: () => number): RunUpgrades {
-  const picked = pickUpgrade(state.owned, rng, state.forceNextId);
-  const cleared: RunUpgrades = { ...state, forceNextId: null };
-  if (picked === null) {
-    return cleared;
-  }
-  return grantUpgrade(cleared, picked);
 }
 
 export function tickFreeze(state: RunUpgrades, deltaMs: number): RunUpgrades {
