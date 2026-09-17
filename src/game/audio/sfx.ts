@@ -131,6 +131,7 @@ export function playVolumePreview(
     musicPreviewTimers.set(scene, timer);
     return;
   }
+  scene.sound.stopByKey(entry.key);
   scene.sound.play(entry.key, { volume });
 }
 

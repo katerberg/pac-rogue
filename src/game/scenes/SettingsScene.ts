@@ -219,13 +219,16 @@ export class SettingsScene extends Phaser.Scene {
   private createRow(category: AudioCategory, focusIndex: number): CategoryRow {
     const centerY = ROW_Y[category];
     const label = addPixelText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
+    placePixelText(label, LABEL_X, centerY, 0, 0.5);
 
     const checkbox = this.add
       .rectangle(CHECK_X, centerY, CHECK_SIZE, CHECK_SIZE)
       .setStrokeStyle(2, TEXT_COLOR_WHITE)
-      .setFillStyle(0x000000, 0)
+      .setFillStyle(0x000000, 0);
+    const checkboxHit = this.add
+      .rectangle(CHECK_X, centerY, 32, 28, 0x000000, 0)
       .setInteractive({ useHandCursor: true });
-    checkbox.on("pointerdown", () => {
+    checkboxHit.on("pointerdown", () => {
       this.focusIndex = focusIndex;
       this.toggleCategory(category);
     });
