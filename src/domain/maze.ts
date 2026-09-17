@@ -36,6 +36,7 @@ export const DOOR_GATE_COLOR = 0xffb8ff;
 export const TURN_ALIGN_EPS = 2;
 
 export const BASE_FRUIT_SPAWN_THRESHOLDS = [70, 170] as const;
+export const BASE_INKY_RELEASE_PELLETS = 30;
 export const BASE_CLYDE_RELEASE_PELLETS = 60;
 export const BASE_ELROY1_DOTS_LEFT = 20;
 export const BASE_ELROY2_DOTS_LEFT = 10;
@@ -59,6 +60,7 @@ export type MazeLayout = {
   fruitSpawn: MazeTile;
   pelletCount: number;
   fruitThresholds: readonly [number, number];
+  inkyReleasePellets: number;
   clydeReleasePellets: number;
   elroy1DotsLeft: number;
   elroy2DotsLeft: number;
@@ -458,6 +460,7 @@ function buildLayout(id: MazeLayoutId): MazeLayout {
     fruitSpawn,
     pelletCount,
     fruitThresholds,
+    inkyReleasePellets: scaleCount(BASE_INKY_RELEASE_PELLETS, pelletCount, basePelletCount),
     clydeReleasePellets: scaleCount(BASE_CLYDE_RELEASE_PELLETS, pelletCount, basePelletCount),
     elroy1DotsLeft,
     elroy2DotsLeft,

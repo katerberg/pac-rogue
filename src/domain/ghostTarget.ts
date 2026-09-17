@@ -1,8 +1,8 @@
-import { getActiveLayout } from "./maze";
 import { ELROY_TIER, elroyTier, type ElroyTier } from "./ghostSpeed";
 import { GHOST_AI_MODE, type GhostAiMode } from "./ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 import { GHOST_DIR, type GhostDir } from "./ghostPath";
+import { leavingHouseTarget } from "./ghostHouseLeave";
 
 export { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 
@@ -19,10 +19,35 @@ export const CLYDE_SCATTER_ROW = 33;
 
 export const CLYDE_SHY_TILES = 8;
 
+export const INKY_SCATTER_COL = 27;
+export const INKY_SCATTER_ROW = 33;
+
+export const INKY_LOOKAHEAD_TILES = 2;
+
 export type GhostTarget = {
   col: number;
   row: number;
 };
+
+function lookAheadTile(
+  playerCol: number,
+  playerRow: number,
+  playerFacing: GhostDir,
+  tiles: number,
+): GhostTarget {
+  const facing = playerFacing === GHOST_DIR.none ? GHOST_DIR.left : playerFacing;
+  switch (facing) {
+    case GHOST_DIR.up:
+      return { col: playerCol, row: playerRow - tiles };
+    case GHOST_DIR.down:
+      return { col: playerCol, row: playerRow + tiles };
+    case GHOST_DIR.right:
+      return { col: playerCol + tiles, row: playerRow };
+    case GHOST_DIR.left:
+    default:
+      return { col: playerCol - tiles, row: playerRow };
+  }
+}
 
 export function blinkyTarget(args: {
   phase: GhostPhaseValue;
@@ -30,10 +55,12 @@ export function blinkyTarget(args: {
   pelletsRemaining: number;
   playerCol: number;
   playerRow: number;
+  ghostCol?: number;
+  ghostRow?: number;
   ignoreElroy?: boolean;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
-    return getActiveLayout().ghostHouseExit;
+    return leavingHouseTarget(args.ghostCol ?? args.playerCol, args.ghostRow ?? args.playerRow);
   }
 
   const tier: ElroyTier = elroyTier(args.pelletsRemaining);
@@ -51,28 +78,18 @@ export function pinkyTarget(args: {
   playerCol: number;
   playerRow: number;
   playerFacing: GhostDir;
+  ghostCol?: number;
+  ghostRow?: number;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
-    return getActiveLayout().ghostHouseExit;
+    return leavingHouseTarget(args.ghostCol ?? args.playerCol, args.ghostRow ?? args.playerRow);
   }
 
   if (args.mode === GHOST_AI_MODE.scatter) {
     return { col: PINKY_SCATTER_COL, row: PINKY_SCATTER_ROW };
   }
 
-  const facing = args.playerFacing === GHOST_DIR.none ? GHOST_DIR.left : args.playerFacing;
-  const n = PINKY_LOOKAHEAD_TILES;
-  switch (facing) {
-    case GHOST_DIR.up:
-      return { col: args.playerCol, row: args.playerRow - n };
-    case GHOST_DIR.down:
-      return { col: args.playerCol, row: args.playerRow + n };
-    case GHOST_DIR.right:
-      return { col: args.playerCol + n, row: args.playerRow };
-    case GHOST_DIR.left:
-    default:
-      return { col: args.playerCol - n, row: args.playerRow };
-  }
+  return lookAheadTile(args.playerCol, args.playerRow, args.playerFacing, PINKY_LOOKAHEAD_TILES);
 }
 
 export function clydeTarget(args: {
@@ -84,7 +101,7 @@ export function clydeTarget(args: {
   ghostRow: number;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
-    return getActiveLayout().ghostHouseExit;
+    return leavingHouseTarget(args.ghostCol, args.ghostRow);
   }
 
   if (args.mode === GHOST_AI_MODE.scatter) {
@@ -98,4 +115,35 @@ export function clydeTarget(args: {
     return { col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW };
   }
   return { col: args.playerCol, row: args.playerRow };
+}
+
+export function inkyTarget(args: {
+  phase: GhostPhaseValue;
+  mode: GhostAiMode;
+  playerCol: number;
+  playerRow: number;
+  playerFacing: GhostDir;
+  blinkyCol: number;
+  blinkyRow: number;
+  ghostCol?: number;
+  ghostRow?: number;
+}): GhostTarget {
+  if (args.phase === GHOST_PHASE.leaving) {
+    return leavingHouseTarget(args.ghostCol ?? args.playerCol, args.ghostRow ?? args.playerRow);
+  }
+
+  if (args.mode === GHOST_AI_MODE.scatter) {
+    return { col: INKY_SCATTER_COL, row: INKY_SCATTER_ROW };
+  }
+
+  const pivot = lookAheadTile(
+    args.playerCol,
+    args.playerRow,
+    args.playerFacing,
+    INKY_LOOKAHEAD_TILES,
+  );
+  return {
+    col: 2 * pivot.col - args.blinkyCol,
+    row: 2 * pivot.row - args.blinkyRow,
+  };
 }
