@@ -40,7 +40,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | Flag            | Values                  | Effect                                                                                                                                   |
 | --------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `maze`          | `maze1` \| `maze2`      | Force that layout for the **first** board of this Start; omit for 50/50 random. Later levels always pick randomly from the pool.         |
-| `level`         | positive integer        | Start at that level index (ghost speed mul `1 + 0.1×(level−1)`); omit for level 1. Invalid → level 1.                                    |
+| `level`         | positive integer        | Start at that level index (ghost roster unlock + speed mul `1 + 0.1×(level−1)`); omit for level 1. Invalid → level 1.                    |
 | `forceUpgrade`  | one upgrade id          | Next fruit choice modal guarantees that id as one option if not already owned; cleared on confirm or empty pool. Invalid → normal offer. |
 | `enableUpgrade` | upgrade id (repeatable) | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Combines with `forceUpgrade`.             |
 | `sound`         | `1`                     | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                      |
