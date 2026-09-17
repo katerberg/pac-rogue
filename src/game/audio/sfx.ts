@@ -41,6 +41,9 @@ export function pelletCollectSfxId(pickupNumber: number): SfxId {
 }
 
 export function preloadSfx(scene: Phaser.Scene): void {
+  if (scene.game.config.audio.noAudio === true) {
+    return;
+  }
   for (const entry of Object.values(SFX_MANIFEST)) {
     scene.load.audio(entry.key, entry.url);
   }

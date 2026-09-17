@@ -28,6 +28,7 @@ src/
     scoreListScroll.ts
     playfield.ts              # speeds, sizes, drawable ids
     maze.ts                   # ASCII maze, solids, visual knobs, wall path cmds
+    soundFlag.ts              # agent-port mute; ?sound=1 opt-in
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostKind.ts              # blinky / pinky / clyde kind ids
@@ -89,6 +90,7 @@ docs/
 - Humans: `npm run dev` → 5173, `npm run preview` → 4173
 - Agents: `npm run dev:agent` → 5174, preview/visual → 4174
 - Agents may kill/restart only their ports.
+- Agent ports disable audio unless `?sound=1` (`src/domain/soundFlag.ts` → `gameConfig.audio.noAudio`).
 
 ## Scenes
 
