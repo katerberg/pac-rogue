@@ -1,4 +1,6 @@
 import { hasComponent, query, removeEntity, type World } from "bitecs";
+import { hasPelletLineOfSight } from "../../domain/pelletLos";
+import type { SolidGrid } from "../../domain/maze";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -10,15 +12,23 @@ export type PelletCollectFrame = {
   removedEids: number[];
 };
 
+export type CollectPelletsOptions = {
+  radiusBonusPx?: number;
+  solids?: SolidGrid;
+};
+
 export function countPellets(world: World): number {
   return query(world, [Pellet]).length;
 }
 
-export function collectPellets(world: World): PelletCollectFrame {
+export function collectPellets(world: World, opts: CollectPelletsOptions = {}): PelletCollectFrame {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {
     return { powerRemoved: 0, removedEids: [] };
   }
+
+  const radiusBonusPx = opts.radiusBonusPx ?? 0;
+  const solids = opts.solids;
 
   const playerEid = players[0]!;
   const px = Position.x[playerEid] ?? 0;
@@ -30,9 +40,20 @@ export function collectPellets(world: World): PelletCollectFrame {
     const ox = (Position.x[pelletEid] ?? 0) - px;
     const oy = (Position.y[pelletEid] ?? 0) - py;
     const pelletRadius = Drawable.radius[pelletEid] ?? 0;
-    const reach = playerRadius + pelletRadius;
-    if (ox * ox + oy * oy <= reach * reach) {
+    const baseReach = playerRadius + pelletRadius;
+    const distSq = ox * ox + oy * oy;
+    if (distSq <= baseReach * baseReach) {
       toRemove.push(pelletEid);
+      continue;
+    }
+    if (radiusBonusPx > 0 && solids !== undefined && !hasComponent(world, pelletEid, PowerPellet)) {
+      const extendedReach = baseReach + radiusBonusPx;
+      if (
+        distSq <= extendedReach * extendedReach &&
+        hasPelletLineOfSight(px, py, Position.x[pelletEid] ?? 0, Position.y[pelletEid] ?? 0, solids)
+      ) {
+        toRemove.push(pelletEid);
+      }
     }
   }
 

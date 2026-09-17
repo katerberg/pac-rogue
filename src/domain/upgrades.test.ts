@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FREEZE_MS,
   GHOST_SLOW_MUL,
+  PICKUP_RANGE_BONUS_PX,
   PLAYER_SPEED_UP_MUL,
   SCATTER_BURST_MS,
   applyPowerPelletEffects,
@@ -13,6 +14,7 @@ import {
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickUpgradeChoiceOffer,
+  pelletCollectRadiusBonusPx,
   playerSpeedMultiplier,
   ghostSpeedMultiplier,
   scatterBurstActive,
@@ -22,6 +24,7 @@ import {
   type RunUpgrades,
   type UpgradeId,
 } from "./upgrades";
+import { TILE_SIZE } from "./maze";
 
 const ALL_IDS: UpgradeId[] = [
   "powerPelletFreeze",
@@ -41,7 +44,6 @@ const ALL_IDS: UpgradeId[] = [
 ];
 
 const STUB_IDS: UpgradeId[] = [
-  "pickupRange",
   "ghostHouseDelay",
   "extraLife",
   "pelletToPower",
@@ -291,5 +293,14 @@ describe("speed multipliers / labels", () => {
       "Speed Up",
       "Scatter Burst",
     ]);
+  });
+});
+
+describe("pelletCollectRadiusBonusPx", () => {
+  it("returns TILE_SIZE for pickupRange and 0 otherwise", () => {
+    expect(pelletCollectRadiusBonusPx([])).toBe(0);
+    expect(pelletCollectRadiusBonusPx(["pickupRange"])).toBe(PICKUP_RANGE_BONUS_PX);
+    expect(PICKUP_RANGE_BONUS_PX).toBe(TILE_SIZE);
+    expect(pelletCollectRadiusBonusPx(["playerSpeedUp"])).toBe(0);
   });
 });

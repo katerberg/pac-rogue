@@ -12,22 +12,22 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 
 ### Current defs
 
-| Id                  | Label         | Effect                                                                                            |
-| ------------------- | ------------- | ------------------------------------------------------------------------------------------------- |
-| `powerPelletFreeze` | Power Freeze  | Power pellet freezes leaving/active ghosts for `FREEZE_MS` (3000); cyan tint on those sprites     |
-| `playerSpeedUp`     | Speed Up      | Player speed × `PLAYER_SPEED_UP_MUL` (1.25)                                                       |
-| `ghostSlow`         | Ghost Slow    | Ghost resolved speed × `GHOST_SLOW_MUL` (0.75)                                                    |
-| `scatterBurst`      | Scatter Burst | Power pellet forces scatter for `SCATTER_BURST_MS` (3000); wave clock pauses while active         |
-| `ghostRecall`       | Ghost Recall  | Power pellet teleports the closest leaving/active ghost into an `inHouse` seat by predicted order |
-| `warpTop`           | Warp Top      | Power pellet warps the player to the dynamically nearest top-middle walkable cell                 |
-| `pickupRange`       | Pickup Range  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                 |
-| `ghostHouseDelay`   | House Delay   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                 |
-| `extraLife`         | Extra Life    | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                 |
-| `pelletToPower`     | Pellet Surge  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                 |
-| `powerCollectThree` | Triple Chomp  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                 |
-| `powerWallPass`     | Wall Pass     | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                 |
-| `powerSpeedBurst`   | Speed Burst   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                 |
-| `powerInvuln`       | Ghost Proof   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                 |
+| Id                  | Label         | Effect                                                                                                                                          |
+| ------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `powerPelletFreeze` | Power Freeze  | Power pellet freezes leaving/active ghosts for `FREEZE_MS` (3000); cyan tint on those sprites                                                   |
+| `playerSpeedUp`     | Speed Up      | Player speed × `PLAYER_SPEED_UP_MUL` (1.25)                                                                                                     |
+| `ghostSlow`         | Ghost Slow    | Ghost resolved speed × `GHOST_SLOW_MUL` (0.75)                                                                                                  |
+| `scatterBurst`      | Scatter Burst | Power pellet forces scatter for `SCATTER_BURST_MS` (3000); wave clock pauses while active                                                       |
+| `ghostRecall`       | Ghost Recall  | Power pellet teleports the closest leaving/active ghost into an `inHouse` seat by predicted order                                               |
+| `warpTop`           | Warp Top      | Power pellet warps the player to the dynamically nearest top-middle walkable cell                                                               |
+| `pickupRange`       | Pickup Range  | Always-on: regular pellets within `playerR+pelletR+TILE_SIZE` collect with open LOS through `playerSolids` (power pellets keep base reach only) |
+| `ghostHouseDelay`   | House Delay   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
+| `extraLife`         | Extra Life    | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
+| `pelletToPower`     | Pellet Surge  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
+| `powerCollectThree` | Triple Chomp  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
+| `powerWallPass`     | Wall Pass     | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
+| `powerSpeedBurst`   | Speed Burst   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
+| `powerInvuln`       | Ghost Proof   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
 
 Modal copy uses each def’s punchy `description` string (iterate freely).
 

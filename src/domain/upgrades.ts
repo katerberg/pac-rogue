@@ -1,3 +1,5 @@
+import { TILE_SIZE } from "./maze";
+
 export type UpgradeId =
   | "powerPelletFreeze"
   | "playerSpeedUp"
@@ -20,6 +22,7 @@ export type UpgradeDef = {
   description: string;
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
+  pelletCollectRadiusBonusPx?: number;
   onPowerPellet?: {
     freezeGhostsMs?: number;
     scatterBurstMs?: number;
@@ -32,6 +35,7 @@ export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
+export const PICKUP_RANGE_BONUS_PX = TILE_SIZE;
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
@@ -74,6 +78,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "pickupRange",
     label: "Pickup Range",
     description: "Pellets within a cell of you snap into your mouth.",
+    pelletCollectRadiusBonusPx: PICKUP_RANGE_BONUS_PX,
   },
   {
     id: "ghostHouseDelay",
@@ -350,6 +355,17 @@ export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
 
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "ghostSpeedMul");
+}
+
+export function pelletCollectRadiusBonusPx(owned: readonly UpgradeId[]): number {
+  let bonus = 0;
+  for (const id of owned) {
+    const defBonus = UPGRADE_BY_ID.get(id)?.pelletCollectRadiusBonusPx;
+    if (defBonus !== undefined) {
+      bonus = Math.max(bonus, defBonus);
+    }
+  }
+  return bonus;
 }
 
 export function ghostsAreFrozen(state: RunUpgrades): boolean {
