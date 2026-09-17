@@ -180,10 +180,7 @@ export class PlayScene extends Phaser.Scene {
       const tick = tickDeathSequence(this.death, delta);
       this.death = tick.state;
       if (tick.shouldStartFade) {
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-          this.scene.start("MenuScene");
-        });
-        this.cameras.main.fadeOut(DEATH_FADE_DURATION_MS, 0, 0, 0);
+        this.startDeathFadeOverlay();
       }
       return;
     }
@@ -266,6 +263,27 @@ export class PlayScene extends Phaser.Scene {
       playSfx(this, "death");
       this.death = beginDeathSequence();
     }
+  }
+
+  private startDeathFadeOverlay(): void {
+    const overlay = this.add
+      .rectangle(
+        PLAYFIELD_WIDTH / 2,
+        PLAYFIELD_HEIGHT / 2,
+        PLAYFIELD_WIDTH,
+        PLAYFIELD_HEIGHT,
+        0x000000,
+      )
+      .setDepth(1000)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: overlay,
+      alpha: 1,
+      duration: DEATH_FADE_DURATION_MS,
+      onComplete: () => {
+        this.scene.start("MenuScene");
+      },
+    });
   }
 
   private refreshUpgradesHud(): void {
