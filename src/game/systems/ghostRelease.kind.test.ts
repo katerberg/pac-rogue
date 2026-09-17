@@ -8,7 +8,11 @@ import {
   tickGhostRelease,
 } from "../../domain/ghostRelease";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
-import { BASE_CLYDE_RELEASE_PELLETS, ghostHouseSpawnCenter } from "../../domain/maze";
+import {
+  BASE_CLYDE_RELEASE_PELLETS,
+  BASE_INKY_RELEASE_PELLETS,
+  ghostHouseSpawnCenter,
+} from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -55,23 +59,40 @@ describe("ghostRelease per kind", () => {
     expect(GhostPhase.value[pinky]).toBe(GHOST_PHASE.leaving);
   });
 
-  it("keeps Clyde in house when timers fire with zero pellets", () => {
+  it("keeps Inky and Clyde in house when timers fire with zero pellets", () => {
     const { world, eid: blinky } = spawnHouseGhost(GHOST_KIND.blinky);
     const { eid: pinky } = spawnHouseGhost(GHOST_KIND.pinky, world);
+    const { eid: inky } = spawnHouseGhost(GHOST_KIND.inky, world);
     const { eid: clyde } = spawnHouseGhost(GHOST_KIND.clyde, world);
     const clock = tickGhostRelease(createGhostReleaseClock(), true, PINKY_RELEASE_DELAY_MS);
     ghostRelease(world, clock, 0);
     expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.leaving);
     expect(GhostPhase.value[pinky]).toBe(GHOST_PHASE.leaving);
+    expect(GhostPhase.value[inky]).toBe(GHOST_PHASE.inHouse);
     expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.inHouse);
   });
 
-  it("releases only Clyde when the pellet gate fires before Blinky's delay", () => {
+  it("releases only Inky when the Inky pellet gate fires before Blinky's delay", () => {
     const { world, eid: blinky } = spawnHouseGhost(GHOST_KIND.blinky);
     const { eid: pinky } = spawnHouseGhost(GHOST_KIND.pinky, world);
+    const { eid: inky } = spawnHouseGhost(GHOST_KIND.inky, world);
+    const { eid: clyde } = spawnHouseGhost(GHOST_KIND.clyde, world);
+    const clock = createGhostReleaseClock();
+    ghostRelease(world, clock, BASE_INKY_RELEASE_PELLETS);
+    expect(GhostPhase.value[inky]).toBe(GHOST_PHASE.leaving);
+    expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.inHouse);
+    expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.inHouse);
+    expect(GhostPhase.value[pinky]).toBe(GHOST_PHASE.inHouse);
+  });
+
+  it("releases Inky and Clyde when the Clyde pellet gate fires before Blinky's delay", () => {
+    const { world, eid: blinky } = spawnHouseGhost(GHOST_KIND.blinky);
+    const { eid: pinky } = spawnHouseGhost(GHOST_KIND.pinky, world);
+    const { eid: inky } = spawnHouseGhost(GHOST_KIND.inky, world);
     const { eid: clyde } = spawnHouseGhost(GHOST_KIND.clyde, world);
     const clock = createGhostReleaseClock();
     ghostRelease(world, clock, BASE_CLYDE_RELEASE_PELLETS);
+    expect(GhostPhase.value[inky]).toBe(GHOST_PHASE.leaving);
     expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.leaving);
     expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.inHouse);
     expect(GhostPhase.value[pinky]).toBe(GHOST_PHASE.inHouse);

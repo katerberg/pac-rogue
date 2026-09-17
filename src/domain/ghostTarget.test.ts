@@ -5,11 +5,15 @@ import {
   CLYDE_SCATTER_COL,
   CLYDE_SCATTER_ROW,
   CLYDE_SHY_TILES,
+  INKY_LOOKAHEAD_TILES,
+  INKY_SCATTER_COL,
+  INKY_SCATTER_ROW,
   PINKY_LOOKAHEAD_TILES,
   PINKY_SCATTER_COL,
   PINKY_SCATTER_ROW,
   blinkyTarget,
   clydeTarget,
+  inkyTarget,
   pinkyTarget,
   GHOST_PHASE,
 } from "./ghostTarget";
@@ -230,5 +234,108 @@ describe("clydeTarget", () => {
         ghostRow: 16,
       }),
     ).toEqual({ col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW });
+  });
+});
+
+describe("inkyTarget", () => {
+  it("targets the house exit while leaving", () => {
+    expect(
+      inkyTarget({
+        phase: GHOST_PHASE.leaving,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 10,
+        playerRow: 20,
+        playerFacing: GHOST_DIR.right,
+        blinkyCol: 5,
+        blinkyRow: 5,
+      }),
+    ).toEqual(getActiveLayout().ghostHouseExit);
+  });
+
+  it("uses the SE scatter corner", () => {
+    expect(
+      inkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.scatter,
+        playerCol: 10,
+        playerRow: 20,
+        playerFacing: GHOST_DIR.right,
+        blinkyCol: 5,
+        blinkyRow: 5,
+      }),
+    ).toEqual({ col: INKY_SCATTER_COL, row: INKY_SCATTER_ROW });
+  });
+
+  it("doubles the vector from Blinky through a clean two-tile pivot", () => {
+    const n = INKY_LOOKAHEAD_TILES;
+    const blinkyCol = 8;
+    const blinkyRow = 12;
+    const playerCol = 10;
+    const playerRow = 15;
+
+    expect(
+      inkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol,
+        playerRow,
+        playerFacing: GHOST_DIR.right,
+        blinkyCol,
+        blinkyRow,
+      }),
+    ).toEqual({ col: 2 * (playerCol + n) - blinkyCol, row: 2 * playerRow - blinkyRow });
+
+    expect(
+      inkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol,
+        playerRow,
+        playerFacing: GHOST_DIR.left,
+        blinkyCol,
+        blinkyRow,
+      }),
+    ).toEqual({ col: 2 * (playerCol - n) - blinkyCol, row: 2 * playerRow - blinkyRow });
+
+    expect(
+      inkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol,
+        playerRow,
+        playerFacing: GHOST_DIR.up,
+        blinkyCol,
+        blinkyRow,
+      }),
+    ).toEqual({ col: 2 * playerCol - blinkyCol, row: 2 * (playerRow - n) - blinkyRow });
+
+    expect(
+      inkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol,
+        playerRow,
+        playerFacing: GHOST_DIR.down,
+        blinkyCol,
+        blinkyRow,
+      }),
+    ).toEqual({ col: 2 * playerCol - blinkyCol, row: 2 * (playerRow + n) - blinkyRow });
+  });
+
+  it("treats none facing as left for the pivot", () => {
+    expect(
+      inkyTarget({
+        phase: GHOST_PHASE.active,
+        mode: GHOST_AI_MODE.chase,
+        playerCol: 12,
+        playerRow: 18,
+        playerFacing: GHOST_DIR.none,
+        blinkyCol: 4,
+        blinkyRow: 10,
+      }),
+    ).toEqual({
+      col: 2 * (12 - INKY_LOOKAHEAD_TILES) - 4,
+      row: 2 * 18 - 10,
+    });
   });
 });

@@ -3,6 +3,7 @@ import { getActiveLayout } from "./maze";
 
 export const BLINKY_RELEASE_DELAY_MS = 100;
 export const PINKY_RELEASE_DELAY_MS = 5_000;
+export const INKY_POST_LIFE_RELEASE_DELAY_MS = 7_000;
 export const CLYDE_POST_LIFE_RELEASE_DELAY_MS = 9_000;
 
 export type GhostReleaseClock = {
@@ -35,6 +36,8 @@ export function releaseDelayForKind(kind: GhostKindId): number {
       return PINKY_RELEASE_DELAY_MS;
     case GHOST_KIND.blinky:
       return BLINKY_RELEASE_DELAY_MS;
+    case GHOST_KIND.inky:
+      throw new Error("Inky uses pellet release, not a time delay");
     case GHOST_KIND.clyde:
       throw new Error("Clyde uses pellet release, not a time delay");
   }
@@ -50,6 +53,12 @@ export function shouldReleaseKind(
   collectedCount: number,
   afterLifeRelease = false,
 ): boolean {
+  if (kind === GHOST_KIND.inky) {
+    if (afterLifeRelease) {
+      return shouldReleaseGhostAt(clock, INKY_POST_LIFE_RELEASE_DELAY_MS);
+    }
+    return collectedCount >= getActiveLayout().inkyReleasePellets;
+  }
   if (kind === GHOST_KIND.clyde) {
     if (afterLifeRelease) {
       return shouldReleaseGhostAt(clock, CLYDE_POST_LIFE_RELEASE_DELAY_MS);

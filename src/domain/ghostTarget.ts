@@ -19,6 +19,11 @@ export const CLYDE_SCATTER_ROW = 33;
 
 export const CLYDE_SHY_TILES = 8;
 
+export const INKY_SCATTER_COL = 27;
+export const INKY_SCATTER_ROW = 33;
+
+export const INKY_LOOKAHEAD_TILES = 2;
+
 export type GhostTarget = {
   col: number;
   row: number;
@@ -98,4 +103,47 @@ export function clydeTarget(args: {
     return { col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW };
   }
   return { col: args.playerCol, row: args.playerRow };
+}
+
+export function inkyTarget(args: {
+  phase: GhostPhaseValue;
+  mode: GhostAiMode;
+  playerCol: number;
+  playerRow: number;
+  playerFacing: GhostDir;
+  blinkyCol: number;
+  blinkyRow: number;
+}): GhostTarget {
+  if (args.phase === GHOST_PHASE.leaving) {
+    return getActiveLayout().ghostHouseExit;
+  }
+
+  if (args.mode === GHOST_AI_MODE.scatter) {
+    return { col: INKY_SCATTER_COL, row: INKY_SCATTER_ROW };
+  }
+
+  const facing = args.playerFacing === GHOST_DIR.none ? GHOST_DIR.left : args.playerFacing;
+  const n = INKY_LOOKAHEAD_TILES;
+  let pivotCol = args.playerCol;
+  let pivotRow = args.playerRow;
+  switch (facing) {
+    case GHOST_DIR.up:
+      pivotRow -= n;
+      break;
+    case GHOST_DIR.down:
+      pivotRow += n;
+      break;
+    case GHOST_DIR.right:
+      pivotCol += n;
+      break;
+    case GHOST_DIR.left:
+    default:
+      pivotCol -= n;
+      break;
+  }
+
+  return {
+    col: 2 * pivotCol - args.blinkyCol,
+    row: 2 * pivotRow - args.blinkyRow,
+  };
 }

@@ -14,6 +14,7 @@ import {
   BLINKY_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
+  INKY_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
   PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
@@ -32,12 +33,14 @@ const PELLET_TEXTURE_KEY = "pellet-dot";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
+const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
 const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
+  [INKY_DRAWABLE_ID]: INKY_TEXTURE_KEY,
   [CLYDE_DRAWABLE_ID]: CLYDE_TEXTURE_KEY,
 };
 const CHOMP_PIXELS_PER_FRAME = 12;
@@ -113,6 +116,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
+  scene.load.image(INKY_TEXTURE_KEY, "art/ghosts/inky.png");
   scene.load.image(CLYDE_TEXTURE_KEY, "art/ghosts/clyde.png");
   scene.load.image(FRUIT_TEXTURE_KEY, fruitArtPath(fruitSpecForLevel(CURRENT_LEVEL).kind));
 }
