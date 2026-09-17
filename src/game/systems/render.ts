@@ -160,6 +160,7 @@ export type RenderOptions = {
 export type PlayRender = {
   draw: (world: World, opts?: RenderOptions) => void;
   releaseDrawable: (eid: number) => void;
+  resetForNewBoard: () => void;
 };
 
 export function createRender(scene: Phaser.Scene): PlayRender {
@@ -178,6 +179,16 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
     }
     playerVisuals.delete(eid);
+  };
+
+  const resetForNewBoard = (): void => {
+    for (const go of drawableObjects.values()) {
+      go.destroy();
+    }
+    drawableObjects.clear();
+    playerVisuals.clear();
+    wallGraphics.clear();
+    wallsDrawn = false;
   };
 
   const draw = (world: World, opts?: RenderOptions): void => {
@@ -296,5 +307,5 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
-  return { draw, releaseDrawable };
+  return { draw, releaseDrawable, resetForNewBoard };
 }

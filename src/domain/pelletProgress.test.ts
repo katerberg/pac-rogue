@@ -10,11 +10,11 @@ describe("applyPelletCollect", () => {
     });
   });
 
-  it("decrements remaining and accumulates collected", () => {
+  it("decrements remaining and accumulates board collected", () => {
     const progress = createPelletProgress(3);
     const next = applyPelletCollect(progress, 2);
     expect(next).toEqual({
-      progress: { collectedCount: 2, pelletsRemaining: 1, runRecorded: false },
+      progress: { boardCollected: 2, pelletsRemaining: 1, runRecorded: false },
       shouldRecordClear: false,
     });
   });
@@ -24,7 +24,7 @@ describe("applyPelletCollect", () => {
     const first = applyPelletCollect(progress, 2);
     expect(first.shouldRecordClear).toBe(true);
     expect(first.progress).toEqual({
-      collectedCount: 2,
+      boardCollected: 2,
       pelletsRemaining: 0,
       runRecorded: true,
     });

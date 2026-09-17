@@ -1,6 +1,6 @@
-export type MazeLayoutId = "classic" | "mspac";
+export type MazeLayoutId = "maze1" | "maze2";
 
-export const MAZE_LAYOUT_IDS: readonly MazeLayoutId[] = ["classic", "mspac"];
+export const MAZE_LAYOUT_IDS: readonly MazeLayoutId[] = ["maze1", "maze2"];
 
 export const CLASSIC_MAZE_ASCII = `############################
 #............##............#
@@ -68,8 +68,8 @@ export const MSPAC_MAZE_ASCII = `############################
 ############################`;
 
 export const MAZE_ASCII_BY_ID: Record<MazeLayoutId, string> = {
-  classic: CLASSIC_MAZE_ASCII,
-  mspac: MSPAC_MAZE_ASCII,
+  maze1: CLASSIC_MAZE_ASCII,
+  maze2: MSPAC_MAZE_ASCII,
 };
 
 export function parseMazeParam(params: URLSearchParams): MazeLayoutId | null {
@@ -77,7 +77,7 @@ export function parseMazeParam(params: URLSearchParams): MazeLayoutId | null {
   if (raw === null || raw === "") {
     return null;
   }
-  if (raw === "classic" || raw === "mspac") {
+  if (raw === "maze1" || raw === "maze2") {
     return raw;
   }
   return null;
@@ -90,5 +90,5 @@ export function pickLayoutId(
   if (override !== null) {
     return override;
   }
-  return rng() < 0.5 ? "classic" : "mspac";
+  return rng() < 0.5 ? "maze1" : "maze2";
 }

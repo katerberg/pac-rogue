@@ -1,11 +1,11 @@
 # Run upgrades
 
-Fruit opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` only. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
+Fruit opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` session (including across level advances). There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
 
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter timers, `forceNextId`, `lastDeclinedUpgradeId`). Cleared when the scene is recreated.
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
 - Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
@@ -72,7 +72,7 @@ Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the play
 
 ## Speed muls
 
-Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned)`; `applyGhostSpeed` multiplies after Elroy + tunnel resolve.
+Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned)`; `applyGhostSpeed` multiplies after Elroy + tunnel resolve by `ghostSpeedLevelMul(levelIndex) × ghostSpeedMultiplier(owned)`.
 
 ## HUD
 
