@@ -477,7 +477,6 @@ export class PlayScene extends Phaser.Scene {
       TEXT_COLOR_YELLOW,
     ).setDepth(800);
     placePixelText(banner, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
-    banner.setAlpha(1);
     this.levelBannerText = banner;
     this.tweens.add({
       targets: banner,
