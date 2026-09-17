@@ -1,4 +1,6 @@
 import type Phaser from "phaser";
+import { categoryForSfx, effectiveVolume, type AudioSettings } from "../../domain/audioSettings";
+import { loadAudioSettings } from "../storage/audioSettingsStorage";
 
 export type SfxId = "pelletMunch" | "pelletMunch2" | "siren" | "levelComplete" | "death";
 
@@ -36,6 +38,8 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
   },
 };
 
+export const MUSIC_PREVIEW_DURATION_MS = 1000;
+
 export function pelletCollectSfxId(pickupNumber: number): SfxId {
   return pickupNumber > 0 && pickupNumber % 2 === 0 ? "pelletMunch2" : "pelletMunch";
 }
@@ -49,12 +53,24 @@ export function preloadSfx(scene: Phaser.Scene): void {
   }
 }
 
+function categoryVolume(settings: AudioSettings, id: SfxId): number {
+  const category = categoryForSfx(id);
+  if (category === "music") {
+    return effectiveVolume(SFX_MANIFEST[id].volume, settings.musicEnabled, settings.musicLevel);
+  }
+  return effectiveVolume(SFX_MANIFEST[id].volume, settings.sfxEnabled, settings.sfxLevel);
+}
+
 export function playSfx(scene: Phaser.Scene, id: SfxId): void {
   const entry = SFX_MANIFEST[id];
   if (!scene.cache.audio.exists(entry.key)) {
     return;
   }
-  scene.sound.play(entry.key, { volume: entry.volume });
+  const volume = categoryVolume(loadAudioSettings(), id);
+  if (volume <= 0) {
+    return;
+  }
+  scene.sound.play(entry.key, { volume });
 }
 
 export function startLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
@@ -62,12 +78,44 @@ export function startLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
   if (!scene.cache.audio.exists(entry.key) || scene.sound.isPlaying(entry.key)) {
     return;
   }
-  scene.sound.play(entry.key, { volume: entry.volume, loop: true });
+  const volume = categoryVolume(loadAudioSettings(), id);
+  if (volume <= 0) {
+    return;
+  }
+  scene.sound.play(entry.key, { volume, loop: true });
 }
 
 export function stopLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
   const entry = SFX_MANIFEST[id];
   scene.sound.stopByKey(entry.key);
+}
+
+export function playMusicVolumePreview(scene: Phaser.Scene, settings: AudioSettings): void {
+  const entry = SFX_MANIFEST.siren;
+  if (!scene.cache.audio.exists(entry.key)) {
+    return;
+  }
+  const volume = effectiveVolume(entry.volume, settings.musicEnabled, settings.musicLevel);
+  if (volume <= 0) {
+    return;
+  }
+  scene.sound.stopByKey(entry.key);
+  scene.sound.play(entry.key, { volume, loop: true });
+  scene.time.delayedCall(MUSIC_PREVIEW_DURATION_MS, () => {
+    scene.sound.stopByKey(entry.key);
+  });
+}
+
+export function playSfxVolumePreview(scene: Phaser.Scene, settings: AudioSettings): void {
+  const entry = SFX_MANIFEST.pelletMunch;
+  if (!scene.cache.audio.exists(entry.key)) {
+    return;
+  }
+  const volume = effectiveVolume(entry.volume, settings.sfxEnabled, settings.sfxLevel);
+  if (volume <= 0) {
+    return;
+  }
+  scene.sound.play(entry.key, { volume });
 }
 
 export function playPelletCollectSfx(
