@@ -31,6 +31,8 @@ npx playwright install chromium
 
 Dev upgrade URL flags (see [docs/upgrades.md](./docs/upgrades.md)): `?forceUpgrade=<id>` forces the next fruit grant; repeat `?enableUpgrade=<id>` to own upgrades immediately (`powerPelletFreeze` | `playerSpeedUp` | `ghostSlow`).
 
+Agent ports mute sound by default; add `?sound=1` only when testing audio (see [docs/VERIFICATION.md](./docs/VERIFICATION.md)).
+
 `npm install` points Git at `.githooks/` (`core.hooksPath`). The pre-commit hook runs `npm run verify:precommit` (no build/visual). Full `npm run verify` remains the CI and completion gate.
 
 Humans and agents use different ports (see `scripts/ports.json` / `docs/VERIFICATION.md`) so they do not collide.
