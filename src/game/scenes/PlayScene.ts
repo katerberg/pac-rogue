@@ -1,4 +1,4 @@
-import { addComponent, addEntity, createWorld, type World } from "bitecs";
+import { addComponent, addEntity, createWorld, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
   createPelletProgress,
@@ -119,6 +119,8 @@ export class PlayScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private death: DeathSequenceState | null = null;
+  private debugAliveAccumMs = 0;
+  private debugDeathLogAccumMs = 0;
 
   constructor() {
     super("PlayScene");
@@ -132,6 +134,13 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     this.world = createWorld();
     this.death = null;
+    this.debugAliveAccumMs = 0;
+    this.debugDeathLogAccumMs = 0;
+    // #region agent log
+    agentDebugLog("E", "PlayScene.ts:create", "PlayScene create", {
+      sceneKey: this.scene.key,
+    });
+    // #endregion
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
@@ -181,21 +190,30 @@ export class PlayScene extends Phaser.Scene {
       const tick = tickDeathSequence(this.death, delta);
       this.death = tick.state;
       // #region agent log
+      this.debugDeathLogAccumMs += delta;
       const fadeFx = this.cameras.main.fadeEffect as Phaser.Cameras.Scene2D.Effects.Fade & {
         alpha: number;
       };
-      agentDebugLog("A", "PlayScene.ts:deathTick", "death sequence tick", {
-        delta,
-        elapsedMs: tick.state.elapsedMs,
-        shouldStartFade: tick.shouldStartFade,
-        fadeStarted: tick.state.fadeStarted,
-        fadeIsRunning: fadeFx.isRunning,
-        fadeIsComplete: fadeFx.isComplete,
-        fadeDuration: fadeFx.duration,
-        fadeProgress: fadeFx.progress,
-        fadeAlpha: fadeFx.alpha,
-        camVisible: this.cameras.main.visible,
-      });
+      const milestone =
+        tick.shouldStartFade ||
+        tick.state.elapsedMs <= delta + 1 ||
+        this.debugDeathLogAccumMs >= 100 ||
+        fadeFx.isComplete;
+      if (milestone) {
+        this.debugDeathLogAccumMs = 0;
+        agentDebugLog("A", "PlayScene.ts:deathTick", "death sequence tick", {
+          delta,
+          elapsedMs: tick.state.elapsedMs,
+          shouldStartFade: tick.shouldStartFade,
+          fadeStarted: tick.state.fadeStarted,
+          fadeIsRunning: fadeFx.isRunning,
+          fadeIsComplete: fadeFx.isComplete,
+          fadeDuration: fadeFx.duration,
+          fadeProgress: fadeFx.progress,
+          fadeAlpha: fadeFx.alpha,
+          camVisible: this.cameras.main.visible,
+        });
+      }
       // #endregion
       if (tick.shouldStartFade) {
         // #region agent log
@@ -243,6 +261,26 @@ export class PlayScene extends Phaser.Scene {
       }
       return;
     }
+
+    // #region agent log
+    this.debugAliveAccumMs += delta;
+    if (this.debugAliveAccumMs >= 1000) {
+      this.debugAliveAccumMs = 0;
+      let ghostsOutside = 0;
+      for (const eid of query(this.world, [Ghost, GhostPhase])) {
+        if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
+          ghostsOutside += 1;
+        }
+      }
+      agentDebugLog("E", "PlayScene.ts:alive", "PlayScene alive heartbeat", {
+        delta,
+        timerRemaining: this.clock.remaining,
+        collected: this.pelletProgress.collectedCount,
+        deathIsNull: this.death === null,
+        ghostsOutside,
+      });
+    }
+    // #endregion
 
     this.runPlayerInput(this.world);
     const hasInput = hasPlayerDirectionInput(this.world);
@@ -322,12 +360,21 @@ export class PlayScene extends Phaser.Scene {
       playSfx(this, "death");
       this.death = beginDeathSequence();
       // #region agent log
+      let ghostsOutside = 0;
+      for (const eid of query(this.world, [Ghost, GhostPhase])) {
+        if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
+          ghostsOutside += 1;
+        }
+      }
       agentDebugLog("E", "PlayScene.ts:caught", "catch → beginDeathSequence", {
         delta,
         deathElapsed: this.death.elapsedMs,
         fadeStarted: this.death.fadeStarted,
         sceneKey: this.scene.key,
         sysSettingsStatus: this.sys.settings.status,
+        ghostsOutside,
+        collected: this.pelletProgress.collectedCount,
+        timerRemaining: this.clock.remaining,
       });
       // #endregion
     }

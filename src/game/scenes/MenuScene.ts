@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { PLAYFIELD_WIDTH } from "../../domain/playfield";
+import { agentDebugLog } from "../debugAgentLog";
 import {
   addPixelText,
   MENU_OPTION_FONT_SIZE,
@@ -35,6 +36,11 @@ export class MenuScene extends Phaser.Scene {
     this.optionTexts = [];
     this.optionCenters = [];
     this.moveCooldownMs = 0;
+    // #region agent log
+    agentDebugLog("E", "MenuScene.ts:create", "MenuScene create", {
+      sceneKey: this.scene.key,
+    });
+    // #endregion
 
     this.titleText = addPixelText(
       this,
