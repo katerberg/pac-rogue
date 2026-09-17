@@ -197,6 +197,7 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
     this.refreshUpgradesHud();
+    this.lifeIcons = [];
     this.refreshLivesIcons();
 
     this.runPlayerInput = createPlayerInput(this);
