@@ -452,7 +452,7 @@ export class PlayScene extends Phaser.Scene {
     this.spawnPellets();
     this.spawnPlayer();
     for (const kind of ghostKindsForLevel(this.levelIndex)) {
-      this.spawnGhost(kind, GHOST_DRAWABLE_BY_KIND[kind]);
+      this.spawnGhost(kind);
     }
 
     this.clock = createRunClock();
@@ -791,7 +791,7 @@ export class PlayScene extends Phaser.Scene {
     Drawable.radius[eid] = PLAYER_RADIUS;
   }
 
-  private spawnGhost(kind: GhostKindId, drawableId: string): void {
+  private spawnGhost(kind: GhostKindId): void {
     const eid = addEntity(this.world);
     addComponent(this.world, eid, Position);
     addComponent(this.world, eid, Velocity);
@@ -816,7 +816,7 @@ export class PlayScene extends Phaser.Scene {
     GhostPhase.value[eid] = GHOST_PHASE.inHouse;
     Ghost.decidedCol[eid] = Number.NaN;
     Ghost.decidedRow[eid] = Number.NaN;
-    Drawable.id[eid] = drawableId;
+    Drawable.id[eid] = GHOST_DRAWABLE_BY_KIND[kind];
     Drawable.radius[eid] = GHOST_RADIUS;
   }
 }
