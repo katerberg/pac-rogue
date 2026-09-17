@@ -6,7 +6,6 @@ export function isAgentPort(port: string): boolean {
   return AGENT_PORTS.has(port);
 }
 
-/** Human ports: on. Agent ports: off unless `?sound=1`. */
 export function isSoundEnabled(params: URLSearchParams, port: string): boolean {
   if (!isAgentPort(port)) {
     return true;

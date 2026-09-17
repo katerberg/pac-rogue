@@ -16,11 +16,7 @@ function createInteractiveAudioContext(): AudioContext | undefined {
   return new AudioContext({ latencyHint: "interactive" });
 }
 
-function browserSoundEnabled(): boolean {
-  return isSoundEnabled(new URLSearchParams(location.search), location.port);
-}
-
-const soundEnabled = browserSoundEnabled();
+const soundEnabled = isSoundEnabled(new URLSearchParams(location.search), location.port);
 const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
