@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createGhostModeClock,
   GHOST_AI_MODE,
+  resolveGhostModeStep,
   startGhostModeClock,
   tickGhostMode,
 } from "./ghostMode";
@@ -42,5 +43,23 @@ describe("ghostMode", () => {
 
     clock = tickGhostMode(clock, 5_000).clock;
     expect(clock.mode).toBe(GHOST_AI_MODE.chase);
+  });
+
+  it("pauses the wave clock while scatter burst is active", () => {
+    const clock = startGhostModeClock();
+    const paused = resolveGhostModeStep(clock, true, 5_000);
+    expect(paused.clock).toEqual(clock);
+    expect(paused.mode).toBe(GHOST_AI_MODE.scatter);
+
+    const resumed = resolveGhostModeStep(clock, false, 20_000);
+    expect(resumed.clock.waveIndex).toBeGreaterThan(clock.waveIndex);
+    expect(resumed.mode).toBe(GHOST_AI_MODE.scatter);
+  });
+
+  it("ignores scatter burst while the wave clock is inactive", () => {
+    const idle = createGhostModeClock();
+    const step = resolveGhostModeStep(idle, true, 5_000);
+    expect(step.clock).toEqual(idle);
+    expect(step.mode).toBe(GHOST_AI_MODE.chase);
   });
 });

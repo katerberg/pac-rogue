@@ -30,7 +30,12 @@ function playerTileAndFacing(world: World): {
   };
 }
 
-export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: number): void {
+export function ghostAi(
+  world: World,
+  mode: GhostAiMode,
+  pelletsRemaining: number,
+  opts: { ignoreElroy?: boolean } = {},
+): void {
   const player = playerTileAndFacing(world);
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing])) {
@@ -83,6 +88,7 @@ export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: numbe
         pelletsRemaining,
         playerCol: player.col,
         playerRow: player.row,
+        ignoreElroy: opts.ignoreElroy,
       });
     }
 

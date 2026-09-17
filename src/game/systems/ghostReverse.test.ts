@@ -50,6 +50,18 @@ describe("forceGhostReverse", () => {
     expect(Input.direction[ghost]).toBe(DIRECTION.left);
   });
 
+  it("skips inHouse and leaving ghosts", () => {
+    const { world, ghost } = spawnAlignedGhost(6, 5, DIRECTION.right);
+    GhostPhase.value[ghost] = GHOST_PHASE.leaving;
+    forceGhostReverse(world);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.right);
+    expect(Input.direction[ghost]).toBe(DIRECTION.right);
+
+    GhostPhase.value[ghost] = GHOST_PHASE.inHouse;
+    forceGhostReverse(world);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.right);
+  });
+
   it("keeps the reverse when ghostAi is skipped on a force-reverse tick", () => {
     const { world, ghost } = spawnAlignedGhost(6, 5, DIRECTION.right);
     forceGhostReverse(world);

@@ -1,14 +1,21 @@
-export type UpgradeId = "powerPelletFreeze" | "playerSpeedUp" | "ghostSlow";
+export type UpgradeId =
+  "powerPelletFreeze" | "playerSpeedUp" | "ghostSlow" | "scatterBurst" | "ghostRecall" | "warpTop";
 
 export type UpgradeDef = {
   id: UpgradeId;
   label: string;
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
-  onPowerPellet?: { freezeGhostsMs: number };
+  onPowerPellet?: {
+    freezeGhostsMs?: number;
+    scatterBurstMs?: number;
+    recallClosestGhost?: true;
+    warpPlayerTopCenter?: true;
+  };
 };
 
 export const FREEZE_MS = 3000;
+export const SCATTER_BURST_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
 
@@ -20,6 +27,21 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   },
   { id: "playerSpeedUp", label: "Speed Up", playerSpeedMul: PLAYER_SPEED_UP_MUL },
   { id: "ghostSlow", label: "Ghost Slow", ghostSpeedMul: GHOST_SLOW_MUL },
+  {
+    id: "scatterBurst",
+    label: "Scatter Burst",
+    onPowerPellet: { scatterBurstMs: SCATTER_BURST_MS },
+  },
+  {
+    id: "ghostRecall",
+    label: "Ghost Recall",
+    onPowerPellet: { recallClosestGhost: true },
+  },
+  {
+    id: "warpTop",
+    label: "Warp Top",
+    onPowerPellet: { warpPlayerTopCenter: true },
+  },
 ];
 
 const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
@@ -31,7 +53,14 @@ const ALL_UPGRADE_IDS: readonly UpgradeId[] = UPGRADE_DEFS.map((def) => def.id);
 export type RunUpgrades = {
   owned: UpgradeId[];
   freezeRemainingMs: number;
+  scatterBurstRemainingMs: number;
   forceNextId: UpgradeId | null;
+};
+
+export type PowerPelletApplyResult = {
+  state: RunUpgrades;
+  recallClosestGhost: boolean;
+  warpPlayerTopCenter: boolean;
 };
 
 export function createRunUpgrades(
@@ -41,6 +70,7 @@ export function createRunUpgrades(
   let state: RunUpgrades = {
     owned: [],
     freezeRemainingMs: 0,
+    scatterBurstRemainingMs: 0,
     forceNextId,
   };
   for (const id of enabled) {
@@ -117,23 +147,67 @@ export function tickFreeze(state: RunUpgrades, deltaMs: number): RunUpgrades {
   };
 }
 
-export function applyPowerPelletEffects(state: RunUpgrades, powerRemoved: number): RunUpgrades {
-  if (powerRemoved <= 0) {
+export function tickScatterBurst(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.scatterBurstRemainingMs <= 0) {
     return state;
   }
+  return {
+    ...state,
+    scatterBurstRemainingMs: Math.max(0, state.scatterBurstRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
+export function applyPowerPelletEffects(
+  state: RunUpgrades,
+  powerRemoved: number,
+): PowerPelletApplyResult {
+  if (powerRemoved <= 0) {
+    return {
+      state,
+      recallClosestGhost: false,
+      warpPlayerTopCenter: false,
+    };
+  }
+
   let freezeMs: number | null = null;
+  let scatterMs: number | null = null;
+  let recallClosestGhost = false;
+  let warpPlayerTopCenter = false;
+
   for (const id of state.owned) {
-    const def = UPGRADE_BY_ID.get(id);
-    const ms = def?.onPowerPellet?.freezeGhostsMs;
-    if (ms !== undefined) {
-      freezeMs = ms;
-      break;
+    const onPower = UPGRADE_BY_ID.get(id)?.onPowerPellet;
+    if (!onPower) {
+      continue;
+    }
+    if (onPower.freezeGhostsMs !== undefined) {
+      freezeMs =
+        freezeMs === null ? onPower.freezeGhostsMs : Math.max(freezeMs, onPower.freezeGhostsMs);
+    }
+    if (onPower.scatterBurstMs !== undefined) {
+      scatterMs =
+        scatterMs === null ? onPower.scatterBurstMs : Math.max(scatterMs, onPower.scatterBurstMs);
+    }
+    if (onPower.recallClosestGhost) {
+      recallClosestGhost = true;
+    }
+    if (onPower.warpPlayerTopCenter) {
+      warpPlayerTopCenter = true;
     }
   }
-  if (freezeMs === null) {
-    return state;
+
+  let next = state;
+  if (freezeMs !== null) {
+    next = { ...next, freezeRemainingMs: freezeMs };
   }
-  return { ...state, freezeRemainingMs: freezeMs };
+  if (scatterMs !== null) {
+    next = { ...next, scatterBurstRemainingMs: scatterMs };
+  }
+
+  return {
+    state: next,
+    recallClosestGhost,
+    warpPlayerTopCenter,
+  };
 }
 
 function speedMultiplier(
@@ -160,6 +234,10 @@ export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
 
 export function ghostsAreFrozen(state: RunUpgrades): boolean {
   return state.freezeRemainingMs > 0;
+}
+
+export function scatterBurstActive(state: RunUpgrades): boolean {
+  return state.scatterBurstRemainingMs > 0;
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {

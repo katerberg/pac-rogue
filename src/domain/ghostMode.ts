@@ -57,6 +57,29 @@ export function startGhostModeClock(): GhostModeClock {
   };
 }
 
+export type GhostModeStep = {
+  clock: GhostModeClock;
+  mode: GhostAiMode;
+};
+
+export function resolveGhostModeStep(
+  clock: GhostModeClock,
+  scatterBurstActive: boolean,
+  deltaMs: number,
+): GhostModeStep {
+  if (scatterBurstActive && clock.active) {
+    return {
+      clock,
+      mode: GHOST_AI_MODE.scatter,
+    };
+  }
+  const tick = tickGhostMode(clock, deltaMs);
+  return {
+    clock: tick.clock,
+    mode: tick.clock.mode,
+  };
+}
+
 export function tickGhostMode(clock: GhostModeClock, deltaMs: number): GhostModeTick {
   if (!clock.active) {
     return { clock, forceReverse: false };

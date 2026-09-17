@@ -34,9 +34,9 @@ function spawnFruit(world: ReturnType<typeof createWorld>, x: number, y: number)
 describe("collectFruit", () => {
   it("removes an overlapping fruit", () => {
     const { world } = spawnPlayer(100, 100);
-    spawnFruit(world, 100, 100);
+    const fruitEid = spawnFruit(world, 100, 100);
 
-    expect(collectFruit(world)).toEqual({ removed: 1 });
+    expect(collectFruit(world)).toEqual([fruitEid]);
     expect(query(world, [Fruit, Position])).toHaveLength(0);
   });
 
@@ -44,7 +44,7 @@ describe("collectFruit", () => {
     const { world } = spawnPlayer(100, 100);
     const fruitEid = spawnFruit(world, 400, 400);
 
-    expect(collectFruit(world)).toEqual({ removed: 0 });
+    expect(collectFruit(world)).toEqual([]);
     expect(query(world, [Fruit, Position])).toEqual([fruitEid]);
   });
 
@@ -55,24 +55,24 @@ describe("collectFruit", () => {
     spawnFruit(world, fruitX, fruitY);
 
     expect(PLAYER_RADIUS + FRUIT_RADIUS).toBeLessThan(TILE_SIZE);
-    expect(collectFruit(world)).toEqual({ removed: 0 });
+    expect(collectFruit(world)).toEqual([]);
     expect(query(world, [Fruit, Position])).toHaveLength(1);
   });
 
   it("returns zero when there is no player", () => {
     const world = createWorld();
     spawnFruit(world, 100, 100);
-    expect(collectFruit(world)).toEqual({ removed: 0 });
+    expect(collectFruit(world)).toEqual([]);
     expect(query(world, [Fruit])).toHaveLength(1);
   });
 });
 
 describe("removeAllFruit", () => {
-  it("removes every fruit entity", () => {
+  it("removes every fruit entity and returns their eids", () => {
     const { world } = spawnPlayer(0, 0);
-    spawnFruit(world, 1, 1);
-    spawnFruit(world, 2, 2);
-    removeAllFruit(world);
+    const a = spawnFruit(world, 1, 1);
+    const b = spawnFruit(world, 2, 2);
+    expect(removeAllFruit(world).sort()).toEqual([a, b].sort());
     expect(query(world, [Fruit])).toHaveLength(0);
   });
 });

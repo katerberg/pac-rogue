@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { colorToCssHex, MAZE_BACKGROUND_COLOR } from "../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../domain/playfield";
+import { isSoundEnabled } from "../domain/soundFlag";
 import { HighScoresScene } from "./scenes/HighScoresScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { PlayScene } from "./scenes/PlayScene";
@@ -15,7 +16,8 @@ function createInteractiveAudioContext(): AudioContext | undefined {
   return new AudioContext({ latencyHint: "interactive" });
 }
 
-const audioContext = createInteractiveAudioContext();
+const soundEnabled = isSoundEnabled(new URLSearchParams(location.search), location.port);
+const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -31,5 +33,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   render: {
     pixelArt: true,
   },
-  audio: audioContext ? { context: audioContext } : undefined,
+  audio: soundEnabled ? (audioContext ? { context: audioContext } : undefined) : { noAudio: true },
 };
