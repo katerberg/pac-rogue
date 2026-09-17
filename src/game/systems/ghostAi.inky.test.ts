@@ -70,7 +70,6 @@ function spawnInkyChaseSetup(blinkyCol: number, blinkyRow: number) {
 
 describe("ghostAi Inky Blinky vector", () => {
   it("changes turn choice when Blinky's tile changes the doubled target", () => {
-    // Pac at (14,5) facing right → pivot (16,5). Inky at (6,5) facing right.
     const towardRight = spawnInkyChaseSetup(10, 5);
     ghostAi(towardRight.world, GHOST_AI_MODE.chase, 244);
     expect(Input.direction[towardRight.inky]).toBe(DIRECTION.right);

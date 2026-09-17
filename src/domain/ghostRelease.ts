@@ -37,14 +37,26 @@ export function releaseDelayForKind(kind: GhostKindId): number {
     case GHOST_KIND.blinky:
       return BLINKY_RELEASE_DELAY_MS;
     case GHOST_KIND.inky:
-      throw new Error("Inky uses pellet release, not a time delay");
     case GHOST_KIND.clyde:
-      throw new Error("Clyde uses pellet release, not a time delay");
+      throw new Error("pellet-gated ghosts use pellet release, not a time delay");
   }
 }
 
 export function shouldReleaseGhostAt(clock: GhostReleaseClock, delayMs: number): boolean {
   return clock.started && clock.elapsedMs >= delayMs;
+}
+
+function shouldReleasePelletGated(
+  clock: GhostReleaseClock,
+  collectedCount: number,
+  afterLifeRelease: boolean,
+  pelletThreshold: number,
+  postLifeDelayMs: number,
+): boolean {
+  if (afterLifeRelease) {
+    return shouldReleaseGhostAt(clock, postLifeDelayMs);
+  }
+  return collectedCount >= pelletThreshold;
 }
 
 export function shouldReleaseKind(
@@ -54,16 +66,22 @@ export function shouldReleaseKind(
   afterLifeRelease = false,
 ): boolean {
   if (kind === GHOST_KIND.inky) {
-    if (afterLifeRelease) {
-      return shouldReleaseGhostAt(clock, INKY_POST_LIFE_RELEASE_DELAY_MS);
-    }
-    return collectedCount >= getActiveLayout().inkyReleasePellets;
+    return shouldReleasePelletGated(
+      clock,
+      collectedCount,
+      afterLifeRelease,
+      getActiveLayout().inkyReleasePellets,
+      INKY_POST_LIFE_RELEASE_DELAY_MS,
+    );
   }
   if (kind === GHOST_KIND.clyde) {
-    if (afterLifeRelease) {
-      return shouldReleaseGhostAt(clock, CLYDE_POST_LIFE_RELEASE_DELAY_MS);
-    }
-    return collectedCount >= getActiveLayout().clydeReleasePellets;
+    return shouldReleasePelletGated(
+      clock,
+      collectedCount,
+      afterLifeRelease,
+      getActiveLayout().clydeReleasePellets,
+      CLYDE_POST_LIFE_RELEASE_DELAY_MS,
+    );
   }
   return shouldReleaseGhostAt(clock, releaseDelayForKind(kind));
 }

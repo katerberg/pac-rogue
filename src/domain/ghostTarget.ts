@@ -29,6 +29,26 @@ export type GhostTarget = {
   row: number;
 };
 
+function lookAheadTile(
+  playerCol: number,
+  playerRow: number,
+  playerFacing: GhostDir,
+  tiles: number,
+): GhostTarget {
+  const facing = playerFacing === GHOST_DIR.none ? GHOST_DIR.left : playerFacing;
+  switch (facing) {
+    case GHOST_DIR.up:
+      return { col: playerCol, row: playerRow - tiles };
+    case GHOST_DIR.down:
+      return { col: playerCol, row: playerRow + tiles };
+    case GHOST_DIR.right:
+      return { col: playerCol + tiles, row: playerRow };
+    case GHOST_DIR.left:
+    default:
+      return { col: playerCol - tiles, row: playerRow };
+  }
+}
+
 export function blinkyTarget(args: {
   phase: GhostPhaseValue;
   mode: GhostAiMode;
@@ -65,19 +85,7 @@ export function pinkyTarget(args: {
     return { col: PINKY_SCATTER_COL, row: PINKY_SCATTER_ROW };
   }
 
-  const facing = args.playerFacing === GHOST_DIR.none ? GHOST_DIR.left : args.playerFacing;
-  const n = PINKY_LOOKAHEAD_TILES;
-  switch (facing) {
-    case GHOST_DIR.up:
-      return { col: args.playerCol, row: args.playerRow - n };
-    case GHOST_DIR.down:
-      return { col: args.playerCol, row: args.playerRow + n };
-    case GHOST_DIR.right:
-      return { col: args.playerCol + n, row: args.playerRow };
-    case GHOST_DIR.left:
-    default:
-      return { col: args.playerCol - n, row: args.playerRow };
-  }
+  return lookAheadTile(args.playerCol, args.playerRow, args.playerFacing, PINKY_LOOKAHEAD_TILES);
 }
 
 export function clydeTarget(args: {
@@ -122,28 +130,14 @@ export function inkyTarget(args: {
     return { col: INKY_SCATTER_COL, row: INKY_SCATTER_ROW };
   }
 
-  const facing = args.playerFacing === GHOST_DIR.none ? GHOST_DIR.left : args.playerFacing;
-  const n = INKY_LOOKAHEAD_TILES;
-  let pivotCol = args.playerCol;
-  let pivotRow = args.playerRow;
-  switch (facing) {
-    case GHOST_DIR.up:
-      pivotRow -= n;
-      break;
-    case GHOST_DIR.down:
-      pivotRow += n;
-      break;
-    case GHOST_DIR.right:
-      pivotCol += n;
-      break;
-    case GHOST_DIR.left:
-    default:
-      pivotCol -= n;
-      break;
-  }
-
+  const pivot = lookAheadTile(
+    args.playerCol,
+    args.playerRow,
+    args.playerFacing,
+    INKY_LOOKAHEAD_TILES,
+  );
   return {
-    col: 2 * pivotCol - args.blinkyCol,
-    row: 2 * pivotRow - args.blinkyRow,
+    col: 2 * pivot.col - args.blinkyCol,
+    row: 2 * pivot.row - args.blinkyRow,
   };
 }
