@@ -116,7 +116,7 @@ import { warpPlayerToTopCenter } from "../systems/playerWarp";
 import {
   createRender,
   preloadPlayArt,
-  PLAYER_CLOSED_MOUTH_TEXTURE_KEY,
+  PLAYER_OPEN_MOUTH_TEXTURE_KEY,
   type PlayRender,
 } from "../systems/render";
 import {
@@ -566,7 +566,7 @@ export class PlayScene extends Phaser.Scene {
     for (let i = 0; i < this.lives; i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
       const icon = this.add
-        .image(x, y, PLAYER_CLOSED_MOUTH_TEXTURE_KEY)
+        .image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
         .setDisplaySize(size, size)
         .setDepth(10);
       this.lifeIcons.push(icon);

@@ -42,6 +42,7 @@ const GHOST_TEXTURE_BY_ID: Record<string, string> = {
 };
 const CHOMP_PIXELS_PER_FRAME = 12;
 const CHOMP_CYCLE = [1, 2, 3, 2] as const;
+const OPEN_MOUTH_FRAME = 1;
 const CLOSED_MOUTH_FRAME = 3;
 const PACMAN_DIRS = ["up", "down", "left", "right"] as const;
 
@@ -60,6 +61,7 @@ function pacmanTextureKey(dir: PacmanDir, frame: number): string {
   return `pacman-${dir}-${frame}`;
 }
 
+export const PLAYER_OPEN_MOUTH_TEXTURE_KEY = pacmanTextureKey("right", OPEN_MOUTH_FRAME);
 export const PLAYER_CLOSED_MOUTH_TEXTURE_KEY = pacmanTextureKey("right", CLOSED_MOUTH_FRAME);
 
 function pelletTextureKey(drawableId: string): string {
