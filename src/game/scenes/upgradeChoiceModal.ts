@@ -12,6 +12,7 @@ import {
 } from "./pixelFont";
 
 export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
+export const UPGRADE_RESUME_COUNTDOWN_MS = 3000;
 
 const MODAL_DEPTH = 900;
 const BUTTON_WIDTH = 340;
@@ -20,7 +21,7 @@ const LABEL_MAX_CHARS = 9;
 const DESCRIPTION_MAX_CHARS = 28;
 const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-type Phase = "opening" | "armed" | "selecting";
+type Phase = "opening" | "selecting";
 
 type ButtonView = {
   root: Phaser.GameObjects.Container;
@@ -51,18 +52,24 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
   let rightHint: Phaser.GameObjects.BitmapText | null = null;
   let selectionFrame: Phaser.GameObjects.Rectangle | null = null;
   let cursors: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
-  let keyW: Phaser.Input.Keyboard.Key | null = null;
   let keyA: Phaser.Input.Keyboard.Key | null = null;
   let keyD: Phaser.Input.Keyboard.Key | null = null;
+  let choiceKeysArmed = false;
 
   const ensureKeys = (): void => {
     if (scene.input.keyboard === null || cursors !== null) {
       return;
     }
     cursors = scene.input.keyboard.createCursorKeys();
-    keyW = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     keyA = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     keyD = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+  };
+
+  const anyChoiceKeyDown = (): boolean => {
+    if (cursors === null || keyA === null || keyD === null) {
+      return false;
+    }
+    return cursors.left!.isDown || cursors.right!.isDown || keyA.isDown || keyD.isDown;
   };
 
   const clearViews = (): void => {
@@ -87,18 +94,19 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     const confirm = onConfirm;
     phase = null;
     elapsedMs = 0;
+    choiceKeysArmed = false;
     options = [];
     onConfirm = null;
     clearViews();
     confirm(chosen);
   };
 
-  const setSelectingVisible = (visible: boolean): void => {
-    selectionFrame?.setVisible(visible);
-    leftHint?.setVisible(visible);
-    rightHint?.setVisible(visible);
+  const showSelectingChrome = (): void => {
+    selectionFrame?.setVisible(true);
+    leftHint?.setVisible(true);
+    rightHint?.setVisible(true);
     for (const button of buttons) {
-      button.bg.setStrokeStyle(visible ? 4 : 2, visible ? TEXT_COLOR_YELLOW : 0x888888);
+      button.bg.setStrokeStyle(4, TEXT_COLOR_YELLOW);
     }
   };
 
@@ -113,6 +121,10 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       button.description.setText(scrambleToward(button.targetDescription, clamped));
       placeButtonText(button);
     }
+    const chromeAlpha = clamped;
+    selectionFrame?.setAlpha(chromeAlpha);
+    leftHint?.setAlpha(chromeAlpha);
+    rightHint?.setAlpha(chromeAlpha);
   };
 
   const buildButtons = (ids: readonly UpgradeId[]): void => {
@@ -131,7 +143,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       const descriptionText = wrapText(def.description, DESCRIPTION_MAX_CHARS);
       const bg = scene.add
         .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
-        .setStrokeStyle(2, 0x888888)
+        .setStrokeStyle(4, TEXT_COLOR_YELLOW)
         .setInteractive({ useHandCursor: true });
       const label = addPixelText(scene, 0, 0, labelText, MENU_TITLE_FONT_SIZE, TEXT_COLOR_YELLOW);
       const description = addPixelText(
@@ -158,7 +170,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       };
       placeButtonText(view);
       bg.on("pointerdown", () => {
-        if (phase === "armed" || phase === "selecting") {
+        if (phase === "selecting") {
           finish(id);
         }
       });
@@ -175,7 +187,8 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       .setStrokeStyle(3, TEXT_COLOR_YELLOW)
       .setFillStyle(0x000000, 0)
       .setDepth(MODAL_DEPTH + 2)
-      .setVisible(false);
+      .setAlpha(0)
+      .setVisible(true);
 
     leftHint = addPixelText(
       scene,
@@ -186,7 +199,8 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       TEXT_COLOR_YELLOW,
     )
       .setDepth(MODAL_DEPTH + 3)
-      .setVisible(false);
+      .setAlpha(0)
+      .setVisible(true);
     placePixelText(
       leftHint,
       PLAYFIELD_WIDTH / 2 - 120,
@@ -204,7 +218,8 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       TEXT_COLOR_YELLOW,
     )
       .setDepth(MODAL_DEPTH + 3)
-      .setVisible(false);
+      .setAlpha(0)
+      .setVisible(true);
     placePixelText(
       rightHint,
       PLAYFIELD_WIDTH / 2 + 120,
@@ -212,6 +227,22 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       0.5,
       0.5,
     );
+  };
+
+  const enterSelecting = (): void => {
+    for (const button of buttons) {
+      button.root.setPosition(button.baseX, button.baseY);
+      button.root.setAlpha(1);
+      button.label.setText(button.targetLabel);
+      button.description.setText(button.targetDescription);
+      placeButtonText(button);
+    }
+    showSelectingChrome();
+    selectionFrame?.setAlpha(1);
+    leftHint?.setAlpha(1);
+    rightHint?.setAlpha(1);
+    phase = "selecting";
+    choiceKeysArmed = !anyChoiceKeyDown();
   };
 
   return {
@@ -223,6 +254,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       onConfirm = confirm;
       phase = "opening";
       elapsedMs = 0;
+      choiceKeysArmed = false;
       dim = scene.add
         .rectangle(
           PLAYFIELD_WIDTH / 2,
@@ -245,28 +277,18 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
         const progress = Math.min(1, elapsedMs / UPGRADE_CHOICE_LOCKOUT_MS);
         applyFuzz(progress);
         if (progress >= 1) {
-          phase = "armed";
-          for (const button of buttons) {
-            button.root.setPosition(button.baseX, button.baseY);
-            button.root.setAlpha(1);
-            button.label.setText(button.targetLabel);
-            button.description.setText(button.targetDescription);
-            placeButtonText(button);
-          }
+          enterSelecting();
         }
         return;
       }
 
-      if (cursors === null || keyW === null || keyA === null || keyD === null) {
+      if (cursors === null || keyA === null || keyD === null) {
         return;
       }
 
-      if (phase === "armed") {
-        const up =
-          Phaser.Input.Keyboard.JustDown(cursors.up!) || Phaser.Input.Keyboard.JustDown(keyW);
-        if (up) {
-          phase = "selecting";
-          setSelectingVisible(true);
+      if (!choiceKeysArmed) {
+        if (!anyChoiceKeyDown()) {
+          choiceKeysArmed = true;
         }
         return;
       }
@@ -291,6 +313,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       phase = null;
       onConfirm = null;
       options = [];
+      choiceKeysArmed = false;
       clearViews();
     },
   };
