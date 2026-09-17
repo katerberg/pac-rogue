@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
 
-export type SfxId = "pelletMunch" | "pelletMunch2" | "siren" | "levelComplete";
+export type SfxId = "pelletMunch" | "pelletMunch2" | "siren" | "levelComplete" | "death";
 
 type SfxEntry = {
   key: string;
@@ -28,6 +28,11 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     key: "level-complete",
     url: "sound/levelComplete.ogg",
     volume: 0.6,
+  },
+  death: {
+    key: "death",
+    url: "sound/death.ogg",
+    volume: 0.4,
   },
 };
 

@@ -25,6 +25,12 @@ import {
 } from "../../domain/ghostRelease";
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
 import {
+  beginDeathSequence,
+  DEATH_FADE_DURATION_MS,
+  tickDeathSequence,
+  type DeathSequenceState,
+} from "../../domain/deathSequence";
+import {
   ghostHouseSpawnCenter,
   pelletCellCenters,
   playerSpawnCenter,
@@ -111,6 +117,7 @@ export class PlayScene extends Phaser.Scene {
   private collectedText!: Phaser.GameObjects.BitmapText;
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
+  private death: DeathSequenceState | null = null;
 
   constructor() {
     super("PlayScene");
@@ -123,6 +130,7 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     this.world = createWorld();
+    this.death = null;
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
@@ -168,6 +176,18 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (this.death !== null) {
+      const tick = tickDeathSequence(this.death, delta);
+      this.death = tick.state;
+      if (tick.shouldStartFade) {
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+          this.scene.start("MenuScene");
+        });
+        this.cameras.main.fadeOut(DEATH_FADE_DURATION_MS, 0, 0, 0);
+      }
+      return;
+    }
+
     this.runPlayerInput(this.world);
     const hasInput = hasPlayerDirectionInput(this.world);
 
@@ -243,7 +263,8 @@ export class PlayScene extends Phaser.Scene {
 
     if (caught) {
       stopLoopingSfx(this, "siren");
-      this.scene.start("MenuScene");
+      playSfx(this, "death");
+      this.death = beginDeathSequence();
     }
   }
 
