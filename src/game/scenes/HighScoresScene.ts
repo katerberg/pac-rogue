@@ -19,7 +19,6 @@ import {
   MENU_TITLE_FONT_SIZE,
   placePixelText,
   SCORES_FONT_SIZE,
-  TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
 
@@ -37,6 +36,8 @@ export class HighScoresScene extends Phaser.Scene {
   private backText!: Phaser.GameObjects.BitmapText;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private keyBackspace!: Phaser.Input.Keyboard.Key;
+  private keyEnter!: Phaser.Input.Keyboard.Key;
+  private keySpace!: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super("HighScoresScene");
@@ -108,16 +109,6 @@ export class HighScoresScene extends Phaser.Scene {
     ).setDepth(10);
     placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
     this.backText.setInteractive({ useHandCursor: true });
-    this.backText.on("pointerover", () => {
-      this.backText.setText("> BACK");
-      this.backText.setTint(TEXT_COLOR_YELLOW);
-      placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
-    });
-    this.backText.on("pointerout", () => {
-      this.backText.setText("  BACK");
-      this.backText.setTint(TEXT_COLOR_WHITE);
-      placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
-    });
     this.backText.on("pointerdown", () => {
       this.goBack();
     });
@@ -128,6 +119,8 @@ export class HighScoresScene extends Phaser.Scene {
 
     this.keyEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.keyBackspace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE);
+    this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+    this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
   }
 
   update(_time: number, delta: number): void {
@@ -142,7 +135,9 @@ export class HighScoresScene extends Phaser.Scene {
 
     if (
       Phaser.Input.Keyboard.JustDown(this.keyEsc) ||
-      Phaser.Input.Keyboard.JustDown(this.keyBackspace)
+      Phaser.Input.Keyboard.JustDown(this.keyBackspace) ||
+      Phaser.Input.Keyboard.JustDown(this.keyEnter) ||
+      Phaser.Input.Keyboard.JustDown(this.keySpace)
     ) {
       this.goBack();
     }
@@ -155,7 +150,7 @@ export class HighScoresScene extends Phaser.Scene {
     }
   }
 
-  private goBack = (): void => {
+  private goBack(): void {
     this.scene.start("MenuScene");
-  };
+  }
 }
