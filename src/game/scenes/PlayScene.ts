@@ -123,9 +123,6 @@ import {
 } from "./pixelFont";
 
 const LIVES_ICON_TEXTURE = "pacman-right-3";
-const LIVES_ICON_GAP = 4;
-const LIVES_ICON_LEFT = 12;
-const LIVES_ICON_BOTTOM_PAD = 8;
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
@@ -456,9 +453,9 @@ export class PlayScene extends Phaser.Scene {
     }
     this.lifeIcons = [];
     const size = playerDisplaySize();
-    const y = PLAYFIELD_HEIGHT - LIVES_ICON_BOTTOM_PAD - size / 2;
+    const y = PLAYFIELD_HEIGHT - 8 - size / 2;
     for (let i = 0; i < this.lives; i += 1) {
-      const x = LIVES_ICON_LEFT + size / 2 + i * (size + LIVES_ICON_GAP);
+      const x = 12 + size / 2 + i * (size + 4);
       const icon = this.add.image(x, y, LIVES_ICON_TEXTURE).setDisplaySize(size, size).setDepth(10);
       this.lifeIcons.push(icon);
     }
