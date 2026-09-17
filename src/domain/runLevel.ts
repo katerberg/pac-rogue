@@ -1,7 +1,6 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 
-/** Classic arcade unlock order: one new ghost per level through level 4. */
-export const GHOST_UNLOCK_ORDER: readonly GhostKindId[] = [
+const GHOST_UNLOCK_ORDER: readonly GhostKindId[] = [
   GHOST_KIND.blinky,
   GHOST_KIND.pinky,
   GHOST_KIND.inky,

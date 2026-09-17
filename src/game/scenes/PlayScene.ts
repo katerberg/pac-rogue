@@ -150,10 +150,6 @@ const GHOST_DRAWABLE_BY_KIND: Record<GhostKindId, string> = {
   [GHOST_KIND.clyde]: CLYDE_DRAWABLE_ID,
 };
 
-function ghostDrawableId(kind: GhostKindId): string {
-  return GHOST_DRAWABLE_BY_KIND[kind];
-}
-
 export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;
@@ -456,7 +452,7 @@ export class PlayScene extends Phaser.Scene {
     this.spawnPellets();
     this.spawnPlayer();
     for (const kind of ghostKindsForLevel(this.levelIndex)) {
-      this.spawnGhost(kind, ghostDrawableId(kind));
+      this.spawnGhost(kind, GHOST_DRAWABLE_BY_KIND[kind]);
     }
 
     this.clock = createRunClock();
