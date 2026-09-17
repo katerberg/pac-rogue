@@ -7,7 +7,7 @@ import {
   type AudioSettings,
 } from "../../domain/audioSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { playVolumePreview, preloadSfx } from "../audio/sfx";
+import { playVolumePreview, preloadSfx, stopMusicVolumePreview } from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
 import {
   addPixelText,
@@ -124,9 +124,11 @@ export class SettingsScene extends Phaser.Scene {
       this.goBack();
     });
 
-    this.input.on("pointerup", () => {
+    const endDrag = (): void => {
       this.dragging = null;
-    });
+    };
+    this.input.on("pointerup", endDrag);
+    this.input.on("pointerupoutside", endDrag);
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       if (this.dragging === null || !pointer.isDown) {
         return;
@@ -187,11 +189,8 @@ export class SettingsScene extends Phaser.Scene {
         this.focusIndex = (this.focusIndex + 1) % FOCUS_COUNT;
         this.refreshUi();
         this.moveCooldownMs = 150;
-      } else if (left) {
-        this.nudgeFocusedLevel(-1);
-        this.moveCooldownMs = 120;
-      } else if (right) {
-        this.nudgeFocusedLevel(1);
+      } else if ((left || right) && this.rows[this.focusIndex] !== undefined) {
+        this.nudgeFocusedLevel(left ? -1 : 1);
         this.moveCooldownMs = 120;
       }
     }
@@ -299,6 +298,9 @@ export class SettingsScene extends Phaser.Scene {
       this.settings = { ...this.settings, sfxEnabled: !this.settings.sfxEnabled };
     }
     saveAudioSettings(this.settings);
+    if (category === "music" && !this.settings.musicEnabled) {
+      stopMusicVolumePreview(this);
+    }
     this.refreshUi();
   }
 
@@ -336,7 +338,7 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private goBack(): void {
-    this.sound.stopByKey("siren");
+    stopMusicVolumePreview(this);
     this.scene.start("MenuScene");
   }
 }

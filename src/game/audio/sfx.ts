@@ -99,6 +99,14 @@ export function stopLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
   scene.sound.stopByKey(entry.key);
 }
 
+const musicPreviewTimers = new WeakMap<Phaser.Scene, Phaser.Time.TimerEvent>();
+
+export function stopMusicVolumePreview(scene: Phaser.Scene): void {
+  musicPreviewTimers.get(scene)?.remove(false);
+  musicPreviewTimers.delete(scene);
+  stopLoopingSfx(scene, "siren");
+}
+
 export function playVolumePreview(
   scene: Phaser.Scene,
   settings: AudioSettings,
@@ -114,11 +122,13 @@ export function playVolumePreview(
     return;
   }
   if (category === "music") {
-    scene.sound.stopByKey(entry.key);
+    stopMusicVolumePreview(scene);
     scene.sound.play(entry.key, { volume, loop: true });
-    scene.time.delayedCall(MUSIC_PREVIEW_DURATION_MS, () => {
+    const timer = scene.time.delayedCall(MUSIC_PREVIEW_DURATION_MS, () => {
       scene.sound.stopByKey(entry.key);
+      musicPreviewTimers.delete(scene);
     });
+    musicPreviewTimers.set(scene, timer);
     return;
   }
   scene.sound.play(entry.key, { volume });
