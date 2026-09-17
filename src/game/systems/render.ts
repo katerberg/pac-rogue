@@ -43,7 +43,6 @@ const GHOST_TEXTURE_BY_ID: Record<string, string> = {
 const CHOMP_PIXELS_PER_FRAME = 12;
 const CHOMP_CYCLE = [1, 2, 3, 2] as const;
 const OPEN_MOUTH_FRAME = 1;
-const CLOSED_MOUTH_FRAME = 3;
 const PACMAN_DIRS = ["up", "down", "left", "right"] as const;
 
 type PacmanDir = (typeof PACMAN_DIRS)[number];
@@ -62,7 +61,6 @@ function pacmanTextureKey(dir: PacmanDir, frame: number): string {
 }
 
 export const PLAYER_OPEN_MOUTH_TEXTURE_KEY = pacmanTextureKey("right", OPEN_MOUTH_FRAME);
-export const PLAYER_CLOSED_MOUTH_TEXTURE_KEY = pacmanTextureKey("right", CLOSED_MOUTH_FRAME);
 
 function pelletTextureKey(drawableId: string): string {
   return drawableId === POWER_PELLET_DRAWABLE_ID ? POWER_PELLET_TEXTURE_KEY : PELLET_TEXTURE_KEY;
@@ -93,7 +91,7 @@ function applyWallPathCommands(
 
 function textureKeyForDrawable(drawableId: string): string {
   if (drawableId === PLAYER_DRAWABLE_ID) {
-    return PLAYER_CLOSED_MOUTH_TEXTURE_KEY;
+    return PLAYER_OPEN_MOUTH_TEXTURE_KEY;
   }
   const ghostTexture = GHOST_TEXTURE_BY_ID[drawableId];
   if (ghostTexture !== undefined) {
@@ -148,7 +146,7 @@ function ensurePlayerVisual(
       cycleIndex: 0,
       lastX: x,
       lastY: y,
-      textureKey: PLAYER_CLOSED_MOUTH_TEXTURE_KEY,
+      textureKey: PLAYER_OPEN_MOUTH_TEXTURE_KEY,
     };
     playerVisuals.set(eid, visual);
   }
@@ -252,10 +250,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             visual.chompCarry -= CHOMP_PIXELS_PER_FRAME;
             visual.cycleIndex = (visual.cycleIndex + 1) % CHOMP_CYCLE.length;
           }
-          const frame = CHOMP_CYCLE[visual.cycleIndex] ?? CLOSED_MOUTH_FRAME;
+          const frame = CHOMP_CYCLE[visual.cycleIndex] ?? OPEN_MOUTH_FRAME;
           nextKey = pacmanTextureKey(visual.lastDir, frame);
         } else {
-          nextKey = pacmanTextureKey(visual.lastDir, CLOSED_MOUTH_FRAME);
+          nextKey = pacmanTextureKey(visual.lastDir, OPEN_MOUTH_FRAME);
         }
         if (nextKey !== visual.textureKey) {
           go.setTexture(nextKey);
