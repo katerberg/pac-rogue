@@ -37,7 +37,10 @@ import {
   pipeEdges,
   playerDisplaySize,
   playerSpawnCenter,
+  playerTopCenterCell,
+  playerTopCenterSpawn,
   pelletCellCenters,
+  MAZE_PLAYER_SOLIDS,
   PLAYER_WALL_PADDING_PX,
   WALL_CORNER_RADIUS,
   WALL_CORNER_CURVE_MIN_STEPS,
@@ -203,6 +206,34 @@ describe("maze", () => {
     const spawn = playerSpawnCenter();
     expect(spawn.x).toBe(cellCenterX(PLAYER_SPAWN_COL));
     expect(spawn.y).toBe(cellCenterY(PLAYER_SPAWN_ROW));
+  });
+
+  it("picks the walkable cell closest to top-middle without hardcoding tiles", () => {
+    const cell = playerTopCenterCell();
+    expect(isWalkable(cell.col, cell.row, MAZE_PLAYER_SOLIDS)).toBe(true);
+    expect(cell.row).toBe(1);
+    expect(cell.col).toBe(12);
+
+    const spawn = playerTopCenterSpawn();
+    expect(spawn.x).toBe(cellCenterX(12));
+    expect(spawn.y).toBe(cellCenterY(1));
+
+    const solids = Array.from({ length: MAZE_ROWS }, () =>
+      Array.from({ length: MAZE_COLS }, () => true),
+    );
+    solids[5]![20] = false;
+    solids[8]![10] = false;
+    expect(playerTopCenterCell(solids)).toEqual({ col: 20, row: 5 });
+  });
+
+  it("falls back to player spawn when no walkable cells exist", () => {
+    const solids = Array.from({ length: MAZE_ROWS }, () =>
+      Array.from({ length: MAZE_COLS }, () => true),
+    );
+    expect(playerTopCenterCell(solids)).toEqual({
+      col: PLAYER_SPAWN_COL,
+      row: PLAYER_SPAWN_ROW,
+    });
   });
 
   it("rejects malformed ASCII", () => {

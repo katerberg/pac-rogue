@@ -33,9 +33,10 @@ src/
     ghostKind.ts              # blinky / pinky / clyde kind ids
     ghostTarget.ts            # Blinky/Pinky/Clyde chase/scatter/Elroy target tiles
     ghostPhase.ts             # inHouse / leaving / active phase ids
-    ghostMode.ts              # level-1 scatter/chase wave clock
+    ghostMode.ts              # level-1 scatter/chase wave clock + scatter-burst pause
     ghostRelease.ts           # per-kind time delays + Clyde pellet leave
     ghostSpeed.ts             # base / Elroy (Blinky) / tunnel speed resolve
+    ghostRecall.ts            # closest eligible ghost pick for house recall
     deathSequence.ts          # catch → fade timing (freeze hold + fade start)
   game/
     config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
@@ -64,12 +65,14 @@ src/
       ghostSpeed.ts           # Speed from Elroy (Blinky) + tunnel + upgrade mul/freeze
       ghostReverse.ts         # mode-change reverse via Input
       ghostExitHouse.ts       # leaving → active once off house/door tiles
+      ghostRecall.ts          # power-pellet house teleport for closest ghost
       movement.ts             # Facing + collision (per-eid Speed + solids)
       catchPlayer.ts          # circle overlap → caught (skip when frozen)
       collectPellets.ts
       collectFruit.ts
       playerSpeed.ts          # Player Speed from base × upgrade mul
       playerDirection.ts
+      playerWarp.ts           # power-pellet warp to dynamic top-center
       render.ts               # sprites + rounded wall stroke; preloadPlayArt
     scenes/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
@@ -112,13 +115,13 @@ PlayScene.update →
   (if dying: tickDeathSequence → optional overlay fade tween → return; no sim/render)
   playerInput →
   tickGhostRelease + ghostRelease →
-  tickGhostMode →
-  (forceReverse ? forceGhostReverse : ghostAi) →
-  tickFreeze → applyPlayerSpeed → applyGhostSpeed (mul + freeze) →
+  tickFreeze + tickScatterBurst → applyPlayerSpeed → applyGhostSpeed (mul + freeze) →
   movement →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
-  collectPellets → applyPowerPelletEffects → applyPelletCollect →
+  collectPellets → applyPowerPelletEffects → recallClosestGhost? → warpPlayerTopCenter? → applyPelletCollect →
+  resolveGhostModeStep (pause wave while scatter burst) →
+  (effective mode changed ? forceGhostReverse : ghostAi) →
   tickFruitPresence (spawn/replace/despawn) → collectFruit → grantRandomUpgrade →
   catchPlayer (skip if frozen) →
   render (ghost freeze tint) →
@@ -134,7 +137,7 @@ See also [docs/upgrades.md](./upgrades.md).
 5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(25, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(2, -3)`. Clyde chase → player tile when Euclidean tile distance `≥ CLYDE_SHY_TILES` (8), else Clyde scatter `(0, 33)`; Clyde scatter mode → same SW corner. Delays, pellet leave, shy radius, and scatter coords are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): base 0.9375×; Elroy1/2 only for Blinky (≤20 / ≤10 pellets → 1.0× / 1.0625×); tunnel 0.5× for all ghosts; then run upgrade muls (`playerSpeedUp` / `ghostSlow`) each frame. Freeze sets leaving/active ghost speed to 0.
 7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, play death SFX, enter PlayScene death phase (full pipeline halt; no high-score write). After 500ms start a 500ms full-screen black overlay fade; on fade complete hard-cut `scene.start("MenuScene")`. Skipped while freeze is active; thaw while overlapping still kills.
-8. Pellet clear still records score + level-complete SFX; power pellets play both munches. Power pellets are inert unless an owned upgrade reacts (v1: freeze). `render` draws rounded wall stroke from maze knobs, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, Pinky, Clyde (cyan tint while frozen), bonus fruit, and tunnel twin.
+8. Pellet clear still records score + level-complete SFX; power pellets play both munches. Power pellets are inert unless an owned upgrade reacts (freeze, scatter burst, ghost recall, warp top — see [docs/upgrades.md](./upgrades.md)). `render` draws rounded wall stroke from maze knobs, pac-man chomp, `dot.png` / `power-pellet.png`, Blinky, Pinky, Clyde (cyan tint while frozen), bonus fruit, and tunnel twin.
 9. Bonus fruit: after 70 and 170 pellets collected, spawn at cell `(13, 17)` for 10 real seconds (Phaser `delta` ms); level-1 cherries use `strawberry.png` stand-in; pickup removes the entity, plays both munches (no score yet), and grants one random distinct run upgrade (see [docs/upgrades.md](./upgrades.md)).
 
 ## ECS boundary

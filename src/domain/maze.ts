@@ -488,6 +488,51 @@ export function playerSpawnCenter(): { x: number; y: number } {
   };
 }
 
+export function playerTopCenterCell(solids: SolidGrid = MAZE_PLAYER_SOLIDS): {
+  col: number;
+  row: number;
+} {
+  const idealCol = (MAZE_COLS - 1) / 2;
+  const idealRow = 0;
+  let bestCol = PLAYER_SPAWN_COL;
+  let bestRow = PLAYER_SPAWN_ROW;
+  let bestDist = Number.POSITIVE_INFINITY;
+  let found = false;
+
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (!isWalkable(col, row, solids)) {
+        continue;
+      }
+      found = true;
+      const dx = col - idealCol;
+      const dy = row - idealRow;
+      const dist = dx * dx + dy * dy;
+      if (
+        dist < bestDist ||
+        (dist === bestDist && (row < bestRow || (row === bestRow && col < bestCol)))
+      ) {
+        bestDist = dist;
+        bestCol = col;
+        bestRow = row;
+      }
+    }
+  }
+
+  if (!found) {
+    return { col: PLAYER_SPAWN_COL, row: PLAYER_SPAWN_ROW };
+  }
+  return { col: bestCol, row: bestRow };
+}
+
+export function playerTopCenterSpawn(solids: SolidGrid = MAZE_PLAYER_SOLIDS): {
+  x: number;
+  y: number;
+} {
+  const cell = playerTopCenterCell(solids);
+  return { x: cellCenterX(cell.col), y: cellCenterY(cell.row) };
+}
+
 export function isAlignedForTurn(x: number, y: number, eps: number = TURN_ALIGN_EPS): boolean {
   const col = worldToCol(x);
   const row = worldToRow(y);
