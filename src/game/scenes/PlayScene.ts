@@ -119,6 +119,7 @@ export class PlayScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private death: DeathSequenceState | null = null;
+  private deathFadeOverlay: Phaser.GameObjects.Rectangle | null = null;
   private debugAliveAccumMs = 0;
   private debugDeathLogAccumMs = 0;
 
@@ -134,6 +135,7 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     this.world = createWorld();
     this.death = null;
+    this.deathFadeOverlay = null;
     this.debugAliveAccumMs = 0;
     this.debugDeathLogAccumMs = 0;
     // #region agent log
@@ -191,73 +193,24 @@ export class PlayScene extends Phaser.Scene {
       this.death = tick.state;
       // #region agent log
       this.debugDeathLogAccumMs += delta;
-      const fadeFx = this.cameras.main.fadeEffect as Phaser.Cameras.Scene2D.Effects.Fade & {
-        alpha: number;
-      };
-      const milestone =
+      if (
         tick.shouldStartFade ||
         tick.state.elapsedMs <= delta + 1 ||
-        this.debugDeathLogAccumMs >= 100 ||
-        fadeFx.isComplete;
-      if (milestone) {
+        this.debugDeathLogAccumMs >= 100
+      ) {
         this.debugDeathLogAccumMs = 0;
-        agentDebugLog("A", "PlayScene.ts:deathTick", "death sequence tick", {
+        agentDebugLog("F", "PlayScene.ts:deathTick", "death sequence tick", {
           delta,
           elapsedMs: tick.state.elapsedMs,
           shouldStartFade: tick.shouldStartFade,
           fadeStarted: tick.state.fadeStarted,
-          fadeIsRunning: fadeFx.isRunning,
-          fadeIsComplete: fadeFx.isComplete,
-          fadeDuration: fadeFx.duration,
-          fadeProgress: fadeFx.progress,
-          fadeAlpha: fadeFx.alpha,
-          camVisible: this.cameras.main.visible,
+          overlayAlpha: this.deathFadeOverlay?.alpha ?? null,
+          runId: "post-fix",
         });
       }
       // #endregion
       if (tick.shouldStartFade) {
-        // #region agent log
-        agentDebugLog("B", "PlayScene.ts:shouldStartFade", "starting fadeOut", {
-          delta,
-          elapsedMs: tick.state.elapsedMs,
-          fadeDurationMs: DEATH_FADE_DURATION_MS,
-          eventName: Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
-          fadeIsRunningBefore: fadeFx.isRunning,
-          fadeIsCompleteBefore: fadeFx.isComplete,
-        });
-        // #endregion
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-          // #region agent log
-          agentDebugLog("B", "PlayScene.ts:FADE_OUT_COMPLETE", "fade complete → MenuScene", {
-            sceneKey: this.scene.key,
-            fadeIsRunning: this.cameras.main.fadeEffect.isRunning,
-            fadeIsComplete: this.cameras.main.fadeEffect.isComplete,
-            fadeProgress: this.cameras.main.fadeEffect.progress,
-          });
-          // #endregion
-          this.scene.start("MenuScene");
-        });
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_START, () => {
-          // #region agent log
-          agentDebugLog("C", "PlayScene.ts:FADE_OUT_START", "fade out start event", {
-            fadeIsRunning: this.cameras.main.fadeEffect.isRunning,
-            fadeDuration: this.cameras.main.fadeEffect.duration,
-          });
-          // #endregion
-        });
-        this.cameras.main.fadeOut(DEATH_FADE_DURATION_MS, 0, 0, 0);
-        // #region agent log
-        const fadeAfter = this.cameras.main.fadeEffect as Phaser.Cameras.Scene2D.Effects.Fade & {
-          alpha: number;
-        };
-        agentDebugLog("C", "PlayScene.ts:afterFadeOut", "fadeOut returned", {
-          fadeIsRunning: fadeAfter.isRunning,
-          fadeIsComplete: fadeAfter.isComplete,
-          fadeDuration: fadeAfter.duration,
-          fadeAlpha: fadeAfter.alpha,
-          fadeDirection: fadeAfter.direction,
-        });
-        // #endregion
+        this.startDeathFadeOverlay();
       }
       return;
     }
@@ -278,6 +231,7 @@ export class PlayScene extends Phaser.Scene {
         collected: this.pelletProgress.collectedCount,
         deathIsNull: this.death === null,
         ghostsOutside,
+        runId: "post-fix",
       });
     }
     // #endregion
@@ -378,6 +332,44 @@ export class PlayScene extends Phaser.Scene {
       });
       // #endregion
     }
+  }
+
+  private startDeathFadeOverlay(): void {
+    if (this.deathFadeOverlay !== null) {
+      return;
+    }
+    const overlay = this.add
+      .rectangle(
+        PLAYFIELD_WIDTH / 2,
+        PLAYFIELD_HEIGHT / 2,
+        PLAYFIELD_WIDTH,
+        PLAYFIELD_HEIGHT,
+        0x000000,
+      )
+      .setDepth(1000)
+      .setAlpha(0);
+    this.deathFadeOverlay = overlay;
+    // #region agent log
+    agentDebugLog("F", "PlayScene.ts:startDeathFadeOverlay", "overlay fade tween start", {
+      fadeDurationMs: DEATH_FADE_DURATION_MS,
+      overlayAlpha: overlay.alpha,
+      runId: "post-fix",
+    });
+    // #endregion
+    this.tweens.add({
+      targets: overlay,
+      alpha: 1,
+      duration: DEATH_FADE_DURATION_MS,
+      onComplete: () => {
+        // #region agent log
+        agentDebugLog("F", "PlayScene.ts:overlayComplete", "overlay fade complete → MenuScene", {
+          overlayAlpha: overlay.alpha,
+          runId: "post-fix",
+        });
+        // #endregion
+        this.scene.start("MenuScene");
+      },
+    });
   }
 
   private refreshUpgradesHud(): void {
