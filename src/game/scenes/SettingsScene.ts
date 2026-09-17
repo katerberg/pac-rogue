@@ -32,7 +32,8 @@ const ROW_LABEL: Record<AudioCategory, string> = {
 };
 
 const LABEL_X = 80;
-const TOGGLE_X = 320;
+const CHECK_X = 332;
+const CHECK_SIZE = 18;
 const SLIDER_LEFT = 420;
 const SLIDER_WIDTH = 220;
 const SLIDER_HEIGHT = 16;
@@ -48,7 +49,8 @@ type CategoryRow = {
   category: AudioCategory;
   focusIndex: number;
   label: Phaser.GameObjects.BitmapText;
-  toggle: Phaser.GameObjects.BitmapText;
+  checkbox: Phaser.GameObjects.Rectangle;
+  checkMark: Phaser.GameObjects.Rectangle;
   track: Phaser.GameObjects.Rectangle;
   fill: Phaser.GameObjects.Rectangle;
   notches: Phaser.GameObjects.Rectangle[];
@@ -217,14 +219,19 @@ export class SettingsScene extends Phaser.Scene {
   private createRow(category: AudioCategory, focusIndex: number): CategoryRow {
     const centerY = ROW_Y[category];
     const label = addPixelText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
-    const toggle = addPixelText(this, TOGGLE_X, centerY, "ON", MENU_OPTION_FONT_SIZE);
-    const toggleHit = this.add
-      .rectangle(TOGGLE_X + 24, centerY, 64, 28, 0x000000, 0)
+
+    const checkbox = this.add
+      .rectangle(CHECK_X, centerY, CHECK_SIZE, CHECK_SIZE)
+      .setStrokeStyle(2, TEXT_COLOR_WHITE)
+      .setFillStyle(0x000000, 0)
       .setInteractive({ useHandCursor: true });
-    toggleHit.on("pointerdown", () => {
+    checkbox.on("pointerdown", () => {
       this.focusIndex = focusIndex;
       this.toggleCategory(category);
     });
+    const checkMark = this.add
+      .rectangle(CHECK_X, centerY, CHECK_SIZE - 8, CHECK_SIZE - 8, TEXT_COLOR_WHITE)
+      .setVisible(false);
 
     const notches: Phaser.GameObjects.Rectangle[] = [];
     for (let i = 0; i < NOTCH_COUNT; i += 1) {
@@ -249,7 +256,7 @@ export class SettingsScene extends Phaser.Scene {
       .rectangle(SLIDER_LEFT, centerY, 1, SLIDER_HEIGHT - 4, SLIDER_FILL)
       .setOrigin(0, 0.5);
 
-    return { category, focusIndex, label, toggle, track, fill, notches };
+    return { category, focusIndex, label, checkbox, checkMark, track, fill, notches };
   }
 
   private isCategoryEnabled(category: AudioCategory): boolean {
@@ -309,9 +316,10 @@ export class SettingsScene extends Phaser.Scene {
       const enabled = this.isCategoryEnabled(row.category);
       const focused = this.focusIndex === row.focusIndex;
       const tint = focused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
-      row.toggle.setText(enabled ? "ON" : "OFF");
       row.label.setTint(tint);
-      row.toggle.setTint(tint);
+      row.checkbox.setStrokeStyle(2, tint);
+      row.checkMark.setVisible(enabled);
+      row.checkMark.setFillStyle(tint);
 
       const level = this.getLevel(row.category);
       const width = Math.max(0, (level / AUDIO_LEVEL_MAX) * SLIDER_WIDTH);
