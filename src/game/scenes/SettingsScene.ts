@@ -219,11 +219,19 @@ export class SettingsScene extends Phaser.Scene {
     const centerY = ROW_Y[category];
     const label = addPixelText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
     const toggle = addPixelText(this, TOGGLE_X, centerY, "ON", MENU_OPTION_FONT_SIZE);
-    toggle.setInteractive({ useHandCursor: true });
-    toggle.on("pointerdown", () => {
+    const toggleHit = this.add
+      .rectangle(TOGGLE_X + 24, centerY, 64, 28, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+    toggleHit.on("pointerdown", () => {
       this.focusIndex = focusIndex;
       this.toggleCategory(category);
     });
+
+    const notches: Phaser.GameObjects.Rectangle[] = [];
+    for (let i = 0; i < NOTCH_COUNT; i += 1) {
+      const x = SLIDER_LEFT + (i / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
+      notches.push(this.add.rectangle(x, centerY, 2, SLIDER_HEIGHT + 6, SLIDER_NOTCH));
+    }
 
     const track = this.add
       .rectangle(SLIDER_LEFT + SLIDER_WIDTH / 2, centerY, SLIDER_WIDTH, SLIDER_HEIGHT, SLIDER_TRACK)
@@ -239,14 +247,8 @@ export class SettingsScene extends Phaser.Scene {
     });
 
     const fill = this.add
-      .rectangle(SLIDER_LEFT, centerY, 0, SLIDER_HEIGHT - 4, SLIDER_FILL)
+      .rectangle(SLIDER_LEFT, centerY, 1, SLIDER_HEIGHT - 4, SLIDER_FILL)
       .setOrigin(0, 0.5);
-
-    const notches: Phaser.GameObjects.Rectangle[] = [];
-    for (let i = 0; i < NOTCH_COUNT; i += 1) {
-      const x = SLIDER_LEFT + (i / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
-      notches.push(this.add.rectangle(x, centerY, 2, SLIDER_HEIGHT + 6, SLIDER_NOTCH));
-    }
 
     return { category, focusIndex, label, toggle, track, fill, notches };
   }
@@ -310,12 +312,21 @@ export class SettingsScene extends Phaser.Scene {
       row.toggle.setTint(tint);
 
       const level = this.getLevel(row.category);
-      const width = (level / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
-      row.fill.setDisplaySize(Math.max(0, width), SLIDER_HEIGHT - 4);
+      const width = Math.max(0, (level / AUDIO_LEVEL_MAX) * SLIDER_WIDTH);
+      row.fill.setVisible(width > 0);
+      if (width > 0) {
+        row.fill.setSize(width, SLIDER_HEIGHT - 4);
+        row.fill.updateDisplayOrigin();
+      }
       row.fill.setFillStyle(enabled ? SLIDER_FILL : SLIDER_FILL_DIM);
       row.track.setFillStyle(enabled ? SLIDER_TRACK : TEXT_COLOR_DIM);
-      for (const notch of row.notches) {
-        notch.setFillStyle(enabled ? SLIDER_NOTCH : SLIDER_NOTCH_DIM);
+      for (const [index, notch] of row.notches.entries()) {
+        const active = index <= level;
+        if (!enabled) {
+          notch.setFillStyle(SLIDER_NOTCH_DIM);
+        } else {
+          notch.setFillStyle(active ? SLIDER_FILL : SLIDER_NOTCH);
+        }
       }
     }
 
