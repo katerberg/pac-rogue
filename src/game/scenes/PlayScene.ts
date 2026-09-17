@@ -101,13 +101,13 @@ import { movement } from "../systems/movement";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
-import { createRender, preloadPlayArt, type RenderOptions } from "../systems/render";
+import { createRender, preloadPlayArt, type PlayRender } from "../systems/render";
 import { addPixelText, HUD_FONT_SIZE, UPGRADES_HUD_FONT_SIZE, placePixelText } from "./pixelFont";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;
-  private runRender!: (world: World, opts?: RenderOptions) => void;
+  private playRender!: PlayRender;
   private clock: RunClock = createRunClock();
   private ghostReleaseClock: GhostReleaseClock = createGhostReleaseClock();
   private ghostModeClock: GhostModeClock = createGhostModeClock();
@@ -167,7 +167,7 @@ export class PlayScene extends Phaser.Scene {
     this.refreshUpgradesHud();
 
     this.runPlayerInput = createPlayerInput(this);
-    this.runRender = createRender(this);
+    this.playRender = createRender(this);
 
     startLoopingSfx(this, "siren");
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -217,7 +217,11 @@ export class PlayScene extends Phaser.Scene {
     this.timerText.setText(this.timerLabel());
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
-    const { removed, powerRemoved } = collectPellets(this.world);
+    const { powerRemoved, removedEids: removedPelletEids } = collectPellets(this.world);
+    for (const eid of removedPelletEids) {
+      this.playRender.releaseDrawable(eid);
+    }
+    const removed = removedPelletEids.length;
     if (removed > 0) {
       playPelletCollectSfx(this, this.pelletProgress.collectedCount, removed, powerRemoved);
     }
@@ -235,15 +239,18 @@ export class PlayScene extends Phaser.Scene {
       this.spawnFruitEntity();
     }
 
-    const fruitCollect = collectFruit(this.world);
-    if (fruitCollect.removed > 0) {
+    const removedFruitEids = collectFruit(this.world);
+    for (const eid of removedFruitEids) {
+      this.playRender.releaseDrawable(eid);
+    }
+    if (removedFruitEids.length > 0) {
       playSfx(this, "pelletMunch");
       playSfx(this, "pelletMunch2");
       this.fruitPresence = markFruitCollected(fruitTick.state);
       this.runUpgrades = grantRandomUpgrade(this.runUpgrades, () => Math.random());
       this.refreshUpgradesHud();
     } else if (fruitTick.action === "despawn") {
-      removeAllFruit(this.world);
+      this.clearFruitEntities();
       this.fruitPresence = fruitTick.state;
     } else {
       this.fruitPresence = fruitTick.state;
@@ -257,7 +264,7 @@ export class PlayScene extends Phaser.Scene {
 
     const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
     const caught = catchPlayer(this.world, { ghostsFrozen });
-    this.runRender(this.world, { ghostsFrozen });
+    this.playRender.draw(this.world, { ghostsFrozen });
 
     if (caught) {
       stopLoopingSfx(this, "siren");
@@ -306,8 +313,14 @@ export class PlayScene extends Phaser.Scene {
     return `Time: ${this.clock.remaining}`;
   }
 
+  private clearFruitEntities(): void {
+    for (const eid of removeAllFruit(this.world)) {
+      this.playRender.releaseDrawable(eid);
+    }
+  }
+
   private spawnFruitEntity(): void {
-    removeAllFruit(this.world);
+    this.clearFruitEntities();
     const eid = addEntity(this.world);
     addComponent(this.world, eid, Fruit);
     addComponent(this.world, eid, Position);

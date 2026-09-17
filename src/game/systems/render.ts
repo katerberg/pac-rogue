@@ -155,14 +155,30 @@ export type RenderOptions = {
   ghostsFrozen?: boolean;
 };
 
-export function createRender(scene: Phaser.Scene): (world: World, opts?: RenderOptions) => void {
+export type PlayRender = {
+  draw: (world: World, opts?: RenderOptions) => void;
+  releaseDrawable: (eid: number) => void;
+};
+
+export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
   let wallsDrawn = false;
   const actorDisplaySize = playerDisplaySize();
 
-  return (world: World, opts?: RenderOptions) => {
+  const releaseDrawable = (eid: number): void => {
+    for (const key of [String(eid), `${eid}:twin`] as const) {
+      const go = drawableObjects.get(key);
+      if (go) {
+        go.destroy();
+        drawableObjects.delete(key);
+      }
+    }
+    playerVisuals.delete(eid);
+  };
+
+  const draw = (world: World, opts?: RenderOptions): void => {
     const ghostsFrozen = opts?.ghostsFrozen === true;
     if (!wallsDrawn) {
       wallGraphics.clear();
@@ -277,4 +293,6 @@ export function createRender(scene: Phaser.Scene): (world: World, opts?: RenderO
       }
     }
   };
+
+  return { draw, releaseDrawable };
 }

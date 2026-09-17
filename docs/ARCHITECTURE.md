@@ -120,8 +120,9 @@ PlayScene.update →
   movement →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
-  collectPellets → applyPowerPelletEffects → applyPelletCollect →
-  tickFruitPresence (spawn/replace/despawn) → collectFruit → grantRandomUpgrade →
+  collectPellets → releaseDrawable(removed) → applyPowerPelletEffects → applyPelletCollect →
+  tickFruitPresence (spawn/replace/despawn; spawn releases prior fruit visuals) →
+  collectFruit → releaseDrawable(removed) → grantRandomUpgrade →
   catchPlayer (skip if frozen) →
   render (ghost freeze tint) →
   (if caught: stop siren, play death, begin death sequence)
