@@ -1,4 +1,4 @@
-import { addComponent, addEntity, createWorld, type World } from "bitecs";
+import { addComponent, addEntity, createWorld, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
   createPelletProgress,
@@ -29,14 +29,17 @@ import {
   beginDeathSequence,
   DEATH_FADE_DURATION_MS,
   tickDeathSequence,
+  type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
+import { START_LIVES, livesRemainingAfterCatch } from "../../domain/lives";
 import {
   activateLayout,
   ghostHouseSpawnCenter,
   parseMazeParam,
   pelletCellCenters,
   pickLayoutId,
+  playerDisplaySize,
   playerSpawnCenter,
   wallCellCenters,
 } from "../../domain/maze";
@@ -110,7 +113,12 @@ import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
-import { createRender, preloadPlayArt, type PlayRender } from "../systems/render";
+import {
+  createRender,
+  preloadPlayArt,
+  PLAYER_OPEN_MOUTH_TEXTURE_KEY,
+  type PlayRender,
+} from "../systems/render";
 import {
   addPixelText,
   HUD_FONT_SIZE,
@@ -142,6 +150,9 @@ export class PlayScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private death: DeathSequenceState | null = null;
+  private lives = START_LIVES;
+  private afterLifeRelease = false;
+  private lifeIcons: Phaser.GameObjects.Image[] = [];
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private resumeCountdownRemainingMs = 0;
   private resumeCountdownDim: Phaser.GameObjects.Rectangle | null = null;
@@ -159,6 +170,8 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     this.world = createWorld();
     this.death = null;
+    this.lives = START_LIVES;
+    this.afterLifeRelease = false;
     this.clearUpgradeResumeCountdown();
     this.upgradeChoiceModal?.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this);
@@ -202,6 +215,8 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
     this.refreshUpgradesHud();
+    this.lifeIcons = [];
+    this.refreshLivesIcons();
 
     const playerInput = createPlayerInput(this);
     this.runPlayerInput = playerInput.apply;
@@ -222,8 +237,8 @@ export class PlayScene extends Phaser.Scene {
     if (this.death !== null) {
       const tick = tickDeathSequence(this.death, delta);
       this.death = tick.state;
-      if (tick.shouldStartFade) {
-        this.startDeathFadeOverlay();
+      for (const event of tick.events) {
+        this.handleDeathEvent(event);
       }
       return;
     }
@@ -259,7 +274,12 @@ export class PlayScene extends Phaser.Scene {
     const hasInput = hasPlayerDirectionInput(this.world);
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
-    ghostRelease(this.world, this.ghostReleaseClock, this.pelletProgress.collectedCount);
+    ghostRelease(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.collectedCount,
+      this.afterLifeRelease,
+    );
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
@@ -369,7 +389,10 @@ export class PlayScene extends Phaser.Scene {
     if (caught) {
       stopLoopingSfx(this, "siren");
       playSfx(this, "death");
-      this.death = beginDeathSequence();
+      const result = livesRemainingAfterCatch(this.lives);
+      this.lives = result.lives;
+      this.refreshLivesIcons();
+      this.death = beginDeathSequence(result.gameOver);
     }
   }
 
@@ -414,6 +437,29 @@ export class PlayScene extends Phaser.Scene {
     this.resumeCountdownText = null;
   }
 
+  private handleDeathEvent(event: DeathSequenceEvent): void {
+    switch (event) {
+      case "resetActors":
+        this.resetAfterLifeLoss();
+        this.playRender.draw(this.world, { ghostsFrozen: false });
+        break;
+      case "startFade":
+        this.startDeathFadeOverlay();
+        break;
+      case "showGameOver":
+        this.showGameOverText();
+        break;
+      case "resume":
+        this.death = null;
+        startLoopingSfx(this, "siren");
+        break;
+      case "goToMenu":
+        this.death = null;
+        this.scene.start("MenuScene");
+        break;
+    }
+  }
+
   private startDeathFadeOverlay(): void {
     const overlay = this.add
       .rectangle(
@@ -429,10 +475,102 @@ export class PlayScene extends Phaser.Scene {
       targets: overlay,
       alpha: 1,
       duration: DEATH_FADE_DURATION_MS,
-      onComplete: () => {
-        this.scene.start("MenuScene");
-      },
     });
+  }
+
+  private showGameOverText(): void {
+    const title = addPixelText(
+      this,
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2 - 20,
+      "GAME OVER",
+      MENU_TITLE_FONT_SIZE,
+      TEXT_COLOR_YELLOW,
+    ).setDepth(1001);
+    placePixelText(title, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 - 20, 0.5, 0.5);
+
+    const collected = addPixelText(
+      this,
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2 + 24,
+      this.collectedLabel(),
+      HUD_FONT_SIZE,
+    ).setDepth(1001);
+    placePixelText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
+  }
+
+  private resetAfterLifeLoss(): void {
+    const playerSpawn = playerSpawnCenter();
+    for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
+      Position.x[eid] = playerSpawn.x;
+      Position.y[eid] = playerSpawn.y;
+      Velocity.x[eid] = 0;
+      Velocity.y[eid] = 0;
+      Input.direction[eid] = DIRECTION.none;
+      Facing.direction[eid] = DIRECTION.none;
+    }
+
+    const houseSpawn = ghostHouseSpawnCenter();
+    for (const eid of query(this.world, [
+      Ghost,
+      GhostPhase,
+      Position,
+      Velocity,
+      Input,
+      Facing,
+      Speed,
+    ])) {
+      Position.x[eid] = houseSpawn.x;
+      Position.y[eid] = houseSpawn.y;
+      Velocity.x[eid] = 0;
+      Velocity.y[eid] = 0;
+      Input.direction[eid] = DIRECTION.none;
+      Facing.direction[eid] = DIRECTION.none;
+      Speed.px[eid] = 0;
+      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+      Ghost.decidedCol[eid] = Number.NaN;
+      Ghost.decidedRow[eid] = Number.NaN;
+    }
+
+    this.ghostReleaseClock = createGhostReleaseClock();
+    this.ghostModeClock = createGhostModeClock();
+    this.previousEffectiveGhostMode = this.ghostModeClock.mode;
+    this.afterLifeRelease = true;
+
+    this.clearFruitEntities();
+    this.fruitPresence = {
+      ...this.fruitPresence,
+      active: false,
+      remainingMs: 0,
+    };
+
+    this.runUpgrades = {
+      ...this.runUpgrades,
+      freezeRemainingMs: 0,
+      scatterBurstRemainingMs: 0,
+    };
+
+    this.clock = {
+      ...this.clock,
+      started: false,
+    };
+  }
+
+  private refreshLivesIcons(): void {
+    for (const icon of this.lifeIcons) {
+      icon.destroy();
+    }
+    this.lifeIcons = [];
+    const size = playerDisplaySize();
+    const y = PLAYFIELD_HEIGHT - 8 - size / 2;
+    for (let i = 0; i < this.lives; i += 1) {
+      const x = 12 + size / 2 + i * (size + 4);
+      const icon = this.add
+        .image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
+        .setDisplaySize(size, size)
+        .setDepth(10);
+      this.lifeIcons.push(icon);
+    }
   }
 
   private refreshUpgradesHud(): void {

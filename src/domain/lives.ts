@@ -1,0 +1,8 @@
+export const START_LIVES = 3;
+
+export function livesRemainingAfterCatch(lives: number): { lives: number; gameOver: boolean } {
+  if (lives <= 1) {
+    return { lives: 0, gameOver: true };
+  }
+  return { lives: lives - 1, gameOver: false };
+}
