@@ -30,6 +30,7 @@ Ship a 3-life run: ghost contact spends a life with the existing death SFX and a
 | M   | Late: `/simplify-pr` then `/no-comments` on scoped diff.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | default                |
 | N   | Game Over hold on screen: `GAME_OVER_HOLD_MS = 2000` after fade completes, then `scene.start("MenuScene")`. Copy: title `GAME OVER`; second line `Collected: ${collectedCount}` using existing pixel font helpers.                                                                                                                                                                                                                                                                                                                    | default (needed by 1)  |
 | O   | `afterLifeRelease` flag: `false` on `PlayScene.create`; set `true` on every life-loss reset; while true, `shouldReleaseKind` treats Clyde as time-gated via `CLYDE_POST_LIFE_RELEASE_DELAY_MS`.                                                                                                                                                                                                                                                                                                                                       | default (from 7)       |
+| P   | While `death !== null`, `PlayScene.update` ticks the machine, handles events, then **returns** — keep today’s pipeline halt for every death phase (`hold` / `ready` / `fadeToGameOver` / `gameOver`). No `runPlayerInput`, clocks, systems, or `catchPlayer` until a later frame after `resume` clears `death`. `resume` / `goToMenu` still return this frame.                                                                                                                                                                        | default (today + E)    |
 
 ## Today’s world (brief)
 
@@ -70,14 +71,17 @@ export const GAME_OVER_HOLD_MS = 2000;
 
 beginDeathSequence(gameOver: boolean): DeathSequenceState
 tickDeathSequence(state, deltaMs): { state; events: DeathSequenceEvent[] }
-// events include: 'resetActors' (once, non-final, when leaving hold),
-//                 'startFade' (final), 'showGameOver' (final),
-//                 'resume' | 'goToMenu'
+// events fire at most once per sequence, on phase entry/exit only
+// (same job as today’s fadeStarted). Never re-emit while sitting in a phase.
+// 'resetActors' (non-final, leaving hold),
+// 'startFade' | 'showGameOver' (final),
+// 'resume' | 'goToMenu'
 ```
 
 - Non-final: `hold` → emit `resetActors` → `ready` → `resume`.
 - Final: `hold` → `fadeToGameOver` (emit `startFade`) → `gameOver` (emit `showGameOver`) → `goToMenu`.
 - No fade on non-final.
+- A tick that stays in `fadeToGameOver` / `ready` / `gameOver` emits nothing — `startFade` must not spawn stacked overlays.
 - A single large `deltaMs` that overshoots still emits skipped-phase events in order (non-final must emit `resetActors` before `resume`; final must emit `startFade` then `showGameOver` before `goToMenu`) so PlayScene never resumes or leaves without the side effects.
 
 Update `deathSequence.test.ts` for both branches and knob thresholds.
@@ -112,7 +116,7 @@ On catch (existing site after `catchPlayer`):
 2. `const result = livesRemainingAfterCatch(this.lives); this.lives = result.lives;` refresh lives icons.
 3. `this.death = beginDeathSequence(result.gameOver)`.
 
-In `update`, when `death !== null`: tick machine; handle events:
+In `update`, when `death !== null`: tick machine; handle events; **then return** (decision P — full pipeline halt, including ready/fade/GO). Handle `resume` / `goToMenu` this frame then still return; sim continues next frame:
 
 - `resetActors`: call private `resetAfterLifeLoss()` then refresh render once so icons/positions show during ready.
 - `startFade`: reuse the overlay tween **visual only**. Today’s `startDeathFadeOverlay` `onComplete` calls `scene.start("MenuScene")` — **delete that**. Domain owns timing (`DEATH_FADE_DURATION_MS` then `GAME_OVER_HOLD_MS`); the tween must not change scenes.
@@ -171,7 +175,7 @@ Lives icons:
 
 **Automated**
 
-- `deathSequence` unit: non-final emits reset then resume after `DEATH_HOLD_MS + READY_PAUSE_MS`; final never emits reset/resume; final reaches menu after hold + fade + `GAME_OVER_HOLD_MS`; large delta still emits skipped-phase events in order (reset before resume; fade then GO before menu).
+- `deathSequence` unit: non-final emits reset then resume after `DEATH_HOLD_MS + READY_PAUSE_MS`; final never emits reset/resume; final reaches menu after hold + fade + `GAME_OVER_HOLD_MS`; large delta still emits skipped-phase events in order (reset before resume; fade then GO before menu); a small tick while already in `fadeToGameOver` does not re-emit `startFade`.
 - `livesRemainingAfterCatch` unit: 3→2 not GO; 1→0 GO.
 - `ghostRelease` / `shouldReleaseKind`: first life Clyde still pellet-gated; `afterLifeRelease` + high pellets + clock not started → false; clock elapsed ≥ 9000 → true.
 - `npm run verify` green.
