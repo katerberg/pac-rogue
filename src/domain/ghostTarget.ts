@@ -30,13 +30,15 @@ export function blinkyTarget(args: {
   pelletsRemaining: number;
   playerCol: number;
   playerRow: number;
+  ignoreElroy?: boolean;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
     return { col: GHOST_HOUSE_EXIT_COL, row: GHOST_HOUSE_EXIT_ROW };
   }
 
   const tier: ElroyTier = elroyTier(args.pelletsRemaining);
-  if (args.mode === GHOST_AI_MODE.chase || tier !== ELROY_TIER.none) {
+  const elroyChases = tier !== ELROY_TIER.none && !args.ignoreElroy;
+  if (args.mode === GHOST_AI_MODE.chase || elroyChases) {
     return { col: args.playerCol, row: args.playerRow };
   }
 

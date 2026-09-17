@@ -18,7 +18,7 @@ Rules:
 - Gameplay logic goes in **systems**. Scenes only wire the world, spawn entities, and run the pipeline — do not put movement (or other simulation) rules in the scene.
 - Keep `npm run check:ecs` green. Do not bypass ECS layer boundaries (see `docs/ARCHITECTURE.md`).
 - Use agent ports only (`npm run dev:agent` / preview+visual on 5174/4174). Never bind to or kill human ports 5173/4173.
-- Agent ports mute sound by default. Opt in with `?sound=1` only when testing audio.
+- Agent ports mute sound by default. Opt in with `?sound=1` only when testing audio (see README Flags).
 - Do not bypass, weaken, or delete verification.
 - After implementation: run the appropriate checks → inspect failures → fix → rerun until green.
 - Gameplay and presentation changes require runtime/visual verification (launch → exercise changed behavior → inspect screenshot/live output → record what was verified).
