@@ -1,12 +1,12 @@
 export type PelletProgress = {
-  collectedCount: number;
+  boardCollected: number;
   pelletsRemaining: number;
   runRecorded: boolean;
 };
 
 export function createPelletProgress(totalPellets: number): PelletProgress {
   return {
-    collectedCount: 0,
+    boardCollected: 0,
     pelletsRemaining: Math.max(0, totalPellets),
     runRecorded: false,
   };
@@ -20,13 +20,13 @@ export function applyPelletCollect(
     return { progress, shouldRecordClear: false };
   }
 
-  const collectedCount = progress.collectedCount + removed;
+  const boardCollected = progress.boardCollected + removed;
   const pelletsRemaining = Math.max(0, progress.pelletsRemaining - removed);
-  const shouldRecordClear = !progress.runRecorded && pelletsRemaining === 0 && collectedCount > 0;
+  const shouldRecordClear = !progress.runRecorded && pelletsRemaining === 0 && boardCollected > 0;
 
   return {
     progress: {
-      collectedCount,
+      boardCollected,
       pelletsRemaining,
       runRecorded: progress.runRecorded || shouldRecordClear,
     },

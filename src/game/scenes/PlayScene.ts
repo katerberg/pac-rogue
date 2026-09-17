@@ -42,7 +42,9 @@ import {
   playerDisplaySize,
   playerSpawnCenter,
   wallCellCenters,
+  type MazeLayoutId,
 } from "../../domain/maze";
+import { ghostSpeedLevelMul, parseLevelParam } from "../../domain/runLevel";
 import {
   BLINKY_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
@@ -133,6 +135,9 @@ import {
   type UpgradeChoiceModal,
 } from "./upgradeChoiceModal";
 
+const LEVEL_TRANSITION_MS = 1000;
+const LEVEL_BANNER_FADE_MS = 1500;
+
 export class PlayScene extends Phaser.Scene {
   private world!: World;
   private runPlayerInput!: (world: World) => void;
@@ -144,11 +149,15 @@ export class PlayScene extends Phaser.Scene {
   private ghostModeClock: GhostModeClock = createGhostModeClock();
   private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock().mode;
   private pelletProgress: PelletProgress = createPelletProgress(0);
+  private lifetimeCollected = 0;
+  private levelIndex = 1;
+  private levelTransitionRemainingMs = 0;
   private fruitPresence: FruitPresence = createFruitPresence();
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private collectedText!: Phaser.GameObjects.BitmapText;
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
+  private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private death: DeathSequenceState | null = null;
   private lives = START_LIVES;
   private afterLifeRelease = false;
@@ -168,32 +177,27 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.world = createWorld();
     this.death = null;
     this.lives = START_LIVES;
     this.afterLifeRelease = false;
+    this.lifetimeCollected = 0;
+    this.levelTransitionRemainingMs = 0;
     this.clearUpgradeResumeCountdown();
+    this.clearLevelBanner();
     this.upgradeChoiceModal?.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this);
+
     const urlParams = new URLSearchParams(location.search);
     const mazeOverride = parseMazeParam(urlParams);
     if (urlParams.has("maze") && mazeOverride === null) {
-      console.warn(`Unknown ?maze= value; expected classic|mspac`);
+      console.warn(`Unknown ?maze= value; expected maze1|maze2`);
     }
-    activateLayout(pickLayoutId(Math.random, mazeOverride));
-    this.spawnWalls();
-    this.spawnPellets();
-    this.spawnPlayer();
-    this.spawnBlinky();
-    this.spawnPinky();
-    this.spawnClyde();
+    const levelOverride = parseLevelParam(urlParams);
+    if (urlParams.has("level") && levelOverride === null) {
+      console.warn(`Unknown ?level= value; expected positive integer`);
+    }
+    this.levelIndex = levelOverride ?? 1;
 
-    this.clock = createRunClock();
-    this.ghostReleaseClock = createGhostReleaseClock();
-    this.ghostModeClock = createGhostModeClock();
-    this.previousEffectiveGhostMode = this.ghostModeClock.mode;
-    this.pelletProgress = createPelletProgress(countPellets(this.world));
-    this.fruitPresence = createFruitPresence();
     this.runUpgrades = createRunUpgrades(
       parseUpgradeId(urlParams.get("forceUpgrade")),
       parseEnableUpgradeParams(urlParams),
@@ -214,9 +218,7 @@ export class PlayScene extends Phaser.Scene {
     this.upgradesText = addPixelText(this, 12, PLAYFIELD_HEIGHT / 2, "", UPGRADES_HUD_FONT_SIZE)
       .setDepth(10)
       .setVisible(false);
-    this.refreshUpgradesHud();
     this.lifeIcons = [];
-    this.refreshLivesIcons();
 
     const playerInput = createPlayerInput(this);
     this.runPlayerInput = playerInput.apply;
@@ -224,12 +226,18 @@ export class PlayScene extends Phaser.Scene {
     this.suppressPlayerInputUntilKeyRelease = false;
     this.playRender = createRender(this);
 
+    this.startBoard(mazeOverride);
+    this.refreshUpgradesHud();
+    this.refreshLivesIcons();
+    this.showLevelBanner();
+
     startLoopingSfx(this, "siren");
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "siren");
       stopLoopingSfx(this, "death");
       this.upgradeChoiceModal.destroy();
       this.clearUpgradeResumeCountdown();
+      this.clearLevelBanner();
     });
   }
 
@@ -239,6 +247,14 @@ export class PlayScene extends Phaser.Scene {
       this.death = tick.state;
       for (const event of tick.events) {
         this.handleDeathEvent(event);
+      }
+      return;
+    }
+
+    if (this.levelTransitionRemainingMs > 0) {
+      this.levelTransitionRemainingMs = Math.max(0, this.levelTransitionRemainingMs - delta);
+      if (this.levelTransitionRemainingMs === 0) {
+        this.advanceToNextLevel();
       }
       return;
     }
@@ -277,7 +293,7 @@ export class PlayScene extends Phaser.Scene {
     ghostRelease(
       this.world,
       this.ghostReleaseClock,
-      this.pelletProgress.collectedCount,
+      this.pelletProgress.boardCollected,
       this.afterLifeRelease,
     );
 
@@ -286,7 +302,8 @@ export class PlayScene extends Phaser.Scene {
     const frozen = ghostsAreFrozen(this.runUpgrades);
     applyPlayerSpeed(this.world, playerSpeedMultiplier(this.runUpgrades.owned));
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
-      ghostSpeedMul: ghostSpeedMultiplier(this.runUpgrades.owned),
+      ghostSpeedMul:
+        ghostSpeedLevelMul(this.levelIndex) * ghostSpeedMultiplier(this.runUpgrades.owned),
       frozen,
     });
     movement(this.world, delta);
@@ -305,12 +322,15 @@ export class PlayScene extends Phaser.Scene {
     }
     const removed = removedPelletEids.length;
     if (removed > 0) {
-      playPelletCollectSfx(this, this.pelletProgress.collectedCount, removed, powerRemoved);
+      playPelletCollectSfx(this, this.lifetimeCollected, removed, powerRemoved);
     }
     const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
     this.runUpgrades = powerEffects.state;
     const collectResult = applyPelletCollect(this.pelletProgress, removed);
     this.pelletProgress = collectResult.progress;
+    if (removed > 0) {
+      this.lifetimeCollected += removed;
+    }
     this.collectedText.setText(this.collectedLabel());
 
     const modeStep = resolveGhostModeStep(
@@ -336,7 +356,7 @@ export class PlayScene extends Phaser.Scene {
 
     const fruitTick = tickFruitPresence(
       this.fruitPresence,
-      this.pelletProgress.collectedCount,
+      this.pelletProgress.boardCollected,
       delta,
     );
     if (fruitTick.action === "spawn" || fruitTick.action === "replace") {
@@ -379,6 +399,9 @@ export class PlayScene extends Phaser.Scene {
     if (collectResult.shouldRecordClear) {
       stopLoopingSfx(this, "siren");
       playSfx(this, "levelComplete");
+      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+      this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
+      return;
     }
 
     const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
@@ -392,10 +415,85 @@ export class PlayScene extends Phaser.Scene {
       this.lives = result.lives;
       this.refreshLivesIcons();
       if (result.gameOver) {
-        saveRun(this.pelletProgress.collectedCount, this.clock.remaining);
+        saveRun(this.lifetimeCollected, this.clock.remaining);
       }
       this.death = beginDeathSequence(result.gameOver);
     }
+  }
+
+  private startBoard(layoutOverride: MazeLayoutId | null = null): void {
+    activateLayout(pickLayoutId(Math.random, layoutOverride));
+    this.playRender.resetForNewBoard();
+    this.world = createWorld();
+    this.spawnWalls();
+    this.spawnPellets();
+    this.spawnPlayer();
+    this.spawnBlinky();
+    this.spawnPinky();
+    this.spawnClyde();
+
+    this.clock = createRunClock();
+    this.ghostReleaseClock = createGhostReleaseClock();
+    this.ghostModeClock = createGhostModeClock();
+    this.previousEffectiveGhostMode = this.ghostModeClock.mode;
+    this.pelletProgress = createPelletProgress(countPellets(this.world));
+    this.fruitPresence = createFruitPresence();
+    this.afterLifeRelease = false;
+    this.death = null;
+    this.suppressPlayerInputUntilKeyRelease = false;
+
+    this.collectedText.setText(this.collectedLabel());
+    this.timerText.setText(this.timerLabel());
+    placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+  }
+
+  private advanceToNextLevel(): void {
+    this.upgradeChoiceModal.destroy();
+    this.upgradeChoiceModal = createUpgradeChoiceModal(this);
+    this.clearUpgradeResumeCountdown();
+
+    this.levelIndex += 1;
+    this.runUpgrades = {
+      ...this.runUpgrades,
+      freezeRemainingMs: 0,
+      scatterBurstRemainingMs: 0,
+    };
+
+    this.startBoard(null);
+    this.refreshUpgradesHud();
+    this.refreshLivesIcons();
+    this.showLevelBanner();
+    startLoopingSfx(this, "siren");
+    this.playRender.draw(this.world, { ghostsFrozen: false });
+  }
+
+  private showLevelBanner(): void {
+    this.clearLevelBanner();
+    const banner = addPixelText(
+      this,
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2,
+      `LEVEL ${this.levelIndex}`,
+      MENU_TITLE_FONT_SIZE,
+      TEXT_COLOR_YELLOW,
+    ).setDepth(800);
+    placePixelText(banner, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
+    this.levelBannerText = banner;
+    this.tweens.add({
+      targets: banner,
+      alpha: 0,
+      duration: LEVEL_BANNER_FADE_MS,
+      onComplete: () => {
+        if (this.levelBannerText === banner) {
+          this.clearLevelBanner();
+        }
+      },
+    });
+  }
+
+  private clearLevelBanner(): void {
+    this.levelBannerText?.destroy();
+    this.levelBannerText = null;
   }
 
   private beginUpgradeResumeCountdown(): void {
@@ -587,7 +685,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private collectedLabel(): string {
-    return `Collected: ${this.pelletProgress.collectedCount}`;
+    return `Collected: ${this.lifetimeCollected}`;
   }
 
   private timerLabel(): string {

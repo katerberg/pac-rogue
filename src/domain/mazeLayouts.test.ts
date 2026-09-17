@@ -13,26 +13,26 @@ import {
 
 describe("maze layouts", () => {
   afterEach(() => {
-    activateLayout("classic");
+    activateLayout("maze1");
   });
 
-  it("keeps classic derived anchors at known cells", () => {
-    const classic = getLayout("classic");
-    expect(classic.playerSpawn).toEqual({ col: 13, row: 23 });
-    expect(classic.ghostHouseSpawn).toEqual({ col: 13, row: 14 });
-    expect(classic.ghostHouseExit).toEqual({ col: 13, row: 11 });
-    expect(classic.fruitSpawn).toEqual({ col: 13, row: 17 });
-    expect(classic.pelletCount).toBe(244);
-    expect(classic.fruitThresholds).toEqual([70, 170]);
-    expect(classic.clydeReleasePellets).toBe(60);
-    expect(classic.elroy1DotsLeft).toBe(20);
-    expect(classic.elroy2DotsLeft).toBe(10);
+  it("keeps maze1 derived anchors at known cells", () => {
+    const maze1 = getLayout("maze1");
+    expect(maze1.playerSpawn).toEqual({ col: 13, row: 23 });
+    expect(maze1.ghostHouseSpawn).toEqual({ col: 13, row: 14 });
+    expect(maze1.ghostHouseExit).toEqual({ col: 13, row: 11 });
+    expect(maze1.fruitSpawn).toEqual({ col: 13, row: 17 });
+    expect(maze1.pelletCount).toBe(244);
+    expect(maze1.fruitThresholds).toEqual([70, 170]);
+    expect(maze1.clydeReleasePellets).toBe(60);
+    expect(maze1.elroy1DotsLeft).toBe(20);
+    expect(maze1.elroy2DotsLeft).toBe(10);
   });
 
-  it("builds arcade Ms. Pac Maze 1 with required features", () => {
-    const layout = activateLayout("mspac");
-    expect(layout.id).toBe("mspac");
-    expect(getActiveLayout().id).toBe("mspac");
+  it("builds maze2 arcade Ms. Pac Maze 1 with required features", () => {
+    const layout = activateLayout("maze2");
+    expect(layout.id).toBe("maze2");
+    expect(getActiveLayout().id).toBe("maze2");
     expect(layout.ascii.split("\n")).toHaveLength(MAZE_ROWS);
     expect(layout.ascii.split("\n")[0]).toHaveLength(MAZE_COLS);
 
@@ -74,20 +74,21 @@ describe("maze layouts", () => {
 });
 
 describe("maze selection", () => {
-  it("parses classic and mspac overrides", () => {
-    expect(parseMazeParam(new URLSearchParams("maze=classic"))).toBe("classic");
-    expect(parseMazeParam(new URLSearchParams("maze=mspac"))).toBe("mspac");
+  it("parses maze1 and maze2 overrides", () => {
+    expect(parseMazeParam(new URLSearchParams("maze=maze1"))).toBe("maze1");
+    expect(parseMazeParam(new URLSearchParams("maze=maze2"))).toBe("maze2");
+    expect(parseMazeParam(new URLSearchParams("maze=classic"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams("maze=nope"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams())).toBeNull();
   });
 
   it("prefers override over rng", () => {
-    expect(pickLayoutId(() => 0, "mspac")).toBe("mspac");
-    expect(pickLayoutId(() => 0.9, "classic")).toBe("classic");
+    expect(pickLayoutId(() => 0, "maze2")).toBe("maze2");
+    expect(pickLayoutId(() => 0.9, "maze1")).toBe("maze1");
   });
 
   it("picks both layouts from seeded rng", () => {
-    expect(pickLayoutId(() => 0.49)).toBe("classic");
-    expect(pickLayoutId(() => 0.5)).toBe("mspac");
+    expect(pickLayoutId(() => 0.49)).toBe("maze1");
+    expect(pickLayoutId(() => 0.5)).toBe("maze2");
   });
 });
