@@ -12,6 +12,7 @@ import {
 const OPTIONS = [
   { label: "START", scene: "PlayScene" },
   { label: "HIGH SCORES", scene: "HighScoresScene" },
+  { label: "SETTINGS", scene: "SettingsScene" },
 ] as const;
 
 export class MenuScene extends Phaser.Scene {

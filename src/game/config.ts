@@ -5,6 +5,7 @@ import { isSoundEnabled } from "../domain/soundFlag";
 import { HighScoresScene } from "./scenes/HighScoresScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { PlayScene } from "./scenes/PlayScene";
+import { SettingsScene } from "./scenes/SettingsScene";
 
 export const GAME_WIDTH = PLAYFIELD_WIDTH;
 export const GAME_HEIGHT = PLAYFIELD_HEIGHT;
@@ -25,7 +26,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: colorToCssHex(MAZE_BACKGROUND_COLOR),
-  scene: [MenuScene, HighScoresScene, PlayScene],
+  scene: [MenuScene, HighScoresScene, SettingsScene, PlayScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

@@ -31,6 +31,7 @@ src/
     mazeLayouts.ts            # maze1 + maze2 ASCII, pickLayoutId / parseMazeParam
     runLevel.ts               # ?level= parse + per-level ghost speed mul
     soundFlag.ts              # agent-port mute; ?sound=1 opt-in
+    audioSettings.ts          # music/SFX enable + 0..10 levels; effectiveVolume
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostKind.ts              # blinky / pinky / clyde kind ids
@@ -44,7 +45,7 @@ src/
     lives.ts                  # START_LIVES + livesRemainingAfterCatch
   game/
     config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
-    audio/sfx.ts
+    audio/sfx.ts              # SFX manifest; volumes scaled by audioSettings
     components/               # data only — no Phaser
       Position.ts
       Velocity.ts
@@ -62,6 +63,7 @@ src/
       Drawable.ts
     storage/
       runHistoryStorage.ts    # localStorage adapter for death-run history
+      audioSettingsStorage.ts # localStorage adapter for music/SFX prefs
     systems/
       playerInput.ts          # Phaser keys → sticky Input
       ghostRelease.ts         # inHouse → leaving (time or Clyde pellets)
@@ -82,8 +84,9 @@ src/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
       upgradeChoiceModal.ts   # fruit pick-one overlay (Phaser)
-      MenuScene.ts            # boot title + Start / High Scores (no ECS)
+      MenuScene.ts            # boot title + Start / High Scores / Settings (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
+      SettingsScene.ts        # music/SFX checkboxes + 0..10 notches (no ECS)
       PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
   public/
   art/                        # Pac-Man / pellet / power-pellet / ghost / fruit PNGs
@@ -101,20 +104,24 @@ docs/
 
 ## Scenes
 
-Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `HighScoresScene`, `PlayScene`.
+Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `HighScoresScene`, `SettingsScene`, `PlayScene`.
 
 ```text
 MenuScene --Start--> PlayScene
 MenuScene --High Scores--> HighScoresScene
+MenuScene --Settings--> SettingsScene
 HighScoresScene --Back--> MenuScene
+SettingsScene --Back--> MenuScene
 PlayScene --pellet clear--> level-complete SFX → brief freeze → next random maze (carry lives/upgrades/lifetime)
 PlayScene --caught (lives left)--> death hold → reset → ready → resume
 PlayScene --caught (last life)--> death hold → fade → GAME OVER → MenuScene
 ```
 
-**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene` and `HighScoresScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
+**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene`, `HighScoresScene`, and `SettingsScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
 
 High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (collected pellets desc, then remaining time desc). Storage remains chronological append order.
+
+Settings reads/writes `audioSettings` via `audioSettingsStorage` (`pac-rogue.audio-settings.v1`). **Music** scales the looping siren; **SFX** scales every other clip. Agent `noAudio` still wins for playback; Settings stays editable and shows `AUDIO DISABLED` when muted.
 
 ## Game loop
 
@@ -189,13 +196,13 @@ A violation of these is a failed architecture check:
 
 ## Current runtime
 
-- Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores). Start opens `PlayScene`; High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop).
+- Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores / Settings). Start opens `PlayScene`; High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage).
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
 - Static 28×31 maze (tile size from fit under `MAZE_TOP_MARGIN_PX`, then centered in the leftover 800×600 band) with stroked walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_TOP_MARGIN_PX`, `MAZE_BACKGROUND_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `WALL_CORNER_CURVE_KIND`, `WALL_INSET_PX` (pull stroke into wall tiles), `PLAYER_WALL_PADDING_PX` (actor display size only), `PELLET_DISPLAY_SIZE`, `POWER_PELLET_DISPLAY_SIZE`. Dual solids (player blocked from house/door; ghosts allowed), mid-maze horizontal tunnel.
 - One player entity (display size from wall padding; open mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
-- Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets), and increments a top-left **lifetime** `Collected` counter (board-local count drives Clyde/fruit/clear). Looping siren plays during `PlayScene` until clear, catch, or shutdown; clearing all pellets plays level-complete SFX then advances to a new random maze; catch plays death SFX then life-loss reset (or Game Over on the last life).
+- Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets; volumes from SFX settings), and increments a top-left **lifetime** `Collected` counter (board-local count drives Clyde/fruit/clear). Looping siren plays during `PlayScene` until clear, catch, or shutdown (volume from music settings); clearing all pellets plays level-complete SFX then advances to a new random maze; catch plays death SFX then life-loss reset (or Game Over on the last life).
 - Bonus fruit appears under the ghost house at board thresholds (maze1 70/170), lasts 10 real seconds, uses cherries (`strawberry.png` stand-in); pickup plays both munches, removes the fruit (no points yet), and opens a pick-one upgrade modal (left mid-height owned labels afterward; see [docs/upgrades.md](./upgrades.md)).
 - Start with 3 lives (pac icons bottom-left); lives carry across level advances. Blinky, Pinky, and Clyde: shared house spawn; Blinky/Pinky time release after first input (0.1s / 5s — tunable); Clyde leaves at board-scaled pellets on the first life of a board, or after a 9s post-life time gate after a life loss; chase-first arcade scatter/chase waves; Blinky Cruise Elroy; tunnel slowdown; ghosts gain +10% resolved speed per level index. Circle overlap spends a life (hold → reset actors / ready pause → resume) or last-life Game Over (hold → append high-score run → fade → `GAME OVER` + lifetime collected → menu) unless freeze walk-through is active.
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0; resets each level). Last-life Game Over appends **lifetime** pellets + remaining time + ISO date to capped `localStorage` run history (`pac-rogue.run-history.v2`, max 100, drop oldest). Clearing all pellets never writes history.
-- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `runLevel`, `pelletProgress`, `fruit`, `upgrades`, `runHistory`, `highScoresView`, `scoreListScroll`, `playfield`, `maze`, `lives`, `deathSequence`, ghost kind/path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/ghost/lives/deathSequence helpers are unit-tested without Phaser.
+- Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `runLevel`, `pelletProgress`, `fruit`, `upgrades`, `runHistory`, `highScoresView`, `scoreListScroll`, `audioSettings`, `playfield`, `maze`, `lives`, `deathSequence`, ghost kind/path/movement/target/mode/release/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/audioSettings/ghost/lives/deathSequence helpers are unit-tested without Phaser.
 - Power pellets are inert unless an owned upgrade reacts (`powerPelletFreeze`, `scatterBurst`, `ghostRecall`, `warpTop` — see [docs/upgrades.md](./upgrades.md)). No arcade fright / eatable ghosts / Inky yet.
