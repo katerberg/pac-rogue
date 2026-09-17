@@ -38,12 +38,14 @@ export class HighScoresScene extends Phaser.Scene {
   private keyBackspace!: Phaser.Input.Keyboard.Key;
   private keyEnter!: Phaser.Input.Keyboard.Key;
   private keySpace!: Phaser.Input.Keyboard.Key;
+  private pendingBack = false;
 
   constructor() {
     super("HighScoresScene");
   }
 
   create(): void {
+    this.pendingBack = false;
     const rows = toHighScoreRows(loadRunHistory());
     this.itemCount = rows.length;
     this.scrollState = createScoreListScroll(this.itemCount, SCROLL);
@@ -135,10 +137,19 @@ export class HighScoresScene extends Phaser.Scene {
 
     if (
       Phaser.Input.Keyboard.JustDown(this.keyEsc) ||
-      Phaser.Input.Keyboard.JustDown(this.keyBackspace) ||
+      Phaser.Input.Keyboard.JustDown(this.keyBackspace)
+    ) {
+      this.goBack();
+      return;
+    }
+
+    if (
       Phaser.Input.Keyboard.JustDown(this.keyEnter) ||
       Phaser.Input.Keyboard.JustDown(this.keySpace)
     ) {
+      this.pendingBack = true;
+    }
+    if (this.pendingBack && !this.keyEnter.isDown && !this.keySpace.isDown) {
       this.goBack();
     }
   }
