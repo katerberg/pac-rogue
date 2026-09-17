@@ -60,6 +60,8 @@ function pacmanTextureKey(dir: PacmanDir, frame: number): string {
   return `pacman-${dir}-${frame}`;
 }
 
+export const PLAYER_CLOSED_MOUTH_TEXTURE_KEY = pacmanTextureKey("right", CLOSED_MOUTH_FRAME);
+
 function pelletTextureKey(drawableId: string): string {
   return drawableId === POWER_PELLET_DRAWABLE_ID ? POWER_PELLET_TEXTURE_KEY : PELLET_TEXTURE_KEY;
 }
@@ -89,7 +91,7 @@ function applyWallPathCommands(
 
 function textureKeyForDrawable(drawableId: string): string {
   if (drawableId === PLAYER_DRAWABLE_ID) {
-    return pacmanTextureKey("right", CLOSED_MOUTH_FRAME);
+    return PLAYER_CLOSED_MOUTH_TEXTURE_KEY;
   }
   const ghostTexture = GHOST_TEXTURE_BY_ID[drawableId];
   if (ghostTexture !== undefined) {
@@ -144,7 +146,7 @@ function ensurePlayerVisual(
       cycleIndex: 0,
       lastX: x,
       lastY: y,
-      textureKey: pacmanTextureKey("right", CLOSED_MOUTH_FRAME),
+      textureKey: PLAYER_CLOSED_MOUTH_TEXTURE_KEY,
     };
     playerVisuals.set(eid, visual);
   }

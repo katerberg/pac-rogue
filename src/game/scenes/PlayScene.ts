@@ -112,7 +112,12 @@ import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
-import { createRender, preloadPlayArt, type PlayRender } from "../systems/render";
+import {
+  createRender,
+  preloadPlayArt,
+  PLAYER_CLOSED_MOUTH_TEXTURE_KEY,
+  type PlayRender,
+} from "../systems/render";
 import {
   addPixelText,
   HUD_FONT_SIZE,
@@ -121,8 +126,6 @@ import {
   UPGRADES_HUD_FONT_SIZE,
   placePixelText,
 } from "./pixelFont";
-
-const LIVES_ICON_TEXTURE = "pacman-right-3";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
@@ -458,7 +461,10 @@ export class PlayScene extends Phaser.Scene {
     const y = PLAYFIELD_HEIGHT - 8 - size / 2;
     for (let i = 0; i < this.lives; i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
-      const icon = this.add.image(x, y, LIVES_ICON_TEXTURE).setDisplaySize(size, size).setDepth(10);
+      const icon = this.add
+        .image(x, y, PLAYER_CLOSED_MOUTH_TEXTURE_KEY)
+        .setDisplaySize(size, size)
+        .setDepth(10);
       this.lifeIcons.push(icon);
     }
   }
