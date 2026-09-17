@@ -6,7 +6,7 @@ import {
   type RunHistory,
 } from "../../domain/runHistory";
 
-export const RUN_HISTORY_STORAGE_KEY = "pac-rogue.run-history.v1";
+export const RUN_HISTORY_STORAGE_KEY = "pac-rogue.run-history.v2";
 
 function readStorage(): Storage | null {
   try {
@@ -32,9 +32,10 @@ export function loadRunHistory(): RunHistory {
   }
 }
 
-export function saveSuccessfulRun(
-  score: number,
-  clearedAt: string = new Date().toISOString(),
+export function saveRun(
+  collectedCount: number,
+  remainingTime: number,
+  recordedAt: string = new Date().toISOString(),
 ): void {
   const storage = readStorage();
   if (storage === null) {
@@ -42,7 +43,7 @@ export function saveSuccessfulRun(
   }
 
   try {
-    const next = appendRun(loadRunHistory(), score, clearedAt);
+    const next = appendRun(loadRunHistory(), collectedCount, remainingTime, recordedAt);
     storage.setItem(RUN_HISTORY_STORAGE_KEY, serializeRunHistory(next));
   } catch {
     return;

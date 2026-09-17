@@ -295,7 +295,7 @@ function applyOppositeEdgeSafety(walls: boolean[][]): void {
   }
 }
 
-export function parseMaze(ascii: string = MAZE_ASCII_BY_ID.classic): boolean[][] {
+export function parseMaze(ascii: string = MAZE_ASCII_BY_ID.maze1): boolean[][] {
   const rows = ascii.split("\n");
   if (rows.length !== MAZE_ROWS) {
     throw new Error(`maze must have ${MAZE_ROWS} rows, got ${rows.length}`);
@@ -319,7 +319,7 @@ export function parseMaze(ascii: string = MAZE_ASCII_BY_ID.classic): boolean[][]
   return grid;
 }
 
-export function parseHouse(ascii: string = MAZE_ASCII_BY_ID.classic): boolean[][] {
+export function parseHouse(ascii: string = MAZE_ASCII_BY_ID.maze1): boolean[][] {
   const rows = ascii.split("\n");
   const house = emptyFlagGrid();
   for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -334,7 +334,7 @@ export function parseHouse(ascii: string = MAZE_ASCII_BY_ID.classic): boolean[][
   return house;
 }
 
-export function parseDoor(ascii: string = MAZE_ASCII_BY_ID.classic): boolean[][] {
+export function parseDoor(ascii: string = MAZE_ASCII_BY_ID.maze1): boolean[][] {
   const rows = ascii.split("\n");
   const door = emptyFlagGrid();
   for (let row = 0; row < MAZE_ROWS; row += 1) {
@@ -439,7 +439,7 @@ function buildLayout(id: MazeLayoutId): MazeLayout {
     throw new Error(`maze ${id} has no pellets`);
   }
 
-  const basePelletCount = id === "classic" ? pelletCount : getLayout("classic").pelletCount;
+  const basePelletCount = id === "maze1" ? pelletCount : getLayout("maze1").pelletCount;
   const fruitThresholds = scaleFruitThresholds(pelletCount, basePelletCount);
   const { elroy1DotsLeft, elroy2DotsLeft } = scaleElroyCutoffs(pelletCount, basePelletCount);
 
@@ -476,7 +476,7 @@ export function getLayout(id: MazeLayoutId): MazeLayout {
   return layout;
 }
 
-let activeLayout: MazeLayout = getLayout("classic");
+let activeLayout: MazeLayout = getLayout("maze1");
 
 export function getActiveLayout(): MazeLayout {
   return activeLayout;

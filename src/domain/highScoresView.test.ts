@@ -1,21 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { RUN_HISTORY_VERSION } from "./runHistory";
 import {
-  dateLabelFromClearedAt,
+  dateLabelFromRecordedAt,
   formatHighScoreHeader,
   formatHighScoreLine,
+  HIGH_SCORE_COLUMN_GAP,
   HIGH_SCORE_DATE_WIDTH,
+  HIGH_SCORE_PELLETS_WIDTH,
   HIGH_SCORE_TIME_WIDTH,
   toHighScoreRows,
 } from "./highScoresView";
 
-describe("dateLabelFromClearedAt", () => {
+describe("dateLabelFromRecordedAt", () => {
   it("uses the YYYY-MM-DD prefix from ISO timestamps", () => {
-    expect(dateLabelFromClearedAt("2026-03-15T12:34:56.000Z")).toBe("2026-03-15");
+    expect(dateLabelFromRecordedAt("2026-03-15T12:34:56.000Z")).toBe("2026-03-15");
   });
 
   it("falls back when the prefix is missing", () => {
-    expect(dateLabelFromClearedAt("not-a-date")).toBe("????-??-??");
+    expect(dateLabelFromRecordedAt("not-a-date")).toBe("????-??-??");
   });
 });
 
@@ -24,21 +26,69 @@ describe("toHighScoreRows", () => {
     expect(toHighScoreRows({ version: RUN_HISTORY_VERSION, runs: [] })).toEqual([]);
   });
 
-  it("sorts by score descending and newer clearedAt on ties", () => {
+  it("sorts by collected descending, then remainingTime descending, then newer recordedAt", () => {
     const rows = toHighScoreRows({
       version: RUN_HISTORY_VERSION,
       runs: [
-        { score: 100, clearedAt: "2026-01-01T00:00:00.000Z" },
-        { score: 300, clearedAt: "2026-01-02T00:00:00.000Z" },
-        { score: 200, clearedAt: "2026-01-03T00:00:00.000Z" },
-        { score: 200, clearedAt: "2026-01-04T00:00:00.000Z" },
+        {
+          collectedCount: 10,
+          remainingTime: 100,
+          recordedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          collectedCount: 30,
+          remainingTime: 50,
+          recordedAt: "2026-01-02T00:00:00.000Z",
+        },
+        {
+          collectedCount: 20,
+          remainingTime: 200,
+          recordedAt: "2026-01-03T00:00:00.000Z",
+        },
+        {
+          collectedCount: 20,
+          remainingTime: 300,
+          recordedAt: "2026-01-04T00:00:00.000Z",
+        },
+        {
+          collectedCount: 20,
+          remainingTime: 300,
+          recordedAt: "2026-01-05T00:00:00.000Z",
+        },
       ],
     });
-    expect(rows.map((row) => ({ score: row.score, clearedAt: row.clearedAt }))).toEqual([
-      { score: 300, clearedAt: "2026-01-02T00:00:00.000Z" },
-      { score: 200, clearedAt: "2026-01-04T00:00:00.000Z" },
-      { score: 200, clearedAt: "2026-01-03T00:00:00.000Z" },
-      { score: 100, clearedAt: "2026-01-01T00:00:00.000Z" },
+    expect(
+      rows.map((row) => ({
+        collectedCount: row.collectedCount,
+        remainingTime: row.remainingTime,
+        recordedAt: row.recordedAt,
+      })),
+    ).toEqual([
+      {
+        collectedCount: 30,
+        remainingTime: 50,
+        recordedAt: "2026-01-02T00:00:00.000Z",
+      },
+      {
+        collectedCount: 20,
+        remainingTime: 300,
+        recordedAt: "2026-01-05T00:00:00.000Z",
+      },
+      {
+        collectedCount: 20,
+        remainingTime: 300,
+        recordedAt: "2026-01-04T00:00:00.000Z",
+      },
+      {
+        collectedCount: 20,
+        remainingTime: 200,
+        recordedAt: "2026-01-03T00:00:00.000Z",
+      },
+      {
+        collectedCount: 10,
+        remainingTime: 100,
+        recordedAt: "2026-01-01T00:00:00.000Z",
+      },
     ]);
   });
 });
@@ -47,14 +97,21 @@ describe("formatHighScoreHeader / formatHighScoreLine", () => {
   it("uses one fixed-width template so header and rows share columns", () => {
     const header = formatHighScoreHeader();
     const line = formatHighScoreLine({
-      score: 880,
+      collectedCount: 42,
+      remainingTime: 880,
       dateLabel: "2026-01-01",
-      clearedAt: "2026-01-01T00:00:00.000Z",
+      recordedAt: "2026-01-01T00:00:00.000Z",
     });
-    expect(header).toBe("TIME  DATE      ");
-    expect(line).toBe(" 880  2026-01-01");
+    expect(header).toBe("PELLETS  TIME  DATE      ");
+    expect(line).toBe("     42   880  2026-01-01");
     expect(header.length).toBe(line.length);
-    expect(header.length).toBe(HIGH_SCORE_TIME_WIDTH + 2 + HIGH_SCORE_DATE_WIDTH);
+    expect(header.length).toBe(
+      HIGH_SCORE_PELLETS_WIDTH +
+        HIGH_SCORE_COLUMN_GAP.length +
+        HIGH_SCORE_TIME_WIDTH +
+        HIGH_SCORE_COLUMN_GAP.length +
+        HIGH_SCORE_DATE_WIDTH,
+    );
     expect(header.indexOf("DATE")).toBe(line.indexOf("2026"));
   });
 });

@@ -9,13 +9,18 @@ import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, Input } from "../components/Input";
 import { Speed } from "../components/Speed";
 
-export function ghostRelease(world: World, clock: GhostReleaseClock, collectedCount: number): void {
+export function ghostRelease(
+  world: World,
+  clock: GhostReleaseClock,
+  collectedCount: number,
+  afterLifeRelease = false,
+): void {
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Input, Speed])) {
     if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
       continue;
     }
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
-    if (!shouldReleaseKind(kind, clock, collectedCount)) {
+    if (!shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease)) {
       continue;
     }
     GhostPhase.value[eid] = GHOST_PHASE.leaving;
