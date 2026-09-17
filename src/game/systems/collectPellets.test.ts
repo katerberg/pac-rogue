@@ -117,7 +117,6 @@ describe("collectPellets", () => {
   it("does not collect a regular pellet in extended range through a wall", () => {
     const py = cellCenterY(2);
     const oy = cellCenterY(2);
-    // Stay in cols 0 and 2 (wall in col 1) but close enough for R0+TILE_SIZE.
     const px = cellCenterX(0) + TILE_SIZE / 2 - 1;
     const ox = cellCenterX(2) - TILE_SIZE / 2 + 1;
     const { world } = spawnPlayer(px, py);
