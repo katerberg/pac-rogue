@@ -400,6 +400,7 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "siren");
       playSfx(this, "levelComplete");
       this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+      this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
       return;
     }
 
