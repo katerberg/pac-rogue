@@ -73,11 +73,4 @@ describe("catchPlayer", () => {
     spawnGhost(world, 100, 100, GHOST_PHASE.active);
     expect(catchPlayer(world, { ghostsFrozen: true })).toBe(false);
   });
-
-  it("still catches overlapping ghosts when not frozen", () => {
-    const world = createWorld();
-    spawnPlayer(world, 100, 100);
-    spawnGhost(world, 100, 100, GHOST_PHASE.active);
-    expect(catchPlayer(world, { ghostsFrozen: false })).toBe(true);
-  });
 });

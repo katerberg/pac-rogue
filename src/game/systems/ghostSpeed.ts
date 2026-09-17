@@ -9,12 +9,19 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 
+export type GhostSpeedOptions = {
+  ghostSpeedMul?: number;
+  frozen?: boolean;
+};
+
 export function applyGhostSpeed(
   world: World,
   pelletsRemaining: number,
-  ghostSpeedMul = 1,
-  frozen = false,
+  options: GhostSpeedOptions = {},
 ): void {
+  const ghostSpeedMul = options.ghostSpeedMul ?? 1;
+  const frozen = options.frozen === true;
+
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Speed])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
     if (phase === GHOST_PHASE.inHouse) {

@@ -55,7 +55,7 @@ import {
   ghostSpeedMultiplier,
   grantRandomUpgrade,
   parseEnableUpgradeParams,
-  parseForceUpgradeParam,
+  parseUpgradeId,
   playerSpeedMultiplier,
   tickFreeze,
   upgradeLabels,
@@ -137,7 +137,7 @@ export class PlayScene extends Phaser.Scene {
     this.fruitPresence = createFruitPresence();
     const urlParams = new URLSearchParams(location.search);
     this.runUpgrades = createRunUpgrades(
-      parseForceUpgradeParam(urlParams.get("forceUpgrade")),
+      parseUpgradeId(urlParams.get("forceUpgrade")),
       parseEnableUpgradeParams(urlParams),
     );
 
@@ -185,12 +185,10 @@ export class PlayScene extends Phaser.Scene {
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     const frozen = ghostsAreFrozen(this.runUpgrades);
     applyPlayerSpeed(this.world, playerSpeedMultiplier(this.runUpgrades.owned));
-    applyGhostSpeed(
-      this.world,
-      this.pelletProgress.pelletsRemaining,
-      ghostSpeedMultiplier(this.runUpgrades.owned),
+    applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
+      ghostSpeedMul: ghostSpeedMultiplier(this.runUpgrades.owned),
       frozen,
-    );
+    });
     movement(this.world, delta);
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {

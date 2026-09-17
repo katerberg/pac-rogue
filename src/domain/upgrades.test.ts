@@ -10,7 +10,7 @@ import {
   grantRandomUpgrade,
   grantUpgrade,
   parseEnableUpgradeParams,
-  parseForceUpgradeParam,
+  parseUpgradeId,
   pickUpgrade,
   playerSpeedMultiplier,
   ghostSpeedMultiplier,
@@ -24,14 +24,14 @@ function withForce(forceNextId: UpgradeId | null, owned: UpgradeId[] = []): RunU
   return { ...createRunUpgrades(forceNextId), owned };
 }
 
-describe("parseForceUpgradeParam", () => {
+describe("parseUpgradeId", () => {
   it("parses known ids and rejects invalid", () => {
-    expect(parseForceUpgradeParam("ghostSlow")).toBe("ghostSlow");
-    expect(parseForceUpgradeParam("playerSpeedUp")).toBe("playerSpeedUp");
-    expect(parseForceUpgradeParam("powerPelletFreeze")).toBe("powerPelletFreeze");
-    expect(parseForceUpgradeParam("nope")).toBeNull();
-    expect(parseForceUpgradeParam(null)).toBeNull();
-    expect(parseForceUpgradeParam("")).toBeNull();
+    expect(parseUpgradeId("ghostSlow")).toBe("ghostSlow");
+    expect(parseUpgradeId("playerSpeedUp")).toBe("playerSpeedUp");
+    expect(parseUpgradeId("powerPelletFreeze")).toBe("powerPelletFreeze");
+    expect(parseUpgradeId("nope")).toBeNull();
+    expect(parseUpgradeId(null)).toBeNull();
+    expect(parseUpgradeId("")).toBeNull();
   });
 });
 

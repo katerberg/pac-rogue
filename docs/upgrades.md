@@ -31,7 +31,7 @@ Energizers stay inert unless an owned upgrade reacts. v1: only `onPowerPellet.fr
 
 ## Freeze / catch / tint
 
-- While `freezeRemainingMs > 0`, `applyGhostSpeed(..., frozen: true)` sets leaving/active ghost `Speed.px = 0` (house stays 0). Mode/release/run clocks keep ticking.
+- While `freezeRemainingMs > 0`, `applyGhostSpeed(..., { frozen: true })` sets leaving/active ghost `Speed.px = 0` (house stays 0). Mode/release/run clocks keep ticking.
 - `catchPlayer({ ghostsFrozen: true })` skips kill (walk-through). When freeze expires while overlapping, the same update’s catch after `tickFreeze` can kill.
 - One-frame lag after a power pellet starts freeze is accepted: Speed may clear on the next frame while catch already skips.
 - `render(world, { ghostsFrozen })` tints leaving/active ghost sprites cyan while frozen; clears tint otherwise (in-house ghosts stay untinted).

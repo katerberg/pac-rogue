@@ -49,7 +49,7 @@ export function createRunUpgrades(
   return state;
 }
 
-export function parseForceUpgradeParam(raw: string | null): UpgradeId | null {
+export function parseUpgradeId(raw: string | null): UpgradeId | null {
   if (raw === null) {
     return null;
   }
@@ -59,7 +59,7 @@ export function parseForceUpgradeParam(raw: string | null): UpgradeId | null {
 export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
   const ids: UpgradeId[] = [];
   for (const raw of params.getAll("enableUpgrade")) {
-    const id = parseForceUpgradeParam(raw);
+    const id = parseUpgradeId(raw);
     if (id !== null) {
       ids.push(id);
     }
