@@ -11,7 +11,6 @@ export type UpgradeDef = {
 export const FREEZE_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
-export const GHOST_FROZEN_TINT = 0x7ec8ff;
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {

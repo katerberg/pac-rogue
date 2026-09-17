@@ -8,6 +8,7 @@ const CHARS_PER_ROW = 16;
 const CHARSET = Phaser.GameObjects.RetroFont.TEXT_SET1;
 
 export const HUD_FONT_SIZE = 16;
+export const UPGRADES_HUD_FONT_SIZE = 8;
 export const MENU_TITLE_FONT_SIZE = 32;
 export const MENU_OPTION_FONT_SIZE = 16;
 export const SCORES_FONT_SIZE = 16;

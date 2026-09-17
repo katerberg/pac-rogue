@@ -95,7 +95,7 @@ import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { createRender, preloadPlayArt, type RenderOptions } from "../systems/render";
-import { addPixelText, HUD_FONT_SIZE, placePixelText } from "./pixelFont";
+import { addPixelText, HUD_FONT_SIZE, UPGRADES_HUD_FONT_SIZE, placePixelText } from "./pixelFont";
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
@@ -150,7 +150,7 @@ export class PlayScene extends Phaser.Scene {
     ).setDepth(10);
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
-    this.upgradesText = addPixelText(this, 12, PLAYFIELD_HEIGHT / 2, "", HUD_FONT_SIZE)
+    this.upgradesText = addPixelText(this, 12, PLAYFIELD_HEIGHT / 2, "", UPGRADES_HUD_FONT_SIZE)
       .setDepth(10)
       .setVisible(false);
     this.refreshUpgradesHud();

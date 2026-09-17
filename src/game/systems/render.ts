@@ -20,9 +20,10 @@ import {
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
-import { GHOST_FROZEN_TINT } from "../../domain/upgrades";
+import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
+import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -33,6 +34,7 @@ const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
+const GHOST_FROZEN_TINT = 0x7ec8ff;
 const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -208,7 +210,8 @@ export function createRender(scene: Phaser.Scene): (world: World, opts?: RenderO
       go.setPosition(x, y);
 
       if (ghostTexture !== undefined) {
-        if (ghostsFrozen) {
+        const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
+        if (ghostsFrozen && phase !== GHOST_PHASE.inHouse) {
           go.setTint(GHOST_FROZEN_TINT);
         } else {
           go.clearTint();

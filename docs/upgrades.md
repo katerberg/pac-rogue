@@ -10,11 +10,11 @@ Fruit grants **run-long** upgrades for the current `PlayScene` only. There is no
 
 ### Current defs
 
-| Id                  | Label        | Effect                                                                                           |
-| ------------------- | ------------ | ------------------------------------------------------------------------------------------------ |
-| `powerPelletFreeze` | Power Freeze | Power pellet freezes leaving/active ghosts for `FREEZE_MS` (3000); cyan tint `GHOST_FROZEN_TINT` |
-| `playerSpeedUp`     | Speed Up     | Player speed × `PLAYER_SPEED_UP_MUL` (1.25)                                                      |
-| `ghostSlow`         | Ghost Slow   | Ghost resolved speed × `GHOST_SLOW_MUL` (0.75)                                                   |
+| Id                  | Label        | Effect                                                                                        |
+| ------------------- | ------------ | --------------------------------------------------------------------------------------------- |
+| `powerPelletFreeze` | Power Freeze | Power pellet freezes leaving/active ghosts for `FREEZE_MS` (3000); cyan tint on those sprites |
+| `playerSpeedUp`     | Speed Up     | Player speed × `PLAYER_SPEED_UP_MUL` (1.25)                                                   |
+| `ghostSlow`         | Ghost Slow   | Ghost resolved speed × `GHOST_SLOW_MUL` (0.75)                                                |
 
 ## Grant rules
 
@@ -32,7 +32,7 @@ Energizers stay inert unless an owned upgrade reacts. v1: only `onPowerPellet.fr
 - While `freezeRemainingMs > 0`, `applyGhostSpeed(..., frozen: true)` sets leaving/active ghost `Speed.px = 0` (house stays 0). Mode/release/run clocks keep ticking.
 - `catchPlayer({ ghostsFrozen: true })` skips kill (walk-through). When freeze expires while overlapping, the same update’s catch after `tickFreeze` can kill.
 - One-frame lag after a power pellet starts freeze is accepted: Speed may clear on the next frame while catch already skips.
-- `render(world, { ghostsFrozen })` tints ghost sprites with `GHOST_FROZEN_TINT` while frozen; clears tint otherwise.
+- `render(world, { ghostsFrozen })` tints leaving/active ghost sprites cyan while frozen; clears tint otherwise (in-house ghosts stay untinted).
 
 ## Speed muls
 
@@ -40,7 +40,7 @@ Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned)`; `ap
 
 ## HUD
 
-Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`), depth 10. Hidden until at least one upgrade is owned; then shows `UpgradeDef.label` lines joined by `\n`. Text now; icons later.
+Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`, 8px so labels stay left of `MAZE_OFFSET_X`), depth 10. Hidden until at least one upgrade is owned; then shows `UpgradeDef.label` lines joined by `\n`. Text now; icons later.
 
 ## Adding an upgrade
 
