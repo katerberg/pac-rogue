@@ -13,14 +13,34 @@ export type ScoreListScrollState = {
   pauseRemainingMs: number;
 };
 
-export const DEFAULT_SCORE_LIST_SCROLL: ScoreListScrollConfig = {
-  scrollWhenMoreThan: 5,
-  pauseMs: 1500,
-  pixelsPerSecond: 40,
-  rowHeight: 28,
-  viewportRows: 5,
-  trailRows: 3,
-};
+export const SCORE_LIST_ROW_HEIGHT = 28;
+export const SCORE_LIST_PAUSE_MS = 1500;
+export const SCORE_LIST_PIXELS_PER_SECOND = 40;
+export const SCORE_LIST_TRAIL_ROWS = 3;
+
+export function fitScoreListViewportRows(
+  availableHeightPx: number,
+  rowHeight: number = SCORE_LIST_ROW_HEIGHT,
+): number {
+  if (rowHeight <= 0) {
+    return 1;
+  }
+  return Math.max(1, Math.floor(availableHeightPx / rowHeight));
+}
+
+export function buildScoreListScrollConfig(viewportRows: number): ScoreListScrollConfig {
+  const rows = Math.max(1, Math.floor(viewportRows));
+  return {
+    scrollWhenMoreThan: rows,
+    pauseMs: SCORE_LIST_PAUSE_MS,
+    pixelsPerSecond: SCORE_LIST_PIXELS_PER_SECOND,
+    rowHeight: SCORE_LIST_ROW_HEIGHT,
+    viewportRows: rows,
+    trailRows: SCORE_LIST_TRAIL_ROWS,
+  };
+}
+
+export const DEFAULT_SCORE_LIST_SCROLL: ScoreListScrollConfig = buildScoreListScrollConfig(5);
 
 export function contentScrollExtent(itemCount: number, config: ScoreListScrollConfig): number {
   const contentHeight = itemCount * config.rowHeight + config.trailRows * config.rowHeight;
