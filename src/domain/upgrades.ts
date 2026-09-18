@@ -29,6 +29,7 @@ export type UpgradeDef = {
   onPowerPellet?: {
     freezeGhostsMs?: number;
     scatterBurstMs?: number;
+    wallPassMs?: number;
     playerInvulnMs?: number;
     playerSpeedBurstMs?: number;
     recallClosestGhost?: true;
@@ -39,6 +40,7 @@ export type UpgradeDef = {
 
 export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
+export const WALL_PASS_MS = 3000;
 export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
@@ -120,6 +122,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "powerWallPass",
     label: "Wall Pass",
     description: "Power pellet lets you slip through walls for a breath.",
+    onPowerPellet: { wallPassMs: WALL_PASS_MS },
   },
   {
     id: "powerSpeedBurst",
@@ -145,6 +148,7 @@ export type RunUpgrades = {
   owned: UpgradeId[];
   freezeRemainingMs: number;
   scatterBurstRemainingMs: number;
+  wallPassRemainingMs: number;
   invulnRemainingMs: number;
   speedBurstRemainingMs: number;
   forceNextId: UpgradeId | null;
@@ -166,6 +170,7 @@ export function createRunUpgrades(
     owned: [],
     freezeRemainingMs: 0,
     scatterBurstRemainingMs: 0,
+    wallPassRemainingMs: 0,
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
     forceNextId,
@@ -309,6 +314,16 @@ export function tickScatterBurst(state: RunUpgrades, deltaMs: number): RunUpgrad
   };
 }
 
+export function tickWallPass(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.wallPassRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    wallPassRemainingMs: Math.max(0, state.wallPassRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function tickInvuln(state: RunUpgrades, deltaMs: number): RunUpgrades {
   if (state.invulnRemainingMs <= 0) {
     return state;
@@ -344,6 +359,7 @@ export function applyPowerPelletEffects(
 
   let freezeMs: number | null = null;
   let scatterMs: number | null = null;
+  let wallPassMs: number | null = null;
   let invulnMs: number | null = null;
   let speedBurstMs: number | null = null;
   let recallClosestGhost = false;
@@ -362,6 +378,10 @@ export function applyPowerPelletEffects(
     if (onPower.scatterBurstMs !== undefined) {
       scatterMs =
         scatterMs === null ? onPower.scatterBurstMs : Math.max(scatterMs, onPower.scatterBurstMs);
+    }
+    if (onPower.wallPassMs !== undefined) {
+      wallPassMs =
+        wallPassMs === null ? onPower.wallPassMs : Math.max(wallPassMs, onPower.wallPassMs);
     }
     if (onPower.playerInvulnMs !== undefined) {
       invulnMs =
@@ -390,6 +410,9 @@ export function applyPowerPelletEffects(
   }
   if (scatterMs !== null) {
     next = { ...next, scatterBurstRemainingMs: scatterMs };
+  }
+  if (wallPassMs !== null) {
+    next = { ...next, wallPassRemainingMs: wallPassMs };
   }
   if (invulnMs !== null) {
     next = { ...next, invulnRemainingMs: invulnMs };
@@ -471,6 +494,10 @@ export function playerIsInvulnerable(state: RunUpgrades): boolean {
 
 export function scatterBurstActive(state: RunUpgrades): boolean {
   return state.scatterBurstRemainingMs > 0;
+}
+
+export function wallPassActive(state: RunUpgrades): boolean {
+  return state.wallPassRemainingMs > 0;
 }
 
 export function speedBurstActive(state: RunUpgrades): boolean {

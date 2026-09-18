@@ -37,6 +37,7 @@ const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
+export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 const PLAYER_INVULN_TINT = 0xc48a00;
 const PLAYER_INVULN_BLINK_MS = 100;
 const PLAYER_INVULN_URGENCY_MS = 1000;
@@ -163,6 +164,7 @@ function ensurePlayerVisual(
 export type RenderOptions = {
   ghostsFrozen?: boolean;
   playerInvulnRemainingMs?: number;
+  wallPassActive?: boolean;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -227,8 +229,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
   const draw = (world: World, opts?: RenderOptions): void => {
     const ghostsFrozen = opts?.ghostsFrozen === true;
+    const wallPassOn = opts?.wallPassActive === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const playerInvulnTintOn =
+      !wallPassOn &&
       invulnRemainingMs > 0 &&
       (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
         Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
@@ -313,7 +317,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         visual.lastX = x;
         visual.lastY = y;
 
-        if (playerInvulnTintOn) {
+        if (wallPassOn) {
+          go.setTint(PLAYER_WALL_PASS_TINT);
+        } else if (playerInvulnTintOn) {
           go.setTint(PLAYER_INVULN_TINT);
         } else {
           go.clearTint();
@@ -336,7 +342,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
                 twinGo.setDisplaySize(actorDisplaySize, actorDisplaySize);
               }
             }
-            if (playerInvulnTintOn) {
+            if (wallPassOn) {
+              twinGo.setTint(PLAYER_WALL_PASS_TINT);
+            } else if (playerInvulnTintOn) {
               twinGo.setTint(PLAYER_INVULN_TINT);
             } else {
               twinGo.clearTint();

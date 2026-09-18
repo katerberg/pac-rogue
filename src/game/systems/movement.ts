@@ -100,9 +100,9 @@ function ghostPhaseOf(world: World, eid: number): number {
   return GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
 }
 
-export function movement(world: World, deltaMs: number): void {
+export function movement(world: World, deltaMs: number, playerSolidsOverride?: SolidGrid): void {
   const dt = deltaMs / 1000;
-  const playerSolids = getActiveLayout().playerSolids;
+  const playerSolids = playerSolidsOverride ?? getActiveLayout().playerSolids;
 
   for (const eid of query(world, [Position, Velocity, Input, Facing, Speed])) {
     const speed = Speed.px[eid] ?? 0;
