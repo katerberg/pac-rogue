@@ -144,11 +144,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import {
-  createUpgradeChoiceModal,
-  UPGRADE_RESUME_COUNTDOWN_MS,
-  type UpgradeChoiceModal,
-} from "./upgradeChoiceModal";
+import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 
 const LEVEL_TRANSITION_MS = 1000;
 const LEVEL_BANNER_FADE_MS = 1500;
@@ -185,9 +181,6 @@ export class PlayScene extends Phaser.Scene {
   private afterLifeRelease = false;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private upgradeChoiceModal!: UpgradeChoiceModal;
-  private resumeCountdownRemainingMs = 0;
-  private resumeCountdownDim: Phaser.GameObjects.Rectangle | null = null;
-  private resumeCountdownText: Phaser.GameObjects.BitmapText | null = null;
 
   constructor() {
     super("PlayScene");
@@ -204,7 +197,6 @@ export class PlayScene extends Phaser.Scene {
     this.afterLifeRelease = false;
     this.lifetimeCollected = 0;
     this.levelTransitionRemainingMs = 0;
-    this.clearUpgradeResumeCountdown();
     this.clearLevelBanner();
     this.upgradeChoiceModal?.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this);
@@ -261,7 +253,6 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "siren");
       stopLoopingSfx(this, "death");
       this.upgradeChoiceModal.destroy();
-      this.clearUpgradeResumeCountdown();
       this.clearLevelBanner();
     });
   }
@@ -289,19 +280,7 @@ export class PlayScene extends Phaser.Scene {
       if (this.upgradeChoiceModal.isActive()) {
         return;
       }
-    }
-
-    if (this.resumeCountdownRemainingMs > 0) {
-      this.resumeCountdownRemainingMs = Math.max(0, this.resumeCountdownRemainingMs - delta);
-      this.refreshUpgradeResumeCountdownText();
-      if (this.resumeCountdownRemainingMs === 0) {
-        this.clearUpgradeResumeCountdown();
-        this.suppressPlayerInputUntilKeyRelease = true;
-      } else {
-        const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
-        this.playRender.draw(this.world, { ghostsFrozen });
-        return;
-      }
+      this.suppressPlayerInputUntilKeyRelease = true;
     }
 
     if (this.suppressPlayerInputUntilKeyRelease) {
@@ -456,7 +435,6 @@ export class PlayScene extends Phaser.Scene {
             }
           }
           this.refreshUpgradesHud();
-          this.beginUpgradeResumeCountdown();
         });
         const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
         this.playRender.draw(this.world, { ghostsFrozen });
@@ -542,7 +520,6 @@ export class PlayScene extends Phaser.Scene {
   private advanceToNextLevel(): void {
     this.upgradeChoiceModal.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this);
-    this.clearUpgradeResumeCountdown();
 
     this.levelIndex += 1;
     this.runUpgrades = {
@@ -587,47 +564,6 @@ export class PlayScene extends Phaser.Scene {
   private clearLevelBanner(): void {
     this.levelBannerText?.destroy();
     this.levelBannerText = null;
-  }
-
-  private beginUpgradeResumeCountdown(): void {
-    this.clearUpgradeResumeCountdown();
-    this.resumeCountdownRemainingMs = UPGRADE_RESUME_COUNTDOWN_MS;
-    this.resumeCountdownDim = this.add
-      .rectangle(
-        PLAYFIELD_WIDTH / 2,
-        PLAYFIELD_HEIGHT / 2,
-        PLAYFIELD_WIDTH,
-        PLAYFIELD_HEIGHT,
-        0x000000,
-        0.45,
-      )
-      .setDepth(900);
-    this.resumeCountdownText = addPixelText(
-      this,
-      PLAYFIELD_WIDTH / 2,
-      PLAYFIELD_HEIGHT / 2,
-      "3",
-      MENU_TITLE_FONT_SIZE * 2,
-      TEXT_COLOR_YELLOW,
-    ).setDepth(901);
-    this.refreshUpgradeResumeCountdownText();
-  }
-
-  private refreshUpgradeResumeCountdownText(): void {
-    if (this.resumeCountdownText === null || this.resumeCountdownRemainingMs <= 0) {
-      return;
-    }
-    const seconds = Math.max(1, Math.ceil(this.resumeCountdownRemainingMs / 1000));
-    this.resumeCountdownText.setText(String(seconds));
-    placePixelText(this.resumeCountdownText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
-  }
-
-  private clearUpgradeResumeCountdown(): void {
-    this.resumeCountdownRemainingMs = 0;
-    this.resumeCountdownDim?.destroy();
-    this.resumeCountdownDim = null;
-    this.resumeCountdownText?.destroy();
-    this.resumeCountdownText = null;
   }
 
   private handleDeathEvent(event: DeathSequenceEvent): void {

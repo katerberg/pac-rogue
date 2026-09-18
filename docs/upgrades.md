@@ -46,7 +46,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 - **0.5s lockout** after open: fuzz-in (alpha ramp + light jitter + BitmapText scramble). Keyboard and click disabled.
 - After lockout: already in selection mode (highlight + LEFT/RIGHT hints). **Click** a button to grant, or **Left/A** / **Right/D** after any held Left/Right/A/D keys have been released (keys held through open/lockout are ignored). One-button: either direction confirms. No Esc / dismiss — must pick.
 - On confirm: `grantUpgrade` chosen id; clear `forceNextId`; if two options were shown, set `lastDeclinedUpgradeId` to the other; one-button leaves prior decline unchanged. HUD refreshes.
-- After confirm: **3s resume countdown** (sim stays frozen; big 3→2→1). Then play resumes; movement keys held from the modal are ignored until released.
+- After confirm: **confirm outro** while sim stays frozen — chosen option double-pulses (scale bounce + stroke thicken, ~400ms); the other option fades out during that pulse; then the whole modal (dim + chrome + chosen) fades out over **1s**. Then play resumes; movement keys held from the modal are ignored until released.
 - `enableUpgrade` (repeatable) → each valid id granted into `owned` at create (order preserved; duplicates ignored by `grantUpgrade`). Combines with `forceUpgrade`.
 
 ## Power pellets

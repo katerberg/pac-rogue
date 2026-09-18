@@ -12,7 +12,8 @@ import {
 } from "./pixelFont";
 
 export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
-export const UPGRADE_RESUME_COUNTDOWN_MS = 3000;
+export const UPGRADE_CONFIRM_PULSE_MS = 400;
+export const UPGRADE_CONFIRM_FADE_MS = 1000;
 
 const MODAL_DEPTH = 900;
 const BUTTON_WIDTH = 340;
@@ -20,8 +21,12 @@ const BUTTON_HEIGHT = 220;
 const LABEL_MAX_CHARS = 9;
 const DESCRIPTION_MAX_CHARS = 28;
 const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const BUTTON_STROKE_REST = 4;
+const BUTTON_STROKE_PEAK = 8;
+const BUTTON_SCALE_PEAK = 1.08;
+const PULSE_BEATS = 2;
 
-type Phase = "opening" | "selecting";
+type Phase = "opening" | "selecting" | "confirming";
 
 type ButtonView = {
   root: Phaser.GameObjects.Container;
@@ -55,6 +60,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
   let keyA: Phaser.Input.Keyboard.Key | null = null;
   let keyD: Phaser.Input.Keyboard.Key | null = null;
   let choiceKeysArmed = false;
+  let selectedIndex = 0;
 
   const ensureKeys = (): void => {
     if (scene.input.keyboard === null || cursors !== null) {
@@ -87,17 +93,68 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     selectionFrame = null;
   };
 
-  const finish = (chosen: UpgradeId): void => {
-    if (phase === null || onConfirm === null) {
+  const resetConfirmVisuals = (): void => {
+    for (const button of buttons) {
+      button.root.setScale(1);
+      button.bg.setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
+    }
+  };
+
+  const applyConfirmPulse = (pulseProgress: number): void => {
+    const selected = buttons[selectedIndex];
+    if (selected === undefined) {
       return;
     }
-    const confirm = onConfirm;
+    const beatProgress = (pulseProgress * PULSE_BEATS) % 1;
+    const triangle = beatProgress < 0.5 ? beatProgress * 2 : (1 - beatProgress) * 2;
+    selected.root.setScale(1 + (BUTTON_SCALE_PEAK - 1) * triangle);
+    const strokeWidth = BUTTON_STROKE_REST + (BUTTON_STROKE_PEAK - BUTTON_STROKE_REST) * triangle;
+    selected.bg.setStrokeStyle(strokeWidth, TEXT_COLOR_YELLOW);
+
+    for (let i = 0; i < buttons.length; i += 1) {
+      if (i === selectedIndex) {
+        continue;
+      }
+      const other = buttons[i]!;
+      other.root.setAlpha(1 - pulseProgress);
+      other.bg.disableInteractive();
+    }
+  };
+
+  const applyConfirmFade = (fadeProgress: number): void => {
+    const alpha = 1 - fadeProgress;
+    dim?.setAlpha(alpha);
+    const selected = buttons[selectedIndex];
+    if (selected !== undefined) {
+      selected.root.setAlpha(alpha);
+      selected.root.setScale(1);
+      selected.bg.setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
+    }
+    selectionFrame?.setAlpha(alpha);
+    leftHint?.setAlpha(alpha);
+    rightHint?.setAlpha(alpha);
+  };
+
+  const finishConfirming = (): void => {
+    clearViews();
     phase = null;
     elapsedMs = 0;
     choiceKeysArmed = false;
     options = [];
+    selectedIndex = 0;
+  };
+
+  const finish = (chosen: UpgradeId): void => {
+    if (phase !== "selecting" || onConfirm === null) {
+      return;
+    }
+    const confirm = onConfirm;
     onConfirm = null;
-    clearViews();
+    choiceKeysArmed = false;
+    selectedIndex = Math.max(0, options.indexOf(chosen));
+    phase = "confirming";
+    elapsedMs = 0;
+    resetConfirmVisuals();
     confirm(chosen);
   };
 
@@ -106,7 +163,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     leftHint?.setVisible(true);
     rightHint?.setVisible(true);
     for (const button of buttons) {
-      button.bg.setStrokeStyle(4, TEXT_COLOR_YELLOW);
+      button.bg.setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
     }
   };
 
@@ -143,7 +200,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       const descriptionText = wrapText(def.description, DESCRIPTION_MAX_CHARS);
       const bg = scene.add
         .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
-        .setStrokeStyle(4, TEXT_COLOR_YELLOW)
+        .setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW)
         .setInteractive({ useHandCursor: true });
       const label = addPixelText(scene, 0, 0, labelText, MENU_TITLE_FONT_SIZE, TEXT_COLOR_YELLOW);
       const description = addPixelText(
@@ -255,6 +312,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       phase = "opening";
       elapsedMs = 0;
       choiceKeysArmed = false;
+      selectedIndex = 0;
       dim = scene.add
         .rectangle(
           PLAYFIELD_WIDTH / 2,
@@ -278,6 +336,27 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
         applyFuzz(progress);
         if (progress >= 1) {
           enterSelecting();
+        }
+        return;
+      }
+
+      if (phase === "confirming") {
+        elapsedMs += deltaMs;
+        if (elapsedMs < UPGRADE_CONFIRM_PULSE_MS) {
+          applyConfirmPulse(elapsedMs / UPGRADE_CONFIRM_PULSE_MS);
+          return;
+        }
+        resetConfirmVisuals();
+        for (let i = 0; i < buttons.length; i += 1) {
+          if (i !== selectedIndex) {
+            buttons[i]!.root.setAlpha(0);
+          }
+        }
+        const fadeElapsed = elapsedMs - UPGRADE_CONFIRM_PULSE_MS;
+        const fadeProgress = Math.min(1, fadeElapsed / UPGRADE_CONFIRM_FADE_MS);
+        applyConfirmFade(fadeProgress);
+        if (fadeProgress >= 1) {
+          finishConfirming();
         }
         return;
       }
@@ -314,6 +393,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       onConfirm = null;
       options = [];
       choiceKeysArmed = false;
+      selectedIndex = 0;
       clearViews();
     },
   };
