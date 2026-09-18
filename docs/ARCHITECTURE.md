@@ -21,6 +21,7 @@ src/
     countdown.ts
     runClock.ts
     pelletProgress.ts
+    pelletToPower.ts           # pick one regular pellet eid for Pellet Surge
     fruit.ts                  # bonus fruit kinds, 70/170 presence clock
     upgrades.ts               # run upgrade defs + RunUpgrades helpers
     runHistory.ts
@@ -80,6 +81,7 @@ src/
       catchPlayer.ts          # circle overlap → caught (skip when frozen)
       collectPellets.ts
       collectFruit.ts
+      pelletToPower.ts        # Pellet Surge: convert one regular → power
       playerSpeed.ts          # Player Speed from base × upgrade mul
       playerDirection.ts
       playerWarp.ts           # power-pellet warp to dynamic top-center
