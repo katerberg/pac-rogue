@@ -112,24 +112,16 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     selected.bg.setStrokeStyle(strokeWidth, TEXT_COLOR_YELLOW);
 
     for (let i = 0; i < buttons.length; i += 1) {
-      if (i === selectedIndex) {
-        continue;
+      if (i !== selectedIndex) {
+        buttons[i]!.root.setAlpha(1 - pulseProgress);
       }
-      const other = buttons[i]!;
-      other.root.setAlpha(1 - pulseProgress);
-      other.bg.disableInteractive();
     }
   };
 
   const applyConfirmFade = (fadeProgress: number): void => {
     const alpha = 1 - fadeProgress;
     dim?.setAlpha(alpha);
-    const selected = buttons[selectedIndex];
-    if (selected !== undefined) {
-      selected.root.setAlpha(alpha);
-      selected.root.setScale(1);
-      selected.bg.setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
-    }
+    buttons[selectedIndex]?.root.setAlpha(alpha);
     selectionFrame?.setAlpha(alpha);
     leftHint?.setAlpha(alpha);
     rightHint?.setAlpha(alpha);
@@ -152,6 +144,9 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     onConfirm = null;
     choiceKeysArmed = false;
     selectedIndex = Math.max(0, options.indexOf(chosen));
+    for (const button of buttons) {
+      button.bg.disableInteractive();
+    }
     phase = "confirming";
     elapsedMs = 0;
     resetConfirmVisuals();
