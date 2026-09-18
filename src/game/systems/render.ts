@@ -37,9 +37,8 @@ const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
-const PLAYER_INVULN_TINT = 0xffd27a;
-const PLAYER_INVULN_BLINK_SLOW_MS = 400;
-const PLAYER_INVULN_BLINK_FAST_MS = 100;
+const PLAYER_INVULN_TINT = 0xc48a00;
+const PLAYER_INVULN_BLINK_MS = 100;
 const PLAYER_INVULN_URGENCY_MS = 1000;
 const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
@@ -229,12 +228,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const draw = (world: World, opts?: RenderOptions): void => {
     const ghostsFrozen = opts?.ghostsFrozen === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
-    const blinkPeriodMs =
-      invulnRemainingMs > PLAYER_INVULN_URGENCY_MS
-        ? PLAYER_INVULN_BLINK_SLOW_MS
-        : PLAYER_INVULN_BLINK_FAST_MS;
     const playerInvulnTintOn =
-      invulnRemainingMs > 0 && Math.floor(scene.time.now / blinkPeriodMs) % 2 === 0;
+      invulnRemainingMs > 0 &&
+      (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
+        Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
     if (!wallsDrawn) {
       wallGraphics.clear();
       wallGraphics.lineStyle(WALL_STROKE_WEIGHT, WALL_STROKE_COLOR, 1);
