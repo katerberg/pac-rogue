@@ -18,7 +18,6 @@ export function convertPelletToPower(world: World, eid: number): boolean {
   return true;
 }
 
-/** Convert one random regular pellet; returns eid or null. */
 export function applyPelletToPowerConvert(world: World, rng: () => number): number | null {
   const picked = pickPelletToPowerTarget(listRegularPelletEids(world), rng);
   if (picked === null) {

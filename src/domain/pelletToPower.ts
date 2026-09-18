@@ -1,4 +1,3 @@
-/** Pick one candidate eid uniformly; empty → null. */
 export function pickPelletToPowerTarget(
   candidates: readonly number[],
   rng: () => number,
