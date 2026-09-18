@@ -35,6 +35,7 @@ import {
 import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "../../domain/lives";
 import {
   activateLayout,
+  getActiveLayout,
   parseMazeParam,
   pelletCellCenters,
   pickLayoutId,
@@ -75,6 +76,7 @@ import {
   grantLivesForUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
+  pelletCollectRadiusBonusPx,
   pickUpgradeChoiceOffer,
   playerSpeedMultiplier,
   scatterBurstActive,
@@ -347,7 +349,10 @@ export class PlayScene extends Phaser.Scene {
     this.timerText.setText(this.timerLabel());
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
-    const { powerRemoved, removedEids: removedPelletEids } = collectPellets(this.world);
+    const { powerRemoved, removedEids: removedPelletEids } = collectPellets(this.world, {
+      radiusBonusPx: pelletCollectRadiusBonusPx(this.runUpgrades.owned),
+      solids: getActiveLayout().playerSolids,
+    });
     for (const eid of removedPelletEids) {
       this.playRender.releaseDrawable(eid);
     }
