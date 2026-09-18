@@ -235,25 +235,38 @@ describe("maze", () => {
     });
   });
 
-  it("wallPassPlayerSolids opens interior walls but keeps exterior, house, and edge walls solid", () => {
+  it("wallPassPlayerSolids opens house, exterior, and interior walls; keeps non-tunnel edge walls solid", () => {
     const { walls, exterior, house, wallPassPlayerSolids, playerSolids } = getActiveLayout();
     let interiorWall = false;
+    let houseCell = false;
+    let exteriorCell = false;
     for (let row = 0; row < MAZE_ROWS; row += 1) {
       for (let col = 0; col < MAZE_COLS; col += 1) {
         const onEdge = row === 0 || row === MAZE_ROWS - 1 || col === 0 || col === MAZE_COLS - 1;
-        if (walls[row]![col] && !exterior[row]![col] && !house[row]![col]) {
-          expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(!onEdge);
-          expect(isWalkable(col, row, playerSolids)).toBe(false);
-          if (!onEdge) {
-            interiorWall = true;
+        if (walls[row]![col]) {
+          if (onEdge && !isTunnelMouth(col, row, playerSolids)) {
+            expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(false);
+          } else {
+            expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(true);
+            if (!onEdge) {
+              interiorWall = true;
+            }
           }
+          expect(isWalkable(col, row, playerSolids)).toBe(false);
         }
-        if (exterior[row]![col] || house[row]![col]) {
-          expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(false);
+        if (house[row]![col]) {
+          expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(true);
+          houseCell = true;
+        }
+        if (exterior[row]![col]) {
+          expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(true);
+          exteriorCell = true;
         }
       }
     }
     expect(interiorWall).toBe(true);
+    expect(houseCell).toBe(true);
+    expect(exteriorCell).toBe(true);
   });
 
   it("wallPassPlayerSolids keeps wrap on tunnel rows only", () => {

@@ -113,6 +113,37 @@ describe("movement", () => {
     expect(worldToRow(Position.y[eid] ?? 0)).toBe(1);
   });
 
+  it("enters a house neighbor under the wall-pass override", () => {
+    const { playerSolids, wallPassPlayerSolids, house } = getActiveLayout();
+    let fromCol = -1;
+    let fromRow = -1;
+    for (let row = 2; row < 28 && fromCol < 0; row += 1) {
+      for (let col = 2; col < 25; col += 1) {
+        if (!isWalkable(col, row, playerSolids)) {
+          continue;
+        }
+        if (house[row + 1]?.[col] && isWalkable(col, row + 1, wallPassPlayerSolids)) {
+          fromCol = col;
+          fromRow = row;
+          break;
+        }
+      }
+    }
+    expect(fromCol).toBeGreaterThan(0);
+
+    const blocked = spawnAt(fromCol, fromRow);
+    Facing.direction[blocked.eid] = DIRECTION.down;
+    Input.direction[blocked.eid] = DIRECTION.down;
+    movement(blocked.world, 100);
+    expect(worldToRow(Position.y[blocked.eid] ?? 0)).toBe(fromRow);
+
+    const open = spawnAt(fromCol, fromRow);
+    Facing.direction[open.eid] = DIRECTION.down;
+    Input.direction[open.eid] = DIRECTION.down;
+    movement(open.world, 200, wallPassPlayerSolids);
+    expect(worldToRow(Position.y[open.eid] ?? 0)).toBeGreaterThan(fromRow);
+  });
+
   it("keeps ghost Facing at a dead-end so reverse filtering still applies", () => {
     const { world, eid } = spawnAt(26, 1, true);
     Facing.direction[eid] = DIRECTION.right;

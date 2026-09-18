@@ -425,18 +425,14 @@ function buildPlayerSolids(walls: SolidGrid, exterior: SolidGrid, house: SolidGr
   return blocked;
 }
 
-function buildWallPassPlayerSolids(
-  walls: SolidGrid,
-  exterior: SolidGrid,
-  house: SolidGrid,
-): boolean[][] {
+function buildWallPassPlayerSolids(walls: SolidGrid, playerSolids: SolidGrid): boolean[][] {
   const blocked = emptyFlagGrid();
   for (let row = 0; row < MAZE_ROWS; row += 1) {
     for (let col = 0; col < MAZE_COLS; col += 1) {
-      const edgeWall =
-        Boolean(walls[row]?.[col]) &&
-        (row === 0 || row === MAZE_ROWS - 1 || col === 0 || col === MAZE_COLS - 1);
-      blocked[row]![col] = Boolean(exterior[row]?.[col] || house[row]?.[col] || edgeWall);
+      const onEdge = row === 0 || row === MAZE_ROWS - 1 || col === 0 || col === MAZE_COLS - 1;
+      if (onEdge && Boolean(walls[row]?.[col]) && !isTunnelMouth(col, row, playerSolids)) {
+        blocked[row]![col] = true;
+      }
     }
   }
   return blocked;
@@ -451,7 +447,7 @@ function buildLayout(id: MazeLayoutId): MazeLayout {
   const door = parseDoor(ascii);
   const ghostSolids = buildBlocked(walls, exterior);
   const playerSolids = buildPlayerSolids(walls, exterior, house);
-  const wallPassPlayerSolids = buildWallPassPlayerSolids(walls, exterior, house);
+  const wallPassPlayerSolids = buildWallPassPlayerSolids(walls, playerSolids);
   const ghostHouseSpawn = deriveGhostHouseSpawn(ascii);
   const ghostHouseExit = deriveGhostHouseExit(ascii, playerSolids);
   const fruitSpawn = deriveFruitSpawn(ascii, playerSolids, ghostHouseSpawn.col);
