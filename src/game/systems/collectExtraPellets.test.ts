@@ -25,7 +25,7 @@ describe("collectExtraPellets", () => {
   it("no-ops when count is zero", () => {
     const world = createWorld();
     spawnPellet(world, 0, 0);
-    expect(collectExtraPellets(world, 0, () => 0)).toEqual({ removedEids: [] });
+    expect(collectExtraPellets(world, 0, () => 0)).toEqual([]);
     expect(query(world, [Pellet])).toHaveLength(1);
   });
 
@@ -36,7 +36,7 @@ describe("collectExtraPellets", () => {
     const power = spawnPellet(world, 20, 0, true);
     spawnPellet(world, 30, 0);
 
-    const { removedEids } = collectExtraPellets(world, 2, () => 0);
+    const removedEids = collectExtraPellets(world, 2, () => 0);
     expect(removedEids).toEqual([a, b]);
     expect(query(world, [Pellet])).toHaveLength(2);
     expect(query(world, [PowerPellet])).toEqual([power]);
@@ -45,14 +45,14 @@ describe("collectExtraPellets", () => {
   it("returns empty when only energizers remain", () => {
     const world = createWorld();
     const power = spawnPellet(world, 0, 0, true);
-    expect(collectExtraPellets(world, 3, () => 0)).toEqual({ removedEids: [] });
+    expect(collectExtraPellets(world, 3, () => 0)).toEqual([]);
     expect(query(world, [Pellet])).toEqual([power]);
   });
 
   it("collects all remaining regulars when fewer than count", () => {
     const world = createWorld();
     const only = spawnPellet(world, 0, 0);
-    expect(collectExtraPellets(world, 3, () => 0)).toEqual({ removedEids: [only] });
+    expect(collectExtraPellets(world, 3, () => 0)).toEqual([only]);
     expect(query(world, [Pellet])).toHaveLength(0);
   });
 });

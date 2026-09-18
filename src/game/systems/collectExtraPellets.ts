@@ -4,17 +4,9 @@ import { Pellet } from "../components/Pellet";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 
-export type ExtraPelletCollectFrame = {
-  removedEids: number[];
-};
-
-export function collectExtraPellets(
-  world: World,
-  count: number,
-  rng: () => number,
-): ExtraPelletCollectFrame {
+export function collectExtraPellets(world: World, count: number, rng: () => number): number[] {
   if (count <= 0) {
-    return { removedEids: [] };
+    return [];
   }
 
   const candidates: number[] = [];
@@ -28,5 +20,5 @@ export function collectExtraPellets(
   for (const eid of chosen) {
     removeEntity(world, eid);
   }
-  return { removedEids: chosen };
+  return chosen;
 }

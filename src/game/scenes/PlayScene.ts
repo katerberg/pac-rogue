@@ -365,10 +365,8 @@ export class PlayScene extends Phaser.Scene {
     this.runUpgrades = powerEffects.state;
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
-      const { removedEids: bonusEids } = collectExtraPellets(
-        this.world,
-        powerEffects.collectExtraPellets,
-        () => Math.random(),
+      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, () =>
+        Math.random(),
       );
       for (const eid of bonusEids) {
         this.playRender.releaseDrawable(eid);
