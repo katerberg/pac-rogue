@@ -78,10 +78,13 @@ import {
   parseUpgradeId,
   pelletCollectRadiusBonusPx,
   pickUpgradeChoiceOffer,
+  PLAYER_SPEED_BURST_MUL,
   playerSpeedMultiplier,
   scatterBurstActive,
+  speedBurstActive,
   tickFreeze,
   tickScatterBurst,
+  tickSpeedBurst,
   upgradeLabels,
   type RunUpgrades,
 } from "../../domain/upgrades";
@@ -332,8 +335,12 @@ export class PlayScene extends Phaser.Scene {
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
+    this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
     const frozen = ghostsAreFrozen(this.runUpgrades);
-    applyPlayerSpeed(this.world, playerSpeedMultiplier(this.runUpgrades.owned));
+    const playerSpeedMul =
+      playerSpeedMultiplier(this.runUpgrades.owned) *
+      (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1);
+    applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
       ghostSpeedMul:
         ghostSpeedLevelMul(this.levelIndex) * ghostSpeedMultiplier(this.runUpgrades.owned),
@@ -526,6 +533,7 @@ export class PlayScene extends Phaser.Scene {
       ...this.runUpgrades,
       freezeRemainingMs: 0,
       scatterBurstRemainingMs: 0,
+      speedBurstRemainingMs: 0,
     };
 
     this.startBoard(null);
@@ -720,6 +728,7 @@ export class PlayScene extends Phaser.Scene {
       ...this.runUpgrades,
       freezeRemainingMs: 0,
       scatterBurstRemainingMs: 0,
+      speedBurstRemainingMs: 0,
     };
 
     this.clock = {
