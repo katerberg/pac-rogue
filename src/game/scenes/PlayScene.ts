@@ -32,7 +32,7 @@ import {
   type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
-import { START_LIVES, livesRemainingAfterCatch } from "../../domain/lives";
+import { START_LIVES, livesIconCount, livesRemainingAfterCatch } from "../../domain/lives";
 import {
   activateLayout,
   parseMazeParam,
@@ -704,7 +704,8 @@ export class PlayScene extends Phaser.Scene {
     this.lifeIcons = [];
     const size = playerDisplaySize();
     const y = PLAYFIELD_HEIGHT - 8 - size / 2;
-    for (let i = 0; i < this.lives; i += 1) {
+    const icons = livesIconCount(this.lives);
+    for (let i = 0; i < icons; i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
       const icon = this.add
         .image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)

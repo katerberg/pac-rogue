@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { START_LIVES, livesRemainingAfterCatch } from "./lives";
+import { START_LIVES, livesIconCount, livesRemainingAfterCatch } from "./lives";
 
 describe("livesRemainingAfterCatch", () => {
   it("starts from START_LIVES of 3", () => {
@@ -17,5 +17,15 @@ describe("livesRemainingAfterCatch", () => {
 
   it("treats zero or negative as game over", () => {
     expect(livesRemainingAfterCatch(0)).toEqual({ lives: 0, gameOver: true });
+  });
+});
+
+describe("livesIconCount", () => {
+  it("shows reserve lives only, excluding the life in progress", () => {
+    expect(livesIconCount(START_LIVES)).toBe(2);
+    expect(livesIconCount(2)).toBe(1);
+    expect(livesIconCount(1)).toBe(0);
+    expect(livesIconCount(0)).toBe(0);
+    expect(livesIconCount(4)).toBe(3);
   });
 });
