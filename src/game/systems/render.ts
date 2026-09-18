@@ -203,16 +203,12 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const draw = (world: World, opts?: RenderOptions): void => {
     const ghostsFrozen = opts?.ghostsFrozen === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
+    const blinkPeriodMs =
+      invulnRemainingMs > PLAYER_INVULN_URGENCY_MS
+        ? PLAYER_INVULN_BLINK_SLOW_MS
+        : PLAYER_INVULN_BLINK_FAST_MS;
     const playerInvulnTintOn =
-      invulnRemainingMs > 0 &&
-      Math.floor(
-        scene.time.now /
-          (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS
-            ? PLAYER_INVULN_BLINK_SLOW_MS
-            : PLAYER_INVULN_BLINK_FAST_MS),
-      ) %
-        2 ===
-        0;
+      invulnRemainingMs > 0 && Math.floor(scene.time.now / blinkPeriodMs) % 2 === 0;
     if (!wallsDrawn) {
       wallGraphics.clear();
       wallGraphics.lineStyle(WALL_STROKE_WEIGHT, WALL_STROKE_COLOR, 1);
