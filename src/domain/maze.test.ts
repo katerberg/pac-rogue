@@ -244,13 +244,11 @@ describe("maze", () => {
       for (let col = 0; col < MAZE_COLS; col += 1) {
         const onEdge = row === 0 || row === MAZE_ROWS - 1 || col === 0 || col === MAZE_COLS - 1;
         if (walls[row]![col]) {
-          if (onEdge && !isTunnelMouth(col, row, playerSolids)) {
+          if (onEdge) {
             expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(false);
           } else {
             expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(true);
-            if (!onEdge) {
-              interiorWall = true;
-            }
+            interiorWall = true;
           }
           expect(isWalkable(col, row, playerSolids)).toBe(false);
         }
