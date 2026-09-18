@@ -143,7 +143,8 @@ PlayScene.update →
   movement →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
-  collectPellets → releaseDrawable(removed) → applyPowerPelletEffects → applyPelletCollect →
+  collectPellets → releaseDrawable(removed) → applyPowerPelletEffects →
+  collectExtraPellets? → releaseDrawable(bonus) → applyPelletCollect(touch+bonus) →
   resolveGhostModeStep (pause wave while scatter burst + clock active) →
   (effective mode changed ? forceGhostReverse : ghostAi) →
   recallClosestGhost? → warpPlayerTopCenter? →
