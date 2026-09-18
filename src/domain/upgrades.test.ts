@@ -4,6 +4,7 @@ import {
   GHOST_HOUSE_CLYDE_PELLET_ADD,
   GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
   GHOST_SLOW_MUL,
+  INVULN_MS,
   PICKUP_RANGE_BONUS_PX,
   PLAYER_SPEED_BURST_MUL,
   PLAYER_SPEED_UP_MUL,
@@ -17,17 +18,19 @@ import {
   ghostsAreFrozen,
   ghostHouseClydePelletAdd,
   ghostHouseReleaseDelayAddMs,
+  ghostSpeedMultiplier,
   grantUpgrade,
   grantLivesForUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickUpgradeChoiceOffer,
   pelletCollectRadiusBonusPx,
+  playerIsInvulnerable,
   playerSpeedMultiplier,
-  ghostSpeedMultiplier,
   scatterBurstActive,
   speedBurstActive,
   tickFreeze,
+  tickInvuln,
   tickScatterBurst,
   tickSpeedBurst,
   upgradeLabels,
@@ -53,7 +56,7 @@ const ALL_IDS: UpgradeId[] = [
   "powerInvuln",
 ];
 
-const STUB_IDS: UpgradeId[] = ["powerWallPass", "powerInvuln"];
+const STUB_IDS: UpgradeId[] = ["powerWallPass"];
 
 function withForce(forceNextId: UpgradeId | null, owned: UpgradeId[] = []): RunUpgrades {
   return { ...createRunUpgrades(forceNextId), owned };
@@ -296,6 +299,7 @@ describe("scatter burst / multi power-pellet effects", () => {
       "powerSpeedBurst",
       "ghostRecall",
       "warpTop",
+      "powerInvuln",
       "powerCollectThree",
     ] as const) {
       state = grantUpgrade(state, id);
@@ -303,6 +307,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     const result = applyPowerPelletEffects(state, 1);
     expect(result.state.freezeRemainingMs).toBe(FREEZE_MS);
     expect(result.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS);
+    expect(result.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
     expect(result.recallClosestGhost).toBe(true);
     expect(result.warpPlayerTopCenter).toBe(true);
@@ -326,6 +331,38 @@ describe("scatter burst / multi power-pellet effects", () => {
     expect(applyPowerPelletEffects(owned, 1).collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
     expect(applyPowerPelletEffects(owned, 2).collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
     expect(applyPowerPelletEffects(owned, 0).collectExtraPellets).toBe(0);
+  });
+});
+
+describe("invuln / power pellet", () => {
+  it("ticks invuln down and expires", () => {
+    const started = { ...createRunUpgrades(), invulnRemainingMs: INVULN_MS };
+    expect(playerIsInvulnerable(started)).toBe(true);
+    const mid = tickInvuln(started, 1000);
+    expect(mid.invulnRemainingMs).toBe(2000);
+    const done = tickInvuln(mid, 2500);
+    expect(done.invulnRemainingMs).toBe(0);
+    expect(playerIsInvulnerable(done)).toBe(false);
+  });
+
+  it("applies invuln only when upgrade owned and refreshes to full", () => {
+    const bare = createRunUpgrades();
+    expect(applyPowerPelletEffects(bare, 1)).toEqual({
+      state: bare,
+      recallClosestGhost: false,
+      warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
+    });
+
+    const owned = grantUpgrade(createRunUpgrades(), "powerInvuln");
+    const armed = applyPowerPelletEffects(owned, 1);
+    expect(armed.state.invulnRemainingMs).toBe(INVULN_MS);
+    expect(armed.recallClosestGhost).toBe(false);
+    expect(armed.warpPlayerTopCenter).toBe(false);
+    expect(armed.collectExtraPellets).toBe(0);
+
+    const partial = { ...armed.state, invulnRemainingMs: 500 };
+    expect(applyPowerPelletEffects(partial, 2).state.invulnRemainingMs).toBe(INVULN_MS);
   });
 });
 

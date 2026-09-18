@@ -78,11 +78,13 @@ import {
   parseUpgradeId,
   pelletCollectRadiusBonusPx,
   pickUpgradeChoiceOffer,
+  playerIsInvulnerable,
   PLAYER_SPEED_BURST_MUL,
   playerSpeedMultiplier,
   scatterBurstActive,
   speedBurstActive,
   tickFreeze,
+  tickInvuln,
   tickScatterBurst,
   tickSpeedBurst,
   upgradeLabels,
@@ -315,6 +317,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
+    this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
     const frozen = ghostsAreFrozen(this.runUpgrades);
     const playerSpeedMul =
@@ -437,7 +440,10 @@ export class PlayScene extends Phaser.Scene {
           this.refreshUpgradesHud();
         });
         const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
-        this.playRender.draw(this.world, { ghostsFrozen });
+        this.playRender.draw(this.world, {
+          ghostsFrozen,
+          playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
+        });
         return;
       }
     } else if (fruitTick.action === "despawn") {
@@ -451,13 +457,20 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "siren");
       playSfx(this, "levelComplete");
       this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
-      this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
+      this.playRender.draw(this.world, {
+        ghostsFrozen: ghostsAreFrozen(this.runUpgrades),
+        playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
+      });
       return;
     }
 
     const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
-    const caught = catchPlayer(this.world, { ghostsFrozen });
-    this.playRender.draw(this.world, { ghostsFrozen });
+    const playerInvulnerable = playerIsInvulnerable(this.runUpgrades);
+    const caught = catchPlayer(this.world, { ghostsFrozen, playerInvulnerable });
+    this.playRender.draw(this.world, {
+      ghostsFrozen,
+      playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
+    });
 
     if (caught) {
       stopLoopingSfx(this, "siren");
@@ -513,7 +526,10 @@ export class PlayScene extends Phaser.Scene {
     if (eid === null) {
       return;
     }
-    this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
+    this.playRender.draw(this.world, {
+      ghostsFrozen: ghostsAreFrozen(this.runUpgrades),
+      playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
+    });
     this.playRender.bouncePowerPellet(eid);
   }
 
@@ -526,6 +542,7 @@ export class PlayScene extends Phaser.Scene {
       ...this.runUpgrades,
       freezeRemainingMs: 0,
       scatterBurstRemainingMs: 0,
+      invulnRemainingMs: 0,
       speedBurstRemainingMs: 0,
     };
 
@@ -534,7 +551,7 @@ export class PlayScene extends Phaser.Scene {
     this.refreshLivesIcons();
     this.showLevelBanner();
     startLoopingSfx(this, "siren");
-    this.playRender.draw(this.world, { ghostsFrozen: false });
+    this.playRender.draw(this.world, { ghostsFrozen: false, playerInvulnRemainingMs: 0 });
   }
 
   private showLevelBanner(): void {
@@ -570,7 +587,7 @@ export class PlayScene extends Phaser.Scene {
     switch (event) {
       case "resetActors":
         this.resetAfterLifeLoss();
-        this.playRender.draw(this.world, { ghostsFrozen: false });
+        this.playRender.draw(this.world, { ghostsFrozen: false, playerInvulnRemainingMs: 0 });
         break;
       case "startFade":
         this.startDeathFadeOverlay();
@@ -680,6 +697,7 @@ export class PlayScene extends Phaser.Scene {
       ...this.runUpgrades,
       freezeRemainingMs: 0,
       scatterBurstRemainingMs: 0,
+      invulnRemainingMs: 0,
       speedBurstRemainingMs: 0,
     };
 
