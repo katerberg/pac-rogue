@@ -78,7 +78,7 @@ src/
       ghostExitHouse.ts       # leaving → active once off house/door tiles
       ghostRecall.ts          # power-pellet house teleport into inHouse seat
       movement.ts             # Facing + collision (per-eid Speed + solids)
-      catchPlayer.ts          # circle overlap → caught (skip when frozen)
+      catchPlayer.ts          # circle overlap → caught (skip when frozen or player invulnerable)
       collectPellets.ts
       collectFruit.ts
       pelletToPower.ts        # Pellet Surge: convert one regular → power
@@ -139,7 +139,7 @@ PlayScene.update →
   (if resume countdown > 0: tick overlay; return until done → suppress input until key release)
   playerInput →
   tickGhostRelease + ghostHouseSeating + ghostRelease (boardCollected + afterLifeRelease gates Inky/Clyde) →
-  tickFreeze + tickScatterBurst + tickSpeedBurst → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + freeze; skips inHouse) →
+  tickFreeze + tickScatterBurst + tickInvuln + tickSpeedBurst → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + freeze; skips inHouse) →
   movement →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
@@ -151,8 +151,8 @@ PlayScene.update →
   tickFruitPresence (boardCollected; spawn/replace/despawn) →
   collectFruit → releaseDrawable(removed) → pickUpgradeChoiceOffer → (modal or clear force) →
   (if board clear: level-complete SFX → level transition; return)
-  catchPlayer (skip if frozen) →
-  render (ghost freeze tint) →
+  catchPlayer (skip if frozen or player invulnerable) →
+  render (ghost freeze tint; player invuln gold tint) →
   (if caught: stop siren, play death, spend life, begin death sequence)
 ```
 
@@ -165,8 +165,8 @@ See also [docs/upgrades.md](./upgrades.md).
 4. House seats / release: in-house ghosts sit in four derived L→R seats on the spawn row (`ghostHouseSeatCenters`), ordered by **predicted** release (`ghostHouseOrder`). `ghostHouseSeating` animates reseating when that order changes (sticky: no cosmetic compact after someone leaves). Shared release clock starts on first player direction input for Blinky (`BLINKY_RELEASE_DELAY_MS` = 100) and Pinky (`PINKY_RELEASE_DELAY_MS` = 5000). Inky leaves when **board** `boardCollected >=` layout-scaled pellets (maze1 baseline `BASE_INKY_RELEASE_PELLETS` = 30) on the first life of a board; after a life loss (`afterLifeRelease`), Inky uses `INKY_POST_LIFE_RELEASE_DELAY_MS` (7000) on the fresh release clock instead. Clyde leaves when **board** `boardCollected >=` layout-scaled pellets (maze1 baseline `BASE_CLYDE_RELEASE_PELLETS` = 60) on the first life of a board; after a life loss (`afterLifeRelease`), Clyde uses `CLYDE_POST_LIFE_RELEASE_DELAY_MS` (9000) on the fresh release clock instead. Leaving ghosts first steer to the door column, then up to the exit. First ghost to leave house/door tiles → `active` and **start mode waves once** in **chase** (arcade level-1 table, skipping the opening scatter; later scatter/chase durations stay arcade). Later exits do not restart the clock.
 5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(25, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(2, -3)`. Inky chase → doubled vector from Blinky’s tile through a clean 2-tile Pac look-ahead (`Facing.none` → left; missing Blinky → house spawn tile); Inky scatter → `(27, 33)`. Clyde chase → player tile when Euclidean tile distance `≥ CLYDE_SHY_TILES` (8), else Clyde scatter `(0, 33)`; Clyde scatter mode → same SW corner. Scatter corners are shared across layouts. Delays, shy radius, and scatter coords are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): base 0.9375×; Elroy1/2 only for Blinky (layout-scaled remaining-pellet cutoffs; maze1 ≤20 / ≤10 → 1.0× / 1.0625×); tunnel 0.5× for all ghosts; then × `ghostSpeedLevelMul(levelIndex)` (`1 + 0.1×(level−1)`) × run upgrade muls (`playerSpeedUp` / `ghostSlow`) each frame. Freeze sets leaving/active ghost speed to 0.
-7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, play death SFX, spend one life. Full pipeline halt for `DEATH_HOLD_MS` (845, knob). If lives remain: reset player/ghosts to start/house, despawn fruit, clear freeze/scatter-burst/speed-burst timers, reset release/mode clocks, set `afterLifeRelease`, `READY_PAUSE_MS` (1000) freeze, then resume (siren on); run/release clocks wait for direction again (`RunClock.started = false`); no high-score write. If last life: append high-score run (**lifetime** pellets + remaining countdown), then 500ms black fade (visual only) → `GAME OVER` + lifetime collected for `GAME_OVER_HOLD_MS` (2000) → `MenuScene`. Skipped while freeze is active; thaw while overlapping still kills.
-8. Pellet clear: level-complete SFX (no history write), brief transition freeze, then rebuild a randomly chosen layout in the same `PlayScene` (carry lives, owned upgrades, lifetime Collected; reset board pellet progress, clocks, fruit, freeze/scatter/speed-burst timers; Time back to 999; `LEVEL N` banner fades). Power pellets play both munches and stay inert unless an owned upgrade reacts (see [docs/upgrades.md](./upgrades.md)). `render` draws rounded wall stroke from maze knobs, pac-man chomp, pellets, ghosts (cyan tint while frozen), bonus fruit, and tunnel twin.
+7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, play death SFX, spend one life. Full pipeline halt for `DEATH_HOLD_MS` (845, knob). If lives remain: reset player/ghosts to start/house, despawn fruit, clear freeze/scatter-burst/invuln/speed-burst timers, reset release/mode clocks, set `afterLifeRelease`, `READY_PAUSE_MS` (1000) freeze, then resume (siren on); run/release clocks wait for direction again (`RunClock.started = false`); no high-score write. If last life: append high-score run (**lifetime** pellets + remaining countdown), then 500ms black fade (visual only) → `GAME OVER` + lifetime collected for `GAME_OVER_HOLD_MS` (2000) → `MenuScene`. Skipped while freeze or player invuln is active; thaw/expiry while overlapping still kills.
+8. Pellet clear: level-complete SFX (no history write), brief transition freeze, then rebuild a randomly chosen layout in the same `PlayScene` (carry lives, owned upgrades, lifetime Collected; reset board pellet progress, clocks, fruit, freeze/scatter/invuln/speed-burst timers; Time back to 999; `LEVEL N` banner fades). Power pellets play both munches and stay inert unless an owned upgrade reacts (see [docs/upgrades.md](./upgrades.md)). `render` draws rounded wall stroke from maze knobs, pac-man chomp, pellets, ghosts (cyan tint while frozen), bonus fruit, and tunnel twin (player darker-gold tint while invuln; blinks in the last second).
 9. Bonus fruit: after layout-scaled **board** pellet thresholds (maze1 70 and 170), spawn at the derived under-house fruit cell for 10 real seconds (Phaser `delta` ms); cherries use `strawberry.png` stand-in; pickup removes the entity, plays both munches (no score yet), and opens a pick-one upgrade modal (see [docs/upgrades.md](./upgrades.md)).
 
 ## ECS boundary

@@ -29,6 +29,7 @@ export type UpgradeDef = {
   onPowerPellet?: {
     freezeGhostsMs?: number;
     scatterBurstMs?: number;
+    playerInvulnMs?: number;
     playerSpeedBurstMs?: number;
     recallClosestGhost?: true;
     warpPlayerTopCenter?: true;
@@ -38,6 +39,7 @@ export type UpgradeDef = {
 
 export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
+export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
@@ -129,6 +131,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "powerInvuln",
     label: "Ghost Proof",
     description: "Power pellet lets you pass through ghosts briefly.",
+    onPowerPellet: { playerInvulnMs: INVULN_MS },
   },
 ];
 
@@ -142,6 +145,7 @@ export type RunUpgrades = {
   owned: UpgradeId[];
   freezeRemainingMs: number;
   scatterBurstRemainingMs: number;
+  invulnRemainingMs: number;
   speedBurstRemainingMs: number;
   forceNextId: UpgradeId | null;
   lastDeclinedUpgradeId: UpgradeId | null;
@@ -162,6 +166,7 @@ export function createRunUpgrades(
     owned: [],
     freezeRemainingMs: 0,
     scatterBurstRemainingMs: 0,
+    invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
     forceNextId,
     lastDeclinedUpgradeId: null,
@@ -304,6 +309,16 @@ export function tickScatterBurst(state: RunUpgrades, deltaMs: number): RunUpgrad
   };
 }
 
+export function tickInvuln(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.invulnRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    invulnRemainingMs: Math.max(0, state.invulnRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function tickSpeedBurst(state: RunUpgrades, deltaMs: number): RunUpgrades {
   if (state.speedBurstRemainingMs <= 0) {
     return state;
@@ -329,6 +344,7 @@ export function applyPowerPelletEffects(
 
   let freezeMs: number | null = null;
   let scatterMs: number | null = null;
+  let invulnMs: number | null = null;
   let speedBurstMs: number | null = null;
   let recallClosestGhost = false;
   let warpPlayerTopCenter = false;
@@ -346,6 +362,10 @@ export function applyPowerPelletEffects(
     if (onPower.scatterBurstMs !== undefined) {
       scatterMs =
         scatterMs === null ? onPower.scatterBurstMs : Math.max(scatterMs, onPower.scatterBurstMs);
+    }
+    if (onPower.playerInvulnMs !== undefined) {
+      invulnMs =
+        invulnMs === null ? onPower.playerInvulnMs : Math.max(invulnMs, onPower.playerInvulnMs);
     }
     if (onPower.playerSpeedBurstMs !== undefined) {
       speedBurstMs =
@@ -370,6 +390,9 @@ export function applyPowerPelletEffects(
   }
   if (scatterMs !== null) {
     next = { ...next, scatterBurstRemainingMs: scatterMs };
+  }
+  if (invulnMs !== null) {
+    next = { ...next, invulnRemainingMs: invulnMs };
   }
   if (speedBurstMs !== null) {
     next = { ...next, speedBurstRemainingMs: speedBurstMs };
@@ -440,6 +463,10 @@ export function ghostHouseClydePelletAdd(owned: readonly UpgradeId[]): number {
 
 export function ghostsAreFrozen(state: RunUpgrades): boolean {
   return state.freezeRemainingMs > 0;
+}
+
+export function playerIsInvulnerable(state: RunUpgrades): boolean {
+  return state.invulnRemainingMs > 0;
 }
 
 export function scatterBurstActive(state: RunUpgrades): boolean {
