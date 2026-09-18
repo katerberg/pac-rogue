@@ -30,19 +30,26 @@ export type UpgradeDef = {
     freezeGhostsMs?: number;
     scatterBurstMs?: number;
     wallPassMs?: number;
+    playerInvulnMs?: number;
+    playerSpeedBurstMs?: number;
     recallClosestGhost?: true;
     warpPlayerTopCenter?: true;
+    collectExtraPellets?: number;
   };
 };
 
 export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
 export const WALL_PASS_MS = 3000;
+export const INVULN_MS = 3000;
+export const SPEED_BURST_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
+export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
 export const PICKUP_RANGE_BONUS_PX = TILE_SIZE;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
+export const POWER_COLLECT_THREE_COUNT = 3;
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
@@ -109,6 +116,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "powerCollectThree",
     label: "Triple Chomp",
     description: "Power pellet gulps three more pellets with it.",
+    onPowerPellet: { collectExtraPellets: POWER_COLLECT_THREE_COUNT },
   },
   {
     id: "powerWallPass",
@@ -120,11 +128,13 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "powerSpeedBurst",
     label: "Speed Burst",
     description: "Power pellet spikes your pace for a few seconds.",
+    onPowerPellet: { playerSpeedBurstMs: SPEED_BURST_MS },
   },
   {
     id: "powerInvuln",
     label: "Ghost Proof",
     description: "Power pellet lets you pass through ghosts briefly.",
+    onPowerPellet: { playerInvulnMs: INVULN_MS },
   },
 ];
 
@@ -139,6 +149,8 @@ export type RunUpgrades = {
   freezeRemainingMs: number;
   scatterBurstRemainingMs: number;
   wallPassRemainingMs: number;
+  invulnRemainingMs: number;
+  speedBurstRemainingMs: number;
   forceNextId: UpgradeId | null;
   lastDeclinedUpgradeId: UpgradeId | null;
 };
@@ -147,6 +159,7 @@ export type PowerPelletApplyResult = {
   state: RunUpgrades;
   recallClosestGhost: boolean;
   warpPlayerTopCenter: boolean;
+  collectExtraPellets: number;
 };
 
 export function createRunUpgrades(
@@ -158,6 +171,8 @@ export function createRunUpgrades(
     freezeRemainingMs: 0,
     scatterBurstRemainingMs: 0,
     wallPassRemainingMs: 0,
+    invulnRemainingMs: 0,
+    speedBurstRemainingMs: 0,
     forceNextId,
     lastDeclinedUpgradeId: null,
   };
@@ -309,6 +324,26 @@ export function tickWallPass(state: RunUpgrades, deltaMs: number): RunUpgrades {
   };
 }
 
+export function tickInvuln(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.invulnRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    invulnRemainingMs: Math.max(0, state.invulnRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
+export function tickSpeedBurst(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.speedBurstRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    speedBurstRemainingMs: Math.max(0, state.speedBurstRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
@@ -318,14 +353,18 @@ export function applyPowerPelletEffects(
       state,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
     };
   }
 
   let freezeMs: number | null = null;
   let scatterMs: number | null = null;
   let wallPassMs: number | null = null;
+  let invulnMs: number | null = null;
+  let speedBurstMs: number | null = null;
   let recallClosestGhost = false;
   let warpPlayerTopCenter = false;
+  let collectExtraPellets = 0;
 
   for (const id of state.owned) {
     const onPower = UPGRADE_BY_ID.get(id)?.onPowerPellet;
@@ -344,11 +383,24 @@ export function applyPowerPelletEffects(
       wallPassMs =
         wallPassMs === null ? onPower.wallPassMs : Math.max(wallPassMs, onPower.wallPassMs);
     }
+    if (onPower.playerInvulnMs !== undefined) {
+      invulnMs =
+        invulnMs === null ? onPower.playerInvulnMs : Math.max(invulnMs, onPower.playerInvulnMs);
+    }
+    if (onPower.playerSpeedBurstMs !== undefined) {
+      speedBurstMs =
+        speedBurstMs === null
+          ? onPower.playerSpeedBurstMs
+          : Math.max(speedBurstMs, onPower.playerSpeedBurstMs);
+    }
     if (onPower.recallClosestGhost) {
       recallClosestGhost = true;
     }
     if (onPower.warpPlayerTopCenter) {
       warpPlayerTopCenter = true;
+    }
+    if (onPower.collectExtraPellets !== undefined) {
+      collectExtraPellets = Math.max(collectExtraPellets, onPower.collectExtraPellets);
     }
   }
 
@@ -362,11 +414,18 @@ export function applyPowerPelletEffects(
   if (wallPassMs !== null) {
     next = { ...next, wallPassRemainingMs: wallPassMs };
   }
+  if (invulnMs !== null) {
+    next = { ...next, invulnRemainingMs: invulnMs };
+  }
+  if (speedBurstMs !== null) {
+    next = { ...next, speedBurstRemainingMs: speedBurstMs };
+  }
 
   return {
     state: next,
     recallClosestGhost,
     warpPlayerTopCenter,
+    collectExtraPellets,
   };
 }
 
@@ -429,12 +488,20 @@ export function ghostsAreFrozen(state: RunUpgrades): boolean {
   return state.freezeRemainingMs > 0;
 }
 
+export function playerIsInvulnerable(state: RunUpgrades): boolean {
+  return state.invulnRemainingMs > 0;
+}
+
 export function scatterBurstActive(state: RunUpgrades): boolean {
   return state.scatterBurstRemainingMs > 0;
 }
 
 export function wallPassActive(state: RunUpgrades): boolean {
   return state.wallPassRemainingMs > 0;
+}
+
+export function speedBurstActive(state: RunUpgrades): boolean {
+  return state.speedBurstRemainingMs > 0;
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {

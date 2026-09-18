@@ -7,8 +7,11 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-export function catchPlayer(world: World, options?: { ghostsFrozen?: boolean }): boolean {
-  if (options?.ghostsFrozen === true) {
+export function catchPlayer(
+  world: World,
+  options?: { ghostsFrozen?: boolean; playerInvulnerable?: boolean },
+): boolean {
+  if (options?.ghostsFrozen === true || options?.playerInvulnerable === true) {
     return false;
   }
 

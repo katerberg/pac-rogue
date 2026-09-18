@@ -73,4 +73,11 @@ describe("catchPlayer", () => {
     spawnGhost(world, 100, 100, GHOST_PHASE.active);
     expect(catchPlayer(world, { ghostsFrozen: true })).toBe(false);
   });
+
+  it("does not catch when the player is invulnerable", () => {
+    const world = createWorld();
+    spawnPlayer(world, 100, 100);
+    spawnGhost(world, 100, 100, GHOST_PHASE.active);
+    expect(catchPlayer(world, { playerInvulnerable: true })).toBe(false);
+  });
 });

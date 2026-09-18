@@ -5,7 +5,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter/wall-pass timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter/wall-pass/invuln/speed-burst timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass/invuln/speed-burst timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
 - Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
@@ -24,10 +24,10 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 | `ghostHouseDelay`   | House Delay   | +`GHOST_HOUSE_RELEASE_DELAY_ADD_MS` (2000) on Blinky/Pinky/Inky-post-life/Clyde-post-life time gates; +`GHOST_HOUSE_CLYDE_PELLET_ADD` (15) on Clyde first-life pellet threshold; Inky first-life pellets unchanged; mid-board grant only affects ghosts still `inHouse`                                                                                                        |
 | `extraLife`         | Extra Life    | On first own: +1 life immediately (can exceed start lives); `?enableUpgrade=extraLife` applies at create                                                                                                                                                                                                                                                                       |
 | `pelletToPower`     | Pellet Surge  | While owned: convert exactly one random regular pellet → power pellet after each board spawn (`startBoard`); also convert one on the current board when first granted from fruit. Silent transform + one-shot 1.5× size bounce on the sprite; no SFX; empty pool → no-op. Not per-pellet-collect.                                                                              |
-| `powerCollectThree` | Triple Chomp  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                                                                                              |
+| `powerCollectThree` | Triple Chomp  | Power pellet also removes up to `POWER_COLLECT_THREE_COUNT` (3) remaining **regular** pellets (uniform random; fewer than 3 → collect all remaining; 0 → no-op). Bonus removals count toward board/lifetime/Clyde/fruit/clear. One both-munch for the whole bonus set. One pass per frame even if multiple energizers were touched. Does not auto-collect other energizers.    |
 | `powerWallPass`     | Wall Pass     | Power pellet: pass through interior walls, exterior hollows, and the ghost house for `WALL_PASS_MS` (3000); non-tunnel perimeter `#` stay solid (tunnels still wrap); timer-end snap to nearest `playerSolids` walkable center; mild blueward player tint (`PLAYER_WALL_PASS_TINT`) while active. Catch still skips only `inHouse` ghosts (`leaving` on house tiles can kill). |
-| `powerSpeedBurst`   | Speed Burst   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                                                                                              |
-| `powerInvuln`       | Ghost Proof   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                                                                                              |
+| `powerSpeedBurst`   | Speed Burst   | Power pellet grants temporary player speed × `PLAYER_SPEED_BURST_MUL` (1.25) for `SPEED_BURST_MS` (3000); stacks with Speed Up (`playerSpeedMultiplier(owned) × 1.25` while active); refreshes to full on re-chomp; clears on level advance / life loss; no player tint                                                                                                        |
+| `powerInvuln`       | Ghost Proof   | Power pellet grants pass-through for `INVULN_MS` (3000): skip catch kill only (ghosts keep moving). Player tint `0xc48a00` (darker gold) stays solid, then blinks every 100ms in the last 1000ms                                                                                                                                                                               |
 
 Modal copy uses each def’s punchy `description` string (iterate freely).
 
@@ -46,7 +46,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 - **0.5s lockout** after open: fuzz-in (alpha ramp + light jitter + BitmapText scramble). Keyboard and click disabled.
 - After lockout: already in selection mode (highlight + LEFT/RIGHT hints). **Click** a button to grant, or **Left/A** / **Right/D** after any held Left/Right/A/D keys have been released (keys held through open/lockout are ignored). One-button: either direction confirms. No Esc / dismiss — must pick.
 - On confirm: `grantUpgrade` chosen id; clear `forceNextId`; if two options were shown, set `lastDeclinedUpgradeId` to the other; one-button leaves prior decline unchanged. HUD refreshes.
-- After confirm: **3s resume countdown** (sim stays frozen; big 3→2→1). Then play resumes; movement keys held from the modal are ignored until released.
+- After confirm: **confirm outro** while sim stays frozen — chosen option double-pulses (scale bounce + stroke thicken, ~400ms); the other option fades out during that pulse; then the whole modal (dim + chrome + chosen) fades out over **1s**. Then play resumes; movement keys held from the modal are ignored until released.
 - `enableUpgrade` (repeatable) → each valid id granted into `owned` at create (order preserved; duplicates ignored by `grantUpgrade`). Combines with `forceUpgrade`.
 
 ## Power pellets
@@ -56,12 +56,15 @@ Energizers stay inert unless an owned upgrade reacts. After `collectPellets`, `a
 - `freezeGhostsMs` → refresh `freezeRemainingMs` (max if multiple)
 - `scatterBurstMs` → refresh `scatterBurstRemainingMs`
 - `wallPassMs` → refresh `wallPassRemainingMs`
+- `playerInvulnMs` → refresh `invulnRemainingMs` (max if multiple)
+- `playerSpeedBurstMs` → refresh `speedBurstRemainingMs`
 - `recallClosestGhost` → flag for `recallClosestGhostToHouse`
 - `warpPlayerTopCenter` → flag for `warpPlayerToTopCenter`
+- `collectExtraPellets` → count for one Triple Chomp pass (max among owned; not multiplied by `powerRemoved`)
 
-### Wall pass
+### Triple Chomp
 
-While `wallPassRemainingMs > 0`, `PlayScene` passes `getActiveLayout().wallPassPlayerSolids` into `movement` as the player solids override. That grid opens interior walls, exterior hollows, and the ghost house; it keeps **non-tunnel perimeter `#`** solid so wrap stays tunnel-only (maze1: row 14). Ghosts keep their normal solids. Catch is unchanged: skips `inHouse` ghosts only — a `leaving` ghost still on house tiles can kill. When the timer ticks from active → expired, if the player cell is solid under normal `playerSolids`, `snapPlayerToNearestWalkable` moves them to the nearest walkable cell center (Euclidean tile distance; tie lower row then lower col; empty scan → `playerSpawnCenter`) and zeros `Velocity`. `render(..., { wallPassActive })` applies `PLAYER_WALL_PASS_TINT` on the player (and tunnel twin) while active.
+When `collectExtraPellets > 0`, `PlayScene` calls `collectExtraPellets` on remaining regular pellets only (`Pellet` without `PowerPellet`), picks up to that count uniformly at random (injectable rng), removes them, releases drawables, and folds the count into `applyPelletCollect` / `lifetimeCollected` before recall/warp/fruit/clear. If any bonus pellets were removed, plays one both-munch (`pelletMunch` + `pelletMunch2`) for the set — not per-pellet regular munches. Empty candidate pool → silent no-op.
 
 ### Scatter burst
 
@@ -75,6 +78,10 @@ Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the play
 
 `playerTopCenterCell` scans player-walkable solids for the cell closest to ideal top-middle `((MAZE_COLS-1)/2, 0)` (tie: lower row, then lower col). Sets player `Position` there and zeros `Velocity`; keeps `Facing` / `Input`.
 
+### Wall pass
+
+While `wallPassRemainingMs > 0`, `PlayScene` passes `getActiveLayout().wallPassPlayerSolids` into `movement` as the player solids override. That grid opens interior walls, exterior hollows, and the ghost house; it keeps **non-tunnel perimeter `#`** solid so wrap stays tunnel-only (maze1: row 14). Ghosts keep their normal solids. Catch is unchanged: skips `inHouse` ghosts only — a `leaving` ghost still on house tiles can kill. When the timer ticks from active → expired, if the player cell is solid under normal `playerSolids`, `snapPlayerToNearestWalkable` moves them to the nearest walkable cell center (Euclidean tile distance; tie lower row then lower col; empty scan → `playerSpawnCenter`) and zeros `Velocity`. `render(..., { wallPassActive })` applies `PLAYER_WALL_PASS_TINT` on the player (and tunnel twin) while active (takes precedence over invuln gold tint).
+
 ## Freeze / catch / tint
 
 - While `freezeRemainingMs > 0`, `applyGhostSpeed(..., { frozen: true })` sets leaving/active ghost `Speed.px = 0` (`inHouse` speed is owned by `ghostHouseSeating`). Mode/release/run clocks keep ticking (except scatter-burst pause of the mode wave clock).
@@ -83,9 +90,17 @@ Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the play
 - One-frame lag after a power pellet starts freeze is accepted: Speed may clear on the next frame while catch already skips.
 - `render(world, { ghostsFrozen })` tints leaving/active ghost sprites cyan while frozen; clears tint otherwise (in-house ghosts stay untinted).
 
+## Invuln / catch / tint
+
+- While `invulnRemainingMs > 0`, ghosts keep moving (no speed zero). `catchPlayer({ playerInvulnerable: true })` skips kill (true pass-through). Expiry while overlapping can kill on the same update after `tickInvuln`.
+- Freeze + invuln are independent timers: both may be active; catch skips when `ghostsFrozen || playerInvulnerable`. Freeze still zeros speed + cyan ghost tint; invuln does not reuse freeze cyan.
+- `render(world, { playerInvulnRemainingMs })` tints the player (and tunnel twin) darker gold `0xc48a00` solid while remaining > 1000ms, then blinks on a 100ms period in the last second; clears tint when off or on the blink-off half.
+- Invuln timer clears on level advance and life-loss actor reset (same as freeze/scatter/wall-pass/speed-burst). Owned `powerInvuln` persists across levels.
+- While wall-pass is also active, player tint uses wall-pass blueward tint instead of invuln gold.
+
 ## Speed muls
 
-Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned)`; `applyGhostSpeed` multiplies after Elroy + tunnel resolve by `ghostSpeedLevelMul(levelIndex) × ghostSpeedMultiplier(owned)`.
+Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` multiplies after Elroy + tunnel resolve by `ghostSpeedLevelMul(levelIndex) × ghostSpeedMultiplier(owned)`.
 
 ## HUD
 
