@@ -5,7 +5,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter/invuln timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/invuln timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
 - Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
@@ -27,7 +27,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 | `powerCollectThree` | Triple Chomp  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                       |
 | `powerWallPass`     | Wall Pass     | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                       |
 | `powerSpeedBurst`   | Speed Burst   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                       |
-| `powerInvuln`       | Ghost Proof   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                       |
+| `powerInvuln`       | Ghost Proof   | Power pellet grants pass-through for `INVULN_MS` (3000): skip catch kill only (ghosts keep moving). Player tint `0xffd27a` blinks every 400ms, then every 100ms in the last 1000ms                                                                                      |
 
 Modal copy uses each def’s punchy `description` string (iterate freely).
 
@@ -55,6 +55,7 @@ Energizers stay inert unless an owned upgrade reacts. After `collectPellets`, `a
 
 - `freezeGhostsMs` → refresh `freezeRemainingMs` (max if multiple)
 - `scatterBurstMs` → refresh `scatterBurstRemainingMs`
+- `playerInvulnMs` → refresh `invulnRemainingMs` (max if multiple)
 - `recallClosestGhost` → flag for `recallClosestGhostToHouse`
 - `warpPlayerTopCenter` → flag for `warpPlayerToTopCenter`
 
@@ -77,6 +78,13 @@ Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the play
 - `catchPlayer({ ghostsFrozen: true })` skips kill (walk-through). When freeze expires while overlapping, the same update’s catch after `tickFreeze` can kill.
 - One-frame lag after a power pellet starts freeze is accepted: Speed may clear on the next frame while catch already skips.
 - `render(world, { ghostsFrozen })` tints leaving/active ghost sprites cyan while frozen; clears tint otherwise (in-house ghosts stay untinted).
+
+## Invuln / catch / tint
+
+- While `invulnRemainingMs > 0`, ghosts keep moving (no speed zero). `catchPlayer({ playerInvulnerable: true })` skips kill (true pass-through). Expiry while overlapping can kill on the same update after `tickInvuln`.
+- Freeze + invuln are independent timers: both may be active; catch skips when `ghostsFrozen || playerInvulnerable`. Freeze still zeros speed + cyan ghost tint; invuln does not reuse freeze cyan.
+- `render(world, { playerInvulnRemainingMs })` tints the player (and tunnel twin) warm gold `0xffd27a`, blinking on a 400ms period while remaining > 1000ms and 100ms in the last second; clears tint when off or on the blink-off half.
+- Invuln timer clears on level advance and life-loss actor reset (same as freeze/scatter). Owned `powerInvuln` persists across levels.
 
 ## Speed muls
 
