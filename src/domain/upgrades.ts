@@ -32,6 +32,7 @@ export type UpgradeDef = {
     playerSpeedBurstMs?: number;
     recallClosestGhost?: true;
     warpPlayerTopCenter?: true;
+    collectExtraPellets?: number;
   };
 };
 
@@ -44,6 +45,7 @@ export const GHOST_SLOW_MUL = 0.75;
 export const PICKUP_RANGE_BONUS_PX = TILE_SIZE;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
+export const POWER_COLLECT_THREE_COUNT = 3;
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
@@ -110,6 +112,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "powerCollectThree",
     label: "Triple Chomp",
     description: "Power pellet gulps three more pellets with it.",
+    onPowerPellet: { collectExtraPellets: POWER_COLLECT_THREE_COUNT },
   },
   {
     id: "powerWallPass",
@@ -148,6 +151,7 @@ export type PowerPelletApplyResult = {
   state: RunUpgrades;
   recallClosestGhost: boolean;
   warpPlayerTopCenter: boolean;
+  collectExtraPellets: number;
 };
 
 export function createRunUpgrades(
@@ -319,6 +323,7 @@ export function applyPowerPelletEffects(
       state,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
     };
   }
 
@@ -327,6 +332,7 @@ export function applyPowerPelletEffects(
   let speedBurstMs: number | null = null;
   let recallClosestGhost = false;
   let warpPlayerTopCenter = false;
+  let collectExtraPellets = 0;
 
   for (const id of state.owned) {
     const onPower = UPGRADE_BY_ID.get(id)?.onPowerPellet;
@@ -353,6 +359,9 @@ export function applyPowerPelletEffects(
     if (onPower.warpPlayerTopCenter) {
       warpPlayerTopCenter = true;
     }
+    if (onPower.collectExtraPellets !== undefined) {
+      collectExtraPellets = Math.max(collectExtraPellets, onPower.collectExtraPellets);
+    }
   }
 
   let next = state;
@@ -370,6 +379,7 @@ export function applyPowerPelletEffects(
     state: next,
     recallClosestGhost,
     warpPlayerTopCenter,
+    collectExtraPellets,
   };
 }
 

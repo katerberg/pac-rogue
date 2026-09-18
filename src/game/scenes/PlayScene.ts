@@ -112,6 +112,7 @@ import {
 import { saveRun } from "../storage/runHistoryStorage";
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
+import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
@@ -369,10 +370,25 @@ export class PlayScene extends Phaser.Scene {
     }
     const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
     this.runUpgrades = powerEffects.state;
-    const collectResult = applyPelletCollect(this.pelletProgress, removed);
+    let bonusRemoved = 0;
+    if (powerEffects.collectExtraPellets > 0) {
+      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, () =>
+        Math.random(),
+      );
+      for (const eid of bonusEids) {
+        this.playRender.releaseDrawable(eid);
+      }
+      bonusRemoved = bonusEids.length;
+      if (bonusRemoved > 0) {
+        playSfx(this, "pelletMunch");
+        playSfx(this, "pelletMunch2");
+      }
+    }
+    const totalRemoved = removed + bonusRemoved;
+    const collectResult = applyPelletCollect(this.pelletProgress, totalRemoved);
     this.pelletProgress = collectResult.progress;
-    if (removed > 0) {
-      this.lifetimeCollected += removed;
+    if (totalRemoved > 0) {
+      this.lifetimeCollected += totalRemoved;
     }
     this.collectedText.setText(this.collectedLabel());
 

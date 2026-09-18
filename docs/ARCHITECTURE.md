@@ -143,7 +143,8 @@ PlayScene.update →
   movement →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
-  collectPellets → releaseDrawable(removed) → applyPowerPelletEffects → applyPelletCollect →
+  collectPellets → releaseDrawable(removed) → applyPowerPelletEffects →
+  collectExtraPellets? → releaseDrawable(bonus) → applyPelletCollect(touch+bonus) →
   resolveGhostModeStep (pause wave while scatter burst + clock active) →
   (effective mode changed ? forceGhostReverse : ghostAi) →
   recallClosestGhost? → warpPlayerTopCenter? →
@@ -211,4 +212,4 @@ A violation of these is a failed architecture check:
 - Start with 3 lives; bottom-left pac icons show remaining extras only (2 at start, not the life in play); lives carry across level advances. Ghosts unlock by level (`ghostKindsForLevel`: Blinky → Pinky → Inky → Clyde; all four from level 4+); only unlocked kinds are spawned. Present ghosts use predicted L→R house seats (not stacked); Blinky/Pinky time release after first input (0.1s / 5s — tunable); Inky leaves at board-scaled pellets (maze1 baseline 30) on the first life of a board, or after a 7s post-life time gate after a life loss; Clyde leaves at board-scaled pellets on the first life of a board, or after a 9s post-life time gate after a life loss; leave path approaches door column then up; chase-first arcade scatter/chase waves; Blinky Cruise Elroy; Inky Blinky-vector chase + SE scatter; tunnel slowdown; ghosts gain +10% resolved speed per level index. Circle overlap spends a life (hold → reset actors / ready pause → resume) or last-life Game Over (hold → append high-score run → fade → `GAME OVER` + lifetime collected → menu) unless freeze walk-through is active.
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0; resets each level). Last-life Game Over appends **lifetime** pellets + remaining time + ISO date to capped `localStorage` run history (`pac-rogue.run-history.v2`, max 100, drop oldest). Clearing all pellets never writes history.
 - Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `runLevel`, `pelletProgress`, `fruit`, `upgrades`, `runHistory`, `highScoresView`, `scoreListScroll`, `audioSettings`, `playfield`, `maze`, `lives`, `deathSequence`, ghost kind/path/movement/target/mode/release/house-order/seats/leave/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/audioSettings/ghost/lives/deathSequence helpers are unit-tested without Phaser.
-- Power pellets are inert unless an owned upgrade reacts (`powerPelletFreeze`, `scatterBurst`, `powerSpeedBurst`, `ghostRecall`, `warpTop` — see [docs/upgrades.md](./upgrades.md)). No arcade fright / eatable ghosts yet.
+- Power pellets are inert unless an owned upgrade reacts (`powerPelletFreeze`, `scatterBurst`, `powerSpeedBurst`, `ghostRecall`, `warpTop`, `powerCollectThree` — see [docs/upgrades.md](./upgrades.md)). No arcade fright / eatable ghosts yet.
