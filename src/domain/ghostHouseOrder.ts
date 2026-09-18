@@ -6,6 +6,7 @@ import {
   INKY_POST_LIFE_RELEASE_DELAY_MS,
   PINKY_RELEASE_DELAY_MS,
   shouldReleaseKind,
+  type GhostReleaseAdds,
   type GhostReleaseClock,
 } from "./ghostRelease";
 
@@ -13,9 +14,11 @@ function isPelletGated(kind: GhostKindId): boolean {
   return kind === GHOST_KIND.inky || kind === GHOST_KIND.clyde;
 }
 
-function pelletThresholdForKind(kind: GhostKindId): number {
+function pelletThresholdForKind(kind: GhostKindId, clydePelletAdd: number): number {
   const layout = getActiveLayout();
-  return kind === GHOST_KIND.inky ? layout.inkyReleasePellets : layout.clydeReleasePellets;
+  return kind === GHOST_KIND.inky
+    ? layout.inkyReleasePellets
+    : layout.clydeReleasePellets + clydePelletAdd;
 }
 
 function effectiveDelayKey(
@@ -23,37 +26,44 @@ function effectiveDelayKey(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease: boolean,
+  adds: GhostReleaseAdds,
 ): number {
+  const delayAddMs = adds.delayAddMs ?? 0;
   if (isPelletGated(kind)) {
     if (afterLifeRelease) {
-      return kind === GHOST_KIND.inky
-        ? INKY_POST_LIFE_RELEASE_DELAY_MS
-        : CLYDE_POST_LIFE_RELEASE_DELAY_MS;
+      return (
+        (kind === GHOST_KIND.inky
+          ? INKY_POST_LIFE_RELEASE_DELAY_MS
+          : CLYDE_POST_LIFE_RELEASE_DELAY_MS) + delayAddMs
+      );
     }
-    if (shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease)) {
+    if (shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease, adds)) {
       return 0;
     }
     return Number.POSITIVE_INFINITY;
   }
-  return kind === GHOST_KIND.pinky ? PINKY_RELEASE_DELAY_MS : BLINKY_RELEASE_DELAY_MS;
+  return (
+    (kind === GHOST_KIND.pinky ? PINKY_RELEASE_DELAY_MS : BLINKY_RELEASE_DELAY_MS) + delayAddMs
+  );
 }
 
 function remainingTimeMs(
   kind: GhostKindId,
   clock: GhostReleaseClock,
   afterLifeRelease: boolean,
+  delayAddMs: number,
 ): number {
   if (isPelletGated(kind) && !afterLifeRelease) {
     return Number.POSITIVE_INFINITY;
   }
   const delay =
-    kind === GHOST_KIND.inky
+    (kind === GHOST_KIND.inky
       ? INKY_POST_LIFE_RELEASE_DELAY_MS
       : kind === GHOST_KIND.clyde
         ? CLYDE_POST_LIFE_RELEASE_DELAY_MS
         : kind === GHOST_KIND.pinky
           ? PINKY_RELEASE_DELAY_MS
-          : BLINKY_RELEASE_DELAY_MS;
+          : BLINKY_RELEASE_DELAY_MS) + delayAddMs;
   if (!clock.started) {
     return delay;
   }
@@ -66,17 +76,20 @@ export function compareInHouseReleaseOrder(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
+  adds: GhostReleaseAdds = {},
 ): number {
-  const aReady = shouldReleaseKind(a, clock, collectedCount, afterLifeRelease);
-  const bReady = shouldReleaseKind(b, clock, collectedCount, afterLifeRelease);
+  const delayAddMs = adds.delayAddMs ?? 0;
+  const clydePelletAdd = adds.clydePelletAdd ?? 0;
+  const aReady = shouldReleaseKind(a, clock, collectedCount, afterLifeRelease, adds);
+  const bReady = shouldReleaseKind(b, clock, collectedCount, afterLifeRelease, adds);
   if (aReady !== bReady) {
     return aReady ? -1 : 1;
   }
 
   if (aReady && bReady) {
     return (
-      effectiveDelayKey(a, clock, collectedCount, afterLifeRelease) -
-      effectiveDelayKey(b, clock, collectedCount, afterLifeRelease)
+      effectiveDelayKey(a, clock, collectedCount, afterLifeRelease, adds) -
+      effectiveDelayKey(b, clock, collectedCount, afterLifeRelease, adds)
     );
   }
 
@@ -86,14 +99,16 @@ export function compareInHouseReleaseOrder(
     return aPelletWait ? 1 : -1;
   }
   if (aPelletWait && bPelletWait) {
-    const byThreshold = pelletThresholdForKind(a) - pelletThresholdForKind(b);
+    const byThreshold =
+      pelletThresholdForKind(a, clydePelletAdd) - pelletThresholdForKind(b, clydePelletAdd);
     if (byThreshold !== 0) {
       return byThreshold;
     }
   }
 
   const rem =
-    remainingTimeMs(a, clock, afterLifeRelease) - remainingTimeMs(b, clock, afterLifeRelease);
+    remainingTimeMs(a, clock, afterLifeRelease, delayAddMs) -
+    remainingTimeMs(b, clock, afterLifeRelease, delayAddMs);
   if (rem !== 0) {
     return rem;
   }
@@ -105,8 +120,16 @@ export function sortInHouseGhosts<T extends { kind: GhostKindId }>(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
+  adds: GhostReleaseAdds = {},
 ): T[] {
   return [...ghosts].sort((left, right) =>
-    compareInHouseReleaseOrder(left.kind, right.kind, clock, collectedCount, afterLifeRelease),
+    compareInHouseReleaseOrder(
+      left.kind,
+      right.kind,
+      clock,
+      collectedCount,
+      afterLifeRelease,
+      adds,
+    ),
   );
 }

@@ -21,6 +21,8 @@ export type UpgradeDef = {
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
   grantLives?: number;
+  ghostHouseReleaseDelayAddMs?: number;
+  ghostHouseClydePelletAdd?: number;
   onPowerPellet?: {
     freezeGhostsMs?: number;
     scatterBurstMs?: number;
@@ -33,6 +35,8 @@ export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
+export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
+export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
@@ -80,6 +84,8 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "ghostHouseDelay",
     label: "House Delay",
     description: "Ghosts linger longer in the house before the hunt.",
+    ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
+    ghostHouseClydePelletAdd: GHOST_HOUSE_CLYDE_PELLET_ADD,
   },
   {
     id: "extraLife",
@@ -356,6 +362,28 @@ export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
 
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "ghostSpeedMul");
+}
+
+function sumOwnedField(
+  owned: readonly UpgradeId[],
+  key: "ghostHouseReleaseDelayAddMs" | "ghostHouseClydePelletAdd",
+): number {
+  let sum = 0;
+  for (const id of owned) {
+    const add = UPGRADE_BY_ID.get(id)?.[key];
+    if (add !== undefined) {
+      sum += add;
+    }
+  }
+  return sum;
+}
+
+export function ghostHouseReleaseDelayAddMs(owned: readonly UpgradeId[]): number {
+  return sumOwnedField(owned, "ghostHouseReleaseDelayAddMs");
+}
+
+export function ghostHouseClydePelletAdd(owned: readonly UpgradeId[]): number {
+  return sumOwnedField(owned, "ghostHouseClydePelletAdd");
 }
 
 export function ghostsAreFrozen(state: RunUpgrades): boolean {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { START_LIVES, livesRemainingAfterCatch } from "./lives";
+import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "./lives";
 
 describe("livesRemainingAfterCatch", () => {
   it("starts from START_LIVES of 3", () => {
@@ -17,5 +17,14 @@ describe("livesRemainingAfterCatch", () => {
 
   it("treats zero or negative as game over", () => {
     expect(livesRemainingAfterCatch(0)).toEqual({ lives: 0, gameOver: true });
+  });
+});
+
+describe("livesHudIconCount", () => {
+  it("excludes the life currently in play", () => {
+    expect(livesHudIconCount(3)).toBe(2);
+    expect(livesHudIconCount(2)).toBe(1);
+    expect(livesHudIconCount(1)).toBe(0);
+    expect(livesHudIconCount(0)).toBe(0);
   });
 });

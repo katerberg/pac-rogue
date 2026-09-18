@@ -1,5 +1,9 @@
 import { query, type World } from "bitecs";
-import { shouldReleaseKind, type GhostReleaseClock } from "../../domain/ghostRelease";
+import {
+  shouldReleaseKind,
+  type GhostReleaseAdds,
+  type GhostReleaseClock,
+} from "../../domain/ghostRelease";
 import { leavingHouseTarget } from "../../domain/ghostHouseLeave";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
@@ -33,13 +37,14 @@ export function ghostRelease(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
+  adds: GhostReleaseAdds = {},
 ): void {
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing, Speed])) {
     if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
       continue;
     }
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
-    if (!shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease)) {
+    if (!shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease, adds)) {
       continue;
     }
     const x = Position.x[eid] ?? 0;

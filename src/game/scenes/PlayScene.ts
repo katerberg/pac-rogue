@@ -32,7 +32,7 @@ import {
   type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
-import { START_LIVES, livesRemainingAfterCatch } from "../../domain/lives";
+import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "../../domain/lives";
 import {
   activateLayout,
   parseMazeParam,
@@ -69,6 +69,8 @@ import {
   confirmUpgradeChoice,
   createRunUpgrades,
   ghostsAreFrozen,
+  ghostHouseClydePelletAdd,
+  ghostHouseReleaseDelayAddMs,
   ghostSpeedMultiplier,
   grantLivesForUpgrade,
   parseEnableUpgradeParams,
@@ -307,17 +309,23 @@ export class PlayScene extends Phaser.Scene {
     const hasInput = hasPlayerDirectionInput(this.world);
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
+    const releaseAdds = {
+      delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
+      clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
+    };
     ghostHouseSeating(
       this.world,
       this.ghostReleaseClock,
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
+      releaseAdds,
     );
     ghostRelease(
       this.world,
       this.ghostReleaseClock,
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
+      releaseAdds,
     );
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
@@ -376,6 +384,7 @@ export class PlayScene extends Phaser.Scene {
         this.ghostReleaseClock,
         this.pelletProgress.boardCollected,
         this.afterLifeRelease,
+        releaseAdds,
       );
     }
     if (powerEffects.warpPlayerTopCenter) {
@@ -721,7 +730,7 @@ export class PlayScene extends Phaser.Scene {
     this.lifeIcons = [];
     const size = playerDisplaySize();
     const y = PLAYFIELD_HEIGHT - 8 - size / 2;
-    for (let i = 0; i < this.lives; i += 1) {
+    for (let i = 0; i < livesHudIconCount(this.lives); i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
       const icon = this.add
         .image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
