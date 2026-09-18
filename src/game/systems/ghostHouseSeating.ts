@@ -6,7 +6,7 @@ import {
   type HouseSeatGhost,
 } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import type { GhostReleaseClock } from "../../domain/ghostRelease";
+import type { GhostReleaseAdds, GhostReleaseClock } from "../../domain/ghostRelease";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { TURN_ALIGN_EPS } from "../../domain/maze";
@@ -61,9 +61,10 @@ function seatAssignment(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease: boolean,
+  adds: GhostReleaseAdds,
 ) {
   const seats = ghostHouseSeatCenters();
-  const ordered = sortInHouseGhosts(inHouse, clock, collectedCount, afterLifeRelease);
+  const ordered = sortInHouseGhosts(inHouse, clock, collectedCount, afterLifeRelease, adds);
   const assignment = assignHouseSeats(
     inHouse,
     ordered.map((g) => g.eid),
@@ -77,13 +78,20 @@ export function ghostHouseSeating(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
+  adds: GhostReleaseAdds = {},
 ): void {
   const inHouse = collectInHouseGhosts(world);
   if (inHouse.length === 0) {
     return;
   }
 
-  const { seats, assignment } = seatAssignment(inHouse, clock, collectedCount, afterLifeRelease);
+  const { seats, assignment } = seatAssignment(
+    inHouse,
+    clock,
+    collectedCount,
+    afterLifeRelease,
+    adds,
+  );
 
   for (const ghost of inHouse) {
     const seat = seats[assignment.get(ghost.eid) ?? 0]!;
@@ -109,13 +117,20 @@ export function placeInHouseGhostsAtPredictedSeats(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
+  adds: GhostReleaseAdds = {},
 ): void {
   const inHouse = collectInHouseGhosts(world);
   if (inHouse.length === 0) {
     return;
   }
 
-  const { seats, assignment } = seatAssignment(inHouse, clock, collectedCount, afterLifeRelease);
+  const { seats, assignment } = seatAssignment(
+    inHouse,
+    clock,
+    collectedCount,
+    afterLifeRelease,
+    adds,
+  );
 
   for (const ghost of inHouse) {
     const seat = seats[assignment.get(ghost.eid) ?? 0]!;

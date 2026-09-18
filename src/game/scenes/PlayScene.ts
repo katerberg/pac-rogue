@@ -69,6 +69,8 @@ import {
   confirmUpgradeChoice,
   createRunUpgrades,
   ghostsAreFrozen,
+  ghostHouseClydePelletAdd,
+  ghostHouseReleaseDelayAddMs,
   ghostSpeedMultiplier,
   grantLivesForUpgrade,
   parseEnableUpgradeParams,
@@ -306,17 +308,23 @@ export class PlayScene extends Phaser.Scene {
     const hasInput = hasPlayerDirectionInput(this.world);
 
     this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
+    const releaseAdds = {
+      delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
+      clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
+    };
     ghostHouseSeating(
       this.world,
       this.ghostReleaseClock,
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
+      releaseAdds,
     );
     ghostRelease(
       this.world,
       this.ghostReleaseClock,
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
+      releaseAdds,
     );
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
@@ -375,6 +383,7 @@ export class PlayScene extends Phaser.Scene {
         this.ghostReleaseClock,
         this.pelletProgress.boardCollected,
         this.afterLifeRelease,
+        releaseAdds,
       );
     }
     if (powerEffects.warpPlayerTopCenter) {
