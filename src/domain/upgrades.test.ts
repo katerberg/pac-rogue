@@ -6,9 +6,11 @@ import {
   GHOST_SLOW_MUL,
   INVULN_MS,
   PICKUP_RANGE_BONUS_PX,
+  PLAYER_SPEED_BURST_MUL,
   PLAYER_SPEED_UP_MUL,
   POWER_COLLECT_THREE_COUNT,
   SCATTER_BURST_MS,
+  SPEED_BURST_MS,
   applyPowerPelletEffects,
   confirmUpgradeChoice,
   createRunUpgrades,
@@ -26,9 +28,11 @@ import {
   playerIsInvulnerable,
   playerSpeedMultiplier,
   scatterBurstActive,
+  speedBurstActive,
   tickFreeze,
   tickInvuln,
   tickScatterBurst,
+  tickSpeedBurst,
   upgradeLabels,
   type RunUpgrades,
   type UpgradeId,
@@ -52,7 +56,7 @@ const ALL_IDS: UpgradeId[] = [
   "powerInvuln",
 ];
 
-const STUB_IDS: UpgradeId[] = ["powerWallPass", "powerSpeedBurst"];
+const STUB_IDS: UpgradeId[] = ["powerWallPass"];
 
 function withForce(forceNextId: UpgradeId | null, owned: UpgradeId[] = []): RunUpgrades {
   return { ...createRunUpgrades(forceNextId), owned };
@@ -67,6 +71,7 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId("ghostRecall")).toBe("ghostRecall");
     expect(parseUpgradeId("warpTop")).toBe("warpTop");
     expect(parseUpgradeId("powerCollectThree")).toBe("powerCollectThree");
+    expect(parseUpgradeId("powerSpeedBurst")).toBe("powerSpeedBurst");
     for (const id of STUB_IDS) {
       expect(parseUpgradeId(id)).toBe(id);
     }
@@ -94,6 +99,7 @@ describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
     expect(state.forceNextId).toBeNull();
     expect(state.lastDeclinedUpgradeId).toBeNull();
     expect(state.scatterBurstRemainingMs).toBe(0);
+    expect(state.speedBurstRemainingMs).toBe(0);
   });
 });
 
@@ -290,6 +296,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     for (const id of [
       "powerPelletFreeze",
       "scatterBurst",
+      "powerSpeedBurst",
       "ghostRecall",
       "warpTop",
       "powerInvuln",
@@ -301,6 +308,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     expect(result.state.freezeRemainingMs).toBe(FREEZE_MS);
     expect(result.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS);
     expect(result.state.invulnRemainingMs).toBe(INVULN_MS);
+    expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
     expect(result.recallClosestGhost).toBe(true);
     expect(result.warpPlayerTopCenter).toBe(true);
     expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
@@ -355,6 +363,56 @@ describe("invuln / power pellet", () => {
 
     const partial = { ...armed.state, invulnRemainingMs: 500 };
     expect(applyPowerPelletEffects(partial, 2).state.invulnRemainingMs).toBe(INVULN_MS);
+  });
+});
+
+describe("speed burst / power pellet", () => {
+  it("ticks speed burst down and expires", () => {
+    const started = { ...createRunUpgrades(), speedBurstRemainingMs: SPEED_BURST_MS };
+    expect(speedBurstActive(started)).toBe(true);
+    const mid = tickSpeedBurst(started, 1000);
+    expect(mid.speedBurstRemainingMs).toBe(2000);
+    const done = tickSpeedBurst(mid, 2500);
+    expect(done.speedBurstRemainingMs).toBe(0);
+    expect(speedBurstActive(done)).toBe(false);
+  });
+
+  it("applies speed burst only when upgrade owned and refreshes to full", () => {
+    const bare = createRunUpgrades();
+    expect(applyPowerPelletEffects(bare, 1).state.speedBurstRemainingMs).toBe(0);
+
+    const owned = grantUpgrade(createRunUpgrades(), "powerSpeedBurst");
+    const applied = applyPowerPelletEffects(owned, 1);
+    expect(applied.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
+
+    const partial = { ...applied.state, speedBurstRemainingMs: 500 };
+    expect(applyPowerPelletEffects(partial, 2).state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
+  });
+
+  it("composes burst mul with passive Speed Up only while active", () => {
+    const burstOnly = {
+      ...grantUpgrade(createRunUpgrades(), "powerSpeedBurst"),
+      speedBurstRemainingMs: SPEED_BURST_MS,
+    };
+    expect(playerSpeedMultiplier(burstOnly.owned)).toBe(1);
+    expect(
+      playerSpeedMultiplier(burstOnly.owned) *
+        (speedBurstActive(burstOnly) ? PLAYER_SPEED_BURST_MUL : 1),
+    ).toBe(PLAYER_SPEED_BURST_MUL);
+
+    let both = grantUpgrade(createRunUpgrades(), "powerSpeedBurst");
+    both = grantUpgrade(both, "playerSpeedUp");
+    both = { ...both, speedBurstRemainingMs: SPEED_BURST_MS };
+    expect(playerSpeedMultiplier(both.owned)).toBe(PLAYER_SPEED_UP_MUL);
+    expect(
+      playerSpeedMultiplier(both.owned) * (speedBurstActive(both) ? PLAYER_SPEED_BURST_MUL : 1),
+    ).toBe(PLAYER_SPEED_UP_MUL * PLAYER_SPEED_BURST_MUL);
+
+    const expired = { ...both, speedBurstRemainingMs: 0 };
+    expect(
+      playerSpeedMultiplier(expired.owned) *
+        (speedBurstActive(expired) ? PLAYER_SPEED_BURST_MUL : 1),
+    ).toBe(PLAYER_SPEED_UP_MUL);
   });
 });
 

@@ -5,7 +5,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter/invuln timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/invuln timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter/invuln/speed-burst timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/invuln/speed-burst timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
 - Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
@@ -26,7 +26,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 | `pelletToPower`     | Pellet Surge  | While owned: convert exactly one random regular pellet → power pellet after each board spawn (`startBoard`); also convert one on the current board when first granted from fruit. Silent transform + one-shot 1.5× size bounce on the sprite; no SFX; empty pool → no-op. Not per-pellet-collect.                                                                           |
 | `powerCollectThree` | Triple Chomp  | Power pellet also removes up to `POWER_COLLECT_THREE_COUNT` (3) remaining **regular** pellets (uniform random; fewer than 3 → collect all remaining; 0 → no-op). Bonus removals count toward board/lifetime/Clyde/fruit/clear. One both-munch for the whole bonus set. One pass per frame even if multiple energizers were touched. Does not auto-collect other energizers. |
 | `powerWallPass`     | Wall Pass     | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                                                                                           |
-| `powerSpeedBurst`   | Speed Burst   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                                                                                           |
+| `powerSpeedBurst`   | Speed Burst   | Power pellet grants temporary player speed × `PLAYER_SPEED_BURST_MUL` (1.25) for `SPEED_BURST_MS` (3000); stacks with Speed Up (`playerSpeedMultiplier(owned) × 1.25` while active); refreshes to full on re-chomp; clears on level advance / life loss; no player tint                                                                                                     |
 | `powerInvuln`       | Ghost Proof   | Power pellet grants pass-through for `INVULN_MS` (3000): skip catch kill only (ghosts keep moving). Player tint `0xffd27a` blinks every 400ms, then every 100ms in the last 1000ms                                                                                                                                                                                          |
 
 Modal copy uses each def’s punchy `description` string (iterate freely).
@@ -56,6 +56,7 @@ Energizers stay inert unless an owned upgrade reacts. After `collectPellets`, `a
 - `freezeGhostsMs` → refresh `freezeRemainingMs` (max if multiple)
 - `scatterBurstMs` → refresh `scatterBurstRemainingMs`
 - `playerInvulnMs` → refresh `invulnRemainingMs` (max if multiple)
+- `playerSpeedBurstMs` → refresh `speedBurstRemainingMs`
 - `recallClosestGhost` → flag for `recallClosestGhostToHouse`
 - `warpPlayerTopCenter` → flag for `warpPlayerToTopCenter`
 - `collectExtraPellets` → count for one Triple Chomp pass (max among owned; not multiplied by `powerRemoved`)
@@ -89,11 +90,11 @@ Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the play
 - While `invulnRemainingMs > 0`, ghosts keep moving (no speed zero). `catchPlayer({ playerInvulnerable: true })` skips kill (true pass-through). Expiry while overlapping can kill on the same update after `tickInvuln`.
 - Freeze + invuln are independent timers: both may be active; catch skips when `ghostsFrozen || playerInvulnerable`. Freeze still zeros speed + cyan ghost tint; invuln does not reuse freeze cyan.
 - `render(world, { playerInvulnRemainingMs })` tints the player (and tunnel twin) warm gold `0xffd27a`, blinking on a 400ms period while remaining > 1000ms and 100ms in the last second; clears tint when off or on the blink-off half.
-- Invuln timer clears on level advance and life-loss actor reset (same as freeze/scatter). Owned `powerInvuln` persists across levels.
+- Invuln timer clears on level advance and life-loss actor reset (same as freeze/scatter/speed-burst). Owned `powerInvuln` persists across levels.
 
 ## Speed muls
 
-Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned)`; `applyGhostSpeed` multiplies after Elroy + tunnel resolve by `ghostSpeedLevelMul(levelIndex) × ghostSpeedMultiplier(owned)`.
+Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` multiplies after Elroy + tunnel resolve by `ghostSpeedLevelMul(levelIndex) × ghostSpeedMultiplier(owned)`.
 
 ## HUD
 

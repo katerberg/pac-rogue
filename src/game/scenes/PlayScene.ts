@@ -79,11 +79,14 @@ import {
   pelletCollectRadiusBonusPx,
   pickUpgradeChoiceOffer,
   playerIsInvulnerable,
+  PLAYER_SPEED_BURST_MUL,
   playerSpeedMultiplier,
   scatterBurstActive,
+  speedBurstActive,
   tickFreeze,
   tickInvuln,
   tickScatterBurst,
+  tickSpeedBurst,
   upgradeLabels,
   type RunUpgrades,
 } from "../../domain/upgrades";
@@ -339,8 +342,12 @@ export class PlayScene extends Phaser.Scene {
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
+    this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
     const frozen = ghostsAreFrozen(this.runUpgrades);
-    applyPlayerSpeed(this.world, playerSpeedMultiplier(this.runUpgrades.owned));
+    const playerSpeedMul =
+      playerSpeedMultiplier(this.runUpgrades.owned) *
+      (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1);
+    applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
       ghostSpeedMul:
         ghostSpeedLevelMul(this.levelIndex) * ghostSpeedMultiplier(this.runUpgrades.owned),
@@ -544,7 +551,10 @@ export class PlayScene extends Phaser.Scene {
     if (eid === null) {
       return;
     }
-    this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
+    this.playRender.draw(this.world, {
+      ghostsFrozen: ghostsAreFrozen(this.runUpgrades),
+      playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
+    });
     this.playRender.bouncePowerPellet(eid);
   }
 
@@ -559,6 +569,7 @@ export class PlayScene extends Phaser.Scene {
       freezeRemainingMs: 0,
       scatterBurstRemainingMs: 0,
       invulnRemainingMs: 0,
+      speedBurstRemainingMs: 0,
     };
 
     this.startBoard(null);
@@ -754,6 +765,7 @@ export class PlayScene extends Phaser.Scene {
       freezeRemainingMs: 0,
       scatterBurstRemainingMs: 0,
       invulnRemainingMs: 0,
+      speedBurstRemainingMs: 0,
     };
 
     this.clock = {
