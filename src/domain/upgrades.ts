@@ -29,6 +29,7 @@ export type UpgradeDef = {
   onPowerPellet?: {
     freezeGhostsMs?: number;
     scatterBurstMs?: number;
+    playerSpeedBurstMs?: number;
     recallClosestGhost?: true;
     warpPlayerTopCenter?: true;
     collectExtraPellets?: number;
@@ -37,7 +38,9 @@ export type UpgradeDef = {
 
 export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
+export const SPEED_BURST_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
+export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
 export const PICKUP_RANGE_BONUS_PX = TILE_SIZE;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
@@ -120,6 +123,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "powerSpeedBurst",
     label: "Speed Burst",
     description: "Power pellet spikes your pace for a few seconds.",
+    onPowerPellet: { playerSpeedBurstMs: SPEED_BURST_MS },
   },
   {
     id: "powerInvuln",
@@ -138,6 +142,7 @@ export type RunUpgrades = {
   owned: UpgradeId[];
   freezeRemainingMs: number;
   scatterBurstRemainingMs: number;
+  speedBurstRemainingMs: number;
   forceNextId: UpgradeId | null;
   lastDeclinedUpgradeId: UpgradeId | null;
 };
@@ -157,6 +162,7 @@ export function createRunUpgrades(
     owned: [],
     freezeRemainingMs: 0,
     scatterBurstRemainingMs: 0,
+    speedBurstRemainingMs: 0,
     forceNextId,
     lastDeclinedUpgradeId: null,
   };
@@ -298,6 +304,16 @@ export function tickScatterBurst(state: RunUpgrades, deltaMs: number): RunUpgrad
   };
 }
 
+export function tickSpeedBurst(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.speedBurstRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    speedBurstRemainingMs: Math.max(0, state.speedBurstRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
@@ -313,6 +329,7 @@ export function applyPowerPelletEffects(
 
   let freezeMs: number | null = null;
   let scatterMs: number | null = null;
+  let speedBurstMs: number | null = null;
   let recallClosestGhost = false;
   let warpPlayerTopCenter = false;
   let collectExtraPellets = 0;
@@ -329,6 +346,12 @@ export function applyPowerPelletEffects(
     if (onPower.scatterBurstMs !== undefined) {
       scatterMs =
         scatterMs === null ? onPower.scatterBurstMs : Math.max(scatterMs, onPower.scatterBurstMs);
+    }
+    if (onPower.playerSpeedBurstMs !== undefined) {
+      speedBurstMs =
+        speedBurstMs === null
+          ? onPower.playerSpeedBurstMs
+          : Math.max(speedBurstMs, onPower.playerSpeedBurstMs);
     }
     if (onPower.recallClosestGhost) {
       recallClosestGhost = true;
@@ -347,6 +370,9 @@ export function applyPowerPelletEffects(
   }
   if (scatterMs !== null) {
     next = { ...next, scatterBurstRemainingMs: scatterMs };
+  }
+  if (speedBurstMs !== null) {
+    next = { ...next, speedBurstRemainingMs: speedBurstMs };
   }
 
   return {
@@ -418,6 +444,10 @@ export function ghostsAreFrozen(state: RunUpgrades): boolean {
 
 export function scatterBurstActive(state: RunUpgrades): boolean {
   return state.scatterBurstRemainingMs > 0;
+}
+
+export function speedBurstActive(state: RunUpgrades): boolean {
+  return state.speedBurstRemainingMs > 0;
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {
