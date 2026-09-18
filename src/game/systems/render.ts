@@ -37,6 +37,7 @@ const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
+export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -159,6 +160,7 @@ function ensurePlayerVisual(
 
 export type RenderOptions = {
   ghostsFrozen?: boolean;
+  wallPassActive?: boolean;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -223,6 +225,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
   const draw = (world: World, opts?: RenderOptions): void => {
     const ghostsFrozen = opts?.ghostsFrozen === true;
+    const wallPassOn = opts?.wallPassActive === true;
     if (!wallsDrawn) {
       wallGraphics.clear();
       wallGraphics.lineStyle(WALL_STROKE_WEIGHT, WALL_STROKE_COLOR, 1);
@@ -278,6 +281,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
 
       if (id === PLAYER_DRAWABLE_ID) {
+        if (wallPassOn) {
+          go.setTint(PLAYER_WALL_PASS_TINT);
+        } else {
+          go.clearTint();
+        }
         const visual = ensurePlayerVisual(playerVisuals, eid, x, y);
         const facing = Facing.direction[eid] ?? DIRECTION.none;
         const movingDir = facingToDir(facing);
@@ -320,6 +328,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
                 twinGo.setTexture(visual.textureKey);
                 twinGo.setDisplaySize(actorDisplaySize, actorDisplaySize);
               }
+            }
+            if (wallPassOn) {
+              twinGo.setTint(PLAYER_WALL_PASS_TINT);
+            } else {
+              twinGo.clearTint();
             }
           }
         }

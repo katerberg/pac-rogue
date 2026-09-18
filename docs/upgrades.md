@@ -5,7 +5,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter/wall-pass timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
 - Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
@@ -25,7 +25,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 | `extraLife`         | Extra Life    | On first own: +1 life immediately (can exceed start lives); `?enableUpgrade=extraLife` applies at create                                                                                                                                                                                          |
 | `pelletToPower`     | Pellet Surge  | While owned: convert exactly one random regular pellet → power pellet after each board spawn (`startBoard`); also convert one on the current board when first granted from fruit. Silent transform + one-shot 1.5× size bounce on the sprite; no SFX; empty pool → no-op. Not per-pellet-collect. |
 | `powerCollectThree` | Triple Chomp  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                 |
-| `powerWallPass`     | Wall Pass     | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                 |
+| `powerWallPass`     | Wall Pass     | Power pellet: walls-only pass-through for `WALL_PASS_MS` (3000); house + exterior stay solid; timer-end snap to nearest `playerSolids` walkable center; mild blueward player tint (`PLAYER_WALL_PASS_TINT`) while active                                                                          |
 | `powerSpeedBurst`   | Speed Burst   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                 |
 | `powerInvuln`       | Ghost Proof   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                                                                                                                                                                                 |
 
@@ -55,8 +55,13 @@ Energizers stay inert unless an owned upgrade reacts. After `collectPellets`, `a
 
 - `freezeGhostsMs` → refresh `freezeRemainingMs` (max if multiple)
 - `scatterBurstMs` → refresh `scatterBurstRemainingMs`
+- `wallPassMs` → refresh `wallPassRemainingMs`
 - `recallClosestGhost` → flag for `recallClosestGhostToHouse`
 - `warpPlayerTopCenter` → flag for `warpPlayerToTopCenter`
+
+### Wall pass
+
+While `wallPassRemainingMs > 0`, `PlayScene` passes `getActiveLayout().wallPassPlayerSolids` (`exterior ∪ house`) into `movement` as the player solids override so walls are walkable and house/exterior stay blocked. Ghosts keep their normal solids. Catch is unchanged. When the timer ticks from active → expired, if the player cell is solid under normal `playerSolids`, `snapPlayerToNearestWalkable` moves them to the nearest walkable cell center (Euclidean tile distance; tie lower row then lower col; empty scan → `playerSpawnCenter`) and zeros `Velocity`. `render(..., { wallPassActive })` applies `PLAYER_WALL_PASS_TINT` on the player (and tunnel twin) while active.
 
 ### Scatter burst
 

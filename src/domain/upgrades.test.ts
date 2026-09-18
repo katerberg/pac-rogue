@@ -7,6 +7,7 @@ import {
   PICKUP_RANGE_BONUS_PX,
   PLAYER_SPEED_UP_MUL,
   SCATTER_BURST_MS,
+  WALL_PASS_MS,
   applyPowerPelletEffects,
   confirmUpgradeChoice,
   createRunUpgrades,
@@ -25,7 +26,9 @@ import {
   scatterBurstActive,
   tickFreeze,
   tickScatterBurst,
+  tickWallPass,
   upgradeLabels,
+  wallPassActive,
   type RunUpgrades,
   type UpgradeId,
 } from "./upgrades";
@@ -48,12 +51,7 @@ const ALL_IDS: UpgradeId[] = [
   "powerInvuln",
 ];
 
-const STUB_IDS: UpgradeId[] = [
-  "powerCollectThree",
-  "powerWallPass",
-  "powerSpeedBurst",
-  "powerInvuln",
-];
+const STUB_IDS: UpgradeId[] = ["powerCollectThree", "powerSpeedBurst", "powerInvuln"];
 
 function withForce(forceNextId: UpgradeId | null, owned: UpgradeId[] = []): RunUpgrades {
   return { ...createRunUpgrades(forceNextId), owned };
@@ -282,12 +280,19 @@ describe("scatter burst / multi power-pellet effects", () => {
 
   it("fires all owned power-pellet effects together", () => {
     let state = createRunUpgrades();
-    for (const id of ["powerPelletFreeze", "scatterBurst", "ghostRecall", "warpTop"] as const) {
+    for (const id of [
+      "powerPelletFreeze",
+      "scatterBurst",
+      "ghostRecall",
+      "warpTop",
+      "powerWallPass",
+    ] as const) {
       state = grantUpgrade(state, id);
     }
     const result = applyPowerPelletEffects(state, 1);
     expect(result.state.freezeRemainingMs).toBe(FREEZE_MS);
     expect(result.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS);
+    expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
     expect(result.recallClosestGhost).toBe(true);
     expect(result.warpPlayerTopCenter).toBe(true);
   });
@@ -300,6 +305,30 @@ describe("scatter burst / multi power-pellet effects", () => {
     const warp = applyPowerPelletEffects(grantUpgrade(createRunUpgrades(), "warpTop"), 1);
     expect(warp.recallClosestGhost).toBe(false);
     expect(warp.warpPlayerTopCenter).toBe(true);
+  });
+});
+
+describe("wall pass / power pellet", () => {
+  it("ticks wall pass down and expires", () => {
+    const started = { ...createRunUpgrades(), wallPassRemainingMs: WALL_PASS_MS };
+    expect(wallPassActive(started)).toBe(true);
+    const mid = tickWallPass(started, 1000);
+    expect(mid.wallPassRemainingMs).toBe(2000);
+    const done = tickWallPass(mid, 2500);
+    expect(done.wallPassRemainingMs).toBe(0);
+    expect(wallPassActive(done)).toBe(false);
+  });
+
+  it("applies wall pass when owned and refreshes to full", () => {
+    const bare = createRunUpgrades();
+    expect(applyPowerPelletEffects(bare, 1).state.wallPassRemainingMs).toBe(0);
+
+    const owned = grantUpgrade(createRunUpgrades(), "powerWallPass");
+    const applied = applyPowerPelletEffects(owned, 1);
+    expect(applied.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
+
+    const partial = { ...applied.state, wallPassRemainingMs: 400 };
+    expect(applyPowerPelletEffects(partial, 1).state.wallPassRemainingMs).toBe(WALL_PASS_MS);
   });
 });
 

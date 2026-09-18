@@ -82,6 +82,8 @@ import {
   scatterBurstActive,
   tickFreeze,
   tickScatterBurst,
+  tickWallPass,
+  wallPassActive,
   upgradeLabels,
   type RunUpgrades,
 } from "../../domain/upgrades";
@@ -125,6 +127,7 @@ import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
+import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
 import {
   createRender,
@@ -295,7 +298,10 @@ export class PlayScene extends Phaser.Scene {
         this.suppressPlayerInputUntilKeyRelease = true;
       } else {
         const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
-        this.playRender.draw(this.world, { ghostsFrozen });
+        this.playRender.draw(this.world, {
+          ghostsFrozen,
+          wallPassActive: wallPassActive(this.runUpgrades),
+        });
         return;
       }
     }
@@ -332,6 +338,11 @@ export class PlayScene extends Phaser.Scene {
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
+    const wasWallPass = wallPassActive(this.runUpgrades);
+    this.runUpgrades = tickWallPass(this.runUpgrades, delta);
+    if (wasWallPass && !wallPassActive(this.runUpgrades)) {
+      snapPlayerToNearestWalkable(this.world);
+    }
     const frozen = ghostsAreFrozen(this.runUpgrades);
     applyPlayerSpeed(this.world, playerSpeedMultiplier(this.runUpgrades.owned));
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
@@ -339,7 +350,10 @@ export class PlayScene extends Phaser.Scene {
         ghostSpeedLevelMul(this.levelIndex) * ghostSpeedMultiplier(this.runUpgrades.owned),
       frozen,
     });
-    movement(this.world, delta);
+    const playerSolidsOverride = wallPassActive(this.runUpgrades)
+      ? getActiveLayout().wallPassPlayerSolids
+      : undefined;
+    movement(this.world, delta, playerSolidsOverride);
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
       this.ghostModeClock = startGhostModeClock();
@@ -436,7 +450,10 @@ export class PlayScene extends Phaser.Scene {
           this.beginUpgradeResumeCountdown();
         });
         const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
-        this.playRender.draw(this.world, { ghostsFrozen });
+        this.playRender.draw(this.world, {
+          ghostsFrozen,
+          wallPassActive: wallPassActive(this.runUpgrades),
+        });
         return;
       }
     } else if (fruitTick.action === "despawn") {
@@ -450,13 +467,19 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "siren");
       playSfx(this, "levelComplete");
       this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
-      this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
+      this.playRender.draw(this.world, {
+        ghostsFrozen: ghostsAreFrozen(this.runUpgrades),
+        wallPassActive: wallPassActive(this.runUpgrades),
+      });
       return;
     }
 
     const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
     const caught = catchPlayer(this.world, { ghostsFrozen });
-    this.playRender.draw(this.world, { ghostsFrozen });
+    this.playRender.draw(this.world, {
+      ghostsFrozen,
+      wallPassActive: wallPassActive(this.runUpgrades),
+    });
 
     if (caught) {
       stopLoopingSfx(this, "siren");
@@ -512,7 +535,10 @@ export class PlayScene extends Phaser.Scene {
     if (eid === null) {
       return;
     }
-    this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
+    this.playRender.draw(this.world, {
+      ghostsFrozen: ghostsAreFrozen(this.runUpgrades),
+      wallPassActive: wallPassActive(this.runUpgrades),
+    });
     this.playRender.bouncePowerPellet(eid);
   }
 
@@ -526,6 +552,7 @@ export class PlayScene extends Phaser.Scene {
       ...this.runUpgrades,
       freezeRemainingMs: 0,
       scatterBurstRemainingMs: 0,
+      wallPassRemainingMs: 0,
     };
 
     this.startBoard(null);
@@ -533,7 +560,7 @@ export class PlayScene extends Phaser.Scene {
     this.refreshLivesIcons();
     this.showLevelBanner();
     startLoopingSfx(this, "siren");
-    this.playRender.draw(this.world, { ghostsFrozen: false });
+    this.playRender.draw(this.world, { ghostsFrozen: false, wallPassActive: false });
   }
 
   private showLevelBanner(): void {
@@ -610,7 +637,7 @@ export class PlayScene extends Phaser.Scene {
     switch (event) {
       case "resetActors":
         this.resetAfterLifeLoss();
-        this.playRender.draw(this.world, { ghostsFrozen: false });
+        this.playRender.draw(this.world, { ghostsFrozen: false, wallPassActive: false });
         break;
       case "startFade":
         this.startDeathFadeOverlay();
@@ -720,6 +747,7 @@ export class PlayScene extends Phaser.Scene {
       ...this.runUpgrades,
       freezeRemainingMs: 0,
       scatterBurstRemainingMs: 0,
+      wallPassRemainingMs: 0,
     };
 
     this.clock = {

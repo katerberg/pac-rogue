@@ -27,6 +27,7 @@ import {
   isTunnelMouth,
   isWalkable,
   isWall,
+  nearestWalkableCellCenter,
   parseMaze,
   pipeEdges,
   playerDisplaySize,
@@ -46,6 +47,8 @@ import {
   walkableCellCenters,
   wrapPosition,
   wrappedTwinPosition,
+  worldToCol,
+  worldToRow,
 } from "./maze";
 import { GHOST_PHASE } from "./ghostTarget";
 
@@ -230,6 +233,58 @@ describe("maze", () => {
     expect(playerTopCenterCell(solids)).toEqual({
       ...getActiveLayout().playerSpawn,
     });
+  });
+
+  it("wallPassPlayerSolids opens walls but keeps exterior and house solid", () => {
+    const { walls, exterior, house, wallPassPlayerSolids, playerSolids } = getActiveLayout();
+    let wallOnly = false;
+    for (let row = 0; row < MAZE_ROWS; row += 1) {
+      for (let col = 0; col < MAZE_COLS; col += 1) {
+        if (walls[row]![col] && !exterior[row]![col] && !house[row]![col]) {
+          expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(true);
+          expect(isWalkable(col, row, playerSolids)).toBe(false);
+          wallOnly = true;
+        }
+        if (exterior[row]![col] || house[row]![col]) {
+          expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(false);
+        }
+      }
+    }
+    expect(wallOnly).toBe(true);
+  });
+
+  it("nearestWalkableCellCenter picks nearest under solids with spawn fallback", () => {
+    const solids = Array.from({ length: MAZE_ROWS }, () =>
+      Array.from({ length: MAZE_COLS }, () => true),
+    );
+    solids[10]![10] = false;
+    solids[10]![12] = false;
+    const from = { x: cellCenterX(11), y: cellCenterY(10) };
+    expect(nearestWalkableCellCenter(from.x, from.y, solids)).toEqual({
+      x: cellCenterX(10),
+      y: cellCenterY(10),
+    });
+
+    const allSolid = Array.from({ length: MAZE_ROWS }, () =>
+      Array.from({ length: MAZE_COLS }, () => true),
+    );
+    expect(nearestWalkableCellCenter(from.x, from.y, allSolid)).toEqual(playerSpawnCenter());
+
+    const { walls, exterior, house } = getActiveLayout();
+    let wallCol = -1;
+    let wallRow = -1;
+    for (let row = 0; row < MAZE_ROWS && wallCol < 0; row += 1) {
+      for (let col = 0; col < MAZE_COLS; col += 1) {
+        if (walls[row]![col] && !exterior[row]![col] && !house[row]![col]) {
+          wallCol = col;
+          wallRow = row;
+          break;
+        }
+      }
+    }
+    expect(isWalkable(wallCol, wallRow)).toBe(false);
+    const snapped = nearestWalkableCellCenter(cellCenterX(wallCol), cellCenterY(wallRow));
+    expect(isWalkable(worldToCol(snapped.x), worldToRow(snapped.y))).toBe(true);
   });
 
   it("rejects malformed ASCII", () => {

@@ -54,6 +54,7 @@ export type MazeLayout = {
   door: SolidGrid;
   ghostSolids: SolidGrid;
   playerSolids: SolidGrid;
+  wallPassPlayerSolids: SolidGrid;
   playerSpawn: MazeTile;
   ghostHouseSpawn: MazeTile;
   ghostHouseExit: MazeTile;
@@ -424,6 +425,10 @@ function buildPlayerSolids(walls: SolidGrid, exterior: SolidGrid, house: SolidGr
   return blocked;
 }
 
+function buildWallPassPlayerSolids(exterior: SolidGrid, house: SolidGrid): boolean[][] {
+  return buildBlocked(exterior, house);
+}
+
 function buildLayout(id: MazeLayoutId): MazeLayout {
   const ascii = MAZE_ASCII_BY_ID[id];
   const playerSpawn = resolvePlayerSpawn(ascii);
@@ -433,6 +438,7 @@ function buildLayout(id: MazeLayoutId): MazeLayout {
   const door = parseDoor(ascii);
   const ghostSolids = buildBlocked(walls, exterior);
   const playerSolids = buildPlayerSolids(walls, exterior, house);
+  const wallPassPlayerSolids = buildWallPassPlayerSolids(exterior, house);
   const ghostHouseSpawn = deriveGhostHouseSpawn(ascii);
   const ghostHouseExit = deriveGhostHouseExit(ascii, playerSolids);
   const fruitSpawn = deriveFruitSpawn(ascii, playerSolids, ghostHouseSpawn.col);
@@ -454,6 +460,7 @@ function buildLayout(id: MazeLayoutId): MazeLayout {
     door,
     ghostSolids,
     playerSolids,
+    wallPassPlayerSolids,
     playerSpawn,
     ghostHouseSpawn,
     ghostHouseExit,
@@ -760,6 +767,44 @@ export function playerTopCenterSpawn(solids: SolidGrid = getActiveLayout().playe
 } {
   const cell = playerTopCenterCell(solids);
   return { x: cellCenterX(cell.col), y: cellCenterY(cell.row) };
+}
+
+export function nearestWalkableCellCenter(
+  x: number,
+  y: number,
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): { x: number; y: number } {
+  const fromCol = worldToCol(x);
+  const fromRow = worldToRow(y);
+  let bestCol = -1;
+  let bestRow = -1;
+  let bestDist = Number.POSITIVE_INFINITY;
+  let found = false;
+
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    for (let col = 0; col < MAZE_COLS; col += 1) {
+      if (!isWalkable(col, row, solids)) {
+        continue;
+      }
+      found = true;
+      const dx = col - fromCol;
+      const dy = row - fromRow;
+      const dist = dx * dx + dy * dy;
+      if (
+        dist < bestDist ||
+        (dist === bestDist && (row < bestRow || (row === bestRow && col < bestCol)))
+      ) {
+        bestDist = dist;
+        bestCol = col;
+        bestRow = row;
+      }
+    }
+  }
+
+  if (!found) {
+    return playerSpawnCenter();
+  }
+  return { x: cellCenterX(bestCol), y: cellCenterY(bestRow) };
 }
 
 export function isAlignedForTurn(x: number, y: number, eps: number = TURN_ALIGN_EPS): boolean {

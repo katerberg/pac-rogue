@@ -1,6 +1,13 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
-import { cellCenterX, cellCenterY } from "../../domain/maze";
+import {
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+  isWalkable,
+  worldToCol,
+  worldToRow,
+} from "../../domain/maze";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -56,6 +63,44 @@ describe("movement", () => {
     expect(Velocity.y[eid]).toBe(0);
     expect(Position.x[eid]).toBe(cellCenterX(1));
     expect(Position.y[eid]).toBe(cellCenterY(1));
+  });
+
+  it("enters a wall neighbor when player solids override opens walls", () => {
+    const { playerSolids, wallPassPlayerSolids, walls } = getActiveLayout();
+    let fromCol = -1;
+    let fromRow = -1;
+    for (let row = 2; row < 28 && fromCol < 0; row += 1) {
+      for (let col = 2; col < 25; col += 1) {
+        if (!isWalkable(col, row, playerSolids)) {
+          continue;
+        }
+        if (walls[row]?.[col + 1] && isWalkable(col + 1, row, wallPassPlayerSolids)) {
+          fromCol = col;
+          fromRow = row;
+          break;
+        }
+      }
+    }
+    expect(fromCol).toBeGreaterThan(0);
+
+    const blocked = spawnAt(fromCol, fromRow);
+    Facing.direction[blocked.eid] = DIRECTION.right;
+    Input.direction[blocked.eid] = DIRECTION.right;
+    movement(blocked.world, 100);
+    expect(worldToCol(Position.x[blocked.eid] ?? 0)).toBe(fromCol);
+
+    const open = spawnAt(fromCol, fromRow);
+    Facing.direction[open.eid] = DIRECTION.right;
+    Input.direction[open.eid] = DIRECTION.right;
+    movement(open.world, 200, wallPassPlayerSolids);
+    expect(worldToCol(Position.x[open.eid] ?? 0)).toBeGreaterThan(fromCol);
+    expect(
+      isWalkable(
+        worldToCol(Position.x[open.eid] ?? 0),
+        worldToRow(Position.y[open.eid] ?? 0),
+        wallPassPlayerSolids,
+      ),
+    ).toBe(true);
   });
 
   it("keeps ghost Facing at a dead-end so reverse filtering still applies", () => {

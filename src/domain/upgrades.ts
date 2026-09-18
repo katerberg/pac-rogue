@@ -29,6 +29,7 @@ export type UpgradeDef = {
   onPowerPellet?: {
     freezeGhostsMs?: number;
     scatterBurstMs?: number;
+    wallPassMs?: number;
     recallClosestGhost?: true;
     warpPlayerTopCenter?: true;
   };
@@ -36,6 +37,7 @@ export type UpgradeDef = {
 
 export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
+export const WALL_PASS_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
 export const PICKUP_RANGE_BONUS_PX = TILE_SIZE;
@@ -112,6 +114,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "powerWallPass",
     label: "Wall Pass",
     description: "Power pellet lets you slip through walls for a breath.",
+    onPowerPellet: { wallPassMs: WALL_PASS_MS },
   },
   {
     id: "powerSpeedBurst",
@@ -135,6 +138,7 @@ export type RunUpgrades = {
   owned: UpgradeId[];
   freezeRemainingMs: number;
   scatterBurstRemainingMs: number;
+  wallPassRemainingMs: number;
   forceNextId: UpgradeId | null;
   lastDeclinedUpgradeId: UpgradeId | null;
 };
@@ -153,6 +157,7 @@ export function createRunUpgrades(
     owned: [],
     freezeRemainingMs: 0,
     scatterBurstRemainingMs: 0,
+    wallPassRemainingMs: 0,
     forceNextId,
     lastDeclinedUpgradeId: null,
   };
@@ -294,6 +299,16 @@ export function tickScatterBurst(state: RunUpgrades, deltaMs: number): RunUpgrad
   };
 }
 
+export function tickWallPass(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.wallPassRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    wallPassRemainingMs: Math.max(0, state.wallPassRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
@@ -308,6 +323,7 @@ export function applyPowerPelletEffects(
 
   let freezeMs: number | null = null;
   let scatterMs: number | null = null;
+  let wallPassMs: number | null = null;
   let recallClosestGhost = false;
   let warpPlayerTopCenter = false;
 
@@ -324,6 +340,10 @@ export function applyPowerPelletEffects(
       scatterMs =
         scatterMs === null ? onPower.scatterBurstMs : Math.max(scatterMs, onPower.scatterBurstMs);
     }
+    if (onPower.wallPassMs !== undefined) {
+      wallPassMs =
+        wallPassMs === null ? onPower.wallPassMs : Math.max(wallPassMs, onPower.wallPassMs);
+    }
     if (onPower.recallClosestGhost) {
       recallClosestGhost = true;
     }
@@ -338,6 +358,9 @@ export function applyPowerPelletEffects(
   }
   if (scatterMs !== null) {
     next = { ...next, scatterBurstRemainingMs: scatterMs };
+  }
+  if (wallPassMs !== null) {
+    next = { ...next, wallPassRemainingMs: wallPassMs };
   }
 
   return {
@@ -408,6 +431,10 @@ export function ghostsAreFrozen(state: RunUpgrades): boolean {
 
 export function scatterBurstActive(state: RunUpgrades): boolean {
   return state.scatterBurstRemainingMs > 0;
+}
+
+export function wallPassActive(state: RunUpgrades): boolean {
+  return state.wallPassRemainingMs > 0;
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {
