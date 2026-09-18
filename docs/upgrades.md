@@ -22,7 +22,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 | `warpTop`           | Warp Top      | Power pellet warps the player to the dynamically nearest top-middle walkable cell                                                               |
 | `pickupRange`       | Pickup Range  | Always-on: regular pellets within `playerR+pelletR+TILE_SIZE` collect with open LOS through `playerSolids` (power pellets keep base reach only) |
 | `ghostHouseDelay`   | House Delay   | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
-| `extraLife`         | Extra Life    | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
+| `extraLife`         | Extra Life    | On first own: +1 life immediately (can exceed start lives); `?enableUpgrade=extraLife` applies at create                                        |
 | `pelletToPower`     | Pellet Surge  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
 | `powerCollectThree` | Triple Chomp  | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |
 | `powerWallPass`     | Wall Pass     | TBD — follow-up agent (stub: selectable/grantable, no effect yet)                                                                               |

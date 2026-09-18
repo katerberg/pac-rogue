@@ -23,6 +23,7 @@ export type UpgradeDef = {
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
   pelletCollectRadiusBonusPx?: number;
+  grantLives?: number;
   onPowerPellet?: {
     freezeGhostsMs?: number;
     scatterBurstMs?: number;
@@ -89,6 +90,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "extraLife",
     label: "Extra Life",
     description: "One more chance before the maze goes dark.",
+    grantLives: 1,
   },
   {
     id: "pelletToPower",
@@ -174,6 +176,10 @@ export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
 
 export function getUpgradeDef(id: UpgradeId): UpgradeDef {
   return UPGRADE_BY_ID.get(id)!;
+}
+
+export function grantLivesForUpgrade(id: UpgradeId): number {
+  return UPGRADE_BY_ID.get(id)?.grantLives ?? 0;
 }
 
 export function eligibleUpgrades(owned: readonly UpgradeId[]): UpgradeId[] {
