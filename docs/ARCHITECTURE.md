@@ -135,8 +135,7 @@ Settings reads/writes `audioSettings` via `audioSettingsStorage` (`pac-rogue.aud
 PlayScene.update →
   (if dying: tickDeathSequence → handle events (reset / fade / GO / resume / menu); return; no sim)
   (if level transition: tick pause → advance board; return)
-  (if upgrade modal active: tick modal; return)
-  (if resume countdown > 0: tick overlay; return until done → suppress input until key release)
+  (if upgrade modal active: tick modal; return until outro done → suppress input until key release)
   playerInput →
   tickGhostRelease + ghostHouseSeating + ghostRelease (boardCollected + afterLifeRelease gates Inky/Clyde) →
   tickFreeze + tickScatterBurst + tickInvuln + tickSpeedBurst → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + freeze; skips inHouse) →
