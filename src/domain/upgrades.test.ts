@@ -47,7 +47,6 @@ const ALL_IDS: UpgradeId[] = [
 
 const STUB_IDS: UpgradeId[] = [
   "pickupRange",
-  "pelletToPower",
   "powerCollectThree",
   "powerWallPass",
   "powerSpeedBurst",

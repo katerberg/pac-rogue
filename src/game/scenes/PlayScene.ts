@@ -119,6 +119,7 @@ import {
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { movement } from "../systems/movement";
+import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -422,6 +423,9 @@ export class PlayScene extends Phaser.Scene {
           if (!alreadyOwned) {
             this.lives += grantLivesForUpgrade(chosen);
             this.refreshLivesIcons();
+            if (chosen === "pelletToPower") {
+              this.applyPelletToPowerOnce();
+            }
           }
           this.refreshUpgradesHud();
           this.beginUpgradeResumeCountdown();
@@ -492,6 +496,19 @@ export class PlayScene extends Phaser.Scene {
     this.collectedText.setText(this.collectedLabel());
     this.timerText.setText(this.timerLabel());
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+
+    if (this.runUpgrades.owned.includes("pelletToPower")) {
+      this.applyPelletToPowerOnce();
+    }
+  }
+
+  private applyPelletToPowerOnce(): void {
+    const eid = applyPelletToPowerConvert(this.world, () => Math.random());
+    if (eid === null) {
+      return;
+    }
+    this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
+    this.playRender.bouncePowerPellet(eid);
   }
 
   private advanceToNextLevel(): void {
