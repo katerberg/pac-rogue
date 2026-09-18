@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ghostSpeedLevelMul, parseLevelParam } from "./runLevel";
+import { GHOST_KIND } from "./ghostKind";
+import { ghostKindsForLevel, ghostSpeedLevelMul, parseLevelParam } from "./runLevel";
 
 describe("parseLevelParam", () => {
   it("parses positive integers", () => {
@@ -27,5 +28,25 @@ describe("ghostSpeedLevelMul", () => {
   it("clamps below 1 to level 1 mul", () => {
     expect(ghostSpeedLevelMul(0)).toBe(1);
     expect(ghostSpeedLevelMul(-2)).toBe(1);
+  });
+});
+
+describe("ghostKindsForLevel", () => {
+  it("unlocks Blinky then Pinky then Inky then Clyde", () => {
+    expect(ghostKindsForLevel(1)).toEqual([GHOST_KIND.blinky]);
+    expect(ghostKindsForLevel(2)).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky]);
+    expect(ghostKindsForLevel(3)).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky]);
+    expect(ghostKindsForLevel(4)).toEqual([
+      GHOST_KIND.blinky,
+      GHOST_KIND.pinky,
+      GHOST_KIND.inky,
+      GHOST_KIND.clyde,
+    ]);
+    expect(ghostKindsForLevel(5)).toEqual(ghostKindsForLevel(4));
+  });
+
+  it("clamps below 1 to level 1 roster", () => {
+    expect(ghostKindsForLevel(0)).toEqual([GHOST_KIND.blinky]);
+    expect(ghostKindsForLevel(-2)).toEqual([GHOST_KIND.blinky]);
   });
 });

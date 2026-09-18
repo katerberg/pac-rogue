@@ -43,7 +43,7 @@ import {
   wallCellCenters,
   type MazeLayoutId,
 } from "../../domain/maze";
-import { ghostSpeedLevelMul, parseLevelParam } from "../../domain/runLevel";
+import { ghostKindsForLevel, ghostSpeedLevelMul, parseLevelParam } from "../../domain/runLevel";
 import {
   BLINKY_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
@@ -61,7 +61,7 @@ import {
   PLAYFIELD_WIDTH,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
-import { GHOST_KIND } from "../../domain/ghostKind";
+import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
@@ -142,6 +142,13 @@ import {
 
 const LEVEL_TRANSITION_MS = 1000;
 const LEVEL_BANNER_FADE_MS = 1500;
+
+const GHOST_DRAWABLE_BY_KIND: Record<GhostKindId, string> = {
+  [GHOST_KIND.blinky]: BLINKY_DRAWABLE_ID,
+  [GHOST_KIND.pinky]: PINKY_DRAWABLE_ID,
+  [GHOST_KIND.inky]: INKY_DRAWABLE_ID,
+  [GHOST_KIND.clyde]: CLYDE_DRAWABLE_ID,
+};
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
@@ -444,10 +451,9 @@ export class PlayScene extends Phaser.Scene {
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
-    this.spawnBlinky();
-    this.spawnPinky();
-    this.spawnInky();
-    this.spawnClyde();
+    for (const kind of ghostKindsForLevel(this.levelIndex)) {
+      this.spawnGhost(kind);
+    }
 
     this.clock = createRunClock();
     this.ghostReleaseClock = createGhostReleaseClock();
@@ -785,23 +791,7 @@ export class PlayScene extends Phaser.Scene {
     Drawable.radius[eid] = PLAYER_RADIUS;
   }
 
-  private spawnBlinky(): void {
-    this.spawnGhost(GHOST_KIND.blinky, BLINKY_DRAWABLE_ID);
-  }
-
-  private spawnPinky(): void {
-    this.spawnGhost(GHOST_KIND.pinky, PINKY_DRAWABLE_ID);
-  }
-
-  private spawnInky(): void {
-    this.spawnGhost(GHOST_KIND.inky, INKY_DRAWABLE_ID);
-  }
-
-  private spawnClyde(): void {
-    this.spawnGhost(GHOST_KIND.clyde, CLYDE_DRAWABLE_ID);
-  }
-
-  private spawnGhost(kind: number, drawableId: string): void {
+  private spawnGhost(kind: GhostKindId): void {
     const eid = addEntity(this.world);
     addComponent(this.world, eid, Position);
     addComponent(this.world, eid, Velocity);
@@ -826,7 +816,7 @@ export class PlayScene extends Phaser.Scene {
     GhostPhase.value[eid] = GHOST_PHASE.inHouse;
     Ghost.decidedCol[eid] = Number.NaN;
     Ghost.decidedRow[eid] = Number.NaN;
-    Drawable.id[eid] = drawableId;
+    Drawable.id[eid] = GHOST_DRAWABLE_BY_KIND[kind];
     Drawable.radius[eid] = GHOST_RADIUS;
   }
 }
