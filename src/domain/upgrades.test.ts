@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   FREEZE_MS,
+  GHOST_HOUSE_CLYDE_PELLET_ADD,
+  GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
   GHOST_SLOW_MUL,
   PICKUP_RANGE_BONUS_PX,
   PLAYER_SPEED_UP_MUL,
@@ -10,6 +12,8 @@ import {
   createRunUpgrades,
   eligibleUpgrades,
   ghostsAreFrozen,
+  ghostHouseClydePelletAdd,
+  ghostHouseReleaseDelayAddMs,
   grantUpgrade,
   grantLivesForUpgrade,
   parseEnableUpgradeParams,
@@ -45,7 +49,6 @@ const ALL_IDS: UpgradeId[] = [
 ];
 
 const STUB_IDS: UpgradeId[] = [
-  "ghostHouseDelay",
   "pelletToPower",
   "powerCollectThree",
   "powerWallPass",
@@ -204,6 +207,17 @@ describe("grantUpgrade", () => {
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
     });
+  });
+
+  it("ghostHouseDelay sums release delay and Clyde pellet adds", () => {
+    expect(ghostHouseReleaseDelayAddMs([])).toBe(0);
+    expect(ghostHouseClydePelletAdd([])).toBe(0);
+    expect(ghostHouseReleaseDelayAddMs(["ghostHouseDelay"])).toBe(GHOST_HOUSE_RELEASE_DELAY_ADD_MS);
+    expect(ghostHouseClydePelletAdd(["ghostHouseDelay"])).toBe(GHOST_HOUSE_CLYDE_PELLET_ADD);
+    expect(ghostHouseReleaseDelayAddMs(["ghostSlow", "ghostHouseDelay"])).toBe(
+      GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
+    );
+    expect(ghostHouseClydePelletAdd(["playerSpeedUp"])).toBe(0);
   });
 });
 

@@ -86,4 +86,86 @@ describe("ghostRelease", () => {
     const ready = tickGhostRelease(early, true, 1);
     expect(shouldReleaseKind(GHOST_KIND.clyde, ready, highPellets, true)).toBe(true);
   });
+
+  describe("ghostHouseDelay adds", () => {
+    const delayAddMs = 2000;
+    const clydePelletAdd = 15;
+    const adds = { delayAddMs, clydePelletAdd };
+
+    it("extends Blinky and Pinky time gates by delayAddMs", () => {
+      const blinkyEarly = tickGhostRelease(
+        createGhostReleaseClock(),
+        true,
+        BLINKY_RELEASE_DELAY_MS + delayAddMs - 1,
+      );
+      expect(shouldReleaseKind(GHOST_KIND.blinky, blinkyEarly, 0, false, adds)).toBe(false);
+      const blinkyReady = tickGhostRelease(blinkyEarly, true, 1);
+      expect(shouldReleaseKind(GHOST_KIND.blinky, blinkyReady, 0, false, adds)).toBe(true);
+
+      const pinkyEarly = tickGhostRelease(
+        createGhostReleaseClock(),
+        true,
+        PINKY_RELEASE_DELAY_MS + delayAddMs - 1,
+      );
+      expect(shouldReleaseKind(GHOST_KIND.pinky, pinkyEarly, 0, false, adds)).toBe(false);
+      const pinkyReady = tickGhostRelease(pinkyEarly, true, 1);
+      expect(shouldReleaseKind(GHOST_KIND.pinky, pinkyReady, 0, false, adds)).toBe(true);
+    });
+
+    it("raises Clyde first-life pellet threshold and leaves Inky pellets unchanged", () => {
+      const clock = createGhostReleaseClock();
+      const clydeGate = BASE_CLYDE_RELEASE_PELLETS + clydePelletAdd;
+      expect(shouldReleaseKind(GHOST_KIND.clyde, clock, clydeGate - 1, false, adds)).toBe(false);
+      expect(shouldReleaseKind(GHOST_KIND.clyde, clock, clydeGate, false, adds)).toBe(true);
+      expect(
+        shouldReleaseKind(GHOST_KIND.inky, clock, BASE_INKY_RELEASE_PELLETS - 1, false, adds),
+      ).toBe(false);
+      expect(
+        shouldReleaseKind(GHOST_KIND.inky, clock, BASE_INKY_RELEASE_PELLETS, false, adds),
+      ).toBe(true);
+    });
+
+    it("extends Inky and Clyde post-life delays by delayAddMs", () => {
+      const highPellets = BASE_CLYDE_RELEASE_PELLETS + 100;
+      const inkyEarly = tickGhostRelease(
+        createGhostReleaseClock(),
+        true,
+        INKY_POST_LIFE_RELEASE_DELAY_MS + delayAddMs - 1,
+      );
+      expect(shouldReleaseKind(GHOST_KIND.inky, inkyEarly, highPellets, true, adds)).toBe(false);
+      const inkyReady = tickGhostRelease(inkyEarly, true, 1);
+      expect(shouldReleaseKind(GHOST_KIND.inky, inkyReady, highPellets, true, adds)).toBe(true);
+
+      const clydeEarly = tickGhostRelease(
+        createGhostReleaseClock(),
+        true,
+        CLYDE_POST_LIFE_RELEASE_DELAY_MS + delayAddMs - 1,
+      );
+      expect(shouldReleaseKind(GHOST_KIND.clyde, clydeEarly, highPellets, true, adds)).toBe(false);
+      const clydeReady = tickGhostRelease(clydeEarly, true, 1);
+      expect(shouldReleaseKind(GHOST_KIND.clyde, clydeReady, highPellets, true, adds)).toBe(true);
+    });
+
+    it("without adds, baselines match today's constants", () => {
+      const blinky = tickGhostRelease(createGhostReleaseClock(), true, BLINKY_RELEASE_DELAY_MS);
+      expect(shouldReleaseKind(GHOST_KIND.blinky, blinky, 0)).toBe(true);
+      const pinky = tickGhostRelease(createGhostReleaseClock(), true, PINKY_RELEASE_DELAY_MS);
+      expect(shouldReleaseKind(GHOST_KIND.pinky, pinky, 0)).toBe(true);
+      const idle = createGhostReleaseClock();
+      expect(shouldReleaseKind(GHOST_KIND.clyde, idle, BASE_CLYDE_RELEASE_PELLETS)).toBe(true);
+      expect(shouldReleaseKind(GHOST_KIND.inky, idle, BASE_INKY_RELEASE_PELLETS)).toBe(true);
+      const inkyPost = tickGhostRelease(
+        createGhostReleaseClock(),
+        true,
+        INKY_POST_LIFE_RELEASE_DELAY_MS,
+      );
+      expect(shouldReleaseKind(GHOST_KIND.inky, inkyPost, 0, true)).toBe(true);
+      const clydePost = tickGhostRelease(
+        createGhostReleaseClock(),
+        true,
+        CLYDE_POST_LIFE_RELEASE_DELAY_MS,
+      );
+      expect(shouldReleaseKind(GHOST_KIND.clyde, clydePost, 0, true)).toBe(true);
+    });
+  });
 });

@@ -46,6 +46,11 @@ export function shouldReleaseGhostAt(clock: GhostReleaseClock, delayMs: number):
   return clock.started && clock.elapsedMs >= delayMs;
 }
 
+export type GhostReleaseAdds = {
+  delayAddMs?: number;
+  clydePelletAdd?: number;
+};
+
 function shouldReleasePelletGated(
   clock: GhostReleaseClock,
   collectedCount: number,
@@ -64,14 +69,17 @@ export function shouldReleaseKind(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
+  adds: GhostReleaseAdds = {},
 ): boolean {
+  const delayAddMs = adds.delayAddMs ?? 0;
+  const clydePelletAdd = adds.clydePelletAdd ?? 0;
   if (kind === GHOST_KIND.inky) {
     return shouldReleasePelletGated(
       clock,
       collectedCount,
       afterLifeRelease,
       getActiveLayout().inkyReleasePellets,
-      INKY_POST_LIFE_RELEASE_DELAY_MS,
+      INKY_POST_LIFE_RELEASE_DELAY_MS + delayAddMs,
     );
   }
   if (kind === GHOST_KIND.clyde) {
@@ -79,9 +87,9 @@ export function shouldReleaseKind(
       clock,
       collectedCount,
       afterLifeRelease,
-      getActiveLayout().clydeReleasePellets,
-      CLYDE_POST_LIFE_RELEASE_DELAY_MS,
+      getActiveLayout().clydeReleasePellets + clydePelletAdd,
+      CLYDE_POST_LIFE_RELEASE_DELAY_MS + delayAddMs,
     );
   }
-  return shouldReleaseGhostAt(clock, releaseDelayForKind(kind));
+  return shouldReleaseGhostAt(clock, releaseDelayForKind(kind) + delayAddMs);
 }

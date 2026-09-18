@@ -1,6 +1,6 @@
 import { query, type World } from "bitecs";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
-import type { GhostReleaseClock } from "../../domain/ghostRelease";
+import type { GhostReleaseAdds, GhostReleaseClock } from "../../domain/ghostRelease";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
@@ -17,6 +17,7 @@ export function recallClosestGhostToHouse(
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
+  adds: GhostReleaseAdds = {},
 ): void {
   const players = query(world, [Player, Position]);
   const playerEid = players[0];
@@ -50,5 +51,5 @@ export function recallClosestGhostToHouse(
   Ghost.decidedCol[eid] = Number.NaN;
   Ghost.decidedRow[eid] = Number.NaN;
 
-  placeInHouseGhostsAtPredictedSeats(world, clock, collectedCount, afterLifeRelease);
+  placeInHouseGhostsAtPredictedSeats(world, clock, collectedCount, afterLifeRelease, adds);
 }
