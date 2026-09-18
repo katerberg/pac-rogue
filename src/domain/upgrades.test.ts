@@ -49,7 +49,6 @@ const ALL_IDS: UpgradeId[] = [
 ];
 
 const STUB_IDS: UpgradeId[] = [
-  "pelletToPower",
   "powerCollectThree",
   "powerWallPass",
   "powerSpeedBurst",
