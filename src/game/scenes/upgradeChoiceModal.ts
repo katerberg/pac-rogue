@@ -341,7 +341,7 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       }
 
       if (phase === "confirming") {
-        elapsedMs += deltaMs;
+        elapsedMs += Math.min(deltaMs, 50);
         if (elapsedMs < UPGRADE_CONFIRM_PULSE_MS) {
           applyConfirmPulse(elapsedMs / UPGRADE_CONFIRM_PULSE_MS);
           return;
