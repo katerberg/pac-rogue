@@ -35,6 +35,7 @@ import {
 import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "../../domain/lives";
 import {
   activateLayout,
+  getActiveLayout,
   parseMazeParam,
   pelletCellCenters,
   pickLayoutId,
@@ -75,6 +76,7 @@ import {
   grantLivesForUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
+  pelletCollectRadiusBonusPx,
   pickUpgradeChoiceOffer,
   playerIsInvulnerable,
   playerSpeedMultiplier,
@@ -109,6 +111,7 @@ import {
 import { saveRun } from "../storage/runHistoryStorage";
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
+import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
@@ -121,6 +124,7 @@ import {
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { movement } from "../systems/movement";
+import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -352,7 +356,10 @@ export class PlayScene extends Phaser.Scene {
     this.timerText.setText(this.timerLabel());
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
-    const { powerRemoved, removedEids: removedPelletEids } = collectPellets(this.world);
+    const { powerRemoved, removedEids: removedPelletEids } = collectPellets(this.world, {
+      radiusBonusPx: pelletCollectRadiusBonusPx(this.runUpgrades.owned),
+      solids: getActiveLayout().playerSolids,
+    });
     for (const eid of removedPelletEids) {
       this.playRender.releaseDrawable(eid);
     }
@@ -362,10 +369,25 @@ export class PlayScene extends Phaser.Scene {
     }
     const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
     this.runUpgrades = powerEffects.state;
-    const collectResult = applyPelletCollect(this.pelletProgress, removed);
+    let bonusRemoved = 0;
+    if (powerEffects.collectExtraPellets > 0) {
+      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, () =>
+        Math.random(),
+      );
+      for (const eid of bonusEids) {
+        this.playRender.releaseDrawable(eid);
+      }
+      bonusRemoved = bonusEids.length;
+      if (bonusRemoved > 0) {
+        playSfx(this, "pelletMunch");
+        playSfx(this, "pelletMunch2");
+      }
+    }
+    const totalRemoved = removed + bonusRemoved;
+    const collectResult = applyPelletCollect(this.pelletProgress, totalRemoved);
     this.pelletProgress = collectResult.progress;
-    if (removed > 0) {
-      this.lifetimeCollected += removed;
+    if (totalRemoved > 0) {
+      this.lifetimeCollected += totalRemoved;
     }
     this.collectedText.setText(this.collectedLabel());
 
@@ -428,6 +450,9 @@ export class PlayScene extends Phaser.Scene {
           if (!alreadyOwned) {
             this.lives += grantLivesForUpgrade(chosen);
             this.refreshLivesIcons();
+            if (chosen === "pelletToPower") {
+              this.applyPelletToPowerOnce();
+            }
           }
           this.refreshUpgradesHud();
           this.beginUpgradeResumeCountdown();
@@ -508,6 +533,19 @@ export class PlayScene extends Phaser.Scene {
     this.collectedText.setText(this.collectedLabel());
     this.timerText.setText(this.timerLabel());
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+
+    if (this.runUpgrades.owned.includes("pelletToPower")) {
+      this.applyPelletToPowerOnce();
+    }
+  }
+
+  private applyPelletToPowerOnce(): void {
+    const eid = applyPelletToPowerConvert(this.world, () => Math.random());
+    if (eid === null) {
+      return;
+    }
+    this.playRender.draw(this.world, { ghostsFrozen: ghostsAreFrozen(this.runUpgrades) });
+    this.playRender.bouncePowerPellet(eid);
   }
 
   private advanceToNextLevel(): void {

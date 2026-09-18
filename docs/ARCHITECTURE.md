@@ -21,6 +21,7 @@ src/
     countdown.ts
     runClock.ts
     pelletProgress.ts
+    pelletToPower.ts           # pick one regular pellet eid for Pellet Surge
     fruit.ts                  # bonus fruit kinds, 70/170 presence clock
     upgrades.ts               # run upgrade defs + RunUpgrades helpers
     runHistory.ts
@@ -80,6 +81,7 @@ src/
       catchPlayer.ts          # circle overlap → caught (skip when frozen or player invulnerable)
       collectPellets.ts
       collectFruit.ts
+      pelletToPower.ts        # Pellet Surge: convert one regular → power
       playerSpeed.ts          # Player Speed from base × upgrade mul
       playerDirection.ts
       playerWarp.ts           # power-pellet warp to dynamic top-center
@@ -141,7 +143,8 @@ PlayScene.update →
   movement →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
-  collectPellets → releaseDrawable(removed) → applyPowerPelletEffects → applyPelletCollect →
+  collectPellets → releaseDrawable(removed) → applyPowerPelletEffects →
+  collectExtraPellets? → releaseDrawable(bonus) → applyPelletCollect(touch+bonus) →
   resolveGhostModeStep (pause wave while scatter burst + clock active) →
   (effective mode changed ? forceGhostReverse : ghostAi) →
   recallClosestGhost? → warpPlayerTopCenter? →

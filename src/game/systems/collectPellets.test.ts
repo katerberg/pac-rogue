@@ -1,5 +1,6 @@
 import { addComponent, addEntity, createWorld, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { cellCenterX, cellCenterY, TILE_SIZE, type SolidGrid } from "../../domain/maze";
 import { PELLET_RADIUS, PLAYER_RADIUS } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
@@ -32,6 +33,16 @@ function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number
   Position.y[eid] = y;
   Drawable.radius[eid] = PELLET_RADIUS;
   return eid;
+}
+
+function openCorridorSolids(): SolidGrid {
+  return Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => false));
+}
+
+function wallBetweenSolids(): SolidGrid {
+  const solids = openCorridorSolids().map((row) => [...row]);
+  solids[2]![1] = true;
+  return solids;
 }
 
 describe("collectPellets", () => {
@@ -86,6 +97,64 @@ describe("collectPellets", () => {
     const next = addEntity(world);
     expect(next).toBe(pellet);
     expect(released.has(next)).toBe(true);
+  });
+
+  it("collects a regular pellet in extended range with open LOS", () => {
+    const px = cellCenterX(0);
+    const py = cellCenterY(2);
+    const ox = cellCenterX(1);
+    const oy = cellCenterY(2);
+    const { world } = spawnPlayer(px, py);
+    const pellet = spawnPellet(world, ox, oy);
+    const baseReach = PLAYER_RADIUS + PELLET_RADIUS;
+    expect((ox - px) ** 2 + (oy - py) ** 2).toBeGreaterThan(baseReach * baseReach);
+
+    expect(
+      collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: openCorridorSolids() }),
+    ).toEqual({ powerRemoved: 0, removedEids: [pellet] });
+  });
+
+  it("does not collect a regular pellet in extended range through a wall", () => {
+    const py = cellCenterY(2);
+    const oy = cellCenterY(2);
+    const px = cellCenterX(0) + TILE_SIZE / 2 - 1;
+    const ox = cellCenterX(2) - TILE_SIZE / 2 + 1;
+    const { world } = spawnPlayer(px, py);
+    const pellet = spawnPellet(world, ox, oy);
+    const baseReach = PLAYER_RADIUS + PELLET_RADIUS;
+    const extendedReach = baseReach + TILE_SIZE;
+    const distSq = (ox - px) ** 2 + (oy - py) ** 2;
+    expect(distSq).toBeGreaterThan(baseReach * baseReach);
+    expect(distSq).toBeLessThanOrEqual(extendedReach * extendedReach);
+
+    expect(
+      collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: wallBetweenSolids() }),
+    ).toEqual({ powerRemoved: 0, removedEids: [] });
+    expect(query(world, [Pellet, Position])).toEqual([pellet]);
+  });
+
+  it("does not extend reach for power pellets", () => {
+    const px = cellCenterX(0);
+    const py = cellCenterY(2);
+    const ox = cellCenterX(1);
+    const oy = cellCenterY(2);
+    const { world } = spawnPlayer(px, py);
+    const power = spawnPellet(world, ox, oy, true);
+    const baseReach = PLAYER_RADIUS + PELLET_RADIUS;
+    expect((ox - px) ** 2 + (oy - py) ** 2).toBeGreaterThan(baseReach * baseReach);
+
+    expect(
+      collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: openCorridorSolids() }),
+    ).toEqual({ powerRemoved: 0, removedEids: [] });
+    expect(query(world, [Pellet, Position])).toEqual([power]);
+  });
+
+  it("still collects a power pellet at base reach", () => {
+    const { world } = spawnPlayer(100, 100);
+    const power = spawnPellet(world, 100, 100, true);
+    expect(
+      collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: openCorridorSolids() }),
+    ).toEqual({ powerRemoved: 1, removedEids: [power] });
   });
 });
 

@@ -5,7 +5,9 @@ import {
   GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
   GHOST_SLOW_MUL,
   INVULN_MS,
+  PICKUP_RANGE_BONUS_PX,
   PLAYER_SPEED_UP_MUL,
+  POWER_COLLECT_THREE_COUNT,
   SCATTER_BURST_MS,
   applyPowerPelletEffects,
   confirmUpgradeChoice,
@@ -20,6 +22,7 @@ import {
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickUpgradeChoiceOffer,
+  pelletCollectRadiusBonusPx,
   playerIsInvulnerable,
   playerSpeedMultiplier,
   scatterBurstActive,
@@ -30,6 +33,7 @@ import {
   type RunUpgrades,
   type UpgradeId,
 } from "./upgrades";
+import { TILE_SIZE } from "./maze";
 
 const ALL_IDS: UpgradeId[] = [
   "powerPelletFreeze",
@@ -48,13 +52,7 @@ const ALL_IDS: UpgradeId[] = [
   "powerInvuln",
 ];
 
-const STUB_IDS: UpgradeId[] = [
-  "pickupRange",
-  "pelletToPower",
-  "powerCollectThree",
-  "powerWallPass",
-  "powerSpeedBurst",
-];
+const STUB_IDS: UpgradeId[] = ["powerWallPass", "powerSpeedBurst"];
 
 function withForce(forceNextId: UpgradeId | null, owned: UpgradeId[] = []): RunUpgrades {
   return { ...createRunUpgrades(forceNextId), owned };
@@ -68,6 +66,7 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId("scatterBurst")).toBe("scatterBurst");
     expect(parseUpgradeId("ghostRecall")).toBe("ghostRecall");
     expect(parseUpgradeId("warpTop")).toBe("warpTop");
+    expect(parseUpgradeId("powerCollectThree")).toBe("powerCollectThree");
     for (const id of STUB_IDS) {
       expect(parseUpgradeId(id)).toBe(id);
     }
@@ -193,6 +192,7 @@ describe("grantUpgrade", () => {
       state,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
@@ -206,6 +206,7 @@ describe("grantUpgrade", () => {
       state: owned,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
     });
   });
 
@@ -238,6 +239,7 @@ describe("freeze / power pellet", () => {
       state: bare,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
@@ -245,6 +247,7 @@ describe("freeze / power pellet", () => {
     expect(frozen.state.freezeRemainingMs).toBe(FREEZE_MS);
     expect(frozen.recallClosestGhost).toBe(false);
     expect(frozen.warpPlayerTopCenter).toBe(false);
+    expect(frozen.collectExtraPellets).toBe(0);
 
     const partial = { ...frozen.state, freezeRemainingMs: 500 };
     expect(applyPowerPelletEffects(partial, 2).state.freezeRemainingMs).toBe(FREEZE_MS);
@@ -256,6 +259,7 @@ describe("freeze / power pellet", () => {
       state: owned,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
     });
   });
 });
@@ -289,6 +293,7 @@ describe("scatter burst / multi power-pellet effects", () => {
       "ghostRecall",
       "warpTop",
       "powerInvuln",
+      "powerCollectThree",
     ] as const) {
       state = grantUpgrade(state, id);
     }
@@ -298,16 +303,26 @@ describe("scatter burst / multi power-pellet effects", () => {
     expect(result.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(result.recallClosestGhost).toBe(true);
     expect(result.warpPlayerTopCenter).toBe(true);
+    expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
   });
 
   it("sets recall and warp flags from owned defs", () => {
     const recall = applyPowerPelletEffects(grantUpgrade(createRunUpgrades(), "ghostRecall"), 1);
     expect(recall.recallClosestGhost).toBe(true);
     expect(recall.warpPlayerTopCenter).toBe(false);
+    expect(recall.collectExtraPellets).toBe(0);
 
     const warp = applyPowerPelletEffects(grantUpgrade(createRunUpgrades(), "warpTop"), 1);
     expect(warp.recallClosestGhost).toBe(false);
     expect(warp.warpPlayerTopCenter).toBe(true);
+    expect(warp.collectExtraPellets).toBe(0);
+  });
+
+  it("sets collectExtraPellets once from powerCollectThree", () => {
+    const owned = grantUpgrade(createRunUpgrades(), "powerCollectThree");
+    expect(applyPowerPelletEffects(owned, 1).collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
+    expect(applyPowerPelletEffects(owned, 2).collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
+    expect(applyPowerPelletEffects(owned, 0).collectExtraPellets).toBe(0);
   });
 });
 
@@ -328,6 +343,7 @@ describe("invuln / power pellet", () => {
       state: bare,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerInvuln");
@@ -335,6 +351,7 @@ describe("invuln / power pellet", () => {
     expect(armed.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(armed.recallClosestGhost).toBe(false);
     expect(armed.warpPlayerTopCenter).toBe(false);
+    expect(armed.collectExtraPellets).toBe(0);
 
     const partial = { ...armed.state, invulnRemainingMs: 500 };
     expect(applyPowerPelletEffects(partial, 2).state.invulnRemainingMs).toBe(INVULN_MS);
@@ -355,5 +372,14 @@ describe("speed multipliers / labels", () => {
       "Speed Up",
       "Scatter Burst",
     ]);
+  });
+});
+
+describe("pelletCollectRadiusBonusPx", () => {
+  it("returns TILE_SIZE for pickupRange and 0 otherwise", () => {
+    expect(pelletCollectRadiusBonusPx([])).toBe(0);
+    expect(pelletCollectRadiusBonusPx(["pickupRange"])).toBe(PICKUP_RANGE_BONUS_PX);
+    expect(PICKUP_RANGE_BONUS_PX).toBe(TILE_SIZE);
+    expect(pelletCollectRadiusBonusPx(["playerSpeedUp"])).toBe(0);
   });
 });

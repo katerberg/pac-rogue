@@ -166,10 +166,14 @@ export type RenderOptions = {
   playerInvulnRemainingMs?: number;
 };
 
+const POWER_PELLET_BOUNCE_MUL = 1.5;
+const POWER_PELLET_BOUNCE_MS = 150;
+
 export type PlayRender = {
   draw: (world: World, opts?: RenderOptions) => void;
   releaseDrawable: (eid: number) => void;
   resetForNewBoard: () => void;
+  bouncePowerPellet: (eid: number) => void;
 };
 
 export function createRender(scene: Phaser.Scene): PlayRender {
@@ -183,6 +187,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     for (const key of [String(eid), `${eid}:twin`] as const) {
       const go = drawableObjects.get(key);
       if (go) {
+        scene.tweens.killTweensOf(go);
         go.destroy();
         drawableObjects.delete(key);
       }
@@ -192,12 +197,33 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
   const resetForNewBoard = (): void => {
     for (const go of drawableObjects.values()) {
+      scene.tweens.killTweensOf(go);
       go.destroy();
     }
     drawableObjects.clear();
     playerVisuals.clear();
     wallGraphics.clear();
     wallsDrawn = false;
+  };
+
+  const bouncePowerPellet = (eid: number): void => {
+    const go = drawableObjects.get(String(eid));
+    if (!go) {
+      return;
+    }
+    const base = POWER_PELLET_DISPLAY_SIZE;
+    go.setTexture(POWER_PELLET_TEXTURE_KEY);
+    go.setName(POWER_PELLET_DRAWABLE_ID);
+    go.setDisplaySize(base, base);
+    scene.tweens.killTweensOf(go);
+    scene.tweens.add({
+      targets: go,
+      displayWidth: base * POWER_PELLET_BOUNCE_MUL,
+      displayHeight: base * POWER_PELLET_BOUNCE_MUL,
+      duration: POWER_PELLET_BOUNCE_MS,
+      yoyo: true,
+      ease: "Sine.easeOut",
+    });
   };
 
   const draw = (world: World, opts?: RenderOptions): void => {
@@ -334,5 +360,5 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
-  return { draw, releaseDrawable, resetForNewBoard };
+  return { draw, releaseDrawable, resetForNewBoard, bouncePowerPellet };
 }
