@@ -103,6 +103,16 @@ describe("movement", () => {
     ).toBe(true);
   });
 
+  it("keeps perimeter walls solid under the wall-pass override", () => {
+    const { wallPassPlayerSolids } = getActiveLayout();
+    const { world, eid } = spawnAt(1, 1);
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+    movement(world, 100, wallPassPlayerSolids);
+    expect(worldToCol(Position.x[eid] ?? 0)).toBe(1);
+    expect(worldToRow(Position.y[eid] ?? 0)).toBe(1);
+  });
+
   it("keeps ghost Facing at a dead-end so reverse filtering still applies", () => {
     const { world, eid } = spawnAt(26, 1, true);
     Facing.direction[eid] = DIRECTION.right;

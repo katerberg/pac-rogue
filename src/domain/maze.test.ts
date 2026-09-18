@@ -235,22 +235,36 @@ describe("maze", () => {
     });
   });
 
-  it("wallPassPlayerSolids opens walls but keeps exterior and house solid", () => {
+  it("wallPassPlayerSolids opens interior walls but keeps exterior, house, and edge walls solid", () => {
     const { walls, exterior, house, wallPassPlayerSolids, playerSolids } = getActiveLayout();
-    let wallOnly = false;
+    let interiorWall = false;
     for (let row = 0; row < MAZE_ROWS; row += 1) {
       for (let col = 0; col < MAZE_COLS; col += 1) {
+        const onEdge = row === 0 || row === MAZE_ROWS - 1 || col === 0 || col === MAZE_COLS - 1;
         if (walls[row]![col] && !exterior[row]![col] && !house[row]![col]) {
-          expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(true);
+          expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(!onEdge);
           expect(isWalkable(col, row, playerSolids)).toBe(false);
-          wallOnly = true;
+          if (!onEdge) {
+            interiorWall = true;
+          }
         }
         if (exterior[row]![col] || house[row]![col]) {
           expect(isWalkable(col, row, wallPassPlayerSolids)).toBe(false);
         }
       }
     }
-    expect(wallOnly).toBe(true);
+    expect(interiorWall).toBe(true);
+  });
+
+  it("wallPassPlayerSolids keeps wrap on tunnel rows only", () => {
+    const { wallPassPlayerSolids } = getActiveLayout();
+    const pastLeft = MAZE_OFFSET_X - 4;
+    expect(wrapPosition(pastLeft, cellCenterY(0), wallPassPlayerSolids).x).toBe(pastLeft);
+    expect(wrapPosition(pastLeft, cellCenterY(1), wallPassPlayerSolids).x).toBe(pastLeft);
+    expect(wrapPosition(pastLeft, cellCenterY(14), wallPassPlayerSolids).x).toBeCloseTo(
+      pastLeft + MAZE_PIXEL_WIDTH,
+      5,
+    );
   });
 
   it("nearestWalkableCellCenter picks nearest under solids with spawn fallback", () => {
