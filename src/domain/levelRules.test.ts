@@ -59,6 +59,7 @@ describe("ghostModeWavesForLevel", () => {
     expect(waves[waves.length - 1]?.durationMs).toBe(Number.POSITIVE_INFINITY);
     expect(ghostModeStartWaveIndex(2)).toBe(1);
     expect(ghostModeWavesForLevel(5)).toEqual(waves);
+    expect(ghostModeWavesForLevel(5)).toBe(ghostModeWavesForLevel(2));
   });
 
   it("clamps below 1 to level 1 schedule", () => {

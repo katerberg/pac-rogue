@@ -25,13 +25,13 @@ export type GhostModeTick = {
   forceReverse: boolean;
 };
 
-export function createGhostModeClock(levelIndex: number): GhostModeClock {
+function buildGhostModeClock(levelIndex: number, active: boolean): GhostModeClock {
   const level = Math.max(1, levelIndex);
   const waves = ghostModeWavesForLevel(level);
   const waveIndex = ghostModeStartWaveIndex(level);
   const start = waves[waveIndex]!;
   return {
-    active: false,
+    active,
     levelIndex: level,
     waveIndex,
     elapsedMs: 0,
@@ -39,18 +39,12 @@ export function createGhostModeClock(levelIndex: number): GhostModeClock {
   };
 }
 
+export function createGhostModeClock(levelIndex: number): GhostModeClock {
+  return buildGhostModeClock(levelIndex, false);
+}
+
 export function startGhostModeClock(levelIndex: number): GhostModeClock {
-  const level = Math.max(1, levelIndex);
-  const waves = ghostModeWavesForLevel(level);
-  const waveIndex = ghostModeStartWaveIndex(level);
-  const start = waves[waveIndex]!;
-  return {
-    active: true,
-    levelIndex: level,
-    waveIndex,
-    elapsedMs: 0,
-    mode: start.mode,
-  };
+  return buildGhostModeClock(levelIndex, true);
 }
 
 export type GhostModeStep = {
