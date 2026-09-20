@@ -1,7 +1,7 @@
 import { query, type World } from "bitecs";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
-import { beginClosestGhostFreeze, type RunUpgrades } from "../../domain/upgrades";
+import type { RunUpgrades } from "../../domain/upgrades";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
@@ -30,5 +30,13 @@ export function freezeClosestGhost(
     });
   }
 
-  return beginClosestGhostFreeze(state, pickClosestGhostEid(candidates, fromX, fromY), freezeMs);
+  const eid = pickClosestGhostEid(candidates, fromX, fromY);
+  if (eid === null) {
+    return state;
+  }
+  return {
+    ...state,
+    freezeRemainingMs: freezeMs,
+    frozenGhostEid: eid,
+  };
 }

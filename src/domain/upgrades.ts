@@ -494,21 +494,6 @@ export function frozenGhostEid(state: RunUpgrades): number | null {
   return state.freezeRemainingMs > 0 ? state.frozenGhostEid : null;
 }
 
-export function beginClosestGhostFreeze(
-  state: RunUpgrades,
-  eid: number | null,
-  freezeMs: number,
-): RunUpgrades {
-  if (eid === null) {
-    return state;
-  }
-  return {
-    ...state,
-    freezeRemainingMs: freezeMs,
-    frozenGhostEid: eid,
-  };
-}
-
 export function playerIsInvulnerable(state: RunUpgrades): boolean {
   return state.invulnRemainingMs > 0;
 }
