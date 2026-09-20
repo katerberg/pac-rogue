@@ -40,7 +40,7 @@ Player spawn: single `P` if present; otherwise lowest empty-corridor cell in the
 ## Ghost house
 
 - Door: width **2**, on the top of the house block.
-- Floors: `H` bbox at least **6×3**; soft max width **10**.
+- Floors: `H` bbox at least **6×3**; soft max width **10** (authoring guidance only).
 - Spawn-row non-door `H` count **≥ 4** (four ghost seats).
 - Exit: first player-walkable cell above door mid-col.
 - Fruit: first player-walkable cell below the house on house center col.

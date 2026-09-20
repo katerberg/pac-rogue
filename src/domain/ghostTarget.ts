@@ -37,16 +37,6 @@ export function clydeScatterTarget(rows: number = getActiveLayout().rows): Ghost
   return { col: 0, row: rows + 2 };
 }
 
-/** Classic 28×31 aliases for tests / docs. */
-export const BLINKY_SCATTER_COL = 25;
-export const BLINKY_SCATTER_ROW = -3;
-export const PINKY_SCATTER_COL = 2;
-export const PINKY_SCATTER_ROW = -3;
-export const CLYDE_SCATTER_COL = 0;
-export const CLYDE_SCATTER_ROW = 33;
-export const INKY_SCATTER_COL = 27;
-export const INKY_SCATTER_ROW = 33;
-
 function lookAheadTile(
   playerCol: number,
   playerRow: number,

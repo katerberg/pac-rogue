@@ -1,19 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  BLINKY_SCATTER_COL,
-  BLINKY_SCATTER_ROW,
-  CLYDE_SCATTER_COL,
-  CLYDE_SCATTER_ROW,
   CLYDE_SHY_TILES,
   INKY_LOOKAHEAD_TILES,
-  INKY_SCATTER_COL,
-  INKY_SCATTER_ROW,
   PINKY_LOOKAHEAD_TILES,
-  PINKY_SCATTER_COL,
-  PINKY_SCATTER_ROW,
+  blinkyScatterTarget,
   blinkyTarget,
+  clydeScatterTarget,
   clydeTarget,
+  inkyScatterTarget,
   inkyTarget,
+  pinkyScatterTarget,
   pinkyTarget,
   GHOST_PHASE,
 } from "./ghostTarget";
@@ -62,7 +58,7 @@ describe("blinkyTarget", () => {
         playerCol: 10,
         playerRow: 20,
       }),
-    ).toEqual({ col: BLINKY_SCATTER_COL, row: BLINKY_SCATTER_ROW });
+    ).toEqual(blinkyScatterTarget());
   });
 
   it("targets the player in chase and during Elroy scatter", () => {
@@ -97,7 +93,7 @@ describe("blinkyTarget", () => {
         playerRow: 8,
         ignoreElroy: true,
       }),
-    ).toEqual({ col: BLINKY_SCATTER_COL, row: BLINKY_SCATTER_ROW });
+    ).toEqual(blinkyScatterTarget());
   });
 });
 
@@ -126,7 +122,7 @@ describe("pinkyTarget", () => {
         playerRow: 20,
         playerFacing: GHOST_DIR.right,
       }),
-    ).toEqual({ col: PINKY_SCATTER_COL, row: PINKY_SCATTER_ROW });
+    ).toEqual(pinkyScatterTarget());
   });
 
   it("targets four clean tiles ahead in chase", () => {
@@ -206,7 +202,7 @@ describe("clydeTarget", () => {
         ghostCol: 1,
         ghostRow: 1,
       }),
-    ).toEqual({ col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW });
+    ).toEqual(clydeScatterTarget());
   });
 
   it("chases the player when Euclidean distance is at least shy tiles", () => {
@@ -232,7 +228,7 @@ describe("clydeTarget", () => {
         ghostCol: 10 + CLYDE_SHY_TILES - 1,
         ghostRow: 10,
       }),
-    ).toEqual({ col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW });
+    ).toEqual(clydeScatterTarget());
   });
 
   it("uses Euclidean distance on diagonals", () => {
@@ -255,7 +251,7 @@ describe("clydeTarget", () => {
         ghostCol: 15,
         ghostRow: 16,
       }),
-    ).toEqual({ col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW });
+    ).toEqual(clydeScatterTarget());
   });
 });
 
@@ -288,7 +284,7 @@ describe("inkyTarget", () => {
         blinkyCol: 5,
         blinkyRow: 5,
       }),
-    ).toEqual({ col: INKY_SCATTER_COL, row: INKY_SCATTER_ROW });
+    ).toEqual(inkyScatterTarget());
   });
 
   it("doubles the vector from Blinky through a clean two-tile pivot", () => {

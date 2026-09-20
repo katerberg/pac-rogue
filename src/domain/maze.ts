@@ -16,7 +16,6 @@ export const MIN_TILE_SIZE = 12;
 export const MIN_MAZE_OFFSET_X = 80;
 export const HOUSE_FLOOR_MIN_COLS = 6;
 export const HOUSE_FLOOR_MIN_ROWS = 3;
-export const HOUSE_FLOOR_SOFT_MAX_COLS = 10;
 
 export const MAZE_TOP_MARGIN_PX = 28;
 
@@ -54,7 +53,6 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
 
 const classicGeometry = computeMazeGeometry(CLASSIC_MAZE_COLS, CLASSIC_MAZE_ROWS);
 
-/** Active-layout geometry (synced by activateLayout / initial maze1). */
 export let MAZE_COLS = classicGeometry.cols;
 export let MAZE_ROWS = classicGeometry.rows;
 export let TILE_SIZE = classicGeometry.tileSize;
@@ -80,13 +78,8 @@ export function pelletDisplaySize(tileSize: number = TILE_SIZE): number {
 }
 
 export function powerPelletDisplaySize(tileSize: number = TILE_SIZE): number {
-  return Math.min(PELLET_DISPLAY_SIZE_MAX, tileSize);
+  return pelletDisplaySize(tileSize);
 }
-
-/** @deprecated Use pelletDisplaySize() */
-export const PELLET_DISPLAY_SIZE = PELLET_DISPLAY_SIZE_MAX;
-/** @deprecated Use powerPelletDisplaySize() */
-export const POWER_PELLET_DISPLAY_SIZE = PELLET_DISPLAY_SIZE_MAX;
 
 export const TURN_ALIGN_EPS = 2;
 

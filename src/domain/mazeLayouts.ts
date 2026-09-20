@@ -72,7 +72,6 @@ export const MSPAC_MAZE_ASCII = `############################
 #..........................#
 ############################`;
 
-/** Fixture: 22×28 variable-size layout for tests / ?maze=mazeSmall. */
 export const SMALL_MAZE_ASCII = `######################
 #....................#
 #.##.#####.######.##.#
@@ -102,7 +101,6 @@ export const SMALL_MAZE_ASCII = `######################
 #@..................@#
 ######################`;
 
-/** Fixture: 32×36 variable-size layout for tests / ?maze=mazeLarge. */
 export const LARGE_MAZE_ASCII = `################################
 #..............................#
 #.####.########.#########.####.#
