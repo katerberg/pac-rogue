@@ -50,13 +50,13 @@ import {
   CLYDE_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
   FRUIT_RADIUS,
-  GHOST_RADIUS,
+  ghostRadius,
   INKY_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
   PELLET_RADIUS,
   PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
-  PLAYER_RADIUS,
+  playerRadius,
   PLAYER_SPEED,
   PLAYFIELD_HEIGHT,
   PLAYFIELD_WIDTH,
@@ -832,7 +832,7 @@ export class PlayScene extends Phaser.Scene {
     Facing.direction[eid] = DIRECTION.none;
     Speed.px[eid] = PLAYER_SPEED;
     Drawable.id[eid] = PLAYER_DRAWABLE_ID;
-    Drawable.radius[eid] = PLAYER_RADIUS;
+    Drawable.radius[eid] = playerRadius();
   }
 
   private spawnGhost(kind: GhostKindId): void {
@@ -861,6 +861,6 @@ export class PlayScene extends Phaser.Scene {
     Ghost.decidedCol[eid] = Number.NaN;
     Ghost.decidedRow[eid] = Number.NaN;
     Drawable.id[eid] = GHOST_DRAWABLE_BY_KIND[kind];
-    Drawable.radius[eid] = GHOST_RADIUS;
+    Drawable.radius[eid] = ghostRadius();
   }
 }

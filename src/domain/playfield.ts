@@ -1,12 +1,18 @@
 import { clamp } from "./clamp";
 import { TILE_SIZE } from "./maze";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
-export const PLAYFIELD_WIDTH = 800;
-export const PLAYFIELD_HEIGHT = 600;
+export { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH };
 
 export const PLAYER_SPEED = 150;
 
-export const PLAYER_RADIUS = TILE_SIZE / 2;
+export function playerRadius(): number {
+  return TILE_SIZE / 2;
+}
+
+export function ghostRadius(): number {
+  return playerRadius();
+}
 
 export const PLAYER_DRAWABLE_ID = "player";
 
@@ -21,32 +27,30 @@ export const PINKY_DRAWABLE_ID = "pinky";
 export const INKY_DRAWABLE_ID = "inky";
 export const CLYDE_DRAWABLE_ID = "clyde";
 
-export const GHOST_RADIUS = PLAYER_RADIUS;
-
 export const FRUIT_DRAWABLE_ID = "fruit";
 
 export const FRUIT_RADIUS = 8;
 
-export function playfieldMinX(radius = PLAYER_RADIUS): number {
+export function playfieldMinX(radius = playerRadius()): number {
   return radius;
 }
 
-export function playfieldMaxX(radius = PLAYER_RADIUS): number {
+export function playfieldMaxX(radius = playerRadius()): number {
   return PLAYFIELD_WIDTH - radius;
 }
 
-export function playfieldMinY(radius = PLAYER_RADIUS): number {
+export function playfieldMinY(radius = playerRadius()): number {
   return radius;
 }
 
-export function playfieldMaxY(radius = PLAYER_RADIUS): number {
+export function playfieldMaxY(radius = playerRadius()): number {
   return PLAYFIELD_HEIGHT - radius;
 }
 
 export function clampPositionToPlayfield(
   x: number,
   y: number,
-  radius = PLAYER_RADIUS,
+  radius = playerRadius(),
 ): { x: number; y: number } {
   return {
     x: clamp(x, playfieldMinX(radius), playfieldMaxX(radius)),

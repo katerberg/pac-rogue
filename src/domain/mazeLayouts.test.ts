@@ -8,8 +8,15 @@ import {
   MAZE_COLS,
   MAZE_ROWS,
   parseMazeParam,
+  pelletCellCenters,
   pickLayoutId,
 } from "./maze";
+import {
+  blinkyScatterTarget,
+  clydeScatterTarget,
+  inkyScatterTarget,
+  pinkyScatterTarget,
+} from "./ghostTarget";
 
 describe("maze layouts", () => {
   afterEach(() => {
@@ -28,6 +35,8 @@ describe("maze layouts", () => {
     expect(maze1.clydeReleasePellets).toBe(60);
     expect(maze1.elroy1DotsLeft).toBe(20);
     expect(maze1.elroy2DotsLeft).toBe(10);
+    expect(maze1.cols).toBe(28);
+    expect(maze1.rows).toBe(31);
   });
 
   it("builds maze2 arcade Ms. Pac Maze 1 with required features", () => {
@@ -73,12 +82,45 @@ describe("maze layouts", () => {
     expect(layout.inkyReleasePellets).toBe(28);
     expect(layout.clydeReleasePellets).toBe(55);
   });
+
+  it("loads variable-size fixtures", () => {
+    const small = getLayout("mazeSmall");
+    expect(small.cols).toBe(22);
+    expect(small.rows).toBe(28);
+    expect(small.tileSize).toBeGreaterThanOrEqual(12);
+    expect(small.offsetX).toBeGreaterThanOrEqual(80);
+    expect(small.pelletCount).toBeGreaterThan(40);
+    expect(small.ascii.includes("P")).toBe(true);
+
+    const large = activateLayout("mazeLarge");
+    expect(large.cols).toBe(32);
+    expect(large.rows).toBe(36);
+    expect(large.offsetX).toBeGreaterThanOrEqual(80);
+    expect(blinkyScatterTarget()).toEqual({ col: 29, row: -3 });
+    expect(pinkyScatterTarget()).toEqual({ col: 2, row: -3 });
+    expect(inkyScatterTarget()).toEqual({ col: 31, row: 38 });
+    expect(clydeScatterTarget()).toEqual({ col: 0, row: 38 });
+  });
+
+  it("only places pellets on . and @ cells", () => {
+    activateLayout("maze1");
+    const pellets = pelletCellCenters();
+    expect(pellets.every((p) => p.kind === "dot" || p.kind === "power")).toBe(true);
+    expect(pellets.some((p) => p.kind === "power")).toBe(true);
+    const ascii = getActiveLayout().ascii;
+    for (const p of pellets) {
+      const ch = ascii.split("\n")[p.row]?.[p.col];
+      expect(ch === "." || ch === "@").toBe(true);
+    }
+  });
 });
 
 describe("maze selection", () => {
   it("parses maze1 and maze2 overrides", () => {
     expect(parseMazeParam(new URLSearchParams("maze=maze1"))).toBe("maze1");
     expect(parseMazeParam(new URLSearchParams("maze=maze2"))).toBe("maze2");
+    expect(parseMazeParam(new URLSearchParams("maze=mazeSmall"))).toBe("mazeSmall");
+    expect(parseMazeParam(new URLSearchParams("maze=mazeLarge"))).toBe("mazeLarge");
     expect(parseMazeParam(new URLSearchParams("maze=classic"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams("maze=nope"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams())).toBeNull();
@@ -87,6 +129,7 @@ describe("maze selection", () => {
   it("prefers override over rng", () => {
     expect(pickLayoutId(() => 0, "maze2")).toBe("maze2");
     expect(pickLayoutId(() => 0.9, "maze1")).toBe("maze1");
+    expect(pickLayoutId(() => 0, "mazeSmall")).toBe("mazeSmall");
   });
 
   it("picks both layouts from seeded rng", () => {

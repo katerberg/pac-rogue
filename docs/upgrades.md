@@ -104,7 +104,7 @@ Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned) × (s
 
 ## HUD
 
-Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`, 8px so labels stay left of `MAZE_OFFSET_X`), depth 10. Hidden until at least one upgrade is owned; then shows `UpgradeDef.label` lines joined by `\n`. Text now; icons later.
+Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`, 8px so labels stay left of `MAZE_OFFSET_X`), depth 10. Layouts must keep left gutter `≥ 80` after fit (see [maze-constraints.md](./maze-constraints.md)). Hidden until at least one upgrade is owned; then shows `UpgradeDef.label` lines joined by `\n`. Text now; icons later.
 
 ## Adding an upgrade
 

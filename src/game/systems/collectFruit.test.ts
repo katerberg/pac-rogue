@@ -1,7 +1,7 @@
 import { addComponent, addEntity, createWorld, query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { TILE_SIZE } from "../../domain/maze";
-import { FRUIT_RADIUS, PLAYER_RADIUS } from "../../domain/playfield";
+import { FRUIT_RADIUS, playerRadius } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Fruit } from "../components/Fruit";
 import { Player } from "../components/Player";
@@ -16,7 +16,7 @@ function spawnPlayer(x: number, y: number) {
   addComponent(world, eid, Drawable);
   Position.x[eid] = x;
   Position.y[eid] = y;
-  Drawable.radius[eid] = PLAYER_RADIUS;
+  Drawable.radius[eid] = playerRadius();
   return { world, eid };
 }
 
@@ -54,7 +54,7 @@ describe("collectFruit", () => {
     const { world } = spawnPlayer(fruitX - TILE_SIZE, fruitY);
     spawnFruit(world, fruitX, fruitY);
 
-    expect(PLAYER_RADIUS + FRUIT_RADIUS).toBeLessThan(TILE_SIZE);
+    expect(playerRadius() + FRUIT_RADIUS).toBeLessThan(TILE_SIZE);
     expect(collectFruit(world)).toEqual([]);
     expect(query(world, [Fruit, Position])).toHaveLength(1);
   });

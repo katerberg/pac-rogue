@@ -3,24 +3,13 @@ import { GHOST_AI_MODE, type GhostAiMode } from "./ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 import { GHOST_DIR, type GhostDir } from "./ghostPath";
 import { leavingHouseTarget } from "./ghostHouseLeave";
+import { getActiveLayout } from "./maze";
 
 export { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 
-export const BLINKY_SCATTER_COL = 25;
-export const BLINKY_SCATTER_ROW = -3;
-
-export const PINKY_SCATTER_COL = 2;
-export const PINKY_SCATTER_ROW = -3;
-
 export const PINKY_LOOKAHEAD_TILES = 4;
 
-export const CLYDE_SCATTER_COL = 0;
-export const CLYDE_SCATTER_ROW = 33;
-
 export const CLYDE_SHY_TILES = 8;
-
-export const INKY_SCATTER_COL = 27;
-export const INKY_SCATTER_ROW = 33;
 
 export const INKY_LOOKAHEAD_TILES = 2;
 
@@ -28,6 +17,35 @@ export type GhostTarget = {
   col: number;
   row: number;
 };
+
+export function blinkyScatterTarget(cols: number = getActiveLayout().cols): GhostTarget {
+  return { col: cols - 3, row: -3 };
+}
+
+export function pinkyScatterTarget(): GhostTarget {
+  return { col: 2, row: -3 };
+}
+
+export function inkyScatterTarget(
+  cols: number = getActiveLayout().cols,
+  rows: number = getActiveLayout().rows,
+): GhostTarget {
+  return { col: cols - 1, row: rows + 2 };
+}
+
+export function clydeScatterTarget(rows: number = getActiveLayout().rows): GhostTarget {
+  return { col: 0, row: rows + 2 };
+}
+
+/** Classic 28×31 aliases for tests / docs. */
+export const BLINKY_SCATTER_COL = 25;
+export const BLINKY_SCATTER_ROW = -3;
+export const PINKY_SCATTER_COL = 2;
+export const PINKY_SCATTER_ROW = -3;
+export const CLYDE_SCATTER_COL = 0;
+export const CLYDE_SCATTER_ROW = 33;
+export const INKY_SCATTER_COL = 27;
+export const INKY_SCATTER_ROW = 33;
 
 function lookAheadTile(
   playerCol: number,
@@ -69,7 +87,7 @@ export function blinkyTarget(args: {
     return { col: args.playerCol, row: args.playerRow };
   }
 
-  return { col: BLINKY_SCATTER_COL, row: BLINKY_SCATTER_ROW };
+  return blinkyScatterTarget();
 }
 
 export function pinkyTarget(args: {
@@ -86,7 +104,7 @@ export function pinkyTarget(args: {
   }
 
   if (args.mode === GHOST_AI_MODE.scatter) {
-    return { col: PINKY_SCATTER_COL, row: PINKY_SCATTER_ROW };
+    return pinkyScatterTarget();
   }
 
   return lookAheadTile(args.playerCol, args.playerRow, args.playerFacing, PINKY_LOOKAHEAD_TILES);
@@ -105,14 +123,14 @@ export function clydeTarget(args: {
   }
 
   if (args.mode === GHOST_AI_MODE.scatter) {
-    return { col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW };
+    return clydeScatterTarget();
   }
 
   const dx = args.ghostCol - args.playerCol;
   const dy = args.ghostRow - args.playerRow;
   const distance = Math.hypot(dx, dy);
   if (distance < CLYDE_SHY_TILES) {
-    return { col: CLYDE_SCATTER_COL, row: CLYDE_SCATTER_ROW };
+    return clydeScatterTarget();
   }
   return { col: args.playerCol, row: args.playerRow };
 }
@@ -133,7 +151,7 @@ export function inkyTarget(args: {
   }
 
   if (args.mode === GHOST_AI_MODE.scatter) {
-    return { col: INKY_SCATTER_COL, row: INKY_SCATTER_ROW };
+    return inkyScatterTarget();
   }
 
   const pivot = lookAheadTile(

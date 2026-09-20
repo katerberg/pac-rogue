@@ -37,13 +37,13 @@ Humans and agents use different ports (see `scripts/ports.json` / `docs/VERIFICA
 
 Append query params to any local URL (`5173` / `5174` / preview ports). Invalid values are ignored. Upgrade flag behavior: [docs/upgrades.md](./docs/upgrades.md).
 
-| Flag            | Values                  | Effect                                                                                                                                   |
-| --------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `maze`          | `maze1` \| `maze2`      | Force that layout for the **first** board of this Start; omit for 50/50 random. Later levels always pick randomly from the pool.         |
-| `level`         | positive integer        | Start at that level index (ghost roster unlock + speed mul `1 + 0.1×(level−1)`); omit for level 1. Invalid → level 1.                    |
-| `forceUpgrade`  | one upgrade id          | Next fruit choice modal guarantees that id as one option if not already owned; cleared on confirm or empty pool. Invalid → normal offer. |
-| `enableUpgrade` | upgrade id (repeatable) | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Combines with `forceUpgrade`.             |
-| `sound`         | `1`                     | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                      |
+| Flag            | Values                                           | Effect                                                                                                                                                                                                                                               |
+| --------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maze`          | `maze1` \| `maze2` \| `mazeSmall` \| `mazeLarge` | Force that layout for the **first** board of this Start; omit for 50/50 random among maze1/maze2. Later levels always pick randomly from maze1/maze2. Fixtures exercise variable sizes (see [docs/maze-constraints.md](./docs/maze-constraints.md)). |
+| `level`         | positive integer                                 | Start at that level index (ghost roster unlock + speed mul `1 + 0.1×(level−1)`); omit for level 1. Invalid → level 1.                                                                                                                                |
+| `forceUpgrade`  | one upgrade id                                   | Next fruit choice modal guarantees that id as one option if not already owned; cleared on confirm or empty pool. Invalid → normal offer.                                                                                                             |
+| `enableUpgrade` | upgrade id (repeatable)                          | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Combines with `forceUpgrade`.                                                                                                                         |
+| `sound`         | `1`                                              | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                                                                                                                                  |
 
 Upgrade ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`, `scatterBurst`, `ghostRecall`, `warpTop`, `pickupRange`, `ghostHouseDelay`, `extraLife`, `pelletToPower`, `powerCollectThree`, `powerWallPass`, `powerSpeedBurst`, `powerInvuln`.
 
@@ -73,6 +73,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 
 - [AGENTS.md](./AGENTS.md) — guardrails (every code-changing plan includes `/simplify-pr` then `/no-comments`)
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — structure and principles
+- [docs/maze-constraints.md](./docs/maze-constraints.md) — variable-size maze rules / ASCII legend
 - [docs/upgrades.md](./docs/upgrades.md) — run upgrades from fruit
 - [Flags](#flags) — URL query params (`maze`, `level`, `forceUpgrade`, `enableUpgrade`, `sound`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work

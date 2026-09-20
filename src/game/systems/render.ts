@@ -1,9 +1,9 @@
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
-  PELLET_DISPLAY_SIZE,
   playerDisplaySize,
-  POWER_PELLET_DISPLAY_SIZE,
+  pelletDisplaySize,
+  powerPelletDisplaySize,
   wallPathCommands,
   WALL_STROKE_COLOR,
   WALL_STROKE_WEIGHT,
@@ -75,10 +75,10 @@ function pelletTextureKey(drawableId: string): string {
 
 function displaySizeForDrawable(drawableId: string): number {
   if (drawableId === PELLET_DRAWABLE_ID) {
-    return PELLET_DISPLAY_SIZE;
+    return pelletDisplaySize();
   }
   if (drawableId === POWER_PELLET_DRAWABLE_ID) {
-    return POWER_PELLET_DISPLAY_SIZE;
+    return powerPelletDisplaySize();
   }
   return playerDisplaySize();
 }
@@ -212,7 +212,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     if (!go) {
       return;
     }
-    const base = POWER_PELLET_DISPLAY_SIZE;
+    const base = powerPelletDisplaySize();
     go.setTexture(POWER_PELLET_TEXTURE_KEY);
     go.setName(POWER_PELLET_DRAWABLE_ID);
     go.setDisplaySize(base, base);

@@ -1,4 +1,4 @@
-import { MAZE_COLS, cellCenterX, cellCenterY, getActiveLayout, isDoor, isHouse } from "./maze";
+import { cellCenterX, cellCenterY, getActiveLayout, isDoor, isHouse } from "./maze";
 
 export const HOUSE_SEAT_COUNT = 4;
 
@@ -11,20 +11,20 @@ export type HouseSeatGhost = {
 };
 
 function houseFloorColsOnSpawnRow(): number[] {
-  const { ghostHouseSpawn } = getActiveLayout();
+  const { ghostHouseSpawn, cols } = getActiveLayout();
   const row = ghostHouseSpawn.row;
-  const cols: number[] = [];
-  for (let col = 0; col < MAZE_COLS; col += 1) {
+  const colsOnRow: number[] = [];
+  for (let col = 0; col < cols; col += 1) {
     if (isHouse(col, row) && !isDoor(col, row)) {
-      cols.push(col);
+      colsOnRow.push(col);
     }
   }
-  if (cols.length < HOUSE_SEAT_COUNT) {
+  if (colsOnRow.length < HOUSE_SEAT_COUNT) {
     throw new Error(
-      `ghost house spawn row ${row} has ${cols.length} floor cells; need ${HOUSE_SEAT_COUNT}`,
+      `ghost house spawn row ${row} has ${colsOnRow.length} floor cells; need ${HOUSE_SEAT_COUNT}`,
     );
   }
-  return cols;
+  return colsOnRow;
 }
 
 export function ghostHouseSeatCenters(): HouseSeat[] {

@@ -16,6 +16,7 @@ import {
   cellOriginX,
   cellOriginY,
   clampAgainstFacingWall,
+  computeMazeGeometry,
   doorGateEdges,
   ghostSolidsForPhase,
   hasLeftGhostHouse,
@@ -64,6 +65,9 @@ describe("maze", () => {
       MAZE_TOP_MARGIN_PX + Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2),
     );
     expect(MAZE_OFFSET_Y).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
+    expect(MAZE_OFFSET_X).toBeGreaterThanOrEqual(80);
+    expect(getActiveLayout().cols).toBe(28);
+    expect(getActiveLayout().rows).toBe(31);
 
     expect(isWall(0, 0)).toBe(true);
     expect(isWall(MAZE_COLS - 1, 0)).toBe(true);
@@ -313,7 +317,13 @@ describe("maze", () => {
   });
 
   it("rejects malformed ASCII", () => {
-    expect(() => parseMaze("#\n")).toThrow(/rows/);
+    expect(() => parseMaze("#\n")).toThrow(/cols/);
+  });
+
+  it("rejects out-of-band and thin-gutter sizes", () => {
+    expect(() => computeMazeGeometry(19, 31)).toThrow(/cols/);
+    expect(() => computeMazeGeometry(28, 20)).toThrow(/rows/);
+    expect(() => computeMazeGeometry(32, 21)).toThrow(/gutter|minimum/i);
   });
 
   it("lists wall centers and pipe edges without treating exterior as walls", () => {
