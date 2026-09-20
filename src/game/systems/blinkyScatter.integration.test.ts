@@ -84,6 +84,7 @@ function tickPipeline(
   mode: ReturnType<typeof createGhostModeClock>,
   pelletsRemaining: number,
   dt: number,
+  levelIndex: number,
 ) {
   const nextRelease = tickGhostRelease(release, true, dt);
   ghostRelease(world, nextRelease, 0);
@@ -98,7 +99,7 @@ function tickPipeline(
   applyGhostSpeed(world, pelletsRemaining);
   movement(world, dt);
   if (ghostExitHouse(world) && !nextMode.active) {
-    nextMode = startGhostModeClock();
+    nextMode = startGhostModeClock(levelIndex);
   }
   return { release: nextRelease, mode: nextMode };
 }
@@ -109,8 +110,9 @@ describe("blinky chase start integration", () => {
     Input.direction[player] = DIRECTION.left;
     Speed.px[player] = PLAYER_SPEED;
 
+    const levelIndex = 1;
     let release = createGhostReleaseClock();
-    let mode = createGhostModeClock();
+    let mode = createGhostModeClock(levelIndex);
     const pelletsRemaining = 244;
     const dt = 16;
     const modes: number[] = [];
@@ -118,7 +120,7 @@ describe("blinky chase start integration", () => {
 
     for (let i = 0; i < 600; i += 1) {
       const beforeExit = (GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active;
-      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt);
+      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt, levelIndex);
       release = stepped.release;
       mode = stepped.mode;
       if (!beforeExit && (GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active && exitedAt < 0) {
@@ -134,11 +136,47 @@ describe("blinky chase start integration", () => {
     expect(modes.slice(0, chaseFrames).every((m) => m === GHOST_AI_MODE.chase)).toBe(true);
   });
 
-  it("enters arcade scatter after the opening chase window", () => {
+  it("never enters wave scatter on level 1", () => {
     const { world, ghost } = spawnActors();
 
+    const levelIndex = 1;
     let release = createGhostReleaseClock();
-    let mode = createGhostModeClock();
+    let mode = createGhostModeClock(levelIndex);
+    const pelletsRemaining = 244;
+    const dt = 16;
+    let exited = false;
+    let framesAfterExit = 0;
+    let sawScatter = false;
+
+    for (let i = 0; i < 2500; i += 1) {
+      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt, levelIndex);
+      release = stepped.release;
+      mode = stepped.mode;
+
+      if ((GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active) {
+        if (!exited) {
+          exited = true;
+        }
+        framesAfterExit += 1;
+        if (mode.mode === GHOST_AI_MODE.scatter) {
+          sawScatter = true;
+          break;
+        }
+      }
+    }
+
+    expect(exited).toBe(true);
+    expect(framesAfterExit).toBeGreaterThan(Math.floor(20_000 / dt));
+    expect(sawScatter).toBe(false);
+    expect(mode.mode).toBe(GHOST_AI_MODE.chase);
+  });
+
+  it("enters arcade scatter after the opening chase window on level 2+", () => {
+    const { world, ghost } = spawnActors();
+
+    const levelIndex = 2;
+    let release = createGhostReleaseClock();
+    let mode = createGhostModeClock(levelIndex);
     const pelletsRemaining = 244;
     const dt = 16;
 
@@ -147,7 +185,7 @@ describe("blinky chase start integration", () => {
     let sawScatter = false;
 
     for (let i = 0; i < 2500; i += 1) {
-      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt);
+      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt, levelIndex);
       release = stepped.release;
       mode = stepped.mode;
 
@@ -173,15 +211,16 @@ describe("blinky chase start integration", () => {
     Input.direction[player] = DIRECTION.left;
     Speed.px[player] = PLAYER_SPEED;
 
+    const levelIndex = 1;
     let release = createGhostReleaseClock();
-    let mode = createGhostModeClock();
+    let mode = createGhostModeClock(levelIndex);
     const pelletsRemaining = 244;
     const dt = 16;
     let exitedAt = -1;
     let houseAfterExit = 0;
 
     for (let i = 0; i < 900; i += 1) {
-      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt);
+      const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt, levelIndex);
       release = stepped.release;
       mode = stepped.mode;
 
