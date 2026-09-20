@@ -209,7 +209,7 @@ export class PlayScene extends Phaser.Scene {
     const urlParams = new URLSearchParams(location.search);
     const mazeOverride = parseMazeParam(urlParams);
     if (urlParams.has("maze") && mazeOverride === null) {
-      console.warn(`Unknown ?maze= value; expected maze1|maze2`);
+      console.warn(`Unknown ?maze= value; expected maze1|maze2|mazeSmall|mazeLarge`);
     }
     const levelOverride = parseLevelParam(urlParams);
     if (urlParams.has("level") && levelOverride === null) {
