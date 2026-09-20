@@ -11,7 +11,7 @@ import { Speed } from "../components/Speed";
 
 export type GhostSpeedOptions = {
   ghostSpeedMul?: number;
-  frozen?: boolean;
+  frozenGhostEid?: number | null;
 };
 
 export function applyGhostSpeed(
@@ -20,7 +20,7 @@ export function applyGhostSpeed(
   options: GhostSpeedOptions = {},
 ): void {
   const ghostSpeedMul = options.ghostSpeedMul ?? 1;
-  const frozen = options.frozen === true;
+  const frozenEid = options.frozenGhostEid ?? null;
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Speed])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
@@ -28,7 +28,7 @@ export function applyGhostSpeed(
       continue;
     }
 
-    if (frozen) {
+    if (frozenEid !== null && eid === frozenEid) {
       Speed.px[eid] = 0;
       continue;
     }

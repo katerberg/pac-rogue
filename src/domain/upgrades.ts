@@ -27,7 +27,7 @@ export type UpgradeDef = {
   ghostHouseReleaseDelayAddMs?: number;
   ghostHouseClydePelletAdd?: number;
   onPowerPellet?: {
-    freezeGhostsMs?: number;
+    freezeClosestGhostMs?: number;
     scatterBurstMs?: number;
     wallPassMs?: number;
     playerInvulnMs?: number;
@@ -55,8 +55,8 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletFreeze",
     label: "Power Freeze",
-    description: "Chomp a power pellet and ghosts lock solid for a few seconds.",
-    onPowerPellet: { freezeGhostsMs: FREEZE_MS },
+    description: "Chomp a power pellet and the nearest ghost locks solid for a few seconds.",
+    onPowerPellet: { freezeClosestGhostMs: FREEZE_MS },
   },
   {
     id: "playerSpeedUp",
@@ -147,6 +147,7 @@ const ALL_UPGRADE_IDS: readonly UpgradeId[] = UPGRADE_DEFS.map((def) => def.id);
 export type RunUpgrades = {
   owned: UpgradeId[];
   freezeRemainingMs: number;
+  frozenGhostEid: number | null;
   scatterBurstRemainingMs: number;
   wallPassRemainingMs: number;
   invulnRemainingMs: number;
@@ -157,6 +158,7 @@ export type RunUpgrades = {
 
 export type PowerPelletApplyResult = {
   state: RunUpgrades;
+  freezeClosestMs: number | null;
   recallClosestGhost: boolean;
   warpPlayerTopCenter: boolean;
   collectExtraPellets: number;
@@ -169,6 +171,7 @@ export function createRunUpgrades(
   let state: RunUpgrades = {
     owned: [],
     freezeRemainingMs: 0,
+    frozenGhostEid: null,
     scatterBurstRemainingMs: 0,
     wallPassRemainingMs: 0,
     invulnRemainingMs: 0,
@@ -298,9 +301,11 @@ export function tickFreeze(state: RunUpgrades, deltaMs: number): RunUpgrades {
   if (state.freezeRemainingMs <= 0) {
     return state;
   }
+  const remaining = Math.max(0, state.freezeRemainingMs - Math.max(0, deltaMs));
   return {
     ...state,
-    freezeRemainingMs: Math.max(0, state.freezeRemainingMs - Math.max(0, deltaMs)),
+    freezeRemainingMs: remaining,
+    frozenGhostEid: remaining > 0 ? state.frozenGhostEid : null,
   };
 }
 
@@ -351,13 +356,14 @@ export function applyPowerPelletEffects(
   if (powerRemoved <= 0) {
     return {
       state,
+      freezeClosestMs: null,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
     };
   }
 
-  let freezeMs: number | null = null;
+  let freezeClosestMs: number | null = null;
   let scatterMs: number | null = null;
   let wallPassMs: number | null = null;
   let invulnMs: number | null = null;
@@ -371,9 +377,11 @@ export function applyPowerPelletEffects(
     if (!onPower) {
       continue;
     }
-    if (onPower.freezeGhostsMs !== undefined) {
-      freezeMs =
-        freezeMs === null ? onPower.freezeGhostsMs : Math.max(freezeMs, onPower.freezeGhostsMs);
+    if (onPower.freezeClosestGhostMs !== undefined) {
+      freezeClosestMs =
+        freezeClosestMs === null
+          ? onPower.freezeClosestGhostMs
+          : Math.max(freezeClosestMs, onPower.freezeClosestGhostMs);
     }
     if (onPower.scatterBurstMs !== undefined) {
       scatterMs =
@@ -405,9 +413,6 @@ export function applyPowerPelletEffects(
   }
 
   let next = state;
-  if (freezeMs !== null) {
-    next = { ...next, freezeRemainingMs: freezeMs };
-  }
   if (scatterMs !== null) {
     next = { ...next, scatterBurstRemainingMs: scatterMs };
   }
@@ -423,6 +428,7 @@ export function applyPowerPelletEffects(
 
   return {
     state: next,
+    freezeClosestMs,
     recallClosestGhost,
     warpPlayerTopCenter,
     collectExtraPellets,
@@ -484,8 +490,23 @@ export function ghostHouseClydePelletAdd(owned: readonly UpgradeId[]): number {
   return sumOwnedField(owned, "ghostHouseClydePelletAdd");
 }
 
-export function ghostsAreFrozen(state: RunUpgrades): boolean {
-  return state.freezeRemainingMs > 0;
+export function frozenGhostEid(state: RunUpgrades): number | null {
+  return state.freezeRemainingMs > 0 ? state.frozenGhostEid : null;
+}
+
+export function beginClosestGhostFreeze(
+  state: RunUpgrades,
+  eid: number | null,
+  freezeMs: number,
+): RunUpgrades {
+  if (eid === null) {
+    return state;
+  }
+  return {
+    ...state,
+    freezeRemainingMs: freezeMs,
+    frozenGhostEid: eid,
+  };
 }
 
 export function playerIsInvulnerable(state: RunUpgrades): boolean {
