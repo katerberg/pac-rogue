@@ -103,44 +103,41 @@ function stampHouse(grid: string[][]): void {
   }
 }
 
+function clearAroundHouseStamp(grid: string[][]): void {
+  const rows = grid.length;
+  const cols = grid[0]!.length;
+  const stampCells: { col: number; row: number }[] = [];
+  for (let r = 0; r < HOUSE_STAMP.length; r += 1) {
+    for (let c = 0; c < HOUSE_STAMP[r]!.length; c += 1) {
+      stampCells.push({ col: HOUSE_STAMP_COL0 + c, row: HOUSE_STAMP_ROW0 + r });
+    }
+  }
+  for (const cell of stampCells) {
+    for (const [dc, dr] of [
+      [0, -1],
+      [0, 1],
+      [-1, 0],
+      [1, 0],
+    ] as const) {
+      const nCol = cell.col + dc;
+      const nRow = cell.row + dr;
+      if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows) {
+        continue;
+      }
+      const ch = grid[nRow]![nCol]!;
+      if (ch === PELLET || ch === POWER) {
+        grid[nRow]![nCol] = CORRIDOR;
+      }
+    }
+  }
+}
+
 function isHouseChar(ch: string): boolean {
   return ch === HOUSE || ch === DOOR;
 }
 
 function isWalkableChar(ch: string): boolean {
   return ch === CORRIDOR || ch === PELLET || ch === POWER || ch === SPAWN || ch === " ";
-}
-
-function isPlayerWalkableChar(ch: string): boolean {
-  return isWalkableChar(ch);
-}
-
-function clearHousePerimeterPellets(grid: string[][]): void {
-  const rows = grid.length;
-  const cols = grid[0]!.length;
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (!isHouseChar(grid[row]![col]!)) {
-        continue;
-      }
-      for (const [dc, dr] of [
-        [0, -1],
-        [0, 1],
-        [-1, 0],
-        [1, 0],
-      ] as const) {
-        const nCol = col + dc;
-        const nRow = row + dr;
-        if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows) {
-          continue;
-        }
-        const ch = grid[nRow]![nCol]!;
-        if (ch === PELLET || ch === POWER) {
-          grid[nRow]![nCol] = CORRIDOR;
-        }
-      }
-    }
-  }
 }
 
 function pickTunnelRows(seed: string, houseRows: Set<number>): number[] {
@@ -227,7 +224,7 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
       const ch = grid[row]![col]!;
-      if (!isPlayerWalkableChar(ch) || isHouseChar(ch)) {
+      if (!isWalkableChar(ch) || isHouseChar(ch)) {
         continue;
       }
       const key = `${col},${row}`;
@@ -336,7 +333,7 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
     }
   }
 
-  clearHousePerimeterPellets(grid);
+  clearAroundHouseStamp(grid);
   breakPelletBlocks(grid);
 }
 
@@ -442,11 +439,8 @@ function assertNoPelletBlocks(grid: string[][]): void {
 function assertNoHouseAdjacentPellets(grid: string[][]): void {
   const rows = grid.length;
   const cols = grid[0]!.length;
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (!isHouseChar(grid[row]![col]!)) {
-        continue;
-      }
+  for (let row = HOUSE_STAMP_ROW0; row < HOUSE_STAMP_ROW0 + HOUSE_STAMP.length; row += 1) {
+    for (let col = HOUSE_STAMP_COL0; col < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length; col += 1) {
       for (const [dc, dr] of [
         [0, -1],
         [0, 1],
@@ -458,9 +452,17 @@ function assertNoHouseAdjacentPellets(grid: string[][]): void {
         if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows) {
           continue;
         }
+        if (
+          nRow >= HOUSE_STAMP_ROW0 &&
+          nRow < HOUSE_STAMP_ROW0 + HOUSE_STAMP.length &&
+          nCol >= HOUSE_STAMP_COL0 &&
+          nCol < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length
+        ) {
+          continue;
+        }
         const ch = grid[nRow]![nCol]!;
         if (ch === PELLET || ch === POWER) {
-          throw new Error(`pellet adjacent to house at ${nCol},${nRow}`);
+          throw new Error(`pellet adjacent to house stamp at ${nCol},${nRow}`);
         }
       }
     }
