@@ -68,7 +68,7 @@ When `collectExtraPellets > 0`, `PlayScene` calls `collectExtraPellets` on remai
 
 ### Scatter burst
 
-While `scatterBurstRemainingMs > 0` **and** the wave clock is active, `resolveGhostModeStep` pauses the level-1 wave clock and sets effective AI mode to scatter. If the clock is still inactive (no ghost has exited yet), burst does not change effective mode. When the burst ends, the wave clock resumes from where it paused. If effective mode changes at burst start/end (vs the previous frame’s effective mode), `PlayScene` calls `forceGhostReverse` (same helper as wave scatter↔chase; skips `inHouse` / `leaving`). While burst is active, Blinky ignores Cruise Elroy and uses the scatter corner (normal wave scatter still lets Elroy chase).
+While `scatterBurstRemainingMs > 0` **and** the wave clock is active, `resolveGhostModeStep` pauses the level wave clock and sets effective AI mode to scatter (including on level 1, which otherwise has no scatter waves). If the clock is still inactive (no ghost has exited yet), burst does not change effective mode. When the burst ends, the wave clock resumes from where it paused. If effective mode changes at burst start/end (vs the previous frame’s effective mode), `PlayScene` calls `forceGhostReverse` (same helper as wave scatter↔chase; skips `inHouse` / `leaving`). While burst is active, Blinky ignores Cruise Elroy and uses the scatter corner (normal wave scatter still lets Elroy chase).
 
 ### Ghost recall
 

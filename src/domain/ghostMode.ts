@@ -1,3 +1,5 @@
+import { ghostModeStartWaveIndex, ghostModeWavesForLevel } from "./levelRules";
+
 export const GHOST_AI_MODE = {
   scatter: 0,
   chase: 1,
@@ -10,23 +12,9 @@ export type GhostModeWave = {
   durationMs: number;
 };
 
-/** Arcade level-1 scatter/chase table (seconds). */
-const LEVEL1_WAVES: readonly GhostModeWave[] = [
-  { mode: GHOST_AI_MODE.scatter, durationMs: 7_000 },
-  { mode: GHOST_AI_MODE.chase, durationMs: 20_000 },
-  { mode: GHOST_AI_MODE.scatter, durationMs: 7_000 },
-  { mode: GHOST_AI_MODE.chase, durationMs: 20_000 },
-  { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
-  { mode: GHOST_AI_MODE.chase, durationMs: 20_000 },
-  { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
-  { mode: GHOST_AI_MODE.chase, durationMs: Number.POSITIVE_INFINITY },
-];
-
-/** Skip opening arcade scatter so Blinky begins in chase; later waves stay arcade. */
-const START_WAVE_INDEX = 1;
-
 export type GhostModeClock = {
   active: boolean;
+  levelIndex: number;
   waveIndex: number;
   elapsedMs: number;
   mode: GhostAiMode;
@@ -37,24 +25,26 @@ export type GhostModeTick = {
   forceReverse: boolean;
 };
 
-export function createGhostModeClock(): GhostModeClock {
-  const start = LEVEL1_WAVES[START_WAVE_INDEX]!;
+function buildGhostModeClock(levelIndex: number, active: boolean): GhostModeClock {
+  const level = Math.max(1, levelIndex);
+  const waves = ghostModeWavesForLevel(level);
+  const waveIndex = ghostModeStartWaveIndex(level);
+  const start = waves[waveIndex]!;
   return {
-    active: false,
-    waveIndex: START_WAVE_INDEX,
+    active,
+    levelIndex: level,
+    waveIndex,
     elapsedMs: 0,
     mode: start.mode,
   };
 }
 
-export function startGhostModeClock(): GhostModeClock {
-  const start = LEVEL1_WAVES[START_WAVE_INDEX]!;
-  return {
-    active: true,
-    waveIndex: START_WAVE_INDEX,
-    elapsedMs: 0,
-    mode: start.mode,
-  };
+export function createGhostModeClock(levelIndex: number): GhostModeClock {
+  return buildGhostModeClock(levelIndex, false);
+}
+
+export function startGhostModeClock(levelIndex: number): GhostModeClock {
+  return buildGhostModeClock(levelIndex, true);
 }
 
 export type GhostModeStep = {
@@ -85,7 +75,8 @@ export function tickGhostMode(clock: GhostModeClock, deltaMs: number): GhostMode
     return { clock, forceReverse: false };
   }
 
-  const wave = LEVEL1_WAVES[clock.waveIndex];
+  const waves = ghostModeWavesForLevel(clock.levelIndex);
+  const wave = waves[clock.waveIndex];
   if (!wave || !Number.isFinite(wave.durationMs)) {
     return { clock, forceReverse: false };
   }
@@ -95,18 +86,18 @@ export function tickGhostMode(clock: GhostModeClock, deltaMs: number): GhostMode
   let mode = clock.mode;
   let forceReverse = false;
 
-  while (waveIndex < LEVEL1_WAVES.length) {
-    const current = LEVEL1_WAVES[waveIndex]!;
+  while (waveIndex < waves.length) {
+    const current = waves[waveIndex]!;
     if (!Number.isFinite(current.durationMs) || elapsedMs < current.durationMs) {
       mode = current.mode;
       break;
     }
     elapsedMs -= current.durationMs;
     waveIndex += 1;
-    const next = LEVEL1_WAVES[waveIndex];
+    const next = waves[waveIndex];
     if (!next) {
-      waveIndex = LEVEL1_WAVES.length - 1;
-      mode = LEVEL1_WAVES[waveIndex]!.mode;
+      waveIndex = waves.length - 1;
+      mode = waves[waveIndex]!.mode;
       elapsedMs = 0;
       forceReverse = true;
       break;
@@ -122,6 +113,7 @@ export function tickGhostMode(clock: GhostModeClock, deltaMs: number): GhostMode
   return {
     clock: {
       active: true,
+      levelIndex: clock.levelIndex,
       waveIndex,
       elapsedMs,
       mode,
