@@ -22,9 +22,9 @@ if [ "$have" != "$want" ]; then
   fi
 fi
 
-stamp=node_modules/.install-stamp
-if [ ! -f "$stamp" ] || [ package-lock.json -nt "$stamp" ]; then
-  npm ci >&2 && touch "$stamp"
+installed=node_modules/.package-lock.json
+if [ ! -f "$installed" ] || [ package-lock.json -nt "$installed" ]; then
+  npm ci >&2
 fi
 
 if ! ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/chromium-* >/dev/null 2>&1; then
