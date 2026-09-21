@@ -1,6 +1,6 @@
 # Maze layout constraints
 
-Rectangular ASCII mazes of variable size. There is no procedural generator in-repo yet; these rules are what a future generator (and hand-authored fixtures) must satisfy so placement, tunnels, and the fixed 800×600 canvas stay correct.
+Rectangular ASCII mazes of variable size. Levels ≥ 2 can use the procedural tiling generator (`src/domain/mazeTiling.ts` + `mazeGenerate.ts`); hand-authored fixtures and generated boards must satisfy these rules so placement, tunnels, and the fixed 800×600 canvas stay correct.
 
 ## Size band and fit gate
 
@@ -62,13 +62,21 @@ Derived from active layout bounds (classic-equivalent margins):
 
 Fruit / Inky / Clyde / Elroy pellet thresholds scale vs maze1 pellet count (unchanged formula).
 
+## Procedural (levels ≥ 2)
+
+- Tiling solver on a 9×10 mirrored polyomino grid with a fixed center house, rasterized to **28×31** ASCII (2×2 wall cells, 1-cell corridors, outer border).
+- Horizontal tunnels only; **1 or 2** non-adjacent tunnel rows; corridor pellets (no house-adjacent dots, no 2×2 pellet blocks, no dead-end pellet cells); interior wall runs prefer thickness ≥ 2; spawn marked `P`.
+- Deterministic from `boardMazeSeed(runSeed, levelIndex)` with up to 32 attempt suffixes; on total failure fall back to `maze2` and `console.warn`.
+- Level 1 stays `mazeSmall` (or `?maze=` override). `?maze=` still forces the first board of a Start at any level.
+
 ## Layout ids
 
-| Id                  | Role                                  |
-| ------------------- | ------------------------------------- |
-| `maze1` / `maze2`   | Play pool (random pick from level 2+) |
-| `mazeSmall` (22×21) | Level 1 default; also `?maze=`        |
+| Id                  | Role                                                                    |
+| ------------------- | ----------------------------------------------------------------------- |
+| `maze1` / `maze2`   | Static fixtures; `maze2` generate fallback                              |
+| `mazeSmall` (22×21) | Level 1 default; also `?maze=`                                          |
+| `generated`         | Runtime id for activated procedural ASCII (not in `?maze=` / pick pool) |
 
 ## Out of scope
 
-Vertical tunnels, non-rectangular grids, multi-house, canvas resize / camera scroll, procedural generator.
+Vertical tunnels, non-rectangular grids, multi-house, canvas resize / camera scroll, `?mazeSeed=` URL, per-board random dimensions.

@@ -34,16 +34,21 @@ import {
 } from "../../domain/deathSequence";
 import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "../../domain/lives";
 import {
+  activateAsciiLayout,
   activateLayout,
   getActiveLayout,
   parseMazeParam,
   pelletCellCenters,
-  pickLayoutId,
   playerDisplaySize,
   playerSpawnCenter,
   wallCellCenters,
   type MazeLayoutId,
 } from "../../domain/maze";
+import {
+  GENERATE_MAX_ATTEMPTS,
+  generateMazeAsciiWithRetries,
+  resolveBoardSelection,
+} from "../../domain/mazeGenerate";
 import { ghostKindsForLevel, ghostSpeedLevelMul } from "../../domain/levelRules";
 import { parseLevelParam } from "../../domain/runLevel";
 import {
@@ -176,6 +181,7 @@ export class PlayScene extends Phaser.Scene {
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private lifetimeCollected = 0;
   private levelIndex = 1;
+  private runMazeSeed = "0";
   private levelTransitionRemainingMs = 0;
   private fruitPresence: FruitPresence = createFruitPresence();
   private runUpgrades: RunUpgrades = createRunUpgrades();
@@ -218,6 +224,7 @@ export class PlayScene extends Phaser.Scene {
       console.warn(`Unknown ?level= value; expected positive integer`);
     }
     this.levelIndex = levelOverride ?? 1;
+    this.runMazeSeed = String(Math.floor(Math.random() * 0xffffffff));
 
     this.runUpgrades = createRunUpgrades(
       parseUpgradeId(urlParams.get("forceUpgrade")),
@@ -508,7 +515,20 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
-    activateLayout(pickLayoutId(Math.random, layoutOverride, this.levelIndex));
+    const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.runMazeSeed);
+    if (selection.kind === "static") {
+      activateLayout(selection.id);
+    } else {
+      const generated = generateMazeAsciiWithRetries(selection.seed);
+      if (generated) {
+        activateAsciiLayout(generated.ascii);
+      } else {
+        console.warn(
+          `maze generate failed after ${GENERATE_MAX_ATTEMPTS} attempts for seed ${selection.seed}; falling back to maze2`,
+        );
+        activateLayout("maze2");
+      }
+    }
     this.playRender.resetForNewBoard();
     this.world = createWorld();
     this.spawnWalls();
