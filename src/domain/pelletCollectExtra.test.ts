@@ -7,6 +7,7 @@ function grid(rows: string[]): SolidGrid {
 }
 
 const openRow = grid(["#####", ".....", "#####"]);
+const openBlock = grid(["#####", ".....", ".....", ".....", "#####"]);
 
 describe("pickClosestOffForwardPelletEids", () => {
   it("returns empty when count is non-positive or candidates empty", () => {
@@ -38,22 +39,40 @@ describe("pickClosestOffForwardPelletEids", () => {
   });
 
   it("excludes pellets on the open forward corridor and keeps behind eligible", () => {
-    const py = cellCenterY(1);
+    const py = cellCenterY(2);
     const px = cellCenterX(2);
     const aheadNear = { eid: 1, x: cellCenterX(3), y: py };
     const aheadFar = { eid: 2, x: cellCenterX(4), y: py };
     const behind = { eid: 3, x: cellCenterX(1), y: py };
-    const side = { eid: 4, x: cellCenterX(2), y: cellCenterY(0) };
+    const side = { eid: 4, x: cellCenterX(2), y: cellCenterY(1) };
     expect(
       pickClosestOffForwardPelletEids(
         [aheadNear, aheadFar, behind, side],
         px,
         py,
         { col: 1, row: 0 },
-        openRow,
+        openBlock,
         3,
       ),
     ).toEqual([3, 4]);
+  });
+
+  it("excludes the open forward corridor when facing up", () => {
+    const px = cellCenterX(2);
+    const py = cellCenterY(2);
+    const ahead = { eid: 1, x: px, y: cellCenterY(1) };
+    const behind = { eid: 2, x: px, y: cellCenterY(3) };
+    const side = { eid: 3, x: cellCenterX(1), y: py };
+    expect(
+      pickClosestOffForwardPelletEids(
+        [ahead, behind, side],
+        px,
+        py,
+        { col: 0, row: -1 },
+        openBlock,
+        2,
+      ),
+    ).toEqual([2, 3]);
   });
 
   it("stops the corridor at the first solid so pellets past a wall stay eligible", () => {

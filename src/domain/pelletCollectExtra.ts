@@ -6,7 +6,7 @@ export type PelletCollectCandidate = {
   y: number;
 };
 
-export type FacingStep = {
+type FacingStep = {
   col: number;
   row: number;
 };

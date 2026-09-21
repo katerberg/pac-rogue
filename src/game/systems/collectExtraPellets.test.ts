@@ -4,7 +4,7 @@ import { cellCenterX, cellCenterY, type SolidGrid } from "../../domain/maze";
 import { PELLET_RADIUS } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
-import { DIRECTION } from "../components/Input";
+import { DIRECTION, type Direction } from "../components/Input";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -19,7 +19,7 @@ function spawnPlayer(
   world: ReturnType<typeof createWorld>,
   x: number,
   y: number,
-  facing: (typeof DIRECTION)[keyof typeof DIRECTION] = DIRECTION.none,
+  facing: Direction = DIRECTION.none,
 ) {
   const eid = addEntity(world);
   addComponent(world, eid, Player);
