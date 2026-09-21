@@ -1,37 +1,124 @@
 import { describe, expect, it } from "vitest";
-import { pickUniformPelletEids } from "./pelletCollectExtra";
+import { cellCenterX, cellCenterY, type SolidGrid } from "./maze";
+import { pickClosestOffForwardPelletEids } from "./pelletCollectExtra";
 
-describe("pickUniformPelletEids", () => {
+function grid(rows: string[]): SolidGrid {
+  return rows.map((line) => [...line].map((ch) => ch === "#"));
+}
+
+const openRow = grid(["#####", ".....", "#####"]);
+const openBlock = grid(["#####", ".....", ".....", ".....", "#####"]);
+
+describe("pickClosestOffForwardPelletEids", () => {
   it("returns empty when count is non-positive or candidates empty", () => {
-    expect(pickUniformPelletEids([1, 2, 3], 0, () => 0)).toEqual([]);
-    expect(pickUniformPelletEids([1, 2, 3], -1, () => 0)).toEqual([]);
-    expect(pickUniformPelletEids([], 3, () => 0)).toEqual([]);
+    const solids = openRow;
+    const px = cellCenterX(2);
+    const py = cellCenterY(1);
+    expect(
+      pickClosestOffForwardPelletEids(
+        [{ eid: 1, x: cellCenterX(0), y: py }],
+        px,
+        py,
+        { col: 0, row: 0 },
+        solids,
+        0,
+      ),
+    ).toEqual([]);
+    expect(pickClosestOffForwardPelletEids([], px, py, { col: 1, row: 0 }, solids, 3)).toEqual([]);
   });
 
-  it("returns all candidates when fewer than count remain", () => {
-    expect(pickUniformPelletEids([10, 20], 3, () => 0)).toEqual([10, 20]);
+  it("with facing none excludes nothing and picks closest by Euclidean distance", () => {
+    const py = cellCenterY(1);
+    const px = cellCenterX(2);
+    const far = { eid: 10, x: cellCenterX(0), y: py };
+    const near = { eid: 20, x: cellCenterX(3), y: py };
+    const mid = { eid: 30, x: cellCenterX(4), y: py };
+    expect(
+      pickClosestOffForwardPelletEids([far, mid, near], px, py, { col: 0, row: 0 }, openRow, 2),
+    ).toEqual([20, 10]);
   });
 
-  it("picks exactly count without replacement", () => {
-    const picked = pickUniformPelletEids([1, 2, 3, 4, 5], 3, () => 0);
-    expect(picked).toHaveLength(3);
-    expect(new Set(picked).size).toBe(3);
-    for (const eid of picked) {
-      expect([1, 2, 3, 4, 5]).toContain(eid);
-    }
+  it("excludes pellets on the open forward corridor and keeps behind eligible", () => {
+    const py = cellCenterY(2);
+    const px = cellCenterX(2);
+    const aheadNear = { eid: 1, x: cellCenterX(3), y: py };
+    const aheadFar = { eid: 2, x: cellCenterX(4), y: py };
+    const behind = { eid: 3, x: cellCenterX(1), y: py };
+    const side = { eid: 4, x: cellCenterX(2), y: cellCenterY(1) };
+    expect(
+      pickClosestOffForwardPelletEids(
+        [aheadNear, aheadFar, behind, side],
+        px,
+        py,
+        { col: 1, row: 0 },
+        openBlock,
+        3,
+      ),
+    ).toEqual([3, 4]);
   });
 
-  it("is deterministic for a seeded rng sequence", () => {
-    const values = [0.9, 0.1, 0.5];
-    let i = 0;
-    const rng = () => values[i++]!;
-    expect(pickUniformPelletEids([10, 20, 30, 40], 3, rng)).toEqual([40, 10, 30]);
+  it("excludes the open forward corridor when facing up", () => {
+    const px = cellCenterX(2);
+    const py = cellCenterY(2);
+    const ahead = { eid: 1, x: px, y: cellCenterY(1) };
+    const behind = { eid: 2, x: px, y: cellCenterY(3) };
+    const side = { eid: 3, x: cellCenterX(1), y: py };
+    expect(
+      pickClosestOffForwardPelletEids(
+        [ahead, behind, side],
+        px,
+        py,
+        { col: 0, row: -1 },
+        openBlock,
+        2,
+      ),
+    ).toEqual([2, 3]);
   });
 
-  it("never exceeds the candidate set", () => {
-    const candidates = [7, 8, 9];
-    const picked = pickUniformPelletEids(candidates, 99, () => 0.5);
-    expect(picked).toHaveLength(3);
-    expect(picked.sort((a, b) => a - b)).toEqual([7, 8, 9]);
+  it("stops the corridor at the first solid so pellets past a wall stay eligible", () => {
+    const solids = grid(["#####", "...#.", "#####"]);
+    const py = cellCenterY(1);
+    const px = cellCenterX(1);
+    const beforeWall = { eid: 1, x: cellCenterX(2), y: py };
+    const pastWall = { eid: 2, x: cellCenterX(4), y: py };
+    const behind = { eid: 3, x: cellCenterX(0), y: py };
+    expect(
+      pickClosestOffForwardPelletEids(
+        [beforeWall, pastWall, behind],
+        px,
+        py,
+        { col: 1, row: 0 },
+        solids,
+        2,
+      ),
+    ).toEqual([3, 2]);
+  });
+
+  it("breaks equal distance ties with lowest eid", () => {
+    const px = cellCenterX(2);
+    const py = cellCenterY(1);
+    const a = { eid: 5, x: cellCenterX(1), y: py };
+    const b = { eid: 2, x: cellCenterX(3), y: py };
+    expect(pickClosestOffForwardPelletEids([a, b], px, py, { col: 0, row: 0 }, openRow, 1)).toEqual(
+      [2],
+    );
+  });
+
+  it("returns all eligible when fewer than count remain", () => {
+    const px = cellCenterX(2);
+    const py = cellCenterY(1);
+    const only = { eid: 9, x: cellCenterX(0), y: py };
+    expect(pickClosestOffForwardPelletEids([only], px, py, { col: 1, row: 0 }, openRow, 3)).toEqual(
+      [9],
+    );
+  });
+
+  it("does not exclude the player cell itself", () => {
+    const px = cellCenterX(2);
+    const py = cellCenterY(1);
+    const sameCell = { eid: 7, x: px, y: py };
+    expect(
+      pickClosestOffForwardPelletEids([sameCell], px, py, { col: 1, row: 0 }, openRow, 1),
+    ).toEqual([7]);
   });
 });

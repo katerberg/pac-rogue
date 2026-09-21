@@ -373,8 +373,10 @@ export class PlayScene extends Phaser.Scene {
     }
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, () =>
-        Math.random(),
+      const bonusEids = collectExtraPellets(
+        this.world,
+        powerEffects.collectExtraPellets,
+        playerSolidsOverride ?? getActiveLayout().playerSolids,
       );
       for (const eid of bonusEids) {
         this.playRender.releaseDrawable(eid);
