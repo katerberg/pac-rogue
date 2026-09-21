@@ -44,7 +44,8 @@ import {
   wallCellCenters,
   type MazeLayoutId,
 } from "../../domain/maze";
-import { ghostKindsForLevel, ghostSpeedLevelMul, parseLevelParam } from "../../domain/runLevel";
+import { ghostKindsForLevel, ghostSpeedLevelMul } from "../../domain/levelRules";
+import { parseLevelParam } from "../../domain/runLevel";
 import {
   BLINKY_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
@@ -69,7 +70,7 @@ import {
   applyPowerPelletEffects,
   confirmUpgradeChoice,
   createRunUpgrades,
-  ghostsAreFrozen,
+  frozenGhostEid,
   ghostHouseClydePelletAdd,
   ghostHouseReleaseDelayAddMs,
   ghostSpeedMultiplier,
@@ -121,6 +122,7 @@ import { collectPellets, countPellets } from "../systems/collectPellets";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { recallClosestGhostToHouse } from "../systems/ghostRecall";
+import { freezeClosestGhost } from "../systems/ghostFreeze";
 import { ghostRelease } from "../systems/ghostRelease";
 import {
   ghostHouseSeating,
@@ -169,8 +171,8 @@ export class PlayScene extends Phaser.Scene {
   private playRender!: PlayRender;
   private clock: RunClock = createRunClock();
   private ghostReleaseClock: GhostReleaseClock = createGhostReleaseClock();
-  private ghostModeClock: GhostModeClock = createGhostModeClock();
-  private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock().mode;
+  private ghostModeClock: GhostModeClock = createGhostModeClock(1);
+  private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock(1).mode;
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private lifetimeCollected = 0;
   private levelIndex = 1;
@@ -327,7 +329,6 @@ export class PlayScene extends Phaser.Scene {
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
-    const frozen = ghostsAreFrozen(this.runUpgrades);
     const playerSpeedMul =
       playerSpeedMultiplier(this.runUpgrades.owned) *
       (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1);
@@ -335,7 +336,7 @@ export class PlayScene extends Phaser.Scene {
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
       ghostSpeedMul:
         ghostSpeedLevelMul(this.levelIndex) * ghostSpeedMultiplier(this.runUpgrades.owned),
-      frozen,
+      frozenGhostEid: frozenGhostEid(this.runUpgrades),
     });
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
       ? getActiveLayout().wallPassPlayerSolids
@@ -343,7 +344,7 @@ export class PlayScene extends Phaser.Scene {
     movement(this.world, delta, playerSolidsOverride);
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
-      this.ghostModeClock = startGhostModeClock();
+      this.ghostModeClock = startGhostModeClock(this.levelIndex);
     }
 
     this.clock = tickRunClock(this.clock, hasInput, delta);
@@ -363,6 +364,13 @@ export class PlayScene extends Phaser.Scene {
     }
     const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
     this.runUpgrades = powerEffects.state;
+    if (powerEffects.freezeClosestMs !== null) {
+      this.runUpgrades = freezeClosestGhost(
+        this.world,
+        this.runUpgrades,
+        powerEffects.freezeClosestMs,
+      );
+    }
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
       const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, () =>
@@ -450,9 +458,8 @@ export class PlayScene extends Phaser.Scene {
           }
           this.refreshUpgradesHud();
         });
-        const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
         this.playRender.draw(this.world, {
-          ghostsFrozen,
+          frozenGhostEid: frozenGhostEid(this.runUpgrades),
           playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
           wallPassActive: wallPassActive(this.runUpgrades),
         });
@@ -470,18 +477,18 @@ export class PlayScene extends Phaser.Scene {
       playSfx(this, "levelComplete");
       this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
       this.playRender.draw(this.world, {
-        ghostsFrozen: ghostsAreFrozen(this.runUpgrades),
+        frozenGhostEid: frozenGhostEid(this.runUpgrades),
         playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
         wallPassActive: wallPassActive(this.runUpgrades),
       });
       return;
     }
 
-    const ghostsFrozen = ghostsAreFrozen(this.runUpgrades);
+    const frozenEid = frozenGhostEid(this.runUpgrades);
     const playerInvulnerable = playerIsInvulnerable(this.runUpgrades);
-    const caught = catchPlayer(this.world, { ghostsFrozen, playerInvulnerable });
+    const caught = catchPlayer(this.world, { frozenGhostEid: frozenEid, playerInvulnerable });
     this.playRender.draw(this.world, {
-      ghostsFrozen,
+      frozenGhostEid: frozenEid,
       playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
     });
@@ -512,7 +519,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.clock = createRunClock();
     this.ghostReleaseClock = createGhostReleaseClock();
-    this.ghostModeClock = createGhostModeClock();
+    this.ghostModeClock = createGhostModeClock(this.levelIndex);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.fruitPresence = createFruitPresence();
@@ -541,7 +548,7 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     this.playRender.draw(this.world, {
-      ghostsFrozen: ghostsAreFrozen(this.runUpgrades),
+      frozenGhostEid: frozenGhostEid(this.runUpgrades),
       playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
     });
@@ -556,6 +563,7 @@ export class PlayScene extends Phaser.Scene {
     this.runUpgrades = {
       ...this.runUpgrades,
       freezeRemainingMs: 0,
+      frozenGhostEid: null,
       scatterBurstRemainingMs: 0,
       wallPassRemainingMs: 0,
       invulnRemainingMs: 0,
@@ -568,7 +576,7 @@ export class PlayScene extends Phaser.Scene {
     this.showLevelBanner();
     startLoopingSfx(this, "siren");
     this.playRender.draw(this.world, {
-      ghostsFrozen: false,
+      frozenGhostEid: null,
       playerInvulnRemainingMs: 0,
       wallPassActive: false,
     });
@@ -608,7 +616,7 @@ export class PlayScene extends Phaser.Scene {
       case "resetActors":
         this.resetAfterLifeLoss();
         this.playRender.draw(this.world, {
-          ghostsFrozen: false,
+          frozenGhostEid: null,
           playerInvulnRemainingMs: 0,
           wallPassActive: false,
         });
@@ -700,7 +708,7 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.ghostReleaseClock = createGhostReleaseClock();
-    this.ghostModeClock = createGhostModeClock();
+    this.ghostModeClock = createGhostModeClock(this.levelIndex);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.afterLifeRelease = true;
     placeInHouseGhostsAtPredictedSeats(
@@ -720,6 +728,7 @@ export class PlayScene extends Phaser.Scene {
     this.runUpgrades = {
       ...this.runUpgrades,
       freezeRemainingMs: 0,
+      frozenGhostEid: null,
       scatterBurstRemainingMs: 0,
       wallPassRemainingMs: 0,
       invulnRemainingMs: 0,

@@ -5,7 +5,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze/scatter/wall-pass/invuln/speed-burst timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass/invuln/speed-burst timers clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, scatter/wall-pass/invuln/speed-burst timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
 - Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
@@ -14,7 +14,7 @@ Fruit opens a **pick-one** modal for **run-long** upgrades for the current `Play
 
 | Id                  | Label         | Effect                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `powerPelletFreeze` | Power Freeze  | Power pellet freezes leaving/active ghosts for `FREEZE_MS` (3000); cyan tint on those sprites                                                                                                                                                                                                                                                                                  |
+| `powerPelletFreeze` | Power Freeze  | Power pellet freezes the closest leaving/active ghost for `FREEZE_MS` (3000); cyan tint on that sprite; no eligible ghost → no-op                                                                                                                                                                                                                                              |
 | `playerSpeedUp`     | Speed Up      | Player speed × `PLAYER_SPEED_UP_MUL` (1.25)                                                                                                                                                                                                                                                                                                                                    |
 | `ghostSlow`         | Ghost Slow    | Ghost resolved speed × `GHOST_SLOW_MUL` (0.75)                                                                                                                                                                                                                                                                                                                                 |
 | `scatterBurst`      | Scatter Burst | Power pellet forces scatter for `SCATTER_BURST_MS` (3000); wave clock pauses while active                                                                                                                                                                                                                                                                                      |
@@ -53,7 +53,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 
 Energizers stay inert unless an owned upgrade reacts. After `collectPellets`, `applyPowerPelletEffects` walks **all** owned defs when `powerRemoved > 0` and applies every matching `onPowerPellet` field in one shot:
 
-- `freezeGhostsMs` → refresh `freezeRemainingMs` (max if multiple)
+- `freezeClosestGhostMs` → flag `freezeClosestMs`; `PlayScene` calls `freezeClosestGhost` to pick the closest leaving/active ghost (same Euclidean / lowest-eid tie-break as recall) and set `freezeRemainingMs` + `frozenGhostEid` (no eligible ghost → no-op; re-chomp retargets)
 - `scatterBurstMs` → refresh `scatterBurstRemainingMs`
 - `wallPassMs` → refresh `wallPassRemainingMs`
 - `playerInvulnMs` → refresh `invulnRemainingMs` (max if multiple)
@@ -68,11 +68,15 @@ When `collectExtraPellets > 0`, `PlayScene` calls `collectExtraPellets` on remai
 
 ### Scatter burst
 
-While `scatterBurstRemainingMs > 0` **and** the wave clock is active, `resolveGhostModeStep` pauses the level-1 wave clock and sets effective AI mode to scatter. If the clock is still inactive (no ghost has exited yet), burst does not change effective mode. When the burst ends, the wave clock resumes from where it paused. If effective mode changes at burst start/end (vs the previous frame’s effective mode), `PlayScene` calls `forceGhostReverse` (same helper as wave scatter↔chase; skips `inHouse` / `leaving`). While burst is active, Blinky ignores Cruise Elroy and uses the scatter corner (normal wave scatter still lets Elroy chase).
+While `scatterBurstRemainingMs > 0` **and** the wave clock is active, `resolveGhostModeStep` pauses the level wave clock and sets effective AI mode to scatter (including on level 1, which otherwise has no scatter waves). If the clock is still inactive (no ghost has exited yet), burst does not change effective mode. When the burst ends, the wave clock resumes from where it paused. If effective mode changes at burst start/end (vs the previous frame’s effective mode), `PlayScene` calls `forceGhostReverse` (same helper as wave scatter↔chase; skips `inHouse` / `leaving`). While burst is active, Blinky ignores Cruise Elroy and uses the scatter corner (normal wave scatter still lets Elroy chase).
 
 ### Ghost recall
 
 Among ghosts in `leaving` or `active` (skip `inHouse`), pick closest to the player by Euclidean `Position` (tie: lowest eid). Set phase `inHouse`, place that ghost (and re-snap other in-house ghosts) into predicted L→R seats via `assignHouseSeats` / `ghostHouseSeatCenters`, zero Speed/Velocity. Existing release gates then re-admit them (often immediately if the gate already passed) with the normal door-approach leave path. No eligible ghost → no-op.
+
+### Closest freeze
+
+Same closest-eligible pick as Ghost recall. Does not change phase — only arms `freezeRemainingMs` / `frozenGhostEid` for speed zero + catch skip + cyan tint on that eid. Re-chomp retargets to the current closest. No eligible ghost → no-op (leaves any prior freeze as-is).
 
 ### Warp top
 
@@ -84,16 +88,17 @@ While `wallPassRemainingMs > 0`, `PlayScene` passes `getActiveLayout().wallPassP
 
 ## Freeze / catch / tint
 
-- While `freezeRemainingMs > 0`, `applyGhostSpeed(..., { frozen: true })` sets leaving/active ghost `Speed.px = 0` (`inHouse` speed is owned by `ghostHouseSeating`). Mode/release/run clocks keep ticking (except scatter-burst pause of the mode wave clock).
-- Freeze + scatter together: freeze still zeros speed; scatter targeting only matters after thaw.
-- `catchPlayer({ ghostsFrozen: true })` skips kill (walk-through). When freeze expires while overlapping, the same update’s catch after `tickFreeze` can kill.
-- One-frame lag after a power pellet starts freeze is accepted: Speed may clear on the next frame while catch already skips.
-- `render(world, { ghostsFrozen })` tints leaving/active ghost sprites cyan while frozen; clears tint otherwise (in-house ghosts stay untinted).
+- On power pellet with `powerPelletFreeze` owned, `freezeClosestGhost` picks among `leaving` / `active` ghosts (skip `inHouse`) by Euclidean `Position` to the player (tie: lowest eid). Sets `frozenGhostEid` and refreshes `freezeRemainingMs`. Empty pool → no-op (prior freeze left unchanged).
+- While `frozenGhostEid(state)` is set, `applyGhostSpeed(..., { frozenGhostEid })` zeros only that ghost’s `Speed.px` (`inHouse` speed is owned by `ghostHouseSeating`). Other ghosts keep moving. Mode/release/run clocks keep ticking (except scatter-burst pause of the mode wave clock).
+- Freeze + scatter together: the frozen ghost still has zero speed; scatter targeting only matters after thaw (or for other ghosts).
+- `catchPlayer({ frozenGhostEid })` skips kill only for that eid (walk-through); other leaving/active ghosts can still catch. When freeze expires while overlapping the thawed ghost, the same update’s catch after `tickFreeze` can kill.
+- One-frame lag after a power pellet starts freeze is accepted: Speed may clear on the next frame while catch already skips that eid.
+- `render(world, { frozenGhostEid })` tints only that leaving/active ghost sprite cyan while frozen; clears tint otherwise (in-house ghosts stay untinted). Timer expiry clears `frozenGhostEid`.
 
 ## Invuln / catch / tint
 
 - While `invulnRemainingMs > 0`, ghosts keep moving (no speed zero). `catchPlayer({ playerInvulnerable: true })` skips kill (true pass-through). Expiry while overlapping can kill on the same update after `tickInvuln`.
-- Freeze + invuln are independent timers: both may be active; catch skips when `ghostsFrozen || playerInvulnerable`. Freeze still zeros speed + cyan ghost tint; invuln does not reuse freeze cyan.
+- Freeze + invuln are independent timers: both may be active; catch skips when overlapping the frozen eid **or** `playerInvulnerable`. Freeze still zeros that ghost’s speed + cyan tint; invuln does not reuse freeze cyan.
 - `render(world, { playerInvulnRemainingMs })` tints the player (and tunnel twin) darker gold `0xc48a00` solid while remaining > 1000ms, then blinks on a 100ms period in the last second; clears tint when off or on the blink-off half.
 - Invuln timer clears on level advance and life-loss actor reset (same as freeze/scatter/wall-pass/speed-burst). Owned `powerInvuln` persists across levels.
 - While wall-pass is also active, player tint uses wall-pass blueward tint instead of invuln gold.

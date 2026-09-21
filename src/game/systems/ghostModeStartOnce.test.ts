@@ -23,11 +23,11 @@ function spawnLeavingAtExit() {
 
 describe("ghost mode clock start-once", () => {
   it("does not restart when a second ghost becomes active", () => {
-    let mode = createGhostModeClock();
+    let mode = createGhostModeClock(2);
     const first = spawnLeavingAtExit();
     expect(ghostExitHouse(first.world)).toBe(true);
     if (!mode.active) {
-      mode = startGhostModeClock();
+      mode = startGhostModeClock(2);
     }
     const afterFirst = tickGhostMode(mode, 500);
     mode = afterFirst.clock;
@@ -37,7 +37,7 @@ describe("ghost mode clock start-once", () => {
     const second = spawnLeavingAtExit();
     expect(ghostExitHouse(second.world)).toBe(true);
     if (!mode.active) {
-      mode = startGhostModeClock();
+      mode = startGhostModeClock(2);
     }
     expect(mode.elapsedMs).toBe(500);
   });
