@@ -8,7 +8,7 @@ import {
   reverseGhostDir,
 } from "./ghostPath";
 import { getActiveLayout, canGhostEnterDirection, cellCenterX, cellCenterY } from "./maze";
-import { BLINKY_SCATTER_COL, BLINKY_SCATTER_ROW, GHOST_PHASE } from "./ghostTarget";
+import { blinkyScatterTarget, GHOST_PHASE } from "./ghostTarget";
 
 const L_SAMPLES = [
   { col: 26, row: 1, intoWall: GHOST_DIR.right, turn: GHOST_DIR.down },
@@ -75,7 +75,7 @@ describe("ghostPath", () => {
 
   it("never reverses at common L corners for any scatter/chase target", () => {
     const targets = [
-      { col: BLINKY_SCATTER_COL, row: BLINKY_SCATTER_ROW },
+      blinkyScatterTarget(),
       { col: 1, row: 1 },
       { col: 26, row: 1 },
       { col: 6, row: 23 },
@@ -104,8 +104,8 @@ describe("ghostPath", () => {
       x: cellCenterX(26),
       y: cellCenterY(1),
       facing: GHOST_DIR.right,
-      targetCol: BLINKY_SCATTER_COL,
-      targetRow: BLINKY_SCATTER_ROW,
+      targetCol: blinkyScatterTarget().col,
+      targetRow: blinkyScatterTarget().row,
       solids: ghostSolids,
     });
     expect(dir).toBe(GHOST_DIR.down);
@@ -116,8 +116,8 @@ describe("ghostPath", () => {
       x: cellCenterX(15),
       y: cellCenterY(1),
       facing: GHOST_DIR.left,
-      targetCol: BLINKY_SCATTER_COL,
-      targetRow: BLINKY_SCATTER_ROW,
+      targetCol: blinkyScatterTarget().col,
+      targetRow: blinkyScatterTarget().row,
       solids: ghostSolids,
     });
     expect(dir).toBe(GHOST_DIR.down);
@@ -137,8 +137,8 @@ describe("ghostPath", () => {
         x: cellCenterX(col),
         y: cellCenterY(row),
         facing,
-        targetCol: BLINKY_SCATTER_COL,
-        targetRow: BLINKY_SCATTER_ROW,
+        targetCol: blinkyScatterTarget().col,
+        targetRow: blinkyScatterTarget().row,
         solids: ghostSolids,
       });
       if (col === 26 && row === 1) {

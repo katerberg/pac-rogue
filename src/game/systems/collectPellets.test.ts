@@ -1,7 +1,7 @@
 import { addComponent, addEntity, createWorld, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { cellCenterX, cellCenterY, TILE_SIZE, type SolidGrid } from "../../domain/maze";
-import { PELLET_RADIUS, PLAYER_RADIUS } from "../../domain/playfield";
+import { PELLET_RADIUS, playerRadius } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -17,7 +17,7 @@ function spawnPlayer(x: number, y: number) {
   addComponent(world, eid, Drawable);
   Position.x[eid] = x;
   Position.y[eid] = y;
-  Drawable.radius[eid] = PLAYER_RADIUS;
+  Drawable.radius[eid] = playerRadius();
   return { world, eid };
 }
 
@@ -64,8 +64,8 @@ describe("collectPellets", () => {
 
   it("collects every pellet within reach in one frame", () => {
     const { world } = spawnPlayer(100, 100);
-    const a = spawnPellet(world, 100 + PLAYER_RADIUS, 100);
-    const b = spawnPellet(world, 100, 100 + PLAYER_RADIUS);
+    const a = spawnPellet(world, 100 + playerRadius(), 100);
+    const b = spawnPellet(world, 100, 100 + playerRadius());
     spawnPellet(world, 500, 500);
 
     expect(collectPellets(world)).toEqual({ powerRemoved: 0, removedEids: [a, b] });
@@ -75,7 +75,7 @@ describe("collectPellets", () => {
   it("counts power pellets among removed", () => {
     const { world } = spawnPlayer(100, 100);
     const power = spawnPellet(world, 100, 100, true);
-    const regular = spawnPellet(world, 100 + PLAYER_RADIUS, 100);
+    const regular = spawnPellet(world, 100 + playerRadius(), 100);
 
     expect(collectPellets(world)).toEqual({
       powerRemoved: 1,
@@ -106,7 +106,7 @@ describe("collectPellets", () => {
     const oy = cellCenterY(2);
     const { world } = spawnPlayer(px, py);
     const pellet = spawnPellet(world, ox, oy);
-    const baseReach = PLAYER_RADIUS + PELLET_RADIUS;
+    const baseReach = playerRadius() + PELLET_RADIUS;
     expect((ox - px) ** 2 + (oy - py) ** 2).toBeGreaterThan(baseReach * baseReach);
 
     expect(
@@ -121,7 +121,7 @@ describe("collectPellets", () => {
     const ox = cellCenterX(2) - TILE_SIZE / 2 + 1;
     const { world } = spawnPlayer(px, py);
     const pellet = spawnPellet(world, ox, oy);
-    const baseReach = PLAYER_RADIUS + PELLET_RADIUS;
+    const baseReach = playerRadius() + PELLET_RADIUS;
     const extendedReach = baseReach + TILE_SIZE;
     const distSq = (ox - px) ** 2 + (oy - py) ** 2;
     expect(distSq).toBeGreaterThan(baseReach * baseReach);
@@ -140,7 +140,7 @@ describe("collectPellets", () => {
     const oy = cellCenterY(2);
     const { world } = spawnPlayer(px, py);
     const power = spawnPellet(world, ox, oy, true);
-    const baseReach = PLAYER_RADIUS + PELLET_RADIUS;
+    const baseReach = playerRadius() + PELLET_RADIUS;
     expect((ox - px) ** 2 + (oy - py) ** 2).toBeGreaterThan(baseReach * baseReach);
 
     expect(

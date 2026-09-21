@@ -1,7 +1,7 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
-import { GHOST_RADIUS, PLAYER_RADIUS } from "../../domain/playfield";
+import { ghostRadius, playerRadius } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
@@ -16,7 +16,7 @@ function spawnPlayer(world: ReturnType<typeof createWorld>, x: number, y: number
   addComponent(world, eid, Drawable);
   Position.x[eid] = x;
   Position.y[eid] = y;
-  Drawable.radius[eid] = PLAYER_RADIUS;
+  Drawable.radius[eid] = playerRadius();
   return eid;
 }
 
@@ -34,7 +34,7 @@ function spawnGhost(
   Position.x[eid] = x;
   Position.y[eid] = y;
   GhostPhase.value[eid] = phase;
-  Drawable.radius[eid] = GHOST_RADIUS;
+  Drawable.radius[eid] = ghostRadius();
   return eid;
 }
 
@@ -56,7 +56,7 @@ describe("catchPlayer", () => {
   it("catches when a leaving ghost overlaps the player", () => {
     const world = createWorld();
     spawnPlayer(world, 200, 200);
-    spawnGhost(world, 200 + PLAYER_RADIUS / 2, 200, GHOST_PHASE.leaving);
+    spawnGhost(world, 200 + playerRadius() / 2, 200, GHOST_PHASE.leaving);
     expect(catchPlayer(world)).toBe(true);
   });
 

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { ghostHouseSeatCenters } from "./ghostHouseSeats";
 import {
   activateLayout,
   getActiveLayout,
@@ -7,9 +8,18 @@ import {
   isWalkable,
   MAZE_COLS,
   MAZE_ROWS,
+  parseMaze,
   parseMazeParam,
+  pelletCellCenters,
   pickLayoutId,
 } from "./maze";
+import { CLASSIC_MAZE_ASCII } from "./mazeLayouts";
+import {
+  blinkyScatterTarget,
+  clydeScatterTarget,
+  inkyScatterTarget,
+  pinkyScatterTarget,
+} from "./ghostTarget";
 
 describe("maze layouts", () => {
   afterEach(() => {
@@ -28,6 +38,8 @@ describe("maze layouts", () => {
     expect(maze1.clydeReleasePellets).toBe(60);
     expect(maze1.elroy1DotsLeft).toBe(20);
     expect(maze1.elroy2DotsLeft).toBe(10);
+    expect(maze1.cols).toBe(28);
+    expect(maze1.rows).toBe(31);
   });
 
   it("builds maze2 arcade Ms. Pac Maze 1 with required features", () => {
@@ -73,12 +85,60 @@ describe("maze layouts", () => {
     expect(layout.inkyReleasePellets).toBe(28);
     expect(layout.clydeReleasePellets).toBe(55);
   });
+
+  it("loads variable-size fixtures", () => {
+    const small = activateLayout("mazeSmall");
+    expect(small.cols).toBe(22);
+    expect(small.rows).toBe(21);
+    expect(small.tileSize).toBeGreaterThanOrEqual(12);
+    expect(small.offsetX).toBeGreaterThanOrEqual(80);
+    expect(small.pelletCount).toBeGreaterThanOrEqual(110);
+    expect(small.pelletCount).toBeLessThanOrEqual(130);
+    expect(small.ascii.includes("P")).toBe(true);
+    expect(isWalkable(small.playerSpawn.col, small.playerSpawn.row, small.playerSolids)).toBe(true);
+    expect(isWalkable(small.fruitSpawn.col, small.fruitSpawn.row, small.playerSolids)).toBe(true);
+    expect(isWalkable(small.ghostHouseExit.col, small.ghostHouseExit.row, small.playerSolids)).toBe(
+      true,
+    );
+    const smallTunnels: number[] = [];
+    for (let row = 0; row < small.rows; row += 1) {
+      if (isTunnelMouth(0, row, small.playerSolids)) {
+        smallTunnels.push(row);
+      }
+    }
+    expect(smallTunnels.length).toEqual(1);
+    expect(ghostHouseSeatCenters()).toHaveLength(4);
+    expect(small.door.some((row) => row.some(Boolean))).toBe(true);
+    expect(small.house.some((row) => row.some(Boolean))).toBe(true);
+    expect(blinkyScatterTarget()).toEqual({ col: 19, row: -3 });
+    expect(pinkyScatterTarget()).toEqual({ col: 2, row: -3 });
+    expect(inkyScatterTarget()).toEqual({ col: 21, row: 23 });
+    expect(clydeScatterTarget()).toEqual({ col: 0, row: 23 });
+  });
+
+  it("rejects unknown maze glyphs", () => {
+    const bad = CLASSIC_MAZE_ASCII.replace("P", "X");
+    expect(() => parseMaze(bad)).toThrow(/unknown char/);
+  });
+
+  it("only places pellets on . and @ cells", () => {
+    activateLayout("maze1");
+    const pellets = pelletCellCenters();
+    expect(pellets.every((p) => p.kind === "dot" || p.kind === "power")).toBe(true);
+    expect(pellets.some((p) => p.kind === "power")).toBe(true);
+    const ascii = getActiveLayout().ascii;
+    for (const p of pellets) {
+      const ch = ascii.split("\n")[p.row]?.[p.col];
+      expect(ch === "." || ch === "@").toBe(true);
+    }
+  });
 });
 
 describe("maze selection", () => {
   it("parses maze1 and maze2 overrides", () => {
     expect(parseMazeParam(new URLSearchParams("maze=maze1"))).toBe("maze1");
     expect(parseMazeParam(new URLSearchParams("maze=maze2"))).toBe("maze2");
+    expect(parseMazeParam(new URLSearchParams("maze=mazeSmall"))).toBe("mazeSmall");
     expect(parseMazeParam(new URLSearchParams("maze=classic"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams("maze=nope"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams())).toBeNull();
@@ -87,6 +147,7 @@ describe("maze selection", () => {
   it("prefers override over rng", () => {
     expect(pickLayoutId(() => 0, "maze2")).toBe("maze2");
     expect(pickLayoutId(() => 0.9, "maze1")).toBe("maze1");
+    expect(pickLayoutId(() => 0, "mazeSmall")).toBe("mazeSmall");
   });
 
   it("picks both layouts from seeded rng", () => {

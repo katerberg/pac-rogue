@@ -5,7 +5,6 @@ import {
   GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
   GHOST_SLOW_MUL,
   INVULN_MS,
-  PICKUP_RANGE_BONUS_PX,
   PLAYER_SPEED_BURST_MUL,
   PLAYER_SPEED_UP_MUL,
   POWER_COLLECT_THREE_COUNT,
@@ -26,6 +25,7 @@ import {
   parseUpgradeId,
   pickUpgradeChoiceOffer,
   pelletCollectRadiusBonusPx,
+  pickupRangeBonusPx,
   playerIsInvulnerable,
   playerSpeedMultiplier,
   scatterBurstActive,
@@ -480,8 +480,8 @@ describe("speed multipliers / labels", () => {
 describe("pelletCollectRadiusBonusPx", () => {
   it("returns TILE_SIZE for pickupRange and 0 otherwise", () => {
     expect(pelletCollectRadiusBonusPx([])).toBe(0);
-    expect(pelletCollectRadiusBonusPx(["pickupRange"])).toBe(PICKUP_RANGE_BONUS_PX);
-    expect(PICKUP_RANGE_BONUS_PX).toBe(TILE_SIZE);
+    expect(pelletCollectRadiusBonusPx(["pickupRange"])).toBe(pickupRangeBonusPx());
+    expect(pickupRangeBonusPx()).toBe(TILE_SIZE);
     expect(pelletCollectRadiusBonusPx(["playerSpeedUp"])).toBe(0);
   });
 });
