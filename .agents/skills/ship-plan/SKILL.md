@@ -15,8 +15,7 @@ must actually pass before moving on.
 
 ## Pipeline
 
-1. **Verify.** Pick the level from `docs/VERIFICATION.md`, run `npm run verify`,
-   and fix → rerun until green. For gameplay/presentation changes also do the
+1. **Verify** per the `verification` skill (`npm run verify`, fix → rerun). For gameplay/presentation changes also do the
    live check with `npm run probe` (see VERIFICATION.md), then Read the
    screenshots and write down what you saw.
 2. **`simplify-pr`** on the scoped diff. Apply in-scope cuts.
@@ -53,8 +52,4 @@ exact output. A draft with an honest failure beats a green-looking PR.
 - After opening, use `gh pr checks` to read CI once. If `verify` failed in CI,
   fix and push; do not merge and do not enable auto-merge.
 
-## Done when
-
-- Final `npm run verify` exit 0 was observed in this session.
-- Live check evidence is recorded (or the change class does not require it).
-- The PR URL exists and its body has all four sections.
+Done means the PR URL exists, its body has all four sections, and the last `npm run verify` exit 0 was observed in this session.

@@ -6,7 +6,7 @@ Before making substantial changes:
 2. Read docs/VERIFICATION.md.
 3. Read the relevant skill under .agents/skills/ (especially verification).
 4. **Determine the verification level** for the change (see docs/VERIFICATION.md) before coding.
-5. **Every code-changing plan** (Plan mode, `/plan`, or any written implementation plan) must end with one step: run the `ship-plan` skill (`.agents/skills/ship-plan/SKILL.md`). It runs verify → `/simplify-pr` → `/no-comments` → verify → `/pr-review` → `/fix-pr-findings` → verify → push branch + open PR. Do not treat the plan or implementation as done until it has run. Pure docs/tooling plans that touch no `src/` skip the simplify/no-comments steps but still verify and open the PR.
+5. **Every code-changing plan** (Plan mode, `/plan`, or any written implementation plan) must end with one step: run the `ship-plan` skill (`.agents/skills/ship-plan/SKILL.md`), which owns the verify → review → fix → PR pipeline. Do not treat the plan or implementation as done until it has run.
 
 Rules:
 
@@ -27,6 +27,6 @@ Rules:
 - Leave the repository runnable.
 - If architecture becomes unclear, stop and explain the problem rather than hiding it with abstraction.
 
-Unattended / cloud runs: a locked plan is the go-ahead. Do not stop to ask questions mid-implementation; make the conservative choice, note it in the PR body, and keep going. Setup is automatic (`scripts/cloud-setup.sh` via the SessionStart hook). Live checks use `npm run probe` (see docs/VERIFICATION.md), not a browser pane. Never push to `main`; if a gate cannot go green, open a draft PR that leads with the failure.
+Unattended / cloud runs: a locked plan is the go-ahead. Do not stop to ask questions mid-implementation; make the conservative choice, note it in the PR body, and keep going.
 
 Completion requires passing `npm run verify`. Gameplay/visual work also requires live inspection per docs/VERIFICATION.md.

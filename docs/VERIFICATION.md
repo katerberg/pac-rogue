@@ -30,13 +30,13 @@ In addition to the automated gate:
 
 ### Headless live check (cloud / no browser pane)
 
-`npm run probe` drives the game on the agent dev port with real Playwright keyboard input, saves canvas screenshots to `artifacts/<name>-<label>.png`, and fails on page errors or `console.error`. It starts `vite` on 5174 itself if nothing is listening. Steps: `wait:<ms>`, `hold:<Key>:<ms>`, `press:<Key>`, `shot:<label>`, `scene:<SceneKey>`.
+`npm run probe` drives the game on the agent dev port with real Playwright keyboard input, saves canvas screenshots to `artifacts/<name>-<label>.png`, and fails on page errors or `console.error`. It starts `vite` on 5174 itself if nothing is listening. Run `npm run probe -- --help` for the step syntax.
 
 ```bash
 npm run probe -- --query "play=1&maze=mazeSmall" --steps "wait:600,shot:start,hold:ArrowLeft:1500,shot:moved,scene:PlayScene" --name left
 ```
 
-Use URL flags from the README to reach the state under test (`level`, `maze`, `enableUpgrade`, `forceUpgrade`). Then **Read each screenshot** and record what you saw (positions, HUD values, upgrade effects). A zero exit code alone is not verification. This satisfies the launch → exercise → inspect steps above wherever no interactive browser is available.
+Use URL flags from the README to reach the state under test (`level`, `maze`, `enableUpgrade`, `forceUpgrade`). Then **Read each screenshot** and record what you saw. This satisfies the steps above wherever no interactive browser is available.
 
 ### Never
 
@@ -80,7 +80,7 @@ Agents may freely kill and restart **5174** / **4174**. Do not bind to or kill t
 
 ### Cloud sessions
 
-`.claude/settings.json` runs `scripts/cloud-setup.sh` on session start. It does nothing locally; when `CLAUDE_CODE_REMOTE=true` it installs the Node version from `.nvmrc`, runs `npm ci` when the lockfile changed, installs Playwright Chromium if missing, and points git hooks at `.githooks`. The cloud environment must allow network access to the npm registry, `github.com`, `raw.githubusercontent.com` (nvm), `nodejs.org`, and `cdn.playwright.dev`.
+`.claude/settings.json` runs `scripts/cloud-setup.sh` on session start. It does nothing locally and is a fast no-op when the environment's own setup script (`nvm install 24 && npm ci && npx playwright install --with-deps chromium`) already ran; otherwise it performs the same setup (see the script). The cloud environment must allow network access to the npm registry, `github.com`, `raw.githubusercontent.com` (nvm), `nodejs.org`, and `cdn.playwright.dev`.
 
 ### Agent sound (muted by default)
 

@@ -90,7 +90,7 @@ After answers (or “lock defaults”):
 
 Every plan includes a **docs** deliverable (`docs/`, README, folder READMEs) or **Docs: none** plus a one-line reason. Same PR as the code when the host repo expects that.
 
-Every **code-changing** plan ends with the `ship-plan` skill (verify → `/simplify-pr` → `/no-comments` → verify → `/pr-review` → `/fix-pr-findings` → verify → push + PR). The plan will likely be implemented by an unattended cloud agent, so all questions are asked **before** the lock; the plan itself must be fully self-contained. Pure docs/tooling plans that touch no `src/` skip simplify/no-comments only.
+Every **code-changing** plan ends with the `ship-plan` skill. The plan will likely be implemented by an unattended cloud agent, so all questions are asked **before** the lock; the plan itself must be fully self-contained.
 
 ## Harness notes
 
