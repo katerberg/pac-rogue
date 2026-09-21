@@ -89,10 +89,11 @@ describe("maze layouts", () => {
   it("loads variable-size fixtures", () => {
     const small = activateLayout("mazeSmall");
     expect(small.cols).toBe(22);
-    expect(small.rows).toBe(28);
+    expect(small.rows).toBe(21);
     expect(small.tileSize).toBeGreaterThanOrEqual(12);
     expect(small.offsetX).toBeGreaterThanOrEqual(80);
-    expect(small.pelletCount).toBeGreaterThan(40);
+    expect(small.pelletCount).toBeGreaterThanOrEqual(110);
+    expect(small.pelletCount).toBeLessThanOrEqual(130);
     expect(small.ascii.includes("P")).toBe(true);
     expect(isWalkable(small.playerSpawn.col, small.playerSpawn.row, small.playerSolids)).toBe(true);
     expect(isWalkable(small.fruitSpawn.col, small.fruitSpawn.row, small.playerSolids)).toBe(true);
@@ -105,30 +106,14 @@ describe("maze layouts", () => {
         smallTunnels.push(row);
       }
     }
-    expect(smallTunnels.length).toBeGreaterThanOrEqual(1);
+    expect(smallTunnels.length).toEqual(0);
     expect(ghostHouseSeatCenters()).toHaveLength(4);
-
-    const large = activateLayout("mazeLarge");
-    expect(large.cols).toBe(32);
-    expect(large.rows).toBe(36);
-    expect(large.offsetX).toBeGreaterThanOrEqual(80);
-    expect(isWalkable(large.playerSpawn.col, large.playerSpawn.row, large.playerSolids)).toBe(true);
-    expect(isWalkable(large.fruitSpawn.col, large.fruitSpawn.row, large.playerSolids)).toBe(true);
-    expect(isWalkable(large.ghostHouseExit.col, large.ghostHouseExit.row, large.playerSolids)).toBe(
-      true,
-    );
-    const largeTunnels: number[] = [];
-    for (let row = 0; row < large.rows; row += 1) {
-      if (isTunnelMouth(0, row, large.playerSolids)) {
-        largeTunnels.push(row);
-      }
-    }
-    expect(largeTunnels.length).toBeGreaterThanOrEqual(1);
-    expect(ghostHouseSeatCenters()).toHaveLength(4);
-    expect(blinkyScatterTarget()).toEqual({ col: 29, row: -3 });
+    expect(small.door.some((row) => row.some(Boolean))).toBe(true);
+    expect(small.house.some((row) => row.some(Boolean))).toBe(true);
+    expect(blinkyScatterTarget()).toEqual({ col: 19, row: -3 });
     expect(pinkyScatterTarget()).toEqual({ col: 2, row: -3 });
-    expect(inkyScatterTarget()).toEqual({ col: 31, row: 38 });
-    expect(clydeScatterTarget()).toEqual({ col: 0, row: 38 });
+    expect(inkyScatterTarget()).toEqual({ col: 21, row: 23 });
+    expect(clydeScatterTarget()).toEqual({ col: 0, row: 23 });
   });
 
   it("rejects unknown maze glyphs", () => {

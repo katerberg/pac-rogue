@@ -39,6 +39,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 
 | Flag            | Values                                           | Effect                                                                                                                                                                                                                                               |
 | --------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `play`          | `1`                                              | Skip the menu and boot straight into `PlayScene` (level 1 unless `level` is set).                                                                                                                                                                    |
 | `maze`          | `maze1` \| `maze2` \| `mazeSmall` \| `mazeLarge` | Force that layout for the **first** board of this Start; omit for 50/50 random among maze1/maze2. Later levels always pick randomly from maze1/maze2. Fixtures exercise variable sizes (see [docs/maze-constraints.md](./docs/maze-constraints.md)). |
 | `level`         | positive integer                                 | Start at that level index (ghost roster unlock + speed mul `1 + 0.1×(level−1)`); omit for level 1. Invalid → level 1.                                                                                                                                |
 | `forceUpgrade`  | one upgrade id                                   | Next fruit choice modal guarantees that id as one option if not already owned; cleared on confirm or empty pool. Invalid → normal offer.                                                                                                             |
@@ -48,6 +49,8 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 Upgrade ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`, `scatterBurst`, `ghostRecall`, `warpTop`, `pickupRange`, `ghostHouseDelay`, `extraLife`, `pelletToPower`, `powerCollectThree`, `powerWallPass`, `powerSpeedBurst`, `powerInvuln`.
 
 ```text
+http://127.0.0.1:5174/?play=1
+http://127.0.0.1:5174/?play=1&maze=mazeSmall
 http://127.0.0.1:5174/?maze=maze2
 http://127.0.0.1:5174/?level=3
 http://127.0.0.1:5174/?forceUpgrade=ghostSlow
@@ -75,7 +78,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — structure and principles
 - [docs/maze-constraints.md](./docs/maze-constraints.md) — variable-size maze rules / ASCII legend
 - [docs/upgrades.md](./docs/upgrades.md) — run upgrades from fruit
-- [Flags](#flags) — URL query params (`maze`, `level`, `forceUpgrade`, `enableUpgrade`, `sound`)
+- [Flags](#flags) — URL query params (`play`, `maze`, `level`, `forceUpgrade`, `enableUpgrade`, `sound`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow

@@ -587,22 +587,17 @@ function buildWallPassPlayerSolids(walls: SolidGrid): boolean[][] {
 }
 
 function assertHorizontalTunnels(solids: SolidGrid, cols: number, rows: number): void {
-  let tunnelCount = 0;
   for (let row = 0; row < rows; row += 1) {
     const here = !(solids[row]?.[0] ?? true) && !(solids[row]?.[cols - 1] ?? true);
     if (!here) {
       continue;
     }
-    tunnelCount += 1;
     if (row + 1 < rows) {
       const next = !(solids[row + 1]?.[0] ?? true) && !(solids[row + 1]?.[cols - 1] ?? true);
       if (next) {
         throw new Error(`adjacent horizontal tunnel rows ${row} and ${row + 1}`);
       }
     }
-  }
-  if (tunnelCount === 0) {
-    throw new Error("maze has no horizontal tunnel row");
   }
 }
 

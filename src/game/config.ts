@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { colorToCssHex, MAZE_BACKGROUND_COLOR } from "../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../domain/playfield";
+import { shouldAutoPlay } from "../domain/playFlag";
 import { isSoundEnabled } from "../domain/soundFlag";
 import { HighScoresScene } from "./scenes/HighScoresScene";
 import { MenuScene } from "./scenes/MenuScene";
@@ -17,8 +18,12 @@ function createInteractiveAudioContext(): AudioContext | undefined {
   return new AudioContext({ latencyHint: "interactive" });
 }
 
-const soundEnabled = isSoundEnabled(new URLSearchParams(location.search), location.port);
+const urlParams = new URLSearchParams(location.search);
+const soundEnabled = isSoundEnabled(urlParams, location.port);
 const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
+const bootScenes = shouldAutoPlay(urlParams)
+  ? [PlayScene, MenuScene, HighScoresScene, SettingsScene]
+  : [MenuScene, HighScoresScene, SettingsScene, PlayScene];
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -26,7 +31,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: colorToCssHex(MAZE_BACKGROUND_COLOR),
-  scene: [MenuScene, HighScoresScene, SettingsScene, PlayScene],
+  scene: bootScenes,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
