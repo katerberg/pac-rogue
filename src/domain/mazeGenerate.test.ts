@@ -85,6 +85,37 @@ describe("mazeGenerate", () => {
       for (let i = 0; i < tunnelRows.length - 1; i += 1) {
         expect(tunnelRows[i + 1]! - tunnelRows[i]!).toBeGreaterThan(1);
       }
+
+      const tunnelSet = new Set(tunnelRows);
+      for (let row = 0; row < layout.rows; row += 1) {
+        for (let col = 0; col < layout.cols; col += 1) {
+          if (!isWalkable(col, row, layout.playerSolids)) {
+            continue;
+          }
+          let degree = 0;
+          const neighbors = [
+            [col, row - 1],
+            [col, row + 1],
+            [col - 1, row],
+            [col + 1, row],
+          ] as const;
+          for (const [nColRaw, nRow] of neighbors) {
+            let nCol = nColRaw;
+            if (nCol < 0 && tunnelSet.has(row)) {
+              nCol = layout.cols - 1;
+            } else if (nCol >= layout.cols && tunnelSet.has(row)) {
+              nCol = 0;
+            }
+            if (nCol < 0 || nCol >= layout.cols || nRow < 0 || nRow >= layout.rows) {
+              continue;
+            }
+            if (isWalkable(nCol, nRow, layout.playerSolids)) {
+              degree += 1;
+            }
+          }
+          expect(degree, `dead end ${col},${row}`).toBeGreaterThanOrEqual(2);
+        }
+      }
     }
   }, 60_000);
 
@@ -95,7 +126,7 @@ describe("mazeGenerate", () => {
     expect(a?.seedUsed).toBe(b?.seedUsed);
   });
 
-  it("generateMazeAscii throws on a seed that cannot validate without retries", () => {
+  it("generateMazeAscii succeeds for a known seed", () => {
     expect(GENERATE_MAX_ATTEMPTS).toBe(32);
     expect(() => generateMazeAscii("ok-seed-0")).not.toThrow();
   });

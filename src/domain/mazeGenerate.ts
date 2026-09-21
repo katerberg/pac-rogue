@@ -1,5 +1,5 @@
 import { computeMazeGeometry } from "./maze";
-import type { MazeLayoutId } from "./mazeLayouts";
+import { pickLayoutId, type MazeLayoutId } from "./mazeLayouts";
 import {
   randomFromSeed,
   solveTiling,
@@ -254,6 +254,7 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
     return neighbors;
   };
 
+  const initialKeys = [...graph.keys()];
   const queue = [...graph.entries()]
     .filter(([, neighbors]) => neighbors.size < 2)
     .map(([key]) => key);
@@ -265,6 +266,27 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
     for (const neighbor of remove(key)) {
       if ((graph.get(neighbor)?.size ?? 0) < 2) {
         queue.push(neighbor);
+      }
+    }
+  }
+
+  for (const key of initialKeys) {
+    if (graph.has(key)) {
+      continue;
+    }
+    const [col, row] = key.split(",").map(Number) as [number, number];
+    if ((col === 0 || col === cols - 1) && tunnelSet.has(row)) {
+      continue;
+    }
+    grid[row]![col] = WALL;
+    const mirrorCol = cols - 1 - col;
+    if (mirrorCol !== col) {
+      const mirrorKey = `${mirrorCol},${row}`;
+      if (
+        !graph.has(mirrorKey) &&
+        !((mirrorCol === 0 || mirrorCol === cols - 1) && tunnelSet.has(row))
+      ) {
+        grid[row]![mirrorCol] = WALL;
       }
     }
   }
@@ -289,8 +311,9 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
     for (const key of graph.keys()) {
       const [col, row] = key.split(",").map(Number) as [number, number];
       const dist = Math.abs(col - target.col) + Math.abs(row - target.row);
-      const sameQuadrant =
-        col <= cols / 2 === target.col <= cols / 2 && row <= rows / 2 === target.row <= rows / 2;
+      const sameHalfCol = col <= cols / 2 === target.col <= cols / 2;
+      const sameHalfRow = row <= rows / 2 === target.row <= rows / 2;
+      const sameQuadrant = sameHalfCol && sameHalfRow;
       if (!sameQuadrant) {
         continue;
       }
@@ -479,9 +502,6 @@ function assertNoDeadEnds(grid: string[][], tunnelRows: readonly number[]): void
       if (!(ch === PELLET || ch === POWER || ch === CORRIDOR || ch === SPAWN)) {
         continue;
       }
-      if (isHouseChar(ch)) {
-        continue;
-      }
       let degree = 0;
       for (const nKey of neighborKeys(col, row, cols, rows, tunnelSet)) {
         const [nCol, nRow] = nKey.split(",").map(Number) as [number, number];
@@ -490,8 +510,8 @@ function assertNoDeadEnds(grid: string[][], tunnelRows: readonly number[]): void
           degree += 1;
         }
       }
-      if (degree < 2 && (ch === PELLET || ch === POWER)) {
-        throw new Error(`dead-end pellet at ${col},${row}`);
+      if (degree < 2) {
+        throw new Error(`dead-end walkable at ${col},${row}`);
       }
     }
   }
@@ -638,7 +658,7 @@ export function resolveBoardSelection(
     return { kind: "static", id: layoutOverride };
   }
   if (levelIndex <= 1) {
-    return { kind: "static", id: "mazeSmall" };
+    return { kind: "static", id: pickLayoutId(() => 0, null, levelIndex) };
   }
   return { kind: "generate", seed: boardMazeSeed(runMazeSeed, levelIndex) };
 }

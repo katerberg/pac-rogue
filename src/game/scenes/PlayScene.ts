@@ -521,7 +521,15 @@ export class PlayScene extends Phaser.Scene {
     } else {
       const generated = generateMazeAsciiWithRetries(selection.seed);
       if (generated) {
-        activateAsciiLayout(generated.ascii);
+        try {
+          activateAsciiLayout(generated.ascii);
+        } catch (error) {
+          console.warn(
+            `maze activate failed for seed ${generated.seedUsed}; falling back to maze2`,
+            error,
+          );
+          activateLayout("maze2");
+        }
       } else {
         console.warn(
           `maze generate failed after ${GENERATE_MAX_ATTEMPTS} attempts for seed ${selection.seed}; falling back to maze2`,
