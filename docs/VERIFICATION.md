@@ -28,6 +28,16 @@ In addition to the automated gate:
 3. **Inspect** a screenshot or live output (e.g. Read `artifacts/visual-smoke.png`, or capture under `artifacts/`). Actually look at the pixels — do not infer correctness from exit codes.
 4. **Record what was verified** — brief note of what was launched, what was exercised, and what was observed.
 
+### Headless live check (cloud / no browser pane)
+
+`npm run probe` drives the game on the agent dev port with real Playwright keyboard input, saves canvas screenshots to `artifacts/<name>-<label>.png`, and fails on page errors or `console.error`. It starts `vite` on 5174 itself if nothing is listening. Steps: `wait:<ms>`, `hold:<Key>:<ms>`, `press:<Key>`, `shot:<label>`, `scene:<SceneKey>`.
+
+```bash
+npm run probe -- --query "play=1&maze=mazeSmall" --steps "wait:600,shot:start,hold:ArrowLeft:1500,shot:moved,scene:PlayScene" --name left
+```
+
+Use URL flags from the README to reach the state under test (`level`, `maze`, `enableUpgrade`, `forceUpgrade`). Then **Read each screenshot** and record what you saw (positions, HUD values, upgrade effects). A zero exit code alone is not verification. This satisfies the launch → exercise → inspect steps above wherever no interactive browser is available.
+
 ### Never
 
 - Assume visual correctness from compile, lint, unit tests, or a green `visual` script exit alone.
@@ -67,6 +77,10 @@ Ports are defined in `scripts/ports.json`. Do not share listeners.
 | Agent | `npm run dev:agent` → **5174** | `npm run preview:agent` / `visual` → **4174** |
 
 Agents may freely kill and restart **5174** / **4174**. Do not bind to or kill the human ports.
+
+### Cloud sessions
+
+`.claude/settings.json` runs `scripts/cloud-setup.sh` on session start. It does nothing locally; when `CLAUDE_CODE_REMOTE=true` it installs the Node version from `.nvmrc`, runs `npm ci` when the lockfile changed, installs Playwright Chromium if missing, and points git hooks at `.githooks`. The cloud environment must allow network access to the npm registry, `github.com`, `raw.githubusercontent.com` (nvm), `nodejs.org`, and `cdn.playwright.dev`.
 
 ### Agent sound (muted by default)
 

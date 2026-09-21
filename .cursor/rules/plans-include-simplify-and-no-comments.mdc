@@ -1,13 +1,12 @@
 ---
-description: Every plan must include /simplify-pr and /no-comments before completion
+description: Every code-changing plan must end with the ship-plan skill
 alwaysApply: true
 ---
 
-# Plans must include /simplify-pr and /no-comments
+# Plans must end with ship-plan
 
 Whenever you create or revise an implementation plan for this project (Plan mode, `/plan`, or any written plan before coding):
 
-- Include explicit late steps to run `/simplify-pr` then `/no-comments` on the plan's scoped diff (caller files/diff, otherwise the branch/working-tree diff against `main`).
-- Do not mark the plan complete, or claim implementation done, until both steps have been executed per `.agents/skills/simplify-pr/SKILL.md` and `.agents/skills/no-comments/SKILL.md`.
-- Keep both in scope for code-changing plans; skip them only for pure docs/tooling plans that touch no application source under `src/`.
-- Order: implement → verify as required → `/simplify-pr` (apply in-scope cuts) → `/no-comments` (last).
+- Include a final step to run the `ship-plan` skill (`.agents/skills/ship-plan/SKILL.md`): verify → `/simplify-pr` → `/no-comments` → verify → `/pr-review` → `/fix-pr-findings` → verify → push branch + open PR.
+- Do not mark the plan complete, or claim implementation done, until `ship-plan` has run and the PR exists.
+- Pure docs/tooling plans that touch no application source under `src/` skip only the simplify/no-comments steps inside it.

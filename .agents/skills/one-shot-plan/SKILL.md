@@ -90,7 +90,7 @@ After answers (or “lock defaults”):
 
 Every plan includes a **docs** deliverable (`docs/`, README, folder READMEs) or **Docs: none** plus a one-line reason. Same PR as the code when the host repo expects that.
 
-Every **code-changing** plan ends with `/simplify-pr` then `/no-comments` on the scoped diff (see those skills). Skip both only for pure docs/tooling plans that touch no `src/` application code.
+Every **code-changing** plan ends with the `ship-plan` skill (verify → `/simplify-pr` → `/no-comments` → verify → `/pr-review` → `/fix-pr-findings` → verify → push + PR). The plan will likely be implemented by an unattended cloud agent, so all questions are asked **before** the lock; the plan itself must be fully self-contained. Pure docs/tooling plans that touch no `src/` skip simplify/no-comments only.
 
 ## Harness notes
 
@@ -110,7 +110,8 @@ If a tool **forces** a plan artifact on the first turn: the artifact is the inte
 - Omitting the Proposed locks section
 - “Any other preferences?” as a substitute for lens coverage
 - Creating todos for code/tests and omitting docs
-- Omitting `/simplify-pr` or `/no-comments` from a code-changing plan
+- Omitting the `ship-plan` step from a code-changing plan
+- A plan whose acceptance tests do not say how to check runtime behavior (which `npm run probe` query/steps, or which flags)
 - Implementation starting during the question round
 
 ## Done when
@@ -118,4 +119,4 @@ If a tool **forces** a plan artifact on the first turn: the artifact is the inte
 - User received one Decide + Proposed locks dump covering the lenses
 - Plan has **zero** unresolved choices
 - A weaker model could implement from files + tests + docs sections alone
-- Code-changing plans name `/simplify-pr` then `/no-comments` as late steps
+- Code-changing plans end with the `ship-plan` step and give a concrete live-check recipe (probe query + steps) for gameplay/presentation changes
