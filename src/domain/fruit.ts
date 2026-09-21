@@ -90,7 +90,7 @@ export function tickFruitPresence(
   state: FruitPresence,
   collectedCount: number,
   deltaMs: number,
-  levelIndex: number = CURRENT_LEVEL,
+  levelIndex: number,
 ): FruitPresenceTick {
   let next = state;
   let action: FruitPresenceAction = "none";
