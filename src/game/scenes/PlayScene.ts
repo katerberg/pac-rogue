@@ -44,7 +44,8 @@ import {
   wallCellCenters,
   type MazeLayoutId,
 } from "../../domain/maze";
-import { ghostKindsForLevel, ghostSpeedLevelMul, parseLevelParam } from "../../domain/runLevel";
+import { ghostKindsForLevel, ghostSpeedLevelMul } from "../../domain/levelRules";
+import { parseLevelParam } from "../../domain/runLevel";
 import {
   BLINKY_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
@@ -170,8 +171,8 @@ export class PlayScene extends Phaser.Scene {
   private playRender!: PlayRender;
   private clock: RunClock = createRunClock();
   private ghostReleaseClock: GhostReleaseClock = createGhostReleaseClock();
-  private ghostModeClock: GhostModeClock = createGhostModeClock();
-  private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock().mode;
+  private ghostModeClock: GhostModeClock = createGhostModeClock(1);
+  private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock(1).mode;
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private lifetimeCollected = 0;
   private levelIndex = 1;
@@ -343,7 +344,7 @@ export class PlayScene extends Phaser.Scene {
     movement(this.world, delta, playerSolidsOverride);
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
-      this.ghostModeClock = startGhostModeClock();
+      this.ghostModeClock = startGhostModeClock(this.levelIndex);
     }
 
     this.clock = tickRunClock(this.clock, hasInput, delta);
@@ -518,7 +519,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.clock = createRunClock();
     this.ghostReleaseClock = createGhostReleaseClock();
-    this.ghostModeClock = createGhostModeClock();
+    this.ghostModeClock = createGhostModeClock(this.levelIndex);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.fruitPresence = createFruitPresence();
@@ -707,7 +708,7 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.ghostReleaseClock = createGhostReleaseClock();
-    this.ghostModeClock = createGhostModeClock();
+    this.ghostModeClock = createGhostModeClock(this.levelIndex);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.afterLifeRelease = true;
     placeInHouseGhostsAtPredictedSeats(
