@@ -373,36 +373,18 @@ export class PlayScene extends Phaser.Scene {
     }
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
-      const players = query(this.world, [Player, Position, Facing]);
-      const playerEid = players[0];
-      if (playerEid !== undefined) {
-        const facing = Facing.direction[playerEid] ?? DIRECTION.none;
-        const facingStep =
-          facing === DIRECTION.up
-            ? { col: 0, row: -1 }
-            : facing === DIRECTION.down
-              ? { col: 0, row: 1 }
-              : facing === DIRECTION.left
-                ? { col: -1, row: 0 }
-                : facing === DIRECTION.right
-                  ? { col: 1, row: 0 }
-                  : { col: 0, row: 0 };
-        const bonusEids = collectExtraPellets(
-          this.world,
-          powerEffects.collectExtraPellets,
-          Position.x[playerEid] ?? 0,
-          Position.y[playerEid] ?? 0,
-          facingStep,
-          playerSolidsOverride ?? getActiveLayout().playerSolids,
-        );
-        for (const eid of bonusEids) {
-          this.playRender.releaseDrawable(eid);
-        }
-        bonusRemoved = bonusEids.length;
-        if (bonusRemoved > 0) {
-          playSfx(this, "pelletMunch");
-          playSfx(this, "pelletMunch2");
-        }
+      const bonusEids = collectExtraPellets(
+        this.world,
+        powerEffects.collectExtraPellets,
+        playerSolidsOverride ?? getActiveLayout().playerSolids,
+      );
+      for (const eid of bonusEids) {
+        this.playRender.releaseDrawable(eid);
+      }
+      bonusRemoved = bonusEids.length;
+      if (bonusRemoved > 0) {
+        playSfx(this, "pelletMunch");
+        playSfx(this, "pelletMunch2");
       }
     }
     const totalRemoved = removed + bonusRemoved;

@@ -1,19 +1,36 @@
 import { hasComponent, query, removeEntity, type World } from "bitecs";
-import { pickClosestOffForwardPelletEids, type FacingStep } from "../../domain/pelletCollectExtra";
+import { pickClosestOffForwardPelletEids } from "../../domain/pelletCollectExtra";
 import type { SolidGrid } from "../../domain/maze";
+import { Facing } from "../components/Facing";
+import { DIRECTION, type Direction } from "../components/Input";
 import { Pellet } from "../components/Pellet";
+import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 
-export function collectExtraPellets(
-  world: World,
-  count: number,
-  playerX: number,
-  playerY: number,
-  facingStep: FacingStep,
-  solids: SolidGrid,
-): number[] {
+function facingStep(facing: Direction): { col: number; row: number } {
+  switch (facing) {
+    case DIRECTION.up:
+      return { col: 0, row: -1 };
+    case DIRECTION.down:
+      return { col: 0, row: 1 };
+    case DIRECTION.left:
+      return { col: -1, row: 0 };
+    case DIRECTION.right:
+      return { col: 1, row: 0 };
+    default:
+      return { col: 0, row: 0 };
+  }
+}
+
+export function collectExtraPellets(world: World, count: number, solids: SolidGrid): number[] {
   if (count <= 0) {
+    return [];
+  }
+
+  const players = query(world, [Player, Position, Facing]);
+  const playerEid = players[0];
+  if (playerEid === undefined) {
     return [];
   }
 
@@ -30,9 +47,9 @@ export function collectExtraPellets(
 
   const chosen = pickClosestOffForwardPelletEids(
     candidates,
-    playerX,
-    playerY,
-    facingStep,
+    Position.x[playerEid] ?? 0,
+    Position.y[playerEid] ?? 0,
+    facingStep(Facing.direction[playerEid] ?? DIRECTION.none),
     solids,
     count,
   );

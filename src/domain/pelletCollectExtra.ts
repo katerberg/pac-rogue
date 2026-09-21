@@ -62,10 +62,5 @@ export function pickClosestOffForwardPelletEids(
   }
 
   eligible.sort((a, b) => a.distSq - b.distSq || a.eid - b.eid);
-  const take = Math.min(count, eligible.length);
-  const picked: number[] = [];
-  for (let i = 0; i < take; i += 1) {
-    picked.push(eligible[i]!.eid);
-  }
-  return picked;
+  return eligible.slice(0, count).map((entry) => entry.eid);
 }
