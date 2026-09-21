@@ -2,6 +2,8 @@
 
 Read and follow `AGENTS.md` as the authoritative project-level agent guidance.
 
+@AGENTS.md
+
 Before making changes:
 
 - Read relevant architecture documentation.
