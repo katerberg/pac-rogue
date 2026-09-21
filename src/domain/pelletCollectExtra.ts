@@ -1,19 +1,71 @@
-export function pickUniformPelletEids(
-  candidateEids: readonly number[],
+import { isSolid, worldToCol, worldToRow, type SolidGrid } from "./maze";
+
+export type PelletCollectCandidate = {
+  eid: number;
+  x: number;
+  y: number;
+};
+
+export type FacingStep = {
+  col: number;
+  row: number;
+};
+
+function forwardCorridorExcludedKeys(
+  playerCol: number,
+  playerRow: number,
+  step: FacingStep,
+  solids: SolidGrid,
+): Set<string> {
+  const excluded = new Set<string>();
+  if (step.col === 0 && step.row === 0) {
+    return excluded;
+  }
+  let col = playerCol + step.col;
+  let row = playerRow + step.row;
+  while (!isSolid(col, row, solids)) {
+    excluded.add(`${col},${row}`);
+    col += step.col;
+    row += step.row;
+  }
+  return excluded;
+}
+
+export function pickClosestOffForwardPelletEids(
+  candidates: readonly PelletCollectCandidate[],
+  playerX: number,
+  playerY: number,
+  facingStep: FacingStep,
+  solids: SolidGrid,
   count: number,
-  rng: () => number,
 ): number[] {
-  if (count <= 0 || candidateEids.length === 0) {
+  if (count <= 0 || candidates.length === 0) {
     return [];
   }
 
-  const pool = [...candidateEids];
-  const take = Math.min(count, pool.length);
+  const excluded = forwardCorridorExcludedKeys(
+    worldToCol(playerX),
+    worldToRow(playerY),
+    facingStep,
+    solids,
+  );
+
+  const eligible: { eid: number; distSq: number }[] = [];
+  for (const candidate of candidates) {
+    const key = `${worldToCol(candidate.x)},${worldToRow(candidate.y)}`;
+    if (excluded.has(key)) {
+      continue;
+    }
+    const dx = candidate.x - playerX;
+    const dy = candidate.y - playerY;
+    eligible.push({ eid: candidate.eid, distSq: dx * dx + dy * dy });
+  }
+
+  eligible.sort((a, b) => a.distSq - b.distSq || a.eid - b.eid);
+  const take = Math.min(count, eligible.length);
   const picked: number[] = [];
   for (let i = 0; i < take; i += 1) {
-    const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
-    picked.push(pool[index]!);
-    pool.splice(index, 1);
+    picked.push(eligible[i]!.eid);
   }
   return picked;
 }
