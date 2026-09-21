@@ -38,13 +38,13 @@ describe("applyGhostSpeed", () => {
     expect(Speed.px[eid]).toBeCloseTo(GHOST_SPEED * 0.75);
   });
 
-  it("zeros leaving/active when frozen", () => {
+  it("zeros only the frozen ghost", () => {
     const world = createWorld();
-    const active = spawnGhost(world, GHOST_PHASE.active);
-    const leaving = spawnGhost(world, GHOST_PHASE.leaving);
-    applyGhostSpeed(world, 100, { ghostSpeedMul: 0.75, frozen: true });
-    expect(Speed.px[active]).toBe(0);
-    expect(Speed.px[leaving]).toBe(0);
+    const frozen = spawnGhost(world, GHOST_PHASE.active);
+    const other = spawnGhost(world, GHOST_PHASE.leaving);
+    applyGhostSpeed(world, 100, { ghostSpeedMul: 0.75, frozenGhostEid: frozen });
+    expect(Speed.px[frozen]).toBe(0);
+    expect(Speed.px[other]).toBeCloseTo(GHOST_SPEED * 0.75);
   });
 
   it("leaves inHouse speed untouched (owned by seating)", () => {

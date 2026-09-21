@@ -9,11 +9,13 @@ import { Position } from "../components/Position";
 
 export function catchPlayer(
   world: World,
-  options?: { ghostsFrozen?: boolean; playerInvulnerable?: boolean },
+  options?: { frozenGhostEid?: number | null; playerInvulnerable?: boolean },
 ): boolean {
-  if (options?.ghostsFrozen === true || options?.playerInvulnerable === true) {
+  if (options?.playerInvulnerable === true) {
     return false;
   }
+
+  const frozenEid = options?.frozenGhostEid ?? null;
 
   const players = query(world, [Player, Position, Drawable]);
   const playerEid = players[0];
@@ -26,6 +28,9 @@ export function catchPlayer(
   const pr = Drawable.radius[playerEid] ?? 0;
 
   for (const eid of query(world, [Ghost, GhostPhase, Position, Drawable])) {
+    if (frozenEid !== null && eid === frozenEid) {
+      continue;
+    }
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
     if (phase === GHOST_PHASE.inHouse) {
       continue;

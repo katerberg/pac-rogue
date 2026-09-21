@@ -162,7 +162,7 @@ function ensurePlayerVisual(
 }
 
 export type RenderOptions = {
-  ghostsFrozen?: boolean;
+  frozenGhostEid?: number | null;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
 };
@@ -228,7 +228,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   };
 
   const draw = (world: World, opts?: RenderOptions): void => {
-    const ghostsFrozen = opts?.ghostsFrozen === true;
+    const frozenEid = opts?.frozenGhostEid ?? null;
     const wallPassOn = opts?.wallPassActive === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const playerInvulnTintOn =
@@ -283,7 +283,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
       if (ghostTexture !== undefined) {
         const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
-        if (ghostsFrozen && phase !== GHOST_PHASE.inHouse) {
+        if (frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse) {
           go.setTint(GHOST_FROZEN_TINT);
         } else {
           go.clearTint();

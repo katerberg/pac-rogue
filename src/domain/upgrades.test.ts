@@ -16,7 +16,7 @@ import {
   confirmUpgradeChoice,
   createRunUpgrades,
   eligibleUpgrades,
-  ghostsAreFrozen,
+  frozenGhostEid,
   ghostHouseClydePelletAdd,
   ghostHouseReleaseDelayAddMs,
   ghostSpeedMultiplier,
@@ -200,6 +200,7 @@ describe("grantUpgrade", () => {
     expect(state.owned).toEqual(STUB_IDS);
     expect(applyPowerPelletEffects(state, 1)).toEqual({
       state,
+      freezeClosestMs: null,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
@@ -214,6 +215,7 @@ describe("grantUpgrade", () => {
     const owned = grantUpgrade(createRunUpgrades(), "extraLife");
     expect(applyPowerPelletEffects(owned, 1)).toEqual({
       state: owned,
+      freezeClosestMs: null,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
@@ -234,19 +236,26 @@ describe("grantUpgrade", () => {
 
 describe("freeze / power pellet", () => {
   it("ticks freeze down and expires", () => {
-    const started = { ...createRunUpgrades(), freezeRemainingMs: FREEZE_MS };
-    expect(ghostsAreFrozen(started)).toBe(true);
+    const started = {
+      ...createRunUpgrades(),
+      freezeRemainingMs: FREEZE_MS,
+      frozenGhostEid: 7,
+    };
+    expect(frozenGhostEid(started)).toBe(7);
     const mid = tickFreeze(started, 1000);
     expect(mid.freezeRemainingMs).toBe(2000);
+    expect(mid.frozenGhostEid).toBe(7);
     const done = tickFreeze(mid, 2500);
     expect(done.freezeRemainingMs).toBe(0);
-    expect(ghostsAreFrozen(done)).toBe(false);
+    expect(done.frozenGhostEid).toBeNull();
+    expect(frozenGhostEid(done)).toBeNull();
   });
 
-  it("applies freeze only when upgrade owned and refreshes to full", () => {
+  it("signals closest-ghost freeze only when upgrade owned", () => {
     const bare = createRunUpgrades();
     expect(applyPowerPelletEffects(bare, 1)).toEqual({
       state: bare,
+      freezeClosestMs: null,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
@@ -254,19 +263,22 @@ describe("freeze / power pellet", () => {
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
     const frozen = applyPowerPelletEffects(owned, 1);
-    expect(frozen.state.freezeRemainingMs).toBe(FREEZE_MS);
+    expect(frozen.state.freezeRemainingMs).toBe(0);
+    expect(frozen.state.frozenGhostEid).toBeNull();
+    expect(frozen.freezeClosestMs).toBe(FREEZE_MS);
     expect(frozen.recallClosestGhost).toBe(false);
     expect(frozen.warpPlayerTopCenter).toBe(false);
     expect(frozen.collectExtraPellets).toBe(0);
 
-    const partial = { ...frozen.state, freezeRemainingMs: 500 };
-    expect(applyPowerPelletEffects(partial, 2).state.freezeRemainingMs).toBe(FREEZE_MS);
+    const partial = { ...owned, freezeRemainingMs: 500, frozenGhostEid: 3 };
+    expect(applyPowerPelletEffects(partial, 2).freezeClosestMs).toBe(FREEZE_MS);
   });
 
   it("powerRemoved zero is a no-op", () => {
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
     expect(applyPowerPelletEffects(owned, 0)).toEqual({
       state: owned,
+      freezeClosestMs: null,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
@@ -310,7 +322,8 @@ describe("scatter burst / multi power-pellet effects", () => {
       state = grantUpgrade(state, id);
     }
     const result = applyPowerPelletEffects(state, 1);
-    expect(result.state.freezeRemainingMs).toBe(FREEZE_MS);
+    expect(result.state.freezeRemainingMs).toBe(0);
+    expect(result.freezeClosestMs).toBe(FREEZE_MS);
     expect(result.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS);
     expect(result.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
@@ -379,6 +392,7 @@ describe("invuln / power pellet", () => {
     const bare = createRunUpgrades();
     expect(applyPowerPelletEffects(bare, 1)).toEqual({
       state: bare,
+      freezeClosestMs: null,
       recallClosestGhost: false,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
