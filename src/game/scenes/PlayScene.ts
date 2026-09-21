@@ -424,6 +424,7 @@ export class PlayScene extends Phaser.Scene {
       this.fruitPresence,
       this.pelletProgress.boardCollected,
       delta,
+      this.levelIndex,
     );
     if (fruitTick.action === "spawn" || fruitTick.action === "replace") {
       this.spawnFruitEntity();
@@ -507,7 +508,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
-    activateLayout(pickLayoutId(Math.random, layoutOverride));
+    activateLayout(pickLayoutId(Math.random, layoutOverride, this.levelIndex));
     this.playRender.resetForNewBoard();
     this.world = createWorld();
     this.spawnWalls();

@@ -64,10 +64,10 @@ Fruit / Inky / Clyde / Elroy pellet thresholds scale vs maze1 pellet count (unch
 
 ## Layout ids
 
-| Id                  | Role                    |
-| ------------------- | ----------------------- |
-| `maze1` / `maze2`   | Play pool (random pick) |
-| `mazeSmall` (22×21) | Fixtures via `?maze=`   |
+| Id                  | Role                                  |
+| ------------------- | ------------------------------------- |
+| `maze1` / `maze2`   | Play pool (random pick from level 2+) |
+| `mazeSmall` (22×21) | Level 1 default; also `?maze=`        |
 
 ## Out of scope
 

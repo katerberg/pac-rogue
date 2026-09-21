@@ -90,11 +90,12 @@ export function tickFruitPresence(
   state: FruitPresence,
   collectedCount: number,
   deltaMs: number,
+  levelIndex: number = CURRENT_LEVEL,
 ): FruitPresenceTick {
   let next = state;
   let action: FruitPresenceAction = "none";
 
-  const thresholds = getActiveLayout().fruitThresholds;
+  const thresholds = levelIndex <= 1 ? [] : getActiveLayout().fruitThresholds;
   while (
     next.nextThresholdIndex < thresholds.length &&
     collectedCount >= thresholds[next.nextThresholdIndex]!

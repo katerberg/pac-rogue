@@ -109,9 +109,13 @@ export function parseMazeParam(params: URLSearchParams): MazeLayoutId | null {
 export function pickLayoutId(
   rng: () => number = Math.random,
   override: MazeLayoutId | null = null,
+  levelIndex: number = 1,
 ): MazeLayoutId {
   if (override !== null) {
     return override;
+  }
+  if (levelIndex <= 1) {
+    return "mazeSmall";
   }
   return rng() < 0.5 ? "maze1" : "maze2";
 }

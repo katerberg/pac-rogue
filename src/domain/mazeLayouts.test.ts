@@ -144,14 +144,18 @@ describe("maze selection", () => {
     expect(parseMazeParam(new URLSearchParams())).toBeNull();
   });
 
-  it("prefers override over rng", () => {
+  it("prefers override over rng and level", () => {
     expect(pickLayoutId(() => 0, "maze2")).toBe("maze2");
     expect(pickLayoutId(() => 0.9, "maze1")).toBe("maze1");
     expect(pickLayoutId(() => 0, "mazeSmall")).toBe("mazeSmall");
+    expect(pickLayoutId(() => 0.9, "maze1", 1)).toBe("maze1");
   });
 
-  it("picks both layouts from seeded rng", () => {
-    expect(pickLayoutId(() => 0.49)).toBe("maze1");
-    expect(pickLayoutId(() => 0.5)).toBe("maze2");
+  it("uses mazeSmall for level 1 and randomizes maze1/maze2 afterward", () => {
+    expect(pickLayoutId(() => 0.49, null, 1)).toBe("mazeSmall");
+    expect(pickLayoutId(() => 0.9, null, 1)).toBe("mazeSmall");
+    expect(pickLayoutId(() => 0.49, null, 2)).toBe("maze1");
+    expect(pickLayoutId(() => 0.5, null, 2)).toBe("maze2");
+    expect(pickLayoutId(() => 0.49, null, 5)).toBe("maze1");
   });
 });

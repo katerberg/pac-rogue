@@ -48,12 +48,22 @@ describe("fruitSpawnCenter", () => {
 });
 
 describe("tickFruitPresence", () => {
+  const fruitLevel = 2;
+
+  it("never spawns on level 1", () => {
+    const [firstThreshold] = getActiveLayout().fruitThresholds;
+    const crossed = tickFruitPresence(createFruitPresence(), firstThreshold, 16, 1);
+    expect(crossed.action).toBe("none");
+    expect(crossed.state.active).toBe(false);
+    expect(crossed.state.nextThresholdIndex).toBe(0);
+  });
+
   it("spawns when collectedCount crosses 70", () => {
     const [firstThreshold] = getActiveLayout().fruitThresholds;
     const idle = createFruitPresence();
-    expect(tickFruitPresence(idle, firstThreshold - 1, 16).action).toBe("none");
+    expect(tickFruitPresence(idle, firstThreshold - 1, 16, fruitLevel).action).toBe("none");
 
-    const crossed = tickFruitPresence(idle, firstThreshold, 16);
+    const crossed = tickFruitPresence(idle, firstThreshold, 16, fruitLevel);
     expect(crossed.action).toBe("spawn");
     expect(crossed.state.active).toBe(true);
     expect(crossed.state.remainingMs).toBe(FRUIT_LIFETIME_MS);
@@ -62,15 +72,15 @@ describe("tickFruitPresence", () => {
 
   it("expires after 10_000 ms of real delta, not countdown ticks", () => {
     const [firstThreshold] = getActiveLayout().fruitThresholds;
-    const { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
+    const { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0, fruitLevel);
     expect(state.active).toBe(true);
 
-    const mid = tickFruitPresence(state, firstThreshold, FRUIT_LIFETIME_MS - 1);
+    const mid = tickFruitPresence(state, firstThreshold, FRUIT_LIFETIME_MS - 1, fruitLevel);
     expect(mid.action).toBe("none");
     expect(mid.state.active).toBe(true);
     expect(mid.state.remainingMs).toBe(1);
 
-    const end = tickFruitPresence(mid.state, firstThreshold, 1);
+    const end = tickFruitPresence(mid.state, firstThreshold, 1, fruitLevel);
     expect(end.action).toBe("despawn");
     expect(end.state.active).toBe(false);
     expect(end.state.remainingMs).toBe(0);
@@ -78,9 +88,9 @@ describe("tickFruitPresence", () => {
 
   it("does not treat run-clock 100ms ticks as fruit seconds", () => {
     const [firstThreshold] = getActiveLayout().fruitThresholds;
-    let { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
+    let { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0, fruitLevel);
     for (let i = 0; i < 10; i += 1) {
-      const tick = tickFruitPresence(state, firstThreshold, 100);
+      const tick = tickFruitPresence(state, firstThreshold, 100, fruitLevel);
       state = tick.state;
       expect(tick.action).toBe("none");
       expect(state.active).toBe(true);
@@ -90,11 +100,11 @@ describe("tickFruitPresence", () => {
 
   it("replaces when 170 fires while first fruit is still active", () => {
     const [firstThreshold, secondThreshold] = getActiveLayout().fruitThresholds;
-    const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
-    const aged = tickFruitPresence(first.state, firstThreshold + 30, 3_000);
+    const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0, fruitLevel);
+    const aged = tickFruitPresence(first.state, firstThreshold + 30, 3_000, fruitLevel);
     expect(aged.state.active).toBe(true);
 
-    const second = tickFruitPresence(aged.state, secondThreshold, 16);
+    const second = tickFruitPresence(aged.state, secondThreshold, 16, fruitLevel);
     expect(second.action).toBe("replace");
     expect(second.state.active).toBe(true);
     expect(second.state.remainingMs).toBe(FRUIT_LIFETIME_MS);
@@ -103,11 +113,11 @@ describe("tickFruitPresence", () => {
 
   it("spawns the second fruit after the first has despawned", () => {
     const [firstThreshold, secondThreshold] = getActiveLayout().fruitThresholds;
-    let { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
-    state = tickFruitPresence(state, firstThreshold + 30, FRUIT_LIFETIME_MS).state;
+    let { state } = tickFruitPresence(createFruitPresence(), firstThreshold, 0, fruitLevel);
+    state = tickFruitPresence(state, firstThreshold + 30, FRUIT_LIFETIME_MS, fruitLevel).state;
     expect(state.active).toBe(false);
 
-    const second = tickFruitPresence(state, secondThreshold, 0);
+    const second = tickFruitPresence(state, secondThreshold, 0, fruitLevel);
     expect(second.action).toBe("spawn");
     expect(second.state.active).toBe(true);
     expect(second.state.remainingMs).toBe(FRUIT_LIFETIME_MS);
@@ -115,8 +125,8 @@ describe("tickFruitPresence", () => {
 
   it("does not re-fire a consumed threshold", () => {
     const [firstThreshold] = getActiveLayout().fruitThresholds;
-    const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0);
-    const again = tickFruitPresence(first.state, firstThreshold, 16);
+    const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0, fruitLevel);
+    const again = tickFruitPresence(first.state, firstThreshold, 16, fruitLevel);
     expect(again.action).toBe("none");
     expect(again.state.nextThresholdIndex).toBe(1);
   });
@@ -125,7 +135,7 @@ describe("tickFruitPresence", () => {
 describe("markFruitCollected", () => {
   it("clears active fruit without consuming the next threshold", () => {
     const [firstThreshold] = getActiveLayout().fruitThresholds;
-    const spawned = tickFruitPresence(createFruitPresence(), firstThreshold, 0).state;
+    const spawned = tickFruitPresence(createFruitPresence(), firstThreshold, 0, 2).state;
     const cleared = markFruitCollected(spawned);
     expect(cleared.active).toBe(false);
     expect(cleared.nextThresholdIndex).toBe(1);
