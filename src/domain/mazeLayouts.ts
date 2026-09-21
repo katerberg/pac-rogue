@@ -150,8 +150,8 @@ export function parseMazeParam(params: URLSearchParams): MazeLayoutId | null {
   if (raw === null || raw === "") {
     return null;
   }
-  if (raw === "maze1" || raw === "maze2" || raw === "mazeSmall" || raw === "mazeLarge") {
-    return raw;
+  if ((MAZE_LAYOUT_IDS as readonly string[]).includes(raw)) {
+    return raw as MazeLayoutId;
   }
   return null;
 }

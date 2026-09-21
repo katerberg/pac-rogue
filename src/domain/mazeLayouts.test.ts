@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { ghostHouseSeatCenters } from "./ghostHouseSeats";
 import {
   activateLayout,
   getActiveLayout,
@@ -7,10 +8,12 @@ import {
   isWalkable,
   MAZE_COLS,
   MAZE_ROWS,
+  parseMaze,
   parseMazeParam,
   pelletCellCenters,
   pickLayoutId,
 } from "./maze";
+import { CLASSIC_MAZE_ASCII } from "./mazeLayouts";
 import {
   blinkyScatterTarget,
   clydeScatterTarget,
@@ -84,22 +87,53 @@ describe("maze layouts", () => {
   });
 
   it("loads variable-size fixtures", () => {
-    const small = getLayout("mazeSmall");
+    const small = activateLayout("mazeSmall");
     expect(small.cols).toBe(22);
     expect(small.rows).toBe(28);
     expect(small.tileSize).toBeGreaterThanOrEqual(12);
     expect(small.offsetX).toBeGreaterThanOrEqual(80);
     expect(small.pelletCount).toBeGreaterThan(40);
     expect(small.ascii.includes("P")).toBe(true);
+    expect(isWalkable(small.playerSpawn.col, small.playerSpawn.row, small.playerSolids)).toBe(true);
+    expect(isWalkable(small.fruitSpawn.col, small.fruitSpawn.row, small.playerSolids)).toBe(true);
+    expect(isWalkable(small.ghostHouseExit.col, small.ghostHouseExit.row, small.playerSolids)).toBe(
+      true,
+    );
+    const smallTunnels: number[] = [];
+    for (let row = 0; row < small.rows; row += 1) {
+      if (isTunnelMouth(0, row, small.playerSolids)) {
+        smallTunnels.push(row);
+      }
+    }
+    expect(smallTunnels.length).toBeGreaterThanOrEqual(1);
+    expect(ghostHouseSeatCenters()).toHaveLength(4);
 
     const large = activateLayout("mazeLarge");
     expect(large.cols).toBe(32);
     expect(large.rows).toBe(36);
     expect(large.offsetX).toBeGreaterThanOrEqual(80);
+    expect(isWalkable(large.playerSpawn.col, large.playerSpawn.row, large.playerSolids)).toBe(true);
+    expect(isWalkable(large.fruitSpawn.col, large.fruitSpawn.row, large.playerSolids)).toBe(true);
+    expect(isWalkable(large.ghostHouseExit.col, large.ghostHouseExit.row, large.playerSolids)).toBe(
+      true,
+    );
+    const largeTunnels: number[] = [];
+    for (let row = 0; row < large.rows; row += 1) {
+      if (isTunnelMouth(0, row, large.playerSolids)) {
+        largeTunnels.push(row);
+      }
+    }
+    expect(largeTunnels.length).toBeGreaterThanOrEqual(1);
+    expect(ghostHouseSeatCenters()).toHaveLength(4);
     expect(blinkyScatterTarget()).toEqual({ col: 29, row: -3 });
     expect(pinkyScatterTarget()).toEqual({ col: 2, row: -3 });
     expect(inkyScatterTarget()).toEqual({ col: 31, row: 38 });
     expect(clydeScatterTarget()).toEqual({ col: 0, row: 38 });
+  });
+
+  it("rejects unknown maze glyphs", () => {
+    const bad = CLASSIC_MAZE_ASCII.replace("P", "X");
+    expect(() => parseMaze(bad)).toThrow(/unknown char/);
   });
 
   it("only places pellets on . and @ cells", () => {

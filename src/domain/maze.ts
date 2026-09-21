@@ -16,6 +16,7 @@ export const MIN_TILE_SIZE = 12;
 export const MIN_MAZE_OFFSET_X = 80;
 export const HOUSE_FLOOR_MIN_COLS = 6;
 export const HOUSE_FLOOR_MIN_ROWS = 3;
+export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 
 export const MAZE_TOP_MARGIN_PX = 28;
 
@@ -160,6 +161,16 @@ const EMPTY_CELL_CHAR = " ";
 const PELLET_CHARS = new Set([".", "@"]);
 const EMPTY_CORRIDOR_CHARS = new Set([EMPTY_CELL_CHAR, EMPTY_CORRIDOR_CHAR, PLAYER_SPAWN_CHAR]);
 const HOUSE_CHARS = new Set([DOOR_CHAR, HOUSE_FLOOR_CHAR]);
+const KNOWN_MAZE_CHARS = new Set([
+  WALL_CHAR,
+  DOOR_CHAR,
+  HOUSE_FLOOR_CHAR,
+  PLAYER_SPAWN_CHAR,
+  EMPTY_CORRIDOR_CHAR,
+  EMPTY_CELL_CHAR,
+  ".",
+  "@",
+]);
 
 function scaleCount(n: number, pelletCount: number, basePelletCount: number): number {
   return Math.max(1, Math.round((n * pelletCount) / basePelletCount));
@@ -206,6 +217,12 @@ function readAsciiGrid(ascii: string): { lines: string[]; cols: number; rows: nu
     const line = lines[row] ?? "";
     if (line.length !== cols) {
       throw new Error(`maze row ${row} must have ${cols} cols, got ${line.length}`);
+    }
+    for (let col = 0; col < cols; col += 1) {
+      const ch = line[col] ?? "";
+      if (!KNOWN_MAZE_CHARS.has(ch)) {
+        throw new Error(`maze unknown char ${JSON.stringify(ch)} at ${col},${row}`);
+      }
     }
   }
   return { lines, cols, rows };
@@ -316,10 +333,16 @@ function deriveGhostHouseSpawn(ascii: string, cols: number, rows: number): MazeT
     col: Math.floor((minCol + maxCol) / 2),
     row: Math.floor((minRow + maxRow) / 2),
   };
-  if (floors.some((cell) => cell.col === target.col && cell.row === target.row)) {
-    return target;
+  const spawn = floors.some((cell) => cell.col === target.col && cell.row === target.row)
+    ? target
+    : nearestHouseFloor(target, floors);
+  const spawnRowFloors = floors.filter((cell) => cell.row === spawn.row).length;
+  if (spawnRowFloors < HOUSE_SPAWN_ROW_MIN_FLOORS) {
+    throw new Error(
+      `ghost house spawn row ${spawn.row} has ${spawnRowFloors} floor cells; need ${HOUSE_SPAWN_ROW_MIN_FLOORS}`,
+    );
   }
-  return nearestHouseFloor(target, floors);
+  return spawn;
 }
 
 function deriveGhostHouseExit(
@@ -332,16 +355,17 @@ function deriveGhostHouseExit(
   if (doors.length === 0) {
     throw new Error("maze has no ghost house door");
   }
-  let minCol = doors[0]!.col;
-  let maxCol = doors[0]!.col;
-  let doorRow = doors[0]!.row;
-  for (const cell of doors) {
-    minCol = Math.min(minCol, cell.col);
-    maxCol = Math.max(maxCol, cell.col);
-    doorRow = cell.row;
+  if (doors.length !== 2) {
+    throw new Error(`ghost house door count ${doors.length}; need 2`);
   }
-  if (maxCol - minCol + 1 !== 2) {
-    throw new Error(`ghost house door width ${maxCol - minCol + 1}; need 2`);
+  const doorRow = doors[0]!.row;
+  if (doors.some((cell) => cell.row !== doorRow)) {
+    throw new Error("ghost house door must occupy a single row");
+  }
+  const minCol = Math.min(doors[0]!.col, doors[1]!.col);
+  const maxCol = Math.max(doors[0]!.col, doors[1]!.col);
+  if (maxCol - minCol !== 1) {
+    throw new Error(`ghost house door width ${maxCol - minCol + 1}; need 2 contiguous`);
   }
   const col = Math.floor((minCol + maxCol) / 2);
   for (let row = doorRow - 1; row >= 0; row -= 1) {
@@ -562,13 +586,23 @@ function buildWallPassPlayerSolids(walls: SolidGrid): boolean[][] {
   return blocked;
 }
 
-function assertNoAdjacentHorizontalTunnels(solids: SolidGrid, cols: number, rows: number): void {
-  for (let row = 0; row < rows - 1; row += 1) {
+function assertHorizontalTunnels(solids: SolidGrid, cols: number, rows: number): void {
+  let tunnelCount = 0;
+  for (let row = 0; row < rows; row += 1) {
     const here = !(solids[row]?.[0] ?? true) && !(solids[row]?.[cols - 1] ?? true);
-    const next = !(solids[row + 1]?.[0] ?? true) && !(solids[row + 1]?.[cols - 1] ?? true);
-    if (here && next) {
-      throw new Error(`adjacent horizontal tunnel rows ${row} and ${row + 1}`);
+    if (!here) {
+      continue;
     }
+    tunnelCount += 1;
+    if (row + 1 < rows) {
+      const next = !(solids[row + 1]?.[0] ?? true) && !(solids[row + 1]?.[cols - 1] ?? true);
+      if (next) {
+        throw new Error(`adjacent horizontal tunnel rows ${row} and ${row + 1}`);
+      }
+    }
+  }
+  if (tunnelCount === 0) {
+    throw new Error("maze has no horizontal tunnel row");
   }
 }
 
@@ -594,7 +628,7 @@ function buildLayout(id: MazeLayoutId): MazeLayout {
   const ghostSolids = buildBlocked(walls, exterior);
   const playerSolids = buildPlayerSolids(walls, exterior, house);
   const wallPassPlayerSolids = buildWallPassPlayerSolids(walls);
-  assertNoAdjacentHorizontalTunnels(playerSolids, cols, rows);
+  assertHorizontalTunnels(playerSolids, cols, rows);
   const ghostHouseSpawn = deriveGhostHouseSpawn(ascii, cols, rows);
   const ghostHouseExit = deriveGhostHouseExit(ascii, cols, rows, playerSolids);
   const fruitSpawn = deriveFruitSpawn(ascii, cols, rows, playerSolids, ghostHouseSpawn.col);
