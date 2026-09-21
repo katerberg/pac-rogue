@@ -106,7 +106,7 @@ describe("maze layouts", () => {
         smallTunnels.push(row);
       }
     }
-    expect(smallTunnels.length).toEqual(0);
+    expect(smallTunnels.length).toEqual(1);
     expect(ghostHouseSeatCenters()).toHaveLength(4);
     expect(small.door.some((row) => row.some(Boolean))).toBe(true);
     expect(small.house.some((row) => row.some(Boolean))).toBe(true);
@@ -139,7 +139,6 @@ describe("maze selection", () => {
     expect(parseMazeParam(new URLSearchParams("maze=maze1"))).toBe("maze1");
     expect(parseMazeParam(new URLSearchParams("maze=maze2"))).toBe("maze2");
     expect(parseMazeParam(new URLSearchParams("maze=mazeSmall"))).toBe("mazeSmall");
-    expect(parseMazeParam(new URLSearchParams("maze=mazeLarge"))).toBe("mazeLarge");
     expect(parseMazeParam(new URLSearchParams("maze=classic"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams("maze=nope"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams())).toBeNull();
