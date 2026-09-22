@@ -48,7 +48,7 @@ Prefer: consolidate into the existing helper; delete the new twin.
 - Comments that narrate what the next line does (out of scope for this skill —
   use `/no-comments`)
 
-## Layer & architecture (pac-rogue)
+## Layer & architecture (Dot-Man)
 
 Flag when the PR introduces or worsens:
 

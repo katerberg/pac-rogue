@@ -45,7 +45,7 @@ research (silent) → one dump (Decide + Proposed locks) → wait → lock + pla
 
 Spend the turn on the **current world**, not on guessing.
 
-- Read existing `docs/`, `.cursor/plans/`, README “Where do I…?”, and nearby code.
+- Read existing `docs/`, README “Where do I…?”, and nearby code.
 - Explore in parallel (subagents / greps) when the surface is large.
 - Note what already exists that the feature might reuse or break.
 
@@ -90,7 +90,7 @@ After answers (or “lock defaults”):
 
 Every plan includes a **docs** deliverable (`docs/`, README, folder READMEs) or **Docs: none** plus a one-line reason. Same PR as the code when the host repo expects that.
 
-Every **code-changing** plan ends with `/simplify-pr` then `/no-comments` on the scoped diff (see those skills). Skip both only for pure docs/tooling plans that touch no `src/` application code.
+Every **code-changing** plan ends with the `ship-plan` skill. The plan will likely be implemented by an unattended cloud agent, so all questions are asked **before** the lock; the plan itself must be fully self-contained.
 
 ## Harness notes
 
@@ -98,7 +98,7 @@ Every **code-changing** plan ends with `/simplify-pr` then `/no-comments` on the
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Cursor Plan mode**           | Research + dump in chat. **Do not** `CreatePlan` until after answers. Ignore the 1–2-question default. After lock, `CreatePlan` with a complete plan (no questions inside). |
 | **Cursor Agent / Cloud**       | Same phases. If you must emit a file before answers, write `INTERROGATION` only (Decide + Proposed locks + “plan after answers”) — never a fake complete plan.              |
-| **Claude Code, Codex, others** | Same phases. After lock, write `.cursor/plans/<name>.plan.md` (or the repo’s usual plans dir). No Cursor-only tools required.                                               |
+| **Claude Code, Codex, others** | Same phases. No Cursor-only tools required.                                                                                                                                 |
 
 If a tool **forces** a plan artifact on the first turn: the artifact is the interrogation stub, not the implementation plan.
 
@@ -110,7 +110,8 @@ If a tool **forces** a plan artifact on the first turn: the artifact is the inte
 - Omitting the Proposed locks section
 - “Any other preferences?” as a substitute for lens coverage
 - Creating todos for code/tests and omitting docs
-- Omitting `/simplify-pr` or `/no-comments` from a code-changing plan
+- Omitting the `ship-plan` step from a code-changing plan
+- A plan whose acceptance tests do not say how to check runtime behavior (which `npm run probe` query/steps, or which flags)
 - Implementation starting during the question round
 
 ## Done when
@@ -118,4 +119,4 @@ If a tool **forces** a plan artifact on the first turn: the artifact is the inte
 - User received one Decide + Proposed locks dump covering the lenses
 - Plan has **zero** unresolved choices
 - A weaker model could implement from files + tests + docs sections alone
-- Code-changing plans name `/simplify-pr` then `/no-comments` as late steps
+- Code-changing plans end with the `ship-plan` step and give a concrete live-check recipe (probe query + steps) for gameplay/presentation changes

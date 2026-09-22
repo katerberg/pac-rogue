@@ -1,11 +1,8 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const ports = JSON.parse(readFileSync(join(root, "scripts", "ports.json"), "utf8"));
+import { chromiumLaunchOptions, ports, root, stopProcess, waitForServer } from "./lib/server.mjs";
 const playArtifactPath = join(root, "artifacts", "visual-smoke.png");
 const menuArtifactPath = join(root, "artifacts", "visual-smoke-menu.png");
 const url = `http://127.0.0.1:${ports.agentPreview}/?maze=maze1`;
@@ -14,44 +11,6 @@ const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 const MENU_START_X = GAME_WIDTH / 2;
 const MENU_START_Y = 280;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForServer(timeoutMs = 30_000) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // server not ready
-    }
-    await sleep(250);
-  }
-  throw new Error(`Timed out waiting for preview server at ${url}`);
-}
-
-async function stopPreview(preview) {
-  if (preview.exitCode !== null || preview.signalCode !== null) {
-    return;
-  }
-
-  const exited = new Promise((resolve) => {
-    preview.once("exit", resolve);
-  });
-
-  preview.kill("SIGTERM");
-  const timedOut = await Promise.race([exited.then(() => false), sleep(2_000).then(() => true)]);
-
-  if (timedOut) {
-    preview.kill("SIGKILL");
-    await Promise.race([exited, sleep(1_000)]);
-  }
-}
 
 async function clickGamePoint(page, canvas, gameX, gameY) {
   const box = await canvas.boundingBox();
@@ -97,9 +56,9 @@ async function main() {
   });
 
   try {
-    await waitForServer();
+    await waitForServer(url);
 
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({ headless: true, ...chromiumLaunchOptions() });
     const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
     await page.goto(url, { waitUntil: "networkidle" });
     await page.waitForSelector("canvas", { timeout: 15_000 });
@@ -124,7 +83,7 @@ async function main() {
     }
     throw error;
   } finally {
-    await stopPreview(preview);
+    await stopProcess(preview);
   }
 }
 

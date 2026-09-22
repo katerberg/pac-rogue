@@ -1,0 +1,6 @@
+---
+description: Every code-changing plan must end with the ship-plan skill
+alwaysApply: true
+---
+
+Every implementation plan for this project that changes application code must end with a step that runs the `ship-plan` skill (`.agents/skills/ship-plan/SKILL.md`). Do not call the plan or implementation done until it has run and the PR exists.

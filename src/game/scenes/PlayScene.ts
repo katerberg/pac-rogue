@@ -194,6 +194,8 @@ export class PlayScene extends Phaser.Scene {
   private afterLifeRelease = false;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private upgradeChoiceModal!: UpgradeChoiceModal;
+  private keyEsc!: Phaser.Input.Keyboard.Key;
+  private sirenWasActiveBeforePause = false;
 
   constructor() {
     super("PlayScene");
@@ -255,6 +257,8 @@ export class PlayScene extends Phaser.Scene {
     this.runPlayerInput = playerInput.apply;
     this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
     this.suppressPlayerInputUntilKeyRelease = false;
+    this.sirenWasActiveBeforePause = false;
+    this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.playRender = createRender(this);
 
     this.startBoard(mazeOverride);
@@ -272,6 +276,11 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
+      this.pauseForMenu();
+      return;
+    }
+
     if (this.death !== null) {
       const tick = tickDeathSequence(this.death, delta);
       this.death = tick.state;
@@ -380,8 +389,10 @@ export class PlayScene extends Phaser.Scene {
     }
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, () =>
-        Math.random(),
+      const bonusEids = collectExtraPellets(
+        this.world,
+        powerEffects.collectExtraPellets,
+        playerSolidsOverride ?? getActiveLayout().playerSolids,
       );
       for (const eid of bonusEids) {
         this.playRender.releaseDrawable(eid);
@@ -512,6 +523,25 @@ export class PlayScene extends Phaser.Scene {
       }
       this.death = beginDeathSequence(result.gameOver);
     }
+  }
+
+  private pauseForMenu(): void {
+    this.sirenWasActiveBeforePause =
+      this.game.config.audio.noAudio !== true && this.sound.isPlaying("siren");
+    stopLoopingSfx(this, "siren");
+    this.scene.pause();
+    this.scene.launch("PauseScene");
+  }
+
+  public resumeFromPauseMenu(): void {
+    this.suppressPlayerInputUntilKeyRelease = true;
+    if (this.upgradeChoiceModal.isActive()) {
+      this.upgradeChoiceModal.rearmSelectionKeys();
+    }
+    if (this.sirenWasActiveBeforePause) {
+      startLoopingSfx(this, "siren");
+    }
+    this.scene.resume();
   }
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
