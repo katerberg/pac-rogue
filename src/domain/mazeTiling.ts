@@ -1,5 +1,5 @@
 export const TILING_WIDTH = 9;
-export const TILING_HEIGHT = 10;
+export const TILING_HEIGHT = 11;
 export const TILING_START_ROW = TILING_HEIGHT - 2;
 export const TILING_CELL_COUNT = TILING_WIDTH * TILING_HEIGHT;
 
@@ -72,13 +72,16 @@ const SHAPES: readonly ShapeDef[] = [
 
 export const CENTER_PIECE: TilingPiece = {
   type: "center",
-  cells: [39, 40, 41, 48, 49, 50],
+  cells: [48, 49, 50, 57, 58, 59],
 };
 
+// Pellet density comes from piece boundaries: every pair of touching cells that
+// belong to different pieces becomes corridor, and cells inside one piece become
+// wall. Small pieces therefore mean more maze, so the draw leans on dominoes.
 const SHAPE_WEIGHTS: Record<ShapeId, number> = {
-  domino: 1,
-  straight: 1,
-  t: 4,
+  domino: 8,
+  straight: 2,
+  t: 1,
   c: 1,
   l: 4,
 };

@@ -64,13 +64,14 @@ Fruit / Inky / Clyde / Elroy pellet thresholds scale vs maze1 pellet count (unch
 
 ## Procedural (levels ≥ 2)
 
-- Tiling solver on a 9×10 mirrored polyomino grid with a fixed center house, rasterized to **28×31** ASCII (2×2 wall cells, 1-cell corridors, outer border).
+- Tiling solver on a 9×11 mirrored polyomino grid with a fixed center house, rasterized to **28×34** ASCII (2×2 wall cells, 1-cell corridors, outer border) → tile 16, gutter 176.
+- **Density:** aim for `GENERATED_PELLET_TARGET` (240, near classic maze1's 244). Corridor comes from piece boundaries, so the shape draw leans on small pieces; the attempt loop returns the first board at or above the target and otherwise the densest board it saw. Delivered boards run ~226–252 pellets, mean ~240.
 - Horizontal tunnels only; **1 or 2** tunnel rows, and only on the tiling's corridor rows (`1 + sy*3 + 2`), which keeps them ≥ 3 apart and stops a tunnel from running alongside the corridor row next to it.
 - **No parallel corridors:** no 2×2 block of player-open cells anywhere. Two side-by-side lanes read as a double line rather than a maze; a 2×2 open block is exactly that case, and plus/T intersections never form one. Checked on `playerSolids` (so it covers what the player can actually reach) and rejected, not patched. This subsumes the older “no 2×2 pellet blocks” rule.
-- The house stamp fills the solver's center piece exactly (rows 13–17, cols 10–17), so the corridor rows above and below it are the door approach and the fruit row — no carving, which is what used to produce parallel corridors under the house.
+- The house stamp fills the solver's center piece exactly (rows 16–20, cols 10–17), so the corridor rows above and below it are the door approach and the fruit row — no carving, which is what used to produce parallel corridors under the house.
 - Corridor pellets: no house-adjacent dots, none orthogonally touching the spawn; interior wall runs prefer thickness ≥ 2; spawn marked `P`.
 - **No dead ends:** after tunnels, iteratively wall-fill every player-corridor cell with orthogonal degree &lt; 2 (and its mirror) until none remain; reject the candidate if ASCII or `playerSolids` still has a tip.
-- Deterministic from `boardMazeSeed(runSeed, levelIndex)` with up to 32 attempt suffixes; on total failure fall back to `maze2` and `console.warn`.
+- Deterministic from `boardMazeSeed(runSeed, levelIndex)` with up to 32 attempt suffixes (~110ms per board); fall back to `maze2` and `console.warn` only when no attempt produces a valid board.
 - Level 1 stays `mazeSmall` (or `?maze=` override). `?maze=` still forces the first board of a Start at any level.
 
 ## Layout ids

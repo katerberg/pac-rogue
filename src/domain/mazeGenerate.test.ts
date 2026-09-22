@@ -12,6 +12,7 @@ import {
   GENERATED_MAZE_COLS,
   GENERATED_MAZE_ROWS,
   findParallelCorridor,
+  GENERATED_PELLET_TARGET,
   generateMazeAsciiWithRetries,
   hasThinInteriorWallSeparator,
   resolveBoardSelection,
@@ -145,6 +146,17 @@ describe("mazeGenerate", () => {
         }
       }
     }
+  }, 60_000);
+
+  it("lands near the pellet target across seeds", () => {
+    const counts = Array.from({ length: 24 }, (_, i) => {
+      const result = generateMazeAsciiWithRetries(`density-${i}`);
+      expect(result, `seed density-${i}`).not.toBeNull();
+      return activateAsciiLayout(result!.ascii).pelletCount;
+    });
+    const mean = counts.reduce((sum, count) => sum + count, 0) / counts.length;
+    expect(mean).toBeGreaterThan(GENERATED_PELLET_TARGET - 15);
+    expect(Math.min(...counts)).toBeGreaterThan(GENERATED_PELLET_TARGET - 30);
   }, 60_000);
 
   it("same seed yields identical ascii", () => {

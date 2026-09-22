@@ -9,8 +9,11 @@ import {
 } from "./mazeTiling";
 
 export const GENERATED_MAZE_COLS = 28;
-export const GENERATED_MAZE_ROWS = 31;
+export const GENERATED_MAZE_ROWS = 34;
 export const GENERATE_MAX_ATTEMPTS = 32;
+// Classic maze1 carries 244 pellets. Boards below this read as undersized, so the
+// attempt loop keeps drawing until one clears it and otherwise takes the densest.
+export const GENERATED_PELLET_TARGET = 240;
 
 const WALL = "#";
 const CORRIDOR = "-";
@@ -25,7 +28,7 @@ const HOUSE_STAMP_COL0 = 10;
 // The stamp fills the solver center piece exactly, so the gap rows just above and
 // below it are already corridors: the door opens onto one, the fruit sits on the
 // other, and neither needs carving.
-const HOUSE_STAMP_ROW0 = 13;
+const HOUSE_STAMP_ROW0 = 16;
 
 function emptyGrid(cols: number, rows: number, fill: string): string[][] {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => fill));
@@ -559,7 +562,7 @@ export function boardMazeSeed(runSeed: string, levelIndex: number): string {
   return `${runSeed}:L${levelIndex}`;
 }
 
-export function generateMazeAscii(seed: string): string {
+export function generateMazeAscii(seed: string): { ascii: string; pelletCount: number } {
   const tiling = solveTiling(seed);
   const grid = emptyGrid(GENERATED_MAZE_COLS, GENERATED_MAZE_ROWS, WALL);
   fillTilingWalls(grid, tiling.pieces);
@@ -621,23 +624,30 @@ export function generateMazeAscii(seed: string): string {
     throw new Error(`too few pellets ${layout.pelletCount}`);
   }
 
-  return ascii;
+  return { ascii, pelletCount: layout.pelletCount };
 }
 
 export function generateMazeAsciiWithRetries(
   seed: string,
   maxAttempts: number = GENERATE_MAX_ATTEMPTS,
 ): { ascii: string; seedUsed: string } | null {
+  let best: { ascii: string; seedUsed: string; pelletCount: number } | null = null;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const seedUsed = attempt === 0 ? seed : `${seed}#${attempt}`;
+    let board: { ascii: string; pelletCount: number };
     try {
-      const ascii = generateMazeAscii(seedUsed);
-      return { ascii, seedUsed };
+      board = generateMazeAscii(seedUsed);
     } catch {
       continue;
     }
+    if (board.pelletCount >= GENERATED_PELLET_TARGET) {
+      return { ascii: board.ascii, seedUsed };
+    }
+    if (!best || board.pelletCount > best.pelletCount) {
+      best = { ascii: board.ascii, seedUsed, pelletCount: board.pelletCount };
+    }
   }
-  return null;
+  return best ? { ascii: best.ascii, seedUsed: best.seedUsed } : null;
 }
 
 export type BoardSelection =

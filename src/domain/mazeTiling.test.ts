@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { solveTiling, tilingOptionCount } from "./mazeTiling";
+import { solveTiling, TILING_CELL_COUNT, tilingOptionCount } from "./mazeTiling";
 
 describe("mazeTiling", () => {
   it("builds a non-empty option set", () => {
@@ -12,7 +12,7 @@ describe("mazeTiling", () => {
       expect(result.pieces.length).toBeGreaterThan(1);
       expect(result.pieces.some((piece) => piece.type === "center")).toBe(true);
       const covered = new Set(result.pieces.flatMap((piece) => piece.cells));
-      expect(covered.size).toBe(90);
+      expect(covered.size).toBe(TILING_CELL_COUNT);
     }
   });
 
