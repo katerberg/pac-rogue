@@ -48,9 +48,15 @@ import {
 import {
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
+  invertMazeAscii,
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
-import { ghostKindsForLevel, ghostSpeedLevelMul, MAX_LEVEL } from "../../domain/levelRules";
+import {
+  ghostKindsForLevel,
+  ghostSpeedLevelMul,
+  isInvertedMazeLevel,
+  MAX_LEVEL,
+} from "../../domain/levelRules";
 import { parseQuartersParam } from "../../domain/quartersFlag";
 import { parseLevelParam } from "../../domain/runLevel";
 import {
@@ -621,7 +627,10 @@ export class PlayScene extends Phaser.Scene {
       const generated = generateMazeAsciiWithRetries(selection.seed);
       if (generated) {
         try {
-          activateAsciiLayout(generated.ascii);
+          const ascii = isInvertedMazeLevel(this.levelIndex)
+            ? invertMazeAscii(generated.ascii)
+            : generated.ascii;
+          activateAsciiLayout(ascii);
         } catch (error) {
           console.warn(
             `maze activate failed for seed ${generated.seedUsed}; falling back to maze2`,

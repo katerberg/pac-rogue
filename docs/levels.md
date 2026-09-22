@@ -9,6 +9,10 @@ The run is a fixed 8-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../
 | 3-7   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                | present (awards Quarters) | Pick-one upgrade-choice modal (if eligible), then advance to the next level                         |
 | 8     | Procedural 28×34               | All four                                             | present (awards Quarters) | Pick-one upgrade-choice modal (if eligible), then a `RUN COMPLETE` screen and return to `MenuScene` |
 
+## Inverted maze (levels 6-7)
+
+`isInvertedMazeLevel(levelIndex)` in `levelRules.ts` marks levels 6 and 7. For those levels, `PlayScene.startBoard()` row-reverses the generated board (`invertMazeAscii` in `mazeGenerate.ts`) before activating it: the player spawn and ghost house stamp move with the flip, so the player starts near the top of the maze and the ghost house door opens downward instead of upward. `deriveGhostHouseExit` and `deriveFruitSpawn` in `maze.ts` derive the exit/fruit direction from the ascii (which side of the door/house has the open corridor) rather than assuming "up"/"down", and `canGhostEnterDirection`'s one-way door rule blocks re-entry toward the house floor regardless of which way that is — so both orientations behave correctly without a maze-generation retry. Layout overrides (`?maze=`) are never inverted, only the procedural board.
+
 ## Second ghost (level 2)
 
 `PlayScene.create()` picks `secondGhostKind` once per run — 50/50 Pinky or Inky via `Math.random()` — and holds it for the whole run (including level advances). `ghostKindsForLevel(levelIndex, secondGhostKind)` in `levelRules.ts` uses it only for level 2; levels 3+ always spawn all four regardless of the value.
