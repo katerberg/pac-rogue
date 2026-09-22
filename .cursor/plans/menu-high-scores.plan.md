@@ -11,7 +11,7 @@
 | 5   | Empty history → single line **`NO SCORES YET`** (no scroll).                                                                                                                                                                             |
 | 6   | Menu + High Scores input: **keyboard and pointer**.                                                                                                                                                                                      |
 | 7   | **No** Play → Menu exit in this PR.                                                                                                                                                                                                      |
-| 8   | Splash title: **`PAC-ROGUE`**.                                                                                                                                                                                                           |
+| 8   | Splash title: **`DOT-MAN`**.                                                                                                                                                                                                             |
 | 9   | Font: **existing** Phaser `Text` monospace style (same family/size language as HUD; title larger). No new font assets.                                                                                                                   |
 | 10  | Scroll: **pause briefly at top**, then scroll up so content leaves through the top and the **bottom trails off** (a few rows of empty trail after the last score), then **loop** back to top + pause. Domain state machine + unit tests. |
 | 11  | Implement **separate `HighScoresScene`** (Option 1 below). Option 2 documented for posterity; not built.                                                                                                                                 |
@@ -75,7 +75,7 @@ No new npm dependencies. No DOM menu overlay.
 ## MenuScene behavior
 
 1. Background: existing game `backgroundColor` (`#1a1a2e`).
-2. Top: `PAC-ROGUE` in shared title style (monospace, larger than HUD `16px`, e.g. `32px`, white).
+2. Top: `DOT-MAN` in shared title style (monospace, larger than HUD `16px`, e.g. `32px`, white).
 3. Below: two options — `START`, `HIGH SCORES` — vertically stacked, centered.
 4. Selection highlight: selected row brighter / `>` prefix or color `#ffff00`; unselected white/dim.
 5. Keyboard: ↑/↓ or W/S move selection; Enter/Space activate.
@@ -190,7 +190,7 @@ Update [`README.md`](README.md) Status one-liner accordingly.
 
 Evidence:
 
-1. Boot lands on `PAC-ROGUE` menu (not maze).
+1. Boot lands on `DOT-MAN` menu (not maze).
 2. Keyboard + click: Start → playfield/HUD like today; High Scores → list; Back → menu.
 3. With ≤5 seeded runs: static list; with >5: pause then slow scroll + loop (seed via DevTools/`localStorage` or a tiny test helper only in unit tests — do not ship debug cheats).
 4. Read `artifacts/visual-smoke.png` after verify (menu first paint).
@@ -217,7 +217,7 @@ Evidence:
 
 ## Acceptance checklist
 
-- [ ] Cold boot → Menu with `PAC-ROGUE`, Start, High Scores.
+- [ ] Cold boot → Menu with `DOT-MAN`, Start, High Scores.
 - [ ] Start → PlayScene gameplay unchanged (ECS pipeline intact).
 - [ ] High Scores shows score+date, score desc; empty → `NO SCORES YET`.
 - [ ] ≤5 static; >5 pause-at-top then scroll with trail loop (unit tests green).
