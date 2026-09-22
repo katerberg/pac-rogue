@@ -21,9 +21,14 @@ must actually pass before moving on.
 2. **`simplify-pr`** on the scoped diff. Apply in-scope cuts.
 3. **`no-comments`** on the scoped diff.
 4. **Verify again** (`npm run verify`; rerun the probe if runtime code changed).
-5. **`pr-review`** against `main`. Keep the ranked findings in this conversation.
-6. **`fix-pr-findings`** using those findings. Fix only in-scope, worth-it items.
-   List everything skipped or contentious for the PR body.
+5. **`pr-review`** against `main`. Write its full ranked findings (or an
+   explicit "no findings" line) to `artifacts/pr-review.md` — this is the
+   tracked record, not a side effect of the conversation scrolling past it.
+   Do not summarize it away in your own words yet; the raw findings are what
+   `fix-pr-findings` triages next.
+6. **`fix-pr-findings`** using those findings. Fix only in-scope, worth-it
+   items. Capture its full report (fixed / hollered / skipped, per its own
+   output format) — this is what step 8 must surface, not paraphrase.
 7. **Verify a final time.** Re-run the probe if fixes touched runtime code.
 8. **Push and open the PR** (below).
 
@@ -45,11 +50,22 @@ exact output. A draft with an honest failure beats a green-looking PR.
   name and the GitHub compare URL. Do not claim a PR exists.
 - PR body sections: **Summary**, **Verification** (commands run + result, and for
   gameplay work: what the probe launched, which keys/flags, what the screenshots
-  showed), **Review pass** (what `pr-review` found, what `fix-pr-findings`
-  fixed, what it deliberately left), **Skipped / needs a human**.
+  showed), **Review pass** (`pr-review`'s findings verbatim or linked from
+  `artifacts/pr-review.md`, plus `fix-pr-findings`' full fixed/hollered/skipped
+  breakdown), **Skipped / needs a human** (every **Holler** and **Skip** item
+  from `fix-pr-findings`, named individually — never collapsed to "nothing to
+  fix" if anything was hollered or skipped).
 - Screenshots under `artifacts/` are gitignored; describe them in text. CI's
   sticky comment attaches the smoke image.
 - After opening, use `gh pr checks` to read CI once. If `verify` failed in CI,
   fix and push; do not merge and do not enable auto-merge.
+- **Final chat message to the user** (separate from the PR body, which they
+  may not open) must include: the `pr-review` verdict and finding count (or
+  "no findings"), and `fix-pr-findings`' fixed/hollered/skipped counts with
+  every hollered/skipped item named — the same list that went in "Skipped /
+  needs a human." Never let this collapse to just the PR link; the point is
+  the user sees what was deferred without needing to click through.
 
-Done means the PR URL exists, its body has all four sections, and the last `npm run verify` exit 0 was observed in this session.
+Done means the PR URL exists, its body has all four sections, `artifacts/pr-review.md`
+records the review pass, the final chat message names every deferred/hollered/
+skipped finding, and the last `npm run verify` exit 0 was observed in this session.
