@@ -40,13 +40,7 @@ export class MenuScene extends Phaser.Scene {
     this.upRepeat = createKeyRepeatState();
     this.downRepeat = createKeyRepeatState();
 
-    this.titleText = addPixelText(
-      this,
-      PLAYFIELD_WIDTH / 2,
-      120,
-      "PAC-ROGUE",
-      MENU_TITLE_FONT_SIZE,
-    );
+    this.titleText = addPixelText(this, PLAYFIELD_WIDTH / 2, 120, "DOT-MAN", MENU_TITLE_FONT_SIZE);
     placePixelText(this.titleText, PLAYFIELD_WIDTH / 2, 120, 0.5, 0.5);
 
     const startY = 280;

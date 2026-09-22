@@ -1,6 +1,6 @@
 # Architecture
 
-Current shape of pac-rogue. Keep this document short and truthful — update it when the structure changes.
+Current shape of Dot-Man. Keep this document short and truthful — update it when the structure changes.
 
 ## Goals
 
@@ -213,7 +213,7 @@ A violation of these is a failed architecture check:
 
 ## Current runtime
 
-- Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores / Settings), or on `PlayScene` when `?play=1`. Start opens `PlayScene`; High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage).
+- Boot lands on `MenuScene` (`DOT-MAN` title, Start / High Scores / Settings), or on `PlayScene` when `?play=1`. Start opens `PlayScene`; High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage).
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
 - Escape during `PlayScene` always opens `PauseScene` (dims the paused board) — Resume returns control immediately; Settings reuses `SettingsScene` and returns to the pause menu; Quit turns its row into an inline `SURE?  YES  NO` (default NO, Up cancels back to Settings) and, if confirmed, ends the run and returns to `MenuScene` without writing a high-score entry. Pausing works mid-death-sequence, mid-level-transition, and mid-upgrade-modal alike.
 - Rectangular maze (per-layout cols/rows; tile size from fit under `MAZE_TOP_MARGIN_PX`, then centered in the leftover 800×600 band; reject if tile `< 12` or left gutter `< 80` — see [maze-constraints.md](./maze-constraints.md)) with stroked walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_TOP_MARGIN_PX`, `MAZE_BACKGROUND_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `WALL_CORNER_CURVE_KIND`, `WALL_INSET_PX` (pull stroke into wall tiles), `PLAYER_WALL_PADDING_PX` (actor display size only), `pelletDisplaySize()` / `powerPelletDisplaySize()` (clamped to tile). Dual solids (player blocked from house/door; ghosts allowed), horizontal tunnels.

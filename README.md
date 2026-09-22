@@ -1,4 +1,4 @@
-# pac-rogue
+# Dot-Man
 
 Phaser + bitECS 0.4 Pac-Man-like game. One player entity traverses a static maze; ECS owns position, facing, and velocity.
 
@@ -16,8 +16,8 @@ npx playwright install chromium
 
 | Command                    | Purpose                                         |
 | -------------------------- | ----------------------------------------------- |
-| `npm run dev`              | Human dev server — http://127.0.0.1:5173        |
-| `npm run dev:agent`        | Agent dev server — http://127.0.0.1:5174        |
+| `npm run dev`              | Human dev server — <http://127.0.0.1:5173>      |
+| `npm run dev:agent`        | Agent dev server — <http://127.0.0.1:5174>      |
 | `npm run build`            | Typecheck + production build → `dist/`          |
 | `npm run preview`          | Human production preview — :4173                |
 | `npm run preview:agent`    | Agent production preview — :4174                |
@@ -86,7 +86,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 
 ## Status
 
-Boots to a `PAC-ROGUE` menu (Start / High Scores / Settings). Escape during play opens a pause menu (Resume, Settings, Quit with an inline Yes/No confirm); quitting never writes a high score. Start opens level-1 `mazeSmall` (no bonus fruit; override first board with `?maze=`; start later with `?level=`). Clearing all pellets advances to a random `maze1`/`maze2` board in the same run (carry lives, upgrades, lifetime Collected; ghosts +10% speed per level; Time resets). High Scores lists Game Over runs from localStorage (lifetime pellets desc, then remaining time desc). Settings stores music (siren) and SFX enable/volume (0–10) in localStorage (`pac-rogue.audio-settings.v1`; agent ports still mute unless `?sound=1`). ECS Pac-Man traverses the active maze (blue pipe walls, centerline movement, sticky next-direction turns, side tunnels with wrap). From level 2+, bonus fruit at board pellet thresholds opens a pick-one upgrade modal (see [docs/upgrades.md](./docs/upgrades.md)). Three lives; mid-life reset keeps pellets; last-life Game Over writes high score. Ghosts unlock by level (Blinky → Pinky → Inky → Clyde; all four from level 4+); shared house spawn for present kinds; Blinky/Pinky time release (0.1s / 5s); Inky leaves after layout-scaled pellets (maze1 baseline 30) or 7s post-life; Clyde leaves after layout-scaled pellets (maze1 baseline 60) or 9s post-life; Inky chase uses Blinky’s tile doubled through a 2-tile Pac look-ahead, SE scatter `(27, 33)`. Power pellets are inert unless an owned upgrade reacts; no arcade fright yet. Dev URL flags: [Flags](#flags).
+Boots to a `DOT-MAN` menu (Start / High Scores / Settings). Escape during play opens a pause menu (Resume, Settings, Quit with an inline Yes/No confirm); quitting never writes a high score. Start opens level-1 `mazeSmall` (no bonus fruit; override first board with `?maze=`; start later with `?level=`). Clearing all pellets advances to a random `maze1`/`maze2` board in the same run (carry lives, upgrades, lifetime Collected; ghosts +10% speed per level; Time resets). High Scores lists Game Over runs from localStorage (lifetime pellets desc, then remaining time desc). Settings stores music (siren) and SFX enable/volume (0–10) in localStorage (`pac-rogue.audio-settings.v1`; agent ports still mute unless `?sound=1`). ECS Pac-Man traverses the active maze (blue pipe walls, centerline movement, sticky next-direction turns, side tunnels with wrap). From level 2+, bonus fruit at board pellet thresholds opens a pick-one upgrade modal (see [docs/upgrades.md](./docs/upgrades.md)). Three lives; mid-life reset keeps pellets; last-life Game Over writes high score. Ghosts unlock by level (Blinky → Pinky → Inky → Clyde; all four from level 4+); shared house spawn for present kinds; Blinky/Pinky time release (0.1s / 5s); Inky leaves after layout-scaled pellets (maze1 baseline 30) or 7s post-life; Clyde leaves after layout-scaled pellets (maze1 baseline 60) or 9s post-life; Inky chase uses Blinky’s tile doubled through a 2-tile Pac look-ahead, SE scatter `(27, 33)`. Power pellets are inert unless an owned upgrade reacts; no arcade fright yet. Dev URL flags: [Flags](#flags).
 
 ## Art
 
