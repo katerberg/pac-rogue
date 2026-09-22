@@ -11,6 +11,7 @@ import {
   GENERATE_MAX_ATTEMPTS,
   GENERATED_MAZE_COLS,
   GENERATED_MAZE_ROWS,
+  findParallelCorridor,
   generateMazeAsciiWithRetries,
   hasThinInteriorWallSeparator,
   resolveBoardSelection,
@@ -44,6 +45,18 @@ describe("mazeGenerate", () => {
     expect(hasThinInteriorWallSeparator(thick)).toBe(false);
   });
 
+  it("findParallelCorridor allows intersections but rejects side-by-side lanes", () => {
+    const solids = (rows: string[]) => rows.map((line) => [...line].map((ch) => ch === "#"));
+    const cross = ["##-##", "##-##", "-----", "##-##", "##-##"];
+    expect(findParallelCorridor(solids(cross))).toBeNull();
+    const tee = ["#####", "-----", "##-##", "##-##", "#####"];
+    expect(findParallelCorridor(solids(tee))).toBeNull();
+    const doubleLane = ["#####", "-----", "-----", "#####", "#####"];
+    expect(findParallelCorridor(solids(doubleLane))).toEqual({ col: 0, row: 1 });
+    const corner = ["#####", "##---", "##--#", "#####", "#####"];
+    expect(findParallelCorridor(solids(corner))).toEqual({ col: 2, row: 1 });
+  });
+
   it("generateMazeAsciiWithRetries succeeds for many seeds and satisfies invariants", () => {
     const seeds = Array.from({ length: 20 }, (_, i) => `batch-${i}`);
     for (const seed of seeds) {
@@ -68,6 +81,22 @@ describe("mazeGenerate", () => {
 
       const layout = activateAsciiLayout(ascii);
       expect(layout.id).toBe("generated");
+      expect(findParallelCorridor(layout.playerSolids), `seed ${seed}`).toBeNull();
+
+      const spawnIndex = ascii.replace(/\n/g, "").indexOf("P");
+      const spawnCol = spawnIndex % GENERATED_MAZE_COLS;
+      const spawnRow = Math.floor(spawnIndex / GENERATED_MAZE_COLS);
+      for (const [dc, dr] of [
+        [0, -1],
+        [0, 1],
+        [-1, 0],
+        [1, 0],
+      ] as const) {
+        const neighbor = lines[spawnRow + dr]?.[spawnCol + dc] ?? "#";
+        expect(".@", `pellet beside spawn at ${spawnCol + dc},${spawnRow + dr}`).not.toContain(
+          neighbor,
+        );
+      }
       expect(layout.pelletCount).toBeGreaterThan(0);
       expect(isWalkable(layout.playerSpawn.col, layout.playerSpawn.row, layout.playerSolids)).toBe(
         true,

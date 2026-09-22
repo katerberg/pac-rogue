@@ -1,4 +1,4 @@
-import { computeMazeGeometry, layoutFromAscii, type MazeLayout } from "./maze";
+import { computeMazeGeometry, layoutFromAscii, type MazeLayout, type SolidGrid } from "./maze";
 import { pickLayoutId, type MazeLayoutId } from "./mazeLayouts";
 import {
   randomFromSeed,
@@ -22,7 +22,10 @@ const SPAWN = "P";
 
 const HOUSE_STAMP: readonly string[] = ["###==###", "#HHHHHH#", "#HHHHHH#", "#HHHHHH#", "########"];
 const HOUSE_STAMP_COL0 = 10;
-const HOUSE_STAMP_ROW0 = 12;
+// The stamp fills the solver center piece exactly, so the gap rows just above and
+// below it are already corridors: the door opens onto one, the fruit sits on the
+// other, and neither needs carving.
+const HOUSE_STAMP_ROW0 = 13;
 
 function emptyGrid(cols: number, rows: number, fill: string): string[][] {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => fill));
@@ -129,32 +132,24 @@ function isWalkableChar(ch: string): boolean {
   return ch === CORRIDOR || ch === PELLET || ch === POWER || ch === SPAWN || ch === " ";
 }
 
-function pickTunnelRows(seed: string, houseRows: Set<number>): number[] {
+// Tunnels ride the tiling's corridor rows. Carving one through a wall row would put
+// it alongside the corridor row next to it, which is the parallel-corridor case.
+function pickTunnelRows(seed: string, houseRows: ReadonlySet<number>): number[] {
   const random = randomFromSeed(`tunnels:${seed}`);
-  const powerRows = new Set([1, GENERATED_MAZE_ROWS - 2]);
-  const candidates: number[] = [];
-  for (let row = 2; row < GENERATED_MAZE_ROWS - 2; row += 1) {
-    if (powerRows.has(row) || houseRows.has(row)) {
-      continue;
+  const pool: number[] = [];
+  for (let sy = 0; sy + 1 < TILING_HEIGHT; sy += 1) {
+    const row = solverCellOrigin(0, sy).row + 2;
+    if (!houseRows.has(row)) {
+      pool.push(row);
     }
-    candidates.push(row);
   }
-  if (candidates.length === 0) {
+  if (pool.length === 0) {
     throw new Error("no tunnel candidate rows");
   }
   const count = random() < 0.5 ? 1 : 2;
   const chosen: number[] = [];
-  const pool = [...candidates];
   while (chosen.length < count && pool.length > 0) {
-    const index = Math.floor(random() * pool.length);
-    const row = pool.splice(index, 1)[0]!;
-    if (chosen.some((existing) => Math.abs(existing - row) <= 1)) {
-      continue;
-    }
-    chosen.push(row);
-  }
-  if (chosen.length === 0) {
-    chosen.push(candidates[Math.floor(random() * candidates.length)]!);
+    chosen.push(pool.splice(Math.floor(random() * pool.length), 1)[0]!);
   }
   return chosen.sort((a, b) => a - b);
 }
@@ -263,37 +258,6 @@ function sealDeadEnds(grid: string[][]): void {
   }
 }
 
-function carveHouseApproach(grid: string[][]): void {
-  const doorMidCol = HOUSE_STAMP_COL0 + 3;
-  const exitRow = HOUSE_STAMP_ROW0 - 1;
-  const fruitRow = HOUSE_STAMP_ROW0 + HOUSE_STAMP.length;
-  const cols = grid[0]!.length;
-  if (exitRow > 0) {
-    for (let col = HOUSE_STAMP_COL0; col < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length; col += 1) {
-      if (grid[exitRow]![col] === WALL) {
-        grid[exitRow]![col] = CORRIDOR;
-      }
-    }
-  }
-  if (fruitRow < grid.length - 1) {
-    for (let col = HOUSE_STAMP_COL0; col < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length; col += 1) {
-      if (grid[fruitRow]![col] === WALL) {
-        grid[fruitRow]![col] = CORRIDOR;
-      }
-    }
-  }
-  for (const row of [exitRow, fruitRow]) {
-    if (row <= 0 || row >= grid.length - 1) {
-      continue;
-    }
-    for (const col of [doorMidCol, doorMidCol + 1, HOUSE_STAMP_COL0 - 1, cols - HOUSE_STAMP_COL0]) {
-      if (col > 0 && col < cols - 1 && grid[row]![col] === WALL) {
-        grid[row]![col] = CORRIDOR;
-      }
-    }
-  }
-}
-
 function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): void {
   const rows = grid.length;
   const cols = grid[0]!.length;
@@ -370,49 +334,21 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
     throw new Error("missing player spawn cell");
   }
   grid[spawn.row]![spawn.col] = SPAWN;
-  const mirrorCol = cols - 1 - spawn.col;
-  if (mirrorCol !== spawn.col) {
-    const mirrorCh = grid[spawn.row]![mirrorCol]!;
-    if (mirrorCh === PELLET || mirrorCh === POWER || mirrorCh === SPAWN) {
-      grid[spawn.row]![mirrorCol] = CORRIDOR;
-    }
-  }
-
-  breakPelletBlocks(grid);
+  clearPelletsAround(grid, spawn.col, spawn.row);
+  clearPelletsAround(grid, cols - 1 - spawn.col, spawn.row);
 }
 
-function breakPelletBlocks(grid: string[][]): void {
-  const rows = grid.length;
-  const cols = grid[0]!.length;
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (let row = 0; row < rows - 1; row += 1) {
-      for (let col = 0; col < Math.ceil(cols / 2); col += 1) {
-        const cells = [
-          { c: col, r: row },
-          { c: col + 1, r: row },
-          { c: col, r: row + 1 },
-          { c: col + 1, r: row + 1 },
-        ];
-        if (
-          cells.every(({ c, r }) => {
-            const ch = grid[r]![c]!;
-            return ch === PELLET || ch === POWER;
-          })
-        ) {
-          const target = cells.find(({ c, r }) => grid[r]![c] === PELLET);
-          if (!target) {
-            continue;
-          }
-          grid[target.r]![target.c] = CORRIDOR;
-          const mirrorCol = cols - 1 - target.c;
-          if (mirrorCol !== target.c && grid[target.r]![mirrorCol] === PELLET) {
-            grid[target.r]![mirrorCol] = CORRIDOR;
-          }
-          changed = true;
-        }
-      }
+function clearPelletsAround(grid: string[][], col: number, row: number): void {
+  for (const [dc, dr] of [
+    [0, 0],
+    [0, -1],
+    [0, 1],
+    [-1, 0],
+    [1, 0],
+  ] as const) {
+    const ch = grid[row + dr]?.[col + dc];
+    if (ch === PELLET || ch === POWER) {
+      grid[row + dr]![col + dc] = CORRIDOR;
     }
   }
 }
@@ -457,24 +393,6 @@ function assertSymmetric(grid: string[][]): void {
       const b = norm(grid[row]![mirrorCol]!);
       if (a !== b) {
         throw new Error(`asymmetric maze at row ${row} cols ${col}/${mirrorCol}`);
-      }
-    }
-  }
-}
-
-function assertNoPelletBlocks(grid: string[][]): void {
-  const rows = grid.length;
-  const cols = grid[0]!.length;
-  for (let row = 0; row < rows - 1; row += 1) {
-    for (let col = 0; col < cols - 1; col += 1) {
-      const cells = [
-        grid[row]![col]!,
-        grid[row]![col + 1]!,
-        grid[row + 1]![col]!,
-        grid[row + 1]![col + 1]!,
-      ];
-      if (cells.every((ch) => ch === PELLET || ch === POWER)) {
-        throw new Error(`pellet block at ${col},${row}`);
       }
     }
   }
@@ -527,6 +445,21 @@ function assertNoDeadEnds(grid: string[][], tunnelRows: readonly number[]): void
       }
     }
   }
+}
+
+// Two corridors running side by side let the player travel parallel to an adjacent
+// lane, which reads as a "double line" rather than a maze. A 2x2 block of open cells
+// is exactly that case, and it is the only one: plus/T intersections never form one.
+export function findParallelCorridor(solids: SolidGrid): { col: number; row: number } | null {
+  const open = (col: number, row: number): boolean => !(solids[row]?.[col] ?? true);
+  for (let row = 0; row < solids.length - 1; row += 1) {
+    for (let col = 0; col < (solids[row]?.length ?? 0) - 1; col += 1) {
+      if (open(col, row) && open(col + 1, row) && open(col, row + 1) && open(col + 1, row + 1)) {
+        return { col, row };
+      }
+    }
+  }
+  return null;
 }
 
 function assertNoDeadEndsOnLayout(layout: MazeLayout): void {
@@ -631,7 +564,6 @@ export function generateMazeAscii(seed: string): string {
   const grid = emptyGrid(GENERATED_MAZE_COLS, GENERATED_MAZE_ROWS, WALL);
   fillTilingWalls(grid, tiling.pieces);
   stampHouse(grid);
-  carveHouseApproach(grid);
 
   const houseRows = new Set<number>();
   for (let r = HOUSE_STAMP_ROW0; r < HOUSE_STAMP_ROW0 + HOUSE_STAMP.length; r += 1) {
@@ -654,7 +586,6 @@ export function generateMazeAscii(seed: string): string {
   placePelletsAndSpawn(grid, sealedTunnels);
 
   assertSymmetric(grid);
-  assertNoPelletBlocks(grid);
   assertNoHouseAdjacentPellets(grid);
   const tunnels = countTunnels(grid);
   if (tunnels.length < 1 || tunnels.length > 2) {
@@ -682,6 +613,10 @@ export function generateMazeAscii(seed: string): string {
 
   const layout = layoutFromAscii(ascii);
   assertNoDeadEndsOnLayout(layout);
+  const parallel = findParallelCorridor(layout.playerSolids);
+  if (parallel) {
+    throw new Error(`parallel corridors at ${parallel.col},${parallel.row}`);
+  }
   if (layout.pelletCount < 120) {
     throw new Error(`too few pellets ${layout.pelletCount}`);
   }
