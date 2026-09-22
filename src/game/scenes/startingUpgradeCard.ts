@@ -20,7 +20,7 @@ import {
 } from "./upgradeChoiceModal";
 
 export const STARTING_UPGRADE_HOLD_MS = 2000;
-export const STARTING_UPGRADE_FADE_MS = 1000;
+export const STARTING_UPGRADE_FADE_MS = 100;
 
 export type StartingUpgradeCard = {
   isActive: () => boolean;
@@ -33,12 +33,23 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
   let elapsedMs = 0;
   let dim: Phaser.GameObjects.Rectangle | null = null;
   let card: Phaser.GameObjects.Container | null = null;
+  let onKeyDown: ((event: KeyboardEvent) => void) | null = null;
 
   const clearViews = (): void => {
+    if (onKeyDown !== null) {
+      scene.input.keyboard?.off("keydown", onKeyDown);
+      onKeyDown = null;
+    }
     dim?.destroy();
     dim = null;
     card?.destroy(true);
     card = null;
+  };
+
+  const beginFade = (): void => {
+    if (elapsedMs < STARTING_UPGRADE_HOLD_MS) {
+      elapsedMs = STARTING_UPGRADE_HOLD_MS;
+    }
   };
 
   return {
@@ -90,6 +101,13 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
       card = scene.add
         .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [bg, header, label, description])
         .setDepth(MODAL_DEPTH + 1);
+      onKeyDown = (event) => {
+        if (event.key === "Escape") {
+          return;
+        }
+        beginFade();
+      };
+      scene.input.keyboard?.on("keydown", onKeyDown);
     },
     tick: (deltaMs) => {
       if (card === null) {
