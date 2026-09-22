@@ -31,4 +31,4 @@ if ! ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/chromium-* >/d
   npx playwright install --with-deps chromium >&2 || npx playwright install chromium >&2
 fi
 
-echo "pac-rogue cloud setup ready (node $(node -v))" >&2
+echo "Dot-Man cloud setup ready (node $(node -v))" >&2

@@ -45,7 +45,7 @@ research (silent) → one dump (Decide + Proposed locks) → wait → lock + pla
 
 Spend the turn on the **current world**, not on guessing.
 
-- Read existing `docs/`, `.cursor/plans/`, README “Where do I…?”, and nearby code.
+- Read existing `docs/`, README “Where do I…?”, and nearby code.
 - Explore in parallel (subagents / greps) when the surface is large.
 - Note what already exists that the feature might reuse or break.
 
@@ -98,7 +98,7 @@ Every **code-changing** plan ends with the `ship-plan` skill. The plan will like
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Cursor Plan mode**           | Research + dump in chat. **Do not** `CreatePlan` until after answers. Ignore the 1–2-question default. After lock, `CreatePlan` with a complete plan (no questions inside). |
 | **Cursor Agent / Cloud**       | Same phases. If you must emit a file before answers, write `INTERROGATION` only (Decide + Proposed locks + “plan after answers”) — never a fake complete plan.              |
-| **Claude Code, Codex, others** | Same phases. After lock, write `.cursor/plans/<name>.plan.md` (or the repo’s usual plans dir). No Cursor-only tools required.                                               |
+| **Claude Code, Codex, others** | Same phases. No Cursor-only tools required.                                                                                                                                 |
 
 If a tool **forces** a plan artifact on the first turn: the artifact is the interrogation stub, not the implementation plan.
 
