@@ -30,6 +30,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
 export const PELLET_TEXTURE_KEY = "pellet-dot";
+export const QUARTER_TEXTURE_KEY = "quarter";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
@@ -117,6 +118,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
     }
   }
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
+  scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");

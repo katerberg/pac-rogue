@@ -51,6 +51,7 @@ import {
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
 import { ghostKindsForLevel, ghostSpeedLevelMul, MAX_LEVEL } from "../../domain/levelRules";
+import { parseQuartersParam } from "../../domain/quartersFlag";
 import { parseLevelParam } from "../../domain/runLevel";
 import {
   BLINKY_DRAWABLE_ID,
@@ -149,7 +150,7 @@ import { warpPlayerToTopCenter } from "../systems/playerWarp";
 import {
   createRender,
   preloadPlayArt,
-  PELLET_TEXTURE_KEY,
+  QUARTER_TEXTURE_KEY,
   PLAYER_OPEN_MOUTH_TEXTURE_KEY,
   type PlayRender,
 } from "../systems/render";
@@ -223,7 +224,6 @@ export class PlayScene extends Phaser.Scene {
     this.lives = START_LIVES;
     this.afterLifeRelease = false;
     this.lifetimeCollected = 0;
-    this.quarters = 0;
     this.levelTransitionRemainingMs = 0;
     this.pendingLevelClear = false;
     this.runCompleteRemainingMs = 0;
@@ -242,6 +242,11 @@ export class PlayScene extends Phaser.Scene {
     if (urlParams.has("level") && levelOverride === null) {
       console.warn(`Unknown ?level= value; expected positive integer`);
     }
+    const quartersOverride = parseQuartersParam(urlParams);
+    if (urlParams.has("quarters") && quartersOverride === null) {
+      console.warn(`Unknown ?quarters= value; expected non-negative integer`);
+    }
+    this.quarters = quartersOverride ?? 0;
     this.levelIndex = levelOverride ?? 1;
     this.runMazeSeed = String(Math.floor(Math.random() * 0xffffffff));
     this.secondGhostKind = Math.random() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
@@ -906,7 +911,10 @@ export class PlayScene extends Phaser.Scene {
     const y = 8 + size / 2;
     for (let i = 0; i < this.quarters; i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
-      const icon = this.add.image(x, y, PELLET_TEXTURE_KEY).setDisplaySize(size, size).setDepth(10);
+      const icon = this.add
+        .image(x, y, QUARTER_TEXTURE_KEY)
+        .setDisplaySize(size, size)
+        .setDepth(10);
       this.quarterIcons.push(icon);
     }
   }
