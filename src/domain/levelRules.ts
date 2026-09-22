@@ -1,12 +1,7 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import type { GhostModeWave } from "./ghostMode";
 
-const GHOST_UNLOCK_ORDER: readonly GhostKindId[] = [
-  GHOST_KIND.blinky,
-  GHOST_KIND.pinky,
-  GHOST_KIND.inky,
-  GHOST_KIND.clyde,
-];
+export const MAX_LEVEL = 8;
 
 const CHASE_ONLY_WAVES: readonly GhostModeWave[] = [
   { mode: 1, durationMs: Number.POSITIVE_INFINITY },
@@ -28,10 +23,18 @@ export function ghostSpeedLevelMul(levelIndex: number): number {
   return 1 + 0.1 * (level - 1);
 }
 
-export function ghostKindsForLevel(levelIndex: number): GhostKindId[] {
+export function ghostKindsForLevel(
+  levelIndex: number,
+  secondGhostKind: GhostKindId,
+): GhostKindId[] {
   const level = Math.max(1, levelIndex);
-  const count = Math.min(level, GHOST_UNLOCK_ORDER.length);
-  return GHOST_UNLOCK_ORDER.slice(0, count);
+  if (level === 1) {
+    return [GHOST_KIND.blinky];
+  }
+  if (level === 2) {
+    return [GHOST_KIND.blinky, secondGhostKind];
+  }
+  return [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde];
 }
 
 export function ghostModeWavesForLevel(levelIndex: number): readonly GhostModeWave[] {

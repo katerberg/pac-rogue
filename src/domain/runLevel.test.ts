@@ -15,4 +15,10 @@ describe("parseLevelParam", () => {
     expect(parseLevelParam(new URLSearchParams("level=1.5"))).toBeNull();
     expect(parseLevelParam(new URLSearchParams("level=nope"))).toBeNull();
   });
+
+  it("clamps values above the fixed level plan's max to 8", () => {
+    expect(parseLevelParam(new URLSearchParams("level=8"))).toBe(8);
+    expect(parseLevelParam(new URLSearchParams("level=9"))).toBe(8);
+    expect(parseLevelParam(new URLSearchParams("level=1000"))).toBe(8);
+  });
 });
