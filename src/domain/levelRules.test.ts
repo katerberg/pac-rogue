@@ -16,10 +16,10 @@ describe("MAX_LEVEL", () => {
 });
 
 describe("ghostSpeedLevelMul", () => {
-  it("scales linearly by 10% per level after the first", () => {
+  it("scales linearly by 5% per level after the first", () => {
     expect(ghostSpeedLevelMul(1)).toBe(1);
-    expect(ghostSpeedLevelMul(2)).toBe(1.1);
-    expect(ghostSpeedLevelMul(3)).toBe(1.2);
+    expect(ghostSpeedLevelMul(2)).toBe(1.05);
+    expect(ghostSpeedLevelMul(3)).toBe(1.1);
   });
 
   it("clamps below 1 to level 1 mul", () => {

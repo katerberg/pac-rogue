@@ -20,7 +20,7 @@ const ARCADE_WAVES: readonly GhostModeWave[] = [
 
 export function ghostSpeedLevelMul(levelIndex: number): number {
   const level = Math.max(1, levelIndex);
-  return 1 + 0.1 * (level - 1);
+  return 1 + 0.05 * (level - 1);
 }
 
 export function ghostKindsForLevel(
