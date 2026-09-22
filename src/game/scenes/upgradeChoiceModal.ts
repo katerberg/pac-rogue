@@ -15,11 +15,11 @@ export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
 export const UPGRADE_CONFIRM_PULSE_MS = 400;
 export const UPGRADE_CONFIRM_FADE_MS = 1000;
 
-const MODAL_DEPTH = 900;
-const BUTTON_WIDTH = 340;
-const BUTTON_HEIGHT = 220;
-const LABEL_MAX_CHARS = 9;
-const DESCRIPTION_MAX_CHARS = 28;
+export const MODAL_DEPTH = 900;
+export const BUTTON_WIDTH = 340;
+export const BUTTON_HEIGHT = 220;
+export const LABEL_MAX_CHARS = 9;
+export const DESCRIPTION_MAX_CHARS = 28;
 const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const BUTTON_STROKE_REST = 4;
 const BUTTON_STROKE_PEAK = 8;
@@ -403,7 +403,7 @@ function placeButtonText(button: ButtonView): void {
   placePixelText(button.description, 0, 28, 0.5, 0.5);
 }
 
-function wrapText(text: string, maxCharsPerLine: number): string {
+export function wrapText(text: string, maxCharsPerLine: number): string {
   const words = text.split(" ");
   const lines: string[] = [];
   let current = "";

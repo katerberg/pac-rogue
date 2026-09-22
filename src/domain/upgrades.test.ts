@@ -23,6 +23,7 @@ import {
   grantLivesForUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
+  pickStartingUpgrade,
   pickUpgradeChoiceOffer,
   pelletCollectRadiusBonusPx,
   pickupRangeBonusPx,
@@ -173,6 +174,26 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
     const next = confirmUpgradeChoice(state, ["warpTop"], "warpTop");
     expect(next.owned).toEqual(["warpTop"]);
     expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
+  });
+});
+
+describe("pickStartingUpgrade", () => {
+  it("returns null when pool empty", () => {
+    expect(pickStartingUpgrade(ALL_IDS, () => 0, null)).toBeNull();
+  });
+
+  it("picks uniformly from unowned ids by rng", () => {
+    expect(pickStartingUpgrade([], () => 0, null)).toBe(ALL_IDS[0]);
+    expect(pickStartingUpgrade([], () => 0.9999, null)).toBe(ALL_IDS[ALL_IDS.length - 1]);
+    expect(pickStartingUpgrade([ALL_IDS[0]!], () => 0, null)).toBe(ALL_IDS[1]);
+  });
+
+  it("returns the forced id when still eligible", () => {
+    expect(pickStartingUpgrade([], () => 0, "ghostSlow")).toBe("ghostSlow");
+  });
+
+  it("ignores a forced id that is already owned", () => {
+    expect(pickStartingUpgrade(["ghostSlow"], () => 0, "ghostSlow")).toBe(ALL_IDS[0]);
   });
 });
 

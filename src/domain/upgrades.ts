@@ -274,6 +274,21 @@ export function pickUpgradeChoiceOffer(
   return options;
 }
 
+export function pickStartingUpgrade(
+  owned: readonly UpgradeId[],
+  rng: () => number,
+  forceNext: UpgradeId | null,
+): UpgradeId | null {
+  const eligible = eligibleUpgrades(owned);
+  if (eligible.length === 0) {
+    return null;
+  }
+  if (forceNext !== null && eligible.includes(forceNext)) {
+    return forceNext;
+  }
+  return takeRandomFrom(eligible, rng);
+}
+
 export function confirmUpgradeChoice(
   state: RunUpgrades,
   options: readonly UpgradeId[],
