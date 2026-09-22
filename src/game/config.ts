@@ -5,6 +5,7 @@ import { shouldAutoPlay } from "../domain/playFlag";
 import { isSoundEnabled } from "../domain/soundFlag";
 import { HighScoresScene } from "./scenes/HighScoresScene";
 import { MenuScene } from "./scenes/MenuScene";
+import { PauseScene } from "./scenes/PauseScene";
 import { PlayScene } from "./scenes/PlayScene";
 import { SettingsScene } from "./scenes/SettingsScene";
 
@@ -22,8 +23,8 @@ const urlParams = new URLSearchParams(location.search);
 const soundEnabled = isSoundEnabled(urlParams, location.port);
 const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
 const bootScenes = shouldAutoPlay(urlParams)
-  ? [PlayScene, MenuScene, HighScoresScene, SettingsScene]
-  : [MenuScene, HighScoresScene, SettingsScene, PlayScene];
+  ? [PlayScene, MenuScene, HighScoresScene, SettingsScene, PauseScene]
+  : [MenuScene, HighScoresScene, SettingsScene, PlayScene, PauseScene];
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,

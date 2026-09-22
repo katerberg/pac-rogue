@@ -6,6 +6,7 @@ import {
   type AudioCategory,
   type AudioSettings,
 } from "../../domain/audioSettings";
+import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { playVolumePreview, preloadSfx, stopMusicVolumePreview } from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
@@ -65,6 +66,7 @@ export class SettingsScene extends Phaser.Scene {
   private rows: CategoryRow[] = [];
   private backText!: Phaser.GameObjects.BitmapText;
   private dragging: AudioCategory | null = null;
+  private returnScene = "MenuScene";
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -84,14 +86,23 @@ export class SettingsScene extends Phaser.Scene {
     preloadSfx(this);
   }
 
-  create(): void {
+  create(data?: { returnScene?: string }): void {
     this.settings = loadAudioSettings();
     this.focusIndex = 0;
     this.moveCooldownMs = 0;
     this.pendingBack = false;
     this.dragging = null;
     this.rows = [];
+    this.returnScene = data?.returnScene ?? "MenuScene";
     this.audioDisabled = this.game.config.audio.noAudio === true;
+
+    this.add.rectangle(
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2,
+      PLAYFIELD_WIDTH,
+      PLAYFIELD_HEIGHT,
+      MAZE_BACKGROUND_COLOR,
+    );
 
     const title = addPixelText(this, PLAYFIELD_WIDTH / 2, 80, "SETTINGS", MENU_TITLE_FONT_SIZE);
     placePixelText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
@@ -350,6 +361,6 @@ export class SettingsScene extends Phaser.Scene {
 
   private goBack(): void {
     stopMusicVolumePreview(this);
-    this.scene.start("MenuScene");
+    this.scene.start(this.returnScene);
   }
 }

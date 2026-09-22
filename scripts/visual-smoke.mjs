@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { chromium } from "playwright";
-import { ports, root, stopProcess, waitForServer } from "./lib/server.mjs";
+import { chromiumLaunchOptions, ports, root, stopProcess, waitForServer } from "./lib/server.mjs";
 const playArtifactPath = join(root, "artifacts", "visual-smoke.png");
 const menuArtifactPath = join(root, "artifacts", "visual-smoke-menu.png");
 const url = `http://127.0.0.1:${ports.agentPreview}/?maze=maze1`;
@@ -58,7 +58,7 @@ async function main() {
   try {
     await waitForServer(url);
 
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({ headless: true, ...chromiumLaunchOptions() });
     const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
     await page.goto(url, { waitUntil: "networkidle" });
     await page.waitForSelector("canvas", { timeout: 15_000 });

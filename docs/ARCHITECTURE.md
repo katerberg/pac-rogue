@@ -97,6 +97,7 @@ src/
       MenuScene.ts            # boot title + Start / High Scores / Settings (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       SettingsScene.ts        # music/SFX checkboxes + 0..10 notches (no ECS)
+      PauseScene.ts           # Escape overlay: Resume (1s beat) / Settings / Quit confirm (no ECS)
       PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
   public/
   art/                        # Pac-Man / pellet / power-pellet / ghost / fruit PNGs
@@ -114,20 +115,26 @@ docs/
 
 ## Scenes
 
-Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `HighScoresScene`, `SettingsScene`, `PlayScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
+Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
 
 ```text
 MenuScene --Start--> PlayScene
 MenuScene --High Scores--> HighScoresScene
 MenuScene --Settings--> SettingsScene
 HighScoresScene --Back--> MenuScene
-SettingsScene --Back--> MenuScene
+SettingsScene --Back--> MenuScene (or whichever scene launched it, see below)
+PlayScene --Escape--> PauseScene (PlayScene paused; siren stopped if it was playing)
+PauseScene --Resume (1s beat)--> PlayScene resumes (siren restarts if it was playing)
+PauseScene --Settings--> SettingsScene --Back--> PauseScene (PlayScene stays paused throughout)
+PauseScene --Quit, confirm Yes--> MenuScene (PlayScene stopped; no high-score write)
 PlayScene --pellet clear--> level-complete SFX → brief freeze → next random maze1/maze2 (carry lives/upgrades/lifetime)
 PlayScene --caught (lives left)--> death hold → reset → ready → resume
 PlayScene --caught (last life)--> death hold → fade → GAME OVER → MenuScene
 ```
 
-**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene`, `HighScoresScene`, and `SettingsScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
+**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene`, `HighScoresScene`, `SettingsScene`, and `PauseScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
+
+Pausing (Escape) is available at any point during `PlayScene`, including mid-death-sequence, mid-level-transition, and while the fruit upgrade-choice modal is open — `scene.pause()` halts `PlayScene.update()` entirely, so whichever of those states was active simply freezes and resumes exactly where it left off. `SettingsScene` accepts an optional `returnScene` value (Phaser scene init data) so it can return to either `MenuScene` (default) or `PauseScene` depending on how it was opened; `PlayScene` itself is never restarted by this round trip. `PauseScene`'s Quit option turns into an inline `SURE?  YES  NO` on the same row (default focus: NO); confirming stops `PlayScene` (its existing `SHUTDOWN` handler covers siren/modal/banner cleanup) without ever calling `saveRun`.
 
 High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (collected pellets desc, then remaining time desc). Storage remains chronological append order.
 
@@ -208,6 +215,7 @@ A violation of these is a failed architecture check:
 
 - Boot lands on `MenuScene` (`PAC-ROGUE` title, Start / High Scores / Settings), or on `PlayScene` when `?play=1`. Start opens `PlayScene`; High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage).
 - Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
+- Escape during `PlayScene` always opens `PauseScene` (dims the paused board) — Resume returns control after a 1s frozen beat; Settings reuses `SettingsScene` and returns to the pause menu; Quit turns its row into an inline `SURE?  YES  NO` (default NO) and, if confirmed, ends the run and returns to `MenuScene` without writing a high-score entry. Pausing works mid-death-sequence, mid-level-transition, and mid-upgrade-modal alike.
 - Rectangular maze (per-layout cols/rows; tile size from fit under `MAZE_TOP_MARGIN_PX`, then centered in the leftover 800×600 band; reject if tile `< 12` or left gutter `< 80` — see [maze-constraints.md](./maze-constraints.md)) with stroked walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_TOP_MARGIN_PX`, `MAZE_BACKGROUND_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `WALL_CORNER_CURVE_KIND`, `WALL_INSET_PX` (pull stroke into wall tiles), `PLAYER_WALL_PADDING_PX` (actor display size only), `pelletDisplaySize()` / `powerPelletDisplaySize()` (clamped to tile). Dual solids (player blocked from house/door; ghosts allowed), horizontal tunnels.
 - One player entity (display size from wall padding; open mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets; volumes from SFX settings), and increments a top-left **lifetime** `Collected` counter (board-local count drives Inky/Clyde/fruit/clear). Looping siren plays during `PlayScene` until clear, catch, or shutdown (volume from music settings); clearing all pellets plays level-complete SFX then advances to a random `maze1`/`maze2` board; catch plays death SFX then life-loss reset (or Game Over on the last life).
