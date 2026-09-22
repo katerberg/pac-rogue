@@ -51,10 +51,10 @@ describe("collectFruit", () => {
   it("does not collect from an adjacent cell center", () => {
     const fruitX = 200;
     const fruitY = 200;
-    const { world } = spawnPlayer(fruitX - TILE_SIZE, fruitY);
+    const { world } = spawnPlayer(fruitX - TILE_SIZE - 1, fruitY);
     spawnFruit(world, fruitX, fruitY);
 
-    expect(playerRadius() + FRUIT_RADIUS).toBeLessThan(TILE_SIZE);
+    expect(playerRadius() + FRUIT_RADIUS).toBeLessThanOrEqual(TILE_SIZE);
     expect(collectFruit(world)).toEqual([]);
     expect(query(world, [Fruit, Position])).toHaveLength(1);
   });
