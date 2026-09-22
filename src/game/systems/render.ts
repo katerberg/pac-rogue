@@ -29,7 +29,7 @@ import { DIRECTION, type Direction } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-const PELLET_TEXTURE_KEY = "pellet-dot";
+export const PELLET_TEXTURE_KEY = "pellet-dot";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";

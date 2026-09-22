@@ -39,6 +39,7 @@ import {
   getActiveLayout,
   parseMazeParam,
   pelletCellCenters,
+  pelletDisplaySize,
   playerDisplaySize,
   playerSpawnCenter,
   wallCellCenters,
@@ -148,6 +149,7 @@ import { warpPlayerToTopCenter } from "../systems/playerWarp";
 import {
   createRender,
   preloadPlayArt,
+  PELLET_TEXTURE_KEY,
   PLAYER_OPEN_MOUTH_TEXTURE_KEY,
   type PlayRender,
 } from "../systems/render";
@@ -184,12 +186,13 @@ export class PlayScene extends Phaser.Scene {
   private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock(1).mode;
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private lifetimeCollected = 0;
+  private quarters = 0;
   private levelIndex = 1;
   private runMazeSeed = "0";
   private levelTransitionRemainingMs = 0;
   private fruitPresence: FruitPresence = createFruitPresence();
   private runUpgrades: RunUpgrades = createRunUpgrades();
-  private collectedText!: Phaser.GameObjects.BitmapText;
+  private quarterIcons: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
@@ -216,6 +219,7 @@ export class PlayScene extends Phaser.Scene {
     this.lives = START_LIVES;
     this.afterLifeRelease = false;
     this.lifetimeCollected = 0;
+    this.quarters = 0;
     this.levelTransitionRemainingMs = 0;
     this.clearLevelBanner();
     this.upgradeChoiceModal?.destroy();
@@ -243,9 +247,6 @@ export class PlayScene extends Phaser.Scene {
       this.lives += grantLivesForUpgrade(id);
     }
 
-    this.collectedText = addPixelText(this, 12, 8, this.collectedLabel(), HUD_FONT_SIZE).setDepth(
-      10,
-    );
     this.timerText = addPixelText(
       this,
       PLAYFIELD_WIDTH - 12,
@@ -259,6 +260,8 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
     this.lifeIcons = [];
+    this.quarterIcons = [];
+    this.refreshQuartersHud();
 
     const playerInput = createPlayerInput(this);
     this.runPlayerInput = playerInput.apply;
@@ -448,7 +451,6 @@ export class PlayScene extends Phaser.Scene {
     if (totalRemoved > 0) {
       this.lifetimeCollected += totalRemoved;
     }
-    this.collectedText.setText(this.collectedLabel());
 
     const modeStep = resolveGhostModeStep(
       this.ghostModeClock,
@@ -494,6 +496,8 @@ export class PlayScene extends Phaser.Scene {
     if (removedFruitEids.length > 0) {
       playSfx(this, "pelletMunch");
       playSfx(this, "pelletMunch2");
+      this.quarters += removedFruitEids.length;
+      this.refreshQuartersHud();
       this.fruitPresence = markFruitCollected(fruitTick.state);
       const options = pickUpgradeChoiceOffer(
         this.runUpgrades.owned,
@@ -628,7 +632,6 @@ export class PlayScene extends Phaser.Scene {
     this.death = null;
     this.suppressPlayerInputUntilKeyRelease = false;
 
-    this.collectedText.setText(this.collectedLabel());
     this.timerText.setText(this.timerLabel());
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
@@ -857,6 +860,20 @@ export class PlayScene extends Phaser.Scene {
         .setDisplaySize(size, size)
         .setDepth(10);
       this.lifeIcons.push(icon);
+    }
+  }
+
+  private refreshQuartersHud(): void {
+    for (const icon of this.quarterIcons) {
+      icon.destroy();
+    }
+    this.quarterIcons = [];
+    const size = pelletDisplaySize();
+    const y = 8 + size / 2;
+    for (let i = 0; i < this.quarters; i += 1) {
+      const x = 12 + size / 2 + i * (size + 4);
+      const icon = this.add.image(x, y, PELLET_TEXTURE_KEY).setDisplaySize(size, size).setDepth(10);
+      this.quarterIcons.push(icon);
     }
   }
 
