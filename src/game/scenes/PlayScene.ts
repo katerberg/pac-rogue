@@ -50,7 +50,7 @@ import {
   generateMazeAsciiWithRetries,
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
-import { ghostKindsForLevel, ghostSpeedLevelMul } from "../../domain/levelRules";
+import { ghostKindsForLevel, ghostSpeedLevelMul, MAX_LEVEL } from "../../domain/levelRules";
 import { parseLevelParam } from "../../domain/runLevel";
 import {
   BLINKY_DRAWABLE_ID,
@@ -166,6 +166,7 @@ import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingU
 
 const LEVEL_TRANSITION_MS = 1000;
 const LEVEL_BANNER_FADE_MS = 1500;
+const RUN_COMPLETE_HOLD_MS = 2000;
 
 const GHOST_DRAWABLE_BY_KIND: Record<GhostKindId, string> = {
   [GHOST_KIND.blinky]: BLINKY_DRAWABLE_ID,
@@ -189,7 +190,10 @@ export class PlayScene extends Phaser.Scene {
   private quarters = 0;
   private levelIndex = 1;
   private runMazeSeed = "0";
+  private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
   private levelTransitionRemainingMs = 0;
+  private pendingLevelClear = false;
+  private runCompleteRemainingMs = 0;
   private fruitPresence: FruitPresence = createFruitPresence();
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private quarterIcons: Phaser.GameObjects.Image[] = [];
@@ -221,6 +225,8 @@ export class PlayScene extends Phaser.Scene {
     this.lifetimeCollected = 0;
     this.quarters = 0;
     this.levelTransitionRemainingMs = 0;
+    this.pendingLevelClear = false;
+    this.runCompleteRemainingMs = 0;
     this.clearLevelBanner();
     this.upgradeChoiceModal?.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this);
@@ -238,6 +244,7 @@ export class PlayScene extends Phaser.Scene {
     }
     this.levelIndex = levelOverride ?? 1;
     this.runMazeSeed = String(Math.floor(Math.random() * 0xffffffff));
+    this.secondGhostKind = Math.random() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
 
     this.runUpgrades = createRunUpgrades(
       parseUpgradeId(urlParams.get("forceUpgrade")),
@@ -332,10 +339,22 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
 
+    if (this.runCompleteRemainingMs > 0) {
+      this.runCompleteRemainingMs = Math.max(0, this.runCompleteRemainingMs - delta);
+      if (this.runCompleteRemainingMs === 0) {
+        this.scene.start("MenuScene");
+      }
+      return;
+    }
+
     if (this.levelTransitionRemainingMs > 0) {
       this.levelTransitionRemainingMs = Math.max(0, this.levelTransitionRemainingMs - delta);
       if (this.levelTransitionRemainingMs === 0) {
-        this.advanceToNextLevel();
+        if (this.levelIndex >= MAX_LEVEL) {
+          this.beginRunComplete();
+        } else {
+          this.advanceToNextLevel();
+        }
       }
       return;
     }
@@ -346,6 +365,12 @@ export class PlayScene extends Phaser.Scene {
         return;
       }
       this.suppressPlayerInputUntilKeyRelease = true;
+    }
+
+    if (this.pendingLevelClear) {
+      this.pendingLevelClear = false;
+      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+      return;
     }
 
     if (this.suppressPlayerInputUntilKeyRelease) {
@@ -499,31 +524,6 @@ export class PlayScene extends Phaser.Scene {
       this.quarters += removedFruitEids.length;
       this.refreshQuartersHud();
       this.fruitPresence = markFruitCollected(fruitTick.state);
-      const options = pickUpgradeChoiceOffer(
-        this.runUpgrades.owned,
-        this.runUpgrades.lastDeclinedUpgradeId,
-        () => Math.random(),
-        this.runUpgrades.forceNextId,
-      );
-      if (options === null) {
-        this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
-      } else {
-        this.upgradeChoiceModal.open(options, (chosen) => {
-          const alreadyOwned = this.runUpgrades.owned.includes(chosen);
-          this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, options, chosen);
-          if (!alreadyOwned) {
-            this.applyGrantEffects(chosen);
-            this.refreshLivesIcons();
-          }
-          this.refreshUpgradesHud();
-        });
-        this.playRender.draw(this.world, {
-          frozenGhostEid: frozenGhostEid(this.runUpgrades),
-          playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
-          wallPassActive: wallPassActive(this.runUpgrades),
-        });
-        return;
-      }
     } else if (fruitTick.action === "despawn") {
       this.clearFruitEntities();
       this.fruitPresence = fruitTick.state;
@@ -534,12 +534,36 @@ export class PlayScene extends Phaser.Scene {
     if (collectResult.shouldRecordClear) {
       stopLoopingSfx(this, "siren");
       playSfx(this, "levelComplete");
-      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
       this.playRender.draw(this.world, {
         frozenGhostEid: frozenGhostEid(this.runUpgrades),
         playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
         wallPassActive: wallPassActive(this.runUpgrades),
       });
+      if (this.levelIndex === 1) {
+        this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+        return;
+      }
+      const options = pickUpgradeChoiceOffer(
+        this.runUpgrades.owned,
+        this.runUpgrades.lastDeclinedUpgradeId,
+        () => Math.random(),
+        this.runUpgrades.forceNextId,
+      );
+      if (options === null) {
+        this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
+        this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+      } else {
+        this.pendingLevelClear = true;
+        this.upgradeChoiceModal.open(options, (chosen) => {
+          const alreadyOwned = this.runUpgrades.owned.includes(chosen);
+          this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, options, chosen);
+          if (!alreadyOwned) {
+            this.applyGrantEffects(chosen);
+            this.refreshLivesIcons();
+          }
+          this.refreshUpgradesHud();
+        });
+      }
       return;
     }
 
@@ -612,7 +636,7 @@ export class PlayScene extends Phaser.Scene {
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
-    for (const kind of ghostKindsForLevel(this.levelIndex)) {
+    for (const kind of ghostKindsForLevel(this.levelIndex, this.secondGhostKind)) {
       this.spawnGhost(kind);
     }
 
@@ -761,16 +785,26 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
+  private beginRunComplete(): void {
+    stopLoopingSfx(this, "siren");
+    this.showCenteredEndText("RUN COMPLETE");
+    this.runCompleteRemainingMs = RUN_COMPLETE_HOLD_MS;
+  }
+
   private showGameOverText(): void {
-    const title = addPixelText(
+    this.showCenteredEndText("GAME OVER");
+  }
+
+  private showCenteredEndText(title: string): void {
+    const titleText = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2 - 20,
-      "GAME OVER",
+      title,
       MENU_TITLE_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(1001);
-    placePixelText(title, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 - 20, 0.5, 0.5);
+    placePixelText(titleText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 - 20, 0.5, 0.5);
 
     const collected = addPixelText(
       this,

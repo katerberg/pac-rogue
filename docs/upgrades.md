@@ -1,6 +1,6 @@
 # Run upgrades
 
-Level 1 grants one random **starting upgrade** (below), and fruit opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` session (including across level advances). There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
+Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 8) opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
 
 ## Model
 
@@ -23,7 +23,7 @@ Level 1 grants one random **starting upgrade** (below), and fruit opens a **pick
 | `pickupRange`       | Pickup Range  | Always-on: regular pellets within `playerR+pelletR+TILE_SIZE` collect with open LOS through `playerSolids` (power pellets keep base reach only)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `ghostHouseDelay`   | House Delay   | +`GHOST_HOUSE_RELEASE_DELAY_ADD_MS` (2000) on Blinky/Pinky/Inky-post-life/Clyde-post-life time gates; +`GHOST_HOUSE_CLYDE_PELLET_ADD` (15) on Clyde first-life pellet threshold; Inky first-life pellets unchanged; mid-board grant only affects ghosts still `inHouse`                                                                                                                                                                                                                                                                                                                 |
 | `extraLife`         | Extra Life    | On first own: +1 life immediately (can exceed start lives); `?enableUpgrade=extraLife` applies at create                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `pelletToPower`     | Pellet Surge  | While owned: convert exactly one random regular pellet → power pellet after each board spawn (`startBoard`); also convert one on the current board when first granted from fruit. Silent transform + one-shot 1.5× size bounce on the sprite; no SFX; empty pool → no-op. Not per-pellet-collect.                                                                                                                                                                                                                                                                                       |
+| `pelletToPower`     | Pellet Surge  | While owned: convert exactly one random regular pellet → power pellet after each board spawn (`startBoard`); also convert one on the current board when first granted. Silent transform + one-shot 1.5× size bounce on the sprite; no SFX; empty pool → no-op. Not per-pellet-collect.                                                                                                                                                                                                                                                                                                  |
 | `powerCollectThree` | Triple Chomp  | Power pellet also removes up to `POWER_COLLECT_THREE_COUNT` (3) remaining **regular** pellets: the closest by Euclidean `Position` (lowest-eid tie-break) that are **not** on the open forward corridor (same row/col ahead of facing until the first solid; facing `none` → no exclusion; behind stays eligible). Fewer than 3 eligible → collect all remaining; 0 → no-op. Bonus removals count toward board/lifetime/Clyde/fruit/clear. One both-munch for the whole bonus set. One pass per frame even if multiple energizers were touched. Does not auto-collect other energizers. |
 | `powerWallPass`     | Wall Pass     | Power pellet: pass through interior walls, exterior hollows, and the ghost house for `WALL_PASS_MS` (3000); non-tunnel perimeter `#` stay solid (tunnels still wrap); timer-end snap to nearest `playerSolids` walkable center; mild blueward player tint (`PLAYER_WALL_PASS_TINT`) while active. Catch still skips only `inHouse` ghosts (`leaving` on house tiles can kill).                                                                                                                                                                                                          |
 | `powerSpeedBurst`   | Speed Burst   | Power pellet grants temporary player speed × `PLAYER_SPEED_BURST_MUL` (1.25) for `SPEED_BURST_MS` (3000); stacks with Speed Up (`playerSpeedMultiplier(owned) × 1.25` while active); refreshes to full on re-chomp; clears on level advance / life loss; no player tint                                                                                                                                                                                                                                                                                                                 |
@@ -33,16 +33,16 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 
 ## Grant rules
 
-- Collecting bonus fruit still plays both munches and despawns fruit (no fruit points).
-- Eligible pool = upgrade ids not already owned.
-- **0 eligible:** fruit collected; no modal; clear `forceNextId` if set; no grant.
+- Collecting bonus fruit plays both munches, despawns fruit, and awards one Quarter — no upgrade effect, no modal.
+- Clearing a level (2 through 8, including level 8 itself) is the trigger: eligible pool = upgrade ids not already owned.
+- **0 eligible:** no modal; clear `forceNextId` if set; no grant; the level transition (or Run Complete, on level 8) proceeds immediately.
 - **1 eligible:** one-button modal (must pick; no auto-grant).
 - **2+ eligible:** two-button modal. Options from `pickUpgradeChoiceOffer`:
   - Never the same id on both sides.
   - Prefer excluding `lastDeclinedUpgradeId` (the option **not** chosen on the previous two-option confirm).
   - If excluding decline would leave fewer than two candidates, re-include last-declined only as needed.
   - `forceUpgrade` / `forceNextId`: when still eligible, that id is guaranteed as one of the two sides; modal still opens.
-- While the modal is open, the play sim is fully frozen (death-style early-return).
+- While the modal is open, the play sim is fully frozen (death-style early-return). Level 1's clear never offers this modal — level 1 already granted its starting upgrade instead.
 - **0.5s lockout** after open: fuzz-in (alpha ramp + light jitter + BitmapText scramble). Keyboard and click disabled.
 - After lockout: already in selection mode (highlight + LEFT/RIGHT hints). **Click** a button to grant, or **Left/A** / **Right/D** after any held Left/Right/A/D keys have been released (keys held through open/lockout are ignored). One-button: either direction confirms. No Esc / dismiss — must pick.
 - On confirm: `grantUpgrade` chosen id; clear `forceNextId`; if two options were shown, set `lastDeclinedUpgradeId` to the other; one-button leaves prior decline unchanged. HUD refreshes.
@@ -51,7 +51,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 
 ## Starting upgrade
 
-- When a run's first board is level 1 (`?level` omitted or 1), `PlayScene.create` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade (same grant side effects as fruit: Extra Life +1 life, Pellet Surge converts a pellet now). `forceUpgrade` picks this upgrade when still eligible and is then cleared.
+- When a run's first board is level 1 (`?level` omitted or 1), `PlayScene.create` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade (same grant side effects as a level-clear choice: Extra Life +1 life, Pellet Surge converts a pellet now). `forceUpgrade` picks this upgrade when still eligible and is then cleared.
 - [`src/game/scenes/startingUpgradeCard.ts`](../src/game/scenes/startingUpgradeCard.ts) shows a no-button card (`STARTING UPGRADE`, label, description) over the dimmed board: `STARTING_UPGRADE_HOLD_MS` (1500) hold, then `STARTING_UPGRADE_FADE_MS` (100) fade. Any key except Esc starts the fade early; Esc pause still works. The sim is frozen and the siren is off until the fade ends. Movement keys held through the card are ignored until released.
 - No `LEVEL 1` banner when the card shows. Empty pool (every id enabled via `enableUpgrade`) → no card, normal banner + start.
 - Level advances and `?level≥2` starts never grant a starting upgrade.

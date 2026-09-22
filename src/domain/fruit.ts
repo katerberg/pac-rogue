@@ -5,23 +5,22 @@ export type FruitKind =
 
 export type FruitLevelSpec = {
   kind: FruitKind;
-  points: number;
 };
 
 export const FRUIT_BY_LEVEL: readonly FruitLevelSpec[] = [
-  { kind: "cherries", points: 100 },
-  { kind: "strawberry", points: 300 },
-  { kind: "peach", points: 500 },
-  { kind: "peach", points: 500 },
-  { kind: "apple", points: 700 },
-  { kind: "apple", points: 700 },
-  { kind: "grapes", points: 1000 },
-  { kind: "grapes", points: 1000 },
-  { kind: "galaxian", points: 2000 },
-  { kind: "galaxian", points: 2000 },
-  { kind: "bell", points: 3000 },
-  { kind: "bell", points: 3000 },
-  { kind: "key", points: 5000 },
+  { kind: "cherries" },
+  { kind: "strawberry" },
+  { kind: "peach" },
+  { kind: "peach" },
+  { kind: "apple" },
+  { kind: "apple" },
+  { kind: "grapes" },
+  { kind: "grapes" },
+  { kind: "galaxian" },
+  { kind: "galaxian" },
+  { kind: "bell" },
+  { kind: "bell" },
+  { kind: "key" },
 ];
 
 export const FRUIT_LIFETIME_MS = 10_000;

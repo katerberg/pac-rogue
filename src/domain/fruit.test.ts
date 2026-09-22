@@ -13,14 +13,13 @@ import {
 
 describe("fruitSpecForLevel", () => {
   it("returns cherries for level 1", () => {
-    expect(fruitSpecForLevel(CURRENT_LEVEL)).toEqual({ kind: "cherries", points: 100 });
+    expect(fruitSpecForLevel(CURRENT_LEVEL)).toEqual({ kind: "cherries" });
   });
 
   it("returns Holenet symbols for later levels", () => {
     expect(fruitSpecForLevel(2).kind).toBe("strawberry");
     expect(fruitSpecForLevel(5).kind).toBe("apple");
     expect(fruitSpecForLevel(21).kind).toBe("key");
-    expect(fruitSpecForLevel(21).points).toBe(5000);
   });
 });
 

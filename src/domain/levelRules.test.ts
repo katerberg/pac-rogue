@@ -6,13 +6,20 @@ import {
   ghostModeStartWaveIndex,
   ghostModeWavesForLevel,
   ghostSpeedLevelMul,
+  MAX_LEVEL,
 } from "./levelRules";
 
+describe("MAX_LEVEL", () => {
+  it("caps the fixed level plan at 8", () => {
+    expect(MAX_LEVEL).toBe(8);
+  });
+});
+
 describe("ghostSpeedLevelMul", () => {
-  it("scales linearly by 10% per level after the first", () => {
+  it("scales linearly by 5% per level after the first", () => {
     expect(ghostSpeedLevelMul(1)).toBe(1);
-    expect(ghostSpeedLevelMul(2)).toBe(1.1);
-    expect(ghostSpeedLevelMul(3)).toBe(1.2);
+    expect(ghostSpeedLevelMul(2)).toBe(1.05);
+    expect(ghostSpeedLevelMul(3)).toBe(1.1);
   });
 
   it("clamps below 1 to level 1 mul", () => {
@@ -22,22 +29,26 @@ describe("ghostSpeedLevelMul", () => {
 });
 
 describe("ghostKindsForLevel", () => {
-  it("unlocks Blinky then Pinky then Inky then Clyde", () => {
-    expect(ghostKindsForLevel(1)).toEqual([GHOST_KIND.blinky]);
-    expect(ghostKindsForLevel(2)).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky]);
-    expect(ghostKindsForLevel(3)).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky]);
-    expect(ghostKindsForLevel(4)).toEqual([
-      GHOST_KIND.blinky,
-      GHOST_KIND.pinky,
-      GHOST_KIND.inky,
-      GHOST_KIND.clyde,
-    ]);
-    expect(ghostKindsForLevel(5)).toEqual(ghostKindsForLevel(4));
+  it("level 1 is Blinky only, regardless of the second-ghost arg", () => {
+    expect(ghostKindsForLevel(1, GHOST_KIND.pinky)).toEqual([GHOST_KIND.blinky]);
+    expect(ghostKindsForLevel(1, GHOST_KIND.inky)).toEqual([GHOST_KIND.blinky]);
+  });
+
+  it("level 2 is Blinky plus whichever second ghost is passed in", () => {
+    expect(ghostKindsForLevel(2, GHOST_KIND.pinky)).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky]);
+    expect(ghostKindsForLevel(2, GHOST_KIND.inky)).toEqual([GHOST_KIND.blinky, GHOST_KIND.inky]);
+  });
+
+  it("level 3+ is always all four ghosts, regardless of the second-ghost arg", () => {
+    const allFour = [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde];
+    expect(ghostKindsForLevel(3, GHOST_KIND.pinky)).toEqual(allFour);
+    expect(ghostKindsForLevel(4, GHOST_KIND.inky)).toEqual(allFour);
+    expect(ghostKindsForLevel(MAX_LEVEL, GHOST_KIND.pinky)).toEqual(allFour);
   });
 
   it("clamps below 1 to level 1 roster", () => {
-    expect(ghostKindsForLevel(0)).toEqual([GHOST_KIND.blinky]);
-    expect(ghostKindsForLevel(-2)).toEqual([GHOST_KIND.blinky]);
+    expect(ghostKindsForLevel(0, GHOST_KIND.pinky)).toEqual([GHOST_KIND.blinky]);
+    expect(ghostKindsForLevel(-2, GHOST_KIND.inky)).toEqual([GHOST_KIND.blinky]);
   });
 });
 
