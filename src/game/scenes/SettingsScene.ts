@@ -6,6 +6,7 @@ import {
   type AudioCategory,
   type AudioSettings,
 } from "../../domain/audioSettings";
+import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { playVolumePreview, preloadSfx, stopMusicVolumePreview } from "../audio/sfx";
@@ -61,6 +62,8 @@ export class SettingsScene extends Phaser.Scene {
   private settings: AudioSettings = defaultAudioSettings();
   private focusIndex = 0;
   private moveCooldownMs = 0;
+  private upRepeat: KeyRepeatState = createKeyRepeatState();
+  private downRepeat: KeyRepeatState = createKeyRepeatState();
   private pendingBack = false;
   private audioDisabled = false;
   private rows: CategoryRow[] = [];
@@ -90,6 +93,8 @@ export class SettingsScene extends Phaser.Scene {
     this.settings = loadAudioSettings();
     this.focusIndex = 0;
     this.moveCooldownMs = 0;
+    this.upRepeat = createKeyRepeatState();
+    this.downRepeat = createKeyRepeatState();
     this.pendingBack = false;
     this.dragging = null;
     this.rows = [];
@@ -181,11 +186,6 @@ export class SettingsScene extends Phaser.Scene {
       return;
     }
 
-    const up =
-      Phaser.Input.Keyboard.JustDown(this.cursors.up!) || Phaser.Input.Keyboard.JustDown(this.keyW);
-    const down =
-      Phaser.Input.Keyboard.JustDown(this.cursors.down!) ||
-      Phaser.Input.Keyboard.JustDown(this.keyS);
     const left =
       Phaser.Input.Keyboard.JustDown(this.cursors.left!) ||
       Phaser.Input.Keyboard.JustDown(this.keyA);
@@ -193,19 +193,19 @@ export class SettingsScene extends Phaser.Scene {
       Phaser.Input.Keyboard.JustDown(this.cursors.right!) ||
       Phaser.Input.Keyboard.JustDown(this.keyD);
 
-    if (this.moveCooldownMs === 0) {
-      if (up) {
-        this.focusIndex = (this.focusIndex + FOCUS_COUNT - 1) % FOCUS_COUNT;
-        this.refreshUi();
-        this.moveCooldownMs = 150;
-      } else if (down) {
-        this.focusIndex = (this.focusIndex + 1) % FOCUS_COUNT;
-        this.refreshUi();
-        this.moveCooldownMs = 150;
-      } else if ((left || right) && this.rows[this.focusIndex] !== undefined) {
-        this.nudgeFocusedLevel(left ? -1 : 1);
-        this.moveCooldownMs = 120;
-      }
+    if (this.tickUp(delta)) {
+      this.focusIndex = (this.focusIndex + FOCUS_COUNT - 1) % FOCUS_COUNT;
+      this.refreshUi();
+    } else if (this.tickDown(delta)) {
+      this.focusIndex = (this.focusIndex + 1) % FOCUS_COUNT;
+      this.refreshUi();
+    } else if (
+      this.moveCooldownMs === 0 &&
+      (left || right) &&
+      this.rows[this.focusIndex] !== undefined
+    ) {
+      this.nudgeFocusedLevel(left ? -1 : 1);
+      this.moveCooldownMs = 120;
     }
 
     if (
@@ -225,6 +225,25 @@ export class SettingsScene extends Phaser.Scene {
     if (this.pendingBack && !this.keyEnter.isDown && !this.keySpace.isDown) {
       this.goBack();
     }
+  }
+
+  private tickUp(delta: number): boolean {
+    const isDown = this.cursors.up!.isDown || this.keyW.isDown;
+    const justDown =
+      Phaser.Input.Keyboard.JustDown(this.cursors.up!) || Phaser.Input.Keyboard.JustDown(this.keyW);
+    const result = tickKeyRepeat(this.upRepeat, isDown, justDown, delta);
+    this.upRepeat = result.state;
+    return result.fire;
+  }
+
+  private tickDown(delta: number): boolean {
+    const isDown = this.cursors.down!.isDown || this.keyS.isDown;
+    const justDown =
+      Phaser.Input.Keyboard.JustDown(this.cursors.down!) ||
+      Phaser.Input.Keyboard.JustDown(this.keyS);
+    const result = tickKeyRepeat(this.downRepeat, isDown, justDown, delta);
+    this.downRepeat = result.state;
+    return result.fire;
   }
 
   private createRow(category: AudioCategory, focusIndex: number): CategoryRow {

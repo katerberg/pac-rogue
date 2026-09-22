@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import type { PlayScene } from "./PlayScene";
 import {
@@ -27,6 +28,8 @@ const NO_X = ROW_CENTER_X + 70;
 export class PauseScene extends Phaser.Scene {
   private selectedIndex = RESUME_INDEX;
   private moveCooldownMs = 0;
+  private upRepeat: KeyRepeatState = createKeyRepeatState();
+  private downRepeat: KeyRepeatState = createKeyRepeatState();
   private confirmingQuit = false;
   private quitSelectingYes = false;
 
@@ -52,6 +55,8 @@ export class PauseScene extends Phaser.Scene {
   create(): void {
     this.selectedIndex = RESUME_INDEX;
     this.moveCooldownMs = 0;
+    this.upRepeat = createKeyRepeatState();
+    this.downRepeat = createKeyRepeatState();
     this.confirmingQuit = false;
     this.quitSelectingYes = false;
 
@@ -143,28 +148,37 @@ export class PauseScene extends Phaser.Scene {
     this.moveCooldownMs = Math.max(0, this.moveCooldownMs - delta);
 
     if (this.confirmingQuit) {
-      this.updateQuitConfirm();
+      this.updateQuitConfirm(delta);
       return;
     }
 
-    this.updateMenuNav();
+    this.updateMenuNav(delta);
   }
 
-  private updateMenuNav(): void {
-    const up =
+  private tickUp(delta: number): boolean {
+    const isDown = this.cursors.up!.isDown || this.keyW.isDown;
+    const justDown =
       Phaser.Input.Keyboard.JustDown(this.cursors.up!) || Phaser.Input.Keyboard.JustDown(this.keyW);
-    const down =
+    const result = tickKeyRepeat(this.upRepeat, isDown, justDown, delta);
+    this.upRepeat = result.state;
+    return result.fire;
+  }
+
+  private tickDown(delta: number): boolean {
+    const isDown = this.cursors.down!.isDown || this.keyS.isDown;
+    const justDown =
       Phaser.Input.Keyboard.JustDown(this.cursors.down!) ||
       Phaser.Input.Keyboard.JustDown(this.keyS);
+    const result = tickKeyRepeat(this.downRepeat, isDown, justDown, delta);
+    this.downRepeat = result.state;
+    return result.fire;
+  }
 
-    if (this.moveCooldownMs === 0) {
-      if (up) {
-        this.moveSelectionUp();
-        this.moveCooldownMs = 150;
-      } else if (down) {
-        this.focusRow((this.selectedIndex + 1) % ROW_COUNT);
-        this.moveCooldownMs = 150;
-      }
+  private updateMenuNav(delta: number): void {
+    if (this.tickUp(delta)) {
+      this.moveSelectionUp();
+    } else if (this.tickDown(delta)) {
+      this.focusRow((this.selectedIndex + 1) % ROW_COUNT);
     }
 
     if (
@@ -175,10 +189,8 @@ export class PauseScene extends Phaser.Scene {
     }
   }
 
-  private updateQuitConfirm(): void {
-    const up =
-      Phaser.Input.Keyboard.JustDown(this.cursors.up!) || Phaser.Input.Keyboard.JustDown(this.keyW);
-    if (up) {
+  private updateQuitConfirm(delta: number): void {
+    if (this.tickUp(delta)) {
       this.moveSelectionUp();
       return;
     }
