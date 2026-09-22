@@ -20,6 +20,14 @@ export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 
 export const MAZE_TOP_MARGIN_PX = 28;
 
+// Fixed pixel size for every maze tile, all layouts — Pac-Man, ghosts, and wall
+// strokes render at the same size regardless of grid dimensions. Capped by the
+// tallest layout in use (28x34 generated boards): floor((600-28)/34) = 16.
+export const TILE_SIZE_PX = 16;
+if (TILE_SIZE_PX < MIN_TILE_SIZE) {
+  throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
+}
+
 export type MazeGeometry = {
   cols: number;
   rows: number;
@@ -38,12 +46,15 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
     throw new Error(`maze rows ${rows} outside ${MAZE_ROWS_MIN}..${MAZE_ROWS_MAX}`);
   }
   const usableHeight = Math.max(1, PLAYFIELD_HEIGHT - MAZE_TOP_MARGIN_PX);
-  const tileSize = Math.floor(Math.min(PLAYFIELD_WIDTH / cols, usableHeight / rows));
-  if (tileSize < MIN_TILE_SIZE) {
-    throw new Error(`maze tile size ${tileSize} below minimum ${MIN_TILE_SIZE}`);
-  }
+  const tileSize = TILE_SIZE_PX;
   const pixelWidth = cols * tileSize;
+  if (pixelWidth > PLAYFIELD_WIDTH) {
+    throw new Error(`maze pixel width ${pixelWidth} exceeds playfield width ${PLAYFIELD_WIDTH}`);
+  }
   const pixelHeight = rows * tileSize;
+  if (pixelHeight > usableHeight) {
+    throw new Error(`maze pixel height ${pixelHeight} exceeds usable height ${usableHeight}`);
+  }
   const offsetX = (PLAYFIELD_WIDTH - pixelWidth) / 2;
   if (offsetX < MIN_MAZE_OFFSET_X) {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
@@ -53,8 +64,6 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
 }
 
 const classicGeometry = computeMazeGeometry(CLASSIC_MAZE_COLS, CLASSIC_MAZE_ROWS);
-
-export const CLASSIC_TILE_SIZE = classicGeometry.tileSize;
 
 export let MAZE_COLS = classicGeometry.cols;
 export let MAZE_ROWS = classicGeometry.rows;

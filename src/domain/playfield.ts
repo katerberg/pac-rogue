@@ -1,10 +1,13 @@
 import { clamp } from "./clamp";
-import { CLASSIC_TILE_SIZE, TILE_SIZE } from "./maze";
+import { TILE_SIZE } from "./maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 export { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH };
 
-export const PLAYER_SPEED = 150;
+// 150px/s was tuned against the classic maze's original 18px tile fit
+// (8.33 tiles/sec) before every maze shared one fixed tile size — keep
+// pacing unchanged now that TILE_SIZE is fixed at 16 instead of 18.
+export const PLAYER_SPEED = (150 / 18) * TILE_SIZE;
 
 export function playerRadius(): number {
   return TILE_SIZE / 2;
@@ -15,11 +18,7 @@ export function ghostRadius(): number {
 }
 
 export function playerPreTurnPx(): number {
-  return 4 * speedTileScale();
-}
-
-export function speedTileScale(): number {
-  return TILE_SIZE / CLASSIC_TILE_SIZE;
+  return 4;
 }
 
 export const PLAYER_DRAWABLE_ID = "player";
