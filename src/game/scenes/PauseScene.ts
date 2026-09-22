@@ -10,7 +10,6 @@ import {
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
 
-const RESUME_BEAT_MS = 1000;
 const RESUME_INDEX = 0;
 const SETTINGS_INDEX = 1;
 const QUIT_INDEX = 2;
@@ -30,8 +29,6 @@ export class PauseScene extends Phaser.Scene {
   private moveCooldownMs = 0;
   private confirmingQuit = false;
   private quitSelectingYes = false;
-  private resuming = false;
-  private resumeElapsedMs = 0;
 
   private resumeText!: Phaser.GameObjects.BitmapText;
   private settingsText!: Phaser.GameObjects.BitmapText;
@@ -57,8 +54,6 @@ export class PauseScene extends Phaser.Scene {
     this.moveCooldownMs = 0;
     this.confirmingQuit = false;
     this.quitSelectingYes = false;
-    this.resuming = false;
-    this.resumeElapsedMs = 0;
 
     this.add.rectangle(
       PLAYFIELD_WIDTH / 2,
@@ -147,14 +142,6 @@ export class PauseScene extends Phaser.Scene {
 
     this.moveCooldownMs = Math.max(0, this.moveCooldownMs - delta);
 
-    if (this.resuming) {
-      this.resumeElapsedMs += delta;
-      if (this.resumeElapsedMs >= RESUME_BEAT_MS) {
-        this.finishResume();
-      }
-      return;
-    }
-
     if (this.confirmingQuit) {
       this.updateQuitConfirm();
       return;
@@ -172,7 +159,7 @@ export class PauseScene extends Phaser.Scene {
 
     if (this.moveCooldownMs === 0) {
       if (up) {
-        this.focusRow((this.selectedIndex + ROW_COUNT - 1) % ROW_COUNT);
+        this.moveSelectionUp();
         this.moveCooldownMs = 150;
       } else if (down) {
         this.focusRow((this.selectedIndex + 1) % ROW_COUNT);
@@ -192,7 +179,7 @@ export class PauseScene extends Phaser.Scene {
     const up =
       Phaser.Input.Keyboard.JustDown(this.cursors.up!) || Phaser.Input.Keyboard.JustDown(this.keyW);
     if (up) {
-      this.cancelQuitConfirm();
+      this.moveSelectionUp();
       return;
     }
 
@@ -226,9 +213,15 @@ export class PauseScene extends Phaser.Scene {
     this.refreshMenu();
   }
 
+  private moveSelectionUp(): void {
+    this.confirmingQuit = false;
+    this.quitSelectingYes = false;
+    this.focusRow((this.selectedIndex + ROW_COUNT - 1) % ROW_COUNT);
+  }
+
   private activateSelected(): void {
     if (this.selectedIndex === RESUME_INDEX) {
-      this.beginResume();
+      this.resumeGame();
     } else if (this.selectedIndex === SETTINGS_INDEX) {
       this.openSettings();
     } else {
@@ -236,12 +229,7 @@ export class PauseScene extends Phaser.Scene {
     }
   }
 
-  private beginResume(): void {
-    this.resuming = true;
-    this.resumeElapsedMs = 0;
-  }
-
-  private finishResume(): void {
+  private resumeGame(): void {
     const playScene = this.scene.get("PlayScene") as PlayScene;
     playScene.resumeFromPauseMenu();
     this.scene.stop();
