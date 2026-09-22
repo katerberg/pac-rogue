@@ -115,6 +115,78 @@ describe("mazeGenerate", () => {
         expect(tunnelRows[i + 1]! - tunnelRows[i]!).toBeGreaterThan(1);
       }
 
+      // Tunnel mouths never carry a pellet of either kind.
+      for (const row of tunnelRows) {
+        const line = lines[row]!;
+        expect(".@", `pellet at left tunnel mouth row ${row}`).not.toContain(line[0]);
+        expect(".@", `pellet at right tunnel mouth row ${row}`).not.toContain(
+          line[line.length - 1],
+        );
+      }
+
+      // No pellet touches the ghost house even diagonally, at its four rectangle corners.
+      let houseColStart = Infinity;
+      let houseColEnd = -Infinity;
+      let houseRowStart = Infinity;
+      let houseRowEnd = -Infinity;
+      for (let row = 0; row < lines.length; row += 1) {
+        for (let col = 0; col < lines[row]!.length; col += 1) {
+          if (lines[row]![col] === "H") {
+            houseColStart = Math.min(houseColStart, col);
+            houseColEnd = Math.max(houseColEnd, col);
+            houseRowStart = Math.min(houseRowStart, row);
+            houseRowEnd = Math.max(houseRowEnd, row);
+          }
+        }
+      }
+      const stampCol0 = houseColStart - 1;
+      const stampCol1 = houseColEnd + 1;
+      const stampRow0 = houseRowStart - 1;
+      const stampRow1 = houseRowEnd + 1;
+      for (const [col, row] of [
+        [stampCol0 - 1, stampRow0 - 1],
+        [stampCol1 + 1, stampRow0 - 1],
+        [stampCol0 - 1, stampRow1 + 1],
+        [stampCol1 + 1, stampRow1 + 1],
+      ] as const) {
+        const ch = lines[row]?.[col];
+        expect(".@", `pellet at house corner ${col},${row}`).not.toContain(ch);
+      }
+
+      // A power pellet on a tunnel row must offer a turn before the straight run into
+      // that tunnel's mouth, so it's never a beeline shot through the wraparound.
+      const isWalkableTestChar = (ch: string | undefined): boolean =>
+        ch !== undefined && ".-@P ".includes(ch);
+      const tunnelRowSet = new Set(tunnelRows);
+      for (let row = 0; row < lines.length; row += 1) {
+        if (!tunnelRowSet.has(row)) {
+          continue;
+        }
+        const line = lines[row]!;
+        for (let col = 0; col < line.length; col += 1) {
+          if (line[col] !== "@") {
+            continue;
+          }
+          const mouthCol = col <= (line.length - 1) / 2 ? 0 : line.length - 1;
+          const step = mouthCol === 0 ? -1 : 1;
+          let turnFound = false;
+          for (let c = col + step; c !== mouthCol; c += step) {
+            if (!isWalkableTestChar(lines[row]![c])) {
+              turnFound = true;
+              break;
+            }
+            if (
+              isWalkableTestChar(lines[row - 1]?.[c]) ||
+              isWalkableTestChar(lines[row + 1]?.[c])
+            ) {
+              turnFound = true;
+              break;
+            }
+          }
+          expect(turnFound, `power pellet at tunnel entrance ${col},${row}`).toBe(true);
+        }
+      }
+
       const tunnelSet = new Set(tunnelRows);
       for (let row = 0; row < layout.rows; row += 1) {
         for (let col = 0; col < layout.cols; col += 1) {
