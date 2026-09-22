@@ -16,7 +16,7 @@ import {
   wrapPosition,
   type SolidGrid,
 } from "../../domain/maze";
-import { clampPositionToPlayfield } from "../../domain/playfield";
+import { clampPositionToPlayfield, playerPreTurnPx } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
@@ -57,6 +57,7 @@ function tryCommitCenterTurn(
   facing: Direction,
   frameTravel: number,
   speed: number,
+  preTurnPx: number,
 ): { x: number; y: number; remainingDt: number } | null {
   const col = worldToCol(x);
   const row = worldToRow(y);
@@ -71,7 +72,8 @@ function tryCommitCenterTurn(
     return null;
   }
 
-  if (Math.abs(x - cx) <= TURN_ALIGN_EPS && Math.abs(y - cy) <= TURN_ALIGN_EPS) {
+  const alongDist = step.dx !== 0 ? Math.abs(x - cx) : Math.abs(y - cy);
+  if (alongDist <= preTurnPx) {
     return { x: cx, y: cy, remainingDt: speed > 0 ? frameTravel / speed : 0 };
   }
 
@@ -146,7 +148,8 @@ export function movement(world: World, deltaMs: number, playerSolidsOverride?: S
           facing = nextIntent;
         }
       } else {
-        const committed = tryCommitCenterTurn(x, y, facing, frameTravel, speed);
+        const preTurnPx = ghost ? TURN_ALIGN_EPS : playerPreTurnPx();
+        const committed = tryCommitCenterTurn(x, y, facing, frameTravel, speed, preTurnPx);
         if (committed) {
           x = committed.x;
           y = committed.y;

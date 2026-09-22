@@ -14,6 +14,10 @@ export function ghostRadius(): number {
   return playerRadius();
 }
 
+export function playerPreTurnPx(): number {
+  return 4 * speedTileScale();
+}
+
 export function speedTileScale(): number {
   return TILE_SIZE / CLASSIC_TILE_SIZE;
 }

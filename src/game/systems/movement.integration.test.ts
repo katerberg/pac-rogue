@@ -8,15 +8,16 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
-import { PLAYER_SPEED } from "../../domain/playfield";
+import { PLAYER_SPEED, playerPreTurnPx } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
+import { Ghost } from "../components/Ghost";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { movement } from "./movement";
 
-function spawnPlayer(col: number, row: number) {
+function spawnPlayer(col: number, row: number, ghost = false) {
   const world = createWorld();
   const eid = addEntity(world);
   addComponent(world, eid, Position);
@@ -24,6 +25,9 @@ function spawnPlayer(col: number, row: number) {
   addComponent(world, eid, Input);
   addComponent(world, eid, Facing);
   addComponent(world, eid, Speed);
+  if (ghost) {
+    addComponent(world, eid, Ghost);
+  }
   Position.x[eid] = cellCenterX(col);
   Position.y[eid] = cellCenterY(row);
   Velocity.x[eid] = 0;
@@ -86,6 +90,46 @@ describe("movement integration (real maze)", () => {
     expect(turned).toBe(true);
     expect(worldToCol(Position.x[eid] ?? 0)).toBe(junctionCol);
     expect(Position.y[eid] ?? 0).toBeLessThan(cellCenterY(startRow));
+  });
+
+  it("commits the player's turn at this junction with more distance to spare than a ghost's", () => {
+    const startCol = 9;
+    const startRow = 5;
+    const junctionCol = 6;
+    const junctionCenterX = cellCenterX(junctionCol);
+
+    const player = spawnPlayer(startCol, startRow);
+    Facing.direction[player.eid] = DIRECTION.left;
+    Input.direction[player.eid] = DIRECTION.up;
+
+    let playerTurnDistance = Number.NaN;
+    for (let i = 0; i < 120; i += 1) {
+      const beforeX = Position.x[player.eid] ?? 0;
+      movement(player.world, 16);
+      if (facingOf(player.eid) === DIRECTION.up) {
+        playerTurnDistance = Math.abs(beforeX - junctionCenterX);
+        break;
+      }
+    }
+
+    const ghost = spawnPlayer(startCol, startRow, true);
+    Facing.direction[ghost.eid] = DIRECTION.left;
+    Input.direction[ghost.eid] = DIRECTION.up;
+
+    let ghostTurnDistance = Number.NaN;
+    for (let i = 0; i < 120; i += 1) {
+      const beforeX = Position.x[ghost.eid] ?? 0;
+      movement(ghost.world, 16);
+      if (facingOf(ghost.eid) === DIRECTION.up) {
+        ghostTurnDistance = Math.abs(beforeX - junctionCenterX);
+        break;
+      }
+    }
+
+    expect(Number.isNaN(playerTurnDistance)).toBe(false);
+    expect(Number.isNaN(ghostTurnDistance)).toBe(false);
+    expect(playerTurnDistance).toBeGreaterThan(ghostTurnDistance);
+    expect(playerTurnDistance).toBeLessThanOrEqual(playerPreTurnPx() + 1e-6);
   });
 
   it("wraps left through the side tunnel without losing facing or speed", () => {
