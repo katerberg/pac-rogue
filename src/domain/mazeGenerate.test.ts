@@ -178,7 +178,20 @@ describe("mazeGenerate", () => {
     const layout = getActiveLayout();
     expect(layout.cols).toBe(GENERATED_MAZE_COLS);
     expect(layout.rows).toBe(GENERATED_MAZE_ROWS);
-    expect(layout.ghostHouseExit).toBeTruthy();
-    expect(layout.fruitSpawn).toBeTruthy();
+    // The door approach and fruit row must be the tiling's own corridor rows directly
+    // above and below the house stamp — carving them is what produced parallel lanes.
+    const lines = result!.ascii.split("\n");
+    const doorRow = lines.findIndex((line) => line.includes("="));
+    const lastHouseRow = lines.reduce((last, line, row) => (line.includes("H") ? row : last), -1);
+    const stampBottomRow = lastHouseRow + 1;
+    expect(doorRow).toBeGreaterThan(0);
+    expect(layout.ghostHouseExit.row).toBe(doorRow - 1);
+    expect(layout.fruitSpawn.row).toBe(stampBottomRow + 1);
+    expect(
+      isWalkable(layout.ghostHouseExit.col, layout.ghostHouseExit.row, layout.playerSolids),
+    ).toBe(true);
+    expect(isWalkable(layout.fruitSpawn.col, layout.fruitSpawn.row, layout.playerSolids)).toBe(
+      true,
+    );
   });
 });

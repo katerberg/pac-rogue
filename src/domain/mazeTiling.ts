@@ -1,6 +1,6 @@
 export const TILING_WIDTH = 9;
 export const TILING_HEIGHT = 11;
-export const TILING_START_ROW = TILING_HEIGHT - 2;
+const TILING_START_ROW = TILING_HEIGHT - 2;
 export const TILING_CELL_COUNT = TILING_WIDTH * TILING_HEIGHT;
 
 export type ShapeId = "domino" | "straight" | "t" | "c" | "l";
@@ -75,9 +75,8 @@ export const CENTER_PIECE: TilingPiece = {
   cells: [48, 49, 50, 57, 58, 59],
 };
 
-// Pellet density comes from piece boundaries: every pair of touching cells that
-// belong to different pieces becomes corridor, and cells inside one piece become
-// wall. Small pieces therefore mean more maze, so the draw leans on dominoes.
+// Corridor comes from piece boundaries, wall from piece interiors, so smaller pieces
+// mean more maze. The draw leans on dominoes to hit the pellet target.
 const SHAPE_WEIGHTS: Record<ShapeId, number> = {
   domino: 8,
   straight: 2,
@@ -103,7 +102,7 @@ const ledgeCells = [-1, 0, 1].map(
 const ledgeMask = maskOf(ledgeCells);
 const aboveLedgeMask = maskOf(ledgeCells.map((cell) => cell - TILING_WIDTH));
 
-export function mirrorCells(cells: readonly number[]): number[] {
+function mirrorCells(cells: readonly number[]): number[] {
   return cells
     .map(
       (cell) =>
@@ -144,7 +143,7 @@ function bounds(piece: { cells: number[] }): PieceBounds {
   return next;
 }
 
-export function formsRectangle(first: { cells: number[] }, second: { cells: number[] }): boolean {
+function formsRectangle(first: { cells: number[] }, second: { cells: number[] }): boolean {
   const a = bounds(first);
   const b = bounds(second);
   const width = Math.max(a.right, b.right) - Math.min(a.left, b.left) + 1;
@@ -152,7 +151,7 @@ export function formsRectangle(first: { cells: number[] }, second: { cells: numb
   return width * height === a.area + b.area;
 }
 
-export function orientations(cells: readonly (readonly [number, number])[]): [number, number][][] {
+function orientations(cells: readonly (readonly [number, number])[]): [number, number][][] {
   const result = new Map<string, [number, number][]>();
   for (const flip of [1, -1] as const) {
     let rotated: [number, number][] = cells.map(([x, y]) => [x * flip, y]);

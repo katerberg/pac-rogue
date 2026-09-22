@@ -1,6 +1,7 @@
-import { computeMazeGeometry, layoutFromAscii, type MazeLayout, type SolidGrid } from "./maze";
+import { layoutFromAscii, type MazeLayout, type SolidGrid } from "./maze";
 import { pickLayoutId, type MazeLayoutId } from "./mazeLayouts";
 import {
+  CENTER_PIECE,
   randomFromSeed,
   solveTiling,
   TILING_HEIGHT,
@@ -11,9 +12,12 @@ import {
 export const GENERATED_MAZE_COLS = 28;
 export const GENERATED_MAZE_ROWS = 34;
 export const GENERATE_MAX_ATTEMPTS = 32;
-// Classic maze1 carries 244 pellets. Boards below this read as undersized, so the
-// attempt loop keeps drawing until one clears it and otherwise takes the densest.
+// Classic maze1 carries 244 pellets; boards well under that read as undersized.
 export const GENERATED_PELLET_TARGET = 240;
+
+// Every board rule throws this; anything else out of generateMazeAscii is a bug the
+// attempt loop must not swallow.
+class MazeRejected extends Error {}
 
 const WALL = "#";
 const CORRIDOR = "-";
@@ -24,11 +28,6 @@ const HOUSE = "H";
 const SPAWN = "P";
 
 const HOUSE_STAMP: readonly string[] = ["###==###", "#HHHHHH#", "#HHHHHH#", "#HHHHHH#", "########"];
-const HOUSE_STAMP_COL0 = 10;
-// The stamp fills the solver center piece exactly, so the gap rows just above and
-// below it are already corridors: the door opens onto one, the fruit sits on the
-// other, and neither needs carving.
-const HOUSE_STAMP_ROW0 = 16;
 
 function emptyGrid(cols: number, rows: number, fill: string): string[][] {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => fill));
@@ -37,6 +36,13 @@ function emptyGrid(cols: number, rows: number, fill: string): string[][] {
 function solverCellOrigin(sx: number, sy: number): { col: number; row: number } {
   return { col: 1 + sx * 3, row: 1 + sy * 3 };
 }
+
+const houseStampOrigin = solverCellOrigin(
+  Math.min(...CENTER_PIECE.cells.map((cell) => cell % TILING_WIDTH)),
+  Math.min(...CENTER_PIECE.cells.map((cell) => Math.floor(cell / TILING_WIDTH))),
+);
+const HOUSE_STAMP_COL0 = houseStampOrigin.col;
+const HOUSE_STAMP_ROW0 = houseStampOrigin.row;
 
 function pieceIdByCell(pieces: readonly TilingPiece[]): Int16Array {
   const ids = new Int16Array(TILING_WIDTH * TILING_HEIGHT).fill(-1);
@@ -98,24 +104,35 @@ function stampHouse(grid: string[][]): void {
   }
 }
 
+function isHouseStampCell(col: number, row: number): boolean {
+  return (
+    row >= HOUSE_STAMP_ROW0 &&
+    row < HOUSE_STAMP_ROW0 + HOUSE_STAMP.length &&
+    col >= HOUSE_STAMP_COL0 &&
+    col < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length
+  );
+}
+
+function* houseStampCells(): Generator<{ col: number; row: number }> {
+  for (let r = 0; r < HOUSE_STAMP.length; r += 1) {
+    for (let c = 0; c < HOUSE_STAMP[r]!.length; c += 1) {
+      yield { col: HOUSE_STAMP_COL0 + c, row: HOUSE_STAMP_ROW0 + r };
+    }
+  }
+}
+
 function clearAroundHouseStamp(grid: string[][]): void {
   const rows = grid.length;
   const cols = grid[0]!.length;
-  const stampCells: { col: number; row: number }[] = [];
-  for (let r = 0; r < HOUSE_STAMP.length; r += 1) {
-    for (let c = 0; c < HOUSE_STAMP[r]!.length; c += 1) {
-      stampCells.push({ col: HOUSE_STAMP_COL0 + c, row: HOUSE_STAMP_ROW0 + r });
-    }
-  }
-  for (const cell of stampCells) {
+  for (const { col, row } of houseStampCells()) {
     for (const [dc, dr] of [
       [0, -1],
       [0, 1],
       [-1, 0],
       [1, 0],
     ] as const) {
-      const nCol = cell.col + dc;
-      const nRow = cell.row + dr;
+      const nCol = col + dc;
+      const nRow = row + dr;
       if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows) {
         continue;
       }
@@ -135,8 +152,8 @@ function isWalkableChar(ch: string): boolean {
   return ch === CORRIDOR || ch === PELLET || ch === POWER || ch === SPAWN || ch === " ";
 }
 
-// Tunnels ride the tiling's corridor rows. Carving one through a wall row would put
-// it alongside the corridor row next to it, which is the parallel-corridor case.
+// Corridor rows only: a tunnel carved through a wall row runs alongside the corridor
+// row next to it, which is the parallel-corridor case.
 function pickTunnelRows(seed: string, houseRows: ReadonlySet<number>): number[] {
   const random = randomFromSeed(`tunnels:${seed}`);
   const pool: number[] = [];
@@ -147,7 +164,7 @@ function pickTunnelRows(seed: string, houseRows: ReadonlySet<number>): number[] 
     }
   }
   if (pool.length === 0) {
-    throw new Error("no tunnel candidate rows");
+    throw new MazeRejected("no tunnel candidate rows");
   }
   const count = random() < 0.5 ? 1 : 2;
   const chosen: number[] = [];
@@ -172,34 +189,31 @@ function applyTunnels(grid: string[][], tunnelRows: readonly number[]): void {
   }
 }
 
-function neighborKeys(
+function neighbors(
   col: number,
   row: number,
   cols: number,
   rows: number,
   tunnelRows: ReadonlySet<number>,
-): string[] {
-  const keys: string[] = [];
-  const push = (c: number, r: number) => {
-    keys.push(`${c},${r}`);
-  };
+): [number, number][] {
+  const out: [number, number][] = [];
   if (row > 0) {
-    push(col, row - 1);
+    out.push([col, row - 1]);
   }
   if (row + 1 < rows) {
-    push(col, row + 1);
+    out.push([col, row + 1]);
   }
   if (col > 0) {
-    push(col - 1, row);
+    out.push([col - 1, row]);
   } else if (tunnelRows.has(row)) {
-    push(cols - 1, row);
+    out.push([cols - 1, row]);
   }
   if (col + 1 < cols) {
-    push(col + 1, row);
+    out.push([col + 1, row]);
   } else if (tunnelRows.has(row)) {
-    push(0, row);
+    out.push([0, row]);
   }
-  return keys;
+  return out;
 }
 
 function isPlayerCorridorChar(ch: string): boolean {
@@ -215,8 +229,7 @@ function corridorDegree(
   const rows = grid.length;
   const cols = grid[0]!.length;
   let degree = 0;
-  for (const nKey of neighborKeys(col, row, cols, rows, tunnelRows)) {
-    const [nCol, nRow] = nKey.split(",").map(Number) as [number, number];
+  for (const [nCol, nRow] of neighbors(col, row, cols, rows, tunnelRows)) {
     if (isPlayerCorridorChar(grid[nRow]![nCol]!)) {
       degree += 1;
     }
@@ -233,7 +246,7 @@ function sealDeadEnds(grid: string[][]): void {
     changed = false;
     guard += 1;
     if (guard > rows * cols) {
-      throw new Error("sealDeadEnds did not converge");
+      throw new MazeRejected("sealDeadEnds did not converge");
     }
     const tunnelSet = new Set(countTunnels(grid));
     const tips: { col: number; row: number }[] = [];
@@ -312,7 +325,7 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
       }
     }
     if (!best) {
-      throw new Error("missing power-pellet corner cell");
+      throw new MazeRejected("missing power-pellet corner cell");
     }
     grid[best.row]![best.col] = POWER;
   }
@@ -334,7 +347,7 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
     }
   }
   if (!spawn) {
-    throw new Error("missing player spawn cell");
+    throw new MazeRejected("missing player spawn cell");
   }
   grid[spawn.row]![spawn.col] = SPAWN;
   clearPelletsAround(grid, spawn.col, spawn.row);
@@ -395,64 +408,38 @@ function assertSymmetric(grid: string[][]): void {
       const a = norm(grid[row]![col]!);
       const b = norm(grid[row]![mirrorCol]!);
       if (a !== b) {
-        throw new Error(`asymmetric maze at row ${row} cols ${col}/${mirrorCol}`);
+        throw new MazeRejected(`asymmetric maze at row ${row} cols ${col}/${mirrorCol}`);
       }
     }
   }
 }
 
+// Power pellets land after clearAroundHouseStamp, so they can still reach these cells.
 function assertNoHouseAdjacentPellets(grid: string[][]): void {
   const rows = grid.length;
   const cols = grid[0]!.length;
-  for (let row = HOUSE_STAMP_ROW0; row < HOUSE_STAMP_ROW0 + HOUSE_STAMP.length; row += 1) {
-    for (let col = HOUSE_STAMP_COL0; col < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length; col += 1) {
-      for (const [dc, dr] of [
-        [0, -1],
-        [0, 1],
-        [-1, 0],
-        [1, 0],
-      ] as const) {
-        const nCol = col + dc;
-        const nRow = row + dr;
-        if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows) {
-          continue;
-        }
-        if (
-          nRow >= HOUSE_STAMP_ROW0 &&
-          nRow < HOUSE_STAMP_ROW0 + HOUSE_STAMP.length &&
-          nCol >= HOUSE_STAMP_COL0 &&
-          nCol < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length
-        ) {
-          continue;
-        }
-        const ch = grid[nRow]![nCol]!;
-        if (ch === PELLET || ch === POWER) {
-          throw new Error(`pellet adjacent to house stamp at ${nCol},${nRow}`);
-        }
-      }
-    }
-  }
-}
-
-function assertNoDeadEnds(grid: string[][], tunnelRows: readonly number[]): void {
-  const rows = grid.length;
-  const cols = grid[0]!.length;
-  const tunnelSet = new Set(tunnelRows);
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (!isPlayerCorridorChar(grid[row]![col]!)) {
+  for (const { col, row } of houseStampCells()) {
+    for (const [dc, dr] of [
+      [0, -1],
+      [0, 1],
+      [-1, 0],
+      [1, 0],
+    ] as const) {
+      const nCol = col + dc;
+      const nRow = row + dr;
+      if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows || isHouseStampCell(nCol, nRow)) {
         continue;
       }
-      if (corridorDegree(grid, col, row, tunnelSet) < 2) {
-        throw new Error(`dead-end walkable at ${col},${row}`);
+      const ch = grid[nRow]![nCol]!;
+      if (ch === PELLET || ch === POWER) {
+        throw new MazeRejected(`pellet adjacent to house stamp at ${nCol},${nRow}`);
       }
     }
   }
 }
 
-// Two corridors running side by side let the player travel parallel to an adjacent
-// lane, which reads as a "double line" rather than a maze. A 2x2 block of open cells
-// is exactly that case, and it is the only one: plus/T intersections never form one.
+// A 2x2 block of open cells is exactly the side-by-side-lanes case, and the only one:
+// plus/T intersections never form one, so junctions are unaffected.
 export function findParallelCorridor(solids: SolidGrid): { col: number; row: number } | null {
   const open = (col: number, row: number): boolean => !(solids[row]?.[col] ?? true);
   for (let row = 0; row < solids.length - 1; row += 1) {
@@ -481,63 +468,14 @@ function assertNoDeadEndsOnLayout(layout: MazeLayout): void {
         continue;
       }
       let degree = 0;
-      for (const nKey of neighborKeys(col, row, layout.cols, layout.rows, tunnelSet)) {
-        const [nCol, nRow] = nKey.split(",").map(Number) as [number, number];
+      for (const [nCol, nRow] of neighbors(col, row, layout.cols, layout.rows, tunnelSet)) {
         if (!(layout.playerSolids[nRow]?.[nCol] ?? true)) {
           degree += 1;
         }
       }
       if (degree < 2) {
-        throw new Error(`dead-end playerSolids at ${col},${row}`);
+        throw new MazeRejected(`dead-end playerSolids at ${col},${row}`);
       }
-    }
-  }
-}
-
-function assertTunnelsReachable(grid: string[][], tunnelRows: readonly number[]): void {
-  const rows = grid.length;
-  const cols = grid[0]!.length;
-  let spawn: { col: number; row: number } | null = null;
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (grid[row]![col] === SPAWN) {
-        spawn = { col, row };
-      }
-    }
-  }
-  if (!spawn) {
-    throw new Error("missing spawn for tunnel reachability");
-  }
-  const visited = Array.from({ length: rows }, () => Array.from({ length: cols }, () => false));
-  const queue = [spawn];
-  visited[spawn.row]![spawn.col] = true;
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    for (const [dc, dr] of [
-      [0, -1],
-      [0, 1],
-      [-1, 0],
-      [1, 0],
-    ] as const) {
-      const col = current.col + dc;
-      const row = current.row + dr;
-      if (col < 0 || col >= cols || row < 0 || row >= rows) {
-        continue;
-      }
-      if (visited[row]![col]) {
-        continue;
-      }
-      const ch = grid[row]![col]!;
-      if (!(isWalkableChar(ch) || ch === DOOR || ch === HOUSE)) {
-        continue;
-      }
-      visited[row]![col] = true;
-      queue.push({ col, row });
-    }
-  }
-  for (const row of tunnelRows) {
-    if (!visited[row]![0] || !visited[row]![cols - 1]) {
-      throw new Error(`unreachable tunnel row ${row}`);
     }
   }
 }
@@ -558,70 +496,61 @@ function gridToAscii(grid: string[][]): string {
   return grid.map((row) => row.join("")).join("\n");
 }
 
+function reject<T>(build: () => T): T {
+  try {
+    return build();
+  } catch (error) {
+    throw new MazeRejected(error instanceof Error ? error.message : String(error));
+  }
+}
+
 export function boardMazeSeed(runSeed: string, levelIndex: number): string {
   return `${runSeed}:L${levelIndex}`;
 }
 
 export function generateMazeAscii(seed: string): { ascii: string; pelletCount: number } {
-  const tiling = solveTiling(seed);
+  const tiling = reject(() => solveTiling(seed));
   const grid = emptyGrid(GENERATED_MAZE_COLS, GENERATED_MAZE_ROWS, WALL);
   fillTilingWalls(grid, tiling.pieces);
   stampHouse(grid);
 
-  const houseRows = new Set<number>();
-  for (let r = HOUSE_STAMP_ROW0; r < HOUSE_STAMP_ROW0 + HOUSE_STAMP.length; r += 1) {
-    houseRows.add(r);
-  }
+  const houseRows = new Set([...houseStampCells()].map((cell) => cell.row));
   const tunnelRows = pickTunnelRows(seed, houseRows);
   applyTunnels(grid, tunnelRows);
   sealDeadEnds(grid);
 
-  const sealedTunnels = countTunnels(grid);
-  if (sealedTunnels.length < 1 || sealedTunnels.length > 2) {
-    throw new Error(`tunnel count after seal ${sealedTunnels.length}`);
-  }
-  for (let i = 0; i < sealedTunnels.length - 1; i += 1) {
-    if (sealedTunnels[i + 1]! - sealedTunnels[i]! <= 1) {
-      throw new Error("adjacent tunnels after seal");
-    }
+  const tunnels = countTunnels(grid);
+  if (tunnels.length < 1 || tunnels.length > 2) {
+    throw new MazeRejected(`tunnel count ${tunnels.length}`);
   }
 
-  placePelletsAndSpawn(grid, sealedTunnels);
+  placePelletsAndSpawn(grid, tunnels);
 
   assertSymmetric(grid);
   assertNoHouseAdjacentPellets(grid);
-  const tunnels = countTunnels(grid);
-  if (tunnels.length < 1 || tunnels.length > 2) {
-    throw new Error(`tunnel count ${tunnels.length}`);
-  }
-  for (let i = 0; i < tunnels.length - 1; i += 1) {
-    if (tunnels[i + 1]! - tunnels[i]! <= 1) {
-      throw new Error("adjacent tunnels");
-    }
-  }
-  assertNoDeadEnds(grid, tunnels);
-  assertTunnelsReachable(grid, tunnels);
 
   const ascii = gridToAscii(grid);
   if (hasThinInteriorWallSeparator(ascii)) {
-    throw new Error("thin interior wall separator");
-  }
-  computeMazeGeometry(GENERATED_MAZE_COLS, GENERATED_MAZE_ROWS);
-  if (!ascii.includes(SPAWN)) {
-    throw new Error("missing P spawn");
+    throw new MazeRejected("thin interior wall separator");
   }
   if ((ascii.match(/@/g) ?? []).length !== 4) {
-    throw new Error("expected 4 power pellets");
+    throw new MazeRejected("expected 4 power pellets");
   }
 
-  const layout = layoutFromAscii(ascii);
+  const layout = reject(() => layoutFromAscii(ascii));
+  for (const row of tunnels) {
+    const mouths = layout.playerSolids[row];
+    if ((mouths?.[0] ?? true) || (mouths?.[layout.cols - 1] ?? true)) {
+      throw new MazeRejected(`unreachable tunnel row ${row}`);
+    }
+  }
   assertNoDeadEndsOnLayout(layout);
   const parallel = findParallelCorridor(layout.playerSolids);
   if (parallel) {
-    throw new Error(`parallel corridors at ${parallel.col},${parallel.row}`);
+    throw new MazeRejected(`parallel corridors at ${parallel.col},${parallel.row}`);
   }
   if (layout.pelletCount < 120) {
-    throw new Error(`too few pellets ${layout.pelletCount}`);
+    throw new MazeRejected(`too few pellets ${layout.pelletCount}`);
   }
 
   return { ascii, pelletCount: layout.pelletCount };
@@ -637,7 +566,10 @@ export function generateMazeAsciiWithRetries(
     let board: { ascii: string; pelletCount: number };
     try {
       board = generateMazeAscii(seedUsed);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof MazeRejected)) {
+        throw error;
+      }
       continue;
     }
     if (board.pelletCount >= GENERATED_PELLET_TARGET) {
