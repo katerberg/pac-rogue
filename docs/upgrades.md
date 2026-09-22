@@ -33,7 +33,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 
 ## Grant rules
 
-- Collecting bonus fruit only plays both munches and despawns fruit — no upgrade effect, no modal.
+- Collecting bonus fruit plays both munches, despawns fruit, and awards one Quarter — no upgrade effect, no modal.
 - Clearing a level (2 through 8, including level 8 itself) is the trigger: eligible pool = upgrade ids not already owned.
 - **0 eligible:** no modal; clear `forceNextId` if set; no grant; the level transition (or Run Complete, on level 8) proceeds immediately.
 - **1 eligible:** one-button modal (must pick; no auto-grant).

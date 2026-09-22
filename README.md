@@ -42,6 +42,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `play`          | `1`                               | Skip the menu and boot straight into `PlayScene` (level 1 unless `level` is set).                                                                                                                                                           |
 | `maze`          | `maze1` \| `maze2` \| `mazeSmall` | Force that layout for the **first** board of this Start; omit for level-1 `mazeSmall`. Levels ≥ 2 use the procedural generator unless this override is set for the first board. See [docs/maze-constraints.md](./docs/maze-constraints.md). |
 | `level`         | positive integer                  | Start at that level index (ghost roster unlock + speed mul `1 + 0.1×(level−1)`); level ≥ 2 without `?maze=` starts on a generated board. Omit for level 1. Invalid → level 1. Fixed 8-level plan: values above 8 clamp to 8.                |
+| `quarters`      | non-negative integer              | Start the run with that many quarters (HUD icons). Omit for 0. Invalid → 0.                                                                                                                                                                 |
 | `forceUpgrade`  | one upgrade id                    | Level-1 starting upgrade uses that id if not already owned (then cleared); otherwise the next level-clear choice modal guarantees it as one option; cleared on confirm or empty pool. Invalid → normal offer.                               |
 | `enableUpgrade` | upgrade id (repeatable)           | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Combines with `forceUpgrade`.                                                                                                                |
 | `sound`         | `1`                               | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                                                                                                                         |
@@ -53,6 +54,7 @@ http://127.0.0.1:5174/?play=1
 http://127.0.0.1:5174/?play=1&maze=mazeSmall
 http://127.0.0.1:5174/?maze=maze2
 http://127.0.0.1:5174/?level=3
+http://127.0.0.1:5174/?play=1&quarters=3
 http://127.0.0.1:5174/?forceUpgrade=ghostSlow
 http://127.0.0.1:5174/?enableUpgrade=scatterBurst
 http://127.0.0.1:5174/?enableUpgrade=ghostRecall&enableUpgrade=warpTop
@@ -79,7 +81,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [docs/maze-constraints.md](./docs/maze-constraints.md) — variable-size maze rules / ASCII legend
 - [docs/upgrades.md](./docs/upgrades.md) — run upgrades from level clears
 - [docs/levels.md](./docs/levels.md) — the fixed 8-level plan
-- [Flags](#flags) — URL query params (`play`, `maze`, `level`, `forceUpgrade`, `enableUpgrade`, `sound`)
+- [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `forceUpgrade`, `enableUpgrade`, `sound`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow
