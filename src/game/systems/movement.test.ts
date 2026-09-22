@@ -5,10 +5,11 @@ import {
   cellCenterY,
   getActiveLayout,
   isWalkable,
+  TURN_ALIGN_EPS,
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
-import { PLAYER_SPEED } from "../../domain/playfield";
+import { PLAYER_SPEED, playerPreTurnPx } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { DIRECTION, Input } from "../components/Input";
@@ -221,6 +222,34 @@ describe("movement", () => {
 
     expect(Facing.direction[eid]).toBe(DIRECTION.right);
     expect(Velocity.x[eid]).toBe(PLAYER_SPEED);
+  });
+
+  it("lets the player pre-turn earlier than a ghost at the same offset", () => {
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const offset = (playerPreTurnPx() + TURN_ALIGN_EPS) / 2;
+
+    const player = spawnAt(6, 5);
+    Position.x[player.eid] = cx + offset;
+    Position.y[player.eid] = cy;
+    Facing.direction[player.eid] = DIRECTION.left;
+    Input.direction[player.eid] = DIRECTION.up;
+
+    movement(player.world, 1);
+
+    expect(Facing.direction[player.eid]).toBe(DIRECTION.up);
+    expect(Position.x[player.eid]).toBeCloseTo(cx, 5);
+
+    const ghost = spawnAt(6, 5, true);
+    Position.x[ghost.eid] = cx + offset;
+    Position.y[ghost.eid] = cy;
+    Facing.direction[ghost.eid] = DIRECTION.left;
+    Input.direction[ghost.eid] = DIRECTION.up;
+
+    movement(ghost.world, 1);
+
+    expect(Facing.direction[ghost.eid]).toBe(DIRECTION.left);
+    expect(Position.x[ghost.eid]).toBeCloseTo(cx + offset - PLAYER_SPEED * 0.001, 5);
   });
 
   it("does not clear sticky Input when stopped", () => {
