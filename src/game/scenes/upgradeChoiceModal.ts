@@ -43,6 +43,7 @@ export type UpgradeChoiceModal = {
   isActive: () => boolean;
   open: (options: readonly UpgradeId[], onConfirm: (chosen: UpgradeId) => void) => void;
   tick: (deltaMs: number) => void;
+  rearmSelectionKeys: () => void;
   destroy: () => void;
 };
 
@@ -382,6 +383,9 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
       } else if (right) {
         finish(options[1]!);
       }
+    },
+    rearmSelectionKeys: () => {
+      choiceKeysArmed = false;
     },
     destroy: () => {
       phase = null;

@@ -3,7 +3,15 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { chromium } from "playwright";
-import { isUp, ports, root, sleep, stopProcess, waitForServer } from "./lib/server.mjs";
+import {
+  chromiumLaunchOptions,
+  isUp,
+  ports,
+  root,
+  sleep,
+  stopProcess,
+  waitForServer,
+} from "./lib/server.mjs";
 
 const outDir = join(root, "artifacts");
 
@@ -51,7 +59,11 @@ async function runStep(page, canvas, step, name) {
       await page.keyboard.up(a);
       break;
     case "press":
-      await page.keyboard.press(a);
+      // A zero-delay down+up can both be processed before Phaser's next frame
+      // reads the key's justDown flag, which its own keyup handler also clears —
+      // so the tap would silently vanish. A short delay guarantees a frame lands
+      // in between, like a real (if very brief) keypress would.
+      await page.keyboard.press(a, { delay: 50 });
       break;
     case "shot": {
       const path = join(outDir, `${name}-${a}.png`);
@@ -93,7 +105,7 @@ async function main() {
   let browser = null;
   try {
     await waitForServer(baseUrl);
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true, ...chromiumLaunchOptions() });
     const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
     page.on("pageerror", (error) => problems.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {

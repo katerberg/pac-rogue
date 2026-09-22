@@ -1,9 +1,21 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const ports = JSON.parse(readFileSync(join(root, "scripts", "ports.json"), "utf8"));
+
+// Some sandboxes pre-cache a Chromium build under PLAYWRIGHT_BROWSERS_PATH whose
+// revision predates the one this repo's `playwright` version expects to download.
+// Point at that pre-cached binary when present instead of failing on a missing download.
+export function chromiumLaunchOptions() {
+  const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!browsersPath) {
+    return {};
+  }
+  const executablePath = join(browsersPath, "chromium");
+  return existsSync(executablePath) ? { executablePath } : {};
+}
 
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
