@@ -80,9 +80,11 @@ import {
   ghostHouseReleaseDelayAddMs,
   ghostSpeedMultiplier,
   grantLivesForUpgrade,
+  grantUpgrade,
   parseEnableUpgradeParams,
   parseUpgradeId,
   pelletCollectRadiusBonusPx,
+  pickStartingUpgrade,
   pickUpgradeChoiceOffer,
   playerIsInvulnerable,
   PLAYER_SPEED_BURST_MUL,
@@ -97,6 +99,7 @@ import {
   upgradeLabels,
   wallPassActive,
   type RunUpgrades,
+  type UpgradeId,
 } from "../../domain/upgrades";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -157,6 +160,7 @@ import {
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
+import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 
 const LEVEL_TRANSITION_MS = 1000;
 const LEVEL_BANNER_FADE_MS = 1500;
@@ -194,6 +198,7 @@ export class PlayScene extends Phaser.Scene {
   private afterLifeRelease = false;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private upgradeChoiceModal!: UpgradeChoiceModal;
+  private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private sirenWasActiveBeforePause = false;
 
@@ -215,6 +220,8 @@ export class PlayScene extends Phaser.Scene {
     this.clearLevelBanner();
     this.upgradeChoiceModal?.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this);
+    this.startingUpgradeCard?.destroy();
+    this.startingUpgradeCard = createStartingUpgradeCard(this);
 
     const urlParams = new URLSearchParams(location.search);
     const mazeOverride = parseMazeParam(urlParams);
@@ -262,15 +269,38 @@ export class PlayScene extends Phaser.Scene {
     this.playRender = createRender(this);
 
     this.startBoard(mazeOverride);
+
+    const startingUpgrade =
+      this.levelIndex === 1
+        ? pickStartingUpgrade(
+            this.runUpgrades.owned,
+            () => Math.random(),
+            this.runUpgrades.forceNextId,
+          )
+        : null;
+    if (startingUpgrade !== null) {
+      this.runUpgrades = { ...grantUpgrade(this.runUpgrades, startingUpgrade), forceNextId: null };
+      this.applyGrantEffects(startingUpgrade);
+    }
     this.refreshUpgradesHud();
     this.refreshLivesIcons();
-    this.showLevelBanner();
+    if (startingUpgrade === null) {
+      this.showLevelBanner();
+      startLoopingSfx(this, "siren");
+    } else {
+      this.playRender.draw(this.world, {
+        frozenGhostEid: null,
+        playerInvulnRemainingMs: 0,
+        wallPassActive: false,
+      });
+      this.startingUpgradeCard.open(startingUpgrade);
+    }
 
-    startLoopingSfx(this, "siren");
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "siren");
       stopLoopingSfx(this, "death");
       this.upgradeChoiceModal.destroy();
+      this.startingUpgradeCard.destroy();
       this.clearLevelBanner();
     });
   }
@@ -279,6 +309,15 @@ export class PlayScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
       this.pauseForMenu();
       return;
+    }
+
+    if (this.startingUpgradeCard.isActive()) {
+      this.startingUpgradeCard.tick(delta);
+      if (this.startingUpgradeCard.isActive()) {
+        return;
+      }
+      this.suppressPlayerInputUntilKeyRelease = true;
+      startLoopingSfx(this, "siren");
     }
 
     if (this.death !== null) {
@@ -469,11 +508,8 @@ export class PlayScene extends Phaser.Scene {
           const alreadyOwned = this.runUpgrades.owned.includes(chosen);
           this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, options, chosen);
           if (!alreadyOwned) {
-            this.lives += grantLivesForUpgrade(chosen);
+            this.applyGrantEffects(chosen);
             this.refreshLivesIcons();
-            if (chosen === "pelletToPower") {
-              this.applyPelletToPowerOnce();
-            }
           }
           this.refreshUpgradesHud();
         });
@@ -597,6 +633,13 @@ export class PlayScene extends Phaser.Scene {
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
     if (this.runUpgrades.owned.includes("pelletToPower")) {
+      this.applyPelletToPowerOnce();
+    }
+  }
+
+  private applyGrantEffects(id: UpgradeId): void {
+    this.lives += grantLivesForUpgrade(id);
+    if (id === "pelletToPower") {
       this.applyPelletToPowerOnce();
     }
   }

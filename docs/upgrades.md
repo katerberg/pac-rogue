@@ -1,6 +1,6 @@
 # Run upgrades
 
-Fruit opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` session (including across level advances). There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
+Level 1 grants one random **starting upgrade** (below), and fruit opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` session (including across level advances). There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
 
 ## Model
 
@@ -48,6 +48,13 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 - On confirm: `grantUpgrade` chosen id; clear `forceNextId`; if two options were shown, set `lastDeclinedUpgradeId` to the other; one-button leaves prior decline unchanged. HUD refreshes.
 - After confirm: **confirm outro** while sim stays frozen — chosen option double-pulses (scale bounce + stroke thicken, ~400ms); the other option fades out during that pulse; then the whole modal (dim + chrome + chosen) fades out over **1s**. Then play resumes; movement keys held from the modal are ignored until released.
 - `enableUpgrade` (repeatable) → each valid id granted into `owned` at create (order preserved; duplicates ignored by `grantUpgrade`). Combines with `forceUpgrade`.
+
+## Starting upgrade
+
+- When a run's first board is level 1 (`?level` omitted or 1), `PlayScene.create` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade (same grant side effects as fruit: Extra Life +1 life, Pellet Surge converts a pellet now). `forceUpgrade` picks this upgrade when still eligible and is then cleared.
+- [`src/game/scenes/startingUpgradeCard.ts`](../src/game/scenes/startingUpgradeCard.ts) shows a no-button card (`STARTING UPGRADE`, label, description) over the dimmed board: `STARTING_UPGRADE_HOLD_MS` (2000) hold, then `STARTING_UPGRADE_FADE_MS` (1000) fade. The sim is frozen and the siren is off until the fade ends; Esc pause still works. Movement keys held through the card are ignored until released.
+- No `LEVEL 1` banner when the card shows. Empty pool (every id enabled via `enableUpgrade`) → no card, normal banner + start.
+- Level advances and `?level≥2` starts never grant a starting upgrade.
 
 ## Power pellets
 
