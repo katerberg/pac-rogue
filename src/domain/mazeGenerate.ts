@@ -121,16 +121,24 @@ function* houseStampCells(): Generator<{ col: number; row: number }> {
   }
 }
 
+// Orthogonal sides plus the four diagonal corners, so pellets are cleared all the way
+// around the house stamp's rectangular border, not just where it's edge-adjacent.
+const HOUSE_ADJACENT_OFFSETS: readonly (readonly [number, number])[] = [
+  [0, -1],
+  [0, 1],
+  [-1, 0],
+  [1, 0],
+  [-1, -1],
+  [-1, 1],
+  [1, -1],
+  [1, 1],
+];
+
 function clearAroundHouseStamp(grid: string[][]): void {
   const rows = grid.length;
   const cols = grid[0]!.length;
   for (const { col, row } of houseStampCells()) {
-    for (const [dc, dr] of [
-      [0, -1],
-      [0, 1],
-      [-1, 0],
-      [1, 0],
-    ] as const) {
+    for (const [dc, dr] of HOUSE_ADJACENT_OFFSETS) {
       const nCol = col + dc;
       const nRow = row + dr;
       if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows) {
@@ -174,19 +182,32 @@ function pickTunnelRows(seed: string, houseRows: ReadonlySet<number>): number[] 
   return chosen.sort((a, b) => a - b);
 }
 
-function applyTunnels(grid: string[][], tunnelRows: readonly number[]): void {
+function tunnelKey(col: number, row: number): string {
+  return `${col},${row}`;
+}
+
+// Returns the cells carved through wall to open the tunnel — the tunnel itself, as opposed
+// to the pre-existing interior corridor cell it merges into.
+function applyTunnels(
+  grid: string[][],
+  tunnelRows: readonly number[],
+): { col: number; row: number }[] {
   const cols = grid[0]!.length;
+  const carved: { col: number; row: number }[] = [];
   for (const row of tunnelRows) {
     grid[row]![0] = CORRIDOR;
     grid[row]![cols - 1] = CORRIDOR;
+    carved.push({ col: 0, row }, { col: cols - 1, row });
     for (let col = 1; col < cols - 1; col += 1) {
       if (isWalkableChar(grid[row]![col]!)) {
         break;
       }
       grid[row]![col] = CORRIDOR;
       grid[row]![cols - 1 - col] = CORRIDOR;
+      carved.push({ col, row }, { col: cols - 1 - col, row });
     }
   }
+  return carved;
 }
 
 function neighbors(
@@ -274,13 +295,72 @@ function sealDeadEnds(grid: string[][]): void {
   }
 }
 
-function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): void {
+// Walks from (col,row) toward the tunnel mouth at mouthCol along the same row. True if a
+// wall breaks the straight run before reaching it (no direct shot) or a cell along the way
+// opens vertically (a place to turn off); false only for an unbroken, turn-free beeline
+// straight into the tunnel, which is what a power pellet must never sit behind.
+function hasTurnBeforeTunnelMouth(
+  grid: string[][],
+  col: number,
+  row: number,
+  mouthCol: number,
+): boolean {
+  const step = mouthCol === 0 ? -1 : 1;
+  for (let c = col + step; c !== mouthCol; c += step) {
+    const ch = grid[row]?.[c];
+    if (ch === undefined || !isWalkableChar(ch)) {
+      return true;
+    }
+    const above = grid[row - 1]?.[c];
+    const below = grid[row + 1]?.[c];
+    if (
+      (above !== undefined && isWalkableChar(above)) ||
+      (below !== undefined && isWalkableChar(below))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function nearTunnelMouthCol(col: number, cols: number): number {
+  return col <= (cols - 1) / 2 ? 0 : cols - 1;
+}
+
+function assertPowerPelletsHaveTunnelTurn(grid: string[][], tunnelRows: readonly number[]): void {
+  const rows = grid.length;
+  const cols = grid[0]!.length;
+  const tunnelSet = new Set(tunnelRows);
+  for (let row = 0; row < rows; row += 1) {
+    if (!tunnelSet.has(row)) {
+      continue;
+    }
+    for (let col = 0; col < cols; col += 1) {
+      if (grid[row]![col] !== POWER) {
+        continue;
+      }
+      const mouthCol = nearTunnelMouthCol(col, cols);
+      if (!hasTurnBeforeTunnelMouth(grid, col, row, mouthCol)) {
+        throw new MazeRejected(`power pellet at tunnel entrance ${col},${row}`);
+      }
+    }
+  }
+}
+
+function placePelletsAndSpawn(
+  grid: string[][],
+  tunnelRows: readonly number[],
+  tunnelCells: ReadonlySet<string>,
+): void {
   const rows = grid.length;
   const cols = grid[0]!.length;
   const tunnelSet = new Set(tunnelRows);
 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
+      if (tunnelCells.has(tunnelKey(col, row))) {
+        continue;
+      }
       if (isPlayerCorridorChar(grid[row]![col]!)) {
         grid[row]![col] = PELLET;
       }
@@ -292,6 +372,9 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
   const pelletCells: { col: number; row: number }[] = [];
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
+      if (tunnelCells.has(tunnelKey(col, row))) {
+        continue;
+      }
       if (grid[row]![col] === PELLET || grid[row]![col] === CORRIDOR) {
         if (corridorDegree(grid, col, row, tunnelSet) >= 2) {
           pelletCells.push({ col, row });
@@ -317,6 +400,12 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
       const sameHalfCol = cell.col <= cols / 2 === target.col <= cols / 2;
       const sameHalfRow = cell.row <= rows / 2 === target.row <= rows / 2;
       if (!(sameHalfCol && sameHalfRow)) {
+        continue;
+      }
+      if (
+        tunnelSet.has(cell.row) &&
+        !hasTurnBeforeTunnelMouth(grid, cell.col, cell.row, nearTunnelMouthCol(cell.col, cols))
+      ) {
         continue;
       }
       if (dist < bestDist) {
@@ -414,17 +503,24 @@ function assertSymmetric(grid: string[][]): void {
   }
 }
 
+function assertNoTunnelPellets(
+  grid: string[][],
+  tunnelCellList: readonly { col: number; row: number }[],
+): void {
+  for (const { col, row } of tunnelCellList) {
+    const ch = grid[row]![col]!;
+    if (ch === PELLET || ch === POWER) {
+      throw new MazeRejected(`pellet in tunnel at ${col},${row}`);
+    }
+  }
+}
+
 // Power pellets land after clearAroundHouseStamp, so they can still reach these cells.
 function assertNoHouseAdjacentPellets(grid: string[][]): void {
   const rows = grid.length;
   const cols = grid[0]!.length;
   for (const { col, row } of houseStampCells()) {
-    for (const [dc, dr] of [
-      [0, -1],
-      [0, 1],
-      [-1, 0],
-      [1, 0],
-    ] as const) {
+    for (const [dc, dr] of HOUSE_ADJACENT_OFFSETS) {
       const nCol = col + dc;
       const nRow = row + dr;
       if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows || isHouseStampCell(nCol, nRow)) {
@@ -524,7 +620,7 @@ export function generateMazeAscii(seed: string): { ascii: string; pelletCount: n
 
   const houseRows = new Set([...houseStampCells()].map((cell) => cell.row));
   const tunnelRows = pickTunnelRows(seed, houseRows);
-  applyTunnels(grid, tunnelRows);
+  const carvedTunnelCells = applyTunnels(grid, tunnelRows);
   sealDeadEnds(grid);
 
   const tunnels = countTunnels(grid);
@@ -532,10 +628,16 @@ export function generateMazeAscii(seed: string): { ascii: string; pelletCount: n
     throw new MazeRejected(`tunnel count ${tunnels.length}`);
   }
 
-  placePelletsAndSpawn(grid, tunnels);
+  const tunnelRowSet = new Set(tunnels);
+  const tunnelCellList = carvedTunnelCells.filter((cell) => tunnelRowSet.has(cell.row));
+  const tunnelCells = new Set(tunnelCellList.map(({ col, row }) => tunnelKey(col, row)));
+
+  placePelletsAndSpawn(grid, tunnels, tunnelCells);
 
   assertSymmetric(grid);
   assertNoHouseAdjacentPellets(grid);
+  assertNoTunnelPellets(grid, tunnelCellList);
+  assertPowerPelletsHaveTunnelTurn(grid, tunnels);
 
   const ascii = gridToAscii(grid);
   if (hasThinInteriorWallSeparator(ascii)) {
