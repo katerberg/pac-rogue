@@ -1,5 +1,5 @@
 import { clamp } from "./clamp";
-import { TILE_SIZE } from "./maze";
+import { CLASSIC_TILE_SIZE, TILE_SIZE } from "./maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 export { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH };
@@ -12,6 +12,10 @@ export function playerRadius(): number {
 
 export function ghostRadius(): number {
   return playerRadius();
+}
+
+export function speedTileScale(): number {
+  return TILE_SIZE / CLASSIC_TILE_SIZE;
 }
 
 export const PLAYER_DRAWABLE_ID = "player";

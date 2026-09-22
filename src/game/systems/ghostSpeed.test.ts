@@ -1,9 +1,10 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
-import { cellCenterX, cellCenterY } from "../../domain/maze";
+import { activateLayout, cellCenterX, cellCenterY } from "../../domain/maze";
+import { speedTileScale } from "../../domain/playfield";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
@@ -31,6 +32,10 @@ function spawnGhost(
 }
 
 describe("applyGhostSpeed", () => {
+  afterEach(() => {
+    activateLayout("maze1");
+  });
+
   it("applies ghostSpeedMul after resolved speed", () => {
     const world = createWorld();
     const eid = spawnGhost(world, GHOST_PHASE.active);
@@ -52,5 +57,14 @@ describe("applyGhostSpeed", () => {
     const eid = spawnGhost(world, GHOST_PHASE.inHouse);
     applyGhostSpeed(world, 100);
     expect(Speed.px[eid]).toBe(99);
+  });
+
+  it("scales speed with the active layout's tile size so tiles-per-second stays constant", () => {
+    activateLayout("mazeSmall");
+    const world = createWorld();
+    const eid = spawnGhost(world, GHOST_PHASE.active);
+    applyGhostSpeed(world, 100);
+    expect(speedTileScale()).toBeGreaterThan(1);
+    expect(Speed.px[eid]).toBeCloseTo(GHOST_SPEED * speedTileScale());
   });
 });

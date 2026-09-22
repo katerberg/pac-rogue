@@ -3,6 +3,7 @@ import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { resolveGhostSpeedForKind } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { isGhostTunnelSlow, worldToCol, worldToRow } from "../../domain/maze";
+import { speedTileScale } from "../../domain/playfield";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
@@ -37,6 +38,8 @@ export function applyGhostSpeed(
     const row = worldToRow(Position.y[eid] ?? 0);
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
     Speed.px[eid] =
-      resolveGhostSpeedForKind(kind, pelletsRemaining, isGhostTunnelSlow(col, row)) * ghostSpeedMul;
+      resolveGhostSpeedForKind(kind, pelletsRemaining, isGhostTunnelSlow(col, row)) *
+      ghostSpeedMul *
+      speedTileScale();
   }
 }

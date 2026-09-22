@@ -10,6 +10,7 @@ import type { GhostReleaseAdds, GhostReleaseClock } from "../../domain/ghostRele
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { TURN_ALIGN_EPS } from "../../domain/maze";
+import { speedTileScale } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -106,7 +107,7 @@ export function ghostHouseSeating(
       Facing.direction[ghost.eid] = DIRECTION.none;
       continue;
     }
-    Speed.px[ghost.eid] = GHOST_SPEED;
+    Speed.px[ghost.eid] = GHOST_SPEED * speedTileScale();
     Input.direction[ghost.eid] = dir;
     Facing.direction[ghost.eid] = dir;
   }

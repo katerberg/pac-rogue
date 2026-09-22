@@ -54,6 +54,8 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
 
 const classicGeometry = computeMazeGeometry(CLASSIC_MAZE_COLS, CLASSIC_MAZE_ROWS);
 
+export const CLASSIC_TILE_SIZE = classicGeometry.tileSize;
+
 export let MAZE_COLS = classicGeometry.cols;
 export let MAZE_ROWS = classicGeometry.rows;
 export let TILE_SIZE = classicGeometry.tileSize;
