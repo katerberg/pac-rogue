@@ -112,7 +112,7 @@ While `wallPassRemainingMs > 0`, `PlayScene` passes `getActiveLayout().wallPassP
 
 ## Speed muls
 
-Written every frame: `applyPlayerSpeed` from `playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` multiplies after Elroy + tunnel resolve by `ghostSpeedLevelMul(levelIndex) × ghostSpeedMultiplier(owned)`.
+Written every frame: `applyPlayerSpeed` from `speedLevelMultiplier(levelIndex) × playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` multiplies after Elroy + tunnel resolve by `speedLevelMultiplier(levelIndex) × ghostSpeedMultiplier(owned)`.
 
 ## HUD
 
