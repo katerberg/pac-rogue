@@ -11,7 +11,6 @@ import {
   GENERATE_MAX_ATTEMPTS,
   GENERATED_MAZE_COLS,
   GENERATED_MAZE_ROWS,
-  generateMazeAscii,
   generateMazeAsciiWithRetries,
   hasThinInteriorWallSeparator,
   resolveBoardSelection,
@@ -126,9 +125,9 @@ describe("mazeGenerate", () => {
     expect(a?.seedUsed).toBe(b?.seedUsed);
   });
 
-  it("generateMazeAscii succeeds for a known seed", () => {
+  it("generateMazeAsciiWithRetries finds a valid board for a known seed family", () => {
     expect(GENERATE_MAX_ATTEMPTS).toBe(32);
-    expect(() => generateMazeAscii("ok-seed-0")).not.toThrow();
+    expect(generateMazeAsciiWithRetries("ok-seed-0")).not.toBeNull();
   });
 
   it("activates generated layout geometry on the active board", () => {

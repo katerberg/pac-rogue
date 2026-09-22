@@ -669,6 +669,13 @@ function buildLayout(id: MazeLayoutId): MazeLayout {
   return buildLayoutFromAscii(id, MAZE_ASCII_BY_ID[id]);
 }
 
+export function layoutFromAscii(
+  ascii: string,
+  id: MazeLayoutId | "generated" = "generated",
+): MazeLayout {
+  return buildLayoutFromAscii(id, ascii);
+}
+
 const LAYOUT_CACHE: Partial<Record<MazeLayoutId, MazeLayout>> = {};
 
 export function getLayout(id: MazeLayoutId): MazeLayout {

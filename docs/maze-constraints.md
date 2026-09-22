@@ -65,7 +65,8 @@ Fruit / Inky / Clyde / Elroy pellet thresholds scale vs maze1 pellet count (unch
 ## Procedural (levels ≥ 2)
 
 - Tiling solver on a 9×10 mirrored polyomino grid with a fixed center house, rasterized to **28×31** ASCII (2×2 wall cells, 1-cell corridors, outer border).
-- Horizontal tunnels only; **1 or 2** non-adjacent tunnel rows; corridor pellets (no house-adjacent dots, no 2×2 pellet blocks, no dead-end pellet cells); interior wall runs prefer thickness ≥ 2; spawn marked `P`.
+- Horizontal tunnels only; **1 or 2** non-adjacent tunnel rows; corridor pellets (no house-adjacent dots, no 2×2 pellet blocks); interior wall runs prefer thickness ≥ 2; spawn marked `P`.
+- **No dead ends:** after tunnels, iteratively wall-fill every player-corridor cell with orthogonal degree &lt; 2 (and its mirror) until none remain; reject the candidate if ASCII or `playerSolids` still has a tip.
 - Deterministic from `boardMazeSeed(runSeed, levelIndex)` with up to 32 attempt suffixes; on total failure fall back to `maze2` and `console.warn`.
 - Level 1 stays `mazeSmall` (or `?maze=` override). `?maze=` still forces the first board of a Start at any level.
 

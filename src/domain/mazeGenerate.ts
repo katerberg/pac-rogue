@@ -1,4 +1,4 @@
-import { computeMazeGeometry } from "./maze";
+import { computeMazeGeometry, layoutFromAscii, type MazeLayout } from "./maze";
 import { pickLayoutId, type MazeLayoutId } from "./mazeLayouts";
 import {
   randomFromSeed,
@@ -89,17 +89,6 @@ function stampHouse(grid: string[][]): void {
     for (let c = 0; c < line.length; c += 1) {
       grid[HOUSE_STAMP_ROW0 + r]![HOUSE_STAMP_COL0 + c] = line[c]!;
     }
-  }
-  const doorMidCol = HOUSE_STAMP_COL0 + 3;
-  const exitRow = HOUSE_STAMP_ROW0 - 1;
-  const fruitRow = HOUSE_STAMP_ROW0 + HOUSE_STAMP.length;
-  if (exitRow > 0) {
-    grid[exitRow]![doorMidCol] = CORRIDOR;
-    grid[exitRow]![doorMidCol + 1] = CORRIDOR;
-  }
-  if (fruitRow < GENERATED_MAZE_ROWS - 1) {
-    grid[fruitRow]![doorMidCol] = CORRIDOR;
-    grid[fruitRow]![doorMidCol + 1] = CORRIDOR;
   }
 }
 
@@ -215,88 +204,120 @@ function neighborKeys(
   return keys;
 }
 
+function isPlayerCorridorChar(ch: string): boolean {
+  return isWalkableChar(ch) && !isHouseChar(ch);
+}
+
+function corridorDegree(
+  grid: string[][],
+  col: number,
+  row: number,
+  tunnelRows: ReadonlySet<number>,
+): number {
+  const rows = grid.length;
+  const cols = grid[0]!.length;
+  let degree = 0;
+  for (const nKey of neighborKeys(col, row, cols, rows, tunnelRows)) {
+    const [nCol, nRow] = nKey.split(",").map(Number) as [number, number];
+    if (isPlayerCorridorChar(grid[nRow]![nCol]!)) {
+      degree += 1;
+    }
+  }
+  return degree;
+}
+
+function sealDeadEnds(grid: string[][]): void {
+  const rows = grid.length;
+  const cols = grid[0]!.length;
+  let changed = true;
+  let guard = 0;
+  while (changed) {
+    changed = false;
+    guard += 1;
+    if (guard > rows * cols) {
+      throw new Error("sealDeadEnds did not converge");
+    }
+    const tunnelSet = new Set(countTunnels(grid));
+    const tips: { col: number; row: number }[] = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        if (!isPlayerCorridorChar(grid[row]![col]!)) {
+          continue;
+        }
+        if (corridorDegree(grid, col, row, tunnelSet) < 2) {
+          tips.push({ col, row });
+        }
+      }
+    }
+    for (const tip of tips) {
+      if (grid[tip.row]![tip.col] === WALL) {
+        continue;
+      }
+      grid[tip.row]![tip.col] = WALL;
+      const mirrorCol = cols - 1 - tip.col;
+      if (mirrorCol !== tip.col) {
+        grid[tip.row]![mirrorCol] = WALL;
+      }
+      changed = true;
+    }
+  }
+}
+
+function carveHouseApproach(grid: string[][]): void {
+  const doorMidCol = HOUSE_STAMP_COL0 + 3;
+  const exitRow = HOUSE_STAMP_ROW0 - 1;
+  const fruitRow = HOUSE_STAMP_ROW0 + HOUSE_STAMP.length;
+  const cols = grid[0]!.length;
+  if (exitRow > 0) {
+    for (let col = HOUSE_STAMP_COL0; col < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length; col += 1) {
+      if (grid[exitRow]![col] === WALL) {
+        grid[exitRow]![col] = CORRIDOR;
+      }
+    }
+  }
+  if (fruitRow < grid.length - 1) {
+    for (let col = HOUSE_STAMP_COL0; col < HOUSE_STAMP_COL0 + HOUSE_STAMP[0]!.length; col += 1) {
+      if (grid[fruitRow]![col] === WALL) {
+        grid[fruitRow]![col] = CORRIDOR;
+      }
+    }
+  }
+  for (const row of [exitRow, fruitRow]) {
+    if (row <= 0 || row >= grid.length - 1) {
+      continue;
+    }
+    for (const col of [doorMidCol, doorMidCol + 1, HOUSE_STAMP_COL0 - 1, cols - HOUSE_STAMP_COL0]) {
+      if (col > 0 && col < cols - 1 && grid[row]![col] === WALL) {
+        grid[row]![col] = CORRIDOR;
+      }
+    }
+  }
+}
+
 function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): void {
   const rows = grid.length;
   const cols = grid[0]!.length;
   const tunnelSet = new Set(tunnelRows);
-  const graph = new Map<string, Set<string>>();
 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
-      const ch = grid[row]![col]!;
-      if (!isWalkableChar(ch) || isHouseChar(ch)) {
-        continue;
-      }
-      const key = `${col},${row}`;
-      if (!graph.has(key)) {
-        graph.set(key, new Set());
+      if (isPlayerCorridorChar(grid[row]![col]!)) {
+        grid[row]![col] = PELLET;
       }
     }
   }
 
-  for (const key of graph.keys()) {
-    const [col, row] = key.split(",").map(Number) as [number, number];
-    for (const nKey of neighborKeys(col, row, cols, rows, tunnelSet)) {
-      if (!graph.has(nKey)) {
-        continue;
-      }
-      graph.get(key)!.add(nKey);
-      graph.get(nKey)!.add(key);
-    }
-  }
+  clearAroundHouseStamp(grid);
 
-  const remove = (key: string): string[] => {
-    const neighbors = [...(graph.get(key) ?? [])];
-    for (const n of neighbors) {
-      graph.get(n)?.delete(key);
-    }
-    graph.delete(key);
-    return neighbors;
-  };
-
-  const initialKeys = [...graph.keys()];
-  const queue = [...graph.entries()]
-    .filter(([, neighbors]) => neighbors.size < 2)
-    .map(([key]) => key);
-  for (let i = 0; i < queue.length; i += 1) {
-    const key = queue[i]!;
-    if (!graph.has(key) || (graph.get(key)?.size ?? 0) >= 2) {
-      continue;
-    }
-    for (const neighbor of remove(key)) {
-      if ((graph.get(neighbor)?.size ?? 0) < 2) {
-        queue.push(neighbor);
+  const pelletCells: { col: number; row: number }[] = [];
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      if (grid[row]![col] === PELLET || grid[row]![col] === CORRIDOR) {
+        if (corridorDegree(grid, col, row, tunnelSet) >= 2) {
+          pelletCells.push({ col, row });
+        }
       }
     }
-  }
-
-  for (const key of initialKeys) {
-    if (graph.has(key)) {
-      continue;
-    }
-    const [col, row] = key.split(",").map(Number) as [number, number];
-    if ((col === 0 || col === cols - 1) && tunnelSet.has(row)) {
-      continue;
-    }
-    grid[row]![col] = WALL;
-    const mirrorCol = cols - 1 - col;
-    if (mirrorCol !== col) {
-      const mirrorKey = `${mirrorCol},${row}`;
-      if (
-        !graph.has(mirrorKey) &&
-        !((mirrorCol === 0 || mirrorCol === cols - 1) && tunnelSet.has(row))
-      ) {
-        grid[row]![mirrorCol] = WALL;
-      }
-    }
-  }
-
-  for (const key of graph.keys()) {
-    const [col, row] = key.split(",").map(Number) as [number, number];
-    if (isHouseChar(grid[row]![col]!)) {
-      continue;
-    }
-    grid[row]![col] = PELLET;
   }
 
   const cornerTargets: { col: number; row: number }[] = [
@@ -308,18 +329,19 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
   for (const target of cornerTargets) {
     let best: { col: number; row: number } | null = null;
     let bestDist = Number.POSITIVE_INFINITY;
-    for (const key of graph.keys()) {
-      const [col, row] = key.split(",").map(Number) as [number, number];
-      const dist = Math.abs(col - target.col) + Math.abs(row - target.row);
-      const sameHalfCol = col <= cols / 2 === target.col <= cols / 2;
-      const sameHalfRow = row <= rows / 2 === target.row <= rows / 2;
-      const sameQuadrant = sameHalfCol && sameHalfRow;
-      if (!sameQuadrant) {
+    for (const cell of pelletCells) {
+      if (grid[cell.row]![cell.col] !== PELLET && grid[cell.row]![cell.col] !== CORRIDOR) {
+        continue;
+      }
+      const dist = Math.abs(cell.col - target.col) + Math.abs(cell.row - target.row);
+      const sameHalfCol = cell.col <= cols / 2 === target.col <= cols / 2;
+      const sameHalfRow = cell.row <= rows / 2 === target.row <= rows / 2;
+      if (!(sameHalfCol && sameHalfRow)) {
         continue;
       }
       if (dist < bestDist) {
         bestDist = dist;
-        best = { col, row };
+        best = cell;
       }
     }
     if (!best) {
@@ -356,7 +378,6 @@ function placePelletsAndSpawn(grid: string[][], tunnelRows: readonly number[]): 
     }
   }
 
-  clearAroundHouseStamp(grid);
   breakPelletBlocks(grid);
 }
 
@@ -498,20 +519,40 @@ function assertNoDeadEnds(grid: string[][], tunnelRows: readonly number[]): void
   const tunnelSet = new Set(tunnelRows);
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
-      const ch = grid[row]![col]!;
-      if (!(ch === PELLET || ch === POWER || ch === CORRIDOR || ch === SPAWN)) {
+      if (!isPlayerCorridorChar(grid[row]![col]!)) {
+        continue;
+      }
+      if (corridorDegree(grid, col, row, tunnelSet) < 2) {
+        throw new Error(`dead-end walkable at ${col},${row}`);
+      }
+    }
+  }
+}
+
+function assertNoDeadEndsOnLayout(layout: MazeLayout): void {
+  const tunnelRows: number[] = [];
+  for (let row = 0; row < layout.rows; row += 1) {
+    const leftOpen = !(layout.playerSolids[row]?.[0] ?? true);
+    const rightOpen = !(layout.playerSolids[row]?.[layout.cols - 1] ?? true);
+    if (leftOpen && rightOpen) {
+      tunnelRows.push(row);
+    }
+  }
+  const tunnelSet = new Set(tunnelRows);
+  for (let row = 0; row < layout.rows; row += 1) {
+    for (let col = 0; col < layout.cols; col += 1) {
+      if (layout.playerSolids[row]?.[col]) {
         continue;
       }
       let degree = 0;
-      for (const nKey of neighborKeys(col, row, cols, rows, tunnelSet)) {
+      for (const nKey of neighborKeys(col, row, layout.cols, layout.rows, tunnelSet)) {
         const [nCol, nRow] = nKey.split(",").map(Number) as [number, number];
-        const nCh = grid[nRow]![nCol]!;
-        if (nCh === PELLET || nCh === POWER || nCh === CORRIDOR || nCh === SPAWN) {
+        if (!(layout.playerSolids[nRow]?.[nCol] ?? true)) {
           degree += 1;
         }
       }
       if (degree < 2) {
-        throw new Error(`dead-end walkable at ${col},${row}`);
+        throw new Error(`dead-end playerSolids at ${col},${row}`);
       }
     }
   }
@@ -590,6 +631,7 @@ export function generateMazeAscii(seed: string): string {
   const grid = emptyGrid(GENERATED_MAZE_COLS, GENERATED_MAZE_ROWS, WALL);
   fillTilingWalls(grid, tiling.pieces);
   stampHouse(grid);
+  carveHouseApproach(grid);
 
   const houseRows = new Set<number>();
   for (let r = HOUSE_STAMP_ROW0; r < HOUSE_STAMP_ROW0 + HOUSE_STAMP.length; r += 1) {
@@ -597,18 +639,23 @@ export function generateMazeAscii(seed: string): string {
   }
   const tunnelRows = pickTunnelRows(seed, houseRows);
   applyTunnels(grid, tunnelRows);
-  placePelletsAndSpawn(grid, tunnelRows);
+  sealDeadEnds(grid);
+
+  const sealedTunnels = countTunnels(grid);
+  if (sealedTunnels.length < 1 || sealedTunnels.length > 2) {
+    throw new Error(`tunnel count after seal ${sealedTunnels.length}`);
+  }
+  for (let i = 0; i < sealedTunnels.length - 1; i += 1) {
+    if (sealedTunnels[i + 1]! - sealedTunnels[i]! <= 1) {
+      throw new Error("adjacent tunnels after seal");
+    }
+  }
+
+  placePelletsAndSpawn(grid, sealedTunnels);
 
   assertSymmetric(grid);
   assertNoPelletBlocks(grid);
   assertNoHouseAdjacentPellets(grid);
-  assertNoDeadEnds(grid, tunnelRows);
-
-  const ascii = gridToAscii(grid);
-  if (hasThinInteriorWallSeparator(ascii)) {
-    throw new Error("thin interior wall separator");
-  }
-
   const tunnels = countTunnels(grid);
   if (tunnels.length < 1 || tunnels.length > 2) {
     throw new Error(`tunnel count ${tunnels.length}`);
@@ -618,8 +665,13 @@ export function generateMazeAscii(seed: string): string {
       throw new Error("adjacent tunnels");
     }
   }
+  assertNoDeadEnds(grid, tunnels);
   assertTunnelsReachable(grid, tunnels);
 
+  const ascii = gridToAscii(grid);
+  if (hasThinInteriorWallSeparator(ascii)) {
+    throw new Error("thin interior wall separator");
+  }
   computeMazeGeometry(GENERATED_MAZE_COLS, GENERATED_MAZE_ROWS);
   if (!ascii.includes(SPAWN)) {
     throw new Error("missing P spawn");
@@ -627,6 +679,13 @@ export function generateMazeAscii(seed: string): string {
   if ((ascii.match(/@/g) ?? []).length !== 4) {
     throw new Error("expected 4 power pellets");
   }
+
+  const layout = layoutFromAscii(ascii);
+  assertNoDeadEndsOnLayout(layout);
+  if (layout.pelletCount < 120) {
+    throw new Error(`too few pellets ${layout.pelletCount}`);
+  }
+
   return ascii;
 }
 
