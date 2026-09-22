@@ -508,6 +508,14 @@ export function boardMazeSeed(runSeed: string, levelIndex: number): string {
   return `${runSeed}:L${levelIndex}`;
 }
 
+// Row-reverses a validated board: the player spawn (marked "P") and the ghost house
+// stamp move with it, so the player starts near the top and the house door ends up on
+// the house's bottom edge. Every generation check is row-permutation invariant, so a
+// flip of an already-valid board is itself valid without re-running the retry loop.
+export function invertMazeAscii(ascii: string): string {
+  return ascii.split("\n").reverse().join("\n");
+}
+
 export function generateMazeAscii(seed: string): { ascii: string; pelletCount: number } {
   const tiling = reject(() => solveTiling(seed));
   const grid = emptyGrid(GENERATED_MAZE_COLS, GENERATED_MAZE_ROWS, WALL);

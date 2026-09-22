@@ -46,3 +46,7 @@ export function ghostModeStartWaveIndex(levelIndex: number): number {
   const level = Math.max(1, levelIndex);
   return level <= 1 ? 0 : 1;
 }
+
+export function isInvertedMazeLevel(levelIndex: number): boolean {
+  return levelIndex === 6 || levelIndex === 7;
+}

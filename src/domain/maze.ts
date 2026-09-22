@@ -379,12 +379,17 @@ function deriveGhostHouseExit(
     throw new Error(`ghost house door width ${maxCol - minCol + 1}; need 2 contiguous`);
   }
   const col = Math.floor((minCol + maxCol) / 2);
-  for (let row = doorRow - 1; row >= 0; row -= 1) {
+  // House floor sits on one side of the door and the exit corridor on the other; an
+  // inverted board (floor above the door) exits downward instead of upward.
+  const lines = ascii.split("\n");
+  const floorBelow = lines[doorRow + 1]?.[col] === HOUSE_FLOOR_CHAR;
+  const dir = floorBelow ? -1 : 1;
+  for (let row = doorRow + dir; row >= 0 && row < rows; row += dir) {
     if (!(playerSolids[row]?.[col] ?? true)) {
       return { col, row };
     }
   }
-  throw new Error("maze has no ghost house exit above the door");
+  throw new Error("maze has no ghost house exit beyond the door");
 }
 
 function deriveFruitSpawn(
@@ -398,13 +403,21 @@ function deriveFruitSpawn(
   if (floors.length === 0) {
     throw new Error("maze has no ghost house floor cells");
   }
+  const minHouseRow = floors.reduce((min, cell) => Math.min(min, cell.row), floors[0]!.row);
   const maxHouseRow = floors.reduce((max, cell) => Math.max(max, cell.row), floors[0]!.row);
   for (let row = maxHouseRow + 1; row < rows; row += 1) {
     if (!(playerSolids[row]?.[houseCenterCol] ?? true)) {
       return { col: houseCenterCol, row };
     }
   }
-  throw new Error("maze has no fruit spawn below the ghost house");
+  // Generation guarantees an open ledge on one side of the house; an inverted board has
+  // it above the house instead of below.
+  for (let row = minHouseRow - 1; row >= 0; row -= 1) {
+    if (!(playerSolids[row]?.[houseCenterCol] ?? true)) {
+      return { col: houseCenterCol, row };
+    }
+  }
+  throw new Error("maze has no fruit spawn adjacent to the ghost house");
 }
 
 function countPelletsInAscii(
@@ -765,14 +778,19 @@ export function canGhostEnterDirection(
   phase: number,
   solids: SolidGrid = ghostSolidsForPhase(phase),
   door: SolidGrid = getActiveLayout().door,
+  house: SolidGrid = getActiveLayout().house,
 ): boolean {
   if (!canEnterDirection(x, y, dx, dy, solids)) {
     return false;
   }
-  if (dy > 0) {
+  if (dy !== 0) {
     const col = worldToCol(x);
     const row = worldToRow(y);
-    if (isDoor(col + dx, row + dy, door)) {
+    const doorCol = col + dx;
+    const doorRow = row + dy;
+    // Crossing the door toward the house floor is re-entry and stays one-way; crossing
+    // it toward the exit corridor (the opposite side) is leaving, and always allowed.
+    if (isDoor(doorCol, doorRow, door) && (house[doorRow + dy]?.[doorCol] ?? false)) {
       return false;
     }
   }

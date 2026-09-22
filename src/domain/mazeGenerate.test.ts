@@ -2,10 +2,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   activateAsciiLayout,
   activateLayout,
+  canGhostEnterDirection,
+  cellCenterX,
+  cellCenterY,
   getActiveLayout,
   isTunnelMouth,
   isWalkable,
 } from "./maze";
+import { GHOST_PHASE } from "./ghostPhase";
 import {
   boardMazeSeed,
   GENERATE_MAX_ATTEMPTS,
@@ -15,6 +19,7 @@ import {
   GENERATED_PELLET_TARGET,
   generateMazeAsciiWithRetries,
   hasThinInteriorWallSeparator,
+  invertMazeAscii,
   resolveBoardSelection,
 } from "./mazeGenerate";
 
@@ -193,5 +198,65 @@ describe("mazeGenerate", () => {
     expect(isWalkable(layout.fruitSpawn.col, layout.fruitSpawn.row, layout.playerSolids)).toBe(
       true,
     );
+  });
+
+  describe("invertMazeAscii", () => {
+    it("reverses row order and is its own inverse", () => {
+      expect(invertMazeAscii("abc\ndef\nghi")).toBe("ghi\ndef\nabc");
+      const result = generateMazeAsciiWithRetries("invert-roundtrip");
+      expect(result).not.toBeNull();
+      expect(invertMazeAscii(invertMazeAscii(result!.ascii))).toBe(result!.ascii);
+    });
+
+    it("moves the player spawn near the top and turns the house door to point down", () => {
+      for (const seed of ["invert-a", "invert-b", "invert-c"]) {
+        const result = generateMazeAsciiWithRetries(seed);
+        expect(result, `seed ${seed}`).not.toBeNull();
+
+        const normal = activateAsciiLayout(result!.ascii);
+        const normalDoorRow = normal.ascii.split("\n").findIndex((line) => line.includes("="));
+        // Baseline orientation: spawn near the bottom, exit directly above the door.
+        expect(normal.playerSpawn.row, `seed ${seed}`).toBeGreaterThan(normal.rows / 2);
+        expect(normal.ghostHouseExit.row, `seed ${seed}`).toBe(normalDoorRow - 1);
+
+        const inverted = activateAsciiLayout(invertMazeAscii(result!.ascii));
+        const invertedDoorRow = inverted.ascii.split("\n").findIndex((line) => line.includes("="));
+        // Inverted: spawn near the top, exit directly below the door (points down).
+        expect(inverted.playerSpawn.row, `seed ${seed}`).toBeLessThan(inverted.rows / 2);
+        expect(invertedDoorRow, `seed ${seed}`).toBe(GENERATED_MAZE_ROWS - 1 - normalDoorRow);
+        expect(inverted.ghostHouseExit.row, `seed ${seed}`).toBe(invertedDoorRow + 1);
+        expect(
+          isWalkable(
+            inverted.ghostHouseExit.col,
+            inverted.ghostHouseExit.row,
+            inverted.playerSolids,
+          ),
+          `seed ${seed}`,
+        ).toBe(true);
+        expect(
+          isWalkable(inverted.fruitSpawn.col, inverted.fruitSpawn.row, inverted.playerSolids),
+          `seed ${seed}`,
+        ).toBe(true);
+        expect(findParallelCorridor(inverted.playerSolids), `seed ${seed}`).toBeNull();
+      }
+    });
+
+    it("keeps the inverted house door one-way: ghosts leave down, can't re-enter up", () => {
+      const result = generateMazeAsciiWithRetries("invert-one-way");
+      expect(result).not.toBeNull();
+      const inverted = activateAsciiLayout(invertMazeAscii(result!.ascii));
+      const exit = inverted.ghostHouseExit;
+      const doorRow = exit.row - 1;
+      const doorX = cellCenterX(exit.col);
+      const doorY = cellCenterY(doorRow);
+      const exitX = cellCenterX(exit.col);
+      const exitY = cellCenterY(exit.row);
+
+      // Leaving: from the door tile, stepping down (further away from the house) is fine.
+      expect(canGhostEnterDirection(doorX, doorY, 0, 1, GHOST_PHASE.leaving)).toBe(true);
+      // Re-entry: from the exit tile, stepping up onto the door (toward the floor) is blocked.
+      expect(canGhostEnterDirection(exitX, exitY, 0, -1, GHOST_PHASE.leaving)).toBe(false);
+      expect(canGhostEnterDirection(exitX, exitY, 0, -1, GHOST_PHASE.active)).toBe(false);
+    });
   });
 });
