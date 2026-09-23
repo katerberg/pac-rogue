@@ -30,7 +30,7 @@ In addition to the automated gate:
 
 ### Headless live check (cloud / no browser pane)
 
-`npm run probe` drives the game on the agent dev port with real Playwright keyboard input, saves canvas screenshots to `artifacts/<name>-<label>.png`, and fails on page errors or `console.error`. It starts `vite` on 5174 itself if nothing is listening. Run `npm run probe -- --help` for the step syntax.
+`npm run probe` drives the game on the agent dev port with real Playwright keyboard (and `click:<x>:<y>` mouse) input, saves canvas screenshots to `artifacts/<name>-<label>.png`, and fails on page errors or `console.error`. It starts `vite` on 5174 itself if nothing is listening. Run `npm run probe -- --help` for the step syntax.
 
 ```bash
 npm run probe -- --query "play=1&maze=mazeSmall" --steps "wait:600,shot:start,hold:ArrowLeft:1500,shot:moved,scene:PlayScene" --name left

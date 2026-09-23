@@ -10,6 +10,7 @@ import {
   inkyTarget,
   pinkyTarget,
   GHOST_PHASE,
+  type GhostTarget,
 } from "../../domain/ghostTarget";
 import {
   TURN_ALIGN_EPS,
@@ -55,17 +56,88 @@ function blinkyTile(world: World): { col: number; row: number } {
   return getActiveLayout().ghostHouseSpawn;
 }
 
+type GhostCorruptionOpt = { ghostKind: GhostKindId; type: CorruptionId };
+
+export type GhostAiContext = {
+  player: { col: number; row: number; facing: GhostDir };
+  blinky: { col: number; row: number };
+};
+
+export function ghostAiContext(world: World): GhostAiContext {
+  return { player: playerTileAndFacing(world), blinky: blinkyTile(world) };
+}
+
+export function resolveGhostTarget(
+  eid: number,
+  mode: GhostAiMode,
+  pelletsRemaining: number,
+  ctx: GhostAiContext,
+  opts: { ignoreElroy?: boolean; corruption?: GhostCorruptionOpt } = {},
+): GhostTarget {
+  const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
+  const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
+  const col = worldToCol(Position.x[eid] ?? 0);
+  const row = worldToRow(Position.y[eid] ?? 0);
+  const corruptionType = kind === opts.corruption?.ghostKind ? opts.corruption.type : null;
+  const effectiveMode: GhostAiMode = corruptionType === "falseScatter" ? GHOST_AI_MODE.chase : mode;
+  const { player, blinky } = ctx;
+
+  if (kind === GHOST_KIND.pinky) {
+    return pinkyTarget({
+      phase,
+      mode: effectiveMode,
+      playerCol: player.col,
+      playerRow: player.row,
+      playerFacing: player.facing,
+      ghostCol: col,
+      ghostRow: row,
+    });
+  }
+  if (kind === GHOST_KIND.inky) {
+    return inkyTarget({
+      phase,
+      mode: effectiveMode,
+      playerCol: player.col,
+      playerRow: player.row,
+      playerFacing: player.facing,
+      blinkyCol: blinky.col,
+      blinkyRow: blinky.row,
+      ghostCol: col,
+      ghostRow: row,
+    });
+  }
+  if (kind === GHOST_KIND.clyde) {
+    return clydeTarget({
+      phase,
+      mode: effectiveMode,
+      playerCol: player.col,
+      playerRow: player.row,
+      ghostCol: col,
+      ghostRow: row,
+    });
+  }
+  return blinkyTarget({
+    phase,
+    mode: effectiveMode,
+    pelletsRemaining,
+    playerCol: player.col,
+    playerRow: player.row,
+    ghostCol: col,
+    ghostRow: row,
+    ignoreElroy: opts.ignoreElroy,
+  });
+}
+
 export function ghostAi(
   world: World,
   mode: GhostAiMode,
   pelletsRemaining: number,
   opts: {
     ignoreElroy?: boolean;
-    corruption?: { ghostKind: GhostKindId; type: CorruptionId };
+    corruption?: GhostCorruptionOpt;
   } = {},
 ): void {
-  const player = playerTileAndFacing(world);
-  const blinky = blinkyTile(world);
+  const ctx = ghostAiContext(world);
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
@@ -82,8 +154,6 @@ export function ghostAi(
 
     const corruptionType = kind === opts.corruption?.ghostKind ? opts.corruption.type : null;
     const freeRetarget = corruptionType === "freeRetargetReverse";
-    const effectiveMode: GhostAiMode =
-      corruptionType === "falseScatter" ? GHOST_AI_MODE.chase : mode;
 
     const col = worldToCol(x);
     const row = worldToRow(y);
@@ -97,50 +167,7 @@ export function ghostAi(
       }
     }
 
-    let target;
-    if (kind === GHOST_KIND.pinky) {
-      target = pinkyTarget({
-        phase,
-        mode: effectiveMode,
-        playerCol: player.col,
-        playerRow: player.row,
-        playerFacing: player.facing,
-        ghostCol: col,
-        ghostRow: row,
-      });
-    } else if (kind === GHOST_KIND.inky) {
-      target = inkyTarget({
-        phase,
-        mode: effectiveMode,
-        playerCol: player.col,
-        playerRow: player.row,
-        playerFacing: player.facing,
-        blinkyCol: blinky.col,
-        blinkyRow: blinky.row,
-        ghostCol: col,
-        ghostRow: row,
-      });
-    } else if (kind === GHOST_KIND.clyde) {
-      target = clydeTarget({
-        phase,
-        mode: effectiveMode,
-        playerCol: player.col,
-        playerRow: player.row,
-        ghostCol: col,
-        ghostRow: row,
-      });
-    } else {
-      target = blinkyTarget({
-        phase,
-        mode: effectiveMode,
-        pelletsRemaining,
-        playerCol: player.col,
-        playerRow: player.row,
-        ghostCol: col,
-        ghostRow: row,
-        ignoreElroy: opts.ignoreElroy,
-      });
-    }
+    const target = resolveGhostTarget(eid, mode, pelletsRemaining, ctx, opts);
 
     const storedFacing = facingNow;
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;

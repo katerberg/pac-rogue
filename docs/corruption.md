@@ -49,6 +49,12 @@ All 7 apply continuously through frightened/eaten/recall/scatter states — noth
 No escalation or stacking in v1 (one ghost, one corruption, for the whole run); further corruption
 levels are a possible future decorator layer, not built here.
 
+## Learn mode
+
+Assignment also marks the corruption as seen (`pac-rogue.seen.v1`). LEARN lists every seen
+corruption and can apply it to any ghost, Blinky included; real runs still never corrupt Blinky. See
+[docs/learn.md](./learn.md).
+
 ## Testing flags
 
 - `?forceCorruption=<id>` assigns that corruption immediately (bypassing the level-4 gate) instead
