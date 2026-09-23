@@ -77,9 +77,9 @@ describe("resetCorruptionTransient", () => {
       invisibilityCycleMs: 900,
       pelletDropperCycleMs: 200,
       pelletDropperFlashMs: 50,
-      pelletDropperPendingTiles: [{ col: 3, row: 3 }],
+      pelletDropperDropsLeft: 2,
       trail: [{ col: 1, row: 1 }],
-      dropperTrail: [{ col: 2, row: 2 }],
+      pelletDropperLastTile: { col: 2, row: 2 },
     };
 
     const reset = resetCorruptionTransient(dirty);
@@ -92,9 +92,9 @@ describe("resetCorruptionTransient", () => {
     expect(reset.invisibilityCycleMs).toBe(0);
     expect(reset.pelletDropperCycleMs).toBe(0);
     expect(reset.pelletDropperFlashMs).toBe(0);
-    expect(reset.pelletDropperPendingTiles).toBeNull();
+    expect(reset.pelletDropperDropsLeft).toBe(0);
     expect(reset.trail).toEqual([]);
-    expect(reset.dropperTrail).toEqual([]);
+    expect(reset.pelletDropperLastTile).toBeNull();
   });
 });
 

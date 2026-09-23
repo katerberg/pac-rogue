@@ -1,4 +1,5 @@
 import { clamp } from "./clamp";
+import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import { TILE_SIZE } from "./maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
@@ -33,6 +34,13 @@ export const BLINKY_DRAWABLE_ID = "blinky";
 export const PINKY_DRAWABLE_ID = "pinky";
 export const INKY_DRAWABLE_ID = "inky";
 export const CLYDE_DRAWABLE_ID = "clyde";
+
+export const GHOST_DRAWABLE_BY_KIND: Record<GhostKindId, string> = {
+  [GHOST_KIND.blinky]: BLINKY_DRAWABLE_ID,
+  [GHOST_KIND.pinky]: PINKY_DRAWABLE_ID,
+  [GHOST_KIND.inky]: INKY_DRAWABLE_ID,
+  [GHOST_KIND.clyde]: CLYDE_DRAWABLE_ID,
+};
 
 export const FRUIT_DRAWABLE_ID = "fruit";
 

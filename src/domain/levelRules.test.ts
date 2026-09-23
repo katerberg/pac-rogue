@@ -7,12 +7,26 @@ import {
   ghostModeWavesForLevel,
   isInvertedMazeLevel,
   MAX_LEVEL,
+  offersUpgradeAfterLevel,
   speedLevelMultiplier,
 } from "./levelRules";
 
 describe("MAX_LEVEL", () => {
   it("caps the fixed level plan at 8", () => {
     expect(MAX_LEVEL).toBe(8);
+  });
+});
+
+describe("offersUpgradeAfterLevel", () => {
+  it("skips the first and final levels", () => {
+    expect(offersUpgradeAfterLevel(1)).toBe(false);
+    expect(offersUpgradeAfterLevel(MAX_LEVEL)).toBe(false);
+  });
+
+  it("offers after every level in between", () => {
+    for (let level = 2; level < MAX_LEVEL; level++) {
+      expect(offersUpgradeAfterLevel(level)).toBe(true);
+    }
   });
 });
 

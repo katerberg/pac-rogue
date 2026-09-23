@@ -24,6 +24,7 @@ Steps (comma-separated):
   wait:<ms>              sleep
   hold:<Key>:<ms>        keydown, wait, keyup (Playwright key names, e.g. ArrowLeft)
   press:<Key>            tap a key
+  click:<x>:<y>          click at game coordinates (800x600), scaled onto the canvas
   shot:<label>           screenshot to artifacts/<name>-<label>.png
   scene:<SceneKey>       fail unless that scene is active (MenuScene, PlayScene, ...)
 
@@ -65,6 +66,21 @@ async function runStep(page, canvas, step, name) {
       // in between, like a real (if very brief) keypress would.
       await page.keyboard.press(a, { delay: 50 });
       break;
+    case "click": {
+      const box = await canvas.boundingBox();
+      if (box === null) {
+        throw new Error("canvas has no bounding box");
+      }
+      const game = await page.evaluate(() => {
+        const g = globalThis.__PAC_ROGUE_GAME__;
+        return { width: g.scale.gameSize.width, height: g.scale.gameSize.height };
+      });
+      await page.mouse.click(
+        box.x + (Number(a) / game.width) * box.width,
+        box.y + (Number(b) / game.height) * box.height,
+      );
+      break;
+    }
     case "shot": {
       const path = join(outDir, `${name}-${a}.png`);
       await canvas.screenshot({ path });

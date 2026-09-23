@@ -20,7 +20,7 @@ export const CORRUPTION_DEFS: readonly CorruptionDef[] = [
   {
     id: "slimeTrail",
     label: "Slime Trail",
-    description: "Leaves a lethal 4-tile slime trail behind it.",
+    description: "Leaves a lethal 7-tile slime trail behind it.",
   },
   {
     id: "invisibility",
@@ -54,7 +54,7 @@ export const CORRUPTION_DEFS: readonly CorruptionDef[] = [
   },
 ];
 
-const CORRUPTION_IDS: readonly CorruptionId[] = CORRUPTION_DEFS.map((def) => def.id);
+export const CORRUPTION_IDS: readonly CorruptionId[] = CORRUPTION_DEFS.map((def) => def.id);
 
 const CORRUPTIBLE_GHOST_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.pinky,
@@ -77,9 +77,8 @@ export const TELEGRAPH_FLASH_MS = 400;
 
 export const CORRUPTION_MIN_LEVEL = 4;
 
-export const SLIME_TRAIL_MAX_LEN = 4;
+export const SLIME_TRAIL_MAX_LEN = 7;
 
-export const PELLET_DROPPER_TRAIL_LEN = 3;
 export const PELLET_DROPPER_COUNT = 3;
 export const PELLET_DROPPER_INTERVAL_MS = 10_000;
 
@@ -105,9 +104,9 @@ export type RunCorruption = {
   invisibilityCycleMs: number;
   pelletDropperCycleMs: number;
   pelletDropperFlashMs: number;
-  pelletDropperPendingTiles: GhostTarget[] | null;
+  pelletDropperDropsLeft: number;
   trail: GhostTarget[];
-  dropperTrail: GhostTarget[];
+  pelletDropperLastTile: GhostTarget | null;
 };
 
 export type ForcedCorruption = {
@@ -128,9 +127,9 @@ export function createRunCorruption(forced: ForcedCorruption): RunCorruption {
     invisibilityCycleMs: 0,
     pelletDropperCycleMs: 0,
     pelletDropperFlashMs: 0,
-    pelletDropperPendingTiles: null,
+    pelletDropperDropsLeft: 0,
     trail: [],
-    dropperTrail: [],
+    pelletDropperLastTile: null,
   };
 }
 
@@ -190,6 +189,14 @@ export function maybeAssignCorruption(
   return { ...state, type, ghostKind };
 }
 
+export function corruptionAiOption(
+  state: RunCorruption,
+): { ghostKind: GhostKindId; type: CorruptionId } | undefined {
+  return state.ghostKind !== null && state.type !== null
+    ? { ghostKind: state.ghostKind, type: state.type }
+    : undefined;
+}
+
 export function resetCorruptionTransient(state: RunCorruption): RunCorruption {
   return {
     ...state,
@@ -200,9 +207,9 @@ export function resetCorruptionTransient(state: RunCorruption): RunCorruption {
     invisibilityCycleMs: 0,
     pelletDropperCycleMs: 0,
     pelletDropperFlashMs: 0,
-    pelletDropperPendingTiles: null,
+    pelletDropperDropsLeft: 0,
     trail: [],
-    dropperTrail: [],
+    pelletDropperLastTile: null,
   };
 }
 
@@ -251,7 +258,7 @@ export function isCorruptionFlashing(state: RunCorruption): boolean {
     case "wallPhaseDash":
       return state.wallPhasePendingTarget !== null;
     case "pelletDropper":
-      return state.pelletDropperPendingTiles !== null;
+      return state.pelletDropperFlashMs > 0;
     default:
       return false;
   }

@@ -37,7 +37,7 @@ export function clydeScatterTarget(rows: number = getActiveLayout().rows): Ghost
   return { col: 0, row: rows + 2 };
 }
 
-function lookAheadTile(
+export function lookAheadTile(
   playerCol: number,
   playerRow: number,
   playerFacing: GhostDir,

@@ -54,8 +54,10 @@ src/
     deathSequence.ts          # catch → hold / ready / game-over timing
     lives.ts                  # START_LIVES + livesRemainingAfterCatch + livesHudIconCount
     corruption.ts             # level-4+ ghost corruption defs + RunCorruption state
-    ghostTrail.ts             # generic trailing-tile FIFO (slime trail / pellet dropper)
+    ghostTrail.ts             # generic trailing-tile FIFO (slime trail)
     wallPhaseDash.ts          # pure 2-thick-wall lunge target lookup
+    seenRecord.ts             # ghosts/corruptions met in play (LEARN unlocks) + learnAll flag
+    learnOverlay.ts           # LEARN reticle clamp, predicted path, target derivation, segment clip
   game/
     config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
     audio/sfx.ts              # SFX manifest; volumes scaled by audioSettings
@@ -77,21 +79,23 @@ src/
     storage/
       runHistoryStorage.ts    # localStorage adapter for death-run history
       audioSettingsStorage.ts # localStorage adapter for music/SFX prefs
+      seenRecordStorage.ts    # localStorage adapter for the LEARN seen record
     systems/
       playerInput.ts          # Phaser keys → sticky Input
       ghostRelease.ts         # inHouse → leaving (time or Inky/Clyde pellets)
       ghostHouseSeating.ts    # inHouse seat steer + snap at predicted seats
-      ghostAi.ts              # kind target tile → sticky Input (once per tile); corruption opts for freeRetargetReverse/falseScatter
+      ghostAi.ts              # kind target tile → sticky Input (once per tile); corruption opts for freeRetargetReverse/falseScatter; resolveGhostTarget
       ghostSpeed.ts           # Speed from Elroy (Blinky) + tunnel + upgrade mul / closest-ghost freeze / speed-surge mul
       ghostReverse.ts         # mode-change reverse via Input; skips a falseScatter-corrupted eid
       ghostExitHouse.ts       # leaving → active once off house/door tiles
       ghostRecall.ts          # power-pellet house teleport into inHouse seat
       ghostFreeze.ts          # power-pellet freeze closest leaving/active ghost
       corruptionGhost.ts      # find the corrupted ghost's current eid by kind
+      corruptionStep.ts       # wall-phase → slime trail → pellet dropper → invisibility (PlayScene + LearnScene)
       wallPhaseDash.ts        # tick cycle/flash + relocate the corrupted ghost past a thin wall
       slimeTrail.ts           # track the corrupted ghost's trailing hazard tiles
       slimeTrailKill.ts       # circle overlap vs. slime trail tiles → caught
-      pelletDropperTrail.ts   # track trailing tiles + emit spawn tiles every interval
+      pelletDropperTrail.ts   # every interval, flash then drop pellets one at a time behind the ghost
       ghostInvisibility.ts    # tick hidden/flash cycle + proximity reveal
       movement.ts             # Facing + collision (per-eid Speed + solids)
       catchPlayer.ts          # circle overlap → caught (skip frozen eid or player invulnerable)
@@ -106,11 +110,12 @@ src/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
       upgradeChoiceModal.ts   # level-clear pick-one overlay (Phaser)
-      MenuScene.ts            # boot title + Start / High Scores / Settings (no ECS)
+      MenuScene.ts            # boot title + Start / Learn / High Scores / Settings (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       SettingsScene.ts        # music/SFX checkboxes + 0..10 notches (no ECS)
       PauseScene.ts           # Escape overlay: Resume / Settings / Quit confirm (no ECS)
       PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
+      LearnScene.ts           # LEARN sandbox: own world, one chosen ghost, live target overlay
   public/
   art/                        # Pac-Man / pellet / power-pellet / ghost / fruit PNGs
   sound/                      # SFX (pickups, looping siren, level complete, death)
@@ -127,10 +132,11 @@ docs/
 
 ## Scenes
 
-Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
+Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `LearnScene`, `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
 
 ```text
 MenuScene --Start--> PlayScene
+MenuScene --Learn--> LearnScene --Back/Escape--> MenuScene
 MenuScene --High Scores--> HighScoresScene
 MenuScene --Settings--> SettingsScene
 HighScoresScene --Back--> MenuScene
@@ -140,12 +146,13 @@ PauseScene --Resume--> PlayScene resumes immediately (siren restarts if it was p
 PauseScene --Settings--> SettingsScene --Back--> PauseScene (PlayScene stays paused throughout)
 PauseScene --Quit, confirm Yes--> MenuScene (PlayScene stopped; no high-score write)
 PlayScene --pellet clear, level 1--> level-complete SFX → brief freeze → next procedural maze (carry lives/upgrades/lifetime)
-PlayScene --pellet clear, levels 2-8--> level-complete SFX → upgrade-choice modal (if eligible) → brief freeze → next board, or RUN COMPLETE → MenuScene on level 8
+PlayScene --pellet clear, levels 2-7--> level-complete SFX → upgrade-choice modal (if eligible) → brief freeze → next board
+PlayScene --pellet clear, level 8--> level-complete SFX → brief freeze → RUN COMPLETE → MenuScene (no upgrade offer)
 PlayScene --caught (lives left)--> death hold → reset → ready → resume
 PlayScene --caught (last life)--> death hold → fade → GAME OVER → MenuScene
 ```
 
-**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene`, `HighScoresScene`, `SettingsScene`, and `PauseScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
+**ECS ownership:** only `PlayScene` and `LearnScene` call `createWorld` / `addEntity` and run a system pipeline (`LearnScene`'s is a reduced chase-only sandbox; see [docs/learn.md](./learn.md)). `MenuScene`, `HighScoresScene`, `SettingsScene`, and `PauseScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
 
 Pausing (Escape) is available at any point during `PlayScene`, including mid-death-sequence, mid-level-transition, and while the level-clear upgrade-choice modal is open — `scene.pause()` halts `PlayScene.update()` entirely, so whichever of those states was active simply freezes and resumes exactly where it left off. `SettingsScene` accepts an optional `returnScene` value (Phaser scene init data) so it can return to either `MenuScene` (default) or `PauseScene` depending on how it was opened; `PlayScene` itself is never restarted by this round trip. `PauseScene`'s Quit option turns into an inline `SURE?  YES  NO` on the same row (default focus: NO); Up cancels the confirm and moves focus to Settings, same as a normal Up from the Quit row. Confirming Yes stops `PlayScene` (its existing `SHUTDOWN` handler covers siren/modal/banner cleanup) without ever calling `saveRun`.
 
@@ -166,7 +173,7 @@ PlayScene.update →
   tickGhostRelease + ghostHouseSeating + ghostRelease (boardCollected + afterLifeRelease gates Inky/Clyde) →
   tickFreeze + tickScatterBurst + tickWallPass → (wall-pass expire → snapPlayerToNearestWalkable) → tickInvuln + tickSpeedBurst + tickSpeedSurge → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + closest-ghost freeze + speed-surge mul; skips inHouse) →
   movement (optional player solids override while wall-pass active) →
-  tickWallPhaseDash + tickSlimeTrail + tickPelletDropperTrail (spawnDroppedPellets if any) + tickInvisibility →
+  stepCorruption (tickWallPhaseDash + tickSlimeTrail + tickPelletDropperTrail + tickInvisibility; spawnDroppedPellets if any) →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
   collectPellets → releaseDrawable(removed) → applyPowerPelletEffects → freezeClosestGhost? →
@@ -176,16 +183,16 @@ PlayScene.update →
   recallClosestGhost? → warpPlayerTopCenter? →
   tickFruitPresence (boardCollected; spawn/replace/despawn) →
   collectFruit → releaseDrawable(removed) → munch SFX + award Quarters (fruit has no upgrade effect) →
-  (if board clear: level-complete SFX → level 1: level transition; levels 2-8: pickUpgradeChoiceOffer → modal (pending level clear) or clear force + level transition; return)
+  (if board clear: level-complete SFX → levels 1 and 8: level transition; levels 2-7: pickUpgradeChoiceOffer → modal (pending level clear) or clear force + level transition; return)
   catchPlayer (skip frozen eid or player invulnerable) OR slimeTrailKill →
   render (closest-ghost freeze tint; corruption outline/flash tint + hidden alpha; slime trail tiles; player wall-pass tint or invuln gold tint) →
   (if caught: stop siren, play death, spend life, begin death sequence)
 ```
 
 From level 4+, `maybeAssignCorruption` runs once per `startBoard()` call to pick (or lock in a forced)
-ghost + corruption; see [docs/corruption.md](./corruption.md).
+ghost + corruption; see [docs/corruption.md](./corruption.md). Each `startBoard()` also merges the spawned ghost kinds and the assigned corruption into the LEARN seen record (`pac-rogue.seen.v1`).
 
-While the upgrade choice modal is active, `PlayScene.update` early-returns after ticking the modal (full sim freeze), same family as the death sequence halt. It is opened only on a level 2-8 clear now (never by fruit); level 1's clear and any level-clear with no eligible upgrades skip straight to the level transition.
+While the upgrade choice modal is active, `PlayScene.update` early-returns after ticking the modal (full sim freeze), same family as the death sequence halt. It is opened only on a level 2-7 clear (never by fruit; `offersUpgradeAfterLevel`); level 1's and level 8's clears and any level-clear with no eligible upgrades skip straight to the level transition.
 See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
 
 1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky + Pinky + Inky + Clyde, bonus fruit art, SFX.
@@ -195,7 +202,7 @@ See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
 5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(cols-3, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(2, -3)`. Inky chase → doubled vector from Blinky’s tile through a clean 2-tile Pac look-ahead (`Facing.none` → left; missing Blinky → house spawn tile); Inky scatter → `(cols-1, rows+2)`. Clyde chase → player tile when Euclidean tile distance `≥ CLYDE_SHY_TILES` (8), else Clyde scatter `(0, rows+2)`; Clyde scatter mode → same SW corner. Scatter corners scale with layout size (classic 28×31 matches the old absolute tiles). Delays and shy radius are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`): Maze-Man and ghosts both × `speedLevelMultiplier(levelIndex)` (`1 + 0.05×(level−1)`) each frame. Ghosts: base 0.9375×; Elroy1/2 only for Blinky (layout-scaled remaining-pellet cutoffs; maze1 ≤20 / ≤10 → 1.0× / 1.0625×); tunnel 0.5× for all ghosts; then × level mul × run upgrade muls (`playerSpeedUp` / `ghostSlow`). Closest-ghost freeze sets that leaving/active ghost’s speed to 0.
 7. Catch: circle overlap while any ghost is `leaving` or `active` → stop siren, play death SFX, spend one life. Full pipeline halt for `DEATH_HOLD_MS` (845, knob). If lives remain: reset player/ghosts to start/house, despawn fruit, clear freeze/scatter-burst/wall-pass/invuln/speed-burst timers, reset release/mode clocks, set `afterLifeRelease`, `READY_PAUSE_MS` (1000) freeze, then resume (siren on); run/release clocks wait for direction again (`RunClock.started = false`); no high-score write. If last life: append high-score run (**lifetime** pellets + remaining countdown), then 500ms black fade (visual only) → `GAME OVER` + lifetime collected for `GAME_OVER_HOLD_MS` (2000) → `MenuScene`. Skipped for the frozen closest ghost or while player invuln is active; thaw/expiry while overlapping still kills.
-8. Pellet clear: level-complete SFX (no history write). Level 1: brief transition freeze straight into the next board. Levels 2-8: if any upgrade is still eligible, the pick-one upgrade-choice modal opens first (see [docs/upgrades.md](./upgrades.md)) and the transition freeze starts only after it resolves; on level 8 the resolved modal is followed by a `RUN COMPLETE` screen (`RUN_COMPLETE_HOLD_MS` = 2000) and a return to `MenuScene` instead of a next board. Advancing rebuilds a **procedural** maze in the same `PlayScene` (carry lives, owned upgrades, lifetime Collected, Quarters; reset board pellet progress, clocks, fruit, freeze/scatter/wall-pass/invuln/speed-burst timers; Time back to 999; `LEVEL N` banner fades). Power pellets play both munches and stay inert unless an owned upgrade reacts. `render` draws rounded wall stroke from maze knobs, pac-man chomp, pellets, ghosts (cyan tint on the frozen closest ghost), bonus fruit, and tunnel twin (player wall-pass tint while active; else darker-gold invuln tint that blinks in the last second).
+8. Pellet clear: level-complete SFX (no history write). Level 1: brief transition freeze straight into the next board. Levels 2-7: if any upgrade is still eligible, the pick-one upgrade-choice modal opens first (see [docs/upgrades.md](./upgrades.md)) and the transition freeze starts only after it resolves. Level 8: no upgrade offer; the transition freeze is followed by a `RUN COMPLETE` screen (`RUN_COMPLETE_HOLD_MS` = 2000) and a return to `MenuScene` instead of a next board. Advancing rebuilds a **procedural** maze in the same `PlayScene` (carry lives, owned upgrades, lifetime Collected, Quarters; reset board pellet progress, clocks, fruit, freeze/scatter/wall-pass/invuln/speed-burst timers; Time back to 999; `LEVEL N` banner fades). Power pellets play both munches and stay inert unless an owned upgrade reacts. `render` draws rounded wall stroke from maze knobs, pac-man chomp, pellets, ghosts (cyan tint on the frozen closest ghost), bonus fruit, and tunnel twin (player wall-pass tint while active; else darker-gold invuln tint that blinks in the last second).
 9. Bonus fruit: level 1 spawns a single fruit after 70 **board** pellets are collected (unscaled — mazeSmall's pellet count is well above 70, so no second fruit fires); from level 2+, after layout-scaled **board** pellet thresholds (maze1 70 and 170), spawn at the derived under-house fruit cell for 10 real seconds (Phaser `delta` ms); cherries use `strawberry.png` stand-in; pickup removes the entity, plays both munches, and awards one Quarter (top-left HUD dot; no gameplay value yet) — no upgrade effect (the upgrade choice comes from clearing the level, not from fruit; see item 8 and [docs/upgrades.md](./upgrades.md)).
 
 ## ECS boundary
@@ -232,12 +239,12 @@ A violation of these is a failed architecture check:
 
 ## Current runtime
 
-- Boot lands on `MenuScene` (`DOT-MAN` title, Start / High Scores / Settings), or on `PlayScene` when `?play=1`. Start opens `PlayScene`; High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage).
-- Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
+- Boot lands on `MenuScene` (`DOT-MAN` title, Start / Learn / High Scores / Settings), or on `PlayScene` when `?play=1`. Start opens `PlayScene`; Learn opens `LearnScene` (see [docs/learn.md](./learn.md)); High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage).
+- Only `PlayScene` and `LearnScene` own world creation and a system pipeline. UI scenes have no ECS.
 - Escape during `PlayScene` always opens `PauseScene` (dims the paused board) — Resume returns control immediately; Settings reuses `SettingsScene` and returns to the pause menu; Quit turns its row into an inline `SURE?  YES  NO` (default NO, Up cancels back to Settings) and, if confirmed, ends the run and returns to `MenuScene` without writing a high-score entry. Pausing works mid-death-sequence, mid-level-transition, and mid-upgrade-modal alike.
 - Rectangular maze (per-layout cols/rows; **fixed** tile size `TILE_SIZE_PX` (16px, same for every layout — Pac-Man/ghosts render at one consistent pixel size across all levels) centered under `MAZE_TOP_MARGIN_PX` in the leftover 800×600 band; reject if pixel width/height overflow the playfield or left gutter `< 80` — see [maze-constraints.md](./maze-constraints.md)) with stroked walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_TOP_MARGIN_PX`, `MAZE_BACKGROUND_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `WALL_CORNER_CURVE_KIND`, `WALL_INSET_PX` (pull stroke into wall tiles), `PLAYER_WALL_PADDING_PX` (actor display size only), `pelletDisplaySize()` / `powerPelletDisplaySize()` (clamped to tile). Dual solids (player blocked from house/door; ghosts allowed), horizontal tunnels.
 - One player entity (display size from wall padding; open mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
-- Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets; volumes from SFX settings), and increments an internal **lifetime** pellet count (board-local count drives Inky/Clyde/fruit/clear; lifetime count still feeds the Game Over screen and high scores, though it is no longer shown live — the top-left HUD is Quarters dots instead). Looping siren plays during `PlayScene` until clear, catch, or shutdown (volume from music settings); clearing all pellets plays level-complete SFX, then (level 1) advances straight to the next board or (levels 2-8) offers the level-clear upgrade choice first — see [docs/levels.md](./levels.md); catch plays death SFX then life-loss reset (or Game Over on the last life).
+- Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets; volumes from SFX settings), and increments an internal **lifetime** pellet count (board-local count drives Inky/Clyde/fruit/clear; lifetime count still feeds the Game Over screen and high scores, though it is no longer shown live — the top-left HUD is Quarters dots instead). Looping siren plays during `PlayScene` until clear, catch, or shutdown (volume from music settings); clearing all pellets plays level-complete SFX, then (levels 1 and 8) advances straight to the next board or Run Complete, or (levels 2-7) offers the level-clear upgrade choice first — see [docs/levels.md](./levels.md); catch plays death SFX then life-loss reset (or Game Over on the last life).
 - Bonus fruit appears under the ghost house at board pellet thresholds: level 1 spawns one fruit after 70 pellets (unscaled, single threshold); from level 2+ it appears under the ghost house at board thresholds (maze1 70/170), lasts 10 real seconds, uses cherries (`strawberry.png` stand-in); pickup plays both munches, removes the fruit, and awards one Quarter (top-left HUD dot; no gameplay value yet) — no upgrade effect (see [docs/upgrades.md](./upgrades.md) for the level-clear upgrade modal).
 - From level 4+, one random non-Blinky ghost permanently gains one random corruption for the rest of the run (silent trigger, persistent outline tint, telegraph flash on discrete activations) — see [docs/corruption.md](./corruption.md).
 - Start with 3 lives; bottom-left pac icons show remaining extras only (2 at start, not the life in play); lives carry across level advances. Ghosts unlock by level (`ghostKindsForLevel`: level 1 Blinky only; level 2 Blinky + a randomly chosen Pinky or Inky picked once per run; level 3+ all four); only unlocked kinds are spawned. Present ghosts use predicted L→R house seats (not stacked); Blinky/Pinky time release after first input (0.1s / 5s — tunable); Inky leaves at board-scaled pellets (maze1 baseline 30) on the first life of a board, or after a 7s post-life time gate after a life loss; Clyde leaves at board-scaled pellets on the first life of a board, or after a 9s post-life time gate after a life loss; leave path approaches door column then up; chase-first arcade scatter/chase waves (L1 chase-only; L2+ arcade chase-first); Blinky Cruise Elroy; Inky Blinky-vector chase + SE scatter; tunnel slowdown; Maze-Man and ghosts gain +10% speed per level index via `speedLevelMultiplier` (fixed 8-level plan — see [docs/levels.md](./levels.md)). Circle overlap spends a life (hold → reset actors / ready pause → resume) or last-life Game Over (hold → append high-score run → fade → `GAME OVER` + lifetime collected → menu) unless closest-ghost freeze walk-through or player invuln is active.
