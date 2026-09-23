@@ -25,14 +25,13 @@ function worldWithPinky() {
 }
 
 describe("stepCorruption flash", () => {
-  it("flashes the corrupted ghost while a pellet drop is pending", () => {
+  it("flashes the corrupted ghost during the pellet-drop telegraph", () => {
     const { world, eid } = worldWithPinky();
     const state = {
       ...createRunCorruption({ type: null, ghostKind: null }),
       type: "pelletDropper" as const,
       ghostKind: GHOST_KIND.pinky,
       pelletDropperFlashMs: TELEGRAPH_FLASH_MS,
-      pelletDropperPendingTiles: [{ col: 2, row: 1 }],
     };
     expect(stepCorruption(world, state, 16, 10).flashGhostEid).toBe(eid);
   });
