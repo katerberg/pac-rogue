@@ -8,6 +8,7 @@ import {
   MAZE_TOP_MARGIN_PX,
   MAZE_ROWS,
   TILE_SIZE,
+  TILE_SIZE_PX,
   buildExterior,
   canEnterDirection,
   canGhostEnterDirection,
@@ -57,9 +58,7 @@ describe("maze", () => {
   it("parses to 28×31 with narrower opposite-edge safety", () => {
     expect(getActiveLayout().playerSolids).toHaveLength(MAZE_ROWS);
     expect(getActiveLayout().playerSolids[0]).toHaveLength(MAZE_COLS);
-    expect(TILE_SIZE).toBe(
-      Math.floor(Math.min(800 / MAZE_COLS, Math.max(1, 600 - MAZE_TOP_MARGIN_PX) / MAZE_ROWS)),
-    );
+    expect(TILE_SIZE).toBe(TILE_SIZE_PX);
     expect(MAZE_OFFSET_X).toBe((800 - MAZE_PIXEL_WIDTH) / 2);
     expect(MAZE_OFFSET_Y).toBe(
       MAZE_TOP_MARGIN_PX + Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2),
@@ -320,10 +319,10 @@ describe("maze", () => {
     expect(() => parseMaze("#\n")).toThrow(/cols/);
   });
 
-  it("rejects out-of-band and thin-gutter sizes", () => {
+  it("rejects out-of-band and oversized-fit sizes", () => {
     expect(() => computeMazeGeometry(19, 31)).toThrow(/cols/);
     expect(() => computeMazeGeometry(28, 20)).toThrow(/rows/);
-    expect(() => computeMazeGeometry(32, 21)).toThrow(/gutter|minimum/i);
+    expect(() => computeMazeGeometry(28, 36)).toThrow(/height/i);
   });
 
   it("lists wall centers and pipe edges without treating exterior as walls", () => {

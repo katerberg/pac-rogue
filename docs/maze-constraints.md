@@ -2,23 +2,25 @@
 
 Rectangular ASCII mazes of variable size. Levels ≥ 2 can use the procedural tiling generator (`src/domain/mazeTiling.ts` + `mazeGenerate.ts`); hand-authored fixtures and generated boards must satisfy these rules so placement, tunnels, and the fixed 800×600 canvas stay correct.
 
-## Size band and fit gate
+## Size band and fixed tile size
 
 Nominal band: **20–32 cols × 21–36 rows**.
 
-Playfield stays **800×600** (`PLAYFIELD_*`). Geometry is keep-fit under `MAZE_TOP_MARGIN_PX` (28):
+Playfield stays **800×600** (`PLAYFIELD_*`). Every layout uses the same fixed tile size, `TILE_SIZE_PX` (16px, `src/domain/maze.ts`) — Pac-Man, ghosts, and wall strokes render at the same pixel size regardless of grid dimensions. That value is capped by the tallest layout in use (28×34 generated boards: `floor((600-28)/34) = 16`); it is **not** refit per layout. A layout's geometry is just that fixed tile centered under `MAZE_TOP_MARGIN_PX` (28):
 
 ```text
-TILE = floor(min(800 / cols, 572 / rows))
-offsetX = (800 - cols * TILE) / 2
+pixelWidth = cols * TILE_SIZE_PX
+pixelHeight = rows * TILE_SIZE_PX
+offsetX = (800 - pixelWidth) / 2
 ```
 
-Hard rejects after fit:
+Hard rejects:
 
-- `TILE < 12`
+- `pixelWidth > 800`
+- `pixelHeight > 572` (usable height below the top margin)
 - `offsetX < 80` (left HUD gutter — upgrades/lives stay at playfield `x ≈ 12`)
 
-Not every pair in the nominal rectangle is legal. Short + wide boards (e.g. 32×21) fail the gutter gate. From roughly **rows ≥ 28**, the full 20–32 col range clears 80px. Classic **28×31** → tile 18, gutter 148.
+At 16px, the width and gutter rejects are unreachable within the nominal col band (max 32 cols → 512px wide, 144px gutter) — they stay in place as defensive checks in case `TILE_SIZE_PX` or the col band ever changes. The reachable reject in practice is height: a board near the 36-row ceiling (36 × 16 = 576) exceeds the 572px usable band. Classic **28×31** and generated **28×34** both render at tile **16**, gutter **176** / **176** respectively (448×496 and 448×544 px); level-1's **22×21** `mazeSmall` renders smaller still (352×336 px) since it has fewer tiles at the same tile size — a smaller maze footprint, not a smaller Pac-Man.
 
 ## ASCII legend
 

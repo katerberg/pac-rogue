@@ -20,6 +20,14 @@ export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 
 export const MAZE_TOP_MARGIN_PX = 28;
 
+// Fixed pixel size for every maze tile, all layouts — Pac-Man, ghosts, and wall
+// strokes render at the same size regardless of grid dimensions. Capped by the
+// tallest layout in use (28x34 generated boards): floor((600-28)/34) = 16.
+export const TILE_SIZE_PX = 16;
+if (TILE_SIZE_PX < MIN_TILE_SIZE) {
+  throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
+}
+
 export type MazeGeometry = {
   cols: number;
   rows: number;
@@ -38,12 +46,15 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
     throw new Error(`maze rows ${rows} outside ${MAZE_ROWS_MIN}..${MAZE_ROWS_MAX}`);
   }
   const usableHeight = Math.max(1, PLAYFIELD_HEIGHT - MAZE_TOP_MARGIN_PX);
-  const tileSize = Math.floor(Math.min(PLAYFIELD_WIDTH / cols, usableHeight / rows));
-  if (tileSize < MIN_TILE_SIZE) {
-    throw new Error(`maze tile size ${tileSize} below minimum ${MIN_TILE_SIZE}`);
-  }
+  const tileSize = TILE_SIZE_PX;
   const pixelWidth = cols * tileSize;
+  if (pixelWidth > PLAYFIELD_WIDTH) {
+    throw new Error(`maze pixel width ${pixelWidth} exceeds playfield width ${PLAYFIELD_WIDTH}`);
+  }
   const pixelHeight = rows * tileSize;
+  if (pixelHeight > usableHeight) {
+    throw new Error(`maze pixel height ${pixelHeight} exceeds usable height ${usableHeight}`);
+  }
   const offsetX = (PLAYFIELD_WIDTH - pixelWidth) / 2;
   if (offsetX < MIN_MAZE_OFFSET_X) {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
@@ -53,8 +64,6 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
 }
 
 const classicGeometry = computeMazeGeometry(CLASSIC_MAZE_COLS, CLASSIC_MAZE_ROWS);
-
-export const CLASSIC_TILE_SIZE = classicGeometry.tileSize;
 
 export let MAZE_COLS = classicGeometry.cols;
 export let MAZE_ROWS = classicGeometry.rows;
@@ -370,12 +379,17 @@ function deriveGhostHouseExit(
     throw new Error(`ghost house door width ${maxCol - minCol + 1}; need 2 contiguous`);
   }
   const col = Math.floor((minCol + maxCol) / 2);
-  for (let row = doorRow - 1; row >= 0; row -= 1) {
+  // House floor sits on one side of the door and the exit corridor on the other; an
+  // inverted board (floor above the door) exits downward instead of upward.
+  const lines = ascii.split("\n");
+  const floorBelow = lines[doorRow + 1]?.[col] === HOUSE_FLOOR_CHAR;
+  const dir = floorBelow ? -1 : 1;
+  for (let row = doorRow + dir; row >= 0 && row < rows; row += dir) {
     if (!(playerSolids[row]?.[col] ?? true)) {
       return { col, row };
     }
   }
-  throw new Error("maze has no ghost house exit above the door");
+  throw new Error("maze has no ghost house exit beyond the door");
 }
 
 function deriveFruitSpawn(
@@ -389,13 +403,21 @@ function deriveFruitSpawn(
   if (floors.length === 0) {
     throw new Error("maze has no ghost house floor cells");
   }
+  const minHouseRow = floors.reduce((min, cell) => Math.min(min, cell.row), floors[0]!.row);
   const maxHouseRow = floors.reduce((max, cell) => Math.max(max, cell.row), floors[0]!.row);
   for (let row = maxHouseRow + 1; row < rows; row += 1) {
     if (!(playerSolids[row]?.[houseCenterCol] ?? true)) {
       return { col: houseCenterCol, row };
     }
   }
-  throw new Error("maze has no fruit spawn below the ghost house");
+  // Generation guarantees an open ledge on one side of the house; an inverted board has
+  // it above the house instead of below.
+  for (let row = minHouseRow - 1; row >= 0; row -= 1) {
+    if (!(playerSolids[row]?.[houseCenterCol] ?? true)) {
+      return { col: houseCenterCol, row };
+    }
+  }
+  throw new Error("maze has no fruit spawn adjacent to the ghost house");
 }
 
 function countPelletsInAscii(
@@ -756,14 +778,19 @@ export function canGhostEnterDirection(
   phase: number,
   solids: SolidGrid = ghostSolidsForPhase(phase),
   door: SolidGrid = getActiveLayout().door,
+  house: SolidGrid = getActiveLayout().house,
 ): boolean {
   if (!canEnterDirection(x, y, dx, dy, solids)) {
     return false;
   }
-  if (dy > 0) {
+  if (dy !== 0) {
     const col = worldToCol(x);
     const row = worldToRow(y);
-    if (isDoor(col + dx, row + dy, door)) {
+    const doorCol = col + dx;
+    const doorRow = row + dy;
+    // Crossing the door toward the house floor is re-entry and stays one-way; crossing
+    // it toward the exit corridor (the opposite side) is leaving, and always allowed.
+    if (isDoor(doorCol, doorRow, door) && (house[doorRow + dy]?.[doorCol] ?? false)) {
       return false;
     }
   }

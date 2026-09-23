@@ -49,12 +49,17 @@ describe("fruitSpawnCenter", () => {
 describe("tickFruitPresence", () => {
   const fruitLevel = 2;
 
-  it("never spawns on level 1", () => {
-    const [firstThreshold] = getActiveLayout().fruitThresholds;
-    const crossed = tickFruitPresence(createFruitPresence(), firstThreshold, 16, 1);
-    expect(crossed.action).toBe("none");
-    expect(crossed.state.active).toBe(false);
-    expect(crossed.state.nextThresholdIndex).toBe(0);
+  it("spawns once on level 1 after 70 pellets, with no second threshold", () => {
+    const idle = createFruitPresence();
+    expect(tickFruitPresence(idle, 69, 16, 1).action).toBe("none");
+
+    const crossed = tickFruitPresence(idle, 70, 16, 1);
+    expect(crossed.action).toBe("spawn");
+    expect(crossed.state.active).toBe(true);
+    expect(crossed.state.nextThresholdIndex).toBe(1);
+
+    const after = tickFruitPresence(crossed.state, 170, 16, 1);
+    expect(after.action).toBe("none");
   });
 
   it("spawns when collectedCount crosses 70", () => {

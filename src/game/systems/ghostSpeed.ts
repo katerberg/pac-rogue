@@ -3,7 +3,6 @@ import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { resolveGhostSpeedForKind } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { isGhostTunnelSlow, worldToCol, worldToRow } from "../../domain/maze";
-import { speedTileScale } from "../../domain/playfield";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
@@ -43,7 +42,6 @@ export function applyGhostSpeed(
     Speed.px[eid] =
       resolveGhostSpeedForKind(kind, pelletsRemaining, isGhostTunnelSlow(col, row)) *
       ghostSpeedMul *
-      surgeMul *
-      speedTileScale();
+      surgeMul;
   }
 }

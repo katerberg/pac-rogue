@@ -18,7 +18,7 @@ const ARCADE_WAVES: readonly GhostModeWave[] = [
   { mode: 1, durationMs: Number.POSITIVE_INFINITY },
 ];
 
-export function ghostSpeedLevelMul(levelIndex: number): number {
+export function speedLevelMultiplier(levelIndex: number): number {
   const level = Math.max(1, levelIndex);
   return 1 + 0.05 * (level - 1);
 }
@@ -45,4 +45,8 @@ export function ghostModeWavesForLevel(levelIndex: number): readonly GhostModeWa
 export function ghostModeStartWaveIndex(levelIndex: number): number {
   const level = Math.max(1, levelIndex);
   return level <= 1 ? 0 : 1;
+}
+
+export function isInvertedMazeLevel(levelIndex: number): boolean {
+  return levelIndex === 6 || levelIndex === 7;
 }
