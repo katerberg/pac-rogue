@@ -99,6 +99,10 @@ export function stopLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
   scene.sound.stopByKey(entry.key);
 }
 
+export function isSfxPlaying(scene: Phaser.Scene, id: SfxId): boolean {
+  return scene.sound.isPlaying(SFX_MANIFEST[id].key);
+}
+
 const musicPreviewTimers = new WeakMap<Phaser.Scene, Phaser.Time.TimerEvent>();
 
 export function stopMusicVolumePreview(scene: Phaser.Scene): void {

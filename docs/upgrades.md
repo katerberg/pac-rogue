@@ -5,10 +5,10 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, scatter/wall-pass/invuln/speed-burst timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, scatter/wall-pass/invuln/speed-burst timers, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
-- Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
+- Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
 
 ### Current defs
 
@@ -35,23 +35,23 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 
 - Collecting bonus fruit plays both munches, despawns fruit, and awards one Quarter — no upgrade effect, no modal.
 - Clearing a level (2 through 7; not level 1 or the final level 8 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned.
-- **0 eligible:** no modal; clear `forceNextId` if set; no grant; the level transition proceeds immediately.
+- **0 eligible:** no modal; no grant; the level transition proceeds immediately.
+- `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — same immediate transition as the 0-eligible case. Does not affect the level-1 starting upgrade or `enableUpgrade`.
 - **1 eligible:** one-button modal (must pick; no auto-grant).
 - **2+ eligible:** two-button modal. Options from `pickUpgradeChoiceOffer`:
   - Never the same id on both sides.
   - Prefer excluding `lastDeclinedUpgradeId` (the option **not** chosen on the previous two-option confirm).
   - If excluding decline would leave fewer than two candidates, re-include last-declined only as needed.
-  - `forceUpgrade` / `forceNextId`: when still eligible, that id is guaranteed as one of the two sides; modal still opens.
 - While the modal is open, the play sim is fully frozen (death-style early-return). Level 1's clear never offers this modal — level 1 already granted its starting upgrade instead.
 - **0.5s lockout** after open: fuzz-in (alpha ramp + light jitter + BitmapText scramble). Keyboard and click disabled.
 - After lockout: already in selection mode (highlight + LEFT/RIGHT hints). **Click** a button to grant, or **Left/A** / **Right/D** after any held Left/Right/A/D keys have been released (keys held through open/lockout are ignored). One-button: either direction confirms. No Esc / dismiss — must pick.
-- On confirm: `grantUpgrade` chosen id; clear `forceNextId`; if two options were shown, set `lastDeclinedUpgradeId` to the other; one-button leaves prior decline unchanged. HUD refreshes.
+- On confirm: `grantUpgrade` chosen id; if two options were shown, set `lastDeclinedUpgradeId` to the other; one-button leaves prior decline unchanged. HUD refreshes.
 - After confirm: **confirm outro** while sim stays frozen — chosen option double-pulses (scale bounce + stroke thicken, ~400ms); the other option fades out during that pulse; then the whole modal (dim + chrome + chosen) fades out over **1s**. Then play resumes; movement keys held from the modal are ignored until released.
-- `enableUpgrade` (repeatable) → each valid id granted into `owned` at create (order preserved; duplicates ignored by `grantUpgrade`). Combines with `forceUpgrade`.
+- `enableUpgrade` (repeatable) → each valid id granted into `owned` at create (order preserved; duplicates ignored by `grantUpgrade`).
 
 ## Starting upgrade
 
-- When a run's first board is level 1 (`?level` omitted or 1), `PlayScene.create` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade (same grant side effects as a level-clear choice: Extra Life +1 life, Pellet Surge converts a pellet now). `forceUpgrade` picks this upgrade when still eligible and is then cleared.
+- When a run's first board is level 1 (`?level` omitted or 1), `PlayScene.create` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade (same grant side effects as a level-clear choice: Extra Life +1 life, Pellet Surge converts a pellet now).
 - [`src/game/scenes/startingUpgradeCard.ts`](../src/game/scenes/startingUpgradeCard.ts) shows a no-button card (`STARTING UPGRADE`, label, description) over the dimmed board: `STARTING_UPGRADE_HOLD_MS` (1500) hold, then `STARTING_UPGRADE_FADE_MS` (100) fade. Any key except Esc starts the fade early; Esc pause still works. The sim is frozen and the siren is off until the fade ends. Movement keys held through the card are ignored until released.
 - No `LEVEL 1` banner when the card shows. Empty pool (every id enabled via `enableUpgrade`) → no card, normal banner + start.
 - Level advances and `?level≥2` starts never grant a starting upgrade.

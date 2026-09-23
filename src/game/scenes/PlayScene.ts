@@ -105,8 +105,8 @@ import {
   ghostSpeedMultiplier,
   grantLivesForUpgrade,
   grantUpgrade,
+  parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
-  parseUpgradeId,
   pelletCollectRadiusBonusPx,
   pickStartingUpgrade,
   pickUpgradeChoiceOffer,
@@ -140,6 +140,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
 import {
+  isSfxPlaying,
   playPelletCollectSfx,
   playSfx,
   preloadSfx,
@@ -217,6 +218,7 @@ export class PlayScene extends Phaser.Scene {
   private runCompleteRemainingMs = 0;
   private fruitPresence: FruitPresence = createFruitPresence();
   private runUpgrades: RunUpgrades = createRunUpgrades();
+  private disableLevelUpgrades = false;
   private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
   private corruptionHiddenGhostEid: number | null = null;
   private corruptionFlashGhostEid: number | null = null;
@@ -232,6 +234,7 @@ export class PlayScene extends Phaser.Scene {
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private sirenWasActiveBeforePause = false;
+  private sirenPendingFanfareEnd = false;
 
   constructor() {
     super("PlayScene");
@@ -288,10 +291,8 @@ export class PlayScene extends Phaser.Scene {
     this.secondGhostKind = Math.random() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
     this.runCorruption = createRunCorruption(forcedCorruption);
 
-    this.runUpgrades = createRunUpgrades(
-      parseUpgradeId(urlParams.get("forceUpgrade")),
-      parseEnableUpgradeParams(urlParams),
-    );
+    this.disableLevelUpgrades = parseDisableLevelUpgradesFlag(urlParams);
+    this.runUpgrades = createRunUpgrades(parseEnableUpgradeParams(urlParams));
     for (const id of this.runUpgrades.owned) {
       this.lives += grantLivesForUpgrade(id);
     }
@@ -317,6 +318,7 @@ export class PlayScene extends Phaser.Scene {
     this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
     this.suppressPlayerInputUntilKeyRelease = false;
     this.sirenWasActiveBeforePause = false;
+    this.sirenPendingFanfareEnd = false;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.playRender = createRender(this);
 
@@ -324,14 +326,10 @@ export class PlayScene extends Phaser.Scene {
 
     const startingUpgrade =
       this.levelIndex === 1
-        ? pickStartingUpgrade(
-            this.runUpgrades.owned,
-            () => Math.random(),
-            this.runUpgrades.forceNextId,
-          )
+        ? pickStartingUpgrade(this.runUpgrades.owned, () => Math.random())
         : null;
     if (startingUpgrade !== null) {
-      this.runUpgrades = { ...grantUpgrade(this.runUpgrades, startingUpgrade), forceNextId: null };
+      this.runUpgrades = grantUpgrade(this.runUpgrades, startingUpgrade);
       this.applyGrantEffects(startingUpgrade);
     }
     this.refreshUpgradesHud();
@@ -359,6 +357,11 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (this.sirenPendingFanfareEnd && !isSfxPlaying(this, "levelComplete")) {
+      this.sirenPendingFanfareEnd = false;
+      startLoopingSfx(this, "siren");
+    }
+
     if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
       this.pauseForMenu();
       return;
@@ -603,7 +606,7 @@ export class PlayScene extends Phaser.Scene {
         wallPassActive: wallPassActive(this.runUpgrades),
         ...this.renderCorruptionOptions(),
       });
-      if (!offersUpgradeAfterLevel(this.levelIndex)) {
+      if (this.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
         this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
         return;
       }
@@ -611,10 +614,8 @@ export class PlayScene extends Phaser.Scene {
         this.runUpgrades.owned,
         this.runUpgrades.lastDeclinedUpgradeId,
         () => Math.random(),
-        this.runUpgrades.forceNextId,
       );
       if (options === null) {
-        this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
         this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
       } else {
         this.pendingLevelClear = true;
@@ -654,6 +655,14 @@ export class PlayScene extends Phaser.Scene {
       }
       this.death = beginDeathSequence(result.gameOver);
     }
+  }
+
+  private startSirenAfterFanfare(): void {
+    if (isSfxPlaying(this, "levelComplete")) {
+      this.sirenPendingFanfareEnd = true;
+      return;
+    }
+    startLoopingSfx(this, "siren");
   }
 
   private pauseForMenu(): void {
@@ -851,7 +860,7 @@ export class PlayScene extends Phaser.Scene {
     this.refreshUpgradesHud();
     this.refreshLivesIcons();
     this.showLevelBanner();
-    startLoopingSfx(this, "siren");
+    this.startSirenAfterFanfare();
     this.playRender.draw(this.world, {
       frozenGhostEid: null,
       playerInvulnRemainingMs: 0,

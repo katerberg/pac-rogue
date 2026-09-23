@@ -43,8 +43,8 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `maze`                 | `maze1` \| `maze2` \| `mazeSmall` | Force that layout for the **first** board of this Start; omit for level-1 `mazeSmall`. Levels ≥ 2 use the procedural generator unless this override is set for the first board. See [docs/maze-constraints.md](./docs/maze-constraints.md).                  |
 | `level`                | positive integer                  | Start at that level index (ghost roster unlock + shared speed mul `1 + 0.05×(level−1)` for Maze-Man and ghosts); level ≥ 2 without `?maze=` starts on a generated board. Omit for level 1. Invalid → level 1. Fixed 8-level plan: values above 8 clamp to 8. |
 | `quarters`             | non-negative integer              | Start the run with that many quarters (HUD icons). Omit for 0. Invalid → 0.                                                                                                                                                                                  |
-| `forceUpgrade`         | one upgrade id                    | Level-1 starting upgrade uses that id if not already owned (then cleared); otherwise the next level-clear choice modal guarantees it as one option; cleared on confirm or empty pool. Invalid → normal offer.                                                |
-| `enableUpgrade`        | upgrade id (repeatable)           | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Combines with `forceUpgrade`.                                                                                                                                 |
+| `enableUpgrade`        | upgrade id (repeatable)           | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped).                                                                                                                                                               |
+| `disableLevelUpgrades` | `1`                               | Debug: skip the level-clear (levels 2-7) upgrade-choice modal entirely — clears straight to the next board with no offer. Does not affect the level-1 starting upgrade or `enableUpgrade`.                                                                   |
 | `forceCorruption`      | one corruption id                 | Assigns that ghost corruption immediately instead of waiting for level 4. Invalid → normal level-4 random assignment.                                                                                                                                        |
 | `forceCorruptionGhost` | `pinky` \| `inky` \| `clyde`      | Forces which ghost gets corrupted (combine with `forceCorruption` for a fully deterministic setup). `blinky` and invalid values are rejected.                                                                                                                |
 | `ghosts`               | ghost names (comma-separated)     | Replace the level's ghost roster with exactly these kinds on every level, e.g. `pinky` or `pinky,clyde` (`blinky` \| `pinky` \| `inky` \| `clyde`; unknown names skipped). Random corruption only picks from this roster.                                    |
@@ -61,10 +61,10 @@ http://127.0.0.1:5174/?play=1&maze=mazeSmall
 http://127.0.0.1:5174/?maze=maze2
 http://127.0.0.1:5174/?level=3
 http://127.0.0.1:5174/?play=1&quarters=3
-http://127.0.0.1:5174/?forceUpgrade=ghostSlow
 http://127.0.0.1:5174/?enableUpgrade=scatterBurst
 http://127.0.0.1:5174/?enableUpgrade=ghostRecall&enableUpgrade=warpTop
-http://127.0.0.1:5173/?enableUpgrade=powerPelletFreeze&forceUpgrade=ghostSlow
+http://127.0.0.1:5174/?enableUpgrade=powerPelletFreeze&enableUpgrade=ghostSlow
+http://127.0.0.1:5174/?play=1&disableLevelUpgrades=1
 http://127.0.0.1:5174/?sound=1
 http://127.0.0.1:5174/?play=1&level=4&forceCorruption=wallPhaseDash&forceCorruptionGhost=pinky
 http://127.0.0.1:5174/?play=1&ghosts=pinky&forceCorruption=slimeTrail
@@ -92,7 +92,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [docs/corruption.md](./docs/corruption.md) — ghost corruption from level 4+
 - [docs/levels.md](./docs/levels.md) — the fixed 8-level plan
 - [docs/learn.md](./docs/learn.md) — LEARN mode (meet seen ghosts / corruptions)
-- [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `forceUpgrade`, `enableUpgrade`, `forceCorruption`, `forceCorruptionGhost`, `ghosts`, `learnAll`, `sound`)
+- [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `enableUpgrade`, `disableLevelUpgrades`, `forceCorruption`, `forceCorruptionGhost`, `ghosts`, `learnAll`, `sound`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow

@@ -21,6 +21,7 @@ import {
   ghostSpeedMultiplier,
   grantUpgrade,
   grantLivesForUpgrade,
+  parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickStartingUpgrade,
@@ -38,7 +39,6 @@ import {
   tickWallPass,
   upgradeLabels,
   wallPassActive,
-  type RunUpgrades,
   type UpgradeId,
 } from "./upgrades";
 import { TILE_SIZE } from "./maze";
@@ -61,10 +61,6 @@ const ALL_IDS: UpgradeId[] = [
 ];
 
 const STUB_IDS: UpgradeId[] = [];
-
-function withForce(forceNextId: UpgradeId | null, owned: UpgradeId[] = []): RunUpgrades {
-  return { ...createRunUpgrades(forceNextId), owned };
-}
 
 describe("parseUpgradeId", () => {
   it("parses known ids and rejects invalid", () => {
@@ -99,27 +95,36 @@ describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
   });
 
   it("seeds owned immediately and dedupes via grant", () => {
-    const state = createRunUpgrades(null, ["powerPelletFreeze", "ghostSlow", "powerPelletFreeze"]);
+    const state = createRunUpgrades(["powerPelletFreeze", "ghostSlow", "powerPelletFreeze"]);
     expect(state.owned).toEqual(["powerPelletFreeze", "ghostSlow"]);
-    expect(state.forceNextId).toBeNull();
     expect(state.lastDeclinedUpgradeId).toBeNull();
     expect(state.scatterBurstRemainingMs).toBe(0);
     expect(state.speedBurstRemainingMs).toBe(0);
   });
 });
 
+describe("parseDisableLevelUpgradesFlag", () => {
+  it("only accepts disableLevelUpgrades=1", () => {
+    expect(parseDisableLevelUpgradesFlag(new URLSearchParams("disableLevelUpgrades=1"))).toBe(true);
+    expect(parseDisableLevelUpgradesFlag(new URLSearchParams("disableLevelUpgrades=0"))).toBe(
+      false,
+    );
+    expect(parseDisableLevelUpgradesFlag(new URLSearchParams())).toBe(false);
+  });
+});
+
 describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   it("returns null when pool empty", () => {
-    expect(pickUpgradeChoiceOffer(ALL_IDS, null, () => 0, null)).toBeNull();
+    expect(pickUpgradeChoiceOffer(ALL_IDS, null, () => 0)).toBeNull();
   });
 
   it("returns a single option when only one eligible", () => {
     const owned = ALL_IDS.filter((id) => id !== "warpTop");
-    expect(pickUpgradeChoiceOffer(owned, null, () => 0, null)).toEqual(["warpTop"]);
+    expect(pickUpgradeChoiceOffer(owned, null, () => 0)).toEqual(["warpTop"]);
   });
 
   it("returns two distinct unowned options", () => {
-    const options = pickUpgradeChoiceOffer([], null, () => 0, null);
+    const options = pickUpgradeChoiceOffer([], null, () => 0);
     expect(options).not.toBeNull();
     expect(options!).toHaveLength(2);
     expect(new Set(options!).size).toBe(2);
@@ -129,7 +134,7 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   });
 
   it("excludes lastDeclined when enough eligible remain", () => {
-    const options = pickUpgradeChoiceOffer([], "ghostSlow", () => 0, null);
+    const options = pickUpgradeChoiceOffer([], "ghostSlow", () => 0);
     expect(options).not.toBeNull();
     expect(options!).not.toContain("ghostSlow");
     expect(options!).toHaveLength(2);
@@ -137,32 +142,16 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
 
   it("re-includes lastDeclined when needed to form a pair", () => {
     const owned = ALL_IDS.filter((id) => id !== "ghostSlow" && id !== "warpTop");
-    const options = pickUpgradeChoiceOffer(owned, "ghostSlow", () => 0, null);
+    const options = pickUpgradeChoiceOffer(owned, "ghostSlow", () => 0);
     expect(options).toEqual(expect.arrayContaining(["ghostSlow", "warpTop"]));
     expect(options!).toHaveLength(2);
   });
 
-  it("always includes force when eligible", () => {
-    const options = pickUpgradeChoiceOffer([], null, () => 0.99, "ghostRecall");
-    expect(options).not.toBeNull();
-    expect(options!).toContain("ghostRecall");
-    expect(options!).toHaveLength(2);
-  });
-
-  it("still includes force when that id was last declined", () => {
-    const options = pickUpgradeChoiceOffer([], "ghostRecall", () => 0, "ghostRecall");
-    expect(options).not.toBeNull();
-    expect(options!).toContain("ghostRecall");
-    expect(options!).toHaveLength(2);
-    expect(new Set(options!).size).toBe(2);
-  });
-
-  it("confirm grants chosen, sets declined, clears force", () => {
-    const state = withForce("playerSpeedUp");
+  it("confirm grants chosen and sets declined", () => {
+    const state = createRunUpgrades();
     const options: UpgradeId[] = ["playerSpeedUp", "ghostSlow"];
     const next = confirmUpgradeChoice(state, options, "playerSpeedUp");
     expect(next.owned).toEqual(["playerSpeedUp"]);
-    expect(next.forceNextId).toBeNull();
     expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
   });
 
@@ -179,21 +168,13 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
 
 describe("pickStartingUpgrade", () => {
   it("returns null when pool empty", () => {
-    expect(pickStartingUpgrade(ALL_IDS, () => 0, null)).toBeNull();
+    expect(pickStartingUpgrade(ALL_IDS, () => 0)).toBeNull();
   });
 
   it("picks uniformly from unowned ids by rng", () => {
-    expect(pickStartingUpgrade([], () => 0, null)).toBe(ALL_IDS[0]);
-    expect(pickStartingUpgrade([], () => 0.9999, null)).toBe(ALL_IDS[ALL_IDS.length - 1]);
-    expect(pickStartingUpgrade([ALL_IDS[0]!], () => 0, null)).toBe(ALL_IDS[1]);
-  });
-
-  it("returns the forced id when still eligible", () => {
-    expect(pickStartingUpgrade([], () => 0, "ghostSlow")).toBe("ghostSlow");
-  });
-
-  it("ignores a forced id that is already owned", () => {
-    expect(pickStartingUpgrade(["ghostSlow"], () => 0, "ghostSlow")).toBe(ALL_IDS[0]);
+    expect(pickStartingUpgrade([], () => 0)).toBe(ALL_IDS[0]);
+    expect(pickStartingUpgrade([], () => 0.9999)).toBe(ALL_IDS[ALL_IDS.length - 1]);
+    expect(pickStartingUpgrade([ALL_IDS[0]!], () => 0)).toBe(ALL_IDS[1]);
   });
 });
 
@@ -379,8 +360,8 @@ describe("wall pass / power pellet", () => {
     const started = { ...createRunUpgrades(), wallPassRemainingMs: WALL_PASS_MS };
     expect(wallPassActive(started)).toBe(true);
     const mid = tickWallPass(started, 1000);
-    expect(mid.wallPassRemainingMs).toBe(2000);
-    const done = tickWallPass(mid, 2500);
+    expect(mid.wallPassRemainingMs).toBe(WALL_PASS_MS - 1000);
+    const done = tickWallPass(mid, WALL_PASS_MS);
     expect(done.wallPassRemainingMs).toBe(0);
     expect(wallPassActive(done)).toBe(false);
   });
