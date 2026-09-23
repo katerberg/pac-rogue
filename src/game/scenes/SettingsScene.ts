@@ -8,9 +8,16 @@ import {
 } from "../../domain/audioSettings";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
+import {
+  MAZE_COLOR_OPTIONS,
+  clampMazeColorIndex,
+  defaultMazeColorSettings,
+  type MazeColorSettings,
+} from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { playVolumePreview, preloadSfx, stopMusicVolumePreview } from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
+import { loadMazeColorSettings, saveMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   addPixelText,
   MENU_OPTION_FONT_SIZE,
@@ -20,12 +27,13 @@ import {
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
 
-const FOCUS_BACK = 2;
-const FOCUS_COUNT = 3;
+const FOCUS_MAZE_COLOR = 2;
+const FOCUS_BACK = 3;
+const FOCUS_COUNT = 4;
 
 const ROW_Y: Record<AudioCategory, number> = {
-  music: 220,
-  sfx: 320,
+  music: 200,
+  sfx: 280,
 };
 const CATEGORIES: AudioCategory[] = ["music", "sfx"];
 const ROW_LABEL: Record<AudioCategory, string> = {
@@ -46,6 +54,14 @@ const SLIDER_FILL = 0xffff00;
 const SLIDER_FILL_DIM = 0x666600;
 const SLIDER_NOTCH = 0xaaaaaa;
 const SLIDER_NOTCH_DIM = 0x555555;
+
+const MAZE_COLOR_ROW_Y = 360;
+const MAZE_COLOR_SWATCH_START_X = SLIDER_LEFT;
+const MAZE_COLOR_SWATCH_GAP = 48;
+const MAZE_COLOR_SWATCH_RADIUS = 10;
+const MAZE_COLOR_CURSOR_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 5;
+const MAZE_COLOR_ACTIVE_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 2;
+const AUDIO_DISABLED_WARNING_Y = 440;
 
 type CategoryRow = {
   category: AudioCategory;
@@ -70,6 +86,12 @@ export class SettingsScene extends Phaser.Scene {
   private backText!: Phaser.GameObjects.BitmapText;
   private dragging: AudioCategory | null = null;
   private returnScene = "MenuScene";
+
+  private mazeColorSettings: MazeColorSettings = defaultMazeColorSettings();
+  private mazeColorCursorIndex = 0;
+  private mazeColorLabel!: Phaser.GameObjects.BitmapText;
+  private mazeColorCursorRing!: Phaser.GameObjects.Arc;
+  private mazeColorActiveRing!: Phaser.GameObjects.Arc;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -100,6 +122,8 @@ export class SettingsScene extends Phaser.Scene {
     this.rows = [];
     this.returnScene = data?.returnScene ?? "MenuScene";
     this.audioDisabled = this.game.config.audio.noAudio === true;
+    this.mazeColorSettings = loadMazeColorSettings();
+    this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
 
     this.add.rectangle(
       PLAYFIELD_WIDTH / 2,
@@ -116,16 +140,18 @@ export class SettingsScene extends Phaser.Scene {
       this.rows.push(this.createRow(category, index));
     }
 
+    this.createMazeColorRow();
+
     if (this.audioDisabled) {
       const warning = addPixelText(
         this,
         PLAYFIELD_WIDTH / 2,
-        420,
+        AUDIO_DISABLED_WARNING_Y,
         "AUDIO DISABLED",
         MENU_OPTION_FONT_SIZE,
         TEXT_COLOR_YELLOW,
       );
-      placePixelText(warning, PLAYFIELD_WIDTH / 2, 420, 0.5, 0.5);
+      placePixelText(warning, PLAYFIELD_WIDTH / 2, AUDIO_DISABLED_WARNING_Y, 0.5, 0.5);
     }
 
     this.backText = addPixelText(
@@ -195,10 +221,19 @@ export class SettingsScene extends Phaser.Scene {
 
     if (this.tickUp(delta)) {
       this.focusIndex = (this.focusIndex + FOCUS_COUNT - 1) % FOCUS_COUNT;
+      this.onFocusChanged();
       this.refreshUi();
     } else if (this.tickDown(delta)) {
       this.focusIndex = (this.focusIndex + 1) % FOCUS_COUNT;
+      this.onFocusChanged();
       this.refreshUi();
+    } else if (
+      this.moveCooldownMs === 0 &&
+      (left || right) &&
+      this.focusIndex === FOCUS_MAZE_COLOR
+    ) {
+      this.nudgeMazeColorCursor(left ? -1 : 1);
+      this.moveCooldownMs = 120;
     } else if (
       this.moveCooldownMs === 0 &&
       (left || right) &&
@@ -214,6 +249,8 @@ export class SettingsScene extends Phaser.Scene {
     ) {
       if (this.focusIndex === FOCUS_BACK) {
         this.pendingBack = true;
+      } else if (this.focusIndex === FOCUS_MAZE_COLOR) {
+        this.commitMazeColor();
       } else {
         const row = this.rows[this.focusIndex];
         if (row !== undefined) {
@@ -244,6 +281,12 @@ export class SettingsScene extends Phaser.Scene {
     const result = tickKeyRepeat(this.downRepeat, isDown, justDown, delta);
     this.downRepeat = result.state;
     return result.fire;
+  }
+
+  private onFocusChanged(): void {
+    if (this.focusIndex === FOCUS_MAZE_COLOR) {
+      this.mazeColorCursorIndex = this.mazeColorSettings.colorIndex;
+    }
   }
 
   private createRow(category: AudioCategory, focusIndex: number): CategoryRow {
@@ -290,6 +333,31 @@ export class SettingsScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
 
     return { category, focusIndex, label, checkbox, checkMark, track, fill, notches };
+  }
+
+  private createMazeColorRow(): void {
+    const centerY = MAZE_COLOR_ROW_Y;
+    this.mazeColorLabel = addPixelText(this, LABEL_X, centerY, "MAZE COLOR", MENU_OPTION_FONT_SIZE);
+    placePixelText(this.mazeColorLabel, LABEL_X, centerY, 0, 0.5);
+
+    for (const [index, option] of MAZE_COLOR_OPTIONS.entries()) {
+      const x = MAZE_COLOR_SWATCH_START_X + index * MAZE_COLOR_SWATCH_GAP;
+      const swatch = this.add
+        .circle(x, centerY, MAZE_COLOR_SWATCH_RADIUS, option.color)
+        .setInteractive({ useHandCursor: true });
+      swatch.on("pointerdown", () => {
+        this.focusIndex = FOCUS_MAZE_COLOR;
+        this.mazeColorCursorIndex = index;
+        this.commitMazeColor();
+      });
+    }
+
+    this.mazeColorActiveRing = this.add
+      .circle(MAZE_COLOR_SWATCH_START_X, centerY, MAZE_COLOR_ACTIVE_RADIUS, 0x000000, 0)
+      .setStrokeStyle(2, TEXT_COLOR_WHITE);
+    this.mazeColorCursorRing = this.add
+      .circle(MAZE_COLOR_SWATCH_START_X, centerY, MAZE_COLOR_CURSOR_RADIUS, 0x000000, 0)
+      .setStrokeStyle(2, TEXT_COLOR_YELLOW);
   }
 
   private isCategoryEnabled(category: AudioCategory): boolean {
@@ -344,6 +412,21 @@ export class SettingsScene extends Phaser.Scene {
     this.refreshUi();
   }
 
+  private nudgeMazeColorCursor(delta: number): void {
+    const count = MAZE_COLOR_OPTIONS.length;
+    this.mazeColorCursorIndex = (this.mazeColorCursorIndex + delta + count) % count;
+    this.refreshUi();
+  }
+
+  private commitMazeColor(): void {
+    this.mazeColorSettings = {
+      ...this.mazeColorSettings,
+      colorIndex: clampMazeColorIndex(this.mazeColorCursorIndex),
+    };
+    saveMazeColorSettings(this.mazeColorSettings);
+    this.refreshUi();
+  }
+
   private refreshUi(): void {
     for (const row of this.rows) {
       const enabled = this.isCategoryEnabled(row.category);
@@ -372,6 +455,17 @@ export class SettingsScene extends Phaser.Scene {
         }
       }
     }
+
+    const mazeColorFocused = this.focusIndex === FOCUS_MAZE_COLOR;
+    this.mazeColorLabel.setTint(mazeColorFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+
+    const activeX =
+      MAZE_COLOR_SWATCH_START_X + this.mazeColorSettings.colorIndex * MAZE_COLOR_SWATCH_GAP;
+    this.mazeColorActiveRing.setPosition(activeX, MAZE_COLOR_ROW_Y);
+
+    const cursorX = MAZE_COLOR_SWATCH_START_X + this.mazeColorCursorIndex * MAZE_COLOR_SWATCH_GAP;
+    this.mazeColorCursorRing.setPosition(cursorX, MAZE_COLOR_ROW_Y);
+    this.mazeColorCursorRing.setVisible(mazeColorFocused);
 
     this.backText.setText(this.focusIndex === FOCUS_BACK ? "> BACK" : "  BACK");
     this.backText.setTint(this.focusIndex === FOCUS_BACK ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);

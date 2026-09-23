@@ -8,13 +8,14 @@ import {
   powerPelletDisplaySize,
   TILE_SIZE,
   wallPathCommands,
-  WALL_STROKE_COLOR,
   WALL_STROKE_WEIGHT,
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
 import { FLASH_TINT } from "../../domain/corruption";
 import type { GhostTarget } from "../../domain/ghostTarget";
+import { mazeColorForIndex } from "../../domain/mazeColorSettings";
+import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
@@ -256,8 +257,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
         Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
     if (!wallsDrawn) {
+      const wallStrokeColor = mazeColorForIndex(loadMazeColorSettings().colorIndex);
       wallGraphics.clear();
-      wallGraphics.lineStyle(WALL_STROKE_WEIGHT, WALL_STROKE_COLOR, 1);
+      wallGraphics.lineStyle(WALL_STROKE_WEIGHT, wallStrokeColor, 1);
       wallGraphics.beginPath();
       applyWallPathCommands(wallGraphics, wallPathCommands());
       wallGraphics.strokePath();
