@@ -32,7 +32,12 @@ import {
   type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
-import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "../../domain/lives";
+import {
+  START_LIVES,
+  livesAfterLevelRegen,
+  livesHudIconCount,
+  livesRemainingAfterCatch,
+} from "../../domain/lives";
 import {
   activateAsciiLayout,
   activateLayout,
@@ -333,6 +338,7 @@ export class PlayScene extends Phaser.Scene {
       this.applyGrantEffects(startingUpgrade);
     }
     this.refreshUpgradesHud();
+    this.lives = livesAfterLevelRegen(this.lives);
     this.refreshLivesIcons();
     if (startingUpgrade === null) {
       this.showLevelBanner();
@@ -858,6 +864,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.startBoard(null);
     this.refreshUpgradesHud();
+    this.lives = livesAfterLevelRegen(this.lives);
     this.refreshLivesIcons();
     this.showLevelBanner();
     this.startSirenAfterFanfare();

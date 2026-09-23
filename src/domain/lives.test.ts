@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "./lives";
+import {
+  START_LIVES,
+  livesAfterLevelRegen,
+  livesHudIconCount,
+  livesRemainingAfterCatch,
+} from "./lives";
 
 describe("livesRemainingAfterCatch", () => {
   it("starts from START_LIVES of 3", () => {
@@ -26,5 +31,19 @@ describe("livesHudIconCount", () => {
     expect(livesHudIconCount(2)).toBe(1);
     expect(livesHudIconCount(1)).toBe(0);
     expect(livesHudIconCount(0)).toBe(0);
+  });
+});
+
+describe("livesAfterLevelRegen", () => {
+  it("trickles one life when fewer than 3 icons are showing", () => {
+    expect(livesAfterLevelRegen(3)).toBe(4);
+    expect(livesAfterLevelRegen(2)).toBe(3);
+    expect(livesAfterLevelRegen(1)).toBe(2);
+    expect(livesAfterLevelRegen(0)).toBe(1);
+  });
+
+  it("leaves lives unchanged once 3 icons are already showing", () => {
+    expect(livesAfterLevelRegen(4)).toBe(4);
+    expect(livesAfterLevelRegen(5)).toBe(5);
   });
 });
