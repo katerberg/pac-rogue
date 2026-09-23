@@ -5,9 +5,9 @@ import {
   ghostKindsForLevel,
   ghostModeStartWaveIndex,
   ghostModeWavesForLevel,
-  ghostSpeedLevelMul,
   isInvertedMazeLevel,
   MAX_LEVEL,
+  speedLevelMultiplier,
 } from "./levelRules";
 
 describe("MAX_LEVEL", () => {
@@ -16,16 +16,16 @@ describe("MAX_LEVEL", () => {
   });
 });
 
-describe("ghostSpeedLevelMul", () => {
+describe("speedLevelMultiplier", () => {
   it("scales linearly by 5% per level after the first", () => {
-    expect(ghostSpeedLevelMul(1)).toBe(1);
-    expect(ghostSpeedLevelMul(2)).toBe(1.05);
-    expect(ghostSpeedLevelMul(3)).toBe(1.1);
+    expect(speedLevelMultiplier(1)).toBe(1);
+    expect(speedLevelMultiplier(2)).toBe(1.05);
+    expect(speedLevelMultiplier(3)).toBe(1.1);
   });
 
   it("clamps below 1 to level 1 mul", () => {
-    expect(ghostSpeedLevelMul(0)).toBe(1);
-    expect(ghostSpeedLevelMul(-2)).toBe(1);
+    expect(speedLevelMultiplier(0)).toBe(1);
+    expect(speedLevelMultiplier(-2)).toBe(1);
   });
 });
 

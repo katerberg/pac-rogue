@@ -53,9 +53,9 @@ import {
 } from "../../domain/mazeGenerate";
 import {
   ghostKindsForLevel,
-  ghostSpeedLevelMul,
   isInvertedMazeLevel,
   MAX_LEVEL,
+  speedLevelMultiplier,
 } from "../../domain/levelRules";
 import { parseQuartersParam } from "../../domain/quartersFlag";
 import { parseLevelParam } from "../../domain/runLevel";
@@ -423,13 +423,14 @@ export class PlayScene extends Phaser.Scene {
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
+    const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
     const playerSpeedMul =
+      levelSpeedMul *
       playerSpeedMultiplier(this.runUpgrades.owned) *
       (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1);
     applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
-      ghostSpeedMul:
-        ghostSpeedLevelMul(this.levelIndex) * ghostSpeedMultiplier(this.runUpgrades.owned),
+      ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.runUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
     });
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
