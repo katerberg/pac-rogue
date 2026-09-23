@@ -36,7 +36,10 @@ import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "../../
 import {
   activateAsciiLayout,
   activateLayout,
+  cellCenterX,
+  cellCenterY,
   getActiveLayout,
+  isWalkable,
   parseMazeParam,
   pelletCellCenters,
   pelletDisplaySize,
@@ -79,7 +82,20 @@ import {
 } from "../../domain/playfield";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
-import { GHOST_PHASE } from "../../domain/ghostTarget";
+import { GHOST_PHASE, type GhostTarget } from "../../domain/ghostTarget";
+import {
+  OUTLINE_TINT_BY_CORRUPTION,
+  SPEED_SURGE_MUL,
+  createRunCorruption,
+  isCorruptionFlashing,
+  isSpeedSurgeActive,
+  maybeAssignCorruption,
+  parseForceCorruptionParams,
+  resetCorruptionTransient,
+  tickSpeedSurge,
+  type RunCorruption,
+} from "../../domain/corruption";
+import { addPelletsToProgress } from "../../domain/pelletProgress";
 import {
   applyPowerPelletEffects,
   confirmUpgradeChoice,
@@ -136,8 +152,10 @@ import { catchPlayer } from "../systems/catchPlayer";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { collectPellets, countPellets } from "../systems/collectPellets";
+import { findGhostEidByKind } from "../systems/corruptionGhost";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
+import { tickInvisibility } from "../systems/ghostInvisibility";
 import { recallClosestGhostToHouse } from "../systems/ghostRecall";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
 import { ghostRelease } from "../systems/ghostRelease";
@@ -148,6 +166,10 @@ import {
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { movement } from "../systems/movement";
+import { tickPelletDropperTrail } from "../systems/pelletDropperTrail";
+import { slimeTrailKill } from "../systems/slimeTrailKill";
+import { tickSlimeTrail } from "../systems/slimeTrail";
+import { tickWallPhaseDash } from "../systems/wallPhaseDash";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
@@ -204,6 +226,9 @@ export class PlayScene extends Phaser.Scene {
   private runCompleteRemainingMs = 0;
   private fruitPresence: FruitPresence = createFruitPresence();
   private runUpgrades: RunUpgrades = createRunUpgrades();
+  private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
+  private corruptionHiddenGhostEid: number | null = null;
+  private corruptionFlashGhostEid: number | null = null;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
@@ -253,10 +278,20 @@ export class PlayScene extends Phaser.Scene {
     if (urlParams.has("quarters") && quartersOverride === null) {
       console.warn(`Unknown ?quarters= value; expected non-negative integer`);
     }
+    const forcedCorruption = parseForceCorruptionParams(urlParams);
+    if (urlParams.has("forceCorruption") && forcedCorruption.type === null) {
+      console.warn(
+        `Unknown ?forceCorruption= value; expected slimeTrail|invisibility|freeRetargetReverse|speedSurge|wallPhaseDash|pelletDropper|falseScatter`,
+      );
+    }
+    if (urlParams.has("forceCorruptionGhost") && forcedCorruption.ghostKind === null) {
+      console.warn(`Unknown ?forceCorruptionGhost= value; expected pinky|inky|clyde`);
+    }
     this.quarters = quartersOverride ?? 0;
     this.levelIndex = levelOverride ?? 1;
     this.runMazeSeed = String(Math.floor(Math.random() * 0xffffffff));
     this.secondGhostKind = Math.random() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
+    this.runCorruption = createRunCorruption(forcedCorruption);
 
     this.runUpgrades = createRunUpgrades(
       parseUpgradeId(urlParams.get("forceUpgrade")),
@@ -314,6 +349,7 @@ export class PlayScene extends Phaser.Scene {
         frozenGhostEid: null,
         playerInvulnRemainingMs: 0,
         wallPassActive: false,
+        ...this.renderCorruptionOptions(),
       });
       this.startingUpgradeCard.open(startingUpgrade);
     }
@@ -424,6 +460,7 @@ export class PlayScene extends Phaser.Scene {
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
+    this.runCorruption = tickSpeedSurge(this.runCorruption, delta);
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
     const playerSpeedMul =
       levelSpeedMul *
@@ -433,11 +470,37 @@ export class PlayScene extends Phaser.Scene {
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.runUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
+      speedSurge:
+        this.runCorruption.ghostKind !== null && isSpeedSurgeActive(this.runCorruption)
+          ? { ghostKind: this.runCorruption.ghostKind, mul: SPEED_SURGE_MUL }
+          : undefined,
     });
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
       ? getActiveLayout().wallPassPlayerSolids
       : undefined;
     movement(this.world, delta, playerSolidsOverride);
+
+    this.runCorruption = tickWallPhaseDash(this.world, this.runCorruption, delta);
+    this.runCorruption = tickSlimeTrail(this.world, this.runCorruption);
+    const dropperTick = tickPelletDropperTrail(
+      this.world,
+      this.runCorruption,
+      delta,
+      this.pelletProgress.pelletsRemaining,
+    );
+    this.runCorruption = dropperTick.corruption;
+    if (dropperTick.spawnTiles.length > 0) {
+      this.spawnDroppedPellets(dropperTick.spawnTiles);
+    }
+    const invisTick = tickInvisibility(this.world, this.runCorruption, delta);
+    this.runCorruption = invisTick.corruption;
+    this.corruptionHiddenGhostEid = invisTick.hiddenGhostEid;
+    this.corruptionFlashGhostEid =
+      this.runCorruption.type === "invisibility"
+        ? invisTick.flashGhostEid
+        : isCorruptionFlashing(this.runCorruption)
+          ? findGhostEidByKind(this.world, this.runCorruption.ghostKind)
+          : null;
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
       this.ghostModeClock = startGhostModeClock(this.levelIndex);
@@ -496,12 +559,17 @@ export class PlayScene extends Phaser.Scene {
       delta,
     );
     this.ghostModeClock = modeStep.clock;
+    const corruptionAiOpts =
+      this.runCorruption.ghostKind !== null && this.runCorruption.type !== null
+        ? { ghostKind: this.runCorruption.ghostKind, type: this.runCorruption.type }
+        : undefined;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world);
+      forceGhostReverse(this.world, this.runCorruption);
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
       ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, {
         ignoreElroy: scatterBurstActive(this.runUpgrades),
+        corruption: corruptionAiOpts,
       });
     }
     if (powerEffects.recallClosestGhost) {
@@ -551,6 +619,7 @@ export class PlayScene extends Phaser.Scene {
         frozenGhostEid: frozenGhostEid(this.runUpgrades),
         playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
         wallPassActive: wallPassActive(this.runUpgrades),
+        ...this.renderCorruptionOptions(),
       });
       if (!offersUpgradeAfterLevel(this.levelIndex)) {
         this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
@@ -582,11 +651,14 @@ export class PlayScene extends Phaser.Scene {
 
     const frozenEid = frozenGhostEid(this.runUpgrades);
     const playerInvulnerable = playerIsInvulnerable(this.runUpgrades);
-    const caught = catchPlayer(this.world, { frozenGhostEid: frozenEid, playerInvulnerable });
+    const caught =
+      catchPlayer(this.world, { frozenGhostEid: frozenEid, playerInvulnerable }) ||
+      slimeTrailKill(this.world, this.runCorruption.trail, { playerInvulnerable });
     this.playRender.draw(this.world, {
       frozenGhostEid: frozenEid,
       playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
+      ...this.renderCorruptionOptions(),
     });
 
     if (caught) {
@@ -622,6 +694,9 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
+    this.runCorruption = maybeAssignCorruption(this.runCorruption, this.levelIndex, () =>
+      Math.random(),
+    );
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.runMazeSeed);
     if (selection.kind === "static") {
       activateLayout(selection.id);
@@ -696,8 +771,62 @@ export class PlayScene extends Phaser.Scene {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
+      ...this.renderCorruptionOptions(),
     });
     this.playRender.bouncePowerPellet(eid);
+  }
+
+  private renderCorruptionOptions(): {
+    corruptedGhostEid: number | null;
+    corruptedTint: number | undefined;
+    flashGhostEid: number | null;
+    hiddenGhostEid: number | null;
+    slimeTrailTiles: GhostTarget[];
+  } {
+    const corruptedGhostEid = findGhostEidByKind(this.world, this.runCorruption.ghostKind);
+    const corruptedTint =
+      this.runCorruption.type !== null
+        ? OUTLINE_TINT_BY_CORRUPTION[this.runCorruption.type]
+        : undefined;
+    return {
+      corruptedGhostEid,
+      corruptedTint,
+      flashGhostEid: this.corruptionFlashGhostEid,
+      hiddenGhostEid: this.corruptionHiddenGhostEid,
+      slimeTrailTiles: this.runCorruption.trail,
+    };
+  }
+
+  private spawnDroppedPellets(tiles: readonly GhostTarget[]): void {
+    let spawned = 0;
+    const { playerSolids } = getActiveLayout();
+    for (const tile of tiles) {
+      if (!isWalkable(tile.col, tile.row, playerSolids)) {
+        continue;
+      }
+      const x = cellCenterX(tile.col);
+      const y = cellCenterY(tile.row);
+      const occupied = query(this.world, [Pellet, Position]).some(
+        (eid) => Position.x[eid] === x && Position.y[eid] === y,
+      );
+      if (occupied) {
+        continue;
+      }
+
+      const eid = addEntity(this.world);
+      addComponent(this.world, eid, Pellet);
+      addComponent(this.world, eid, Position);
+      addComponent(this.world, eid, Drawable);
+      Position.x[eid] = x;
+      Position.y[eid] = y;
+      Drawable.id[eid] = PELLET_DRAWABLE_ID;
+      Drawable.radius[eid] = PELLET_RADIUS;
+      spawned += 1;
+    }
+
+    if (spawned > 0) {
+      this.pelletProgress = addPelletsToProgress(this.pelletProgress, spawned);
+    }
   }
 
   private advanceToNextLevel(): void {
@@ -714,6 +843,9 @@ export class PlayScene extends Phaser.Scene {
       invulnRemainingMs: 0,
       speedBurstRemainingMs: 0,
     };
+    this.runCorruption = resetCorruptionTransient(this.runCorruption);
+    this.corruptionHiddenGhostEid = null;
+    this.corruptionFlashGhostEid = null;
 
     this.startBoard(null);
     this.refreshUpgradesHud();
@@ -724,6 +856,7 @@ export class PlayScene extends Phaser.Scene {
       frozenGhostEid: null,
       playerInvulnRemainingMs: 0,
       wallPassActive: false,
+      ...this.renderCorruptionOptions(),
     });
   }
 
@@ -764,6 +897,7 @@ export class PlayScene extends Phaser.Scene {
           frozenGhostEid: null,
           playerInvulnRemainingMs: 0,
           wallPassActive: false,
+          ...this.renderCorruptionOptions(),
         });
         break;
       case "startFade":
@@ -889,6 +1023,9 @@ export class PlayScene extends Phaser.Scene {
       invulnRemainingMs: 0,
       speedBurstRemainingMs: 0,
     };
+    this.runCorruption = resetCorruptionTransient(this.runCorruption);
+    this.corruptionHiddenGhostEid = null;
+    this.corruptionFlashGhostEid = null;
 
     this.clock = {
       ...this.clock,

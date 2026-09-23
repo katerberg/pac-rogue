@@ -19,7 +19,7 @@ import {
   wrapText,
 } from "./upgradeChoiceModal";
 
-export const STARTING_UPGRADE_HOLD_MS = 2000;
+export const STARTING_UPGRADE_HOLD_MS = 10_000;
 export const STARTING_UPGRADE_FADE_MS = 100;
 
 export type StartingUpgradeCard = {
