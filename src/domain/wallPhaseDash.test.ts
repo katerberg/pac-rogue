@@ -44,9 +44,9 @@ describe("wallPhaseDashLungeTarget", () => {
   it("prefers the valid target closest to the player when multiple qualify", () => {
     const grid = buildGrid(7, 5);
     grid[1]![2] = true;
-    grid[2]![2] = true; // wall above spanning rows 1-2 (ghost at row 3): landing row 0
+    grid[2]![2] = true;
     grid[4]![2] = true;
-    grid[5]![2] = true; // wall below spanning rows 4-5 (ghost at row 3): landing row 6
+    grid[5]![2] = true;
     const solids: SolidGrid = grid;
 
     expect(wallPhaseDashLungeTarget(2, 3, 2, 6, solids)).toEqual({ col: 2, row: 6 });
@@ -56,7 +56,7 @@ describe("wallPhaseDashLungeTarget", () => {
   it("ignores an out-of-bounds landing tile", () => {
     const grid = buildGrid(4, 3);
     grid[0]![1] = true;
-    grid[1]![1] = true; // wall spans rows 0-1 above ghost at row 2; landing row -1 is out of bounds
+    grid[1]![1] = true;
     const solids: SolidGrid = grid;
 
     expect(wallPhaseDashLungeTarget(1, 2, 1, 2, solids)).toBeNull();

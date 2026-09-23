@@ -83,14 +83,12 @@ export const PELLET_DROPPER_TRAIL_LEN = 3;
 export const PELLET_DROPPER_COUNT = 3;
 export const PELLET_DROPPER_INTERVAL_MS = 10_000;
 
-/** Cycle: [0, TELEGRAPH_FLASH_MS) flash, then active for SPEED_SURGE_ACTIVE_MS, then idle. */
 export const SPEED_SURGE_MUL = 1.6;
 export const SPEED_SURGE_ACTIVE_MS = 1_500;
 export const SPEED_SURGE_CYCLE_MS = 8_000;
 
 export const WALL_PHASE_CYCLE_MS = 9_000;
 
-/** Cycle: [0, TELEGRAPH_FLASH_MS) flash, then hidden for INVISIBILITY_HIDDEN_MS, then visible. */
 export const INVISIBILITY_CYCLE_MS = 10_000;
 export const INVISIBILITY_HIDDEN_MS = 3_000;
 export const INVISIBILITY_REVEAL_RADIUS_TILES = 2;

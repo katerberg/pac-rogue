@@ -8,7 +8,6 @@ const ORTHOGONAL_STEPS: readonly { dx: number; dy: number }[] = [
   { dx: 1, dy: 0 },
 ];
 
-/** Number of wall tiles the lunge crosses ("##"); the landing tile is one past that ("not ###"). */
 export const WALL_PHASE_WALL_THICKNESS = 2;
 
 export function wallPhaseDashLungeTarget(
