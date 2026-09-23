@@ -106,7 +106,6 @@ import {
   grantUpgrade,
   parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
-  parseUpgradeId,
   pelletCollectRadiusBonusPx,
   pickStartingUpgrade,
   pickUpgradeChoiceOffer,
@@ -285,10 +284,7 @@ export class PlayScene extends Phaser.Scene {
     this.runCorruption = createRunCorruption(forcedCorruption);
 
     this.disableLevelUpgrades = parseDisableLevelUpgradesFlag(urlParams);
-    this.runUpgrades = createRunUpgrades(
-      parseUpgradeId(urlParams.get("forceUpgrade")),
-      parseEnableUpgradeParams(urlParams),
-    );
+    this.runUpgrades = createRunUpgrades(parseEnableUpgradeParams(urlParams));
     for (const id of this.runUpgrades.owned) {
       this.lives += grantLivesForUpgrade(id);
     }
@@ -321,14 +317,10 @@ export class PlayScene extends Phaser.Scene {
 
     const startingUpgrade =
       this.levelIndex === 1
-        ? pickStartingUpgrade(
-            this.runUpgrades.owned,
-            () => Math.random(),
-            this.runUpgrades.forceNextId,
-          )
+        ? pickStartingUpgrade(this.runUpgrades.owned, () => Math.random())
         : null;
     if (startingUpgrade !== null) {
-      this.runUpgrades = { ...grantUpgrade(this.runUpgrades, startingUpgrade), forceNextId: null };
+      this.runUpgrades = grantUpgrade(this.runUpgrades, startingUpgrade);
       this.applyGrantEffects(startingUpgrade);
     }
     this.refreshUpgradesHud();
@@ -601,9 +593,6 @@ export class PlayScene extends Phaser.Scene {
         ...this.renderCorruptionOptions(),
       });
       if (this.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
-        if (this.disableLevelUpgrades) {
-          this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
-        }
         this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
         return;
       }
@@ -611,10 +600,8 @@ export class PlayScene extends Phaser.Scene {
         this.runUpgrades.owned,
         this.runUpgrades.lastDeclinedUpgradeId,
         () => Math.random(),
-        this.runUpgrades.forceNextId,
       );
       if (options === null) {
-        this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
         this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
       } else {
         this.pendingLevelClear = true;

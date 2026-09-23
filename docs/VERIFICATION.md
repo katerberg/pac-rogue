@@ -36,7 +36,7 @@ In addition to the automated gate:
 npm run probe -- --query "play=1&maze=mazeSmall" --steps "wait:600,shot:start,hold:ArrowLeft:1500,shot:moved,scene:PlayScene" --name left
 ```
 
-Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `enableUpgrade`, `forceUpgrade`). Then **Read each screenshot** and record what you saw. This satisfies the steps above wherever no interactive browser is available.
+Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `enableUpgrade`). Then **Read each screenshot** and record what you saw. This satisfies the steps above wherever no interactive browser is available.
 
 ### Never
 
