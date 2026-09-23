@@ -29,10 +29,12 @@ export function ghostKindsForLevel(
 ): GhostKindId[] {
   const level = Math.max(1, levelIndex);
   if (level === 1) {
-    return [GHOST_KIND.blinky];
+    return [GHOST_KIND.blinky, secondGhostKind];
   }
   if (level === 2) {
-    return [GHOST_KIND.blinky, secondGhostKind];
+    const thirdGhostKind =
+      secondGhostKind === GHOST_KIND.pinky ? GHOST_KIND.inky : GHOST_KIND.pinky;
+    return [GHOST_KIND.blinky, secondGhostKind, thirdGhostKind];
   }
   return [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde];
 }

@@ -30,14 +30,22 @@ describe("speedLevelMultiplier", () => {
 });
 
 describe("ghostKindsForLevel", () => {
-  it("level 1 is Blinky only, regardless of the second-ghost arg", () => {
-    expect(ghostKindsForLevel(1, GHOST_KIND.pinky)).toEqual([GHOST_KIND.blinky]);
-    expect(ghostKindsForLevel(1, GHOST_KIND.inky)).toEqual([GHOST_KIND.blinky]);
+  it("level 1 is Blinky plus whichever second ghost is passed in (2 ghosts)", () => {
+    expect(ghostKindsForLevel(1, GHOST_KIND.pinky)).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky]);
+    expect(ghostKindsForLevel(1, GHOST_KIND.inky)).toEqual([GHOST_KIND.blinky, GHOST_KIND.inky]);
   });
 
-  it("level 2 is Blinky plus whichever second ghost is passed in", () => {
-    expect(ghostKindsForLevel(2, GHOST_KIND.pinky)).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky]);
-    expect(ghostKindsForLevel(2, GHOST_KIND.inky)).toEqual([GHOST_KIND.blinky, GHOST_KIND.inky]);
+  it("level 2 is Blinky, Pinky, and Inky (3 ghosts), ordered by the second-ghost arg", () => {
+    expect(ghostKindsForLevel(2, GHOST_KIND.pinky)).toEqual([
+      GHOST_KIND.blinky,
+      GHOST_KIND.pinky,
+      GHOST_KIND.inky,
+    ]);
+    expect(ghostKindsForLevel(2, GHOST_KIND.inky)).toEqual([
+      GHOST_KIND.blinky,
+      GHOST_KIND.inky,
+      GHOST_KIND.pinky,
+    ]);
   });
 
   it("level 3+ is always all four ghosts, regardless of the second-ghost arg", () => {
@@ -48,8 +56,8 @@ describe("ghostKindsForLevel", () => {
   });
 
   it("clamps below 1 to level 1 roster", () => {
-    expect(ghostKindsForLevel(0, GHOST_KIND.pinky)).toEqual([GHOST_KIND.blinky]);
-    expect(ghostKindsForLevel(-2, GHOST_KIND.inky)).toEqual([GHOST_KIND.blinky]);
+    expect(ghostKindsForLevel(0, GHOST_KIND.pinky)).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky]);
+    expect(ghostKindsForLevel(-2, GHOST_KIND.inky)).toEqual([GHOST_KIND.blinky, GHOST_KIND.inky]);
   });
 });
 
