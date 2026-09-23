@@ -329,7 +329,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         } else {
           go.clearTint();
         }
-        go.setAlpha(hiddenGhostEid !== null && eid === hiddenGhostEid ? 0 : 1);
+        const isHidden = hiddenGhostEid !== null && eid === hiddenGhostEid;
+        const isFrozen = frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse;
+        go.setAlpha(isHidden && !isFrozen ? 0 : 1);
       }
 
       if (id === PLAYER_DRAWABLE_ID) {

@@ -6,7 +6,9 @@ import {
   tickInvisibilityCycle,
   type RunCorruption,
 } from "../../domain/corruption";
+import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { worldToCol, worldToRow } from "../../domain/maze";
+import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { findGhostEidByKind } from "./corruptionGhost";
@@ -28,9 +30,11 @@ export function tickInvisibility(
 
   const ticked = tickInvisibilityCycle(state, deltaMs);
   const eid = findGhostEidByKind(world, ticked.ghostKind);
-  const flashGhostEid = eid !== null && isCorruptionFlashing(ticked) ? eid : null;
+  const phase = eid !== null ? (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) : GHOST_PHASE.inHouse;
+  const inHouse = eid === null || phase === GHOST_PHASE.inHouse;
+  const flashGhostEid = !inHouse && isCorruptionFlashing(ticked) ? eid : null;
 
-  if (eid === null || !isInvisibilityHiddenInCycle(ticked)) {
+  if (inHouse || !isInvisibilityHiddenInCycle(ticked)) {
     return { corruption: ticked, hiddenGhostEid: null, flashGhostEid };
   }
 

@@ -90,4 +90,17 @@ describe("tickWallPhaseDash", () => {
     expect(result.wallPhaseCycleMs).toBe(0);
     expect(result.wallPhasePendingTarget).toBeNull();
   });
+
+  it("does not relocate a ghost that was recalled to the house mid-flash", () => {
+    const { world, ghost } = buildWorld(12, 2, 15, 2);
+
+    const triggered = tickWallPhaseDash(world, corrupted(), WALL_PHASE_CYCLE_MS);
+    expect(triggered.wallPhasePendingTarget).toEqual({ col: 15, row: 2 });
+
+    GhostPhase.value[ghost] = GHOST_PHASE.inHouse;
+    const fired = tickWallPhaseDash(world, triggered, TELEGRAPH_FLASH_MS + 1);
+    expect(fired.wallPhasePendingTarget).toBeNull();
+    expect(Position.x[ghost]).toBe(cellCenterX(12));
+    expect(Position.y[ghost]).toBe(cellCenterY(2));
+  });
 });

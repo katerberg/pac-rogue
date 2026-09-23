@@ -90,4 +90,15 @@ describe("tickInvisibility", () => {
     const wrapped = tickInvisibility(world, corrupted(), INVISIBILITY_CYCLE_MS + 1);
     expect(wrapped.flashGhostEid).toBe(ghost);
   });
+
+  it("never hides an inHouse ghost", () => {
+    const { world, ghost } = buildWorld(6, 5, 20, 20);
+    GhostPhase.value[ghost] = GHOST_PHASE.inHouse;
+
+    const flashing = tickInvisibility(world, corrupted(), TELEGRAPH_FLASH_MS - 1);
+    expect(flashing.flashGhostEid).toBeNull();
+
+    const wouldBeHidden = tickInvisibility(world, flashing.corruption, 2);
+    expect(wouldBeHidden.hiddenGhostEid).toBeNull();
+  });
 });

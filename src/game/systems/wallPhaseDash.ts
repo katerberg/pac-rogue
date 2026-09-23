@@ -30,7 +30,8 @@ export function tickWallPhaseDash(
     }
 
     const eid = findGhostEidByKind(world, state.ghostKind);
-    if (eid !== null) {
+    const phaseNow = eid !== null ? (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) : null;
+    if (eid !== null && phaseNow !== GHOST_PHASE.inHouse) {
       Position.x[eid] = cellCenterX(state.wallPhasePendingTarget.col);
       Position.y[eid] = cellCenterY(state.wallPhasePendingTarget.row);
       Ghost.decidedCol[eid] = Number.NaN;
