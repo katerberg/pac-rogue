@@ -4,6 +4,7 @@ import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../domain/playfield";
 import { shouldAutoPlay } from "../domain/playFlag";
 import { isSoundEnabled } from "../domain/soundFlag";
 import { HighScoresScene } from "./scenes/HighScoresScene";
+import { LearnScene } from "./scenes/LearnScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { PauseScene } from "./scenes/PauseScene";
 import { PlayScene } from "./scenes/PlayScene";
@@ -23,8 +24,8 @@ const urlParams = new URLSearchParams(location.search);
 const soundEnabled = isSoundEnabled(urlParams, location.port);
 const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
 const bootScenes = shouldAutoPlay(urlParams)
-  ? [PlayScene, MenuScene, HighScoresScene, SettingsScene, PauseScene]
-  : [MenuScene, HighScoresScene, SettingsScene, PlayScene, PauseScene];
+  ? [PlayScene, MenuScene, LearnScene, HighScoresScene, SettingsScene, PauseScene]
+  : [MenuScene, LearnScene, HighScoresScene, SettingsScene, PlayScene, PauseScene];
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,

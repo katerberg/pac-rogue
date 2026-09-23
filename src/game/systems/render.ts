@@ -48,7 +48,7 @@ export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 const PLAYER_INVULN_TINT = 0xc48a00;
 const PLAYER_INVULN_BLINK_MS = 100;
 const PLAYER_INVULN_URGENCY_MS = 1000;
-const GHOST_TEXTURE_BY_ID: Record<string, string> = {
+export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
   [INKY_DRAWABLE_ID]: INKY_TEXTURE_KEY,
@@ -177,6 +177,7 @@ export type RenderOptions = {
   corruptedTint?: number;
   flashGhostEid?: number | null;
   hiddenGhostEid?: number | null;
+  dimGhostEid?: number | null;
   slimeTrailTiles?: readonly GhostTarget[];
 };
 
@@ -191,6 +192,7 @@ export type PlayRender = {
 };
 
 const SLIME_TRAIL_FILL_ALPHA = 0.6;
+const DIM_GHOST_ALPHA = 0.4;
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
@@ -249,6 +251,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const corruptedTint = opts?.corruptedTint;
     const flashGhostEid = opts?.flashGhostEid ?? null;
     const hiddenGhostEid = opts?.hiddenGhostEid ?? null;
+    const dimGhostEid = opts?.dimGhostEid ?? null;
     const wallPassOn = opts?.wallPassActive === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const playerInvulnTintOn =
@@ -333,7 +336,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
         const isHidden = hiddenGhostEid !== null && eid === hiddenGhostEid;
         const isFrozen = frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse;
-        go.setAlpha(isHidden && !isFrozen ? 0 : 1);
+        if (isHidden && !isFrozen) {
+          go.setAlpha(0);
+        } else {
+          go.setAlpha(dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1);
+        }
       }
 
       if (id === PLAYER_DRAWABLE_ID) {

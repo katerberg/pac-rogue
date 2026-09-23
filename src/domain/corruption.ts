@@ -54,7 +54,7 @@ export const CORRUPTION_DEFS: readonly CorruptionDef[] = [
   },
 ];
 
-const CORRUPTION_IDS: readonly CorruptionId[] = CORRUPTION_DEFS.map((def) => def.id);
+export const CORRUPTION_IDS: readonly CorruptionId[] = CORRUPTION_DEFS.map((def) => def.id);
 
 const CORRUPTIBLE_GHOST_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.pinky,
@@ -181,6 +181,14 @@ export function maybeAssignCorruption(
   const ghostKind = state.forcedGhostKind ?? takeRandom(CORRUPTIBLE_GHOST_KINDS, rng);
 
   return { ...state, type, ghostKind };
+}
+
+export function corruptionAiOption(
+  state: RunCorruption,
+): { ghostKind: GhostKindId; type: CorruptionId } | undefined {
+  return state.ghostKind !== null && state.type !== null
+    ? { ghostKind: state.ghostKind, type: state.type }
+    : undefined;
 }
 
 export function resetCorruptionTransient(state: RunCorruption): RunCorruption {

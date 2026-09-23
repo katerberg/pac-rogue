@@ -56,6 +56,8 @@ src/
     corruption.ts             # level-4+ ghost corruption defs + RunCorruption state
     ghostTrail.ts             # generic trailing-tile FIFO (slime trail)
     wallPhaseDash.ts          # pure 2-thick-wall lunge target lookup
+    seenRecord.ts             # ghosts/corruptions met in play (LEARN unlocks) + learnAll flag
+    learnOverlay.ts           # LEARN reticle clamp, predicted path, target derivation, segment clip
   game/
     config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
     audio/sfx.ts              # SFX manifest; volumes scaled by audioSettings
@@ -77,17 +79,19 @@ src/
     storage/
       runHistoryStorage.ts    # localStorage adapter for death-run history
       audioSettingsStorage.ts # localStorage adapter for music/SFX prefs
+      seenRecordStorage.ts    # localStorage adapter for the LEARN seen record
     systems/
       playerInput.ts          # Phaser keys → sticky Input
       ghostRelease.ts         # inHouse → leaving (time or Inky/Clyde pellets)
       ghostHouseSeating.ts    # inHouse seat steer + snap at predicted seats
-      ghostAi.ts              # kind target tile → sticky Input (once per tile); corruption opts for freeRetargetReverse/falseScatter
+      ghostAi.ts              # kind target tile → sticky Input (once per tile); corruption opts for freeRetargetReverse/falseScatter; resolveGhostTarget
       ghostSpeed.ts           # Speed from Elroy (Blinky) + tunnel + upgrade mul / closest-ghost freeze / speed-surge mul
       ghostReverse.ts         # mode-change reverse via Input; skips a falseScatter-corrupted eid
       ghostExitHouse.ts       # leaving → active once off house/door tiles
       ghostRecall.ts          # power-pellet house teleport into inHouse seat
       ghostFreeze.ts          # power-pellet freeze closest leaving/active ghost
       corruptionGhost.ts      # find the corrupted ghost's current eid by kind
+      corruptionStep.ts       # wall-phase → slime trail → pellet dropper → invisibility (PlayScene + LearnScene)
       wallPhaseDash.ts        # tick cycle/flash + relocate the corrupted ghost past a thin wall
       slimeTrail.ts           # track the corrupted ghost's trailing hazard tiles
       slimeTrailKill.ts       # circle overlap vs. slime trail tiles → caught
@@ -106,11 +110,12 @@ src/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
       upgradeChoiceModal.ts   # level-clear pick-one overlay (Phaser)
-      MenuScene.ts            # boot title + Start / High Scores / Settings (no ECS)
+      MenuScene.ts            # boot title + Start / Learn / High Scores / Settings (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       SettingsScene.ts        # music/SFX checkboxes + 0..10 notches (no ECS)
       PauseScene.ts           # Escape overlay: Resume / Settings / Quit confirm (no ECS)
       PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
+      LearnScene.ts           # LEARN sandbox: own world, one chosen ghost, live target overlay
   public/
   art/                        # Pac-Man / pellet / power-pellet / ghost / fruit PNGs
   sound/                      # SFX (pickups, looping siren, level complete, death)
@@ -127,10 +132,11 @@ docs/
 
 ## Scenes
 
-Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
+Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `LearnScene`, `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
 
 ```text
 MenuScene --Start--> PlayScene
+MenuScene --Learn--> LearnScene --Back/Escape--> MenuScene
 MenuScene --High Scores--> HighScoresScene
 MenuScene --Settings--> SettingsScene
 HighScoresScene --Back--> MenuScene
@@ -146,7 +152,7 @@ PlayScene --caught (lives left)--> death hold → reset → ready → resume
 PlayScene --caught (last life)--> death hold → fade → GAME OVER → MenuScene
 ```
 
-**ECS ownership:** only `PlayScene` calls `createWorld` / `addEntity` and runs the system pipeline. `MenuScene`, `HighScoresScene`, `SettingsScene`, and `PauseScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
+**ECS ownership:** only `PlayScene` and `LearnScene` call `createWorld` / `addEntity` and run a system pipeline (`LearnScene`'s is a reduced chase-only sandbox; see [docs/learn.md](./learn.md)). `MenuScene`, `HighScoresScene`, `SettingsScene`, and `PauseScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
 
 Pausing (Escape) is available at any point during `PlayScene`, including mid-death-sequence, mid-level-transition, and while the level-clear upgrade-choice modal is open — `scene.pause()` halts `PlayScene.update()` entirely, so whichever of those states was active simply freezes and resumes exactly where it left off. `SettingsScene` accepts an optional `returnScene` value (Phaser scene init data) so it can return to either `MenuScene` (default) or `PauseScene` depending on how it was opened; `PlayScene` itself is never restarted by this round trip. `PauseScene`'s Quit option turns into an inline `SURE?  YES  NO` on the same row (default focus: NO); Up cancels the confirm and moves focus to Settings, same as a normal Up from the Quit row. Confirming Yes stops `PlayScene` (its existing `SHUTDOWN` handler covers siren/modal/banner cleanup) without ever calling `saveRun`.
 
@@ -167,7 +173,7 @@ PlayScene.update →
   tickGhostRelease + ghostHouseSeating + ghostRelease (boardCollected + afterLifeRelease gates Inky/Clyde) →
   tickFreeze + tickScatterBurst + tickWallPass → (wall-pass expire → snapPlayerToNearestWalkable) → tickInvuln + tickSpeedBurst + tickSpeedSurge → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + closest-ghost freeze + speed-surge mul; skips inHouse) →
   movement (optional player solids override while wall-pass active) →
-  tickWallPhaseDash + tickSlimeTrail + tickPelletDropperTrail (spawnDroppedPellets if any) + tickInvisibility →
+  stepCorruption (tickWallPhaseDash + tickSlimeTrail + tickPelletDropperTrail + tickInvisibility; spawnDroppedPellets if any) →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
   collectPellets → releaseDrawable(removed) → applyPowerPelletEffects → freezeClosestGhost? →
@@ -184,7 +190,7 @@ PlayScene.update →
 ```
 
 From level 4+, `maybeAssignCorruption` runs once per `startBoard()` call to pick (or lock in a forced)
-ghost + corruption; see [docs/corruption.md](./corruption.md).
+ghost + corruption; see [docs/corruption.md](./corruption.md). Each `startBoard()` also merges the spawned ghost kinds and the assigned corruption into the LEARN seen record (`pac-rogue.seen.v1`).
 
 While the upgrade choice modal is active, `PlayScene.update` early-returns after ticking the modal (full sim freeze), same family as the death sequence halt. It is opened only on a level 2-7 clear (never by fruit; `offersUpgradeAfterLevel`); level 1's and level 8's clears and any level-clear with no eligible upgrades skip straight to the level transition.
 See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
@@ -233,8 +239,8 @@ A violation of these is a failed architecture check:
 
 ## Current runtime
 
-- Boot lands on `MenuScene` (`DOT-MAN` title, Start / High Scores / Settings), or on `PlayScene` when `?play=1`. Start opens `PlayScene`; High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage).
-- Only `PlayScene` owns world creation and the system pipeline. UI scenes have no ECS.
+- Boot lands on `MenuScene` (`DOT-MAN` title, Start / Learn / High Scores / Settings), or on `PlayScene` when `?play=1`. Start opens `PlayScene`; Learn opens `LearnScene` (see [docs/learn.md](./learn.md)); High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage).
+- Only `PlayScene` and `LearnScene` own world creation and a system pipeline. UI scenes have no ECS.
 - Escape during `PlayScene` always opens `PauseScene` (dims the paused board) — Resume returns control immediately; Settings reuses `SettingsScene` and returns to the pause menu; Quit turns its row into an inline `SURE?  YES  NO` (default NO, Up cancels back to Settings) and, if confirmed, ends the run and returns to `MenuScene` without writing a high-score entry. Pausing works mid-death-sequence, mid-level-transition, and mid-upgrade-modal alike.
 - Rectangular maze (per-layout cols/rows; **fixed** tile size `TILE_SIZE_PX` (16px, same for every layout — Pac-Man/ghosts render at one consistent pixel size across all levels) centered under `MAZE_TOP_MARGIN_PX` in the leftover 800×600 band; reject if pixel width/height overflow the playfield or left gutter `< 80` — see [maze-constraints.md](./maze-constraints.md)) with stroked walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_TOP_MARGIN_PX`, `MAZE_BACKGROUND_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `WALL_CORNER_CURVE_KIND`, `WALL_INSET_PX` (pull stroke into wall tiles), `PLAYER_WALL_PADDING_PX` (actor display size only), `pelletDisplaySize()` / `powerPelletDisplaySize()` (clamped to tile). Dual solids (player blocked from house/door; ghosts allowed), horizontal tunnels.
 - One player entity (display size from wall padding; open mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.

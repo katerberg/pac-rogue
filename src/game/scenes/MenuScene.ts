@@ -12,6 +12,7 @@ import {
 
 const OPTIONS = [
   { label: "START", scene: "PlayScene" },
+  { label: "LEARN", scene: "LearnScene" },
   { label: "HIGH SCORES", scene: "HighScoresScene" },
   { label: "SETTINGS", scene: "SettingsScene" },
 ] as const;
