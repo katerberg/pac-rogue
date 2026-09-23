@@ -7,6 +7,8 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
+const GHOST_CATCH_MIN_OVERLAP_FRACTION = 0.2;
+
 export function catchPlayer(
   world: World,
   options?: { frozenGhostEid?: number | null; playerInvulnerable?: boolean },
@@ -38,7 +40,7 @@ export function catchPlayer(
     const gx = Position.x[eid] ?? 0;
     const gy = Position.y[eid] ?? 0;
     const gr = Drawable.radius[eid] ?? 0;
-    if (circlesOverlap(px, py, pr, gx, gy, gr)) {
+    if (circlesOverlap(px, py, pr, gx, gy, gr, GHOST_CATCH_MIN_OVERLAP_FRACTION)) {
       return true;
     }
   }
