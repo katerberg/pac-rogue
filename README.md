@@ -47,6 +47,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `enableUpgrade`        | upgrade id (repeatable)           | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Combines with `forceUpgrade`.                                                                                                                                 |
 | `forceCorruption`      | one corruption id                 | Assigns that ghost corruption immediately instead of waiting for level 4. Invalid → normal level-4 random assignment.                                                                                                                                        |
 | `forceCorruptionGhost` | `pinky` \| `inky` \| `clyde`      | Forces which ghost gets corrupted (combine with `forceCorruption` for a fully deterministic setup). `blinky` and invalid values are rejected.                                                                                                                |
+| `ghosts`               | ghost names (comma-separated)     | Replace the level's ghost roster with exactly these kinds on every level, e.g. `pinky` or `pinky,clyde` (`blinky` \| `pinky` \| `inky` \| `clyde`; unknown names skipped). Random corruption only picks from this roster.                                    |
 | `sound`                | `1`                               | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                                                                                                                                          |
 
 Upgrade ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`, `scatterBurst`, `ghostRecall`, `warpTop`, `pickupRange`, `ghostHouseDelay`, `extraLife`, `pelletToPower`, `powerCollectThree`, `powerWallPass`, `powerSpeedBurst`, `powerInvuln`.
@@ -65,6 +66,7 @@ http://127.0.0.1:5174/?enableUpgrade=ghostRecall&enableUpgrade=warpTop
 http://127.0.0.1:5173/?enableUpgrade=powerPelletFreeze&forceUpgrade=ghostSlow
 http://127.0.0.1:5174/?sound=1
 http://127.0.0.1:5174/?play=1&level=4&forceCorruption=wallPhaseDash&forceCorruptionGhost=pinky
+http://127.0.0.1:5174/?play=1&ghosts=pinky&forceCorruption=slimeTrail
 ```
 
 ## Continuous integration
@@ -87,7 +89,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [docs/upgrades.md](./docs/upgrades.md) — run upgrades from level clears
 - [docs/corruption.md](./docs/corruption.md) — ghost corruption from level 4+
 - [docs/levels.md](./docs/levels.md) — the fixed 8-level plan
-- [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `forceUpgrade`, `enableUpgrade`, `forceCorruption`, `forceCorruptionGhost`, `sound`)
+- [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `forceUpgrade`, `enableUpgrade`, `forceCorruption`, `forceCorruptionGhost`, `ghosts`, `sound`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow

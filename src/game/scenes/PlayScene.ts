@@ -61,6 +61,7 @@ import {
   speedLevelMultiplier,
 } from "../../domain/levelRules";
 import { parseQuartersParam } from "../../domain/quartersFlag";
+import { parseGhostsParam } from "../../domain/ghostsFlag";
 import { parseLevelParam } from "../../domain/runLevel";
 import {
   BLINKY_DRAWABLE_ID,
@@ -220,6 +221,7 @@ export class PlayScene extends Phaser.Scene {
   private levelIndex = 1;
   private runMazeSeed = "0";
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
+  private ghostsOverride: GhostKindId[] | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runCompleteRemainingMs = 0;
@@ -285,6 +287,10 @@ export class PlayScene extends Phaser.Scene {
     }
     if (urlParams.has("forceCorruptionGhost") && forcedCorruption.ghostKind === null) {
       console.warn(`Unknown ?forceCorruptionGhost= value; expected pinky|inky|clyde`);
+    }
+    this.ghostsOverride = parseGhostsParam(urlParams);
+    if (urlParams.has("ghosts") && this.ghostsOverride === null) {
+      console.warn(`Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde`);
     }
     this.quarters = quartersOverride ?? 0;
     this.levelIndex = levelOverride ?? 1;
@@ -693,8 +699,11 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
-    this.runCorruption = maybeAssignCorruption(this.runCorruption, this.levelIndex, () =>
-      Math.random(),
+    this.runCorruption = maybeAssignCorruption(
+      this.runCorruption,
+      this.levelIndex,
+      () => Math.random(),
+      this.ghostsOverride ?? undefined,
     );
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.runMazeSeed);
     if (selection.kind === "static") {
@@ -726,7 +735,8 @@ export class PlayScene extends Phaser.Scene {
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
-    for (const kind of ghostKindsForLevel(this.levelIndex, this.secondGhostKind)) {
+    for (const kind of this.ghostsOverride ??
+      ghostKindsForLevel(this.levelIndex, this.secondGhostKind)) {
       this.spawnGhost(kind);
     }
 

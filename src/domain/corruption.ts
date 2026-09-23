@@ -170,6 +170,7 @@ export function maybeAssignCorruption(
   state: RunCorruption,
   levelIndex: number,
   rng: () => number,
+  presentKinds: readonly GhostKindId[] = CORRUPTIBLE_GHOST_KINDS,
 ): RunCorruption {
   if (state.type !== null) {
     return state;
@@ -178,8 +179,13 @@ export function maybeAssignCorruption(
     return state;
   }
 
+  const ghostPool = CORRUPTIBLE_GHOST_KINDS.filter((kind) => presentKinds.includes(kind));
+  if (state.forcedGhostKind === null && ghostPool.length === 0) {
+    return state;
+  }
+
   const type = state.forcedType ?? takeRandom(CORRUPTION_IDS, rng);
-  const ghostKind = state.forcedGhostKind ?? takeRandom(CORRUPTIBLE_GHOST_KINDS, rng);
+  const ghostKind = state.forcedGhostKind ?? takeRandom(ghostPool, rng);
 
   return { ...state, type, ghostKind };
 }
