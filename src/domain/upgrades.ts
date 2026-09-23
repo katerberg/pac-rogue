@@ -205,6 +205,10 @@ export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
   return ids;
 }
 
+export function parseDisableLevelUpgradesFlag(params: URLSearchParams): boolean {
+  return params.get("disableLevelUpgrades") === "1";
+}
+
 export function getUpgradeDef(id: UpgradeId): UpgradeDef {
   return UPGRADE_BY_ID.get(id)!;
 }

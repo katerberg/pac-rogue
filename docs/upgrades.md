@@ -8,7 +8,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 - `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, scatter/wall-pass/invuln/speed-burst timers, `forceNextId`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
-- Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`): see [README Flags](../README.md#flags).
+- Dev URL flags (`forceUpgrade`, repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
 
 ### Current defs
 
@@ -36,6 +36,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 - Collecting bonus fruit plays both munches, despawns fruit, and awards one Quarter — no upgrade effect, no modal.
 - Clearing a level (2 through 7; not level 1 or the final level 8 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned.
 - **0 eligible:** no modal; clear `forceNextId` if set; no grant; the level transition proceeds immediately.
+- `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — same immediate transition as the 0-eligible case, `forceNextId` cleared too. Does not affect the level-1 starting upgrade, `forceUpgrade`, or `enableUpgrade`.
 - **1 eligible:** one-button modal (must pick; no auto-grant).
 - **2+ eligible:** two-button modal. Options from `pickUpgradeChoiceOffer`:
   - Never the same id on both sides.

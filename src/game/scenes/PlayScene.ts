@@ -104,6 +104,7 @@ import {
   ghostSpeedMultiplier,
   grantLivesForUpgrade,
   grantUpgrade,
+  parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
   parseUpgradeId,
   pelletCollectRadiusBonusPx,
@@ -215,6 +216,7 @@ export class PlayScene extends Phaser.Scene {
   private runCompleteRemainingMs = 0;
   private fruitPresence: FruitPresence = createFruitPresence();
   private runUpgrades: RunUpgrades = createRunUpgrades();
+  private disableLevelUpgrades = false;
   private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
   private corruptionHiddenGhostEid: number | null = null;
   private corruptionFlashGhostEid: number | null = null;
@@ -282,6 +284,7 @@ export class PlayScene extends Phaser.Scene {
     this.secondGhostKind = Math.random() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
     this.runCorruption = createRunCorruption(forcedCorruption);
 
+    this.disableLevelUpgrades = parseDisableLevelUpgradesFlag(urlParams);
     this.runUpgrades = createRunUpgrades(
       parseUpgradeId(urlParams.get("forceUpgrade")),
       parseEnableUpgradeParams(urlParams),
@@ -597,7 +600,10 @@ export class PlayScene extends Phaser.Scene {
         wallPassActive: wallPassActive(this.runUpgrades),
         ...this.renderCorruptionOptions(),
       });
-      if (!offersUpgradeAfterLevel(this.levelIndex)) {
+      if (this.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
+        if (this.disableLevelUpgrades) {
+          this.runUpgrades = { ...this.runUpgrades, forceNextId: null };
+        }
         this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
         return;
       }

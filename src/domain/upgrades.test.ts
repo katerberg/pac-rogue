@@ -21,6 +21,7 @@ import {
   ghostSpeedMultiplier,
   grantUpgrade,
   grantLivesForUpgrade,
+  parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickStartingUpgrade,
@@ -105,6 +106,16 @@ describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
     expect(state.lastDeclinedUpgradeId).toBeNull();
     expect(state.scatterBurstRemainingMs).toBe(0);
     expect(state.speedBurstRemainingMs).toBe(0);
+  });
+});
+
+describe("parseDisableLevelUpgradesFlag", () => {
+  it("only accepts disableLevelUpgrades=1", () => {
+    expect(parseDisableLevelUpgradesFlag(new URLSearchParams("disableLevelUpgrades=1"))).toBe(true);
+    expect(parseDisableLevelUpgradesFlag(new URLSearchParams("disableLevelUpgrades=0"))).toBe(
+      false,
+    );
+    expect(parseDisableLevelUpgradesFlag(new URLSearchParams())).toBe(false);
   });
 });
 
