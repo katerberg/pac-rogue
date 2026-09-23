@@ -40,7 +40,7 @@ export type UpgradeDef = {
 
 export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
-export const WALL_PASS_MS = 3000;
+export const WALL_PASS_MS = 6000;
 export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
 export const PLAYER_SPEED_UP_MUL = 1.25;

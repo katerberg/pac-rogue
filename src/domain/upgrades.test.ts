@@ -360,8 +360,8 @@ describe("wall pass / power pellet", () => {
     const started = { ...createRunUpgrades(), wallPassRemainingMs: WALL_PASS_MS };
     expect(wallPassActive(started)).toBe(true);
     const mid = tickWallPass(started, 1000);
-    expect(mid.wallPassRemainingMs).toBe(2000);
-    const done = tickWallPass(mid, 2500);
+    expect(mid.wallPassRemainingMs).toBe(WALL_PASS_MS - 1000);
+    const done = tickWallPass(mid, WALL_PASS_MS);
     expect(done.wallPassRemainingMs).toBe(0);
     expect(wallPassActive(done)).toBe(false);
   });
