@@ -139,6 +139,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
 import {
+  isSfxPlaying,
   playPelletCollectSfx,
   playSfx,
   preloadSfx,
@@ -231,6 +232,7 @@ export class PlayScene extends Phaser.Scene {
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private sirenWasActiveBeforePause = false;
+  private sirenPendingFanfareEnd = false;
 
   constructor() {
     super("PlayScene");
@@ -310,6 +312,7 @@ export class PlayScene extends Phaser.Scene {
     this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
     this.suppressPlayerInputUntilKeyRelease = false;
     this.sirenWasActiveBeforePause = false;
+    this.sirenPendingFanfareEnd = false;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.playRender = createRender(this);
 
@@ -348,6 +351,11 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (this.sirenPendingFanfareEnd && !isSfxPlaying(this, "levelComplete")) {
+      this.sirenPendingFanfareEnd = false;
+      startLoopingSfx(this, "siren");
+    }
+
     if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
       this.pauseForMenu();
       return;
@@ -643,6 +651,14 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  private startSirenAfterFanfare(): void {
+    if (isSfxPlaying(this, "levelComplete")) {
+      this.sirenPendingFanfareEnd = true;
+      return;
+    }
+    startLoopingSfx(this, "siren");
+  }
+
   private pauseForMenu(): void {
     this.sirenWasActiveBeforePause =
       this.game.config.audio.noAudio !== true && this.sound.isPlaying("siren");
@@ -834,7 +850,7 @@ export class PlayScene extends Phaser.Scene {
     this.refreshUpgradesHud();
     this.refreshLivesIcons();
     this.showLevelBanner();
-    startLoopingSfx(this, "siren");
+    this.startSirenAfterFanfare();
     this.playRender.draw(this.world, {
       frozenGhostEid: null,
       playerInvulnRemainingMs: 0,
