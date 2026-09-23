@@ -13,6 +13,11 @@ The run is a fixed 8-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../
 
 `isInvertedMazeLevel(levelIndex)` in `levelRules.ts` marks levels 6 and 7. For those levels, `PlayScene.startBoard()` row-reverses the generated board (`invertMazeAscii` in `mazeGenerate.ts`) before activating it: the player spawn and ghost house stamp move with the flip, so the player starts near the top of the maze and the ghost house door opens downward instead of upward. `deriveGhostHouseExit` and `deriveFruitSpawn` in `maze.ts` derive the exit/fruit direction from the ascii (which side of the door/house has the open corridor) rather than assuming "up"/"down", and `canGhostEnterDirection`'s one-way door rule blocks re-entry toward the house floor regardless of which way that is — so both orientations behave correctly without a maze-generation retry. Layout overrides (`?maze=`) are never inverted, only the procedural board.
 
+## Ghost corruption (level 4+)
+
+Starting at level 4, one random non-Blinky ghost permanently gains one random corruption for the
+rest of the run — see [docs/corruption.md](./corruption.md).
+
 ## Second ghost (levels 1-2)
 
 `PlayScene.create()` picks `secondGhostKind` once per run — 50/50 Pinky or Inky via `Math.random()` — and holds it for the whole run (including level advances). `ghostKindsForLevel(levelIndex, secondGhostKind)` in `levelRules.ts` uses it for level 1 (Blinky + `secondGhostKind`) and level 2 (Blinky + `secondGhostKind` + the other of Pinky/Inky, so level 2 always spawns Blinky, Pinky, and Inky); levels 3+ always spawn all four regardless of the value.

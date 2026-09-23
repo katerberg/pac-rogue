@@ -12,6 +12,16 @@ export function createPelletProgress(totalPellets: number): PelletProgress {
   };
 }
 
+export function addPelletsToProgress(progress: PelletProgress, count: number): PelletProgress {
+  if (count <= 0) {
+    return progress;
+  }
+  return {
+    ...progress,
+    pelletsRemaining: progress.pelletsRemaining + count,
+  };
+}
+
 export function applyPelletCollect(
   progress: PelletProgress,
   removed: number,

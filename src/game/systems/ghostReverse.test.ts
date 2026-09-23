@@ -1,5 +1,6 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { createRunCorruption } from "../../domain/corruption";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
@@ -109,5 +110,29 @@ describe("forceGhostReverse", () => {
     expect(Input.direction[ghost]).toBe(DIRECTION.up);
     expect(Ghost.decidedCol[ghost]).toBe(1);
     expect(Ghost.decidedRow[ghost]).toBe(29);
+  });
+
+  it("skips a falseScatter-corrupted ghost matching the corruption's kind", () => {
+    const { world, ghost } = spawnAlignedGhost(6, 5, DIRECTION.right);
+    const corruption = {
+      ...createRunCorruption({ type: null, ghostKind: null }),
+      ghostKind: GHOST_KIND.blinky,
+      type: "falseScatter" as const,
+    };
+    forceGhostReverse(world, corruption);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.right);
+    expect(Input.direction[ghost]).toBe(DIRECTION.right);
+  });
+
+  it("still reverses a corrupted ghost of a different kind", () => {
+    const { world, ghost } = spawnAlignedGhost(6, 5, DIRECTION.right);
+    const corruption = {
+      ...createRunCorruption({ type: null, ghostKind: null }),
+      ghostKind: GHOST_KIND.pinky,
+      type: "falseScatter" as const,
+    };
+    forceGhostReverse(world, corruption);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.left);
+    expect(Input.direction[ghost]).toBe(DIRECTION.left);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPelletCollect, createPelletProgress } from "./pelletProgress";
+import { addPelletsToProgress, applyPelletCollect, createPelletProgress } from "./pelletProgress";
 
 describe("applyPelletCollect", () => {
   it("ignores zero removals", () => {
@@ -37,5 +37,22 @@ describe("applyPelletCollect", () => {
   it("does not record a clear when the maze started empty", () => {
     const progress = createPelletProgress(0);
     expect(applyPelletCollect(progress, 0).shouldRecordClear).toBe(false);
+  });
+});
+
+describe("addPelletsToProgress", () => {
+  it("increases pelletsRemaining without touching boardCollected", () => {
+    const progress = { boardCollected: 5, pelletsRemaining: 2, runRecorded: false };
+    expect(addPelletsToProgress(progress, 3)).toEqual({
+      boardCollected: 5,
+      pelletsRemaining: 5,
+      runRecorded: false,
+    });
+  });
+
+  it("ignores non-positive counts", () => {
+    const progress = createPelletProgress(3);
+    expect(addPelletsToProgress(progress, 0)).toBe(progress);
+    expect(addPelletsToProgress(progress, -1)).toBe(progress);
   });
 });
