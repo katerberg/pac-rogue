@@ -1,4 +1,4 @@
-import { cellCenterX, cellCenterY, getActiveLayout } from "./maze";
+import { BASE_FRUIT_SPAWN_THRESHOLDS, cellCenterX, cellCenterY, getActiveLayout } from "./maze";
 
 export type FruitKind =
   "cherries" | "strawberry" | "peach" | "apple" | "grapes" | "galaxian" | "bell" | "key";
@@ -94,7 +94,11 @@ export function tickFruitPresence(
   let next = state;
   let action: FruitPresenceAction = "none";
 
-  const thresholds = levelIndex <= 1 ? [] : getActiveLayout().fruitThresholds;
+  // Level 1's mazeSmall is smaller than the maze1 baseline the layout-scaled
+  // thresholds are derived from, so it keeps a single unscaled threshold
+  // instead of the scaled two-fruit schedule used from level 2 on.
+  const thresholds =
+    levelIndex <= 1 ? [BASE_FRUIT_SPAWN_THRESHOLDS[0]] : getActiveLayout().fruitThresholds;
   while (
     next.nextThresholdIndex < thresholds.length &&
     collectedCount >= thresholds[next.nextThresholdIndex]!
