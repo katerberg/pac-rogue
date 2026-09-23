@@ -54,7 +54,7 @@ src/
     deathSequence.ts          # catch → hold / ready / game-over timing
     lives.ts                  # START_LIVES + livesRemainingAfterCatch + livesHudIconCount
     corruption.ts             # level-4+ ghost corruption defs + RunCorruption state
-    ghostTrail.ts             # generic trailing-tile FIFO (slime trail / pellet dropper)
+    ghostTrail.ts             # generic trailing-tile FIFO (slime trail)
     wallPhaseDash.ts          # pure 2-thick-wall lunge target lookup
     seenRecord.ts             # ghosts/corruptions met in play (LEARN unlocks) + learnAll flag
     learnOverlay.ts           # LEARN reticle clamp, predicted path, target derivation, segment clip
@@ -95,7 +95,7 @@ src/
       wallPhaseDash.ts        # tick cycle/flash + relocate the corrupted ghost past a thin wall
       slimeTrail.ts           # track the corrupted ghost's trailing hazard tiles
       slimeTrailKill.ts       # circle overlap vs. slime trail tiles → caught
-      pelletDropperTrail.ts   # track trailing tiles + emit spawn tiles every interval
+      pelletDropperTrail.ts   # every interval, flash then drop pellets one at a time behind the ghost
       ghostInvisibility.ts    # tick hidden/flash cycle + proximity reveal
       movement.ts             # Facing + collision (per-eid Speed + solids)
       catchPlayer.ts          # circle overlap → caught (skip frozen eid or player invulnerable)

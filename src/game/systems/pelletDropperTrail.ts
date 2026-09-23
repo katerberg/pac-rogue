@@ -1,12 +1,11 @@
 import { type World } from "bitecs";
 import {
+  PELLET_DROPPER_COUNT,
   PELLET_DROPPER_INTERVAL_MS,
-  PELLET_DROPPER_TRAIL_LEN,
   TELEGRAPH_FLASH_MS,
   type RunCorruption,
 } from "../../domain/corruption";
 import type { GhostTarget } from "../../domain/ghostTarget";
-import { pushTrailTile } from "../../domain/ghostTrail";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { worldToCol, worldToRow } from "../../domain/maze";
 import { GhostPhase } from "../components/GhostPhase";
@@ -28,14 +27,17 @@ export function tickPelletDropperTrail(
     return { corruption: state, spawnTiles: [] };
   }
 
-  if (state.pelletDropperPendingTiles !== null) {
-    const flashMs = Math.max(0, state.pelletDropperFlashMs - Math.max(0, deltaMs));
-    if (flashMs > 0) {
-      return { corruption: { ...state, pelletDropperFlashMs: flashMs }, spawnTiles: [] };
-    }
+  const dt = Math.max(0, deltaMs);
+  if (state.pelletDropperFlashMs > 0) {
+    const flashMs = Math.max(0, state.pelletDropperFlashMs - dt);
     return {
-      corruption: { ...state, pelletDropperFlashMs: 0, pelletDropperPendingTiles: null },
-      spawnTiles: state.pelletDropperPendingTiles,
+      corruption: {
+        ...state,
+        pelletDropperFlashMs: flashMs,
+        pelletDropperDropsLeft: flashMs > 0 ? 0 : PELLET_DROPPER_COUNT,
+        pelletDropperLastTile: null,
+      },
+      spawnTiles: [],
     };
   }
 
@@ -46,28 +48,31 @@ export function tickPelletDropperTrail(
 
   const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
   if (phase === GHOST_PHASE.inHouse) {
-    return { corruption: state, spawnTiles: [] };
+    return { corruption: { ...state, pelletDropperLastTile: null }, spawnTiles: [] };
   }
 
   const tile = { col: worldToCol(Position.x[eid] ?? 0), row: worldToRow(Position.y[eid] ?? 0) };
-  const pushed = pushTrailTile(state.dropperTrail, tile, PELLET_DROPPER_TRAIL_LEN);
-  const cycleMs = state.pelletDropperCycleMs + Math.max(0, deltaMs);
+  const last = state.pelletDropperLastTile;
+  const leftTile = last !== null && (last.col !== tile.col || last.row !== tile.row) ? last : null;
+  const moved = { ...state, pelletDropperLastTile: tile };
 
-  if (cycleMs < PELLET_DROPPER_INTERVAL_MS || pelletsRemaining <= 0) {
+  if (state.pelletDropperDropsLeft > 0) {
+    if (leftTile === null) {
+      return { corruption: moved, spawnTiles: [] };
+    }
     return {
-      corruption: { ...state, dropperTrail: pushed.trail, pelletDropperCycleMs: cycleMs },
-      spawnTiles: [],
+      corruption: { ...moved, pelletDropperDropsLeft: state.pelletDropperDropsLeft - 1 },
+      spawnTiles: [leftTile],
     };
   }
 
+  const cycleMs = state.pelletDropperCycleMs + dt;
+  if (cycleMs < PELLET_DROPPER_INTERVAL_MS || pelletsRemaining <= 0) {
+    return { corruption: { ...moved, pelletDropperCycleMs: cycleMs }, spawnTiles: [] };
+  }
+
   return {
-    corruption: {
-      ...state,
-      dropperTrail: pushed.trail,
-      pelletDropperCycleMs: 0,
-      pelletDropperFlashMs: TELEGRAPH_FLASH_MS,
-      pelletDropperPendingTiles: [...pushed.trail],
-    },
+    corruption: { ...moved, pelletDropperCycleMs: 0, pelletDropperFlashMs: TELEGRAPH_FLASH_MS },
     spawnTiles: [],
   };
 }
