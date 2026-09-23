@@ -1,6 +1,7 @@
 import { type World } from "bitecs";
-import type { RunCorruption } from "../../domain/corruption";
+import { isCorruptionFlashing, type RunCorruption } from "../../domain/corruption";
 import type { GhostTarget } from "../../domain/ghostTarget";
+import { findGhostEidByKind } from "./corruptionGhost";
 import { tickInvisibility } from "./ghostInvisibility";
 import { tickPelletDropperTrail } from "./pelletDropperTrail";
 import { tickSlimeTrail } from "./slimeTrail";
@@ -23,10 +24,17 @@ export function stepCorruption(
   corruption = tickSlimeTrail(world, corruption);
   const dropperTick = tickPelletDropperTrail(world, corruption, deltaMs, pelletsRemaining);
   const invisTick = tickInvisibility(world, dropperTick.corruption, deltaMs);
+  const next = invisTick.corruption;
+  const flashGhostEid =
+    next.type === "invisibility"
+      ? invisTick.flashGhostEid
+      : isCorruptionFlashing(next)
+        ? findGhostEidByKind(world, next.ghostKind)
+        : null;
   return {
-    corruption: invisTick.corruption,
+    corruption: next,
     hiddenGhostEid: invisTick.hiddenGhostEid,
-    flashGhostEid: invisTick.flashGhostEid,
+    flashGhostEid,
     dropSpawnTiles: dropperTick.spawnTiles,
   };
 }
