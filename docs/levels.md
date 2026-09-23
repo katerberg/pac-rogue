@@ -9,6 +9,11 @@ The run is a fixed 8-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../
 | 3-7   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                | present (awards Quarters) | Pick-one upgrade-choice modal (if eligible), then advance to the next level                         |
 | 8     | Procedural 28×34               | All four                                             | present (awards Quarters) | Pick-one upgrade-choice modal (if eligible), then a `RUN COMPLETE` screen and return to `MenuScene` |
 
+## Ghost corruption (level 4+)
+
+Starting at level 4, one random non-Blinky ghost permanently gains one random corruption for the
+rest of the run — see [docs/corruption.md](./corruption.md).
+
 ## Second ghost (level 2)
 
 `PlayScene.create()` picks `secondGhostKind` once per run — 50/50 Pinky or Inky via `Math.random()` — and holds it for the whole run (including level advances). `ghostKindsForLevel(levelIndex, secondGhostKind)` in `levelRules.ts` uses it only for level 2; levels 3+ always spawn all four regardless of the value.

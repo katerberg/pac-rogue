@@ -13,6 +13,7 @@ import { Speed } from "../components/Speed";
 export type GhostSpeedOptions = {
   ghostSpeedMul?: number;
   frozenGhostEid?: number | null;
+  speedSurge?: { ghostKind: GhostKindId; mul: number };
 };
 
 export function applyGhostSpeed(
@@ -22,6 +23,7 @@ export function applyGhostSpeed(
 ): void {
   const ghostSpeedMul = options.ghostSpeedMul ?? 1;
   const frozenEid = options.frozenGhostEid ?? null;
+  const speedSurge = options.speedSurge;
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Speed])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
@@ -37,9 +39,11 @@ export function applyGhostSpeed(
     const col = worldToCol(Position.x[eid] ?? 0);
     const row = worldToRow(Position.y[eid] ?? 0);
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
+    const surgeMul = speedSurge && kind === speedSurge.ghostKind ? speedSurge.mul : 1;
     Speed.px[eid] =
       resolveGhostSpeedForKind(kind, pelletsRemaining, isGhostTunnelSlow(col, row)) *
       ghostSpeedMul *
+      surgeMul *
       speedTileScale();
   }
 }

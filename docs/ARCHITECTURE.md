@@ -53,6 +53,9 @@ src/
     ghostRecall.ts            # closest eligible ghost pick for house recall
     deathSequence.ts          # catch → hold / ready / game-over timing
     lives.ts                  # START_LIVES + livesRemainingAfterCatch + livesHudIconCount
+    corruption.ts             # level-4+ ghost corruption defs + RunCorruption state
+    ghostTrail.ts             # generic trailing-tile FIFO (slime trail / pellet dropper)
+    wallPhaseDash.ts          # pure 2-thick-wall lunge target lookup
   game/
     config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
     audio/sfx.ts              # SFX manifest; volumes scaled by audioSettings
@@ -78,12 +81,18 @@ src/
       playerInput.ts          # Phaser keys → sticky Input
       ghostRelease.ts         # inHouse → leaving (time or Inky/Clyde pellets)
       ghostHouseSeating.ts    # inHouse seat steer + snap at predicted seats
-      ghostAi.ts              # kind target tile → sticky Input (once per tile)
-      ghostSpeed.ts           # Speed from Elroy (Blinky) + tunnel + upgrade mul / closest-ghost freeze
-      ghostReverse.ts         # mode-change reverse via Input
+      ghostAi.ts              # kind target tile → sticky Input (once per tile); corruption opts for freeRetargetReverse/falseScatter
+      ghostSpeed.ts           # Speed from Elroy (Blinky) + tunnel + upgrade mul / closest-ghost freeze / speed-surge mul
+      ghostReverse.ts         # mode-change reverse via Input; skips a falseScatter-corrupted eid
       ghostExitHouse.ts       # leaving → active once off house/door tiles
       ghostRecall.ts          # power-pellet house teleport into inHouse seat
       ghostFreeze.ts          # power-pellet freeze closest leaving/active ghost
+      corruptionGhost.ts      # find the corrupted ghost's current eid by kind
+      wallPhaseDash.ts        # tick cycle/flash + relocate the corrupted ghost past a thin wall
+      slimeTrail.ts           # track the corrupted ghost's trailing hazard tiles
+      slimeTrailKill.ts       # circle overlap vs. slime trail tiles → caught
+      pelletDropperTrail.ts   # track trailing tiles + emit spawn tiles every interval
+      ghostInvisibility.ts    # tick hidden/flash cycle + proximity reveal
       movement.ts             # Facing + collision (per-eid Speed + solids)
       catchPlayer.ts          # circle overlap → caught (skip frozen eid or player invulnerable)
       collectPellets.ts
@@ -155,22 +164,26 @@ PlayScene.update →
   (if pending level clear: start level transition; return)
   playerInput →
   tickGhostRelease + ghostHouseSeating + ghostRelease (boardCollected + afterLifeRelease gates Inky/Clyde) →
-  tickFreeze + tickScatterBurst + tickWallPass → (wall-pass expire → snapPlayerToNearestWalkable) → tickInvuln + tickSpeedBurst → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + closest-ghost freeze; skips inHouse) →
+  tickFreeze + tickScatterBurst + tickWallPass → (wall-pass expire → snapPlayerToNearestWalkable) → tickInvuln + tickSpeedBurst + tickSpeedSurge → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + closest-ghost freeze + speed-surge mul; skips inHouse) →
   movement (optional player solids override while wall-pass active) →
+  tickWallPhaseDash + tickSlimeTrail + tickPelletDropperTrail (spawnDroppedPellets if any) + tickInvisibility →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
   collectPellets → releaseDrawable(removed) → applyPowerPelletEffects → freezeClosestGhost? →
   collectExtraPellets? → releaseDrawable(bonus) → applyPelletCollect(touch+bonus) →
   resolveGhostModeStep (pause wave while scatter burst + clock active) →
-  (effective mode changed ? forceGhostReverse : ghostAi) →
+  (effective mode changed ? forceGhostReverse[skips falseScatter eid] : ghostAi[corruption opts for freeRetargetReverse/falseScatter]) →
   recallClosestGhost? → warpPlayerTopCenter? →
   tickFruitPresence (boardCollected; spawn/replace/despawn) →
   collectFruit → releaseDrawable(removed) → munch SFX + award Quarters (fruit has no upgrade effect) →
   (if board clear: level-complete SFX → level 1: level transition; levels 2-8: pickUpgradeChoiceOffer → modal (pending level clear) or clear force + level transition; return)
-  catchPlayer (skip frozen eid or player invulnerable) →
-  render (closest-ghost freeze tint; player wall-pass tint or invuln gold tint) →
+  catchPlayer (skip frozen eid or player invulnerable) OR slimeTrailKill →
+  render (closest-ghost freeze tint; corruption outline/flash tint + hidden alpha; slime trail tiles; player wall-pass tint or invuln gold tint) →
   (if caught: stop siren, play death, spend life, begin death sequence)
 ```
+
+From level 4+, `maybeAssignCorruption` runs once per `startBoard()` call to pick (or lock in a forced)
+ghost + corruption; see [docs/corruption.md](./corruption.md).
 
 While the upgrade choice modal is active, `PlayScene.update` early-returns after ticking the modal (full sim freeze), same family as the death sequence halt. It is opened only on a level 2-8 clear now (never by fruit); level 1's clear and any level-clear with no eligible upgrades skip straight to the level transition.
 See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
@@ -226,6 +239,7 @@ A violation of these is a failed architecture check:
 - One player entity (display size from wall padding; open mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling.
 - Regular pellets (`dot.png`) and power pellets (`power-pellet.png` on `@` cells) on playable cells; touching removes them, plays pickup SFX (both munches for power pellets; volumes from SFX settings), and increments an internal **lifetime** pellet count (board-local count drives Inky/Clyde/fruit/clear; lifetime count still feeds the Game Over screen and high scores, though it is no longer shown live — the top-left HUD is Quarters dots instead). Looping siren plays during `PlayScene` until clear, catch, or shutdown (volume from music settings); clearing all pellets plays level-complete SFX, then (level 1) advances straight to the next board or (levels 2-8) offers the level-clear upgrade choice first — see [docs/levels.md](./levels.md); catch plays death SFX then life-loss reset (or Game Over on the last life).
 - Bonus fruit is disabled on level 1; from level 2+ it appears under the ghost house at board thresholds (maze1 70/170), lasts 10 real seconds, uses cherries (`strawberry.png` stand-in); pickup plays both munches, removes the fruit, and awards one Quarter (top-left HUD dot; no gameplay value yet) — no upgrade effect (see [docs/upgrades.md](./upgrades.md) for the level-clear upgrade modal).
+- From level 4+, one random non-Blinky ghost permanently gains one random corruption for the rest of the run (silent trigger, persistent outline tint, telegraph flash on discrete activations) — see [docs/corruption.md](./corruption.md).
 - Start with 3 lives; bottom-left pac icons show remaining extras only (2 at start, not the life in play); lives carry across level advances. Ghosts unlock by level (`ghostKindsForLevel`: level 1 Blinky only; level 2 Blinky + a randomly chosen Pinky or Inky picked once per run; level 3+ all four); only unlocked kinds are spawned. Present ghosts use predicted L→R house seats (not stacked); Blinky/Pinky time release after first input (0.1s / 5s — tunable); Inky leaves at board-scaled pellets (maze1 baseline 30) on the first life of a board, or after a 7s post-life time gate after a life loss; Clyde leaves at board-scaled pellets on the first life of a board, or after a 9s post-life time gate after a life loss; leave path approaches door column then up; chase-first arcade scatter/chase waves (L1 chase-only; L2+ arcade chase-first); Blinky Cruise Elroy; Inky Blinky-vector chase + SE scatter; tunnel slowdown; ghosts gain +10% resolved speed per level index (fixed 8-level plan — see [docs/levels.md](./levels.md)). Circle overlap spends a life (hold → reset actors / ready pause → resume) or last-life Game Over (hold → append high-score run → fade → `GAME OVER` + lifetime collected → menu) unless closest-ghost freeze walk-through or player invuln is active.
 - Top-right `Time` countdown (999, −1/100ms after first input, clamp at 0; resets each level). Last-life Game Over appends **lifetime** pellets + remaining time + ISO date to capped `localStorage` run history (`pac-rogue.run-history.v2`, max 100, drop oldest). Clearing all pellets never writes history — including clearing level 8, which shows a `RUN COMPLETE` screen and returns to `MenuScene` instead of a next board.
 - Domain helpers (`clamp`, `circles`, `countdown`, `runClock`, `runLevel`, `levelRules`, `pelletProgress`, `fruit`, `upgrades`, `runHistory`, `highScoresView`, `scoreListScroll`, `audioSettings`, `playfield`, `maze`, `lives`, `deathSequence`, ghost kind/path/movement/target/mode/release/house-order/seats/leave/speed) are Phaser-free; movement/collect/clock/progress/scroll/view/audioSettings/ghost/lives/deathSequence helpers are unit-tested without Phaser.

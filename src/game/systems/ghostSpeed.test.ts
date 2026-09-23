@@ -1,6 +1,6 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { afterEach, describe, expect, it } from "vitest";
-import { GHOST_KIND } from "../../domain/ghostKind";
+import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import { activateLayout, cellCenterX, cellCenterY } from "../../domain/maze";
@@ -15,7 +15,7 @@ import { applyGhostSpeed } from "./ghostSpeed";
 function spawnGhost(
   world: ReturnType<typeof createWorld>,
   phase: GhostPhaseValue,
-  kind = GHOST_KIND.pinky,
+  kind: GhostKindId = GHOST_KIND.pinky,
 ) {
   const eid = addEntity(world);
   addComponent(world, eid, Ghost);
@@ -66,5 +66,14 @@ describe("applyGhostSpeed", () => {
     applyGhostSpeed(world, 100);
     expect(speedTileScale()).toBeGreaterThan(1);
     expect(Speed.px[eid]).toBeCloseTo(GHOST_SPEED * speedTileScale());
+  });
+
+  it("applies the speed surge multiplier only to the matching ghost kind", () => {
+    const world = createWorld();
+    const surged = spawnGhost(world, GHOST_PHASE.active, GHOST_KIND.clyde);
+    const other = spawnGhost(world, GHOST_PHASE.active, GHOST_KIND.inky);
+    applyGhostSpeed(world, 100, { speedSurge: { ghostKind: GHOST_KIND.clyde, mul: 1.6 } });
+    expect(Speed.px[surged]).toBeCloseTo(GHOST_SPEED * 1.6);
+    expect(Speed.px[other]).toBeCloseTo(GHOST_SPEED);
   });
 });

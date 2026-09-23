@@ -1,15 +1,20 @@
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
+  cellCenterX,
+  cellCenterY,
   playerDisplaySize,
   pelletDisplaySize,
   powerPelletDisplaySize,
+  TILE_SIZE,
   wallPathCommands,
   WALL_STROKE_COLOR,
   WALL_STROKE_WEIGHT,
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import { FLASH_TINT } from "../../domain/corruption";
+import type { GhostTarget } from "../../domain/ghostTarget";
 import {
   BLINKY_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
@@ -167,6 +172,11 @@ export type RenderOptions = {
   frozenGhostEid?: number | null;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
+  corruptedGhostEid?: number | null;
+  corruptedTint?: number;
+  flashGhostEid?: number | null;
+  hiddenGhostEid?: number | null;
+  slimeTrailTiles?: readonly GhostTarget[];
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -179,10 +189,13 @@ export type PlayRender = {
   bouncePowerPellet: (eid: number) => void;
 };
 
+const SLIME_TRAIL_FILL_ALPHA = 0.6;
+
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
+  const slimeGraphics = scene.add.graphics();
   let wallsDrawn = false;
 
   const releaseDrawable = (eid: number): void => {
@@ -205,6 +218,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     drawableObjects.clear();
     playerVisuals.clear();
     wallGraphics.clear();
+    slimeGraphics.clear();
     wallsDrawn = false;
   };
 
@@ -230,6 +244,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
   const draw = (world: World, opts?: RenderOptions): void => {
     const frozenEid = opts?.frozenGhostEid ?? null;
+    const corruptedGhostEid = opts?.corruptedGhostEid ?? null;
+    const corruptedTint = opts?.corruptedTint;
+    const flashGhostEid = opts?.flashGhostEid ?? null;
+    const hiddenGhostEid = opts?.hiddenGhostEid ?? null;
     const wallPassOn = opts?.wallPassActive === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const playerInvulnTintOn =
@@ -244,6 +262,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       applyWallPathCommands(wallGraphics, wallPathCommands());
       wallGraphics.strokePath();
       wallsDrawn = true;
+    }
+
+    slimeGraphics.clear();
+    const slimeTrailTiles = opts?.slimeTrailTiles ?? [];
+    if (slimeTrailTiles.length > 0) {
+      slimeGraphics.fillStyle(corruptedTint ?? 0x66ff33, SLIME_TRAIL_FILL_ALPHA);
+      for (const tile of slimeTrailTiles) {
+        slimeGraphics.fillRect(
+          cellCenterX(tile.col) - TILE_SIZE / 2,
+          cellCenterY(tile.row) - TILE_SIZE / 2,
+          TILE_SIZE,
+          TILE_SIZE,
+        );
+      }
     }
 
     const alive = new Set<string>();
@@ -286,9 +318,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
         if (frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse) {
           go.setTint(GHOST_FROZEN_TINT);
+        } else if (flashGhostEid !== null && eid === flashGhostEid) {
+          go.setTint(FLASH_TINT);
+        } else if (
+          corruptedGhostEid !== null &&
+          eid === corruptedGhostEid &&
+          corruptedTint !== undefined
+        ) {
+          go.setTint(corruptedTint);
         } else {
           go.clearTint();
         }
+        go.setAlpha(hiddenGhostEid !== null && eid === hiddenGhostEid ? 0 : 1);
       }
 
       if (id === PLAYER_DRAWABLE_ID) {
