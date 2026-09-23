@@ -86,6 +86,7 @@ import {
   OUTLINE_TINT_BY_CORRUPTION,
   SPEED_SURGE_MUL,
   createRunCorruption,
+  isCorruptionFlashing,
   isSpeedSurgeActive,
   maybeAssignCorruption,
   parseForceCorruptionParams,
@@ -493,7 +494,12 @@ export class PlayScene extends Phaser.Scene {
     const invisTick = tickInvisibility(this.world, this.runCorruption, delta);
     this.runCorruption = invisTick.corruption;
     this.corruptionHiddenGhostEid = invisTick.hiddenGhostEid;
-    this.corruptionFlashGhostEid = invisTick.flashGhostEid;
+    this.corruptionFlashGhostEid =
+      this.runCorruption.type === "invisibility"
+        ? invisTick.flashGhostEid
+        : isCorruptionFlashing(this.runCorruption)
+          ? findGhostEidByKind(this.world, this.runCorruption.ghostKind)
+          : null;
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
       this.ghostModeClock = startGhostModeClock(this.levelIndex);
