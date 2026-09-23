@@ -1,6 +1,6 @@
 # Run upgrades
 
-Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 8) opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
+Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 7) opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
 
 ## Model
 
@@ -34,8 +34,8 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 ## Grant rules
 
 - Collecting bonus fruit plays both munches, despawns fruit, and awards one Quarter — no upgrade effect, no modal.
-- Clearing a level (2 through 8, including level 8 itself) is the trigger: eligible pool = upgrade ids not already owned.
-- **0 eligible:** no modal; clear `forceNextId` if set; no grant; the level transition (or Run Complete, on level 8) proceeds immediately.
+- Clearing a level (2 through 7; not level 1 or the final level 8 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned.
+- **0 eligible:** no modal; clear `forceNextId` if set; no grant; the level transition proceeds immediately.
 - **1 eligible:** one-button modal (must pick; no auto-grant).
 - **2+ eligible:** two-button modal. Options from `pickUpgradeChoiceOffer`:
   - Never the same id on both sides.

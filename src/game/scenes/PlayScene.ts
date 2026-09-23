@@ -58,6 +58,7 @@ import {
   ghostKindsForLevel,
   isInvertedMazeLevel,
   MAX_LEVEL,
+  offersUpgradeAfterLevel,
   speedLevelMultiplier,
 } from "../../domain/levelRules";
 import { parseQuartersParam } from "../../domain/quartersFlag";
@@ -596,7 +597,7 @@ export class PlayScene extends Phaser.Scene {
         wallPassActive: wallPassActive(this.runUpgrades),
         ...this.renderCorruptionOptions(),
       });
-      if (this.levelIndex === 1) {
+      if (!offersUpgradeAfterLevel(this.levelIndex)) {
         this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
         return;
       }
