@@ -27,4 +27,4 @@ Fruit spawns/despawns as before, 10s lifetime: level 1 uses a single unscaled 70
 
 ## Run Complete
 
-Clearing level 8 does not write run history (same as any other level clear — only last-life Game Over does). After the level-clear upgrade choice resolves, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
+Clearing level 8 does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice is offered; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
