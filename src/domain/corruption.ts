@@ -20,7 +20,7 @@ export const CORRUPTION_DEFS: readonly CorruptionDef[] = [
   {
     id: "slimeTrail",
     label: "Slime Trail",
-    description: "Leaves a lethal 4-tile slime trail behind it.",
+    description: "Leaves a lethal 7-tile slime trail behind it.",
   },
   {
     id: "invisibility",
@@ -77,7 +77,7 @@ export const TELEGRAPH_FLASH_MS = 400;
 
 export const CORRUPTION_MIN_LEVEL = 4;
 
-export const SLIME_TRAIL_MAX_LEN = 4;
+export const SLIME_TRAIL_MAX_LEN = 7;
 
 export const PELLET_DROPPER_COUNT = 3;
 export const PELLET_DROPPER_INTERVAL_MS = 10_000;
