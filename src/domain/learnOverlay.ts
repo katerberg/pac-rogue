@@ -11,6 +11,7 @@ import {
 import { cellCenterX, cellCenterY, getActiveLayout } from "./maze";
 
 export const LEARN_PATH_MAX_STEPS = 48;
+export const RETICLE_EASE_MS = 70;
 
 export const GHOST_COLOR_BY_KIND: Record<GhostKindId, number> = {
   [GHOST_KIND.blinky]: 0xff0000,
@@ -149,4 +150,19 @@ export function clipSegmentToRect(seg: PixelSegment, rect: PixelRect): PixelSegm
     x2: seg.x1 + t1 * dx,
     y2: seg.y1 + t1 * dy,
   };
+}
+
+export type PixelPoint = { x: number; y: number };
+
+export function easeToward(
+  current: PixelPoint | null,
+  goal: PixelPoint,
+  deltaMs: number,
+  tauMs: number = RETICLE_EASE_MS,
+): PixelPoint {
+  if (current === null) {
+    return goal;
+  }
+  const k = 1 - Math.exp(-Math.max(0, deltaMs) / tauMs);
+  return { x: current.x + (goal.x - current.x) * k, y: current.y + (goal.y - current.y) * k };
 }

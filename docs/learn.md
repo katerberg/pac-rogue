@@ -36,14 +36,16 @@ Arrows / WASD move, `1`–`4` or click select a ghost slot, click toggles a corr
 Drawn every frame from ECS state via `resolveGhostTarget` (the same target resolution `ghostAi` uses)
 and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverlay.ts):
 
-- **Reticle**: a square in the ghost's color at its target tile, clamped onto the board when the
-  target is off-board (e.g. Clyde's scatter corner).
+- **Reticle**: a square in the ghost's color that glides toward its target tile center
+  (`easeToward`, time constant `RETICLE_EASE_MS`) instead of snapping each tile, clamped onto the
+  board when the target is off-board (e.g. Clyde's scatter corner).
 - **Path**: the ghost's predicted greedy route toward the target (same direction rule as
   `pickGhostDirection`, no reverse), up to `LEARN_PATH_MAX_STEPS` tiles, stopping before it would
-  revisit a tile.
+  revisit a tile. It is drawn from the ghost's exact position and ends on the gliding reticle.
 - **Derivation** (gray): Pinky — Maze-Man → 4-tile look-ahead; Inky — Blinky → 2-tile pivot →
   doubled target (plus a pivot dot); Clyde — the `CLYDE_SHY_TILES` circle around Maze-Man. Lines
-  are clipped to the maze rectangle.
+  are clipped to the maze rectangle. Points tied to Maze-Man or the helper Blinky follow their exact
+  positions so the lines move smoothly; the targeting math itself stays tile-based.
 
 ## Differences from play
 
@@ -51,7 +53,9 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
 - Contact never kills (no `catchPlayer`, no slime-trail kill).
 - The chosen ghost spawns already `active` at the ghost-house exit; switching ghosts respawns it
   there and resets corruption timers. Maze-Man keeps his position.
-- Picking Inky also spawns a faded, harmless, uncorrupted Blinky so Inky's real targeting shows.
+- Picking Inky also spawns a faded, harmless, uncorrupted Blinky so Inky's real targeting shows. It
+  spawns beside Inky facing the other way so it takes its own chase route toward Maze-Man instead
+  of trailing Inky out of the house.
 - No pellets except those Pellet Dropper drops (eatable; no score, no progress).
 - No sound, HUD, timer, lives, upgrades, fruit, or history writes.
 - Corruption systems run through the same `stepCorruption` as `PlayScene`.

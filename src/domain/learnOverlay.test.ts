@@ -5,6 +5,7 @@ import { CLYDE_SHY_TILES } from "./ghostTarget";
 import {
   clampTileToBoard,
   clipSegmentToRect,
+  easeToward,
   predictGhostPath,
   targetDerivation,
 } from "./learnOverlay";
@@ -115,5 +116,30 @@ describe("clipSegmentToRect", () => {
 
   it("drops a segment fully outside", () => {
     expect(clipSegmentToRect({ x1: -20, y1: 60, x2: 120, y2: 80 }, rect)).toBeNull();
+  });
+});
+
+describe("easeToward", () => {
+  const goal = { x: 100, y: 50 };
+
+  it("snaps when there is no previous point", () => {
+    expect(easeToward(null, goal, 16)).toEqual(goal);
+  });
+
+  it("moves part of the way each frame without overshooting", () => {
+    const next = easeToward({ x: 0, y: 0 }, goal, 16, 70);
+    expect(next.x).toBeGreaterThan(0);
+    expect(next.x).toBeLessThan(100);
+    expect(next.y / next.x).toBeCloseTo(0.5);
+  });
+
+  it("is frame-rate independent", () => {
+    const oneStep = easeToward({ x: 0, y: 0 }, goal, 32, 70);
+    const twoSteps = easeToward(easeToward({ x: 0, y: 0 }, goal, 16, 70), goal, 16, 70);
+    expect(twoSteps.x).toBeCloseTo(oneStep.x);
+  });
+
+  it("stays put for a zero delta", () => {
+    expect(easeToward({ x: 10, y: 10 }, goal, 0)).toEqual({ x: 10, y: 10 });
   });
 });

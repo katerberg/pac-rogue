@@ -21,8 +21,10 @@ import {
   GHOST_COLOR_BY_KIND,
   clampTileToBoard,
   clipSegmentToRect,
+  easeToward,
   predictGhostPath,
   targetDerivation,
+  type PixelPoint,
   type PixelRect,
 } from "../../domain/learnOverlay";
 import { speedLevelMultiplier } from "../../domain/levelRules";
@@ -59,7 +61,7 @@ import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
-import { DIRECTION, Input } from "../components/Input";
+import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -139,6 +141,7 @@ export class LearnScene extends Phaser.Scene {
   private helperBlinkyEid: number | null = null;
   private hiddenGhostEid: number | null = null;
   private flashGhostEid: number | null = null;
+  private reticlePx: PixelPoint | null = null;
   private slots: GhostSlot[] = [];
   private corruptionRows: CorruptionRow[] = [];
   private keyEsc!: Phaser.Input.Keyboard.Key;
@@ -254,7 +257,7 @@ export class LearnScene extends Phaser.Scene {
       dimGhostEid: this.helperBlinkyEid,
       slimeTrailTiles: this.corruption.trail,
     });
-    this.drawOverlay();
+    this.drawOverlay(delta);
   }
 
   private buildGhostSlots(): void {
@@ -357,11 +360,13 @@ export class LearnScene extends Phaser.Scene {
       this.helperBlinkyEid = this.spawnActiveGhost(
         GHOST_KIND.blinky,
         isWalkable(beside.col, beside.row) ? beside : exit,
+        DIRECTION.right,
       );
     }
     this.corruption = resetCorruptionTransient({ ...this.corruption, ghostKind: kind });
     this.hiddenGhostEid = null;
     this.flashGhostEid = null;
+    this.reticlePx = null;
     this.refreshSlots();
     this.refreshCorruptionRows();
   }
@@ -379,7 +384,7 @@ export class LearnScene extends Phaser.Scene {
     this.refreshCorruptionRows();
   }
 
-  private drawOverlay(): void {
+  private drawOverlay(deltaMs: number): void {
     this.overlay.clear();
     const eid = this.ghostEid;
     const kind = this.selectedKind;
@@ -392,7 +397,15 @@ export class LearnScene extends Phaser.Scene {
     const target = resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, {
       corruption: corruptionAiOption(this.corruption),
     });
-    const reticle = clampTileToBoard(target, layout.cols, layout.rows);
+    this.reticlePx = easeToward(
+      this.reticlePx,
+      { x: cellCenterX(target.col), y: cellCenterY(target.row) },
+      deltaMs,
+    );
+    const reticle = {
+      x: Math.min(cellCenterX(layout.cols - 1), Math.max(cellCenterX(0), this.reticlePx.x)),
+      y: Math.min(cellCenterY(layout.rows - 1), Math.max(cellCenterY(0), this.reticlePx.y)),
+    };
     const color = GHOST_COLOR_BY_KIND[kind];
     const rect: PixelRect = {
       left: layout.offsetX,
@@ -400,6 +413,16 @@ export class LearnScene extends Phaser.Scene {
       right: layout.offsetX + layout.pixelWidth,
       bottom: layout.offsetY + layout.pixelHeight,
     };
+
+    const playerEid = query(this.world, [Player, Position])[0];
+    const playerPx =
+      playerEid === undefined
+        ? { x: cellCenterX(ctx.player.col), y: cellCenterY(ctx.player.row) }
+        : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 };
+    const nearPlayer = (tile: GhostTarget): PixelPoint => ({
+      x: playerPx.x + (tile.col - ctx.player.col) * TILE_SIZE,
+      y: playerPx.y + (tile.row - ctx.player.row) * TILE_SIZE,
+    });
 
     const derivation = targetDerivation(kind, {
       player: { col: ctx.player.col, row: ctx.player.row },
@@ -409,49 +432,49 @@ export class LearnScene extends Phaser.Scene {
     });
     this.overlay.lineStyle(DERIVATION_WIDTH, DERIVATION_COLOR, DERIVATION_ALPHA);
     if (derivation.kind === "segment") {
-      this.strokeClipped([derivation.from, derivation.to], rect);
+      this.strokePixelsClipped([playerPx, this.reticlePx], rect);
     } else if (derivation.kind === "inky") {
-      this.strokeClipped([derivation.blinky, derivation.pivot, derivation.target], rect);
+      const blinkyEid = this.helperBlinkyEid;
+      const blinkyPx =
+        blinkyEid === null
+          ? { x: cellCenterX(derivation.blinky.col), y: cellCenterY(derivation.blinky.row) }
+          : { x: Position.x[blinkyEid] ?? 0, y: Position.y[blinkyEid] ?? 0 };
+      const pivotPx = nearPlayer(derivation.pivot);
+      this.strokePixelsClipped([blinkyPx, pivotPx, this.reticlePx], rect);
       this.overlay.fillStyle(DERIVATION_COLOR, DERIVATION_ALPHA);
-      this.overlay.fillCircle(
-        cellCenterX(derivation.pivot.col),
-        cellCenterY(derivation.pivot.row),
-        PIVOT_DOT_RADIUS,
-      );
+      this.overlay.fillCircle(pivotPx.x, pivotPx.y, PIVOT_DOT_RADIUS);
     } else if (derivation.kind === "circle") {
-      const cx = cellCenterX(derivation.center.col);
-      const cy = cellCenterY(derivation.center.row);
       const radius = derivation.radiusTiles * TILE_SIZE;
       const points = Array.from({ length: CIRCLE_SEGMENTS + 1 }, (_, i) => {
         const angle = (i / CIRCLE_SEGMENTS) * Math.PI * 2;
-        return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+        return {
+          x: playerPx.x + Math.cos(angle) * radius,
+          y: playerPx.y + Math.sin(angle) * radius,
+        };
       });
       this.strokePixelsClipped(points, rect);
     }
 
+    const ghostPx = { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+    const pathTarget = clampTileToBoard(target, layout.cols, layout.rows);
     const path = predictGhostPath({
-      start: {
-        col: worldToCol(Position.x[eid] ?? 0),
-        row: worldToRow(Position.y[eid] ?? 0),
-      },
+      start: { col: worldToCol(ghostPx.x), row: worldToRow(ghostPx.y) },
       facing: (Facing.direction[eid] ?? DIRECTION.none) as GhostDir,
-      target: reticle,
+      target: pathTarget,
     });
+    const pathPx = path.map((tile) => ({ x: cellCenterX(tile.col), y: cellCenterY(tile.row) }));
+    const last = path.at(-1);
+    if (last !== undefined && last.col === pathTarget.col && last.row === pathTarget.row) {
+      pathPx[pathPx.length - 1] = reticle;
+    }
     this.overlay.lineStyle(PATH_WIDTH, color, PATH_ALPHA);
-    this.strokeClipped(path, rect);
+    this.strokePixelsClipped([ghostPx, ...pathPx], rect);
     this.overlay.fillStyle(color, 1);
     this.overlay.fillRect(
-      cellCenterX(reticle.col) - RETICLE_SIZE / 2,
-      cellCenterY(reticle.row) - RETICLE_SIZE / 2,
+      reticle.x - RETICLE_SIZE / 2,
+      reticle.y - RETICLE_SIZE / 2,
       RETICLE_SIZE,
       RETICLE_SIZE,
-    );
-  }
-
-  private strokeClipped(tiles: readonly GhostTarget[], rect: PixelRect): void {
-    this.strokePixelsClipped(
-      tiles.map((tile) => ({ x: cellCenterX(tile.col), y: cellCenterY(tile.row) })),
-      rect,
     );
   }
 
@@ -530,7 +553,11 @@ export class LearnScene extends Phaser.Scene {
     Drawable.radius[eid] = playerRadius();
   }
 
-  private spawnActiveGhost(kind: GhostKindId, tile: GhostTarget): number {
+  private spawnActiveGhost(
+    kind: GhostKindId,
+    tile: GhostTarget,
+    facing: Direction = DIRECTION.left,
+  ): number {
     const eid = addEntity(this.world);
     addComponent(this.world, eid, Position);
     addComponent(this.world, eid, Velocity);
@@ -546,8 +573,8 @@ export class LearnScene extends Phaser.Scene {
     Position.y[eid] = cellCenterY(tile.row);
     Velocity.x[eid] = 0;
     Velocity.y[eid] = 0;
-    Input.direction[eid] = DIRECTION.left;
-    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = facing;
+    Facing.direction[eid] = facing;
     Speed.px[eid] = 0;
     GhostKind.kind[eid] = kind;
     GhostPhase.value[eid] = GHOST_PHASE.active;
