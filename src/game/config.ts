@@ -32,6 +32,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: colorToCssHex(MAZE_BACKGROUND_COLOR),
+  banner: false,
   scene: bootScenes,
   scale: {
     mode: Phaser.Scale.FIT,
