@@ -12,6 +12,10 @@ export function livesHudIconCount(lives: number): number {
   return Math.max(0, lives - 1);
 }
 
+export function parseInfiniteLivesFlag(params: URLSearchParams): boolean {
+  return params.get("infiniteLives") === "1";
+}
+
 export function livesAfterLevelRegen(lives: number): number {
   return livesHudIconCount(lives) < LEVEL_LIVES_ICON_FLOOR ? lives + 1 : lives;
 }
