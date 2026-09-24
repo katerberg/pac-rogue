@@ -57,7 +57,7 @@ describe("Clyde mode reverse at SW L tip", () => {
     let leftTip = false;
     for (let i = 0; i < 120; i += 1) {
       ghostAi(world, GHOST_AI_MODE.scatter, 200);
-      applyGhostSpeed(world, 200);
+      applyGhostSpeed(world, 200, 1);
       movement(world, 16);
       const vx = Velocity.x[ghost] ?? 0;
       const vy = Velocity.y[ghost] ?? 0;

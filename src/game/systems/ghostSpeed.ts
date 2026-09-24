@@ -18,6 +18,7 @@ export type GhostSpeedOptions = {
 export function applyGhostSpeed(
   world: World,
   pelletsRemaining: number,
+  levelIndex: number,
   options: GhostSpeedOptions = {},
 ): void {
   const ghostSpeedMul = options.ghostSpeedMul ?? 1;
@@ -40,7 +41,7 @@ export function applyGhostSpeed(
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
     const surgeMul = speedSurge && kind === speedSurge.ghostKind ? speedSurge.mul : 1;
     Speed.px[eid] =
-      resolveGhostSpeedForKind(kind, pelletsRemaining, isGhostTunnelSlow(col, row)) *
+      resolveGhostSpeedForKind(kind, pelletsRemaining, isGhostTunnelSlow(col, row), levelIndex) *
       ghostSpeedMul *
       surgeMul;
   }

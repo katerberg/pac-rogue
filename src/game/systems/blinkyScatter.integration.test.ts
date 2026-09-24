@@ -96,7 +96,7 @@ function tickPipeline(
   } else {
     ghostAi(world, nextMode.mode, pelletsRemaining);
   }
-  applyGhostSpeed(world, pelletsRemaining);
+  applyGhostSpeed(world, pelletsRemaining, levelIndex);
   movement(world, dt);
   if (ghostExitHouse(world) && !nextMode.active) {
     nextMode = startGhostModeClock(levelIndex);
@@ -250,7 +250,7 @@ describe("blinky chase start integration", () => {
 
     for (let i = 0; i < 120; i += 1) {
       ghostAi(world, GHOST_AI_MODE.chase, pelletsRemaining);
-      applyGhostSpeed(world, pelletsRemaining);
+      applyGhostSpeed(world, pelletsRemaining, levelIndex);
       movement(world, dt);
       const col = worldToCol(Position.x[ghost] ?? 0);
       const row = worldToRow(Position.y[ghost] ?? 0);
