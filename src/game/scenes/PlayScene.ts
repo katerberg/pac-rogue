@@ -661,7 +661,7 @@ export class PlayScene extends Phaser.Scene {
         : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.refreshLivesIcons();
-      if (result.gameOver) {
+      if (result.gameOver && !this.infiniteLives && !this.disableLevelUpgrades) {
         saveRun(this.lifetimeCollected, this.clock.remaining);
       }
       this.death = beginDeathSequence(result.gameOver);
