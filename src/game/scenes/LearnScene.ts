@@ -223,7 +223,7 @@ export class LearnScene extends Phaser.Scene {
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
     this.corruption = tickSpeedSurge(this.corruption, delta);
     applyPlayerSpeed(this.world, levelSpeedMul);
-    applyGhostSpeed(this.world, NO_ELROY_PELLETS, {
+    applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul,
       speedSurge:
         this.corruption.ghostKind !== null && isSpeedSurgeActive(this.corruption)

@@ -1,11 +1,11 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import { ghostBaseSpeedRatio } from "./levelRules";
 import { getActiveLayout } from "./maze";
 import { PLAYER_SPEED } from "./playfield";
 
 export const GHOST_SPEED = PLAYER_SPEED * 0.9375;
 export const GHOST_ELROY1_SPEED = PLAYER_SPEED * 1.0;
 export const GHOST_ELROY2_SPEED = PLAYER_SPEED * (85 / 80);
-export const GHOST_TUNNEL_SPEED = PLAYER_SPEED * 0.5;
 
 export const ELROY_TIER = {
   none: 0,
@@ -26,9 +26,14 @@ export function elroyTier(pelletsRemaining: number): ElroyTier {
   return ELROY_TIER.none;
 }
 
-export function resolveGhostSpeed(pelletsRemaining: number, inTunnel: boolean): number {
+export function resolveGhostSpeed(
+  pelletsRemaining: number,
+  inTunnel: boolean,
+  levelIndex: number,
+): number {
+  const baseSpeed = PLAYER_SPEED * ghostBaseSpeedRatio(levelIndex);
   if (inTunnel) {
-    return GHOST_TUNNEL_SPEED;
+    return baseSpeed * 0.5;
   }
   const tier = elroyTier(pelletsRemaining);
   if (tier === ELROY_TIER.elroy2) {
@@ -37,16 +42,17 @@ export function resolveGhostSpeed(pelletsRemaining: number, inTunnel: boolean): 
   if (tier === ELROY_TIER.elroy1) {
     return GHOST_ELROY1_SPEED;
   }
-  return GHOST_SPEED;
+  return baseSpeed;
 }
 
 export function resolveGhostSpeedForKind(
   kind: GhostKindId,
   pelletsRemaining: number,
   inTunnel: boolean,
+  levelIndex: number,
 ): number {
   if (kind === GHOST_KIND.blinky) {
-    return resolveGhostSpeed(pelletsRemaining, inTunnel);
+    return resolveGhostSpeed(pelletsRemaining, inTunnel, levelIndex);
   }
-  return resolveGhostSpeed(Number.POSITIVE_INFINITY, inTunnel);
+  return resolveGhostSpeed(Number.POSITIVE_INFINITY, inTunnel, levelIndex);
 }

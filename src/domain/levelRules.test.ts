@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "./ghostKind";
 import { GHOST_AI_MODE } from "./ghostMode";
 import {
+  ghostBaseSpeedRatio,
   ghostKindsForLevel,
   ghostModeStartWaveIndex,
   ghostModeWavesForLevel,
@@ -40,6 +41,26 @@ describe("speedLevelMultiplier", () => {
   it("clamps below 1 to level 1 mul", () => {
     expect(speedLevelMultiplier(0)).toBe(1);
     expect(speedLevelMultiplier(-2)).toBe(1);
+  });
+});
+
+describe("ghostBaseSpeedRatio", () => {
+  it("ramps from 0.8 at level 1 to 1.0 at level 5, 5% per level", () => {
+    expect(ghostBaseSpeedRatio(1)).toBe(0.8);
+    expect(ghostBaseSpeedRatio(2)).toBeCloseTo(0.85);
+    expect(ghostBaseSpeedRatio(3)).toBeCloseTo(0.9);
+    expect(ghostBaseSpeedRatio(4)).toBeCloseTo(0.95);
+    expect(ghostBaseSpeedRatio(5)).toBe(1);
+  });
+
+  it("stays pinned at 1.0 for levels beyond 5", () => {
+    expect(ghostBaseSpeedRatio(6)).toBe(1);
+    expect(ghostBaseSpeedRatio(MAX_LEVEL)).toBe(1);
+  });
+
+  it("clamps below 1 to level 1 ratio", () => {
+    expect(ghostBaseSpeedRatio(0)).toBe(0.8);
+    expect(ghostBaseSpeedRatio(-2)).toBe(0.8);
   });
 });
 

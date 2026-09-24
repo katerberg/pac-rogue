@@ -27,6 +27,11 @@ export function speedLevelMultiplier(levelIndex: number): number {
   return 1 + 0.05 * (level - 1);
 }
 
+export function ghostBaseSpeedRatio(levelIndex: number): number {
+  const level = Math.max(1, levelIndex);
+  return Math.min(1, 0.8 + 0.05 * (level - 1));
+}
+
 export function ghostKindsForLevel(
   levelIndex: number,
   secondGhostKind: GhostKindId,
