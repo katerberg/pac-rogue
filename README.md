@@ -44,7 +44,8 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `level`                | positive integer                  | Start at that level index (ghost roster unlock + shared speed mul `1 + 0.05×(level−1)` for Maze-Man and ghosts); level ≥ 2 without `?maze=` starts on a generated board. Omit for level 1. Invalid → level 1. Fixed 8-level plan: values above 8 clamp to 8. |
 | `quarters`             | non-negative integer              | Start the run with that many quarters (HUD icons). Omit for 0. Invalid → 0.                                                                                                                                                                                  |
 | `enableUpgrade`        | upgrade id (repeatable)           | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped).                                                                                                                                                               |
-| `disableLevelUpgrades` | `1`                               | Debug: skip the level-clear (levels 2-7) upgrade-choice modal entirely — clears straight to the next board with no offer. Does not affect the level-1 starting upgrade or `enableUpgrade`.                                                                   |
+| `disableLevelUpgrades` | `1`                               | Debug: skip the level-clear (levels 2-7) upgrade-choice modal entirely — clears straight to the next board with no offer. Does not affect the level-1 starting upgrade or `enableUpgrade`. Using this flag disables high-score saving for the run.           |
+| `infiniteLives`        | `1`                               | Debug: getting caught still plays the death SFX and full death sequence (hold / reset / ready / resume), but never spends a life and never triggers Game Over. Using this flag disables high-score saving for the run.                                       |
 | `forceCorruption`      | one corruption id                 | Assigns that ghost corruption immediately instead of waiting for level 4. Invalid → normal level-4 random assignment.                                                                                                                                        |
 | `forceCorruptionGhost` | `pinky` \| `inky` \| `clyde`      | Forces which ghost gets corrupted (combine with `forceCorruption` for a fully deterministic setup). `blinky` and invalid values are rejected.                                                                                                                |
 | `ghosts`               | ghost names (comma-separated)     | Replace the level's ghost roster with exactly these kinds on every level, e.g. `pinky` or `pinky,clyde` (`blinky` \| `pinky` \| `inky` \| `clyde`; unknown names skipped). Random corruption only picks from this roster.                                    |
@@ -65,6 +66,7 @@ http://127.0.0.1:5174/?enableUpgrade=scatterBurst
 http://127.0.0.1:5174/?enableUpgrade=ghostRecall&enableUpgrade=warpTop
 http://127.0.0.1:5174/?enableUpgrade=powerPelletFreeze&enableUpgrade=ghostSlow
 http://127.0.0.1:5174/?play=1&disableLevelUpgrades=1
+http://127.0.0.1:5174/?play=1&infiniteLives=1
 http://127.0.0.1:5174/?sound=1
 http://127.0.0.1:5174/?play=1&level=4&forceCorruption=wallPhaseDash&forceCorruptionGhost=pinky
 http://127.0.0.1:5174/?play=1&ghosts=pinky&forceCorruption=slimeTrail

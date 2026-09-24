@@ -37,6 +37,7 @@ import {
   livesAfterLevelRegen,
   livesHudIconCount,
   livesRemainingAfterCatch,
+  parseInfiniteLivesFlag,
 } from "../../domain/lives";
 import {
   activateAsciiLayout,
@@ -224,6 +225,7 @@ export class PlayScene extends Phaser.Scene {
   private fruitPresence: FruitPresence = createFruitPresence();
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private disableLevelUpgrades = false;
+  private infiniteLives = false;
   private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
   private corruptionHiddenGhostEid: number | null = null;
   private corruptionFlashGhostEid: number | null = null;
@@ -297,6 +299,7 @@ export class PlayScene extends Phaser.Scene {
     this.runCorruption = createRunCorruption(forcedCorruption);
 
     this.disableLevelUpgrades = parseDisableLevelUpgradesFlag(urlParams);
+    this.infiniteLives = parseInfiniteLivesFlag(urlParams);
     this.runUpgrades = createRunUpgrades(parseEnableUpgradeParams(urlParams));
     for (const id of this.runUpgrades.owned) {
       this.lives += grantLivesForUpgrade(id);
@@ -653,10 +656,12 @@ export class PlayScene extends Phaser.Scene {
     if (caught) {
       stopLoopingSfx(this, "siren");
       playSfx(this, "death");
-      const result = livesRemainingAfterCatch(this.lives);
+      const result = this.infiniteLives
+        ? { lives: this.lives, gameOver: false }
+        : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.refreshLivesIcons();
-      if (result.gameOver) {
+      if (result.gameOver && !this.infiniteLives && !this.disableLevelUpgrades) {
         saveRun(this.lifetimeCollected, this.clock.remaining);
       }
       this.death = beginDeathSequence(result.gameOver);
