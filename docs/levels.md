@@ -22,6 +22,10 @@ rest of the run — see [docs/corruption.md](./corruption.md).
 
 `PlayScene.create()` picks `secondGhostKind` once per run — 50/50 Pinky or Inky via `Math.random()` — and holds it for the whole run (including level advances). `ghostKindsForLevel(levelIndex, secondGhostKind)` in `levelRules.ts` uses it for level 1 (Blinky + `secondGhostKind`) and level 2 (Blinky + `secondGhostKind` + the other of Pinky/Inky, so level 2 always spawns Blinky, Pinky, and Inky); levels 3+ always spawn all four regardless of the value.
 
+## Per-level life regen
+
+At level 1 and at every level transition, `livesAfterLevelRegen` (`src/domain/lives.ts`) grants one extra life whenever fewer than 3 HUD icons are showing. This is a one-life-per-level trickle, not an instant refill to 3 — a run that lost several lives climbs back to the 3-icon floor gradually across level clears. Applying it at level 1 means every run effectively starts at 4 lives (3 icons) instead of the base 3. It does not cap lives gained from the `extraLife` upgrade, which can still push the icon count above 3.
+
 ## Fruit awards Quarters
 
 Fruit spawns/despawns as before, 10s lifetime: level 1 uses a single unscaled 70-pellet threshold, levels 2+ use layout-scaled pellet thresholds. Picking it up plays the munch SFX, removes it, and awards one Quarter (top-left HUD dot; no gameplay value yet). The upgrade-choice reward instead comes from **clearing a level** (2 through 8); see [docs/upgrades.md](./upgrades.md).

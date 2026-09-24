@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   START_LIVES,
+  livesAfterLevelRegen,
   livesHudIconCount,
   livesRemainingAfterCatch,
   parseInfiniteLivesFlag,
@@ -39,5 +40,19 @@ describe("parseInfiniteLivesFlag", () => {
     expect(parseInfiniteLivesFlag(new URLSearchParams("infiniteLives=1"))).toBe(true);
     expect(parseInfiniteLivesFlag(new URLSearchParams("infiniteLives=0"))).toBe(false);
     expect(parseInfiniteLivesFlag(new URLSearchParams())).toBe(false);
+  });
+});
+
+describe("livesAfterLevelRegen", () => {
+  it("trickles one life when fewer than 3 icons are showing", () => {
+    expect(livesAfterLevelRegen(3)).toBe(4);
+    expect(livesAfterLevelRegen(2)).toBe(3);
+    expect(livesAfterLevelRegen(1)).toBe(2);
+    expect(livesAfterLevelRegen(0)).toBe(1);
+  });
+
+  it("leaves lives unchanged once 3 icons are already showing", () => {
+    expect(livesAfterLevelRegen(4)).toBe(4);
+    expect(livesAfterLevelRegen(5)).toBe(5);
   });
 });
