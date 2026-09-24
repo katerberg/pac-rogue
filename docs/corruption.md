@@ -62,5 +62,9 @@ corruption and can apply it to any ghost, Blinky included; real runs still never
 - `?forceCorruptionGhost=pinky|inky|clyde` forces the ghost kind too (`blinky` and unknown values
   are rejected). Combine with `forceCorruption` for a fully deterministic setup, e.g.
   `?play=1&level=4&forceCorruption=wallPhaseDash&forceCorruptionGhost=pinky`.
+- `?ghosts=pinky` (comma-separated, any of `blinky|pinky|inky|clyde`) replaces the ghost roster on
+  every level. When set, a random corruption ghost is picked only from that roster, so
+  `?play=1&ghosts=pinky&forceCorruption=slimeTrail` corrupts Pinky alone. A roster with no
+  corruptible ghost (e.g. `ghosts=blinky`) never gets a corruption.
 
 There is no flag to disable corruption — only to force it on early for testing.

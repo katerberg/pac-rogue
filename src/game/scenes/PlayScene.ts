@@ -32,7 +32,12 @@ import {
   type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
-import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "../../domain/lives";
+import {
+  START_LIVES,
+  livesAfterLevelRegen,
+  livesHudIconCount,
+  livesRemainingAfterCatch,
+} from "../../domain/lives";
 import {
   activateAsciiLayout,
   activateLayout,
@@ -62,6 +67,7 @@ import {
   speedLevelMultiplier,
 } from "../../domain/levelRules";
 import { parseQuartersParam } from "../../domain/quartersFlag";
+import { parseGhostsParam } from "../../domain/ghostsFlag";
 import { parseLevelParam } from "../../domain/runLevel";
 import {
   FRUIT_DRAWABLE_ID,
@@ -211,6 +217,7 @@ export class PlayScene extends Phaser.Scene {
   private levelIndex = 1;
   private runMazeSeed = "0";
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
+  private ghostsOverride: GhostKindId[] | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runCompleteRemainingMs = 0;
@@ -279,6 +286,10 @@ export class PlayScene extends Phaser.Scene {
     if (urlParams.has("forceCorruptionGhost") && forcedCorruption.ghostKind === null) {
       console.warn(`Unknown ?forceCorruptionGhost= value; expected pinky|inky|clyde`);
     }
+    this.ghostsOverride = parseGhostsParam(urlParams);
+    if (urlParams.has("ghosts") && this.ghostsOverride === null) {
+      console.warn(`Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde`);
+    }
     this.quarters = quartersOverride ?? 0;
     this.levelIndex = levelOverride ?? 1;
     this.runMazeSeed = String(Math.floor(Math.random() * 0xffffffff));
@@ -327,6 +338,7 @@ export class PlayScene extends Phaser.Scene {
       this.applyGrantEffects(startingUpgrade);
     }
     this.refreshUpgradesHud();
+    this.lives = livesAfterLevelRegen(this.lives);
     this.refreshLivesIcons();
     if (startingUpgrade === null) {
       this.showLevelBanner();
@@ -679,8 +691,11 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
-    this.runCorruption = maybeAssignCorruption(this.runCorruption, this.levelIndex, () =>
-      Math.random(),
+    this.runCorruption = maybeAssignCorruption(
+      this.runCorruption,
+      this.levelIndex,
+      () => Math.random(),
+      this.ghostsOverride ?? undefined,
     );
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.runMazeSeed);
     if (selection.kind === "static") {
@@ -712,7 +727,8 @@ export class PlayScene extends Phaser.Scene {
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
-    const ghostKinds = ghostKindsForLevel(this.levelIndex, this.secondGhostKind);
+    const ghostKinds =
+      this.ghostsOverride ?? ghostKindsForLevel(this.levelIndex, this.secondGhostKind);
     for (const kind of ghostKinds) {
       this.spawnGhost(kind);
     }
@@ -848,6 +864,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.startBoard(null);
     this.refreshUpgradesHud();
+    this.lives = livesAfterLevelRegen(this.lives);
     this.refreshLivesIcons();
     this.showLevelBanner();
     this.startSirenAfterFanfare();

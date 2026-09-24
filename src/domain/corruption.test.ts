@@ -46,6 +46,19 @@ describe("maybeAssignCorruption", () => {
     const assigned = maybeAssignCorruption(state, 1, () => 0);
     expect(assigned).toMatchObject({ type: "speedSurge", ghostKind: GHOST_KIND.clyde });
   });
+
+  it("picks the random ghost only from the present kinds", () => {
+    const state = createRunCorruption({ type: "speedSurge", ghostKind: null });
+    for (const rng of [0, 0.5, 0.99]) {
+      const assigned = maybeAssignCorruption(state, 1, () => rng, [GHOST_KIND.pinky]);
+      expect(assigned.ghostKind).toBe(GHOST_KIND.pinky);
+    }
+  });
+
+  it("assigns nothing when no corruptible kind is present", () => {
+    const state = createRunCorruption({ type: "speedSurge", ghostKind: null });
+    expect(maybeAssignCorruption(state, 1, () => 0, [GHOST_KIND.blinky])).toEqual(state);
+  });
 });
 
 describe("resetCorruptionTransient", () => {
