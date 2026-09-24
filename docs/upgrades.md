@@ -124,3 +124,40 @@ Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`, 8px so lab
 2. If the effect is already covered (speed mul or existing `onPowerPellet` fields), stop there.
 3. If it is a **new kind** of effect, extend the def shape and add one resolve site (domain helper + PlayScene/system call). Do not add a plugin bus.
 4. Document the new id in [README Flags](../README.md#flags) and the defs table above.
+
+## Current pool at a glance (14)
+
+Grouped by how they're triggered, for anyone sizing up the pool rather than reading effect details.
+
+- **Power-pellet reactive (8):** Power Freeze, Scatter Burst, Ghost Recall, Warp Top, Triple Chomp, Wall Pass, Speed Burst, Ghost Proof — all fire off `onPowerPellet`, so they compose for free (one energizer chomp can trigger several at once).
+- **Always-on passive (6):** Speed Up, Ghost Slow, Pickup Range, House Delay, Extra Life, Pellet Surge.
+
+14 is a thin pool against an 8-level run offering 6 pick-one moments (levels 2–7) plus one starting grant — a single run can plausibly own most or all of them well before level 8, which flattens the late-game choice into "whatever's left." The brainstorm below is aimed at pushing the pool well past what one run can exhaust.
+
+## Brainstorm: candidate upgrades (not yet implemented)
+
+Ideas only — none of these have an `UpgradeId`, a def, or a resolve site yet. Each is tagged with how it'd slot into the existing model per [Adding an upgrade](#adding-an-upgrade):
+
+- **stat** — new passive field on `UpgradeDef`, same shape as `playerSpeedMul` / `ghostSpeedMul` / `pelletCollectRadiusBonusPx`. Cheapest to add.
+- **onPowerPellet field** — new key in the `onPowerPellet` object, resolved the same way the existing 8 are (one `if` block in `applyPowerPelletEffects` + one call site).
+- **new effect** — needs a new resolve site outside the power-pellet/stat plumbing (a different trigger moment, e.g. life loss or fruit pickup), so it costs more than the two above but still fits "one domain helper + one call site," no plugin bus.
+
+| Idea              | Kind             | Pitch                                                                                                                                                                                                        |
+| ----------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fruit Feast       | new effect       | Bonus fruit pickup fires a scaled-down power-pellet effect bundle. Fruit is explicitly inert today (`docs/levels.md`) — this gives the currently-pointless pickup a payoff and a reason to detour for it.    |
+| Power Magnet      | stat             | Extends `pickupRange`'s radius bonus to power pellets too — today `pickupRange` explicitly excludes energizers, so this is a natural "tier 2" of an existing upgrade.                                        |
+| Quarter Bounty    | stat             | Fruit pickup awards 2 Quarters instead of 1. Quarters currently have "no gameplay value yet" per `docs/levels.md`; this at least makes owning it matter once Quarters get a sink.                            |
+| Second Wind       | new effect       | On life loss, respawn with ~1.5s of the Ghost Proof pass-through timer already armed, so a ghost camped on the spawn tile doesn't chain-kill the next life.                                                  |
+| Sprinter's Escape | new effect       | On life loss, respawn with a short speed burst already armed (reuses the `powerSpeedBurst` timer machinery) to create separation immediately.                                                                |
+| Panic Reverse     | onPowerPellet    | Power pellet forces every leaving/active ghost to reverse once, instantly — a single flip, no wave-clock interaction, distinct from Scatter Burst's mode change.                                             |
+| Ghost Fog         | onPowerPellet    | Power pellet gives every ghost a short "pick randomly at every tile" window (a temporary, universal version of the `freeRetargetReverse` corruption) — scatters pursuit without freezing anyone.             |
+| Vacuum Pulse      | onPowerPellet    | Power pellet collects every regular pellet within N tiles in all directions — an area version of Triple Chomp's "closest 3, excluding forward corridor" rule, reads as a stronger late-run pick.             |
+| Overcharge        | new effect       | Doubles the duration of every other owned `onPowerPellet` timer effect (freeze/scatter/wall-pass/invuln/speed-burst) — a multiplier card that rewards a stacked build instead of adding a new effect itself. |
+| Tunnel Dash       | stat / new field | Player speed multiplier that only applies while inside tunnel/wrap tiles, stacking with Speed Up — rewards tunnel routing as a niche, situational pick.                                                      |
+| Second Chomp      | onPowerPellet    | The power pellet you just ate refills on its own tile after a short delay instead of staying spent — effectively one free extra energizer use per life.                                                      |
+| Lucky Streak      | new effect       | Every Nth **regular** pellet collected (not board-spawn-based) has a chance to convert the next one into a power pellet — a more frequent, player-driven cousin of Pellet Surge.                             |
+| Steady Hand       | new effect       | Widens the sticky-turn input buffer so a same-frame direction press just before reaching centerline still queues — pure QoL, needs a movement-system resolve site rather than domain-only.                   |
+| Ghost Debt        | onPowerPellet    | Power pellet adds bonus time to House Delay's release gates for the rest of the level — a power-pellet-gated, stacking, temporary sibling to the always-on House Delay upgrade.                              |
+| Clutch Life       | new effect       | A safety-net Extra Life: the bonus life is granted the moment you're down to your last life, not immediately on pickup — same reward, different risk profile from the existing Extra Life.                   |
+
+15 candidates against the ask for 10+, spread across all three cost tiers so a subset can land as quick passive/`onPowerPellet` additions while the pricier "new effect" ones (Fruit Feast, Second Wind, Steady Hand) get scoped separately. None of these are implemented — this table is a discussion starting point, not a commitment to build all 15.
