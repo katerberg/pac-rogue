@@ -10,3 +10,7 @@ export function livesRemainingAfterCatch(lives: number): { lives: number; gameOv
 export function livesHudIconCount(lives: number): number {
   return Math.max(0, lives - 1);
 }
+
+export function parseInfiniteLivesFlag(params: URLSearchParams): boolean {
+  return params.get("infiniteLives") === "1";
+}

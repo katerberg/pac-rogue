@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { START_LIVES, livesHudIconCount, livesRemainingAfterCatch } from "./lives";
+import {
+  START_LIVES,
+  livesHudIconCount,
+  livesRemainingAfterCatch,
+  parseInfiniteLivesFlag,
+} from "./lives";
 
 describe("livesRemainingAfterCatch", () => {
   it("starts from START_LIVES of 3", () => {
@@ -26,5 +31,13 @@ describe("livesHudIconCount", () => {
     expect(livesHudIconCount(2)).toBe(1);
     expect(livesHudIconCount(1)).toBe(0);
     expect(livesHudIconCount(0)).toBe(0);
+  });
+});
+
+describe("parseInfiniteLivesFlag", () => {
+  it("only accepts infiniteLives=1", () => {
+    expect(parseInfiniteLivesFlag(new URLSearchParams("infiniteLives=1"))).toBe(true);
+    expect(parseInfiniteLivesFlag(new URLSearchParams("infiniteLives=0"))).toBe(false);
+    expect(parseInfiniteLivesFlag(new URLSearchParams())).toBe(false);
   });
 });
