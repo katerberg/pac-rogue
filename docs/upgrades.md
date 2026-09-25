@@ -1,12 +1,12 @@
 # Run upgrades
 
-Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 7) opens a **pick-one** modal for **run-long** upgrades for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
+Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 7) opens a **pick-one** modal offering **run-long** upgrades (up to three, at the up/left/right slots) alongside an always-available **Quarters** option (fixed at the down slot) for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
 
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
 - `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, scatter/wall-pass/invuln/speed-burst timers, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/scatter/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
-- Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
+- Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay, up/down/left/right button slots). Offer math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice` / `declineUpgrades`).
 - No ECS upgrade components in v1.
 - Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
 - See [docs/learn.md](./learn.md#upgrade-fidelity) for how each upgrade behaves in LEARN mode (most are simulated for real; a few have no visible effect there).
@@ -41,19 +41,24 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 ## Grant rules
 
 - Collecting bonus fruit plays both munches, despawns fruit, and awards one Quarter — no upgrade effect, no modal.
-- Clearing a level (2 through 7; not level 1 or the final level 8 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned.
-- **0 eligible:** no modal; no grant; the level transition proceeds immediately.
-- `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — same immediate transition as the 0-eligible case. Does not affect the level-1 starting upgrade or `enableUpgrade`.
-- **1 eligible:** one-button modal (must pick; no auto-grant).
-- **2+ eligible:** two-button modal. Options from `pickUpgradeChoiceOffer`:
-  - Never the same id on both sides.
-  - Prefer excluding `lastDeclinedUpgradeId` (the option **not** chosen on the previous two-option confirm).
-  - If excluding decline would leave fewer than two candidates, re-include last-declined only as needed.
+- Clearing a level (2 through 7; not level 1 or the final level 8 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned. The modal always opens on this trigger — there is no "0 eligible → skip" case anymore, since the Quarters option is always available.
+- `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — no modal at all, immediate level transition. Does not affect the level-1 starting upgrade or `enableUpgrade`.
+- `?jumpToUpgrade=1` (debug): fires the trigger immediately on the first board — clears all its pellets and opens the modal without playing the level. Defaults the start level to 2 when `?level=` is omitted, since level 1 never offers this modal. Disables high-score saving for the run (same as `disableLevelUpgrades` / `infiniteLives`).
+- `pickUpgradeChoiceOffer` returns an offer of `{ quarters: QUARTERS_CHOICE_AMOUNT, upgrades }`, where `upgrades` holds up to three ids (`min(3, eligible.length)`):
+  - Never repeats an id.
+  - Prefers excluding `lastDeclinedUpgradeId`.
+  - If excluding decline would leave the offer short, re-includes last-declined only as needed to fill it.
+- The modal lays these out as four fixed direction slots — **up/down/left/right**, D-pad style:
+  - **Down is always the Quarters option** (`+QUARTERS_CHOICE_AMOUNT`, currently 2), regardless of how many upgrades are offered.
+  - The upgrade slots fill in a fixed order based on count: 0 → none (down-only); 1 → up; 2 → left + right (matching the old two-button layout); 3 → up + left + right.
 - While the modal is open, the play sim is fully frozen (death-style early-return). Level 1's clear never offers this modal — level 1 already granted its starting upgrade instead.
 - **0.5s lockout** after open: fuzz-in (alpha ramp + light jitter + BitmapText scramble). Keyboard and click disabled.
-- After lockout: already in selection mode (highlight + LEFT/RIGHT hints). **Click** a button to grant, or **Left/A** / **Right/D** after any held Left/Right/A/D keys have been released (keys held through open/lockout are ignored). One-button: either direction confirms. No Esc / dismiss — must pick.
-- On confirm: `grantUpgrade` chosen id; if two options were shown, set `lastDeclinedUpgradeId` to the other; one-button leaves prior decline unchanged. HUD refreshes.
-- After confirm: **confirm outro** while sim stays frozen — chosen option double-pulses (scale bounce + stroke thicken, ~400ms); the other option fades out during that pulse; then the whole modal (dim + chrome + chosen) fades out over **1s**. Then play resumes; movement keys held from the modal are ignored until released.
+- After lockout: already in selection mode (highlight + directional hints on each active slot). **Click** a button to choose it, or press the matching direction (**Arrow keys or WASD**) once any held direction keys from before the modal opened have been released (keys held through open/lockout are ignored). Each active slot confirms independently — there is no single "either direction" shortcut. No Esc / dismiss — must pick.
+- On confirm:
+  - Choosing an **upgrade** slot: `confirmUpgradeChoice` grants that id; if exactly one other upgrade was offered alongside it, `lastDeclinedUpgradeId` is set to that one (ambiguous with 0 or 2 other upgrades offered, so it is left unchanged in those cases).
+  - Choosing the **Quarters** slot: no upgrade is granted; `PlayScene` adds `QUARTERS_CHOICE_AMOUNT` to the Quarters HUD count and calls `declineUpgrades`, which sets `lastDeclinedUpgradeId` only when exactly one upgrade was offered (again left unchanged otherwise).
+  - HUD refreshes either way.
+- After confirm: **confirm outro** while sim stays frozen — chosen option double-pulses (scale bounce + stroke thicken, ~400ms); the other options fade out during that pulse; then the whole modal (dim + chrome + chosen) fades out over **1s**. Then play resumes; movement keys held from the modal are ignored until released.
 - `enableUpgrade` (repeatable) → each valid id granted into `owned` at create (order preserved; duplicates ignored by `grantUpgrade`).
 
 ## Starting upgrade
