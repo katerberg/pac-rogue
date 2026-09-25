@@ -117,6 +117,7 @@ import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
+import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
   applyTunnelDash,
   tickTunnelDashAnimation,
@@ -185,8 +186,12 @@ const UPGRADE_ROW_WIDTH = 190;
 const UPGRADE_CHECK_SIZE = 10;
 const UPGRADE_CHECK_GAP = 4;
 const LEARN_RECALL_HOLD_MS = 1500;
-const NO_EFFECT_BANNER_Y_PAD = 4;
+const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
 const HOVER_PREVIEW_DELAY_MS = 500;
+const HOVER_PREVIEW_X = 110;
+const HOVER_PREVIEW_Y_MIN = 90;
+const HOVER_PREVIEW_Y_MAX = 510;
+const FRUIT_RESPAWN_MS = 1000;
 const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
   "ghostHouseDelay",
   "extraLife",
@@ -218,6 +223,7 @@ export class LearnScene extends Phaser.Scene {
   private noEffectBanner!: Phaser.GameObjects.BitmapText;
   private hoverPreviewTimer: Phaser.Time.TimerEvent | null = null;
   private hoverPreviewCard: UpgradeCardVisual | null = null;
+  private fruitRespawnRemainingMs: number | null = null;
   private learnUpgrades: RunUpgrades = createRunUpgrades();
   private recallHoldGhostEid: number | null = null;
   private recallHoldRemainingMs = 0;
@@ -256,6 +262,7 @@ export class LearnScene extends Phaser.Scene {
     this.tunnelDashAnim = null;
     this.hoverPreviewTimer = null;
     this.hoverPreviewCard = null;
+    this.fruitRespawnRemainingMs = null;
     this.previousEffectiveGhostMode = GHOST_AI_MODE.chase;
 
     this.playRender = createRender(this);
@@ -323,7 +330,11 @@ export class LearnScene extends Phaser.Scene {
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
     this.learnUpgrades = tickScatterBurst(this.learnUpgrades, delta);
+    const wasWallPass = wallPassActive(this.learnUpgrades);
     this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
+    if (wasWallPass && !wallPassActive(this.learnUpgrades)) {
+      snapPlayerToNearestWalkable(this.world);
+    }
     this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
 
@@ -394,12 +405,20 @@ export class LearnScene extends Phaser.Scene {
       this.spawnPellets();
     }
 
+    if (this.fruitRespawnRemainingMs !== null) {
+      this.fruitRespawnRemainingMs -= delta;
+      if (this.fruitRespawnRemainingMs <= 0) {
+        this.fruitRespawnRemainingMs = null;
+        this.spawnFruitEntity();
+      }
+    }
+
     const removedFruitEids = collectFruit(this.world);
     if (removedFruitEids.length > 0) {
       for (const eid of removedFruitEids) {
         this.playRender.releaseDrawable(eid);
       }
-      this.spawnFruitEntity();
+      this.fruitRespawnRemainingMs = FRUIT_RESPAWN_MS;
       if (this.learnUpgrades.owned.includes("fruitPower")) {
         this.resolveLearnPowerPelletTrigger(1);
       }
@@ -544,7 +563,9 @@ export class LearnScene extends Phaser.Scene {
       );
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerdown", () => this.toggleUpgrade(def.id));
-      zone.on("pointerover", () => this.scheduleUpgradePreview(def.id));
+      zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
+        this.scheduleUpgradePreview(def.id, pointer.y),
+      );
       zone.on("pointerout", () => this.cancelUpgradePreview());
       this.upgradeRows.push({ id: def.id, checkMark });
     });
@@ -571,29 +592,27 @@ export class LearnScene extends Phaser.Scene {
     placePixelText(
       this.noEffectBanner,
       layout.offsetX + layout.pixelWidth / 2,
-      layout.offsetY + NO_EFFECT_BANNER_Y_PAD,
+      NO_EFFECT_BANNER_Y,
       0.5,
       0,
     );
   }
 
-  private scheduleUpgradePreview(id: UpgradeId): void {
+  private scheduleUpgradePreview(id: UpgradeId, pointerY: number): void {
     this.cancelUpgradePreview();
     this.hoverPreviewTimer = this.time.delayedCall(HOVER_PREVIEW_DELAY_MS, () => {
       this.hoverPreviewTimer = null;
-      this.showUpgradePreview(id);
+      this.showUpgradePreview(id, pointerY);
     });
   }
 
-  private showUpgradePreview(id: UpgradeId): void {
+  private showUpgradePreview(id: UpgradeId, pointerY: number): void {
     const def = getUpgradeDef(id);
-    const layout = getActiveLayout();
-    const visual = buildUpgradeCardVisual(
-      this,
-      layout.offsetX + layout.pixelWidth / 2,
-      layout.offsetY + layout.pixelHeight / 2,
-      { label: def.label, description: def.description },
-    );
+    const y = Math.min(HOVER_PREVIEW_Y_MAX, Math.max(HOVER_PREVIEW_Y_MIN, pointerY));
+    const visual = buildUpgradeCardVisual(this, HOVER_PREVIEW_X, y, {
+      label: def.label,
+      description: def.description,
+    });
     visual.root.setDepth(MODAL_DEPTH + 1);
     this.hoverPreviewCard = visual;
   }
