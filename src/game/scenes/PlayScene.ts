@@ -105,6 +105,7 @@ import {
   applyPowerPelletEffects,
   confirmUpgradeChoice,
   createRunUpgrades,
+  declineUpgrades,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
   ghostHouseReleaseDelayAddMs,
@@ -619,25 +620,27 @@ export class PlayScene extends Phaser.Scene {
         this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
         return;
       }
-      const options = pickUpgradeChoiceOffer(
+      const offer = pickUpgradeChoiceOffer(
         this.runUpgrades.owned,
         this.runUpgrades.lastDeclinedUpgradeId,
         () => Math.random(),
       );
-      if (options === null) {
-        this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
-      } else {
-        this.pendingLevelClear = true;
-        this.upgradeChoiceModal.open(options, (chosen) => {
-          const alreadyOwned = this.runUpgrades.owned.includes(chosen);
-          this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, options, chosen);
+      this.pendingLevelClear = true;
+      this.upgradeChoiceModal.open(offer, (chosen) => {
+        if (chosen.kind === "quarters") {
+          this.quarters += chosen.amount;
+          this.refreshQuartersHud();
+          this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
+        } else {
+          const alreadyOwned = this.runUpgrades.owned.includes(chosen.id);
+          this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id);
           if (!alreadyOwned) {
-            this.applyGrantEffects(chosen);
+            this.applyGrantEffects(chosen.id);
             this.refreshLivesIcons();
           }
-          this.refreshUpgradesHud();
-        });
-      }
+        }
+        this.refreshUpgradesHud();
+      });
       return;
     }
 

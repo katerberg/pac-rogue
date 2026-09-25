@@ -11,9 +11,11 @@ import {
   SCATTER_BURST_MS,
   SPEED_BURST_MS,
   WALL_PASS_MS,
+  QUARTERS_CHOICE_AMOUNT,
   applyPowerPelletEffects,
   confirmUpgradeChoice,
   createRunUpgrades,
+  declineUpgrades,
   eligibleUpgrades,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
@@ -114,40 +116,43 @@ describe("parseDisableLevelUpgradesFlag", () => {
 });
 
 describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
-  it("returns null when pool empty", () => {
-    expect(pickUpgradeChoiceOffer(ALL_IDS, null, () => 0)).toBeNull();
+  it("always offers quarters, with an empty upgrade pool when none are eligible", () => {
+    const offer = pickUpgradeChoiceOffer(ALL_IDS, null, () => 0);
+    expect(offer.quarters).toBe(QUARTERS_CHOICE_AMOUNT);
+    expect(offer.upgrades).toEqual([]);
   });
 
-  it("returns a single option when only one eligible", () => {
+  it("returns a single upgrade option when only one eligible", () => {
     const owned = ALL_IDS.filter((id) => id !== "warpTop");
-    expect(pickUpgradeChoiceOffer(owned, null, () => 0)).toEqual(["warpTop"]);
+    const offer = pickUpgradeChoiceOffer(owned, null, () => 0);
+    expect(offer.upgrades).toEqual(["warpTop"]);
   });
 
-  it("returns two distinct unowned options", () => {
-    const options = pickUpgradeChoiceOffer([], null, () => 0);
-    expect(options).not.toBeNull();
-    expect(options!).toHaveLength(2);
-    expect(new Set(options!).size).toBe(2);
-    for (const id of options!) {
+  it("returns up to three distinct unowned upgrade options", () => {
+    const offer = pickUpgradeChoiceOffer([], null, () => 0);
+    expect(offer.upgrades).toHaveLength(3);
+    expect(new Set(offer.upgrades).size).toBe(3);
+    for (const id of offer.upgrades) {
       expect(ALL_IDS).toContain(id);
     }
   });
 
   it("excludes lastDeclined when enough eligible remain", () => {
-    const options = pickUpgradeChoiceOffer([], "ghostSlow", () => 0);
-    expect(options).not.toBeNull();
-    expect(options!).not.toContain("ghostSlow");
-    expect(options!).toHaveLength(2);
+    const offer = pickUpgradeChoiceOffer([], "ghostSlow", () => 0);
+    expect(offer.upgrades).not.toContain("ghostSlow");
+    expect(offer.upgrades).toHaveLength(3);
   });
 
-  it("re-includes lastDeclined when needed to form a pair", () => {
-    const owned = ALL_IDS.filter((id) => id !== "ghostSlow" && id !== "warpTop");
-    const options = pickUpgradeChoiceOffer(owned, "ghostSlow", () => 0);
-    expect(options).toEqual(expect.arrayContaining(["ghostSlow", "warpTop"]));
-    expect(options!).toHaveLength(2);
+  it("re-includes lastDeclined when needed to fill the offer", () => {
+    const owned = ALL_IDS.filter(
+      (id) => id !== "ghostSlow" && id !== "warpTop" && id !== "extraLife",
+    );
+    const offer = pickUpgradeChoiceOffer(owned, "ghostSlow", () => 0);
+    expect(offer.upgrades).toEqual(expect.arrayContaining(["ghostSlow", "warpTop", "extraLife"]));
+    expect(offer.upgrades).toHaveLength(3);
   });
 
-  it("confirm grants chosen and sets declined", () => {
+  it("confirm grants chosen and tracks the single declined option", () => {
     const state = createRunUpgrades();
     const options: UpgradeId[] = ["playerSpeedUp", "ghostSlow"];
     const next = confirmUpgradeChoice(state, options, "playerSpeedUp");
@@ -163,6 +168,36 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
     const next = confirmUpgradeChoice(state, ["warpTop"], "warpTop");
     expect(next.owned).toEqual(["warpTop"]);
     expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
+  });
+
+  it("confirm with three options leaves lastDeclined unchanged (ambiguous)", () => {
+    const state = {
+      ...createRunUpgrades(),
+      lastDeclinedUpgradeId: "ghostSlow" as UpgradeId,
+    };
+    const options: UpgradeId[] = ["playerSpeedUp", "warpTop", "extraLife"];
+    const next = confirmUpgradeChoice(state, options, "playerSpeedUp");
+    expect(next.owned).toEqual(["playerSpeedUp"]);
+    expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
+  });
+});
+
+describe("declineUpgrades", () => {
+  it("remembers the single declined upgrade when quarters is chosen instead", () => {
+    const state = createRunUpgrades();
+    const next = declineUpgrades(state, ["warpTop"]);
+    expect(next.lastDeclinedUpgradeId).toBe("warpTop");
+  });
+
+  it("leaves lastDeclined unchanged when zero or multiple upgrades were declined", () => {
+    const state = {
+      ...createRunUpgrades(),
+      lastDeclinedUpgradeId: "ghostSlow" as UpgradeId,
+    };
+    expect(declineUpgrades(state, []).lastDeclinedUpgradeId).toBe("ghostSlow");
+    expect(declineUpgrades(state, ["warpTop", "extraLife"]).lastDeclinedUpgradeId).toBe(
+      "ghostSlow",
+    );
   });
 });
 
