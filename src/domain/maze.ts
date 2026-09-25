@@ -891,6 +891,31 @@ export function isTunnelMouth(
   return opposite !== null && isWalkable(opposite.col, opposite.row, solids);
 }
 
+export type TunnelMouthEdge = "up" | "down" | "left" | "right";
+
+export function tunnelMouthOutwardEdge(
+  col: number,
+  row: number,
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): TunnelMouthEdge | null {
+  if (!isTunnelMouth(col, row, solids)) {
+    return null;
+  }
+  if (col === 0) {
+    return "left";
+  }
+  if (col === MAZE_COLS - 1) {
+    return "right";
+  }
+  if (row === 0) {
+    return "up";
+  }
+  if (row === MAZE_ROWS - 1) {
+    return "down";
+  }
+  return null;
+}
+
 function hasHorizontalTunnel(
   row: number,
   solids: SolidGrid = getActiveLayout().playerSolids,

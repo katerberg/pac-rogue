@@ -10,6 +10,7 @@ import { PowerPellet } from "../components/PowerPellet";
 export type PelletCollectFrame = {
   powerRemoved: number;
   removedEids: number[];
+  removedPowerPositions: { x: number; y: number }[];
 };
 
 export type CollectPelletsOptions = {
@@ -24,7 +25,7 @@ export function countPellets(world: World): number {
 export function collectPellets(world: World, opts: CollectPelletsOptions = {}): PelletCollectFrame {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {
-    return { powerRemoved: 0, removedEids: [] };
+    return { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
   }
 
   const radiusBonusPx = opts.radiusBonusPx ?? 0;
@@ -58,12 +59,14 @@ export function collectPellets(world: World, opts: CollectPelletsOptions = {}): 
   }
 
   let powerRemoved = 0;
+  const removedPowerPositions: { x: number; y: number }[] = [];
   for (const eid of toRemove) {
     if (hasComponent(world, eid, PowerPellet)) {
       powerRemoved += 1;
+      removedPowerPositions.push({ x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 });
     }
     removeEntity(world, eid);
   }
 
-  return { powerRemoved, removedEids: toRemove };
+  return { powerRemoved, removedEids: toRemove, removedPowerPositions };
 }
