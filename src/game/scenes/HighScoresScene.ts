@@ -13,6 +13,7 @@ import {
   tickScoreListScroll,
   type ScoreListScrollState,
 } from "../../domain/scoreListScroll";
+import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { loadRunHistory } from "../storage/runHistoryStorage";
 import {
   addPixelText,
@@ -49,8 +50,13 @@ export class HighScoresScene extends Phaser.Scene {
     super("HighScoresScene");
   }
 
+  preload(): void {
+    preloadSfx(this);
+  }
+
   create(): void {
     this.pendingBack = false;
+    startLoopingSfx(this, "menuMusic");
     const rows = toHighScoreRows(loadRunHistory());
     this.itemCount = rows.length;
     this.scrollState = createScoreListScroll(this.itemCount, SCROLL);

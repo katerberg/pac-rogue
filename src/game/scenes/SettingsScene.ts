@@ -15,7 +15,13 @@ import {
   type MazeColorSettings,
 } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { playVolumePreview, preloadSfx, stopMusicVolumePreview } from "../audio/sfx";
+import {
+  musicIdForContext,
+  playSfxPreview,
+  preloadSfx,
+  syncMusicPlayback,
+  type SfxId,
+} from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
 import { loadMazeColorSettings, saveMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -86,6 +92,7 @@ export class SettingsScene extends Phaser.Scene {
   private backText!: Phaser.GameObjects.BitmapText;
   private dragging: AudioCategory | null = null;
   private returnScene = "MenuScene";
+  private musicId: SfxId = "menuMusic";
 
   private mazeColorSettings: MazeColorSettings = defaultMazeColorSettings();
   private mazeColorCursorIndex = 0;
@@ -127,6 +134,8 @@ export class SettingsScene extends Phaser.Scene {
     this.rows = [];
     this.returnScene = data?.returnScene ?? "MenuScene";
     this.audioDisabled = this.game.config.audio.noAudio === true;
+    this.musicId = musicIdForContext(this.returnScene);
+    syncMusicPlayback(this, this.musicId, this.settings);
     this.mazeColorSettings = loadMazeColorSettings();
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
 
@@ -387,7 +396,11 @@ export class SettingsScene extends Phaser.Scene {
     saveAudioSettings(this.settings);
     this.refreshUi();
     if (next !== prev && !this.audioDisabled) {
-      playVolumePreview(this, this.settings, category);
+      if (category === "music") {
+        syncMusicPlayback(this, this.musicId, this.settings);
+      } else {
+        playSfxPreview(this, this.settings);
+      }
     }
   }
 
@@ -411,8 +424,8 @@ export class SettingsScene extends Phaser.Scene {
       this.settings = { ...this.settings, sfxEnabled: !this.settings.sfxEnabled };
     }
     saveAudioSettings(this.settings);
-    if (category === "music" && !this.settings.musicEnabled) {
-      stopMusicVolumePreview(this);
+    if (category === "music" && !this.audioDisabled) {
+      syncMusicPlayback(this, this.musicId, this.settings);
     }
     this.refreshUi();
   }
@@ -478,7 +491,6 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private goBack(): void {
-    stopMusicVolumePreview(this);
     this.scene.start(this.returnScene);
   }
 }

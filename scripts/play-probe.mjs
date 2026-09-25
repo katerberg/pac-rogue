@@ -28,6 +28,7 @@ Steps (comma-separated):
   hover:<x>:<y>          move the mouse to game coordinates, scaled onto the canvas
   shot:<label>           screenshot to artifacts/<name>-<label>.png
   scene:<SceneKey>       fail unless that scene is active (MenuScene, PlayScene, ...)
+  sound:<key>:<yes|no>   fail unless that sound's isPlaying() matches (e.g. menu-music, gameplay-music)
 
 Example:
   node scripts/play-probe.mjs --query "play=1&maze=mazeSmall" \\
@@ -112,6 +113,18 @@ async function runStep(page, canvas, step, name) {
         throw new Error(`Scene ${a} is not active`);
       }
       console.log(`scene ${a} active`);
+      break;
+    }
+    case "sound": {
+      const expected = b === "yes";
+      const playing = await page.evaluate(
+        (key) => globalThis.__PAC_ROGUE_GAME__?.sound?.isPlaying(key) === true,
+        a,
+      );
+      if (playing !== expected) {
+        throw new Error(`Expected sound "${a}" playing=${expected}, got ${playing}`);
+      }
+      console.log(`sound ${a} playing=${playing}`);
       break;
     }
     default:
