@@ -3,11 +3,12 @@ import { GHOST_KIND } from "./ghostKind";
 import {
   allSeenRecord,
   emptySeenRecord,
-  parseLearnAllFlag,
+  parseLearnAllMode,
   parseSeenRecord,
   serializeSeenRecord,
   withSeenCorruption,
   withSeenGhosts,
+  withSeenUpgrade,
 } from "./seenRecord";
 
 describe("parseSeenRecord", () => {
@@ -22,14 +23,25 @@ describe("parseSeenRecord", () => {
     const raw = JSON.stringify({
       ghosts: [GHOST_KIND.inky, 99, GHOST_KIND.inky, "blinky", GHOST_KIND.blinky],
       corruptions: ["slimeTrail", "bogus", "slimeTrail"],
+      upgrades: ["playerSpeedUp", "bogus", "playerSpeedUp"],
     });
     expect(parseSeenRecord(raw)).toEqual({
       ghosts: [GHOST_KIND.blinky, GHOST_KIND.inky],
       corruptions: ["slimeTrail"],
+      upgrades: ["playerSpeedUp"],
     });
-    expect(parseSeenRecord(JSON.stringify({ ghosts: "x", corruptions: 3 }))).toEqual(
+    expect(parseSeenRecord(JSON.stringify({ ghosts: "x", corruptions: 3, upgrades: 3 }))).toEqual(
       emptySeenRecord(),
     );
+  });
+
+  it("parses a legacy record without an upgrades field as no upgrades seen", () => {
+    const raw = JSON.stringify({ ghosts: [GHOST_KIND.blinky], corruptions: [] });
+    expect(parseSeenRecord(raw)).toEqual({
+      ghosts: [GHOST_KIND.blinky],
+      corruptions: [],
+      upgrades: [],
+    });
   });
 
   it("round-trips through serialize", () => {
@@ -41,12 +53,14 @@ describe("parseSeenRecord", () => {
   });
 });
 
-describe("withSeenGhosts / withSeenCorruption", () => {
+describe("withSeenGhosts / withSeenCorruption / withSeenUpgrade", () => {
   it("returns the same reference when nothing is new", () => {
     const record = withSeenGhosts(emptySeenRecord(), [GHOST_KIND.blinky, GHOST_KIND.pinky]);
     expect(withSeenGhosts(record, [GHOST_KIND.pinky])).toBe(record);
     const withCorruption = withSeenCorruption(record, "falseScatter");
     expect(withSeenCorruption(withCorruption, "falseScatter")).toBe(withCorruption);
+    const withUpgrade = withSeenUpgrade(record, "playerSpeedUp");
+    expect(withSeenUpgrade(withUpgrade, "playerSpeedUp")).toBe(withUpgrade);
   });
 
   it("merges in canonical order", () => {
@@ -56,19 +70,23 @@ describe("withSeenGhosts / withSeenCorruption", () => {
     expect(record.ghosts).toEqual([GHOST_KIND.blinky, GHOST_KIND.inky]);
     const corrupt = withSeenCorruption(withSeenCorruption(record, "falseScatter"), "slimeTrail");
     expect(corrupt.corruptions).toEqual(["slimeTrail", "falseScatter"]);
+    const upgraded = withSeenUpgrade(withSeenUpgrade(record, "ghostSlow"), "powerPelletFreeze");
+    expect(upgraded.upgrades).toEqual(["powerPelletFreeze", "ghostSlow"]);
   });
 });
 
-describe("allSeenRecord / parseLearnAllFlag", () => {
-  it("covers every ghost and corruption", () => {
+describe("allSeenRecord / parseLearnAllMode", () => {
+  it("covers every ghost, corruption, and upgrade", () => {
     const all = allSeenRecord();
     expect(all.ghosts).toHaveLength(4);
     expect(all.corruptions).toHaveLength(7);
+    expect(all.upgrades).toHaveLength(20);
   });
 
-  it("only accepts learnAll=1", () => {
-    expect(parseLearnAllFlag(new URLSearchParams("learnAll=1"))).toBe(true);
-    expect(parseLearnAllFlag(new URLSearchParams("learnAll=0"))).toBe(false);
-    expect(parseLearnAllFlag(new URLSearchParams(""))).toBe(false);
+  it("only accepts learnAll=1 or learnAll=0", () => {
+    expect(parseLearnAllMode(new URLSearchParams("learnAll=1"))).toBe("all");
+    expect(parseLearnAllMode(new URLSearchParams("learnAll=0"))).toBe("none");
+    expect(parseLearnAllMode(new URLSearchParams(""))).toBeNull();
+    expect(parseLearnAllMode(new URLSearchParams("learnAll=yes"))).toBeNull();
   });
 });

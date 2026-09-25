@@ -25,6 +25,7 @@ Steps (comma-separated):
   hold:<Key>:<ms>        keydown, wait, keyup (Playwright key names, e.g. ArrowLeft)
   press:<Key>            tap a key
   click:<x>:<y>          click at game coordinates (800x600), scaled onto the canvas
+  hover:<x>:<y>          move the mouse to game coordinates, scaled onto the canvas
   shot:<label>           screenshot to artifacts/<name>-<label>.png
   scene:<SceneKey>       fail unless that scene is active (MenuScene, PlayScene, ...)
 
@@ -76,6 +77,21 @@ async function runStep(page, canvas, step, name) {
         return { width: g.scale.gameSize.width, height: g.scale.gameSize.height };
       });
       await page.mouse.click(
+        box.x + (Number(a) / game.width) * box.width,
+        box.y + (Number(b) / game.height) * box.height,
+      );
+      break;
+    }
+    case "hover": {
+      const box = await canvas.boundingBox();
+      if (box === null) {
+        throw new Error("canvas has no bounding box");
+      }
+      const game = await page.evaluate(() => {
+        const g = globalThis.__PAC_ROGUE_GAME__;
+        return { width: g.scale.gameSize.width, height: g.scale.gameSize.height };
+      });
+      await page.mouse.move(
         box.x + (Number(a) / game.width) * box.width,
         box.y + (Number(b) / game.height) * box.height,
       );

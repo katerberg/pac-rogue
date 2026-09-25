@@ -103,6 +103,41 @@ function copyForOption(option: UpgradeChoiceOption): { label: string; descriptio
   return { label: def.label, description: def.description };
 }
 
+export type UpgradeCardVisual = {
+  root: Phaser.GameObjects.Container;
+  bg: Phaser.GameObjects.Rectangle;
+  label: Phaser.GameObjects.BitmapText;
+  description: Phaser.GameObjects.BitmapText;
+  targetLabel: string;
+  targetDescription: string;
+};
+
+export function buildUpgradeCardVisual(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  copy: { label: string; description: string },
+): UpgradeCardVisual {
+  const targetLabel = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
+  const targetDescription = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
+  const bg = scene.add
+    .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
+    .setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
+  const label = addPixelText(scene, 0, 0, targetLabel, CHOICE_LABEL_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const description = addPixelText(
+    scene,
+    0,
+    0,
+    targetDescription,
+    UPGRADES_HUD_FONT_SIZE,
+    TEXT_COLOR_WHITE,
+  );
+  placePixelText(label, 0, -30, 0.5, 0.5);
+  placePixelText(description, 0, 18, 0.5, 0.5);
+  const root = scene.add.container(x, y, [bg, label, description]);
+  return { root, bg, label, description, targetLabel, targetDescription };
+}
+
 type ButtonView = {
   slot: Slot;
   option: UpgradeChoiceOption;
@@ -277,39 +312,25 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     slots.forEach(({ slot, option }, index) => {
       const center = SLOT_POSITIONS[slot];
       const copy = copyForOption(option);
-      const labelText = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
-      const descriptionText = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
-      const bg = scene.add
-        .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
-        .setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW)
-        .setInteractive({ useHandCursor: true });
-      const label = addPixelText(scene, 0, 0, labelText, CHOICE_LABEL_FONT_SIZE, TEXT_COLOR_YELLOW);
-      const description = addPixelText(
-        scene,
-        0,
-        0,
-        descriptionText,
-        UPGRADES_HUD_FONT_SIZE,
-        TEXT_COLOR_WHITE,
-      );
-      const root = scene.add.container(center.x, center.y, [bg, label, description]);
-      root.setDepth(MODAL_DEPTH + 1);
-      root.setAlpha(0);
+      const visual = buildUpgradeCardVisual(scene, center.x, center.y, copy);
+      visual.bg.setInteractive({ useHandCursor: true });
+      visual.root.setDepth(MODAL_DEPTH + 1);
+      visual.root.setAlpha(0);
 
       const view: ButtonView = {
         slot,
         option,
-        root,
-        bg,
-        label,
-        description,
-        targetLabel: labelText,
-        targetDescription: descriptionText,
+        root: visual.root,
+        bg: visual.bg,
+        label: visual.label,
+        description: visual.description,
+        targetLabel: visual.targetLabel,
+        targetDescription: visual.targetDescription,
         baseX: center.x,
         baseY: center.y,
       };
       placeButtonText(view);
-      bg.on("pointerdown", () => {
+      visual.bg.on("pointerdown", () => {
         if (phase === "selecting") {
           finish(index);
         }
