@@ -14,7 +14,13 @@ export type UpgradeId =
   | "powerCollectThree"
   | "powerWallPass"
   | "powerSpeedBurst"
-  | "powerInvuln";
+  | "powerInvuln"
+  | "fruitPower"
+  | "quarterBounty"
+  | "deathsHarvest"
+  | "overcharge"
+  | "tunnelDash"
+  | "secondChomp";
 
 export type UpgradeDef = {
   id: UpgradeId;
@@ -22,6 +28,7 @@ export type UpgradeDef = {
   description: string;
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
+  fruitQuarterMul?: number;
   pelletCollectRadiusBonusPx?: number;
   grantLives?: number;
   ghostHouseReleaseDelayAddMs?: number;
@@ -55,6 +62,11 @@ export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
 export const POWER_COLLECT_THREE_COUNT = 3;
 export const QUARTERS_CHOICE_AMOUNT = 2;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
+export const QUARTER_BOUNTY_MUL = 2;
+export const DEATHS_HARVEST_RADIUS_TILES = 6;
+export const OVERCHARGE_MUL = 2;
+export const SECOND_CHOMP_MS = 10_000;
+export const TUNNEL_DASH_SPEED_MUL = 10;
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
@@ -140,6 +152,37 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     description: "Power pellet lets you pass through ghosts briefly.",
     onPowerPellet: { playerInvulnMs: INVULN_MS },
   },
+  {
+    id: "fruitPower",
+    label: "Fruit Power",
+    description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
+  },
+  {
+    id: "quarterBounty",
+    label: "Quarter Bounty",
+    description: "Bonus fruit pays out double quarters.",
+    fruitQuarterMul: QUARTER_BOUNTY_MUL,
+  },
+  {
+    id: "deathsHarvest",
+    label: "Death's Harvest",
+    description: "Dying harvests nearby pellets — clear the board this way and it counts as a win.",
+  },
+  {
+    id: "overcharge",
+    label: "Overcharge",
+    description: "Doubles the duration of every other power pellet timer you're running.",
+  },
+  {
+    id: "tunnelDash",
+    label: "Tunnel Dash",
+    description: "Tunnels move you the instant you touch them.",
+  },
+  {
+    id: "secondChomp",
+    label: "Second Chomp",
+    description: "Eaten power pellets regenerate after ten seconds.",
+  },
 ];
 
 const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
@@ -147,6 +190,38 @@ const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
 );
 
 const ALL_UPGRADE_IDS: readonly UpgradeId[] = UPGRADE_DEFS.map((def) => def.id);
+
+export type PendingPowerPelletRespawn = { x: number; y: number; remainingMs: number };
+
+export function queuePowerPelletRespawns(
+  pending: PendingPowerPelletRespawn[],
+  positions: readonly { x: number; y: number }[],
+): PendingPowerPelletRespawn[] {
+  if (positions.length === 0) {
+    return pending;
+  }
+  return [
+    ...pending,
+    ...positions.map((pos) => ({ x: pos.x, y: pos.y, remainingMs: SECOND_CHOMP_MS })),
+  ];
+}
+
+export function tickPowerPelletRespawns(
+  pending: readonly PendingPowerPelletRespawn[],
+  deltaMs: number,
+): { pending: PendingPowerPelletRespawn[]; ready: { x: number; y: number }[] } {
+  const remaining: PendingPowerPelletRespawn[] = [];
+  const ready: { x: number; y: number }[] = [];
+  for (const entry of pending) {
+    const remainingMs = entry.remainingMs - Math.max(0, deltaMs);
+    if (remainingMs > 0) {
+      remaining.push({ ...entry, remainingMs });
+    } else {
+      ready.push({ x: entry.x, y: entry.y });
+    }
+  }
+  return { pending: remaining, ready };
+}
 
 export type RunUpgrades = {
   owned: UpgradeId[];
@@ -437,6 +512,24 @@ export function applyPowerPelletEffects(
     }
   }
 
+  if (state.owned.includes("overcharge")) {
+    if (freezeClosestMs !== null) {
+      freezeClosestMs *= OVERCHARGE_MUL;
+    }
+    if (scatterMs !== null) {
+      scatterMs *= OVERCHARGE_MUL;
+    }
+    if (wallPassMs !== null) {
+      wallPassMs *= OVERCHARGE_MUL;
+    }
+    if (invulnMs !== null) {
+      invulnMs *= OVERCHARGE_MUL;
+    }
+    if (speedBurstMs !== null) {
+      speedBurstMs *= OVERCHARGE_MUL;
+    }
+  }
+
   let next = state;
   if (scatterMs !== null) {
     next = { ...next, scatterBurstRemainingMs: scatterMs };
@@ -462,7 +555,7 @@ export function applyPowerPelletEffects(
 
 function speedMultiplier(
   owned: readonly UpgradeId[],
-  key: "playerSpeedMul" | "ghostSpeedMul",
+  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitQuarterMul",
 ): number {
   let mul = 1;
   for (const id of owned) {
@@ -480,6 +573,10 @@ export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
 
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "ghostSpeedMul");
+}
+
+export function fruitQuarterMultiplier(owned: readonly UpgradeId[]): number {
+  return speedMultiplier(owned, "fruitQuarterMul");
 }
 
 export function pelletCollectRadiusBonusPx(owned: readonly UpgradeId[]): number {

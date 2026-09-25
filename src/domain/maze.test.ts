@@ -23,6 +23,7 @@ import {
   hasLeftGhostHouse,
   isDoor,
   isExterior,
+  isGhostTunnelSlow,
   isGhostWalkable,
   isHouse,
   isSolid,
@@ -37,6 +38,7 @@ import {
   playerTopCenterCell,
   playerTopCenterSpawn,
   pelletCellCenters,
+  tunnelDashOutwardEdge,
   PLAYER_WALL_PADDING_PX,
   WALL_CORNER_RADIUS,
   WALL_CORNER_CURVE_MIN_STEPS,
@@ -143,6 +145,24 @@ describe("maze", () => {
   it("exposes top/bottom tunnel helpers even when unused by the ASCII", () => {
     expect(isTunnelMouth(13, 0)).toBe(false);
     expect(isTunnelMouth(13, MAZE_ROWS - 1)).toBe(false);
+  });
+
+  it("tunnelDashOutwardEdge covers the whole tunnel band, not just the boundary cell", () => {
+    // Classic 28-col geometry: leftBand = floor(28*5/28) = 5, rightBand = floor(28*6/28) = 6.
+    expect(tunnelDashOutwardEdge(0, 14)).toBe("left");
+    expect(tunnelDashOutwardEdge(5, 14)).toBe("left");
+    expect(tunnelDashOutwardEdge(6, 14)).toBeNull();
+    expect(tunnelDashOutwardEdge(21, 14)).toBeNull();
+    expect(tunnelDashOutwardEdge(22, 14)).toBe("right");
+    expect(tunnelDashOutwardEdge(MAZE_COLS - 1, 14)).toBe("right");
+    expect(tunnelDashOutwardEdge(0, 10)).toBeNull();
+  });
+
+  it("isGhostTunnelSlow shares the same band boundaries as tunnelDashOutwardEdge", () => {
+    expect(isGhostTunnelSlow(5, 14)).toBe(true);
+    expect(isGhostTunnelSlow(6, 14)).toBe(false);
+    expect(isGhostTunnelSlow(22, 14)).toBe(true);
+    expect(isGhostTunnelSlow(21, 14)).toBe(false);
   });
 
   it("treats # as walls and keeps corridors walkable", () => {
