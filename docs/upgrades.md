@@ -42,6 +42,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 - Collecting bonus fruit plays both munches, despawns fruit, and awards one Quarter — no upgrade effect, no modal.
 - Clearing a level (2 through 7; not level 1 or the final level 8 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned. The modal always opens on this trigger — there is no "0 eligible → skip" case anymore, since the Quarters option is always available.
 - `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — no modal at all, immediate level transition. Does not affect the level-1 starting upgrade or `enableUpgrade`.
+- `?jumpToUpgrade=1` (debug): fires the trigger immediately on the first board — clears all its pellets and opens the modal without playing the level. Defaults the start level to 2 when `?level=` is omitted, since level 1 never offers this modal. Disables high-score saving for the run (same as `disableLevelUpgrades` / `infiniteLives`).
 - `pickUpgradeChoiceOffer` returns an offer of `{ quarters: QUARTERS_CHOICE_AMOUNT, upgrades }`, where `upgrades` holds up to three ids (`min(3, eligible.length)`):
   - Never repeats an id.
   - Prefers excluding `lastDeclinedUpgradeId`.

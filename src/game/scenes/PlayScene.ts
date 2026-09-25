@@ -1,4 +1,4 @@
-import { addComponent, addEntity, createWorld, query, type World } from "bitecs";
+import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import Phaser from "phaser";
 import {
   createPelletProgress,
@@ -70,6 +70,7 @@ import {
 import { parseQuartersParam } from "../../domain/quartersFlag";
 import { parseGhostsParam } from "../../domain/ghostsFlag";
 import { parseLevelParam } from "../../domain/runLevel";
+import { parseJumpToUpgradeFlag } from "../../domain/jumpToUpgradeFlag";
 import {
   FRUIT_DRAWABLE_ID,
   FRUIT_RADIUS,
@@ -241,6 +242,7 @@ export class PlayScene extends Phaser.Scene {
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private disableLevelUpgrades = false;
   private infiniteLives = false;
+  private jumpToUpgrade = false;
   private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
   private corruptionHiddenGhostEid: number | null = null;
   private corruptionFlashGhostEid: number | null = null;
@@ -307,8 +309,9 @@ export class PlayScene extends Phaser.Scene {
     if (urlParams.has("ghosts") && this.ghostsOverride === null) {
       console.warn(`Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde`);
     }
+    this.jumpToUpgrade = parseJumpToUpgradeFlag(urlParams);
     this.quarters = quartersOverride ?? 0;
-    this.levelIndex = levelOverride ?? 1;
+    this.levelIndex = levelOverride ?? (this.jumpToUpgrade ? 2 : 1);
     this.runMazeSeed = String(Math.floor(Math.random() * 0xffffffff));
     this.secondGhostKind = Math.random() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
     this.runCorruption = createRunCorruption(forcedCorruption);
@@ -348,7 +351,7 @@ export class PlayScene extends Phaser.Scene {
     this.startBoard(mazeOverride);
 
     const startingUpgrade =
-      this.levelIndex === 1
+      this.levelIndex === 1 && !this.jumpToUpgrade
         ? pickStartingUpgrade(this.runUpgrades.owned, () => Math.random())
         : null;
     if (startingUpgrade !== null) {
@@ -369,6 +372,9 @@ export class PlayScene extends Phaser.Scene {
         ...this.renderCorruptionOptions(),
       });
       this.startingUpgradeCard.open(startingUpgrade);
+    }
+    if (this.jumpToUpgrade) {
+      this.jumpToLevelClear();
     }
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -725,7 +731,12 @@ export class PlayScene extends Phaser.Scene {
         : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.refreshLivesIcons();
-      if (result.gameOver && !this.infiniteLives && !this.disableLevelUpgrades) {
+      if (
+        result.gameOver &&
+        !this.infiniteLives &&
+        !this.disableLevelUpgrades &&
+        !this.jumpToUpgrade
+      ) {
         saveRun(this.lifetimeCollected, this.clock.remaining);
       }
       this.death = beginDeathSequence(result.gameOver);
@@ -875,6 +886,18 @@ export class PlayScene extends Phaser.Scene {
       }
       this.refreshUpgradesHud();
     });
+  }
+
+  private jumpToLevelClear(): void {
+    const pelletEids = query(this.world, [Pellet, Position]);
+    for (const eid of pelletEids) {
+      removeEntity(this.world, eid);
+      this.playRender.releaseDrawable(eid);
+    }
+    const collectResult = applyPelletCollect(this.pelletProgress, pelletEids.length);
+    this.pelletProgress = collectResult.progress;
+    this.lifetimeCollected += pelletEids.length;
+    this.triggerLevelClear();
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): boolean {
