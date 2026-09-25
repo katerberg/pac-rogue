@@ -64,6 +64,7 @@ export const QUARTER_BOUNTY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
+export const TUNNEL_DASH_SPEED_MUL = 10;
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {

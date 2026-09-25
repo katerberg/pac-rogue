@@ -7,7 +7,7 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
-import { applyTunnelDash } from "./tunnelDash";
+import { applyTunnelDash, tickTunnelDashAnimation } from "./tunnelDash";
 
 const TUNNEL_ROW = 14;
 // Classic 28-col geometry: leftBand = floor(28*5/28) = 5 (cols 0-5), rightBand = floor(28*6/28) = 6 (cols 22-27).
@@ -45,22 +45,28 @@ function spawnPellet(
 }
 
 describe("applyTunnelDash", () => {
-  it("lands at the literal opposite tunnel mouth, not a mirrored band position", () => {
+  it("triggers from the left band, targeting the near mouth with a far-mouth wrap destination", () => {
     const { world, eid } = spawnWorld(LEFT_BAND_COL, TUNNEL_ROW, DIRECTION.left);
 
-    applyTunnelDash(world);
+    const result = applyTunnelDash(world);
 
-    expect(Position.x[eid]).toBe(cellCenterX(MAZE_COLS - 1));
-    expect(Position.y[eid]).toBe(cellCenterY(TUNNEL_ROW));
+    expect(result).not.toBeNull();
+    expect(result!.animateToX).toBe(cellCenterX(0));
+    expect(result!.wrapToX).toBe(cellCenterX(MAZE_COLS - 1));
+    expect(result!.y).toBe(cellCenterY(TUNNEL_ROW));
+    // Position is left untouched — the caller animates it via tickTunnelDashAnimation.
+    expect(Position.x[eid]).toBe(cellCenterX(LEFT_BAND_COL));
   });
 
-  it("lands at the literal left mouth when dashing from the right band", () => {
+  it("triggers from the right band, targeting the near mouth with a far-mouth wrap destination", () => {
     const { world, eid } = spawnWorld(RIGHT_BAND_COL, TUNNEL_ROW, DIRECTION.right);
 
-    applyTunnelDash(world);
+    const result = applyTunnelDash(world);
 
-    expect(Position.x[eid]).toBe(cellCenterX(0));
-    expect(Position.y[eid]).toBe(cellCenterY(TUNNEL_ROW));
+    expect(result).not.toBeNull();
+    expect(result!.animateToX).toBe(cellCenterX(MAZE_COLS - 1));
+    expect(result!.wrapToX).toBe(cellCenterX(0));
+    expect(Position.x[eid]).toBe(cellCenterX(RIGHT_BAND_COL));
   });
 
   it("sweeps and removes pellets between the trigger point and the near edge, leaving none behind", () => {
@@ -72,7 +78,7 @@ describe("applyTunnelDash", () => {
 
     const result = applyTunnelDash(world);
 
-    expect(result.sweptPelletEids.sort()).toEqual([swept1, swept2].sort());
+    expect(result!.sweptPelletEids.sort()).toEqual([swept1, swept2].sort());
     expect([...query(world, [Pellet])].sort()).toEqual([beyond, otherRow].sort());
   });
 
@@ -82,20 +88,10 @@ describe("applyTunnelDash", () => {
 
     const result = applyTunnelDash(world);
 
-    expect(result.sweptPowerRemoved).toBe(1);
-    expect(result.sweptPowerPositions).toEqual([{ x: cellCenterX(1), y: cellCenterY(TUNNEL_ROW) }]);
-  });
-
-  it("does not fire immediately after dashing (no ping-pong)", () => {
-    const { world, eid } = spawnWorld(LEFT_BAND_COL, TUNNEL_ROW, DIRECTION.left);
-
-    const first = applyTunnelDash(world);
-    const second = applyTunnelDash(world);
-
-    expect(first.sweptPelletEids).toEqual([]);
-    expect(second.sweptPelletEids).toEqual([]);
-    expect(Position.x[eid]).toBe(cellCenterX(MAZE_COLS - 1));
-    expect(Position.y[eid]).toBe(cellCenterY(TUNNEL_ROW));
+    expect(result!.sweptPowerRemoved).toBe(1);
+    expect(result!.sweptPowerPositions).toEqual([
+      { x: cellCenterX(1), y: cellCenterY(TUNNEL_ROW) },
+    ]);
   });
 
   it("does not fire when facing inward inside a band", () => {
@@ -103,33 +99,61 @@ describe("applyTunnelDash", () => {
 
     const result = applyTunnelDash(world);
 
-    expect(result.sweptPelletEids).toEqual([]);
+    expect(result).toBeNull();
     expect(Position.x[eid]).toBe(cellCenterX(LEFT_BAND_COL));
-    expect(Position.y[eid]).toBe(cellCenterY(TUNNEL_ROW));
   });
 
   it("does not fire outside either band", () => {
-    const { world, eid } = spawnWorld(OUTSIDE_BAND_COL, TUNNEL_ROW, DIRECTION.left);
+    const { world } = spawnWorld(OUTSIDE_BAND_COL, TUNNEL_ROW, DIRECTION.left);
 
-    const result = applyTunnelDash(world);
-
-    expect(result.sweptPelletEids).toEqual([]);
-    expect(Position.x[eid]).toBe(cellCenterX(OUTSIDE_BAND_COL));
-    expect(Position.y[eid]).toBe(cellCenterY(TUNNEL_ROW));
+    expect(applyTunnelDash(world)).toBeNull();
   });
 
   it("does not fire on a non-tunnel row even within the same columns", () => {
-    const { world, eid } = spawnWorld(0, 1, DIRECTION.left);
+    const { world } = spawnWorld(0, 1, DIRECTION.left);
 
-    const result = applyTunnelDash(world);
-
-    expect(result.sweptPelletEids).toEqual([]);
-    expect(Position.x[eid]).toBe(cellCenterX(0));
-    expect(Position.y[eid]).toBe(cellCenterY(1));
+    expect(applyTunnelDash(world)).toBeNull();
   });
 
-  it("no-ops without a player", () => {
+  it("returns null without a player", () => {
     const world = createWorld();
-    expect(() => applyTunnelDash(world)).not.toThrow();
+    expect(applyTunnelDash(world)).toBeNull();
+  });
+});
+
+describe("tickTunnelDashAnimation", () => {
+  it("moves the player toward targetX at the given speed", () => {
+    const { world, eid } = spawnWorld(LEFT_BAND_COL, TUNNEL_ROW, DIRECTION.left);
+    const anim = {
+      targetX: cellCenterX(0),
+      wrapToX: cellCenterX(MAZE_COLS - 1),
+      y: cellCenterY(TUNNEL_ROW),
+    };
+    const startX = Position.x[eid]!;
+
+    const next = tickTunnelDashAnimation(world, anim, 16, 100);
+
+    expect(next).not.toBeNull();
+    expect(Position.x[eid]).toBeCloseTo(startX - 100 * (16 / 1000), 5);
+  });
+
+  it("snaps to wrapToX and returns null once the target is reached", () => {
+    const { world, eid } = spawnWorld(0, TUNNEL_ROW, DIRECTION.left);
+    const anim = {
+      targetX: cellCenterX(0),
+      wrapToX: cellCenterX(MAZE_COLS - 1),
+      y: cellCenterY(TUNNEL_ROW),
+    };
+
+    const next = tickTunnelDashAnimation(world, anim, 16, 100);
+
+    expect(next).toBeNull();
+    expect(Position.x[eid]).toBe(cellCenterX(MAZE_COLS - 1));
+  });
+
+  it("returns null without a player", () => {
+    const world = createWorld();
+    const anim = { targetX: 0, wrapToX: 0, y: 0 };
+    expect(tickTunnelDashAnimation(world, anim, 16, 100)).toBeNull();
   });
 });

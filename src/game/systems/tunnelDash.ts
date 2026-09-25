@@ -20,22 +20,25 @@ const OUTWARD_DIRECTION = {
   right: DIRECTION.right,
 } as const;
 
-export type TunnelDashResult = {
+export type TunnelDashTrigger = {
+  animateToX: number;
+  wrapToX: number;
+  y: number;
   sweptPelletEids: number[];
   sweptPowerRemoved: number;
   sweptPowerPositions: { x: number; y: number }[];
 };
 
-const NO_DASH: TunnelDashResult = {
-  sweptPelletEids: [],
-  sweptPowerRemoved: 0,
-  sweptPowerPositions: [],
+export type TunnelDashAnimation = {
+  targetX: number;
+  wrapToX: number;
+  y: number;
 };
 
-export function applyTunnelDash(world: World): TunnelDashResult {
+export function applyTunnelDash(world: World): TunnelDashTrigger | null {
   const eid = query(world, [Player, Position, Facing])[0];
   if (eid === undefined) {
-    return NO_DASH;
+    return null;
   }
 
   const col = worldToCol(Position.x[eid] ?? 0);
@@ -43,12 +46,13 @@ export function applyTunnelDash(world: World): TunnelDashResult {
   const solids = getActiveLayout().playerSolids;
   const edge = tunnelDashOutwardEdge(col, row, solids);
   if (edge === null || Facing.direction[eid] !== OUTWARD_DIRECTION[edge]) {
-    return NO_DASH;
+    return null;
   }
 
   const sweepFromCol = edge === "left" ? 0 : col;
   const sweepToCol = edge === "left" ? col : MAZE_COLS - 1;
-  const destCol = edge === "left" ? MAZE_COLS - 1 : 0;
+  const nearEdgeCol = edge === "left" ? 0 : MAZE_COLS - 1;
+  const farEdgeCol = edge === "left" ? MAZE_COLS - 1 : 0;
 
   const sweptPelletEids: number[] = [];
   const sweptPowerPositions: { x: number; y: number }[] = [];
@@ -72,8 +76,36 @@ export function applyTunnelDash(world: World): TunnelDashResult {
     removeEntity(world, pelletEid);
   }
 
-  Position.x[eid] = cellCenterX(destCol);
-  Position.y[eid] = cellCenterY(row);
+  return {
+    animateToX: cellCenterX(nearEdgeCol),
+    wrapToX: cellCenterX(farEdgeCol),
+    y: cellCenterY(row),
+    sweptPelletEids,
+    sweptPowerRemoved,
+    sweptPowerPositions,
+  };
+}
 
-  return { sweptPelletEids, sweptPowerRemoved, sweptPowerPositions };
+export function tickTunnelDashAnimation(
+  world: World,
+  anim: TunnelDashAnimation,
+  deltaMs: number,
+  speedPxPerSec: number,
+): TunnelDashAnimation | null {
+  const eid = query(world, [Player, Position])[0];
+  if (eid === undefined) {
+    return null;
+  }
+
+  const dx = anim.targetX - (Position.x[eid] ?? 0);
+  const step = speedPxPerSec * (deltaMs / 1000);
+  if (Math.abs(dx) <= step) {
+    Position.x[eid] = anim.wrapToX;
+    Position.y[eid] = anim.y;
+    return null;
+  }
+
+  Position.x[eid] = (Position.x[eid] ?? 0) + Math.sign(dx) * step;
+  Position.y[eid] = anim.y;
+  return anim;
 }

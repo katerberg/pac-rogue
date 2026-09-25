@@ -129,6 +129,7 @@ import {
   tickPowerPelletRespawns,
   tickScatterBurst,
   tickSpeedBurst,
+  TUNNEL_DASH_SPEED_MUL,
   tickWallPass,
   upgradeLabels,
   wallPassActive,
@@ -184,7 +185,11 @@ import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
-import { applyTunnelDash } from "../systems/tunnelDash";
+import {
+  applyTunnelDash,
+  tickTunnelDashAnimation,
+  type TunnelDashAnimation,
+} from "../systems/tunnelDash";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
 import {
@@ -231,6 +236,7 @@ export class PlayScene extends Phaser.Scene {
   private runCompleteRemainingMs = 0;
   private fruitPresence: FruitPresence = createFruitPresence();
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
+  private tunnelDashAnim: TunnelDashAnimation | null = null;
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private disableLevelUpgrades = false;
   private infiniteLives = false;
@@ -499,34 +505,50 @@ export class PlayScene extends Phaser.Scene {
       ? getActiveLayout().wallPassPlayerSolids
       : undefined;
     movement(this.world, delta, playerSolidsOverride);
-    if (this.runUpgrades.owned.includes("tunnelDash")) {
+    if (this.tunnelDashAnim !== null) {
+      this.tunnelDashAnim = tickTunnelDashAnimation(
+        this.world,
+        this.tunnelDashAnim,
+        delta,
+        PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
+      );
+    } else if (this.runUpgrades.owned.includes("tunnelDash")) {
       const dash = applyTunnelDash(this.world);
-      if (dash.sweptPelletEids.length > 0) {
-        for (const eid of dash.sweptPelletEids) {
-          this.playRender.releaseDrawable(eid);
-        }
-        playPelletCollectSfx(
-          this,
-          this.lifetimeCollected,
-          dash.sweptPelletEids.length,
-          dash.sweptPowerRemoved,
-        );
-        if (this.runUpgrades.owned.includes("secondChomp")) {
-          this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
-            this.pendingPowerPelletRespawns,
-            dash.sweptPowerPositions,
+      if (dash !== null) {
+        if (dash.sweptPelletEids.length > 0) {
+          for (const eid of dash.sweptPelletEids) {
+            this.playRender.releaseDrawable(eid);
+          }
+          playPelletCollectSfx(
+            this,
+            this.lifetimeCollected,
+            dash.sweptPelletEids.length,
+            dash.sweptPowerRemoved,
           );
+          if (this.runUpgrades.owned.includes("secondChomp")) {
+            this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
+              this.pendingPowerPelletRespawns,
+              dash.sweptPowerPositions,
+            );
+          }
+          const collectResult = applyPelletCollect(
+            this.pelletProgress,
+            dash.sweptPelletEids.length,
+          );
+          this.pelletProgress = collectResult.progress;
+          this.lifetimeCollected += dash.sweptPelletEids.length;
+          if (
+            dash.sweptPowerRemoved > 0 &&
+            this.resolvePowerPelletTrigger(dash.sweptPowerRemoved)
+          ) {
+            return;
+          }
+          if (collectResult.shouldRecordClear) {
+            this.triggerLevelClear();
+            return;
+          }
         }
-        const collectResult = applyPelletCollect(this.pelletProgress, dash.sweptPelletEids.length);
-        this.pelletProgress = collectResult.progress;
-        this.lifetimeCollected += dash.sweptPelletEids.length;
-        if (dash.sweptPowerRemoved > 0 && this.resolvePowerPelletTrigger(dash.sweptPowerRemoved)) {
-          return;
-        }
-        if (collectResult.shouldRecordClear) {
-          this.triggerLevelClear();
-          return;
-        }
+        this.tunnelDashAnim = { targetX: dash.animateToX, wrapToX: dash.wrapToX, y: dash.y };
       }
     }
 
@@ -787,6 +809,7 @@ export class PlayScene extends Phaser.Scene {
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.fruitPresence = createFruitPresence();
     this.pendingPowerPelletRespawns = [];
+    this.tunnelDashAnim = null;
     this.afterLifeRelease = false;
     placeInHouseGhostsAtPredictedSeats(
       this.world,
@@ -1125,6 +1148,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private resetAfterLifeLoss(): void {
+    this.tunnelDashAnim = null;
     const playerSpawn = playerSpawnCenter();
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
       Position.x[eid] = playerSpawn.x;
