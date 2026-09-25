@@ -100,7 +100,7 @@ import {
   type RunCorruption,
 } from "../../domain/corruption";
 import { addPelletsToProgress } from "../../domain/pelletProgress";
-import { withSeenCorruption, withSeenGhosts } from "../../domain/seenRecord";
+import { withSeenCorruption, withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
 import {
   applyPowerPelletEffects,
   confirmUpgradeChoice,
@@ -318,6 +318,7 @@ export class PlayScene extends Phaser.Scene {
     for (const id of this.runUpgrades.owned) {
       this.lives += grantLivesForUpgrade(id);
     }
+    this.recordSeenUpgrades();
 
     this.timerText = addPixelText(
       this,
@@ -353,6 +354,7 @@ export class PlayScene extends Phaser.Scene {
     if (startingUpgrade !== null) {
       this.runUpgrades = grantUpgrade(this.runUpgrades, startingUpgrade);
       this.applyGrantEffects(startingUpgrade);
+      this.recordSeenUpgrades();
     }
     this.refreshUpgradesHud();
     this.lives = livesAfterLevelRegen(this.lives);
@@ -840,6 +842,17 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  private recordSeenUpgrades(): void {
+    const seen = loadSeenRecord();
+    let next = seen;
+    for (const id of this.runUpgrades.owned) {
+      next = withSeenUpgrade(next, id);
+    }
+    if (next !== seen) {
+      saveSeenRecord(next);
+    }
+  }
+
   private triggerLevelClear(): void {
     stopLoopingSfx(this, "siren");
     playSfx(this, "levelComplete");
@@ -868,6 +881,7 @@ export class PlayScene extends Phaser.Scene {
         if (!alreadyOwned) {
           this.applyGrantEffects(chosen);
           this.refreshLivesIcons();
+          this.recordSeenUpgrades();
         }
         this.refreshUpgradesHud();
       });

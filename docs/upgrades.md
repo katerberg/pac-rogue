@@ -9,6 +9,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay). Pair math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice`).
 - No ECS upgrade components in v1.
 - Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
+- See [docs/learn.md](./learn.md#upgrade-fidelity) for how each upgrade behaves in LEARN mode (most are simulated for real; a few have no visible effect there).
 
 ### Current defs
 

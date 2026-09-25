@@ -44,6 +44,7 @@ describe("seenRecordStorage", () => {
     const record = {
       ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky],
       corruptions: ["slimeTrail" as const],
+      upgrades: ["playerSpeedUp" as const],
     };
     saveSeenRecord(record);
     expect(loadSeenRecord()).toEqual(record);

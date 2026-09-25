@@ -187,7 +187,7 @@ const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
   UPGRADE_DEFS.map((def) => [def.id, def]),
 );
 
-const ALL_UPGRADE_IDS: readonly UpgradeId[] = UPGRADE_DEFS.map((def) => def.id);
+export const ALL_UPGRADE_IDS: readonly UpgradeId[] = UPGRADE_DEFS.map((def) => def.id);
 
 export type PendingPowerPelletRespawn = { x: number; y: number; remainingMs: number };
 
@@ -375,6 +375,16 @@ export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
   return {
     ...state,
     owned: [...state.owned, id],
+  };
+}
+
+export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
+  if (!state.owned.includes(id)) {
+    return state;
+  }
+  return {
+    ...state,
+    owned: state.owned.filter((owned) => owned !== id),
   };
 }
 

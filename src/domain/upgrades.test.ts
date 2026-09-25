@@ -24,6 +24,7 @@ import {
   ghostSpeedMultiplier,
   grantUpgrade,
   grantLivesForUpgrade,
+  revokeUpgrade,
   parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
   parseUpgradeId,
@@ -251,6 +252,18 @@ describe("grantUpgrade", () => {
       GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
     );
     expect(ghostHouseClydePelletAdd(["playerSpeedUp"])).toBe(0);
+  });
+});
+
+describe("revokeUpgrade", () => {
+  it("removes an owned id", () => {
+    const owned = grantUpgrade(createRunUpgrades(), "ghostSlow");
+    expect(revokeUpgrade(owned, "ghostSlow").owned).toEqual([]);
+  });
+
+  it("is a no-op (same reference) when the id isn't owned", () => {
+    const state = createRunUpgrades();
+    expect(revokeUpgrade(state, "ghostSlow")).toBe(state);
   });
 });
 
