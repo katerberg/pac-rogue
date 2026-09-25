@@ -34,9 +34,16 @@ Only ghosts, corruptions, and upgrades this machine has met in real play are sel
   selected at once (a local `RunUpgrades` bag, not tied to any real run) and stay selected across a
   ghost switch — only the five transient power-pellet timers (freeze/scatter/wall-pass/invuln/speed
   -burst) and any in-flight recall hold reset when the ghost changes.
+- Hovering an upgrade row for `HOVER_PREVIEW_DELAY_MS` (500ms) shows a preview card centered over the
+  maze — `buildUpgradeCardVisual` from
+  [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts), the same
+  function the level-clear upgrade picker's buttons use, so the card matches exactly (bg, border,
+  label, description). Moving off the row before the delay elapses cancels it; moving to a new row
+  restarts the delay for that row.
 - Selecting an upgrade with no observable effect on this board (see "Upgrade fidelity" below) shows a
-  banner at the top of the maze naming it, e.g. `EXTRA LIFE - NO VISIBLE EFFECT HERE`; multiple such
-  upgrades join onto one line (`A, B - NO VISIBLE EFFECT HERE`).
+  small two-line banner at the top of the maze, capped to the maze's own pixel width (`wrapText`
+  wraps the names line if it would overflow): the selected upgrade name(s) on the first line, `NO
+VISIBLE EFFECT HERE` always on its own line below.
 - Seen corruptions are listed to the right of the maze (color swatch + label). Clicking one applies
   it to the selected ghost; clicking it again removes it. Only one corruption at a time. Blinky can
   be corrupted here even though real runs never corrupt him.
@@ -44,8 +51,9 @@ Only ghosts, corruptions, and upgrades this machine has met in real play are sel
 
 ## Controls
 
-Arrows / WASD move, `1`–`4` or click select a ghost slot, click toggles a corruption or upgrade, Esc
-or **BACK** returns to the menu. The first seen ghost is selected on entry.
+Arrows / WASD move, `1`–`4` or click select a ghost slot, click toggles a corruption or upgrade,
+hover an upgrade row to preview it, Esc or **BACK** returns to the menu. The first seen ghost is
+selected on entry.
 
 ## Overlay
 
@@ -74,11 +82,13 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
   spawns beside Inky facing the other way so it takes its own chase route toward Maze-Man instead
   of trailing Inky out of the house.
 - The board spawns real pellets and power pellets from `pelletCellCenters()` — the same helper
-  `PlayScene.spawnPellets` uses on the same `mazeSmall` layout. Eating one removes it and, after a
-  fixed delay (`LEARN_PELLET_REFILL_MS` = 4000ms for a regular pellet, `LEARN_POWER_PELLET_REFILL_MS`
-  = 6000ms for a power pellet), it reappears at the same cell — a `src/domain/learnPelletRefill.ts`
-  queue/tick pair independent of any upgrade. No score or board-clear progress either way.
-- No sound, HUD, timer, lives, fruit, or history writes.
+  `PlayScene.spawnPellets` uses on the same `mazeSmall` layout. Eating the last one respawns the
+  **whole board** immediately (checked once per frame: `query(world, [Pellet]).length === 0` →
+  `spawnPellets()`) — no per-pellet timer, no score, no board-clear progress.
+- One fruit spawns at the derived fruit cell below the ghost house (`fruitSpawnCenter()`, the same
+  helper `PlayScene` uses) and is always present: eating it respawns a fresh one immediately via
+  `collectFruit` + `spawnFruitEntity`. No Quarters HUD, no munch SFX.
+- No sound, HUD, timer, lives, or history writes.
 - Corruption systems run through the same `stepCorruption` as `PlayScene`.
 
 ## Upgrade fidelity
@@ -89,13 +99,14 @@ domain/system functions `PlayScene` uses (`applyPowerPelletEffects`, `freezeClos
 calls `grantUpgrade` / `revokeUpgrade` and clears only the timer(s) tied to effect fields no longer
 owned by anything still selected.
 
-| Upgrade                                                                                   | Learn fidelity                                                                                                                                                                                                                                                                                                                                     |
-| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Power Freeze, Scatter Burst, Wall Pass, Speed Burst, Ghost Proof, Triple Chomp            | Full — same `onPowerPellet` resolution, same render tint options as `PlayScene`. Scatter Burst switches `ghostAi`'s mode between chase/scatter directly (no wave clock exists to pause) and reverses the ghost on the mode transition via `forceGhostReverse`, same as a real wave boundary.                                                       |
-| Speed Up, Ghost Slow, Pickup Range                                                        | Full — same speed multiplier / pellet-radius helpers `PlayScene` uses.                                                                                                                                                                                                                                                                             |
-| Ghost Recall                                                                              | Simplified — snaps the closest eligible ghost straight to the house-exit tile, holds it there (`LEARN_RECALL_HOLD_MS` = 1500ms), then releases it back to `active` at that tile. Learn has no house-release clock to seat it through, so this skips the real seat/gate dance.                                                                      |
-| Warp Top                                                                                  | Full — `warpPlayerToTopCenter` reused as-is.                                                                                                                                                                                                                                                                                                       |
-| Pellet Surge                                                                              | Partial — converts one regular pellet to power immediately on toggle-on (the "when first granted" half of the real effect). There is no per-board-spawn cycle in Learn to hook the ongoing conversion into.                                                                                                                                        |
-| Overcharge                                                                                | Full — `applyPowerPelletEffects` doubles the same five durations regardless of caller.                                                                                                                                                                                                                                                             |
-| Tunnel Dash                                                                               | Full — `mazeSmall` has one tunnel row (row 7); `applyTunnelDash` / `tickTunnelDashAnimation` are reused as-is.                                                                                                                                                                                                                                     |
-| Ghost House Delay, Extra Life, Fruit Power, Quarter Bounty, Death's Harvest, Second Chomp | No visible effect — Learn has no house-release clock, lives, fruit, catch-kill, or per-board pellet count to attach these to. Selecting one shows the "no visible effect" banner instead of silently doing nothing. Second Chomp specifically is superseded by the baseline power-pellet refill above, which already respawns eaten power pellets. |
+| Upgrade                                                                        | Learn fidelity                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Power Freeze, Scatter Burst, Wall Pass, Speed Burst, Ghost Proof, Triple Chomp | Full — same `onPowerPellet` resolution, same render tint options as `PlayScene`. Scatter Burst switches `ghostAi`'s mode between chase/scatter directly (no wave clock exists to pause) and reverses the ghost on the mode transition via `forceGhostReverse`, same as a real wave boundary.                                                    |
+| Speed Up, Ghost Slow, Pickup Range                                             | Full — same speed multiplier / pellet-radius helpers `PlayScene` uses.                                                                                                                                                                                                                                                                          |
+| Ghost Recall                                                                   | Simplified — snaps the closest eligible ghost straight to the house-exit tile, holds it there (`LEARN_RECALL_HOLD_MS` = 1500ms), then releases it back to `active` at that tile. Learn has no house-release clock to seat it through, so this skips the real seat/gate dance.                                                                   |
+| Warp Top                                                                       | Full — `warpPlayerToTopCenter` reused as-is.                                                                                                                                                                                                                                                                                                    |
+| Pellet Surge                                                                   | Partial — converts one regular pellet to power immediately on toggle-on (the "when first granted" half of the real effect). There is no per-board-spawn cycle in Learn to hook the ongoing conversion into.                                                                                                                                     |
+| Overcharge                                                                     | Full — `applyPowerPelletEffects` doubles the same five durations regardless of caller.                                                                                                                                                                                                                                                          |
+| Tunnel Dash                                                                    | Full — `mazeSmall` has one tunnel row (row 7); `applyTunnelDash` / `tickTunnelDashAnimation` are reused as-is.                                                                                                                                                                                                                                  |
+| Fruit Power                                                                    | Full — eating the always-present fruit resolves every owned `onPowerPellet` effect via the same `resolveLearnPowerPelletTrigger(1)` path a power pellet uses, matching `PlayScene`'s fruit-collect handling.                                                                                                                                    |
+| Ghost House Delay, Extra Life, Quarter Bounty, Death's Harvest, Second Chomp   | No visible effect — Learn has no house-release clock, lives, Quarters HUD, catch-kill, or per-board pellet count to attach these to. Selecting one shows the "no visible effect" banner instead of silently doing nothing. Second Chomp specifically is superseded by the whole-board refill above, which already respawns eaten power pellets. |

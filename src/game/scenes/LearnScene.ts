@@ -1,12 +1,4 @@
-import {
-  addComponent,
-  addEntity,
-  createWorld,
-  hasComponent,
-  query,
-  removeEntity,
-  type World,
-} from "bitecs";
+import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import Phaser from "phaser";
 import {
   CORRUPTION_DEFS,
@@ -27,11 +19,6 @@ import type { GhostDir } from "../../domain/ghostPath";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import {
-  queuePelletRefills,
-  tickPelletRefills,
-  type PendingPelletRefill,
-} from "../../domain/learnPelletRefill";
-import {
   GHOST_COLOR_BY_KIND,
   clampTileToBoard,
   clipSegmentToRect,
@@ -41,6 +28,7 @@ import {
   type PixelPoint,
   type PixelRect,
 } from "../../domain/learnOverlay";
+import { fruitSpawnCenter } from "../../domain/fruit";
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import {
   activateLayout,
@@ -57,6 +45,8 @@ import {
   type PelletKind,
 } from "../../domain/maze";
 import {
+  FRUIT_DRAWABLE_ID,
+  FRUIT_RADIUS,
   GHOST_DRAWABLE_BY_KIND,
   ghostRadius,
   PELLET_DRAWABLE_ID,
@@ -100,6 +90,7 @@ import {
 } from "../../domain/upgrades";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
+import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
@@ -113,6 +104,7 @@ import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
+import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
 import { stepCorruption } from "../systems/corruptionStep";
@@ -146,6 +138,12 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import {
+  buildUpgradeCardVisual,
+  MODAL_DEPTH,
+  wrapText,
+  type UpgradeCardVisual,
+} from "./upgradeChoiceModal";
 
 const SLOT_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.blinky,
@@ -186,14 +184,12 @@ const UPGRADE_ROW_GAP = 21;
 const UPGRADE_ROW_WIDTH = 190;
 const UPGRADE_CHECK_SIZE = 10;
 const UPGRADE_CHECK_GAP = 4;
-const LEARN_PELLET_REFILL_MS = 4000;
-const LEARN_POWER_PELLET_REFILL_MS = 6000;
 const LEARN_RECALL_HOLD_MS = 1500;
 const NO_EFFECT_BANNER_Y_PAD = 4;
+const HOVER_PREVIEW_DELAY_MS = 500;
 const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
   "ghostHouseDelay",
   "extraLife",
-  "fruitPower",
   "quarterBounty",
   "deathsHarvest",
   "secondChomp",
@@ -202,8 +198,6 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
 type CorruptionRow = { id: CorruptionId; checkMark: Phaser.GameObjects.Rectangle };
 type UpgradeRow = { id: UpgradeId; checkMark: Phaser.GameObjects.Rectangle };
-type PelletInfo = { x: number; y: number; kind: PelletKind };
-type PelletSnapshot = ReadonlyMap<number, PelletInfo>;
 
 export class LearnScene extends Phaser.Scene {
   private world!: World;
@@ -222,8 +216,9 @@ export class LearnScene extends Phaser.Scene {
   private corruptionRows: CorruptionRow[] = [];
   private upgradeRows: UpgradeRow[] = [];
   private noEffectBanner!: Phaser.GameObjects.BitmapText;
+  private hoverPreviewTimer: Phaser.Time.TimerEvent | null = null;
+  private hoverPreviewCard: UpgradeCardVisual | null = null;
   private learnUpgrades: RunUpgrades = createRunUpgrades();
-  private pendingPelletRefills: PendingPelletRefill[] = [];
   private recallHoldGhostEid: number | null = null;
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
@@ -256,10 +251,11 @@ export class LearnScene extends Phaser.Scene {
           ? emptySeenRecord()
           : loadSeenRecord();
     this.learnUpgrades = createRunUpgrades();
-    this.pendingPelletRefills = [];
     this.recallHoldGhostEid = null;
     this.recallHoldRemainingMs = 0;
     this.tunnelDashAnim = null;
+    this.hoverPreviewTimer = null;
+    this.hoverPreviewCard = null;
     this.previousEffectiveGhostMode = GHOST_AI_MODE.chase;
 
     this.playRender = createRender(this);
@@ -267,6 +263,7 @@ export class LearnScene extends Phaser.Scene {
     this.spawnWalls();
     this.spawnPlayer();
     this.resetPellets();
+    this.spawnFruitEntity();
 
     const title = addPixelText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
     placePixelText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
@@ -275,7 +272,9 @@ export class LearnScene extends Phaser.Scene {
     this.buildUpgradeRows();
     this.buildBackButton();
 
-    this.noEffectBanner = addPixelText(this, 0, 0, "", HUD_FONT_SIZE).setDepth(OVERLAY_DEPTH + 1);
+    this.noEffectBanner = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
+      .setDepth(OVERLAY_DEPTH + 1)
+      .setCenterAlign();
     this.refreshNoEffectBanner();
 
     const playerInput = createPlayerInput(this);
@@ -322,24 +321,11 @@ export class LearnScene extends Phaser.Scene {
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
     this.corruption = tickSpeedSurge(this.corruption, delta);
 
-    const pelletSnapshot = new Map<number, PelletInfo>();
-    for (const eid of query(this.world, [Pellet, Position])) {
-      pelletSnapshot.set(eid, {
-        x: Position.x[eid] ?? 0,
-        y: Position.y[eid] ?? 0,
-        kind: hasComponent(this.world, eid, PowerPellet) ? "power" : "dot",
-      });
-    }
-
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
     this.learnUpgrades = tickScatterBurst(this.learnUpgrades, delta);
     this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
     this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
-
-    const refillTick = tickPelletRefills(this.pendingPelletRefills, delta);
-    this.pendingPelletRefills = refillTick.pending;
-    this.spawnRefilledPellets(refillTick.ready);
 
     if (this.recallHoldRemainingMs > 0) {
       this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
@@ -380,9 +366,9 @@ export class LearnScene extends Phaser.Scene {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
-          this.releasePelletsAndQueueRefill(dash.sweptPelletEids, pelletSnapshot);
+          this.releasePellets(dash.sweptPelletEids);
           if (dash.sweptPowerRemoved > 0) {
-            this.resolveLearnPowerPelletTrigger(dash.sweptPowerRemoved, pelletSnapshot);
+            this.resolveLearnPowerPelletTrigger(dash.sweptPowerRemoved);
           }
         }
         this.tunnelDashAnim = { targetX: dash.animateToX, wrapToX: dash.wrapToX, y: dash.y };
@@ -394,15 +380,29 @@ export class LearnScene extends Phaser.Scene {
     this.corruption = step.corruption;
     this.hiddenGhostEid = step.hiddenGhostEid;
     this.flashGhostEid = step.flashGhostEid;
-    this.spawnDroppedPellets(step.dropSpawnTiles, pelletSnapshot);
+    this.spawnDroppedPellets(step.dropSpawnTiles);
 
     const { removedEids, powerRemoved } = collectPellets(this.world, {
       radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
       solids: getActiveLayout().playerSolids,
     });
-    this.releasePelletsAndQueueRefill(removedEids, pelletSnapshot);
+    this.releasePellets(removedEids);
     if (powerRemoved > 0) {
-      this.resolveLearnPowerPelletTrigger(powerRemoved, pelletSnapshot);
+      this.resolveLearnPowerPelletTrigger(powerRemoved);
+    }
+    if (query(this.world, [Pellet]).length === 0) {
+      this.spawnPellets();
+    }
+
+    const removedFruitEids = collectFruit(this.world);
+    if (removedFruitEids.length > 0) {
+      for (const eid of removedFruitEids) {
+        this.playRender.releaseDrawable(eid);
+      }
+      this.spawnFruitEntity();
+      if (this.learnUpgrades.owned.includes("fruitPower")) {
+        this.resolveLearnPowerPelletTrigger(1);
+      }
     }
 
     const effectiveMode = scatterBurstActive(this.learnUpgrades)
@@ -544,6 +544,8 @@ export class LearnScene extends Phaser.Scene {
       );
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerdown", () => this.toggleUpgrade(def.id));
+      zone.on("pointerover", () => this.scheduleUpgradePreview(def.id));
+      zone.on("pointerout", () => this.cancelUpgradePreview());
       this.upgradeRows.push({ id: def.id, checkMark });
     });
   }
@@ -558,10 +560,14 @@ export class LearnScene extends Phaser.Scene {
     const selectedLabels = LEARN_NO_EFFECT_UPGRADE_IDS.filter((id) =>
       this.learnUpgrades.owned.includes(id),
     ).map((id) => getUpgradeDef(id).label);
-    const text =
-      selectedLabels.length === 0 ? "" : `${selectedLabels.join(", ")} - NO VISIBLE EFFECT HERE`;
-    this.noEffectBanner.setText(text);
     const layout = getActiveLayout();
+    if (selectedLabels.length === 0) {
+      this.noEffectBanner.setText("");
+    } else {
+      const maxCharsPerLine = Math.floor(layout.pixelWidth / UPGRADES_HUD_FONT_SIZE);
+      const namesLine = wrapText(selectedLabels.join(", "), maxCharsPerLine);
+      this.noEffectBanner.setText(`${namesLine}\nNO VISIBLE EFFECT HERE`);
+    }
     placePixelText(
       this.noEffectBanner,
       layout.offsetX + layout.pixelWidth / 2,
@@ -569,6 +575,34 @@ export class LearnScene extends Phaser.Scene {
       0.5,
       0,
     );
+  }
+
+  private scheduleUpgradePreview(id: UpgradeId): void {
+    this.cancelUpgradePreview();
+    this.hoverPreviewTimer = this.time.delayedCall(HOVER_PREVIEW_DELAY_MS, () => {
+      this.hoverPreviewTimer = null;
+      this.showUpgradePreview(id);
+    });
+  }
+
+  private showUpgradePreview(id: UpgradeId): void {
+    const def = getUpgradeDef(id);
+    const layout = getActiveLayout();
+    const visual = buildUpgradeCardVisual(
+      this,
+      layout.offsetX + layout.pixelWidth / 2,
+      layout.offsetY + layout.pixelHeight / 2,
+      { label: def.label, description: def.description },
+    );
+    visual.root.setDepth(MODAL_DEPTH + 1);
+    this.hoverPreviewCard = visual;
+  }
+
+  private cancelUpgradePreview(): void {
+    this.hoverPreviewTimer?.remove();
+    this.hoverPreviewTimer = null;
+    this.hoverPreviewCard?.root.destroy(true);
+    this.hoverPreviewCard = null;
   }
 
   private clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades): RunUpgrades {
@@ -606,7 +640,7 @@ export class LearnScene extends Phaser.Scene {
     this.playRender.bouncePowerPellet(eid);
   }
 
-  private resolveLearnPowerPelletTrigger(powerRemoved: number, snapshot: PelletSnapshot): void {
+  private resolveLearnPowerPelletTrigger(powerRemoved: number): void {
     const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved);
     this.learnUpgrades = powerEffects.state;
     if (powerEffects.freezeClosestMs !== null) {
@@ -622,7 +656,7 @@ export class LearnScene extends Phaser.Scene {
         powerEffects.collectExtraPellets,
         getActiveLayout().playerSolids,
       );
-      this.releasePelletsAndQueueRefill(bonusEids, snapshot);
+      this.releasePellets(bonusEids);
     }
     if (powerEffects.recallClosestGhost) {
       this.recallClosestGhostForLearn();
@@ -665,47 +699,9 @@ export class LearnScene extends Phaser.Scene {
     this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
   }
 
-  private releasePelletsAndQueueRefill(
-    removedEids: readonly number[],
-    snapshot: PelletSnapshot,
-  ): void {
+  private releasePellets(removedEids: readonly number[]): void {
     for (const eid of removedEids) {
       this.playRender.releaseDrawable(eid);
-    }
-    this.queuePelletRefillsFromRemoved(removedEids, snapshot);
-  }
-
-  private queuePelletRefillsFromRemoved(
-    removedEids: readonly number[],
-    snapshot: PelletSnapshot,
-  ): void {
-    const dots: PelletInfo[] = [];
-    const powers: PelletInfo[] = [];
-    for (const eid of removedEids) {
-      const info = snapshot.get(eid);
-      if (info === undefined) {
-        continue;
-      }
-      (info.kind === "power" ? powers : dots).push(info);
-    }
-    this.pendingPelletRefills = queuePelletRefills(
-      this.pendingPelletRefills,
-      dots,
-      LEARN_PELLET_REFILL_MS,
-    );
-    this.pendingPelletRefills = queuePelletRefills(
-      this.pendingPelletRefills,
-      powers,
-      LEARN_POWER_PELLET_REFILL_MS,
-    );
-  }
-
-  private spawnRefilledPellets(ready: readonly PelletInfo[]): void {
-    for (const cell of ready) {
-      if (this.isPelletCellOccupied(cell.x, cell.y)) {
-        continue;
-      }
-      this.spawnPelletEntity(cell.x, cell.y, cell.kind);
     }
   }
 
@@ -884,11 +880,10 @@ export class LearnScene extends Phaser.Scene {
       this.playRender.releaseDrawable(eid);
       removeEntity(this.world, eid);
     }
-    this.pendingPelletRefills = [];
     this.spawnPellets();
   }
 
-  private spawnPelletEntity(x: number, y: number, kind: PelletKind): number {
+  private spawnPelletEntity(x: number, y: number, kind: PelletKind): void {
     const eid = addEntity(this.world);
     addComponent(this.world, eid, Pellet);
     addComponent(this.world, eid, Position);
@@ -900,7 +895,6 @@ export class LearnScene extends Phaser.Scene {
     Position.y[eid] = y;
     Drawable.id[eid] = kind === "power" ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID;
     Drawable.radius[eid] = PELLET_RADIUS;
-    return eid;
   }
 
   private isPelletCellOccupied(x: number, y: number): boolean {
@@ -915,10 +909,26 @@ export class LearnScene extends Phaser.Scene {
     }
   }
 
-  private spawnDroppedPellets(
-    tiles: readonly GhostTarget[],
-    pelletSnapshot: Map<number, PelletInfo>,
-  ): void {
+  private clearFruitEntities(): void {
+    for (const eid of removeAllFruit(this.world)) {
+      this.playRender.releaseDrawable(eid);
+    }
+  }
+
+  private spawnFruitEntity(): void {
+    this.clearFruitEntities();
+    const eid = addEntity(this.world);
+    addComponent(this.world, eid, Fruit);
+    addComponent(this.world, eid, Position);
+    addComponent(this.world, eid, Drawable);
+    const spawn = fruitSpawnCenter();
+    Position.x[eid] = spawn.x;
+    Position.y[eid] = spawn.y;
+    Drawable.id[eid] = FRUIT_DRAWABLE_ID;
+    Drawable.radius[eid] = FRUIT_RADIUS;
+  }
+
+  private spawnDroppedPellets(tiles: readonly GhostTarget[]): void {
     const { playerSolids } = getActiveLayout();
     for (const tile of tiles) {
       if (!isWalkable(tile.col, tile.row, playerSolids)) {
@@ -929,8 +939,7 @@ export class LearnScene extends Phaser.Scene {
       if (this.isPelletCellOccupied(x, y)) {
         continue;
       }
-      const eid = this.spawnPelletEntity(x, y, "dot");
-      pelletSnapshot.set(eid, { x, y, kind: "dot" });
+      this.spawnPelletEntity(x, y, "dot");
     }
   }
 
