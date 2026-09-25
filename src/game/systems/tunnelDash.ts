@@ -3,8 +3,9 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
-  oppositeTunnelCell,
-  tunnelMouthOutwardEdge,
+  isWalkable,
+  MAZE_COLS,
+  tunnelDashOutwardEdge,
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
@@ -14,8 +15,6 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
 const OUTWARD_DIRECTION = {
-  up: DIRECTION.up,
-  down: DIRECTION.down,
   left: DIRECTION.left,
   right: DIRECTION.right,
 } as const;
@@ -28,16 +27,17 @@ export function applyTunnelDash(world: World): void {
 
   const col = worldToCol(Position.x[eid] ?? 0);
   const row = worldToRow(Position.y[eid] ?? 0);
-  const edge = tunnelMouthOutwardEdge(col, row, getActiveLayout().playerSolids);
+  const solids = getActiveLayout().playerSolids;
+  const edge = tunnelDashOutwardEdge(col, row, solids);
   if (edge === null || Facing.direction[eid] !== OUTWARD_DIRECTION[edge]) {
     return;
   }
 
-  const opposite = oppositeTunnelCell(col, row);
-  if (opposite === null) {
+  const mirroredCol = MAZE_COLS - 1 - col;
+  if (!isWalkable(mirroredCol, row, solids)) {
     return;
   }
 
-  Position.x[eid] = cellCenterX(opposite.col);
-  Position.y[eid] = cellCenterY(opposite.row);
+  Position.x[eid] = cellCenterX(mirroredCol);
+  Position.y[eid] = cellCenterY(row);
 }

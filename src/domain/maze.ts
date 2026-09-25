@@ -805,6 +805,18 @@ export function ghostHouseSpawnCenter(): { x: number; y: number } {
   };
 }
 
+function horizontalTunnelBandEdge(col: number, cols: number): "left" | "right" | null {
+  const leftBand = Math.floor((cols * 5) / 28);
+  const rightBand = Math.floor((cols * 6) / 28);
+  if (col <= leftBand) {
+    return "left";
+  }
+  if (col >= cols - rightBand) {
+    return "right";
+  }
+  return null;
+}
+
 export function isGhostTunnelSlow(col: number, row: number): boolean {
   const { ghostSolids, cols } = getActiveLayout();
   if (!isWalkable(col, row, ghostSolids)) {
@@ -813,9 +825,18 @@ export function isGhostTunnelSlow(col: number, row: number): boolean {
   if (!hasHorizontalTunnel(row, ghostSolids)) {
     return false;
   }
-  const leftBand = Math.floor((cols * 5) / 28);
-  const rightBand = Math.floor((cols * 6) / 28);
-  return col <= leftBand || col >= cols - rightBand;
+  return horizontalTunnelBandEdge(col, cols) !== null;
+}
+
+export function tunnelDashOutwardEdge(
+  col: number,
+  row: number,
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): "left" | "right" | null {
+  if (!isWalkable(col, row, solids) || !hasHorizontalTunnel(row, solids)) {
+    return null;
+  }
+  return horizontalTunnelBandEdge(col, getActiveLayout().cols);
 }
 
 export function inBounds(col: number, row: number): boolean {
@@ -889,31 +910,6 @@ export function isTunnelMouth(
   }
   const opposite = oppositeTunnelCell(col, row);
   return opposite !== null && isWalkable(opposite.col, opposite.row, solids);
-}
-
-export type TunnelMouthEdge = "up" | "down" | "left" | "right";
-
-export function tunnelMouthOutwardEdge(
-  col: number,
-  row: number,
-  solids: SolidGrid = getActiveLayout().playerSolids,
-): TunnelMouthEdge | null {
-  if (!isTunnelMouth(col, row, solids)) {
-    return null;
-  }
-  if (col === 0) {
-    return "left";
-  }
-  if (col === MAZE_COLS - 1) {
-    return "right";
-  }
-  if (row === 0) {
-    return "up";
-  }
-  if (row === MAZE_ROWS - 1) {
-    return "down";
-  }
-  return null;
 }
 
 function hasHorizontalTunnel(
