@@ -32,7 +32,7 @@ const CHOICE_BUTTON_WIDTH = 230;
 const CHOICE_BUTTON_HEIGHT = 150;
 const CHOICE_LABEL_MAX_CHARS = 8;
 const CHOICE_DESCRIPTION_MAX_CHARS = 22;
-const CHOICE_LABEL_FONT_SIZE = 24;
+const CHOICE_LABEL_FONT_SIZE = 22;
 
 const CENTER_X = PLAYFIELD_WIDTH / 2;
 const CENTER_Y = PLAYFIELD_HEIGHT / 2 + 40;
@@ -361,7 +361,6 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     const maxY = Math.max(...ys) + CHOICE_BUTTON_HEIGHT / 2;
     selectionFrame = scene.add
       .rectangle((minX + maxX) / 2, (minY + maxY) / 2, maxX - minX + 24, maxY - minY + 24)
-      .setStrokeStyle(3, TEXT_COLOR_YELLOW)
       .setFillStyle(0x000000, 0)
       .setDepth(MODAL_DEPTH + 2)
       .setAlpha(0)
