@@ -108,11 +108,13 @@ const SLOT_STROKE = 4;
 const SLOT_STROKE_COLOR = 0x444444;
 const SLOT_ICON_SIZE = 32;
 const UNSEEN_ALPHA = 0.35;
-const CORRUPTION_COLUMN_X = 610;
+const CORRUPTION_COLUMN_X = 596;
 const CORRUPTION_ROW_START_Y = 170;
 const CORRUPTION_ROW_GAP = 40;
 const CORRUPTION_ROW_WIDTH = 185;
 const CORRUPTION_SWATCH_SIZE = 12;
+const CORRUPTION_CHECK_SIZE = 12;
+const CORRUPTION_CHECK_GAP = 4;
 const BACK_Y = 550;
 const OVERLAY_DEPTH = 5;
 const PATH_ALPHA = 0.6;
@@ -127,7 +129,7 @@ const NO_ELROY_PELLETS = Number.MAX_SAFE_INTEGER;
 const LEARN_LEVEL = 1;
 
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
-type CorruptionRow = { id: CorruptionId; label: Phaser.GameObjects.BitmapText };
+type CorruptionRow = { id: CorruptionId; checkMark: Phaser.GameObjects.Rectangle };
 
 export class LearnScene extends Phaser.Scene {
   private world!: World;
@@ -301,6 +303,12 @@ export class LearnScene extends Phaser.Scene {
   private buildCorruptionRows(): void {
     this.corruptionRows = [];
     const defs = CORRUPTION_DEFS.filter((def) => this.seen.corruptions.includes(def.id));
+    const checkboxX =
+      CORRUPTION_COLUMN_X +
+      CORRUPTION_SWATCH_SIZE +
+      CORRUPTION_CHECK_GAP +
+      CORRUPTION_CHECK_SIZE / 2;
+    const labelX = checkboxX + CORRUPTION_CHECK_SIZE / 2 + CORRUPTION_CHECK_GAP;
     defs.forEach((def, index) => {
       const y = CORRUPTION_ROW_START_Y + index * CORRUPTION_ROW_GAP;
       this.add.rectangle(
@@ -310,8 +318,20 @@ export class LearnScene extends Phaser.Scene {
         CORRUPTION_SWATCH_SIZE,
         OUTLINE_TINT_BY_CORRUPTION[def.id],
       );
+      this.add
+        .rectangle(checkboxX, y, CORRUPTION_CHECK_SIZE, CORRUPTION_CHECK_SIZE)
+        .setStrokeStyle(2, TEXT_COLOR_WHITE);
+      const checkMark = this.add
+        .rectangle(
+          checkboxX,
+          y,
+          CORRUPTION_CHECK_SIZE - 6,
+          CORRUPTION_CHECK_SIZE - 6,
+          TEXT_COLOR_YELLOW,
+        )
+        .setVisible(false);
       const label = addPixelText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
-      placePixelText(label, CORRUPTION_COLUMN_X + CORRUPTION_SWATCH_SIZE + 6, y, 0, 0.5);
+      placePixelText(label, labelX, y, 0, 0.5);
       const zone = this.add.zone(
         CORRUPTION_COLUMN_X + CORRUPTION_ROW_WIDTH / 2,
         y,
@@ -320,13 +340,13 @@ export class LearnScene extends Phaser.Scene {
       );
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerdown", () => this.toggleCorruption(def.id));
-      this.corruptionRows.push({ id: def.id, label });
+      this.corruptionRows.push({ id: def.id, checkMark });
     });
   }
 
   private refreshCorruptionRows(): void {
     for (const row of this.corruptionRows) {
-      row.label.setTint(row.id === this.corruption.type ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+      row.checkMark.setVisible(row.id === this.corruption.type);
     }
   }
 
