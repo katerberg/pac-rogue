@@ -5,9 +5,11 @@ import {
   GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
   GHOST_SLOW_MUL,
   INVULN_MS,
+  OVERCHARGE_MUL,
   PLAYER_SPEED_BURST_MUL,
   PLAYER_SPEED_UP_MUL,
   POWER_COLLECT_THREE_COUNT,
+  QUARTER_BOUNTY_MUL,
   SCATTER_BURST_MS,
   SPEED_BURST_MS,
   WALL_PASS_MS,
@@ -15,6 +17,7 @@ import {
   confirmUpgradeChoice,
   createRunUpgrades,
   eligibleUpgrades,
+  fruitQuarterMultiplier,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
   ghostHouseReleaseDelayAddMs,
@@ -30,10 +33,13 @@ import {
   pickupRangeBonusPx,
   playerIsInvulnerable,
   playerSpeedMultiplier,
+  queuePowerPelletRespawns,
   scatterBurstActive,
+  SECOND_CHOMP_MS,
   speedBurstActive,
   tickFreeze,
   tickInvuln,
+  tickPowerPelletRespawns,
   tickScatterBurst,
   tickSpeedBurst,
   tickWallPass,
@@ -58,9 +64,21 @@ const ALL_IDS: UpgradeId[] = [
   "powerWallPass",
   "powerSpeedBurst",
   "powerInvuln",
+  "fruitPower",
+  "quarterBounty",
+  "deathsHarvest",
+  "overcharge",
+  "tunnelDash",
+  "secondChomp",
 ];
 
-const STUB_IDS: UpgradeId[] = [];
+const STUB_IDS: UpgradeId[] = [
+  "fruitPower",
+  "deathsHarvest",
+  "overcharge",
+  "tunnelDash",
+  "secondChomp",
+];
 
 describe("parseUpgradeId", () => {
   it("parses known ids and rejects invalid", () => {
@@ -485,5 +503,93 @@ describe("pelletCollectRadiusBonusPx", () => {
     expect(pelletCollectRadiusBonusPx(["pickupRange"])).toBe(pickupRangeBonusPx());
     expect(pickupRangeBonusPx()).toBe(TILE_SIZE);
     expect(pelletCollectRadiusBonusPx(["playerSpeedUp"])).toBe(0);
+  });
+});
+
+describe("fruitQuarterMultiplier", () => {
+  it("doubles only when quarterBounty is owned", () => {
+    expect(fruitQuarterMultiplier([])).toBe(1);
+    expect(fruitQuarterMultiplier(["quarterBounty"])).toBe(QUARTER_BOUNTY_MUL);
+    expect(fruitQuarterMultiplier(["playerSpeedUp"])).toBe(1);
+  });
+});
+
+describe("overcharge", () => {
+  it("doubles every owned onPowerPellet timer duration", () => {
+    let state = createRunUpgrades();
+    for (const id of [
+      "powerPelletFreeze",
+      "scatterBurst",
+      "powerWallPass",
+      "powerInvuln",
+      "powerSpeedBurst",
+      "overcharge",
+    ] as const) {
+      state = grantUpgrade(state, id);
+    }
+    const result = applyPowerPelletEffects(state, 1);
+    expect(result.freezeClosestMs).toBe(FREEZE_MS * OVERCHARGE_MUL);
+    expect(result.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS * OVERCHARGE_MUL);
+    expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS * OVERCHARGE_MUL);
+    expect(result.state.invulnRemainingMs).toBe(INVULN_MS * OVERCHARGE_MUL);
+    expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS * OVERCHARGE_MUL);
+  });
+
+  it("does not double recall, warp, or collectExtraPellets", () => {
+    let state = createRunUpgrades();
+    for (const id of ["ghostRecall", "warpTop", "powerCollectThree", "overcharge"] as const) {
+      state = grantUpgrade(state, id);
+    }
+    const result = applyPowerPelletEffects(state, 1);
+    expect(result.recallClosestGhost).toBe(true);
+    expect(result.warpPlayerTopCenter).toBe(true);
+    expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
+  });
+
+  it("is a no-op alone with nothing else owned", () => {
+    const state = grantUpgrade(createRunUpgrades(), "overcharge");
+    expect(applyPowerPelletEffects(state, 1)).toEqual({
+      state,
+      freezeClosestMs: null,
+      recallClosestGhost: false,
+      warpPlayerTopCenter: false,
+      collectExtraPellets: 0,
+    });
+  });
+});
+
+describe("power pellet respawns / Second Chomp", () => {
+  it("queues a respawn per removed position and is a no-op for an empty list", () => {
+    const queued = queuePowerPelletRespawns([], [{ x: 10, y: 20 }]);
+    expect(queued).toEqual([{ x: 10, y: 20, remainingMs: SECOND_CHOMP_MS }]);
+    expect(queuePowerPelletRespawns(queued, [])).toBe(queued);
+  });
+
+  it("ticks remaining time down and reports entries ready to respawn", () => {
+    const queued = queuePowerPelletRespawns([], [{ x: 1, y: 2 }]);
+    const mid = tickPowerPelletRespawns(queued, SECOND_CHOMP_MS - 1);
+    expect(mid.pending).toEqual([{ x: 1, y: 2, remainingMs: 1 }]);
+    expect(mid.ready).toEqual([]);
+
+    const done = tickPowerPelletRespawns(mid.pending, 1);
+    expect(done.pending).toEqual([]);
+    expect(done.ready).toEqual([{ x: 1, y: 2 }]);
+  });
+
+  it("handles several pending respawns independently", () => {
+    const queued = queuePowerPelletRespawns(
+      [],
+      [
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+      ],
+    );
+    const almostDone = tickPowerPelletRespawns(queued, SECOND_CHOMP_MS - 5);
+    const tick = tickPowerPelletRespawns(almostDone.pending, 5);
+    expect(tick.pending).toEqual([]);
+    expect(tick.ready.sort((a, b) => a.x - b.x)).toEqual([
+      { x: 1, y: 1 },
+      { x: 2, y: 2 },
+    ]);
   });
 });

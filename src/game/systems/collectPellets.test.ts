@@ -50,7 +50,11 @@ describe("collectPellets", () => {
     const { world } = spawnPlayer(100, 100);
     const pelletEid = spawnPellet(world, 100, 100);
 
-    expect(collectPellets(world)).toEqual({ powerRemoved: 0, removedEids: [pelletEid] });
+    expect(collectPellets(world)).toEqual({
+      powerRemoved: 0,
+      removedEids: [pelletEid],
+      removedPowerPositions: [],
+    });
     expect(query(world, [Pellet, Position])).toHaveLength(0);
   });
 
@@ -58,7 +62,11 @@ describe("collectPellets", () => {
     const { world } = spawnPlayer(100, 100);
     const pelletEid = spawnPellet(world, 400, 400);
 
-    expect(collectPellets(world)).toEqual({ powerRemoved: 0, removedEids: [] });
+    expect(collectPellets(world)).toEqual({
+      powerRemoved: 0,
+      removedEids: [],
+      removedPowerPositions: [],
+    });
     expect(query(world, [Pellet, Position])).toEqual([pelletEid]);
   });
 
@@ -68,7 +76,11 @@ describe("collectPellets", () => {
     const b = spawnPellet(world, 100, 100 + playerRadius());
     spawnPellet(world, 500, 500);
 
-    expect(collectPellets(world)).toEqual({ powerRemoved: 0, removedEids: [a, b] });
+    expect(collectPellets(world)).toEqual({
+      powerRemoved: 0,
+      removedEids: [a, b],
+      removedPowerPositions: [],
+    });
     expect(query(world, [Pellet, Position])).toHaveLength(1);
   });
 
@@ -80,6 +92,7 @@ describe("collectPellets", () => {
     expect(collectPellets(world)).toEqual({
       powerRemoved: 1,
       removedEids: [power, regular],
+      removedPowerPositions: [{ x: 100, y: 100 }],
     });
   });
 
@@ -111,7 +124,7 @@ describe("collectPellets", () => {
 
     expect(
       collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: openCorridorSolids() }),
-    ).toEqual({ powerRemoved: 0, removedEids: [pellet] });
+    ).toEqual({ powerRemoved: 0, removedEids: [pellet], removedPowerPositions: [] });
   });
 
   it("does not collect a regular pellet in extended range through a wall", () => {
@@ -129,7 +142,7 @@ describe("collectPellets", () => {
 
     expect(
       collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: wallBetweenSolids() }),
-    ).toEqual({ powerRemoved: 0, removedEids: [] });
+    ).toEqual({ powerRemoved: 0, removedEids: [], removedPowerPositions: [] });
     expect(query(world, [Pellet, Position])).toEqual([pellet]);
   });
 
@@ -145,7 +158,7 @@ describe("collectPellets", () => {
 
     expect(
       collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: openCorridorSolids() }),
-    ).toEqual({ powerRemoved: 0, removedEids: [] });
+    ).toEqual({ powerRemoved: 0, removedEids: [], removedPowerPositions: [] });
     expect(query(world, [Pellet, Position])).toEqual([power]);
   });
 
@@ -154,7 +167,11 @@ describe("collectPellets", () => {
     const power = spawnPellet(world, 100, 100, true);
     expect(
       collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: openCorridorSolids() }),
-    ).toEqual({ powerRemoved: 1, removedEids: [power] });
+    ).toEqual({
+      powerRemoved: 1,
+      removedEids: [power],
+      removedPowerPositions: [{ x: 100, y: 100 }],
+    });
   });
 });
 
