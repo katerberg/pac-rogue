@@ -45,8 +45,9 @@ describe("effectiveVolume", () => {
 });
 
 describe("categoryForSfx", () => {
-  it("maps siren to music and everything else to sfx", () => {
-    expect(categoryForSfx("siren")).toBe("music");
+  it("maps music tracks to music and everything else to sfx", () => {
+    expect(categoryForSfx("gameplayMusic")).toBe("music");
+    expect(categoryForSfx("menuMusic")).toBe("music");
     expect(categoryForSfx("pelletMunch")).toBe("sfx");
     expect(categoryForSfx("death")).toBe("sfx");
   });

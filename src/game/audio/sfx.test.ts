@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pelletCollectSfxId } from "./sfx";
+import { musicIdForContext, pelletCollectSfxId } from "./sfx";
 
 describe("pelletCollectSfxId", () => {
   it("uses munch for non-multiples of 2", () => {
@@ -18,5 +18,13 @@ describe("pelletCollectSfxId", () => {
   it("treats non-positive pickup numbers as munch", () => {
     expect(pelletCollectSfxId(0)).toBe("pelletMunch");
     expect(pelletCollectSfxId(-3)).toBe("pelletMunch");
+  });
+});
+
+describe("musicIdForContext", () => {
+  it("resolves to gameplay music from the pause menu, menu music otherwise", () => {
+    expect(musicIdForContext("PauseScene")).toBe("gameplayMusic");
+    expect(musicIdForContext("MenuScene")).toBe("menuMusic");
+    expect(musicIdForContext("HighScoresScene")).toBe("menuMusic");
   });
 });

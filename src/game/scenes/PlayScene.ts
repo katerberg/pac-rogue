@@ -257,8 +257,7 @@ export class PlayScene extends Phaser.Scene {
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
-  private sirenWasActiveBeforePause = false;
-  private sirenPendingFanfareEnd = false;
+  private gameplayMusicPendingFanfareEnd = false;
 
   constructor() {
     super("PlayScene");
@@ -270,6 +269,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(): void {
+    stopLoopingSfx(this, "menuMusic");
     this.death = null;
     this.lives = START_LIVES;
     this.afterLifeRelease = false;
@@ -343,8 +343,7 @@ export class PlayScene extends Phaser.Scene {
     this.runPlayerInput = playerInput.apply;
     this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
     this.suppressPlayerInputUntilKeyRelease = false;
-    this.sirenWasActiveBeforePause = false;
-    this.sirenPendingFanfareEnd = false;
+    this.gameplayMusicPendingFanfareEnd = false;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.playRender = createRender(this);
 
@@ -363,7 +362,7 @@ export class PlayScene extends Phaser.Scene {
     this.refreshLivesIcons();
     if (startingUpgrade === null) {
       this.showLevelBanner();
-      startLoopingSfx(this, "siren");
+      startLoopingSfx(this, "gameplayMusic");
     } else {
       this.playRender.draw(this.world, {
         frozenGhostEid: null,
@@ -378,7 +377,7 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      stopLoopingSfx(this, "siren");
+      stopLoopingSfx(this, "gameplayMusic");
       stopLoopingSfx(this, "death");
       this.upgradeChoiceModal.destroy();
       this.startingUpgradeCard.destroy();
@@ -387,9 +386,9 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (this.sirenPendingFanfareEnd && !isSfxPlaying(this, "levelComplete")) {
-      this.sirenPendingFanfareEnd = false;
-      startLoopingSfx(this, "siren");
+    if (this.gameplayMusicPendingFanfareEnd && !isSfxPlaying(this, "levelComplete")) {
+      this.gameplayMusicPendingFanfareEnd = false;
+      startLoopingSfx(this, "gameplayMusic");
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
@@ -403,7 +402,7 @@ export class PlayScene extends Phaser.Scene {
         return;
       }
       this.suppressPlayerInputUntilKeyRelease = true;
-      startLoopingSfx(this, "siren");
+      startLoopingSfx(this, "gameplayMusic");
     }
 
     if (this.death !== null) {
@@ -724,7 +723,7 @@ export class PlayScene extends Phaser.Scene {
           }
         }
       }
-      stopLoopingSfx(this, "siren");
+      stopLoopingSfx(this, "gameplayMusic");
       playSfx(this, "death");
       const result = this.infiniteLives
         ? { lives: this.lives, gameOver: false }
@@ -743,18 +742,15 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  private startSirenAfterFanfare(): void {
+  private startGameplayMusicAfterFanfare(): void {
     if (isSfxPlaying(this, "levelComplete")) {
-      this.sirenPendingFanfareEnd = true;
+      this.gameplayMusicPendingFanfareEnd = true;
       return;
     }
-    startLoopingSfx(this, "siren");
+    startLoopingSfx(this, "gameplayMusic");
   }
 
   private pauseForMenu(): void {
-    this.sirenWasActiveBeforePause =
-      this.game.config.audio.noAudio !== true && this.sound.isPlaying("siren");
-    stopLoopingSfx(this, "siren");
     this.scene.pause();
     this.scene.launch("PauseScene");
   }
@@ -763,9 +759,6 @@ export class PlayScene extends Phaser.Scene {
     this.suppressPlayerInputUntilKeyRelease = true;
     if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.rearmSelectionKeys();
-    }
-    if (this.sirenWasActiveBeforePause) {
-      startLoopingSfx(this, "siren");
     }
     this.scene.resume();
   }
@@ -853,7 +846,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private triggerLevelClear(): void {
-    stopLoopingSfx(this, "siren");
+    stopLoopingSfx(this, "gameplayMusic");
     playSfx(this, "levelComplete");
     this.playRender.draw(this.world, {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
@@ -1058,7 +1051,7 @@ export class PlayScene extends Phaser.Scene {
     this.lives = livesAfterLevelRegen(this.lives);
     this.refreshLivesIcons();
     this.showLevelBanner();
-    this.startSirenAfterFanfare();
+    this.startGameplayMusicAfterFanfare();
     this.playRender.draw(this.world, {
       frozenGhostEid: null,
       playerInvulnRemainingMs: 0,
@@ -1115,7 +1108,7 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "resume":
         this.death = null;
-        startLoopingSfx(this, "siren");
+        startLoopingSfx(this, "gameplayMusic");
         break;
       case "goToMenu":
         this.death = null;
@@ -1143,7 +1136,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private beginRunComplete(): void {
-    stopLoopingSfx(this, "siren");
+    stopLoopingSfx(this, "gameplayMusic");
     this.showCenteredEndText("RUN COMPLETE");
     this.runCompleteRemainingMs = RUN_COMPLETE_HOLD_MS;
   }

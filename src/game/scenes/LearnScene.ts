@@ -56,6 +56,7 @@ import {
   parseLearnAllFlag,
   type SeenRecord,
 } from "../../domain/seenRecord";
+import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -155,10 +156,12 @@ export class LearnScene extends Phaser.Scene {
 
   preload(): void {
     preloadPlayArt(this);
+    preloadSfx(this);
   }
 
   create(): void {
     activateLayout("mazeSmall");
+    startLoopingSfx(this, "menuMusic");
     this.world = createWorld();
     this.selectedKind = null;
     this.ghostEid = null;

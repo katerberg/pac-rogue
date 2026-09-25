@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { PLAYFIELD_WIDTH } from "../../domain/playfield";
+import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import {
   addPixelText,
   MENU_OPTION_FONT_SIZE,
@@ -34,12 +35,17 @@ export class MenuScene extends Phaser.Scene {
     super("MenuScene");
   }
 
+  preload(): void {
+    preloadSfx(this);
+  }
+
   create(): void {
     this.selectedIndex = 0;
     this.optionTexts = [];
     this.optionCenters = [];
     this.upRepeat = createKeyRepeatState();
     this.downRepeat = createKeyRepeatState();
+    startLoopingSfx(this, "menuMusic");
 
     this.titleText = addPixelText(this, PLAYFIELD_WIDTH / 2, 120, "DOT-MAN", MENU_TITLE_FONT_SIZE);
     placePixelText(this.titleText, PLAYFIELD_WIDTH / 2, 120, 0.5, 0.5);

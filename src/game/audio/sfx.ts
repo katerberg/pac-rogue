@@ -1,13 +1,9 @@
 import type Phaser from "phaser";
-import {
-  categoryForSfx,
-  effectiveVolume,
-  type AudioCategory,
-  type AudioSettings,
-} from "../../domain/audioSettings";
+import { categoryForSfx, effectiveVolume, type AudioSettings } from "../../domain/audioSettings";
 import { loadAudioSettings } from "../storage/audioSettingsStorage";
 
-export type SfxId = "pelletMunch" | "pelletMunch2" | "siren" | "levelComplete" | "death";
+export type SfxId =
+  "pelletMunch" | "pelletMunch2" | "gameplayMusic" | "menuMusic" | "levelComplete" | "death";
 
 type SfxEntry = {
   key: string;
@@ -26,9 +22,14 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     url: "sound/pickup2.ogg",
     volume: 0.5,
   },
-  siren: {
-    key: "siren",
+  gameplayMusic: {
+    key: "gameplay-music",
     url: "sound/game-play.ogg",
+    volume: 1.0,
+  },
+  menuMusic: {
+    key: "menu-music",
+    url: "sound/menu.ogg",
     volume: 1.0,
   },
   levelComplete: {
@@ -43,11 +44,7 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
   },
 };
 
-const MUSIC_PREVIEW_DURATION_MS = 3000;
-const PREVIEW_SFX: Record<AudioCategory, SfxId> = {
-  music: "siren",
-  sfx: "pelletMunch",
-};
+const SFX_PREVIEW_ID: SfxId = "pelletMunch";
 
 export function pelletCollectSfxId(pickupNumber: number): SfxId {
   return pickupNumber > 0 && pickupNumber % 2 === 0 ? "pelletMunch2" : "pelletMunch";
@@ -104,40 +101,41 @@ export function isSfxPlaying(scene: Phaser.Scene, id: SfxId): boolean {
   return scene.cache.audio.exists(entry.key) && scene.sound.isPlaying(entry.key);
 }
 
-const musicPreviewTimers = new WeakMap<Phaser.Scene, Phaser.Time.TimerEvent>();
-
-export function stopMusicVolumePreview(scene: Phaser.Scene): void {
-  musicPreviewTimers.get(scene)?.remove(false);
-  musicPreviewTimers.delete(scene);
-  stopLoopingSfx(scene, "siren");
+export function musicIdForContext(returnScene: string): SfxId {
+  return returnScene === "PauseScene" ? "gameplayMusic" : "menuMusic";
 }
 
-export function playVolumePreview(
-  scene: Phaser.Scene,
-  settings: AudioSettings,
-  category: AudioCategory,
-): void {
-  const id = PREVIEW_SFX[category];
+export function playSfxPreview(scene: Phaser.Scene, settings: AudioSettings): void {
+  const entry = SFX_MANIFEST[SFX_PREVIEW_ID];
+  if (!scene.cache.audio.exists(entry.key)) {
+    return;
+  }
+  const volume = categoryVolume(settings, SFX_PREVIEW_ID);
+  if (volume <= 0) {
+    return;
+  }
+  scene.sound.stopByKey(entry.key);
+  scene.sound.play(entry.key, { volume });
+}
+
+export function syncMusicPlayback(scene: Phaser.Scene, id: SfxId, settings: AudioSettings): void {
   const entry = SFX_MANIFEST[id];
   if (!scene.cache.audio.exists(entry.key)) {
     return;
   }
   const volume = categoryVolume(settings, id);
   if (volume <= 0) {
+    stopLoopingSfx(scene, id);
     return;
   }
-  if (category === "music") {
-    stopMusicVolumePreview(scene);
-    scene.sound.play(entry.key, { volume, loop: true });
-    const timer = scene.time.delayedCall(MUSIC_PREVIEW_DURATION_MS, () => {
-      scene.sound.stopByKey(entry.key);
-      musicPreviewTimers.delete(scene);
-    });
-    musicPreviewTimers.set(scene, timer);
+  if (scene.sound.isPlaying(entry.key)) {
+    const playing = scene.sound.get<Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound>(
+      entry.key,
+    );
+    playing?.setVolume(volume);
     return;
   }
-  scene.sound.stopByKey(entry.key);
-  scene.sound.play(entry.key, { volume });
+  scene.sound.play(entry.key, { volume, loop: true });
 }
 
 export function playPelletCollectSfx(
