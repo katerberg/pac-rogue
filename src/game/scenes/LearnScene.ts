@@ -281,7 +281,8 @@ export class LearnScene extends Phaser.Scene {
 
     this.noEffectBanner = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
       .setDepth(OVERLAY_DEPTH + 1)
-      .setCenterAlign();
+      .setCenterAlign()
+      .setLineSpacing(10);
     this.refreshNoEffectBanner();
 
     const playerInput = createPlayerInput(this);
