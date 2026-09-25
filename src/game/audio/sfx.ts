@@ -28,8 +28,8 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
   },
   siren: {
     key: "siren",
-    url: "sound/siren.ogg",
-    volume: 0.3,
+    url: "sound/game-play.ogg",
+    volume: 1.0,
   },
   levelComplete: {
     key: "level-complete",
@@ -43,7 +43,7 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
   },
 };
 
-const MUSIC_PREVIEW_DURATION_MS = 1000;
+const MUSIC_PREVIEW_DURATION_MS = 3000;
 const PREVIEW_SFX: Record<AudioCategory, SfxId> = {
   music: "siren",
   sfx: "pelletMunch",
