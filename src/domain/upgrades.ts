@@ -61,7 +61,7 @@ export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
 export const POWER_COLLECT_THREE_COUNT = 3;
 export const QUARTER_BOUNTY_MUL = 2;
-export const DEATHS_HARVEST_RADIUS_TILES = 10;
+export const DEATHS_HARVEST_RADIUS_TILES = 6;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
 

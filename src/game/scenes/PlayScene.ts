@@ -500,7 +500,34 @@ export class PlayScene extends Phaser.Scene {
       : undefined;
     movement(this.world, delta, playerSolidsOverride);
     if (this.runUpgrades.owned.includes("tunnelDash")) {
-      applyTunnelDash(this.world);
+      const dash = applyTunnelDash(this.world);
+      if (dash.sweptPelletEids.length > 0) {
+        for (const eid of dash.sweptPelletEids) {
+          this.playRender.releaseDrawable(eid);
+        }
+        playPelletCollectSfx(
+          this,
+          this.lifetimeCollected,
+          dash.sweptPelletEids.length,
+          dash.sweptPowerRemoved,
+        );
+        if (this.runUpgrades.owned.includes("secondChomp")) {
+          this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
+            this.pendingPowerPelletRespawns,
+            dash.sweptPowerPositions,
+          );
+        }
+        const collectResult = applyPelletCollect(this.pelletProgress, dash.sweptPelletEids.length);
+        this.pelletProgress = collectResult.progress;
+        this.lifetimeCollected += dash.sweptPelletEids.length;
+        if (dash.sweptPowerRemoved > 0 && this.resolvePowerPelletTrigger(dash.sweptPowerRemoved)) {
+          return;
+        }
+        if (collectResult.shouldRecordClear) {
+          this.triggerLevelClear();
+          return;
+        }
+      }
     }
 
     const corruptionStep = stepCorruption(
@@ -625,7 +652,7 @@ export class PlayScene extends Phaser.Scene {
       this.quarters += removedFruitEids.length * fruitQuarterMultiplier(this.runUpgrades.owned);
       this.refreshQuartersHud();
       this.fruitPresence = markFruitCollected(fruitTick.state);
-      if (this.runUpgrades.owned.includes("fruitPower") && this.applyFruitPowerEffects()) {
+      if (this.runUpgrades.owned.includes("fruitPower") && this.resolvePowerPelletTrigger(1)) {
         return;
       }
     } else if (fruitTick.action === "despawn") {
@@ -824,8 +851,8 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  private applyFruitPowerEffects(): boolean {
-    const powerEffects = applyPowerPelletEffects(this.runUpgrades, 1);
+  private resolvePowerPelletTrigger(powerRemoved: number): boolean {
+    const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
     this.runUpgrades = powerEffects.state;
     if (powerEffects.freezeClosestMs !== null) {
       this.runUpgrades = freezeClosestGhost(
