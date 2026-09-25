@@ -32,7 +32,7 @@ const CHOICE_BUTTON_WIDTH = 230;
 const CHOICE_BUTTON_HEIGHT = 150;
 const CHOICE_LABEL_MAX_CHARS = 8;
 const CHOICE_DESCRIPTION_MAX_CHARS = 22;
-const CHOICE_LABEL_FONT_SIZE = 24;
+const CHOICE_LABEL_FONT_SIZE = 22;
 
 const CENTER_X = PLAYFIELD_WIDTH / 2;
 const CENTER_Y = PLAYFIELD_HEIGHT / 2 + 40;
@@ -101,6 +101,41 @@ function copyForOption(option: UpgradeChoiceOption): { label: string; descriptio
   }
   const def = getUpgradeDef(option.id);
   return { label: def.label, description: def.description };
+}
+
+export type UpgradeCardVisual = {
+  root: Phaser.GameObjects.Container;
+  bg: Phaser.GameObjects.Rectangle;
+  label: Phaser.GameObjects.BitmapText;
+  description: Phaser.GameObjects.BitmapText;
+  targetLabel: string;
+  targetDescription: string;
+};
+
+export function buildUpgradeCardVisual(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  copy: { label: string; description: string },
+): UpgradeCardVisual {
+  const targetLabel = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
+  const targetDescription = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
+  const bg = scene.add
+    .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
+    .setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
+  const label = addPixelText(scene, 0, 0, targetLabel, CHOICE_LABEL_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const description = addPixelText(
+    scene,
+    0,
+    0,
+    targetDescription,
+    UPGRADES_HUD_FONT_SIZE,
+    TEXT_COLOR_WHITE,
+  );
+  placePixelText(label, 0, -30, 0.5, 0.5);
+  placePixelText(description, 0, 18, 0.5, 0.5);
+  const root = scene.add.container(x, y, [bg, label, description]);
+  return { root, bg, label, description, targetLabel, targetDescription };
 }
 
 type ButtonView = {
@@ -277,39 +312,25 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     slots.forEach(({ slot, option }, index) => {
       const center = SLOT_POSITIONS[slot];
       const copy = copyForOption(option);
-      const labelText = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
-      const descriptionText = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
-      const bg = scene.add
-        .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
-        .setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW)
-        .setInteractive({ useHandCursor: true });
-      const label = addPixelText(scene, 0, 0, labelText, CHOICE_LABEL_FONT_SIZE, TEXT_COLOR_YELLOW);
-      const description = addPixelText(
-        scene,
-        0,
-        0,
-        descriptionText,
-        UPGRADES_HUD_FONT_SIZE,
-        TEXT_COLOR_WHITE,
-      );
-      const root = scene.add.container(center.x, center.y, [bg, label, description]);
-      root.setDepth(MODAL_DEPTH + 1);
-      root.setAlpha(0);
+      const visual = buildUpgradeCardVisual(scene, center.x, center.y, copy);
+      visual.bg.setInteractive({ useHandCursor: true });
+      visual.root.setDepth(MODAL_DEPTH + 1);
+      visual.root.setAlpha(0);
 
       const view: ButtonView = {
         slot,
         option,
-        root,
-        bg,
-        label,
-        description,
-        targetLabel: labelText,
-        targetDescription: descriptionText,
+        root: visual.root,
+        bg: visual.bg,
+        label: visual.label,
+        description: visual.description,
+        targetLabel: visual.targetLabel,
+        targetDescription: visual.targetDescription,
         baseX: center.x,
         baseY: center.y,
       };
       placeButtonText(view);
-      bg.on("pointerdown", () => {
+      visual.bg.on("pointerdown", () => {
         if (phase === "selecting") {
           finish(index);
         }
@@ -340,7 +361,6 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
     const maxY = Math.max(...ys) + CHOICE_BUTTON_HEIGHT / 2;
     selectionFrame = scene.add
       .rectangle((minX + maxX) / 2, (minY + maxY) / 2, maxX - minX + 24, maxY - minY + 24)
-      .setStrokeStyle(3, TEXT_COLOR_YELLOW)
       .setFillStyle(0x000000, 0)
       .setDepth(MODAL_DEPTH + 2)
       .setAlpha(0)

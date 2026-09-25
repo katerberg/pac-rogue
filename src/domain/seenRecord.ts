@@ -1,19 +1,25 @@
 import { CORRUPTION_IDS, type CorruptionId } from "./corruption";
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import { ALL_UPGRADE_IDS, type UpgradeId } from "./upgrades";
 
 export type SeenRecord = {
   ghosts: GhostKindId[];
   corruptions: CorruptionId[];
+  upgrades: UpgradeId[];
 };
 
 const GHOST_KIND_IDS: readonly GhostKindId[] = Object.values(GHOST_KIND);
 
 export function emptySeenRecord(): SeenRecord {
-  return { ghosts: [], corruptions: [] };
+  return { ghosts: [], corruptions: [], upgrades: [] };
 }
 
 export function allSeenRecord(): SeenRecord {
-  return { ghosts: [...GHOST_KIND_IDS], corruptions: [...CORRUPTION_IDS] };
+  return {
+    ghosts: [...GHOST_KIND_IDS],
+    corruptions: [...CORRUPTION_IDS],
+    upgrades: [...ALL_UPGRADE_IDS],
+  };
 }
 
 function pickKnown<T>(raw: unknown, known: readonly T[]): T[] {
@@ -36,6 +42,7 @@ export function parseSeenRecord(raw: string | null): SeenRecord {
     return {
       ghosts: pickKnown(record.ghosts, GHOST_KIND_IDS),
       corruptions: pickKnown(record.corruptions, CORRUPTION_IDS),
+      upgrades: pickKnown(record.upgrades, ALL_UPGRADE_IDS),
     };
   } catch {
     return emptySeenRecord();
@@ -62,6 +69,23 @@ export function withSeenCorruption(record: SeenRecord, id: CorruptionId): SeenRe
   return { ...record, corruptions: CORRUPTION_IDS.filter((known) => merged.includes(known)) };
 }
 
-export function parseLearnAllFlag(params: URLSearchParams): boolean {
-  return params.get("learnAll") === "1";
+export function withSeenUpgrade(record: SeenRecord, id: UpgradeId): SeenRecord {
+  if (record.upgrades.includes(id)) {
+    return record;
+  }
+  const merged = [...record.upgrades, id];
+  return { ...record, upgrades: ALL_UPGRADE_IDS.filter((known) => merged.includes(known)) };
+}
+
+export type LearnAllMode = "all" | "none";
+
+export function parseLearnAllMode(params: URLSearchParams): LearnAllMode | null {
+  const raw = params.get("learnAll");
+  if (raw === "1") {
+    return "all";
+  }
+  if (raw === "0") {
+    return "none";
+  }
+  return null;
 }

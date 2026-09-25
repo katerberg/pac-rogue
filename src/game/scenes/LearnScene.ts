@@ -12,10 +12,11 @@ import {
   type CorruptionId,
   type RunCorruption,
 } from "../../domain/corruption";
+import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { GHOST_AI_MODE } from "../../domain/ghostMode";
+import { GHOST_AI_MODE, type GhostAiMode } from "../../domain/ghostMode";
 import type { GhostDir } from "../../domain/ghostPath";
-import { GHOST_PHASE } from "../../domain/ghostPhase";
+import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import {
   GHOST_COLOR_BY_KIND,
@@ -27,6 +28,7 @@ import {
   type PixelPoint,
   type PixelRect,
 } from "../../domain/learnOverlay";
+import { fruitSpawnCenter } from "../../domain/fruit";
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import {
   activateLayout,
@@ -34,13 +36,17 @@ import {
   cellCenterY,
   getActiveLayout,
   isWalkable,
+  pelletCellCenters,
   playerSpawnCenter,
   TILE_SIZE,
   wallCellCenters,
   worldToCol,
   worldToRow,
+  type PelletKind,
 } from "../../domain/maze";
 import {
+  FRUIT_DRAWABLE_ID,
+  FRUIT_RADIUS,
   GHOST_DRAWABLE_BY_KIND,
   ghostRadius,
   PELLET_DRAWABLE_ID,
@@ -49,16 +55,43 @@ import {
   playerRadius,
   PLAYER_SPEED,
   PLAYFIELD_WIDTH,
+  POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import {
   allSeenRecord,
   emptySeenRecord,
-  parseLearnAllFlag,
+  parseLearnAllMode,
   type SeenRecord,
 } from "../../domain/seenRecord";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
+import {
+  createRunUpgrades,
+  frozenGhostEid,
+  getUpgradeDef,
+  ghostSpeedMultiplier,
+  grantUpgrade,
+  pelletCollectRadiusBonusPx,
+  playerSpeedMultiplier,
+  PLAYER_SPEED_BURST_MUL,
+  revokeUpgrade,
+  scatterBurstActive,
+  speedBurstActive,
+  tickFreeze,
+  tickInvuln,
+  tickScatterBurst,
+  tickSpeedBurst,
+  tickWallPass,
+  TUNNEL_DASH_SPEED_MUL,
+  UPGRADE_DEFS,
+  wallPassActive,
+  applyPowerPelletEffects,
+  type RunUpgrades,
+  type UpgradeDef,
+  type UpgradeId,
+} from "../../domain/upgrades";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
+import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
@@ -66,18 +99,31 @@ import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
+import { collectExtraPellets } from "../systems/collectExtraPellets";
+import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
 import { stepCorruption } from "../systems/corruptionStep";
 import { ghostAi, ghostAiContext, resolveGhostTarget } from "../systems/ghostAi";
+import { freezeClosestGhost } from "../systems/ghostFreeze";
+import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { movement } from "../systems/movement";
+import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
+import { warpPlayerToTopCenter } from "../systems/playerWarp";
+import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
+import {
+  applyTunnelDash,
+  tickTunnelDashAnimation,
+  type TunnelDashAnimation,
+} from "../systems/tunnelDash";
 import {
   createRender,
   GHOST_TEXTURE_BY_ID,
@@ -94,6 +140,12 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import {
+  buildUpgradeCardVisual,
+  MODAL_DEPTH,
+  wrapText,
+  type UpgradeCardVisual,
+} from "./upgradeChoiceModal";
 
 const SLOT_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.blinky,
@@ -128,9 +180,30 @@ const PIVOT_DOT_RADIUS = 3;
 const CIRCLE_SEGMENTS = 48;
 const NO_ELROY_PELLETS = Number.MAX_SAFE_INTEGER;
 const LEARN_LEVEL = 1;
+const UPGRADE_COLUMN_X = 20;
+const UPGRADE_ROW_START_Y = 100;
+const UPGRADE_ROW_GAP = 21;
+const UPGRADE_ROW_WIDTH = 190;
+const UPGRADE_CHECK_SIZE = 10;
+const UPGRADE_CHECK_GAP = 4;
+const LEARN_RECALL_HOLD_MS = 1500;
+const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
+const HOVER_PREVIEW_DELAY_MS = 500;
+const HOVER_PREVIEW_X = 110;
+const HOVER_PREVIEW_Y_MIN = 90;
+const HOVER_PREVIEW_Y_MAX = 510;
+const FRUIT_RESPAWN_MS = 1000;
+const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
+  "ghostHouseDelay",
+  "extraLife",
+  "quarterBounty",
+  "deathsHarvest",
+  "secondChomp",
+];
 
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
 type CorruptionRow = { id: CorruptionId; checkMark: Phaser.GameObjects.Rectangle };
+type UpgradeRow = { id: UpgradeId; checkMark: Phaser.GameObjects.Rectangle };
 
 export class LearnScene extends Phaser.Scene {
   private world!: World;
@@ -147,6 +220,16 @@ export class LearnScene extends Phaser.Scene {
   private reticlePx: PixelPoint | null = null;
   private slots: GhostSlot[] = [];
   private corruptionRows: CorruptionRow[] = [];
+  private upgradeRows: UpgradeRow[] = [];
+  private noEffectBanner!: Phaser.GameObjects.BitmapText;
+  private hoverPreviewTimer: Phaser.Time.TimerEvent | null = null;
+  private hoverPreviewCard: UpgradeCardVisual | null = null;
+  private fruitRespawnRemainingMs: number | null = null;
+  private learnUpgrades: RunUpgrades = createRunUpgrades();
+  private recallHoldGhostEid: number | null = null;
+  private recallHoldRemainingMs = 0;
+  private tunnelDashAnim: TunnelDashAnimation | null = null;
+  private previousEffectiveGhostMode: GhostAiMode = GHOST_AI_MODE.chase;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private slotKeys: Phaser.Input.Keyboard.Key[] = [];
 
@@ -169,20 +252,41 @@ export class LearnScene extends Phaser.Scene {
     this.hiddenGhostEid = null;
     this.flashGhostEid = null;
     this.corruption = createRunCorruption({ type: null, ghostKind: null });
-    this.seen = parseLearnAllFlag(new URLSearchParams(location.search))
-      ? allSeenRecord()
-      : loadSeenRecord();
+    const learnAllMode = parseLearnAllMode(new URLSearchParams(location.search));
+    this.seen =
+      learnAllMode === "all"
+        ? allSeenRecord()
+        : learnAllMode === "none"
+          ? emptySeenRecord()
+          : loadSeenRecord();
+    this.learnUpgrades = createRunUpgrades();
+    this.recallHoldGhostEid = null;
+    this.recallHoldRemainingMs = 0;
+    this.tunnelDashAnim = null;
+    this.hoverPreviewTimer = null;
+    this.hoverPreviewCard = null;
+    this.fruitRespawnRemainingMs = null;
+    this.previousEffectiveGhostMode = GHOST_AI_MODE.chase;
 
     this.playRender = createRender(this);
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.spawnWalls();
     this.spawnPlayer();
+    this.resetPellets();
+    this.spawnFruitEntity();
 
     const title = addPixelText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
     placePixelText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
     this.buildGhostSlots();
     this.buildCorruptionRows();
+    this.buildUpgradeRows();
     this.buildBackButton();
+
+    this.noEffectBanner = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
+      .setDepth(OVERLAY_DEPTH + 1)
+      .setCenterAlign()
+      .setLineSpacing(10);
+    this.refreshNoEffectBanner();
 
     const playerInput = createPlayerInput(this);
     this.runPlayerInput = playerInput.apply;
@@ -227,15 +331,64 @@ export class LearnScene extends Phaser.Scene {
     this.runPlayerInput(this.world);
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
     this.corruption = tickSpeedSurge(this.corruption, delta);
-    applyPlayerSpeed(this.world, levelSpeedMul);
+
+    this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
+    this.learnUpgrades = tickScatterBurst(this.learnUpgrades, delta);
+    const wasWallPass = wallPassActive(this.learnUpgrades);
+    this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
+    if (wasWallPass && !wallPassActive(this.learnUpgrades)) {
+      snapPlayerToNearestWalkable(this.world);
+    }
+    this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
+    this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
+
+    if (this.recallHoldRemainingMs > 0) {
+      this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
+      if (this.recallHoldRemainingMs === 0 && this.recallHoldGhostEid !== null) {
+        GhostPhase.value[this.recallHoldGhostEid] = GHOST_PHASE.active;
+        this.recallHoldGhostEid = null;
+      }
+    }
+
+    applyPlayerSpeed(
+      this.world,
+      levelSpeedMul *
+        playerSpeedMultiplier(this.learnUpgrades.owned) *
+        (speedBurstActive(this.learnUpgrades) ? PLAYER_SPEED_BURST_MUL : 1),
+    );
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
-      ghostSpeedMul: levelSpeedMul,
+      ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
+      frozenGhostEid: frozenGhostEid(this.learnUpgrades),
       speedSurge:
         this.corruption.ghostKind !== null && isSpeedSurgeActive(this.corruption)
           ? { ghostKind: this.corruption.ghostKind, mul: SPEED_SURGE_MUL }
           : undefined,
     });
-    movement(this.world, delta);
+    movement(
+      this.world,
+      delta,
+      wallPassActive(this.learnUpgrades) ? getActiveLayout().wallPassPlayerSolids : undefined,
+    );
+
+    if (this.tunnelDashAnim !== null) {
+      this.tunnelDashAnim = tickTunnelDashAnimation(
+        this.world,
+        this.tunnelDashAnim,
+        delta,
+        PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
+      );
+    } else if (this.learnUpgrades.owned.includes("tunnelDash")) {
+      const dash = applyTunnelDash(this.world);
+      if (dash !== null) {
+        if (dash.sweptPelletEids.length > 0) {
+          this.releasePellets(dash.sweptPelletEids);
+          if (dash.sweptPowerRemoved > 0) {
+            this.resolveLearnPowerPelletTrigger(dash.sweptPowerRemoved);
+          }
+        }
+        this.tunnelDashAnim = { targetX: dash.animateToX, wrapToX: dash.wrapToX, y: dash.y };
+      }
+    }
 
     const pelletsOnBoard = query(this.world, [Pellet]).length;
     const step = stepCorruption(this.world, this.corruption, delta, Math.max(1, pelletsOnBoard));
@@ -243,17 +396,55 @@ export class LearnScene extends Phaser.Scene {
     this.hiddenGhostEid = step.hiddenGhostEid;
     this.flashGhostEid = step.flashGhostEid;
     this.spawnDroppedPellets(step.dropSpawnTiles);
-    const { removedEids } = collectPellets(this.world, { solids: getActiveLayout().playerSolids });
-    for (const eid of removedEids) {
-      this.playRender.releaseDrawable(eid);
+
+    const { removedEids, powerRemoved } = collectPellets(this.world, {
+      radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
+      solids: getActiveLayout().playerSolids,
+    });
+    this.releasePellets(removedEids);
+    if (powerRemoved > 0) {
+      this.resolveLearnPowerPelletTrigger(powerRemoved);
+    }
+    if (query(this.world, [Pellet]).length === 0) {
+      this.spawnPellets();
     }
 
-    ghostAi(this.world, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, {
-      corruption: corruptionAiOption(this.corruption),
-    });
+    if (this.fruitRespawnRemainingMs !== null) {
+      this.fruitRespawnRemainingMs -= delta;
+      if (this.fruitRespawnRemainingMs <= 0) {
+        this.fruitRespawnRemainingMs = null;
+        this.spawnFruitEntity();
+      }
+    }
+
+    const removedFruitEids = collectFruit(this.world);
+    if (removedFruitEids.length > 0) {
+      for (const eid of removedFruitEids) {
+        this.playRender.releaseDrawable(eid);
+      }
+      this.fruitRespawnRemainingMs = FRUIT_RESPAWN_MS;
+      if (this.learnUpgrades.owned.includes("fruitPower")) {
+        this.resolveLearnPowerPelletTrigger(1);
+      }
+    }
+
+    const effectiveMode = scatterBurstActive(this.learnUpgrades)
+      ? GHOST_AI_MODE.scatter
+      : GHOST_AI_MODE.chase;
+    if (effectiveMode !== this.previousEffectiveGhostMode) {
+      forceGhostReverse(this.world, this.corruption);
+    } else {
+      ghostAi(this.world, effectiveMode, NO_ELROY_PELLETS, {
+        corruption: corruptionAiOption(this.corruption),
+      });
+    }
+    this.previousEffectiveGhostMode = effectiveMode;
 
     const type = this.corruption.type;
     this.playRender.draw(this.world, {
+      frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+      playerInvulnRemainingMs: this.learnUpgrades.invulnRemainingMs,
+      wallPassActive: wallPassActive(this.learnUpgrades),
       corruptedGhostEid:
         type !== null ? findGhostEidByKind(this.world, this.corruption.ghostKind) : null,
       corruptedTint: type !== null ? OUTLINE_TINT_BY_CORRUPTION[type] : undefined,
@@ -353,6 +544,190 @@ export class LearnScene extends Phaser.Scene {
     }
   }
 
+  private buildUpgradeRows(): void {
+    this.upgradeRows = [];
+    const defs = UPGRADE_DEFS.filter((def) => this.seen.upgrades.includes(def.id));
+    const checkboxX = UPGRADE_COLUMN_X + UPGRADE_CHECK_SIZE / 2;
+    const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
+    defs.forEach((def, index) => {
+      const y = UPGRADE_ROW_START_Y + index * UPGRADE_ROW_GAP;
+      this.add
+        .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
+        .setStrokeStyle(2, TEXT_COLOR_WHITE);
+      const checkMark = this.add
+        .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, TEXT_COLOR_YELLOW)
+        .setVisible(false);
+      const label = addPixelText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
+      placePixelText(label, labelX, y, 0, 0.5);
+      const zone = this.add.zone(
+        UPGRADE_COLUMN_X + UPGRADE_ROW_WIDTH / 2,
+        y,
+        UPGRADE_ROW_WIDTH,
+        UPGRADE_ROW_GAP - 4,
+      );
+      zone.setInteractive({ useHandCursor: true });
+      zone.on("pointerdown", () => this.toggleUpgrade(def.id));
+      zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
+        this.scheduleUpgradePreview(def.id, pointer.y),
+      );
+      zone.on("pointerout", () => this.cancelUpgradePreview());
+      this.upgradeRows.push({ id: def.id, checkMark });
+    });
+  }
+
+  private refreshUpgradeRows(): void {
+    for (const row of this.upgradeRows) {
+      row.checkMark.setVisible(this.learnUpgrades.owned.includes(row.id));
+    }
+  }
+
+  private refreshNoEffectBanner(): void {
+    const selectedLabels = LEARN_NO_EFFECT_UPGRADE_IDS.filter((id) =>
+      this.learnUpgrades.owned.includes(id),
+    ).map((id) => getUpgradeDef(id).label);
+    const layout = getActiveLayout();
+    if (selectedLabels.length === 0) {
+      this.noEffectBanner.setText("");
+    } else {
+      const maxCharsPerLine = Math.floor(layout.pixelWidth / UPGRADES_HUD_FONT_SIZE);
+      const namesLine = wrapText(selectedLabels.join(", "), maxCharsPerLine);
+      this.noEffectBanner.setText(`${namesLine}\nNO VISIBLE EFFECT HERE`);
+    }
+    placePixelText(
+      this.noEffectBanner,
+      layout.offsetX + layout.pixelWidth / 2,
+      NO_EFFECT_BANNER_Y,
+      0.5,
+      0,
+    );
+  }
+
+  private scheduleUpgradePreview(id: UpgradeId, pointerY: number): void {
+    this.cancelUpgradePreview();
+    this.hoverPreviewTimer = this.time.delayedCall(HOVER_PREVIEW_DELAY_MS, () => {
+      this.hoverPreviewTimer = null;
+      this.showUpgradePreview(id, pointerY);
+    });
+  }
+
+  private showUpgradePreview(id: UpgradeId, pointerY: number): void {
+    const def = getUpgradeDef(id);
+    const y = Math.min(HOVER_PREVIEW_Y_MAX, Math.max(HOVER_PREVIEW_Y_MIN, pointerY));
+    const visual = buildUpgradeCardVisual(this, HOVER_PREVIEW_X, y, {
+      label: def.label,
+      description: def.description,
+    });
+    visual.root.setDepth(MODAL_DEPTH + 1);
+    this.hoverPreviewCard = visual;
+  }
+
+  private cancelUpgradePreview(): void {
+    this.hoverPreviewTimer?.remove();
+    this.hoverPreviewTimer = null;
+    this.hoverPreviewCard?.root.destroy(true);
+    this.hoverPreviewCard = null;
+  }
+
+  private clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades): RunUpgrades {
+    const hasField = (key: keyof NonNullable<UpgradeDef["onPowerPellet"]>): boolean =>
+      owned.some((id) => getUpgradeDef(id).onPowerPellet?.[key] !== undefined);
+    return {
+      ...state,
+      freezeRemainingMs: hasField("freezeClosestGhostMs") ? state.freezeRemainingMs : 0,
+      frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
+      scatterBurstRemainingMs: hasField("scatterBurstMs") ? state.scatterBurstRemainingMs : 0,
+      wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
+      invulnRemainingMs: hasField("playerInvulnMs") ? state.invulnRemainingMs : 0,
+      speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
+    };
+  }
+
+  private toggleUpgrade(id: UpgradeId): void {
+    const turningOn = !this.learnUpgrades.owned.includes(id);
+    const toggled = turningOn
+      ? grantUpgrade(this.learnUpgrades, id)
+      : revokeUpgrade(this.learnUpgrades, id);
+    this.learnUpgrades = this.clearStaleUpgradeTimers(toggled.owned, toggled);
+    if (turningOn && id === "pelletToPower") {
+      this.applyLearnPelletToPowerOnce();
+    }
+    this.refreshUpgradeRows();
+    this.refreshNoEffectBanner();
+  }
+
+  private applyLearnPelletToPowerOnce(): void {
+    const eid = applyPelletToPowerConvert(this.world, () => Math.random());
+    if (eid === null) {
+      return;
+    }
+    this.playRender.bouncePowerPellet(eid);
+  }
+
+  private resolveLearnPowerPelletTrigger(powerRemoved: number): void {
+    const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved);
+    this.learnUpgrades = powerEffects.state;
+    if (powerEffects.freezeClosestMs !== null) {
+      this.learnUpgrades = freezeClosestGhost(
+        this.world,
+        this.learnUpgrades,
+        powerEffects.freezeClosestMs,
+      );
+    }
+    if (powerEffects.collectExtraPellets > 0) {
+      const bonusEids = collectExtraPellets(
+        this.world,
+        powerEffects.collectExtraPellets,
+        getActiveLayout().playerSolids,
+      );
+      this.releasePellets(bonusEids);
+    }
+    if (powerEffects.recallClosestGhost) {
+      this.recallClosestGhostForLearn();
+    }
+    if (powerEffects.warpPlayerTopCenter) {
+      warpPlayerToTopCenter(this.world);
+    }
+  }
+
+  private recallClosestGhostForLearn(): void {
+    const playerEid = query(this.world, [Player, Position])[0];
+    if (playerEid === undefined) {
+      return;
+    }
+    const fromX = Position.x[playerEid] ?? 0;
+    const fromY = Position.y[playerEid] ?? 0;
+    const candidates = [];
+    for (const candidateEid of query(this.world, [Ghost, GhostPhase, Position])) {
+      candidates.push({
+        eid: candidateEid,
+        x: Position.x[candidateEid] ?? 0,
+        y: Position.y[candidateEid] ?? 0,
+        phase: (GhostPhase.value[candidateEid] ?? GHOST_PHASE.inHouse) as GhostPhaseValue,
+      });
+    }
+    const eid = pickClosestGhostEid(candidates, fromX, fromY);
+    if (eid === null) {
+      return;
+    }
+    const exit = getActiveLayout().ghostHouseExit;
+    Position.x[eid] = cellCenterX(exit.col);
+    Position.y[eid] = cellCenterY(exit.row);
+    Velocity.x[eid] = 0;
+    Velocity.y[eid] = 0;
+    Speed.px[eid] = 0;
+    GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+    Ghost.decidedCol[eid] = Number.NaN;
+    Ghost.decidedRow[eid] = Number.NaN;
+    this.recallHoldGhostEid = eid;
+    this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
+  }
+
+  private releasePellets(removedEids: readonly number[]): void {
+    for (const eid of removedEids) {
+      this.playRender.releaseDrawable(eid);
+    }
+  }
+
   private buildBackButton(): void {
     const back = addPixelText(this, 0, 0, "BACK", MENU_OPTION_FONT_SIZE);
     placePixelText(back, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
@@ -372,7 +747,7 @@ export class LearnScene extends Phaser.Scene {
         removeEntity(this.world, eid);
       }
     }
-    this.clearPellets();
+    this.resetPellets();
 
     const exit = getActiveLayout().ghostHouseExit;
     this.selectedKind = kind;
@@ -390,6 +765,17 @@ export class LearnScene extends Phaser.Scene {
     this.hiddenGhostEid = null;
     this.flashGhostEid = null;
     this.reticlePx = null;
+    this.learnUpgrades = {
+      ...this.learnUpgrades,
+      freezeRemainingMs: 0,
+      frozenGhostEid: null,
+      scatterBurstRemainingMs: 0,
+      wallPassRemainingMs: 0,
+      invulnRemainingMs: 0,
+      speedBurstRemainingMs: 0,
+    };
+    this.recallHoldGhostEid = null;
+    this.recallHoldRemainingMs = 0;
     this.refreshSlots();
     this.refreshCorruptionRows();
   }
@@ -403,7 +789,7 @@ export class LearnScene extends Phaser.Scene {
     });
     this.hiddenGhostEid = null;
     this.flashGhostEid = null;
-    this.clearPellets();
+    this.resetPellets();
     this.refreshCorruptionRows();
   }
 
@@ -512,11 +898,57 @@ export class LearnScene extends Phaser.Scene {
     }
   }
 
-  private clearPellets(): void {
+  private resetPellets(): void {
     for (const eid of query(this.world, [Pellet])) {
       this.playRender.releaseDrawable(eid);
       removeEntity(this.world, eid);
     }
+    this.spawnPellets();
+  }
+
+  private spawnPelletEntity(x: number, y: number, kind: PelletKind): void {
+    const eid = addEntity(this.world);
+    addComponent(this.world, eid, Pellet);
+    addComponent(this.world, eid, Position);
+    addComponent(this.world, eid, Drawable);
+    if (kind === "power") {
+      addComponent(this.world, eid, PowerPellet);
+    }
+    Position.x[eid] = x;
+    Position.y[eid] = y;
+    Drawable.id[eid] = kind === "power" ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID;
+    Drawable.radius[eid] = PELLET_RADIUS;
+  }
+
+  private isPelletCellOccupied(x: number, y: number): boolean {
+    return query(this.world, [Pellet, Position]).some(
+      (eid) => Position.x[eid] === x && Position.y[eid] === y,
+    );
+  }
+
+  private spawnPellets(): void {
+    for (const cell of pelletCellCenters()) {
+      this.spawnPelletEntity(cell.x, cell.y, cell.kind);
+    }
+  }
+
+  private clearFruitEntities(): void {
+    for (const eid of removeAllFruit(this.world)) {
+      this.playRender.releaseDrawable(eid);
+    }
+  }
+
+  private spawnFruitEntity(): void {
+    this.clearFruitEntities();
+    const eid = addEntity(this.world);
+    addComponent(this.world, eid, Fruit);
+    addComponent(this.world, eid, Position);
+    addComponent(this.world, eid, Drawable);
+    const spawn = fruitSpawnCenter();
+    Position.x[eid] = spawn.x;
+    Position.y[eid] = spawn.y;
+    Drawable.id[eid] = FRUIT_DRAWABLE_ID;
+    Drawable.radius[eid] = FRUIT_RADIUS;
   }
 
   private spawnDroppedPellets(tiles: readonly GhostTarget[]): void {
@@ -527,20 +959,10 @@ export class LearnScene extends Phaser.Scene {
       }
       const x = cellCenterX(tile.col);
       const y = cellCenterY(tile.row);
-      const occupied = query(this.world, [Pellet, Position]).some(
-        (eid) => Position.x[eid] === x && Position.y[eid] === y,
-      );
-      if (occupied) {
+      if (this.isPelletCellOccupied(x, y)) {
         continue;
       }
-      const eid = addEntity(this.world);
-      addComponent(this.world, eid, Pellet);
-      addComponent(this.world, eid, Position);
-      addComponent(this.world, eid, Drawable);
-      Position.x[eid] = x;
-      Position.y[eid] = y;
-      Drawable.id[eid] = PELLET_DRAWABLE_ID;
-      Drawable.radius[eid] = PELLET_RADIUS;
+      this.spawnPelletEntity(x, y, "dot");
     }
   }
 
