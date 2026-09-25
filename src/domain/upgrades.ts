@@ -60,6 +60,8 @@ export function pickupRangeBonusPx(): number {
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
 export const POWER_COLLECT_THREE_COUNT = 3;
+export const QUARTERS_CHOICE_AMOUNT = 2;
+export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
 export const QUARTER_BOUNTY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
 export const OVERCHARGE_MUL = 2;
@@ -308,28 +310,31 @@ function shuffleInPlace(ids: UpgradeId[], rng: () => number): void {
   }
 }
 
+export type UpgradeChoiceOption =
+  { kind: "upgrade"; id: UpgradeId } | { kind: "quarters"; amount: number };
+
+export type UpgradeChoiceOffer = {
+  quarters: number;
+  upgrades: UpgradeId[];
+};
+
 export function pickUpgradeChoiceOffer(
   owned: readonly UpgradeId[],
   lastDeclined: UpgradeId | null,
   rng: () => number,
-): UpgradeId[] | null {
+): UpgradeChoiceOffer {
   const eligible = eligibleUpgrades(owned);
-  if (eligible.length === 0) {
-    return null;
-  }
-  if (eligible.length === 1) {
-    return [eligible[0]!];
-  }
+  const desiredCount = Math.min(UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS, eligible.length);
 
   const preferred = eligible.filter((id) => id !== lastDeclined);
   const picked: UpgradeId[] = [];
   const drawPool = [...preferred];
-  while (picked.length < 2 && drawPool.length > 0) {
+  while (picked.length < desiredCount && drawPool.length > 0) {
     picked.push(takeRandomFrom(drawPool, rng));
   }
 
   if (
-    picked.length < 2 &&
+    picked.length < desiredCount &&
     lastDeclined !== null &&
     eligible.includes(lastDeclined) &&
     !picked.includes(lastDeclined)
@@ -337,9 +342,9 @@ export function pickUpgradeChoiceOffer(
     picked.push(lastDeclined);
   }
 
-  const options = picked.slice(0, 2);
-  shuffleInPlace(options, rng);
-  return options;
+  const upgrades = picked.slice(0, desiredCount);
+  shuffleInPlace(upgrades, rng);
+  return { quarters: QUARTERS_CHOICE_AMOUNT, upgrades };
 }
 
 export function pickStartingUpgrade(
@@ -353,19 +358,33 @@ export function pickStartingUpgrade(
   return takeRandomFrom(eligible, rng);
 }
 
+function withDeclined(state: RunUpgrades, declined: readonly UpgradeId[]): RunUpgrades {
+  if (declined.length !== 1) {
+    return state;
+  }
+  return {
+    ...state,
+    lastDeclinedUpgradeId: declined[0]!,
+  };
+}
+
 export function confirmUpgradeChoice(
   state: RunUpgrades,
   options: readonly UpgradeId[],
   chosenId: UpgradeId,
 ): RunUpgrades {
   const next = grantUpgrade(state, chosenId);
-  if (options.length !== 2) {
-    return next;
-  }
-  return {
-    ...next,
-    lastDeclinedUpgradeId: options.find((id) => id !== chosenId) ?? null,
-  };
+  return withDeclined(
+    next,
+    options.filter((id) => id !== chosenId),
+  );
+}
+
+export function declineUpgrades(
+  state: RunUpgrades,
+  declinedIds: readonly UpgradeId[],
+): RunUpgrades {
+  return withDeclined(state, declinedIds);
 }
 
 export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
