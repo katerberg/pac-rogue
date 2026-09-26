@@ -1062,8 +1062,9 @@ export class PlayScene extends Phaser.Scene {
 
     this.startBoard(null);
     this.refreshUpgradesHud();
+    const livesBeforeRegen = this.lives;
     this.lives = livesAfterLevelRegen(this.lives);
-    this.refreshLivesIcons();
+    this.refreshLivesIcons(this.lives > livesBeforeRegen);
     this.showLevelBanner();
     this.startGameplayMusicAfterFanfare();
     this.playRender.draw(this.world, {
@@ -1248,7 +1249,7 @@ export class PlayScene extends Phaser.Scene {
     };
   }
 
-  private refreshLivesIcons(): void {
+  private refreshLivesIcons(pulseNewIcon = false): void {
     for (const icon of this.lifeIcons) {
       icon.destroy();
     }
@@ -1263,6 +1264,20 @@ export class PlayScene extends Phaser.Scene {
         .setDepth(10);
       this.lifeIcons.push(icon);
     }
+    if (pulseNewIcon && this.lifeIcons.length > 0) {
+      this.pulseLifeIcon(this.lifeIcons[this.lifeIcons.length - 1]);
+    }
+  }
+
+  private pulseLifeIcon(icon: Phaser.GameObjects.Image): void {
+    const baseScale = icon.scaleX;
+    this.tweens.add({
+      targets: icon,
+      scale: baseScale * 1.4,
+      duration: 160,
+      ease: "Sine.easeOut",
+      yoyo: true,
+    });
   }
 
   private refreshQuartersHud(): void {
