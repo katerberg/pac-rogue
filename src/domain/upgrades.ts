@@ -212,6 +212,9 @@ const LEGACY_UPGRADE_IDS: Readonly<Record<string, UpgradeId>> = {
   overcharge: "passiveOvercharge",
   tunnelDash: "passiveTunnelDash",
   secondChomp: "powerPelletSecondChomp",
+  unknownUpgradeFruitPower: "fruitPowerPellet",
+  passiveQuarterBounty: "fruitQuarterBounty",
+  unknownUpgradeOvercharge: "passiveOvercharge",
 };
 
 export type PendingPowerPelletRespawn = { x: number; y: number; remainingMs: number };
