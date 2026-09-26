@@ -43,4 +43,9 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     pixelArt: true,
   },
   audio: soundEnabled ? (audioContext ? { context: audioContext } : undefined) : { noAudio: true },
+  callbacks: {
+    postBoot: (game) => {
+      game.sound.pauseOnBlur = false;
+    },
+  },
 };
