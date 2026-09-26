@@ -532,7 +532,7 @@ export class PlayScene extends Phaser.Scene {
             dash.sweptPelletEids.length,
             dash.sweptPowerRemoved,
           );
-          if (this.runUpgrades.owned.includes("powerPelletSecondChomp")) {
+          if (this.runUpgrades.owned.includes("passivePowerPelletRecharge")) {
             this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
               this.pendingPowerPelletRespawns,
               dash.sweptPowerPositions,
@@ -595,7 +595,7 @@ export class PlayScene extends Phaser.Scene {
     if (removed > 0) {
       playPelletCollectSfx(this, this.lifetimeCollected, removed, powerRemoved);
     }
-    if (this.runUpgrades.owned.includes("powerPelletSecondChomp")) {
+    if (this.runUpgrades.owned.includes("passivePowerPelletRecharge")) {
       this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
         this.pendingPowerPelletRespawns,
         removedPowerPositions,

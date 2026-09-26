@@ -198,7 +198,7 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
   "passiveExtraLife",
   "fruitQuarterBounty",
   "passiveDeathsHarvest",
-  "powerPelletSecondChomp",
+  "passivePowerPelletRecharge",
 ];
 
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };

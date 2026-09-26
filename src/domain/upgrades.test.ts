@@ -72,7 +72,7 @@ const ALL_IDS: UpgradeId[] = [
   "passiveDeathsHarvest",
   "passiveOvercharge",
   "passiveTunnelDash",
-  "powerPelletSecondChomp",
+  "passivePowerPelletRecharge",
 ];
 
 const STUB_IDS: UpgradeId[] = [
@@ -80,7 +80,7 @@ const STUB_IDS: UpgradeId[] = [
   "passiveDeathsHarvest",
   "passiveOvercharge",
   "passiveTunnelDash",
-  "powerPelletSecondChomp",
+  "passivePowerPelletRecharge",
 ];
 
 describe("parseUpgradeId", () => {
@@ -106,7 +106,7 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId("ghostSlow")).toBe("passiveGhostSlow");
     expect(parseUpgradeId("scatterBurst")).toBe("powerPelletScatterBurst");
     expect(parseUpgradeId("fruitPower")).toBe("fruitPowerPellet");
-    expect(parseUpgradeId("secondChomp")).toBe("powerPelletSecondChomp");
+    expect(parseUpgradeId("secondChomp")).toBe("passivePowerPelletRecharge");
   });
 });
 

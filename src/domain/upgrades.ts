@@ -20,7 +20,7 @@ export type UpgradeId =
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
-  | "powerPelletSecondChomp";
+  | "passivePowerPelletRecharge";
 
 export type UpgradeDef = {
   id: UpgradeId;
@@ -179,7 +179,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     description: "Tunnels move you the instant you touch them.",
   },
   {
-    id: "powerPelletSecondChomp",
+    id: "passivePowerPelletRecharge",
     label: "Second Chomp",
     description: "Eaten power pellets regenerate after ten seconds.",
   },
@@ -211,10 +211,11 @@ const LEGACY_UPGRADE_IDS: Readonly<Record<string, UpgradeId>> = {
   deathsHarvest: "passiveDeathsHarvest",
   overcharge: "passiveOvercharge",
   tunnelDash: "passiveTunnelDash",
-  secondChomp: "powerPelletSecondChomp",
+  secondChomp: "passivePowerPelletRecharge",
   unknownUpgradeFruitPower: "fruitPowerPellet",
   passiveQuarterBounty: "fruitQuarterBounty",
   unknownUpgradeOvercharge: "passiveOvercharge",
+  powerPelletSecondChomp: "passivePowerPelletRecharge",
 };
 
 export type PendingPowerPelletRespawn = { x: number; y: number; remainingMs: number };
