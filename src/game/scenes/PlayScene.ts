@@ -519,7 +519,7 @@ export class PlayScene extends Phaser.Scene {
         delta,
         PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
       );
-    } else if (this.runUpgrades.owned.includes("tunnelDash")) {
+    } else if (this.runUpgrades.owned.includes("passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
@@ -532,7 +532,7 @@ export class PlayScene extends Phaser.Scene {
             dash.sweptPelletEids.length,
             dash.sweptPowerRemoved,
           );
-          if (this.runUpgrades.owned.includes("secondChomp")) {
+          if (this.runUpgrades.owned.includes("powerPelletSecondChomp")) {
             this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
               this.pendingPowerPelletRespawns,
               dash.sweptPowerPositions,
@@ -595,7 +595,7 @@ export class PlayScene extends Phaser.Scene {
     if (removed > 0) {
       playPelletCollectSfx(this, this.lifetimeCollected, removed, powerRemoved);
     }
-    if (this.runUpgrades.owned.includes("secondChomp")) {
+    if (this.runUpgrades.owned.includes("powerPelletSecondChomp")) {
       this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
         this.pendingPowerPelletRespawns,
         removedPowerPositions,
@@ -681,7 +681,10 @@ export class PlayScene extends Phaser.Scene {
       this.quarters += removedFruitEids.length * fruitQuarterMultiplier(this.runUpgrades.owned);
       this.refreshQuartersHud();
       this.fruitPresence = markFruitCollected(fruitTick.state);
-      if (this.runUpgrades.owned.includes("fruitPower") && this.resolvePowerPelletTrigger(1)) {
+      if (
+        this.runUpgrades.owned.includes("fruitPowerPellet") &&
+        this.resolvePowerPelletTrigger(1)
+      ) {
         return;
       }
     } else if (fruitTick.action === "despawn") {
@@ -709,7 +712,7 @@ export class PlayScene extends Phaser.Scene {
     });
 
     if (caught) {
-      if (this.runUpgrades.owned.includes("deathsHarvest")) {
+      if (this.runUpgrades.owned.includes("passiveDeathsHarvest")) {
         const harvested = harvestNearbyPellets(this.world, DEATHS_HARVEST_RADIUS_TILES);
         if (harvested.length > 0) {
           for (const eid of harvested) {
@@ -829,7 +832,7 @@ export class PlayScene extends Phaser.Scene {
     this.timerText.setText(this.timerLabel());
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
-    if (this.runUpgrades.owned.includes("pelletToPower")) {
+    if (this.runUpgrades.owned.includes("passivePelletToPower")) {
       this.applyPelletToPowerOnce();
     }
   }
@@ -969,7 +972,7 @@ export class PlayScene extends Phaser.Scene {
 
   private applyGrantEffects(id: UpgradeId): void {
     this.lives += grantLivesForUpgrade(id);
-    if (id === "pelletToPower") {
+    if (id === "passivePelletToPower") {
       this.applyPelletToPowerOnce();
     }
   }

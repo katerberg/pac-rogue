@@ -1,6 +1,6 @@
 import { CORRUPTION_IDS, type CorruptionId } from "./corruption";
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
-import { ALL_UPGRADE_IDS, type UpgradeId } from "./upgrades";
+import { ALL_UPGRADE_IDS, parseUpgradeId, type UpgradeId } from "./upgrades";
 
 export type SeenRecord = {
   ghosts: GhostKindId[];
@@ -29,6 +29,23 @@ function pickKnown<T>(raw: unknown, known: readonly T[]): T[] {
   return known.filter((id) => raw.includes(id));
 }
 
+function pickKnownUpgrades(raw: unknown): UpgradeId[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const mapped = new Set<UpgradeId>();
+  for (const entry of raw) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+    const id = parseUpgradeId(entry);
+    if (id !== null) {
+      mapped.add(id);
+    }
+  }
+  return ALL_UPGRADE_IDS.filter((id) => mapped.has(id));
+}
+
 export function parseSeenRecord(raw: string | null): SeenRecord {
   if (raw === null) {
     return emptySeenRecord();
@@ -42,7 +59,7 @@ export function parseSeenRecord(raw: string | null): SeenRecord {
     return {
       ghosts: pickKnown(record.ghosts, GHOST_KIND_IDS),
       corruptions: pickKnown(record.corruptions, CORRUPTION_IDS),
-      upgrades: pickKnown(record.upgrades, ALL_UPGRADE_IDS),
+      upgrades: pickKnownUpgrades(record.upgrades),
     };
   } catch {
     return emptySeenRecord();

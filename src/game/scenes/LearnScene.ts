@@ -194,11 +194,11 @@ const HOVER_PREVIEW_Y_MIN = 90;
 const HOVER_PREVIEW_Y_MAX = 510;
 const FRUIT_RESPAWN_MS = 1000;
 const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
-  "ghostHouseDelay",
-  "extraLife",
-  "quarterBounty",
-  "deathsHarvest",
-  "secondChomp",
+  "passiveGhostHouseDelay",
+  "passiveExtraLife",
+  "fruitQuarterBounty",
+  "passiveDeathsHarvest",
+  "powerPelletSecondChomp",
 ];
 
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
@@ -377,7 +377,7 @@ export class LearnScene extends Phaser.Scene {
         delta,
         PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
       );
-    } else if (this.learnUpgrades.owned.includes("tunnelDash")) {
+    } else if (this.learnUpgrades.owned.includes("passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
@@ -423,7 +423,7 @@ export class LearnScene extends Phaser.Scene {
         this.playRender.releaseDrawable(eid);
       }
       this.fruitRespawnRemainingMs = FRUIT_RESPAWN_MS;
-      if (this.learnUpgrades.owned.includes("fruitPower")) {
+      if (this.learnUpgrades.owned.includes("fruitPowerPellet")) {
         this.resolveLearnPowerPelletTrigger(1);
       }
     }
@@ -648,7 +648,7 @@ export class LearnScene extends Phaser.Scene {
       ? grantUpgrade(this.learnUpgrades, id)
       : revokeUpgrade(this.learnUpgrades, id);
     this.learnUpgrades = this.clearStaleUpgradeTimers(toggled.owned, toggled);
-    if (turningOn && id === "pelletToPower") {
+    if (turningOn && id === "passivePelletToPower") {
       this.applyLearnPelletToPowerOnce();
     }
     this.refreshUpgradeRows();

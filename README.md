@@ -53,7 +53,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `learnAll`             | `1` \| `0`                        | `1`: LEARN treats every ghost, corruption, and upgrade as seen. `0`: LEARN treats nothing as seen, even if real play has met some. Either way, read-only — never writes the seen record. See [docs/learn.md](./docs/learn.md).                                                      |
 | `sound`                | `1`                               | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                                                                                                                                                                 |
 
-Upgrade ids: `powerPelletFreeze`, `playerSpeedUp`, `ghostSlow`, `scatterBurst`, `ghostRecall`, `warpTop`, `pickupRange`, `ghostHouseDelay`, `extraLife`, `pelletToPower`, `powerCollectThree`, `powerWallPass`, `powerSpeedBurst`, `powerInvuln`.
+Upgrade ids: `powerPelletFreeze`, `passivePlayerSpeedUp`, `passiveGhostSlow`, `powerPelletScatterBurst`, `powerPelletGhostRecall`, `powerPelletWarpTop`, `passivePickupRange`, `passiveGhostHouseDelay`, `passiveExtraLife`, `passivePelletToPower`, `powerPelletCollectThree`, `powerPelletWallPass`, `powerPelletSpeedBurst`, `powerPelletInvuln`, `fruitPowerPellet`, `fruitQuarterBounty`, `passiveDeathsHarvest`, `passiveOvercharge`, `passiveTunnelDash`, `powerPelletSecondChomp`.
 
 Corruption ids: `slimeTrail`, `invisibility`, `freeRetargetReverse`, `speedSurge`, `wallPhaseDash`, `pelletDropper`, `falseScatter`.
 
@@ -63,9 +63,9 @@ http://127.0.0.1:5174/?play=1&maze=mazeSmall
 http://127.0.0.1:5174/?maze=maze2
 http://127.0.0.1:5174/?level=3
 http://127.0.0.1:5174/?play=1&quarters=3
-http://127.0.0.1:5174/?enableUpgrade=scatterBurst
-http://127.0.0.1:5174/?enableUpgrade=ghostRecall&enableUpgrade=warpTop
-http://127.0.0.1:5174/?enableUpgrade=powerPelletFreeze&enableUpgrade=ghostSlow
+http://127.0.0.1:5174/?enableUpgrade=powerPelletScatterBurst
+http://127.0.0.1:5174/?enableUpgrade=powerPelletGhostRecall&enableUpgrade=powerPelletWarpTop
+http://127.0.0.1:5174/?enableUpgrade=powerPelletFreeze&enableUpgrade=passiveGhostSlow
 http://127.0.0.1:5174/?play=1&disableLevelUpgrades=1
 http://127.0.0.1:5174/?play=1&infiniteLives=1
 http://127.0.0.1:5174/?play=1&jumpToUpgrade=1
