@@ -23,12 +23,12 @@ describe("parseSeenRecord", () => {
     const raw = JSON.stringify({
       ghosts: [GHOST_KIND.inky, 99, GHOST_KIND.inky, "blinky", GHOST_KIND.blinky],
       corruptions: ["slimeTrail", "bogus", "slimeTrail"],
-      upgrades: ["playerSpeedUp", "bogus", "playerSpeedUp"],
+      upgrades: ["passivePlayerSpeedUp", "bogus", "passivePlayerSpeedUp"],
     });
     expect(parseSeenRecord(raw)).toEqual({
       ghosts: [GHOST_KIND.blinky, GHOST_KIND.inky],
       corruptions: ["slimeTrail"],
-      upgrades: ["playerSpeedUp"],
+      upgrades: ["passivePlayerSpeedUp"],
     });
     expect(parseSeenRecord(JSON.stringify({ ghosts: "x", corruptions: 3, upgrades: 3 }))).toEqual(
       emptySeenRecord(),
@@ -59,8 +59,8 @@ describe("withSeenGhosts / withSeenCorruption / withSeenUpgrade", () => {
     expect(withSeenGhosts(record, [GHOST_KIND.pinky])).toBe(record);
     const withCorruption = withSeenCorruption(record, "falseScatter");
     expect(withSeenCorruption(withCorruption, "falseScatter")).toBe(withCorruption);
-    const withUpgrade = withSeenUpgrade(record, "playerSpeedUp");
-    expect(withSeenUpgrade(withUpgrade, "playerSpeedUp")).toBe(withUpgrade);
+    const withUpgrade = withSeenUpgrade(record, "passivePlayerSpeedUp");
+    expect(withSeenUpgrade(withUpgrade, "passivePlayerSpeedUp")).toBe(withUpgrade);
   });
 
   it("merges in canonical order", () => {
@@ -70,8 +70,11 @@ describe("withSeenGhosts / withSeenCorruption / withSeenUpgrade", () => {
     expect(record.ghosts).toEqual([GHOST_KIND.blinky, GHOST_KIND.inky]);
     const corrupt = withSeenCorruption(withSeenCorruption(record, "falseScatter"), "slimeTrail");
     expect(corrupt.corruptions).toEqual(["slimeTrail", "falseScatter"]);
-    const upgraded = withSeenUpgrade(withSeenUpgrade(record, "ghostSlow"), "powerPelletFreeze");
-    expect(upgraded.upgrades).toEqual(["powerPelletFreeze", "ghostSlow"]);
+    const upgraded = withSeenUpgrade(
+      withSeenUpgrade(record, "passiveGhostSlow"),
+      "powerPelletFreeze",
+    );
+    expect(upgraded.upgrades).toEqual(["powerPelletFreeze", "passiveGhostSlow"]);
   });
 });
 

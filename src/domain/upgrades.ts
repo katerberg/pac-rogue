@@ -2,25 +2,25 @@ import { TILE_SIZE } from "./maze";
 
 export type UpgradeId =
   | "powerPelletFreeze"
-  | "playerSpeedUp"
-  | "ghostSlow"
-  | "scatterBurst"
-  | "ghostRecall"
-  | "warpTop"
-  | "pickupRange"
-  | "ghostHouseDelay"
-  | "extraLife"
-  | "pelletToPower"
-  | "powerCollectThree"
-  | "powerWallPass"
-  | "powerSpeedBurst"
-  | "powerInvuln"
-  | "fruitPower"
-  | "quarterBounty"
-  | "deathsHarvest"
-  | "overcharge"
-  | "tunnelDash"
-  | "secondChomp";
+  | "passivePlayerSpeedUp"
+  | "passiveGhostSlow"
+  | "powerPelletScatterBurst"
+  | "powerPelletGhostRecall"
+  | "powerPelletWarpTop"
+  | "passivePickupRange"
+  | "passiveGhostHouseDelay"
+  | "passiveExtraLife"
+  | "passivePelletToPower"
+  | "powerPelletCollectThree"
+  | "powerPelletWallPass"
+  | "powerPelletSpeedBurst"
+  | "powerPelletInvuln"
+  | "fruitPowerPellet"
+  | "fruitQuarterBounty"
+  | "passiveDeathsHarvest"
+  | "passiveOvercharge"
+  | "passiveTunnelDash"
+  | "passivePowerPelletRecharge";
 
 export type UpgradeDef = {
   id: UpgradeId;
@@ -76,110 +76,110 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     onPowerPellet: { freezeClosestGhostMs: FREEZE_MS },
   },
   {
-    id: "playerSpeedUp",
+    id: "passivePlayerSpeedUp",
     label: "Speed Up",
     description: "You run hotter. Corners feel closer.",
     playerSpeedMul: PLAYER_SPEED_UP_MUL,
   },
   {
-    id: "ghostSlow",
+    id: "passiveGhostSlow",
     label: "Ghost Slow",
     description: "The hunt softens. Ghosts drag their feet.",
     ghostSpeedMul: GHOST_SLOW_MUL,
   },
   {
-    id: "scatterBurst",
+    id: "powerPelletScatterBurst",
     label: "Scatter Burst",
     description: "Power pellet scatters every ghost into the corners.",
     onPowerPellet: { scatterBurstMs: SCATTER_BURST_MS },
   },
   {
-    id: "ghostRecall",
+    id: "powerPelletGhostRecall",
     label: "Ghost Recall",
     description: "Power pellet yanks the nearest ghost straight home.",
     onPowerPellet: { recallClosestGhost: true },
   },
   {
-    id: "warpTop",
+    id: "powerPelletWarpTop",
     label: "Warp Top",
     description: "Power pellet flings you to the top of the maze.",
     onPowerPellet: { warpPlayerTopCenter: true },
   },
   {
-    id: "pickupRange",
+    id: "passivePickupRange",
     label: "Pickup Range",
     description: "Pellets within a cell of you snap into your mouth.",
   },
   {
-    id: "ghostHouseDelay",
+    id: "passiveGhostHouseDelay",
     label: "House Delay",
     description: "Ghosts linger longer in the house before the hunt.",
     ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
     ghostHouseClydePelletAdd: GHOST_HOUSE_CLYDE_PELLET_ADD,
   },
   {
-    id: "extraLife",
+    id: "passiveExtraLife",
     label: "Extra Life",
     description: "One more chance before the maze goes dark.",
     grantLives: 1,
   },
   {
-    id: "pelletToPower",
+    id: "passivePelletToPower",
     label: "Pellet Surge",
     description: "A quiet pellet turns hot, and another may follow.",
   },
   {
-    id: "powerCollectThree",
+    id: "powerPelletCollectThree",
     label: "Triple Chomp",
     description: "Power pellet gulps three more pellets with it.",
     onPowerPellet: { collectExtraPellets: POWER_COLLECT_THREE_COUNT },
   },
   {
-    id: "powerWallPass",
+    id: "powerPelletWallPass",
     label: "Wall Pass",
     description: "Power pellet lets you slip through walls for a breath.",
     onPowerPellet: { wallPassMs: WALL_PASS_MS },
   },
   {
-    id: "powerSpeedBurst",
+    id: "powerPelletSpeedBurst",
     label: "Speed Burst",
     description: "Power pellet spikes your pace for a few seconds.",
     onPowerPellet: { playerSpeedBurstMs: SPEED_BURST_MS },
   },
   {
-    id: "powerInvuln",
+    id: "powerPelletInvuln",
     label: "Ghost Proof",
     description: "Power pellet lets you pass through ghosts briefly.",
     onPowerPellet: { playerInvulnMs: INVULN_MS },
   },
   {
-    id: "fruitPower",
+    id: "fruitPowerPellet",
     label: "Fruit Power",
     description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
   },
   {
-    id: "quarterBounty",
+    id: "fruitQuarterBounty",
     label: "Quarter Bounty",
     description: "Bonus fruit pays out double quarters.",
     fruitQuarterMul: QUARTER_BOUNTY_MUL,
   },
   {
-    id: "deathsHarvest",
+    id: "passiveDeathsHarvest",
     label: "Death's Harvest",
     description: "Dying harvests nearby pellets — clear the board this way and it counts as a win.",
   },
   {
-    id: "overcharge",
+    id: "passiveOvercharge",
     label: "Overcharge",
     description: "Doubles the duration of every other power pellet timer you're running.",
   },
   {
-    id: "tunnelDash",
+    id: "passiveTunnelDash",
     label: "Tunnel Dash",
     description: "Tunnels move you the instant you touch them.",
   },
   {
-    id: "secondChomp",
+    id: "passivePowerPelletRecharge",
     label: "Second Chomp",
     description: "Eaten power pellets regenerate after ten seconds.",
   },
@@ -522,7 +522,7 @@ export function applyPowerPelletEffects(
     }
   }
 
-  if (state.owned.includes("overcharge")) {
+  if (state.owned.includes("passiveOvercharge")) {
     if (freezeClosestMs !== null) {
       freezeClosestMs *= OVERCHARGE_MUL;
     }
@@ -592,7 +592,7 @@ export function fruitQuarterMultiplier(owned: readonly UpgradeId[]): number {
 export function pelletCollectRadiusBonusPx(owned: readonly UpgradeId[]): number {
   let bonus = 0;
   for (const id of owned) {
-    if (id === "pickupRange") {
+    if (id === "passivePickupRange") {
       bonus = Math.max(bonus, pickupRangeBonusPx());
       continue;
     }

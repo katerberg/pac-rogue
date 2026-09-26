@@ -54,46 +54,46 @@ import { TILE_SIZE } from "./maze";
 
 const ALL_IDS: UpgradeId[] = [
   "powerPelletFreeze",
-  "playerSpeedUp",
-  "ghostSlow",
-  "scatterBurst",
-  "ghostRecall",
-  "warpTop",
-  "pickupRange",
-  "ghostHouseDelay",
-  "extraLife",
-  "pelletToPower",
-  "powerCollectThree",
-  "powerWallPass",
-  "powerSpeedBurst",
-  "powerInvuln",
-  "fruitPower",
-  "quarterBounty",
-  "deathsHarvest",
-  "overcharge",
-  "tunnelDash",
-  "secondChomp",
+  "passivePlayerSpeedUp",
+  "passiveGhostSlow",
+  "powerPelletScatterBurst",
+  "powerPelletGhostRecall",
+  "powerPelletWarpTop",
+  "passivePickupRange",
+  "passiveGhostHouseDelay",
+  "passiveExtraLife",
+  "passivePelletToPower",
+  "powerPelletCollectThree",
+  "powerPelletWallPass",
+  "powerPelletSpeedBurst",
+  "powerPelletInvuln",
+  "fruitPowerPellet",
+  "fruitQuarterBounty",
+  "passiveDeathsHarvest",
+  "passiveOvercharge",
+  "passiveTunnelDash",
+  "passivePowerPelletRecharge",
 ];
 
 const STUB_IDS: UpgradeId[] = [
-  "fruitPower",
-  "deathsHarvest",
-  "overcharge",
-  "tunnelDash",
-  "secondChomp",
+  "fruitPowerPellet",
+  "passiveDeathsHarvest",
+  "passiveOvercharge",
+  "passiveTunnelDash",
+  "passivePowerPelletRecharge",
 ];
 
 describe("parseUpgradeId", () => {
   it("parses known ids and rejects invalid", () => {
-    expect(parseUpgradeId("ghostSlow")).toBe("ghostSlow");
-    expect(parseUpgradeId("playerSpeedUp")).toBe("playerSpeedUp");
+    expect(parseUpgradeId("passiveGhostSlow")).toBe("passiveGhostSlow");
+    expect(parseUpgradeId("passivePlayerSpeedUp")).toBe("passivePlayerSpeedUp");
     expect(parseUpgradeId("powerPelletFreeze")).toBe("powerPelletFreeze");
-    expect(parseUpgradeId("scatterBurst")).toBe("scatterBurst");
-    expect(parseUpgradeId("ghostRecall")).toBe("ghostRecall");
-    expect(parseUpgradeId("warpTop")).toBe("warpTop");
-    expect(parseUpgradeId("powerCollectThree")).toBe("powerCollectThree");
-    expect(parseUpgradeId("powerSpeedBurst")).toBe("powerSpeedBurst");
-    expect(parseUpgradeId("powerWallPass")).toBe("powerWallPass");
+    expect(parseUpgradeId("powerPelletScatterBurst")).toBe("powerPelletScatterBurst");
+    expect(parseUpgradeId("powerPelletGhostRecall")).toBe("powerPelletGhostRecall");
+    expect(parseUpgradeId("powerPelletWarpTop")).toBe("powerPelletWarpTop");
+    expect(parseUpgradeId("powerPelletCollectThree")).toBe("powerPelletCollectThree");
+    expect(parseUpgradeId("powerPelletSpeedBurst")).toBe("powerPelletSpeedBurst");
+    expect(parseUpgradeId("powerPelletWallPass")).toBe("powerPelletWallPass");
     for (const id of STUB_IDS) {
       expect(parseUpgradeId(id)).toBe(id);
     }
@@ -106,9 +106,13 @@ describe("parseUpgradeId", () => {
 describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
   it("collects all valid enableUpgrade values in order", () => {
     const params = new URLSearchParams(
-      "enableUpgrade=ghostSlow&enableUpgrade=nope&enableUpgrade=playerSpeedUp&enableUpgrade=ghostSlow",
+      "enableUpgrade=passiveGhostSlow&enableUpgrade=nope&enableUpgrade=passivePlayerSpeedUp&enableUpgrade=passiveGhostSlow",
     );
-    expect(parseEnableUpgradeParams(params)).toEqual(["ghostSlow", "playerSpeedUp", "ghostSlow"]);
+    expect(parseEnableUpgradeParams(params)).toEqual([
+      "passiveGhostSlow",
+      "passivePlayerSpeedUp",
+      "passiveGhostSlow",
+    ]);
   });
 
   it("returns empty when missing", () => {
@@ -116,8 +120,8 @@ describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
   });
 
   it("seeds owned immediately and dedupes via grant", () => {
-    const state = createRunUpgrades(["powerPelletFreeze", "ghostSlow", "powerPelletFreeze"]);
-    expect(state.owned).toEqual(["powerPelletFreeze", "ghostSlow"]);
+    const state = createRunUpgrades(["powerPelletFreeze", "passiveGhostSlow", "powerPelletFreeze"]);
+    expect(state.owned).toEqual(["powerPelletFreeze", "passiveGhostSlow"]);
     expect(state.lastDeclinedUpgradeId).toBeNull();
     expect(state.scatterBurstRemainingMs).toBe(0);
     expect(state.speedBurstRemainingMs).toBe(0);
@@ -142,9 +146,9 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   });
 
   it("returns a single upgrade option when only one eligible", () => {
-    const owned = ALL_IDS.filter((id) => id !== "warpTop");
+    const owned = ALL_IDS.filter((id) => id !== "powerPelletWarpTop");
     const offer = pickUpgradeChoiceOffer(owned, null, () => 0);
-    expect(offer.upgrades).toEqual(["warpTop"]);
+    expect(offer.upgrades).toEqual(["powerPelletWarpTop"]);
   });
 
   it("returns up to three distinct unowned upgrade options", () => {
@@ -157,66 +161,68 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   });
 
   it("excludes lastDeclined when enough eligible remain", () => {
-    const offer = pickUpgradeChoiceOffer([], "ghostSlow", () => 0);
-    expect(offer.upgrades).not.toContain("ghostSlow");
+    const offer = pickUpgradeChoiceOffer([], "passiveGhostSlow", () => 0);
+    expect(offer.upgrades).not.toContain("passiveGhostSlow");
     expect(offer.upgrades).toHaveLength(3);
   });
 
   it("re-includes lastDeclined when needed to fill the offer", () => {
     const owned = ALL_IDS.filter(
-      (id) => id !== "ghostSlow" && id !== "warpTop" && id !== "extraLife",
+      (id) => id !== "passiveGhostSlow" && id !== "powerPelletWarpTop" && id !== "passiveExtraLife",
     );
-    const offer = pickUpgradeChoiceOffer(owned, "ghostSlow", () => 0);
-    expect(offer.upgrades).toEqual(expect.arrayContaining(["ghostSlow", "warpTop", "extraLife"]));
+    const offer = pickUpgradeChoiceOffer(owned, "passiveGhostSlow", () => 0);
+    expect(offer.upgrades).toEqual(
+      expect.arrayContaining(["passiveGhostSlow", "powerPelletWarpTop", "passiveExtraLife"]),
+    );
     expect(offer.upgrades).toHaveLength(3);
   });
 
   it("confirm grants chosen and tracks the single declined option", () => {
     const state = createRunUpgrades();
-    const options: UpgradeId[] = ["playerSpeedUp", "ghostSlow"];
-    const next = confirmUpgradeChoice(state, options, "playerSpeedUp");
-    expect(next.owned).toEqual(["playerSpeedUp"]);
-    expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
+    const options: UpgradeId[] = ["passivePlayerSpeedUp", "passiveGhostSlow"];
+    const next = confirmUpgradeChoice(state, options, "passivePlayerSpeedUp");
+    expect(next.owned).toEqual(["passivePlayerSpeedUp"]);
+    expect(next.lastDeclinedUpgradeId).toBe("passiveGhostSlow");
   });
 
   it("confirm with one option leaves lastDeclined unchanged", () => {
     const state = {
       ...createRunUpgrades(),
-      lastDeclinedUpgradeId: "ghostSlow" as UpgradeId,
+      lastDeclinedUpgradeId: "passiveGhostSlow" as UpgradeId,
     };
-    const next = confirmUpgradeChoice(state, ["warpTop"], "warpTop");
-    expect(next.owned).toEqual(["warpTop"]);
-    expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
+    const next = confirmUpgradeChoice(state, ["powerPelletWarpTop"], "powerPelletWarpTop");
+    expect(next.owned).toEqual(["powerPelletWarpTop"]);
+    expect(next.lastDeclinedUpgradeId).toBe("passiveGhostSlow");
   });
 
   it("confirm with three options leaves lastDeclined unchanged (ambiguous)", () => {
     const state = {
       ...createRunUpgrades(),
-      lastDeclinedUpgradeId: "ghostSlow" as UpgradeId,
+      lastDeclinedUpgradeId: "passiveGhostSlow" as UpgradeId,
     };
-    const options: UpgradeId[] = ["playerSpeedUp", "warpTop", "extraLife"];
-    const next = confirmUpgradeChoice(state, options, "playerSpeedUp");
-    expect(next.owned).toEqual(["playerSpeedUp"]);
-    expect(next.lastDeclinedUpgradeId).toBe("ghostSlow");
+    const options: UpgradeId[] = ["passivePlayerSpeedUp", "powerPelletWarpTop", "passiveExtraLife"];
+    const next = confirmUpgradeChoice(state, options, "passivePlayerSpeedUp");
+    expect(next.owned).toEqual(["passivePlayerSpeedUp"]);
+    expect(next.lastDeclinedUpgradeId).toBe("passiveGhostSlow");
   });
 });
 
 describe("declineUpgrades", () => {
   it("remembers the single declined upgrade when quarters is chosen instead", () => {
     const state = createRunUpgrades();
-    const next = declineUpgrades(state, ["warpTop"]);
-    expect(next.lastDeclinedUpgradeId).toBe("warpTop");
+    const next = declineUpgrades(state, ["powerPelletWarpTop"]);
+    expect(next.lastDeclinedUpgradeId).toBe("powerPelletWarpTop");
   });
 
   it("leaves lastDeclined unchanged when zero or multiple upgrades were declined", () => {
     const state = {
       ...createRunUpgrades(),
-      lastDeclinedUpgradeId: "ghostSlow" as UpgradeId,
+      lastDeclinedUpgradeId: "passiveGhostSlow" as UpgradeId,
     };
-    expect(declineUpgrades(state, []).lastDeclinedUpgradeId).toBe("ghostSlow");
-    expect(declineUpgrades(state, ["warpTop", "extraLife"]).lastDeclinedUpgradeId).toBe(
-      "ghostSlow",
-    );
+    expect(declineUpgrades(state, []).lastDeclinedUpgradeId).toBe("passiveGhostSlow");
+    expect(
+      declineUpgrades(state, ["powerPelletWarpTop", "passiveExtraLife"]).lastDeclinedUpgradeId,
+    ).toBe("passiveGhostSlow");
   });
 });
 
@@ -235,8 +241,8 @@ describe("pickStartingUpgrade", () => {
 describe("eligibleUpgrades", () => {
   it("excludes owned ids", () => {
     expect(eligibleUpgrades([])).toEqual(ALL_IDS);
-    expect(eligibleUpgrades(["playerSpeedUp"])).toEqual(
-      ALL_IDS.filter((id) => id !== "playerSpeedUp"),
+    expect(eligibleUpgrades(["passivePlayerSpeedUp"])).toEqual(
+      ALL_IDS.filter((id) => id !== "passivePlayerSpeedUp"),
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
   });
@@ -244,8 +250,8 @@ describe("eligibleUpgrades", () => {
 
 describe("grantUpgrade", () => {
   it("is idempotent for already owned", () => {
-    const once = grantUpgrade(createRunUpgrades(), "ghostSlow");
-    expect(grantUpgrade(once, "ghostSlow")).toEqual(once);
+    const once = grantUpgrade(createRunUpgrades(), "passiveGhostSlow");
+    expect(grantUpgrade(once, "passiveGhostSlow")).toEqual(once);
   });
 
   it("grants stub ids with no power-pellet side effects", () => {
@@ -266,9 +272,9 @@ describe("grantUpgrade", () => {
   });
 
   it("extraLife grants lives delta without power-pellet effects", () => {
-    expect(grantLivesForUpgrade("extraLife")).toBe(1);
-    expect(grantLivesForUpgrade("ghostSlow")).toBe(0);
-    const owned = grantUpgrade(createRunUpgrades(), "extraLife");
+    expect(grantLivesForUpgrade("passiveExtraLife")).toBe(1);
+    expect(grantLivesForUpgrade("passiveGhostSlow")).toBe(0);
+    const owned = grantUpgrade(createRunUpgrades(), "passiveExtraLife");
     expect(applyPowerPelletEffects(owned, 1)).toEqual({
       state: owned,
       freezeClosestMs: null,
@@ -281,24 +287,26 @@ describe("grantUpgrade", () => {
   it("ghostHouseDelay sums release delay and Clyde pellet adds", () => {
     expect(ghostHouseReleaseDelayAddMs([])).toBe(0);
     expect(ghostHouseClydePelletAdd([])).toBe(0);
-    expect(ghostHouseReleaseDelayAddMs(["ghostHouseDelay"])).toBe(GHOST_HOUSE_RELEASE_DELAY_ADD_MS);
-    expect(ghostHouseClydePelletAdd(["ghostHouseDelay"])).toBe(GHOST_HOUSE_CLYDE_PELLET_ADD);
-    expect(ghostHouseReleaseDelayAddMs(["ghostSlow", "ghostHouseDelay"])).toBe(
+    expect(ghostHouseReleaseDelayAddMs(["passiveGhostHouseDelay"])).toBe(
       GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
     );
-    expect(ghostHouseClydePelletAdd(["playerSpeedUp"])).toBe(0);
+    expect(ghostHouseClydePelletAdd(["passiveGhostHouseDelay"])).toBe(GHOST_HOUSE_CLYDE_PELLET_ADD);
+    expect(ghostHouseReleaseDelayAddMs(["passiveGhostSlow", "passiveGhostHouseDelay"])).toBe(
+      GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
+    );
+    expect(ghostHouseClydePelletAdd(["passivePlayerSpeedUp"])).toBe(0);
   });
 });
 
 describe("revokeUpgrade", () => {
   it("removes an owned id", () => {
-    const owned = grantUpgrade(createRunUpgrades(), "ghostSlow");
-    expect(revokeUpgrade(owned, "ghostSlow").owned).toEqual([]);
+    const owned = grantUpgrade(createRunUpgrades(), "passiveGhostSlow");
+    expect(revokeUpgrade(owned, "passiveGhostSlow").owned).toEqual([]);
   });
 
   it("is a no-op (same reference) when the id isn't owned", () => {
     const state = createRunUpgrades();
-    expect(revokeUpgrade(state, "ghostSlow")).toBe(state);
+    expect(revokeUpgrade(state, "passiveGhostSlow")).toBe(state);
   });
 });
 
@@ -366,7 +374,7 @@ describe("scatter burst / multi power-pellet effects", () => {
   });
 
   it("applies scatter burst when owned and refreshes", () => {
-    const owned = grantUpgrade(createRunUpgrades(), "scatterBurst");
+    const owned = grantUpgrade(createRunUpgrades(), "powerPelletScatterBurst");
     const applied = applyPowerPelletEffects(owned, 1);
     expect(applied.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS);
     const partial = { ...applied.state, scatterBurstRemainingMs: 100 };
@@ -379,13 +387,13 @@ describe("scatter burst / multi power-pellet effects", () => {
     let state = createRunUpgrades();
     for (const id of [
       "powerPelletFreeze",
-      "scatterBurst",
-      "powerSpeedBurst",
-      "ghostRecall",
-      "warpTop",
-      "powerInvuln",
-      "powerCollectThree",
-      "powerWallPass",
+      "powerPelletScatterBurst",
+      "powerPelletSpeedBurst",
+      "powerPelletGhostRecall",
+      "powerPelletWarpTop",
+      "powerPelletInvuln",
+      "powerPelletCollectThree",
+      "powerPelletWallPass",
     ] as const) {
       state = grantUpgrade(state, id);
     }
@@ -402,19 +410,25 @@ describe("scatter burst / multi power-pellet effects", () => {
   });
 
   it("sets recall and warp flags from owned defs", () => {
-    const recall = applyPowerPelletEffects(grantUpgrade(createRunUpgrades(), "ghostRecall"), 1);
+    const recall = applyPowerPelletEffects(
+      grantUpgrade(createRunUpgrades(), "powerPelletGhostRecall"),
+      1,
+    );
     expect(recall.recallClosestGhost).toBe(true);
     expect(recall.warpPlayerTopCenter).toBe(false);
     expect(recall.collectExtraPellets).toBe(0);
 
-    const warp = applyPowerPelletEffects(grantUpgrade(createRunUpgrades(), "warpTop"), 1);
+    const warp = applyPowerPelletEffects(
+      grantUpgrade(createRunUpgrades(), "powerPelletWarpTop"),
+      1,
+    );
     expect(warp.recallClosestGhost).toBe(false);
     expect(warp.warpPlayerTopCenter).toBe(true);
     expect(warp.collectExtraPellets).toBe(0);
   });
 
   it("sets collectExtraPellets once from powerCollectThree", () => {
-    const owned = grantUpgrade(createRunUpgrades(), "powerCollectThree");
+    const owned = grantUpgrade(createRunUpgrades(), "powerPelletCollectThree");
     expect(applyPowerPelletEffects(owned, 1).collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
     expect(applyPowerPelletEffects(owned, 2).collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
     expect(applyPowerPelletEffects(owned, 0).collectExtraPellets).toBe(0);
@@ -436,7 +450,7 @@ describe("wall pass / power pellet", () => {
     const bare = createRunUpgrades();
     expect(applyPowerPelletEffects(bare, 1).state.wallPassRemainingMs).toBe(0);
 
-    const owned = grantUpgrade(createRunUpgrades(), "powerWallPass");
+    const owned = grantUpgrade(createRunUpgrades(), "powerPelletWallPass");
     const applied = applyPowerPelletEffects(owned, 1);
     expect(applied.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
 
@@ -466,7 +480,7 @@ describe("invuln / power pellet", () => {
       collectExtraPellets: 0,
     });
 
-    const owned = grantUpgrade(createRunUpgrades(), "powerInvuln");
+    const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
     const armed = applyPowerPelletEffects(owned, 1);
     expect(armed.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(armed.recallClosestGhost).toBe(false);
@@ -493,7 +507,7 @@ describe("speed burst / power pellet", () => {
     const bare = createRunUpgrades();
     expect(applyPowerPelletEffects(bare, 1).state.speedBurstRemainingMs).toBe(0);
 
-    const owned = grantUpgrade(createRunUpgrades(), "powerSpeedBurst");
+    const owned = grantUpgrade(createRunUpgrades(), "powerPelletSpeedBurst");
     const applied = applyPowerPelletEffects(owned, 1);
     expect(applied.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
 
@@ -503,7 +517,7 @@ describe("speed burst / power pellet", () => {
 
   it("composes burst mul with passive Speed Up only while active", () => {
     const burstOnly = {
-      ...grantUpgrade(createRunUpgrades(), "powerSpeedBurst"),
+      ...grantUpgrade(createRunUpgrades(), "powerPelletSpeedBurst"),
       speedBurstRemainingMs: SPEED_BURST_MS,
     };
     expect(playerSpeedMultiplier(burstOnly.owned)).toBe(1);
@@ -512,8 +526,8 @@ describe("speed burst / power pellet", () => {
         (speedBurstActive(burstOnly) ? PLAYER_SPEED_BURST_MUL : 1),
     ).toBe(PLAYER_SPEED_BURST_MUL);
 
-    let both = grantUpgrade(createRunUpgrades(), "powerSpeedBurst");
-    both = grantUpgrade(both, "playerSpeedUp");
+    let both = grantUpgrade(createRunUpgrades(), "powerPelletSpeedBurst");
+    both = grantUpgrade(both, "passivePlayerSpeedUp");
     both = { ...both, speedBurstRemainingMs: SPEED_BURST_MS };
     expect(playerSpeedMultiplier(both.owned)).toBe(PLAYER_SPEED_UP_MUL);
     expect(
@@ -531,47 +545,45 @@ describe("speed burst / power pellet", () => {
 describe("speed multipliers / labels", () => {
   it("multiplies owned speed defs", () => {
     expect(playerSpeedMultiplier([])).toBe(1);
-    expect(playerSpeedMultiplier(["playerSpeedUp"])).toBe(PLAYER_SPEED_UP_MUL);
-    expect(ghostSpeedMultiplier(["ghostSlow"])).toBe(GHOST_SLOW_MUL);
-    expect(ghostSpeedMultiplier(["playerSpeedUp"])).toBe(1);
+    expect(playerSpeedMultiplier(["passivePlayerSpeedUp"])).toBe(PLAYER_SPEED_UP_MUL);
+    expect(ghostSpeedMultiplier(["passiveGhostSlow"])).toBe(GHOST_SLOW_MUL);
+    expect(ghostSpeedMultiplier(["passivePlayerSpeedUp"])).toBe(1);
   });
 
   it("maps owned ids to labels in order", () => {
-    expect(upgradeLabels(["ghostSlow", "playerSpeedUp", "scatterBurst"])).toEqual([
-      "Ghost Slow",
-      "Speed Up",
-      "Scatter Burst",
-    ]);
+    expect(
+      upgradeLabels(["passiveGhostSlow", "passivePlayerSpeedUp", "powerPelletScatterBurst"]),
+    ).toEqual(["Ghost Slow", "Speed Up", "Scatter Burst"]);
   });
 });
 
 describe("pelletCollectRadiusBonusPx", () => {
   it("returns TILE_SIZE for pickupRange and 0 otherwise", () => {
     expect(pelletCollectRadiusBonusPx([])).toBe(0);
-    expect(pelletCollectRadiusBonusPx(["pickupRange"])).toBe(pickupRangeBonusPx());
+    expect(pelletCollectRadiusBonusPx(["passivePickupRange"])).toBe(pickupRangeBonusPx());
     expect(pickupRangeBonusPx()).toBe(TILE_SIZE);
-    expect(pelletCollectRadiusBonusPx(["playerSpeedUp"])).toBe(0);
+    expect(pelletCollectRadiusBonusPx(["passivePlayerSpeedUp"])).toBe(0);
   });
 });
 
 describe("fruitQuarterMultiplier", () => {
   it("doubles only when quarterBounty is owned", () => {
     expect(fruitQuarterMultiplier([])).toBe(1);
-    expect(fruitQuarterMultiplier(["quarterBounty"])).toBe(QUARTER_BOUNTY_MUL);
-    expect(fruitQuarterMultiplier(["playerSpeedUp"])).toBe(1);
+    expect(fruitQuarterMultiplier(["fruitQuarterBounty"])).toBe(QUARTER_BOUNTY_MUL);
+    expect(fruitQuarterMultiplier(["passivePlayerSpeedUp"])).toBe(1);
   });
 });
 
-describe("overcharge", () => {
+describe("passiveOvercharge", () => {
   it("doubles every owned onPowerPellet timer duration", () => {
     let state = createRunUpgrades();
     for (const id of [
       "powerPelletFreeze",
-      "scatterBurst",
-      "powerWallPass",
-      "powerInvuln",
-      "powerSpeedBurst",
-      "overcharge",
+      "powerPelletScatterBurst",
+      "powerPelletWallPass",
+      "powerPelletInvuln",
+      "powerPelletSpeedBurst",
+      "passiveOvercharge",
     ] as const) {
       state = grantUpgrade(state, id);
     }
@@ -585,7 +597,12 @@ describe("overcharge", () => {
 
   it("does not double recall, warp, or collectExtraPellets", () => {
     let state = createRunUpgrades();
-    for (const id of ["ghostRecall", "warpTop", "powerCollectThree", "overcharge"] as const) {
+    for (const id of [
+      "powerPelletGhostRecall",
+      "powerPelletWarpTop",
+      "powerPelletCollectThree",
+      "passiveOvercharge",
+    ] as const) {
       state = grantUpgrade(state, id);
     }
     const result = applyPowerPelletEffects(state, 1);
@@ -595,7 +612,7 @@ describe("overcharge", () => {
   });
 
   it("is a no-op alone with nothing else owned", () => {
-    const state = grantUpgrade(createRunUpgrades(), "overcharge");
+    const state = grantUpgrade(createRunUpgrades(), "passiveOvercharge");
     expect(applyPowerPelletEffects(state, 1)).toEqual({
       state,
       freezeClosestMs: null,

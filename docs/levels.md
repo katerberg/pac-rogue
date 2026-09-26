@@ -28,7 +28,7 @@ rest of the run — see [docs/corruption.md](./corruption.md).
 
 ## Per-level life regen
 
-At level 1 and at every level transition, `livesAfterLevelRegen` (`src/domain/lives.ts`) grants one extra life whenever fewer than 3 HUD icons are showing. This is a one-life-per-level trickle, not an instant refill to 3 — a run that lost several lives climbs back to the 3-icon floor gradually across level clears. Applying it at level 1 means every run effectively starts at 4 lives (3 icons) instead of the base 3. It does not cap lives gained from the `extraLife` upgrade, which can still push the icon count above 3.
+At level 1 and at every level transition, `livesAfterLevelRegen` (`src/domain/lives.ts`) grants one extra life whenever fewer than 3 HUD icons are showing. This is a one-life-per-level trickle, not an instant refill to 3 — a run that lost several lives climbs back to the 3-icon floor gradually across level clears. Applying it at level 1 means every run effectively starts at 4 lives (3 icons) instead of the base 3. It does not cap lives gained from the `passiveExtraLife` upgrade, which can still push the icon count above 3.
 
 ## Fruit awards Quarters
 
