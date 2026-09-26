@@ -364,7 +364,6 @@ export class PlayScene extends Phaser.Scene {
     this.refreshLivesIcons();
     if (startingUpgrade === null) {
       this.showLevelBanner();
-      startLoopingSfx(this, "gameplayMusic");
     } else {
       this.playRender.draw(this.world, {
         frozenGhostEid: null,
@@ -374,6 +373,7 @@ export class PlayScene extends Phaser.Scene {
       });
       this.startingUpgradeCard.open(startingUpgrade);
     }
+    startLoopingSfx(this, "gameplayMusic");
     if (this.jumpToUpgrade) {
       this.jumpToLevelClear();
     }
@@ -404,7 +404,6 @@ export class PlayScene extends Phaser.Scene {
         return;
       }
       this.suppressPlayerInputUntilKeyRelease = true;
-      startLoopingSfx(this, "gameplayMusic");
     }
 
     if (this.death !== null) {
