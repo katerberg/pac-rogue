@@ -191,33 +191,6 @@ const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
 
 export const ALL_UPGRADE_IDS: readonly UpgradeId[] = UPGRADE_DEFS.map((def) => def.id);
 
-/** Pre-prefix rename ids → current ids (URL flags + seen-record migration). */
-const LEGACY_UPGRADE_IDS: Readonly<Record<string, UpgradeId>> = {
-  playerSpeedUp: "passivePlayerSpeedUp",
-  ghostSlow: "passiveGhostSlow",
-  scatterBurst: "powerPelletScatterBurst",
-  ghostRecall: "powerPelletGhostRecall",
-  warpTop: "powerPelletWarpTop",
-  pickupRange: "passivePickupRange",
-  ghostHouseDelay: "passiveGhostHouseDelay",
-  extraLife: "passiveExtraLife",
-  pelletToPower: "passivePelletToPower",
-  powerCollectThree: "powerPelletCollectThree",
-  powerWallPass: "powerPelletWallPass",
-  powerSpeedBurst: "powerPelletSpeedBurst",
-  powerInvuln: "powerPelletInvuln",
-  fruitPower: "fruitPowerPellet",
-  quarterBounty: "fruitQuarterBounty",
-  deathsHarvest: "passiveDeathsHarvest",
-  overcharge: "passiveOvercharge",
-  tunnelDash: "passiveTunnelDash",
-  secondChomp: "passivePowerPelletRecharge",
-  unknownUpgradeFruitPower: "fruitPowerPellet",
-  passiveQuarterBounty: "fruitQuarterBounty",
-  unknownUpgradeOvercharge: "passiveOvercharge",
-  powerPelletSecondChomp: "passivePowerPelletRecharge",
-};
-
 export type PendingPowerPelletRespawn = { x: number; y: number; remainingMs: number };
 
 export function queuePowerPelletRespawns(
@@ -287,13 +260,10 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
 }
 
 export function parseUpgradeId(raw: string | null): UpgradeId | null {
-  if (raw === null || raw === "") {
+  if (raw === null) {
     return null;
   }
-  if (UPGRADE_BY_ID.has(raw as UpgradeId)) {
-    return raw as UpgradeId;
-  }
-  return LEGACY_UPGRADE_IDS[raw] ?? null;
+  return UPGRADE_BY_ID.has(raw as UpgradeId) ? (raw as UpgradeId) : null;
 }
 
 export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {

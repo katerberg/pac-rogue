@@ -101,13 +101,6 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId(null)).toBeNull();
     expect(parseUpgradeId("")).toBeNull();
   });
-
-  it("maps pre-prefix legacy ids to current ids", () => {
-    expect(parseUpgradeId("ghostSlow")).toBe("passiveGhostSlow");
-    expect(parseUpgradeId("scatterBurst")).toBe("powerPelletScatterBurst");
-    expect(parseUpgradeId("fruitPower")).toBe("fruitPowerPellet");
-    expect(parseUpgradeId("secondChomp")).toBe("passivePowerPelletRecharge");
-  });
 });
 
 describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {

@@ -35,19 +35,6 @@ describe("parseSeenRecord", () => {
     );
   });
 
-  it("maps legacy upgrade ids from pre-prefix renames", () => {
-    const raw = JSON.stringify({
-      ghosts: [],
-      corruptions: [],
-      upgrades: ["playerSpeedUp", "scatterBurst", "bogus", "playerSpeedUp"],
-    });
-    expect(parseSeenRecord(raw)).toEqual({
-      ghosts: [],
-      corruptions: [],
-      upgrades: ["passivePlayerSpeedUp", "powerPelletScatterBurst"],
-    });
-  });
-
   it("parses a legacy record without an upgrades field as no upgrades seen", () => {
     const raw = JSON.stringify({ ghosts: [GHOST_KIND.blinky], corruptions: [] });
     expect(parseSeenRecord(raw)).toEqual({
