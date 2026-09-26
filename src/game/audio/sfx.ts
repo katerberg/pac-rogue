@@ -30,7 +30,7 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
   menuMusic: {
     key: "menu-music",
     url: "sound/menu.ogg",
-    volume: 1.0,
+    volume: 0.7,
   },
   levelComplete: {
     key: "level-complete",
