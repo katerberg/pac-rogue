@@ -45,6 +45,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  horizontalTunnelRows,
   isWalkable,
   parseMazeParam,
   pelletCellCenters,
@@ -52,6 +53,8 @@ import {
   playerDisplaySize,
   playerSpawnCenter,
   wallCellCenters,
+  worldToCol,
+  worldToRow,
   type MazeLayoutId,
 } from "../../domain/maze";
 import {
@@ -68,10 +71,26 @@ import {
   speedLevelMultiplier,
 } from "../../domain/levelRules";
 import { parseQuartersParam } from "../../domain/quartersFlag";
+import {
+  bossTunnelMouths,
+  pickBossPelletCells,
+  type BossTunnelMouth,
+} from "../../domain/bossBoard";
+import {
+  BOSS_DEFS,
+  bossForLevel,
+  createBossState,
+  maxBossGhosts,
+  parseBossGhostsParam,
+  splitBossGhosts,
+  type BossDef,
+  type BossState,
+} from "../../domain/bossRules";
 import { parseGhostsParam } from "../../domain/ghostsFlag";
 import { parseLevelParam } from "../../domain/runLevel";
 import { parseJumpToUpgradeFlag } from "../../domain/jumpToUpgradeFlag";
 import {
+  BOSS_PELLET_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
   FRUIT_RADIUS,
   GHOST_DRAWABLE_BY_KIND,
@@ -87,7 +106,15 @@ import {
 } from "../../domain/playfield";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
-import { GHOST_PHASE, type GhostTarget } from "../../domain/ghostTarget";
+import {
+  blinkyScatterTarget,
+  clydeScatterTarget,
+  GHOST_PHASE,
+  inkyScatterTarget,
+  pinkyScatterTarget,
+  type GhostTarget,
+} from "../../domain/ghostTarget";
+import { BLINKY_RELEASE_DELAY_MS } from "../../domain/ghostRelease";
 import {
   OUTLINE_TINT_BY_CORRUPTION,
   SPEED_SURGE_MUL,
@@ -139,6 +166,8 @@ import {
   type RunUpgrades,
   type UpgradeId,
 } from "../../domain/upgrades";
+import { BossGhost } from "../components/BossGhost";
+import { BossPellet } from "../components/BossPellet";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
@@ -163,6 +192,7 @@ import {
 } from "../audio/sfx";
 import { saveRun } from "../storage/runHistoryStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
+import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
@@ -214,6 +244,13 @@ import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingU
 
 const LEVEL_TRANSITION_MS = 1000;
 const LEVEL_BANNER_FADE_MS = 1500;
+const BOSS_BANNER_SLAM_MS = 220;
+const BOSS_BANNER_HOLD_MS = 1200;
+const BOSS_BANNER_FADE_MS = 800;
+const BOSS_BANNER_START_SCALE = 3;
+const BOSS_BANNER_COLOR = 0xff3b3b;
+const BOSS_SHAKE_MS = 400;
+const BOSS_SHAKE_INTENSITY = 0.02;
 const RUN_COMPLETE_HOLD_MS = 2000;
 
 export class PlayScene extends Phaser.Scene {
@@ -233,6 +270,9 @@ export class PlayScene extends Phaser.Scene {
   private runMazeSeed = "0";
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
   private ghostsOverride: GhostKindId[] | null = null;
+  private bossGhostsOverride: number | null = null;
+  private bossState: BossState | null = null;
+  private bossMouths: BossTunnelMouth[] = [];
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runCompleteRemainingMs = 0;
@@ -308,6 +348,10 @@ export class PlayScene extends Phaser.Scene {
     this.ghostsOverride = parseGhostsParam(urlParams);
     if (urlParams.has("ghosts") && this.ghostsOverride === null) {
       console.warn(`Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde`);
+    }
+    this.bossGhostsOverride = parseBossGhostsParam(urlParams, BOSS_DEFS.doubleBlinky);
+    if (urlParams.has("bossGhosts") && this.bossGhostsOverride === null) {
+      console.warn(`Unknown ?bossGhosts= value; expected an integer 2..10`);
     }
     this.jumpToUpgrade = parseJumpToUpgradeFlag(urlParams);
     this.quarters = quartersOverride ?? 0;
@@ -501,7 +545,9 @@ export class PlayScene extends Phaser.Scene {
       (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1);
     applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
-      ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.runUpgrades.owned),
+      ghostSpeedMul:
+        (this.bossState === null ? levelSpeedMul : 1) *
+        ghostSpeedMultiplier(this.runUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       speedSurge:
         this.runCorruption.ghostKind !== null && isSpeedSurgeActive(this.runCorruption)
@@ -511,6 +557,9 @@ export class PlayScene extends Phaser.Scene {
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
       ? getActiveLayout().wallPassPlayerSolids
       : undefined;
+    if (this.bossState !== null) {
+      bossGhostBlock(this.world);
+    }
     movement(this.world, delta, playerSolidsOverride);
     if (this.tunnelDashAnim !== null) {
       this.tunnelDashAnim = tickTunnelDashAnimation(
@@ -699,6 +748,8 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
 
+    this.tickBoss();
+
     const frozenEid = frozenGhostEid(this.runUpgrades);
     const playerInvulnerable = playerIsInvulnerable(this.runUpgrades);
     const caught =
@@ -738,7 +789,8 @@ export class PlayScene extends Phaser.Scene {
         result.gameOver &&
         !this.infiniteLives &&
         !this.disableLevelUpgrades &&
-        !this.jumpToUpgrade
+        !this.jumpToUpgrade &&
+        this.bossGhostsOverride === null
       ) {
         saveRun(this.lifetimeCollected, this.clock.remaining);
       }
@@ -768,17 +820,20 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
-    this.runCorruption = maybeAssignCorruption(
-      this.runCorruption,
-      this.levelIndex,
-      () => Math.random(),
-      this.ghostsOverride ?? undefined,
-    );
+    const boss = bossForLevel(this.levelIndex);
+    if (boss === null) {
+      this.runCorruption = maybeAssignCorruption(
+        this.runCorruption,
+        this.levelIndex,
+        () => Math.random(),
+        this.ghostsOverride ?? undefined,
+      );
+    }
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.runMazeSeed);
     if (selection.kind === "static") {
       activateLayout(selection.id);
     } else {
-      const generated = generateMazeAsciiWithRetries(selection.seed);
+      const generated = this.generateBoard(selection.seed, boss);
       if (generated) {
         try {
           const ascii = isInvertedMazeLevel(this.levelIndex)
@@ -804,12 +859,18 @@ export class PlayScene extends Phaser.Scene {
     this.spawnWalls();
     this.spawnPellets();
     this.spawnPlayer();
-    const ghostKinds =
-      this.ghostsOverride ?? ghostKindsForLevel(this.levelIndex, this.secondGhostKind);
-    for (const kind of ghostKinds) {
-      this.spawnGhost(kind);
+    this.bossState = null;
+    if (boss !== null) {
+      this.startBoss(boss);
+      this.recordSeen([boss.ghostKind]);
+    } else {
+      const ghostKinds =
+        this.ghostsOverride ?? ghostKindsForLevel(this.levelIndex, this.secondGhostKind);
+      for (const kind of ghostKinds) {
+        this.spawnGhost(kind);
+      }
+      this.recordSeen(ghostKinds);
     }
-    this.recordSeen(ghostKinds);
 
     this.clock = createRunClock();
     this.ghostReleaseClock = createGhostReleaseClock();
@@ -835,6 +896,99 @@ export class PlayScene extends Phaser.Scene {
     if (this.runUpgrades.owned.includes("passivePelletToPower")) {
       this.applyPelletToPowerOnce();
     }
+    if (this.bossState !== null) {
+      this.tagBossPellets(this.bossState);
+    }
+  }
+
+  private generateBoard(
+    seed: string,
+    boss: BossDef | null,
+  ): ReturnType<typeof generateMazeAsciiWithRetries> {
+    if (boss === null) {
+      return generateMazeAsciiWithRetries(seed);
+    }
+    const bossBoard = generateMazeAsciiWithRetries(seed, GENERATE_MAX_ATTEMPTS, {
+      tunnelCount: boss.tunnelCount,
+    });
+    if (bossBoard !== null) {
+      return bossBoard;
+    }
+    console.warn(
+      `boss maze with ${boss.tunnelCount} tunnels failed for seed ${seed}; using a regular board`,
+    );
+    return generateMazeAsciiWithRetries(seed);
+  }
+
+  private startBoss(boss: BossDef): void {
+    const { cols } = getActiveLayout();
+    this.bossMouths = bossTunnelMouths(horizontalTunnelRows(), cols);
+    this.bossState = createBossState(boss, this.bossGhostsOverride ?? boss.startGhosts);
+    this.spawnBossGhostsForLife();
+  }
+
+  private spawnBossGhostsForLife(): void {
+    if (this.bossState === null) {
+      return;
+    }
+    const { def, ghostCount } = this.bossState;
+    const { house, tunnel } = splitBossGhosts(def, ghostCount);
+    for (let i = 0; i < house; i += 1) {
+      this.spawnBossGhostInHouse(BLINKY_RELEASE_DELAY_MS + i * def.houseReleaseStaggerMs);
+    }
+    this.bossState = { ...this.bossState, pendingSpawns: tunnel };
+  }
+
+  private tagBossPellets(state: BossState): void {
+    const regular = [...query(this.world, [Pellet, Position])].filter(
+      (eid) => Drawable.id[eid] === PELLET_DRAWABLE_ID,
+    );
+    const cells = regular.map((eid) => ({
+      eid,
+      col: worldToCol(Position.x[eid] ?? 0),
+      row: worldToRow(Position.y[eid] ?? 0),
+    }));
+    const picks = pickBossPelletCells(cells, getActiveLayout().playerSpawn, state.def.spawnPellets);
+    if (picks.length < state.def.spawnPellets) {
+      console.warn(`only ${picks.length} boss pellets fit this board`);
+    }
+    for (const pick of picks) {
+      addComponent(this.world, pick.eid, BossPellet);
+      Drawable.id[pick.eid] = BOSS_PELLET_DRAWABLE_ID;
+    }
+    this.bossState = { ...state, bossPelletsRemaining: picks.length };
+  }
+
+  private tickBoss(): void {
+    if (this.bossState === null) {
+      return;
+    }
+    let state = this.bossState;
+    const remaining = countBossPellets(this.world);
+    const eaten = Math.max(0, state.bossPelletsRemaining - remaining);
+    if (eaten > 0) {
+      const added = Math.min(eaten, maxBossGhosts(state.def) - state.ghostCount);
+      state = {
+        ...state,
+        bossPelletsRemaining: remaining,
+        ghostCount: state.ghostCount + Math.max(0, added),
+        pendingSpawns: state.pendingSpawns + Math.max(0, added),
+      };
+    }
+    while (state.pendingSpawns > 0) {
+      if (this.bossMouths.length === 0) {
+        this.spawnBossGhostInHouse(0);
+      } else {
+        const index = pickFreeBossMouth(this.world, this.bossMouths, state.nextMouthIndex);
+        if (index === null) {
+          break;
+        }
+        this.spawnBossGhostAtMouth(this.bossMouths[index]!);
+        state = { ...state, nextMouthIndex: (index + 1) % this.bossMouths.length };
+      }
+      state = { ...state, pendingSpawns: state.pendingSpawns - 1 };
+    }
+    this.bossState = state;
   }
 
   private recordSeen(ghostKinds: readonly GhostKindId[]): void {
@@ -1078,6 +1232,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private showLevelBanner(): void {
+    if (bossForLevel(this.levelIndex) !== null) {
+      this.showBossBanner();
+      return;
+    }
     this.clearLevelBanner();
     const banner = addPixelText(
       this,
@@ -1097,6 +1255,37 @@ export class PlayScene extends Phaser.Scene {
         if (this.levelBannerText === banner) {
           this.clearLevelBanner();
         }
+      },
+    });
+  }
+
+  private showBossBanner(): void {
+    this.clearLevelBanner();
+    const x = PLAYFIELD_WIDTH / 2;
+    const y = PLAYFIELD_HEIGHT / 2;
+    const banner = addPixelText(this, x, y, "BOSS", MENU_TITLE_FONT_SIZE * 2, BOSS_BANNER_COLOR)
+      .setOrigin(0.5, 0.5)
+      .setDepth(800)
+      .setScale(BOSS_BANNER_START_SCALE);
+    this.levelBannerText = banner;
+    this.tweens.add({
+      targets: banner,
+      scale: 1,
+      duration: BOSS_BANNER_SLAM_MS,
+      ease: "Cubic.easeIn",
+      onComplete: () => {
+        this.cameras.main.shake(BOSS_SHAKE_MS, BOSS_SHAKE_INTENSITY);
+        this.tweens.add({
+          targets: banner,
+          alpha: 0,
+          delay: BOSS_BANNER_HOLD_MS,
+          duration: BOSS_BANNER_FADE_MS,
+          onComplete: () => {
+            if (this.levelBannerText === banner) {
+              this.clearLevelBanner();
+            }
+          },
+        });
       },
     });
   }
@@ -1195,6 +1384,13 @@ export class PlayScene extends Phaser.Scene {
       Facing.direction[eid] = DIRECTION.none;
     }
 
+    if (this.bossState !== null) {
+      for (const eid of [...query(this.world, [Ghost])]) {
+        removeEntity(this.world, eid);
+        this.playRender.releaseDrawable(eid);
+      }
+      this.spawnBossGhostsForLife();
+    }
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -1385,7 +1581,38 @@ export class PlayScene extends Phaser.Scene {
     Drawable.radius[eid] = playerRadius();
   }
 
-  private spawnGhost(kind: GhostKindId): void {
+  private spawnBossGhostInHouse(releaseDelayMs: number): void {
+    const eid = this.spawnBossGhost();
+    BossGhost.releaseDelayMs[eid] = releaseDelayMs;
+  }
+
+  private spawnBossGhostAtMouth(mouth: BossTunnelMouth): void {
+    const eid = this.spawnBossGhost();
+    BossGhost.releaseDelayMs[eid] = 0;
+    Position.x[eid] = cellCenterX(mouth.col);
+    Position.y[eid] = cellCenterY(mouth.row);
+    GhostPhase.value[eid] = GHOST_PHASE.active;
+    Facing.direction[eid] = mouth.facing;
+    Input.direction[eid] = mouth.facing;
+  }
+
+  private spawnBossGhost(): number {
+    const kind = this.bossState?.def.ghostKind ?? GHOST_KIND.blinky;
+    const eid = this.spawnGhost(kind);
+    addComponent(this.world, eid, BossGhost);
+    const corners = [
+      blinkyScatterTarget(),
+      pinkyScatterTarget(),
+      inkyScatterTarget(),
+      clydeScatterTarget(),
+    ];
+    const corner = corners[Math.floor(Math.random() * corners.length)]!;
+    BossGhost.scatterCol[eid] = corner.col;
+    BossGhost.scatterRow[eid] = corner.row;
+    return eid;
+  }
+
+  private spawnGhost(kind: GhostKindId): number {
     const eid = addEntity(this.world);
     addComponent(this.world, eid, Position);
     addComponent(this.world, eid, Velocity);
@@ -1412,5 +1639,6 @@ export class PlayScene extends Phaser.Scene {
     Ghost.decidedRow[eid] = Number.NaN;
     Drawable.id[eid] = GHOST_DRAWABLE_BY_KIND[kind];
     Drawable.radius[eid] = ghostRadius();
+    return eid;
   }
 }

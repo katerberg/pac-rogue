@@ -1,7 +1,7 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import type { GhostModeWave } from "./ghostMode";
 
-export const MAX_LEVEL = 8;
+export const MAX_LEVEL = 9;
 
 const CHASE_ONLY_WAVES: readonly GhostModeWave[] = [
   { mode: 1, durationMs: Number.POSITIVE_INFINITY },

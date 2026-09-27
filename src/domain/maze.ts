@@ -912,6 +912,16 @@ export function isTunnelMouth(
   return opposite !== null && isWalkable(opposite.col, opposite.row, solids);
 }
 
+export function horizontalTunnelRows(solids: SolidGrid = getActiveLayout().playerSolids): number[] {
+  const rows: number[] = [];
+  for (let row = 0; row < MAZE_ROWS; row += 1) {
+    if (hasHorizontalTunnel(row, solids)) {
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
 function hasHorizontalTunnel(
   row: number,
   solids: SolidGrid = getActiveLayout().playerSolids,

@@ -19,7 +19,7 @@ const TIE_ORDER: readonly GhostDir[] = [
 
 type Step = { dx: number; dy: number };
 
-function directionStep(direction: GhostDir): Step {
+export function ghostDirStep(direction: GhostDir): Step {
   switch (direction) {
     case GHOST_DIR.up:
       return { dx: 0, dy: -1 };
@@ -60,7 +60,7 @@ export function openGhostDirsAt(
   const enter = canEnter ?? ((px, py, dx, dy) => canEnterDirection(px, py, dx, dy, solids));
   const opens: GhostDir[] = [];
   for (const dir of TIE_ORDER) {
-    const { dx, dy } = directionStep(dir);
+    const { dx, dy } = ghostDirStep(dir);
     if (enter(x, y, dx, dy)) {
       opens.push(dir);
     }
@@ -108,7 +108,7 @@ export function pickGhostDirection(args: {
 
   const candidates: GhostDir[] = [];
   for (const dir of TIE_ORDER) {
-    const { dx, dy } = directionStep(dir);
+    const { dx, dy } = ghostDirStep(dir);
     if (!enter(args.x, args.y, dx, dy)) {
       continue;
     }
@@ -125,7 +125,7 @@ export function pickGhostDirection(args: {
   if (candidates.length === 0) {
     if (args.facing !== GHOST_DIR.none) {
       const back = reverseGhostDir(args.facing);
-      const { dx, dy } = directionStep(back);
+      const { dx, dy } = ghostDirStep(back);
       if (enter(args.x, args.y, dx, dy)) {
         return back;
       }
@@ -139,7 +139,7 @@ export function pickGhostDirection(args: {
   let bestDist = Number.POSITIVE_INFINITY;
 
   for (const dir of candidates) {
-    const { dx, dy } = directionStep(dir);
+    const { dx, dy } = ghostDirStep(dir);
     const nCol = col + dx;
     const nRow = row + dy;
     const dist =

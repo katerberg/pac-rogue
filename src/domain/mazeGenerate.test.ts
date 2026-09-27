@@ -6,6 +6,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  horizontalTunnelRows,
   isTunnelMouth,
   isWalkable,
 } from "./maze";
@@ -247,6 +248,17 @@ describe("mazeGenerate", () => {
     expect(GENERATE_MAX_ATTEMPTS).toBe(32);
     expect(generateMazeAsciiWithRetries("ok-seed-0")).not.toBeNull();
   });
+
+  it("tunnelCount: 3 yields boards with exactly three horizontal tunnels", () => {
+    for (let i = 0; i < 12; i += 1) {
+      const result = generateMazeAsciiWithRetries(`boss-${i}`, GENERATE_MAX_ATTEMPTS, {
+        tunnelCount: 3,
+      });
+      expect(result, `seed boss-${i}`).not.toBeNull();
+      activateAsciiLayout(result!.ascii);
+      expect(horizontalTunnelRows()).toHaveLength(3);
+    }
+  }, 60_000);
 
   it("activates generated layout geometry on the active board", () => {
     const result = generateMazeAsciiWithRetries("geometry-check");
