@@ -6,7 +6,7 @@ import { Player } from "../components/Player";
 type MoveKey = Phaser.Input.Keyboard.Key;
 
 export type PlayerInputControl = {
-  apply: (world: World) => void;
+  apply: (world: World, stopOnRelease?: boolean) => void;
   anyMoveKeyDown: () => boolean;
 };
 
@@ -32,9 +32,9 @@ export function createPlayerInput(scene: Phaser.Scene): PlayerInputControl {
   ];
 
   return {
-    apply: (world: World) => {
+    apply: (world: World, stopOnRelease = false) => {
       const held = readHeldDirection(bindings);
-      if (held === DIRECTION.none) {
+      if (held === DIRECTION.none && !stopOnRelease) {
         return;
       }
       for (const eid of query(world, [Input, Player])) {

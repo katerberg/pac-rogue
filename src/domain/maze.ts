@@ -105,8 +105,10 @@ export type SolidGrid = readonly (readonly boolean[])[];
 
 export type MazeTile = { col: number; row: number };
 
+export type AsciiLayoutId = MazeLayoutId | "generated" | "store";
+
 export type MazeLayout = {
-  id: MazeLayoutId | "generated";
+  id: AsciiLayoutId;
   ascii: string;
   cols: number;
   rows: number;
@@ -170,7 +172,13 @@ const PLAYER_SPAWN_CHAR = "P";
 const EMPTY_CORRIDOR_CHAR = "-";
 const EMPTY_CELL_CHAR = " ";
 const PELLET_CHARS = new Set([".", "@"]);
-const EMPTY_CORRIDOR_CHARS = new Set([EMPTY_CELL_CHAR, EMPTY_CORRIDOR_CHAR, PLAYER_SPAWN_CHAR]);
+const STORE_SLOT_CHARS = ["L", "U", "S"] as const;
+const EMPTY_CORRIDOR_CHARS = new Set([
+  EMPTY_CELL_CHAR,
+  EMPTY_CORRIDOR_CHAR,
+  PLAYER_SPAWN_CHAR,
+  ...STORE_SLOT_CHARS,
+]);
 const HOUSE_CHARS = new Set([DOOR_CHAR, HOUSE_FLOOR_CHAR]);
 const KNOWN_MAZE_CHARS = new Set([
   WALL_CHAR,
@@ -181,6 +189,7 @@ const KNOWN_MAZE_CHARS = new Set([
   EMPTY_CELL_CHAR,
   ".",
   "@",
+  ...STORE_SLOT_CHARS,
 ]);
 
 function scaleCount(n: number, pelletCount: number, basePelletCount: number): number {
@@ -635,7 +644,7 @@ function syncActiveGeometry(layout: MazeLayout): void {
   MAZE_OFFSET_Y = layout.offsetY;
 }
 
-function buildLayoutFromAscii(id: MazeLayoutId | "generated", ascii: string): MazeLayout {
+function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const { cols, rows } = readAsciiGrid(ascii);
   const geometry = computeMazeGeometry(cols, rows);
   const playerSpawn = resolvePlayerSpawn(ascii, cols, rows);
@@ -651,7 +660,7 @@ function buildLayoutFromAscii(id: MazeLayoutId | "generated", ascii: string): Ma
   const ghostHouseExit = deriveGhostHouseExit(ascii, cols, rows, playerSolids);
   const fruitSpawn = deriveFruitSpawn(ascii, cols, rows, playerSolids, ghostHouseSpawn.col);
   const pelletCount = countPelletsInAscii(ascii, cols, rows, playerSolids);
-  if (pelletCount <= 0) {
+  if (pelletCount <= 0 && id !== "store") {
     throw new Error(`maze ${id} has no pellets`);
   }
 
@@ -693,10 +702,7 @@ function buildLayout(id: MazeLayoutId): MazeLayout {
   return buildLayoutFromAscii(id, MAZE_ASCII_BY_ID[id]);
 }
 
-export function layoutFromAscii(
-  ascii: string,
-  id: MazeLayoutId | "generated" = "generated",
-): MazeLayout {
+export function layoutFromAscii(ascii: string, id: AsciiLayoutId = "generated"): MazeLayout {
   return buildLayoutFromAscii(id, ascii);
 }
 
@@ -725,7 +731,10 @@ export function activateLayout(id: MazeLayoutId): MazeLayout {
   return activeLayout;
 }
 
-export function activateAsciiLayout(ascii: string, id: "generated" = "generated"): MazeLayout {
+export function activateAsciiLayout(
+  ascii: string,
+  id: "generated" | "store" = "generated",
+): MazeLayout {
   activeLayout = buildLayoutFromAscii(id, ascii);
   syncActiveGeometry(activeLayout);
   return activeLayout;

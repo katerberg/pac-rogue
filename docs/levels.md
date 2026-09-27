@@ -2,12 +2,14 @@
 
 The run is a fixed 8-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../src/domain/levelRules.ts)) — no endless/procedural progression past level 8.
 
-| Level | Maze                           | Ghosts                                                         | Fruit                                      | On clear                                                                                 |
-| ----- | ------------------------------ | -------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| 1     | `mazeSmall` (22×21, half-size) | Blinky + a randomly chosen Pinky or Inky (2 ghosts, see below) | present after 70 pellets (awards Quarters) | No reward (level 1 already granted a starting upgrade); advance to level 2               |
-| 2     | Procedural 28×34               | Blinky, Pinky, and Inky (3 ghosts, see below)                  | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3        |
-| 3-7   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                          | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level |
-| 8     | Procedural 28×34               | All four                                                       | present (awards Quarters)                  | No upgrade offer; a `RUN COMPLETE` screen and return to `MenuScene`                      |
+| Level | Maze                           | Ghosts                                                         | Fruit                                      | On clear                                                                                                                                     |
+| ----- | ------------------------------ | -------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | `mazeSmall` (22×21, half-size) | Blinky + a randomly chosen Pinky or Inky (2 ghosts, see below) | present after 70 pellets (awards Quarters) | No reward (level 1 already granted a starting upgrade); advance to level 2                                                                   |
+| 2     | Procedural 28×34               | Blinky, Pinky, and Inky (3 ghosts, see below)                  | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3                                                            |
+| 3-7   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                          | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level; after 3 and after 5 or 6 a store floor comes first |
+| 8     | Procedural 28×34               | All four                                                       | present (awards Quarters)                  | No upgrade offer; a store floor, then a `RUN COMPLETE` screen and return to `MenuScene`                                                      |
+
+Store floors (between levels 3→4, 5→6 or 6→7, and after 8) are where Quarters are spent; see [docs/store.md](./store.md).
 
 ## Ghost catch-up speed (levels 1-5)
 
@@ -32,7 +34,7 @@ At level 1 and at every level transition, `livesAfterLevelRegen` (`src/domain/li
 
 ## Fruit awards Quarters
 
-Fruit spawns/despawns as before, 10s lifetime: level 1 uses a single unscaled 70-pellet threshold, levels 2+ use layout-scaled pellet thresholds. Picking it up plays the munch SFX, removes it, and awards one Quarter (top-left HUD dot; no gameplay value yet). The upgrade-choice reward instead comes from **clearing a level** (2 through 8); see [docs/upgrades.md](./upgrades.md).
+Fruit spawns/despawns as before, 10s lifetime: level 1 uses a single unscaled 70-pellet threshold, levels 2+ use layout-scaled pellet thresholds. Picking it up plays the munch SFX, removes it, and awards one Quarter (top-left HUD dot; spent at [store floors](./store.md)). The upgrade-choice reward instead comes from **clearing a level** (2 through 8); see [docs/upgrades.md](./upgrades.md).
 
 ## `?level=` and the cap
 
@@ -40,4 +42,4 @@ Fruit spawns/despawns as before, 10s lifetime: level 1 uses a single unscaled 70
 
 ## Run Complete
 
-Clearing level 8 does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice is offered; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
+Clearing level 8 does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice is offered; after the brief transition freeze and the final store floor, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.

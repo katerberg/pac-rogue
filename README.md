@@ -47,6 +47,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `disableLevelUpgrades` | `1`                               | Debug: skip the level-clear (levels 2-7) upgrade-choice modal entirely — clears straight to the next board with no offer. Does not affect the level-1 starting upgrade or `enableUpgrade`. Using this flag disables high-score saving for the run.                                  |
 | `infiniteLives`        | `1`                               | Debug: getting caught still plays the death SFX and full death sequence (hold / reset / ready / resume), but never spends a life and never triggers Game Over. Using this flag disables high-score saving for the run.                                                              |
 | `jumpToUpgrade`        | `1`                               | Debug: immediately clears the first board (all pellets collected) into the level-clear upgrade-choice modal. Without `?level=`, defaults the start level to 2 (the first level that offers an upgrade choice) instead of 1. Using this flag disables high-score saving for the run. |
+| `store`                | `1`                               | Debug: start in a store floor for the current level (level 3 unless `level` is set); skips the level-1 starting upgrade. Combine with `quarters`. Using this flag disables high-score saving for the run. See [docs/store.md](./docs/store.md).                                     |
 | `forceCorruption`      | one corruption id                 | Assigns that ghost corruption immediately instead of waiting for level 4. Invalid → normal level-4 random assignment.                                                                                                                                                               |
 | `forceCorruptionGhost` | `pinky` \| `inky` \| `clyde`      | Forces which ghost gets corrupted (combine with `forceCorruption` for a fully deterministic setup). `blinky` and invalid values are rejected.                                                                                                                                       |
 | `ghosts`               | ghost names (comma-separated)     | Replace the level's ghost roster with exactly these kinds on every level, e.g. `pinky` or `pinky,clyde` (`blinky` \| `pinky` \| `inky` \| `clyde`; unknown names skipped). Random corruption only picks from this roster.                                                           |
@@ -63,6 +64,7 @@ http://127.0.0.1:5174/?play=1&maze=mazeSmall
 http://127.0.0.1:5174/?maze=maze2
 http://127.0.0.1:5174/?level=3
 http://127.0.0.1:5174/?play=1&quarters=3
+http://127.0.0.1:5174/?play=1&store=1&quarters=10
 http://127.0.0.1:5174/?enableUpgrade=powerPelletScatterBurst
 http://127.0.0.1:5174/?enableUpgrade=powerPelletGhostRecall&enableUpgrade=powerPelletWarpTop
 http://127.0.0.1:5174/?enableUpgrade=powerPelletFreeze&enableUpgrade=passiveGhostSlow
