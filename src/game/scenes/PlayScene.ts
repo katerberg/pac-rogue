@@ -80,8 +80,8 @@ import {
   BOSS_DEFS,
   bossForLevel,
   createBossState,
-  maxBossGhosts,
   parseBossGhostsParam,
+  recordBossPelletsEaten,
   splitBossGhosts,
   type BossDef,
   type BossState,
@@ -963,18 +963,7 @@ export class PlayScene extends Phaser.Scene {
     if (this.bossState === null) {
       return;
     }
-    let state = this.bossState;
-    const remaining = countBossPellets(this.world);
-    const eaten = Math.max(0, state.bossPelletsRemaining - remaining);
-    if (eaten > 0) {
-      const added = Math.max(0, Math.min(eaten, maxBossGhosts(state.def) - state.ghostCount));
-      state = {
-        ...state,
-        bossPelletsRemaining: remaining,
-        ghostCount: state.ghostCount + added,
-        pendingSpawns: state.pendingSpawns + added,
-      };
-    }
+    let state = recordBossPelletsEaten(this.bossState, countBossPellets(this.world));
     while (state.pendingSpawns > 0) {
       if (this.bossMouths.length === 0) {
         this.spawnBossGhostInHouse(0);

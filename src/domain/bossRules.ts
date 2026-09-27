@@ -47,6 +47,20 @@ export function createBossState(def: BossDef, ghostCount: number): BossState {
   return { def, ghostCount, pendingSpawns: 0, nextMouthIndex: 0, bossPelletsRemaining: 0 };
 }
 
+export function recordBossPelletsEaten(state: BossState, remaining: number): BossState {
+  const eaten = state.bossPelletsRemaining - remaining;
+  if (eaten <= 0) {
+    return state;
+  }
+  const added = Math.max(0, Math.min(eaten, maxBossGhosts(state.def) - state.ghostCount));
+  return {
+    ...state,
+    bossPelletsRemaining: remaining,
+    ghostCount: state.ghostCount + added,
+    pendingSpawns: state.pendingSpawns + added,
+  };
+}
+
 export function splitBossGhosts(def: BossDef, total: number): { house: number; tunnel: number } {
   const house = Math.min(total, def.maxHouseGhosts);
   return { house, tunnel: total - house };

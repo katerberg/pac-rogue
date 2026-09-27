@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   BOSS_DEFS,
   bossForLevel,
+  createBossState,
   maxBossGhosts,
   parseBossGhostsParam,
+  recordBossPelletsEaten,
   splitBossGhosts,
 } from "./bossRules";
 import { GHOST_KIND } from "./ghostKind";
@@ -44,5 +46,32 @@ describe("parseBossGhostsParam", () => {
     for (const query of ["", "bossGhosts=", "bossGhosts=1", "bossGhosts=11", "bossGhosts=x"]) {
       expect(parseBossGhostsParam(new URLSearchParams(query), def)).toBeNull();
     }
+  });
+});
+
+describe("recordBossPelletsEaten", () => {
+  it("adds one pending Blinky per boss pellet eaten, reaching 10 after all 8", () => {
+    let state = { ...createBossState(def, 2), bossPelletsRemaining: 8 };
+    for (let remaining = 7; remaining >= 0; remaining -= 1) {
+      state = recordBossPelletsEaten(state, remaining);
+    }
+    expect(state.ghostCount).toBe(10);
+    expect(state.pendingSpawns).toBe(8);
+    expect(state.bossPelletsRemaining).toBe(0);
+  });
+
+  it("handles several pellets eaten in one frame and no-ops when none were", () => {
+    const start = { ...createBossState(def, 2), bossPelletsRemaining: 8 };
+    expect(recordBossPelletsEaten(start, 8)).toBe(start);
+    expect(recordBossPelletsEaten(start, 5)).toMatchObject({ ghostCount: 5, pendingSpawns: 3 });
+  });
+
+  it("never grows past the boss max (e.g. a ?bossGhosts=10 start)", () => {
+    const full = { ...createBossState(def, 10), bossPelletsRemaining: 8 };
+    expect(recordBossPelletsEaten(full, 6)).toMatchObject({
+      ghostCount: 10,
+      pendingSpawns: 0,
+      bossPelletsRemaining: 6,
+    });
   });
 });
