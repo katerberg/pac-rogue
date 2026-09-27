@@ -20,9 +20,6 @@ function open(solids: SolidGrid, col: number, row: number): boolean {
   return solids[row]?.[col] === false;
 }
 
-// Walks the corridor leaving (col,row) by one (dx,dy) step, following bends, and stops after the
-// first junction or dead end. True if any tile on that run is occupied — a ghost treating
-// other ghosts as walls should not pick a route that runs through one.
 export function corridorOccupied(
   col: number,
   row: number,

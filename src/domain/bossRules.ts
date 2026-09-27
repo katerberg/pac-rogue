@@ -47,7 +47,6 @@ export function createBossState(def: BossDef, ghostCount: number): BossState {
   return { def, ghostCount, pendingSpawns: 0, nextMouthIndex: 0, bossPelletsRemaining: 0 };
 }
 
-// Returns how many ghosts go into the house (seat order) and how many queue for tunnels.
 export function splitBossGhosts(def: BossDef, total: number): { house: number; tunnel: number } {
   const house = Math.min(total, def.maxHouseGhosts);
   return { house, tunnel: total - house };

@@ -6,7 +6,6 @@ export type TileCell = { col: number; row: number };
 
 export const BOSS_PELLET_SPAWN_CLEARANCE_TILES = 6;
 
-// Clockwise from the bottom-left: left mouths bottom → top, then right mouths top → bottom.
 export function bossTunnelMouths(tunnelRows: readonly number[], cols: number): BossTunnelMouth[] {
   const bottomUp = [...tunnelRows].sort((a, b) => b - a);
   const left = bottomUp.map((row) => ({ col: 0, row, facing: GHOST_DIR.right }));
@@ -24,8 +23,6 @@ function readingOrder(a: TileCell, b: TileCell): number {
   return a.row - b.row || a.col - b.col;
 }
 
-// Farthest-point spread: the first pick is farthest from the player spawn, each next pick
-// maximizes its distance to the nearest earlier pick. Ties break by row, then column.
 export function pickBossPelletCells<T extends TileCell>(
   candidates: readonly T[],
   playerSpawn: TileCell,

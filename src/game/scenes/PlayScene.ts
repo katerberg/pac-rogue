@@ -967,12 +967,12 @@ export class PlayScene extends Phaser.Scene {
     const remaining = countBossPellets(this.world);
     const eaten = Math.max(0, state.bossPelletsRemaining - remaining);
     if (eaten > 0) {
-      const added = Math.min(eaten, maxBossGhosts(state.def) - state.ghostCount);
+      const added = Math.max(0, Math.min(eaten, maxBossGhosts(state.def) - state.ghostCount));
       state = {
         ...state,
         bossPelletsRemaining: remaining,
-        ghostCount: state.ghostCount + Math.max(0, added),
-        pendingSpawns: state.pendingSpawns + Math.max(0, added),
+        ghostCount: state.ghostCount + added,
+        pendingSpawns: state.pendingSpawns + added,
       };
     }
     while (state.pendingSpawns > 0) {

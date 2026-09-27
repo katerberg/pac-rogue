@@ -1,7 +1,7 @@
 import { query, type World } from "bitecs";
 import type { BossTunnelMouth } from "../../domain/bossBoard";
 import { tileKey } from "../../domain/bossGhostBlocking";
-import { reverseGhostDir, type GhostDir } from "../../domain/ghostPath";
+import { ghostDirStep, reverseGhostDir, type GhostDir } from "../../domain/ghostPath";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { TILE_SIZE, worldToCol, worldToRow } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
@@ -35,7 +35,6 @@ export function occupiedBossGhostTiles(world: World, exceptEid: number): Set<str
   return tiles;
 }
 
-// First mouth, rotating from startIndex, with no active boss ghost within the clearance.
 export function pickFreeBossMouth(
   world: World,
   mouths: readonly BossTunnelMouth[],
@@ -60,31 +59,13 @@ export function pickFreeBossMouth(
   return null;
 }
 
-function facingVector(dir: Direction): { dx: number; dy: number } {
-  switch (dir) {
-    case DIRECTION.up:
-      return { dx: 0, dy: -1 };
-    case DIRECTION.down:
-      return { dx: 0, dy: 1 };
-    case DIRECTION.left:
-      return { dx: -1, dy: 0 };
-    case DIRECTION.right:
-      return { dx: 1, dy: 0 };
-    default:
-      return { dx: 0, dy: 0 };
-  }
-}
-
-// Boss ghosts are walls to each other: a ghost with another boss ghost just ahead on its
-// line of travel turns around (so two meeting head-on both reverse).
 export function bossGhostBlock(world: World): void {
   const ghosts = activeBossGhosts(world);
   const reach = TILE_SIZE * HEAD_ON_REACH_TILES;
   const halfTile = TILE_SIZE / 2;
   const toReverse: number[] = [];
   for (const eid of ghosts) {
-    const facing = (Facing.direction[eid] ?? DIRECTION.none) as Direction;
-    const { dx, dy } = facingVector(facing);
+    const { dx, dy } = ghostDirStep((Facing.direction[eid] ?? DIRECTION.none) as GhostDir);
     if (dx === 0 && dy === 0) {
       continue;
     }

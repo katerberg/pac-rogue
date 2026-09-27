@@ -137,8 +137,6 @@ export function resolveGhostTarget(
   });
 }
 
-// Closes any direction whose corridor (up to the next junction) holds another boss ghost,
-// unless that would close every direction.
 function bossAwareCanEnter(
   world: World,
   eid: number,

@@ -5,7 +5,6 @@ function grid(lines: string[]): boolean[][] {
   return lines.map((line) => [...line].map((ch) => ch === "#"));
 }
 
-// A plus-shaped junction at (3,1) and an L-bend at (6,1)→(6,3).
 const SOLIDS = grid(["########", "-------#", "###-##-#", "###-##-#", "########"]);
 
 describe("corridorOccupied", () => {
