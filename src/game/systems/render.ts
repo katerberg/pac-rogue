@@ -204,6 +204,7 @@ export type RenderOptions = {
   hiddenGhostEid?: number | null;
   dimGhostEid?: number | null;
   slimeTrailTiles?: readonly GhostTarget[];
+  playerAlpha?: number;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -278,6 +279,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const flashGhostEid = opts?.flashGhostEid ?? null;
     const hiddenGhostEid = opts?.hiddenGhostEid ?? null;
     const dimGhostEid = opts?.dimGhostEid ?? null;
+    const playerAlpha = opts?.playerAlpha;
     const wallPassOn = opts?.wallPassActive === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const playerInvulnTintOn =
@@ -412,8 +414,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         } else {
           go.clearTint();
         }
+        go.setAlpha(playerAlpha ?? 1);
 
-        if (hasComponent(world, eid, Player)) {
+        if (playerAlpha === undefined && hasComponent(world, eid, Player)) {
           const twin = wrappedTwinPosition(x, y, radius);
           if (twin) {
             alive.add(twinKey);

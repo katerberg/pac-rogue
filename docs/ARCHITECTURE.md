@@ -114,6 +114,7 @@ src/
       playerDirection.ts
       playerWarp.ts           # power-pellet warp to dynamic top-center
       playerCell.ts           # player's current maze cell (store slot/exit lookup)
+      playerSlide.ts          # store exit: move the player straight out a tunnel (no wrap)
       render.ts               # sprites + rounded wall stroke; preloadPlayArt
     scenes/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
@@ -180,7 +181,7 @@ PlayScene.update →
   (if dying: tickDeathSequence → handle events (reset / fade / GO / resume / menu); return; no sim)
   (if run complete: tick hold → MenuScene; return)
   (if level transition: tick pause → store floor (after 3, 5-or-6, 8) else advance board (level < 9) or begin run complete (level 9); return)
-  (if store floor: stop-on-release input → movement → tunnel exit check → storeStep (Left/Right toggle, Enter confirm) → apply purchase → overlay sync → render; return)
+  (if store floor: stop-on-release input → movement → tunnel exit check (→ slide out + fade, then advance) → storeStep (Left/Right toggle, Enter confirm) → apply purchase → overlay sync → render; return)
   (if upgrade modal active: tick modal; return until outro done → suppress input until key release)
   (if pending level clear: start level transition; return)
   playerInput →

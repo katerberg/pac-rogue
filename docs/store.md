@@ -51,7 +51,7 @@ Store floors loop `storeMusic` (`sound/store.ogg`, music category) instead of `g
 
 ## Leaving
 
-Reaching any border cell (a tunnel mouth) leaves immediately — no confirm, no time limit. This advances to the next level (`LEVEL N` banner; after level 8 the `BOSS` banner for level 9). Only a `?store=1&level=9` debug store ends in `RUN COMPLETE`.
+Reaching any border cell (a tunnel mouth) starts the exit — no confirm, no time limit. `storeExitDirection` picks the outward direction, input and prompts stop, and the `playerSlide` system carries Pac-Man straight out through the tunnel (no wrap) for `STORE_EXIT_SLIDE_TILES` (2) tiles. The sprite fades out once it passes the maze edge (`storeExitAlpha`, passed to `render` as `playerAlpha`, which also hides the tunnel twin), then the transition runs. This advances to the next level (`LEVEL N` banner; after level 8 the `BOSS` banner for level 9). Only a `?store=1&level=9` debug store ends in `RUN COMPLETE`.
 
 ## Debug
 

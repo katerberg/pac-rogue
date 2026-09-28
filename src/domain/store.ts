@@ -189,6 +189,25 @@ export function storeStep(
   };
 }
 
-export function isStoreExitCell(col: number, row: number, cols: number, rows: number): boolean {
-  return col <= 0 || row <= 0 || col >= cols - 1 || row >= rows - 1;
+export const STORE_EXIT_SLIDE_TILES = 2;
+const STORE_EXIT_FADE_START_TILES = 0.5;
+
+export type StoreExitDirection = { dx: -1 | 0 | 1; dy: -1 | 0 | 1 };
+
+export function storeExitDirection(
+  col: number,
+  row: number,
+  cols: number,
+  rows: number,
+): StoreExitDirection | null {
+  if (col <= 0) return { dx: -1, dy: 0 };
+  if (col >= cols - 1) return { dx: 1, dy: 0 };
+  if (row <= 0) return { dx: 0, dy: -1 };
+  if (row >= rows - 1) return { dx: 0, dy: 1 };
+  return null;
+}
+
+export function storeExitAlpha(traveledTiles: number): number {
+  const fadeTiles = STORE_EXIT_SLIDE_TILES - STORE_EXIT_FADE_START_TILES;
+  return Math.min(1, Math.max(0, 1 - (traveledTiles - STORE_EXIT_FADE_START_TILES) / fadeTiles));
 }

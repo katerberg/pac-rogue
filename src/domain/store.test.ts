@@ -5,7 +5,9 @@ import {
   STORE_LIFE_PRICE,
   STORE_SWAP_PRICE,
   createStoreState,
-  isStoreExitCell,
+  STORE_EXIT_SLIDE_TILES,
+  storeExitAlpha,
+  storeExitDirection,
   parseStoreSlots,
   pickMidStoreLevel,
   promptView,
@@ -197,13 +199,23 @@ describe("storeStep", () => {
   });
 });
 
-describe("isStoreExitCell", () => {
-  it("is true only on the border", () => {
-    expect(isStoreExitCell(0, 10, 22, 21)).toBe(true);
-    expect(isStoreExitCell(21, 10, 22, 21)).toBe(true);
-    expect(isStoreExitCell(10, 0, 22, 21)).toBe(true);
-    expect(isStoreExitCell(11, 20, 22, 21)).toBe(true);
-    expect(isStoreExitCell(1, 1, 22, 21)).toBe(false);
-    expect(isStoreExitCell(20, 19, 22, 21)).toBe(false);
+describe("storeExitDirection", () => {
+  it("points out of the border the player reached and is null inside", () => {
+    expect(storeExitDirection(0, 10, 22, 21)).toEqual({ dx: -1, dy: 0 });
+    expect(storeExitDirection(21, 10, 22, 21)).toEqual({ dx: 1, dy: 0 });
+    expect(storeExitDirection(10, 0, 22, 21)).toEqual({ dx: 0, dy: -1 });
+    expect(storeExitDirection(11, 20, 22, 21)).toEqual({ dx: 0, dy: 1 });
+    expect(storeExitDirection(1, 1, 22, 21)).toBeNull();
+    expect(storeExitDirection(20, 19, 22, 21)).toBeNull();
+  });
+});
+
+describe("storeExitAlpha", () => {
+  it("stays opaque inside the maze, then fades to zero by the end of the slide", () => {
+    expect(storeExitAlpha(0)).toBe(1);
+    expect(storeExitAlpha(0.5)).toBe(1);
+    expect(storeExitAlpha(1.25)).toBeCloseTo(0.5);
+    expect(storeExitAlpha(STORE_EXIT_SLIDE_TILES)).toBe(0);
+    expect(storeExitAlpha(STORE_EXIT_SLIDE_TILES + 1)).toBe(0);
   });
 });

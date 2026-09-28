@@ -93,7 +93,10 @@ import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import {
   STORE_FIRST_LEVEL,
   createStoreState,
-  isStoreExitCell,
+  STORE_EXIT_SLIDE_TILES,
+  storeExitAlpha,
+  storeExitDirection,
+  type StoreExitDirection,
   parseStoreSlots,
   pickMidStoreLevel,
   promptView,
@@ -235,6 +238,7 @@ import { clearPlayerDirectionInput, hasPlayerDirectionInput } from "../systems/p
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { playerCell } from "../systems/playerCell";
+import { slidePlayer } from "../systems/playerSlide";
 import {
   applyTunnelDash,
   tickTunnelDashAnimation,
@@ -306,6 +310,7 @@ export class PlayScene extends Phaser.Scene {
   private midStoreLevel = 5;
   private store: StoreState | null = null;
   private storeOverlay: StoreOverlay | null = null;
+  private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
   private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
   private corruptionHiddenGhostEid: number | null = null;
   private corruptionFlashGhostEid: number | null = null;
@@ -872,6 +877,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private tickStore(delta: number): void {
+    if (this.storeExitSlide !== null) {
+      this.tickStoreExitSlide(delta);
+      return;
+    }
     const toggle = this.storeToggleKeys.some((key) => Phaser.Input.Keyboard.JustDown(key));
     const enter = this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key));
     const confirming = this.storeConfirmOpen();
@@ -893,8 +902,11 @@ export class PlayScene extends Phaser.Scene {
 
     const cell = playerCell(this.world);
     const layout = getActiveLayout();
-    if (cell !== null && isStoreExitCell(cell.col, cell.row, layout.cols, layout.rows)) {
-      this.exitStore();
+    const exit = cell && storeExitDirection(cell.col, cell.row, layout.cols, layout.rows);
+    if (exit) {
+      this.storeExitSlide = { ...exit, traveledPx: 0 };
+      this.storeOverlay?.sync(this.store!, null, delta);
+      this.drawStore();
       return;
     }
 
@@ -923,6 +935,17 @@ export class PlayScene extends Phaser.Scene {
       delta,
     );
     this.drawStore();
+  }
+
+  private tickStoreExitSlide(delta: number): void {
+    const slide = this.storeExitSlide!;
+    slide.traveledPx += slidePlayer(this.world, slide.dx, slide.dy, delta);
+    const traveledTiles = slide.traveledPx / getActiveLayout().tileSize;
+    if (traveledTiles >= STORE_EXIT_SLIDE_TILES) {
+      this.exitStore();
+      return;
+    }
+    this.drawStore(storeExitAlpha(traveledTiles));
   }
 
   private storeConfirmOpen(): boolean {
@@ -965,6 +988,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private closeStore(): void {
+    this.storeExitSlide = null;
     if (this.musicPendingFanfareEnd === "storeMusic") {
       this.musicPendingFanfareEnd = null;
     }
@@ -974,11 +998,12 @@ export class PlayScene extends Phaser.Scene {
     this.store = null;
   }
 
-  private drawStore(): void {
+  private drawStore(playerAlpha?: number): void {
     this.playRender.draw(this.world, {
       frozenGhostEid: null,
       playerInvulnRemainingMs: 0,
       wallPassActive: false,
+      playerAlpha,
       ...this.renderCorruptionOptions(),
     });
   }
