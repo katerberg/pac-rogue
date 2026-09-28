@@ -5,8 +5,10 @@ import { Player } from "../components/Player";
 
 type MoveKey = Phaser.Input.Keyboard.Key;
 
+export type PlayerInputOpts = { diagonalAllowed?: boolean; stopOnRelease?: boolean };
+
 export type PlayerInputControl = {
-  apply: (world: World, opts?: { diagonalAllowed?: boolean }) => void;
+  apply: (world: World, opts?: PlayerInputOpts) => void;
   anyMoveKeyDown: () => boolean;
 };
 
@@ -35,11 +37,11 @@ export function createPlayerInput(scene: Phaser.Scene): PlayerInputControl {
   const allBindings = [...verticalBindings, ...horizontalBindings];
 
   return {
-    apply: (world: World, opts?: { diagonalAllowed?: boolean }) => {
+    apply: (world: World, opts?: PlayerInputOpts) => {
       const vertical = resolveAxisWinner(verticalBindings);
       const horizontal = resolveAxisWinner(horizontalBindings);
       const held = combineAxisDirections(vertical, horizontal, opts?.diagonalAllowed === true);
-      if (held === DIRECTION.none) {
+      if (held === DIRECTION.none && !opts?.stopOnRelease) {
         return;
       }
       for (const eid of query(world, [Input, Player])) {

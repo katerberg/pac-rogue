@@ -248,8 +248,9 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private openSettings(): void {
+    const musicId = (this.scene.get("PlayScene") as PlayScene).currentMusicId();
     this.scene.stop();
-    this.scene.start("SettingsScene", { returnScene: "PauseScene" });
+    this.scene.start("SettingsScene", { returnScene: "PauseScene", musicId });
   }
 
   private beginQuitConfirm(): void {

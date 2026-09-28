@@ -10,3 +10,9 @@ export function hasPlayerDirectionInput(world: World): boolean {
   const eid = players[0]!;
   return (Input.direction[eid] ?? DIRECTION.none) !== DIRECTION.none;
 }
+
+export function clearPlayerDirectionInput(world: World): void {
+  for (const eid of query(world, [Player, Input])) {
+    Input.direction[eid] = DIRECTION.none;
+  }
+}

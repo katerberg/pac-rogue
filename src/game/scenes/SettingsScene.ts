@@ -118,7 +118,7 @@ export class SettingsScene extends Phaser.Scene {
     preloadSfx(this);
   }
 
-  create(data?: { returnScene?: string }): void {
+  create(data?: { returnScene?: string; musicId?: SfxId }): void {
     // Boot order (see docs/ARCHITECTURE.md) places SettingsScene below PlayScene/PauseScene,
     // so opening it from the pause menu needs an explicit bring-to-top or the paused maze
     // (still rendering underneath) shows through the opaque background below.
@@ -134,7 +134,7 @@ export class SettingsScene extends Phaser.Scene {
     this.rows = [];
     this.returnScene = data?.returnScene ?? "MenuScene";
     this.audioDisabled = this.game.config.audio.noAudio === true;
-    this.musicId = musicIdForContext(this.returnScene);
+    this.musicId = data?.musicId ?? musicIdForContext(this.returnScene);
     syncMusicPlayback(this, this.musicId, this.settings);
     this.mazeColorSettings = loadMazeColorSettings();
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);

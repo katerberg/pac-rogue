@@ -26,6 +26,7 @@ export type UpgradeDef = {
   id: UpgradeId;
   label: string;
   description: string;
+  storePrice?: number;
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitQuarterMul?: number;
@@ -61,6 +62,7 @@ export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
 export const POWER_COLLECT_THREE_COUNT = 3;
 export const QUARTERS_CHOICE_AMOUNT = 2;
+export const STORE_UPGRADE_PRICE = 3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
 export const QUARTER_BOUNTY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
@@ -285,6 +287,10 @@ export function getUpgradeDef(id: UpgradeId): UpgradeDef {
   return UPGRADE_BY_ID.get(id)!;
 }
 
+export function storePriceFor(id: UpgradeId): number {
+  return getUpgradeDef(id).storePrice ?? STORE_UPGRADE_PRICE;
+}
+
 export function grantLivesForUpgrade(id: UpgradeId): number {
   return UPGRADE_BY_ID.get(id)?.grantLives ?? 0;
 }
@@ -294,7 +300,7 @@ export function eligibleUpgrades(owned: readonly UpgradeId[]): UpgradeId[] {
   return ALL_UPGRADE_IDS.filter((id) => !ownedSet.has(id));
 }
 
-function takeRandomFrom(pool: UpgradeId[], rng: () => number): UpgradeId {
+export function takeRandomFrom(pool: UpgradeId[], rng: () => number): UpgradeId {
   const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
   const picked = pool[index]!;
   pool.splice(index, 1);
@@ -404,6 +410,18 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
   return {
     ...state,
     owned: state.owned.filter((owned) => owned !== id),
+  };
+}
+
+export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
+  return {
+    ...state,
+    freezeRemainingMs: 0,
+    frozenGhostEid: null,
+    scatterBurstRemainingMs: 0,
+    wallPassRemainingMs: 0,
+    invulnRemainingMs: 0,
+    speedBurstRemainingMs: 0,
   };
 }
 

@@ -39,6 +39,32 @@ function spawnAt(col: number, row: number, ghost = false) {
   return { world, eid };
 }
 
+describe("movement stopOnRelease", () => {
+  function releasedMidCell(stopOnRelease: boolean) {
+    const { world, eid } = spawnAt(1, 1);
+    Input.direction[eid] = DIRECTION.right;
+    movement(world, 16);
+    Input.direction[eid] = DIRECTION.none;
+    for (let i = 0; i < 20; i += 1) {
+      movement(world, 16, undefined, stopOnRelease);
+    }
+    return eid;
+  }
+
+  it("finishes to the next cell center and stops when released", () => {
+    const eid = releasedMidCell(true);
+    expect(Position.x[eid]).toBe(cellCenterX(2));
+    expect(Position.y[eid]).toBe(cellCenterY(1));
+    expect(Facing.direction[eid]).toBe(DIRECTION.none);
+    expect(Velocity.x[eid]).toBe(0);
+  });
+
+  it("keeps moving on release without the flag", () => {
+    const eid = releasedMidCell(false);
+    expect(Position.x[eid]).toBeGreaterThan(cellCenterX(2));
+  });
+});
+
 describe("movement", () => {
   it("adopts sticky Input into Facing when aligned and path is open", () => {
     const { world, eid } = spawnAt(1, 1);

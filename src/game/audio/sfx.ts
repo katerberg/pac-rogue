@@ -3,7 +3,13 @@ import { categoryForSfx, effectiveVolume, type AudioSettings } from "../../domai
 import { loadAudioSettings } from "../storage/audioSettingsStorage";
 
 export type SfxId =
-  "pelletMunch" | "pelletMunch2" | "gameplayMusic" | "menuMusic" | "levelComplete" | "death";
+  | "pelletMunch"
+  | "pelletMunch2"
+  | "gameplayMusic"
+  | "menuMusic"
+  | "storeMusic"
+  | "levelComplete"
+  | "death";
 
 type SfxEntry = {
   key: string;
@@ -31,6 +37,11 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     key: "menu-music",
     url: "sound/menu.ogg",
     volume: 0.7,
+  },
+  storeMusic: {
+    key: "store-music",
+    url: "sound/store.ogg",
+    volume: 1.0,
   },
   levelComplete: {
     key: "level-complete",

@@ -119,7 +119,12 @@ function ghostPhaseOf(world: World, eid: number): number {
   return GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
 }
 
-export function movement(world: World, deltaMs: number, playerSolidsOverride?: SolidGrid): void {
+export function movement(
+  world: World,
+  deltaMs: number,
+  playerSolidsOverride?: SolidGrid,
+  playerStopOnRelease = false,
+): void {
   const dt = deltaMs / 1000;
   const playerSolids = playerSolidsOverride ?? getActiveLayout().playerSolids;
 
@@ -221,6 +226,20 @@ export function movement(world: World, deltaMs: number, playerSolidsOverride?: S
           facing = nextIntent;
           moveDt = committed.remainingDt;
         }
+      }
+    }
+
+    if (
+      !ghost &&
+      playerStopOnRelease &&
+      nextIntent === DIRECTION.none &&
+      facing !== DIRECTION.none
+    ) {
+      const stop = tryCommitCenterTurn(x, y, facing, frameTravel, speed, 0);
+      if (stop) {
+        x = stop.x;
+        y = stop.y;
+        facing = DIRECTION.none;
       }
     }
 

@@ -103,3 +103,14 @@ export function font8x8Glyph(charCode: number): readonly number[] | undefined {
   }
   return FONT8X8_BASIC_PRINTABLE[charCode - 0x20];
 }
+
+export function glyphInkCenterOffsetX(char: string): number {
+  const rows = font8x8Glyph(char.charCodeAt(0)) ?? [];
+  const ink = rows.reduce((bits, row) => bits | row, 0);
+  if (ink === 0) {
+    return 0;
+  }
+  const first = Math.log2(ink & -ink);
+  const last = Math.floor(Math.log2(ink));
+  return 4 - (first + last + 1) / 2;
+}

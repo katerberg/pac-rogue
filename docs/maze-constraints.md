@@ -41,6 +41,8 @@ Player spawn: single `P` if present; otherwise lowest empty-corridor cell in the
 
 ## Ghost house
 
+Required on every layout except the store floor (`activateAsciiLayout(ascii, "store")`), which has no house — see [docs/store.md](./store.md).
+
 - Door: width **2**, on the top of the house block.
 - Floors: `H` bbox at least **6×3**; soft max width **10** (authoring guidance only).
 - Spawn-row non-door `H` count **≥ 4** (four ghost seats).
