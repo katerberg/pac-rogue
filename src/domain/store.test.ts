@@ -51,13 +51,23 @@ describe("store layout", () => {
     activateLayout("maze1");
   });
 
+  it("has no ghost house and walls over about half of the interior", () => {
+    const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    expect(layout.house.flat().some(Boolean)).toBe(false);
+    const interior = layout.walls.slice(1, -1).flatMap((row) => row.slice(1, -1));
+    const coverage = interior.filter(Boolean).length / interior.length;
+    expect(coverage).toBeGreaterThan(0.45);
+    expect(coverage).toBeLessThan(0.6);
+    activateLayout("maze1");
+  });
+
   it("parses one life, three upgrade, and one swap slot in row/col order", () => {
     expect(parseStoreSlots(STORE_MAZE_ASCII)).toEqual([
-      { kind: "upgrade", col: 5, row: 4 },
-      { kind: "upgrade", col: 14, row: 4 },
-      { kind: "upgrade", col: 23, row: 4 },
-      { kind: "swap", col: 4, row: 22 },
-      { kind: "life", col: 12, row: 22 },
+      { kind: "upgrade", col: 5, row: 2 },
+      { kind: "upgrade", col: 21, row: 2 },
+      { kind: "swap", col: 5, row: 27 },
+      { kind: "life", col: 11, row: 27 },
+      { kind: "upgrade", col: 15, row: 27 },
     ]);
   });
 
@@ -102,9 +112,9 @@ describe("createStoreState", () => {
 });
 
 describe("storeStep", () => {
-  const lifeCell = { col: 13, row: 23 };
-  const upgradeCell = { col: 5, row: 4 };
-  const swapCell = { col: 4, row: 22 };
+  const lifeCell = { col: 12, row: 28 };
+  const upgradeCell = { col: 5, row: 2 };
+  const swapCell = { col: 5, row: 27 };
 
   it("opens a NO-focused prompt on arrival, dismisses on NO, and re-opens after stepping off", () => {
     let state = stateWith([]);
@@ -115,9 +125,9 @@ describe("storeStep", () => {
     expect(declined.purchase).toBeNull();
     state = declined.state;
     expect(promptView(state, 10, [])).toBeNull();
-    state = storeStep(state, input({ ...lifeCell, col: 12 }), zeroRng).state;
+    state = storeStep(state, input({ ...lifeCell, col: 11 }), zeroRng).state;
     expect(promptView(state, 10, [])).toBeNull();
-    state = storeStep(state, input({ col: 13, row: 25 }), zeroRng).state;
+    state = storeStep(state, input({ col: 13, row: 26 }), zeroRng).state;
     state = storeStep(state, input(lifeCell), zeroRng).state;
     expect(promptView(state, 10, [])?.kind).toBe("confirm");
     expect(state.confirmYes).toBe(false);

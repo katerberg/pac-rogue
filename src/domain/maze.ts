@@ -656,11 +656,16 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const playerSolids = buildPlayerSolids(walls, exterior, house);
   const wallPassPlayerSolids = buildWallPassPlayerSolids(walls);
   assertHorizontalTunnels(playerSolids, cols, rows);
-  const ghostHouseSpawn = deriveGhostHouseSpawn(ascii, cols, rows);
-  const ghostHouseExit = deriveGhostHouseExit(ascii, cols, rows, playerSolids);
-  const fruitSpawn = deriveFruitSpawn(ascii, cols, rows, playerSolids, ghostHouseSpawn.col);
+  const isStore = id === "store";
+  const ghostHouseSpawn = isStore ? playerSpawn : deriveGhostHouseSpawn(ascii, cols, rows);
+  const ghostHouseExit = isStore
+    ? playerSpawn
+    : deriveGhostHouseExit(ascii, cols, rows, playerSolids);
+  const fruitSpawn = isStore
+    ? playerSpawn
+    : deriveFruitSpawn(ascii, cols, rows, playerSolids, ghostHouseSpawn.col);
   const pelletCount = countPelletsInAscii(ascii, cols, rows, playerSolids);
-  if (pelletCount <= 0 && id !== "store") {
+  if (pelletCount <= 0 && !isStore) {
     throw new Error(`maze ${id} has no pellets`);
   }
 
