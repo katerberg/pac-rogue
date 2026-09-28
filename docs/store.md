@@ -30,6 +30,10 @@ Slot glyphs are walkable empty cells to the maze builder; `parseStoreSlots` turn
 
 In the store the player stops when no direction is held: `playerInput.apply(world, true)` writes `none` on release, and `movement(..., playerStopOnRelease = true)` finishes the move to the next cell center and stops there. Maze boards are unchanged.
 
+## Music
+
+Store floors loop `storeMusic` (`sound/store.ogg`, music category) instead of `gameplayMusic`: entering stops the level track and starts the store track (after the level-complete fanfare if it is still playing); leaving stops it and the next level resumes `gameplayMusic`. Settings opened from the pause menu in a store controls `storeMusic` (`PlayScene.currentMusicId()` is passed through `PauseScene`).
+
 ## Buying
 
 `storeStep` is the prompt state machine, fed the player cell (`playerCell` system) plus Y/N `JustDown` each frame:

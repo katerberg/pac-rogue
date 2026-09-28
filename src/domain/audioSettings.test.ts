@@ -48,6 +48,7 @@ describe("categoryForSfx", () => {
   it("maps music tracks to music and everything else to sfx", () => {
     expect(categoryForSfx("gameplayMusic")).toBe("music");
     expect(categoryForSfx("menuMusic")).toBe("music");
+    expect(categoryForSfx("storeMusic")).toBe("music");
     expect(categoryForSfx("pelletMunch")).toBe("sfx");
     expect(categoryForSfx("death")).toBe("sfx");
   });

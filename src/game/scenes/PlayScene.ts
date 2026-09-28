@@ -176,6 +176,7 @@ import {
   preloadSfx,
   startLoopingSfx,
   stopLoopingSfx,
+  type SfxId,
 } from "../audio/sfx";
 import { saveRun } from "../storage/runHistoryStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
@@ -281,7 +282,7 @@ export class PlayScene extends Phaser.Scene {
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private keyYes!: Phaser.Input.Keyboard.Key;
   private keyNo!: Phaser.Input.Keyboard.Key;
-  private gameplayMusicPendingFanfareEnd = false;
+  private musicPendingFanfareEnd: SfxId | null = null;
 
   constructor() {
     super("PlayScene");
@@ -372,7 +373,7 @@ export class PlayScene extends Phaser.Scene {
     this.runPlayerInput = playerInput.apply;
     this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
     this.suppressPlayerInputUntilKeyRelease = false;
-    this.gameplayMusicPendingFanfareEnd = false;
+    this.musicPendingFanfareEnd = null;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.keyYes = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Y);
     this.keyNo = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.N);
@@ -421,9 +422,9 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (this.gameplayMusicPendingFanfareEnd && !isSfxPlaying(this, "levelComplete")) {
-      this.gameplayMusicPendingFanfareEnd = false;
-      startLoopingSfx(this, "gameplayMusic");
+    if (this.musicPendingFanfareEnd !== null && !isSfxPlaying(this, "levelComplete")) {
+      startLoopingSfx(this, this.musicPendingFanfareEnd);
+      this.musicPendingFanfareEnd = null;
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
@@ -788,6 +789,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private enterStore(): void {
+    stopLoopingSfx(this, "gameplayMusic");
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
@@ -808,7 +810,7 @@ export class PlayScene extends Phaser.Scene {
     this.timerText.setVisible(false);
     this.suppressPlayerInputUntilKeyRelease = true;
     this.showLevelBanner("STORE");
-    this.startGameplayMusicAfterFanfare();
+    this.startMusicAfterFanfare("storeMusic");
     this.drawStore();
   }
 
@@ -889,6 +891,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private closeStore(): void {
+    if (this.musicPendingFanfareEnd === "storeMusic") {
+      this.musicPendingFanfareEnd = null;
+    }
+    stopLoopingSfx(this, "storeMusic");
     this.storeOverlay?.destroy();
     this.storeOverlay = null;
     this.store = null;
@@ -903,12 +909,16 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private startGameplayMusicAfterFanfare(): void {
+  private startMusicAfterFanfare(id: SfxId): void {
     if (isSfxPlaying(this, "levelComplete")) {
-      this.gameplayMusicPendingFanfareEnd = true;
+      this.musicPendingFanfareEnd = id;
       return;
     }
-    startLoopingSfx(this, "gameplayMusic");
+    startLoopingSfx(this, id);
+  }
+
+  public currentMusicId(): SfxId {
+    return this.store !== null ? "storeMusic" : "gameplayMusic";
   }
 
   private pauseForMenu(): void {
@@ -1217,7 +1227,7 @@ export class PlayScene extends Phaser.Scene {
     this.lives = livesAfterLevelRegen(this.lives);
     this.refreshLivesIcons(this.lives > livesBeforeRegen);
     this.showLevelBanner();
-    this.startGameplayMusicAfterFanfare();
+    this.startMusicAfterFanfare("gameplayMusic");
     this.playRender.draw(this.world, {
       frozenGhostEid: null,
       playerInvulnRemainingMs: 0,
