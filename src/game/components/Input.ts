@@ -4,6 +4,10 @@ export const DIRECTION = {
   down: 2,
   left: 3,
   right: 4,
+  upLeft: 5,
+  upRight: 6,
+  downLeft: 7,
+  downRight: 8,
 } as const;
 
 export type Direction = (typeof DIRECTION)[keyof typeof DIRECTION];

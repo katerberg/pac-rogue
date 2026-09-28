@@ -37,9 +37,26 @@ function directionStep(direction: Direction): Step {
       return { dx: -1, dy: 0 };
     case DIRECTION.right:
       return { dx: 1, dy: 0 };
+    case DIRECTION.upLeft:
+      return { dx: -1, dy: -1 };
+    case DIRECTION.upRight:
+      return { dx: 1, dy: -1 };
+    case DIRECTION.downLeft:
+      return { dx: -1, dy: 1 };
+    case DIRECTION.downRight:
+      return { dx: 1, dy: 1 };
     default:
       return { dx: 0, dy: 0 };
   }
+}
+
+function isDiagonalDirection(direction: Direction): boolean {
+  return (
+    direction === DIRECTION.upLeft ||
+    direction === DIRECTION.upRight ||
+    direction === DIRECTION.downLeft ||
+    direction === DIRECTION.downRight
+  );
 }
 
 function isReverse(a: Direction, b: Direction): boolean {
@@ -127,6 +144,54 @@ export function movement(world: World, deltaMs: number, playerSolidsOverride?: S
       }
       return canEnterDirection(px, py, dx, dy, solids);
     };
+
+    if (speed > 0 && (isDiagonalDirection(facing) || isDiagonalDirection(nextIntent))) {
+      const desired = nextIntent !== DIRECTION.none ? nextIntent : facing;
+      const step = directionStep(desired);
+      const norm = Math.hypot(step.dx, step.dy) || 1;
+      const vx = (step.dx / norm) * speed;
+      const vy = (step.dy / norm) * speed;
+
+      let nextX = x;
+      let nextY = y;
+      let movedX = desired === DIRECTION.none || step.dx === 0;
+      let movedY = desired === DIRECTION.none || step.dy === 0;
+      if (step.dx !== 0) {
+        if (canEnterDirection(x, y, step.dx, 0, solids)) {
+          nextX = x + vx * dt;
+          movedX = true;
+        } else {
+          nextX = clampAgainstFacingWall(x, y, step.dx, 0, solids).x;
+        }
+      }
+      if (step.dy !== 0) {
+        if (canEnterDirection(nextX, y, 0, step.dy, solids)) {
+          nextY = y + vy * dt;
+          movedY = true;
+        } else {
+          nextY = clampAgainstFacingWall(nextX, y, 0, step.dy, solids).y;
+        }
+      }
+
+      if (desired === DIRECTION.none || (!movedX && !movedY)) {
+        Facing.direction[eid] = DIRECTION.none;
+        Velocity.x[eid] = 0;
+        Velocity.y[eid] = 0;
+        Position.x[eid] = x;
+        Position.y[eid] = y;
+        continue;
+      }
+
+      Facing.direction[eid] = desired;
+      Velocity.x[eid] = vx;
+      Velocity.y[eid] = vy;
+
+      const wrapped = wrapPosition(nextX, nextY, solids);
+      const playfield = clampPositionToPlayfield(wrapped.x, wrapped.y);
+      Position.x[eid] = playfield.x;
+      Position.y[eid] = playfield.y;
+      continue;
+    }
 
     if (
       speed > 0 &&

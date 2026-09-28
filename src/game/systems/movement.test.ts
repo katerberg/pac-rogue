@@ -264,4 +264,74 @@ describe("movement", () => {
     expect(Velocity.x[eid]).toBe(0);
     expect(Velocity.y[eid]).toBe(0);
   });
+
+  it("moves along both axes at normalized speed when a diagonal is fully open", () => {
+    const { playerSolids } = getActiveLayout();
+    let fromCol = -1;
+    let fromRow = -1;
+    for (let row = 1; row < 28 && fromCol < 0; row += 1) {
+      for (let col = 1; col < 25; col += 1) {
+        if (
+          isWalkable(col, row, playerSolids) &&
+          isWalkable(col + 1, row, playerSolids) &&
+          isWalkable(col, row + 1, playerSolids)
+        ) {
+          fromCol = col;
+          fromRow = row;
+          break;
+        }
+      }
+    }
+    expect(fromCol).toBeGreaterThan(0);
+
+    const { world, eid } = spawnAt(fromCol, fromRow);
+    Input.direction[eid] = DIRECTION.downRight;
+
+    movement(world, 16);
+
+    expect(Facing.direction[eid]).toBe(DIRECTION.downRight);
+    expect(Position.x[eid]).toBeGreaterThan(cellCenterX(fromCol));
+    expect(Position.y[eid]).toBeGreaterThan(cellCenterY(fromRow));
+    expect(Math.hypot(Velocity.x[eid] ?? 0, Velocity.y[eid] ?? 0)).toBeCloseTo(PLAYER_SPEED, 5);
+  });
+
+  it("slides along the open axis when the other axis of a diagonal is blocked", () => {
+    // (1,1): right is open and up is blocked, per the other tests in this file.
+    const { world, eid } = spawnAt(1, 1);
+    Input.direction[eid] = DIRECTION.upRight;
+
+    movement(world, 16);
+
+    expect(Position.x[eid]).toBeGreaterThan(cellCenterX(1));
+    expect(Position.y[eid]).toBe(cellCenterY(1));
+    expect(Velocity.x[eid]).toBeCloseTo(PLAYER_SPEED / Math.SQRT2, 5);
+    expect(Velocity.y[eid]).toBeCloseTo(-PLAYER_SPEED / Math.SQRT2, 5);
+  });
+
+  it("hands off from a diagonal Facing to a single-axis Input without getting stuck", () => {
+    const { playerSolids } = getActiveLayout();
+    let fromCol = -1;
+    let fromRow = -1;
+    for (let row = 1; row < 28 && fromCol < 0; row += 1) {
+      for (let col = 2; col < 25; col += 1) {
+        if (isWalkable(col, row, playerSolids) && isWalkable(col - 1, row, playerSolids)) {
+          fromCol = col;
+          fromRow = row;
+          break;
+        }
+      }
+    }
+    expect(fromCol).toBeGreaterThan(0);
+
+    const { world, eid } = spawnAt(fromCol, fromRow);
+    Facing.direction[eid] = DIRECTION.upLeft;
+    Input.direction[eid] = DIRECTION.left;
+
+    movement(world, 16);
+
+    expect(Facing.direction[eid]).toBe(DIRECTION.left);
+    expect(Velocity.y[eid]).toBe(0);
+    expect(Velocity.x[eid]).toBe(-PLAYER_SPEED);
+    expect(Position.x[eid]).toBeLessThan(cellCenterX(fromCol));
+  });
 });

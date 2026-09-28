@@ -208,7 +208,7 @@ type UpgradeRow = { id: UpgradeId; checkMark: Phaser.GameObjects.Rectangle };
 export class LearnScene extends Phaser.Scene {
   private world!: World;
   private playRender!: PlayRender;
-  private runPlayerInput!: (world: World) => void;
+  private runPlayerInput!: (world: World, opts?: { diagonalAllowed?: boolean }) => void;
   private overlay!: Phaser.GameObjects.Graphics;
   private seen: SeenRecord = emptySeenRecord();
   private selectedKind: GhostKindId | null = null;
@@ -328,7 +328,7 @@ export class LearnScene extends Phaser.Scene {
       }
     });
 
-    this.runPlayerInput(this.world);
+    this.runPlayerInput(this.world, { diagonalAllowed: wallPassActive(this.learnUpgrades) });
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
     this.corruption = tickSpeedSurge(this.corruption, delta);
 

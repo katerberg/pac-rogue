@@ -255,7 +255,7 @@ const RUN_COMPLETE_HOLD_MS = 2000;
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
-  private runPlayerInput!: (world: World) => void;
+  private runPlayerInput!: (world: World, opts?: { diagonalAllowed?: boolean }) => void;
   private anyPlayerMoveKeyDown!: () => boolean;
   private suppressPlayerInputUntilKeyRelease = false;
   private playRender!: PlayRender;
@@ -493,13 +493,14 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
 
+    const diagonalAllowed = wallPassActive(this.runUpgrades);
     if (this.suppressPlayerInputUntilKeyRelease) {
       if (!this.anyPlayerMoveKeyDown()) {
         this.suppressPlayerInputUntilKeyRelease = false;
-        this.runPlayerInput(this.world);
+        this.runPlayerInput(this.world, { diagonalAllowed });
       }
     } else {
-      this.runPlayerInput(this.world);
+      this.runPlayerInput(this.world, { diagonalAllowed });
     }
     const hasInput = hasPlayerDirectionInput(this.world);
 
