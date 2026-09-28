@@ -89,6 +89,14 @@ describe("boss ghosts", () => {
     expect(pickFreeBossMouth(world, MOUTHS, 0)).toBeNull();
   });
 
+  it("never spawns from a tunnel on the player's row", () => {
+    const world = createWorld();
+    spawnPlayer(world, 13, 14);
+    expect(pickFreeBossMouth(world, MOUTHS, 0)).toBeNull();
+    const mouths = [...MOUTHS, { col: 0, row: 20, facing: GHOST_DIR.right }];
+    expect(pickFreeBossMouth(world, mouths, 0)).toBe(2);
+  });
+
   it("ignores ghosts still in the house when checking mouths", () => {
     const world = createWorld();
     spawnBossGhost(world, 1, 14, DIRECTION.none, GHOST_PHASE.inHouse);

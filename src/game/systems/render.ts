@@ -56,6 +56,7 @@ export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [CLYDE_DRAWABLE_ID]: CLYDE_TEXTURE_KEY,
 };
 const BOSS_PELLET_SIZE_MUL = 2;
+const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
 const BOSS_PELLET_MIN_ALPHA = 0.6;
 const CHOMP_PIXELS_PER_FRAME = 12;
@@ -105,9 +106,13 @@ function brightenColor(color: number, towardWhite: number): number {
   return channel(16) | channel(8) | channel(0);
 }
 
-function bossPelletAlpha(nowMs: number): number {
+function bossPelletPulse(nowMs: number): { size: number; alpha: number } {
   const wave = (Math.sin((2 * Math.PI * nowMs) / BOSS_PELLET_PULSE_MS) + 1) / 2;
-  return BOSS_PELLET_MIN_ALPHA + (1 - BOSS_PELLET_MIN_ALPHA) * wave;
+  const sizeMul = BOSS_PELLET_SIZE_MUL + (BOSS_PELLET_PULSE_SIZE_MUL - BOSS_PELLET_SIZE_MUL) * wave;
+  return {
+    size: pelletDisplaySize() * sizeMul,
+    alpha: 1 - (1 - BOSS_PELLET_MIN_ALPHA) * wave,
+  };
 }
 
 function applyWallPathCommands(
@@ -344,7 +349,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
       if (id === BOSS_PELLET_DRAWABLE_ID) {
         go.setTint(bossPelletTint);
-        go.setAlpha(bossPelletAlpha(scene.time.now));
+        const pulse = bossPelletPulse(scene.time.now);
+        go.setDisplaySize(pulse.size, pulse.size);
+        go.setAlpha(pulse.alpha);
       }
 
       if (ghostTexture !== undefined) {

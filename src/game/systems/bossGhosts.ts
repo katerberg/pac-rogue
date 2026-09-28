@@ -10,6 +10,7 @@ import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
+import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
 const MOUTH_CLEARANCE_TILES = 2;
@@ -44,9 +45,15 @@ export function pickFreeBossMouth(
     col: worldToCol(Position.x[eid] ?? 0),
     row: worldToRow(Position.y[eid] ?? 0),
   }));
+  const playerRows = new Set(
+    [...query(world, [Player, Position])].map((eid) => worldToRow(Position.y[eid] ?? 0)),
+  );
   for (let offset = 0; offset < mouths.length; offset += 1) {
     const index = (startIndex + offset) % mouths.length;
     const mouth = mouths[index]!;
+    if (playerRows.has(mouth.row)) {
+      continue;
+    }
     const blocked = ghostTiles.some(
       (tile) =>
         Math.max(Math.abs(tile.col - mouth.col), Math.abs(tile.row - mouth.row)) <=
