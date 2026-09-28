@@ -8,9 +8,9 @@ Quarters are spent at **store floors** — an extra board between some levels wi
 
 - after clearing **level 3** (before level 4)
 - after clearing **level 5 or 6** — `pickMidStoreLevel` rolls 50/50 once per run in `PlayScene.create()`
-- after clearing **level 8** (before `RUN COMPLETE`)
+- after clearing **level 8** (`STORE_FINAL_LEVEL`), right before the level-9 boss
 
-On a level that also offers the level-clear upgrade modal (3, 5, 6), the modal resolves first, then the usual transition freeze, then the store. Entering the store does not apply per-level life regen; the regen happens on the normal advance after the store.
+On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the modal resolves first, then the usual transition freeze, then the store. Entering the store does not apply per-level life regen; the regen happens on the normal advance after the store.
 
 ## Layout
 
@@ -51,7 +51,7 @@ Store floors loop `storeMusic` (`sound/store.ogg`, music category) instead of `g
 
 ## Leaving
 
-Reaching any border cell (a tunnel mouth) leaves immediately — no confirm, no time limit. After levels 3 and 5/6 this advances to the next level (`LEVEL N` banner); after level 8 it shows `RUN COMPLETE`.
+Reaching any border cell (a tunnel mouth) leaves immediately — no confirm, no time limit. This advances to the next level (`LEVEL N` banner; after level 8 the `BOSS` banner for level 9). Only a `?store=1&level=9` debug store ends in `RUN COMPLETE`.
 
 ## Debug
 

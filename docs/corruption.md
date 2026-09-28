@@ -68,3 +68,7 @@ corruption and can apply it to any ghost, Blinky included; real runs still never
   corruptible ghost (e.g. `ghosts=blinky`) never gets a corruption.
 
 There is no flag to disable corruption — only to force it on early for testing.
+
+The level-9 boss fight has no corruption: `maybeAssignCorruption` is skipped on boss levels (so
+`?level=9` never assigns one), and a corruption carried in from earlier levels sits on a
+non-Blinky kind that the boss never spawns. See [docs/bosses.md](./bosses.md).

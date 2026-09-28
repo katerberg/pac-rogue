@@ -1,5 +1,12 @@
-import { query, type World } from "bitecs";
-import { openGhostDirsAt, pickGhostDirection, type GhostDir } from "../../domain/ghostPath";
+import { hasComponent, query, type World } from "bitecs";
+import { corridorOccupied } from "../../domain/bossGhostBlocking";
+import {
+  ghostDirStep,
+  openGhostDirsAt,
+  pickGhostDirection,
+  type GhostCanEnter,
+  type GhostDir,
+} from "../../domain/ghostPath";
 import { GHOST_AI_MODE, type GhostAiMode } from "../../domain/ghostMode";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
@@ -19,6 +26,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -26,6 +34,7 @@ import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { occupiedBossGhostTiles } from "./bossGhosts";
 
 function playerTileAndFacing(world: World): {
   col: number;
@@ -128,6 +137,31 @@ export function resolveGhostTarget(
   });
 }
 
+function bossAwareCanEnter(
+  world: World,
+  eid: number,
+  x: number,
+  y: number,
+  rules: ReturnType<typeof ghostMovementRules>,
+): GhostCanEnter {
+  const occupied = occupiedBossGhostTiles(world, eid);
+  if (occupied.size === 0) {
+    return rules.canEnter;
+  }
+  const col = worldToCol(x);
+  const row = worldToRow(y);
+  const blocked = (dx: number, dy: number) =>
+    corridorOccupied(col, row, dx, dy, occupied, rules.solids);
+  const anyFree = openGhostDirsAt(x, y, rules.solids, rules.canEnter).some((dir) => {
+    const { dx, dy } = ghostDirStep(dir);
+    return !blocked(dx, dy);
+  });
+  if (!anyFree) {
+    return rules.canEnter;
+  }
+  return (px, py, dx, dy) => rules.canEnter(px, py, dx, dy) && !blocked(dx, dy);
+}
+
 export function ghostAi(
   world: World,
   mode: GhostAiMode,
@@ -167,11 +201,19 @@ export function ghostAi(
       }
     }
 
-    const target = resolveGhostTarget(eid, mode, pelletsRemaining, ctx, opts);
+    const isBossGhost = hasComponent(world, eid, BossGhost);
+    const target =
+      isBossGhost && phase === GHOST_PHASE.active && mode === GHOST_AI_MODE.scatter
+        ? { col: BossGhost.scatterCol[eid] ?? 0, row: BossGhost.scatterRow[eid] ?? 0 }
+        : resolveGhostTarget(eid, mode, pelletsRemaining, ctx, opts);
 
     const storedFacing = facingNow;
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
     const facing = storedFacing !== DIRECTION.none ? storedFacing : intent;
+    const canEnter =
+      isBossGhost && phase === GHOST_PHASE.active
+        ? bossAwareCanEnter(world, eid, x, y, rules)
+        : rules.canEnter;
     const next = pickGhostDirection({
       x,
       y,
@@ -179,7 +221,7 @@ export function ghostAi(
       targetCol: target.col,
       targetRow: target.row,
       solids: rules.solids,
-      canEnter: rules.canEnter,
+      canEnter,
       allowReverse: freeRetarget,
     }) as Direction;
 

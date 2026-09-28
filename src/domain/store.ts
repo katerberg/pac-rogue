@@ -1,10 +1,10 @@
-import { MAX_LEVEL } from "./levelRules";
 import { eligibleUpgrades, storePriceFor, takeRandomFrom, type UpgradeId } from "./upgrades";
 
 export const STORE_LIFE_PRICE = 1;
 export const STORE_SWAP_PRICE = 1;
 export const STORE_SLOT_SIZE = 2;
 export const STORE_FIRST_LEVEL = 3;
+export const STORE_FINAL_LEVEL = 8;
 
 type StoreSlotKind = "life" | "upgrade" | "swap";
 
@@ -50,7 +50,9 @@ export function pickMidStoreLevel(rng: () => number): 5 | 6 {
 
 export function storeAfterLevel(levelIndex: number, midStoreLevel: number): boolean {
   return (
-    levelIndex === STORE_FIRST_LEVEL || levelIndex === midStoreLevel || levelIndex === MAX_LEVEL
+    levelIndex === STORE_FIRST_LEVEL ||
+    levelIndex === midStoreLevel ||
+    levelIndex === STORE_FINAL_LEVEL
   );
 }
 

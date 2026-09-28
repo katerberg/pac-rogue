@@ -1,6 +1,6 @@
 # Run upgrades
 
-Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 7) opens a **pick-one** modal offering **run-long** upgrades (up to three, at the up/left/right slots) alongside an always-available **Quarters** option (fixed at the down slot) for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. Upgrades can also be bought or swapped for Quarters at [store floors](./store.md) (`storePriceFor` reads an optional per-def `storePrice`, default `STORE_UPGRADE_PRICE` = 3). There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
+Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 8) opens a **pick-one** modal offering **run-long** upgrades (up to three, at the up/left/right slots) alongside an always-available **Quarters** option (fixed at the down slot) for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. Upgrades can also be bought or swapped for Quarters at [store floors](./store.md) (`storePriceFor` reads an optional per-def `storePrice`, default `STORE_UPGRADE_PRICE` = 3). There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
 
 ## Model
 
@@ -41,7 +41,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 ## Grant rules
 
 - Collecting bonus fruit plays both munches, despawns fruit, and awards one Quarter — no upgrade effect, no modal.
-- Clearing a level (2 through 7; not level 1 or the final level 8 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned. The modal always opens on this trigger — there is no "0 eligible → skip" case anymore, since the Quarters option is always available.
+- Clearing a level (2 through 8; not level 1 or the final boss level 9 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned. The modal always opens on this trigger — there is no "0 eligible → skip" case anymore, since the Quarters option is always available.
 - `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — no modal at all, immediate level transition. Does not affect the level-1 starting upgrade or `enableUpgrade`.
 - `?jumpToUpgrade=1` (debug): fires the trigger immediately on the first board — clears all its pellets and opens the modal without playing the level. Defaults the start level to 2 when `?level=` is omitted, since level 1 never offers this modal. Disables high-score saving for the run (same as `disableLevelUpgrades` / `infiniteLives`).
 - `pickUpgradeChoiceOffer` returns an offer of `{ quarters: QUARTERS_CHOICE_AMOUNT, upgrades }`, where `upgrades` holds up to three ids (`min(3, eligible.length)`):
@@ -111,7 +111,7 @@ While `fruitQuarterBounty` is owned, `fruitQuarterMultiplier(owned)` returns `QU
 
 ### Death's Harvest
 
-When `passiveDeathsHarvest` is owned and the player is caught, `harvestNearbyPellets` runs **before** the normal death handling: it removes every `Pellet` (regular and power) within `DEATHS_HARVEST_RADIUS_TILES` (6) tiles of the player (Euclidean, tile-space) and folds the count into `pelletProgress` / lifetime collected. If that harvest empties the board, the catch is treated as a level clear instead of a death: no life is spent, no high score is (or isn't) written by the death path, and the normal level-clear flow (SFX, upgrade modal on levels 2-7, transition) runs instead. If the harvest doesn't empty the board, the harvested pellets stay collected and the catch proceeds as a normal death (life lost, or Game Over on the last life).
+When `passiveDeathsHarvest` is owned and the player is caught, `harvestNearbyPellets` runs **before** the normal death handling: it removes every `Pellet` (regular and power) within `DEATHS_HARVEST_RADIUS_TILES` (6) tiles of the player (Euclidean, tile-space) and folds the count into `pelletProgress` / lifetime collected. If that harvest empties the board, the catch is treated as a level clear instead of a death: no life is spent, no high score is (or isn't) written by the death path, and the normal level-clear flow (SFX, upgrade modal on levels 2-8, transition) runs instead. If the harvest doesn't empty the board, the harvested pellets stay collected and the catch proceeds as a normal death (life lost, or Game Over on the last life).
 
 ### Overcharge
 
@@ -150,7 +150,7 @@ While `wallPassRemainingMs > 0`, `PlayScene` passes `getActiveLayout().wallPassP
 
 ## Speed muls
 
-Written every frame: `applyPlayerSpeed` from `speedLevelMultiplier(levelIndex) × playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` resolves the base/tunnel tiers off `ghostBaseSpeedRatio(levelIndex)` (0.8 at level 1 ramping to 1.0 by level 5, Elroy tiers unaffected), then multiplies by `speedLevelMultiplier(levelIndex) × ghostSpeedMultiplier(owned)`.
+Written every frame: `applyPlayerSpeed` from `speedLevelMultiplier(levelIndex) × playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` resolves the base/tunnel tiers off `ghostBaseSpeedRatio(levelIndex)` (0.8 at level 1 ramping to 1.0 by level 5, Elroy tiers unaffected), then multiplies by `speedLevelMultiplier(levelIndex) × ghostSpeedMultiplier(owned)`. Boss ghosts (level 9) use a flat `BOSS_GHOST_SPEED` base and skip the level multiplier; `ghostSpeedMultiplier(owned)` still applies.
 
 ## HUD
 

@@ -68,7 +68,7 @@ describe("store layout", () => {
 
 describe("store schedule", () => {
   it("stores after level 3, the mid level, and level 8 only", () => {
-    const hits = [1, 2, 3, 4, 5, 6, 7, 8].filter((level) => storeAfterLevel(level, 6));
+    const hits = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((level) => storeAfterLevel(level, 6));
     expect(hits).toEqual([3, 6, 8]);
   });
 
