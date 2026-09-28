@@ -201,7 +201,7 @@ import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { movement } from "../systems/movement";
 import { slimeTrailKill } from "../systems/slimeTrailKill";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
-import { hasPlayerDirectionInput } from "../systems/playerDirection";
+import { clearPlayerDirectionInput, hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { playerCell } from "../systems/playerCell";
@@ -280,8 +280,8 @@ export class PlayScene extends Phaser.Scene {
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
-  private keyYes!: Phaser.Input.Keyboard.Key;
-  private keyNo!: Phaser.Input.Keyboard.Key;
+  private storeToggleKeys: Phaser.Input.Keyboard.Key[] = [];
+  private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
 
   constructor() {
@@ -375,8 +375,13 @@ export class PlayScene extends Phaser.Scene {
     this.suppressPlayerInputUntilKeyRelease = false;
     this.musicPendingFanfareEnd = null;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    this.keyYes = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Y);
-    this.keyNo = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.N);
+    const { KeyCodes } = Phaser.Input.Keyboard;
+    this.storeToggleKeys = [KeyCodes.LEFT, KeyCodes.RIGHT, KeyCodes.A, KeyCodes.D].map((code) =>
+      this.input.keyboard!.addKey(code),
+    );
+    this.storeConfirmKeys = [KeyCodes.ENTER, KeyCodes.SPACE].map((code) =>
+      this.input.keyboard!.addKey(code),
+    );
     this.playRender = createRender(this);
 
     this.startBoard(mazeOverride);
@@ -815,11 +820,18 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private tickStore(delta: number): void {
-    if (this.suppressPlayerInputUntilKeyRelease && !this.anyPlayerMoveKeyDown()) {
-      this.suppressPlayerInputUntilKeyRelease = false;
-    }
-    if (!this.suppressPlayerInputUntilKeyRelease) {
-      this.runPlayerInput(this.world, true);
+    const toggle = this.storeToggleKeys.some((key) => Phaser.Input.Keyboard.JustDown(key));
+    const enter = this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key));
+    const confirming = this.storeConfirmOpen();
+    if (confirming) {
+      clearPlayerDirectionInput(this.world);
+    } else {
+      if (this.suppressPlayerInputUntilKeyRelease && !this.anyPlayerMoveKeyDown()) {
+        this.suppressPlayerInputUntilKeyRelease = false;
+      }
+      if (!this.suppressPlayerInputUntilKeyRelease) {
+        this.runPlayerInput(this.world, true);
+      }
     }
     applyPlayerSpeed(
       this.world,
@@ -839,8 +851,8 @@ export class PlayScene extends Phaser.Scene {
       {
         col: cell?.col ?? -1,
         row: cell?.row ?? -1,
-        yPressed: Phaser.Input.Keyboard.JustDown(this.keyYes),
-        nPressed: Phaser.Input.Keyboard.JustDown(this.keyNo),
+        toggle: confirming && toggle,
+        enter: confirming && enter,
         quarters: this.quarters,
         owned: this.runUpgrades.owned,
       },
@@ -850,12 +862,22 @@ export class PlayScene extends Phaser.Scene {
     if (step.purchase !== null) {
       this.applyStorePurchase(step.purchase);
     }
+    if (confirming && !this.storeConfirmOpen()) {
+      this.suppressPlayerInputUntilKeyRelease = true;
+    }
     this.storeOverlay?.sync(
       this.store,
       promptView(this.store, this.quarters, this.runUpgrades.owned),
       delta,
     );
     this.drawStore();
+  }
+
+  private storeConfirmOpen(): boolean {
+    return (
+      this.store !== null &&
+      promptView(this.store, this.quarters, this.runUpgrades.owned)?.kind === "confirm"
+    );
   }
 
   private applyStorePurchase(purchase: StorePurchase): void {

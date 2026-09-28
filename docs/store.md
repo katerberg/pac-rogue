@@ -36,15 +36,17 @@ Store floors loop `storeMusic` (`sound/store.ogg`, music category) instead of `g
 
 ## Buying
 
-`storeStep` is the prompt state machine, fed the player cell (`playerCell` system) plus Y/N `JustDown` each frame:
+`storeStep` is the prompt state machine, fed the player cell (`playerCell` system) plus the frame's toggle (Left/Right/A/D) and confirm (Enter/Space) `JustDown`s:
 
-- Stepping onto any cell of an unsold slot opens its prompt in the right-hand panel (`storeOverlay.ts`): name, description, `COST n / SURE? Y/N`.
-- `N` dismisses; stepping off and back on re-opens it.
-- `Y` with enough Quarters buys. Too few → `NEED n QUARTERS` and `Y` does nothing.
-- Life: +1 life, prompt stays open so `Y` can repeat.
-- Upgrade: granted (same side effects as a level-clear pick), tile disappears, panel shows `GOT IT!` for 2s.
+- Stepping onto an unsold slot you can afford opens a big centered modal (`storeOverlay.ts`, same card size as the upgrade-choice modal): name, description, `COST n`, and `SURE?  YES  NO` with **NO** focused — the same pattern as the pause menu's Quit confirm.
+- While the modal is open every key except Left/Right (toggle YES/NO), Enter/Space (choose), and Escape (pause) is ignored; `PlayScene` clears the player's direction input so the player settles on the tile center.
+- Choosing **NO** closes the modal; stepping off and back on re-opens it. After the modal closes, movement waits for held keys to be released.
+- A slot you can't buy (too few Quarters → `NEED n QUARTERS`, or a swap with an empty pool → `NOTHING TO SWAP`) only shows the right-hand info panel; no modal.
+- Life: +1 life; the modal stays open with **YES** focused so Enter repeats until you run out of Quarters.
+- Upgrade: granted (same side effects as a level-clear pick), tile disappears, the side panel shows `GOT IT!` for 2s.
 - Swap: incoming upgrade is drawn at purchase from upgrades that are unowned and not still on the shelf; the outgoing one is revoked (an Extra Life's life is kept) and the incoming one granted and revealed. Empty pool → `NOTHING TO SWAP`.
-- Hovering a tile with the mouse shows the same info (without Y/N) when no prompt or toast is showing.
+- Hovering a tile with the mouse shows its info in the side panel when no modal or toast is showing.
+- Tiles are outlined with a thin dotted line in the maze color so they read as buttons, not walls.
 
 ## Leaving
 

@@ -174,7 +174,7 @@ PlayScene.update →
   (if dying: tickDeathSequence → handle events (reset / fade / GO / resume / menu); return; no sim)
   (if run complete: tick hold → MenuScene; return)
   (if level transition: tick pause → store floor (after 3, 5-or-6, 8) else advance board (level < 8) or begin run complete (level 8); return)
-  (if store floor: stop-on-release input → movement → tunnel exit check → storeStep (Y/N) → apply purchase → overlay sync → render; return)
+  (if store floor: stop-on-release input → movement → tunnel exit check → storeStep (Left/Right toggle, Enter confirm) → apply purchase → overlay sync → render; return)
   (if upgrade modal active: tick modal; return until outro done → suppress input until key release)
   (if pending level clear: start level transition; return)
   playerInput →

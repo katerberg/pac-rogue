@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import { mazeColorForIndex } from "../../domain/mazeColorSettings";
-import { PLAYFIELD_WIDTH } from "../../domain/playfield";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
   STORE_SLOT_SIZE,
   slotPrice,
@@ -15,12 +15,21 @@ import { PLAYER_OPEN_MOUTH_TEXTURE_KEY } from "../systems/render";
 import {
   addPixelText,
   HUD_FONT_SIZE,
+  MENU_OPTION_FONT_SIZE,
+  MENU_TITLE_FONT_SIZE,
   placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { wrapText } from "./upgradeChoiceModal";
+import {
+  BUTTON_HEIGHT,
+  BUTTON_WIDTH,
+  DESCRIPTION_MAX_CHARS,
+  LABEL_MAX_CHARS,
+  MODAL_DEPTH,
+  wrapText,
+} from "./upgradeChoiceModal";
 
 const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
@@ -29,6 +38,7 @@ const PANEL_HEIGHT = 190;
 const PANEL_TITLE_MAX_CHARS = 10;
 const PANEL_BODY_MAX_CHARS = 18;
 const TOAST_MS = 2000;
+const TILE_DOT_PX = 2;
 
 export type StoreOverlay = {
   open: (state: StoreState) => void;
@@ -64,7 +74,7 @@ function slotBody(slot: StoreSlot): string {
 function promptFooter(prompt: StorePromptView): string {
   switch (prompt.kind) {
     case "confirm":
-      return `COST ${prompt.price}\nSURE? Y/N`;
+      return `COST ${prompt.price}`;
     case "needQuarters":
       return `NEED ${prompt.price}\nQUARTERS`;
     case "nothingToSwap":
@@ -90,6 +100,72 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
     .setDepth(PANEL_DEPTH)
     .setVisible(false);
 
+  const dim = scene.add
+    .rectangle(
+      PLAYFIELD_WIDTH / 2,
+      PLAYFIELD_HEIGHT / 2,
+      PLAYFIELD_WIDTH,
+      PLAYFIELD_HEIGHT,
+      0x000000,
+      0.5,
+    )
+    .setDepth(MODAL_DEPTH)
+    .setVisible(false);
+  const modalBg = scene.add
+    .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
+    .setStrokeStyle(4, TEXT_COLOR_YELLOW);
+  const modalTitle = addPixelText(
+    scene,
+    0,
+    0,
+    "",
+    MENU_TITLE_FONT_SIZE,
+    TEXT_COLOR_YELLOW,
+  ).setCenterAlign();
+  const modalBody = addPixelText(
+    scene,
+    0,
+    0,
+    "",
+    UPGRADES_HUD_FONT_SIZE,
+    TEXT_COLOR_WHITE,
+  ).setCenterAlign();
+  const modalCost = addPixelText(scene, 0, 0, "", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
+  const modalSure = addPixelText(scene, 0, 0, "SURE?", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
+  const modalYes = addPixelText(scene, 0, 0, "YES", MENU_OPTION_FONT_SIZE);
+  const modalNo = addPixelText(scene, 0, 0, "NO", MENU_OPTION_FONT_SIZE);
+  placePixelText(modalSure, -70, 80, 0.5, 0.5);
+  placePixelText(modalYes, 10, 80, 0.5, 0.5);
+  placePixelText(modalNo, 70, 80, 0.5, 0.5);
+  const modal = scene.add
+    .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
+      modalBg,
+      modalTitle,
+      modalBody,
+      modalCost,
+      modalSure,
+      modalYes,
+      modalNo,
+    ])
+    .setDepth(MODAL_DEPTH + 1)
+    .setVisible(false);
+
+  const showModal = (prompt: StorePromptView | null, confirmYes: boolean): void => {
+    dim.setVisible(prompt !== null);
+    modal.setVisible(prompt !== null);
+    if (prompt === null) {
+      return;
+    }
+    modalTitle.setText(wrapText(slotTitle(prompt.slot), LABEL_MAX_CHARS));
+    modalBody.setText(wrapText(slotBody(prompt.slot), DESCRIPTION_MAX_CHARS));
+    modalCost.setText(`COST ${prompt.price}`);
+    placePixelText(modalTitle, 0, -58, 0.5, 0.5);
+    placePixelText(modalBody, 0, 8, 0.5, 0.5);
+    placePixelText(modalCost, 0, 44, 0.5, 0.5);
+    modalYes.setTint(confirmYes ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+    modalNo.setTint(confirmYes ? TEXT_COLOR_WHITE : TEXT_COLOR_YELLOW);
+  };
+
   const showPanel = (content: PanelContent | null): void => {
     panel.setVisible(content !== null);
     if (content === null) {
@@ -109,8 +185,14 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
     const x = (cellCenterX(slot.col) + cellCenterX(slot.col + 1)) / 2;
     const y = (cellCenterY(slot.row) + cellCenterY(slot.row + 1)) / 2;
     const frame = scene.add.graphics();
-    frame.lineStyle(2, mazeColorForIndex(loadMazeColorSettings().colorIndex), 1);
-    frame.strokeRoundedRect(-size / 2 + 1, -size / 2 + 1, size - 2, size - 2, 4);
+    frame.fillStyle(mazeColorForIndex(loadMazeColorSettings().colorIndex), 1);
+    const edge = size / 2 - 1;
+    for (let d = -edge; d < edge; d += TILE_DOT_PX * 2) {
+      frame.fillRect(d, -edge, TILE_DOT_PX, 1);
+      frame.fillRect(d, edge - 1, TILE_DOT_PX, 1);
+      frame.fillRect(-edge, d, 1, TILE_DOT_PX);
+      frame.fillRect(edge - 1, d, 1, TILE_DOT_PX);
+    }
     const price = addPixelText(scene, 0, 0, String(slotPrice(slot)), UPGRADES_HUD_FONT_SIZE);
     placePixelText(price, 0, size / 2 - 3, 0.5, 1);
     const glyph: Phaser.GameObjects.GameObject =
@@ -170,7 +252,11 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
           toast = null;
         }
       }
-      if (prompt !== null) {
+      const confirming = prompt?.kind === "confirm";
+      showModal(confirming ? prompt : null, state.confirmYes);
+      if (confirming) {
+        showPanel(null);
+      } else if (prompt !== null) {
         showPanel({
           title: slotTitle(prompt.slot),
           body: slotBody(prompt.slot),
@@ -199,6 +285,8 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
     destroy: () => {
       clearTiles();
       panel.destroy(true);
+      dim.destroy();
+      modal.destroy(true);
     },
   };
 }

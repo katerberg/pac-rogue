@@ -22,12 +22,17 @@ function input(overrides: Partial<StoreStepInput>): StoreStepInput {
   return {
     col: 1,
     row: 1,
-    yPressed: false,
-    nPressed: false,
+    toggle: false,
+    enter: false,
     quarters: 10,
     owned: [],
     ...overrides,
   };
+}
+
+function confirmYes(state: StoreState, overrides: Partial<StoreStepInput>) {
+  const toggled = storeStep(state, input({ ...overrides, toggle: true }), zeroRng).state;
+  return storeStep(toggled, input({ ...overrides, enter: true }), zeroRng);
 }
 
 function stateWith(owned: readonly UpgradeId[]): StoreState {
@@ -101,39 +106,53 @@ describe("storeStep", () => {
   const upgradeCell = { col: 5, row: 4 };
   const swapCell = { col: 4, row: 22 };
 
-  it("opens a prompt on arrival, dismisses on N, and re-opens after stepping off", () => {
+  it("opens a NO-focused prompt on arrival, dismisses on NO, and re-opens after stepping off", () => {
     let state = stateWith([]);
     state = storeStep(state, input(lifeCell), zeroRng).state;
     expect(promptView(state, 10, [])?.kind).toBe("confirm");
-    state = storeStep(state, input({ ...lifeCell, nPressed: true }), zeroRng).state;
+    expect(state.confirmYes).toBe(false);
+    const declined = storeStep(state, input({ ...lifeCell, enter: true }), zeroRng);
+    expect(declined.purchase).toBeNull();
+    state = declined.state;
     expect(promptView(state, 10, [])).toBeNull();
     state = storeStep(state, input({ ...lifeCell, col: 12 }), zeroRng).state;
     expect(promptView(state, 10, [])).toBeNull();
     state = storeStep(state, input({ col: 13, row: 25 }), zeroRng).state;
     state = storeStep(state, input(lifeCell), zeroRng).state;
     expect(promptView(state, 10, [])?.kind).toBe("confirm");
+    expect(state.confirmYes).toBe(false);
+  });
+
+  it("toggles between YES and NO", () => {
+    let state = storeStep(stateWith([]), input(lifeCell), zeroRng).state;
+    state = storeStep(state, input({ ...lifeCell, toggle: true }), zeroRng).state;
+    expect(state.confirmYes).toBe(true);
+    state = storeStep(state, input({ ...lifeCell, toggle: true }), zeroRng).state;
+    expect(state.confirmYes).toBe(false);
   });
 
   it("buys lives repeatedly while the prompt stays open", () => {
     let state = storeStep(stateWith([]), input(lifeCell), zeroRng).state;
-    for (let i = 0; i < 2; i += 1) {
-      const step = storeStep(state, input({ ...lifeCell, yPressed: true }), zeroRng);
-      expect(step.purchase).toEqual({ kind: "life", price: STORE_LIFE_PRICE });
-      state = step.state;
-    }
+    let step = confirmYes(state, lifeCell);
+    expect(step.purchase).toEqual({ kind: "life", price: STORE_LIFE_PRICE });
+    state = step.state;
+    expect(state.confirmYes).toBe(true);
+    step = storeStep(state, input({ ...lifeCell, enter: true }), zeroRng);
+    expect(step.purchase).toEqual({ kind: "life", price: STORE_LIFE_PRICE });
+    state = step.state;
     expect(promptView(state, 10, [])?.kind).toBe("confirm");
   });
 
-  it("ignores Y without enough quarters", () => {
+  it("shows no confirm and ignores keys without enough quarters", () => {
     const state = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
-    const step = storeStep(state, input({ ...upgradeCell, yPressed: true, quarters: 2 }), zeroRng);
+    const step = confirmYes(state, { ...upgradeCell, quarters: 2 });
     expect(step.purchase).toBeNull();
     expect(promptView(step.state, 2, [])?.kind).toBe("needQuarters");
   });
 
   it("sells an upgrade once and removes its slot", () => {
     let state = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
-    const step = storeStep(state, input({ ...upgradeCell, yPressed: true }), zeroRng);
+    const step = confirmYes(state, upgradeCell);
     expect(step.purchase).toMatchObject({ kind: "upgrade", price: STORE_UPGRADE_PRICE });
     state = step.state;
     expect(promptView(state, 10, [])).toBeNull();
@@ -144,7 +163,7 @@ describe("storeStep", () => {
     const owned: UpgradeId[] = ["passivePlayerSpeedUp"];
     const state = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
     const shelf = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
-    const step = storeStep(state, input({ ...swapCell, owned, yPressed: true }), zeroRng);
+    const step = confirmYes(state, { ...swapCell, owned });
     expect(step.purchase).toMatchObject({
       kind: "swap",
       outgoingId: "passivePlayerSpeedUp",
@@ -162,7 +181,7 @@ describe("storeStep", () => {
     const owned = ALL_UPGRADE_IDS.filter((id) => !shelf.includes(id));
     const state = storeStep(shelfState, input({ ...swapCell, owned }), zeroRng).state;
     expect(promptView(state, 10, owned)?.kind).toBe("nothingToSwap");
-    const step = storeStep(state, input({ ...swapCell, owned, yPressed: true }), zeroRng);
+    const step = confirmYes(state, { ...swapCell, owned });
     expect(step.purchase).toBeNull();
   });
 });

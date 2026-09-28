@@ -19,13 +19,14 @@ export type StoreState = {
   slots: readonly StoreSlot[];
   activeSlot: number | null;
   dismissedSlot: number | null;
+  confirmYes: boolean;
 };
 
 export type StoreStepInput = {
   col: number;
   row: number;
-  yPressed: boolean;
-  nPressed: boolean;
+  toggle: boolean;
+  enter: boolean;
   quarters: number;
   owned: readonly UpgradeId[];
 };
@@ -95,7 +96,7 @@ export function createStoreState(
       slots.push({ kind, col, row, outgoingId, sold: false });
     }
   }
-  return { slots, activeSlot: null, dismissedSlot: null };
+  return { slots, activeSlot: null, dismissedSlot: null, confirmYes: false };
 }
 
 export function slotPrice(slot: StoreSlot): number {
@@ -154,16 +155,20 @@ export function storeStep(
     ...state,
     activeSlot: at,
     dismissedSlot: state.dismissedSlot === at ? at : null,
+    confirmYes: at === state.activeSlot && state.confirmYes,
   };
   const view = promptView(next, input.quarters, input.owned);
-  if (at === null || view === null) {
+  if (at === null || view?.kind !== "confirm") {
     return { state: next, purchase: null };
   }
-  if (input.nPressed) {
+  if (input.toggle) {
+    return { state: { ...next, confirmYes: !next.confirmYes }, purchase: null };
+  }
+  if (!input.enter) {
+    return { state: next, purchase: null };
+  }
+  if (!next.confirmYes) {
     return { state: { ...next, dismissedSlot: at }, purchase: null };
-  }
-  if (!input.yPressed || view.kind !== "confirm") {
-    return { state: next, purchase: null };
   }
 
   const slot = view.slot;
@@ -171,7 +176,7 @@ export function storeStep(
     return { state: next, purchase: { kind: "life", price: view.price } };
   }
   const slots = next.slots.map((s, i) => (i === at ? { ...s, sold: true } : s));
-  const sold: StoreState = { ...next, slots, activeSlot: null };
+  const sold: StoreState = { ...next, slots, activeSlot: null, confirmYes: false };
   if (slot.kind === "upgrade") {
     return { state: sold, purchase: { kind: "upgrade", id: slot.id, price: view.price } };
   }
