@@ -414,16 +414,19 @@ function deriveFruitSpawn(
   }
   const minHouseRow = floors.reduce((min, cell) => Math.min(min, cell.row), floors[0]!.row);
   const maxHouseRow = floors.reduce((max, cell) => Math.max(max, cell.row), floors[0]!.row);
-  for (let row = maxHouseRow + 1; row < rows; row += 1) {
-    if (!(playerSolids[row]?.[houseCenterCol] ?? true)) {
-      return { col: houseCenterCol, row };
-    }
-  }
-  // Generation guarantees an open ledge on one side of the house; an inverted board has
-  // it above the house instead of below.
-  for (let row = minHouseRow - 1; row >= 0; row -= 1) {
-    if (!(playerSolids[row]?.[houseCenterCol] ?? true)) {
-      return { col: houseCenterCol, row };
+  // The generated ledge sits on the side of the house away from the door; the side
+  // toward the door is the (walkable) exit corridor, so it must not be tried first or
+  // it shadows the real ledge. An inverted board has the door below the house, so the
+  // ledge is above instead of below.
+  const doorRow = collectCharCells(ascii, cols, rows, (ch) => ch === DOOR_CHAR)[0]?.row;
+  const doorAboveHouse = doorRow === undefined || doorRow < minHouseRow;
+  const dirs = doorAboveHouse ? [1, -1] : [-1, 1];
+  for (const dir of dirs) {
+    const startRow = dir === 1 ? maxHouseRow + 1 : minHouseRow - 1;
+    for (let row = startRow; row >= 0 && row < rows; row += dir) {
+      if (!(playerSolids[row]?.[houseCenterCol] ?? true)) {
+        return { col: houseCenterCol, row };
+      }
     }
   }
   throw new Error("maze has no fruit spawn adjacent to the ghost house");

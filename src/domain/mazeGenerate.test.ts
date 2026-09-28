@@ -321,6 +321,18 @@ describe("mazeGenerate", () => {
           isWalkable(inverted.fruitSpawn.col, inverted.fruitSpawn.row, inverted.playerSolids),
           `seed ${seed}`,
         ).toBe(true);
+        // Baseline: fruit ledge sits below the house. Inverted: it must move with the
+        // flip and land above the house, not fall through to the exit corridor below.
+        const normalHouseRows = normal.house
+          .map((line, row) => (line.some(Boolean) ? row : -1))
+          .filter((row) => row >= 0);
+        expect(normal.fruitSpawn.row, `seed ${seed}`).toBeGreaterThan(Math.max(...normalHouseRows));
+        const invertedHouseRows = inverted.house
+          .map((line, row) => (line.some(Boolean) ? row : -1))
+          .filter((row) => row >= 0);
+        expect(inverted.fruitSpawn.row, `seed ${seed}`).toBeLessThan(
+          Math.min(...invertedHouseRows),
+        );
         expect(findParallelCorridor(inverted.playerSolids), `seed ${seed}`).toBeNull();
       }
     });
