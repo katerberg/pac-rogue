@@ -47,6 +47,7 @@ Store floors loop `storeMusic` (`sound/store.ogg`, music category) instead of `g
 - Swap: incoming upgrade is drawn at purchase from upgrades that are unowned and not still on the shelf; the outgoing one is revoked (an Extra Life's life is kept) and the incoming one granted and revealed. Empty pool → `NOTHING TO SWAP`.
 - Hovering a tile with the mouse shows its info in the side panel when no modal or toast is showing.
 - Tiles are outlined with a thin dotted line in the maze color so they read as buttons, not walls.
+- Each tile shows its letter (centered on the glyph's ink via `glyphInkCenterOffsetX`, since VGA glyphs sit left in their 8px cell) — or the life icon / `?` — above a row of quarter icons, one per Quarter of price. A price too wide for the tile packs the icons so they overlap.
 
 ## Leaving
 

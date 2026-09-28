@@ -11,7 +11,8 @@ import {
 } from "../../domain/store";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
-import { PLAYER_OPEN_MOUTH_TEXTURE_KEY } from "../systems/render";
+import { PLAYER_OPEN_MOUTH_TEXTURE_KEY, QUARTER_TEXTURE_KEY } from "../systems/render";
+import { glyphInkCenterOffsetX } from "./font8x8Basic";
 import {
   addPixelText,
   HUD_FONT_SIZE,
@@ -39,6 +40,9 @@ const PANEL_TITLE_MAX_CHARS = 10;
 const PANEL_BODY_MAX_CHARS = 18;
 const TOAST_MS = 2000;
 const TILE_DOT_PX = 2;
+const TILE_COIN_PX = 8;
+const TILE_COIN_GAP_PX = 1;
+const TILE_GLYPH_Y = -5;
 
 export type StoreOverlay = {
   open: (state: StoreState) => void;
@@ -80,6 +84,14 @@ function promptFooter(prompt: StorePromptView): string {
     case "nothingToSwap":
       return "NOTHING\nTO SWAP";
   }
+}
+
+function coinRowXs(count: number, maxWidth: number): number[] {
+  const naturalStep = TILE_COIN_PX + TILE_COIN_GAP_PX;
+  const step =
+    count > 1 ? Math.min(naturalStep, (maxWidth - TILE_COIN_PX) / (count - 1)) : naturalStep;
+  const first = (-(count - 1) * step) / 2;
+  return Array.from({ length: count }, (_, i) => first + i * step);
 }
 
 export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
@@ -193,21 +205,21 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
       frame.fillRect(-edge, d, 1, TILE_DOT_PX);
       frame.fillRect(edge - 1, d, 1, TILE_DOT_PX);
     }
-    const price = addPixelText(scene, 0, 0, String(slotPrice(slot)), UPGRADES_HUD_FONT_SIZE);
-    placePixelText(price, 0, size / 2 - 3, 0.5, 1);
-    const glyph: Phaser.GameObjects.GameObject =
-      slot.kind === "life"
-        ? scene.add.image(0, -4, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(tile - 2, tile - 2)
-        : addPixelText(
-            scene,
-            0,
-            0,
-            slot.kind === "swap" ? "?" : slotTitle(slot).charAt(0).toUpperCase(),
-            HUD_FONT_SIZE,
-            TEXT_COLOR_YELLOW,
-          );
-    if (glyph instanceof Phaser.GameObjects.BitmapText) {
-      placePixelText(glyph, 0, -4, 0.5, 0.5);
+    const coinY = size / 2 - 3 - TILE_COIN_PX / 2;
+    const coins = coinRowXs(slotPrice(slot), size - 6).map((cx) =>
+      scene.add.image(cx, coinY, QUARTER_TEXTURE_KEY).setDisplaySize(TILE_COIN_PX, TILE_COIN_PX),
+    );
+    let glyph: Phaser.GameObjects.GameObject;
+    if (slot.kind === "life") {
+      glyph = scene.add
+        .image(0, TILE_GLYPH_Y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
+        .setDisplaySize(tile - 2, tile - 2);
+    } else {
+      const char = slot.kind === "swap" ? "?" : slotTitle(slot).charAt(0).toUpperCase();
+      const text = addPixelText(scene, 0, 0, char, HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+      const inkOffset = (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8;
+      placePixelText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
+      glyph = text;
     }
     const zone = scene.add.zone(0, 0, size, size).setInteractive();
     zone.on("pointerover", () => {
@@ -218,7 +230,7 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
         hoveredSlot = null;
       }
     });
-    return scene.add.container(x, y, [frame, glyph, price, zone]).setDepth(TILE_DEPTH);
+    return scene.add.container(x, y, [frame, glyph, ...coins, zone]).setDepth(TILE_DEPTH);
   };
 
   const clearTiles = (): void => {
