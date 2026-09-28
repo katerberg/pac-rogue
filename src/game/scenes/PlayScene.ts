@@ -235,7 +235,7 @@ import { movement } from "../systems/movement";
 import { slimeTrailKill } from "../systems/slimeTrailKill";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { clearPlayerDirectionInput, hasPlayerDirectionInput } from "../systems/playerDirection";
-import { createPlayerInput } from "../systems/playerInput";
+import { createPlayerInput, type PlayerInputOpts } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { playerCell } from "../systems/playerCell";
 import { slidePlayer } from "../systems/playerSlide";
@@ -278,7 +278,7 @@ const RUN_COMPLETE_HOLD_MS = 2000;
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
-  private runPlayerInput!: (world: World, stopOnRelease?: boolean) => void;
+  private runPlayerInput!: (world: World, opts?: PlayerInputOpts) => void;
   private anyPlayerMoveKeyDown!: () => boolean;
   private suppressPlayerInputUntilKeyRelease = false;
   private playRender!: PlayRender;
@@ -544,13 +544,14 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
 
+    const diagonalAllowed = wallPassActive(this.runUpgrades);
     if (this.suppressPlayerInputUntilKeyRelease) {
       if (!this.anyPlayerMoveKeyDown()) {
         this.suppressPlayerInputUntilKeyRelease = false;
-        this.runPlayerInput(this.world);
+        this.runPlayerInput(this.world, { diagonalAllowed });
       }
     } else {
-      this.runPlayerInput(this.world);
+      this.runPlayerInput(this.world, { diagonalAllowed });
     }
     const hasInput = hasPlayerDirectionInput(this.world);
 
@@ -891,7 +892,7 @@ export class PlayScene extends Phaser.Scene {
         this.suppressPlayerInputUntilKeyRelease = false;
       }
       if (!this.suppressPlayerInputUntilKeyRelease) {
-        this.runPlayerInput(this.world, true);
+        this.runPlayerInput(this.world, { stopOnRelease: true });
       }
     }
     applyPlayerSpeed(

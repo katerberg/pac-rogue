@@ -5,8 +5,10 @@ import { Player } from "../components/Player";
 
 type MoveKey = Phaser.Input.Keyboard.Key;
 
+export type PlayerInputOpts = { diagonalAllowed?: boolean; stopOnRelease?: boolean };
+
 export type PlayerInputControl = {
-  apply: (world: World, stopOnRelease?: boolean) => void;
+  apply: (world: World, opts?: PlayerInputOpts) => void;
   anyMoveKeyDown: () => boolean;
 };
 
@@ -24,39 +26,73 @@ export function createPlayerInput(scene: Phaser.Scene): PlayerInputControl {
     D: MoveKey;
   };
 
-  const bindings: { direction: Direction; keys: MoveKey[] }[] = [
+  const verticalBindings: { direction: Direction; keys: MoveKey[] }[] = [
     { direction: DIRECTION.up, keys: [cursors.up, wasd.W] },
     { direction: DIRECTION.down, keys: [cursors.down, wasd.S] },
+  ];
+  const horizontalBindings: { direction: Direction; keys: MoveKey[] }[] = [
     { direction: DIRECTION.left, keys: [cursors.left, wasd.A] },
     { direction: DIRECTION.right, keys: [cursors.right, wasd.D] },
   ];
+  const allBindings = [...verticalBindings, ...horizontalBindings];
 
   return {
-    apply: (world: World, stopOnRelease = false) => {
-      const held = readHeldDirection(bindings);
-      if (held === DIRECTION.none && !stopOnRelease) {
+    apply: (world: World, opts?: PlayerInputOpts) => {
+      const vertical = resolveAxisWinner(verticalBindings);
+      const horizontal = resolveAxisWinner(horizontalBindings);
+      const held = combineAxisDirections(vertical, horizontal, opts?.diagonalAllowed === true);
+      if (held === DIRECTION.none && !opts?.stopOnRelease) {
         return;
       }
       for (const eid of query(world, [Input, Player])) {
         Input.direction[eid] = held;
       }
     },
-    anyMoveKeyDown: () => readHeldDirection(bindings) !== DIRECTION.none,
+    anyMoveKeyDown: () => allBindings.some(({ keys }) => keys.some((key) => key.isDown)),
   };
 }
 
-function readHeldDirection(bindings: { direction: Direction; keys: MoveKey[] }[]): Direction {
-  let best: Direction = DIRECTION.none;
-  let bestTime = -1;
+type AxisWinner = { direction: Direction; time: number };
 
+function resolveAxisWinner(bindings: { direction: Direction; keys: MoveKey[] }[]): AxisWinner {
+  let best: AxisWinner = { direction: DIRECTION.none, time: -1 };
   for (const { direction, keys } of bindings) {
     for (const key of keys) {
-      if (key.isDown && key.timeDown >= bestTime) {
-        bestTime = key.timeDown;
-        best = direction;
+      if (key.isDown && key.timeDown >= best.time) {
+        best = { direction, time: key.timeDown };
       }
     }
   }
-
   return best;
+}
+
+const DIAGONAL_BY_AXES: Record<number, Record<number, Direction>> = {
+  [DIRECTION.up]: { [DIRECTION.left]: DIRECTION.upLeft, [DIRECTION.right]: DIRECTION.upRight },
+  [DIRECTION.down]: {
+    [DIRECTION.left]: DIRECTION.downLeft,
+    [DIRECTION.right]: DIRECTION.downRight,
+  },
+};
+
+export function combineAxisDirections(
+  vertical: AxisWinner,
+  horizontal: AxisWinner,
+  diagonalAllowed: boolean,
+): Direction {
+  const hasVertical = vertical.direction !== DIRECTION.none;
+  const hasHorizontal = horizontal.direction !== DIRECTION.none;
+
+  if (hasVertical && hasHorizontal) {
+    if (diagonalAllowed) {
+      return DIAGONAL_BY_AXES[vertical.direction]?.[horizontal.direction] ?? DIRECTION.none;
+    }
+    return vertical.time >= horizontal.time ? vertical.direction : horizontal.direction;
+  }
+  if (hasVertical) {
+    return vertical.direction;
+  }
+  if (hasHorizontal) {
+    return horizontal.direction;
+  }
+  return DIRECTION.none;
 }

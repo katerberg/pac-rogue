@@ -168,6 +168,12 @@ function facingToDir(facing: Direction): PacmanDir | null {
       return "left";
     case DIRECTION.right:
       return "right";
+    case DIRECTION.upLeft:
+    case DIRECTION.downLeft:
+      return "left";
+    case DIRECTION.upRight:
+    case DIRECTION.downRight:
+      return "right";
     default:
       return null;
   }

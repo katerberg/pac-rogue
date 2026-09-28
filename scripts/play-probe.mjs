@@ -23,6 +23,7 @@ saves canvas screenshots under artifacts/. Fails on page errors or console error
 Steps (comma-separated):
   wait:<ms>              sleep
   hold:<Key>:<ms>        keydown, wait, keyup (Playwright key names, e.g. ArrowLeft)
+  hold:<KeyA>+<KeyB>:<ms> hold multiple keys down at once (e.g. ArrowUp+ArrowLeft for diagonal)
   press:<Key>            tap a key
   click:<x>:<y>          click at game coordinates (800x600), scaled onto the canvas
   hover:<x>:<y>          move the mouse to game coordinates, scaled onto the canvas
@@ -56,11 +57,17 @@ async function runStep(page, canvas, step, name) {
     case "wait":
       await sleep(Number(a));
       break;
-    case "hold":
-      await page.keyboard.down(a);
+    case "hold": {
+      const keys = a.split("+");
+      for (const key of keys) {
+        await page.keyboard.down(key);
+      }
       await sleep(Number(b));
-      await page.keyboard.up(a);
+      for (const key of keys) {
+        await page.keyboard.up(key);
+      }
       break;
+    }
     case "press":
       // A zero-delay down+up can both be processed before Phaser's next frame
       // reads the key's justDown flag, which its own keyup handler also clears —
