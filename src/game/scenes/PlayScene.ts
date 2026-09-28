@@ -906,7 +906,7 @@ export class PlayScene extends Phaser.Scene {
     if (exit) {
       this.storeExitSlide = { ...exit, traveledPx: 0 };
       this.storeOverlay?.sync(this.store!, null, delta);
-      this.drawStore();
+      this.drawStore(storeExitAlpha(0));
       return;
     }
 
