@@ -14,7 +14,7 @@ import {
 } from "../../domain/maze";
 import { FLASH_TINT } from "../../domain/corruption";
 import type { GhostTarget } from "../../domain/ghostTarget";
-import { mazeColorForIndex } from "../../domain/mazeColorSettings";
+import { clampMazeColorIndex, mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -225,6 +225,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const wallGraphics = scene.add.graphics();
   const slimeGraphics = scene.add.graphics();
   let wallsDrawn = false;
+  let drawnMazeColorIndex: number | null = null;
   let bossPelletTint = 0xffffff;
 
   const releaseDrawable = (eid: number): void => {
@@ -249,6 +250,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     wallGraphics.clear();
     slimeGraphics.clear();
     wallsDrawn = false;
+    drawnMazeColorIndex = null;
   };
 
   const bouncePowerPellet = (eid: number): void => {
@@ -285,8 +287,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       invulnRemainingMs > 0 &&
       (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
         Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
-    if (!wallsDrawn) {
-      const wallStrokeColor = mazeColorForIndex(loadMazeColorSettings().colorIndex);
+    const mazeColorIndex = clampMazeColorIndex(loadMazeColorSettings().colorIndex);
+    if (!wallsDrawn || mazeColorIndex !== drawnMazeColorIndex) {
+      const wallStrokeColor = mazeColorForIndex(mazeColorIndex);
       bossPelletTint = brightenColor(wallStrokeColor, 0.5);
       wallGraphics.clear();
       wallGraphics.lineStyle(WALL_STROKE_WEIGHT, wallStrokeColor, 1);
@@ -294,6 +297,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       applyWallPathCommands(wallGraphics, wallPathCommands());
       wallGraphics.strokePath();
       wallsDrawn = true;
+      drawnMazeColorIndex = mazeColorIndex;
     }
 
     slimeGraphics.clear();
