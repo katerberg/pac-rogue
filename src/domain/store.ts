@@ -1,0 +1,213 @@
+import { eligibleUpgrades, storePriceFor, takeRandomFrom, type UpgradeId } from "./upgrades";
+
+export const STORE_LIFE_PRICE = 1;
+export const STORE_SWAP_PRICE = 1;
+export const STORE_SLOT_SIZE = 2;
+export const STORE_FIRST_LEVEL = 3;
+export const STORE_FINAL_LEVEL = 8;
+
+type StoreSlotKind = "life" | "upgrade" | "swap";
+
+export type StoreSlotCell = { kind: StoreSlotKind; col: number; row: number };
+
+export type StoreSlot =
+  | { kind: "life"; col: number; row: number; sold: boolean }
+  | { kind: "upgrade"; col: number; row: number; id: UpgradeId; sold: boolean }
+  | { kind: "swap"; col: number; row: number; outgoingId: UpgradeId; sold: boolean };
+
+export type StoreState = {
+  slots: readonly StoreSlot[];
+  activeSlot: number | null;
+  dismissedSlot: number | null;
+  confirmYes: boolean;
+};
+
+export type StoreStepInput = {
+  col: number;
+  row: number;
+  toggle: boolean;
+  enter: boolean;
+  quarters: number;
+  owned: readonly UpgradeId[];
+};
+
+export type StorePurchase =
+  | { kind: "life"; price: number }
+  | { kind: "upgrade"; id: UpgradeId; price: number }
+  | { kind: "swap"; outgoingId: UpgradeId; incomingId: UpgradeId; price: number };
+
+export type StorePromptView = {
+  kind: "confirm" | "needQuarters" | "nothingToSwap";
+  slot: StoreSlot;
+  price: number;
+};
+
+const SLOT_KIND_BY_CHAR: Record<string, StoreSlotKind> = { L: "life", U: "upgrade", S: "swap" };
+
+export function pickMidStoreLevel(rng: () => number): 5 | 6 {
+  return rng() < 0.5 ? 5 : 6;
+}
+
+export function storeAfterLevel(levelIndex: number, midStoreLevel: number): boolean {
+  return (
+    levelIndex === STORE_FIRST_LEVEL ||
+    levelIndex === midStoreLevel ||
+    levelIndex === STORE_FINAL_LEVEL
+  );
+}
+
+export function parseStoreSlots(ascii: string): StoreSlotCell[] {
+  const lines = ascii.split("\n");
+  const claimed = new Set<string>();
+  const cells: StoreSlotCell[] = [];
+  lines.forEach((line, row) => {
+    for (let col = 0; col < line.length; col += 1) {
+      const ch = line[col]!;
+      const kind = SLOT_KIND_BY_CHAR[ch];
+      if (!kind || claimed.has(`${col},${row}`)) {
+        continue;
+      }
+      for (let dy = 0; dy < STORE_SLOT_SIZE; dy += 1) {
+        for (let dx = 0; dx < STORE_SLOT_SIZE; dx += 1) {
+          if (lines[row + dy]?.[col + dx] !== ch || claimed.has(`${col + dx},${row + dy}`)) {
+            throw new Error(`store slot ${ch} at ${col},${row} is not a full 2x2 block`);
+          }
+          claimed.add(`${col + dx},${row + dy}`);
+        }
+      }
+      cells.push({ kind, col, row });
+    }
+  });
+  return cells;
+}
+
+export function createStoreState(
+  cells: readonly StoreSlotCell[],
+  owned: readonly UpgradeId[],
+  rng: () => number,
+): StoreState {
+  const pool = eligibleUpgrades(owned);
+  const slots: StoreSlot[] = [];
+  for (const { kind, col, row } of cells) {
+    if (kind === "life") {
+      slots.push({ kind, col, row, sold: false });
+    } else if (kind === "upgrade" && pool.length > 0) {
+      slots.push({ kind, col, row, id: takeRandomFrom(pool, rng), sold: false });
+    } else if (kind === "swap" && owned.length > 0) {
+      const outgoingId = takeRandomFrom([...owned], rng);
+      slots.push({ kind, col, row, outgoingId, sold: false });
+    }
+  }
+  return { slots, activeSlot: null, dismissedSlot: null, confirmYes: false };
+}
+
+export function slotPrice(slot: StoreSlot): number {
+  switch (slot.kind) {
+    case "life":
+      return STORE_LIFE_PRICE;
+    case "swap":
+      return STORE_SWAP_PRICE;
+    case "upgrade":
+      return storePriceFor(slot.id);
+  }
+}
+
+function slotIndexAtCell(state: StoreState, col: number, row: number): number | null {
+  const index = state.slots.findIndex(
+    (slot) =>
+      !slot.sold &&
+      col >= slot.col &&
+      col < slot.col + STORE_SLOT_SIZE &&
+      row >= slot.row &&
+      row < slot.row + STORE_SLOT_SIZE,
+  );
+  return index === -1 ? null : index;
+}
+
+function swapPool(state: StoreState, owned: readonly UpgradeId[]): UpgradeId[] {
+  const onShelf = new Set(
+    state.slots.flatMap((slot) => (slot.kind === "upgrade" && !slot.sold ? [slot.id] : [])),
+  );
+  return eligibleUpgrades(owned).filter((id) => !onShelf.has(id));
+}
+
+export function promptView(
+  state: StoreState,
+  quarters: number,
+  owned: readonly UpgradeId[],
+): StorePromptView | null {
+  if (state.activeSlot === null || state.activeSlot === state.dismissedSlot) {
+    return null;
+  }
+  const slot = state.slots[state.activeSlot]!;
+  const price = slotPrice(slot);
+  if (slot.kind === "swap" && swapPool(state, owned).length === 0) {
+    return { kind: "nothingToSwap", slot, price };
+  }
+  return { kind: quarters < price ? "needQuarters" : "confirm", slot, price };
+}
+
+export function storeStep(
+  state: StoreState,
+  input: StoreStepInput,
+  rng: () => number,
+): { state: StoreState; purchase: StorePurchase | null } {
+  const at = slotIndexAtCell(state, input.col, input.row);
+  const next: StoreState = {
+    ...state,
+    activeSlot: at,
+    dismissedSlot: state.dismissedSlot === at ? at : null,
+    confirmYes: at === state.activeSlot && state.confirmYes,
+  };
+  const view = promptView(next, input.quarters, input.owned);
+  if (at === null || view?.kind !== "confirm") {
+    return { state: next, purchase: null };
+  }
+  if (input.toggle) {
+    return { state: { ...next, confirmYes: !next.confirmYes }, purchase: null };
+  }
+  if (!input.enter) {
+    return { state: next, purchase: null };
+  }
+  if (!next.confirmYes) {
+    return { state: { ...next, dismissedSlot: at }, purchase: null };
+  }
+
+  const slot = view.slot;
+  if (slot.kind === "life") {
+    return { state: next, purchase: { kind: "life", price: view.price } };
+  }
+  const slots = next.slots.map((s, i) => (i === at ? { ...s, sold: true } : s));
+  const sold: StoreState = { ...next, slots, activeSlot: null, confirmYes: false };
+  if (slot.kind === "upgrade") {
+    return { state: sold, purchase: { kind: "upgrade", id: slot.id, price: view.price } };
+  }
+  const incomingId = takeRandomFrom(swapPool(next, input.owned), rng);
+  return {
+    state: sold,
+    purchase: { kind: "swap", outgoingId: slot.outgoingId, incomingId, price: view.price },
+  };
+}
+
+export const STORE_EXIT_SLIDE_TILES = 2;
+const STORE_EXIT_FADE_START_TILES = 0.5;
+
+export type StoreExitDirection = { dx: -1 | 0 | 1; dy: -1 | 0 | 1 };
+
+export function storeExitDirection(
+  col: number,
+  row: number,
+  cols: number,
+  rows: number,
+): StoreExitDirection | null {
+  if (col <= 0) return { dx: -1, dy: 0 };
+  if (col >= cols - 1) return { dx: 1, dy: 0 };
+  if (row <= 0) return { dx: 0, dy: -1 };
+  if (row >= rows - 1) return { dx: 0, dy: 1 };
+  return null;
+}
+
+export function storeExitAlpha(traveledTiles: number): number {
+  const fadeTiles = STORE_EXIT_SLIDE_TILES - STORE_EXIT_FADE_START_TILES;
+  return Math.min(1, Math.max(0, 1 - (traveledTiles - STORE_EXIT_FADE_START_TILES) / fadeTiles));
+}

@@ -89,6 +89,23 @@ import {
 import { parseGhostsParam } from "../../domain/ghostsFlag";
 import { parseLevelParam } from "../../domain/runLevel";
 import { parseJumpToUpgradeFlag } from "../../domain/jumpToUpgradeFlag";
+import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
+import {
+  STORE_FIRST_LEVEL,
+  createStoreState,
+  STORE_EXIT_SLIDE_TILES,
+  storeExitAlpha,
+  storeExitDirection,
+  type StoreExitDirection,
+  parseStoreSlots,
+  pickMidStoreLevel,
+  promptView,
+  storeAfterLevel,
+  storeStep,
+  type StorePurchase,
+  type StoreState,
+} from "../../domain/store";
+import { parseStoreFlag } from "../../domain/storeFlag";
 import {
   BOSS_PELLET_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
@@ -142,6 +159,8 @@ import {
   ghostSpeedMultiplier,
   grantLivesForUpgrade,
   grantUpgrade,
+  revokeUpgrade,
+  clearUpgradeTimers,
   parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
   pelletCollectRadiusBonusPx,
@@ -189,6 +208,7 @@ import {
   preloadSfx,
   startLoopingSfx,
   stopLoopingSfx,
+  type SfxId,
 } from "../audio/sfx";
 import { saveRun } from "../storage/runHistoryStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
@@ -214,9 +234,11 @@ import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { movement } from "../systems/movement";
 import { slimeTrailKill } from "../systems/slimeTrailKill";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
-import { hasPlayerDirectionInput } from "../systems/playerDirection";
+import { clearPlayerDirectionInput, hasPlayerDirectionInput } from "../systems/playerDirection";
 import { createPlayerInput } from "../systems/playerInput";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
+import { playerCell } from "../systems/playerCell";
+import { slidePlayer } from "../systems/playerSlide";
 import {
   applyTunnelDash,
   tickTunnelDashAnimation,
@@ -241,6 +263,7 @@ import {
 } from "./pixelFont";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
+import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 
 const LEVEL_TRANSITION_MS = 1000;
 const LEVEL_BANNER_FADE_MS = 1500;
@@ -255,7 +278,7 @@ const RUN_COMPLETE_HOLD_MS = 2000;
 
 export class PlayScene extends Phaser.Scene {
   private world!: World;
-  private runPlayerInput!: (world: World) => void;
+  private runPlayerInput!: (world: World, stopOnRelease?: boolean) => void;
   private anyPlayerMoveKeyDown!: () => boolean;
   private suppressPlayerInputUntilKeyRelease = false;
   private playRender!: PlayRender;
@@ -283,6 +306,11 @@ export class PlayScene extends Phaser.Scene {
   private disableLevelUpgrades = false;
   private infiniteLives = false;
   private jumpToUpgrade = false;
+  private storeFlag = false;
+  private midStoreLevel = 5;
+  private store: StoreState | null = null;
+  private storeOverlay: StoreOverlay | null = null;
+  private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
   private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
   private corruptionHiddenGhostEid: number | null = null;
   private corruptionFlashGhostEid: number | null = null;
@@ -297,7 +325,9 @@ export class PlayScene extends Phaser.Scene {
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
-  private gameplayMusicPendingFanfareEnd = false;
+  private storeToggleKeys: Phaser.Input.Keyboard.Key[] = [];
+  private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
+  private musicPendingFanfareEnd: SfxId | null = null;
 
   constructor() {
     super("PlayScene");
@@ -322,6 +352,7 @@ export class PlayScene extends Phaser.Scene {
     this.upgradeChoiceModal = createUpgradeChoiceModal(this);
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
+    this.closeStore();
 
     const urlParams = new URLSearchParams(location.search);
     const mazeOverride = parseMazeParam(urlParams);
@@ -355,7 +386,10 @@ export class PlayScene extends Phaser.Scene {
     }
     this.jumpToUpgrade = parseJumpToUpgradeFlag(urlParams);
     this.quarters = quartersOverride ?? 0;
-    this.levelIndex = levelOverride ?? (this.jumpToUpgrade ? 2 : 1);
+    this.storeFlag = parseStoreFlag(urlParams);
+    this.levelIndex =
+      levelOverride ?? (this.jumpToUpgrade ? 2 : this.storeFlag ? STORE_FIRST_LEVEL : 1);
+    this.midStoreLevel = pickMidStoreLevel(() => Math.random());
     this.runMazeSeed = String(Math.floor(Math.random() * 0xffffffff));
     this.secondGhostKind = Math.random() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
     this.runCorruption = createRunCorruption(forcedCorruption);
@@ -388,14 +422,21 @@ export class PlayScene extends Phaser.Scene {
     this.runPlayerInput = playerInput.apply;
     this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
     this.suppressPlayerInputUntilKeyRelease = false;
-    this.gameplayMusicPendingFanfareEnd = false;
+    this.musicPendingFanfareEnd = null;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    const { KeyCodes } = Phaser.Input.Keyboard;
+    this.storeToggleKeys = [KeyCodes.LEFT, KeyCodes.RIGHT, KeyCodes.A, KeyCodes.D].map((code) =>
+      this.input.keyboard!.addKey(code),
+    );
+    this.storeConfirmKeys = [KeyCodes.ENTER, KeyCodes.SPACE].map((code) =>
+      this.input.keyboard!.addKey(code),
+    );
     this.playRender = createRender(this);
 
     this.startBoard(mazeOverride);
 
     const startingUpgrade =
-      this.levelIndex === 1 && !this.jumpToUpgrade
+      this.levelIndex === 1 && !this.jumpToUpgrade && !this.storeFlag
         ? pickStartingUpgrade(this.runUpgrades.owned, () => Math.random())
         : null;
     if (startingUpgrade !== null) {
@@ -420,6 +461,8 @@ export class PlayScene extends Phaser.Scene {
     startLoopingSfx(this, "gameplayMusic");
     if (this.jumpToUpgrade) {
       this.jumpToLevelClear();
+    } else if (this.storeFlag) {
+      this.enterStore();
     }
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -427,14 +470,15 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "death");
       this.upgradeChoiceModal.destroy();
       this.startingUpgradeCard.destroy();
+      this.closeStore();
       this.clearLevelBanner();
     });
   }
 
   update(_time: number, delta: number): void {
-    if (this.gameplayMusicPendingFanfareEnd && !isSfxPlaying(this, "levelComplete")) {
-      this.gameplayMusicPendingFanfareEnd = false;
-      startLoopingSfx(this, "gameplayMusic");
+    if (this.musicPendingFanfareEnd !== null && !isSfxPlaying(this, "levelComplete")) {
+      startLoopingSfx(this, this.musicPendingFanfareEnd);
+      this.musicPendingFanfareEnd = null;
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
@@ -470,12 +514,19 @@ export class PlayScene extends Phaser.Scene {
     if (this.levelTransitionRemainingMs > 0) {
       this.levelTransitionRemainingMs = Math.max(0, this.levelTransitionRemainingMs - delta);
       if (this.levelTransitionRemainingMs === 0) {
-        if (this.levelIndex >= MAX_LEVEL) {
+        if (this.store === null && storeAfterLevel(this.levelIndex, this.midStoreLevel)) {
+          this.enterStore();
+        } else if (this.levelIndex >= MAX_LEVEL) {
           this.beginRunComplete();
         } else {
           this.advanceToNextLevel();
         }
       }
+      return;
+    }
+
+    if (this.store !== null) {
+      this.tickStore(delta);
       return;
     }
 
@@ -790,6 +841,7 @@ export class PlayScene extends Phaser.Scene {
         !this.infiniteLives &&
         !this.disableLevelUpgrades &&
         !this.jumpToUpgrade &&
+        !this.storeFlag &&
         this.bossGhostsOverride === null
       ) {
         saveRun(this.lifetimeCollected, this.clock.remaining);
@@ -798,12 +850,174 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  private startGameplayMusicAfterFanfare(): void {
-    if (isSfxPlaying(this, "levelComplete")) {
-      this.gameplayMusicPendingFanfareEnd = true;
+  private enterStore(): void {
+    stopLoopingSfx(this, "gameplayMusic");
+    activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    this.runCorruption = resetCorruptionTransient(this.runCorruption);
+    this.corruptionHiddenGhostEid = null;
+    this.corruptionFlashGhostEid = null;
+    this.pendingPowerPelletRespawns = [];
+    this.tunnelDashAnim = null;
+    this.playRender.resetForNewBoard();
+    this.world = createWorld();
+    this.spawnWalls();
+    this.spawnPlayer();
+
+    this.store = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), this.runUpgrades.owned, () =>
+      Math.random(),
+    );
+    this.storeOverlay = createStoreOverlay(this);
+    this.storeOverlay.open(this.store);
+    this.timerText.setVisible(false);
+    this.suppressPlayerInputUntilKeyRelease = true;
+    this.showLevelBanner("STORE");
+    this.startMusicAfterFanfare("storeMusic");
+    this.drawStore();
+  }
+
+  private tickStore(delta: number): void {
+    if (this.storeExitSlide !== null) {
+      this.tickStoreExitSlide(delta);
       return;
     }
-    startLoopingSfx(this, "gameplayMusic");
+    const toggle = this.storeToggleKeys.some((key) => Phaser.Input.Keyboard.JustDown(key));
+    const enter = this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key));
+    const confirming = this.storeConfirmOpen();
+    if (confirming) {
+      clearPlayerDirectionInput(this.world);
+    } else {
+      if (this.suppressPlayerInputUntilKeyRelease && !this.anyPlayerMoveKeyDown()) {
+        this.suppressPlayerInputUntilKeyRelease = false;
+      }
+      if (!this.suppressPlayerInputUntilKeyRelease) {
+        this.runPlayerInput(this.world, true);
+      }
+    }
+    applyPlayerSpeed(
+      this.world,
+      speedLevelMultiplier(this.levelIndex) * playerSpeedMultiplier(this.runUpgrades.owned),
+    );
+    movement(this.world, delta, undefined, true);
+
+    const cell = playerCell(this.world);
+    const layout = getActiveLayout();
+    const exit = cell && storeExitDirection(cell.col, cell.row, layout.cols, layout.rows);
+    if (exit) {
+      this.storeExitSlide = { ...exit, traveledPx: 0 };
+      this.storeOverlay?.sync(this.store!, null, delta);
+      this.drawStore(storeExitAlpha(0));
+      return;
+    }
+
+    const step = storeStep(
+      this.store!,
+      {
+        col: cell?.col ?? -1,
+        row: cell?.row ?? -1,
+        toggle: confirming && toggle,
+        enter: confirming && enter,
+        quarters: this.quarters,
+        owned: this.runUpgrades.owned,
+      },
+      () => Math.random(),
+    );
+    this.store = step.state;
+    if (step.purchase !== null) {
+      this.applyStorePurchase(step.purchase);
+    }
+    if (confirming && !this.storeConfirmOpen()) {
+      this.suppressPlayerInputUntilKeyRelease = true;
+    }
+    this.storeOverlay?.sync(
+      this.store,
+      promptView(this.store, this.quarters, this.runUpgrades.owned),
+      delta,
+    );
+    this.drawStore();
+  }
+
+  private tickStoreExitSlide(delta: number): void {
+    const slide = this.storeExitSlide!;
+    slide.traveledPx += slidePlayer(this.world, slide.dx, slide.dy, delta);
+    const traveledTiles = slide.traveledPx / getActiveLayout().tileSize;
+    if (traveledTiles >= STORE_EXIT_SLIDE_TILES) {
+      this.exitStore();
+      return;
+    }
+    this.drawStore(storeExitAlpha(traveledTiles));
+  }
+
+  private storeConfirmOpen(): boolean {
+    return (
+      this.store !== null &&
+      promptView(this.store, this.quarters, this.runUpgrades.owned)?.kind === "confirm"
+    );
+  }
+
+  private applyStorePurchase(purchase: StorePurchase): void {
+    this.quarters -= purchase.price;
+    this.refreshQuartersHud();
+    playSfx(this, "pelletMunch");
+    playSfx(this, "pelletMunch2");
+    if (purchase.kind === "life") {
+      this.lives += 1;
+      this.refreshLivesIcons(true);
+      return;
+    }
+    if (purchase.kind === "swap") {
+      this.runUpgrades = revokeUpgrade(this.runUpgrades, purchase.outgoingId);
+    }
+    const id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
+    this.runUpgrades = grantUpgrade(this.runUpgrades, id);
+    this.applyGrantEffects(id);
+    this.refreshLivesIcons(grantLivesForUpgrade(id) > 0);
+    this.recordSeenUpgrades();
+    this.refreshUpgradesHud();
+    this.storeOverlay?.showPurchased(id);
+  }
+
+  private exitStore(): void {
+    this.closeStore();
+    if (this.levelIndex >= MAX_LEVEL) {
+      this.beginRunComplete();
+    } else {
+      this.timerText.setVisible(true);
+      this.advanceToNextLevel();
+    }
+  }
+
+  private closeStore(): void {
+    this.storeExitSlide = null;
+    if (this.musicPendingFanfareEnd === "storeMusic") {
+      this.musicPendingFanfareEnd = null;
+    }
+    stopLoopingSfx(this, "storeMusic");
+    this.storeOverlay?.destroy();
+    this.storeOverlay = null;
+    this.store = null;
+  }
+
+  private drawStore(playerAlpha?: number): void {
+    this.playRender.draw(this.world, {
+      frozenGhostEid: null,
+      playerInvulnRemainingMs: 0,
+      wallPassActive: false,
+      playerAlpha,
+      ...this.renderCorruptionOptions(),
+    });
+  }
+
+  private startMusicAfterFanfare(id: SfxId): void {
+    if (isSfxPlaying(this, "levelComplete")) {
+      this.musicPendingFanfareEnd = id;
+      return;
+    }
+    startLoopingSfx(this, id);
+  }
+
+  public currentMusicId(): SfxId {
+    return this.store !== null ? "storeMusic" : "gameplayMusic";
   }
 
   private pauseForMenu(): void {
@@ -1192,15 +1406,7 @@ export class PlayScene extends Phaser.Scene {
     this.upgradeChoiceModal = createUpgradeChoiceModal(this);
 
     this.levelIndex += 1;
-    this.runUpgrades = {
-      ...this.runUpgrades,
-      freezeRemainingMs: 0,
-      frozenGhostEid: null,
-      scatterBurstRemainingMs: 0,
-      wallPassRemainingMs: 0,
-      invulnRemainingMs: 0,
-      speedBurstRemainingMs: 0,
-    };
+    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1211,7 +1417,7 @@ export class PlayScene extends Phaser.Scene {
     this.lives = livesAfterLevelRegen(this.lives);
     this.refreshLivesIcons(this.lives > livesBeforeRegen);
     this.showLevelBanner();
-    this.startGameplayMusicAfterFanfare();
+    this.startMusicAfterFanfare("gameplayMusic");
     this.playRender.draw(this.world, {
       frozenGhostEid: null,
       playerInvulnRemainingMs: 0,
@@ -1220,8 +1426,8 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private showLevelBanner(): void {
-    if (bossForLevel(this.levelIndex) !== null) {
+  private showLevelBanner(text?: string): void {
+    if (text === undefined && bossForLevel(this.levelIndex) !== null) {
       this.showBossBanner();
       return;
     }
@@ -1230,7 +1436,7 @@ export class PlayScene extends Phaser.Scene {
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2,
-      `LEVEL ${this.levelIndex}`,
+      text ?? `LEVEL ${this.levelIndex}`,
       MENU_TITLE_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(800);
@@ -1417,15 +1623,7 @@ export class PlayScene extends Phaser.Scene {
       remainingMs: 0,
     };
 
-    this.runUpgrades = {
-      ...this.runUpgrades,
-      freezeRemainingMs: 0,
-      frozenGhostEid: null,
-      scatterBurstRemainingMs: 0,
-      wallPassRemainingMs: 0,
-      invulnRemainingMs: 0,
-      speedBurstRemainingMs: 0,
-    };
+    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;

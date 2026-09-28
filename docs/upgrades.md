@@ -1,6 +1,6 @@
 # Run upgrades
 
-Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 8) opens a **pick-one** modal offering **run-long** upgrades (up to three, at the up/left/right slots) alongside an always-available **Quarters** option (fixed at the down slot) for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
+Level 1 grants one random **starting upgrade** (below), and clearing a level (2 through 8) opens a **pick-one** modal offering **run-long** upgrades (up to three, at the up/left/right slots) alongside an always-available **Quarters** option (fixed at the down slot) for the current `PlayScene` session (including across level advances). Fruit has no upgrade effect. Upgrades can also be bought or swapped for Quarters at [store floors](./store.md) (`storePriceFor` reads an optional per-def `storePrice`, default `STORE_UPGRADE_PRICE` = 3). There is no plugin registry — upgrades are a domain def table plus a scene-owned bag.
 
 ## Model
 
