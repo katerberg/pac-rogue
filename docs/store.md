@@ -14,7 +14,7 @@ On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the moda
 
 ## Layout
 
-`STORE_MAZE_ASCII` in [`src/domain/mazeLayouts.ts`](../src/domain/mazeLayouts.ts): a 28×31 grid of solid 5-wide wall blocks separated by 1-tile corridors (about half the interior is wall), with each slot cut into a block corner so it opens onto two corridors. It is activated with `activateAsciiLayout(ascii, "store")`, the only layout id allowed to have zero pellets **and no ghost house** (ghost-house spawn/exit and fruit cell fall back to the player spawn; the store never spawns ghosts or fruit). Tunnels open on all four sides (row 14, cols 13–14).
+`STORE_MAZE_ASCII` in [`src/domain/mazeLayouts.ts`](../src/domain/mazeLayouts.ts): a 22×21 room (the intro `mazeSmall` footprint) with roomier corridors than the intro: varied shapes built from 2×2 wall cells (L-shapes, a cup around the center upgrade, a T, bars), about 40% of the interior. Walls are never 1 tile thick and never touch only at a corner, which the rounded wall stroke needs. It is activated with `activateAsciiLayout(ascii, "store")`, the only layout id allowed to have zero pellets **and no ghost house** (ghost-house spawn/exit and fruit cell fall back to the player spawn; the store never spawns ghosts or fruit). Tunnels open on all four sides (row 10, cols 10–11).
 
 Slot glyphs are walkable empty cells to the maze builder; `parseStoreSlots` turns each 2×2 block into a slot (row, then col order):
 

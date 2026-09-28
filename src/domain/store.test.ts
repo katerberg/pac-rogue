@@ -44,30 +44,31 @@ describe("store layout", () => {
     const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
     expect(layout.pelletCount).toBe(0);
     const last = layout.rows - 1;
-    expect(isWalkable(13, 0, layout.playerSolids)).toBe(true);
-    expect(isWalkable(14, last, layout.playerSolids)).toBe(true);
-    expect(isWalkable(0, 14, layout.playerSolids)).toBe(true);
-    expect(isWalkable(layout.cols - 1, 14, layout.playerSolids)).toBe(true);
+    expect(isWalkable(10, 0, layout.playerSolids)).toBe(true);
+    expect(isWalkable(11, last, layout.playerSolids)).toBe(true);
+    expect(isWalkable(0, 10, layout.playerSolids)).toBe(true);
+    expect(isWalkable(layout.cols - 1, 10, layout.playerSolids)).toBe(true);
     activateLayout("maze1");
   });
 
-  it("has no ghost house and walls over about half of the interior", () => {
+  it("is intro-sized with no ghost house and roomier than the intro maze", () => {
     const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
     expect(layout.house.flat().some(Boolean)).toBe(false);
     const interior = layout.walls.slice(1, -1).flatMap((row) => row.slice(1, -1));
     const coverage = interior.filter(Boolean).length / interior.length;
-    expect(coverage).toBeGreaterThan(0.45);
-    expect(coverage).toBeLessThan(0.6);
+    expect([layout.cols, layout.rows]).toEqual([22, 21]);
+    expect(coverage).toBeGreaterThan(0.35);
+    expect(coverage).toBeLessThan(0.5);
     activateLayout("maze1");
   });
 
   it("parses one life, three upgrade, and one swap slot in row/col order", () => {
     expect(parseStoreSlots(STORE_MAZE_ASCII)).toEqual([
-      { kind: "upgrade", col: 5, row: 2 },
-      { kind: "upgrade", col: 21, row: 2 },
-      { kind: "swap", col: 5, row: 27 },
-      { kind: "life", col: 11, row: 27 },
-      { kind: "upgrade", col: 15, row: 27 },
+      { kind: "upgrade", col: 2, row: 2 },
+      { kind: "upgrade", col: 18, row: 2 },
+      { kind: "upgrade", col: 10, row: 8 },
+      { kind: "swap", col: 5, row: 14 },
+      { kind: "life", col: 15, row: 14 },
     ]);
   });
 
@@ -112,9 +113,9 @@ describe("createStoreState", () => {
 });
 
 describe("storeStep", () => {
-  const lifeCell = { col: 12, row: 28 };
-  const upgradeCell = { col: 5, row: 2 };
-  const swapCell = { col: 5, row: 27 };
+  const lifeCell = { col: 16, row: 15 };
+  const upgradeCell = { col: 2, row: 2 };
+  const swapCell = { col: 5, row: 14 };
 
   it("opens a NO-focused prompt on arrival, dismisses on NO, and re-opens after stepping off", () => {
     let state = stateWith([]);
@@ -125,9 +126,9 @@ describe("storeStep", () => {
     expect(declined.purchase).toBeNull();
     state = declined.state;
     expect(promptView(state, 10, [])).toBeNull();
-    state = storeStep(state, input({ ...lifeCell, col: 11 }), zeroRng).state;
+    state = storeStep(state, input({ ...lifeCell, col: 15 }), zeroRng).state;
     expect(promptView(state, 10, [])).toBeNull();
-    state = storeStep(state, input({ col: 13, row: 26 }), zeroRng).state;
+    state = storeStep(state, input({ col: 13, row: 16 }), zeroRng).state;
     state = storeStep(state, input(lifeCell), zeroRng).state;
     expect(promptView(state, 10, [])?.kind).toBe("confirm");
     expect(state.confirmYes).toBe(false);
@@ -198,11 +199,11 @@ describe("storeStep", () => {
 
 describe("isStoreExitCell", () => {
   it("is true only on the border", () => {
-    expect(isStoreExitCell(0, 14, 28, 31)).toBe(true);
-    expect(isStoreExitCell(27, 14, 28, 31)).toBe(true);
-    expect(isStoreExitCell(13, 0, 28, 31)).toBe(true);
-    expect(isStoreExitCell(13, 30, 28, 31)).toBe(true);
-    expect(isStoreExitCell(1, 1, 28, 31)).toBe(false);
-    expect(isStoreExitCell(26, 29, 28, 31)).toBe(false);
+    expect(isStoreExitCell(0, 10, 22, 21)).toBe(true);
+    expect(isStoreExitCell(21, 10, 22, 21)).toBe(true);
+    expect(isStoreExitCell(10, 0, 22, 21)).toBe(true);
+    expect(isStoreExitCell(11, 20, 22, 21)).toBe(true);
+    expect(isStoreExitCell(1, 1, 22, 21)).toBe(false);
+    expect(isStoreExitCell(20, 19, 22, 21)).toBe(false);
   });
 });
