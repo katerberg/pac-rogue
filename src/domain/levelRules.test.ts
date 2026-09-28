@@ -13,8 +13,8 @@ import {
 } from "./levelRules";
 
 describe("MAX_LEVEL", () => {
-  it("caps the fixed level plan at 8", () => {
-    expect(MAX_LEVEL).toBe(8);
+  it("caps the fixed level plan at 9 (level 9 is the boss)", () => {
+    expect(MAX_LEVEL).toBe(9);
   });
 });
 

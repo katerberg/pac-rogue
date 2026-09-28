@@ -1,5 +1,6 @@
-import { query, type World } from "bitecs";
+import { hasComponent, query, type World } from "bitecs";
 import {
+  shouldReleaseGhostAt,
   shouldReleaseKind,
   type GhostReleaseAdds,
   type GhostReleaseClock,
@@ -9,6 +10,7 @@ import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { worldToCol, worldToRow } from "../../domain/maze";
+import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -44,7 +46,10 @@ export function ghostRelease(
       continue;
     }
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
-    if (!shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease, adds)) {
+    const ready = hasComponent(world, eid, BossGhost)
+      ? shouldReleaseGhostAt(clock, (BossGhost.releaseDelayMs[eid] ?? 0) + (adds.delayAddMs ?? 0))
+      : shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease, adds);
+    if (!ready) {
       continue;
     }
     const x = Position.x[eid] ?? 0;

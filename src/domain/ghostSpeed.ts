@@ -45,6 +45,12 @@ export function resolveGhostSpeed(
   return baseSpeed;
 }
 
+export const BOSS_GHOST_SPEED = PLAYER_SPEED;
+
+export function resolveBossGhostSpeed(inTunnel: boolean): number {
+  return inTunnel ? BOSS_GHOST_SPEED * 0.5 : BOSS_GHOST_SPEED;
+}
+
 export function resolveGhostSpeedForKind(
   kind: GhostKindId,
   pelletsRemaining: number,

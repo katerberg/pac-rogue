@@ -18,6 +18,7 @@ import { mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
+  BOSS_PELLET_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
   INKY_DRAWABLE_ID,
@@ -54,6 +55,10 @@ export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [INKY_DRAWABLE_ID]: INKY_TEXTURE_KEY,
   [CLYDE_DRAWABLE_ID]: CLYDE_TEXTURE_KEY,
 };
+const BOSS_PELLET_SIZE_MUL = 2;
+const BOSS_PELLET_PULSE_SIZE_MUL = 3;
+const BOSS_PELLET_PULSE_MS = 1000;
+const BOSS_PELLET_MIN_ALPHA = 0.6;
 const CHOMP_PIXELS_PER_FRAME = 12;
 const CHOMP_CYCLE = [1, 2, 3, 2] as const;
 const OPEN_MOUTH_FRAME = 1;
@@ -87,7 +92,27 @@ function displaySizeForDrawable(drawableId: string): number {
   if (drawableId === POWER_PELLET_DRAWABLE_ID) {
     return powerPelletDisplaySize();
   }
+  if (drawableId === BOSS_PELLET_DRAWABLE_ID) {
+    return pelletDisplaySize() * BOSS_PELLET_SIZE_MUL;
+  }
   return playerDisplaySize();
+}
+
+function brightenColor(color: number, towardWhite: number): number {
+  const channel = (shift: number) => {
+    const value = (color >> shift) & 0xff;
+    return Math.round(value + (0xff - value) * towardWhite) << shift;
+  };
+  return channel(16) | channel(8) | channel(0);
+}
+
+function bossPelletPulse(nowMs: number): { size: number; alpha: number } {
+  const wave = (Math.sin((2 * Math.PI * nowMs) / BOSS_PELLET_PULSE_MS) + 1) / 2;
+  const sizeMul = BOSS_PELLET_SIZE_MUL + (BOSS_PELLET_PULSE_SIZE_MUL - BOSS_PELLET_SIZE_MUL) * wave;
+  return {
+    size: pelletDisplaySize() * sizeMul,
+    alpha: 1 - (1 - BOSS_PELLET_MIN_ALPHA) * wave,
+  };
 }
 
 function applyWallPathCommands(
@@ -200,6 +225,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const wallGraphics = scene.add.graphics();
   const slimeGraphics = scene.add.graphics();
   let wallsDrawn = false;
+  let bossPelletTint = 0xffffff;
 
   const releaseDrawable = (eid: number): void => {
     for (const key of [String(eid), `${eid}:twin`] as const) {
@@ -261,6 +287,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
     if (!wallsDrawn) {
       const wallStrokeColor = mazeColorForIndex(loadMazeColorSettings().colorIndex);
+      bossPelletTint = brightenColor(wallStrokeColor, 0.5);
       wallGraphics.clear();
       wallGraphics.lineStyle(WALL_STROKE_WEIGHT, wallStrokeColor, 1);
       wallGraphics.beginPath();
@@ -291,6 +318,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         id !== PLAYER_DRAWABLE_ID &&
         id !== PELLET_DRAWABLE_ID &&
         id !== POWER_PELLET_DRAWABLE_ID &&
+        id !== BOSS_PELLET_DRAWABLE_ID &&
         id !== FRUIT_DRAWABLE_ID &&
         ghostTexture === undefined
       ) {
@@ -318,6 +346,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
 
       go.setPosition(x, y);
+
+      if (id === BOSS_PELLET_DRAWABLE_ID) {
+        go.setTint(bossPelletTint);
+        const pulse = bossPelletPulse(scene.time.now);
+        go.setDisplaySize(pulse.size, pulse.size);
+        go.setAlpha(pulse.alpha);
+      }
 
       if (ghostTexture !== undefined) {
         const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;

@@ -162,7 +162,11 @@ function isWalkableChar(ch: string): boolean {
 
 // Corridor rows only: a tunnel carved through a wall row runs alongside the corridor
 // row next to it, which is the parallel-corridor case.
-function pickTunnelRows(seed: string, houseRows: ReadonlySet<number>): number[] {
+function pickTunnelRows(
+  seed: string,
+  houseRows: ReadonlySet<number>,
+  tunnelCount: number | undefined,
+): number[] {
   const random = randomFromSeed(`tunnels:${seed}`);
   const pool: number[] = [];
   for (let sy = 0; sy + 1 < TILING_HEIGHT; sy += 1) {
@@ -174,7 +178,7 @@ function pickTunnelRows(seed: string, houseRows: ReadonlySet<number>): number[] 
   if (pool.length === 0) {
     throw new MazeRejected("no tunnel candidate rows");
   }
-  const count = random() < 0.5 ? 1 : 2;
+  const count = tunnelCount ?? (random() < 0.5 ? 1 : 2);
   const chosen: number[] = [];
   while (chosen.length < count && pool.length > 0) {
     chosen.push(pool.splice(Math.floor(random() * pool.length), 1)[0]!);
@@ -612,19 +616,30 @@ export function invertMazeAscii(ascii: string): string {
   return ascii.split("\n").reverse().join("\n");
 }
 
-export function generateMazeAscii(seed: string): { ascii: string; pelletCount: number } {
+export type MazeGenerateOptions = {
+  tunnelCount?: number;
+};
+
+export function generateMazeAscii(
+  seed: string,
+  opts: MazeGenerateOptions = {},
+): { ascii: string; pelletCount: number } {
   const tiling = reject(() => solveTiling(seed));
   const grid = emptyGrid(GENERATED_MAZE_COLS, GENERATED_MAZE_ROWS, WALL);
   fillTilingWalls(grid, tiling.pieces);
   stampHouse(grid);
 
   const houseRows = new Set([...houseStampCells()].map((cell) => cell.row));
-  const tunnelRows = pickTunnelRows(seed, houseRows);
+  const tunnelRows = pickTunnelRows(seed, houseRows, opts.tunnelCount);
   const carvedTunnelCells = applyTunnels(grid, tunnelRows);
   sealDeadEnds(grid);
 
   const tunnels = countTunnels(grid);
-  if (tunnels.length < 1 || tunnels.length > 2) {
+  const tunnelCountOk =
+    opts.tunnelCount === undefined
+      ? tunnels.length >= 1 && tunnels.length <= 2
+      : tunnels.length === opts.tunnelCount;
+  if (!tunnelCountOk) {
     throw new MazeRejected(`tunnel count ${tunnels.length}`);
   }
 
@@ -669,13 +684,14 @@ export function generateMazeAscii(seed: string): { ascii: string; pelletCount: n
 export function generateMazeAsciiWithRetries(
   seed: string,
   maxAttempts: number = GENERATE_MAX_ATTEMPTS,
+  opts: MazeGenerateOptions = {},
 ): { ascii: string; seedUsed: string } | null {
   let best: { ascii: string; seedUsed: string; pelletCount: number } | null = null;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const seedUsed = attempt === 0 ? seed : `${seed}#${attempt}`;
     let board: { ascii: string; pelletCount: number };
     try {
-      board = generateMazeAscii(seedUsed);
+      board = generateMazeAscii(seedUsed, opts);
     } catch (error) {
       if (!(error instanceof MazeRejected)) {
         throw error;

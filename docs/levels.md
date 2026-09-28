@@ -1,17 +1,17 @@
 # Fixed level plan
 
-The run is a fixed 8-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../src/domain/levelRules.ts)) — no endless/procedural progression past level 8.
+The run is a fixed 9-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../src/domain/levelRules.ts)) — no endless/procedural progression past level 9. Level 9 is a boss fight (see [docs/bosses.md](./bosses.md)).
 
-| Level | Maze                           | Ghosts                                                         | Fruit                                      | On clear                                                                                 |
-| ----- | ------------------------------ | -------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| 1     | `mazeSmall` (22×21, half-size) | Blinky + a randomly chosen Pinky or Inky (2 ghosts, see below) | present after 70 pellets (awards Quarters) | No reward (level 1 already granted a starting upgrade); advance to level 2               |
-| 2     | Procedural 28×34               | Blinky, Pinky, and Inky (3 ghosts, see below)                  | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3        |
-| 3-7   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                          | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level |
-| 8     | Procedural 28×34               | All four                                                       | present (awards Quarters)                  | No upgrade offer; a `RUN COMPLETE` screen and return to `MenuScene`                      |
+| Level | Maze                           | Ghosts                                                          | Fruit                                      | On clear                                                                                 |
+| ----- | ------------------------------ | --------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| 1     | `mazeSmall` (22×21, half-size) | Blinky + a randomly chosen Pinky or Inky (2 ghosts, see below)  | present after 70 pellets (awards Quarters) | No reward (level 1 already granted a starting upgrade); advance to level 2               |
+| 2     | Procedural 28×34               | Blinky, Pinky, and Inky (3 ghosts, see below)                   | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3        |
+| 3-8   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                           | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level |
+| 9     | Procedural 28×34, 3 tunnels    | Boss: Double Blinky (2 → 10 Blinkys, see [bosses](./bosses.md)) | present (awards Quarters)                  | No upgrade offer; a `RUN COMPLETE` screen and return to `MenuScene`                      |
 
 ## Ghost catch-up speed (levels 1-5)
 
-Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostBaseSpeedRatio(levelIndex)` in `levelRules.ts` scales ghost base and tunnel speed to 80% of Maze-Man's base speed on level 1, +5% per level, reaching full parity (100%) by level 5 and staying pinned there through level 8. Blinky's Cruise Elroy tiers are unaffected — they stay fixed multiples of Maze-Man's speed regardless of level.
+Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostBaseSpeedRatio(levelIndex)` in `levelRules.ts` scales ghost base and tunnel speed to 80% of Maze-Man's base speed on level 1, +5% per level, reaching full parity (100%) by level 5 and staying pinned there through level 8. The level-9 boss Blinkys ignore this ramp (see [docs/bosses.md](./bosses.md)). Blinky's Cruise Elroy tiers are unaffected — they stay fixed multiples of Maze-Man's speed regardless of level.
 
 ## Inverted maze (levels 6-7)
 
@@ -36,8 +36,8 @@ Fruit spawns/despawns as before, 10s lifetime: level 1 uses a single unscaled 70
 
 ## `?level=` and the cap
 
-`parseLevelParam` clamps any value above 8 down to 8 (e.g. `?level=99` starts at level 8). Values below 1 or non-numeric still fall back to level 1.
+`parseLevelParam` clamps any value above 9 down to 9, so `?level=9` (or `?level=99`) jumps straight into the boss fight. Values below 1 or non-numeric still fall back to level 1.
 
 ## Run Complete
 
-Clearing level 8 does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice is offered; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
+Clearing level 9 (the boss) does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice is offered; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
