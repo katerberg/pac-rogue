@@ -157,24 +157,34 @@ export function movement(
       const vx = (step.dx / norm) * speed;
       const vy = (step.dy / norm) * speed;
 
+      const xOpen = step.dx !== 0 && canEnterDirection(x, y, step.dx, 0, solids);
+      const yOpen = step.dy !== 0 && canEnterDirection(x, y, 0, step.dy, solids);
+      const cornerOpen =
+        step.dx === 0 || step.dy === 0 || canEnterDirection(x, y, step.dx, step.dy, solids);
+      // Both flanks are open but the diagonal cell itself is a wall (the common L-turn
+      // shape): cutting through that corner is not allowed, so this frame only advances
+      // the horizontal component (matching the horizontal sprite-facing priority) instead
+      // of stopping outright — a real wall-slide (one flank genuinely blocked) is unaffected.
+      const wouldCutCorner = step.dx !== 0 && step.dy !== 0 && xOpen && yOpen && !cornerOpen;
+
       let nextX = x;
       let nextY = y;
       let movedX = desired === DIRECTION.none || step.dx === 0;
       let movedY = desired === DIRECTION.none || step.dy === 0;
       if (step.dx !== 0) {
-        if (canEnterDirection(x, y, step.dx, 0, solids)) {
+        if (xOpen) {
           nextX = x + vx * dt;
           movedX = true;
         } else {
           nextX = clampAgainstFacingWall(x, y, step.dx, 0, solids).x;
         }
       }
-      if (step.dy !== 0) {
-        if (canEnterDirection(nextX, y, 0, step.dy, solids)) {
+      if (step.dy !== 0 && !wouldCutCorner) {
+        if (yOpen) {
           nextY = y + vy * dt;
           movedY = true;
         } else {
-          nextY = clampAgainstFacingWall(nextX, y, 0, step.dy, solids).y;
+          nextY = clampAgainstFacingWall(x, y, 0, step.dy, solids).y;
         }
       }
 

@@ -28,7 +28,7 @@ Slot glyphs are walkable empty cells to the maze builder; `parseStoreSlots` turn
 
 ## Movement
 
-In the store the player stops when no direction is held: `playerInput.apply(world, true)` writes `none` on release, and `movement(..., playerStopOnRelease = true)` finishes the move to the next cell center and stops there. Maze boards are unchanged.
+In the store the player stops when no direction is held: `playerInput.apply(world, { diagonalAllowed: true, stopOnRelease: true })` writes `none` on release, and `movement(..., undefined, playerStopOnRelease = true)` finishes the move to the next cell center and stops there. Maze boards are unchanged. Diagonal movement is always allowed here (unlike maze boards, where it's gated behind the `powerPelletWallPass` upgrade) since the store's roomier corridors have genuinely open diagonals and the store never has wallPass — `clearUpgradeTimers` zeroes every timed power-pellet effect, including `wallPassRemainingMs`, on entry, and there are no power pellets inside to retrigger any of them. `movement`'s diagonal branch still requires real open space on all three cells (both flanking cells and the diagonal cell itself) — see [docs/upgrades.md](./upgrades.md#wall-pass) — so the player can't cut through a wall corner even without wallPass.
 
 ## Music
 

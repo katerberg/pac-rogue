@@ -892,7 +892,7 @@ export class PlayScene extends Phaser.Scene {
         this.suppressPlayerInputUntilKeyRelease = false;
       }
       if (!this.suppressPlayerInputUntilKeyRelease) {
-        this.runPlayerInput(this.world, { stopOnRelease: true });
+        this.runPlayerInput(this.world, { diagonalAllowed: true, stopOnRelease: true });
       }
     }
     applyPlayerSpeed(
