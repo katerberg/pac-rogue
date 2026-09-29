@@ -267,6 +267,7 @@ import {
 } from "./pixelFont";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
+import { addSeedLabel } from "./seedLabel";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 
 const LEVEL_TRANSITION_MS = 1000;
@@ -1026,6 +1027,10 @@ export class PlayScene extends Phaser.Scene {
     startLoopingSfx(this, id);
   }
 
+  public runSeed(): string {
+    return this.random.seed;
+  }
+
   public currentMusicId(): SfxId {
     return this.store !== null ? "storeMusic" : "gameplayMusic";
   }
@@ -1636,6 +1641,7 @@ export class PlayScene extends Phaser.Scene {
       HUD_FONT_SIZE,
     ).setDepth(1001);
     placePixelText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
+    addSeedLabel(this, this.random.seed).setDepth(1001);
   }
 
   private resetAfterLifeLoss(): void {
