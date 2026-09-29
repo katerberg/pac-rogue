@@ -13,7 +13,7 @@ Current shape of Dot-Man. Keep this document short and truthful — update it wh
 
 ```text
 src/
-  main.ts                     # Phaser.Game bootstrap + agent-port debug snapshot (window.__PAC_ROGUE_DEBUG__)
+  main.ts                     # Phaser.Game bootstrap + installs the agent-port debug hook (see game/scenes/installDebugHook.ts)
   styles.css                  # Page chrome around the canvas
   domain/                     # Pure helpers (no Phaser, no bitecs world APIs)
     clamp.ts
@@ -141,7 +141,7 @@ docs/
 - Agents: `npm run dev:agent` → 5174, preview/visual → 4174
 - Agents may kill/restart only their ports.
 - Agent ports disable audio unless `?sound=1` (`src/domain/soundFlag.ts` → `gameConfig.audio.noAudio`).
-- Agent ports expose a read-only `window.__PAC_ROGUE_DEBUG__.snapshot()` (`src/main.ts` → `PlayScene.debugSnapshot()` + `worldSnapshot`) for `npm run probe` assertions; see [VERIFICATION.md](./VERIFICATION.md#game-state-snapshot).
+- Agent ports expose a read-only `window.__PAC_ROGUE_DEBUG__.snapshot()` (`src/game/scenes/installDebugHook.ts` → `PlayScene.debugSnapshot()` + `worldSnapshot`) for `npm run probe` assertions; see [VERIFICATION.md](./VERIFICATION.md#game-state-snapshot).
 
 ## Scenes
 

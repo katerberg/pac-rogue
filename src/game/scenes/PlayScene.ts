@@ -1033,7 +1033,6 @@ export class PlayScene extends Phaser.Scene {
       timeRemaining: this.clock.remaining,
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
-      lifetimeCollected: this.lifetimeCollected,
       ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
       upgrades: upgrades.owned,
       timers: {
@@ -1049,15 +1048,8 @@ export class PlayScene extends Phaser.Scene {
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       levelTransition: this.levelTransitionRemainingMs > 0,
       inStore: this.store !== null,
-      storeExiting: this.storeExitSlide !== null,
       boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
-      corruption: {
-        type: this.runCorruption.type,
-        ghost:
-          this.runCorruption.ghostKind === null
-            ? null
-            : nameOf(GHOST_KIND, this.runCorruption.ghostKind),
-      },
+      corruption: this.runCorruption.type,
       ...worldSnapshot(this.world),
     };
   }

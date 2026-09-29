@@ -136,16 +136,16 @@ On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot(
 | `play`                                                                                    | `null` unless `PlayScene` is running or paused                                            |
 | `play.level`, `play.layout`                                                               | level index; layout id (`mazeSmall`, `maze1`, `generated`, `store`, …)                    |
 | `play.lives`, `play.quarters`, `play.timeRemaining`                                       | HUD values                                                                                |
-| `play.boardCollected`, `play.pelletsRemaining`, `play.lifetimeCollected`                  | pellet progress                                                                           |
+| `play.boardCollected`, `play.pelletsRemaining`                                            | pellet progress                                                                           |
 | `play.pellets`, `play.powerPellets`, `play.bossPellets`, `play.fruit`                     | entities currently on the board (`pellets` excludes power pellets, includes boss pellets) |
 | `play.player.{x,y,col,row,facing}`                                                        | player position (px + maze cell) and facing (`left`, `upLeft`, `none`, …)                 |
 | `play.ghosts.<i>.{eid,kind,phase,col,row,x,y,facing,boss}`                                | each ghost; `phase` is `inHouse` \| `leaving` \| `active`                                 |
 | `play.ghostMode`                                                                          | `scatter` \| `chase`                                                                      |
 | `play.upgrades`, `play.timers.{freezeMs,scatterBurstMs,wallPassMs,invulnMs,speedBurstMs}` | owned upgrade ids; active power-pellet timers                                             |
-| `play.corruption.{type,ghost}`                                                            | assigned corruption, or `null`s                                                           |
+| `play.corruption`                                                                         | assigned corruption id, or `null`                                                         |
 | `play.startingUpgradeCardOpen`, `play.inputSuppressed`                                    | level-1 card up; player input held until all keys release                                 |
 | `play.upgradeModalOpen`, `play.levelTransition`, `play.dying`                             | blocking states (the sim is frozen in each)                                               |
-| `play.inStore`, `play.storeExiting`, `play.boss.ghostCount`                               | store floor; exit slide; boss Blinky count (`play.boss` is `null` off-boss)               |
+| `play.inStore`, `play.boss.ghostCount`                                                    | store floor; boss Blinky count (`play.boss` is `null` off-boss)                           |
 
 When a check needs state the snapshot lacks, add the field (read-only) in the same PR instead of falling back to reading pixels.
 
