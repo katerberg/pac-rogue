@@ -18,7 +18,7 @@ export function wallPhaseDashLungeTarget(
   solids: SolidGrid,
 ): GhostTarget | null {
   let best: GhostTarget | null = null;
-  let bestDist = Number.POSITIVE_INFINITY;
+  let bestDist = (ghostCol - playerCol) ** 2 + (ghostRow - playerRow) ** 2;
 
   for (const { dx, dy } of ORTHOGONAL_STEPS) {
     const firstWallCol = ghostCol + dx;

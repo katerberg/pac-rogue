@@ -63,7 +63,7 @@ export function tickWallPhaseDash(
   const solids = ghostMovementRules(phase).solids;
   const target = wallPhaseDashLungeTarget(col, row, playerCol, playerRow, solids);
   if (target === null) {
-    return { ...state, wallPhaseCycleMs: 0 };
+    return { ...state, wallPhaseCycleMs: cycleMs };
   }
 
   return {

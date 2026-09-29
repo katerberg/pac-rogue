@@ -13,7 +13,7 @@ describe("wallPhaseDashLungeTarget", () => {
     grid[2]![4] = true;
     const solids: SolidGrid = grid;
 
-    expect(wallPhaseDashLungeTarget(2, 2, 0, 0, solids)).toEqual({ col: 5, row: 2 });
+    expect(wallPhaseDashLungeTarget(2, 2, 5, 0, solids)).toEqual({ col: 5, row: 2 });
   });
 
   it("rejects a wall 3+ tiles thick in that direction", () => {
@@ -51,6 +51,16 @@ describe("wallPhaseDashLungeTarget", () => {
 
     expect(wallPhaseDashLungeTarget(2, 3, 2, 6, solids)).toEqual({ col: 2, row: 6 });
     expect(wallPhaseDashLungeTarget(2, 3, 2, 0, solids)).toEqual({ col: 2, row: 0 });
+  });
+
+  it("never lunges to a tile that is not closer to the player than the ghost", () => {
+    const grid = buildGrid(5, 6);
+    grid[2]![3] = true;
+    grid[2]![4] = true;
+    const solids: SolidGrid = grid;
+
+    expect(wallPhaseDashLungeTarget(2, 2, 0, 2, solids)).toBeNull();
+    expect(wallPhaseDashLungeTarget(2, 2, 2, 2, solids)).toBeNull();
   });
 
   it("ignores an out-of-bounds landing tile", () => {

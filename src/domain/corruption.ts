@@ -87,6 +87,7 @@ export const SPEED_SURGE_ACTIVE_MS = 1_500;
 export const SPEED_SURGE_CYCLE_MS = 8_000;
 
 export const WALL_PHASE_CYCLE_MS = 9_000;
+export const WALL_PHASE_PULSE_MS = 300;
 
 export const INVISIBILITY_CYCLE_MS = 10_000;
 export const INVISIBILITY_HIDDEN_MS = 3_000;
@@ -249,6 +250,11 @@ export function isInvisibilityHiddenInCycle(state: RunCorruption): boolean {
   );
 }
 
+function isWallPhasePulseOn(state: RunCorruption): boolean {
+  const chargedMs = state.wallPhaseCycleMs - WALL_PHASE_CYCLE_MS;
+  return chargedMs >= 0 && Math.floor(chargedMs / WALL_PHASE_PULSE_MS) % 2 === 0;
+}
+
 export function isCorruptionFlashing(state: RunCorruption): boolean {
   switch (state.type) {
     case "speedSurge":
@@ -256,7 +262,7 @@ export function isCorruptionFlashing(state: RunCorruption): boolean {
     case "invisibility":
       return state.invisibilityCycleMs < TELEGRAPH_FLASH_MS;
     case "wallPhaseDash":
-      return state.wallPhasePendingTarget !== null;
+      return state.wallPhasePendingTarget !== null || isWallPhasePulseOn(state);
     case "pelletDropper":
       return state.pelletDropperFlashMs > 0;
     default:
