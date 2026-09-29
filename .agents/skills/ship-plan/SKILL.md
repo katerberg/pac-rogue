@@ -16,16 +16,17 @@ must actually pass before moving on.
 ## Pipeline
 
 1. **Verify** per the `verification` skill (`npm run verify`, fix → rerun). For gameplay/presentation changes also do the
-   live check with `npm run probe` (see VERIFICATION.md), then Read the
-   screenshots and write down what you saw.
+   [live check](../../../docs/VERIFICATION.md#live-check) with `npm run probe` for **every mode the diff
+   touches**: assert behavior with `expect:`/`waitFor:`, Read the screenshots, and write down the
+   exact commands and what you saw.
 2. **`simplify-pr`** on the scoped diff. Apply in-scope cuts.
 3. **`no-comments`** on the scoped diff.
 4. **Verify again** (`npm run verify`; rerun the probe if runtime code changed).
 5. **`pr-review`** against `main`. Write its full ranked findings (or an
-   explicit "no findings" line) to `artifacts/pr-review.md` — this is the
-   tracked record, not a side effect of the conversation scrolling past it.
-   Do not summarize it away in your own words yet; the raw findings are what
-   `fix-pr-findings` triages next.
+   explicit "no findings" line) to `artifacts/pr-review.md`. That file is a
+   gitignored scratch copy; the durable record is the PR body's **Review pass**
+   section, which must reproduce the findings. Do not summarize them away in
+   your own words yet; the raw findings are what `fix-pr-findings` triages next.
 6. **`fix-pr-findings`** using those findings. Fix only in-scope, worth-it
    items. Capture its full report (fixed / hollered / skipped, per its own
    output format) — this is what step 8 must surface, not paraphrase.
@@ -44,20 +45,23 @@ exact output. A draft with an honest failure beats a green-looking PR.
 - Branch: `git switch -c <short-kebab-name>` from the current base if still on
   `main`. Never push to `main`.
 - Commit with focused messages. Let the pre-commit hook run; do not `--no-verify`.
-- `git push -u origin HEAD`, then `gh pr create` (add `--draft` per above).
-- If `gh` is missing or unauthenticated, keep the pushed branch, put the PR
-  body in `artifacts/pr-body.md`, and end your final message with the branch
-  name and the GitHub compare URL. Do not claim a PR exists.
+- `git push -u origin HEAD`, then open the PR with `gh pr create` or, where
+  `gh` is unavailable (cloud sessions), the GitHub MCP `create_pull_request`
+  tool (draft per above). Fill in `.github/pull_request_template.md`.
+- If neither works, keep the pushed branch, put the PR body in
+  `artifacts/pr-body.md`, and end your final message with the branch name and
+  the GitHub compare URL. Do not claim a PR exists.
 - PR body sections: **Summary**, **Verification** (commands run + result, and for
-  gameplay work: what the probe launched, which keys/flags, what the screenshots
-  showed), **Review pass** (`pr-review`'s findings verbatim or linked from
-  `artifacts/pr-review.md`, plus `fix-pr-findings`' full fixed/hollered/skipped
+  gameplay work: each probe command verbatim, what it asserted, what the
+  screenshots showed, and which [modes](../../../docs/VERIFICATION.md#modes-touched)
+  were checked or deliberately not), **Review pass** (`pr-review`'s findings verbatim, since the
+  `artifacts/` copy is not tracked, plus `fix-pr-findings`' full fixed/hollered/skipped
   breakdown), **Skipped / needs a human** (every **Holler** and **Skip** item
   from `fix-pr-findings`, named individually — never collapsed to "nothing to
   fix" if anything was hollered or skipped).
 - Screenshots under `artifacts/` are gitignored; describe them in text. CI's
   sticky comment attaches the smoke image.
-- After opening, use `gh pr checks` to read CI once. If `verify` failed in CI,
+- After opening, read CI once (`gh pr checks`, or the GitHub MCP check-run tools). If `verify` failed in CI,
   fix and push; do not merge and do not enable auto-merge.
 - **Final chat message to the user** (separate from the PR body, which they
   may not open) must include: the `pr-review` verdict and finding count (or
@@ -66,6 +70,6 @@ exact output. A draft with an honest failure beats a green-looking PR.
   needs a human." Never let this collapse to just the PR link; the point is
   the user sees what was deferred without needing to click through.
 
-Done means the PR URL exists, its body has all four sections, `artifacts/pr-review.md`
-records the review pass, the final chat message names every deferred/hollered/
+Done means the PR URL exists, its body has all four sections with the review
+findings reproduced in it, the final chat message names every deferred/hollered/
 skipped finding, and the last `npm run verify` exit 0 was observed in this session.

@@ -13,7 +13,7 @@ Current shape of Dot-Man. Keep this document short and truthful — update it wh
 
 ```text
 src/
-  main.ts                     # Phaser.Game bootstrap only
+  main.ts                     # Phaser.Game bootstrap + agent-port debug snapshot (window.__PAC_ROGUE_DEBUG__)
   styles.css                  # Page chrome around the canvas
   domain/                     # Pure helpers (no Phaser, no bitecs world APIs)
     clamp.ts
@@ -116,6 +116,7 @@ src/
       playerCell.ts           # player's current maze cell (store slot/exit lookup)
       playerSlide.ts          # store exit: move the player straight out a tunnel (no wrap)
       render.ts               # sprites + rounded wall stroke; preloadPlayArt
+      worldSnapshot.ts        # read-only world → JSON for the agent debug snapshot (probe expect/waitFor)
     scenes/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
@@ -140,6 +141,7 @@ docs/
 - Agents: `npm run dev:agent` → 5174, preview/visual → 4174
 - Agents may kill/restart only their ports.
 - Agent ports disable audio unless `?sound=1` (`src/domain/soundFlag.ts` → `gameConfig.audio.noAudio`).
+- Agent ports expose a read-only `window.__PAC_ROGUE_DEBUG__.snapshot()` (`src/main.ts` → `PlayScene.debugSnapshot()` + `worldSnapshot`) for `npm run probe` assertions; see [VERIFICATION.md](./VERIFICATION.md#game-state-snapshot).
 
 ## Scenes
 
