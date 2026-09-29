@@ -77,7 +77,7 @@ export const TELEGRAPH_FLASH_MS = 400;
 
 export const CORRUPTION_MIN_LEVEL = 4;
 
-export const SLIME_TRAIL_MAX_LEN = 7;
+export const SLIME_TRAIL_MAX_LEN = 10;
 
 export const PELLET_DROPPER_COUNT = 3;
 export const PELLET_DROPPER_INTERVAL_MS = 10_000;
