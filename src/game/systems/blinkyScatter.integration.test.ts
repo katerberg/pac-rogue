@@ -171,7 +171,7 @@ describe("blinky chase start integration", () => {
     expect(mode.mode).toBe(GHOST_AI_MODE.chase);
   });
 
-  it("enters arcade scatter after the opening chase window on level 2+", () => {
+  it("opens with scatter, then chases after 7s on level 2", () => {
     const { world, ghost } = spawnActors();
 
     const levelIndex = 2;
@@ -180,9 +180,9 @@ describe("blinky chase start integration", () => {
     const pelletsRemaining = 244;
     const dt = 16;
 
-    let exited = false;
     let framesAfterExit = 0;
-    let sawScatter = false;
+    let openedInScatter = false;
+    let chaseAfterOpening = false;
 
     for (let i = 0; i < 2500; i += 1) {
       const stepped = tickPipeline(world, release, mode, pelletsRemaining, dt, levelIndex);
@@ -190,20 +190,19 @@ describe("blinky chase start integration", () => {
       mode = stepped.mode;
 
       if ((GhostPhase.value[ghost] ?? 0) === GHOST_PHASE.active) {
-        if (!exited) {
-          exited = true;
-        }
         framesAfterExit += 1;
-        if (framesAfterExit > Math.floor(20_000 / dt) && mode.mode === GHOST_AI_MODE.scatter) {
-          sawScatter = true;
+        if (framesAfterExit === 2) {
+          openedInScatter = mode.mode === GHOST_AI_MODE.scatter;
+        }
+        if (framesAfterExit > Math.ceil(7_000 / dt) + 2 && mode.mode === GHOST_AI_MODE.chase) {
+          chaseAfterOpening = true;
           break;
         }
       }
     }
 
-    expect(exited).toBe(true);
-    expect(sawScatter).toBe(true);
-    expect(mode.mode).toBe(GHOST_AI_MODE.scatter);
+    expect(openedInScatter).toBe(true);
+    expect(chaseAfterOpening).toBe(true);
   });
 
   it("leaves through the middle door and never re-enters the house", () => {

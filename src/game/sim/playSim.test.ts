@@ -1,7 +1,7 @@
 import { query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "../../domain/ghostKind";
-import { getActiveLayout, cellCenterX, cellCenterY } from "../../domain/maze";
+import { getActiveLayout, cellCenterX, cellCenterY, horizontalTunnelRows } from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { parseStoreSlots } from "../../domain/store";
@@ -10,6 +10,7 @@ import { Ghost } from "../components/Ghost";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { Speed } from "../components/Speed";
 import { PlaySim } from "./playSim";
 import type { SimEvent } from "./simEvents";
 import { held, runFrames, runUntil } from "./simTesting";
@@ -43,6 +44,19 @@ function count(events: SimEvent[], type: SimEvent["type"]): number {
 }
 
 describe("PlaySim", () => {
+  it.each([1, 2, 5])(
+    "slows ghosts to half of Maze-Man's speed in the tunnel on level %i",
+    (level) => {
+      const sim = startSim({ level, maze: "maze1" });
+      const ghost = query(sim.world, [Ghost, Position])[0]!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      Position.x[ghost] = cellCenterX(0);
+      Position.y[ghost] = cellCenterY(horizontalTunnelRows()[0]!);
+      runFrames(sim, 1);
+      expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(0.5);
+    },
+  );
+
   it("collects pellets while the player moves", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
     const events = runFrames(sim, 60, { keys: held("left") });
@@ -211,5 +225,19 @@ describe("PlaySim", () => {
       runFrames(sim, 30, { keys: held("up") });
       expect(inHouse(sim, "clyde")).toBe(false);
     });
+  });
+
+  it("opens later levels in scatter, then switches to chase after the arcade scatter", () => {
+    const sim = startSim(
+      { level: 5, infiniteLives: true, ghosts: [GHOST_KIND.blinky] },
+      "scatter-open",
+    );
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    runUntil(sim, () => sim.snapshot().ghosts.some((g) => g.phase === "active"), 1200, {
+      keys: held("left"),
+    });
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    runFrames(sim, Math.ceil(5.5 * 60), { keys: held("left") });
+    expect(sim.snapshot().ghostMode).toBe("chase");
   });
 });

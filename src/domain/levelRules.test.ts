@@ -4,7 +4,6 @@ import { GHOST_AI_MODE } from "./ghostMode";
 import {
   ghostBaseSpeedRatio,
   ghostKindsForLevel,
-  ghostModeStartWaveIndex,
   ghostModeWavesForLevel,
   isInvertedMazeLevel,
   MAX_LEVEL,
@@ -104,22 +103,34 @@ describe("ghostModeWavesForLevel", () => {
       mode: GHOST_AI_MODE.chase,
       durationMs: Number.POSITIVE_INFINITY,
     });
-    expect(ghostModeStartWaveIndex(1)).toBe(0);
   });
 
-  it("uses arcade chase-first table on level 2+", () => {
+  it("opens with scatter and only a 5s third scatter on levels 2-4", () => {
     const waves = ghostModeWavesForLevel(2);
-    expect(waves[0]).toEqual({ mode: GHOST_AI_MODE.scatter, durationMs: 7_000 });
-    expect(waves[1]).toEqual({ mode: GHOST_AI_MODE.chase, durationMs: 20_000 });
-    expect(waves[waves.length - 1]?.durationMs).toBe(Number.POSITIVE_INFINITY);
-    expect(ghostModeStartWaveIndex(2)).toBe(1);
-    expect(ghostModeWavesForLevel(5)).toEqual(waves);
-    expect(ghostModeWavesForLevel(5)).toBe(ghostModeWavesForLevel(2));
+    expect(waves.map((w) => w.durationMs)).toEqual([
+      7_000,
+      20_000,
+      7_000,
+      20_000,
+      5_000,
+      Number.POSITIVE_INFINITY,
+    ]);
+    expect(waves.map((w) => w.mode)).toEqual([0, 1, 0, 1, 0, 1]);
+    expect(ghostModeWavesForLevel(4)).toBe(waves);
+  });
+
+  it("uses 5s scatters from level 5 on", () => {
+    const waves = ghostModeWavesForLevel(5);
+    expect(waves.filter((w) => w.mode === GHOST_AI_MODE.scatter)).toEqual([
+      { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
+      { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
+      { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
+    ]);
+    expect(ghostModeWavesForLevel(9)).toBe(waves);
   });
 
   it("clamps below 1 to level 1 schedule", () => {
     expect(ghostModeWavesForLevel(0)).toEqual(ghostModeWavesForLevel(1));
-    expect(ghostModeStartWaveIndex(-2)).toBe(0);
   });
 });
 

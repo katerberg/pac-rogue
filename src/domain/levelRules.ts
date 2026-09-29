@@ -7,16 +7,19 @@ const CHASE_ONLY_WAVES: readonly GhostModeWave[] = [
   { mode: 1, durationMs: Number.POSITIVE_INFINITY },
 ];
 
-const ARCADE_WAVES: readonly GhostModeWave[] = [
-  { mode: 0, durationMs: 7_000 },
-  { mode: 1, durationMs: 20_000 },
-  { mode: 0, durationMs: 7_000 },
-  { mode: 1, durationMs: 20_000 },
-  { mode: 0, durationMs: 5_000 },
-  { mode: 1, durationMs: 20_000 },
-  { mode: 0, durationMs: 5_000 },
-  { mode: 1, durationMs: Number.POSITIVE_INFINITY },
-];
+function arcadeWaves(openingScatterMs: number, laterScatterMs: number): readonly GhostModeWave[] {
+  return [
+    { mode: 0, durationMs: openingScatterMs },
+    { mode: 1, durationMs: 20_000 },
+    { mode: 0, durationMs: openingScatterMs },
+    { mode: 1, durationMs: 20_000 },
+    { mode: 0, durationMs: laterScatterMs },
+    { mode: 1, durationMs: Number.POSITIVE_INFINITY },
+  ];
+}
+
+const LEVEL_2_TO_4_WAVES = arcadeWaves(7_000, 5_000);
+const LEVEL_5_PLUS_WAVES = arcadeWaves(5_000, 5_000);
 
 export function offersUpgradeAfterLevel(levelIndex: number): boolean {
   return levelIndex > 1 && levelIndex < MAX_LEVEL;
@@ -50,12 +53,10 @@ export function ghostKindsForLevel(
 
 export function ghostModeWavesForLevel(levelIndex: number): readonly GhostModeWave[] {
   const level = Math.max(1, levelIndex);
-  return level <= 1 ? CHASE_ONLY_WAVES : ARCADE_WAVES;
-}
-
-export function ghostModeStartWaveIndex(levelIndex: number): number {
-  const level = Math.max(1, levelIndex);
-  return level <= 1 ? 0 : 1;
+  if (level <= 1) {
+    return CHASE_ONLY_WAVES;
+  }
+  return level <= 4 ? LEVEL_2_TO_4_WAVES : LEVEL_5_PLUS_WAVES;
 }
 
 export function isInvertedMazeLevel(levelIndex: number): boolean {
