@@ -245,6 +245,7 @@ A violation of these is a failed architecture check:
 - Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
 - Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse. `movement` updates `Facing`, `Velocity`, and `Position` in normal play; `forceGhostReverse` also sets both `Facing` and `Input` on scatter↔chase boundaries (and that frame skips `ghostAi` so the reverse is not overwritten).
 - Scenes wire the world, spawn entities, and run the pipeline — **no movement or AI rules in the scene** beyond calling systems and domain clocks.
+- A fix or feature that changes a decision in `src/game/scenes/**` or the `render.ts` / `playerInput.ts` bridges extracts that decision into a pure function (`src/domain/**` or a Phaser-free system) with a unit test in the same PR; the scene keeps only the call. See [VERIFICATION.md](./VERIFICATION.md#scene-and-render-logic).
 - Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; wall Graphics stroke rounded outlines from domain path commands.
 - One local GameObject map inside the render bridge is enough — do not build a sync framework.
 - Do not invent Entity/Component/System manager classes around bitecs.

@@ -16,6 +16,7 @@ Rules:
 - Do not create god objects or global mutable state.
 - Separate game/domain logic from Phaser presentation where practical (`src/domain` vs `src/game`).
 - Gameplay logic goes in **systems**. Scenes only wire the world, spawn entities, and run the pipeline — do not put movement (or other simulation) rules in the scene.
+- When a fix or feature changes a decision in a scene or `render.ts`, move that decision into a pure, unit-tested function in the same PR, with a test that fails without the change (see docs/VERIFICATION.md#scene-and-render-logic).
 - All randomness goes through a named `RunRandom` stream (`src/domain/runRandom.ts`) so `?seed=` replays the run; never call `Math.random` or Phaser's RNG directly (ESLint enforces this).
 - Keep `npm run check:ecs` green. Do not bypass ECS layer boundaries (see `docs/ARCHITECTURE.md`).
 - Use agent ports only (`npm run dev:agent` / preview+visual on 5174/4174). Never bind to or kill human ports 5173/4173.

@@ -161,13 +161,25 @@ Not covered by the seed (not randomness): real frame timing (`delta`), which mov
 
 ESLint bans `Math.random`, `crypto.getRandomValues` / `randomUUID`, Phaser's RNG and array randomizers, and Phaser camera `shake` (it calls `Math.random` internally) everywhere in `src/` except `runRandom.ts`. **New randomness must add a `RandomStream` name and draw from it**, never bypass the rule.
 
+## Scene and render logic
+
+`PlayScene`, `LearnScene`, the modals/overlays and the `render.ts` / `playerInput.ts` bridges have no unit tests, and several shipped bugs lived there: #116 (Store diagonal gating inline in `tickStore`) and #114 (the wall-colour redraw check in `render.ts`). Until the scene pipeline is refactored into something testable, apply this rule:
+
+- **When a fix or feature changes a decision** in those files (a condition, gate, threshold, selection or state transition that decides what happens or what gets drawn), move that decision into a pure function in `src/domain/**` or a Phaser-free system, and leave only the call in the scene.
+- **Add a unit test that fails without the change.** For a bug fix, check it fails against the old logic before applying the fix, and say so in the PR.
+- **Only the decision you touch.** Don't refactor neighbouring scene code in the same PR (AGENTS.md: keep changes focused).
+- **Exempt:** pure wiring and presentation plumbing (creating GameObjects, tweens, depths, text layout, colour and size constants) and one-line pass-throughs to an already-tested function.
+
+The live check still applies: the unit test covers the decision, and the probe covers that the scene calls it in every mode touched.
+
 ## What each change class requires
 
-| Change type                        | Verification level                  | Minimum bar                                                                                                |
-| ---------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Tooling / docs / pure domain logic | `verify`                            | `npm run verify`                                                                                           |
-| Phaser presentation / gameplay     | `verify` + live check               | `npm run verify` **and** [live check](#live-check) (asserted probe + read screenshots, every mode touched) |
-| Anything touching boot/canvas path | `verify` + inspect smoke screenshot | Confirm `artifacts/visual-smoke.png`                                                                       |
+| Change type                             | Verification level                          | Minimum bar                                                                                                       |
+| --------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Tooling / docs / pure domain logic      | `verify`                                    | `npm run verify`                                                                                                  |
+| Phaser presentation / gameplay          | `verify` + live check                       | `npm run verify` **and** [live check](#live-check) (asserted probe + read screenshots, every mode touched)        |
+| Decision logic in a scene / `render.ts` | `verify` + live check + extracted unit test | as above **and** the decision moved to a pure tested function ([Scene and render logic](#scene-and-render-logic)) |
+| Anything touching boot/canvas path      | `verify` + inspect smoke screenshot         | Confirm `artifacts/visual-smoke.png`                                                                              |
 
 Choose the level **before** coding. If the change spans classes, use the stricter level.
 

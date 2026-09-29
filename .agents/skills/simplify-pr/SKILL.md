@@ -70,7 +70,10 @@ rules in scenes, Phaser GameObjects as position source of truth.
 
 1. Gather the scoped diff and skim Architecture / AGENTS constraints.
 2. For each changed file, apply the smell lenses. Trace call sites for new
-   helpers/classes — one consumer usually means inline or delete.
+   helpers/classes — one consumer usually means inline or delete. **Exception:** a
+   pure, unit-tested function extracted from a scene / `render.ts` decision under
+   the [scene-logic rule](../../../docs/VERIFICATION.md#scene-and-render-logic) stays
+   extracted even with one caller; do not inline it back into the scene.
 3. Rank findings by **simplification value** (bytes/concepts removed, fewer
    types/layers, clearer ownership).
 4. **Apply** every actionable in-scope finding (remove / simplify /

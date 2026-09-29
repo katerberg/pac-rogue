@@ -63,7 +63,9 @@ refactor to feel clean → **Holler**, do not implement a half-measure.
 
 ### Holler triggers (do not fix; call out loudly)
 
-- New abstraction / indirection for a single call site
+- New abstraction / indirection for a single call site (not a pure, tested
+  function extracted from a scene / `render.ts` decision; the
+  [scene-logic rule](../../../docs/VERIFICATION.md#scene-and-render-logic) requires those)
 - Cross-cutting renames, file splits, or “while we’re here” refactors
 - Behavior or product-taste changes with more than one reasonable answer
 - Test or architecture rewrites that dwarf the original change
