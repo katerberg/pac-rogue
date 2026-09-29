@@ -14,6 +14,7 @@ import {
 } from "../../domain/fruit";
 import {
   createGhostModeClock,
+  GHOST_AI_MODE,
   resolveGhostModeStep,
   startGhostModeClock,
   type GhostAiMode,
@@ -246,6 +247,7 @@ import {
 } from "../systems/tunnelDash";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
+import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import {
   createRender,
   preloadPlayArt,
@@ -1019,6 +1021,37 @@ export class PlayScene extends Phaser.Scene {
 
   public currentMusicId(): SfxId {
     return this.store !== null ? "storeMusic" : "gameplayMusic";
+  }
+
+  public debugSnapshot() {
+    const upgrades = this.runUpgrades;
+    return {
+      level: this.levelIndex,
+      layout: getActiveLayout().id,
+      lives: this.lives,
+      quarters: this.quarters,
+      timeRemaining: this.clock.remaining,
+      boardCollected: this.pelletProgress.boardCollected,
+      pelletsRemaining: this.pelletProgress.pelletsRemaining,
+      ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
+      upgrades: upgrades.owned,
+      timers: {
+        freezeMs: upgrades.freezeRemainingMs,
+        scatterBurstMs: upgrades.scatterBurstRemainingMs,
+        wallPassMs: upgrades.wallPassRemainingMs,
+        invulnMs: upgrades.invulnRemainingMs,
+        speedBurstMs: upgrades.speedBurstRemainingMs,
+      },
+      startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
+      inputSuppressed: this.suppressPlayerInputUntilKeyRelease,
+      dying: this.death !== null,
+      upgradeModalOpen: this.upgradeChoiceModal.isActive(),
+      levelTransition: this.levelTransitionRemainingMs > 0,
+      inStore: this.store !== null,
+      boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
+      corruption: this.runCorruption.type,
+      ...worldSnapshot(this.world),
+    };
   }
 
   private pauseForMenu(): void {

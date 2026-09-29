@@ -21,7 +21,7 @@ Rules:
 - Agent ports mute sound by default. Opt in with `?sound=1` only when testing audio (see README Flags).
 - Do not bypass, weaken, or delete verification.
 - After implementation: run the appropriate checks → inspect failures → fix → rerun until green.
-- Gameplay and presentation changes require runtime/visual verification (launch → exercise changed behavior → inspect screenshot/live output → record what was verified).
+- Gameplay and presentation changes require a live check (`npm run probe`; see docs/VERIFICATION.md#live-check): assert behavior with `expect:`/`waitFor:` against the game-state snapshot, read the screenshots for visuals, cover every mode the diff touches, and record the commands and results.
 - Never assume visual correctness. Never claim visual verification without actually performing it.
 - Never declare unverified work done. UNVERIFIED IS NOT PASS.
 - Leave the repository runnable.

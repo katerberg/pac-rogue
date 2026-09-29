@@ -25,6 +25,7 @@ npx playwright install chromium
 | `npm run lint`             | ESLint                                          |
 | `npm run format`           | Prettier write                                  |
 | `npm run visual`           | Headless canvas smoke on agent preview port     |
+| `npm run probe`            | Scripted live check with state asserts (:5174)  |
 | `npm run check:ecs`        | ECS layer boundaries (also part of `verify`)    |
 | `npm run verify:precommit` | Fast gate — typecheck, lint, format, ECS, tests |
 | `npm run verify`           | **Canonical gate** — precommit + build + visual |

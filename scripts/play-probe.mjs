@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { chromium } from "playwright";
+import { checkCondition, parseCondition } from "./lib/probeCondition.mjs";
 import {
   chromiumLaunchOptions,
   isUp,
@@ -14,6 +15,8 @@ import {
 } from "./lib/server.mjs";
 
 const outDir = join(root, "artifacts");
+const WAIT_FOR_DEFAULT_MS = 10_000;
+const WAIT_FOR_POLL_MS = 50;
 
 const USAGE = `Usage: node scripts/play-probe.mjs --query "<url query>" --steps "<steps>" [--name <prefix>]
 
@@ -30,10 +33,21 @@ Steps (comma-separated):
   shot:<label>           screenshot to artifacts/<name>-<label>.png
   scene:<SceneKey>       fail unless that scene is active (MenuScene, PlayScene, ...)
   sound:<key>:<yes|no>   fail unless that sound's isPlaying() matches (e.g. menu-music, gameplay-music)
+  expect:<cond>          fail unless the game-state condition holds right now
+  waitFor:<cond>[:<ms>]  poll until the condition holds (default timeout ${WAIT_FOR_DEFAULT_MS}ms), else fail
+  dump:<label>           write the game-state snapshot to artifacts/<name>-<label>.json
+
+Conditions read window.__PAC_ROGUE_DEBUG__.snapshot() (agent ports only):
+  <path><op><value>, op one of == != < <= > >=, value a number, true/false/null or bare string.
+  Paths are dotted, with array indexes and .length: play.lives==3, play.player.col<10,
+  play.ghosts.length==4, play.ghosts.0.phase==active, play.inStore==true, scenes.PlayScene==running.
+  Fields: see docs/VERIFICATION.md#game-state-snapshot. On any failure the probe writes
+  artifacts/<name>-failure.json and artifacts/<name>-failure.png.
 
 Example:
-  node scripts/play-probe.mjs --query "play=1&maze=mazeSmall" \\
-    --steps "wait:500,shot:start,hold:ArrowLeft:1500,shot:moved,scene:PlayScene" --name left`;
+  node scripts/play-probe.mjs --query "play=1&level=2&maze=maze1" \\
+    --steps "waitFor:scenes.PlayScene==running,dump:start,hold:ArrowLeft:600,expect:play.player.facing==left,shot:moved" --name left
+  (Level 1 opens a starting-upgrade card first; see docs/VERIFICATION.md#recipe.)`;
 
 function readArgs() {
   const { values } = parseArgs({
@@ -49,6 +63,24 @@ function readArgs() {
     process.exit(0);
   }
   return values;
+}
+
+async function readSnapshot(page) {
+  const snapshot = await page.evaluate(() => globalThis.__PAC_ROGUE_DEBUG__?.snapshot() ?? null);
+  if (snapshot === null) {
+    throw new Error("window.__PAC_ROGUE_DEBUG__ is missing (only exposed on agent ports)");
+  }
+  return snapshot;
+}
+
+async function waitForCondition(page, condition, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let result = checkCondition(await readSnapshot(page), condition);
+  while (!result.ok && Date.now() < deadline) {
+    await sleep(WAIT_FOR_POLL_MS);
+    result = checkCondition(await readSnapshot(page), condition);
+  }
+  return result;
 }
 
 async function runStep(page, canvas, step, name) {
@@ -134,8 +166,55 @@ async function runStep(page, canvas, step, name) {
       console.log(`sound ${a} playing=${playing}`);
       break;
     }
+    case "expect": {
+      const condition = parseCondition(a);
+      const { ok, actual } = checkCondition(await readSnapshot(page), condition);
+      if (!ok) {
+        throw new Error(
+          `expect ${condition.text} failed: ${condition.path} is ${JSON.stringify(actual)}`,
+        );
+      }
+      console.log(`expect ${condition.text} ok`);
+      break;
+    }
+    case "waitFor": {
+      const condition = parseCondition(a);
+      const timeoutMs = b === undefined ? WAIT_FOR_DEFAULT_MS : Number(b);
+      if (!Number.isFinite(timeoutMs)) {
+        throw new Error(`Bad waitFor timeout "${b}"`);
+      }
+      const { ok, actual } = await waitForCondition(page, condition, timeoutMs);
+      if (!ok) {
+        throw new Error(
+          `waitFor ${condition.text} timed out after ${timeoutMs}ms: ${condition.path} is ${JSON.stringify(actual)}`,
+        );
+      }
+      console.log(`waitFor ${condition.text} ok`);
+      break;
+    }
+    case "dump": {
+      const path = join(outDir, `${name}-${a}.json`);
+      writeFileSync(path, `${JSON.stringify(await readSnapshot(page), null, 2)}\n`);
+      console.log(`dump ${path}`);
+      break;
+    }
     default:
       throw new Error(`Unknown step: ${step}`);
+  }
+}
+
+async function saveFailureEvidence(page, canvas, name) {
+  try {
+    await canvas.screenshot({ path: join(outDir, `${name}-failure.png`) });
+    writeFileSync(
+      join(outDir, `${name}-failure.json`),
+      `${JSON.stringify(await readSnapshot(page), null, 2)}\n`,
+    );
+    console.error(
+      `failure evidence: artifacts/${name}-failure.png, artifacts/${name}-failure.json`,
+    );
+  } catch (error) {
+    console.error(`could not save failure evidence: ${error.message}`);
   }
 }
 
@@ -171,7 +250,12 @@ async function main() {
     const canvas = page.locator("canvas").first();
 
     for (const step of steps.split(",")) {
-      await runStep(page, canvas, step.trim(), name);
+      try {
+        await runStep(page, canvas, step.trim(), name);
+      } catch (error) {
+        await saveFailureEvidence(page, canvas, name);
+        throw new Error(`Step "${step.trim()}" failed: ${error.message}`);
+      }
     }
 
     if (problems.length > 0) {

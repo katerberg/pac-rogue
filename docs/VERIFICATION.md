@@ -21,22 +21,7 @@ Repeat fix → rerun until green. A single failed gate means the task is not com
 
 ### Gameplay / presentation / canvas
 
-In addition to the automated gate:
-
-1. **Launch** with `npm run dev:agent` → `http://127.0.0.1:5174` (humans: `npm run dev` on 5173).
-2. **Exercise the changed behavior** as a player would for the change under test.
-3. **Inspect** a screenshot or live output (e.g. Read `artifacts/visual-smoke.png`, or capture under `artifacts/`). Actually look at the pixels — do not infer correctness from exit codes.
-4. **Record what was verified** — brief note of what was launched, what was exercised, and what was observed.
-
-### Headless live check (cloud / no browser pane)
-
-`npm run probe` drives the game on the agent dev port with real Playwright keyboard (and `click:<x>:<y>` mouse) input, saves canvas screenshots to `artifacts/<name>-<label>.png`, and fails on page errors or `console.error`. It starts `vite` on 5174 itself if nothing is listening. Run `npm run probe -- --help` for the step syntax.
-
-```bash
-npm run probe -- --query "play=1&maze=mazeSmall" --steps "wait:600,shot:start,hold:ArrowLeft:1500,shot:moved,scene:PlayScene" --name left
-```
-
-Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `enableUpgrade`). Then **Read each screenshot** and record what you saw. This satisfies the steps above wherever no interactive browser is available.
+In addition to the automated gate, do a [live check](#live-check): launch the game, drive the changed behavior, **assert** the resulting game state, **look at** the screenshots, and record what you checked and saw.
 
 ### Never
 
@@ -44,6 +29,8 @@ Use URL flags from the README to reach the state under test (`level`, `maze`, `q
 - Declare unverified work done.
 - Skip, weaken, delete, or `--no-verify` around the gate to make a task “pass.”
 - Claim “looks correct” without launching and inspecting.
+- Claim a behavior works because a screenshot "looks like" it moved or changed: assert it with `expect:` / `waitFor:`.
+- Probe only the mode you changed when the diff reaches others (see [Modes touched](#modes-touched)).
 
 ## Canonical command
 
@@ -99,30 +86,85 @@ On agent ports (**5174** / **4174**), audio is disabled (`noAudio`) unless `?sou
 
 Agents must **read that image** (or an equivalent live capture) when claiming visual verification — not merely note that the script exited 0.
 
-### Live inspection (required for gameplay changes)
+## Live check
 
-1. Agents: `npm run dev:agent` → `http://127.0.0.1:5174` (humans use `npm run dev` on 5173).
-2. Interact with the game as a player would for the change under test.
-3. Capture evidence: screenshot under `artifacts/`, or use the environment’s browser/screenshot tools and inspect the pixels.
-4. Record what was verified (behavior exercised + observation).
-5. Never claim “looks correct” without actually launching and inspecting.
+Required for gameplay and presentation changes. `npm run probe` is the default tool everywhere, including cloud sessions with no browser pane. It drives the game on the agent dev port (**5174**, started automatically if nothing is listening) with real Playwright keyboard/mouse input. It fails on page errors or `console.error`. Run `npm run probe -- --help` for the full step syntax.
+
+### Evidence rules
+
+- **Behavior is asserted, not eyeballed.** Every claim about game state (the player moved, a ghost left the house, a life was spent, the store opened, a count changed) needs an `expect:` or `waitFor:` step. "The screenshot shows the player moved" does not count.
+- **Visuals are inspected.** Anything about how something looks (color, tint, fade, layout, text) needs a `shot:` that you then **Read**. Say what you saw.
+- **Wait on state, not time.** Use `waitFor:<cond>` instead of guessed `wait:<ms>` whenever a state change marks the moment (scene up, card closed, ghost released). Keep `wait:`/`hold:` only for "let time pass" and for key holds.
+- **Record** in the PR body the exact probe command(s) you ran, what they asserted, and what the screenshots showed.
+
+### Recipe
+
+```bash
+npm run probe -- --query "play=1&maze=mazeSmall" --name left --steps \
+  "waitFor:play.startingUpgradeCardOpen==true,press:Space,waitFor:play.startingUpgradeCardOpen==false,waitFor:play.inputSuppressed==false,hold:ArrowLeft:600,waitFor:play.player.col<10:3000,expect:play.player.facing==left,expect:play.boardCollected>0,shot:moved"
+```
+
+Level 1 opens a **starting-upgrade card** that swallows the first keypress. After it closes, input is suppressed until every key is released. So always open a level-1 run with `waitFor:play.startingUpgradeCardOpen==true,press:Space,waitFor:play.startingUpgradeCardOpen==false,waitFor:play.inputSuppressed==false`. Levels other than 1, `store=1` and `jumpToUpgrade=1` skip the card.
+
+Levels 2+ build a **random generated board every run** (no seed flag yet), so the spawn surroundings change between runs. For position or movement assertions, pin a fixed layout with `maze=maze1|maze2|mazeSmall` (it applies to the first board at any `level`), or assert only what holds on every board.
+
+Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `store`, `enableUpgrade`, `ghosts`, `forceCorruption`, `bossGhosts`, `infiniteLives`). On any failed step the probe writes `artifacts/<name>-failure.json` (snapshot) and `artifacts/<name>-failure.png`. Read both before changing code.
+
+### Modes touched
+
+`PlayScene` runs separate paths, and a change in shared code (movement, input, render, systems) can reach all of them. Before the live check, list which of these the diff can reach, and probe each one. Anything left unprobed goes under "not checked" in the PR body.
+
+| Mode                         | How to reach it                                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Level 1 board (fixed layout) | `play=1&maze=mazeSmall` (starting-upgrade card)                                                                                 |
+| Generated board (levels 2–8) | `play=1&level=2` (use `level=4+` for corruption)                                                                                |
+| Inverted board (levels 6–7)  | `play=1&level=6`                                                                                                                |
+| Store floor (`tickStore`)    | `play=1&store=1&quarters=10`                                                                                                    |
+| Boss (`tickBoss`, level 9)   | `play=1&level=9` (`bossGhosts=N` for more Blinkys)                                                                              |
+| Level-clear upgrade modal    | `play=1&jumpToUpgrade=1`                                                                                                        |
+| Death / respawn              | `play=1&level=2&infiniteLives=1`, then get caught                                                                               |
+| Pause → Settings → Resume    | `press:Escape`, then `click:` menu rows                                                                                         |
+| LEARN sandbox (`LearnScene`) | menu → Learn (own copy of several systems; snapshot has only `scenes.LearnScene`, so LEARN behavior is screenshot-only for now) |
+
+### Game-state snapshot
+
+On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot()` returns read-only JSON. It is wired in `src/main.ts` from `PlayScene.debugSnapshot()` and `src/game/systems/worldSnapshot.ts`. Human ports and the deployed site do not expose it. Use `dump:<label>` to see a full example.
+
+| Path                                                                                      | Meaning                                                                                   |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `scenes.<Key>`                                                                            | `running` \| `paused` \| `sleeping`; absent when stopped                                  |
+| `play`                                                                                    | `null` unless `PlayScene` is running or paused                                            |
+| `play.level`, `play.layout`                                                               | level index; layout id (`mazeSmall`, `maze1`, `generated`, `store`, …)                    |
+| `play.lives`, `play.quarters`, `play.timeRemaining`                                       | HUD values                                                                                |
+| `play.boardCollected`, `play.pelletsRemaining`                                            | pellet progress                                                                           |
+| `play.pellets`, `play.powerPellets`, `play.bossPellets`, `play.fruit`                     | entities currently on the board (`pellets` excludes power pellets, includes boss pellets) |
+| `play.player.{x,y,col,row,facing}`                                                        | player position (px + maze cell) and facing (`left`, `upLeft`, `none`, …)                 |
+| `play.ghosts.<i>.{eid,kind,phase,col,row,x,y,facing,boss}`                                | each ghost; `phase` is `inHouse` \| `leaving` \| `active`                                 |
+| `play.ghostMode`                                                                          | `scatter` \| `chase`                                                                      |
+| `play.upgrades`, `play.timers.{freezeMs,scatterBurstMs,wallPassMs,invulnMs,speedBurstMs}` | owned upgrade ids; active power-pellet timers                                             |
+| `play.corruption`                                                                         | assigned corruption id, or `null`                                                         |
+| `play.startingUpgradeCardOpen`, `play.inputSuppressed`                                    | level-1 card up; player input held until all keys release                                 |
+| `play.upgradeModalOpen`, `play.levelTransition`, `play.dying`                             | blocking states (the sim is frozen in each)                                               |
+| `play.inStore`, `play.boss.ghostCount`                                                    | store floor; boss Blinky count (`play.boss` is `null` off-boss)                           |
+
+When a check needs state the snapshot lacks, add the field (read-only) in the same PR instead of falling back to reading pixels.
 
 ## What each change class requires
 
-| Change type                        | Verification level                  | Minimum bar                          |
-| ---------------------------------- | ----------------------------------- | ------------------------------------ |
-| Tooling / docs / pure domain logic | `verify`                            | `npm run verify`                     |
-| Phaser presentation / gameplay     | `verify` + live visual              | `npm run verify` **and** live visual |
-| Anything touching boot/canvas path | `verify` + inspect smoke screenshot | Confirm `artifacts/visual-smoke.png` |
+| Change type                        | Verification level                  | Minimum bar                                                                                                |
+| ---------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Tooling / docs / pure domain logic | `verify`                            | `npm run verify`                                                                                           |
+| Phaser presentation / gameplay     | `verify` + live check               | `npm run verify` **and** [live check](#live-check) (asserted probe + read screenshots, every mode touched) |
+| Anything touching boot/canvas path | `verify` + inspect smoke screenshot | Confirm `artifacts/visual-smoke.png`                                                                       |
 
 Choose the level **before** coding. If the change spans classes, use the stricter level.
 
 ## Agent rules
 
 - Read this file and `docs/ARCHITECTURE.md` before substantial changes.
-- Follow `AGENTS.md` and `.agents/skills/verification/SKILL.md`.
+- This file is the source of truth. `AGENTS.md` and `.agents/skills/verification/SKILL.md` point here instead of restating it.
 - Determine verification level before implementation; run → inspect → fix → rerun after.
-- Gameplay changes must keep `check:ecs` green and still require live inspect on **5174**.
+- Gameplay changes must keep `check:ecs` green and still require a [live check](#live-check) on **5174**.
 - Use agent ports only; leave human ports alone.
 - If verification fails, fix it — do not redefine success.
 - If you cannot run visual checks in the environment, say so explicitly and leave the task incomplete.
