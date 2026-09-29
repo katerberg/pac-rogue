@@ -3,7 +3,7 @@ import type { GhostKindId } from "../../domain/ghostKind";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import type { StorePromptView } from "../../domain/store";
 import type { UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
-import type { SfxId } from "../audio/sfx";
+import type { SfxId } from "../../domain/sfxId";
 
 export type SimRenderOptions = {
   frozenGhostEid: number | null;

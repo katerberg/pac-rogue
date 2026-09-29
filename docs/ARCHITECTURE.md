@@ -237,15 +237,15 @@ See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
 
 ## ECS boundary
 
-| Layer                                                      | May import Phaser? | May mutate component arrays?                 | Role                                    |
-| ---------------------------------------------------------- | ------------------ | -------------------------------------------- | --------------------------------------- |
-| `game/components/**`                                       | No                 | Define storage only                          | Data                                    |
-| logic systems (`movement`, `ghostAi`, `collectPellets`, …) | No                 | Yes                                          | Pure simulation                         |
-| `game/systems/playerDirection.ts`                          | No                 | No (reads `Input` only)                      | Pure query helper                       |
-| `game/systems/playerInput.ts`, `render.ts`                 | Yes                | Read keys / drawable sync                    | Bridges                                 |
-| `game/sim/**` (`PlaySim`, `LearnSim`)                      | No                 | Yes; only layer that creates worlds/entities | Run state + pipeline; emits `SimEvent`s |
-| `game/scenes/**`                                           | Yes                | No                                           | Adapters: input in, events applied out  |
-| `domain/**`                                                | No                 | No bitecs world APIs                         | Pure helpers                            |
+| Layer                                                      | May import Phaser? | May mutate component arrays?                         | Role                                    |
+| ---------------------------------------------------------- | ------------------ | ---------------------------------------------------- | --------------------------------------- |
+| `game/components/**`                                       | No                 | Define storage only                                  | Data                                    |
+| logic systems (`movement`, `ghostAi`, `collectPellets`, …) | No                 | Yes                                                  | Pure simulation                         |
+| `game/systems/playerDirection.ts`                          | No                 | No (reads `Input` only)                              | Pure query helper                       |
+| `game/systems/playerInput.ts`, `render.ts`                 | Yes                | Read keys / drawable sync                            | Bridges                                 |
+| `game/sim/**` (`PlaySim`, `LearnSim`)                      | No                 | Yes; only layer that creates worlds/entities         | Run state + pipeline; emits `SimEvent`s |
+| `game/scenes/**`                                           | Yes                | No (ESLint bans `bitecs`, components, logic systems) | Adapters: input in, events applied out  |
+| `domain/**`                                                | No                 | No bitecs world APIs                                 | Pure helpers                            |
 
 `npm run verify` enforces this via ESLint `no-restricted-imports` and `npm run check:ecs`. Docs are not the gate.
 
@@ -255,7 +255,7 @@ A violation of these is a failed architecture check:
 
 - Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
 - Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse. `movement` updates `Facing`, `Velocity`, and `Position` in normal play; `forceGhostReverse` also sets both `Facing` and `Input` on scatter↔chase boundaries (and that frame skips `ghostAi` so the reverse is not overwritten).
-- Scenes are adapters: they read Phaser input into a `SimInput`, call the sim, and apply its `SimEvent`s (sounds, drawing, HUD, modals, banners, storage writes). **No simulation state, systems or world APIs in scenes** (`check:ecs` enforces the world APIs).
+- Scenes are adapters: they read Phaser input into a `SimInput`, call the sim, and apply its `SimEvent`s (sounds, drawing, HUD, modals, banners, storage writes). **No simulation state, systems or world APIs in scenes** (`check:ecs` bans `createWorld`/`addEntity`; ESLint bans `bitecs`, `components/*` and logic-system imports in scenes, and scenes/audio/storage/bridge imports in `sim/`). Scenes read derived state through sim getters, `snapshot()` or `LearnSim.overlayModel()`; only `render.ts` / `playerInput.ts` take the `World`.
 - Gameplay decisions live in `src/game/sim/**`, systems or `src/domain/**`, and are tested headlessly through the sim harness; see [src/game/sim/README.md](../src/game/sim/README.md) and [VERIFICATION.md](./VERIFICATION.md#scene-and-render-logic).
 - Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; wall Graphics stroke rounded outlines from domain path commands.
 - One local GameObject map inside the render bridge is enough — do not build a sync framework.
