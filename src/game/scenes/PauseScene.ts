@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import type { PlayScene } from "./PlayScene";
+import { addSeedLabel } from "./seedLabel";
 import {
   addPixelText,
   MENU_OPTION_FONT_SIZE,
@@ -68,6 +69,8 @@ export class PauseScene extends Phaser.Scene {
       0x000000,
       0.65,
     );
+
+    addSeedLabel(this, (this.scene.get("PlayScene") as PlayScene).runSeed());
 
     const title = addPixelText(this, ROW_CENTER_X, 160, "PAUSED", MENU_TITLE_FONT_SIZE);
     placePixelText(title, ROW_CENTER_X, 160, 0.5, 0.5);

@@ -107,6 +107,7 @@ import {
   type StoreState,
 } from "../../domain/store";
 import { parseStoreFlag } from "../../domain/storeFlag";
+import { createRunRandom, freshSeed, parseSeedParam, type RunRandom } from "../../domain/runRandom";
 import {
   BOSS_PELLET_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
@@ -211,6 +212,7 @@ import {
   stopLoopingSfx,
   type SfxId,
 } from "../audio/sfx";
+import { highScoresDisabled } from "../../domain/runHistory";
 import { saveRun } from "../storage/runHistoryStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
@@ -265,6 +267,7 @@ import {
 } from "./pixelFont";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
+import { addSeedLabel } from "./seedLabel";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 
 const LEVEL_TRANSITION_MS = 1000;
@@ -292,7 +295,7 @@ export class PlayScene extends Phaser.Scene {
   private lifetimeCollected = 0;
   private quarters = 0;
   private levelIndex = 1;
-  private runMazeSeed = "0";
+  private random!: RunRandom;
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
   private ghostsOverride: GhostKindId[] | null = null;
   private bossGhostsOverride: number | null = null;
@@ -306,6 +309,7 @@ export class PlayScene extends Phaser.Scene {
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private disableLevelUpgrades = false;
+  private highScoresDisabled = false;
   private infiniteLives = false;
   private jumpToUpgrade = false;
   private storeFlag = false;
@@ -350,13 +354,20 @@ export class PlayScene extends Phaser.Scene {
     this.pendingLevelClear = false;
     this.runCompleteRemainingMs = 0;
     this.clearLevelBanner();
+
+    const urlParams = new URLSearchParams(location.search);
+    const seedOverride = parseSeedParam(urlParams);
+    if (urlParams.has("seed") && seedOverride === null) {
+      console.warn(`Unknown ?seed= value; expected 1-32 of A-Z a-z 0-9 _ -`);
+    }
+    this.random = createRunRandom(seedOverride ?? freshSeed());
+
     this.upgradeChoiceModal?.destroy();
-    this.upgradeChoiceModal = createUpgradeChoiceModal(this);
+    this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.random.stream("upgradeFx"));
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
     this.closeStore();
 
-    const urlParams = new URLSearchParams(location.search);
     const mazeOverride = parseMazeParam(urlParams);
     if (urlParams.has("maze") && mazeOverride === null) {
       console.warn(`Unknown ?maze= value; expected maze1|maze2|mazeSmall`);
@@ -391,12 +402,13 @@ export class PlayScene extends Phaser.Scene {
     this.storeFlag = parseStoreFlag(urlParams);
     this.levelIndex =
       levelOverride ?? (this.jumpToUpgrade ? 2 : this.storeFlag ? STORE_FIRST_LEVEL : 1);
-    this.midStoreLevel = pickMidStoreLevel(() => Math.random());
-    this.runMazeSeed = String(Math.floor(Math.random() * 0xffffffff));
-    this.secondGhostKind = Math.random() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
+    this.midStoreLevel = pickMidStoreLevel(this.random.stream("midStore"));
+    this.secondGhostKind =
+      this.random.stream("secondGhost")() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
     this.runCorruption = createRunCorruption(forcedCorruption);
 
     this.disableLevelUpgrades = parseDisableLevelUpgradesFlag(urlParams);
+    this.highScoresDisabled = highScoresDisabled(urlParams);
     this.infiniteLives = parseInfiniteLivesFlag(urlParams);
     this.runUpgrades = createRunUpgrades(parseEnableUpgradeParams(urlParams));
     for (const id of this.runUpgrades.owned) {
@@ -439,7 +451,7 @@ export class PlayScene extends Phaser.Scene {
 
     const startingUpgrade =
       this.levelIndex === 1 && !this.jumpToUpgrade && !this.storeFlag
-        ? pickStartingUpgrade(this.runUpgrades.owned, () => Math.random())
+        ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
         : null;
     if (startingUpgrade !== null) {
       this.runUpgrades = grantUpgrade(this.runUpgrades, startingUpgrade);
@@ -470,6 +482,7 @@ export class PlayScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "gameplayMusic");
       stopLoopingSfx(this, "death");
+      this.cameras.main.setScroll(0, 0);
       this.upgradeChoiceModal.destroy();
       this.startingUpgradeCard.destroy();
       this.closeStore();
@@ -839,14 +852,7 @@ export class PlayScene extends Phaser.Scene {
         : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.refreshLivesIcons();
-      if (
-        result.gameOver &&
-        !this.infiniteLives &&
-        !this.disableLevelUpgrades &&
-        !this.jumpToUpgrade &&
-        !this.storeFlag &&
-        this.bossGhostsOverride === null
-      ) {
+      if (result.gameOver && !this.highScoresDisabled) {
         saveRun(this.lifetimeCollected, this.clock.remaining);
       }
       this.death = beginDeathSequence(result.gameOver);
@@ -867,8 +873,10 @@ export class PlayScene extends Phaser.Scene {
     this.spawnWalls();
     this.spawnPlayer();
 
-    this.store = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), this.runUpgrades.owned, () =>
-      Math.random(),
+    this.store = createStoreState(
+      parseStoreSlots(STORE_MAZE_ASCII),
+      this.runUpgrades.owned,
+      this.random.stream("storeStock", this.levelIndex),
     );
     this.storeOverlay = createStoreOverlay(this);
     this.storeOverlay.open(this.store);
@@ -923,7 +931,7 @@ export class PlayScene extends Phaser.Scene {
         quarters: this.quarters,
         owned: this.runUpgrades.owned,
       },
-      () => Math.random(),
+      this.random.stream("storePurchase", this.levelIndex),
     );
     this.store = step.state;
     if (step.purchase !== null) {
@@ -1019,6 +1027,10 @@ export class PlayScene extends Phaser.Scene {
     startLoopingSfx(this, id);
   }
 
+  public runSeed(): string {
+    return this.random.seed;
+  }
+
   public currentMusicId(): SfxId {
     return this.store !== null ? "storeMusic" : "gameplayMusic";
   }
@@ -1026,6 +1038,7 @@ export class PlayScene extends Phaser.Scene {
   public debugSnapshot() {
     const upgrades = this.runUpgrades;
     return {
+      seed: this.random.seed,
       level: this.levelIndex,
       layout: getActiveLayout().id,
       lives: this.lives,
@@ -1046,10 +1059,24 @@ export class PlayScene extends Phaser.Scene {
       inputSuppressed: this.suppressPlayerInputUntilKeyRelease,
       dying: this.death !== null,
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
+      upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
       levelTransition: this.levelTransitionRemainingMs > 0,
+      highScoresDisabled: this.highScoresDisabled,
       inStore: this.store !== null,
+      storeStock:
+        this.store?.slots.map((slot) =>
+          slot.kind === "upgrade"
+            ? slot.id
+            : slot.kind === "swap"
+              ? `swap:${slot.outgoingId}`
+              : "life",
+        ) ?? null,
       boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
       corruption: this.runCorruption.type,
+      corruptionGhost:
+        this.runCorruption.ghostKind === null
+          ? null
+          : nameOf(GHOST_KIND, this.runCorruption.ghostKind),
       ...worldSnapshot(this.world),
     };
   }
@@ -1073,11 +1100,11 @@ export class PlayScene extends Phaser.Scene {
       this.runCorruption = maybeAssignCorruption(
         this.runCorruption,
         this.levelIndex,
-        () => Math.random(),
+        this.random.stream("corruption", this.levelIndex),
         this.ghostsOverride ?? undefined,
       );
     }
-    const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.runMazeSeed);
+    const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
     if (selection.kind === "static") {
       activateLayout(selection.id);
     } else {
@@ -1267,7 +1294,7 @@ export class PlayScene extends Phaser.Scene {
     const offer = pickUpgradeChoiceOffer(
       this.runUpgrades.owned,
       this.runUpgrades.lastDeclinedUpgradeId,
-      () => Math.random(),
+      this.random.stream("upgradeOffer", this.levelIndex),
     );
     this.pendingLevelClear = true;
     this.upgradeChoiceModal.open(offer, (chosen) => {
@@ -1369,7 +1396,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private applyPelletToPowerOnce(): void {
-    const eid = applyPelletToPowerConvert(this.world, () => Math.random());
+    const eid = applyPelletToPowerConvert(
+      this.world,
+      this.random.stream("pelletToPower", this.levelIndex),
+    );
     if (eid === null) {
       return;
     }
@@ -1437,7 +1467,7 @@ export class PlayScene extends Phaser.Scene {
 
   private advanceToNextLevel(): void {
     this.upgradeChoiceModal.destroy();
-    this.upgradeChoiceModal = createUpgradeChoiceModal(this);
+    this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.random.stream("upgradeFx"));
 
     this.levelIndex += 1;
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
@@ -1503,7 +1533,7 @@ export class PlayScene extends Phaser.Scene {
       duration: BOSS_BANNER_SLAM_MS,
       ease: "Cubic.easeIn",
       onComplete: () => {
-        this.cameras.main.shake(BOSS_SHAKE_MS, BOSS_SHAKE_INTENSITY);
+        this.shakeCamera();
         this.tweens.add({
           targets: banner,
           alpha: 0,
@@ -1516,6 +1546,18 @@ export class PlayScene extends Phaser.Scene {
           },
         });
       },
+    });
+  }
+
+  private shakeCamera(): void {
+    const camera = this.cameras.main;
+    const shake = this.random.stream("bossShake");
+    const maxX = BOSS_SHAKE_INTENSITY * camera.width;
+    const maxY = BOSS_SHAKE_INTENSITY * camera.height;
+    this.tweens.addCounter({
+      duration: BOSS_SHAKE_MS,
+      onUpdate: () => camera.setScroll((shake() * 2 - 1) * maxX, (shake() * 2 - 1) * maxY),
+      onComplete: () => camera.setScroll(0, 0),
     });
   }
 
@@ -1599,6 +1641,7 @@ export class PlayScene extends Phaser.Scene {
       HUD_FONT_SIZE,
     ).setDepth(1001);
     placePixelText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
+    addSeedLabel(this, this.random.seed).setDepth(1001);
   }
 
   private resetAfterLifeLoss(): void {
@@ -1827,7 +1870,8 @@ export class PlayScene extends Phaser.Scene {
       inkyScatterTarget(),
       clydeScatterTarget(),
     ];
-    const corner = corners[Math.floor(Math.random() * corners.length)]!;
+    const scatter = this.random.stream("bossScatter", this.levelIndex);
+    const corner = corners[Math.floor(scatter() * corners.length)]!;
     BossGhost.scatterCol[eid] = corner.col;
     BossGhost.scatterRow[eid] = corner.row;
     return eid;

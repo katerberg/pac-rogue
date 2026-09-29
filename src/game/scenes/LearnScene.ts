@@ -1,5 +1,6 @@
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import Phaser from "phaser";
+import { createRunRandom, freshSeed, parseSeedParam, type RunRandom } from "../../domain/runRandom";
 import {
   CORRUPTION_DEFS,
   OUTLINE_TINT_BY_CORRUPTION,
@@ -207,6 +208,7 @@ type UpgradeRow = { id: UpgradeId; checkMark: Phaser.GameObjects.Rectangle };
 
 export class LearnScene extends Phaser.Scene {
   private world!: World;
+  private random!: RunRandom;
   private playRender!: PlayRender;
   private runPlayerInput!: (world: World, opts?: { diagonalAllowed?: boolean }) => void;
   private overlay!: Phaser.GameObjects.Graphics;
@@ -252,7 +254,9 @@ export class LearnScene extends Phaser.Scene {
     this.hiddenGhostEid = null;
     this.flashGhostEid = null;
     this.corruption = createRunCorruption({ type: null, ghostKind: null });
-    const learnAllMode = parseLearnAllMode(new URLSearchParams(location.search));
+    const urlParams = new URLSearchParams(location.search);
+    this.random = createRunRandom(parseSeedParam(urlParams) ?? freshSeed());
+    const learnAllMode = parseLearnAllMode(urlParams);
     this.seen =
       learnAllMode === "all"
         ? allSeenRecord()
@@ -656,7 +660,7 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private applyLearnPelletToPowerOnce(): void {
-    const eid = applyPelletToPowerConvert(this.world, () => Math.random());
+    const eid = applyPelletToPowerConvert(this.world, this.random.stream("pelletToPower"));
     if (eid === null) {
       return;
     }
