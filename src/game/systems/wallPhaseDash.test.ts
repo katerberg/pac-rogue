@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   TELEGRAPH_FLASH_MS,
   WALL_PHASE_CYCLE_MS,
+  WALL_PHASE_PULSE_MS,
+  isCorruptionFlashing,
   createRunCorruption,
 } from "../../domain/corruption";
 import { GHOST_KIND } from "../../domain/ghostKind";
@@ -83,12 +85,25 @@ describe("tickWallPhaseDash", () => {
     expect(Number.isNaN(Ghost.decidedRow[ghost])).toBe(true);
   });
 
-  it("resets the cycle without a target when no orthogonal lunge is available", () => {
+  it("holds the charge without a target and pulses until a lunge becomes available", () => {
     // (6,5) is open on all four sides in classic maze1 — no adjacent wall to lunge through.
-    const { world } = buildWorld(6, 5, 6, 5);
-    const result = tickWallPhaseDash(world, corrupted(), WALL_PHASE_CYCLE_MS);
-    expect(result.wallPhaseCycleMs).toBe(0);
-    expect(result.wallPhasePendingTarget).toBeNull();
+    const { world, ghost, player } = buildWorld(6, 5, 6, 5);
+    const held = tickWallPhaseDash(world, corrupted(), WALL_PHASE_CYCLE_MS);
+    expect(held.wallPhaseCycleMs).toBe(WALL_PHASE_CYCLE_MS);
+    expect(held.wallPhasePendingTarget).toBeNull();
+    expect(isCorruptionFlashing(held)).toBe(true);
+
+    const offBeat = tickWallPhaseDash(world, held, WALL_PHASE_PULSE_MS);
+    expect(offBeat.wallPhasePendingTarget).toBeNull();
+    expect(isCorruptionFlashing(offBeat)).toBe(false);
+
+    Position.x[ghost] = cellCenterX(12);
+    Position.y[ghost] = cellCenterY(2);
+    Position.x[player] = cellCenterX(15);
+    Position.y[player] = cellCenterY(2);
+    const fired = tickWallPhaseDash(world, offBeat, 16);
+    expect(fired.wallPhasePendingTarget).toEqual({ col: 15, row: 2 });
+    expect(fired.wallPhaseCycleMs).toBe(0);
   });
 
   it("does not relocate a ghost that was recalled to the house mid-flash", () => {
