@@ -6,6 +6,7 @@ import { PLAYER_SPEED } from "./playfield";
 export const GHOST_SPEED = PLAYER_SPEED * 0.9375;
 export const GHOST_ELROY1_SPEED = PLAYER_SPEED * 1.0;
 export const GHOST_ELROY2_SPEED = PLAYER_SPEED * (85 / 80);
+export const GHOST_TUNNEL_SPEED = PLAYER_SPEED * 0.5;
 
 export const ELROY_TIER = {
   none: 0,
@@ -31,10 +32,10 @@ export function resolveGhostSpeed(
   inTunnel: boolean,
   levelIndex: number,
 ): number {
-  const baseSpeed = PLAYER_SPEED * ghostBaseSpeedRatio(levelIndex);
   if (inTunnel) {
-    return baseSpeed * 0.5;
+    return GHOST_TUNNEL_SPEED;
   }
+  const baseSpeed = PLAYER_SPEED * ghostBaseSpeedRatio(levelIndex);
   const tier = elroyTier(pelletsRemaining);
   if (tier === ELROY_TIER.elroy2) {
     return GHOST_ELROY2_SPEED;
@@ -48,7 +49,7 @@ export function resolveGhostSpeed(
 export const BOSS_GHOST_SPEED = PLAYER_SPEED;
 
 export function resolveBossGhostSpeed(inTunnel: boolean): number {
-  return inTunnel ? BOSS_GHOST_SPEED * 0.5 : BOSS_GHOST_SPEED;
+  return inTunnel ? GHOST_TUNNEL_SPEED : BOSS_GHOST_SPEED;
 }
 
 export function resolveGhostSpeedForKind(
