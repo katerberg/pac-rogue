@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   appendRun,
   emptyRunHistory,
+  HIGH_SCORE_DISABLING_FLAGS,
+  highScoresDisabled,
   parseRunHistory,
   RUN_HISTORY_MAX_RUNS,
   RUN_HISTORY_VERSION,
@@ -97,5 +99,21 @@ describe("appendRun / serializeRunHistory", () => {
     const parsed = parseRunHistory(JSON.stringify({ version: RUN_HISTORY_VERSION, runs }));
     expect(parsed.runs).toHaveLength(RUN_HISTORY_MAX_RUNS);
     expect(parsed.runs[0]?.collectedCount).toBe(5);
+  });
+});
+
+describe("highScoresDisabled", () => {
+  it("keeps saving for plain runs and non-debug flags", () => {
+    expect(highScoresDisabled(new URLSearchParams())).toBe(false);
+    expect(highScoresDisabled(new URLSearchParams("play=1&sound=1&learnAll=1"))).toBe(false);
+  });
+
+  it.each(HIGH_SCORE_DISABLING_FLAGS)("stops saving when ?%s is present", (flag) => {
+    expect(highScoresDisabled(new URLSearchParams(`play=1&${flag}=x`))).toBe(true);
+  });
+
+  it("stops saving even when the flag's value is ignored as invalid", () => {
+    expect(highScoresDisabled(new URLSearchParams("seed=not%20valid"))).toBe(true);
+    expect(highScoresDisabled(new URLSearchParams("infiniteLives=0"))).toBe(true);
   });
 });

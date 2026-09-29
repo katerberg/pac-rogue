@@ -12,6 +12,26 @@ export type RunHistory = {
   runs: RunRecord[];
 };
 
+export const HIGH_SCORE_DISABLING_FLAGS = [
+  "seed",
+  "maze",
+  "level",
+  "quarters",
+  "enableUpgrade",
+  "disableLevelUpgrades",
+  "infiniteLives",
+  "jumpToUpgrade",
+  "store",
+  "forceCorruption",
+  "forceCorruptionGhost",
+  "ghosts",
+  "bossGhosts",
+] as const;
+
+export function highScoresDisabled(params: URLSearchParams): boolean {
+  return HIGH_SCORE_DISABLING_FLAGS.some((flag) => params.has(flag));
+}
+
 export function emptyRunHistory(): RunHistory {
   return { version: RUN_HISTORY_VERSION, runs: [] };
 }

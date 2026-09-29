@@ -147,6 +147,7 @@ On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot(
 | `play.startingUpgradeCardOpen`, `play.inputSuppressed`                                    | level-1 card up; player input held until all keys release                                 |
 | `play.upgradeModalOpen`, `play.levelTransition`, `play.dying`                             | blocking states (the sim is frozen in each)                                               |
 | `play.upgradeOffer`                                                                       | upgrade ids offered by the open level-clear modal, else `null`                            |
+| `play.highScoresDisabled`                                                                 | a debug flag is in the URL, so Game Over will not save a high score                       |
 | `play.inStore`, `play.boss.ghostCount`                                                    | store floor; boss Blinky count (`play.boss` is `null` off-boss)                           |
 | `play.storeStock`                                                                         | Store tiles in slot order (upgrade id, `swap:<outgoing id>`, `life`), else `null`         |
 

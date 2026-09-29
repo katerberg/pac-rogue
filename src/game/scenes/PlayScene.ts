@@ -212,6 +212,7 @@ import {
   stopLoopingSfx,
   type SfxId,
 } from "../audio/sfx";
+import { highScoresDisabled } from "../../domain/runHistory";
 import { saveRun } from "../storage/runHistoryStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
@@ -307,6 +308,7 @@ export class PlayScene extends Phaser.Scene {
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private disableLevelUpgrades = false;
+  private highScoresDisabled = false;
   private infiniteLives = false;
   private jumpToUpgrade = false;
   private storeFlag = false;
@@ -405,6 +407,7 @@ export class PlayScene extends Phaser.Scene {
     this.runCorruption = createRunCorruption(forcedCorruption);
 
     this.disableLevelUpgrades = parseDisableLevelUpgradesFlag(urlParams);
+    this.highScoresDisabled = highScoresDisabled(urlParams);
     this.infiniteLives = parseInfiniteLivesFlag(urlParams);
     this.runUpgrades = createRunUpgrades(parseEnableUpgradeParams(urlParams));
     for (const id of this.runUpgrades.owned) {
@@ -848,14 +851,7 @@ export class PlayScene extends Phaser.Scene {
         : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.refreshLivesIcons();
-      if (
-        result.gameOver &&
-        !this.infiniteLives &&
-        !this.disableLevelUpgrades &&
-        !this.jumpToUpgrade &&
-        !this.storeFlag &&
-        this.bossGhostsOverride === null
-      ) {
+      if (result.gameOver && !this.highScoresDisabled) {
         saveRun(this.lifetimeCollected, this.clock.remaining);
       }
       this.death = beginDeathSequence(result.gameOver);
@@ -1060,6 +1056,7 @@ export class PlayScene extends Phaser.Scene {
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
       levelTransition: this.levelTransitionRemainingMs > 0,
+      highScoresDisabled: this.highScoresDisabled,
       inStore: this.store !== null,
       storeStock:
         this.store?.slots.map((slot) =>
