@@ -414,12 +414,11 @@ function deriveFruitSpawn(
   }
   const minHouseRow = floors.reduce((min, cell) => Math.min(min, cell.row), floors[0]!.row);
   const maxHouseRow = floors.reduce((max, cell) => Math.max(max, cell.row), floors[0]!.row);
-  // The generated ledge sits on the side of the house away from the door; the side
-  // toward the door is the (walkable) exit corridor, so it must not be tried first or
-  // it shadows the real ledge. An inverted board has the door below the house, so the
-  // ledge is above instead of below.
-  const doorRow = collectCharCells(ascii, cols, rows, (ch) => ch === DOOR_CHAR)[0]?.row;
-  const doorAboveHouse = doorRow === undefined || doorRow < minHouseRow;
+  // The ledge sits on the side away from the door; the door side is the walkable exit
+  // corridor, so probing it first would shadow the real ledge. An inverted board has
+  // the door below the house, flipping which side gets probed first.
+  const doorRow = collectCharCells(ascii, cols, rows, (ch) => ch === DOOR_CHAR)[0]!.row;
+  const doorAboveHouse = doorRow < minHouseRow;
   const dirs = doorAboveHouse ? [1, -1] : [-1, 1];
   for (const dir of dirs) {
     const startRow = dir === 1 ? maxHouseRow + 1 : minHouseRow - 1;

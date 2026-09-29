@@ -292,6 +292,9 @@ describe("mazeGenerate", () => {
       expect(invertMazeAscii(invertMazeAscii(result!.ascii))).toBe(result!.ascii);
     });
 
+    const houseRows = (house: readonly (readonly boolean[])[]): number[] =>
+      house.map((line, row) => (line.some(Boolean) ? row : -1)).filter((row) => row >= 0);
+
     it("moves the player spawn near the top and turns the house door to point down", () => {
       for (const seed of ["invert-a", "invert-b", "invert-c"]) {
         const result = generateMazeAsciiWithRetries(seed);
@@ -321,17 +324,12 @@ describe("mazeGenerate", () => {
           isWalkable(inverted.fruitSpawn.col, inverted.fruitSpawn.row, inverted.playerSolids),
           `seed ${seed}`,
         ).toBe(true);
-        // Baseline: fruit ledge sits below the house. Inverted: it must move with the
-        // flip and land above the house, not fall through to the exit corridor below.
-        const normalHouseRows = normal.house
-          .map((line, row) => (line.some(Boolean) ? row : -1))
-          .filter((row) => row >= 0);
-        expect(normal.fruitSpawn.row, `seed ${seed}`).toBeGreaterThan(Math.max(...normalHouseRows));
-        const invertedHouseRows = inverted.house
-          .map((line, row) => (line.some(Boolean) ? row : -1))
-          .filter((row) => row >= 0);
+        // Fruit ledge flips with the house: below it normally, above it once inverted.
+        expect(normal.fruitSpawn.row, `seed ${seed}`).toBeGreaterThan(
+          Math.max(...houseRows(normal.house)),
+        );
         expect(inverted.fruitSpawn.row, `seed ${seed}`).toBeLessThan(
-          Math.min(...invertedHouseRows),
+          Math.min(...houseRows(inverted.house)),
         );
         expect(findParallelCorridor(inverted.playerSolids), `seed ${seed}`).toBeNull();
       }
