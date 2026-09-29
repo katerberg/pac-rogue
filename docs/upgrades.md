@@ -154,7 +154,7 @@ Diagonal movement itself is not exclusive to wallPass — it is available whenev
 
 ## Speed muls
 
-Written every frame: `applyPlayerSpeed` from `speedLevelMultiplier(levelIndex) × playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` resolves the base/tunnel tiers off `ghostBaseSpeedRatio(levelIndex)` (0.8 at level 1 ramping to 1.0 by level 5, Elroy tiers unaffected), then multiplies by `speedLevelMultiplier(levelIndex) × ghostSpeedMultiplier(owned)`. Boss ghosts (level 9) use a flat `BOSS_GHOST_SPEED` base and skip the level multiplier; `ghostSpeedMultiplier(owned)` still applies.
+Written every frame: `applyPlayerSpeed` from `speedLevelMultiplier(levelIndex) × playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` resolves the base tier off `ghostBaseSpeedRatio(levelIndex)` (tunnel is a flat 0.5× `PLAYER_SPEED`) (0.8 at level 1 ramping to 1.0 by level 5, Elroy tiers unaffected), then multiplies by `speedLevelMultiplier(levelIndex) × ghostSpeedMultiplier(owned)`. Boss ghosts (level 9) use a flat `BOSS_GHOST_SPEED` base and skip the level multiplier; `ghostSpeedMultiplier(owned)` still applies.
 
 ## HUD
 

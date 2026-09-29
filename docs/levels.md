@@ -13,7 +13,7 @@ Store floors (between levels 3→4, 5→6 or 6→7, and 8→9 right before the b
 
 ## Ghost catch-up speed (levels 1-5)
 
-Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostBaseSpeedRatio(levelIndex)` in `levelRules.ts` scales ghost base and tunnel speed to 80% of Maze-Man's base speed on level 1, +5% per level, reaching full parity (100%) by level 5 and staying pinned there through level 8. The level-9 boss Blinkys ignore this ramp (see [docs/bosses.md](./bosses.md)). Blinky's Cruise Elroy tiers are unaffected — they stay fixed multiples of Maze-Man's speed regardless of level.
+Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostBaseSpeedRatio(levelIndex)` in `levelRules.ts` scales ghost base speed to 80% of Maze-Man's base speed on level 1, +5% per level, reaching full parity (100%) by level 5 and staying pinned there through level 8. Ghost tunnel speed is not part of the ramp: it is a constant 50% of Maze-Man's base speed on every level, as in the arcade. The level-9 boss Blinkys ignore this ramp (see [docs/bosses.md](./bosses.md)). Blinky's Cruise Elroy tiers are unaffected — they stay fixed multiples of Maze-Man's speed regardless of level.
 
 ## Inverted maze (levels 6-7)
 
