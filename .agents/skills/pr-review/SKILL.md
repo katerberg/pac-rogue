@@ -44,19 +44,20 @@ opinionated. Every finding must reference a concrete file and line range.
 Work through the diff systematically. For every changed file, evaluate against
 **all** of these lenses, weighting them toward whatever focus the user requested:
 
-| Lens                | What to look for                                                      |
-| ------------------- | --------------------------------------------------------------------- |
-| **Correctness**     | Bugs, off-by-ones, race conditions, unhandled edge cases              |
-| **Security**        | Injection, auth bypasses, secret leakage, unsafe deserialization      |
-| **Scope creep**     | Changes unrelated to the stated PR purpose                            |
-| **Duplication**     | Code that duplicates existing utilities or patterns in the codebase   |
-| **Extraneous code** | Dead code, unused imports, unnecessary abstractions, over-engineering |
-| **Readability**     | Long functions, unclear names, missing types, deeply nested logic     |
-| **Decomposition**   | Hooks, components, or modules that should be broken out               |
-| **Scalability**     | N+1 queries, unbounded loops, missing pagination, memory leaks        |
-| **Maintainability** | Tight coupling, missing error handling, brittle assumptions           |
-| **Tests**           | Missing coverage, brittle assertions, untested edge cases             |
-| **Consistency**     | Deviations from patterns already established in the codebase          |
+| Lens                | What to look for                                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Correctness**     | Bugs, off-by-ones, race conditions, unhandled edge cases                                                                                           |
+| **Security**        | Injection, auth bypasses, secret leakage, unsafe deserialization                                                                                   |
+| **Scope creep**     | Changes unrelated to the stated PR purpose                                                                                                         |
+| **Duplication**     | Code that duplicates existing utilities or patterns in the codebase                                                                                |
+| **Extraneous code** | Dead code, unused imports, unnecessary abstractions, over-engineering                                                                              |
+| **Readability**     | Long functions, unclear names, missing types, deeply nested logic                                                                                  |
+| **Decomposition**   | Hooks, components, or modules that should be broken out                                                                                            |
+| **Scalability**     | N+1 queries, unbounded loops, missing pagination, memory leaks                                                                                     |
+| **Maintainability** | Tight coupling, missing error handling, brittle assumptions                                                                                        |
+| **Tests**           | Missing coverage, brittle assertions, untested edge cases                                                                                          |
+| **Scene logic**     | A changed decision left inline in a scene / `render.ts` instead of a pure tested function (AGENTS.md, docs/VERIFICATION.md#scene-and-render-logic) |
+| **Consistency**     | Deviations from patterns already established in the codebase                                                                                       |
 
 ## Step 3: Output
 

@@ -37,7 +37,7 @@ Exact paths to add/update, or **Docs: none** + one-line reason. Same PR as code 
 
 ## Acceptance tests
 
-Checklist a weaker model can verify (commands, scenarios, assertions). For gameplay/presentation changes include a **live-check recipe**: the exact `npm run probe -- --query "…" --steps "…"` invocation(s) for every [mode the change touches](../../../../docs/VERIFICATION.md#modes-touched), with `expect:`/`waitFor:` assertions for behavior and what each screenshot must show.
+Checklist a weaker model can verify (commands, scenarios, assertions). For gameplay/presentation changes include a **live-check recipe**: the exact `npm run probe -- --query "…" --steps "…"` invocation(s) for every [mode the change touches](../../../../docs/VERIFICATION.md#modes-touched), with `expect:`/`waitFor:` assertions for behavior and what each screenshot must show. If the plan changes a decision in a scene or `render.ts`, name the pure function it moves to and the unit test that fails without the change ([scene-logic rule](../../../../docs/VERIFICATION.md#scene-and-render-logic)).
 
 ## Out of scope
 
