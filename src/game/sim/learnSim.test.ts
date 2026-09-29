@@ -33,4 +33,16 @@ describe("LearnSim", () => {
     expect(after.pellets).toBe(before.pellets - 1);
     expect(events.some((event) => event.type === "bouncePowerPellet")).toBe(true);
   });
+
+  it("exposes the overlay model only while a visible ghost is selected", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    expect(sim.overlayModel()).toBeNull();
+    sim.selectGhost(GHOST_KIND.inky);
+    const model = sim.overlayModel()!;
+    expect(model.kind).toBe(GHOST_KIND.inky);
+    expect(model.blinkyPx).not.toBeNull();
+    expect(model.playerPx).not.toBeNull();
+    expect(Number.isFinite(model.target.col)).toBe(true);
+  });
 });

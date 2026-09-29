@@ -1,15 +1,11 @@
-import { query } from "bitecs";
 import Phaser from "phaser";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
 import {
   CORRUPTION_DEFS,
   OUTLINE_TINT_BY_CORRUPTION,
-  corruptionAiOption,
   type CorruptionId,
 } from "../../domain/corruption";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { GHOST_AI_MODE } from "../../domain/ghostMode";
-import type { GhostDir } from "../../domain/ghostPath";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import {
   GHOST_COLOR_BY_KIND,
@@ -38,15 +34,10 @@ import {
 } from "../../domain/seenRecord";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { getUpgradeDef, UPGRADE_DEFS, type UpgradeId } from "../../domain/upgrades";
-import { Facing } from "../components/Facing";
-import { DIRECTION } from "../components/Input";
-import { Player } from "../components/Player";
-import { Position } from "../components/Position";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
-import { ghostAiContext, resolveGhostTarget } from "../systems/ghostAi";
 import { createHeldKeysReader } from "../systems/playerInput";
 import type { HeldKeys } from "../systems/heldKeys";
-import { LearnSim, NO_ELROY_PELLETS } from "../sim/learnSim";
+import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import {
   createRender,
@@ -440,17 +431,13 @@ export class LearnScene extends Phaser.Scene {
 
   private drawOverlay(deltaMs: number): void {
     this.overlay.clear();
-    const eid = this.sim.ghostEid;
-    const kind = this.sim.selectedKind;
-    if (eid === null || kind === null || eid === this.sim.hiddenGhostEid) {
+    const model = this.sim.overlayModel();
+    if (model === null) {
       return;
     }
+    const { kind, target, ghostPx } = model;
 
     const layout = getActiveLayout();
-    const ctx = ghostAiContext(this.sim.world);
-    const target = resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, {
-      corruption: corruptionAiOption(this.sim.corruption),
-    });
     this.reticlePx = easeToward(
       this.reticlePx,
       { x: cellCenterX(target.col), y: cellCenterY(target.row) },
@@ -468,31 +455,29 @@ export class LearnScene extends Phaser.Scene {
       bottom: layout.offsetY + layout.pixelHeight,
     };
 
-    const playerEid = query(this.sim.world, [Player, Position])[0];
-    const playerPx =
-      playerEid === undefined
-        ? { x: cellCenterX(ctx.player.col), y: cellCenterY(ctx.player.row) }
-        : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 };
+    const playerPx = model.playerPx ?? {
+      x: cellCenterX(model.playerTile.col),
+      y: cellCenterY(model.playerTile.row),
+    };
     const nearPlayer = (tile: GhostTarget): PixelPoint => ({
-      x: playerPx.x + (tile.col - ctx.player.col) * TILE_SIZE,
-      y: playerPx.y + (tile.row - ctx.player.row) * TILE_SIZE,
+      x: playerPx.x + (tile.col - model.playerTile.col) * TILE_SIZE,
+      y: playerPx.y + (tile.row - model.playerTile.row) * TILE_SIZE,
     });
 
     const derivation = targetDerivation(kind, {
-      player: { col: ctx.player.col, row: ctx.player.row },
-      playerFacing: ctx.player.facing,
-      blinky: ctx.blinky,
+      player: { col: model.playerTile.col, row: model.playerTile.row },
+      playerFacing: model.playerTile.facing,
+      blinky: model.blinkyTile,
       target,
     });
     this.overlay.lineStyle(DERIVATION_WIDTH, DERIVATION_COLOR, DERIVATION_ALPHA);
     if (derivation.kind === "segment") {
       this.strokePixelsClipped([playerPx, this.reticlePx], rect);
     } else if (derivation.kind === "inky") {
-      const blinkyEid = this.sim.helperBlinkyEid;
-      const blinkyPx =
-        blinkyEid === null
-          ? { x: cellCenterX(derivation.blinky.col), y: cellCenterY(derivation.blinky.row) }
-          : { x: Position.x[blinkyEid] ?? 0, y: Position.y[blinkyEid] ?? 0 };
+      const blinkyPx = model.blinkyPx ?? {
+        x: cellCenterX(derivation.blinky.col),
+        y: cellCenterY(derivation.blinky.row),
+      };
       const pivotPx = nearPlayer(derivation.pivot);
       this.strokePixelsClipped([blinkyPx, pivotPx, this.reticlePx], rect);
       this.overlay.fillStyle(DERIVATION_COLOR, DERIVATION_ALPHA);
@@ -509,11 +494,10 @@ export class LearnScene extends Phaser.Scene {
       this.strokePixelsClipped(points, rect);
     }
 
-    const ghostPx = { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
     const pathTarget = clampTileToBoard(target, layout.cols, layout.rows);
     const path = predictGhostPath({
       start: { col: worldToCol(ghostPx.x), row: worldToRow(ghostPx.y) },
-      facing: (Facing.direction[eid] ?? DIRECTION.none) as GhostDir,
+      facing: model.ghostFacing,
       target: pathTarget,
     });
     const pathPx = path.map((tile) => ({ x: cellCenterX(tile.col), y: cellCenterY(tile.row) }));

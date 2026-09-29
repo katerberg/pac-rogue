@@ -2,14 +2,9 @@ import type Phaser from "phaser";
 import { categoryForSfx, effectiveVolume, type AudioSettings } from "../../domain/audioSettings";
 import { loadAudioSettings } from "../storage/audioSettingsStorage";
 
-export type SfxId =
-  | "pelletMunch"
-  | "pelletMunch2"
-  | "gameplayMusic"
-  | "menuMusic"
-  | "storeMusic"
-  | "levelComplete"
-  | "death";
+import type { SfxId } from "../../domain/sfxId";
+
+export type { SfxId };
 
 type SfxEntry = {
   key: string;

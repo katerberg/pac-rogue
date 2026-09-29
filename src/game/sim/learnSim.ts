@@ -14,6 +14,7 @@ import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_AI_MODE, type GhostAiMode } from "../../domain/ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
+import type { GhostDir } from "../../domain/ghostPath";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import {
@@ -65,7 +66,12 @@ import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
 import { stepCorruption } from "../systems/corruptionStep";
-import { ghostAi } from "../systems/ghostAi";
+import {
+  ghostAi,
+  ghostAiContext,
+  resolveGhostTarget,
+  type GhostAiContext,
+} from "../systems/ghostAi";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
@@ -82,6 +88,17 @@ import {
 } from "../systems/tunnelDash";
 import type { SimEvent } from "./simEvents";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
+
+export type LearnOverlayModel = {
+  kind: GhostKindId;
+  target: GhostTarget;
+  playerTile: GhostAiContext["player"];
+  blinkyTile: GhostAiContext["blinky"];
+  playerPx: { x: number; y: number } | null;
+  blinkyPx: { x: number; y: number } | null;
+  ghostPx: { x: number; y: number };
+  ghostFacing: GhostDir;
+};
 
 export const NO_ELROY_PELLETS = Number.MAX_SAFE_INTEGER;
 const LEARN_LEVEL = 1;
@@ -127,6 +144,32 @@ export class LearnSim {
 
   get corruption(): RunCorruption {
     return this.runCorruption;
+  }
+
+  overlayModel(): LearnOverlayModel | null {
+    const eid = this.ghost;
+    if (eid === null || this.selected === null || eid === this.hiddenGhost) {
+      return null;
+    }
+    const ctx = ghostAiContext(this.world);
+    const target = resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, {
+      corruption: corruptionAiOption(this.runCorruption),
+    });
+    const playerEid = query(this.world, [Player, Position])[0];
+    const helper = this.helperBlinky;
+    return {
+      kind: this.selected,
+      target,
+      playerTile: ctx.player,
+      blinkyTile: ctx.blinky,
+      playerPx:
+        playerEid === undefined
+          ? null
+          : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 },
+      blinkyPx: helper === null ? null : { x: Position.x[helper] ?? 0, y: Position.y[helper] ?? 0 },
+      ghostPx: { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 },
+      ghostFacing: (Facing.direction[eid] ?? DIRECTION.none) as GhostDir,
+    };
   }
 
   get ownedUpgrades(): readonly UpgradeId[] {
