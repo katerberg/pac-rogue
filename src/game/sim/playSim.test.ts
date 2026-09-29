@@ -78,6 +78,27 @@ describe("PlaySim", () => {
     expect(sim.snapshot().upgrades).toContain(chosen);
   });
 
+  it.each([
+    ["before", 3],
+    ["after", -3],
+  ])("cuts a corner %s the junction center without snapping", (_, offset) => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(7), cy);
+    runUntil(sim, () => Position.x[eid]! <= cx + 8, 60, { keys: held("left") });
+    teleportPlayer(sim, cx + offset, cy);
+    const before = { x: Position.x[eid]!, y: Position.y[eid]! };
+
+    runFrames(sim, 1, { keys: held("up") });
+
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(Position.y[eid]!).toBeLessThan(before.y - 2);
+    expect(Math.abs(Position.x[eid]! - cx)).toBeLessThan(Math.abs(before.x - cx));
+    expect(Math.abs(Position.x[eid]! - cx)).toBeGreaterThan(0);
+  });
+
   it("spends a life when caught and respawns at the spawn point", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
     const spawn = { ...sim.snapshot().player! };
