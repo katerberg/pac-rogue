@@ -128,7 +128,7 @@ Use URL flags from the README to reach the state under test (`level`, `maze`, `q
 
 ### Game-state snapshot
 
-On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot()` returns read-only JSON. It is wired in `src/main.ts` from `PlayScene.debugSnapshot()` and `src/game/systems/worldSnapshot.ts`. Human ports and the deployed site do not expose it. Use `dump:<label>` to see a full example.
+On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot()` returns read-only JSON. It is wired in `src/game/scenes/installDebugHook.ts` from `PlayScene.debugSnapshot()`, which merges `PlaySim.snapshot()` (the same object sim tests assert on) with the scene-only UI fields. Human ports and the deployed site do not expose it. Use `dump:<label>` to see a full example.
 
 | Path                                                                                      | Meaning                                                                                   |
 | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -163,14 +163,26 @@ ESLint bans `Math.random`, `crypto.getRandomValues` / `randomUUID`, Phaser's RNG
 
 ## Scene and render logic
 
-`PlayScene`, `LearnScene`, the modals/overlays and the `render.ts` / `playerInput.ts` bridges have no unit tests, and several shipped bugs lived there: #116 (Store diagonal gating inline in `tickStore`) and #114 (the wall-colour redraw check in `render.ts`). Until the scene pipeline is refactored into something testable, apply this rule:
+The game's simulation runs in headless sims (`src/game/sim/`: `PlaySim`, `LearnSim`); `PlayScene` / `LearnScene` are adapters. The scenes, modals/overlays and the `render.ts` / `playerInput.ts` bridges still have no unit tests, and shipped bugs have lived in that kind of code: #116 (Store diagonal gating) and #114 (the wall-colour redraw check in `render.ts`). Apply this rule:
 
-- **When a fix or feature changes a decision** in those files (a condition, gate, threshold, selection or state transition that decides what happens or what gets drawn), move that decision into a pure function in `src/domain/**` or a Phaser-free system, and leave only the call in the scene.
+- **When a fix or feature changes a decision** (a condition, gate, threshold, selection or state transition that decides what happens or what gets drawn), it belongs in the sim, a Phaser-free system or `src/domain/**` — never inline in a scene or bridge. If you find one in a scene or `render.ts`, move it out and leave only the call.
 - **Add a unit test that fails without the change.** For a bug fix, check it fails against the old logic before applying the fix, and say so in the PR.
 - **Only the decision you touch.** Don't refactor neighbouring scene code in the same PR (AGENTS.md: keep changes focused).
 - **Exempt:** pure wiring and presentation plumbing (creating GameObjects, tweens, depths, text layout, colour and size constants) and one-line pass-throughs to an already-tested function.
 
 The live check still applies: the unit test covers the decision, and the probe covers that the scene calls it in every mode touched.
+
+## Sim integration tests
+
+`PlaySim` runs a whole game headlessly, so gameplay flows are tested in `npm run test` without a browser. **Every gameplay feature or bug fix adds or extends a `PlaySim` test** (`src/game/sim/playSim.test.ts`); for a bug fix, the test fails before the fix.
+
+- Build a sim with `new PlaySim({ ...defaultPlayOptions(), ...overrides }, "<seed>")`, then `sim.start()`. `overrides` are the same knobs as the URL flags (`level`, `maze`, `store`, `quarters`, `jumpToUpgrade`, `bossGhosts`, `enableUpgrades`, …).
+- Drive it with `runFrames(sim, n, { keys: held("left") })` / `runUntil(sim, () => cond, maxFrames)` from `src/game/sim/simTesting.ts`. They step at a fixed `1000/60` ms, so runs are exact and repeatable.
+- Assert on `sim.snapshot()` (the same fields as the probe's `play.*`) and on the returned `SimEvent`s (`{ type: "sfx", id: "death" }`, `saveRun`, `upgradeOffer`, …). Set up hard-to-reach states by editing components directly (e.g. teleport the player onto a boss pellet via `Position`).
+- Upgrade offers: `sim.offer()` / `sim.chooseUpgrade(option)`. Store prompts: pass `storeToggle` / `storeConfirm` in the input.
+- Details and the event list: [src/game/sim/README.md](../src/game/sim/README.md).
+
+The live check is still required for presentation (sounds, drawing, HUD, UI), which the sim only describes through events.
 
 ## What each change class requires
 
@@ -179,6 +191,7 @@ The live check still applies: the unit test covers the decision, and the probe c
 | Tooling / docs / pure domain logic      | `verify`                                    | `npm run verify`                                                                                                  |
 | Phaser presentation / gameplay          | `verify` + live check                       | `npm run verify` **and** [live check](#live-check) (asserted probe + read screenshots, every mode touched)        |
 | Decision logic in a scene / `render.ts` | `verify` + live check + extracted unit test | as above **and** the decision moved to a pure tested function ([Scene and render logic](#scene-and-render-logic)) |
+| Gameplay rule / flow (sim, systems)     | `verify` + live check + sim test            | as above **and** a new or extended `PlaySim` test ([Sim integration tests](#sim-integration-tests))               |
 | Anything touching boot/canvas path      | `verify` + inspect smoke screenshot         | Confirm `artifacts/visual-smoke.png`                                                                              |
 
 Choose the level **before** coding. If the change spans classes, use the stricter level.

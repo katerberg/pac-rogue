@@ -108,6 +108,17 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/game/sim/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "phaser", message: "The sim layer runs headless in Vitest; no Phaser." }],
+        },
+      ],
+    },
+  },
+  {
     files: ["src/game/systems/**/*.ts"],
     ignores: [
       "src/game/systems/playerInput.ts",

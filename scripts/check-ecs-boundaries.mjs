@@ -19,6 +19,8 @@ const requiredPaths = [
   "src/game/systems/movement.ts",
   "src/game/systems/render.ts",
   "src/game/scenes/PlayScene.ts",
+  "src/game/sim/playSim.ts",
+  "src/game/sim/learnSim.ts",
 ];
 
 const phaserAllow = [
@@ -70,8 +72,8 @@ for (const file of walk(srcRoot)) {
     errors.push(`Phaser import is not allowed in ${rel}`);
   }
 
-  if (worldApi.test(source) && !rel.startsWith("src/game/scenes/")) {
-    errors.push(`createWorld/addEntity must live in src/game/scenes/** (found in ${rel})`);
+  if (worldApi.test(source) && !rel.startsWith("src/game/sim/")) {
+    errors.push(`createWorld/addEntity must live in src/game/sim/** (found in ${rel})`);
   }
 
   if (rel.startsWith("src/domain/") && /\bfrom\s+["']bitecs["']/.test(source)) {

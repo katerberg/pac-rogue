@@ -1,208 +1,12 @@
-import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import Phaser from "phaser";
-import {
-  createPelletProgress,
-  applyPelletCollect,
-  type PelletProgress,
-} from "../../domain/pelletProgress";
-import {
-  createFruitPresence,
-  fruitSpawnCenter,
-  markFruitCollected,
-  tickFruitPresence,
-  type FruitPresence,
-} from "../../domain/fruit";
-import {
-  createGhostModeClock,
-  GHOST_AI_MODE,
-  resolveGhostModeStep,
-  startGhostModeClock,
-  type GhostAiMode,
-  type GhostModeClock,
-} from "../../domain/ghostMode";
-import {
-  createGhostReleaseClock,
-  tickGhostRelease,
-  type GhostReleaseClock,
-} from "../../domain/ghostRelease";
-import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
-import {
-  beginDeathSequence,
-  DEATH_FADE_DURATION_MS,
-  tickDeathSequence,
-  type DeathSequenceEvent,
-  type DeathSequenceState,
-} from "../../domain/deathSequence";
-import {
-  START_LIVES,
-  livesAfterLevelRegen,
-  livesHudIconCount,
-  livesRemainingAfterCatch,
-  parseInfiniteLivesFlag,
-} from "../../domain/lives";
-import {
-  activateAsciiLayout,
-  activateLayout,
-  cellCenterX,
-  cellCenterY,
-  getActiveLayout,
-  horizontalTunnelRows,
-  isWalkable,
-  parseMazeParam,
-  pelletCellCenters,
-  pelletDisplaySize,
-  playerDisplaySize,
-  playerSpawnCenter,
-  wallCellCenters,
-  worldToCol,
-  worldToRow,
-  type MazeLayoutId,
-} from "../../domain/maze";
-import {
-  GENERATE_MAX_ATTEMPTS,
-  generateMazeAsciiWithRetries,
-  invertMazeAscii,
-  resolveBoardSelection,
-} from "../../domain/mazeGenerate";
-import {
-  ghostKindsForLevel,
-  isInvertedMazeLevel,
-  MAX_LEVEL,
-  offersUpgradeAfterLevel,
-  speedLevelMultiplier,
-} from "../../domain/levelRules";
-import { parseQuartersParam } from "../../domain/quartersFlag";
-import {
-  bossTunnelMouths,
-  pickBossPelletCells,
-  type BossTunnelMouth,
-} from "../../domain/bossBoard";
-import {
-  BOSS_DEFS,
-  bossForLevel,
-  createBossState,
-  parseBossGhostsParam,
-  recordBossPelletsEaten,
-  splitBossGhosts,
-  type BossDef,
-  type BossState,
-} from "../../domain/bossRules";
-import { parseGhostsParam } from "../../domain/ghostsFlag";
-import { parseLevelParam } from "../../domain/runLevel";
-import { parseJumpToUpgradeFlag } from "../../domain/jumpToUpgradeFlag";
-import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
-import {
-  STORE_FIRST_LEVEL,
-  createStoreState,
-  STORE_EXIT_SLIDE_TILES,
-  storeExitAlpha,
-  storeExitDirection,
-  type StoreExitDirection,
-  parseStoreSlots,
-  pickMidStoreLevel,
-  promptView,
-  storeAfterLevel,
-  storeStep,
-  type StorePurchase,
-  type StoreState,
-} from "../../domain/store";
-import { parseStoreFlag } from "../../domain/storeFlag";
-import { createRunRandom, freshSeed, parseSeedParam, type RunRandom } from "../../domain/runRandom";
-import {
-  BOSS_PELLET_DRAWABLE_ID,
-  FRUIT_DRAWABLE_ID,
-  FRUIT_RADIUS,
-  GHOST_DRAWABLE_BY_KIND,
-  ghostRadius,
-  PELLET_DRAWABLE_ID,
-  PELLET_RADIUS,
-  PLAYER_DRAWABLE_ID,
-  playerRadius,
-  PLAYER_SPEED,
-  PLAYFIELD_HEIGHT,
-  PLAYFIELD_WIDTH,
-  POWER_PELLET_DRAWABLE_ID,
-} from "../../domain/playfield";
-import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
-import {
-  blinkyScatterTarget,
-  clydeScatterTarget,
-  GHOST_PHASE,
-  inkyScatterTarget,
-  pinkyScatterTarget,
-  type GhostTarget,
-} from "../../domain/ghostTarget";
-import { BLINKY_RELEASE_DELAY_MS } from "../../domain/ghostRelease";
-import {
-  OUTLINE_TINT_BY_CORRUPTION,
-  SPEED_SURGE_MUL,
-  corruptionAiOption,
-  createRunCorruption,
-  isSpeedSurgeActive,
-  maybeAssignCorruption,
-  parseForceCorruptionParams,
-  resetCorruptionTransient,
-  tickSpeedSurge,
-  type RunCorruption,
-} from "../../domain/corruption";
-import { addPelletsToProgress } from "../../domain/pelletProgress";
+import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
+import { livesHudIconCount } from "../../domain/lives";
+import { pelletDisplaySize, playerDisplaySize } from "../../domain/maze";
+import { parsePlayOptions } from "../../domain/playOptions";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
+import { freshSeed } from "../../domain/runRandom";
 import { withSeenCorruption, withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
-import {
-  applyPowerPelletEffects,
-  confirmUpgradeChoice,
-  createRunUpgrades,
-  declineUpgrades,
-  DEATHS_HARVEST_RADIUS_TILES,
-  fruitQuarterMultiplier,
-  frozenGhostEid,
-  ghostHouseClydePelletAdd,
-  ghostHouseReleaseDelayAddMs,
-  ghostSpeedMultiplier,
-  grantLivesForUpgrade,
-  grantUpgrade,
-  revokeUpgrade,
-  clearUpgradeTimers,
-  parseDisableLevelUpgradesFlag,
-  parseEnableUpgradeParams,
-  pelletCollectRadiusBonusPx,
-  pickStartingUpgrade,
-  pickUpgradeChoiceOffer,
-  playerIsInvulnerable,
-  PLAYER_SPEED_BURST_MUL,
-  playerSpeedMultiplier,
-  queuePowerPelletRespawns,
-  scatterBurstActive,
-  speedBurstActive,
-  tickFreeze,
-  tickInvuln,
-  tickPowerPelletRespawns,
-  tickScatterBurst,
-  tickSpeedBurst,
-  TUNNEL_DASH_SPEED_MUL,
-  tickWallPass,
-  upgradeLabels,
-  wallPassActive,
-  type PendingPowerPelletRespawn,
-  type RunUpgrades,
-  type UpgradeId,
-} from "../../domain/upgrades";
-import { BossGhost } from "../components/BossGhost";
-import { BossPellet } from "../components/BossPellet";
-import { Drawable } from "../components/Drawable";
-import { Facing } from "../components/Facing";
-import { Fruit } from "../components/Fruit";
-import { Ghost } from "../components/Ghost";
-import { GhostKind } from "../components/GhostKind";
-import { GhostPhase } from "../components/GhostPhase";
-import { DIRECTION, Input } from "../components/Input";
-import { Pellet } from "../components/Pellet";
-import { Player } from "../components/Player";
-import { Position } from "../components/Position";
-import { PowerPellet } from "../components/PowerPellet";
-import { Speed } from "../components/Speed";
-import { Velocity } from "../components/Velocity";
-import { Wall } from "../components/Wall";
+import { upgradeLabels } from "../../domain/upgrades";
 import {
   isSfxPlaying,
   playPelletCollectSfx,
@@ -212,44 +16,12 @@ import {
   stopLoopingSfx,
   type SfxId,
 } from "../audio/sfx";
-import { highScoresDisabled } from "../../domain/runHistory";
+import { PlaySim } from "../sim/playSim";
+import type { SimEvent } from "../sim/simEvents";
 import { saveRun } from "../storage/runHistoryStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
-import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
-import { catchPlayer } from "../systems/catchPlayer";
-import { collectFruit, removeAllFruit } from "../systems/collectFruit";
-import { collectExtraPellets } from "../systems/collectExtraPellets";
-import { collectPellets, countPellets } from "../systems/collectPellets";
-import { findGhostEidByKind } from "../systems/corruptionGhost";
-import { stepCorruption } from "../systems/corruptionStep";
-import { harvestNearbyPellets } from "../systems/deathsHarvest";
-import { ghostAi } from "../systems/ghostAi";
-import { ghostExitHouse } from "../systems/ghostExitHouse";
-import { recallClosestGhostToHouse } from "../systems/ghostRecall";
-import { freezeClosestGhost } from "../systems/ghostFreeze";
-import { ghostRelease } from "../systems/ghostRelease";
-import {
-  ghostHouseSeating,
-  placeInHouseGhostsAtPredictedSeats,
-} from "../systems/ghostHouseSeating";
-import { forceGhostReverse } from "../systems/ghostReverse";
-import { applyGhostSpeed } from "../systems/ghostSpeed";
-import { movement } from "../systems/movement";
-import { slimeTrailKill } from "../systems/slimeTrailKill";
-import { applyPelletToPowerConvert } from "../systems/pelletToPower";
-import { clearPlayerDirectionInput, hasPlayerDirectionInput } from "../systems/playerDirection";
-import { createPlayerInput, type PlayerInputOpts } from "../systems/playerInput";
-import { applyPlayerSpeed } from "../systems/playerSpeed";
-import { playerCell } from "../systems/playerCell";
-import { slidePlayer } from "../systems/playerSlide";
-import {
-  applyTunnelDash,
-  tickTunnelDashAnimation,
-  type TunnelDashAnimation,
-} from "../systems/tunnelDash";
-import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
-import { warpPlayerToTopCenter } from "../systems/playerWarp";
-import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
+import type { HeldKeys } from "../systems/heldKeys";
+import { createHeldKeysReader } from "../systems/playerInput";
 import {
   createRender,
   preloadPlayArt,
@@ -265,12 +37,11 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
-import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { addSeedLabel } from "./seedLabel";
+import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
+import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 
-const LEVEL_TRANSITION_MS = 1000;
 const LEVEL_BANNER_FADE_MS = 1500;
 const BOSS_BANNER_SLAM_MS = 220;
 const BOSS_BANNER_HOLD_MS = 1200;
@@ -279,54 +50,16 @@ const BOSS_BANNER_START_SCALE = 3;
 const BOSS_BANNER_COLOR = 0xff3b3b;
 const BOSS_SHAKE_MS = 400;
 const BOSS_SHAKE_INTENSITY = 0.02;
-const RUN_COMPLETE_HOLD_MS = 2000;
 
 export class PlayScene extends Phaser.Scene {
-  private world!: World;
-  private runPlayerInput!: (world: World, opts?: PlayerInputOpts) => void;
-  private anyPlayerMoveKeyDown!: () => boolean;
-  private suppressPlayerInputUntilKeyRelease = false;
+  private sim!: PlaySim;
+  private readHeldKeys!: () => HeldKeys;
   private playRender!: PlayRender;
-  private clock: RunClock = createRunClock();
-  private ghostReleaseClock: GhostReleaseClock = createGhostReleaseClock();
-  private ghostModeClock: GhostModeClock = createGhostModeClock(1);
-  private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock(1).mode;
-  private pelletProgress: PelletProgress = createPelletProgress(0);
-  private lifetimeCollected = 0;
-  private quarters = 0;
-  private levelIndex = 1;
-  private random!: RunRandom;
-  private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
-  private ghostsOverride: GhostKindId[] | null = null;
-  private bossGhostsOverride: number | null = null;
-  private bossState: BossState | null = null;
-  private bossMouths: BossTunnelMouth[] = [];
-  private levelTransitionRemainingMs = 0;
-  private pendingLevelClear = false;
-  private runCompleteRemainingMs = 0;
-  private fruitPresence: FruitPresence = createFruitPresence();
-  private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
-  private tunnelDashAnim: TunnelDashAnimation | null = null;
-  private runUpgrades: RunUpgrades = createRunUpgrades();
-  private disableLevelUpgrades = false;
-  private highScoresDisabled = false;
-  private infiniteLives = false;
-  private jumpToUpgrade = false;
-  private storeFlag = false;
-  private midStoreLevel = 5;
-  private store: StoreState | null = null;
   private storeOverlay: StoreOverlay | null = null;
-  private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
-  private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
-  private corruptionHiddenGhostEid: number | null = null;
-  private corruptionFlashGhostEid: number | null = null;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
-  private death: DeathSequenceState | null = null;
-  private lives = START_LIVES;
-  private afterLifeRelease = false;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
@@ -346,75 +79,19 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     stopLoopingSfx(this, "menuMusic");
-    this.death = null;
-    this.lives = START_LIVES;
-    this.afterLifeRelease = false;
-    this.lifetimeCollected = 0;
-    this.levelTransitionRemainingMs = 0;
-    this.pendingLevelClear = false;
-    this.runCompleteRemainingMs = 0;
     this.clearLevelBanner();
 
-    const urlParams = new URLSearchParams(location.search);
-    const seedOverride = parseSeedParam(urlParams);
-    if (urlParams.has("seed") && seedOverride === null) {
-      console.warn(`Unknown ?seed= value; expected 1-32 of A-Z a-z 0-9 _ -`);
+    const { options, warnings } = parsePlayOptions(new URLSearchParams(location.search));
+    for (const warning of warnings) {
+      console.warn(warning);
     }
-    this.random = createRunRandom(seedOverride ?? freshSeed());
+    this.sim = new PlaySim(options, options.seed ?? freshSeed());
 
     this.upgradeChoiceModal?.destroy();
-    this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.random.stream("upgradeFx"));
+    this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.sim.random.stream("upgradeFx"));
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
-    this.closeStore();
-
-    const mazeOverride = parseMazeParam(urlParams);
-    if (urlParams.has("maze") && mazeOverride === null) {
-      console.warn(`Unknown ?maze= value; expected maze1|maze2|mazeSmall`);
-    }
-    const levelOverride = parseLevelParam(urlParams);
-    if (urlParams.has("level") && levelOverride === null) {
-      console.warn(`Unknown ?level= value; expected positive integer`);
-    }
-    const quartersOverride = parseQuartersParam(urlParams);
-    if (urlParams.has("quarters") && quartersOverride === null) {
-      console.warn(`Unknown ?quarters= value; expected non-negative integer`);
-    }
-    const forcedCorruption = parseForceCorruptionParams(urlParams);
-    if (urlParams.has("forceCorruption") && forcedCorruption.type === null) {
-      console.warn(
-        `Unknown ?forceCorruption= value; expected slimeTrail|invisibility|freeRetargetReverse|speedSurge|wallPhaseDash|pelletDropper|falseScatter`,
-      );
-    }
-    if (urlParams.has("forceCorruptionGhost") && forcedCorruption.ghostKind === null) {
-      console.warn(`Unknown ?forceCorruptionGhost= value; expected pinky|inky|clyde`);
-    }
-    this.ghostsOverride = parseGhostsParam(urlParams);
-    if (urlParams.has("ghosts") && this.ghostsOverride === null) {
-      console.warn(`Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde`);
-    }
-    this.bossGhostsOverride = parseBossGhostsParam(urlParams, BOSS_DEFS.doubleBlinky);
-    if (urlParams.has("bossGhosts") && this.bossGhostsOverride === null) {
-      console.warn(`Unknown ?bossGhosts= value; expected an integer 2..10`);
-    }
-    this.jumpToUpgrade = parseJumpToUpgradeFlag(urlParams);
-    this.quarters = quartersOverride ?? 0;
-    this.storeFlag = parseStoreFlag(urlParams);
-    this.levelIndex =
-      levelOverride ?? (this.jumpToUpgrade ? 2 : this.storeFlag ? STORE_FIRST_LEVEL : 1);
-    this.midStoreLevel = pickMidStoreLevel(this.random.stream("midStore"));
-    this.secondGhostKind =
-      this.random.stream("secondGhost")() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
-    this.runCorruption = createRunCorruption(forcedCorruption);
-
-    this.disableLevelUpgrades = parseDisableLevelUpgradesFlag(urlParams);
-    this.highScoresDisabled = highScoresDisabled(urlParams);
-    this.infiniteLives = parseInfiniteLivesFlag(urlParams);
-    this.runUpgrades = createRunUpgrades(parseEnableUpgradeParams(urlParams));
-    for (const id of this.runUpgrades.owned) {
-      this.lives += grantLivesForUpgrade(id);
-    }
-    this.recordSeenUpgrades();
+    this.closeStoreUi();
 
     this.timerText = addPixelText(
       this,
@@ -432,10 +109,7 @@ export class PlayScene extends Phaser.Scene {
     this.quarterIcons = [];
     this.refreshQuartersHud();
 
-    const playerInput = createPlayerInput(this);
-    this.runPlayerInput = playerInput.apply;
-    this.anyPlayerMoveKeyDown = playerInput.anyMoveKeyDown;
-    this.suppressPlayerInputUntilKeyRelease = false;
+    this.readHeldKeys = createHeldKeysReader(this);
     this.musicPendingFanfareEnd = null;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     const { KeyCodes } = Phaser.Input.Keyboard;
@@ -447,45 +121,14 @@ export class PlayScene extends Phaser.Scene {
     );
     this.playRender = createRender(this);
 
-    this.startBoard(mazeOverride);
-
-    const startingUpgrade =
-      this.levelIndex === 1 && !this.jumpToUpgrade && !this.storeFlag
-        ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
-        : null;
-    if (startingUpgrade !== null) {
-      this.runUpgrades = grantUpgrade(this.runUpgrades, startingUpgrade);
-      this.applyGrantEffects(startingUpgrade);
-      this.recordSeenUpgrades();
-    }
-    this.refreshUpgradesHud();
-    this.lives = livesAfterLevelRegen(this.lives);
-    this.refreshLivesIcons();
-    if (startingUpgrade === null) {
-      this.showLevelBanner();
-    } else {
-      this.playRender.draw(this.world, {
-        frozenGhostEid: null,
-        playerInvulnRemainingMs: 0,
-        wallPassActive: false,
-        ...this.renderCorruptionOptions(),
-      });
-      this.startingUpgradeCard.open(startingUpgrade);
-    }
-    startLoopingSfx(this, "gameplayMusic");
-    if (this.jumpToUpgrade) {
-      this.jumpToLevelClear();
-    } else if (this.storeFlag) {
-      this.enterStore();
-    }
+    this.applyEvents(this.sim.start(), 0);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "gameplayMusic");
       stopLoopingSfx(this, "death");
-      this.cameras.main.setScroll(0, 0);
       this.upgradeChoiceModal.destroy();
       this.startingUpgradeCard.destroy();
-      this.closeStore();
+      this.closeStoreUi();
       this.clearLevelBanner();
     });
   }
@@ -503,582 +146,48 @@ export class PlayScene extends Phaser.Scene {
 
     if (this.startingUpgradeCard.isActive()) {
       this.startingUpgradeCard.tick(delta);
-      if (this.startingUpgradeCard.isActive()) {
-        return;
-      }
-      this.suppressPlayerInputUntilKeyRelease = true;
-    }
-
-    if (this.death !== null) {
-      const tick = tickDeathSequence(this.death, delta);
-      this.death = tick.state;
-      for (const event of tick.events) {
-        this.handleDeathEvent(event);
-      }
-      return;
-    }
-
-    if (this.runCompleteRemainingMs > 0) {
-      this.runCompleteRemainingMs = Math.max(0, this.runCompleteRemainingMs - delta);
-      if (this.runCompleteRemainingMs === 0) {
-        this.scene.start("MenuScene");
-      }
-      return;
-    }
-
-    if (this.levelTransitionRemainingMs > 0) {
-      this.levelTransitionRemainingMs = Math.max(0, this.levelTransitionRemainingMs - delta);
-      if (this.levelTransitionRemainingMs === 0) {
-        if (this.store === null && storeAfterLevel(this.levelIndex, this.midStoreLevel)) {
-          this.enterStore();
-        } else if (this.levelIndex >= MAX_LEVEL) {
-          this.beginRunComplete();
-        } else {
-          this.advanceToNextLevel();
-        }
-      }
-      return;
-    }
-
-    if (this.store !== null) {
-      this.tickStore(delta);
-      return;
-    }
-
-    if (this.upgradeChoiceModal.isActive()) {
+    } else if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.tick(delta);
-      if (this.upgradeChoiceModal.isActive()) {
-        return;
-      }
-      this.suppressPlayerInputUntilKeyRelease = true;
     }
-
-    if (this.pendingLevelClear) {
-      this.pendingLevelClear = false;
-      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
-      return;
-    }
-
-    const diagonalAllowed = wallPassActive(this.runUpgrades);
-    if (this.suppressPlayerInputUntilKeyRelease) {
-      if (!this.anyPlayerMoveKeyDown()) {
-        this.suppressPlayerInputUntilKeyRelease = false;
-        this.runPlayerInput(this.world, { diagonalAllowed });
-      }
-    } else {
-      this.runPlayerInput(this.world, { diagonalAllowed });
-    }
-    const hasInput = hasPlayerDirectionInput(this.world);
-
-    this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
-    const releaseAdds = {
-      delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
-      clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
-    };
-    ghostHouseSeating(
-      this.world,
-      this.ghostReleaseClock,
-      this.pelletProgress.boardCollected,
-      this.afterLifeRelease,
-      releaseAdds,
-    );
-    ghostRelease(
-      this.world,
-      this.ghostReleaseClock,
-      this.pelletProgress.boardCollected,
-      this.afterLifeRelease,
-      releaseAdds,
-    );
-
-    this.runUpgrades = tickFreeze(this.runUpgrades, delta);
-    this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
-    const wasWallPass = wallPassActive(this.runUpgrades);
-    this.runUpgrades = tickWallPass(this.runUpgrades, delta);
-    if (wasWallPass && !wallPassActive(this.runUpgrades)) {
-      snapPlayerToNearestWalkable(this.world);
-    }
-    this.runUpgrades = tickInvuln(this.runUpgrades, delta);
-    this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
-    const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
-    this.pendingPowerPelletRespawns = respawnTick.pending;
-    for (const pos of respawnTick.ready) {
-      this.spawnRespawnedPowerPellet(pos.x, pos.y);
-    }
-    this.runCorruption = tickSpeedSurge(this.runCorruption, delta);
-    const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
-    const playerSpeedMul =
-      levelSpeedMul *
-      playerSpeedMultiplier(this.runUpgrades.owned) *
-      (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1);
-    applyPlayerSpeed(this.world, playerSpeedMul);
-    applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
-      ghostSpeedMul:
-        (this.bossState === null ? levelSpeedMul : 1) *
-        ghostSpeedMultiplier(this.runUpgrades.owned),
-      frozenGhostEid: frozenGhostEid(this.runUpgrades),
-      speedSurge:
-        this.runCorruption.ghostKind !== null && isSpeedSurgeActive(this.runCorruption)
-          ? { ghostKind: this.runCorruption.ghostKind, mul: SPEED_SURGE_MUL }
-          : undefined,
-    });
-    const playerSolidsOverride = wallPassActive(this.runUpgrades)
-      ? getActiveLayout().wallPassPlayerSolids
-      : undefined;
-    if (this.bossState !== null) {
-      bossGhostBlock(this.world);
-    }
-    movement(this.world, delta, playerSolidsOverride);
-    if (this.tunnelDashAnim !== null) {
-      this.tunnelDashAnim = tickTunnelDashAnimation(
-        this.world,
-        this.tunnelDashAnim,
-        delta,
-        PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
-      );
-    } else if (this.runUpgrades.owned.includes("passiveTunnelDash")) {
-      const dash = applyTunnelDash(this.world);
-      if (dash !== null) {
-        if (dash.sweptPelletEids.length > 0) {
-          for (const eid of dash.sweptPelletEids) {
-            this.playRender.releaseDrawable(eid);
-          }
-          playPelletCollectSfx(
-            this,
-            this.lifetimeCollected,
-            dash.sweptPelletEids.length,
-            dash.sweptPowerRemoved,
-          );
-          if (this.runUpgrades.owned.includes("passivePowerPelletRecharge")) {
-            this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
-              this.pendingPowerPelletRespawns,
-              dash.sweptPowerPositions,
-            );
-          }
-          const collectResult = applyPelletCollect(
-            this.pelletProgress,
-            dash.sweptPelletEids.length,
-          );
-          this.pelletProgress = collectResult.progress;
-          this.lifetimeCollected += dash.sweptPelletEids.length;
-          if (
-            dash.sweptPowerRemoved > 0 &&
-            this.resolvePowerPelletTrigger(dash.sweptPowerRemoved)
-          ) {
-            return;
-          }
-          if (collectResult.shouldRecordClear) {
-            this.triggerLevelClear();
-            return;
-          }
-        }
-        this.tunnelDashAnim = { targetX: dash.animateToX, wrapToX: dash.wrapToX, y: dash.y };
-      }
-    }
-
-    const corruptionStep = stepCorruption(
-      this.world,
-      this.runCorruption,
-      delta,
-      this.pelletProgress.pelletsRemaining,
-    );
-    this.runCorruption = corruptionStep.corruption;
-    if (corruptionStep.dropSpawnTiles.length > 0) {
-      this.spawnDroppedPellets(corruptionStep.dropSpawnTiles);
-    }
-    this.corruptionHiddenGhostEid = corruptionStep.hiddenGhostEid;
-    this.corruptionFlashGhostEid = corruptionStep.flashGhostEid;
-
-    if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
-      this.ghostModeClock = startGhostModeClock(this.levelIndex);
-    }
-
-    this.clock = tickRunClock(this.clock, hasInput, delta);
-    this.timerText.setText(this.timerLabel());
-    placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
-
-    const {
-      powerRemoved,
-      removedEids: removedPelletEids,
-      removedPowerPositions,
-    } = collectPellets(this.world, {
-      radiusBonusPx: pelletCollectRadiusBonusPx(this.runUpgrades.owned),
-      solids: getActiveLayout().playerSolids,
-    });
-    for (const eid of removedPelletEids) {
-      this.playRender.releaseDrawable(eid);
-    }
-    const removed = removedPelletEids.length;
-    if (removed > 0) {
-      playPelletCollectSfx(this, this.lifetimeCollected, removed, powerRemoved);
-    }
-    if (this.runUpgrades.owned.includes("passivePowerPelletRecharge")) {
-      this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
-        this.pendingPowerPelletRespawns,
-        removedPowerPositions,
-      );
-    }
-    const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
-    this.runUpgrades = powerEffects.state;
-    if (powerEffects.freezeClosestMs !== null) {
-      this.runUpgrades = freezeClosestGhost(
-        this.world,
-        this.runUpgrades,
-        powerEffects.freezeClosestMs,
-      );
-    }
-    let bonusRemoved = 0;
-    if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(
-        this.world,
-        powerEffects.collectExtraPellets,
-        playerSolidsOverride ?? getActiveLayout().playerSolids,
-      );
-      for (const eid of bonusEids) {
-        this.playRender.releaseDrawable(eid);
-      }
-      bonusRemoved = bonusEids.length;
-      if (bonusRemoved > 0) {
-        playSfx(this, "pelletMunch");
-        playSfx(this, "pelletMunch2");
-      }
-    }
-    const totalRemoved = removed + bonusRemoved;
-    const collectResult = applyPelletCollect(this.pelletProgress, totalRemoved);
-    this.pelletProgress = collectResult.progress;
-    if (totalRemoved > 0) {
-      this.lifetimeCollected += totalRemoved;
-    }
-
-    const modeStep = resolveGhostModeStep(
-      this.ghostModeClock,
-      scatterBurstActive(this.runUpgrades),
-      delta,
-    );
-    this.ghostModeClock = modeStep.clock;
-    if (modeStep.mode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world, this.runCorruption);
-      this.previousEffectiveGhostMode = modeStep.mode;
-    } else {
-      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, {
-        ignoreElroy: scatterBurstActive(this.runUpgrades),
-        corruption: corruptionAiOption(this.runCorruption),
-      });
-    }
-    if (powerEffects.recallClosestGhost) {
-      recallClosestGhostToHouse(
-        this.world,
-        this.ghostReleaseClock,
-        this.pelletProgress.boardCollected,
-        this.afterLifeRelease,
-        releaseAdds,
-      );
-    }
-    if (powerEffects.warpPlayerTopCenter) {
-      warpPlayerToTopCenter(this.world);
-    }
-
-    const fruitTick = tickFruitPresence(
-      this.fruitPresence,
-      this.pelletProgress.boardCollected,
-      delta,
-      this.levelIndex,
-    );
-    if (fruitTick.action === "spawn" || fruitTick.action === "replace") {
-      this.spawnFruitEntity();
-    }
-
-    const removedFruitEids = collectFruit(this.world);
-    for (const eid of removedFruitEids) {
-      this.playRender.releaseDrawable(eid);
-    }
-    if (removedFruitEids.length > 0) {
-      playSfx(this, "pelletMunch");
-      playSfx(this, "pelletMunch2");
-      this.quarters += removedFruitEids.length * fruitQuarterMultiplier(this.runUpgrades.owned);
-      this.refreshQuartersHud();
-      this.fruitPresence = markFruitCollected(fruitTick.state);
-      if (
-        this.runUpgrades.owned.includes("fruitPowerPellet") &&
-        this.resolvePowerPelletTrigger(1)
-      ) {
-        return;
-      }
-    } else if (fruitTick.action === "despawn") {
-      this.clearFruitEntities();
-      this.fruitPresence = fruitTick.state;
-    } else {
-      this.fruitPresence = fruitTick.state;
-    }
-
-    if (collectResult.shouldRecordClear) {
-      this.triggerLevelClear();
-      return;
-    }
-
-    this.tickBoss();
-
-    const frozenEid = frozenGhostEid(this.runUpgrades);
-    const playerInvulnerable = playerIsInvulnerable(this.runUpgrades);
-    const caught =
-      catchPlayer(this.world, { frozenGhostEid: frozenEid, playerInvulnerable }) ||
-      slimeTrailKill(this.world, this.runCorruption.trail, { playerInvulnerable });
-    this.playRender.draw(this.world, {
-      frozenGhostEid: frozenEid,
-      playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
-      wallPassActive: wallPassActive(this.runUpgrades),
-      ...this.renderCorruptionOptions(),
-    });
-
-    if (caught) {
-      if (this.runUpgrades.owned.includes("passiveDeathsHarvest")) {
-        const harvested = harvestNearbyPellets(this.world, DEATHS_HARVEST_RADIUS_TILES);
-        if (harvested.length > 0) {
-          for (const eid of harvested) {
-            this.playRender.releaseDrawable(eid);
-          }
-          const collectResult = applyPelletCollect(this.pelletProgress, harvested.length);
-          this.pelletProgress = collectResult.progress;
-          this.lifetimeCollected += harvested.length;
-          if (collectResult.shouldRecordClear) {
-            this.triggerLevelClear();
-            return;
-          }
-        }
-      }
-      stopLoopingSfx(this, "gameplayMusic");
-      playSfx(this, "death");
-      const result = this.infiniteLives
-        ? { lives: this.lives, gameOver: false }
-        : livesRemainingAfterCatch(this.lives);
-      this.lives = result.lives;
-      this.refreshLivesIcons();
-      if (result.gameOver && !this.highScoresDisabled) {
-        saveRun(this.lifetimeCollected, this.clock.remaining);
-      }
-      this.death = beginDeathSequence(result.gameOver);
-    }
-  }
-
-  private enterStore(): void {
-    stopLoopingSfx(this, "gameplayMusic");
-    activateAsciiLayout(STORE_MAZE_ASCII, "store");
-    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
-    this.runCorruption = resetCorruptionTransient(this.runCorruption);
-    this.corruptionHiddenGhostEid = null;
-    this.corruptionFlashGhostEid = null;
-    this.pendingPowerPelletRespawns = [];
-    this.tunnelDashAnim = null;
-    this.playRender.resetForNewBoard();
-    this.world = createWorld();
-    this.spawnWalls();
-    this.spawnPlayer();
-
-    this.store = createStoreState(
-      parseStoreSlots(STORE_MAZE_ASCII),
-      this.runUpgrades.owned,
-      this.random.stream("storeStock", this.levelIndex),
-    );
-    this.storeOverlay = createStoreOverlay(this);
-    this.storeOverlay.open(this.store);
-    this.timerText.setVisible(false);
-    this.suppressPlayerInputUntilKeyRelease = true;
-    this.showLevelBanner("STORE");
-    this.startMusicAfterFanfare("storeMusic");
-    this.drawStore();
-  }
-
-  private tickStore(delta: number): void {
-    if (this.storeExitSlide !== null) {
-      this.tickStoreExitSlide(delta);
-      return;
-    }
-    const toggle = this.storeToggleKeys.some((key) => Phaser.Input.Keyboard.JustDown(key));
-    const enter = this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key));
-    const confirming = this.storeConfirmOpen();
-    if (confirming) {
-      clearPlayerDirectionInput(this.world);
-    } else {
-      if (this.suppressPlayerInputUntilKeyRelease && !this.anyPlayerMoveKeyDown()) {
-        this.suppressPlayerInputUntilKeyRelease = false;
-      }
-      if (!this.suppressPlayerInputUntilKeyRelease) {
-        this.runPlayerInput(this.world, { diagonalAllowed: true, stopOnRelease: true });
-      }
-    }
-    applyPlayerSpeed(
-      this.world,
-      speedLevelMultiplier(this.levelIndex) * playerSpeedMultiplier(this.runUpgrades.owned),
-    );
-    movement(this.world, delta, undefined, true);
-
-    const cell = playerCell(this.world);
-    const layout = getActiveLayout();
-    const exit = cell && storeExitDirection(cell.col, cell.row, layout.cols, layout.rows);
-    if (exit) {
-      this.storeExitSlide = { ...exit, traveledPx: 0 };
-      this.storeOverlay?.sync(this.store!, null, delta);
-      this.drawStore(storeExitAlpha(0));
-      return;
-    }
-
-    const step = storeStep(
-      this.store!,
+    const readsStoreKeys = this.sim.readsStoreKeys();
+    const events = this.sim.step(
       {
-        col: cell?.col ?? -1,
-        row: cell?.row ?? -1,
-        toggle: confirming && toggle,
-        enter: confirming && enter,
-        quarters: this.quarters,
-        owned: this.runUpgrades.owned,
+        keys: this.readHeldKeys(),
+        uiOpen: this.startingUpgradeCard.isActive() || this.upgradeChoiceModal.isActive(),
+        storeToggle:
+          readsStoreKeys && this.storeToggleKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
+        storeConfirm:
+          readsStoreKeys &&
+          this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
       },
-      this.random.stream("storePurchase", this.levelIndex),
-    );
-    this.store = step.state;
-    if (step.purchase !== null) {
-      this.applyStorePurchase(step.purchase);
-    }
-    if (confirming && !this.storeConfirmOpen()) {
-      this.suppressPlayerInputUntilKeyRelease = true;
-    }
-    this.storeOverlay?.sync(
-      this.store,
-      promptView(this.store, this.quarters, this.runUpgrades.owned),
       delta,
     );
-    this.drawStore();
-  }
-
-  private tickStoreExitSlide(delta: number): void {
-    const slide = this.storeExitSlide!;
-    slide.traveledPx += slidePlayer(this.world, slide.dx, slide.dy, delta);
-    const traveledTiles = slide.traveledPx / getActiveLayout().tileSize;
-    if (traveledTiles >= STORE_EXIT_SLIDE_TILES) {
-      this.exitStore();
-      return;
-    }
-    this.drawStore(storeExitAlpha(traveledTiles));
-  }
-
-  private storeConfirmOpen(): boolean {
-    return (
-      this.store !== null &&
-      promptView(this.store, this.quarters, this.runUpgrades.owned)?.kind === "confirm"
-    );
-  }
-
-  private applyStorePurchase(purchase: StorePurchase): void {
-    this.quarters -= purchase.price;
-    this.refreshQuartersHud();
-    playSfx(this, "pelletMunch");
-    playSfx(this, "pelletMunch2");
-    if (purchase.kind === "life") {
-      this.lives += 1;
-      this.refreshLivesIcons(true);
-      return;
-    }
-    if (purchase.kind === "swap") {
-      this.runUpgrades = revokeUpgrade(this.runUpgrades, purchase.outgoingId);
-    }
-    const id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
-    this.runUpgrades = grantUpgrade(this.runUpgrades, id);
-    this.applyGrantEffects(id);
-    this.refreshLivesIcons(grantLivesForUpgrade(id) > 0);
-    this.recordSeenUpgrades();
-    this.refreshUpgradesHud();
-    this.storeOverlay?.showPurchased(id);
-  }
-
-  private exitStore(): void {
-    this.closeStore();
-    if (this.levelIndex >= MAX_LEVEL) {
-      this.beginRunComplete();
-    } else {
-      this.timerText.setVisible(true);
-      this.advanceToNextLevel();
-    }
-  }
-
-  private closeStore(): void {
-    this.storeExitSlide = null;
-    if (this.musicPendingFanfareEnd === "storeMusic") {
-      this.musicPendingFanfareEnd = null;
-    }
-    stopLoopingSfx(this, "storeMusic");
-    this.storeOverlay?.destroy();
-    this.storeOverlay = null;
-    this.store = null;
-  }
-
-  private drawStore(playerAlpha?: number): void {
-    this.playRender.draw(this.world, {
-      frozenGhostEid: null,
-      playerInvulnRemainingMs: 0,
-      wallPassActive: false,
-      playerAlpha,
-      ...this.renderCorruptionOptions(),
-    });
-  }
-
-  private startMusicAfterFanfare(id: SfxId): void {
-    if (isSfxPlaying(this, "levelComplete")) {
-      this.musicPendingFanfareEnd = id;
-      return;
-    }
-    startLoopingSfx(this, id);
+    this.applyEvents(events, delta);
   }
 
   public runSeed(): string {
-    return this.random.seed;
+    return this.sim.random.seed;
   }
 
   public currentMusicId(): SfxId {
-    return this.store !== null ? "storeMusic" : "gameplayMusic";
+    return this.sim.storeState() !== null ? "storeMusic" : "gameplayMusic";
   }
 
   public debugSnapshot() {
-    const upgrades = this.runUpgrades;
     return {
-      seed: this.random.seed,
-      level: this.levelIndex,
-      layout: getActiveLayout().id,
-      lives: this.lives,
-      quarters: this.quarters,
-      timeRemaining: this.clock.remaining,
-      boardCollected: this.pelletProgress.boardCollected,
-      pelletsRemaining: this.pelletProgress.pelletsRemaining,
-      ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
-      upgrades: upgrades.owned,
-      timers: {
-        freezeMs: upgrades.freezeRemainingMs,
-        scatterBurstMs: upgrades.scatterBurstRemainingMs,
-        wallPassMs: upgrades.wallPassRemainingMs,
-        invulnMs: upgrades.invulnRemainingMs,
-        speedBurstMs: upgrades.speedBurstRemainingMs,
-      },
+      ...this.sim.snapshot(),
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
-      inputSuppressed: this.suppressPlayerInputUntilKeyRelease,
-      dying: this.death !== null,
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
-      levelTransition: this.levelTransitionRemainingMs > 0,
-      highScoresDisabled: this.highScoresDisabled,
-      inStore: this.store !== null,
-      storeStock:
-        this.store?.slots.map((slot) =>
-          slot.kind === "upgrade"
-            ? slot.id
-            : slot.kind === "swap"
-              ? `swap:${slot.outgoingId}`
-              : "life",
-        ) ?? null,
-      boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
-      corruption: this.runCorruption.type,
-      corruptionGhost:
-        this.runCorruption.ghostKind === null
-          ? null
-          : nameOf(GHOST_KIND, this.runCorruption.ghostKind),
-      ...worldSnapshot(this.world),
     };
+  }
+
+  public resumeFromPauseMenu(): void {
+    this.sim.suppressInputUntilRelease();
+    if (this.upgradeChoiceModal.isActive()) {
+      this.upgradeChoiceModal.rearmSelectionKeys();
+    }
+    this.scene.resume();
   }
 
   private pauseForMenu(): void {
@@ -1086,421 +195,148 @@ export class PlayScene extends Phaser.Scene {
     this.scene.launch("PauseScene");
   }
 
-  public resumeFromPauseMenu(): void {
-    this.suppressPlayerInputUntilKeyRelease = true;
-    if (this.upgradeChoiceModal.isActive()) {
-      this.upgradeChoiceModal.rearmSelectionKeys();
+  private applyEvents(events: readonly SimEvent[], delta: number): void {
+    for (const event of events) {
+      this.applyEvent(event, delta);
     }
-    this.scene.resume();
   }
 
-  private startBoard(layoutOverride: MazeLayoutId | null = null): void {
-    const boss = bossForLevel(this.levelIndex);
-    if (boss === null) {
-      this.runCorruption = maybeAssignCorruption(
-        this.runCorruption,
-        this.levelIndex,
-        this.random.stream("corruption", this.levelIndex),
-        this.ghostsOverride ?? undefined,
-      );
-    }
-    const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
-    if (selection.kind === "static") {
-      activateLayout(selection.id);
-    } else {
-      const generated = this.generateBoard(selection.seed, boss);
-      if (generated) {
-        try {
-          const ascii = isInvertedMazeLevel(this.levelIndex)
-            ? invertMazeAscii(generated.ascii)
-            : generated.ascii;
-          activateAsciiLayout(ascii);
-        } catch (error) {
-          console.warn(
-            `maze activate failed for seed ${generated.seedUsed}; falling back to maze2`,
-            error,
-          );
-          activateLayout("maze2");
+  private applyEvent(event: SimEvent, delta: number): void {
+    switch (event.type) {
+      case "sfx":
+        playSfx(this, event.id);
+        break;
+      case "pelletSfx":
+        playPelletCollectSfx(this, event.previousCollected, event.removed, event.powerRemoved);
+        break;
+      case "loopStart":
+        startLoopingSfx(this, event.id);
+        break;
+      case "loopStop":
+        stopLoopingSfx(this, event.id);
+        break;
+      case "musicAfterFanfare":
+        if (isSfxPlaying(this, "levelComplete")) {
+          this.musicPendingFanfareEnd = event.id;
+        } else {
+          startLoopingSfx(this, event.id);
         }
-      } else {
-        console.warn(
-          `maze generate failed after ${GENERATE_MAX_ATTEMPTS} attempts for seed ${selection.seed}; falling back to maze2`,
-        );
-        activateLayout("maze2");
-      }
-    }
-    this.playRender.resetForNewBoard();
-    this.world = createWorld();
-    this.spawnWalls();
-    this.spawnPellets();
-    this.spawnPlayer();
-    this.bossState = null;
-    if (boss !== null) {
-      this.startBoss(boss);
-      this.recordSeen([boss.ghostKind]);
-    } else {
-      const ghostKinds =
-        this.ghostsOverride ?? ghostKindsForLevel(this.levelIndex, this.secondGhostKind);
-      for (const kind of ghostKinds) {
-        this.spawnGhost(kind);
-      }
-      this.recordSeen(ghostKinds);
-    }
-
-    this.clock = createRunClock();
-    this.ghostReleaseClock = createGhostReleaseClock();
-    this.ghostModeClock = createGhostModeClock(this.levelIndex);
-    this.previousEffectiveGhostMode = this.ghostModeClock.mode;
-    this.pelletProgress = createPelletProgress(countPellets(this.world));
-    this.fruitPresence = createFruitPresence();
-    this.pendingPowerPelletRespawns = [];
-    this.tunnelDashAnim = null;
-    this.afterLifeRelease = false;
-    placeInHouseGhostsAtPredictedSeats(
-      this.world,
-      this.ghostReleaseClock,
-      this.pelletProgress.boardCollected,
-      this.afterLifeRelease,
-    );
-    this.death = null;
-    this.suppressPlayerInputUntilKeyRelease = false;
-
-    this.timerText.setText(this.timerLabel());
-    placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
-
-    if (this.runUpgrades.owned.includes("passivePelletToPower")) {
-      this.applyPelletToPowerOnce();
-    }
-    if (this.bossState !== null) {
-      this.tagBossPellets(this.bossState);
-    }
-  }
-
-  private generateBoard(
-    seed: string,
-    boss: BossDef | null,
-  ): ReturnType<typeof generateMazeAsciiWithRetries> {
-    if (boss === null) {
-      return generateMazeAsciiWithRetries(seed);
-    }
-    const bossBoard = generateMazeAsciiWithRetries(seed, GENERATE_MAX_ATTEMPTS, {
-      tunnelCount: boss.tunnelCount,
-    });
-    if (bossBoard !== null) {
-      return bossBoard;
-    }
-    console.warn(
-      `boss maze with ${boss.tunnelCount} tunnels failed for seed ${seed}; using a regular board`,
-    );
-    return generateMazeAsciiWithRetries(seed);
-  }
-
-  private startBoss(boss: BossDef): void {
-    const { cols } = getActiveLayout();
-    this.bossMouths = bossTunnelMouths(horizontalTunnelRows(), cols);
-    this.bossState = createBossState(boss, this.bossGhostsOverride ?? boss.startGhosts);
-    this.spawnBossGhostsForLife();
-  }
-
-  private spawnBossGhostsForLife(): void {
-    if (this.bossState === null) {
-      return;
-    }
-    const { def, ghostCount } = this.bossState;
-    const { house, tunnel } = splitBossGhosts(def, ghostCount);
-    for (let i = 0; i < house; i += 1) {
-      this.spawnBossGhostInHouse(BLINKY_RELEASE_DELAY_MS + i * def.houseReleaseStaggerMs);
-    }
-    this.bossState = { ...this.bossState, pendingSpawns: tunnel };
-  }
-
-  private tagBossPellets(state: BossState): void {
-    const regular = [...query(this.world, [Pellet, Position])].filter(
-      (eid) => Drawable.id[eid] === PELLET_DRAWABLE_ID,
-    );
-    const cells = regular.map((eid) => ({
-      eid,
-      col: worldToCol(Position.x[eid] ?? 0),
-      row: worldToRow(Position.y[eid] ?? 0),
-    }));
-    const picks = pickBossPelletCells(cells, getActiveLayout().playerSpawn, state.def.spawnPellets);
-    if (picks.length < state.def.spawnPellets) {
-      console.warn(`only ${picks.length} boss pellets fit this board`);
-    }
-    for (const pick of picks) {
-      addComponent(this.world, pick.eid, BossPellet);
-      Drawable.id[pick.eid] = BOSS_PELLET_DRAWABLE_ID;
-    }
-    this.bossState = { ...state, bossPelletsRemaining: picks.length };
-  }
-
-  private tickBoss(): void {
-    if (this.bossState === null) {
-      return;
-    }
-    let state = recordBossPelletsEaten(this.bossState, countBossPellets(this.world));
-    while (state.pendingSpawns > 0) {
-      if (this.bossMouths.length === 0) {
-        this.spawnBossGhostInHouse(0);
-      } else {
-        const index = pickFreeBossMouth(this.world, this.bossMouths, state.nextMouthIndex);
-        if (index === null) {
-          break;
+        break;
+      case "releaseDrawable":
+        this.playRender.releaseDrawable(event.eid);
+        break;
+      case "resetBoard":
+        this.playRender.resetForNewBoard();
+        break;
+      case "draw":
+        this.playRender.draw(this.sim.world, event.options);
+        break;
+      case "bouncePowerPellet":
+        this.playRender.bouncePowerPellet(event.eid);
+        break;
+      case "banner":
+        if (event.boss) {
+          this.showBossBanner();
+        } else {
+          this.showLevelBanner(event.text);
         }
-        this.spawnBossGhostAtMouth(this.bossMouths[index]!);
-        state = { ...state, nextMouthIndex: (index + 1) % this.bossMouths.length };
-      }
-      state = { ...state, pendingSpawns: state.pendingSpawns - 1 };
-    }
-    this.bossState = state;
-  }
-
-  private recordSeen(ghostKinds: readonly GhostKindId[]): void {
-    const seen = loadSeenRecord();
-    const withGhosts = withSeenGhosts(seen, ghostKinds);
-    const next =
-      this.runCorruption.type !== null
-        ? withSeenCorruption(withGhosts, this.runCorruption.type)
-        : withGhosts;
-    if (next !== seen) {
-      saveSeenRecord(next);
-    }
-  }
-
-  private recordSeenUpgrades(): void {
-    const seen = loadSeenRecord();
-    let next = seen;
-    for (const id of this.runUpgrades.owned) {
-      next = withSeenUpgrade(next, id);
-    }
-    if (next !== seen) {
-      saveSeenRecord(next);
-    }
-  }
-
-  private triggerLevelClear(): void {
-    stopLoopingSfx(this, "gameplayMusic");
-    playSfx(this, "levelComplete");
-    this.playRender.draw(this.world, {
-      frozenGhostEid: frozenGhostEid(this.runUpgrades),
-      playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
-      wallPassActive: wallPassActive(this.runUpgrades),
-      ...this.renderCorruptionOptions(),
-    });
-    if (this.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
-      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
-      return;
-    }
-    const offer = pickUpgradeChoiceOffer(
-      this.runUpgrades.owned,
-      this.runUpgrades.lastDeclinedUpgradeId,
-      this.random.stream("upgradeOffer", this.levelIndex),
-    );
-    this.pendingLevelClear = true;
-    this.upgradeChoiceModal.open(offer, (chosen) => {
-      if (chosen.kind === "quarters") {
-        this.quarters += chosen.amount;
+        break;
+      case "lives":
+        this.refreshLivesIcons(event.pulse);
+        break;
+      case "quarters":
         this.refreshQuartersHud();
-        this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
-      } else {
-        const alreadyOwned = this.runUpgrades.owned.includes(chosen.id);
-        this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id);
-        if (!alreadyOwned) {
-          this.applyGrantEffects(chosen.id);
-          this.refreshLivesIcons();
-          this.recordSeenUpgrades();
+        break;
+      case "upgrades":
+        this.refreshUpgradesHud();
+        break;
+      case "timer":
+        this.timerText.setText(this.timerLabel());
+        placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+        break;
+      case "timerVisible":
+        this.timerText.setVisible(event.visible);
+        break;
+      case "startingUpgrade":
+        this.startingUpgradeCard.open(event.id);
+        break;
+      case "upgradeOffer":
+        this.upgradeChoiceModal.open(event.offer, (chosen) => {
+          this.applyEvents(this.sim.chooseUpgrade(chosen), delta);
+        });
+        break;
+      case "newLevelModal":
+        this.upgradeChoiceModal.destroy();
+        this.upgradeChoiceModal = createUpgradeChoiceModal(
+          this,
+          this.sim.random.stream("upgradeFx"),
+        );
+        break;
+      case "storeOpened":
+        this.storeOverlay = createStoreOverlay(this);
+        this.storeOverlay.open(this.sim.storeState()!);
+        break;
+      case "storeSync":
+        this.storeOverlay?.sync(this.sim.storeState()!, event.prompt, delta);
+        break;
+      case "storePurchased":
+        this.storeOverlay?.showPurchased(event.id);
+        break;
+      case "storeClosed":
+        this.closeStoreUi();
+        break;
+      case "deathFade":
+        this.startDeathFadeOverlay();
+        break;
+      case "endText":
+        this.showCenteredEndText(event.title);
+        break;
+      case "goToMenu":
+        this.scene.start("MenuScene");
+        break;
+      case "saveRun":
+        saveRun(event.collected, event.remaining);
+        break;
+      case "seenGhosts": {
+        const seen = loadSeenRecord();
+        const withGhosts = withSeenGhosts(seen, event.ghostKinds);
+        const next =
+          event.corruption !== null ? withSeenCorruption(withGhosts, event.corruption) : withGhosts;
+        if (next !== seen) {
+          saveSeenRecord(next);
         }
+        break;
       }
-      this.refreshUpgradesHud();
-    });
-  }
-
-  private jumpToLevelClear(): void {
-    const pelletEids = query(this.world, [Pellet, Position]);
-    for (const eid of pelletEids) {
-      removeEntity(this.world, eid);
-      this.playRender.releaseDrawable(eid);
-    }
-    const collectResult = applyPelletCollect(this.pelletProgress, pelletEids.length);
-    this.pelletProgress = collectResult.progress;
-    this.lifetimeCollected += pelletEids.length;
-    this.triggerLevelClear();
-  }
-
-  private resolvePowerPelletTrigger(powerRemoved: number): boolean {
-    const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
-    this.runUpgrades = powerEffects.state;
-    if (powerEffects.freezeClosestMs !== null) {
-      this.runUpgrades = freezeClosestGhost(
-        this.world,
-        this.runUpgrades,
-        powerEffects.freezeClosestMs,
-      );
-    }
-    if (powerEffects.collectExtraPellets > 0) {
-      const solids = wallPassActive(this.runUpgrades)
-        ? getActiveLayout().wallPassPlayerSolids
-        : getActiveLayout().playerSolids;
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, solids);
-      for (const eid of bonusEids) {
-        this.playRender.releaseDrawable(eid);
-      }
-      if (bonusEids.length > 0) {
-        playSfx(this, "pelletMunch");
-        playSfx(this, "pelletMunch2");
-        const collectResult = applyPelletCollect(this.pelletProgress, bonusEids.length);
-        this.pelletProgress = collectResult.progress;
-        this.lifetimeCollected += bonusEids.length;
-        if (collectResult.shouldRecordClear) {
-          this.triggerLevelClear();
-          return true;
+      case "seenUpgrades": {
+        const seen = loadSeenRecord();
+        let next = seen;
+        for (const id of event.ids) {
+          next = withSeenUpgrade(next, id);
         }
+        if (next !== seen) {
+          saveSeenRecord(next);
+        }
+        break;
       }
     }
-    if (powerEffects.recallClosestGhost) {
-      recallClosestGhostToHouse(
-        this.world,
-        this.ghostReleaseClock,
-        this.pelletProgress.boardCollected,
-        this.afterLifeRelease,
-        {
-          delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
-          clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
-        },
-      );
-    }
-    if (powerEffects.warpPlayerTopCenter) {
-      warpPlayerToTopCenter(this.world);
-    }
-    return false;
   }
 
-  private spawnRespawnedPowerPellet(x: number, y: number): void {
-    const eid = addEntity(this.world);
-    addComponent(this.world, eid, Pellet);
-    addComponent(this.world, eid, Position);
-    addComponent(this.world, eid, Drawable);
-    addComponent(this.world, eid, PowerPellet);
-    Position.x[eid] = x;
-    Position.y[eid] = y;
-    Drawable.id[eid] = POWER_PELLET_DRAWABLE_ID;
-    Drawable.radius[eid] = PELLET_RADIUS;
-    this.pelletProgress = addPelletsToProgress(this.pelletProgress, 1);
-  }
-
-  private applyGrantEffects(id: UpgradeId): void {
-    this.lives += grantLivesForUpgrade(id);
-    if (id === "passivePelletToPower") {
-      this.applyPelletToPowerOnce();
+  private closeStoreUi(): void {
+    if (this.musicPendingFanfareEnd === "storeMusic") {
+      this.musicPendingFanfareEnd = null;
     }
+    stopLoopingSfx(this, "storeMusic");
+    this.storeOverlay?.destroy();
+    this.storeOverlay = null;
   }
 
-  private applyPelletToPowerOnce(): void {
-    const eid = applyPelletToPowerConvert(
-      this.world,
-      this.random.stream("pelletToPower", this.levelIndex),
-    );
-    if (eid === null) {
-      return;
-    }
-    this.playRender.draw(this.world, {
-      frozenGhostEid: frozenGhostEid(this.runUpgrades),
-      playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
-      wallPassActive: wallPassActive(this.runUpgrades),
-      ...this.renderCorruptionOptions(),
-    });
-    this.playRender.bouncePowerPellet(eid);
-  }
-
-  private renderCorruptionOptions(): {
-    corruptedGhostEid: number | null;
-    corruptedTint: number | undefined;
-    flashGhostEid: number | null;
-    hiddenGhostEid: number | null;
-    slimeTrailTiles: GhostTarget[];
-  } {
-    const corruptedGhostEid = findGhostEidByKind(this.world, this.runCorruption.ghostKind);
-    const corruptedTint =
-      this.runCorruption.type !== null
-        ? OUTLINE_TINT_BY_CORRUPTION[this.runCorruption.type]
-        : undefined;
-    return {
-      corruptedGhostEid,
-      corruptedTint,
-      flashGhostEid: this.corruptionFlashGhostEid,
-      hiddenGhostEid: this.corruptionHiddenGhostEid,
-      slimeTrailTiles: this.runCorruption.trail,
-    };
-  }
-
-  private spawnDroppedPellets(tiles: readonly GhostTarget[]): void {
-    let spawned = 0;
-    const { playerSolids } = getActiveLayout();
-    for (const tile of tiles) {
-      if (!isWalkable(tile.col, tile.row, playerSolids)) {
-        continue;
-      }
-      const x = cellCenterX(tile.col);
-      const y = cellCenterY(tile.row);
-      const occupied = query(this.world, [Pellet, Position]).some(
-        (eid) => Position.x[eid] === x && Position.y[eid] === y,
-      );
-      if (occupied) {
-        continue;
-      }
-
-      const eid = addEntity(this.world);
-      addComponent(this.world, eid, Pellet);
-      addComponent(this.world, eid, Position);
-      addComponent(this.world, eid, Drawable);
-      Position.x[eid] = x;
-      Position.y[eid] = y;
-      Drawable.id[eid] = PELLET_DRAWABLE_ID;
-      Drawable.radius[eid] = PELLET_RADIUS;
-      spawned += 1;
-    }
-
-    if (spawned > 0) {
-      this.pelletProgress = addPelletsToProgress(this.pelletProgress, spawned);
-    }
-  }
-
-  private advanceToNextLevel(): void {
-    this.upgradeChoiceModal.destroy();
-    this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.random.stream("upgradeFx"));
-
-    this.levelIndex += 1;
-    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
-    this.runCorruption = resetCorruptionTransient(this.runCorruption);
-    this.corruptionHiddenGhostEid = null;
-    this.corruptionFlashGhostEid = null;
-
-    this.startBoard(null);
-    this.refreshUpgradesHud();
-    const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives);
-    this.refreshLivesIcons(this.lives > livesBeforeRegen);
-    this.showLevelBanner();
-    this.startMusicAfterFanfare("gameplayMusic");
-    this.playRender.draw(this.world, {
-      frozenGhostEid: null,
-      playerInvulnRemainingMs: 0,
-      wallPassActive: false,
-      ...this.renderCorruptionOptions(),
-    });
-  }
-
-  private showLevelBanner(text?: string): void {
-    if (text === undefined && bossForLevel(this.levelIndex) !== null) {
-      this.showBossBanner();
-      return;
-    }
+  private showLevelBanner(text: string): void {
     this.clearLevelBanner();
     const banner = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2,
-      text ?? `LEVEL ${this.levelIndex}`,
+      text,
       MENU_TITLE_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(800);
@@ -1551,7 +387,7 @@ export class PlayScene extends Phaser.Scene {
 
   private shakeCamera(): void {
     const camera = this.cameras.main;
-    const shake = this.random.stream("bossShake");
+    const shake = this.sim.random.stream("bossShake");
     const maxX = BOSS_SHAKE_INTENSITY * camera.width;
     const maxY = BOSS_SHAKE_INTENSITY * camera.height;
     this.tweens.addCounter({
@@ -1564,34 +400,6 @@ export class PlayScene extends Phaser.Scene {
   private clearLevelBanner(): void {
     this.levelBannerText?.destroy();
     this.levelBannerText = null;
-  }
-
-  private handleDeathEvent(event: DeathSequenceEvent): void {
-    switch (event) {
-      case "resetActors":
-        this.resetAfterLifeLoss();
-        this.playRender.draw(this.world, {
-          frozenGhostEid: null,
-          playerInvulnRemainingMs: 0,
-          wallPassActive: false,
-          ...this.renderCorruptionOptions(),
-        });
-        break;
-      case "startFade":
-        this.startDeathFadeOverlay();
-        break;
-      case "showGameOver":
-        this.showGameOverText();
-        break;
-      case "resume":
-        this.death = null;
-        startLoopingSfx(this, "gameplayMusic");
-        break;
-      case "goToMenu":
-        this.death = null;
-        this.scene.start("MenuScene");
-        break;
-    }
   }
 
   private startDeathFadeOverlay(): void {
@@ -1612,16 +420,6 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private beginRunComplete(): void {
-    stopLoopingSfx(this, "gameplayMusic");
-    this.showCenteredEndText("RUN COMPLETE");
-    this.runCompleteRemainingMs = RUN_COMPLETE_HOLD_MS;
-  }
-
-  private showGameOverText(): void {
-    this.showCenteredEndText("GAME OVER");
-  }
-
   private showCenteredEndText(title: string): void {
     const titleText = addPixelText(
       this,
@@ -1637,88 +435,21 @@ export class PlayScene extends Phaser.Scene {
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2 + 24,
-      this.collectedLabel(),
+      `Collected: ${this.sim.hud().collected}`,
       HUD_FONT_SIZE,
     ).setDepth(1001);
     placePixelText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
-    addSeedLabel(this, this.random.seed).setDepth(1001);
+    addSeedLabel(this, this.sim.random.seed).setDepth(1001);
   }
 
-  private resetAfterLifeLoss(): void {
-    this.tunnelDashAnim = null;
-    const playerSpawn = playerSpawnCenter();
-    for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
-      Position.x[eid] = playerSpawn.x;
-      Position.y[eid] = playerSpawn.y;
-      Velocity.x[eid] = 0;
-      Velocity.y[eid] = 0;
-      Input.direction[eid] = DIRECTION.none;
-      Facing.direction[eid] = DIRECTION.none;
-    }
-
-    if (this.bossState !== null) {
-      for (const eid of [...query(this.world, [Ghost])]) {
-        removeEntity(this.world, eid);
-        this.playRender.releaseDrawable(eid);
-      }
-      this.spawnBossGhostsForLife();
-    }
-    for (const eid of query(this.world, [
-      Ghost,
-      GhostPhase,
-      Position,
-      Velocity,
-      Input,
-      Facing,
-      Speed,
-    ])) {
-      Velocity.x[eid] = 0;
-      Velocity.y[eid] = 0;
-      Input.direction[eid] = DIRECTION.none;
-      Facing.direction[eid] = DIRECTION.none;
-      Speed.px[eid] = 0;
-      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
-      Ghost.decidedCol[eid] = Number.NaN;
-      Ghost.decidedRow[eid] = Number.NaN;
-    }
-
-    this.ghostReleaseClock = createGhostReleaseClock();
-    this.ghostModeClock = createGhostModeClock(this.levelIndex);
-    this.previousEffectiveGhostMode = this.ghostModeClock.mode;
-    this.afterLifeRelease = true;
-    placeInHouseGhostsAtPredictedSeats(
-      this.world,
-      this.ghostReleaseClock,
-      this.pelletProgress.boardCollected,
-      this.afterLifeRelease,
-    );
-
-    this.clearFruitEntities();
-    this.fruitPresence = {
-      ...this.fruitPresence,
-      active: false,
-      remainingMs: 0,
-    };
-
-    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
-    this.runCorruption = resetCorruptionTransient(this.runCorruption);
-    this.corruptionHiddenGhostEid = null;
-    this.corruptionFlashGhostEid = null;
-
-    this.clock = {
-      ...this.clock,
-      started: false,
-    };
-  }
-
-  private refreshLivesIcons(pulseNewIcon = false): void {
+  private refreshLivesIcons(pulseNewIcon: boolean): void {
     for (const icon of this.lifeIcons) {
       icon.destroy();
     }
     this.lifeIcons = [];
     const size = playerDisplaySize();
     const y = PLAYFIELD_HEIGHT - 8 - size / 2;
-    for (let i = 0; i < livesHudIconCount(this.lives); i += 1) {
+    for (let i = 0; i < livesHudIconCount(this.sim.hud().lives); i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
       const icon = this.add
         .image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
@@ -1749,7 +480,7 @@ export class PlayScene extends Phaser.Scene {
     this.quarterIcons = [];
     const size = pelletDisplaySize();
     const y = 8 + size / 2;
-    for (let i = 0; i < this.quarters; i += 1) {
+    for (let i = 0; i < this.sim.hud().quarters; i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
       const icon = this.add
         .image(x, y, QUARTER_TEXTURE_KEY)
@@ -1760,7 +491,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private refreshUpgradesHud(): void {
-    const labels = upgradeLabels(this.runUpgrades.owned);
+    const labels = upgradeLabels(this.sim.hud().upgrades);
     if (labels.length === 0) {
       this.upgradesText.setVisible(false);
       return;
@@ -1770,140 +501,7 @@ export class PlayScene extends Phaser.Scene {
     placePixelText(this.upgradesText, 12, PLAYFIELD_HEIGHT / 2, 0, 0.5);
   }
 
-  private collectedLabel(): string {
-    return `Collected: ${this.lifetimeCollected}`;
-  }
-
   private timerLabel(): string {
-    return `Time: ${this.clock.remaining}`;
-  }
-
-  private clearFruitEntities(): void {
-    for (const eid of removeAllFruit(this.world)) {
-      this.playRender.releaseDrawable(eid);
-    }
-  }
-
-  private spawnFruitEntity(): void {
-    this.clearFruitEntities();
-    const eid = addEntity(this.world);
-    addComponent(this.world, eid, Fruit);
-    addComponent(this.world, eid, Position);
-    addComponent(this.world, eid, Drawable);
-    const spawn = fruitSpawnCenter();
-    Position.x[eid] = spawn.x;
-    Position.y[eid] = spawn.y;
-    Drawable.id[eid] = FRUIT_DRAWABLE_ID;
-    Drawable.radius[eid] = FRUIT_RADIUS;
-  }
-
-  private spawnWalls(): void {
-    for (const cell of wallCellCenters()) {
-      const eid = addEntity(this.world);
-      addComponent(this.world, eid, Wall);
-      addComponent(this.world, eid, Position);
-      Position.x[eid] = cell.x;
-      Position.y[eid] = cell.y;
-    }
-  }
-
-  private spawnPellets(): void {
-    for (const cell of pelletCellCenters()) {
-      const eid = addEntity(this.world);
-      addComponent(this.world, eid, Pellet);
-      addComponent(this.world, eid, Position);
-      addComponent(this.world, eid, Drawable);
-      if (cell.kind === "power") {
-        addComponent(this.world, eid, PowerPellet);
-      }
-      Position.x[eid] = cell.x;
-      Position.y[eid] = cell.y;
-      Drawable.id[eid] = cell.kind === "power" ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID;
-      Drawable.radius[eid] = PELLET_RADIUS;
-    }
-  }
-
-  private spawnPlayer(): void {
-    const eid = addEntity(this.world);
-    addComponent(this.world, eid, Position);
-    addComponent(this.world, eid, Velocity);
-    addComponent(this.world, eid, Input);
-    addComponent(this.world, eid, Facing);
-    addComponent(this.world, eid, Speed);
-    addComponent(this.world, eid, Player);
-    addComponent(this.world, eid, Drawable);
-
-    const spawn = playerSpawnCenter();
-    Position.x[eid] = spawn.x;
-    Position.y[eid] = spawn.y;
-    Velocity.x[eid] = 0;
-    Velocity.y[eid] = 0;
-    Input.direction[eid] = DIRECTION.none;
-    Facing.direction[eid] = DIRECTION.none;
-    Speed.px[eid] = PLAYER_SPEED;
-    Drawable.id[eid] = PLAYER_DRAWABLE_ID;
-    Drawable.radius[eid] = playerRadius();
-  }
-
-  private spawnBossGhostInHouse(releaseDelayMs: number): void {
-    const eid = this.spawnBossGhost();
-    BossGhost.releaseDelayMs[eid] = releaseDelayMs;
-  }
-
-  private spawnBossGhostAtMouth(mouth: BossTunnelMouth): void {
-    const eid = this.spawnBossGhost();
-    BossGhost.releaseDelayMs[eid] = 0;
-    Position.x[eid] = cellCenterX(mouth.col);
-    Position.y[eid] = cellCenterY(mouth.row);
-    GhostPhase.value[eid] = GHOST_PHASE.active;
-    Facing.direction[eid] = mouth.facing;
-    Input.direction[eid] = mouth.facing;
-  }
-
-  private spawnBossGhost(): number {
-    const kind = this.bossState?.def.ghostKind ?? GHOST_KIND.blinky;
-    const eid = this.spawnGhost(kind);
-    addComponent(this.world, eid, BossGhost);
-    const corners = [
-      blinkyScatterTarget(),
-      pinkyScatterTarget(),
-      inkyScatterTarget(),
-      clydeScatterTarget(),
-    ];
-    const scatter = this.random.stream("bossScatter", this.levelIndex);
-    const corner = corners[Math.floor(scatter() * corners.length)]!;
-    BossGhost.scatterCol[eid] = corner.col;
-    BossGhost.scatterRow[eid] = corner.row;
-    return eid;
-  }
-
-  private spawnGhost(kind: GhostKindId): number {
-    const eid = addEntity(this.world);
-    addComponent(this.world, eid, Position);
-    addComponent(this.world, eid, Velocity);
-    addComponent(this.world, eid, Input);
-    addComponent(this.world, eid, Facing);
-    addComponent(this.world, eid, Speed);
-    addComponent(this.world, eid, Ghost);
-    addComponent(this.world, eid, GhostKind);
-    addComponent(this.world, eid, GhostPhase);
-    addComponent(this.world, eid, Drawable);
-
-    const seats = ghostHouseSeatCenters();
-    const mid = seats[Math.floor(seats.length / 2)] ?? seats[0]!;
-    Position.x[eid] = mid.x;
-    Position.y[eid] = mid.y;
-    Velocity.x[eid] = 0;
-    Velocity.y[eid] = 0;
-    Input.direction[eid] = DIRECTION.none;
-    Facing.direction[eid] = DIRECTION.none;
-    Speed.px[eid] = 0;
-    GhostKind.kind[eid] = kind;
-    GhostPhase.value[eid] = GHOST_PHASE.inHouse;
-    Ghost.decidedCol[eid] = Number.NaN;
-    Ghost.decidedRow[eid] = Number.NaN;
-    Drawable.id[eid] = GHOST_DRAWABLE_BY_KIND[kind];
-    Drawable.radius[eid] = ghostRadius();
-    return eid;
+    return `Time: ${this.sim.hud().time}`;
   }
 }
