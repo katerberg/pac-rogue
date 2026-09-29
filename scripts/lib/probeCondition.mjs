@@ -26,23 +26,16 @@ export function readPath(snapshot, path) {
   return path.split(".").reduce((value, key) => (value == null ? undefined : value[key]), snapshot);
 }
 
-export function checkCondition(snapshot, condition) {
-  const actual = readPath(snapshot, condition.path);
-  const { op, expected } = condition;
-  switch (op) {
-    case "==":
-      return { ok: actual === expected, actual };
-    case "!=":
-      return { ok: actual !== expected, actual };
-    case "<":
-      return { ok: typeof actual === "number" && actual < expected, actual };
-    case "<=":
-      return { ok: typeof actual === "number" && actual <= expected, actual };
-    case ">":
-      return { ok: typeof actual === "number" && actual > expected, actual };
-    case ">=":
-      return { ok: typeof actual === "number" && actual >= expected, actual };
-    default:
-      throw new Error(`Unknown operator ${op}`);
-  }
+const COMPARE = {
+  "==": (actual, expected) => actual === expected,
+  "!=": (actual, expected) => actual !== expected,
+  "<": (actual, expected) => typeof actual === "number" && actual < expected,
+  "<=": (actual, expected) => typeof actual === "number" && actual <= expected,
+  ">": (actual, expected) => typeof actual === "number" && actual > expected,
+  ">=": (actual, expected) => typeof actual === "number" && actual >= expected,
+};
+
+export function checkCondition(snapshot, { path, op, expected }) {
+  const actual = readPath(snapshot, path);
+  return { ok: COMPARE[op](actual, expected), actual };
 }

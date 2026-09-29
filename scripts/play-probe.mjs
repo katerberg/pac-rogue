@@ -180,6 +180,9 @@ async function runStep(page, canvas, step, name) {
     case "waitFor": {
       const condition = parseCondition(a);
       const timeoutMs = b === undefined ? WAIT_FOR_DEFAULT_MS : Number(b);
+      if (!Number.isFinite(timeoutMs)) {
+        throw new Error(`Bad waitFor timeout "${b}"`);
+      }
       const { ok, actual } = await waitForCondition(page, condition, timeoutMs);
       if (!ok) {
         throw new Error(
@@ -203,8 +206,10 @@ async function runStep(page, canvas, step, name) {
 async function saveFailureEvidence(page, canvas, name) {
   try {
     await canvas.screenshot({ path: join(outDir, `${name}-failure.png`) });
-    const snapshot = await page.evaluate(() => globalThis.__PAC_ROGUE_DEBUG__?.snapshot() ?? null);
-    writeFileSync(join(outDir, `${name}-failure.json`), `${JSON.stringify(snapshot, null, 2)}\n`);
+    writeFileSync(
+      join(outDir, `${name}-failure.json`),
+      `${JSON.stringify(await readSnapshot(page), null, 2)}\n`,
+    );
     console.error(
       `failure evidence: artifacts/${name}-failure.png, artifacts/${name}-failure.json`,
     );
