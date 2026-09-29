@@ -44,7 +44,13 @@ export function applyGhostSpeed(
     const inTunnel = isGhostTunnelSlow(col, row);
     const base = hasComponent(world, eid, BossGhost)
       ? resolveBossGhostSpeed(inTunnel)
-      : resolveGhostSpeedForKind(kind, pelletsRemaining, inTunnel, levelIndex);
+      : resolveGhostSpeedForKind(
+          kind,
+          pelletsRemaining,
+          inTunnel,
+          levelIndex,
+          phase === GHOST_PHASE.leaving,
+        );
     Speed.px[eid] = base * ghostSpeedMul * surgeMul;
   }
 }

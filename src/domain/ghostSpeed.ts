@@ -57,9 +57,10 @@ export function resolveGhostSpeedForKind(
   pelletsRemaining: number,
   inTunnel: boolean,
   levelIndex: number,
+  leavingHouse = false,
 ): number {
   if (kind === GHOST_KIND.blinky) {
     return resolveGhostSpeed(pelletsRemaining, inTunnel, levelIndex);
   }
-  return resolveGhostSpeed(Number.POSITIVE_INFINITY, inTunnel, levelIndex);
+  return resolveGhostSpeed(Number.POSITIVE_INFINITY, inTunnel || leavingHouse, levelIndex);
 }

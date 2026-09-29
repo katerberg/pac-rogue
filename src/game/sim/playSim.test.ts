@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getActiveLayout, cellCenterX, cellCenterY, horizontalTunnelRows } from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
+import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { BossPellet } from "../components/BossPellet";
 import { Ghost } from "../components/Ghost";
@@ -162,5 +163,28 @@ describe("PlaySim", () => {
     expect(sim.snapshot().ghostMode).toBe("scatter");
     runFrames(sim, Math.ceil(5.5 * 60), { keys: held("left") });
     expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
+  it("moves ghosts at tunnel speed while they leave the house, then at full speed", () => {
+    const sim = startSim({ level: 2, infiniteLives: true }, "house-exit-speed");
+    const leaving = () =>
+      sim.snapshot().ghosts.find((g) => g.phase === "leaving" && g.kind !== "blinky");
+    runUntil(sim, () => leaving() !== undefined, 3000, { keys: held("left") });
+    const ghost = leaving();
+    expect(ghost).toBeDefined();
+    const leavingSpeed = Speed.px[ghost!.eid] ?? 0;
+
+    runUntil(
+      sim,
+      () => sim.snapshot().ghosts.find((g) => g.eid === ghost!.eid)?.phase === "active",
+      600,
+      {
+        keys: held("left"),
+      },
+    );
+    runFrames(sim, 2, { keys: held("left") });
+    const activeSpeed = Speed.px[ghost!.eid] ?? 0;
+    expect(leavingSpeed).toBeLessThan(PLAYER_SPEED);
+    expect(leavingSpeed / activeSpeed).toBeCloseTo(0.5 / 0.85);
   });
 });
