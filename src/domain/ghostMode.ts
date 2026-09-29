@@ -1,4 +1,4 @@
-import { ghostModeStartWaveIndex, ghostModeWavesForLevel } from "./levelRules";
+import { ghostModeWavesForLevel } from "./levelRules";
 
 export const GHOST_AI_MODE = {
   scatter: 0,
@@ -28,7 +28,7 @@ export type GhostModeTick = {
 function buildGhostModeClock(levelIndex: number, active: boolean): GhostModeClock {
   const level = Math.max(1, levelIndex);
   const waves = ghostModeWavesForLevel(level);
-  const waveIndex = ghostModeStartWaveIndex(level);
+  const waveIndex = 0;
   const start = waves[waveIndex]!;
   return {
     active,

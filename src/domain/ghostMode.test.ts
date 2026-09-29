@@ -16,33 +16,42 @@ describe("ghostMode", () => {
 
     const started = startGhostModeClock(2);
     expect(started.active).toBe(true);
-    expect(started.mode).toBe(GHOST_AI_MODE.chase);
   });
 
-  it("forces reverse when leaving the opening chase wave into scatter", () => {
-    let clock = startGhostModeClock(2);
-    const tick = tickGhostMode(clock, 20_000);
+  it("opens levels 2+ with scatter and forces reverse into the first chase", () => {
+    const started = startGhostModeClock(2);
+    expect(started.mode).toBe(GHOST_AI_MODE.scatter);
+    expect(startGhostModeClock(5).mode).toBe(GHOST_AI_MODE.scatter);
+
+    const tick = tickGhostMode(started, 7_000);
     expect(tick.forceReverse).toBe(true);
-    expect(tick.clock.mode).toBe(GHOST_AI_MODE.scatter);
-    clock = tick.clock;
+    expect(tick.clock.mode).toBe(GHOST_AI_MODE.chase);
 
-    const midScatter = tickGhostMode(clock, 1_000);
-    expect(midScatter.forceReverse).toBe(false);
-    expect(midScatter.clock.mode).toBe(GHOST_AI_MODE.scatter);
+    const midChase = tickGhostMode(tick.clock, 1_000);
+    expect(midChase.forceReverse).toBe(false);
+    expect(midChase.clock.mode).toBe(GHOST_AI_MODE.chase);
   });
 
-  it("uses arcade scatter durations after the opening chase", () => {
+  it("uses arcade durations, ending in permanent chase on levels 2-4", () => {
     let clock = startGhostModeClock(2);
-    clock = tickGhostMode(clock, 20_000).clock;
+    for (const [ms, mode] of [
+      [7_000, GHOST_AI_MODE.chase],
+      [20_000, GHOST_AI_MODE.scatter],
+      [7_000, GHOST_AI_MODE.chase],
+      [20_000, GHOST_AI_MODE.scatter],
+      [5_000, GHOST_AI_MODE.chase],
+      [100_000, GHOST_AI_MODE.chase],
+    ] as const) {
+      clock = tickGhostMode(clock, ms).clock;
+      expect(clock.mode).toBe(mode);
+    }
+  });
+
+  it("uses 5s opening scatter from level 5", () => {
+    let clock = startGhostModeClock(5);
+    clock = tickGhostMode(clock, 4_999).clock;
     expect(clock.mode).toBe(GHOST_AI_MODE.scatter);
-
-    clock = tickGhostMode(clock, 7_000).clock;
-    expect(clock.mode).toBe(GHOST_AI_MODE.chase);
-
-    clock = tickGhostMode(clock, 20_000).clock;
-    expect(clock.mode).toBe(GHOST_AI_MODE.scatter);
-
-    clock = tickGhostMode(clock, 5_000).clock;
+    clock = tickGhostMode(clock, 1).clock;
     expect(clock.mode).toBe(GHOST_AI_MODE.chase);
   });
 
@@ -67,9 +76,9 @@ describe("ghostMode", () => {
     expect(paused.clock).toEqual(clock);
     expect(paused.mode).toBe(GHOST_AI_MODE.scatter);
 
-    const resumed = resolveGhostModeStep(clock, false, 20_000);
+    const resumed = resolveGhostModeStep(clock, false, 7_000);
     expect(resumed.clock.waveIndex).toBeGreaterThan(clock.waveIndex);
-    expect(resumed.mode).toBe(GHOST_AI_MODE.scatter);
+    expect(resumed.mode).toBe(GHOST_AI_MODE.chase);
   });
 
   it("allows scatter burst to force scatter on level 1", () => {

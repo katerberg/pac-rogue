@@ -138,4 +138,15 @@ describe("PlaySim", () => {
     startSim({ level: 4 }, "other");
     expect(getActiveLayout().ascii).not.toBe(firstBoard);
   });
+
+  it("opens later levels in scatter, then switches to chase after the arcade scatter", () => {
+    const sim = startSim({ level: 5, infiniteLives: true }, "scatter-open");
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    runUntil(sim, () => sim.snapshot().ghosts.some((g) => g.phase === "active"), 1200, {
+      keys: held("left"),
+    });
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    runFrames(sim, Math.ceil(5.5 * 60), { keys: held("left") });
+    expect(sim.snapshot().ghostMode).toBe("chase");
+  });
 });
