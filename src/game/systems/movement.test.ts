@@ -1,6 +1,8 @@
 import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
 import {
+  activateAsciiLayout,
+  activateLayout,
   cellCenterX,
   cellCenterY,
   getActiveLayout,
@@ -9,6 +11,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { PLAYER_SPEED, playerPreTurnPx } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -292,33 +295,42 @@ describe("movement", () => {
   });
 
   it("moves along both axes at normalized speed when a diagonal is fully open", () => {
-    const { playerSolids } = getActiveLayout();
-    let fromCol = -1;
-    let fromRow = -1;
-    for (let row = 1; row < 28 && fromCol < 0; row += 1) {
-      for (let col = 1; col < 25; col += 1) {
-        if (
-          isWalkable(col, row, playerSolids) &&
-          isWalkable(col + 1, row, playerSolids) &&
-          isWalkable(col, row + 1, playerSolids)
-        ) {
-          fromCol = col;
-          fromRow = row;
-          break;
+    // Classic 1-tile-wide corridor mazes have no genuinely open 2x2 area; the store
+    // layout's roomier corridors do, matching where unconditional diagonal movement
+    // (no wallPass) is actually used.
+    activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    try {
+      const { playerSolids } = getActiveLayout();
+      let fromCol = -1;
+      let fromRow = -1;
+      for (let row = 0; row < 20 && fromCol < 0; row += 1) {
+        for (let col = 0; col < 21; col += 1) {
+          if (
+            isWalkable(col, row, playerSolids) &&
+            isWalkable(col + 1, row, playerSolids) &&
+            isWalkable(col, row + 1, playerSolids) &&
+            isWalkable(col + 1, row + 1, playerSolids)
+          ) {
+            fromCol = col;
+            fromRow = row;
+            break;
+          }
         }
       }
+      expect(fromCol).toBeGreaterThan(0);
+
+      const { world, eid } = spawnAt(fromCol, fromRow);
+      Input.direction[eid] = DIRECTION.downRight;
+
+      movement(world, 16);
+
+      expect(Facing.direction[eid]).toBe(DIRECTION.downRight);
+      expect(Position.x[eid]).toBeGreaterThan(cellCenterX(fromCol));
+      expect(Position.y[eid]).toBeGreaterThan(cellCenterY(fromRow));
+      expect(Math.hypot(Velocity.x[eid] ?? 0, Velocity.y[eid] ?? 0)).toBeCloseTo(PLAYER_SPEED, 5);
+    } finally {
+      activateLayout("maze1");
     }
-    expect(fromCol).toBeGreaterThan(0);
-
-    const { world, eid } = spawnAt(fromCol, fromRow);
-    Input.direction[eid] = DIRECTION.downRight;
-
-    movement(world, 16);
-
-    expect(Facing.direction[eid]).toBe(DIRECTION.downRight);
-    expect(Position.x[eid]).toBeGreaterThan(cellCenterX(fromCol));
-    expect(Position.y[eid]).toBeGreaterThan(cellCenterY(fromRow));
-    expect(Math.hypot(Velocity.x[eid] ?? 0, Velocity.y[eid] ?? 0)).toBeCloseTo(PLAYER_SPEED, 5);
   });
 
   it("slides along the open axis when the other axis of a diagonal is blocked", () => {
@@ -332,6 +344,35 @@ describe("movement", () => {
     expect(Position.y[eid]).toBe(cellCenterY(1));
     expect(Velocity.x[eid]).toBeCloseTo(PLAYER_SPEED / Math.SQRT2, 5);
     expect(Velocity.y[eid]).toBeCloseTo(-PLAYER_SPEED / Math.SQRT2, 5);
+  });
+
+  it("does not cut through a wall corner when both flanks are open but the diagonal cell is a wall", () => {
+    const { playerSolids, walls } = getActiveLayout();
+    let fromCol = -1;
+    let fromRow = -1;
+    for (let row = 1; row < 28 && fromCol < 0; row += 1) {
+      for (let col = 1; col < 25; col += 1) {
+        if (
+          isWalkable(col, row, playerSolids) &&
+          isWalkable(col + 1, row, playerSolids) &&
+          isWalkable(col, row - 1, playerSolids) &&
+          (walls[row - 1]?.[col + 1] ?? true)
+        ) {
+          fromCol = col;
+          fromRow = row;
+          break;
+        }
+      }
+    }
+    expect(fromCol).toBeGreaterThan(0);
+
+    const { world, eid } = spawnAt(fromCol, fromRow);
+    Input.direction[eid] = DIRECTION.upRight;
+
+    movement(world, 16);
+
+    expect(Position.x[eid]).toBeGreaterThan(cellCenterX(fromCol));
+    expect(Position.y[eid]).toBe(cellCenterY(fromRow));
   });
 
   it("hands off from a diagonal Facing to a single-axis Input without getting stuck", () => {
