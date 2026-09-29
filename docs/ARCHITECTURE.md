@@ -34,6 +34,7 @@ src/
     mazeGenerate.ts           # tiling → 28×34 ASCII + board seed / level≥2 selection
     playfieldBounds.ts        # PLAYFIELD_WIDTH/HEIGHT (no maze import)
     runLevel.ts               # ?level= URL parse, clamped to MAX_LEVEL
+    playOptions.ts            # parsePlayOptions: every PlayScene URL flag → PlayOptions + warnings
     runRandom.ts              # ?seed= parse + RunRandom: named seeded streams, the only allowed randomness source
     quartersFlag.ts           # ?quarters= URL parse (non-negative integer default count)
     store.ts                  # store floor schedule, slot parse, stock roll, prompt/purchase state machine
@@ -84,12 +85,19 @@ src/
       Drawable.ts
       BossGhost.ts            # boss marker: scatter corner + house release delay
       BossPellet.ts           # boss pellet marker (eating one spawns a boss ghost)
+    sim/                      # headless, Phaser-free run state + pipelines (Vitest-drivable)
+      playSim.ts              # PlaySim: start / step(input, delta) → SimEvent[]; chooseUpgrade; snapshot
+      learnSim.ts             # LearnSim: LEARN sandbox pipeline
+      simEvents.ts            # SimEvent union (side effects the scene applies) + SimRenderOptions
+      simInput.ts             # SimInput (HeldKeys, uiOpen, store toggle/confirm)
+      simTesting.ts           # test harness: runFrames / runUntil / held at a fixed 1000/60 step
     storage/
       runHistoryStorage.ts    # localStorage adapter for death-run history
       audioSettingsStorage.ts # localStorage adapter for music/SFX prefs
       seenRecordStorage.ts    # localStorage adapter for the LEARN seen record
     systems/
-      playerInput.ts          # Phaser keys → sticky Input
+      heldKeys.ts             # HeldKeys (press times) → sticky Input; axis winner + diagonal combine
+      playerInput.ts          # Phaser keys → HeldKeys (reader only)
       ghostRelease.ts         # inHouse → leaving (time or Inky/Clyde pellets)
       ghostHouseSeating.ts    # inHouse seat steer + snap at predicted seats
       ghostAi.ts              # kind target tile → sticky Input (once per tile); corruption opts for freeRetargetReverse/falseScatter; resolveGhostTarget
@@ -127,8 +135,8 @@ src/
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       SettingsScene.ts        # music/SFX checkboxes + 0..10 notches (no ECS)
       PauseScene.ts           # Escape overlay: Resume / Settings / Quit confirm (no ECS)
-      PlayScene.ts            # preload art, createWorld, spawn, HUD, pipeline
-      LearnScene.ts           # LEARN sandbox: own world, one chosen ghost, live target overlay
+      PlayScene.ts            # adapter: keys → PlaySim.step → apply SimEvents (sfx, render, HUD, modals, banners)
+      LearnScene.ts           # LEARN adapter: slots/rows/overlay UI over LearnSim
   public/
   art/                        # Pac-Man / pellet / power-pellet / ghost / fruit PNGs
   sound/                      # SFX (pickups, level complete, death) + looping menu/game-play music
@@ -142,7 +150,7 @@ docs/
 - Agents: `npm run dev:agent` → 5174, preview/visual → 4174
 - Agents may kill/restart only their ports.
 - Agent ports disable audio unless `?sound=1` (`src/domain/soundFlag.ts` → `gameConfig.audio.noAudio`).
-- Agent ports expose a read-only `window.__PAC_ROGUE_DEBUG__.snapshot()` (`src/game/scenes/installDebugHook.ts` → `PlayScene.debugSnapshot()` + `worldSnapshot`) for `npm run probe` assertions; see [VERIFICATION.md](./VERIFICATION.md#game-state-snapshot).
+- Agent ports expose a read-only `window.__PAC_ROGUE_DEBUG__.snapshot()` (`src/game/scenes/installDebugHook.ts` → `PlayScene.debugSnapshot()` → `PlaySim.snapshot()` + `worldSnapshot`) for `npm run probe` assertions; see [VERIFICATION.md](./VERIFICATION.md#game-state-snapshot).
 
 ## Scenes
 
@@ -167,7 +175,7 @@ PlayScene --caught (lives left)--> death hold → reset → ready → resume
 PlayScene --caught (last life)--> death hold → fade → GAME OVER → MenuScene
 ```
 
-**ECS ownership:** only `PlayScene` and `LearnScene` call `createWorld` / `addEntity` and run a system pipeline (`LearnScene`'s is a reduced chase-only sandbox; see [docs/learn.md](./learn.md)). `MenuScene`, `HighScoresScene`, `SettingsScene`, and `PauseScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
+**ECS ownership:** only the headless sims in `src/game/sim/` (`PlaySim`, `LearnSim`) call `createWorld` / `addEntity` and run a system pipeline (`LearnSim`'s is a reduced chase-only sandbox; see [docs/learn.md](./learn.md)). `PlayScene` and `LearnScene` are adapters over them. `MenuScene`, `HighScoresScene`, `SettingsScene`, and `PauseScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
 
 Pausing (Escape) is available at any point during `PlayScene`, including mid-death-sequence, mid-level-transition, and while the level-clear upgrade-choice modal is open — `scene.pause()` halts `PlayScene.update()` entirely, so whichever of those states was active simply freezes and resumes exactly where it left off; `scene.pause()` never touches the Sound Manager, so the game-play music loop keeps playing unattended through the pause menu. `SettingsScene` accepts an optional `returnScene` value (Phaser scene init data) so it can return to either `MenuScene` (default) or `PauseScene` depending on how it was opened; `PlayScene` itself is never restarted by this round trip. `PauseScene`'s Quit option turns into an inline `SURE?  YES  NO` on the same row (default focus: NO); Up cancels the confirm and moves focus to Settings, same as a normal Up from the Quit row. Confirming Yes stops `PlayScene` (its existing `SHUTDOWN` handler covers game-play music/modal/banner cleanup) without ever calling `saveRun`.
 
@@ -175,19 +183,21 @@ High Scores reads `loadRunHistory()` and builds a **display-only** sorted view v
 
 Settings reads/writes `audioSettings` via `audioSettingsStorage` (`pac-rogue.audio-settings.v1`). **Music** scales whichever music track is currently playing (`menuMusic` or `gameplayMusic` — see below); **SFX** scales every other clip. Adjusting the Music slider or toggling Music on/off (`syncMusicPlayback` in `game/audio/sfx.ts`) directly starts, stops, or re-volumes the live track instead of playing a separate preview clip; the SFX slider still plays a one-shot `pelletMunch` preview on change. `SettingsScene` resolves which track it controls via `musicIdForContext(returnScene)`: `gameplayMusic` when opened from `PauseScene`, `menuMusic` otherwise. Agent `noAudio` still wins for playback; Settings stays editable and shows `AUDIO DISABLED` when muted.
 
-Three looping music tracks share the `"music"` audio category (the third, `storeMusic` / `sound/store.ogg`, replaces `gameplayMusic` on store floors — see [docs/store.md](./store.md#music)): `menuMusic` (`sound/menu.ogg`) plays continuously across `MenuScene`, `LearnScene`, `HighScoresScene`, and `SettingsScene` (when opened from the menu) — each of those scenes starts it (idempotently) in `create()`, so navigating between them never restarts or glitches it. `gameplayMusic` (`sound/game-play.ogg`, the id was previously named `siren`) plays only during `PlayScene`, including while `PauseScene` is open on top of it; `PlayScene.create()` stops `menuMusic` as its first action so the two tracks never overlap.
+Three looping music tracks share the `"music"` audio category (the third, `storeMusic` / `sound/store.ogg`, replaces `gameplayMusic` on store floors — see [docs/store.md](./store.md#music)): `menuMusic` (`sound/menu.ogg`) plays continuously across `MenuScene`, `LearnScene`, `HighScoresScene`, and `SettingsScene` (when opened from the menu) — each of those scenes starts it (idempotently) in `create()`, so navigating between them never restarts or glitches it. `gameplayMusic` (`sound/game-play.ogg`, the id was previously named `siren`) plays only during `PlayScene`, including while `PauseScene` is open on top of it; `PlaySim.start()` stops `menuMusic` as its first action so the two tracks never overlap.
 
 ## Game loop
 
 ```text
-PlayScene.update →
+PlayScene.update → (fanfare music hand-off; Escape → pause; tick starting card / upgrade modal UI) → PlaySim.step(input, delta) → apply events
+PlaySim.step →
+  (if starting card open: return; on close suppress input until key release)
   (if dying: tickDeathSequence → handle events (reset / fade / GO / resume / menu); return; no sim)
   (if run complete: tick hold → MenuScene; return)
   (if level transition: tick pause → store floor (after 3, 5-or-6, 8) else advance board (level < 9) or begin run complete (level 9); return)
   (if store floor: stop-on-release input → movement → tunnel exit check (→ slide out + fade, then advance) → storeStep (Left/Right toggle, Enter confirm) → apply purchase → overlay sync → render; return)
-  (if upgrade modal active: tick modal; return until outro done → suppress input until key release)
+  (if an upgrade offer is pending or its modal is still animating: return; then suppress input until key release)
   (if pending level clear: start level transition; return)
-  playerInput →
+  applyHeldKeys →
   tickGhostRelease + ghostHouseSeating + ghostRelease (boardCollected + afterLifeRelease gates Inky/Clyde) →
   tickFreeze + tickScatterBurst + tickWallPass → (wall-pass expire → snapPlayerToNearestWalkable) → tickInvuln + tickSpeedBurst + tickSpeedSurge → applyPlayerSpeed → applyGhostSpeed (level mul × upgrade mul + closest-ghost freeze + speed-surge mul; skips inHouse) →
   bossGhostBlock? (boss level: head-on boss ghosts reverse) →
@@ -212,7 +222,7 @@ PlayScene.update →
 From level 4+, `maybeAssignCorruption` runs once per `startBoard()` call to pick (or lock in a forced)
 ghost + corruption; see [docs/corruption.md](./corruption.md). Each `startBoard()` also merges the spawned ghost kinds and the assigned corruption into the LEARN seen record (`pac-rogue.seen.v1`).
 
-While the upgrade choice modal is active, `PlayScene.update` early-returns after ticking the modal (full sim freeze), same family as the death sequence halt. It is opened only on a level 2-8 clear (never by fruit; `offersUpgradeAfterLevel`); level 1's and level 9's clears and any level-clear with no eligible upgrades skip straight to the level transition.
+While the upgrade choice is pending (or its modal is still animating), `PlaySim.step` early-returns (full sim freeze), same family as the death sequence halt. It is opened only on a level 2-8 clear (never by fruit; `offersUpgradeAfterLevel`); level 1's and level 9's clears and any level-clear with no eligible upgrades skip straight to the level transition.
 See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
 
 1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky + Pinky + Inky + Clyde, bonus fruit art, SFX.
@@ -227,14 +237,15 @@ See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
 
 ## ECS boundary
 
-| Layer                                                      | May import Phaser? | May mutate component arrays? | Role                |
-| ---------------------------------------------------------- | ------------------ | ---------------------------- | ------------------- |
-| `game/components/**`                                       | No                 | Define storage only          | Data                |
-| logic systems (`movement`, `ghostAi`, `collectPellets`, …) | No                 | Yes                          | Pure simulation     |
-| `game/systems/playerDirection.ts`                          | No                 | No (reads `Input` only)      | Pure query helper   |
-| `game/systems/playerInput.ts`, `render.ts`                 | Yes                | Yes (input / drawable sync)  | Bridges             |
-| `game/scenes/**`                                           | Yes                | Spawn / init only            | Wire + run pipeline |
-| `domain/**`                                                | No                 | No bitecs world APIs         | Pure helpers        |
+| Layer                                                      | May import Phaser? | May mutate component arrays?                         | Role                                    |
+| ---------------------------------------------------------- | ------------------ | ---------------------------------------------------- | --------------------------------------- |
+| `game/components/**`                                       | No                 | Define storage only                                  | Data                                    |
+| logic systems (`movement`, `ghostAi`, `collectPellets`, …) | No                 | Yes                                                  | Pure simulation                         |
+| `game/systems/playerDirection.ts`                          | No                 | No (reads `Input` only)                              | Pure query helper                       |
+| `game/systems/playerInput.ts`, `render.ts`                 | Yes                | Read keys / drawable sync                            | Bridges                                 |
+| `game/sim/**` (`PlaySim`, `LearnSim`)                      | No                 | Yes; only layer that creates worlds/entities         | Run state + pipeline; emits `SimEvent`s |
+| `game/scenes/**`                                           | Yes                | No (ESLint bans `bitecs`, components, logic systems) | Adapters: input in, events applied out  |
+| `domain/**`                                                | No                 | No bitecs world APIs                                 | Pure helpers                            |
 
 `npm run verify` enforces this via ESLint `no-restricted-imports` and `npm run check:ecs`. Docs are not the gate.
 
@@ -244,8 +255,8 @@ A violation of these is a failed architecture check:
 
 - Phaser GameObjects are **not** the source of truth for position; they only mirror ECS `Position`.
 - Sticky `Input` is written by `playerInput` / ghost AI / release / mode-reverse. `movement` updates `Facing`, `Velocity`, and `Position` in normal play; `forceGhostReverse` also sets both `Facing` and `Input` on scatter↔chase boundaries (and that frame skips `ghostAi` so the reverse is not overwritten).
-- Scenes wire the world, spawn entities, and run the pipeline — **no movement or AI rules in the scene** beyond calling systems and domain clocks.
-- A fix or feature that changes a decision in `src/game/scenes/**` or the `render.ts` / `playerInput.ts` bridges extracts that decision into a pure function (`src/domain/**` or a Phaser-free system) with a unit test in the same PR; the scene keeps only the call. See [VERIFICATION.md](./VERIFICATION.md#scene-and-render-logic).
+- Scenes are adapters: they read Phaser input into a `SimInput`, call the sim, and apply its `SimEvent`s (sounds, drawing, HUD, modals, banners, storage writes). **No simulation state, systems or world APIs in scenes** (`check:ecs` bans `createWorld`/`addEntity`; ESLint bans `bitecs`, `components/*` and logic-system imports in scenes, and scenes/audio/storage/bridge imports in `sim/`). Scenes read derived state through sim getters, `snapshot()` or `LearnSim.overlayModel()`; only `render.ts` / `playerInput.ts` take the `World`.
+- Gameplay decisions live in `src/game/sim/**`, systems or `src/domain/**`, and are tested headlessly through the sim harness; see [src/game/sim/README.md](../src/game/sim/README.md) and [VERIFICATION.md](./VERIFICATION.md#scene-and-render-logic).
 - Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; wall Graphics stroke rounded outlines from domain path commands.
 - One local GameObject map inside the render bridge is enough — do not build a sync framework.
 - Do not invent Entity/Component/System manager classes around bitecs.
@@ -262,7 +273,7 @@ A violation of these is a failed architecture check:
 ## Current runtime
 
 - Boot lands on `MenuScene` (`DOT-MAN` title, Start / Learn / High Scores / Settings), or on `PlayScene` when `?play=1`. Start opens `PlayScene`; Learn opens `LearnScene` (see [docs/learn.md](./learn.md)); High Scores opens `HighScoresScene` (pellets + remaining time + date from localStorage; empty → `NO SCORES YET`; list viewport fills down to a clearance above Back; more rows than fit → pause-at-top then scroll with trail loop); Settings opens `SettingsScene` (music/SFX checkboxes + 0..10 notched volumes in localStorage). `MenuScene`, `LearnScene`, `HighScoresScene`, and `SettingsScene` (when opened from the menu) all loop `menuMusic` (`sound/menu.ogg`), started idempotently in each scene's `create()` so it plays continuously across all of them until a game actually starts.
-- Only `PlayScene` and `LearnScene` own world creation and a system pipeline. UI scenes have no ECS.
+- Only `PlaySim` and `LearnSim` own world creation and a system pipeline; `PlayScene`/`LearnScene` adapt them to Phaser. UI scenes have no ECS.
 - Escape during `PlayScene` always opens `PauseScene` (dims the paused board) — Resume returns control immediately; Settings reuses `SettingsScene` and returns to the pause menu; Quit turns its row into an inline `SURE?  YES  NO` (default NO, Up cancels back to Settings) and, if confirmed, ends the run and returns to `MenuScene` without writing a high-score entry. Pausing works mid-death-sequence, mid-level-transition, and mid-upgrade-modal alike, and `gameplayMusic` keeps playing throughout the pause menu (and any `SettingsScene` opened from it) since `scene.pause()` never touches audio.
 - Rectangular maze (per-layout cols/rows; **fixed** tile size `TILE_SIZE_PX` (16px, same for every layout — Pac-Man/ghosts render at one consistent pixel size across all levels) centered under `MAZE_TOP_MARGIN_PX` in the leftover 800×600 band; reject if pixel width/height overflow the playfield or left gutter `< 80` — see [maze-constraints.md](./maze-constraints.md)) with stroked walls (rounded corners). Visual knobs live on `maze.ts`: `MAZE_TOP_MARGIN_PX`, `MAZE_BACKGROUND_COLOR`, `WALL_STROKE_COLOR`, `WALL_STROKE_WEIGHT`, `WALL_CORNER_RADIUS`, `WALL_CORNER_CURVE_MIN_STEPS`, `WALL_CORNER_CURVE_KIND`, `WALL_INSET_PX` (pull stroke into wall tiles), `PLAYER_WALL_PADDING_PX` (actor display size only), `pelletDisplaySize()` / `powerPelletDisplaySize()` (clamped to tile). Dual solids (player blocked from house/door; ghosts allowed), horizontal tunnels.
 - One player entity (display size from wall padding; open mouth when idle) spawns in the lowest empty center maze cell, then moves continuously along centerlines with sticky next-direction turns; walls/exterior/house block travel; tunnels wrap with dual-draw while straddling. Holding two perpendicular direction keys moves the player diagonally instead when all three destination cells are open (normalized speed, wall-slide on a genuinely blocked flank, no cutting through a wall corner) — gated behind `powerPelletWallPass` on maze boards (its solids grid phases through interior walls), always available in the store — see [docs/upgrades.md](./upgrades.md#wall-pass) and [docs/store.md](./store.md#movement).

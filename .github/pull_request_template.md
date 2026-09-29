@@ -8,6 +8,7 @@
 
 - [ ] `npm run verify` green
 - [ ] Scene / `render.ts` decisions changed: moved to `…` with a test that fails without the change, or N/A
+- [ ] Gameplay change: `PlaySim` test added/extended in `src/game/sim/playSim.test.ts`, or N/A
 - Live check (gameplay/presentation changes), each probe command verbatim:
 
   ```bash

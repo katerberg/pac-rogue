@@ -108,6 +108,57 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/game/sim/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "phaser", message: "The sim layer runs headless in Vitest; no Phaser." }],
+          patterns: [
+            {
+              group: [
+                "**/scenes/**",
+                "**/audio/**",
+                "**/storage/**",
+                "**/systems/render",
+                "**/systems/playerInput",
+              ],
+              message:
+                "The sim emits SimEvents; it must not import scenes, audio, storage or Phaser bridges.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/game/scenes/**/*.ts"],
+    ignores: ["src/game/scenes/**/*.test.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "bitecs", message: "Scenes are adapters; ECS access lives in src/game/sim." },
+          ],
+          patterns: [
+            {
+              group: [
+                "**/components/*",
+                "**/systems/*",
+                "!**/systems/render",
+                "!**/systems/playerInput",
+                "!**/systems/heldKeys",
+              ],
+              message:
+                "Scenes are adapters: read state through the sim (snapshot/overlayModel); only the render/input bridges may touch ECS.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["src/game/systems/**/*.ts"],
     ignores: [
       "src/game/systems/playerInput.ts",
