@@ -37,6 +37,41 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/**/*.ts"],
+    ignores: ["src/domain/runRandom.ts"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        ...[
+          ["Math", "random"],
+          ["crypto", "getRandomValues"],
+          ["crypto", "randomUUID"],
+        ].map(([object, property]) => ({
+          object,
+          property,
+          message: "Draw from a RunRandom stream (src/domain/runRandom.ts) so ?seed= replays it.",
+        })),
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[object.property.name='Math'][property.name=/^(RND|Between|FloatBetween|RandomXY|RandomXYZ|RandomXYZW)$/]",
+          message: "Phaser's RNG is unseeded; draw from a RunRandom stream instead.",
+        },
+        {
+          selector: "MemberExpression[property.name=/^(Shuffle|GetRandom)$/]",
+          message: "Phaser's array randomizers are unseeded; draw from a RunRandom stream instead.",
+        },
+        {
+          selector: "CallExpression[callee.property.name='shake']",
+          message:
+            "Phaser camera shake uses Math.random internally; use the seeded PlayScene.shakeCamera.",
+        },
+      ],
+    },
+  },
+  {
     files: ["src/game/components/**/*.ts", "src/domain/**/*.ts"],
     rules: {
       "no-restricted-imports": [

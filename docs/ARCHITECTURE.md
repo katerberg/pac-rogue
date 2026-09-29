@@ -34,6 +34,7 @@ src/
     mazeGenerate.ts           # tiling → 28×34 ASCII + board seed / level≥2 selection
     playfieldBounds.ts        # PLAYFIELD_WIDTH/HEIGHT (no maze import)
     runLevel.ts               # ?level= URL parse, clamped to MAX_LEVEL
+    runRandom.ts              # ?seed= parse + RunRandom: named seeded streams, the only allowed randomness source
     quartersFlag.ts           # ?quarters= URL parse (non-negative integer default count)
     store.ts                  # store floor schedule, slot parse, stock roll, prompt/purchase state machine
     storeFlag.ts              # ?store=1 debug: start in a store
@@ -247,6 +248,7 @@ A violation of these is a failed architecture check:
 - Wall layout/collision comes from the domain maze grid; Wall entities carry `Position` for ECS presence; wall Graphics stroke rounded outlines from domain path commands.
 - One local GameObject map inside the render bridge is enough — do not build a sync framework.
 - Do not invent Entity/Component/System manager classes around bitecs.
+- All randomness comes from the run's `RunRandom` (`src/domain/runRandom.ts`), one named stream per consumer, so `?seed=` replays a run. ESLint bans `Math.random`, `crypto` randomness, Phaser's RNG and camera `shake` in `src/`; see [VERIFICATION.md](./VERIFICATION.md#seeded-runs).
 - bitecs **0.4** only. No `bitecs/legacy`, no second ECS library.
 
 ## Principles

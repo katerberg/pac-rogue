@@ -14,7 +14,7 @@ description: >-
 ## Before implementation
 
 1. Pick the verification level from [What each change class requires](../../../docs/VERIFICATION.md#what-each-change-class-requires).
-2. For gameplay/presentation work, list the [modes the diff can reach](../../../docs/VERIFICATION.md#modes-touched) and sketch the probe steps for each: which flags reach the state, which `expect:`/`waitFor:` conditions prove the behavior, and which `shot:`s show the visuals.
+2. For gameplay/presentation work, list the [modes the diff can reach](../../../docs/VERIFICATION.md#modes-touched) and sketch the probe steps for each: which flags reach the state (always with `seed=` so reruns replay the same run), which `expect:`/`waitFor:` conditions prove the behavior, and which `shot:`s show the visuals.
 
 ## After implementation
 

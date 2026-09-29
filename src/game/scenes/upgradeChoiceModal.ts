@@ -153,14 +153,19 @@ type ButtonView = {
 
 export type UpgradeChoiceModal = {
   isActive: () => boolean;
+  offer: () => UpgradeChoiceOffer | null;
   open: (offer: UpgradeChoiceOffer, onConfirm: (chosen: UpgradeChoiceOption) => void) => void;
   tick: (deltaMs: number) => void;
   rearmSelectionKeys: () => void;
   destroy: () => void;
 };
 
-export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModal {
+export function createUpgradeChoiceModal(
+  scene: Phaser.Scene,
+  rng: () => number,
+): UpgradeChoiceModal {
   let phase: Phase | null = null;
+  let currentOffer: UpgradeChoiceOffer | null = null;
   let elapsedMs = 0;
   let onConfirm: ((chosen: UpgradeChoiceOption) => void) | null = null;
   let dim: Phaser.GameObjects.Rectangle | null = null;
@@ -294,12 +299,12 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
   const applyFuzz = (progress: number): void => {
     const clamped = Math.min(1, Math.max(0, progress));
     for (const button of buttons) {
-      const jitterX = (1 - clamped) * (Math.random() * 4 - 2);
-      const jitterY = (1 - clamped) * (Math.random() * 4 - 2);
+      const jitterX = (1 - clamped) * (rng() * 4 - 2);
+      const jitterY = (1 - clamped) * (rng() * 4 - 2);
       button.root.setPosition(button.baseX + jitterX, button.baseY + jitterY);
       button.root.setAlpha(clamped);
-      button.label.setText(scrambleToward(button.targetLabel, clamped));
-      button.description.setText(scrambleToward(button.targetDescription, clamped));
+      button.label.setText(scrambleToward(button.targetLabel, clamped, rng));
+      button.description.setText(scrambleToward(button.targetDescription, clamped, rng));
       placeButtonText(button);
     }
     for (const hint of hints) {
@@ -386,7 +391,9 @@ export function createUpgradeChoiceModal(scene: Phaser.Scene): UpgradeChoiceModa
 
   return {
     isActive: () => phase !== null,
+    offer: () => (phase === null ? null : currentOffer),
     open: (offer, confirm) => {
+      currentOffer = offer;
       clearViews();
       ensureKeys();
       onConfirm = confirm;
@@ -510,7 +517,7 @@ export function wrapText(text: string, maxCharsPerLine: number): string {
   return lines.join("\n");
 }
 
-function scrambleToward(target: string, progress: number): string {
+function scrambleToward(target: string, progress: number, rng: () => number): string {
   if (progress >= 1) {
     return target;
   }
@@ -525,7 +532,7 @@ function scrambleToward(target: string, progress: number): string {
     if (i < revealed) {
       out += ch;
     } else {
-      out += SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]!;
+      out += SCRAMBLE_CHARS[Math.floor(rng() * SCRAMBLE_CHARS.length)]!;
     }
   }
   return out;

@@ -100,13 +100,13 @@ Required for gameplay and presentation changes. `npm run probe` is the default t
 ### Recipe
 
 ```bash
-npm run probe -- --query "play=1&maze=mazeSmall" --name left --steps \
+npm run probe -- --query "play=1&maze=mazeSmall&seed=recipe" --name left --steps \
   "waitFor:play.startingUpgradeCardOpen==true,press:Space,waitFor:play.startingUpgradeCardOpen==false,waitFor:play.inputSuppressed==false,hold:ArrowLeft:600,waitFor:play.player.col<10:3000,expect:play.player.facing==left,expect:play.boardCollected>0,shot:moved"
 ```
 
 Level 1 opens a **starting-upgrade card** that swallows the first keypress. After it closes, input is suppressed until every key is released. So always open a level-1 run with `waitFor:play.startingUpgradeCardOpen==true,press:Space,waitFor:play.startingUpgradeCardOpen==false,waitFor:play.inputSuppressed==false`. Levels other than 1, `store=1` and `jumpToUpgrade=1` skip the card.
 
-Levels 2+ build a **random generated board every run** (no seed flag yet), so the spawn surroundings change between runs. For position or movement assertions, pin a fixed layout with `maze=maze1|maze2|mazeSmall` (it applies to the first board at any `level`), or assert only what holds on every board.
+Without `seed=`, every run rolls fresh randomness: generated boards (levels 2+), the starting upgrade, the second ghost, corruption, upgrade offers, Store stock and more. **Pass `seed=<anything>` on every probe** so reruns see the same run (see [Seeded runs](#seeded-runs)). `maze=maze1|maze2|mazeSmall` additionally pins a hand-made layout for the first board. `play.seed` reports the seed in use, including the fresh one an unseeded run picked, so a flaky or surprising run can be replayed with `seed=<play.seed>`.
 
 Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `store`, `enableUpgrade`, `ghosts`, `forceCorruption`, `bossGhosts`, `infiniteLives`). On any failed step the probe writes `artifacts/<name>-failure.json` (snapshot) and `artifacts/<name>-failure.png`. Read both before changing code.
 
@@ -134,6 +134,7 @@ On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot(
 | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `scenes.<Key>`                                                                            | `running` \| `paused` \| `sleeping`; absent when stopped                                  |
 | `play`                                                                                    | `null` unless `PlayScene` is running or paused                                            |
+| `play.seed`                                                                               | the run's seed (from `?seed=`, or freshly rolled)                                         |
 | `play.level`, `play.layout`                                                               | level index; layout id (`mazeSmall`, `maze1`, `generated`, `store`, …)                    |
 | `play.lives`, `play.quarters`, `play.timeRemaining`                                       | HUD values                                                                                |
 | `play.boardCollected`, `play.pelletsRemaining`                                            | pellet progress                                                                           |
@@ -142,12 +143,22 @@ On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot(
 | `play.ghosts.<i>.{eid,kind,phase,col,row,x,y,facing,boss}`                                | each ghost; `phase` is `inHouse` \| `leaving` \| `active`                                 |
 | `play.ghostMode`                                                                          | `scatter` \| `chase`                                                                      |
 | `play.upgrades`, `play.timers.{freezeMs,scatterBurstMs,wallPassMs,invulnMs,speedBurstMs}` | owned upgrade ids; active power-pellet timers                                             |
-| `play.corruption`                                                                         | assigned corruption id, or `null`                                                         |
+| `play.corruption`, `play.corruptionGhost`                                                 | assigned corruption id and ghost kind, or `null`                                          |
 | `play.startingUpgradeCardOpen`, `play.inputSuppressed`                                    | level-1 card up; player input held until all keys release                                 |
 | `play.upgradeModalOpen`, `play.levelTransition`, `play.dying`                             | blocking states (the sim is frozen in each)                                               |
+| `play.upgradeOffer`                                                                       | upgrade ids offered by the open level-clear modal, else `null`                            |
 | `play.inStore`, `play.boss.ghostCount`                                                    | store floor; boss Blinky count (`play.boss` is `null` off-boss)                           |
+| `play.storeStock`                                                                         | Store tiles in slot order (upgrade id, `swap:<outgoing id>`, `life`), else `null`         |
 
 When a check needs state the snapshot lacks, add the field (read-only) in the same PR instead of falling back to reading pixels.
+
+### Seeded runs
+
+`?seed=<1-32 of A-Z a-z 0-9 _ ->` fixes **every** random decision in a run (`src/domain/runRandom.ts`). `PlayScene` and `LearnScene` draw only from named streams of one `RunRandom`: `secondGhost`, `midStore`, `startingUpgrade`, `corruption`, `upgradeOffer`, `upgradeFx`, `storeStock`, `storePurchase`, `pelletToPower`, `bossScatter` and `bossShake`. Generated boards come from the seed through `boardMazeSeed`. Per-board streams are keyed by level, and each stream is independent. So how much one consumer draws (store purchases, modal effects) never shifts another, and level N's draws never depend on earlier levels' draws. The results can still depend on player choices (an offer only picks from upgrades you don't own).
+
+Not covered by the seed (not randomness): real frame timing (`delta`), which moves ghosts and timers by wall-clock time, and `localStorage` state (settings, the LEARN seen record, high scores).
+
+ESLint bans `Math.random`, `crypto.getRandomValues` / `randomUUID`, Phaser's RNG and array randomizers, and Phaser camera `shake` (it calls `Math.random` internally) everywhere in `src/` except `runRandom.ts`. **New randomness must add a `RandomStream` name and draw from it**, never bypass the rule.
 
 ## What each change class requires
 

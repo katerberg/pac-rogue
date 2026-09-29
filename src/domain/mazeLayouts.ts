@@ -107,7 +107,7 @@ export function parseMazeParam(params: URLSearchParams): MazeLayoutId | null {
 }
 
 export function pickLayoutId(
-  rng: () => number = Math.random,
+  rng: () => number,
   override: MazeLayoutId | null = null,
   levelIndex: number = 1,
 ): MazeLayoutId {
