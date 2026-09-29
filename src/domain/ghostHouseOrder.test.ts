@@ -1,17 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "./ghostKind";
 import { compareInHouseReleaseOrder, sortInHouseGhosts } from "./ghostHouseOrder";
-import {
-  BLINKY_RELEASE_DELAY_MS,
-  CLYDE_POST_LIFE_RELEASE_DELAY_MS,
-  INKY_POST_LIFE_RELEASE_DELAY_MS,
-  PINKY_RELEASE_DELAY_MS,
-  createGhostReleaseClock,
-} from "./ghostRelease";
+import { createGhostReleaseClock, tickGhostRelease } from "./ghostRelease";
 import { activateLayout, getActiveLayout } from "./maze";
 
 describe("ghostHouseOrder", () => {
-  it("orders Blinky Pinky Inky Clyde at level start", () => {
+  it("orders Pinky Blinky Inky Clyde at level 1 start", () => {
     activateLayout("maze1");
     const clock = createGhostReleaseClock();
     const sorted = sortInHouseGhosts(
@@ -26,51 +20,43 @@ describe("ghostHouseOrder", () => {
       false,
     );
     expect(sorted.map((g) => g.kind)).toEqual([
-      GHOST_KIND.blinky,
       GHOST_KIND.pinky,
+      GHOST_KIND.blinky,
       GHOST_KIND.inky,
       GHOST_KIND.clyde,
     ]);
   });
 
-  it("puts pellet-ready Inky ahead of waiting Pinky", () => {
+  it("puts dot-ready Inky ahead of waiting Blinky on level 1", () => {
     activateLayout("maze1");
-    const clock = { started: true, elapsedMs: BLINKY_RELEASE_DELAY_MS + 1 };
     const threshold = getActiveLayout().inkyReleasePellets;
+    const clock = tickGhostRelease(createGhostReleaseClock(1), true, 1, threshold);
     expect(
-      compareInHouseReleaseOrder(GHOST_KIND.inky, GHOST_KIND.pinky, clock, threshold, false),
+      compareInHouseReleaseOrder(GHOST_KIND.inky, GHOST_KIND.blinky, clock, threshold, false),
     ).toBeLessThan(0);
   });
 
-  it("puts pellet-ready Clyde ahead of waiting Pinky", () => {
+  it("puts dot-ready Clyde ahead of waiting Inky on level 1", () => {
     activateLayout("maze1");
-    const clock = { started: true, elapsedMs: BLINKY_RELEASE_DELAY_MS + 1 };
     const threshold = getActiveLayout().clydeReleasePellets;
+    const clock = tickGhostRelease(createGhostReleaseClock(1), true, 1, threshold);
     expect(
-      compareInHouseReleaseOrder(GHOST_KIND.clyde, GHOST_KIND.pinky, clock, threshold, false),
+      compareInHouseReleaseOrder(GHOST_KIND.clyde, GHOST_KIND.blinky, clock, threshold, false),
     ).toBeLessThan(0);
   });
 
-  it("orders post-life by time delays Blinky Pinky Inky Clyde", () => {
-    const clock = { started: true, elapsedMs: 0 };
+  it("orders post-life by dot thresholds Pinky Inky Clyde", () => {
+    const clock = createGhostReleaseClock(3);
     const sorted = sortInHouseGhosts(
-      [
-        { kind: GHOST_KIND.clyde },
-        { kind: GHOST_KIND.inky },
-        { kind: GHOST_KIND.pinky },
-        { kind: GHOST_KIND.blinky },
-      ],
+      [{ kind: GHOST_KIND.clyde }, { kind: GHOST_KIND.inky }, { kind: GHOST_KIND.pinky }],
       clock,
       0,
       true,
     );
     expect(sorted.map((g) => g.kind)).toEqual([
-      GHOST_KIND.blinky,
       GHOST_KIND.pinky,
       GHOST_KIND.inky,
       GHOST_KIND.clyde,
     ]);
-    expect(PINKY_RELEASE_DELAY_MS).toBeLessThan(INKY_POST_LIFE_RELEASE_DELAY_MS);
-    expect(INKY_POST_LIFE_RELEASE_DELAY_MS).toBeLessThan(CLYDE_POST_LIFE_RELEASE_DELAY_MS);
   });
 });

@@ -43,3 +43,7 @@ Fruit spawns/despawns as before, 10s lifetime: level 1 uses a single unscaled 70
 ## Run Complete
 
 Clearing level 9 (the boss) does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice is offered; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
+
+## Ghost house release
+
+Release tightens with level (arcade rules, except Blinky starts inside): nothing leaves before your first input, then Blinky leaves at 0.1s and Pinky immediately. Inky waits for the layout-scaled pellet count on level 1 and is immediate from level 2. Clyde waits for the layout-scaled count on level 1, 50 dots on level 2, and is immediate from level 3. After a death a shared counter releases Pinky, Inky and Clyde at 7, 17 and 32 dots eaten since the death. Stop eating for 4s (levels 1-4) or 3s (level 5+) and the next waiting ghost is pushed out. See [ARCHITECTURE](./ARCHITECTURE.md) for the mechanics.

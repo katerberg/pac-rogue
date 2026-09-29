@@ -1,5 +1,6 @@
 import { query } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { GHOST_KIND } from "../../domain/ghostKind";
 import { getActiveLayout, cellCenterX, cellCenterY } from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
@@ -137,5 +138,78 @@ describe("PlaySim", () => {
 
     startSim({ level: 4 }, "other");
     expect(getActiveLayout().ascii).not.toBe(firstBoard);
+  });
+
+  describe("ghost house release", () => {
+    const allGhosts = [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde];
+
+    function inHouse(sim: PlaySim, kind: string): boolean {
+      return sim.snapshot().ghosts.find((g) => g.kind === kind)!.phase === "inHouse";
+    }
+
+    function getCaught(sim: PlaySim): void {
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      runUntil(sim, () => !sim.snapshot().dying, 400);
+    }
+
+    it("level 3 lets all four ghosts out without eating a dot", () => {
+      const sim = startSim({ level: 3, maze: "maze1", ghosts: allGhosts });
+      runFrames(sim, 30, { keys: held("up") });
+      const snap = sim.snapshot();
+      expect(snap.boardCollected).toBe(0);
+      expect(snap.ghosts.map((g) => g.phase)).not.toContain("inHouse");
+    });
+
+    it("keeps ghosts in until the first direction input", () => {
+      const sim = startSim({ level: 3, maze: "maze1", ghosts: allGhosts });
+      runFrames(sim, 120);
+      expect(sim.snapshot().ghosts.every((g) => g.phase === "inHouse")).toBe(true);
+      runFrames(sim, 30, { keys: held("up") });
+      expect(sim.snapshot().ghosts.some((g) => g.phase === "inHouse")).toBe(false);
+    });
+
+    it("level 2 pushes out Clyde after 4s without eating", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        ghosts: [GHOST_KIND.clyde],
+      });
+      runFrames(sim, 230, { keys: held("up") });
+      expect(inHouse(sim, "clyde")).toBe(true);
+      runFrames(sim, 20, { keys: held("up") });
+      expect(inHouse(sim, "clyde")).toBe(false);
+      expect(sim.snapshot().boardCollected).toBe(0);
+    });
+
+    it("after a death, Pinky waits for 7 dots eaten since the death", () => {
+      const sim = startSim({
+        level: 3,
+        maze: "maze1",
+        ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky],
+      });
+      runFrames(sim, 40, { keys: held("left") });
+      getCaught(sim);
+      const baseline = sim.snapshot().boardCollected;
+      expect(baseline).toBeGreaterThan(0);
+      expect(inHouse(sim, "pinky")).toBe(true);
+      runUntil(sim, () => !inHouse(sim, "pinky"), 600, { keys: held("right") });
+      const eaten = sim.snapshot().boardCollected - baseline;
+      expect(eaten).toBeGreaterThanOrEqual(7);
+      expect(eaten).toBeLessThanOrEqual(8);
+    });
+
+    it("level 5 idle release comes after 3s, not 4s", () => {
+      const sim = startSim({
+        level: 5,
+        maze: "maze1",
+        ghosts: [GHOST_KIND.clyde],
+      });
+      getCaught(sim);
+      runFrames(sim, 170, { keys: held("up") });
+      expect(inHouse(sim, "clyde")).toBe(true);
+      runFrames(sim, 30, { keys: held("up") });
+      expect(inHouse(sim, "clyde")).toBe(false);
+    });
   });
 });
