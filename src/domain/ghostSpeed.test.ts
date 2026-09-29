@@ -31,4 +31,13 @@ describe("ghostSpeed", () => {
     expect(resolveGhostSpeedForKind(GHOST_KIND.clyde, 10, false, 5)).toBeCloseTo(PLAYER_SPEED);
     expect(resolveGhostSpeedForKind(GHOST_KIND.pinky, 10, true, 1)).toBeCloseTo(PLAYER_SPEED * 0.5);
   });
+
+  it("slows non-Blinky ghosts to tunnel speed while leaving the house", () => {
+    expect(resolveGhostSpeedForKind(GHOST_KIND.pinky, 10, false, 1, true)).toBeCloseTo(
+      PLAYER_SPEED * 0.5,
+    );
+    expect(resolveGhostSpeedForKind(GHOST_KIND.blinky, 10, false, 1, true)).toBeCloseTo(
+      GHOST_ELROY2_SPEED,
+    );
+  });
 });
