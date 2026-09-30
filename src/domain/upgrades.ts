@@ -122,7 +122,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passiveExtraLife",
     label: "Extra Life",
-    description: "One more chance before the maze goes dark.",
+    description: "One more chance, and lives regenerate up to 4.",
     grantLives: 1,
   },
   {
@@ -168,7 +168,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passiveDeathsHarvest",
     label: "Death's Harvest",
-    description: "Dying harvests nearby pellets — clear the board this way and it counts as a win.",
+    description: "Dying harvests nearby pellets.",
   },
   {
     id: "passiveOvercharge",
