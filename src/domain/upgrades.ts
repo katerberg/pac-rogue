@@ -19,6 +19,7 @@ export type UpgradeId =
   | "fruitPowerPellet"
   | "fruitQuarterBounty"
   | "fruitFecundity"
+  | "fruitFeast"
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
@@ -207,6 +208,12 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     description: "Bonus fruit lingers twice as long.",
     storePrice: STORE_UPGRADE_PRICE,
     fruitLifetimeMul: FRUIT_FECUNDITY_MUL,
+  },
+  {
+    id: "fruitFeast",
+    label: "Fruit Feast",
+    description: "Bonus fruit appears three times per level, each after the last is gone.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveDeathsHarvest",

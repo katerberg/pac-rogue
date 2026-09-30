@@ -102,6 +102,43 @@ describe("PlaySim fruit lifetime", () => {
   });
 });
 
+describe("PlaySim fruit feast", () => {
+  function eatPellets(sim: PlaySim, n: number): void {
+    for (const eid of regularPelletEids(sim).slice(0, n)) {
+      eatPelletAt(sim, eid);
+    }
+  }
+
+  it("spawns fruit at 60, waits for the gap after the first is gone, then spawns at 130", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["fruitFeast"],
+    });
+    eatPellets(sim, 59);
+    expect(sim.snapshot().fruit).toBe(false);
+    eatPellets(sim, 1);
+    expect(sim.snapshot().fruit).toBe(true);
+
+    eatPellets(sim, 70);
+    expect(sim.snapshot().boardCollected).toBeGreaterThanOrEqual(130);
+    expect(sim.snapshot().fruit).toBe(true);
+
+    teleportPlayer(sim, 0, 0);
+    runUntil(sim, () => !sim.snapshot().fruit, 700);
+    runFrames(sim, 280);
+    expect(sim.snapshot().fruit).toBe(false);
+    runUntil(sim, () => sim.snapshot().fruit, 60);
+  });
+
+  it("does not spawn fruit at 60 pellets without the upgrade", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true });
+    eatPellets(sim, 60);
+    expect(sim.snapshot().fruit).toBe(false);
+  });
+});
+
 describe("PlaySim remote transference", () => {
   function startOwned(): PlaySim {
     return startSim({ level: 2, enableUpgrades: ["passiveRemoteTransference"] });

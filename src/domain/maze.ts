@@ -96,6 +96,7 @@ export function powerPelletDisplaySize(tileSize: number = TILE_SIZE): number {
 export const TURN_ALIGN_EPS = 2;
 
 export const BASE_FRUIT_SPAWN_THRESHOLDS = [70, 170] as const;
+export const BASE_FEAST_FRUIT_SPAWN_THRESHOLDS = [60, 130, 200] as const;
 export const BASE_INKY_RELEASE_PELLETS = 30;
 export const BASE_CLYDE_RELEASE_PELLETS = 60;
 export const BASE_ELROY1_DOTS_LEFT = 20;
@@ -130,6 +131,7 @@ export type MazeLayout = {
   fruitSpawn: MazeTile;
   pelletCount: number;
   fruitThresholds: readonly [number, number];
+  feastFruitThresholds: readonly [number, number, number];
   inkyReleasePellets: number;
   clydeReleasePellets: number;
   elroy1DotsLeft: number;
@@ -673,6 +675,12 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
 
   const basePelletCount = id === "maze1" ? pelletCount : getLayout("maze1").pelletCount;
   const fruitThresholds = scaleFruitThresholds(pelletCount, basePelletCount);
+  const [feast1, feast2, feast3] = BASE_FEAST_FRUIT_SPAWN_THRESHOLDS;
+  const feastFruitThresholds = [
+    scaleCount(feast1, pelletCount, basePelletCount),
+    scaleCount(feast2, pelletCount, basePelletCount),
+    scaleCount(feast3, pelletCount, basePelletCount),
+  ] as const;
   const { elroy1DotsLeft, elroy2DotsLeft } = scaleElroyCutoffs(pelletCount, basePelletCount);
 
   return {
@@ -698,6 +706,7 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
     fruitSpawn,
     pelletCount,
     fruitThresholds,
+    feastFruitThresholds,
     inkyReleasePellets: scaleCount(BASE_INKY_RELEASE_PELLETS, pelletCount, basePelletCount),
     clydeReleasePellets: scaleCount(BASE_CLYDE_RELEASE_PELLETS, pelletCount, basePelletCount),
     elroy1DotsLeft,
