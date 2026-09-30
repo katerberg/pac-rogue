@@ -78,6 +78,7 @@ const ALL_IDS: UpgradeId[] = [
   "passiveOvercharge",
   "passiveTunnelDash",
   "passivePowerPelletRecharge",
+  "passiveRemoteTransference",
 ];
 
 const STUB_IDS: UpgradeId[] = [
@@ -86,6 +87,7 @@ const STUB_IDS: UpgradeId[] = [
   "passiveOvercharge",
   "passiveTunnelDash",
   "passivePowerPelletRecharge",
+  "passiveRemoteTransference",
 ];
 
 describe("parseUpgradeId", () => {
