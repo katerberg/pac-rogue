@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PLAYFIELD_WIDTH } from "./playfieldBounds";
 import {
   REVIVE_BOUNCE_END,
+  REVIVE_BOUNCE_SIZE_FRAC,
   REVIVE_BOUNCE_START,
   REVIVE_SPLASH_MS,
   reviveSplashLook,
@@ -27,8 +28,8 @@ describe("reviveSplashLook", () => {
 
   it("shrinks and fades in monotonically outside the bounce window", () => {
     for (const [from, to] of [
-      [0, 0.3],
-      [0.4, 1],
+      [0, REVIVE_BOUNCE_START],
+      [REVIVE_BOUNCE_END, 1],
     ] as const) {
       let last = reviveSplashLook(from, 20);
       for (let i = 1; i <= 10; i += 1) {
@@ -40,13 +41,18 @@ describe("reviveSplashLook", () => {
     }
   });
 
-  it("bounces up in size and opacity between 30% and 40%, then rejoins the base curve", () => {
+  it("bounces up to 50% of the start-to-base span over a 20% window, then rejoins", () => {
+    const peakT = (REVIVE_BOUNCE_START + REVIVE_BOUNCE_END) / 2;
     const before = reviveSplashLook(REVIVE_BOUNCE_START, 20);
-    const peak = reviveSplashLook(0.35, 20);
+    const peak = reviveSplashLook(peakT, 20);
     const after = reviveSplashLook(REVIVE_BOUNCE_END, 20);
-    const baseline = 1 - (1 - 0.35) ** 3;
-    expect(peak.size).toBeGreaterThan(PLAYFIELD_WIDTH + (20 - PLAYFIELD_WIDTH) * baseline);
-    expect(peak.alpha).toBeGreaterThan(0.35);
+    const baseline = 1 - (1 - peakT) ** 3;
+    const baseSize = PLAYFIELD_WIDTH + (20 - PLAYFIELD_WIDTH) * baseline;
+    const bounceSpan = PLAYFIELD_WIDTH - 20;
+    expect(REVIVE_BOUNCE_END - REVIVE_BOUNCE_START).toBeCloseTo(0.2);
+    expect(REVIVE_BOUNCE_SIZE_FRAC).toBe(0.5);
+    expect(peak.size).toBeCloseTo(baseSize + bounceSpan * REVIVE_BOUNCE_SIZE_FRAC);
+    expect(peak.alpha).toBeGreaterThan(peakT);
     expect(peak.size).toBeGreaterThan(after.size);
     expect(after.size).toBeLessThan(before.size);
     expect(after.alpha).toBeCloseTo(REVIVE_BOUNCE_END);

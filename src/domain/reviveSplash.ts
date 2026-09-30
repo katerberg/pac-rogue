@@ -3,8 +3,8 @@ import { PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 export const REVIVE_SPLASH_MS = READY_PAUSE_MS;
 export const REVIVE_BOUNCE_START = 0.3;
-export const REVIVE_BOUNCE_END = 0.4;
-export const REVIVE_BOUNCE_SIZE_FRAC = 0.1;
+export const REVIVE_BOUNCE_END = 0.5;
+export const REVIVE_BOUNCE_SIZE_FRAC = 0.5;
 export const REVIVE_BOUNCE_ALPHA = 0.12;
 
 export function reviveSplashProgress(elapsedMs: number): number {
