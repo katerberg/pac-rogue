@@ -44,6 +44,14 @@ function ghostOntoPlayer(sim: PlaySim): void {
   GhostPhase.value[ghost] = GHOST_PHASE.active;
 }
 
+function reviveProgresses(events: SimEvent[]): number[] {
+  return events.flatMap((event) =>
+    event.type === "draw" && event.options.playerReviveProgress !== undefined
+      ? [event.options.playerReviveProgress]
+      : [],
+  );
+}
+
 function count(events: SimEvent[], type: SimEvent["type"]): number {
   return events.filter((event) => event.type === type).length;
 }
@@ -294,6 +302,36 @@ describe("PlaySim", () => {
       runUntil(sim, () => !sim.snapshot().dying, 240);
       expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
       expect(sim.snapshot().lives).toBe(livesBefore);
+    });
+
+    it("plays the revive sound instead of the death sound on a save", () => {
+      const sim = startDefySim();
+      chompPowerPellet(sim);
+      ghostOntoPlayer(sim);
+      const events = runFrames(sim, 1);
+      expect(events).toContainEqual({ type: "sfx", id: "revive" });
+      expect(events).not.toContainEqual({ type: "sfx", id: "death" });
+    });
+
+    it("plays the death sound and no revive splash on a normal death", () => {
+      const sim = startDefySim();
+      ghostOntoPlayer(sim);
+      const events = [...runFrames(sim, 1), ...runUntil(sim, () => !sim.snapshot().dying, 240)];
+      expect(events).toContainEqual({ type: "sfx", id: "death" });
+      expect(events).not.toContainEqual({ type: "sfx", id: "revive" });
+      expect(reviveProgresses(events)).toEqual([]);
+    });
+
+    it("fades the player in from 0 to 1 through the READY pause after a save", () => {
+      const sim = startDefySim();
+      chompPowerPellet(sim);
+      ghostOntoPlayer(sim);
+      const events = [...runFrames(sim, 1), ...runUntil(sim, () => !sim.snapshot().dying, 240)];
+      const progresses = reviveProgresses(events);
+      expect(progresses[0]).toBe(0);
+      expect(progresses.at(-1)).toBe(1);
+      expect(progresses).toEqual([...progresses].sort((a, b) => a - b));
+      expect(reviveProgresses(runFrames(sim, 5))).toEqual([]);
     });
 
     it("spends a life when caught without a recent power pellet", () => {

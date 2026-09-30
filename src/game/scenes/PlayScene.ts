@@ -126,6 +126,7 @@ export class PlayScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       stopLoopingSfx(this, "gameplayMusic");
       stopLoopingSfx(this, "death");
+      stopLoopingSfx(this, "revive");
       this.upgradeChoiceModal.destroy();
       this.startingUpgradeCard.destroy();
       this.closeStoreUi();

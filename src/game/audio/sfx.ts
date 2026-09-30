@@ -48,6 +48,11 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     url: "sound/death.ogg",
     volume: 0.4,
   },
+  revive: {
+    key: "revive",
+    url: "sound/revive.ogg",
+    volume: 0.6,
+  },
 };
 
 const SFX_PREVIEW_ID: SfxId = "pelletMunch";

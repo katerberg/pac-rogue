@@ -29,6 +29,7 @@ import {
   type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
+import { reviveSplashProgress } from "../../domain/reviveSplash";
 import {
   createFruitPresence,
   extendFruitLifetime,
@@ -275,6 +276,8 @@ export class PlaySim {
   private corruptionFlashGhostEid: number | null = null;
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
+  private reviveSplashPending = false;
+  private reviveSplashElapsedMs: number | null = null;
   private lives = START_LIVES;
   private afterLifeRelease = false;
   private eatDragMs = 0;
@@ -422,6 +425,10 @@ export class PlaySim {
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
+      reviveProgress:
+        this.reviveSplashElapsedMs === null
+          ? null
+          : reviveSplashProgress(this.reviveSplashElapsedMs),
       levelTransition: this.levelTransitionRemainingMs > 0,
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
@@ -476,6 +483,7 @@ export class PlaySim {
       for (const event of tick.events) {
         this.handleDeathEvent(event);
       }
+      this.tickReviveSplash(delta);
       return;
     }
 
@@ -826,9 +834,11 @@ export class PlaySim {
         }
       }
       this.emit({ type: "loopStop", id: "gameplayMusic" });
-      this.emit({ type: "sfx", id: "death" });
+      const defied = defyDeathActive(this.runUpgrades);
+      this.reviveSplashPending = defied;
+      this.emit({ type: "sfx", id: defied ? "revive" : "death" });
       const result =
-        this.options.infiniteLives || defyDeathActive(this.runUpgrades)
+        this.options.infiniteLives || defied
           ? { lives: this.lives, gameOver: false }
           : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
@@ -1383,7 +1393,14 @@ export class PlaySim {
     switch (event) {
       case "resetActors":
         this.resetAfterLifeLoss();
-        this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
+        this.emitDraw({
+          frozenGhostEid: null,
+          playerInvulnRemainingMs: 0,
+          wallPassActive: false,
+          ...(this.reviveSplashPending ? { playerReviveProgress: 0 } : {}),
+        });
+        this.reviveSplashElapsedMs = this.reviveSplashPending ? 0 : null;
+        this.reviveSplashPending = false;
         break;
       case "startFade":
         this.emit({ type: "deathFade" });
@@ -1393,12 +1410,28 @@ export class PlaySim {
         break;
       case "resume":
         this.death = null;
+        if (this.reviveSplashElapsedMs !== null) {
+          this.reviveSplashElapsedMs = null;
+          this.emitDraw({ playerReviveProgress: 1 });
+        }
         this.emit({ type: "loopStart", id: "gameplayMusic" });
         break;
       case "goToMenu":
         this.death = null;
         this.emit({ type: "goToMenu" });
         break;
+    }
+  }
+
+  private tickReviveSplash(delta: number): void {
+    if (this.reviveSplashElapsedMs === null) {
+      return;
+    }
+    this.reviveSplashElapsedMs += delta;
+    const progress = reviveSplashProgress(this.reviveSplashElapsedMs);
+    this.emitDraw({ playerReviveProgress: progress });
+    if (progress >= 1) {
+      this.reviveSplashElapsedMs = null;
     }
   }
 
