@@ -23,7 +23,8 @@ export type UpgradeId =
   | "passiveTunnelDash"
   | "passivePowerPelletRecharge"
   | "passiveRemoteTransference"
-  | "passiveMyogenesis";
+  | "passiveMyogenesis"
+  | "passiveTurnTuning";
 
 export type UpgradeDef = {
   id: UpgradeId;
@@ -230,6 +231,12 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "passiveMyogenesis",
     label: "Myogenesis",
     description: "Regenerate two lives on level clear.",
+    storePrice: STORE_UPGRADE_PRICE,
+  },
+  {
+    id: "passiveTurnTuning",
+    label: "Turn Tuning",
+    description: "Tap turns within a tile of the corner, and every turn kicks your speed.",
     storePrice: STORE_UPGRADE_PRICE,
   },
 ];

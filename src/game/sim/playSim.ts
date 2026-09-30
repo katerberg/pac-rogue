@@ -201,11 +201,22 @@ import { recallClosestGhostToHouse } from "../systems/ghostRecall";
 import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
-import { anyKeyHeld, applyHeldKeys } from "../systems/heldKeys";
+import {
+  NO_KEYS_HELD,
+  anyKeyHeld,
+  applyHeldKeys,
+  isPerpendicularTurn,
+  type HeldKeys,
+} from "../systems/heldKeys";
+import { TURN_TUNING_BOOST_MS, tickTurnBoost, turnBoostMultiplier } from "../../domain/turnTuning";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { playerCell } from "../systems/playerCell";
-import { clearPlayerDirectionInput, hasPlayerDirectionInput } from "../systems/playerDirection";
+import {
+  clearPlayerDirectionInput,
+  hasPlayerDirectionInput,
+  playerFacing,
+} from "../systems/playerDirection";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -273,6 +284,8 @@ export class PlaySim {
   private lives = START_LIVES;
   private afterLifeRelease = false;
   private eatDragMs = 0;
+  private turnBoostMs = 0;
+  private prevKeys: HeldKeys = NO_KEYS_HELD;
 
   constructor(options: PlayOptions, seed: string) {
     this.options = options;
@@ -328,6 +341,7 @@ export class PlaySim {
   step(input: SimInput, delta: number): SimEvent[] {
     this.events = [];
     this.tick(input, delta);
+    this.prevKeys = input.keys;
     return this.takeEvents();
   }
 
@@ -413,6 +427,7 @@ export class PlaySim {
         speedBurstMs: upgrades.speedBurstRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         eatDragMs: this.eatDragMs,
+        turnBoostMs: this.turnBoostMs,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
@@ -515,13 +530,17 @@ export class PlaySim {
     }
 
     const diagonalAllowed = wallPassActive(this.runUpgrades);
+    const turnTuning =
+      !diagonalAllowed && this.runUpgrades.owned.includes("passiveTurnTuning")
+        ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
+        : undefined;
     if (this.suppressInputUntilKeyRelease) {
       if (!anyKeyHeld(input.keys)) {
         this.suppressInputUntilKeyRelease = false;
         applyHeldKeys(this.world, input.keys, { diagonalAllowed });
       }
     } else {
-      applyHeldKeys(this.world, input.keys, { diagonalAllowed });
+      applyHeldKeys(this.world, input.keys, { diagonalAllowed, turnTuning });
     }
     const hasInput = hasPlayerDirectionInput(this.world);
 
@@ -571,12 +590,14 @@ export class PlaySim {
     }
     this.runCorruption = tickSpeedSurge(this.runCorruption, delta);
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
+    this.turnBoostMs = tickTurnBoost(this.turnBoostMs, delta);
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
     const playerSpeedMul =
       levelSpeedMul *
       playerSpeedMultiplier(this.runUpgrades.owned) *
       (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1) *
-      eatDragMultiplier(this.eatDragMs);
+      eatDragMultiplier(this.eatDragMs) *
+      turnBoostMultiplier(this.turnBoostMs);
     applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -594,7 +615,14 @@ export class PlaySim {
     if (this.bossState !== null) {
       bossGhostBlock(this.world);
     }
+    const facingBeforeMove = playerFacing(this.world);
     movement(this.world, delta, playerSolidsOverride);
+    if (
+      this.runUpgrades.owned.includes("passiveTurnTuning") &&
+      isPerpendicularTurn(facingBeforeMove, playerFacing(this.world))
+    ) {
+      this.turnBoostMs = TURN_TUNING_BOOST_MS;
+    }
     if (this.tunnelDashAnim !== null) {
       this.tunnelDashAnim = tickTunnelDashAnimation(
         this.world,
@@ -868,6 +896,7 @@ export class PlaySim {
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
+    this.turnBoostMs = 0;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1344,6 +1373,7 @@ export class PlaySim {
     this.levelIndex += 1;
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
+    this.turnBoostMs = 0;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1457,6 +1487,7 @@ export class PlaySim {
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
+    this.turnBoostMs = 0;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;

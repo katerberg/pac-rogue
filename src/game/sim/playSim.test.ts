@@ -1,7 +1,13 @@
 import { hasComponent, query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "../../domain/ghostKind";
-import { getActiveLayout, cellCenterX, cellCenterY, horizontalTunnelRows } from "../../domain/maze";
+import {
+  canEnterDirection,
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+  horizontalTunnelRows,
+} from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
@@ -16,6 +22,7 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { PlaySim } from "./playSim";
 import type { SimEvent } from "./simEvents";
+import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { held, runFrames, runUntil } from "./simTesting";
 
 function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
@@ -459,5 +466,87 @@ describe("Ghost Harvester", () => {
     }
     expect(query(sim.world, [Pellet])).toHaveLength(0);
     expect(sim.offer()).not.toBeNull();
+  });
+});
+
+describe("Turn Tuning", () => {
+  function findSideTurn(): { col: number; row: number } {
+    const { playerSolids, cols, rows } = getActiveLayout();
+    const open = (col: number, row: number, dx: number, dy: number) =>
+      canEnterDirection(cellCenterX(col), cellCenterY(row), dx, dy, playerSolids);
+    for (let row = 1; row < rows - 1; row += 1) {
+      for (let col = 3; col < cols - 1; col += 1) {
+        if (
+          open(col - 3, row, 1, 0) &&
+          open(col - 2, row, 1, 0) &&
+          open(col - 1, row, 1, 0) &&
+          open(col, row, 0, -1) &&
+          !open(col - 1, row, 0, -1) &&
+          !open(col - 2, row, 0, -1) &&
+          !open(col - 1, row, 0, 1) &&
+          !open(col - 2, row, 0, 1)
+        ) {
+          return { col, row };
+        }
+      }
+    }
+    throw new Error("no side turn found");
+  }
+
+  function setup(enable: boolean) {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: enable ? ["passiveTurnTuning"] : [],
+    });
+    const turn = findSideTurn();
+    return { sim, turn };
+  }
+
+  const cruise = { keys: held("right") };
+  const tapUp = { keys: { ...NO_KEYS_HELD, right: 0, up: 1 } };
+
+  it("ignores a turn tapped more than a tile before the junction, even if held into it", () => {
+    const { sim, turn } = setup(true);
+    teleportPlayer(sim, cellCenterX(turn.col - 3), cellCenterY(turn.row));
+    runFrames(sim, 2, cruise);
+    teleportPlayer(sim, cellCenterX(turn.col - 2), cellCenterY(turn.row));
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().player!.col > turn.col, 120, tapUp);
+    expect(sim.snapshot().player!.row).toBe(turn.row);
+    expect(sim.snapshot().player!.facing).toBe("right");
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+  });
+
+  it("takes an early turn normally without the upgrade", () => {
+    const { sim, turn } = setup(false);
+    teleportPlayer(sim, cellCenterX(turn.col - 3), cellCenterY(turn.row));
+    runFrames(sim, 2, cruise);
+    teleportPlayer(sim, cellCenterX(turn.col - 2), cellCenterY(turn.row));
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().player!.row < turn.row, 120, tapUp);
+    expect(sim.snapshot().player!.facing).toBe("up");
+  });
+
+  it("turns on a tap within a tile of the junction, then boosts and eases the boost out", () => {
+    const { sim, turn } = setup(true);
+    teleportPlayer(sim, cellCenterX(turn.col - 3), cellCenterY(turn.row));
+    runUntil(sim, () => sim.snapshot().player!.x > cellCenterX(turn.col - 1) + 6, 120, cruise);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().timers.turnBoostMs > 0, 60, cruise);
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().timers.turnBoostMs).toBeGreaterThan(400);
+
+    runFrames(sim, 40, { keys: held("up") });
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+  });
+
+  it("does not boost a turn that is not a right angle", () => {
+    const { sim, turn } = setup(true);
+    teleportPlayer(sim, cellCenterX(turn.col - 3), cellCenterY(turn.row));
+    runFrames(sim, 2, cruise);
+    runFrames(sim, 4, { keys: held("left") });
+    expect(sim.snapshot().player!.facing).toBe("left");
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
   });
 });
