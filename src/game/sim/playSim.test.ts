@@ -4,6 +4,7 @@ import { GHOST_KIND } from "../../domain/ghostKind";
 import { getActiveLayout, cellCenterX, cellCenterY, horizontalTunnelRows } from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
+import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { BossPellet } from "../components/BossPellet";
 import { Ghost } from "../components/Ghost";
@@ -64,6 +65,22 @@ describe("PlaySim", () => {
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
   });
 
+  it("drags Maze-Man's speed briefly after eating a dot, then eases back to full", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    runFrames(sim, 1);
+    const baseSpeed = Speed.px[playerEid(sim)]!;
+    expect(sim.snapshot().timers.eatDragMs).toBe(0);
+
+    const left = { keys: held("left") };
+    runUntil(sim, () => sim.snapshot().timers.eatDragMs > 0, 240, left);
+    runFrames(sim, 1, left);
+    expect(Speed.px[playerEid(sim)]!).toBeLessThan(baseSpeed * 0.85);
+
+    runUntil(sim, () => sim.snapshot().timers.eatDragMs === 0, 240);
+    runFrames(sim, 1);
+    expect(Speed.px[playerEid(sim)]!).toBeCloseTo(baseSpeed);
+  });
+
   it("clears a board into an upgrade offer, then the next level", () => {
     const sim = startSim({ jumpToUpgrade: true });
     const offer = sim.offer();
@@ -77,6 +94,27 @@ describe("PlaySim", () => {
     runUntil(sim, () => !sim.snapshot().levelTransition, 120);
     expect(sim.snapshot().level).toBe(3);
     expect(sim.snapshot().upgrades).toContain(chosen);
+  });
+
+  it.each([
+    ["before", 3],
+    ["after", -3],
+  ])("cuts a corner %s the junction center without snapping", (_, offset) => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(7), cy);
+    runUntil(sim, () => Position.x[eid]! <= cx + 8, 60, { keys: held("left") });
+    teleportPlayer(sim, cx + offset, cy);
+    const before = { x: Position.x[eid]!, y: Position.y[eid]! };
+
+    runFrames(sim, 1, { keys: held("up") });
+
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(Position.y[eid]!).toBeLessThan(before.y - 2);
+    expect(Math.abs(Position.x[eid]! - cx)).toBeLessThan(Math.abs(before.x - cx));
+    expect(Math.abs(Position.x[eid]! - cx)).toBeGreaterThan(0);
   });
 
   it("spends a life when caught and respawns at the spawn point", () => {
@@ -239,5 +277,28 @@ describe("PlaySim", () => {
     expect(sim.snapshot().ghostMode).toBe("scatter");
     runFrames(sim, Math.ceil(5.5 * 60), { keys: held("left") });
     expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
+  it("moves ghosts at tunnel speed while they leave the house, then at full speed", () => {
+    const sim = startSim({ level: 2, infiniteLives: true }, "house-exit-speed");
+    const leaving = () =>
+      sim.snapshot().ghosts.find((g) => g.phase === "leaving" && g.kind !== "blinky");
+    runUntil(sim, () => leaving() !== undefined, 3000, { keys: held("left") });
+    const ghost = leaving();
+    expect(ghost).toBeDefined();
+    const leavingSpeed = Speed.px[ghost!.eid] ?? 0;
+
+    runUntil(
+      sim,
+      () => sim.snapshot().ghosts.find((g) => g.eid === ghost!.eid)?.phase === "active",
+      600,
+      {
+        keys: held("left"),
+      },
+    );
+    runFrames(sim, 2, { keys: held("left") });
+    const activeSpeed = Speed.px[ghost!.eid] ?? 0;
+    expect(leavingSpeed).toBeLessThan(PLAYER_SPEED);
+    expect(leavingSpeed / activeSpeed).toBeCloseTo(0.5 / 0.85);
   });
 });

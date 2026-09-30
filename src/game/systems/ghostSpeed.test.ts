@@ -48,10 +48,19 @@ describe("applyGhostSpeed", () => {
   it("zeros only the frozen ghost", () => {
     const world = createWorld();
     const frozen = spawnGhost(world, GHOST_PHASE.active);
-    const other = spawnGhost(world, GHOST_PHASE.leaving);
+    const other = spawnGhost(world, GHOST_PHASE.active);
     applyGhostSpeed(world, 100, 1, { ghostSpeedMul: 0.75, frozenGhostEid: frozen });
     expect(Speed.px[frozen]).toBe(0);
     expect(Speed.px[other]).toBeCloseTo(PLAYER_SPEED * 0.8 * 0.75);
+  });
+
+  it("moves non-Blinky ghosts at tunnel speed while leaving the house", () => {
+    const world = createWorld();
+    const pinky = spawnGhost(world, GHOST_PHASE.leaving, GHOST_KIND.pinky);
+    const blinky = spawnGhost(world, GHOST_PHASE.leaving, GHOST_KIND.blinky);
+    applyGhostSpeed(world, 100, 1);
+    expect(Speed.px[pinky]).toBeCloseTo(PLAYER_SPEED * 0.5);
+    expect(Speed.px[blinky]).toBeCloseTo(PLAYER_SPEED * 0.8);
   });
 
   it("leaves inHouse speed untouched (owned by seating)", () => {

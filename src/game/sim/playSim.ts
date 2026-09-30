@@ -195,6 +195,7 @@ import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { playerCell } from "../systems/playerCell";
 import { clearPlayerDirectionInput, hasPlayerDirectionInput } from "../systems/playerDirection";
 import { slidePlayer } from "../systems/playerSlide";
+import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
@@ -258,6 +259,7 @@ export class PlaySim {
   private death: DeathSequenceState | null = null;
   private lives = START_LIVES;
   private afterLifeRelease = false;
+  private eatDragMs = 0;
 
   constructor(options: PlayOptions, seed: string) {
     this.options = options;
@@ -395,6 +397,7 @@ export class PlaySim {
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
+        eatDragMs: this.eatDragMs,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
@@ -551,11 +554,13 @@ export class PlaySim {
       this.spawnRespawnedPowerPellet(pos.x, pos.y);
     }
     this.runCorruption = tickSpeedSurge(this.runCorruption, delta);
+    this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
     const playerSpeedMul =
       levelSpeedMul *
       playerSpeedMultiplier(this.runUpgrades.owned) *
-      (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1);
+      (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1) *
+      eatDragMultiplier(this.eatDragMs);
     applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -653,6 +658,7 @@ export class PlaySim {
       this.releaseDrawable(eid);
     }
     const removed = removedPelletEids.length;
+    this.eatDragMs = eatDragAfterCollect(this.eatDragMs, removed - powerRemoved, powerRemoved);
     if (removed > 0) {
       this.emit({
         type: "pelletSfx",
@@ -815,6 +821,7 @@ export class PlaySim {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    this.eatDragMs = 0;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1281,6 +1288,7 @@ export class PlaySim {
 
     this.levelIndex += 1;
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    this.eatDragMs = 0;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1392,6 +1400,7 @@ export class PlaySim {
     };
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    this.eatDragMs = 0;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;

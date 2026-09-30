@@ -9,7 +9,7 @@ import {
 } from "../../domain/ghostRelease";
 import { leavingHouseTarget } from "../../domain/ghostHouseLeave";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { GHOST_SPEED } from "../../domain/ghostSpeed";
+import { GHOST_SPEED, GHOST_TUNNEL_SPEED } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { worldToCol, worldToRow } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
@@ -36,7 +36,8 @@ function directionTowardTile(
   return DIRECTION.up;
 }
 
-function sendOut(eid: number): void {
+function sendOut(world: World, eid: number): void {
+  const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
   const x = Position.x[eid] ?? 0;
   const y = Position.y[eid] ?? 0;
   const col = worldToCol(x);
@@ -46,7 +47,10 @@ function sendOut(eid: number): void {
   GhostPhase.value[eid] = GHOST_PHASE.leaving;
   Input.direction[eid] = dir;
   Facing.direction[eid] = dir;
-  Speed.px[eid] = GHOST_SPEED;
+  Speed.px[eid] =
+    kind === GHOST_KIND.blinky || hasComponent(world, eid, BossGhost)
+      ? GHOST_SPEED
+      : GHOST_TUNNEL_SPEED;
   Ghost.decidedCol[eid] = Number.NaN;
   Ghost.decidedRow[eid] = Number.NaN;
 }
@@ -75,14 +79,14 @@ export function ghostRelease(
       }
       continue;
     }
-    sendOut(eid);
+    sendOut(world, eid);
     released = true;
   }
   if (!released && idleReleaseDue(clock, adds.delayAddMs ?? 0)) {
     const kind = pickIdleReleaseKind([...idleCandidates.keys()]);
     const eid = kind === null ? undefined : idleCandidates.get(kind);
     if (eid !== undefined) {
-      sendOut(eid);
+      sendOut(world, eid);
       released = true;
     }
   }

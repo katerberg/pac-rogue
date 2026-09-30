@@ -1127,6 +1127,19 @@ export function snapPerpendicularToCenterline(
   return { x, y };
 }
 
+export function easePerpendicularToCenterline(
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  maxStep: number,
+): { x: number; y: number } {
+  const target = snapPerpendicularToCenterline(x, y, dx, dy);
+  const stepToward = (from: number, to: number): number =>
+    Math.abs(to - from) <= maxStep ? to : from + Math.sign(to - from) * maxStep;
+  return { x: stepToward(x, target.x), y: stepToward(y, target.y) };
+}
+
 export function wrapPosition(
   x: number,
   y: number,
