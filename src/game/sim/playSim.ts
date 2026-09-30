@@ -759,6 +759,7 @@ export class PlaySim {
       this.pelletProgress.boardCollected,
       delta,
       this.levelIndex,
+      this.runUpgrades.owned.includes("fruitFeast"),
     );
     if (fruitTick.action === "spawn" || fruitTick.action === "replace") {
       this.spawnFruitEntity();
@@ -1453,6 +1454,7 @@ export class PlaySim {
       ...this.fruitPresence,
       active: false,
       remainingMs: 0,
+      gapMs: 0,
     };
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
