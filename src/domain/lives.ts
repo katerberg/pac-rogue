@@ -16,10 +16,8 @@ export function parseInfiniteLivesFlag(params: URLSearchParams): boolean {
   return params.get("infiniteLives") === "1";
 }
 
-export const EXTRA_LIFE_LEVEL_LIVES_ICON_FLOOR = 4;
-
 export function levelLivesIconFloor(hasExtraLife: boolean): number {
-  return hasExtraLife ? EXTRA_LIFE_LEVEL_LIVES_ICON_FLOOR : LEVEL_LIVES_ICON_FLOOR;
+  return hasExtraLife ? LEVEL_LIVES_ICON_FLOOR + 1 : LEVEL_LIVES_ICON_FLOOR;
 }
 
 export function livesAfterLevelRegen(lives: number, iconFloor = LEVEL_LIVES_ICON_FLOOR): number {
