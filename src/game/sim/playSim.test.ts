@@ -8,11 +8,11 @@ import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { BossPellet } from "../components/BossPellet";
 import { Ghost } from "../components/Ghost";
-import { Pellet } from "../components/Pellet";
-import { PowerPellet } from "../components/PowerPellet";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
+import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { PlaySim } from "./playSim";
 import type { SimEvent } from "./simEvents";
@@ -45,6 +45,58 @@ function ghostOntoPlayer(sim: PlaySim): void {
 function count(events: SimEvent[], type: SimEvent["type"]): number {
   return events.filter((event) => event.type === type).length;
 }
+
+function regularPelletEids(sim: PlaySim): number[] {
+  return Array.from(query(sim.world, [Pellet, Position])).filter(
+    (eid) => !hasComponent(sim.world, eid, PowerPellet),
+  );
+}
+
+function eatPelletAt(sim: PlaySim, eid: number): void {
+  teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+  runFrames(sim, 1);
+}
+
+describe("PlaySim remote transference", () => {
+  function startOwned(): PlaySim {
+    return startSim({ level: 2, enableUpgrades: ["passiveRemoteTransference"] });
+  }
+
+  it("removes nothing extra for pellets 1-4 and the farthest regular pellet on the 5th", () => {
+    const sim = startOwned();
+    const startCount = regularPelletEids(sim).length;
+    const nearby = regularPelletEids(sim).slice(0, 5);
+    for (const eid of nearby.slice(0, 4)) {
+      eatPelletAt(sim, eid);
+    }
+    expect(regularPelletEids(sim)).toHaveLength(startCount - 4);
+
+    teleportPlayer(sim, Position.x[nearby[4]!]!, Position.y[nearby[4]!]!);
+    const px = Position.x[playerEid(sim)]!;
+    const py = Position.y[playerEid(sim)]!;
+    const farthest = regularPelletEids(sim)
+      .filter((eid) => eid !== nearby[4])
+      .sort(
+        (a, b) =>
+          (Position.x[b]! - px) ** 2 +
+            (Position.y[b]! - py) ** 2 -
+            ((Position.x[a]! - px) ** 2 + (Position.y[a]! - py) ** 2) || a - b,
+      )[0]!;
+    runFrames(sim, 1);
+    expect(regularPelletEids(sim)).toHaveLength(startCount - 6);
+    expect(regularPelletEids(sim)).not.toContain(farthest);
+    expect(query(sim.world, [Pellet, PowerPellet]).length).toBeGreaterThan(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startSim({ level: 2 });
+    const startCount = regularPelletEids(sim).length;
+    for (const eid of regularPelletEids(sim).slice(0, 5)) {
+      eatPelletAt(sim, eid);
+    }
+    expect(regularPelletEids(sim)).toHaveLength(startCount - 5);
+  });
+});
 
 describe("PlaySim", () => {
   it.each([1, 2, 5])(
@@ -240,6 +292,22 @@ describe("PlaySim", () => {
   it("regenerates up to 3 icons at level 1 without Extra Life", () => {
     const sim = startSim({ level: 1, enableUpgrades: [] });
     expect(sim.snapshot().lives).toBe(4);
+  });
+
+  it.each([
+    ["passiveMyogenesis", 1, 3],
+    ["passiveMyogenesis", 3, 4],
+    [null, 1, 2],
+    [null, 3, 4],
+  ] as const)("level clear with %s from %i lives ends at %i", (upgrade, startLives, endLives) => {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: upgrade ? [upgrade] : [] });
+    (sim as unknown as { lives: number }).lives = startLives;
+    const pick = sim
+      .offer()!
+      .upgrades.find((id) => id !== "passiveExtraLife" && id !== "passiveMyogenesis")!;
+    sim.chooseUpgrade({ kind: "upgrade", id: pick });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
+    expect(sim.snapshot().lives).toBe(endLives);
   });
 
   it("buys a life at the store", () => {

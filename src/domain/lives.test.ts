@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   START_LIVES,
   levelLivesIconFloor,
+  levelRegenAmount,
   livesAfterLevelRegen,
   livesHudIconCount,
   livesRemainingAfterCatch,
@@ -65,5 +66,20 @@ describe("levelLivesIconFloor", () => {
     expect(livesAfterLevelRegen(4, levelLivesIconFloor(true))).toBe(5);
     expect(livesAfterLevelRegen(5, levelLivesIconFloor(true))).toBe(5);
     expect(livesAfterLevelRegen(4, levelLivesIconFloor(false))).toBe(4);
+  });
+});
+
+describe("levelRegenAmount", () => {
+  it("regenerates two lives with Myogenesis, one otherwise", () => {
+    expect(levelRegenAmount(false)).toBe(1);
+    expect(levelRegenAmount(true)).toBe(2);
+  });
+
+  it("clamps a multi-life regen at the icon floor", () => {
+    expect(livesAfterLevelRegen(1, 3, 2)).toBe(3);
+    expect(livesAfterLevelRegen(2, 3, 2)).toBe(4);
+    expect(livesAfterLevelRegen(3, 3, 2)).toBe(4);
+    expect(livesAfterLevelRegen(4, 3, 2)).toBe(4);
+    expect(livesAfterLevelRegen(3, 4, 2)).toBe(5);
   });
 });

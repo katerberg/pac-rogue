@@ -34,6 +34,21 @@ describe("LearnSim", () => {
     expect(events.some((event) => event.type === "bouncePowerPellet")).toBe(true);
   });
 
+  it("removes an extra far pellet every five eaten when Remote Transference is on", () => {
+    const pelletsAfterWalking = (upgraded: boolean): number => {
+      const sim = new LearnSim("learn");
+      sim.start();
+      if (upgraded) {
+        sim.toggleUpgrade("passiveRemoteTransference");
+      }
+      for (let i = 0; i < 90; i += 1) {
+        sim.step(held("left"), FRAME_MS);
+      }
+      return worldSnapshot(sim.world).pellets;
+    };
+    expect(pelletsAfterWalking(true)).toBeLessThan(pelletsAfterWalking(false));
+  });
+
   it("exposes the overlay model only while a visible ghost is selected", () => {
     const sim = new LearnSim("learn");
     sim.start();

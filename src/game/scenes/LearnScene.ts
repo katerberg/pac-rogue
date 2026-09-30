@@ -110,6 +110,7 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
   "fruitQuarterBounty",
   "passiveDeathsHarvest",
   "passivePowerPelletRecharge",
+  "passiveMyogenesis",
   "passiveDefyDeath",
 ];
 

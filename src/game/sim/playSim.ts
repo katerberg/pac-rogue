@@ -70,6 +70,7 @@ import {
 import {
   START_LIVES,
   levelLivesIconFloor,
+  levelRegenAmount,
   livesAfterLevelRegen,
   livesRemainingAfterCatch,
 } from "../../domain/lives";
@@ -165,7 +166,9 @@ import {
   type UpgradeChoiceOffer,
   type UpgradeChoiceOption,
   type UpgradeId,
+  remoteTransferEvery,
 } from "../../domain/upgrades";
+import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Drawable } from "../components/Drawable";
@@ -182,6 +185,7 @@ import { Velocity } from "../components/Velocity";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
+import { applyRemoteTransference } from "../systems/remoteTransference";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
@@ -247,6 +251,7 @@ export class PlaySim {
   private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock(1).mode;
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private lifetimeCollected = 0;
+  private remoteTransferCounter = 0;
   private quarters = 0;
   private levelIndex = 1;
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
@@ -304,7 +309,7 @@ export class PlaySim {
       this.recordSeenUpgrades();
     }
     this.emit({ type: "upgrades" });
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor());
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
     this.emit({ type: "lives", pulse: false });
     if (startingUpgrade === null) {
       this.showLevelBanner();
@@ -717,7 +722,8 @@ export class PlaySim {
         this.emitMunch();
       }
     }
-    const totalRemoved = removed + bonusRemoved;
+    const transferred = this.applyRemoteTransferStep(removed + bonusRemoved);
+    const totalRemoved = removed + bonusRemoved + transferred;
     const collectResult = applyPelletCollect(this.pelletProgress, totalRemoved);
     this.pelletProgress = collectResult.progress;
     if (totalRemoved > 0) {
@@ -831,6 +837,30 @@ export class PlaySim {
       }
       this.death = beginDeathSequence(result.gameOver);
     }
+  }
+
+  private applyRemoteTransferStep(removedThisFrame: number): number {
+    const every = remoteTransferEvery(this.runUpgrades.owned);
+    if (every === null) {
+      return 0;
+    }
+    const before = this.remoteTransferCounter;
+    this.remoteTransferCounter += removedThisFrame;
+    const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
+    const eids = applyRemoteTransference(this.world, triggers);
+    for (const eid of eids) {
+      this.releaseDrawable(eid);
+    }
+    if (eids.length > 0) {
+      this.emit({
+        type: "pelletSfx",
+        previousCollected: this.lifetimeCollected + removedThisFrame,
+        removed: eids.length,
+        powerRemoved: 0,
+      });
+      this.remoteTransferCounter += eids.length;
+    }
+    return eids.length;
   }
 
   private emitMunch(): void {
@@ -1048,6 +1078,7 @@ export class PlaySim {
     this.ghostModeClock = createGhostModeClock(this.levelIndex);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.pelletProgress = createPelletProgress(countPellets(this.world));
+    this.remoteTransferCounter = 0;
     this.fruitPresence = createFruitPresence();
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
@@ -1248,6 +1279,10 @@ export class PlaySim {
     return levelLivesIconFloor(this.runUpgrades.owned.includes("passiveExtraLife"));
   }
 
+  private regenAmount(): number {
+    return levelRegenAmount(this.runUpgrades.owned.includes("passiveMyogenesis"));
+  }
+
   private applyGrantEffects(id: UpgradeId): void {
     this.lives += grantLivesForUpgrade(id);
     if (id === "passivePelletToPower") {
@@ -1321,7 +1356,7 @@ export class PlaySim {
     this.startBoard(null);
     this.emit({ type: "upgrades" });
     const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor());
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
     this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     this.showLevelBanner();
     this.emit({ type: "musicAfterFanfare", id: "gameplayMusic" });
@@ -1367,6 +1402,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.tunnelDashAnim = null;
+    this.remoteTransferCounter = 0;
     const playerSpawn = playerSpawnCenter();
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
       Position.x[eid] = playerSpawn.x;

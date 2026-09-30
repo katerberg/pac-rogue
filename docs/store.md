@@ -18,11 +18,11 @@ On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the moda
 
 Slot glyphs are walkable empty cells to the maze builder; `parseStoreSlots` turns each 2×2 block into a slot (row, then col order):
 
-| Glyph | Slot                                                       | Price                                                                      |
-| ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `L`   | Extra life (+1 life), unlimited                            | `STORE_LIFE_PRICE` (1)                                                     |
-| `U`   | Random unowned upgrade                                     | `storePriceFor(id)` — `UpgradeDef.storePrice` or `STORE_UPGRADE_PRICE` (3) |
-| `S`   | Swap: lose a shown owned upgrade, gain a hidden random one | `STORE_SWAP_PRICE` (1)                                                     |
+| Glyph | Slot                                                       | Price                                                           |
+| ----- | ---------------------------------------------------------- | --------------------------------------------------------------- |
+| `L`   | Extra life (+1 life), unlimited                            | `STORE_LIFE_PRICE` (1)                                          |
+| `U`   | Random unowned upgrade                                     | `storePriceFor(id)` — `UpgradeDef.storePrice` (required; all 3) |
+| `S`   | Swap: lose a shown owned upgrade, gain a hidden random one | `STORE_SWAP_PRICE` (1)                                          |
 
 `createStoreState` rolls stock once on entry: three distinct unowned upgrades (fewer if the pool is short — unfilled slots are omitted) and, if anything is owned, a swap whose outgoing upgrade is picked at random. No restock.
 

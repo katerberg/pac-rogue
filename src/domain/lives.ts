@@ -20,6 +20,15 @@ export function levelLivesIconFloor(hasExtraLife: boolean): number {
   return hasExtraLife ? LEVEL_LIVES_ICON_FLOOR + 1 : LEVEL_LIVES_ICON_FLOOR;
 }
 
-export function livesAfterLevelRegen(lives: number, iconFloor = LEVEL_LIVES_ICON_FLOOR): number {
-  return livesHudIconCount(lives) < iconFloor ? lives + 1 : lives;
+export function levelRegenAmount(hasMyogenesis: boolean): number {
+  return hasMyogenesis ? 2 : 1;
+}
+
+export function livesAfterLevelRegen(
+  lives: number,
+  iconFloor = LEVEL_LIVES_ICON_FLOOR,
+  regenAmount = 1,
+): number {
+  const missing = iconFloor - livesHudIconCount(lives);
+  return missing > 0 ? lives + Math.min(regenAmount, missing) : lives;
 }
