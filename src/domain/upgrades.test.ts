@@ -80,6 +80,7 @@ const ALL_IDS: UpgradeId[] = [
   "fruitPowerPellet",
   "fruitQuarterBounty",
   "fruitFecundity",
+  "fruitFeast",
   "passiveDeathsHarvest",
   "passiveOvercharge",
   "passiveTunnelDash",
