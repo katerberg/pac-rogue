@@ -1,4 +1,4 @@
-import { query } from "bitecs";
+import { hasComponent, query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import { getActiveLayout, cellCenterX, cellCenterY, horizontalTunnelRows } from "../../domain/maze";
@@ -9,8 +9,10 @@ import { parseStoreSlots } from "../../domain/store";
 import { BossPellet } from "../components/BossPellet";
 import { Ghost } from "../components/Ghost";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
+import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { PlaySim } from "./playSim";
 import type { SimEvent } from "./simEvents";
@@ -43,6 +45,58 @@ function ghostOntoPlayer(sim: PlaySim): void {
 function count(events: SimEvent[], type: SimEvent["type"]): number {
   return events.filter((event) => event.type === type).length;
 }
+
+function regularPelletEids(sim: PlaySim): number[] {
+  return Array.from(query(sim.world, [Pellet, Position])).filter(
+    (eid) => !hasComponent(sim.world, eid, PowerPellet),
+  );
+}
+
+function eatPelletAt(sim: PlaySim, eid: number): void {
+  teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+  runFrames(sim, 1);
+}
+
+describe("PlaySim remote transference", () => {
+  function startOwned(): PlaySim {
+    return startSim({ level: 2, enableUpgrades: ["passiveRemoteTransference"] });
+  }
+
+  it("removes nothing extra for pellets 1-4 and the farthest regular pellet on the 5th", () => {
+    const sim = startOwned();
+    const startCount = regularPelletEids(sim).length;
+    const nearby = regularPelletEids(sim).slice(0, 5);
+    for (const eid of nearby.slice(0, 4)) {
+      eatPelletAt(sim, eid);
+    }
+    expect(regularPelletEids(sim)).toHaveLength(startCount - 4);
+
+    teleportPlayer(sim, Position.x[nearby[4]!]!, Position.y[nearby[4]!]!);
+    const px = Position.x[playerEid(sim)]!;
+    const py = Position.y[playerEid(sim)]!;
+    const farthest = regularPelletEids(sim)
+      .filter((eid) => eid !== nearby[4])
+      .sort(
+        (a, b) =>
+          (Position.x[b]! - px) ** 2 +
+            (Position.y[b]! - py) ** 2 -
+            ((Position.x[a]! - px) ** 2 + (Position.y[a]! - py) ** 2) || a - b,
+      )[0]!;
+    runFrames(sim, 1);
+    expect(regularPelletEids(sim)).toHaveLength(startCount - 6);
+    expect(regularPelletEids(sim)).not.toContain(farthest);
+    expect(query(sim.world, [Pellet, PowerPellet]).length).toBeGreaterThan(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startSim({ level: 2 });
+    const startCount = regularPelletEids(sim).length;
+    for (const eid of regularPelletEids(sim).slice(0, 5)) {
+      eatPelletAt(sim, eid);
+    }
+    expect(regularPelletEids(sim)).toHaveLength(startCount - 5);
+  });
+});
 
 describe("PlaySim", () => {
   it.each([1, 2, 5])(
@@ -326,5 +380,84 @@ describe("PlaySim", () => {
     const activeSpeed = Speed.px[ghost!.eid] ?? 0;
     expect(leavingSpeed).toBeLessThan(PLAYER_SPEED);
     expect(leavingSpeed / activeSpeed).toBeCloseTo(0.5 / 0.85);
+  });
+});
+
+describe("Ghost Harvester", () => {
+  function regularPelletFarFrom(sim: PlaySim, x: number, y: number): number {
+    return query(sim.world, [Pellet, Position])
+      .filter((eid) => !hasComponent(sim.world, eid, PowerPellet))
+      .sort(
+        (a, b) =>
+          Math.hypot(Position.x[b]! - x, Position.y[b]! - y) -
+          Math.hypot(Position.x[a]! - x, Position.y[a]! - y),
+      )[0]!;
+  }
+
+  function armWithPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.ghostHarvestMs).toBeGreaterThan(0);
+  }
+
+  function parkGhostOn(sim: PlaySim, pellet: number): void {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = Position.x[pellet]!;
+    Position.y[ghost] = Position.y[pellet]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  it("lets ghosts eat pellets for the player while the timer runs, then stops", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletGhostHarvester"],
+    });
+    armWithPowerPellet(sim);
+    const player = playerEid(sim);
+    const target = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
+    const before = sim.snapshot().boardCollected;
+    parkGhostOn(sim, target);
+    const events = runFrames(sim, 1);
+    expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
+    expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
+    expect(count(events, "pelletSfx")).toBeGreaterThan(0);
+
+    runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
+    const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
+    parkGhostOn(sim, next);
+    runFrames(sim, 1);
+    expect(query(sim.world, [Pellet]).includes(next)).toBe(true);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.ghostHarvestMs).toBe(0);
+  });
+
+  it("counts a ghost eating the last pellet as a level clear", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletGhostHarvester"],
+    });
+    armWithPowerPellet(sim);
+    const byPowerFirst = (eid: number) => (hasComponent(sim.world, eid, PowerPellet) ? 0 : 1);
+    for (let i = 0; i < 2000 && sim.offer() === null; i += 1) {
+      const [next] = [...query(sim.world, [Pellet, Position])].sort(
+        (x, y) => byPowerFirst(x) - byPowerFirst(y),
+      );
+      if (next === undefined) {
+        break;
+      }
+      parkGhostOn(sim, next);
+      runFrames(sim, 1);
+    }
+    expect(query(sim.world, [Pellet])).toHaveLength(0);
+    expect(sim.offer()).not.toBeNull();
   });
 });

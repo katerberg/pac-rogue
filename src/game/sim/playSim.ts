@@ -150,6 +150,8 @@ import {
   revokeUpgrade,
   scatterBurstActive,
   speedBurstActive,
+  ghostHarvestActive,
+  tickGhostHarvest,
   tickFreeze,
   tickInvuln,
   tickPowerPelletRespawns,
@@ -162,7 +164,9 @@ import {
   type UpgradeChoiceOffer,
   type UpgradeChoiceOption,
   type UpgradeId,
+  remoteTransferEvery,
 } from "../../domain/upgrades";
+import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Drawable } from "../components/Drawable";
@@ -179,6 +183,7 @@ import { Velocity } from "../components/Velocity";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
+import { applyRemoteTransference } from "../systems/remoteTransference";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
@@ -187,6 +192,7 @@ import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
+import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
 import {
   ghostHouseSeating,
   placeInHouseGhostsAtPredictedSeats,
@@ -243,6 +249,7 @@ export class PlaySim {
   private previousEffectiveGhostMode: GhostAiMode = createGhostModeClock(1).mode;
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private lifetimeCollected = 0;
+  private remoteTransferCounter = 0;
   private quarters = 0;
   private levelIndex = 1;
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
@@ -380,6 +387,7 @@ export class PlaySim {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
+      ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       ...this.renderCorruptionOptions(),
     };
   }
@@ -403,6 +411,7 @@ export class PlaySim {
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
+        ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         eatDragMs: this.eatDragMs,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
@@ -554,6 +563,7 @@ export class PlaySim {
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
+    this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
     for (const pos of respawnTick.ready) {
@@ -652,14 +662,19 @@ export class PlaySim {
     this.clock = tickRunClock(this.clock, hasInput, delta);
     this.emit({ type: "timer" });
 
-    const {
-      powerRemoved,
-      removedEids: removedPelletEids,
-      removedPowerPositions,
-    } = collectPellets(this.world, {
+    const playerFrame = collectPellets(this.world, {
       radiusBonusPx: pelletCollectRadiusBonusPx(this.runUpgrades.owned),
       solids: getActiveLayout().playerSolids,
     });
+    const ghostFrame = ghostHarvestActive(this.runUpgrades)
+      ? harvestPelletsByGhosts(this.world)
+      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
+    const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
+    const removedPelletEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
+    const removedPowerPositions = [
+      ...playerFrame.removedPowerPositions,
+      ...ghostFrame.removedPowerPositions,
+    ];
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);
     }
@@ -703,7 +718,8 @@ export class PlaySim {
         this.emitMunch();
       }
     }
-    const totalRemoved = removed + bonusRemoved;
+    const transferred = this.applyRemoteTransferStep(removed + bonusRemoved);
+    const totalRemoved = removed + bonusRemoved + transferred;
     const collectResult = applyPelletCollect(this.pelletProgress, totalRemoved);
     this.pelletProgress = collectResult.progress;
     if (totalRemoved > 0) {
@@ -816,6 +832,30 @@ export class PlaySim {
       }
       this.death = beginDeathSequence(result.gameOver);
     }
+  }
+
+  private applyRemoteTransferStep(removedThisFrame: number): number {
+    const every = remoteTransferEvery(this.runUpgrades.owned);
+    if (every === null) {
+      return 0;
+    }
+    const before = this.remoteTransferCounter;
+    this.remoteTransferCounter += removedThisFrame;
+    const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
+    const eids = applyRemoteTransference(this.world, triggers);
+    for (const eid of eids) {
+      this.releaseDrawable(eid);
+    }
+    if (eids.length > 0) {
+      this.emit({
+        type: "pelletSfx",
+        previousCollected: this.lifetimeCollected + removedThisFrame,
+        removed: eids.length,
+        powerRemoved: 0,
+      });
+      this.remoteTransferCounter += eids.length;
+    }
+    return eids.length;
   }
 
   private emitMunch(): void {
@@ -1033,6 +1073,7 @@ export class PlaySim {
     this.ghostModeClock = createGhostModeClock(this.levelIndex);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.pelletProgress = createPelletProgress(countPellets(this.world));
+    this.remoteTransferCounter = 0;
     this.fruitPresence = createFruitPresence();
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
@@ -1356,6 +1397,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.tunnelDashAnim = null;
+    this.remoteTransferCounter = 0;
     const playerSpawn = playerSpawnCenter();
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
       Position.x[eid] = playerSpawn.x;

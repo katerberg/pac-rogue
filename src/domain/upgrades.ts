@@ -15,12 +15,14 @@ export type UpgradeId =
   | "powerPelletWallPass"
   | "powerPelletSpeedBurst"
   | "powerPelletInvuln"
+  | "powerPelletGhostHarvester"
   | "fruitPowerPellet"
   | "fruitQuarterBounty"
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
   | "passivePowerPelletRecharge"
+  | "passiveRemoteTransference"
   | "passiveMyogenesis";
 
 export type UpgradeDef = {
@@ -35,23 +37,27 @@ export type UpgradeDef = {
   grantLives?: number;
   ghostHouseReleaseDelayAddMs?: number;
   ghostHouseClydePelletAdd?: number;
+  remoteTransferEveryPellets?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     scatterBurstMs?: number;
     wallPassMs?: number;
     playerInvulnMs?: number;
     playerSpeedBurstMs?: number;
+    ghostHarvestMs?: number;
     recallClosestGhost?: true;
     warpPlayerTopCenter?: true;
     collectExtraPellets?: number;
   };
 };
 
+export const REMOTE_TRANSFER_EVERY_PELLETS = 5;
 export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
 export const WALL_PASS_MS = 6000;
 export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
+export const GHOST_HARVEST_MS = 5000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
@@ -170,6 +176,13 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     onPowerPellet: { playerInvulnMs: INVULN_MS },
   },
   {
+    id: "powerPelletGhostHarvester",
+    label: "Ghost Harvester",
+    description: "Power pellet sends ghosts to gobble pellets for you.",
+    storePrice: STORE_UPGRADE_PRICE,
+    onPowerPellet: { ghostHarvestMs: GHOST_HARVEST_MS },
+  },
+  {
     id: "fruitPowerPellet",
     label: "Fruit Power",
     description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
@@ -205,6 +218,13 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     label: "Second Chomp",
     description: "Eaten power pellets regenerate after ten seconds.",
     storePrice: STORE_UPGRADE_PRICE,
+  },
+  {
+    id: "passiveRemoteTransference",
+    label: "Remote Transference",
+    description: "Every fifth pellet also eats the farthest one.",
+    storePrice: STORE_UPGRADE_PRICE,
+    remoteTransferEveryPellets: REMOTE_TRANSFER_EVERY_PELLETS,
   },
   {
     id: "passiveMyogenesis",
@@ -260,6 +280,7 @@ export type RunUpgrades = {
   wallPassRemainingMs: number;
   invulnRemainingMs: number;
   speedBurstRemainingMs: number;
+  ghostHarvestRemainingMs: number;
   lastDeclinedUpgradeId: UpgradeId | null;
 };
 
@@ -280,6 +301,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     wallPassRemainingMs: 0,
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
+    ghostHarvestRemainingMs: 0,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -449,6 +471,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     wallPassRemainingMs: 0,
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
+    ghostHarvestRemainingMs: 0,
   };
 }
 
@@ -504,6 +527,16 @@ export function tickSpeedBurst(state: RunUpgrades, deltaMs: number): RunUpgrades
   };
 }
 
+export function tickGhostHarvest(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.ghostHarvestRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    ghostHarvestRemainingMs: Math.max(0, state.ghostHarvestRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
@@ -523,6 +556,7 @@ export function applyPowerPelletEffects(
   let wallPassMs: number | null = null;
   let invulnMs: number | null = null;
   let speedBurstMs: number | null = null;
+  let ghostHarvestMs: number | null = null;
   let recallClosestGhost = false;
   let warpPlayerTopCenter = false;
   let collectExtraPellets = 0;
@@ -556,6 +590,12 @@ export function applyPowerPelletEffects(
           ? onPower.playerSpeedBurstMs
           : Math.max(speedBurstMs, onPower.playerSpeedBurstMs);
     }
+    if (onPower.ghostHarvestMs !== undefined) {
+      ghostHarvestMs =
+        ghostHarvestMs === null
+          ? onPower.ghostHarvestMs
+          : Math.max(ghostHarvestMs, onPower.ghostHarvestMs);
+    }
     if (onPower.recallClosestGhost) {
       recallClosestGhost = true;
     }
@@ -583,6 +623,9 @@ export function applyPowerPelletEffects(
     if (speedBurstMs !== null) {
       speedBurstMs *= OVERCHARGE_MUL;
     }
+    if (ghostHarvestMs !== null) {
+      ghostHarvestMs *= OVERCHARGE_MUL;
+    }
   }
 
   let next = state;
@@ -597,6 +640,9 @@ export function applyPowerPelletEffects(
   }
   if (speedBurstMs !== null) {
     next = { ...next, speedBurstRemainingMs: speedBurstMs };
+  }
+  if (ghostHarvestMs !== null) {
+    next = { ...next, ghostHarvestRemainingMs: ghostHarvestMs };
   }
 
   return {
@@ -667,6 +713,16 @@ export function ghostHouseReleaseDelayAddMs(owned: readonly UpgradeId[]): number
   return sumOwnedField(owned, "ghostHouseReleaseDelayAddMs");
 }
 
+export function remoteTransferEvery(owned: readonly UpgradeId[]): number | null {
+  for (const id of owned) {
+    const every = getUpgradeDef(id).remoteTransferEveryPellets;
+    if (every !== undefined) {
+      return every;
+    }
+  }
+  return null;
+}
+
 export function ghostHouseClydePelletAdd(owned: readonly UpgradeId[]): number {
   return sumOwnedField(owned, "ghostHouseClydePelletAdd");
 }
@@ -689,6 +745,10 @@ export function wallPassActive(state: RunUpgrades): boolean {
 
 export function speedBurstActive(state: RunUpgrades): boolean {
   return state.speedBurstRemainingMs > 0;
+}
+
+export function ghostHarvestActive(state: RunUpgrades): boolean {
+  return state.ghostHarvestRemainingMs > 0;
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {

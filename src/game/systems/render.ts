@@ -45,6 +45,7 @@ const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
+const GHOST_HARVEST_TINT = 0x66ff99;
 export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 const PLAYER_INVULN_TINT = 0xc48a00;
 const PLAYER_INVULN_BLINK_MS = 100;
@@ -204,6 +205,7 @@ export type RenderOptions = {
   frozenGhostEid?: number | null;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
+  ghostHarvestActive?: boolean;
   corruptedGhostEid?: number | null;
   corruptedTint?: number;
   flashGhostEid?: number | null;
@@ -284,6 +286,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const frozenEid = opts?.frozenGhostEid ?? null;
     const corruptedGhostEid = opts?.corruptedGhostEid ?? null;
     const corruptedTint = opts?.corruptedTint;
+    const ghostHarvestOn = opts?.ghostHarvestActive === true;
     const flashGhostEid = opts?.flashGhostEid ?? null;
     const hiddenGhostEid = opts?.hiddenGhostEid ?? null;
     const dimGhostEid = opts?.dimGhostEid ?? null;
@@ -378,6 +381,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           corruptedTint !== undefined
         ) {
           go.setTint(corruptedTint);
+        } else if (ghostHarvestOn && phase !== GHOST_PHASE.inHouse) {
+          go.setTint(GHOST_HARVEST_TINT);
         } else {
           go.clearTint();
         }
