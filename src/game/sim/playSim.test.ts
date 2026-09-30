@@ -225,6 +225,17 @@ describe("PlaySim", () => {
     expect(Speed.px[playerEid(sim)]!).toBeCloseTo(baseSpeed);
   });
 
+  it("grants a level-1 starting upgrade unless disableLevelUpgrades is set", () => {
+    const opts = { ...defaultPlayOptions(), maze: "mazeSmall" as const };
+    const withCard = new PlaySim(opts, "test");
+    expect(count(withCard.start(), "startingUpgrade")).toBe(1);
+    expect(withCard.snapshot().upgrades).toHaveLength(1);
+
+    const without = new PlaySim({ ...opts, disableLevelUpgrades: true }, "test");
+    expect(count(without.start(), "startingUpgrade")).toBe(0);
+    expect(without.snapshot().upgrades).toHaveLength(0);
+  });
+
   it("clears a board into an upgrade offer, then the next level", () => {
     const sim = startSim({ jumpToUpgrade: true });
     const offer = sim.offer();

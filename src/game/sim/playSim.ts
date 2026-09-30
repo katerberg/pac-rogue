@@ -307,7 +307,10 @@ export class PlaySim {
     this.startBoard(options.maze);
 
     const startingUpgrade =
-      this.levelIndex === 1 && !options.jumpToUpgrade && !options.store
+      this.levelIndex === 1 &&
+      !options.jumpToUpgrade &&
+      !options.store &&
+      !options.disableLevelUpgrades
         ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
         : null;
     if (startingUpgrade !== null) {
