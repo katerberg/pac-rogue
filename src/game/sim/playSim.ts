@@ -150,6 +150,7 @@ import {
   pickStartingUpgrade,
   pickUpgradeChoiceOffer,
   playerIsInvulnerable,
+  playerTintRemainingMs,
   playerSpeedMultiplier,
   queuePowerPelletRespawns,
   revokeUpgrade,
@@ -393,7 +394,7 @@ export class PlaySim {
   renderOptions(): SimRenderOptions {
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
-      playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
+      playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
       wallPassActive: wallPassActive(this.runUpgrades),
       ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       ...this.renderCorruptionOptions(),

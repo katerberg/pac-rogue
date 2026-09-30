@@ -304,6 +304,17 @@ describe("PlaySim", () => {
       expect(sim.snapshot().lives).toBe(livesBefore);
     });
 
+    it("feeds the invulnerability tint while the window is armed and clears it after", () => {
+      const sim = startDefySim();
+      const tints = (events: SimEvent[]) =>
+        events.flatMap((e) => (e.type === "draw" ? [e.options.playerInvulnRemainingMs] : []));
+      expect(tints(runFrames(sim, 1)).every((ms) => ms === 0)).toBe(true);
+      chompPowerPellet(sim);
+      expect(tints(runFrames(sim, 1)).every((ms) => ms > 0)).toBe(true);
+      runFrames(sim, Math.ceil(5100 / (1000 / 60)));
+      expect(tints(runFrames(sim, 1)).every((ms) => ms === 0)).toBe(true);
+    });
+
     it("plays the revive sound instead of the death sound on a save", () => {
       const sim = startDefySim();
       chompPowerPellet(sim);

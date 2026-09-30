@@ -787,6 +787,10 @@ export function playerIsInvulnerable(state: RunUpgrades): boolean {
   return state.invulnRemainingMs > 0;
 }
 
+export function playerTintRemainingMs(state: RunUpgrades): number {
+  return Math.max(state.invulnRemainingMs, state.defyDeathRemainingMs);
+}
+
 export function scatterBurstActive(state: RunUpgrades): boolean {
   return state.scatterBurstRemainingMs > 0;
 }

@@ -49,6 +49,7 @@ import {
   ghostHarvestActive,
   clearUpgradeTimers,
   defyDeathActive,
+  playerTintRemainingMs,
   tickDefyDeath,
   tickGhostHarvest,
   GHOST_HARVEST_MS,
@@ -736,5 +737,16 @@ describe("fruitLifetimeMultiplier", () => {
     expect(fruitLifetimeMultiplier([])).toBe(1);
     expect(fruitLifetimeMultiplier(["fruitFecundity"])).toBe(FRUIT_FECUNDITY_MUL);
     expect(fruitLifetimeMultiplier(["fruitQuarterBounty"])).toBe(1);
+  });
+
+  it("tints and blinks the player off the longer of invuln and defy death", () => {
+    let state = grantUpgrade(createRunUpgrades(), "passiveDefyDeath");
+    expect(playerTintRemainingMs(state)).toBe(0);
+    state = applyPowerPelletEffects(state, 1).state;
+    expect(playerTintRemainingMs(state)).toBe(DEFY_DEATH_MS);
+    state = grantUpgrade(state, "powerPelletInvuln");
+    state = applyPowerPelletEffects(state, 1).state;
+    expect(playerTintRemainingMs(state)).toBe(Math.max(INVULN_MS, DEFY_DEATH_MS));
+    expect(playerTintRemainingMs(tickDefyDeath(clearUpgradeTimers(state), 100))).toBe(0);
   });
 });
