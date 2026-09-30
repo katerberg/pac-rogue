@@ -20,7 +20,8 @@ export type UpgradeId =
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
-  | "passivePowerPelletRecharge";
+  | "passivePowerPelletRecharge"
+  | "passiveRemoteTransference";
 
 export type UpgradeDef = {
   id: UpgradeId;
@@ -34,6 +35,7 @@ export type UpgradeDef = {
   grantLives?: number;
   ghostHouseReleaseDelayAddMs?: number;
   ghostHouseClydePelletAdd?: number;
+  remoteTransferEveryPellets?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     scatterBurstMs?: number;
@@ -46,6 +48,7 @@ export type UpgradeDef = {
   };
 };
 
+export const REMOTE_TRANSFER_EVERY_PELLETS = 5;
 export const FREEZE_MS = 3000;
 export const SCATTER_BURST_MS = 3000;
 export const WALL_PASS_MS = 6000;
@@ -184,6 +187,12 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "passivePowerPelletRecharge",
     label: "Second Chomp",
     description: "Eaten power pellets regenerate after ten seconds.",
+  },
+  {
+    id: "passiveRemoteTransference",
+    label: "Remote Transference",
+    description: "Every fifth pellet also eats the farthest one.",
+    remoteTransferEveryPellets: REMOTE_TRANSFER_EVERY_PELLETS,
   },
 ];
 
@@ -638,6 +647,16 @@ function sumOwnedField(
 
 export function ghostHouseReleaseDelayAddMs(owned: readonly UpgradeId[]): number {
   return sumOwnedField(owned, "ghostHouseReleaseDelayAddMs");
+}
+
+export function remoteTransferEvery(owned: readonly UpgradeId[]): number | null {
+  for (const id of owned) {
+    const every = getUpgradeDef(id).remoteTransferEveryPellets;
+    if (every !== undefined) {
+      return every;
+    }
+  }
+  return null;
 }
 
 export function ghostHouseClydePelletAdd(owned: readonly UpgradeId[]): number {

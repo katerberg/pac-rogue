@@ -49,7 +49,9 @@ import {
   type RunUpgrades,
   type UpgradeDef,
   type UpgradeId,
+  remoteTransferEvery,
 } from "../../domain/upgrades";
+import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -62,6 +64,7 @@ import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
+import { applyRemoteTransference } from "../systems/remoteTransference";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
@@ -121,6 +124,7 @@ export class LearnSim {
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private previousEffectiveGhostMode: GhostAiMode = GHOST_AI_MODE.chase;
   private fruitRespawnRemainingMs: number | null = null;
+  private remoteTransferCounter = 0;
 
   constructor(seed: string) {
     this.random = createRunRandom(seed);
@@ -270,6 +274,7 @@ export class LearnSim {
     if (powerRemoved > 0) {
       this.resolvePowerPelletTrigger(powerRemoved);
     }
+    this.applyRemoteTransferStep(removedEids.length);
     if (query(this.world, [Pellet]).length === 0) {
       spawnBoardPellets(this.world);
     }
@@ -463,7 +468,21 @@ export class LearnSim {
     this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
   }
 
+  private applyRemoteTransferStep(removedThisFrame: number): void {
+    const every = remoteTransferEvery(this.learnUpgrades.owned);
+    if (every === null) {
+      return;
+    }
+    const before = this.remoteTransferCounter;
+    this.remoteTransferCounter += removedThisFrame;
+    const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
+    const eids = applyRemoteTransference(this.world, triggers);
+    this.releaseAll(eids);
+    this.remoteTransferCounter += eids.length;
+  }
+
   private resetPellets(): void {
+    this.remoteTransferCounter = 0;
     for (const eid of query(this.world, [Pellet])) {
       this.events.push({ type: "releaseDrawable", eid });
       removeEntity(this.world, eid);
