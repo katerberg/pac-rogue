@@ -242,6 +242,32 @@ describe("movement", () => {
     expect(Position.y[eid]).toBeLessThan(cy);
   });
 
+  it.each([
+    ["before", 3],
+    ["after", -3],
+  ])("cuts the corner diagonally when turning %s the center, gaining full ground", (_, offset) => {
+    const { world, eid } = spawnAt(6, 5);
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    Position.x[eid] = cx + offset;
+    Position.y[eid] = cy;
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.up;
+
+    movement(world, 16);
+
+    const travel = PLAYER_SPEED * 0.016;
+    expect(Facing.direction[eid]).toBe(DIRECTION.up);
+    expect(Position.y[eid]).toBeCloseTo(cy - travel, 5);
+    expect(Position.x[eid]).toBeCloseTo(cx + Math.sign(offset) * (Math.abs(offset) - travel), 5);
+    expect(Math.abs((Position.x[eid] ?? 0) - cx)).toBeGreaterThan(0);
+
+    movement(world, 16);
+
+    expect(Position.x[eid]).toBeCloseTo(cx, 5);
+    expect(Position.y[eid]).toBeCloseTo(cy - 2 * travel, 5);
+  });
+
   it("keeps traveling on Facing when sticky Input is blocked", () => {
     const { world, eid } = spawnAt(1, 1);
     Facing.direction[eid] = DIRECTION.right;
@@ -267,7 +293,7 @@ describe("movement", () => {
     movement(player.world, 1);
 
     expect(Facing.direction[player.eid]).toBe(DIRECTION.up);
-    expect(Position.x[player.eid]).toBeCloseTo(cx, 5);
+    expect(Position.x[player.eid]).toBeCloseTo(cx + offset - PLAYER_SPEED * 0.001, 5);
 
     const ghost = spawnAt(6, 5, true);
     Position.x[ghost.eid] = cx + offset;

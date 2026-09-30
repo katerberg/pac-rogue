@@ -8,6 +8,7 @@ import {
   cellCenterX,
   cellCenterY,
   clampAgainstFacingWall,
+  easePerpendicularToCenterline,
   getActiveLayout,
   isAlignedForTurn,
   snapPerpendicularToCenterline,
@@ -75,6 +76,7 @@ function tryCommitCenterTurn(
   frameTravel: number,
   speed: number,
   preTurnPx: number,
+  cutCorner = false,
 ): { x: number; y: number; remainingDt: number } | null {
   const col = worldToCol(x);
   const row = worldToRow(y);
@@ -91,7 +93,13 @@ function tryCommitCenterTurn(
 
   const alongDist = step.dx !== 0 ? Math.abs(x - cx) : Math.abs(y - cy);
   if (alongDist <= preTurnPx) {
-    return { x: cx, y: cy, remainingDt: speed > 0 ? frameTravel / speed : 0 };
+    // Corner cutting keeps the true position: the caller eases the leftover offset off
+    // while advancing along the new heading, so the turn crosses the corner diagonally.
+    return {
+      x: cutCorner ? x : cx,
+      y: cutCorner ? y : cy,
+      remainingDt: speed > 0 ? frameTravel / speed : 0,
+    };
   }
 
   let dist = -1;
@@ -229,7 +237,7 @@ export function movement(
         }
       } else {
         const preTurnPx = ghost ? TURN_ALIGN_EPS : playerPreTurnPx();
-        const committed = tryCommitCenterTurn(x, y, facing, frameTravel, speed, preTurnPx);
+        const committed = tryCommitCenterTurn(x, y, facing, frameTravel, speed, preTurnPx, !ghost);
         if (committed) {
           x = committed.x;
           y = committed.y;
@@ -269,7 +277,9 @@ export function movement(
     let nextX = x + (Velocity.x[eid] ?? 0) * moveDt;
     let nextY = y + (Velocity.y[eid] ?? 0) * moveDt;
 
-    const centered = snapPerpendicularToCenterline(nextX, nextY, step.dx, step.dy);
+    const centered = ghost
+      ? snapPerpendicularToCenterline(nextX, nextY, step.dx, step.dy)
+      : easePerpendicularToCenterline(nextX, nextY, step.dx, step.dy, speed * moveDt);
     nextX = centered.x;
     nextY = centered.y;
 
