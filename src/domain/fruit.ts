@@ -95,15 +95,23 @@ export function markFruitCollected(state: FruitPresence): FruitPresence {
   };
 }
 
+export function extendFruitLifetime(state: FruitPresence, mul: number): FruitPresence {
+  if (!state.active) {
+    return state;
+  }
+  return { ...state, remainingMs: state.remainingMs * mul };
+}
+
 export function tickFruitPresence(
   state: FruitPresence,
   collectedCount: number,
   deltaMs: number,
   levelIndex: number,
   feast = false,
+  lifetimeMul = 1,
 ): FruitPresenceTick {
   if (feast) {
-    return tickFeastFruitPresence(state, collectedCount, deltaMs, levelIndex);
+    return tickFeastFruitPresence(state, collectedCount, deltaMs, levelIndex, lifetimeMul);
   }
   let next = state;
   let action: FruitPresenceAction = "none";
@@ -122,7 +130,7 @@ export function tickFruitPresence(
       ...next,
       nextThresholdIndex: next.nextThresholdIndex + 1,
       active: true,
-      remainingMs: FRUIT_LIFETIME_MS,
+      remainingMs: FRUIT_LIFETIME_MS * lifetimeMul,
     };
     action = wasActive ? "replace" : "spawn";
   }
@@ -161,6 +169,7 @@ function tickFeastFruitPresence(
   collectedCount: number,
   deltaMs: number,
   levelIndex: number,
+  lifetimeMul: number,
 ): FruitPresenceTick {
   const thresholds =
     levelIndex <= 1 ? BASE_FEAST_FRUIT_SPAWN_THRESHOLDS : getActiveLayout().feastFruitThresholds;
@@ -181,7 +190,7 @@ function tickFeastFruitPresence(
       state: {
         nextThresholdIndex: state.nextThresholdIndex + 1,
         active: true,
-        remainingMs: FRUIT_LIFETIME_MS,
+        remainingMs: FRUIT_LIFETIME_MS * lifetimeMul,
         gapMs: 0,
       },
       action: "spawn",

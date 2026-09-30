@@ -34,7 +34,7 @@ At level 1 and at every level transition, `livesAfterLevelRegen` (`src/domain/li
 
 ## Fruit awards Quarters
 
-Fruit spawns/despawns as before, 10s lifetime: level 1 uses a single unscaled 70-pellet threshold, levels 2+ use layout-scaled pellet thresholds. Picking it up plays the munch SFX, removes it, and awards one Quarter (top-left HUD dot; spent at [store floors](./store.md)). The upgrade-choice reward instead comes from **clearing a level** (2 through 8); see [docs/upgrades.md](./upgrades.md).
+Fruit spawns/despawns as before, 10s lifetime (20s with Fruit Fecundity): level 1 uses a single unscaled 70-pellet threshold, levels 2+ use layout-scaled pellet thresholds. Picking it up plays the munch SFX, removes it, and awards one Quarter (top-left HUD dot; spent at [store floors](./store.md)). The upgrade-choice reward instead comes from **clearing a level** (2 through 8); see [docs/upgrades.md](./upgrades.md).
 
 ## `?level=` and the cap
 

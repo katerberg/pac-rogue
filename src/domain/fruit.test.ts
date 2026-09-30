@@ -4,6 +4,7 @@ import {
   CURRENT_LEVEL,
   FRUIT_FEAST_GAP_MS,
   FRUIT_LIFETIME_MS,
+  extendFruitLifetime,
   createFruitPresence,
   fruitArtPath,
   fruitSpawnCenter,
@@ -128,6 +129,42 @@ describe("tickFruitPresence", () => {
     expect(second.state.remainingMs).toBe(FRUIT_LIFETIME_MS);
   });
 
+  it("doubles spawn, replace and active lifetimes with a lifetime multiplier", () => {
+    const [firstThreshold, secondThreshold] = getActiveLayout().fruitThresholds;
+    const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0, fruitLevel, false, 2);
+    expect(first.state.remainingMs).toBe(FRUIT_LIFETIME_MS * 2);
+
+    const mid = tickFruitPresence(
+      first.state,
+      firstThreshold,
+      FRUIT_LIFETIME_MS * 1.5,
+      fruitLevel,
+      false,
+      2,
+    );
+    expect(mid.state.active).toBe(true);
+    const end = tickFruitPresence(
+      mid.state,
+      firstThreshold,
+      FRUIT_LIFETIME_MS * 0.5,
+      fruitLevel,
+      false,
+      2,
+    );
+    expect(end.action).toBe("despawn");
+
+    const replaced = tickFruitPresence(first.state, secondThreshold, 16, fruitLevel, false, 2);
+    expect(replaced.action).toBe("replace");
+    expect(replaced.state.remainingMs).toBe(FRUIT_LIFETIME_MS * 2);
+  });
+
+  it("extendFruitLifetime scales active fruit and ignores inactive presence", () => {
+    const idle = createFruitPresence();
+    expect(extendFruitLifetime(idle, 2)).toBe(idle);
+    const active = { ...idle, active: true, remainingMs: 6_000 };
+    expect(extendFruitLifetime(active, 2).remainingMs).toBe(12_000);
+  });
+
   it("does not re-fire a consumed threshold", () => {
     const [firstThreshold] = getActiveLayout().fruitThresholds;
     const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0, fruitLevel);
@@ -150,6 +187,11 @@ describe("markFruitCollected", () => {
 
 describe("tickFruitPresence with fruitFeast", () => {
   const level = 1;
+
+  it("doubles feast fruit lifetime with a lifetime multiplier", () => {
+    const { state } = tickFruitPresence(createFruitPresence(), 60, 16, level, true, 2);
+    expect(state.remainingMs).toBe(FRUIT_LIFETIME_MS * 2);
+  });
 
   it("spawns at 60, 130 and 200 when each fruit is gone for the gap", () => {
     let state = createFruitPresence();
