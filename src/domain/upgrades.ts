@@ -21,7 +21,8 @@ export type UpgradeId =
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
-  | "passivePowerPelletRecharge";
+  | "passivePowerPelletRecharge"
+  | "passiveDefyDeath";
 
 export type UpgradeDef = {
   id: UpgradeId;
@@ -42,6 +43,7 @@ export type UpgradeDef = {
     playerInvulnMs?: number;
     playerSpeedBurstMs?: number;
     ghostHarvestMs?: number;
+    defyDeathMs?: number;
     recallClosestGhost?: true;
     warpPlayerTopCenter?: true;
     collectExtraPellets?: number;
@@ -54,6 +56,7 @@ export const WALL_PASS_MS = 6000;
 export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
 export const GHOST_HARVEST_MS = 5000;
+export const DEFY_DEATH_MS = 5000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
@@ -194,6 +197,12 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     label: "Second Chomp",
     description: "Eaten power pellets regenerate after ten seconds.",
   },
+  {
+    id: "passiveDefyDeath",
+    label: "Defy Death",
+    description: "Eat a power pellet: die within 5s and keep your life.",
+    onPowerPellet: { defyDeathMs: DEFY_DEATH_MS },
+  },
 ];
 
 const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
@@ -243,6 +252,7 @@ export type RunUpgrades = {
   invulnRemainingMs: number;
   speedBurstRemainingMs: number;
   ghostHarvestRemainingMs: number;
+  defyDeathRemainingMs: number;
   lastDeclinedUpgradeId: UpgradeId | null;
 };
 
@@ -264,6 +274,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
+    defyDeathRemainingMs: 0,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -434,6 +445,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
+    defyDeathRemainingMs: 0,
   };
 }
 
@@ -499,6 +511,16 @@ export function tickGhostHarvest(state: RunUpgrades, deltaMs: number): RunUpgrad
   };
 }
 
+export function tickDefyDeath(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.defyDeathRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    defyDeathRemainingMs: Math.max(0, state.defyDeathRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
@@ -519,6 +541,7 @@ export function applyPowerPelletEffects(
   let invulnMs: number | null = null;
   let speedBurstMs: number | null = null;
   let ghostHarvestMs: number | null = null;
+  let defyDeathMs: number | null = null;
   let recallClosestGhost = false;
   let warpPlayerTopCenter = false;
   let collectExtraPellets = 0;
@@ -557,6 +580,10 @@ export function applyPowerPelletEffects(
         ghostHarvestMs === null
           ? onPower.ghostHarvestMs
           : Math.max(ghostHarvestMs, onPower.ghostHarvestMs);
+    }
+    if (onPower.defyDeathMs !== undefined) {
+      defyDeathMs =
+        defyDeathMs === null ? onPower.defyDeathMs : Math.max(defyDeathMs, onPower.defyDeathMs);
     }
     if (onPower.recallClosestGhost) {
       recallClosestGhost = true;
@@ -605,6 +632,9 @@ export function applyPowerPelletEffects(
   }
   if (ghostHarvestMs !== null) {
     next = { ...next, ghostHarvestRemainingMs: ghostHarvestMs };
+  }
+  if (defyDeathMs !== null) {
+    next = { ...next, defyDeathRemainingMs: defyDeathMs };
   }
 
   return {
@@ -701,6 +731,10 @@ export function speedBurstActive(state: RunUpgrades): boolean {
 
 export function ghostHarvestActive(state: RunUpgrades): boolean {
   return state.ghostHarvestRemainingMs > 0;
+}
+
+export function defyDeathActive(state: RunUpgrades): boolean {
+  return state.defyDeathRemainingMs > 0;
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFY_DEATH_MS,
   FREEZE_MS,
   GHOST_HOUSE_CLYDE_PELLET_ADD,
   GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
@@ -42,6 +43,8 @@ import {
   speedBurstActive,
   ghostHarvestActive,
   clearUpgradeTimers,
+  defyDeathActive,
+  tickDefyDeath,
   tickGhostHarvest,
   GHOST_HARVEST_MS,
   tickFreeze,
@@ -78,6 +81,7 @@ const ALL_IDS: UpgradeId[] = [
   "passiveOvercharge",
   "passiveTunnelDash",
   "passivePowerPelletRecharge",
+  "passiveDefyDeath",
 ];
 
 const STUB_IDS: UpgradeId[] = [
@@ -683,5 +687,27 @@ describe("ghost harvester / power pellet", () => {
     const armed = applyPowerPelletEffects(state, 1).state;
     expect(armed.ghostHarvestRemainingMs).toBe(GHOST_HARVEST_MS * 2);
     expect(clearUpgradeTimers(armed).ghostHarvestRemainingMs).toBe(0);
+  });
+});
+
+describe("defy death / power pellet", () => {
+  it("arms only when owned, refreshes on re-chomp, and ticks down", () => {
+    expect(applyPowerPelletEffects(createRunUpgrades(), 1).state.defyDeathRemainingMs).toBe(0);
+    const owned = grantUpgrade(createRunUpgrades(), "passiveDefyDeath");
+    const armed = applyPowerPelletEffects(owned, 1).state;
+    expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS);
+    expect(defyDeathActive(armed)).toBe(true);
+    const mid = tickDefyDeath(armed, 2000);
+    expect(mid.defyDeathRemainingMs).toBe(DEFY_DEATH_MS - 2000);
+    expect(applyPowerPelletEffects(mid, 1).state.defyDeathRemainingMs).toBe(DEFY_DEATH_MS);
+    expect(defyDeathActive(tickDefyDeath(armed, DEFY_DEATH_MS + 1))).toBe(false);
+  });
+
+  it("is not doubled by Overcharge and clears with the other timers", () => {
+    let state = grantUpgrade(createRunUpgrades(), "passiveDefyDeath");
+    state = grantUpgrade(state, "passiveOvercharge");
+    const armed = applyPowerPelletEffects(state, 1).state;
+    expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS);
+    expect(clearUpgradeTimers(armed).defyDeathRemainingMs).toBe(0);
   });
 });

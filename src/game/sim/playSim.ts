@@ -130,6 +130,7 @@ import {
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   clearUpgradeTimers,
+  defyDeathActive,
   confirmUpgradeChoice,
   createRunUpgrades,
   declineUpgrades,
@@ -150,6 +151,7 @@ import {
   scatterBurstActive,
   speedBurstActive,
   ghostHarvestActive,
+  tickDefyDeath,
   tickGhostHarvest,
   tickFreeze,
   tickInvuln,
@@ -407,6 +409,7 @@ export class PlaySim {
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
+        defyDeathMs: upgrades.defyDeathRemainingMs,
         eatDragMs: this.eatDragMs,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
@@ -559,6 +562,7 @@ export class PlaySim {
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
     this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
+    this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
     for (const pos of respawnTick.ready) {
@@ -812,9 +816,10 @@ export class PlaySim {
       }
       this.emit({ type: "loopStop", id: "gameplayMusic" });
       this.emit({ type: "sfx", id: "death" });
-      const result = this.options.infiniteLives
-        ? { lives: this.lives, gameOver: false }
-        : livesRemainingAfterCatch(this.lives);
+      const result =
+        this.options.infiniteLives || defyDeathActive(this.runUpgrades)
+          ? { lives: this.lives, gameOver: false }
+          : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.emit({ type: "lives", pulse: false });
       if (result.gameOver && !this.options.highScoresDisabled) {
