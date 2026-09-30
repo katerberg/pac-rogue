@@ -132,6 +132,7 @@ src/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
       upgradeChoiceModal.ts   # level-clear pick-one overlay (Phaser)
+      turnSparks.ts           # Turn Tuning feedback: perfect burst, close sparks + "Close!" text (Phaser)
       storeOverlay.ts         # store floor tiles, hover/prompt panel, purchase toast (Phaser)
       MenuScene.ts            # boot title + Start / Learn / High Scores / Settings (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)

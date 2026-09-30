@@ -9,7 +9,9 @@ import {
   TURN_TUNING_PERFECT_PX,
   TURN_TUNING_SPAM_MS,
   isCleanTap,
-  isPerfectTurn,
+  TURN_TUNING_CLOSE_PX,
+  closeSparkCount,
+  turnFeedback,
   turnFlashPulse,
   tickTurnTimer,
   turnBoostMultiplier,
@@ -39,10 +41,20 @@ describe("turn beat", () => {
     expect(isCleanTap(1000 - TURN_TUNING_SPAM_MS, 1000)).toBe(true);
   });
 
-  it("is perfect only for a clean tap close to the junction", () => {
-    expect(isPerfectTurn(TURN_TUNING_PERFECT_PX, true)).toBe(true);
-    expect(isPerfectTurn(TURN_TUNING_PERFECT_PX + 1, true)).toBe(false);
-    expect(isPerfectTurn(0, false)).toBe(false);
+  it("grades a clean tap as perfect, close or nothing by distance, and silent when spammed", () => {
+    expect(turnFeedback(TURN_TUNING_PERFECT_PX, true)).toBe("perfect");
+    expect(turnFeedback(-3, true)).toBe("perfect");
+    expect(turnFeedback(TURN_TUNING_PERFECT_PX + 1, true)).toBe("close");
+    expect(turnFeedback(TURN_TUNING_CLOSE_PX, true)).toBe("close");
+    expect(turnFeedback(TURN_TUNING_CLOSE_PX + 1, true)).toBeNull();
+    expect(turnFeedback(0, false)).toBeNull();
+    expect(turnFeedback(TURN_TUNING_PERFECT_PX + 4, false)).toBeNull();
+  });
+
+  it("sprays more sparks the closer a close tap was", () => {
+    expect(closeSparkCount(TURN_TUNING_PERFECT_PX + 1)).toBeGreaterThan(
+      closeSparkCount(TURN_TUNING_CLOSE_PX),
+    );
   });
 });
 

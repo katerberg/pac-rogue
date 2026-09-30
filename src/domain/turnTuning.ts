@@ -13,8 +13,12 @@ export const TURN_TUNING_BOOST_MS = 500;
 export const TURN_TUNING_BOOST_MUL = 1.25;
 export const TURN_TUNING_WINDOW_PX = TILE_SIZE_PX * 2;
 export const TURN_TUNING_PERFECT_PX = 8;
+export const TURN_TUNING_CLOSE_PX = 20;
 export const TURN_TUNING_SPAM_MS = 300;
+const CLOSE_SPARKS_MAX = 5;
+const CLOSE_SPARKS_MIN = 3;
 
+export const PERFECT_SPARK_COUNT = 12;
 export const TURN_FLASH_MS = 300;
 export const TURN_FLASH_SCALE = 0.3;
 export const TURN_FLASH_ALPHA_DROP = 0.1;
@@ -54,8 +58,22 @@ export function isCleanTap(lastPressMs: number | undefined, nowMs: number): bool
   return lastPressMs === undefined || nowMs - lastPressMs >= TURN_TUNING_SPAM_MS;
 }
 
-export function isPerfectTurn(aheadPx: number, clean: boolean): boolean {
-  return clean && aheadPx <= TURN_TUNING_PERFECT_PX;
+export type TurnFeedbackKind = "perfect" | "close";
+
+export function turnFeedback(aheadPx: number, clean: boolean): TurnFeedbackKind | null {
+  if (!clean) {
+    return null;
+  }
+  if (aheadPx <= TURN_TUNING_PERFECT_PX) {
+    return "perfect";
+  }
+  return aheadPx <= TURN_TUNING_CLOSE_PX ? "close" : null;
+}
+
+export function closeSparkCount(aheadPx: number): number {
+  const span = TURN_TUNING_CLOSE_PX - TURN_TUNING_PERFECT_PX;
+  const closeness = 1 - Math.min(1, Math.max(0, aheadPx - TURN_TUNING_PERFECT_PX) / span);
+  return CLOSE_SPARKS_MIN + Math.round((CLOSE_SPARKS_MAX - CLOSE_SPARKS_MIN) * closeness);
 }
 
 export function tickTurnTimer(remainingMs: number, deltaMs: number): number {

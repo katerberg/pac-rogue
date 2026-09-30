@@ -209,6 +209,7 @@ import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import {
+  CARDINAL_STEP,
   KEY_FOR_DIRECTION,
   NO_KEYS_HELD,
   anyKeyHeld,
@@ -219,10 +220,13 @@ import {
   type TurnTap,
 } from "../systems/heldKeys";
 import {
+  PERFECT_SPARK_COUNT,
   TURN_FLASH_MS,
   TURN_TUNING_BOOST_MS,
   isCleanTap,
-  isPerfectTurn,
+  closeSparkCount,
+  turnFeedback,
+  type TurnFeedbackKind,
   tickTurnTimer,
   turnBoostMultiplier,
 } from "../../domain/turnTuning";
@@ -233,6 +237,7 @@ import {
   clearPlayerDirectionInput,
   hasPlayerDirectionInput,
   playerFacing,
+  playerPose,
 } from "../systems/playerDirection";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
@@ -488,11 +493,24 @@ export class PlaySim {
   private noteTurnKeys(keys: HeldKeys, tap: TurnTap | null): void {
     if (tap !== null) {
       const lastPress = this.lastKeyPressMs[KEY_FOR_DIRECTION[tap.direction]!];
-      this.turnPerfectPending = isPerfectTurn(tap.aheadPx, isCleanTap(lastPress, this.simClockMs));
+      const feedback = turnFeedback(tap.aheadPx, isCleanTap(lastPress, this.simClockMs));
+      this.turnPerfectPending = feedback === "perfect";
+      if (feedback === "close") {
+        this.emitTurnSparks("close", closeSparkCount(tap.aheadPx));
+      }
     }
     for (const key of freshKeys(this.prevKeys, keys)) {
       this.lastKeyPressMs[key] = this.simClockMs;
     }
+  }
+
+  private emitTurnSparks(kind: TurnFeedbackKind, count: number): void {
+    const pose = playerPose(this.world);
+    if (pose === null) {
+      return;
+    }
+    const step = CARDINAL_STEP[pose.facing] ?? { dx: 0, dy: 0 };
+    this.emit({ type: "turnSparks", kind, x: pose.x, y: pose.y, dx: step.dx, dy: step.dy, count });
   }
 
   private emit(event: SimEvent): void {
@@ -672,6 +690,7 @@ export class PlaySim {
       if (this.turnPerfectPending) {
         this.turnBoostMs = TURN_TUNING_BOOST_MS;
         this.turnFlashMs = TURN_FLASH_MS;
+        this.emitTurnSparks("perfect", PERFECT_SPARK_COUNT);
       }
       this.turnPerfectPending = false;
     }

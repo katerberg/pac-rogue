@@ -23,7 +23,7 @@ export type HeldKeysOpts = {
   turnTuning?: { prevKeys: HeldKeys; solids: SolidGrid };
 };
 
-const CARDINAL_STEP: Record<number, CardinalStep> = {
+export const CARDINAL_STEP: Record<number, CardinalStep> = {
   [DIRECTION.up]: { dx: 0, dy: -1 },
   [DIRECTION.down]: { dx: 0, dy: 1 },
   [DIRECTION.left]: { dx: -1, dy: 0 },

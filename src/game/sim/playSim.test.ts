@@ -797,6 +797,39 @@ describe("Turn Tuning", () => {
     runUntil(sim, () => sim.snapshot().timers.turnBoostMs > 0, 60, cruise);
   });
 
+  describe("turn feedback sparks", () => {
+    function sparks(events: SimEvent[]) {
+      return events.filter((event) => event.type === "turnSparks");
+    }
+
+    function tapAt(aheadPx: number, priorTap = false) {
+      const { sim, turn } = setup(true);
+      cruiseFrom(sim, turn, 3);
+      const events: SimEvent[] = [];
+      if (priorTap) {
+        events.push(...runFrames(sim, 1, tapUp));
+        events.push(...runFrames(sim, 4, cruise));
+      }
+      placeAhead(sim, turn, aheadPx);
+      events.push(...runFrames(sim, 1, tapUp));
+      events.push(...runFrames(sim, 30, cruise));
+      return sparks(events);
+    }
+
+    it("sprays sparks out the front for a close tap, and bursts on the beat", () => {
+      const [close] = tapAt(14);
+      expect(close).toMatchObject({ type: "turnSparks", kind: "close", dx: 1, dy: 0 });
+      const [perfect] = tapAt(6);
+      expect(perfect).toMatchObject({ type: "turnSparks", kind: "perfect", count: 12 });
+    });
+
+    it("shows nothing for a far tap or a spammed tap", () => {
+      expect(tapAt(28)).toHaveLength(0);
+      expect(tapAt(14, true)).toHaveLength(0);
+      expect(tapAt(6, true)).toHaveLength(0);
+    });
+  });
+
   it("does not boost a turn that is not a right angle", () => {
     const { sim, turn } = setup(true);
     cruiseFrom(sim, turn, 3);

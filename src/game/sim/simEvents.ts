@@ -1,6 +1,7 @@
 import type { CorruptionId } from "../../domain/corruption";
 import type { GhostKindId } from "../../domain/ghostKind";
 import type { GhostTarget } from "../../domain/ghostTarget";
+import type { TurnFeedbackKind } from "../../domain/turnTuning";
 import type { StorePromptView } from "../../domain/store";
 import type { UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
@@ -31,6 +32,15 @@ export type SimEvent =
   | { type: "resetBoard" }
   | { type: "draw"; options: SimRenderOptions }
   | { type: "bouncePowerPellet"; eid: number }
+  | {
+      type: "turnSparks";
+      kind: TurnFeedbackKind;
+      x: number;
+      y: number;
+      dx: number;
+      dy: number;
+      count: number;
+    }
   | { type: "banner"; text: string; boss: boolean }
   | { type: "lives"; pulse: boolean }
   | { type: "quarters" }

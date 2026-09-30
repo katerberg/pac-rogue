@@ -170,6 +170,8 @@ When a perfect tap's turn commits (`Facing` swaps to a perpendicular cardinal di
 - `turnBoostMs = TURN_TUNING_BOOST_MS` (500): `applyPlayerSpeed` multiplies by `turnBoostMultiplier`, easing linearly from `TURN_TUNING_BOOST_MUL` (1.25) to 1; refreshed by the next perfect turn; stacks multiplicatively with Speed Up / Speed Burst.
 - `turnFlashMs = TURN_FLASH_MS` (300): `render` applies `turnFlashPulse` to the player (and tunnel twin): a quick attack to +30% size, 90% opacity and +20% brightness (an additive gray tint), then eases back.
 
+**Feedback sparks.** `turnFeedback(aheadPx, clean)` grades each accepted tap: _perfect_ (above), _close_ (clean and 8-20px early: it still turns, without the reward), or nothing (further off, or not clean, so spamming and far taps stay silent; a press after the corner is dropped with no feedback). The sim emits a `turnSparks` event: a perfect burst of `PERFECT_SPARK_COUNT` (12) gold sparks at the corner when the turn commits, and, for a close tap, 3-5 cyan sparks (more the closer) fanned out the front of Maze-Man at the moment of the press plus a small translucent `Close!` that drifts ahead. `scenes/turnSparks.ts` draws them with fixed fan angles (no randomness).
+
 Both timers clear on life loss / store / level advance and appear as `play.timers.turnBoostMs` / `turnFlashMs`. Store floors and LEARN are unaffected.
 
 ### Wall pass
