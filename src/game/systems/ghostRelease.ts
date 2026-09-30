@@ -1,7 +1,7 @@
 import { hasComponent, query, type World } from "bitecs";
 import {
+  GHOST_RELEASE_PRIORITY,
   idleReleaseDue,
-  pickIdleReleaseKind,
   shouldReleaseGhostAt,
   shouldReleaseKind,
   type GhostReleaseAdds,
@@ -63,7 +63,8 @@ export function ghostRelease(
   adds: GhostReleaseAdds = {},
 ): boolean {
   let released = false;
-  const idleCandidates = new Map<GhostKindId, number>();
+  let idleEid: number | undefined;
+  let idleRank = Number.POSITIVE_INFINITY;
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing, Speed])) {
     if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
       continue;
@@ -74,8 +75,10 @@ export function ghostRelease(
       ? shouldReleaseGhostAt(clock, (BossGhost.releaseDelayMs[eid] ?? 0) + (adds.delayAddMs ?? 0))
       : shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease, adds);
     if (!ready) {
-      if (!isBoss && !idleCandidates.has(kind)) {
-        idleCandidates.set(kind, eid);
+      const rank = GHOST_RELEASE_PRIORITY.indexOf(kind);
+      if (!isBoss && rank < idleRank) {
+        idleEid = eid;
+        idleRank = rank;
       }
       continue;
     }
@@ -83,10 +86,8 @@ export function ghostRelease(
     released = true;
   }
   if (!released && idleReleaseDue(clock, adds.delayAddMs ?? 0)) {
-    const kind = pickIdleReleaseKind([...idleCandidates.keys()]);
-    const eid = kind === null ? undefined : idleCandidates.get(kind);
-    if (eid !== undefined) {
-      sendOut(world, eid);
+    if (idleEid !== undefined) {
+      sendOut(world, idleEid);
       released = true;
     }
   }

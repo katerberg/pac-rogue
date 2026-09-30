@@ -74,15 +74,6 @@ export function idleReleaseDue(clock: GhostReleaseClock, delayAddMs = 0): boolea
   return clock.started && clock.idleMs >= idleReleaseLimitMs(clock.level, delayAddMs);
 }
 
-export function pickIdleReleaseKind(kinds: readonly GhostKindId[]): GhostKindId | null {
-  for (const kind of GHOST_RELEASE_PRIORITY) {
-    if (kinds.includes(kind)) {
-      return kind;
-    }
-  }
-  return null;
-}
-
 export function shouldReleaseGhostAt(clock: GhostReleaseClock, delayMs: number): boolean {
   return clock.started && clock.elapsedMs >= delayMs;
 }
