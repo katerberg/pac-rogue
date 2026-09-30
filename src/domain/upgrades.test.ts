@@ -40,6 +40,10 @@ import {
   scatterBurstActive,
   SECOND_CHOMP_MS,
   speedBurstActive,
+  ghostHarvestActive,
+  clearUpgradeTimers,
+  tickGhostHarvest,
+  GHOST_HARVEST_MS,
   tickFreeze,
   tickInvuln,
   tickPowerPelletRespawns,
@@ -67,6 +71,7 @@ const ALL_IDS: UpgradeId[] = [
   "powerPelletWallPass",
   "powerPelletSpeedBurst",
   "powerPelletInvuln",
+  "powerPelletGhostHarvester",
   "fruitPowerPellet",
   "fruitQuarterBounty",
   "passiveDeathsHarvest",
@@ -656,5 +661,27 @@ describe("power pellet respawns / Second Chomp", () => {
       { x: 1, y: 1 },
       { x: 2, y: 2 },
     ]);
+  });
+});
+
+describe("ghost harvester / power pellet", () => {
+  it("starts on a power pellet only when owned, refreshes, and ticks down", () => {
+    expect(applyPowerPelletEffects(createRunUpgrades(), 1).state.ghostHarvestRemainingMs).toBe(0);
+    const owned = grantUpgrade(createRunUpgrades(), "powerPelletGhostHarvester");
+    const armed = applyPowerPelletEffects(owned, 1).state;
+    expect(armed.ghostHarvestRemainingMs).toBe(GHOST_HARVEST_MS);
+    expect(ghostHarvestActive(armed)).toBe(true);
+    const mid = tickGhostHarvest(armed, 2000);
+    expect(mid.ghostHarvestRemainingMs).toBe(GHOST_HARVEST_MS - 2000);
+    expect(applyPowerPelletEffects(mid, 1).state.ghostHarvestRemainingMs).toBe(GHOST_HARVEST_MS);
+    expect(ghostHarvestActive(tickGhostHarvest(armed, GHOST_HARVEST_MS + 1))).toBe(false);
+  });
+
+  it("doubles under Overcharge and clears with the other timers", () => {
+    let state = grantUpgrade(createRunUpgrades(), "powerPelletGhostHarvester");
+    state = grantUpgrade(state, "passiveOvercharge");
+    const armed = applyPowerPelletEffects(state, 1).state;
+    expect(armed.ghostHarvestRemainingMs).toBe(GHOST_HARVEST_MS * 2);
+    expect(clearUpgradeTimers(armed).ghostHarvestRemainingMs).toBe(0);
   });
 });

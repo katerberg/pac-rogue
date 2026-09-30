@@ -40,6 +40,8 @@ import {
   revokeUpgrade,
   scatterBurstActive,
   speedBurstActive,
+  ghostHarvestActive,
+  tickGhostHarvest,
   tickFreeze,
   tickInvuln,
   tickScatterBurst,
@@ -64,6 +66,7 @@ import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
+import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
 import { stepCorruption } from "../systems/corruptionStep";
 import {
@@ -201,6 +204,7 @@ export class LearnSim {
     }
     this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
+    this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
 
     if (this.recallHoldRemainingMs > 0) {
       this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
@@ -262,10 +266,15 @@ export class LearnSim {
     this.flashGhost = corruptionStep.flashGhostEid;
     this.spawnDroppedPellets(corruptionStep.dropSpawnTiles);
 
-    const { removedEids, powerRemoved } = collectPellets(this.world, {
+    const playerFrame = collectPellets(this.world, {
       radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
       solids: getActiveLayout().playerSolids,
     });
+    const ghostFrame = ghostHarvestActive(this.learnUpgrades)
+      ? harvestPelletsByGhosts(this.world)
+      : { powerRemoved: 0, removedEids: [] };
+    const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
+    const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
     this.releaseAll(removedEids);
     if (powerRemoved > 0) {
       this.resolvePowerPelletTrigger(powerRemoved);
@@ -310,6 +319,7 @@ export class LearnSim {
         frozenGhostEid: frozenGhostEid(this.learnUpgrades),
         playerInvulnRemainingMs: this.learnUpgrades.invulnRemainingMs,
         wallPassActive: wallPassActive(this.learnUpgrades),
+        ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         corruptedGhostEid:
           type !== null ? findGhostEidByKind(this.world, this.runCorruption.ghostKind) : null,
         corruptedTint: type !== null ? OUTLINE_TINT_BY_CORRUPTION[type] : undefined,
@@ -355,6 +365,7 @@ export class LearnSim {
       wallPassRemainingMs: 0,
       invulnRemainingMs: 0,
       speedBurstRemainingMs: 0,
+      ghostHarvestRemainingMs: 0,
     };
     this.recallHoldGhostEid = null;
     this.recallHoldRemainingMs = 0;
@@ -541,5 +552,6 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
     invulnRemainingMs: hasField("playerInvulnMs") ? state.invulnRemainingMs : 0,
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
+    ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
   };
 }
