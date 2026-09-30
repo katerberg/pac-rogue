@@ -18,12 +18,15 @@ export type UpgradeId =
   | "powerPelletGhostHarvester"
   | "fruitPowerPellet"
   | "fruitQuarterBounty"
+  | "fruitFecundity"
+  | "fruitFeast"
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
   | "passivePowerPelletRecharge"
   | "passiveRemoteTransference"
   | "passiveMyogenesis"
+  | "passiveDefyDeath"
   | "passiveTurnTuning";
 
 export type UpgradeDef = {
@@ -34,6 +37,7 @@ export type UpgradeDef = {
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitQuarterMul?: number;
+  fruitLifetimeMul?: number;
   pelletCollectRadiusBonusPx?: number;
   grantLives?: number;
   ghostHouseReleaseDelayAddMs?: number;
@@ -46,6 +50,7 @@ export type UpgradeDef = {
     playerInvulnMs?: number;
     playerSpeedBurstMs?: number;
     ghostHarvestMs?: number;
+    defyDeathMs?: number;
     recallClosestGhost?: true;
     warpPlayerTopCenter?: true;
     collectExtraPellets?: number;
@@ -59,6 +64,7 @@ export const WALL_PASS_MS = 6000;
 export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
 export const GHOST_HARVEST_MS = 5000;
+export const DEFY_DEATH_MS = 5000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.75;
@@ -73,6 +79,7 @@ export const QUARTERS_CHOICE_AMOUNT = 2;
 export const STORE_UPGRADE_PRICE = 3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
 export const QUARTER_BOUNTY_MUL = 2;
+export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
@@ -197,6 +204,19 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     fruitQuarterMul: QUARTER_BOUNTY_MUL,
   },
   {
+    id: "fruitFecundity",
+    label: "Fruit Fecundity",
+    description: "Bonus fruit lingers twice as long.",
+    storePrice: STORE_UPGRADE_PRICE,
+    fruitLifetimeMul: FRUIT_FECUNDITY_MUL,
+  },
+  {
+    id: "fruitFeast",
+    label: "Fruit Feast",
+    description: "Bonus fruit appears three times per level, each after the last is gone.",
+    storePrice: STORE_UPGRADE_PRICE,
+  },
+  {
     id: "passiveDeathsHarvest",
     label: "Death's Harvest",
     description: "Dying harvests nearby pellets.",
@@ -234,9 +254,16 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
+    id: "passiveDefyDeath",
+    label: "Defy Death",
+    description: "Eat a power pellet: die within 5s and keep your life.",
+    storePrice: STORE_UPGRADE_PRICE,
+    onPowerPellet: { defyDeathMs: DEFY_DEATH_MS },
+  },
+  {
     id: "passiveTurnTuning",
     label: "Turn Tuning",
-    description: "Tap turns within a tile of the corner, and every turn kicks your speed.",
+    description: "Tap turns up to two tiles early. Nail the beat for a speed kick.",
     storePrice: STORE_UPGRADE_PRICE,
   },
 ];
@@ -288,6 +315,7 @@ export type RunUpgrades = {
   invulnRemainingMs: number;
   speedBurstRemainingMs: number;
   ghostHarvestRemainingMs: number;
+  defyDeathRemainingMs: number;
   lastDeclinedUpgradeId: UpgradeId | null;
 };
 
@@ -309,6 +337,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
+    defyDeathRemainingMs: 0,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -479,6 +508,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
+    defyDeathRemainingMs: 0,
   };
 }
 
@@ -544,6 +574,16 @@ export function tickGhostHarvest(state: RunUpgrades, deltaMs: number): RunUpgrad
   };
 }
 
+export function tickDefyDeath(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.defyDeathRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    defyDeathRemainingMs: Math.max(0, state.defyDeathRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
@@ -564,6 +604,7 @@ export function applyPowerPelletEffects(
   let invulnMs: number | null = null;
   let speedBurstMs: number | null = null;
   let ghostHarvestMs: number | null = null;
+  let defyDeathMs: number | null = null;
   let recallClosestGhost = false;
   let warpPlayerTopCenter = false;
   let collectExtraPellets = 0;
@@ -602,6 +643,10 @@ export function applyPowerPelletEffects(
         ghostHarvestMs === null
           ? onPower.ghostHarvestMs
           : Math.max(ghostHarvestMs, onPower.ghostHarvestMs);
+    }
+    if (onPower.defyDeathMs !== undefined) {
+      defyDeathMs =
+        defyDeathMs === null ? onPower.defyDeathMs : Math.max(defyDeathMs, onPower.defyDeathMs);
     }
     if (onPower.recallClosestGhost) {
       recallClosestGhost = true;
@@ -651,6 +696,9 @@ export function applyPowerPelletEffects(
   if (ghostHarvestMs !== null) {
     next = { ...next, ghostHarvestRemainingMs: ghostHarvestMs };
   }
+  if (defyDeathMs !== null) {
+    next = { ...next, defyDeathRemainingMs: defyDeathMs };
+  }
 
   return {
     state: next,
@@ -663,7 +711,7 @@ export function applyPowerPelletEffects(
 
 function speedMultiplier(
   owned: readonly UpgradeId[],
-  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitQuarterMul",
+  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitQuarterMul" | "fruitLifetimeMul",
 ): number {
   let mul = 1;
   for (const id of owned) {
@@ -685,6 +733,10 @@ export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
 
 export function fruitQuarterMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "fruitQuarterMul");
+}
+
+export function fruitLifetimeMultiplier(owned: readonly UpgradeId[]): number {
+  return speedMultiplier(owned, "fruitLifetimeMul");
 }
 
 export function pelletCollectRadiusBonusPx(owned: readonly UpgradeId[]): number {
@@ -742,6 +794,10 @@ export function playerIsInvulnerable(state: RunUpgrades): boolean {
   return state.invulnRemainingMs > 0;
 }
 
+export function playerTintRemainingMs(state: RunUpgrades): number {
+  return Math.max(state.invulnRemainingMs, state.defyDeathRemainingMs);
+}
+
 export function scatterBurstActive(state: RunUpgrades): boolean {
   return state.scatterBurstRemainingMs > 0;
 }
@@ -756,6 +812,10 @@ export function speedBurstActive(state: RunUpgrades): boolean {
 
 export function ghostHarvestActive(state: RunUpgrades): boolean {
   return state.ghostHarvestRemainingMs > 0;
+}
+
+export function defyDeathActive(state: RunUpgrades): boolean {
+  return state.defyDeathRemainingMs > 0;
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {

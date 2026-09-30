@@ -5,4 +5,5 @@ export type SfxId =
   | "menuMusic"
   | "storeMusic"
   | "levelComplete"
-  | "death";
+  | "death"
+  | "revive";

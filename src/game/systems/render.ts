@@ -30,6 +30,7 @@ import {
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
+import { reviveSplashLook } from "../../domain/reviveSplash";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { GhostPhase } from "../components/GhostPhase";
@@ -220,6 +221,7 @@ export type RenderOptions = {
   dimGhostEid?: number | null;
   slimeTrailTiles?: readonly GhostTarget[];
   playerAlpha?: number;
+  playerReviveProgress?: number;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -298,6 +300,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const hiddenGhostEid = opts?.hiddenGhostEid ?? null;
     const dimGhostEid = opts?.dimGhostEid ?? null;
     const playerAlpha = opts?.playerAlpha;
+    const reviveProgress = opts?.playerReviveProgress;
     const wallPassOn = opts?.wallPassActive === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
@@ -442,8 +445,17 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
         go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
         go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha);
+        if (reviveProgress !== undefined) {
+          const look = reviveSplashLook(reviveProgress, size);
+          go.setDisplaySize(look.size, look.size);
+          go.setAlpha(look.alpha);
+        }
 
-        if (playerAlpha === undefined && hasComponent(world, eid, Player)) {
+        if (
+          playerAlpha === undefined &&
+          reviveProgress === undefined &&
+          hasComponent(world, eid, Player)
+        ) {
           const twin = wrappedTwinPosition(x, y, radius);
           if (twin) {
             alive.add(twinKey);

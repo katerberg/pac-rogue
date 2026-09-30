@@ -18,6 +18,7 @@ export type SimRenderOptions = {
   slimeTrailTiles: GhostTarget[];
   dimGhostEid?: number | null;
   playerAlpha?: number;
+  playerReviveProgress?: number;
 };
 
 export type SimEvent =

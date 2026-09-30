@@ -108,9 +108,12 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
   "passiveGhostHouseDelay",
   "passiveExtraLife",
   "fruitQuarterBounty",
+  "fruitFecundity",
+  "fruitFeast",
   "passiveDeathsHarvest",
   "passivePowerPelletRecharge",
   "passiveMyogenesis",
+  "passiveDefyDeath",
   "passiveTurnTuning",
 ];
 
