@@ -11,6 +11,7 @@ import {
   PLAYER_SPEED_UP_MUL,
   POWER_COLLECT_THREE_COUNT,
   QUARTER_BOUNTY_MUL,
+  FRUIT_FECUNDITY_MUL,
   SCATTER_BURST_MS,
   SPEED_BURST_MS,
   WALL_PASS_MS,
@@ -23,6 +24,7 @@ import {
   createRunUpgrades,
   declineUpgrades,
   eligibleUpgrades,
+  fruitLifetimeMultiplier,
   fruitQuarterMultiplier,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
@@ -80,6 +82,7 @@ const ALL_IDS: UpgradeId[] = [
   "powerPelletGhostHarvester",
   "fruitPowerPellet",
   "fruitQuarterBounty",
+  "fruitFecundity",
   "passiveDeathsHarvest",
   "passiveOvercharge",
   "passiveTunnelDash",
@@ -724,5 +727,13 @@ describe("defy death / power pellet", () => {
     const armed = applyPowerPelletEffects(state, 1).state;
     expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS);
     expect(clearUpgradeTimers(armed).defyDeathRemainingMs).toBe(0);
+  });
+});
+
+describe("fruitLifetimeMultiplier", () => {
+  it("is 1 by default and doubles with fruitFecundity", () => {
+    expect(fruitLifetimeMultiplier([])).toBe(1);
+    expect(fruitLifetimeMultiplier(["fruitFecundity"])).toBe(FRUIT_FECUNDITY_MUL);
+    expect(fruitLifetimeMultiplier(["fruitQuarterBounty"])).toBe(1);
   });
 });

@@ -3,6 +3,7 @@ import { cellCenterX, cellCenterY, getActiveLayout, isWalkable } from "./maze";
 import {
   CURRENT_LEVEL,
   FRUIT_LIFETIME_MS,
+  extendFruitLifetime,
   createFruitPresence,
   fruitArtPath,
   fruitSpawnCenter,
@@ -125,6 +126,40 @@ describe("tickFruitPresence", () => {
     expect(second.action).toBe("spawn");
     expect(second.state.active).toBe(true);
     expect(second.state.remainingMs).toBe(FRUIT_LIFETIME_MS);
+  });
+
+  it("doubles spawn, replace and active lifetimes with a lifetime multiplier", () => {
+    const [firstThreshold, secondThreshold] = getActiveLayout().fruitThresholds;
+    const first = tickFruitPresence(createFruitPresence(), firstThreshold, 0, fruitLevel, 2);
+    expect(first.state.remainingMs).toBe(FRUIT_LIFETIME_MS * 2);
+
+    const mid = tickFruitPresence(
+      first.state,
+      firstThreshold,
+      FRUIT_LIFETIME_MS * 1.5,
+      fruitLevel,
+      2,
+    );
+    expect(mid.state.active).toBe(true);
+    const end = tickFruitPresence(
+      mid.state,
+      firstThreshold,
+      FRUIT_LIFETIME_MS * 0.5,
+      fruitLevel,
+      2,
+    );
+    expect(end.action).toBe("despawn");
+
+    const replaced = tickFruitPresence(first.state, secondThreshold, 16, fruitLevel, 2);
+    expect(replaced.action).toBe("replace");
+    expect(replaced.state.remainingMs).toBe(FRUIT_LIFETIME_MS * 2);
+  });
+
+  it("extendFruitLifetime scales active fruit and ignores inactive presence", () => {
+    const idle = createFruitPresence();
+    expect(extendFruitLifetime(idle, 2)).toBe(idle);
+    const active = { ...idle, active: true, remainingMs: 6_000 };
+    expect(extendFruitLifetime(active, 2).remainingMs).toBe(12_000);
   });
 
   it("does not re-fire a consumed threshold", () => {

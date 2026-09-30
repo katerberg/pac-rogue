@@ -85,11 +85,19 @@ export function markFruitCollected(state: FruitPresence): FruitPresence {
   };
 }
 
+export function extendFruitLifetime(state: FruitPresence, mul: number): FruitPresence {
+  if (!state.active) {
+    return state;
+  }
+  return { ...state, remainingMs: state.remainingMs * mul };
+}
+
 export function tickFruitPresence(
   state: FruitPresence,
   collectedCount: number,
   deltaMs: number,
   levelIndex: number,
+  lifetimeMul = 1,
 ): FruitPresenceTick {
   let next = state;
   let action: FruitPresenceAction = "none";
@@ -107,7 +115,7 @@ export function tickFruitPresence(
     next = {
       nextThresholdIndex: next.nextThresholdIndex + 1,
       active: true,
-      remainingMs: FRUIT_LIFETIME_MS,
+      remainingMs: FRUIT_LIFETIME_MS * lifetimeMul,
     };
     action = wasActive ? "replace" : "spawn";
   }
