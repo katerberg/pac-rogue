@@ -66,7 +66,12 @@ import {
   offersUpgradeAfterLevel,
   speedLevelMultiplier,
 } from "../../domain/levelRules";
-import { START_LIVES, livesAfterLevelRegen, livesRemainingAfterCatch } from "../../domain/lives";
+import {
+  START_LIVES,
+  levelLivesIconFloor,
+  livesAfterLevelRegen,
+  livesRemainingAfterCatch,
+} from "../../domain/lives";
 import {
   activateAsciiLayout,
   activateLayout,
@@ -293,7 +298,7 @@ export class PlaySim {
       this.recordSeenUpgrades();
     }
     this.emit({ type: "upgrades" });
-    this.lives = livesAfterLevelRegen(this.lives);
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor());
     this.emit({ type: "lives", pulse: false });
     if (startingUpgrade === null) {
       this.showLevelBanner();
@@ -1213,6 +1218,10 @@ export class PlaySim {
     this.pelletProgress = addPelletsToProgress(this.pelletProgress, 1);
   }
 
+  private regenIconFloor(): number {
+    return levelLivesIconFloor(this.runUpgrades.owned.includes("passiveExtraLife"));
+  }
+
   private applyGrantEffects(id: UpgradeId): void {
     this.lives += grantLivesForUpgrade(id);
     if (id === "passivePelletToPower") {
@@ -1286,7 +1295,7 @@ export class PlaySim {
     this.startBoard(null);
     this.emit({ type: "upgrades" });
     const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives);
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor());
     this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     this.showLevelBanner();
     this.emit({ type: "musicAfterFanfare", id: "gameplayMusic" });

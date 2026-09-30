@@ -151,6 +151,16 @@ describe("PlaySim", () => {
     expect(count(events, "saveRun")).toBe(saves);
   });
 
+  it("regenerates up to 4 icons at level 1 when Extra Life is owned", () => {
+    const sim = startSim({ level: 1, enableUpgrades: ["passiveExtraLife"] });
+    expect(sim.snapshot().lives).toBe(5);
+  });
+
+  it("regenerates up to 3 icons at level 1 without Extra Life", () => {
+    const sim = startSim({ level: 1, enableUpgrades: [] });
+    expect(sim.snapshot().lives).toBe(4);
+  });
+
   it("buys a life at the store", () => {
     const sim = startSim({ store: true, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;

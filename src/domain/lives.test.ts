@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   START_LIVES,
+  levelLivesIconFloor,
   livesAfterLevelRegen,
   livesHudIconCount,
   livesRemainingAfterCatch,
@@ -54,5 +55,15 @@ describe("livesAfterLevelRegen", () => {
   it("leaves lives unchanged once 3 icons are already showing", () => {
     expect(livesAfterLevelRegen(4)).toBe(4);
     expect(livesAfterLevelRegen(5)).toBe(5);
+  });
+});
+
+describe("levelLivesIconFloor", () => {
+  it("raises the regen floor to 4 icons with Extra Life", () => {
+    expect(levelLivesIconFloor(false)).toBe(3);
+    expect(levelLivesIconFloor(true)).toBe(4);
+    expect(livesAfterLevelRegen(4, levelLivesIconFloor(true))).toBe(5);
+    expect(livesAfterLevelRegen(5, levelLivesIconFloor(true))).toBe(5);
+    expect(livesAfterLevelRegen(4, levelLivesIconFloor(false))).toBe(4);
   });
 });

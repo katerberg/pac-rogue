@@ -16,6 +16,10 @@ export function parseInfiniteLivesFlag(params: URLSearchParams): boolean {
   return params.get("infiniteLives") === "1";
 }
 
-export function livesAfterLevelRegen(lives: number): number {
-  return livesHudIconCount(lives) < LEVEL_LIVES_ICON_FLOOR ? lives + 1 : lives;
+export function levelLivesIconFloor(hasExtraLife: boolean): number {
+  return hasExtraLife ? LEVEL_LIVES_ICON_FLOOR + 1 : LEVEL_LIVES_ICON_FLOOR;
+}
+
+export function livesAfterLevelRegen(lives: number, iconFloor = LEVEL_LIVES_ICON_FLOOR): number {
+  return livesHudIconCount(lives) < iconFloor ? lives + 1 : lives;
 }
