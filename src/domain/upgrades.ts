@@ -168,7 +168,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passiveDeathsHarvest",
     label: "Death's Harvest",
-    description: "Dying harvests nearby pellets — clear the board this way and it counts as a win.",
+    description: "Dying harvests nearby pellets.",
   },
   {
     id: "passiveOvercharge",
