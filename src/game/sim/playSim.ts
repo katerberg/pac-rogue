@@ -149,6 +149,8 @@ import {
   revokeUpgrade,
   scatterBurstActive,
   speedBurstActive,
+  ghostHarvestActive,
+  tickGhostHarvest,
   tickFreeze,
   tickInvuln,
   tickPowerPelletRespawns,
@@ -189,6 +191,7 @@ import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
+import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
 import {
   ghostHouseSeating,
   placeInHouseGhostsAtPredictedSeats,
@@ -383,6 +386,7 @@ export class PlaySim {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
+      ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       ...this.renderCorruptionOptions(),
     };
   }
@@ -406,6 +410,7 @@ export class PlaySim {
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
+        ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         eatDragMs: this.eatDragMs,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
@@ -557,6 +562,7 @@ export class PlaySim {
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
+    this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
     for (const pos of respawnTick.ready) {
@@ -655,14 +661,19 @@ export class PlaySim {
     this.clock = tickRunClock(this.clock, hasInput, delta);
     this.emit({ type: "timer" });
 
-    const {
-      powerRemoved,
-      removedEids: removedPelletEids,
-      removedPowerPositions,
-    } = collectPellets(this.world, {
+    const playerFrame = collectPellets(this.world, {
       radiusBonusPx: pelletCollectRadiusBonusPx(this.runUpgrades.owned),
       solids: getActiveLayout().playerSolids,
     });
+    const ghostFrame = ghostHarvestActive(this.runUpgrades)
+      ? harvestPelletsByGhosts(this.world)
+      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
+    const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
+    const removedPelletEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
+    const removedPowerPositions = [
+      ...playerFrame.removedPowerPositions,
+      ...ghostFrame.removedPowerPositions,
+    ];
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);
     }

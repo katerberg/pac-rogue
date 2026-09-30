@@ -366,3 +366,82 @@ describe("PlaySim", () => {
     expect(leavingSpeed / activeSpeed).toBeCloseTo(0.5 / 0.85);
   });
 });
+
+describe("Ghost Harvester", () => {
+  function regularPelletFarFrom(sim: PlaySim, x: number, y: number): number {
+    return query(sim.world, [Pellet, Position])
+      .filter((eid) => !hasComponent(sim.world, eid, PowerPellet))
+      .sort(
+        (a, b) =>
+          Math.hypot(Position.x[b]! - x, Position.y[b]! - y) -
+          Math.hypot(Position.x[a]! - x, Position.y[a]! - y),
+      )[0]!;
+  }
+
+  function armWithPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.ghostHarvestMs).toBeGreaterThan(0);
+  }
+
+  function parkGhostOn(sim: PlaySim, pellet: number): void {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = Position.x[pellet]!;
+    Position.y[ghost] = Position.y[pellet]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  it("lets ghosts eat pellets for the player while the timer runs, then stops", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletGhostHarvester"],
+    });
+    armWithPowerPellet(sim);
+    const player = playerEid(sim);
+    const target = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
+    const before = sim.snapshot().boardCollected;
+    parkGhostOn(sim, target);
+    const events = runFrames(sim, 1);
+    expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
+    expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
+    expect(count(events, "pelletSfx")).toBeGreaterThan(0);
+
+    runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
+    const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
+    parkGhostOn(sim, next);
+    runFrames(sim, 1);
+    expect(query(sim.world, [Pellet]).includes(next)).toBe(true);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.ghostHarvestMs).toBe(0);
+  });
+
+  it("counts a ghost eating the last pellet as a level clear", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletGhostHarvester"],
+    });
+    armWithPowerPellet(sim);
+    const byPowerFirst = (eid: number) => (hasComponent(sim.world, eid, PowerPellet) ? 0 : 1);
+    for (let i = 0; i < 2000 && sim.offer() === null; i += 1) {
+      const [next] = [...query(sim.world, [Pellet, Position])].sort(
+        (x, y) => byPowerFirst(x) - byPowerFirst(y),
+      );
+      if (next === undefined) {
+        break;
+      }
+      parkGhostOn(sim, next);
+      runFrames(sim, 1);
+    }
+    expect(query(sim.world, [Pellet])).toHaveLength(0);
+    expect(sim.offer()).not.toBeNull();
+  });
+});
