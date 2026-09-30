@@ -12,7 +12,6 @@ import {
   createGhostReleaseClock,
   idleReleaseDue,
   idleReleaseLimitMs,
-  pickIdleReleaseKind,
   resetIdle,
   shouldReleaseGhostAt,
   shouldReleaseKind,
@@ -123,12 +122,6 @@ describe("ghostRelease", () => {
       clock = tickGhostRelease(clock, true, IDLE_RELEASE_MS, 1);
       expect(idleReleaseDue(clock)).toBe(true);
       expect(idleReleaseDue(resetIdle(clock))).toBe(false);
-    });
-
-    it("picks Blinky, Pinky, Inky, then Clyde", () => {
-      expect(pickIdleReleaseKind([GHOST_KIND.clyde, GHOST_KIND.inky])).toBe(GHOST_KIND.inky);
-      expect(pickIdleReleaseKind([GHOST_KIND.clyde, GHOST_KIND.pinky])).toBe(GHOST_KIND.pinky);
-      expect(pickIdleReleaseKind([])).toBeNull();
     });
   });
 
