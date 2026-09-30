@@ -18,6 +18,7 @@ export type UpgradeId =
   | "powerPelletGhostHarvester"
   | "fruitPowerPellet"
   | "fruitQuarterBounty"
+  | "fruitFecundity"
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
@@ -33,6 +34,7 @@ export type UpgradeDef = {
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitQuarterMul?: number;
+  fruitLifetimeMul?: number;
   pelletCollectRadiusBonusPx?: number;
   grantLives?: number;
   ghostHouseReleaseDelayAddMs?: number;
@@ -72,6 +74,7 @@ export const QUARTERS_CHOICE_AMOUNT = 2;
 export const STORE_UPGRADE_PRICE = 3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
 export const QUARTER_BOUNTY_MUL = 2;
+export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
@@ -194,6 +197,13 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     description: "Bonus fruit pays out double quarters.",
     storePrice: STORE_UPGRADE_PRICE,
     fruitQuarterMul: QUARTER_BOUNTY_MUL,
+  },
+  {
+    id: "fruitFecundity",
+    label: "Fruit Fecundity",
+    description: "Bonus fruit lingers twice as long.",
+    storePrice: STORE_UPGRADE_PRICE,
+    fruitLifetimeMul: FRUIT_FECUNDITY_MUL,
   },
   {
     id: "passiveDeathsHarvest",
@@ -656,7 +666,7 @@ export function applyPowerPelletEffects(
 
 function speedMultiplier(
   owned: readonly UpgradeId[],
-  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitQuarterMul",
+  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitQuarterMul" | "fruitLifetimeMul",
 ): number {
   let mul = 1;
   for (const id of owned) {
@@ -678,6 +688,10 @@ export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
 
 export function fruitQuarterMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "fruitQuarterMul");
+}
+
+export function fruitLifetimeMultiplier(owned: readonly UpgradeId[]): number {
+  return speedMultiplier(owned, "fruitLifetimeMul");
 }
 
 export function pelletCollectRadiusBonusPx(owned: readonly UpgradeId[]): number {

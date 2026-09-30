@@ -31,6 +31,7 @@ import {
 } from "../../domain/deathSequence";
 import {
   createFruitPresence,
+  extendFruitLifetime,
   markFruitCollected,
   tickFruitPresence,
   type FruitPresence,
@@ -134,6 +135,8 @@ import {
   confirmUpgradeChoice,
   createRunUpgrades,
   declineUpgrades,
+  FRUIT_FECUNDITY_MUL,
+  fruitLifetimeMultiplier,
   fruitQuarterMultiplier,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
@@ -759,6 +762,7 @@ export class PlaySim {
       this.pelletProgress.boardCollected,
       delta,
       this.levelIndex,
+      fruitLifetimeMultiplier(this.runUpgrades.owned),
     );
     if (fruitTick.action === "spawn" || fruitTick.action === "replace") {
       this.spawnFruitEntity();
@@ -1282,6 +1286,9 @@ export class PlaySim {
     this.lives += grantLivesForUpgrade(id);
     if (id === "passivePelletToPower") {
       this.applyPelletToPowerOnce();
+    }
+    if (id === "fruitFecundity") {
+      this.fruitPresence = extendFruitLifetime(this.fruitPresence, FRUIT_FECUNDITY_MUL);
     }
   }
 

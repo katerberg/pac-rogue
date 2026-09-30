@@ -1,11 +1,13 @@
 import { hasComponent, query } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { FRUIT_LIFETIME_MS } from "../../domain/fruit";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import { getActiveLayout, cellCenterX, cellCenterY, horizontalTunnelRows } from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
+import { grantUpgrade } from "../../domain/upgrades";
 import { BossPellet } from "../components/BossPellet";
 import { Ghost } from "../components/Ghost";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
@@ -16,7 +18,7 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { PlaySim } from "./playSim";
 import type { SimEvent } from "./simEvents";
-import { held, runFrames, runUntil } from "./simTesting";
+import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
   const sim = new PlaySim({ ...defaultPlayOptions(), ...overrides }, seed);
@@ -56,6 +58,49 @@ function eatPelletAt(sim: PlaySim, eid: number): void {
   teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
   runFrames(sim, 1);
 }
+
+describe("PlaySim fruit lifetime", () => {
+  const framesFor = (ms: number): number => Math.ceil(ms / FRAME_MS);
+
+  function startWithFruit(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    const sim = startSim({ level: 2, enableUpgrades });
+    const [threshold] = getActiveLayout().fruitThresholds;
+    for (const eid of regularPelletEids(sim).slice(0, threshold)) {
+      eatPelletAt(sim, eid);
+    }
+    teleportPlayer(sim, 0, 0);
+    expect(sim.snapshot().fruit).toBe(true);
+    return sim;
+  }
+
+  it("despawns after the base 10s without the upgrade", () => {
+    const sim = startWithFruit([]);
+    runFrames(sim, framesFor(FRUIT_LIFETIME_MS - 500));
+    expect(sim.snapshot().fruit).toBe(true);
+    runFrames(sim, framesFor(1_000));
+    expect(sim.snapshot().fruit).toBe(false);
+  });
+
+  it("lasts twice as long with fruitFecundity", () => {
+    const sim = startWithFruit(["fruitFecundity"]);
+    runFrames(sim, framesFor(FRUIT_LIFETIME_MS * 2 - 500));
+    expect(sim.snapshot().fruit).toBe(true);
+    runFrames(sim, framesFor(1_000));
+    expect(sim.snapshot().fruit).toBe(false);
+  });
+
+  it("doubles the remaining time of a fruit already on the board when granted", () => {
+    const sim = startWithFruit([]);
+    runFrames(sim, framesFor(6_000));
+    expect(sim.snapshot().fruit).toBe(true);
+    sim["runUpgrades"] = grantUpgrade(sim["runUpgrades"], "fruitFecundity");
+    sim["applyGrantEffects"]("fruitFecundity");
+    runFrames(sim, framesFor(7_000));
+    expect(sim.snapshot().fruit).toBe(true);
+    runFrames(sim, framesFor(2_000));
+    expect(sim.snapshot().fruit).toBe(false);
+  });
+});
 
 describe("PlaySim remote transference", () => {
   function startOwned(): PlaySim {
