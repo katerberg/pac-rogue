@@ -20,13 +20,14 @@ export type UpgradeId =
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
-  | "passivePowerPelletRecharge";
+  | "passivePowerPelletRecharge"
+  | "passiveMyogenesis";
 
 export type UpgradeDef = {
   id: UpgradeId;
   label: string;
   description: string;
-  storePrice?: number;
+  storePrice: number;
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitQuarterMul?: number;
@@ -75,47 +76,55 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "powerPelletFreeze",
     label: "Power Freeze",
     description: "Chomp a power pellet and the nearest ghost locks solid for a few seconds.",
+    storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { freezeClosestGhostMs: FREEZE_MS },
   },
   {
     id: "passivePlayerSpeedUp",
     label: "Speed Up",
     description: "You run hotter. Corners feel closer.",
+    storePrice: STORE_UPGRADE_PRICE,
     playerSpeedMul: PLAYER_SPEED_UP_MUL,
   },
   {
     id: "passiveGhostSlow",
     label: "Ghost Slow",
     description: "The hunt softens. Ghosts drag their feet.",
+    storePrice: STORE_UPGRADE_PRICE,
     ghostSpeedMul: GHOST_SLOW_MUL,
   },
   {
     id: "powerPelletScatterBurst",
     label: "Scatter Burst",
     description: "Power pellet scatters every ghost into the corners.",
+    storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { scatterBurstMs: SCATTER_BURST_MS },
   },
   {
     id: "powerPelletGhostRecall",
     label: "Ghost Recall",
     description: "Power pellet yanks the nearest ghost straight home.",
+    storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { recallClosestGhost: true },
   },
   {
     id: "powerPelletWarpTop",
     label: "Warp Top",
     description: "Power pellet flings you to the top of the maze.",
+    storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { warpPlayerTopCenter: true },
   },
   {
     id: "passivePickupRange",
     label: "Pickup Range",
     description: "Pellets within a cell of you snap into your mouth.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveGhostHouseDelay",
     label: "House Delay",
     description: "Ghosts linger longer in the house before the hunt.",
+    storePrice: STORE_UPGRADE_PRICE,
     ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
     ghostHouseClydePelletAdd: GHOST_HOUSE_CLYDE_PELLET_ADD,
   },
@@ -123,67 +132,85 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "passiveExtraLife",
     label: "Extra Life",
     description: "One more chance, and lives regenerate up to 4.",
+    storePrice: STORE_UPGRADE_PRICE,
     grantLives: 1,
   },
   {
     id: "passivePelletToPower",
     label: "Pellet Surge",
     description: "A quiet pellet turns hot, and another may follow.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "powerPelletCollectThree",
     label: "Triple Chomp",
     description: "Power pellet gulps three more pellets with it.",
+    storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { collectExtraPellets: POWER_COLLECT_THREE_COUNT },
   },
   {
     id: "powerPelletWallPass",
     label: "Wall Pass",
     description: "Power pellet lets you slip through walls for a breath.",
+    storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { wallPassMs: WALL_PASS_MS },
   },
   {
     id: "powerPelletSpeedBurst",
     label: "Speed Burst",
     description: "Power pellet spikes your pace for a few seconds.",
+    storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { playerSpeedBurstMs: SPEED_BURST_MS },
   },
   {
     id: "powerPelletInvuln",
     label: "Ghost Proof",
     description: "Power pellet lets you pass through ghosts briefly.",
+    storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { playerInvulnMs: INVULN_MS },
   },
   {
     id: "fruitPowerPellet",
     label: "Fruit Power",
     description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "fruitQuarterBounty",
     label: "Quarter Bounty",
     description: "Bonus fruit pays out double quarters.",
+    storePrice: STORE_UPGRADE_PRICE,
     fruitQuarterMul: QUARTER_BOUNTY_MUL,
   },
   {
     id: "passiveDeathsHarvest",
     label: "Death's Harvest",
     description: "Dying harvests nearby pellets.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveOvercharge",
     label: "Overcharge",
     description: "Doubles the duration of every other power pellet timer you're running.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveTunnelDash",
     label: "Tunnel Dash",
     description: "Tunnels move you the instant you touch them.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passivePowerPelletRecharge",
     label: "Second Chomp",
     description: "Eaten power pellets regenerate after ten seconds.",
+    storePrice: STORE_UPGRADE_PRICE,
+  },
+  {
+    id: "passiveMyogenesis",
+    label: "Myogenesis",
+    description: "Regenerate two lives on level clear.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
 ];
 
@@ -288,7 +315,7 @@ export function getUpgradeDef(id: UpgradeId): UpgradeDef {
 }
 
 export function storePriceFor(id: UpgradeId): number {
-  return getUpgradeDef(id).storePrice ?? STORE_UPGRADE_PRICE;
+  return getUpgradeDef(id).storePrice;
 }
 
 export function grantLivesForUpgrade(id: UpgradeId): number {

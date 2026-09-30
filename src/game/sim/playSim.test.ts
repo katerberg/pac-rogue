@@ -162,6 +162,22 @@ describe("PlaySim", () => {
     expect(sim.snapshot().lives).toBe(4);
   });
 
+  it.each([
+    ["passiveMyogenesis", 1, 3],
+    ["passiveMyogenesis", 3, 4],
+    [null, 1, 2],
+    [null, 3, 4],
+  ] as const)("level clear with %s from %i lives ends at %i", (upgrade, startLives, endLives) => {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: upgrade ? [upgrade] : [] });
+    (sim as unknown as { lives: number }).lives = startLives;
+    const pick = sim
+      .offer()!
+      .upgrades.find((id) => id !== "passiveExtraLife" && id !== "passiveMyogenesis")!;
+    sim.chooseUpgrade({ kind: "upgrade", id: pick });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
+    expect(sim.snapshot().lives).toBe(endLives);
+  });
+
   it("buys a life at the store", () => {
     const sim = startSim({ store: true, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
