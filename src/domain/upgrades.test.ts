@@ -14,6 +14,9 @@ import {
   SPEED_BURST_MS,
   WALL_PASS_MS,
   QUARTERS_CHOICE_AMOUNT,
+  STORE_UPGRADE_PRICE,
+  UPGRADE_DEFS,
+  storePriceFor,
   applyPowerPelletEffects,
   confirmUpgradeChoice,
   createRunUpgrades,
@@ -79,6 +82,7 @@ const ALL_IDS: UpgradeId[] = [
   "passiveTunnelDash",
   "passivePowerPelletRecharge",
   "passiveRemoteTransference",
+  "passiveMyogenesis",
 ];
 
 const STUB_IDS: UpgradeId[] = [
@@ -663,6 +667,15 @@ describe("power pellet respawns / Second Chomp", () => {
       { x: 1, y: 1 },
       { x: 2, y: 2 },
     ]);
+  });
+});
+
+describe("storePrice", () => {
+  it("is an explicit positive integer on every upgrade", () => {
+    for (const def of UPGRADE_DEFS) {
+      expect(Number.isInteger(def.storePrice) && def.storePrice > 0).toBe(true);
+    }
+    expect(storePriceFor("passiveMyogenesis")).toBe(STORE_UPGRADE_PRICE);
   });
 });
 
