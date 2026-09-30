@@ -58,7 +58,7 @@ src/
     ghostHouseLeave.ts        # leaving: door-col approach then exit
     ghostSpeed.ts             # base / Elroy (Blinky) / tunnel speed resolve
     eatDrag.ts                # brief eased Maze-Man slowdown after eating a dot / power pellet
-    turnTuning.ts             # Turn Tuning: in-window turn-tap test + 0.5s turn speed-boost timer/multiplier
+    turnTuning.ts             # Turn Tuning: turn-tap window/beat tests, turn speed-boost timer/multiplier, turn flash pulse
     ghostRecall.ts            # closest eligible ghost pick for house recall
     deathSequence.ts          # catch → hold / ready / game-over timing
     lives.ts                  # START_LIVES + livesRemainingAfterCatch + livesHudIconCount

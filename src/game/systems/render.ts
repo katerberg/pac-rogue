@@ -27,6 +27,7 @@ import {
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
+import { turnFlashPulse } from "../../domain/turnTuning";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { Drawable } from "../components/Drawable";
@@ -97,6 +98,11 @@ function displaySizeForDrawable(drawableId: string): number {
     return pelletDisplaySize() * BOSS_PELLET_SIZE_MUL;
   }
   return playerDisplaySize();
+}
+
+function grayColor(level: number): number {
+  const channel = Math.round(Math.min(1, level) * 0xff);
+  return (channel << 16) | (channel << 8) | channel;
 }
 
 function brightenColor(color: number, towardWhite: number): number {
@@ -205,6 +211,7 @@ export type RenderOptions = {
   frozenGhostEid?: number | null;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
+  turnFlashRemainingMs?: number;
   ghostHarvestActive?: boolean;
   corruptedGhostEid?: number | null;
   corruptedTint?: number;
@@ -293,6 +300,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const playerAlpha = opts?.playerAlpha;
     const wallPassOn = opts?.wallPassActive === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
+    const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
     const playerInvulnTintOn =
       !wallPassOn &&
       invulnRemainingMs > 0 &&
@@ -422,14 +430,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         visual.lastX = x;
         visual.lastY = y;
 
-        if (wallPassOn) {
+        if (turnFlash.brighten > 0) {
+          go.setTint(grayColor(turnFlash.brighten));
+          go.setTintMode(Phaser.TintModes.ADD);
+        } else if (wallPassOn) {
           go.setTint(PLAYER_WALL_PASS_TINT);
         } else if (playerInvulnTintOn) {
           go.setTint(PLAYER_INVULN_TINT);
         } else {
           go.clearTint();
         }
-        go.setAlpha(playerAlpha ?? 1);
+        go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
+        go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha);
 
         if (playerAlpha === undefined && hasComponent(world, eid, Player)) {
           const twin = wrappedTwinPosition(x, y, radius);
@@ -448,7 +460,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
                 twinGo.setDisplaySize(size, size);
               }
             }
-            if (wallPassOn) {
+            twinGo.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
+            if (turnFlash.brighten > 0) {
+              twinGo.setTint(grayColor(turnFlash.brighten));
+              twinGo.setTintMode(Phaser.TintModes.ADD);
+            } else if (wallPassOn) {
               twinGo.setTint(PLAYER_WALL_PASS_TINT);
             } else if (playerInvulnTintOn) {
               twinGo.setTint(PLAYER_INVULN_TINT);

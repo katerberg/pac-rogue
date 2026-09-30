@@ -476,16 +476,11 @@ describe("Turn Tuning", () => {
       canEnterDirection(cellCenterX(col), cellCenterY(row), dx, dy, playerSolids);
     for (let row = 1; row < rows - 1; row += 1) {
       for (let col = 3; col < cols - 1; col += 1) {
-        if (
-          open(col - 3, row, 1, 0) &&
-          open(col - 2, row, 1, 0) &&
-          open(col - 1, row, 1, 0) &&
-          open(col, row, 0, -1) &&
-          !open(col - 1, row, 0, -1) &&
-          !open(col - 2, row, 0, -1) &&
-          !open(col - 1, row, 0, 1) &&
-          !open(col - 2, row, 0, 1)
-        ) {
+        const straight = [3, 2, 1].every((back) => open(col - back, row, 1, 0));
+        const sideless = [3, 2, 1].every(
+          (back) => !open(col - back, row, 0, -1) && !open(col - back, row, 0, 1),
+        );
+        if (straight && sideless && open(col, row, 0, -1)) {
           return { col, row };
         }
       }
@@ -506,11 +501,18 @@ describe("Turn Tuning", () => {
   const cruise = { keys: held("right") };
   const tapUp = { keys: { ...NO_KEYS_HELD, right: 0, up: 1 } };
 
-  it("ignores a turn tapped more than a tile before the junction, even if held into it", () => {
-    const { sim, turn } = setup(true);
-    teleportPlayer(sim, cellCenterX(turn.col - 3), cellCenterY(turn.row));
+  function cruiseFrom(sim: PlaySim, turn: { col: number; row: number }, tilesBefore: number) {
+    teleportPlayer(sim, cellCenterX(turn.col - tilesBefore), cellCenterY(turn.row));
     runFrames(sim, 2, cruise);
-    teleportPlayer(sim, cellCenterX(turn.col - 2), cellCenterY(turn.row));
+  }
+
+  function placeAhead(sim: PlaySim, turn: { col: number; row: number }, aheadPx: number) {
+    teleportPlayer(sim, cellCenterX(turn.col) - aheadPx, cellCenterY(turn.row));
+  }
+
+  it("ignores a turn tapped more than two tiles before the junction, even if held into it", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 3);
     runFrames(sim, 1, tapUp);
     runUntil(sim, () => sim.snapshot().player!.col > turn.col, 120, tapUp);
     expect(sim.snapshot().player!.row).toBe(turn.row);
@@ -520,31 +522,64 @@ describe("Turn Tuning", () => {
 
   it("takes an early turn normally without the upgrade", () => {
     const { sim, turn } = setup(false);
-    teleportPlayer(sim, cellCenterX(turn.col - 3), cellCenterY(turn.row));
-    runFrames(sim, 2, cruise);
-    teleportPlayer(sim, cellCenterX(turn.col - 2), cellCenterY(turn.row));
+    cruiseFrom(sim, turn, 3);
     runFrames(sim, 1, tapUp);
     runUntil(sim, () => sim.snapshot().player!.row < turn.row, 120, tapUp);
     expect(sim.snapshot().player!.facing).toBe("up");
   });
 
-  it("turns on a tap within a tile of the junction, then boosts and eases the boost out", () => {
+  it("turns on a tap up to two tiles early but only rewards a tap on the beat", () => {
     const { sim, turn } = setup(true);
-    teleportPlayer(sim, cellCenterX(turn.col - 3), cellCenterY(turn.row));
-    runUntil(sim, () => sim.snapshot().player!.x > cellCenterX(turn.col - 1) + 6, 120, cruise);
+    cruiseFrom(sim, turn, 2);
+    placeAhead(sim, turn, 28);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().player!.row < turn.row, 60, cruise);
+    expect(sim.snapshot().player!.col).toBe(turn.col);
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+    expect(sim.snapshot().timers.turnFlashMs).toBe(0);
+  });
+
+  it("boosts and flashes on a clean tap on the beat, then eases both out", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 2);
+    placeAhead(sim, turn, 6);
     runFrames(sim, 1, tapUp);
     runUntil(sim, () => sim.snapshot().timers.turnBoostMs > 0, 60, cruise);
     expect(sim.snapshot().player!.facing).toBe("up");
     expect(sim.snapshot().timers.turnBoostMs).toBeGreaterThan(400);
+    expect(sim.renderOptions().turnFlashRemainingMs).toBeGreaterThan(200);
 
     runFrames(sim, 40, { keys: held("up") });
     expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+    expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
+  });
+
+  it("gives no reward when the same key was pressed just before the beat", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 3);
+    runFrames(sim, 1, tapUp);
+    runFrames(sim, 4, cruise);
+    placeAhead(sim, turn, 6);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().player!.row < turn.row, 60, cruise);
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+    expect(sim.snapshot().timers.turnFlashMs).toBe(0);
+  });
+
+  it("rewards the beat again once the earlier press is old enough", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 3);
+    runFrames(sim, 1, tapUp);
+    runFrames(sim, 20, cruise);
+    placeAhead(sim, turn, 6);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().timers.turnBoostMs > 0, 60, cruise);
   });
 
   it("does not boost a turn that is not a right angle", () => {
     const { sim, turn } = setup(true);
-    teleportPlayer(sim, cellCenterX(turn.col - 3), cellCenterY(turn.row));
-    runFrames(sim, 2, cruise);
+    cruiseFrom(sim, turn, 3);
     runFrames(sim, 4, { keys: held("left") });
     expect(sim.snapshot().player!.facing).toBe("left");
     expect(sim.snapshot().timers.turnBoostMs).toBe(0);

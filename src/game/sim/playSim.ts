@@ -202,13 +202,23 @@ import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import {
+  KEY_FOR_DIRECTION,
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
+  freshKeys,
   isPerpendicularTurn,
   type HeldKeys,
+  type TurnTap,
 } from "../systems/heldKeys";
-import { TURN_TUNING_BOOST_MS, tickTurnBoost, turnBoostMultiplier } from "../../domain/turnTuning";
+import {
+  TURN_FLASH_MS,
+  TURN_TUNING_BOOST_MS,
+  isCleanTap,
+  isPerfectTurn,
+  tickTurnTimer,
+  turnBoostMultiplier,
+} from "../../domain/turnTuning";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { playerCell } from "../systems/playerCell";
@@ -285,6 +295,10 @@ export class PlaySim {
   private afterLifeRelease = false;
   private eatDragMs = 0;
   private turnBoostMs = 0;
+  private turnFlashMs = 0;
+  private turnPerfectPending = false;
+  private simClockMs = 0;
+  private lastKeyPressMs: Partial<Record<keyof HeldKeys, number>> = {};
   private prevKeys: HeldKeys = NO_KEYS_HELD;
 
   constructor(options: PlayOptions, seed: string) {
@@ -401,6 +415,7 @@ export class PlaySim {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       playerInvulnRemainingMs: this.runUpgrades.invulnRemainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
+      turnFlashRemainingMs: this.turnFlashMs,
       ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       ...this.renderCorruptionOptions(),
     };
@@ -428,6 +443,7 @@ export class PlaySim {
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         eatDragMs: this.eatDragMs,
         turnBoostMs: this.turnBoostMs,
+        turnFlashMs: this.turnFlashMs,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
@@ -450,6 +466,16 @@ export class PlaySim {
           : nameOf(GHOST_KIND, this.runCorruption.ghostKind),
       ...worldSnapshot(this.world),
     };
+  }
+
+  private noteTurnKeys(keys: HeldKeys, tap: TurnTap | null): void {
+    if (tap !== null) {
+      const lastPress = this.lastKeyPressMs[KEY_FOR_DIRECTION[tap.direction]!];
+      this.turnPerfectPending = isPerfectTurn(tap.aheadPx, isCleanTap(lastPress, this.simClockMs));
+    }
+    for (const key of freshKeys(this.prevKeys, keys)) {
+      this.lastKeyPressMs[key] = this.simClockMs;
+    }
   }
 
   private emit(event: SimEvent): void {
@@ -534,13 +560,18 @@ export class PlaySim {
       !diagonalAllowed && this.runUpgrades.owned.includes("passiveTurnTuning")
         ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
         : undefined;
+    let turnTap: TurnTap | null = null;
     if (this.suppressInputUntilKeyRelease) {
       if (!anyKeyHeld(input.keys)) {
         this.suppressInputUntilKeyRelease = false;
         applyHeldKeys(this.world, input.keys, { diagonalAllowed });
       }
     } else {
-      applyHeldKeys(this.world, input.keys, { diagonalAllowed, turnTuning });
+      turnTap = applyHeldKeys(this.world, input.keys, { diagonalAllowed, turnTuning });
+    }
+    this.simClockMs += delta;
+    if (turnTuning) {
+      this.noteTurnKeys(input.keys, turnTap);
     }
     const hasInput = hasPlayerDirectionInput(this.world);
 
@@ -590,7 +621,8 @@ export class PlaySim {
     }
     this.runCorruption = tickSpeedSurge(this.runCorruption, delta);
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
-    this.turnBoostMs = tickTurnBoost(this.turnBoostMs, delta);
+    this.turnBoostMs = tickTurnTimer(this.turnBoostMs, delta);
+    this.turnFlashMs = tickTurnTimer(this.turnFlashMs, delta);
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
     const playerSpeedMul =
       levelSpeedMul *
@@ -617,11 +649,12 @@ export class PlaySim {
     }
     const facingBeforeMove = playerFacing(this.world);
     movement(this.world, delta, playerSolidsOverride);
-    if (
-      this.runUpgrades.owned.includes("passiveTurnTuning") &&
-      isPerpendicularTurn(facingBeforeMove, playerFacing(this.world))
-    ) {
-      this.turnBoostMs = TURN_TUNING_BOOST_MS;
+    if (isPerpendicularTurn(facingBeforeMove, playerFacing(this.world))) {
+      if (this.turnPerfectPending) {
+        this.turnBoostMs = TURN_TUNING_BOOST_MS;
+        this.turnFlashMs = TURN_FLASH_MS;
+      }
+      this.turnPerfectPending = false;
     }
     if (this.tunnelDashAnim !== null) {
       this.tunnelDashAnim = tickTunnelDashAnimation(
@@ -897,6 +930,8 @@ export class PlaySim {
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.turnBoostMs = 0;
+    this.turnFlashMs = 0;
+    this.turnPerfectPending = false;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1374,6 +1409,8 @@ export class PlaySim {
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.turnBoostMs = 0;
+    this.turnFlashMs = 0;
+    this.turnPerfectPending = false;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1488,6 +1525,8 @@ export class PlaySim {
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.turnBoostMs = 0;
+    this.turnFlashMs = 0;
+    this.turnPerfectPending = false;
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;

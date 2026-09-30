@@ -9,6 +9,7 @@ export type SimRenderOptions = {
   frozenGhostEid: number | null;
   playerInvulnRemainingMs: number;
   wallPassActive: boolean;
+  turnFlashRemainingMs?: number;
   ghostHarvestActive?: boolean;
   corruptedGhostEid: number | null;
   corruptedTint: number | undefined;
