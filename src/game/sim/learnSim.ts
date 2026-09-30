@@ -371,6 +371,7 @@ export class LearnSim {
       invulnRemainingMs: 0,
       speedBurstRemainingMs: 0,
       ghostHarvestRemainingMs: 0,
+      defyDeathRemainingMs: 0,
     };
     this.recallHoldGhostEid = null;
     this.recallHoldRemainingMs = 0;
@@ -572,5 +573,6 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     invulnRemainingMs: hasField("playerInvulnMs") ? state.invulnRemainingMs : 0,
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
+    defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
   };
 }

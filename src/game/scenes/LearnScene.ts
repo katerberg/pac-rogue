@@ -113,6 +113,7 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
   "passiveDeathsHarvest",
   "passivePowerPelletRecharge",
   "passiveMyogenesis",
+  "passiveDefyDeath",
 ];
 
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };

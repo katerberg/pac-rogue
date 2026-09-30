@@ -44,6 +44,14 @@ function ghostOntoPlayer(sim: PlaySim): void {
   GhostPhase.value[ghost] = GHOST_PHASE.active;
 }
 
+function reviveProgresses(events: SimEvent[]): number[] {
+  return events.flatMap((event) =>
+    event.type === "draw" && event.options.playerReviveProgress !== undefined
+      ? [event.options.playerReviveProgress]
+      : [],
+  );
+}
+
 function count(events: SimEvent[], type: SimEvent["type"]): number {
   return events.filter((event) => event.type === type).length;
 }
@@ -276,6 +284,125 @@ describe("PlaySim", () => {
     expect(events).toContainEqual({ type: "sfx", id: "death" });
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
+  });
+
+  describe("Defy Death", () => {
+    function startDefySim(): PlaySim {
+      return startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveDefyDeath"] });
+    }
+
+    function chompPowerPellet(sim: PlaySim): void {
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+    }
+
+    function getCaught(sim: PlaySim): void {
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+    }
+
+    it("keeps the life and respawns at spawn when caught after a power pellet", () => {
+      const sim = startDefySim();
+      const spawn = { ...sim.snapshot().player! };
+      chompPowerPellet(sim);
+      const livesBefore = sim.snapshot().lives;
+      getCaught(sim);
+      expect(sim.snapshot().lives).toBe(livesBefore);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
+      expect(sim.snapshot().lives).toBe(livesBefore);
+    });
+
+    it("feeds the invulnerability tint while the window is armed and clears it after", () => {
+      const sim = startDefySim();
+      const tints = (events: SimEvent[]) =>
+        events.flatMap((e) => (e.type === "draw" ? [e.options.playerInvulnRemainingMs] : []));
+      expect(tints(runFrames(sim, 1)).every((ms) => ms === 0)).toBe(true);
+      chompPowerPellet(sim);
+      expect(tints(runFrames(sim, 1)).every((ms) => ms > 0)).toBe(true);
+      runFrames(sim, Math.ceil(5100 / (1000 / 60)));
+      expect(tints(runFrames(sim, 1)).every((ms) => ms === 0)).toBe(true);
+    });
+
+    it("plays the revive sound instead of the death sound on a save", () => {
+      const sim = startDefySim();
+      chompPowerPellet(sim);
+      ghostOntoPlayer(sim);
+      const events = runFrames(sim, 1);
+      expect(events).toContainEqual({ type: "sfx", id: "revive" });
+      expect(events).not.toContainEqual({ type: "sfx", id: "death" });
+    });
+
+    it("plays the death sound and no revive splash on a normal death", () => {
+      const sim = startDefySim();
+      ghostOntoPlayer(sim);
+      const events = [...runFrames(sim, 1), ...runUntil(sim, () => !sim.snapshot().dying, 240)];
+      expect(events).toContainEqual({ type: "sfx", id: "death" });
+      expect(events).not.toContainEqual({ type: "sfx", id: "revive" });
+      expect(reviveProgresses(events)).toEqual([]);
+    });
+
+    it("fades the player in from 0 to 1 through the READY pause after a save", () => {
+      const sim = startDefySim();
+      chompPowerPellet(sim);
+      ghostOntoPlayer(sim);
+      const events = [...runFrames(sim, 1), ...runUntil(sim, () => !sim.snapshot().dying, 240)];
+      const progresses = reviveProgresses(events);
+      expect(progresses[0]).toBe(0);
+      expect(progresses.at(-1)).toBe(1);
+      expect(progresses).toEqual([...progresses].sort((a, b) => a - b));
+      expect(reviveProgresses(runFrames(sim, 5))).toEqual([]);
+    });
+
+    it("spends a life when caught without a recent power pellet", () => {
+      const sim = startDefySim();
+      const livesBefore = sim.snapshot().lives;
+      getCaught(sim);
+      expect(sim.snapshot().lives).toBe(livesBefore - 1);
+    });
+
+    it("spends a life when caught after the 5s window expires", () => {
+      const sim = startDefySim();
+      chompPowerPellet(sim);
+      runFrames(sim, Math.ceil(5100 / (1000 / 60)));
+      const livesBefore = sim.snapshot().lives;
+      expect(sim.snapshot().dying).toBe(false);
+      getCaught(sim);
+      expect(sim.snapshot().lives).toBe(livesBefore - 1);
+    });
+
+    it("consumes the window on a save, and re-arms on the next power pellet", () => {
+      const sim = startDefySim();
+      chompPowerPellet(sim);
+      getCaught(sim);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      const livesBefore = sim.snapshot().lives;
+      getCaught(sim);
+      expect(sim.snapshot().lives).toBe(livesBefore - 1);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      chompPowerPellet(sim);
+      const livesAfter = sim.snapshot().lives;
+      getCaught(sim);
+      expect(sim.snapshot().lives).toBe(livesAfter);
+    });
+
+    it("does not end the run on the last life", () => {
+      const sim = startDefySim();
+      for (let i = 0; i < 10 && sim.snapshot().lives > 1; i += 1) {
+        getCaught(sim);
+        runUntil(sim, () => !sim.snapshot().dying, 240);
+      }
+      expect(sim.snapshot().lives).toBe(1);
+      chompPowerPellet(sim);
+      const events: SimEvent[] = [];
+      ghostOntoPlayer(sim);
+      events.push(...runFrames(sim, 1));
+      events.push(...runUntil(sim, () => !sim.snapshot().dying, 240));
+      expect(sim.snapshot().lives).toBe(1);
+      expect(events.some((e) => e.type === "endText" || e.type === "saveRun")).toBe(false);
+    });
   });
 
   it.each([
