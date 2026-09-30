@@ -1,5 +1,7 @@
 import { hasComponent, query, type World } from "bitecs";
 import {
+  GHOST_RELEASE_PRIORITY,
+  idleReleaseDue,
   shouldReleaseGhostAt,
   shouldReleaseKind,
   type GhostReleaseAdds,
@@ -34,38 +36,60 @@ function directionTowardTile(
   return DIRECTION.up;
 }
 
+function sendOut(world: World, eid: number): void {
+  const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
+  const x = Position.x[eid] ?? 0;
+  const y = Position.y[eid] ?? 0;
+  const col = worldToCol(x);
+  const row = worldToRow(y);
+  const target = leavingHouseTarget(col, row);
+  const dir = directionTowardTile(col, row, target.col, target.row);
+  GhostPhase.value[eid] = GHOST_PHASE.leaving;
+  Input.direction[eid] = dir;
+  Facing.direction[eid] = dir;
+  Speed.px[eid] =
+    kind === GHOST_KIND.blinky || hasComponent(world, eid, BossGhost)
+      ? GHOST_SPEED
+      : GHOST_TUNNEL_SPEED;
+  Ghost.decidedCol[eid] = Number.NaN;
+  Ghost.decidedRow[eid] = Number.NaN;
+}
+
 export function ghostRelease(
   world: World,
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
   adds: GhostReleaseAdds = {},
-): void {
+): boolean {
+  let released = false;
+  let idleEid: number | undefined;
+  let idleRank = Number.POSITIVE_INFINITY;
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing, Speed])) {
     if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
       continue;
     }
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
-    const ready = hasComponent(world, eid, BossGhost)
+    const isBoss = hasComponent(world, eid, BossGhost);
+    const ready = isBoss
       ? shouldReleaseGhostAt(clock, (BossGhost.releaseDelayMs[eid] ?? 0) + (adds.delayAddMs ?? 0))
       : shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease, adds);
     if (!ready) {
+      const rank = GHOST_RELEASE_PRIORITY.indexOf(kind);
+      if (!isBoss && rank < idleRank) {
+        idleEid = eid;
+        idleRank = rank;
+      }
       continue;
     }
-    const x = Position.x[eid] ?? 0;
-    const y = Position.y[eid] ?? 0;
-    const col = worldToCol(x);
-    const row = worldToRow(y);
-    const target = leavingHouseTarget(col, row);
-    const dir = directionTowardTile(col, row, target.col, target.row);
-    GhostPhase.value[eid] = GHOST_PHASE.leaving;
-    Input.direction[eid] = dir;
-    Facing.direction[eid] = dir;
-    Speed.px[eid] =
-      kind === GHOST_KIND.blinky || hasComponent(world, eid, BossGhost)
-        ? GHOST_SPEED
-        : GHOST_TUNNEL_SPEED;
-    Ghost.decidedCol[eid] = Number.NaN;
-    Ghost.decidedRow[eid] = Number.NaN;
+    sendOut(world, eid);
+    released = true;
   }
+  if (!released && idleReleaseDue(clock, adds.delayAddMs ?? 0)) {
+    if (idleEid !== undefined) {
+      sendOut(world, idleEid);
+      released = true;
+    }
+  }
+  return released;
 }

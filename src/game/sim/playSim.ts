@@ -48,6 +48,7 @@ import {
 import {
   BLINKY_RELEASE_DELAY_MS,
   createGhostReleaseClock,
+  resetIdle,
   tickGhostRelease,
   type GhostReleaseClock,
 } from "../../domain/ghostRelease";
@@ -514,7 +515,12 @@ export class PlaySim {
     }
     const hasInput = hasPlayerDirectionInput(this.world);
 
-    this.ghostReleaseClock = tickGhostRelease(this.ghostReleaseClock, hasInput, delta);
+    this.ghostReleaseClock = tickGhostRelease(
+      this.ghostReleaseClock,
+      hasInput,
+      delta,
+      this.pelletProgress.boardCollected,
+    );
     const releaseAdds = {
       delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
       clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
@@ -526,13 +532,17 @@ export class PlaySim {
       this.afterLifeRelease,
       releaseAdds,
     );
-    ghostRelease(
-      this.world,
-      this.ghostReleaseClock,
-      this.pelletProgress.boardCollected,
-      this.afterLifeRelease,
-      releaseAdds,
-    );
+    if (
+      ghostRelease(
+        this.world,
+        this.ghostReleaseClock,
+        this.pelletProgress.boardCollected,
+        this.afterLifeRelease,
+        releaseAdds,
+      )
+    ) {
+      this.ghostReleaseClock = resetIdle(this.ghostReleaseClock);
+    }
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
@@ -1018,7 +1028,7 @@ export class PlaySim {
     }
 
     this.clock = createRunClock();
-    this.ghostReleaseClock = createGhostReleaseClock();
+    this.ghostReleaseClock = createGhostReleaseClock(this.levelIndex);
     this.ghostModeClock = createGhostModeClock(this.levelIndex);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.pelletProgress = createPelletProgress(countPellets(this.world));
@@ -1377,7 +1387,10 @@ export class PlaySim {
       Ghost.decidedRow[eid] = Number.NaN;
     }
 
-    this.ghostReleaseClock = createGhostReleaseClock();
+    this.ghostReleaseClock = createGhostReleaseClock(
+      this.levelIndex,
+      this.pelletProgress.boardCollected,
+    );
     this.ghostModeClock = createGhostModeClock(this.levelIndex);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.afterLifeRelease = true;
