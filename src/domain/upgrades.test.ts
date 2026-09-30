@@ -77,6 +77,7 @@ const ALL_IDS: UpgradeId[] = [
   "powerPelletGhostHarvester",
   "fruitPowerPellet",
   "fruitQuarterBounty",
+  "fruitFeast",
   "passiveDeathsHarvest",
   "passiveOvercharge",
   "passiveTunnelDash",

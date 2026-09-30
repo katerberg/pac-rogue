@@ -18,6 +18,7 @@ export type UpgradeId =
   | "powerPelletGhostHarvester"
   | "fruitPowerPellet"
   | "fruitQuarterBounty"
+  | "fruitFeast"
   | "passiveDeathsHarvest"
   | "passiveOvercharge"
   | "passiveTunnelDash"
@@ -194,6 +195,12 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     description: "Bonus fruit pays out double quarters.",
     storePrice: STORE_UPGRADE_PRICE,
     fruitQuarterMul: QUARTER_BOUNTY_MUL,
+  },
+  {
+    id: "fruitFeast",
+    label: "Fruit Feast",
+    description: "Bonus fruit appears three times per level, each after the last is gone.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveDeathsHarvest",

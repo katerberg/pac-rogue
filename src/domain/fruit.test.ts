@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cellCenterX, cellCenterY, getActiveLayout, isWalkable } from "./maze";
 import {
   CURRENT_LEVEL,
+  FRUIT_FEAST_GAP_MS,
   FRUIT_LIFETIME_MS,
   createFruitPresence,
   fruitArtPath,
@@ -144,5 +145,53 @@ describe("markFruitCollected", () => {
     expect(cleared.active).toBe(false);
     expect(cleared.nextThresholdIndex).toBe(1);
     expect(markFruitCollected(createFruitPresence())).toEqual(createFruitPresence());
+  });
+});
+
+describe("tickFruitPresence with fruitFeast", () => {
+  const level = 1;
+
+  it("spawns at 60, 130 and 200 when each fruit is gone for the gap", () => {
+    let state = createFruitPresence();
+    expect(tickFruitPresence(state, 59, 16, level, true).action).toBe("none");
+
+    for (const threshold of [60, 130, 200]) {
+      const spawn = tickFruitPresence(state, threshold, 16, level, true);
+      expect(spawn.action).toBe("spawn");
+      state = markFruitCollected(spawn.state);
+      state = tickFruitPresence(state, threshold, FRUIT_FEAST_GAP_MS, level, true).state;
+    }
+    expect(state.nextThresholdIndex).toBe(3);
+    expect(tickFruitPresence(state, 999, 16, level, true).action).toBe("none");
+  });
+
+  it("does not replace an active fruit and waits the gap after it is gone", () => {
+    let { state } = tickFruitPresence(createFruitPresence(), 60, 0, level, true);
+    const held = tickFruitPresence(state, 130, 3_000, level, true);
+    expect(held.action).toBe("none");
+    expect(held.state.nextThresholdIndex).toBe(1);
+
+    const expired = tickFruitPresence(held.state, 130, FRUIT_LIFETIME_MS, level, true);
+    expect(expired.action).toBe("despawn");
+    state = expired.state;
+
+    const early = tickFruitPresence(state, 130, FRUIT_FEAST_GAP_MS - 1, level, true);
+    expect(early.action).toBe("none");
+    const due = tickFruitPresence(early.state, 130, 1, level, true);
+    expect(due.action).toBe("spawn");
+    expect(due.state.nextThresholdIndex).toBe(2);
+  });
+
+  it("waits the gap after a fruit is collected", () => {
+    const first = tickFruitPresence(createFruitPresence(), 60, 0, level, true);
+    const collected = markFruitCollected(first.state);
+    expect(tickFruitPresence(collected, 130, FRUIT_FEAST_GAP_MS - 1, level, true).action).toBe(
+      "none",
+    );
+    expect(tickFruitPresence(collected, 130, FRUIT_FEAST_GAP_MS, level, true).action).toBe("spawn");
+  });
+
+  it("keeps the two-fruit schedule without the upgrade", () => {
+    expect(tickFruitPresence(createFruitPresence(), 60, 16, level).action).toBe("none");
   });
 });
