@@ -68,7 +68,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 
 ## Remaining questions
 
-- **Prices:** enhancement and trade cost? Today a life and a swap are 1 Quarter and an upgrade is 3. Unless told otherwise the plan will use: life 1, enhancement 3, trade 1, new ability 3.
+- **Prices:** enhancement and trade cost? Today a life and a swap are 1 Quarter and an upgrade is 3. Unless told otherwise the plan will use: life 1, enhancement 2, trade 1, new ability 3.
 
 ## Follow-ups when implemented
 
