@@ -25,6 +25,10 @@ export function countPellets(world: World): number {
   return query(world, [Pellet]).length;
 }
 
+export function onlyPowerPelletsLeft(world: World): boolean {
+  return query(world, [Pellet]).every((eid) => hasComponent(world, eid, PowerPellet));
+}
+
 export function collectPellets(world: World, opts: CollectPelletsOptions = {}): PlayerPelletFrame {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {

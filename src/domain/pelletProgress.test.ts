@@ -4,7 +4,7 @@ import { addPelletsToProgress, applyPelletCollect, createPelletProgress } from "
 describe("applyPelletCollect", () => {
   it("ignores zero removals", () => {
     const progress = createPelletProgress(3);
-    expect(applyPelletCollect(progress, 0)).toEqual({
+    expect(applyPelletCollect(progress, 0, false)).toEqual({
       progress,
       shouldRecordClear: false,
     });
@@ -12,7 +12,7 @@ describe("applyPelletCollect", () => {
 
   it("decrements remaining and accumulates board collected", () => {
     const progress = createPelletProgress(3);
-    const next = applyPelletCollect(progress, 2);
+    const next = applyPelletCollect(progress, 2, false);
     expect(next).toEqual({
       progress: { boardCollected: 2, pelletsRemaining: 1, runRecorded: false },
       shouldRecordClear: false,
@@ -21,7 +21,7 @@ describe("applyPelletCollect", () => {
 
   it("signals a clear once when remaining hits 0 after a collect", () => {
     const progress = createPelletProgress(2);
-    const first = applyPelletCollect(progress, 2);
+    const first = applyPelletCollect(progress, 2, true);
     expect(first.shouldRecordClear).toBe(true);
     expect(first.progress).toEqual({
       boardCollected: 2,
@@ -29,14 +29,21 @@ describe("applyPelletCollect", () => {
       runRecorded: true,
     });
 
-    const second = applyPelletCollect(first.progress, 0);
+    const second = applyPelletCollect(first.progress, 0, true);
     expect(second.shouldRecordClear).toBe(false);
     expect(second.progress.runRecorded).toBe(true);
   });
 
+  it("records a clear when the board is cleared even if pelletsRemaining is above 0", () => {
+    const progress = createPelletProgress(5);
+    const next = applyPelletCollect(progress, 4, true);
+    expect(next.shouldRecordClear).toBe(true);
+    expect(next.progress.pelletsRemaining).toBe(1);
+  });
+
   it("does not record a clear when the maze started empty", () => {
     const progress = createPelletProgress(0);
-    expect(applyPelletCollect(progress, 0).shouldRecordClear).toBe(false);
+    expect(applyPelletCollect(progress, 0, true).shouldRecordClear).toBe(false);
   });
 });
 

@@ -263,6 +263,19 @@ describe("PlaySim", () => {
     expect(sim.snapshot().upgrades).toContain(chosen);
   });
 
+  it("clears a board once every non-power pellet is eaten, leaving power pellets", () => {
+    const sim = startSim({ level: 2, infiniteLives: true });
+    const eids = regularPelletEids(sim);
+    for (const eid of eids.slice(0, -1)) {
+      eatPelletAt(sim, eid);
+    }
+    expect(sim.offer()).toBeNull();
+    eatPelletAt(sim, eids.at(-1)!);
+    expect(query(sim.world, [Pellet, PowerPellet]).length).toBeGreaterThan(0);
+    runUntil(sim, () => sim.offer() !== null, 90);
+    expect(sim.offer()).not.toBeNull();
+  });
+
   it.each([
     ["before", 3],
     ["after", -3],
