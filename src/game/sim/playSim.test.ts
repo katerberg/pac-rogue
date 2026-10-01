@@ -477,16 +477,22 @@ describe("PlaySim", () => {
     expect(events).toContainEqual({ type: "lives", pulse: true });
   });
 
-  it("stops a diagonal walk when it opens a store prompt", () => {
+  it("settles on the tile after a diagonal store entry and resumes on a single key", () => {
     const sim = startSim({ store: true, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
+    const diagonal = { ...held("down"), right: 0 };
     teleportPlayer(sim, cellCenterX(life.col - 1), cellCenterY(life.row - 1));
     runFrames(sim, 1);
-    runFrames(sim, 120, { keys: { ...held("down"), right: 0 } });
+    runFrames(sim, 120, { keys: diagonal });
     expect(sim.storeState()?.activeSlot).not.toBeNull();
-    const at = { x: sim.snapshot().player?.x, y: sim.snapshot().player?.y };
-    runFrames(sim, 30, { keys: { ...held("down"), right: 0 } });
-    expect(sim.snapshot().player).toMatchObject(at);
+    const at = { ...sim.snapshot().player };
+    runFrames(sim, 30, { keys: diagonal });
+    expect(sim.snapshot().player).toMatchObject({ x: at.x, y: at.y });
+
+    runFrames(sim, 1, { storeChoice: "no" });
+    runFrames(sim, 1);
+    runFrames(sim, 20, { keys: held("up") });
+    expect(sim.snapshot().player?.y).toBeLessThan(at.y!);
   });
 
   it.each([
