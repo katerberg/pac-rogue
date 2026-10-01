@@ -58,7 +58,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `seed`                 | 1-32 of `A-Z a-z 0-9 _ -`                        | Fixes every random roll in the run (generated boards, starting upgrade, ghost roster pick, corruption, upgrade offers, store stock, …) so the same URL replays the same run. Omit for a fresh random run. The run's seed (given or fresh) is shown faded in the bottom-left of the pause menu, Game Over and Run Complete screens. See [docs/VERIFICATION.md](./docs/VERIFICATION.md#seeded-runs). Disables high-score saving. |
 | `sound`                | `1`                                              | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                                                                                                                                                                                                                                                                                                            |
 
-Upgrade ids: `powerPelletFreeze`, `passivePlayerSpeedUp`, `passiveGhostSlow`, `powerPelletScatterBurst`, `powerPelletGhostRecall`, `powerPelletWarpTop`, `passivePickupRange`, `passiveGhostHouseDelay`, `passiveExtraLife`, `passivePelletToPower`, `powerPelletCollectThree`, `powerPelletWallPass`, `powerPelletSpeedBurst`, `powerPelletInvuln`, `powerPelletGhostHarvester`, `fruitPowerPellet`, `fruitQuarterBounty`, `fruitFecundity`, `fruitFeast`, `passiveDeathsHarvest`, `passiveOvercharge`, `passiveTunnelDash`, `passivePowerPelletRecharge`, `passiveRemoteTransference`, `passiveMyogenesis`, `passiveDefyDeath`.
+Upgrade ids: `powerPelletFreeze`, `passivePlayerSpeedUp`, `passiveGhostSlow`, `powerPelletScatterBurst`, `powerPelletGhostRecall`, `powerPelletWarpTop`, `passivePickupRange`, `passiveGhostHouseDelay`, `passiveExtraLife`, `passivePelletToPower`, `powerPelletCollectThree`, `powerPelletWallPass`, `powerPelletSpeedBurst`, `powerPelletInvuln`, `powerPelletGhostHarvester`, `fruitPowerPellet`, `fruitQuarterBounty`, `fruitFecundity`, `fruitFeast`, `passiveDeathsHarvest`, `passiveOvercharge`, `passiveTunnelDash`, `passivePowerPelletRecharge`, `passiveRemoteTransference`, `passiveMyogenesis`, `passiveDefyDeath`, `passiveTurnTuning`.
 
 Corruption ids: `slimeTrail`, `invisibility`, `freeRetargetReverse`, `speedSurge`, `wallPhaseDash`, `pelletDropper`, `falseScatter`.
 
@@ -112,6 +112,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow
 - [.agents/skills/ship-plan/SKILL.md](./.agents/skills/ship-plan/SKILL.md) — `ship-plan`: verify, review, fix, push PR (cloud-safe)
+- [.agents/skills/new-upgrade/SKILL.md](./.agents/skills/new-upgrade/SKILL.md) — `new-upgrade`: pitch → question round → every touch point → probe → PR for a new run upgrade
 
 ## Status
 

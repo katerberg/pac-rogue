@@ -219,12 +219,38 @@ import { recallClosestGhostToHouse } from "../systems/ghostRecall";
 import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
-import { anyKeyHeld, applyHeldKeys } from "../systems/heldKeys";
+import {
+  CARDINAL_STEP,
+  KEY_FOR_DIRECTION,
+  NO_KEYS_HELD,
+  anyKeyHeld,
+  applyHeldKeys,
+  freshKeys,
+  isPerpendicularTurn,
+  type HeldKeys,
+  type TurnTap,
+} from "../systems/heldKeys";
+import {
+  PERFECT_SPARK_COUNT,
+  TURN_FLASH_MS,
+  TURN_TUNING_BOOST_MS,
+  isCleanTap,
+  closeSparkCount,
+  turnFeedback,
+  type TurnFeedbackKind,
+  tickTurnTimer,
+  turnBoostMultiplier,
+} from "../../domain/turnTuning";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
-import { clearPlayerDirectionInput, hasPlayerDirectionInput } from "../systems/playerDirection";
+import {
+  clearPlayerDirectionInput,
+  hasPlayerDirectionInput,
+  playerFacing,
+  playerPose,
+} from "../systems/playerDirection";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -297,6 +323,12 @@ export class PlaySim {
   private lives = START_LIVES;
   private afterLifeRelease = false;
   private eatDragMs = 0;
+  private turnBoostMs = 0;
+  private turnFlashMs = 0;
+  private turnPerfectPending = false;
+  private simClockMs = 0;
+  private lastKeyPressMs: Partial<Record<keyof HeldKeys, number>> = {};
+  private prevKeys: HeldKeys = NO_KEYS_HELD;
 
   constructor(options: PlayOptions, seed: string) {
     this.options = options;
@@ -356,6 +388,7 @@ export class PlaySim {
   step(input: SimInput, delta: number): SimEvent[] {
     this.events = [];
     this.tick(input, delta);
+    this.prevKeys = input.keys;
     return this.takeEvents();
   }
 
@@ -416,6 +449,7 @@ export class PlaySim {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
       wallPassActive: wallPassActive(this.runUpgrades),
+      turnFlashRemainingMs: this.turnFlashMs,
       ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       ...this.renderCorruptionOptions(),
     };
@@ -444,6 +478,8 @@ export class PlaySim {
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
         eatDragMs: this.eatDragMs,
+        turnBoostMs: this.turnBoostMs,
+        turnFlashMs: this.turnFlashMs,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
@@ -470,6 +506,35 @@ export class PlaySim {
           : nameOf(GHOST_KIND, this.runCorruption.ghostKind),
       ...worldSnapshot(this.world),
     };
+  }
+
+  private resetTurnTuning(): void {
+    this.turnBoostMs = 0;
+    this.turnFlashMs = 0;
+    this.turnPerfectPending = false;
+  }
+
+  private noteTurnKeys(keys: HeldKeys, tap: TurnTap | null): void {
+    if (tap !== null) {
+      const lastPress = this.lastKeyPressMs[KEY_FOR_DIRECTION[tap.direction]!];
+      const feedback = turnFeedback(tap.aheadPx, isCleanTap(lastPress, this.simClockMs));
+      this.turnPerfectPending = feedback === "perfect";
+      if (feedback === "close") {
+        this.emitTurnSparks("close", closeSparkCount(tap.aheadPx));
+      }
+    }
+    for (const key of freshKeys(this.prevKeys, keys)) {
+      this.lastKeyPressMs[key] = this.simClockMs;
+    }
+  }
+
+  private emitTurnSparks(kind: TurnFeedbackKind, count: number): void {
+    const pose = playerPose(this.world);
+    if (pose === null) {
+      return;
+    }
+    const step = CARDINAL_STEP[pose.facing] ?? { dx: 0, dy: 0 };
+    this.emit({ type: "turnSparks", kind, x: pose.x, y: pose.y, dx: step.dx, dy: step.dy, count });
   }
 
   private emit(event: SimEvent): void {
@@ -551,13 +616,22 @@ export class PlaySim {
     }
 
     const diagonalAllowed = wallPassActive(this.runUpgrades);
+    const turnTuning =
+      !diagonalAllowed && this.runUpgrades.owned.includes("passiveTurnTuning")
+        ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
+        : undefined;
+    let turnTap: TurnTap | null = null;
     if (this.suppressInputUntilKeyRelease) {
       if (!anyKeyHeld(input.keys)) {
         this.suppressInputUntilKeyRelease = false;
         applyHeldKeys(this.world, input.keys, { diagonalAllowed });
       }
     } else {
-      applyHeldKeys(this.world, input.keys, { diagonalAllowed });
+      turnTap = applyHeldKeys(this.world, input.keys, { diagonalAllowed, turnTuning });
+    }
+    this.simClockMs += delta;
+    if (turnTuning) {
+      this.noteTurnKeys(input.keys, turnTap);
     }
     const hasInput = hasPlayerDirectionInput(this.world);
 
@@ -608,12 +682,15 @@ export class PlaySim {
     }
     this.runCorruption = tickSpeedSurge(this.runCorruption, delta);
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
+    this.turnBoostMs = tickTurnTimer(this.turnBoostMs, delta);
+    this.turnFlashMs = tickTurnTimer(this.turnFlashMs, delta);
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
     const playerSpeedMul =
       levelSpeedMul *
       playerSpeedMultiplier(this.runUpgrades.owned) *
       (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1) *
-      eatDragMultiplier(this.eatDragMs);
+      eatDragMultiplier(this.eatDragMs) *
+      turnBoostMultiplier(this.turnBoostMs);
     applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -631,7 +708,16 @@ export class PlaySim {
     if (this.bossState !== null) {
       bossGhostBlock(this.world);
     }
+    const facingBeforeMove = playerFacing(this.world);
     movement(this.world, delta, playerSolidsOverride);
+    if (isPerpendicularTurn(facingBeforeMove, playerFacing(this.world))) {
+      if (this.turnPerfectPending) {
+        this.turnBoostMs = TURN_TUNING_BOOST_MS;
+        this.turnFlashMs = TURN_FLASH_MS;
+        this.emitTurnSparks("perfect", PERFECT_SPARK_COUNT);
+      }
+      this.turnPerfectPending = false;
+    }
     if (this.tunnelDashAnim !== null) {
       this.tunnelDashAnim = tickTunnelDashAnimation(
         this.world,
@@ -943,6 +1029,7 @@ export class PlaySim {
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
+    this.resetTurnTuning();
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1424,6 +1511,7 @@ export class PlaySim {
     this.levelIndex += 1;
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
+    this.resetTurnTuning();
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1562,6 +1650,7 @@ export class PlaySim {
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
+    this.resetTurnTuning();
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;

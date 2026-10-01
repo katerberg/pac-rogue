@@ -92,6 +92,7 @@ const ALL_IDS: UpgradeId[] = [
   "passiveRemoteTransference",
   "passiveMyogenesis",
   "passiveDefyDeath",
+  "passiveTurnTuning",
 ];
 
 const STUB_IDS: UpgradeId[] = [

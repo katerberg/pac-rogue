@@ -2,7 +2,13 @@ import { hasComponent, query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { FRUIT_LIFETIME_MS } from "../../domain/fruit";
 import { GHOST_KIND } from "../../domain/ghostKind";
-import { getActiveLayout, cellCenterX, cellCenterY, horizontalTunnelRows } from "../../domain/maze";
+import {
+  canEnterDirection,
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+  horizontalTunnelRows,
+} from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
@@ -18,6 +24,7 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { PlaySim } from "./playSim";
 import type { SimEvent } from "./simEvents";
+import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
@@ -754,5 +761,155 @@ describe("PlaySim bonus bar", () => {
     sim.chooseUpgrade({ kind: "quarters", amount: 2 });
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
     expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 50 });
+  });
+});
+
+describe("Turn Tuning", () => {
+  function findSideTurn(): { col: number; row: number } {
+    const { playerSolids, cols, rows } = getActiveLayout();
+    const open = (col: number, row: number, dx: number, dy: number) =>
+      canEnterDirection(cellCenterX(col), cellCenterY(row), dx, dy, playerSolids);
+    for (let row = 1; row < rows - 1; row += 1) {
+      for (let col = 3; col < cols - 1; col += 1) {
+        const straight = [3, 2, 1].every((back) => open(col - back, row, 1, 0));
+        const sideless = [3, 2, 1].every(
+          (back) => !open(col - back, row, 0, -1) && !open(col - back, row, 0, 1),
+        );
+        if (straight && sideless && open(col, row, 0, -1)) {
+          return { col, row };
+        }
+      }
+    }
+    throw new Error("no side turn found");
+  }
+
+  function setup(enable: boolean) {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: enable ? ["passiveTurnTuning"] : [],
+    });
+    const turn = findSideTurn();
+    return { sim, turn };
+  }
+
+  const cruise = { keys: held("right") };
+  const tapUp = { keys: { ...NO_KEYS_HELD, right: 0, up: 1 } };
+
+  function cruiseFrom(sim: PlaySim, turn: { col: number; row: number }, tilesBefore: number) {
+    teleportPlayer(sim, cellCenterX(turn.col - tilesBefore), cellCenterY(turn.row));
+    runFrames(sim, 2, cruise);
+  }
+
+  function placeAhead(sim: PlaySim, turn: { col: number; row: number }, aheadPx: number) {
+    teleportPlayer(sim, cellCenterX(turn.col) - aheadPx, cellCenterY(turn.row));
+  }
+
+  it("ignores a turn tapped more than two tiles before the junction, even if held into it", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 3);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().player!.col > turn.col, 120, tapUp);
+    expect(sim.snapshot().player!.row).toBe(turn.row);
+    expect(sim.snapshot().player!.facing).toBe("right");
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+  });
+
+  it("takes an early turn normally without the upgrade", () => {
+    const { sim, turn } = setup(false);
+    cruiseFrom(sim, turn, 3);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().player!.row < turn.row, 120, tapUp);
+    expect(sim.snapshot().player!.facing).toBe("up");
+  });
+
+  it("turns on a tap up to two tiles early but only rewards a tap on the beat", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 2);
+    placeAhead(sim, turn, 28);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().player!.row < turn.row, 60, cruise);
+    expect(sim.snapshot().player!.col).toBe(turn.col);
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+    expect(sim.snapshot().timers.turnFlashMs).toBe(0);
+  });
+
+  it("boosts and flashes on a clean tap on the beat, then eases both out", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 2);
+    placeAhead(sim, turn, 6);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().timers.turnBoostMs > 0, 60, cruise);
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().timers.turnBoostMs).toBeGreaterThan(400);
+    expect(sim.renderOptions().turnFlashRemainingMs).toBeGreaterThan(200);
+
+    runFrames(sim, 40, { keys: held("up") });
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+    expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
+  });
+
+  it("gives no reward when the same key was pressed just before the beat", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 3);
+    runFrames(sim, 1, tapUp);
+    runFrames(sim, 4, cruise);
+    placeAhead(sim, turn, 6);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().player!.row < turn.row, 60, cruise);
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+    expect(sim.snapshot().timers.turnFlashMs).toBe(0);
+  });
+
+  it("rewards the beat again once the earlier press is old enough", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 3);
+    runFrames(sim, 1, tapUp);
+    runFrames(sim, 20, cruise);
+    placeAhead(sim, turn, 6);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().timers.turnBoostMs > 0, 60, cruise);
+  });
+
+  describe("turn feedback sparks", () => {
+    function sparks(events: SimEvent[]) {
+      return events.filter((event) => event.type === "turnSparks");
+    }
+
+    function tapAt(aheadPx: number, priorTap = false) {
+      const { sim, turn } = setup(true);
+      cruiseFrom(sim, turn, 3);
+      const events: SimEvent[] = [];
+      if (priorTap) {
+        events.push(...runFrames(sim, 1, tapUp));
+        events.push(...runFrames(sim, 4, cruise));
+      }
+      placeAhead(sim, turn, aheadPx);
+      events.push(...runFrames(sim, 1, tapUp));
+      events.push(...runFrames(sim, 30, cruise));
+      return sparks(events);
+    }
+
+    it("sprays sparks out the front for a close tap, and bursts on the beat", () => {
+      const [close] = tapAt(14);
+      expect(close).toMatchObject({ type: "turnSparks", kind: "close", dx: 1, dy: 0 });
+      const [perfect] = tapAt(6);
+      expect(perfect).toMatchObject({ type: "turnSparks", kind: "perfect", count: 12 });
+    });
+
+    it("shows nothing for a far tap or a spammed tap", () => {
+      expect(tapAt(28)).toHaveLength(0);
+      expect(tapAt(14, true)).toHaveLength(0);
+      expect(tapAt(6, true)).toHaveLength(0);
+    });
+  });
+
+  it("does not boost a turn that is not a right angle", () => {
+    const { sim, turn } = setup(true);
+    cruiseFrom(sim, turn, 3);
+    runFrames(sim, 4, { keys: held("left") });
+    expect(sim.snapshot().player!.facing).toBe("left");
+    expect(sim.snapshot().timers.turnBoostMs).toBe(0);
   });
 });

@@ -27,6 +27,7 @@ import {
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
+import { turnFlashPulse } from "../../domain/turnTuning";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
@@ -98,6 +99,23 @@ function displaySizeForDrawable(drawableId: string): number {
     return pelletDisplaySize() * BOSS_PELLET_SIZE_MUL;
   }
   return playerDisplaySize();
+}
+
+function grayColor(level: number): number {
+  const channel = Math.round(Math.min(1, level) * 0xff);
+  return (channel << 16) | (channel << 8) | channel;
+}
+
+function applyPlayerTint(
+  go: Phaser.GameObjects.Image,
+  tint: { color: number; mode: Phaser.TintModes } | null,
+): void {
+  if (tint === null) {
+    go.clearTint();
+    return;
+  }
+  go.setTint(tint.color);
+  go.setTintMode(tint.mode);
 }
 
 function brightenColor(color: number, towardWhite: number): number {
@@ -206,6 +224,7 @@ export type RenderOptions = {
   frozenGhostEid?: number | null;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
+  turnFlashRemainingMs?: number;
   ghostHarvestActive?: boolean;
   corruptedGhostEid?: number | null;
   corruptedTint?: number;
@@ -296,11 +315,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const reviveProgress = opts?.playerReviveProgress;
     const wallPassOn = opts?.wallPassActive === true;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
+    const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
     const playerInvulnTintOn =
       !wallPassOn &&
       invulnRemainingMs > 0 &&
       (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
         Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
+    const playerTint =
+      turnFlash.brighten > 0
+        ? { color: grayColor(turnFlash.brighten), mode: Phaser.TintModes.ADD }
+        : wallPassOn
+          ? { color: PLAYER_WALL_PASS_TINT, mode: Phaser.TintModes.MULTIPLY }
+          : playerInvulnTintOn
+            ? { color: PLAYER_INVULN_TINT, mode: Phaser.TintModes.MULTIPLY }
+            : null;
     const mazeColorIndex = clampMazeColorIndex(loadMazeColorSettings().colorIndex);
     if (!wallsDrawn || mazeColorIndex !== drawnMazeColorIndex) {
       const wallStrokeColor = mazeColorForIndex(mazeColorIndex);
@@ -425,14 +453,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         visual.lastX = x;
         visual.lastY = y;
 
-        if (wallPassOn) {
-          go.setTint(PLAYER_WALL_PASS_TINT);
-        } else if (playerInvulnTintOn) {
-          go.setTint(PLAYER_INVULN_TINT);
-        } else {
-          go.clearTint();
-        }
-        go.setAlpha(playerAlpha ?? 1);
+        applyPlayerTint(go, playerTint);
+        go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
+        go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha);
         if (reviveProgress !== undefined) {
           const look = reviveSplashLook(reviveProgress, size);
           go.setDisplaySize(look.size, look.size);
@@ -460,13 +483,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
                 twinGo.setDisplaySize(size, size);
               }
             }
-            if (wallPassOn) {
-              twinGo.setTint(PLAYER_WALL_PASS_TINT);
-            } else if (playerInvulnTintOn) {
-              twinGo.setTint(PLAYER_INVULN_TINT);
-            } else {
-              twinGo.clearTint();
-            }
+            twinGo.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
+            applyPlayerTint(twinGo, playerTint);
           }
         }
       }
