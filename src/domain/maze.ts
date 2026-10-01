@@ -125,6 +125,7 @@ export type MazeLayout = {
   ghostSolids: SolidGrid;
   playerSolids: SolidGrid;
   wallPassPlayerSolids: SolidGrid;
+  wallPassLoopPlayerSolids: SolidGrid;
   playerSpawn: MazeTile;
   ghostHouseSpawn: MazeTile;
   ghostHouseExit: MazeTile;
@@ -665,6 +666,7 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const ghostSolids = buildBlocked(walls, exterior);
   const playerSolids = buildPlayerSolids(walls, exterior, house);
   const wallPassPlayerSolids = buildWallPassPlayerSolids(walls);
+  const wallPassLoopPlayerSolids = emptyFlagGrid(cols, rows);
   assertHorizontalTunnels(playerSolids, cols, rows);
   const isStore = id === "store";
   const ghostHouseSpawn = isStore ? playerSpawn : deriveGhostHouseSpawn(ascii, cols, rows);
@@ -700,6 +702,7 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
     ghostSolids,
     playerSolids,
     wallPassPlayerSolids,
+    wallPassLoopPlayerSolids,
     playerSpawn,
     ghostHouseSpawn,
     ghostHouseExit,

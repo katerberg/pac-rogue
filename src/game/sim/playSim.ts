@@ -165,6 +165,7 @@ import {
   secondChompMs,
   lifeFloorBonus,
   hasUpgrade,
+  wallPassLoopOwned,
   fruitFeastThresholds,
   fruitPowerConvertsPellet,
   fruitPersistsUntilLevelEnd,
@@ -224,6 +225,7 @@ import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
+import { wallPassSolids } from "../systems/wallPassSolids";
 import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
@@ -471,6 +473,8 @@ export class PlaySim {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
       wallPassActive: wallPassActive(this.runUpgrades),
+      wallPassLoopActive:
+        wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.runUpgrades.owned),
       turnFlashRemainingMs: this.turnFlashMs,
       ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       ...this.renderCorruptionOptions(),
@@ -737,7 +741,7 @@ export class PlaySim {
           : undefined,
     });
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
-      ? getActiveLayout().wallPassPlayerSolids
+      ? wallPassSolids(this.runUpgrades.owned)
       : undefined;
     if (this.bossState !== null) {
       bossGhostBlock(this.world);
@@ -1476,7 +1480,7 @@ export class PlaySim {
     }
     if (powerEffects.collectExtraPellets > 0) {
       const solids = wallPassActive(this.runUpgrades)
-        ? getActiveLayout().wallPassPlayerSolids
+        ? wallPassSolids(this.runUpgrades.owned)
         : getActiveLayout().playerSolids;
       const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, solids);
       for (const eid of bonusEids) {

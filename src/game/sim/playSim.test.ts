@@ -8,12 +8,16 @@ import {
   cellCenterY,
   getActiveLayout,
   horizontalTunnelRows,
+  isWalkable,
+  TILE_SIZE,
+  worldToCol,
+  worldToRow,
 } from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
-import { grantUpgrade, type UpgradeChoiceOffer } from "../../domain/upgrades";
+import { grantUpgrade, type UpgradeChoiceOffer, type UpgradeId } from "../../domain/upgrades";
 import { BossPellet } from "../components/BossPellet";
 import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
@@ -1103,5 +1107,200 @@ describe("PlaySim level-end time bonus", () => {
     expect(events.some((e) => e.type === "timeBonus")).toBe(false);
     expect(sim.snapshot().bonus).toMatchObject({ charge: 0, draining: false });
     expect(runFrames(sim, 90)).toContainEqual({ type: "endText", title: "RUN COMPLETE" });
+  });
+});
+
+describe("PlaySim Wall Pass+", () => {
+  function startLooping(id: "powerPelletWallPass" | "powerPelletWallPassPlus"): PlaySim {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+    sim["runUpgrades"] = { ...sim["runUpgrades"], wallPassRemainingMs: 6000 };
+    return sim;
+  }
+
+  it("loops through the top edge to the bottom", () => {
+    const sim = startLooping("powerPelletWallPassPlus");
+    const { rows } = getActiveLayout();
+    teleportPlayer(sim, cellCenterX(3), cellCenterY(1));
+    runFrames(sim, 30, { keys: held("up") });
+    expect(sim.snapshot().player!.row).toBeGreaterThan(rows - 4);
+    expect(sim.renderOptions().wallPassLoopActive).toBe(true);
+  });
+
+  it("loops through the left edge to the right", () => {
+    const sim = startLooping("powerPelletWallPassPlus");
+    const { cols } = getActiveLayout();
+    teleportPlayer(sim, cellCenterX(1), cellCenterY(5));
+    runFrames(sim, 30, { keys: held("left") });
+    expect(sim.snapshot().player!.col).toBeGreaterThan(cols - 4);
+  });
+
+  it("base Wall Pass stops at the solid perimeter", () => {
+    const sim = startLooping("powerPelletWallPass");
+    const { rows } = getActiveLayout();
+    teleportPlayer(sim, cellCenterX(3), cellCenterY(1));
+    runFrames(sim, 30, { keys: held("up") });
+    expect(sim.snapshot().player!.row).toBeLessThan(rows / 2);
+    expect(sim.renderOptions().wallPassLoopActive).toBe(false);
+  });
+});
+
+describe("PlaySim Pickup Range+", () => {
+  function pelletReachedAt(id: UpgradeId | null, tilesAway: number): boolean {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: id === null ? [] : [id] });
+    const { playerSolids } = getActiveLayout();
+    for (const eid of regularPelletEids(sim)) {
+      const col = worldToCol(Position.x[eid]!);
+      const row = worldToRow(Position.y[eid]!);
+      const open = [1, 2, 3].every((step) => isWalkable(col - step, row, playerSolids));
+      if (!open) {
+        continue;
+      }
+      teleportPlayer(sim, Position.x[eid]! - tilesAway * TILE_SIZE, Position.y[eid]!);
+      runFrames(sim, 1);
+      return !Array.from(query(sim.world, [Pellet])).includes(eid);
+    }
+    throw new Error("no open corridor pellet found");
+  }
+
+  it("reaches 1 tile for Pickup Range and 2 tiles only for Plus", () => {
+    expect(pelletReachedAt(null, 1.5)).toBe(false);
+    expect(pelletReachedAt("passivePickupRange", 1.5)).toBe(true);
+    expect(pelletReachedAt("passivePickupRange", 2.5)).toBe(false);
+    expect(pelletReachedAt("passivePickupRangePlus", 2.5)).toBe(true);
+    expect(pelletReachedAt("passivePickupRangePlus", 3.5)).toBe(false);
+  });
+});
+
+describe("PlaySim enhanced upgrades", () => {
+  function chomp(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function powerPelletCount(sim: PlaySim): number {
+    return query(sim.world, [Pellet, PowerPellet]).length;
+  }
+
+  it.each([
+    ["powerPelletScatterBurst", "scatterBurstMs", 3000, 5000],
+    ["powerPelletInvuln", "invulnMs", 3000, 5000],
+    ["powerPelletGhostHarvester", "ghostHarvestMs", 5000, 8000],
+    ["powerPelletWallPass", "wallPassMs", 6000, 6000],
+    ["passiveDefyDeath", "defyDeathMs", 5000, 8000],
+  ] as const)("%s: power-pellet timer %s is %i ms, Plus %i ms", (id, key, base, plus) => {
+    for (const [owned, expected] of [
+      [id, base],
+      [`${id}Plus` as UpgradeId, plus],
+    ] as const) {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [owned] });
+      chomp(sim);
+      const ms = sim.snapshot().timers[key];
+      expect(ms).toBeLessThanOrEqual(expected);
+      expect(ms).toBeGreaterThan(expected - 200);
+    }
+  });
+
+  it("Overcharge triples enhanced timers (and only doubles with the base)", () => {
+    const base = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletScatterBurst", "passiveOvercharge"],
+    });
+    chomp(base);
+    expect(base.snapshot().timers.scatterBurstMs).toBeGreaterThan(5800);
+    expect(base.snapshot().timers.scatterBurstMs).toBeLessThanOrEqual(6000);
+
+    const plus = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletScatterBurstPlus", "passiveOverchargePlus"],
+    });
+    chomp(plus);
+    expect(plus.snapshot().timers.scatterBurstMs).toBeGreaterThan(14800);
+    expect(plus.snapshot().timers.scatterBurstMs).toBeLessThanOrEqual(15000);
+  });
+
+  it("Warp Top+ shields for 2s and Overcharge does not extend it", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletWarpTopPlus", "passiveOvercharge"],
+    });
+    chomp(sim);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(1800);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(2000);
+    const base = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletWarpTop"] });
+    chomp(base);
+    expect(base.snapshot().timers.invulnMs).toBe(0);
+  });
+
+  it("Ghost Recall+ sends two ghosts home, the base sends one", () => {
+    const homeCount = (id: UpgradeId): number => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+      for (const eid of query(sim.world, [Ghost, Position])) {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+      }
+      chomp(sim);
+      return query(sim.world, [Ghost, Position]).filter(
+        (eid) => GhostPhase.value[eid] === GHOST_PHASE.inHouse,
+      ).length;
+    };
+    expect(homeCount("powerPelletGhostRecall")).toBe(1);
+    expect(homeCount("powerPelletGhostRecallPlus")).toBe(2);
+  });
+
+  it("Second Chomp+ respawns a power pellet after 7s instead of 10s", () => {
+    for (const [id, ms] of [
+      ["passivePowerPelletRecharge", 10000],
+      ["passivePowerPelletRechargePlus", 7000],
+    ] as const) {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+      chomp(sim);
+      const [pending] = sim["pendingPowerPelletRespawns"];
+      expect(pending!.remainingMs).toBeLessThanOrEqual(ms);
+      expect(pending!.remainingMs).toBeGreaterThan(ms - 200);
+    }
+  });
+
+  it("Pellet Surge+ converts two pellets per board, the base one", () => {
+    const none = powerPelletCount(startSim({ level: 2, maze: "maze1" }));
+    const base = powerPelletCount(
+      startSim({ level: 2, maze: "maze1", enableUpgrades: ["passivePelletToPower"] }),
+    );
+    const plus = powerPelletCount(
+      startSim({ level: 2, maze: "maze1", enableUpgrades: ["passivePelletToPowerPlus"] }),
+    );
+    expect(base).toBe(none + 1);
+    expect(plus).toBe(none + 2);
+  });
+
+  it("Extra Life+ grants two lives and a floor of 5", () => {
+    const lives = (id?: UpgradeId) =>
+      startSim({ level: 2, maze: "maze1", enableUpgrades: id ? [id] : [] }).snapshot().lives;
+    expect(lives("passiveExtraLife") - lives()).toBe(1);
+    expect(lives("passiveExtraLifePlus") - lives()).toBe(2);
+    const plus = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveExtraLifePlus"] });
+    expect(plus["regenIconFloor"]()).toBe(5);
+  });
+
+  it("Myogenesis+ regenerates to full, the base two per level", () => {
+    const base = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveMyogenesis"] });
+    expect(base["regenAmount"]()).toBe(2);
+    const plus = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveMyogenesisPlus"] });
+    expect(plus["regenAmount"]()).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("Death's Harvest+ harvests a wider radius when caught", () => {
+    const harvested = (id: UpgradeId): number => {
+      const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades: [id] });
+      const before = sim.snapshot().boardCollected;
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      return sim.snapshot().boardCollected - before;
+    };
+    expect(harvested("passiveDeathsHarvestPlus")).toBeGreaterThan(
+      harvested("passiveDeathsHarvest"),
+    );
   });
 });

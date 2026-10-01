@@ -29,6 +29,7 @@ import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   baseIdOf,
   hasUpgrade,
+  wallPassLoopOwned,
   ghostTunnelSpeedRatio,
   pelletSurgeCount,
   speedBurstMultiplier,
@@ -70,6 +71,7 @@ import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
+import { wallPassSolids } from "../systems/wallPassSolids";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
@@ -242,7 +244,7 @@ export class LearnSim {
     movement(
       this.world,
       delta,
-      wallPassActive(this.learnUpgrades) ? getActiveLayout().wallPassPlayerSolids : undefined,
+      wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
     );
 
     if (this.tunnelDashAnim !== null) {
@@ -331,6 +333,8 @@ export class LearnSim {
         frozenGhostEid: frozenGhostEid(this.learnUpgrades),
         playerInvulnRemainingMs: this.learnUpgrades.invulnRemainingMs,
         wallPassActive: wallPassActive(this.learnUpgrades),
+        wallPassLoopActive:
+          wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
         ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         corruptedGhostEid:
           type !== null ? findGhostEidByKind(this.world, this.runCorruption.ghostKind) : null,

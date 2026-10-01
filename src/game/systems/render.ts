@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import {
   cellCenterX,
   cellCenterY,
+  getActiveLayout,
   playerDisplaySize,
   pelletDisplaySize,
   powerPelletDisplaySize,
@@ -224,6 +225,7 @@ export type RenderOptions = {
   frozenGhostEid?: number | null;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
+  wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
   ghostHarvestActive?: boolean;
   corruptedGhostEid?: number | null;
@@ -314,6 +316,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const playerAlpha = opts?.playerAlpha;
     const reviveProgress = opts?.playerReviveProgress;
     const wallPassOn = opts?.wallPassActive === true;
+    const twinSolids =
+      opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
     const playerInvulnTintOn =
@@ -467,7 +471,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           reviveProgress === undefined &&
           hasComponent(world, eid, Player)
         ) {
-          const twin = wrappedTwinPosition(x, y, radius);
+          const twin = wrappedTwinPosition(x, y, radius, twinSolids);
           if (twin) {
             alive.add(twinKey);
             let twinGo = drawableObjects.get(twinKey);
