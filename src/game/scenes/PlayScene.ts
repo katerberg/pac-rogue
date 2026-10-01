@@ -1,4 +1,15 @@
 import Phaser from "phaser";
+import {
+  barRects,
+  BONUS_ART_SCALE,
+  BONUS_BAR_ART_W,
+  bonusBumpFx,
+  bumpBarFx,
+  createBarFx,
+  fillBarFx,
+  stepBarFx,
+  type BarFxState,
+} from "../../domain/bonusBarFx";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
 import { pelletDisplaySize, playerDisplaySize } from "../../domain/maze";
@@ -50,12 +61,27 @@ const BOSS_BANNER_START_SCALE = 3;
 const BOSS_BANNER_COLOR = 0xff3b3b;
 const BOSS_SHAKE_MS = 400;
 const BOSS_SHAKE_INTENSITY = 0.02;
+const BONUS_BAR_X = PLAYFIELD_WIDTH / 2 - (BONUS_BAR_ART_W * BONUS_ART_SCALE) / 2;
+const BONUS_BAR_Y = 8;
+const BONUS_LABEL_GAP = 8;
+const CHROME_SHAKE_STEP_MS = 90;
+const CHROME_SHAKE_OFFSETS: readonly (readonly [number, number])[] = [
+  [-6, 3],
+  [6, -3],
+  [-3, -3],
+  [3, 3],
+  [0, 0],
+];
 
 export class PlayScene extends Phaser.Scene {
   private sim!: PlaySim;
   private readHeldKeys!: () => HeldKeys;
   private playRender!: PlayRender;
   private storeOverlay: StoreOverlay | null = null;
+  private chrome!: Phaser.GameObjects.Container;
+  private chromeShake: Phaser.Time.TimerEvent | null = null;
+  private bonusGfx!: Phaser.GameObjects.Graphics;
+  private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
@@ -93,18 +119,24 @@ export class PlayScene extends Phaser.Scene {
     this.startingUpgradeCard = createStartingUpgradeCard(this);
     this.closeStoreUi();
 
-    this.timerText = addPixelText(
-      this,
-      PLAYFIELD_WIDTH - 12,
-      8,
-      this.timerLabel(),
-      HUD_FONT_SIZE,
-    ).setDepth(10);
+    this.chrome = this.add.container(0, 0).setDepth(10);
+    this.chromeShake = null;
+    this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
-    this.upgradesText = addPixelText(this, 12, PLAYFIELD_HEIGHT / 2, "", UPGRADES_HUD_FONT_SIZE)
-      .setDepth(10)
-      .setVisible(false);
+    this.upgradesText = addPixelText(
+      this,
+      12,
+      PLAYFIELD_HEIGHT / 2,
+      "",
+      UPGRADES_HUD_FONT_SIZE,
+    ).setVisible(false);
+
+    const bonusLabel = addPixelText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
+    placePixelText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
+    this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
+    this.barFx = createBarFx(this.sim.hud().bonusCharge);
+    this.chrome.add([this.timerText, this.upgradesText, bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
     this.quarterIcons = [];
     this.refreshQuartersHud();
@@ -164,6 +196,8 @@ export class PlayScene extends Phaser.Scene {
       delta,
     );
     this.applyEvents(events, delta);
+    this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
+    this.drawBonusBar();
   }
 
   public runSeed(): string {
@@ -247,6 +281,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "quarters":
         this.refreshQuartersHud();
+        break;
+      case "bonus":
+        this.applyBonusFx(event.tier, event.filled);
         break;
       case "upgrades":
         this.refreshUpgradesHud();
@@ -452,18 +489,16 @@ export class PlayScene extends Phaser.Scene {
     const y = PLAYFIELD_HEIGHT - 8 - size / 2;
     for (let i = 0; i < livesHudIconCount(this.sim.hud().lives); i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
-      const icon = this.add
-        .image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
-        .setDisplaySize(size, size)
-        .setDepth(10);
+      const icon = this.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
+      this.chrome.add(icon);
       this.lifeIcons.push(icon);
     }
     if (pulseNewIcon && this.lifeIcons.length > 0) {
-      this.pulseLifeIcon(this.lifeIcons[this.lifeIcons.length - 1]);
+      this.pulseHudIcon(this.lifeIcons[this.lifeIcons.length - 1]);
     }
   }
 
-  private pulseLifeIcon(icon: Phaser.GameObjects.Image): void {
+  private pulseHudIcon(icon: Phaser.GameObjects.Image): void {
     const baseScale = icon.scaleX;
     this.tweens.add({
       targets: icon,
@@ -483,11 +518,57 @@ export class PlayScene extends Phaser.Scene {
     const y = 8 + size / 2;
     for (let i = 0; i < this.sim.hud().quarters; i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
-      const icon = this.add
-        .image(x, y, QUARTER_TEXTURE_KEY)
-        .setDisplaySize(size, size)
-        .setDepth(10);
+      const icon = this.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
+      this.chrome.add(icon);
       this.quarterIcons.push(icon);
+    }
+  }
+
+  private applyBonusFx(tier: number, filled: number): void {
+    if (tier > 0) {
+      const fx = bonusBumpFx(tier);
+      this.barFx = bumpBarFx(this.barFx, fx);
+      if (fx.kind === "punch" && fx.chromeShake) {
+        this.shakeChrome();
+      }
+    }
+    if (filled > 0) {
+      this.barFx = fillBarFx(this.barFx, filled);
+      const newest = this.quarterIcons[this.quarterIcons.length - 1];
+      if (newest !== undefined) {
+        this.pulseHudIcon(newest);
+      }
+      playSfx(this, "pelletMunch");
+      playSfx(this, "pelletMunch2");
+    }
+  }
+
+  private shakeChrome(): void {
+    this.chromeShake?.remove();
+    let step = 0;
+    const [x, y] = CHROME_SHAKE_OFFSETS[0]!;
+    this.chrome.setPosition(x, y);
+    this.chromeShake = this.time.addEvent({
+      delay: CHROME_SHAKE_STEP_MS,
+      repeat: CHROME_SHAKE_OFFSETS.length - 2,
+      callback: () => {
+        step += 1;
+        const [nextX, nextY] = CHROME_SHAKE_OFFSETS[step] ?? [0, 0];
+        this.chrome.setPosition(nextX, nextY);
+      },
+    });
+  }
+
+  private drawBonusBar(): void {
+    this.bonusGfx.clear();
+    for (const rect of barRects(this.barFx)) {
+      this.bonusGfx.fillStyle(rect.color, 1);
+      this.bonusGfx.fillRect(
+        rect.x * BONUS_ART_SCALE,
+        rect.y * BONUS_ART_SCALE,
+        rect.w * BONUS_ART_SCALE,
+        rect.h * BONUS_ART_SCALE,
+      );
     }
   }
 

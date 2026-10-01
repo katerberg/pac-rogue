@@ -681,3 +681,78 @@ describe("Ghost Harvester", () => {
     expect(sim.offer()).not.toBeNull();
   });
 });
+
+describe("PlaySim bonus bar", () => {
+  function startCorridor(overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, ...overrides }, "bonus1");
+  }
+
+  function bonusEvents(events: SimEvent[]): Extract<SimEvent, { type: "bonus" }>[] {
+    return events.filter((e): e is Extract<SimEvent, { type: "bonus" }> => e.type === "bonus");
+  }
+
+  it("bumps the bar when a streak reaches 5", () => {
+    const sim = startCorridor();
+    const events = runUntil(sim, () => sim.snapshot().bonus.streak >= 5, 120, {
+      keys: held("left"),
+    });
+    expect(sim.snapshot().bonus.charge).toBe(2);
+    expect(bonusEvents(events)).toEqual([{ type: "bonus", tier: 1, filled: 0 }]);
+  });
+
+  it("breaks the streak when the player walks back over eaten tiles", () => {
+    const sim = startCorridor();
+    runUntil(sim, () => sim.snapshot().bonus.streak >= 6, 120, { keys: held("left") });
+    const { charge } = sim.snapshot().bonus;
+    const collected = sim.snapshot().boardCollected;
+    runUntil(sim, () => sim.snapshot().bonus.streak === 0, 30, { keys: held("right") });
+    expect(sim.snapshot().boardCollected).toBe(collected);
+    expect(sim.snapshot().bonus.charge).toBe(charge);
+  });
+
+  it("breaks the streak after stopping against a wall", () => {
+    const sim = startCorridor();
+    runUntil(sim, () => sim.snapshot().bonus.streak === 7, 120, { keys: held("left") });
+    runFrames(sim, 20, { keys: held("left") });
+    expect(sim.snapshot().bonus.streak).toBe(7);
+    runFrames(sim, 10, { keys: held("left") });
+    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 2 });
+    expect(sim.snapshot().boardCollected).toBe(7);
+  });
+
+  it("pays a Quarter when the bar fills and carries the rest", () => {
+    const sim = startCorridor({ bonus: 299, quarters: 0 });
+    const events = runUntil(sim, () => sim.snapshot().bonus.streak >= 5, 120, {
+      keys: held("left"),
+    });
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.snapshot().bonus.charge).toBe(1);
+    expect(bonusEvents(events)).toEqual([{ type: "bonus", tier: 1, filled: 1 }]);
+    expect(events).toContainEqual({ type: "quarters" });
+  });
+
+  it("counts a power pellet once and ignores Triple Chomp's extra pellets", () => {
+    const sim = startCorridor({ enableUpgrades: ["powerPelletCollectThree"] });
+    const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
+    const collected = sim.snapshot().boardCollected;
+    eatPelletAt(sim, power);
+    expect(sim.snapshot().boardCollected).toBe(collected + 4);
+    expect(sim.snapshot().bonus.streak).toBe(1);
+  });
+
+  it("resets the streak on death and keeps the charge", () => {
+    const sim = startCorridor({ bonus: 40 });
+    runUntil(sim, () => sim.snapshot().bonus.streak >= 5, 120, { keys: held("left") });
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 42 });
+  });
+
+  it("keeps the charge across a level advance", () => {
+    const sim = startSim({ jumpToUpgrade: true, bonus: 50 });
+    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
+    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 50 });
+  });
+});

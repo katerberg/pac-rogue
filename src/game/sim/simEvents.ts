@@ -33,6 +33,7 @@ export type SimEvent =
   | { type: "banner"; text: string; boss: boolean }
   | { type: "lives"; pulse: boolean }
   | { type: "quarters" }
+  | { type: "bonus"; tier: number; filled: number }
   | { type: "upgrades" }
   | { type: "timer" }
   | { type: "timerVisible"; visible: boolean }

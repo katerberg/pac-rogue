@@ -1,6 +1,13 @@
 import { addComponent, addEntity, createWorld, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
-import { cellCenterX, cellCenterY, TILE_SIZE, type SolidGrid } from "../../domain/maze";
+import {
+  cellCenterX,
+  cellCenterY,
+  TILE_SIZE,
+  worldToCol,
+  worldToRow,
+  type SolidGrid,
+} from "../../domain/maze";
 import { PELLET_RADIUS, playerRadius } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
@@ -35,6 +42,10 @@ function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number
   return eid;
 }
 
+function cellOf(x: number, y: number) {
+  return { col: worldToCol(x), row: worldToRow(y) };
+}
+
 function openCorridorSolids(): SolidGrid {
   return Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => false));
 }
@@ -54,6 +65,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [pelletEid],
       removedPowerPositions: [],
+      removedCells: [cellOf(100, 100)],
     });
     expect(query(world, [Pellet, Position])).toHaveLength(0);
   });
@@ -66,6 +78,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [],
       removedPowerPositions: [],
+      removedCells: [],
     });
     expect(query(world, [Pellet, Position])).toEqual([pelletEid]);
   });
@@ -80,6 +93,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [a, b],
       removedPowerPositions: [],
+      removedCells: [cellOf(100 + playerRadius(), 100), cellOf(100, 100 + playerRadius())],
     });
     expect(query(world, [Pellet, Position])).toHaveLength(1);
   });
@@ -93,6 +107,7 @@ describe("collectPellets", () => {
       powerRemoved: 1,
       removedEids: [power, regular],
       removedPowerPositions: [{ x: 100, y: 100 }],
+      removedCells: [cellOf(100, 100), cellOf(100 + playerRadius(), 100)],
     });
   });
 
@@ -124,7 +139,7 @@ describe("collectPellets", () => {
 
     expect(
       collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: openCorridorSolids() }),
-    ).toEqual({ powerRemoved: 0, removedEids: [pellet], removedPowerPositions: [] });
+    ).toMatchObject({ powerRemoved: 0, removedEids: [pellet], removedPowerPositions: [] });
   });
 
   it("does not collect a regular pellet in extended range through a wall", () => {
@@ -142,7 +157,7 @@ describe("collectPellets", () => {
 
     expect(
       collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: wallBetweenSolids() }),
-    ).toEqual({ powerRemoved: 0, removedEids: [], removedPowerPositions: [] });
+    ).toMatchObject({ powerRemoved: 0, removedEids: [], removedPowerPositions: [] });
     expect(query(world, [Pellet, Position])).toEqual([pellet]);
   });
 
@@ -158,7 +173,7 @@ describe("collectPellets", () => {
 
     expect(
       collectPellets(world, { radiusBonusPx: TILE_SIZE, solids: openCorridorSolids() }),
-    ).toEqual({ powerRemoved: 0, removedEids: [], removedPowerPositions: [] });
+    ).toMatchObject({ powerRemoved: 0, removedEids: [], removedPowerPositions: [] });
     expect(query(world, [Pellet, Position])).toEqual([power]);
   });
 
@@ -171,6 +186,7 @@ describe("collectPellets", () => {
       powerRemoved: 1,
       removedEids: [power],
       removedPowerPositions: [{ x: 100, y: 100 }],
+      removedCells: [cellOf(100, 100)],
     });
   });
 });

@@ -1,4 +1,5 @@
 import { hasComponent, query, removeEntity, type World } from "bitecs";
+import type { Cell } from "../../domain/bonusBar";
 import {
   cellCenterX,
   cellCenterY,
@@ -27,6 +28,7 @@ export type TunnelDashTrigger = {
   sweptPelletEids: number[];
   sweptPowerRemoved: number;
   sweptPowerPositions: { x: number; y: number }[];
+  sweptCells: Cell[];
 };
 
 export type TunnelDashAnimation = {
@@ -56,6 +58,7 @@ export function applyTunnelDash(world: World): TunnelDashTrigger | null {
 
   const sweptPelletEids: number[] = [];
   const sweptPowerPositions: { x: number; y: number }[] = [];
+  const sweptCells: Cell[] = [];
   let sweptPowerRemoved = 0;
   for (const pelletEid of query(world, [Pellet, Position])) {
     const pelletRow = worldToRow(Position.y[pelletEid] ?? 0);
@@ -67,6 +70,7 @@ export function applyTunnelDash(world: World): TunnelDashTrigger | null {
       continue;
     }
     sweptPelletEids.push(pelletEid);
+    sweptCells.push({ col: pelletCol, row });
     if (hasComponent(world, pelletEid, PowerPellet)) {
       sweptPowerRemoved += 1;
       sweptPowerPositions.push({ x: Position.x[pelletEid] ?? 0, y: Position.y[pelletEid] ?? 0 });
@@ -83,6 +87,7 @@ export function applyTunnelDash(world: World): TunnelDashTrigger | null {
     sweptPelletEids,
     sweptPowerRemoved,
     sweptPowerPositions,
+    sweptCells,
   };
 }
 

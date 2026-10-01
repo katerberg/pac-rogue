@@ -36,7 +36,7 @@ Side effects the sim can't perform itself. The scene applies them in order, afte
 
 - Sound: `sfx`, `pelletSfx`, `loopStart`, `loopStop`, `musicAfterFanfare` (the scene holds it until the level-complete fanfare ends).
 - Drawing: `draw` (with `SimRenderOptions`), `releaseDrawable`, `resetBoard`, `bouncePowerPellet`.
-- HUD / UI: `lives` (`pulse`), `quarters`, `upgrades`, `timer`, `timerVisible`, `banner`, `startingUpgrade`, `upgradeOffer`, `newLevelModal`, `storeOpened`, `storeSync`, `storePurchased`, `storeClosed`, `deathFade`, `endText`, `goToMenu`.
+- HUD / UI: `lives` (`pulse`), `quarters`, `bonus` (`tier` reached, Quarters `filled`; see [docs/bonus.md](../../../docs/bonus.md)), `upgrades`, `timer`, `timerVisible`, `banner`, `startingUpgrade`, `upgradeOffer`, `newLevelModal`, `storeOpened`, `storeSync`, `storePurchased`, `storeClosed`, `deathFade`, `endText`, `goToMenu`.
 - Storage: `saveRun` (only when no debug flag is present), `seenGhosts`, `seenUpgrades`.
 
 ## `LearnSim` (`learnSim.ts`)

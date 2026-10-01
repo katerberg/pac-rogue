@@ -206,7 +206,8 @@ PlaySim.step →
   stepCorruption (tickWallPhaseDash + tickSlimeTrail + tickPelletDropperTrail + tickInvisibility; spawnDroppedPellets if any) →
   ghostExitHouse (startGhostModeClock once if inactive) →
   tickRunClock →
-  collectPellets → releaseDrawable(removed) → eatDragAfterCollect → applyPowerPelletEffects → freezeClosestGhost? →
+  (player cell changed → bonus enterCell: blank tile breaks the streak) →
+  collectPellets → releaseDrawable(removed) → bonus applyStreakPellets (or tickStreakIdle) → bar fill pays Quarters → eatDragAfterCollect → applyPowerPelletEffects → freezeClosestGhost? →
   collectExtraPellets? → releaseDrawable(bonus) → applyPelletCollect(touch+bonus) →
   resolveGhostModeStep (pause wave while scatter burst + clock active) →
   (effective mode changed ? forceGhostReverse[skips falseScatter eid] : ghostAi[corruption opts for freeRetargetReverse/falseScatter]) →
@@ -225,6 +226,8 @@ ghost + corruption; see [docs/corruption.md](./corruption.md). Each `startBoard(
 
 While the upgrade choice is pending (or its modal is still animating), `PlaySim.step` early-returns (full sim freeze), same family as the death sequence halt. It is opened only on a level 2-8 clear (never by fruit; `offersUpgradeAfterLevel`); level 1's and level 9's clears and any level-clear with no eligible upgrades skip straight to the level transition.
 See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
+
+`PlayScene` keeps its HUD "chrome" (Quarter icons, `Time:`, upgrades list, life icons, BONUS bar) in one `Container`, so a huge pellet streak can shake the HUD without moving the maze or camera; see [docs/bonus.md](./bonus.md).
 
 1. `preload()`: pac-man frames, pellet + power-pellet art, Blinky + Pinky + Inky + Clyde, bonus fruit art, SFX.
 2. `create()`: optional `?maze=maze1|maze2|mazeSmall` (else level 1 → `mazeSmall`; level 2+ → procedural ASCII via `mazeGenerate`), `?level=` (else 1; clamped to `MAX_LEVEL` = 9; level 9 is the boss — see [docs/bosses.md](./bosses.md)), and `?quarters=` (else 0), then board spawn (world, walls, pellets, player, ghosts from `ghostKindsForLevel(levelIndex, secondGhostKind)` — level 1: Blinky + `secondGhostKind` (Pinky or Inky, picked 50/50 once per run at `create()`); level 2: Blinky + `secondGhostKind` + the other of Pinky/Inky (Blinky, Pinky, Inky); level 3+: all four), HUD (Quarters icon row, Time, lives icons, upgrade strip), `LEVEL N` fade banner, `lives = START_LIVES`, `RunUpgrades` from URL flags (`enableUpgrade` — see [README Flags](../README.md#flags)), game-play music.

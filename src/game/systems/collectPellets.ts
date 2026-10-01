@@ -1,6 +1,7 @@
 import { hasComponent, query, removeEntity, type World } from "bitecs";
 import { hasPelletLineOfSight } from "../../domain/pelletLos";
-import type { SolidGrid } from "../../domain/maze";
+import type { Cell } from "../../domain/bonusBar";
+import { worldToCol, worldToRow, type SolidGrid } from "../../domain/maze";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -13,6 +14,8 @@ export type PelletCollectFrame = {
   removedPowerPositions: { x: number; y: number }[];
 };
 
+export type PlayerPelletFrame = PelletCollectFrame & { removedCells: Cell[] };
+
 export type CollectPelletsOptions = {
   radiusBonusPx?: number;
   solids?: SolidGrid;
@@ -22,10 +25,10 @@ export function countPellets(world: World): number {
   return query(world, [Pellet]).length;
 }
 
-export function collectPellets(world: World, opts: CollectPelletsOptions = {}): PelletCollectFrame {
+export function collectPellets(world: World, opts: CollectPelletsOptions = {}): PlayerPelletFrame {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {
-    return { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
+    return { powerRemoved: 0, removedEids: [], removedPowerPositions: [], removedCells: [] };
   }
 
   const radiusBonusPx = opts.radiusBonusPx ?? 0;
@@ -60,7 +63,12 @@ export function collectPellets(world: World, opts: CollectPelletsOptions = {}): 
 
   let powerRemoved = 0;
   const removedPowerPositions: { x: number; y: number }[] = [];
+  const removedCells: Cell[] = [];
   for (const eid of toRemove) {
+    removedCells.push({
+      col: worldToCol(Position.x[eid] ?? 0),
+      row: worldToRow(Position.y[eid] ?? 0),
+    });
     if (hasComponent(world, eid, PowerPellet)) {
       powerRemoved += 1;
       removedPowerPositions.push({ x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 });
@@ -68,5 +76,5 @@ export function collectPellets(world: World, opts: CollectPelletsOptions = {}): 
     removeEntity(world, eid);
   }
 
-  return { powerRemoved, removedEids: toRemove, removedPowerPositions };
+  return { powerRemoved, removedEids: toRemove, removedPowerPositions, removedCells };
 }

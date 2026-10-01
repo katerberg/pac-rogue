@@ -137,6 +137,7 @@ On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot(
 | `play.seed`                                                                                                          | the run's seed (from `?seed=`, or freshly rolled)                                         |
 | `play.level`, `play.layout`                                                                                          | level index; layout id (`mazeSmall`, `maze1`, `generated`, `store`, …)                    |
 | `play.lives`, `play.quarters`, `play.timeRemaining`                                                                  | HUD values                                                                                |
+| `play.bonus.{charge,streak,max}`                                                                                     | BONUS bar charge, current pellet streak, bar size ([docs/bonus.md](./bonus.md))           |
 | `play.boardCollected`, `play.pelletsRemaining`                                                                       | pellet progress                                                                           |
 | `play.pellets`, `play.powerPellets`, `play.bossPellets`, `play.fruit`                                                | entities currently on the board (`pellets` excludes power pellets, includes boss pellets) |
 | `play.player.{x,y,col,row,facing}`                                                                                   | player position (px + maze cell) and facing (`left`, `upLeft`, `none`, …)                 |

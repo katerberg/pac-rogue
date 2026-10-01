@@ -1,6 +1,6 @@
 # Store floors
 
-Quarters are spent at **store floors** — an extra board between some levels with no ghosts, pellets, fruit, or countdown.
+Quarters (from fruit, the level-clear bank choice and the [BONUS bar](./bonus.md)) are spent at **store floors** — an extra board between some levels with no ghosts, pellets, fruit, or countdown.
 
 ## Schedule
 
