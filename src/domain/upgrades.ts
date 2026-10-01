@@ -1,6 +1,7 @@
-import { TILE_SIZE } from "./maze";
+import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE } from "./maze";
+import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 
-export type UpgradeId =
+export type BaseUpgradeId =
   | "powerPelletFreeze"
   | "passivePlayerSpeedUp"
   | "passiveGhostSlow"
@@ -29,6 +30,9 @@ export type UpgradeId =
   | "passiveDefyDeath"
   | "passiveTurnTuning";
 
+export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
+export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
+
 export type UpgradeSchool = "death" | "harvest" | "speed" | "protection" | "disruption" | "neutral";
 
 export const UPGRADE_SCHOOL_LABELS: Record<UpgradeSchool, string> = {
@@ -49,33 +53,65 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
   "neutral",
 ];
 
-export type UpgradeDef = {
-  id: UpgradeId;
-  label: string;
-  school: UpgradeSchool;
-  description: string;
-  storePrice: number;
+export type UpgradeEffects = {
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
-  fruitQuarterMul?: number;
   fruitLifetimeMul?: number;
+  fruitQuarters?: number;
+  fruitPersistsUntilLevelEnd?: true;
+  fruitStacksSideBySide?: true;
+  fruitPowerConvertsPellet?: true;
+  fruitFeastThresholds?: readonly number[];
   pelletCollectRadiusBonusPx?: number;
   grantLives?: number;
+  lifeFloorBonus?: number;
+  regenToFull?: true;
+  pelletSurgeCount?: number;
   ghostHouseReleaseDelayAddMs?: number;
   ghostHouseClydePelletAdd?: number;
   remoteTransferEveryPellets?: number;
+  deathsHarvestRadiusTiles?: number;
+  overchargeMul?: number;
+  ghostTunnelSpeedRatio?: number;
+  secondChompMs?: number;
+  speedBurstMul?: number;
+  turnBoostMs?: number;
+  turnPerfectPx?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     scatterBurstMs?: number;
     wallPassMs?: number;
+    wallPassLoop?: true;
     playerInvulnMs?: number;
+    warpInvulnMs?: number;
     playerSpeedBurstMs?: number;
     ghostHarvestMs?: number;
     defyDeathMs?: number;
-    recallClosestGhost?: true;
+    recallClosestGhosts?: number;
     warpPlayerTopCenter?: true;
     collectExtraPellets?: number;
   };
+};
+
+export type EnhancedOverride = UpgradeEffects & { description: string };
+
+export type BaseUpgradeDef = UpgradeEffects & {
+  id: BaseUpgradeId;
+  label: string;
+  school: UpgradeSchool;
+  description: string;
+  storePrice: number;
+  enhanced: EnhancedOverride;
+};
+
+export type UpgradeDef = UpgradeEffects & {
+  id: UpgradeId;
+  baseId: BaseUpgradeId;
+  isEnhanced: boolean;
+  label: string;
+  school: UpgradeSchool;
+  description: string;
+  storePrice: number;
 };
 
 export const REMOTE_TRANSFER_EVERY_PELLETS = 5;
@@ -88,10 +124,7 @@ export const GHOST_HARVEST_MS = 5000;
 export const DEFY_DEATH_MS = 5000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
-export const GHOST_SLOW_MUL = 0.75;
-export function pickupRangeBonusPx(): number {
-  return TILE_SIZE;
-}
+export const GHOST_SLOW_MUL = 0.8;
 
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
@@ -99,20 +132,50 @@ export const POWER_COLLECT_THREE_COUNT = 3;
 export const QUARTERS_CHOICE_AMOUNT = 2;
 export const STORE_UPGRADE_PRICE = 3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
-export const QUARTER_BOUNTY_MUL = 2;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
 export const TUNNEL_DASH_SPEED_MUL = 10;
 
-export const UPGRADE_DEFS: readonly UpgradeDef[] = [
+export const FREEZE_ENHANCED_MS = 5000;
+export const SCATTER_BURST_ENHANCED_MS = 5000;
+export const INVULN_ENHANCED_MS = 5000;
+export const GHOST_HARVEST_ENHANCED_MS = 8000;
+export const DEFY_DEATH_ENHANCED_MS = 8000;
+export const WARP_TOP_INVULN_MS = 2000;
+export const PLAYER_SPEED_UP_ENHANCED_MUL = 1.5;
+export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
+export const GHOST_SLOW_ENHANCED_MUL = 0.65;
+export const PICKUP_RANGE_ENHANCED_TILES = 2;
+export const GHOST_HOUSE_RELEASE_DELAY_ADD_ENHANCED_MS = 3000;
+export const GHOST_HOUSE_CLYDE_PELLET_ADD_ENHANCED = 25;
+export const EXTRA_LIFE_ENHANCED_LIVES = 2;
+export const POWER_COLLECT_FIVE_COUNT = 5;
+export const PELLET_SURGE_COUNT = 1;
+export const PELLET_SURGE_ENHANCED_COUNT = 2;
+export const FRUIT_QUARTERS = 1;
+export const FRUIT_QUARTERS_ENHANCED = 2;
+export const FRUIT_FEAST_ENHANCED_THRESHOLDS = [45, 100, 150, 200] as const;
+export const DEATHS_HARVEST_ENHANCED_RADIUS_TILES = 10;
+export const OVERCHARGE_ENHANCED_MUL = 3;
+export const GHOST_TUNNEL_ENHANCED_SPEED_RATIO = 0.3;
+export const SECOND_CHOMP_ENHANCED_MS = 7000;
+export const REMOTE_TRANSFER_ENHANCED_EVERY_PELLETS = 3;
+export const TURN_TUNING_ENHANCED_BOOST_MS = 750;
+export const TURN_TUNING_ENHANCED_PERFECT_PX = 12;
+
+export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "powerPelletFreeze",
     label: "Power Freeze",
     school: "disruption",
     description: "Chomp a power pellet and the nearest ghost locks solid for a few seconds.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Chomp a power pellet and the nearest ghost locks solid for five seconds.",
+      onPowerPellet: { freezeClosestGhostMs: FREEZE_ENHANCED_MS },
+    },
     onPowerPellet: { freezeClosestGhostMs: FREEZE_MS },
   },
   {
@@ -121,6 +184,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "You run hotter. Corners feel closer.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "You run white-hot. Corners come to you.",
+      playerSpeedMul: PLAYER_SPEED_UP_ENHANCED_MUL,
+    },
     playerSpeedMul: PLAYER_SPEED_UP_MUL,
   },
   {
@@ -129,6 +196,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "disruption",
     description: "The hunt softens. Ghosts drag their feet.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "The hunt crawls. Ghosts wade through syrup.",
+      ghostSpeedMul: GHOST_SLOW_ENHANCED_MUL,
+    },
     ghostSpeedMul: GHOST_SLOW_MUL,
   },
   {
@@ -137,6 +208,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "disruption",
     description: "Power pellet scatters every ghost into the corners.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Power pellet scatters every ghost into the corners for five seconds.",
+      onPowerPellet: { scatterBurstMs: SCATTER_BURST_ENHANCED_MS },
+    },
     onPowerPellet: { scatterBurstMs: SCATTER_BURST_MS },
   },
   {
@@ -145,7 +220,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "disruption",
     description: "Power pellet yanks the nearest ghost straight home.",
     storePrice: STORE_UPGRADE_PRICE,
-    onPowerPellet: { recallClosestGhost: true },
+    enhanced: {
+      description: "Power pellet yanks the two nearest ghosts straight home.",
+      onPowerPellet: { recallClosestGhosts: 2 },
+    },
+    onPowerPellet: { recallClosestGhosts: 1 },
   },
   {
     id: "powerPelletWarpTop",
@@ -153,6 +232,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Power pellet flings you to the top of the maze.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Power pellet flings you to the top of the maze, shielded for a moment.",
+      onPowerPellet: { warpPlayerTopCenter: true, warpInvulnMs: WARP_TOP_INVULN_MS },
+    },
     onPowerPellet: { warpPlayerTopCenter: true },
   },
   {
@@ -161,6 +244,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Pellets within a cell of you snap into your mouth.",
     storePrice: STORE_UPGRADE_PRICE,
+    pelletCollectRadiusBonusPx: TILE_SIZE,
+    enhanced: {
+      description: "Pellets two cells away snap into your mouth.",
+      pelletCollectRadiusBonusPx: PICKUP_RANGE_ENHANCED_TILES * TILE_SIZE,
+    },
   },
   {
     id: "passiveGhostHouseDelay",
@@ -168,6 +256,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "disruption",
     description: "Ghosts linger longer in the house before the hunt.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Ghosts sulk in the house far longer before the hunt.",
+      ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_ENHANCED_MS,
+      ghostHouseClydePelletAdd: GHOST_HOUSE_CLYDE_PELLET_ADD_ENHANCED,
+    },
     ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
     ghostHouseClydePelletAdd: GHOST_HOUSE_CLYDE_PELLET_ADD,
   },
@@ -177,7 +270,13 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "death",
     description: "One more chance, and lives regenerate up to 4.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Two more chances, and lives regenerate up to 5.",
+      grantLives: EXTRA_LIFE_ENHANCED_LIVES,
+      lifeFloorBonus: 2,
+    },
     grantLives: 1,
+    lifeFloorBonus: 1,
   },
   {
     id: "passivePelletToPower",
@@ -185,6 +284,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "neutral",
     description: "A quiet pellet turns hot, and another may follow.",
     storePrice: STORE_UPGRADE_PRICE,
+    pelletSurgeCount: PELLET_SURGE_COUNT,
+    enhanced: {
+      description: "Two quiet pellets turn hot.",
+      pelletSurgeCount: PELLET_SURGE_ENHANCED_COUNT,
+    },
   },
   {
     id: "powerPelletCollectThree",
@@ -192,6 +296,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Power pellet gulps three more pellets with it.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Power pellet gulps five more pellets with it.",
+      onPowerPellet: { collectExtraPellets: POWER_COLLECT_FIVE_COUNT },
+    },
     onPowerPellet: { collectExtraPellets: POWER_COLLECT_THREE_COUNT },
   },
   {
@@ -200,6 +308,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Power pellet lets you slip through walls for a breath.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Power pellet lets you slip through walls and loop around the maze edges.",
+      onPowerPellet: { wallPassMs: WALL_PASS_MS, wallPassLoop: true },
+    },
     onPowerPellet: { wallPassMs: WALL_PASS_MS },
   },
   {
@@ -208,6 +320,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Power pellet spikes your pace for a few seconds.",
     storePrice: STORE_UPGRADE_PRICE,
+    speedBurstMul: PLAYER_SPEED_BURST_MUL,
+    enhanced: {
+      description: "Power pellet spikes your pace hard for a few seconds.",
+      speedBurstMul: PLAYER_SPEED_BURST_ENHANCED_MUL,
+    },
     onPowerPellet: { playerSpeedBurstMs: SPEED_BURST_MS },
   },
   {
@@ -216,6 +333,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "protection",
     description: "Power pellet lets you pass through ghosts briefly.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Power pellet lets you pass through ghosts for five seconds.",
+      onPowerPellet: { playerInvulnMs: INVULN_ENHANCED_MS },
+    },
     onPowerPellet: { playerInvulnMs: INVULN_MS },
   },
   {
@@ -224,6 +345,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Power pellet sends ghosts to gobble pellets for you.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Power pellet sends ghosts to gobble pellets for you, for longer.",
+      onPowerPellet: { ghostHarvestMs: GHOST_HARVEST_ENHANCED_MS },
+    },
     onPowerPellet: { ghostHarvestMs: GHOST_HARVEST_MS },
   },
   {
@@ -232,14 +357,22 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "harvest",
     description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Bonus fruit hits like a power pellet and turns a pellet hot.",
+      fruitPowerConvertsPellet: true,
+    },
   },
   {
     id: "fruitQuarterBounty",
     label: "Quarter Bounty",
     school: "harvest",
-    description: "Bonus fruit fills a whole BONUS bar instead of half.",
+    description: "Bonus fruit pays a Quarter instead of charging the bonus bar.",
     storePrice: STORE_UPGRADE_PRICE,
-    fruitQuarterMul: QUARTER_BOUNTY_MUL,
+    enhanced: {
+      description: "Bonus fruit pays two Quarters.",
+      fruitQuarters: FRUIT_QUARTERS_ENHANCED,
+    },
+    fruitQuarters: FRUIT_QUARTERS,
   },
   {
     id: "fruitFecundity",
@@ -247,6 +380,12 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "harvest",
     description: "Bonus fruit lingers twice as long.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description:
+        "Bonus fruit waits until the level ends, and uncollected ones pile up side by side.",
+      fruitPersistsUntilLevelEnd: true,
+      fruitStacksSideBySide: true,
+    },
     fruitLifetimeMul: FRUIT_FECUNDITY_MUL,
   },
   {
@@ -255,6 +394,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "harvest",
     description: "Bonus fruit appears three times per level, each after the last is gone.",
     storePrice: STORE_UPGRADE_PRICE,
+    fruitFeastThresholds: BASE_FEAST_FRUIT_SPAWN_THRESHOLDS,
+    enhanced: {
+      description: "Bonus fruit appears four times per level, each after the last is gone.",
+      fruitFeastThresholds: FRUIT_FEAST_ENHANCED_THRESHOLDS,
+    },
   },
   {
     id: "passiveDeathsHarvest",
@@ -262,6 +406,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "death",
     description: "Dying harvests nearby pellets.",
     storePrice: STORE_UPGRADE_PRICE,
+    deathsHarvestRadiusTiles: DEATHS_HARVEST_RADIUS_TILES,
+    enhanced: {
+      description: "Dying harvests every pellet within ten tiles.",
+      deathsHarvestRadiusTiles: DEATHS_HARVEST_ENHANCED_RADIUS_TILES,
+    },
   },
   {
     id: "passiveOvercharge",
@@ -269,6 +418,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "neutral",
     description: "Doubles the duration of every other power pellet timer you're running.",
     storePrice: STORE_UPGRADE_PRICE,
+    overchargeMul: OVERCHARGE_MUL,
+    enhanced: {
+      description: "Triples the duration of every other power pellet timer you're running.",
+      overchargeMul: OVERCHARGE_ENHANCED_MUL,
+    },
   },
   {
     id: "passiveTunnelDash",
@@ -276,6 +430,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Tunnels move you the instant you touch them.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Tunnels move you the instant you touch them, and ghosts crawl through them.",
+      ghostTunnelSpeedRatio: GHOST_TUNNEL_ENHANCED_SPEED_RATIO,
+    },
   },
   {
     id: "passivePowerPelletRecharge",
@@ -283,6 +441,11 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "harvest",
     description: "Eaten power pellets regenerate after ten seconds.",
     storePrice: STORE_UPGRADE_PRICE,
+    secondChompMs: SECOND_CHOMP_MS,
+    enhanced: {
+      description: "Eaten power pellets regenerate after seven seconds.",
+      secondChompMs: SECOND_CHOMP_ENHANCED_MS,
+    },
   },
   {
     id: "passiveRemoteTransference",
@@ -290,6 +453,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Every fifth pellet also eats the farthest one.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Every third pellet also eats the farthest one.",
+      remoteTransferEveryPellets: REMOTE_TRANSFER_ENHANCED_EVERY_PELLETS,
+    },
     remoteTransferEveryPellets: REMOTE_TRANSFER_EVERY_PELLETS,
   },
   {
@@ -298,6 +465,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "death",
     description: "Regenerate two lives on level clear.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: { description: "Refill every empty life slot on level clear.", regenToFull: true },
   },
   {
     id: "passiveDefyDeath",
@@ -305,6 +473,10 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "death",
     description: "Eat a power pellet: die within 5s and keep your life.",
     storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      description: "Eat a power pellet: die within 8s and keep your life.",
+      onPowerPellet: { defyDeathMs: DEFY_DEATH_ENHANCED_MS },
+    },
     onPowerPellet: { defyDeathMs: DEFY_DEATH_MS },
   },
   {
@@ -313,28 +485,87 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     school: "speed",
     description: "Tap turns up to two tiles early. Nail the beat for a speed kick.",
     storePrice: STORE_UPGRADE_PRICE,
+    turnBoostMs: TURN_TUNING_BOOST_MS,
+    turnPerfectPx: TURN_TUNING_PERFECT_PX,
+    enhanced: {
+      description: "Tap turns early, wider beat, longer speed kick.",
+      turnBoostMs: TURN_TUNING_ENHANCED_BOOST_MS,
+      turnPerfectPx: TURN_TUNING_ENHANCED_PERFECT_PX,
+    },
   },
+];
+
+function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
+  const { enhanced: _enhanced, ...rest } = def;
+  return { ...rest, baseId: def.id, isEnhanced: false };
+}
+
+function toEnhancedDef(def: BaseUpgradeDef): UpgradeDef {
+  const { enhanced, ...rest } = def;
+  return {
+    ...rest,
+    ...enhanced,
+    id: `${def.id}Plus`,
+    baseId: def.id,
+    isEnhanced: true,
+    label: `${def.label}+`,
+  };
+}
+
+export const UPGRADE_DEFS: readonly UpgradeDef[] = [
+  ...BASE_UPGRADE_DEFS.map(toBaseDef),
+  ...BASE_UPGRADE_DEFS.map(toEnhancedDef),
 ];
 
 const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
   UPGRADE_DEFS.map((def) => [def.id, def]),
 );
 
-export const ALL_UPGRADE_IDS: readonly UpgradeId[] = UPGRADE_DEFS.map((def) => def.id);
+export const ALL_UPGRADE_IDS: readonly BaseUpgradeId[] = BASE_UPGRADE_DEFS.map((def) => def.id);
+
+export function baseIdOf(id: UpgradeId): BaseUpgradeId {
+  return UPGRADE_BY_ID.get(id)!.baseId;
+}
+
+export function enhancedIdOf(id: BaseUpgradeId): EnhancedUpgradeId {
+  return `${id}Plus`;
+}
+
+export function isEnhancedId(id: UpgradeId): id is EnhancedUpgradeId {
+  return UPGRADE_BY_ID.get(id)!.isEnhanced;
+}
+
+export function hasUpgrade(owned: readonly UpgradeId[], baseId: BaseUpgradeId): boolean {
+  return owned.some((id) => baseIdOf(id) === baseId);
+}
+
+export function hasEnhancedUpgrade(owned: readonly UpgradeId[], baseId: BaseUpgradeId): boolean {
+  return owned.includes(enhancedIdOf(baseId));
+}
+
+export function enhanceableUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
+  return owned.filter((id): id is BaseUpgradeId => !isEnhancedId(id));
+}
+
+export function carryEnhancement(outgoingId: UpgradeId, incomingBaseId: BaseUpgradeId): UpgradeId {
+  return isEnhancedId(outgoingId) ? enhancedIdOf(incomingBaseId) : incomingBaseId;
+}
+
+export function enhanceGrantLives(baseId: BaseUpgradeId): number {
+  return grantLivesForUpgrade(enhancedIdOf(baseId)) - grantLivesForUpgrade(baseId);
+}
 
 export type PendingPowerPelletRespawn = { x: number; y: number; remainingMs: number };
 
 export function queuePowerPelletRespawns(
   pending: PendingPowerPelletRespawn[],
   positions: readonly { x: number; y: number }[],
+  respawnMs: number = SECOND_CHOMP_MS,
 ): PendingPowerPelletRespawn[] {
   if (positions.length === 0) {
     return pending;
   }
-  return [
-    ...pending,
-    ...positions.map((pos) => ({ x: pos.x, y: pos.y, remainingMs: SECOND_CHOMP_MS })),
-  ];
+  return [...pending, ...positions.map((pos) => ({ x: pos.x, y: pos.y, remainingMs: respawnMs }))];
 }
 
 export function tickPowerPelletRespawns(
@@ -364,13 +595,13 @@ export type RunUpgrades = {
   speedBurstRemainingMs: number;
   ghostHarvestRemainingMs: number;
   defyDeathRemainingMs: number;
-  lastDeclinedUpgradeId: UpgradeId | null;
+  lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
 export type PowerPelletApplyResult = {
   state: RunUpgrades;
   freezeClosestMs: number | null;
-  recallClosestGhost: boolean;
+  recallGhostCount: number;
   warpPlayerTopCenter: boolean;
   collectExtraPellets: number;
 };
@@ -428,19 +659,19 @@ export function grantLivesForUpgrade(id: UpgradeId): number {
   return UPGRADE_BY_ID.get(id)?.grantLives ?? 0;
 }
 
-export function eligibleUpgrades(owned: readonly UpgradeId[]): UpgradeId[] {
-  const ownedSet = new Set(owned);
-  return ALL_UPGRADE_IDS.filter((id) => !ownedSet.has(id));
+export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
+  const ownedBases = new Set(owned.map(baseIdOf));
+  return ALL_UPGRADE_IDS.filter((id) => !ownedBases.has(id));
 }
 
-export function takeRandomFrom(pool: UpgradeId[], rng: () => number): UpgradeId {
+export function takeRandomFrom<T>(pool: T[], rng: () => number): T {
   const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
   const picked = pool[index]!;
   pool.splice(index, 1);
   return picked;
 }
 
-function shuffleInPlace(ids: UpgradeId[], rng: () => number): void {
+function shuffleInPlace<T>(ids: T[], rng: () => number): void {
   for (let i = ids.length - 1; i > 0; i -= 1) {
     const j = Math.min(i, Math.floor(rng() * (i + 1)));
     const tmp = ids[i]!;
@@ -450,23 +681,23 @@ function shuffleInPlace(ids: UpgradeId[], rng: () => number): void {
 }
 
 export type UpgradeChoiceOption =
-  { kind: "upgrade"; id: UpgradeId } | { kind: "quarters"; amount: number };
+  { kind: "upgrade"; id: BaseUpgradeId } | { kind: "quarters"; amount: number };
 
 export type UpgradeChoiceOffer = {
   quarters: number;
-  upgrades: UpgradeId[];
+  upgrades: BaseUpgradeId[];
 };
 
 export function pickUpgradeChoiceOffer(
   owned: readonly UpgradeId[],
-  lastDeclined: UpgradeId | null,
+  lastDeclined: BaseUpgradeId | null,
   rng: () => number,
 ): UpgradeChoiceOffer {
   const eligible = eligibleUpgrades(owned);
   const desiredCount = Math.min(UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS, eligible.length);
 
   const preferred = eligible.filter((id) => id !== lastDeclined);
-  const picked: UpgradeId[] = [];
+  const picked: BaseUpgradeId[] = [];
   const drawPool = [...preferred];
   while (picked.length < desiredCount && drawPool.length > 0) {
     picked.push(takeRandomFrom(drawPool, rng));
@@ -489,7 +720,7 @@ export function pickUpgradeChoiceOffer(
 export function pickStartingUpgrade(
   owned: readonly UpgradeId[],
   rng: () => number,
-): UpgradeId | null {
+): BaseUpgradeId | null {
   const eligible = eligibleUpgrades(owned);
   if (eligible.length === 0) {
     return null;
@@ -497,7 +728,7 @@ export function pickStartingUpgrade(
   return takeRandomFrom(eligible, rng);
 }
 
-function withDeclined(state: RunUpgrades, declined: readonly UpgradeId[]): RunUpgrades {
+function withDeclined(state: RunUpgrades, declined: readonly BaseUpgradeId[]): RunUpgrades {
   if (declined.length !== 1) {
     return state;
   }
@@ -509,8 +740,8 @@ function withDeclined(state: RunUpgrades, declined: readonly UpgradeId[]): RunUp
 
 export function confirmUpgradeChoice(
   state: RunUpgrades,
-  options: readonly UpgradeId[],
-  chosenId: UpgradeId,
+  options: readonly BaseUpgradeId[],
+  chosenId: BaseUpgradeId,
 ): RunUpgrades {
   const next = grantUpgrade(state, chosenId);
   return withDeclined(
@@ -521,13 +752,13 @@ export function confirmUpgradeChoice(
 
 export function declineUpgrades(
   state: RunUpgrades,
-  declinedIds: readonly UpgradeId[],
+  declinedIds: readonly BaseUpgradeId[],
 ): RunUpgrades {
   return withDeclined(state, declinedIds);
 }
 
 export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
-  if (state.owned.includes(id)) {
+  if (hasUpgrade(state.owned, baseIdOf(id))) {
     return state;
   }
   return {
@@ -537,12 +768,23 @@ export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
 }
 
 export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
-  if (!state.owned.includes(id)) {
+  const baseId = baseIdOf(id);
+  if (!hasUpgrade(state.owned, baseId)) {
     return state;
   }
   return {
     ...state,
-    owned: state.owned.filter((owned) => owned !== id),
+    owned: state.owned.filter((owned) => baseIdOf(owned) !== baseId),
+  };
+}
+
+export function enhanceUpgrade(state: RunUpgrades, baseId: BaseUpgradeId): RunUpgrades {
+  if (!state.owned.includes(baseId)) {
+    return state;
+  }
+  return {
+    ...state,
+    owned: state.owned.map((id) => (id === baseId ? enhancedIdOf(baseId) : id)),
   };
 }
 
@@ -640,7 +882,7 @@ export function applyPowerPelletEffects(
     return {
       state,
       freezeClosestMs: null,
-      recallClosestGhost: false,
+      recallGhostCount: 0,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
     };
@@ -653,7 +895,8 @@ export function applyPowerPelletEffects(
   let speedBurstMs: number | null = null;
   let ghostHarvestMs: number | null = null;
   let defyDeathMs: number | null = null;
-  let recallClosestGhost = false;
+  let recallGhostCount = 0;
+  let warpInvulnMs = 0;
   let warpPlayerTopCenter = false;
   let collectExtraPellets = 0;
 
@@ -696,8 +939,11 @@ export function applyPowerPelletEffects(
       defyDeathMs =
         defyDeathMs === null ? onPower.defyDeathMs : Math.max(defyDeathMs, onPower.defyDeathMs);
     }
-    if (onPower.recallClosestGhost) {
-      recallClosestGhost = true;
+    if (onPower.recallClosestGhosts !== undefined) {
+      recallGhostCount = Math.max(recallGhostCount, onPower.recallClosestGhosts);
+    }
+    if (onPower.warpInvulnMs !== undefined) {
+      warpInvulnMs = Math.max(warpInvulnMs, onPower.warpInvulnMs);
     }
     if (onPower.warpPlayerTopCenter) {
       warpPlayerTopCenter = true;
@@ -707,25 +953,27 @@ export function applyPowerPelletEffects(
     }
   }
 
-  if (state.owned.includes("passiveOvercharge")) {
-    if (freezeClosestMs !== null) {
-      freezeClosestMs *= OVERCHARGE_MUL;
-    }
-    if (scatterMs !== null) {
-      scatterMs *= OVERCHARGE_MUL;
-    }
-    if (wallPassMs !== null) {
-      wallPassMs *= OVERCHARGE_MUL;
-    }
-    if (invulnMs !== null) {
-      invulnMs *= OVERCHARGE_MUL;
-    }
-    if (speedBurstMs !== null) {
-      speedBurstMs *= OVERCHARGE_MUL;
-    }
-    if (ghostHarvestMs !== null) {
-      ghostHarvestMs *= OVERCHARGE_MUL;
-    }
+  const overcharge = overchargeMultiplier(state.owned);
+  if (freezeClosestMs !== null) {
+    freezeClosestMs *= overcharge;
+  }
+  if (scatterMs !== null) {
+    scatterMs *= overcharge;
+  }
+  if (wallPassMs !== null) {
+    wallPassMs *= overcharge;
+  }
+  if (invulnMs !== null) {
+    invulnMs *= overcharge;
+  }
+  if (speedBurstMs !== null) {
+    speedBurstMs *= overcharge;
+  }
+  if (ghostHarvestMs !== null) {
+    ghostHarvestMs *= overcharge;
+  }
+  if (warpInvulnMs > 0) {
+    invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
 
   let next = state;
@@ -751,7 +999,7 @@ export function applyPowerPelletEffects(
   return {
     state: next,
     freezeClosestMs,
-    recallClosestGhost,
+    recallGhostCount,
     warpPlayerTopCenter,
     collectExtraPellets,
   };
@@ -759,7 +1007,7 @@ export function applyPowerPelletEffects(
 
 function speedMultiplier(
   owned: readonly UpgradeId[],
-  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitQuarterMul" | "fruitLifetimeMul",
+  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitLifetimeMul",
 ): number {
   let mul = 1;
   for (const id of owned) {
@@ -779,8 +1027,81 @@ export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "ghostSpeedMul");
 }
 
-export function fruitQuarterMultiplier(owned: readonly UpgradeId[]): number {
-  return speedMultiplier(owned, "fruitQuarterMul");
+function ownedValue<K extends Exclude<keyof UpgradeEffects, "onPowerPellet">>(
+  owned: readonly UpgradeId[],
+  key: K,
+): UpgradeEffects[K] | undefined {
+  for (const id of owned) {
+    const value = UPGRADE_BY_ID.get(id)?.[key];
+    if (value !== undefined) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+export function fruitQuartersPerFruit(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "fruitQuarters") ?? null;
+}
+
+export function fruitPersistsUntilLevelEnd(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "fruitPersistsUntilLevelEnd") === true;
+}
+
+export function fruitStacksSideBySide(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "fruitStacksSideBySide") === true;
+}
+
+export function fruitPowerConvertsPellet(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "fruitPowerConvertsPellet") === true;
+}
+
+export function fruitFeastThresholds(owned: readonly UpgradeId[]): readonly number[] | null {
+  return ownedValue(owned, "fruitFeastThresholds") ?? null;
+}
+
+export function lifeFloorBonus(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "lifeFloorBonus") ?? 0;
+}
+
+export function regenToFull(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "regenToFull") === true;
+}
+
+export function pelletSurgeCount(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "pelletSurgeCount") ?? 0;
+}
+
+export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "deathsHarvestRadiusTiles") ?? DEATHS_HARVEST_RADIUS_TILES;
+}
+
+export function overchargeMultiplier(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "overchargeMul") ?? 1;
+}
+
+export function ghostTunnelSpeedRatio(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "ghostTunnelSpeedRatio") ?? null;
+}
+
+export function secondChompMs(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "secondChompMs") ?? SECOND_CHOMP_MS;
+}
+
+export function speedBurstMultiplier(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "speedBurstMul") ?? 1;
+}
+
+export function turnBoostMs(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "turnBoostMs") ?? TURN_TUNING_BOOST_MS;
+}
+
+export function turnPerfectPx(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "turnPerfectPx") ?? TURN_TUNING_PERFECT_PX;
+}
+
+export function wallPassLoopOwned(owned: readonly UpgradeId[]): boolean {
+  return owned.some((id) => UPGRADE_BY_ID.get(id)?.onPowerPellet?.wallPassLoop === true);
 }
 
 export function fruitLifetimeMultiplier(owned: readonly UpgradeId[]): number {
@@ -790,10 +1111,6 @@ export function fruitLifetimeMultiplier(owned: readonly UpgradeId[]): number {
 export function pelletCollectRadiusBonusPx(owned: readonly UpgradeId[]): number {
   let bonus = 0;
   for (const id of owned) {
-    if (id === "passivePickupRange") {
-      bonus = Math.max(bonus, pickupRangeBonusPx());
-      continue;
-    }
     const defBonus = UPGRADE_BY_ID.get(id)?.pelletCollectRadiusBonusPx;
     if (defBonus !== undefined) {
       bonus = Math.max(bonus, defBonus);

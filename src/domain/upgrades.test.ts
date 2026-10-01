@@ -10,7 +10,8 @@ import {
   PLAYER_SPEED_BURST_MUL,
   PLAYER_SPEED_UP_MUL,
   POWER_COLLECT_THREE_COUNT,
-  QUARTER_BOUNTY_MUL,
+  FRUIT_QUARTERS,
+  FRUIT_QUARTERS_ENHANCED,
   FRUIT_FECUNDITY_MUL,
   SCATTER_BURST_MS,
   SPEED_BURST_MS,
@@ -28,7 +29,8 @@ import {
   declineUpgrades,
   eligibleUpgrades,
   fruitLifetimeMultiplier,
-  fruitQuarterMultiplier,
+  fruitQuartersPerFruit,
+  type BaseUpgradeId,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
   ghostHouseReleaseDelayAddMs,
@@ -42,7 +44,6 @@ import {
   pickStartingUpgrade,
   pickUpgradeChoiceOffer,
   pelletCollectRadiusBonusPx,
-  pickupRangeBonusPx,
   playerIsInvulnerable,
   playerSpeedMultiplier,
   queuePowerPelletRespawns,
@@ -65,10 +66,34 @@ import {
   upgradeLabels,
   wallPassActive,
   type UpgradeId,
+  ALL_UPGRADE_IDS,
+  carryEnhancement,
+  getUpgradeDef,
+  remoteTransferEvery,
+  deathsHarvestRadiusTiles,
+  enhanceGrantLives,
+  enhanceUpgrade,
+  enhanceableUpgrades,
+  enhancedIdOf,
+  fruitFeastThresholds,
+  fruitPersistsUntilLevelEnd,
+  fruitPowerConvertsPellet,
+  ghostTunnelSpeedRatio,
+  hasUpgrade,
+  isEnhancedId,
+  lifeFloorBonus,
+  overchargeMultiplier,
+  pelletSurgeCount,
+  regenToFull,
+  secondChompMs,
+  speedBurstMultiplier,
+  turnBoostMs,
+  turnPerfectPx,
+  wallPassLoopOwned,
 } from "./upgrades";
 import { TILE_SIZE } from "./maze";
 
-const ALL_IDS: UpgradeId[] = [
+const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletFreeze",
   "passivePlayerSpeedUp",
   "passiveGhostSlow",
@@ -98,7 +123,7 @@ const ALL_IDS: UpgradeId[] = [
   "passiveTurnTuning",
 ];
 
-const STUB_IDS: UpgradeId[] = [
+const STUB_IDS: BaseUpgradeId[] = [
   "fruitPowerPellet",
   "passiveDeathsHarvest",
   "passiveOvercharge",
@@ -203,7 +228,7 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
 
   it("confirm grants chosen and tracks the single declined option", () => {
     const state = createRunUpgrades();
-    const options: UpgradeId[] = ["passivePlayerSpeedUp", "passiveGhostSlow"];
+    const options: BaseUpgradeId[] = ["passivePlayerSpeedUp", "passiveGhostSlow"];
     const next = confirmUpgradeChoice(state, options, "passivePlayerSpeedUp");
     expect(next.owned).toEqual(["passivePlayerSpeedUp"]);
     expect(next.lastDeclinedUpgradeId).toBe("passiveGhostSlow");
@@ -212,7 +237,7 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   it("confirm with one option leaves lastDeclined unchanged", () => {
     const state = {
       ...createRunUpgrades(),
-      lastDeclinedUpgradeId: "passiveGhostSlow" as UpgradeId,
+      lastDeclinedUpgradeId: "passiveGhostSlow" as BaseUpgradeId,
     };
     const next = confirmUpgradeChoice(state, ["powerPelletWarpTop"], "powerPelletWarpTop");
     expect(next.owned).toEqual(["powerPelletWarpTop"]);
@@ -222,9 +247,13 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   it("confirm with three options leaves lastDeclined unchanged (ambiguous)", () => {
     const state = {
       ...createRunUpgrades(),
-      lastDeclinedUpgradeId: "passiveGhostSlow" as UpgradeId,
+      lastDeclinedUpgradeId: "passiveGhostSlow" as BaseUpgradeId,
     };
-    const options: UpgradeId[] = ["passivePlayerSpeedUp", "powerPelletWarpTop", "passiveExtraLife"];
+    const options: BaseUpgradeId[] = [
+      "passivePlayerSpeedUp",
+      "powerPelletWarpTop",
+      "passiveExtraLife",
+    ];
     const next = confirmUpgradeChoice(state, options, "passivePlayerSpeedUp");
     expect(next.owned).toEqual(["passivePlayerSpeedUp"]);
     expect(next.lastDeclinedUpgradeId).toBe("passiveGhostSlow");
@@ -241,7 +270,7 @@ describe("declineUpgrades", () => {
   it("leaves lastDeclined unchanged when zero or multiple upgrades were declined", () => {
     const state = {
       ...createRunUpgrades(),
-      lastDeclinedUpgradeId: "passiveGhostSlow" as UpgradeId,
+      lastDeclinedUpgradeId: "passiveGhostSlow" as BaseUpgradeId,
     };
     expect(declineUpgrades(state, []).lastDeclinedUpgradeId).toBe("passiveGhostSlow");
     expect(
@@ -287,7 +316,7 @@ describe("grantUpgrade", () => {
     expect(applyPowerPelletEffects(state, 1)).toEqual({
       state,
       freezeClosestMs: null,
-      recallClosestGhost: false,
+      recallGhostCount: 0,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
     });
@@ -302,7 +331,7 @@ describe("grantUpgrade", () => {
     expect(applyPowerPelletEffects(owned, 1)).toEqual({
       state: owned,
       freezeClosestMs: null,
-      recallClosestGhost: false,
+      recallGhostCount: 0,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
     });
@@ -356,7 +385,7 @@ describe("freeze / power pellet", () => {
     expect(applyPowerPelletEffects(bare, 1)).toEqual({
       state: bare,
       freezeClosestMs: null,
-      recallClosestGhost: false,
+      recallGhostCount: 0,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
     });
@@ -366,7 +395,7 @@ describe("freeze / power pellet", () => {
     expect(frozen.state.freezeRemainingMs).toBe(0);
     expect(frozen.state.frozenGhostEid).toBeNull();
     expect(frozen.freezeClosestMs).toBe(FREEZE_MS);
-    expect(frozen.recallClosestGhost).toBe(false);
+    expect(frozen.recallGhostCount).toBe(0);
     expect(frozen.warpPlayerTopCenter).toBe(false);
     expect(frozen.collectExtraPellets).toBe(0);
 
@@ -379,7 +408,7 @@ describe("freeze / power pellet", () => {
     expect(applyPowerPelletEffects(owned, 0)).toEqual({
       state: owned,
       freezeClosestMs: null,
-      recallClosestGhost: false,
+      recallGhostCount: 0,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
     });
@@ -428,7 +457,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     expect(result.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
     expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
-    expect(result.recallClosestGhost).toBe(true);
+    expect(result.recallGhostCount).toBe(1);
     expect(result.warpPlayerTopCenter).toBe(true);
     expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
   });
@@ -438,7 +467,7 @@ describe("scatter burst / multi power-pellet effects", () => {
       grantUpgrade(createRunUpgrades(), "powerPelletGhostRecall"),
       1,
     );
-    expect(recall.recallClosestGhost).toBe(true);
+    expect(recall.recallGhostCount).toBe(1);
     expect(recall.warpPlayerTopCenter).toBe(false);
     expect(recall.collectExtraPellets).toBe(0);
 
@@ -446,7 +475,7 @@ describe("scatter burst / multi power-pellet effects", () => {
       grantUpgrade(createRunUpgrades(), "powerPelletWarpTop"),
       1,
     );
-    expect(warp.recallClosestGhost).toBe(false);
+    expect(warp.recallGhostCount).toBe(0);
     expect(warp.warpPlayerTopCenter).toBe(true);
     expect(warp.collectExtraPellets).toBe(0);
   });
@@ -499,7 +528,7 @@ describe("invuln / power pellet", () => {
     expect(applyPowerPelletEffects(bare, 1)).toEqual({
       state: bare,
       freezeClosestMs: null,
-      recallClosestGhost: false,
+      recallGhostCount: 0,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
     });
@@ -507,7 +536,7 @@ describe("invuln / power pellet", () => {
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
     const armed = applyPowerPelletEffects(owned, 1);
     expect(armed.state.invulnRemainingMs).toBe(INVULN_MS);
-    expect(armed.recallClosestGhost).toBe(false);
+    expect(armed.recallGhostCount).toBe(0);
     expect(armed.warpPlayerTopCenter).toBe(false);
     expect(armed.collectExtraPellets).toBe(0);
 
@@ -584,17 +613,18 @@ describe("speed multipliers / labels", () => {
 describe("pelletCollectRadiusBonusPx", () => {
   it("returns TILE_SIZE for pickupRange and 0 otherwise", () => {
     expect(pelletCollectRadiusBonusPx([])).toBe(0);
-    expect(pelletCollectRadiusBonusPx(["passivePickupRange"])).toBe(pickupRangeBonusPx());
-    expect(pickupRangeBonusPx()).toBe(TILE_SIZE);
+    expect(pelletCollectRadiusBonusPx(["passivePickupRange"])).toBe(TILE_SIZE);
+    expect(pelletCollectRadiusBonusPx(["passivePickupRangePlus"])).toBe(2 * TILE_SIZE);
     expect(pelletCollectRadiusBonusPx(["passivePlayerSpeedUp"])).toBe(0);
   });
 });
 
-describe("fruitQuarterMultiplier", () => {
-  it("doubles only when quarterBounty is owned", () => {
-    expect(fruitQuarterMultiplier([])).toBe(1);
-    expect(fruitQuarterMultiplier(["fruitQuarterBounty"])).toBe(QUARTER_BOUNTY_MUL);
-    expect(fruitQuarterMultiplier(["passivePlayerSpeedUp"])).toBe(1);
+describe("fruitQuartersPerFruit", () => {
+  it("pays Quarters directly only while Quarter Bounty is owned", () => {
+    expect(fruitQuartersPerFruit([])).toBeNull();
+    expect(fruitQuartersPerFruit(["fruitQuarterBounty"])).toBe(FRUIT_QUARTERS);
+    expect(fruitQuartersPerFruit(["fruitQuarterBountyPlus"])).toBe(FRUIT_QUARTERS_ENHANCED);
+    expect(fruitQuartersPerFruit(["passivePlayerSpeedUp"])).toBeNull();
   });
 });
 
@@ -630,7 +660,7 @@ describe("passiveOvercharge", () => {
       state = grantUpgrade(state, id);
     }
     const result = applyPowerPelletEffects(state, 1);
-    expect(result.recallClosestGhost).toBe(true);
+    expect(result.recallGhostCount).toBe(1);
     expect(result.warpPlayerTopCenter).toBe(true);
     expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
   });
@@ -640,7 +670,7 @@ describe("passiveOvercharge", () => {
     expect(applyPowerPelletEffects(state, 1)).toEqual({
       state,
       freezeClosestMs: null,
-      recallClosestGhost: false,
+      recallGhostCount: 0,
       warpPlayerTopCenter: false,
       collectExtraPellets: 0,
     });
@@ -782,5 +812,135 @@ describe("upgrade schools", () => {
   it("uses every school at least once", () => {
     const used = new Set(UPGRADE_DEFS.map((def) => def.school));
     expect([...used].sort()).toEqual(Object.keys(UPGRADE_SCHOOL_LABELS).sort());
+  });
+});
+
+describe("enhanced upgrades", () => {
+  it("derives a Plus def for every base id with a + label and the same school", () => {
+    for (const id of ALL_UPGRADE_IDS) {
+      const base = getUpgradeDef(id);
+      const plus = getUpgradeDef(enhancedIdOf(id));
+      expect(plus.isEnhanced).toBe(true);
+      expect(plus.baseId).toBe(id);
+      expect(plus.label).toBe(`${base.label}+`);
+      expect(plus.school).toBe(base.school);
+      expect(plus.description).not.toBe(base.description);
+    }
+  });
+
+  it("keeps Plus ids out of every pool", () => {
+    expect(ALL_UPGRADE_IDS.some((id) => isEnhancedId(id))).toBe(false);
+    expect(eligibleUpgrades([])).toHaveLength(ALL_UPGRADE_IDS.length);
+    expect(eligibleUpgrades(["passiveGhostSlowPlus"])).not.toContain("passiveGhostSlow");
+  });
+
+  it("hasUpgrade matches either form", () => {
+    expect(hasUpgrade(["passiveGhostSlow"], "passiveGhostSlow")).toBe(true);
+    expect(hasUpgrade(["passiveGhostSlowPlus"], "passiveGhostSlow")).toBe(true);
+    expect(hasUpgrade(["passiveGhostSlow"], "passivePlayerSpeedUp")).toBe(false);
+  });
+
+  it("enhances in place, once, and never grants a base alongside its Plus", () => {
+    const state = createRunUpgrades(["passiveGhostSlow", "passivePlayerSpeedUp"]);
+    const enhanced = enhanceUpgrade(state, "passiveGhostSlow");
+    expect(enhanced.owned).toEqual(["passiveGhostSlowPlus", "passivePlayerSpeedUp"]);
+    expect(enhanceUpgrade(enhanced, "passiveGhostSlow")).toBe(enhanced);
+    expect(enhanceableUpgrades(enhanced.owned)).toEqual(["passivePlayerSpeedUp"]);
+    expect(grantUpgrade(enhanced, "passiveGhostSlow")).toBe(enhanced);
+    expect(enhanceUpgrade(createRunUpgrades(), "passiveGhostSlow").owned).toEqual([]);
+  });
+
+  it("revokes whichever form is owned", () => {
+    const state = createRunUpgrades(["passiveGhostSlowPlus"]);
+    expect(revokeUpgrade(state, "passiveGhostSlow").owned).toEqual([]);
+  });
+
+  it("carries the outgoing form onto the incoming upgrade", () => {
+    expect(carryEnhancement("passiveGhostSlowPlus", "passivePlayerSpeedUp")).toBe(
+      "passivePlayerSpeedUpPlus",
+    );
+    expect(carryEnhancement("passiveGhostSlow", "passivePlayerSpeedUp")).toBe(
+      "passivePlayerSpeedUp",
+    );
+  });
+
+  it("grants only the extra life on enhancing Extra Life", () => {
+    expect(grantLivesForUpgrade("passiveExtraLife")).toBe(1);
+    expect(grantLivesForUpgrade("passiveExtraLifePlus")).toBe(2);
+    expect(enhanceGrantLives("passiveExtraLife")).toBe(1);
+    expect(enhanceGrantLives("passiveGhostSlow")).toBe(0);
+  });
+
+  it("accepts Plus ids in enableUpgrade", () => {
+    const ids = parseEnableUpgradeParams(new URLSearchParams("enableUpgrade=passiveGhostSlowPlus"));
+    expect(ids).toEqual(["passiveGhostSlowPlus"]);
+  });
+
+  it("returns base versus enhanced numbers from the owned list", () => {
+    expect(playerSpeedMultiplier(["passivePlayerSpeedUp"])).toBe(1.25);
+    expect(playerSpeedMultiplier(["passivePlayerSpeedUpPlus"])).toBe(1.5);
+    expect(ghostSpeedMultiplier(["passiveGhostSlow"])).toBe(0.8);
+    expect(ghostSpeedMultiplier(["passiveGhostSlowPlus"])).toBe(0.65);
+    expect(speedBurstMultiplier(["powerPelletSpeedBurst"])).toBe(1.25);
+    expect(speedBurstMultiplier(["powerPelletSpeedBurstPlus"])).toBe(1.5);
+    expect(deathsHarvestRadiusTiles([])).toBe(6);
+    expect(deathsHarvestRadiusTiles(["passiveDeathsHarvestPlus"])).toBe(10);
+    expect(overchargeMultiplier([])).toBe(1);
+    expect(overchargeMultiplier(["passiveOvercharge"])).toBe(2);
+    expect(overchargeMultiplier(["passiveOverchargePlus"])).toBe(3);
+    expect(secondChompMs(["passivePowerPelletRechargePlus"])).toBe(7000);
+    expect(remoteTransferEvery(["passiveRemoteTransferencePlus"])).toBe(3);
+    expect(turnBoostMs(["passiveTurnTuningPlus"])).toBe(750);
+    expect(turnPerfectPx(["passiveTurnTuningPlus"])).toBe(12);
+    expect(ghostTunnelSpeedRatio(["passiveTunnelDash"])).toBeNull();
+    expect(ghostTunnelSpeedRatio(["passiveTunnelDashPlus"])).toBe(0.3);
+    expect(lifeFloorBonus(["passiveExtraLifePlus"])).toBe(2);
+    expect(pelletSurgeCount(["passivePelletToPowerPlus"])).toBe(2);
+    expect(ghostHouseReleaseDelayAddMs(["passiveGhostHouseDelayPlus"])).toBe(3000);
+    expect(ghostHouseClydePelletAdd(["passiveGhostHouseDelayPlus"])).toBe(25);
+    expect(regenToFull(["passiveMyogenesisPlus"])).toBe(true);
+    expect(fruitFeastThresholds(["fruitFeastPlus"])).toEqual([45, 100, 150, 200]);
+    expect(fruitPersistsUntilLevelEnd(["fruitFecundityPlus"])).toBe(true);
+    expect(fruitPersistsUntilLevelEnd(["fruitFecundity"])).toBe(false);
+    expect(fruitPowerConvertsPellet(["fruitPowerPelletPlus"])).toBe(true);
+    expect(wallPassLoopOwned(["powerPelletWallPassPlus"])).toBe(true);
+    expect(wallPassLoopOwned(["powerPelletWallPass"])).toBe(false);
+  });
+
+  it("applies enhanced power-pellet numbers", () => {
+    const apply = (id: UpgradeId) => applyPowerPelletEffects(createRunUpgrades([id]), 1);
+    expect(apply("powerPelletFreezePlus").freezeClosestMs).toBe(5000);
+    expect(apply("powerPelletScatterBurstPlus").state.scatterBurstRemainingMs).toBe(5000);
+    expect(apply("powerPelletInvulnPlus").state.invulnRemainingMs).toBe(5000);
+    expect(apply("powerPelletGhostHarvesterPlus").state.ghostHarvestRemainingMs).toBe(8000);
+    expect(apply("passiveDefyDeathPlus").state.defyDeathRemainingMs).toBe(8000);
+    expect(apply("powerPelletGhostRecallPlus").recallGhostCount).toBe(2);
+    expect(apply("powerPelletCollectThreePlus").collectExtraPellets).toBe(5);
+    expect(apply("powerPelletWallPassPlus").state.wallPassRemainingMs).toBe(6000);
+  });
+
+  it("Warp Top Plus shields for 2s and Overcharge does not triple it", () => {
+    const warp = applyPowerPelletEffects(createRunUpgrades(["powerPelletWarpTopPlus"]), 1);
+    expect(warp.warpPlayerTopCenter).toBe(true);
+    expect(warp.state.invulnRemainingMs).toBe(2000);
+    const both = applyPowerPelletEffects(
+      createRunUpgrades(["powerPelletWarpTopPlus", "passiveOverchargePlus"]),
+      1,
+    );
+    expect(both.state.invulnRemainingMs).toBe(2000);
+    const proof = applyPowerPelletEffects(
+      createRunUpgrades(["powerPelletWarpTopPlus", "powerPelletInvuln", "passiveOvercharge"]),
+      1,
+    );
+    expect(proof.state.invulnRemainingMs).toBe(6000);
+  });
+
+  it("Overcharge Plus triples enhanced timers but not Defy Death", () => {
+    const result = applyPowerPelletEffects(
+      createRunUpgrades(["passiveOverchargePlus", "powerPelletFreezePlus", "passiveDefyDeathPlus"]),
+      1,
+    );
+    expect(result.freezeClosestMs).toBe(15000);
+    expect(result.state.defyDeathRemainingMs).toBe(8000);
   });
 });

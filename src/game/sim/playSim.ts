@@ -146,8 +146,6 @@ import {
   type StoreState,
 } from "../../domain/store";
 import {
-  DEATHS_HARVEST_RADIUS_TILES,
-  PLAYER_SPEED_BURST_MUL,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   clearUpgradeTimers,
@@ -157,7 +155,16 @@ import {
   declineUpgrades,
   FRUIT_FECUNDITY_MUL,
   fruitLifetimeMultiplier,
-  fruitQuarterMultiplier,
+  fruitQuartersPerFruit,
+  deathsHarvestRadiusTiles,
+  speedBurstMultiplier,
+  turnBoostMs,
+  secondChompMs,
+  lifeFloorBonus,
+  hasUpgrade,
+  baseIdOf,
+  pelletSurgeCount,
+  regenToFull,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
   ghostHouseReleaseDelayAddMs,
@@ -240,7 +247,6 @@ import {
 import {
   PERFECT_SPARK_COUNT,
   TURN_FLASH_MS,
-  TURN_TUNING_BOOST_MS,
   isCleanTap,
   closeSparkCount,
   turnFeedback,
@@ -412,7 +418,7 @@ export class PlaySim {
       this.emit({ type: "quarters" });
       this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
     } else {
-      const alreadyOwned = this.runUpgrades.owned.includes(chosen.id);
+      const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
       this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id);
       if (!alreadyOwned) {
         this.applyGrantEffects(chosen.id);
@@ -635,7 +641,7 @@ export class PlaySim {
 
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const turnTuning =
-      !diagonalAllowed && this.runUpgrades.owned.includes("passiveTurnTuning")
+      !diagonalAllowed && hasUpgrade(this.runUpgrades.owned, "passiveTurnTuning")
         ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
         : undefined;
     let turnTap: TurnTap | null = null;
@@ -706,7 +712,7 @@ export class PlaySim {
     const playerSpeedMul =
       levelSpeedMul *
       playerSpeedMultiplier(this.runUpgrades.owned) *
-      (speedBurstActive(this.runUpgrades) ? PLAYER_SPEED_BURST_MUL : 1) *
+      (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.runUpgrades.owned) : 1) *
       eatDragMultiplier(this.eatDragMs) *
       turnBoostMultiplier(this.turnBoostMs);
     applyPlayerSpeed(this.world, playerSpeedMul);
@@ -730,7 +736,7 @@ export class PlaySim {
     movement(this.world, delta, playerSolidsOverride);
     if (isPerpendicularTurn(facingBeforeMove, playerFacing(this.world))) {
       if (this.turnPerfectPending) {
-        this.turnBoostMs = TURN_TUNING_BOOST_MS;
+        this.turnBoostMs = turnBoostMs(this.runUpgrades.owned);
         this.turnFlashMs = TURN_FLASH_MS;
         this.emitTurnSparks("perfect", PERFECT_SPARK_COUNT);
       }
@@ -743,7 +749,7 @@ export class PlaySim {
         delta,
         PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
       );
-    } else if (this.runUpgrades.owned.includes("passiveTunnelDash")) {
+    } else if (hasUpgrade(this.runUpgrades.owned, "passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
@@ -756,10 +762,11 @@ export class PlaySim {
             removed: dash.sweptPelletEids.length,
             powerRemoved: dash.sweptPowerRemoved,
           });
-          if (this.runUpgrades.owned.includes("passivePowerPelletRecharge")) {
+          if (hasUpgrade(this.runUpgrades.owned, "passivePowerPelletRecharge")) {
             this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
               this.pendingPowerPelletRespawns,
               dash.sweptPowerPositions,
+              secondChompMs(this.runUpgrades.owned),
             );
           }
           this.applyBonus(applyStreakPellets(this.bonus, dash.sweptCells));
@@ -837,10 +844,11 @@ export class PlaySim {
         powerRemoved,
       });
     }
-    if (this.runUpgrades.owned.includes("passivePowerPelletRecharge")) {
+    if (hasUpgrade(this.runUpgrades.owned, "passivePowerPelletRecharge")) {
       this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
         this.pendingPowerPelletRespawns,
         removedPowerPositions,
+        secondChompMs(this.runUpgrades.owned),
       );
     }
     const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
@@ -890,7 +898,7 @@ export class PlaySim {
         corruption: corruptionAiOption(this.runCorruption),
       });
     }
-    if (powerEffects.recallClosestGhost) {
+    for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       recallClosestGhostToHouse(
         this.world,
         this.ghostReleaseClock,
@@ -908,7 +916,7 @@ export class PlaySim {
       this.pelletProgress.boardCollected,
       delta,
       this.levelIndex,
-      this.runUpgrades.owned.includes("fruitFeast"),
+      hasUpgrade(this.runUpgrades.owned, "fruitFeast"),
       fruitLifetimeMultiplier(this.runUpgrades.owned),
     );
     if (fruitTick.action === "spawn" || fruitTick.action === "replace") {
@@ -921,16 +929,20 @@ export class PlaySim {
     }
     if (removedFruitEids.length > 0) {
       this.emitMunch();
-      const fruitCharge = addBonusCharge(
-        this.bonus,
-        removedFruitEids.length *
-          FRUIT_BONUS_CHARGE *
-          fruitQuarterMultiplier(this.runUpgrades.owned),
-      );
-      this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
+      const fruitQuarters = fruitQuartersPerFruit(this.runUpgrades.owned);
+      if (fruitQuarters !== null) {
+        this.quarters += removedFruitEids.length * fruitQuarters;
+        this.emit({ type: "quarters" });
+      } else {
+        const fruitCharge = addBonusCharge(
+          this.bonus,
+          removedFruitEids.length * FRUIT_BONUS_CHARGE,
+        );
+        this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
+      }
       this.fruitPresence = markFruitCollected(fruitTick.state);
       if (
-        this.runUpgrades.owned.includes("fruitPowerPellet") &&
+        hasUpgrade(this.runUpgrades.owned, "fruitPowerPellet") &&
         this.resolvePowerPelletTrigger(1)
       ) {
         return;
@@ -957,8 +969,11 @@ export class PlaySim {
     this.emitDraw();
 
     if (caught) {
-      if (this.runUpgrades.owned.includes("passiveDeathsHarvest")) {
-        const harvested = harvestNearbyPellets(this.world, DEATHS_HARVEST_RADIUS_TILES);
+      if (hasUpgrade(this.runUpgrades.owned, "passiveDeathsHarvest")) {
+        const harvested = harvestNearbyPellets(
+          this.world,
+          deathsHarvestRadiusTiles(this.runUpgrades.owned),
+        );
         if (harvested.length > 0) {
           for (const eid of harvested) {
             this.releaseDrawable(eid);
@@ -1275,9 +1290,7 @@ export class PlaySim {
     this.suppressInputUntilKeyRelease = false;
     this.emit({ type: "timer" });
 
-    if (this.runUpgrades.owned.includes("passivePelletToPower")) {
-      this.applyPelletToPowerOnce();
-    }
+    this.applyPelletSurge(pelletSurgeCount(this.runUpgrades.owned));
     if (this.bossState !== null) {
       this.tagBossPellets(this.bossState);
     }
@@ -1459,7 +1472,7 @@ export class PlaySim {
         }
       }
     }
-    if (powerEffects.recallClosestGhost) {
+    for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       recallClosestGhostToHouse(
         this.world,
         this.ghostReleaseClock,
@@ -1483,33 +1496,38 @@ export class PlaySim {
   }
 
   private regenIconFloor(): number {
-    return levelLivesIconFloor(this.runUpgrades.owned.includes("passiveExtraLife"));
+    return levelLivesIconFloor(lifeFloorBonus(this.runUpgrades.owned));
   }
 
   private regenAmount(): number {
-    return levelRegenAmount(this.runUpgrades.owned.includes("passiveMyogenesis"));
+    return levelRegenAmount(
+      hasUpgrade(this.runUpgrades.owned, "passiveMyogenesis"),
+      regenToFull(this.runUpgrades.owned),
+    );
   }
 
   private applyGrantEffects(id: UpgradeId): void {
     this.lives += grantLivesForUpgrade(id);
-    if (id === "passivePelletToPower") {
-      this.applyPelletToPowerOnce();
+    if (baseIdOf(id) === "passivePelletToPower") {
+      this.applyPelletSurge(pelletSurgeCount([id]));
     }
     if (id === "fruitFecundity") {
       this.fruitPresence = extendFruitLifetime(this.fruitPresence, FRUIT_FECUNDITY_MUL);
     }
   }
 
-  private applyPelletToPowerOnce(): void {
-    const eid = applyPelletToPowerConvert(
-      this.world,
-      this.random.stream("pelletToPower", this.levelIndex),
-    );
-    if (eid === null) {
-      return;
+  private applyPelletSurge(count: number): void {
+    for (let converted = 0; converted < count; converted += 1) {
+      const eid = applyPelletToPowerConvert(
+        this.world,
+        this.random.stream("pelletToPower", this.levelIndex),
+      );
+      if (eid === null) {
+        return;
+      }
+      this.emitDraw();
+      this.emit({ type: "bouncePowerPellet", eid });
     }
-    this.emitDraw();
-    this.emit({ type: "bouncePowerPellet", eid });
   }
 
   private renderCorruptionOptions(): Pick<
