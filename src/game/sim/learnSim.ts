@@ -83,7 +83,7 @@ import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
-import { warpPlayerToTopCenter } from "../systems/playerWarp";
+import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   applyTunnelDash,
   tickTunnelDashAnimation,
@@ -414,8 +414,8 @@ export class LearnSim {
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
     }
-    if (powerEffects.warpPlayerTopCenter) {
-      warpPlayerToTopCenter(this.world);
+    if (powerEffects.warpPlayerFarthest) {
+      warpPlayerFarthestFromGhosts(this.world);
     }
   }
 

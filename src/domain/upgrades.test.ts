@@ -319,7 +319,7 @@ describe("grantUpgrade", () => {
       state,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
@@ -334,7 +334,7 @@ describe("grantUpgrade", () => {
       state: owned,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
   });
@@ -388,7 +388,7 @@ describe("freeze / power pellet", () => {
       state: bare,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
 
@@ -398,7 +398,7 @@ describe("freeze / power pellet", () => {
     expect(frozen.state.frozenGhostEid).toBeNull();
     expect(frozen.freezeClosestMs).toBe(FREEZE_MS);
     expect(frozen.recallGhostCount).toBe(0);
-    expect(frozen.warpPlayerTopCenter).toBe(false);
+    expect(frozen.warpPlayerFarthest).toBe(false);
     expect(frozen.collectExtraPellets).toBe(0);
 
     const partial = { ...owned, freezeRemainingMs: 500, frozenGhostEid: 3 };
@@ -411,7 +411,7 @@ describe("freeze / power pellet", () => {
       state: owned,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
   });
@@ -460,7 +460,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
     expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
     expect(result.recallGhostCount).toBe(1);
-    expect(result.warpPlayerTopCenter).toBe(true);
+    expect(result.warpPlayerFarthest).toBe(true);
     expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
   });
 
@@ -470,7 +470,7 @@ describe("scatter burst / multi power-pellet effects", () => {
       1,
     );
     expect(recall.recallGhostCount).toBe(1);
-    expect(recall.warpPlayerTopCenter).toBe(false);
+    expect(recall.warpPlayerFarthest).toBe(false);
     expect(recall.collectExtraPellets).toBe(0);
 
     const warp = applyPowerPelletEffects(
@@ -478,7 +478,7 @@ describe("scatter burst / multi power-pellet effects", () => {
       1,
     );
     expect(warp.recallGhostCount).toBe(0);
-    expect(warp.warpPlayerTopCenter).toBe(true);
+    expect(warp.warpPlayerFarthest).toBe(true);
     expect(warp.collectExtraPellets).toBe(0);
   });
 
@@ -531,7 +531,7 @@ describe("invuln / power pellet", () => {
       state: bare,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
 
@@ -539,7 +539,7 @@ describe("invuln / power pellet", () => {
     const armed = applyPowerPelletEffects(owned, 1);
     expect(armed.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(armed.recallGhostCount).toBe(0);
-    expect(armed.warpPlayerTopCenter).toBe(false);
+    expect(armed.warpPlayerFarthest).toBe(false);
     expect(armed.collectExtraPellets).toBe(0);
 
     const partial = { ...armed.state, invulnRemainingMs: 500 };
@@ -663,7 +663,7 @@ describe("passiveOvercharge", () => {
     }
     const result = applyPowerPelletEffects(state, 1);
     expect(result.recallGhostCount).toBe(1);
-    expect(result.warpPlayerTopCenter).toBe(true);
+    expect(result.warpPlayerFarthest).toBe(true);
     expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
   });
 
@@ -673,7 +673,7 @@ describe("passiveOvercharge", () => {
       state,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
   });
@@ -932,7 +932,7 @@ describe("enhanced upgrades", () => {
 
   it("Warp Top Plus shields for 2s and Overcharge does not triple it", () => {
     const warp = applyPowerPelletEffects(createRunUpgrades(["powerPelletWarpTopPlus"]), 1);
-    expect(warp.warpPlayerTopCenter).toBe(true);
+    expect(warp.warpPlayerFarthest).toBe(true);
     expect(warp.state.invulnRemainingMs).toBe(2000);
     const both = applyPowerPelletEffects(
       createRunUpgrades(["powerPelletWarpTopPlus", "passiveOverchargePlus"]),

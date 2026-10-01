@@ -35,8 +35,8 @@ import {
   pipeEdges,
   playerDisplaySize,
   playerSpawnCenter,
-  playerTopCenterCell,
-  playerTopCenterSpawn,
+  playerFarthestFromGhostsCell,
+  playerFarthestFromGhostsSpawn,
   pelletCellCenters,
   tunnelDashOutwardEdge,
   PLAYER_WALL_PADDING_PX,
@@ -231,31 +231,29 @@ describe("maze", () => {
     expect(spawn.y).toBe(cellCenterY(playerSpawn.row));
   });
 
-  it("picks the walkable cell closest to top-middle without hardcoding tiles", () => {
-    const cell = playerTopCenterCell();
-    expect(isWalkable(cell.col, cell.row, getActiveLayout().playerSolids)).toBe(true);
-    expect(cell.row).toBe(1);
-    expect(cell.col).toBe(12);
-
-    const spawn = playerTopCenterSpawn();
-    expect(spawn.x).toBe(cellCenterX(12));
-    expect(spawn.y).toBe(cellCenterY(1));
-
+  it("picks the walkable cell whose nearest ghost is farthest, ties to lower row then col", () => {
     const solids = Array.from({ length: MAZE_ROWS }, () =>
       Array.from({ length: MAZE_COLS }, () => true),
     );
+    solids[5]![2] = false;
     solids[5]![20] = false;
-    solids[8]![10] = false;
-    expect(playerTopCenterCell(solids)).toEqual({ col: 20, row: 5 });
+    solids[6]![11] = false;
+    const left = { x: cellCenterX(2), y: cellCenterY(5) };
+    expect(playerFarthestFromGhostsCell([left], solids)).toEqual({ col: 20, row: 5 });
+    const right = { x: cellCenterX(20), y: cellCenterY(5) };
+    expect(playerFarthestFromGhostsCell([left, right], solids)).toEqual({ col: 11, row: 6 });
+    expect(playerFarthestFromGhostsCell([right], solids)).toEqual({ col: 2, row: 5 });
+    const spawn = playerFarthestFromGhostsSpawn([left, right], solids);
+    expect(spawn).toEqual({ x: cellCenterX(11), y: cellCenterY(6) });
   });
 
-  it("falls back to player spawn when no walkable cells exist", () => {
+  it("falls back to player spawn with no ghosts or no walkable cells", () => {
+    const { playerSpawn } = getActiveLayout();
+    expect(playerFarthestFromGhostsCell([])).toEqual({ ...playerSpawn });
     const solids = Array.from({ length: MAZE_ROWS }, () =>
       Array.from({ length: MAZE_COLS }, () => true),
     );
-    expect(playerTopCenterCell(solids)).toEqual({
-      ...getActiveLayout().playerSpawn,
-    });
+    expect(playerFarthestFromGhostsCell([{ x: 0, y: 0 }], solids)).toEqual({ ...playerSpawn });
   });
 
   it("wallPassPlayerSolids opens house, exterior, and interior walls; keeps non-tunnel edge walls solid", () => {

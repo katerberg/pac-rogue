@@ -204,7 +204,7 @@ PlaySim.step →
   collectExtraPellets? → releaseDrawable(bonus) → applyPelletCollect(touch+bonus) →
   resolveGhostModeStep (pause wave while scatter burst + clock active) →
   (effective mode changed ? forceGhostReverse : ghostAi) →
-  recallClosestGhost? → warpPlayerTopCenter? →
+  recallClosestGhost? → warpPlayerFarthest? →
   tickFruitPresence (boardCollected; spawn/replace/despawn) →
   collectFruit → releaseDrawable(removed) → munch SFX + half a BONUS bar of charge (a fill pays a Quarter; fruit has no upgrade effect) →
   tickBoss? (boss level: eaten boss pellets queue Blinkys; spawn at free tunnel mouths) →

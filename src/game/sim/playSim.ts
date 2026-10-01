@@ -267,7 +267,7 @@ import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
-import { warpPlayerToTopCenter } from "../systems/playerWarp";
+import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   applyTunnelDash,
   tickTunnelDashAnimation,
@@ -894,8 +894,8 @@ export class PlaySim {
         releaseAdds,
       );
     }
-    if (powerEffects.warpPlayerTopCenter) {
-      warpPlayerToTopCenter(this.world);
+    if (powerEffects.warpPlayerFarthest) {
+      warpPlayerFarthestFromGhosts(this.world);
     }
 
     const stacksFruit = fruitStacksSideBySide(this.runUpgrades.owned);
@@ -1486,8 +1486,8 @@ export class PlaySim {
         },
       );
     }
-    if (powerEffects.warpPlayerTopCenter) {
-      warpPlayerToTopCenter(this.world);
+    if (powerEffects.warpPlayerFarthest) {
+      warpPlayerFarthestFromGhosts(this.world);
     }
     return false;
   }
