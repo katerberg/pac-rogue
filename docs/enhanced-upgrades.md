@@ -1,6 +1,8 @@
-# Enhanced upgrades (planning)
+# Enhanced upgrades (design reference)
 
-Working spec for the store's **enhance** feature. Nothing here is implemented yet; the "Enhanced" column is filled in by the designer, then drives a one-shot plan (`one-shot-plan` skill).
+**Status: implemented.** The mechanism and the shipped behavior are in [upgrades.md](./upgrades.md#enhanced-upgrades) and [store.md](./store.md). This file keeps the design table and the decisions behind it. Every new upgrade needs its row here.
+
+The Enhanced column below was written by the designer and drove the one-shot plan.
 
 ## Store offers
 
@@ -54,7 +56,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 - **Enhanced replaces base.** The enhanced numbers above are the effect, not an add-on.
 - **Fruit Power and Overcharge scale with enhanced upgrades.** Both read the owned effects, so enhanced timers flow through (Overcharge tripling included).
 - **Not tripled by Overcharge:** Warp Top's 2s invulnerability and Defy Death's window.
-- **Wall Pass** stays 6s (code value); [upgrades.md](./upgrades.md) saying 3s is a doc bug to fix when this ships.
+- **Wall Pass** stays 6s (code value); [upgrades.md](./upgrades.md) saying 3s was a doc bug, now fixed.
 - **Speed stacking is intended:** Speed Up × Speed Burst × the turn boost can reach about 2.8×. No cap.
 - **Pickup Range** (2 tiles) still needs line of sight.
 - **Base values that change for every run:** Ghost Slow ×0.8 (from ×0.75), Quarter Bounty (a Quarter replaces the bar charge), ghost tunnel speed 0.6× (from 0.5×).
@@ -66,11 +68,6 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 - **Enhancement tile:** picks one owned, unenhanced upgrade at random and swaps it for its enhanced version. No eligible upgrade means no tile. Only the first store omits it.
 - **Visuals:** an enhanced upgrade's name gets a `+`; its store tile glows and has a different border color.
 
-## Remaining questions
+## Prices
 
-- **Prices:** enhancement and trade cost? Today a life and a swap are 1 Quarter and an upgrade is 3. Unless told otherwise the plan will use: life 1, enhancement 2, trade 1, new ability 3.
-
-## Follow-ups when implemented
-
-- `UpgradeDef` gains an enhanced variant; the "Adding an upgrade" checklist in [upgrades.md](./upgrades.md#adding-an-upgrade) requires one for every new upgrade.
-- LEARN page gets an enhanced on/off toggle for upgrades that have one ([learn.md](./learn.md)), done last.
+Life 1 Quarter, new ability 3, trade 1, enhancement 2.

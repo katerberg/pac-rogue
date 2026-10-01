@@ -62,6 +62,9 @@ skip any question the pitch already answers.
   - **Sound:** a new sound, which the user must supply (`public/sound/`).
   - **Splash or particles.**
   - Or no feedback at all. Ask; do not invent big visuals unprompted.
+- **Enhanced version:** what does the `Plus` form do (new numbers or a new behavior)? Which base
+  values, if any, change for everyone? Does it interact with Overcharge (does it triple?) or Fruit
+  Power? Ask for the numbers; never invent them.
 - **LEARN:** mirror it in `LearnSim`, or show the "no visible effect" banner?
 - **Edge cases the user may waive:** offer "skip, it's an edge case" as an explicit option. The
   user often takes it.
@@ -79,6 +82,10 @@ skip any question the pitch already answers.
 - **E. Randomness:** none, or a new named `RunRandom` stream. Never `Math.random`.
 - **F. Tests:** add domain unit tests, an `upgrades.test.ts` entry and a `PlaySim` integration
   test. With the upgrade owned, the test shows the effect. Without it, behaviour is unchanged.
+- **K. Enhanced:** every upgrade ships with its `enhanced` override on its `BASE_UPGRADE_DEFS` row (the
+  type requires it) and a row in the Enhanced table in `docs/upgrades.md` and
+  `docs/enhanced-upgrades.md`. Test both forms (`<id>` and `<id>Plus`) in `upgrades.test.ts` and
+  `PlaySim`. New effect fields are read through `ownedValue`-style helpers, never by id checks.
 - **G. Docs:** the `docs/upgrades.md` table row plus a section, the README `Upgrade ids` list,
   and the `docs/learn.md` fidelity table.
 - **H. Live check:** `npm run probe` with `seed=` and `enableUpgrade=<id>`. Assert against the
@@ -93,22 +100,22 @@ mode, final step `ship-plan`) and wait for "go".
 
 Every upgrade PR touched all of these. Missing one fails `npm run verify` or leaves a doc stale.
 
-| Where                                             | What                                                                                                                                                                         |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/domain/upgrades.ts`                          | Add the id to the end of the `UpgradeId` union. Add a `UPGRADE_DEFS` row at the end with a required `storePrice`, named constants for every number, and any new def field.   |
-| `src/domain/upgrades.ts` (if a timer)             | `RunUpgrades` field, `createRunUpgrades`, `clearUpgradeTimers`, a `tick…` helper and the `applyPowerPelletEffects` aggregation. Decide whether Overcharge doubles it.        |
-| `src/domain/upgrades.test.ts`                     | Append the id to `ALL_IDS`, which must match `UPGRADE_DEFS` order. Add tests for the new helper.                                                                             |
-| `src/domain/seenRecord.test.ts`                   | Bump `all.upgrades` `toHaveLength(N)` to the new `ALL_UPGRADE_IDS.length`.                                                                                                   |
-| Domain helper / `src/game/systems/*.ts` + test    | The effect itself, pure and unit-tested.                                                                                                                                     |
-| `src/game/sim/playSim.ts`                         | One call site. Reset any per-board state in `startBoard` and on life loss. Emit `SimEvent`s for sfx and visuals.                                                             |
-| `src/game/sim/playSim.test.ts`                    | Add a `describe("<Label>")` block covering the owned path, the not-owned path and each interaction you locked.                                                               |
-| `src/game/sim/simEvents.ts` / `render.ts`         | Only if there is new feedback. Keep the look curve in a domain function (see §5).                                                                                            |
-| `src/game/sim/playSim.ts` `snapshot()` (`timers`) | Expose new timer or progress fields read-only, and add them to the snapshot table in `docs/VERIFICATION.md`.                                                                 |
-| LEARN                                             | Either mirror it in `learnSim.ts` (plus a `learnSim.test.ts` case), or append the id to `LEARN_NO_EFFECT_UPGRADE_IDS` in `LearnScene.ts`.                                    |
-| `docs/upgrades.md`                                | Add a defs-table row and a `### <Label>` section covering rules, interactions, reset points and LEARN behaviour. Update the `RunUpgrades` model bullet if it gained a timer. |
-| `docs/learn.md`                                   | Add the upgrade to the matching fidelity-table row.                                                                                                                          |
-| `README.md`                                       | Append the id to the `Upgrade ids:` line.                                                                                                                                    |
-| Other docs                                        | `levels.md`, `store.md` or `ARCHITECTURE.md` only when the rule they describe changed. Myogenesis needed `levels.md` and `store.md`.                                         |
+| Where                                             | What                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/domain/upgrades.ts`                          | Add the id to the end of the `BaseUpgradeId` union. Add a `BASE_UPGRADE_DEFS` row at the end with a required `storePrice`, a required `enhanced` override (new `description` plus changed effect fields), named constants for every number (base and enhanced), and any new def field. |
+| `src/domain/upgrades.ts` (if a timer)             | `RunUpgrades` field, `createRunUpgrades`, `clearUpgradeTimers`, a `tick…` helper and the `applyPowerPelletEffects` aggregation. Decide whether Overcharge doubles it.                                                                                                                  |
+| `src/domain/upgrades.test.ts`                     | Append the id to `ALL_IDS`, which must match `BASE_UPGRADE_DEFS` order. Add tests for the new helper in both forms (`<id>` and `<id>Plus`).                                                                                                                                            |
+| `src/domain/seenRecord.test.ts`                   | Bump `all.upgrades` `toHaveLength(N)` to the new `ALL_UPGRADE_IDS.length`.                                                                                                                                                                                                             |
+| Domain helper / `src/game/systems/*.ts` + test    | The effect itself, pure and unit-tested.                                                                                                                                                                                                                                               |
+| `src/game/sim/playSim.ts`                         | One call site. Reset any per-board state in `startBoard` and on life loss. Emit `SimEvent`s for sfx and visuals.                                                                                                                                                                       |
+| `src/game/sim/playSim.test.ts`                    | Add a `describe("<Label>")` block covering the owned path, the not-owned path and each interaction you locked.                                                                                                                                                                         |
+| `src/game/sim/simEvents.ts` / `render.ts`         | Only if there is new feedback. Keep the look curve in a domain function (see §5).                                                                                                                                                                                                      |
+| `src/game/sim/playSim.ts` `snapshot()` (`timers`) | Expose new timer or progress fields read-only, and add them to the snapshot table in `docs/VERIFICATION.md`.                                                                                                                                                                           |
+| LEARN                                             | Either mirror it in `learnSim.ts` (plus a `learnSim.test.ts` case), or append the id to `LEARN_NO_EFFECT_UPGRADE_IDS` in `LearnScene.ts`.                                                                                                                                              |
+| `docs/upgrades.md`                                | Add a defs-table row and a `### <Label>` section covering rules, interactions, reset points and LEARN behaviour. Update the `RunUpgrades` model bullet if it gained a timer.                                                                                                           |
+| `docs/learn.md`                                   | Add the upgrade to the matching fidelity-table row.                                                                                                                                                                                                                                    |
+| `README.md`                                       | Append the id to the `Upgrade ids:` line.                                                                                                                                                                                                                                              |
+| Other docs                                        | `levels.md`, `store.md` or `ARCHITECTURE.md` only when the rule they describe changed. Myogenesis needed `levels.md` and `store.md`.                                                                                                                                                   |
 
 Run `npx prettier --write` on the touched markdown. Aligned tables are re-padded on every edit,
 which is the main source of merge conflicts.
@@ -158,7 +165,7 @@ up to 40%", "same invulnerability tint and blink-out", "slow and strengthen the 
 ## 6. Merge conflicts with sibling upgrade PRs
 
 Several upgrades are often built in parallel. They conflict in the same places every time:
-`UpgradeId` / `UPGRADE_DEFS`, `ALL_IDS`, the `seenRecord` count, the README id list, the
+`BaseUpgradeId` / `BASE_UPGRADE_DEFS`, `ALL_IDS`, the `seenRecord` count, the README id list, the
 `docs/upgrades.md` and `docs/learn.md` tables, and `LEARN_NO_EFFECT_UPGRADE_IDS`.
 
 1. Run `git fetch origin main && git merge origin/main`. Never rebase a pushed branch.

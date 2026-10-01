@@ -18,13 +18,14 @@ On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the moda
 
 Slot glyphs are walkable empty cells to the maze builder; `parseStoreSlots` turns each 2×2 block into a slot (row, then col order):
 
-| Glyph | Slot                                                       | Price                                                           |
-| ----- | ---------------------------------------------------------- | --------------------------------------------------------------- |
-| `L`   | Extra life (+1 life), unlimited                            | `STORE_LIFE_PRICE` (1)                                          |
-| `U`   | Random unowned upgrade                                     | `storePriceFor(id)` — `UpgradeDef.storePrice` (required; all 3) |
-| `S`   | Swap: lose a shown owned upgrade, gain a hidden random one | `STORE_SWAP_PRICE` (1)                                          |
+| Glyph | Slot                                                                         | Price                                                           |
+| ----- | ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `L`   | Extra life (+1 life); two tiles, each sold once                              | `STORE_LIFE_PRICE` (1)                                          |
+| `U`   | Random unowned upgrade; two tiles                                            | `storePriceFor(id)` — `UpgradeDef.storePrice` (required; all 3) |
+| `S`   | Trade: lose a shown owned upgrade, gain a hidden random one (same form)      | `STORE_SWAP_PRICE` (1)                                          |
+| `E`   | Enhance: a random owned, unenhanced upgrade becomes its enhanced `Plus` form | `STORE_ENHANCE_PRICE` (2)                                       |
 
-`createStoreState` rolls stock once on entry: three distinct unowned upgrades (fewer if the pool is short — unfilled slots are omitted) and, if anything is owned, a swap whose outgoing upgrade is picked at random. No restock.
+`createStoreState(cells, owned, rng, firstStore)` rolls stock once on entry: two distinct unowned upgrades (fewer if the pool is short — unfilled slots are omitted), both life tiles, and — except in the **first store** (after level 3, `STORE_FIRST_LEVEL`, which only has the two lives and two upgrades) — a trade whose outgoing upgrade is picked at random from anything owned, plus an enhancement whose target is picked at random from owned upgrades that are not yet enhanced (no such upgrade → no `E` tile). No restock.
 
 ## Movement
 
@@ -41,12 +42,13 @@ Store floors loop `storeMusic` (`sound/store.ogg`, music category) instead of `g
 - Stepping onto an unsold slot you can afford opens a big centered modal (`storeOverlay.ts`, same card size as the upgrade-choice modal): name, description, `COST n`, and `SURE?  YES  NO` with **NO** focused — the same pattern as the pause menu's Quit confirm.
 - While the modal is open every key except Left/Right (toggle YES/NO), Enter/Space (choose), and Escape (pause) is ignored; `PlayScene` clears the player's direction input so the player settles on the tile center.
 - Choosing **NO** closes the modal; stepping off and back on re-opens it. After the modal closes, movement waits for held keys to be released.
-- A slot you can't buy (too few Quarters → `NEED n QUARTERS`, or a swap with an empty pool → `NOTHING TO SWAP`) only shows the right-hand info panel; no modal.
-- Life: +1 life; the modal stays open with **YES** focused so Enter repeats until you run out of Quarters.
+- A slot you can't buy (too few Quarters → `NEED n QUARTERS`, a swap with an empty pool → `NOTHING TO SWAP`, or no unenhanced upgrade left → `NOTHING TO ENHANCE`) only shows the right-hand info panel; no modal.
+- Life: +1 life, and the tile disappears (two life tiles per store).
 - Upgrade: granted (same side effects as a level-clear pick), tile disappears, the side panel shows `GOT IT!` for 2s.
-- Swap: incoming upgrade is drawn at purchase from upgrades that are unowned and not still on the shelf; the outgoing one is revoked (an Extra Life's life is kept) and the incoming one granted and revealed. Empty pool → `NOTHING TO SWAP`.
+- Swap: incoming upgrade is drawn at purchase from upgrades that are unowned and not still on the shelf; the outgoing one is revoked (an Extra Life's life is kept) and the incoming one granted and revealed. If the outgoing upgrade was enhanced, the incoming one is granted enhanced (`carryEnhancement`). Empty pool → `NOTHING TO SWAP`.
+- Enhance: swaps the target (shown on the tile, re-rolled at purchase if it is no longer owned and unenhanced) for its `Plus` form in place; Extra Life grants its extra life; the side panel shows `GOT IT!` with the `+` label. Buying it also relabels a trade tile that shows the same upgrade.
 - Hovering a tile with the mouse shows its info in the side panel when no modal or toast is showing.
-- Tiles are outlined with a thin dotted line in the maze color so they read as buttons, not walls.
+- Tiles are outlined with a thin dotted line in the maze color so they read as buttons, not walls. The `E` tile uses a gold line (`STORE_ENHANCE_BORDER_COLOR`) and a pulsing halo behind it (`enhanceGlowAlpha`).
 - Each tile shows its letter (centered on the glyph's ink via `glyphInkCenterOffsetX`, since VGA glyphs sit left in their 8px cell) — or the life icon / `?` — above a row of quarter icons, one per Quarter of price. A price too wide for the tile packs the icons so they overlap.
 
 ## Leaving
