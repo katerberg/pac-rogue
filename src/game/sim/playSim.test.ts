@@ -477,6 +477,18 @@ describe("PlaySim", () => {
     expect(events).toContainEqual({ type: "lives", pulse: true });
   });
 
+  it("stops a diagonal walk when it opens a store prompt", () => {
+    const sim = startSim({ store: true, quarters: 10 });
+    const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
+    teleportPlayer(sim, cellCenterX(life.col - 1), cellCenterY(life.row - 1));
+    runFrames(sim, 1);
+    runFrames(sim, 120, { keys: { ...held("down"), right: 0 } });
+    expect(sim.storeState()?.activeSlot).not.toBeNull();
+    const at = { x: sim.snapshot().player?.x, y: sim.snapshot().player?.y };
+    runFrames(sim, 30, { keys: { ...held("down"), right: 0 } });
+    expect(sim.snapshot().player).toMatchObject(at);
+  });
+
   it("adds a Blinky when the player eats a boss pellet", () => {
     const sim = startSim({ level: 9 });
     expect(sim.snapshot().boss?.ghostCount).toBe(2);
