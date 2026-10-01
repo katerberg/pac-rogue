@@ -81,6 +81,8 @@ import {
   ghostTunnelSpeedRatio,
   hasUpgrade,
   isEnhancedId,
+  learnEnhanceToggleState,
+  ownedFormOf,
   lifeFloorBonus,
   overchargeMultiplier,
   pelletSurgeCount,
@@ -869,6 +871,13 @@ describe("enhanced upgrades", () => {
     expect(grantLivesForUpgrade("passiveExtraLifePlus")).toBe(2);
     expect(enhanceGrantLives("passiveExtraLife")).toBe(1);
     expect(enhanceGrantLives("passiveGhostSlow")).toBe(0);
+  });
+
+  it("reports the Learn toggle state per upgrade", () => {
+    expect(learnEnhanceToggleState([], "passiveGhostSlow")).toBe("hidden");
+    expect(learnEnhanceToggleState(["passiveGhostSlow"], "passiveGhostSlow")).toBe("off");
+    expect(learnEnhanceToggleState(["passiveGhostSlowPlus"], "passiveGhostSlow")).toBe("on");
+    expect(ownedFormOf(["passiveGhostSlowPlus"], "passiveGhostSlow")).toBe("passiveGhostSlowPlus");
   });
 
   it("accepts Plus ids in enableUpgrade", () => {

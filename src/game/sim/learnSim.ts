@@ -28,7 +28,11 @@ import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   baseIdOf,
+  enhancedIdOf,
   hasUpgrade,
+  isEnhancedId,
+  ownedFormOf,
+  type BaseUpgradeId,
   wallPassLoopOwned,
   ghostTunnelSpeedRatio,
   pelletSurgeCount,
@@ -416,6 +420,25 @@ export class LearnSim {
     return this.takeEvents();
   }
 
+  toggleEnhanced(baseId: BaseUpgradeId): SimEvent[] {
+    this.events = [];
+    const current = ownedFormOf(this.learnUpgrades.owned, baseId);
+    if (current === null) {
+      return this.takeEvents();
+    }
+    const enhancing = !isEnhancedId(current);
+    const nextId = enhancing ? enhancedIdOf(baseId) : baseId;
+    const toggled = {
+      ...this.learnUpgrades,
+      owned: this.learnUpgrades.owned.map((id) => (id === current ? nextId : id)),
+    };
+    this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
+    if (enhancing && baseId === "passivePelletToPower") {
+      this.applyPelletSurge(pelletSurgeCount([nextId]) - pelletSurgeCount([current]));
+    }
+    return this.takeEvents();
+  }
+
   private applyPelletSurge(count: number): void {
     for (let converted = 0; converted < count; converted += 1) {
       const eid = applyPelletToPowerConvert(this.world, this.random.stream("pelletToPower"));
@@ -588,7 +611,8 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
     scatterBurstRemainingMs: hasField("scatterBurstMs") ? state.scatterBurstRemainingMs : 0,
     wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
-    invulnRemainingMs: hasField("playerInvulnMs") ? state.invulnRemainingMs : 0,
+    invulnRemainingMs:
+      hasField("playerInvulnMs") || hasField("warpInvulnMs") ? state.invulnRemainingMs : 0,
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,

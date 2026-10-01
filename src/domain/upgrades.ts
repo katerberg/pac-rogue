@@ -543,6 +543,23 @@ export function hasEnhancedUpgrade(owned: readonly UpgradeId[], baseId: BaseUpgr
   return owned.includes(enhancedIdOf(baseId));
 }
 
+export function ownedFormOf(owned: readonly UpgradeId[], baseId: BaseUpgradeId): UpgradeId | null {
+  return owned.find((id) => baseIdOf(id) === baseId) ?? null;
+}
+
+export type LearnEnhanceToggleState = "hidden" | "off" | "on";
+
+export function learnEnhanceToggleState(
+  owned: readonly UpgradeId[],
+  baseId: BaseUpgradeId,
+): LearnEnhanceToggleState {
+  const form = ownedFormOf(owned, baseId);
+  if (form === null) {
+    return "hidden";
+  }
+  return isEnhancedId(form) ? "on" : "off";
+}
+
 export function enhanceableUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   return owned.filter((id): id is BaseUpgradeId => !isEnhancedId(id));
 }

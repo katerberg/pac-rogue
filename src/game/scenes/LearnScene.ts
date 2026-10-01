@@ -34,10 +34,15 @@ import {
 } from "../../domain/seenRecord";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import {
+  baseIdOf,
+  enhancedIdOf,
   getUpgradeDef,
   groupUpgradesBySchool,
+  learnEnhanceToggleState,
+  ownedFormOf,
   UPGRADE_DEFS,
   UPGRADE_SCHOOL_LABELS,
+  type BaseUpgradeId,
   type UpgradeDef,
   type UpgradeId,
 } from "../../domain/upgrades";
@@ -108,12 +113,15 @@ const UPGRADE_HEADER_GAP = 17;
 const UPGRADE_ROW_WIDTH = 190;
 const UPGRADE_CHECK_SIZE = 10;
 const UPGRADE_CHECK_GAP = 4;
+const UPGRADE_PLUS_X = UPGRADE_COLUMN_X + UPGRADE_ROW_WIDTH - 6;
+const UPGRADE_PLUS_ZONE_WIDTH = 14;
+const UPGRADE_PLUS_OFF_TINT = 0x666666;
 const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
 const HOVER_PREVIEW_DELAY_MS = 500;
 const HOVER_PREVIEW_X = 110;
 const HOVER_PREVIEW_Y_MIN = 90;
 const HOVER_PREVIEW_Y_MAX = 510;
-const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
+const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [
   "passiveGhostHouseDelay",
   "passiveExtraLife",
   "fruitQuarterBounty",
@@ -128,7 +136,13 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
 
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
 type CorruptionRow = { id: CorruptionId; checkMark: Phaser.GameObjects.Rectangle };
-type UpgradeRow = { id: UpgradeId; checkMark: Phaser.GameObjects.Rectangle };
+type UpgradeRow = {
+  id: BaseUpgradeId;
+  checkMark: Phaser.GameObjects.Rectangle;
+  label: Phaser.GameObjects.BitmapText;
+  plus: Phaser.GameObjects.BitmapText;
+  plusZone: Phaser.GameObjects.Zone;
+};
 
 export class LearnScene extends Phaser.Scene {
   private sim!: LearnSim;
@@ -262,6 +276,12 @@ export class LearnScene extends Phaser.Scene {
     this.refreshNoEffectBanner();
   }
 
+  private toggleEnhanced(id: BaseUpgradeId): void {
+    this.applyEvents(this.sim.toggleEnhanced(id));
+    this.refreshUpgradeRows();
+    this.refreshNoEffectBanner();
+  }
+
   private buildGhostSlots(): void {
     this.slots = [];
     const rowWidth = SLOT_KINDS.length * SLOT_SIZE + (SLOT_KINDS.length - 1) * SLOT_GAP;
@@ -385,6 +405,9 @@ export class LearnScene extends Phaser.Scene {
       .setVisible(false);
     const label = addPixelText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
     placePixelText(label, labelX, y, 0, 0.5);
+    const plus = addPixelText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+    placePixelText(plus, UPGRADE_PLUS_X, y, 0.5, 0.5);
+    plus.setVisible(false);
     const zone = this.add.zone(
       UPGRADE_COLUMN_X + UPGRADE_ROW_WIDTH / 2,
       y,
@@ -397,19 +420,32 @@ export class LearnScene extends Phaser.Scene {
       this.scheduleUpgradePreview(def.id, pointer.y),
     );
     zone.on("pointerout", () => this.cancelUpgradePreview());
-    this.upgradeRows.push({ id: def.id, checkMark });
+    const plusZone = this.add.zone(UPGRADE_PLUS_X, y, UPGRADE_PLUS_ZONE_WIDTH, UPGRADE_ROW_GAP - 2);
+    plusZone.on("pointerdown", () => this.toggleEnhanced(def.baseId));
+    plusZone.on("pointerover", () => this.cancelUpgradePreview());
+    this.upgradeRows.push({ id: def.baseId, checkMark, label, plus, plusZone });
   }
 
   private refreshUpgradeRows(): void {
     for (const row of this.upgradeRows) {
-      row.checkMark.setVisible(this.sim.ownedUpgrades.includes(row.id));
+      const state = learnEnhanceToggleState(this.sim.ownedUpgrades, row.id);
+      row.checkMark.setVisible(state !== "hidden");
+      row.plus.setVisible(state !== "hidden");
+      row.plus.setTint(state === "on" ? TEXT_COLOR_YELLOW : UPGRADE_PLUS_OFF_TINT);
+      row.label.setText(getUpgradeDef(state === "on" ? enhancedIdOf(row.id) : row.id).label);
+      if (state === "hidden") {
+        row.plusZone.disableInteractive();
+      } else {
+        row.plusZone.setInteractive({ useHandCursor: true });
+      }
     }
   }
 
   private refreshNoEffectBanner(): void {
-    const selectedLabels = LEARN_NO_EFFECT_UPGRADE_IDS.filter((id) =>
-      this.sim.ownedUpgrades.includes(id),
-    ).map((id) => getUpgradeDef(id).label);
+    const selectedLabels = LEARN_NO_EFFECT_UPGRADE_IDS.flatMap((id) => {
+      const form = ownedFormOf(this.sim.ownedUpgrades, id);
+      return form === null ? [] : [getUpgradeDef(form).label];
+    });
     const layout = getActiveLayout();
     if (selectedLabels.length === 0) {
       this.noEffectBanner.setText("");
@@ -436,7 +472,7 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private showUpgradePreview(id: UpgradeId, pointerY: number): void {
-    const def = getUpgradeDef(id);
+    const def = getUpgradeDef(ownedFormOf(this.sim.ownedUpgrades, baseIdOf(id)) ?? id);
     const y = Math.min(HOVER_PREVIEW_Y_MAX, Math.max(HOVER_PREVIEW_Y_MIN, pointerY));
     const visual = buildUpgradeCardVisual(this, HOVER_PREVIEW_X, y, {
       label: def.label,
