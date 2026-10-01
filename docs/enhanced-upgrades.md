@@ -59,12 +59,16 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 - **Pickup Range** (2 tiles) still needs line of sight.
 - **Base values that change for every run:** Ghost Slow ×0.8 (from ×0.75), Quarter Bounty (a Quarter replaces the bar charge), ghost tunnel speed 0.6× (from 0.5×).
 
+## Store decisions
+
+- **Tunnel Dash:** ghost tunnel speed 0.6× is global; enhanced Tunnel Dash makes it 0.3×.
+- **Limited lives:** two separate life tiles, each sold once per visit (a bought tile disappears). Today's unlimited `L` slot becomes these two.
+- **Enhancement tile:** picks one owned, unenhanced upgrade at random and swaps it for its enhanced version. No eligible upgrade means no tile. Only the first store omits it.
+- **Visuals:** an enhanced upgrade's name gets a `+`; its store tile glows and has a different border color.
+
 ## Remaining questions
 
-- **Tunnel Dash (#22):** I read "default 0.6, new one 0.3" as a change for every run, which makes ghosts _faster_ in tunnels by default (0.5× → 0.6×) and 0.3× only for the enhanced owner. Or does 0.6× apply only while Tunnel Dash is owned?
-- **Store prices:** what do enhancement and trade cost, and what do the two limited lives cost (today a life is 1 Quarter)? Is the limit of 2 per store visit?
-- **Enhancement picks:** does the enhancement slot offer a random owned, unenhanced upgrade (like swap), or let you choose? What if none are eligible?
-- **Visuals:** how is an enhanced upgrade marked on the HUD list, picker cards and store (name suffix, `+` badge, color)?
+- **Prices:** enhancement and trade cost? Today a life and a swap are 1 Quarter and an upgrade is 3. Unless told otherwise the plan will use: life 1, enhancement 3, trade 1, new ability 3.
 
 ## Follow-ups when implemented
 
