@@ -3,6 +3,7 @@ import type { TurnFeedbackKind } from "../../domain/turnTuning";
 import type { StorePromptView } from "../../domain/store";
 import type { UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
+import type { WarpGlideSprite } from "../../domain/warpGlide";
 
 export type SimRenderOptions = {
   frozenGhostEid: number | null;
@@ -14,6 +15,7 @@ export type SimRenderOptions = {
   dimGhostEid?: number | null;
   playerAlpha?: number;
   playerReviveProgress?: number;
+  playerWarpGlide?: WarpGlideSprite[];
 };
 
 export type SimEvent =

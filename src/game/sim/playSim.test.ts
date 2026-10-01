@@ -1388,6 +1388,46 @@ describe("PlaySim enhanced upgrades", () => {
     expect(Position.y[player]).toBe(expected.y);
   });
 
+  it("Warp Farthest glides the sprite there over 300ms and holds controls until it lands", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletWarpFarthest"] });
+    for (const eid of query(sim.world, [Ghost, Position])) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const origin = { x: Position.x[power]!, y: Position.y[power]! };
+    teleportPlayer(sim, origin.x, origin.y);
+    const warpDraw = runFrames(sim, 1).flatMap((e) => (e.type === "draw" ? [e.options] : []))[0]!;
+    const player = playerEid(sim);
+    const landed = { x: Position.x[player]!, y: Position.y[player]! };
+    expect(landed).not.toEqual(origin);
+    expect(warpDraw.playerWarpGlide?.[0]).toMatchObject(origin);
+    expect(sim.snapshot().timers.warpGlideMs).toBe(300);
+
+    const step = [
+      ["left", -1, 0],
+      ["right", 1, 0],
+      ["up", 0, -1],
+      ["down", 0, 1],
+    ] as const;
+    const [key] = step.find(([, dx, dy]) => canEnterDirection(landed.x, landed.y, dx, dy))!;
+    const glideEvents = runFrames(sim, 17, { keys: held(key) });
+    expect(Position.x[player]).toBe(landed.x);
+    expect(Position.y[player]).toBe(landed.y);
+    expect(sim.snapshot().timers.warpGlideMs).toBeGreaterThan(0);
+    const heads = glideEvents.flatMap((e) =>
+      e.type === "draw" && e.options.playerWarpGlide ? [e.options.playerWarpGlide[0]!] : [],
+    );
+    expect(heads).toHaveLength(17);
+    expect(Math.hypot(heads[16]!.x - landed.x, heads[16]!.y - landed.y)).toBeLessThan(
+      Math.hypot(heads[0]!.x - landed.x, heads[0]!.y - landed.y),
+    );
+
+    const afterEvents = runFrames(sim, 10, { keys: held(key) });
+    expect(sim.snapshot().timers.warpGlideMs).toBe(0);
+    expect(afterEvents.some((e) => e.type === "draw" && e.options.playerWarpGlide)).toBe(false);
+    expect({ x: Position.x[player], y: Position.y[player] }).not.toEqual(landed);
+  });
+
   it("Ghost Recall+ sends two ghosts home, the base sends one", () => {
     const homeCount = (id: UpgradeId): number => {
       const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });

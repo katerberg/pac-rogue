@@ -58,6 +58,7 @@ src/
     ghostHouseLeave.ts        # leaving: door-col approach then exit
     ghostSpeed.ts             # base / Elroy (Blinky) / tunnel speed resolve
     eatDrag.ts                # brief eased Maze-Man slowdown after eating a dot / power pellet
+    warpGlide.ts              # Warp Farthest: 300ms sprite glide + afterimages (visual only; controls held)
     turnTuning.ts             # Turn Tuning: turn-tap window/beat tests, turn speed-boost timer/multiplier, turn flash pulse
     ghostRecall.ts            # closest eligible ghost pick for house recall
     deathSequence.ts          # catch → hold / ready / game-over timing
@@ -114,7 +115,7 @@ src/
       pelletToPower.ts        # Pellet Surge: convert one regular → power
       playerSpeed.ts          # Player Speed from base × upgrade mul
       playerDirection.ts
-      playerWarp.ts           # power-pellet warp to dynamic top-center
+      playerWarp.ts           # power-pellet warp farthest from ghosts (returns the glide to animate)
       playerCell.ts           # player's current maze cell (store slot/exit lookup)
       playerSlide.ts          # store exit: move the player straight out a tunnel (no wrap)
       render.ts               # sprites + rounded wall stroke; preloadPlayArt
