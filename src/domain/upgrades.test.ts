@@ -827,6 +827,8 @@ describe("enhanced upgrades", () => {
       expect(plus.label).toBe(`${base.label}+`);
       expect(plus.school).toBe(base.school);
       expect(plus.description).not.toBe(base.description);
+      expect(plus.enhanceNote).toContain(base.label);
+      expect(base.enhanceNote).toBeUndefined();
     }
   });
 

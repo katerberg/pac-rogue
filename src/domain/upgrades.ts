@@ -93,7 +93,7 @@ export type UpgradeEffects = {
   };
 };
 
-export type EnhancedOverride = UpgradeEffects & { description: string };
+export type EnhancedOverride = UpgradeEffects & { description: string; enhanceNote: string };
 
 export type BaseUpgradeDef = UpgradeEffects & {
   id: BaseUpgradeId;
@@ -106,6 +106,7 @@ export type BaseUpgradeDef = UpgradeEffects & {
 
 export type UpgradeDef = UpgradeEffects & {
   id: UpgradeId;
+  enhanceNote?: string;
   baseId: BaseUpgradeId;
   isEnhanced: boolean;
   label: string;
@@ -173,6 +174,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Chomp a power pellet and the nearest ghost locks solid for a few seconds.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Power Freeze locks for 5 seconds instead of 3.",
       description: "Chomp a power pellet and the nearest ghost locks solid for five seconds.",
       onPowerPellet: { freezeClosestGhostMs: FREEZE_ENHANCED_MS },
     },
@@ -185,6 +187,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "You run hotter. Corners feel closer.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Speed Up makes you 50% faster instead of 25%.",
       description: "You run white-hot. Corners come to you.",
       playerSpeedMul: PLAYER_SPEED_UP_ENHANCED_MUL,
     },
@@ -197,6 +200,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "The hunt softens. Ghosts drag their feet.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Ghost Slow cuts ghost speed by 35% instead of 20%.",
       description: "The hunt crawls. Ghosts wade through syrup.",
       ghostSpeedMul: GHOST_SLOW_ENHANCED_MUL,
     },
@@ -209,6 +213,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Power pellet scatters every ghost into the corners.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Scatter Burst lasts 5 seconds instead of 3.",
       description: "Power pellet scatters every ghost into the corners for five seconds.",
       onPowerPellet: { scatterBurstMs: SCATTER_BURST_ENHANCED_MS },
     },
@@ -221,6 +226,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Power pellet yanks the nearest ghost straight home.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Ghost Recall sends the 2 nearest ghosts home instead of 1.",
       description: "Power pellet yanks the two nearest ghosts straight home.",
       onPowerPellet: { recallClosestGhosts: 2 },
     },
@@ -233,6 +239,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Power pellet flings you to the top of the maze.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Warp Top also makes you invulnerable for 2 seconds.",
       description: "Power pellet flings you to the top of the maze, shielded for a moment.",
       onPowerPellet: { warpPlayerTopCenter: true, warpInvulnMs: WARP_TOP_INVULN_MS },
     },
@@ -246,6 +253,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     pelletCollectRadiusBonusPx: TILE_SIZE,
     enhanced: {
+      enhanceNote: "Pickup Range reaches 2 tiles instead of 1.",
       description: "Pellets two cells away snap into your mouth.",
       pelletCollectRadiusBonusPx: PICKUP_RANGE_ENHANCED_TILES * TILE_SIZE,
     },
@@ -257,6 +265,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Ghosts linger longer in the house before the hunt.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote:
+        "House Delay holds ghosts 3 seconds instead of 2, and Clyde 25 dots instead of 15.",
       description: "Ghosts sulk in the house far longer before the hunt.",
       ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_ENHANCED_MS,
       ghostHouseClydePelletAdd: GHOST_HOUSE_CLYDE_PELLET_ADD_ENHANCED,
@@ -271,6 +281,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "One more chance, and lives regenerate up to 4.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Extra Life gives 2 lives instead of 1, and regenerates up to 5.",
       description: "Two more chances, and lives regenerate up to 5.",
       grantLives: EXTRA_LIFE_ENHANCED_LIVES,
       lifeFloorBonus: 2,
@@ -286,6 +297,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     pelletSurgeCount: PELLET_SURGE_COUNT,
     enhanced: {
+      enhanceNote: "Pellet Surge turns 2 pellets hot per board instead of 1.",
       description: "Two quiet pellets turn hot.",
       pelletSurgeCount: PELLET_SURGE_ENHANCED_COUNT,
     },
@@ -297,6 +309,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Power pellet gulps three more pellets with it.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Triple Chomp eats 5 more pellets instead of 3.",
       description: "Power pellet gulps five more pellets with it.",
       onPowerPellet: { collectExtraPellets: POWER_COLLECT_FIVE_COUNT },
     },
@@ -309,6 +322,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Power pellet lets you slip through walls for a breath.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Wall Pass also lets you loop around every edge of the maze.",
       description: "Power pellet lets you slip through walls and loop around the maze edges.",
       onPowerPellet: { wallPassMs: WALL_PASS_MS, wallPassLoop: true },
     },
@@ -322,6 +336,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     speedBurstMul: PLAYER_SPEED_BURST_MUL,
     enhanced: {
+      enhanceNote: "Speed Burst gives 50% more speed instead of 25%.",
       description: "Power pellet spikes your pace hard for a few seconds.",
       speedBurstMul: PLAYER_SPEED_BURST_ENHANCED_MUL,
     },
@@ -334,6 +349,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Power pellet lets you pass through ghosts briefly.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Ghost Proof lasts 5 seconds instead of 3.",
       description: "Power pellet lets you pass through ghosts for five seconds.",
       onPowerPellet: { playerInvulnMs: INVULN_ENHANCED_MS },
     },
@@ -346,6 +362,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Power pellet sends ghosts to gobble pellets for you.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Ghost Harvester lasts 8 seconds instead of 5.",
       description: "Power pellet sends ghosts to gobble pellets for you, for longer.",
       onPowerPellet: { ghostHarvestMs: GHOST_HARVEST_ENHANCED_MS },
     },
@@ -358,6 +375,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Fruit Power also turns a random pellet into a power pellet.",
       description: "Bonus fruit hits like a power pellet and turns a pellet hot.",
       fruitPowerConvertsPellet: true,
     },
@@ -369,6 +387,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Bonus fruit pays a Quarter instead of charging the bonus bar.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Quarter Bounty pays 2 Quarters per fruit instead of 1.",
       description: "Bonus fruit pays two Quarters.",
       fruitQuarters: FRUIT_QUARTERS_ENHANCED,
     },
@@ -381,6 +400,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Bonus fruit lingers twice as long.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote:
+        "Fruit Fecundity keeps fruit until the level ends, and extra fruit sit side by side.",
       description:
         "Bonus fruit waits until the level ends, and uncollected ones pile up side by side.",
       fruitPersistsUntilLevelEnd: true,
@@ -396,6 +417,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     fruitFeastThresholds: BASE_FEAST_FRUIT_SPAWN_THRESHOLDS,
     enhanced: {
+      enhanceNote: "Fruit Feast spawns 4 fruit per level instead of 3.",
       description: "Bonus fruit appears four times per level, each after the last is gone.",
       fruitFeastThresholds: FRUIT_FEAST_ENHANCED_THRESHOLDS,
     },
@@ -408,6 +430,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     deathsHarvestRadiusTiles: DEATHS_HARVEST_RADIUS_TILES,
     enhanced: {
+      enhanceNote: "Death's Harvest reaches 10 tiles instead of 6.",
       description: "Dying harvests every pellet within ten tiles.",
       deathsHarvestRadiusTiles: DEATHS_HARVEST_ENHANCED_RADIUS_TILES,
     },
@@ -420,6 +443,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     overchargeMul: OVERCHARGE_MUL,
     enhanced: {
+      enhanceNote: "Overcharge triples power pellet timers instead of doubling them.",
       description: "Triples the duration of every other power pellet timer you're running.",
       overchargeMul: OVERCHARGE_ENHANCED_MUL,
     },
@@ -431,6 +455,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Tunnels move you the instant you touch them.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Tunnel Dash also slows ghosts in tunnels to 0.3x speed.",
       description: "Tunnels move you the instant you touch them, and ghosts crawl through them.",
       ghostTunnelSpeedRatio: GHOST_TUNNEL_ENHANCED_SPEED_RATIO,
     },
@@ -443,6 +468,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     secondChompMs: SECOND_CHOMP_MS,
     enhanced: {
+      enhanceNote: "Second Chomp respawns power pellets after 7 seconds instead of 10.",
       description: "Eaten power pellets regenerate after seven seconds.",
       secondChompMs: SECOND_CHOMP_ENHANCED_MS,
     },
@@ -454,6 +480,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Every fifth pellet also eats the farthest one.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Remote Transference triggers every 3rd pellet instead of every 5th.",
       description: "Every third pellet also eats the farthest one.",
       remoteTransferEveryPellets: REMOTE_TRANSFER_ENHANCED_EVERY_PELLETS,
     },
@@ -465,7 +492,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     school: "death",
     description: "Regenerate two lives on level clear.",
     storePrice: STORE_UPGRADE_PRICE,
-    enhanced: { description: "Refill every empty life slot on level clear.", regenToFull: true },
+    enhanced: {
+      enhanceNote: "Myogenesis refills every empty life slot instead of 2 per level.",
+      description: "Refill every empty life slot on level clear.",
+      regenToFull: true,
+    },
   },
   {
     id: "passiveDefyDeath",
@@ -474,6 +505,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     description: "Eat a power pellet: die within 5s and keep your life.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
+      enhanceNote: "Defy Death's save window lasts 8 seconds instead of 5.",
       description: "Eat a power pellet: die within 8s and keep your life.",
       onPowerPellet: { defyDeathMs: DEFY_DEATH_ENHANCED_MS },
     },
@@ -488,6 +520,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     turnBoostMs: TURN_TUNING_BOOST_MS,
     turnPerfectPx: TURN_TUNING_PERFECT_PX,
     enhanced: {
+      enhanceNote:
+        "Turn Tuning's perfect tap is 12px wide instead of 8, and the boost lasts 0.75s instead of 0.5s.",
       description: "Tap turns early, wider beat, longer speed kick.",
       turnBoostMs: TURN_TUNING_ENHANCED_BOOST_MS,
       turnPerfectPx: TURN_TUNING_ENHANCED_PERFECT_PX,

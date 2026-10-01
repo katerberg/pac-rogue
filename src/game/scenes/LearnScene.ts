@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
   hoverPreviewX,
   splitSchoolColumns,
@@ -349,7 +350,13 @@ export class LearnScene extends Phaser.Scene {
       .setStrokeStyle(2, TEXT_COLOR_YELLOW)
       .setVisible(false);
     const plus = addPixelText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-    placePixelText(plus, plusX, y, 0.5, 0.5);
+    placePixelText(
+      plus,
+      plusX + (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8,
+      y + (glyphInkCenterOffsetY("+") * UPGRADES_HUD_FONT_SIZE) / 8,
+      0.5,
+      0.5,
+    );
     plus.setVisible(false);
     const zone = this.add.zone(
       columnX + UPGRADE_ROW_WIDTH / 2,

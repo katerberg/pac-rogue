@@ -83,7 +83,7 @@ function slotTitle(slot: StoreSlot): string {
     case "swap":
       return "SWAP";
     case "enhance":
-      return "ENHANCE";
+      return getUpgradeDef(enhancedIdOf(slot.targetId)).label;
     case "upgrade":
       return getUpgradeDef(slot.id).label;
   }
@@ -95,10 +95,8 @@ function slotBody(slot: StoreSlot): string {
       return "+1 life.";
     case "swap":
       return `Lose ${getUpgradeDef(slot.outgoingId).label}. Gain ?`;
-    case "enhance": {
-      const target = getUpgradeDef(slot.targetId);
-      return `${target.label} becomes ${target.label}+. ${getUpgradeDef(enhancedIdOf(slot.targetId)).description}`;
-    }
+    case "enhance":
+      return getUpgradeDef(enhancedIdOf(slot.targetId)).enhanceNote!;
     case "upgrade":
       return getUpgradeDef(slot.id).description;
   }
