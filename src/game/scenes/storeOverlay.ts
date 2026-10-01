@@ -9,7 +9,7 @@ import {
   type StoreSlot,
   type StoreState,
 } from "../../domain/store";
-import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
+import { getUpgradeDef, type UpgradeId, type UpgradeSchool } from "../../domain/upgrades";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { PLAYER_OPEN_MOUTH_TEXTURE_KEY, QUARTER_TEXTURE_KEY } from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
@@ -29,6 +29,10 @@ import {
   DESCRIPTION_MAX_CHARS,
   LABEL_MAX_CHARS,
   MODAL_DEPTH,
+  SCHOOL_COLORS,
+  SCHOOL_GAP,
+  setSchoolTag,
+  stackTexts,
   wrapText,
 } from "./upgradeChoiceModal";
 
@@ -51,7 +55,16 @@ export type StoreOverlay = {
   destroy: () => void;
 };
 
-type PanelContent = { title: string; body: string; footer: string };
+type PanelContent = {
+  title: string;
+  school: UpgradeSchool | null;
+  body: string;
+  footer: string;
+};
+
+function slotSchool(slot: StoreSlot): UpgradeSchool | null {
+  return slot.kind === "upgrade" ? getUpgradeDef(slot.id).school : null;
+}
 
 function slotTitle(slot: StoreSlot): string {
   switch (slot.kind) {
@@ -94,7 +107,10 @@ function coinRowXs(count: number, maxWidth: number): number[] {
   return Array.from({ length: count }, (_, i) => first + i * step);
 }
 
-export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
+export function createStoreOverlay(
+  scene: Phaser.Scene,
+  onChoose: (choice: "yes" | "no") => void,
+): StoreOverlay {
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let hoveredSlot: number | null = null;
   let toast: { content: PanelContent; remainingMs: number } | null = null;
@@ -105,10 +121,11 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
     .rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x101820)
     .setStrokeStyle(2, TEXT_COLOR_YELLOW);
   const panelTitle = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const panelSchool = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
   const panelBody = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
   const panelFooter = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
   const panel = scene.add
-    .container(panelX, panelY, [panelBg, panelTitle, panelBody, panelFooter])
+    .container(panelX, panelY, [panelBg, panelTitle, panelSchool, panelBody, panelFooter])
     .setDepth(PANEL_DEPTH)
     .setVisible(false);
 
@@ -134,6 +151,7 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
     MENU_TITLE_FONT_SIZE,
     TEXT_COLOR_YELLOW,
   ).setCenterAlign();
+  const modalSchool = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
   const modalBody = addPixelText(
     scene,
     0,
@@ -149,10 +167,17 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
   placePixelText(modalSure, -70, 80, 0.5, 0.5);
   placePixelText(modalYes, 10, 80, 0.5, 0.5);
   placePixelText(modalNo, 70, 80, 0.5, 0.5);
+  for (const [text, choice] of [
+    [modalYes, "yes"],
+    [modalNo, "no"],
+  ] as const) {
+    text.setInteractive({ useHandCursor: true }).on("pointerdown", () => onChoose(choice));
+  }
   const modal = scene.add
     .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
       modalBg,
       modalTitle,
+      modalSchool,
       modalBody,
       modalCost,
       modalSure,
@@ -171,7 +196,15 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
     modalTitle.setText(wrapText(slotTitle(prompt.slot), LABEL_MAX_CHARS));
     modalBody.setText(wrapText(slotBody(prompt.slot), DESCRIPTION_MAX_CHARS));
     modalCost.setText(`COST ${prompt.price}`);
-    placePixelText(modalTitle, 0, -58, 0.5, 0.5);
+    const school = slotSchool(prompt.slot);
+    setSchoolTag(modalSchool, school);
+    stackTexts(
+      [
+        { text: modalTitle, gapBelow: SCHOOL_GAP },
+        ...(school === null ? [] : [{ text: modalSchool, gapBelow: 0 }]),
+      ],
+      -58,
+    );
     placePixelText(modalBody, 0, 8, 0.5, 0.5);
     placePixelText(modalCost, 0, 44, 0.5, 0.5);
     modalYes.setTint(confirmYes ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
@@ -186,7 +219,15 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
     panelTitle.setText(wrapText(content.title, PANEL_TITLE_MAX_CHARS));
     panelBody.setText(wrapText(content.body, PANEL_BODY_MAX_CHARS));
     panelFooter.setText(content.footer);
+    setSchoolTag(panelSchool, content.school);
     placePixelText(panelTitle, 0, -PANEL_HEIGHT / 2 + 10, 0.5, 0);
+    placePixelText(
+      panelSchool,
+      0,
+      panelTitle.y + panelTitle.getTextBounds(true).local.height + SCHOOL_GAP,
+      0.5,
+      0,
+    );
     placePixelText(panelBody, 0, 0, 0.5, 0.5);
     placePixelText(panelFooter, 0, PANEL_HEIGHT / 2 - 10, 0.5, 1);
   };
@@ -216,7 +257,9 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
         .setDisplaySize(tile - 2, tile - 2);
     } else {
       const char = slot.kind === "swap" ? "?" : slotTitle(slot).charAt(0).toUpperCase();
-      const text = addPixelText(scene, 0, 0, char, HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+      const school = slotSchool(slot);
+      const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
+      const text = addPixelText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
       const inkOffset = (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8;
       placePixelText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
       glyph = text;
@@ -271,6 +314,7 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
       } else if (prompt !== null) {
         showPanel({
           title: slotTitle(prompt.slot),
+          school: slotSchool(prompt.slot),
           body: slotBody(prompt.slot),
           footer: promptFooter(prompt),
         });
@@ -280,6 +324,7 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
         const slot = state.slots[hoveredSlot]!;
         showPanel({
           title: slotTitle(slot),
+          school: slotSchool(slot),
           body: slotBody(slot),
           footer: `COST ${slotPrice(slot)}`,
         });
@@ -290,7 +335,7 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
     showPurchased: (id) => {
       const def = getUpgradeDef(id);
       toast = {
-        content: { title: def.label, body: def.description, footer: "GOT IT!" },
+        content: { title: def.label, school: def.school, body: def.description, footer: "GOT IT!" },
         remainingMs: TOAST_MS,
       };
     },

@@ -29,9 +29,30 @@ export type UpgradeId =
   | "passiveDefyDeath"
   | "passiveTurnTuning";
 
+export type UpgradeSchool = "death" | "harvest" | "speed" | "protection" | "disruption" | "neutral";
+
+export const UPGRADE_SCHOOL_LABELS: Record<UpgradeSchool, string> = {
+  death: "Death",
+  harvest: "Harvest",
+  speed: "Speed",
+  protection: "Protection",
+  disruption: "Disruption",
+  neutral: "Neutral",
+};
+
+export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
+  "death",
+  "harvest",
+  "speed",
+  "protection",
+  "disruption",
+  "neutral",
+];
+
 export type UpgradeDef = {
   id: UpgradeId;
   label: string;
+  school: UpgradeSchool;
   description: string;
   storePrice: number;
   playerSpeedMul?: number;
@@ -89,6 +110,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletFreeze",
     label: "Power Freeze",
+    school: "disruption",
     description: "Chomp a power pellet and the nearest ghost locks solid for a few seconds.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { freezeClosestGhostMs: FREEZE_MS },
@@ -96,6 +118,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passivePlayerSpeedUp",
     label: "Speed Up",
+    school: "speed",
     description: "You run hotter. Corners feel closer.",
     storePrice: STORE_UPGRADE_PRICE,
     playerSpeedMul: PLAYER_SPEED_UP_MUL,
@@ -103,6 +126,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passiveGhostSlow",
     label: "Ghost Slow",
+    school: "disruption",
     description: "The hunt softens. Ghosts drag their feet.",
     storePrice: STORE_UPGRADE_PRICE,
     ghostSpeedMul: GHOST_SLOW_MUL,
@@ -110,6 +134,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletScatterBurst",
     label: "Scatter Burst",
+    school: "disruption",
     description: "Power pellet scatters every ghost into the corners.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { scatterBurstMs: SCATTER_BURST_MS },
@@ -117,6 +142,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletGhostRecall",
     label: "Ghost Recall",
+    school: "disruption",
     description: "Power pellet yanks the nearest ghost straight home.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { recallClosestGhost: true },
@@ -124,6 +150,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletWarpTop",
     label: "Warp Top",
+    school: "speed",
     description: "Power pellet flings you to the top of the maze.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { warpPlayerTopCenter: true },
@@ -131,12 +158,14 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passivePickupRange",
     label: "Pickup Range",
+    school: "speed",
     description: "Pellets within a cell of you snap into your mouth.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveGhostHouseDelay",
     label: "House Delay",
+    school: "disruption",
     description: "Ghosts linger longer in the house before the hunt.",
     storePrice: STORE_UPGRADE_PRICE,
     ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
@@ -145,6 +174,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passiveExtraLife",
     label: "Extra Life",
+    school: "death",
     description: "One more chance, and lives regenerate up to 4.",
     storePrice: STORE_UPGRADE_PRICE,
     grantLives: 1,
@@ -152,12 +182,14 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passivePelletToPower",
     label: "Pellet Surge",
+    school: "neutral",
     description: "A quiet pellet turns hot, and another may follow.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "powerPelletCollectThree",
     label: "Triple Chomp",
+    school: "speed",
     description: "Power pellet gulps three more pellets with it.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { collectExtraPellets: POWER_COLLECT_THREE_COUNT },
@@ -165,6 +197,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletWallPass",
     label: "Wall Pass",
+    school: "speed",
     description: "Power pellet lets you slip through walls for a breath.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { wallPassMs: WALL_PASS_MS },
@@ -172,6 +205,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletSpeedBurst",
     label: "Speed Burst",
+    school: "speed",
     description: "Power pellet spikes your pace for a few seconds.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { playerSpeedBurstMs: SPEED_BURST_MS },
@@ -179,6 +213,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletInvuln",
     label: "Ghost Proof",
+    school: "protection",
     description: "Power pellet lets you pass through ghosts briefly.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { playerInvulnMs: INVULN_MS },
@@ -186,6 +221,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletGhostHarvester",
     label: "Ghost Harvester",
+    school: "speed",
     description: "Power pellet sends ghosts to gobble pellets for you.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { ghostHarvestMs: GHOST_HARVEST_MS },
@@ -193,12 +229,14 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "fruitPowerPellet",
     label: "Fruit Power",
+    school: "harvest",
     description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "fruitQuarterBounty",
     label: "Quarter Bounty",
+    school: "harvest",
     description: "Bonus fruit fills a whole BONUS bar instead of half.",
     storePrice: STORE_UPGRADE_PRICE,
     fruitQuarterMul: QUARTER_BOUNTY_MUL,
@@ -206,6 +244,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "fruitFecundity",
     label: "Fruit Fecundity",
+    school: "harvest",
     description: "Bonus fruit lingers twice as long.",
     storePrice: STORE_UPGRADE_PRICE,
     fruitLifetimeMul: FRUIT_FECUNDITY_MUL,
@@ -213,36 +252,42 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "fruitFeast",
     label: "Fruit Feast",
+    school: "harvest",
     description: "Bonus fruit appears three times per level, each after the last is gone.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveDeathsHarvest",
     label: "Death's Harvest",
+    school: "death",
     description: "Dying harvests nearby pellets.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveOvercharge",
     label: "Overcharge",
+    school: "neutral",
     description: "Doubles the duration of every other power pellet timer you're running.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveTunnelDash",
     label: "Tunnel Dash",
+    school: "speed",
     description: "Tunnels move you the instant you touch them.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passivePowerPelletRecharge",
     label: "Second Chomp",
+    school: "harvest",
     description: "Eaten power pellets regenerate after ten seconds.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveRemoteTransference",
     label: "Remote Transference",
+    school: "speed",
     description: "Every fifth pellet also eats the farthest one.",
     storePrice: STORE_UPGRADE_PRICE,
     remoteTransferEveryPellets: REMOTE_TRANSFER_EVERY_PELLETS,
@@ -250,12 +295,14 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passiveMyogenesis",
     label: "Myogenesis",
+    school: "death",
     description: "Regenerate two lives on level clear.",
     storePrice: STORE_UPGRADE_PRICE,
   },
   {
     id: "passiveDefyDeath",
     label: "Defy Death",
+    school: "death",
     description: "Eat a power pellet: die within 5s and keep your life.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { defyDeathMs: DEFY_DEATH_MS },
@@ -263,6 +310,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passiveTurnTuning",
     label: "Turn Tuning",
+    school: "speed",
     description: "Tap turns up to two tiles early. Nail the beat for a speed kick.",
     storePrice: STORE_UPGRADE_PRICE,
   },
@@ -816,6 +864,15 @@ export function ghostHarvestActive(state: RunUpgrades): boolean {
 
 export function defyDeathActive(state: RunUpgrades): boolean {
   return state.defyDeathRemainingMs > 0;
+}
+
+export function groupUpgradesBySchool(
+  defs: readonly UpgradeDef[],
+): { school: UpgradeSchool; defs: UpgradeDef[] }[] {
+  return UPGRADE_SCHOOL_ORDER.map((school) => ({
+    school,
+    defs: defs.filter((def) => def.school === school),
+  })).filter((group) => group.defs.length > 0);
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {
