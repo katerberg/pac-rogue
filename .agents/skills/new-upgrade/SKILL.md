@@ -74,7 +74,8 @@ skip any question the pitch already answers.
 - **A. Identity:** id `passive…` / `powerPellet…` / `fruit…` by trigger, plus a Title Case label
   and a punchy one-line `description`.
 - **B. Store and pools:** `storePrice: STORE_UPGRADE_PRICE`, same pool as every other upgrade.
-  The starting upgrade, the level-clear offer and the store all draw from `ALL_UPGRADE_IDS`.
+  The level-clear offer and the store draw from `ALL_UPGRADE_IDS`; the level-1 starting upgrade
+  draws only from the curated `STARTING_UPGRADE_POOL` (add the new id there only if asked).
 - **C. Logic placement:** decisions go in a pure domain helper or a Phaser-free system with
   unit tests. `PlaySim` only calls it. No scene logic, and no plugin bus.
 - **D. Timers:** any new timer lives on `RunUpgrades`. It is cleared by `clearUpgradeTimers`

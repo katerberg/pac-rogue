@@ -763,11 +763,21 @@ export function pickUpgradeChoiceOffer(
   return { quarters: QUARTERS_CHOICE_AMOUNT, upgrades };
 }
 
+export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
+  "powerPelletInvuln",
+  "powerPelletFreeze",
+  "fruitFeast",
+  "powerPelletCollectThree",
+  "powerPelletSpeedBurst",
+  "powerPelletGhostHarvester",
+  "powerPelletScatterBurst",
+];
+
 export function pickStartingUpgrade(
   owned: readonly UpgradeId[],
   rng: () => number,
 ): BaseUpgradeId | null {
-  const eligible = eligibleUpgrades(owned);
+  const eligible = STARTING_UPGRADE_POOL.filter((id) => !hasUpgrade(owned, id));
   if (eligible.length === 0) {
     return null;
   }

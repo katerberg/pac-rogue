@@ -20,7 +20,13 @@ import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../do
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
-import { grantUpgrade, type UpgradeChoiceOffer, type UpgradeId } from "../../domain/upgrades";
+import {
+  frozenGhostEid,
+  grantUpgrade,
+  STARTING_UPGRADE_POOL,
+  type UpgradeChoiceOffer,
+  type UpgradeId,
+} from "../../domain/upgrades";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Fruit } from "../components/Fruit";
@@ -324,6 +330,17 @@ describe("PlaySim", () => {
     const without = new PlaySim({ ...opts, disableLevelUpgrades: true }, "test");
     expect(count(without.start(), "startingUpgrade")).toBe(0);
     expect(without.snapshot().upgrades).toHaveLength(0);
+  });
+
+  it("draws the level-1 starting upgrade only from the starting pool", () => {
+    const opts = { ...defaultPlayOptions(), maze: "mazeSmall" as const };
+    const allButOne = STARTING_UPGRADE_POOL.slice(1);
+    const sim = new PlaySim({ ...opts, enableUpgrades: [...allButOne] }, "test");
+    sim.start();
+    expect(sim.snapshot().upgrades).toEqual([...allButOne, STARTING_UPGRADE_POOL[0]]);
+
+    const full = new PlaySim({ ...opts, enableUpgrades: [...STARTING_UPGRADE_POOL] }, "test");
+    expect(count(full.start(), "startingUpgrade")).toBe(0);
   });
 
   it("clears a board into an upgrade offer, then the next level", () => {
@@ -1548,6 +1565,24 @@ describe("PlaySim enhanced upgrades", () => {
     };
     expect(homeCount("powerPelletGhostRecall")).toBe(1);
     expect(homeCount("powerPelletGhostRecallPlus")).toBe(2);
+  });
+
+  it("Power Freeze and Ghost Recall never hit the same ghost", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletFreeze", "powerPelletGhostRecall"],
+    });
+    for (const eid of query(sim.world, [Ghost, Position])) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    chomp(sim);
+    const ghosts = query(sim.world, [Ghost, Position]);
+    const frozen = ghosts.filter((eid) => eid === frozenGhostEid(sim["runUpgrades"]));
+    const home = ghosts.filter((eid) => GhostPhase.value[eid] === GHOST_PHASE.inHouse);
+    expect(frozen).toHaveLength(1);
+    expect(home).toHaveLength(1);
+    expect(home).not.toContain(frozen[0]);
   });
 
   it("Second Chomp+ respawns a power pellet after 7s instead of 10s", () => {
