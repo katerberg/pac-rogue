@@ -107,7 +107,10 @@ function coinRowXs(count: number, maxWidth: number): number[] {
   return Array.from({ length: count }, (_, i) => first + i * step);
 }
 
-export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
+export function createStoreOverlay(
+  scene: Phaser.Scene,
+  onChoose: (choice: "yes" | "no") => void,
+): StoreOverlay {
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let hoveredSlot: number | null = null;
   let toast: { content: PanelContent; remainingMs: number } | null = null;
@@ -164,6 +167,12 @@ export function createStoreOverlay(scene: Phaser.Scene): StoreOverlay {
   placePixelText(modalSure, -70, 80, 0.5, 0.5);
   placePixelText(modalYes, 10, 80, 0.5, 0.5);
   placePixelText(modalNo, 70, 80, 0.5, 0.5);
+  for (const [text, choice] of [
+    [modalYes, "yes"],
+    [modalNo, "no"],
+  ] as const) {
+    text.setInteractive({ useHandCursor: true }).on("pointerdown", () => onChoose(choice));
+  }
   const modal = scene.add
     .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
       modalBg,

@@ -1117,6 +1117,7 @@ export class PlaySim {
         row: cell?.row ?? -1,
         toggle: confirming && input.storeToggle,
         enter: confirming && input.storeConfirm,
+        pick: confirming ? (input.storeChoice ?? null) : null,
         quarters: this.quarters,
         owned: this.runUpgrades.owned,
       },
