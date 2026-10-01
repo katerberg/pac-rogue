@@ -9,7 +9,7 @@ import { parseQuartersParam } from "./quartersFlag";
 import { highScoresDisabled } from "./runHistory";
 import { parseLevelParam } from "./runLevel";
 import { parseSeedParam } from "./runRandom";
-import { parseStoreFlag } from "./storeFlag";
+import { parseStoreFlag, type StoreIndex } from "./storeFlag";
 import {
   parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
@@ -25,7 +25,7 @@ export type PlayOptions = {
   ghosts: GhostKindId[] | null;
   bossGhosts: number | null;
   jumpToUpgrade: boolean;
-  store: boolean;
+  store: StoreIndex | null;
   disableLevelUpgrades: boolean;
   infiniteLives: boolean;
   enableUpgrades: UpgradeId[];

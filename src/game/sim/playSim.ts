@@ -118,7 +118,7 @@ import {
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
-  STORE_FIRST_LEVEL,
+  storeLevelFor,
   STORE_EXIT_SLIDE_TILES,
   createStoreState,
   parseStoreSlots,
@@ -197,7 +197,7 @@ import { catchPlayer } from "../systems/catchPlayer";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
-import { collectPellets, countPellets } from "../systems/collectPellets";
+import { collectPellets, countPellets, onlyPowerPelletsLeft } from "../systems/collectPellets";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
@@ -329,9 +329,14 @@ export class PlaySim {
   start(): SimEvent[] {
     this.events = [];
     const options = this.options;
-    this.levelIndex =
-      options.level ?? (options.jumpToUpgrade ? 2 : options.store ? STORE_FIRST_LEVEL : 1);
     this.midStoreLevel = pickMidStoreLevel(this.random.stream("midStore"));
+    this.levelIndex =
+      options.level ??
+      (options.jumpToUpgrade
+        ? 2
+        : options.store !== null
+          ? storeLevelFor(options.store, this.midStoreLevel)
+          : 1);
     this.secondGhostKind =
       this.random.stream("secondGhost")() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
     this.runUpgrades = createRunUpgrades(options.enableUpgrades);
@@ -345,7 +350,7 @@ export class PlaySim {
     const startingUpgrade =
       this.levelIndex === 1 &&
       !options.jumpToUpgrade &&
-      !options.store &&
+      options.store === null &&
       !options.disableLevelUpgrades
         ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
         : null;
@@ -367,7 +372,7 @@ export class PlaySim {
     this.emit({ type: "loopStart", id: "gameplayMusic" });
     if (options.jumpToUpgrade) {
       this.jumpToLevelClear();
-    } else if (options.store) {
+    } else if (options.store !== null) {
       this.enterStore();
     }
     return this.takeEvents();
@@ -735,6 +740,7 @@ export class PlaySim {
           const collectResult = applyPelletCollect(
             this.pelletProgress,
             dash.sweptPelletEids.length,
+            onlyPowerPelletsLeft(this.world),
           );
           this.pelletProgress = collectResult.progress;
           this.lifetimeCollected += dash.sweptPelletEids.length;
@@ -825,7 +831,11 @@ export class PlaySim {
     }
     const transferred = this.applyRemoteTransferStep(removed + bonusRemoved);
     const totalRemoved = removed + bonusRemoved + transferred;
-    const collectResult = applyPelletCollect(this.pelletProgress, totalRemoved);
+    const collectResult = applyPelletCollect(
+      this.pelletProgress,
+      totalRemoved,
+      onlyPowerPelletsLeft(this.world),
+    );
     this.pelletProgress = collectResult.progress;
     if (totalRemoved > 0) {
       this.lifetimeCollected += totalRemoved;
@@ -916,7 +926,11 @@ export class PlaySim {
           for (const eid of harvested) {
             this.releaseDrawable(eid);
           }
-          const harvestResult = applyPelletCollect(this.pelletProgress, harvested.length);
+          const harvestResult = applyPelletCollect(
+            this.pelletProgress,
+            harvested.length,
+            onlyPowerPelletsLeft(this.world),
+          );
           this.pelletProgress = harvestResult.progress;
           this.lifetimeCollected += harvested.length;
           if (harvestResult.shouldRecordClear) {
@@ -1363,7 +1377,11 @@ export class PlaySim {
       removeEntity(this.world, eid);
       this.releaseDrawable(eid);
     }
-    const collectResult = applyPelletCollect(this.pelletProgress, pelletEids.length);
+    const collectResult = applyPelletCollect(
+      this.pelletProgress,
+      pelletEids.length,
+      onlyPowerPelletsLeft(this.world),
+    );
     this.pelletProgress = collectResult.progress;
     this.lifetimeCollected += pelletEids.length;
     this.triggerLevelClear();
@@ -1389,7 +1407,11 @@ export class PlaySim {
       }
       if (bonusEids.length > 0) {
         this.emitMunch();
-        const collectResult = applyPelletCollect(this.pelletProgress, bonusEids.length);
+        const collectResult = applyPelletCollect(
+          this.pelletProgress,
+          bonusEids.length,
+          onlyPowerPelletsLeft(this.world),
+        );
         this.pelletProgress = collectResult.progress;
         this.lifetimeCollected += bonusEids.length;
         if (collectResult.shouldRecordClear) {

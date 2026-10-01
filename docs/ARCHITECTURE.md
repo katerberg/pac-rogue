@@ -38,7 +38,7 @@ src/
     runRandom.ts              # ?seed= parse + RunRandom: named seeded streams, the only allowed randomness source
     quartersFlag.ts           # ?quarters= URL parse (non-negative integer default count)
     store.ts                  # store floor schedule, slot parse, stock roll, prompt/purchase state machine
-    storeFlag.ts              # ?store=1 debug: start in a store
+    storeFlag.ts              # ?store=1|2|3 debug: start in the Nth store
     levelRules.ts             # MAX_LEVEL (9), per-level speed mul (player + ghosts), roster, mode wave schedule
     bossRules.ts              # boss table (level 9 → Double Blinky), BossState, ?bossGhosts parse
     bossBoard.ts              # boss tunnel-mouth rotation + boss pellet spread
