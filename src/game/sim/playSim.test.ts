@@ -630,6 +630,34 @@ describe("PlaySim", () => {
     });
   });
 
+  it("stops a diagonal walk when it opens a store prompt", () => {
+    const sim = startSim({ store: true, quarters: 10 });
+    const life = parseStoreSlots(STORE_MAZE_ASCII)
+      .filter((slot) => slot.kind === "life")
+      .at(-1)!;
+    teleportPlayer(sim, cellCenterX(life.col - 1), cellCenterY(life.row - 1));
+    runFrames(sim, 1);
+    runFrames(sim, 120, { keys: { ...held("down"), right: 0 } });
+    expect(sim.storeState()?.activeSlot).not.toBeNull();
+    const at = { x: sim.snapshot().player?.x, y: sim.snapshot().player?.y };
+    runFrames(sim, 30, { keys: { ...held("down"), right: 0 } });
+    expect(sim.snapshot().player).toMatchObject(at);
+  });
+
+  it.each([
+    ["yes", true],
+    ["no", false],
+  ] as const)("store modal click %s %s a life", (choice, buys) => {
+    const sim = startSim({ store: true, quarters: 10 });
+    const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
+    const before = sim.snapshot();
+    teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
+    runFrames(sim, 1);
+    runFrames(sim, 1, { storeChoice: choice });
+    expect(sim.snapshot().lives).toBe(before.lives + (buys ? 1 : 0));
+    expect(sim.snapshot().quarters < before.quarters).toBe(buys);
+  });
+
   it("adds a Blinky when the player eats a boss pellet", () => {
     const sim = startSim({ level: 9 });
     expect(sim.snapshot().boss?.ghostCount).toBe(2);

@@ -80,6 +80,7 @@ export class PlayScene extends Phaser.Scene {
   private readHeldKeys!: () => HeldKeys;
   private playRender!: PlayRender;
   private storeOverlay: StoreOverlay | null = null;
+  private storeChoice: "yes" | "no" | null = null;
   private chrome!: Phaser.GameObjects.Container;
   private chromeShake: Phaser.Time.TimerEvent | null = null;
   private bonusGfx!: Phaser.GameObjects.Graphics;
@@ -194,9 +195,11 @@ export class PlayScene extends Phaser.Scene {
         storeConfirm:
           readsStoreKeys &&
           this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
+        storeChoice: readsStoreKeys ? this.storeChoice : null,
       },
       delta,
     );
+    this.storeChoice = null;
     this.applyEvents(events, delta);
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
@@ -323,7 +326,9 @@ export class PlayScene extends Phaser.Scene {
         );
         break;
       case "storeOpened":
-        this.storeOverlay = createStoreOverlay(this);
+        this.storeOverlay = createStoreOverlay(this, (choice) => {
+          this.storeChoice = choice;
+        });
         this.storeOverlay.open(this.sim.storeState()!);
         break;
       case "storeSync":
