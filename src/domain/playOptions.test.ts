@@ -12,6 +12,7 @@ describe("parsePlayOptions", () => {
       maze: null,
       level: null,
       quarters: null,
+      bonus: null,
       ghosts: null,
       bossGhosts: null,
       jumpToUpgrade: false,
@@ -26,7 +27,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&forceCorruption=slimeTrail&forceCorruptionGhost=inky&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&enableUpgrade=powerPelletFreeze",
+        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&forceCorruption=slimeTrail&forceCorruptionGhost=inky&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&enableUpgrade=powerPelletFreeze",
       ),
     );
     expect(warnings).toEqual([]);
@@ -35,6 +36,7 @@ describe("parsePlayOptions", () => {
       maze: "maze1",
       level: 4,
       quarters: 3,
+      bonus: 120,
       forcedCorruption: { type: "slimeTrail", ghostKind: GHOST_KIND.inky },
       ghosts: [GHOST_KIND.pinky],
       bossGhosts: 5,
@@ -49,13 +51,14 @@ describe("parsePlayOptions", () => {
 
   it("warns once per invalid flag, in flag order", () => {
     const { warnings } = parsePlayOptions(
-      new URLSearchParams("seed=a%20b&maze=nope&level=0&quarters=-1&bossGhosts=99"),
+      new URLSearchParams("seed=a%20b&maze=nope&level=0&quarters=-1&bonus=300&bossGhosts=99"),
     );
     expect(warnings).toEqual([
       "Unknown ?seed= value; expected 1-32 of A-Z a-z 0-9 _ -",
       "Unknown ?maze= value; expected maze1|maze2|mazeSmall",
       "Unknown ?level= value; expected positive integer",
       "Unknown ?quarters= value; expected non-negative integer",
+      "Unknown ?bonus= value; expected an integer 0..299",
       "Unknown ?bossGhosts= value; expected an integer 2..10",
     ]);
   });

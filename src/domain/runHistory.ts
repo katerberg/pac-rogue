@@ -17,6 +17,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "maze",
   "level",
   "quarters",
+  "bonus",
   "enableUpgrade",
   "disableLevelUpgrades",
   "infiniteLives",

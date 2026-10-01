@@ -1,3 +1,4 @@
+import { parseBonusParam } from "./bonusFlag";
 import { BOSS_DEFS, parseBossGhostsParam } from "./bossRules";
 import { parseForceCorruptionParams, type ForcedCorruption } from "./corruption";
 import type { GhostKindId } from "./ghostKind";
@@ -21,6 +22,7 @@ export type PlayOptions = {
   maze: MazeLayoutId | null;
   level: number | null;
   quarters: number | null;
+  bonus: number | null;
   forcedCorruption: ForcedCorruption;
   ghosts: GhostKindId[] | null;
   bossGhosts: number | null;
@@ -54,6 +56,8 @@ export function parsePlayOptions(params: URLSearchParams): {
   warnIf("level", level === null, "Unknown ?level= value; expected positive integer");
   const quarters = parseQuartersParam(params);
   warnIf("quarters", quarters === null, "Unknown ?quarters= value; expected non-negative integer");
+  const bonus = parseBonusParam(params);
+  warnIf("bonus", bonus === null, "Unknown ?bonus= value; expected an integer 0..299");
   const forcedCorruption = parseForceCorruptionParams(params);
   warnIf(
     "forceCorruption",
@@ -83,6 +87,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       maze,
       level,
       quarters,
+      bonus,
       forcedCorruption,
       ghosts,
       bossGhosts,

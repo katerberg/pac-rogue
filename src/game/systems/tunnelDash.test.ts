@@ -80,6 +80,13 @@ describe("applyTunnelDash", () => {
 
     expect(result!.sweptPelletEids.sort()).toEqual([swept1, swept2].sort());
     expect([...query(world, [Pellet])].sort()).toEqual([beyond, otherRow].sort());
+    expect(result!.sweptCells).toEqual(
+      expect.arrayContaining([
+        { col: 0, row: TUNNEL_ROW },
+        { col: 2, row: TUNNEL_ROW },
+      ]),
+    );
+    expect(result!.sweptCells).toHaveLength(2);
   });
 
   it("reports swept power pellets separately for onPowerPellet effects and Second Chomp", () => {

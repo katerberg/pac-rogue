@@ -1,5 +1,16 @@
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import {
+  applyStreakPellets,
+  BONUS_BAR_MAX,
+  breakStreak,
+  createBonusBar,
+  enterCell,
+  tickStreakIdle,
+  type BonusBar,
+  type BonusResult,
+  type Cell,
+} from "../../domain/bonusBar";
+import {
   bossTunnelMouths,
   pickBossPelletCells,
   type BossTunnelMouth,
@@ -232,6 +243,7 @@ import {
 } from "../../domain/turnTuning";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
+import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import {
   clearPlayerDirectionInput,
@@ -263,6 +275,7 @@ export type PlayHud = {
   timerVisible: boolean;
   lives: number;
   quarters: number;
+  bonusCharge: number;
   upgrades: readonly UpgradeId[];
   collected: number;
 };
@@ -284,6 +297,8 @@ export class PlaySim {
   private lifetimeCollected = 0;
   private remoteTransferCounter = 0;
   private quarters = 0;
+  private bonus: BonusBar;
+  private lastPlayerCell: Cell | null = null;
   private levelIndex = 1;
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
   private bossState: BossState | null = null;
@@ -320,6 +335,7 @@ export class PlaySim {
     this.random = createRunRandom(seed);
     this.runCorruption = createRunCorruption(options.forcedCorruption);
     this.quarters = options.quarters ?? 0;
+    this.bonus = createBonusBar(options.bonus ?? 0);
   }
 
   start(): SimEvent[] {
@@ -422,6 +438,7 @@ export class PlaySim {
       timerVisible: this.timerVisible,
       lives: this.lives,
       quarters: this.quarters,
+      bonusCharge: this.bonus.charge,
       upgrades: this.runUpgrades.owned,
       collected: this.lifetimeCollected,
     };
@@ -447,6 +464,7 @@ export class PlaySim {
       lives: this.lives,
       quarters: this.quarters,
       timeRemaining: this.clock.remaining,
+      bonus: { charge: this.bonus.charge, streak: this.bonus.streak, max: BONUS_BAR_MAX },
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
@@ -726,6 +744,7 @@ export class PlaySim {
               dash.sweptPowerPositions,
             );
           }
+          this.applyBonus(applyStreakPellets(this.bonus, dash.sweptCells));
           const collectResult = applyPelletCollect(
             this.pelletProgress,
             dash.sweptPelletEids.length,
@@ -746,6 +765,8 @@ export class PlaySim {
         this.tunnelDashAnim = { targetX: dash.animateToX, wrapToX: dash.wrapToX, y: dash.y };
       }
     }
+
+    this.checkStreakCell();
 
     const corruptionStep = stepCorruption(
       this.world,
@@ -782,6 +803,11 @@ export class PlaySim {
     ];
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);
+    }
+    if (playerFrame.removedCells.length > 0) {
+      this.applyBonus(applyStreakPellets(this.bonus, playerFrame.removedCells));
+    } else {
+      this.bonus = tickStreakIdle(this.bonus, delta);
     }
     const removed = removedPelletEids.length;
     this.eatDragMs = eatDragAfterCollect(this.eatDragMs, removed - powerRemoved, powerRemoved);
@@ -944,6 +970,31 @@ export class PlaySim {
     }
   }
 
+  private checkStreakCell(): void {
+    const cell = playerCell(this.world);
+    const last = this.lastPlayerCell;
+    if (cell !== null && last !== null && (cell.col !== last.col || cell.row !== last.row)) {
+      this.bonus = enterCell(this.bonus, cell, pelletAtCell(this.world, cell));
+    }
+    this.lastPlayerCell = cell;
+  }
+
+  private applyBonus(result: BonusResult): void {
+    this.bonus = result.bar;
+    if (result.filled > 0) {
+      this.quarters += result.filled;
+      this.emit({ type: "quarters" });
+    }
+    if (result.tier > 0 || result.filled > 0) {
+      this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
+    }
+  }
+
+  private resetStreak(): void {
+    this.bonus = breakStreak(this.bonus);
+    this.lastPlayerCell = null;
+  }
+
   private applyRemoteTransferStep(removedThisFrame: number): number {
     const every = remoteTransferEvery(this.runUpgrades.owned);
     if (every === null) {
@@ -984,6 +1035,7 @@ export class PlaySim {
     this.corruptionFlashGhostEid = null;
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
+    this.resetStreak();
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
     spawnWalls(this.world);
@@ -1127,6 +1179,7 @@ export class PlaySim {
   }
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
+    this.resetStreak();
     const boss = bossForLevel(this.levelIndex);
     if (boss === null) {
       this.runCorruption = maybeAssignCorruption(
@@ -1535,6 +1588,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.tunnelDashAnim = null;
+    this.resetStreak();
     this.remoteTransferCounter = 0;
     const playerSpawn = playerSpawnCenter();
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
