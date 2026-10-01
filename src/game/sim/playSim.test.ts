@@ -18,6 +18,7 @@ import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
+import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { grantUpgrade, type UpgradeChoiceOffer, type UpgradeId } from "../../domain/upgrades";
 import { BossPellet } from "../components/BossPellet";
 import { Fruit } from "../components/Fruit";
@@ -1388,7 +1389,7 @@ describe("PlaySim enhanced upgrades", () => {
     expect(Position.y[player]).toBe(expected.y);
   });
 
-  it("Warp Farthest glides the sprite there over 300ms and holds controls until it lands", () => {
+  it("Warp Farthest glides the sprite there over WARP_GLIDE_MS and holds controls until it lands", () => {
     const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletWarpFarthest"] });
     for (const eid of query(sim.world, [Ghost, Position])) {
       GhostPhase.value[eid] = GHOST_PHASE.active;
@@ -1401,7 +1402,7 @@ describe("PlaySim enhanced upgrades", () => {
     const landed = { x: Position.x[player]!, y: Position.y[player]! };
     expect(landed).not.toEqual(origin);
     expect(warpDraw.playerWarpGlide?.[0]).toMatchObject(origin);
-    expect(sim.snapshot().timers.warpGlideMs).toBe(300);
+    expect(sim.snapshot().timers.warpGlideMs).toBe(WARP_GLIDE_MS);
 
     const step = [
       ["left", -1, 0],
@@ -1410,15 +1411,16 @@ describe("PlaySim enhanced upgrades", () => {
       ["down", 0, 1],
     ] as const;
     const [key] = step.find(([, dx, dy]) => canEnterDirection(landed.x, landed.y, dx, dy))!;
-    const glideEvents = runFrames(sim, 17, { keys: held(key) });
+    const glideFrames = Math.ceil(WARP_GLIDE_MS / FRAME_MS) - 1;
+    const glideEvents = runFrames(sim, glideFrames, { keys: held(key) });
     expect(Position.x[player]).toBe(landed.x);
     expect(Position.y[player]).toBe(landed.y);
     expect(sim.snapshot().timers.warpGlideMs).toBeGreaterThan(0);
     const heads = glideEvents.flatMap((e) =>
       e.type === "draw" && e.options.playerWarpGlide ? [e.options.playerWarpGlide[0]!] : [],
     );
-    expect(heads).toHaveLength(17);
-    expect(Math.hypot(heads[16]!.x - landed.x, heads[16]!.y - landed.y)).toBeLessThan(
+    expect(heads).toHaveLength(glideFrames);
+    expect(Math.hypot(heads.at(-1)!.x - landed.x, heads.at(-1)!.y - landed.y)).toBeLessThan(
       Math.hypot(heads[0]!.x - landed.x, heads[0]!.y - landed.y),
     );
 

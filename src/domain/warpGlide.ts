@@ -1,4 +1,4 @@
-export const WARP_GLIDE_MS = 300;
+export const WARP_GLIDE_MS = 500;
 
 const HEAD_MIN_ALPHA = 0.45;
 const TRAIL_COUNT = 3;

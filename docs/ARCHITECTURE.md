@@ -58,7 +58,7 @@ src/
     ghostHouseLeave.ts        # leaving: door-col approach then exit
     ghostSpeed.ts             # base / Elroy (Blinky) / tunnel speed resolve
     eatDrag.ts                # brief eased Maze-Man slowdown after eating a dot / power pellet
-    warpGlide.ts              # Warp Farthest: 300ms sprite glide + afterimages (visual only; controls held)
+    warpGlide.ts              # Warp Farthest: 500ms sprite glide + afterimages (visual only; controls held)
     turnTuning.ts             # Turn Tuning: turn-tap window/beat tests, turn speed-boost timer/multiplier, turn flash pulse
     ghostRecall.ts            # closest eligible ghost pick for house recall
     deathSequence.ts          # catch → hold / ready / game-over timing
