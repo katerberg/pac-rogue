@@ -18,7 +18,12 @@ import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
-import { grantUpgrade, type UpgradeChoiceOffer, type UpgradeId } from "../../domain/upgrades";
+import {
+  grantUpgrade,
+  STARTING_UPGRADE_POOL,
+  type UpgradeChoiceOffer,
+  type UpgradeId,
+} from "../../domain/upgrades";
 import { BossPellet } from "../components/BossPellet";
 import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
@@ -320,6 +325,24 @@ describe("PlaySim", () => {
     const without = new PlaySim({ ...opts, disableLevelUpgrades: true }, "test");
     expect(count(without.start(), "startingUpgrade")).toBe(0);
     expect(without.snapshot().upgrades).toHaveLength(0);
+  });
+
+  it("draws the level-1 starting upgrade only from the starting pool", () => {
+    const opts = { ...defaultPlayOptions(), maze: "mazeSmall" as const };
+    for (let seed = 0; seed < 30; seed += 1) {
+      const sim = new PlaySim(opts, `starting-pool-${seed}`);
+      sim.start();
+      const [granted] = sim.snapshot().upgrades;
+      expect(STARTING_UPGRADE_POOL).toContain(granted);
+    }
+
+    const allButOne = STARTING_UPGRADE_POOL.slice(1);
+    const sim = new PlaySim({ ...opts, enableUpgrades: [...allButOne] }, "test");
+    sim.start();
+    expect(sim.snapshot().upgrades).toEqual([...allButOne, STARTING_UPGRADE_POOL[0]]);
+
+    const full = new PlaySim({ ...opts, enableUpgrades: [...STARTING_UPGRADE_POOL] }, "test");
+    expect(count(full.start(), "startingUpgrade")).toBe(0);
   });
 
   it("clears a board into an upgrade offer, then the next level", () => {

@@ -42,6 +42,7 @@ import {
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickStartingUpgrade,
+  STARTING_UPGRADE_POOL,
   pickUpgradeChoiceOffer,
   pelletCollectRadiusBonusPx,
   playerIsInvulnerable,
@@ -287,14 +288,39 @@ describe("declineUpgrades", () => {
 });
 
 describe("pickStartingUpgrade", () => {
-  it("returns null when pool empty", () => {
+  it("returns null when every starting-pool id is owned", () => {
     expect(pickStartingUpgrade(ALL_IDS, () => 0)).toBeNull();
+    expect(pickStartingUpgrade(STARTING_UPGRADE_POOL, () => 0)).toBeNull();
+    expect(
+      pickStartingUpgrade(
+        STARTING_UPGRADE_POOL.map((id) => enhancedIdOf(id)),
+        () => 0,
+      ),
+    ).toBeNull();
   });
 
-  it("picks uniformly from unowned ids by rng", () => {
-    expect(pickStartingUpgrade([], () => 0)).toBe(ALL_IDS[0]);
-    expect(pickStartingUpgrade([], () => 0.9999)).toBe(ALL_IDS[ALL_IDS.length - 1]);
-    expect(pickStartingUpgrade([ALL_IDS[0]!], () => 0)).toBe(ALL_IDS[1]);
+  it("picks uniformly from unowned starting-pool ids by rng", () => {
+    const pool = STARTING_UPGRADE_POOL;
+    expect(pickStartingUpgrade([], () => 0)).toBe(pool[0]);
+    expect(pickStartingUpgrade([], () => 0.9999)).toBe(pool[pool.length - 1]);
+    expect(pickStartingUpgrade([pool[0]!], () => 0)).toBe(pool[1]);
+  });
+
+  it("only ever picks from the starting pool", () => {
+    expect(STARTING_UPGRADE_POOL).toEqual([
+      "powerPelletInvuln",
+      "powerPelletFreeze",
+      "fruitFeast",
+      "powerPelletCollectThree",
+      "powerPelletSpeedBurst",
+      "powerPelletGhostHarvester",
+      "powerPelletScatterBurst",
+    ]);
+    for (let i = 0; i < 50; i += 1) {
+      const picked = pickStartingUpgrade([], () => i / 50);
+      expect(STARTING_UPGRADE_POOL).toContain(picked);
+    }
+    expect(pickStartingUpgrade(["passiveGhostSlow"], () => 0)).toBe(STARTING_UPGRADE_POOL[0]);
   });
 });
 
