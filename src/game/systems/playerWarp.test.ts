@@ -48,9 +48,10 @@ describe("warpPlayerFarthestFromGhosts", () => {
     const ghost = { x: Position.x[eid]!, y: Position.y[eid]! };
     addGhost(ghost.x, ghost.y, GHOST_PHASE.active);
 
-    warpPlayerFarthestFromGhosts(world);
+    const glide = warpPlayerFarthestFromGhosts(world);
 
     const spawn = playerFarthestFromGhostsSpawn([ghost]);
+    expect(glide).toEqual({ from: ghost, to: spawn, elapsedMs: 0 });
     expect(Position.x[eid]).toBe(spawn.x);
     expect(Position.y[eid]).toBe(spawn.y);
     expect(spawn).not.toEqual(ghost);
@@ -74,6 +75,6 @@ describe("warpPlayerFarthestFromGhosts", () => {
 
   it("no-ops without a player", () => {
     const world = createWorld();
-    expect(() => warpPlayerFarthestFromGhosts(world)).not.toThrow();
+    expect(warpPlayerFarthestFromGhosts(world)).toBeNull();
   });
 });

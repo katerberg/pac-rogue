@@ -83,6 +83,7 @@ import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
+import { tickWarpGlide, type WarpGlide, warpGlideSprites } from "../../domain/warpGlide";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   applyTunnelDash,
@@ -119,6 +120,7 @@ export class LearnSim {
   private recallHoldGhostEids: number[] = [];
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
+  private warpGlide: WarpGlide | null = null;
   private previousEffectiveGhostMode: GhostAiMode = GHOST_AI_MODE.chase;
   private fruitRespawnRemainingMs: number | null = null;
   private remoteTransferCounter = 0;
@@ -179,7 +181,13 @@ export class LearnSim {
 
   step(keys: HeldKeys, delta: number): SimEvent[] {
     this.events = [];
-    applyHeldKeys(this.world, keys, { diagonalAllowed: wallPassActive(this.learnUpgrades) });
+    if (this.warpGlide !== null) {
+      this.warpGlide = tickWarpGlide(this.warpGlide, delta);
+    }
+    const warping = this.warpGlide !== null;
+    if (!warping) {
+      applyHeldKeys(this.world, keys, { diagonalAllowed: wallPassActive(this.learnUpgrades) });
+    }
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
@@ -207,7 +215,10 @@ export class LearnSim {
       this.world,
       levelSpeedMul *
         playerSpeedMultiplier(this.learnUpgrades.owned) *
-        (speedBurstActive(this.learnUpgrades) ? speedBurstMultiplier(this.learnUpgrades.owned) : 1),
+        (speedBurstActive(this.learnUpgrades)
+          ? speedBurstMultiplier(this.learnUpgrades.owned)
+          : 1) *
+        (warping ? 0 : 1),
     );
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
@@ -295,6 +306,7 @@ export class LearnSim {
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
         ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         dimGhostEid: this.helperBlinky,
+        playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
       },
     });
     return this.takeEvents();
@@ -415,7 +427,7 @@ export class LearnSim {
       this.recallClosestGhost();
     }
     if (powerEffects.warpPlayerFarthest) {
-      warpPlayerFarthestFromGhosts(this.world);
+      this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
     }
   }
 
