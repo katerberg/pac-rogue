@@ -18,7 +18,7 @@ sim.chooseUpgrade(option); // answers a pending level-clear offer
 - `options` come from `parsePlayOptions(new URLSearchParams(location.search))` in the game and from `{ ...defaultPlayOptions(), ...overrides }` in tests (`src/domain/playOptions.ts`).
 - All randomness is drawn from `sim.random` (seeded `RunRandom`), so a seed plus the same inputs replays the run exactly.
 - Read-only views for the adapter: `world`, `hud()`, `renderOptions()`, `storeState()`, `offer()`, `inStore()`, `readsStoreKeys()`, `snapshot()` (the debug snapshot's `play.*` fields, minus the scene's UI flags).
-- `step` keeps `PlayScene`'s old gate order exactly: starting card → death sequence → run complete → level transition → store → pending upgrade choice → pending level clear → the main pipeline (see `docs/ARCHITECTURE.md#game-loop`).
+- `step` keeps `PlayScene`'s old gate order exactly: starting card → death sequence → run complete → level transition → store → level-end time drain → pending upgrade choice → pending level clear → the main pipeline (see `docs/ARCHITECTURE.md#game-loop`).
 
 ### `SimInput` (`simInput.ts`)
 
@@ -36,7 +36,7 @@ Side effects the sim can't perform itself. The scene applies them in order, afte
 
 - Sound: `sfx`, `pelletSfx`, `loopStart`, `loopStop`, `musicAfterFanfare` (the scene holds it until the level-complete fanfare ends).
 - Drawing: `draw` (with `SimRenderOptions`), `releaseDrawable`, `resetBoard`, `bouncePowerPellet`.
-- HUD / UI: `lives` (`pulse`), `quarters`, `bonus` (`tier` reached, Quarters `filled`; see [docs/bonus.md](../../../docs/bonus.md)), `upgrades`, `timer`, `timerVisible`, `banner`, `startingUpgrade`, `upgradeOffer`, `newLevelModal`, `storeOpened`, `storeSync`, `storePurchased`, `storeClosed`, `deathFade`, `endText`, `goToMenu`.
+- HUD / UI: `lives` (`pulse`), `quarters`, `bonus` (`tier` reached, Quarters `filled`; see [docs/bonus.md](../../../docs/bonus.md)), `timeBonus` (`active` while the level-end time drain runs), `upgrades`, `timer`, `timerVisible`, `banner`, `startingUpgrade`, `upgradeOffer`, `newLevelModal`, `storeOpened`, `storeSync`, `storePurchased`, `storeClosed`, `deathFade`, `endText`, `goToMenu`.
 - Storage: `saveRun` (only when no debug flag is present), `seenGhosts`, `seenUpgrades`.
 
 ## `LearnSim` (`learnSim.ts`)

@@ -7,6 +7,7 @@ A persistent HUD meter that pays one **Quarter** each time it fills. Eating pell
 [`src/domain/bonusBar.ts`](../src/domain/bonusBar.ts), run by `PlaySim`:
 
 - The bar holds `BONUS_BAR_MAX` (300) points. A fill pays 1 Quarter and keeps the remainder. One bump that overflows several times pays several Quarters.
+- Eating bonus fruit adds `FRUIT_BONUS_CHARGE` (150, half a bar; a whole bar with Quarter Bounty). It does not touch the streak.
 - The charge lasts the whole run: deaths, level advances and store floors keep it. `?bonus=` sets the starting charge.
 - A **streak** counts pellets the player's own body collects: the `collectPellets` player frame (including the Pickup Range radius) and the Tunnel Dash sweep. A power pellet counts as one. Triple Chomp, Remote Transference, Ghost Harvest and Death's Harvest removals neither extend nor break a streak.
 - Each time the streak reaches a multiple of `BONUS_STREAK_TIER_SIZE` (5), the bar bumps by `bonusTierBump(tier)`; pellets in between add nothing. One frame that crosses several thresholds adds them all.
@@ -36,7 +37,7 @@ Tiers past 6 add 5 more each.
 
 ### Economy reference
 
-Tuned so an 80%-efficient run earns about one Quarter per level, roughly 70% from streaks and 30% from the level-end time bonus (a later stage). A 240-pellet board eaten as 12 streaks of 20 gives 216 points (0.72 of a bar); 24 streaks of 10 give 120; 4 streaks of 60 give 988 (3 Quarters). `bonusBar.test.ts` pins these numbers.
+Tuned so an 80%-efficient run earns about one Quarter per level, roughly 70% from streaks and 30% from the level-end [time bonus](#time-bonus). A 240-pellet board eaten as 12 streaks of 20 gives 216 points (0.72 of a bar); 24 streaks of 10 give 120; 4 streaks of 60 give 988 (3 Quarters). `bonusBar.test.ts` pins these numbers.
 
 ## HUD
 
@@ -54,8 +55,14 @@ Tuned so an 80%-efficient run earns about one Quarter per level, roughly 70% fro
 
 `?bonus=<0..299>` starts the run with that much charge (invalid → 0 with a console warning). It disables high-score saving, like every debug flag. Example: `http://127.0.0.1:5174/?play=1&level=2&bonus=295`.
 
-`play.bonus.{charge,streak,max}` in the debug snapshot exposes the state for `npm run probe`.
+`play.bonus.{charge,streak,max,draining}` in the debug snapshot exposes the state for `npm run probe`.
 
 ## Time bonus
 
-Not built yet: a later stage drains the remaining level time into the bar at each level clear.
+[`src/domain/timeBonus.ts`](../src/domain/timeBonus.ts): clearing a board drains the time left into the bar.
+
+- Each `BONUS_TIME_UNITS_PER_POINT` (5) timer units — half a second — is worth one point. A full 999 timer is worth 199 points; a typical good clear with about 45 s left (450) is worth 90.
+- The drain always takes `TIME_BONUS_DRAIN_MS` (1200), whatever the amount. `Time:` counts down to 0 in pellet yellow while the bar rises; Quarters are paid as it fills (the usual fill wave and pulse), so they are in hand before the upgrade offer.
+- Order at a clear: level-complete fanfare → drain → upgrade offer (levels 2–8) or the transition (level 1).
+- No drain when the timer is already 0, and none on the level-9 boss clear (the run ends there).
+- `PlaySim.step` holds every other gate while it drains (`play.bonus.draining` in the snapshot); `?jumpToUpgrade=1` clears the board at once, so it drains the full 999.

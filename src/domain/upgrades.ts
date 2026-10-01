@@ -237,7 +237,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     id: "fruitQuarterBounty",
     label: "Quarter Bounty",
     school: "harvest",
-    description: "Bonus fruit pays out double quarters.",
+    description: "Bonus fruit fills a whole BONUS bar instead of half.",
     storePrice: STORE_UPGRADE_PRICE,
     fruitQuarterMul: QUARTER_BOUNTY_MUL,
   },

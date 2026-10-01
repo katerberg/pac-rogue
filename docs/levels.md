@@ -2,12 +2,12 @@
 
 The run is a fixed 9-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../src/domain/levelRules.ts)) — no endless/procedural progression past level 9. Level 9 is a boss fight (see [docs/bosses.md](./bosses.md)).
 
-| Level | Maze                           | Ghosts                                                          | Fruit                                      | On clear                                                                                                                                               |
-| ----- | ------------------------------ | --------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1     | `mazeSmall` (22×21, half-size) | Blinky + a randomly chosen Pinky or Inky (2 ghosts, see below)  | present after 70 pellets (awards Quarters) | No reward (level 1 already granted a starting upgrade); advance to level 2                                                                             |
-| 2     | Procedural 28×34               | Blinky, Pinky, and Inky (3 ghosts, see below)                   | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3                                                                      |
-| 3-8   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                           | present (awards Quarters)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level; after 3, after 5 or 6, and after 8 a store floor comes first |
-| 9     | Procedural 28×34, 3 tunnels    | Boss: Double Blinky (2 → 10 Blinkys, see [bosses](./bosses.md)) | present (awards Quarters)                  | No upgrade offer; a `RUN COMPLETE` screen and return to `MenuScene`                                                                                    |
+| Level | Maze                           | Ghosts                                                          | Fruit                                            | On clear                                                                                                                                               |
+| ----- | ------------------------------ | --------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | `mazeSmall` (22×21, half-size) | Blinky + a randomly chosen Pinky or Inky (2 ghosts, see below)  | present after 70 pellets (charges the BONUS bar) | No reward (level 1 already granted a starting upgrade); advance to level 2                                                                             |
+| 2     | Procedural 28×34               | Blinky, Pinky, and Inky (3 ghosts, see below)                   | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3                                                                      |
+| 3-8   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                           | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level; after 3, after 5 or 6, and after 8 a store floor comes first |
+| 9     | Procedural 28×34, 3 tunnels    | Boss: Double Blinky (2 → 10 Blinkys, see [bosses](./bosses.md)) | present (charges the BONUS bar)                  | No upgrade offer; a `RUN COMPLETE` screen and return to `MenuScene`                                                                                    |
 
 Store floors (between levels 3→4, 5→6 or 6→7, and 8→9 right before the boss) are where Quarters are spent; see [docs/store.md](./store.md).
 
@@ -32,9 +32,9 @@ rest of the run — see [docs/corruption.md](./corruption.md).
 
 At level 1 and at every level transition, `livesAfterLevelRegen` (`src/domain/lives.ts`) grants one extra life whenever fewer than 3 HUD icons are showing (4 while `passiveExtraLife` is owned, via `levelLivesIconFloor`). This is a one-life-per-level trickle, not an instant refill to 3 — a run that lost several lives climbs back to the 3-icon floor gradually across level clears. Applying it at level 1 means every run effectively starts at 4 lives (3 icons) instead of the base 3. Owning `passiveExtraLife` raises the floor to 4 icons, so a run with it regenerates up to 5 lives; the upgrade's own +1 life is not capped. Owning `passiveMyogenesis` makes each top-up up to 2 lives (`levelRegenAmount`), still clamped at the floor.
 
-## Fruit awards Quarters
+## Fruit charges the BONUS bar
 
-Fruit spawns/despawns as before, 10s lifetime (20s with Fruit Fecundity): level 1 uses a single unscaled 70-pellet threshold, levels 2+ use layout-scaled pellet thresholds. Picking it up plays the munch SFX, removes it, and awards one Quarter (top-left HUD dot; spent at [store floors](./store.md)). Pellet streaks also earn Quarters through the [BONUS bar](./bonus.md). The upgrade-choice reward instead comes from **clearing a level** (2 through 8); see [docs/upgrades.md](./upgrades.md).
+Fruit spawns/despawns as before, 10s lifetime (20s with Fruit Fecundity): level 1 uses a single unscaled 70-pellet threshold, levels 2+ use layout-scaled pellet thresholds. Picking it up plays the munch SFX, removes it, and adds half a [BONUS bar](./bonus.md) of charge (`FRUIT_BONUS_CHARGE`, 150; a whole bar with Quarter Bounty). Each bar fill pays one Quarter (top-left HUD; spent at [store floors](./store.md)), so two fruits make a Quarter. The upgrade-choice reward instead comes from **clearing a level** (2 through 8); see [docs/upgrades.md](./upgrades.md).
 
 ## `?level=` and the cap
 
@@ -42,7 +42,7 @@ Fruit spawns/despawns as before, 10s lifetime (20s with Fruit Fecundity): level 
 
 ## Run Complete
 
-Clearing level 9 (the boss) does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice is offered; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
+Clearing level 9 (the boss) does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice and no [time bonus](./bonus.md#time-bonus) are given; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
 
 ## Ghost house release
 
