@@ -174,7 +174,7 @@ const PLAYER_SPAWN_CHAR = "P";
 const EMPTY_CORRIDOR_CHAR = "-";
 const EMPTY_CELL_CHAR = " ";
 const PELLET_CHARS = new Set([".", "@"]);
-const STORE_SLOT_CHARS = ["L", "U", "S"] as const;
+const STORE_SLOT_CHARS = ["L", "U", "S", "E"] as const;
 const EMPTY_CORRIDOR_CHARS = new Set([
   EMPTY_CELL_CHAR,
   EMPTY_CORRIDOR_CHAR,

@@ -165,6 +165,9 @@ import {
   secondChompMs,
   lifeFloorBonus,
   hasUpgrade,
+  enhanceGrantLives,
+  enhanceUpgrade,
+  enhancedIdOf,
   wallPassLoopOwned,
   fruitFeastThresholds,
   fruitPowerConvertsPellet,
@@ -522,13 +525,17 @@ export class PlaySim {
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
       storeStock:
-        this.store?.slots.map((slot) =>
-          slot.kind === "upgrade"
-            ? slot.id
-            : slot.kind === "swap"
-              ? `swap:${slot.outgoingId}`
-              : "life",
-        ) ?? null,
+        this.store?.slots
+          .filter((slot) => !slot.sold)
+          .map((slot) =>
+            slot.kind === "upgrade"
+              ? slot.id
+              : slot.kind === "swap"
+                ? `swap:${slot.outgoingId}`
+                : slot.kind === "enhance"
+                  ? `enhance:${slot.targetId}`
+                  : "life",
+          ) ?? null,
       boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
       corruption: this.runCorruption.type,
       corruptionGhost:
@@ -1108,6 +1115,7 @@ export class PlaySim {
       parseStoreSlots(STORE_MAZE_ASCII),
       this.runUpgrades.owned,
       this.random.stream("storeStock", this.levelIndex),
+      this.levelIndex === STORE_FIRST_LEVEL,
     );
     this.emit({ type: "storeOpened" });
     this.timerVisible = false;
@@ -1203,12 +1211,19 @@ export class PlaySim {
       this.emit({ type: "lives", pulse: true });
       return;
     }
-    if (purchase.kind === "swap") {
-      this.runUpgrades = revokeUpgrade(this.runUpgrades, purchase.outgoingId);
+    let id: UpgradeId;
+    if (purchase.kind === "enhance") {
+      id = enhancedIdOf(purchase.targetId);
+      this.runUpgrades = enhanceUpgrade(this.runUpgrades, purchase.targetId);
+      this.lives += enhanceGrantLives(purchase.targetId);
+    } else {
+      if (purchase.kind === "swap") {
+        this.runUpgrades = revokeUpgrade(this.runUpgrades, purchase.outgoingId);
+      }
+      id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
+      this.runUpgrades = grantUpgrade(this.runUpgrades, id);
+      this.applyGrantEffects(id);
     }
-    const id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
-    this.runUpgrades = grantUpgrade(this.runUpgrades, id);
-    this.applyGrantEffects(id);
     this.emit({ type: "lives", pulse: grantLivesForUpgrade(id) > 0 });
     this.recordSeenUpgrades();
     this.emit({ type: "upgrades" });

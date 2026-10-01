@@ -549,6 +549,87 @@ describe("PlaySim", () => {
     expect(events).toContainEqual({ type: "lives", pulse: true });
   });
 
+  describe("store tiles", () => {
+    function buy(sim: PlaySim, kind: "life" | "upgrade" | "swap" | "enhance", nth = 0): SimEvent[] {
+      const slot = parseStoreSlots(STORE_MAZE_ASCII).filter((cell) => cell.kind === kind)[nth]!;
+      teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
+      runFrames(sim, 1);
+      runFrames(sim, 1, { storeToggle: true });
+      return runFrames(sim, 1, { storeConfirm: true });
+    }
+
+    it("the first store stocks only two lives and two abilities", () => {
+      const sim = startSim({ store: true, quarters: 10, enableUpgrades: ["passiveGhostSlow"] });
+      expect([...sim.snapshot().storeStock!].map((s) => s.split(":")[0]).sort()).toEqual([
+        "life",
+        "life",
+        expect.any(String),
+        expect.any(String),
+      ]);
+      expect(sim.snapshot().storeStock).toHaveLength(4);
+    });
+
+    it("a later store adds a trade tile and an enhancement tile", () => {
+      const sim = startSim({
+        store: true,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
+      const stock = sim.snapshot().storeStock!;
+      expect(stock).toHaveLength(6);
+      expect(stock).toContain("enhance:passiveGhostSlow");
+      expect(stock).toContain("swap:passiveGhostSlow");
+    });
+
+    it("buying a life removes that tile and the second life tile stays", () => {
+      const sim = startSim({ store: true, level: 5, quarters: 10 });
+      buy(sim, "life", 0);
+      expect(sim.snapshot().storeStock!.filter((s) => s === "life")).toHaveLength(1);
+    });
+
+    it("enhancement costs 2, swaps the owned upgrade for its Plus form and keeps order", () => {
+      const sim = startSim({
+        store: true,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
+      const events = buy(sim, "enhance");
+      expect(sim.snapshot().quarters).toBe(8);
+      expect(sim.snapshot().upgrades).toEqual(["passiveGhostSlowPlus"]);
+      expect(events).toContainEqual({ type: "storePurchased", id: "passiveGhostSlowPlus" });
+      expect(sim.snapshot().storeStock!.some((s) => s.startsWith("enhance"))).toBe(false);
+    });
+
+    it("enhancing Extra Life grants the extra life", () => {
+      const sim = startSim({
+        store: true,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveExtraLife"],
+      });
+      const before = sim.snapshot().lives;
+      buy(sim, "enhance");
+      expect(sim.snapshot().lives).toBe(before + 1);
+      expect(sim.snapshot().upgrades).toEqual(["passiveExtraLifePlus"]);
+    });
+
+    it("swapping an enhanced upgrade yields an enhanced one", () => {
+      const sim = startSim({
+        store: true,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlowPlus"],
+      });
+      buy(sim, "swap");
+      const owned = sim.snapshot().upgrades;
+      expect(owned).toHaveLength(1);
+      expect(owned[0]!.endsWith("Plus")).toBe(true);
+      expect(owned[0]).not.toBe("passiveGhostSlowPlus");
+    });
+  });
+
   it("adds a Blinky when the player eats a boss pellet", () => {
     const sim = startSim({ level: 9 });
     expect(sim.snapshot().boss?.ghostCount).toBe(2);
