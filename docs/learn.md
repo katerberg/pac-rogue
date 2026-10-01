@@ -29,8 +29,9 @@ Only ghosts, corruptions, and upgrades this machine has met in real play are sel
 
 - Title, then four ghost slots (Blinky, Pinky, Inky, Clyde). Unseen slots show a black silhouette
   and cannot be picked. The selected slot has a yellow frame.
-- Seen upgrades are listed to the left of the maze, one row per seen `UpgradeDef` in canonical
-  `UPGRADE_DEFS` order: a checkbox + label, filled in yellow while selected. Multiple upgrades can be
+- Seen upgrades are listed to the left of the maze, grouped under a colored school header
+  (`groupUpgradesBySchool`, `UPGRADE_SCHOOL_ORDER`; empty schools are skipped), one row per seen
+  `UpgradeDef` in canonical `UPGRADE_DEFS` order within each group: a checkbox + label, filled in yellow while selected. Multiple upgrades can be
   selected at once (a local `RunUpgrades` bag, not tied to any real run) and stay selected across a
   ghost switch — only the five transient power-pellet timers (freeze/scatter/wall-pass/invuln/speed
   -burst) and any in-flight recall hold reset when the ghost changes.
@@ -39,7 +40,7 @@ Only ghosts, corruptions, and upgrades this machine has met in real play are sel
   on-screen) — never over the play area — using `buildUpgradeCardVisual` from
   [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts), the same
   function the level-clear upgrade picker's buttons use, so the card matches exactly (bg, border,
-  label, description). Moving off the row before the delay elapses cancels it; moving to a new row
+  school tag, label, description). Moving off the row before the delay elapses cancels it; moving to a new row
   restarts the delay (and re-anchors to that row's pointer position).
 - Selecting an upgrade with no observable effect on this board (see "Upgrade fidelity" below) shows a
   small two-line banner positioned between the ghost slots and the maze (`NO_EFFECT_BANNER_Y`),

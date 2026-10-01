@@ -18,6 +18,9 @@ import {
   QUARTERS_CHOICE_AMOUNT,
   STORE_UPGRADE_PRICE,
   UPGRADE_DEFS,
+  UPGRADE_SCHOOL_LABELS,
+  UPGRADE_SCHOOL_ORDER,
+  groupUpgradesBySchool,
   storePriceFor,
   applyPowerPelletEffects,
   confirmUpgradeChoice,
@@ -749,5 +752,35 @@ describe("fruitLifetimeMultiplier", () => {
     state = applyPowerPelletEffects(state, 1).state;
     expect(playerTintRemainingMs(state)).toBe(Math.max(INVULN_MS, DEFY_DEATH_MS));
     expect(playerTintRemainingMs(tickDefyDeath(clearUpgradeTimers(state), 100))).toBe(0);
+  });
+});
+
+describe("upgrade schools", () => {
+  it("assigns every upgrade one of the six schools", () => {
+    const schools = Object.keys(UPGRADE_SCHOOL_LABELS).sort();
+    expect(schools).toEqual(["death", "disruption", "harvest", "neutral", "protection", "speed"]);
+    for (const def of UPGRADE_DEFS) {
+      expect(schools, def.id).toContain(def.school);
+    }
+  });
+
+  it("groups defs by school in school order, keeping def order and skipping empty schools", () => {
+    expect([...UPGRADE_SCHOOL_ORDER].sort()).toEqual(Object.keys(UPGRADE_SCHOOL_LABELS).sort());
+    const groups = groupUpgradesBySchool(UPGRADE_DEFS);
+    expect(groups.map((g) => g.school)).toEqual([...UPGRADE_SCHOOL_ORDER]);
+    expect(groups.flatMap((g) => g.defs)).toHaveLength(UPGRADE_DEFS.length);
+    const speed = groups.find((g) => g.school === "speed")!;
+    expect(speed.defs.map((d) => d.id)).toEqual(
+      UPGRADE_DEFS.filter((d) => d.school === "speed").map((d) => d.id),
+    );
+
+    const some = UPGRADE_DEFS.filter((d) => d.school === "neutral" || d.school === "death");
+    expect(groupUpgradesBySchool(some).map((g) => g.school)).toEqual(["death", "neutral"]);
+    expect(groupUpgradesBySchool([])).toEqual([]);
+  });
+
+  it("uses every school at least once", () => {
+    const used = new Set(UPGRADE_DEFS.map((def) => def.school));
+    expect([...used].sort()).toEqual(Object.keys(UPGRADE_SCHOOL_LABELS).sort());
   });
 });

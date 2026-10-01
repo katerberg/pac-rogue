@@ -33,7 +33,14 @@ import {
   type SeenRecord,
 } from "../../domain/seenRecord";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
-import { getUpgradeDef, UPGRADE_DEFS, type UpgradeId } from "../../domain/upgrades";
+import {
+  getUpgradeDef,
+  groupUpgradesBySchool,
+  UPGRADE_DEFS,
+  UPGRADE_SCHOOL_LABELS,
+  type UpgradeDef,
+  type UpgradeId,
+} from "../../domain/upgrades";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
 import { createHeldKeysReader } from "../systems/playerInput";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -57,6 +64,7 @@ import {
 } from "./pixelFont";
 import {
   buildUpgradeCardVisual,
+  SCHOOL_COLORS,
   MODAL_DEPTH,
   wrapText,
   type UpgradeCardVisual,
@@ -95,7 +103,8 @@ const PIVOT_DOT_RADIUS = 3;
 const CIRCLE_SEGMENTS = 48;
 const UPGRADE_COLUMN_X = 20;
 const UPGRADE_ROW_START_Y = 100;
-const UPGRADE_ROW_GAP = 21;
+const UPGRADE_ROW_GAP = 13;
+const UPGRADE_HEADER_GAP = 17;
 const UPGRADE_ROW_WIDTH = 190;
 const UPGRADE_CHECK_SIZE = 10;
 const UPGRADE_CHECK_GAP = 4;
@@ -343,33 +352,52 @@ export class LearnScene extends Phaser.Scene {
 
   private buildUpgradeRows(): void {
     this.upgradeRows = [];
-    const defs = UPGRADE_DEFS.filter((def) => this.seen.upgrades.includes(def.id));
+    const groups = groupUpgradesBySchool(
+      UPGRADE_DEFS.filter((def) => this.seen.upgrades.includes(def.id)),
+    );
     const checkboxX = UPGRADE_COLUMN_X + UPGRADE_CHECK_SIZE / 2;
     const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
-    defs.forEach((def, index) => {
-      const y = UPGRADE_ROW_START_Y + index * UPGRADE_ROW_GAP;
-      this.add
-        .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
-        .setStrokeStyle(2, TEXT_COLOR_WHITE);
-      const checkMark = this.add
-        .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, TEXT_COLOR_YELLOW)
-        .setVisible(false);
-      const label = addPixelText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
-      placePixelText(label, labelX, y, 0, 0.5);
-      const zone = this.add.zone(
-        UPGRADE_COLUMN_X + UPGRADE_ROW_WIDTH / 2,
-        y,
-        UPGRADE_ROW_WIDTH,
-        UPGRADE_ROW_GAP - 4,
+    let y = UPGRADE_ROW_START_Y - UPGRADE_ROW_GAP;
+    for (const { school, defs } of groups) {
+      y += UPGRADE_HEADER_GAP;
+      const header = addPixelText(
+        this,
+        0,
+        0,
+        UPGRADE_SCHOOL_LABELS[school].toUpperCase(),
+        UPGRADES_HUD_FONT_SIZE,
+        SCHOOL_COLORS[school],
       );
-      zone.setInteractive({ useHandCursor: true });
-      zone.on("pointerdown", () => this.toggleUpgrade(def.id));
-      zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
-        this.scheduleUpgradePreview(def.id, pointer.y),
-      );
-      zone.on("pointerout", () => this.cancelUpgradePreview());
-      this.upgradeRows.push({ id: def.id, checkMark });
-    });
+      placePixelText(header, UPGRADE_COLUMN_X, y, 0, 0.5);
+      for (const def of defs) {
+        y += UPGRADE_ROW_GAP;
+        this.buildUpgradeRow(def, y, checkboxX, labelX);
+      }
+    }
+  }
+
+  private buildUpgradeRow(def: UpgradeDef, y: number, checkboxX: number, labelX: number): void {
+    this.add
+      .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
+      .setStrokeStyle(2, TEXT_COLOR_WHITE);
+    const checkMark = this.add
+      .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, TEXT_COLOR_YELLOW)
+      .setVisible(false);
+    const label = addPixelText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
+    placePixelText(label, labelX, y, 0, 0.5);
+    const zone = this.add.zone(
+      UPGRADE_COLUMN_X + UPGRADE_ROW_WIDTH / 2,
+      y,
+      UPGRADE_ROW_WIDTH,
+      UPGRADE_ROW_GAP - 2,
+    );
+    zone.setInteractive({ useHandCursor: true });
+    zone.on("pointerdown", () => this.toggleUpgrade(def.id));
+    zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
+      this.scheduleUpgradePreview(def.id, pointer.y),
+    );
+    zone.on("pointerout", () => this.cancelUpgradePreview());
+    this.upgradeRows.push({ id: def.id, checkMark });
   }
 
   private refreshUpgradeRows(): void {
@@ -413,6 +441,7 @@ export class LearnScene extends Phaser.Scene {
     const visual = buildUpgradeCardVisual(this, HOVER_PREVIEW_X, y, {
       label: def.label,
       description: def.description,
+      school: def.school,
     });
     visual.root.setDepth(MODAL_DEPTH + 1);
     this.hoverPreviewCard = visual;

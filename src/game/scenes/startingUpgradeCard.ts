@@ -13,7 +13,9 @@ import {
 import {
   BUTTON_HEIGHT,
   BUTTON_WIDTH,
+  addSchoolTag,
   DESCRIPTION_MAX_CHARS,
+  layoutCardText,
   LABEL_MAX_CHARS,
   MODAL_DEPTH,
   wrapText,
@@ -21,6 +23,7 @@ import {
 
 export const STARTING_UPGRADE_HOLD_MS = 10_000;
 export const STARTING_UPGRADE_FADE_MS = 100;
+const STARTING_CARD_BODY_CENTER_Y = 18;
 
 export type StartingUpgradeCard = {
   isActive: () => boolean;
@@ -96,10 +99,16 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         TEXT_COLOR_WHITE,
       );
       placePixelText(header, 0, -84, 0.5, 0.5);
-      placePixelText(label, 0, -24, 0.5, 0.5);
-      placePixelText(description, 0, 52, 0.5, 0.5);
+      const school = addSchoolTag(scene, def.school);
+      layoutCardText(label, school, description, STARTING_CARD_BODY_CENTER_Y);
       card = scene.add
-        .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [bg, header, label, description])
+        .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
+          bg,
+          header,
+          label,
+          school,
+          description,
+        ])
         .setDepth(MODAL_DEPTH + 1);
       onKeyDown = (event) => {
         if (event.key === "Escape") {
