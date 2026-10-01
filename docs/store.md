@@ -55,4 +55,4 @@ Reaching any border cell (a tunnel mouth) starts the exit — no confirm, no tim
 
 ## Debug
 
-`?store=1` starts the run in a store for the current level (level 3 when `?level` is omitted), skips the level-1 starting upgrade, and disables high-score saving. Combine with `?quarters=` and `?enableUpgrade=`.
+`?store=1|2|3` starts the run in the 1st, 2nd or 3rd store (level 3, the seeded mid store at level 5 or 6, level 8); an explicit `?level` overrides the level, skips the level-1 starting upgrade, and disables high-score saving. Combine with `?quarters=` and `?enableUpgrade=`.

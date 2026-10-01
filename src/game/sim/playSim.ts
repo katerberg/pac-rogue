@@ -131,7 +131,7 @@ import {
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
-  STORE_FIRST_LEVEL,
+  storeLevelFor,
   STORE_EXIT_SLIDE_TILES,
   createStoreState,
   parseStoreSlots,
@@ -349,9 +349,14 @@ export class PlaySim {
   start(): SimEvent[] {
     this.events = [];
     const options = this.options;
-    this.levelIndex =
-      options.level ?? (options.jumpToUpgrade ? 2 : options.store ? STORE_FIRST_LEVEL : 1);
     this.midStoreLevel = pickMidStoreLevel(this.random.stream("midStore"));
+    this.levelIndex =
+      options.level ??
+      (options.jumpToUpgrade
+        ? 2
+        : options.store !== null
+          ? storeLevelFor(options.store, this.midStoreLevel)
+          : 1);
     this.secondGhostKind =
       this.random.stream("secondGhost")() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
     this.runUpgrades = createRunUpgrades(options.enableUpgrades);
@@ -365,7 +370,7 @@ export class PlaySim {
     const startingUpgrade =
       this.levelIndex === 1 &&
       !options.jumpToUpgrade &&
-      !options.store &&
+      options.store === null &&
       !options.disableLevelUpgrades
         ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
         : null;
@@ -387,7 +392,7 @@ export class PlaySim {
     this.emit({ type: "loopStart", id: "gameplayMusic" });
     if (options.jumpToUpgrade) {
       this.jumpToLevelClear();
-    } else if (options.store) {
+    } else if (options.store !== null) {
       this.enterStore();
     }
     return this.takeEvents();
