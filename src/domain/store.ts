@@ -27,6 +27,7 @@ export type StoreStepInput = {
   row: number;
   toggle: boolean;
   enter: boolean;
+  pick?: "yes" | "no" | null;
   quarters: number;
   owned: readonly UpgradeId[];
 };
@@ -163,15 +164,18 @@ export function storeStep(
   if (at === null || view?.kind !== "confirm") {
     return { state: next, purchase: null };
   }
-  if (input.toggle) {
+  const picked = input.pick ?? null;
+  if (picked === null && input.toggle) {
     return { state: { ...next, confirmYes: !next.confirmYes }, purchase: null };
   }
-  if (!input.enter) {
+  if (picked === null && !input.enter) {
     return { state: next, purchase: null };
   }
-  if (!next.confirmYes) {
-    return { state: { ...next, dismissedSlot: at }, purchase: null };
+  const yes = picked === null ? next.confirmYes : picked === "yes";
+  if (!yes) {
+    return { state: { ...next, dismissedSlot: at, confirmYes: false }, purchase: null };
   }
+  next.confirmYes = true;
 
   const slot = view.slot;
   if (slot.kind === "life") {
