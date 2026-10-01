@@ -10,7 +10,7 @@ import {
   horizontalTunnelRows,
 } from "../../domain/maze";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
-import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
+import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { grantUpgrade, type UpgradeChoiceOffer } from "../../domain/upgrades";
@@ -1051,5 +1051,25 @@ describe("PlaySim level-end time bonus", () => {
     expect(events.some((e) => e.type === "timeBonus")).toBe(false);
     expect(sim.snapshot().bonus).toMatchObject({ charge: 0, draining: false });
     expect(runFrames(sim, 90)).toContainEqual({ type: "endText", title: "RUN COMPLETE" });
+  });
+});
+
+describe("level 4+ ghosts", () => {
+  it("leaves every ghost unmodified and ignores a stale forceCorruption flag", () => {
+    const parsed = parsePlayOptions(
+      new URLSearchParams("level=4&forceCorruption=slimeTrail&forceCorruptionGhost=pinky"),
+    );
+    expect(parsed.warnings).toEqual([]);
+    expect(parsed.options.highScoresDisabled).toBe(true);
+
+    const sim = new PlaySim(parsed.options, "test");
+    const events = sim.start();
+    events.push(...runFrames(sim, 120));
+
+    expect(Object.keys(sim.snapshot())).not.toContain("corruption");
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(draws.length).toBeGreaterThan(0);
+    expect(draws.every((options) => !("corruptedTint" in options))).toBe(true);
+    expect(events.some((event) => event.type === "seenGhosts")).toBe(true);
   });
 });

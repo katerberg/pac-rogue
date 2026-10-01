@@ -78,18 +78,4 @@ describe("resolveGhostTarget", () => {
     expect(clydeResult).toEqual(clydeTarget({ ...base, ghostCol: 12, ghostRow: 21 }));
     expect(clydeResult).toEqual(clydeScatterTarget());
   });
-
-  it("applies falseScatter only to the corrupted kind", () => {
-    const { world, pinky, inky } = buildWorld();
-    const ctx = ghostAiContext(world);
-    const corruption = { ghostKind: GHOST_KIND.pinky, type: "falseScatter" as const };
-    const scatter = GHOST_AI_MODE.scatter;
-
-    expect(resolveGhostTarget(pinky, scatter, 200, ctx, { corruption })).toEqual(
-      resolveGhostTarget(pinky, GHOST_AI_MODE.chase, 200, ctx),
-    );
-    expect(resolveGhostTarget(inky, scatter, 200, ctx, { corruption })).not.toEqual(
-      resolveGhostTarget(inky, GHOST_AI_MODE.chase, 200, ctx),
-    );
-  });
 });

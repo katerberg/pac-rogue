@@ -43,7 +43,6 @@ describe("seenRecordStorage", () => {
     const store = installMemoryStorage();
     const record = {
       ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky],
-      corruptions: ["slimeTrail" as const],
       upgrades: ["passivePlayerSpeedUp" as const],
     };
     saveSeenRecord(record);

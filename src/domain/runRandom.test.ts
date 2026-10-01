@@ -50,8 +50,8 @@ describe("createRunRandom", () => {
   it("keeps streams independent of how much others were drawn", () => {
     const busy = createRunRandom("s1");
     draws(busy.stream("upgradeFx"), 100);
-    expect(draws(busy.stream("corruption", 4))).toEqual(
-      draws(createRunRandom("s1").stream("corruption", 4)),
+    expect(draws(busy.stream("upgradeOffer", 4))).toEqual(
+      draws(createRunRandom("s1").stream("upgradeOffer", 4)),
     );
   });
 });

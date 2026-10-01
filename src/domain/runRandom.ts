@@ -4,7 +4,6 @@ export type RandomStream =
   | "secondGhost"
   | "midStore"
   | "startingUpgrade"
-  | "corruption"
   | "upgradeOffer"
   | "upgradeFx"
   | "storeStock"

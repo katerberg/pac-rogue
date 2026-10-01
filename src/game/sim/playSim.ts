@@ -31,17 +31,6 @@ import {
   type BossState,
 } from "../../domain/bossRules";
 import {
-  OUTLINE_TINT_BY_CORRUPTION,
-  SPEED_SURGE_MUL,
-  corruptionAiOption,
-  createRunCorruption,
-  isSpeedSurgeActive,
-  maybeAssignCorruption,
-  resetCorruptionTransient,
-  tickSpeedSurge,
-  type RunCorruption,
-} from "../../domain/corruption";
-import {
   beginDeathSequence,
   tickDeathSequence,
   type DeathSequenceEvent,
@@ -78,7 +67,6 @@ import {
   GHOST_PHASE,
   inkyScatterTarget,
   pinkyScatterTarget,
-  type GhostTarget,
 } from "../../domain/ghostTarget";
 import {
   ghostKindsForLevel,
@@ -101,7 +89,6 @@ import {
   cellCenterY,
   getActiveLayout,
   horizontalTunnelRows,
-  isWalkable,
   playerSpawnCenter,
   worldToCol,
   worldToRow,
@@ -211,8 +198,6 @@ import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets, countPellets, onlyPowerPelletsLeft } from "../systems/collectPellets";
-import { findGhostEidByKind } from "../systems/corruptionGhost";
-import { stepCorruption } from "../systems/corruptionStep";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
@@ -263,7 +248,6 @@ import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domai
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { warpPlayerToTopCenter } from "../systems/playerWarp";
-import { slimeTrailKill } from "../systems/slimeTrailKill";
 import {
   applyTunnelDash,
   tickTunnelDashAnimation,
@@ -321,9 +305,6 @@ export class PlaySim {
   private midStoreLevel = 5;
   private store: StoreState | null = null;
   private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
-  private runCorruption: RunCorruption;
-  private corruptionHiddenGhostEid: number | null = null;
-  private corruptionFlashGhostEid: number | null = null;
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
   private reviveSplashPending = false;
@@ -341,7 +322,6 @@ export class PlaySim {
   constructor(options: PlayOptions, seed: string) {
     this.options = options;
     this.random = createRunRandom(seed);
-    this.runCorruption = createRunCorruption(options.forcedCorruption);
     this.quarters = options.quarters ?? 0;
     this.bonus = createBonusBar(options.bonus ?? 0);
   }
@@ -464,7 +444,6 @@ export class PlaySim {
       wallPassActive: wallPassActive(this.runUpgrades),
       turnFlashRemainingMs: this.turnFlashMs,
       ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
-      ...this.renderCorruptionOptions(),
     };
   }
 
@@ -517,11 +496,6 @@ export class PlaySim {
               : "life",
         ) ?? null,
       boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
-      corruption: this.runCorruption.type,
-      corruptionGhost:
-        this.runCorruption.ghostKind === null
-          ? null
-          : nameOf(GHOST_KIND, this.runCorruption.ghostKind),
       ...worldSnapshot(this.world),
     };
   }
@@ -703,7 +677,6 @@ export class PlaySim {
     for (const pos of respawnTick.ready) {
       this.spawnRespawnedPowerPellet(pos.x, pos.y);
     }
-    this.runCorruption = tickSpeedSurge(this.runCorruption, delta);
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnBoostMs = tickTurnTimer(this.turnBoostMs, delta);
     this.turnFlashMs = tickTurnTimer(this.turnFlashMs, delta);
@@ -720,10 +693,6 @@ export class PlaySim {
         (this.bossState === null ? levelSpeedMul : 1) *
         ghostSpeedMultiplier(this.runUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
-      speedSurge:
-        this.runCorruption.ghostKind !== null && isSpeedSurgeActive(this.runCorruption)
-          ? { ghostKind: this.runCorruption.ghostKind, mul: SPEED_SURGE_MUL }
-          : undefined,
     });
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
       ? getActiveLayout().wallPassPlayerSolids
@@ -791,19 +760,6 @@ export class PlaySim {
     }
 
     this.checkStreakCell();
-
-    const corruptionStep = stepCorruption(
-      this.world,
-      this.runCorruption,
-      delta,
-      this.pelletProgress.pelletsRemaining,
-    );
-    this.runCorruption = corruptionStep.corruption;
-    if (corruptionStep.dropSpawnTiles.length > 0) {
-      this.spawnDroppedPellets(corruptionStep.dropSpawnTiles);
-    }
-    this.corruptionHiddenGhostEid = corruptionStep.hiddenGhostEid;
-    this.corruptionFlashGhostEid = corruptionStep.flashGhostEid;
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
       this.ghostModeClock = startGhostModeClock(this.levelIndex);
@@ -892,12 +848,11 @@ export class PlaySim {
     );
     this.ghostModeClock = modeStep.clock;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world, this.runCorruption);
+      forceGhostReverse(this.world);
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
       ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, {
         ignoreElroy: scatterBurstActive(this.runUpgrades),
-        corruption: corruptionAiOption(this.runCorruption),
       });
     }
     if (powerEffects.recallClosestGhost) {
@@ -961,9 +916,7 @@ export class PlaySim {
 
     const frozenEid = frozenGhostEid(this.runUpgrades);
     const playerInvulnerable = playerIsInvulnerable(this.runUpgrades);
-    const caught =
-      catchPlayer(this.world, { frozenGhostEid: frozenEid, playerInvulnerable }) ||
-      slimeTrailKill(this.world, this.runCorruption.trail, { playerInvulnerable });
+    const caught = catchPlayer(this.world, { frozenGhostEid: frozenEid, playerInvulnerable });
     this.emitDraw();
 
     if (caught) {
@@ -1067,9 +1020,6 @@ export class PlaySim {
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.resetTurnTuning();
-    this.runCorruption = resetCorruptionTransient(this.runCorruption);
-    this.corruptionHiddenGhostEid = null;
-    this.corruptionFlashGhostEid = null;
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
     this.resetStreak();
@@ -1219,14 +1169,6 @@ export class PlaySim {
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
     this.resetStreak();
     const boss = bossForLevel(this.levelIndex);
-    if (boss === null) {
-      this.runCorruption = maybeAssignCorruption(
-        this.runCorruption,
-        this.levelIndex,
-        this.random.stream("corruption", this.levelIndex),
-        this.options.ghosts ?? undefined,
-      );
-    }
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
     if (selection.kind === "static") {
       activateLayout(selection.id);
@@ -1378,11 +1320,7 @@ export class PlaySim {
   }
 
   private recordSeen(ghostKinds: readonly GhostKindId[]): void {
-    this.emit({
-      type: "seenGhosts",
-      ghostKinds: [...ghostKinds],
-      corruption: this.runCorruption.type,
-    });
+    this.emit({ type: "seenGhosts", ghostKinds: [...ghostKinds] });
   }
 
   private recordSeenUpgrades(): void {
@@ -1535,47 +1473,6 @@ export class PlaySim {
     this.emit({ type: "bouncePowerPellet", eid });
   }
 
-  private renderCorruptionOptions(): Pick<
-    SimRenderOptions,
-    "corruptedGhostEid" | "corruptedTint" | "flashGhostEid" | "hiddenGhostEid" | "slimeTrailTiles"
-  > {
-    return {
-      corruptedGhostEid: findGhostEidByKind(this.world, this.runCorruption.ghostKind),
-      corruptedTint:
-        this.runCorruption.type !== null
-          ? OUTLINE_TINT_BY_CORRUPTION[this.runCorruption.type]
-          : undefined,
-      flashGhostEid: this.corruptionFlashGhostEid,
-      hiddenGhostEid: this.corruptionHiddenGhostEid,
-      slimeTrailTiles: this.runCorruption.trail,
-    };
-  }
-
-  private spawnDroppedPellets(tiles: readonly GhostTarget[]): void {
-    let spawned = 0;
-    const { playerSolids } = getActiveLayout();
-    for (const tile of tiles) {
-      if (!isWalkable(tile.col, tile.row, playerSolids)) {
-        continue;
-      }
-      const x = cellCenterX(tile.col);
-      const y = cellCenterY(tile.row);
-      const occupied = query(this.world, [Pellet, Position]).some(
-        (eid) => Position.x[eid] === x && Position.y[eid] === y,
-      );
-      if (occupied) {
-        continue;
-      }
-
-      spawnPellet(this.world, x, y, "dot");
-      spawned += 1;
-    }
-
-    if (spawned > 0) {
-      this.pelletProgress = addPelletsToProgress(this.pelletProgress, spawned);
-    }
-  }
-
   private advanceToNextLevel(): void {
     this.emit({ type: "newLevelModal" });
 
@@ -1583,9 +1480,6 @@ export class PlaySim {
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.resetTurnTuning();
-    this.runCorruption = resetCorruptionTransient(this.runCorruption);
-    this.corruptionHiddenGhostEid = null;
-    this.corruptionFlashGhostEid = null;
 
     this.startBoard(null);
     this.emit({ type: "upgrades" });
@@ -1722,9 +1616,6 @@ export class PlaySim {
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.resetTurnTuning();
-    this.runCorruption = resetCorruptionTransient(this.runCorruption);
-    this.corruptionHiddenGhostEid = null;
-    this.corruptionFlashGhostEid = null;
 
     this.clock = {
       ...this.clock,

@@ -1,6 +1,4 @@
-import type { CorruptionId } from "../../domain/corruption";
 import type { GhostKindId } from "../../domain/ghostKind";
-import type { GhostTarget } from "../../domain/ghostTarget";
 import type { TurnFeedbackKind } from "../../domain/turnTuning";
 import type { StorePromptView } from "../../domain/store";
 import type { UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
@@ -12,11 +10,6 @@ export type SimRenderOptions = {
   wallPassActive: boolean;
   turnFlashRemainingMs?: number;
   ghostHarvestActive?: boolean;
-  corruptedGhostEid: number | null;
-  corruptedTint: number | undefined;
-  flashGhostEid: number | null;
-  hiddenGhostEid: number | null;
-  slimeTrailTiles: GhostTarget[];
   dimGhostEid?: number | null;
   playerAlpha?: number;
   playerReviveProgress?: number;
@@ -60,5 +53,5 @@ export type SimEvent =
   | { type: "endText"; title: "GAME OVER" | "RUN COMPLETE" }
   | { type: "goToMenu" }
   | { type: "saveRun"; collected: number; remaining: number }
-  | { type: "seenGhosts"; ghostKinds: GhostKindId[]; corruption: CorruptionId | null }
+  | { type: "seenGhosts"; ghostKinds: GhostKindId[] }
   | { type: "seenUpgrades"; ids: UpgradeId[] };

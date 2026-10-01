@@ -9,7 +9,6 @@ import {
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { worldToCol, worldToRow } from "../../domain/maze";
-import type { RunCorruption } from "../../domain/corruption";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
@@ -17,16 +16,10 @@ import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
 
-export function forceGhostReverse(world: World, corruption?: RunCorruption): void {
+export function forceGhostReverse(world: World): void {
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Facing, Input, Position])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.active;
     if (phase === GHOST_PHASE.inHouse || phase === GHOST_PHASE.leaving) {
-      continue;
-    }
-    if (
-      corruption?.type === "falseScatter" &&
-      (GhostKind.kind[eid] ?? null) === corruption.ghostKind
-    ) {
       continue;
     }
 
