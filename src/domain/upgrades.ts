@@ -7,7 +7,7 @@ export type BaseUpgradeId =
   | "passiveGhostSlow"
   | "powerPelletScatterBurst"
   | "powerPelletGhostRecall"
-  | "powerPelletWarpTop"
+  | "powerPelletWarpFarthest"
   | "passivePickupRange"
   | "passiveGhostHouseDelay"
   | "passiveExtraLife"
@@ -233,13 +233,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     onPowerPellet: { recallClosestGhosts: 1 },
   },
   {
-    id: "powerPelletWarpTop",
-    label: "Warp Away",
+    id: "powerPelletWarpFarthest",
+    label: "Warp Farthest",
     school: "speed",
     description: "Power pellet flings you to the spot farthest from the ghosts.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Warp Away also makes you invulnerable for 2 seconds.",
+      enhanceNote: "Warp Farthest also makes you invulnerable for 2 seconds.",
       description:
         "Power pellet flings you to the spot farthest from the ghosts, shielded for a moment.",
       onPowerPellet: { warpPlayerFarthest: true, warpInvulnMs: WARP_TOP_INVULN_MS },

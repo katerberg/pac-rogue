@@ -56,7 +56,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `seed`                 | 1-32 of `A-Z a-z 0-9 _ -`                        | Fixes every random roll in the run (generated boards, starting upgrade, ghost roster pick, upgrade offers, store stock, …) so the same URL replays the same run. Omit for a fresh random run. The run's seed (given or fresh) is shown faded in the bottom-left of the pause menu, Game Over and Run Complete screens. See [docs/VERIFICATION.md](./docs/VERIFICATION.md#seeded-runs). Disables high-score saving. |
 | `sound`                | `1`                                              | On agent ports only: opt in to audio (muted by default). Human ports keep sound on.                                                                                                                                                                                                                                                                                                                                |
 
-Upgrade ids: `powerPelletFreeze`, `passivePlayerSpeedUp`, `passiveGhostSlow`, `powerPelletScatterBurst`, `powerPelletGhostRecall`, `powerPelletWarpTop`, `passivePickupRange`, `passiveGhostHouseDelay`, `passiveExtraLife`, `passivePelletToPower`, `powerPelletCollectThree`, `powerPelletWallPass`, `powerPelletSpeedBurst`, `powerPelletInvuln`, `powerPelletGhostHarvester`, `fruitPowerPellet`, `fruitQuarterBounty`, `fruitFecundity`, `fruitFeast`, `passiveDeathsHarvest`, `passiveOvercharge`, `passiveTunnelDash`, `passivePowerPelletRecharge`, `passiveRemoteTransference`, `passiveMyogenesis`, `passiveDefyDeath`, `passiveTurnTuning`.
+Upgrade ids: `powerPelletFreeze`, `passivePlayerSpeedUp`, `passiveGhostSlow`, `powerPelletScatterBurst`, `powerPelletGhostRecall`, `powerPelletWarpFarthest`, `passivePickupRange`, `passiveGhostHouseDelay`, `passiveExtraLife`, `passivePelletToPower`, `powerPelletCollectThree`, `powerPelletWallPass`, `powerPelletSpeedBurst`, `powerPelletInvuln`, `powerPelletGhostHarvester`, `fruitPowerPellet`, `fruitQuarterBounty`, `fruitFecundity`, `fruitFeast`, `passiveDeathsHarvest`, `passiveOvercharge`, `passiveTunnelDash`, `passivePowerPelletRecharge`, `passiveRemoteTransference`, `passiveMyogenesis`, `passiveDefyDeath`, `passiveTurnTuning`.
 
 Every id also accepts a `Plus` suffix for its enhanced form (e.g. `?enableUpgrade=passivePlayerSpeedUpPlus`); see [docs/upgrades.md](docs/upgrades.md#enhanced-upgrades).
 
@@ -69,7 +69,7 @@ http://127.0.0.1:5174/?play=1&quarters=3
 http://127.0.0.1:5174/?play=1&store=1&quarters=10
 http://127.0.0.1:5174/?play=1&level=2&bonus=295
 http://127.0.0.1:5174/?enableUpgrade=powerPelletScatterBurst
-http://127.0.0.1:5174/?enableUpgrade=powerPelletGhostRecall&enableUpgrade=powerPelletWarpTop
+http://127.0.0.1:5174/?enableUpgrade=powerPelletGhostRecall&enableUpgrade=powerPelletWarpFarthest
 http://127.0.0.1:5174/?enableUpgrade=powerPelletFreeze&enableUpgrade=passiveGhostSlow
 http://127.0.0.1:5174/?play=1&disableLevelUpgrades=1
 http://127.0.0.1:5174/?play=1&infiniteLives=1
