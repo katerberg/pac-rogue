@@ -1,6 +1,6 @@
 import { CORRUPTION_IDS, type CorruptionId } from "./corruption";
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
-import { ALL_UPGRADE_IDS, type UpgradeId } from "./upgrades";
+import { ALL_UPGRADE_IDS, baseIdOf, type UpgradeId } from "./upgrades";
 
 export type SeenRecord = {
   ghosts: GhostKindId[];
@@ -70,10 +70,11 @@ export function withSeenCorruption(record: SeenRecord, id: CorruptionId): SeenRe
 }
 
 export function withSeenUpgrade(record: SeenRecord, id: UpgradeId): SeenRecord {
-  if (record.upgrades.includes(id)) {
+  const baseId = baseIdOf(id);
+  if (record.upgrades.includes(baseId)) {
     return record;
   }
-  const merged = [...record.upgrades, id];
+  const merged = [...record.upgrades, baseId];
   return { ...record, upgrades: ALL_UPGRADE_IDS.filter((known) => merged.includes(known)) };
 }
 
