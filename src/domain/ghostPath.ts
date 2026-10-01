@@ -94,16 +94,13 @@ export function pickGhostDirection(args: {
   targetRow: number;
   solids: SolidGrid;
   canEnter?: GhostCanEnter;
-  allowReverse?: boolean;
 }): GhostDir {
   const enter =
     args.canEnter ?? ((px, py, dx, dy) => canEnterDirection(px, py, dx, dy, args.solids));
   const opens = openGhostDirsAt(args.x, args.y, args.solids, enter);
-  if (!args.allowReverse) {
-    const forcedTurn = lCornerTurnDir(opens, args.facing);
-    if (forcedTurn !== GHOST_DIR.none) {
-      return forcedTurn;
-    }
+  const forcedTurn = lCornerTurnDir(opens, args.facing);
+  if (forcedTurn !== GHOST_DIR.none) {
+    return forcedTurn;
   }
 
   const candidates: GhostDir[] = [];
@@ -112,11 +109,7 @@ export function pickGhostDirection(args: {
     if (!enter(args.x, args.y, dx, dy)) {
       continue;
     }
-    if (
-      !args.allowReverse &&
-      args.facing !== GHOST_DIR.none &&
-      reverseGhostDir(args.facing) === dir
-    ) {
+    if (args.facing !== GHOST_DIR.none && reverseGhostDir(args.facing) === dir) {
       continue;
     }
     candidates.push(dir);

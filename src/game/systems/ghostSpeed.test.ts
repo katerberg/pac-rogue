@@ -69,13 +69,4 @@ describe("applyGhostSpeed", () => {
     applyGhostSpeed(world, 100, 1);
     expect(Speed.px[eid]).toBe(99);
   });
-
-  it("applies the speed surge multiplier only to the matching ghost kind", () => {
-    const world = createWorld();
-    const surged = spawnGhost(world, GHOST_PHASE.active, GHOST_KIND.clyde);
-    const other = spawnGhost(world, GHOST_PHASE.active, GHOST_KIND.inky);
-    applyGhostSpeed(world, 100, 1, { speedSurge: { ghostKind: GHOST_KIND.clyde, mul: 1.6 } });
-    expect(Speed.px[surged]).toBeCloseTo(PLAYER_SPEED * 0.8 * 1.6);
-    expect(Speed.px[other]).toBeCloseTo(PLAYER_SPEED * 0.8);
-  });
 });

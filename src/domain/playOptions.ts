@@ -1,6 +1,5 @@
 import { parseBonusParam } from "./bonusFlag";
 import { BOSS_DEFS, parseBossGhostsParam } from "./bossRules";
-import { parseForceCorruptionParams, type ForcedCorruption } from "./corruption";
 import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
@@ -23,7 +22,6 @@ export type PlayOptions = {
   level: number | null;
   quarters: number | null;
   bonus: number | null;
-  forcedCorruption: ForcedCorruption;
   ghosts: GhostKindId[] | null;
   bossGhosts: number | null;
   jumpToUpgrade: boolean;
@@ -58,17 +56,6 @@ export function parsePlayOptions(params: URLSearchParams): {
   warnIf("quarters", quarters === null, "Unknown ?quarters= value; expected non-negative integer");
   const bonus = parseBonusParam(params);
   warnIf("bonus", bonus === null, "Unknown ?bonus= value; expected an integer 0..299");
-  const forcedCorruption = parseForceCorruptionParams(params);
-  warnIf(
-    "forceCorruption",
-    forcedCorruption.type === null,
-    "Unknown ?forceCorruption= value; expected slimeTrail|invisibility|freeRetargetReverse|speedSurge|wallPhaseDash|pelletDropper|falseScatter",
-  );
-  warnIf(
-    "forceCorruptionGhost",
-    forcedCorruption.ghostKind === null,
-    "Unknown ?forceCorruptionGhost= value; expected pinky|inky|clyde",
-  );
   const ghosts = parseGhostsParam(params);
   warnIf(
     "ghosts",
@@ -88,7 +75,6 @@ export function parsePlayOptions(params: URLSearchParams): {
       level,
       quarters,
       bonus,
-      forcedCorruption,
       ghosts,
       bossGhosts,
       jumpToUpgrade: parseJumpToUpgradeFlag(params),

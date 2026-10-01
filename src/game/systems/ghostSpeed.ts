@@ -18,7 +18,6 @@ import { Speed } from "../components/Speed";
 export type GhostSpeedOptions = {
   ghostSpeedMul?: number;
   frozenGhostEid?: number | null;
-  speedSurge?: { ghostKind: GhostKindId; mul: number };
   tunnelSpeedRatio?: number | null;
 };
 
@@ -30,7 +29,6 @@ export function applyGhostSpeed(
 ): void {
   const ghostSpeedMul = options.ghostSpeedMul ?? 1;
   const frozenEid = options.frozenGhostEid ?? null;
-  const speedSurge = options.speedSurge;
   const tunnelSpeed =
     options.tunnelSpeedRatio == null ? GHOST_TUNNEL_SPEED : PLAYER_SPEED * options.tunnelSpeedRatio;
 
@@ -48,7 +46,6 @@ export function applyGhostSpeed(
     const col = worldToCol(Position.x[eid] ?? 0);
     const row = worldToRow(Position.y[eid] ?? 0);
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
-    const surgeMul = speedSurge && kind === speedSurge.ghostKind ? speedSurge.mul : 1;
     const inTunnel = isGhostTunnelSlow(col, row);
     const base = hasComponent(world, eid, BossGhost)
       ? resolveBossGhostSpeed(inTunnel, tunnelSpeed)
@@ -60,6 +57,6 @@ export function applyGhostSpeed(
           phase === GHOST_PHASE.leaving,
           tunnelSpeed,
         );
-    Speed.px[eid] = base * ghostSpeedMul * surgeMul;
+    Speed.px[eid] = base * ghostSpeedMul;
   }
 }

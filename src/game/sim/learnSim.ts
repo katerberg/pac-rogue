@@ -1,15 +1,4 @@
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
-import {
-  OUTLINE_TINT_BY_CORRUPTION,
-  SPEED_SURGE_MUL,
-  corruptionAiOption,
-  createRunCorruption,
-  isSpeedSurgeActive,
-  resetCorruptionTransient,
-  tickSpeedSurge,
-  type CorruptionId,
-  type RunCorruption,
-} from "../../domain/corruption";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_AI_MODE, type GhostAiMode } from "../../domain/ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
@@ -80,8 +69,6 @@ import { applyRemoteTransference } from "../systems/remoteTransference";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
 import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
-import { findGhostEidByKind } from "../systems/corruptionGhost";
-import { stepCorruption } from "../systems/corruptionStep";
 import {
   ghostAi,
   ghostAiContext,
@@ -103,7 +90,7 @@ import {
   type TunnelDashAnimation,
 } from "../systems/tunnelDash";
 import type { SimEvent } from "./simEvents";
-import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
+import { spawnBoardPellets, spawnFruit, spawnPlayer, spawnWalls } from "./spawn";
 
 export type LearnOverlayModel = {
   kind: GhostKindId;
@@ -128,9 +115,6 @@ export class LearnSim {
   private selected: GhostKindId | null = null;
   private ghost: number | null = null;
   private helperBlinky: number | null = null;
-  private hiddenGhost: number | null = null;
-  private flashGhost: number | null = null;
-  private runCorruption: RunCorruption = createRunCorruption({ type: null, ghostKind: null });
   private learnUpgrades: RunUpgrades = createRunUpgrades();
   private recallHoldGhostEids: number[] = [];
   private recallHoldRemainingMs = 0;
@@ -155,23 +139,13 @@ export class LearnSim {
     return this.helperBlinky;
   }
 
-  get hiddenGhostEid(): number | null {
-    return this.hiddenGhost;
-  }
-
-  get corruption(): RunCorruption {
-    return this.runCorruption;
-  }
-
   overlayModel(): LearnOverlayModel | null {
     const eid = this.ghost;
-    if (eid === null || this.selected === null || eid === this.hiddenGhost) {
+    if (eid === null || this.selected === null) {
       return null;
     }
     const ctx = ghostAiContext(this.world);
-    const target = resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, {
-      corruption: corruptionAiOption(this.runCorruption),
-    });
+    const target = resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx);
     const playerEid = query(this.world, [Player, Position])[0];
     const helper = this.helperBlinky;
     return {
@@ -207,7 +181,6 @@ export class LearnSim {
     this.events = [];
     applyHeldKeys(this.world, keys, { diagonalAllowed: wallPassActive(this.learnUpgrades) });
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
-    this.runCorruption = tickSpeedSurge(this.runCorruption, delta);
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
     this.learnUpgrades = tickScatterBurst(this.learnUpgrades, delta);
@@ -240,10 +213,6 @@ export class LearnSim {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
-      speedSurge:
-        this.runCorruption.ghostKind !== null && isSpeedSurgeActive(this.runCorruption)
-          ? { ghostKind: this.runCorruption.ghostKind, mul: SPEED_SURGE_MUL }
-          : undefined,
     });
     movement(
       this.world,
@@ -270,18 +239,6 @@ export class LearnSim {
         this.tunnelDashAnim = { targetX: dash.animateToX, wrapToX: dash.wrapToX, y: dash.y };
       }
     }
-
-    const pelletsOnBoard = query(this.world, [Pellet]).length;
-    const corruptionStep = stepCorruption(
-      this.world,
-      this.runCorruption,
-      delta,
-      Math.max(1, pelletsOnBoard),
-    );
-    this.runCorruption = corruptionStep.corruption;
-    this.hiddenGhost = corruptionStep.hiddenGhostEid;
-    this.flashGhost = corruptionStep.flashGhostEid;
-    this.spawnDroppedPellets(corruptionStep.dropSpawnTiles);
 
     const playerFrame = collectPellets(this.world, {
       radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
@@ -322,15 +279,12 @@ export class LearnSim {
       ? GHOST_AI_MODE.scatter
       : GHOST_AI_MODE.chase;
     if (effectiveMode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world, this.runCorruption);
+      forceGhostReverse(this.world);
     } else {
-      ghostAi(this.world, effectiveMode, NO_ELROY_PELLETS, {
-        corruption: corruptionAiOption(this.runCorruption),
-      });
+      ghostAi(this.world, effectiveMode, NO_ELROY_PELLETS);
     }
     this.previousEffectiveGhostMode = effectiveMode;
 
-    const type = this.runCorruption.type;
     this.events.push({
       type: "draw",
       options: {
@@ -340,13 +294,7 @@ export class LearnSim {
         wallPassLoopActive:
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
         ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
-        corruptedGhostEid:
-          type !== null ? findGhostEidByKind(this.world, this.runCorruption.ghostKind) : null,
-        corruptedTint: type !== null ? OUTLINE_TINT_BY_CORRUPTION[type] : undefined,
-        flashGhostEid: this.flashGhost,
-        hiddenGhostEid: this.hiddenGhost,
         dimGhostEid: this.helperBlinky,
-        slimeTrailTiles: this.runCorruption.trail,
       },
     });
     return this.takeEvents();
@@ -374,9 +322,6 @@ export class LearnSim {
         DIRECTION.right,
       );
     }
-    this.runCorruption = resetCorruptionTransient({ ...this.runCorruption, ghostKind: kind });
-    this.hiddenGhost = null;
-    this.flashGhost = null;
     this.learnUpgrades = {
       ...this.learnUpgrades,
       freezeRemainingMs: 0,
@@ -390,20 +335,6 @@ export class LearnSim {
     };
     this.recallHoldGhostEids = [];
     this.recallHoldRemainingMs = 0;
-    return this.takeEvents();
-  }
-
-  toggleCorruption(id: CorruptionId): SimEvent[] {
-    this.events = [];
-    const type = this.runCorruption.type === id ? null : id;
-    this.runCorruption = resetCorruptionTransient({
-      ...this.runCorruption,
-      type,
-      ghostKind: this.selected,
-    });
-    this.hiddenGhost = null;
-    this.flashGhost = null;
-    this.resetPellets();
     return this.takeEvents();
   }
 
@@ -543,30 +474,9 @@ export class LearnSim {
     spawnBoardPellets(this.world);
   }
 
-  private isPelletCellOccupied(x: number, y: number): boolean {
-    return query(this.world, [Pellet, Position]).some(
-      (eid) => Position.x[eid] === x && Position.y[eid] === y,
-    );
-  }
-
   private spawnFruitEntity(): void {
     this.releaseAll(removeAllFruit(this.world));
     spawnFruit(this.world);
-  }
-
-  private spawnDroppedPellets(tiles: readonly GhostTarget[]): void {
-    const { playerSolids } = getActiveLayout();
-    for (const tile of tiles) {
-      if (!isWalkable(tile.col, tile.row, playerSolids)) {
-        continue;
-      }
-      const x = cellCenterX(tile.col);
-      const y = cellCenterY(tile.row);
-      if (this.isPelletCellOccupied(x, y)) {
-        continue;
-      }
-      spawnPellet(this.world, x, y, "dot");
-    }
   }
 
   private spawnActiveGhost(

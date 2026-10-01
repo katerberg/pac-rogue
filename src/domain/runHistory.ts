@@ -23,8 +23,6 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "infiniteLives",
   "jumpToUpgrade",
   "store",
-  "forceCorruption",
-  "forceCorruptionGhost",
   "ghosts",
   "bossGhosts",
 ] as const;

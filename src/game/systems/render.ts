@@ -1,20 +1,15 @@
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
-  cellCenterX,
-  cellCenterY,
   getActiveLayout,
   playerDisplaySize,
   pelletDisplaySize,
   powerPelletDisplaySize,
-  TILE_SIZE,
   wallPathCommands,
   WALL_STROKE_WEIGHT,
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
-import { FLASH_TINT } from "../../domain/corruption";
-import type { GhostTarget } from "../../domain/ghostTarget";
 import { clampMazeColorIndex, mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -228,12 +223,7 @@ export type RenderOptions = {
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
   ghostHarvestActive?: boolean;
-  corruptedGhostEid?: number | null;
-  corruptedTint?: number;
-  flashGhostEid?: number | null;
-  hiddenGhostEid?: number | null;
   dimGhostEid?: number | null;
-  slimeTrailTiles?: readonly GhostTarget[];
   playerAlpha?: number;
   playerReviveProgress?: number;
 };
@@ -248,14 +238,12 @@ export type PlayRender = {
   bouncePowerPellet: (eid: number) => void;
 };
 
-const SLIME_TRAIL_FILL_ALPHA = 0.6;
 const DIM_GHOST_ALPHA = 0.4;
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
-  const slimeGraphics = scene.add.graphics();
   let wallsDrawn = false;
   let drawnMazeColorIndex: number | null = null;
   let bossPelletTint = 0xffffff;
@@ -280,7 +268,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     drawableObjects.clear();
     playerVisuals.clear();
     wallGraphics.clear();
-    slimeGraphics.clear();
     wallsDrawn = false;
     drawnMazeColorIndex = null;
   };
@@ -307,11 +294,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
   const draw = (world: World, opts?: RenderOptions): void => {
     const frozenEid = opts?.frozenGhostEid ?? null;
-    const corruptedGhostEid = opts?.corruptedGhostEid ?? null;
-    const corruptedTint = opts?.corruptedTint;
     const ghostHarvestOn = opts?.ghostHarvestActive === true;
-    const flashGhostEid = opts?.flashGhostEid ?? null;
-    const hiddenGhostEid = opts?.hiddenGhostEid ?? null;
     const dimGhostEid = opts?.dimGhostEid ?? null;
     const playerAlpha = opts?.playerAlpha;
     const reviveProgress = opts?.playerReviveProgress;
@@ -344,20 +327,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       wallGraphics.strokePath();
       wallsDrawn = true;
       drawnMazeColorIndex = mazeColorIndex;
-    }
-
-    slimeGraphics.clear();
-    const slimeTrailTiles = opts?.slimeTrailTiles ?? [];
-    if (slimeTrailTiles.length > 0) {
-      slimeGraphics.fillStyle(corruptedTint ?? 0x66ff33, SLIME_TRAIL_FILL_ALPHA);
-      for (const tile of slimeTrailTiles) {
-        slimeGraphics.fillRect(
-          cellCenterX(tile.col) - TILE_SIZE / 2,
-          cellCenterY(tile.row) - TILE_SIZE / 2,
-          TILE_SIZE,
-          TILE_SIZE,
-        );
-      }
     }
 
     const alive = new Set<string>();
@@ -408,26 +377,12 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
         if (frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse) {
           go.setTint(GHOST_FROZEN_TINT);
-        } else if (flashGhostEid !== null && eid === flashGhostEid) {
-          go.setTint(FLASH_TINT);
-        } else if (
-          corruptedGhostEid !== null &&
-          eid === corruptedGhostEid &&
-          corruptedTint !== undefined
-        ) {
-          go.setTint(corruptedTint);
         } else if (ghostHarvestOn && phase !== GHOST_PHASE.inHouse) {
           go.setTint(GHOST_HARVEST_TINT);
         } else {
           go.clearTint();
         }
-        const isHidden = hiddenGhostEid !== null && eid === hiddenGhostEid;
-        const isFrozen = frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse;
-        if (isHidden && !isFrozen) {
-          go.setAlpha(0);
-        } else {
-          go.setAlpha(dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1);
-        }
+        go.setAlpha(dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1);
       }
 
       if (id === PLAYER_DRAWABLE_ID) {
