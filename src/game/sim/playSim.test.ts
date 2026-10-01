@@ -13,7 +13,7 @@ import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
-import { grantUpgrade } from "../../domain/upgrades";
+import { grantUpgrade, type UpgradeChoiceOffer } from "../../domain/upgrades";
 import { BossPellet } from "../components/BossPellet";
 import { Ghost } from "../components/Ghost";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
@@ -61,6 +61,11 @@ function reviveProgresses(events: SimEvent[]): number[] {
 
 function count(events: SimEvent[], type: SimEvent["type"]): number {
   return events.filter((event) => event.type === type).length;
+}
+
+function drainToOffer(sim: PlaySim): UpgradeChoiceOffer {
+  runUntil(sim, () => sim.offer() !== null, 90);
+  return sim.offer()!;
 }
 
 function regularPelletEids(sim: PlaySim): number[] {
@@ -245,8 +250,7 @@ describe("PlaySim", () => {
 
   it("clears a board into an upgrade offer, then the next level", () => {
     const sim = startSim({ jumpToUpgrade: true });
-    const offer = sim.offer();
-    expect(offer).not.toBeNull();
+    const offer = drainToOffer(sim);
     runFrames(sim, 30);
     expect(sim.snapshot().level).toBe(2);
     const chosen = offer!.upgrades[0]!;
@@ -451,9 +455,9 @@ describe("PlaySim", () => {
   ] as const)("level clear with %s from %i lives ends at %i", (upgrade, startLives, endLives) => {
     const sim = startSim({ jumpToUpgrade: true, enableUpgrades: upgrade ? [upgrade] : [] });
     (sim as unknown as { lives: number }).lives = startLives;
-    const pick = sim
-      .offer()!
-      .upgrades.find((id) => id !== "passiveExtraLife" && id !== "passiveMyogenesis")!;
+    const pick = drainToOffer(sim).upgrades.find(
+      (id) => id !== "passiveExtraLife" && id !== "passiveMyogenesis",
+    )!;
     sim.chooseUpgrade({ kind: "upgrade", id: pick });
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
     expect(sim.snapshot().lives).toBe(endLives);
@@ -685,7 +689,7 @@ describe("Ghost Harvester", () => {
       runFrames(sim, 1);
     }
     expect(query(sim.world, [Pellet])).toHaveLength(0);
-    expect(sim.offer()).not.toBeNull();
+    drainToOffer(sim);
   });
 });
 
@@ -756,11 +760,12 @@ describe("PlaySim bonus bar", () => {
     expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 42 });
   });
 
-  it("keeps the charge across a level advance", () => {
+  it("keeps the charge, plus the time bonus, across a level advance", () => {
     const sim = startSim({ jumpToUpgrade: true, bonus: 50 });
+    drainToOffer(sim);
     sim.chooseUpgrade({ kind: "quarters", amount: 2 });
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
-    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 50 });
+    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 249 });
   });
 });
 
@@ -911,5 +916,51 @@ describe("Turn Tuning", () => {
     runFrames(sim, 4, { keys: held("left") });
     expect(sim.snapshot().player!.facing).toBe("left");
     expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+  });
+});
+
+describe("PlaySim level-end time bonus", () => {
+  function startClear(overrides: Partial<PlayOptions>): { sim: PlaySim; events: SimEvent[] } {
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), jumpToUpgrade: true, ...overrides },
+      "drain",
+    );
+    return { sim, events: sim.start() };
+  }
+
+  it("drains the timer into the bar before the upgrade offer", () => {
+    const { sim, events } = startClear({ level: 2 });
+    expect(events).toContainEqual({ type: "timeBonus", active: true });
+    runFrames(sim, 30);
+    expect(sim.snapshot().bonus.draining).toBe(true);
+    expect(sim.offer()).toBeNull();
+    expect(sim.snapshot().timeRemaining).toBeLessThan(999);
+    const rest = runUntil(sim, () => !sim.snapshot().bonus.draining, 60);
+    expect(rest).toContainEqual({ type: "timeBonus", active: false });
+    expect(sim.snapshot()).toMatchObject({ timeRemaining: 0, bonus: { charge: 199 } });
+    expect(sim.offer()).not.toBeNull();
+  });
+
+  it("pays a Quarter mid-drain, before the offer opens", () => {
+    const { sim } = startClear({ level: 2, bonus: 200, quarters: 0 });
+    const events = runUntil(sim, () => sim.snapshot().quarters === 1, 90);
+    expect(sim.offer()).toBeNull();
+    expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
+    drainToOffer(sim);
+    expect(sim.snapshot().bonus.charge).toBe(99);
+  });
+
+  it("drains on level 1, then moves on to level 2", () => {
+    const { sim } = startClear({ level: 1 });
+    runUntil(sim, () => !sim.snapshot().bonus.draining, 90);
+    expect(sim.snapshot().bonus.charge).toBe(199);
+    runUntil(sim, () => sim.snapshot().level === 2, 120);
+  });
+
+  it("skips the drain on the boss clear", () => {
+    const { sim, events } = startClear({ level: 9 });
+    expect(events.some((e) => e.type === "timeBonus")).toBe(false);
+    expect(sim.snapshot().bonus).toMatchObject({ charge: 0, draining: false });
+    expect(runFrames(sim, 90)).toContainEqual({ type: "endText", title: "RUN COMPLETE" });
   });
 });
