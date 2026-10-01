@@ -13,7 +13,7 @@ import {
   FRUIT_QUARTERS,
   FRUIT_QUARTERS_ENHANCED,
   FRUIT_FECUNDITY_MUL,
-  SCATTER_BURST_MS,
+  CORNER_TELEPORT_HOLD_ENHANCED_MS,
   SPEED_BURST_MS,
   WALL_PASS_MS,
   QUARTERS_CHOICE_AMOUNT,
@@ -47,7 +47,6 @@ import {
   playerIsInvulnerable,
   playerSpeedMultiplier,
   queuePowerPelletRespawns,
-  scatterBurstActive,
   SECOND_CHOMP_MS,
   speedBurstActive,
   ghostHarvestActive,
@@ -60,7 +59,6 @@ import {
   tickFreeze,
   tickInvuln,
   tickPowerPelletRespawns,
-  tickScatterBurst,
   tickSpeedBurst,
   tickWallPass,
   upgradeLabels,
@@ -174,7 +172,6 @@ describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
     const state = createRunUpgrades(["powerPelletFreeze", "passiveGhostSlow", "powerPelletFreeze"]);
     expect(state.owned).toEqual(["powerPelletFreeze", "passiveGhostSlow"]);
     expect(state.lastDeclinedUpgradeId).toBeNull();
-    expect(state.scatterBurstRemainingMs).toBe(0);
     expect(state.speedBurstRemainingMs).toBe(0);
   });
 });
@@ -324,6 +321,7 @@ describe("grantUpgrade", () => {
       state,
       freezeClosestMs: null,
       recallGhostCount: 0,
+      cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
@@ -339,6 +337,7 @@ describe("grantUpgrade", () => {
       state: owned,
       freezeClosestMs: null,
       recallGhostCount: 0,
+      cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
@@ -393,6 +392,7 @@ describe("freeze / power pellet", () => {
       state: bare,
       freezeClosestMs: null,
       recallGhostCount: 0,
+      cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
@@ -416,6 +416,7 @@ describe("freeze / power pellet", () => {
       state: owned,
       freezeClosestMs: null,
       recallGhostCount: 0,
+      cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
@@ -423,24 +424,10 @@ describe("freeze / power pellet", () => {
 });
 
 describe("scatter burst / multi power-pellet effects", () => {
-  it("ticks scatter burst down and expires", () => {
-    const started = { ...createRunUpgrades(), scatterBurstRemainingMs: SCATTER_BURST_MS };
-    expect(scatterBurstActive(started)).toBe(true);
-    const mid = tickScatterBurst(started, 1000);
-    expect(mid.scatterBurstRemainingMs).toBe(2000);
-    const done = tickScatterBurst(mid, 2500);
-    expect(done.scatterBurstRemainingMs).toBe(0);
-    expect(scatterBurstActive(done)).toBe(false);
-  });
-
-  it("applies scatter burst when owned and refreshes", () => {
+  it("requests a corner teleport with no hold when Scatter Burst is owned", () => {
+    expect(applyPowerPelletEffects(createRunUpgrades(), 1).cornerTeleportHoldMs).toBeNull();
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletScatterBurst");
-    const applied = applyPowerPelletEffects(owned, 1);
-    expect(applied.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS);
-    const partial = { ...applied.state, scatterBurstRemainingMs: 100 };
-    expect(applyPowerPelletEffects(partial, 1).state.scatterBurstRemainingMs).toBe(
-      SCATTER_BURST_MS,
-    );
+    expect(applyPowerPelletEffects(owned, 1).cornerTeleportHoldMs).toBe(0);
   });
 
   it("fires all owned power-pellet effects together", () => {
@@ -460,7 +447,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     const result = applyPowerPelletEffects(state, 1);
     expect(result.state.freezeRemainingMs).toBe(0);
     expect(result.freezeClosestMs).toBe(FREEZE_MS);
-    expect(result.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS);
+    expect(result.cornerTeleportHoldMs).toBe(0);
     expect(result.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
     expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
@@ -536,6 +523,7 @@ describe("invuln / power pellet", () => {
       state: bare,
       freezeClosestMs: null,
       recallGhostCount: 0,
+      cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
@@ -640,7 +628,7 @@ describe("passiveOvercharge", () => {
     let state = createRunUpgrades();
     for (const id of [
       "powerPelletFreeze",
-      "powerPelletScatterBurst",
+      "powerPelletScatterBurstPlus",
       "powerPelletWallPass",
       "powerPelletInvuln",
       "powerPelletSpeedBurst",
@@ -650,7 +638,7 @@ describe("passiveOvercharge", () => {
     }
     const result = applyPowerPelletEffects(state, 1);
     expect(result.freezeClosestMs).toBe(FREEZE_MS * OVERCHARGE_MUL);
-    expect(result.state.scatterBurstRemainingMs).toBe(SCATTER_BURST_MS * OVERCHARGE_MUL);
+    expect(result.cornerTeleportHoldMs).toBe(CORNER_TELEPORT_HOLD_ENHANCED_MS * OVERCHARGE_MUL);
     expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS * OVERCHARGE_MUL);
     expect(result.state.invulnRemainingMs).toBe(INVULN_MS * OVERCHARGE_MUL);
     expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS * OVERCHARGE_MUL);
@@ -678,6 +666,7 @@ describe("passiveOvercharge", () => {
       state,
       freezeClosestMs: null,
       recallGhostCount: 0,
+      cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
@@ -926,7 +915,7 @@ describe("enhanced upgrades", () => {
   it("applies enhanced power-pellet numbers", () => {
     const apply = (id: UpgradeId) => applyPowerPelletEffects(createRunUpgrades([id]), 1);
     expect(apply("powerPelletFreezePlus").freezeClosestMs).toBe(5000);
-    expect(apply("powerPelletScatterBurstPlus").state.scatterBurstRemainingMs).toBe(5000);
+    expect(apply("powerPelletScatterBurstPlus").cornerTeleportHoldMs).toBe(2000);
     expect(apply("powerPelletInvulnPlus").state.invulnRemainingMs).toBe(5000);
     expect(apply("powerPelletGhostHarvesterPlus").state.ghostHarvestRemainingMs).toBe(8000);
     expect(apply("passiveDefyDeathPlus").state.defyDeathRemainingMs).toBe(8000);

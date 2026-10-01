@@ -1,6 +1,6 @@
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { GHOST_AI_MODE, type GhostAiMode } from "../../domain/ghostMode";
+import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import type { GhostDir } from "../../domain/ghostPath";
@@ -36,13 +36,11 @@ import {
   pelletCollectRadiusBonusPx,
   playerSpeedMultiplier,
   revokeUpgrade,
-  scatterBurstActive,
   speedBurstActive,
   ghostHarvestActive,
   tickGhostHarvest,
   tickFreeze,
   tickInvuln,
-  tickScatterBurst,
   tickSpeedBurst,
   tickWallPass,
   wallPassActive,
@@ -76,7 +74,6 @@ import {
   type GhostAiContext,
 } from "../systems/ghostAi";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
-import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { applyHeldKeys, type HeldKeys } from "../systems/heldKeys";
 import { movement } from "../systems/movement";
@@ -85,6 +82,14 @@ import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { tickWarpGlide, type WarpGlide, warpGlideSprites } from "../../domain/warpGlide";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
+import {
+  ghostWarpGlideSprites,
+  heldGhostEids,
+  mergeGhostCornerWarps,
+  tickGhostCornerWarps,
+  type GhostCornerWarp,
+} from "../../domain/ghostCornerWarp";
+import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import {
   applyTunnelDash,
   tickTunnelDashAnimation,
@@ -121,7 +126,7 @@ export class LearnSim {
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private warpGlide: WarpGlide | null = null;
-  private previousEffectiveGhostMode: GhostAiMode = GHOST_AI_MODE.chase;
+  private ghostCornerWarps: GhostCornerWarp[] = [];
   private fruitRespawnRemainingMs: number | null = null;
   private remoteTransferCounter = 0;
 
@@ -184,6 +189,7 @@ export class LearnSim {
     if (this.warpGlide !== null) {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
+    this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
     const warping = this.warpGlide !== null;
     if (!warping) {
       applyHeldKeys(this.world, keys, { diagonalAllowed: wallPassActive(this.learnUpgrades) });
@@ -191,7 +197,6 @@ export class LearnSim {
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
-    this.learnUpgrades = tickScatterBurst(this.learnUpgrades, delta);
     const wasWallPass = wallPassActive(this.learnUpgrades);
     this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.learnUpgrades)) {
@@ -223,6 +228,7 @@ export class LearnSim {
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+      heldGhostEids: heldGhostEids(this.ghostCornerWarps),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
     movement(
@@ -286,15 +292,7 @@ export class LearnSim {
       }
     }
 
-    const effectiveMode = scatterBurstActive(this.learnUpgrades)
-      ? GHOST_AI_MODE.scatter
-      : GHOST_AI_MODE.chase;
-    if (effectiveMode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world);
-    } else {
-      ghostAi(this.world, effectiveMode, NO_ELROY_PELLETS);
-    }
-    this.previousEffectiveGhostMode = effectiveMode;
+    ghostAi(this.world, GHOST_AI_MODE.chase, NO_ELROY_PELLETS);
 
     this.events.push({
       type: "draw",
@@ -307,6 +305,7 @@ export class LearnSim {
         ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         dimGhostEid: this.helperBlinky,
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
+        ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       },
     });
     return this.takeEvents();
@@ -338,7 +337,6 @@ export class LearnSim {
       ...this.learnUpgrades,
       freezeRemainingMs: 0,
       frozenGhostEid: null,
-      scatterBurstRemainingMs: 0,
       wallPassRemainingMs: 0,
       invulnRemainingMs: 0,
       speedBurstRemainingMs: 0,
@@ -347,6 +345,7 @@ export class LearnSim {
     };
     this.recallHoldGhostEids = [];
     this.recallHoldRemainingMs = 0;
+    this.ghostCornerWarps = [];
     return this.takeEvents();
   }
 
@@ -425,6 +424,12 @@ export class LearnSim {
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
+    }
+    if (powerEffects.cornerTeleportHoldMs !== null) {
+      this.ghostCornerWarps = mergeGhostCornerWarps(
+        this.ghostCornerWarps,
+        teleportGhostsToCorners(this.world, powerEffects.cornerTeleportHoldMs),
+      );
     }
     if (powerEffects.warpPlayerFarthest) {
       this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
@@ -531,7 +536,6 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     ...state,
     freezeRemainingMs: hasField("freezeClosestGhostMs") ? state.freezeRemainingMs : 0,
     frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
-    scatterBurstRemainingMs: hasField("scatterBurstMs") ? state.scatterBurstRemainingMs : 0,
     wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
     invulnRemainingMs:
       hasField("playerInvulnMs") || hasField("warpInvulnMs") ? state.invulnRemainingMs : 0,
