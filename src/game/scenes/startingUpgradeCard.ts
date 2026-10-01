@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { fitFontSize } from "../../domain/fitFontSize";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import {
@@ -24,6 +25,7 @@ import {
 export const STARTING_UPGRADE_HOLD_MS = 10_000;
 export const STARTING_UPGRADE_FADE_MS = 100;
 const STARTING_CARD_BODY_CENTER_Y = 18;
+const STARTING_CARD_LABEL_MARGIN = 40;
 
 export type StartingUpgradeCard = {
   isActive: () => boolean;
@@ -87,7 +89,7 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         0,
         0,
         wrapText(def.label, LABEL_MAX_CHARS),
-        MENU_TITLE_FONT_SIZE,
+        fitFontSize(def.label, BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN, MENU_TITLE_FONT_SIZE),
         TEXT_COLOR_YELLOW,
       );
       const description = addPixelText(
