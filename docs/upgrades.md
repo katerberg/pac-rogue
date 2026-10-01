@@ -47,7 +47,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 
 ### Schools
 
-Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored tag at the top of each upgrade card in the choice modal (`SCHOOL_COLORS` in `upgradeChoiceModal.ts`; the Quarters card has none). Schools carry no gameplay rules.
+Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored tag directly under the title on every upgrade card: the choice modal, the level-1 starting-upgrade card, the Learn hover preview, and the store's hover panel, confirm modal and purchase toast (`SCHOOL_COLORS` / `layoutCardText` in `upgradeChoiceModal.ts`; the Quarters, Extra Life and Swap cards have none). Store tiles tint their upgrade letter with the school color (Extra Life and Swap stay yellow). Schools carry no gameplay rules.
 
 - **Death**: life loss and lives. **Harvest**: maximizing gains from a level, possibly at the cost of speed. **Speed**: finishing a level fast. **Protection**: shrugging off hits. **Disruption**: impeding ghost mobility and goals. **Neutral**: generically useful.
 - New defs must set `school` (required by the type).
