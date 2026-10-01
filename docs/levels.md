@@ -42,7 +42,7 @@ Fruit spawns/despawns as before, 10s lifetime (20s with Fruit Fecundity): level 
 
 ## Run Complete
 
-Clearing level 9 (the boss) does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice is offered; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
+Clearing level 9 (the boss) does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice and no [time bonus](./bonus.md#time-bonus) are given; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count for `RUN_COMPLETE_HOLD_MS` (2000ms), then returns to `MenuScene`.
 
 ## Ghost house release
 

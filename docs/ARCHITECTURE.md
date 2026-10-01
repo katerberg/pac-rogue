@@ -199,6 +199,7 @@ PlaySim.step →
   (if level transition: tick pause → store floor (after 3, 5-or-6, 8) else advance board (level < 9) or begin run complete (level 9); return)
   (if store floor: stop-on-release input → movement → tunnel exit check (→ slide out + fade, then advance) → storeStep (Left/Right toggle, Enter confirm) → apply purchase → overlay sync → render; return)
   (if an upgrade offer is pending or its modal is still animating: return; then suppress input until key release)
+  (if level-end time bonus draining: drain Time into the BONUS bar (Quarters paid as it fills) → then upgrade offer or level transition; return)
   (if pending level clear: start level transition; return)
   applyHeldKeys →
   tickGhostRelease + ghostHouseSeating + ghostRelease (boardCollected + afterLifeRelease gates Inky/Clyde) →
@@ -217,7 +218,7 @@ PlaySim.step →
   tickFruitPresence (boardCollected; spawn/replace/despawn) →
   collectFruit → releaseDrawable(removed) → munch SFX + half a BONUS bar of charge (a fill pays a Quarter; fruit has no upgrade effect) →
   tickBoss? (boss level: eaten boss pellets queue Blinkys; spawn at free tunnel mouths) →
-  (if board clear: level-complete SFX → levels 1 and 9: level transition; levels 2-8: pickUpgradeChoiceOffer → modal (pending level clear) always opens (up/left/right upgrades + down Quarters); return)
+  (if board clear: level-complete SFX → level-end time drain unless level 9 or Time is 0 (see the gate above) → levels 1 and 9: level transition; levels 2-8: pickUpgradeChoiceOffer → modal (pending level clear) always opens (up/left/right upgrades + down Quarters); return)
   catchPlayer (skip frozen eid or player invulnerable) OR slimeTrailKill →
   render (closest-ghost freeze tint; corruption outline/flash tint + hidden alpha; slime trail tiles; player wall-pass tint or invuln gold tint) →
   (if caught: stop game-play music, play death, spend life, begin death sequence)

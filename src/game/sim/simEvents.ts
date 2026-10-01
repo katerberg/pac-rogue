@@ -45,6 +45,7 @@ export type SimEvent =
   | { type: "lives"; pulse: boolean }
   | { type: "quarters" }
   | { type: "bonus"; tier: number; filled: number }
+  | { type: "timeBonus"; active: boolean }
   | { type: "upgrades" }
   | { type: "timer" }
   | { type: "timerVisible"; visible: boolean }

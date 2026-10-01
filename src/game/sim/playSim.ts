@@ -13,6 +13,11 @@ import {
   type Cell,
 } from "../../domain/bonusBar";
 import {
+  createTimeBonusDrain,
+  tickTimeBonusDrain,
+  type TimeBonusDrain,
+} from "../../domain/timeBonus";
+import {
   bossTunnelMouths,
   pickBossPelletCells,
   type BossTunnelMouth,
@@ -301,6 +306,7 @@ export class PlaySim {
   private quarters = 0;
   private bonus: BonusBar;
   private lastPlayerCell: Cell | null = null;
+  private timeBonusDrain: TimeBonusDrain | null = null;
   private levelIndex = 1;
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
   private bossState: BossState | null = null;
@@ -466,7 +472,12 @@ export class PlaySim {
       lives: this.lives,
       quarters: this.quarters,
       timeRemaining: this.clock.remaining,
-      bonus: { charge: this.bonus.charge, streak: this.bonus.streak, max: BONUS_BAR_MAX },
+      bonus: {
+        charge: this.bonus.charge,
+        streak: this.bonus.streak,
+        max: BONUS_BAR_MAX,
+        draining: this.timeBonusDrain !== null,
+      },
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
@@ -600,6 +611,11 @@ export class PlaySim {
 
     if (this.store !== null) {
       this.tickStore(input, delta);
+      return;
+    }
+
+    if (this.timeBonusDrain !== null) {
+      this.tickTimeBonus(this.timeBonusDrain, delta);
       return;
     }
 
@@ -1362,6 +1378,31 @@ export class PlaySim {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "sfx", id: "levelComplete" });
     this.emitDraw();
+    this.timeBonusDrain =
+      bossForLevel(this.levelIndex) === null ? createTimeBonusDrain(this.clock.remaining) : null;
+    if (this.timeBonusDrain !== null) {
+      this.emit({ type: "timeBonus", active: true });
+      return;
+    }
+    this.finishLevelClear();
+  }
+
+  private tickTimeBonus(drain: TimeBonusDrain, delta: number): void {
+    const tick = tickTimeBonusDrain(drain, delta);
+    this.timeBonusDrain = tick.drain;
+    this.clock = { ...this.clock, remaining: tick.remaining };
+    this.emit({ type: "timer" });
+    const charged = addBonusCharge(this.bonus, tick.points);
+    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled });
+    this.emitDraw();
+    if (tick.done) {
+      this.timeBonusDrain = null;
+      this.emit({ type: "timeBonus", active: false });
+      this.finishLevelClear();
+    }
+  }
+
+  private finishLevelClear(): void {
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
       this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
       return;
