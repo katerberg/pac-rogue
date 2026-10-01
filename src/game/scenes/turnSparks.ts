@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import type { TurnFeedbackKind } from "../../domain/turnTuning";
-import { TEXT_COLOR_WHITE, addPixelText, placePixelText } from "./pixelFont";
 
 type TurnSparksEvent = {
   kind: TurnFeedbackKind;
@@ -20,11 +19,6 @@ const PERFECT_DISTANCE = 26;
 const CLOSE_DISTANCE = 24;
 const CLOSE_FAN_RAD = Math.PI / 3;
 const CLOSE_FRONT_PX = 10;
-const CLOSE_TEXT = "Close!";
-const CLOSE_TEXT_SIZE = 8;
-const CLOSE_TEXT_ALPHA = 0.6;
-const CLOSE_TEXT_RISE_PX = 10;
-const CLOSE_TEXT_MS = 600;
 
 export function playTurnSparks(scene: Phaser.Scene, event: TurnSparksEvent): void {
   const close = event.kind === "close";
@@ -47,20 +41,6 @@ export function playTurnSparks(scene: Phaser.Scene, event: TurnSparksEvent): voi
       duration: SPARK_MS,
       ease: "Cubic.easeOut",
       onComplete: () => spark.destroy(),
-    });
-  }
-  if (close) {
-    const text = addPixelText(scene, 0, 0, CLOSE_TEXT, CLOSE_TEXT_SIZE, TEXT_COLOR_WHITE)
-      .setDepth(SPARK_DEPTH)
-      .setAlpha(CLOSE_TEXT_ALPHA);
-    placePixelText(text, originX + event.dx * 14, originY + event.dy * 14 - 10, 0.5, 0.5);
-    scene.tweens.add({
-      targets: text,
-      x: text.x + event.dx * CLOSE_TEXT_RISE_PX,
-      y: text.y + event.dy * CLOSE_TEXT_RISE_PX - CLOSE_TEXT_RISE_PX,
-      alpha: 0,
-      duration: CLOSE_TEXT_MS,
-      onComplete: () => text.destroy(),
     });
   }
 }
