@@ -2,8 +2,10 @@ import Phaser from "phaser";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
   getUpgradeDef,
+  UPGRADE_SCHOOL_LABELS,
   type UpgradeChoiceOffer,
   type UpgradeChoiceOption,
+  type UpgradeSchool,
 } from "../../domain/upgrades";
 import {
   addPixelText,
@@ -39,6 +41,16 @@ const CENTER_Y = PLAYFIELD_HEIGHT / 2 + 40;
 const H_OFFSET = 250;
 const V_OFFSET = 95;
 const HINT_GAP = 20;
+
+const SCHOOL_TAG_Y = -58;
+export const SCHOOL_COLORS: Record<UpgradeSchool, number> = {
+  death: 0xb36bff,
+  harvest: 0xffa63d,
+  speed: 0x4dd2ff,
+  protection: 0x5ee07a,
+  disruption: 0xff5c7a,
+  neutral: 0xb0b0b0,
+};
 
 const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const BUTTON_STROKE_REST = 4;
@@ -92,7 +104,9 @@ function hintPositionForSlot(slot: Slot): { x: number; y: number } {
   }
 }
 
-function copyForOption(option: UpgradeChoiceOption): { label: string; description: string } {
+type CardCopy = { label: string; description: string; school?: UpgradeSchool };
+
+function copyForOption(option: UpgradeChoiceOption): CardCopy {
   if (option.kind === "quarters") {
     return {
       label: "QUARTERS",
@@ -100,7 +114,7 @@ function copyForOption(option: UpgradeChoiceOption): { label: string; descriptio
     };
   }
   const def = getUpgradeDef(option.id);
-  return { label: def.label, description: def.description };
+  return { label: def.label, description: def.description, school: def.school };
 }
 
 export type UpgradeCardVisual = {
@@ -116,7 +130,7 @@ export function buildUpgradeCardVisual(
   scene: Phaser.Scene,
   x: number,
   y: number,
-  copy: { label: string; description: string },
+  copy: CardCopy,
 ): UpgradeCardVisual {
   const targetLabel = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
   const targetDescription = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
@@ -135,6 +149,18 @@ export function buildUpgradeCardVisual(
   placePixelText(label, 0, -30, 0.5, 0.5);
   placePixelText(description, 0, 18, 0.5, 0.5);
   const root = scene.add.container(x, y, [bg, label, description]);
+  if (copy.school !== undefined) {
+    const tag = addPixelText(
+      scene,
+      0,
+      0,
+      UPGRADE_SCHOOL_LABELS[copy.school].toUpperCase(),
+      UPGRADES_HUD_FONT_SIZE,
+      SCHOOL_COLORS[copy.school],
+    );
+    placePixelText(tag, 0, SCHOOL_TAG_Y, 0.5, 0.5);
+    root.add(tag);
+  }
   return { root, bg, label, description, targetLabel, targetDescription };
 }
 
