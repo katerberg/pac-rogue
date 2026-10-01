@@ -539,10 +539,6 @@ export function hasUpgrade(owned: readonly UpgradeId[], baseId: BaseUpgradeId): 
   return owned.some((id) => baseIdOf(id) === baseId);
 }
 
-export function hasEnhancedUpgrade(owned: readonly UpgradeId[], baseId: BaseUpgradeId): boolean {
-  return owned.includes(enhancedIdOf(baseId));
-}
-
 export function ownedFormOf(owned: readonly UpgradeId[], baseId: BaseUpgradeId): UpgradeId | null {
   return owned.find((id) => baseIdOf(id) === baseId) ?? null;
 }
@@ -971,24 +967,13 @@ export function applyPowerPelletEffects(
   }
 
   const overcharge = overchargeMultiplier(state.owned);
-  if (freezeClosestMs !== null) {
-    freezeClosestMs *= overcharge;
-  }
-  if (scatterMs !== null) {
-    scatterMs *= overcharge;
-  }
-  if (wallPassMs !== null) {
-    wallPassMs *= overcharge;
-  }
-  if (invulnMs !== null) {
-    invulnMs *= overcharge;
-  }
-  if (speedBurstMs !== null) {
-    speedBurstMs *= overcharge;
-  }
-  if (ghostHarvestMs !== null) {
-    ghostHarvestMs *= overcharge;
-  }
+  const scaled = (ms: number | null): number | null => (ms === null ? null : ms * overcharge);
+  freezeClosestMs = scaled(freezeClosestMs);
+  scatterMs = scaled(scatterMs);
+  wallPassMs = scaled(wallPassMs);
+  invulnMs = scaled(invulnMs);
+  speedBurstMs = scaled(speedBurstMs);
+  ghostHarvestMs = scaled(ghostHarvestMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
