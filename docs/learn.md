@@ -48,7 +48,7 @@ Only ghosts and upgrades this machine has met in real play are selectable.
   small two-line banner positioned between the ghost slots and the maze (`NO_EFFECT_BANNER_Y`),
   capped to the maze's own pixel width (`wrapText` wraps the names line if it would overflow): the
   selected upgrade name(s) on the first line, `NO VISIBLE EFFECT HERE` always on its own line below.
-- Every selected upgrade row also shows a small `+` box at the right end of the row (`UPGRADE_PLUS_X`),
+- Every selected upgrade row also shows a small `+` box at the right end of the row (`UPGRADE_PLUS_INSET` from the row edge, in either column),
   hidden while the row is unselected (`learnEnhanceToggleState`). Clicking it flips that upgrade to its
   enhanced `<id>Plus` form and back (`LearnSim.toggleEnhanced`): the box fills yellow and the label
   gains a `+` while enhanced. The preview card and the "no visible effect" banner use the owned form.
