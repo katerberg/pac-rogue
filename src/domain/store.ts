@@ -3,6 +3,7 @@ import {
   carryEnhancement,
   eligibleUpgrades,
   enhanceableUpgrades,
+  enhancedIdOf,
   storePriceFor,
   takeRandomFrom,
   type BaseUpgradeId,
@@ -217,7 +218,15 @@ export function storeStep(
   if (slot.kind === "enhance") {
     const targets = enhanceableUpgrades(input.owned);
     const targetId = targets.includes(slot.targetId) ? slot.targetId : takeRandomFrom(targets, rng);
-    return { state: sold, purchase: { kind: "enhance", targetId, price: view.price } };
+    const relabeled = sold.slots.map((s) =>
+      s.kind === "swap" && baseIdOf(s.outgoingId) === targetId
+        ? { ...s, outgoingId: enhancedIdOf(targetId) }
+        : s,
+    );
+    return {
+      state: { ...sold, slots: relabeled },
+      purchase: { kind: "enhance", targetId, price: view.price },
+    };
   }
   const outgoingId =
     input.owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId)) ?? slot.outgoingId;

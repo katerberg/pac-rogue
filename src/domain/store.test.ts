@@ -251,6 +251,14 @@ describe("enhancement tile", () => {
     expect(step.purchase?.kind === "enhance" ? step.purchase.targetId : null).not.toBe(shownId);
   });
 
+  it("relabels the swap tile when its upgrade is enhanced", () => {
+    const owned: UpgradeId[] = ["passivePlayerSpeedUp"];
+    const state = storeStep(stateWith(owned), input({ ...enhanceCell, owned }), zeroRng).state;
+    const step = confirmYes(state, { ...enhanceCell, owned });
+    const swap = step.state.slots.find((s) => s.kind === "swap");
+    expect(swap).toMatchObject({ outgoingId: "passivePlayerSpeedUpPlus" });
+  });
+
   it("reports nothing to enhance when everything owned is enhanced", () => {
     const stocked = stateWith(["passivePlayerSpeedUp"]);
     const owned: UpgradeId[] = ["passivePlayerSpeedUpPlus"];

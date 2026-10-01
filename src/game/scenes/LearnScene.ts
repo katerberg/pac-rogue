@@ -115,7 +115,8 @@ const UPGRADE_CHECK_SIZE = 10;
 const UPGRADE_CHECK_GAP = 4;
 const UPGRADE_PLUS_X = UPGRADE_COLUMN_X + UPGRADE_ROW_WIDTH - 6;
 const UPGRADE_PLUS_ZONE_WIDTH = 14;
-const UPGRADE_PLUS_OFF_TINT = 0x666666;
+const UPGRADE_PLUS_BOX_SIZE = 10;
+const UPGRADE_PLUS_ON_TINT = 0x101820;
 const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
 const HOVER_PREVIEW_DELAY_MS = 500;
 const HOVER_PREVIEW_X = 110;
@@ -141,6 +142,7 @@ type UpgradeRow = {
   checkMark: Phaser.GameObjects.Rectangle;
   label: Phaser.GameObjects.BitmapText;
   plus: Phaser.GameObjects.BitmapText;
+  plusBox: Phaser.GameObjects.Rectangle;
   plusZone: Phaser.GameObjects.Zone;
 };
 
@@ -405,6 +407,10 @@ export class LearnScene extends Phaser.Scene {
       .setVisible(false);
     const label = addPixelText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
     placePixelText(label, labelX, y, 0, 0.5);
+    const plusBox = this.add
+      .rectangle(UPGRADE_PLUS_X, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
+      .setStrokeStyle(2, TEXT_COLOR_YELLOW)
+      .setVisible(false);
     const plus = addPixelText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
     placePixelText(plus, UPGRADE_PLUS_X, y, 0.5, 0.5);
     plus.setVisible(false);
@@ -423,7 +429,7 @@ export class LearnScene extends Phaser.Scene {
     const plusZone = this.add.zone(UPGRADE_PLUS_X, y, UPGRADE_PLUS_ZONE_WIDTH, UPGRADE_ROW_GAP - 2);
     plusZone.on("pointerdown", () => this.toggleEnhanced(def.baseId));
     plusZone.on("pointerover", () => this.cancelUpgradePreview());
-    this.upgradeRows.push({ id: def.baseId, checkMark, label, plus, plusZone });
+    this.upgradeRows.push({ id: def.baseId, checkMark, label, plus, plusBox, plusZone });
   }
 
   private refreshUpgradeRows(): void {
@@ -431,7 +437,9 @@ export class LearnScene extends Phaser.Scene {
       const state = learnEnhanceToggleState(this.sim.ownedUpgrades, row.id);
       row.checkMark.setVisible(state !== "hidden");
       row.plus.setVisible(state !== "hidden");
-      row.plus.setTint(state === "on" ? TEXT_COLOR_YELLOW : UPGRADE_PLUS_OFF_TINT);
+      row.plusBox.setVisible(state !== "hidden");
+      row.plusBox.setFillStyle(TEXT_COLOR_YELLOW, state === "on" ? 1 : 0);
+      row.plus.setTint(state === "on" ? UPGRADE_PLUS_ON_TINT : TEXT_COLOR_YELLOW);
       row.label.setText(getUpgradeDef(state === "on" ? enhancedIdOf(row.id) : row.id).label);
       if (state === "hidden") {
         row.plusZone.disableInteractive();
