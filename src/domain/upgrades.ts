@@ -221,7 +221,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "powerPelletGhostHarvester",
     label: "Ghost Harvester",
-    school: "harvest",
+    school: "speed",
     description: "Power pellet sends ghosts to gobble pellets for you.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { ghostHarvestMs: GHOST_HARVEST_MS },
@@ -302,7 +302,7 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   {
     id: "passiveDefyDeath",
     label: "Defy Death",
-    school: "protection",
+    school: "death",
     description: "Eat a power pellet: die within 5s and keep your life.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { defyDeathMs: DEFY_DEATH_MS },
