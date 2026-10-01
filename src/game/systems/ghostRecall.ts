@@ -18,6 +18,7 @@ export function recallClosestGhostToHouse(
   collectedCount: number,
   afterLifeRelease = false,
   adds: GhostReleaseAdds = {},
+  excludeEid: number | null = null,
 ): void {
   const players = query(world, [Player, Position]);
   const playerEid = players[0];
@@ -37,7 +38,7 @@ export function recallClosestGhostToHouse(
     });
   }
 
-  const eid = pickClosestGhostEid(candidates, fromX, fromY);
+  const eid = pickClosestGhostEid(candidates, fromX, fromY, excludeEid);
   if (eid === null) {
     return;
   }

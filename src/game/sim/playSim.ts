@@ -906,6 +906,7 @@ export class PlaySim {
         this.pelletProgress.boardCollected,
         this.afterLifeRelease,
         releaseAdds,
+        frozenGhostEid(this.runUpgrades),
       );
     }
     if (powerEffects.warpPlayerFarthest) {
@@ -1500,6 +1501,7 @@ export class PlaySim {
           delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
           clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
         },
+        frozenGhostEid(this.runUpgrades),
       );
     }
     if (powerEffects.warpPlayerFarthest) {

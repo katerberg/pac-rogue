@@ -23,6 +23,15 @@ describe("pickClosestGhostEid", () => {
     expect(eid).toBe(3);
   });
 
+  it("skips the excluded ghost and falls back to the next closest", () => {
+    const candidates = [
+      { eid: 1, x: 10, y: 0, phase: GHOST_PHASE.active },
+      { eid: 2, x: 50, y: 0, phase: GHOST_PHASE.active },
+    ];
+    expect(pickClosestGhostEid(candidates, 0, 0, 1)).toBe(2);
+    expect(pickClosestGhostEid(candidates.slice(0, 1), 0, 0, 1)).toBeNull();
+  });
+
   it("breaks distance ties with lowest eid", () => {
     const eid = pickClosestGhostEid(
       [

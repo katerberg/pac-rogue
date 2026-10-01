@@ -20,6 +20,7 @@ import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
+  frozenGhostEid,
   grantUpgrade,
   STARTING_UPGRADE_POOL,
   type UpgradeChoiceOffer,
@@ -1459,6 +1460,24 @@ describe("PlaySim enhanced upgrades", () => {
     };
     expect(homeCount("powerPelletGhostRecall")).toBe(1);
     expect(homeCount("powerPelletGhostRecallPlus")).toBe(2);
+  });
+
+  it("Power Freeze and Ghost Recall never hit the same ghost", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletFreeze", "powerPelletGhostRecall"],
+    });
+    for (const eid of query(sim.world, [Ghost, Position])) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    chomp(sim);
+    const ghosts = query(sim.world, [Ghost, Position]);
+    const frozen = ghosts.filter((eid) => eid === frozenGhostEid(sim["runUpgrades"]));
+    const home = ghosts.filter((eid) => GhostPhase.value[eid] === GHOST_PHASE.inHouse);
+    expect(frozen).toHaveLength(1);
+    expect(home).toHaveLength(1);
+    expect(home).not.toContain(frozen[0]);
   });
 
   it("Second Chomp+ respawns a power pellet after 7s instead of 10s", () => {
