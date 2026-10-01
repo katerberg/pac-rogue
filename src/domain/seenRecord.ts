@@ -1,23 +1,20 @@
-import { CORRUPTION_IDS, type CorruptionId } from "./corruption";
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import { ALL_UPGRADE_IDS, type UpgradeId } from "./upgrades";
 
 export type SeenRecord = {
   ghosts: GhostKindId[];
-  corruptions: CorruptionId[];
   upgrades: UpgradeId[];
 };
 
 const GHOST_KIND_IDS: readonly GhostKindId[] = Object.values(GHOST_KIND);
 
 export function emptySeenRecord(): SeenRecord {
-  return { ghosts: [], corruptions: [], upgrades: [] };
+  return { ghosts: [], upgrades: [] };
 }
 
 export function allSeenRecord(): SeenRecord {
   return {
     ghosts: [...GHOST_KIND_IDS],
-    corruptions: [...CORRUPTION_IDS],
     upgrades: [...ALL_UPGRADE_IDS],
   };
 }
@@ -41,7 +38,6 @@ export function parseSeenRecord(raw: string | null): SeenRecord {
     const record = parsed as Record<string, unknown>;
     return {
       ghosts: pickKnown(record.ghosts, GHOST_KIND_IDS),
-      corruptions: pickKnown(record.corruptions, CORRUPTION_IDS),
       upgrades: pickKnown(record.upgrades, ALL_UPGRADE_IDS),
     };
   } catch {
@@ -59,14 +55,6 @@ export function withSeenGhosts(record: SeenRecord, kinds: readonly GhostKindId[]
   }
   const merged = [...record.ghosts, ...kinds];
   return { ...record, ghosts: GHOST_KIND_IDS.filter((id) => merged.includes(id)) };
-}
-
-export function withSeenCorruption(record: SeenRecord, id: CorruptionId): SeenRecord {
-  if (record.corruptions.includes(id)) {
-    return record;
-  }
-  const merged = [...record.corruptions, id];
-  return { ...record, corruptions: CORRUPTION_IDS.filter((known) => merged.includes(known)) };
 }
 
 export function withSeenUpgrade(record: SeenRecord, id: UpgradeId): SeenRecord {

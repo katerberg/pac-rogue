@@ -17,7 +17,7 @@ import { pelletDisplaySize, playerDisplaySize } from "../../domain/maze";
 import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { freshSeed } from "../../domain/runRandom";
-import { withSeenCorruption, withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
+import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
 import { upgradeLabels } from "../../domain/upgrades";
 import {
   isSfxPlaying,
@@ -354,9 +354,7 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "seenGhosts": {
         const seen = loadSeenRecord();
-        const withGhosts = withSeenGhosts(seen, event.ghostKinds);
-        const next =
-          event.corruption !== null ? withSeenCorruption(withGhosts, event.corruption) : withGhosts;
+        const next = withSeenGhosts(seen, event.ghostKinds);
         if (next !== seen) {
           saveSeenRecord(next);
         }

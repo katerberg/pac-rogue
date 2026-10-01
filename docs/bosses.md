@@ -25,7 +25,7 @@ extra sound plays.
 | Speed            | Flat `BOSS_GHOST_SPEED` (= base Maze-Man speed), half in tunnels, no level multiplier, no Elroy. `passiveGhostSlow` and Freeze still apply. Maze-Man keeps the level-9 speed.                                                                                                                                  |
 | House            | Up to 4 Blinkys wait in the house and leave 0.6s apart (0.1s, 0.7s, 1.3s, 1.9s after the first input).                                                                                                                                                                                                         |
 | Death            | Keeps the Blinky count and eaten pellets. The first 4 Blinkys restart in the house; the rest come out of the tunnels right away.                                                                                                                                                                               |
-| Other            | Fruit behaves as on a normal level. No corruption is assigned or active. Power pellets and upgrades work as usual; boss pellets are not power pellets.                                                                                                                                                         |
+| Other            | Fruit behaves as on a normal level. Power pellets and upgrades work as usual; boss pellets are not power pellets.                                                                                                                                                                                              |
 
 Debug: `?bossGhosts=N` (2..10) starts the boss with N Blinkys (disables high-score saving).
 

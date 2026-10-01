@@ -106,9 +106,9 @@ npm run probe -- --query "play=1&maze=mazeSmall&seed=recipe" --name left --steps
 
 Level 1 opens a **starting-upgrade card** that swallows the first keypress. After it closes, input is suppressed until every key is released. So always open a level-1 run with `waitFor:play.startingUpgradeCardOpen==true,press:Space,waitFor:play.startingUpgradeCardOpen==false,waitFor:play.inputSuppressed==false`. Levels other than 1, `store=1` and `jumpToUpgrade=1` skip the card.
 
-Without `seed=`, every run rolls fresh randomness: generated boards (levels 2+), the starting upgrade, the second ghost, corruption, upgrade offers, Store stock and more. **Pass `seed=<anything>` on every probe** so reruns see the same run (see [Seeded runs](#seeded-runs)). `maze=maze1|maze2|mazeSmall` additionally pins a hand-made layout for the first board. `play.seed` reports the seed in use, including the fresh one an unseeded run picked (players see it faded bottom-left on the pause, Game Over and Run Complete screens), so a flaky or surprising run can be replayed with `seed=<play.seed>`.
+Without `seed=`, every run rolls fresh randomness: generated boards (levels 2+), the starting upgrade, the second ghost, upgrade offers, Store stock and more. **Pass `seed=<anything>` on every probe** so reruns see the same run (see [Seeded runs](#seeded-runs)). `maze=maze1|maze2|mazeSmall` additionally pins a hand-made layout for the first board. `play.seed` reports the seed in use, including the fresh one an unseeded run picked (players see it faded bottom-left on the pause, Game Over and Run Complete screens), so a flaky or surprising run can be replayed with `seed=<play.seed>`.
 
-Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `store`, `enableUpgrade`, `ghosts`, `forceCorruption`, `bossGhosts`, `infiniteLives`). On any failed step the probe writes `artifacts/<name>-failure.json` (snapshot) and `artifacts/<name>-failure.png`. Read both before changing code.
+Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `store`, `enableUpgrade`, `ghosts`, `bossGhosts`, `infiniteLives`). On any failed step the probe writes `artifacts/<name>-failure.json` (snapshot) and `artifacts/<name>-failure.png`. Read both before changing code.
 
 ### Modes touched
 
@@ -117,7 +117,7 @@ Use URL flags from the README to reach the state under test (`level`, `maze`, `q
 | Mode                         | How to reach it                                                                                                                 |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Level 1 board (fixed layout) | `play=1&maze=mazeSmall` (starting-upgrade card)                                                                                 |
-| Generated board (levels 2–8) | `play=1&level=2` (use `level=4+` for corruption)                                                                                |
+| Generated board (levels 2–8) | `play=1&level=2`                                                                                                                |
 | Inverted board (levels 6–7)  | `play=1&level=6`                                                                                                                |
 | Store floor (`tickStore`)    | `play=1&store=1&quarters=10`                                                                                                    |
 | Boss (`tickBoss`, level 9)   | `play=1&level=9` (`bossGhosts=N` for more Blinkys)                                                                              |
@@ -144,7 +144,6 @@ On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot(
 | `play.ghosts.<i>.{eid,kind,phase,col,row,x,y,facing,boss}`                                                                                   | each ghost; `phase` is `inHouse` \| `leaving` \| `active`                                             |
 | `play.ghostMode`                                                                                                                             | `scatter` \| `chase`                                                                                  |
 | `play.upgrades`, `play.timers.{freezeMs,scatterBurstMs,wallPassMs,invulnMs,speedBurstMs,ghostHarvestMs,defyDeathMs,turnBoostMs,turnFlashMs}` | owned upgrade ids; active power-pellet timers                                                         |
-| `play.corruption`, `play.corruptionGhost`                                                                                                    | assigned corruption id and ghost kind, or `null`                                                      |
 | `play.startingUpgradeCardOpen`, `play.inputSuppressed`                                                                                       | level-1 card up; player input held until all keys release                                             |
 | `play.upgradeModalOpen`, `play.levelTransition`, `play.dying`, `play.reviveProgress`                                                         | blocking states (the sim is frozen in each)                                                           |
 | `play.upgradeOffer`                                                                                                                          | upgrade ids offered by the open level-clear modal, else `null`                                        |
@@ -156,7 +155,7 @@ When a check needs state the snapshot lacks, add the field (read-only) in the sa
 
 ### Seeded runs
 
-`?seed=<1-32 of A-Z a-z 0-9 _ ->` fixes **every** random decision in a run (`src/domain/runRandom.ts`). `PlayScene` and `LearnScene` draw only from named streams of one `RunRandom`: `secondGhost`, `midStore`, `startingUpgrade`, `corruption`, `upgradeOffer`, `upgradeFx`, `storeStock`, `storePurchase`, `pelletToPower`, `bossScatter` and `bossShake`. Generated boards come from the seed through `boardMazeSeed`. Per-board streams are keyed by level, and each stream is independent. So how much one consumer draws (store purchases, modal effects) never shifts another, and level N's draws never depend on earlier levels' draws. The results can still depend on player choices (an offer only picks from upgrades you don't own).
+`?seed=<1-32 of A-Z a-z 0-9 _ ->` fixes **every** random decision in a run (`src/domain/runRandom.ts`). `PlayScene` and `LearnScene` draw only from named streams of one `RunRandom`: `secondGhost`, `midStore`, `startingUpgrade`, `upgradeOffer`, `upgradeFx`, `storeStock`, `storePurchase`, `pelletToPower`, `bossScatter` and `bossShake`. Generated boards come from the seed through `boardMazeSeed`. Per-board streams are keyed by level, and each stream is independent. So how much one consumer draws (store purchases, modal effects) never shifts another, and level N's draws never depend on earlier levels' draws. The results can still depend on player choices (an offer only picks from upgrades you don't own).
 
 Not covered by the seed (not randomness): real frame timing (`delta`), which moves ghosts and timers by wall-clock time, and `localStorage` state (settings, the LEARN seen record, high scores).
 

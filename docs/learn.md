@@ -6,21 +6,20 @@ live.
 
 ## Seen record
 
-Only ghosts, corruptions, and upgrades this machine has met in real play are selectable.
+Only ghosts and upgrades this machine has met in real play are selectable.
 
-- [`src/domain/seenRecord.ts`](../src/domain/seenRecord.ts): `SeenRecord` (`ghosts`, `corruptions`,
-  `upgrades`), parse/serialize, `withSeenGhosts` / `withSeenCorruption` / `withSeenUpgrade` merges
+- [`src/domain/seenRecord.ts`](../src/domain/seenRecord.ts): `SeenRecord` (`ghosts`,
+  `upgrades`), parse/serialize, `withSeenGhosts` / `withSeenUpgrade` merges
   (return the same object when nothing is new), `allSeenRecord`, `parseLearnAllMode`.
 - [`src/game/storage/seenRecordStorage.ts`](../src/game/storage/seenRecordStorage.ts): localStorage
   key `pac-rogue.seen.v1`. Missing, unreadable, or malformed data → empty record; a record saved
-  before `upgrades` existed parses with `upgrades: []`.
-- `PlaySim.startBoard` records every ghost kind it spawns and the run's corruption once
-  `maybeAssignCorruption` assigns it (including `?forceCorruption=`). `PlayScene` also records every
+  before `upgrades` existed parses with `upgrades: []`, and a legacy `corruptions` field is ignored and
+  dropped on the next write.
+- `PlaySim.startBoard` records every ghost kind it spawns. `PlayScene` also records every
   currently-owned upgrade id whenever `runUpgrades.owned` can grow: the initial `?enableUpgrade=`
   set, the level-1 starting-upgrade grant, and a level-clear modal confirm — an upgrade only ever
-  seen via `?enableUpgrade=` still counts as seen, the same treatment `?forceCorruption=` already
-  gets for corruptions.
-- `?learnAll=1` treats every ghost, corruption, and upgrade as seen without touching storage.
+  seen via `?enableUpgrade=` still counts as seen.
+- `?learnAll=1` treats every ghost and upgrade as seen without touching storage.
   `?learnAll=0` treats **nothing** as seen — overriding real localStorage — useful for exercising the
   empty `PLAY TO MEET GHOSTS` state on demand. Either way the seen record is read-only in Learn; only
   `PlayScene` ever writes it.
@@ -29,14 +28,17 @@ Only ghosts, corruptions, and upgrades this machine has met in real play are sel
 
 - Title, then four ghost slots (Blinky, Pinky, Inky, Clyde). Unseen slots show a black silhouette
   and cannot be picked. The selected slot has a yellow frame.
-- Seen upgrades are listed to the left of the maze, grouped under a colored school header
-  (`groupUpgradesBySchool`, `UPGRADE_SCHOOL_ORDER`; empty schools are skipped), one row per seen
+- Seen upgrades are listed beside the maze, grouped under a colored school header
+  (`groupUpgradesBySchool`, `UPGRADE_SCHOOL_ORDER`; empty schools are skipped). `splitSchoolColumns`
+  ([`src/domain/learnUpgradeColumns.ts`](../src/domain/learnUpgradeColumns.ts)) fills the left column
+  with the first 3 seen schools and the right column with the next 3, in order (4 seen schools → 3 left,
+  1 right). Each school has one row per seen
   `UpgradeDef` in canonical `UPGRADE_DEFS` order within each group: a checkbox + label, filled in yellow while selected. Multiple upgrades can be
   selected at once (a local `RunUpgrades` bag, not tied to any real run) and stay selected across a
   ghost switch — only the five transient power-pellet timers (freeze/scatter/wall-pass/invuln/speed
   -burst) and any in-flight recall hold reset when the ghost changes.
 - Hovering an upgrade row for `HOVER_PREVIEW_DELAY_MS` (500ms) shows a preview card near the pointer
-  on the left side of the screen (fixed `HOVER_PREVIEW_X`, y follows the pointer clamped to stay
+  on the same side of the screen as the row (fixed x from `hoverPreviewX(column)`, y follows the pointer clamped to stay
   on-screen) — never over the play area — using `buildUpgradeCardVisual` from
   [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts), the same
   function the level-clear upgrade picker's buttons use, so the card matches exactly (bg, border,
@@ -46,14 +48,11 @@ Only ghosts, corruptions, and upgrades this machine has met in real play are sel
   small two-line banner positioned between the ghost slots and the maze (`NO_EFFECT_BANNER_Y`),
   capped to the maze's own pixel width (`wrapText` wraps the names line if it would overflow): the
   selected upgrade name(s) on the first line, `NO VISIBLE EFFECT HERE` always on its own line below.
-- Seen corruptions are listed to the right of the maze (color swatch + label). Clicking one applies
-  it to the selected ghost; clicking it again removes it. Only one corruption at a time. Blinky can
-  be corrupted here even though real runs never corrupt him.
 - Nothing seen yet → `PLAY TO MEET GHOSTS` over the maze; only Maze-Man spawns.
 
 ## Controls
 
-Arrows / WASD move, `1`–`4` or click select a ghost slot, click toggles a corruption or upgrade,
+Arrows / WASD move, `1`–`4` or click select a ghost slot, click toggles an upgrade,
 hover an upgrade row to preview it, Esc or **BACK** returns to the menu. The first seen ghost is
 selected on entry.
 
@@ -77,10 +76,10 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
 
 - Chase mode only unless Scatter Burst is selected and active (see below), level-1 speeds, no
   Cruise Elroy.
-- Contact never kills (no `catchPlayer`, no slime-trail kill).
+- Contact never kills (no `catchPlayer`).
 - The chosen ghost spawns already `active` at the ghost-house exit; switching ghosts respawns it
-  there and resets corruption timers. Maze-Man keeps his position.
-- Picking Inky also spawns a faded, harmless, uncorrupted Blinky so Inky's real targeting shows. It
+  there. Maze-Man keeps his position.
+- Picking Inky also spawns a faded, harmless Blinky so Inky's real targeting shows. It
   spawns beside Inky facing the other way so it takes its own chase route toward Maze-Man instead
   of trailing Inky out of the house.
 - The board spawns real pellets and power pellets from `pelletCellCenters()` — the same helper
@@ -91,7 +90,6 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
   helper `PlayScene` uses). Eating it removes it via `collectFruit`; it reappears at the same cell
   after `FRUIT_RESPAWN_MS` (1000ms). No Quarters HUD, no munch SFX.
 - No sound, HUD, timer, lives, or history writes.
-- Corruption systems run through the same `stepCorruption` as `PlayScene`.
 
 ## Upgrade fidelity
 

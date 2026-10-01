@@ -1,11 +1,11 @@
 import Phaser from "phaser";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
-import {
-  CORRUPTION_DEFS,
-  OUTLINE_TINT_BY_CORRUPTION,
-  type CorruptionId,
-} from "../../domain/corruption";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import {
+  hoverPreviewX,
+  splitSchoolColumns,
+  type LearnColumn,
+} from "../../domain/learnUpgradeColumns";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import {
   GHOST_COLOR_BY_KIND,
@@ -84,13 +84,6 @@ const SLOT_STROKE = 4;
 const SLOT_STROKE_COLOR = 0x444444;
 const SLOT_ICON_SIZE = 32;
 const UNSEEN_ALPHA = 0.35;
-const CORRUPTION_COLUMN_X = 596;
-const CORRUPTION_ROW_START_Y = 170;
-const CORRUPTION_ROW_GAP = 40;
-const CORRUPTION_ROW_WIDTH = 185;
-const CORRUPTION_SWATCH_SIZE = 12;
-const CORRUPTION_CHECK_SIZE = 12;
-const CORRUPTION_CHECK_GAP = 4;
 const BACK_Y = 550;
 const OVERLAY_DEPTH = 5;
 const PATH_ALPHA = 0.6;
@@ -101,7 +94,7 @@ const DERIVATION_ALPHA = 0.8;
 const DERIVATION_WIDTH = 2;
 const PIVOT_DOT_RADIUS = 3;
 const CIRCLE_SEGMENTS = 48;
-const UPGRADE_COLUMN_X = 20;
+const UPGRADE_COLUMN_X = { left: 20, right: 596 } as const;
 const UPGRADE_ROW_START_Y = 100;
 const UPGRADE_ROW_GAP = 13;
 const UPGRADE_HEADER_GAP = 17;
@@ -110,7 +103,6 @@ const UPGRADE_CHECK_SIZE = 10;
 const UPGRADE_CHECK_GAP = 4;
 const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
 const HOVER_PREVIEW_DELAY_MS = 500;
-const HOVER_PREVIEW_X = 110;
 const HOVER_PREVIEW_Y_MIN = 90;
 const HOVER_PREVIEW_Y_MAX = 510;
 const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
@@ -127,7 +119,6 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly UpgradeId[] = [
 ];
 
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
-type CorruptionRow = { id: CorruptionId; checkMark: Phaser.GameObjects.Rectangle };
 type UpgradeRow = { id: UpgradeId; checkMark: Phaser.GameObjects.Rectangle };
 
 export class LearnScene extends Phaser.Scene {
@@ -138,7 +129,6 @@ export class LearnScene extends Phaser.Scene {
   private seen: SeenRecord = emptySeenRecord();
   private reticlePx: PixelPoint | null = null;
   private slots: GhostSlot[] = [];
-  private corruptionRows: CorruptionRow[] = [];
   private upgradeRows: UpgradeRow[] = [];
   private noEffectBanner!: Phaser.GameObjects.BitmapText;
   private hoverPreviewTimer: Phaser.Time.TimerEvent | null = null;
@@ -177,7 +167,6 @@ export class LearnScene extends Phaser.Scene {
     const title = addPixelText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
     placePixelText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
     this.buildGhostSlots();
-    this.buildCorruptionRows();
     this.buildUpgradeRows();
     this.buildBackButton();
 
@@ -248,12 +237,6 @@ export class LearnScene extends Phaser.Scene {
     this.applyEvents(this.sim.selectGhost(kind));
     this.reticlePx = null;
     this.refreshSlots();
-    this.refreshCorruptionRows();
-  }
-
-  private toggleCorruption(id: CorruptionId): void {
-    this.applyEvents(this.sim.toggleCorruption(id));
-    this.refreshCorruptionRows();
   }
 
   private toggleUpgrade(id: UpgradeId): void {
@@ -300,83 +283,36 @@ export class LearnScene extends Phaser.Scene {
     }
   }
 
-  private buildCorruptionRows(): void {
-    this.corruptionRows = [];
-    const defs = CORRUPTION_DEFS.filter((def) => this.seen.corruptions.includes(def.id));
-    const checkboxX =
-      CORRUPTION_COLUMN_X +
-      CORRUPTION_SWATCH_SIZE +
-      CORRUPTION_CHECK_GAP +
-      CORRUPTION_CHECK_SIZE / 2;
-    const labelX = checkboxX + CORRUPTION_CHECK_SIZE / 2 + CORRUPTION_CHECK_GAP;
-    defs.forEach((def, index) => {
-      const y = CORRUPTION_ROW_START_Y + index * CORRUPTION_ROW_GAP;
-      this.add.rectangle(
-        CORRUPTION_COLUMN_X + CORRUPTION_SWATCH_SIZE / 2,
-        y,
-        CORRUPTION_SWATCH_SIZE,
-        CORRUPTION_SWATCH_SIZE,
-        OUTLINE_TINT_BY_CORRUPTION[def.id],
-      );
-      this.add
-        .rectangle(checkboxX, y, CORRUPTION_CHECK_SIZE, CORRUPTION_CHECK_SIZE)
-        .setStrokeStyle(2, TEXT_COLOR_WHITE);
-      const checkMark = this.add
-        .rectangle(
-          checkboxX,
-          y,
-          CORRUPTION_CHECK_SIZE - 6,
-          CORRUPTION_CHECK_SIZE - 6,
-          TEXT_COLOR_YELLOW,
-        )
-        .setVisible(false);
-      const label = addPixelText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
-      placePixelText(label, labelX, y, 0, 0.5);
-      const zone = this.add.zone(
-        CORRUPTION_COLUMN_X + CORRUPTION_ROW_WIDTH / 2,
-        y,
-        CORRUPTION_ROW_WIDTH,
-        CORRUPTION_ROW_GAP - 8,
-      );
-      zone.setInteractive({ useHandCursor: true });
-      zone.on("pointerdown", () => this.toggleCorruption(def.id));
-      this.corruptionRows.push({ id: def.id, checkMark });
-    });
-  }
-
-  private refreshCorruptionRows(): void {
-    for (const row of this.corruptionRows) {
-      row.checkMark.setVisible(row.id === this.sim.corruption.type);
-    }
-  }
-
   private buildUpgradeRows(): void {
     this.upgradeRows = [];
-    const groups = groupUpgradesBySchool(
-      UPGRADE_DEFS.filter((def) => this.seen.upgrades.includes(def.id)),
+    const columns = splitSchoolColumns(
+      groupUpgradesBySchool(UPGRADE_DEFS.filter((def) => this.seen.upgrades.includes(def.id))),
     );
-    const checkboxX = UPGRADE_COLUMN_X + UPGRADE_CHECK_SIZE / 2;
-    const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
-    let y = UPGRADE_ROW_START_Y - UPGRADE_ROW_GAP;
-    for (const { school, defs } of groups) {
-      y += UPGRADE_HEADER_GAP;
-      const header = addPixelText(
-        this,
-        0,
-        0,
-        UPGRADE_SCHOOL_LABELS[school].toUpperCase(),
-        UPGRADES_HUD_FONT_SIZE,
-        SCHOOL_COLORS[school],
-      );
-      placePixelText(header, UPGRADE_COLUMN_X, y, 0, 0.5);
-      for (const def of defs) {
-        y += UPGRADE_ROW_GAP;
-        this.buildUpgradeRow(def, y, checkboxX, labelX);
+    for (const column of ["left", "right"] as const) {
+      let y = UPGRADE_ROW_START_Y - UPGRADE_ROW_GAP;
+      for (const { school, defs } of columns[column]) {
+        y += UPGRADE_HEADER_GAP;
+        const header = addPixelText(
+          this,
+          0,
+          0,
+          UPGRADE_SCHOOL_LABELS[school].toUpperCase(),
+          UPGRADES_HUD_FONT_SIZE,
+          SCHOOL_COLORS[school],
+        );
+        placePixelText(header, UPGRADE_COLUMN_X[column], y, 0, 0.5);
+        for (const def of defs) {
+          y += UPGRADE_ROW_GAP;
+          this.buildUpgradeRow(def, column, y);
+        }
       }
     }
   }
 
-  private buildUpgradeRow(def: UpgradeDef, y: number, checkboxX: number, labelX: number): void {
+  private buildUpgradeRow(def: UpgradeDef, column: LearnColumn, y: number): void {
+    const columnX = UPGRADE_COLUMN_X[column];
+    const checkboxX = columnX + UPGRADE_CHECK_SIZE / 2;
+    const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
     this.add
       .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
       .setStrokeStyle(2, TEXT_COLOR_WHITE);
@@ -386,7 +322,7 @@ export class LearnScene extends Phaser.Scene {
     const label = addPixelText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
     placePixelText(label, labelX, y, 0, 0.5);
     const zone = this.add.zone(
-      UPGRADE_COLUMN_X + UPGRADE_ROW_WIDTH / 2,
+      columnX + UPGRADE_ROW_WIDTH / 2,
       y,
       UPGRADE_ROW_WIDTH,
       UPGRADE_ROW_GAP - 2,
@@ -394,7 +330,7 @@ export class LearnScene extends Phaser.Scene {
     zone.setInteractive({ useHandCursor: true });
     zone.on("pointerdown", () => this.toggleUpgrade(def.id));
     zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
-      this.scheduleUpgradePreview(def.id, pointer.y),
+      this.scheduleUpgradePreview(def.id, column, pointer.y),
     );
     zone.on("pointerout", () => this.cancelUpgradePreview());
     this.upgradeRows.push({ id: def.id, checkMark });
@@ -427,18 +363,18 @@ export class LearnScene extends Phaser.Scene {
     );
   }
 
-  private scheduleUpgradePreview(id: UpgradeId, pointerY: number): void {
+  private scheduleUpgradePreview(id: UpgradeId, column: LearnColumn, pointerY: number): void {
     this.cancelUpgradePreview();
     this.hoverPreviewTimer = this.time.delayedCall(HOVER_PREVIEW_DELAY_MS, () => {
       this.hoverPreviewTimer = null;
-      this.showUpgradePreview(id, pointerY);
+      this.showUpgradePreview(id, column, pointerY);
     });
   }
 
-  private showUpgradePreview(id: UpgradeId, pointerY: number): void {
+  private showUpgradePreview(id: UpgradeId, column: LearnColumn, pointerY: number): void {
     const def = getUpgradeDef(id);
     const y = Math.min(HOVER_PREVIEW_Y_MAX, Math.max(HOVER_PREVIEW_Y_MIN, pointerY));
-    const visual = buildUpgradeCardVisual(this, HOVER_PREVIEW_X, y, {
+    const visual = buildUpgradeCardVisual(this, hoverPreviewX(column), y, {
       label: def.label,
       description: def.description,
       school: def.school,

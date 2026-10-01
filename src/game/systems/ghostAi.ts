@@ -10,7 +10,6 @@ import {
 import { GHOST_AI_MODE, type GhostAiMode } from "../../domain/ghostMode";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import type { CorruptionId } from "../../domain/corruption";
 import {
   blinkyTarget,
   clydeTarget,
@@ -65,8 +64,6 @@ function blinkyTile(world: World): { col: number; row: number } {
   return getActiveLayout().ghostHouseSpawn;
 }
 
-type GhostCorruptionOpt = { ghostKind: GhostKindId; type: CorruptionId };
-
 export type GhostAiContext = {
   player: { col: number; row: number; facing: GhostDir };
   blinky: { col: number; row: number };
@@ -81,20 +78,18 @@ export function resolveGhostTarget(
   mode: GhostAiMode,
   pelletsRemaining: number,
   ctx: GhostAiContext,
-  opts: { ignoreElroy?: boolean; corruption?: GhostCorruptionOpt } = {},
+  opts: { ignoreElroy?: boolean } = {},
 ): GhostTarget {
   const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
   const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
   const col = worldToCol(Position.x[eid] ?? 0);
   const row = worldToRow(Position.y[eid] ?? 0);
-  const corruptionType = kind === opts.corruption?.ghostKind ? opts.corruption.type : null;
-  const effectiveMode: GhostAiMode = corruptionType === "falseScatter" ? GHOST_AI_MODE.chase : mode;
   const { player, blinky } = ctx;
 
   if (kind === GHOST_KIND.pinky) {
     return pinkyTarget({
       phase,
-      mode: effectiveMode,
+      mode,
       playerCol: player.col,
       playerRow: player.row,
       playerFacing: player.facing,
@@ -105,7 +100,7 @@ export function resolveGhostTarget(
   if (kind === GHOST_KIND.inky) {
     return inkyTarget({
       phase,
-      mode: effectiveMode,
+      mode,
       playerCol: player.col,
       playerRow: player.row,
       playerFacing: player.facing,
@@ -118,7 +113,7 @@ export function resolveGhostTarget(
   if (kind === GHOST_KIND.clyde) {
     return clydeTarget({
       phase,
-      mode: effectiveMode,
+      mode,
       playerCol: player.col,
       playerRow: player.row,
       ghostCol: col,
@@ -127,7 +122,7 @@ export function resolveGhostTarget(
   }
   return blinkyTarget({
     phase,
-    mode: effectiveMode,
+    mode,
     pelletsRemaining,
     playerCol: player.col,
     playerRow: player.row,
@@ -166,10 +161,7 @@ export function ghostAi(
   world: World,
   mode: GhostAiMode,
   pelletsRemaining: number,
-  opts: {
-    ignoreElroy?: boolean;
-    corruption?: GhostCorruptionOpt;
-  } = {},
+  opts: { ignoreElroy?: boolean } = {},
 ): void {
   const ctx = ghostAiContext(world);
 
@@ -181,20 +173,16 @@ export function ghostAi(
 
     const x = Position.x[eid] ?? 0;
     const y = Position.y[eid] ?? 0;
-    const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
     if (!isAlignedForTurn(x, y, TURN_ALIGN_EPS)) {
       continue;
     }
-
-    const corruptionType = kind === opts.corruption?.ghostKind ? opts.corruption.type : null;
-    const freeRetarget = corruptionType === "freeRetargetReverse";
 
     const col = worldToCol(x);
     const row = worldToRow(y);
     const rules = ghostMovementRules(phase);
     const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     const alreadyDecided = Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row;
-    if (!freeRetarget && alreadyDecided) {
+    if (alreadyDecided) {
       const opens = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
       if (facingNow === DIRECTION.none || opens.includes(facingNow)) {
         continue;
@@ -222,7 +210,6 @@ export function ghostAi(
       targetRow: target.row,
       solids: rules.solids,
       canEnter,
-      allowReverse: freeRetarget,
     }) as Direction;
 
     if (next !== DIRECTION.none) {

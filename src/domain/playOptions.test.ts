@@ -27,7 +27,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&forceCorruption=slimeTrail&forceCorruptionGhost=inky&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&enableUpgrade=powerPelletFreeze",
+        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&enableUpgrade=powerPelletFreeze",
       ),
     );
     expect(warnings).toEqual([]);
@@ -37,7 +37,6 @@ describe("parsePlayOptions", () => {
       level: 4,
       quarters: 3,
       bonus: 120,
-      forcedCorruption: { type: "slimeTrail", ghostKind: GHOST_KIND.inky },
       ghosts: [GHOST_KIND.pinky],
       bossGhosts: 5,
       jumpToUpgrade: true,

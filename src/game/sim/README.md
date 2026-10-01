@@ -41,7 +41,7 @@ Side effects the sim can't perform itself. The scene applies them in order, afte
 
 ## `LearnSim` (`learnSim.ts`)
 
-The LEARN sandbox: `start()`, `step(keys, deltaMs)`, `selectGhost(kind)`, `toggleCorruption(id)`, `toggleUpgrade(id)`, plus getters the overlay reads (`selectedKind`, `ghostEid`, `helperBlinkyEid`, `hiddenGhostEid`, `corruption`, `ownedUpgrades`). The seen-record gating and all drawing stay in `LearnScene`.
+The LEARN sandbox: `start()`, `step(keys, deltaMs)`, `selectGhost(kind)`, `toggleUpgrade(id)`, plus getters the overlay reads (`selectedKind`, `ghostEid`, `helperBlinkyEid`, `ownedUpgrades`). The seen-record gating and all drawing stay in `LearnScene`.
 
 ## Writing a sim test
 
