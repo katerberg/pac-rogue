@@ -65,6 +65,7 @@ const BOSS_SHAKE_INTENSITY = 0.02;
 const BONUS_BAR_X = PLAYFIELD_WIDTH / 2 - (BONUS_BAR_ART_W * BONUS_ART_SCALE) / 2;
 const BONUS_BAR_Y = 8;
 const BONUS_LABEL_GAP = 8;
+const TIME_BONUS_TINT = 0xffd800;
 const CHROME_SHAKE_STEP_MS = 90;
 const CHROME_SHAKE_OFFSETS: readonly (readonly [number, number])[] = [
   [-6, 3],
@@ -298,6 +299,13 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "timerVisible":
         this.timerText.setVisible(event.visible);
+        break;
+      case "timeBonus":
+        if (event.active) {
+          this.timerText.setTint(TIME_BONUS_TINT);
+        } else {
+          this.timerText.clearTint();
+        }
         break;
       case "startingUpgrade":
         this.startingUpgradeCard.open(event.id);
