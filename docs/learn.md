@@ -31,7 +31,7 @@ Only ghosts and upgrades this machine has met in real play are selectable.
 - Seen upgrades are listed beside the maze, grouped under a colored school header
   (`groupUpgradesBySchool`, `UPGRADE_SCHOOL_ORDER`; empty schools are skipped). `splitSchoolColumns`
   ([`src/domain/learnUpgradeColumns.ts`](../src/domain/learnUpgradeColumns.ts)) fills the left column
-  with the first 3 seen schools and the right column with the next 3, in order (4 seen schools → 3 left,
+  with the first 3 seen schools and the right column with the rest, in order (4 seen schools → 3 left,
   1 right). Each school has one row per seen
   `UpgradeDef` in canonical `UPGRADE_DEFS` order within each group: a checkbox + label, filled in yellow while selected. Multiple upgrades can be
   selected at once (a local `RunUpgrades` bag, not tied to any real run) and stay selected across a

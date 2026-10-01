@@ -28,6 +28,11 @@ describe("splitSchoolColumns", () => {
     expect(left.map((g) => g.school)).toEqual(["death", "harvest", "speed"]);
     expect(right.map((g) => g.school)).toEqual(["protection", "disruption", "neutral"]);
   });
+
+  it("keeps any schools past the sixth on the right", () => {
+    const extra = [...groups(6), { school: "neutral" as const, defs: [] }];
+    expect(splitSchoolColumns(extra).right).toHaveLength(4);
+  });
 });
 
 describe("hoverPreviewX", () => {
