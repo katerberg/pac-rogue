@@ -335,6 +335,19 @@ describe("PlaySim", () => {
     expect(sim.snapshot().upgrades).toContain(chosen);
   });
 
+  it("clears a board once every non-power pellet is eaten, leaving power pellets", () => {
+    const sim = startSim({ level: 2, infiniteLives: true });
+    const eids = regularPelletEids(sim);
+    for (const eid of eids.slice(0, -1)) {
+      eatPelletAt(sim, eid);
+    }
+    expect(sim.offer()).toBeNull();
+    eatPelletAt(sim, eids.at(-1)!);
+    expect(query(sim.world, [Pellet, PowerPellet]).length).toBeGreaterThan(0);
+    runUntil(sim, () => sim.offer() !== null, 90);
+    expect(sim.offer()).not.toBeNull();
+  });
+
   it.each([
     ["before", 3],
     ["after", -3],
@@ -537,7 +550,7 @@ describe("PlaySim", () => {
   });
 
   it("buys a life at the store", () => {
-    const sim = startSim({ store: true, quarters: 10 });
+    const sim = startSim({ store: 1, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
     const before = sim.snapshot();
     teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
@@ -559,7 +572,7 @@ describe("PlaySim", () => {
     }
 
     it("the first store stocks only two lives and two abilities", () => {
-      const sim = startSim({ store: true, quarters: 10, enableUpgrades: ["passiveGhostSlow"] });
+      const sim = startSim({ store: 1, quarters: 10, enableUpgrades: ["passiveGhostSlow"] });
       expect([...sim.snapshot().storeStock!].map((s) => s.split(":")[0]).sort()).toEqual([
         "life",
         "life",
@@ -571,7 +584,7 @@ describe("PlaySim", () => {
 
     it("a later store adds a trade tile and an enhancement tile", () => {
       const sim = startSim({
-        store: true,
+        store: 1,
         level: 5,
         quarters: 10,
         enableUpgrades: ["passiveGhostSlow"],
@@ -583,14 +596,14 @@ describe("PlaySim", () => {
     });
 
     it("buying a life removes that tile and the second life tile stays", () => {
-      const sim = startSim({ store: true, level: 5, quarters: 10 });
+      const sim = startSim({ store: 1, level: 5, quarters: 10 });
       buy(sim, "life", 0);
       expect(sim.snapshot().storeStock!.filter((s) => s === "life")).toHaveLength(1);
     });
 
     it("enhancement costs 2, swaps the owned upgrade for its Plus form and keeps order", () => {
       const sim = startSim({
-        store: true,
+        store: 1,
         level: 5,
         quarters: 10,
         enableUpgrades: ["passiveGhostSlow"],
@@ -604,7 +617,7 @@ describe("PlaySim", () => {
 
     it("enhancing Extra Life grants the extra life", () => {
       const sim = startSim({
-        store: true,
+        store: 1,
         level: 5,
         quarters: 10,
         enableUpgrades: ["passiveExtraLife"],
@@ -617,7 +630,7 @@ describe("PlaySim", () => {
 
     it("swapping an enhanced upgrade yields an enhanced one", () => {
       const sim = startSim({
-        store: true,
+        store: 1,
         level: 5,
         quarters: 10,
         enableUpgrades: ["passiveGhostSlowPlus"],
@@ -630,8 +643,23 @@ describe("PlaySim", () => {
     });
   });
 
+  it.each([
+    [1, 3],
+    [3, 8],
+  ] as const)("store=%i starts in the store at level %i", (store, level) => {
+    const sim = startSim({ store, quarters: 10 });
+    expect(sim.snapshot().level).toBe(level);
+    expect(sim.storeState()).not.toBeNull();
+  });
+
+  it("store=2 starts in the mid-run store level", () => {
+    const sim = startSim({ store: 2, quarters: 10 });
+    expect([5, 6]).toContain(sim.snapshot().level);
+    expect(sim.storeState()).not.toBeNull();
+  });
+
   it("stops a diagonal walk when it opens a store prompt", () => {
-    const sim = startSim({ store: true, quarters: 10 });
+    const sim = startSim({ store: 1, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII)
       .filter((slot) => slot.kind === "life")
       .at(-1)!;
@@ -648,7 +676,7 @@ describe("PlaySim", () => {
     ["yes", true],
     ["no", false],
   ] as const)("store modal click %s %s a life", (choice, buys) => {
-    const sim = startSim({ store: true, quarters: 10 });
+    const sim = startSim({ store: 1, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
     const before = sim.snapshot();
     teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));

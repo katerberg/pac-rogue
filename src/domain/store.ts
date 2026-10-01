@@ -79,6 +79,10 @@ export function storeAfterLevel(levelIndex: number, midStoreLevel: number): bool
   );
 }
 
+export function storeLevelFor(storeIndex: 1 | 2 | 3, midStoreLevel: number): number {
+  return [STORE_FIRST_LEVEL, midStoreLevel, STORE_FINAL_LEVEL][storeIndex - 1]!;
+}
+
 export function parseStoreSlots(ascii: string): StoreSlotCell[] {
   const lines = ascii.split("\n");
   const claimed = new Set<string>();

@@ -25,6 +25,7 @@ export function addPelletsToProgress(progress: PelletProgress, count: number): P
 export function applyPelletCollect(
   progress: PelletProgress,
   removed: number,
+  boardCleared: boolean,
 ): { progress: PelletProgress; shouldRecordClear: boolean } {
   if (removed <= 0) {
     return { progress, shouldRecordClear: false };
@@ -32,7 +33,7 @@ export function applyPelletCollect(
 
   const boardCollected = progress.boardCollected + removed;
   const pelletsRemaining = Math.max(0, progress.pelletsRemaining - removed);
-  const shouldRecordClear = !progress.runRecorded && pelletsRemaining === 0 && boardCollected > 0;
+  const shouldRecordClear = !progress.runRecorded && boardCleared && boardCollected > 0;
 
   return {
     progress: {
