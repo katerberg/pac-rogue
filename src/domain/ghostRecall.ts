@@ -11,12 +11,13 @@ export function pickClosestGhostEid(
   candidates: readonly GhostRecallCandidate[],
   fromX: number,
   fromY: number,
+  excludeEid: number | null = null,
 ): number | null {
   let bestEid: number | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
 
   for (const candidate of candidates) {
-    if (candidate.phase === GHOST_PHASE.inHouse) {
+    if (candidate.phase === GHOST_PHASE.inHouse || candidate.eid === excludeEid) {
       continue;
     }
     const dx = candidate.x - fromX;

@@ -447,7 +447,7 @@ export class LearnSim {
         phase: (GhostPhase.value[candidateEid] ?? GHOST_PHASE.inHouse) as GhostPhaseValue,
       });
     }
-    const eid = pickClosestGhostEid(candidates, fromX, fromY);
+    const eid = pickClosestGhostEid(candidates, fromX, fromY, frozenGhostEid(this.learnUpgrades));
     if (eid === null) {
       return;
     }
