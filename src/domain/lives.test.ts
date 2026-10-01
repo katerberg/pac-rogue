@@ -61,11 +61,11 @@ describe("livesAfterLevelRegen", () => {
 
 describe("levelLivesIconFloor", () => {
   it("raises the regen floor to 4 icons with Extra Life", () => {
-    expect(levelLivesIconFloor(false)).toBe(3);
-    expect(levelLivesIconFloor(true)).toBe(4);
-    expect(livesAfterLevelRegen(4, levelLivesIconFloor(true))).toBe(5);
-    expect(livesAfterLevelRegen(5, levelLivesIconFloor(true))).toBe(5);
-    expect(livesAfterLevelRegen(4, levelLivesIconFloor(false))).toBe(4);
+    expect(levelLivesIconFloor(0)).toBe(3);
+    expect(levelLivesIconFloor(1)).toBe(4);
+    expect(livesAfterLevelRegen(4, levelLivesIconFloor(1))).toBe(5);
+    expect(livesAfterLevelRegen(5, levelLivesIconFloor(1))).toBe(5);
+    expect(livesAfterLevelRegen(4, levelLivesIconFloor(0))).toBe(4);
   });
 });
 
@@ -73,6 +73,8 @@ describe("levelRegenAmount", () => {
   it("regenerates two lives with Myogenesis, one otherwise", () => {
     expect(levelRegenAmount(false)).toBe(1);
     expect(levelRegenAmount(true)).toBe(2);
+    expect(levelRegenAmount(true, true)).toBe(Number.POSITIVE_INFINITY);
+    expect(livesAfterLevelRegen(2, levelLivesIconFloor(2), levelRegenAmount(true, true))).toBe(6);
   });
 
   it("clamps a multi-life regen at the icon floor", () => {

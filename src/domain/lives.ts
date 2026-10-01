@@ -16,11 +16,14 @@ export function parseInfiniteLivesFlag(params: URLSearchParams): boolean {
   return params.get("infiniteLives") === "1";
 }
 
-export function levelLivesIconFloor(hasExtraLife: boolean): number {
-  return hasExtraLife ? LEVEL_LIVES_ICON_FLOOR + 1 : LEVEL_LIVES_ICON_FLOOR;
+export function levelLivesIconFloor(floorBonus: number): number {
+  return LEVEL_LIVES_ICON_FLOOR + floorBonus;
 }
 
-export function levelRegenAmount(hasMyogenesis: boolean): number {
+export function levelRegenAmount(hasMyogenesis: boolean, toFull = false): number {
+  if (toFull) {
+    return Number.POSITIVE_INFINITY;
+  }
   return hasMyogenesis ? 2 : 1;
 }
 

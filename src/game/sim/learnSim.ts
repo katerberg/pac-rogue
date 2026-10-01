@@ -16,7 +16,16 @@ import {
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
-  PLAYER_SPEED_BURST_MUL,
+  baseIdOf,
+  enhancedIdOf,
+  hasUpgrade,
+  isEnhancedId,
+  ownedFormOf,
+  type BaseUpgradeId,
+  wallPassLoopOwned,
+  ghostTunnelSpeedRatio,
+  pelletSurgeCount,
+  speedBurstMultiplier,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   createRunUpgrades,
@@ -55,6 +64,7 @@ import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
+import { wallPassSolids } from "../systems/wallPassSolids";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
@@ -106,7 +116,7 @@ export class LearnSim {
   private ghost: number | null = null;
   private helperBlinky: number | null = null;
   private learnUpgrades: RunUpgrades = createRunUpgrades();
-  private recallHoldGhostEid: number | null = null;
+  private recallHoldGhostEids: number[] = [];
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private previousEffectiveGhostMode: GhostAiMode = GHOST_AI_MODE.chase;
@@ -185,9 +195,11 @@ export class LearnSim {
 
     if (this.recallHoldRemainingMs > 0) {
       this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
-      if (this.recallHoldRemainingMs === 0 && this.recallHoldGhostEid !== null) {
-        GhostPhase.value[this.recallHoldGhostEid] = GHOST_PHASE.active;
-        this.recallHoldGhostEid = null;
+      if (this.recallHoldRemainingMs === 0) {
+        for (const eid of this.recallHoldGhostEids) {
+          GhostPhase.value[eid] = GHOST_PHASE.active;
+        }
+        this.recallHoldGhostEids = [];
       }
     }
 
@@ -195,16 +207,17 @@ export class LearnSim {
       this.world,
       levelSpeedMul *
         playerSpeedMultiplier(this.learnUpgrades.owned) *
-        (speedBurstActive(this.learnUpgrades) ? PLAYER_SPEED_BURST_MUL : 1),
+        (speedBurstActive(this.learnUpgrades) ? speedBurstMultiplier(this.learnUpgrades.owned) : 1),
     );
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+      tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
     movement(
       this.world,
       delta,
-      wallPassActive(this.learnUpgrades) ? getActiveLayout().wallPassPlayerSolids : undefined,
+      wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
     );
 
     if (this.tunnelDashAnim !== null) {
@@ -214,7 +227,7 @@ export class LearnSim {
         delta,
         PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
       );
-    } else if (this.learnUpgrades.owned.includes("passiveTunnelDash")) {
+    } else if (hasUpgrade(this.learnUpgrades.owned, "passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
@@ -257,7 +270,7 @@ export class LearnSim {
     if (removedFruitEids.length > 0) {
       this.releaseAll(removedFruitEids);
       this.fruitRespawnRemainingMs = FRUIT_RESPAWN_MS;
-      if (this.learnUpgrades.owned.includes("fruitPowerPellet")) {
+      if (hasUpgrade(this.learnUpgrades.owned, "fruitPowerPellet")) {
         this.resolvePowerPelletTrigger(1);
       }
     }
@@ -278,6 +291,8 @@ export class LearnSim {
         frozenGhostEid: frozenGhostEid(this.learnUpgrades),
         playerInvulnRemainingMs: this.learnUpgrades.invulnRemainingMs,
         wallPassActive: wallPassActive(this.learnUpgrades),
+        wallPassLoopActive:
+          wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
         ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         dimGhostEid: this.helperBlinky,
       },
@@ -318,25 +333,51 @@ export class LearnSim {
       ghostHarvestRemainingMs: 0,
       defyDeathRemainingMs: 0,
     };
-    this.recallHoldGhostEid = null;
+    this.recallHoldGhostEids = [];
     this.recallHoldRemainingMs = 0;
     return this.takeEvents();
   }
 
   toggleUpgrade(id: UpgradeId): SimEvent[] {
     this.events = [];
-    const turningOn = !this.learnUpgrades.owned.includes(id);
+    const turningOn = !hasUpgrade(this.learnUpgrades.owned, baseIdOf(id));
     const toggled = turningOn
       ? grantUpgrade(this.learnUpgrades, id)
       : revokeUpgrade(this.learnUpgrades, id);
     this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
-    if (turningOn && id === "passivePelletToPower") {
-      const eid = applyPelletToPowerConvert(this.world, this.random.stream("pelletToPower"));
-      if (eid !== null) {
-        this.events.push({ type: "bouncePowerPellet", eid });
-      }
+    if (turningOn && baseIdOf(id) === "passivePelletToPower") {
+      this.applyPelletSurge(pelletSurgeCount([id]));
     }
     return this.takeEvents();
+  }
+
+  toggleEnhanced(baseId: BaseUpgradeId): SimEvent[] {
+    this.events = [];
+    const current = ownedFormOf(this.learnUpgrades.owned, baseId);
+    if (current === null) {
+      return this.takeEvents();
+    }
+    const enhancing = !isEnhancedId(current);
+    const nextId = enhancing ? enhancedIdOf(baseId) : baseId;
+    const toggled = {
+      ...this.learnUpgrades,
+      owned: this.learnUpgrades.owned.map((id) => (id === current ? nextId : id)),
+    };
+    this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
+    if (enhancing && baseId === "passivePelletToPower") {
+      this.applyPelletSurge(pelletSurgeCount([nextId]) - pelletSurgeCount([current]));
+    }
+    return this.takeEvents();
+  }
+
+  private applyPelletSurge(count: number): void {
+    for (let converted = 0; converted < count; converted += 1) {
+      const eid = applyPelletToPowerConvert(this.world, this.random.stream("pelletToPower"));
+      if (eid === null) {
+        return;
+      }
+      this.events.push({ type: "bouncePowerPellet", eid });
+    }
   }
 
   private takeEvents(): SimEvent[] {
@@ -370,7 +411,7 @@ export class LearnSim {
         ),
       );
     }
-    if (powerEffects.recallClosestGhost) {
+    for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
     }
     if (powerEffects.warpPlayerTopCenter) {
@@ -407,7 +448,7 @@ export class LearnSim {
     GhostPhase.value[eid] = GHOST_PHASE.inHouse;
     Ghost.decidedCol[eid] = Number.NaN;
     Ghost.decidedRow[eid] = Number.NaN;
-    this.recallHoldGhostEid = eid;
+    this.recallHoldGhostEids.push(eid);
     this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
   }
 
@@ -480,7 +521,8 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
     scatterBurstRemainingMs: hasField("scatterBurstMs") ? state.scatterBurstRemainingMs : 0,
     wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
-    invulnRemainingMs: hasField("playerInvulnMs") ? state.invulnRemainingMs : 0,
+    invulnRemainingMs:
+      hasField("playerInvulnMs") || hasField("warpInvulnMs") ? state.invulnRemainingMs : 0,
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,

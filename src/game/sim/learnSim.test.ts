@@ -34,6 +34,30 @@ describe("LearnSim", () => {
     expect(events.some((event) => event.type === "bouncePowerPellet")).toBe(true);
   });
 
+  it("toggles an enhanced form on and off for a selected upgrade", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    expect(sim.toggleEnhanced("passiveGhostSlow")).toEqual([]);
+    expect(sim.ownedUpgrades).toEqual([]);
+    sim.toggleUpgrade("passiveGhostSlow");
+    sim.toggleEnhanced("passiveGhostSlow");
+    expect(sim.ownedUpgrades).toEqual(["passiveGhostSlowPlus"]);
+    sim.toggleEnhanced("passiveGhostSlow");
+    expect(sim.ownedUpgrades).toEqual(["passiveGhostSlow"]);
+    sim.toggleEnhanced("passiveGhostSlow");
+    sim.toggleUpgrade("passiveGhostSlow");
+    expect(sim.ownedUpgrades).toEqual([]);
+  });
+
+  it("converts one more pellet when Pellet Surge is enhanced", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.toggleUpgrade("passivePelletToPower");
+    const before = worldSnapshot(sim.world).powerPellets;
+    sim.toggleEnhanced("passivePelletToPower");
+    expect(worldSnapshot(sim.world).powerPellets).toBe(before + 1);
+  });
+
   it("removes an extra far pellet every five eaten when Remote Transference is on", () => {
     const pelletsAfterWalking = (upgraded: boolean): number => {
       const sim = new LearnSim("learn");

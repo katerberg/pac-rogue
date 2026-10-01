@@ -1,19 +1,35 @@
-import { eligibleUpgrades, storePriceFor, takeRandomFrom, type UpgradeId } from "./upgrades";
+import {
+  baseIdOf,
+  carryEnhancement,
+  eligibleUpgrades,
+  enhanceableUpgrades,
+  enhancedIdOf,
+  storePriceFor,
+  takeRandomFrom,
+  type BaseUpgradeId,
+  type UpgradeId,
+} from "./upgrades";
 
 export const STORE_LIFE_PRICE = 1;
 export const STORE_SWAP_PRICE = 1;
+export const STORE_ENHANCE_PRICE = 2;
+export const STORE_ENHANCE_BORDER_COLOR = 0xffd24a;
+const ENHANCE_GLOW_PERIOD_MS = 1600;
+const ENHANCE_GLOW_MIN_ALPHA = 0.12;
+const ENHANCE_GLOW_MAX_ALPHA = 0.5;
 export const STORE_SLOT_SIZE = 2;
 export const STORE_FIRST_LEVEL = 3;
 export const STORE_FINAL_LEVEL = 8;
 
-type StoreSlotKind = "life" | "upgrade" | "swap";
+type StoreSlotKind = "life" | "upgrade" | "swap" | "enhance";
 
 export type StoreSlotCell = { kind: StoreSlotKind; col: number; row: number };
 
 export type StoreSlot =
   | { kind: "life"; col: number; row: number; sold: boolean }
-  | { kind: "upgrade"; col: number; row: number; id: UpgradeId; sold: boolean }
-  | { kind: "swap"; col: number; row: number; outgoingId: UpgradeId; sold: boolean };
+  | { kind: "upgrade"; col: number; row: number; id: BaseUpgradeId; sold: boolean }
+  | { kind: "swap"; col: number; row: number; outgoingId: UpgradeId; sold: boolean }
+  | { kind: "enhance"; col: number; row: number; targetId: BaseUpgradeId; sold: boolean };
 
 export type StoreState = {
   slots: readonly StoreSlot[];
@@ -35,15 +51,21 @@ export type StoreStepInput = {
 export type StorePurchase =
   | { kind: "life"; price: number }
   | { kind: "upgrade"; id: UpgradeId; price: number }
-  | { kind: "swap"; outgoingId: UpgradeId; incomingId: UpgradeId; price: number };
+  | { kind: "swap"; outgoingId: UpgradeId; incomingId: UpgradeId; price: number }
+  | { kind: "enhance"; targetId: BaseUpgradeId; price: number };
 
 export type StorePromptView = {
-  kind: "confirm" | "needQuarters" | "nothingToSwap";
+  kind: "confirm" | "needQuarters" | "nothingToSwap" | "nothingToEnhance";
   slot: StoreSlot;
   price: number;
 };
 
-const SLOT_KIND_BY_CHAR: Record<string, StoreSlotKind> = { L: "life", U: "upgrade", S: "swap" };
+const SLOT_KIND_BY_CHAR: Record<string, StoreSlotKind> = {
+  L: "life",
+  U: "upgrade",
+  S: "swap",
+  E: "enhance",
+};
 
 export function pickMidStoreLevel(rng: () => number): 5 | 6 {
   return rng() < 0.5 ? 5 : 6;
@@ -90,6 +112,7 @@ export function createStoreState(
   cells: readonly StoreSlotCell[],
   owned: readonly UpgradeId[],
   rng: () => number,
+  firstStore = false,
 ): StoreState {
   const pool = eligibleUpgrades(owned);
   const slots: StoreSlot[] = [];
@@ -98,9 +121,14 @@ export function createStoreState(
       slots.push({ kind, col, row, sold: false });
     } else if (kind === "upgrade" && pool.length > 0) {
       slots.push({ kind, col, row, id: takeRandomFrom(pool, rng), sold: false });
-    } else if (kind === "swap" && owned.length > 0) {
+    } else if (kind === "swap" && !firstStore && owned.length > 0) {
       const outgoingId = takeRandomFrom([...owned], rng);
       slots.push({ kind, col, row, outgoingId, sold: false });
+    } else if (kind === "enhance" && !firstStore) {
+      const targets = enhanceableUpgrades(owned);
+      if (targets.length > 0) {
+        slots.push({ kind, col, row, targetId: takeRandomFrom(targets, rng), sold: false });
+      }
     }
   }
   return { slots, activeSlot: null, dismissedSlot: null, confirmYes: false };
@@ -112,6 +140,8 @@ export function slotPrice(slot: StoreSlot): number {
       return STORE_LIFE_PRICE;
     case "swap":
       return STORE_SWAP_PRICE;
+    case "enhance":
+      return STORE_ENHANCE_PRICE;
     case "upgrade":
       return storePriceFor(slot.id);
   }
@@ -129,7 +159,7 @@ function slotIndexAtCell(state: StoreState, col: number, row: number): number | 
   return index === -1 ? null : index;
 }
 
-function swapPool(state: StoreState, owned: readonly UpgradeId[]): UpgradeId[] {
+function swapPool(state: StoreState, owned: readonly UpgradeId[]): BaseUpgradeId[] {
   const onShelf = new Set(
     state.slots.flatMap((slot) => (slot.kind === "upgrade" && !slot.sold ? [slot.id] : [])),
   );
@@ -148,6 +178,9 @@ export function promptView(
   const price = slotPrice(slot);
   if (slot.kind === "swap" && swapPool(state, owned).length === 0) {
     return { kind: "nothingToSwap", slot, price };
+  }
+  if (slot.kind === "enhance" && enhanceableUpgrades(owned).length === 0) {
+    return { kind: "nothingToEnhance", slot, price };
   }
   return { kind: quarters < price ? "needQuarters" : "confirm", slot, price };
 }
@@ -182,18 +215,38 @@ export function storeStep(
   next.confirmYes = true;
 
   const slot = view.slot;
-  if (slot.kind === "life") {
-    return { state: next, purchase: { kind: "life", price: view.price } };
-  }
   const slots = next.slots.map((s, i) => (i === at ? { ...s, sold: true } : s));
   const sold: StoreState = { ...next, slots, activeSlot: null, confirmYes: false };
+  if (slot.kind === "life") {
+    return { state: sold, purchase: { kind: "life", price: view.price } };
+  }
   if (slot.kind === "upgrade") {
     return { state: sold, purchase: { kind: "upgrade", id: slot.id, price: view.price } };
   }
-  const incomingId = takeRandomFrom(swapPool(next, input.owned), rng);
+  if (slot.kind === "enhance") {
+    const targets = enhanceableUpgrades(input.owned);
+    const targetId = targets.includes(slot.targetId) ? slot.targetId : takeRandomFrom(targets, rng);
+    const relabeled = sold.slots.map((s) =>
+      s.kind === "swap" && baseIdOf(s.outgoingId) === targetId
+        ? { ...s, outgoingId: enhancedIdOf(targetId) }
+        : s,
+    );
+    return {
+      state: { ...sold, slots: relabeled },
+      purchase: { kind: "enhance", targetId, price: view.price },
+    };
+  }
+  const outgoingId =
+    input.owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId)) ?? slot.outgoingId;
+  const incomingBase = takeRandomFrom(swapPool(next, input.owned), rng);
   return {
     state: sold,
-    purchase: { kind: "swap", outgoingId: slot.outgoingId, incomingId, price: view.price },
+    purchase: {
+      kind: "swap",
+      outgoingId,
+      incomingId: carryEnhancement(outgoingId, incomingBase),
+      price: view.price,
+    },
   };
 }
 
@@ -218,4 +271,9 @@ export function storeExitDirection(
 export function storeExitAlpha(traveledTiles: number): number {
   const fadeTiles = STORE_EXIT_SLIDE_TILES - STORE_EXIT_FADE_START_TILES;
   return Math.min(1, Math.max(0, 1 - (traveledTiles - STORE_EXIT_FADE_START_TILES) / fadeTiles));
+}
+
+export function enhanceGlowAlpha(elapsedMs: number): number {
+  const wave = (1 - Math.cos((2 * Math.PI * elapsedMs) / ENHANCE_GLOW_PERIOD_MS)) / 2;
+  return ENHANCE_GLOW_MIN_ALPHA + (ENHANCE_GLOW_MAX_ALPHA - ENHANCE_GLOW_MIN_ALPHA) * wave;
 }

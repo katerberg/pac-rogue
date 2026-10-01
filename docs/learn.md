@@ -48,6 +48,12 @@ Only ghosts and upgrades this machine has met in real play are selectable.
   small two-line banner positioned between the ghost slots and the maze (`NO_EFFECT_BANNER_Y`),
   capped to the maze's own pixel width (`wrapText` wraps the names line if it would overflow): the
   selected upgrade name(s) on the first line, `NO VISIBLE EFFECT HERE` always on its own line below.
+- Every selected upgrade row also shows a small `+` box at the right end of the row (`UPGRADE_PLUS_INSET` from the row edge, in either column),
+  hidden while the row is unselected (`learnEnhanceToggleState`). Clicking it flips that upgrade to its
+  enhanced `<id>Plus` form and back (`LearnSim.toggleEnhanced`): the box fills yellow and the label
+  gains a `+` while enhanced. The preview card and the "no visible effect" banner use the owned form.
+  Toggling the row off removes whichever form is owned; Pellet Surge's enhance converts one more
+  pellet at once.
 - Nothing seen yet → `PLAY TO MEET GHOSTS` over the maze; only Maze-Man spawns.
 
 ## Controls
@@ -98,6 +104,11 @@ domain/system functions `PlayScene` uses (`applyPowerPelletEffects`, `freezeClos
 `recallClosestGhostToHouse`... see per-row notes below) — not a reimplementation. Toggling a row
 calls `grantUpgrade` / `revokeUpgrade` and clears only the timer(s) tied to effect fields no longer
 owned by anything still selected.
+
+Enhanced (`Plus`) forms reuse the same row's fidelity: they read the same helpers with the enhanced
+numbers (speeds, durations, Triple Chomp's 5 pellets, Overcharge ×3, Ghost Recall's two ghosts, Wall
+Pass+ looping through every edge via `wallPassSolids`). Rows with "no visible effect" stay that way.
+The new enhanced-only behavior that needs fruit timers, house release or lives (Fecundity+/Feast+ stacking, Quarter Bounty, Extra Life+, Myogenesis+) has none in LEARN.
 
 | Upgrade                                                                                                                            | Learn fidelity                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

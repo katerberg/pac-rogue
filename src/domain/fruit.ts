@@ -1,9 +1,12 @@
 import {
-  BASE_FEAST_FRUIT_SPAWN_THRESHOLDS,
   BASE_FRUIT_SPAWN_THRESHOLDS,
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  isWalkable,
+  scaleFeastThresholds,
+  worldToCol,
+  worldToRow,
 } from "./maze";
 
 export type FruitKind =
@@ -60,6 +63,28 @@ export function fruitSpawnCenter(): { x: number; y: number } {
   };
 }
 
+export function fruitStackCenter(
+  occupied: readonly { x: number; y: number }[],
+): { x: number; y: number } | null {
+  const { fruitSpawn, playerSolids, cols } = getActiveLayout();
+  const taken = new Set(occupied.map((pos) => `${worldToCol(pos.x)},${worldToRow(pos.y)}`));
+  for (let offset = 0; offset < cols; offset += 1) {
+    for (const col of offset === 0
+      ? [fruitSpawn.col]
+      : [fruitSpawn.col + offset, fruitSpawn.col - offset]) {
+      if (
+        col >= 0 &&
+        col < cols &&
+        isWalkable(col, fruitSpawn.row, playerSolids) &&
+        !taken.has(`${col},${fruitSpawn.row}`)
+      ) {
+        return { x: cellCenterX(col), y: cellCenterY(fruitSpawn.row) };
+      }
+    }
+  }
+  return null;
+}
+
 export type FruitPresenceAction = "none" | "spawn" | "replace" | "despawn";
 
 export type FruitPresence = {
@@ -83,8 +108,8 @@ export function createFruitPresence(): FruitPresence {
   };
 }
 
-export function markFruitCollected(state: FruitPresence): FruitPresence {
-  if (!state.active) {
+export function markFruitCollected(state: FruitPresence, othersRemain = false): FruitPresence {
+  if (!state.active || othersRemain) {
     return state;
   }
   return {
@@ -102,16 +127,28 @@ export function extendFruitLifetime(state: FruitPresence, mul: number): FruitPre
   return { ...state, remainingMs: state.remainingMs * mul };
 }
 
+export type FruitTickOptions = {
+  feastBase?: readonly number[] | null;
+  lifetimeMul?: number;
+  persist?: boolean;
+  stack?: boolean;
+};
+
 export function tickFruitPresence(
   state: FruitPresence,
   collectedCount: number,
   deltaMs: number,
   levelIndex: number,
-  feast = false,
-  lifetimeMul = 1,
+  options: FruitTickOptions = {},
 ): FruitPresenceTick {
-  if (feast) {
-    return tickFeastFruitPresence(state, collectedCount, deltaMs, levelIndex, lifetimeMul);
+  const { feastBase = null, lifetimeMul = 1, persist = false, stack = false } = options;
+  if (feastBase !== null) {
+    return tickFeastFruitPresence(state, collectedCount, deltaMs, levelIndex, {
+      feastBase,
+      lifetimeMul,
+      persist,
+      stack,
+    });
   }
   let next = state;
   let action: FruitPresenceAction = "none";
@@ -132,14 +169,14 @@ export function tickFruitPresence(
       active: true,
       remainingMs: FRUIT_LIFETIME_MS * lifetimeMul,
     };
-    action = wasActive ? "replace" : "spawn";
+    action = wasActive && !stack ? "replace" : "spawn";
   }
 
   if (!next.active) {
     return { state: next, action };
   }
 
-  if (action === "spawn" || action === "replace") {
+  if (action === "spawn" || action === "replace" || persist) {
     return { state: next, action };
   }
 
@@ -169,26 +206,30 @@ function tickFeastFruitPresence(
   collectedCount: number,
   deltaMs: number,
   levelIndex: number,
-  lifetimeMul: number,
+  options: Required<Omit<FruitTickOptions, "feastBase">> & { feastBase: readonly number[] },
 ): FruitPresenceTick {
-  const thresholds =
-    levelIndex <= 1 ? BASE_FEAST_FRUIT_SPAWN_THRESHOLDS : getActiveLayout().feastFruitThresholds;
+  const { feastBase, lifetimeMul, persist, stack } = options;
+  const thresholds = levelIndex <= 1 ? feastBase : scaleFeastThresholds(feastBase);
   const dt = Math.max(0, deltaMs);
 
-  if (state.active) {
-    const remainingMs = Math.max(0, state.remainingMs - dt);
+  let current = state;
+  if (current.active && !persist) {
+    const remainingMs = Math.max(0, current.remainingMs - dt);
     if (remainingMs <= 0) {
-      return { state: { ...state, active: false, remainingMs: 0, gapMs: 0 }, action: "despawn" };
+      return { state: { ...current, active: false, remainingMs: 0, gapMs: 0 }, action: "despawn" };
     }
-    return { state: { ...state, remainingMs }, action: "none" };
+    current = { ...current, remainingMs };
+  }
+  if (current.active && !stack) {
+    return { state: current, action: "none" };
   }
 
-  const gapMs = state.gapMs + dt;
-  const threshold = thresholds[state.nextThresholdIndex];
+  const gapMs = current.gapMs + dt;
+  const threshold = thresholds[current.nextThresholdIndex];
   if (threshold !== undefined && collectedCount >= threshold && gapMs >= FRUIT_FEAST_GAP_MS) {
     return {
       state: {
-        nextThresholdIndex: state.nextThresholdIndex + 1,
+        nextThresholdIndex: current.nextThresholdIndex + 1,
         active: true,
         remainingMs: FRUIT_LIFETIME_MS * lifetimeMul,
         gapMs: 0,
@@ -196,5 +237,5 @@ function tickFeastFruitPresence(
       action: "spawn",
     };
   }
-  return { state: { ...state, gapMs }, action: "none" };
+  return { state: { ...current, gapMs }, action: "none" };
 }

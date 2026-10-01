@@ -25,7 +25,7 @@ Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostB
 
 ## Per-level life regen
 
-At level 1 and at every level transition, `livesAfterLevelRegen` (`src/domain/lives.ts`) grants one extra life whenever fewer than 3 HUD icons are showing (4 while `passiveExtraLife` is owned, via `levelLivesIconFloor`). This is a one-life-per-level trickle, not an instant refill to 3 — a run that lost several lives climbs back to the 3-icon floor gradually across level clears. Applying it at level 1 means every run effectively starts at 4 lives (3 icons) instead of the base 3. Owning `passiveExtraLife` raises the floor to 4 icons, so a run with it regenerates up to 5 lives; the upgrade's own +1 life is not capped. Owning `passiveMyogenesis` makes each top-up up to 2 lives (`levelRegenAmount`), still clamped at the floor.
+At level 1 and at every level transition, `livesAfterLevelRegen` (`src/domain/lives.ts`) grants one extra life whenever fewer than 3 HUD icons are showing (4 while `passiveExtraLife` is owned, via `levelLivesIconFloor`). This is a one-life-per-level trickle, not an instant refill to 3 — a run that lost several lives climbs back to the 3-icon floor gradually across level clears. Applying it at level 1 means every run effectively starts at 4 lives (3 icons) instead of the base 3. Owning `passiveExtraLife` raises the floor to 4 icons (`lifeFloorBonus`), so a run with it regenerates up to 5 lives (enhanced: floor 5, up to 6 lives); the upgrade's own life (+1, enhanced +2) is not capped. Owning `passiveMyogenesis` makes each top-up up to 2 lives (`levelRegenAmount`), still clamped at the floor; enhanced Myogenesis refills every missing slot up to the floor.
 
 ## Fruit charges the BONUS bar
 

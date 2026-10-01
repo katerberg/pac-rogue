@@ -114,3 +114,12 @@ export function glyphInkCenterOffsetX(char: string): number {
   const last = Math.floor(Math.log2(ink));
   return 4 - (first + last + 1) / 2;
 }
+
+export function glyphInkCenterOffsetY(char: string): number {
+  const rows = font8x8Glyph(char.charCodeAt(0)) ?? [];
+  const inked = rows.flatMap((row, index) => (row === 0 ? [] : [index]));
+  if (inked.length === 0) {
+    return 0;
+  }
+  return 4 - (inked[0]! + inked[inked.length - 1]! + 1) / 2;
+}

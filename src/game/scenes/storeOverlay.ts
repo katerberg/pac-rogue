@@ -3,13 +3,20 @@ import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import { mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
+  STORE_ENHANCE_BORDER_COLOR,
   STORE_SLOT_SIZE,
+  enhanceGlowAlpha,
   slotPrice,
   type StorePromptView,
   type StoreSlot,
   type StoreState,
 } from "../../domain/store";
-import { getUpgradeDef, type UpgradeId, type UpgradeSchool } from "../../domain/upgrades";
+import {
+  enhancedIdOf,
+  getUpgradeDef,
+  type UpgradeId,
+  type UpgradeSchool,
+} from "../../domain/upgrades";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { PLAYER_OPEN_MOUTH_TEXTURE_KEY, QUARTER_TEXTURE_KEY } from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
@@ -63,7 +70,10 @@ type PanelContent = {
 };
 
 function slotSchool(slot: StoreSlot): UpgradeSchool | null {
-  return slot.kind === "upgrade" ? getUpgradeDef(slot.id).school : null;
+  if (slot.kind === "upgrade") {
+    return getUpgradeDef(slot.id).school;
+  }
+  return slot.kind === "enhance" ? getUpgradeDef(slot.targetId).school : null;
 }
 
 function slotTitle(slot: StoreSlot): string {
@@ -72,6 +82,8 @@ function slotTitle(slot: StoreSlot): string {
       return "EXTRA LIFE";
     case "swap":
       return "SWAP";
+    case "enhance":
+      return getUpgradeDef(enhancedIdOf(slot.targetId)).label;
     case "upgrade":
       return getUpgradeDef(slot.id).label;
   }
@@ -80,9 +92,11 @@ function slotTitle(slot: StoreSlot): string {
 function slotBody(slot: StoreSlot): string {
   switch (slot.kind) {
     case "life":
-      return "+1 life. Buy as many as you like.";
+      return "+1 life.";
     case "swap":
       return `Lose ${getUpgradeDef(slot.outgoingId).label}. Gain ?`;
+    case "enhance":
+      return getUpgradeDef(enhancedIdOf(slot.targetId)).enhanceNote!;
     case "upgrade":
       return getUpgradeDef(slot.id).description;
   }
@@ -96,6 +110,8 @@ function promptFooter(prompt: StorePromptView): string {
       return `NEED ${prompt.price}\nQUARTERS`;
     case "nothingToSwap":
       return "NOTHING\nTO SWAP";
+    case "nothingToEnhance":
+      return "NOTHING\nTO ENHANCE";
   }
 }
 
@@ -114,6 +130,8 @@ export function createStoreOverlay(
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let hoveredSlot: number | null = null;
   let toast: { content: PanelContent; remainingMs: number } | null = null;
+  let glows: (Phaser.GameObjects.Rectangle | null)[] = [];
+  let glowElapsedMs = 0;
 
   const panelX = (PLAYFIELD_WIDTH + getActiveLayout().offsetX + getActiveLayout().pixelWidth) / 2;
   const panelY = cellCenterY(Math.floor(getActiveLayout().rows / 2));
@@ -237,8 +255,12 @@ export function createStoreOverlay(
     const size = tile * STORE_SLOT_SIZE;
     const x = (cellCenterX(slot.col) + cellCenterX(slot.col + 1)) / 2;
     const y = (cellCenterY(slot.row) + cellCenterY(slot.row + 1)) / 2;
+    const enhance = slot.kind === "enhance";
     const frame = scene.add.graphics();
-    frame.fillStyle(mazeColorForIndex(loadMazeColorSettings().colorIndex), 1);
+    frame.fillStyle(
+      enhance ? STORE_ENHANCE_BORDER_COLOR : mazeColorForIndex(loadMazeColorSettings().colorIndex),
+      1,
+    );
     const edge = size / 2 - 1;
     for (let d = -edge; d < edge; d += TILE_DOT_PX * 2) {
       frame.fillRect(d, -edge, TILE_DOT_PX, 1);
@@ -256,8 +278,9 @@ export function createStoreOverlay(
         .image(0, TILE_GLYPH_Y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
         .setDisplaySize(tile - 2, tile - 2);
     } else {
-      const char = slot.kind === "swap" ? "?" : slotTitle(slot).charAt(0).toUpperCase();
-      const school = slotSchool(slot);
+      const char =
+        slot.kind === "swap" ? "?" : enhance ? "+" : slotTitle(slot).charAt(0).toUpperCase();
+      const school = enhance ? null : slotSchool(slot);
       const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
       const text = addPixelText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
       const inkOffset = (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8;
@@ -273,7 +296,13 @@ export function createStoreOverlay(
         hoveredSlot = null;
       }
     });
-    return scene.add.container(x, y, [frame, glyph, ...coins, zone]).setDepth(TILE_DEPTH);
+    const glow = enhance
+      ? scene.add.rectangle(0, 0, size + 4, size + 4, STORE_ENHANCE_BORDER_COLOR, 0.3)
+      : null;
+    glows[index] = glow;
+    return scene.add
+      .container(x, y, [...(glow === null ? [] : [glow]), frame, glyph, ...coins, zone])
+      .setDepth(TILE_DEPTH);
   };
 
   const clearTiles = (): void => {
@@ -281,6 +310,7 @@ export function createStoreOverlay(
       tile?.destroy(true);
     }
     tiles = [];
+    glows = [];
     hoveredSlot = null;
   };
 
@@ -296,11 +326,16 @@ export function createStoreOverlay(
         if (tile && slot.sold) {
           tile.destroy(true);
           tiles[i] = null;
+          glows[i] = null;
           if (hoveredSlot === i) {
             hoveredSlot = null;
           }
         }
       });
+      glowElapsedMs += deltaMs;
+      for (const glow of glows) {
+        glow?.setAlpha(enhanceGlowAlpha(glowElapsedMs));
+      }
       if (toast !== null) {
         toast.remainingMs -= deltaMs;
         if (toast.remainingMs <= 0) {

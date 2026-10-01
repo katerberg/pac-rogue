@@ -60,19 +60,26 @@ export function isCleanTap(lastPressMs: number | undefined, nowMs: number): bool
 
 export type TurnFeedbackKind = "perfect" | "close";
 
-export function turnFeedback(aheadPx: number, clean: boolean): TurnFeedbackKind | null {
+export function turnFeedback(
+  aheadPx: number,
+  clean: boolean,
+  perfectPx: number = TURN_TUNING_PERFECT_PX,
+): TurnFeedbackKind | null {
   if (!clean) {
     return null;
   }
-  if (aheadPx <= TURN_TUNING_PERFECT_PX) {
+  if (aheadPx <= perfectPx) {
     return "perfect";
   }
   return aheadPx <= TURN_TUNING_CLOSE_PX ? "close" : null;
 }
 
-export function closeSparkCount(aheadPx: number): number {
-  const span = TURN_TUNING_CLOSE_PX - TURN_TUNING_PERFECT_PX;
-  const closeness = 1 - Math.min(1, Math.max(0, aheadPx - TURN_TUNING_PERFECT_PX) / span);
+export function closeSparkCount(
+  aheadPx: number,
+  perfectPx: number = TURN_TUNING_PERFECT_PX,
+): number {
+  const span = TURN_TUNING_CLOSE_PX - perfectPx;
+  const closeness = 1 - Math.min(1, Math.max(0, aheadPx - perfectPx) / span);
   return CLOSE_SPARKS_MIN + Math.round((CLOSE_SPARKS_MAX - CLOSE_SPARKS_MIN) * closeness);
 }
 
@@ -80,8 +87,11 @@ export function tickTurnTimer(remainingMs: number, deltaMs: number): number {
   return Math.max(0, remainingMs - Math.max(0, deltaMs));
 }
 
-export function turnBoostMultiplier(remainingMs: number): number {
-  const fraction = Math.min(1, Math.max(0, remainingMs) / TURN_TUNING_BOOST_MS);
+export function turnBoostMultiplier(
+  remainingMs: number,
+  boostMs: number = TURN_TUNING_BOOST_MS,
+): number {
+  const fraction = Math.min(1, Math.max(0, remainingMs) / boostMs);
   return 1 + (TURN_TUNING_BOOST_MUL - 1) * fraction;
 }
 

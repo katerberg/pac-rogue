@@ -58,6 +58,8 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 
 Upgrade ids: `powerPelletFreeze`, `passivePlayerSpeedUp`, `passiveGhostSlow`, `powerPelletScatterBurst`, `powerPelletGhostRecall`, `powerPelletWarpTop`, `passivePickupRange`, `passiveGhostHouseDelay`, `passiveExtraLife`, `passivePelletToPower`, `powerPelletCollectThree`, `powerPelletWallPass`, `powerPelletSpeedBurst`, `powerPelletInvuln`, `powerPelletGhostHarvester`, `fruitPowerPellet`, `fruitQuarterBounty`, `fruitFecundity`, `fruitFeast`, `passiveDeathsHarvest`, `passiveOvercharge`, `passiveTunnelDash`, `passivePowerPelletRecharge`, `passiveRemoteTransference`, `passiveMyogenesis`, `passiveDefyDeath`, `passiveTurnTuning`.
 
+Every id also accepts a `Plus` suffix for its enhanced form (e.g. `?enableUpgrade=passivePlayerSpeedUpPlus`); see [docs/upgrades.md](docs/upgrades.md#enhanced-upgrades).
+
 ```text
 http://127.0.0.1:5174/?play=1
 http://127.0.0.1:5174/?play=1&maze=mazeSmall

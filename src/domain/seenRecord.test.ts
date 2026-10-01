@@ -57,6 +57,13 @@ describe("parseSeenRecord", () => {
   });
 });
 
+describe("withSeenUpgrade with enhanced ids", () => {
+  it("records the base id for a Plus upgrade", () => {
+    const seen = withSeenUpgrade(emptySeenRecord(), "passivePlayerSpeedUpPlus");
+    expect(seen.upgrades).toEqual(["passivePlayerSpeedUp"]);
+    expect(withSeenUpgrade(seen, "passivePlayerSpeedUp")).toBe(seen);
+  });
+});
 describe("withSeenGhosts / withSeenUpgrade", () => {
   it("returns the same reference when nothing is new", () => {
     const record = withSeenGhosts(emptySeenRecord(), [GHOST_KIND.blinky, GHOST_KIND.pinky]);

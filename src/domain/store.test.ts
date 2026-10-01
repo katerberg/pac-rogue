@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { activateAsciiLayout, activateLayout, isWalkable } from "./maze";
 import { STORE_MAZE_ASCII } from "./mazeLayouts";
 import {
+  STORE_ENHANCE_PRICE,
   STORE_LIFE_PRICE,
+  enhanceGlowAlpha,
   STORE_SWAP_PRICE,
   createStoreState,
   STORE_EXIT_SLIDE_TILES,
@@ -64,11 +66,12 @@ describe("store layout", () => {
     activateLayout("maze1");
   });
 
-  it("parses one life, three upgrade, and one swap slot in row/col order", () => {
+  it("parses two lives, two upgrades, one enhance and one swap slot in row/col order", () => {
     expect(parseStoreSlots(STORE_MAZE_ASCII)).toEqual([
       { kind: "upgrade", col: 2, row: 2 },
       { kind: "upgrade", col: 18, row: 2 },
-      { kind: "upgrade", col: 10, row: 8 },
+      { kind: "life", col: 10, row: 8 },
+      { kind: "enhance", col: 4, row: 11 },
       { kind: "swap", col: 5, row: 14 },
       { kind: "life", col: 15, row: 14 },
     ]);
@@ -92,15 +95,35 @@ describe("store schedule", () => {
 });
 
 describe("createStoreState", () => {
-  it("offers three distinct unowned upgrades and a swap of an owned one", () => {
+  it("offers two lives, two distinct unowned upgrades, a swap and an enhancement", () => {
     const owned: UpgradeId[] = ["passivePlayerSpeedUp"];
     const state = stateWith(owned);
     const ids = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
-    expect(ids).toHaveLength(3);
-    expect(new Set(ids).size).toBe(3);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
     expect(ids).not.toContain("passivePlayerSpeedUp");
+    expect(state.slots.filter((s) => s.kind === "life")).toHaveLength(2);
     const swap = state.slots.find((s) => s.kind === "swap");
     expect(swap).toMatchObject({ outgoingId: "passivePlayerSpeedUp", sold: false });
+    const enhance = state.slots.find((s) => s.kind === "enhance");
+    expect(enhance).toMatchObject({ targetId: "passivePlayerSpeedUp", sold: false });
+  });
+
+  it("the first store has only lives and abilities", () => {
+    const first = createStoreState(
+      parseStoreSlots(STORE_MAZE_ASCII),
+      ["passivePlayerSpeedUp"],
+      zeroRng,
+      true,
+    );
+    expect(first.slots.map((s) => s.kind).sort()).toEqual(["life", "life", "upgrade", "upgrade"]);
+  });
+
+  it("omits the enhance slot when nothing owned is unenhanced", () => {
+    expect(stateWith([]).slots.some((s) => s.kind === "enhance")).toBe(false);
+    expect(stateWith(["passivePlayerSpeedUpPlus"]).slots.some((s) => s.kind === "enhance")).toBe(
+      false,
+    );
   });
 
   it("omits the swap slot when nothing is owned", () => {
@@ -108,9 +131,9 @@ describe("createStoreState", () => {
   });
 
   it("omits upgrade slots that cannot be filled", () => {
-    const owned = ALL_UPGRADE_IDS.slice(2);
+    const owned = ALL_UPGRADE_IDS.slice(1);
     const upgrades = stateWith(owned).slots.filter((s) => s.kind === "upgrade");
-    expect(upgrades).toHaveLength(2);
+    expect(upgrades).toHaveLength(1);
   });
 });
 
@@ -144,16 +167,14 @@ describe("storeStep", () => {
     expect(state.confirmYes).toBe(false);
   });
 
-  it("buys lives repeatedly while the prompt stays open", () => {
-    let state = storeStep(stateWith([]), input(lifeCell), zeroRng).state;
-    let step = confirmYes(state, lifeCell);
+  it("sells each life tile once and removes it", () => {
+    const state = storeStep(stateWith([]), input(lifeCell), zeroRng).state;
+    const step = confirmYes(state, lifeCell);
     expect(step.purchase).toEqual({ kind: "life", price: STORE_LIFE_PRICE });
-    state = step.state;
-    expect(state.confirmYes).toBe(true);
-    step = storeStep(state, input({ ...lifeCell, enter: true }), zeroRng);
-    expect(step.purchase).toEqual({ kind: "life", price: STORE_LIFE_PRICE });
-    state = step.state;
-    expect(promptView(state, 10, [])?.kind).toBe("confirm");
+    expect(promptView(step.state, 10, [])).toBeNull();
+    expect(storeStep(step.state, input(lifeCell), zeroRng).state.activeSlot).toBeNull();
+    const other = storeStep(step.state, input({ col: 10, row: 8 }), zeroRng).state;
+    expect(promptView(other, 10, [])?.kind).toBe("confirm");
   });
 
   it("shows no confirm and ignores keys without enough quarters", () => {
@@ -196,6 +217,71 @@ describe("storeStep", () => {
     expect(promptView(state, 10, owned)?.kind).toBe("nothingToSwap");
     const step = confirmYes(state, { ...swapCell, owned });
     expect(step.purchase).toBeNull();
+  });
+});
+
+describe("enhancement tile", () => {
+  const enhanceCell = { col: 4, row: 11 };
+  const swapCell = { col: 5, row: 14 };
+
+  it("costs 2 and enhances its shown target", () => {
+    const owned: UpgradeId[] = ["passivePlayerSpeedUp", "passiveGhostSlow"];
+    const stocked = stateWith(owned);
+    const target = stocked.slots.find((s) => s.kind === "enhance");
+    const state = storeStep(stocked, input({ ...enhanceCell, owned }), zeroRng).state;
+    const step = confirmYes(state, { ...enhanceCell, owned });
+    expect(step.purchase).toEqual({
+      kind: "enhance",
+      targetId: target?.kind === "enhance" ? target.targetId : null,
+      price: STORE_ENHANCE_PRICE,
+    });
+    expect(STORE_ENHANCE_PRICE).toBe(2);
+  });
+
+  it("re-picks when the shown target is no longer unenhanced", () => {
+    const stocked = stateWith(["passivePlayerSpeedUp", "passiveGhostSlow"]);
+    const shown = stocked.slots.find((s) => s.kind === "enhance");
+    const shownId = shown?.kind === "enhance" ? shown.targetId : null;
+    const owned: UpgradeId[] = [
+      shownId === "passivePlayerSpeedUp" ? "passivePlayerSpeedUpPlus" : "passivePlayerSpeedUp",
+      shownId === "passiveGhostSlow" ? "passiveGhostSlowPlus" : "passiveGhostSlow",
+    ];
+    const state = storeStep(stocked, input({ ...enhanceCell, owned }), zeroRng).state;
+    const step = confirmYes(state, { ...enhanceCell, owned });
+    expect(step.purchase?.kind === "enhance" ? step.purchase.targetId : null).not.toBe(shownId);
+  });
+
+  it("relabels the swap tile when its upgrade is enhanced", () => {
+    const owned: UpgradeId[] = ["passivePlayerSpeedUp"];
+    const state = storeStep(stateWith(owned), input({ ...enhanceCell, owned }), zeroRng).state;
+    const step = confirmYes(state, { ...enhanceCell, owned });
+    const swap = step.state.slots.find((s) => s.kind === "swap");
+    expect(swap).toMatchObject({ outgoingId: "passivePlayerSpeedUpPlus" });
+  });
+
+  it("reports nothing to enhance when everything owned is enhanced", () => {
+    const stocked = stateWith(["passivePlayerSpeedUp"]);
+    const owned: UpgradeId[] = ["passivePlayerSpeedUpPlus"];
+    const state = storeStep(stocked, input({ ...enhanceCell, owned }), zeroRng).state;
+    expect(promptView(state, 10, owned)?.kind).toBe("nothingToEnhance");
+    expect(confirmYes(state, { ...enhanceCell, owned }).purchase).toBeNull();
+  });
+
+  it("a swap of an enhanced upgrade grants the incoming one enhanced", () => {
+    const owned: UpgradeId[] = ["passivePlayerSpeedUpPlus"];
+    const stocked = stateWith(owned);
+    const state = storeStep(stocked, input({ ...swapCell, owned }), zeroRng).state;
+    const step = confirmYes(state, { ...swapCell, owned });
+    expect(step.purchase).toMatchObject({ kind: "swap", outgoingId: "passivePlayerSpeedUpPlus" });
+    const incoming = step.purchase?.kind === "swap" ? step.purchase.incomingId : "";
+    expect(incoming.endsWith("Plus")).toBe(true);
+  });
+
+  it("pulses its glow between a floor and a ceiling", () => {
+    const alphas = [0, 200, 400, 800, 1200, 1600].map(enhanceGlowAlpha);
+    expect(Math.min(...alphas)).toBeCloseTo(0.12);
+    expect(Math.max(...alphas)).toBeCloseTo(0.5);
+    expect(enhanceGlowAlpha(0)).toBeCloseTo(enhanceGlowAlpha(1600));
   });
 });
 

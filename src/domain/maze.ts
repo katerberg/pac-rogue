@@ -125,13 +125,13 @@ export type MazeLayout = {
   ghostSolids: SolidGrid;
   playerSolids: SolidGrid;
   wallPassPlayerSolids: SolidGrid;
+  wallPassLoopPlayerSolids: SolidGrid;
   playerSpawn: MazeTile;
   ghostHouseSpawn: MazeTile;
   ghostHouseExit: MazeTile;
   fruitSpawn: MazeTile;
   pelletCount: number;
   fruitThresholds: readonly [number, number];
-  feastFruitThresholds: readonly [number, number, number];
   inkyReleasePellets: number;
   clydeReleasePellets: number;
   elroy1DotsLeft: number;
@@ -174,7 +174,7 @@ const PLAYER_SPAWN_CHAR = "P";
 const EMPTY_CORRIDOR_CHAR = "-";
 const EMPTY_CELL_CHAR = " ";
 const PELLET_CHARS = new Set([".", "@"]);
-const STORE_SLOT_CHARS = ["L", "U", "S"] as const;
+const STORE_SLOT_CHARS = ["L", "U", "S", "E"] as const;
 const EMPTY_CORRIDOR_CHARS = new Set([
   EMPTY_CELL_CHAR,
   EMPTY_CORRIDOR_CHAR,
@@ -196,6 +196,13 @@ const KNOWN_MAZE_CHARS = new Set([
 
 function scaleCount(n: number, pelletCount: number, basePelletCount: number): number {
   return Math.max(1, Math.round((n * pelletCount) / basePelletCount));
+}
+
+export function scaleFeastThresholds(base: readonly number[]): number[] {
+  const layout = getActiveLayout();
+  const basePelletCount =
+    layout.id === "maze1" ? layout.pelletCount : getLayout("maze1").pelletCount;
+  return base.map((count) => scaleCount(count, layout.pelletCount, basePelletCount));
 }
 
 function scaleFruitThresholds(
@@ -659,6 +666,7 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const ghostSolids = buildBlocked(walls, exterior);
   const playerSolids = buildPlayerSolids(walls, exterior, house);
   const wallPassPlayerSolids = buildWallPassPlayerSolids(walls);
+  const wallPassLoopPlayerSolids = emptyFlagGrid(cols, rows);
   assertHorizontalTunnels(playerSolids, cols, rows);
   const isStore = id === "store";
   const ghostHouseSpawn = isStore ? playerSpawn : deriveGhostHouseSpawn(ascii, cols, rows);
@@ -675,12 +683,6 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
 
   const basePelletCount = id === "maze1" ? pelletCount : getLayout("maze1").pelletCount;
   const fruitThresholds = scaleFruitThresholds(pelletCount, basePelletCount);
-  const [feast1, feast2, feast3] = BASE_FEAST_FRUIT_SPAWN_THRESHOLDS;
-  const feastFruitThresholds = [
-    scaleCount(feast1, pelletCount, basePelletCount),
-    scaleCount(feast2, pelletCount, basePelletCount),
-    scaleCount(feast3, pelletCount, basePelletCount),
-  ] as const;
   const { elroy1DotsLeft, elroy2DotsLeft } = scaleElroyCutoffs(pelletCount, basePelletCount);
 
   return {
@@ -700,13 +702,13 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
     ghostSolids,
     playerSolids,
     wallPassPlayerSolids,
+    wallPassLoopPlayerSolids,
     playerSpawn,
     ghostHouseSpawn,
     ghostHouseExit,
     fruitSpawn,
     pelletCount,
     fruitThresholds,
-    feastFruitThresholds,
     inkyReleasePellets: scaleCount(BASE_INKY_RELEASE_PELLETS, pelletCount, basePelletCount),
     clydeReleasePellets: scaleCount(BASE_CLYDE_RELEASE_PELLETS, pelletCount, basePelletCount),
     elroy1DotsLeft,
