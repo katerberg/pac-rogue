@@ -19,6 +19,7 @@ Only ghosts and upgrades this machine has met in real play are selectable.
   currently-owned upgrade id whenever `runUpgrades.owned` can grow: the initial `?enableUpgrade=`
   set, the level-1 starting-upgrade grant, and a level-clear modal confirm — an upgrade only ever
   seen via `?enableUpgrade=` still counts as seen.
+- `?learnAll=1|0` (without `?play=1`) boots straight into LEARN instead of the menu; `play=1` wins.
 - `?learnAll=1` treats every ghost and upgrade as seen without touching storage.
   `?learnAll=0` treats **nothing** as seen — overriding real localStorage — useful for exercising the
   empty `PLAY TO MEET GHOSTS` state on demand. Either way the seen record is read-only in Learn; only

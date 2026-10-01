@@ -44,7 +44,7 @@ src/
     bossBoard.ts              # boss tunnel-mouth rotation + boss pellet spread
     bossGhostBlocking.ts      # corridor occupancy walk (boss ghosts avoid each other)
     soundFlag.ts              # agent-port mute; ?sound=1 opt-in
-    playFlag.ts               # ?play=1 skips menu boot into PlayScene
+    playFlag.ts               # ?play=1 boots into PlayScene, else ?learnAll=1/0 into LearnScene, else menu
     audioSettings.ts          # music/SFX enable + 0..10 levels; effectiveVolume
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect

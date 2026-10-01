@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { colorToCssHex, MAZE_BACKGROUND_COLOR } from "../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../domain/playfield";
-import { shouldAutoPlay } from "../domain/playFlag";
+import { bootSceneKey } from "../domain/playFlag";
 import { isSoundEnabled } from "../domain/soundFlag";
 import { HighScoresScene } from "./scenes/HighScoresScene";
 import { LearnScene } from "./scenes/LearnScene";
@@ -23,9 +23,9 @@ function createInteractiveAudioContext(): AudioContext | undefined {
 const urlParams = new URLSearchParams(location.search);
 const soundEnabled = isSoundEnabled(urlParams, location.port);
 const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
-const bootScenes = shouldAutoPlay(urlParams)
-  ? [PlayScene, MenuScene, LearnScene, HighScoresScene, SettingsScene, PauseScene]
-  : [MenuScene, LearnScene, HighScoresScene, SettingsScene, PlayScene, PauseScene];
+const allScenes = [MenuScene, LearnScene, HighScoresScene, SettingsScene, PlayScene, PauseScene];
+const firstScene = { PlayScene, LearnScene, MenuScene }[bootSceneKey(urlParams)];
+const bootScenes = [firstScene, ...allScenes.filter((scene) => scene !== firstScene)];
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
