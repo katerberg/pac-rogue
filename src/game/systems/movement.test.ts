@@ -66,6 +66,29 @@ describe("movement stopOnRelease", () => {
     const eid = releasedMidCell(false);
     expect(Position.x[eid]).toBeGreaterThan(cellCenterX(2));
   });
+
+  function releasedDiagonal(stopOnRelease: boolean, ghost = false) {
+    const { world, eid } = spawnAt(1, 1, ghost);
+    Input.direction[eid] = DIRECTION.downRight;
+    movement(world, 16);
+    Input.direction[eid] = DIRECTION.none;
+    const x = Position.x[eid]!;
+    const y = Position.y[eid]!;
+    movement(world, 16, undefined, stopOnRelease);
+    return { eid, x, y };
+  }
+
+  it("stops a diagonal move when input is cleared", () => {
+    const { eid, x, y } = releasedDiagonal(true);
+    expect(Position.x[eid]).toBe(x);
+    expect(Position.y[eid]).toBe(y);
+    expect(Facing.direction[eid]).toBe(DIRECTION.none);
+  });
+
+  it("keeps a diagonal move going on release without the flag", () => {
+    const { eid, x } = releasedDiagonal(false);
+    expect(Position.x[eid]).toBeGreaterThan(x);
+  });
 });
 
 describe("movement", () => {

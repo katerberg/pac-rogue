@@ -159,7 +159,9 @@ export function movement(
     };
 
     if (speed > 0 && (isDiagonalDirection(facing) || isDiagonalDirection(nextIntent))) {
-      const desired = nextIntent !== DIRECTION.none ? nextIntent : facing;
+      const stopsOnRelease = playerStopOnRelease && !ghost;
+      const desired =
+        nextIntent !== DIRECTION.none ? nextIntent : stopsOnRelease ? DIRECTION.none : facing;
       const step = directionStep(desired);
       const norm = Math.hypot(step.dx, step.dy) || 1;
       const vx = (step.dx / norm) * speed;
