@@ -235,7 +235,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "powerPelletWarpFarthest",
     label: "Warp Farthest",
-    school: "speed",
+    school: "protection",
     description: "Power pellet flings you to the spot farthest from the ghosts.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
