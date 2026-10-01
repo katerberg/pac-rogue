@@ -42,6 +42,7 @@ import {
   parseEnableUpgradeParams,
   parseUpgradeId,
   pickStartingUpgrade,
+  STARTING_UPGRADE_POOL,
   pickUpgradeChoiceOffer,
   pelletCollectRadiusBonusPx,
   playerIsInvulnerable,
@@ -287,14 +288,16 @@ describe("declineUpgrades", () => {
 });
 
 describe("pickStartingUpgrade", () => {
-  it("returns null when pool empty", () => {
-    expect(pickStartingUpgrade(ALL_IDS, () => 0)).toBeNull();
+  it("returns null when every starting-pool id is owned", () => {
+    expect(pickStartingUpgrade(STARTING_UPGRADE_POOL, () => 0)).toBeNull();
+    expect(pickStartingUpgrade(STARTING_UPGRADE_POOL.map(enhancedIdOf), () => 0)).toBeNull();
   });
 
-  it("picks uniformly from unowned ids by rng", () => {
-    expect(pickStartingUpgrade([], () => 0)).toBe(ALL_IDS[0]);
-    expect(pickStartingUpgrade([], () => 0.9999)).toBe(ALL_IDS[ALL_IDS.length - 1]);
-    expect(pickStartingUpgrade([ALL_IDS[0]!], () => 0)).toBe(ALL_IDS[1]);
+  it("picks uniformly from unowned starting-pool ids by rng", () => {
+    const pool = STARTING_UPGRADE_POOL;
+    expect(pickStartingUpgrade(["passiveGhostSlow"], () => 0)).toBe(pool[0]);
+    expect(pickStartingUpgrade([], () => 0.9999)).toBe(pool[pool.length - 1]);
+    expect(pickStartingUpgrade([pool[0]!], () => 0)).toBe(pool[1]);
   });
 });
 
