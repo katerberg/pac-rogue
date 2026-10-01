@@ -106,6 +106,18 @@ function grayColor(level: number): number {
   return (channel << 16) | (channel << 8) | channel;
 }
 
+function applyPlayerTint(
+  go: Phaser.GameObjects.Image,
+  tint: { color: number; mode: Phaser.TintModes } | null,
+): void {
+  if (tint === null) {
+    go.clearTint();
+    return;
+  }
+  go.setTint(tint.color);
+  go.setTintMode(tint.mode);
+}
+
 function brightenColor(color: number, towardWhite: number): number {
   const channel = (shift: number) => {
     const value = (color >> shift) & 0xff;
@@ -309,6 +321,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       invulnRemainingMs > 0 &&
       (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
         Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
+    const playerTint =
+      turnFlash.brighten > 0
+        ? { color: grayColor(turnFlash.brighten), mode: Phaser.TintModes.ADD }
+        : wallPassOn
+          ? { color: PLAYER_WALL_PASS_TINT, mode: Phaser.TintModes.MULTIPLY }
+          : playerInvulnTintOn
+            ? { color: PLAYER_INVULN_TINT, mode: Phaser.TintModes.MULTIPLY }
+            : null;
     const mazeColorIndex = clampMazeColorIndex(loadMazeColorSettings().colorIndex);
     if (!wallsDrawn || mazeColorIndex !== drawnMazeColorIndex) {
       const wallStrokeColor = mazeColorForIndex(mazeColorIndex);
@@ -433,16 +453,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         visual.lastX = x;
         visual.lastY = y;
 
-        if (turnFlash.brighten > 0) {
-          go.setTint(grayColor(turnFlash.brighten));
-          go.setTintMode(Phaser.TintModes.ADD);
-        } else if (wallPassOn) {
-          go.setTint(PLAYER_WALL_PASS_TINT);
-        } else if (playerInvulnTintOn) {
-          go.setTint(PLAYER_INVULN_TINT);
-        } else {
-          go.clearTint();
-        }
+        applyPlayerTint(go, playerTint);
         go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
         go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha);
         if (reviveProgress !== undefined) {
@@ -473,16 +484,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
               }
             }
             twinGo.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
-            if (turnFlash.brighten > 0) {
-              twinGo.setTint(grayColor(turnFlash.brighten));
-              twinGo.setTintMode(Phaser.TintModes.ADD);
-            } else if (wallPassOn) {
-              twinGo.setTint(PLAYER_WALL_PASS_TINT);
-            } else if (playerInvulnTintOn) {
-              twinGo.setTint(PLAYER_INVULN_TINT);
-            } else {
-              twinGo.clearTint();
-            }
+            applyPlayerTint(twinGo, playerTint);
           }
         }
       }

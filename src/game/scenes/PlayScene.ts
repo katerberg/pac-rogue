@@ -1,5 +1,5 @@
-import { playTurnSparks } from "./turnSparks";
 import Phaser from "phaser";
+import { playTurnSparks } from "./turnSparks";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
 import { pelletDisplaySize, playerDisplaySize } from "../../domain/maze";

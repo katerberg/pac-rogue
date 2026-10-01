@@ -490,6 +490,12 @@ export class PlaySim {
     };
   }
 
+  private resetTurnTuning(): void {
+    this.turnBoostMs = 0;
+    this.turnFlashMs = 0;
+    this.turnPerfectPending = false;
+  }
+
   private noteTurnKeys(keys: HeldKeys, tap: TurnTap | null): void {
     if (tap !== null) {
       const lastPress = this.lastKeyPressMs[KEY_FOR_DIRECTION[tap.direction]!];
@@ -972,9 +978,7 @@ export class PlaySim {
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
-    this.turnBoostMs = 0;
-    this.turnFlashMs = 0;
-    this.turnPerfectPending = false;
+    this.resetTurnTuning();
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1454,9 +1458,7 @@ export class PlaySim {
     this.levelIndex += 1;
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
-    this.turnBoostMs = 0;
-    this.turnFlashMs = 0;
-    this.turnPerfectPending = false;
+    this.resetTurnTuning();
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
@@ -1594,9 +1596,7 @@ export class PlaySim {
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
-    this.turnBoostMs = 0;
-    this.turnFlashMs = 0;
-    this.turnPerfectPending = false;
+    this.resetTurnTuning();
     this.runCorruption = resetCorruptionTransient(this.runCorruption);
     this.corruptionHiddenGhostEid = null;
     this.corruptionFlashGhostEid = null;
