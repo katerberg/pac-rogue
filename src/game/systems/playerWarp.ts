@@ -1,16 +1,21 @@
 import { query, type World } from "bitecs";
-import { playerTopCenterSpawn } from "../../domain/maze";
+import { GHOST_PHASE } from "../../domain/ghostPhase";
+import { playerFarthestFromGhostsSpawn } from "../../domain/maze";
+import { Ghost } from "../components/Ghost";
+import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 
-export function warpPlayerToTopCenter(world: World): void {
-  const players = query(world, [Player, Position, Velocity]);
-  const eid = players[0];
+export function warpPlayerFarthestFromGhosts(world: World): void {
+  const eid = query(world, [Player, Position, Velocity])[0];
   if (eid === undefined) {
     return;
   }
-  const spawn = playerTopCenterSpawn();
+  const ghosts = Array.from(query(world, [Ghost, GhostPhase, Position]))
+    .filter((ghost) => GhostPhase.value[ghost] === GHOST_PHASE.active)
+    .map((ghost) => ({ x: Position.x[ghost] ?? 0, y: Position.y[ghost] ?? 0 }));
+  const spawn = playerFarthestFromGhostsSpawn(ghosts);
   Position.x[eid] = spawn.x;
   Position.y[eid] = spawn.y;
   Velocity.x[eid] = 0;

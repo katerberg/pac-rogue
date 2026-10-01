@@ -7,7 +7,7 @@ export type BaseUpgradeId =
   | "passiveGhostSlow"
   | "powerPelletScatterBurst"
   | "powerPelletGhostRecall"
-  | "powerPelletWarpTop"
+  | "powerPelletWarpFarthest"
   | "passivePickupRange"
   | "passiveGhostHouseDelay"
   | "passiveExtraLife"
@@ -88,7 +88,7 @@ export type UpgradeEffects = {
     ghostHarvestMs?: number;
     defyDeathMs?: number;
     recallClosestGhosts?: number;
-    warpPlayerTopCenter?: true;
+    warpPlayerFarthest?: true;
     collectExtraPellets?: number;
   };
 };
@@ -233,17 +233,18 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     onPowerPellet: { recallClosestGhosts: 1 },
   },
   {
-    id: "powerPelletWarpTop",
-    label: "Warp Top",
+    id: "powerPelletWarpFarthest",
+    label: "Warp Farthest",
     school: "speed",
-    description: "Power pellet flings you to the top of the maze.",
+    description: "Power pellet flings you to the spot farthest from the ghosts.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Warp Top also makes you invulnerable for 2 seconds.",
-      description: "Power pellet flings you to the top of the maze, shielded for a moment.",
-      onPowerPellet: { warpPlayerTopCenter: true, warpInvulnMs: WARP_TOP_INVULN_MS },
+      enhanceNote: "Warp Farthest also makes you invulnerable for 2 seconds.",
+      description:
+        "Power pellet flings you to the spot farthest from the ghosts, shielded for a moment.",
+      onPowerPellet: { warpPlayerFarthest: true, warpInvulnMs: WARP_TOP_INVULN_MS },
     },
-    onPowerPellet: { warpPlayerTopCenter: true },
+    onPowerPellet: { warpPlayerFarthest: true },
   },
   {
     id: "passivePickupRange",
@@ -649,7 +650,7 @@ export type PowerPelletApplyResult = {
   state: RunUpgrades;
   freezeClosestMs: number | null;
   recallGhostCount: number;
-  warpPlayerTopCenter: boolean;
+  warpPlayerFarthest: boolean;
   collectExtraPellets: number;
 };
 
@@ -930,7 +931,7 @@ export function applyPowerPelletEffects(
       state,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     };
   }
@@ -944,7 +945,7 @@ export function applyPowerPelletEffects(
   let defyDeathMs: number | null = null;
   let recallGhostCount = 0;
   let warpInvulnMs = 0;
-  let warpPlayerTopCenter = false;
+  let warpPlayerFarthest = false;
   let collectExtraPellets = 0;
 
   for (const id of state.owned) {
@@ -992,8 +993,8 @@ export function applyPowerPelletEffects(
     if (onPower.warpInvulnMs !== undefined) {
       warpInvulnMs = Math.max(warpInvulnMs, onPower.warpInvulnMs);
     }
-    if (onPower.warpPlayerTopCenter) {
-      warpPlayerTopCenter = true;
+    if (onPower.warpPlayerFarthest) {
+      warpPlayerFarthest = true;
     }
     if (onPower.collectExtraPellets !== undefined) {
       collectExtraPellets = Math.max(collectExtraPellets, onPower.collectExtraPellets);
@@ -1036,7 +1037,7 @@ export function applyPowerPelletEffects(
     state: next,
     freezeClosestMs,
     recallGhostCount,
-    warpPlayerTopCenter,
+    warpPlayerFarthest,
     collectExtraPellets,
   };
 }

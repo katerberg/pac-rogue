@@ -101,7 +101,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveGhostSlow",
   "powerPelletScatterBurst",
   "powerPelletGhostRecall",
-  "powerPelletWarpTop",
+  "powerPelletWarpFarthest",
   "passivePickupRange",
   "passiveGhostHouseDelay",
   "passiveExtraLife",
@@ -141,7 +141,7 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId("powerPelletFreeze")).toBe("powerPelletFreeze");
     expect(parseUpgradeId("powerPelletScatterBurst")).toBe("powerPelletScatterBurst");
     expect(parseUpgradeId("powerPelletGhostRecall")).toBe("powerPelletGhostRecall");
-    expect(parseUpgradeId("powerPelletWarpTop")).toBe("powerPelletWarpTop");
+    expect(parseUpgradeId("powerPelletWarpFarthest")).toBe("powerPelletWarpFarthest");
     expect(parseUpgradeId("powerPelletCollectThree")).toBe("powerPelletCollectThree");
     expect(parseUpgradeId("powerPelletSpeedBurst")).toBe("powerPelletSpeedBurst");
     expect(parseUpgradeId("powerPelletWallPass")).toBe("powerPelletWallPass");
@@ -197,9 +197,9 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   });
 
   it("returns a single upgrade option when only one eligible", () => {
-    const owned = ALL_IDS.filter((id) => id !== "powerPelletWarpTop");
+    const owned = ALL_IDS.filter((id) => id !== "powerPelletWarpFarthest");
     const offer = pickUpgradeChoiceOffer(owned, null, () => 0);
-    expect(offer.upgrades).toEqual(["powerPelletWarpTop"]);
+    expect(offer.upgrades).toEqual(["powerPelletWarpFarthest"]);
   });
 
   it("returns up to three distinct unowned upgrade options", () => {
@@ -219,11 +219,12 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
 
   it("re-includes lastDeclined when needed to fill the offer", () => {
     const owned = ALL_IDS.filter(
-      (id) => id !== "passiveGhostSlow" && id !== "powerPelletWarpTop" && id !== "passiveExtraLife",
+      (id) =>
+        id !== "passiveGhostSlow" && id !== "powerPelletWarpFarthest" && id !== "passiveExtraLife",
     );
     const offer = pickUpgradeChoiceOffer(owned, "passiveGhostSlow", () => 0);
     expect(offer.upgrades).toEqual(
-      expect.arrayContaining(["passiveGhostSlow", "powerPelletWarpTop", "passiveExtraLife"]),
+      expect.arrayContaining(["passiveGhostSlow", "powerPelletWarpFarthest", "passiveExtraLife"]),
     );
     expect(offer.upgrades).toHaveLength(3);
   });
@@ -241,8 +242,12 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
       ...createRunUpgrades(),
       lastDeclinedUpgradeId: "passiveGhostSlow" as BaseUpgradeId,
     };
-    const next = confirmUpgradeChoice(state, ["powerPelletWarpTop"], "powerPelletWarpTop");
-    expect(next.owned).toEqual(["powerPelletWarpTop"]);
+    const next = confirmUpgradeChoice(
+      state,
+      ["powerPelletWarpFarthest"],
+      "powerPelletWarpFarthest",
+    );
+    expect(next.owned).toEqual(["powerPelletWarpFarthest"]);
     expect(next.lastDeclinedUpgradeId).toBe("passiveGhostSlow");
   });
 
@@ -253,7 +258,7 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
     };
     const options: BaseUpgradeId[] = [
       "passivePlayerSpeedUp",
-      "powerPelletWarpTop",
+      "powerPelletWarpFarthest",
       "passiveExtraLife",
     ];
     const next = confirmUpgradeChoice(state, options, "passivePlayerSpeedUp");
@@ -265,8 +270,8 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
 describe("declineUpgrades", () => {
   it("remembers the single declined upgrade when quarters is chosen instead", () => {
     const state = createRunUpgrades();
-    const next = declineUpgrades(state, ["powerPelletWarpTop"]);
-    expect(next.lastDeclinedUpgradeId).toBe("powerPelletWarpTop");
+    const next = declineUpgrades(state, ["powerPelletWarpFarthest"]);
+    expect(next.lastDeclinedUpgradeId).toBe("powerPelletWarpFarthest");
   });
 
   it("leaves lastDeclined unchanged when zero or multiple upgrades were declined", () => {
@@ -276,7 +281,7 @@ describe("declineUpgrades", () => {
     };
     expect(declineUpgrades(state, []).lastDeclinedUpgradeId).toBe("passiveGhostSlow");
     expect(
-      declineUpgrades(state, ["powerPelletWarpTop", "passiveExtraLife"]).lastDeclinedUpgradeId,
+      declineUpgrades(state, ["powerPelletWarpFarthest", "passiveExtraLife"]).lastDeclinedUpgradeId,
     ).toBe("passiveGhostSlow");
   });
 });
@@ -319,7 +324,7 @@ describe("grantUpgrade", () => {
       state,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
@@ -334,7 +339,7 @@ describe("grantUpgrade", () => {
       state: owned,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
   });
@@ -388,7 +393,7 @@ describe("freeze / power pellet", () => {
       state: bare,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
 
@@ -398,7 +403,7 @@ describe("freeze / power pellet", () => {
     expect(frozen.state.frozenGhostEid).toBeNull();
     expect(frozen.freezeClosestMs).toBe(FREEZE_MS);
     expect(frozen.recallGhostCount).toBe(0);
-    expect(frozen.warpPlayerTopCenter).toBe(false);
+    expect(frozen.warpPlayerFarthest).toBe(false);
     expect(frozen.collectExtraPellets).toBe(0);
 
     const partial = { ...owned, freezeRemainingMs: 500, frozenGhostEid: 3 };
@@ -411,7 +416,7 @@ describe("freeze / power pellet", () => {
       state: owned,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
   });
@@ -445,7 +450,7 @@ describe("scatter burst / multi power-pellet effects", () => {
       "powerPelletScatterBurst",
       "powerPelletSpeedBurst",
       "powerPelletGhostRecall",
-      "powerPelletWarpTop",
+      "powerPelletWarpFarthest",
       "powerPelletInvuln",
       "powerPelletCollectThree",
       "powerPelletWallPass",
@@ -460,7 +465,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
     expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
     expect(result.recallGhostCount).toBe(1);
-    expect(result.warpPlayerTopCenter).toBe(true);
+    expect(result.warpPlayerFarthest).toBe(true);
     expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
   });
 
@@ -470,15 +475,15 @@ describe("scatter burst / multi power-pellet effects", () => {
       1,
     );
     expect(recall.recallGhostCount).toBe(1);
-    expect(recall.warpPlayerTopCenter).toBe(false);
+    expect(recall.warpPlayerFarthest).toBe(false);
     expect(recall.collectExtraPellets).toBe(0);
 
     const warp = applyPowerPelletEffects(
-      grantUpgrade(createRunUpgrades(), "powerPelletWarpTop"),
+      grantUpgrade(createRunUpgrades(), "powerPelletWarpFarthest"),
       1,
     );
     expect(warp.recallGhostCount).toBe(0);
-    expect(warp.warpPlayerTopCenter).toBe(true);
+    expect(warp.warpPlayerFarthest).toBe(true);
     expect(warp.collectExtraPellets).toBe(0);
   });
 
@@ -531,7 +536,7 @@ describe("invuln / power pellet", () => {
       state: bare,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
 
@@ -539,7 +544,7 @@ describe("invuln / power pellet", () => {
     const armed = applyPowerPelletEffects(owned, 1);
     expect(armed.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(armed.recallGhostCount).toBe(0);
-    expect(armed.warpPlayerTopCenter).toBe(false);
+    expect(armed.warpPlayerFarthest).toBe(false);
     expect(armed.collectExtraPellets).toBe(0);
 
     const partial = { ...armed.state, invulnRemainingMs: 500 };
@@ -655,7 +660,7 @@ describe("passiveOvercharge", () => {
     let state = createRunUpgrades();
     for (const id of [
       "powerPelletGhostRecall",
-      "powerPelletWarpTop",
+      "powerPelletWarpFarthest",
       "powerPelletCollectThree",
       "passiveOvercharge",
     ] as const) {
@@ -663,7 +668,7 @@ describe("passiveOvercharge", () => {
     }
     const result = applyPowerPelletEffects(state, 1);
     expect(result.recallGhostCount).toBe(1);
-    expect(result.warpPlayerTopCenter).toBe(true);
+    expect(result.warpPlayerFarthest).toBe(true);
     expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
   });
 
@@ -673,7 +678,7 @@ describe("passiveOvercharge", () => {
       state,
       freezeClosestMs: null,
       recallGhostCount: 0,
-      warpPlayerTopCenter: false,
+      warpPlayerFarthest: false,
       collectExtraPellets: 0,
     });
   });
@@ -930,17 +935,17 @@ describe("enhanced upgrades", () => {
     expect(apply("powerPelletWallPassPlus").state.wallPassRemainingMs).toBe(6000);
   });
 
-  it("Warp Top Plus shields for 2s and Overcharge does not triple it", () => {
-    const warp = applyPowerPelletEffects(createRunUpgrades(["powerPelletWarpTopPlus"]), 1);
-    expect(warp.warpPlayerTopCenter).toBe(true);
+  it("Warp Farthest Plus shields for 2s and Overcharge does not triple it", () => {
+    const warp = applyPowerPelletEffects(createRunUpgrades(["powerPelletWarpFarthestPlus"]), 1);
+    expect(warp.warpPlayerFarthest).toBe(true);
     expect(warp.state.invulnRemainingMs).toBe(2000);
     const both = applyPowerPelletEffects(
-      createRunUpgrades(["powerPelletWarpTopPlus", "passiveOverchargePlus"]),
+      createRunUpgrades(["powerPelletWarpFarthestPlus", "passiveOverchargePlus"]),
       1,
     );
     expect(both.state.invulnRemainingMs).toBe(2000);
     const proof = applyPowerPelletEffects(
-      createRunUpgrades(["powerPelletWarpTopPlus", "powerPelletInvuln", "passiveOvercharge"]),
+      createRunUpgrades(["powerPelletWarpFarthestPlus", "powerPelletInvuln", "passiveOvercharge"]),
       1,
     );
     expect(proof.state.invulnRemainingMs).toBe(6000);

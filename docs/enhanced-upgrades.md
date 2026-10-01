@@ -13,7 +13,7 @@ The Enhanced column below was written by the designer and drove the one-shot pla
 | 3   | Ability enhancement  | none                                     | upgrades an owned ability to its enhanced version |
 | 4   | New ability          | `U` slot (3 per store)                   | cut to 2                                          |
 | 5   | New ability          | `U` slot                                 | see above                                         |
-| 6   | Ability trade        | `S` swap slot                            | rename only                                       | Warps to top-middle **and** grants 2s invulnerability with the Ghost Proof tint (own timer) |
+| 6   | Ability trade        | `S` swap slot                            | rename only                                       | Warps farthest from ghosts **and** grants 2s invulnerability with the Ghost Proof tint (own timer) |
 
 The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 2 lives and 2 new abilities. Later stores offer all six.
 
@@ -26,7 +26,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 3   | `passiveGhostSlow`           | Ghost Slow          | Ghost speed ×0.75                                                                        | Ghost speed ×0.65. **Base also changes:** 0.75 → 0.8                                                                                         |
 | 4   | `powerPelletScatterBurst`    | Scatter Burst       | Power pellet forces scatter for 3s                                                       | Scatter 5s                                                                                                                                   |
 | 5   | `powerPelletGhostRecall`     | Ghost Recall        | Power pellet sends the nearest ghost back to the house                                   | Sends the nearest 2 ghosts home                                                                                                              |
-| 6   | `powerPelletWarpTop`         | Warp Top            | Power pellet warps you to the top-middle                                                 | Warps to top-middle **and** grants 2s invulnerability with the Ghost Proof tint (own timer)                                                  |
+| 6   | `powerPelletWarpFarthest`    | Warp Farthest       | Power pellet warps you away from ghosts                                                  | Warps farthest from ghosts **and** grants 2s invulnerability with the Ghost Proof tint (own timer)                                           |
 | 7   | `passivePickupRange`         | Pickup Range        | Regular pellets within 1 tile are auto-collected (with line of sight)                    | Pickup range 2 tiles                                                                                                                         |
 | 8   | `passiveGhostHouseDelay`     | House Delay         | +2s on Blinky/Pinky release, +15 dots on Clyde                                           | +3s on Blinky/Pinky release, +25 dots on Clyde                                                                                               |
 | 9   | `passiveExtraLife`           | Extra Life          | +1 life now; regen floor 3 → 4                                                           | +1 more life (2 total) and regen floor 5                                                                                                     |
@@ -41,7 +41,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 18  | `fruitFecundity`             | Fruit Fecundity     | Fruit lasts 2× as long                                                                   | Fruit lasts until the level ends; uncollected fruit sit side by side in the same row. Base keeps today's 2×                                  |
 | 19  | `fruitFeast`                 | Fruit Feast         | 3 fruit per level (60/130/200 pellets) instead of 2                                      | 4 fruit per level at 45/100/150/200 pellets (scaled by maze size); still one at a time, so an uncollected fruit can block later ones         |
 | 20  | `passiveDeathsHarvest`       | Death's Harvest     | Getting caught harvests pellets within 6 tiles; an emptied board counts as a level clear | Harvest radius 10 tiles                                                                                                                      |
-| 21  | `passiveOvercharge`          | Overcharge          | Doubles every other power-pellet timer                                                   | Triples every other timer, enhanced ones included. Does not touch Warp Top's invulnerability or Defy Death                                   |
+| 21  | `passiveOvercharge`          | Overcharge          | Doubles every other power-pellet timer                                                   | Triples every other timer, enhanced ones included. Does not touch Warp Farthest's invulnerability or Defy Death                              |
 | 22  | `passiveTunnelDash`          | Tunnel Dash         | Entering a tunnel band sweeps pellets and teleports you to the opposite mouth            | **Base changes:** ghost tunnel speed 0.5× → 0.6× player speed (applies to every run). Enhanced: 0.3×                                         |
 | 23  | `passivePowerPelletRecharge` | Second Chomp        | Eaten power pellets respawn after 10s                                                    | Respawn after 7s                                                                                                                             |
 | 24  | `passiveRemoteTransference`  | Remote Transference | Every 5th pellet also eats the farthest one                                              | Every 3rd pellet                                                                                                                             |
@@ -55,7 +55,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 - **Swap carries enhancement.** Swapping away an enhanced upgrade gives an enhanced one back.
 - **Enhanced replaces base.** The enhanced numbers above are the effect, not an add-on.
 - **Fruit Power and Overcharge scale with enhanced upgrades.** Both read the owned effects, so enhanced timers flow through (Overcharge tripling included).
-- **Not tripled by Overcharge:** Warp Top's 2s invulnerability and Defy Death's window.
+- **Not tripled by Overcharge:** Warp Farthest's 2s invulnerability and Defy Death's window.
 - **Wall Pass** stays 6s (code value); [upgrades.md](./upgrades.md) saying 3s was a doc bug, now fixed.
 - **Speed stacking is intended:** Speed Up × Speed Burst × the turn boost can reach about 2.8×. No cap.
 - **Pickup Range** (2 tiles) still needs line of sight.

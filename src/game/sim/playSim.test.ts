@@ -9,6 +9,7 @@ import {
   getActiveLayout,
   horizontalTunnelRows,
   isWalkable,
+  playerFarthestFromGhostsSpawn,
   TILE_SIZE,
   worldToCol,
   worldToRow,
@@ -1358,18 +1359,33 @@ describe("PlaySim enhanced upgrades", () => {
     expect(plus.snapshot().timers.scatterBurstMs).toBeLessThanOrEqual(15000);
   });
 
-  it("Warp Top+ shields for 2s and Overcharge does not extend it", () => {
+  it("Warp Farthest+ shields for 2s and Overcharge does not extend it", () => {
     const sim = startSim({
       level: 2,
       maze: "maze1",
-      enableUpgrades: ["powerPelletWarpTopPlus", "passiveOvercharge"],
+      enableUpgrades: ["powerPelletWarpFarthestPlus", "passiveOvercharge"],
     });
     chomp(sim);
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(1800);
     expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(2000);
-    const base = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletWarpTop"] });
+    const base = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletWarpFarthest"] });
     chomp(base);
     expect(base.snapshot().timers.invulnMs).toBe(0);
+  });
+
+  it("Warp Farthest puts the player on the tile farthest from active ghosts", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletWarpFarthest"] });
+    const ghosts = query(sim.world, [Ghost, Position]);
+    for (const eid of ghosts) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    chomp(sim);
+    const player = query(sim.world, [Player, Position])[0]!;
+    const expected = playerFarthestFromGhostsSpawn(
+      Array.from(ghosts, (eid) => ({ x: Position.x[eid]!, y: Position.y[eid]! })),
+    );
+    expect(Position.x[player]).toBe(expected.x);
+    expect(Position.y[player]).toBe(expected.y);
   });
 
   it("Ghost Recall+ sends two ghosts home, the base sends one", () => {

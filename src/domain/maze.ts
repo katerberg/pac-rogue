@@ -1022,49 +1022,44 @@ export function playerSpawnCenter(): { x: number; y: number } {
   };
 }
 
-export function playerTopCenterCell(solids: SolidGrid = getActiveLayout().playerSolids): {
-  col: number;
-  row: number;
-} {
+export function playerFarthestFromGhostsCell(
+  ghosts: readonly { x: number; y: number }[],
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): { col: number; row: number } {
   const { playerSpawn } = getActiveLayout();
-  const idealCol = (MAZE_COLS - 1) / 2;
-  const idealRow = 0;
+  if (ghosts.length === 0) {
+    return { col: playerSpawn.col, row: playerSpawn.row };
+  }
   let bestCol = playerSpawn.col;
   let bestRow = playerSpawn.row;
-  let bestDist = Number.POSITIVE_INFINITY;
-  let found = false;
+  let bestDist = -1;
 
   for (let row = 0; row < MAZE_ROWS; row += 1) {
     for (let col = 0; col < MAZE_COLS; col += 1) {
       if (!isWalkable(col, row, solids)) {
         continue;
       }
-      found = true;
-      const dx = col - idealCol;
-      const dy = row - idealRow;
-      const dist = dx * dx + dy * dy;
-      if (
-        dist < bestDist ||
-        (dist === bestDist && (row < bestRow || (row === bestRow && col < bestCol)))
-      ) {
-        bestDist = dist;
+      const cx = cellCenterX(col);
+      const cy = cellCenterY(row);
+      let nearest = Number.POSITIVE_INFINITY;
+      for (const ghost of ghosts) {
+        nearest = Math.min(nearest, (cx - ghost.x) ** 2 + (cy - ghost.y) ** 2);
+      }
+      if (nearest > bestDist) {
+        bestDist = nearest;
         bestCol = col;
         bestRow = row;
       }
     }
   }
-
-  if (!found) {
-    return { col: playerSpawn.col, row: playerSpawn.row };
-  }
   return { col: bestCol, row: bestRow };
 }
 
-export function playerTopCenterSpawn(solids: SolidGrid = getActiveLayout().playerSolids): {
-  x: number;
-  y: number;
-} {
-  const cell = playerTopCenterCell(solids);
+export function playerFarthestFromGhostsSpawn(
+  ghosts: readonly { x: number; y: number }[],
+  solids: SolidGrid = getActiveLayout().playerSolids,
+): { x: number; y: number } {
+  const cell = playerFarthestFromGhostsCell(ghosts, solids);
   return { x: cellCenterX(cell.col), y: cellCenterY(cell.row) };
 }
 
