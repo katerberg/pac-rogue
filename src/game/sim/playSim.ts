@@ -1,10 +1,12 @@
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import {
+  addBonusCharge,
   applyStreakPellets,
   BONUS_BAR_MAX,
   breakStreak,
   createBonusBar,
   enterCell,
+  FRUIT_BONUS_CHARGE,
   tickStreakIdle,
   type BonusBar,
   type BonusResult,
@@ -903,8 +905,13 @@ export class PlaySim {
     }
     if (removedFruitEids.length > 0) {
       this.emitMunch();
-      this.quarters += removedFruitEids.length * fruitQuarterMultiplier(this.runUpgrades.owned);
-      this.emit({ type: "quarters" });
+      const fruitCharge = addBonusCharge(
+        this.bonus,
+        removedFruitEids.length *
+          FRUIT_BONUS_CHARGE *
+          fruitQuarterMultiplier(this.runUpgrades.owned),
+      );
+      this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
       this.fruitPresence = markFruitCollected(fruitTick.state);
       if (
         this.runUpgrades.owned.includes("fruitPowerPellet") &&

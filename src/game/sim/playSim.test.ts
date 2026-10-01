@@ -15,6 +15,7 @@ import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { grantUpgrade } from "../../domain/upgrades";
 import { BossPellet } from "../components/BossPellet";
+import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
 import { Pellet } from "../components/Pellet";
@@ -911,5 +912,39 @@ describe("Turn Tuning", () => {
     runFrames(sim, 4, { keys: held("left") });
     expect(sim.snapshot().player!.facing).toBe("left");
     expect(sim.snapshot().timers.turnBoostMs).toBe(0);
+  });
+});
+
+describe("PlaySim fruit bonus charge", () => {
+  function eatFruit(sim: PlaySim): SimEvent[] {
+    const fruit = query(sim.world, [Fruit, Position])[0]!;
+    teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
+    return runFrames(sim, 1);
+  }
+
+  function startWithFruit(overrides: Partial<PlayOptions>): PlaySim {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true, ...overrides });
+    sim["spawnFruitEntity"]();
+    return sim;
+  }
+
+  it("charges half a bar and pays no Quarter on its own", () => {
+    const sim = startWithFruit({ quarters: 0 });
+    const events = eatFruit(sim);
+    expect(sim.snapshot()).toMatchObject({ quarters: 0, bonus: { charge: 150 } });
+    expect(events).not.toContainEqual({ type: "quarters" });
+  });
+
+  it("pays a Quarter when fruit fills the bar", () => {
+    const sim = startWithFruit({ quarters: 0, bonus: 200 });
+    const events = eatFruit(sim);
+    expect(sim.snapshot()).toMatchObject({ quarters: 1, bonus: { charge: 50 } });
+    expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
+  });
+
+  it("charges a whole bar with Quarter Bounty", () => {
+    const sim = startWithFruit({ quarters: 0, bonus: 10, enableUpgrades: ["fruitQuarterBounty"] });
+    eatFruit(sim);
+    expect(sim.snapshot()).toMatchObject({ quarters: 1, bonus: { charge: 10 } });
   });
 });
