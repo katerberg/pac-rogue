@@ -27,6 +27,7 @@ import { turnFlashPulse } from "../../domain/turnTuning";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
+import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { GhostPhase } from "../components/GhostPhase";
@@ -226,6 +227,7 @@ export type RenderOptions = {
   dimGhostEid?: number | null;
   playerAlpha?: number;
   playerReviveProgress?: number;
+  playerWarpGlide?: WarpGlideSprite[];
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -298,6 +300,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const dimGhostEid = opts?.dimGhostEid ?? null;
     const playerAlpha = opts?.playerAlpha;
     const reviveProgress = opts?.playerReviveProgress;
+    const warpGlide = opts?.playerWarpGlide;
     const wallPassOn = opts?.wallPassActive === true;
     const twinSolids =
       opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
@@ -348,8 +351,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       const twinKey = `${eid}:twin`;
       alive.add(primaryKey);
 
-      const x = Position.x[eid] ?? 0;
-      const y = Position.y[eid] ?? 0;
+      const glideHead = id === PLAYER_DRAWABLE_ID ? warpGlide?.[0] : undefined;
+      const x = glideHead?.x ?? Position.x[eid] ?? 0;
+      const y = glideHead?.y ?? Position.y[eid] ?? 0;
       const size = displaySizeForDrawable(id);
       const radius = Drawable.radius[eid] ?? size / 2;
 
@@ -414,14 +418,31 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
         applyPlayerTint(go, playerTint);
         go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
-        go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha);
+        go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha * (glideHead?.alpha ?? 1));
         if (reviveProgress !== undefined) {
           const look = reviveSplashLook(reviveProgress, size);
           go.setDisplaySize(look.size, look.size);
           go.setAlpha(look.alpha);
         }
 
-        if (
+        if (glideHead !== undefined && warpGlide !== undefined) {
+          for (let i = 1; i < warpGlide.length; i += 1) {
+            const trail = warpGlide[i]!;
+            const trailKey = `${eid}:glide${i}`;
+            alive.add(trailKey);
+            let trailGo = drawableObjects.get(trailKey);
+            if (!trailGo) {
+              trailGo = scene.add.image(trail.x, trail.y, visual.textureKey);
+              trailGo.setName(`${id}:glide`);
+              drawableObjects.set(trailKey, trailGo);
+            }
+            trailGo.setTexture(visual.textureKey);
+            trailGo.setDisplaySize(size, size);
+            trailGo.setPosition(trail.x, trail.y);
+            trailGo.setAlpha(trail.alpha);
+            applyPlayerTint(trailGo, playerTint);
+          }
+        } else if (
           playerAlpha === undefined &&
           reviveProgress === undefined &&
           hasComponent(world, eid, Player)

@@ -267,6 +267,12 @@ import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
+import {
+  tickWarpGlide,
+  type WarpGlide,
+  warpGlideRemainingMs,
+  warpGlideSprites,
+} from "../../domain/warpGlide";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   applyTunnelDash,
@@ -321,6 +327,7 @@ export class PlaySim {
   private fruitPresence: FruitPresence = createFruitPresence();
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private tunnelDashAnim: TunnelDashAnimation | null = null;
+  private warpGlide: WarpGlide | null = null;
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private midStoreLevel = 5;
   private store: StoreState | null = null;
@@ -466,6 +473,7 @@ export class PlaySim {
         wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.runUpgrades.owned),
       turnFlashRemainingMs: this.turnFlashMs,
       ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
+      playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
     };
   }
 
@@ -499,6 +507,7 @@ export class PlaySim {
         eatDragMs: this.eatDragMs,
         turnBoostMs: this.turnBoostMs,
         turnFlashMs: this.turnFlashMs,
+        warpGlideMs: warpGlideRemainingMs(this.warpGlide),
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
@@ -575,6 +584,9 @@ export class PlaySim {
   }
 
   private tick(input: SimInput, delta: number): void {
+    if (this.warpGlide !== null) {
+      this.warpGlide = tickWarpGlide(this.warpGlide, delta);
+    }
     if (this.awaitingStartingCard) {
       if (input.uiOpen) {
         return;
@@ -645,12 +657,13 @@ export class PlaySim {
         ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
         : undefined;
     let turnTap: TurnTap | null = null;
+    const warping = this.warpGlide !== null;
     if (this.suppressInputUntilKeyRelease) {
-      if (!anyKeyHeld(input.keys)) {
+      if (!warping && !anyKeyHeld(input.keys)) {
         this.suppressInputUntilKeyRelease = false;
         applyHeldKeys(this.world, input.keys, { diagonalAllowed });
       }
-    } else {
+    } else if (!warping) {
       turnTap = applyHeldKeys(this.world, input.keys, { diagonalAllowed, turnTuning });
     }
     this.simClockMs += delta;
@@ -713,7 +726,8 @@ export class PlaySim {
       playerSpeedMultiplier(this.runUpgrades.owned) *
       (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.runUpgrades.owned) : 1) *
       eatDragMultiplier(this.eatDragMs) *
-      turnBoostMultiplier(this.turnBoostMs, turnBoostMs(this.runUpgrades.owned));
+      turnBoostMultiplier(this.turnBoostMs, turnBoostMs(this.runUpgrades.owned)) *
+      (warping ? 0 : 1);
     applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -895,7 +909,7 @@ export class PlaySim {
       );
     }
     if (powerEffects.warpPlayerFarthest) {
-      warpPlayerFarthestFromGhosts(this.world);
+      this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
     }
 
     const stacksFruit = fruitStacksSideBySide(this.runUpgrades.owned);
@@ -1070,6 +1084,7 @@ export class PlaySim {
     this.resetTurnTuning();
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
+    this.warpGlide = null;
     this.resetStreak();
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
@@ -1277,6 +1292,7 @@ export class PlaySim {
     this.fruitPresence = createFruitPresence();
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
+    this.warpGlide = null;
     this.afterLifeRelease = false;
     placeInHouseGhostsAtPredictedSeats(
       this.world,
@@ -1487,7 +1503,7 @@ export class PlaySim {
       );
     }
     if (powerEffects.warpPlayerFarthest) {
-      warpPlayerFarthestFromGhosts(this.world);
+      this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
     }
     return false;
   }
@@ -1612,6 +1628,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.tunnelDashAnim = null;
+    this.warpGlide = null;
     this.resetStreak();
     this.remoteTransferCounter = 0;
     const playerSpawn = playerSpawnCenter();
