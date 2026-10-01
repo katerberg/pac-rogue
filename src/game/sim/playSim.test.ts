@@ -123,6 +123,62 @@ describe("PlaySim fruit lifetime", () => {
   });
 });
 
+describe("PlaySim Fruit Fecundity+", () => {
+  const framesFor = (ms: number): number => Math.ceil(ms / FRAME_MS);
+
+  function eatPellets(sim: PlaySim, n: number): void {
+    for (const eid of regularPelletEids(sim).slice(0, n)) {
+      eatPelletAt(sim, eid);
+    }
+  }
+
+  it("keeps fruit until the level ends and stacks the next one in the same row", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["fruitFecundityPlus"] });
+    const [first, second] = getActiveLayout().fruitThresholds;
+    eatPellets(sim, first);
+    teleportPlayer(sim, 0, 0);
+    runFrames(sim, framesFor(FRUIT_LIFETIME_MS * 4));
+    expect(query(sim.world, [Fruit, Position])).toHaveLength(1);
+
+    eatPellets(sim, second - first);
+    runFrames(sim, 2);
+    const fruit = query(sim.world, [Fruit, Position]);
+    expect(fruit).toHaveLength(2);
+    expect(Position.y[fruit[0]!]).toBe(Position.y[fruit[1]!]);
+    expect(Position.x[fruit[0]!]).not.toBe(Position.x[fruit[1]!]);
+  });
+
+  it("base Fecundity still expires and never stacks", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["fruitFecundity"] });
+    const [first] = getActiveLayout().fruitThresholds;
+    eatPellets(sim, first);
+    teleportPlayer(sim, 0, 0);
+    runFrames(sim, framesFor(FRUIT_LIFETIME_MS * 2 + 500));
+    expect(query(sim.world, [Fruit, Position])).toHaveLength(0);
+  });
+});
+
+describe("PlaySim Fruit Feast+", () => {
+  function eatPellets(sim: PlaySim, n: number): void {
+    for (const eid of regularPelletEids(sim).slice(0, n)) {
+      eatPelletAt(sim, eid);
+    }
+  }
+
+  it("spawns a fourth fruit at 200 pellets and the first at 45", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["fruitFeastPlus"],
+    });
+    eatPellets(sim, 44);
+    expect(sim.snapshot().fruit).toBe(false);
+    eatPellets(sim, 1);
+    expect(sim.snapshot().fruit).toBe(true);
+  });
+});
+
 describe("PlaySim fruit feast", () => {
   function eatPellets(sim: PlaySim, n: number): void {
     for (const eid of regularPelletEids(sim).slice(0, n)) {
@@ -202,18 +258,30 @@ describe("PlaySim remote transference", () => {
 });
 
 describe("PlaySim", () => {
-  it.each([1, 2, 5])(
-    "slows ghosts to half of Maze-Man's speed in the tunnel on level %i",
-    (level) => {
-      const sim = startSim({ level, maze: "maze1" });
+  it.each([1, 2, 5])("slows ghosts to 0.6x Maze-Man's speed in the tunnel on level %i", (level) => {
+    const sim = startSim({ level, maze: "maze1" });
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(0);
+    Position.y[ghost] = cellCenterY(horizontalTunnelRows()[0]!);
+    runFrames(sim, 1);
+    expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(0.6);
+  });
+
+  it("Tunnel Dash+ slows ghosts to 0.3x in the tunnel; base Tunnel Dash keeps 0.6x", () => {
+    for (const [id, ratio] of [
+      ["passiveTunnelDash", 0.6],
+      ["passiveTunnelDashPlus", 0.3],
+    ] as const) {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
       const ghost = query(sim.world, [Ghost, Position])[0]!;
       GhostPhase.value[ghost] = GHOST_PHASE.active;
       Position.x[ghost] = cellCenterX(0);
       Position.y[ghost] = cellCenterY(horizontalTunnelRows()[0]!);
       runFrames(sim, 1);
-      expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(0.5);
-    },
-  );
+      expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(ratio);
+    }
+  });
 
   it("collects pellets while the player moves", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
@@ -789,11 +857,12 @@ describe("Turn Tuning", () => {
     throw new Error("no side turn found");
   }
 
-  function setup(enable: boolean) {
+  function setup(enable: boolean | "plus") {
     const sim = startSim({
       level: 2,
       maze: "maze1",
-      enableUpgrades: enable ? ["passiveTurnTuning"] : [],
+      enableUpgrades:
+        enable === "plus" ? ["passiveTurnTuningPlus"] : enable ? ["passiveTurnTuning"] : [],
     });
     const turn = findSideTurn();
     return { sim, turn };
@@ -854,6 +923,23 @@ describe("Turn Tuning", () => {
     runFrames(sim, 40, { keys: held("up") });
     expect(sim.snapshot().timers.turnBoostMs).toBe(0);
     expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
+  });
+
+  it("Turn Tuning+ rewards a tap 10px early and holds the boost for 750ms", () => {
+    for (const mode of [true, "plus"] as const) {
+      const { sim, turn } = setup(mode);
+      cruiseFrom(sim, turn, 2);
+      placeAhead(sim, turn, 10);
+      runFrames(sim, 1, tapUp);
+      runUntil(sim, () => sim.snapshot().player!.row < turn.row, 60, cruise);
+      const boost = sim.snapshot().timers.turnBoostMs;
+      if (mode === true) {
+        expect(boost).toBe(0);
+      } else {
+        expect(boost).toBeGreaterThan(600);
+        expect(boost).toBeLessThanOrEqual(750);
+      }
+    }
   });
 
   it("gives no reward when the same key was pressed just before the beat", () => {
@@ -929,7 +1015,7 @@ describe("PlaySim fruit bonus charge", () => {
 
   function startWithFruit(overrides: Partial<PlayOptions>): PlaySim {
     const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true, ...overrides });
-    sim["spawnFruitEntity"]();
+    sim["spawnFruitEntity"](false);
     return sim;
   }
 
@@ -947,10 +1033,30 @@ describe("PlaySim fruit bonus charge", () => {
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
   });
 
-  it("charges a whole bar with Quarter Bounty", () => {
-    const sim = startWithFruit({ quarters: 0, bonus: 10, enableUpgrades: ["fruitQuarterBounty"] });
+  it("Quarter Bounty pays a Quarter instead of charging the bar; Plus pays two", () => {
+    const base = startWithFruit({ quarters: 0, bonus: 10, enableUpgrades: ["fruitQuarterBounty"] });
+    eatFruit(base);
+    expect(base.snapshot()).toMatchObject({ quarters: 1, bonus: { charge: 10 } });
+
+    const plus = startWithFruit({
+      quarters: 0,
+      bonus: 10,
+      enableUpgrades: ["fruitQuarterBountyPlus"],
+    });
+    eatFruit(plus);
+    expect(plus.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 10 } });
+  });
+
+  it("Fruit Power+ also turns a regular pellet into a power pellet", () => {
+    const sim = startWithFruit({ enableUpgrades: ["fruitPowerPelletPlus"] });
+    const before = query(sim.world, [Pellet, PowerPellet]).length;
     eatFruit(sim);
-    expect(sim.snapshot()).toMatchObject({ quarters: 1, bonus: { charge: 10 } });
+    expect(query(sim.world, [Pellet, PowerPellet]).length).toBe(before + 1);
+
+    const base = startWithFruit({ enableUpgrades: ["fruitPowerPellet"] });
+    const baseBefore = query(base.world, [Pellet, PowerPellet]).length;
+    eatFruit(base);
+    expect(query(base.world, [Pellet, PowerPellet]).length).toBe(baseBefore);
   });
 });
 

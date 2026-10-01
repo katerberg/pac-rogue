@@ -1,3 +1,4 @@
+import type { RandomStream } from "../../domain/runRandom";
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import {
   addBonusCharge,
@@ -51,6 +52,7 @@ import { reviveSplashProgress } from "../../domain/reviveSplash";
 import {
   createFruitPresence,
   extendFruitLifetime,
+  fruitStackCenter,
   markFruitCollected,
   tickFruitPresence,
   type FruitPresence,
@@ -159,9 +161,15 @@ import {
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
   turnBoostMs,
+  turnPerfectPx,
   secondChompMs,
   lifeFloorBonus,
   hasUpgrade,
+  fruitFeastThresholds,
+  fruitPowerConvertsPellet,
+  fruitPersistsUntilLevelEnd,
+  fruitStacksSideBySide,
+  ghostTunnelSpeedRatio,
   baseIdOf,
   pelletSurgeCount,
   regenToFull,
@@ -216,7 +224,7 @@ import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/
 import { catchPlayer } from "../systems/catchPlayer";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
-import { collectFruit, removeAllFruit } from "../systems/collectFruit";
+import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets, countPellets } from "../systems/collectPellets";
 import { findGhostEidByKind } from "../systems/corruptionGhost";
 import { stepCorruption } from "../systems/corruptionStep";
@@ -536,10 +544,11 @@ export class PlaySim {
   private noteTurnKeys(keys: HeldKeys, tap: TurnTap | null): void {
     if (tap !== null) {
       const lastPress = this.lastKeyPressMs[KEY_FOR_DIRECTION[tap.direction]!];
-      const feedback = turnFeedback(tap.aheadPx, isCleanTap(lastPress, this.simClockMs));
+      const perfectPx = turnPerfectPx(this.runUpgrades.owned);
+      const feedback = turnFeedback(tap.aheadPx, isCleanTap(lastPress, this.simClockMs), perfectPx);
       this.turnPerfectPending = feedback === "perfect";
       if (feedback === "close") {
-        this.emitTurnSparks("close", closeSparkCount(tap.aheadPx));
+        this.emitTurnSparks("close", closeSparkCount(tap.aheadPx, perfectPx));
       }
     }
     for (const key of freshKeys(this.prevKeys, keys)) {
@@ -714,13 +723,14 @@ export class PlaySim {
       playerSpeedMultiplier(this.runUpgrades.owned) *
       (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.runUpgrades.owned) : 1) *
       eatDragMultiplier(this.eatDragMs) *
-      turnBoostMultiplier(this.turnBoostMs);
+      turnBoostMultiplier(this.turnBoostMs, turnBoostMs(this.runUpgrades.owned));
     applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
         (this.bossState === null ? levelSpeedMul : 1) *
         ghostSpeedMultiplier(this.runUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
+      tunnelSpeedRatio: ghostTunnelSpeedRatio(this.runUpgrades.owned),
       speedSurge:
         this.runCorruption.ghostKind !== null && isSpeedSurgeActive(this.runCorruption)
           ? { ghostKind: this.runCorruption.ghostKind, mul: SPEED_SURGE_MUL }
@@ -911,16 +921,21 @@ export class PlaySim {
       warpPlayerToTopCenter(this.world);
     }
 
+    const stacksFruit = fruitStacksSideBySide(this.runUpgrades.owned);
     const fruitTick = tickFruitPresence(
       this.fruitPresence,
       this.pelletProgress.boardCollected,
       delta,
       this.levelIndex,
-      hasUpgrade(this.runUpgrades.owned, "fruitFeast"),
-      fruitLifetimeMultiplier(this.runUpgrades.owned),
+      {
+        feastBase: fruitFeastThresholds(this.runUpgrades.owned),
+        lifetimeMul: fruitLifetimeMultiplier(this.runUpgrades.owned),
+        persist: fruitPersistsUntilLevelEnd(this.runUpgrades.owned),
+        stack: stacksFruit,
+      },
     );
     if (fruitTick.action === "spawn" || fruitTick.action === "replace") {
-      this.spawnFruitEntity();
+      this.spawnFruitEntity(stacksFruit);
     }
 
     const removedFruitEids = collectFruit(this.world);
@@ -940,7 +955,13 @@ export class PlaySim {
         );
         this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
       }
-      this.fruitPresence = markFruitCollected(fruitTick.state);
+      this.fruitPresence = markFruitCollected(
+        fruitTick.state,
+        fruitPositions(this.world).length > 0,
+      );
+      if (fruitPowerConvertsPellet(this.runUpgrades.owned)) {
+        this.applyPelletSurge(1, "fruitPowerConvert");
+      }
       if (
         hasUpgrade(this.runUpgrades.owned, "fruitPowerPellet") &&
         this.resolvePowerPelletTrigger(1)
@@ -1516,11 +1537,11 @@ export class PlaySim {
     }
   }
 
-  private applyPelletSurge(count: number): void {
+  private applyPelletSurge(count: number, stream: RandomStream = "pelletToPower"): void {
     for (let converted = 0; converted < count; converted += 1) {
       const eid = applyPelletToPowerConvert(
         this.world,
-        this.random.stream("pelletToPower", this.levelIndex),
+        this.random.stream(stream, this.levelIndex),
       );
       if (eid === null) {
         return;
@@ -1733,9 +1754,18 @@ export class PlaySim {
     }
   }
 
-  private spawnFruitEntity(): void {
-    this.clearFruitEntities();
-    spawnFruit(this.world);
+  private spawnFruitEntity(stack: boolean): void {
+    if (!stack) {
+      this.clearFruitEntities();
+      spawnFruit(this.world);
+      return;
+    }
+    const center = fruitStackCenter(fruitPositions(this.world));
+    if (center !== null) {
+      spawnFruit(this.world, center);
+    } else if (fruitPositions(this.world).length === 0) {
+      this.fruitPresence = markFruitCollected(this.fruitPresence);
+    }
   }
 
   private spawnBossGhostInHouse(releaseDelayMs: number): void {

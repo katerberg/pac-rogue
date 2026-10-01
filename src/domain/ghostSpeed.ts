@@ -6,7 +6,9 @@ import { PLAYER_SPEED } from "./playfield";
 export const GHOST_SPEED = PLAYER_SPEED * 0.9375;
 export const GHOST_ELROY1_SPEED = PLAYER_SPEED * 1.0;
 export const GHOST_ELROY2_SPEED = PLAYER_SPEED * (85 / 80);
-export const GHOST_TUNNEL_SPEED = PLAYER_SPEED * 0.5;
+export const GHOST_TUNNEL_SPEED_RATIO = 0.6;
+export const GHOST_TUNNEL_SPEED = PLAYER_SPEED * GHOST_TUNNEL_SPEED_RATIO;
+export const GHOST_HOUSE_EXIT_SPEED = PLAYER_SPEED * 0.5;
 
 export const ELROY_TIER = {
   none: 0,
@@ -31,9 +33,10 @@ export function resolveGhostSpeed(
   pelletsRemaining: number,
   inTunnel: boolean,
   levelIndex: number,
+  tunnelSpeed: number = GHOST_TUNNEL_SPEED,
 ): number {
   if (inTunnel) {
-    return GHOST_TUNNEL_SPEED;
+    return tunnelSpeed;
   }
   const baseSpeed = PLAYER_SPEED * ghostBaseSpeedRatio(levelIndex);
   const tier = elroyTier(pelletsRemaining);
@@ -48,8 +51,11 @@ export function resolveGhostSpeed(
 
 export const BOSS_GHOST_SPEED = PLAYER_SPEED;
 
-export function resolveBossGhostSpeed(inTunnel: boolean): number {
-  return inTunnel ? GHOST_TUNNEL_SPEED : BOSS_GHOST_SPEED;
+export function resolveBossGhostSpeed(
+  inTunnel: boolean,
+  tunnelSpeed: number = GHOST_TUNNEL_SPEED,
+): number {
+  return inTunnel ? tunnelSpeed : BOSS_GHOST_SPEED;
 }
 
 export function resolveGhostSpeedForKind(
@@ -58,9 +64,15 @@ export function resolveGhostSpeedForKind(
   inTunnel: boolean,
   levelIndex: number,
   leavingHouse = false,
+  tunnelSpeed: number = GHOST_TUNNEL_SPEED,
 ): number {
   if (kind === GHOST_KIND.blinky) {
-    return resolveGhostSpeed(pelletsRemaining, inTunnel, levelIndex);
+    return resolveGhostSpeed(pelletsRemaining, inTunnel, levelIndex, tunnelSpeed);
   }
-  return resolveGhostSpeed(Number.POSITIVE_INFINITY, inTunnel || leavingHouse, levelIndex);
+  if (inTunnel) {
+    return tunnelSpeed;
+  }
+  return leavingHouse
+    ? GHOST_HOUSE_EXIT_SPEED
+    : resolveGhostSpeed(Number.POSITIVE_INFINITY, false, levelIndex);
 }

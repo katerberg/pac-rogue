@@ -9,7 +9,7 @@ import {
 } from "../../domain/ghostRelease";
 import { leavingHouseTarget } from "../../domain/ghostHouseLeave";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { GHOST_SPEED, GHOST_TUNNEL_SPEED } from "../../domain/ghostSpeed";
+import { GHOST_HOUSE_EXIT_SPEED, GHOST_SPEED } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { worldToCol, worldToRow } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
@@ -50,7 +50,7 @@ function sendOut(world: World, eid: number): void {
   Speed.px[eid] =
     kind === GHOST_KIND.blinky || hasComponent(world, eid, BossGhost)
       ? GHOST_SPEED
-      : GHOST_TUNNEL_SPEED;
+      : GHOST_HOUSE_EXIT_SPEED;
   Ghost.decidedCol[eid] = Number.NaN;
   Ghost.decidedRow[eid] = Number.NaN;
 }

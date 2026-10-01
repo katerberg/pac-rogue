@@ -1,6 +1,11 @@
 import { hasComponent, query, type World } from "bitecs";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { resolveBossGhostSpeed, resolveGhostSpeedForKind } from "../../domain/ghostSpeed";
+import {
+  GHOST_TUNNEL_SPEED,
+  resolveBossGhostSpeed,
+  resolveGhostSpeedForKind,
+} from "../../domain/ghostSpeed";
+import { PLAYER_SPEED } from "../../domain/playfield";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { isGhostTunnelSlow, worldToCol, worldToRow } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
@@ -14,6 +19,7 @@ export type GhostSpeedOptions = {
   ghostSpeedMul?: number;
   frozenGhostEid?: number | null;
   speedSurge?: { ghostKind: GhostKindId; mul: number };
+  tunnelSpeedRatio?: number | null;
 };
 
 export function applyGhostSpeed(
@@ -25,6 +31,8 @@ export function applyGhostSpeed(
   const ghostSpeedMul = options.ghostSpeedMul ?? 1;
   const frozenEid = options.frozenGhostEid ?? null;
   const speedSurge = options.speedSurge;
+  const tunnelSpeed =
+    options.tunnelSpeedRatio == null ? GHOST_TUNNEL_SPEED : PLAYER_SPEED * options.tunnelSpeedRatio;
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Speed])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
@@ -43,13 +51,14 @@ export function applyGhostSpeed(
     const surgeMul = speedSurge && kind === speedSurge.ghostKind ? speedSurge.mul : 1;
     const inTunnel = isGhostTunnelSlow(col, row);
     const base = hasComponent(world, eid, BossGhost)
-      ? resolveBossGhostSpeed(inTunnel)
+      ? resolveBossGhostSpeed(inTunnel, tunnelSpeed)
       : resolveGhostSpeedForKind(
           kind,
           pelletsRemaining,
           inTunnel,
           levelIndex,
           phase === GHOST_PHASE.leaving,
+          tunnelSpeed,
         );
     Speed.px[eid] = base * ghostSpeedMul * surgeMul;
   }

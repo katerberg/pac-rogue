@@ -131,7 +131,6 @@ export type MazeLayout = {
   fruitSpawn: MazeTile;
   pelletCount: number;
   fruitThresholds: readonly [number, number];
-  feastFruitThresholds: readonly [number, number, number];
   inkyReleasePellets: number;
   clydeReleasePellets: number;
   elroy1DotsLeft: number;
@@ -196,6 +195,13 @@ const KNOWN_MAZE_CHARS = new Set([
 
 function scaleCount(n: number, pelletCount: number, basePelletCount: number): number {
   return Math.max(1, Math.round((n * pelletCount) / basePelletCount));
+}
+
+export function scaleFeastThresholds(base: readonly number[]): number[] {
+  const layout = getActiveLayout();
+  const basePelletCount =
+    layout.id === "maze1" ? layout.pelletCount : getLayout("maze1").pelletCount;
+  return base.map((count) => scaleCount(count, layout.pelletCount, basePelletCount));
 }
 
 function scaleFruitThresholds(
@@ -675,12 +681,6 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
 
   const basePelletCount = id === "maze1" ? pelletCount : getLayout("maze1").pelletCount;
   const fruitThresholds = scaleFruitThresholds(pelletCount, basePelletCount);
-  const [feast1, feast2, feast3] = BASE_FEAST_FRUIT_SPAWN_THRESHOLDS;
-  const feastFruitThresholds = [
-    scaleCount(feast1, pelletCount, basePelletCount),
-    scaleCount(feast2, pelletCount, basePelletCount),
-    scaleCount(feast3, pelletCount, basePelletCount),
-  ] as const;
   const { elroy1DotsLeft, elroy2DotsLeft } = scaleElroyCutoffs(pelletCount, basePelletCount);
 
   return {
@@ -706,7 +706,6 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
     fruitSpawn,
     pelletCount,
     fruitThresholds,
-    feastFruitThresholds,
     inkyReleasePellets: scaleCount(BASE_INKY_RELEASE_PELLETS, pelletCount, basePelletCount),
     clydeReleasePellets: scaleCount(BASE_CLYDE_RELEASE_PELLETS, pelletCount, basePelletCount),
     elroy1DotsLeft,

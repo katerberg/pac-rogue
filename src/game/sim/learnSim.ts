@@ -29,6 +29,7 @@ import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   baseIdOf,
   hasUpgrade,
+  ghostTunnelSpeedRatio,
   pelletSurgeCount,
   speedBurstMultiplier,
   TUNNEL_DASH_SPEED_MUL,
@@ -232,6 +233,7 @@ export class LearnSim {
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+      tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
       speedSurge:
         this.runCorruption.ghostKind !== null && isSpeedSurgeActive(this.runCorruption)
           ? { ghostKind: this.runCorruption.ghostKind, mul: SPEED_SURGE_MUL }

@@ -40,3 +40,10 @@ export function removeAllFruit(world: World): number[] {
   }
   return removedEids;
 }
+
+export function fruitPositions(world: World): { x: number; y: number }[] {
+  return [...query(world, [Fruit, Position])].map((eid) => ({
+    x: Position.x[eid] ?? 0,
+    y: Position.y[eid] ?? 0,
+  }));
+}
