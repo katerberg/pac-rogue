@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { playTurnSparks } from "./turnSparks";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
 import { pelletDisplaySize, playerDisplaySize } from "../../domain/maze";
@@ -234,6 +235,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "bouncePowerPellet":
         this.playRender.bouncePowerPellet(event.eid);
+        break;
+      case "turnSparks":
+        playTurnSparks(this, event);
         break;
       case "banner":
         if (event.boss) {

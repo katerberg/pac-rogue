@@ -26,7 +26,8 @@ export type UpgradeId =
   | "passivePowerPelletRecharge"
   | "passiveRemoteTransference"
   | "passiveMyogenesis"
-  | "passiveDefyDeath";
+  | "passiveDefyDeath"
+  | "passiveTurnTuning";
 
 export type UpgradeDef = {
   id: UpgradeId;
@@ -258,6 +259,12 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
     description: "Eat a power pellet: die within 5s and keep your life.",
     storePrice: STORE_UPGRADE_PRICE,
     onPowerPellet: { defyDeathMs: DEFY_DEATH_MS },
+  },
+  {
+    id: "passiveTurnTuning",
+    label: "Turn Tuning",
+    description: "Tap turns up to two tiles early. Nail the beat for a speed kick.",
+    storePrice: STORE_UPGRADE_PRICE,
   },
 ];
 
