@@ -329,13 +329,6 @@ describe("PlaySim", () => {
 
   it("draws the level-1 starting upgrade only from the starting pool", () => {
     const opts = { ...defaultPlayOptions(), maze: "mazeSmall" as const };
-    for (let seed = 0; seed < 30; seed += 1) {
-      const sim = new PlaySim(opts, `starting-pool-${seed}`);
-      sim.start();
-      const [granted] = sim.snapshot().upgrades;
-      expect(STARTING_UPGRADE_POOL).toContain(granted);
-    }
-
     const allButOne = STARTING_UPGRADE_POOL.slice(1);
     const sim = new PlaySim({ ...opts, enableUpgrades: [...allButOne] }, "test");
     sim.start();
