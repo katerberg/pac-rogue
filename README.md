@@ -109,6 +109,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow
 - [.agents/skills/ship-plan/SKILL.md](./.agents/skills/ship-plan/SKILL.md) — `ship-plan`: verify, review, fix, push PR (cloud-safe)
+- [.agents/skills/new-upgrade/SKILL.md](./.agents/skills/new-upgrade/SKILL.md) — `new-upgrade`: pitch → question round → every touch point → probe → PR for a new run upgrade
 
 ## Status
 

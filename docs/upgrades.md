@@ -189,7 +189,9 @@ Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`, 8px so lab
 
 ## Adding an upgrade
 
-1. Add an `UpgradeId` and a row on `UPGRADE_DEFS` (label, description, + passives / `onPowerPellet` as needed).
+Use the [`new-upgrade` skill](../.agents/skills/new-upgrade/SKILL.md). It has the question bank, the full list of files every upgrade touches (ids, defs, `ALL_IDS`, `seenRecord` count, LEARN, docs, README), the live-check recipes and the merge-conflict playbook. In short:
+
+1. Add an `UpgradeId` and a row at the end of `UPGRADE_DEFS` (label, description, required `storePrice`, plus passives / `onPowerPellet` as needed).
 2. If the effect is already covered (speed mul or existing `onPowerPellet` fields), stop there.
-3. If it is a **new kind** of effect, extend the def shape and add one resolve site (domain helper + PlayScene/system call). Do not add a plugin bus.
-4. Document the new id in [README Flags](../README.md#flags) and the defs table above.
+3. If it is a **new kind** of effect, extend the def shape and add one resolve site (domain helper + `PlaySim` call). Do not add a plugin bus.
+4. Document the new id in [README Flags](../README.md#flags), the defs table above and the [LEARN fidelity table](./learn.md#upgrade-fidelity).
