@@ -48,6 +48,7 @@ import {
   wallPassLoopOwned,
   ghostTunnelSpeedRatio,
   pelletSurgeCount,
+  lazyLooperRings,
   speedBurstMultiplier,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
@@ -127,6 +128,7 @@ import {
   type TunnelDashAnimation,
 } from "../systems/tunnelDash";
 import type { SimEvent } from "./simEvents";
+import { tagOptionalPellets } from "../systems/lazyLooper";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 
 export type LearnOverlayModel = {
@@ -371,7 +373,7 @@ export class LearnSim {
     }
     this.applyRemoteTransferStep(removedEids.length);
     if (query(this.world, [Pellet]).length === 0) {
-      spawnBoardPellets(this.world);
+      this.spawnPellets();
       this.onBoardRefill();
     }
 
@@ -463,6 +465,9 @@ export class LearnSim {
     if (turningOn && baseIdOf(id) === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([id]));
     }
+    if (baseIdOf(id) === "passiveLazyLooper") {
+      this.tagOptionalPellets();
+    }
     return this.takeEvents();
   }
 
@@ -481,6 +486,9 @@ export class LearnSim {
     this.applyToggled(toggled);
     if (enhancing && baseId === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([nextId]) - pelletSurgeCount([current]));
+    }
+    if (baseId === "passiveLazyLooper") {
+      this.tagOptionalPellets();
     }
     return this.takeEvents();
   }
@@ -822,7 +830,16 @@ export class LearnSim {
       this.events.push({ type: "releaseDrawable", eid });
       removeEntity(this.world, eid);
     }
+    this.spawnPellets();
+  }
+
+  private spawnPellets(): void {
     spawnBoardPellets(this.world);
+    this.tagOptionalPellets();
+  }
+
+  private tagOptionalPellets(): void {
+    tagOptionalPellets(this.world, lazyLooperRings(this.learnUpgrades.owned));
   }
 
   private spawnFruitEntity(): void {

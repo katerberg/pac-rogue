@@ -1,4 +1,5 @@
 import { BONUS_BAR_MAX } from "./bonusBar";
+import type { LazyLooperRings } from "./lazyLooper";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE } from "./maze";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 
@@ -31,7 +32,8 @@ export type BaseUpgradeId =
   | "passiveDefyDeath"
   | "passiveTurnTuning"
   | "passiveDeathsBounty"
-  | "passiveMoneyTalks";
+  | "passiveMoneyTalks"
+  | "passiveLazyLooper";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -82,6 +84,7 @@ export type UpgradeEffects = {
   turnBoostMs?: number;
   turnPerfectPx?: number;
   deathQuarterCost?: number;
+  lazyLooperRings?: LazyLooperRings;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -560,6 +563,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       enhanceNote: "Money Talks costs 1 Quarter instead of 3.",
       description: "Die on your last life: pay 1 Quarter to keep it.",
       deathQuarterCost: MONEY_TALKS_ENHANCED_QUARTERS,
+    },
+  },
+  {
+    id: "passiveLazyLooper",
+    label: "Lazy Looper",
+    school: "speed",
+    description:
+      "Only the outer pellet ring and the pellets beside the ghost house clear the board.",
+    storePrice: STORE_UPGRADE_PRICE,
+    lazyLooperRings: "outerInner",
+    enhanced: {
+      enhanceNote: "Lazy Looper needs only the outer ring, not the pellets beside the ghost house.",
+      description: "Only the outer pellet ring must be eaten to clear the board.",
+      lazyLooperRings: "outer",
     },
   },
 ];
@@ -1144,6 +1161,10 @@ export function regenToFull(owned: readonly UpgradeId[]): boolean {
 
 export function pelletSurgeCount(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "pelletSurgeCount") ?? 0;
+}
+
+export function lazyLooperRings(owned: readonly UpgradeId[]): LazyLooperRings | null {
+  return ownedValue(owned, "lazyLooperRings") ?? null;
 }
 
 export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {

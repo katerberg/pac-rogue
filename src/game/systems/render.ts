@@ -24,6 +24,7 @@ import {
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { turnFlashPulse } from "../../domain/turnTuning";
+import { pelletTint } from "../../domain/lazyLooper";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
@@ -31,6 +32,7 @@ import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { GhostPhase } from "../components/GhostPhase";
+import { OptionalPellet } from "../components/OptionalPellet";
 import { DIRECTION, type Direction } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -402,6 +404,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
 
       go.setPosition(x, y);
+
+      if (id === PELLET_DRAWABLE_ID || id === POWER_PELLET_DRAWABLE_ID) {
+        const tint = pelletTint(hasComponent(world, eid, OptionalPellet));
+        if (tint === null) {
+          go.clearTint();
+        } else {
+          go.setTint(tint);
+        }
+      }
 
       if (id === BOSS_PELLET_DRAWABLE_ID) {
         go.setTint(bossPelletTint);
