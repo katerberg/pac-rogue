@@ -190,28 +190,42 @@ function tunnelKey(col: number, row: number): string {
   return `${col},${row}`;
 }
 
-// Returns the cells carved through wall to open the tunnel — the tunnel itself, as opposed
-// to the pre-existing interior corridor cell it merges into.
-function applyTunnels(
-  grid: string[][],
-  tunnelRows: readonly number[],
-): { col: number; row: number }[] {
+function applyTunnels(grid: string[][], tunnelRows: readonly number[]): void {
   const cols = grid[0]!.length;
-  const carved: { col: number; row: number }[] = [];
   for (const row of tunnelRows) {
     grid[row]![0] = CORRIDOR;
     grid[row]![cols - 1] = CORRIDOR;
-    carved.push({ col: 0, row }, { col: cols - 1, row });
     for (let col = 1; col < cols - 1; col += 1) {
       if (isWalkableChar(grid[row]![col]!)) {
         break;
       }
       grid[row]![col] = CORRIDOR;
       grid[row]![cols - 1 - col] = CORRIDOR;
-      carved.push({ col, row }, { col: cols - 1 - col, row });
     }
   }
-  return carved;
+}
+
+// The tunnel is the turn-free run from each mouth inward: the cells applyTunnels carved
+// plus any corridor stub it opened into, up to the first turn-off.
+function tunnelRunCells(
+  grid: string[][],
+  tunnelRows: readonly number[],
+): { col: number; row: number }[] {
+  const cols = grid[0]!.length;
+  const open = (col: number, row: number): boolean => {
+    const ch = grid[row]?.[col];
+    return ch !== undefined && isPlayerCorridorChar(ch);
+  };
+  const cells: { col: number; row: number }[] = [];
+  for (const row of tunnelRows) {
+    for (let col = 0; col < cols / 2; col += 1) {
+      if (!open(col, row) || open(col, row - 1) || open(col, row + 1)) {
+        break;
+      }
+      cells.push({ col, row }, { col: cols - 1 - col, row });
+    }
+  }
+  return cells;
 }
 
 function neighbors(
@@ -631,7 +645,7 @@ export function generateMazeAscii(
 
   const houseRows = new Set([...houseStampCells()].map((cell) => cell.row));
   const tunnelRows = pickTunnelRows(seed, houseRows, opts.tunnelCount);
-  const carvedTunnelCells = applyTunnels(grid, tunnelRows);
+  applyTunnels(grid, tunnelRows);
   sealDeadEnds(grid);
 
   const tunnels = countTunnels(grid);
@@ -643,8 +657,7 @@ export function generateMazeAscii(
     throw new MazeRejected(`tunnel count ${tunnels.length}`);
   }
 
-  const tunnelRowSet = new Set(tunnels);
-  const tunnelCellList = carvedTunnelCells.filter((cell) => tunnelRowSet.has(cell.row));
+  const tunnelCellList = tunnelRunCells(grid, tunnels);
   const tunnelCells = new Set(tunnelCellList.map(({ col, row }) => tunnelKey(col, row)));
 
   placePelletsAndSpawn(grid, tunnels, tunnelCells);

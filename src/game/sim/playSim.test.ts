@@ -299,6 +299,33 @@ describe("PlaySim", () => {
     }
   });
 
+  it("spawns no pellets in a generated board's tunnels, up to the first turn-off", () => {
+    for (let i = 0; i < 20; i += 1) {
+      const sim = startSim({ level: 2 }, `tunnel-${i}`);
+      const solids = getActiveLayout().playerSolids;
+      const open = (col: number, row: number): boolean => isWalkable(col, row, solids);
+      const tunnel = new Set<string>();
+      for (const row of horizontalTunnelRows()) {
+        for (const [start, step] of [
+          [0, 1],
+          [solids[row]!.length - 1, -1],
+        ] as const) {
+          for (
+            let col = start;
+            open(col, row) && !open(col, row - 1) && !open(col, row + 1);
+            col += step
+          ) {
+            tunnel.add(`${col},${row}`);
+          }
+        }
+      }
+      for (const eid of query(sim.world, [Pellet, Position])) {
+        const cell = `${worldToCol(Position.x[eid]!)},${worldToRow(Position.y[eid]!)}`;
+        expect(tunnel.has(cell), `seed tunnel-${i} pellet in tunnel at ${cell}`).toBe(false);
+      }
+    }
+  });
+
   it("collects pellets while the player moves", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
     const events = runFrames(sim, 60, { keys: held("left") });
