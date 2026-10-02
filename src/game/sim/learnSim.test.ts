@@ -312,6 +312,23 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
+  it("Money Talks pays Quarters to save the last life", () => {
+    const { sim, player } = setup("passiveMoneyTalksPlus");
+    eatFruit(sim, player);
+    runMs(sim, 1_100);
+    eatFruit(sim, player);
+    expect(sim.statusText()).toContain("QUARTERS 1");
+    catchByGhost(sim, player);
+    runMs(sim, 1_600);
+    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
+    runMs(sim, 1_600);
+    expect(popups(catchByGhost(sim, player))).toEqual(["SAVED\n-1 Q"]);
+    expect(sim.statusText()).toContain("LIVES 1");
+    expect(sim.statusText()).toContain("QUARTERS 0");
+    runMs(sim, 1_600);
+    expect(popups(catchByGhost(sim, player))).toEqual(["LIVES RESET"]);
+  });
+
   it("Myogenesis regains two lives when the board refills", () => {
     const { sim, player } = setup("passiveMyogenesis");
     catchByGhost(sim, player);

@@ -20,6 +20,13 @@ export type SimRenderOptions = {
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
 };
 
+export type MoneyTalksSpend = {
+  elapsedMs: number;
+  count: number;
+  paid: number;
+  quartersBefore: number;
+};
+
 export type SimEvent =
   | { type: "sfx"; id: SfxId }
   | { type: "pelletSfx"; previousCollected: number; removed: number; powerRemoved: number }
@@ -43,6 +50,7 @@ export type SimEvent =
   | { type: "banner"; text: string; boss: boolean }
   | { type: "lives"; pulse: boolean }
   | { type: "quarters" }
+  | { type: "walletCoins"; spend: MoneyTalksSpend | null }
   | { type: "bonus"; tier: number; filled: number }
   | { type: "timeBonus"; active: boolean }
   | { type: "upgrades" }
