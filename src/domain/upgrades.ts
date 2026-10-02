@@ -1,3 +1,4 @@
+import { BONUS_BAR_MAX } from "./bonusBar";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE } from "./maze";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 
@@ -29,6 +30,7 @@ export type BaseUpgradeId =
   | "passiveMyogenesis"
   | "passiveDefyDeath"
   | "passiveTurnTuning"
+  | "passiveDeathsBounty"
   | "passiveMoneyTalks";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -72,6 +74,7 @@ export type UpgradeEffects = {
   ghostHouseClydePelletAdd?: number;
   remoteTransferEveryPellets?: number;
   deathsHarvestRadiusTiles?: number;
+  deathsBountyDecay?: number;
   overchargeMul?: number;
   ghostTunnelSpeedRatio?: number;
   secondChompMs?: number;
@@ -138,6 +141,7 @@ export const STORE_UPGRADE_PRICE = 3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
+export const DEATHS_BOUNTY_DECAY = 0.8;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
 export const TUNNEL_DASH_SPEED_MUL = 10;
@@ -162,6 +166,7 @@ export const FRUIT_QUARTERS = 1;
 export const FRUIT_QUARTERS_ENHANCED = 2;
 export const FRUIT_FEAST_ENHANCED_THRESHOLDS = [45, 100, 150, 200] as const;
 export const DEATHS_HARVEST_ENHANCED_RADIUS_TILES = 10;
+export const DEATHS_BOUNTY_ENHANCED_DECAY = 0.9;
 export const OVERCHARGE_ENHANCED_MUL = 3;
 export const GHOST_TUNNEL_ENHANCED_SPEED_RATIO = 0.3;
 export const SECOND_CHOMP_ENHANCED_MS = 7000;
@@ -529,6 +534,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       description: "Tap turns early, wider beat, longer speed kick.",
       turnBoostMs: TURN_TUNING_ENHANCED_BOOST_MS,
       turnPerfectPx: TURN_TUNING_ENHANCED_PERFECT_PX,
+    },
+  },
+  {
+    id: "passiveDeathsBounty",
+    label: "Death's Bounty",
+    school: "death",
+    description: "Dying pays a Quarter, a little less for each death on a level.",
+    storePrice: STORE_UPGRADE_PRICE,
+    deathsBountyDecay: DEATHS_BOUNTY_DECAY,
+    enhanced: {
+      enhanceNote: "Death's Bounty drops 10% per extra death on a level instead of 20%.",
+      description: "Dying pays a Quarter, barely less for each death on a level.",
+      deathsBountyDecay: DEATHS_BOUNTY_ENHANCED_DECAY,
     },
   },
   {
@@ -1130,6 +1148,11 @@ export function pelletSurgeCount(owned: readonly UpgradeId[]): number {
 
 export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "deathsHarvestRadiusTiles") ?? DEATHS_HARVEST_RADIUS_TILES;
+}
+
+export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
+  const decay = ownedValue(owned, "deathsBountyDecay");
+  return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
 }
 
 export function overchargeMultiplier(owned: readonly UpgradeId[]): number {

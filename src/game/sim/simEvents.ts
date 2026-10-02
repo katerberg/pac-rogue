@@ -19,7 +19,12 @@ export type SimRenderOptions = {
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
 };
 
-export type MoneyTalksSpend = { elapsedMs: number; count: number; quartersBefore: number };
+export type MoneyTalksSpend = {
+  elapsedMs: number;
+  count: number;
+  paid: number;
+  quartersBefore: number;
+};
 
 export type SimEvent =
   | { type: "sfx"; id: SfxId }
@@ -59,6 +64,7 @@ export type SimEvent =
   | { type: "deathFade" }
   | { type: "endText"; title: "GAME OVER" | "RUN COMPLETE" }
   | { type: "goToMenu" }
+  | { type: "newGame" }
   | { type: "saveRun"; collected: number; remaining: number }
   | { type: "seenGhosts"; ghostKinds: GhostKindId[] }
   | { type: "seenUpgrades"; ids: UpgradeId[] };

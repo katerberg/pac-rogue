@@ -140,6 +140,7 @@ import {
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   clearUpgradeTimers,
+  deathsBountyCharge,
   defyDeathActive,
   confirmUpgradeChoice,
   createRunUpgrades,
@@ -150,8 +151,6 @@ import {
   moneyTalksCost,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
-  turnBoostMs,
-  turnPerfectPx,
   secondChompMs,
   lifeFloorBonus,
   hasUpgrade,
@@ -233,26 +232,13 @@ import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import {
-  CARDINAL_STEP,
-  KEY_FOR_DIRECTION,
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
-  freshKeys,
-  isPerpendicularTurn,
   type HeldKeys,
   type TurnTap,
 } from "../systems/heldKeys";
-import {
-  PERFECT_SPARK_COUNT,
-  TURN_FLASH_MS,
-  isCleanTap,
-  closeSparkCount,
-  turnFeedback,
-  type TurnFeedbackKind,
-  tickTurnTimer,
-  turnBoostMultiplier,
-} from "../../domain/turnTuning";
+import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { pelletAtCell } from "../systems/pelletAtCell";
@@ -261,7 +247,6 @@ import {
   clearPlayerDirectionInput,
   hasPlayerDirectionInput,
   playerFacing,
-  playerPose,
 } from "../systems/playerDirection";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
@@ -295,7 +280,9 @@ import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } f
 import type { SimInput } from "./simInput";
 
 export const LEVEL_TRANSITION_MS = 1000;
-export const RUN_COMPLETE_HOLD_MS = 2000;
+export const RUN_END_MENU_ARM_MS = 1000;
+
+export type RunEndChoice = "newGame" | "menu";
 
 export type PlayHud = {
   time: number;
@@ -323,6 +310,7 @@ export class PlaySim {
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private lifetimeCollected = 0;
   private remoteTransferCounter = 0;
+  private deathsThisBoard = 0;
   private quarters = 0;
   private bonus: BonusBar;
   private lastPlayerCell: Cell | null = null;
@@ -333,7 +321,7 @@ export class PlaySim {
   private bossMouths: BossTunnelMouth[] = [];
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
-  private runCompleteRemainingMs = 0;
+  private runCompleteElapsedMs: number | null = null;
   private fruitPresence: FruitPresence = createFruitPresence();
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private tunnelDashAnim: TunnelDashAnimation | null = null;
@@ -351,11 +339,7 @@ export class PlaySim {
   private lives = START_LIVES;
   private afterLifeRelease = false;
   private eatDragMs = 0;
-  private turnBoostMs = 0;
-  private turnFlashMs = 0;
-  private turnPerfectPending = false;
-  private simClockMs = 0;
-  private lastKeyPressMs: Partial<Record<keyof HeldKeys, number>> = {};
+  private readonly turnTuning = new TurnTuningState();
   private prevKeys: HeldKeys = NO_KEYS_HELD;
 
   constructor(options: PlayOptions, seed: string) {
@@ -424,6 +408,18 @@ export class PlaySim {
     return this.takeEvents();
   }
 
+  runEndMenuArmed(): boolean {
+    return this.runCompleteElapsedMs !== null && this.runCompleteElapsedMs >= RUN_END_MENU_ARM_MS;
+  }
+
+  chooseRunEnd(choice: RunEndChoice): SimEvent[] {
+    if (!this.runEndMenuArmed()) {
+      return [];
+    }
+    this.emit({ type: choice === "newGame" ? "newGame" : "goToMenu" });
+    return this.takeEvents();
+  }
+
   chooseUpgrade(chosen: UpgradeChoiceOption): SimEvent[] {
     this.events = [];
     const offer = this.pendingChoice;
@@ -483,7 +479,7 @@ export class PlaySim {
       wallPassActive: wallPassActive(this.runUpgrades),
       wallPassLoopActive:
         wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.runUpgrades.owned),
-      turnFlashRemainingMs: this.turnFlashMs,
+      turnFlashRemainingMs: this.turnTuning.flashMs,
       ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
@@ -505,6 +501,7 @@ export class PlaySim {
         max: BONUS_BAR_MAX,
         draining: this.timeBonusDrain !== null,
       },
+      deathsThisBoard: this.deathsThisBoard,
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
@@ -517,8 +514,8 @@ export class PlaySim {
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
         eatDragMs: this.eatDragMs,
-        turnBoostMs: this.turnBoostMs,
-        turnFlashMs: this.turnFlashMs,
+        turnBoostMs: this.turnTuning.boostMs,
+        turnFlashMs: this.turnTuning.flashMs,
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
       },
@@ -530,6 +527,8 @@ export class PlaySim {
           : reviveSplashProgress(this.reviveSplashElapsedMs),
       moneyTalksElapsedMs: this.moneyTalksSpend?.elapsedMs ?? null,
       levelTransition: this.levelTransitionRemainingMs > 0,
+      runComplete: this.runCompleteElapsedMs !== null,
+      runEndMenuArmed: this.runEndMenuArmed(),
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
       storeStock:
@@ -549,34 +548,10 @@ export class PlaySim {
     };
   }
 
-  private resetTurnTuning(): void {
-    this.turnBoostMs = 0;
-    this.turnFlashMs = 0;
-    this.turnPerfectPending = false;
-  }
-
-  private noteTurnKeys(keys: HeldKeys, tap: TurnTap | null): void {
-    if (tap !== null) {
-      const lastPress = this.lastKeyPressMs[KEY_FOR_DIRECTION[tap.direction]!];
-      const perfectPx = turnPerfectPx(this.runUpgrades.owned);
-      const feedback = turnFeedback(tap.aheadPx, isCleanTap(lastPress, this.simClockMs), perfectPx);
-      this.turnPerfectPending = feedback === "perfect";
-      if (feedback === "close") {
-        this.emitTurnSparks("close", closeSparkCount(tap.aheadPx, perfectPx));
-      }
+  private emitTurnSparks(bursts: readonly TurnSparksBurst[]): void {
+    for (const burst of bursts) {
+      this.emit({ type: "turnSparks", ...burst });
     }
-    for (const key of freshKeys(this.prevKeys, keys)) {
-      this.lastKeyPressMs[key] = this.simClockMs;
-    }
-  }
-
-  private emitTurnSparks(kind: TurnFeedbackKind, count: number): void {
-    const pose = playerPose(this.world);
-    if (pose === null) {
-      return;
-    }
-    const step = CARDINAL_STEP[pose.facing] ?? { dx: 0, dy: 0 };
-    this.emit({ type: "turnSparks", kind, x: pose.x, y: pose.y, dx: step.dx, dy: step.dy, count });
   }
 
   private emit(event: SimEvent): void {
@@ -628,11 +603,8 @@ export class PlaySim {
       return;
     }
 
-    if (this.runCompleteRemainingMs > 0) {
-      this.runCompleteRemainingMs = Math.max(0, this.runCompleteRemainingMs - delta);
-      if (this.runCompleteRemainingMs === 0) {
-        this.emit({ type: "goToMenu" });
-      }
+    if (this.runCompleteElapsedMs !== null) {
+      this.runCompleteElapsedMs += delta;
       return;
     }
 
@@ -670,12 +642,12 @@ export class PlaySim {
 
     if (this.pendingLevelClear) {
       this.pendingLevelClear = false;
-      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+      this.beginLevelTransition();
       return;
     }
 
     const diagonalAllowed = wallPassActive(this.runUpgrades);
-    const turnTuning =
+    const turnTuningOpts =
       !diagonalAllowed && hasUpgrade(this.runUpgrades.owned, "passiveTurnTuning")
         ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
         : undefined;
@@ -687,11 +659,22 @@ export class PlaySim {
         applyHeldKeys(this.world, input.keys, { diagonalAllowed });
       }
     } else if (!warping) {
-      turnTap = applyHeldKeys(this.world, input.keys, { diagonalAllowed, turnTuning });
+      turnTap = applyHeldKeys(this.world, input.keys, {
+        diagonalAllowed,
+        turnTuning: turnTuningOpts,
+      });
     }
-    this.simClockMs += delta;
-    if (turnTuning) {
-      this.noteTurnKeys(input.keys, turnTap);
+    if (turnTuningOpts) {
+      this.emitTurnSparks(
+        this.turnTuning.noteKeys(
+          this.world,
+          this.runUpgrades.owned,
+          this.prevKeys,
+          input.keys,
+          turnTap,
+          delta,
+        ),
+      );
     }
     const hasInput = hasPlayerDirectionInput(this.world);
 
@@ -740,15 +723,14 @@ export class PlaySim {
       this.spawnRespawnedPowerPellet(pos.x, pos.y);
     }
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
-    this.turnBoostMs = tickTurnTimer(this.turnBoostMs, delta);
-    this.turnFlashMs = tickTurnTimer(this.turnFlashMs, delta);
+    this.turnTuning.tick(delta);
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
     const playerSpeedMul =
       levelSpeedMul *
       playerSpeedMultiplier(this.runUpgrades.owned) *
       (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.runUpgrades.owned) : 1) *
       eatDragMultiplier(this.eatDragMs) *
-      turnBoostMultiplier(this.turnBoostMs, turnBoostMs(this.runUpgrades.owned)) *
+      this.turnTuning.speedMultiplier(this.runUpgrades.owned) *
       (warping ? 0 : 1);
     applyPlayerSpeed(this.world, playerSpeedMul);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
@@ -767,14 +749,14 @@ export class PlaySim {
     }
     const facingBeforeMove = playerFacing(this.world);
     movement(this.world, delta, playerSolidsOverride);
-    if (isPerpendicularTurn(facingBeforeMove, playerFacing(this.world))) {
-      if (this.turnPerfectPending) {
-        this.turnBoostMs = turnBoostMs(this.runUpgrades.owned);
-        this.turnFlashMs = TURN_FLASH_MS;
-        this.emitTurnSparks("perfect", PERFECT_SPARK_COUNT);
-      }
-      this.turnPerfectPending = false;
-    }
+    this.emitTurnSparks(
+      this.turnTuning.afterMove(
+        this.world,
+        this.runUpgrades.owned,
+        facingBeforeMove,
+        playerFacing(this.world),
+      ),
+    );
     if (this.tunnelDashAnim !== null) {
       this.tunnelDashAnim = tickTunnelDashAnimation(
         this.world,
@@ -1033,7 +1015,12 @@ export class PlaySim {
           ? resolveLastLifeSave(this.lives, this.quarters, moneyTalksCost(this.runUpgrades.owned))
           : null;
       if (bought?.saved === true) {
-        this.moneyTalksSpend = { elapsedMs: 0, count: bought.spend, quartersBefore: this.quarters };
+        this.moneyTalksSpend = {
+          elapsedMs: 0,
+          count: bought.spend,
+          paid: 0,
+          quartersBefore: this.quarters,
+        };
         this.tickMoneyTalks(0);
       }
       const saved = defied || bought?.saved === true;
@@ -1045,6 +1032,9 @@ export class PlaySim {
           : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.emit({ type: "lives", pulse: false });
+      if (!result.gameOver) {
+        this.payDeathsBounty();
+      }
       if (result.gameOver && !this.options.highScoresDisabled) {
         this.emit({
           type: "saveRun",
@@ -1074,6 +1064,13 @@ export class PlaySim {
     if (result.tier > 0 || result.filled > 0) {
       this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
     }
+  }
+
+  private payDeathsBounty(): void {
+    const charge = deathsBountyCharge(this.runUpgrades.owned, this.deathsThisBoard);
+    this.deathsThisBoard += 1;
+    const charged = addBonusCharge(this.bonus, charge);
+    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled });
   }
 
   private resetStreak(): void {
@@ -1115,7 +1112,7 @@ export class PlaySim {
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
-    this.resetTurnTuning();
+    this.turnTuning.reset();
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
     this.warpGlide = null;
@@ -1274,6 +1271,7 @@ export class PlaySim {
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
     this.resetStreak();
+    this.deathsThisBoard = 0;
     const boss = bossForLevel(this.levelIndex);
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
     if (selection.kind === "static") {
@@ -1462,9 +1460,16 @@ export class PlaySim {
     }
   }
 
+  private beginLevelTransition(): void {
+    const livesBeforeRegen = this.lives;
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
+    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
+    this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+  }
+
   private finishLevelClear(): void {
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
-      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+      this.beginLevelTransition();
       return;
     }
     const offer = pickUpgradeChoiceOffer(
@@ -1595,13 +1600,10 @@ export class PlaySim {
     this.levelIndex += 1;
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
-    this.resetTurnTuning();
+    this.turnTuning.reset();
 
     this.startBoard(null);
     this.emit({ type: "upgrades" });
-    const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
-    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     this.showLevelBanner();
     this.emit({ type: "musicAfterFanfare", id: "gameplayMusic" });
     this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
@@ -1656,11 +1658,7 @@ export class PlaySim {
       return;
     }
     spend.elapsedMs += delta;
-    const quarters = spend.quartersBefore - moneyTalksLaunchedCount(spend.elapsedMs, spend.count);
-    if (quarters !== this.quarters) {
-      this.quarters = quarters;
-      this.emit({ type: "quarters" });
-    }
+    this.payMoneyTalks(moneyTalksLaunchedCount(spend.elapsedMs, spend.count) - spend.paid);
     this.emit({ type: "walletCoins", spend: { ...spend } });
   }
 
@@ -1669,10 +1667,18 @@ export class PlaySim {
     if (spend === null) {
       return;
     }
+    this.payMoneyTalks(spend.count - spend.paid);
     this.moneyTalksSpend = null;
-    this.quarters = spend.quartersBefore - spend.count;
-    this.emit({ type: "quarters" });
     this.emit({ type: "walletCoins", spend: null });
+  }
+
+  private payMoneyTalks(coins: number): void {
+    if (this.moneyTalksSpend === null || coins <= 0) {
+      return;
+    }
+    this.moneyTalksSpend.paid += coins;
+    this.quarters -= coins;
+    this.emit({ type: "quarters" });
   }
 
   private tickReviveSplash(delta: number): void {
@@ -1690,7 +1696,7 @@ export class PlaySim {
   private beginRunComplete(): void {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "endText", title: "RUN COMPLETE" });
-    this.runCompleteRemainingMs = RUN_COMPLETE_HOLD_MS;
+    this.runCompleteElapsedMs = 0;
   }
 
   private resetAfterLifeLoss(): void {
@@ -1759,7 +1765,7 @@ export class PlaySim {
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
-    this.resetTurnTuning();
+    this.turnTuning.reset();
 
     this.clock = {
       ...this.clock,

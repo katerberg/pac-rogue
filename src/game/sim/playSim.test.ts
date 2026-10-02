@@ -39,7 +39,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
-import { PlaySim } from "./playSim";
+import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
 import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
@@ -611,6 +611,16 @@ describe("PlaySim", () => {
     expect(sim.snapshot().lives).toBe(endLives);
   });
 
+  it("regenerates the life when the level ends, before the store opens", () => {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
+    (sim as unknown as { lives: number }).lives = 1;
+    const pick = drainToOffer(sim).upgrades[0]!;
+    sim.chooseUpgrade({ kind: "upgrade", id: pick });
+    runUntil(sim, () => sim.snapshot().levelTransition, 60);
+    expect(sim.snapshot().level).toBe(2);
+    expect(sim.snapshot().lives).toBe(2);
+  });
+
   it("buys a life at the store", () => {
     const sim = startSim({ store: 1, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
@@ -666,7 +676,7 @@ describe("PlaySim", () => {
       const sim = moneySim({ enableUpgrades: ["passiveMoneyTalks"], quarters: 3 });
       const events = [...getCaught(sim), ...runUntil(sim, () => !sim.snapshot().dying, 240)];
       const coins = events.flatMap((e) => (e.type === "walletCoins" ? [e.spend] : []));
-      expect(coins[0]).toEqual({ elapsedMs: 0, count: 3, quartersBefore: 3 });
+      expect(coins[0]).toEqual({ elapsedMs: 0, count: 3, paid: 1, quartersBefore: 3 });
       expect(coins.at(-1)).toBeNull();
     });
 
@@ -714,6 +724,18 @@ describe("PlaySim", () => {
       getCaught(sim);
       runUntil(sim, () => !sim.snapshot().dying, 240);
       expect(sim.snapshot()).toMatchObject({ lives: 1, quarters: 3 });
+    });
+
+    it("keeps a Death's Bounty Quarter paid during the save", () => {
+      const sim = moneySim({
+        enableUpgrades: ["passiveMoneyTalks", "passiveDeathsBounty"],
+        quarters: 3,
+        bonus: 68,
+      });
+      const before = sim.snapshot().quarters;
+      getCaught(sim);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot()).toMatchObject({ lives: 1, quarters: before - 3 + 1 });
     });
 
     it("never spends Quarters with infiniteLives", () => {
@@ -1421,6 +1443,50 @@ describe("PlaySim level-end time bonus", () => {
   });
 });
 
+describe("PlaySim run complete menu", () => {
+  function startRunComplete(): PlaySim {
+    const sim = new PlaySim({ ...defaultPlayOptions(), jumpToUpgrade: true, level: 9 }, "run-end");
+    sim.start();
+    runUntil(sim, () => sim.snapshot().runComplete, 300);
+    return sim;
+  }
+
+  function armRunEndMenu(sim: PlaySim): void {
+    runUntil(
+      sim,
+      () => sim.snapshot().runEndMenuArmed,
+      Math.ceil(RUN_END_MENU_ARM_MS / FRAME_MS) + 1,
+    );
+  }
+
+  it("waits on the screen instead of returning to the menu", () => {
+    const sim = startRunComplete();
+    const events = runFrames(sim, 600);
+    expect(events.some((e) => e.type === "goToMenu")).toBe(false);
+    expect(sim.snapshot()).toMatchObject({ runComplete: true, runEndMenuArmed: true });
+  });
+
+  it("ignores choices until the menu arms", () => {
+    const sim = startRunComplete();
+    expect(sim.snapshot().runEndMenuArmed).toBe(false);
+    expect(sim.chooseRunEnd("menu")).toEqual([]);
+    armRunEndMenu(sim);
+    expect(sim.chooseRunEnd("menu")).toEqual([{ type: "goToMenu" }]);
+  });
+
+  it("starts a new game when chosen", () => {
+    const sim = startRunComplete();
+    armRunEndMenu(sim);
+    expect(sim.chooseRunEnd("newGame")).toEqual([{ type: "newGame" }]);
+  });
+
+  it("ignores choices before the run is complete", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    runFrames(sim, 120);
+    expect(sim.chooseRunEnd("menu")).toEqual([]);
+  });
+});
+
 describe("PlaySim Wall Pass+", () => {
   function startLooping(id: "powerPelletWallPass" | "powerPelletWallPassPlus"): PlaySim {
     const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
@@ -1789,6 +1855,107 @@ describe("PlaySim enhanced upgrades", () => {
     expect(harvested("passiveDeathsHarvestPlus")).toBeGreaterThan(
       harvested("passiveDeathsHarvest"),
     );
+  });
+});
+
+describe("Death's Bounty", () => {
+  function startBounty(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades, ...overrides });
+  }
+
+  function dieAndRespawn(sim: PlaySim): SimEvent[] {
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    return [...events, ...runUntil(sim, () => !sim.snapshot().dying, 240)];
+  }
+
+  function bountyTotals(id: UpgradeId, deaths: number): number[] {
+    const sim = startBounty([id], { bonus: 100 });
+    const totals: number[] = [];
+    for (let i = 0; i < deaths; i += 1) {
+      dieAndRespawn(sim);
+      const { quarters, bonus } = sim.snapshot();
+      totals.push(quarters * bonus.max + bonus.charge);
+    }
+    return totals;
+  }
+
+  it("pays a full bar on the first death, then 20% less per death compounding", () => {
+    expect(bountyTotals("passiveDeathsBounty", 3)).toEqual([400, 640, 832]);
+  });
+
+  it("decays only 10% per death when enhanced", () => {
+    expect(bountyTotals("passiveDeathsBountyPlus", 3)).toEqual([400, 670, 913]);
+  });
+
+  it("pays the Quarter through the bonus bar fill at the catch", () => {
+    const sim = startBounty(["passiveDeathsBounty"]);
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.snapshot().bonus.charge).toBe(0);
+  });
+
+  it("pays nothing when not owned", () => {
+    const sim = startBounty([], { bonus: 100 });
+    dieAndRespawn(sim);
+    expect(sim.snapshot().quarters).toBe(0);
+    expect(sim.snapshot().bonus.charge).toBe(100);
+  });
+
+  it("pays on a Defy Death save", () => {
+    const sim = startBounty(["passiveDeathsBounty", "passiveDefyDeath"], { infiniteLives: false });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const lives = sim.snapshot().lives;
+    dieAndRespawn(sim);
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().quarters).toBe(1);
+  });
+
+  it("pays nothing on the catch that ends the run", () => {
+    const sim = startBounty(["passiveDeathsBounty"], { infiniteLives: false });
+    sim["lives"] = 1;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().quarters).toBe(0);
+  });
+
+  it("pays nothing when Death's Harvest turns the catch into a level clear", () => {
+    const sim = startBounty(["passiveDeathsBounty", "passiveDeathsHarvest"]);
+    const eids = regularPelletEids(sim);
+    for (const eid of eids.slice(0, -1)) {
+      eatPelletAt(sim, eid);
+    }
+    const last = eids.at(-1)!;
+    const player = playerEid(sim);
+    Position.x[last] = Position.x[player]! + 2 * TILE_SIZE;
+    Position.y[last] = Position.y[player]!;
+    const quarters = sim.snapshot().quarters;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().quarters).toBe(quarters);
+    expect(sim.snapshot().deathsThisBoard).toBe(0);
+  });
+
+  it("restarts the decay on the next board", () => {
+    const sim = startBounty(["passiveDeathsBounty"]);
+    dieAndRespawn(sim);
+    expect(sim.snapshot().deathsThisBoard).toBe(1);
+    for (const eid of regularPelletEids(sim)) {
+      eatPelletAt(sim, eid);
+    }
+    const offer = drainToOffer(sim);
+    sim.chooseUpgrade({ kind: "quarters", amount: offer.quarters });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 300);
+    expect(sim.snapshot().deathsThisBoard).toBe(0);
+    const before = sim.snapshot().quarters;
+    dieAndRespawn(sim);
+    expect(sim.snapshot().quarters).toBe(before + 1);
   });
 });
 

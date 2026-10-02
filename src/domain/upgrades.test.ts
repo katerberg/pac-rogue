@@ -72,6 +72,7 @@ import {
   carryEnhancement,
   getUpgradeDef,
   remoteTransferEvery,
+  deathsBountyCharge,
   deathsHarvestRadiusTiles,
   enhanceGrantLives,
   enhanceUpgrade,
@@ -125,6 +126,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveMyogenesis",
   "passiveDefyDeath",
   "passiveTurnTuning",
+  "passiveDeathsBounty",
   "passiveMoneyTalks",
 ];
 
@@ -926,6 +928,13 @@ describe("enhanced upgrades", () => {
     expect(fruitPowerConvertsPellet(["fruitPowerPelletPlus"])).toBe(true);
     expect(wallPassLoopOwned(["powerPelletWallPassPlus"])).toBe(true);
     expect(wallPassLoopOwned(["powerPelletWallPass"])).toBe(false);
+  });
+
+  it("pays Death's Bounty as a full bar that decays per prior death on the level", () => {
+    const charges = (id: UpgradeId) => [0, 1, 2, 3, 4].map((n) => deathsBountyCharge([id], n));
+    expect(charges("passiveDeathsBounty")).toEqual([300, 240, 192, 153, 122]);
+    expect(charges("passiveDeathsBountyPlus")).toEqual([300, 270, 243, 218, 196]);
+    expect(deathsBountyCharge([], 0)).toBe(0);
   });
 
   it("applies enhanced power-pellet numbers", () => {
