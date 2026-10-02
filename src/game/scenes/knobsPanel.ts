@@ -16,13 +16,11 @@ import {
 } from "../../domain/tuningKnobs";
 import { colorToCssHex } from "../../domain/maze";
 
-export type KnobsPanelLayout = { offsetX: number; mazeBottomY: number };
-
-export type KnobsPanelOptions = {
+type KnobsPanelOptions = {
   canvas: HTMLCanvasElement;
   tuning: Tuning;
   level: number;
-  layout: () => KnobsPanelLayout;
+  layout: () => { offsetX: number; mazeBottomY: number };
   onChange: (tuning: Tuning) => void;
   onRestart: () => void;
   onReset: () => void;

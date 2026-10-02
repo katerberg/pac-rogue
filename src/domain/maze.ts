@@ -209,13 +209,12 @@ export function scaleToActiveLayout(count: number): number {
   return scaleCount(count, layout.pelletCount, basePelletCount);
 }
 
-export function scaleFruitThresholds(
+function scaleFruitThresholds(
   pelletCount: number,
   basePelletCount: number,
-  base: readonly [number, number] = BASE_FRUIT_SPAWN_THRESHOLDS,
 ): readonly [number, number] {
-  let first = scaleCount(base[0], pelletCount, basePelletCount);
-  let second = scaleCount(base[1], pelletCount, basePelletCount);
+  let first = scaleCount(BASE_FRUIT_SPAWN_THRESHOLDS[0], pelletCount, basePelletCount);
+  let second = scaleCount(BASE_FRUIT_SPAWN_THRESHOLDS[1], pelletCount, basePelletCount);
   if (second <= first) {
     second = Math.min(pelletCount - 1, first + 1);
   }

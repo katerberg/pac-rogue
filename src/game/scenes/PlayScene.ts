@@ -20,7 +20,6 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
-import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
@@ -226,7 +225,7 @@ export class PlayScene extends Phaser.Scene {
 
   private applyKnobTuning(tuning: Tuning): void {
     this.sim.setTuning(tuning);
-    this.playRender.setWallStyle(wallStyleFor(tuning, loadMazeColorSettings().colorIndex));
+    this.playRender.setWallStyle(wallStyleFor(tuning, 0));
   }
 
   private restartAtCurrentLevel(): void {

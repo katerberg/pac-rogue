@@ -11,7 +11,7 @@ export type WallStyle = {
   background: number;
 };
 
-export type GlowLayer = { width: number; alpha: number };
+type GlowLayer = { width: number; alpha: number };
 
 const GLOW_LAYER_COUNT = 4;
 const GLOW_MAX_ALPHA = 0.35;

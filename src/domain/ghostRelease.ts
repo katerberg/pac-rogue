@@ -1,5 +1,5 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
-import { getActiveLayout, scaleToActiveLayout } from "./maze";
+import { scaleToActiveLayout } from "./maze";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export const BLINKY_RELEASE_DELAY_MS = DEFAULT_TUNING.blinkyReleaseMs;
@@ -126,16 +126,13 @@ export function releaseDots(
         return 0;
     }
   }
-  const layout = getActiveLayout();
-  const level1Dots = (layoutValue: number, base: number): number =>
-    tuning === DEFAULT_TUNING ? layoutValue : scaleToActiveLayout(base);
   switch (kind) {
     case GHOST_KIND.inky:
-      return level <= 1 ? level1Dots(layout.inkyReleasePellets, tuning.inkyReleasePellets) : 0;
+      return level <= 1 ? scaleToActiveLayout(tuning.inkyReleasePellets) : 0;
     case GHOST_KIND.clyde:
       return (
         (level <= 1
-          ? level1Dots(layout.clydeReleasePellets, tuning.clydeReleasePellets)
+          ? scaleToActiveLayout(tuning.clydeReleasePellets)
           : level === 2
             ? tuning.level2ClydeDots
             : 0) + clydeAdd

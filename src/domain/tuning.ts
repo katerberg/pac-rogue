@@ -102,9 +102,9 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   backgroundColor: 0x1a1a2e,
 });
 
-export const TUNING_STORAGE_VERSION = 1;
+const TUNING_STORAGE_VERSION = 1;
 
-export type TuningOverrides = Partial<Record<TuningKey, number | boolean>>;
+type TuningOverrides = Partial<Record<TuningKey, number | boolean>>;
 
 function knobValue(knob: KnobDef, raw: unknown): number | boolean | null {
   if (knob.kind === "toggle") {
