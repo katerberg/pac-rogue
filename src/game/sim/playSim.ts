@@ -38,7 +38,7 @@ import {
   type DeathSequenceState,
 } from "../../domain/deathSequence";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
-import { moneyTalksLaunchedCount, resolveLastLifeSave } from "../../domain/moneyTalks";
+import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
 import {
   createFruitPresence,
   extendFruitLifetime,
@@ -1010,20 +1010,20 @@ export class PlaySim {
       }
       this.emit({ type: "loopStop", id: "gameplayMusic" });
       const defied = defyDeathActive(this.runUpgrades);
-      const bought =
-        !defied && !this.options.infiniteLives
-          ? resolveLastLifeSave(this.lives, this.quarters, moneyTalksCost(this.runUpgrades.owned))
-          : null;
-      if (bought?.saved === true) {
+      const boughtFor =
+        defied || this.options.infiniteLives
+          ? null
+          : lastLifeSaveCost(this.lives, this.quarters, moneyTalksCost(this.runUpgrades.owned));
+      if (boughtFor !== null) {
         this.moneyTalksSpend = {
           elapsedMs: 0,
-          count: bought.spend,
+          count: boughtFor,
           paid: 0,
           quartersBefore: this.quarters,
         };
         this.tickMoneyTalks(0);
       }
-      const saved = defied || bought?.saved === true;
+      const saved = defied || boughtFor !== null;
       this.reviveSplashPending = saved;
       this.emit({ type: "sfx", id: saved ? "revive" : "death" });
       const result =

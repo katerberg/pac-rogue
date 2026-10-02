@@ -13,15 +13,12 @@ const QUARTER_HUD_GAP = 4;
 export type Point = { x: number; y: number };
 export type CoinLook = Point & { size: number; alpha: number };
 
-export function resolveLastLifeSave(
+export function lastLifeSaveCost(
   lives: number,
   quarters: number,
   cost: number | null,
-): { saved: boolean; spend: number } {
-  if (cost === null || lives > 1 || quarters < cost) {
-    return { saved: false, spend: 0 };
-  }
-  return { saved: true, spend: cost };
+): number | null {
+  return cost !== null && lives <= 1 && quarters >= cost ? cost : null;
 }
 
 export function quarterHudIconPosition(index: number, size: number): Point {
@@ -56,13 +53,14 @@ export function moneyTalksCoinLook(
   elapsedMs: number,
   index: number,
   count: number,
-  from: Point,
+  quartersBefore: number,
   baseSize: number,
 ): CoinLook | null {
   const t = (elapsedMs - coinLaunchMs(index, count)) / coinFlyMs(count);
   if (t < 0 || t >= 1) {
     return null;
   }
+  const from = quarterHudIconPosition(quartersBefore - 1 - index, baseSize);
   const eased = 1 - (1 - t) ** 3;
   const endSize = PLAYFIELD_WIDTH * MONEY_TALKS_END_SIZE_FRAC;
   return {

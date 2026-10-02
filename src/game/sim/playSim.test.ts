@@ -641,7 +641,7 @@ describe("PlaySim", () => {
     }
 
     function toLastLife(sim: PlaySim): void {
-      while (sim.snapshot().lives > 1) {
+      for (let i = 0; i < 10 && sim.snapshot().lives > 1; i += 1) {
         getCaught(sim);
         runUntil(sim, () => !sim.snapshot().dying, 240);
       }

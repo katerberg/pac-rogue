@@ -571,13 +571,7 @@ export class PlayScene extends Phaser.Scene {
       const look =
         spend === null || i >= count
           ? null
-          : moneyTalksCoinLook(
-              spend.elapsedMs,
-              i,
-              count,
-              quarterHudIconPosition(spend.quartersBefore - 1 - i, size),
-              size,
-            );
+          : moneyTalksCoinLook(spend.elapsedMs, i, count, spend.quartersBefore, size);
       coin.setVisible(look !== null);
       if (look !== null) {
         coin.setPosition(look.x, look.y).setDisplaySize(look.size, look.size).setAlpha(look.alpha);
