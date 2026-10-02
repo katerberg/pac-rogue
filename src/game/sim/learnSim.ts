@@ -75,7 +75,9 @@ import {
 } from "../systems/ghostAi";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
-import { applyHeldKeys, type HeldKeys } from "../systems/heldKeys";
+import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../systems/heldKeys";
+import { playerFacing } from "../systems/playerDirection";
+import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -129,6 +131,8 @@ export class LearnSim {
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private fruitRespawnRemainingMs: number | null = null;
   private remoteTransferCounter = 0;
+  private readonly turnTuning = new TurnTuningState();
+  private prevKeys: HeldKeys = NO_KEYS_HELD;
 
   constructor(seed: string) {
     this.random = createRunRandom(seed);
@@ -191,9 +195,28 @@ export class LearnSim {
     }
     this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
     const warping = this.warpGlide !== null;
+    const diagonalAllowed = wallPassActive(this.learnUpgrades);
+    const turnTuningOpts =
+      !diagonalAllowed && hasUpgrade(this.learnUpgrades.owned, "passiveTurnTuning")
+        ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
+        : undefined;
+    let turnTap: TurnTap | null = null;
     if (!warping) {
-      applyHeldKeys(this.world, keys, { diagonalAllowed: wallPassActive(this.learnUpgrades) });
+      turnTap = applyHeldKeys(this.world, keys, { diagonalAllowed, turnTuning: turnTuningOpts });
     }
+    if (turnTuningOpts) {
+      this.pushTurnSparks(
+        this.turnTuning.noteKeys(
+          this.world,
+          this.learnUpgrades.owned,
+          this.prevKeys,
+          keys,
+          turnTap,
+          delta,
+        ),
+      );
+    }
+    this.prevKeys = keys;
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
@@ -205,6 +228,7 @@ export class LearnSim {
     this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
+    this.turnTuning.tick(delta);
 
     if (this.recallHoldRemainingMs > 0) {
       this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
@@ -223,6 +247,7 @@ export class LearnSim {
         (speedBurstActive(this.learnUpgrades)
           ? speedBurstMultiplier(this.learnUpgrades.owned)
           : 1) *
+        this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
         (warping ? 0 : 1),
     );
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
@@ -231,10 +256,19 @@ export class LearnSim {
       heldGhostEids: heldGhostEids(this.ghostCornerWarps),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
+    const facingBeforeMove = playerFacing(this.world);
     movement(
       this.world,
       delta,
       wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
+    );
+    this.pushTurnSparks(
+      this.turnTuning.afterMove(
+        this.world,
+        this.learnUpgrades.owned,
+        facingBeforeMove,
+        playerFacing(this.world),
+      ),
     );
 
     if (this.tunnelDashAnim !== null) {
@@ -299,6 +333,7 @@ export class LearnSim {
       options: {
         frozenGhostEid: frozenGhostEid(this.learnUpgrades),
         playerInvulnRemainingMs: this.learnUpgrades.invulnRemainingMs,
+        turnFlashRemainingMs: this.turnTuning.flashMs,
         wallPassActive: wallPassActive(this.learnUpgrades),
         wallPassLoopActive:
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
@@ -355,7 +390,7 @@ export class LearnSim {
     const toggled = turningOn
       ? grantUpgrade(this.learnUpgrades, id)
       : revokeUpgrade(this.learnUpgrades, id);
-    this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
+    this.applyToggled(toggled);
     if (turningOn && baseIdOf(id) === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([id]));
     }
@@ -374,7 +409,7 @@ export class LearnSim {
       ...this.learnUpgrades,
       owned: this.learnUpgrades.owned.map((id) => (id === current ? nextId : id)),
     };
-    this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
+    this.applyToggled(toggled);
     if (enhancing && baseId === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([nextId]) - pelletSurgeCount([current]));
     }
@@ -388,6 +423,19 @@ export class LearnSim {
         return;
       }
       this.events.push({ type: "bouncePowerPellet", eid });
+    }
+  }
+
+  private applyToggled(toggled: RunUpgrades): void {
+    this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
+    if (!hasUpgrade(toggled.owned, "passiveTurnTuning")) {
+      this.turnTuning.reset();
+    }
+  }
+
+  private pushTurnSparks(bursts: readonly TurnSparksBurst[]): void {
+    for (const burst of bursts) {
+      this.events.push({ type: "turnSparks", ...burst });
     }
   }
 
