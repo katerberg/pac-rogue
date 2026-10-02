@@ -268,6 +268,7 @@ export class RunRecorder {
       return;
     }
     level.cleared = true;
+    level.pace.p100 ??= { simMs: level.simMs, countdown };
     level.countdownEnd = countdown;
     level.timeBonusPoints = timeBonusPoints;
     if (this.lastPelletsStartMs !== null) {

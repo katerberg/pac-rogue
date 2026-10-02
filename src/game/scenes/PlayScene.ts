@@ -41,7 +41,7 @@ import { PlaySim } from "../sim/playSim";
 import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
 import { saveRun } from "../storage/runHistoryStorage";
-import { newRunLogMeta, relabelAbandoned, saveRunLog } from "../storage/runLogStorage";
+import { newRunLogMeta, saveRunLog } from "../storage/runLogStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
@@ -145,7 +145,6 @@ export class PlayScene extends Phaser.Scene {
     }
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
     const runLogMeta = newRunLogMeta(params);
-    relabelAbandoned(runLogMeta.id);
     this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning, runLogMeta);
     this.pausedAtMs = null;
     this.hiddenAtMs = null;

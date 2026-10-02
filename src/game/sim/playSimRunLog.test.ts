@@ -100,6 +100,21 @@ describe("PlaySim run log", () => {
     expect(sim.runLogRecord().loadout).toContainEqual({ id: pick, source: "offer", level: 2 });
   });
 
+  it("sets the 100% pace mark when a board clears with power pellets left", () => {
+    const { sim } = startSim({ level: 2, infiniteLives: true });
+    const regular = query(sim.world, [Pellet, Position]).filter(
+      (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+    );
+    for (const eid of regular) {
+      teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+      runFrames(sim, 1);
+    }
+    expect(query(sim.world, [PowerPellet]).length).toBeGreaterThan(0);
+    const level = sim.runLogRecord().levels[0]!;
+    expect(level.cleared).toBe(true);
+    expect(level.pace.p100).not.toBeNull();
+  });
+
   it("finishes as complete when the last level is cleared", () => {
     const { sim } = startSim({ jumpToUpgrade: true, level: 9 });
     const events = runUntil(sim, () => sim.snapshot().runComplete, 300);
@@ -184,6 +199,24 @@ describe("PlaySim run log", () => {
     const visit = sim.runLogRecord().storeVisits[0]!;
     expect(visit).toMatchObject({ quartersIn: 10, purchases: [{ kind: "life" }] });
     expect(visit.quartersOut).toBeLessThan(10);
+  });
+
+  it("records an enhancement as the base upgrade leaving and its Plus form arriving", () => {
+    const { sim } = startSim({
+      store: 1,
+      level: 5,
+      quarters: 10,
+      enableUpgrades: ["passiveGhostSlow"],
+    });
+    const slot = parseStoreSlots(STORE_MAZE_ASCII).find((cell) => cell.kind === "enhance")!;
+    teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
+    runFrames(sim, 1);
+    runFrames(sim, 1, { storeToggle: true });
+    runFrames(sim, 1, { storeConfirm: true });
+    expect(sim.runLogRecord().loadout).toEqual([
+      { id: "passiveGhostSlow", source: "flag", level: 5, removedLevel: 5 },
+      { id: "passiveGhostSlowPlus", source: "enhance", level: 5 },
+    ]);
   });
 
   it("adds paused and hidden time to the current level", () => {

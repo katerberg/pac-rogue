@@ -79,16 +79,14 @@ describe("runLogStorage", () => {
     expect(stored(store, "a").endedAt).toEqual(expect.any(String));
   });
 
-  it("relabels other in-progress runs as abandoned and leaves corrupt ones alone", () => {
+  it("relabels in-progress runs as abandoned and leaves finished and corrupt ones alone", () => {
     const store = installMemoryStorage();
     saveRunLog(recordWith("old"));
-    saveRunLog(recordWith("current"));
     saveRunLog(recordWith("done", "quit"));
-    store.set(RUN_LOG_INDEX_KEY, JSON.stringify(["old", "current", "done", "corrupt"]));
+    store.set(RUN_LOG_INDEX_KEY, JSON.stringify(["old", "done", "corrupt"]));
     store.set(`${RUN_LOG_RUN_KEY_PREFIX}corrupt`, "{oops");
-    relabelAbandoned("current");
+    relabelAbandoned();
     expect(stored(store, "old").outcome).toBe("abandoned");
-    expect(stored(store, "current").outcome).toBe("inProgress");
     expect(stored(store, "done").outcome).toBe("quit");
     expect(store.get(`${RUN_LOG_RUN_KEY_PREFIX}corrupt`)).toBe("{oops");
   });

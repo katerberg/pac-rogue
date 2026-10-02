@@ -89,16 +89,13 @@ export function saveRunLog(record: RunLogRecord): void {
   }
 }
 
-export function relabelAbandoned(exceptId: string | null): void {
+export function relabelAbandoned(): void {
   const storage = readStorage();
   if (storage === null) {
     return;
   }
   try {
     for (const id of loadIndex(storage)) {
-      if (id === exceptId) {
-        continue;
-      }
       const record = parseRunLogRecord(storage.getItem(runKey(id)));
       if (record?.outcome === "inProgress") {
         storage.setItem(runKey(id), JSON.stringify({ ...record, outcome: "abandoned" }));

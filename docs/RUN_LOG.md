@@ -27,13 +27,13 @@ Each save writes only its own run key (plus the index when the id is new). Stora
 
 ## Outcomes
 
-| Outcome      | Meaning                                                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------------------- |
-| `inProgress` | the run has not ended                                                                                     |
-| `death`      | game over                                                                                                 |
-| `complete`   | level 9 cleared                                                                                           |
-| `quit`       | `PlayScene` shut down mid-run                                                                             |
-| `abandoned`  | an `inProgress` run found when the next `PlayScene` or `MenuScene` starts (the tab died before finishing) |
+| Outcome      | Meaning                                                                         |
+| ------------ | ------------------------------------------------------------------------------- |
+| `inProgress` | the run has not ended                                                           |
+| `death`      | game over                                                                       |
+| `complete`   | level 9 cleared                                                                 |
+| `quit`       | `PlayScene` shut down mid-run                                                   |
+| `abandoned`  | an `inProgress` run found at the next page load (the tab died before finishing) |
 
 `endedAt` is stamped by storage when the outcome first leaves `inProgress`; abandoned runs keep `endedAt: null`.
 
@@ -63,7 +63,7 @@ Times are sim ms since the level started (pauses and the store do not count).
 | `cleared`, `simMs`                   | whether the board was cleared; time played on it                                                                                                                                                                         |
 | `firstMoveMs`                        | first frame with direction input                                                                                                                                                                                         |
 | `pelletsCollected`                   | pellets eaten on this board                                                                                                                                                                                              |
-| `pace.p25…p100`                      | `{ simMs, countdown }` when 25/50/75/100% of the board's pellets were gone                                                                                                                                               |
+| `pace.p25…p100`                      | `{ simMs, countdown }` when 25/50/75/100% of the board's pellets were gone; `p100` is also set at the clear, which can leave power pellets behind                                                                        |
 | `lastPelletsMs`                      | time from ≤10 pellets left to the clear                                                                                                                                                                                  |
 | `livesStart`, `livesEnd`, `livesMax` | lives at board start, after the level-end regen, and the most held                                                                                                                                                       |
 | `livesRegenerated`                   | lives the level-end regen added                                                                                                                                                                                          |

@@ -3,9 +3,10 @@ import { parseRunLogFillFlag } from "./domain/runLogFillFlag";
 import { isAgentPort } from "./domain/soundFlag";
 import { installDebugHook } from "./game/scenes/installDebugHook";
 import { gameConfig } from "./game/config";
-import { fillSyntheticRuns } from "./game/storage/runLogStorage";
+import { fillSyntheticRuns, relabelAbandoned } from "./game/storage/runLogStorage";
 import "./styles.css";
 
+relabelAbandoned();
 const runLogFill = parseRunLogFillFlag(new URLSearchParams(location.search));
 if (runLogFill !== null && isAgentPort(location.port)) {
   fillSyntheticRuns(runLogFill);
