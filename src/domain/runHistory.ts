@@ -28,6 +28,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "store",
   "ghosts",
   "bossGhosts",
+  "knobs",
 ] as const;
 
 export function highScoresDisabled(params: URLSearchParams): boolean {

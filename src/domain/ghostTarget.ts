@@ -4,14 +4,15 @@ import { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 import { GHOST_DIR, type GhostDir } from "./ghostPath";
 import { leavingHouseTarget } from "./ghostHouseLeave";
 import { getActiveLayout } from "./maze";
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export { GHOST_PHASE, type GhostPhaseValue } from "./ghostPhase";
 
-export const PINKY_LOOKAHEAD_TILES = 4;
+export const PINKY_LOOKAHEAD_TILES = DEFAULT_TUNING.pinkyLookahead;
 
-export const CLYDE_SHY_TILES = 8;
+export const CLYDE_SHY_TILES = DEFAULT_TUNING.clydeShyTiles;
 
-export const INKY_LOOKAHEAD_TILES = 2;
+export const INKY_LOOKAHEAD_TILES = DEFAULT_TUNING.inkyLookahead;
 
 export type GhostTarget = {
   col: number;
@@ -65,12 +66,13 @@ export function blinkyTarget(args: {
   playerRow: number;
   ghostCol?: number;
   ghostRow?: number;
+  tuning?: Tuning;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
     return leavingHouseTarget(args.ghostCol ?? args.playerCol, args.ghostRow ?? args.playerRow);
   }
 
-  const tier: ElroyTier = elroyTier(args.pelletsRemaining);
+  const tier: ElroyTier = elroyTier(args.pelletsRemaining, args.tuning);
   if (args.mode === GHOST_AI_MODE.chase || tier !== ELROY_TIER.none) {
     return { col: args.playerCol, row: args.playerRow };
   }
@@ -86,6 +88,7 @@ export function pinkyTarget(args: {
   playerFacing: GhostDir;
   ghostCol?: number;
   ghostRow?: number;
+  tuning?: Tuning;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
     return leavingHouseTarget(args.ghostCol ?? args.playerCol, args.ghostRow ?? args.playerRow);
@@ -95,7 +98,8 @@ export function pinkyTarget(args: {
     return pinkyScatterTarget();
   }
 
-  return lookAheadTile(args.playerCol, args.playerRow, args.playerFacing, PINKY_LOOKAHEAD_TILES);
+  const tiles = (args.tuning ?? DEFAULT_TUNING).pinkyLookahead;
+  return lookAheadTile(args.playerCol, args.playerRow, args.playerFacing, tiles);
 }
 
 export function clydeTarget(args: {
@@ -105,6 +109,7 @@ export function clydeTarget(args: {
   playerRow: number;
   ghostCol: number;
   ghostRow: number;
+  tuning?: Tuning;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
     return leavingHouseTarget(args.ghostCol, args.ghostRow);
@@ -117,7 +122,7 @@ export function clydeTarget(args: {
   const dx = args.ghostCol - args.playerCol;
   const dy = args.ghostRow - args.playerRow;
   const distance = Math.hypot(dx, dy);
-  if (distance < CLYDE_SHY_TILES) {
+  if (distance < (args.tuning ?? DEFAULT_TUNING).clydeShyTiles) {
     return clydeScatterTarget();
   }
   return { col: args.playerCol, row: args.playerRow };
@@ -133,6 +138,7 @@ export function inkyTarget(args: {
   blinkyRow: number;
   ghostCol?: number;
   ghostRow?: number;
+  tuning?: Tuning;
 }): GhostTarget {
   if (args.phase === GHOST_PHASE.leaving) {
     return leavingHouseTarget(args.ghostCol ?? args.playerCol, args.ghostRow ?? args.playerRow);
@@ -146,7 +152,7 @@ export function inkyTarget(args: {
     args.playerCol,
     args.playerRow,
     args.playerFacing,
-    INKY_LOOKAHEAD_TILES,
+    (args.tuning ?? DEFAULT_TUNING).inkyLookahead,
   );
   return {
     col: 2 * pivot.col - args.blinkyCol,

@@ -20,6 +20,7 @@ import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
+import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
   frozenGhostEid,
@@ -2118,5 +2119,79 @@ describe("Lazy Looper", () => {
     expect(boss.length).toBeGreaterThan(0);
     expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);
     expect(boss.every((eid) => !hasComponent(sim.world, eid, OptionalPellet))).toBe(true);
+  });
+});
+
+describe("debug tuning", () => {
+  function startTuned(tuning: Partial<Tuning>, overrides: Partial<PlayOptions> = {}): PlaySim {
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), level: 2, maze: "maze1", godMode: true, ...overrides },
+      "test",
+      resolveTuning(tuning),
+    );
+    sim.start();
+    return sim;
+  }
+
+  function corridorTravel(sim: PlaySim, frames: number): number {
+    const eid = playerEid(sim);
+    for (const pellet of query(sim.world, [Pellet, Position])) {
+      if (worldToRow(Position.y[pellet]!) === 1) {
+        removeEntity(sim.world, pellet);
+      }
+    }
+    teleportPlayer(sim, cellCenterX(12), cellCenterY(1));
+    runFrames(sim, 1, { keys: held("left") });
+    const startX = Position.x[eid]!;
+    runFrames(sim, frames, { keys: held("left") });
+    return startX - Position.x[eid]!;
+  }
+
+  it("reports default tuning and knobs off unless given", () => {
+    const sim = startSim({});
+    expect(sim.snapshot().knobs).toBe(false);
+    expect(sim.snapshot().tuning).toBe(DEFAULT_TUNING);
+  });
+
+  it("starts the timer at timerMax", () => {
+    const sim = startTuned({ timerMax: 50 });
+    expect(sim.snapshot().timeRemaining).toBe(50);
+  });
+
+  it("moves Maze-Man at the tuned player speed", () => {
+    const fast = corridorTravel(startTuned({ playerSpeedTiles: 14 }), 20);
+    const normal = corridorTravel(startTuned({}), 20);
+    expect(fast).toBeCloseTo(normal * (14 / DEFAULT_TUNING.playerSpeedTiles), 0);
+  });
+
+  it("applies setTuning on the next step", () => {
+    const sim = startTuned({});
+    const before = corridorTravel(sim, 10);
+    sim.setTuning(resolveTuning({ playerSpeedTiles: 14 }));
+    const after = corridorTravel(sim, 10);
+    expect(after).toBeGreaterThan(before * 1.5);
+  });
+
+  it("resumes from a death sooner with a shorter death hold", () => {
+    const framesToResume = (tuning: Partial<Tuning>): number => {
+      const sim = startTuned(tuning, { godMode: false });
+      runFrames(sim, 20, { keys: held("left") });
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+      let frames = 0;
+      runUntil(
+        sim,
+        () => {
+          frames += 1;
+          return !sim.snapshot().dying;
+        },
+        600,
+      );
+      return frames;
+    };
+    expect(framesToResume({ deathHoldMs: 100, readyPauseMs: 100 })).toBeLessThan(
+      framesToResume({}) - 60,
+    );
   });
 });

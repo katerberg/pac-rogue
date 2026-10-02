@@ -1,3 +1,4 @@
+import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { hasComponent, query, type World } from "bitecs";
 import { corridorOccupied } from "../../domain/bossGhostBlocking";
 import {
@@ -67,10 +68,11 @@ function blinkyTile(world: World): { col: number; row: number } {
 export type GhostAiContext = {
   player: { col: number; row: number; facing: GhostDir };
   blinky: { col: number; row: number };
+  tuning?: Tuning;
 };
 
-export function ghostAiContext(world: World): GhostAiContext {
-  return { player: playerTileAndFacing(world), blinky: blinkyTile(world) };
+export function ghostAiContext(world: World, tuning: Tuning = DEFAULT_TUNING): GhostAiContext {
+  return { player: playerTileAndFacing(world), blinky: blinkyTile(world), tuning };
 }
 
 export function resolveGhostTarget(
@@ -83,7 +85,7 @@ export function resolveGhostTarget(
   const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
   const col = worldToCol(Position.x[eid] ?? 0);
   const row = worldToRow(Position.y[eid] ?? 0);
-  const { player, blinky } = ctx;
+  const { player, blinky, tuning } = ctx;
 
   if (kind === GHOST_KIND.pinky) {
     return pinkyTarget({
@@ -94,6 +96,7 @@ export function resolveGhostTarget(
       playerFacing: player.facing,
       ghostCol: col,
       ghostRow: row,
+      tuning,
     });
   }
   if (kind === GHOST_KIND.inky) {
@@ -107,6 +110,7 @@ export function resolveGhostTarget(
       blinkyRow: blinky.row,
       ghostCol: col,
       ghostRow: row,
+      tuning,
     });
   }
   if (kind === GHOST_KIND.clyde) {
@@ -117,6 +121,7 @@ export function resolveGhostTarget(
       playerRow: player.row,
       ghostCol: col,
       ghostRow: row,
+      tuning,
     });
   }
   return blinkyTarget({
@@ -127,6 +132,7 @@ export function resolveGhostTarget(
     playerRow: player.row,
     ghostCol: col,
     ghostRow: row,
+    tuning,
   });
 }
 
@@ -155,8 +161,13 @@ function bossAwareCanEnter(
   return (px, py, dx, dy) => rules.canEnter(px, py, dx, dy) && !blocked(dx, dy);
 }
 
-export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: number): void {
-  const ctx = ghostAiContext(world);
+export function ghostAi(
+  world: World,
+  mode: GhostAiMode,
+  pelletsRemaining: number,
+  tuning: Tuning = DEFAULT_TUNING,
+): void {
+  const ctx = ghostAiContext(world, tuning);
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;

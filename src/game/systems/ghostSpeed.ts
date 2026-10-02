@@ -1,11 +1,12 @@
 import { hasComponent, query, type World } from "bitecs";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import {
-  GHOST_TUNNEL_SPEED,
+  ghostTunnelSpeed,
   resolveBossGhostSpeed,
   resolveGhostSpeedForKind,
 } from "../../domain/ghostSpeed";
-import { PLAYER_SPEED } from "../../domain/playfield";
+import { playerSpeed } from "../../domain/playfield";
+import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { isGhostTunnelSlow, worldToCol, worldToRow } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
@@ -20,6 +21,7 @@ export type GhostSpeedOptions = {
   frozenGhostEid?: number | null;
   heldGhostEids?: ReadonlySet<number>;
   tunnelSpeedRatio?: number | null;
+  tuning?: Tuning;
 };
 
 export function applyGhostSpeed(
@@ -30,8 +32,11 @@ export function applyGhostSpeed(
 ): void {
   const ghostSpeedMul = options.ghostSpeedMul ?? 1;
   const frozenEid = options.frozenGhostEid ?? null;
+  const tuning = options.tuning ?? DEFAULT_TUNING;
   const tunnelSpeed =
-    options.tunnelSpeedRatio == null ? GHOST_TUNNEL_SPEED : PLAYER_SPEED * options.tunnelSpeedRatio;
+    options.tunnelSpeedRatio == null
+      ? ghostTunnelSpeed(tuning)
+      : playerSpeed(tuning) * options.tunnelSpeedRatio;
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Speed])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
@@ -49,7 +54,7 @@ export function applyGhostSpeed(
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
     const inTunnel = isGhostTunnelSlow(col, row);
     const base = hasComponent(world, eid, BossGhost)
-      ? resolveBossGhostSpeed(inTunnel, tunnelSpeed)
+      ? resolveBossGhostSpeed(inTunnel, tunnelSpeed, tuning)
       : resolveGhostSpeedForKind(
           kind,
           pelletsRemaining,
@@ -57,6 +62,7 @@ export function applyGhostSpeed(
           levelIndex,
           phase === GHOST_PHASE.leaving,
           tunnelSpeed,
+          tuning,
         );
     Speed.px[eid] = base * ghostSpeedMul;
   }

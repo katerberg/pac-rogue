@@ -9,8 +9,12 @@ import {
   type GhostReleaseClock,
 } from "./ghostRelease";
 
-function remainingTimeMs(kind: GhostKindId, clock: GhostReleaseClock, delayAddMs: number): number {
-  const delay = releaseDelayMs(kind, delayAddMs);
+function remainingTimeMs(
+  kind: GhostKindId,
+  clock: GhostReleaseClock,
+  adds: GhostReleaseAdds,
+): number {
+  const delay = releaseDelayMs(kind, adds.delayAddMs ?? 0, adds.tuning);
   return clock.started ? Math.max(0, delay - clock.elapsedMs) : delay;
 }
 
@@ -34,10 +38,9 @@ export function compareInHouseReleaseOrder(
     return aTimed ? -1 : 1;
   }
   const byGate = aTimed
-    ? remainingTimeMs(a, clock, adds.delayAddMs ?? 0) -
-      remainingTimeMs(b, clock, adds.delayAddMs ?? 0)
-    : releaseDots(a, clock.level, afterLifeRelease, adds.clydePelletAdd) -
-      releaseDots(b, clock.level, afterLifeRelease, adds.clydePelletAdd);
+    ? remainingTimeMs(a, clock, adds) - remainingTimeMs(b, clock, adds)
+    : releaseDots(a, clock.level, afterLifeRelease, adds.clydePelletAdd, adds.tuning) -
+      releaseDots(b, clock.level, afterLifeRelease, adds.clydePelletAdd, adds.tuning);
   if (byGate !== 0) {
     return byGate;
   }

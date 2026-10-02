@@ -1,5 +1,8 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import type { GhostModeWave } from "./ghostMode";
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
+
+export { ghostBaseSpeedRatio, speedLevelMultiplier } from "./tuning";
 
 export const MAX_LEVEL = 9;
 
@@ -7,32 +10,34 @@ const CHASE_ONLY_WAVES: readonly GhostModeWave[] = [
   { mode: 1, durationMs: Number.POSITIVE_INFINITY },
 ];
 
-function arcadeWaves(openingScatterMs: number, laterScatterMs: number): readonly GhostModeWave[] {
+function arcadeWaves(
+  openingScatterMs: number,
+  laterScatterMs: number,
+  chaseMs: number,
+): readonly GhostModeWave[] {
   return [
     { mode: 0, durationMs: openingScatterMs },
-    { mode: 1, durationMs: 20_000 },
+    { mode: 1, durationMs: chaseMs },
     { mode: 0, durationMs: openingScatterMs },
-    { mode: 1, durationMs: 20_000 },
+    { mode: 1, durationMs: chaseMs },
     { mode: 0, durationMs: laterScatterMs },
     { mode: 1, durationMs: Number.POSITIVE_INFINITY },
   ];
 }
 
-const LEVEL_2_TO_4_WAVES = arcadeWaves(7_000, 5_000);
-const LEVEL_5_PLUS_WAVES = arcadeWaves(5_000, 5_000);
+const DEFAULT_EARLY_WAVES = arcadeWaves(
+  DEFAULT_TUNING.scatterEarlyMs,
+  DEFAULT_TUNING.scatterLateMs,
+  DEFAULT_TUNING.chaseMs,
+);
+const DEFAULT_LATE_WAVES = arcadeWaves(
+  DEFAULT_TUNING.scatterLateMs,
+  DEFAULT_TUNING.scatterLateMs,
+  DEFAULT_TUNING.chaseMs,
+);
 
 export function offersUpgradeAfterLevel(levelIndex: number): boolean {
   return levelIndex > 1 && levelIndex < MAX_LEVEL;
-}
-
-export function speedLevelMultiplier(levelIndex: number): number {
-  const level = Math.max(1, levelIndex);
-  return 1 + 0.05 * (level - 1);
-}
-
-export function ghostBaseSpeedRatio(levelIndex: number): number {
-  const level = Math.max(1, levelIndex);
-  return Math.min(1, 0.8 + 0.05 * (level - 1));
 }
 
 export function ghostKindsForLevel(
@@ -51,12 +56,20 @@ export function ghostKindsForLevel(
   return [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde];
 }
 
-export function ghostModeWavesForLevel(levelIndex: number): readonly GhostModeWave[] {
+export function ghostModeWavesForLevel(
+  levelIndex: number,
+  tuning: Tuning = DEFAULT_TUNING,
+): readonly GhostModeWave[] {
   const level = Math.max(1, levelIndex);
-  if (level <= 1) {
+  if (level <= 1 && tuning.level1ChaseOnly) {
     return CHASE_ONLY_WAVES;
   }
-  return level <= 4 ? LEVEL_2_TO_4_WAVES : LEVEL_5_PLUS_WAVES;
+  const late = level > 4;
+  if (tuning === DEFAULT_TUNING) {
+    return late ? DEFAULT_LATE_WAVES : DEFAULT_EARLY_WAVES;
+  }
+  const opening = late ? tuning.scatterLateMs : tuning.scatterEarlyMs;
+  return arcadeWaves(opening, tuning.scatterLateMs, tuning.chaseMs);
 }
 
 export function isInvertedMazeLevel(levelIndex: number): boolean {

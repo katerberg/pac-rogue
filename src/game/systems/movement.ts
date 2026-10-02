@@ -132,6 +132,7 @@ export function movement(
   deltaMs: number,
   playerSolidsOverride?: SolidGrid,
   playerStopOnRelease = false,
+  playerPreTurn: number = playerPreTurnPx(),
 ): void {
   const dt = deltaMs / 1000;
   const playerSolids = playerSolidsOverride ?? getActiveLayout().playerSolids;
@@ -238,7 +239,7 @@ export function movement(
           facing = nextIntent;
         }
       } else {
-        const preTurnPx = ghost ? TURN_ALIGN_EPS : playerPreTurnPx();
+        const preTurnPx = ghost ? TURN_ALIGN_EPS : playerPreTurn;
         const committed = tryCommitCenterTurn(x, y, facing, frameTravel, speed, preTurnPx, !ghost);
         if (committed) {
           x = committed.x;

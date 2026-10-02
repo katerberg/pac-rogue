@@ -13,7 +13,16 @@ import {
 import { playTurnSparks } from "./turnSparks";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
-import { pelletDisplaySize, playerDisplaySize } from "../../domain/maze";
+import {
+  MAZE_OFFSET_X,
+  MAZE_OFFSET_Y,
+  MAZE_PIXEL_HEIGHT,
+  pelletDisplaySize,
+  playerDisplaySize,
+} from "../../domain/maze";
+import { loadMazeColorSettings } from "../storage/mazeColorStorage";
+import { wallStyleFor } from "../../domain/wallStyle";
+import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
 import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -31,6 +40,7 @@ import {
 } from "../audio/sfx";
 import { PlaySim } from "../sim/playSim";
 import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
+import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
 import { saveRun } from "../storage/runHistoryStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -50,6 +60,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
@@ -78,6 +89,8 @@ const CHROME_SHAKE_OFFSETS: readonly (readonly [number, number])[] = [
   [0, 0],
 ];
 
+type PlaySceneData = { restartLevel?: number; seed?: string };
+
 export class PlayScene extends Phaser.Scene {
   private sim!: PlaySim;
   private readHeldKeys!: () => HeldKeys;
@@ -85,6 +98,8 @@ export class PlayScene extends Phaser.Scene {
   private storeOverlay: StoreOverlay | null = null;
   private storeChoice: "yes" | "no" | null = null;
   private chrome!: Phaser.GameObjects.Container;
+  private sideHud!: Phaser.GameObjects.Container;
+  private knobsPanel: KnobsPanel | null = null;
   private chromeShake: Phaser.Time.TimerEvent | null = null;
   private bonusGfx!: Phaser.GameObjects.Graphics;
   private barFx!: BarFxState;
@@ -111,7 +126,7 @@ export class PlayScene extends Phaser.Scene {
     preloadSfx(this);
   }
 
-  create(): void {
+  create(data: PlaySceneData = {}): void {
     stopLoopingSfx(this, "menuMusic");
     this.clearLevelBanner();
 
@@ -119,7 +134,13 @@ export class PlayScene extends Phaser.Scene {
     for (const warning of warnings) {
       console.warn(warning);
     }
-    this.sim = new PlaySim(options, options.seed ?? freshSeed());
+    if (data.restartLevel !== undefined) {
+      options.level = data.restartLevel;
+      options.jumpToUpgrade = false;
+      options.store = null;
+    }
+    const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
+    this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning);
 
     this.upgradeChoiceModal?.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.sim.random.stream("upgradeFx"));
@@ -129,6 +150,8 @@ export class PlayScene extends Phaser.Scene {
     this.runEndMenu = null;
 
     this.chrome = this.add.container(0, 0).setDepth(10);
+    this.sideHud = this.add.container(0, 0).setVisible(!options.knobs);
+    this.chrome.add(this.sideHud);
     this.chromeShake = null;
     this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
@@ -145,7 +168,8 @@ export class PlayScene extends Phaser.Scene {
     placePixelText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
     this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
     this.barFx = createBarFx(this.sim.hud().bonusCharge);
-    this.chrome.add([this.timerText, this.upgradesText, bonusLabel, this.bonusGfx]);
+    this.sideHud.add([this.timerText, this.upgradesText]);
+    this.chrome.add([bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
     this.quarterIcons = [];
     this.walletCoins = [];
@@ -162,6 +186,9 @@ export class PlayScene extends Phaser.Scene {
       this.input.keyboard!.addKey(code),
     );
     this.playRender = createRender(this);
+    if (options.knobs) {
+      this.openKnobsPanel(tuning);
+    }
 
     this.applyEvents(this.sim.start(), 0);
 
@@ -173,7 +200,41 @@ export class PlayScene extends Phaser.Scene {
       this.startingUpgradeCard.destroy();
       this.closeStoreUi();
       this.clearLevelBanner();
+      this.knobsPanel?.destroy();
+      this.knobsPanel = null;
     });
+  }
+
+  private openKnobsPanel(tuning: Tuning): void {
+    this.applyKnobTuning(tuning);
+    this.knobsPanel = createKnobsPanel({
+      canvas: this.game.canvas,
+      tuning,
+      level: this.sim.currentLevel(),
+      layout: () => ({ offsetX: MAZE_OFFSET_X, mazeBottomY: MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT }),
+      onChange: (next) => {
+        this.applyKnobTuning(next);
+        saveDebugTuning(next);
+      },
+      onRestart: () => this.restartAtCurrentLevel(),
+      onReset: () => {
+        clearDebugTuning();
+        this.restartAtCurrentLevel();
+      },
+    });
+  }
+
+  private applyKnobTuning(tuning: Tuning): void {
+    this.sim.setTuning(tuning);
+    this.playRender.setWallStyle(wallStyleFor(tuning, loadMazeColorSettings().colorIndex));
+  }
+
+  private restartAtCurrentLevel(): void {
+    const data: PlaySceneData = {
+      restartLevel: this.sim.currentLevel(),
+      seed: this.sim.random.seed,
+    };
+    this.scene.restart(data);
   }
 
   update(_time: number, delta: number): void {
@@ -211,6 +272,7 @@ export class PlayScene extends Phaser.Scene {
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
     this.runEndMenu?.tick(this.sim.runEndMenuArmed());
+    this.knobsPanel?.sync(this.sim.currentLevel());
   }
 
   public runSeed(): string {
@@ -370,7 +432,7 @@ export class PlayScene extends Phaser.Scene {
         this.scene.start("MenuScene");
         break;
       case "newGame":
-        this.scene.restart();
+        this.scene.restart({});
         break;
       case "saveRun":
         saveRun(event.collected, event.remaining);
@@ -528,7 +590,7 @@ export class PlayScene extends Phaser.Scene {
     for (let i = 0; i < livesHudIconCount(this.sim.hud().lives); i += 1) {
       const x = 12 + size / 2 + i * (size + 4);
       const icon = this.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
-      this.chrome.add(icon);
+      this.sideHud.add(icon);
       this.lifeIcons.push(icon);
     }
     if (pulseNewIcon && this.lifeIcons.length > 0) {
@@ -556,7 +618,7 @@ export class PlayScene extends Phaser.Scene {
     for (let i = 0; i < this.sim.hud().quarters; i += 1) {
       const { x, y } = quarterHudIconPosition(i, size);
       const icon = this.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
-      this.chrome.add(icon);
+      this.sideHud.add(icon);
       this.quarterIcons.push(icon);
     }
   }

@@ -1,5 +1,5 @@
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
 import {
-  BASE_FRUIT_SPAWN_THRESHOLDS,
   cellCenterX,
   cellCenterY,
   getActiveLayout,
@@ -32,7 +32,7 @@ export const FRUIT_BY_LEVEL: readonly FruitLevelSpec[] = [
   { kind: "key" },
 ];
 
-export const FRUIT_LIFETIME_MS = 10_000;
+export const FRUIT_LIFETIME_MS = DEFAULT_TUNING.fruitLifetimeMs;
 export const FRUIT_FEAST_GAP_MS = 5_000;
 
 export const CURRENT_LEVEL = 1;
@@ -132,6 +132,7 @@ export type FruitTickOptions = {
   lifetimeMul?: number;
   persist?: boolean;
   stack?: boolean;
+  tuning?: Tuning;
 };
 
 export function tickFruitPresence(
@@ -141,13 +142,20 @@ export function tickFruitPresence(
   levelIndex: number,
   options: FruitTickOptions = {},
 ): FruitPresenceTick {
-  const { feastBase = null, lifetimeMul = 1, persist = false, stack = false } = options;
+  const {
+    feastBase = null,
+    lifetimeMul = 1,
+    persist = false,
+    stack = false,
+    tuning = DEFAULT_TUNING,
+  } = options;
   if (feastBase !== null) {
     return tickFeastFruitPresence(state, collectedCount, deltaMs, levelIndex, {
       feastBase,
       lifetimeMul,
       persist,
       stack,
+      tuning,
     });
   }
   let next = state;
@@ -157,7 +165,11 @@ export function tickFruitPresence(
   // thresholds are derived from, so it keeps a single unscaled threshold
   // instead of the scaled two-fruit schedule used from level 2 on.
   const thresholds =
-    levelIndex <= 1 ? [BASE_FRUIT_SPAWN_THRESHOLDS[0]] : getActiveLayout().fruitThresholds;
+    levelIndex <= 1
+      ? [tuning.fruitThreshold1]
+      : tuning === DEFAULT_TUNING
+        ? getActiveLayout().fruitThresholds
+        : scaleFeastThresholds([tuning.fruitThreshold1, tuning.fruitThreshold2]);
   while (
     next.nextThresholdIndex < thresholds.length &&
     collectedCount >= thresholds[next.nextThresholdIndex]!
@@ -167,7 +179,7 @@ export function tickFruitPresence(
       ...next,
       nextThresholdIndex: next.nextThresholdIndex + 1,
       active: true,
-      remainingMs: FRUIT_LIFETIME_MS * lifetimeMul,
+      remainingMs: tuning.fruitLifetimeMs * lifetimeMul,
     };
     action = wasActive && !stack ? "replace" : "spawn";
   }
@@ -208,7 +220,7 @@ function tickFeastFruitPresence(
   levelIndex: number,
   options: Required<Omit<FruitTickOptions, "feastBase">> & { feastBase: readonly number[] },
 ): FruitPresenceTick {
-  const { feastBase, lifetimeMul, persist, stack } = options;
+  const { feastBase, lifetimeMul, persist, stack, tuning } = options;
   const thresholds = levelIndex <= 1 ? feastBase : scaleFeastThresholds(feastBase);
   const dt = Math.max(0, deltaMs);
 
@@ -231,7 +243,7 @@ function tickFeastFruitPresence(
       state: {
         nextThresholdIndex: current.nextThresholdIndex + 1,
         active: true,
-        remainingMs: FRUIT_LIFETIME_MS * lifetimeMul,
+        remainingMs: tuning.fruitLifetimeMs * lifetimeMul,
         gapMs: 0,
       },
       action: "spawn",
