@@ -43,6 +43,7 @@ import { Speed } from "../components/Speed";
 import { PlaySim } from "./playSim";
 import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
+import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
@@ -1878,6 +1879,15 @@ describe("Lazy Looper", () => {
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 300);
     expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);
     expect(sim.snapshot().optionalPellets).toBe(partition(sim).optional.length);
+  });
+
+  it("drops the optional tag from a pellet turned into a power pellet", () => {
+    const sim = startLooper(["passiveLazyLooper"]);
+    const [optional] = partition(sim).optional;
+    const before = sim.snapshot().optionalPellets;
+    expect(convertPelletToPower(sim.world, optional!)).toBe(true);
+    expect(hasComponent(sim.world, optional!, OptionalPellet)).toBe(false);
+    expect(sim.snapshot().optionalPellets).toBe(before - 1);
   });
 
   it("never makes boss pellets optional", () => {

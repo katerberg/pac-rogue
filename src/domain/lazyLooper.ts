@@ -1,12 +1,11 @@
 import type { MazeLayout, MazeTile } from "./maze";
-import { PELLET_DRAWABLE_ID } from "./playfield";
 
 export type LazyLooperRings = "outerInner" | "outer";
 
 export const LAZY_LOOPER_OPTIONAL_TINT = 0x6e6e6e;
 
-export function pelletTint(drawableId: string, optional: boolean): number | null {
-  return drawableId === PELLET_DRAWABLE_ID && optional ? LAZY_LOOPER_OPTIONAL_TINT : null;
+export function pelletTint(optional: boolean): number | null {
+  return optional ? LAZY_LOOPER_OPTIONAL_TINT : null;
 }
 
 const ORTHOGONAL = [

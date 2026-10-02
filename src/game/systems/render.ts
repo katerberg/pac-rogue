@@ -406,7 +406,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       go.setPosition(x, y);
 
       if (id === PELLET_DRAWABLE_ID || id === POWER_PELLET_DRAWABLE_ID) {
-        const tint = pelletTint(id, hasComponent(world, eid, OptionalPellet));
+        const tint = pelletTint(hasComponent(world, eid, OptionalPellet));
         if (tint === null) {
           go.clearTint();
         } else {

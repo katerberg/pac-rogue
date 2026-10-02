@@ -1,8 +1,9 @@
-import { addComponent, hasComponent, query, type World } from "bitecs";
+import { addComponent, hasComponent, query, removeComponent, type World } from "bitecs";
 import { pickPelletToPowerTarget } from "../../domain/pelletToPower";
 import { POWER_PELLET_DRAWABLE_ID } from "../../domain/playfield";
 import { BossPellet } from "../components/BossPellet";
 import { Drawable } from "../components/Drawable";
+import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { PowerPellet } from "../components/PowerPellet";
 
@@ -17,6 +18,7 @@ export function convertPelletToPower(world: World, eid: number): boolean {
     return false;
   }
   addComponent(world, eid, PowerPellet);
+  removeComponent(world, eid, OptionalPellet);
   Drawable.id[eid] = POWER_PELLET_DRAWABLE_ID;
   return true;
 }

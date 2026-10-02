@@ -7,7 +7,6 @@ import {
 } from "./lazyLooper";
 import { getLayout, layoutFromAscii, type MazeLayout } from "./maze";
 import { generateMazeAsciiWithRetries, invertMazeAscii } from "./mazeGenerate";
-import { PELLET_DRAWABLE_ID, POWER_PELLET_DRAWABLE_ID } from "./playfield";
 
 function render(layout: MazeLayout, rings: LazyLooperRings): string {
   const required = new Set(
@@ -145,9 +144,8 @@ describe("lazyLooperRequiredCells", () => {
 });
 
 describe("pelletTint", () => {
-  it("greys only optional regular pellets", () => {
-    expect(pelletTint(PELLET_DRAWABLE_ID, true)).toBe(LAZY_LOOPER_OPTIONAL_TINT);
-    expect(pelletTint(PELLET_DRAWABLE_ID, false)).toBeNull();
-    expect(pelletTint(POWER_PELLET_DRAWABLE_ID, true)).toBeNull();
+  it("greys only optional pellets", () => {
+    expect(pelletTint(true)).toBe(LAZY_LOOPER_OPTIONAL_TINT);
+    expect(pelletTint(false)).toBeNull();
   });
 });
