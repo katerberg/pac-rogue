@@ -609,6 +609,11 @@ describe("PlaySim", () => {
     expect(livesAfterLevelClear({ lives: 2, maxLives: 6 }, 6)).toBe(6);
   });
 
+  it("adds upgrade life grants on top of ?lives=", () => {
+    const sim = startSim({ level: 1, enableUpgrades: ["passiveExtraLife"], lives: 2, maxLives: 2 });
+    expect(sim.snapshot().lives).toBe(3);
+  });
+
   it("caps level-1 regen at ?maxLives= without ?lives=", () => {
     expect(startSim({ level: 1, enableUpgrades: [], maxLives: 3 }).snapshot().lives).toBe(3);
     expect(startSim({ level: 1, enableUpgrades: [], maxLives: 6 }).snapshot().lives).toBe(4);

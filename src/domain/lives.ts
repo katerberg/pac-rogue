@@ -1,6 +1,7 @@
 export const START_LIVES = 3;
 export const LEVEL_LIVES_ICON_FLOOR = 3;
 export const DEFAULT_MAX_LIVES = LEVEL_LIVES_ICON_FLOOR + 1;
+export const MAX_LIVES_FLAG = 99;
 
 export function livesRemainingAfterCatch(lives: number): { lives: number; gameOver: boolean } {
   if (lives <= 1) {
@@ -25,7 +26,7 @@ export function parseLivesCountParam(
   if (raw === null || !/^\d+$/.test(raw) || Number(raw) < 1) {
     return null;
   }
-  return Number(raw);
+  return Math.min(Number(raw), MAX_LIVES_FLAG);
 }
 
 export function levelLivesIconFloor(floorBonus: number, maxLives = DEFAULT_MAX_LIVES): number {

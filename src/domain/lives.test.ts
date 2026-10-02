@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_LIVES_FLAG,
   START_LIVES,
   levelLivesIconFloor,
   levelRegenAmount,
@@ -56,6 +57,12 @@ describe.each(["lives", "maxLives"] as const)("parseLivesCountParam(%s)", (flag)
     expect(parse(`${flag}=2.5`)).toBeNull();
     expect(parse(`${flag}=`)).toBeNull();
     expect(parse("")).toBeNull();
+  });
+
+  it("clamps to MAX_LIVES_FLAG", () => {
+    expect(parse(`${flag}=99`)).toBe(MAX_LIVES_FLAG);
+    expect(parse(`${flag}=100000`)).toBe(MAX_LIVES_FLAG);
+    expect(parse(`${flag}=${"9".repeat(400)}`)).toBe(MAX_LIVES_FLAG);
   });
 });
 
