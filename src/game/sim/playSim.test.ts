@@ -1540,6 +1540,20 @@ describe("PlaySim run complete menu", () => {
     expect(sim.chooseRunEnd("newGame")).toEqual([{ type: "newGame" }]);
   });
 
+  it("saves the run once when it completes", () => {
+    const sim = new PlaySim({ ...defaultPlayOptions(), jumpToUpgrade: true, level: 9 }, "run-end");
+    const events = [...sim.start(), ...runUntil(sim, () => sim.snapshot().runComplete, 300)];
+    events.push(...runFrames(sim, 120));
+    expect(count(events, "saveRun")).toBe(1);
+  });
+
+  it("skips the save when high scores are disabled", () => {
+    const options = { ...defaultPlayOptions(), jumpToUpgrade: true, level: 9 };
+    const sim = new PlaySim({ ...options, highScoresDisabled: true }, "run-end");
+    const events = [...sim.start(), ...runUntil(sim, () => sim.snapshot().runComplete, 300)];
+    expect(count(events, "saveRun")).toBe(0);
+  });
+
   it("ignores choices before the run is complete", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
     runFrames(sim, 120);
