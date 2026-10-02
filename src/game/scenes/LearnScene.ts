@@ -113,22 +113,13 @@ const UPGRADE_PLUS_ZONE_WIDTH = 14;
 const UPGRADE_PLUS_BOX_SIZE = 10;
 const UPGRADE_PLUS_ON_TINT = 0x101820;
 const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
+const STATUS_GAP_Y = 10;
+const POPUP_RISE_PX = 28;
+const POPUP_MS = 1100;
+const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [];
 const HOVER_PREVIEW_DELAY_MS = 500;
 const HOVER_PREVIEW_Y_MIN = 90;
 const HOVER_PREVIEW_Y_MAX = 510;
-const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [
-  "passiveGhostHouseDelay",
-  "passiveExtraLife",
-  "fruitQuarterBounty",
-  "fruitFecundity",
-  "fruitFeast",
-  "passiveDeathsHarvest",
-  "passivePowerPelletRecharge",
-  "passiveMyogenesis",
-  "passiveDefyDeath",
-  "passiveDeathsBounty",
-];
-
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
 type UpgradeRow = {
   id: BaseUpgradeId;
@@ -149,6 +140,8 @@ export class LearnScene extends Phaser.Scene {
   private slots: GhostSlot[] = [];
   private upgradeRows: UpgradeRow[] = [];
   private noEffectBanner!: Phaser.GameObjects.BitmapText;
+  private statusText!: Phaser.GameObjects.BitmapText;
+  private statusShown = "";
   private hoverPreviewTimer: Phaser.Time.TimerEvent | null = null;
   private hoverPreviewCard: UpgradeCardVisual | null = null;
   private keyEsc!: Phaser.Input.Keyboard.Key;
@@ -175,6 +168,7 @@ export class LearnScene extends Phaser.Scene {
           ? emptySeenRecord()
           : loadSeenRecord();
     this.reticlePx = null;
+    this.statusShown = "";
     this.hoverPreviewTimer = null;
     this.hoverPreviewCard = null;
 
@@ -193,6 +187,10 @@ export class LearnScene extends Phaser.Scene {
       .setCenterAlign()
       .setLineSpacing(10);
     this.refreshNoEffectBanner();
+    this.statusText = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
+      .setDepth(OVERLAY_DEPTH + 1)
+      .setCenterAlign()
+      .setLineSpacing(10);
 
     this.readHeldKeys = createHeldKeysReader(this);
     const keyboard = this.input.keyboard!;
@@ -246,8 +244,11 @@ export class LearnScene extends Phaser.Scene {
         this.playRender.bouncePowerPellet(event.eid);
       } else if (event.type === "turnSparks") {
         playTurnSparks(this, event);
+      } else if (event.type === "learnPopup") {
+        this.showPopup(event);
       }
     }
+    this.refreshStatus();
   }
 
   private selectGhost(kind: GhostKindId): void {
@@ -394,6 +395,37 @@ export class LearnScene extends Phaser.Scene {
         row.plusZone.setInteractive({ useHandCursor: true });
       }
     }
+  }
+
+  private refreshStatus(): void {
+    const text = this.sim.statusText();
+    if (text === this.statusShown) {
+      return;
+    }
+    this.statusShown = text;
+    const layout = getActiveLayout();
+    this.statusText.setText(text);
+    placePixelText(
+      this.statusText,
+      layout.offsetX + layout.pixelWidth / 2,
+      layout.offsetY + layout.pixelHeight + STATUS_GAP_Y,
+      0.5,
+      0,
+    );
+  }
+
+  private showPopup(event: { text: string; x: number; y: number }): void {
+    const popup = addPixelText(this, 0, 0, event.text, UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW)
+      .setDepth(OVERLAY_DEPTH + 2)
+      .setCenterAlign();
+    placePixelText(popup, event.x, event.y, 0.5, 1);
+    this.tweens.add({
+      targets: popup,
+      y: popup.y - POPUP_RISE_PX,
+      alpha: 0,
+      duration: POPUP_MS,
+      onComplete: () => popup.destroy(),
+    });
   }
 
   private refreshNoEffectBanner(): void {
