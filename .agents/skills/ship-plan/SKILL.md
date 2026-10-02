@@ -23,7 +23,9 @@ pass** rewritten). When the diff touches `src/`, the hook blocks the call until:
 - `simplify-pr.md`, `no-comments.md`, `pr-review.md` and `fix-pr-findings.md`
   exist. Each starts with `Commit: <git rev-parse HEAD>` (full sha) for the commit
   the step covered, and that commit is on this branch.
-- `fix-pr-findings.md` names the same commit as `pr-review.md`.
+- `fix-pr-findings.md` names the commit holding its fixes (the reviewed commit
+  when nothing was fixed), and no `src/` file changed after it. New code after
+  review means running `pr-review` and `fix-pr-findings` again.
 - `verify.json` (written by `npm run verify:record`) shows exit 0 on a clean tree
   at the current HEAD.
 - The PR body has all four sections listed below.
@@ -31,7 +33,7 @@ pass** rewritten). When the diff touches `src/`, the hook blocks the call until:
 Write each file **by invoking the skill** (Skill tool or `/name`) and saving
 its report verbatim. Never write one by hand to get past the hook. Never name a
 skill as having run in a PR body or chat message unless its file exists. An
-informal look at the diff is not `pr-review`. Run `npm run check:ship-evidence`
+informal look at the diff is not `pr-review`. Run `npm run check:ship`
 to check before pushing.
 
 ## Pipeline
@@ -53,7 +55,8 @@ to check before pushing.
 6. **`fix-pr-findings`** using those findings. Fix only in-scope, worth-it
    items. Capture its full report (fixed / hollered / skipped, per its own
    output format) to `artifacts/ship-plan/fix-pr-findings.md` — this is what
-   step 8 must surface, not paraphrase. Commit the fixes.
+   step 8 must surface, not paraphrase. Commit the fixes first, so its
+   `Commit:` line is the commit that holds them.
 7. **Verify a final time** with `npm run verify:record` on the committed, clean
    HEAD you will push. Re-run the probe if fixes touched runtime code.
 8. **Push and open the PR** (below).
@@ -97,6 +100,6 @@ exact output. A draft with an honest failure beats a green-looking PR.
   needs a human." Never let this collapse to just the PR link; the point is
   the user sees what was deferred without needing to click through.
 
-Done means `npm run check:ship-evidence` passes on the pushed HEAD, the PR URL exists, its body has all four sections with the review
+Done means `npm run check:ship` passes on the pushed HEAD, the PR URL exists, its body has all four sections with the review
 findings reproduced in it, the final chat message names every deferred/hollered/
 skipped finding, and the last `npm run verify` exit 0 was observed in this session.

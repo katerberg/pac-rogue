@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { EVIDENCE_DIR, VERIFY_FILE } from "./lib/shipEvidence.mjs";
 
 const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+process.chdir(git("rev-parse", "--show-toplevel"));
 
 const result = spawnSync("npm", ["run", "verify"], { stdio: "inherit" });
 const exitCode = result.status ?? 1;

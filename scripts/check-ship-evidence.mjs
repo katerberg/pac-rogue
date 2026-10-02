@@ -10,6 +10,7 @@ import {
 } from "./lib/shipEvidence.mjs";
 
 const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+process.chdir(git("rev-parse", "--show-toplevel"));
 const readIfExists = (path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined);
 
 let prBody;
@@ -40,6 +41,7 @@ const problems = shipEvidenceProblems({
     .some((path) => path.startsWith("src/")),
   head: git("rev-parse", "HEAD"),
   branchCommits: git("rev-list", `${base}..HEAD`).split("\n").filter(Boolean),
+  srcChangedSince: (sha) => git("diff", "--name-only", sha, "HEAD", "--", "src") !== "",
   steps,
   verify: verifyText === undefined ? undefined : JSON.parse(verifyText),
   prBody,

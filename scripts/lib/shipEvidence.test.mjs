@@ -10,6 +10,7 @@ function complete(overrides = {}) {
     touchesSrc: true,
     head: B,
     branchCommits: [B, A],
+    srcChangedSince: () => false,
     steps: {
       "simplify-pr.md": `Commit: ${A}\nVerdict: clean`,
       "no-comments.md": `Commit: ${A}\nDeletions: 0`,
@@ -52,10 +53,25 @@ describe("shipEvidenceProblems", () => {
     ]);
   });
 
-  it("requires fix-pr-findings to triage the reviewed commit", () => {
-    const steps = { ...complete().steps, "fix-pr-findings.md": `Commit: ${B}\nfixed 0` };
+  it("accepts fix-pr-findings recorded on the commit that holds the fixes", () => {
+    const steps = { ...complete().steps, "fix-pr-findings.md": `Commit: ${B}\nfixed 1` };
+    expect(shipEvidenceProblems(complete({ steps }))).toEqual([]);
+  });
+
+  it("rejects fix-pr-findings from before the reviewed commit", () => {
+    const steps = {
+      ...complete().steps,
+      "pr-review.md": `Commit: ${B}\nno findings`,
+      "fix-pr-findings.md": `Commit: ${A}\nfixed 0`,
+    };
     expect(shipEvidenceProblems(complete({ steps }))).toEqual([
-      "fix-pr-findings.md must triage the same commit pr-review.md reviewed.",
+      "fix-pr-findings.md must be for the reviewed commit or a later one.",
+    ]);
+  });
+
+  it("rejects a review that src/ changes have outdated", () => {
+    expect(shipEvidenceProblems(complete({ srcChangedSince: (sha) => sha === A }))).toEqual([
+      "src/ changed after aaaaaaa (fix-pr-findings): rerun pr-review and fix-pr-findings on the new code.",
     ]);
   });
 

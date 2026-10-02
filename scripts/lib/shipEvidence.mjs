@@ -35,7 +35,15 @@ export function gatedToolCall(toolName, toolInput) {
   return false;
 }
 
-export function shipEvidenceProblems({ touchesSrc, head, branchCommits, steps, verify, prBody }) {
+export function shipEvidenceProblems({
+  touchesSrc,
+  head,
+  branchCommits,
+  srcChangedSince,
+  steps,
+  verify,
+  prBody,
+}) {
   if (!touchesSrc) {
     return [];
   }
@@ -59,8 +67,14 @@ export function shipEvidenceProblems({ touchesSrc, head, branchCommits, steps, v
   }
   const prReview = evidenceCommit(steps["pr-review.md"]);
   const fixFindings = evidenceCommit(steps["fix-pr-findings.md"]);
-  if (prReview !== null && fixFindings !== null && prReview !== fixFindings) {
-    problems.push("fix-pr-findings.md must triage the same commit pr-review.md reviewed.");
+  if (prReview !== null && fixFindings !== null) {
+    if (branchCommits.indexOf(fixFindings) > branchCommits.indexOf(prReview)) {
+      problems.push("fix-pr-findings.md must be for the reviewed commit or a later one.");
+    } else if (srcChangedSince(fixFindings)) {
+      problems.push(
+        `src/ changed after ${fixFindings.slice(0, 7)} (fix-pr-findings): rerun pr-review and fix-pr-findings on the new code.`,
+      );
+    }
   }
   if (verify === undefined) {
     problems.push(`${EVIDENCE_DIR}/${VERIFY_FILE} is missing: run \`npm run verify:record\`.`);
