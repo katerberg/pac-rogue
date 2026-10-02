@@ -45,6 +45,7 @@ export type SimEvent =
       dy: number;
       count: number;
     }
+  | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "banner"; text: string; boss: boolean }
   | { type: "lives"; pulse: boolean }
   | { type: "quarters" }

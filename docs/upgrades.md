@@ -9,7 +9,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay, up/down/left/right button slots). Offer math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice` / `declineUpgrades`).
 - No ECS upgrade components in v1.
 - Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
-- See [docs/learn.md](./learn.md#upgrade-fidelity) for how each upgrade behaves in LEARN mode (most are simulated for real; a few have no visible effect there).
+- See [docs/learn.md](./learn.md#upgrade-fidelity) for how each upgrade behaves in LEARN mode (every upgrade has a visible LEARN demo).
 
 ### Current defs
 
@@ -177,7 +177,7 @@ While `fruitQuarterBounty` is owned, `fruitQuartersPerFruit(owned)` returns `FRU
 
 ### Fruit Fecundity
 
-`fruitLifetimeMultiplier(owned)` returns `FRUIT_FECUNDITY_MUL` (2) while `fruitFecundity` is owned, else 1. `PlaySim` passes it to `tickFruitPresence`, which starts every spawned or replacement fruit at `FRUIT_LIFETIME_MS × mul`. Granting the upgrade while a fruit is active runs `extendFruitLifetime`, doubling that fruit's remaining time immediately. No expiry visuals. LEARN fruit has no timer, so it has no effect there. Also applies to Fruit Feast fruit. Independent of Fruit Power, Quarter Bounty and Overcharge.
+`fruitLifetimeMultiplier(owned)` returns `FRUIT_FECUNDITY_MUL` (2) while `fruitFecundity` is owned, else 1. `PlaySim` passes it to `tickFruitPresence`, which starts every spawned or replacement fruit at `FRUIT_LIFETIME_MS × mul`. Granting the upgrade while a fruit is active runs `extendFruitLifetime`, doubling that fruit's remaining time immediately. No expiry visuals. Also applies to Fruit Feast fruit. Independent of Fruit Power, Quarter Bounty and Overcharge.
 
 ### Fruit Feast
 
@@ -202,13 +202,13 @@ While `passiveDeathsBounty` is owned, each catch adds `deathsBountyCharge(owned,
 - It pays at the catch, so the bar's fill animation, Quarter pulse and munch sounds play during the death hold.
 - `PlaySim` counts `deathsThisBoard` (snapshot `play.deathsThisBoard`) on every catch that costs a life or is saved (not the one that ends the run), owned or not, and resets it in `startBoard`.
 - Defy Death saves and `infiniteLives` deaths pay and count. The catch that causes Game Over pays nothing. A Death's Harvest catch that empties the board is a level clear, not a death: no pay, no count.
-- No effect in LEARN (no deaths or BONUS bar).
+- LEARN demos it through the [demo catch](./learn.md#differences-from-play): the payout shows as a popup and in the status line.
 
 ### Money Talks
 
 `passiveMoneyTalks` has a `deathQuarterCost` field (`MONEY_TALKS_QUARTERS` 3, `MONEY_TALKS_ENHANCED_QUARTERS` 1 enhanced), read by `moneyTalksCost`. On a catch, after Death's Harvest and Defy Death, `lastLifeSaveCost` (`src/domain/moneyTalks.ts`) saves only when the catch would end the run (`lives <= 1`) and the Quarters cover the cost; with too few Quarters nothing is spent and the run ends normally. An armed Defy Death window saves first and costs nothing, and `infiniteLives` never spends Quarters. A save runs the Defy Death path: `sfx: revive`, the revive splash, `lives` unchanged, no Game Over or high-score write. There is no per-run limit. A save is a catch that doesn't end the run, so [Death's Bounty](#deaths-bounty) still pays its charge on it; any Quarter it fills lands on top of the spend.
 
-The Quarters leave the HUD one at a time over `MONEY_TALKS_WINDOW_MS` (the death hold plus the READY pause, 1845ms). `moneyTalksLaunchedCount` staggers the launches so the first leaves at the catch and the last lands as the window ends (a single coin flies the whole window, otherwise each flies `MONEY_TALKS_COIN_FLY_MS`, 1000ms). The HUD count drops as each coin launches. Each tick the sim emits `walletCoins` with the spend (`null` on resume), and `PlayScene` draws each coin with `moneyTalksCoinLook`: it starts on its HUD icon (`quarterHudIconPosition`, the rightmost first), eases out to the playfield center, grows to `MONEY_TALKS_END_SIZE_FRAC` (1.5) × `PLAYFIELD_WIDTH` and fades out over the last 40% of its flight. `play.moneyTalksElapsedMs` exposes the spend clock in the debug snapshot (`null` when idle). No effect in LEARN (no lives).
+The Quarters leave the HUD one at a time over `MONEY_TALKS_WINDOW_MS` (the death hold plus the READY pause, 1845ms). `moneyTalksLaunchedCount` staggers the launches so the first leaves at the catch and the last lands as the window ends (a single coin flies the whole window, otherwise each flies `MONEY_TALKS_COIN_FLY_MS`, 1000ms). The HUD count drops as each coin launches. Each tick the sim emits `walletCoins` with the spend (`null` on resume), and `PlayScene` draws each coin with `moneyTalksCoinLook`: it starts on its HUD icon (`quarterHudIconPosition`, the rightmost first), eases out to the playfield center, grows to `MONEY_TALKS_END_SIZE_FRAC` (1.5) × `PLAYFIELD_WIDTH` and fades out over the last 40% of its flight. `play.moneyTalksElapsedMs` exposes the spend clock in the debug snapshot (`null` when idle). In LEARN the demo catch mirrors the save: with Money Talks selected, a catch on the last life spends Quarters earned from fruit (`LearnRunState.caught`), shown as `SAVED` / `-N Q` without the coin flight.
 
 ### Overcharge
 

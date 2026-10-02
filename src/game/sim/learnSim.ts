@@ -2,11 +2,20 @@ import { addComponent, addEntity, createWorld, query, removeEntity, type World }
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
+import { BONUS_BAR_MAX, FRUIT_BONUS_CHARGE } from "../../domain/bonusBar";
+import {
+  createFruitPresence,
+  extendFruitLifetime,
+  markFruitCollected,
+  tickFruitPresence,
+  type FruitPresence,
+} from "../../domain/fruit";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import type { GhostDir } from "../../domain/ghostPath";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import {
+  BASE_FRUIT_SPAWN_THRESHOLDS,
   activateLayout,
   cellCenterX,
   cellCenterY,
@@ -18,8 +27,22 @@ import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   baseIdOf,
   enhancedIdOf,
+  deathsHarvestRadiusTiles,
+  defyDeathActive,
+  fruitFeastThresholds,
+  fruitLifetimeMultiplier,
+  fruitPersistsUntilLevelEnd,
+  fruitQuartersPerFruit,
+  grantLivesForUpgrade,
   hasUpgrade,
   isEnhancedId,
+  playerIsInvulnerable,
+  playerTintRemainingMs,
+  queuePowerPelletRespawns,
+  secondChompMs,
+  tickDefyDeath,
+  tickPowerPelletRespawns,
+  type PendingPowerPelletRespawn,
   ownedFormOf,
   type BaseUpgradeId,
   wallPassLoopOwned,
@@ -64,6 +87,7 @@ import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
 import { applyRemoteTransference } from "../systems/remoteTransference";
+import { anyKeyHeld } from "../systems/heldKeys";
 import { collectFruit, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
 import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
@@ -76,7 +100,11 @@ import {
 import { freezeClosestGhost } from "../systems/ghostFreeze";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../systems/heldKeys";
-import { playerFacing } from "../systems/playerDirection";
+import { LearnHouseHold } from "./learnHouseHold";
+import { LearnRunState } from "./learnRunState";
+import { playerFacing, playerPose } from "../systems/playerDirection";
+import { catchPlayer } from "../systems/catchPlayer";
+import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
@@ -86,6 +114,7 @@ import { tickWarpGlide, type WarpGlide, warpGlideSprites } from "../../domain/wa
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   ghostWarpGlideSprites,
+  glidingGhostEids,
   heldGhostEids,
   mergeGhostCornerWarps,
   tickGhostCornerWarps,
@@ -98,7 +127,7 @@ import {
   type TunnelDashAnimation,
 } from "../systems/tunnelDash";
 import type { SimEvent } from "./simEvents";
-import { spawnBoardPellets, spawnFruit, spawnPlayer, spawnWalls } from "./spawn";
+import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 
 export type LearnOverlayModel = {
   kind: GhostKindId;
@@ -115,6 +144,15 @@ export const NO_ELROY_PELLETS = Number.MAX_SAFE_INTEGER;
 const LEARN_LEVEL = 1;
 const LEARN_RECALL_HOLD_MS = 1500;
 const FRUIT_RESPAWN_MS = 1000;
+const LEARN_CATCH_GRACE_MS = 1500;
+const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
+  "passiveDeathsHarvest",
+  "passiveDeathsBounty",
+  "passiveDefyDeath",
+  "passiveExtraLife",
+  "passiveMyogenesis",
+  "passiveMoneyTalks",
+];
 
 export class LearnSim {
   world: World = createWorld();
@@ -133,6 +171,13 @@ export class LearnSim {
   private remoteTransferCounter = 0;
   private readonly turnTuning = new TurnTuningState();
   private prevKeys: HeldKeys = NO_KEYS_HELD;
+  private pendingPowerRespawns: PendingPowerPelletRespawn[] = [];
+  private readonly runState = new LearnRunState();
+  private readonly houseHold = new LearnHouseHold();
+  private houseHoldEaten = 0;
+  private catchGraceMs = 0;
+  private fruitPresence: FruitPresence = createFruitPresence();
+  private boardCollected = 0;
 
   constructor(seed: string) {
     this.random = createRunRandom(seed);
@@ -184,7 +229,9 @@ export class LearnSim {
     spawnWalls(this.world);
     spawnPlayer(this.world);
     this.resetPellets();
-    this.spawnFruitEntity();
+    if (!this.fruitScheduled()) {
+      this.spawnFruitEntity();
+    }
     return this.takeEvents();
   }
 
@@ -228,13 +275,18 @@ export class LearnSim {
     this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
+    this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
     this.turnTuning.tick(delta);
+    this.catchGraceMs = Math.max(0, this.catchGraceMs - delta);
+    this.releaseHeldGhost(delta, anyKeyHeld(keys));
 
     if (this.recallHoldRemainingMs > 0) {
       this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
       if (this.recallHoldRemainingMs === 0) {
         for (const eid of this.recallHoldGhostEids) {
-          GhostPhase.value[eid] = GHOST_PHASE.active;
+          if (eid !== this.houseHold.eid) {
+            GhostPhase.value[eid] = GHOST_PHASE.active;
+          }
         }
         this.recallHoldGhostEids = [];
       }
@@ -297,42 +349,55 @@ export class LearnSim {
     });
     const ghostFrame = ghostHarvestActive(this.learnUpgrades)
       ? harvestPelletsByGhosts(this.world)
-      : { powerRemoved: 0, removedEids: [] };
+      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
     const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
     this.releaseAll(removedEids);
+    this.countCollected(removedEids.length);
+    if (hasUpgrade(this.learnUpgrades.owned, "passivePowerPelletRecharge")) {
+      this.pendingPowerRespawns = queuePowerPelletRespawns(
+        this.pendingPowerRespawns,
+        [...playerFrame.removedPowerPositions, ...ghostFrame.removedPowerPositions],
+        secondChompMs(this.learnUpgrades.owned),
+      );
+    }
+    const respawnTick = tickPowerPelletRespawns(this.pendingPowerRespawns, delta);
+    this.pendingPowerRespawns = respawnTick.pending;
+    for (const pos of respawnTick.ready) {
+      spawnPellet(this.world, pos.x, pos.y, "power");
+    }
     if (powerRemoved > 0) {
       this.resolvePowerPelletTrigger(powerRemoved);
     }
     this.applyRemoteTransferStep(removedEids.length);
     if (query(this.world, [Pellet]).length === 0) {
       spawnBoardPellets(this.world);
+      this.onBoardRefill();
     }
 
-    if (this.fruitRespawnRemainingMs !== null) {
-      this.fruitRespawnRemainingMs -= delta;
-      if (this.fruitRespawnRemainingMs <= 0) {
-        this.fruitRespawnRemainingMs = null;
-        this.spawnFruitEntity();
-      }
-    }
-
-    const removedFruitEids = collectFruit(this.world);
-    if (removedFruitEids.length > 0) {
-      this.releaseAll(removedFruitEids);
-      this.fruitRespawnRemainingMs = FRUIT_RESPAWN_MS;
-      if (hasUpgrade(this.learnUpgrades.owned, "fruitPowerPellet")) {
-        this.resolvePowerPelletTrigger(1);
-      }
-    }
+    this.tickFruit(delta);
 
     ghostAi(this.world, GHOST_AI_MODE.chase, NO_ELROY_PELLETS);
+
+    if (this.catchDemoOwned()) {
+      const caught = catchPlayer(this.world, {
+        frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+        skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+        playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
+      });
+      if (caught) {
+        this.resolveDemoCatch();
+      }
+    }
 
     this.events.push({
       type: "draw",
       options: {
         frozenGhostEid: frozenGhostEid(this.learnUpgrades),
-        playerInvulnRemainingMs: this.learnUpgrades.invulnRemainingMs,
+        playerInvulnRemainingMs: Math.max(
+          playerTintRemainingMs(this.learnUpgrades),
+          this.catchGraceMs,
+        ),
         turnFlashRemainingMs: this.turnTuning.flashMs,
         wallPassActive: wallPassActive(this.learnUpgrades),
         wallPassLoopActive:
@@ -354,6 +419,7 @@ export class LearnSim {
         removeEntity(this.world, eid);
       }
     }
+    this.houseHold.clear();
     this.resetPellets();
 
     const exit = getActiveLayout().ghostHouseExit;
@@ -381,6 +447,9 @@ export class LearnSim {
     this.recallHoldGhostEids = [];
     this.recallHoldRemainingMs = 0;
     this.ghostCornerWarps = [];
+    if (hasUpgrade(this.learnUpgrades.owned, "passiveGhostHouseDelay")) {
+      this.beginHouseHold();
+    }
     return this.takeEvents();
   }
 
@@ -427,9 +496,41 @@ export class LearnSim {
   }
 
   private applyToggled(toggled: RunUpgrades): void {
+    const before = this.learnUpgrades.owned;
+    const wasScheduled = this.fruitScheduled();
+    const lifetimeBefore = fruitLifetimeMultiplier(before);
     this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
-    if (!hasUpgrade(toggled.owned, "passiveTurnTuning")) {
+    const after = this.learnUpgrades.owned;
+    if (!hasUpgrade(after, "passiveTurnTuning")) {
       this.turnTuning.reset();
+    }
+    this.runState.addLives(sumGrantedLives(after) - sumGrantedLives(before));
+    this.syncHouseHold(hasUpgrade(before, "passiveGhostHouseDelay"));
+    this.syncFruitMode(wasScheduled, fruitLifetimeMultiplier(after) / lifetimeBefore);
+  }
+
+  private syncHouseHold(wasOwned: boolean): void {
+    const owned = hasUpgrade(this.learnUpgrades.owned, "passiveGhostHouseDelay");
+    if (owned && !wasOwned) {
+      this.beginHouseHold();
+    } else if (!owned && this.houseHold.eid !== null) {
+      GhostPhase.value[this.houseHold.eid] = GHOST_PHASE.active;
+      this.houseHold.clear();
+    }
+  }
+
+  private syncFruitMode(wasScheduled: boolean, lifetimeRatio: number): void {
+    const scheduled = this.fruitScheduled();
+    if (scheduled && !wasScheduled) {
+      this.releaseAll(removeAllFruit(this.world));
+      this.fruitPresence = createFruitPresence();
+      this.boardCollected = 0;
+      this.fruitRespawnRemainingMs = null;
+    } else if (!scheduled && wasScheduled) {
+      this.fruitPresence = createFruitPresence();
+      this.spawnFruitEntity();
+    } else if (scheduled && lifetimeRatio > 1) {
+      this.fruitPresence = extendFruitLifetime(this.fruitPresence, lifetimeRatio);
     }
   }
 
@@ -504,6 +605,12 @@ export class LearnSim {
     if (eid === null) {
       return;
     }
+    this.seatGhostAtExit(eid);
+    this.recallHoldGhostEids.push(eid);
+    this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
+  }
+
+  private seatGhostAtExit(eid: number): void {
     const exit = getActiveLayout().ghostHouseExit;
     Position.x[eid] = cellCenterX(exit.col);
     Position.y[eid] = cellCenterY(exit.row);
@@ -513,8 +620,181 @@ export class LearnSim {
     GhostPhase.value[eid] = GHOST_PHASE.inHouse;
     Ghost.decidedCol[eid] = Number.NaN;
     Ghost.decidedRow[eid] = Number.NaN;
-    this.recallHoldGhostEids.push(eid);
-    this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
+  }
+
+  private beginHouseHold(): void {
+    if (this.ghost === null || this.selected === null) {
+      return;
+    }
+    this.seatGhostAtExit(this.ghost);
+    this.houseHold.begin(this.ghost, this.selected);
+    this.houseHoldEaten = 0;
+  }
+
+  private releaseHeldGhost(delta: number, hasInput: boolean): void {
+    const released = this.houseHold.tick(
+      this.learnUpgrades.owned,
+      hasInput,
+      delta,
+      this.houseHoldEaten,
+    );
+    if (released !== null) {
+      GhostPhase.value[released] = GHOST_PHASE.active;
+    }
+  }
+
+  private countCollected(count: number): void {
+    this.houseHoldEaten += count;
+    this.boardCollected += count;
+  }
+
+  private onBoardRefill(): void {
+    this.pendingPowerRespawns = [];
+    this.boardCollected = 0;
+    this.fruitPresence = createFruitPresence();
+    const regained = this.runState.levelClear(this.learnUpgrades.owned);
+    if (regained > 0) {
+      this.popup(`+${regained} LIFE`);
+    }
+  }
+
+  private catchDemoOwned(): boolean {
+    return LEARN_CATCH_DEMO_UPGRADES.some((id) => hasUpgrade(this.learnUpgrades.owned, id));
+  }
+
+  private bonusDemoOwned(): boolean {
+    return (
+      hasUpgrade(this.learnUpgrades.owned, "fruitQuarterBounty") ||
+      hasUpgrade(this.learnUpgrades.owned, "passiveDeathsBounty") ||
+      hasUpgrade(this.learnUpgrades.owned, "passiveMoneyTalks")
+    );
+  }
+
+  private fruitScheduled(): boolean {
+    return (
+      hasUpgrade(this.learnUpgrades.owned, "fruitFecundity") ||
+      hasUpgrade(this.learnUpgrades.owned, "fruitFeast")
+    );
+  }
+
+  private popup(text: string): void {
+    const pose = playerPose(this.world);
+    if (pose !== null) {
+      this.events.push({ type: "learnPopup", text, x: pose.x, y: pose.y - 14 });
+    }
+  }
+
+  private resolveDemoCatch(): void {
+    const owned = this.learnUpgrades.owned;
+    const lines: string[] = [];
+    if (hasUpgrade(owned, "passiveDeathsHarvest")) {
+      const harvested = harvestNearbyPellets(this.world, deathsHarvestRadiusTiles(owned));
+      this.releaseAll(harvested);
+      this.countCollected(harvested.length);
+      lines.push(`HARVEST ${harvested.length}`);
+    }
+    const defied = defyDeathActive(this.learnUpgrades);
+    if (defied) {
+      this.learnUpgrades = { ...this.learnUpgrades, defyDeathRemainingMs: 0 };
+    }
+    const outcome = this.runState.caught(owned, defied);
+    lines.push(
+      outcome.kind === "saved" ? "SAVED" : outcome.kind === "reset" ? "LIVES RESET" : "LIFE LOST",
+    );
+    if (outcome.quartersPaid > 0) {
+      lines.push(`-${outcome.quartersPaid} Q`);
+    }
+    if (outcome.bountyCharge > 0) {
+      lines.push(`+${outcome.bountyCharge} BONUS`);
+    }
+    this.catchGraceMs = LEARN_CATCH_GRACE_MS;
+    this.popup(lines.join("\n"));
+  }
+
+  private tickFruit(delta: number): void {
+    const owned = this.learnUpgrades.owned;
+    const scheduled = this.fruitScheduled();
+    if (scheduled) {
+      const tick = tickFruitPresence(this.fruitPresence, this.boardCollected, delta, LEARN_LEVEL, {
+        feastBase: fruitFeastThresholds(owned),
+        lifetimeMul: fruitLifetimeMultiplier(owned),
+        persist: fruitPersistsUntilLevelEnd(owned),
+      });
+      this.fruitPresence = tick.state;
+      if (tick.action === "spawn" || tick.action === "replace") {
+        this.spawnFruitEntity();
+      } else if (tick.action === "despawn") {
+        this.releaseAll(removeAllFruit(this.world));
+      }
+    } else if (this.fruitRespawnRemainingMs !== null) {
+      this.fruitRespawnRemainingMs -= delta;
+      if (this.fruitRespawnRemainingMs <= 0) {
+        this.fruitRespawnRemainingMs = null;
+        this.spawnFruitEntity();
+      }
+    }
+
+    const removedFruitEids = collectFruit(this.world);
+    if (removedFruitEids.length === 0) {
+      return;
+    }
+    this.releaseAll(removedFruitEids);
+    if (scheduled) {
+      this.fruitPresence = markFruitCollected(this.fruitPresence);
+    } else {
+      this.fruitRespawnRemainingMs = FRUIT_RESPAWN_MS;
+    }
+    this.payFruit(removedFruitEids.length);
+    if (hasUpgrade(owned, "fruitPowerPellet")) {
+      this.resolvePowerPelletTrigger(1);
+    }
+  }
+
+  private payFruit(count: number): void {
+    const quarters = fruitQuartersPerFruit(this.learnUpgrades.owned);
+    if (quarters !== null) {
+      this.runState.addQuarters(count * quarters);
+      this.popup(`+${count * quarters} Q`);
+    } else {
+      this.runState.addBonusCharge(count * FRUIT_BONUS_CHARGE);
+      if (this.bonusDemoOwned()) {
+        this.popup(`+${count * FRUIT_BONUS_CHARGE} BONUS`);
+      }
+    }
+  }
+
+  statusText(): string {
+    const owned = this.learnUpgrades.owned;
+    const lines: string[] = [];
+    if (this.catchDemoOwned()) {
+      lines.push(`LIVES ${this.runState.lives}`);
+    }
+    if (this.bonusDemoOwned()) {
+      lines.push(
+        `BONUS ${Math.floor(this.runState.bonus.charge)}/${BONUS_BAR_MAX}  QUARTERS ${this.runState.quarters}`,
+      );
+    }
+    const house = this.houseHold.status(owned, this.houseHoldEaten);
+    if (house !== null) {
+      lines.push(house);
+    }
+    if (this.fruitScheduled()) {
+      lines.push(this.fruitStatus());
+    }
+    return lines.join("\n");
+  }
+
+  private fruitStatus(): string {
+    if (this.fruitPresence.active) {
+      return `FRUIT LEAVES IN ${(this.fruitPresence.remainingMs / 1000).toFixed(1)}S`;
+    }
+    const thresholds = fruitFeastThresholds(this.learnUpgrades.owned) ?? [
+      BASE_FRUIT_SPAWN_THRESHOLDS[0],
+    ];
+    const next = thresholds[this.fruitPresence.nextThresholdIndex];
+    return next === undefined
+      ? "NO MORE FRUIT THIS BOARD"
+      : `NEXT FRUIT AT ${next} PELLETS (${this.boardCollected})`;
   }
 
   private applyRemoteTransferStep(removedThisFrame: number): void {
@@ -532,6 +812,12 @@ export class LearnSim {
 
   private resetPellets(): void {
     this.remoteTransferCounter = 0;
+    this.boardCollected = 0;
+    this.pendingPowerRespawns = [];
+    this.fruitPresence = createFruitPresence();
+    if (this.fruitScheduled()) {
+      this.releaseAll(removeAllFruit(this.world));
+    }
     for (const eid of query(this.world, [Pellet])) {
       this.events.push({ type: "releaseDrawable", eid });
       removeEntity(this.world, eid);
@@ -575,6 +861,10 @@ export class LearnSim {
     Drawable.radius[eid] = ghostRadius();
     return eid;
   }
+}
+
+function sumGrantedLives(owned: readonly UpgradeId[]): number {
+  return owned.reduce((sum, id) => sum + grantLivesForUpgrade(id), 0);
 }
 
 function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades): RunUpgrades {
