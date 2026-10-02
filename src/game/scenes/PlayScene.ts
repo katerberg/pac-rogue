@@ -206,7 +206,7 @@ export class PlayScene extends Phaser.Scene {
     this.applyEvents(events, delta);
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
-    this.runEndMenu?.tick();
+    this.runEndMenu?.tick(this.sim.runEndMenuArmed());
   }
 
   public runSeed(): string {

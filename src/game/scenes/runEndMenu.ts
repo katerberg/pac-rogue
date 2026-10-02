@@ -16,17 +16,19 @@ const ROWS: readonly { choice: RunEndChoice; label: string }[] = [
 const ROW_START_Y = PLAYFIELD_HEIGHT / 2 + 80;
 const ROW_GAP = 48;
 const ROW_X = PLAYFIELD_WIDTH / 2;
+const UNARMED_ALPHA = 0.3;
+const ARM_FADE_MS = 300;
 
 export type RunEndMenu = {
-  selected(): RunEndChoice;
-  tick(): void;
+  selected(): RunEndChoice | null;
+  tick(armed: boolean): void;
 };
 
 export function createRunEndMenu(
   scene: Phaser.Scene,
   onChoose: (choice: RunEndChoice) => void,
 ): RunEndMenu {
-  let selectedIndex = 0;
+  let selectedIndex: number | null = null;
   scene.add
     .rectangle(
       PLAYFIELD_WIDTH / 2,
@@ -38,8 +40,9 @@ export function createRunEndMenu(
     )
     .setDepth(1000);
   const texts = ROWS.map((row, index) => {
-    const text = addPixelText(scene, ROW_X, rowY(index), "", MENU_OPTION_FONT_SIZE).setDepth(1001);
-    text.setInteractive({ useHandCursor: true });
+    const text = addPixelText(scene, ROW_X, rowY(index), "", MENU_OPTION_FONT_SIZE)
+      .setDepth(1001)
+      .setAlpha(UNARMED_ALPHA);
     text.on("pointerover", () => focus(index));
     text.on("pointerdown", () => {
       focus(index);
@@ -55,9 +58,8 @@ export function createRunEndMenu(
   const confirmKeys = [KeyCodes.ENTER, KeyCodes.SPACE].map((code) => keyboard.addKey(code));
   const justDown = (keys: Phaser.Input.Keyboard.Key[]) =>
     keys.map((key) => Phaser.Input.Keyboard.JustDown(key)).some(Boolean);
-  justDown([...upKeys, ...downKeys, ...confirmKeys]);
 
-  function focus(index: number): void {
+  function focus(index: number | null): void {
     selectedIndex = index;
     texts.forEach((text, i) => {
       const isSelected = i === selectedIndex;
@@ -67,17 +69,32 @@ export function createRunEndMenu(
     });
   }
 
-  focus(0);
+  function arm(): void {
+    focus(0);
+    for (const text of texts) {
+      text.setInteractive({ useHandCursor: true });
+    }
+    scene.tweens.add({ targets: texts, alpha: 1, duration: ARM_FADE_MS });
+  }
+
+  focus(null);
 
   return {
-    selected: () => ROWS[selectedIndex]!.choice,
-    tick() {
+    selected: () => (selectedIndex === null ? null : ROWS[selectedIndex]!.choice),
+    tick(armed) {
       const up = justDown(upKeys);
       const down = justDown(downKeys);
+      const confirm = justDown(confirmKeys);
+      if (selectedIndex === null) {
+        if (armed) {
+          arm();
+        }
+        return;
+      }
       if (up !== down) {
         focus((selectedIndex + 1) % ROWS.length);
       }
-      if (justDown(confirmKeys)) {
+      if (confirm) {
         onChoose(ROWS[selectedIndex]!.choice);
       }
     },

@@ -41,7 +41,7 @@ Fruit spawns/despawns as before, 10s lifetime (20s with Fruit Fecundity): level 
 
 ## Run Complete
 
-Clearing level 9 (the boss) does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice and no [time bonus](./bonus.md#time-bonus) are given; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count and stays up with a `NEW GAME` / `MENU` choice (Up/Down or W/S to move, Enter/Space or click to pick; Esc does nothing). Choices are ignored for the first `RUN_END_MENU_ARM_MS` (1000ms) so a key still held from the boss clear cannot skip the screen. `NEW GAME` restarts `PlayScene` with the same URL flags; `MENU` returns to `MenuScene`.
+Clearing level 9 (the boss) does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice and no [time bonus](./bonus.md#time-bonus) are given; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count and stays up with a `NEW GAME` / `MENU` choice (Up/Down or W/S to move, Enter/Space or click to pick; Esc does nothing). For the first `RUN_END_MENU_ARM_MS` (1000ms) the rows are dimmed with nothing selected and ignore keys, hover and clicks (so a key still held from the boss clear cannot skip the screen); then they fade in and `NEW GAME` is selected. `NEW GAME` restarts `PlayScene` with the same URL flags; `MENU` returns to `MenuScene`.
 
 ## Ghost house release
 

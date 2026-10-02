@@ -423,6 +423,10 @@ export class PlaySim {
     return this.takeEvents();
   }
 
+  runEndMenuArmed(): boolean {
+    return this.runCompleteElapsedMs !== null && this.runCompleteElapsedMs >= RUN_END_MENU_ARM_MS;
+  }
+
   chooseRunEnd(choice: RunEndChoice): SimEvent[] {
     if (!this.runEndMenuArmed()) {
       return [];
@@ -1659,10 +1663,6 @@ export class PlaySim {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "endText", title: "RUN COMPLETE" });
     this.runCompleteElapsedMs = 0;
-  }
-
-  private runEndMenuArmed(): boolean {
-    return this.runCompleteElapsedMs !== null && this.runCompleteElapsedMs >= RUN_END_MENU_ARM_MS;
   }
 
   private resetAfterLifeLoss(): void {
