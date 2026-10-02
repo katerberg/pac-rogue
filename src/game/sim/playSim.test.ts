@@ -1,7 +1,8 @@
-import { hasComponent, query } from "bitecs";
+import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { FRUIT_LIFETIME_MS } from "../../domain/fruit";
-import { GHOST_KIND } from "../../domain/ghostKind";
+import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
+import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import {
   canEnterDirection,
   cellCenterX,
@@ -14,6 +15,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
@@ -26,9 +28,11 @@ import {
   type UpgradeChoiceOffer,
   type UpgradeId,
 } from "../../domain/upgrades";
+import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
+import { GhostKind } from "../components/GhostKind";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -383,9 +387,35 @@ describe("PlaySim", () => {
     runFrames(sim, 1, { keys: held("up") });
 
     expect(sim.snapshot().player!.facing).toBe("up");
-    expect(Position.y[eid]!).toBeLessThan(before.y - 2);
+    const travel = (PLAYER_SPEED * speedLevelMultiplier(2) * FRAME_MS) / 1000;
+    expect(Position.y[eid]!).toBeLessThan(before.y - travel / 2);
     expect(Math.abs(Position.x[eid]! - cx)).toBeLessThan(Math.abs(before.x - cx));
     expect(Math.abs(Position.x[eid]! - cx)).toBeGreaterThan(0);
+  });
+
+  it("moves Maze-Man at the level-2 speed along an empty corridor", () => {
+    const sim = startSim({ level: 2, maze: "maze1", godMode: true });
+    const eid = playerEid(sim);
+    const row = 1;
+    const col = 12;
+    for (let c = col - 6; c <= col; c++) {
+      expect(isWalkable(c, row)).toBe(true);
+    }
+    for (const pellet of query(sim.world, [Pellet, Position])) {
+      if (worldToRow(Position.y[pellet]!) === row) {
+        removeEntity(sim.world, pellet);
+      }
+    }
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 1, { keys: held("left") });
+    const startX = Position.x[eid]!;
+
+    runFrames(sim, 30, { keys: held("left") });
+
+    const arcadeTilesPerSec = 5.315;
+    const expectedPx =
+      arcadeTilesPerSec * TILE_SIZE * speedLevelMultiplier(2) * ((30 * FRAME_MS) / 1000);
+    expect(startX - Position.x[eid]!).toBeCloseTo(expectedPx, 1);
   });
 
   it("spends a life when caught and respawns at the spawn point", () => {
@@ -400,6 +430,19 @@ describe("PlaySim", () => {
     expect(events).toContainEqual({ type: "sfx", id: "death" });
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
+  });
+
+  it("ignores ghost contact in god mode", () => {
+    const sim = startSim({ level: 2, maze: "maze1", godMode: true });
+    runFrames(sim, 20, { keys: held("left") });
+    const livesBefore = sim.snapshot().lives;
+    for (let frame = 0; frame < 30; frame++) {
+      ghostOntoPlayer(sim);
+      const events = runFrames(sim, 1, { keys: held("left") });
+      expect(events).not.toContainEqual({ type: "sfx", id: "death" });
+      expect(sim.snapshot().dying).toBe(false);
+    }
+    expect(sim.snapshot().lives).toBe(livesBefore);
   });
 
   describe("Defy Death", () => {
@@ -884,6 +927,10 @@ describe("Ghost Harvester", () => {
     expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
 
+    // A wandering harvester re-arms the timer whenever it lands on a power pellet.
+    for (const power of query(sim.world, [PowerPellet])) {
+      removeEntity(sim.world, power);
+    }
     runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
     const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
     parkGhostOn(sim, next);
@@ -1383,7 +1430,6 @@ describe("PlaySim enhanced upgrades", () => {
   }
 
   it.each([
-    ["powerPelletScatterBurst", "scatterBurstMs", 3000, 5000],
     ["powerPelletInvuln", "invulnMs", 3000, 5000],
     ["powerPelletGhostHarvester", "ghostHarvestMs", 5000, 8000],
     ["powerPelletWallPass", "wallPassMs", 6000, 6000],
@@ -1405,20 +1451,20 @@ describe("PlaySim enhanced upgrades", () => {
     const base = startSim({
       level: 2,
       maze: "maze1",
-      enableUpgrades: ["powerPelletScatterBurst", "passiveOvercharge"],
+      enableUpgrades: ["powerPelletInvuln", "passiveOvercharge"],
     });
     chomp(base);
-    expect(base.snapshot().timers.scatterBurstMs).toBeGreaterThan(5800);
-    expect(base.snapshot().timers.scatterBurstMs).toBeLessThanOrEqual(6000);
+    expect(base.snapshot().timers.invulnMs).toBeGreaterThan(5800);
+    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(6000);
 
     const plus = startSim({
       level: 2,
       maze: "maze1",
-      enableUpgrades: ["powerPelletScatterBurstPlus", "passiveOverchargePlus"],
+      enableUpgrades: ["powerPelletInvulnPlus", "passiveOverchargePlus"],
     });
     chomp(plus);
-    expect(plus.snapshot().timers.scatterBurstMs).toBeGreaterThan(14800);
-    expect(plus.snapshot().timers.scatterBurstMs).toBeLessThanOrEqual(15000);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(14800);
+    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(15000);
   });
 
   it("Warp Farthest+ shields for 2s and Overcharge does not extend it", () => {
@@ -1489,6 +1535,109 @@ describe("PlaySim enhanced upgrades", () => {
     expect(sim.snapshot().timers.warpGlideMs).toBe(0);
     expect(afterEvents.some((e) => e.type === "draw" && e.options.playerWarpGlide)).toBe(false);
     expect({ x: Position.x[player], y: Position.y[player] }).not.toEqual(landed);
+  });
+
+  function scatterBurstSetup(id: UpgradeId) {
+    const sim = startSim({ level: 3, maze: "maze1", enableUpgrades: [id] });
+    const ghosts = Array.from(query(sim.world, [Ghost, Position]));
+    const [houseGhost, ...active] = ghosts;
+    for (const eid of active) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const origin = { x: Position.x[power]!, y: Position.y[power]! };
+    const playerCell = { col: worldToCol(origin.x), row: worldToRow(origin.y) };
+    const starts = new Map(
+      active.map((eid) => [eid, { x: Position.x[eid]!, y: Position.y[eid]! }]),
+    );
+    const houseStart = { x: Position.x[houseGhost!]!, y: Position.y[houseGhost!]! };
+    const modeBefore = sim.snapshot().ghostMode;
+    teleportPlayer(sim, origin.x, origin.y);
+    const draw = runFrames(sim, 1).flatMap((e) => (e.type === "draw" ? [e.options] : []))[0]!;
+    const landings = new Map(
+      active.map((eid) => {
+        const kind = GhostKind.kind[eid] as GhostKindId;
+        const cell = ghostTeleportCell(scatterTargetForKind(kind), playerCell);
+        return [eid, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) }];
+      }),
+    );
+    return { sim, active, houseGhost: houseGhost!, houseStart, starts, landings, draw, modeBefore };
+  }
+
+  it("Scatter Burst warps active ghosts to their corners (or the house exit near the player) without touching the wave mode", () => {
+    const { sim, active, houseGhost, houseStart, starts, landings, draw, modeBefore } =
+      scatterBurstSetup("powerPelletScatterBurst");
+    const exit = getActiveLayout().ghostHouseExit;
+    const exitCenter = { x: cellCenterX(exit.col), y: cellCenterY(exit.row) };
+    for (const eid of active) {
+      expect({ x: Position.x[eid], y: Position.y[eid] }).toEqual(landings.get(eid));
+      expect(draw.ghostWarpGlides?.[eid]?.[0]).toMatchObject(starts.get(eid)!);
+    }
+    expect(Array.from(landings.values())).toContainEqual(exitCenter);
+    expect(Array.from(landings.values()).some((p) => p.x !== exitCenter.x)).toBe(true);
+    expect({ x: Position.x[houseGhost], y: Position.y[houseGhost] }).toEqual(houseStart);
+    expect(draw.ghostWarpGlides?.[houseGhost]).toBeUndefined();
+    expect(sim.snapshot().ghostMode).toBe(modeBefore);
+    expect(sim.snapshot().timers.ghostWarpGlideMs).toBe(WARP_GLIDE_MS);
+  });
+
+  it("Scatter Burst ghosts hold still and cannot catch during the glide, then move on", () => {
+    const { sim, active, landings } = scatterBurstSetup("powerPelletScatterBurst");
+    const victim = active[0]!;
+    const landed = landings.get(victim)!;
+    teleportPlayer(sim, landed.x, landed.y);
+    const glideFrames = Math.ceil(WARP_GLIDE_MS / FRAME_MS) - 2;
+    runFrames(sim, glideFrames);
+    expect(sim.snapshot().dying).toBe(false);
+    for (const eid of active) {
+      expect({ x: Position.x[eid], y: Position.y[eid] }).toEqual(landings.get(eid));
+    }
+    expect(sim.snapshot().timers.ghostWarpGlideMs).toBeGreaterThan(0);
+
+    teleportPlayer(sim, cellCenterX(1), cellCenterY(1));
+    runFrames(sim, 30);
+    expect(sim.snapshot().timers.ghostWarpGlideMs).toBe(0);
+    expect(
+      active.some(
+        (eid) =>
+          Position.x[eid] !== landings.get(eid)!.x || Position.y[eid] !== landings.get(eid)!.y,
+      ),
+    ).toBe(true);
+  });
+
+  it("Scatter Burst+ pins ghosts at their landing cell for 2s after the glide", () => {
+    const { sim, active, landings } = scatterBurstSetup("powerPelletScatterBurstPlus");
+    teleportPlayer(sim, cellCenterX(1), cellCenterY(1));
+    runFrames(sim, Math.floor((WARP_GLIDE_MS + 1900) / FRAME_MS));
+    for (const eid of active) {
+      expect({ x: Position.x[eid], y: Position.y[eid] }).toEqual(landings.get(eid));
+      expect(Speed.px[eid]).toBe(0);
+    }
+    runFrames(sim, 30);
+    expect(active.some((eid) => (Speed.px[eid] ?? 0) > 0)).toBe(true);
+  });
+
+  it("Scatter Burst lands boss ghosts sharing a corner on one cell, and they still split up", () => {
+    const sim = startSim({ level: 9, enableUpgrades: ["powerPelletScatterBurst"] });
+    const bosses = Array.from(query(sim.world, [Ghost, BossGhost, Position]));
+    expect(bosses.length).toBeGreaterThanOrEqual(2);
+    for (const eid of bosses) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+      BossGhost.scatterCol[eid] = BossGhost.scatterCol[bosses[0]!]!;
+      BossGhost.scatterRow[eid] = BossGhost.scatterRow[bosses[0]!]!;
+    }
+    const power = Array.from(query(sim.world, [PowerPellet, Position]))
+      .map((eid) => ({ x: Position.x[eid]!, y: Position.y[eid]! }))
+      .sort((a, b) => b.y - a.y)[0]!;
+    teleportPlayer(sim, power.x, power.y);
+    runFrames(sim, 1);
+    const [a, b] = bosses as [number, number];
+    expect({ x: Position.x[a], y: Position.y[a] }).toEqual({ x: Position.x[b], y: Position.y[b] });
+
+    runFrames(sim, Math.ceil((WARP_GLIDE_MS + 3000) / FRAME_MS));
+    expect(
+      Math.hypot(Position.x[a]! - Position.x[b]!, Position.y[a]! - Position.y[b]!),
+    ).toBeGreaterThan(TILE_SIZE);
   });
 
   it("Ghost Recall+ sends two ghosts home, the base sends one", () => {

@@ -18,6 +18,7 @@ import { Speed } from "../components/Speed";
 export type GhostSpeedOptions = {
   ghostSpeedMul?: number;
   frozenGhostEid?: number | null;
+  heldGhostEids?: ReadonlySet<number>;
   tunnelSpeedRatio?: number | null;
 };
 
@@ -38,7 +39,7 @@ export function applyGhostSpeed(
       continue;
     }
 
-    if (frozenEid !== null && eid === frozenEid) {
+    if ((frozenEid !== null && eid === frozenEid) || options.heldGhostEids?.has(eid) === true) {
       Speed.px[eid] = 0;
       continue;
     }

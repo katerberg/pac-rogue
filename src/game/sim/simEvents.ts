@@ -16,6 +16,7 @@ export type SimRenderOptions = {
   playerAlpha?: number;
   playerReviveProgress?: number;
   playerWarpGlide?: WarpGlideSprite[];
+  ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
 };
 
 export type SimEvent =

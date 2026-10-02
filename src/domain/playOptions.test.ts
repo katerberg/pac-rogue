@@ -18,6 +18,7 @@ describe("parsePlayOptions", () => {
       jumpToUpgrade: false,
       store: null,
       infiniteLives: false,
+      godMode: false,
       disableLevelUpgrades: false,
       enableUpgrades: [],
       highScoresDisabled: false,
@@ -27,7 +28,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&enableUpgrade=powerPelletFreeze",
+        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&godMode=1&enableUpgrade=powerPelletFreeze",
       ),
     );
     expect(warnings).toEqual([]);
@@ -43,6 +44,7 @@ describe("parsePlayOptions", () => {
       store: 1,
       disableLevelUpgrades: true,
       infiniteLives: true,
+      godMode: true,
       enableUpgrades: ["powerPelletFreeze"],
       highScoresDisabled: true,
     });

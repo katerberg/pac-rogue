@@ -52,17 +52,7 @@ export type GhostModeStep = {
   mode: GhostAiMode;
 };
 
-export function resolveGhostModeStep(
-  clock: GhostModeClock,
-  scatterBurstActive: boolean,
-  deltaMs: number,
-): GhostModeStep {
-  if (scatterBurstActive && clock.active) {
-    return {
-      clock,
-      mode: GHOST_AI_MODE.scatter,
-    };
-  }
+export function resolveGhostModeStep(clock: GhostModeClock, deltaMs: number): GhostModeStep {
   const tick = tickGhostMode(clock, deltaMs);
   return {
     clock: tick.clock,

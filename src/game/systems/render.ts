@@ -228,6 +228,7 @@ export type RenderOptions = {
   playerAlpha?: number;
   playerReviveProgress?: number;
   playerWarpGlide?: WarpGlideSprite[];
+  ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -301,6 +302,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const playerAlpha = opts?.playerAlpha;
     const reviveProgress = opts?.playerReviveProgress;
     const warpGlide = opts?.playerWarpGlide;
+    const ghostWarpGlides = opts?.ghostWarpGlides;
     const wallPassOn = opts?.wallPassActive === true;
     const twinSolids =
       opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
@@ -333,6 +335,31 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
 
     const alive = new Set<string>();
+    const drawGlideTrail = (
+      eid: number,
+      id: string,
+      glide: readonly WarpGlideSprite[],
+      textureKey: string,
+      size: number,
+      applyTint: (go: Phaser.GameObjects.Image) => void,
+    ): void => {
+      for (let i = 1; i < glide.length; i += 1) {
+        const trail = glide[i]!;
+        const trailKey = `${eid}:glide${i}`;
+        alive.add(trailKey);
+        let trailGo = drawableObjects.get(trailKey);
+        if (!trailGo) {
+          trailGo = scene.add.image(trail.x, trail.y, textureKey);
+          trailGo.setName(`${id}:glide`);
+          drawableObjects.set(trailKey, trailGo);
+        }
+        trailGo.setTexture(textureKey);
+        trailGo.setDisplaySize(size, size);
+        trailGo.setPosition(trail.x, trail.y);
+        trailGo.setAlpha(trail.alpha);
+        applyTint(trailGo);
+      }
+    };
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
       const ghostTexture = GHOST_TEXTURE_BY_ID[id];
@@ -351,7 +378,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       const twinKey = `${eid}:twin`;
       alive.add(primaryKey);
 
-      const glideHead = id === PLAYER_DRAWABLE_ID ? warpGlide?.[0] : undefined;
+      const glide =
+        id === PLAYER_DRAWABLE_ID
+          ? warpGlide
+          : ghostTexture !== undefined
+            ? ghostWarpGlides?.[eid]
+            : undefined;
+      const glideHead = glide?.[0];
       const x = glideHead?.x ?? Position.x[eid] ?? 0;
       const y = glideHead?.y ?? Position.y[eid] ?? 0;
       const size = displaySizeForDrawable(id);
@@ -379,14 +412,27 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
       if (ghostTexture !== undefined) {
         const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
-        if (frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse) {
-          go.setTint(GHOST_FROZEN_TINT);
-        } else if (ghostHarvestOn && phase !== GHOST_PHASE.inHouse) {
-          go.setTint(GHOST_HARVEST_TINT);
-        } else {
-          go.clearTint();
+        const tint =
+          frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse
+            ? GHOST_FROZEN_TINT
+            : ghostHarvestOn && phase !== GHOST_PHASE.inHouse
+              ? GHOST_HARVEST_TINT
+              : null;
+        const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
+          if (tint === null) {
+            target.clearTint();
+          } else {
+            target.setTint(tint);
+          }
+        };
+        applyGhostTint(go);
+        go.setAlpha(
+          (dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1) *
+            (glideHead?.alpha ?? 1),
+        );
+        if (glide !== undefined) {
+          drawGlideTrail(eid, id, glide, go.texture.key, size, applyGhostTint);
         }
-        go.setAlpha(dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1);
       }
 
       if (id === PLAYER_DRAWABLE_ID) {
@@ -425,23 +471,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           go.setAlpha(look.alpha);
         }
 
-        if (glideHead !== undefined && warpGlide !== undefined) {
-          for (let i = 1; i < warpGlide.length; i += 1) {
-            const trail = warpGlide[i]!;
-            const trailKey = `${eid}:glide${i}`;
-            alive.add(trailKey);
-            let trailGo = drawableObjects.get(trailKey);
-            if (!trailGo) {
-              trailGo = scene.add.image(trail.x, trail.y, visual.textureKey);
-              trailGo.setName(`${id}:glide`);
-              drawableObjects.set(trailKey, trailGo);
-            }
-            trailGo.setTexture(visual.textureKey);
-            trailGo.setDisplaySize(size, size);
-            trailGo.setPosition(trail.x, trail.y);
-            trailGo.setAlpha(trail.alpha);
-            applyPlayerTint(trailGo, playerTint);
-          }
+        if (glide !== undefined) {
+          drawGlideTrail(eid, id, glide, visual.textureKey, size, (target) =>
+            applyPlayerTint(target, playerTint),
+          );
         } else if (
           playerAlpha === undefined &&
           reviveProgress === undefined &&

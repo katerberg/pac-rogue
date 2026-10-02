@@ -1,8 +1,13 @@
 import { query } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
+import { cellCenterX, cellCenterY, worldToCol, worldToRow } from "../../domain/maze";
+import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
 import { LearnSim } from "./learnSim";
 import { FRAME_MS, held } from "./simTesting";
@@ -83,5 +88,38 @@ describe("LearnSim", () => {
     expect(model.blinkyPx).not.toBeNull();
     expect(model.playerPx).not.toBeNull();
     expect(Number.isFinite(model.target.col)).toBe(true);
+  });
+
+  it("Scatter Burst warps the chosen ghost to its corner with a glide", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.clyde);
+    sim.toggleUpgrade("powerPelletScatterBurst");
+    const ghost = sim.ghostEid!;
+    const start = { x: Position.x[ghost]!, y: Position.y[ghost]! };
+    const power = Array.from(query(sim.world, [PowerPellet, Position]))
+      .map((eid) => ({ x: Position.x[eid]!, y: Position.y[eid]! }))
+      .find((p) => p.y < start.y)!;
+    const player = query(sim.world, [Player, Position])[0]!;
+    Position.x[player] = power.x;
+    Position.y[player] = power.y;
+    const draw = sim
+      .step(NO_KEYS_HELD, FRAME_MS)
+      .flatMap((e) => (e.type === "draw" ? [e.options] : []))[0]!;
+    const cell = ghostTeleportCell(scatterTargetForKind(GHOST_KIND.clyde), {
+      col: worldToCol(power.x),
+      row: worldToRow(power.y),
+    });
+    expect({ x: Position.x[ghost], y: Position.y[ghost] }).toEqual({
+      x: cellCenterX(cell.col),
+      y: cellCenterY(cell.row),
+    });
+    const head = draw.ghostWarpGlides?.[ghost]?.[0];
+    expect(Math.hypot(head!.x - start.x, head!.y - start.y)).toBeLessThan(4);
+    for (let ms = 0; ms < WARP_GLIDE_MS; ms += FRAME_MS) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+    const after = sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(after.some((e) => e.type === "draw" && e.options.ghostWarpGlides)).toBe(false);
   });
 });

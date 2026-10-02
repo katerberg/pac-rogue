@@ -70,31 +70,16 @@ describe("ghostMode", () => {
     expect(later.clock.mode).toBe(GHOST_AI_MODE.chase);
   });
 
-  it("pauses the wave clock while scatter burst is active", () => {
+  it("resolveGhostModeStep advances the wave clock", () => {
     const clock = startGhostModeClock(2);
-    const paused = resolveGhostModeStep(clock, true, 5_000);
-    expect(paused.clock).toEqual(clock);
-    expect(paused.mode).toBe(GHOST_AI_MODE.scatter);
-
-    const resumed = resolveGhostModeStep(clock, false, 7_000);
-    expect(resumed.clock.waveIndex).toBeGreaterThan(clock.waveIndex);
-    expect(resumed.mode).toBe(GHOST_AI_MODE.chase);
+    const step = resolveGhostModeStep(clock, 7_000);
+    expect(step.clock.waveIndex).toBeGreaterThan(clock.waveIndex);
+    expect(step.mode).toBe(GHOST_AI_MODE.chase);
   });
 
-  it("allows scatter burst to force scatter on level 1", () => {
-    const clock = startGhostModeClock(1);
-    const paused = resolveGhostModeStep(clock, true, 5_000);
-    expect(paused.clock).toEqual(clock);
-    expect(paused.mode).toBe(GHOST_AI_MODE.scatter);
-
-    const resumed = resolveGhostModeStep(clock, false, 5_000);
-    expect(resumed.clock.mode).toBe(GHOST_AI_MODE.chase);
-    expect(resumed.mode).toBe(GHOST_AI_MODE.chase);
-  });
-
-  it("ignores scatter burst while the wave clock is inactive", () => {
+  it("resolveGhostModeStep leaves an inactive clock alone", () => {
     const idle = createGhostModeClock(1);
-    const step = resolveGhostModeStep(idle, true, 5_000);
+    const step = resolveGhostModeStep(idle, 5_000);
     expect(step.clock).toEqual(idle);
     expect(step.mode).toBe(GHOST_AI_MODE.chase);
   });

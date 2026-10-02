@@ -82,19 +82,6 @@ describe("blinkyTarget", () => {
       }),
     ).toEqual({ col: 9, row: 8 });
   });
-
-  it("scatters during Elroy when ignoreElroy is set (scatter burst)", () => {
-    expect(
-      blinkyTarget({
-        phase: GHOST_PHASE.active,
-        mode: GHOST_AI_MODE.scatter,
-        pelletsRemaining: 10,
-        playerCol: 9,
-        playerRow: 8,
-        ignoreElroy: true,
-      }),
-    ).toEqual(blinkyScatterTarget());
-  });
 });
 
 describe("pinkyTarget", () => {

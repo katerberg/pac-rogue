@@ -253,7 +253,7 @@ describe("movement", () => {
     const { world, eid } = spawnAt(6, 5);
     const cx = cellCenterX(6);
     const cy = cellCenterY(5);
-    Position.x[eid] = cx + 2;
+    Position.x[eid] = cx + (PLAYER_SPEED * 0.016) / 2;
     Position.y[eid] = cy;
     Facing.direction[eid] = DIRECTION.left;
     Input.direction[eid] = DIRECTION.up;
@@ -266,9 +266,10 @@ describe("movement", () => {
   });
 
   it.each([
-    ["before", 3],
-    ["after", -3],
-  ])("cuts the corner diagonally when turning %s the center, gaining full ground", (_, offset) => {
+    ["before", 1],
+    ["after", -1],
+  ])("cuts the corner diagonally when turning %s the center, gaining full ground", (_, side) => {
+    const offset = side * PLAYER_SPEED * 0.016 * 1.5;
     const { world, eid } = spawnAt(6, 5);
     const cx = cellCenterX(6);
     const cy = cellCenterY(5);

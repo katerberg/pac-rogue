@@ -11,7 +11,11 @@ const GHOST_CATCH_MIN_OVERLAP_FRACTION = 0.2;
 
 export function catchPlayer(
   world: World,
-  options?: { frozenGhostEid?: number | null; playerInvulnerable?: boolean },
+  options?: {
+    frozenGhostEid?: number | null;
+    skipGhostEids?: ReadonlySet<number>;
+    playerInvulnerable?: boolean;
+  },
 ): boolean {
   if (options?.playerInvulnerable === true) {
     return false;
@@ -30,7 +34,7 @@ export function catchPlayer(
   const pr = Drawable.radius[playerEid] ?? 0;
 
   for (const eid of query(world, [Ghost, GhostPhase, Position, Drawable])) {
-    if (frozenEid !== null && eid === frozenEid) {
+    if ((frozenEid !== null && eid === frozenEid) || options?.skipGhostEids?.has(eid) === true) {
       continue;
     }
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;

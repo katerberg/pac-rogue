@@ -78,7 +78,6 @@ export function resolveGhostTarget(
   mode: GhostAiMode,
   pelletsRemaining: number,
   ctx: GhostAiContext,
-  opts: { ignoreElroy?: boolean } = {},
 ): GhostTarget {
   const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
   const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
@@ -128,7 +127,6 @@ export function resolveGhostTarget(
     playerRow: player.row,
     ghostCol: col,
     ghostRow: row,
-    ignoreElroy: opts.ignoreElroy,
   });
 }
 
@@ -157,12 +155,7 @@ function bossAwareCanEnter(
   return (px, py, dx, dy) => rules.canEnter(px, py, dx, dy) && !blocked(dx, dy);
 }
 
-export function ghostAi(
-  world: World,
-  mode: GhostAiMode,
-  pelletsRemaining: number,
-  opts: { ignoreElroy?: boolean } = {},
-): void {
+export function ghostAi(world: World, mode: GhostAiMode, pelletsRemaining: number): void {
   const ctx = ghostAiContext(world);
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing])) {
@@ -193,7 +186,7 @@ export function ghostAi(
     const target =
       isBossGhost && phase === GHOST_PHASE.active && mode === GHOST_AI_MODE.scatter
         ? { col: BossGhost.scatterCol[eid] ?? 0, row: BossGhost.scatterRow[eid] ?? 0 }
-        : resolveGhostTarget(eid, mode, pelletsRemaining, ctx, opts);
+        : resolveGhostTarget(eid, mode, pelletsRemaining, ctx);
 
     const storedFacing = facingNow;
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
