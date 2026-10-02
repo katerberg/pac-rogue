@@ -38,6 +38,7 @@ import {
   type DeathSequenceState,
 } from "../../domain/deathSequence";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
+import { moneyTalksLaunchedCount, resolveLastLifeSave } from "../../domain/moneyTalks";
 import {
   createFruitPresence,
   extendFruitLifetime,
@@ -146,6 +147,7 @@ import {
   FRUIT_FECUNDITY_MUL,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
+  moneyTalksCost,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
   turnBoostMs,
@@ -288,7 +290,7 @@ import {
   type TunnelDashAnimation,
 } from "../systems/tunnelDash";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
-import type { SimEvent, SimRenderOptions } from "./simEvents";
+import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 import type { SimInput } from "./simInput";
 
@@ -345,6 +347,7 @@ export class PlaySim {
   private death: DeathSequenceState | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
+  private moneyTalksSpend: MoneyTalksSpend | null = null;
   private lives = START_LIVES;
   private afterLifeRelease = false;
   private eatDragMs = 0;
@@ -525,6 +528,7 @@ export class PlaySim {
         this.reviveSplashElapsedMs === null
           ? null
           : reviveSplashProgress(this.reviveSplashElapsedMs),
+      moneyTalksElapsedMs: this.moneyTalksSpend?.elapsedMs ?? null,
       levelTransition: this.levelTransitionRemainingMs > 0,
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
@@ -620,6 +624,7 @@ export class PlaySim {
         this.handleDeathEvent(event);
       }
       this.tickReviveSplash(delta);
+      this.tickMoneyTalks(delta);
       return;
     }
 
@@ -1023,10 +1028,19 @@ export class PlaySim {
       }
       this.emit({ type: "loopStop", id: "gameplayMusic" });
       const defied = defyDeathActive(this.runUpgrades);
-      this.reviveSplashPending = defied;
-      this.emit({ type: "sfx", id: defied ? "revive" : "death" });
+      const bought =
+        !defied && !this.options.infiniteLives
+          ? resolveLastLifeSave(this.lives, this.quarters, moneyTalksCost(this.runUpgrades.owned))
+          : null;
+      if (bought?.saved === true) {
+        this.moneyTalksSpend = { elapsedMs: 0, count: bought.spend, quartersBefore: this.quarters };
+        this.tickMoneyTalks(0);
+      }
+      const saved = defied || bought?.saved === true;
+      this.reviveSplashPending = saved;
+      this.emit({ type: "sfx", id: saved ? "revive" : "death" });
       const result =
-        this.options.infiniteLives || defied
+        this.options.infiniteLives || saved
           ? { lives: this.lives, gameOver: false }
           : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
@@ -1323,6 +1337,7 @@ export class PlaySim {
       this.afterLifeRelease,
     );
     this.death = null;
+    this.finishMoneyTalks();
     this.suppressInputUntilKeyRelease = false;
     this.emit({ type: "timer" });
 
@@ -1621,6 +1636,7 @@ export class PlaySim {
         break;
       case "resume":
         this.death = null;
+        this.finishMoneyTalks();
         if (this.reviveSplashElapsedMs !== null) {
           this.reviveSplashElapsedMs = null;
           this.emitDraw({ playerReviveProgress: 1 });
@@ -1632,6 +1648,31 @@ export class PlaySim {
         this.emit({ type: "goToMenu" });
         break;
     }
+  }
+
+  private tickMoneyTalks(delta: number): void {
+    const spend = this.moneyTalksSpend;
+    if (spend === null) {
+      return;
+    }
+    spend.elapsedMs += delta;
+    const quarters = spend.quartersBefore - moneyTalksLaunchedCount(spend.elapsedMs, spend.count);
+    if (quarters !== this.quarters) {
+      this.quarters = quarters;
+      this.emit({ type: "quarters" });
+    }
+    this.emit({ type: "walletCoins", spend: { ...spend } });
+  }
+
+  private finishMoneyTalks(): void {
+    const spend = this.moneyTalksSpend;
+    if (spend === null) {
+      return;
+    }
+    this.moneyTalksSpend = null;
+    this.quarters = spend.quartersBefore - spend.count;
+    this.emit({ type: "quarters" });
+    this.emit({ type: "walletCoins", spend: null });
   }
 
   private tickReviveSplash(delta: number): void {

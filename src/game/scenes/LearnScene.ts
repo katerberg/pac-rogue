@@ -126,6 +126,7 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [
   "passiveMyogenesis",
   "passiveDefyDeath",
   "passiveTurnTuning",
+  "passiveMoneyTalks",
 ];
 
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };

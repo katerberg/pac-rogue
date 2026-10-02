@@ -48,6 +48,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 25  | `passiveMyogenesis`          | Myogenesis          | Level-clear regen gives up to 2 lives instead of 1                                       | Level-clear regen fills every available life slot                                                                                            |
 | 26  | `passiveDefyDeath`           | Defy Death          | Power pellet arms 5s where a catch costs no life                                         | One-save window lengthened from 5s to 8s                                                                                                     |
 | 27  | `passiveTurnTuning`          | Turn Tuning         | Turns can be tapped 2 tiles early; a perfect tap gives a 0.5s speed boost                | Perfect-tap boost lasts 0.75s; perfect-tap range 8px → 12px                                                                                  |
+| 28  | `passiveMoneyTalks`          | Money Talks         | A catch on the last life spends 3 Quarters to keep it                                    | A save costs 1 Quarter instead of 3                                                                                                          |
 
 ## Decisions
 

@@ -14,6 +14,7 @@ import { playTurnSparks } from "./turnSparks";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
 import { pelletDisplaySize, playerDisplaySize } from "../../domain/maze";
+import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
 import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { freshSeed } from "../../domain/runRandom";
@@ -29,7 +30,7 @@ import {
   type SfxId,
 } from "../audio/sfx";
 import { PlaySim } from "../sim/playSim";
-import type { SimEvent } from "../sim/simEvents";
+import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { saveRun } from "../storage/runHistoryStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -55,6 +56,7 @@ import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 
 const LEVEL_BANNER_FADE_MS = 1500;
+const WALLET_COIN_DEPTH = 900;
 const BOSS_BANNER_SLAM_MS = 220;
 const BOSS_BANNER_HOLD_MS = 1200;
 const BOSS_BANNER_FADE_MS = 800;
@@ -86,6 +88,7 @@ export class PlayScene extends Phaser.Scene {
   private bonusGfx!: Phaser.GameObjects.Graphics;
   private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
+  private walletCoins: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
@@ -142,6 +145,7 @@ export class PlayScene extends Phaser.Scene {
     this.chrome.add([this.timerText, this.upgradesText, bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
     this.quarterIcons = [];
+    this.walletCoins = [];
     this.refreshQuartersHud();
 
     this.readHeldKeys = createHeldKeysReader(this);
@@ -289,6 +293,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "quarters":
         this.refreshQuartersHud();
+        break;
+      case "walletCoins":
+        this.drawWalletCoins(event.spend);
         break;
       case "bonus":
         this.applyBonusFx(event.tier, event.filled);
@@ -530,13 +537,36 @@ export class PlayScene extends Phaser.Scene {
     }
     this.quarterIcons = [];
     const size = pelletDisplaySize();
-    const y = 8 + size / 2;
     for (let i = 0; i < this.sim.hud().quarters; i += 1) {
-      const x = 12 + size / 2 + i * (size + 4);
+      const { x, y } = quarterHudIconPosition(i, size);
       const icon = this.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
       this.chrome.add(icon);
       this.quarterIcons.push(icon);
     }
+  }
+
+  private drawWalletCoins(spend: MoneyTalksSpend | null): void {
+    const count = spend?.count ?? 0;
+    while (this.walletCoins.length < count) {
+      this.walletCoins.push(this.add.image(0, 0, QUARTER_TEXTURE_KEY).setDepth(WALLET_COIN_DEPTH));
+    }
+    const size = pelletDisplaySize();
+    this.walletCoins.forEach((coin, i) => {
+      const look =
+        spend === null || i >= count
+          ? null
+          : moneyTalksCoinLook(
+              spend.elapsedMs,
+              i,
+              count,
+              quarterHudIconPosition(spend.quartersBefore - 1 - i, size),
+              size,
+            );
+      coin.setVisible(look !== null);
+      if (look !== null) {
+        coin.setPosition(look.x, look.y).setDisplaySize(look.size, look.size).setAlpha(look.alpha);
+      }
+    });
   }
 
   private applyBonusFx(tier: number, filled: number): void {
