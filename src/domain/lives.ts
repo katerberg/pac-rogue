@@ -17,20 +17,15 @@ export function parseInfiniteLivesFlag(params: URLSearchParams): boolean {
   return params.get("infiniteLives") === "1";
 }
 
-function parsePositiveIntParam(params: URLSearchParams, flag: string): number | null {
+export function parseLivesCountParam(
+  params: URLSearchParams,
+  flag: "lives" | "maxLives",
+): number | null {
   const raw = params.get(flag);
   if (raw === null || !/^\d+$/.test(raw) || Number(raw) < 1) {
     return null;
   }
   return Number(raw);
-}
-
-export function parseLivesParam(params: URLSearchParams): number | null {
-  return parsePositiveIntParam(params, "lives");
-}
-
-export function parseMaxLivesParam(params: URLSearchParams): number | null {
-  return parsePositiveIntParam(params, "maxLives");
 }
 
 export function levelLivesIconFloor(floorBonus: number, maxLives = DEFAULT_MAX_LIVES): number {

@@ -7,8 +7,7 @@ import {
   livesHudIconCount,
   livesRemainingAfterCatch,
   parseInfiniteLivesFlag,
-  parseLivesParam,
-  parseMaxLivesParam,
+  parseLivesCountParam,
 } from "./lives";
 
 describe("livesRemainingAfterCatch", () => {
@@ -47,18 +46,16 @@ describe("parseInfiniteLivesFlag", () => {
   });
 });
 
-describe.each([
-  ["lives", parseLivesParam],
-  ["maxLives", parseMaxLivesParam],
-] as const)("parse %s", (flag, parse) => {
+describe.each(["lives", "maxLives"] as const)("parseLivesCountParam(%s)", (flag) => {
+  const parse = (query: string) => parseLivesCountParam(new URLSearchParams(query), flag);
   it("accepts positive integers only", () => {
-    expect(parse(new URLSearchParams(`${flag}=7`))).toBe(7);
-    expect(parse(new URLSearchParams(`${flag}=1`))).toBe(1);
-    expect(parse(new URLSearchParams(`${flag}=0`))).toBeNull();
-    expect(parse(new URLSearchParams(`${flag}=-2`))).toBeNull();
-    expect(parse(new URLSearchParams(`${flag}=2.5`))).toBeNull();
-    expect(parse(new URLSearchParams(`${flag}=`))).toBeNull();
-    expect(parse(new URLSearchParams())).toBeNull();
+    expect(parse(`${flag}=7`)).toBe(7);
+    expect(parse(`${flag}=1`)).toBe(1);
+    expect(parse(`${flag}=0`)).toBeNull();
+    expect(parse(`${flag}=-2`)).toBeNull();
+    expect(parse(`${flag}=2.5`)).toBeNull();
+    expect(parse(`${flag}=`)).toBeNull();
+    expect(parse("")).toBeNull();
   });
 });
 

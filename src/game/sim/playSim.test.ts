@@ -614,10 +614,7 @@ describe("PlaySim", () => {
     expect(startSim({ level: 1, enableUpgrades: [], maxLives: 6 }).snapshot().lives).toBe(4);
   });
 
-  function livesAfterLevelClear(
-    options: Pick<PlayOptions, "lives" | "maxLives">,
-    livesBefore: number,
-  ): number {
+  function livesAfterLevelClear(options: Partial<PlayOptions>, livesBefore: number): number {
     const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [], ...options });
     (sim as unknown as { lives: number }).lives = livesBefore;
     const pick = drainToOffer(sim).upgrades.find(
@@ -634,14 +631,9 @@ describe("PlaySim", () => {
     [null, 1, 2],
     [null, 3, 4],
   ] as const)("level clear with %s from %i lives ends at %i", (upgrade, startLives, endLives) => {
-    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: upgrade ? [upgrade] : [] });
-    (sim as unknown as { lives: number }).lives = startLives;
-    const pick = drainToOffer(sim).upgrades.find(
-      (id) => id !== "passiveExtraLife" && id !== "passiveMyogenesis",
-    )!;
-    sim.chooseUpgrade({ kind: "upgrade", id: pick });
-    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
-    expect(sim.snapshot().lives).toBe(endLives);
+    expect(livesAfterLevelClear({ enableUpgrades: upgrade ? [upgrade] : [] }, startLives)).toBe(
+      endLives,
+    );
   });
 
   it("regenerates the life when the level ends, before the store opens", () => {

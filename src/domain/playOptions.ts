@@ -4,7 +4,7 @@ import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
 import { parseGodModeFlag } from "./godModeFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
-import { parseInfiniteLivesFlag, parseLivesParam, parseMaxLivesParam } from "./lives";
+import { parseInfiniteLivesFlag, parseLivesCountParam } from "./lives";
 import { parseMazeParam, type MazeLayoutId } from "./mazeLayouts";
 import { parseQuartersParam } from "./quartersFlag";
 import { highScoresDisabled } from "./runHistory";
@@ -72,9 +72,9 @@ export function parsePlayOptions(params: URLSearchParams): {
     bossGhosts === null,
     "Unknown ?bossGhosts= value; expected an integer 2..10",
   );
-  const lives = parseLivesParam(params);
+  const lives = parseLivesCountParam(params, "lives");
   warnIf("lives", lives === null, "Unknown ?lives= value; expected positive integer");
-  const maxLives = parseMaxLivesParam(params);
+  const maxLives = parseLivesCountParam(params, "maxLives");
   warnIf("maxLives", maxLives === null, "Unknown ?maxLives= value; expected positive integer");
   return {
     options: {

@@ -79,6 +79,7 @@ import {
   speedLevelMultiplier,
 } from "../../domain/levelRules";
 import {
+  DEFAULT_MAX_LIVES,
   START_LIVES,
   levelLivesIconFloor,
   levelRegenAmount,
@@ -1565,7 +1566,7 @@ export class PlaySim {
   private regenIconFloor(): number {
     return levelLivesIconFloor(
       lifeFloorBonus(this.runUpgrades.owned),
-      this.options.maxLives ?? undefined,
+      this.options.maxLives ?? DEFAULT_MAX_LIVES,
     );
   }
 
