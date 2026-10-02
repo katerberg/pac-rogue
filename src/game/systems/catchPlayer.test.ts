@@ -43,35 +43,35 @@ describe("catchPlayer", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
     spawnGhost(world, 100, 100, GHOST_PHASE.inHouse);
-    expect(catchPlayer(world)).toBe(false);
+    expect(catchPlayer(world)).toBeNull();
   });
 
-  it("catches when an active ghost overlaps the player", () => {
+  it("returns the catching ghost when an active ghost overlaps the player", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
-    spawnGhost(world, 100, 100, GHOST_PHASE.active);
-    expect(catchPlayer(world)).toBe(true);
+    const ghost = spawnGhost(world, 100, 100, GHOST_PHASE.active);
+    expect(catchPlayer(world)).toBe(ghost);
   });
 
   it("catches when a leaving ghost overlaps the player", () => {
     const world = createWorld();
     spawnPlayer(world, 200, 200);
     spawnGhost(world, 200 + playerRadius() / 2, 200, GHOST_PHASE.leaving);
-    expect(catchPlayer(world)).toBe(true);
+    expect(catchPlayer(world)).not.toBeNull();
   });
 
   it("does not catch when an active ghost is far away", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
     spawnGhost(world, 400, 400, GHOST_PHASE.active);
-    expect(catchPlayer(world)).toBe(false);
+    expect(catchPlayer(world)).toBeNull();
   });
 
   it("does not catch when overlapping the frozen ghost", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
     const frozen = spawnGhost(world, 100, 100, GHOST_PHASE.active);
-    expect(catchPlayer(world, { frozenGhostEid: frozen })).toBe(false);
+    expect(catchPlayer(world, { frozenGhostEid: frozen })).toBeNull();
   });
 
   it("still catches an unfrozen ghost while another is frozen", () => {
@@ -79,14 +79,14 @@ describe("catchPlayer", () => {
     spawnPlayer(world, 100, 100);
     const frozen = spawnGhost(world, 400, 400, GHOST_PHASE.active);
     spawnGhost(world, 100, 100, GHOST_PHASE.active);
-    expect(catchPlayer(world, { frozenGhostEid: frozen })).toBe(true);
+    expect(catchPlayer(world, { frozenGhostEid: frozen })).not.toBeNull();
   });
 
   it("does not catch when the player is invulnerable", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
     spawnGhost(world, 100, 100, GHOST_PHASE.active);
-    expect(catchPlayer(world, { playerInvulnerable: true })).toBe(false);
+    expect(catchPlayer(world, { playerInvulnerable: true })).toBeNull();
   });
 
   it("does not catch on a graze that falls short of the required overlap", () => {
@@ -95,13 +95,13 @@ describe("catchPlayer", () => {
     // reach = playerRadius() + ghostRadius() = 16; this is within plain
     // touching range (< 16) but short of the 20% overlap threshold (< 12.8).
     spawnGhost(world, 100 + playerRadius() + ghostRadius() - 1, 100, GHOST_PHASE.active);
-    expect(catchPlayer(world)).toBe(false);
+    expect(catchPlayer(world)).toBeNull();
   });
 
   it("catches once the ghost clears the required overlap threshold", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
     spawnGhost(world, 112, 100, GHOST_PHASE.active);
-    expect(catchPlayer(world)).toBe(true);
+    expect(catchPlayer(world)).not.toBeNull();
   });
 });

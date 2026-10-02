@@ -31,6 +31,10 @@ export function freshSeed(): string {
     .padStart(8, "0");
 }
 
+export function freshId(): string {
+  return crypto.randomUUID();
+}
+
 export function createRunRandom(seed: string): RunRandom {
   const streams = new Map<string, () => number>();
   return {

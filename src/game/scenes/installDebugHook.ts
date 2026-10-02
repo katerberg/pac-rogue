@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import { runLogOverrunActive, storedRunCount } from "../storage/runLogStorage";
 import { PlayScene } from "./PlayScene";
 
 type SceneStatus = "running" | "paused" | "sleeping";
@@ -9,6 +10,7 @@ declare global {
       snapshot: () => {
         scenes: Record<string, SceneStatus>;
         play: ReturnType<PlayScene["debugSnapshot"]> | null;
+        runLog: { stored: number; overrun: boolean };
       };
     };
   }
@@ -38,6 +40,7 @@ export function installDebugHook(game: Phaser.Game): void {
       return {
         scenes,
         play: play instanceof PlayScene && "PlayScene" in scenes ? play.debugSnapshot() : null,
+        runLog: { stored: storedRunCount(), overrun: runLogOverrunActive() },
       };
     },
   };

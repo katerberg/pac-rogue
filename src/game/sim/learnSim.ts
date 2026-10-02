@@ -387,7 +387,7 @@ export class LearnSim {
         skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
         playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
       });
-      if (caught) {
+      if (caught !== null) {
         this.resolveDemoCatch();
       }
     }

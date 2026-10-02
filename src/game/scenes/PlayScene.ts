@@ -41,6 +41,7 @@ import { PlaySim } from "../sim/playSim";
 import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
 import { saveRun } from "../storage/runHistoryStorage";
+import { newRunLogMeta, relabelAbandoned, saveRunLog } from "../storage/runLogStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
@@ -115,6 +116,8 @@ export class PlayScene extends Phaser.Scene {
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
+  private pausedAtMs: number | null = null;
+  private hiddenAtMs: number | null = null;
 
   constructor() {
     super("PlayScene");
@@ -129,7 +132,8 @@ export class PlayScene extends Phaser.Scene {
     stopLoopingSfx(this, "menuMusic");
     this.clearLevelBanner();
 
-    const { options, warnings } = parsePlayOptions(new URLSearchParams(location.search));
+    const params = new URLSearchParams(location.search);
+    const { options, warnings } = parsePlayOptions(params);
     for (const warning of warnings) {
       console.warn(warning);
     }
@@ -140,7 +144,11 @@ export class PlayScene extends Phaser.Scene {
       options.store = null;
     }
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
-    this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning);
+    const runLogMeta = newRunLogMeta(params);
+    relabelAbandoned(runLogMeta.id);
+    this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning, runLogMeta);
+    this.pausedAtMs = null;
+    this.hiddenAtMs = null;
 
     this.upgradeChoiceModal?.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.sim.random.stream("upgradeFx"));
@@ -192,7 +200,15 @@ export class PlayScene extends Phaser.Scene {
 
     this.applyEvents(this.sim.start(), 0);
 
+    const onVisibilityChange = (): void => this.trackHiddenTime();
+    const onPageHide = (): void => saveRunLog(this.sim.runLogRecord());
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+      this.applyEvents(this.sim.finishRun("quit"), 0);
       stopLoopingSfx(this, "gameplayMusic");
       stopLoopingSfx(this, "death");
       stopLoopingSfx(this, "revive");
@@ -297,6 +313,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   public resumeFromPauseMenu(): void {
+    if (this.pausedAtMs !== null) {
+      this.sim.notePause(performance.now() - this.pausedAtMs);
+      this.pausedAtMs = null;
+    }
     this.sim.suppressInputUntilRelease();
     if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.rearmSelectionKeys();
@@ -304,7 +324,17 @@ export class PlayScene extends Phaser.Scene {
     this.scene.resume();
   }
 
+  private trackHiddenTime(): void {
+    if (document.hidden) {
+      this.hiddenAtMs = performance.now();
+    } else if (this.hiddenAtMs !== null) {
+      this.sim.noteHidden(performance.now() - this.hiddenAtMs);
+      this.hiddenAtMs = null;
+    }
+  }
+
   private pauseForMenu(): void {
+    this.pausedAtMs = performance.now();
     this.scene.pause();
     this.scene.launch("PauseScene");
   }
@@ -436,6 +466,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "saveRun":
         saveRun(event.collected, event.remaining);
+        break;
+      case "runLog":
+        saveRunLog(event.record);
         break;
       case "seenGhosts": {
         const seen = loadSeenRecord();
