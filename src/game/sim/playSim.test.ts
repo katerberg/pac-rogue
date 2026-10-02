@@ -1,4 +1,4 @@
-import { hasComponent, query } from "bitecs";
+import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { FRUIT_LIFETIME_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
@@ -15,6 +15,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_SPEED } from "../../domain/playfield";
@@ -386,9 +387,35 @@ describe("PlaySim", () => {
     runFrames(sim, 1, { keys: held("up") });
 
     expect(sim.snapshot().player!.facing).toBe("up");
-    expect(Position.y[eid]!).toBeLessThan(before.y - 2);
+    const travel = (PLAYER_SPEED * speedLevelMultiplier(2) * FRAME_MS) / 1000;
+    expect(Position.y[eid]!).toBeLessThan(before.y - travel / 2);
     expect(Math.abs(Position.x[eid]! - cx)).toBeLessThan(Math.abs(before.x - cx));
     expect(Math.abs(Position.x[eid]! - cx)).toBeGreaterThan(0);
+  });
+
+  it("moves Maze-Man at the level-2 speed along an empty corridor", () => {
+    const sim = startSim({ level: 2, maze: "maze1", godMode: true });
+    const eid = playerEid(sim);
+    const row = 1;
+    const col = 12;
+    for (let c = col - 6; c <= col; c++) {
+      expect(isWalkable(c, row)).toBe(true);
+    }
+    for (const pellet of query(sim.world, [Pellet, Position])) {
+      if (worldToRow(Position.y[pellet]!) === row) {
+        removeEntity(sim.world, pellet);
+      }
+    }
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 1, { keys: held("left") });
+    const startX = Position.x[eid]!;
+
+    runFrames(sim, 30, { keys: held("left") });
+
+    const arcadeTilesPerSec = 5.315;
+    const expectedPx =
+      arcadeTilesPerSec * TILE_SIZE * speedLevelMultiplier(2) * ((30 * FRAME_MS) / 1000);
+    expect(startX - Position.x[eid]!).toBeCloseTo(expectedPx, 1);
   });
 
   it("spends a life when caught and respawns at the spawn point", () => {
@@ -900,6 +927,10 @@ describe("Ghost Harvester", () => {
     expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
 
+    // A wandering harvester re-arms the timer whenever it lands on a power pellet.
+    for (const power of query(sim.world, [PowerPellet])) {
+      removeEntity(sim.world, power);
+    }
     runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
     const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
     parkGhostOn(sim, next);

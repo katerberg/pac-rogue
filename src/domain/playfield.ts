@@ -5,10 +5,9 @@ import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 export { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH };
 
-// 150px/s was tuned against the classic maze's original 18px tile fit
-// (8.33 tiles/sec) before every maze shared one fixed tile size — keep
-// pacing unchanged now that TILE_SIZE is fixed at 16 instead of 18.
-export const PLAYER_SPEED = (150 / 18) * TILE_SIZE;
+// Tiles/sec matched to arcade Ms. Pac-Man: crossing the maze on level 2 takes
+// 3.81s there. Every ghost, tunnel, Elroy and boss speed derives from this.
+export const PLAYER_SPEED = 5.315 * TILE_SIZE;
 
 export function playerRadius(): number {
   return TILE_SIZE / 2;
