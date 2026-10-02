@@ -32,6 +32,7 @@ describe("worldSnapshot", () => {
       pellets: 0,
       powerPellets: 0,
       bossPellets: 0,
+      optionalPellets: 0,
       fruit: false,
     });
   });

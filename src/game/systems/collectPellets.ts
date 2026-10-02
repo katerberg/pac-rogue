@@ -3,6 +3,7 @@ import { hasPelletLineOfSight } from "../../domain/pelletLos";
 import type { Cell } from "../../domain/bonusBar";
 import { worldToCol, worldToRow, type SolidGrid } from "../../domain/maze";
 import { Drawable } from "../components/Drawable";
+import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -25,8 +26,10 @@ export function countPellets(world: World): number {
   return query(world, [Pellet]).length;
 }
 
-export function onlyPowerPelletsLeft(world: World): boolean {
-  return query(world, [Pellet]).every((eid) => hasComponent(world, eid, PowerPellet));
+export function noRequiredPelletsLeft(world: World): boolean {
+  return query(world, [Pellet]).every(
+    (eid) => hasComponent(world, eid, PowerPellet) || hasComponent(world, eid, OptionalPellet),
+  );
 }
 
 export function collectPellets(world: World, opts: CollectPelletsOptions = {}): PlayerPelletFrame {

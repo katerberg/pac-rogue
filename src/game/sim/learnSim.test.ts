@@ -28,6 +28,19 @@ describe("LearnSim", () => {
     expect(worldSnapshot(sim.world).ghosts).toHaveLength(2);
   });
 
+  it("greys the pellets Lazy Looper does not need, fewer kept with Plus, none once off", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    expect(worldSnapshot(sim.world).optionalPellets).toBe(0);
+    sim.toggleUpgrade("passiveLazyLooper");
+    const base = worldSnapshot(sim.world).optionalPellets;
+    expect(base).toBeGreaterThan(0);
+    sim.toggleEnhanced("passiveLazyLooper");
+    expect(worldSnapshot(sim.world).optionalPellets).toBeGreaterThan(base);
+    sim.toggleUpgrade("passiveLazyLooperPlus");
+    expect(worldSnapshot(sim.world).optionalPellets).toBe(0);
+  });
+
   it("turns one pellet into a power pellet when Pellet Surge is toggled on", () => {
     const sim = new LearnSim("learn");
     sim.start();

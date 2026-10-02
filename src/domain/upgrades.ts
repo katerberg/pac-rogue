@@ -1,4 +1,5 @@
 import { BONUS_BAR_MAX } from "./bonusBar";
+import type { LazyLooperRings } from "./lazyLooper";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE } from "./maze";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 
@@ -30,7 +31,8 @@ export type BaseUpgradeId =
   | "passiveMyogenesis"
   | "passiveDefyDeath"
   | "passiveTurnTuning"
-  | "passiveDeathsBounty";
+  | "passiveDeathsBounty"
+  | "passiveLazyLooper";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -80,6 +82,7 @@ export type UpgradeEffects = {
   speedBurstMul?: number;
   turnBoostMs?: number;
   turnPerfectPx?: number;
+  lazyLooperRings?: LazyLooperRings;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -543,6 +546,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       enhanceNote: "Death's Bounty drops 10% per extra death on a level instead of 20%.",
       description: "Dying pays a Quarter, barely less for each death on a level.",
       deathsBountyDecay: DEATHS_BOUNTY_ENHANCED_DECAY,
+    },
+  },
+  {
+    id: "passiveLazyLooper",
+    label: "Lazy Looper",
+    school: "speed",
+    description: "Only the outer and inner pellet rings must be eaten to clear the board.",
+    storePrice: STORE_UPGRADE_PRICE,
+    lazyLooperRings: "outerInner",
+    enhanced: {
+      enhanceNote: "Lazy Looper needs only the outer ring instead of the outer and inner rings.",
+      description: "Only the outer pellet ring must be eaten to clear the board.",
+      lazyLooperRings: "outer",
     },
   },
 ];
@@ -1123,6 +1139,10 @@ export function regenToFull(owned: readonly UpgradeId[]): boolean {
 
 export function pelletSurgeCount(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "pelletSurgeCount") ?? 0;
+}
+
+export function lazyLooperRings(owned: readonly UpgradeId[]): LazyLooperRings | null {
+  return ownedValue(owned, "lazyLooperRings") ?? null;
 }
 
 export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {

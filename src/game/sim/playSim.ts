@@ -165,6 +165,7 @@ import {
   ghostTunnelSpeedRatio,
   baseIdOf,
   pelletSurgeCount,
+  lazyLooperRings,
   regenToFull,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
@@ -200,6 +201,7 @@ import {
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
+import { tagOptionalPellets } from "../systems/lazyLooper";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -217,7 +219,7 @@ import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { wallPassSolids } from "../systems/wallPassSolids";
 import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
-import { collectPellets, countPellets, onlyPowerPelletsLeft } from "../systems/collectPellets";
+import { collectPellets, countPellets, noRequiredPelletsLeft } from "../systems/collectPellets";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
@@ -804,7 +806,7 @@ export class PlaySim {
           const collectResult = applyPelletCollect(
             this.pelletProgress,
             dash.sweptPelletEids.length,
-            onlyPowerPelletsLeft(this.world),
+            noRequiredPelletsLeft(this.world),
           );
           this.pelletProgress = collectResult.progress;
           this.lifetimeCollected += dash.sweptPelletEids.length;
@@ -899,7 +901,7 @@ export class PlaySim {
     const collectResult = applyPelletCollect(
       this.pelletProgress,
       totalRemoved,
-      onlyPowerPelletsLeft(this.world),
+      noRequiredPelletsLeft(this.world),
     );
     this.pelletProgress = collectResult.progress;
     if (totalRemoved > 0) {
@@ -1014,7 +1016,7 @@ export class PlaySim {
           const harvestResult = applyPelletCollect(
             this.pelletProgress,
             harvested.length,
-            onlyPowerPelletsLeft(this.world),
+            noRequiredPelletsLeft(this.world),
           );
           this.pelletProgress = harvestResult.progress;
           this.lifetimeCollected += harvested.length;
@@ -1344,6 +1346,7 @@ export class PlaySim {
     if (this.bossState !== null) {
       this.tagBossPellets(this.bossState);
     }
+    tagOptionalPellets(this.world, lazyLooperRings(this.runUpgrades.owned));
   }
 
   private generateBoard(
@@ -1493,7 +1496,7 @@ export class PlaySim {
     const collectResult = applyPelletCollect(
       this.pelletProgress,
       pelletEids.length,
-      onlyPowerPelletsLeft(this.world),
+      noRequiredPelletsLeft(this.world),
     );
     this.pelletProgress = collectResult.progress;
     this.lifetimeCollected += pelletEids.length;
@@ -1523,7 +1526,7 @@ export class PlaySim {
         const collectResult = applyPelletCollect(
           this.pelletProgress,
           bonusEids.length,
-          onlyPowerPelletsLeft(this.world),
+          noRequiredPelletsLeft(this.world),
         );
         this.pelletProgress = collectResult.progress;
         this.lifetimeCollected += bonusEids.length;

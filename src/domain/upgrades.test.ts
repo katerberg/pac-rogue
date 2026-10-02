@@ -70,6 +70,7 @@ import {
   getUpgradeDef,
   remoteTransferEvery,
   deathsBountyCharge,
+  lazyLooperRings,
   deathsHarvestRadiusTiles,
   enhanceGrantLives,
   enhanceUpgrade,
@@ -124,6 +125,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveDefyDeath",
   "passiveTurnTuning",
   "passiveDeathsBounty",
+  "passiveLazyLooper",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -922,6 +924,12 @@ describe("enhanced upgrades", () => {
     expect(charges("passiveDeathsBounty")).toEqual([300, 240, 192, 153, 122]);
     expect(charges("passiveDeathsBountyPlus")).toEqual([300, 270, 243, 218, 196]);
     expect(deathsBountyCharge([], 0)).toBe(0);
+  });
+
+  it("Lazy Looper requires outer + inner rings, Plus only the outer ring", () => {
+    expect(lazyLooperRings(["passiveLazyLooper"])).toBe("outerInner");
+    expect(lazyLooperRings(["passiveLazyLooperPlus"])).toBe("outer");
+    expect(lazyLooperRings(["passivePlayerSpeedUp"])).toBeNull();
   });
 
   it("applies enhanced power-pellet numbers", () => {

@@ -10,6 +10,7 @@ import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION } from "../components/Input";
+import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -36,6 +37,7 @@ export type WorldSnapshot = {
   pellets: number;
   powerPellets: number;
   bossPellets: number;
+  optionalPellets: number;
   fruit: boolean;
 };
 
@@ -71,6 +73,7 @@ export function worldSnapshot(world: World): WorldSnapshot {
     pellets: query(world, [Pellet]).length - powerPellets,
     powerPellets,
     bossPellets: query(world, [BossPellet]).length,
+    optionalPellets: query(world, [OptionalPellet]).length,
     fruit: query(world, [Fruit]).length > 0,
   };
 }

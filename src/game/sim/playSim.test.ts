@@ -34,6 +34,7 @@ import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
+import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -1812,5 +1813,78 @@ describe("level 4+ ghosts", () => {
     expect(draws.length).toBeGreaterThan(0);
     expect(draws.every((options) => !("corruptedTint" in options))).toBe(true);
     expect(events.some((event) => event.type === "seenGhosts")).toBe(true);
+  });
+});
+
+describe("Lazy Looper", () => {
+  function startLooper(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades, ...overrides });
+  }
+
+  function partition(sim: PlaySim): { required: number[]; optional: number[] } {
+    const regular = regularPelletEids(sim);
+    return {
+      required: regular.filter((eid) => !hasComponent(sim.world, eid, OptionalPellet)),
+      optional: regular.filter((eid) => hasComponent(sim.world, eid, OptionalPellet)),
+    };
+  }
+
+  it("clears the board once only the ring pellets are eaten", () => {
+    const sim = startLooper(["passiveLazyLooper"]);
+    const { required, optional } = partition(sim);
+    expect(optional.length).toBeGreaterThan(0);
+    expect(sim.snapshot().optionalPellets).toBe(optional.length);
+    for (const eid of required.slice(0, -1)) {
+      eatPelletAt(sim, eid);
+    }
+    expect(sim.offer()).toBeNull();
+    eatPelletAt(sim, required.at(-1)!);
+    expect(drainToOffer(sim)).not.toBeNull();
+    expect(sim.snapshot().optionalPellets).toBe(optional.length);
+  });
+
+  it("Plus needs only the outer ring, so fewer pellets than the base", () => {
+    const base = partition(startLooper(["passiveLazyLooper"]));
+    const plus = partition(startLooper(["passiveLazyLooperPlus"]));
+    expect(plus.required.length).toBeLessThan(base.required.length);
+    expect(plus.required.length + plus.optional.length).toBe(
+      base.required.length + base.optional.length,
+    );
+  });
+
+  it("without the upgrade every pellet is required", () => {
+    const sim = startLooper([]);
+    expect(sim.snapshot().optionalPellets).toBe(0);
+    const ring = partition(startLooper(["passiveLazyLooper"])).required.map((eid) => ({
+      x: Position.x[eid]!,
+      y: Position.y[eid]!,
+    }));
+    for (const eid of regularPelletEids(sim)) {
+      if (ring.some((cell) => cell.x === Position.x[eid] && cell.y === Position.y[eid])) {
+        eatPelletAt(sim, eid);
+      }
+    }
+    runFrames(sim, 90);
+    expect(sim.offer()).toBeNull();
+  });
+
+  it("re-tags each new board", () => {
+    const sim = startLooper(["passiveLazyLooperPlus"], { maze: null });
+    for (const eid of partition(sim).required) {
+      eatPelletAt(sim, eid);
+    }
+    const offer = drainToOffer(sim);
+    sim.chooseUpgrade({ kind: "quarters", amount: offer.quarters });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 300);
+    expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);
+    expect(sim.snapshot().optionalPellets).toBe(partition(sim).optional.length);
+  });
+
+  it("never makes boss pellets optional", () => {
+    const sim = startSim({ level: 9, enableUpgrades: ["passiveLazyLooperPlus"] });
+    const boss = query(sim.world, [BossPellet]);
+    expect(boss.length).toBeGreaterThan(0);
+    expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);
+    expect(boss.every((eid) => !hasComponent(sim.world, eid, OptionalPellet))).toBe(true);
   });
 });

@@ -43,6 +43,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveTurnTuning`          | Turn Tuning         | Speed      | Turn keys must be freshly tapped within 2 tiles before the corner; a clean tap right on the corner (no same-key press in the last 300ms) turns with a 0.5s speed boost and a pulse on Maze-Man (see [Turn Tuning](#turn-tuning) below)                                                                                                                                                                                                                                                                                                                                                  |
 | `passiveDefyDeath`           | Defy Death          | Death      | Power pellet arms a `DEFY_DEATH_MS` (5000) window; getting caught inside it costs no life (see [Defy Death](#defy-death) below)                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `passiveDeathsBounty`        | Death's Bounty      | Death      | Every death that doesn't end the run adds `BONUS_BAR_MAX` (300, one Quarter) × `DEATHS_BOUNTY_DECAY` (0.8) ^ prior deaths on this level to the BONUS bar (see [Death's Bounty](#deaths-bounty) below)                                                                                                                                                                                                                                                                                                                                                                                   |
+| `passiveLazyLooper`          | Lazy Looper         | Speed      | Only the outer and inner pellet rings must be eaten to clear the board; the rest turn grey (`LAZY_LOOPER_OPTIONAL_TINT`) and stay edible (see [Lazy Looper](#lazy-looper) below)                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Enhanced upgrades
 
@@ -87,6 +88,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveDefyDeath`           | Defy Death          | One-save window lengthened from 5s to 8s                                                                                                     |
 | `passiveTurnTuning`          | Turn Tuning         | Perfect-tap boost lasts 0.75s; perfect-tap range 8px → 12px                                                                                  |
 | `passiveDeathsBounty`        | Death's Bounty      | 10% less per later death on a level (`DEATHS_BOUNTY_ENHANCED_DECAY` 0.9) instead of 20%                                                      |
+| `passiveLazyLooper`          | Lazy Looper         | Only the outer ring is required                                                                                                              |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -201,6 +203,19 @@ While `passiveDeathsBounty` is owned, each catch adds `deathsBountyCharge(owned,
 - `PlaySim` counts `deathsThisBoard` (snapshot `play.deathsThisBoard`) on every catch that costs a life or is saved (not the one that ends the run), owned or not, and resets it in `startBoard`.
 - Defy Death saves and `infiniteLives` deaths pay and count. The catch that causes Game Over pays nothing. A Death's Harvest catch that empties the board is a level clear, not a death: no pay, no count.
 - No effect in LEARN (no deaths or BONUS bar).
+
+### Lazy Looper
+
+While `passiveLazyLooper` is owned, a board clears once its **required** regular pellets are eaten (power pellets were never required). `lazyLooperRequiredCells(layout, rings)` in [`src/domain/lazyLooper.ts`](../src/domain/lazyLooper.ts) picks them from the board's layout:
+
+- **Outer ring:** every dot touching (including diagonally) a wall connected to the board edge or the exterior hollows.
+- **Inner ring** (base only): every dot next to the ghost house's pelletless band (the house, its door and the empty corridors reachable from it).
+- **No gaps:** each ring is joined into one piece by the shortest walk between its pieces, requiring the dots on that walk (the inner ring never cuts through the band, so it wraps around the house). The result is then mirrored left-right, since every board is symmetric.
+- Enhanced (`passiveLazyLooperPlus`) requires the outer ring only.
+
+`tagOptionalPellets` adds the `OptionalPellet` tag to every other regular pellet in `startBoard` (after Pellet Surge and boss tagging, so boss pellets and power pellets are never optional), and `noRequiredPelletsLeft` treats tagged pellets like power pellets for the clear check. Optional pellets render in `LAZY_LOOPER_OPTIONAL_TINT` (0x6e6e6e) and can still be eaten: they score, charge the BONUS streak and count toward fruit, ghost release and Cruise Elroy as before. Triple Chomp, Remote Transference and Death's Harvest pick targets as before, so they may eat optional pellets. Snapshot `play.optionalPellets` counts them.
+
+LEARN mirrors the tint: toggling it (or its enhanced form) re-tags the board, and the board still refills only once every pellet is eaten.
 
 ### Overcharge
 
