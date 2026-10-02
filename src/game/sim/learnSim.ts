@@ -151,6 +151,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveDefyDeath",
   "passiveExtraLife",
   "passiveMyogenesis",
+  "passiveMoneyTalks",
 ];
 
 export class LearnSim {
@@ -664,7 +665,8 @@ export class LearnSim {
   private bonusDemoOwned(): boolean {
     return (
       hasUpgrade(this.learnUpgrades.owned, "fruitQuarterBounty") ||
-      hasUpgrade(this.learnUpgrades.owned, "passiveDeathsBounty")
+      hasUpgrade(this.learnUpgrades.owned, "passiveDeathsBounty") ||
+      hasUpgrade(this.learnUpgrades.owned, "passiveMoneyTalks")
     );
   }
 
@@ -699,6 +701,9 @@ export class LearnSim {
     lines.push(
       outcome.kind === "saved" ? "SAVED" : outcome.kind === "reset" ? "LIVES RESET" : "LIFE LOST",
     );
+    if (outcome.quartersPaid > 0) {
+      lines.push(`-${outcome.quartersPaid} Q`);
+    }
     if (outcome.bountyCharge > 0) {
       lines.push(`+${outcome.bountyCharge} BONUS`);
     }

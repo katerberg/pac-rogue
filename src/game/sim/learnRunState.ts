@@ -6,11 +6,13 @@ import {
   livesAfterLevelRegen,
   livesRemainingAfterCatch,
 } from "../../domain/lives";
+import { lastLifeSaveCost } from "../../domain/moneyTalks";
 import {
   deathsBountyCharge,
   grantLivesForUpgrade,
   hasUpgrade,
   lifeFloorBonus,
+  moneyTalksCost,
   regenToFull,
   type UpgradeId,
 } from "../../domain/upgrades";
@@ -18,6 +20,7 @@ import {
 export type LearnCatchOutcome = {
   kind: "saved" | "lost" | "reset";
   bountyCharge: number;
+  quartersPaid: number;
 };
 
 export class LearnRunState {
@@ -52,18 +55,23 @@ export class LearnRunState {
   }
 
   caught(owned: readonly UpgradeId[], defied: boolean): LearnCatchOutcome {
-    const result = defied
+    const quartersPaid = defied
+      ? null
+      : lastLifeSaveCost(this.lives, this.quarters, moneyTalksCost(owned));
+    const saved = defied || quartersPaid !== null;
+    const result = saved
       ? { lives: this.lives, gameOver: false }
       : livesRemainingAfterCatch(this.lives);
     if (result.gameOver) {
       this.lives = START_LIVES + owned.reduce((sum, id) => sum + grantLivesForUpgrade(id), 0);
       this.deathsThisBoard = 0;
-      return { kind: "reset", bountyCharge: 0 };
+      return { kind: "reset", bountyCharge: 0, quartersPaid: 0 };
     }
+    this.quarters -= quartersPaid ?? 0;
     this.lives = result.lives;
     const bountyCharge = deathsBountyCharge(owned, this.deathsThisBoard);
     this.deathsThisBoard += 1;
     this.addBonusCharge(bountyCharge);
-    return { kind: defied ? "saved" : "lost", bountyCharge };
+    return { kind: saved ? "saved" : "lost", bountyCharge, quartersPaid: quartersPaid ?? 0 };
   }
 }

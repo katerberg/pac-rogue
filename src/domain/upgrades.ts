@@ -30,7 +30,8 @@ export type BaseUpgradeId =
   | "passiveMyogenesis"
   | "passiveDefyDeath"
   | "passiveTurnTuning"
-  | "passiveDeathsBounty";
+  | "passiveDeathsBounty"
+  | "passiveMoneyTalks";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -80,6 +81,7 @@ export type UpgradeEffects = {
   speedBurstMul?: number;
   turnBoostMs?: number;
   turnPerfectPx?: number;
+  deathQuarterCost?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -125,6 +127,8 @@ export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
 export const GHOST_HARVEST_MS = 5000;
 export const DEFY_DEATH_MS = 5000;
+export const MONEY_TALKS_QUARTERS = 3;
+export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
@@ -543,6 +547,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       enhanceNote: "Death's Bounty drops 10% per extra death on a level instead of 20%.",
       description: "Dying pays a Quarter, barely less for each death on a level.",
       deathsBountyDecay: DEATHS_BOUNTY_ENHANCED_DECAY,
+    },
+  },
+  {
+    id: "passiveMoneyTalks",
+    label: "Money Talks",
+    school: "death",
+    description: "Die on your last life: pay 3 Quarters to keep it.",
+    storePrice: STORE_UPGRADE_PRICE,
+    deathQuarterCost: MONEY_TALKS_QUARTERS,
+    enhanced: {
+      enhanceNote: "Money Talks costs 1 Quarter instead of 3.",
+      description: "Die on your last life: pay 1 Quarter to keep it.",
+      deathQuarterCost: MONEY_TALKS_ENHANCED_QUARTERS,
     },
   },
 ];
@@ -1111,6 +1128,10 @@ export function fruitPowerConvertsPellet(owned: readonly UpgradeId[]): boolean {
 
 export function fruitFeastThresholds(owned: readonly UpgradeId[]): readonly number[] | null {
   return ownedValue(owned, "fruitFeastThresholds") ?? null;
+}
+
+export function moneyTalksCost(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "deathQuarterCost") ?? null;
 }
 
 export function lifeFloorBonus(owned: readonly UpgradeId[]): number {
