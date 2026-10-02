@@ -121,13 +121,23 @@ describe("mazeGenerate", () => {
         expect(tunnelRows[i + 1]! - tunnelRows[i]!).toBeGreaterThan(1);
       }
 
-      // Tunnel mouths never carry a pellet of either kind.
+      // The tunnel runs from each mouth inward until its first turn-off, and carries no
+      // pellet of either kind anywhere along it.
       for (const row of tunnelRows) {
         const line = lines[row]!;
-        expect(".@", `pellet at left tunnel mouth row ${row}`).not.toContain(line[0]);
-        expect(".@", `pellet at right tunnel mouth row ${row}`).not.toContain(
-          line[line.length - 1],
-        );
+        const open = (col: number, r: number): boolean => !(layout.playerSolids[r]?.[col] ?? true);
+        for (const [start, step] of [
+          [0, 1],
+          [line.length - 1, -1],
+        ] as const) {
+          for (
+            let col = start;
+            open(col, row) && !open(col, row - 1) && !open(col, row + 1);
+            col += step
+          ) {
+            expect(".@", `seed ${seed} pellet in tunnel at ${col},${row}`).not.toContain(line[col]);
+          }
+        }
       }
 
       // No pellet touches the ghost house even diagonally, at its four rectangle corners.
