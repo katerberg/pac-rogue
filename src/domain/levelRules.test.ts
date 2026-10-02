@@ -10,6 +10,8 @@ import {
   offersUpgradeAfterLevel,
   speedLevelMultiplier,
 } from "./levelRules";
+import { TILE_SIZE } from "./maze";
+import { PLAYER_SPEED } from "./playfield";
 
 describe("MAX_LEVEL", () => {
   it("caps the fixed level plan at 9 (level 9 is the boss)", () => {
@@ -141,5 +143,13 @@ describe("isInvertedMazeLevel", () => {
     for (const level of [1, 2, 3, 4, 5, 8]) {
       expect(isInvertedMazeLevel(level)).toBe(false);
     }
+  });
+});
+
+describe("Maze-Man pacing", () => {
+  it("crosses a level-2 board in Ms. Pac-Man's 3.81s where the old 8.33 tiles/s took 2.43s", () => {
+    const level2Mul = speedLevelMultiplier(2);
+    const crossingPx = 2.43 * (150 / 18) * TILE_SIZE * level2Mul;
+    expect(crossingPx / (PLAYER_SPEED * level2Mul)).toBeCloseTo(3.81, 2);
   });
 });

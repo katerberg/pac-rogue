@@ -11,6 +11,10 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../
 
 Store floors (between levels 3→4, 5→6 or 6→7, and 8→9 right before the boss) are where Quarters are spent; see [docs/store.md](./store.md).
 
+## Base speed
+
+Maze-Man's base speed is `PLAYER_SPEED` = 5.315 tiles/s (`src/domain/playfield.ts`), matched to arcade Ms. Pac-Man: crossing the maze horizontally on level 2 takes 3.81s in both. Every ghost, tunnel, Cruise Elroy, ghost-house exit and boss speed is a fixed ratio of it, so the ratios below hold at any base. Timers (upgrade durations, scatter/chase waves, idle release, fruit lifetime, the Time countdown) are real-time and do not scale with speed, as in the arcade.
+
 ## Ghost catch-up speed (levels 1-5)
 
 Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostBaseSpeedRatio(levelIndex)` in `levelRules.ts` scales ghost base speed to 80% of Maze-Man's base speed on level 1, +5% per level, reaching full parity (100%) by level 5 and staying pinned there through level 8. Ghost tunnel speed is not part of the ramp: it is a constant 50% of Maze-Man's base speed on every level, as in the arcade. The level-9 boss Blinkys ignore this ramp (see [docs/bosses.md](./bosses.md)). Blinky's Cruise Elroy tiers are unaffected — they stay fixed multiples of Maze-Man's speed regardless of level.
