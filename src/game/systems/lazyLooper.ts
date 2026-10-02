@@ -5,7 +5,6 @@ import { OptionalPellet } from "../components/OptionalPellet";
 import { Position } from "../components/Position";
 import { listRegularPelletEids } from "./pelletToPower";
 
-/** Tags every regular pellet outside the Lazy Looper rings as optional (`null` clears tags). */
 export function tagOptionalPellets(world: World, rings: LazyLooperRings | null): void {
   for (const eid of query(world, [OptionalPellet])) {
     removeComponent(world, eid, OptionalPellet);

@@ -21,7 +21,6 @@ function render(layout: MazeLayout, rings: LazyLooperRings): string {
     .join("\n");
 }
 
-/** Required dots split into pieces when an optional dot is the only way between them. */
 function pieceCount(layout: MazeLayout, rings: LazyLooperRings): number {
   const required = new Set(
     lazyLooperRequiredCells(layout, rings).map(({ col, row }) => `${col},${row}`),

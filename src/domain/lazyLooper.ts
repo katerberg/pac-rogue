@@ -5,7 +5,6 @@ export type LazyLooperRings = "outerInner" | "outer";
 
 export const LAZY_LOOPER_OPTIONAL_TINT = 0x6e6e6e;
 
-/** Optional regular pellets go grey; a pellet converted to a power pellet keeps its own look. */
 export function pelletTint(drawableId: string, optional: boolean): number | null {
   return drawableId === PELLET_DRAWABLE_ID && optional ? LAZY_LOOPER_OPTIONAL_TINT : null;
 }
@@ -25,6 +24,8 @@ type Grid = {
   dot: boolean[];
   pellet: boolean[];
   open: boolean[];
+  outside: boolean[];
+  house: boolean[];
 };
 
 function readGrid(layout: MazeLayout): Grid {
@@ -33,6 +34,8 @@ function readGrid(layout: MazeLayout): Grid {
   const dot: boolean[] = [];
   const pellet: boolean[] = [];
   const open: boolean[] = [];
+  const outside: boolean[] = [];
+  const house: boolean[] = [];
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
       const ch = lines[row]?.[col] ?? "";
@@ -40,9 +43,11 @@ function readGrid(layout: MazeLayout): Grid {
       open.push(walkable);
       dot.push(walkable && ch === ".");
       pellet.push(walkable && (ch === "." || ch === "@"));
+      outside.push(Boolean(layout.walls[row]?.[col] || layout.exterior[row]?.[col]));
+      house.push(Boolean(layout.house[row]?.[col] || layout.door[row]?.[col]));
     }
   }
-  return { cols, rows, dot, pellet, open };
+  return { cols, rows, dot, pellet, open, outside, house };
 }
 
 function neighbors(
@@ -73,22 +78,11 @@ function flood(grid: Grid, seeds: number[], passable: (index: number) => boolean
   return seen;
 }
 
-function outerRing(layout: MazeLayout, grid: Grid): Set<number> {
-  const solidOutside = (index: number): boolean => {
-    const col = index % grid.cols;
-    const row = Math.floor(index / grid.cols);
-    return Boolean(layout.walls[row]?.[col] || layout.exterior[row]?.[col]);
-  };
-  const edgeSeeds: number[] = [];
-  for (let index = 0; index < grid.open.length; index += 1) {
-    const col = index % grid.cols;
-    const row = Math.floor(index / grid.cols);
-    const onEdge = col === 0 || row === 0 || col === grid.cols - 1 || row === grid.rows - 1;
-    if (onEdge && solidOutside(index)) {
-      edgeSeeds.push(index);
-    }
-  }
-  const outerWalls = flood(grid, edgeSeeds, solidOutside);
+function outerRing(grid: Grid): Set<number> {
+  const edgeSeeds = grid.outside.flatMap((outside, index) =>
+    outside && neighbors(grid, index, ORTHOGONAL).includes(null) ? [index] : [],
+  );
+  const outerWalls = flood(grid, edgeSeeds, (index) => grid.outside[index]!);
   const ring = new Set<number>();
   grid.dot.forEach((isDot, index) => {
     if (isDot && neighbors(grid, index, AROUND).some((n) => n === null || outerWalls.has(n))) {
@@ -98,17 +92,12 @@ function outerRing(layout: MazeLayout, grid: Grid): Set<number> {
   return ring;
 }
 
-function houseBand(layout: MazeLayout, grid: Grid): Set<number> {
-  const isHouse = (index: number): boolean => {
-    const col = index % grid.cols;
-    const row = Math.floor(index / grid.cols);
-    return Boolean(layout.house[row]?.[col] || layout.door[row]?.[col]);
-  };
-  const houseSeeds = grid.open.map((_, index) => index).filter(isHouse);
+function houseBand(grid: Grid): Set<number> {
+  const houseSeeds = grid.house.flatMap((house, index) => (house ? [index] : []));
   return flood(
     grid,
     houseSeeds,
-    (index) => isHouse(index) || (grid.open[index]! && !grid.pellet[index]!),
+    (index) => grid.house[index]! || (grid.open[index]! && !grid.pellet[index]!),
   );
 }
 
@@ -124,10 +113,6 @@ function innerRing(grid: Grid, band: Set<number>): Set<number> {
   return ring;
 }
 
-/**
- * Joins the ring's pieces into one: repeatedly links the nearest piece by the shortest walk
- * (never through `blocked`) and requires the dots on that walk.
- */
 function connectRing(grid: Grid, ring: Set<number>, blocked: Set<number>): Set<number> {
   const joined = new Set(ring);
   const start = joined.values().next().value;
@@ -173,12 +158,11 @@ function connectRing(grid: Grid, ring: Set<number>, blocked: Set<number>): Set<n
   }
 }
 
-/** Dot cells Lazy Looper still requires on `layout`; every other dot is optional. */
 export function lazyLooperRequiredCells(layout: MazeLayout, rings: LazyLooperRings): MazeTile[] {
   const grid = readGrid(layout);
-  const required = connectRing(grid, outerRing(layout, grid), new Set());
+  const required = connectRing(grid, outerRing(grid), new Set());
   if (rings === "outerInner") {
-    const band = houseBand(layout, grid);
+    const band = houseBand(grid);
     for (const index of connectRing(grid, innerRing(grid, band), band)) {
       required.add(index);
     }
@@ -190,7 +174,8 @@ export function lazyLooperRequiredCells(layout: MazeLayout, rings: LazyLooperRin
       required.add(mirror);
     }
   }
-  return [...required]
-    .sort((a, b) => a - b)
-    .map((index) => ({ col: index % grid.cols, row: Math.floor(index / grid.cols) }));
+  return [...required].map((index) => ({
+    col: index % grid.cols,
+    row: Math.floor(index / grid.cols),
+  }));
 }
