@@ -402,6 +402,19 @@ describe("PlaySim", () => {
     expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
   });
 
+  it("ignores ghost contact in god mode", () => {
+    const sim = startSim({ level: 2, maze: "maze1", godMode: true });
+    runFrames(sim, 20, { keys: held("left") });
+    const livesBefore = sim.snapshot().lives;
+    for (let frame = 0; frame < 30; frame++) {
+      ghostOntoPlayer(sim);
+      const events = runFrames(sim, 1, { keys: held("left") });
+      expect(events).not.toContainEqual({ type: "sfx", id: "death" });
+      expect(sim.snapshot().dying).toBe(false);
+    }
+    expect(sim.snapshot().lives).toBe(livesBefore);
+  });
+
   describe("Defy Death", () => {
     function startDefySim(): PlaySim {
       return startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveDefyDeath"] });

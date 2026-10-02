@@ -2,6 +2,7 @@ import { parseBonusParam } from "./bonusFlag";
 import { BOSS_DEFS, parseBossGhostsParam } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
+import { parseGodModeFlag } from "./godModeFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
 import { parseInfiniteLivesFlag } from "./lives";
 import { parseMazeParam, type MazeLayoutId } from "./mazeLayouts";
@@ -28,6 +29,7 @@ export type PlayOptions = {
   store: StoreIndex | null;
   disableLevelUpgrades: boolean;
   infiniteLives: boolean;
+  godMode: boolean;
   enableUpgrades: UpgradeId[];
   highScoresDisabled: boolean;
 };
@@ -81,6 +83,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       store: parseStoreFlag(params),
       disableLevelUpgrades: parseDisableLevelUpgradesFlag(params),
       infiniteLives: parseInfiniteLivesFlag(params),
+      godMode: parseGodModeFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
       highScoresDisabled: highScoresDisabled(params),
     },
