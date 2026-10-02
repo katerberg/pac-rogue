@@ -1041,12 +1041,8 @@ export class PlaySim {
       if (!result.gameOver) {
         this.payDeathsBounty();
       }
-      if (result.gameOver && !this.options.highScoresDisabled) {
-        this.emit({
-          type: "saveRun",
-          collected: this.lifetimeCollected,
-          remaining: this.clock.remaining,
-        });
+      if (result.gameOver) {
+        this.saveRun();
       }
       this.death = beginDeathSequence(result.gameOver);
     }
@@ -1707,6 +1703,17 @@ export class PlaySim {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "endText", title: "RUN COMPLETE" });
     this.runCompleteElapsedMs = 0;
+    this.saveRun();
+  }
+
+  private saveRun(): void {
+    if (!this.options.highScoresDisabled) {
+      this.emit({
+        type: "saveRun",
+        collected: this.lifetimeCollected,
+        remaining: this.clock.remaining,
+      });
+    }
   }
 
   private resetAfterLifeLoss(): void {
