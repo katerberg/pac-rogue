@@ -990,7 +990,7 @@ export class PlaySim {
     this.tickBoss();
 
     const frozenEid = frozenGhostEid(this.runUpgrades);
-    const playerInvulnerable = playerIsInvulnerable(this.runUpgrades);
+    const playerInvulnerable = this.options.godMode || playerIsInvulnerable(this.runUpgrades);
     const caught = catchPlayer(this.world, {
       frozenGhostEid: frozenEid,
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
