@@ -133,6 +133,7 @@ export class PlayScene extends Phaser.Scene {
     for (const warning of warnings) {
       console.warn(warning);
     }
+    this.sys.settings.data = {};
     if (data.restartLevel !== undefined) {
       options.level = data.restartLevel;
       options.jumpToUpgrade = false;

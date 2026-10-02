@@ -165,7 +165,6 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
       }
     }
     panel.addEventListener("keydown", (event) => event.stopPropagation());
-    panel.addEventListener("keyup", (event) => event.stopPropagation());
     return panel;
   };
 
