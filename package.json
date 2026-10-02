@@ -24,6 +24,8 @@
     "check:ecs": "node scripts/check-ecs-boundaries.mjs",
     "verify:precommit": "npm run typecheck && npm run lint && npm run format:check && npm run check:ecs && npm run test",
     "verify": "npm run verify:precommit && npm run build && npm run visual",
+    "verify:record": "node scripts/record-verify.mjs",
+    "check:ship-evidence": "node scripts/check-ship-evidence.mjs",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
