@@ -42,6 +42,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveMyogenesis`          | Myogenesis          | Death      | Level regen (`levelRegenAmount`) grants up to 2 lives instead of 1 per level clear (and at run start), never past the icon floor (3, or 4 with Extra Life)                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `passiveTurnTuning`          | Turn Tuning         | Speed      | Turn keys must be freshly tapped within 2 tiles before the corner; a clean tap right on the corner (no same-key press in the last 300ms) turns with a 0.5s speed boost and a pulse on Maze-Man (see [Turn Tuning](#turn-tuning) below)                                                                                                                                                                                                                                                                                                                                                  |
 | `passiveDefyDeath`           | Defy Death          | Death      | Power pellet arms a `DEFY_DEATH_MS` (5000) window; getting caught inside it costs no life (see [Defy Death](#defy-death) below)                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `passiveDeathsBounty`        | Death's Bounty      | Death      | Every death that doesn't end the run adds `BONUS_BAR_MAX` (300, one Quarter) × `DEATHS_BOUNTY_DECAY` (0.8) ^ prior deaths on this level to the BONUS bar (see [Death's Bounty](#deaths-bounty) below)                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ## Enhanced upgrades
 
@@ -85,6 +86,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveMyogenesis`          | Myogenesis          | Level-clear regen fills every available life slot                                                                                            |
 | `passiveDefyDeath`           | Defy Death          | One-save window lengthened from 5s to 8s                                                                                                     |
 | `passiveTurnTuning`          | Turn Tuning         | Perfect-tap boost lasts 0.75s; perfect-tap range 8px → 12px                                                                                  |
+| `passiveDeathsBounty`        | Death's Bounty      | 10% less per later death on a level (`DEATHS_BOUNTY_ENHANCED_DECAY` 0.9) instead of 20%                                                      |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -190,6 +192,15 @@ When `passiveDeathsHarvest` is owned and the player is caught, `harvestNearbyPel
 While the window is armed the player wears the Ghost Proof tint (`0xc48a00`) and blinks in the last 1000ms, exactly like `invulnRemainingMs`: `playerTintRemainingMs` (max of the two timers) feeds the render `playerInvulnRemainingMs` option, wall-pass tint still takes precedence, and a save clears it with the other timers. It does not skip catch kills; only the tint is shared.
 
 A save has its own splash. At the catch the sim emits `sfx: revive` (`public/sound/revive.ogg`) instead of `sfx: death`, so the death sound never plays. The normal 845ms death hold runs, and at the actor reset the player reappears at spawn with `playerReviveProgress` (0 to 1 over `REVIVE_SPLASH_MS`, the same as the READY pause) on each draw. `reviveSplashLook` (`src/domain/reviveSplash.ts`) turns that progress into the sprite: it starts at `PLAYFIELD_WIDTH` wide and fully transparent, then shrinks (ease-out) to regular size while fading in linearly. Between 30% and 50% of the splash it bounces: size (+50% of the start-to-base span) and opacity (+0.12) pulse up on a half sine and settle back onto the base curve. The final draw always carries progress 1, and `play.reviveProgress` exposes the value in the debug snapshot (`null` when no splash is running).
+
+### Death's Bounty
+
+While `passiveDeathsBounty` is owned, each catch adds `deathsBountyCharge(owned, deathsThisBoard)` to the [BONUS bar](./bonus.md) through the normal `addBonusCharge` / `applyBonus` path: `floor(BONUS_BAR_MAX × decay ^ deathsThisBoard)`. The first death on a level pays a full bar (one Quarter, leftover charge kept), and each later death on that level pays `DEATHS_BOUNTY_DECAY` (0.8) times the one before: 300, 240, 192, 153, 122… Enhanced uses `DEATHS_BOUNTY_ENHANCED_DECAY` (0.9): 300, 270, 243, 218… The amount never reaches 0.
+
+- It pays at the catch, so the bar's fill animation, Quarter pulse and munch sounds play during the death hold.
+- `PlaySim` counts `deathsThisBoard` (snapshot `play.deathsThisBoard`) on every catch that costs a life or is saved (not the one that ends the run), owned or not, and resets it in `startBoard`.
+- Defy Death saves and `infiniteLives` deaths pay and count. The catch that causes Game Over pays nothing. A Death's Harvest catch that empties the board is a level clear, not a death: no pay, no count.
+- No effect in LEARN (no deaths or BONUS bar).
 
 ### Overcharge
 

@@ -8,6 +8,7 @@ A persistent HUD meter that pays one **Quarter** each time it fills. Eating pell
 
 - The bar holds `BONUS_BAR_MAX` (300) points. A fill pays 1 Quarter and keeps the remainder. One bump that overflows several times pays several Quarters.
 - Eating bonus fruit adds `FRUIT_BONUS_CHARGE` (150, half a bar). With Quarter Bounty it pays Quarters directly (1; 2 enhanced) and skips the charge. It does not touch the streak.
+- Each death with [Death's Bounty](./upgrades.md#deaths-bounty) adds up to a full bar (300), less for later deaths on the same level.
 - The charge lasts the whole run: deaths, level advances and store floors keep it. `?bonus=` sets the starting charge.
 - A **streak** counts pellets the player's own body collects: the `collectPellets` player frame (including the Pickup Range radius) and the Tunnel Dash sweep. A power pellet counts as one. Triple Chomp, Remote Transference, Ghost Harvest and Death's Harvest removals neither extend nor break a streak.
 - Each time the streak reaches a multiple of `BONUS_STREAK_TIER_SIZE` (5), the bar bumps by `bonusTierBump(tier)`; pellets in between add nothing. One frame that crosses several thresholds adds them all.

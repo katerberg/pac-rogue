@@ -1653,6 +1653,107 @@ describe("PlaySim enhanced upgrades", () => {
   });
 });
 
+describe("Death's Bounty", () => {
+  function startBounty(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades, ...overrides });
+  }
+
+  function dieAndRespawn(sim: PlaySim): SimEvent[] {
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    return [...events, ...runUntil(sim, () => !sim.snapshot().dying, 240)];
+  }
+
+  function bountyTotals(id: UpgradeId, deaths: number): number[] {
+    const sim = startBounty([id], { bonus: 100 });
+    const totals: number[] = [];
+    for (let i = 0; i < deaths; i += 1) {
+      dieAndRespawn(sim);
+      const { quarters, bonus } = sim.snapshot();
+      totals.push(quarters * bonus.max + bonus.charge);
+    }
+    return totals;
+  }
+
+  it("pays a full bar on the first death, then 20% less per death compounding", () => {
+    expect(bountyTotals("passiveDeathsBounty", 3)).toEqual([400, 640, 832]);
+  });
+
+  it("decays only 10% per death when enhanced", () => {
+    expect(bountyTotals("passiveDeathsBountyPlus", 3)).toEqual([400, 670, 913]);
+  });
+
+  it("pays the Quarter through the bonus bar fill at the catch", () => {
+    const sim = startBounty(["passiveDeathsBounty"]);
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.snapshot().bonus.charge).toBe(0);
+  });
+
+  it("pays nothing when not owned", () => {
+    const sim = startBounty([], { bonus: 100 });
+    dieAndRespawn(sim);
+    expect(sim.snapshot().quarters).toBe(0);
+    expect(sim.snapshot().bonus.charge).toBe(100);
+  });
+
+  it("pays on a Defy Death save", () => {
+    const sim = startBounty(["passiveDeathsBounty", "passiveDefyDeath"], { infiniteLives: false });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const lives = sim.snapshot().lives;
+    dieAndRespawn(sim);
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().quarters).toBe(1);
+  });
+
+  it("pays nothing on the catch that ends the run", () => {
+    const sim = startBounty(["passiveDeathsBounty"], { infiniteLives: false });
+    sim["lives"] = 1;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().quarters).toBe(0);
+  });
+
+  it("pays nothing when Death's Harvest turns the catch into a level clear", () => {
+    const sim = startBounty(["passiveDeathsBounty", "passiveDeathsHarvest"]);
+    const eids = regularPelletEids(sim);
+    for (const eid of eids.slice(0, -1)) {
+      eatPelletAt(sim, eid);
+    }
+    const last = eids.at(-1)!;
+    const player = playerEid(sim);
+    Position.x[last] = Position.x[player]! + 2 * TILE_SIZE;
+    Position.y[last] = Position.y[player]!;
+    const quarters = sim.snapshot().quarters;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().quarters).toBe(quarters);
+    expect(sim.snapshot().deathsThisBoard).toBe(0);
+  });
+
+  it("restarts the decay on the next board", () => {
+    const sim = startBounty(["passiveDeathsBounty"]);
+    dieAndRespawn(sim);
+    expect(sim.snapshot().deathsThisBoard).toBe(1);
+    for (const eid of regularPelletEids(sim)) {
+      eatPelletAt(sim, eid);
+    }
+    const offer = drainToOffer(sim);
+    sim.chooseUpgrade({ kind: "quarters", amount: offer.quarters });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 300);
+    expect(sim.snapshot().deathsThisBoard).toBe(0);
+    const before = sim.snapshot().quarters;
+    dieAndRespawn(sim);
+    expect(sim.snapshot().quarters).toBe(before + 1);
+  });
+});
+
 describe("level 4+ ghosts", () => {
   it("leaves every ghost unmodified and ignores a stale forceCorruption flag", () => {
     const parsed = parsePlayOptions(
