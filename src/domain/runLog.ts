@@ -289,19 +289,6 @@ export function isNearMiss(distancePx: number, tileSize: number): boolean {
   return distancePx <= tileSize;
 }
 
-export function maxRecentFrameMs(
-  window: readonly { atMs: number; deltaMs: number }[],
-  nowMs: number,
-): number {
-  let max = 0;
-  for (const frame of window) {
-    if (nowMs - frame.atMs <= HITCH_WINDOW_MS) {
-      max = Math.max(max, frame.deltaMs);
-    }
-  }
-  return max;
-}
-
 export function runLogOverrun(storedCount: number, quotaFailed: boolean): boolean {
   return storedCount >= RUN_LOG_SOFT_CAP || quotaFailed;
 }

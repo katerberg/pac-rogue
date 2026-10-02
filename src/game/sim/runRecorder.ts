@@ -12,7 +12,6 @@ import {
   HITCH_WINDOW_MS,
   isNearMiss,
   LAST_PELLETS_COUNT,
-  maxRecentFrameMs,
   NEAR_MISS_COOLDOWN_MS,
   notePace,
   removeLoadout,
@@ -39,9 +38,10 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-export type Point = { x: number; y: number };
-export type BoardSize = { width: number; height: number; tileSize: number };
-export type RunTotals = { pelletsCollected: number; quarters: number; lives: number };
+import type { Point } from "../../domain/warpGlide";
+
+type BoardSize = { width: number; height: number; tileSize: number };
+type RunTotals = { pelletsCollected: number; quarters: number; lives: number };
 
 const GHOST_NAME_BY_KIND = Object.fromEntries(
   Object.entries(GHOST_KIND).map(([name, kind]) => [kind, name]),
@@ -67,10 +67,6 @@ export class RunRecorder {
 
   constructor(meta: RunLogMeta, seed: string, debug: boolean) {
     this.record = createRunLog(meta, seed, debug);
-  }
-
-  get current(): LevelLog | null {
-    return this.level;
   }
 
   get outcome(): RunOutcome {
@@ -140,7 +136,7 @@ export class RunRecorder {
     if (moved === 0 && level.firstMoveMs !== null) {
       level.idleMs += delta;
     }
-    level.tilesTraveled = Math.round((level.tilesTraveled + moved / board.tileSize) * 1000) / 1000;
+    level.tilesTraveled += moved / board.tileSize;
   }
 
   nearMisses(world: World, tileSize: number): void {
@@ -262,7 +258,7 @@ export class RunRecorder {
     level.deaths.push({
       ...death,
       simMs: level.simMs,
-      maxFrameMsLastSecond: maxRecentFrameMs(this.recentFrames, level.simMs),
+      maxFrameMsLastSecond: Math.max(0, ...this.recentFrames.map((frame) => frame.deltaMs)),
     });
   }
 

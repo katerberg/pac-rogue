@@ -1,4 +1,4 @@
-export const RUN_LOG_FILL_MAX = 600;
+const RUN_LOG_FILL_MAX = 600;
 
 export function parseRunLogFillFlag(params: URLSearchParams): number | null {
   const raw = params.get("runLogFill");

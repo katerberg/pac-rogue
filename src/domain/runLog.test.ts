@@ -6,7 +6,6 @@ import {
   didWrap,
   finishRun,
   isNearMiss,
-  maxRecentFrameMs,
   notePace,
   parseRunLogRecord,
   removeLoadout,
@@ -81,15 +80,6 @@ describe("runLog", () => {
   it("counts a near miss up to one tile", () => {
     expect(isNearMiss(16, 16)).toBe(true);
     expect(isNearMiss(16.1, 16)).toBe(false);
-  });
-
-  it("takes the largest frame within the last second", () => {
-    const frames = [
-      { atMs: 0, deltaMs: 200 },
-      { atMs: 1500, deltaMs: 40 },
-      { atMs: 1900, deltaMs: 17 },
-    ];
-    expect(maxRecentFrameMs(frames, 2000)).toBe(40);
   });
 
   it("overruns at the soft cap or after a quota failure", () => {

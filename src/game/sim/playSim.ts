@@ -272,6 +272,7 @@ import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
   tickWarpGlide,
+  type Point,
   type WarpGlide,
   warpGlideRemainingMs,
   warpGlideSprites,
@@ -296,7 +297,7 @@ import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 import type { SimInput } from "./simInput";
-import { ghostName, RunRecorder, type Point } from "./runRecorder";
+import { ghostName, RunRecorder } from "./runRecorder";
 
 export const LEVEL_TRANSITION_MS = 1000;
 export const RUN_END_MENU_ARM_MS = 1000;
