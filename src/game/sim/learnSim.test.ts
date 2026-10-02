@@ -2,7 +2,14 @@ import { query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
-import { cellCenterX, cellCenterY, worldToCol, worldToRow } from "../../domain/maze";
+import {
+  canEnterDirection,
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+  worldToCol,
+  worldToRow,
+} from "../../domain/maze";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { Player } from "../components/Player";
@@ -134,5 +141,64 @@ describe("LearnSim", () => {
     }
     const after = sim.step(NO_KEYS_HELD, FRAME_MS);
     expect(after.some((e) => e.type === "draw" && e.options.ghostWarpGlides)).toBe(false);
+  });
+});
+
+describe("LearnSim Turn Tuning", () => {
+  const tapUp = { ...NO_KEYS_HELD, right: 0, up: 1 };
+
+  function findSideTurn(): { col: number; row: number } {
+    const { playerSolids, cols, rows } = getActiveLayout();
+    const open = (col: number, row: number, dx: number, dy: number) =>
+      canEnterDirection(cellCenterX(col), cellCenterY(row), dx, dy, playerSolids);
+    for (let row = 1; row < rows - 1; row += 1) {
+      for (let col = 3; col < cols - 1; col += 1) {
+        const straight = [3, 2, 1].every((back) => open(col - back, row, 1, 0));
+        const sideless = [3, 2, 1].every(
+          (back) => !open(col - back, row, 0, -1) && !open(col - back, row, 0, 1),
+        );
+        if (straight && sideless && open(col, row, 0, -1)) {
+          return { col, row };
+        }
+      }
+    }
+    throw new Error("no side turn found");
+  }
+
+  function tapOnTheBeat(owned: boolean) {
+    const sim = new LearnSim("learn");
+    sim.start();
+    if (owned) {
+      sim.toggleUpgrade("passiveTurnTuning");
+    }
+    const turn = findSideTurn();
+    const player = query(sim.world, [Player, Position])[0]!;
+    Position.x[player] = cellCenterX(turn.col - 2);
+    Position.y[player] = cellCenterY(turn.row);
+    sim.step(held("right"), FRAME_MS);
+    sim.step(held("right"), FRAME_MS);
+    Position.x[player] = cellCenterX(turn.col) - 6;
+    const events = sim.step(tapUp, FRAME_MS);
+    for (let i = 0; i < 30; i += 1) {
+      events.push(...sim.step({ ...NO_KEYS_HELD, right: 0, up: 1 }, FRAME_MS));
+    }
+    return { sim, events };
+  }
+
+  it("emits perfect sparks and a turn flash on a clean tap on the beat", () => {
+    const { events } = tapOnTheBeat(true);
+    const perfect = events.filter(
+      (event) => event.type === "turnSparks" && event.kind === "perfect",
+    );
+    expect(perfect).toHaveLength(1);
+    const flashes = events.flatMap((event) =>
+      event.type === "draw" ? [event.options.turnFlashRemainingMs ?? 0] : [],
+    );
+    expect(Math.max(...flashes)).toBeGreaterThan(200);
+  });
+
+  it("does nothing on the same tap without Turn Tuning", () => {
+    const { events } = tapOnTheBeat(false);
+    expect(events.some((event) => event.type === "turnSparks")).toBe(false);
   });
 });

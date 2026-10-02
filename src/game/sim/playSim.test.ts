@@ -40,7 +40,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
-import { PlaySim } from "./playSim";
+import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
 import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
@@ -1322,6 +1322,50 @@ describe("PlaySim level-end time bonus", () => {
     expect(events.some((e) => e.type === "timeBonus")).toBe(false);
     expect(sim.snapshot().bonus).toMatchObject({ charge: 0, draining: false });
     expect(runFrames(sim, 90)).toContainEqual({ type: "endText", title: "RUN COMPLETE" });
+  });
+});
+
+describe("PlaySim run complete menu", () => {
+  function startRunComplete(): PlaySim {
+    const sim = new PlaySim({ ...defaultPlayOptions(), jumpToUpgrade: true, level: 9 }, "run-end");
+    sim.start();
+    runUntil(sim, () => sim.snapshot().runComplete, 300);
+    return sim;
+  }
+
+  function armRunEndMenu(sim: PlaySim): void {
+    runUntil(
+      sim,
+      () => sim.snapshot().runEndMenuArmed,
+      Math.ceil(RUN_END_MENU_ARM_MS / FRAME_MS) + 1,
+    );
+  }
+
+  it("waits on the screen instead of returning to the menu", () => {
+    const sim = startRunComplete();
+    const events = runFrames(sim, 600);
+    expect(events.some((e) => e.type === "goToMenu")).toBe(false);
+    expect(sim.snapshot()).toMatchObject({ runComplete: true, runEndMenuArmed: true });
+  });
+
+  it("ignores choices until the menu arms", () => {
+    const sim = startRunComplete();
+    expect(sim.snapshot().runEndMenuArmed).toBe(false);
+    expect(sim.chooseRunEnd("menu")).toEqual([]);
+    armRunEndMenu(sim);
+    expect(sim.chooseRunEnd("menu")).toEqual([{ type: "goToMenu" }]);
+  });
+
+  it("starts a new game when chosen", () => {
+    const sim = startRunComplete();
+    armRunEndMenu(sim);
+    expect(sim.chooseRunEnd("newGame")).toEqual([{ type: "newGame" }]);
+  });
+
+  it("ignores choices before the run is complete", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    runFrames(sim, 120);
+    expect(sim.chooseRunEnd("menu")).toEqual([]);
   });
 });
 
