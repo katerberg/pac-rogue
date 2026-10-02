@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_LIVES_FLAG,
   START_LIVES,
   levelLivesIconFloor,
   levelRegenAmount,
@@ -7,6 +8,7 @@ import {
   livesHudIconCount,
   livesRemainingAfterCatch,
   parseInfiniteLivesFlag,
+  parseLivesCountParam,
 } from "./lives";
 
 describe("livesRemainingAfterCatch", () => {
@@ -45,6 +47,25 @@ describe("parseInfiniteLivesFlag", () => {
   });
 });
 
+describe.each(["lives", "maxLives"] as const)("parseLivesCountParam(%s)", (flag) => {
+  const parse = (query: string) => parseLivesCountParam(new URLSearchParams(query), flag);
+  it("accepts positive integers only", () => {
+    expect(parse(`${flag}=7`)).toBe(7);
+    expect(parse(`${flag}=1`)).toBe(1);
+    expect(parse(`${flag}=0`)).toBeNull();
+    expect(parse(`${flag}=-2`)).toBeNull();
+    expect(parse(`${flag}=2.5`)).toBeNull();
+    expect(parse(`${flag}=`)).toBeNull();
+    expect(parse("")).toBeNull();
+  });
+
+  it("clamps to MAX_LIVES_FLAG", () => {
+    expect(parse(`${flag}=99`)).toBe(MAX_LIVES_FLAG);
+    expect(parse(`${flag}=100000`)).toBe(MAX_LIVES_FLAG);
+    expect(parse(`${flag}=${"9".repeat(400)}`)).toBe(MAX_LIVES_FLAG);
+  });
+});
+
 describe("livesAfterLevelRegen", () => {
   it("trickles one life when fewer than 3 icons are showing", () => {
     expect(livesAfterLevelRegen(3)).toBe(4);
@@ -66,6 +87,14 @@ describe("levelLivesIconFloor", () => {
     expect(livesAfterLevelRegen(4, levelLivesIconFloor(1))).toBe(5);
     expect(livesAfterLevelRegen(5, levelLivesIconFloor(1))).toBe(5);
     expect(livesAfterLevelRegen(4, levelLivesIconFloor(0))).toBe(4);
+  });
+
+  it("caps regen at maxLives lives", () => {
+    expect(levelLivesIconFloor(0, 6)).toBe(5);
+    expect(levelLivesIconFloor(1, 2)).toBe(2);
+    expect(livesAfterLevelRegen(5, levelLivesIconFloor(0, 6))).toBe(6);
+    expect(livesAfterLevelRegen(6, levelLivesIconFloor(0, 6))).toBe(6);
+    expect(livesAfterLevelRegen(2, levelLivesIconFloor(0, 2))).toBe(2);
   });
 });
 

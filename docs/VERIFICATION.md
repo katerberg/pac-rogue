@@ -108,7 +108,7 @@ Level 1 opens a **starting-upgrade card** that swallows the first keypress. Afte
 
 Without `seed=`, every run rolls fresh randomness: generated boards (levels 2+), the starting upgrade, the second ghost, upgrade offers, Store stock and more. **Pass `seed=<anything>` on every probe** so reruns see the same run (see [Seeded runs](#seeded-runs)). `maze=maze1|maze2|mazeSmall` additionally pins a hand-made layout for the first board. `play.seed` reports the seed in use, including the fresh one an unseeded run picked (players see it faded bottom-left on the pause, Game Over and Run Complete screens), so a flaky or surprising run can be replayed with `seed=<play.seed>`.
 
-Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `store`, `enableUpgrade`, `ghosts`, `bossGhosts`, `infiniteLives`, `godMode`). On any failed step the probe writes `artifacts/<name>-failure.json` (snapshot) and `artifacts/<name>-failure.png`. Read both before changing code.
+Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `store`, `enableUpgrade`, `ghosts`, `bossGhosts`, `infiniteLives`, `lives`, `maxLives`, `godMode`). On any failed step the probe writes `artifacts/<name>-failure.json` (snapshot) and `artifacts/<name>-failure.png`. Read both before changing code.
 
 ### Modes touched
 

@@ -1,5 +1,7 @@
 export const START_LIVES = 3;
 export const LEVEL_LIVES_ICON_FLOOR = 3;
+export const DEFAULT_MAX_LIVES = LEVEL_LIVES_ICON_FLOOR + 1;
+export const MAX_LIVES_FLAG = 99;
 
 export function livesRemainingAfterCatch(lives: number): { lives: number; gameOver: boolean } {
   if (lives <= 1) {
@@ -16,8 +18,19 @@ export function parseInfiniteLivesFlag(params: URLSearchParams): boolean {
   return params.get("infiniteLives") === "1";
 }
 
-export function levelLivesIconFloor(floorBonus: number): number {
-  return LEVEL_LIVES_ICON_FLOOR + floorBonus;
+export function parseLivesCountParam(
+  params: URLSearchParams,
+  flag: "lives" | "maxLives",
+): number | null {
+  const raw = params.get(flag);
+  if (raw === null || !/^\d+$/.test(raw) || Number(raw) < 1) {
+    return null;
+  }
+  return Math.min(Number(raw), MAX_LIVES_FLAG);
+}
+
+export function levelLivesIconFloor(floorBonus: number, maxLives = DEFAULT_MAX_LIVES): number {
+  return livesHudIconCount(maxLives) + floorBonus;
 }
 
 export function levelRegenAmount(hasMyogenesis: boolean, toFull = false): number {

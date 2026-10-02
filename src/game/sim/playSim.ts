@@ -79,6 +79,7 @@ import {
   speedLevelMultiplier,
 } from "../../domain/levelRules";
 import {
+  DEFAULT_MAX_LIVES,
   START_LIVES,
   levelLivesIconFloor,
   levelRegenAmount,
@@ -336,7 +337,7 @@ export class PlaySim {
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
-  private lives = START_LIVES;
+  private lives: number;
   private afterLifeRelease = false;
   private eatDragMs = 0;
   private readonly turnTuning = new TurnTuningState();
@@ -347,6 +348,7 @@ export class PlaySim {
     this.random = createRunRandom(seed);
     this.quarters = options.quarters ?? 0;
     this.bonus = createBonusBar(options.bonus ?? 0);
+    this.lives = options.lives ?? START_LIVES;
   }
 
   start(): SimEvent[] {
@@ -383,7 +385,9 @@ export class PlaySim {
       this.recordSeenUpgrades();
     }
     this.emit({ type: "upgrades" });
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
+    if (options.lives === null) {
+      this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
+    }
     this.emit({ type: "lives", pulse: false });
     if (startingUpgrade === null) {
       this.showLevelBanner();
@@ -1560,7 +1564,10 @@ export class PlaySim {
   }
 
   private regenIconFloor(): number {
-    return levelLivesIconFloor(lifeFloorBonus(this.runUpgrades.owned));
+    return levelLivesIconFloor(
+      lifeFloorBonus(this.runUpgrades.owned),
+      this.options.maxLives ?? DEFAULT_MAX_LIVES,
+    );
   }
 
   private regenAmount(): number {

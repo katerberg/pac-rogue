@@ -21,6 +21,8 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "enableUpgrade",
   "disableLevelUpgrades",
   "infiniteLives",
+  "lives",
+  "maxLives",
   "godMode",
   "jumpToUpgrade",
   "store",
