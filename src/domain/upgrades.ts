@@ -79,7 +79,7 @@ export type UpgradeEffects = {
   turnPerfectPx?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
-    scatterBurstMs?: number;
+    cornerTeleportHoldMs?: number;
     wallPassMs?: number;
     wallPassLoop?: true;
     playerInvulnMs?: number;
@@ -117,7 +117,6 @@ export type UpgradeDef = UpgradeEffects & {
 
 export const REMOTE_TRANSFER_EVERY_PELLETS = 5;
 export const FREEZE_MS = 3000;
-export const SCATTER_BURST_MS = 3000;
 export const WALL_PASS_MS = 6000;
 export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
@@ -140,7 +139,7 @@ export const SECOND_CHOMP_MS = 10_000;
 export const TUNNEL_DASH_SPEED_MUL = 10;
 
 export const FREEZE_ENHANCED_MS = 5000;
-export const SCATTER_BURST_ENHANCED_MS = 5000;
+export const CORNER_TELEPORT_HOLD_ENHANCED_MS = 2000;
 export const INVULN_ENHANCED_MS = 5000;
 export const GHOST_HARVEST_ENHANCED_MS = 8000;
 export const DEFY_DEATH_ENHANCED_MS = 8000;
@@ -210,14 +209,14 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletScatterBurst",
     label: "Scatter Burst",
     school: "disruption",
-    description: "Power pellet scatters every ghost into the corners.",
+    description: "Power pellet flings every ghost into its corner.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Scatter Burst lasts 5 seconds instead of 3.",
-      description: "Power pellet scatters every ghost into the corners for five seconds.",
-      onPowerPellet: { scatterBurstMs: SCATTER_BURST_ENHANCED_MS },
+      enhanceNote: "Scatter Burst also pins ghosts in their corners for 2 seconds.",
+      description: "Power pellet flings every ghost into its corner and pins it there.",
+      onPowerPellet: { cornerTeleportHoldMs: CORNER_TELEPORT_HOLD_ENHANCED_MS },
     },
-    onPowerPellet: { scatterBurstMs: SCATTER_BURST_MS },
+    onPowerPellet: { cornerTeleportHoldMs: 0 },
   },
   {
     id: "powerPelletGhostRecall",
@@ -637,7 +636,6 @@ export type RunUpgrades = {
   owned: UpgradeId[];
   freezeRemainingMs: number;
   frozenGhostEid: number | null;
-  scatterBurstRemainingMs: number;
   wallPassRemainingMs: number;
   invulnRemainingMs: number;
   speedBurstRemainingMs: number;
@@ -650,6 +648,7 @@ export type PowerPelletApplyResult = {
   state: RunUpgrades;
   freezeClosestMs: number | null;
   recallGhostCount: number;
+  cornerTeleportHoldMs: number | null;
   warpPlayerFarthest: boolean;
   collectExtraPellets: number;
 };
@@ -659,7 +658,6 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     owned: [],
     freezeRemainingMs: 0,
     frozenGhostEid: null,
-    scatterBurstRemainingMs: 0,
     wallPassRemainingMs: 0,
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
@@ -851,7 +849,6 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     ...state,
     freezeRemainingMs: 0,
     frozenGhostEid: null,
-    scatterBurstRemainingMs: 0,
     wallPassRemainingMs: 0,
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
@@ -869,16 +866,6 @@ export function tickFreeze(state: RunUpgrades, deltaMs: number): RunUpgrades {
     ...state,
     freezeRemainingMs: remaining,
     frozenGhostEid: remaining > 0 ? state.frozenGhostEid : null,
-  };
-}
-
-export function tickScatterBurst(state: RunUpgrades, deltaMs: number): RunUpgrades {
-  if (state.scatterBurstRemainingMs <= 0) {
-    return state;
-  }
-  return {
-    ...state,
-    scatterBurstRemainingMs: Math.max(0, state.scatterBurstRemainingMs - Math.max(0, deltaMs)),
   };
 }
 
@@ -941,13 +928,14 @@ export function applyPowerPelletEffects(
       state,
       freezeClosestMs: null,
       recallGhostCount: 0,
+      cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
     };
   }
 
   let freezeClosestMs: number | null = null;
-  let scatterMs: number | null = null;
+  let cornerTeleportHoldMs: number | null = null;
   let wallPassMs: number | null = null;
   let invulnMs: number | null = null;
   let speedBurstMs: number | null = null;
@@ -969,9 +957,11 @@ export function applyPowerPelletEffects(
           ? onPower.freezeClosestGhostMs
           : Math.max(freezeClosestMs, onPower.freezeClosestGhostMs);
     }
-    if (onPower.scatterBurstMs !== undefined) {
-      scatterMs =
-        scatterMs === null ? onPower.scatterBurstMs : Math.max(scatterMs, onPower.scatterBurstMs);
+    if (onPower.cornerTeleportHoldMs !== undefined) {
+      cornerTeleportHoldMs =
+        cornerTeleportHoldMs === null
+          ? onPower.cornerTeleportHoldMs
+          : Math.max(cornerTeleportHoldMs, onPower.cornerTeleportHoldMs);
     }
     if (onPower.wallPassMs !== undefined) {
       wallPassMs =
@@ -1014,7 +1004,7 @@ export function applyPowerPelletEffects(
   const overcharge = overchargeMultiplier(state.owned);
   const scaled = (ms: number | null): number | null => (ms === null ? null : ms * overcharge);
   freezeClosestMs = scaled(freezeClosestMs);
-  scatterMs = scaled(scatterMs);
+  cornerTeleportHoldMs = scaled(cornerTeleportHoldMs);
   wallPassMs = scaled(wallPassMs);
   invulnMs = scaled(invulnMs);
   speedBurstMs = scaled(speedBurstMs);
@@ -1024,9 +1014,6 @@ export function applyPowerPelletEffects(
   }
 
   let next = state;
-  if (scatterMs !== null) {
-    next = { ...next, scatterBurstRemainingMs: scatterMs };
-  }
   if (wallPassMs !== null) {
     next = { ...next, wallPassRemainingMs: wallPassMs };
   }
@@ -1047,6 +1034,7 @@ export function applyPowerPelletEffects(
     state: next,
     freezeClosestMs,
     recallGhostCount,
+    cornerTeleportHoldMs,
     warpPlayerFarthest,
     collectExtraPellets,
   };
@@ -1208,10 +1196,6 @@ export function playerIsInvulnerable(state: RunUpgrades): boolean {
 
 export function playerTintRemainingMs(state: RunUpgrades): number {
   return Math.max(state.invulnRemainingMs, state.defyDeathRemainingMs);
-}
-
-export function scatterBurstActive(state: RunUpgrades): boolean {
-  return state.scatterBurstRemainingMs > 0;
 }
 
 export function wallPassActive(state: RunUpgrades): boolean {

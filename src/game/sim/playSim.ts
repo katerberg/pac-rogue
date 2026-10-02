@@ -179,7 +179,6 @@ import {
   playerSpeedMultiplier,
   queuePowerPelletRespawns,
   revokeUpgrade,
-  scatterBurstActive,
   speedBurstActive,
   ghostHarvestActive,
   tickDefyDeath,
@@ -187,7 +186,6 @@ import {
   tickFreeze,
   tickInvuln,
   tickPowerPelletRespawns,
-  tickScatterBurst,
   tickSpeedBurst,
   tickWallPass,
   wallPassActive,
@@ -275,6 +273,16 @@ import {
 } from "../../domain/warpGlide";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
+  ghostWarpGlideRemainingMs,
+  ghostWarpGlideSprites,
+  glidingGhostEids,
+  heldGhostEids,
+  mergeGhostCornerWarps,
+  tickGhostCornerWarps,
+  type GhostCornerWarp,
+} from "../../domain/ghostCornerWarp";
+import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
+import {
   applyTunnelDash,
   tickTunnelDashAnimation,
   type TunnelDashAnimation,
@@ -328,6 +336,7 @@ export class PlaySim {
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private warpGlide: WarpGlide | null = null;
+  private ghostCornerWarps: GhostCornerWarp[] = [];
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private midStoreLevel = 5;
   private store: StoreState | null = null;
@@ -474,6 +483,7 @@ export class PlaySim {
       turnFlashRemainingMs: this.turnFlashMs,
       ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
+      ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
     };
   }
 
@@ -498,7 +508,6 @@ export class PlaySim {
       upgrades: upgrades.owned,
       timers: {
         freezeMs: upgrades.freezeRemainingMs,
-        scatterBurstMs: upgrades.scatterBurstRemainingMs,
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
@@ -508,6 +517,7 @@ export class PlaySim {
         turnBoostMs: this.turnBoostMs,
         turnFlashMs: this.turnFlashMs,
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),
+        ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
@@ -575,6 +585,13 @@ export class PlaySim {
     return events;
   }
 
+  private teleportGhostsToCorners(holdMs: number): void {
+    this.ghostCornerWarps = mergeGhostCornerWarps(
+      this.ghostCornerWarps,
+      teleportGhostsToCorners(this.world, holdMs),
+    );
+  }
+
   private emitDraw(overrides: Partial<SimRenderOptions> = {}): void {
     this.emit({ type: "draw", options: { ...this.renderOptions(), ...overrides } });
   }
@@ -587,6 +604,7 @@ export class PlaySim {
     if (this.warpGlide !== null) {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
+    this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
     if (this.awaitingStartingCard) {
       if (input.uiOpen) {
         return;
@@ -702,7 +720,6 @@ export class PlaySim {
     }
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
-    this.runUpgrades = tickScatterBurst(this.runUpgrades, delta);
     const wasWallPass = wallPassActive(this.runUpgrades);
     this.runUpgrades = tickWallPass(this.runUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.runUpgrades)) {
@@ -734,6 +751,7 @@ export class PlaySim {
         (this.bossState === null ? levelSpeedMul : 1) *
         ghostSpeedMultiplier(this.runUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
+      heldGhostEids: heldGhostEids(this.ghostCornerWarps),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.runUpgrades.owned),
     });
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
@@ -885,19 +903,13 @@ export class PlaySim {
       this.lifetimeCollected += totalRemoved;
     }
 
-    const modeStep = resolveGhostModeStep(
-      this.ghostModeClock,
-      scatterBurstActive(this.runUpgrades),
-      delta,
-    );
+    const modeStep = resolveGhostModeStep(this.ghostModeClock, delta);
     this.ghostModeClock = modeStep.clock;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
       forceGhostReverse(this.world);
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
-      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, {
-        ignoreElroy: scatterBurstActive(this.runUpgrades),
-      });
+      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining);
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       recallClosestGhostToHouse(
@@ -908,6 +920,9 @@ export class PlaySim {
         releaseAdds,
         frozenGhostEid(this.runUpgrades),
       );
+    }
+    if (powerEffects.cornerTeleportHoldMs !== null) {
+      this.teleportGhostsToCorners(powerEffects.cornerTeleportHoldMs);
     }
     if (powerEffects.warpPlayerFarthest) {
       this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
@@ -976,7 +991,11 @@ export class PlaySim {
 
     const frozenEid = frozenGhostEid(this.runUpgrades);
     const playerInvulnerable = playerIsInvulnerable(this.runUpgrades);
-    const caught = catchPlayer(this.world, { frozenGhostEid: frozenEid, playerInvulnerable });
+    const caught = catchPlayer(this.world, {
+      frozenGhostEid: frozenEid,
+      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      playerInvulnerable,
+    });
     this.emitDraw();
 
     if (caught) {
@@ -1086,6 +1105,7 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.ghostCornerWarps = [];
     this.resetStreak();
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
@@ -1294,6 +1314,7 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.ghostCornerWarps = [];
     this.afterLifeRelease = false;
     placeInHouseGhostsAtPredictedSeats(
       this.world,
@@ -1504,6 +1525,9 @@ export class PlaySim {
         frozenGhostEid(this.runUpgrades),
       );
     }
+    if (powerEffects.cornerTeleportHoldMs !== null) {
+      this.teleportGhostsToCorners(powerEffects.cornerTeleportHoldMs);
+    }
     if (powerEffects.warpPlayerFarthest) {
       this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
     }
@@ -1631,6 +1655,7 @@ export class PlaySim {
   private resetAfterLifeLoss(): void {
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.ghostCornerWarps = [];
     this.resetStreak();
     this.remoteTransferCounter = 0;
     const playerSpawn = playerSpawnCenter();

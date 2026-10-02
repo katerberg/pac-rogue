@@ -137,12 +137,12 @@ describe("boss ghosts", () => {
     const world = createWorld();
     spawnPlayer(world, 20, 5);
     const chooser = spawnBossGhost(world, 6, 5, DIRECTION.right);
-    ghostAi(world, GHOST_AI_MODE.chase, 244, { ignoreElroy: true });
+    ghostAi(world, GHOST_AI_MODE.chase, 244);
     expect(Input.direction[chooser]).toBe(DIRECTION.right);
 
     Ghost.decidedCol[chooser] = Number.NaN;
     spawnBossGhost(world, 7, 5, DIRECTION.none);
-    ghostAi(world, GHOST_AI_MODE.chase, 244, { ignoreElroy: true });
+    ghostAi(world, GHOST_AI_MODE.chase, 244);
     expect(Input.direction[chooser]).not.toBe(DIRECTION.right);
   });
 
@@ -152,7 +152,7 @@ describe("boss ghosts", () => {
     const ghost = spawnBossGhost(world, 6, 5, DIRECTION.right);
     BossGhost.scatterCol[ghost] = 0;
     BossGhost.scatterRow[ghost] = 40;
-    ghostAi(world, GHOST_AI_MODE.scatter, 244, { ignoreElroy: true });
+    ghostAi(world, GHOST_AI_MODE.scatter, 244);
     expect(Input.direction[ghost]).toBe(DIRECTION.down);
   });
 
