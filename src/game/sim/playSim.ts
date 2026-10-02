@@ -285,7 +285,9 @@ import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } f
 import type { SimInput } from "./simInput";
 
 export const LEVEL_TRANSITION_MS = 1000;
-export const RUN_COMPLETE_HOLD_MS = 2000;
+export const RUN_END_MENU_ARM_MS = 1000;
+
+export type RunEndChoice = "newGame" | "menu";
 
 export type PlayHud = {
   time: number;
@@ -323,7 +325,7 @@ export class PlaySim {
   private bossMouths: BossTunnelMouth[] = [];
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
-  private runCompleteRemainingMs = 0;
+  private runCompleteElapsedMs: number | null = null;
   private fruitPresence: FruitPresence = createFruitPresence();
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private tunnelDashAnim: TunnelDashAnimation | null = null;
@@ -409,6 +411,14 @@ export class PlaySim {
     this.events = [];
     this.tick(input, delta);
     this.prevKeys = input.keys;
+    return this.takeEvents();
+  }
+
+  chooseRunEnd(choice: RunEndChoice): SimEvent[] {
+    if (!this.runEndMenuArmed()) {
+      return [];
+    }
+    this.emit({ type: choice === "newGame" ? "newGame" : "goToMenu" });
     return this.takeEvents();
   }
 
@@ -516,6 +526,8 @@ export class PlaySim {
           ? null
           : reviveSplashProgress(this.reviveSplashElapsedMs),
       levelTransition: this.levelTransitionRemainingMs > 0,
+      runComplete: this.runCompleteElapsedMs !== null,
+      runEndMenuArmed: this.runEndMenuArmed(),
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
       storeStock:
@@ -605,11 +617,8 @@ export class PlaySim {
       return;
     }
 
-    if (this.runCompleteRemainingMs > 0) {
-      this.runCompleteRemainingMs = Math.max(0, this.runCompleteRemainingMs - delta);
-      if (this.runCompleteRemainingMs === 0) {
-        this.emit({ type: "goToMenu" });
-      }
+    if (this.runCompleteElapsedMs !== null) {
+      this.runCompleteElapsedMs += delta;
       return;
     }
 
@@ -1625,7 +1634,11 @@ export class PlaySim {
   private beginRunComplete(): void {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "endText", title: "RUN COMPLETE" });
-    this.runCompleteRemainingMs = RUN_COMPLETE_HOLD_MS;
+    this.runCompleteElapsedMs = 0;
+  }
+
+  private runEndMenuArmed(): boolean {
+    return this.runCompleteElapsedMs !== null && this.runCompleteElapsedMs >= RUN_END_MENU_ARM_MS;
   }
 
   private resetAfterLifeLoss(): void {

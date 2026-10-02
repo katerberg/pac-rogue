@@ -49,6 +49,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
@@ -96,6 +97,7 @@ export class PlayScene extends Phaser.Scene {
   private storeToggleKeys: Phaser.Input.Keyboard.Key[] = [];
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
+  private runEndMenu: RunEndMenu | null = null;
 
   constructor() {
     super("PlayScene");
@@ -121,6 +123,7 @@ export class PlayScene extends Phaser.Scene {
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
     this.closeStoreUi();
+    this.runEndMenu = null;
 
     this.chrome = this.add.container(0, 0).setDepth(10);
     this.chromeShake = null;
@@ -175,7 +178,7 @@ export class PlayScene extends Phaser.Scene {
       this.musicPendingFanfareEnd = null;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
+    if (Phaser.Input.Keyboard.JustDown(this.keyEsc) && this.runEndMenu === null) {
       this.pauseForMenu();
       return;
     }
@@ -203,6 +206,7 @@ export class PlayScene extends Phaser.Scene {
     this.applyEvents(events, delta);
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
+    this.runEndMenu?.tick();
   }
 
   public runSeed(): string {
@@ -219,6 +223,10 @@ export class PlayScene extends Phaser.Scene {
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
+      runEndMenu: {
+        open: this.runEndMenu !== null,
+        selected: this.runEndMenu?.selected() ?? null,
+      },
     };
   }
 
@@ -345,9 +353,17 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "endText":
         this.showCenteredEndText(event.title);
+        if (event.title === "RUN COMPLETE") {
+          this.runEndMenu = createRunEndMenu(this, (choice) => {
+            this.applyEvents(this.sim.chooseRunEnd(choice), delta);
+          });
+        }
         break;
       case "goToMenu":
         this.scene.start("MenuScene");
+        break;
+      case "newGame":
+        this.scene.restart();
         break;
       case "saveRun":
         saveRun(event.collected, event.remaining);

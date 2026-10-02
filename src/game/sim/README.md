@@ -13,6 +13,7 @@ const sim = new PlaySim(options /* PlayOptions */, seed);
 const startEvents = sim.start(); // board, starting upgrade, banners, music …
 const events = sim.step(input /* SimInput */, deltaMs); // one frame
 sim.chooseUpgrade(option); // answers a pending level-clear offer
+sim.chooseRunEnd("newGame"); // answers the Run Complete menu ("newGame" / "menu")
 ```
 
 - `options` come from `parsePlayOptions(new URLSearchParams(location.search))` in the game and from `{ ...defaultPlayOptions(), ...overrides }` in tests (`src/domain/playOptions.ts`).
@@ -36,7 +37,7 @@ Side effects the sim can't perform itself. The scene applies them in order, afte
 
 - Sound: `sfx`, `pelletSfx`, `loopStart`, `loopStop`, `musicAfterFanfare` (the scene holds it until the level-complete fanfare ends).
 - Drawing: `draw` (with `SimRenderOptions`), `releaseDrawable`, `resetBoard`, `bouncePowerPellet`.
-- HUD / UI: `lives` (`pulse`), `quarters`, `bonus` (`tier` reached, Quarters `filled`; see [docs/bonus.md](../../../docs/bonus.md)), `timeBonus` (`active` while the level-end time drain runs), `upgrades`, `timer`, `timerVisible`, `banner`, `startingUpgrade`, `upgradeOffer`, `newLevelModal`, `storeOpened`, `storeSync`, `storePurchased`, `storeClosed`, `deathFade`, `endText`, `goToMenu`.
+- HUD / UI: `lives` (`pulse`), `quarters`, `bonus` (`tier` reached, Quarters `filled`; see [docs/bonus.md](../../../docs/bonus.md)), `timeBonus` (`active` while the level-end time drain runs), `upgrades`, `timer`, `timerVisible`, `banner`, `startingUpgrade`, `upgradeOffer`, `newLevelModal`, `storeOpened`, `storeSync`, `storePurchased`, `storeClosed`, `deathFade`, `endText`, `goToMenu`, `newGame` (restart `PlayScene`; from `chooseRunEnd`).
 - Storage: `saveRun` (only when no debug flag is present), `seenGhosts`, `seenUpgrades`.
 
 ## `LearnSim` (`learnSim.ts`)
