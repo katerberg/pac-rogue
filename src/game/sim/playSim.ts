@@ -139,6 +139,7 @@ import {
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   clearUpgradeTimers,
+  deathsBountyCharge,
   defyDeathActive,
   confirmUpgradeChoice,
   createRunUpgrades,
@@ -321,6 +322,7 @@ export class PlaySim {
   private pelletProgress: PelletProgress = createPelletProgress(0);
   private lifetimeCollected = 0;
   private remoteTransferCounter = 0;
+  private deathsThisBoard = 0;
   private quarters = 0;
   private bonus: BonusBar;
   private lastPlayerCell: Cell | null = null;
@@ -502,6 +504,7 @@ export class PlaySim {
         max: BONUS_BAR_MAX,
         draining: this.timeBonusDrain !== null,
       },
+      deathsThisBoard: this.deathsThisBoard,
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
@@ -1031,6 +1034,9 @@ export class PlaySim {
           : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.emit({ type: "lives", pulse: false });
+      if (!result.gameOver) {
+        this.payDeathsBounty();
+      }
       if (result.gameOver && !this.options.highScoresDisabled) {
         this.emit({
           type: "saveRun",
@@ -1060,6 +1066,13 @@ export class PlaySim {
     if (result.tier > 0 || result.filled > 0) {
       this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
     }
+  }
+
+  private payDeathsBounty(): void {
+    const charge = deathsBountyCharge(this.runUpgrades.owned, this.deathsThisBoard);
+    this.deathsThisBoard += 1;
+    const charged = addBonusCharge(this.bonus, charge);
+    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled });
   }
 
   private resetStreak(): void {
@@ -1260,6 +1273,7 @@ export class PlaySim {
 
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
     this.resetStreak();
+    this.deathsThisBoard = 0;
     const boss = bossForLevel(this.levelIndex);
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
     if (selection.kind === "static") {
