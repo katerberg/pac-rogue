@@ -29,6 +29,8 @@ npx playwright install chromium
 | `npm run check:ecs`        | ECS layer boundaries (also part of `verify`)    |
 | `npm run verify:precommit` | Fast gate — typecheck, lint, format, ECS, tests |
 | `npm run verify`           | **Canonical gate** — precommit + build + visual |
+| `npm run verify:record`    | `verify`, then record the result for ship-plan  |
+| `npm run check:ship`       | Check ship-plan evidence before opening a PR    |
 
 `npm install` points Git at `.githooks/` (`core.hooksPath`). The pre-commit hook runs `npm run verify:precommit` (no build/visual). Full `npm run verify` remains the CI and completion gate.
 

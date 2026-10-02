@@ -28,6 +28,7 @@ Rules:
 - Gameplay and presentation changes require a live check (`npm run probe`; see docs/VERIFICATION.md#live-check): assert behavior with `expect:`/`waitFor:` against the game-state snapshot, read the screenshots for visuals, cover every mode the diff touches, and record the commands and results.
 - Never assume visual correctness. Never claim visual verification without actually performing it.
 - Never declare unverified work done. UNVERIFIED IS NOT PASS.
+- Never say a skill ran (`pr-review`, `simplify-pr`, `no-comments`, `fix-pr-findings`, `verification`, …) unless you invoked it and its report is saved under `artifacts/ship-plan/`. Your own look at a diff is not a review: call it that, or don't mention it. A `PreToolUse` hook (`scripts/check-ship-evidence.mjs`) blocks PR creation on `src/` changes until the evidence exists; never hand-write evidence files to get past it.
 - Leave the repository runnable.
 - If architecture becomes unclear, stop and explain the problem rather than hiding it with abstraction.
 
