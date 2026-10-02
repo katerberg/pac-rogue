@@ -56,6 +56,7 @@ export type SimEvent =
   | { type: "deathFade" }
   | { type: "endText"; title: "GAME OVER" | "RUN COMPLETE" }
   | { type: "goToMenu" }
+  | { type: "newGame" }
   | { type: "saveRun"; collected: number; remaining: number }
   | { type: "seenGhosts"; ghostKinds: GhostKindId[] }
   | { type: "seenUpgrades"; ids: UpgradeId[] };
