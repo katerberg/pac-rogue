@@ -52,6 +52,7 @@ import { createHeldKeysReader } from "../systems/playerInput";
 import type { HeldKeys } from "../systems/heldKeys";
 import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
+import { playTurnSparks } from "./turnSparks";
 import {
   createRender,
   GHOST_TEXTURE_BY_ID,
@@ -125,7 +126,6 @@ const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [
   "passivePowerPelletRecharge",
   "passiveMyogenesis",
   "passiveDefyDeath",
-  "passiveTurnTuning",
   "passiveDeathsBounty",
 ];
 
@@ -244,6 +244,8 @@ export class LearnScene extends Phaser.Scene {
         this.playRender.draw(this.sim.world, event.options);
       } else if (event.type === "bouncePowerPellet") {
         this.playRender.bouncePowerPellet(event.eid);
+      } else if (event.type === "turnSparks") {
+        playTurnSparks(this, event);
       }
     }
   }
