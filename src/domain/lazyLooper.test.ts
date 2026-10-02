@@ -8,10 +8,12 @@ import {
 import { getLayout, layoutFromAscii, type MazeLayout } from "./maze";
 import { generateMazeAsciiWithRetries, invertMazeAscii } from "./mazeGenerate";
 
+function requiredKeys(layout: MazeLayout, rings: LazyLooperRings): Set<string> {
+  return new Set(lazyLooperRequiredCells(layout, rings).map(({ col, row }) => `${col},${row}`));
+}
+
 function render(layout: MazeLayout, rings: LazyLooperRings): string {
-  const required = new Set(
-    lazyLooperRequiredCells(layout, rings).map(({ col, row }) => `${col},${row}`),
-  );
+  const required = requiredKeys(layout, rings);
   return layout.ascii
     .split("\n")
     .map((line, row) =>
@@ -21,9 +23,7 @@ function render(layout: MazeLayout, rings: LazyLooperRings): string {
 }
 
 function pieceCount(layout: MazeLayout, rings: LazyLooperRings): number {
-  const required = new Set(
-    lazyLooperRequiredCells(layout, rings).map(({ col, row }) => `${col},${row}`),
-  );
+  const required = requiredKeys(layout, rings);
   const lines = layout.ascii.split("\n");
   const passable = (col: number, row: number): boolean =>
     !(layout.playerSolids[row]?.[col] ?? true) &&
@@ -121,13 +121,12 @@ describe("lazyLooperRequiredCells", () => {
   it.each(boards)(
     "%s: the outer ring is one gap-free piece and Plus is a strict subset",
     (_, layout) => {
-      const base = lazyLooperRequiredCells(layout, "outerInner");
-      const plus = lazyLooperRequiredCells(layout, "outer");
+      const base = requiredKeys(layout, "outerInner");
+      const plus = requiredKeys(layout, "outer");
       expect(pieceCount(layout, "outer")).toBe(1);
-      const baseKeys = new Set(base.map(({ col, row }) => `${col},${row}`));
-      expect(plus.every(({ col, row }) => baseKeys.has(`${col},${row}`))).toBe(true);
-      expect(plus.length).toBeLessThan(base.length);
-      expect(base.length).toBeLessThan(layout.pelletCount);
+      expect([...plus].every((key) => base.has(key))).toBe(true);
+      expect(plus.size).toBeLessThan(base.size);
+      expect(base.size).toBeLessThan(layout.pelletCount);
     },
   );
 
@@ -142,9 +141,7 @@ describe("lazyLooperRequiredCells", () => {
   });
 
   it.each(boards)("%s: the required set is left-right symmetric", (_, layout) => {
-    const keys = new Set(
-      lazyLooperRequiredCells(layout, "outerInner").map(({ col, row }) => `${col},${row}`),
-    );
+    const keys = requiredKeys(layout, "outerInner");
     for (const key of keys) {
       const [col, row] = key.split(",").map(Number) as [number, number];
       expect(keys.has(`${layout.cols - 1 - col},${row}`)).toBe(true);

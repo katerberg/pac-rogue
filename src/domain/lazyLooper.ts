@@ -97,7 +97,6 @@ function outerRing(grid: Grid): Set<number> {
 }
 
 function tunnelCells(grid: Grid): Set<number> {
-  const blocked = (index: number | null): boolean => index === null || !grid.open[index];
   const cells = new Set<number>();
   for (let row = 0; row < grid.rows; row += 1) {
     const first = row * grid.cols;
@@ -111,7 +110,7 @@ function tunnelCells(grid: Grid): Set<number> {
     ] as const) {
       for (let index = start; grid.open[index]; index += step) {
         const [up, down] = neighbors(grid, index, ORTHOGONAL);
-        if (!blocked(up ?? null) || !blocked(down ?? null)) {
+        if (grid.open[up ?? -1] || grid.open[down ?? -1]) {
           break;
         }
         cells.add(index);
@@ -121,25 +120,22 @@ function tunnelCells(grid: Grid): Set<number> {
   return cells;
 }
 
-function houseBand(grid: Grid): Set<number> {
+function houseBandDots(grid: Grid): Set<number> {
   const houseSeeds = grid.house.flatMap((house, index) => (house ? [index] : []));
-  return flood(
+  const band = flood(
     grid,
     houseSeeds,
     (index) => grid.house[index]! || (grid.open[index]! && !grid.pellet[index]!),
   );
-}
-
-function innerRing(grid: Grid, band: Set<number>): Set<number> {
-  const ring = new Set<number>();
+  const dots = new Set<number>();
   for (const index of band) {
     for (const next of neighbors(grid, index, ORTHOGONAL)) {
       if (next !== null && grid.dot[next]) {
-        ring.add(next);
+        dots.add(next);
       }
     }
   }
-  return ring;
+  return dots;
 }
 
 function connectRing(grid: Grid, ring: Set<number>): Set<number> {
@@ -191,7 +187,7 @@ export function lazyLooperRequiredCells(layout: MazeLayout, rings: LazyLooperRin
   const grid = readGrid(layout);
   const required = connectRing(grid, outerRing(grid));
   if (rings === "outerInner") {
-    for (const index of innerRing(grid, houseBand(grid))) {
+    for (const index of houseBandDots(grid)) {
       required.add(index);
     }
   }
