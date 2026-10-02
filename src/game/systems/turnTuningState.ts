@@ -1,10 +1,10 @@
 import type { World } from "bitecs";
 import {
-  PERFECT_SPARK_COUNT,
   TURN_FLASH_MS,
-  closeSparkCount,
+  closeCueStrength,
   isCleanTap,
   tickTurnTimer,
+  turnBoostFraction,
   turnBoostMultiplier,
   turnFeedback,
   type TurnFeedbackKind,
@@ -12,7 +12,6 @@ import {
 import { turnBoostMs, turnPerfectPx, type UpgradeId } from "../../domain/upgrades";
 import type { Direction } from "../components/Input";
 import {
-  CARDINAL_STEP,
   KEY_FOR_DIRECTION,
   freshKeys,
   isPerpendicularTurn,
@@ -25,9 +24,7 @@ export type TurnSparksBurst = {
   kind: TurnFeedbackKind;
   x: number;
   y: number;
-  dx: number;
-  dy: number;
-  count: number;
+  strength: number;
 };
 
 export class TurnTuningState {
@@ -59,7 +56,7 @@ export class TurnTuningState {
       const feedback = turnFeedback(tap.aheadPx, isCleanTap(lastPress, this.clockMs), perfectPx);
       this.perfectPending = feedback === "perfect";
       if (feedback === "close") {
-        bursts.push(...burstAtPlayer(world, "close", closeSparkCount(tap.aheadPx, perfectPx)));
+        bursts.push(...burstAtPlayer(world, "close", closeCueStrength(tap.aheadPx, perfectPx)));
       }
     }
     for (const key of freshKeys(prevKeys, keys)) {
@@ -75,6 +72,10 @@ export class TurnTuningState {
 
   speedMultiplier(owned: readonly UpgradeId[]): number {
     return turnBoostMultiplier(this.boostMs, turnBoostMs(owned));
+  }
+
+  boostFraction(owned: readonly UpgradeId[]): number {
+    return turnBoostFraction(this.boostMs, turnBoostMs(owned));
   }
 
   afterMove(
@@ -93,15 +94,14 @@ export class TurnTuningState {
     }
     this.boostMs = turnBoostMs(owned);
     this.flashMs = TURN_FLASH_MS;
-    return burstAtPlayer(world, "perfect", PERFECT_SPARK_COUNT);
+    return burstAtPlayer(world, "perfect", 1);
   }
 }
 
-function burstAtPlayer(world: World, kind: TurnFeedbackKind, count: number): TurnSparksBurst[] {
+function burstAtPlayer(world: World, kind: TurnFeedbackKind, strength: number): TurnSparksBurst[] {
   const pose = playerPose(world);
   if (pose === null) {
     return [];
   }
-  const step = CARDINAL_STEP[pose.facing] ?? { dx: 0, dy: 0 };
-  return [{ kind, x: pose.x, y: pose.y, dx: step.dx, dy: step.dy, count }];
+  return [{ kind, x: pose.x, y: pose.y, strength }];
 }

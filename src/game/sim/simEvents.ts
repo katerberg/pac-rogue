@@ -11,6 +11,7 @@ export type SimRenderOptions = {
   wallPassActive: boolean;
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
+  turnBoostFraction?: number;
   ghostHarvestActive?: boolean;
   dimGhostEid?: number | null;
   playerAlpha?: number;
@@ -34,9 +35,7 @@ export type SimEvent =
       kind: TurnFeedbackKind;
       x: number;
       y: number;
-      dx: number;
-      dy: number;
-      count: number;
+      strength: number;
     }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "banner"; text: string; boss: boolean }

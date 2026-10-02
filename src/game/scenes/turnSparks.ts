@@ -5,40 +5,75 @@ type TurnSparksEvent = {
   kind: TurnFeedbackKind;
   x: number;
   y: number;
-  dx: number;
-  dy: number;
-  count: number;
+  strength: number;
 };
 
-const SPARK_DEPTH = 50;
-const SPARK_SIZE = 3;
-const SPARK_MS = 280;
+const CUE_DEPTH = 50;
 const PERFECT_COLOR = 0xffe066;
-const CLOSE_COLOR = 0x66ddff;
-const PERFECT_DISTANCE = 26;
-const CLOSE_DISTANCE = 24;
-const CLOSE_FAN_RAD = Math.PI / 3;
-const CLOSE_FRONT_PX = 10;
+const PERFECT_SPARK_COUNT = 12;
+const PERFECT_SPARK_SIZE = 4;
+const PERFECT_SPARK_DISTANCE = 34;
+const PERFECT_SPARK_MS = 360;
+const SHOCKWAVE_RADIUS = 10;
+const SHOCKWAVE_WIDTH = 3;
+const SHOCKWAVE_SCALE = 3.6;
+const SHOCKWAVE_MS = 320;
+const CLOSE_COLOR = 0x8fa3b8;
+const CLOSE_RING_RADIUS = 16;
+const CLOSE_RING_WIDTH = 2;
+const CLOSE_RING_END_SCALE = 0.45;
+const CLOSE_RING_MS = 220;
 
 export function playTurnSparks(scene: Phaser.Scene, event: TurnSparksEvent): void {
-  const close = event.kind === "close";
-  const heading = Math.atan2(event.dy, event.dx);
-  const originX = event.x + (close ? event.dx * CLOSE_FRONT_PX : 0);
-  const originY = event.y + (close ? event.dy * CLOSE_FRONT_PX : 0);
-  for (let i = 0; i < event.count; i += 1) {
-    const t = event.count === 1 ? 0.5 : i / (event.count - 1);
-    const angle = close ? heading + (t - 0.5) * 2 * CLOSE_FAN_RAD : (i / event.count) * Math.PI * 2;
-    const distance = close ? CLOSE_DISTANCE : PERFECT_DISTANCE;
+  if (event.kind === "close") {
+    playCloseRing(scene, event);
+  } else {
+    playPerfectBurst(scene, event);
+  }
+}
+
+function playCloseRing(scene: Phaser.Scene, event: TurnSparksEvent): void {
+  const ring = scene.add
+    .circle(event.x, event.y, CLOSE_RING_RADIUS)
+    .setStrokeStyle(CLOSE_RING_WIDTH, CLOSE_COLOR, 1)
+    .setDepth(CUE_DEPTH)
+    .setAlpha(event.strength);
+  scene.tweens.add({
+    targets: ring,
+    scale: CLOSE_RING_END_SCALE,
+    alpha: 0,
+    duration: CLOSE_RING_MS,
+    ease: "Quad.easeIn",
+    onComplete: () => ring.destroy(),
+  });
+}
+
+function playPerfectBurst(scene: Phaser.Scene, event: TurnSparksEvent): void {
+  const wave = scene.add
+    .circle(event.x, event.y, SHOCKWAVE_RADIUS)
+    .setStrokeStyle(SHOCKWAVE_WIDTH, PERFECT_COLOR, 1)
+    .setDepth(CUE_DEPTH);
+  scene.tweens.add({
+    targets: wave,
+    scale: SHOCKWAVE_SCALE,
+    alpha: 0,
+    duration: SHOCKWAVE_MS,
+    ease: "Cubic.easeOut",
+    onComplete: () => wave.destroy(),
+  });
+  for (let i = 0; i < PERFECT_SPARK_COUNT; i += 1) {
+    const angle = (i / PERFECT_SPARK_COUNT) * Math.PI * 2;
     const spark = scene.add
-      .rectangle(originX, originY, SPARK_SIZE, SPARK_SIZE, close ? CLOSE_COLOR : PERFECT_COLOR)
-      .setDepth(SPARK_DEPTH)
-      .setAlpha(0.9);
+      .rectangle(event.x, event.y, PERFECT_SPARK_SIZE, PERFECT_SPARK_SIZE, PERFECT_COLOR)
+      .setDepth(CUE_DEPTH)
+      .setAngle((angle * 180) / Math.PI);
     scene.tweens.add({
       targets: spark,
-      x: originX + Math.cos(angle) * distance,
-      y: originY + Math.sin(angle) * distance,
+      x: event.x + Math.cos(angle) * PERFECT_SPARK_DISTANCE,
+      y: event.y + Math.sin(angle) * PERFECT_SPARK_DISTANCE,
+      scale: 0.4,
       alpha: 0,
-      duration: SPARK_MS,
+      duration: PERFECT_SPARK_MS,
       ease: "Cubic.easeOut",
       onComplete: () => spark.destroy(),
     });

@@ -1136,10 +1136,12 @@ describe("Turn Tuning", () => {
     expect(sim.snapshot().player!.facing).toBe("up");
     expect(sim.snapshot().timers.turnBoostMs).toBeGreaterThan(400);
     expect(sim.renderOptions().turnFlashRemainingMs).toBeGreaterThan(200);
+    expect(sim.renderOptions().turnBoostFraction).toBeGreaterThan(0.8);
 
     runFrames(sim, 40, { keys: held("up") });
     expect(sim.snapshot().timers.turnBoostMs).toBe(0);
     expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
+    expect(sim.renderOptions().turnBoostFraction).toBe(0);
   });
 
   it("Turn Tuning+ rewards a tap 10px early and holds the boost for 750ms", () => {
@@ -1200,11 +1202,12 @@ describe("Turn Tuning", () => {
       return sparks(events);
     }
 
-    it("sprays sparks out the front for a close tap, and bursts on the beat", () => {
+    it("cues a close tap more faintly than the beat, which bursts at full strength", () => {
       const [close] = tapAt(14);
-      expect(close).toMatchObject({ type: "turnSparks", kind: "close", dx: 1, dy: 0 });
+      expect(close).toMatchObject({ type: "turnSparks", kind: "close" });
+      expect(close!.type === "turnSparks" && close!.strength).toBeLessThan(1);
       const [perfect] = tapAt(6);
-      expect(perfect).toMatchObject({ type: "turnSparks", kind: "perfect", count: 12 });
+      expect(perfect).toMatchObject({ type: "turnSparks", kind: "perfect", strength: 1 });
     });
 
     it("shows nothing for a far tap or a spammed tap", () => {

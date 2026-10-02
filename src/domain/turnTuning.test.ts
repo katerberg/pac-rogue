@@ -10,7 +10,8 @@ import {
   TURN_TUNING_SPAM_MS,
   isCleanTap,
   TURN_TUNING_CLOSE_PX,
-  closeSparkCount,
+  boostStreaks,
+  closeCueStrength,
   turnFeedback,
   turnFlashPulse,
   tickTurnTimer,
@@ -24,6 +25,23 @@ describe("turnBoostMultiplier", () => {
       1 + (TURN_TUNING_BOOST_MUL - 1) / 2,
     );
     expect(turnBoostMultiplier(0)).toBe(1);
+  });
+});
+
+describe("boostStreaks", () => {
+  it("draws nothing without a boost", () => {
+    expect(boostStreaks(0)).toEqual([]);
+  });
+
+  it("draws three trailing streaks that shrink and fade as the boost runs out", () => {
+    const full = boostStreaks(1);
+    const fading = boostStreaks(0.25);
+    expect(full).toHaveLength(3);
+    expect(fading).toHaveLength(3);
+    for (let i = 0; i < full.length; i += 1) {
+      expect(fading[i]!.lengthPx).toBeLessThan(full[i]!.lengthPx);
+      expect(fading[i]!.alpha).toBeLessThan(full[i]!.alpha);
+    }
   });
 });
 
@@ -51,10 +69,12 @@ describe("turn beat", () => {
     expect(turnFeedback(TURN_TUNING_PERFECT_PX + 4, false)).toBeNull();
   });
 
-  it("sprays more sparks the closer a close tap was", () => {
-    expect(closeSparkCount(TURN_TUNING_PERFECT_PX + 1)).toBeGreaterThan(
-      closeSparkCount(TURN_TUNING_CLOSE_PX),
-    );
+  it("cues a close tap more strongly the closer it was, never at full strength", () => {
+    const nearest = closeCueStrength(TURN_TUNING_PERFECT_PX + 1);
+    const farthest = closeCueStrength(TURN_TUNING_CLOSE_PX);
+    expect(nearest).toBeGreaterThan(farthest);
+    expect(nearest).toBeLessThan(1);
+    expect(farthest).toBeGreaterThan(0);
   });
 });
 

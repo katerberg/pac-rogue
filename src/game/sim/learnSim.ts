@@ -398,6 +398,7 @@ export class LearnSim {
           this.catchGraceMs,
         ),
         turnFlashRemainingMs: this.turnTuning.flashMs,
+        turnBoostFraction: this.turnTuning.boostFraction(this.learnUpgrades.owned),
         wallPassActive: wallPassActive(this.learnUpgrades),
         wallPassLoopActive:
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),

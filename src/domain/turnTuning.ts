@@ -15,10 +15,8 @@ export const TURN_TUNING_WINDOW_PX = TILE_SIZE_PX * 2;
 export const TURN_TUNING_PERFECT_PX = 8;
 export const TURN_TUNING_CLOSE_PX = 20;
 export const TURN_TUNING_SPAM_MS = 300;
-const CLOSE_SPARKS_MAX = 5;
-const CLOSE_SPARKS_MIN = 3;
+const CLOSE_CUE_MIN_STRENGTH = 0.6;
 
-export const PERFECT_SPARK_COUNT = 12;
 export const TURN_FLASH_MS = 300;
 export const TURN_FLASH_SCALE = 0.3;
 export const TURN_FLASH_ALPHA_DROP = 0.1;
@@ -74,25 +72,58 @@ export function turnFeedback(
   return aheadPx <= TURN_TUNING_CLOSE_PX ? "close" : null;
 }
 
-export function closeSparkCount(
+export function closeCueStrength(
   aheadPx: number,
   perfectPx: number = TURN_TUNING_PERFECT_PX,
 ): number {
   const span = TURN_TUNING_CLOSE_PX - perfectPx;
   const closeness = 1 - Math.min(1, Math.max(0, aheadPx - perfectPx) / span);
-  return CLOSE_SPARKS_MIN + Math.round((CLOSE_SPARKS_MAX - CLOSE_SPARKS_MIN) * closeness);
+  return CLOSE_CUE_MIN_STRENGTH + (1 - CLOSE_CUE_MIN_STRENGTH) * closeness;
 }
 
 export function tickTurnTimer(remainingMs: number, deltaMs: number): number {
   return Math.max(0, remainingMs - Math.max(0, deltaMs));
 }
 
+export function turnBoostFraction(
+  remainingMs: number,
+  boostMs: number = TURN_TUNING_BOOST_MS,
+): number {
+  return Math.min(1, Math.max(0, remainingMs) / boostMs);
+}
+
 export function turnBoostMultiplier(
   remainingMs: number,
   boostMs: number = TURN_TUNING_BOOST_MS,
 ): number {
-  const fraction = Math.min(1, Math.max(0, remainingMs) / boostMs);
-  return 1 + (TURN_TUNING_BOOST_MUL - 1) * fraction;
+  return 1 + (TURN_TUNING_BOOST_MUL - 1) * turnBoostFraction(remainingMs, boostMs);
+}
+
+export type BoostStreak = { sidePx: number; startPx: number; lengthPx: number; alpha: number };
+
+const BOOST_STREAK_SIDES_PX = [-5, 0, 5] as const;
+const BOOST_STREAK_START_PX = 9;
+const BOOST_STREAK_MAX_PX = 18;
+const BOOST_STREAK_MIN_PX = 4;
+const BOOST_STREAK_ALPHA = 0.85;
+const BOOST_STREAK_SIDE_SETBACK_PX = 3;
+const BOOST_STREAK_SIDE_LENGTH_MUL = 0.7;
+
+export function boostStreaks(fraction: number): BoostStreak[] {
+  if (fraction <= 0) {
+    return [];
+  }
+  const f = Math.min(1, fraction);
+  const lengthPx = BOOST_STREAK_MIN_PX + (BOOST_STREAK_MAX_PX - BOOST_STREAK_MIN_PX) * f;
+  return BOOST_STREAK_SIDES_PX.map((sidePx) => {
+    const side = sidePx !== 0;
+    return {
+      sidePx,
+      startPx: BOOST_STREAK_START_PX + (side ? BOOST_STREAK_SIDE_SETBACK_PX : 0),
+      lengthPx: lengthPx * (side ? BOOST_STREAK_SIDE_LENGTH_MUL : 1),
+      alpha: BOOST_STREAK_ALPHA * f,
+    };
+  });
 }
 
 export type TurnFlashPulse = { scale: number; alpha: number; brighten: number };
