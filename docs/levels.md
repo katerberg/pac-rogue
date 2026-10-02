@@ -13,7 +13,7 @@ Store floors (between levels 3→4, 5→6 or 6→7, and 8→9 right before the b
 
 ## Base speed
 
-Maze-Man's base speed is `PLAYER_SPEED` = 5.315 tiles/s (`src/domain/playfield.ts`), matched to arcade Ms. Pac-Man: crossing the maze horizontally on level 2 takes 3.81s in both. Every ghost, tunnel, Cruise Elroy, ghost-house exit and boss speed is a fixed ratio of it, so the ratios below hold at any base. Timers (upgrade durations, scatter/chase waves, idle release, fruit lifetime, the Time countdown) are real-time and do not scale with speed, as in the arcade.
+Maze-Man's base speed is `PLAYER_SPEED` (`src/domain/playfield.ts`), roughly matched to arcade Ms. Pac-Man. Every ghost, tunnel, Cruise Elroy, ghost-house exit and boss speed is a fixed ratio of it, so the ratios below hold at any base. Timers (upgrade durations, scatter/chase waves, idle release, fruit lifetime, the Time countdown) are real-time and do not scale with speed, as in the arcade.
 
 ## Ghost catch-up speed (levels 1-5)
 

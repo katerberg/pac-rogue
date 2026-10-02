@@ -414,7 +414,7 @@ describe("PlaySim", () => {
 
     runFrames(sim, 30, { keys: held("left") });
 
-    const arcadeTilesPerSec = 5.315;
+    const arcadeTilesPerSec = 7.315;
     const expectedPx =
       arcadeTilesPerSec * TILE_SIZE * speedLevelMultiplier(2) * ((30 * FRAME_MS) / 1000);
     expect(startX - Position.x[eid]!).toBeCloseTo(expectedPx, 1);
@@ -634,6 +634,126 @@ describe("PlaySim", () => {
     expect(sim.snapshot().quarters).toBeLessThan(before.quarters);
     expect(sim.snapshot().lives).toBe(before.lives + 1);
     expect(events).toContainEqual({ type: "lives", pulse: true });
+  });
+
+  describe("Money Talks", () => {
+    function getCaught(sim: PlaySim): SimEvent[] {
+      ghostOntoPlayer(sim);
+      return runFrames(sim, 1);
+    }
+
+    function toLastLife(sim: PlaySim): void {
+      for (let i = 0; i < 10 && sim.snapshot().lives > 1; i += 1) {
+        getCaught(sim);
+        runUntil(sim, () => !sim.snapshot().dying, 240);
+      }
+    }
+
+    function moneySim(overrides: Partial<PlayOptions>): PlaySim {
+      const sim = startSim({ level: 2, maze: "maze1", ...overrides });
+      toLastLife(sim);
+      return sim;
+    }
+
+    it("spends 3 Quarters one at a time to keep the last life", () => {
+      const sim = moneySim({ enableUpgrades: ["passiveMoneyTalks"], quarters: 4 });
+      const events = getCaught(sim);
+      expect(events).toContainEqual({ type: "sfx", id: "revive" });
+      expect(count(events, "saveRun")).toBe(0);
+      expect(sim.snapshot().quarters).toBe(3);
+      const seen = new Set<number>([sim.snapshot().quarters]);
+      runUntil(
+        sim,
+        () => {
+          seen.add(sim.snapshot().quarters);
+          return !sim.snapshot().dying;
+        },
+        240,
+      );
+      expect([...seen]).toEqual([3, 2, 1]);
+      expect(sim.snapshot()).toMatchObject({ lives: 1, quarters: 1, moneyTalksElapsedMs: null });
+    });
+
+    it("streams wallet coins during the save and clears them on resume", () => {
+      const sim = moneySim({ enableUpgrades: ["passiveMoneyTalks"], quarters: 3 });
+      const events = [...getCaught(sim), ...runUntil(sim, () => !sim.snapshot().dying, 240)];
+      const coins = events.flatMap((e) => (e.type === "walletCoins" ? [e.spend] : []));
+      expect(coins[0]).toEqual({ elapsedMs: 0, count: 3, paid: 1, quartersBefore: 3 });
+      expect(coins.at(-1)).toBeNull();
+    });
+
+    it("costs 1 Quarter when enhanced", () => {
+      const sim = moneySim({ enableUpgrades: ["passiveMoneyTalksPlus"], quarters: 1 });
+      getCaught(sim);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot()).toMatchObject({ lives: 1, quarters: 0 });
+    });
+
+    it("ends the run when the Quarters fall short", () => {
+      const sim = moneySim({ enableUpgrades: ["passiveMoneyTalks"], quarters: 2 });
+      const events = getCaught(sim);
+      expect(events).toContainEqual({ type: "sfx", id: "death" });
+      expect(count(events, "saveRun")).toBe(1);
+      expect(sim.snapshot()).toMatchObject({ lives: 0, quarters: 2 });
+    });
+
+    it("ends the run when not owned", () => {
+      const sim = moneySim({ quarters: 5 });
+      getCaught(sim);
+      expect(sim.snapshot()).toMatchObject({ lives: 0, quarters: 5 });
+    });
+
+    it("spends a life, not Quarters, before the last life", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: ["passiveMoneyTalks"],
+        quarters: 5,
+      });
+      const livesBefore = sim.snapshot().lives;
+      getCaught(sim);
+      expect(sim.snapshot()).toMatchObject({ lives: livesBefore - 1, quarters: 5 });
+    });
+
+    it("lets an armed Defy Death save for free", () => {
+      const sim = moneySim({
+        enableUpgrades: ["passiveMoneyTalks", "passiveDefyDeath"],
+        quarters: 3,
+      });
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      getCaught(sim);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot()).toMatchObject({ lives: 1, quarters: 3 });
+    });
+
+    it("keeps a Death's Bounty Quarter paid during the save", () => {
+      const sim = moneySim({
+        enableUpgrades: ["passiveMoneyTalks", "passiveDeathsBounty"],
+        quarters: 3,
+        bonus: 68,
+      });
+      const before = sim.snapshot().quarters;
+      getCaught(sim);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot()).toMatchObject({ lives: 1, quarters: before - 3 + 1 });
+    });
+
+    it("never spends Quarters with infiniteLives", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: ["passiveMoneyTalks"],
+        quarters: 3,
+        infiniteLives: true,
+      });
+      for (let i = 0; i < 4; i += 1) {
+        getCaught(sim);
+        runUntil(sim, () => !sim.snapshot().dying, 240);
+      }
+      expect(sim.snapshot().quarters).toBe(3);
+    });
   });
 
   describe("store tiles", () => {
@@ -1202,11 +1322,12 @@ describe("Turn Tuning", () => {
       return sparks(events);
     }
 
-    it("sprays sparks out the front for a close tap, and bursts on the beat", () => {
+    it("sprays sparks out the front for a close tap, and only a shockwave on the beat", () => {
       const [close] = tapAt(14);
       expect(close).toMatchObject({ type: "turnSparks", kind: "close", dx: 1, dy: 0 });
+      expect(close!.type === "turnSparks" && close!.count).toBeGreaterThan(0);
       const [perfect] = tapAt(6);
-      expect(perfect).toMatchObject({ type: "turnSparks", kind: "perfect", count: 12 });
+      expect(perfect).toMatchObject({ type: "turnSparks", kind: "perfect", count: 0 });
     });
 
     it("shows nothing for a far tap or a spammed tap", () => {

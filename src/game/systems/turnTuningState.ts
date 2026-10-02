@@ -1,6 +1,5 @@
 import type { World } from "bitecs";
 import {
-  PERFECT_SPARK_COUNT,
   TURN_FLASH_MS,
   closeSparkCount,
   isCleanTap,
@@ -93,7 +92,7 @@ export class TurnTuningState {
     }
     this.boostMs = turnBoostMs(owned);
     this.flashMs = TURN_FLASH_MS;
-    return burstAtPlayer(world, "perfect", PERFECT_SPARK_COUNT);
+    return burstAtPlayer(world, "perfect", 0);
   }
 }
 

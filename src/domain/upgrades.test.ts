@@ -12,6 +12,8 @@ import {
   POWER_COLLECT_THREE_COUNT,
   FRUIT_QUARTERS,
   FRUIT_QUARTERS_ENHANCED,
+  MONEY_TALKS_ENHANCED_QUARTERS,
+  MONEY_TALKS_QUARTERS,
   FRUIT_FECUNDITY_MUL,
   CORNER_TELEPORT_HOLD_ENHANCED_MS,
   SPEED_BURST_MS,
@@ -30,6 +32,7 @@ import {
   eligibleUpgrades,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
+  moneyTalksCost,
   type BaseUpgradeId,
   frozenGhostEid,
   ghostHouseClydePelletAdd,
@@ -125,6 +128,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveDefyDeath",
   "passiveTurnTuning",
   "passiveDeathsBounty",
+  "passiveMoneyTalks",
   "passiveLazyLooper",
 ];
 
@@ -627,6 +631,15 @@ describe("fruitQuartersPerFruit", () => {
     expect(fruitQuartersPerFruit(["fruitQuarterBounty"])).toBe(FRUIT_QUARTERS);
     expect(fruitQuartersPerFruit(["fruitQuarterBountyPlus"])).toBe(FRUIT_QUARTERS_ENHANCED);
     expect(fruitQuartersPerFruit(["passivePlayerSpeedUp"])).toBeNull();
+  });
+});
+
+describe("moneyTalksCost", () => {
+  it("charges 3 Quarters, 1 enhanced, and nothing when not owned", () => {
+    expect(moneyTalksCost([])).toBeNull();
+    expect(moneyTalksCost(["passiveMoneyTalks"])).toBe(MONEY_TALKS_QUARTERS);
+    expect(moneyTalksCost(["passiveMoneyTalksPlus"])).toBe(MONEY_TALKS_ENHANCED_QUARTERS);
+    expect(moneyTalksCost(["passiveDefyDeath"])).toBeNull();
   });
 });
 
