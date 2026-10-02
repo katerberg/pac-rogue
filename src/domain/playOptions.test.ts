@@ -18,6 +18,8 @@ describe("parsePlayOptions", () => {
       jumpToUpgrade: false,
       store: null,
       infiniteLives: false,
+      lives: null,
+      maxLives: null,
       godMode: false,
       disableLevelUpgrades: false,
       enableUpgrades: [],
@@ -28,7 +30,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&godMode=1&enableUpgrade=powerPelletFreeze",
+        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&enableUpgrade=powerPelletFreeze",
       ),
     );
     expect(warnings).toEqual([]);
@@ -44,6 +46,8 @@ describe("parsePlayOptions", () => {
       store: 1,
       disableLevelUpgrades: true,
       infiniteLives: true,
+      lives: 2,
+      maxLives: 6,
       godMode: true,
       enableUpgrades: ["powerPelletFreeze"],
       highScoresDisabled: true,
@@ -52,7 +56,9 @@ describe("parsePlayOptions", () => {
 
   it("warns once per invalid flag, in flag order", () => {
     const { warnings } = parsePlayOptions(
-      new URLSearchParams("seed=a%20b&maze=nope&level=0&quarters=-1&bonus=300&bossGhosts=99"),
+      new URLSearchParams(
+        "seed=a%20b&maze=nope&level=0&quarters=-1&bonus=300&bossGhosts=99&lives=0&maxLives=x",
+      ),
     );
     expect(warnings).toEqual([
       "Unknown ?seed= value; expected 1-32 of A-Z a-z 0-9 _ -",
@@ -61,6 +67,23 @@ describe("parsePlayOptions", () => {
       "Unknown ?quarters= value; expected non-negative integer",
       "Unknown ?bonus= value; expected an integer 0..299",
       "Unknown ?bossGhosts= value; expected an integer 2..10",
+      "Unknown ?lives= value; expected positive integer",
+      "Unknown ?maxLives= value; expected positive integer",
     ]);
+  });
+
+  it("defaults maxLives to lives unless maxLives is set", () => {
+    expect(parsePlayOptions(new URLSearchParams("lives=7")).options).toMatchObject({
+      lives: 7,
+      maxLives: 7,
+    });
+    expect(parsePlayOptions(new URLSearchParams("lives=7&maxLives=2")).options).toMatchObject({
+      lives: 7,
+      maxLives: 2,
+    });
+    expect(parsePlayOptions(new URLSearchParams("maxLives=6")).options).toMatchObject({
+      lives: null,
+      maxLives: 6,
+    });
   });
 });

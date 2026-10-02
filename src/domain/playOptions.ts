@@ -4,7 +4,7 @@ import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
 import { parseGodModeFlag } from "./godModeFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
-import { parseInfiniteLivesFlag } from "./lives";
+import { parseInfiniteLivesFlag, parseLivesParam, parseMaxLivesParam } from "./lives";
 import { parseMazeParam, type MazeLayoutId } from "./mazeLayouts";
 import { parseQuartersParam } from "./quartersFlag";
 import { highScoresDisabled } from "./runHistory";
@@ -29,6 +29,8 @@ export type PlayOptions = {
   store: StoreIndex | null;
   disableLevelUpgrades: boolean;
   infiniteLives: boolean;
+  lives: number | null;
+  maxLives: number | null;
   godMode: boolean;
   enableUpgrades: UpgradeId[];
   highScoresDisabled: boolean;
@@ -70,6 +72,10 @@ export function parsePlayOptions(params: URLSearchParams): {
     bossGhosts === null,
     "Unknown ?bossGhosts= value; expected an integer 2..10",
   );
+  const lives = parseLivesParam(params);
+  warnIf("lives", lives === null, "Unknown ?lives= value; expected positive integer");
+  const maxLives = parseMaxLivesParam(params);
+  warnIf("maxLives", maxLives === null, "Unknown ?maxLives= value; expected positive integer");
   return {
     options: {
       seed,
@@ -83,6 +89,8 @@ export function parsePlayOptions(params: URLSearchParams): {
       store: parseStoreFlag(params),
       disableLevelUpgrades: parseDisableLevelUpgradesFlag(params),
       infiniteLives: parseInfiniteLivesFlag(params),
+      lives,
+      maxLives: maxLives ?? lives,
       godMode: parseGodModeFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
       highScoresDisabled: highScoresDisabled(params),
