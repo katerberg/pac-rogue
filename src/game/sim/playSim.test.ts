@@ -1202,12 +1202,12 @@ describe("Turn Tuning", () => {
       return sparks(events);
     }
 
-    it("cues a close tap more faintly than the beat, which bursts at full strength", () => {
+    it("sprays sparks out the front for a close tap, and only a shockwave on the beat", () => {
       const [close] = tapAt(14);
-      expect(close).toMatchObject({ type: "turnSparks", kind: "close" });
-      expect(close!.type === "turnSparks" && close!.strength).toBeLessThan(1);
+      expect(close).toMatchObject({ type: "turnSparks", kind: "close", dx: 1, dy: 0 });
+      expect(close!.type === "turnSparks" && close!.count).toBeGreaterThan(0);
       const [perfect] = tapAt(6);
-      expect(perfect).toMatchObject({ type: "turnSparks", kind: "perfect", strength: 1 });
+      expect(perfect).toMatchObject({ type: "turnSparks", kind: "perfect", count: 0 });
     });
 
     it("shows nothing for a far tap or a spammed tap", () => {

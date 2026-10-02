@@ -35,7 +35,9 @@ export type SimEvent =
       kind: TurnFeedbackKind;
       x: number;
       y: number;
-      strength: number;
+      dx: number;
+      dy: number;
+      count: number;
     }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "banner"; text: string; boss: boolean }

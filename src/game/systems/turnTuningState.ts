@@ -1,7 +1,7 @@
 import type { World } from "bitecs";
 import {
   TURN_FLASH_MS,
-  closeCueStrength,
+  closeSparkCount,
   isCleanTap,
   tickTurnTimer,
   turnBoostFraction,
@@ -12,6 +12,7 @@ import {
 import { turnBoostMs, turnPerfectPx, type UpgradeId } from "../../domain/upgrades";
 import type { Direction } from "../components/Input";
 import {
+  CARDINAL_STEP,
   KEY_FOR_DIRECTION,
   freshKeys,
   isPerpendicularTurn,
@@ -24,7 +25,9 @@ export type TurnSparksBurst = {
   kind: TurnFeedbackKind;
   x: number;
   y: number;
-  strength: number;
+  dx: number;
+  dy: number;
+  count: number;
 };
 
 export class TurnTuningState {
@@ -56,7 +59,7 @@ export class TurnTuningState {
       const feedback = turnFeedback(tap.aheadPx, isCleanTap(lastPress, this.clockMs), perfectPx);
       this.perfectPending = feedback === "perfect";
       if (feedback === "close") {
-        bursts.push(...burstAtPlayer(world, "close", closeCueStrength(tap.aheadPx, perfectPx)));
+        bursts.push(...burstAtPlayer(world, "close", closeSparkCount(tap.aheadPx, perfectPx)));
       }
     }
     for (const key of freshKeys(prevKeys, keys)) {
@@ -94,14 +97,15 @@ export class TurnTuningState {
     }
     this.boostMs = turnBoostMs(owned);
     this.flashMs = TURN_FLASH_MS;
-    return burstAtPlayer(world, "perfect", 1);
+    return burstAtPlayer(world, "perfect", 0);
   }
 }
 
-function burstAtPlayer(world: World, kind: TurnFeedbackKind, strength: number): TurnSparksBurst[] {
+function burstAtPlayer(world: World, kind: TurnFeedbackKind, count: number): TurnSparksBurst[] {
   const pose = playerPose(world);
   if (pose === null) {
     return [];
   }
-  return [{ kind, x: pose.x, y: pose.y, strength }];
+  const step = CARDINAL_STEP[pose.facing] ?? { dx: 0, dy: 0 };
+  return [{ kind, x: pose.x, y: pose.y, dx: step.dx, dy: step.dy, count }];
 }

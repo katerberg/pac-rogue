@@ -11,7 +11,7 @@ import {
   isCleanTap,
   TURN_TUNING_CLOSE_PX,
   boostStreaks,
-  closeCueStrength,
+  closeSparkCount,
   turnFeedback,
   turnFlashPulse,
   tickTurnTimer,
@@ -69,12 +69,10 @@ describe("turn beat", () => {
     expect(turnFeedback(TURN_TUNING_PERFECT_PX + 4, false)).toBeNull();
   });
 
-  it("cues a close tap more strongly the closer it was, never at full strength", () => {
-    const nearest = closeCueStrength(TURN_TUNING_PERFECT_PX + 1);
-    const farthest = closeCueStrength(TURN_TUNING_CLOSE_PX);
-    expect(nearest).toBeGreaterThan(farthest);
-    expect(nearest).toBeLessThan(1);
-    expect(farthest).toBeGreaterThan(0);
+  it("sprays more sparks the closer a close tap was", () => {
+    expect(closeSparkCount(TURN_TUNING_PERFECT_PX + 1)).toBeGreaterThan(
+      closeSparkCount(TURN_TUNING_CLOSE_PX),
+    );
   });
 });
 

@@ -15,7 +15,8 @@ export const TURN_TUNING_WINDOW_PX = TILE_SIZE_PX * 2;
 export const TURN_TUNING_PERFECT_PX = 8;
 export const TURN_TUNING_CLOSE_PX = 20;
 export const TURN_TUNING_SPAM_MS = 300;
-const CLOSE_CUE_MIN_STRENGTH = 0.6;
+const CLOSE_SPARKS_MAX = 5;
+const CLOSE_SPARKS_MIN = 3;
 
 export const TURN_FLASH_MS = 300;
 export const TURN_FLASH_SCALE = 0.3;
@@ -72,13 +73,13 @@ export function turnFeedback(
   return aheadPx <= TURN_TUNING_CLOSE_PX ? "close" : null;
 }
 
-export function closeCueStrength(
+export function closeSparkCount(
   aheadPx: number,
   perfectPx: number = TURN_TUNING_PERFECT_PX,
 ): number {
   const span = TURN_TUNING_CLOSE_PX - perfectPx;
   const closeness = 1 - Math.min(1, Math.max(0, aheadPx - perfectPx) / span);
-  return CLOSE_CUE_MIN_STRENGTH + (1 - CLOSE_CUE_MIN_STRENGTH) * closeness;
+  return CLOSE_SPARKS_MIN + Math.round((CLOSE_SPARKS_MAX - CLOSE_SPARKS_MIN) * closeness);
 }
 
 export function tickTurnTimer(remainingMs: number, deltaMs: number): number {
