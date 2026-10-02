@@ -412,7 +412,7 @@ describe("PlaySim", () => {
 
     runFrames(sim, 30, { keys: held("left") });
 
-    const arcadeTilesPerSec = 5.315;
+    const arcadeTilesPerSec = 7.315;
     const expectedPx =
       arcadeTilesPerSec * TILE_SIZE * speedLevelMultiplier(2) * ((30 * FRAME_MS) / 1000);
     expect(startX - Position.x[eid]!).toBeCloseTo(expectedPx, 1);

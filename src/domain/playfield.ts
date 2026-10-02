@@ -5,9 +5,9 @@ import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 export { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH };
 
-// Tiles/sec matched to arcade Ms. Pac-Man: crossing the maze on level 2 takes
-// 3.81s there. Every ghost, tunnel, Elroy and boss speed derives from this.
-export const PLAYER_SPEED = 5.315 * TILE_SIZE;
+// Ms Pac Man is 5.315
+// First pass result was 8.333
+export const PLAYER_SPEED = 7.315 * TILE_SIZE;
 
 export function playerRadius(): number {
   return TILE_SIZE / 2;
