@@ -668,7 +668,7 @@ export class PlaySim {
 
     if (this.pendingLevelClear) {
       this.pendingLevelClear = false;
-      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+      this.beginLevelTransition();
       return;
     }
 
@@ -1461,9 +1461,16 @@ export class PlaySim {
     }
   }
 
+  private beginLevelTransition(): void {
+    const livesBeforeRegen = this.lives;
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
+    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
+    this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+  }
+
   private finishLevelClear(): void {
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
-      this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+      this.beginLevelTransition();
       return;
     }
     const offer = pickUpgradeChoiceOffer(
@@ -1598,9 +1605,6 @@ export class PlaySim {
 
     this.startBoard(null);
     this.emit({ type: "upgrades" });
-    const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
-    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     this.showLevelBanner();
     this.emit({ type: "musicAfterFanfare", id: "gameplayMusic" });
     this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
