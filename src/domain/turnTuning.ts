@@ -18,7 +18,6 @@ export const TURN_TUNING_SPAM_MS = 300;
 const CLOSE_SPARKS_MAX = 5;
 const CLOSE_SPARKS_MIN = 3;
 
-export const PERFECT_SPARK_COUNT = 12;
 export const TURN_FLASH_MS = 300;
 export const TURN_FLASH_SCALE = 0.3;
 export const TURN_FLASH_ALPHA_DROP = 0.1;
