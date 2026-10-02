@@ -132,7 +132,7 @@ describe("lazyLooperRequiredCells", () => {
 
   it("leaves dots inside a side tunnel out of the outer ring", () => {
     const layout = layoutFromAscii(generateMazeAsciiWithRetries("s1")!.ascii);
-    const row = layout.ascii.split("\n").findIndex((line) => line.startsWith("-.."));
+    const row = layout.ascii.split("\n").findIndex((line) => line.startsWith("-"));
     expect(row).toBeGreaterThan(0);
     const required = lazyLooperRequiredCells(layout, "outer").filter((cell) => cell.row === row);
     expect(required.map(({ col }) => col)).not.toContain(1);
