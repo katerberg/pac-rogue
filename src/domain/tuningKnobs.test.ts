@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_TUNING, type TuningKey } from "./tuning";
 import {
   formatKnobValue,
+  KNOB_HELP,
   LEFT_KNOB_GROUPS,
   RIGHT_KNOB_GROUPS,
   TUNING_KNOBS,
@@ -25,6 +26,14 @@ describe("TUNING_KNOBS", () => {
       } else {
         expect(typeof value, knob.key).toBe(knob.kind === "toggle" ? "boolean" : "number");
       }
+    }
+  });
+});
+
+describe("KNOB_HELP", () => {
+  it("explains every knob in more words than its label", () => {
+    for (const knob of TUNING_KNOBS) {
+      expect(KNOB_HELP[knob.key].length, knob.key).toBeGreaterThan(knob.label.length + 10);
     }
   });
 });

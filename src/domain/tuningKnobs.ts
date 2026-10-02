@@ -112,3 +112,85 @@ export function formatKnobValue(knob: RangeKnob, value: number): string {
   const number = value.toFixed(stepDecimals(knob.step));
   return knob.unit === "" ? number : `${number} ${knob.unit}`;
 }
+
+export const KNOB_HELP: Record<TuningKey, string> = {
+  playerSpeedTiles:
+    "Maze-Man's base speed in tiles per second at level 1, before the level ramp, upgrades and eat drag.",
+  levelSpeedRamp:
+    "Extra speed per level for Maze-Man and ghosts: speed × (1 + ramp × (level − 1)). 0.05 = +5% per level.",
+  eatDragMs:
+    "How long Maze-Man slows down after eating a dot. The slowdown starts at the peak and eases back to full speed over this time.",
+  eatDragPeak:
+    "Fraction of speed lost right after eating a dot (0.25 = 25% slower), easing back to full speed over the eat drag time.",
+  eatDragPowerMs:
+    "Eat drag time after eating a power pellet; the slowdown holds near its peak for this long.",
+  preTurnPx:
+    "How many pixels before or after a junction centre Maze-Man can start a turn and cut the corner. 0 = turn only at the exact centre.",
+  ghostRatioStart:
+    "Ghost speed at level 1 as a fraction of Maze-Man's speed (0.8 = ghosts 20% slower).",
+  ghostRatioStep: "How much the ghost speed ratio grows each level until it reaches the cap.",
+  ghostRatioCap:
+    "Highest ghost speed ratio the per-level growth can reach (1.0 = parity with Maze-Man).",
+  ghostTunnelRatio:
+    "Ghost speed inside side tunnels as a fraction of Maze-Man's base speed. Not affected by the level ramp.",
+  ghostHouseExitRatio:
+    "Speed of Pinky, Inky and Clyde while leaving the ghost house, as a fraction of Maze-Man's base speed.",
+  elroy1Ratio:
+    "Blinky's \"Cruise Elroy\" speed once few dots remain (first tier), as a fraction of Maze-Man's base speed.",
+  elroy2Ratio:
+    "Blinky's second, faster Elroy speed once even fewer dots remain, as a fraction of Maze-Man's base speed.",
+  bossGhostRatio: "Speed of the level-9 boss Blinkys as a fraction of Maze-Man's base speed.",
+  timerMax:
+    "Starting value of the Time countdown on each board. Applies on the next board or Restart.",
+  timerTickMs:
+    "Milliseconds per Time point. 100 = Time drops by 10 per second once you start moving.",
+  fruitLifetimeMs: "How long bonus fruit stays on the board before it disappears.",
+  fruitThreshold1:
+    "Board dots eaten before the first fruit appears. Scaled to the board's dot count from level 2 on; level 1 uses it as-is.",
+  fruitThreshold2:
+    "Board dots eaten before the second fruit appears (level 2 and up), scaled to the board's dot count.",
+  deathHoldMs: "Freeze after Maze-Man is caught, before actors reset (or Game Over starts).",
+  readyPauseMs: "Pause after actors reset from a death before play resumes.",
+  bonusStreakIdleMs:
+    "How long Maze-Man can go without eating a dot before the BONUS pellet streak breaks.",
+  pinkyLookahead: "Pinky chases the tile this many tiles ahead of Maze-Man's facing.",
+  inkyLookahead:
+    "Inky's pivot is this many tiles ahead of Maze-Man; Inky targets Blinky's tile mirrored through that pivot.",
+  clydeShyTiles:
+    "Clyde chases Maze-Man only while farther than this many tiles away; closer than that he retreats to his corner.",
+  elroy1DotsLeft:
+    "Blinky enters Elroy 1 when this many dots or fewer remain (maze1 baseline, scaled to the board's dot count).",
+  elroy2DotsLeft:
+    "Blinky enters Elroy 2 when this many dots or fewer remain (maze1 baseline, scaled to the board's dot count).",
+  blinkyReleaseMs: "Time after your first move before Blinky leaves the ghost house.",
+  pinkyReleaseMs:
+    "Time after your first move before Pinky leaves the ghost house (first life of a board).",
+  inkyReleasePellets:
+    "Level 1 only: dots eaten before Inky leaves the house (maze1 baseline, scaled to the board). From level 2 Inky leaves immediately.",
+  clydeReleasePellets:
+    "Level 1 only: dots eaten before Clyde leaves the house (maze1 baseline, scaled to the board).",
+  level2ClydeDots:
+    "Level 2 only: dots eaten before Clyde leaves the house. From level 3 he leaves immediately.",
+  postLifePinkyDots:
+    "After a death: dots eaten since the death before Pinky leaves the house again.",
+  postLifeInkyDots: "After a death: dots eaten since the death before Inky leaves the house again.",
+  postLifeClydeDots:
+    "After a death: dots eaten since the death before Clyde leaves the house again.",
+  idleReleaseMs:
+    "Levels 1-4: if no dot is eaten for this long, the next waiting ghost is pushed out of the house.",
+  idleReleaseLateMs:
+    "Level 5 and up: if no dot is eaten for this long, the next waiting ghost is pushed out of the house.",
+  level1ChaseOnly:
+    "On: level 1 ghosts chase forever with no scatter waves. Off: level 1 uses the levels 2-4 scatter/chase schedule.",
+  scatterEarlyMs:
+    "Levels 2-4: length of the first two scatter waves, when ghosts head to their corners instead of chasing.",
+  scatterLateMs:
+    "Length of the third scatter wave on levels 2-4, and of every scatter wave from level 5 on.",
+  chaseMs: "Length of each chase wave between scatter waves. The final chase lasts forever.",
+  wallThickness: "Width of the wall outline in pixels. Visual only; collision is unchanged.",
+  wallColor: "Color of the wall outline (overrides the Settings maze color while knobs are on).",
+  wallGlow: "Strength of the glow drawn around the walls. 0 = no glow.",
+  wallGlowRadius: "How far the wall glow spreads beyond the outline, in pixels.",
+  wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
+  backgroundColor: "Color behind the maze.",
+};

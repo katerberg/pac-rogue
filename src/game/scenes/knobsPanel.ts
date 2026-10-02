@@ -8,6 +8,7 @@ import {
 } from "../../domain/tuning";
 import {
   formatKnobValue,
+  KNOB_HELP,
   LEFT_KNOB_GROUPS,
   RIGHT_KNOB_GROUPS,
   TUNING_KNOBS,
@@ -72,8 +73,18 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
 
   const buildRow = (knob: KnobDef): HTMLElement => {
     const reset = resetButton(knob.key);
+    const info = el("span", {
+      className: "knob-info",
+      textContent: "i",
+      tabIndex: 0,
+      ariaLabel: KNOB_HELP[knob.key],
+    });
+    info.addEventListener("mouseleave", () => info.blur());
     const header = el("div", { className: "knob-header" }, [
-      el("span", { className: "knob-label", textContent: knob.label }),
+      el("span", { className: "knob-label", textContent: knob.label }, [
+        info,
+        el("span", { className: "knob-tip", role: "tooltip", textContent: KNOB_HELP[knob.key] }),
+      ]),
     ]);
     const row = el("div", { className: "knob-row" }, [header]);
     row.dataset.knob = knob.key;

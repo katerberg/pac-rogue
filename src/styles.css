@@ -37,7 +37,51 @@ body {
 }
 
 .knob-row {
+  position: relative;
   margin-bottom: 6px;
+}
+
+.knob-info {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: #445;
+  color: #ddd;
+  font: italic bold 9px/12px serif;
+  text-align: center;
+  vertical-align: 1px;
+  cursor: help;
+}
+
+.knob-info:hover,
+.knob-info:focus {
+  background: #ffd800;
+  color: #000;
+  outline: none;
+}
+
+.knob-tip {
+  display: none;
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  padding: 6px 8px;
+  border: 1px solid #ffd800;
+  border-radius: 4px;
+  background: #111;
+  color: #eee;
+  font: 11px/1.4 sans-serif;
+  white-space: normal;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.knob-info:hover + .knob-tip,
+.knob-info:focus + .knob-tip {
+  display: block;
 }
 
 .knob-header {
