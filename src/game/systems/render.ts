@@ -23,7 +23,7 @@ import {
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
-import { boostStreaks, turnFlashPulse } from "../../domain/turnTuning";
+import { turnFlashPulse } from "../../domain/turnTuning";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
@@ -34,7 +34,6 @@ import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
-import { CARDINAL_STEP } from "./heldKeys";
 
 export const PELLET_TEXTURE_KEY = "pellet-dot";
 export const QUARTER_TEXTURE_KEY = "quarter";
@@ -50,8 +49,6 @@ export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 const PLAYER_INVULN_TINT = 0xc48a00;
 const PLAYER_INVULN_BLINK_MS = 100;
 const PLAYER_INVULN_URGENCY_MS = 1000;
-const BOOST_STREAK_COLOR = 0xffe066;
-const BOOST_STREAK_WIDTH = 2;
 export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -226,7 +223,6 @@ export type RenderOptions = {
   wallPassActive?: boolean;
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
-  turnBoostFraction?: number;
   ghostHarvestActive?: boolean;
   dimGhostEid?: number | null;
   playerAlpha?: number;
@@ -251,7 +247,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
-  const boostGraphics = scene.add.graphics();
   let wallsDrawn = false;
   let drawnMazeColorIndex: number | null = null;
   let bossPelletTint = 0xffffff;
@@ -276,7 +271,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     drawableObjects.clear();
     playerVisuals.clear();
     wallGraphics.clear();
-    boostGraphics.clear();
     wallsDrawn = false;
     drawnMazeColorIndex = null;
   };
@@ -314,8 +308,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
     const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
-    const streaks = boostStreaks(opts?.turnBoostFraction ?? 0);
-    boostGraphics.clear();
     const playerInvulnTintOn =
       !wallPassOn &&
       invulnRemainingMs > 0 &&
@@ -469,21 +461,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
         visual.lastX = x;
         visual.lastY = y;
-
-        const step = CARDINAL_STEP[facing];
-        if (step !== undefined) {
-          for (const streak of streaks) {
-            const bx = x - step.dx * streak.startPx + step.dy * streak.sidePx;
-            const by = y - step.dy * streak.startPx + step.dx * streak.sidePx;
-            boostGraphics.lineStyle(BOOST_STREAK_WIDTH, BOOST_STREAK_COLOR, streak.alpha);
-            boostGraphics.lineBetween(
-              bx,
-              by,
-              bx - step.dx * streak.lengthPx,
-              by - step.dy * streak.lengthPx,
-            );
-          }
-        }
 
         applyPlayerTint(go, playerTint);
         go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);

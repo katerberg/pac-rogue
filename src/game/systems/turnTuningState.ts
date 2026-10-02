@@ -4,7 +4,6 @@ import {
   closeSparkCount,
   isCleanTap,
   tickTurnTimer,
-  turnBoostFraction,
   turnBoostMultiplier,
   turnFeedback,
   type TurnFeedbackKind,
@@ -75,10 +74,6 @@ export class TurnTuningState {
 
   speedMultiplier(owned: readonly UpgradeId[]): number {
     return turnBoostMultiplier(this.boostMs, turnBoostMs(owned));
-  }
-
-  boostFraction(owned: readonly UpgradeId[]): number {
-    return turnBoostFraction(this.boostMs, turnBoostMs(owned));
   }
 
   afterMove(

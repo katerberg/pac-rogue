@@ -10,7 +10,6 @@ import {
   TURN_TUNING_SPAM_MS,
   isCleanTap,
   TURN_TUNING_CLOSE_PX,
-  boostStreaks,
   closeSparkCount,
   turnFeedback,
   turnFlashPulse,
@@ -25,23 +24,6 @@ describe("turnBoostMultiplier", () => {
       1 + (TURN_TUNING_BOOST_MUL - 1) / 2,
     );
     expect(turnBoostMultiplier(0)).toBe(1);
-  });
-});
-
-describe("boostStreaks", () => {
-  it("draws nothing without a boost", () => {
-    expect(boostStreaks(0)).toEqual([]);
-  });
-
-  it("draws three trailing streaks that shrink and fade as the boost runs out", () => {
-    const full = boostStreaks(1);
-    const fading = boostStreaks(0.25);
-    expect(full).toHaveLength(3);
-    expect(fading).toHaveLength(3);
-    for (let i = 0; i < full.length; i += 1) {
-      expect(fading[i]!.lengthPx).toBeLessThan(full[i]!.lengthPx);
-      expect(fading[i]!.alpha).toBeLessThan(full[i]!.alpha);
-    }
   });
 });
 
