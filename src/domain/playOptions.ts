@@ -4,6 +4,7 @@ import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
 import { parseGodModeFlag } from "./godModeFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
+import { parseKnobsFlag } from "./knobsFlag";
 import { parseInfiniteLivesFlag, parseLivesCountParam } from "./lives";
 import { parseMazeParam, type MazeLayoutId } from "./mazeLayouts";
 import { parseQuartersParam } from "./quartersFlag";
@@ -32,6 +33,7 @@ export type PlayOptions = {
   lives: number | null;
   maxLives: number | null;
   godMode: boolean;
+  knobs: boolean;
   enableUpgrades: UpgradeId[];
   highScoresDisabled: boolean;
 };
@@ -92,6 +94,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       lives,
       maxLives: maxLives ?? lives,
       godMode: parseGodModeFlag(params),
+      knobs: parseKnobsFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
       highScoresDisabled: highScoresDisabled(params),
     },

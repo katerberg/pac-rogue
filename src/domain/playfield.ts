@@ -2,12 +2,17 @@ import { clamp } from "./clamp";
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import { TILE_SIZE } from "./maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH };
 
 // Ms Pac Man is 5.315
 // First pass result was 8.333
-export const PLAYER_SPEED = 7.315 * TILE_SIZE;
+export const PLAYER_SPEED = DEFAULT_TUNING.playerSpeedTiles * TILE_SIZE;
+
+export function playerSpeed(tuning: Tuning = DEFAULT_TUNING): number {
+  return tuning.playerSpeedTiles * TILE_SIZE;
+}
 
 export function playerRadius(): number {
   return TILE_SIZE / 2;
@@ -17,8 +22,8 @@ export function ghostRadius(): number {
   return playerRadius();
 }
 
-export function playerPreTurnPx(): number {
-  return 4;
+export function playerPreTurnPx(tuning: Tuning = DEFAULT_TUNING): number {
+  return tuning.preTurnPx;
 }
 
 export const PLAYER_DRAWABLE_ID = "player";

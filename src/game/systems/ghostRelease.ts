@@ -85,7 +85,7 @@ export function ghostRelease(
     sendOut(world, eid);
     released = true;
   }
-  if (!released && idleReleaseDue(clock, adds.delayAddMs ?? 0)) {
+  if (!released && idleReleaseDue(clock, adds.delayAddMs ?? 0, adds.tuning)) {
     if (idleEid !== undefined) {
       sendOut(world, idleEid);
       released = true;

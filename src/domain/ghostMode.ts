@@ -1,4 +1,5 @@
 import { ghostModeWavesForLevel } from "./levelRules";
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export const GHOST_AI_MODE = {
   scatter: 0,
@@ -25,9 +26,9 @@ export type GhostModeTick = {
   forceReverse: boolean;
 };
 
-function buildGhostModeClock(levelIndex: number, active: boolean): GhostModeClock {
+function buildGhostModeClock(levelIndex: number, active: boolean, tuning: Tuning): GhostModeClock {
   const level = Math.max(1, levelIndex);
-  const waves = ghostModeWavesForLevel(level);
+  const waves = ghostModeWavesForLevel(level, tuning);
   const waveIndex = 0;
   const start = waves[waveIndex]!;
   return {
@@ -39,12 +40,18 @@ function buildGhostModeClock(levelIndex: number, active: boolean): GhostModeCloc
   };
 }
 
-export function createGhostModeClock(levelIndex: number): GhostModeClock {
-  return buildGhostModeClock(levelIndex, false);
+export function createGhostModeClock(
+  levelIndex: number,
+  tuning: Tuning = DEFAULT_TUNING,
+): GhostModeClock {
+  return buildGhostModeClock(levelIndex, false, tuning);
 }
 
-export function startGhostModeClock(levelIndex: number): GhostModeClock {
-  return buildGhostModeClock(levelIndex, true);
+export function startGhostModeClock(
+  levelIndex: number,
+  tuning: Tuning = DEFAULT_TUNING,
+): GhostModeClock {
+  return buildGhostModeClock(levelIndex, true, tuning);
 }
 
 export type GhostModeStep = {
@@ -52,20 +59,28 @@ export type GhostModeStep = {
   mode: GhostAiMode;
 };
 
-export function resolveGhostModeStep(clock: GhostModeClock, deltaMs: number): GhostModeStep {
-  const tick = tickGhostMode(clock, deltaMs);
+export function resolveGhostModeStep(
+  clock: GhostModeClock,
+  deltaMs: number,
+  tuning: Tuning = DEFAULT_TUNING,
+): GhostModeStep {
+  const tick = tickGhostMode(clock, deltaMs, tuning);
   return {
     clock: tick.clock,
     mode: tick.clock.mode,
   };
 }
 
-export function tickGhostMode(clock: GhostModeClock, deltaMs: number): GhostModeTick {
+export function tickGhostMode(
+  clock: GhostModeClock,
+  deltaMs: number,
+  tuning: Tuning = DEFAULT_TUNING,
+): GhostModeTick {
   if (!clock.active) {
     return { clock, forceReverse: false };
   }
 
-  const waves = ghostModeWavesForLevel(clock.levelIndex);
+  const waves = ghostModeWavesForLevel(clock.levelIndex, tuning);
   const wave = waves[clock.waveIndex];
   if (!wave || !Number.isFinite(wave.durationMs)) {
     return { clock, forceReverse: false };

@@ -6,11 +6,16 @@ import {
   pelletDisplaySize,
   powerPelletDisplaySize,
   wallPathCommands,
-  WALL_STROKE_WEIGHT,
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
-import { clampMazeColorIndex, mazeColorForIndex } from "../../domain/mazeColorSettings";
+import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
+import {
+  sameWallStyle,
+  wallGlowLayers,
+  wallStyleFor,
+  type WallStyle,
+} from "../../domain/wallStyle";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -241,6 +246,7 @@ export type PlayRender = {
   releaseDrawable: (eid: number) => void;
   resetForNewBoard: () => void;
   bouncePowerPellet: (eid: number) => void;
+  setWallStyle: (style: WallStyle | null) => void;
 };
 
 const DIM_GHOST_ALPHA = 0.4;
@@ -249,8 +255,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
-  let wallsDrawn = false;
-  let drawnMazeColorIndex: number | null = null;
+  let drawnWallStyle: WallStyle | null = null;
+  let wallStyleOverride: WallStyle | null = null;
   let bossPelletTint = 0xffffff;
 
   const releaseDrawable = (eid: number): void => {
@@ -273,8 +279,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     drawableObjects.clear();
     playerVisuals.clear();
     wallGraphics.clear();
-    wallsDrawn = false;
-    drawnMazeColorIndex = null;
+    drawnWallStyle = null;
   };
 
   const bouncePowerPellet = (eid: number): void => {
@@ -323,17 +328,26 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           : playerInvulnTintOn
             ? { color: PLAYER_INVULN_TINT, mode: Phaser.TintModes.MULTIPLY }
             : null;
-    const mazeColorIndex = clampMazeColorIndex(loadMazeColorSettings().colorIndex);
-    if (!wallsDrawn || mazeColorIndex !== drawnMazeColorIndex) {
-      const wallStrokeColor = mazeColorForIndex(mazeColorIndex);
-      bossPelletTint = brightenColor(wallStrokeColor, 0.5);
+    const wallStyle =
+      wallStyleOverride ??
+      wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
+    if (!sameWallStyle(wallStyle, drawnWallStyle)) {
+      bossPelletTint = brightenColor(wallStyle.color, 0.5);
       wallGraphics.clear();
-      wallGraphics.lineStyle(WALL_STROKE_WEIGHT, wallStrokeColor, 1);
-      wallGraphics.beginPath();
-      applyWallPathCommands(wallGraphics, wallPathCommands());
-      wallGraphics.strokePath();
-      wallsDrawn = true;
-      drawnMazeColorIndex = mazeColorIndex;
+      const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
+      for (const layer of [
+        ...wallGlowLayers(wallStyle),
+        { width: wallStyle.thickness, alpha: 1 },
+      ]) {
+        wallGraphics.lineStyle(layer.width, wallStyle.color, layer.alpha);
+        wallGraphics.beginPath();
+        applyWallPathCommands(wallGraphics, commands);
+        wallGraphics.strokePath();
+      }
+      if (wallStyleOverride !== null) {
+        scene.cameras.main.setBackgroundColor(wallStyle.background);
+      }
+      drawnWallStyle = wallStyle;
     }
 
     const alive = new Set<string>();
@@ -525,5 +539,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
-  return { draw, releaseDrawable, resetForNewBoard, bouncePowerPellet };
+  const setWallStyle = (style: WallStyle | null): void => {
+    wallStyleOverride = style;
+  };
+
+  return { draw, releaseDrawable, resetForNewBoard, bouncePowerPellet, setWallStyle };
 }

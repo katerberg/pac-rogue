@@ -199,10 +199,14 @@ function scaleCount(n: number, pelletCount: number, basePelletCount: number): nu
 }
 
 export function scaleFeastThresholds(base: readonly number[]): number[] {
+  return base.map(scaleToActiveLayout);
+}
+
+export function scaleToActiveLayout(count: number): number {
   const layout = getActiveLayout();
   const basePelletCount =
     layout.id === "maze1" ? layout.pelletCount : getLayout("maze1").pelletCount;
-  return base.map((count) => scaleCount(count, layout.pelletCount, basePelletCount));
+  return scaleCount(count, layout.pelletCount, basePelletCount);
 }
 
 function scaleFruitThresholds(

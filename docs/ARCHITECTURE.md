@@ -35,6 +35,10 @@ src/
     playfieldBounds.ts        # PLAYFIELD_WIDTH/HEIGHT (no maze import)
     runLevel.ts               # ?level= URL parse, clamped to MAX_LEVEL
     playOptions.ts            # parsePlayOptions: every PlayScene URL flag → PlayOptions + warnings
+    tuning.ts                 # Tuning (every ?knobs=1 knob) + DEFAULT_TUNING; stored-override parse/serialize; level speed ramps
+    tuningKnobs.ts            # knob table (group, label, range/step/unit) the ?knobs=1 panels render from
+    knobsFlag.ts              # ?knobs=1 parse
+    wallStyle.ts              # wall color/thickness/glow/corner/background from the maze color setting or tuning
     runRandom.ts              # ?seed= parse + RunRandom: named seeded streams, the only allowed randomness source
     quartersFlag.ts           # ?quarters= URL parse (non-negative integer default count)
     store.ts                  # store floor schedule, slot parse, stock roll, prompt/purchase state machine
@@ -98,6 +102,7 @@ src/
       runHistoryStorage.ts    # localStorage adapter for death-run history
       audioSettingsStorage.ts # localStorage adapter for music/SFX prefs
       seenRecordStorage.ts    # localStorage adapter for the LEARN seen record
+      debugTuningStorage.ts   # localStorage adapter for ?knobs=1 overrides
     systems/
       heldKeys.ts             # HeldKeys (press times) → sticky Input; axis winner + diagonal combine
       playerInput.ts          # Phaser keys → HeldKeys (reader only)
@@ -129,6 +134,7 @@ src/
       upgradeChoiceModal.ts   # level-clear pick-one overlay (Phaser)
       turnSparks.ts           # Turn Tuning feedback: perfect burst + close sparks (Phaser)
       storeOverlay.ts         # store floor tiles, hover/prompt panel, purchase toast (Phaser)
+      knobsPanel.ts           # ?knobs=1 DOM panels over the canvas gutters + RESTART / RESET OPTIONS buttons
       MenuScene.ts            # boot title + Start / Learn / High Scores / Settings (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       SettingsScene.ts        # music/SFX checkboxes + 0..10 notches (no ECS)
@@ -176,6 +182,8 @@ PlayScene --caught (last life)--> death hold → fade → GAME OVER → MenuScen
 **ECS ownership:** only the headless sims in `src/game/sim/` (`PlaySim`, `LearnSim`) call `createWorld` / `addEntity` and run a system pipeline (`LearnSim`'s is a reduced chase-only sandbox; see [docs/learn.md](./learn.md)). `PlayScene` and `LearnScene` are adapters over them. `MenuScene`, `HighScoresScene`, `SettingsScene`, and `PauseScene` are Phaser presentation + input only (BitmapText, keyboard, pointer). Do not put bitecs in UI scenes.
 
 Pausing (Escape) is available at any point during `PlayScene`, including mid-death-sequence, mid-level-transition, and while the level-clear upgrade-choice modal is open — `scene.pause()` halts `PlayScene.update()` entirely, so whichever of those states was active simply freezes and resumes exactly where it left off; `scene.pause()` never touches the Sound Manager, so the game-play music loop keeps playing unattended through the pause menu. `SettingsScene` accepts an optional `returnScene` value (Phaser scene init data) so it can return to either `MenuScene` (default) or `PauseScene` depending on how it was opened; `PlayScene` itself is never restarted by this round trip. `PauseScene`'s Quit option turns into an inline `SURE?  YES  NO` on the same row (default focus: NO); Up cancels the confirm and moves focus to Settings, same as a normal Up from the Quit row. Confirming Yes stops `PlayScene` (its existing `SHUTDOWN` handler covers game-play music/modal/banner cleanup) without ever calling `saveRun`.
+
+**Debug tuning (`?knobs=1`):** `PlaySim` takes a per-run `Tuning` (constructor arg, `setTuning`) and passes it to every helper and system it tunes; helpers default the param to `DEFAULT_TUNING`, which equals the old constants, so runs without the flag and `LearnSim` are unchanged. Only with `?knobs=1` does `PlayScene` load stored overrides (`debugTuningStorage`), hide the side HUD, and mount `knobsPanel` (plain DOM, positioned from the canvas rect and maze offsets); panel edits call `sim.setTuning` + save, and wall knobs reach `render.ts` through `setWallStyle`. Per-board values (timer max, release dots, fruit thresholds) take effect on the next board. RESTART calls `scene.restart({ restartLevel, seed })`, which `PlayScene.create` reads to start a fresh run at that level with the same seed.
 
 High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (collected pellets desc, then remaining time desc). Storage remains chronological append order.
 

@@ -117,9 +117,11 @@ import {
   GHOST_DRAWABLE_BY_KIND,
   ghostRadius,
   PELLET_DRAWABLE_ID,
-  PLAYER_SPEED,
+  playerPreTurnPx,
+  playerSpeed,
 } from "../../domain/playfield";
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
+import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   storeLevelFor,
@@ -345,12 +347,23 @@ export class PlaySim {
   private readonly turnTuning = new TurnTuningState();
   private prevKeys: HeldKeys = NO_KEYS_HELD;
 
-  constructor(options: PlayOptions, seed: string) {
+  private currentTuning: Tuning;
+
+  constructor(options: PlayOptions, seed: string, tuning: Tuning = DEFAULT_TUNING) {
     this.options = options;
+    this.currentTuning = tuning;
     this.random = createRunRandom(seed);
     this.quarters = options.quarters ?? 0;
     this.bonus = createBonusBar(options.bonus ?? 0);
     this.lives = options.lives ?? START_LIVES;
+  }
+
+  get tuning(): Tuning {
+    return this.currentTuning;
+  }
+
+  setTuning(tuning: Tuning): void {
+    this.currentTuning = tuning;
   }
 
   start(): SimEvent[] {
@@ -466,6 +479,10 @@ export class PlaySim {
     return this.pendingChoice;
   }
 
+  currentLevel(): number {
+    return this.levelIndex;
+  }
+
   hud(): PlayHud {
     return {
       time: this.clock.remaining,
@@ -496,6 +513,8 @@ export class PlaySim {
     const upgrades = this.runUpgrades;
     return {
       seed: this.random.seed,
+      knobs: this.options.knobs,
+      tuning: this.currentTuning,
       level: this.levelIndex,
       layout: getActiveLayout().id,
       lives: this.lives,
@@ -599,7 +618,7 @@ export class PlaySim {
     }
 
     if (this.death !== null) {
-      const tick = tickDeathSequence(this.death, delta);
+      const tick = tickDeathSequence(this.death, delta, this.currentTuning);
       this.death = tick.state;
       for (const event of tick.events) {
         this.handleDeathEvent(event);
@@ -693,6 +712,7 @@ export class PlaySim {
     const releaseAdds = {
       delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
       clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
+      tuning: this.currentTuning,
     };
     ghostHouseSeating(
       this.world,
@@ -730,15 +750,15 @@ export class PlaySim {
     }
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
-    const levelSpeedMul = speedLevelMultiplier(this.levelIndex);
+    const levelSpeedMul = speedLevelMultiplier(this.levelIndex, this.currentTuning);
     const playerSpeedMul =
       levelSpeedMul *
       playerSpeedMultiplier(this.runUpgrades.owned) *
       (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.runUpgrades.owned) : 1) *
-      eatDragMultiplier(this.eatDragMs) *
+      eatDragMultiplier(this.eatDragMs, this.currentTuning) *
       this.turnTuning.speedMultiplier(this.runUpgrades.owned) *
       (warping ? 0 : 1);
-    applyPlayerSpeed(this.world, playerSpeedMul);
+    applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
         (this.bossState === null ? levelSpeedMul : 1) *
@@ -746,6 +766,7 @@ export class PlaySim {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       heldGhostEids: heldGhostEids(this.ghostCornerWarps),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.runUpgrades.owned),
+      tuning: this.currentTuning,
     });
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
       ? wallPassSolids(this.runUpgrades.owned)
@@ -754,7 +775,7 @@ export class PlaySim {
       bossGhostBlock(this.world);
     }
     const facingBeforeMove = playerFacing(this.world);
-    movement(this.world, delta, playerSolidsOverride);
+    movement(this.world, delta, playerSolidsOverride, false, playerPreTurnPx(this.currentTuning));
     this.emitTurnSparks(
       this.turnTuning.afterMove(
         this.world,
@@ -768,7 +789,7 @@ export class PlaySim {
         this.world,
         this.tunnelDashAnim,
         delta,
-        PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
+        playerSpeed(this.currentTuning) * TUNNEL_DASH_SPEED_MUL,
       );
     } else if (hasUpgrade(this.runUpgrades.owned, "passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
@@ -816,10 +837,10 @@ export class PlaySim {
     this.checkStreakCell();
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
-      this.ghostModeClock = startGhostModeClock(this.levelIndex);
+      this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
     }
 
-    this.clock = tickRunClock(this.clock, hasInput, delta);
+    this.clock = tickRunClock(this.clock, hasInput, delta, this.currentTuning);
     this.emit({ type: "timer" });
 
     const playerFrame = collectPellets(this.world, {
@@ -841,10 +862,15 @@ export class PlaySim {
     if (playerFrame.removedCells.length > 0) {
       this.applyBonus(applyStreakPellets(this.bonus, playerFrame.removedCells));
     } else {
-      this.bonus = tickStreakIdle(this.bonus, delta);
+      this.bonus = tickStreakIdle(this.bonus, delta, this.currentTuning.bonusStreakIdleMs);
     }
     const removed = removedPelletEids.length;
-    this.eatDragMs = eatDragAfterCollect(this.eatDragMs, removed - powerRemoved, powerRemoved);
+    this.eatDragMs = eatDragAfterCollect(
+      this.eatDragMs,
+      removed - powerRemoved,
+      powerRemoved,
+      this.currentTuning,
+    );
     if (removed > 0) {
       this.emit({
         type: "pelletSfx",
@@ -896,13 +922,13 @@ export class PlaySim {
       this.lifetimeCollected += totalRemoved;
     }
 
-    const modeStep = resolveGhostModeStep(this.ghostModeClock, delta);
+    const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
       forceGhostReverse(this.world);
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
-      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining);
+      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, this.currentTuning);
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       recallClosestGhostToHouse(
@@ -932,6 +958,7 @@ export class PlaySim {
         lifetimeMul: fruitLifetimeMultiplier(this.runUpgrades.owned),
         persist: fruitPersistsUntilLevelEnd(this.runUpgrades.owned),
         stack: stacksFruit,
+        tuning: this.currentTuning,
       },
     );
     if (fruitTick.action === "spawn" || fruitTick.action === "replace") {
@@ -1158,7 +1185,9 @@ export class PlaySim {
     }
     applyPlayerSpeed(
       this.world,
-      speedLevelMultiplier(this.levelIndex) * playerSpeedMultiplier(this.runUpgrades.owned),
+      speedLevelMultiplier(this.levelIndex, this.currentTuning) *
+        playerSpeedMultiplier(this.runUpgrades.owned),
+      this.currentTuning,
     );
     movement(this.world, delta, undefined, true);
 
@@ -1318,9 +1347,9 @@ export class PlaySim {
       this.recordSeen(ghostKinds);
     }
 
-    this.clock = createRunClock();
+    this.clock = createRunClock(this.currentTuning);
     this.ghostReleaseClock = createGhostReleaseClock(this.levelIndex);
-    this.ghostModeClock = createGhostModeClock(this.levelIndex);
+    this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.remoteTransferCounter = 0;
@@ -1762,7 +1791,7 @@ export class PlaySim {
       this.levelIndex,
       this.pelletProgress.boardCollected,
     );
-    this.ghostModeClock = createGhostModeClock(this.levelIndex);
+    this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.afterLifeRelease = true;
     placeInHouseGhostsAtPredictedSeats(

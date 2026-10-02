@@ -31,6 +31,9 @@ Steps (comma-separated):
   click:<x>:<y>          click at game coordinates (800x600), scaled onto the canvas
   hover:<x>:<y>          move the mouse to game coordinates, scaled onto the canvas
   shot:<label>           screenshot to artifacts/<name>-<label>.png
+  pageShot:<label>       full-viewport screenshot (includes DOM overlays such as ?knobs=1 panels)
+  domClick:<css>         click the first DOM element matching a CSS selector (e.g. #knobs-restart)
+  domFill:<css>:<value>  set an input's value and fire input + change (e.g. domFill:#knob-timerMax:120)
   scene:<SceneKey>       fail unless that scene is active (MenuScene, PlayScene, ...)
   sound:<key>:<yes|no>   fail unless that sound's isPlaying() matches (e.g. menu-music, gameplay-music)
   expect:<cond>          fail unless the game-state condition holds right now
@@ -143,6 +146,26 @@ async function runStep(page, canvas, step, name) {
       console.log(`shot ${path}`);
       break;
     }
+    case "pageShot": {
+      const path = join(outDir, `${name}-${a}.png`);
+      await page.screenshot({ path });
+      console.log(`shot ${path}`);
+      break;
+    }
+    case "domClick":
+      await page.click(a);
+      break;
+    case "domFill":
+      await page.$eval(
+        a,
+        (input, value) => {
+          input.value = value;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        },
+        b,
+      );
+      break;
     case "scene": {
       const active = await page.evaluate(
         (key) => globalThis.__PAC_ROGUE_GAME__?.scene?.isActive(key) === true,
