@@ -82,13 +82,43 @@ function outerRing(grid: Grid): Set<number> {
     outside && neighbors(grid, index, ORTHOGONAL).includes(null) ? [index] : [],
   );
   const outerWalls = flood(grid, edgeSeeds, (index) => grid.outside[index]!);
+  const tunnels = tunnelCells(grid);
   const ring = new Set<number>();
   grid.dot.forEach((isDot, index) => {
-    if (isDot && neighbors(grid, index, AROUND).some((n) => n === null || outerWalls.has(n))) {
+    if (
+      isDot &&
+      !tunnels.has(index) &&
+      neighbors(grid, index, AROUND).some((n) => n === null || outerWalls.has(n))
+    ) {
       ring.add(index);
     }
   });
   return ring;
+}
+
+function tunnelCells(grid: Grid): Set<number> {
+  const blocked = (index: number | null): boolean => index === null || !grid.open[index];
+  const cells = new Set<number>();
+  for (let row = 0; row < grid.rows; row += 1) {
+    const first = row * grid.cols;
+    const last = first + grid.cols - 1;
+    if (!grid.open[first] || !grid.open[last]) {
+      continue;
+    }
+    for (const [start, step] of [
+      [first, 1],
+      [last, -1],
+    ] as const) {
+      for (let index = start; grid.open[index]; index += step) {
+        const [up, down] = neighbors(grid, index, ORTHOGONAL);
+        if (!blocked(up ?? null) || !blocked(down ?? null)) {
+          break;
+        }
+        cells.add(index);
+      }
+    }
+  }
+  return cells;
 }
 
 function houseBand(grid: Grid): Set<number> {
@@ -112,7 +142,7 @@ function innerRing(grid: Grid, band: Set<number>): Set<number> {
   return ring;
 }
 
-function connectRing(grid: Grid, ring: Set<number>, blocked: Set<number>): Set<number> {
+function connectRing(grid: Grid, ring: Set<number>): Set<number> {
   const joined = new Set(ring);
   const start = joined.values().next().value;
   if (start === undefined) {
@@ -126,7 +156,7 @@ function connectRing(grid: Grid, ring: Set<number>, blocked: Set<number>): Set<n
     while (deque.length > 0) {
       const current = deque.shift()!;
       for (const next of neighbors(grid, current, ORTHOGONAL)) {
-        if (next === null || !grid.open[next] || blocked.has(next)) {
+        if (next === null || !grid.open[next]) {
           continue;
         }
         const step = joined.has(next) ? 0 : 1;
@@ -159,10 +189,9 @@ function connectRing(grid: Grid, ring: Set<number>, blocked: Set<number>): Set<n
 
 export function lazyLooperRequiredCells(layout: MazeLayout, rings: LazyLooperRings): MazeTile[] {
   const grid = readGrid(layout);
-  const required = connectRing(grid, outerRing(grid), new Set());
+  const required = connectRing(grid, outerRing(grid));
   if (rings === "outerInner") {
-    const band = houseBand(grid);
-    for (const index of connectRing(grid, innerRing(grid, band), band)) {
+    for (const index of innerRing(grid, houseBand(grid))) {
       required.add(index);
     }
   }

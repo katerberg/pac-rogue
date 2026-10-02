@@ -569,11 +569,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveLazyLooper",
     label: "Lazy Looper",
     school: "speed",
-    description: "Only the outer and inner pellet rings must be eaten to clear the board.",
+    description:
+      "Only the outer pellet ring and the pellets beside the ghost house clear the board.",
     storePrice: STORE_UPGRADE_PRICE,
     lazyLooperRings: "outerInner",
     enhanced: {
-      enhanceNote: "Lazy Looper needs only the outer ring instead of the outer and inner rings.",
+      enhanceNote: "Lazy Looper needs only the outer ring, not the pellets beside the ghost house.",
       description: "Only the outer pellet ring must be eaten to clear the board.",
       lazyLooperRings: "outer",
     },

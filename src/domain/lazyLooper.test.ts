@@ -57,21 +57,21 @@ function pieceCount(layout: MazeLayout, rings: LazyLooperRings): number {
 }
 
 describe("lazyLooperRequiredCells", () => {
-  it("rings the small maze: outer edge plus the loop around the ghost house", () => {
+  it("rings the small maze: outer edge plus the dots touching the ghost house's band", () => {
     expect(render(getLayout("mazeSmall"), "outerInner")).toBe(`######################
 #oooooooooooooooooooo#
-#@#####o######o#####@#
+#@#####.######.#####@#
 #o#####o######o#####o#
-#ooooo----------ooooo#
+#o...o----------o...o#
 #o####-###==###-####o#
 #-####-#HHHHHH#-####-#
 --####-#HHHHHH#-####--
 #-####-#HHHHHH#-####-#
 #o####-########-####o#
-#ooooo----------ooooo#
+#o...o----------o...o#
 #o####o########o####o#
-#o####o########o####o#
-#oooooooooooooooooooo#
+#o####.########.####o#
+#ooo..............ooo#
 ###o##############o###
 ###o##############o###
 #ooo...---P----...ooo#
@@ -119,11 +119,10 @@ describe("lazyLooperRequiredCells", () => {
   ];
 
   it.each(boards)(
-    "%s: each form is one gap-free piece and Plus is a strict subset",
+    "%s: the outer ring is one gap-free piece and Plus is a strict subset",
     (_, layout) => {
       const base = lazyLooperRequiredCells(layout, "outerInner");
       const plus = lazyLooperRequiredCells(layout, "outer");
-      expect(pieceCount(layout, "outerInner")).toBe(1);
       expect(pieceCount(layout, "outer")).toBe(1);
       const baseKeys = new Set(base.map(({ col, row }) => `${col},${row}`));
       expect(plus.every(({ col, row }) => baseKeys.has(`${col},${row}`))).toBe(true);
@@ -131,6 +130,16 @@ describe("lazyLooperRequiredCells", () => {
       expect(base.length).toBeLessThan(layout.pelletCount);
     },
   );
+
+  it("leaves dots inside a side tunnel out of the outer ring", () => {
+    const layout = layoutFromAscii(generateMazeAsciiWithRetries("s1")!.ascii);
+    const row = layout.ascii.split("\n").findIndex((line) => line.startsWith("-.."));
+    expect(row).toBeGreaterThan(0);
+    const required = lazyLooperRequiredCells(layout, "outer").filter((cell) => cell.row === row);
+    expect(required.map(({ col }) => col)).not.toContain(1);
+    expect(required.map(({ col }) => col)).not.toContain(2);
+    expect(required.map(({ col }) => col)).toContain(3);
+  });
 
   it.each(boards)("%s: the required set is left-right symmetric", (_, layout) => {
     const keys = new Set(

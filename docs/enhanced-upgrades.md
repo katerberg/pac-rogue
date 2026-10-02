@@ -50,7 +50,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 27  | `passiveTurnTuning`          | Turn Tuning         | Turns can be tapped 2 tiles early; a perfect tap gives a 0.5s speed boost                                     | Perfect-tap boost lasts 0.75s; perfect-tap range 8px → 12px                                                                                  |
 | 28  | `passiveDeathsBounty`        | Death's Bounty      | Each death pays a full BONUS bar (one Quarter); each later death on the same level pays 20% less, compounding | 10% less per later death instead of 20%                                                                                                      |
 | 29  | `passiveMoneyTalks`          | Money Talks         | A catch on the last life spends 3 Quarters to keep it                                                         | A save costs 1 Quarter instead of 3                                                                                                          |
-| 30  | `passiveLazyLooper`          | Lazy Looper         | Only the outer and inner pellet rings must be eaten to clear the board; the rest turn grey                    | Only the outer ring is required                                                                                                              |
+| 30  | `passiveLazyLooper`          | Lazy Looper         | Only the outer pellet ring and the pellets beside the ghost house must be eaten; the rest turn grey           | Only the outer ring is required                                                                                                              |
 
 ## Decisions
 
