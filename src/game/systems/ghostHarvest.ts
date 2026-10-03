@@ -14,6 +14,9 @@ export function harvestPelletsByGhosts(world: World): PelletCollectFrame {
   const toRemove: number[] = [];
   if (ghosts.length > 0) {
     for (const pelletEid of query(world, [Pellet, Position])) {
+      if (hasComponent(world, pelletEid, PowerPellet)) {
+        continue;
+      }
       const pelletRadius = Drawable.radius[pelletEid] ?? 0;
       const touched = ghosts.some((ghostEid) => {
         const ox = (Position.x[pelletEid] ?? 0) - (Position.x[ghostEid] ?? 0);
@@ -27,14 +30,8 @@ export function harvestPelletsByGhosts(world: World): PelletCollectFrame {
     }
   }
 
-  let powerRemoved = 0;
-  const removedPowerPositions: { x: number; y: number }[] = [];
   for (const eid of toRemove) {
-    if (hasComponent(world, eid, PowerPellet)) {
-      powerRemoved += 1;
-      removedPowerPositions.push({ x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 });
-    }
     removeEntity(world, eid);
   }
-  return { powerRemoved, removedEids: toRemove, removedPowerPositions };
+  return { powerRemoved: 0, removedEids: toRemove, removedPowerPositions: [] };
 }

@@ -1135,15 +1135,29 @@ describe("Ghost Harvester", () => {
     expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
 
-    // A wandering harvester re-arms the timer whenever it lands on a power pellet.
-    for (const power of query(sim.world, [PowerPellet])) {
-      removeEntity(sim.world, power);
-    }
     runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
     const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
     parkGhostOn(sim, next);
     runFrames(sim, 1);
     expect(query(sim.world, [Pellet]).includes(next)).toBe(true);
+  });
+
+  it("leaves power pellets to the player", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletGhostHarvester"],
+    });
+    armWithPowerPellet(sim);
+    const player = playerEid(sim);
+    const target = [...query(sim.world, [PowerPellet, Position])].sort(
+      (a, b) =>
+        Math.hypot(Position.x[b]! - Position.x[player]!, Position.y[b]! - Position.y[player]!) -
+        Math.hypot(Position.x[a]! - Position.x[player]!, Position.y[a]! - Position.y[player]!),
+    )[0]!;
+    parkGhostOn(sim, target);
+    runFrames(sim, 1);
+    expect(query(sim.world, [PowerPellet]).includes(target)).toBe(true);
   });
 
   it("does nothing without the upgrade", () => {
@@ -1161,18 +1175,20 @@ describe("Ghost Harvester", () => {
       enableUpgrades: ["powerPelletGhostHarvester"],
     });
     armWithPowerPellet(sim);
-    const byPowerFirst = (eid: number) => (hasComponent(sim.world, eid, PowerPellet) ? 0 : 1);
     for (let i = 0; i < 2000 && sim.offer() === null; i += 1) {
-      const [next] = [...query(sim.world, [Pellet, Position])].sort(
-        (x, y) => byPowerFirst(x) - byPowerFirst(y),
-      );
-      if (next === undefined) {
+      const pellets = [...query(sim.world, [Pellet, Position])];
+      const power = pellets.find((eid) => hasComponent(sim.world, eid, PowerPellet));
+      const regular = pellets.find((eid) => !hasComponent(sim.world, eid, PowerPellet));
+      const rearm = sim.snapshot().timers.ghostHarvestMs < 500;
+      if (power !== undefined && (rearm || regular === undefined)) {
+        teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      } else if (regular !== undefined) {
+        parkGhostOn(sim, regular);
+      } else {
         break;
       }
-      parkGhostOn(sim, next);
       runFrames(sim, 1);
     }
-    expect(query(sim.world, [Pellet])).toHaveLength(0);
     drainToOffer(sim);
   });
 });

@@ -50,13 +50,14 @@ describe("harvestPelletsByGhosts", () => {
     expect(frame.powerRemoved).toBe(0);
   });
 
-  it("counts power pellets and records their positions", () => {
+  it("leaves power pellets for the player", () => {
     const world = createWorld();
     spawnGhost(world, 100, 100);
-    spawnPellet(world, 100, 104, true);
+    const power = spawnPellet(world, 100, 104, true);
     const frame = harvestPelletsByGhosts(world);
-    expect(frame.powerRemoved).toBe(1);
-    expect(frame.removedPowerPositions).toEqual([{ x: 100, y: 104 }]);
+    expect(frame.removedEids).toEqual([]);
+    expect(frame.powerRemoved).toBe(0);
+    expect(query(world, [PowerPellet])).toEqual([power]);
   });
 
   it("does not double-count a pellet two ghosts touch", () => {
