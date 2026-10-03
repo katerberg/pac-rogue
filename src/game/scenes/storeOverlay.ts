@@ -38,6 +38,7 @@ import {
   MODAL_DEPTH,
   SCHOOL_COLORS,
   SCHOOL_GAP,
+  schoolBorderColor,
   setSchoolTag,
   stackTexts,
   wrapText,
@@ -216,6 +217,7 @@ export function createStoreOverlay(
     modalBody.setText(wrapText(slotBody(prompt.slot), DESCRIPTION_MAX_CHARS));
     modalCost.setText(`COST ${prompt.price}`);
     const school = slotSchool(prompt.slot);
+    modalBg.setStrokeStyle(4, schoolBorderColor(school));
     setSchoolTag(modalSchool, school);
     stackTexts(
       [
@@ -235,6 +237,7 @@ export function createStoreOverlay(
     if (content === null) {
       return;
     }
+    panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
     panelTitle.setText(wrapText(content.title, PANEL_TITLE_MAX_CHARS));
     panelBody.setText(wrapText(content.body, PANEL_BODY_MAX_CHARS));
     panelFooter.setText(content.footer);
@@ -258,8 +261,13 @@ export function createStoreOverlay(
     const y = (cellCenterY(slot.row) + cellCenterY(slot.row + 1)) / 2;
     const enhance = slot.kind === "enhance";
     const frame = scene.add.graphics();
+    const tileSchool = slotSchool(slot);
     frame.fillStyle(
-      enhance ? STORE_ENHANCE_BORDER_COLOR : mazeColorForIndex(loadMazeColorSettings().colorIndex),
+      enhance
+        ? STORE_ENHANCE_BORDER_COLOR
+        : tileSchool === null
+          ? mazeColorForIndex(loadMazeColorSettings().colorIndex)
+          : schoolBorderColor(tileSchool),
       1,
     );
     const edge = size / 2 - 1;
