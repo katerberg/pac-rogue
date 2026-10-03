@@ -6,6 +6,7 @@ export type SimInput = {
   storeToggle: boolean;
   storeConfirm: boolean;
   storeChoice?: "yes" | "no" | null;
+  storeClick?: number | null;
 };
 
 export const IDLE_INPUT: SimInput = {

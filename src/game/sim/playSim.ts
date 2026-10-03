@@ -615,6 +615,10 @@ export class PlaySim {
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
       storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
+      storePrompt:
+        this.store === null
+          ? null
+          : (promptView(this.store, this.quarters, this.runUpgrades.owned)?.kind ?? null),
       boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
       runLog: {
         id: this.recorder.record.id,
@@ -1305,6 +1309,8 @@ export class PlaySim {
         toggle: confirming && input.storeToggle,
         enter: confirming && input.storeConfirm,
         pick: confirming ? (input.storeChoice ?? null) : null,
+        click: confirming ? null : (input.storeClick ?? null),
+        moving: anyKeyHeld(input.keys),
         quarters: this.quarters,
         owned: this.runUpgrades.owned,
       },

@@ -48,6 +48,7 @@ export type StoreState = {
   slots: readonly StoreSlot[];
   activeSlot: number | null;
   dismissedSlot: number | null;
+  clickedSlot: number | null;
   confirmYes: boolean;
 };
 
@@ -57,6 +58,8 @@ export type StoreStepInput = {
   toggle: boolean;
   enter: boolean;
   pick?: "yes" | "no" | null;
+  click?: number | null;
+  moving?: boolean;
   quarters: number;
   owned: readonly UpgradeId[];
 };
@@ -149,7 +152,7 @@ export function createStoreState(
       }
     }
   }
-  return { slots, activeSlot: null, dismissedSlot: null, confirmYes: false };
+  return { slots, activeSlot: null, dismissedSlot: null, clickedSlot: null, confirmYes: false };
 }
 
 export function slotPrice(slot: StoreSlot): number {
@@ -208,11 +211,31 @@ export function storeStep(
   input: StoreStepInput,
   rng: () => number,
 ): { state: StoreState; purchase: StorePurchase | null } {
-  const at = slotIndexAtCell(state, input.col, input.row);
+  const clickedNow =
+    input.click != null && state.slots[input.click]?.sold === false ? input.click : null;
+  let clicked = clickedNow ?? state.clickedSlot;
+  if (clickedNow === null && input.moving && clicked !== null) {
+    const held = promptView(
+      { ...state, activeSlot: clicked, dismissedSlot: null },
+      input.quarters,
+      input.owned,
+    );
+    if (held?.kind !== "confirm") {
+      clicked = null;
+    }
+  }
+  const cellAt = slotIndexAtCell(state, input.col, input.row);
+  const at = clicked ?? cellAt;
   const next: StoreState = {
     ...state,
     activeSlot: at,
-    dismissedSlot: state.dismissedSlot === at ? at : null,
+    clickedSlot: clicked,
+    dismissedSlot:
+      clickedNow !== null && clickedNow === cellAt
+        ? null
+        : state.dismissedSlot === cellAt
+          ? cellAt
+          : null,
     confirmYes: at === state.activeSlot && state.confirmYes,
   };
   const view = promptView(next, input.quarters, input.owned);
@@ -228,13 +251,28 @@ export function storeStep(
   }
   const yes = picked === null ? next.confirmYes : picked === "yes";
   if (!yes) {
-    return { state: { ...next, dismissedSlot: at, confirmYes: false }, purchase: null };
+    return {
+      state: {
+        ...next,
+        activeSlot: clicked === null ? at : cellAt,
+        dismissedSlot: clicked === null || clicked === cellAt ? at : next.dismissedSlot,
+        clickedSlot: null,
+        confirmYes: false,
+      },
+      purchase: null,
+    };
   }
   next.confirmYes = true;
 
   const slot = view.slot;
   const slots = next.slots.map((s, i) => (i === at ? { ...s, sold: true } : s));
-  const sold: StoreState = { ...next, slots, activeSlot: null, confirmYes: false };
+  const sold: StoreState = {
+    ...next,
+    slots,
+    activeSlot: null,
+    clickedSlot: null,
+    confirmYes: false,
+  };
   if (slot.kind === "life") {
     return { state: sold, purchase: { kind: "life", price: view.price } };
   }
