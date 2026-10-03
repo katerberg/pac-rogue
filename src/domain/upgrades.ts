@@ -180,12 +180,12 @@ export const TURN_TUNING_ENHANCED_PERFECT_PX = 12;
 export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "powerPelletFreeze",
-    label: "Power Freeze",
+    label: "Freeze",
     school: "disruption",
     description: "Chomp a power pellet and the nearest ghost locks solid for a few seconds.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Power Freeze locks for 5 seconds instead of 3.",
+      enhanceNote: "Freeze locks for 5 seconds instead of 3.",
       description: "Chomp a power pellet and the nearest ghost locks solid for five seconds.",
       onPowerPellet: { freezeClosestGhostMs: FREEZE_ENHANCED_MS },
     },

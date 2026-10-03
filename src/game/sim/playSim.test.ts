@@ -1860,7 +1860,7 @@ describe("PlaySim enhanced upgrades", () => {
     expect(homeCount("powerPelletGhostRecallPlus")).toBe(2);
   });
 
-  it("Power Freeze and Ghost Recall never hit the same ghost", () => {
+  it("Freeze and Ghost Recall never hit the same ghost", () => {
     const sim = startSim({
       level: 2,
       maze: "maze1",
