@@ -65,6 +65,7 @@ src/
     ghostSpeed.ts             # base / Elroy (Blinky) / tunnel speed resolve
     eatDrag.ts                # brief eased Maze-Man slowdown after eating a dot / power pellet
     warpGlide.ts              # Warp Farthest / Scatter Burst: 500ms sprite glide + afterimages (visual only)
+    speedTrail.ts             # Speed Burst: recent player positions → fading afterimages (visual only)
     turnTuning.ts             # Turn Tuning: turn-tap window/beat tests, turn speed-boost timer/multiplier, turn flash pulse
     ghostRecall.ts            # closest eligible ghost pick for house recall
     ghostCorner.ts            # Scatter Burst landing cell per ghost (corner, or house exit near the player)

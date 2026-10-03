@@ -112,6 +112,7 @@ import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { tickWarpGlide, type WarpGlide, warpGlideSprites } from "../../domain/warpGlide";
+import { speedTrailSprites, tickSpeedTrail, type SpeedTrail } from "../../domain/speedTrail";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   ghostWarpGlideSprites,
@@ -168,6 +169,7 @@ export class LearnSim {
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private warpGlide: WarpGlide | null = null;
+  private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private fruitRespawnRemainingMs: number | null = null;
   private remoteTransferCounter = 0;
@@ -324,6 +326,15 @@ export class LearnSim {
         playerFacing(this.world),
       ),
     );
+    const trailEid = query(this.world, [Player, Position])[0];
+    this.speedTrail =
+      trailEid !== undefined && speedBurstActive(this.learnUpgrades)
+        ? tickSpeedTrail(
+            this.speedTrail,
+            { x: Position.x[trailEid] ?? 0, y: Position.y[trailEid] ?? 0 },
+            delta,
+          )
+        : [];
 
     if (this.tunnelDashAnim !== null) {
       this.tunnelDashAnim = tickTunnelDashAnimation(
@@ -407,6 +418,7 @@ export class LearnSim {
         ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         dimGhostEid: this.helperBlinky,
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
+        playerSpeedTrail: speedTrailSprites(this.speedTrail, getActiveLayout().tileSize),
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       },
     });
