@@ -684,7 +684,8 @@ describe("PlaySim", () => {
   it("regenerates the life before the upgrade offer is chosen", () => {
     const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
     (sim as unknown as { lives: number }).lives = 1;
-    expect(drainToOffer(sim)).not.toBeNull();
+    const events = runUntil(sim, () => sim.offer() !== null, 90);
+    expect(events).toContainEqual({ type: "lives", pulse: true });
     expect(sim.snapshot().lives).toBe(2);
   });
 
