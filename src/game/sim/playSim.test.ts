@@ -956,6 +956,20 @@ describe("PlaySim", () => {
     expect(sim.snapshot().quarters < before.quarters).toBe(buys);
   });
 
+  it.each([
+    ["yes", true],
+    ["no", false],
+  ] as const)("clicking a store tile opens its modal and %s picks it", (choice, buys) => {
+    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
+    const before = sim.snapshot();
+    const lifeIndex = sim.storeState()!.slots.findIndex((slot) => slot.kind === "life");
+    runFrames(sim, 1, { storeClick: lifeIndex });
+    expect(sim.storeState()?.activeSlot).toBe(lifeIndex);
+    runFrames(sim, 1, { storeChoice: choice });
+    expect(sim.snapshot().lives).toBe(before.lives + (buys ? 1 : 0));
+    expect(sim.snapshot().quarters < before.quarters).toBe(buys);
+  });
+
   it("adds a Blinky when the player eats a boss pellet", () => {
     const sim = startSim({ level: 9 });
     expect(sim.snapshot().boss?.ghostCount).toBe(2);

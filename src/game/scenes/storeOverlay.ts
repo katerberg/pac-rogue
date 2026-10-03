@@ -126,6 +126,7 @@ function coinRowXs(count: number, maxWidth: number): number[] {
 export function createStoreOverlay(
   scene: Phaser.Scene,
   onChoose: (choice: "yes" | "no") => void,
+  onSelect: (index: number) => void,
 ): StoreOverlay {
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let hoveredSlot: number | null = null;
@@ -287,7 +288,8 @@ export function createStoreOverlay(
       placePixelText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
       glyph = text;
     }
-    const zone = scene.add.zone(0, 0, size, size).setInteractive();
+    const zone = scene.add.zone(0, 0, size, size).setInteractive({ useHandCursor: true });
+    zone.on("pointerdown", () => onSelect(index));
     zone.on("pointerover", () => {
       hoveredSlot = index;
     });
