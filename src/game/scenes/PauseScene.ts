@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { clamp } from "../../domain/clamp";
+import { hoverPreviewX } from "../../domain/learnUpgradeColumns";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import type { PlayScene } from "./PlayScene";
 import { addSeedLabel } from "./seedLabel";
@@ -19,7 +20,6 @@ import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./u
 const UPGRADE_LIST_X = 12;
 const UPGRADE_ROW_GAP = 16;
 const UPGRADE_LIST_TITLE_GAP = 24;
-const UPGRADE_PREVIEW_X = PLAYFIELD_WIDTH - 110;
 const UPGRADE_PREVIEW_Y_MIN = 90;
 const UPGRADE_PREVIEW_Y_MAX = 510;
 
@@ -276,7 +276,7 @@ export class PauseScene extends Phaser.Scene {
     this.hideUpgradePreview();
     const def = getUpgradeDef(id);
     const y = clamp(pointerY, UPGRADE_PREVIEW_Y_MIN, UPGRADE_PREVIEW_Y_MAX);
-    const visual = buildUpgradeCardVisual(this, UPGRADE_PREVIEW_X, y, {
+    const visual = buildUpgradeCardVisual(this, hoverPreviewX("right"), y, {
       label: def.label,
       description: def.description,
       school: def.school,
