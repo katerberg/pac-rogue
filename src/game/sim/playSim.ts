@@ -1623,15 +1623,11 @@ export class PlaySim {
     this.emitRunLog();
   }
 
-  private regenLivesOnLevelClear(): void {
+  private finishLevelClear(): void {
     const livesBeforeRegen = this.lives;
     this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
     this.recorder.livesRegenerated(livesBeforeRegen, this.lives);
     this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
-  }
-
-  private finishLevelClear(): void {
-    this.regenLivesOnLevelClear();
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
       this.beginLevelTransition();
       return;
