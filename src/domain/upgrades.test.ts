@@ -9,7 +9,7 @@ import {
   OVERCHARGE_MUL,
   PLAYER_SPEED_BURST_MUL,
   PLAYER_SPEED_UP_MUL,
-  POWER_COLLECT_THREE_COUNT,
+  EXTRA_HUNGRY_COUNT,
   FRUIT_QUARTERS,
   FRUIT_QUARTERS_ENHANCED,
   MONEY_TALKS_ENHANCED_QUARTERS,
@@ -110,7 +110,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveGhostHouseDelay",
   "passiveExtraLife",
   "passivePelletToPower",
-  "powerPelletCollectThree",
+  "powerPelletExtraHungry",
   "powerPelletWallPass",
   "powerPelletSpeedBurst",
   "powerPelletInvuln",
@@ -149,7 +149,7 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId("powerPelletScatterBurst")).toBe("powerPelletScatterBurst");
     expect(parseUpgradeId("powerPelletGhostRecall")).toBe("powerPelletGhostRecall");
     expect(parseUpgradeId("powerPelletWarpFarthest")).toBe("powerPelletWarpFarthest");
-    expect(parseUpgradeId("powerPelletCollectThree")).toBe("powerPelletCollectThree");
+    expect(parseUpgradeId("powerPelletExtraHungry")).toBe("powerPelletExtraHungry");
     expect(parseUpgradeId("powerPelletSpeedBurst")).toBe("powerPelletSpeedBurst");
     expect(parseUpgradeId("powerPelletWallPass")).toBe("powerPelletWallPass");
     for (const id of STUB_IDS) {
@@ -450,7 +450,7 @@ describe("scatter burst / multi power-pellet effects", () => {
       "powerPelletGhostRecall",
       "powerPelletWarpFarthest",
       "powerPelletInvuln",
-      "powerPelletCollectThree",
+      "powerPelletExtraHungry",
       "powerPelletWallPass",
     ] as const) {
       state = grantUpgrade(state, id);
@@ -464,7 +464,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
     expect(result.recallGhostCount).toBe(1);
     expect(result.warpPlayerFarthest).toBe(true);
-    expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
+    expect(result.collectExtraPellets).toBe(EXTRA_HUNGRY_COUNT);
   });
 
   it("sets recall and warp flags from owned defs", () => {
@@ -486,9 +486,9 @@ describe("scatter burst / multi power-pellet effects", () => {
   });
 
   it("sets collectExtraPellets once from powerCollectThree", () => {
-    const owned = grantUpgrade(createRunUpgrades(), "powerPelletCollectThree");
-    expect(applyPowerPelletEffects(owned, 1).collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
-    expect(applyPowerPelletEffects(owned, 2).collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
+    const owned = grantUpgrade(createRunUpgrades(), "powerPelletExtraHungry");
+    expect(applyPowerPelletEffects(owned, 1).collectExtraPellets).toBe(EXTRA_HUNGRY_COUNT);
+    expect(applyPowerPelletEffects(owned, 2).collectExtraPellets).toBe(EXTRA_HUNGRY_COUNT);
     expect(applyPowerPelletEffects(owned, 0).collectExtraPellets).toBe(0);
   });
 });
@@ -669,7 +669,7 @@ describe("passiveOvercharge", () => {
     for (const id of [
       "powerPelletGhostRecall",
       "powerPelletWarpFarthest",
-      "powerPelletCollectThree",
+      "powerPelletExtraHungry",
       "passiveOvercharge",
     ] as const) {
       state = grantUpgrade(state, id);
@@ -677,7 +677,7 @@ describe("passiveOvercharge", () => {
     const result = applyPowerPelletEffects(state, 1);
     expect(result.recallGhostCount).toBe(1);
     expect(result.warpPlayerFarthest).toBe(true);
-    expect(result.collectExtraPellets).toBe(POWER_COLLECT_THREE_COUNT);
+    expect(result.collectExtraPellets).toBe(EXTRA_HUNGRY_COUNT);
   });
 
   it("is a no-op alone with nothing else owned", () => {
@@ -953,7 +953,7 @@ describe("enhanced upgrades", () => {
     expect(apply("powerPelletGhostHarvesterPlus").state.ghostHarvestRemainingMs).toBe(8000);
     expect(apply("passiveDefyDeathPlus").state.defyDeathRemainingMs).toBe(8000);
     expect(apply("powerPelletGhostRecallPlus").recallGhostCount).toBe(2);
-    expect(apply("powerPelletCollectThreePlus").collectExtraPellets).toBe(5);
+    expect(apply("powerPelletExtraHungryPlus").collectExtraPellets).toBe(10);
     expect(apply("powerPelletWallPassPlus").state.wallPassRemainingMs).toBe(6000);
   });
 

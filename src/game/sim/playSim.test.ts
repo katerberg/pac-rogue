@@ -1226,13 +1226,28 @@ describe("PlaySim bonus bar", () => {
     expect(events).toContainEqual({ type: "quarters" });
   });
 
-  it("counts a power pellet once and ignores Triple Chomp's extra pellets", () => {
-    const sim = startCorridor({ enableUpgrades: ["powerPelletCollectThree"] });
+  it("counts a power pellet once and ignores Extra Hungry's extra pellets", () => {
+    const sim = startCorridor({ enableUpgrades: ["powerPelletExtraHungry"] });
     const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
     const collected = sim.snapshot().boardCollected;
     eatPelletAt(sim, power);
-    expect(sim.snapshot().boardCollected).toBe(collected + 4);
+    expect(sim.snapshot().boardCollected).toBe(collected + 6);
     expect(sim.snapshot().bonus.streak).toBe(1);
+  });
+
+  it("Extra Hungry eats the five farthest regular pellets", () => {
+    const sim = startCorridor({ enableUpgrades: ["powerPelletExtraHungry"] });
+    const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
+    const distFromPower = (eid: number) =>
+      Math.hypot(Position.x[eid]! - Position.x[power]!, Position.y[eid]! - Position.y[power]!);
+    const regulars = () =>
+      Array.from(query(sim.world, [Pellet, Position])).filter((eid) => eid !== power);
+    const expected = regulars()
+      .sort((a, b) => distFromPower(b) - distFromPower(a) || a - b)
+      .slice(0, 5);
+    eatPelletAt(sim, power);
+    const remaining = new Set(regulars());
+    expect(expected.filter((eid) => remaining.has(eid))).toEqual([]);
   });
 
   it("resets the streak on death and keeps the charge", () => {
