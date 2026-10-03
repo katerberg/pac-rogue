@@ -212,9 +212,7 @@ export function storeStep(
   rng: () => number,
 ): { state: StoreState; purchase: StorePurchase | null } {
   const clickedNow =
-    input.click != null && state.slots[input.click] && !state.slots[input.click]!.sold
-      ? input.click
-      : null;
+    input.click != null && state.slots[input.click]?.sold === false ? input.click : null;
   let clicked = clickedNow ?? state.clickedSlot;
   if (clickedNow === null && input.moving && clicked !== null) {
     const held = promptView(
