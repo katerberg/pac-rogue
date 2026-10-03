@@ -235,6 +235,7 @@ export type RenderOptions = {
   playerAlpha?: number;
   playerReviveProgress?: number;
   playerWarpGlide?: WarpGlideSprite[];
+  playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
 };
 
@@ -250,6 +251,7 @@ export type PlayRender = {
 };
 
 const DIM_GHOST_ALPHA = 0.4;
+const SPEED_TRAIL_DEPTH = -1;
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
@@ -309,6 +311,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const playerAlpha = opts?.playerAlpha;
     const reviveProgress = opts?.playerReviveProgress;
     const warpGlide = opts?.playerWarpGlide;
+    const speedTrail = opts?.playerSpeedTrail;
     const ghostWarpGlides = opts?.ghostWarpGlides;
     const wallPassOn = opts?.wallPassActive === true;
     const twinSolids =
@@ -358,15 +361,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       textureKey: string,
       size: number,
       applyTint: (go: Phaser.GameObjects.Image) => void,
+      tag = "glide",
+      depth = 0,
     ): void => {
-      for (let i = 1; i < glide.length; i += 1) {
+      for (let i = 0; i < glide.length; i += 1) {
         const trail = glide[i]!;
-        const trailKey = `${eid}:glide${i}`;
+        const trailKey = `${eid}:${tag}${i}`;
         alive.add(trailKey);
         let trailGo = drawableObjects.get(trailKey);
         if (!trailGo) {
           trailGo = scene.add.image(trail.x, trail.y, textureKey);
-          trailGo.setName(`${id}:glide`);
+          trailGo.setName(`${id}:${tag}`);
+          trailGo.setDepth(depth);
           drawableObjects.set(trailKey, trailGo);
         }
         trailGo.setTexture(textureKey);
@@ -456,7 +462,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             (glideHead?.alpha ?? 1),
         );
         if (glide !== undefined) {
-          drawGlideTrail(eid, id, glide, go.texture.key, size, applyGhostTint);
+          drawGlideTrail(eid, id, glide.slice(1), go.texture.key, size, applyGhostTint);
         }
       }
 
@@ -497,10 +503,23 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
 
         if (glide !== undefined) {
-          drawGlideTrail(eid, id, glide, visual.textureKey, size, (target) =>
+          drawGlideTrail(eid, id, glide.slice(1), visual.textureKey, size, (target) =>
             applyPlayerTint(target, playerTint),
           );
-        } else if (
+        } else if (speedTrail !== undefined && reviveProgress === undefined) {
+          drawGlideTrail(
+            eid,
+            id,
+            speedTrail,
+            visual.textureKey,
+            size,
+            (target) => applyPlayerTint(target, playerTint),
+            "speed",
+            SPEED_TRAIL_DEPTH,
+          );
+        }
+        if (
+          glide === undefined &&
           playerAlpha === undefined &&
           reviveProgress === undefined &&
           hasComponent(world, eid, Player)
