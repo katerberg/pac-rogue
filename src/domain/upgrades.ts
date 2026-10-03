@@ -818,7 +818,6 @@ export function pickUpgradeChoiceOffer(
 export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
   "powerPelletInvuln",
   "powerPelletFreeze",
-  "fruitFeast",
   "powerPelletCollectThree",
   "powerPelletSpeedBurst",
   "powerPelletGhostHarvester",

@@ -128,7 +128,7 @@ Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored
 
 ## Starting upgrade
 
-- When a run's first board is level 1 (`?level` omitted or 1), `PlaySim.start` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade from `STARTING_UPGRADE_POOL` — Ghost Proof, Freeze, Fruit Feast, Triple Chomp, Speed Burst, Ghost Harvester, Scatter Burst (same grant side effects as a level-clear choice: Extra Life +1 life, Pellet Surge converts a pellet now).
+- When a run's first board is level 1 (`?level` omitted or 1), `PlaySim.start` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade from `STARTING_UPGRADE_POOL` — Ghost Proof, Freeze, Triple Chomp, Speed Burst, Ghost Harvester, Scatter Burst (same grant side effects as a level-clear choice: Extra Life +1 life, Pellet Surge converts a pellet now).
 - [`src/game/scenes/startingUpgradeCard.ts`](../src/game/scenes/startingUpgradeCard.ts) shows a no-button card (`STARTING UPGRADE`, label, description) over the dimmed board: `STARTING_UPGRADE_HOLD_MS` (1500) hold, then `STARTING_UPGRADE_FADE_MS` (100) fade. Any key except Esc starts the fade early; Esc pause still works. The sim is frozen and game-play music is off until the fade ends. Movement keys held through the card are ignored until released.
 - No `LEVEL 1` banner when the card shows. Empty pool (every starting-pool id enabled via `enableUpgrade`) → no card, normal banner + start.
 - Level advances and `?level≥2` starts never grant a starting upgrade.
