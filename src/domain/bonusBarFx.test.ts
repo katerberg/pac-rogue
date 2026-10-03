@@ -8,6 +8,7 @@ import {
   bumpBarFx,
   createBarFx,
   fillBarFx,
+  slowFillBarFx,
   stepBarFx,
   type BarFxState,
   type BarRect,
@@ -93,6 +94,19 @@ describe("stepBarFx", () => {
     const states = stepFrames(createBarFx(0), 60, 100);
     expect(states.some((s) => s.shown > 100)).toBe(true);
     expect(Math.abs(states[states.length - 1]!.shown - 100)).toBeLessThan(0.5);
+  });
+
+  it("fills a fruit bump 50% slower and then returns to normal speed", () => {
+    const settle = (s: BarFxState): number =>
+      stepFrames(s, 240, 150).findIndex(
+        (st) => Math.abs(st.shown - 150) < 0.5 && Math.abs(st.vel) < 0.05,
+      );
+    const normal = settle(createBarFx(0));
+    const slow = settle(slowFillBarFx(createBarFx(0)));
+    expect(slow / normal).toBeGreaterThan(1.4);
+    expect(slow / normal).toBeLessThan(1.6);
+    const done = stepFrames(slowFillBarFx(createBarFx(0)), 240, 150).at(-1)!;
+    expect(done.slowFill).toBe(false);
   });
 
   it("pops each slot as it lights", () => {

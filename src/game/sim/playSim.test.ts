@@ -1485,6 +1485,12 @@ describe("PlaySim fruit bonus charge", () => {
     const events = eatFruit(sim);
     expect(sim.snapshot()).toMatchObject({ quarters: 0, bonus: { charge: 150 } });
     expect(events).not.toContainEqual({ type: "quarters" });
+    expect(events).toContainEqual({ type: "fruitBonus" });
+  });
+
+  it("emits no fruitBonus when fruit pays Quarters instead of charging", () => {
+    const sim = startWithFruit({ quarters: 0, enableUpgrades: ["fruitQuarterBounty"] });
+    expect(eatFruit(sim)).not.toContainEqual({ type: "fruitBonus" });
   });
 
   it("pays a Quarter when fruit fills the bar", () => {

@@ -7,6 +7,7 @@ import {
   bumpBarFx,
   createBarFx,
   fillBarFx,
+  slowFillBarFx,
   stepBarFx,
   type BarFxState,
 } from "../../domain/bonusBarFx";
@@ -407,6 +408,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "bonus":
         this.applyBonusFx(event.tier, event.filled);
+        break;
+      case "fruitBonus":
+        this.barFx = slowFillBarFx(this.barFx);
         break;
       case "upgrades":
         this.refreshUpgradesHud();

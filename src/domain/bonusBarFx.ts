@@ -21,6 +21,11 @@ const SLOT_INSET = 2;
 const STEP_MS = 1000 / 60;
 const SPRING_PULL = 0.09;
 const SPRING_DAMP = 0.74;
+const FRUIT_FILL_SLOWDOWN = 1.5;
+const SLOW_SPRING_PULL = SPRING_PULL / FRUIT_FILL_SLOWDOWN ** 2;
+const SLOW_SPRING_DAMP = SPRING_DAMP ** (1 / FRUIT_FILL_SLOWDOWN);
+const SETTLE_DIST = 0.5;
+const SETTLE_VEL = 0.05;
 const NEAR_FULL = 0.75;
 const BLINK_MS = 260;
 
@@ -44,6 +49,7 @@ export type BarFxState = {
   shown: number;
   vel: number;
   pendingWraps: number;
+  slowFill: boolean;
   lit: number;
   flashUntilMs: number;
   effects: BarEffect[];
@@ -77,6 +83,7 @@ export function createBarFx(charge: number): BarFxState {
     shown: charge,
     vel: 0,
     pendingWraps: 0,
+    slowFill: false,
     lit: litSlots(charge),
     flashUntilMs: 0,
     effects: [],
@@ -100,14 +107,16 @@ function slotPops(
 }
 
 export function stepBarFx(s: BarFxState, deltaMs: number, charge: number): BarFxState {
-  let { nowMs, shown, vel, pendingWraps, lit } = s;
+  let { nowMs, shown, vel, pendingWraps, slowFill, lit } = s;
   let carryMs = s.carryMs + Math.max(0, deltaMs);
   const pops = [...s.pops];
   while (carryMs >= STEP_MS) {
     carryMs -= STEP_MS;
     nowMs += STEP_MS;
     const target = pendingWraps > 0 ? BONUS_BAR_MAX : charge;
-    vel = (vel + (target - shown) * SPRING_PULL) * SPRING_DAMP;
+    const pull = slowFill ? SLOW_SPRING_PULL : SPRING_PULL;
+    const damp = slowFill ? SLOW_SPRING_DAMP : SPRING_DAMP;
+    vel = (vel + (target - shown) * pull) * damp;
     shown += vel;
     if (pendingWraps > 0 && shown >= BONUS_BAR_MAX - 0.5) {
       pendingWraps -= 1;
@@ -119,6 +128,14 @@ export function stepBarFx(s: BarFxState, deltaMs: number, charge: number): BarFx
     const nowLit = litSlots(shown);
     pops.push(...slotPops(lit, nowLit, nowMs, 0, 200, 2));
     lit = nowLit;
+    if (
+      slowFill &&
+      pendingWraps === 0 &&
+      Math.abs(charge - shown) < SETTLE_DIST &&
+      Math.abs(vel) < SETTLE_VEL
+    ) {
+      slowFill = false;
+    }
   }
   return {
     nowMs,
@@ -126,6 +143,7 @@ export function stepBarFx(s: BarFxState, deltaMs: number, charge: number): BarFx
     shown,
     vel,
     pendingWraps,
+    slowFill,
     lit,
     flashUntilMs: s.flashUntilMs,
     effects: s.effects.filter((e) => e.startMs + e.durMs >= nowMs),
@@ -162,6 +180,10 @@ export function bumpBarFx(s: BarFxState, fx: BumpFx): BarFxState {
 
 export function fillBarFx(s: BarFxState, filled: number): BarFxState {
   return { ...s, pendingWraps: s.pendingWraps + Math.max(0, filled) };
+}
+
+export function slowFillBarFx(s: BarFxState): BarFxState {
+  return { ...s, slowFill: true };
 }
 
 function progress(startMs: number, durMs: number, nowMs: number): number | null {
