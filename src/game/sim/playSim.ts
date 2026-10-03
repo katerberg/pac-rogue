@@ -1035,6 +1035,7 @@ export class PlaySim {
           this.bonus,
           removedFruitEids.length * FRUIT_BONUS_CHARGE,
         );
+        this.emit({ type: "fruitBonus" });
         this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
       }
       this.fruitPresence = markFruitCollected(

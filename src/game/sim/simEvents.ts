@@ -52,6 +52,7 @@ export type SimEvent =
   | { type: "quarters" }
   | { type: "walletCoins"; spend: MoneyTalksSpend | null }
   | { type: "bonus"; tier: number; filled: number }
+  | { type: "fruitBonus" }
   | { type: "timeBonus"; active: boolean }
   | { type: "upgrades" }
   | { type: "timer" }
