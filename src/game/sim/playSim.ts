@@ -951,11 +951,7 @@ export class PlaySim {
     const powerEffects = this.applyPowerEffects(powerRemoved);
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(
-        this.world,
-        powerEffects.collectExtraPellets,
-        playerSolidsOverride ?? getActiveLayout().playerSolids,
-      );
+      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
       for (const eid of bonusEids) {
         this.releaseDrawable(eid);
       }
@@ -1652,10 +1648,7 @@ export class PlaySim {
   private resolvePowerPelletTrigger(powerRemoved: number): boolean {
     const powerEffects = this.applyPowerEffects(powerRemoved);
     if (powerEffects.collectExtraPellets > 0) {
-      const solids = wallPassActive(this.runUpgrades)
-        ? wallPassSolids(this.runUpgrades.owned)
-        : getActiveLayout().playerSolids;
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, solids);
+      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
       for (const eid of bonusEids) {
         this.releaseDrawable(eid);
       }

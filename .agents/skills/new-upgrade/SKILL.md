@@ -50,7 +50,7 @@ skip any question the pitch already answers.
 - **Interactions** (name each one that applies, with a proposed answer):
   - **Overcharge** doubles `onPowerPellet` durations. Does it double this one? Defy Death: no.
   - **Fruit Power** resolves every `onPowerPellet` field on fruit pickup, so it arms this too.
-  - **Triple Chomp, Tunnel Dash sweeps, Death's Harvest and ghost-harvested pellets:** do they
+  - **Extra Hungry, Tunnel Dash sweeps, Death's Harvest and ghost-harvested pellets:** do they
     count as "eaten" for this upgrade's counters and triggers?
   - **Extra Life:** the life icon floor (3, or 4 with Extra Life), and `infiniteLives`.
   - **Boss level 9:** boss pellets spawn Blinkys. Never remove or convert them unless that is
