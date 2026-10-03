@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
+import { clamp } from "../../domain/clamp";
+import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import type { PlayScene } from "./PlayScene";
 import { addSeedLabel } from "./seedLabel";
 import {
@@ -10,7 +12,16 @@ import {
   placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
+  UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
+
+const UPGRADE_LIST_X = 12;
+const UPGRADE_ROW_GAP = 16;
+const UPGRADE_LIST_TITLE_GAP = 24;
+const UPGRADE_PREVIEW_X = PLAYFIELD_WIDTH - 110;
+const UPGRADE_PREVIEW_Y_MIN = 90;
+const UPGRADE_PREVIEW_Y_MAX = 510;
 
 const RESUME_INDEX = 0;
 const SETTINGS_INDEX = 1;
@@ -40,6 +51,8 @@ export class PauseScene extends Phaser.Scene {
   private sureLabel!: Phaser.GameObjects.BitmapText;
   private yesText!: Phaser.GameObjects.BitmapText;
   private noText!: Phaser.GameObjects.BitmapText;
+
+  private upgradePreview: UpgradeCardVisual | null = null;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -129,6 +142,9 @@ export class PauseScene extends Phaser.Scene {
     }
 
     this.refreshMenu();
+
+    this.upgradePreview = null;
+    this.buildUpgradeList((this.scene.get("PlayScene") as PlayScene).ownedUpgrades());
 
     if (this.input.keyboard === null) {
       return;
@@ -221,6 +237,56 @@ export class PauseScene extends Phaser.Scene {
         this.cancelQuitConfirm();
       }
     }
+  }
+
+  private buildUpgradeList(owned: readonly UpgradeId[]): void {
+    if (owned.length === 0) {
+      return;
+    }
+    const top = PLAYFIELD_HEIGHT / 2 - ((owned.length - 1) * UPGRADE_ROW_GAP) / 2;
+    const title = addPixelText(
+      this,
+      UPGRADE_LIST_X,
+      top - UPGRADE_LIST_TITLE_GAP,
+      "UPGRADES",
+      UPGRADES_HUD_FONT_SIZE,
+      TEXT_COLOR_YELLOW,
+    );
+    placePixelText(title, UPGRADE_LIST_X, top - UPGRADE_LIST_TITLE_GAP, 0, 0.5);
+
+    owned.forEach((id, i) => {
+      const y = top + i * UPGRADE_ROW_GAP;
+      const def = getUpgradeDef(id);
+      const row = addPixelText(this, UPGRADE_LIST_X, y, def.label, UPGRADES_HUD_FONT_SIZE);
+      placePixelText(row, UPGRADE_LIST_X, y, 0, 0.5);
+      row.setInteractive({ useHandCursor: true });
+      row.on("pointerover", (pointer: Phaser.Input.Pointer) => {
+        row.setTint(TEXT_COLOR_YELLOW);
+        this.showUpgradePreview(id, pointer.y);
+      });
+      row.on("pointerout", () => {
+        row.setTint(TEXT_COLOR_WHITE);
+        this.hideUpgradePreview();
+      });
+    });
+  }
+
+  private showUpgradePreview(id: UpgradeId, pointerY: number): void {
+    this.hideUpgradePreview();
+    const def = getUpgradeDef(id);
+    const y = clamp(pointerY, UPGRADE_PREVIEW_Y_MIN, UPGRADE_PREVIEW_Y_MAX);
+    const visual = buildUpgradeCardVisual(this, UPGRADE_PREVIEW_X, y, {
+      label: def.label,
+      description: def.description,
+      school: def.school,
+    });
+    visual.root.setDepth(MODAL_DEPTH + 1);
+    this.upgradePreview = visual;
+  }
+
+  private hideUpgradePreview(): void {
+    this.upgradePreview?.root.destroy(true);
+    this.upgradePreview = null;
   }
 
   private focusRow(index: number): void {

@@ -27,7 +27,7 @@ import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { freshSeed } from "../../domain/runRandom";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
-import { upgradeLabels } from "../../domain/upgrades";
+import { upgradeLabels, type UpgradeId } from "../../domain/upgrades";
 import {
   isSfxPlaying,
   playPelletCollectSfx,
@@ -279,6 +279,10 @@ export class PlayScene extends Phaser.Scene {
     return this.sim.random.seed;
   }
 
+  public ownedUpgrades(): readonly UpgradeId[] {
+    return this.sim.hud().upgrades;
+  }
+
   public currentMusicId(): SfxId {
     return this.sim.storeState() !== null ? "storeMusic" : "gameplayMusic";
   }
@@ -301,10 +305,12 @@ export class PlayScene extends Phaser.Scene {
     if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.rearmSelectionKeys();
     }
+    this.refreshUpgradesHud();
     this.scene.resume();
   }
 
   private pauseForMenu(): void {
+    this.upgradesText.setVisible(false);
     this.scene.pause();
     this.scene.launch("PauseScene");
   }
