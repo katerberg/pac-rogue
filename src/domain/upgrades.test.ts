@@ -298,6 +298,10 @@ describe("pickStartingUpgrade", () => {
     expect(pickStartingUpgrade(STARTING_UPGRADE_POOL.map(enhancedIdOf), () => 0)).toBeNull();
   });
 
+  it("never starts a run with Fruit Feast", () => {
+    expect(STARTING_UPGRADE_POOL).not.toContain("fruitFeast");
+  });
+
   it("picks uniformly from unowned starting-pool ids by rng", () => {
     const pool = STARTING_UPGRADE_POOL;
     expect(pickStartingUpgrade(["passiveGhostSlow"], () => 0)).toBe(pool[0]);
