@@ -278,6 +278,7 @@ import {
   warpGlideRemainingMs,
   warpGlideSprites,
 } from "../../domain/warpGlide";
+import { speedTrailSprites, tickSpeedTrail, type SpeedTrail } from "../../domain/speedTrail";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   ghostWarpGlideRemainingMs,
@@ -347,6 +348,7 @@ export class PlaySim {
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private warpGlide: WarpGlide | null = null;
+  private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private midStoreLevel = 5;
@@ -556,6 +558,10 @@ export class PlaySim {
         wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.runUpgrades.owned),
       turnFlashRemainingMs: this.turnTuning.flashMs,
       playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
+      playerSpeedTrail:
+        this.death === null && speedBurstActive(this.runUpgrades)
+          ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
+          : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
     };
   }
@@ -833,6 +839,7 @@ export class PlaySim {
     const positionBeforeMove = this.playerPosition();
     movement(this.world, delta, playerSolidsOverride, false, playerPreTurnPx(this.currentTuning));
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
+    this.tickSpeedTrail(delta);
     this.emitTurnSparks(
       this.turnTuning.afterMove(
         this.world,
@@ -1226,6 +1233,7 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.speedTrail = [];
     this.ghostCornerWarps = [];
     this.resetStreak();
     this.emit({ type: "resetBoard" });
@@ -1462,6 +1470,7 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.speedTrail = [];
     this.ghostCornerWarps = [];
     this.afterLifeRelease = false;
     placeInHouseGhostsAtPredictedSeats(
@@ -1889,6 +1898,14 @@ export class PlaySim {
     }
   }
 
+  private tickSpeedTrail(delta: number): void {
+    const at = this.playerPosition();
+    this.speedTrail =
+      at !== null && speedBurstActive(this.runUpgrades)
+        ? tickSpeedTrail(this.speedTrail, at, delta)
+        : [];
+  }
+
   private playerPosition(): Point | null {
     const eid = query(this.world, [Player, Position])[0];
     return eid === undefined ? null : { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
@@ -1948,6 +1965,7 @@ export class PlaySim {
   private resetAfterLifeLoss(): void {
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.speedTrail = [];
     this.ghostCornerWarps = [];
     this.resetStreak();
     this.remoteTransferCounter = 0;

@@ -1804,6 +1804,47 @@ describe("PlaySim enhanced upgrades", () => {
     expect({ x: Position.x[player], y: Position.y[player] }).not.toEqual(landed);
   });
 
+  it("Speed Burst trails faded afterimages behind the player only while the burst runs", () => {
+    const trailsAfterChomp = (enableUpgrades: UpgradeId[]) => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades });
+      chomp(sim);
+      const player = playerEid(sim);
+      const at = { x: Position.x[player]!, y: Position.y[player]! };
+      const step = [
+        ["left", -1, 0],
+        ["right", 1, 0],
+        ["up", 0, -1],
+        ["down", 0, 1],
+      ] as const;
+      const [key] = step.find(([, dx, dy]) => canEnterDirection(at.x, at.y, dx, dy))!;
+      const draws = runFrames(sim, 8, { keys: held(key) }).flatMap((e) =>
+        e.type === "draw" ? [e.options] : [],
+      );
+      return { sim, key, trail: draws.at(-1)?.playerSpeedTrail ?? [] };
+    };
+
+    const { sim, key, trail } = trailsAfterChomp(["powerPelletSpeedBurst"]);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+    expect(trail).toHaveLength(2);
+    const player = playerEid(sim);
+    const head = { x: Position.x[player]!, y: Position.y[player]! };
+    const gap = (p: { x: number; y: number }) => Math.hypot(p.x - head.x, p.y - head.y);
+    expect(gap(trail[0]!)).toBeGreaterThan(0);
+    expect(gap(trail[1]!)).toBeGreaterThan(gap(trail[0]!));
+    expect(trail[1]!.alpha).toBeLessThan(trail[0]!.alpha);
+    expect(trail[0]!.alpha).toBeLessThan(1);
+
+    expect(trailsAfterChomp([]).trail).toEqual([]);
+
+    let frames = 0;
+    while (sim.snapshot().timers.speedBurstMs > 0 && frames < 1000) {
+      runFrames(sim, 1, { keys: held(key) });
+      frames += 1;
+    }
+    const after = runFrames(sim, 1, { keys: held(key) });
+    expect(after.some((e) => e.type === "draw" && e.options.playerSpeedTrail)).toBe(false);
+  });
+
   function scatterBurstSetup(id: UpgradeId) {
     const sim = startSim({ level: 3, maze: "maze1", enableUpgrades: [id] });
     const ghosts = Array.from(query(sim.world, [Ghost, Position]));
