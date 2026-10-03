@@ -224,12 +224,18 @@ export function storeStep(
       clicked = null;
     }
   }
-  const at = clicked ?? slotIndexAtCell(state, input.col, input.row);
+  const cellAt = slotIndexAtCell(state, input.col, input.row);
+  const at = clicked ?? cellAt;
   const next: StoreState = {
     ...state,
     activeSlot: at,
     clickedSlot: clicked,
-    dismissedSlot: state.dismissedSlot === at ? at : null,
+    dismissedSlot:
+      clickedNow !== null && clickedNow === cellAt
+        ? null
+        : state.dismissedSlot === cellAt
+          ? cellAt
+          : null,
     confirmYes: at === state.activeSlot && state.confirmYes,
   };
   const view = promptView(next, input.quarters, input.owned);
@@ -246,7 +252,13 @@ export function storeStep(
   const yes = picked === null ? next.confirmYes : picked === "yes";
   if (!yes) {
     return {
-      state: { ...next, dismissedSlot: at, clickedSlot: null, confirmYes: false },
+      state: {
+        ...next,
+        activeSlot: clicked === null ? at : cellAt,
+        dismissedSlot: clicked === null || clicked === cellAt ? at : next.dismissedSlot,
+        clickedSlot: null,
+        confirmYes: false,
+      },
       purchase: null,
     };
   }

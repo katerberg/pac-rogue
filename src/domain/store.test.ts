@@ -197,6 +197,24 @@ describe("storeStep", () => {
     expect(promptView(step.state, 0, [])).toBeNull();
   });
 
+  it("keeps the standing slot dismissed after a click elsewhere, and a click reopens it", () => {
+    const state = stateWith([]);
+    const upgradeIdx = state.slots.findIndex((slot) => slot.kind === "upgrade");
+    const lifeIdx = state.slots.findIndex((slot) => slot.kind === "life");
+    let step = storeStep(state, input(lifeCell), zeroRng);
+    step = storeStep(step.state, input({ ...lifeCell, pick: "no" }), zeroRng);
+    expect(promptView(step.state, 10, [])).toBeNull();
+
+    let other = storeStep(step.state, input({ ...lifeCell, click: upgradeIdx }), zeroRng);
+    other = storeStep(other.state, input({ ...lifeCell, pick: "no" }), zeroRng);
+    expect(promptView(other.state, 10, [])).toBeNull();
+    other = storeStep(other.state, input(lifeCell), zeroRng);
+    expect(promptView(other.state, 10, [])).toBeNull();
+
+    const reopened = storeStep(step.state, input({ ...lifeCell, click: lifeIdx }), zeroRng);
+    expect(promptView(reopened.state, 10, [])?.kind).toBe("confirm");
+  });
+
   it("toggles between YES and NO", () => {
     let state = storeStep(stateWith([]), input(lifeCell), zeroRng).state;
     state = storeStep(state, input({ ...lifeCell, toggle: true }), zeroRng).state;
