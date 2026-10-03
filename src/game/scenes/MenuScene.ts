@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
+import { runLogOverrunActive } from "../storage/runLogStorage";
 import {
   addPixelText,
   MENU_OPTION_FONT_SIZE,
@@ -40,6 +41,10 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    if (runLogOverrunActive()) {
+      this.scene.start("RunLogOverrunScene");
+      return;
+    }
     this.selectedIndex = 0;
     this.optionTexts = [];
     this.optionCenters = [];

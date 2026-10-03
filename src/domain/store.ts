@@ -31,6 +31,19 @@ export type StoreSlot =
   | { kind: "swap"; col: number; row: number; outgoingId: UpgradeId; sold: boolean }
   | { kind: "enhance"; col: number; row: number; targetId: BaseUpgradeId; sold: boolean };
 
+export function storeSlotLabel(slot: StoreSlot): string {
+  switch (slot.kind) {
+    case "upgrade":
+      return slot.id;
+    case "swap":
+      return `swap:${slot.outgoingId}`;
+    case "enhance":
+      return `enhance:${slot.targetId}`;
+    case "life":
+      return "life";
+  }
+}
+
 export type StoreState = {
   slots: readonly StoreSlot[];
   activeSlot: number | null;

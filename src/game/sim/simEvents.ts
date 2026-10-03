@@ -1,3 +1,4 @@
+import type { RunLogRecord } from "../../domain/runLog";
 import type { GhostKindId } from "../../domain/ghostKind";
 import type { TurnFeedbackKind } from "../../domain/turnTuning";
 import type { StorePromptView } from "../../domain/store";
@@ -66,6 +67,7 @@ export type SimEvent =
   | { type: "endText"; title: "GAME OVER" | "RUN COMPLETE" }
   | { type: "goToMenu" }
   | { type: "newGame" }
+  | { type: "runLog"; record: RunLogRecord }
   | { type: "saveRun"; collected: number; remaining: number }
   | { type: "seenGhosts"; ghostKinds: GhostKindId[] }
   | { type: "seenUpgrades"; ids: UpgradeId[] };

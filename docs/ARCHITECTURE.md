@@ -25,6 +25,8 @@ src/
     fruit.ts                  # bonus fruit kinds, 70/170 presence clock
     upgrades.ts               # run upgrade defs + RunUpgrades helpers
     runHistory.ts
+    runLog.ts                 # run log schema + pure recorders (every PlayScene run; see docs/RUN_LOG.md)
+    runLogFillFlag.ts         # ?runLogFill= parse (agent-port synthetic runs)
     highScoresView.ts
     scoreListScroll.ts
     playfield.ts              # speeds, sizes, drawable ids
@@ -98,8 +100,10 @@ src/
       simEvents.ts            # SimEvent union (side effects the scene applies) + SimRenderOptions
       simInput.ts             # SimInput (HeldKeys, uiOpen, store toggle/confirm)
       simTesting.ts           # test harness: runFrames / runUntil / held at a fixed 1000/60 step
+      runRecorder.ts          # RunRecorder: PlaySim's run-log draft (per-level counters, deaths, store, loadout)
     storage/
       runHistoryStorage.ts    # localStorage adapter for death-run history
+      runLogStorage.ts        # run log: per-run localStorage keys + index, abandoned relabel, overrun/purge
       audioSettingsStorage.ts # localStorage adapter for music/SFX prefs
       seenRecordStorage.ts    # localStorage adapter for the LEARN seen record
       debugTuningStorage.ts   # localStorage adapter for ?knobs=1 overrides
@@ -117,7 +121,7 @@ src/
       ghostFreeze.ts          # power-pellet freeze closest leaving/active ghost
       movement.ts             # Facing + collision (per-eid Speed + solids)
       bossGhosts.ts           # boss head-on reverse, free tunnel mouth pick, boss pellet count
-      catchPlayer.ts          # circle overlap → caught (skip frozen eid or player invulnerable)
+      catchPlayer.ts          # circle overlap → catching ghost eid or null (skip frozen eid or player invulnerable)
       collectPellets.ts
       collectFruit.ts
       pelletToPower.ts        # Pellet Surge: convert one regular → power
@@ -139,6 +143,7 @@ src/
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       SettingsScene.ts        # music/SFX checkboxes + 0..10 notches (no ECS)
       PauseScene.ts           # Escape overlay: Resume / Settings / Quit confirm (no ECS)
+      RunLogOverrunScene.ts   # blocking RUN LOG FULL screen: purge the oldest 10 runs (no ECS)
       PlayScene.ts            # adapter: keys → PlaySim.step → apply SimEvents (sfx, render, HUD, modals, banners)
       LearnScene.ts           # LEARN adapter: slots/rows/overlay UI over LearnSim
   public/
@@ -158,9 +163,10 @@ docs/
 
 ## Scenes
 
-Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `LearnScene`, `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
+Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `LearnScene`, `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`, `RunLogOverrunScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
 
 ```text
+MenuScene --run log ≥500 runs or a failed save--> RunLogOverrunScene --purge below the cap--> MenuScene
 MenuScene --Start--> PlayScene
 MenuScene --Learn--> LearnScene --Back/Escape--> MenuScene
 MenuScene --High Scores--> HighScoresScene
