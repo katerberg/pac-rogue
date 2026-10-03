@@ -18,7 +18,7 @@ import {
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
-import { PLAYER_SPEED } from "../../domain/playfield";
+import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -2225,5 +2225,27 @@ describe("debug tuning", () => {
     expect(framesToResume({ deathHoldMs: 100, readyPauseMs: 100 })).toBeLessThan(
       framesToResume({}) - 60,
     );
+  });
+});
+
+describe("PlaySim ghost catch overlap", () => {
+  function ghostAtReachFraction(fraction: number): PlaySim {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true });
+    ghostOntoPlayer(sim);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = Position.x[playerEid(sim)]! + fraction * (playerRadius() + ghostRadius());
+    return sim;
+  }
+
+  it("does not kill on a graze short of the 35% overlap bar", () => {
+    const sim = ghostAtReachFraction(0.72);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("kills once the ghost overlaps past the 35% overlap bar", () => {
+    const sim = ghostAtReachFraction(0.5);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
   });
 });
