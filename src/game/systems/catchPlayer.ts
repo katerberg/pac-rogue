@@ -7,7 +7,7 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-const GHOST_CATCH_MIN_OVERLAP_FRACTION = 0.2;
+const GHOST_CATCH_MIN_OVERLAP_FRACTION = 0.35;
 
 export function catchPlayer(
   world: World,
