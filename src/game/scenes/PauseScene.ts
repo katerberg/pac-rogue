@@ -244,15 +244,16 @@ export class PauseScene extends Phaser.Scene {
       return;
     }
     const top = PLAYFIELD_HEIGHT / 2 - ((owned.length - 1) * UPGRADE_ROW_GAP) / 2;
+    const titleY = top - UPGRADE_LIST_TITLE_GAP;
     const title = addPixelText(
       this,
       UPGRADE_LIST_X,
-      top - UPGRADE_LIST_TITLE_GAP,
+      titleY,
       "UPGRADES",
       UPGRADES_HUD_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     );
-    placePixelText(title, UPGRADE_LIST_X, top - UPGRADE_LIST_TITLE_GAP, 0, 0.5);
+    placePixelText(title, UPGRADE_LIST_X, titleY, 0, 0.5);
 
     owned.forEach((id, i) => {
       const y = top + i * UPGRADE_ROW_GAP;
