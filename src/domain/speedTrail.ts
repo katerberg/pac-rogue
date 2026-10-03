@@ -29,21 +29,23 @@ export function speedTrailSprites(trail: SpeedTrail, maxStepPx: number): WarpGli
   if (head === undefined) {
     return sprites;
   }
+  let end = 1;
+  while (
+    end < trail.length &&
+    Math.hypot(trail[end]!.x - trail[end - 1]!.x, trail[end]!.y - trail[end - 1]!.y) <= maxStepPx
+  ) {
+    end += 1;
+  }
   let i = 1;
   for (const { lagMs, alpha } of TRAIL) {
-    while (i < trail.length && trail[i]!.ageMs < lagMs) {
+    while (i < end && trail[i]!.ageMs < lagMs) {
       i += 1;
     }
-    const older = trail[i];
-    if (older === undefined) {
+    if (i >= end) {
       break;
     }
+    const older = trail[i]!;
     const newer = trail[i - 1]!;
-    for (let j = 1; j <= i; j += 1) {
-      if (Math.hypot(trail[j]!.x - trail[j - 1]!.x, trail[j]!.y - trail[j - 1]!.y) > maxStepPx) {
-        return sprites;
-      }
-    }
     const span = older.ageMs - newer.ageMs;
     const t = span > 0 ? (lagMs - newer.ageMs) / span : 0;
     const x = newer.x + (older.x - newer.x) * t;
