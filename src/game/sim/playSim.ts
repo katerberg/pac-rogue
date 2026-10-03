@@ -557,7 +557,6 @@ export class PlaySim {
       wallPassLoopActive:
         wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.runUpgrades.owned),
       turnFlashRemainingMs: this.turnTuning.flashMs,
-      ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
       playerSpeedTrail:
         this.death === null && speedBurstActive(this.runUpgrades)

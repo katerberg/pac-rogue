@@ -415,7 +415,6 @@ export class LearnSim {
         wallPassActive: wallPassActive(this.learnUpgrades),
         wallPassLoopActive:
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
-        ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         dimGhostEid: this.helperBlinky,
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
         playerSpeedTrail: speedBurstActive(this.learnUpgrades)

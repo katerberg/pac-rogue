@@ -1156,6 +1156,19 @@ describe("Ghost Harvester", () => {
     expect(query(sim.world, [Pellet]).includes(next)).toBe(true);
   });
 
+  it("does not recolor ghosts while the timer runs", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletGhostHarvester"],
+    });
+    armWithPowerPellet(sim);
+    const events = runFrames(sim, 5);
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(draws.length).toBeGreaterThan(0);
+    expect(draws.every((options) => !("ghostHarvestActive" in options))).toBe(true);
+  });
+
   it("leaves power pellets to the player", () => {
     const sim = startSim({
       level: 2,
