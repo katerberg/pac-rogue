@@ -681,6 +681,14 @@ describe("PlaySim", () => {
     expect(sim.snapshot().lives).toBe(2);
   });
 
+  it("regenerates the life before the upgrade offer is chosen", () => {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
+    (sim as unknown as { lives: number }).lives = 1;
+    const events = runUntil(sim, () => sim.offer() !== null, 90);
+    expect(events).toContainEqual({ type: "lives", pulse: true });
+    expect(sim.snapshot().lives).toBe(2);
+  });
+
   it("buys a life at the store", () => {
     const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;

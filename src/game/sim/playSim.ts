@@ -1619,15 +1619,15 @@ export class PlaySim {
   }
 
   private beginLevelTransition(): void {
-    const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
-    this.recorder.livesRegenerated(livesBeforeRegen, this.lives);
-    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
     this.emitRunLog();
   }
 
   private finishLevelClear(): void {
+    const livesBeforeRegen = this.lives;
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
+    this.recorder.livesRegenerated(livesBeforeRegen, this.lives);
+    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
       this.beginLevelTransition();
       return;
