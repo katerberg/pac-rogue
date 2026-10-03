@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { fitFontSize } from "../../domain/fitFontSize";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import { mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -49,6 +50,8 @@ const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
 const PANEL_TITLE_MAX_CHARS = 10;
+const PANEL_TITLE_MARGIN = 16;
+const MODAL_TITLE_MARGIN = 40;
 const PANEL_BODY_MAX_CHARS = 18;
 const TOAST_MS = 2000;
 const TILE_DOT_PX = 2;
@@ -213,7 +216,11 @@ export function createStoreOverlay(
     if (prompt === null) {
       return;
     }
-    modalTitle.setText(wrapText(slotTitle(prompt.slot), LABEL_MAX_CHARS));
+    const title = slotTitle(prompt.slot);
+    modalTitle.setText(wrapText(title, LABEL_MAX_CHARS));
+    modalTitle.setFontSize(
+      fitFontSize(title, BUTTON_WIDTH - MODAL_TITLE_MARGIN, MENU_TITLE_FONT_SIZE),
+    );
     modalBody.setText(wrapText(slotBody(prompt.slot), DESCRIPTION_MAX_CHARS));
     modalCost.setText(`COST ${prompt.price}`);
     const school = slotSchool(prompt.slot);
@@ -239,6 +246,9 @@ export function createStoreOverlay(
     }
     panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
     panelTitle.setText(wrapText(content.title, PANEL_TITLE_MAX_CHARS));
+    panelTitle.setFontSize(
+      fitFontSize(content.title, PANEL_WIDTH - PANEL_TITLE_MARGIN, HUD_FONT_SIZE),
+    );
     panelBody.setText(wrapText(content.body, PANEL_BODY_MAX_CHARS));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
