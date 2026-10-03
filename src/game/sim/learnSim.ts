@@ -418,7 +418,9 @@ export class LearnSim {
         ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         dimGhostEid: this.helperBlinky,
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
-        playerSpeedTrail: speedTrailSprites(this.speedTrail, getActiveLayout().tileSize),
+        playerSpeedTrail: speedBurstActive(this.learnUpgrades)
+          ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
+          : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       },
     });
