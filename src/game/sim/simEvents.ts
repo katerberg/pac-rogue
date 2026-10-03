@@ -12,7 +12,6 @@ export type SimRenderOptions = {
   wallPassActive: boolean;
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
-  ghostHarvestActive?: boolean;
   dimGhostEid?: number | null;
   playerAlpha?: number;
   playerReviveProgress?: number;

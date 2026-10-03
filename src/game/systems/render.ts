@@ -51,7 +51,6 @@ const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
-const GHOST_HARVEST_TINT = 0x66ff99;
 export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 const PLAYER_INVULN_TINT = 0xc48a00;
 const PLAYER_INVULN_BLINK_MS = 100;
@@ -230,7 +229,6 @@ export type RenderOptions = {
   wallPassActive?: boolean;
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
-  ghostHarvestActive?: boolean;
   dimGhostEid?: number | null;
   playerAlpha?: number;
   playerReviveProgress?: number;
@@ -304,7 +302,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
   const draw = (world: World, opts?: RenderOptions): void => {
     const frozenEid = opts?.frozenGhostEid ?? null;
-    const ghostHarvestOn = opts?.ghostHarvestActive === true;
     const dimGhostEid = opts?.dimGhostEid ?? null;
     const playerAlpha = opts?.playerAlpha;
     const reviveProgress = opts?.playerReviveProgress;
@@ -440,9 +437,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const tint =
           frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse
             ? GHOST_FROZEN_TINT
-            : ghostHarvestOn && phase !== GHOST_PHASE.inHouse
-              ? GHOST_HARVEST_TINT
-              : null;
+            : null;
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
           if (tint === null) {
             target.clearTint();
