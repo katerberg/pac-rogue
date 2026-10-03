@@ -95,6 +95,7 @@ import {
   levelRegenAmount,
   livesAfterLevelRegen,
   livesRemainingAfterCatch,
+  storeLifeRoom,
 } from "../../domain/lives";
 import {
   activateAsciiLayout,
@@ -1242,6 +1243,11 @@ export class PlaySim {
       this.runUpgrades.owned,
       this.random.stream("storeStock", this.levelIndex),
       this.levelIndex === STORE_FIRST_LEVEL,
+      storeLifeRoom(
+        this.lives,
+        lifeFloorBonus(this.runUpgrades.owned),
+        this.options.maxLives ?? DEFAULT_MAX_LIVES,
+      ),
     );
     this.recorder.storeOpened(this.levelIndex, this.quarters, this.store.slots.map(storeSlotLabel));
     this.emit({ type: "storeOpened" });

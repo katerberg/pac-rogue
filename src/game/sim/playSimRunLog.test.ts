@@ -189,7 +189,7 @@ describe("PlaySim run log", () => {
   });
 
   it("records a store visit with its purchases on exit", () => {
-    const { sim } = startSim({ store: 1, quarters: 10 });
+    const { sim } = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
     teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
     runFrames(sim, 1);
