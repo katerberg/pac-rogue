@@ -126,12 +126,17 @@ export function createStoreState(
   owned: readonly UpgradeId[],
   rng: () => number,
   firstStore = false,
+  lifeRoom = Number.POSITIVE_INFINITY,
 ): StoreState {
   const pool = eligibleUpgrades(owned);
   const slots: StoreSlot[] = [];
+  let lifeSlots = 0;
   for (const { kind, col, row } of cells) {
     if (kind === "life") {
-      slots.push({ kind, col, row, sold: false });
+      if (lifeSlots < lifeRoom) {
+        lifeSlots += 1;
+        slots.push({ kind, col, row, sold: false });
+      }
     } else if (kind === "upgrade" && pool.length > 0) {
       slots.push({ kind, col, row, id: takeRandomFrom(pool, rng), sold: false });
     } else if (kind === "swap" && !firstStore && owned.length > 0) {

@@ -9,6 +9,7 @@ import {
   livesRemainingAfterCatch,
   parseInfiniteLivesFlag,
   parseLivesCountParam,
+  storeLifeRoom,
 } from "./lives";
 
 describe("livesRemainingAfterCatch", () => {
@@ -112,5 +113,19 @@ describe("levelRegenAmount", () => {
     expect(livesAfterLevelRegen(3, 3, 2)).toBe(4);
     expect(livesAfterLevelRegen(4, 3, 2)).toBe(4);
     expect(livesAfterLevelRegen(3, 4, 2)).toBe(5);
+  });
+});
+
+describe("storeLifeRoom", () => {
+  it("is the lives still purchasable under the cap, never negative", () => {
+    expect(storeLifeRoom(2, 0)).toBe(2);
+    expect(storeLifeRoom(3, 0)).toBe(1);
+    expect(storeLifeRoom(4, 0)).toBe(0);
+    expect(storeLifeRoom(6, 0)).toBe(0);
+  });
+
+  it("counts the Extra Life floor bonus and maxLives", () => {
+    expect(storeLifeRoom(4, 1)).toBe(1);
+    expect(storeLifeRoom(3, 0, 10)).toBe(7);
   });
 });

@@ -119,6 +119,16 @@ describe("createStoreState", () => {
     expect(first.slots.map((s) => s.kind).sort()).toEqual(["life", "life", "upgrade", "upgrade"]);
   });
 
+  it("offers only as many life tiles as there is room under the life cap", () => {
+    const lifeKinds = (room: number) =>
+      createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, false, room).slots.filter(
+        (s) => s.kind === "life",
+      );
+    expect(lifeKinds(0)).toHaveLength(0);
+    expect(lifeKinds(1)).toHaveLength(1);
+    expect(lifeKinds(2)).toHaveLength(2);
+  });
+
   it("omits the enhance slot when nothing owned is unenhanced", () => {
     expect(stateWith([]).slots.some((s) => s.kind === "enhance")).toBe(false);
     expect(stateWith(["passivePlayerSpeedUpPlus"]).slots.some((s) => s.kind === "enhance")).toBe(

@@ -682,7 +682,7 @@ describe("PlaySim", () => {
   });
 
   it("buys a life at the store", () => {
-    const sim = startSim({ store: 1, quarters: 10 });
+    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
     const before = sim.snapshot();
     teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
@@ -824,7 +824,13 @@ describe("PlaySim", () => {
     }
 
     it("the first store stocks only two lives and two abilities", () => {
-      const sim = startSim({ store: 1, quarters: 10, enableUpgrades: ["passiveGhostSlow"] });
+      const sim = startSim({
+        store: 1,
+        lives: 2,
+        maxLives: 4,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
       expect([...sim.snapshot().storeStock!].map((s) => s.split(":")[0]).sort()).toEqual([
         "life",
         "life",
@@ -834,9 +840,21 @@ describe("PlaySim", () => {
       expect(sim.snapshot().storeStock).toHaveLength(4);
     });
 
+    it("offers no life tile at the life cap and one when a single life below it", () => {
+      const lifeTiles = (lives: number) =>
+        startSim({ store: 1, level: 5, quarters: 10, lives, maxLives: 4 })
+          .snapshot()
+          .storeStock!.filter((s) => s === "life").length;
+      expect(lifeTiles(4)).toBe(0);
+      expect(lifeTiles(3)).toBe(1);
+      expect(lifeTiles(2)).toBe(2);
+    });
+
     it("a later store adds a trade tile and an enhancement tile", () => {
       const sim = startSim({
         store: 1,
+        lives: 2,
+        maxLives: 4,
         level: 5,
         quarters: 10,
         enableUpgrades: ["passiveGhostSlow"],
@@ -848,7 +866,7 @@ describe("PlaySim", () => {
     });
 
     it("buying a life removes that tile and the second life tile stays", () => {
-      const sim = startSim({ store: 1, level: 5, quarters: 10 });
+      const sim = startSim({ store: 1, lives: 2, maxLives: 4, level: 5, quarters: 10 });
       buy(sim, "life", 0);
       expect(sim.snapshot().storeStock!.filter((s) => s === "life")).toHaveLength(1);
     });
@@ -911,7 +929,7 @@ describe("PlaySim", () => {
   });
 
   it("stops a diagonal walk when it opens a store prompt", () => {
-    const sim = startSim({ store: 1, quarters: 10 });
+    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII)
       .filter((slot) => slot.kind === "life")
       .at(-1)!;
@@ -928,7 +946,7 @@ describe("PlaySim", () => {
     ["yes", true],
     ["no", false],
   ] as const)("store modal click %s %s a life", (choice, buys) => {
-    const sim = startSim({ store: 1, quarters: 10 });
+    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
     const before = sim.snapshot();
     teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));

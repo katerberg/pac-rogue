@@ -48,3 +48,11 @@ export function livesAfterLevelRegen(
   const missing = iconFloor - livesHudIconCount(lives);
   return missing > 0 ? lives + Math.min(regenAmount, missing) : lives;
 }
+
+export function storeLifeRoom(
+  lives: number,
+  floorBonus: number,
+  maxLives = DEFAULT_MAX_LIVES,
+): number {
+  return Math.max(0, levelLivesIconFloor(floorBonus, maxLives) + 1 - lives);
+}
