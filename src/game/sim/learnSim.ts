@@ -571,13 +571,7 @@ export class LearnSim {
       );
     }
     if (powerEffects.collectExtraPellets > 0) {
-      this.releaseAll(
-        collectExtraPellets(
-          this.world,
-          powerEffects.collectExtraPellets,
-          getActiveLayout().playerSolids,
-        ),
-      );
+      this.releaseAll(collectExtraPellets(this.world, powerEffects.collectExtraPellets));
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
