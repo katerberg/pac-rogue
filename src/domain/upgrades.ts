@@ -65,6 +65,8 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
   "neutral",
 ];
 
+export type MartyrGhostPlacement = "corners" | "house";
+
 export type UpgradeEffects = {
   playerSpeedMul?: number;
   ghostSpeedMul?: number;
@@ -93,8 +95,7 @@ export type UpgradeEffects = {
   deathQuarterCost?: number;
   lazyLooperRings?: LazyLooperRings;
   shieldCap?: number;
-  martyrRespawnInPlace?: true;
-  martyrKeepsFruit?: true;
+  martyrGhosts?: MartyrGhostPlacement;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -636,13 +637,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveMartyr",
     label: "Martyr",
     school: "death",
-    description: "Dying sends every ghost home. You respawn where you fell.",
+    description: "Dying scatters the ghosts to their corners. You respawn where you fell.",
     storePrice: STORE_UPGRADE_PRICE,
-    martyrRespawnInPlace: true,
+    martyrGhosts: "corners",
     enhanced: {
-      enhanceNote: "Martyr also keeps the fruit on the board when you die.",
-      description: "Dying sends every ghost home. You and the fruit stay put.",
-      martyrKeepsFruit: true,
+      enhanceNote: "Martyr sends the ghosts back into the ghost house instead of their corners.",
+      description: "Dying sends every ghost home. You respawn where you fell.",
+      martyrGhosts: "house",
     },
   },
 ];
@@ -1288,12 +1289,8 @@ export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: num
   return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
 }
 
-export function martyrRespawnsInPlace(owned: readonly UpgradeId[]): boolean {
-  return ownedValue(owned, "martyrRespawnInPlace") === true;
-}
-
-export function martyrKeepsFruit(owned: readonly UpgradeId[]): boolean {
-  return ownedValue(owned, "martyrKeepsFruit") === true;
+export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
+  return ownedValue(owned, "martyrGhosts") ?? null;
 }
 
 export function overchargeMultiplier(owned: readonly UpgradeId[]): number {

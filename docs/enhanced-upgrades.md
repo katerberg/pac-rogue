@@ -57,7 +57,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 34  | `passiveSpeedSpecialist`      | Speed Specialist      | With 3+ other Speed upgrades owned, every Speed upgrade is enhanced                                              | Every Speed upgrade is enhanced, no threshold                                                                                                |
 | 35  | `passiveProtectionSpecialist` | Protection Specialist | With 3+ other Protection upgrades owned, every Protection upgrade is enhanced                                    | Every Protection upgrade is enhanced, no threshold                                                                                           |
 | 36  | `passiveDisruptionSpecialist` | Disruption Specialist | With 3+ other Disruption upgrades owned, every Disruption upgrade is enhanced                                    | Every Disruption upgrade is enhanced, no threshold                                                                                           |
-| 37  | `passiveMartyr`               | Martyr                | Dying sends every ghost home and respawns you where you fell                                                     | Also keeps the fruit on the board                                                                                                            |
+| 37  | `passiveMartyr`               | Martyr                | Dying sends the ghosts to their corners and respawns you where you fell                                          | Ghosts go back into the ghost house instead                                                                                                  |
 
 ## Decisions
 

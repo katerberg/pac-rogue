@@ -171,7 +171,7 @@ import {
   FRUIT_FECUNDITY_MUL,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
-  martyrKeepsFruit,
+  martyrGhostPlacement,
   moneyTalksCost,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
@@ -2135,6 +2135,8 @@ export class PlaySim {
       }
       this.spawnBossGhostsForLife();
     }
+    const toCorners =
+      this.bossState === null && martyrGhostPlacement(this.effectiveUpgrades()) === "corners";
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -2149,7 +2151,9 @@ export class PlaySim {
       Input.direction[eid] = DIRECTION.none;
       Facing.direction[eid] = DIRECTION.none;
       Speed.px[eid] = 0;
-      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+      if (!toCorners || GhostPhase.value[eid] !== GHOST_PHASE.active) {
+        GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+      }
       Ghost.decidedCol[eid] = Number.NaN;
       Ghost.decidedRow[eid] = Number.NaN;
     }
@@ -2167,16 +2171,18 @@ export class PlaySim {
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
     );
-
-    if (!martyrKeepsFruit(this.effectiveUpgrades())) {
-      this.clearFruitEntities();
-      this.fruitPresence = {
-        ...this.fruitPresence,
-        active: false,
-        remainingMs: 0,
-        gapMs: 0,
-      };
+    if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
+      this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
+      this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     }
+
+    this.clearFruitEntities();
+    this.fruitPresence = {
+      ...this.fruitPresence,
+      active: false,
+      remainingMs: 0,
+      gapMs: 0,
+    };
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;

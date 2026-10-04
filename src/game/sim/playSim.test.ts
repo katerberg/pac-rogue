@@ -2682,19 +2682,41 @@ describe("Martyr", () => {
     expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
   });
 
-  it.each(["passiveMartyr", "passiveMartyrPlus"] as const)(
-    "%s respawns where the player fell with every ghost home",
-    (id) => {
-      const sim = startMartyr([id]);
-      const fell = dieAwayFromSpawn(sim);
-      const { player, ghosts } = sim.snapshot();
-      expect(player).toMatchObject({ col: fell.col, row: fell.row });
-      expect(Position.x[playerEid(sim)]).toBe(cellCenterX(fell.col));
-      expect(Position.y[playerEid(sim)]).toBe(cellCenterY(fell.row));
-      expect(ghosts.length).toBeGreaterThan(0);
-      expect(ghosts.every((ghost) => ghost.phase === "inHouse")).toBe(true);
-    },
-  );
+  it("Martyr sends ghosts that were out to their Scatter Burst corners", () => {
+    const sim = startMartyr(["passiveMartyr"]);
+    const fell = dieAwayFromSpawn(sim);
+    const { player, ghosts } = sim.snapshot();
+    expect(player).toMatchObject({ col: fell.col, row: fell.row });
+    expect(Position.x[playerEid(sim)]).toBe(cellCenterX(fell.col));
+    expect(Position.y[playerEid(sim)]).toBe(cellCenterY(fell.row));
+    const out = ghosts.filter((ghost) => ghost.phase === "active");
+    expect(out.length).toBeGreaterThan(0);
+    for (const ghost of out) {
+      const corner = ghostTeleportCell(
+        scatterTargetForKind(GhostKind.kind[ghost.eid] as GhostKindId),
+        fell,
+      );
+      expect(ghost).toMatchObject({ col: corner.col, row: corner.row });
+    }
+    expect(ghosts.every((ghost) => ghost.phase !== "leaving")).toBe(true);
+  });
+
+  it("Martyr starts the scatter/chase clock so cornered ghosts move on to chase", () => {
+    const sim = startMartyr(["passiveMartyr"]);
+    dieAwayFromSpawn(sim);
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    runUntil(sim, () => sim.snapshot().ghostMode === "chase", 60 * 30);
+    expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
+  it("Martyr+ respawns where the player fell with every ghost in the house", () => {
+    const sim = startMartyr(["passiveMartyrPlus"]);
+    const fell = dieAwayFromSpawn(sim);
+    const { player, ghosts } = sim.snapshot();
+    expect(player).toMatchObject({ col: fell.col, row: fell.row });
+    expect(ghosts.length).toBeGreaterThan(0);
+    expect(ghosts.every((ghost) => ghost.phase === "inHouse")).toBe(true);
+  });
 
   it("stacks with Death's Bounty and Death's Harvest", () => {
     const sim = startMartyr(["passiveMartyr", "passiveDeathsBounty", "passiveDeathsHarvest"]);
@@ -2723,20 +2745,5 @@ describe("Martyr", () => {
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().lives).toBe(lives);
     expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
-  });
-
-  it("keeps the fruit on the board only when enhanced", () => {
-    for (const [id, keeps] of [
-      ["passiveMartyr", false],
-      ["passiveMartyrPlus", true],
-    ] as const) {
-      const sim = startMartyr([id]);
-      sim["spawnFruitEntity"](false);
-      expect(sim.snapshot().fruit).toBe(true);
-      ghostOntoPlayer(sim);
-      runFrames(sim, 1);
-      runUntil(sim, () => !sim.snapshot().dying, 240);
-      expect(sim.snapshot().fruit).toBe(keeps);
-    }
   });
 });

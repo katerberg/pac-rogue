@@ -16,8 +16,7 @@ import {
   SHIELD_PELLETS_CAP,
   SHIELD_PELLETS_ENHANCED_CAP,
   applyShieldBreakInvuln,
-  martyrKeepsFruit,
-  martyrRespawnsInPlace,
+  martyrGhostPlacement,
   bankShields,
   shieldPelletsCap,
   spendShield,
@@ -671,12 +670,10 @@ describe("moneyTalksCost", () => {
 });
 
 describe("Martyr", () => {
-  it("respawns in place in both forms and keeps fruit only when enhanced", () => {
-    expect(martyrRespawnsInPlace([])).toBe(false);
-    expect(martyrRespawnsInPlace(["passiveMartyr"])).toBe(true);
-    expect(martyrRespawnsInPlace(["passiveMartyrPlus"])).toBe(true);
-    expect(martyrKeepsFruit(["passiveMartyr"])).toBe(false);
-    expect(martyrKeepsFruit(["passiveMartyrPlus"])).toBe(true);
+  it("sends ghosts to their corners, or home when enhanced", () => {
+    expect(martyrGhostPlacement([])).toBeNull();
+    expect(martyrGhostPlacement(["passiveMartyr"])).toBe("corners");
+    expect(martyrGhostPlacement(["passiveMartyrPlus"])).toBe("house");
   });
 });
 
