@@ -1437,7 +1437,7 @@ describe("PlaySim bonus bar", () => {
     expect(sim.snapshot().quarters).toBe(1);
     expect(sim.snapshot().bonus.charge).toBe(1);
     expect(bonusEvents(events)).toEqual([{ type: "bonus", tier: 1, filled: 1 }]);
-    expect(events).toContainEqual({ type: "quarters" });
+    expect(events).toContainEqual({ type: "quarters", pulse: false });
   });
 
   it("counts a power pellet once and ignores Extra Hungry's extra pellets", () => {
@@ -1668,7 +1668,7 @@ describe("PlaySim fruit bonus charge", () => {
     const sim = startWithFruit({ quarters: 0 });
     const events = eatFruit(sim);
     expect(sim.snapshot()).toMatchObject({ quarters: 0, bonus: { charge: 150 } });
-    expect(events).not.toContainEqual({ type: "quarters" });
+    expect(events).not.toContainEqual({ type: "quarters", pulse: false });
     expect(events).toContainEqual({ type: "fruitBonus" });
   });
 
@@ -2746,5 +2746,68 @@ describe("Martyr", () => {
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().lives).toBe(lives);
     expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+  });
+});
+
+describe("Interest", () => {
+  const storeWith = (enableUpgrades: PlayOptions["enableUpgrades"], quarters = 9) =>
+    startSim({ store: 1, level: 5, quarters, lives: 2, maxLives: 4, enableUpgrades });
+
+  it("pays 1 Quarter per 3 held on store entry, 1 per 2 enhanced, nothing without it", () => {
+    expect(storeWith(["passiveInterest"]).snapshot().quarters).toBe(12);
+    expect(storeWith(["passiveInterestPlus"]).snapshot().quarters).toBe(13);
+    expect(storeWith(["passiveInterest"], 2).snapshot().quarters).toBe(2);
+    expect(storeWith([]).snapshot().quarters).toBe(9);
+  });
+
+  it("is enhanced by Harvest Specialist", () => {
+    const sim = storeWith([
+      "passiveInterest",
+      "fruitQuarterBounty",
+      "fruitFecundity",
+      "fruitFeast",
+      "passiveHarvestSpecialist",
+    ]);
+    expect(sim.snapshot().quarters).toBe(13);
+  });
+
+  it("pops the paid Quarters into the HUD one at a time", () => {
+    const sim = storeWith(["passiveInterest"]);
+    expect(sim.hud().quarters).toBe(9);
+    expect(sim.snapshot().interestPop).toEqual({ count: 3, shown: 0 });
+    const seen: number[] = [];
+    let pulses = 0;
+    for (let i = 0; i < 240 && sim.snapshot().interestPop !== null; i += 1) {
+      const events = runFrames(sim, 1);
+      pulses += events.filter((e) => e.type === "quarters" && e.pulse).length;
+      seen.push(sim.hud().quarters);
+    }
+    expect([...new Set(seen)]).toEqual([9, 10, 11, 12]);
+    expect(pulses).toBe(3);
+    expect(sim.hud().quarters).toBe(12);
+  });
+
+  it("shows the real wallet as soon as a purchase lands mid pop-in", () => {
+    const sim = storeWith(["passiveInterest"], 15);
+    const slot = parseStoreSlots(STORE_MAZE_ASCII).filter((cell) => cell.kind === "life")[0]!;
+    teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
+    runFrames(sim, 1);
+    runFrames(sim, 1, { storeToggle: true });
+    runFrames(sim, 1, { storeConfirm: true });
+    expect(sim.snapshot().quarters).toBeLessThan(20);
+    expect(sim.snapshot().interestPop).toBeNull();
+    expect(sim.hud().quarters).toBe(sim.snapshot().quarters);
+  });
+
+  it("shows the real wallet as soon as you leave mid pop-in", () => {
+    const sim = storeWith(["passiveInterest"], 15);
+    expect(sim.hud().quarters).toBe(15);
+    expect(sim.snapshot().interestPop).toEqual({ count: 5, shown: 0 });
+    teleportPlayer(sim, cellCenterX(10), cellCenterY(0));
+    const level = sim.snapshot().level;
+    const events = runUntil(sim, () => sim.snapshot().level !== level, 120);
+    expect(sim.snapshot().interestPop).toBeNull();
+    expect(sim.hud().quarters).toBe(sim.snapshot().quarters);
+    expect(events).toContainEqual({ type: "quarters", pulse: false });
   });
 });

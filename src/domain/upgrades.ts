@@ -40,7 +40,8 @@ export type BaseUpgradeId =
   | "passiveSpeedSpecialist"
   | "passiveProtectionSpecialist"
   | "passiveDisruptionSpecialist"
-  | "passiveMartyr";
+  | "passiveMartyr"
+  | "passiveInterest";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -96,6 +97,7 @@ export type UpgradeEffects = {
   lazyLooperRings?: LazyLooperRings;
   shieldCap?: number;
   martyrGhosts?: MartyrGhostPlacement;
+  interestPerQuarters?: number;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -192,6 +194,8 @@ export const REMOTE_TRANSFER_ENHANCED_EVERY_PELLETS = 3;
 export const TURN_TUNING_ENHANCED_BOOST_MS = 750;
 export const TURN_TUNING_ENHANCED_PERFECT_PX = 12;
 export const SPECIALIST_THRESHOLD = 3;
+export const INTEREST_PER_QUARTERS = 3;
+export const INTEREST_ENHANCED_PER_QUARTERS = 2;
 
 function specialistDef(
   school: Exclude<UpgradeSchool, "neutral">,
@@ -644,6 +648,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       enhanceNote: "Martyr sends the ghosts back into the ghost house instead of their corners.",
       description: "Dying sends every ghost home. You respawn where you fell.",
       martyrGhosts: "house",
+    },
+  },
+  {
+    id: "passiveInterest",
+    label: "Interest",
+    school: "harvest",
+    description: "Each store pays 1 Quarter for every 3 you hold.",
+    storePrice: STORE_UPGRADE_PRICE,
+    interestPerQuarters: INTEREST_PER_QUARTERS,
+    enhanced: {
+      enhanceNote: "Interest pays 1 Quarter per 2 held instead of per 3.",
+      description: "Each store pays 1 Quarter for every 2 you hold.",
+      interestPerQuarters: INTEREST_ENHANCED_PER_QUARTERS,
     },
   },
 ];
@@ -1262,6 +1279,11 @@ export function fruitFeastThresholds(owned: readonly UpgradeId[]): readonly numb
 
 export function moneyTalksCost(owned: readonly UpgradeId[]): number | null {
   return ownedValue(owned, "deathQuarterCost") ?? null;
+}
+
+export function interestPayout(owned: readonly UpgradeId[], quarters: number): number {
+  const per = ownedValue(owned, "interestPerQuarters");
+  return per === undefined ? 0 : Math.floor(quarters / per);
 }
 
 export function lifeFloorBonus(owned: readonly UpgradeId[]): number {

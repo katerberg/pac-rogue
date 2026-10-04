@@ -49,6 +49,7 @@ import {
 import { reviveSplashProgress } from "../../domain/reviveSplash";
 import { respawnCenter } from "../../domain/martyr";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
+import { interestCoinsShown, type InterestPop } from "../../domain/interest";
 import {
   createFruitPresence,
   fruitSpecForLevel,
@@ -173,6 +174,7 @@ import {
   fruitQuartersPerFruit,
   martyrGhostPlacement,
   moneyTalksCost,
+  interestPayout,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
   secondChompMs,
@@ -378,6 +380,7 @@ export class PlaySim {
   private reviveSplashElapsedMs: number | null = null;
   private shieldCrack: { index: number; elapsedMs: number } | null = null;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
+  private interestPop: InterestPop | null = null;
   private lives: number;
   private afterLifeRelease = false;
   private eatDragMs = 0;
@@ -501,7 +504,7 @@ export class PlaySim {
       this.quarters += chosen.amount;
       this.recorder.quarters("offer", chosen.amount);
       this.recorder.picked("quarters");
-      this.emit({ type: "quarters" });
+      this.emit({ type: "quarters", pulse: false });
       this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
     } else {
       const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
@@ -576,7 +579,11 @@ export class PlaySim {
       time: this.clock.remaining,
       timerVisible: this.timerVisible,
       lives: this.lives,
-      quarters: this.quarters,
+      quarters:
+        this.quarters -
+        (this.interestPop === null
+          ? 0
+          : this.interestPop.count - interestCoinsShown(this.interestPop)),
       bonusCharge: this.bonus.charge,
       upgrades: this.effectiveUpgrades(),
       collected: this.lifetimeCollected,
@@ -645,6 +652,10 @@ export class PlaySim {
           ? null
           : reviveSplashProgress(this.reviveSplashElapsedMs),
       moneyTalksElapsedMs: this.moneyTalksSpend?.elapsedMs ?? null,
+      interestPop:
+        this.interestPop === null
+          ? null
+          : { count: this.interestPop.count, shown: interestCoinsShown(this.interestPop) },
       shieldCrackProgress:
         this.shieldCrack === null ? null : shieldCrackProgress(this.shieldCrack.elapsedMs),
       levelTransition: this.levelTransitionRemainingMs > 0,
@@ -1084,7 +1095,7 @@ export class PlaySim {
       if (fruitQuarters !== null) {
         this.quarters += removedFruitEids.length * fruitQuarters;
         this.recorder.quarters("fruit", removedFruitEids.length * fruitQuarters);
-        this.emit({ type: "quarters" });
+        this.emit({ type: "quarters", pulse: false });
       } else {
         const fruitCharge = addBonusCharge(
           this.bonus,
@@ -1229,7 +1240,7 @@ export class PlaySim {
     if (result.filled > 0) {
       this.quarters += result.filled;
       this.recorder.quarters(source, result.filled);
-      this.emit({ type: "quarters" });
+      this.emit({ type: "quarters", pulse: false });
     }
     if (result.tier > 0 || result.filled > 0) {
       this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
@@ -1306,6 +1317,7 @@ export class PlaySim {
         this.options.maxLives ?? DEFAULT_MAX_LIVES,
       ),
     );
+    this.payInterest();
     this.recorder.storeOpened(this.levelIndex, this.quarters, this.store.slots.map(storeSlotLabel));
     this.emit({ type: "storeOpened" });
     this.timerVisible = false;
@@ -1316,7 +1328,34 @@ export class PlaySim {
     this.drawStore();
   }
 
+  private payInterest(): void {
+    const interest = interestPayout(this.effectiveUpgrades(), this.quarters);
+    if (interest <= 0) {
+      return;
+    }
+    this.quarters += interest;
+    this.recorder.quarters("interest", interest);
+    this.interestPop = { count: interest, elapsedMs: 0 };
+  }
+
+  private tickInterestPop(delta: number): void {
+    const pop = this.interestPop;
+    if (pop === null) {
+      return;
+    }
+    const before = interestCoinsShown(pop);
+    pop.elapsedMs += delta;
+    const shown = interestCoinsShown(pop);
+    if (shown > before) {
+      this.emit({ type: "quarters", pulse: true });
+    }
+    if (shown >= pop.count) {
+      this.interestPop = null;
+    }
+  }
+
   private tickStore(input: SimInput, delta: number): void {
+    this.tickInterestPop(delta);
     if (this.storeExitSlide !== null) {
       this.tickStoreExitSlide(delta);
       return;
@@ -1427,7 +1466,8 @@ export class PlaySim {
   private applyStorePurchase(purchase: StorePurchase): void {
     this.recorder.storePurchase(purchase);
     this.quarters -= purchase.price;
-    this.emit({ type: "quarters" });
+    this.interestPop = null;
+    this.emit({ type: "quarters", pulse: false });
     this.emitMunch();
     if (purchase.kind === "life") {
       this.lives += 1;
@@ -1472,6 +1512,10 @@ export class PlaySim {
   }
 
   private closeStore(): void {
+    if (this.interestPop !== null) {
+      this.interestPop = null;
+      this.emit({ type: "quarters", pulse: false });
+    }
     this.storeExitSlide = null;
     this.storeRoute = null;
     this.emit({ type: "storeClosed" });
@@ -1975,7 +2019,7 @@ export class PlaySim {
     }
     this.moneyTalksSpend.paid += coins;
     this.quarters -= coins;
-    this.emit({ type: "quarters" });
+    this.emit({ type: "quarters", pulse: false });
   }
 
   private tickReviveSplash(delta: number): void {
