@@ -17,6 +17,9 @@ import {
   SHIELD_PELLETS_ENHANCED_CAP,
   applyShieldBreakInvuln,
   martyrGhostPlacement,
+  nearMissCharge,
+  NEAR_MISS_CHARGE,
+  NEAR_MISS_ENHANCED_CHARGE,
   bankShields,
   shieldPelletsCap,
   spendShield,
@@ -151,6 +154,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveProtectionSpecialist",
   "passiveDisruptionSpecialist",
   "passiveMartyr",
+  "passiveNearMiss",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -674,6 +678,14 @@ describe("Martyr", () => {
     expect(martyrGhostPlacement([])).toBeNull();
     expect(martyrGhostPlacement(["passiveMartyr"])).toBe("corners");
     expect(martyrGhostPlacement(["passiveMartyrPlus"])).toBe("house");
+  });
+});
+
+describe("Near Miss", () => {
+  it("charges the BONUS bar per pass, double when enhanced", () => {
+    expect(nearMissCharge([])).toBe(0);
+    expect(nearMissCharge(["passiveNearMiss"])).toBe(NEAR_MISS_CHARGE);
+    expect(nearMissCharge(["passiveNearMissPlus"])).toBe(NEAR_MISS_ENHANCED_CHARGE);
   });
 });
 

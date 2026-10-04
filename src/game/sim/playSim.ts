@@ -172,6 +172,7 @@ import {
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
   martyrGhostPlacement,
+  nearMissCharge,
   moneyTalksCost,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
@@ -242,6 +243,8 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
 import { catchPlayer } from "../systems/catchPlayer";
+import { stepNearMisses } from "../systems/nearMiss";
+import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { wallPassSolids } from "../systems/wallPassSolids";
@@ -346,6 +349,8 @@ export class PlaySim {
   private lifetimeCollected = 0;
   private remoteTransferCounter = 0;
   private deathsThisBoard = 0;
+  private nearMissPasses: NearMissPasses = createNearMissPasses();
+  private nearMissesPaid = 0;
   private quarters = 0;
   private bonus: BonusBar;
   private lastPlayerCell: Cell | null = null;
@@ -619,6 +624,7 @@ export class PlaySim {
         draining: this.timeBonusDrain !== null,
       },
       deathsThisBoard: this.deathsThisBoard,
+      nearMissesPaid: this.nearMissesPaid,
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
@@ -1122,15 +1128,19 @@ export class PlaySim {
 
     const frozenEid = frozenGhostEid(this.runUpgrades);
     const playerInvulnerable = this.options.godMode || playerIsInvulnerable(this.runUpgrades);
+    const glidingEids = glidingGhostEids(this.ghostCornerWarps);
     const caughtBy = catchPlayer(this.world, {
       frozenGhostEid: frozenEid,
-      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      skipGhostEids: glidingEids,
       playerInvulnerable,
     });
     this.emitDraw();
 
     if (caughtBy === null) {
       this.recorder.nearMisses(this.world, getActiveLayout().tileSize);
+      this.payNearMisses(
+        (eid) => !playerInvulnerable && eid !== frozenEid && !glidingEids.has(eid),
+      );
     } else {
       if (this.breakShield()) {
         return;
@@ -1244,9 +1254,30 @@ export class PlaySim {
     return charge > 0;
   }
 
+  private payNearMisses(isCatchable: (ghostEid: number) => boolean): void {
+    const charge = nearMissCharge(this.effectiveUpgrades());
+    if (charge === 0) {
+      return;
+    }
+    const step = stepNearMisses(
+      this.world,
+      this.nearMissPasses,
+      getActiveLayout().tileSize,
+      isCatchable,
+    );
+    this.nearMissPasses = step.passes;
+    if (step.completed === 0) {
+      return;
+    }
+    this.nearMissesPaid += step.completed;
+    const charged = addBonusCharge(this.bonus, step.completed * charge);
+    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "nearMiss");
+  }
+
   private resetStreak(): void {
     this.bonus = breakStreak(this.bonus);
     this.lastPlayerCell = null;
+    this.nearMissPasses = createNearMissPasses();
   }
 
   private applyRemoteTransferStep(removedThisFrame: number): number {
@@ -1490,6 +1521,7 @@ export class PlaySim {
   private startBoard(layoutOverride: MazeLayoutId | null = null): void {
     this.resetStreak();
     this.deathsThisBoard = 0;
+    this.nearMissesPaid = 0;
     const boss = bossForLevel(this.levelIndex);
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
     let layoutLabel = "maze2";

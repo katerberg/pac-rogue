@@ -8,9 +8,11 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  TILE_SIZE,
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { NEAR_MISS_CHARGE } from "../../domain/upgrades";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { Fruit } from "../components/Fruit";
@@ -270,6 +272,18 @@ describe("LearnSim upgrade demos", () => {
       sim.step(NO_KEYS_HELD, FRAME_MS);
     }
   }
+
+  it("Near Miss charges the BONUS bar when the ghost brushes past", () => {
+    const { sim, player } = setup("passiveNearMiss");
+    const ghost = sim.ghostEid!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    const at = posOf(ghost);
+    moveTo(player, { x: at.x + 0.5 * TILE_SIZE, y: at.y });
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([]);
+    moveTo(player, { x: at.x, y: at.y + 200 });
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([`+${NEAR_MISS_CHARGE} BONUS`]);
+    expect(sim.statusText()).toContain(`BONUS ${NEAR_MISS_CHARGE}/300`);
+  });
 
   it("Second Chomp brings an eaten power pellet back after ten seconds", () => {
     const { sim, player } = setup("passivePowerPelletRecharge");

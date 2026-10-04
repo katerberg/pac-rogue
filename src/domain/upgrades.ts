@@ -40,7 +40,8 @@ export type BaseUpgradeId =
   | "passiveSpeedSpecialist"
   | "passiveProtectionSpecialist"
   | "passiveDisruptionSpecialist"
-  | "passiveMartyr";
+  | "passiveMartyr"
+  | "passiveNearMiss";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -96,6 +97,7 @@ export type UpgradeEffects = {
   lazyLooperRings?: LazyLooperRings;
   shieldCap?: number;
   martyrGhosts?: MartyrGhostPlacement;
+  nearMissCharge?: number;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -147,6 +149,8 @@ export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
 export const SHIELD_PELLETS_CAP = 1;
 export const SHIELD_PELLETS_ENHANCED_CAP = 3;
 export const SHIELD_BREAK_INVULN_MS = 1000;
+export const NEAR_MISS_CHARGE = 15;
+export const NEAR_MISS_ENHANCED_CHARGE = 30;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
@@ -644,6 +648,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       enhanceNote: "Martyr sends the ghosts back into the ghost house instead of their corners.",
       description: "Dying sends every ghost home. You respawn where you fell.",
       martyrGhosts: "house",
+    },
+  },
+  {
+    id: "passiveNearMiss",
+    label: "Near Miss",
+    school: "protection",
+    description: "Ghosts that brush past without catching you charge the BONUS bar.",
+    storePrice: STORE_UPGRADE_PRICE,
+    nearMissCharge: NEAR_MISS_CHARGE,
+    enhanced: {
+      enhanceNote: "Near Miss charges the BONUS bar 30 per pass instead of 15.",
+      description: "Ghosts that brush past without catching you charge the BONUS bar double.",
+      nearMissCharge: NEAR_MISS_ENHANCED_CHARGE,
     },
   },
 ];
@@ -1287,6 +1304,10 @@ export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
 export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
   const decay = ownedValue(owned, "deathsBountyDecay");
   return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
+}
+
+export function nearMissCharge(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "nearMissCharge") ?? 0;
 }
 
 export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
