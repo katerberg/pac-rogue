@@ -579,13 +579,11 @@ export class PlaySim {
       time: this.clock.remaining,
       timerVisible: this.timerVisible,
       lives: this.lives,
-      quarters: Math.max(
-        0,
+      quarters:
         this.quarters -
-          (this.interestPop === null
-            ? 0
-            : this.interestPop.count - interestCoinsShown(this.interestPop)),
-      ),
+        (this.interestPop === null
+          ? 0
+          : this.interestPop.count - interestCoinsShown(this.interestPop)),
       bonusCharge: this.bonus.charge,
       upgrades: this.effectiveUpgrades(),
       collected: this.lifetimeCollected,
@@ -1468,6 +1466,7 @@ export class PlaySim {
   private applyStorePurchase(purchase: StorePurchase): void {
     this.recorder.storePurchase(purchase);
     this.quarters -= purchase.price;
+    this.interestPop = null;
     this.emit({ type: "quarters", pulse: false });
     this.emitMunch();
     if (purchase.kind === "life") {

@@ -2786,4 +2786,16 @@ describe("Interest", () => {
     expect(pulses).toBe(3);
     expect(sim.hud().quarters).toBe(12);
   });
+
+  it("shows the real wallet as soon as a purchase lands mid pop-in", () => {
+    const sim = storeWith(["passiveInterest"], 15);
+    const slot = parseStoreSlots(STORE_MAZE_ASCII).filter((cell) => cell.kind === "life")[0]!;
+    teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
+    runFrames(sim, 1);
+    runFrames(sim, 1, { storeToggle: true });
+    runFrames(sim, 1, { storeConfirm: true });
+    expect(sim.snapshot().quarters).toBeLessThan(20);
+    expect(sim.snapshot().interestPop).toBeNull();
+    expect(sim.hud().quarters).toBe(sim.snapshot().quarters);
+  });
 });

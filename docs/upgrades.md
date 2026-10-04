@@ -282,7 +282,7 @@ While `passiveInterest` is owned, `PlaySim.enterStore()` pays `interestPayout(ef
 
 - **Every store pays**, including the one before the level-9 boss and a `?store=N` start. Buying Interest inside a store does not pay at that store; the payout has already happened on entry.
 - **Credited at once:** the Quarters are added to `quarters` (and logged as the `interest` Quarter source) on entry, so prices and purchases see them straight away.
-- **Pop-in:** only the HUD lags. `hud().quarters` hides the coins not yet shown, and `interestCoinsShown` ([`src/domain/interest.ts`](../src/domain/interest.ts)) reveals the first one `INTEREST_POP_DELAY_MS` (400ms) after entry, then one every `INTEREST_POP_INTERVAL_MS` (120ms). Each reveal emits `{ type: "quarters", pulse: true }`, and `PlayScene` pulses the newest HUD Quarter. Leaving the store ends the pop-in. The snapshot shows it as `play.interestPop` (`{ count, shown }`, `null` when idle).
+- **Pop-in:** only the HUD lags. `hud().quarters` hides the coins not yet shown, and `interestCoinsShown` ([`src/domain/interest.ts`](../src/domain/interest.ts)) reveals the first one `INTEREST_POP_DELAY_MS` (400ms) after entry, then one every `INTEREST_POP_INTERVAL_MS` (120ms). Each reveal emits `{ type: "quarters", pulse: true }`, and `PlayScene` pulses the newest HUD Quarter. Leaving the store or buying a tile ends the pop-in, so the HUD snaps to the real wallet. The snapshot shows it as `play.interestPop` (`{ count, shown }`, `null` when idle).
 - **Harvest school:** Harvest Specialist enhances it like any other Harvest upgrade.
 - **LEARN:** there is no store, so Interest is in `LEARN_NO_EFFECT_UPGRADE_IDS` and shows the "no visible effect" banner.
 
