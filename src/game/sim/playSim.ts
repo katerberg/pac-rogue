@@ -1136,7 +1136,6 @@ export class PlaySim {
         return;
       }
       const deathCell = playerCell(this.world);
-      this.fellAt = this.playerPosition();
       const ghostsOut = query(this.world, [Ghost, GhostPhase]).filter(
         (eid) => GhostPhase.value[eid] !== GHOST_PHASE.inHouse,
       ).length;
@@ -1164,6 +1163,7 @@ export class PlaySim {
           }
         }
       }
+      this.fellAt = this.playerPosition();
       this.emit({ type: "loopStop", id: "gameplayMusic" });
       const defied = defyDeathActive(this.runUpgrades);
       const boughtFor =

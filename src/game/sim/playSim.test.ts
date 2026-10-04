@@ -2687,13 +2687,12 @@ describe("Martyr", () => {
     (id) => {
       const sim = startMartyr([id]);
       const fell = dieAwayFromSpawn(sim);
-      const { player, ghosts, lives } = sim.snapshot();
+      const { player, ghosts } = sim.snapshot();
       expect(player).toMatchObject({ col: fell.col, row: fell.row });
       expect(Position.x[playerEid(sim)]).toBe(cellCenterX(fell.col));
       expect(Position.y[playerEid(sim)]).toBe(cellCenterY(fell.row));
       expect(ghosts.length).toBeGreaterThan(0);
       expect(ghosts.every((ghost) => ghost.phase === "inHouse")).toBe(true);
-      expect(lives).toBe(startMartyr([]).snapshot().lives);
     },
   );
 
@@ -2704,6 +2703,26 @@ describe("Martyr", () => {
     expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
     expect(sim.snapshot().quarters).toBe(1);
     expect(sim.snapshot().pelletsRemaining).toBeLessThan(pelletsBefore - 1);
+  });
+
+  it("respawns in place on a Defy Death save", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "passiveDefyDeath"],
+    });
+    const spawn = sim.snapshot().player!;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const fell = sim.snapshot().player!;
+    expect(fell.row).not.toBe(spawn.row);
+    const lives = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
   });
 
   it("keeps the fruit on the board only when enhanced", () => {
