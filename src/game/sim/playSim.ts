@@ -579,7 +579,13 @@ export class PlaySim {
       time: this.clock.remaining,
       timerVisible: this.timerVisible,
       lives: this.lives,
-      quarters: Math.max(0, this.quarters - this.interestCoinsHidden()),
+      quarters: Math.max(
+        0,
+        this.quarters -
+          (this.interestPop === null
+            ? 0
+            : this.interestPop.count - interestCoinsShown(this.interestPop)),
+      ),
       bonusCharge: this.bonus.charge,
       upgrades: this.effectiveUpgrades(),
       collected: this.lifetimeCollected,
@@ -1332,13 +1338,6 @@ export class PlaySim {
     this.quarters += interest;
     this.recorder.quarters("interest", interest);
     this.interestPop = { count: interest, elapsedMs: 0 };
-    this.emit({ type: "quarters", pulse: false });
-  }
-
-  private interestCoinsHidden(): number {
-    return this.interestPop === null
-      ? 0
-      : this.interestPop.count - interestCoinsShown(this.interestPop);
   }
 
   private tickInterestPop(delta: number): void {

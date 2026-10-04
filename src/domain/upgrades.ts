@@ -1283,7 +1283,7 @@ export function moneyTalksCost(owned: readonly UpgradeId[]): number | null {
 
 export function interestPayout(owned: readonly UpgradeId[], quarters: number): number {
   const per = ownedValue(owned, "interestPerQuarters");
-  return per === undefined ? 0 : Math.floor(Math.max(0, quarters) / per);
+  return per === undefined ? 0 : Math.floor(quarters / per);
 }
 
 export function lifeFloorBonus(owned: readonly UpgradeId[]): number {
