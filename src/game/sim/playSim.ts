@@ -135,6 +135,7 @@ import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClo
 import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
 import { elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
+import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   storeLevelFor,
@@ -144,6 +145,7 @@ import {
   parseStoreSlots,
   pickMidStoreLevel,
   promptView,
+  slotIndexAtCell,
   storeAfterLevel,
   storeExitAlpha,
   storeExitDirection,
@@ -271,6 +273,7 @@ import {
   clearPlayerDirectionInput,
   hasPlayerDirectionInput,
   playerFacing,
+  steerPlayer,
 } from "../systems/playerDirection";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
@@ -360,6 +363,7 @@ export class PlaySim {
   private midStoreLevel = 5;
   private store: StoreState | null = null;
   private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
+  private storeRoute: Cell | null = null;
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
   private reviveSplashPending = false;
@@ -528,6 +532,18 @@ export class PlaySim {
     this.suppressInputUntilKeyRelease = true;
   }
 
+  storeRouting(): boolean {
+    return this.storeRoute !== null;
+  }
+
+  storeExitUnder(x: number, y: number): boolean {
+    return (
+      this.readsStoreKeys() &&
+      !this.storeConfirmOpen() &&
+      storeExitCellAt(getActiveLayout().playerSolids, worldToCol(x), worldToRow(y)) !== null
+    );
+  }
+
   readsStoreKeys(): boolean {
     return this.store !== null && this.storeExitSlide === null;
   }
@@ -625,6 +641,7 @@ export class PlaySim {
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
       storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
+      storeRoute: this.storeRoute,
       storePrompt:
         this.store === null
           ? null
@@ -1292,8 +1309,35 @@ export class PlaySim {
       return;
     }
     const confirming = this.storeConfirmOpen();
+    const layout = getActiveLayout();
+    if (input.storePointer) {
+      this.storeRoute = storeExitCellAt(
+        layout.playerSolids,
+        worldToCol(input.storePointer.x),
+        worldToRow(input.storePointer.y),
+      );
+    }
+    if (confirming || input.storeCancelRoute || anyKeyHeld(input.keys)) {
+      this.storeRoute = null;
+    }
+    const from = playerCell(this.world);
+    const store = this.store!;
+    const routeStep =
+      this.storeRoute &&
+      from &&
+      storeRouteStep(
+        layout.playerSolids,
+        from,
+        this.storeRoute,
+        (col, row) => slotIndexAtCell(store, col, row) !== null,
+      );
+    if (this.storeRoute && !routeStep) {
+      this.storeRoute = null;
+    }
     if (confirming) {
       clearPlayerDirectionInput(this.world);
+    } else if (routeStep) {
+      steerPlayer(this.world, routeStep);
     } else {
       if (this.suppressInputUntilKeyRelease && !anyKeyHeld(input.keys)) {
         this.suppressInputUntilKeyRelease = false;
@@ -1311,9 +1355,9 @@ export class PlaySim {
     movement(this.world, delta, undefined, true);
 
     const cell = playerCell(this.world);
-    const layout = getActiveLayout();
     const exit = cell && storeExitDirection(cell.col, cell.row, layout.cols, layout.rows);
     if (exit) {
+      this.storeRoute = null;
       this.storeExitSlide = { ...exit, traveledPx: 0 };
       this.emit({ type: "storeSync", prompt: null });
       this.drawStore(storeExitAlpha(0));
@@ -1329,7 +1373,7 @@ export class PlaySim {
         enter: confirming && input.storeConfirm,
         pick: confirming ? (input.storeChoice ?? null) : null,
         click: confirming ? null : (input.storeClick ?? null),
-        moving: anyKeyHeld(input.keys),
+        moving: anyKeyHeld(input.keys) || this.storeRoute !== null,
         quarters: this.quarters,
         owned: this.runUpgrades.owned,
       },
@@ -1415,6 +1459,7 @@ export class PlaySim {
 
   private closeStore(): void {
     this.storeExitSlide = null;
+    this.storeRoute = null;
     this.emit({ type: "storeClosed" });
     this.store = null;
   }

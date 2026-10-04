@@ -7,6 +7,8 @@ export type SimInput = {
   storeConfirm: boolean;
   storeChoice?: "yes" | "no" | null;
   storeClick?: number | null;
+  storePointer?: { x: number; y: number } | null;
+  storeCancelRoute?: boolean;
 };
 
 export const IDLE_INPUT: SimInput = {

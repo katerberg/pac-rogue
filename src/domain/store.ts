@@ -168,7 +168,7 @@ export function slotPrice(slot: StoreSlot): number {
   }
 }
 
-function slotIndexAtCell(state: StoreState, col: number, row: number): number | null {
+export function slotIndexAtCell(state: StoreState, col: number, row: number): number | null {
   const index = state.slots.findIndex(
     (slot) =>
       !slot.sold &&
