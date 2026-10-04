@@ -2698,7 +2698,8 @@ describe("Martyr", () => {
       );
       expect(ghost).toMatchObject({ col: corner.col, row: corner.row });
     }
-    expect(ghosts.every((ghost) => ghost.phase !== "leaving")).toBe(true);
+    const home = ghosts.filter((ghost) => ghost.phase !== "active");
+    expect(home.every((ghost) => ghost.phase === "inHouse")).toBe(true);
   });
 
   it("Martyr starts the scatter/chase clock so cornered ghosts move on to chase", () => {
