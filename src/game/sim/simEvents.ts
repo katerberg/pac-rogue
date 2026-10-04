@@ -49,6 +49,8 @@ export type SimEvent =
   | { type: "banner"; text: string; boss: boolean }
   | { type: "lives"; pulse: boolean }
   | { type: "quarters" }
+  | { type: "shields" }
+  | { type: "shieldCrack"; index: number; progress: number }
   | { type: "walletCoins"; spend: MoneyTalksSpend | null }
   | { type: "bonus"; tier: number; filled: number }
   | { type: "timeBonus"; active: boolean }

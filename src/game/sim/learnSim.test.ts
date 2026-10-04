@@ -325,6 +325,20 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
+  it("Shield Pellets banks a shield and a catch breaks it instead of costing a life", () => {
+    const { sim, player } = setup("passiveShieldPellets", "powerPelletInvuln");
+    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBe(0);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    expect(sim.statusText()).toContain("LIVES 3");
+    runMs(sim, 3_100);
+    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
+  });
+
   it("Money Talks pays Quarters to save the last life", () => {
     const { sim, player } = setup("passiveMoneyTalksPlus");
     eatFruit(sim, player);

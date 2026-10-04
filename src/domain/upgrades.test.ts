@@ -6,6 +6,14 @@ import {
   GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
   GHOST_SLOW_MUL,
   INVULN_MS,
+  OVERCHARGE_ENHANCED_MUL,
+  SHIELD_BREAK_INVULN_MS,
+  SHIELD_PELLETS_CAP,
+  SHIELD_PELLETS_ENHANCED_CAP,
+  applyShieldBreakInvuln,
+  bankShields,
+  shieldPelletsCap,
+  spendShield,
   OVERCHARGE_MUL,
   PLAYER_SPEED_BURST_MUL,
   PLAYER_SPEED_UP_MUL,
@@ -130,6 +138,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveDeathsBounty",
   "passiveMoneyTalks",
   "passiveLazyLooper",
+  "passiveShieldPellets",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -779,6 +788,45 @@ describe("defy death / power pellet", () => {
     const armed = applyPowerPelletEffects(state, 1).state;
     expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS);
     expect(clearUpgradeTimers(armed).defyDeathRemainingMs).toBe(0);
+  });
+});
+
+describe("shield pellets", () => {
+  it("has no cap unless owned; caps at 1 base and 3 enhanced", () => {
+    expect(shieldPelletsCap([])).toBeNull();
+    expect(shieldPelletsCap(["passiveShieldPellets"])).toBe(SHIELD_PELLETS_CAP);
+    expect(shieldPelletsCap(["passiveShieldPelletsPlus"])).toBe(SHIELD_PELLETS_ENHANCED_CAP);
+  });
+
+  it("banks up to the cap and ignores banking when not owned", () => {
+    expect(bankShields(createRunUpgrades(), 2).shieldsBanked).toBe(0);
+    const base = createRunUpgrades(["passiveShieldPellets"]);
+    expect(bankShields(bankShields(base, 1), 1).shieldsBanked).toBe(1);
+    const plus = createRunUpgrades(["passiveShieldPelletsPlus"]);
+    expect(bankShields(plus, 2).shieldsBanked).toBe(2);
+    expect(bankShields(bankShields(plus, 2), 2).shieldsBanked).toBe(3);
+  });
+
+  it("spends one shield, or returns null when the bank is empty", () => {
+    const plus = bankShields(createRunUpgrades(["passiveShieldPelletsPlus"]), 3);
+    expect(spendShield(plus)?.shieldsBanked).toBe(2);
+    expect(spendShield(createRunUpgrades(["passiveShieldPelletsPlus"]))).toBeNull();
+  });
+
+  it("break immunity keeps a longer invuln and is multiplied by Overcharge", () => {
+    const base = createRunUpgrades(["passiveShieldPellets"]);
+    expect(applyShieldBreakInvuln(base).invulnRemainingMs).toBe(SHIELD_BREAK_INVULN_MS);
+    const longer = { ...base, invulnRemainingMs: INVULN_MS };
+    expect(applyShieldBreakInvuln(longer).invulnRemainingMs).toBe(INVULN_MS);
+    const overcharged = createRunUpgrades(["passiveShieldPellets", "passiveOverchargePlus"]);
+    expect(applyShieldBreakInvuln(overcharged).invulnRemainingMs).toBe(
+      SHIELD_BREAK_INVULN_MS * OVERCHARGE_ENHANCED_MUL,
+    );
+  });
+
+  it("keeps the bank through clearUpgradeTimers", () => {
+    const banked = bankShields(createRunUpgrades(["passiveShieldPellets"]), 1);
+    expect(clearUpgradeTimers(banked).shieldsBanked).toBe(1);
   });
 });
 

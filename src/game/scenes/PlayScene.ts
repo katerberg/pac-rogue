@@ -29,6 +29,12 @@ import { freshSeed } from "../../domain/runRandom";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
 import { upgradeLabels } from "../../domain/upgrades";
 import {
+  SHIELD_HUD_COLOR,
+  SHIELD_HUD_SIZE_FRAC,
+  shieldCrackLook,
+  shieldHudIconX,
+} from "../../domain/shieldCrack";
+import {
   isSfxPlaying,
   playPelletCollectSfx,
   playSfx,
@@ -108,6 +114,8 @@ export class PlayScene extends Phaser.Scene {
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
+  private shieldIcons: Phaser.GameObjects.Rectangle[] = [];
+  private shieldCrackHalves: Phaser.GameObjects.Rectangle[] = [];
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
@@ -171,6 +179,8 @@ export class PlayScene extends Phaser.Scene {
     this.sideHud.add([this.timerText, this.upgradesText]);
     this.chrome.add([bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
+    this.shieldIcons = [];
+    this.shieldCrackHalves = [];
     this.quarterIcons = [];
     this.walletCoins = [];
     this.refreshQuartersHud();
@@ -363,6 +373,12 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "quarters":
         this.refreshQuartersHud();
+        break;
+      case "shields":
+        this.refreshShieldIcons();
+        break;
+      case "shieldCrack":
+        this.drawShieldCrack(event.index, event.progress);
         break;
       case "walletCoins":
         this.drawWalletCoins(event.spend);
@@ -595,6 +611,54 @@ export class PlayScene extends Phaser.Scene {
     }
     if (pulseNewIcon && this.lifeIcons.length > 0) {
       this.pulseHudIcon(this.lifeIcons[this.lifeIcons.length - 1]);
+    }
+    this.refreshShieldIcons();
+  }
+
+  private refreshShieldIcons(): void {
+    for (const icon of this.shieldIcons) {
+      icon.destroy();
+    }
+    this.shieldIcons = [];
+    const lifeSize = playerDisplaySize();
+    const size = lifeSize * SHIELD_HUD_SIZE_FRAC;
+    const y = PLAYFIELD_HEIGHT - 8 - lifeSize / 2;
+    const lifeIconCount = livesHudIconCount(this.sim.hud().lives);
+    for (let i = 0; i < this.sim.hud().shields; i += 1) {
+      const x = shieldHudIconX(lifeIconCount, i, lifeSize);
+      const icon = this.add.rectangle(x, y, size, size, SHIELD_HUD_COLOR);
+      this.sideHud.add(icon);
+      this.shieldIcons.push(icon);
+    }
+  }
+
+  private drawShieldCrack(index: number, progress: number): void {
+    const lifeSize = playerDisplaySize();
+    const size = lifeSize * SHIELD_HUD_SIZE_FRAC;
+    if (this.shieldCrackHalves.length === 0) {
+      this.shieldCrackHalves = [-1, 1].map((side) => {
+        const half = this.add.rectangle(0, 0, size / 2, size, SHIELD_HUD_COLOR);
+        half.setData("side", side);
+        this.sideHud.add(half);
+        return half;
+      });
+    }
+    if (progress >= 1) {
+      for (const half of this.shieldCrackHalves) {
+        half.destroy();
+      }
+      this.shieldCrackHalves = [];
+      return;
+    }
+    const look = shieldCrackLook(progress);
+    const cx = shieldHudIconX(livesHudIconCount(this.sim.hud().lives), index, lifeSize);
+    const y = PLAYFIELD_HEIGHT - 8 - lifeSize / 2 + look.dropY;
+    for (const half of this.shieldCrackHalves) {
+      const side = half.getData("side") as number;
+      half
+        .setPosition(cx + side * (size / 4 + look.offsetX), y)
+        .setRotation(side * look.rotation)
+        .setAlpha(look.alpha);
     }
   }
 

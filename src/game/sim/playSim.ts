@@ -142,7 +142,11 @@ import {
 import {
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
+  applyShieldBreakInvuln,
+  bankShields,
   clearUpgradeTimers,
+  shieldPelletsCap,
+  spendShield,
   deathsBountyCharge,
   defyDeathActive,
   confirmUpgradeChoice,
@@ -224,6 +228,7 @@ import { wallPassSolids } from "../systems/wallPassSolids";
 import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets, countPellets, noRequiredPelletsLeft } from "../systems/collectPellets";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
+import { shieldCrackProgress } from "../../domain/shieldCrack";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
@@ -297,6 +302,7 @@ export type PlayHud = {
   bonusCharge: number;
   upgrades: readonly UpgradeId[];
   collected: number;
+  shields: number;
 };
 
 export class PlaySim {
@@ -340,6 +346,7 @@ export class PlaySim {
   private death: DeathSequenceState | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
+  private shieldCrack: { index: number; elapsedMs: number } | null = null;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
   private lives: number;
   private afterLifeRelease = false;
@@ -492,6 +499,7 @@ export class PlaySim {
       bonusCharge: this.bonus.charge,
       upgrades: this.runUpgrades.owned,
       collected: this.lifetimeCollected,
+      shields: this.runUpgrades.shieldsBanked,
     };
   }
 
@@ -538,6 +546,7 @@ export class PlaySim {
         speedBurstMs: upgrades.speedBurstRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
+        shieldsBanked: upgrades.shieldsBanked,
         eatDragMs: this.eatDragMs,
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
@@ -551,6 +560,8 @@ export class PlaySim {
           ? null
           : reviveSplashProgress(this.reviveSplashElapsedMs),
       moneyTalksElapsedMs: this.moneyTalksSpend?.elapsedMs ?? null,
+      shieldCrackProgress:
+        this.shieldCrack === null ? null : shieldCrackProgress(this.shieldCrack.elapsedMs),
       levelTransition: this.levelTransitionRemainingMs > 0,
       runComplete: this.runCompleteElapsedMs !== null,
       runEndMenuArmed: this.runEndMenuArmed(),
@@ -609,6 +620,7 @@ export class PlaySim {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
     this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
+    this.tickShieldCrack(delta);
     if (this.awaitingStartingCard) {
       if (input.uiOpen) {
         return;
@@ -886,7 +898,11 @@ export class PlaySim {
         secondChompMs(this.runUpgrades.owned),
       );
     }
-    const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
+    const shielded = shieldPelletsCap(this.runUpgrades.owned) !== null;
+    if (shielded) {
+      this.bankShields(playerFrame.powerRemoved);
+    }
+    const powerEffects = applyPowerPelletEffects(this.runUpgrades, shielded ? 0 : powerRemoved);
     this.runUpgrades = powerEffects.state;
     if (powerEffects.freezeClosestMs !== null) {
       this.runUpgrades = freezeClosestGhost(
@@ -1019,6 +1035,9 @@ export class PlaySim {
     this.emitDraw();
 
     if (caught) {
+      if (this.breakShield()) {
+        return;
+      }
       if (hasUpgrade(this.runUpgrades.owned, "passiveDeathsHarvest")) {
         const harvested = harvestNearbyPellets(
           this.world,
@@ -1532,6 +1551,48 @@ export class PlaySim {
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): boolean {
+    if (shieldPelletsCap(this.runUpgrades.owned) !== null) {
+      this.bankShields(powerRemoved);
+      return false;
+    }
+    return this.firePowerPelletEffects(powerRemoved);
+  }
+
+  private bankShields(count: number): void {
+    const next = bankShields(this.runUpgrades, count);
+    if (next !== this.runUpgrades) {
+      this.runUpgrades = next;
+      this.emit({ type: "shields" });
+    }
+  }
+
+  private breakShield(): boolean {
+    const spent = spendShield(this.runUpgrades);
+    if (spent === null) {
+      return false;
+    }
+    this.runUpgrades = spent;
+    this.shieldCrack = { index: spent.shieldsBanked, elapsedMs: 0 };
+    this.emit({ type: "shields" });
+    this.emit({ type: "shieldCrack", index: spent.shieldsBanked, progress: 0 });
+    this.firePowerPelletEffects(1);
+    this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
+    return true;
+  }
+
+  private tickShieldCrack(delta: number): void {
+    if (this.shieldCrack === null) {
+      return;
+    }
+    this.shieldCrack.elapsedMs += delta;
+    const progress = shieldCrackProgress(this.shieldCrack.elapsedMs);
+    this.emit({ type: "shieldCrack", index: this.shieldCrack.index, progress });
+    if (progress >= 1) {
+      this.shieldCrack = null;
+    }
+  }
+
+  private firePowerPelletEffects(powerRemoved: number): boolean {
     const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
     this.runUpgrades = powerEffects.state;
     if (powerEffects.freezeClosestMs !== null) {
@@ -1633,7 +1694,8 @@ export class PlaySim {
     this.emit({ type: "newLevelModal" });
 
     this.levelIndex += 1;
-    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    this.runUpgrades = { ...clearUpgradeTimers(this.runUpgrades), shieldsBanked: 0 };
+    this.emit({ type: "shields" });
     this.eatDragMs = 0;
     this.turnTuning.reset();
 
