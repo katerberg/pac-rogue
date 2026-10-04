@@ -19,11 +19,11 @@ export function recallClosestGhostToHouse(
   afterLifeRelease = false,
   adds: GhostReleaseAdds = {},
   excludeEid: number | null = null,
-): void {
+): number | null {
   const players = query(world, [Player, Position]);
   const playerEid = players[0];
   if (playerEid === undefined) {
-    return;
+    return null;
   }
   const fromX = Position.x[playerEid] ?? 0;
   const fromY = Position.y[playerEid] ?? 0;
@@ -40,7 +40,7 @@ export function recallClosestGhostToHouse(
 
   const eid = pickClosestGhostEid(candidates, fromX, fromY, excludeEid);
   if (eid === null) {
-    return;
+    return null;
   }
 
   GhostPhase.value[eid] = GHOST_PHASE.inHouse;
@@ -53,4 +53,5 @@ export function recallClosestGhostToHouse(
   Ghost.decidedRow[eid] = Number.NaN;
 
   placeInHouseGhostsAtPredictedSeats(world, clock, collectedCount, afterLifeRelease, adds);
+  return eid;
 }

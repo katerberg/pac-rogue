@@ -18,13 +18,12 @@ import {
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
-import { PLAYER_SPEED } from "../../domain/playfield";
+import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
   frozenGhostEid,
-  GHOST_HARVEST_MS,
   grantUpgrade,
   INVULN_MS,
   SHIELD_BREAK_INVULN_MS,
@@ -684,8 +683,16 @@ describe("PlaySim", () => {
     expect(sim.snapshot().lives).toBe(2);
   });
 
+  it("regenerates the life before the upgrade offer is chosen", () => {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
+    (sim as unknown as { lives: number }).lives = 1;
+    const events = runUntil(sim, () => sim.offer() !== null, 90);
+    expect(events).toContainEqual({ type: "lives", pulse: true });
+    expect(sim.snapshot().lives).toBe(2);
+  });
+
   it("buys a life at the store", () => {
-    const sim = startSim({ store: 1, quarters: 10 });
+    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
     const before = sim.snapshot();
     teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
@@ -827,7 +834,13 @@ describe("PlaySim", () => {
     }
 
     it("the first store stocks only two lives and two abilities", () => {
-      const sim = startSim({ store: 1, quarters: 10, enableUpgrades: ["passiveGhostSlow"] });
+      const sim = startSim({
+        store: 1,
+        lives: 2,
+        maxLives: 4,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
       expect([...sim.snapshot().storeStock!].map((s) => s.split(":")[0]).sort()).toEqual([
         "life",
         "life",
@@ -837,9 +850,21 @@ describe("PlaySim", () => {
       expect(sim.snapshot().storeStock).toHaveLength(4);
     });
 
+    it("offers no life tile at the life cap and one when a single life below it", () => {
+      const lifeTiles = (lives: number) =>
+        startSim({ store: 1, level: 5, quarters: 10, lives, maxLives: 4 })
+          .snapshot()
+          .storeStock!.filter((s) => s === "life").length;
+      expect(lifeTiles(4)).toBe(0);
+      expect(lifeTiles(3)).toBe(1);
+      expect(lifeTiles(2)).toBe(2);
+    });
+
     it("a later store adds a trade tile and an enhancement tile", () => {
       const sim = startSim({
         store: 1,
+        lives: 2,
+        maxLives: 4,
         level: 5,
         quarters: 10,
         enableUpgrades: ["passiveGhostSlow"],
@@ -851,7 +876,7 @@ describe("PlaySim", () => {
     });
 
     it("buying a life removes that tile and the second life tile stays", () => {
-      const sim = startSim({ store: 1, level: 5, quarters: 10 });
+      const sim = startSim({ store: 1, lives: 2, maxLives: 4, level: 5, quarters: 10 });
       buy(sim, "life", 0);
       expect(sim.snapshot().storeStock!.filter((s) => s === "life")).toHaveLength(1);
     });
@@ -914,7 +939,7 @@ describe("PlaySim", () => {
   });
 
   it("stops a diagonal walk when it opens a store prompt", () => {
-    const sim = startSim({ store: 1, quarters: 10 });
+    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII)
       .filter((slot) => slot.kind === "life")
       .at(-1)!;
@@ -931,11 +956,25 @@ describe("PlaySim", () => {
     ["yes", true],
     ["no", false],
   ] as const)("store modal click %s %s a life", (choice, buys) => {
-    const sim = startSim({ store: 1, quarters: 10 });
+    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
     const before = sim.snapshot();
     teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
     runFrames(sim, 1);
+    runFrames(sim, 1, { storeChoice: choice });
+    expect(sim.snapshot().lives).toBe(before.lives + (buys ? 1 : 0));
+    expect(sim.snapshot().quarters < before.quarters).toBe(buys);
+  });
+
+  it.each([
+    ["yes", true],
+    ["no", false],
+  ] as const)("clicking a store tile opens its modal and %s picks it", (choice, buys) => {
+    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
+    const before = sim.snapshot();
+    const lifeIndex = sim.storeState()!.slots.findIndex((slot) => slot.kind === "life");
+    runFrames(sim, 1, { storeClick: lifeIndex });
+    expect(sim.storeState()?.activeSlot).toBe(lifeIndex);
     runFrames(sim, 1, { storeChoice: choice });
     expect(sim.snapshot().lives).toBe(before.lives + (buys ? 1 : 0));
     expect(sim.snapshot().quarters < before.quarters).toBe(buys);
@@ -1120,15 +1159,42 @@ describe("Ghost Harvester", () => {
     expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
 
-    // A wandering harvester re-arms the timer whenever it lands on a power pellet.
-    for (const power of query(sim.world, [PowerPellet])) {
-      removeEntity(sim.world, power);
-    }
     runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
     const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
     parkGhostOn(sim, next);
     runFrames(sim, 1);
     expect(query(sim.world, [Pellet]).includes(next)).toBe(true);
+  });
+
+  it("does not recolor ghosts while the timer runs", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletGhostHarvester"],
+    });
+    armWithPowerPellet(sim);
+    const events = runFrames(sim, 5);
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(draws.length).toBeGreaterThan(0);
+    expect(draws.every((options) => !("ghostHarvestActive" in options))).toBe(true);
+  });
+
+  it("leaves power pellets to the player", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletGhostHarvester"],
+    });
+    armWithPowerPellet(sim);
+    const player = playerEid(sim);
+    const target = [...query(sim.world, [PowerPellet, Position])].sort(
+      (a, b) =>
+        Math.hypot(Position.x[b]! - Position.x[player]!, Position.y[b]! - Position.y[player]!) -
+        Math.hypot(Position.x[a]! - Position.x[player]!, Position.y[a]! - Position.y[player]!),
+    )[0]!;
+    parkGhostOn(sim, target);
+    runFrames(sim, 1);
+    expect(query(sim.world, [PowerPellet]).includes(target)).toBe(true);
   });
 
   it("does nothing without the upgrade", () => {
@@ -1146,18 +1212,20 @@ describe("Ghost Harvester", () => {
       enableUpgrades: ["powerPelletGhostHarvester"],
     });
     armWithPowerPellet(sim);
-    const byPowerFirst = (eid: number) => (hasComponent(sim.world, eid, PowerPellet) ? 0 : 1);
     for (let i = 0; i < 2000 && sim.offer() === null; i += 1) {
-      const [next] = [...query(sim.world, [Pellet, Position])].sort(
-        (x, y) => byPowerFirst(x) - byPowerFirst(y),
-      );
-      if (next === undefined) {
+      const pellets = [...query(sim.world, [Pellet, Position])];
+      const power = pellets.find((eid) => hasComponent(sim.world, eid, PowerPellet));
+      const regular = pellets.find((eid) => !hasComponent(sim.world, eid, PowerPellet));
+      const rearm = sim.snapshot().timers.ghostHarvestMs < 500;
+      if (power !== undefined && (rearm || regular === undefined)) {
+        teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      } else if (regular !== undefined) {
+        parkGhostOn(sim, regular);
+      } else {
         break;
       }
-      parkGhostOn(sim, next);
       runFrames(sim, 1);
     }
-    expect(query(sim.world, [Pellet])).toHaveLength(0);
     drainToOffer(sim);
   });
 });
@@ -1211,13 +1279,28 @@ describe("PlaySim bonus bar", () => {
     expect(events).toContainEqual({ type: "quarters" });
   });
 
-  it("counts a power pellet once and ignores Triple Chomp's extra pellets", () => {
-    const sim = startCorridor({ enableUpgrades: ["powerPelletCollectThree"] });
+  it("counts a power pellet once and ignores Extra Hungry's extra pellets", () => {
+    const sim = startCorridor({ enableUpgrades: ["powerPelletExtraHungry"] });
     const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
     const collected = sim.snapshot().boardCollected;
     eatPelletAt(sim, power);
-    expect(sim.snapshot().boardCollected).toBe(collected + 4);
+    expect(sim.snapshot().boardCollected).toBe(collected + 6);
     expect(sim.snapshot().bonus.streak).toBe(1);
+  });
+
+  it("Extra Hungry eats the five farthest regular pellets", () => {
+    const sim = startCorridor({ enableUpgrades: ["powerPelletExtraHungry"] });
+    const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
+    const distFromPower = (eid: number) =>
+      Math.hypot(Position.x[eid]! - Position.x[power]!, Position.y[eid]! - Position.y[power]!);
+    const regulars = () =>
+      Array.from(query(sim.world, [Pellet, Position])).filter((eid) => eid !== power);
+    const expected = regulars()
+      .sort((a, b) => distFromPower(b) - distFromPower(a) || a - b)
+      .slice(0, 5);
+    eatPelletAt(sim, power);
+    const remaining = new Set(regulars());
+    expect(expected.filter((eid) => remaining.has(eid))).toEqual([]);
   });
 
   it("resets the streak on death and keeps the charge", () => {
@@ -1425,6 +1508,12 @@ describe("PlaySim fruit bonus charge", () => {
     const events = eatFruit(sim);
     expect(sim.snapshot()).toMatchObject({ quarters: 0, bonus: { charge: 150 } });
     expect(events).not.toContainEqual({ type: "quarters" });
+    expect(events).toContainEqual({ type: "fruitBonus" });
+  });
+
+  it("emits no fruitBonus when fruit pays Quarters instead of charging", () => {
+    const sim = startWithFruit({ quarters: 0, enableUpgrades: ["fruitQuarterBounty"] });
+    expect(eatFruit(sim)).not.toContainEqual({ type: "fruitBonus" });
   });
 
   it("pays a Quarter when fruit fills the bar", () => {
@@ -1675,6 +1764,17 @@ describe("PlaySim enhanced upgrades", () => {
     expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(15000);
   });
 
+  it("Overcharge extends the Defy Death window", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveDefyDeath", "passiveOvercharge"],
+    });
+    chomp(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(9800);
+    expect(sim.snapshot().timers.defyDeathMs).toBeLessThanOrEqual(10000);
+  });
+
   it("Warp Farthest+ shields for 2s and Overcharge does not extend it", () => {
     const sim = startSim({
       level: 2,
@@ -1743,6 +1843,47 @@ describe("PlaySim enhanced upgrades", () => {
     expect(sim.snapshot().timers.warpGlideMs).toBe(0);
     expect(afterEvents.some((e) => e.type === "draw" && e.options.playerWarpGlide)).toBe(false);
     expect({ x: Position.x[player], y: Position.y[player] }).not.toEqual(landed);
+  });
+
+  it("Speed Burst trails faded afterimages behind the player only while the burst runs", () => {
+    const trailsAfterChomp = (enableUpgrades: UpgradeId[]) => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades });
+      chomp(sim);
+      const player = playerEid(sim);
+      const at = { x: Position.x[player]!, y: Position.y[player]! };
+      const step = [
+        ["left", -1, 0],
+        ["right", 1, 0],
+        ["up", 0, -1],
+        ["down", 0, 1],
+      ] as const;
+      const [key] = step.find(([, dx, dy]) => canEnterDirection(at.x, at.y, dx, dy))!;
+      const draws = runFrames(sim, 8, { keys: held(key) }).flatMap((e) =>
+        e.type === "draw" ? [e.options] : [],
+      );
+      return { sim, key, trail: draws.at(-1)?.playerSpeedTrail ?? [] };
+    };
+
+    const { sim, key, trail } = trailsAfterChomp(["powerPelletSpeedBurst"]);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+    expect(trail).toHaveLength(2);
+    const player = playerEid(sim);
+    const head = { x: Position.x[player]!, y: Position.y[player]! };
+    const gap = (p: { x: number; y: number }) => Math.hypot(p.x - head.x, p.y - head.y);
+    expect(gap(trail[0]!)).toBeGreaterThan(0);
+    expect(gap(trail[1]!)).toBeGreaterThan(gap(trail[0]!));
+    expect(trail[1]!.alpha).toBeLessThan(trail[0]!.alpha);
+    expect(trail[0]!.alpha).toBeLessThan(1);
+
+    expect(trailsAfterChomp([]).trail).toEqual([]);
+
+    let frames = 0;
+    while (sim.snapshot().timers.speedBurstMs > 0 && frames < 1000) {
+      runFrames(sim, 1, { keys: held(key) });
+      frames += 1;
+    }
+    const after = runFrames(sim, 1, { keys: held(key) });
+    expect(after.some((e) => e.type === "draw" && e.options.playerSpeedTrail)).toBe(false);
   });
 
   function scatterBurstSetup(id: UpgradeId) {
@@ -1863,7 +2004,7 @@ describe("PlaySim enhanced upgrades", () => {
     expect(homeCount("powerPelletGhostRecallPlus")).toBe(2);
   });
 
-  it("Power Freeze and Ghost Recall never hit the same ghost", () => {
+  it("Freeze and Ghost Recall never hit the same ghost", () => {
     const sim = startSim({
       level: 2,
       maze: "maze1",
@@ -2314,23 +2455,6 @@ describe("Shield Pellets", () => {
     expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, invulnMs: 0 });
   });
 
-  it("ghost-harvested power pellets neither bank nor fire", () => {
-    const sim = startShieldSim(["passiveShieldPelletsPlus", "powerPelletGhostHarvester"]);
-    chompPowerPellet(sim);
-    ghostOntoPlayer(sim);
-    runFrames(sim, 1);
-    expect(sim.snapshot().timers.ghostHarvestMs).toBeGreaterThan(0);
-    const ghost = query(sim.world, [Ghost, Position])[0]!;
-    const power = query(sim.world, [PowerPellet, Position])[0]!;
-    teleportPlayer(sim, 0, 0);
-    Position.x[ghost] = Position.x[power]!;
-    Position.y[ghost] = Position.y[power]!;
-    runFrames(sim, 1);
-    expect(query(sim.world, [PowerPellet]).includes(power)).toBe(false);
-    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
-    expect(sim.snapshot().timers.ghostHarvestMs).toBeLessThan(GHOST_HARVEST_MS);
-  });
-
   it("empties the bank on level advance", () => {
     const sim = startShieldSim(["passiveShieldPelletsPlus"]);
     chompPowerPellets(sim, 2);
@@ -2346,5 +2470,27 @@ describe("Shield Pellets", () => {
     const sim = startShieldSim(["powerPelletInvuln"]);
     chompPowerPellet(sim);
     expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+  });
+});
+
+describe("PlaySim ghost catch overlap", () => {
+  function ghostAtReachFraction(fraction: number): PlaySim {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true });
+    ghostOntoPlayer(sim);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = Position.x[playerEid(sim)]! + fraction * (playerRadius() + ghostRadius());
+    return sim;
+  }
+
+  it("does not kill on a graze short of the 35% overlap bar", () => {
+    const sim = ghostAtReachFraction(0.72);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("kills once the ghost overlaps past the 35% overlap bar", () => {
+    const sim = ghostAtReachFraction(0.5);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
   });
 });

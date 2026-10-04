@@ -21,6 +21,7 @@ import {
   cellCenterY,
   getActiveLayout,
   isWalkable,
+  pelletCellCenters,
 } from "../../domain/maze";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
@@ -85,6 +86,7 @@ import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
+import { PowerPellet } from "../components/PowerPellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
@@ -116,6 +118,7 @@ import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { tickWarpGlide, type WarpGlide, warpGlideSprites } from "../../domain/warpGlide";
+import { speedTrailSprites, tickSpeedTrail, type SpeedTrail } from "../../domain/speedTrail";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   ghostWarpGlideSprites,
@@ -173,6 +176,7 @@ export class LearnSim {
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private warpGlide: WarpGlide | null = null;
+  private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private fruitRespawnRemainingMs: number | null = null;
   private remoteTransferCounter = 0;
@@ -329,6 +333,15 @@ export class LearnSim {
         playerFacing(this.world),
       ),
     );
+    const trailEid = query(this.world, [Player, Position])[0];
+    this.speedTrail =
+      trailEid !== undefined && speedBurstActive(this.learnUpgrades)
+        ? tickSpeedTrail(
+            this.speedTrail,
+            { x: Position.x[trailEid] ?? 0, y: Position.y[trailEid] ?? 0 },
+            delta,
+          )
+        : [];
 
     if (this.tunnelDashAnim !== null) {
       this.tunnelDashAnim = tickTunnelDashAnimation(
@@ -373,15 +386,15 @@ export class LearnSim {
     for (const pos of respawnTick.ready) {
       spawnPellet(this.world, pos.x, pos.y, "power");
     }
-    const triggeringPower =
-      shieldPelletsCap(this.learnUpgrades.owned) === null ? powerRemoved : playerFrame.powerRemoved;
-    if (triggeringPower > 0) {
-      this.resolvePowerPelletTrigger(triggeringPower);
+    if (powerRemoved > 0) {
+      this.resolvePowerPelletTrigger(powerRemoved);
     }
     this.applyRemoteTransferStep(removedEids.length);
     if (query(this.world, [Pellet]).length === 0) {
       this.spawnPellets();
       this.onBoardRefill();
+    } else {
+      this.regenPowerPellets();
     }
 
     this.tickFruit(delta);
@@ -394,7 +407,7 @@ export class LearnSim {
         skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
         playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
       });
-      if (caught) {
+      if (caught !== null) {
         this.resolveDemoCatch();
       }
     }
@@ -411,9 +424,11 @@ export class LearnSim {
         wallPassActive: wallPassActive(this.learnUpgrades),
         wallPassLoopActive:
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
-        ghostHarvestActive: ghostHarvestActive(this.learnUpgrades),
         dimGhostEid: this.helperBlinky,
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
+        playerSpeedTrail: speedBurstActive(this.learnUpgrades)
+          ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
+          : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       },
     });
@@ -586,13 +601,7 @@ export class LearnSim {
       );
     }
     if (powerEffects.collectExtraPellets > 0) {
-      this.releaseAll(
-        collectExtraPellets(
-          this.world,
-          powerEffects.collectExtraPellets,
-          getActiveLayout().playerSolids,
-        ),
-      );
+      this.releaseAll(collectExtraPellets(this.world, powerEffects.collectExtraPellets));
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
@@ -669,6 +678,17 @@ export class LearnSim {
   private countCollected(count: number): void {
     this.houseHoldEaten += count;
     this.boardCollected += count;
+  }
+
+  private regenPowerPellets(): void {
+    if (this.pendingPowerRespawns.length > 0 || query(this.world, [PowerPellet]).length > 0) {
+      return;
+    }
+    for (const cell of pelletCellCenters()) {
+      if (cell.kind === "power") {
+        spawnPellet(this.world, cell.x, cell.y, "power");
+      }
+    }
   }
 
   private onBoardRefill(): void {

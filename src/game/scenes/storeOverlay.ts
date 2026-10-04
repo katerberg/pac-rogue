@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { fitFontSize } from "../../domain/fitFontSize";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import { mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -38,6 +39,7 @@ import {
   MODAL_DEPTH,
   SCHOOL_COLORS,
   SCHOOL_GAP,
+  schoolBorderColor,
   setSchoolTag,
   stackTexts,
   wrapText,
@@ -48,6 +50,8 @@ const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
 const PANEL_TITLE_MAX_CHARS = 10;
+const PANEL_TITLE_MARGIN = 16;
+const MODAL_TITLE_MARGIN = 40;
 const PANEL_BODY_MAX_CHARS = 18;
 const TOAST_MS = 2000;
 const TILE_DOT_PX = 2;
@@ -126,6 +130,7 @@ function coinRowXs(count: number, maxWidth: number): number[] {
 export function createStoreOverlay(
   scene: Phaser.Scene,
   onChoose: (choice: "yes" | "no") => void,
+  onSelect: (index: number) => void,
 ): StoreOverlay {
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let hoveredSlot: number | null = null;
@@ -211,10 +216,15 @@ export function createStoreOverlay(
     if (prompt === null) {
       return;
     }
-    modalTitle.setText(wrapText(slotTitle(prompt.slot), LABEL_MAX_CHARS));
+    const title = slotTitle(prompt.slot);
+    modalTitle.setText(wrapText(title, LABEL_MAX_CHARS));
+    modalTitle.setFontSize(
+      fitFontSize(title, BUTTON_WIDTH - MODAL_TITLE_MARGIN, MENU_TITLE_FONT_SIZE),
+    );
     modalBody.setText(wrapText(slotBody(prompt.slot), DESCRIPTION_MAX_CHARS));
     modalCost.setText(`COST ${prompt.price}`);
     const school = slotSchool(prompt.slot);
+    modalBg.setStrokeStyle(4, schoolBorderColor(school));
     setSchoolTag(modalSchool, school);
     stackTexts(
       [
@@ -234,7 +244,11 @@ export function createStoreOverlay(
     if (content === null) {
       return;
     }
+    panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
     panelTitle.setText(wrapText(content.title, PANEL_TITLE_MAX_CHARS));
+    panelTitle.setFontSize(
+      fitFontSize(content.title, PANEL_WIDTH - PANEL_TITLE_MARGIN, HUD_FONT_SIZE),
+    );
     panelBody.setText(wrapText(content.body, PANEL_BODY_MAX_CHARS));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
@@ -257,8 +271,13 @@ export function createStoreOverlay(
     const y = (cellCenterY(slot.row) + cellCenterY(slot.row + 1)) / 2;
     const enhance = slot.kind === "enhance";
     const frame = scene.add.graphics();
+    const tileSchool = slotSchool(slot);
     frame.fillStyle(
-      enhance ? STORE_ENHANCE_BORDER_COLOR : mazeColorForIndex(loadMazeColorSettings().colorIndex),
+      enhance
+        ? STORE_ENHANCE_BORDER_COLOR
+        : tileSchool === null
+          ? mazeColorForIndex(loadMazeColorSettings().colorIndex)
+          : schoolBorderColor(tileSchool),
       1,
     );
     const edge = size / 2 - 1;
@@ -287,7 +306,8 @@ export function createStoreOverlay(
       placePixelText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
       glyph = text;
     }
-    const zone = scene.add.zone(0, 0, size, size).setInteractive();
+    const zone = scene.add.zone(0, 0, size, size).setInteractive({ useHandCursor: true });
+    zone.on("pointerdown", () => onSelect(index));
     zone.on("pointerover", () => {
       hoveredSlot = index;
     });

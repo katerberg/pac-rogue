@@ -7,6 +7,7 @@ import {
   bumpBarFx,
   createBarFx,
   fillBarFx,
+  slowFillBarFx,
   stepBarFx,
   type BarFxState,
 } from "../../domain/bonusBarFx";
@@ -27,7 +28,7 @@ import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { freshSeed } from "../../domain/runRandom";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
-import { upgradeLabels } from "../../domain/upgrades";
+import { upgradeLabels, type UpgradeId } from "../../domain/upgrades";
 import {
   HUD_ICON_GAP,
   HUD_ICON_LEFT_X,
@@ -49,6 +50,7 @@ import { PlaySim } from "../sim/playSim";
 import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
 import { saveRun } from "../storage/runHistoryStorage";
+import { newRunLogMeta, saveRunLog } from "../storage/runLogStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
@@ -104,6 +106,7 @@ export class PlayScene extends Phaser.Scene {
   private playRender!: PlayRender;
   private storeOverlay: StoreOverlay | null = null;
   private storeChoice: "yes" | "no" | null = null;
+  private storeClick: number | null = null;
   private chrome!: Phaser.GameObjects.Container;
   private sideHud!: Phaser.GameObjects.Container;
   private knobsPanel: KnobsPanel | null = null;
@@ -125,6 +128,8 @@ export class PlayScene extends Phaser.Scene {
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
+  private pausedAtMs: number | null = null;
+  private hiddenAtMs: number | null = null;
 
   constructor() {
     super("PlayScene");
@@ -139,7 +144,8 @@ export class PlayScene extends Phaser.Scene {
     stopLoopingSfx(this, "menuMusic");
     this.clearLevelBanner();
 
-    const { options, warnings } = parsePlayOptions(new URLSearchParams(location.search));
+    const params = new URLSearchParams(location.search);
+    const { options, warnings } = parsePlayOptions(params);
     for (const warning of warnings) {
       console.warn(warning);
     }
@@ -150,7 +156,10 @@ export class PlayScene extends Phaser.Scene {
       options.store = null;
     }
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
-    this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning);
+    const runLogMeta = newRunLogMeta(params);
+    this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning, runLogMeta);
+    this.pausedAtMs = null;
+    this.hiddenAtMs = null;
 
     this.upgradeChoiceModal?.destroy();
     this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.sim.random.stream("upgradeFx"));
@@ -204,7 +213,15 @@ export class PlayScene extends Phaser.Scene {
 
     this.applyEvents(this.sim.start(), 0);
 
+    const onVisibilityChange = (): void => this.trackHiddenTime();
+    const onPageHide = (): void => saveRunLog(this.sim.runLogRecord());
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+      this.applyEvents(this.sim.finishRun("quit"), 0);
       stopLoopingSfx(this, "gameplayMusic");
       stopLoopingSfx(this, "death");
       stopLoopingSfx(this, "revive");
@@ -276,10 +293,12 @@ export class PlayScene extends Phaser.Scene {
           readsStoreKeys &&
           this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
         storeChoice: readsStoreKeys ? this.storeChoice : null,
+        storeClick: readsStoreKeys ? this.storeClick : null,
       },
       delta,
     );
     this.storeChoice = null;
+    this.storeClick = null;
     this.applyEvents(events, delta);
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
@@ -289,6 +308,10 @@ export class PlayScene extends Phaser.Scene {
 
   public runSeed(): string {
     return this.sim.random.seed;
+  }
+
+  public ownedUpgrades(): readonly UpgradeId[] {
+    return this.sim.hud().upgrades;
   }
 
   public currentMusicId(): SfxId {
@@ -309,14 +332,30 @@ export class PlayScene extends Phaser.Scene {
   }
 
   public resumeFromPauseMenu(): void {
+    if (this.pausedAtMs !== null) {
+      this.sim.notePause(performance.now() - this.pausedAtMs);
+      this.pausedAtMs = null;
+    }
     this.sim.suppressInputUntilRelease();
     if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.rearmSelectionKeys();
     }
+    this.refreshUpgradesHud();
     this.scene.resume();
   }
 
+  private trackHiddenTime(): void {
+    if (document.hidden) {
+      this.hiddenAtMs = performance.now();
+    } else if (this.hiddenAtMs !== null) {
+      this.sim.noteHidden(performance.now() - this.hiddenAtMs);
+      this.hiddenAtMs = null;
+    }
+  }
+
   private pauseForMenu(): void {
+    this.pausedAtMs = performance.now();
+    this.upgradesText.setVisible(false);
     this.scene.pause();
     this.scene.launch("PauseScene");
   }
@@ -388,6 +427,9 @@ export class PlayScene extends Phaser.Scene {
       case "bonus":
         this.applyBonusFx(event.tier, event.filled);
         break;
+      case "fruitBonus":
+        this.barFx = slowFillBarFx(this.barFx);
+        break;
       case "upgrades":
         this.refreshUpgradesHud();
         break;
@@ -421,9 +463,15 @@ export class PlayScene extends Phaser.Scene {
         );
         break;
       case "storeOpened":
-        this.storeOverlay = createStoreOverlay(this, (choice) => {
-          this.storeChoice = choice;
-        });
+        this.storeOverlay = createStoreOverlay(
+          this,
+          (choice) => {
+            this.storeChoice = choice;
+          },
+          (index) => {
+            this.storeClick = index;
+          },
+        );
         this.storeOverlay.open(this.sim.storeState()!);
         break;
       case "storeSync":
@@ -454,6 +502,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "saveRun":
         saveRun(event.collected, event.remaining);
+        break;
+      case "runLog":
+        saveRunLog(event.record);
         break;
       case "seenGhosts": {
         const seen = loadSeenRecord();

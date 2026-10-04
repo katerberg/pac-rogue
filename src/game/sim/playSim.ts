@@ -1,5 +1,13 @@
 import type { RandomStream } from "../../domain/runRandom";
-import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
+import {
+  addComponent,
+  addEntity,
+  createWorld,
+  hasComponent,
+  query,
+  removeEntity,
+  type World,
+} from "bitecs";
 import {
   addBonusCharge,
   applyStreakPellets,
@@ -15,6 +23,7 @@ import {
 } from "../../domain/bonusBar";
 import {
   createTimeBonusDrain,
+  timeBonusPoints,
   tickTimeBonusDrain,
   type TimeBonusDrain,
 } from "../../domain/timeBonus";
@@ -41,6 +50,7 @@ import { reviveSplashProgress } from "../../domain/reviveSplash";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
 import {
   createFruitPresence,
+  fruitSpecForLevel,
   extendFruitLifetime,
   fruitStackCenter,
   markFruitCollected,
@@ -85,6 +95,7 @@ import {
   levelRegenAmount,
   livesAfterLevelRegen,
   livesRemainingAfterCatch,
+  storeLifeRoom,
 } from "../../domain/lives";
 import {
   activateAsciiLayout,
@@ -121,6 +132,8 @@ import {
   playerSpeed,
 } from "../../domain/playfield";
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
+import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
+import { elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
@@ -134,6 +147,7 @@ import {
   storeAfterLevel,
   storeExitAlpha,
   storeExitDirection,
+  storeSlotLabel,
   storeStep,
   type StoreExitDirection,
   type StorePurchase,
@@ -264,10 +278,12 @@ import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
   tickWarpGlide,
+  type Point,
   type WarpGlide,
   warpGlideRemainingMs,
   warpGlideSprites,
 } from "../../domain/warpGlide";
+import { speedTrailSprites, tickSpeedTrail, type SpeedTrail } from "../../domain/speedTrail";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
   ghostWarpGlideRemainingMs,
@@ -288,6 +304,7 @@ import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 import type { SimInput } from "./simInput";
+import { ghostName, RunRecorder } from "./runRecorder";
 
 export const LEVEL_TRANSITION_MS = 1000;
 export const RUN_END_MENU_ARM_MS = 1000;
@@ -337,6 +354,7 @@ export class PlaySim {
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private warpGlide: WarpGlide | null = null;
+  private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private midStoreLevel = 5;
@@ -355,11 +373,18 @@ export class PlaySim {
   private prevKeys: HeldKeys = NO_KEYS_HELD;
 
   private currentTuning: Tuning;
+  private readonly recorder: RunRecorder;
 
-  constructor(options: PlayOptions, seed: string, tuning: Tuning = DEFAULT_TUNING) {
+  constructor(
+    options: PlayOptions,
+    seed: string,
+    tuning: Tuning = DEFAULT_TUNING,
+    runLogMeta: RunLogMeta = TEST_RUN_LOG_META,
+  ) {
     this.options = options;
     this.currentTuning = tuning;
     this.random = createRunRandom(seed);
+    this.recorder = new RunRecorder(runLogMeta, seed, options.highScoresDisabled);
     this.quarters = options.quarters ?? 0;
     this.bonus = createBonusBar(options.bonus ?? 0);
     this.lives = options.lives ?? START_LIVES;
@@ -389,6 +414,7 @@ export class PlaySim {
     this.runUpgrades = createRunUpgrades(options.enableUpgrades);
     for (const id of this.runUpgrades.owned) {
       this.lives += grantLivesForUpgrade(id);
+      this.recorder.gained(id, "flag", this.levelIndex);
     }
     this.recordSeenUpgrades();
 
@@ -402,6 +428,7 @@ export class PlaySim {
         ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
         : null;
     if (startingUpgrade !== null) {
+      this.recorder.gained(startingUpgrade, "start", this.levelIndex);
       this.runUpgrades = grantUpgrade(this.runUpgrades, startingUpgrade);
       this.applyGrantEffects(startingUpgrade);
       this.recordSeenUpgrades();
@@ -410,7 +437,9 @@ export class PlaySim {
     if (options.lives === null) {
       this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
     }
+    this.recorder.livesStart(this.lives);
     this.emit({ type: "lives", pulse: false });
+    this.emitRunLog();
     if (startingUpgrade === null) {
       this.showLevelBanner();
     } else {
@@ -429,6 +458,7 @@ export class PlaySim {
 
   step(input: SimInput, delta: number): SimEvent[] {
     this.events = [];
+    this.recorder.advance(delta);
     this.tick(input, delta);
     this.prevKeys = input.keys;
     return this.takeEvents();
@@ -455,12 +485,16 @@ export class PlaySim {
     this.pendingChoice = null;
     if (chosen.kind === "quarters") {
       this.quarters += chosen.amount;
+      this.recorder.quarters("offer", chosen.amount);
+      this.recorder.picked("quarters");
       this.emit({ type: "quarters" });
       this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
     } else {
       const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
+      this.recorder.picked(chosen.id);
       this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id);
       if (!alreadyOwned) {
+        this.recorder.gained(chosen.id, "offer", this.levelIndex);
         this.applyGrantEffects(chosen.id);
         this.emit({ type: "lives", pulse: false });
         this.recordSeenUpgrades();
@@ -468,6 +502,26 @@ export class PlaySim {
     }
     this.emit({ type: "upgrades" });
     return this.takeEvents();
+  }
+
+  finishRun(outcome: "quit"): SimEvent[] {
+    if (!this.recorder.finish(outcome)) {
+      return [];
+    }
+    this.emitRunLog();
+    return this.takeEvents();
+  }
+
+  notePause(ms: number): void {
+    this.recorder.paused(ms);
+  }
+
+  noteHidden(ms: number): void {
+    this.recorder.hidden(ms);
+  }
+
+  runLogRecord() {
+    return this.recorder.snapshotRecord(this.runTotals());
   }
 
   suppressInputUntilRelease(): void {
@@ -511,8 +565,11 @@ export class PlaySim {
       wallPassLoopActive:
         wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.runUpgrades.owned),
       turnFlashRemainingMs: this.turnTuning.flashMs,
-      ghostHarvestActive: ghostHarvestActive(this.runUpgrades),
       playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
+      playerSpeedTrail:
+        this.death === null && speedBurstActive(this.runUpgrades)
+          ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
+          : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
     };
   }
@@ -567,25 +624,26 @@ export class PlaySim {
       runEndMenuArmed: this.runEndMenuArmed(),
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
-      storeStock:
-        this.store?.slots
-          .filter((slot) => !slot.sold)
-          .map((slot) =>
-            slot.kind === "upgrade"
-              ? slot.id
-              : slot.kind === "swap"
-                ? `swap:${slot.outgoingId}`
-                : slot.kind === "enhance"
-                  ? `enhance:${slot.targetId}`
-                  : "life",
-          ) ?? null,
+      storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
+      storePrompt:
+        this.store === null
+          ? null
+          : (promptView(this.store, this.quarters, this.runUpgrades.owned)?.kind ?? null),
       boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
+      runLog: {
+        id: this.recorder.record.id,
+        outcome: this.recorder.outcome,
+        levels: this.recorder.record.levels.length,
+        deaths: this.recorder.record.levels.reduce((sum, level) => sum + level.deaths.length, 0),
+        tunnelWraps: this.recorder.record.levels.reduce((sum, level) => sum + level.tunnelWraps, 0),
+      },
       ...worldSnapshot(this.world),
     };
   }
 
   private emitTurnSparks(bursts: readonly TurnSparksBurst[]): void {
     for (const burst of bursts) {
+      this.recorder.turnSpark(burst.kind);
       this.emit({ type: "turnSparks", ...burst });
     }
   }
@@ -601,10 +659,9 @@ export class PlaySim {
   }
 
   private teleportGhostsToCorners(holdMs: number): void {
-    this.ghostCornerWarps = mergeGhostCornerWarps(
-      this.ghostCornerWarps,
-      teleportGhostsToCorners(this.world, holdMs),
-    );
+    const warps = teleportGhostsToCorners(this.world, holdMs);
+    this.recorder.scatterBurst(warps.length);
+    this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, warps);
   }
 
   private emitDraw(overrides: Partial<SimRenderOptions> = {}): void {
@@ -683,6 +740,14 @@ export class PlaySim {
       return;
     }
 
+    this.recorder.playFrame(delta, {
+      freeze: frozenGhostEid(this.runUpgrades) !== null,
+      invuln: playerIsInvulnerable(this.runUpgrades),
+      wallPass: wallPassActive(this.runUpgrades),
+      speedBurst: speedBurstActive(this.runUpgrades),
+      ghostHarvest: ghostHarvestActive(this.runUpgrades),
+    });
+    this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const turnTuningOpts =
       !diagonalAllowed && hasUpgrade(this.runUpgrades.owned, "passiveTurnTuning")
@@ -787,7 +852,10 @@ export class PlaySim {
       bossGhostBlock(this.world);
     }
     const facingBeforeMove = playerFacing(this.world);
+    const positionBeforeMove = this.playerPosition();
     movement(this.world, delta, playerSolidsOverride, false, playerPreTurnPx(this.currentTuning));
+    this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
+    this.tickSpeedTrail(delta);
     this.emitTurnSparks(
       this.turnTuning.afterMove(
         this.world,
@@ -806,6 +874,8 @@ export class PlaySim {
     } else if (hasUpgrade(this.runUpgrades.owned, "passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
+        this.recorder.tunnelDash();
+        this.recorder.powerPellets("tunnelDash", dash.sweptPowerRemoved);
         if (dash.sweptPelletEids.length > 0) {
           for (const eid of dash.sweptPelletEids) {
             this.releaseDrawable(eid);
@@ -898,26 +968,16 @@ export class PlaySim {
         secondChompMs(this.runUpgrades.owned),
       );
     }
+    this.recorder.powerPellets("player", playerFrame.powerRemoved);
+    this.recorder.powerPellets("ghostHarvest", ghostFrame.powerRemoved);
     const shielded = shieldPelletsCap(this.runUpgrades.owned) !== null;
     if (shielded) {
-      this.bankShields(playerFrame.powerRemoved);
+      this.bankShields(powerRemoved);
     }
-    const powerEffects = applyPowerPelletEffects(this.runUpgrades, shielded ? 0 : powerRemoved);
-    this.runUpgrades = powerEffects.state;
-    if (powerEffects.freezeClosestMs !== null) {
-      this.runUpgrades = freezeClosestGhost(
-        this.world,
-        this.runUpgrades,
-        powerEffects.freezeClosestMs,
-      );
-    }
+    const powerEffects = this.applyPowerEffects(shielded ? 0 : powerRemoved);
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(
-        this.world,
-        powerEffects.collectExtraPellets,
-        playerSolidsOverride ?? getActiveLayout().playerSolids,
-      );
+      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
       for (const eid of bonusEids) {
         this.releaseDrawable(eid);
       }
@@ -937,6 +997,7 @@ export class PlaySim {
     if (totalRemoved > 0) {
       this.lifetimeCollected += totalRemoved;
     }
+    this.notePellets();
 
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
@@ -947,20 +1008,22 @@ export class PlaySim {
       ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, this.currentTuning);
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
-      recallClosestGhostToHouse(
-        this.world,
-        this.ghostReleaseClock,
-        this.pelletProgress.boardCollected,
-        this.afterLifeRelease,
-        releaseAdds,
-        frozenGhostEid(this.runUpgrades),
+      this.recordRecall(
+        recallClosestGhostToHouse(
+          this.world,
+          this.ghostReleaseClock,
+          this.pelletProgress.boardCollected,
+          this.afterLifeRelease,
+          releaseAdds,
+          frozenGhostEid(this.runUpgrades),
+        ),
       );
     }
     if (powerEffects.cornerTeleportHoldMs !== null) {
       this.teleportGhostsToCorners(powerEffects.cornerTeleportHoldMs);
     }
     if (powerEffects.warpPlayerFarthest) {
-      this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
+      this.warpPlayer();
     }
 
     const stacksFruit = fruitStacksSideBySide(this.runUpgrades.owned);
@@ -987,15 +1050,18 @@ export class PlaySim {
     }
     if (removedFruitEids.length > 0) {
       this.emitMunch();
+      this.recorder.fruitEaten(removedFruitEids.length);
       const fruitQuarters = fruitQuartersPerFruit(this.runUpgrades.owned);
       if (fruitQuarters !== null) {
         this.quarters += removedFruitEids.length * fruitQuarters;
+        this.recorder.quarters("fruit", removedFruitEids.length * fruitQuarters);
         this.emit({ type: "quarters" });
       } else {
         const fruitCharge = addBonusCharge(
           this.bonus,
           removedFruitEids.length * FRUIT_BONUS_CHARGE,
         );
+        this.emit({ type: "fruitBonus" });
         this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
       }
       this.fruitPresence = markFruitCollected(
@@ -1005,11 +1071,11 @@ export class PlaySim {
       if (fruitPowerConvertsPellet(this.runUpgrades.owned)) {
         this.applyPelletSurge(1, "fruitPowerConvert");
       }
-      if (
-        hasUpgrade(this.runUpgrades.owned, "fruitPowerPellet") &&
-        this.resolvePowerPelletTrigger(1)
-      ) {
-        return;
+      if (hasUpgrade(this.runUpgrades.owned, "fruitPowerPellet")) {
+        this.recorder.powerPellets("fruit", 1);
+        if (this.resolvePowerPelletTrigger(1)) {
+          return;
+        }
       }
     } else if (fruitTick.action === "despawn") {
       this.clearFruitEntities();
@@ -1027,22 +1093,30 @@ export class PlaySim {
 
     const frozenEid = frozenGhostEid(this.runUpgrades);
     const playerInvulnerable = this.options.godMode || playerIsInvulnerable(this.runUpgrades);
-    const caught = catchPlayer(this.world, {
+    const caughtBy = catchPlayer(this.world, {
       frozenGhostEid: frozenEid,
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
       playerInvulnerable,
     });
     this.emitDraw();
 
-    if (caught) {
+    if (caughtBy === null) {
+      this.recorder.nearMisses(this.world, getActiveLayout().tileSize);
+    } else {
       if (this.breakShield()) {
         return;
       }
+      const deathCell = playerCell(this.world);
+      const ghostsOut = query(this.world, [Ghost, GhostPhase]).filter(
+        (eid) => GhostPhase.value[eid] !== GHOST_PHASE.inHouse,
+      ).length;
+      let harvestedCount = 0;
       if (hasUpgrade(this.runUpgrades.owned, "passiveDeathsHarvest")) {
         const harvested = harvestNearbyPellets(
           this.world,
           deathsHarvestRadiusTiles(this.runUpgrades.owned),
         );
+        harvestedCount = harvested.length;
         if (harvested.length > 0) {
           for (const eid of harvested) {
             this.releaseDrawable(eid);
@@ -1084,11 +1158,27 @@ export class PlaySim {
           : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
       this.emit({ type: "lives", pulse: false });
-      if (!result.gameOver) {
-        this.payDeathsBounty();
-      }
+      const bountyPaid = !result.gameOver && this.payDeathsBounty();
+      this.recorder.death({
+        col: deathCell?.col ?? -1,
+        row: deathCell?.row ?? -1,
+        ghost: ghostName(this.world, caughtBy),
+        bossGhost: hasComponent(this.world, caughtBy, BossGhost),
+        countdown: this.clock.remaining,
+        pelletsLeft: this.pelletProgress.pelletsRemaining,
+        ghostMode: nameOf(GHOST_AI_MODE, this.previousEffectiveGhostMode),
+        elroyTier: elroyTier(this.pelletProgress.pelletsRemaining, this.currentTuning),
+        ghostsOut,
+        livesAfter: this.lives,
+        defied,
+        moneyTalks: boughtFor !== null,
+        bountyPaid,
+        harvested: harvestedCount,
+      });
       if (result.gameOver) {
         this.saveRun();
+        this.recorder.finish("death");
+        this.emitRunLog();
       }
       this.death = beginDeathSequence(result.gameOver);
     }
@@ -1103,10 +1193,12 @@ export class PlaySim {
     this.lastPlayerCell = cell;
   }
 
-  private applyBonus(result: BonusResult): void {
+  private applyBonus(result: BonusResult, source: QuarterSource = "bonusBar"): void {
     this.bonus = result.bar;
+    this.recorder.bonus(result.tier, result.filled);
     if (result.filled > 0) {
       this.quarters += result.filled;
+      this.recorder.quarters(source, result.filled);
       this.emit({ type: "quarters" });
     }
     if (result.tier > 0 || result.filled > 0) {
@@ -1114,11 +1206,12 @@ export class PlaySim {
     }
   }
 
-  private payDeathsBounty(): void {
+  private payDeathsBounty(): boolean {
     const charge = deathsBountyCharge(this.runUpgrades.owned, this.deathsThisBoard);
     this.deathsThisBoard += 1;
     const charged = addBonusCharge(this.bonus, charge);
-    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled });
+    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "deathsBounty");
+    return charge > 0;
   }
 
   private resetStreak(): void {
@@ -1164,6 +1257,7 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.speedTrail = [];
     this.ghostCornerWarps = [];
     this.resetStreak();
     this.emit({ type: "resetBoard" });
@@ -1176,7 +1270,13 @@ export class PlaySim {
       this.runUpgrades.owned,
       this.random.stream("storeStock", this.levelIndex),
       this.levelIndex === STORE_FIRST_LEVEL,
+      storeLifeRoom(
+        this.lives,
+        lifeFloorBonus(this.runUpgrades.owned),
+        this.options.maxLives ?? DEFAULT_MAX_LIVES,
+      ),
     );
+    this.recorder.storeOpened(this.levelIndex, this.quarters, this.store.slots.map(storeSlotLabel));
     this.emit({ type: "storeOpened" });
     this.timerVisible = false;
     this.emit({ type: "timerVisible", visible: false });
@@ -1228,6 +1328,8 @@ export class PlaySim {
         toggle: confirming && input.storeToggle,
         enter: confirming && input.storeConfirm,
         pick: confirming ? (input.storeChoice ?? null) : null,
+        click: confirming ? null : (input.storeClick ?? null),
+        moving: anyKeyHeld(input.keys),
         quarters: this.quarters,
         owned: this.runUpgrades.owned,
       },
@@ -1266,6 +1368,7 @@ export class PlaySim {
   }
 
   private applyStorePurchase(purchase: StorePurchase): void {
+    this.recorder.storePurchase(purchase);
     this.quarters -= purchase.price;
     this.emit({ type: "quarters" });
     this.emitMunch();
@@ -1277,13 +1380,17 @@ export class PlaySim {
     let id: UpgradeId;
     if (purchase.kind === "enhance") {
       id = enhancedIdOf(purchase.targetId);
+      this.recorder.lost(purchase.targetId, this.levelIndex);
+      this.recorder.gained(id, "enhance", this.levelIndex);
       this.runUpgrades = enhanceUpgrade(this.runUpgrades, purchase.targetId);
       this.lives += enhanceGrantLives(purchase.targetId);
     } else {
       if (purchase.kind === "swap") {
+        this.recorder.lost(purchase.outgoingId, this.levelIndex);
         this.runUpgrades = revokeUpgrade(this.runUpgrades, purchase.outgoingId);
       }
       id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
+      this.recorder.gained(id, "store", this.levelIndex);
       this.runUpgrades = grantUpgrade(this.runUpgrades, id);
       this.applyGrantEffects(id);
     }
@@ -1295,6 +1402,8 @@ export class PlaySim {
 
   private exitStore(): void {
     this.closeStore();
+    this.recorder.storeClosed(this.quarters);
+    this.emitRunLog();
     if (this.levelIndex >= MAX_LEVEL) {
       this.beginRunComplete();
     } else {
@@ -1324,8 +1433,10 @@ export class PlaySim {
     this.deathsThisBoard = 0;
     const boss = bossForLevel(this.levelIndex);
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
+    let layoutLabel = "maze2";
     if (selection.kind === "static") {
       activateLayout(selection.id);
+      layoutLabel = selection.id;
     } else {
       const generated = this.generateBoard(selection.seed, boss);
       if (generated) {
@@ -1334,6 +1445,7 @@ export class PlaySim {
             ? invertMazeAscii(generated.ascii)
             : generated.ascii;
           activateAsciiLayout(ascii);
+          layoutLabel = `gen:${generated.seedUsed}`;
         } catch (error) {
           console.warn(
             `maze activate failed for seed ${generated.seedUsed}; falling back to maze2`,
@@ -1367,6 +1479,14 @@ export class PlaySim {
     }
 
     this.clock = createRunClock(this.currentTuning);
+    this.recorder.beginLevel({
+      level: this.levelIndex,
+      layout: layoutLabel,
+      inverted: selection.kind !== "static" && isInvertedMazeLevel(this.levelIndex),
+      boss: boss !== null,
+      countdownStart: this.clock.remaining,
+      livesStart: this.lives,
+    });
     this.ghostReleaseClock = createGhostReleaseClock(this.levelIndex);
     this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
@@ -1376,6 +1496,7 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.speedTrail = [];
     this.ghostCornerWarps = [];
     this.afterLifeRelease = false;
     placeInHouseGhostsAtPredictedSeats(
@@ -1484,6 +1605,11 @@ export class PlaySim {
   }
 
   private triggerLevelClear(): void {
+    this.notePellets();
+    this.recorder.levelCleared(
+      this.clock.remaining,
+      bossForLevel(this.levelIndex) === null ? timeBonusPoints(this.clock.remaining) : 0,
+    );
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "sfx", id: "levelComplete" });
     this.emitDraw();
@@ -1512,13 +1638,15 @@ export class PlaySim {
   }
 
   private beginLevelTransition(): void {
-    const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
-    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
+    this.emitRunLog();
   }
 
   private finishLevelClear(): void {
+    const livesBeforeRegen = this.lives;
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
+    this.recorder.livesRegenerated(livesBeforeRegen, this.lives);
+    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
       this.beginLevelTransition();
       return;
@@ -1531,6 +1659,7 @@ export class PlaySim {
     this.pendingLevelClear = true;
     this.awaitingChoice = true;
     this.pendingChoice = offer;
+    this.recorder.offered(offer);
     this.emit({ type: "upgradeOffer", offer });
   }
 
@@ -1593,20 +1722,9 @@ export class PlaySim {
   }
 
   private firePowerPelletEffects(powerRemoved: number): boolean {
-    const powerEffects = applyPowerPelletEffects(this.runUpgrades, powerRemoved);
-    this.runUpgrades = powerEffects.state;
-    if (powerEffects.freezeClosestMs !== null) {
-      this.runUpgrades = freezeClosestGhost(
-        this.world,
-        this.runUpgrades,
-        powerEffects.freezeClosestMs,
-      );
-    }
+    const powerEffects = this.applyPowerEffects(powerRemoved);
     if (powerEffects.collectExtraPellets > 0) {
-      const solids = wallPassActive(this.runUpgrades)
-        ? wallPassSolids(this.runUpgrades.owned)
-        : getActiveLayout().playerSolids;
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets, solids);
+      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
       for (const eid of bonusEids) {
         this.releaseDrawable(eid);
       }
@@ -1626,23 +1744,25 @@ export class PlaySim {
       }
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
-      recallClosestGhostToHouse(
-        this.world,
-        this.ghostReleaseClock,
-        this.pelletProgress.boardCollected,
-        this.afterLifeRelease,
-        {
-          delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
-          clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
-        },
-        frozenGhostEid(this.runUpgrades),
+      this.recordRecall(
+        recallClosestGhostToHouse(
+          this.world,
+          this.ghostReleaseClock,
+          this.pelletProgress.boardCollected,
+          this.afterLifeRelease,
+          {
+            delayAddMs: ghostHouseReleaseDelayAddMs(this.runUpgrades.owned),
+            clydePelletAdd: ghostHouseClydePelletAdd(this.runUpgrades.owned),
+          },
+          frozenGhostEid(this.runUpgrades),
+        ),
       );
     }
     if (powerEffects.cornerTeleportHoldMs !== null) {
       this.teleportGhostsToCorners(powerEffects.cornerTeleportHoldMs);
     }
     if (powerEffects.warpPlayerFarthest) {
-      this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
+      this.warpPlayer();
     }
     return false;
   }
@@ -1685,6 +1805,7 @@ export class PlaySim {
       if (eid === null) {
         return;
       }
+      this.recorder.activation("pelletSurge");
       this.emitDraw();
       this.emit({ type: "bouncePowerPellet", eid });
     }
@@ -1795,6 +1916,109 @@ export class PlaySim {
     this.emit({ type: "endText", title: "RUN COMPLETE" });
     this.runCompleteElapsedMs = 0;
     this.saveRun();
+    this.recorder.finish("complete");
+    this.emitRunLog();
+  }
+
+  private applyPowerEffects(powerRemoved: number) {
+    const before = this.runUpgrades;
+    const powerEffects = applyPowerPelletEffects(before, powerRemoved);
+    this.runUpgrades = powerEffects.state;
+    if (powerEffects.freezeClosestMs !== null) {
+      this.runUpgrades = freezeClosestGhost(
+        this.world,
+        this.runUpgrades,
+        powerEffects.freezeClosestMs,
+      );
+      this.recorder.activation("freeze");
+      this.recorder.target("freeze", ghostName(this.world, frozenGhostEid(this.runUpgrades)));
+    }
+    const after = this.runUpgrades;
+    const timers = [
+      ["wallPass", before.wallPassRemainingMs, after.wallPassRemainingMs],
+      ["invuln", before.invulnRemainingMs, after.invulnRemainingMs],
+      ["speedBurst", before.speedBurstRemainingMs, after.speedBurstRemainingMs],
+      ["ghostHarvest", before.ghostHarvestRemainingMs, after.ghostHarvestRemainingMs],
+      ["defyDeath", before.defyDeathRemainingMs, after.defyDeathRemainingMs],
+    ] as const;
+    for (const [kind, was, now] of timers) {
+      if (now > was) {
+        this.recorder.activation(kind);
+      }
+    }
+    if (powerEffects.collectExtraPellets > 0) {
+      this.recorder.activation("collectExtra");
+    }
+    return powerEffects;
+  }
+
+  private recordRecall(eid: number | null): void {
+    if (eid !== null) {
+      this.recorder.activation("recall");
+      this.recorder.target("recall", ghostName(this.world, eid));
+    }
+  }
+
+  private warpPlayer(): void {
+    const from = this.playerPosition();
+    this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
+    if (from !== null) {
+      this.recorder.warp(from, this.playerPosition() ?? from, getActiveLayout().tileSize);
+    }
+  }
+
+  private tickSpeedTrail(delta: number): void {
+    const at = this.playerPosition();
+    this.speedTrail =
+      at !== null && speedBurstActive(this.runUpgrades)
+        ? tickSpeedTrail(this.speedTrail, at, delta)
+        : [];
+  }
+
+  private playerPosition(): Point | null {
+    const eid = query(this.world, [Player, Position])[0];
+    return eid === undefined ? null : { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+  }
+
+  private notePlayerMovement(
+    before: Point | null,
+    hasInput: boolean,
+    warping: boolean,
+    delta: number,
+  ): void {
+    const after = this.playerPosition();
+    if (before === null || after === null) {
+      return;
+    }
+    const { cols, rows, tileSize } = getActiveLayout();
+    this.recorder.movement(
+      before,
+      after,
+      { width: cols * tileSize, height: rows * tileSize, tileSize },
+      hasInput,
+      warping,
+      delta,
+    );
+  }
+
+  private notePellets(): void {
+    this.recorder.pellets(
+      this.pelletProgress.boardCollected,
+      this.pelletProgress.pelletsRemaining,
+      this.clock.remaining,
+    );
+  }
+
+  private runTotals() {
+    return {
+      pelletsCollected: this.lifetimeCollected,
+      quarters: this.quarters,
+      lives: this.lives,
+    };
+  }
+
+  private emitRunLog(): void {
+    this.emit({ type: "runLog", record: this.recorder.snapshotRecord(this.runTotals()) });
   }
 
   private saveRun(): void {
@@ -1810,6 +2034,7 @@ export class PlaySim {
   private resetAfterLifeLoss(): void {
     this.tunnelDashAnim = null;
     this.warpGlide = null;
+    this.speedTrail = [];
     this.ghostCornerWarps = [];
     this.resetStreak();
     this.remoteTransferCounter = 0;
@@ -1888,14 +2113,17 @@ export class PlaySim {
   }
 
   private spawnFruitEntity(stack: boolean): void {
+    const kind = fruitSpecForLevel(this.levelIndex).kind;
     if (!stack) {
       this.clearFruitEntities();
       spawnFruit(this.world);
+      this.recorder.fruitSpawned(kind);
       return;
     }
     const center = fruitStackCenter(fruitPositions(this.world));
     if (center !== null) {
       spawnFruit(this.world, center);
+      this.recorder.fruitSpawned(kind);
     } else if (fruitPositions(this.world).length === 0) {
       this.fruitPresence = markFruitCollected(this.fruitPresence);
     }

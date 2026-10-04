@@ -119,6 +119,16 @@ describe("createStoreState", () => {
     expect(first.slots.map((s) => s.kind).sort()).toEqual(["life", "life", "upgrade", "upgrade"]);
   });
 
+  it("offers only as many life tiles as there is room under the life cap", () => {
+    const lifeKinds = (room: number) =>
+      createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, false, room).slots.filter(
+        (s) => s.kind === "life",
+      );
+    expect(lifeKinds(0)).toHaveLength(0);
+    expect(lifeKinds(1)).toHaveLength(1);
+    expect(lifeKinds(2)).toHaveLength(2);
+  });
+
   it("omits the enhance slot when nothing owned is unenhanced", () => {
     expect(stateWith([]).slots.some((s) => s.kind === "enhance")).toBe(false);
     expect(stateWith(["passivePlayerSpeedUpPlus"]).slots.some((s) => s.kind === "enhance")).toBe(
@@ -157,6 +167,52 @@ describe("storeStep", () => {
     state = storeStep(state, input(lifeCell), zeroRng).state;
     expect(promptView(state, 10, [])?.kind).toBe("confirm");
     expect(state.confirmYes).toBe(false);
+  });
+
+  it("opens a clicked slot's prompt away from it, and buys on YES", () => {
+    const away = { col: 13, row: 16 };
+    const state = stateWith([]);
+    const idx = state.slots.findIndex((slot) => slot.kind === "upgrade");
+    let step = storeStep(state, input({ ...away, click: idx }), zeroRng);
+    expect(promptView(step.state, 10, [])?.slot).toBe(state.slots[idx]);
+    step = storeStep(step.state, input({ ...away, moving: true }), zeroRng);
+    expect(promptView(step.state, 10, [])?.kind).toBe("confirm");
+    step = storeStep(step.state, input({ ...away, pick: "yes" }), zeroRng);
+    expect(step.purchase).toMatchObject({ kind: "upgrade" });
+    expect(step.state.clickedSlot).toBeNull();
+  });
+
+  it("closes a clicked slot's prompt on NO, and drops a clicked unaffordable one on movement", () => {
+    const away = { col: 13, row: 16 };
+    const state = stateWith([]);
+    const idx = state.slots.findIndex((slot) => slot.kind === "upgrade");
+    let step = storeStep(state, input({ ...away, click: idx }), zeroRng);
+    step = storeStep(step.state, input({ ...away, pick: "no" }), zeroRng);
+    expect(promptView(step.state, 10, [])).toBeNull();
+    expect(step.state.clickedSlot).toBeNull();
+
+    step = storeStep(state, input({ ...away, click: idx, quarters: 0 }), zeroRng);
+    expect(promptView(step.state, 0, [])?.kind).toBe("needQuarters");
+    step = storeStep(step.state, input({ ...away, quarters: 0, moving: true }), zeroRng);
+    expect(promptView(step.state, 0, [])).toBeNull();
+  });
+
+  it("keeps the standing slot dismissed after a click elsewhere, and a click reopens it", () => {
+    const state = stateWith([]);
+    const upgradeIdx = state.slots.findIndex((slot) => slot.kind === "upgrade");
+    const lifeIdx = state.slots.findIndex((slot) => slot.kind === "life");
+    let step = storeStep(state, input(lifeCell), zeroRng);
+    step = storeStep(step.state, input({ ...lifeCell, pick: "no" }), zeroRng);
+    expect(promptView(step.state, 10, [])).toBeNull();
+
+    let other = storeStep(step.state, input({ ...lifeCell, click: upgradeIdx }), zeroRng);
+    other = storeStep(other.state, input({ ...lifeCell, pick: "no" }), zeroRng);
+    expect(promptView(other.state, 10, [])).toBeNull();
+    other = storeStep(other.state, input(lifeCell), zeroRng);
+    expect(promptView(other.state, 10, [])).toBeNull();
+
+    const reopened = storeStep(step.state, input({ ...lifeCell, click: lifeIdx }), zeroRng);
+    expect(promptView(reopened.state, 10, [])?.kind).toBe("confirm");
   });
 
   it("toggles between YES and NO", () => {

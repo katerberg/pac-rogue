@@ -53,6 +53,10 @@ export const SCHOOL_COLORS: Record<UpgradeSchool, number> = {
   neutral: 0xb0b0b0,
 };
 
+export function schoolBorderColor(school: UpgradeSchool | null | undefined): number {
+  return school === null || school === undefined ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
+}
+
 const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const BUTTON_STROKE_REST = 4;
 const BUTTON_STROKE_PEAK = 8;
@@ -121,6 +125,7 @@ function copyForOption(option: UpgradeChoiceOption): CardCopy {
 export type UpgradeCardVisual = {
   root: Phaser.GameObjects.Container;
   bg: Phaser.GameObjects.Rectangle;
+  borderColor: number;
   label: Phaser.GameObjects.BitmapText;
   school: Phaser.GameObjects.BitmapText | null;
   description: Phaser.GameObjects.BitmapText;
@@ -136,9 +141,10 @@ export function buildUpgradeCardVisual(
 ): UpgradeCardVisual {
   const targetLabel = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
   const targetDescription = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
+  const borderColor = schoolBorderColor(copy.school);
   const bg = scene.add
     .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
-    .setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
+    .setStrokeStyle(BUTTON_STROKE_REST, borderColor);
   const label = addPixelText(scene, 0, 0, targetLabel, CHOICE_LABEL_FONT_SIZE, TEXT_COLOR_YELLOW);
   const description = addPixelText(
     scene,
@@ -155,7 +161,7 @@ export function buildUpgradeCardVisual(
     y,
     school === null ? [bg, label, description] : [bg, label, school, description],
   );
-  return { root, bg, label, school, description, targetLabel, targetDescription };
+  return { root, bg, borderColor, label, school, description, targetLabel, targetDescription };
 }
 
 type ButtonView = {
@@ -163,6 +169,7 @@ type ButtonView = {
   option: UpgradeChoiceOption;
   root: Phaser.GameObjects.Container;
   bg: Phaser.GameObjects.Rectangle;
+  borderColor: number;
   label: Phaser.GameObjects.BitmapText;
   school: Phaser.GameObjects.BitmapText | null;
   description: Phaser.GameObjects.BitmapText;
@@ -246,7 +253,7 @@ export function createUpgradeChoiceModal(
   const resetConfirmVisuals = (): void => {
     for (const button of buttons) {
       button.root.setScale(1);
-      button.bg.setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
+      button.bg.setStrokeStyle(BUTTON_STROKE_REST, button.borderColor);
     }
   };
 
@@ -259,7 +266,7 @@ export function createUpgradeChoiceModal(
     const triangle = beatProgress < 0.5 ? beatProgress * 2 : (1 - beatProgress) * 2;
     selected.root.setScale(1 + (BUTTON_SCALE_PEAK - 1) * triangle);
     const strokeWidth = BUTTON_STROKE_REST + (BUTTON_STROKE_PEAK - BUTTON_STROKE_REST) * triangle;
-    selected.bg.setStrokeStyle(strokeWidth, TEXT_COLOR_YELLOW);
+    selected.bg.setStrokeStyle(strokeWidth, selected.borderColor);
 
     for (let i = 0; i < buttons.length; i += 1) {
       if (i !== selectedIndex) {
@@ -313,7 +320,7 @@ export function createUpgradeChoiceModal(
       hint.setVisible(true);
     }
     for (const button of buttons) {
-      button.bg.setStrokeStyle(BUTTON_STROKE_REST, TEXT_COLOR_YELLOW);
+      button.bg.setStrokeStyle(BUTTON_STROKE_REST, button.borderColor);
     }
   };
 
@@ -348,6 +355,7 @@ export function createUpgradeChoiceModal(
         option,
         root: visual.root,
         bg: visual.bg,
+        borderColor: visual.borderColor,
         label: visual.label,
         school: visual.school,
         description: visual.description,

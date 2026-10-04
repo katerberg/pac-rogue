@@ -14,7 +14,7 @@ export type BaseUpgradeId =
   | "passiveGhostHouseDelay"
   | "passiveExtraLife"
   | "passivePelletToPower"
-  | "powerPelletCollectThree"
+  | "powerPelletExtraHungry"
   | "powerPelletWallPass"
   | "powerPelletSpeedBurst"
   | "powerPelletInvuln"
@@ -143,7 +143,7 @@ export const GHOST_SLOW_MUL = 0.8;
 
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
-export const POWER_COLLECT_THREE_COUNT = 3;
+export const EXTRA_HUNGRY_COUNT = 5;
 export const QUARTERS_CHOICE_AMOUNT = 2;
 export const STORE_UPGRADE_PRICE = 3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
@@ -167,7 +167,7 @@ export const PICKUP_RANGE_ENHANCED_TILES = 2;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_ENHANCED_MS = 3000;
 export const GHOST_HOUSE_CLYDE_PELLET_ADD_ENHANCED = 25;
 export const EXTRA_LIFE_ENHANCED_LIVES = 2;
-export const POWER_COLLECT_FIVE_COUNT = 5;
+export const EXTRA_HUNGRY_ENHANCED_COUNT = 10;
 export const PELLET_SURGE_COUNT = 1;
 export const PELLET_SURGE_ENHANCED_COUNT = 2;
 export const FRUIT_QUARTERS = 1;
@@ -185,12 +185,12 @@ export const TURN_TUNING_ENHANCED_PERFECT_PX = 12;
 export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "powerPelletFreeze",
-    label: "Power Freeze",
+    label: "Freeze",
     school: "disruption",
     description: "Chomp a power pellet and the nearest ghost locks solid for a few seconds.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Power Freeze locks for 5 seconds instead of 3.",
+      enhanceNote: "Freeze locks for 5 seconds instead of 3.",
       description: "Chomp a power pellet and the nearest ghost locks solid for five seconds.",
       onPowerPellet: { freezeClosestGhostMs: FREEZE_ENHANCED_MS },
     },
@@ -320,17 +320,17 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
   },
   {
-    id: "powerPelletCollectThree",
-    label: "Triple Chomp",
+    id: "powerPelletExtraHungry",
+    label: "Extra Hungry",
     school: "speed",
-    description: "Power pellet gulps three more pellets with it.",
+    description: "Power pellet gulps the five farthest pellets with it.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Triple Chomp eats 5 more pellets instead of 3.",
-      description: "Power pellet gulps five more pellets with it.",
-      onPowerPellet: { collectExtraPellets: POWER_COLLECT_FIVE_COUNT },
+      enhanceNote: "Extra Hungry eats the 10 farthest pellets instead of 5.",
+      description: "Power pellet gulps the ten farthest pellets with it.",
+      onPowerPellet: { collectExtraPellets: EXTRA_HUNGRY_ENHANCED_COUNT },
     },
-    onPowerPellet: { collectExtraPellets: POWER_COLLECT_THREE_COUNT },
+    onPowerPellet: { collectExtraPellets: EXTRA_HUNGRY_COUNT },
   },
   {
     id: "powerPelletWallPass",
@@ -838,8 +838,7 @@ export function pickUpgradeChoiceOffer(
 export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
   "powerPelletInvuln",
   "powerPelletFreeze",
-  "fruitFeast",
-  "powerPelletCollectThree",
+  "powerPelletExtraHungry",
   "powerPelletSpeedBurst",
   "powerPelletGhostHarvester",
   "powerPelletScatterBurst",
@@ -1083,6 +1082,7 @@ export function applyPowerPelletEffects(
   invulnMs = scaled(invulnMs);
   speedBurstMs = scaled(speedBurstMs);
   ghostHarvestMs = scaled(ghostHarvestMs);
+  defyDeathMs = scaled(defyDeathMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }

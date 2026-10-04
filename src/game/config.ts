@@ -8,6 +8,7 @@ import { LearnScene } from "./scenes/LearnScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { PauseScene } from "./scenes/PauseScene";
 import { PlayScene } from "./scenes/PlayScene";
+import { RunLogOverrunScene } from "./scenes/RunLogOverrunScene";
 import { SettingsScene } from "./scenes/SettingsScene";
 
 export const GAME_WIDTH = PLAYFIELD_WIDTH;
@@ -23,7 +24,15 @@ function createInteractiveAudioContext(): AudioContext | undefined {
 const urlParams = new URLSearchParams(location.search);
 const soundEnabled = isSoundEnabled(urlParams, location.port);
 const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
-const allScenes = [MenuScene, LearnScene, HighScoresScene, SettingsScene, PlayScene, PauseScene];
+const allScenes = [
+  MenuScene,
+  LearnScene,
+  HighScoresScene,
+  SettingsScene,
+  PlayScene,
+  PauseScene,
+  RunLogOverrunScene,
+];
 const firstScene = { PlayScene, LearnScene, MenuScene }[bootSceneKey(urlParams)];
 const bootScenes = [firstScene, ...allScenes.filter((scene) => scene !== firstScene)];
 

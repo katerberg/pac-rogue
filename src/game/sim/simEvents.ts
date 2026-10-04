@@ -1,3 +1,4 @@
+import type { RunLogRecord } from "../../domain/runLog";
 import type { GhostKindId } from "../../domain/ghostKind";
 import type { TurnFeedbackKind } from "../../domain/turnTuning";
 import type { StorePromptView } from "../../domain/store";
@@ -11,11 +12,11 @@ export type SimRenderOptions = {
   wallPassActive: boolean;
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
-  ghostHarvestActive?: boolean;
   dimGhostEid?: number | null;
   playerAlpha?: number;
   playerReviveProgress?: number;
   playerWarpGlide?: WarpGlideSprite[];
+  playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
 };
 
@@ -53,6 +54,7 @@ export type SimEvent =
   | { type: "shieldCrack"; index: number; progress: number }
   | { type: "walletCoins"; spend: MoneyTalksSpend | null }
   | { type: "bonus"; tier: number; filled: number }
+  | { type: "fruitBonus" }
   | { type: "timeBonus"; active: boolean }
   | { type: "upgrades" }
   | { type: "timer" }
@@ -68,6 +70,7 @@ export type SimEvent =
   | { type: "endText"; title: "GAME OVER" | "RUN COMPLETE" }
   | { type: "goToMenu" }
   | { type: "newGame" }
+  | { type: "runLog"; record: RunLogRecord }
   | { type: "saveRun"; collected: number; remaining: number }
   | { type: "seenGhosts"; ghostKinds: GhostKindId[] }
   | { type: "seenUpgrades"; ids: UpgradeId[] };

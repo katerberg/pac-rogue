@@ -51,7 +51,6 @@ const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
-const GHOST_HARVEST_TINT = 0x66ff99;
 export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 const PLAYER_INVULN_TINT = 0xc48a00;
 const PLAYER_INVULN_BLINK_MS = 100;
@@ -230,11 +229,11 @@ export type RenderOptions = {
   wallPassActive?: boolean;
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
-  ghostHarvestActive?: boolean;
   dimGhostEid?: number | null;
   playerAlpha?: number;
   playerReviveProgress?: number;
   playerWarpGlide?: WarpGlideSprite[];
+  playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
 };
 
@@ -250,6 +249,7 @@ export type PlayRender = {
 };
 
 const DIM_GHOST_ALPHA = 0.4;
+const SPEED_TRAIL_DEPTH = -1;
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
@@ -304,11 +304,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
   const draw = (world: World, opts?: RenderOptions): void => {
     const frozenEid = opts?.frozenGhostEid ?? null;
-    const ghostHarvestOn = opts?.ghostHarvestActive === true;
     const dimGhostEid = opts?.dimGhostEid ?? null;
     const playerAlpha = opts?.playerAlpha;
     const reviveProgress = opts?.playerReviveProgress;
     const warpGlide = opts?.playerWarpGlide;
+    const speedTrail = opts?.playerSpeedTrail;
     const ghostWarpGlides = opts?.ghostWarpGlides;
     const wallPassOn = opts?.wallPassActive === true;
     const twinSolids =
@@ -358,15 +358,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       textureKey: string,
       size: number,
       applyTint: (go: Phaser.GameObjects.Image) => void,
+      tag = "glide",
+      depth = 0,
     ): void => {
-      for (let i = 1; i < glide.length; i += 1) {
+      for (let i = 0; i < glide.length; i += 1) {
         const trail = glide[i]!;
-        const trailKey = `${eid}:glide${i}`;
+        const trailKey = `${eid}:${tag}${i}`;
         alive.add(trailKey);
         let trailGo = drawableObjects.get(trailKey);
         if (!trailGo) {
           trailGo = scene.add.image(trail.x, trail.y, textureKey);
-          trailGo.setName(`${id}:glide`);
+          trailGo.setName(`${id}:${tag}`);
+          trailGo.setDepth(depth);
           drawableObjects.set(trailKey, trailGo);
         }
         trailGo.setTexture(textureKey);
@@ -440,9 +443,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const tint =
           frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse
             ? GHOST_FROZEN_TINT
-            : ghostHarvestOn && phase !== GHOST_PHASE.inHouse
-              ? GHOST_HARVEST_TINT
-              : null;
+            : null;
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
           if (tint === null) {
             target.clearTint();
@@ -456,7 +457,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             (glideHead?.alpha ?? 1),
         );
         if (glide !== undefined) {
-          drawGlideTrail(eid, id, glide, go.texture.key, size, applyGhostTint);
+          drawGlideTrail(eid, id, glide.slice(1), go.texture.key, size, applyGhostTint);
         }
       }
 
@@ -497,10 +498,23 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
 
         if (glide !== undefined) {
-          drawGlideTrail(eid, id, glide, visual.textureKey, size, (target) =>
+          drawGlideTrail(eid, id, glide.slice(1), visual.textureKey, size, (target) =>
             applyPlayerTint(target, playerTint),
           );
-        } else if (
+        } else if (speedTrail !== undefined && reviveProgress === undefined) {
+          drawGlideTrail(
+            eid,
+            id,
+            speedTrail,
+            visual.textureKey,
+            size,
+            (target) => applyPlayerTint(target, playerTint),
+            "speed",
+            SPEED_TRAIL_DEPTH,
+          );
+        }
+        if (
+          glide === undefined &&
           playerAlpha === undefined &&
           reviveProgress === undefined &&
           hasComponent(world, eid, Player)
