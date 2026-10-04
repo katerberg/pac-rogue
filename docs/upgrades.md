@@ -55,7 +55,7 @@ Every upgrade has an **enhanced** version, bought at a [store](./store.md) (the 
 - **One time.** `enhanceUpgrade` replaces the base id with the Plus id in place. A Plus upgrade is never offered an enhancement. A [swap](./store.md#buying) carries the outgoing form to the incoming upgrade (`carryEnhancement`).
 - **Grant side effects** on enhancing are the difference: Extra Life grants `enhanceGrantLives` (+1), Pellet Surge converts the extra pellet on the next board.
 - **Display.** The label shows a `+` everywhere (HUD list, picker, store, [LEARN](./learn.md)).
-- Fruit Power and Overcharge read the owned defs, so enhanced timers and effects flow through them. Overcharge Plus triples; it never touches Warp Farthest's 2s invulnerability or Defy Death.
+- Fruit Power and Overcharge read the owned defs, so enhanced timers and effects flow through them. Overcharge Plus triples; it never touches Warp Farthest's 2s invulnerability.
 
 Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.75), Quarter Bounty pays a Quarter instead of the bar charge, ghost tunnel speed 0.6× (`GHOST_TUNNEL_SPEED`; leaving the house stays 0.5×, `GHOST_HOUSE_EXIT_SPEED`).
 
@@ -81,7 +81,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `fruitFecundity`             | Fruit Fecundity     | Fruit lasts until the level ends; uncollected fruit sit side by side in the same row. Base keeps today's 2×                                  |
 | `fruitFeast`                 | Fruit Feast         | 4 fruit per level at 45/100/150/200 pellets (scaled by maze size); still one at a time, so an uncollected fruit can block later ones         |
 | `passiveDeathsHarvest`       | Death's Harvest     | Harvest radius 10 tiles                                                                                                                      |
-| `passiveOvercharge`          | Overcharge          | Triples every other timer, enhanced ones included. Does not touch Warp Farthest's invulnerability or Defy Death                              |
+| `passiveOvercharge`          | Overcharge          | Triples every other timer, enhanced ones included. Does not touch Warp Farthest's invulnerability                                            |
 | `passiveTunnelDash`          | Tunnel Dash         | **Base changes:** ghost tunnel speed 0.5× → 0.6× player speed (applies to every run). Enhanced: 0.3×                                         |
 | `passivePowerPelletRecharge` | Second Chomp        | Respawn after 7s                                                                                                                             |
 | `passiveRemoteTransference`  | Remote Transference | Every 3rd pellet                                                                                                                             |

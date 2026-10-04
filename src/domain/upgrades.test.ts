@@ -777,11 +777,11 @@ describe("defy death / power pellet", () => {
     expect(defyDeathActive(tickDefyDeath(armed, DEFY_DEATH_MS + 1))).toBe(false);
   });
 
-  it("is not doubled by Overcharge and clears with the other timers", () => {
+  it("is doubled by Overcharge and clears with the other timers", () => {
     let state = grantUpgrade(createRunUpgrades(), "passiveDefyDeath");
     state = grantUpgrade(state, "passiveOvercharge");
     const armed = applyPowerPelletEffects(state, 1).state;
-    expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS);
+    expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS * OVERCHARGE_MUL);
     expect(clearUpgradeTimers(armed).defyDeathRemainingMs).toBe(0);
   });
 });
@@ -977,12 +977,12 @@ describe("enhanced upgrades", () => {
     expect(proof.state.invulnRemainingMs).toBe(6000);
   });
 
-  it("Overcharge Plus triples enhanced timers but not Defy Death", () => {
+  it("Overcharge Plus triples enhanced timers including Defy Death", () => {
     const result = applyPowerPelletEffects(
       createRunUpgrades(["passiveOverchargePlus", "powerPelletFreezePlus", "passiveDefyDeathPlus"]),
       1,
     );
     expect(result.freezeClosestMs).toBe(15000);
-    expect(result.state.defyDeathRemainingMs).toBe(8000);
+    expect(result.state.defyDeathRemainingMs).toBe(24000);
   });
 });

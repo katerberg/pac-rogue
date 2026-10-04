@@ -41,7 +41,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 18  | `fruitFecundity`             | Fruit Fecundity     | Fruit lasts 2× as long                                                                                        | Fruit lasts until the level ends; uncollected fruit sit side by side in the same row. Base keeps today's 2×                                  |
 | 19  | `fruitFeast`                 | Fruit Feast         | 3 fruit per level (60/130/200 pellets) instead of 2                                                           | 4 fruit per level at 45/100/150/200 pellets (scaled by maze size); still one at a time, so an uncollected fruit can block later ones         |
 | 20  | `passiveDeathsHarvest`       | Death's Harvest     | Getting caught harvests pellets within 6 tiles; an emptied board counts as a level clear                      | Harvest radius 10 tiles                                                                                                                      |
-| 21  | `passiveOvercharge`          | Overcharge          | Doubles every other power-pellet timer                                                                        | Triples every other timer, enhanced ones included. Does not touch Warp Farthest's invulnerability or Defy Death                              |
+| 21  | `passiveOvercharge`          | Overcharge          | Doubles every other power-pellet timer                                                                        | Triples every other timer, enhanced ones included. Does not touch Warp Farthest's invulnerability                                            |
 | 22  | `passiveTunnelDash`          | Tunnel Dash         | Entering a tunnel band sweeps pellets and teleports you to the opposite mouth                                 | **Base changes:** ghost tunnel speed 0.5× → 0.6× player speed (applies to every run). Enhanced: 0.3×                                         |
 | 23  | `passivePowerPelletRecharge` | Second Chomp        | Eaten power pellets respawn after 10s                                                                         | Respawn after 7s                                                                                                                             |
 | 24  | `passiveRemoteTransference`  | Remote Transference | Every 5th pellet also eats the farthest one                                                                   | Every 3rd pellet                                                                                                                             |
@@ -58,7 +58,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 - **Swap carries enhancement.** Swapping away an enhanced upgrade gives an enhanced one back.
 - **Enhanced replaces base.** The enhanced numbers above are the effect, not an add-on.
 - **Fruit Power and Overcharge scale with enhanced upgrades.** Both read the owned effects, so enhanced timers flow through (Overcharge tripling included).
-- **Not tripled by Overcharge:** Warp Farthest's 2s invulnerability and Defy Death's window.
+- **Not tripled by Overcharge:** Warp Farthest's 2s invulnerability.
 - **Wall Pass** stays 6s (code value); [upgrades.md](./upgrades.md) saying 3s was a doc bug, now fixed.
 - **Speed stacking is intended:** Speed Up × Speed Burst × the turn boost can reach about 2.8×. No cap.
 - **Pickup Range** (2 tiles) still needs line of sight.
