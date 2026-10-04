@@ -53,6 +53,10 @@ import {
   speedBurstMultiplier,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
+  applyShieldBreakInvuln,
+  bankShields,
+  shieldPelletsCap,
+  spendShield,
   createRunUpgrades,
   frozenGhostEid,
   getUpgradeDef,
@@ -157,6 +161,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveExtraLife",
   "passiveMyogenesis",
   "passiveMoneyTalks",
+  "passiveShieldPellets",
 ];
 
 export class LearnSim {
@@ -578,6 +583,14 @@ export class LearnSim {
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): void {
+    if (shieldPelletsCap(this.learnUpgrades.owned) !== null) {
+      this.learnUpgrades = bankShields(this.learnUpgrades, powerRemoved);
+      return;
+    }
+    this.firePowerPelletEffects(powerRemoved);
+  }
+
+  private firePowerPelletEffects(powerRemoved: number): void {
     const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved);
     this.learnUpgrades = powerEffects.state;
     if (powerEffects.freezeClosestMs !== null) {
@@ -715,6 +728,14 @@ export class LearnSim {
   }
 
   private resolveDemoCatch(): void {
+    const spent = spendShield(this.learnUpgrades);
+    if (spent !== null) {
+      this.learnUpgrades = spent;
+      this.firePowerPelletEffects(1);
+      this.learnUpgrades = applyShieldBreakInvuln(this.learnUpgrades);
+      this.popup("SHIELD BROKEN");
+      return;
+    }
     const owned = this.learnUpgrades.owned;
     const lines: string[] = [];
     if (hasUpgrade(owned, "passiveDeathsHarvest")) {
@@ -798,6 +819,10 @@ export class LearnSim {
     const lines: string[] = [];
     if (this.catchDemoOwned()) {
       lines.push(`LIVES ${this.runState.lives}`);
+    }
+    const shieldCap = shieldPelletsCap(owned);
+    if (shieldCap !== null) {
+      lines.push(`SHIELDS ${this.learnUpgrades.shieldsBanked}/${shieldCap}`);
     }
     if (this.bonusDemoOwned()) {
       lines.push(
@@ -919,5 +944,6 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
+    shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
   };
 }

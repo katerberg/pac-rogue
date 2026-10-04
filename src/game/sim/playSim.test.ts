@@ -25,6 +25,8 @@ import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
   frozenGhostEid,
   grantUpgrade,
+  INVULN_MS,
+  SHIELD_BREAK_INVULN_MS,
   STARTING_UPGRADE_POOL,
   type UpgradeChoiceOffer,
   type UpgradeId,
@@ -2349,6 +2351,125 @@ describe("debug tuning", () => {
     expect(framesToResume({ deathHoldMs: 100, readyPauseMs: 100 })).toBeLessThan(
       framesToResume({}) - 60,
     );
+  });
+});
+
+describe("Shield Pellets", () => {
+  function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  function chompPowerPellet(sim: PlaySim): SimEvent[] {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    return runFrames(sim, 1);
+  }
+
+  function chompPowerPellets(sim: PlaySim, n: number): void {
+    for (let i = 0; i < n; i += 1) {
+      chompPowerPellet(sim);
+      runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 400);
+    }
+  }
+
+  it("banks a shield instead of firing power-pellet effects", () => {
+    const sim = startShieldSim(["passiveShieldPellets", "powerPelletInvuln"]);
+    const events = chompPowerPellet(sim);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, invulnMs: 0 });
+    expect(sim.hud().shields).toBe(1);
+    expect(events).toContainEqual({ type: "shields" });
+  });
+
+  it("holds 1 shield, or 3 with Shield Pellets+", () => {
+    const base = startShieldSim(["passiveShieldPellets"]);
+    chompPowerPellets(base, 2);
+    expect(base.snapshot().timers.shieldsBanked).toBe(1);
+
+    const plus = startShieldSim(["passiveShieldPelletsPlus"]);
+    chompPowerPellets(plus, 4);
+    expect(plus.snapshot().timers.shieldsBanked).toBe(3);
+  });
+
+  it("a catch breaks a shield, fires the effects and costs no life or death", () => {
+    const sim = startShieldSim(["passiveShieldPellets", "powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({
+      dying: false,
+      lives: livesBefore,
+      deathsThisBoard: 0,
+      shieldCrackProgress: 0,
+    });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+    expect(events).toContainEqual({ type: "shieldCrack", index: 0, progress: 0 });
+    expect(events).not.toContainEqual({ type: "sfx", id: "death" });
+    const crack = runUntil(sim, () => sim.snapshot().shieldCrackProgress === null, 120);
+    expect(crack).toContainEqual({ type: "shieldCrack", index: 0, progress: 1 });
+  });
+
+  it("grants 1s of immunity on its own, multiplied by Overcharge", () => {
+    const sim = startShieldSim(["passiveShieldPellets"]);
+    chompPowerPellet(sim);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(SHIELD_BREAK_INVULN_MS - 2 * FRAME_MS);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(SHIELD_BREAK_INVULN_MS);
+
+    const overcharged = startShieldSim(["passiveShieldPellets", "passiveOvercharge"]);
+    chompPowerPellet(overcharged);
+    ghostOntoPlayer(overcharged);
+    runFrames(overcharged, 1);
+    expect(overcharged.snapshot().timers.invulnMs).toBeGreaterThan(SHIELD_BREAK_INVULN_MS);
+  });
+
+  it("does not trigger Defy Death's save but arms its window", () => {
+    const sim = startShieldSim(["passiveShieldPellets", "passiveDefyDeath"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBe(0);
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(events).not.toContainEqual({ type: "sfx", id: "revive" });
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(0);
+  });
+
+  it("dies normally with an empty bank", () => {
+    const sim = startShieldSim(["passiveShieldPellets"]);
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({ dying: true, lives: livesBefore - 1 });
+  });
+
+  it("Fruit Power banks a shield instead of firing", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveShieldPelletsPlus", "fruitPowerPellet", "powerPelletInvuln"],
+    });
+    sim["spawnFruitEntity"](false);
+    const fruit = query(sim.world, [Fruit, Position])[0]!;
+    teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, invulnMs: 0 });
+  });
+
+  it("empties the bank on level advance", () => {
+    const sim = startShieldSim(["passiveShieldPelletsPlus"]);
+    chompPowerPellets(sim, 2);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+    sim["jumpToLevelClear"]();
+    drainToOffer(sim);
+    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startShieldSim(["powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
   });
 });
 

@@ -25,7 +25,8 @@ export type ActivationKind =
   | "ghostHarvest"
   | "defyDeath"
   | "collectExtra"
-  | "pelletSurge";
+  | "pelletSurge"
+  | "shieldBreak";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource = "fruit" | "bonusBar" | "deathsBounty" | "offer";
 export type GhostName = keyof typeof GHOST_KIND;

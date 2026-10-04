@@ -30,6 +30,14 @@ import { freshSeed } from "../../domain/runRandom";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
 import { upgradeLabels, type UpgradeId } from "../../domain/upgrades";
 import {
+  HUD_ICON_GAP,
+  HUD_ICON_LEFT_X,
+  SHIELD_HUD_COLOR,
+  SHIELD_HUD_SIZE_FRAC,
+  shieldCrackLook,
+  shieldHudIconX,
+} from "../../domain/shieldCrack";
+import {
   isSfxPlaying,
   playPelletCollectSfx,
   playSfx,
@@ -111,6 +119,8 @@ export class PlayScene extends Phaser.Scene {
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
+  private shieldIcons: Phaser.GameObjects.Rectangle[] = [];
+  private shieldCrackHalves: Phaser.GameObjects.Rectangle[] = [];
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
@@ -180,6 +190,8 @@ export class PlayScene extends Phaser.Scene {
     this.sideHud.add([this.timerText, this.upgradesText]);
     this.chrome.add([bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
+    this.shieldIcons = [];
+    this.shieldCrackHalves = [];
     this.quarterIcons = [];
     this.walletCoins = [];
     this.refreshQuartersHud();
@@ -402,6 +414,12 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "quarters":
         this.refreshQuartersHud();
+        break;
+      case "shields":
+        this.refreshShieldIcons();
+        break;
+      case "shieldCrack":
+        this.drawShieldCrack(event.index, event.progress);
         break;
       case "walletCoins":
         this.drawWalletCoins(event.spend);
@@ -637,9 +655,9 @@ export class PlayScene extends Phaser.Scene {
     }
     this.lifeIcons = [];
     const size = playerDisplaySize();
-    const y = PLAYFIELD_HEIGHT - 8 - size / 2;
+    const y = this.hudIconY();
     for (let i = 0; i < livesHudIconCount(this.sim.hud().lives); i += 1) {
-      const x = 12 + size / 2 + i * (size + 4);
+      const x = HUD_ICON_LEFT_X + size / 2 + i * (size + HUD_ICON_GAP);
       const icon = this.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
       this.sideHud.add(icon);
       this.lifeIcons.push(icon);
@@ -647,6 +665,57 @@ export class PlayScene extends Phaser.Scene {
     if (pulseNewIcon && this.lifeIcons.length > 0) {
       this.pulseHudIcon(this.lifeIcons[this.lifeIcons.length - 1]);
     }
+    this.refreshShieldIcons();
+  }
+
+  private refreshShieldIcons(): void {
+    for (const icon of this.shieldIcons) {
+      icon.destroy();
+    }
+    this.shieldIcons = [];
+    const lifeSize = playerDisplaySize();
+    const size = lifeSize * SHIELD_HUD_SIZE_FRAC;
+    const y = this.hudIconY();
+    const lifeIconCount = livesHudIconCount(this.sim.hud().lives);
+    for (let i = 0; i < this.sim.hud().shields; i += 1) {
+      const x = shieldHudIconX(lifeIconCount, i, lifeSize);
+      const icon = this.add.rectangle(x, y, size, size, SHIELD_HUD_COLOR);
+      this.sideHud.add(icon);
+      this.shieldIcons.push(icon);
+    }
+  }
+
+  private drawShieldCrack(index: number, progress: number): void {
+    const lifeSize = playerDisplaySize();
+    const size = lifeSize * SHIELD_HUD_SIZE_FRAC;
+    if (this.shieldCrackHalves.length === 0) {
+      this.shieldCrackHalves = [0, 1].map(() => {
+        const half = this.add.rectangle(0, 0, size / 2, size, SHIELD_HUD_COLOR);
+        this.sideHud.add(half);
+        return half;
+      });
+    }
+    if (progress >= 1) {
+      for (const half of this.shieldCrackHalves) {
+        half.destroy();
+      }
+      this.shieldCrackHalves = [];
+      return;
+    }
+    const look = shieldCrackLook(progress);
+    const cx = shieldHudIconX(livesHudIconCount(this.sim.hud().lives), index, lifeSize);
+    const y = this.hudIconY() + look.dropY;
+    for (const [i, half] of this.shieldCrackHalves.entries()) {
+      const side = i * 2 - 1;
+      half
+        .setPosition(cx + side * (size / 4 + look.offsetX), y)
+        .setRotation(side * look.rotation)
+        .setAlpha(look.alpha);
+    }
+  }
+
+  private hudIconY(): number {
+    return PLAYFIELD_HEIGHT - 8 - playerDisplaySize() / 2;
   }
 
   private pulseHudIcon(icon: Phaser.GameObjects.Image): void {

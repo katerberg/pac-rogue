@@ -5,7 +5,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, `shieldsBanked`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay, up/down/left/right button slots). Offer math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice` / `declineUpgrades`).
 - No ECS upgrade components in v1.
 - Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
@@ -45,6 +45,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveDeathsBounty`        | Death's Bounty      | Death      | Every death that doesn't end the run adds `BONUS_BAR_MAX` (300, one Quarter) × `DEATHS_BOUNTY_DECAY` (0.8) ^ prior deaths on this level to the BONUS bar (see [Death's Bounty](#deaths-bounty) below)                                                                                                                                                                                                                            |
 | `passiveMoneyTalks`          | Money Talks         | Death      | A catch on the last life spends `MONEY_TALKS_QUARTERS` (3) Quarters, if you have them, and keeps the life (see [Money Talks](#money-talks) below)                                                                                                                                                                                                                                                                                |
 | `passiveLazyLooper`          | Lazy Looper         | Speed      | Only the outer pellet ring and the pellets beside the ghost house must be eaten to clear the board; the rest turn grey (`LAZY_LOOPER_OPTIONAL_TINT`) and stay edible (see [Lazy Looper](#lazy-looper) below)                                                                                                                                                                                                                     |
+| `passiveShieldPellets`       | Shield Pellets      | Protection | Power pellets bank a shield (cap `SHIELD_PELLETS_CAP` 1) instead of firing their effects; a catch breaks one shield, fires every owned `onPowerPellet` effect and grants `SHIELD_BREAK_INVULN_MS` (1000) of immunity (see [Shield Pellets](#shield-pellets) below)                                                                                                                                                               |
 
 ## Enhanced upgrades
 
@@ -91,6 +92,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveDeathsBounty`        | Death's Bounty      | 10% less per later death on a level (`DEATHS_BOUNTY_ENHANCED_DECAY` 0.9) instead of 20%                                                      |
 | `passiveMoneyTalks`          | Money Talks         | A save costs 1 Quarter instead of 3                                                                                                          |
 | `passiveLazyLooper`          | Lazy Looper         | Only the outer ring is required                                                                                                              |
+| `passiveShieldPellets`       | Shield Pellets      | Bank up to 3 shields (`SHIELD_PELLETS_ENHANCED_CAP`)                                                                                         |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -224,6 +226,18 @@ While `passiveLazyLooper` is owned, a board clears once its **required** regular
 `tagOptionalPellets` adds the `OptionalPellet` tag to every other regular pellet in `startBoard` (after Pellet Surge and boss tagging, so boss pellets and power pellets are never optional), and `noRequiredPelletsLeft` treats tagged pellets like power pellets for the clear check. Optional pellets render in `LAZY_LOOPER_OPTIONAL_TINT` (0x6e6e6e) and can still be eaten: they score, charge the BONUS streak and count toward fruit, ghost release and Cruise Elroy as before. Extra Hungry, Remote Transference and Death's Harvest pick targets as before, so they may eat optional pellets. Snapshot `play.optionalPellets` counts them.
 
 LEARN mirrors the tint: toggling it (or its enhanced form) re-tags the board, and the board still refills only once every pellet is eaten.
+
+### Shield Pellets
+
+While `passiveShieldPellets` is owned, power pellets stop firing `onPowerPellet` effects. Each one banks a shield instead (`bankShields`, capped by `shieldPelletsCap`: `SHIELD_PELLETS_CAP` 1, `SHIELD_PELLETS_ENHANCED_CAP` 3 enhanced). A pellet eaten with a full bank is wasted.
+
+- **What banks:** a normal chomp, a Tunnel Dash sweep and a Fruit Power pickup (all through `resolvePowerPelletTrigger`). Second Chomp still respawns banked pellets.
+- **Breaking:** on a catch, before Death's Harvest, `spendShield` takes one shield. `PlaySim` then fires every owned `onPowerPellet` effect once (the same path as Fruit Power, Overcharge included) and `applyShieldBreakInvuln` raises `invulnRemainingMs` to at least `SHIELD_BREAK_INVULN_MS` (1000) × the Overcharge multiplier. That is the Ghost Proof timer, so the player wears the same gold tint and blink, and a longer Ghost Proof wins.
+- **Not a death:** a break has no death hold, no sound and no life loss. Death's Harvest, Defy Death's save, Money Talks and Death's Bounty do not run, `deathsThisBoard` does not count it, and the run log records a `shieldBreak` activation instead of a death. A Defy Death window armed by the fired effects stays armed.
+- **Empty bank:** the catch is a normal death.
+- **Reset:** the bank is not a timer, so `clearUpgradeTimers` keeps it; it empties on level advance (`advanceToNextLevel`). Losing the upgrade (a store Swap, or a LEARN toggle off or back to base) clamps the bank to the new cap (`revokeUpgrade`, LEARN's `clearStaleUpgradeTimers`).
+- **HUD:** one `SHIELD_HUD_COLOR` square per banked shield, right of the life icons (`shieldHudIconX`). On a break the sim emits `shieldCrack` with progress 0 to 1 over `SHIELD_CRACK_MS` (600ms), and `PlayScene` splits the spent square into two halves that `shieldCrackLook` (`src/domain/shieldCrack.ts`) pushes apart, drops, spins and fades. `play.timers.shieldsBanked` and `play.shieldCrackProgress` expose both in the debug snapshot.
+- **LEARN** mirrors banking and the break through the demo catch: the status line shows `SHIELDS n/cap` and a break pops `SHIELD BROKEN`.
 
 ### Overcharge
 
