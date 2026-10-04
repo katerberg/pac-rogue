@@ -824,6 +824,12 @@ describe("shield pellets", () => {
     );
   });
 
+  it("empties the bank when Shield Pellets is revoked", () => {
+    const banked = bankShields(createRunUpgrades(["passiveShieldPelletsPlus"]), 3);
+    expect(revokeUpgrade(banked, "passiveShieldPelletsPlus").shieldsBanked).toBe(0);
+    expect(revokeUpgrade(banked, "powerPelletInvuln").shieldsBanked).toBe(3);
+  });
+
   it("keeps the bank through clearUpgradeTimers", () => {
     const banked = bankShields(createRunUpgrades(["passiveShieldPellets"]), 1);
     expect(clearUpgradeTimers(banked).shieldsBanked).toBe(1);

@@ -900,9 +900,11 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
   if (!hasUpgrade(state.owned, baseId)) {
     return state;
   }
+  const owned = state.owned.filter((owned) => baseIdOf(owned) !== baseId);
   return {
     ...state,
-    owned: state.owned.filter((owned) => baseIdOf(owned) !== baseId),
+    owned,
+    shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
   };
 }
 
