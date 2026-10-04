@@ -175,7 +175,7 @@ MenuScene --Settings--> SettingsScene
 HighScoresScene --Back--> MenuScene
 SettingsScene --Back--> MenuScene (or whichever scene launched it, see below)
 PlayScene --Escape--> PauseScene (PlayScene paused; game-play music keeps playing)
-PauseScene --Resume--> PlayScene resumes immediately
+PauseScene --Resume or Escape--> PlayScene resumes immediately
 PauseScene --Settings--> SettingsScene --Back--> PauseScene (PlayScene stays paused throughout)
 PauseScene --Quit, confirm Yes--> MenuScene (PlayScene stopped; no high-score write)
 PlayScene --pellet clear, level 1--> level-complete SFX → brief freeze → next procedural maze (carry lives/upgrades/lifetime)
