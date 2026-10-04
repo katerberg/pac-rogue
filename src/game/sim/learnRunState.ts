@@ -43,15 +43,13 @@ export class LearnRunState {
     this.quarters += count;
   }
 
-  levelClear(owned: readonly UpgradeId[]): number {
+  levelClear(owned: readonly UpgradeId[]): void {
     this.deathsThisBoard = 0;
-    const before = this.lives;
     this.lives = livesAfterLevelRegen(
       this.lives,
       levelLivesIconFloor(lifeFloorBonus(owned)),
       levelRegenAmount(hasUpgrade(owned, "passiveMyogenesis"), regenToFull(owned)),
     );
-    return this.lives - before;
   }
 
   caught(owned: readonly UpgradeId[], defied: boolean): LearnCatchOutcome {
