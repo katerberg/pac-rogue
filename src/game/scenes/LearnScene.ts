@@ -40,8 +40,8 @@ import {
   getUpgradeDef,
   groupUpgradesBySchool,
   learnEnhanceToggleState,
+  learnUpgradeDefs,
   ownedFormOf,
-  UPGRADE_DEFS,
   UPGRADE_SCHOOL_LABELS,
   type BaseUpgradeId,
   type UpgradeDef,
@@ -116,7 +116,7 @@ const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
 const STATUS_GAP_Y = 10;
 const POPUP_RISE_PX = 28;
 const POPUP_MS = 1100;
-const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [];
+const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = ["passiveMartyr", "passiveInterest"];
 const HOVER_PREVIEW_DELAY_MS = 500;
 const HOVER_PREVIEW_Y_MIN = 90;
 const HOVER_PREVIEW_Y_MAX = 510;
@@ -312,9 +312,7 @@ export class LearnScene extends Phaser.Scene {
 
   private buildUpgradeRows(): void {
     this.upgradeRows = [];
-    const columns = splitSchoolColumns(
-      groupUpgradesBySchool(UPGRADE_DEFS.filter((def) => this.seen.upgrades.includes(def.id))),
-    );
+    const columns = splitSchoolColumns(groupUpgradesBySchool(learnUpgradeDefs(this.seen.upgrades)));
     for (const column of ["left", "right"] as const) {
       let y = UPGRADE_ROW_START_Y - UPGRADE_ROW_GAP;
       for (const { school, defs } of columns[column]) {

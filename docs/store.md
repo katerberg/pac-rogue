@@ -10,7 +10,7 @@ Quarters (from the [BONUS bar](./bonus.md), which fruit and pellet streaks charg
 - after clearing **level 5 or 6** — `pickMidStoreLevel` rolls 50/50 once per run in `PlaySim.start()`
 - after clearing **level 8** (`STORE_FINAL_LEVEL`), right before the level-9 boss
 
-On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the modal resolves first, then the usual transition freeze, then the store. Entering the store does not apply per-level life regen; the regen happens on the normal advance after the store.
+On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the modal resolves first, then the usual transition freeze, then the store. Entering the store pays [Interest](./upgrades.md#interest) when owned (1 Quarter per 3 held, per 2 enhanced) before you can buy. Entering the store does not apply per-level life regen; the regen happens on the normal advance after the store.
 
 ## Layout
 
@@ -54,6 +54,8 @@ Store floors loop `storeMusic` (`sound/store.ogg`, music category) instead of `g
 ## Leaving
 
 Reaching any border cell (a tunnel mouth) starts the exit — no confirm, no time limit. `storeExitDirection` picks the outward direction, input and prompts stop, and the `playerSlide` system carries Pac-Man straight out through the tunnel (no wrap) for `STORE_EXIT_SLIDE_TILES` (2) tiles. The sprite fades out once it passes the maze edge (`storeExitAlpha`, passed to `render` as `playerAlpha`, which also hides the tunnel twin), then the transition runs. This advances to the next level (`LEVEL N` banner; after level 8 the `BOSS` banner for level 9). Only a `?store=1&level=9` debug store ends in `RUN COMPLETE`.
+
+**Click to exit:** clicking a tunnel mouth (any open border cell, or the tile just outside one; `storeExitCellAt` in [`src/domain/storeRoute.ts`](../src/domain/storeRoute.ts)) walks Pac-Man there at normal speed. Each frame `PlaySim.tickStore` takes the first step of a shortest path (`storeRouteStep`, a 4-way BFS that avoids unsold tiles when another way exists) and writes it as the player's input, so movement, speed and the exit slide are the same as walking by hand. The route ends when the player reaches the exit, or is cancelled by any held direction key, Escape (which then does not open the pause menu), a click anywhere that is not a tunnel, or a tile prompt opening. Hovering a tunnel mouth shows the hand cursor, like the tiles (`PlaySim.storeExitUnder`; `play.cursor` in the snapshot). `play.storeRoute` in the snapshot is the target cell, else `null`.
 
 ## Debug
 

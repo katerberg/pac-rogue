@@ -21,6 +21,7 @@ import {
   cellCenterY,
   getActiveLayout,
   isWalkable,
+  pelletCellCenters,
 } from "../../domain/maze";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
@@ -36,6 +37,7 @@ import {
   grantLivesForUpgrade,
   hasUpgrade,
   isEnhancedId,
+  nearMissCharge,
   playerIsInvulnerable,
   playerTintRemainingMs,
   queuePowerPelletRespawns,
@@ -52,6 +54,10 @@ import {
   speedBurstMultiplier,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
+  applyShieldBreakInvuln,
+  bankShields,
+  shieldPelletsCap,
+  spendShield,
   createRunUpgrades,
   frozenGhostEid,
   getUpgradeDef,
@@ -81,6 +87,7 @@ import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
+import { PowerPellet } from "../components/PowerPellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
@@ -104,7 +111,9 @@ import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../sys
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
 import { playerFacing, playerPose } from "../systems/playerDirection";
-import { catchPlayer } from "../systems/catchPlayer";
+import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
+import { stepNearMisses } from "../systems/nearMiss";
+import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
@@ -155,6 +164,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveExtraLife",
   "passiveMyogenesis",
   "passiveMoneyTalks",
+  "passiveShieldPellets",
 ];
 
 export class LearnSim {
@@ -180,6 +190,7 @@ export class LearnSim {
   private readonly houseHold = new LearnHouseHold();
   private houseHoldEaten = 0;
   private catchGraceMs = 0;
+  private nearMissPasses: NearMissPasses = createNearMissPasses();
   private fruitPresence: FruitPresence = createFruitPresence();
   private boardCollected = 0;
 
@@ -386,21 +397,25 @@ export class LearnSim {
     if (query(this.world, [Pellet]).length === 0) {
       this.spawnPellets();
       this.onBoardRefill();
+    } else {
+      this.regenPowerPellets();
     }
 
     this.tickFruit(delta);
 
     ghostAi(this.world, GHOST_AI_MODE.chase, NO_ELROY_PELLETS);
 
-    if (this.catchDemoOwned()) {
-      const caught = catchPlayer(this.world, {
-        frozenGhostEid: frozenGhostEid(this.learnUpgrades),
-        skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
-        playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
-      });
-      if (caught !== null) {
-        this.resolveDemoCatch();
-      }
+    const catchOptions = {
+      frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
+    };
+    const caught = this.catchDemoOwned() ? catchPlayer(this.world, catchOptions) : null;
+    if (caught === null) {
+      this.payNearMisses(catchOptions);
+    } else {
+      this.nearMissPasses = createNearMissPasses();
+      this.resolveDemoCatch();
     }
 
     this.events.push({
@@ -574,6 +589,14 @@ export class LearnSim {
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): void {
+    if (shieldPelletsCap(this.learnUpgrades.owned) !== null) {
+      this.learnUpgrades = bankShields(this.learnUpgrades, powerRemoved);
+      return;
+    }
+    this.firePowerPelletEffects(powerRemoved);
+  }
+
+  private firePowerPelletEffects(powerRemoved: number): void {
     const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved);
     this.learnUpgrades = powerEffects.state;
     if (powerEffects.freezeClosestMs !== null) {
@@ -663,6 +686,17 @@ export class LearnSim {
     this.boardCollected += count;
   }
 
+  private regenPowerPellets(): void {
+    if (this.pendingPowerRespawns.length > 0 || query(this.world, [PowerPellet]).length > 0) {
+      return;
+    }
+    for (const cell of pelletCellCenters()) {
+      if (cell.kind === "power") {
+        spawnPellet(this.world, cell.x, cell.y, "power");
+      }
+    }
+  }
+
   private onBoardRefill(): void {
     this.pendingPowerRespawns = [];
     this.boardCollected = 0;
@@ -678,7 +712,8 @@ export class LearnSim {
     return (
       hasUpgrade(this.learnUpgrades.owned, "fruitQuarterBounty") ||
       hasUpgrade(this.learnUpgrades.owned, "passiveDeathsBounty") ||
-      hasUpgrade(this.learnUpgrades.owned, "passiveMoneyTalks")
+      hasUpgrade(this.learnUpgrades.owned, "passiveMoneyTalks") ||
+      hasUpgrade(this.learnUpgrades.owned, "passiveNearMiss")
     );
   }
 
@@ -697,6 +732,14 @@ export class LearnSim {
   }
 
   private resolveDemoCatch(): void {
+    const spent = spendShield(this.learnUpgrades);
+    if (spent !== null) {
+      this.learnUpgrades = spent;
+      this.firePowerPelletEffects(1);
+      this.learnUpgrades = applyShieldBreakInvuln(this.learnUpgrades);
+      this.popup("SHIELD BROKEN");
+      return;
+    }
     const owned = this.learnUpgrades.owned;
     const lines: string[] = [];
     if (hasUpgrade(owned, "passiveDeathsHarvest")) {
@@ -762,6 +805,25 @@ export class LearnSim {
     }
   }
 
+  private payNearMisses(catchOptions: CatchOptions): void {
+    const charge = nearMissCharge(this.learnUpgrades.owned);
+    if (charge === 0) {
+      this.nearMissPasses = createNearMissPasses();
+      return;
+    }
+    const step = stepNearMisses(
+      this.world,
+      this.nearMissPasses,
+      getActiveLayout().tileSize,
+      catchOptions,
+    );
+    this.nearMissPasses = step.passes;
+    if (step.completed > 0) {
+      this.runState.addBonusCharge(step.completed * charge);
+      this.popup(`+${step.completed * charge} BONUS`);
+    }
+  }
+
   private payFruit(count: number): void {
     const quarters = fruitQuartersPerFruit(this.learnUpgrades.owned);
     if (quarters !== null) {
@@ -780,6 +842,10 @@ export class LearnSim {
     const lines: string[] = [];
     if (this.catchDemoOwned()) {
       lines.push(`LIVES ${this.runState.lives}`);
+    }
+    const shieldCap = shieldPelletsCap(owned);
+    if (shieldCap !== null) {
+      lines.push(`SHIELDS ${this.learnUpgrades.shieldsBanked}/${shieldCap}`);
     }
     if (this.bonusDemoOwned()) {
       lines.push(
@@ -901,5 +967,6 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
+    shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
   };
 }

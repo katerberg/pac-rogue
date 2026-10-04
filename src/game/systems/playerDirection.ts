@@ -35,3 +35,17 @@ export function clearPlayerDirectionInput(world: World): void {
     Input.direction[eid] = DIRECTION.none;
   }
 }
+
+export function steerPlayer(world: World, step: { dx: number; dy: number }): void {
+  const direction =
+    step.dx < 0
+      ? DIRECTION.left
+      : step.dx > 0
+        ? DIRECTION.right
+        : step.dy < 0
+          ? DIRECTION.up
+          : DIRECTION.down;
+  for (const eid of query(world, [Player, Input])) {
+    Input.direction[eid] = direction;
+  }
+}

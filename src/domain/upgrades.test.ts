@@ -1,11 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFY_DEATH_ENHANCED_MS,
+  effectiveOwned,
+  isSpecialist,
+  learnUpgradeDefs,
+  specialistEnhancedBases,
   DEFY_DEATH_MS,
   FREEZE_MS,
   GHOST_HOUSE_CLYDE_PELLET_ADD,
   GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
   GHOST_SLOW_MUL,
   INVULN_MS,
+  OVERCHARGE_ENHANCED_MUL,
+  SHIELD_BREAK_INVULN_MS,
+  SHIELD_PELLETS_CAP,
+  SHIELD_PELLETS_ENHANCED_CAP,
+  applyShieldBreakInvuln,
+  martyrGhostPlacement,
+  interestPayout,
+  nearMissCharge,
+  NEAR_MISS_CHARGE,
+  NEAR_MISS_ENHANCED_CHARGE,
+  bankShields,
+  shieldPelletsCap,
+  spendShield,
   OVERCHARGE_MUL,
   PLAYER_SPEED_BURST_MUL,
   PLAYER_SPEED_UP_MUL,
@@ -130,6 +148,15 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveDeathsBounty",
   "passiveMoneyTalks",
   "passiveLazyLooper",
+  "passiveShieldPellets",
+  "passiveDeathSpecialist",
+  "passiveHarvestSpecialist",
+  "passiveSpeedSpecialist",
+  "passiveProtectionSpecialist",
+  "passiveDisruptionSpecialist",
+  "passiveMartyr",
+  "passiveInterest",
+  "passiveNearMiss",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -312,9 +339,10 @@ describe("pickStartingUpgrade", () => {
 
 describe("eligibleUpgrades", () => {
   it("excludes owned ids", () => {
-    expect(eligibleUpgrades([])).toEqual(ALL_IDS);
+    const unlocked = ALL_IDS.filter((id) => !isSpecialist(id));
+    expect(eligibleUpgrades([])).toEqual(unlocked);
     expect(eligibleUpgrades(["passivePlayerSpeedUp"])).toEqual(
-      ALL_IDS.filter((id) => id !== "passivePlayerSpeedUp"),
+      unlocked.filter((id) => id !== "passivePlayerSpeedUp"),
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
   });
@@ -647,6 +675,39 @@ describe("moneyTalksCost", () => {
   });
 });
 
+describe("Martyr", () => {
+  it("sends ghosts to their corners, or home when enhanced", () => {
+    expect(martyrGhostPlacement([])).toBeNull();
+    expect(martyrGhostPlacement(["passiveMartyr"])).toBe("corners");
+    expect(martyrGhostPlacement(["passiveMartyrPlus"])).toBe("house");
+  });
+});
+
+describe("interestPayout", () => {
+  it("pays 1 per 3 held, 1 per 2 enhanced, rounding down", () => {
+    expect(interestPayout([], 30)).toBe(0);
+    expect(interestPayout(["passiveInterest"], 0)).toBe(0);
+    expect(interestPayout(["passiveInterest"], 2)).toBe(0);
+    expect(interestPayout(["passiveInterest"], 3)).toBe(1);
+    expect(interestPayout(["passiveInterest"], 10)).toBe(3);
+    expect(interestPayout(["passiveInterestPlus"], 1)).toBe(0);
+    expect(interestPayout(["passiveInterestPlus"], 9)).toBe(4);
+  });
+
+  it("is enhanced by Harvest Specialist", () => {
+    const owned = effectiveOwned(["passiveInterest", "passiveHarvestSpecialistPlus"]);
+    expect(interestPayout(owned, 9)).toBe(4);
+  });
+});
+
+describe("Near Miss", () => {
+  it("charges the BONUS bar per pass, double when enhanced", () => {
+    expect(nearMissCharge([])).toBe(0);
+    expect(nearMissCharge(["passiveNearMiss"])).toBe(NEAR_MISS_CHARGE);
+    expect(nearMissCharge(["passiveNearMissPlus"])).toBe(NEAR_MISS_ENHANCED_CHARGE);
+  });
+});
+
 describe("passiveOvercharge", () => {
   it("doubles every owned onPowerPellet timer duration", () => {
     let state = createRunUpgrades();
@@ -777,12 +838,57 @@ describe("defy death / power pellet", () => {
     expect(defyDeathActive(tickDefyDeath(armed, DEFY_DEATH_MS + 1))).toBe(false);
   });
 
-  it("is not doubled by Overcharge and clears with the other timers", () => {
+  it("is doubled by Overcharge and clears with the other timers", () => {
     let state = grantUpgrade(createRunUpgrades(), "passiveDefyDeath");
     state = grantUpgrade(state, "passiveOvercharge");
     const armed = applyPowerPelletEffects(state, 1).state;
-    expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS);
+    expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS * OVERCHARGE_MUL);
     expect(clearUpgradeTimers(armed).defyDeathRemainingMs).toBe(0);
+  });
+});
+
+describe("shield pellets", () => {
+  it("has no cap unless owned; caps at 1 base and 3 enhanced", () => {
+    expect(shieldPelletsCap([])).toBeNull();
+    expect(shieldPelletsCap(["passiveShieldPellets"])).toBe(SHIELD_PELLETS_CAP);
+    expect(shieldPelletsCap(["passiveShieldPelletsPlus"])).toBe(SHIELD_PELLETS_ENHANCED_CAP);
+  });
+
+  it("banks up to the cap and ignores banking when not owned", () => {
+    expect(bankShields(createRunUpgrades(), 2).shieldsBanked).toBe(0);
+    const base = createRunUpgrades(["passiveShieldPellets"]);
+    expect(bankShields(bankShields(base, 1), 1).shieldsBanked).toBe(1);
+    const plus = createRunUpgrades(["passiveShieldPelletsPlus"]);
+    expect(bankShields(plus, 2).shieldsBanked).toBe(2);
+    expect(bankShields(bankShields(plus, 2), 2).shieldsBanked).toBe(3);
+  });
+
+  it("spends one shield, or returns null when the bank is empty", () => {
+    const plus = bankShields(createRunUpgrades(["passiveShieldPelletsPlus"]), 3);
+    expect(spendShield(plus)?.shieldsBanked).toBe(2);
+    expect(spendShield(createRunUpgrades(["passiveShieldPelletsPlus"]))).toBeNull();
+  });
+
+  it("break immunity keeps a longer invuln and is multiplied by Overcharge", () => {
+    const base = createRunUpgrades(["passiveShieldPellets"]);
+    expect(applyShieldBreakInvuln(base).invulnRemainingMs).toBe(SHIELD_BREAK_INVULN_MS);
+    const longer = { ...base, invulnRemainingMs: INVULN_MS };
+    expect(applyShieldBreakInvuln(longer).invulnRemainingMs).toBe(INVULN_MS);
+    const overcharged = createRunUpgrades(["passiveShieldPellets", "passiveOverchargePlus"]);
+    expect(applyShieldBreakInvuln(overcharged).invulnRemainingMs).toBe(
+      SHIELD_BREAK_INVULN_MS * OVERCHARGE_ENHANCED_MUL,
+    );
+  });
+
+  it("empties the bank when Shield Pellets is revoked", () => {
+    const banked = bankShields(createRunUpgrades(["passiveShieldPelletsPlus"]), 3);
+    expect(revokeUpgrade(banked, "passiveShieldPelletsPlus").shieldsBanked).toBe(0);
+    expect(revokeUpgrade(banked, "powerPelletInvuln").shieldsBanked).toBe(3);
+  });
+
+  it("keeps the bank through clearUpgradeTimers", () => {
+    const banked = bankShields(createRunUpgrades(["passiveShieldPellets"]), 1);
+    expect(clearUpgradeTimers(banked).shieldsBanked).toBe(1);
   });
 });
 
@@ -852,7 +958,7 @@ describe("enhanced upgrades", () => {
 
   it("keeps Plus ids out of every pool", () => {
     expect(ALL_UPGRADE_IDS.some((id) => isEnhancedId(id))).toBe(false);
-    expect(eligibleUpgrades([])).toHaveLength(ALL_UPGRADE_IDS.length);
+    expect(eligibleUpgrades([])).toEqual(ALL_UPGRADE_IDS.filter((id) => !isSpecialist(id)));
     expect(eligibleUpgrades(["passiveGhostSlowPlus"])).not.toContain("passiveGhostSlow");
   });
 
@@ -977,12 +1083,122 @@ describe("enhanced upgrades", () => {
     expect(proof.state.invulnRemainingMs).toBe(6000);
   });
 
-  it("Overcharge Plus triples enhanced timers but not Defy Death", () => {
+  it("Overcharge Plus triples enhanced timers including Defy Death", () => {
     const result = applyPowerPelletEffects(
       createRunUpgrades(["passiveOverchargePlus", "powerPelletFreezePlus", "passiveDefyDeathPlus"]),
       1,
     );
     expect(result.freezeClosestMs).toBe(15000);
-    expect(result.state.defyDeathRemainingMs).toBe(8000);
+    expect(result.state.defyDeathRemainingMs).toBe(24000);
+  });
+});
+
+describe("School Specialists", () => {
+  const THREE_DEATH: UpgradeId[] = ["passiveDefyDeath", "passiveMoneyTalks", "passiveMyogenesis"];
+
+  it("enhances every upgrade in its school once three others are owned", () => {
+    expect(effectiveOwned([...THREE_DEATH, "passiveDeathSpecialist", "passiveOvercharge"])).toEqual(
+      [
+        "passiveDefyDeathPlus",
+        "passiveMoneyTalksPlus",
+        "passiveMyogenesisPlus",
+        "passiveDeathSpecialist",
+        "passiveOvercharge",
+      ],
+    );
+  });
+
+  it("does not count itself toward the three", () => {
+    const owned: UpgradeId[] = ["passiveDefyDeath", "passiveMoneyTalks", "passiveDeathSpecialist"];
+    expect(effectiveOwned(owned)).toEqual(owned);
+  });
+
+  it("counts already-enhanced upgrades toward the three", () => {
+    expect(
+      effectiveOwned([
+        "passiveDefyDeathPlus",
+        "passiveMoneyTalks",
+        "passiveMyogenesis",
+        "passiveDeathSpecialist",
+      ]),
+    ).toEqual([
+      "passiveDefyDeathPlus",
+      "passiveMoneyTalksPlus",
+      "passiveMyogenesisPlus",
+      "passiveDeathSpecialist",
+    ]);
+  });
+
+  it("leaves other schools and Neutral alone", () => {
+    const owned: UpgradeId[] = [
+      ...THREE_DEATH,
+      "passiveDeathSpecialist",
+      "fruitFeast",
+      "passivePelletToPower",
+    ];
+    expect(effectiveOwned(owned).slice(4)).toEqual(["fruitFeast", "passivePelletToPower"]);
+  });
+
+  it("enhanced form needs no threshold", () => {
+    expect(effectiveOwned(["passiveDefyDeath", "passiveDeathSpecialistPlus"])).toEqual([
+      "passiveDefyDeathPlus",
+      "passiveDeathSpecialistPlus",
+    ]);
+  });
+
+  it("returns the same array when no specialist is owned", () => {
+    const owned: UpgradeId[] = [...THREE_DEATH];
+    expect(effectiveOwned(owned)).toBe(owned);
+  });
+
+  it("feeds power-pellet effects", () => {
+    const result = applyPowerPelletEffects(
+      createRunUpgrades([...THREE_DEATH, "passiveDeathSpecialist"]),
+      1,
+    );
+    expect(result.state.defyDeathRemainingMs).toBe(DEFY_DEATH_ENHANCED_MS);
+  });
+
+  it("lists only the bases a specialist enhances", () => {
+    expect(
+      specialistEnhancedBases([
+        "passiveDefyDeathPlus",
+        "passiveMoneyTalks",
+        "passiveMyogenesis",
+        "passiveDeathSpecialist",
+      ]),
+    ).toEqual(["passiveMoneyTalks", "passiveMyogenesis"]);
+  });
+
+  it("is offered only with three upgrades of its school", () => {
+    expect(eligibleUpgrades(THREE_DEATH.slice(0, 2))).not.toContain("passiveDeathSpecialist");
+    const eligible = eligibleUpgrades(THREE_DEATH);
+    expect(eligible).toContain("passiveDeathSpecialist");
+    expect(eligible).not.toContain("passiveHarvestSpecialist");
+  });
+
+  it("hides specialist-enhanced upgrades from the store's enhance pool", () => {
+    expect(enhanceableUpgrades([...THREE_DEATH, "passiveDeathSpecialist", "fruitFeast"])).toEqual([
+      "passiveDeathSpecialist",
+      "fruitFeast",
+    ]);
+  });
+
+  it("Protection Specialist raises the Shield Pellets bank to its enhanced cap", () => {
+    const owned: UpgradeId[] = [
+      "powerPelletWarpFarthest",
+      "powerPelletInvuln",
+      "passiveShieldPellets",
+      "passiveProtectionSpecialist",
+    ];
+    expect(bankShields(createRunUpgrades(owned), 5).shieldsBanked).toBe(3);
+    expect(bankShields(createRunUpgrades(owned.slice(0, 3)), 5).shieldsBanked).toBe(1);
+  });
+
+  it("is left off the LEARN list", () => {
+    const ids = learnUpgradeDefs(["passiveDefyDeath", "passiveDeathSpecialist"]).map(
+      (def) => def.id,
+    );
+    expect(ids).toEqual(["passiveDefyDeath"]);
   });
 });

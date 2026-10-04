@@ -265,6 +265,17 @@ describe("storeStep", () => {
     expect(shelf).not.toContain(incoming);
   });
 
+  it("never swaps into a specialist the swap itself leaves below three", () => {
+    const owned: UpgradeId[] = ["passiveDefyDeath", "passiveMoneyTalks", "passiveMyogenesis"];
+    const arrived = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
+    const toggled = storeStep(arrived, input({ ...swapCell, owned, toggle: true }), zeroRng).state;
+    const step = storeStep(toggled, input({ ...swapCell, owned, enter: true }), () => 0.9999);
+    expect(step.purchase).toMatchObject({ kind: "swap", outgoingId: "passiveDefyDeath" });
+    expect(step.purchase?.kind === "swap" && step.purchase.incomingId).not.toBe(
+      "passiveDeathSpecialist",
+    );
+  });
+
   it("reports nothing to swap when every other upgrade is owned or on the shelf", () => {
     const shelfState = stateWith(["passivePlayerSpeedUp"]);
     const shelf = shelfState.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));

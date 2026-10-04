@@ -33,7 +33,16 @@ export type BaseUpgradeId =
   | "passiveTurnTuning"
   | "passiveDeathsBounty"
   | "passiveMoneyTalks"
-  | "passiveLazyLooper";
+  | "passiveLazyLooper"
+  | "passiveShieldPellets"
+  | "passiveDeathSpecialist"
+  | "passiveHarvestSpecialist"
+  | "passiveSpeedSpecialist"
+  | "passiveProtectionSpecialist"
+  | "passiveDisruptionSpecialist"
+  | "passiveMartyr"
+  | "passiveInterest"
+  | "passiveNearMiss";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -57,6 +66,8 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
   "disruption",
   "neutral",
 ];
+
+export type MartyrGhostPlacement = "corners" | "house";
 
 export type UpgradeEffects = {
   playerSpeedMul?: number;
@@ -85,6 +96,11 @@ export type UpgradeEffects = {
   turnPerfectPx?: number;
   deathQuarterCost?: number;
   lazyLooperRings?: LazyLooperRings;
+  shieldCap?: number;
+  martyrGhosts?: MartyrGhostPlacement;
+  interestPerQuarters?: number;
+  nearMissCharge?: number;
+  specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -132,6 +148,11 @@ export const GHOST_HARVEST_MS = 5000;
 export const DEFY_DEATH_MS = 5000;
 export const MONEY_TALKS_QUARTERS = 3;
 export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
+export const SHIELD_PELLETS_CAP = 1;
+export const SHIELD_PELLETS_ENHANCED_CAP = 3;
+export const SHIELD_BREAK_INVULN_MS = 1000;
+export const NEAR_MISS_CHARGE = 15;
+export const NEAR_MISS_ENHANCED_CHARGE = 30;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
@@ -176,6 +197,29 @@ export const SECOND_CHOMP_ENHANCED_MS = 7000;
 export const REMOTE_TRANSFER_ENHANCED_EVERY_PELLETS = 3;
 export const TURN_TUNING_ENHANCED_BOOST_MS = 750;
 export const TURN_TUNING_ENHANCED_PERFECT_PX = 12;
+export const SPECIALIST_THRESHOLD = 3;
+export const INTEREST_PER_QUARTERS = 3;
+export const INTEREST_ENHANCED_PER_QUARTERS = 2;
+
+function specialistDef(
+  school: Exclude<UpgradeSchool, "neutral">,
+  id: BaseUpgradeId,
+): BaseUpgradeDef {
+  const name = UPGRADE_SCHOOL_LABELS[school];
+  return {
+    id,
+    label: `${name} Specialist`,
+    school,
+    description: `Own ${SPECIALIST_THRESHOLD} other ${name} upgrades and every ${name} upgrade is enhanced.`,
+    storePrice: STORE_UPGRADE_PRICE,
+    specialistThreshold: SPECIALIST_THRESHOLD,
+    enhanced: {
+      enhanceNote: `${name} Specialist enhances every ${name} upgrade, even with fewer than ${SPECIALIST_THRESHOLD}.`,
+      description: `Every ${name} upgrade you own is enhanced.`,
+      specialistThreshold: 0,
+    },
+  };
+}
 
 export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
@@ -579,6 +623,63 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       lazyLooperRings: "outer",
     },
   },
+  {
+    id: "passiveShieldPellets",
+    label: "Shield Pellets",
+    school: "protection",
+    description: "Power pellets bank a shield. A ghost hit breaks it and fires your power effects.",
+    storePrice: STORE_UPGRADE_PRICE,
+    shieldCap: SHIELD_PELLETS_CAP,
+    enhanced: {
+      enhanceNote: "Shield Pellets banks up to 3 shields instead of 1.",
+      description: "Power pellets bank up to 3 shields. Each ghost hit breaks one.",
+      shieldCap: SHIELD_PELLETS_ENHANCED_CAP,
+    },
+  },
+  specialistDef("death", "passiveDeathSpecialist"),
+  specialistDef("harvest", "passiveHarvestSpecialist"),
+  specialistDef("speed", "passiveSpeedSpecialist"),
+  specialistDef("protection", "passiveProtectionSpecialist"),
+  specialistDef("disruption", "passiveDisruptionSpecialist"),
+  {
+    id: "passiveMartyr",
+    label: "Martyr",
+    school: "death",
+    description: "Dying scatters the ghosts to their corners. You respawn where you fell.",
+    storePrice: STORE_UPGRADE_PRICE,
+    martyrGhosts: "corners",
+    enhanced: {
+      enhanceNote: "Martyr sends the ghosts back into the ghost house instead of their corners.",
+      description: "Dying sends every ghost home. You respawn where you fell.",
+      martyrGhosts: "house",
+    },
+  },
+  {
+    id: "passiveInterest",
+    label: "Interest",
+    school: "harvest",
+    description: "Each store pays 1 Quarter for every 3 you hold.",
+    storePrice: STORE_UPGRADE_PRICE,
+    interestPerQuarters: INTEREST_PER_QUARTERS,
+    enhanced: {
+      enhanceNote: "Interest pays 1 Quarter per 2 held instead of per 3.",
+      description: "Each store pays 1 Quarter for every 2 you hold.",
+      interestPerQuarters: INTEREST_ENHANCED_PER_QUARTERS,
+    },
+  },
+  {
+    id: "passiveNearMiss",
+    label: "Near Miss",
+    school: "protection",
+    description: "Ghosts that brush past without catching you charge the BONUS bar.",
+    storePrice: STORE_UPGRADE_PRICE,
+    nearMissCharge: NEAR_MISS_CHARGE,
+    enhanced: {
+      enhanceNote: "Near Miss charges the BONUS bar 30 per pass instead of 15.",
+      description: "Ghosts that brush past without catching you charge the BONUS bar double.",
+      nearMissCharge: NEAR_MISS_ENHANCED_CHARGE,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -643,7 +744,44 @@ export function learnEnhanceToggleState(
 }
 
 export function enhanceableUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
-  return owned.filter((id): id is BaseUpgradeId => !isEnhancedId(id));
+  const specialistEnhanced = new Set<UpgradeId>(specialistEnhancedBases(owned));
+  return owned.filter(
+    (id): id is BaseUpgradeId => !isEnhancedId(id) && !specialistEnhanced.has(id),
+  );
+}
+
+export function isSpecialist(id: UpgradeId): boolean {
+  return getUpgradeDef(id).specialistThreshold !== undefined;
+}
+
+function schoolCount(owned: readonly UpgradeId[], school: UpgradeSchool): number {
+  return owned.filter((id) => !isSpecialist(id) && getUpgradeDef(id).school === school).length;
+}
+
+export function effectiveOwned(owned: readonly UpgradeId[]): readonly UpgradeId[] {
+  const thresholds = new Map<UpgradeSchool, number>();
+  for (const id of owned) {
+    const def = getUpgradeDef(id);
+    if (def.specialistThreshold !== undefined) {
+      thresholds.set(def.school, def.specialistThreshold);
+    }
+  }
+  if (thresholds.size === 0) {
+    return owned;
+  }
+  return owned.map((id) => {
+    const def = getUpgradeDef(id);
+    const threshold = thresholds.get(def.school);
+    if (def.isEnhanced || isSpecialist(id) || threshold === undefined) {
+      return id;
+    }
+    return schoolCount(owned, def.school) >= threshold ? enhancedIdOf(def.baseId) : id;
+  });
+}
+
+export function specialistEnhancedBases(owned: readonly UpgradeId[]): BaseUpgradeId[] {
+  const effective = effectiveOwned(owned);
+  return owned.filter((id, i): id is BaseUpgradeId => effective[i] !== id);
 }
 
 export function carryEnhancement(outgoingId: UpgradeId, incomingBaseId: BaseUpgradeId): UpgradeId {
@@ -693,6 +831,7 @@ export type RunUpgrades = {
   speedBurstRemainingMs: number;
   ghostHarvestRemainingMs: number;
   defyDeathRemainingMs: number;
+  shieldsBanked: number;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -715,6 +854,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     speedBurstRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
     defyDeathRemainingMs: 0,
+    shieldsBanked: 0,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -759,7 +899,11 @@ export function grantLivesForUpgrade(id: UpgradeId): number {
 
 export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   const ownedBases = new Set(owned.map(baseIdOf));
-  return ALL_UPGRADE_IDS.filter((id) => !ownedBases.has(id));
+  return ALL_UPGRADE_IDS.filter(
+    (id) =>
+      !ownedBases.has(id) &&
+      (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
+  );
 }
 
 export function takeRandomFrom<T>(pool: T[], rng: () => number): T {
@@ -879,9 +1023,11 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
   if (!hasUpgrade(state.owned, baseId)) {
     return state;
   }
+  const owned = state.owned.filter((owned) => baseIdOf(owned) !== baseId);
   return {
     ...state,
-    owned: state.owned.filter((owned) => baseIdOf(owned) !== baseId),
+    owned,
+    shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
   };
 }
 
@@ -997,7 +1143,8 @@ export function applyPowerPelletEffects(
   let warpPlayerFarthest = false;
   let collectExtraPellets = 0;
 
-  for (const id of state.owned) {
+  const owned = effectiveOwned(state.owned);
+  for (const id of owned) {
     const onPower = UPGRADE_BY_ID.get(id)?.onPowerPellet;
     if (!onPower) {
       continue;
@@ -1052,7 +1199,7 @@ export function applyPowerPelletEffects(
     }
   }
 
-  const overcharge = overchargeMultiplier(state.owned);
+  const overcharge = overchargeMultiplier(owned);
   const scaled = (ms: number | null): number | null => (ms === null ? null : ms * overcharge);
   freezeClosestMs = scaled(freezeClosestMs);
   cornerTeleportHoldMs = scaled(cornerTeleportHoldMs);
@@ -1060,6 +1207,7 @@ export function applyPowerPelletEffects(
   invulnMs = scaled(invulnMs);
   speedBurstMs = scaled(speedBurstMs);
   ghostHarvestMs = scaled(ghostHarvestMs);
+  defyDeathMs = scaled(defyDeathMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
@@ -1150,6 +1298,11 @@ export function moneyTalksCost(owned: readonly UpgradeId[]): number | null {
   return ownedValue(owned, "deathQuarterCost") ?? null;
 }
 
+export function interestPayout(owned: readonly UpgradeId[], quarters: number): number {
+  const per = ownedValue(owned, "interestPerQuarters");
+  return per === undefined ? 0 : Math.floor(quarters / per);
+}
+
 export function lifeFloorBonus(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "lifeFloorBonus") ?? 0;
 }
@@ -1173,6 +1326,14 @@ export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
 export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
   const decay = ownedValue(owned, "deathsBountyDecay");
   return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
+}
+
+export function nearMissCharge(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "nearMissCharge") ?? 0;
+}
+
+export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
+  return ownedValue(owned, "martyrGhosts") ?? null;
 }
 
 export function overchargeMultiplier(owned: readonly UpgradeId[]): number {
@@ -1276,6 +1437,35 @@ export function ghostHarvestActive(state: RunUpgrades): boolean {
 
 export function defyDeathActive(state: RunUpgrades): boolean {
   return state.defyDeathRemainingMs > 0;
+}
+
+export function shieldPelletsCap(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "shieldCap") ?? null;
+}
+
+export function bankShields(state: RunUpgrades, count: number): RunUpgrades {
+  const cap = shieldPelletsCap(effectiveOwned(state.owned)) ?? 0;
+  const shieldsBanked = Math.min(cap, state.shieldsBanked + Math.max(0, count));
+  return shieldsBanked === state.shieldsBanked ? state : { ...state, shieldsBanked };
+}
+
+export function spendShield(state: RunUpgrades): RunUpgrades | null {
+  if (state.shieldsBanked <= 0) {
+    return null;
+  }
+  return { ...state, shieldsBanked: state.shieldsBanked - 1 };
+}
+
+export function applyShieldBreakInvuln(state: RunUpgrades): RunUpgrades {
+  const invulnRemainingMs = Math.max(
+    state.invulnRemainingMs,
+    SHIELD_BREAK_INVULN_MS * overchargeMultiplier(state.owned),
+  );
+  return { ...state, invulnRemainingMs };
+}
+
+export function learnUpgradeDefs(seen: readonly UpgradeId[]): UpgradeDef[] {
+  return UPGRADE_DEFS.filter((def) => seen.includes(def.id) && !isSpecialist(def.id));
 }
 
 export function groupUpgradesBySchool(

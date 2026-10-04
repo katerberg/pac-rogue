@@ -23,8 +23,13 @@ import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
+  DEFY_DEATH_MS,
   frozenGhostEid,
   grantUpgrade,
+  INVULN_MS,
+  NEAR_MISS_CHARGE,
+  NEAR_MISS_ENHANCED_CHARGE,
+  SHIELD_BREAK_INVULN_MS,
   STARTING_UPGRADE_POOL,
   type UpgradeChoiceOffer,
   type UpgradeId,
@@ -475,6 +480,80 @@ describe("PlaySim", () => {
     expect(sim.snapshot().lives).toBe(livesBefore);
   });
 
+  describe("School Specialists", () => {
+    const THREE_DEATH = ["passiveDefyDeath", "passiveMoneyTalks", "passiveMyogenesis"] as const;
+
+    function defyWindowAfterPowerPellet(sim: PlaySim): number {
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      return sim.snapshot().timers.defyDeathMs;
+    }
+
+    it("Death Specialist with three Death upgrades arms the enhanced Defy Death window", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: [...THREE_DEATH, "passiveDeathSpecialist"],
+      });
+      expect(defyWindowAfterPowerPellet(sim)).toBeGreaterThan(DEFY_DEATH_MS);
+      expect(sim.hud().upgrades).toEqual([
+        "passiveDefyDeathPlus",
+        "passiveMoneyTalksPlus",
+        "passiveMyogenesisPlus",
+        "passiveDeathSpecialist",
+      ]);
+      expect(sim.snapshot().upgrades).toEqual([...THREE_DEATH, "passiveDeathSpecialist"]);
+    });
+
+    it("without the specialist, or below three, Defy Death keeps its base window", () => {
+      const without = startSim({ level: 2, maze: "maze1", enableUpgrades: [...THREE_DEATH] });
+      expect(defyWindowAfterPowerPellet(without)).toBeLessThanOrEqual(DEFY_DEATH_MS);
+      const below = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: ["passiveDefyDeath", "passiveMoneyTalks", "passiveDeathSpecialist"],
+      });
+      expect(defyWindowAfterPowerPellet(below)).toBeLessThanOrEqual(DEFY_DEATH_MS);
+      expect(below.hud().upgrades).toContain("passiveDefyDeath");
+    });
+
+    it("Death Specialist Plus enhances a lone Death upgrade", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: ["passiveDefyDeath", "passiveDeathSpecialistPlus"],
+      });
+      expect(defyWindowAfterPowerPellet(sim)).toBeGreaterThan(DEFY_DEATH_MS);
+    });
+
+    it("grants Extra Life's enhanced life once and hides it from the enhance tile", () => {
+      const owned = ["passiveExtraLife", "passiveDefyDeath", "passiveMoneyTalks"] as const;
+      const base = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        lives: 2,
+        enableUpgrades: [...owned],
+      });
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        lives: 2,
+        enableUpgrades: [...owned, "passiveDeathSpecialist"],
+      });
+      expect(sim.snapshot().lives).toBe(base.snapshot().lives + 1);
+      expect(
+        sim
+          .snapshot()
+          .storeStock!.filter(
+            (s) => s.startsWith("enhance:passive") && s !== "enhance:passiveDeathSpecialist",
+          ),
+      ).toEqual([]);
+    });
+  });
+
   describe("Defy Death", () => {
     function startDefySim(): PlaySim {
       return startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveDefyDeath"] });
@@ -678,6 +757,14 @@ describe("PlaySim", () => {
     sim.chooseUpgrade({ kind: "upgrade", id: pick });
     runUntil(sim, () => sim.snapshot().levelTransition, 60);
     expect(sim.snapshot().level).toBe(2);
+    expect(sim.snapshot().lives).toBe(2);
+  });
+
+  it("regenerates the life before the upgrade offer is chosen", () => {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
+    (sim as unknown as { lives: number }).lives = 1;
+    const events = runUntil(sim, () => sim.offer() !== null, 90);
+    expect(events).toContainEqual({ type: "lives", pulse: true });
     expect(sim.snapshot().lives).toBe(2);
   });
 
@@ -968,6 +1055,92 @@ describe("PlaySim", () => {
     runFrames(sim, 1, { storeChoice: choice });
     expect(sim.snapshot().lives).toBe(before.lives + (buys ? 1 : 0));
     expect(sim.snapshot().quarters < before.quarters).toBe(buys);
+  });
+
+  describe("store exit click", () => {
+    const topTunnel = () => ({ x: cellCenterX(10), y: cellCenterY(0) });
+
+    function travelPx(sim: PlaySim, run: () => void) {
+      const before = sim.snapshot().player!;
+      run();
+      const after = sim.snapshot().player!;
+      return Math.abs(after.x - before.x) + Math.abs(after.y - before.y);
+    }
+
+    it("walks the player out a clicked tunnel at normal speed", () => {
+      const keyed = startSim({ store: 1, quarters: 0 });
+      runFrames(keyed, 1);
+      const keyedPx = travelPx(keyed, () => runFrames(keyed, 5, { keys: held("left") }));
+
+      const sim = startSim({ store: 1, quarters: 0 });
+      const level = sim.snapshot().level;
+      runFrames(sim, 1);
+      const routedPx = travelPx(sim, () => {
+        runFrames(sim, 1, { storePointer: topTunnel() });
+        runFrames(sim, 4);
+      });
+      expect(sim.snapshot().storeRoute).toEqual({ col: 10, row: 0 });
+      expect(Math.abs(routedPx - keyedPx)).toBeLessThanOrEqual(1);
+      runUntil(sim, () => sim.snapshot().level !== level, 1200);
+      expect(sim.snapshot().inStore).toBe(false);
+    });
+
+    it.each([
+      ["an arrow key", { keys: held("left") }],
+      ["Escape", { storeCancelRoute: true }],
+      ["a click elsewhere", { storePointer: { x: cellCenterX(5), y: cellCenterY(16) } }],
+    ] as const)("%s cancels the route", (_label, cancel) => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      runFrames(sim, 1, { storePointer: topTunnel() });
+      runFrames(sim, 10);
+      runFrames(sim, 1, cancel);
+      expect(sim.snapshot().storeRoute).toBeNull();
+      runFrames(sim, 30);
+      const at = sim.snapshot().player;
+      runFrames(sim, 30);
+      expect(sim.snapshot().player).toEqual(at);
+      expect(sim.snapshot().inStore).toBe(true);
+    });
+
+    it.each([
+      [10, 0],
+      [0, 10],
+      [21, 10],
+      [11, 20],
+    ])("routes around affordable tiles to the tunnel at %i,%i", (col, row) => {
+      const sim = startSim({ store: 2, quarters: 10, lives: 2, maxLives: 4 });
+      const level = sim.snapshot().level;
+      runFrames(sim, 1, { storePointer: { x: cellCenterX(col), y: cellCenterY(row) } });
+      runUntil(
+        sim,
+        () => sim.snapshot().level !== level || sim.snapshot().storePrompt === "confirm",
+        1200,
+      );
+      expect(sim.snapshot().level).not.toBe(level);
+    });
+
+    it("reports a tunnel under the pointer only while a click there would route", () => {
+      const sim = startSim({ store: 1, quarters: 10, lives: 2, maxLives: 4 });
+      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(true);
+      expect(sim.storeExitUnder(cellCenterX(10), cellCenterY(16))).toBe(false);
+      const lifeIndex = sim.storeState()!.slots.findIndex((slot) => slot.kind === "life");
+      runFrames(sim, 1, { storeClick: lifeIndex });
+      expect(sim.snapshot().storePrompt).toBe("confirm");
+      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(false);
+      runFrames(sim, 1, { storeChoice: "no" });
+      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(true);
+      const level = sim.snapshot().level;
+      runFrames(sim, 1, { storePointer: topTunnel() });
+      runUntil(sim, () => sim.snapshot().level !== level, 1200);
+      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(false);
+    });
+
+    it("ignores clicks that are not on a tunnel", () => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      runFrames(sim, 1, { storePointer: { x: cellCenterX(0), y: cellCenterY(5) } });
+      expect(sim.snapshot().storeRoute).toBeNull();
+      expect(sim.storeRouting()).toBe(false);
+    });
   });
 
   it("adds a Blinky when the player eats a boss pellet", () => {
@@ -1266,7 +1439,7 @@ describe("PlaySim bonus bar", () => {
     expect(sim.snapshot().quarters).toBe(1);
     expect(sim.snapshot().bonus.charge).toBe(1);
     expect(bonusEvents(events)).toEqual([{ type: "bonus", tier: 1, filled: 1 }]);
-    expect(events).toContainEqual({ type: "quarters" });
+    expect(events).toContainEqual({ type: "quarters", pulse: false });
   });
 
   it("counts a power pellet once and ignores Extra Hungry's extra pellets", () => {
@@ -1497,7 +1670,7 @@ describe("PlaySim fruit bonus charge", () => {
     const sim = startWithFruit({ quarters: 0 });
     const events = eatFruit(sim);
     expect(sim.snapshot()).toMatchObject({ quarters: 0, bonus: { charge: 150 } });
-    expect(events).not.toContainEqual({ type: "quarters" });
+    expect(events).not.toContainEqual({ type: "quarters", pulse: false });
     expect(events).toContainEqual({ type: "fruitBonus" });
   });
 
@@ -1752,6 +1925,17 @@ describe("PlaySim enhanced upgrades", () => {
     chomp(plus);
     expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(14800);
     expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(15000);
+  });
+
+  it("Overcharge extends the Defy Death window", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveDefyDeath", "passiveOvercharge"],
+    });
+    chomp(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(9800);
+    expect(sim.snapshot().timers.defyDeathMs).toBeLessThanOrEqual(10000);
   });
 
   it("Warp Farthest+ shields for 2s and Overcharge does not extend it", () => {
@@ -2333,6 +2517,125 @@ describe("debug tuning", () => {
   });
 });
 
+describe("Shield Pellets", () => {
+  function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  function chompPowerPellet(sim: PlaySim): SimEvent[] {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    return runFrames(sim, 1);
+  }
+
+  function chompPowerPellets(sim: PlaySim, n: number): void {
+    for (let i = 0; i < n; i += 1) {
+      chompPowerPellet(sim);
+      runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 400);
+    }
+  }
+
+  it("banks a shield instead of firing power-pellet effects", () => {
+    const sim = startShieldSim(["passiveShieldPellets", "powerPelletInvuln"]);
+    const events = chompPowerPellet(sim);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, invulnMs: 0 });
+    expect(sim.hud().shields).toBe(1);
+    expect(events).toContainEqual({ type: "shields" });
+  });
+
+  it("holds 1 shield, or 3 with Shield Pellets+", () => {
+    const base = startShieldSim(["passiveShieldPellets"]);
+    chompPowerPellets(base, 2);
+    expect(base.snapshot().timers.shieldsBanked).toBe(1);
+
+    const plus = startShieldSim(["passiveShieldPelletsPlus"]);
+    chompPowerPellets(plus, 4);
+    expect(plus.snapshot().timers.shieldsBanked).toBe(3);
+  });
+
+  it("a catch breaks a shield, fires the effects and costs no life or death", () => {
+    const sim = startShieldSim(["passiveShieldPellets", "powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({
+      dying: false,
+      lives: livesBefore,
+      deathsThisBoard: 0,
+      shieldCrackProgress: 0,
+    });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+    expect(events).toContainEqual({ type: "shieldCrack", index: 0, progress: 0 });
+    expect(events).not.toContainEqual({ type: "sfx", id: "death" });
+    const crack = runUntil(sim, () => sim.snapshot().shieldCrackProgress === null, 120);
+    expect(crack).toContainEqual({ type: "shieldCrack", index: 0, progress: 1 });
+  });
+
+  it("grants 1s of immunity on its own, multiplied by Overcharge", () => {
+    const sim = startShieldSim(["passiveShieldPellets"]);
+    chompPowerPellet(sim);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(SHIELD_BREAK_INVULN_MS - 2 * FRAME_MS);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(SHIELD_BREAK_INVULN_MS);
+
+    const overcharged = startShieldSim(["passiveShieldPellets", "passiveOvercharge"]);
+    chompPowerPellet(overcharged);
+    ghostOntoPlayer(overcharged);
+    runFrames(overcharged, 1);
+    expect(overcharged.snapshot().timers.invulnMs).toBeGreaterThan(SHIELD_BREAK_INVULN_MS);
+  });
+
+  it("does not trigger Defy Death's save but arms its window", () => {
+    const sim = startShieldSim(["passiveShieldPellets", "passiveDefyDeath"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBe(0);
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(events).not.toContainEqual({ type: "sfx", id: "revive" });
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(0);
+  });
+
+  it("dies normally with an empty bank", () => {
+    const sim = startShieldSim(["passiveShieldPellets"]);
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({ dying: true, lives: livesBefore - 1 });
+  });
+
+  it("Fruit Power banks a shield instead of firing", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveShieldPelletsPlus", "fruitPowerPellet", "powerPelletInvuln"],
+    });
+    sim["spawnFruitEntity"](false);
+    const fruit = query(sim.world, [Fruit, Position])[0]!;
+    teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, invulnMs: 0 });
+  });
+
+  it("empties the bank on level advance", () => {
+    const sim = startShieldSim(["passiveShieldPelletsPlus"]);
+    chompPowerPellets(sim, 2);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+    sim["jumpToLevelClear"]();
+    drainToOffer(sim);
+    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startShieldSim(["powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+  });
+});
+
 describe("PlaySim ghost catch overlap", () => {
   function ghostAtReachFraction(fraction: number): PlaySim {
     const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true });
@@ -2352,5 +2655,259 @@ describe("PlaySim ghost catch overlap", () => {
     const sim = ghostAtReachFraction(0.5);
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
+  });
+});
+
+describe("Martyr", () => {
+  function startMartyr(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades });
+  }
+
+  function dieAwayFromSpawn(sim: PlaySim): { col: number; row: number } {
+    const spawn = sim.snapshot().player!;
+    const pellet = regularPelletEids(sim).find(
+      (eid) => worldToRow(Position.y[eid]!) !== spawn.row,
+    )!;
+    eatPelletAt(sim, pellet);
+    const fell = sim.snapshot().player!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    return { col: fell.col, row: fell.row };
+  }
+
+  it("respawns at spawn without Martyr", () => {
+    const sim = startMartyr([]);
+    const spawn = { ...sim.snapshot().player! };
+    dieAwayFromSpawn(sim);
+    expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
+  });
+
+  it("Martyr sends ghosts that were out to their Scatter Burst corners", () => {
+    const sim = startMartyr(["passiveMartyr"]);
+    const fell = dieAwayFromSpawn(sim);
+    const { player, ghosts } = sim.snapshot();
+    expect(player).toMatchObject({ col: fell.col, row: fell.row });
+    expect(Position.x[playerEid(sim)]).toBe(cellCenterX(fell.col));
+    expect(Position.y[playerEid(sim)]).toBe(cellCenterY(fell.row));
+    const out = ghosts.filter((ghost) => ghost.phase === "active");
+    expect(out.length).toBeGreaterThan(0);
+    for (const ghost of out) {
+      const corner = ghostTeleportCell(
+        scatterTargetForKind(GhostKind.kind[ghost.eid] as GhostKindId),
+        fell,
+      );
+      expect(ghost).toMatchObject({ col: corner.col, row: corner.row });
+    }
+    const home = ghosts.filter((ghost) => ghost.phase !== "active");
+    expect(home.every((ghost) => ghost.phase === "inHouse")).toBe(true);
+  });
+
+  it("Martyr starts the scatter/chase clock so cornered ghosts move on to chase", () => {
+    const sim = startMartyr(["passiveMartyr"]);
+    dieAwayFromSpawn(sim);
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    runUntil(sim, () => sim.snapshot().ghostMode === "chase", 60 * 30);
+    expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
+  it("Martyr+ respawns where the player fell with every ghost in the house", () => {
+    const sim = startMartyr(["passiveMartyrPlus"]);
+    const fell = dieAwayFromSpawn(sim);
+    const { player, ghosts } = sim.snapshot();
+    expect(player).toMatchObject({ col: fell.col, row: fell.row });
+    expect(ghosts.length).toBeGreaterThan(0);
+    expect(ghosts.every((ghost) => ghost.phase === "inHouse")).toBe(true);
+  });
+
+  it("stacks with Death's Bounty and Death's Harvest", () => {
+    const sim = startMartyr(["passiveMartyr", "passiveDeathsBounty", "passiveDeathsHarvest"]);
+    const pelletsBefore = sim.snapshot().pelletsRemaining;
+    const fell = dieAwayFromSpawn(sim);
+    expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.snapshot().pelletsRemaining).toBeLessThan(pelletsBefore - 1);
+  });
+
+  it("respawns in place on a Defy Death save", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "passiveDefyDeath"],
+    });
+    const spawn = sim.snapshot().player!;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const fell = sim.snapshot().player!;
+    expect(fell.row).not.toBe(spawn.row);
+    const lives = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+  });
+});
+
+describe("Interest", () => {
+  const storeWith = (enableUpgrades: PlayOptions["enableUpgrades"], quarters = 9) =>
+    startSim({ store: 1, level: 5, quarters, lives: 2, maxLives: 4, enableUpgrades });
+
+  it("pays 1 Quarter per 3 held on store entry, 1 per 2 enhanced, nothing without it", () => {
+    expect(storeWith(["passiveInterest"]).snapshot().quarters).toBe(12);
+    expect(storeWith(["passiveInterestPlus"]).snapshot().quarters).toBe(13);
+    expect(storeWith(["passiveInterest"], 2).snapshot().quarters).toBe(2);
+    expect(storeWith([]).snapshot().quarters).toBe(9);
+  });
+
+  it("is enhanced by Harvest Specialist", () => {
+    const sim = storeWith([
+      "passiveInterest",
+      "fruitQuarterBounty",
+      "fruitFecundity",
+      "fruitFeast",
+      "passiveHarvestSpecialist",
+    ]);
+    expect(sim.snapshot().quarters).toBe(13);
+  });
+
+  it("pops the paid Quarters into the HUD one at a time", () => {
+    const sim = storeWith(["passiveInterest"]);
+    expect(sim.hud().quarters).toBe(9);
+    expect(sim.snapshot().interestPop).toEqual({ count: 3, shown: 0 });
+    const seen: number[] = [];
+    let pulses = 0;
+    for (let i = 0; i < 240 && sim.snapshot().interestPop !== null; i += 1) {
+      const events = runFrames(sim, 1);
+      pulses += events.filter((e) => e.type === "quarters" && e.pulse).length;
+      seen.push(sim.hud().quarters);
+    }
+    expect([...new Set(seen)]).toEqual([9, 10, 11, 12]);
+    expect(pulses).toBe(3);
+    expect(sim.hud().quarters).toBe(12);
+  });
+
+  it("shows the real wallet as soon as a purchase lands mid pop-in", () => {
+    const sim = storeWith(["passiveInterest"], 15);
+    const slot = parseStoreSlots(STORE_MAZE_ASCII).filter((cell) => cell.kind === "life")[0]!;
+    teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
+    runFrames(sim, 1);
+    runFrames(sim, 1, { storeToggle: true });
+    runFrames(sim, 1, { storeConfirm: true });
+    expect(sim.snapshot().quarters).toBeLessThan(20);
+    expect(sim.snapshot().interestPop).toBeNull();
+    expect(sim.hud().quarters).toBe(sim.snapshot().quarters);
+  });
+
+  it("shows the real wallet as soon as you leave mid pop-in", () => {
+    const sim = storeWith(["passiveInterest"], 15);
+    expect(sim.hud().quarters).toBe(15);
+    expect(sim.snapshot().interestPop).toEqual({ count: 5, shown: 0 });
+    teleportPlayer(sim, cellCenterX(10), cellCenterY(0));
+    const level = sim.snapshot().level;
+    const events = runUntil(sim, () => sim.snapshot().level !== level, 120);
+    expect(sim.snapshot().interestPop).toBeNull();
+    expect(sim.hud().quarters).toBe(sim.snapshot().quarters);
+    expect(events).toContainEqual({ type: "quarters", pulse: false });
+  });
+});
+
+describe("Near Miss", () => {
+  function startNearMiss(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades, bonus: 100 });
+  }
+
+  function ghostBesidePlayer(sim: PlaySim, ghost: number): void {
+    const player = playerEid(sim);
+    Position.x[ghost] = Position.x[player]! + 0.8 * TILE_SIZE;
+    Position.y[ghost] = Position.y[player]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  function passGhost(sim: PlaySim): SimEvent[] {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    const home = { x: Position.x[ghost]!, y: Position.y[ghost]! };
+    ghostBesidePlayer(sim, ghost);
+    const events = runFrames(sim, 1);
+    Position.x[ghost] = home.x;
+    Position.y[ghost] = home.y;
+    return [...events, ...runFrames(sim, 1)];
+  }
+
+  it("charges the BONUS bar 15 when a ghost brushes past", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    passGhost(sim);
+    expect(sim.snapshot().nearMissesPaid).toBe(1);
+    expect(sim.snapshot().bonus.charge).toBe(100 + NEAR_MISS_CHARGE);
+  });
+
+  it("charges 30 when enhanced", () => {
+    const sim = startNearMiss(["passiveNearMissPlus"]);
+    passGhost(sim);
+    expect(sim.snapshot().bonus.charge).toBe(100 + NEAR_MISS_ENHANCED_CHARGE);
+  });
+
+  it("pays every separate pass", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    passGhost(sim);
+    passGhost(sim);
+    expect(sim.snapshot().nearMissesPaid).toBe(2);
+    expect(sim.snapshot().bonus.charge).toBe(100 + 2 * NEAR_MISS_CHARGE);
+  });
+
+  it("pays nothing when not owned", () => {
+    const sim = startNearMiss([]);
+    passGhost(sim);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+    expect(sim.snapshot().bonus.charge).toBe(100);
+  });
+
+  it("pays nothing while the ghost stays within 1 tile", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    ghostBesidePlayer(sim, query(sim.world, [Ghost, Position])[0]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+  });
+
+  it("pays nothing when the ghost catches you", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    ghostBesidePlayer(sim, query(sim.world, [Ghost, Position])[0]!);
+    runFrames(sim, 1);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    runFrames(sim, 1);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+    expect(sim.snapshot().bonus.charge).toBe(100);
+  });
+
+  it("pays nothing for the frozen ghost", () => {
+    const sim = startNearMiss(["passiveNearMiss", "powerPelletFreeze"]);
+    GhostPhase.value[query(sim.world, [Ghost])[0]!] = GHOST_PHASE.active;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const frozen = frozenGhostEid(sim["runUpgrades"])!;
+    expect(frozen).not.toBeNull();
+    const home = { x: Position.x[frozen]!, y: Position.y[frozen]! };
+    ghostBesidePlayer(sim, frozen);
+    runFrames(sim, 1);
+    Position.x[frozen] = home.x;
+    Position.y[frozen] = home.y;
+    runFrames(sim, 1);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+  });
+
+  it("pays nothing while Ghost Proof makes the pass safe", () => {
+    const sim = startNearMiss(["passiveNearMiss", "powerPelletInvuln"]);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
+    passGhost(sim);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
   });
 });
