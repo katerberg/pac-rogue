@@ -1,6 +1,7 @@
 import { query, type World } from "bitecs";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { stepNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
+import type { CatchOptions } from "./catchPlayer";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
@@ -10,7 +11,7 @@ export function stepNearMisses(
   world: World,
   passes: NearMissPasses,
   tileSize: number,
-  isCatchable: (ghostEid: number) => boolean,
+  catchOptions: CatchOptions,
 ): { passes: NearMissPasses; completed: number } {
   const playerEid = query(world, [Player, Position])[0];
   if (playerEid === undefined) {
@@ -23,7 +24,10 @@ export function stepNearMisses(
     .map((eid) => ({
       eid,
       distancePx: Math.hypot((Position.x[eid] ?? 0) - px, (Position.y[eid] ?? 0) - py),
-      catchable: isCatchable(eid),
+      catchable:
+        catchOptions.playerInvulnerable !== true &&
+        eid !== catchOptions.frozenGhostEid &&
+        catchOptions.skipGhostEids?.has(eid) !== true,
     }));
   return stepNearMissPasses(passes, samples, tileSize);
 }

@@ -242,7 +242,7 @@ import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
-import { catchPlayer } from "../systems/catchPlayer";
+import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
@@ -1128,19 +1128,17 @@ export class PlaySim {
 
     const frozenEid = frozenGhostEid(this.runUpgrades);
     const playerInvulnerable = this.options.godMode || playerIsInvulnerable(this.runUpgrades);
-    const glidingEids = glidingGhostEids(this.ghostCornerWarps);
-    const caughtBy = catchPlayer(this.world, {
+    const catchOptions = {
       frozenGhostEid: frozenEid,
-      skipGhostEids: glidingEids,
+      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
       playerInvulnerable,
-    });
+    };
+    const caughtBy = catchPlayer(this.world, catchOptions);
     this.emitDraw();
 
     if (caughtBy === null) {
       this.recorder.nearMisses(this.world, getActiveLayout().tileSize);
-      this.payNearMisses(
-        (eid) => !playerInvulnerable && eid !== frozenEid && !glidingEids.has(eid),
-      );
+      this.payNearMisses(catchOptions);
     } else {
       if (this.breakShield()) {
         return;
@@ -1254,7 +1252,7 @@ export class PlaySim {
     return charge > 0;
   }
 
-  private payNearMisses(isCatchable: (ghostEid: number) => boolean): void {
+  private payNearMisses(catchOptions: CatchOptions): void {
     const charge = nearMissCharge(this.effectiveUpgrades());
     if (charge === 0) {
       return;
@@ -1263,7 +1261,7 @@ export class PlaySim {
       this.world,
       this.nearMissPasses,
       getActiveLayout().tileSize,
-      isCatchable,
+      catchOptions,
     );
     this.nearMissPasses = step.passes;
     if (step.completed === 0) {

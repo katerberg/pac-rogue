@@ -111,7 +111,7 @@ import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../sys
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
 import { playerFacing, playerPose } from "../systems/playerDirection";
-import { catchPlayer } from "../systems/catchPlayer";
+import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
@@ -405,20 +405,14 @@ export class LearnSim {
 
     ghostAi(this.world, GHOST_AI_MODE.chase, NO_ELROY_PELLETS);
 
-    const frozenEid = frozenGhostEid(this.learnUpgrades);
-    const glidingEids = glidingGhostEids(this.ghostCornerWarps);
-    const playerInvulnerable = playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0;
-    const caught = this.catchDemoOwned()
-      ? catchPlayer(this.world, {
-          frozenGhostEid: frozenEid,
-          skipGhostEids: glidingEids,
-          playerInvulnerable,
-        })
-      : null;
+    const catchOptions = {
+      frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
+    };
+    const caught = this.catchDemoOwned() ? catchPlayer(this.world, catchOptions) : null;
     if (caught === null) {
-      this.payNearMisses(
-        (eid) => !playerInvulnerable && eid !== frozenEid && !glidingEids.has(eid),
-      );
+      this.payNearMisses(catchOptions);
     } else {
       this.nearMissPasses = createNearMissPasses();
       this.resolveDemoCatch();
@@ -814,17 +808,16 @@ export class LearnSim {
     }
   }
 
-  private payNearMisses(isCatchable: (ghostEid: number) => boolean): void {
+  private payNearMisses(catchOptions: CatchOptions): void {
     const charge = nearMissCharge(this.learnUpgrades.owned);
     if (charge === 0) {
-      this.nearMissPasses = createNearMissPasses();
       return;
     }
     const step = stepNearMisses(
       this.world,
       this.nearMissPasses,
       getActiveLayout().tileSize,
-      isCatchable,
+      catchOptions,
     );
     this.nearMissPasses = step.passes;
     if (step.completed > 0) {
