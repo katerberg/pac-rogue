@@ -59,4 +59,20 @@ describe("ghostHouseOrder", () => {
       GHOST_KIND.clyde,
     ]);
   });
+
+  it("seats the held ghost last even when its gate has passed", () => {
+    const clock = tickGhostRelease(createGhostReleaseClock(3), true, 10_000);
+    const sorted = sortInHouseGhosts(
+      [
+        { eid: 1, kind: GHOST_KIND.blinky },
+        { eid: 2, kind: GHOST_KIND.pinky },
+        { eid: 3, kind: GHOST_KIND.inky },
+      ],
+      clock,
+      0,
+      true,
+      { heldGhostEid: 1 },
+    );
+    expect(sorted.map((g) => g.eid)).toEqual([2, 3, 1]);
+  });
 });
