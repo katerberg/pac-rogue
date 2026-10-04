@@ -667,10 +667,7 @@ export class LearnSim {
     this.pendingPowerRespawns = [];
     this.boardCollected = 0;
     this.fruitPresence = createFruitPresence();
-    const regained = this.runState.levelClear(this.learnUpgrades.owned);
-    if (regained > 0) {
-      this.popup(`+${regained} LIFE`);
-    }
+    this.runState.levelClear(this.learnUpgrades.owned);
   }
 
   private catchDemoOwned(): boolean {
