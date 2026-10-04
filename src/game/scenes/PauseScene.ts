@@ -61,6 +61,7 @@ export class PauseScene extends Phaser.Scene {
   private keyD!: Phaser.Input.Keyboard.Key;
   private keyEnter!: Phaser.Input.Keyboard.Key;
   private keySpace!: Phaser.Input.Keyboard.Key;
+  private keyEsc!: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super("PauseScene");
@@ -157,6 +158,7 @@ export class PauseScene extends Phaser.Scene {
     this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.keyEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
   }
 
   update(_time: number, delta: number): void {
@@ -165,6 +167,11 @@ export class PauseScene extends Phaser.Scene {
     }
 
     this.moveCooldownMs = Math.max(0, this.moveCooldownMs - delta);
+
+    if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
+      this.resumeGame();
+      return;
+    }
 
     if (this.confirmingQuit) {
       this.updateQuitConfirm(delta);
