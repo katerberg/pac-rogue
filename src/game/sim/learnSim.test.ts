@@ -63,6 +63,27 @@ describe("LearnSim", () => {
     expect(events.some((event) => event.type === "bouncePowerPellet")).toBe(true);
   });
 
+  it("regenerates every power pellet once the last one is eaten", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    const power = query(sim.world, [PowerPellet, Position]);
+    const total = power.length;
+    expect(total).toBeGreaterThan(1);
+    const player = query(sim.world, [Player, Position])[0]!;
+    const positions = Array.from(power).map((eid) => ({
+      x: Position.x[eid]!,
+      y: Position.y[eid]!,
+    }));
+    for (const [i, at] of positions.entries()) {
+      Position.x[player] = at.x;
+      Position.y[player] = at.y;
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      const left = query(sim.world, [PowerPellet]).length;
+      expect(left).toBe(i < total - 1 ? total - 1 - i : total);
+    }
+    expect(query(sim.world, [Pellet]).length).toBeGreaterThan(total);
+  });
+
   it("toggles an enhanced form on and off for a selected upgrade", () => {
     const sim = new LearnSim("learn");
     sim.start();

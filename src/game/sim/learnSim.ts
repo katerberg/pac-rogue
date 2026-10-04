@@ -21,6 +21,7 @@ import {
   cellCenterY,
   getActiveLayout,
   isWalkable,
+  pelletCellCenters,
 } from "../../domain/maze";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
@@ -81,6 +82,7 @@ import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
+import { PowerPellet } from "../components/PowerPellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
@@ -386,6 +388,8 @@ export class LearnSim {
     if (query(this.world, [Pellet]).length === 0) {
       this.spawnPellets();
       this.onBoardRefill();
+    } else {
+      this.regenPowerPellets();
     }
 
     this.tickFruit(delta);
@@ -661,6 +665,17 @@ export class LearnSim {
   private countCollected(count: number): void {
     this.houseHoldEaten += count;
     this.boardCollected += count;
+  }
+
+  private regenPowerPellets(): void {
+    if (this.pendingPowerRespawns.length > 0 || query(this.world, [PowerPellet]).length > 0) {
+      return;
+    }
+    for (const cell of pelletCellCenters()) {
+      if (cell.kind === "power") {
+        spawnPellet(this.world, cell.x, cell.y, "power");
+      }
+    }
   }
 
   private onBoardRefill(): void {
