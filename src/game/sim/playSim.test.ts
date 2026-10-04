@@ -2843,6 +2843,24 @@ describe("Haunting", () => {
     return GhostPhase.value[eid] === GHOST_PHASE.inHouse;
   }
 
+  it("seats the caged ghost last even when its gate has already passed", () => {
+    const sim = startHaunting(["passiveHaunting"]);
+    runFrames(sim, 20, LEFT);
+    const blinky = query(sim.world, [Ghost, Position]).find(
+      (eid) => GhostKind.kind[eid] === GHOST_KIND.blinky,
+    )!;
+    const player = playerEid(sim);
+    Position.x[blinky] = Position.x[player]!;
+    Position.y[blinky] = Position.y[player]!;
+    GhostPhase.value[blinky] = GHOST_PHASE.active;
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().hauntedGhost).toBe("blinky");
+    const inHouseGhosts = query(sim.world, [Ghost, Position]).filter(inHouse);
+    const bySeat = [...inHouseGhosts].sort((a, b) => (Position.x[a] ?? 0) - (Position.x[b] ?? 0));
+    expect(bySeat.at(-1)).toBe(blinky);
+  });
+
   it("without Haunting the ghost that caught you leaves the house as usual", () => {
     const sim = startHaunting([]);
     const killer = dieToFirstGhost(sim);

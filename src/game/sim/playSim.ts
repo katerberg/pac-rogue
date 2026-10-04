@@ -2229,6 +2229,7 @@ export class PlaySim {
       this.ghostReleaseClock,
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
+      { heldGhostEid: hauntEid },
     );
     if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
       this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
