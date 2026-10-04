@@ -51,6 +51,9 @@ export class LearnRunState {
       levelLivesIconFloor(lifeFloorBonus(owned)),
       levelRegenAmount(hasUpgrade(owned, "passiveMyogenesis"), regenToFull(owned)),
     );
+    if (this.lives === before) {
+      this.lives += 1;
+    }
     return this.lives - before;
   }
 
