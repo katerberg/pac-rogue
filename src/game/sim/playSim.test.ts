@@ -2821,6 +2821,23 @@ describe("Near Miss", () => {
     expect(sim.snapshot().bonus.charge).toBe(100);
   });
 
+  it("pays nothing for the frozen ghost", () => {
+    const sim = startNearMiss(["passiveNearMiss", "powerPelletFreeze"]);
+    GhostPhase.value[query(sim.world, [Ghost])[0]!] = GHOST_PHASE.active;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const frozen = frozenGhostEid(sim["runUpgrades"])!;
+    expect(frozen).not.toBeNull();
+    const home = { x: Position.x[frozen]!, y: Position.y[frozen]! };
+    ghostBesidePlayer(sim, frozen);
+    runFrames(sim, 1);
+    Position.x[frozen] = home.x;
+    Position.y[frozen] = home.y;
+    runFrames(sim, 1);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+  });
+
   it("pays nothing while Ghost Proof makes the pass safe", () => {
     const sim = startNearMiss(["passiveNearMiss", "powerPelletInvuln"]);
     const power = query(sim.world, [PowerPellet, Position])[0]!;
