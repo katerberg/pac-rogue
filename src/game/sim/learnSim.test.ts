@@ -285,6 +285,20 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toContain(`BONUS ${NEAR_MISS_CHARGE}/300`);
   });
 
+  it("does not pay a Near Miss that finished while the upgrade was off", () => {
+    const { sim, player } = setup("passiveNearMiss");
+    const ghost = sim.ghostEid!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    const at = posOf(ghost);
+    moveTo(player, { x: at.x + 0.5 * TILE_SIZE, y: at.y });
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([]);
+    sim.toggleUpgrade("passiveNearMiss");
+    moveTo(player, { x: at.x, y: at.y + 200 });
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([]);
+    sim.toggleUpgrade("passiveNearMiss");
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([]);
+  });
+
   it("Second Chomp brings an eaten power pellet back after ten seconds", () => {
     const { sim, player } = setup("passivePowerPelletRecharge");
     const power = query(sim.world, [PowerPellet, Position])[0]!;

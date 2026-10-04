@@ -811,6 +811,7 @@ export class LearnSim {
   private payNearMisses(catchOptions: CatchOptions): void {
     const charge = nearMissCharge(this.learnUpgrades.owned);
     if (charge === 0) {
+      this.nearMissPasses = createNearMissPasses();
       return;
     }
     const step = stepNearMisses(
