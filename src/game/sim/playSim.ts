@@ -47,6 +47,7 @@ import {
   type DeathSequenceState,
 } from "../../domain/deathSequence";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
+import { respawnCenter } from "../../domain/martyr";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
 import {
   createFruitPresence,
@@ -104,7 +105,6 @@ import {
   cellCenterY,
   getActiveLayout,
   horizontalTunnelRows,
-  playerSpawnCenter,
   worldToCol,
   worldToRow,
   type MazeLayoutId,
@@ -171,6 +171,7 @@ import {
   FRUIT_FECUNDITY_MUL,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
+  martyrKeepsFruit,
   moneyTalksCost,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
@@ -372,6 +373,7 @@ export class PlaySim {
   private storeRoute: Cell | null = null;
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
+  private fellAt: Point | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private shieldCrack: { index: number; elapsedMs: number } | null = null;
@@ -1134,6 +1136,7 @@ export class PlaySim {
         return;
       }
       const deathCell = playerCell(this.world);
+      this.fellAt = this.playerPosition();
       const ghostsOut = query(this.world, [Ghost, GhostPhase]).filter(
         (eid) => GhostPhase.value[eid] !== GHOST_PHASE.inHouse,
       ).length;
@@ -2114,7 +2117,8 @@ export class PlaySim {
     this.ghostCornerWarps = [];
     this.resetStreak();
     this.remoteTransferCounter = 0;
-    const playerSpawn = playerSpawnCenter();
+    const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt);
+    this.fellAt = null;
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
       Position.x[eid] = playerSpawn.x;
       Position.y[eid] = playerSpawn.y;
@@ -2164,13 +2168,15 @@ export class PlaySim {
       this.afterLifeRelease,
     );
 
-    this.clearFruitEntities();
-    this.fruitPresence = {
-      ...this.fruitPresence,
-      active: false,
-      remainingMs: 0,
-      gapMs: 0,
-    };
+    if (!martyrKeepsFruit(this.effectiveUpgrades())) {
+      this.clearFruitEntities();
+      this.fruitPresence = {
+        ...this.fruitPresence,
+        active: false,
+        remainingMs: 0,
+        gapMs: 0,
+      };
+    }
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;

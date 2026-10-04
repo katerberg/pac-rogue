@@ -39,7 +39,8 @@ export type BaseUpgradeId =
   | "passiveHarvestSpecialist"
   | "passiveSpeedSpecialist"
   | "passiveProtectionSpecialist"
-  | "passiveDisruptionSpecialist";
+  | "passiveDisruptionSpecialist"
+  | "passiveMartyr";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -92,6 +93,8 @@ export type UpgradeEffects = {
   deathQuarterCost?: number;
   lazyLooperRings?: LazyLooperRings;
   shieldCap?: number;
+  martyrRespawnInPlace?: true;
+  martyrKeepsFruit?: true;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -629,6 +632,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   specialistDef("speed", "passiveSpeedSpecialist"),
   specialistDef("protection", "passiveProtectionSpecialist"),
   specialistDef("disruption", "passiveDisruptionSpecialist"),
+  {
+    id: "passiveMartyr",
+    label: "Martyr",
+    school: "death",
+    description: "Dying sends every ghost home. You respawn where you fell.",
+    storePrice: STORE_UPGRADE_PRICE,
+    martyrRespawnInPlace: true,
+    enhanced: {
+      enhanceNote: "Martyr also keeps the fruit on the board when you die.",
+      description: "Dying sends every ghost home. You and the fruit stay put.",
+      martyrKeepsFruit: true,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1270,6 +1286,14 @@ export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
 export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
   const decay = ownedValue(owned, "deathsBountyDecay");
   return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
+}
+
+export function martyrRespawnsInPlace(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "martyrRespawnInPlace") === true;
+}
+
+export function martyrKeepsFruit(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "martyrKeepsFruit") === true;
 }
 
 export function overchargeMultiplier(owned: readonly UpgradeId[]): number {

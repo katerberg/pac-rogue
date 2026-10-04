@@ -16,6 +16,8 @@ import {
   SHIELD_PELLETS_CAP,
   SHIELD_PELLETS_ENHANCED_CAP,
   applyShieldBreakInvuln,
+  martyrKeepsFruit,
+  martyrRespawnsInPlace,
   bankShields,
   shieldPelletsCap,
   spendShield,
@@ -149,6 +151,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveSpeedSpecialist",
   "passiveProtectionSpecialist",
   "passiveDisruptionSpecialist",
+  "passiveMartyr",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -664,6 +667,16 @@ describe("moneyTalksCost", () => {
     expect(moneyTalksCost(["passiveMoneyTalks"])).toBe(MONEY_TALKS_QUARTERS);
     expect(moneyTalksCost(["passiveMoneyTalksPlus"])).toBe(MONEY_TALKS_ENHANCED_QUARTERS);
     expect(moneyTalksCost(["passiveDefyDeath"])).toBeNull();
+  });
+});
+
+describe("Martyr", () => {
+  it("respawns in place in both forms and keeps fruit only when enhanced", () => {
+    expect(martyrRespawnsInPlace([])).toBe(false);
+    expect(martyrRespawnsInPlace(["passiveMartyr"])).toBe(true);
+    expect(martyrRespawnsInPlace(["passiveMartyrPlus"])).toBe(true);
+    expect(martyrKeepsFruit(["passiveMartyr"])).toBe(false);
+    expect(martyrKeepsFruit(["passiveMartyrPlus"])).toBe(true);
   });
 });
 
