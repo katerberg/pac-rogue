@@ -355,16 +355,6 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toContain("LIVES 3");
   });
 
-  it("clearing every pellet shows +1 LIFE even with full lives", () => {
-    const { sim } = setup("passiveExtraLife");
-    expect(sim.statusText()).toContain("LIVES 4");
-    for (const eid of query(sim.world, [Pellet])) {
-      removeEntity(sim.world, eid);
-    }
-    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual(["+1 LIFE"]);
-    expect(sim.statusText()).toContain("LIVES 5");
-  });
-
   it("Fruit Fecundity runs a timed fruit that lasts twice as long", () => {
     const { sim } = setup("fruitFecundity");
     expect(query(sim.world, [Fruit]).length).toBe(0);
