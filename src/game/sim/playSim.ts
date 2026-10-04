@@ -1512,7 +1512,10 @@ export class PlaySim {
   }
 
   private closeStore(): void {
-    this.interestPop = null;
+    if (this.interestPop !== null) {
+      this.interestPop = null;
+      this.emit({ type: "quarters", pulse: false });
+    }
     this.storeExitSlide = null;
     this.storeRoute = null;
     this.emit({ type: "storeClosed" });

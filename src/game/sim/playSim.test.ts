@@ -2798,4 +2798,16 @@ describe("Interest", () => {
     expect(sim.snapshot().interestPop).toBeNull();
     expect(sim.hud().quarters).toBe(sim.snapshot().quarters);
   });
+
+  it("shows the real wallet as soon as you leave mid pop-in", () => {
+    const sim = storeWith(["passiveInterest"], 15);
+    expect(sim.hud().quarters).toBe(15);
+    expect(sim.snapshot().interestPop).toEqual({ count: 5, shown: 0 });
+    teleportPlayer(sim, cellCenterX(10), cellCenterY(0));
+    const level = sim.snapshot().level;
+    const events = runUntil(sim, () => sim.snapshot().level !== level, 120);
+    expect(sim.snapshot().interestPop).toBeNull();
+    expect(sim.hud().quarters).toBe(sim.snapshot().quarters);
+    expect(events).toContainEqual({ type: "quarters", pulse: false });
+  });
 });
