@@ -291,7 +291,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     drawableObjects.clear();
     playerVisuals.clear();
     wallGraphics.clear();
-    cageGraphics.clear();
     drawnWallStyle = null;
   };
 
