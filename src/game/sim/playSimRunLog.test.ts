@@ -175,6 +175,18 @@ describe("PlaySim run log", () => {
     expect(level.activeMs.freeze).toBeGreaterThan(0);
   });
 
+  it("records a Shield Pellets break as an activation, not a death", () => {
+    const { sim } = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveShieldPellets"] });
+    const power = query(sim.world, [Pellet, PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    const level = sim.runLogRecord().levels[0]!;
+    expect(level.activations.shieldBreak).toBe(1);
+    expect(level.deaths).toEqual([]);
+  });
+
   it("counts a near miss once per ghost per cooldown", () => {
     const { sim } = startSim({ level: 2, maze: "maze1", godMode: true });
     const ghost = firstGhost(sim);

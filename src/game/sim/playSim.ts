@@ -135,6 +135,7 @@ import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClo
 import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
 import { elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
+import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   storeLevelFor,
@@ -144,6 +145,7 @@ import {
   parseStoreSlots,
   pickMidStoreLevel,
   promptView,
+  slotIndexAtCell,
   storeAfterLevel,
   storeExitAlpha,
   storeExitDirection,
@@ -156,7 +158,11 @@ import {
 import {
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
+  applyShieldBreakInvuln,
+  bankShields,
   clearUpgradeTimers,
+  shieldPelletsCap,
+  spendShield,
   deathsBountyCharge,
   defyDeathActive,
   confirmUpgradeChoice,
@@ -241,6 +247,7 @@ import { wallPassSolids } from "../systems/wallPassSolids";
 import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets, countPellets, noRequiredPelletsLeft } from "../systems/collectPellets";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
+import { shieldCrackProgress } from "../../domain/shieldCrack";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
@@ -269,6 +276,7 @@ import {
   clearPlayerDirectionInput,
   hasPlayerDirectionInput,
   playerFacing,
+  steerPlayer,
 } from "../systems/playerDirection";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
@@ -317,6 +325,7 @@ export type PlayHud = {
   bonusCharge: number;
   upgrades: readonly UpgradeId[];
   collected: number;
+  shields: number;
 };
 
 export class PlaySim {
@@ -360,10 +369,12 @@ export class PlaySim {
   private midStoreLevel = 5;
   private store: StoreState | null = null;
   private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
+  private storeRoute: Cell | null = null;
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
+  private shieldCrack: { index: number; elapsedMs: number } | null = null;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
   private lives: number;
   private afterLifeRelease = false;
@@ -530,6 +541,18 @@ export class PlaySim {
     this.suppressInputUntilKeyRelease = true;
   }
 
+  storeRouting(): boolean {
+    return this.storeRoute !== null;
+  }
+
+  storeExitUnder(x: number, y: number): boolean {
+    return (
+      this.readsStoreKeys() &&
+      !this.storeConfirmOpen() &&
+      storeExitCellAt(getActiveLayout().playerSolids, worldToCol(x), worldToRow(y)) !== null
+    );
+  }
+
   readsStoreKeys(): boolean {
     return this.store !== null && this.storeExitSlide === null;
   }
@@ -555,6 +578,7 @@ export class PlaySim {
       bonusCharge: this.bonus.charge,
       upgrades: this.effectiveUpgrades(),
       collected: this.lifetimeCollected,
+      shields: this.runUpgrades.shieldsBanked,
     };
   }
 
@@ -605,6 +629,7 @@ export class PlaySim {
         speedBurstMs: upgrades.speedBurstRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
+        shieldsBanked: upgrades.shieldsBanked,
         eatDragMs: this.eatDragMs,
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
@@ -618,12 +643,15 @@ export class PlaySim {
           ? null
           : reviveSplashProgress(this.reviveSplashElapsedMs),
       moneyTalksElapsedMs: this.moneyTalksSpend?.elapsedMs ?? null,
+      shieldCrackProgress:
+        this.shieldCrack === null ? null : shieldCrackProgress(this.shieldCrack.elapsedMs),
       levelTransition: this.levelTransitionRemainingMs > 0,
       runComplete: this.runCompleteElapsedMs !== null,
       runEndMenuArmed: this.runEndMenuArmed(),
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
       storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
+      storeRoute: this.storeRoute,
       storePrompt:
         this.store === null
           ? null
@@ -676,6 +704,7 @@ export class PlaySim {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
     this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
+    this.tickShieldCrack(delta);
     if (this.awaitingStartingCard) {
       if (input.uiOpen) {
         return;
@@ -968,7 +997,11 @@ export class PlaySim {
     }
     this.recorder.powerPellets("player", playerFrame.powerRemoved);
     this.recorder.powerPellets("ghostHarvest", ghostFrame.powerRemoved);
-    const powerEffects = this.applyPowerEffects(powerRemoved);
+    const shielded = shieldPelletsCap(this.effectiveUpgrades()) !== null;
+    if (shielded) {
+      this.bankShields(powerRemoved);
+    }
+    const powerEffects = this.applyPowerEffects(shielded ? 0 : powerRemoved);
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
       const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
@@ -1097,6 +1130,9 @@ export class PlaySim {
     if (caughtBy === null) {
       this.recorder.nearMisses(this.world, getActiveLayout().tileSize);
     } else {
+      if (this.breakShield()) {
+        return;
+      }
       const deathCell = playerCell(this.world);
       const ghostsOut = query(this.world, [Ghost, GhostPhase]).filter(
         (eid) => GhostPhase.value[eid] !== GHOST_PHASE.inHouse,
@@ -1283,8 +1319,35 @@ export class PlaySim {
       return;
     }
     const confirming = this.storeConfirmOpen();
+    const layout = getActiveLayout();
+    if (input.storePointer) {
+      this.storeRoute = storeExitCellAt(
+        layout.playerSolids,
+        worldToCol(input.storePointer.x),
+        worldToRow(input.storePointer.y),
+      );
+    }
+    if (confirming || input.storeCancelRoute || anyKeyHeld(input.keys)) {
+      this.storeRoute = null;
+    }
+    const from = playerCell(this.world);
+    const store = this.store!;
+    const routeStep =
+      this.storeRoute &&
+      from &&
+      storeRouteStep(
+        layout.playerSolids,
+        from,
+        this.storeRoute,
+        (col, row) => slotIndexAtCell(store, col, row) !== null,
+      );
+    if (this.storeRoute && !routeStep) {
+      this.storeRoute = null;
+    }
     if (confirming) {
       clearPlayerDirectionInput(this.world);
+    } else if (routeStep) {
+      steerPlayer(this.world, routeStep);
     } else {
       if (this.suppressInputUntilKeyRelease && !anyKeyHeld(input.keys)) {
         this.suppressInputUntilKeyRelease = false;
@@ -1302,9 +1365,9 @@ export class PlaySim {
     movement(this.world, delta, undefined, true);
 
     const cell = playerCell(this.world);
-    const layout = getActiveLayout();
     const exit = cell && storeExitDirection(cell.col, cell.row, layout.cols, layout.rows);
     if (exit) {
+      this.storeRoute = null;
       this.storeExitSlide = { ...exit, traveledPx: 0 };
       this.emit({ type: "storeSync", prompt: null });
       this.drawStore(storeExitAlpha(0));
@@ -1320,7 +1383,7 @@ export class PlaySim {
         enter: confirming && input.storeConfirm,
         pick: confirming ? (input.storeChoice ?? null) : null,
         click: confirming ? null : (input.storeClick ?? null),
-        moving: anyKeyHeld(input.keys),
+        moving: anyKeyHeld(input.keys) || this.storeRoute !== null,
         quarters: this.quarters,
         owned: this.runUpgrades.owned,
       },
@@ -1407,6 +1470,7 @@ export class PlaySim {
 
   private closeStore(): void {
     this.storeExitSlide = null;
+    this.storeRoute = null;
     this.emit({ type: "storeClosed" });
     this.store = null;
   }
@@ -1649,15 +1713,15 @@ export class PlaySim {
   }
 
   private beginLevelTransition(): void {
-    const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
-    this.recorder.livesRegenerated(livesBeforeRegen, this.lives);
-    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     this.levelTransitionRemainingMs = LEVEL_TRANSITION_MS;
     this.emitRunLog();
   }
 
   private finishLevelClear(): void {
+    const livesBeforeRegen = this.lives;
+    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
+    this.recorder.livesRegenerated(livesBeforeRegen, this.lives);
+    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
       this.beginLevelTransition();
       return;
@@ -1691,6 +1755,49 @@ export class PlaySim {
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): boolean {
+    if (shieldPelletsCap(this.effectiveUpgrades()) !== null) {
+      this.bankShields(powerRemoved);
+      return false;
+    }
+    return this.firePowerPelletEffects(powerRemoved);
+  }
+
+  private bankShields(count: number): void {
+    const next = bankShields(this.runUpgrades, count);
+    if (next !== this.runUpgrades) {
+      this.runUpgrades = next;
+      this.emit({ type: "shields" });
+    }
+  }
+
+  private breakShield(): boolean {
+    const spent = spendShield(this.runUpgrades);
+    if (spent === null) {
+      return false;
+    }
+    this.runUpgrades = spent;
+    this.recorder.activation("shieldBreak");
+    this.shieldCrack = { index: spent.shieldsBanked, elapsedMs: 0 };
+    this.emit({ type: "shields" });
+    this.emit({ type: "shieldCrack", index: spent.shieldsBanked, progress: 0 });
+    this.firePowerPelletEffects(1);
+    this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
+    return true;
+  }
+
+  private tickShieldCrack(delta: number): void {
+    if (this.shieldCrack === null) {
+      return;
+    }
+    this.shieldCrack.elapsedMs += delta;
+    const progress = shieldCrackProgress(this.shieldCrack.elapsedMs);
+    this.emit({ type: "shieldCrack", index: this.shieldCrack.index, progress });
+    if (progress >= 1) {
+      this.shieldCrack = null;
+    }
+  }
+
+  private firePowerPelletEffects(powerRemoved: number): boolean {
     const powerEffects = this.applyPowerEffects(powerRemoved);
     if (powerEffects.collectExtraPellets > 0) {
       const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
@@ -1784,7 +1891,8 @@ export class PlaySim {
     this.emit({ type: "newLevelModal" });
 
     this.levelIndex += 1;
-    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    this.runUpgrades = { ...clearUpgradeTimers(this.runUpgrades), shieldsBanked: 0 };
+    this.emit({ type: "shields" });
     this.eatDragMs = 0;
     this.turnTuning.reset();
 

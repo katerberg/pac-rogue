@@ -30,6 +30,14 @@ import { freshSeed } from "../../domain/runRandom";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
 import { upgradeLabels, type UpgradeId } from "../../domain/upgrades";
 import {
+  HUD_ICON_GAP,
+  HUD_ICON_LEFT_X,
+  SHIELD_HUD_COLOR,
+  SHIELD_HUD_SIZE_FRAC,
+  shieldCrackLook,
+  shieldHudIconX,
+} from "../../domain/shieldCrack";
+import {
   isSfxPlaying,
   playPelletCollectSfx,
   playSfx,
@@ -99,6 +107,8 @@ export class PlayScene extends Phaser.Scene {
   private storeOverlay: StoreOverlay | null = null;
   private storeChoice: "yes" | "no" | null = null;
   private storeClick: number | null = null;
+  private storePointer: { x: number; y: number } | null = null;
+  private pointerOverStoreExit = false;
   private chrome!: Phaser.GameObjects.Container;
   private sideHud!: Phaser.GameObjects.Container;
   private knobsPanel: KnobsPanel | null = null;
@@ -111,6 +121,8 @@ export class PlayScene extends Phaser.Scene {
   private upgradesText!: Phaser.GameObjects.BitmapText;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
+  private shieldIcons: Phaser.GameObjects.Rectangle[] = [];
+  private shieldCrackHalves: Phaser.GameObjects.Rectangle[] = [];
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
@@ -180,6 +192,8 @@ export class PlayScene extends Phaser.Scene {
     this.sideHud.add([this.timerText, this.upgradesText]);
     this.chrome.add([bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
+    this.shieldIcons = [];
+    this.shieldCrackHalves = [];
     this.quarterIcons = [];
     this.walletCoins = [];
     this.refreshQuartersHud();
@@ -194,6 +208,16 @@ export class PlayScene extends Phaser.Scene {
     this.storeConfirmKeys = [KeyCodes.ENTER, KeyCodes.SPACE].map((code) =>
       this.input.keyboard!.addKey(code),
     );
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      this.storePointer = { x: pointer.worldX, y: pointer.worldY };
+    });
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      const overExit = this.sim.storeExitUnder(pointer.worldX, pointer.worldY);
+      if (overExit !== this.pointerOverStoreExit) {
+        this.pointerOverStoreExit = overExit;
+        this.input.setDefaultCursor(overExit ? "pointer" : "default");
+      }
+    });
     this.playRender = createRender(this);
     if (options.knobs) {
       this.openKnobsPanel(tuning);
@@ -260,7 +284,8 @@ export class PlayScene extends Phaser.Scene {
       this.musicPendingFanfareEnd = null;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.keyEsc) && this.runEndMenu === null) {
+    const escDown = Phaser.Input.Keyboard.JustDown(this.keyEsc);
+    if (escDown && this.runEndMenu === null && !this.sim.storeRouting()) {
       this.pauseForMenu();
       return;
     }
@@ -282,11 +307,14 @@ export class PlayScene extends Phaser.Scene {
           this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
         storeChoice: readsStoreKeys ? this.storeChoice : null,
         storeClick: readsStoreKeys ? this.storeClick : null,
+        storePointer: readsStoreKeys ? this.storePointer : null,
+        storeCancelRoute: escDown,
       },
       delta,
     );
     this.storeChoice = null;
     this.storeClick = null;
+    this.storePointer = null;
     this.applyEvents(events, delta);
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
@@ -312,6 +340,7 @@ export class PlayScene extends Phaser.Scene {
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
+      cursor: this.input.manager.canvas.style.cursor || "default",
       runEndMenu: {
         open: this.runEndMenu !== null,
         selected: this.runEndMenu?.selected() ?? null,
@@ -344,6 +373,7 @@ export class PlayScene extends Phaser.Scene {
   private pauseForMenu(): void {
     this.pausedAtMs = performance.now();
     this.upgradesText.setVisible(false);
+    this.clearStoreExitCursor();
     this.scene.pause();
     this.scene.launch("PauseScene");
   }
@@ -402,6 +432,12 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "quarters":
         this.refreshQuartersHud();
+        break;
+      case "shields":
+        this.refreshShieldIcons();
+        break;
+      case "shieldCrack":
+        this.drawShieldCrack(event.index, event.progress);
         break;
       case "walletCoins":
         this.drawWalletCoins(event.spend);
@@ -517,6 +553,12 @@ export class PlayScene extends Phaser.Scene {
     stopLoopingSfx(this, "storeMusic");
     this.storeOverlay?.destroy();
     this.storeOverlay = null;
+    this.clearStoreExitCursor();
+  }
+
+  private clearStoreExitCursor(): void {
+    this.pointerOverStoreExit = false;
+    this.input.setDefaultCursor("default");
   }
 
   private showLevelBanner(text: string): void {
@@ -637,9 +679,9 @@ export class PlayScene extends Phaser.Scene {
     }
     this.lifeIcons = [];
     const size = playerDisplaySize();
-    const y = PLAYFIELD_HEIGHT - 8 - size / 2;
+    const y = this.hudIconY();
     for (let i = 0; i < livesHudIconCount(this.sim.hud().lives); i += 1) {
-      const x = 12 + size / 2 + i * (size + 4);
+      const x = HUD_ICON_LEFT_X + size / 2 + i * (size + HUD_ICON_GAP);
       const icon = this.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
       this.sideHud.add(icon);
       this.lifeIcons.push(icon);
@@ -647,6 +689,57 @@ export class PlayScene extends Phaser.Scene {
     if (pulseNewIcon && this.lifeIcons.length > 0) {
       this.pulseHudIcon(this.lifeIcons[this.lifeIcons.length - 1]);
     }
+    this.refreshShieldIcons();
+  }
+
+  private refreshShieldIcons(): void {
+    for (const icon of this.shieldIcons) {
+      icon.destroy();
+    }
+    this.shieldIcons = [];
+    const lifeSize = playerDisplaySize();
+    const size = lifeSize * SHIELD_HUD_SIZE_FRAC;
+    const y = this.hudIconY();
+    const lifeIconCount = livesHudIconCount(this.sim.hud().lives);
+    for (let i = 0; i < this.sim.hud().shields; i += 1) {
+      const x = shieldHudIconX(lifeIconCount, i, lifeSize);
+      const icon = this.add.rectangle(x, y, size, size, SHIELD_HUD_COLOR);
+      this.sideHud.add(icon);
+      this.shieldIcons.push(icon);
+    }
+  }
+
+  private drawShieldCrack(index: number, progress: number): void {
+    const lifeSize = playerDisplaySize();
+    const size = lifeSize * SHIELD_HUD_SIZE_FRAC;
+    if (this.shieldCrackHalves.length === 0) {
+      this.shieldCrackHalves = [0, 1].map(() => {
+        const half = this.add.rectangle(0, 0, size / 2, size, SHIELD_HUD_COLOR);
+        this.sideHud.add(half);
+        return half;
+      });
+    }
+    if (progress >= 1) {
+      for (const half of this.shieldCrackHalves) {
+        half.destroy();
+      }
+      this.shieldCrackHalves = [];
+      return;
+    }
+    const look = shieldCrackLook(progress);
+    const cx = shieldHudIconX(livesHudIconCount(this.sim.hud().lives), index, lifeSize);
+    const y = this.hudIconY() + look.dropY;
+    for (const [i, half] of this.shieldCrackHalves.entries()) {
+      const side = i * 2 - 1;
+      half
+        .setPosition(cx + side * (size / 4 + look.offsetX), y)
+        .setRotation(side * look.rotation)
+        .setAlpha(look.alpha);
+    }
+  }
+
+  private hudIconY(): number {
+    return PLAYFIELD_HEIGHT - 8 - playerDisplaySize() / 2;
   }
 
   private pulseHudIcon(icon: Phaser.GameObjects.Image): void {

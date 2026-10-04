@@ -34,6 +34,7 @@ export type BaseUpgradeId =
   | "passiveDeathsBounty"
   | "passiveMoneyTalks"
   | "passiveLazyLooper"
+  | "passiveShieldPellets"
   | "passiveDeathSpecialist"
   | "passiveHarvestSpecialist"
   | "passiveSpeedSpecialist"
@@ -90,6 +91,7 @@ export type UpgradeEffects = {
   turnPerfectPx?: number;
   deathQuarterCost?: number;
   lazyLooperRings?: LazyLooperRings;
+  shieldCap?: number;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -138,6 +140,9 @@ export const GHOST_HARVEST_MS = 5000;
 export const DEFY_DEATH_MS = 5000;
 export const MONEY_TALKS_QUARTERS = 3;
 export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
+export const SHIELD_PELLETS_CAP = 1;
+export const SHIELD_PELLETS_ENHANCED_CAP = 3;
+export const SHIELD_BREAK_INVULN_MS = 1000;
 export const PLAYER_SPEED_UP_MUL = 1.25;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
@@ -606,6 +611,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       lazyLooperRings: "outer",
     },
   },
+  {
+    id: "passiveShieldPellets",
+    label: "Shield Pellets",
+    school: "protection",
+    description: "Power pellets bank a shield. A ghost hit breaks it and fires your power effects.",
+    storePrice: STORE_UPGRADE_PRICE,
+    shieldCap: SHIELD_PELLETS_CAP,
+    enhanced: {
+      enhanceNote: "Shield Pellets banks up to 3 shields instead of 1.",
+      description: "Power pellets bank up to 3 shields. Each ghost hit breaks one.",
+      shieldCap: SHIELD_PELLETS_ENHANCED_CAP,
+    },
+  },
   specialistDef("death", "passiveDeathSpecialist"),
   specialistDef("harvest", "passiveHarvestSpecialist"),
   specialistDef("speed", "passiveSpeedSpecialist"),
@@ -762,6 +780,7 @@ export type RunUpgrades = {
   speedBurstRemainingMs: number;
   ghostHarvestRemainingMs: number;
   defyDeathRemainingMs: number;
+  shieldsBanked: number;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -784,6 +803,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     speedBurstRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
     defyDeathRemainingMs: 0,
+    shieldsBanked: 0,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -952,9 +972,11 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
   if (!hasUpgrade(state.owned, baseId)) {
     return state;
   }
+  const owned = state.owned.filter((owned) => baseIdOf(owned) !== baseId);
   return {
     ...state,
-    owned: state.owned.filter((owned) => baseIdOf(owned) !== baseId),
+    owned,
+    shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
   };
 }
 
@@ -1134,6 +1156,7 @@ export function applyPowerPelletEffects(
   invulnMs = scaled(invulnMs);
   speedBurstMs = scaled(speedBurstMs);
   ghostHarvestMs = scaled(ghostHarvestMs);
+  defyDeathMs = scaled(defyDeathMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
@@ -1350,6 +1373,31 @@ export function ghostHarvestActive(state: RunUpgrades): boolean {
 
 export function defyDeathActive(state: RunUpgrades): boolean {
   return state.defyDeathRemainingMs > 0;
+}
+
+export function shieldPelletsCap(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "shieldCap") ?? null;
+}
+
+export function bankShields(state: RunUpgrades, count: number): RunUpgrades {
+  const cap = shieldPelletsCap(effectiveOwned(state.owned)) ?? 0;
+  const shieldsBanked = Math.min(cap, state.shieldsBanked + Math.max(0, count));
+  return shieldsBanked === state.shieldsBanked ? state : { ...state, shieldsBanked };
+}
+
+export function spendShield(state: RunUpgrades): RunUpgrades | null {
+  if (state.shieldsBanked <= 0) {
+    return null;
+  }
+  return { ...state, shieldsBanked: state.shieldsBanked - 1 };
+}
+
+export function applyShieldBreakInvuln(state: RunUpgrades): RunUpgrades {
+  const invulnRemainingMs = Math.max(
+    state.invulnRemainingMs,
+    SHIELD_BREAK_INVULN_MS * overchargeMultiplier(state.owned),
+  );
+  return { ...state, invulnRemainingMs };
 }
 
 export function learnUpgradeDefs(seen: readonly UpgradeId[]): UpgradeDef[] {

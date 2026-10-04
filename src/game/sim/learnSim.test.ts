@@ -63,6 +63,27 @@ describe("LearnSim", () => {
     expect(events.some((event) => event.type === "bouncePowerPellet")).toBe(true);
   });
 
+  it("regenerates every power pellet once the last one is eaten", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    const power = query(sim.world, [PowerPellet, Position]);
+    const total = power.length;
+    expect(total).toBeGreaterThan(1);
+    const player = query(sim.world, [Player, Position])[0]!;
+    const positions = Array.from(power).map((eid) => ({
+      x: Position.x[eid]!,
+      y: Position.y[eid]!,
+    }));
+    for (const [i, at] of positions.entries()) {
+      Position.x[player] = at.x;
+      Position.y[player] = at.y;
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      const left = query(sim.world, [PowerPellet]).length;
+      expect(left).toBe(i < total - 1 ? total - 1 - i : total);
+    }
+    expect(query(sim.world, [Pellet]).length).toBeGreaterThan(total);
+  });
+
   it("toggles an enhanced form on and off for a selected upgrade", () => {
     const sim = new LearnSim("learn");
     sim.start();
@@ -265,6 +286,22 @@ describe("LearnSim upgrade demos", () => {
     expect(count()).toBe(eaten + 1);
   });
 
+  it("does not regenerate power pellets early while Second Chomp has them pending", () => {
+    const { sim, player } = setup("passivePowerPelletRecharge");
+    const total = query(sim.world, [PowerPellet]).length;
+    const positions = Array.from(query(sim.world, [PowerPellet, Position])).map(posOf);
+    for (const at of positions) {
+      moveTo(player, at);
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+    moveTo(player, { x: positions[0]!.x, y: positions[0]!.y + 200 });
+    expect(query(sim.world, [PowerPellet]).length).toBe(0);
+    runMs(sim, 9_000);
+    expect(query(sim.world, [PowerPellet]).length).toBe(0);
+    runMs(sim, 1_500);
+    expect(query(sim.world, [PowerPellet]).length).toBe(total);
+  });
+
   it("Defy Death tints Maze-Man while armed by a power pellet", () => {
     const { sim, player } = setup("passiveDefyDeath");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
@@ -322,6 +359,35 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["SAVED"]);
     expect(sim.statusText()).toContain("LIVES 3");
     runMs(sim, 1_600);
+    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
+  });
+
+  it("Shield Pellets banks a shield and a catch breaks it instead of costing a life", () => {
+    const { sim, player } = setup("passiveShieldPellets", "powerPelletInvuln");
+    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBe(0);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    expect(sim.statusText()).toContain("LIVES 3");
+    runMs(sim, 3_100);
+    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
+  });
+
+  it("Shield Pellets drops shields over the cap when toggled down or off", () => {
+    const { sim, player } = setup("passiveShieldPellets");
+    sim.toggleEnhanced("passiveShieldPellets");
+    for (const power of [...query(sim.world, [PowerPellet, Position])]) {
+      moveTo(player, posOf(power));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+    expect(sim.statusText()).toContain("SHIELDS 3/3");
+    sim.toggleEnhanced("passiveShieldPellets");
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    sim.toggleUpgrade("passiveShieldPellets");
+    sim.toggleUpgrade("passiveExtraLife");
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
