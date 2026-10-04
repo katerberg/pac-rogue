@@ -108,6 +108,7 @@ export class PlayScene extends Phaser.Scene {
   private storeChoice: "yes" | "no" | null = null;
   private storeClick: number | null = null;
   private storePointer: { x: number; y: number } | null = null;
+  private pointerOverStoreExit = false;
   private chrome!: Phaser.GameObjects.Container;
   private sideHud!: Phaser.GameObjects.Container;
   private knobsPanel: KnobsPanel | null = null;
@@ -209,6 +210,13 @@ export class PlayScene extends Phaser.Scene {
     );
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       this.storePointer = { x: pointer.worldX, y: pointer.worldY };
+    });
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      const overExit = this.sim.storeExitUnder(pointer.worldX, pointer.worldY);
+      if (overExit !== this.pointerOverStoreExit) {
+        this.pointerOverStoreExit = overExit;
+        this.input.setDefaultCursor(overExit ? "pointer" : "default");
+      }
     });
     this.playRender = createRender(this);
     if (options.knobs) {
@@ -332,6 +340,7 @@ export class PlayScene extends Phaser.Scene {
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
+      cursor: this.input.manager.canvas.style.cursor || "default",
       runEndMenu: {
         open: this.runEndMenu !== null,
         selected: this.runEndMenu?.selected() ?? null,
@@ -364,6 +373,7 @@ export class PlayScene extends Phaser.Scene {
   private pauseForMenu(): void {
     this.pausedAtMs = performance.now();
     this.upgradesText.setVisible(false);
+    this.clearStoreExitCursor();
     this.scene.pause();
     this.scene.launch("PauseScene");
   }
@@ -543,6 +553,12 @@ export class PlayScene extends Phaser.Scene {
     stopLoopingSfx(this, "storeMusic");
     this.storeOverlay?.destroy();
     this.storeOverlay = null;
+    this.clearStoreExitCursor();
+  }
+
+  private clearStoreExitCursor(): void {
+    this.pointerOverStoreExit = false;
+    this.input.setDefaultCursor("default");
   }
 
   private showLevelBanner(text: string): void {

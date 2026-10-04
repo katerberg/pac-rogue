@@ -536,6 +536,13 @@ export class PlaySim {
     return this.storeRoute !== null;
   }
 
+  storeExitUnder(x: number, y: number): boolean {
+    return (
+      this.readsStoreKeys() &&
+      storeExitCellAt(getActiveLayout().playerSolids, worldToCol(x), worldToRow(y)) !== null
+    );
+  }
+
   readsStoreKeys(): boolean {
     return this.store !== null && this.storeExitSlide === null;
   }

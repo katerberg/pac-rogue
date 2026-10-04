@@ -1042,6 +1042,16 @@ describe("PlaySim", () => {
       expect(sim.snapshot().level).not.toBe(level);
     });
 
+    it("reports a tunnel under the pointer only in the store", () => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(true);
+      expect(sim.storeExitUnder(cellCenterX(10), cellCenterY(16))).toBe(false);
+      const level = sim.snapshot().level;
+      runFrames(sim, 1, { storePointer: topTunnel() });
+      runUntil(sim, () => sim.snapshot().level !== level, 1200);
+      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(false);
+    });
+
     it("ignores clicks that are not on a tunnel", () => {
       const sim = startSim({ store: 1, quarters: 0 });
       runFrames(sim, 1, { storePointer: { x: cellCenterX(0), y: cellCenterY(5) } });
