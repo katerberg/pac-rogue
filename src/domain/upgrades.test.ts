@@ -23,6 +23,7 @@ import {
   hauntedGhost,
   hauntedGhostEid,
   tickHaunt,
+  interestPayout,
   bankShields,
   shieldPelletsCap,
   spendShield,
@@ -157,6 +158,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveProtectionSpecialist",
   "passiveDisruptionSpecialist",
   "passiveMartyr",
+  "passiveInterest",
   "passiveHaunting",
 ];
 
@@ -681,6 +683,23 @@ describe("Martyr", () => {
     expect(martyrGhostPlacement([])).toBeNull();
     expect(martyrGhostPlacement(["passiveMartyr"])).toBe("corners");
     expect(martyrGhostPlacement(["passiveMartyrPlus"])).toBe("house");
+  });
+});
+
+describe("interestPayout", () => {
+  it("pays 1 per 3 held, 1 per 2 enhanced, rounding down", () => {
+    expect(interestPayout([], 30)).toBe(0);
+    expect(interestPayout(["passiveInterest"], 0)).toBe(0);
+    expect(interestPayout(["passiveInterest"], 2)).toBe(0);
+    expect(interestPayout(["passiveInterest"], 3)).toBe(1);
+    expect(interestPayout(["passiveInterest"], 10)).toBe(3);
+    expect(interestPayout(["passiveInterestPlus"], 1)).toBe(0);
+    expect(interestPayout(["passiveInterestPlus"], 9)).toBe(4);
+  });
+
+  it("is enhanced by Harvest Specialist", () => {
+    const owned = effectiveOwned(["passiveInterest", "passiveHarvestSpecialistPlus"]);
+    expect(interestPayout(owned, 9)).toBe(4);
   });
 });
 
