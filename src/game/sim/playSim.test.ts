@@ -980,6 +980,76 @@ describe("PlaySim", () => {
     expect(sim.snapshot().quarters < before.quarters).toBe(buys);
   });
 
+  describe("store exit click", () => {
+    const topTunnel = () => ({ x: cellCenterX(10), y: cellCenterY(0) });
+
+    function travelPx(sim: PlaySim, run: () => void) {
+      const before = sim.snapshot().player!;
+      run();
+      const after = sim.snapshot().player!;
+      return Math.abs(after.x - before.x) + Math.abs(after.y - before.y);
+    }
+
+    it("walks the player out a clicked tunnel at normal speed", () => {
+      const keyed = startSim({ store: 1, quarters: 0 });
+      runFrames(keyed, 1);
+      const keyedPx = travelPx(keyed, () => runFrames(keyed, 5, { keys: held("left") }));
+
+      const sim = startSim({ store: 1, quarters: 0 });
+      const level = sim.snapshot().level;
+      runFrames(sim, 1);
+      const routedPx = travelPx(sim, () => {
+        runFrames(sim, 1, { storePointer: topTunnel() });
+        runFrames(sim, 4);
+      });
+      expect(sim.snapshot().storeRoute).toEqual({ col: 10, row: 0 });
+      expect(Math.abs(routedPx - keyedPx)).toBeLessThanOrEqual(1);
+      runUntil(sim, () => sim.snapshot().level !== level, 1200);
+      expect(sim.snapshot().inStore).toBe(false);
+    });
+
+    it.each([
+      ["an arrow key", { keys: held("left") }],
+      ["Escape", { storeCancelRoute: true }],
+      ["a click elsewhere", { storePointer: { x: cellCenterX(5), y: cellCenterY(16) } }],
+    ] as const)("%s cancels the route", (_label, cancel) => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      runFrames(sim, 1, { storePointer: topTunnel() });
+      runFrames(sim, 10);
+      runFrames(sim, 1, cancel);
+      expect(sim.snapshot().storeRoute).toBeNull();
+      runFrames(sim, 30);
+      const at = sim.snapshot().player;
+      runFrames(sim, 30);
+      expect(sim.snapshot().player).toEqual(at);
+      expect(sim.snapshot().inStore).toBe(true);
+    });
+
+    it.each([
+      [10, 0],
+      [0, 10],
+      [21, 10],
+      [11, 20],
+    ])("routes around affordable tiles to the tunnel at %i,%i", (col, row) => {
+      const sim = startSim({ store: 2, quarters: 10, lives: 2, maxLives: 4 });
+      const level = sim.snapshot().level;
+      runFrames(sim, 1, { storePointer: { x: cellCenterX(col), y: cellCenterY(row) } });
+      runUntil(
+        sim,
+        () => sim.snapshot().level !== level || sim.snapshot().storePrompt === "confirm",
+        1200,
+      );
+      expect(sim.snapshot().level).not.toBe(level);
+    });
+
+    it("ignores clicks that are not on a tunnel", () => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      runFrames(sim, 1, { storePointer: { x: cellCenterX(0), y: cellCenterY(5) } });
+      expect(sim.snapshot().storeRoute).toBeNull();
+      expect(sim.storeRouting()).toBe(false);
+    });
+  });
+
   it("adds a Blinky when the player eats a boss pellet", () => {
     const sim = startSim({ level: 9 });
     expect(sim.snapshot().boss?.ghostCount).toBe(2);

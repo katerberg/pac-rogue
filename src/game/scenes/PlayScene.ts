@@ -107,6 +107,7 @@ export class PlayScene extends Phaser.Scene {
   private storeOverlay: StoreOverlay | null = null;
   private storeChoice: "yes" | "no" | null = null;
   private storeClick: number | null = null;
+  private storePointer: { x: number; y: number } | null = null;
   private chrome!: Phaser.GameObjects.Container;
   private sideHud!: Phaser.GameObjects.Container;
   private knobsPanel: KnobsPanel | null = null;
@@ -206,6 +207,9 @@ export class PlayScene extends Phaser.Scene {
     this.storeConfirmKeys = [KeyCodes.ENTER, KeyCodes.SPACE].map((code) =>
       this.input.keyboard!.addKey(code),
     );
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      this.storePointer = { x: pointer.worldX, y: pointer.worldY };
+    });
     this.playRender = createRender(this);
     if (options.knobs) {
       this.openKnobsPanel(tuning);
@@ -272,7 +276,8 @@ export class PlayScene extends Phaser.Scene {
       this.musicPendingFanfareEnd = null;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.keyEsc) && this.runEndMenu === null) {
+    const escDown = Phaser.Input.Keyboard.JustDown(this.keyEsc);
+    if (escDown && this.runEndMenu === null && !this.sim.storeRouting()) {
       this.pauseForMenu();
       return;
     }
@@ -294,11 +299,14 @@ export class PlayScene extends Phaser.Scene {
           this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
         storeChoice: readsStoreKeys ? this.storeChoice : null,
         storeClick: readsStoreKeys ? this.storeClick : null,
+        storePointer: readsStoreKeys ? this.storePointer : null,
+        storeCancelRoute: escDown,
       },
       delta,
     );
     this.storeChoice = null;
     this.storeClick = null;
+    this.storePointer = null;
     this.applyEvents(events, delta);
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();

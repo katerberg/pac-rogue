@@ -44,6 +44,7 @@ src/
     runRandom.ts              # ?seed= parse + RunRandom: named seeded streams, the only allowed randomness source
     quartersFlag.ts           # ?quarters= URL parse (non-negative integer default count)
     store.ts                  # store floor schedule, slot parse, stock roll, prompt/purchase state machine
+    storeRoute.ts             # store click-to-exit: tunnel cell under a click + BFS first step
     storeFlag.ts              # ?store=1|2|3 debug: start in the Nth store
     levelRules.ts             # MAX_LEVEL (9), per-level speed mul (player + ghosts), roster, mode wave schedule
     bossRules.ts              # boss table (level 9 → Double Blinky), BossState, ?bossGhosts parse
@@ -207,7 +208,7 @@ PlaySim.step →
   (if dying: tickDeathSequence → handle events (reset / fade / GO / resume / menu); return; no sim)
   (if run complete: tick hold → MenuScene; return)
   (if level transition: tick pause → store floor (after 3, 5-or-6, 8) else advance board (level < 9) or begin run complete (level 9); return)
-  (if store floor: stop-on-release input → movement → tunnel exit check (→ slide out + fade, then advance) → storeStep (Left/Right toggle, Enter confirm) → apply purchase → overlay sync → render; return)
+  (if store floor: clicked-exit route step (else stop-on-release input) → movement → tunnel exit check (→ slide out + fade, then advance) → storeStep (Left/Right toggle, Enter confirm) → apply purchase → overlay sync → render; return)
   (if an upgrade offer is pending or its modal is still animating: return; then suppress input until key release)
   (if level-end time bonus draining: drain Time into the BONUS bar (Quarters paid as it fills) → then upgrade offer or level transition; return)
   (if pending level clear: start level transition; return)
