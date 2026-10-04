@@ -135,7 +135,7 @@ import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClo
 import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
 import { elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
-import { storeExitCellAt, storeRouteStep, type RouteStep } from "../../domain/storeRoute";
+import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   storeLevelFor,
@@ -1312,7 +1312,17 @@ export class PlaySim {
     if (confirming || input.storeCancelRoute || anyKeyHeld(input.keys)) {
       this.storeRoute = null;
     }
-    const routeStep = this.storeRoute && this.storeRouteStep(this.storeRoute);
+    const from = playerCell(this.world);
+    const store = this.store!;
+    const routeStep =
+      this.storeRoute &&
+      from &&
+      storeRouteStep(
+        layout.playerSolids,
+        from,
+        this.storeRoute,
+        (col, row) => slotIndexAtCell(store, col, row) !== null,
+      );
     if (this.storeRoute && !routeStep) {
       this.storeRoute = null;
     }
@@ -1384,20 +1394,6 @@ export class PlaySim {
       return;
     }
     this.drawStore(storeExitAlpha(traveledTiles));
-  }
-
-  private storeRouteStep(target: Cell): RouteStep | null {
-    const from = playerCell(this.world);
-    const store = this.store!;
-    return (
-      from &&
-      storeRouteStep(
-        getActiveLayout().playerSolids,
-        from,
-        target,
-        (col, row) => slotIndexAtCell(store, col, row) !== null,
-      )
-    );
   }
 
   private storeConfirmOpen(): boolean {

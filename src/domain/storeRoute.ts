@@ -45,15 +45,13 @@ function firstStep(
       if (firstStepOf.has(k) || !isOpen(solids, col, row)) {
         continue;
       }
-      const isTarget = col === to.col && row === to.row;
-      if (!isTarget && !passable(col, row)) {
+      if (col === to.col && row === to.row) {
+        return via ?? step;
+      }
+      if (!passable(col, row)) {
         continue;
       }
-      const first = via ?? step;
-      if (isTarget) {
-        return first;
-      }
-      firstStepOf.set(k, first);
+      firstStepOf.set(k, via ?? step);
       queue.push({ col, row });
     }
   }
