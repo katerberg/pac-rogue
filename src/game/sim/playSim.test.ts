@@ -1754,6 +1754,17 @@ describe("PlaySim enhanced upgrades", () => {
     expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(15000);
   });
 
+  it("Overcharge extends the Defy Death window", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveDefyDeath", "passiveOvercharge"],
+    });
+    chomp(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(9800);
+    expect(sim.snapshot().timers.defyDeathMs).toBeLessThanOrEqual(10000);
+  });
+
   it("Warp Farthest+ shields for 2s and Overcharge does not extend it", () => {
     const sim = startSim({
       level: 2,

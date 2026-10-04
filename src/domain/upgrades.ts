@@ -1060,6 +1060,7 @@ export function applyPowerPelletEffects(
   invulnMs = scaled(invulnMs);
   speedBurstMs = scaled(speedBurstMs);
   ghostHarvestMs = scaled(ghostHarvestMs);
+  defyDeathMs = scaled(defyDeathMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
