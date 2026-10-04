@@ -9,14 +9,13 @@ import { Position } from "../components/Position";
 
 const GHOST_CATCH_MIN_OVERLAP_FRACTION = 0.35;
 
-export function catchPlayer(
-  world: World,
-  options?: {
-    frozenGhostEid?: number | null;
-    skipGhostEids?: ReadonlySet<number>;
-    playerInvulnerable?: boolean;
-  },
-): number | null {
+export type CatchOptions = {
+  frozenGhostEid?: number | null;
+  skipGhostEids?: ReadonlySet<number>;
+  playerInvulnerable?: boolean;
+};
+
+export function catchPlayer(world: World, options?: CatchOptions): number | null {
   if (options?.playerInvulnerable === true) {
     return null;
   }

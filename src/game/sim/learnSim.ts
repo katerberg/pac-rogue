@@ -37,6 +37,7 @@ import {
   grantLivesForUpgrade,
   hasUpgrade,
   isEnhancedId,
+  nearMissCharge,
   playerIsInvulnerable,
   playerTintRemainingMs,
   queuePowerPelletRespawns,
@@ -110,7 +111,9 @@ import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../sys
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
 import { playerFacing, playerPose } from "../systems/playerDirection";
-import { catchPlayer } from "../systems/catchPlayer";
+import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
+import { stepNearMisses } from "../systems/nearMiss";
+import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
@@ -187,6 +190,7 @@ export class LearnSim {
   private readonly houseHold = new LearnHouseHold();
   private houseHoldEaten = 0;
   private catchGraceMs = 0;
+  private nearMissPasses: NearMissPasses = createNearMissPasses();
   private fruitPresence: FruitPresence = createFruitPresence();
   private boardCollected = 0;
 
@@ -401,15 +405,17 @@ export class LearnSim {
 
     ghostAi(this.world, GHOST_AI_MODE.chase, NO_ELROY_PELLETS);
 
-    if (this.catchDemoOwned()) {
-      const caught = catchPlayer(this.world, {
-        frozenGhostEid: frozenGhostEid(this.learnUpgrades),
-        skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
-        playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
-      });
-      if (caught !== null) {
-        this.resolveDemoCatch();
-      }
+    const catchOptions = {
+      frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
+    };
+    const caught = this.catchDemoOwned() ? catchPlayer(this.world, catchOptions) : null;
+    if (caught === null) {
+      this.payNearMisses(catchOptions);
+    } else {
+      this.nearMissPasses = createNearMissPasses();
+      this.resolveDemoCatch();
     }
 
     this.events.push({
@@ -709,7 +715,8 @@ export class LearnSim {
     return (
       hasUpgrade(this.learnUpgrades.owned, "fruitQuarterBounty") ||
       hasUpgrade(this.learnUpgrades.owned, "passiveDeathsBounty") ||
-      hasUpgrade(this.learnUpgrades.owned, "passiveMoneyTalks")
+      hasUpgrade(this.learnUpgrades.owned, "passiveMoneyTalks") ||
+      hasUpgrade(this.learnUpgrades.owned, "passiveNearMiss")
     );
   }
 
@@ -798,6 +805,25 @@ export class LearnSim {
     this.payFruit(removedFruitEids.length);
     if (hasUpgrade(owned, "fruitPowerPellet")) {
       this.resolvePowerPelletTrigger(1);
+    }
+  }
+
+  private payNearMisses(catchOptions: CatchOptions): void {
+    const charge = nearMissCharge(this.learnUpgrades.owned);
+    if (charge === 0) {
+      this.nearMissPasses = createNearMissPasses();
+      return;
+    }
+    const step = stepNearMisses(
+      this.world,
+      this.nearMissPasses,
+      getActiveLayout().tileSize,
+      catchOptions,
+    );
+    this.nearMissPasses = step.passes;
+    if (step.completed > 0) {
+      this.runState.addBonusCharge(step.completed * charge);
+      this.popup(`+${step.completed * charge} BONUS`);
     }
   }
 

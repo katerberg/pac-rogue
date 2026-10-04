@@ -27,6 +27,8 @@ import {
   frozenGhostEid,
   grantUpgrade,
   INVULN_MS,
+  NEAR_MISS_CHARGE,
+  NEAR_MISS_ENHANCED_CHARGE,
   SHIELD_BREAK_INVULN_MS,
   STARTING_UPGRADE_POOL,
   type UpgradeChoiceOffer,
@@ -2809,5 +2811,103 @@ describe("Interest", () => {
     expect(sim.snapshot().interestPop).toBeNull();
     expect(sim.hud().quarters).toBe(sim.snapshot().quarters);
     expect(events).toContainEqual({ type: "quarters", pulse: false });
+  });
+});
+
+describe("Near Miss", () => {
+  function startNearMiss(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades, bonus: 100 });
+  }
+
+  function ghostBesidePlayer(sim: PlaySim, ghost: number): void {
+    const player = playerEid(sim);
+    Position.x[ghost] = Position.x[player]! + 0.8 * TILE_SIZE;
+    Position.y[ghost] = Position.y[player]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  function passGhost(sim: PlaySim): SimEvent[] {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    const home = { x: Position.x[ghost]!, y: Position.y[ghost]! };
+    ghostBesidePlayer(sim, ghost);
+    const events = runFrames(sim, 1);
+    Position.x[ghost] = home.x;
+    Position.y[ghost] = home.y;
+    return [...events, ...runFrames(sim, 1)];
+  }
+
+  it("charges the BONUS bar 15 when a ghost brushes past", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    passGhost(sim);
+    expect(sim.snapshot().nearMissesPaid).toBe(1);
+    expect(sim.snapshot().bonus.charge).toBe(100 + NEAR_MISS_CHARGE);
+  });
+
+  it("charges 30 when enhanced", () => {
+    const sim = startNearMiss(["passiveNearMissPlus"]);
+    passGhost(sim);
+    expect(sim.snapshot().bonus.charge).toBe(100 + NEAR_MISS_ENHANCED_CHARGE);
+  });
+
+  it("pays every separate pass", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    passGhost(sim);
+    passGhost(sim);
+    expect(sim.snapshot().nearMissesPaid).toBe(2);
+    expect(sim.snapshot().bonus.charge).toBe(100 + 2 * NEAR_MISS_CHARGE);
+  });
+
+  it("pays nothing when not owned", () => {
+    const sim = startNearMiss([]);
+    passGhost(sim);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+    expect(sim.snapshot().bonus.charge).toBe(100);
+  });
+
+  it("pays nothing while the ghost stays within 1 tile", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    ghostBesidePlayer(sim, query(sim.world, [Ghost, Position])[0]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+  });
+
+  it("pays nothing when the ghost catches you", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    ghostBesidePlayer(sim, query(sim.world, [Ghost, Position])[0]!);
+    runFrames(sim, 1);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    runFrames(sim, 1);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+    expect(sim.snapshot().bonus.charge).toBe(100);
+  });
+
+  it("pays nothing for the frozen ghost", () => {
+    const sim = startNearMiss(["passiveNearMiss", "powerPelletFreeze"]);
+    GhostPhase.value[query(sim.world, [Ghost])[0]!] = GHOST_PHASE.active;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const frozen = frozenGhostEid(sim["runUpgrades"])!;
+    expect(frozen).not.toBeNull();
+    const home = { x: Position.x[frozen]!, y: Position.y[frozen]! };
+    ghostBesidePlayer(sim, frozen);
+    runFrames(sim, 1);
+    Position.x[frozen] = home.x;
+    Position.y[frozen] = home.y;
+    runFrames(sim, 1);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
+  });
+
+  it("pays nothing while Ghost Proof makes the pass safe", () => {
+    const sim = startNearMiss(["passiveNearMiss", "powerPelletInvuln"]);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
+    passGhost(sim);
+    expect(sim.snapshot().nearMissesPaid).toBe(0);
   });
 });

@@ -18,6 +18,9 @@ import {
   applyShieldBreakInvuln,
   martyrGhostPlacement,
   interestPayout,
+  nearMissCharge,
+  NEAR_MISS_CHARGE,
+  NEAR_MISS_ENHANCED_CHARGE,
   bankShields,
   shieldPelletsCap,
   spendShield,
@@ -153,6 +156,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveDisruptionSpecialist",
   "passiveMartyr",
   "passiveInterest",
+  "passiveNearMiss",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -693,6 +697,14 @@ describe("interestPayout", () => {
   it("is enhanced by Harvest Specialist", () => {
     const owned = effectiveOwned(["passiveInterest", "passiveHarvestSpecialistPlus"]);
     expect(interestPayout(owned, 9)).toBe(4);
+  });
+});
+
+describe("Near Miss", () => {
+  it("charges the BONUS bar per pass, double when enhanced", () => {
+    expect(nearMissCharge([])).toBe(0);
+    expect(nearMissCharge(["passiveNearMiss"])).toBe(NEAR_MISS_CHARGE);
+    expect(nearMissCharge(["passiveNearMissPlus"])).toBe(NEAR_MISS_ENHANCED_CHARGE);
   });
 });
 
