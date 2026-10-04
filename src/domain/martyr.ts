@@ -1,7 +1,7 @@
 import { nearestWalkableCellCenter, playerSpawnCenter } from "./maze";
 import { martyrRespawnsInPlace, type UpgradeId } from "./upgrades";
 
-export type Point = { x: number; y: number };
+type Point = { x: number; y: number };
 
 export function respawnCenter(owned: readonly UpgradeId[], fell: Point | null): Point {
   if (fell === null || !martyrRespawnsInPlace(owned)) {
