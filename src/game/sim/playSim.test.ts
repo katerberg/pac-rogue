@@ -23,6 +23,7 @@ import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
+  DEFY_DEATH_MS,
   frozenGhostEid,
   grantUpgrade,
   STARTING_UPGRADE_POOL,
@@ -473,6 +474,80 @@ describe("PlaySim", () => {
       expect(sim.snapshot().dying).toBe(false);
     }
     expect(sim.snapshot().lives).toBe(livesBefore);
+  });
+
+  describe("School Specialists", () => {
+    const THREE_DEATH = ["passiveDefyDeath", "passiveMoneyTalks", "passiveMyogenesis"] as const;
+
+    function defyWindowAfterPowerPellet(sim: PlaySim): number {
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      return sim.snapshot().timers.defyDeathMs;
+    }
+
+    it("Death Specialist with three Death upgrades arms the enhanced Defy Death window", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: [...THREE_DEATH, "passiveDeathSpecialist"],
+      });
+      expect(defyWindowAfterPowerPellet(sim)).toBeGreaterThan(DEFY_DEATH_MS);
+      expect(sim.hud().upgrades).toEqual([
+        "passiveDefyDeathPlus",
+        "passiveMoneyTalksPlus",
+        "passiveMyogenesisPlus",
+        "passiveDeathSpecialist",
+      ]);
+      expect(sim.snapshot().upgrades).toEqual([...THREE_DEATH, "passiveDeathSpecialist"]);
+    });
+
+    it("without the specialist, or below three, Defy Death keeps its base window", () => {
+      const without = startSim({ level: 2, maze: "maze1", enableUpgrades: [...THREE_DEATH] });
+      expect(defyWindowAfterPowerPellet(without)).toBeLessThanOrEqual(DEFY_DEATH_MS);
+      const below = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: ["passiveDefyDeath", "passiveMoneyTalks", "passiveDeathSpecialist"],
+      });
+      expect(defyWindowAfterPowerPellet(below)).toBeLessThanOrEqual(DEFY_DEATH_MS);
+      expect(below.hud().upgrades).toContain("passiveDefyDeath");
+    });
+
+    it("Death Specialist Plus enhances a lone Death upgrade", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: ["passiveDefyDeath", "passiveDeathSpecialistPlus"],
+      });
+      expect(defyWindowAfterPowerPellet(sim)).toBeGreaterThan(DEFY_DEATH_MS);
+    });
+
+    it("grants Extra Life's enhanced life once and hides it from the enhance tile", () => {
+      const owned = ["passiveExtraLife", "passiveDefyDeath", "passiveMoneyTalks"] as const;
+      const base = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        lives: 2,
+        enableUpgrades: [...owned],
+      });
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        lives: 2,
+        enableUpgrades: [...owned, "passiveDeathSpecialist"],
+      });
+      expect(sim.snapshot().lives).toBe(base.snapshot().lives + 1);
+      expect(
+        sim
+          .snapshot()
+          .storeStock!.filter(
+            (s) => s.startsWith("enhance:passive") && s !== "enhance:passiveDeathSpecialist",
+          ),
+      ).toEqual([]);
+    });
   });
 
   describe("Defy Death", () => {
