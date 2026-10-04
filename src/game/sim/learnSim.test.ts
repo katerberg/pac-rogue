@@ -265,6 +265,16 @@ describe("LearnSim upgrade demos", () => {
     return sim.step(NO_KEYS_HELD, FRAME_MS);
   }
 
+  function runUntilFreed(sim: LearnSim, ghost: number, ms: number): boolean {
+    for (let t = 0; t < ms; t += FRAME_MS) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      if (GhostPhase.value[ghost] === GHOST_PHASE.active) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function runMs(sim: LearnSim, ms: number): void {
     for (let t = 0; t < ms; t += FRAME_MS) {
       sim.step(NO_KEYS_HELD, FRAME_MS);
@@ -406,6 +416,30 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toContain("QUARTERS 0");
     runMs(sim, 1_600);
     expect(popups(catchByGhost(sim, player))).toEqual(["LIVES RESET"]);
+  });
+
+  it("Haunting cages the ghost that caught Maze-Man for 10 seconds, even when enhanced", () => {
+    for (const id of ["passiveHaunting", "passiveHauntingPlus"] as const) {
+      const { sim, player } = setup(id);
+      const ghost = sim.ghostEid!;
+      expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST\nHAUNTED"]);
+      expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+      const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+      expect(draw.type === "draw" && draw.options.hauntedGhost?.eid).toBe(ghost);
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      runMs(sim, 9_500);
+      expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+      const freed = runUntilFreed(sim, ghost, 600);
+      expect(freed).toBe(true);
+    }
+  });
+
+  it("toggling Haunting off lets the caged ghost out", () => {
+    const { sim, player } = setup("passiveHaunting");
+    const ghost = sim.ghostEid!;
+    catchByGhost(sim, player);
+    sim.toggleUpgrade("passiveHaunting");
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
 
   it("Myogenesis regains two lives when the board refills", () => {

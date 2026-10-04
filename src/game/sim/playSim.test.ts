@@ -25,6 +25,7 @@ import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
   DEFY_DEATH_MS,
   frozenGhostEid,
+  HAUNTING_MS,
   grantUpgrade,
   INVULN_MS,
   SHIELD_BREAK_INVULN_MS,
@@ -45,6 +46,7 @@ import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
+import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
@@ -2746,5 +2748,142 @@ describe("Martyr", () => {
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().lives).toBe(lives);
     expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+  });
+});
+
+describe("Haunting", () => {
+  const LEFT = { keys: held("left") };
+
+  function startHaunting(enableUpgrades: UpgradeId[], level = 3): PlaySim {
+    return startSim({ level, maze: "maze1", infiniteLives: true, enableUpgrades });
+  }
+
+  function dieToFirstGhost(sim: PlaySim): number {
+    runFrames(sim, 20, LEFT);
+    const killer = query(sim.world, [Ghost, Position])[0]!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    return killer;
+  }
+
+  function nameOf(sim: PlaySim, eid: number): string | null {
+    return ghostName(sim.world, eid);
+  }
+
+  function ignoreFurtherCatches(sim: PlaySim): void {
+    (sim as unknown as { options: PlayOptions }).options.godMode = true;
+  }
+
+  function inHouse(eid: number): boolean {
+    return GhostPhase.value[eid] === GHOST_PHASE.inHouse;
+  }
+
+  it("without Haunting the ghost that caught you leaves the house as usual", () => {
+    const sim = startHaunting([]);
+    const killer = dieToFirstGhost(sim);
+    expect(sim.snapshot().hauntedGhost).toBeNull();
+    runUntil(sim, () => !inHouse(killer), 60 * 5, LEFT);
+    expect(inHouse(killer)).toBe(false);
+  });
+
+  it("cages the ghost that caught you for 10 seconds, then lets it out", () => {
+    const sim = startHaunting(["passiveHaunting"]);
+    const killer = dieToFirstGhost(sim);
+    expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
+    expect(sim.snapshot().timers.hauntMs).toBe(HAUNTING_MS);
+    expect(sim.renderOptions().hauntedGhost).toEqual({ eid: killer, remainingMs: HAUNTING_MS });
+    ignoreFurtherCatches(sim);
+
+    runFrames(sim, Math.floor((HAUNTING_MS - 200) / FRAME_MS), LEFT);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(inHouse(killer)).toBe(true);
+    expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
+
+    runUntil(sim, () => !inHouse(killer), 60 * 5, LEFT);
+    expect(inHouse(killer)).toBe(false);
+    expect(sim.snapshot().hauntedGhost).toBeNull();
+    expect(sim.renderOptions().hauntedGhost).toBeNull();
+  });
+
+  it("Haunting+ keeps the ghost caged for the rest of the level", () => {
+    const sim = startHaunting(["passiveHauntingPlus"]);
+    const killer = dieToFirstGhost(sim);
+    expect(sim.snapshot().timers.hauntMs).toBe(-1);
+    ignoreFurtherCatches(sim);
+    runFrames(sim, Math.floor((HAUNTING_MS * 2) / FRAME_MS), LEFT);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(inHouse(killer)).toBe(true);
+    expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
+  });
+
+  it("still sends the caged ghost home when Martyr sends the others to their corners", () => {
+    const sim = startHaunting(["passiveMartyr", "passiveHaunting"]);
+    runFrames(sim, 20, LEFT);
+    const killer = query(sim.world, [Ghost, Position])[0]!;
+    const others = query(sim.world, [Ghost, Position]).filter((eid) => eid !== killer);
+    for (const eid of others) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(inHouse(killer)).toBe(true);
+    expect(others.some((eid) => !inHouse(eid))).toBe(true);
+    expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
+  });
+
+  it("haunts on a Defy Death save", () => {
+    const sim = startSim({
+      level: 3,
+      maze: "maze1",
+      enableUpgrades: ["passiveHaunting", "passiveDefyDeath"],
+    });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const lives = sim.snapshot().lives;
+    const killer = query(sim.world, [Ghost, Position])[0]!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
+  });
+
+  it("does not haunt on a shield break", () => {
+    const sim = startHaunting(["passiveHaunting", "passiveShieldPellets"]);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().hauntedGhost).toBeNull();
+  });
+
+  it("does not haunt on the boss level", () => {
+    const sim = startHaunting(["passiveHaunting"], 9);
+    dieToFirstGhost(sim);
+    expect(sim.snapshot().hauntedGhost).toBeNull();
+    expect(sim.snapshot().timers.hauntMs).toBe(0);
+  });
+
+  it("frees the caged ghost once the level ends", () => {
+    const sim = startHaunting(["passiveHauntingPlus"]);
+    const killer = dieToFirstGhost(sim);
+    expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
+    const [last, ...rest] = regularPelletEids(sim);
+    for (const eid of [...rest, ...query(sim.world, [PowerPellet])]) {
+      removeEntity(sim.world, eid);
+    }
+    ignoreFurtherCatches(sim);
+    eatPelletAt(sim, last!);
+    expect(sim.snapshot().timers.hauntMs).toBe(-1);
+    sim.chooseUpgrade({ kind: "upgrade", id: drainToOffer(sim).upgrades[0]! });
+    runUntil(sim, () => sim.snapshot().inStore || sim.snapshot().level === 4, 600);
+    expect(sim.snapshot().timers.hauntMs).toBe(0);
+    expect(sim.snapshot().hauntedGhost).toBeNull();
   });
 });

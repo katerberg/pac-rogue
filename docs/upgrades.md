@@ -5,7 +5,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, `shieldsBanked`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, Haunting timer + `hauntedGhostEid`, `shieldsBanked`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay, up/down/left/right button slots). Offer math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice` / `declineUpgrades`).
 - No ECS upgrade components in v1.
 - Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
@@ -52,6 +52,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveProtectionSpecialist` | Protection Specialist | Protection | No effect of its own. While 3+ other Protection upgrades are owned, every owned Protection upgrade acts as its enhanced form (see [School Specialists](#school-specialists)); offered only once 3 Protection upgrades are owned                                                                                                                                                                                                  |
 | `passiveDisruptionSpecialist` | Disruption Specialist | Disruption | No effect of its own. While 3+ other Disruption upgrades are owned, every owned Disruption upgrade acts as its enhanced form (see [School Specialists](#school-specialists)); offered only once 3 Disruption upgrades are owned                                                                                                                                                                                                  |
 | `passiveMartyr`               | Martyr                | Death      | A catch that doesn't end the run respawns you at the nearest walkable cell to where you fell; ghosts that were out land on their Scatter Burst corner cells instead of going home (see [Martyr](#martyr) below)                                                                                                                                                                                                                  |
+| `passiveHaunting`             | Haunting              | Death      | The ghost that last caught you stays caged in the ghost house for `HAUNTING_MS` (10000) after play resumes (see [Haunting](#haunting) below)                                                                                                                                                                                                                                                                                     |
 
 ## Enhanced upgrades
 
@@ -105,6 +106,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveProtectionSpecialist` | Protection Specialist | Every owned Protection upgrade is enhanced, with no threshold                                                                                |
 | `passiveDisruptionSpecialist` | Disruption Specialist | Every owned Disruption upgrade is enhanced, with no threshold                                                                                |
 | `passiveMartyr`               | Martyr                | Every ghost goes back into the ghost house instead of to its corner                                                                          |
+| `passiveHaunting`             | Haunting              | The ghost stays caged for the rest of the level (`HAUNTING_ENHANCED_MS` is `Infinity`); the cage never blinks                                |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -273,6 +275,21 @@ While `passiveMartyr` is owned, a catch that doesn't end the run still runs the 
 - **Stacks** with every other Death upgrade: Death's Harvest harvests first (a harvest that empties the board is still a level clear), Defy Death and Money Talks saves respawn in place too (the revive splash plays there), and Death's Bounty pays as usual.
 - **Boss level:** the boss Blinkys are rebuilt in the house as usual in both forms; only the player's position changes.
 - **LEARN:** the demo catch never moves Maze-Man, so Martyr is in `LEARN_NO_EFFECT_UPGRADE_IDS` and shows the "no visible effect" banner.
+
+### Haunting
+
+While `passiveHaunting` is owned, a catch that doesn't end the run cages the ghost that caught you. `PlaySim` remembers the catcher (`catchPlayer`'s result) at the catch. At the actor reset, after `clearUpgradeTimers`, `armHaunt` sets `hauntedGhostEid` and `hauntRemainingMs` on `RunUpgrades` to `hauntDurationMs(owned)`: `HAUNTING_MS` (10000), or `HAUNTING_ENHANCED_MS` (`Infinity`, so the rest of the level) for `passiveHauntingPlus`.
+
+- **Hold.** The caged ghost is in the house like the others after a death. `ghostRelease` skips the `heldGhostEid` in the release adds, both for its own gate and for the idle push-out, which picks the next waiting ghost instead. `tickHaunt` runs with the other upgrade timers, so it counts down only once play resumes after READY. When it reaches 0, the ghost's normal after-death gate applies; if that gate already passed, it leaves right away.
+- **One at a time.** A later death replaces the caged ghost with the new catcher (in both forms), and the old one goes back to its normal release.
+- **Reset:** `clearUpgradeTimers` frees it on level advance and store entry; the reset after a death re-arms it.
+- **Saves** (Defy Death, Money Talks, `infiniteLives`) still cage the catcher. A Shield Pellets break is not a death and cages nothing. A Death's Harvest catch that empties the board is a level clear, so nothing is caged.
+- **Martyr:** the caged ghost always goes home, even when Martyr sends the other ghosts to their corners.
+- **Boss level:** no effect, since the boss Blinkys are rebuilt on every death.
+- **Overcharge and Fruit Power:** no effect; Haunting is not a power-pellet effect.
+- **Cage.** `SimRenderOptions.hauntedGhost` (`{ eid, remainingMs }`) makes `render` draw a light grey frame with 3 vertical bars around the ghost (`hauntCageLines`, [`src/domain/hauntCage.ts`](../src/domain/hauntCage.ts)). `hauntCageVisible` keeps it solid, then blinks it every 100ms in the last 1000ms, like Ghost Proof. The rest-of-level cage never blinks.
+- **Snapshot:** `play.hauntedGhost` (ghost name or `null`) and `play.timers.hauntMs` (`-1` for rest of level).
+- **LEARN** mirrors it through the demo catch: the catcher is seated at the ghost-house exit, caged for `HAUNTING_MS` (10s even for Haunting+, since LEARN has no level end), and the popup adds `HAUNTED`. Toggling Haunting off frees it.
 
 ### Overcharge
 
