@@ -53,6 +53,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveDisruptionSpecialist` | Disruption Specialist | Disruption | No effect of its own. While 3+ other Disruption upgrades are owned, every owned Disruption upgrade acts as its enhanced form (see [School Specialists](#school-specialists)); offered only once 3 Disruption upgrades are owned                                                                                                                                                                                                  |
 | `passiveMartyr`               | Martyr                | Death      | A catch that doesn't end the run respawns you at the nearest walkable cell to where you fell; ghosts that were out land on their Scatter Burst corner cells instead of going home (see [Martyr](#martyr) below)                                                                                                                                                                                                                  |
 | `passiveInterest`             | Interest              | Harvest    | Entering a store pays 1 Quarter for every `INTEREST_PER_QUARTERS` (3) you hold, rounded down (see [Interest](#interest) below)                                                                                                                                                                                                                                                                                                   |
+| `passiveNearMiss`             | Near Miss             | Protection | A ghost that comes within 1 tile of you and leaves again without a catch adds `NEAR_MISS_CHARGE` (15) to the BONUS bar (see [Near Miss](#near-miss) below)                                                                                                                                                                                                                                                                       |
 | `passiveHaunting`             | Haunting              | Death      | The ghost that last caught you stays caged in the ghost house for `HAUNTING_MS` (10000) after play resumes (see [Haunting](#haunting) below)                                                                                                                                                                                                                                                                                     |
 
 ## Enhanced upgrades
@@ -108,6 +109,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveDisruptionSpecialist` | Disruption Specialist | Every owned Disruption upgrade is enhanced, with no threshold                                                                                |
 | `passiveMartyr`               | Martyr                | Every ghost goes back into the ghost house instead of to its corner                                                                          |
 | `passiveInterest`             | Interest              | Pays 1 Quarter for every 2 held instead of every 3                                                                                           |
+| `passiveNearMiss`             | Near Miss             | Each pass adds `NEAR_MISS_ENHANCED_CHARGE` (30) instead of 15                                                                                |
 | `passiveHaunting`             | Haunting              | The ghost stays caged for the rest of the level (`HAUNTING_ENHANCED_MS` is `Infinity`); the cage never blinks                                |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
@@ -287,6 +289,18 @@ While `passiveInterest` is owned, `PlaySim.enterStore()` pays `interestPayout(ef
 - **Pop-in:** only the HUD lags. `hud().quarters` hides the coins not yet shown, and `interestCoinsShown` ([`src/domain/interest.ts`](../src/domain/interest.ts)) reveals the first one `INTEREST_POP_DELAY_MS` (400ms) after entry, then one every `INTEREST_POP_INTERVAL_MS` (120ms). Each reveal emits `{ type: "quarters", pulse: true }`, and `PlayScene` pulses the newest HUD Quarter. Leaving the store or buying a tile ends the pop-in, so the HUD snaps to the real wallet. The snapshot shows it as `play.interestPop` (`{ count, shown }`, `null` when idle).
 - **Harvest school:** Harvest Specialist enhances it like any other Harvest upgrade.
 - **LEARN:** there is no store, so Interest is in `LEARN_NO_EFFECT_UPGRADE_IDS` and shows the "no visible effect" banner.
+
+### Near Miss
+
+While `passiveNearMiss` is owned, every ghost that brushes past without catching you adds `nearMissCharge(owned)` to the [BONUS bar](./bonus.md): `NEAR_MISS_CHARGE` (15), or `NEAR_MISS_ENHANCED_CHARGE` (30) enhanced. `stepNearMissPasses` ([`src/domain/nearMiss.ts`](../src/domain/nearMiss.ts)) tracks one pass per ghost, and `stepNearMisses` (`src/game/systems/nearMiss.ts`) feeds it each normal play frame that has no catch:
+
+- **A pass** starts when a ghost out of the house comes within 1 tile of the player's centre (`isNearMiss`, the same distance the run log's `nearMisses` uses). It pays when the ghost moves back past 1 tile. A ghost that stays close pays nothing until it leaves.
+- **Re-arm:** after a pass, that ghost must go past `NEAR_MISS_REARM_TILES` (1.5) tiles before it can start another one, so a ghost tailing you at the edge cannot be farmed.
+- **No risk, no pay:** a pass is void if at any point that ghost could not have caught you: Ghost Proof or Shield-break immunity (`playerIsInvulnerable`), `godMode`, the frozen ghost or a ghost mid corner-glide. Defy Death does not stop a catch, so it does not void a pass.
+- **A catch never pays.** Pass state resets on a catch's respawn, a new board and store entry (with the BONUS streak). `play.nearMissesPaid` counts paid passes this board.
+- It adds charge only, through `addBonusCharge` / `applyBonus` (run-log Quarter source `nearMiss`), like fruit: it neither extends nor breaks the pellet streak. There is no extra sound or popup in play; the bar's spring fill is the feedback.
+- Boss Blinkys count like any ghost. It is not an `onPowerPellet` effect, so Overcharge and Fruit Power do not touch it. Protection Specialist enhances it as usual.
+- **LEARN** mirrors it: a pass adds to LEARN's BONUS bar, pops `+15 BONUS` (`+30` enhanced) and shows the `BONUS` status line. LEARN contact never kills unless a catch-demo upgrade is owned, so a ghost can pass straight through Maze-Man there and still pay.
 
 ### Haunting
 
