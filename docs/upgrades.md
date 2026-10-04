@@ -52,6 +52,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveProtectionSpecialist` | Protection Specialist | Protection | No effect of its own. While 3+ other Protection upgrades are owned, every owned Protection upgrade acts as its enhanced form (see [School Specialists](#school-specialists)); offered only once 3 Protection upgrades are owned                                                                                                                                                                                                  |
 | `passiveDisruptionSpecialist` | Disruption Specialist | Disruption | No effect of its own. While 3+ other Disruption upgrades are owned, every owned Disruption upgrade acts as its enhanced form (see [School Specialists](#school-specialists)); offered only once 3 Disruption upgrades are owned                                                                                                                                                                                                  |
 | `passiveMartyr`               | Martyr                | Death      | A catch that doesn't end the run respawns you at the nearest walkable cell to where you fell; ghosts that were out land on their Scatter Burst corner cells instead of going home (see [Martyr](#martyr) below)                                                                                                                                                                                                                  |
+| `passiveInterest`             | Interest              | Harvest    | Entering a store pays 1 Quarter for every `INTEREST_PER_QUARTERS` (3) you hold, rounded down (see [Interest](#interest) below)                                                                                                                                                                                                                                                                                                   |
 
 ## Enhanced upgrades
 
@@ -105,6 +106,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveProtectionSpecialist` | Protection Specialist | Every owned Protection upgrade is enhanced, with no threshold                                                                                |
 | `passiveDisruptionSpecialist` | Disruption Specialist | Every owned Disruption upgrade is enhanced, with no threshold                                                                                |
 | `passiveMartyr`               | Martyr                | Every ghost goes back into the ghost house instead of to its corner                                                                          |
+| `passiveInterest`             | Interest              | Pays 1 Quarter for every 2 held instead of every 3                                                                                           |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -273,6 +275,16 @@ While `passiveMartyr` is owned, a catch that doesn't end the run still runs the 
 - **Stacks** with every other Death upgrade: Death's Harvest harvests first (a harvest that empties the board is still a level clear), Defy Death and Money Talks saves respawn in place too (the revive splash plays there), and Death's Bounty pays as usual.
 - **Boss level:** the boss Blinkys are rebuilt in the house as usual in both forms; only the player's position changes.
 - **LEARN:** the demo catch never moves Maze-Man, so Martyr is in `LEARN_NO_EFFECT_UPGRADE_IDS` and shows the "no visible effect" banner.
+
+### Interest
+
+While `passiveInterest` is owned, `PlaySim.enterStore()` pays `interestPayout(effectiveOwned, quarters)` ([`src/domain/upgrades.ts`](../src/domain/upgrades.ts)) before the store opens: `floor(quarters / interestPerQuarters)`, 3 in the base form and 2 enhanced (`passiveInterestPlus`). There is no cap.
+
+- **Every store pays**, including the one before the level-9 boss and a `?store=N` start. Buying Interest inside a store does not pay at that store; the payout has already happened on entry.
+- **Credited at once:** the Quarters are added to `quarters` (and logged as the `interest` Quarter source) on entry, so prices and purchases see them straight away.
+- **Pop-in:** only the HUD lags. `hud().quarters` hides the coins not yet shown, and `interestCoinsShown` ([`src/domain/interest.ts`](../src/domain/interest.ts)) reveals the first one `INTEREST_POP_DELAY_MS` (400ms) after entry, then one every `INTEREST_POP_INTERVAL_MS` (120ms). Each reveal emits `{ type: "quarters", pulse: true }`, and `PlayScene` pulses the newest HUD Quarter. Leaving the store ends the pop-in. The snapshot shows it as `play.interestPop` (`{ count, shown }`, `null` when idle).
+- **Harvest school:** Harvest Specialist enhances it like any other Harvest upgrade.
+- **LEARN:** there is no store, so Interest is in `LEARN_NO_EFFECT_UPGRADE_IDS` and shows the "no visible effect" banner.
 
 ### Overcharge
 
