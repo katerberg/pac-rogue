@@ -11,7 +11,6 @@ export function shieldCrackProgress(elapsedMs: number): number {
   return Math.min(1, Math.max(0, elapsedMs / SHIELD_CRACK_MS));
 }
 
-/** Right half's offset from the spent square's center; the left half mirrors x and rotation. */
 export function shieldCrackLook(progress: number): {
   offsetX: number;
   dropY: number;
