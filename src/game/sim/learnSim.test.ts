@@ -286,6 +286,22 @@ describe("LearnSim upgrade demos", () => {
     expect(count()).toBe(eaten + 1);
   });
 
+  it("does not regenerate power pellets early while Second Chomp has them pending", () => {
+    const { sim, player } = setup("passivePowerPelletRecharge");
+    const total = query(sim.world, [PowerPellet]).length;
+    const positions = Array.from(query(sim.world, [PowerPellet, Position])).map(posOf);
+    for (const at of positions) {
+      moveTo(player, at);
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+    moveTo(player, { x: positions[0]!.x, y: positions[0]!.y + 200 });
+    expect(query(sim.world, [PowerPellet]).length).toBe(0);
+    runMs(sim, 9_000);
+    expect(query(sim.world, [PowerPellet]).length).toBe(0);
+    runMs(sim, 1_500);
+    expect(query(sim.world, [PowerPellet]).length).toBe(total);
+  });
+
   it("Defy Death tints Maze-Man while armed by a power pellet", () => {
     const { sim, player } = setup("passiveDefyDeath");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
