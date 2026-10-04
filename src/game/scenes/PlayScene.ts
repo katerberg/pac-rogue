@@ -196,7 +196,7 @@ export class PlayScene extends Phaser.Scene {
     this.shieldCrackHalves = [];
     this.quarterIcons = [];
     this.walletCoins = [];
-    this.refreshQuartersHud();
+    this.refreshQuartersHud(false);
 
     this.readHeldKeys = createHeldKeysReader(this);
     this.musicPendingFanfareEnd = null;
@@ -431,7 +431,7 @@ export class PlayScene extends Phaser.Scene {
         this.refreshLivesIcons(event.pulse);
         break;
       case "quarters":
-        this.refreshQuartersHud();
+        this.refreshQuartersHud(event.pulse);
         break;
       case "shields":
         this.refreshShieldIcons();
@@ -753,7 +753,7 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private refreshQuartersHud(): void {
+  private refreshQuartersHud(pulse: boolean): void {
     for (const icon of this.quarterIcons) {
       icon.destroy();
     }
@@ -764,6 +764,10 @@ export class PlayScene extends Phaser.Scene {
       const icon = this.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
       this.sideHud.add(icon);
       this.quarterIcons.push(icon);
+    }
+    const newest = this.quarterIcons[this.quarterIcons.length - 1];
+    if (pulse && newest !== undefined) {
+      this.pulseHudIcon(newest);
     }
   }
 

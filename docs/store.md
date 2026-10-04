@@ -10,7 +10,7 @@ Quarters (from the [BONUS bar](./bonus.md), which fruit and pellet streaks charg
 - after clearing **level 5 or 6** — `pickMidStoreLevel` rolls 50/50 once per run in `PlaySim.start()`
 - after clearing **level 8** (`STORE_FINAL_LEVEL`), right before the level-9 boss
 
-On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the modal resolves first, then the usual transition freeze, then the store. Entering the store does not apply per-level life regen; the regen happens on the normal advance after the store.
+On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the modal resolves first, then the usual transition freeze, then the store. Entering the store pays [Interest](./upgrades.md#interest) when owned (1 Quarter per 3 held, per 2 enhanced) before you can buy. Entering the store does not apply per-level life regen; the regen happens on the normal advance after the store.
 
 ## Layout
 

@@ -49,7 +49,7 @@ The full types live in `src/domain/runLog.ts`. Top level:
 - `finalLevel`, `pelletsCollected` (lifetime), `quartersUnspent`, `livesMax`.
 - `loadout`: `{ id, source, level, removedLevel? }` per upgrade gained. `source` is `start`, `offer`, `store`, `enhance` (the `Plus` id; the base entry gets `removedLevel`) or `flag` (`?enableUpgrade`). A store swap sets `removedLevel` on the outgoing upgrade.
 - `levels`: one `LevelLog` per board played.
-- `storeVisits`: `{ afterLevel, quartersIn, quartersOut, stock, purchases, simMs }`.
+- `storeVisits`: `{ afterLevel, quartersIn, quartersOut, stock, purchases, simMs }`. `quartersIn` counts any Interest payout.
 
 ## Level fields
 
@@ -80,7 +80,7 @@ Times are sim ms since the level started (pauses and the store do not count).
 | `activeMs`                           | time `freeze`, `invuln`, `wallPass`, `speedBurst`, `ghostHarvest` were active                                                                                                                                                                                                                    |
 | `targets`                            | frozen and recalled ghost names, warp distances in tiles, ghosts moved per Scatter Burst                                                                                                                                                                                                         |
 | `fruit[]`                            | `{ kind, spawnedMs, eatenMs }`; `eatenMs: null` means it timed out                                                                                                                                                                                                                               |
-| `quartersEarned`                     | by source: `fruit` (Quarter Bounty), `bonusBar`, `deathsBounty`, `nearMiss`, `offer`                                                                                                                                                                                                             |
+| `quartersEarned`                     | by source: `fruit` (Quarter Bounty), `bonusBar`, `deathsBounty`, `nearMiss`, `offer`, `interest` (Interest, credited to the level just cleared)                                                                                                                                                  |
 | `bonusMaxTier`, `bonusFills`         | highest BONUS streak tier and bar fills                                                                                                                                                                                                                                                          |
 | `turnTuning`                         | perfect and close turn sparks                                                                                                                                                                                                                                                                    |
 | `offer`                              | `{ upgrades, quarters, picked, choiceMs }` for the level-clear offer                                                                                                                                                                                                                             |
