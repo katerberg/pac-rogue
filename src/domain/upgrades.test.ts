@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFY_DEATH_ENHANCED_MS,
+  effectiveOwned,
+  isSpecialist,
+  learnUpgradeDefs,
+  specialistEnhancedBases,
   DEFY_DEATH_MS,
   FREEZE_MS,
   GHOST_HOUSE_CLYDE_PELLET_ADD,
@@ -139,6 +144,11 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveMoneyTalks",
   "passiveLazyLooper",
   "passiveShieldPellets",
+  "passiveDeathSpecialist",
+  "passiveHarvestSpecialist",
+  "passiveSpeedSpecialist",
+  "passiveProtectionSpecialist",
+  "passiveDisruptionSpecialist",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -321,9 +331,10 @@ describe("pickStartingUpgrade", () => {
 
 describe("eligibleUpgrades", () => {
   it("excludes owned ids", () => {
-    expect(eligibleUpgrades([])).toEqual(ALL_IDS);
+    const unlocked = ALL_IDS.filter((id) => !isSpecialist(id));
+    expect(eligibleUpgrades([])).toEqual(unlocked);
     expect(eligibleUpgrades(["passivePlayerSpeedUp"])).toEqual(
-      ALL_IDS.filter((id) => id !== "passivePlayerSpeedUp"),
+      unlocked.filter((id) => id !== "passivePlayerSpeedUp"),
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
   });
@@ -906,7 +917,7 @@ describe("enhanced upgrades", () => {
 
   it("keeps Plus ids out of every pool", () => {
     expect(ALL_UPGRADE_IDS.some((id) => isEnhancedId(id))).toBe(false);
-    expect(eligibleUpgrades([])).toHaveLength(ALL_UPGRADE_IDS.length);
+    expect(eligibleUpgrades([])).toEqual(ALL_UPGRADE_IDS.filter((id) => !isSpecialist(id)));
     expect(eligibleUpgrades(["passiveGhostSlowPlus"])).not.toContain("passiveGhostSlow");
   });
 
@@ -1038,5 +1049,115 @@ describe("enhanced upgrades", () => {
     );
     expect(result.freezeClosestMs).toBe(15000);
     expect(result.state.defyDeathRemainingMs).toBe(24000);
+  });
+});
+
+describe("School Specialists", () => {
+  const THREE_DEATH: UpgradeId[] = ["passiveDefyDeath", "passiveMoneyTalks", "passiveMyogenesis"];
+
+  it("enhances every upgrade in its school once three others are owned", () => {
+    expect(effectiveOwned([...THREE_DEATH, "passiveDeathSpecialist", "passiveOvercharge"])).toEqual(
+      [
+        "passiveDefyDeathPlus",
+        "passiveMoneyTalksPlus",
+        "passiveMyogenesisPlus",
+        "passiveDeathSpecialist",
+        "passiveOvercharge",
+      ],
+    );
+  });
+
+  it("does not count itself toward the three", () => {
+    const owned: UpgradeId[] = ["passiveDefyDeath", "passiveMoneyTalks", "passiveDeathSpecialist"];
+    expect(effectiveOwned(owned)).toEqual(owned);
+  });
+
+  it("counts already-enhanced upgrades toward the three", () => {
+    expect(
+      effectiveOwned([
+        "passiveDefyDeathPlus",
+        "passiveMoneyTalks",
+        "passiveMyogenesis",
+        "passiveDeathSpecialist",
+      ]),
+    ).toEqual([
+      "passiveDefyDeathPlus",
+      "passiveMoneyTalksPlus",
+      "passiveMyogenesisPlus",
+      "passiveDeathSpecialist",
+    ]);
+  });
+
+  it("leaves other schools and Neutral alone", () => {
+    const owned: UpgradeId[] = [
+      ...THREE_DEATH,
+      "passiveDeathSpecialist",
+      "fruitFeast",
+      "passivePelletToPower",
+    ];
+    expect(effectiveOwned(owned).slice(4)).toEqual(["fruitFeast", "passivePelletToPower"]);
+  });
+
+  it("enhanced form needs no threshold", () => {
+    expect(effectiveOwned(["passiveDefyDeath", "passiveDeathSpecialistPlus"])).toEqual([
+      "passiveDefyDeathPlus",
+      "passiveDeathSpecialistPlus",
+    ]);
+  });
+
+  it("returns the same array when no specialist is owned", () => {
+    const owned: UpgradeId[] = [...THREE_DEATH];
+    expect(effectiveOwned(owned)).toBe(owned);
+  });
+
+  it("feeds power-pellet effects", () => {
+    const result = applyPowerPelletEffects(
+      createRunUpgrades([...THREE_DEATH, "passiveDeathSpecialist"]),
+      1,
+    );
+    expect(result.state.defyDeathRemainingMs).toBe(DEFY_DEATH_ENHANCED_MS);
+  });
+
+  it("lists only the bases a specialist enhances", () => {
+    expect(
+      specialistEnhancedBases([
+        "passiveDefyDeathPlus",
+        "passiveMoneyTalks",
+        "passiveMyogenesis",
+        "passiveDeathSpecialist",
+      ]),
+    ).toEqual(["passiveMoneyTalks", "passiveMyogenesis"]);
+  });
+
+  it("is offered only with three upgrades of its school", () => {
+    expect(eligibleUpgrades(THREE_DEATH.slice(0, 2))).not.toContain("passiveDeathSpecialist");
+    const eligible = eligibleUpgrades(THREE_DEATH);
+    expect(eligible).toContain("passiveDeathSpecialist");
+    expect(eligible).not.toContain("passiveHarvestSpecialist");
+  });
+
+  it("hides specialist-enhanced upgrades from the store's enhance pool", () => {
+    expect(enhanceableUpgrades([...THREE_DEATH, "passiveDeathSpecialist", "fruitFeast"])).toEqual([
+      "passiveDeathSpecialist",
+      "fruitFeast",
+    ]);
+  });
+
+  it("Protection Specialist raises the Shield Pellets bank to its enhanced cap", () => {
+    const owned: UpgradeId[] = [
+      "powerPelletWarpFarthest",
+      "powerPelletInvuln",
+      "passiveShieldPellets",
+      "passiveProtectionSpecialist",
+    ];
+    expect(bankShields(createRunUpgrades(owned), 5).shieldsBanked).toBe(3);
+    expect(bankShields(createRunUpgrades(owned.slice(0, 3)), 5).shieldsBanked).toBe(1);
+  });
+
+  it("is left off the LEARN list", () => {
+    const ids = learnUpgradeDefs(["passiveDefyDeath", "passiveDeathSpecialist"]).map(
+      (def) => def.id,
+    );
+    expect(ids).toEqual(["passiveDefyDeath"]);
   });
 });

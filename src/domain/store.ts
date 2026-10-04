@@ -294,7 +294,12 @@ export function storeStep(
   }
   const outgoingId =
     input.owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId)) ?? slot.outgoingId;
-  const incomingBase = takeRandomFrom(swapPool(next, input.owned), rng);
+  const remaining = input.owned.filter((id) => baseIdOf(id) !== baseIdOf(outgoingId));
+  const afterSwap = swapPool(next, remaining).filter((id) => id !== baseIdOf(outgoingId));
+  const incomingBase = takeRandomFrom(
+    afterSwap.length > 0 ? afterSwap : swapPool(next, input.owned),
+    rng,
+  );
   return {
     state: sold,
     purchase: {
