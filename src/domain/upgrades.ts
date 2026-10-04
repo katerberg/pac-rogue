@@ -675,9 +675,9 @@ export function learnEnhanceToggleState(
 }
 
 export function enhanceableUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
-  const specialistEnhanced = new Set(specialistEnhancedBases(owned));
+  const specialistEnhanced = new Set<UpgradeId>(specialistEnhancedBases(owned));
   return owned.filter(
-    (id): id is BaseUpgradeId => !isEnhancedId(id) && !specialistEnhanced.has(id as BaseUpgradeId),
+    (id): id is BaseUpgradeId => !isEnhancedId(id) && !specialistEnhanced.has(id),
   );
 }
 

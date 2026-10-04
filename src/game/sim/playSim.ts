@@ -1374,10 +1374,7 @@ export class PlaySim {
       this.recorder.lost(purchase.targetId, this.levelIndex);
       this.recorder.gained(id, "enhance", this.levelIndex);
       this.runUpgrades = enhanceUpgrade(this.runUpgrades, purchase.targetId);
-      if (!this.enhanceLivesPaid.has(purchase.targetId)) {
-        this.enhanceLivesPaid.add(purchase.targetId);
-        this.lives += enhanceGrantLives(purchase.targetId);
-      }
+      this.payEnhanceLives(purchase.targetId);
     } else {
       if (purchase.kind === "swap") {
         this.recorder.lost(purchase.outgoingId, this.levelIndex);
@@ -1608,11 +1605,13 @@ export class PlaySim {
   }
 
   private grantSpecialistLives(): void {
-    for (const baseId of specialistEnhancedBases(this.runUpgrades.owned)) {
-      if (!this.enhanceLivesPaid.has(baseId)) {
-        this.enhanceLivesPaid.add(baseId);
-        this.lives += enhanceGrantLives(baseId);
-      }
+    specialistEnhancedBases(this.runUpgrades.owned).forEach((id) => this.payEnhanceLives(id));
+  }
+
+  private payEnhanceLives(baseId: BaseUpgradeId): void {
+    if (!this.enhanceLivesPaid.has(baseId)) {
+      this.enhanceLivesPaid.add(baseId);
+      this.lives += enhanceGrantLives(baseId);
     }
   }
 
