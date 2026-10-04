@@ -51,6 +51,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveSpeedSpecialist`      | Speed Specialist      | Speed      | No effect of its own. While 3+ other Speed upgrades are owned, every owned Speed upgrade acts as its enhanced form (see [School Specialists](#school-specialists)); offered only once 3 Speed upgrades are owned                                                                                                                                                                                                                 |
 | `passiveProtectionSpecialist` | Protection Specialist | Protection | No effect of its own. While 3+ other Protection upgrades are owned, every owned Protection upgrade acts as its enhanced form (see [School Specialists](#school-specialists)); offered only once 3 Protection upgrades are owned                                                                                                                                                                                                  |
 | `passiveDisruptionSpecialist` | Disruption Specialist | Disruption | No effect of its own. While 3+ other Disruption upgrades are owned, every owned Disruption upgrade acts as its enhanced form (see [School Specialists](#school-specialists)); offered only once 3 Disruption upgrades are owned                                                                                                                                                                                                  |
+| `passiveMartyr`               | Martyr                | Death      | A catch that doesn't end the run respawns you at the nearest walkable cell to where you fell; ghosts that were out land on their Scatter Burst corner cells instead of going home (see [Martyr](#martyr) below)                                                                                                                                                                                                                  |
 
 ## Enhanced upgrades
 
@@ -103,6 +104,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveSpeedSpecialist`      | Speed Specialist      | Every owned Speed upgrade is enhanced, with no threshold                                                                                     |
 | `passiveProtectionSpecialist` | Protection Specialist | Every owned Protection upgrade is enhanced, with no threshold                                                                                |
 | `passiveDisruptionSpecialist` | Disruption Specialist | Every owned Disruption upgrade is enhanced, with no threshold                                                                                |
+| `passiveMartyr`               | Martyr                | Every ghost goes back into the ghost house instead of to its corner                                                                          |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -259,6 +261,18 @@ There is one specialist per school except Neutral: `passiveDeathSpecialist`, `pa
 - **Grant effects.** The first time Extra Life becomes enhanced through Death Specialist, `PlaySim` grants `enhanceGrantLives` (+1). It is paid once per run per upgrade (shared with a store enhancement) and never taken back.
 - **Display.** The HUD and pause list show the effective labels, so enhanced upgrades read `+`. Snapshot `play.upgrades` stays the owned ids; `play.effectiveUpgrades` shows the effective ones.
 - **LEARN.** Specialists are left off the LEARN list (`learnUpgradeDefs`).
+
+### Martyr
+
+While `passiveMartyr` is owned, a catch that doesn't end the run still runs the normal death (death hold, life loss or save, timers and BONUS streak cleared, fruit removed, READY pause), but the player reappears where they fell instead of at the spawn. `PlaySim` remembers the player's position at the catch, and at the actor reset `respawnCenter` ([`src/domain/martyr.ts`](../src/domain/martyr.ts)) snaps it to the nearest walkable cell center (`nearestWalkableCellCenter`), so a catch mid-tunnel or inside a wall during Wall Pass lands on the closest open cell. Without Martyr, `respawnCenter` returns the spawn.
+
+`martyrGhosts` (`martyrGhostPlacement`) decides where the ghosts go:
+
+- **Base (`"corners"`):** every ghost that was `active` at the reset stays active and is placed by `teleportGhostsToCorners`, the same rules as [Scatter burst](#scatter-burst): its corner cell, or the ghost-house exit cell when that corner is within 8 tiles of the respawned player, with the shared-cell hold stagger. The move is instant (no glide, no hold) and happens during the death fade. Ghosts still in the house or leaving it go home and use the normal after-death release. Because no ghost may leave the house to start it, the scatter/chase wave clock starts at the reset whenever a ghost lands in a corner, so cornered ghosts begin in scatter and move on to chase on schedule.
+- **Enhanced (`"house"`, `passiveMartyrPlus`):** every ghost goes back into the house as on a normal death.
+- **Stacks** with every other Death upgrade: Death's Harvest harvests first (a harvest that empties the board is still a level clear), Defy Death and Money Talks saves respawn in place too (the revive splash plays there), and Death's Bounty pays as usual.
+- **Boss level:** the boss Blinkys are rebuilt in the house as usual in both forms; only the player's position changes.
+- **LEARN:** the demo catch never moves Maze-Man, so Martyr is in `LEARN_NO_EFFECT_UPGRADE_IDS` and shows the "no visible effect" banner.
 
 ### Overcharge
 

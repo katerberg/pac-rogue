@@ -39,7 +39,8 @@ export type BaseUpgradeId =
   | "passiveHarvestSpecialist"
   | "passiveSpeedSpecialist"
   | "passiveProtectionSpecialist"
-  | "passiveDisruptionSpecialist";
+  | "passiveDisruptionSpecialist"
+  | "passiveMartyr";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -63,6 +64,8 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
   "disruption",
   "neutral",
 ];
+
+export type MartyrGhostPlacement = "corners" | "house";
 
 export type UpgradeEffects = {
   playerSpeedMul?: number;
@@ -92,6 +95,7 @@ export type UpgradeEffects = {
   deathQuarterCost?: number;
   lazyLooperRings?: LazyLooperRings;
   shieldCap?: number;
+  martyrGhosts?: MartyrGhostPlacement;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -629,6 +633,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   specialistDef("speed", "passiveSpeedSpecialist"),
   specialistDef("protection", "passiveProtectionSpecialist"),
   specialistDef("disruption", "passiveDisruptionSpecialist"),
+  {
+    id: "passiveMartyr",
+    label: "Martyr",
+    school: "death",
+    description: "Dying scatters the ghosts to their corners. You respawn where you fell.",
+    storePrice: STORE_UPGRADE_PRICE,
+    martyrGhosts: "corners",
+    enhanced: {
+      enhanceNote: "Martyr sends the ghosts back into the ghost house instead of their corners.",
+      description: "Dying sends every ghost home. You respawn where you fell.",
+      martyrGhosts: "house",
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1270,6 +1287,10 @@ export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
 export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
   const decay = ownedValue(owned, "deathsBountyDecay");
   return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
+}
+
+export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
+  return ownedValue(owned, "martyrGhosts") ?? null;
 }
 
 export function overchargeMultiplier(owned: readonly UpgradeId[]): number {

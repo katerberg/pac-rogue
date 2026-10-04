@@ -2655,3 +2655,96 @@ describe("PlaySim ghost catch overlap", () => {
     expect(sim.snapshot().dying).toBe(true);
   });
 });
+
+describe("Martyr", () => {
+  function startMartyr(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades });
+  }
+
+  function dieAwayFromSpawn(sim: PlaySim): { col: number; row: number } {
+    const spawn = sim.snapshot().player!;
+    const pellet = regularPelletEids(sim).find(
+      (eid) => worldToRow(Position.y[eid]!) !== spawn.row,
+    )!;
+    eatPelletAt(sim, pellet);
+    const fell = sim.snapshot().player!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    return { col: fell.col, row: fell.row };
+  }
+
+  it("respawns at spawn without Martyr", () => {
+    const sim = startMartyr([]);
+    const spawn = { ...sim.snapshot().player! };
+    dieAwayFromSpawn(sim);
+    expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
+  });
+
+  it("Martyr sends ghosts that were out to their Scatter Burst corners", () => {
+    const sim = startMartyr(["passiveMartyr"]);
+    const fell = dieAwayFromSpawn(sim);
+    const { player, ghosts } = sim.snapshot();
+    expect(player).toMatchObject({ col: fell.col, row: fell.row });
+    expect(Position.x[playerEid(sim)]).toBe(cellCenterX(fell.col));
+    expect(Position.y[playerEid(sim)]).toBe(cellCenterY(fell.row));
+    const out = ghosts.filter((ghost) => ghost.phase === "active");
+    expect(out.length).toBeGreaterThan(0);
+    for (const ghost of out) {
+      const corner = ghostTeleportCell(
+        scatterTargetForKind(GhostKind.kind[ghost.eid] as GhostKindId),
+        fell,
+      );
+      expect(ghost).toMatchObject({ col: corner.col, row: corner.row });
+    }
+    const home = ghosts.filter((ghost) => ghost.phase !== "active");
+    expect(home.every((ghost) => ghost.phase === "inHouse")).toBe(true);
+  });
+
+  it("Martyr starts the scatter/chase clock so cornered ghosts move on to chase", () => {
+    const sim = startMartyr(["passiveMartyr"]);
+    dieAwayFromSpawn(sim);
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    runUntil(sim, () => sim.snapshot().ghostMode === "chase", 60 * 30);
+    expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
+  it("Martyr+ respawns where the player fell with every ghost in the house", () => {
+    const sim = startMartyr(["passiveMartyrPlus"]);
+    const fell = dieAwayFromSpawn(sim);
+    const { player, ghosts } = sim.snapshot();
+    expect(player).toMatchObject({ col: fell.col, row: fell.row });
+    expect(ghosts.length).toBeGreaterThan(0);
+    expect(ghosts.every((ghost) => ghost.phase === "inHouse")).toBe(true);
+  });
+
+  it("stacks with Death's Bounty and Death's Harvest", () => {
+    const sim = startMartyr(["passiveMartyr", "passiveDeathsBounty", "passiveDeathsHarvest"]);
+    const pelletsBefore = sim.snapshot().pelletsRemaining;
+    const fell = dieAwayFromSpawn(sim);
+    expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.snapshot().pelletsRemaining).toBeLessThan(pelletsBefore - 1);
+  });
+
+  it("respawns in place on a Defy Death save", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "passiveDefyDeath"],
+    });
+    const spawn = sim.snapshot().player!;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const fell = sim.snapshot().player!;
+    expect(fell.row).not.toBe(spawn.row);
+    const lives = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+  });
+});

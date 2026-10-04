@@ -47,6 +47,7 @@ import {
   type DeathSequenceState,
 } from "../../domain/deathSequence";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
+import { respawnCenter } from "../../domain/martyr";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
 import {
   createFruitPresence,
@@ -104,7 +105,6 @@ import {
   cellCenterY,
   getActiveLayout,
   horizontalTunnelRows,
-  playerSpawnCenter,
   worldToCol,
   worldToRow,
   type MazeLayoutId,
@@ -171,6 +171,7 @@ import {
   FRUIT_FECUNDITY_MUL,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
+  martyrGhostPlacement,
   moneyTalksCost,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
@@ -372,6 +373,7 @@ export class PlaySim {
   private storeRoute: Cell | null = null;
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
+  private fellAt: Point | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private shieldCrack: { index: number; elapsedMs: number } | null = null;
@@ -1161,6 +1163,7 @@ export class PlaySim {
           }
         }
       }
+      this.fellAt = this.playerPosition();
       this.emit({ type: "loopStop", id: "gameplayMusic" });
       const defied = defyDeathActive(this.runUpgrades);
       const boughtFor =
@@ -2114,7 +2117,8 @@ export class PlaySim {
     this.ghostCornerWarps = [];
     this.resetStreak();
     this.remoteTransferCounter = 0;
-    const playerSpawn = playerSpawnCenter();
+    const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt);
+    this.fellAt = null;
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
       Position.x[eid] = playerSpawn.x;
       Position.y[eid] = playerSpawn.y;
@@ -2131,6 +2135,8 @@ export class PlaySim {
       }
       this.spawnBossGhostsForLife();
     }
+    const toCorners =
+      this.bossState === null && martyrGhostPlacement(this.effectiveUpgrades()) === "corners";
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -2145,7 +2151,9 @@ export class PlaySim {
       Input.direction[eid] = DIRECTION.none;
       Facing.direction[eid] = DIRECTION.none;
       Speed.px[eid] = 0;
-      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+      if (!toCorners || GhostPhase.value[eid] !== GHOST_PHASE.active) {
+        GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+      }
       Ghost.decidedCol[eid] = Number.NaN;
       Ghost.decidedRow[eid] = Number.NaN;
     }
@@ -2163,6 +2171,10 @@ export class PlaySim {
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
     );
+    if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
+      this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
+      this.previousEffectiveGhostMode = this.ghostModeClock.mode;
+    }
 
     this.clearFruitEntities();
     this.fruitPresence = {

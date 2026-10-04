@@ -16,6 +16,7 @@ import {
   SHIELD_PELLETS_CAP,
   SHIELD_PELLETS_ENHANCED_CAP,
   applyShieldBreakInvuln,
+  martyrGhostPlacement,
   bankShields,
   shieldPelletsCap,
   spendShield,
@@ -149,6 +150,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveSpeedSpecialist",
   "passiveProtectionSpecialist",
   "passiveDisruptionSpecialist",
+  "passiveMartyr",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -664,6 +666,14 @@ describe("moneyTalksCost", () => {
     expect(moneyTalksCost(["passiveMoneyTalks"])).toBe(MONEY_TALKS_QUARTERS);
     expect(moneyTalksCost(["passiveMoneyTalksPlus"])).toBe(MONEY_TALKS_ENHANCED_QUARTERS);
     expect(moneyTalksCost(["passiveDefyDeath"])).toBeNull();
+  });
+});
+
+describe("Martyr", () => {
+  it("sends ghosts to their corners, or home when enhanced", () => {
+    expect(martyrGhostPlacement([])).toBeNull();
+    expect(martyrGhostPlacement(["passiveMartyr"])).toBe("corners");
+    expect(martyrGhostPlacement(["passiveMartyrPlus"])).toBe("house");
   });
 });
 
