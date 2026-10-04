@@ -95,7 +95,9 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
 - The board spawns real pellets and power pellets from `pelletCellCenters()` — the same helper
   `PlaySim.spawnPellets` uses on the same `mazeSmall` layout. Eating the last one respawns the
   **whole board** immediately (checked once per frame: `query(world, [Pellet]).length === 0` →
-  `spawnPellets()`) — no per-pellet timer, no score, no board-clear progress.
+  `spawnPellets()`) — no per-pellet timer, no score, no board-clear progress. Separately, once every power pellet is gone (and no Second Chomp
+  respawn is pending) the layout's power pellets regenerate at once, so the effects stay demoable
+  while regular pellets remain.
 - One fruit spawns at the derived fruit cell below the ghost house (`fruitSpawnCenter()`, the same
   helper `PlayScene` uses). Eating it removes it via `collectFruit`; it reappears at the same cell
   after `FRUIT_RESPAWN_MS` (1000ms). No Quarters HUD, no munch SFX.
