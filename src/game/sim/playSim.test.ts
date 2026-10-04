@@ -1042,10 +1042,16 @@ describe("PlaySim", () => {
       expect(sim.snapshot().level).not.toBe(level);
     });
 
-    it("reports a tunnel under the pointer only in the store", () => {
-      const sim = startSim({ store: 1, quarters: 0 });
+    it("reports a tunnel under the pointer only while a click there would route", () => {
+      const sim = startSim({ store: 1, quarters: 10, lives: 2, maxLives: 4 });
       expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(true);
       expect(sim.storeExitUnder(cellCenterX(10), cellCenterY(16))).toBe(false);
+      const lifeIndex = sim.storeState()!.slots.findIndex((slot) => slot.kind === "life");
+      runFrames(sim, 1, { storeClick: lifeIndex });
+      expect(sim.snapshot().storePrompt).toBe("confirm");
+      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(false);
+      runFrames(sim, 1, { storeChoice: "no" });
+      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(true);
       const level = sim.snapshot().level;
       runFrames(sim, 1, { storePointer: topTunnel() });
       runUntil(sim, () => sim.snapshot().level !== level, 1200);
