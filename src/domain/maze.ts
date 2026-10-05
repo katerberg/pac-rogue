@@ -810,8 +810,12 @@ export function canGhostEnterDirection(
   solids: SolidGrid = ghostSolidsForPhase(phase),
   door: SolidGrid = getActiveLayout().door,
   house: SolidGrid = getActiveLayout().house,
+  blockTunnels = false,
 ): boolean {
   if (!canEnterDirection(x, y, dx, dy, solids)) {
+    return false;
+  }
+  if (blockTunnels && !inBounds(worldToCol(x) + dx, worldToRow(y) + dy)) {
     return false;
   }
   if (dy !== 0) {
@@ -826,6 +830,13 @@ export function canGhostEnterDirection(
     }
   }
   return true;
+}
+
+export function clampToGridCenters(x: number, y: number): { x: number; y: number } {
+  return {
+    x: Math.min(cellCenterX(MAZE_COLS - 1), Math.max(cellCenterX(0), x)),
+    y: Math.min(cellCenterY(MAZE_ROWS - 1), Math.max(cellCenterY(0), y)),
+  };
 }
 
 export function ghostHouseSpawnCenter(): { x: number; y: number } {

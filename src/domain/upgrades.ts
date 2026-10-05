@@ -5,7 +5,7 @@ import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 
 export type BaseUpgradeId =
   | "powerPelletFreeze"
-  | "passivePlayerSpeedUp"
+  | "passiveAfterburner"
   | "passiveGhostSlow"
   | "powerPelletScatterBurst"
   | "powerPelletGhostRecall"
@@ -43,7 +43,9 @@ export type BaseUpgradeId =
   | "passiveMartyr"
   | "passiveInterest"
   | "passiveNearMiss"
-  | "passiveHaunting";
+  | "passiveHaunting"
+  | "passiveTunnelSanctuary"
+  | "passiveStreakEngine";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -72,6 +74,8 @@ export type MartyrGhostPlacement = "corners" | "house";
 
 export type UpgradeEffects = {
   playerSpeedMul?: number;
+  emptyCellSpeedMul?: number;
+  pelletCellSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitLifetimeMul?: number;
   fruitQuarters?: number;
@@ -91,6 +95,8 @@ export type UpgradeEffects = {
   deathsBountyDecay?: number;
   overchargeMul?: number;
   ghostTunnelSpeedRatio?: number;
+  tunnelExitInvulnMs?: number;
+  ghostsBlockedFromTunnels?: true;
   secondChompMs?: number;
   speedBurstMul?: number;
   turnBoostMs?: number;
@@ -102,6 +108,8 @@ export type UpgradeEffects = {
   interestPerQuarters?: number;
   nearMissCharge?: number;
   hauntMs?: number;
+  streakEngineEvery?: number;
+  streakEngineInvulnMs?: number;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -155,9 +163,14 @@ export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
 export const SHIELD_PELLETS_CAP = 1;
 export const SHIELD_PELLETS_ENHANCED_CAP = 3;
 export const SHIELD_BREAK_INVULN_MS = 1000;
+export const TUNNEL_SANCTUARY_INVULN_MS = 1000;
+export const TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO = 0.9;
+export const STREAK_ENGINE_EVERY = 30;
+export const STREAK_ENGINE_ENHANCED_INVULN_MS = 3000;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
-export const PLAYER_SPEED_UP_MUL = 1.25;
+export const AFTERBURNER_MUL = 1.3;
+export const AFTERBURNER_PELLET_MUL = 0.9;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
 
@@ -180,7 +193,7 @@ export const INVULN_ENHANCED_MS = 5000;
 export const GHOST_HARVEST_ENHANCED_MS = 8000;
 export const DEFY_DEATH_ENHANCED_MS = 8000;
 export const WARP_TOP_INVULN_MS = 2000;
-export const PLAYER_SPEED_UP_ENHANCED_MUL = 1.5;
+export const AFTERBURNER_ENHANCED_MUL = 1.5;
 export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
 export const GHOST_SLOW_ENHANCED_MUL = 0.65;
 export const PICKUP_RANGE_ENHANCED_TILES = 2;
@@ -240,17 +253,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     onPowerPellet: { freezeClosestGhostMs: FREEZE_MS },
   },
   {
-    id: "passivePlayerSpeedUp",
-    label: "Speed Up",
+    id: "passiveAfterburner",
+    label: "Afterburner",
     school: "speed",
-    description: "You run hotter. Corners feel closer.",
+    description: "Cleared corridors light your tail: +30% speed there, 10% slower over pellets.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Speed Up makes you 50% faster instead of 25%.",
-      description: "You run white-hot. Corners come to you.",
-      playerSpeedMul: PLAYER_SPEED_UP_ENHANCED_MUL,
+      enhanceNote:
+        "Afterburner gives +50% speed on cleared tiles instead of +30%. Pellet cells still cost 10%.",
+      description: "Cleared corridors roar: +50% speed there, 10% slower over pellets.",
+      emptyCellSpeedMul: AFTERBURNER_ENHANCED_MUL,
     },
-    playerSpeedMul: PLAYER_SPEED_UP_MUL,
+    emptyCellSpeedMul: AFTERBURNER_MUL,
+    pelletCellSpeedMul: AFTERBURNER_PELLET_MUL,
   },
   {
     id: "passiveGhostSlow",
@@ -697,6 +712,37 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       hauntMs: HAUNTING_ENHANCED_MS,
     },
   },
+  {
+    id: "passiveTunnelSanctuary",
+    label: "Tunnel Sanctuary",
+    school: "protection",
+    description:
+      "Leaving a tunnel makes you ghost-proof for a second, but ghosts speed through them.",
+    storePrice: STORE_UPGRADE_PRICE,
+    tunnelExitInvulnMs: TUNNEL_SANCTUARY_INVULN_MS,
+    ghostTunnelSpeedRatio: TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO,
+    enhanced: {
+      enhanceNote:
+        "Tunnel Sanctuary stops ghosts from travelling through tunnels, and tunnels slow them as usual.",
+      description:
+        "Leaving a tunnel makes you ghost-proof for a second, and ghosts can't use tunnels.",
+      ghostTunnelSpeedRatio: undefined,
+      ghostsBlockedFromTunnels: true,
+    },
+  },
+  {
+    id: "passiveStreakEngine",
+    label: "Streak Engine",
+    school: "harvest",
+    description: "Every 30-pellet streak fires your power-pellet effects.",
+    storePrice: STORE_UPGRADE_PRICE,
+    streakEngineEvery: STREAK_ENGINE_EVERY,
+    enhanced: {
+      enhanceNote: "Streak Engine also grants 3 seconds of Ghost Proof on every 30-pellet streak.",
+      description: "Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof.",
+      streakEngineInvulnMs: STREAK_ENGINE_ENHANCED_INVULN_MS,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -944,17 +990,19 @@ function shuffleInPlace<T>(ids: T[], rng: () => number): void {
 }
 
 export type UpgradeChoiceOption =
-  { kind: "upgrade"; id: BaseUpgradeId } | { kind: "quarters"; amount: number };
+  { kind: "upgrade"; id: BaseUpgradeId; enhanced?: boolean } | { kind: "quarters"; amount: number };
 
 export type UpgradeChoiceOffer = {
   quarters: number;
   upgrades: BaseUpgradeId[];
+  enhanced: BaseUpgradeId[];
 };
 
 export function pickUpgradeChoiceOffer(
   owned: readonly UpgradeId[],
   lastDeclined: BaseUpgradeId | null,
   rng: () => number,
+  enhancedChance = 0,
 ): UpgradeChoiceOffer {
   const eligible = eligibleUpgrades(owned);
   const desiredCount = Math.min(UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS, eligible.length);
@@ -977,7 +1025,8 @@ export function pickUpgradeChoiceOffer(
 
   const upgrades = picked.slice(0, desiredCount);
   shuffleInPlace(upgrades, rng);
-  return { quarters: QUARTERS_CHOICE_AMOUNT, upgrades };
+  const enhanced = enhancedChance > 0 ? upgrades.filter(() => rng() < enhancedChance) : [];
+  return { quarters: QUARTERS_CHOICE_AMOUNT, upgrades, enhanced };
 }
 
 export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
@@ -1014,8 +1063,9 @@ export function confirmUpgradeChoice(
   state: RunUpgrades,
   options: readonly BaseUpgradeId[],
   chosenId: BaseUpgradeId,
+  grantedId: UpgradeId = chosenId,
 ): RunUpgrades {
-  const next = grantUpgrade(state, chosenId);
+  const next = grantUpgrade(state, grantedId);
   return withDeclined(
     next,
     options.filter((id) => id !== chosenId),
@@ -1291,7 +1341,12 @@ export function applyPowerPelletEffects(
 
 function speedMultiplier(
   owned: readonly UpgradeId[],
-  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitLifetimeMul",
+  key:
+    | "playerSpeedMul"
+    | "emptyCellSpeedMul"
+    | "pelletCellSpeedMul"
+    | "ghostSpeedMul"
+    | "fruitLifetimeMul",
 ): number {
   let mul = 1;
   for (const id of owned) {
@@ -1305,6 +1360,10 @@ function speedMultiplier(
 
 export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "playerSpeedMul");
+}
+
+export function cellSpeedMultiplier(owned: readonly UpgradeId[], emptyAhead: boolean): number {
+  return speedMultiplier(owned, emptyAhead ? "emptyCellSpeedMul" : "pelletCellSpeedMul");
 }
 
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
@@ -1382,6 +1441,14 @@ export function nearMissCharge(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "nearMissCharge") ?? 0;
 }
 
+export function streakEngineEvery(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "streakEngineEvery") ?? null;
+}
+
+export function streakEngineInvulnMs(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "streakEngineInvulnMs") ?? 0;
+}
+
 export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
   return ownedValue(owned, "martyrGhosts") ?? null;
 }
@@ -1395,7 +1462,33 @@ export function overchargeMultiplier(owned: readonly UpgradeId[]): number {
 }
 
 export function ghostTunnelSpeedRatio(owned: readonly UpgradeId[]): number | null {
-  return ownedValue(owned, "ghostTunnelSpeedRatio") ?? null;
+  let best: number | null = null;
+  for (const id of owned) {
+    const ratio = UPGRADE_BY_ID.get(id)?.ghostTunnelSpeedRatio;
+    if (ratio !== undefined && (best === null || ratio > best)) {
+      best = ratio;
+    }
+  }
+  return best;
+}
+
+export function tunnelExitInvulnMs(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "tunnelExitInvulnMs") ?? 0;
+}
+
+export function ghostsBlockedFromTunnels(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "ghostsBlockedFromTunnels") === true;
+}
+
+export function applyTunnelExitInvuln(
+  state: RunUpgrades,
+  owned: readonly UpgradeId[],
+): RunUpgrades {
+  const ms = tunnelExitInvulnMs(owned);
+  if (ms <= state.invulnRemainingMs) {
+    return state;
+  }
+  return { ...state, invulnRemainingMs: ms };
 }
 
 export function secondChompMs(owned: readonly UpgradeId[]): number {
@@ -1516,6 +1609,14 @@ export function applyShieldBreakInvuln(state: RunUpgrades): RunUpgrades {
     SHIELD_BREAK_INVULN_MS * overchargeMultiplier(state.owned),
   );
   return { ...state, invulnRemainingMs };
+}
+
+export function applyStreakEngineInvuln(
+  state: RunUpgrades,
+  effectiveOwned: readonly UpgradeId[],
+): RunUpgrades {
+  const grantMs = streakEngineInvulnMs(effectiveOwned) * overchargeMultiplier(effectiveOwned);
+  return grantMs > state.invulnRemainingMs ? { ...state, invulnRemainingMs: grantMs } : state;
 }
 
 export function learnUpgradeDefs(seen: readonly UpgradeId[]): UpgradeDef[] {

@@ -96,27 +96,33 @@ describe("store schedule", () => {
 
 describe("createStoreState", () => {
   it("offers two lives, two distinct unowned upgrades, a swap and an enhancement", () => {
-    const owned: UpgradeId[] = ["passivePlayerSpeedUp"];
+    const owned: UpgradeId[] = ["passiveAfterburner"];
     const state = stateWith(owned);
     const ids = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
     expect(ids).toHaveLength(2);
     expect(new Set(ids).size).toBe(2);
-    expect(ids).not.toContain("passivePlayerSpeedUp");
+    expect(ids).not.toContain("passiveAfterburner");
     expect(state.slots.filter((s) => s.kind === "life")).toHaveLength(2);
     const swap = state.slots.find((s) => s.kind === "swap");
-    expect(swap).toMatchObject({ outgoingId: "passivePlayerSpeedUp", sold: false });
+    expect(swap).toMatchObject({ outgoingId: "passiveAfterburner", sold: false });
     const enhance = state.slots.find((s) => s.kind === "enhance");
-    expect(enhance).toMatchObject({ targetId: "passivePlayerSpeedUp", sold: false });
+    expect(enhance).toMatchObject({ targetId: "passiveAfterburner", sold: false });
   });
 
-  it("the first store has only lives and abilities", () => {
+  it("the first store has lives, abilities and an enhancement but no swap", () => {
     const first = createStoreState(
       parseStoreSlots(STORE_MAZE_ASCII),
-      ["passivePlayerSpeedUp"],
+      ["passiveAfterburner"],
       zeroRng,
       true,
     );
-    expect(first.slots.map((s) => s.kind).sort()).toEqual(["life", "life", "upgrade", "upgrade"]);
+    expect(first.slots.map((s) => s.kind).sort()).toEqual([
+      "enhance",
+      "life",
+      "life",
+      "upgrade",
+      "upgrade",
+    ]);
   });
 
   it("offers only as many life tiles as there is room under the life cap", () => {
@@ -131,7 +137,7 @@ describe("createStoreState", () => {
 
   it("omits the enhance slot when nothing owned is unenhanced", () => {
     expect(stateWith([]).slots.some((s) => s.kind === "enhance")).toBe(false);
-    expect(stateWith(["passivePlayerSpeedUpPlus"]).slots.some((s) => s.kind === "enhance")).toBe(
+    expect(stateWith(["passiveAfterburnerPlus"]).slots.some((s) => s.kind === "enhance")).toBe(
       false,
     );
   });
@@ -250,13 +256,13 @@ describe("storeStep", () => {
   });
 
   it("swaps into an unowned upgrade that is not on the shelf", () => {
-    const owned: UpgradeId[] = ["passivePlayerSpeedUp"];
+    const owned: UpgradeId[] = ["passiveAfterburner"];
     const state = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
     const shelf = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
     const step = confirmYes(state, { ...swapCell, owned });
     expect(step.purchase).toMatchObject({
       kind: "swap",
-      outgoingId: "passivePlayerSpeedUp",
+      outgoingId: "passiveAfterburner",
       price: STORE_SWAP_PRICE,
     });
     const incoming = step.purchase?.kind === "swap" ? step.purchase.incomingId : null;
@@ -277,7 +283,7 @@ describe("storeStep", () => {
   });
 
   it("reports nothing to swap when every other upgrade is owned or on the shelf", () => {
-    const shelfState = stateWith(["passivePlayerSpeedUp"]);
+    const shelfState = stateWith(["passiveAfterburner"]);
     const shelf = shelfState.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
     const owned = ALL_UPGRADE_IDS.filter((id) => !shelf.includes(id));
     const state = storeStep(shelfState, input({ ...swapCell, owned }), zeroRng).state;
@@ -292,7 +298,7 @@ describe("enhancement tile", () => {
   const swapCell = { col: 5, row: 14 };
 
   it("costs 2 and enhances its shown target", () => {
-    const owned: UpgradeId[] = ["passivePlayerSpeedUp", "passiveGhostSlow"];
+    const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
     const stocked = stateWith(owned);
     const target = stocked.slots.find((s) => s.kind === "enhance");
     const state = storeStep(stocked, input({ ...enhanceCell, owned }), zeroRng).state;
@@ -306,11 +312,11 @@ describe("enhancement tile", () => {
   });
 
   it("re-picks when the shown target is no longer unenhanced", () => {
-    const stocked = stateWith(["passivePlayerSpeedUp", "passiveGhostSlow"]);
+    const stocked = stateWith(["passiveAfterburner", "passiveGhostSlow"]);
     const shown = stocked.slots.find((s) => s.kind === "enhance");
     const shownId = shown?.kind === "enhance" ? shown.targetId : null;
     const owned: UpgradeId[] = [
-      shownId === "passivePlayerSpeedUp" ? "passivePlayerSpeedUpPlus" : "passivePlayerSpeedUp",
+      shownId === "passiveAfterburner" ? "passiveAfterburnerPlus" : "passiveAfterburner",
       shownId === "passiveGhostSlow" ? "passiveGhostSlowPlus" : "passiveGhostSlow",
     ];
     const state = storeStep(stocked, input({ ...enhanceCell, owned }), zeroRng).state;
@@ -319,27 +325,27 @@ describe("enhancement tile", () => {
   });
 
   it("relabels the swap tile when its upgrade is enhanced", () => {
-    const owned: UpgradeId[] = ["passivePlayerSpeedUp"];
+    const owned: UpgradeId[] = ["passiveAfterburner"];
     const state = storeStep(stateWith(owned), input({ ...enhanceCell, owned }), zeroRng).state;
     const step = confirmYes(state, { ...enhanceCell, owned });
     const swap = step.state.slots.find((s) => s.kind === "swap");
-    expect(swap).toMatchObject({ outgoingId: "passivePlayerSpeedUpPlus" });
+    expect(swap).toMatchObject({ outgoingId: "passiveAfterburnerPlus" });
   });
 
   it("reports nothing to enhance when everything owned is enhanced", () => {
-    const stocked = stateWith(["passivePlayerSpeedUp"]);
-    const owned: UpgradeId[] = ["passivePlayerSpeedUpPlus"];
+    const stocked = stateWith(["passiveAfterburner"]);
+    const owned: UpgradeId[] = ["passiveAfterburnerPlus"];
     const state = storeStep(stocked, input({ ...enhanceCell, owned }), zeroRng).state;
     expect(promptView(state, 10, owned)?.kind).toBe("nothingToEnhance");
     expect(confirmYes(state, { ...enhanceCell, owned }).purchase).toBeNull();
   });
 
   it("a swap of an enhanced upgrade grants the incoming one enhanced", () => {
-    const owned: UpgradeId[] = ["passivePlayerSpeedUpPlus"];
+    const owned: UpgradeId[] = ["passiveAfterburnerPlus"];
     const stocked = stateWith(owned);
     const state = storeStep(stocked, input({ ...swapCell, owned }), zeroRng).state;
     const step = confirmYes(state, { ...swapCell, owned });
-    expect(step.purchase).toMatchObject({ kind: "swap", outgoingId: "passivePlayerSpeedUpPlus" });
+    expect(step.purchase).toMatchObject({ kind: "swap", outgoingId: "passiveAfterburnerPlus" });
     const incoming = step.purchase?.kind === "swap" ? step.purchase.incomingId : "";
     expect(incoming.endsWith("Plus")).toBe(true);
   });

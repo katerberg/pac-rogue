@@ -85,6 +85,7 @@ import {
   pinkyScatterTarget,
 } from "../../domain/ghostTarget";
 import {
+  enhancedOfferChance,
   ghostKindsForLevel,
   isInvertedMazeLevel,
   MAX_LEVEL,
@@ -135,6 +136,7 @@ import {
 } from "../../domain/playfield";
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
 import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
+import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
@@ -158,9 +160,11 @@ import {
   type StoreState,
 } from "../../domain/store";
 import {
+  cellSpeedMultiplier,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   applyShieldBreakInvuln,
+  applyStreakEngineInvuln,
   bankShields,
   clearUpgradeTimers,
   shieldPelletsCap,
@@ -180,6 +184,7 @@ import {
   hauntedGhost,
   hauntedGhostEid,
   nearMissCharge,
+  streakEngineEvery,
   moneyTalksCost,
   interestPayout,
   deathsHarvestRadiusTiles,
@@ -197,6 +202,8 @@ import {
   fruitPersistsUntilLevelEnd,
   fruitStacksSideBySide,
   ghostTunnelSpeedRatio,
+  ghostsBlockedFromTunnels,
+  applyTunnelExitInvuln,
   baseIdOf,
   pelletSurgeCount,
   specialistEnhancedBases,
@@ -252,6 +259,7 @@ import { Velocity } from "../components/Velocity";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
 import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
+import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
@@ -282,6 +290,7 @@ import {
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
+import { enteringEmptyCell } from "../systems/enteringEmptyCell";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import {
@@ -359,6 +368,8 @@ export class PlaySim {
   private deathsThisBoard = 0;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
   private nearMissesPaid = 0;
+  private streakPopCount = 0;
+  private lastStreakPop: number | null = null;
   private quarters = 0;
   private bonus: BonusBar;
   private lastPlayerCell: Cell | null = null;
@@ -520,11 +531,20 @@ export class PlaySim {
       this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
     } else {
       const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
+      const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
       this.recorder.picked(chosen.id);
-      this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id);
+      this.runUpgrades = confirmUpgradeChoice(
+        this.runUpgrades,
+        offer.upgrades,
+        chosen.id,
+        grantedId,
+      );
       if (!alreadyOwned) {
-        this.recorder.gained(chosen.id, "offer", this.levelIndex);
-        this.applyGrantEffects(chosen.id);
+        this.recorder.gained(grantedId, "offer", this.levelIndex);
+        if (chosen.enhanced === true) {
+          this.enhanceLivesPaid.add(chosen.id);
+        }
+        this.applyGrantEffects(grantedId);
         this.grantSpecialistLives();
         this.emit({ type: "lives", pulse: false });
         this.recordSeenUpgrades();
@@ -653,6 +673,7 @@ export class PlaySim {
       deathsThisBoard: this.deathsThisBoard,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       nearMissesPaid: this.nearMissesPaid,
+      streakPops: { count: this.streakPopCount, last: this.lastStreakPop },
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
@@ -902,6 +923,7 @@ export class PlaySim {
     const playerSpeedMul =
       levelSpeedMul *
       playerSpeedMultiplier(this.effectiveUpgrades()) *
+      cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)) *
       (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.effectiveUpgrades()) : 1) *
       eatDragMultiplier(this.eatDragMs, this.currentTuning) *
       this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
@@ -924,8 +946,16 @@ export class PlaySim {
     }
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
-    movement(this.world, delta, playerSolidsOverride, false, playerPreTurnPx(this.currentTuning));
+    movement(
+      this.world,
+      delta,
+      playerSolidsOverride,
+      false,
+      playerPreTurnPx(this.currentTuning),
+      ghostsBlockedFromTunnels(this.effectiveUpgrades()),
+    );
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
+    this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
     this.emitTurnSparks(
       this.turnTuning.afterMove(
@@ -936,12 +966,14 @@ export class PlaySim {
       ),
     );
     if (this.tunnelDashAnim !== null) {
+      const positionBeforeDash = this.playerPosition();
       this.tunnelDashAnim = tickTunnelDashAnimation(
         this.world,
         this.tunnelDashAnim,
         delta,
         playerSpeed(this.currentTuning) * TUNNEL_DASH_SPEED_MUL,
       );
+      this.noteTunnelExit(positionBeforeDash);
     } else if (hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
@@ -964,7 +996,7 @@ export class PlaySim {
               secondChompMs(this.effectiveUpgrades()),
             );
           }
-          this.applyBonus(applyStreakPellets(this.bonus, dash.sweptCells));
+          const dashStreakFires = this.applyStreakCells(dash.sweptCells);
           const collectResult = applyPelletCollect(
             this.pelletProgress,
             dash.sweptPelletEids.length,
@@ -976,6 +1008,9 @@ export class PlaySim {
             dash.sweptPowerRemoved > 0 &&
             this.resolvePowerPelletTrigger(dash.sweptPowerRemoved)
           ) {
+            return;
+          }
+          if (this.fireStreakEngine(dashStreakFires)) {
             return;
           }
           if (collectResult.shouldRecordClear) {
@@ -1012,8 +1047,9 @@ export class PlaySim {
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);
     }
+    let streakFires = 0;
     if (playerFrame.removedCells.length > 0) {
-      this.applyBonus(applyStreakPellets(this.bonus, playerFrame.removedCells));
+      streakFires = this.applyStreakCells(playerFrame.removedCells);
     } else {
       this.bonus = tickStreakIdle(this.bonus, delta, this.currentTuning.bonusStreakIdleMs);
     }
@@ -1069,14 +1105,23 @@ export class PlaySim {
       this.lifetimeCollected += totalRemoved;
     }
     this.notePellets();
+    if (this.fireStreakEngine(streakFires)) {
+      return;
+    }
 
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world);
+      forceGhostReverse(this.world, ghostsBlockedFromTunnels(this.effectiveUpgrades()));
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
-      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, this.currentTuning);
+      ghostAi(
+        this.world,
+        modeStep.mode,
+        this.pelletProgress.pelletsRemaining,
+        this.currentTuning,
+        ghostsBlockedFromTunnels(this.effectiveUpgrades()),
+      );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recordRecall(
@@ -1281,6 +1326,39 @@ export class PlaySim {
     }
   }
 
+  private applyStreakCells(cells: readonly Cell[]): number {
+    const prevStreak = this.bonus.streak;
+    this.applyBonus(applyStreakPellets(this.bonus, cells));
+    const every = streakEngineEvery(this.effectiveUpgrades());
+    if (every === null) {
+      return 0;
+    }
+    for (const pop of streakPops(prevStreak, this.bonus.streak, every)) {
+      const cell = cells[pop.cellIndex]!;
+      this.streakPopCount += 1;
+      this.lastStreakPop = pop.value;
+      this.emit({
+        type: "streakPop",
+        value: pop.value,
+        x: cellCenterX(cell.col),
+        y: cellCenterY(cell.row),
+      });
+    }
+    return streakEngineFires(prevStreak, this.bonus.streak, every);
+  }
+
+  private fireStreakEngine(fires: number): boolean {
+    for (let fired = 0; fired < fires; fired += 1) {
+      this.recorder.activation("streakEngine");
+      const ended = this.resolvePowerPelletTrigger(1);
+      this.runUpgrades = applyStreakEngineInvuln(this.runUpgrades, this.effectiveUpgrades());
+      if (ended) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private payDeathsBounty(): boolean {
     const charge = deathsBountyCharge(this.effectiveUpgrades(), this.deathsThisBoard);
     this.deathsThisBoard += 1;
@@ -1456,7 +1534,8 @@ export class PlaySim {
     applyPlayerSpeed(
       this.world,
       speedLevelMultiplier(this.levelIndex, this.currentTuning) *
-        playerSpeedMultiplier(this.effectiveUpgrades()),
+        playerSpeedMultiplier(this.effectiveUpgrades()) *
+        cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)),
       this.currentTuning,
     );
     movement(this.world, delta, undefined, true);
@@ -1833,6 +1912,7 @@ export class PlaySim {
       this.runUpgrades.owned,
       this.runUpgrades.lastDeclinedUpgradeId,
       this.random.stream("upgradeOffer", this.levelIndex),
+      enhancedOfferChance(this.levelIndex),
     );
     this.pendingLevelClear = true;
     this.awaitingChoice = true;
@@ -2157,6 +2237,12 @@ export class PlaySim {
   private playerPosition(): Point | null {
     const eid = query(this.world, [Player, Position])[0];
     return eid === undefined ? null : { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+  }
+
+  private noteTunnelExit(before: Point | null): void {
+    if (playerExitedTunnel(before, this.playerPosition())) {
+      this.runUpgrades = applyTunnelExitInvuln(this.runUpgrades, this.effectiveUpgrades());
+    }
   }
 
   private notePlayerMovement(

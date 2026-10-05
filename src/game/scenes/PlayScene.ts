@@ -73,6 +73,7 @@ import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
+import { playStreakPop } from "./streakPop";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
@@ -342,6 +343,7 @@ export class PlayScene extends Phaser.Scene {
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
+      upgradeOfferEnhanced: this.upgradeChoiceModal.offer()?.enhanced ?? null,
       cursor: this.input.manager.canvas.style.cursor || "default",
       runEndMenu: {
         open: this.runEndMenu !== null,
@@ -421,6 +423,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "turnSparks":
         playTurnSparks(this, event);
+        break;
+      case "streakPop":
+        playStreakPop(this, event);
         break;
       case "banner":
         if (event.boss) {

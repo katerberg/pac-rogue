@@ -2,7 +2,16 @@ import { addComponent, addEntity, createWorld, query, removeEntity, type World }
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
-import { BONUS_BAR_MAX, FRUIT_BONUS_CHARGE } from "../../domain/bonusBar";
+import {
+  BONUS_BAR_MAX,
+  FRUIT_BONUS_CHARGE,
+  applyStreakPellets,
+  createBonusBar,
+  tickStreakIdle,
+  type BonusBar,
+  type Cell,
+} from "../../domain/bonusBar";
+import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import {
   createFruitPresence,
   extendFruitLifetime,
@@ -23,10 +32,12 @@ import {
   isWalkable,
   pelletCellCenters,
 } from "../../domain/maze";
+import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   baseIdOf,
+  cellSpeedMultiplier,
   enhancedIdOf,
   deathsHarvestRadiusTiles,
   defyDeathActive,
@@ -49,12 +60,17 @@ import {
   type BaseUpgradeId,
   wallPassLoopOwned,
   ghostTunnelSpeedRatio,
+  ghostsBlockedFromTunnels,
+  applyTunnelExitInvuln,
   pelletSurgeCount,
   lazyLooperRings,
   speedBurstMultiplier,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   applyShieldBreakInvuln,
+  applyStreakEngineInvuln,
+  streakEngineEvery,
+  streakEngineInvulnMs,
   bankShields,
   shieldPelletsCap,
   spendShield,
@@ -124,6 +140,7 @@ import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
+import { enteringEmptyCell } from "../systems/enteringEmptyCell";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { tickWarpGlide, type WarpGlide, warpGlideSprites } from "../../domain/warpGlide";
@@ -198,6 +215,7 @@ export class LearnSim {
   private houseHoldEaten = 0;
   private catchGraceMs = 0;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
+  private streakBar: BonusBar = createBonusBar();
   private fruitPresence: FruitPresence = createFruitPresence();
   private boardCollected = 0;
 
@@ -319,6 +337,7 @@ export class LearnSim {
       this.world,
       levelSpeedMul *
         playerSpeedMultiplier(this.learnUpgrades.owned) *
+        cellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
         (speedBurstActive(this.learnUpgrades)
           ? speedBurstMultiplier(this.learnUpgrades.owned)
           : 1) *
@@ -332,11 +351,16 @@ export class LearnSim {
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
     const facingBeforeMove = playerFacing(this.world);
+    const positionBeforeMove = this.playerPosition();
     movement(
       this.world,
       delta,
       wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
+      false,
+      undefined,
+      ghostsBlockedFromTunnels(this.learnUpgrades.owned),
     );
+    this.noteTunnelExit(positionBeforeMove);
     this.pushTurnSparks(
       this.turnTuning.afterMove(
         this.world,
@@ -356,12 +380,14 @@ export class LearnSim {
         : [];
 
     if (this.tunnelDashAnim !== null) {
+      const positionBeforeDash = this.playerPosition();
       this.tunnelDashAnim = tickTunnelDashAnimation(
         this.world,
         this.tunnelDashAnim,
         delta,
         PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
       );
+      this.noteTunnelExit(positionBeforeDash);
     } else if (hasUpgrade(this.learnUpgrades.owned, "passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
@@ -386,6 +412,7 @@ export class LearnSim {
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
     this.releaseAll(removedEids);
     this.countCollected(removedEids.length);
+    this.stepStreakEngine(playerFrame.removedCells, delta);
     if (hasUpgrade(this.learnUpgrades.owned, "passivePowerPelletRecharge")) {
       this.pendingPowerRespawns = queuePowerPelletRespawns(
         this.pendingPowerRespawns,
@@ -411,7 +438,13 @@ export class LearnSim {
 
     this.tickFruit(delta);
 
-    ghostAi(this.world, GHOST_AI_MODE.chase, NO_ELROY_PELLETS);
+    ghostAi(
+      this.world,
+      GHOST_AI_MODE.chase,
+      NO_ELROY_PELLETS,
+      undefined,
+      ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+    );
 
     const catchOptions = {
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
@@ -459,6 +492,7 @@ export class LearnSim {
       }
     }
     this.houseHold.clear();
+    this.streakBar = createBonusBar();
     this.resetPellets();
 
     const exit = getActiveLayout().ghostHouseExit;
@@ -573,6 +607,17 @@ export class LearnSim {
     }
   }
 
+  private playerPosition(): { x: number; y: number } | null {
+    const eid = query(this.world, [Player, Position])[0];
+    return eid === undefined ? null : { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+  }
+
+  private noteTunnelExit(before: { x: number; y: number } | null): void {
+    if (playerExitedTunnel(before, this.playerPosition())) {
+      this.learnUpgrades = applyTunnelExitInvuln(this.learnUpgrades, this.learnUpgrades.owned);
+    }
+  }
+
   private pushTurnSparks(bursts: readonly TurnSparksBurst[]): void {
     for (const burst of bursts) {
       this.events.push({ type: "turnSparks", ...burst });
@@ -623,6 +668,34 @@ export class LearnSim {
     }
     if (powerEffects.warpPlayerFarthest) {
       this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
+    }
+  }
+
+  private stepStreakEngine(cells: readonly Cell[], delta: number): void {
+    const every = streakEngineEvery(this.learnUpgrades.owned);
+    if (every === null) {
+      this.streakBar = createBonusBar();
+      return;
+    }
+    if (cells.length === 0) {
+      this.streakBar = tickStreakIdle(this.streakBar, delta);
+      return;
+    }
+    const prevStreak = this.streakBar.streak;
+    this.streakBar = applyStreakPellets(this.streakBar, cells).bar;
+    for (const pop of streakPops(prevStreak, this.streakBar.streak, every)) {
+      const cell = cells[pop.cellIndex]!;
+      this.events.push({
+        type: "streakPop",
+        value: pop.value,
+        x: cellCenterX(cell.col),
+        y: cellCenterY(cell.row),
+      });
+    }
+    const fires = streakEngineFires(prevStreak, this.streakBar.streak, every);
+    for (let fired = 0; fired < fires; fired += 1) {
+      this.resolvePowerPelletTrigger(1);
+      this.learnUpgrades = applyStreakEngineInvuln(this.learnUpgrades, this.learnUpgrades.owned);
     }
   }
 
@@ -757,6 +830,7 @@ export class LearnSim {
   }
 
   private resolveDemoCatch(caughtBy: number): void {
+    this.streakBar = createBonusBar();
     const spent = spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
@@ -994,7 +1068,12 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
     wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
     invulnRemainingMs:
-      hasField("playerInvulnMs") || hasField("warpInvulnMs") ? state.invulnRemainingMs : 0,
+      hasField("playerInvulnMs") ||
+      hasField("warpInvulnMs") ||
+      owned.some((id) => getUpgradeDef(id).tunnelExitInvulnMs !== undefined) ||
+      streakEngineInvulnMs(owned) > 0
+        ? state.invulnRemainingMs
+        : 0,
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,

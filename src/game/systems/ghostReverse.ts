@@ -16,7 +16,7 @@ import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
 
-export function forceGhostReverse(world: World): void {
+export function forceGhostReverse(world: World, blockTunnels = false): void {
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Facing, Input, Position])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.active;
     if (phase === GHOST_PHASE.inHouse || phase === GHOST_PHASE.leaving) {
@@ -33,7 +33,7 @@ export function forceGhostReverse(world: World): void {
     const y = Position.y[eid] ?? 0;
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(phase);
+    const rules = ghostMovementRules(phase, blockTunnels);
     const opens = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
 
     let next: Direction = reversed;

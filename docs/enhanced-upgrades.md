@@ -15,14 +15,14 @@ The Enhanced column below was written by the designer and drove the one-shot pla
 | 5   | New ability          | `U` slot                                 | see above                                         |
 | 6   | Ability trade        | `S` swap slot                            | rename only                                       | Warps farthest from ghosts **and** grants 2s invulnerability with the Ghost Proof tint (own timer) |
 
-The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 2 lives and 2 new abilities. Later stores offer all six.
+The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers the 2 lives, 2 new abilities, and an enhancement. Later stores also offer the trade. The first store still omits Swap.
 
 ## Upgrades and their enhanced versions
 
 | #   | Id                            | Label                 | Now                                                                                                              | Enhanced                                                                                                                                     |
 | --- | ----------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | `powerPelletFreeze`           | Freeze                | Power pellet freezes the nearest ghost for 3s                                                                    | Freeze 5s                                                                                                                                    |
-| 2   | `passivePlayerSpeedUp`        | Speed Up              | Player speed ×1.25                                                                                               | Speed ×1.5                                                                                                                                   |
+| 2   | `passiveAfterburner`          | Afterburner           | Speed ×1.3 on empty cells, ×0.9 on pellet cells                                                                  | Speed ×1.5 on empty cells; pellet cells still ×0.9                                                                                           |
 | 3   | `passiveGhostSlow`            | Ghost Slow            | Ghost speed ×0.75                                                                                                | Ghost speed ×0.65. **Base also changes:** 0.75 → 0.8                                                                                         |
 | 4   | `powerPelletScatterBurst`     | Scatter Burst         | Power pellet warps every active ghost to its corner                                                              | Ghosts also hold still for 2s after landing                                                                                                  |
 | 5   | `powerPelletGhostRecall`      | Ghost Recall          | Power pellet sends the nearest ghost back to the house                                                           | Sends the nearest 2 ghosts home                                                                                                              |
@@ -61,6 +61,8 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 38  | `passiveInterest`             | Interest              | Each store pays 1 Quarter for every 3 you hold                                                                   | Pays 1 Quarter for every 2 held instead                                                                                                      |
 | 39  | `passiveNearMiss`             | Near Miss             | A ghost passing within 1 tile without catching you bumps the BONUS bar                                           | Bigger bump: 30 per pass instead of 15                                                                                                       |
 | 40  | `passiveHaunting`             | Haunting              | The ghost that last caught you stays caged in the house for 10 seconds                                           | Caged for the rest of the level                                                                                                              |
+| 41  | `passiveTunnelSanctuary`      | Tunnel Sanctuary      | Coming out of a tunnel gives 1s of Ghost Proof; ghosts cross tunnels at 0.9x player speed                        | Ghosts can no longer travel through tunnels and keep the normal slow                                                                         |
+| 42  | `passiveStreakEngine`         | Streak Engine         | Every 30-pellet streak fires your power-pellet effects                                                           | Each fire also grants 3 seconds of Ghost Proof                                                                                               |
 
 ## Decisions
 
@@ -70,7 +72,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 - **Fruit Power and Overcharge scale with enhanced upgrades.** Both read the owned effects, so enhanced timers flow through (Overcharge tripling included).
 - **Not tripled by Overcharge:** Warp Farthest's 2s invulnerability.
 - **Wall Pass** stays 6s (code value); [upgrades.md](./upgrades.md) saying 3s was a doc bug, now fixed.
-- **Speed stacking is intended:** Speed Up × Speed Burst × the turn boost can reach about 2.8×. No cap.
+- **Speed stacking is intended:** Afterburner × Speed Burst × the turn boost can reach about 2.8×. No cap.
 - **Pickup Range** (2 tiles) still needs line of sight.
 - **Base values that change for every run:** Ghost Slow ×0.8 (from ×0.75), Quarter Bounty (a Quarter replaces the bar charge), ghost tunnel speed 0.6× (from 0.5×).
 
@@ -78,7 +80,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 
 - **Tunnel Dash:** ghost tunnel speed 0.6× is global; enhanced Tunnel Dash makes it 0.3×.
 - **Limited lives:** two separate life tiles, each sold once per visit (a bought tile disappears). Today's unlimited `L` slot becomes these two.
-- **Enhancement tile:** picks one owned, unenhanced upgrade at random and swaps it for its enhanced version. No eligible upgrade means no tile. Only the first store omits it.
+- **Enhancement tile:** picks one owned, unenhanced upgrade at random and swaps it for its enhanced version. No eligible upgrade means no tile. Stocked in every store, including the first.
 - **Visuals:** an enhanced upgrade's name gets a `+`; its store tile glows and has a different border color.
 
 ## Prices

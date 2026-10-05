@@ -8,6 +8,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  horizontalTunnelRows,
   TILE_SIZE,
   worldToCol,
   worldToRow,
@@ -20,6 +21,8 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { Speed } from "../components/Speed";
+import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
 import { LearnSim } from "./learnSim";
@@ -52,6 +55,37 @@ describe("LearnSim", () => {
     expect(worldSnapshot(sim.world).optionalPellets).toBeGreaterThan(base);
     sim.toggleUpgrade("passiveLazyLooperPlus");
     expect(worldSnapshot(sim.world).optionalPellets).toBe(0);
+  });
+
+  it("Afterburner speeds the player up faster entering an empty cell and slower entering a pellet cell", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    const player = query(sim.world, [Player, Position])[0]!;
+    const speedWhenMoving = (vx: number): number => {
+      Velocity.x[player] = vx;
+      Velocity.y[player] = 0;
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      return Speed.px[player]!;
+    };
+    const target = query(sim.world, [Pellet, Position])[0]!;
+    const col = worldToCol(Position.x[target]!);
+    const row = worldToRow(Position.y[target]!);
+    for (const eid of query(sim.world, [Pellet, Position])) {
+      if (eid !== target) {
+        removeEntity(sim.world, eid);
+      }
+    }
+    const place = () => {
+      Position.x[player] = cellCenterX(col - 1);
+      Position.y[player] = cellCenterY(row);
+    };
+    place();
+    const base = speedWhenMoving(1);
+    sim.toggleUpgrade("passiveAfterburner");
+    place();
+    expect(speedWhenMoving(1)).toBeCloseTo(base * 0.9);
+    place();
+    expect(speedWhenMoving(-1)).toBeCloseTo(base * 1.3);
   });
 
   it("turns one pellet into a power pellet when Pellet Surge is toggled on", () => {
@@ -347,6 +381,18 @@ describe("LearnSim upgrade demos", () => {
     expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(4_000);
   });
 
+  it("Tunnel Sanctuary tints Maze-Man for a second after a tunnel wrap", () => {
+    const { sim, player } = setup("passiveTunnelSanctuary");
+    moveTo(player, { x: cellCenterX(0), y: cellCenterY(horizontalTunnelRows()[0]!) });
+    let tint = 0;
+    for (let i = 0; i < 120 && tint === 0; i += 1) {
+      const draw = sim.step(held("left"), FRAME_MS).find((event) => event.type === "draw");
+      tint = draw?.type === "draw" ? (draw.options.playerInvulnRemainingMs ?? 0) : 0;
+    }
+    expect(tint).toBeGreaterThan(900);
+    expect(tint).toBeLessThanOrEqual(1_000);
+  });
+
   it("Quarter Bounty pays a Quarter per fruit and shows it", () => {
     const { sim, player } = setup("fruitQuarterBounty");
     expect(popups(eatFruit(sim, player))).toEqual(["+1 Q"]);
@@ -468,6 +514,51 @@ describe("LearnSim upgrade demos", () => {
     catchByGhost(sim, player);
     sim.toggleUpgrade("passiveHaunting");
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
+  });
+
+  describe("Streak Engine", () => {
+    function eatPellets(sim: LearnSim, player: number, count: number) {
+      const events: ReturnType<LearnSim["step"]> = [];
+      for (let eaten = 0; eaten < count; eaten += 1) {
+        const pellet = query(sim.world, [Pellet, Position]).find(
+          (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+        )!;
+        moveTo(player, posOf(pellet));
+        events.push(...sim.step(NO_KEYS_HELD, FRAME_MS));
+      }
+      return events;
+    }
+
+    function invulnMs(events: ReturnType<LearnSim["step"]>): number {
+      const draws = events.filter((event) => event.type === "draw");
+      const last = draws[draws.length - 1]!;
+      return last.type === "draw" ? last.options.playerInvulnRemainingMs : 0;
+    }
+
+    it("fires the power-pellet effects on the 30th pellet and pops 5 through 30", () => {
+      const { sim, player } = setup("passiveStreakEngine", "powerPelletInvuln");
+      const early = eatPellets(sim, player, 29);
+      expect(invulnMs(early)).toBe(0);
+      const last = eatPellets(sim, player, 1);
+      expect(invulnMs(last)).toBeGreaterThan(0);
+      const pops = [...early, ...last].flatMap((event) =>
+        event.type === "streakPop" ? [event.value] : [],
+      );
+      expect(pops).toEqual([5, 10, 15, 20, 25, 30]);
+    });
+
+    it("does nothing without the upgrade", () => {
+      const { sim, player } = setup("powerPelletInvuln");
+      const events = eatPellets(sim, player, 30);
+      expect(invulnMs(events)).toBe(0);
+      expect(events.some((event) => event.type === "streakPop")).toBe(false);
+    });
+
+    it("grants Ghost Proof when enhanced", () => {
+      const { sim, player } = setup("passiveStreakEngine");
+      sim.toggleEnhanced("passiveStreakEngine");
+      expect(invulnMs(eatPellets(sim, player, 30))).toBeGreaterThan(0);
+    });
   });
 
   it("Myogenesis regains two lives when the board refills, without a popup", () => {

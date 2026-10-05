@@ -40,6 +40,15 @@ export function offersUpgradeAfterLevel(levelIndex: number): boolean {
   return levelIndex > 1 && levelIndex < MAX_LEVEL;
 }
 
+const ENHANCED_OFFER_FIRST_LEVEL = 4;
+const ENHANCED_OFFER_CHANCE = 1 / 8;
+
+export function enhancedOfferChance(levelIndex: number): number {
+  return levelIndex >= ENHANCED_OFFER_FIRST_LEVEL && offersUpgradeAfterLevel(levelIndex)
+    ? ENHANCED_OFFER_CHANCE
+    : 0;
+}
+
 export function ghostKindsForLevel(
   levelIndex: number,
   secondGhostKind: GhostKindId,

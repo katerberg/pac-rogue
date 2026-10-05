@@ -31,6 +31,7 @@ import {
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
   SHIELD_BREAK_INVULN_MS,
+  STREAK_ENGINE_ENHANCED_INVULN_MS,
   STARTING_UPGRADE_POOL,
   type UpgradeChoiceOffer,
   type UpgradeId,
@@ -38,15 +39,18 @@ import {
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Fruit } from "../components/Fruit";
+import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
+import { DIRECTION, Input } from "../components/Input";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
+import { Velocity } from "../components/Velocity";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
 import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
@@ -242,6 +246,52 @@ describe("PlaySim fruit feast", () => {
   });
 });
 
+describe("PlaySim Afterburner", () => {
+  function speedRatios(id: UpgradeId | null): { empty: number; pellet: number } {
+    const baseline = startSim({ level: 2, maze: "maze1" });
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: id === null ? [] : [id] });
+    const target = regularPelletEids(sim)[0]!;
+    const col = worldToCol(Position.x[target]!);
+    const row = worldToRow(Position.y[target]!);
+    const measure = (world: PlaySim, vx: number): number => {
+      const pellets = Array.from(query(world.world, [Pellet, Position]));
+      const keep = regularPelletEids(world).find(
+        (eid) => worldToCol(Position.x[eid]!) === col && worldToRow(Position.y[eid]!) === row,
+      );
+      for (const eid of pellets) {
+        if (eid !== keep) {
+          removeEntity(world.world, eid);
+        }
+      }
+      teleportPlayer(world, cellCenterX(col - 1), cellCenterY(row));
+      Velocity.x[playerEid(world)] = vx;
+      Velocity.y[playerEid(world)] = 0;
+      runFrames(world, 1);
+      return Speed.px[playerEid(world)]!;
+    };
+    const base = measure(baseline, 1);
+    return { pellet: measure(sim, 1) / base, empty: measure(sim, -1) / base };
+  }
+
+  it("speeds up entering a cell without a pellet and slows entering one with a pellet", () => {
+    const ratios = speedRatios("passiveAfterburner");
+    expect(ratios.pellet).toBeCloseTo(0.9);
+    expect(ratios.empty).toBeCloseTo(1.3);
+  });
+
+  it("Afterburner+ gives +50% and keeps the 10% pellet-cell slowdown", () => {
+    const ratios = speedRatios("passiveAfterburnerPlus");
+    expect(ratios.pellet).toBeCloseTo(0.9);
+    expect(ratios.empty).toBeCloseTo(1.5);
+  });
+
+  it("changes nothing without the upgrade", () => {
+    const ratios = speedRatios(null);
+    expect(ratios.empty).toBeCloseTo(1);
+    expect(ratios.pellet).toBeCloseTo(1);
+  });
+});
+
 describe("PlaySim remote transference", () => {
   function startOwned(): PlaySim {
     return startSim({ level: 2, enableUpgrades: ["passiveRemoteTransference"] });
@@ -393,6 +443,56 @@ describe("PlaySim", () => {
     runUntil(sim, () => !sim.snapshot().levelTransition, 120);
     expect(sim.snapshot().level).toBe(3);
     expect(sim.snapshot().upgrades).toContain(chosen);
+  });
+
+  it("offers enhanced upgrades only from level 4, and grants the enhanced form when picked", () => {
+    const early = drainToOffer(startSim({ jumpToUpgrade: true, level: 3 }));
+    expect(early.enhanced).toEqual([]);
+
+    let found: { sim: PlaySim; offer: UpgradeChoiceOffer } | null = null;
+    for (let n = 0; n < 200 && found === null; n += 1) {
+      const sim = startSim({ jumpToUpgrade: true, level: 4 }, `enh${n}`);
+      const offer = drainToOffer(sim);
+      if (offer.enhanced.length > 0) {
+        found = { sim, offer };
+      }
+    }
+    expect(found).not.toBeNull();
+    const { sim, offer } = found!;
+    const pick = offer.enhanced[0]!;
+    sim.chooseUpgrade({ kind: "upgrade", id: pick, enhanced: true });
+    expect(sim.snapshot().upgrades).toContain(`${pick}Plus`);
+    expect(sim.snapshot().upgrades).not.toContain(pick);
+  });
+
+  it("an enhanced offer pick pays the enhanced life bonus once", () => {
+    const livesAfter = (enhanced: boolean) => {
+      const sim = startSim({ jumpToUpgrade: true, level: 4, lives: 2, maxLives: 6 });
+      drainToOffer(sim);
+      sim.chooseUpgrade({ kind: "upgrade", id: "passiveExtraLife", enhanced });
+      return sim.snapshot().lives;
+    };
+    expect(livesAfter(true)).toBe(livesAfter(false) + 1);
+  });
+
+  it("a plain Extra Life offer still pays when Death Specialist enhances it", () => {
+    const livesAfter = (enableSpecialist: boolean) => {
+      const sim = startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        lives: 2,
+        maxLives: 6,
+        enableUpgrades: [
+          "passiveDefyDeath",
+          "passiveMoneyTalks",
+          ...(enableSpecialist ? (["passiveDeathSpecialist"] as const) : []),
+        ],
+      });
+      drainToOffer(sim);
+      sim.chooseUpgrade({ kind: "upgrade", id: "passiveExtraLife" });
+      return sim.snapshot().lives;
+    };
+    expect(livesAfter(true)).toBe(livesAfter(false) + 1);
   });
 
   it("clears a board once every non-power pellet is eaten, leaving power pellets", () => {
@@ -912,7 +1012,7 @@ describe("PlaySim", () => {
       return runFrames(sim, 1, { storeConfirm: true });
     }
 
-    it("the first store stocks only two lives and two abilities", () => {
+    it("the first store stocks two lives, two abilities and an enhancement", () => {
       const sim = startSim({
         store: 1,
         lives: 2,
@@ -921,12 +1021,13 @@ describe("PlaySim", () => {
         enableUpgrades: ["passiveGhostSlow"],
       });
       expect([...sim.snapshot().storeStock!].map((s) => s.split(":")[0]).sort()).toEqual([
+        "enhance",
         "life",
         "life",
         expect.any(String),
         expect.any(String),
       ]);
-      expect(sim.snapshot().storeStock).toHaveLength(4);
+      expect(sim.snapshot().storeStock).toHaveLength(5);
     });
 
     it("offers no life tile at the life cap and one when a single life below it", () => {
@@ -1152,6 +1253,22 @@ describe("PlaySim", () => {
     teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
     runUntil(sim, () => sim.snapshot().boss?.ghostCount === 3, 30);
     expect(sim.snapshot().bossPellets).toBe(7);
+  });
+
+  it("lets a boss Blinky leave its tunnel mouth when Tunnel Sanctuary+ blocks tunnels", () => {
+    const sim = startSim({
+      level: 9,
+      godMode: true,
+      enableUpgrades: ["passiveTunnelSanctuaryPlus"],
+    });
+    const before = new Set(query(sim.world, [BossGhost, Position]));
+    const pellet = query(sim.world, [BossPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
+    runUntil(sim, () => sim.snapshot().boss?.ghostCount === 3, 30);
+    const spawned = query(sim.world, [BossGhost, Position]).find((eid) => !before.has(eid))!;
+    const startX = Position.x[spawned]!;
+    runFrames(sim, 180);
+    expect(Math.abs(Position.x[spawned]! - startX)).toBeGreaterThan(20);
   });
 
   it("replays the same run from the same seed and inputs", () => {
@@ -3092,5 +3209,249 @@ describe("line-art Clyde", () => {
   it("follows a ghosts override without Clyde", () => {
     const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
     expect(sim.snapshot().lineArtGhosts).toEqual([]);
+  });
+});
+
+describe("Tunnel Sanctuary", () => {
+  const tunnelRow = () => horizontalTunnelRows()[0]!;
+
+  function wrapPlayerLeft(sim: PlaySim): void {
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(tunnelRow()));
+    runUntil(sim, () => sim.snapshot().runLog.tunnelWraps === 1, 120, { keys: held("left") });
+  }
+
+  function ghostInTunnelMouth(sim: PlaySim): number {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(0);
+    Position.y[ghost] = cellCenterY(tunnelRow());
+    return ghost;
+  }
+
+  it.each([
+    ["passiveTunnelSanctuary", 0.9],
+    ["passiveTunnelSanctuaryPlus", 0.6],
+  ] as const)("%s sets the ghost tunnel speed to %f x Maze-Man's", (id, ratio) => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+    const ghost = ghostInTunnelMouth(sim);
+    runFrames(sim, 1);
+    expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(ratio);
+  });
+
+  it("keeps the faster ghost tunnel speed when Tunnel Dash+ is also owned", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelDashPlus", "passiveTunnelSanctuary"],
+    });
+    const ghost = ghostInTunnelMouth(sim);
+    runFrames(sim, 1);
+    expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(0.9);
+  });
+
+  it.each(["passiveTunnelSanctuary", "passiveTunnelSanctuaryPlus"] as const)(
+    "%s grants 1s of Ghost Proof on coming out of a tunnel",
+    (id) => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+      expect(sim.snapshot().timers.invulnMs).toBe(0);
+      wrapPlayerLeft(sim);
+      expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(1000 - 2 * FRAME_MS);
+      expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
+    },
+  );
+
+  it("grants nothing on a tunnel wrap without the upgrade", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    wrapPlayerLeft(sim);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+  });
+
+  it("never shortens a longer Ghost Proof", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuary"],
+    });
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(tunnelRow()));
+    sim["runUpgrades"] = { ...sim["runUpgrades"], invulnRemainingMs: INVULN_MS };
+    runUntil(sim, () => sim.snapshot().runLog.tunnelWraps === 1, 120, { keys: held("left") });
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(1000);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(INVULN_MS);
+  });
+
+  it("is not doubled by Overcharge", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuary", "passiveOvercharge"],
+    });
+    wrapPlayerLeft(sim);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
+  });
+
+  it("does not grant Ghost Proof for a teleport that is not a tunnel exit", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      godMode: true,
+      enableUpgrades: ["passiveTunnelSanctuary", "powerPelletWarpFarthest"],
+    });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const before = { x: Position.x[power]!, y: Position.y[power]! };
+    teleportPlayer(sim, before.x, before.y);
+    runFrames(sim, 30);
+    expect(Math.abs(Position.x[playerEid(sim)]! - before.x)).toBeGreaterThan(0);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+    expect(sim.snapshot().runLog.tunnelWraps).toBe(0);
+  });
+
+  it("grants Ghost Proof when a Tunnel Dash lands the player at the far mouth", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuary", "passiveTunnelDash"],
+    });
+    teleportPlayer(sim, cellCenterX(3), cellCenterY(tunnelRow()));
+    runUntil(sim, () => sim.snapshot().timers.invulnMs > 0, 240, { keys: held("left") });
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
+  });
+
+  it("lets a ghost wrap through the tunnel in the base form and blocks it in the enhanced form", () => {
+    for (const [id, wraps] of [
+      ["passiveTunnelSanctuary", true],
+      ["passiveTunnelSanctuaryPlus", false],
+    ] as const) {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+      const ghost = ghostInTunnelMouth(sim);
+      const width = getActiveLayout().cols * getActiveLayout().tileSize;
+      let wrapped = false;
+      for (let frame = 0; frame < 90; frame += 1) {
+        Facing.direction[ghost] = DIRECTION.left;
+        Input.direction[ghost] = DIRECTION.left;
+        Ghost.decidedCol[ghost] = 0;
+        Ghost.decidedRow[ghost] = tunnelRow();
+        Position.x[ghost] = Math.min(Position.x[ghost]!, cellCenterX(0) + 1);
+        runFrames(sim, 1);
+        wrapped ||= Position.x[ghost]! > width / 2;
+      }
+      expect(wrapped).toBe(wraps);
+    }
+  });
+
+  it("still lets a blocked ghost walk out of the tunnel", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuaryPlus"],
+    });
+    const ghost = ghostInTunnelMouth(sim);
+    Facing.direction[ghost] = DIRECTION.right;
+    Input.direction[ghost] = DIRECTION.right;
+    runFrames(sim, 30);
+    expect(Position.x[ghost]!).toBeGreaterThan(cellCenterX(0) + 2);
+  });
+});
+
+describe("Streak Engine", () => {
+  function startStreak(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades }, "streak1");
+  }
+
+  function eatUntilStreak(sim: PlaySim, streak: number): SimEvent[] {
+    const events: SimEvent[] = [];
+    while (sim.snapshot().bonus.streak < streak) {
+      const eid = regularPelletEids(sim)[0]!;
+      teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+      events.push(...runFrames(sim, 1));
+    }
+    return events;
+  }
+
+  function popValues(events: SimEvent[]): number[] {
+    return events.flatMap((event) => (event.type === "streakPop" ? [event.value] : []));
+  }
+
+  it("fires the power-pellet effects when the streak reaches 30", () => {
+    const sim = startStreak(["passiveStreakEngine", "powerPelletSpeedBurst"]);
+    eatUntilStreak(sim, 29);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+    eatUntilStreak(sim, 30);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startStreak(["powerPelletSpeedBurst"]);
+    const events = eatUntilStreak(sim, 30);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+    expect(popValues(events)).toEqual([]);
+  });
+
+  it("starts over when the streak breaks", () => {
+    const sim = startStreak(["passiveStreakEngine", "powerPelletSpeedBurst"]);
+    eatUntilStreak(sim, 20);
+    runFrames(sim, 40);
+    expect(sim.snapshot().bonus.streak).toBe(0);
+    eatUntilStreak(sim, 29);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+  });
+
+  it("pops 5 through 30 from the pellets along the streak", () => {
+    const sim = startStreak(["passiveStreakEngine"]);
+    const events = eatUntilStreak(sim, 30);
+    expect(popValues(events)).toEqual([5, 10, 15, 20, 25, 30]);
+    expect(sim.snapshot().streakPops).toEqual({ count: 6, last: 30 });
+  });
+
+  it("restarts the pop-offs at 5 after 30", () => {
+    const sim = startStreak(["passiveStreakEngine"]);
+    eatUntilStreak(sim, 30);
+    expect(popValues(eatUntilStreak(sim, 35))).toEqual([5]);
+  });
+
+  it("keeps Plus Ghost Proof when Warp Farthest+ also fires", () => {
+    const sim = startStreak(["passiveStreakEnginePlus", "powerPelletWarpFarthestPlus"]);
+    eatUntilStreak(sim, 30);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
+  });
+
+  it("grants 3s of Ghost Proof only when enhanced", () => {
+    const base = startStreak(["passiveStreakEngine"]);
+    eatUntilStreak(base, 30);
+    expect(base.snapshot().timers.invulnMs).toBe(0);
+
+    const plus = startStreak(["passiveStreakEnginePlus"]);
+    eatUntilStreak(plus, 30);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
+    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(STREAK_ENGINE_ENHANCED_INVULN_MS);
+  });
+
+  it("grants the Ghost Proof when Harvest Specialist enhances it", () => {
+    const sim = startStreak([
+      "passiveStreakEngine",
+      "passiveHarvestSpecialist",
+      "fruitPowerPellet",
+      "fruitFecundity",
+      "fruitFeast",
+    ]);
+    eatUntilStreak(sim, 30);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
+  });
+
+  it("doubles the Ghost Proof with Overcharge", () => {
+    const sim = startStreak(["passiveStreakEnginePlus", "passiveOvercharge"]);
+    eatUntilStreak(sim, 30);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(
+      2 * STREAK_ENGINE_ENHANCED_INVULN_MS - 100,
+    );
+  });
+
+  it("banks a shield instead of firing when Shield Pellets is owned", () => {
+    const sim = startStreak([
+      "passiveStreakEngine",
+      "passiveShieldPellets",
+      "powerPelletSpeedBurst",
+    ]);
+    eatUntilStreak(sim, 30);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, speedBurstMs: 0 });
   });
 });
