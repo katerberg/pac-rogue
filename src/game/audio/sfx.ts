@@ -76,18 +76,55 @@ export function preloadSfx(scene: Phaser.Scene): void {
   }
 }
 
-function loadedEventName(entry: SfxEntry): string {
-  return `filecomplete-audio-${entry.key}`;
+const DOWNLOADING_FILE_STATES: ReadonlySet<number> = new Set([11, 12, 14]);
+
+export function musicDownloadInFlight(fileState: number | undefined): boolean {
+  return fileState !== undefined && DOWNLOADING_FILE_STATES.has(fileState);
 }
 
-function loadThenStartLoop(scene: Phaser.Scene, id: SfxId): void {
-  const entry = SFX_MANIFEST[id];
-  if (scene.game.config.audio.noAudio === true) {
+function downloadRegistryKey(entry: SfxEntry): string {
+  return `audio-download:${entry.key}`;
+}
+
+function stopEventName(entry: SfxEntry): string {
+  return `music-stop:${entry.key}`;
+}
+
+function downloadMusic(scene: Phaser.Scene, entry: SfxEntry): void {
+  const pending = scene.registry.get(downloadRegistryKey(entry)) as Phaser.Loader.File | undefined;
+  if (musicDownloadInFlight(pending?.state)) {
     return;
   }
+  const track = (_key: string, _type: string, _loader: unknown, file: Phaser.Loader.File): void => {
+    scene.registry.set(downloadRegistryKey(entry), file);
+  };
+  scene.load.on("addfile", track);
   scene.load.audio(entry.key, entry.url);
-  scene.load.once(loadedEventName(entry), () => startLoopingSfx(scene, id));
+  scene.load.off("addfile", track);
   scene.load.start();
+}
+
+function startLoopWhenCached(scene: Phaser.Scene, id: SfxId): void {
+  const entry = SFX_MANIFEST[id];
+  const stopEvent = stopEventName(entry);
+  if (scene.game.config.audio.noAudio === true || scene.events.listenerCount(stopEvent) > 0) {
+    return;
+  }
+  const onCacheAdd = (_cache: unknown, key: string): void => {
+    if (key === entry.key) {
+      stopWaiting();
+      startLoopingSfx(scene, id);
+    }
+  };
+  const stopWaiting = (): void => {
+    scene.cache.audio.events.off("add", onCacheAdd);
+    scene.events.off(stopEvent, stopWaiting);
+    scene.events.off("shutdown", stopWaiting);
+  };
+  scene.cache.audio.events.on("add", onCacheAdd);
+  scene.events.once(stopEvent, stopWaiting);
+  scene.events.once("shutdown", stopWaiting);
+  downloadMusic(scene, entry);
 }
 
 function categoryVolume(settings: AudioSettings, id: SfxId): number {
@@ -117,7 +154,7 @@ export function startLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
     return;
   }
   if (!scene.cache.audio.exists(entry.key)) {
-    loadThenStartLoop(scene, id);
+    startLoopWhenCached(scene, id);
     return;
   }
   if (scene.sound.isPlaying(entry.key)) {
@@ -128,7 +165,7 @@ export function startLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
 
 export function stopLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
   const entry = SFX_MANIFEST[id];
-  scene.load.off(loadedEventName(entry));
+  scene.events.emit(stopEventName(entry));
   scene.sound.stopByKey(entry.key);
 }
 
@@ -162,7 +199,7 @@ export function syncMusicPlayback(scene: Phaser.Scene, id: SfxId, settings: Audi
     return;
   }
   if (!scene.cache.audio.exists(entry.key)) {
-    loadThenStartLoop(scene, id);
+    startLoopWhenCached(scene, id);
     return;
   }
   if (scene.sound.isPlaying(entry.key)) {

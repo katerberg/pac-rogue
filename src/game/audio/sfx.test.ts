@@ -1,5 +1,17 @@
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadsInBackground, musicIdForContext, pelletCollectSfxId } from "./sfx";
+import {
+  loadsInBackground,
+  musicDownloadInFlight,
+  musicIdForContext,
+  pelletCollectSfxId,
+} from "./sfx";
+
+const requirePhaser = createRequire(import.meta.url);
+const LOADER = requirePhaser(
+  join(dirname(requirePhaser.resolve("phaser/package.json")), "src/loader/const.js"),
+) as Record<string, number>;
 
 describe("pelletCollectSfxId", () => {
   it("uses munch for non-multiples of 2", () => {
@@ -40,5 +52,22 @@ describe("loadsInBackground", () => {
     expect(loadsInBackground("pelletMunch")).toBe(false);
     expect(loadsInBackground("death")).toBe(false);
     expect(loadsInBackground("levelComplete")).toBe(false);
+  });
+});
+
+describe("musicDownloadInFlight", () => {
+  it("treats a file another scene is still downloading or decoding as in flight", () => {
+    expect(musicDownloadInFlight(LOADER.FILE_LOADING)).toBe(true);
+    expect(musicDownloadInFlight(LOADER.FILE_LOADED)).toBe(true);
+    expect(musicDownloadInFlight(LOADER.FILE_PROCESSING)).toBe(true);
+  });
+
+  it("starts a new download when none was requested or the last one ended", () => {
+    expect(musicDownloadInFlight(undefined)).toBe(false);
+    expect(musicDownloadInFlight(LOADER.FILE_PENDING)).toBe(false);
+    expect(musicDownloadInFlight(LOADER.FILE_FAILED)).toBe(false);
+    expect(musicDownloadInFlight(LOADER.FILE_ERRORED)).toBe(false);
+    expect(musicDownloadInFlight(LOADER.FILE_COMPLETE)).toBe(false);
+    expect(musicDownloadInFlight(LOADER.FILE_DESTROYED)).toBe(false);
   });
 });
