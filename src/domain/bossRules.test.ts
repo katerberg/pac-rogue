@@ -1,30 +1,89 @@
 import { describe, expect, it } from "vitest";
 import {
   BOSS_DEFS,
-  bossForLevel,
+  bossGhostKind,
+  bossStartGhosts,
   createBossState,
+  isBossLevel,
   maxBossGhosts,
-  parseBossGhostsParam,
+  parseBossParam,
+  pickBoss,
   recordBossPelletsEaten,
   splitBossGhosts,
 } from "./bossRules";
 import { GHOST_KIND } from "./ghostKind";
+import { DEFAULT_TUNING } from "./tuning";
 
-const def = BOSS_DEFS.doubleBlinky;
+const def = BOSS_DEFS.blinkySwarm;
+const chained = BOSS_DEFS.chainedGhosts;
 
-describe("bossForLevel", () => {
-  it("makes level 9 the Double Blinky boss and every other level a regular board", () => {
-    expect(bossForLevel(9)?.id).toBe("doubleBlinky");
+describe("isBossLevel", () => {
+  it("makes level 9 the boss level and every other level a regular board", () => {
+    expect(isBossLevel(9)).toBe(true);
     for (const level of [1, 2, 3, 4, 5, 6, 7, 8, 10]) {
-      expect(bossForLevel(level)).toBeNull();
+      expect(isBossLevel(level)).toBe(false);
     }
   });
+});
 
+describe("pickBoss", () => {
+  it("picks either boss from the roll", () => {
+    expect(pickBoss(null, () => 0).id).toBe("blinkySwarm");
+    expect(pickBoss(null, () => 0.99).id).toBe("chainedGhosts");
+  });
+
+  it("uses the forced boss without rolling", () => {
+    const roll = () => {
+      throw new Error("rolled");
+    };
+    expect(pickBoss("chainedGhosts", roll).id).toBe("chainedGhosts");
+    expect(pickBoss("blinkySwarm", roll).id).toBe("blinkySwarm");
+  });
+});
+
+describe("parseBossParam", () => {
+  it("accepts the boss ids", () => {
+    expect(parseBossParam(new URLSearchParams("boss=blinkySwarm"))).toBe("blinkySwarm");
+    expect(parseBossParam(new URLSearchParams("boss=chainedGhosts"))).toBe("chainedGhosts");
+  });
+
+  it("rejects missing and unknown values", () => {
+    for (const query of ["", "boss=", "boss=doubleBlinky", "boss=BLINKYSWARM"]) {
+      expect(parseBossParam(new URLSearchParams(query))).toBeNull();
+    }
+  });
+});
+
+describe("Blinky Swarm", () => {
   it("starts with 2 Blinkys and ends at 10 after all 8 boss pellets", () => {
-    expect(def.ghostKind).toBe(GHOST_KIND.blinky);
+    expect(bossGhostKind(def, 0)).toBe(GHOST_KIND.blinky);
+    expect(bossGhostKind(def, 9)).toBe(GHOST_KIND.blinky);
     expect(def.startGhosts).toBe(2);
     expect(def.spawnPellets).toBe(8);
     expect(maxBossGhosts(def)).toBe(10);
+  });
+
+  it("takes its start count from the knob, clamped to 2..10", () => {
+    expect(bossStartGhosts(def)).toBe(2);
+    expect(bossStartGhosts(def, { ...DEFAULT_TUNING, bossSwarmStartGhosts: 7 })).toBe(7);
+    expect(bossStartGhosts(def, { ...DEFAULT_TUNING, bossSwarmStartGhosts: 40 })).toBe(10);
+  });
+});
+
+describe("Chained Ghosts", () => {
+  it("is Blinky and Clyde, chained, with no boss pellets and no growth", () => {
+    expect([bossGhostKind(chained, 0), bossGhostKind(chained, 1)]).toEqual([
+      GHOST_KIND.blinky,
+      GHOST_KIND.clyde,
+    ]);
+    expect(chained.chained).toBe(true);
+    expect(chained.ghostsBlock).toBe(false);
+    expect(maxBossGhosts(chained)).toBe(2);
+    expect(splitBossGhosts(chained, 2)).toEqual({ house: 2, tunnel: 0 });
+  });
+
+  it("ignores the swarm start knob", () => {
+    expect(bossStartGhosts(chained, { ...DEFAULT_TUNING, bossSwarmStartGhosts: 7 })).toBe(2);
   });
 });
 
@@ -33,19 +92,6 @@ describe("splitBossGhosts", () => {
     expect(splitBossGhosts(def, 2)).toEqual({ house: 2, tunnel: 0 });
     expect(splitBossGhosts(def, 4)).toEqual({ house: 4, tunnel: 0 });
     expect(splitBossGhosts(def, 10)).toEqual({ house: 4, tunnel: 6 });
-  });
-});
-
-describe("parseBossGhostsParam", () => {
-  it("accepts 2..10", () => {
-    expect(parseBossGhostsParam(new URLSearchParams("bossGhosts=2"), def)).toBe(2);
-    expect(parseBossGhostsParam(new URLSearchParams("bossGhosts=10"), def)).toBe(10);
-  });
-
-  it("rejects missing, out-of-range, and non-numeric values", () => {
-    for (const query of ["", "bossGhosts=", "bossGhosts=1", "bossGhosts=11", "bossGhosts=x"]) {
-      expect(parseBossGhostsParam(new URLSearchParams(query), def)).toBeNull();
-    }
   });
 });
 
@@ -66,7 +112,7 @@ describe("recordBossPelletsEaten", () => {
     expect(recordBossPelletsEaten(start, 5)).toMatchObject({ ghostCount: 5, pendingSpawns: 3 });
   });
 
-  it("never grows past the boss max (e.g. a ?bossGhosts=10 start)", () => {
+  it("never grows past the boss max (e.g. a 10-Blinky knob start)", () => {
     const full = { ...createBossState(def, 10), bossPelletsRemaining: 8 };
     expect(recordBossPelletsEaten(full, 6)).toMatchObject({
       ghostCount: 10,

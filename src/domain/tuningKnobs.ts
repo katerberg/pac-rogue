@@ -7,6 +7,7 @@ export type KnobGroup =
   | "Fruit"
   | "Death"
   | "Bonus"
+  | "Boss"
   | "Ghost AI"
   | "Release"
   | "Scatter"
@@ -31,6 +32,7 @@ export const LEFT_KNOB_GROUPS: readonly KnobGroup[] = [
   "Fruit",
   "Death",
   "Bonus",
+  "Boss",
 ];
 
 export const RIGHT_KNOB_GROUPS: readonly KnobGroup[] = [
@@ -75,6 +77,7 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("deathHoldMs", "Death", "Death hold", 0, 5000, 5, "ms"),
   range("readyPauseMs", "Death", "Ready pause", 0, 5000, 50, "ms"),
   range("bonusStreakIdleMs", "Bonus", "Streak idle", 50, 2000, 50, "ms"),
+  range("bossSwarmStartGhosts", "Boss", "Swarm start Blinkys", 2, 10, 1),
   range("pinkyLookahead", "Ghost AI", "Pinky lookahead", 0, 8, 1, "tiles"),
   range("inkyLookahead", "Ghost AI", "Inky lookahead", 0, 8, 1, "tiles"),
   range("clydeShyTiles", "Ghost AI", "Clyde shy radius", 0, 20, 1, "tiles"),
@@ -139,7 +142,9 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Blinky's \"Cruise Elroy\" speed once few dots remain (first tier), as a fraction of Maze-Man's base speed.",
   elroy2Ratio:
     "Blinky's second, faster Elroy speed once even fewer dots remain, as a fraction of Maze-Man's base speed.",
-  bossGhostRatio: "Speed of the level-9 boss Blinkys as a fraction of Maze-Man's base speed.",
+  bossGhostRatio: "Speed of the level-9 boss ghosts as a fraction of Maze-Man's base speed.",
+  bossSwarmStartGhosts:
+    "Blinkys the Blinky Swarm boss starts with (up to 4 in the house, the rest out of the side tunnels right away). Applies on the next board or Restart.",
   timerMax:
     "Starting value of the Time countdown on each board. Applies on the next board or Restart.",
   timerTickMs:

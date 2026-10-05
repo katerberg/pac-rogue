@@ -29,6 +29,7 @@ import {
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { turnFlashPulse } from "../../domain/turnTuning";
+import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
@@ -244,6 +245,7 @@ export type RenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
+  bossChain?: ChainSegment | null;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -260,11 +262,27 @@ export type PlayRender = {
 const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
+const CHAIN_AMPLITUDE_TILES = 0.35;
+const CHAIN_STROKES = [
+  { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
+  { strand: 0, width: 2.5, color: 0x9fe0ff, alpha: 0.95 },
+  { strand: 1, width: 1, color: 0xffffff, alpha: 0.9 },
+] as const;
+
+function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly ChainPoint[]) {
+  graphics.beginPath();
+  graphics.moveTo(points[0]!.x, points[0]!.y);
+  for (const point of points.slice(1)) {
+    graphics.lineTo(point.x, point.y);
+  }
+  graphics.strokePath();
+}
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
+  const chainGraphics = scene.add.graphics();
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
@@ -551,6 +569,19 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             applyPlayerTint(twinGo, playerTint);
           }
         }
+      }
+    }
+
+    chainGraphics.clear();
+    const chain = opts?.bossChain ?? null;
+    if (chain !== null) {
+      const amplitude = getActiveLayout().tileSize * CHAIN_AMPLITUDE_TILES;
+      for (const stroke of CHAIN_STROKES) {
+        chainGraphics.lineStyle(stroke.width, stroke.color, stroke.alpha);
+        strokePolyline(
+          chainGraphics,
+          lightningPoints(chain, scene.time.now, amplitude, stroke.strand),
+        );
       }
     }
 

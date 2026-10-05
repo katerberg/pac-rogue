@@ -46,7 +46,7 @@ function eatBossPelletOnBottomTunnelRow(seed: string) {
   addComponent(world, player, Player);
   Drawable.radius[player] = playerRadius();
 
-  let state = { ...createBossState(BOSS_DEFS.doubleBlinky, 2), bossPelletsRemaining: 1 };
+  let state = { ...createBossState(BOSS_DEFS.blinkySwarm, 2), bossPelletsRemaining: 1 };
   expect(collectPellets(world).removedEids).toEqual([pellet]);
   state = recordBossPelletsEaten(state, countBossPellets(world));
   return { world, mouths, bottomRow, state };
