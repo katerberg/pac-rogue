@@ -3198,6 +3198,22 @@ describe("Tunnel Sanctuary", () => {
     expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
   });
 
+  it("does not grant Ghost Proof for a teleport that is not a tunnel exit", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      godMode: true,
+      enableUpgrades: ["passiveTunnelSanctuary", "powerPelletWarpFarthest"],
+    });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const before = { x: Position.x[power]!, y: Position.y[power]! };
+    teleportPlayer(sim, before.x, before.y);
+    runFrames(sim, 30);
+    expect(Math.abs(Position.x[playerEid(sim)]! - before.x)).toBeGreaterThan(0);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+    expect(sim.snapshot().runLog.tunnelWraps).toBe(0);
+  });
+
   it("grants Ghost Proof when a Tunnel Dash lands the player at the far mouth", () => {
     const sim = startSim({
       level: 2,
