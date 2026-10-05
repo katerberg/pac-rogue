@@ -80,9 +80,9 @@ function loadedEventName(entry: SfxEntry): string {
   return `filecomplete-audio-${entry.key}`;
 }
 
-function startLoopWhenLoaded(scene: Phaser.Scene, id: SfxId): void {
+function loadThenStartLoop(scene: Phaser.Scene, id: SfxId): void {
   const entry = SFX_MANIFEST[id];
-  if (scene.game.config.audio.noAudio === true || !loadsInBackground(id)) {
+  if (scene.game.config.audio.noAudio === true) {
     return;
   }
   scene.load.audio(entry.key, entry.url);
@@ -117,7 +117,7 @@ export function startLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
     return;
   }
   if (!scene.cache.audio.exists(entry.key)) {
-    startLoopWhenLoaded(scene, id);
+    loadThenStartLoop(scene, id);
     return;
   }
   if (scene.sound.isPlaying(entry.key)) {
@@ -162,7 +162,7 @@ export function syncMusicPlayback(scene: Phaser.Scene, id: SfxId, settings: Audi
     return;
   }
   if (!scene.cache.audio.exists(entry.key)) {
-    startLoopWhenLoaded(scene, id);
+    loadThenStartLoop(scene, id);
     return;
   }
   if (scene.sound.isPlaying(entry.key)) {
