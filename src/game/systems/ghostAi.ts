@@ -166,6 +166,7 @@ export function ghostAi(
   mode: GhostAiMode,
   pelletsRemaining: number,
   tuning: Tuning = DEFAULT_TUNING,
+  blockTunnels = false,
 ): void {
   const ctx = ghostAiContext(world, tuning);
 
@@ -183,7 +184,7 @@ export function ghostAi(
 
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(phase);
+    const rules = ghostMovementRules(phase, blockTunnels);
     const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     const alreadyDecided = Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row;
     if (alreadyDecided) {

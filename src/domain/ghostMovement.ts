@@ -13,12 +13,12 @@ export type GhostMovementRules = {
   ) => { facing: GhostDir; intent: GhostDir };
 };
 
-export function ghostMovementRules(phase: number): GhostMovementRules {
+export function ghostMovementRules(phase: number, blockTunnels = false): GhostMovementRules {
   const layout = getActiveLayout();
   const solids = phase === GHOST_PHASE.active ? layout.playerSolids : layout.ghostSolids;
   const { door } = layout;
   const canEnter = (x: number, y: number, dx: number, dy: number) =>
-    canGhostEnterDirection(x, y, dx, dy, phase, solids, door);
+    canGhostEnterDirection(x, y, dx, dy, phase, solids, door, layout.house, blockTunnels);
 
   return {
     solids,

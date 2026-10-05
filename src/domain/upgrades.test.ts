@@ -107,6 +107,8 @@ import {
   fruitPersistsUntilLevelEnd,
   fruitPowerConvertsPellet,
   ghostTunnelSpeedRatio,
+  ghostsBlockedFromTunnels,
+  tunnelExitInvulnMs,
   hasUpgrade,
   isEnhancedId,
   learnEnhanceToggleState,
@@ -164,6 +166,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveInterest",
   "passiveNearMiss",
   "passiveHaunting",
+  "passiveTunnelSanctuary",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -1059,6 +1062,14 @@ describe("enhanced upgrades", () => {
     expect(turnPerfectPx(["passiveTurnTuningPlus"])).toBe(12);
     expect(ghostTunnelSpeedRatio(["passiveTunnelDash"])).toBeNull();
     expect(ghostTunnelSpeedRatio(["passiveTunnelDashPlus"])).toBe(0.3);
+    expect(ghostTunnelSpeedRatio(["passiveTunnelSanctuary"])).toBe(0.9);
+    expect(ghostTunnelSpeedRatio(["passiveTunnelSanctuaryPlus"])).toBeNull();
+    expect(ghostTunnelSpeedRatio(["passiveTunnelDashPlus", "passiveTunnelSanctuary"])).toBe(0.9);
+    expect(tunnelExitInvulnMs(["passiveTunnelSanctuary"])).toBe(1000);
+    expect(tunnelExitInvulnMs(["passiveTunnelSanctuaryPlus"])).toBe(1000);
+    expect(tunnelExitInvulnMs([])).toBe(0);
+    expect(ghostsBlockedFromTunnels(["passiveTunnelSanctuary"])).toBe(false);
+    expect(ghostsBlockedFromTunnels(["passiveTunnelSanctuaryPlus"])).toBe(true);
     expect(lifeFloorBonus(["passiveExtraLifePlus"])).toBe(2);
     expect(pelletSurgeCount(["passivePelletToPowerPlus"])).toBe(2);
     expect(ghostHouseReleaseDelayAddMs(["passiveGhostHouseDelayPlus"])).toBe(3000);

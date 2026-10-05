@@ -55,6 +55,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveInterest`             | Interest              | Harvest    | Entering a store pays 1 Quarter for every `INTEREST_PER_QUARTERS` (3) you hold, rounded down (see [Interest](#interest) below)                                                                                                                                                                                                                                                                                                   |
 | `passiveNearMiss`             | Near Miss             | Protection | A ghost that comes within 1 tile of you and leaves again without a catch adds `NEAR_MISS_CHARGE` (15) to the BONUS bar (see [Near Miss](#near-miss) below)                                                                                                                                                                                                                                                                       |
 | `passiveHaunting`             | Haunting              | Death      | The ghost that last caught you stays caged in the ghost house for `HAUNTING_MS` (10000) after play resumes (see [Haunting](#haunting) below)                                                                                                                                                                                                                                                                                     |
+| `passiveTunnelSanctuary`      | Tunnel Sanctuary      | Protection | Coming out of a tunnel gives `TUNNEL_SANCTUARY_INVULN_MS` (1000) of Ghost Proof; ghost tunnel speed becomes `TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO` (0.9) × player speed instead of 0.6 (see [Tunnel Sanctuary](#tunnel-sanctuary) below)                                                                                                                                                                                          |
 
 ## Enhanced upgrades
 
@@ -111,6 +112,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveInterest`             | Interest              | Pays 1 Quarter for every 2 held instead of every 3                                                                                           |
 | `passiveNearMiss`             | Near Miss             | Each pass adds `NEAR_MISS_ENHANCED_CHARGE` (30) instead of 15                                                                                |
 | `passiveHaunting`             | Haunting              | The ghost stays caged for the rest of the level (`HAUNTING_ENHANCED_MS` is `Infinity`); the cage never blinks                                |
+| `passiveTunnelSanctuary`      | Tunnel Sanctuary      | Ghosts can no longer travel through tunnels; they walk out of one but never back through, and keep the normal tunnel slow                    |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -380,6 +382,16 @@ Diagonal movement itself is not exclusive to wallPass — it is available whenev
 - While wall-pass is also active, player tint uses wall-pass blueward tint instead of invuln gold.
 
 ## Speed muls
+
+### Tunnel Sanctuary
+
+`passiveTunnelSanctuary` has an exit grace and a change to how ghosts use tunnels.
+
+- **Exit grace.** Whenever the player comes out of a tunnel, `applyTunnelExitInvuln` raises `invulnRemainingMs` to at least `tunnelExitInvulnMs` (`TUNNEL_SANCTUARY_INVULN_MS`, 1000). It is the Ghost Proof timer, so the gold tint and the last-second blink are shared, and a longer Ghost Proof wins. `PlaySim.noteTunnelExit` detects the exit as a position jump across the board (`didWrap`, either axis) after the player's `movement` step and after the Tunnel Dash glide ends, so a plain wrap, a Tunnel Dash arrival and Wall Pass+'s wrap all count. Overcharge does not extend it.
+- **Faster tunnel ghosts.** `ghostTunnelSpeedRatio` is 0.9 instead of the default 0.6 (`TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO`), a flat ratio of player speed in the slow band. With several tunnel upgrades owned, the highest ratio wins, so Tunnel Dash+ (0.3) loses to it.
+- **Enhanced.** `ghostsBlockedFromTunnels` is set and the 0.9 ratio is dropped, so ghosts keep the normal slow band. `movement`, `ghostAi` and `forceGhostReverse` receive the flag: `canGhostEnterDirection` refuses any step off the board, and `clampToGridCenters` replaces the ghost wrap, so the tunnel mouth is a one-way wall. A ghost can walk out of a tunnel but never back through one. Boss ghosts follow the same rule and can still leave their spawn mouths.
+- **Reset:** there is no timer of its own. `invulnRemainingMs` clears like Ghost Proof.
+- **LEARN:** `LearnSim` mirrors both the grant and the block, and `clearStaleUpgradeTimers` drops the tint when the upgrade is toggled off.
 
 Written every frame: `applyPlayerSpeed` from `speedLevelMultiplier(levelIndex) × playerSpeedMultiplier(owned) × (speedBurstActive ? PLAYER_SPEED_BURST_MUL : 1)`; `applyGhostSpeed` resolves the base tier off `ghostBaseSpeedRatio(levelIndex)` (tunnel is a flat 0.6× `PLAYER_SPEED`) (0.8 at level 1 ramping to 1.0 by level 5, Elroy tiers unaffected), then multiplies by `speedLevelMultiplier(levelIndex) × ghostSpeedMultiplier(owned)`. Boss ghosts (level 9) use a flat `BOSS_GHOST_SPEED` base and skip the level multiplier; `ghostSpeedMultiplier(owned)` still applies.
 

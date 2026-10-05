@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getActiveLayout,
   MAZE_COLS,
+  horizontalTunnelRows,
   MAZE_OFFSET_X,
   MAZE_OFFSET_Y,
   MAZE_PIXEL_WIDTH,
@@ -12,6 +13,7 @@ import {
   buildExterior,
   canEnterDirection,
   canGhostEnterDirection,
+  clampToGridCenters,
   cellCenterX,
   cellCenterY,
   cellOriginX,
@@ -219,6 +221,48 @@ describe("maze", () => {
     expect(isGhostWalkable(13, 14, ghostSolidsForPhase(GHOST_PHASE.leaving))).toBe(true);
     expect(isGhostWalkable(13, 14, ghostSolidsForPhase(GHOST_PHASE.active))).toBe(false);
     expect(isGhostWalkable(13, 12, ghostSolidsForPhase(GHOST_PHASE.active))).toBe(false);
+  });
+
+  it("lets ghosts wrap out a tunnel mouth unless tunnels are blocked", () => {
+    const row = horizontalTunnelRows()[0]!;
+    const x = cellCenterX(0);
+    const y = cellCenterY(row);
+    const solids = ghostSolidsForPhase(GHOST_PHASE.active);
+    expect(canGhostEnterDirection(x, y, -1, 0, GHOST_PHASE.active, solids)).toBe(true);
+    expect(
+      canGhostEnterDirection(
+        x,
+        y,
+        -1,
+        0,
+        GHOST_PHASE.active,
+        solids,
+        getActiveLayout().door,
+        getActiveLayout().house,
+        true,
+      ),
+    ).toBe(false);
+    expect(
+      canGhostEnterDirection(
+        x,
+        y,
+        1,
+        0,
+        GHOST_PHASE.active,
+        solids,
+        getActiveLayout().door,
+        getActiveLayout().house,
+        true,
+      ),
+    ).toBe(true);
+  });
+
+  it("clamps positions to the centers of the outermost cells", () => {
+    expect(clampToGridCenters(-50, -50)).toEqual({ x: cellCenterX(0), y: cellCenterY(0) });
+    expect(clampToGridCenters(1e6, 1e6)).toEqual({
+      x: cellCenterX(MAZE_COLS - 1),
+      y: cellCenterY(MAZE_ROWS - 1),
+    });
   });
 
   it("spawns in the lowest empty center cell", () => {
