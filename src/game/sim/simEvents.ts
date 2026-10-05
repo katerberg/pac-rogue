@@ -1,4 +1,4 @@
-import type { ChainSegment } from "../../domain/bossChain";
+import type { BossChainPath } from "../../domain/bossChain";
 import type { RunLogRecord } from "../../domain/runLog";
 import type { GhostKindId } from "../../domain/ghostKind";
 import type { TurnFeedbackKind } from "../../domain/turnTuning";
@@ -20,7 +20,7 @@ export type SimRenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
-  bossChain?: ChainSegment | null;
+  bossChain?: BossChainPath | null;
 };
 
 export type MoneyTalksSpend = {

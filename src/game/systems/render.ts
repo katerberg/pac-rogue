@@ -29,7 +29,7 @@ import {
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { turnFlashPulse } from "../../domain/turnTuning";
-import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
+import { lightningPoints, type BossChainPath, type ChainPoint } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
@@ -245,7 +245,7 @@ export type RenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
-  bossChain?: ChainSegment | null;
+  bossChain?: BossChainPath | null;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;

@@ -48,7 +48,7 @@ src/
     storeFlag.ts              # ?store=1|2|3 debug: start in the Nth store
     levelRules.ts             # MAX_LEVEL (9), per-level speed mul (player + ghosts), roster, mode wave schedule
     bossRules.ts              # boss table (Blinky Swarm / Chained Ghosts), level-9 pick, BossState, ?boss parse
-    bossChain.ts              # Chained Ghosts: point-to-segment hit test + flickering lightning polyline
+    bossChain.ts              # Chained Ghosts: hallway polyline path, hit test, flickering lightning
     bossBoard.ts              # boss tunnel-mouth rotation + boss pellet spread
     bossGhostBlocking.ts      # corridor occupancy walk (boss ghosts avoid each other)
     soundFlag.ts              # agent-port mute; ?sound=1 opt-in
@@ -125,7 +125,7 @@ src/
       ghostFreeze.ts          # power-pellet freeze closest leaving/active ghost
       movement.ts             # Facing + collision (per-eid Speed + solids)
       bossGhosts.ts           # boss head-on reverse, free tunnel mouth pick, boss pellet count
-      bossChain.ts            # Chained Ghosts: live chain segment + chain catch
+      bossChain.ts            # Chained Ghosts: live hallway polyline + chain catch
       catchPlayer.ts          # circle overlap → catching ghost eid or null (skip frozen eid or player invulnerable)
       collectPellets.ts
       collectFruit.ts

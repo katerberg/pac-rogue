@@ -1309,19 +1309,30 @@ describe("PlaySim", () => {
 
   describe("Chained Ghosts boss", () => {
     function startChained(overrides: Partial<PlayOptions> = {}): PlaySim {
-      return startSim({ level: 9, boss: "chainedGhosts", infiniteLives: true, ...overrides });
+      return startSim({
+        level: 9,
+        boss: "chainedGhosts",
+        infiniteLives: true,
+        maze: "maze1",
+        ...overrides,
+      });
     }
 
     function chainEnds(sim: PlaySim): [number, number] {
       return query(sim.world, [ChainedGhost, Ghost]) as unknown as [number, number];
     }
 
-    function placeChain(sim: PlaySim, row: number, cols: [number, number]): void {
+    function placeChainEnds(
+      sim: PlaySim,
+      a: { col: number; row: number },
+      b: { col: number; row: number },
+    ): void {
       const ends = chainEnds(sim);
+      const cells = [a, b];
       ends.forEach((eid, i) => {
         GhostPhase.value[eid] = GHOST_PHASE.active;
-        Position.x[eid] = cellCenterX(cols[i]!);
-        Position.y[eid] = cellCenterY(row) + TILE_SIZE * 3 * (i === 0 ? -1 : 1);
+        Position.x[eid] = cellCenterX(cells[i]!.col);
+        Position.y[eid] = cellCenterY(cells[i]!.row);
       });
     }
 
@@ -1338,51 +1349,58 @@ describe("PlaySim", () => {
       expect(query(sim.world, [Ghost]).length).toBe(2);
     });
 
-    it("catches the player on the line between the ghosts, away from both", () => {
+    it("catches the player on the hallway path between the ghosts", () => {
       const sim = startChained();
-      const player = playerEid(sim);
-      const row = worldToRow(Position.y[player]!);
-      const col = worldToCol(Position.x[player]!);
-      placeChain(sim, row, [col - 4, col + 4]);
+      placeChainEnds(sim, { col: 5, row: 5 }, { col: 15, row: 5 });
+      teleportPlayer(sim, cellCenterX(10), cellCenterY(5));
       expect(sim.snapshot().boss?.chainLive).toBe(true);
       const events = runFrames(sim, 1);
       expect(sim.snapshot().dying).toBe(true);
       expect(events).toContainEqual({ type: "sfx", id: "death" });
     });
 
-    it("does not catch a player off the line", () => {
+    it("does not catch a player off the hallway path", () => {
       const sim = startChained();
-      const player = playerEid(sim);
-      const row = worldToRow(Position.y[player]!);
-      const col = worldToCol(Position.x[player]!);
-      placeChain(sim, row, [col + 2, col + 6]);
+      placeChainEnds(sim, { col: 5, row: 5 }, { col: 9, row: 5 });
+      teleportPlayer(sim, cellCenterX(10), cellCenterY(29));
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+    });
+
+    it("does not catch through a wall on the old straight chord", () => {
+      const sim = startChained();
+      placeChainEnds(sim, { col: 10, row: 1 }, { col: 16, row: 1 });
+      teleportPlayer(sim, cellCenterX(13), cellCenterY(1));
+      expect(sim.snapshot().boss?.chainLive).toBe(true);
+      const chain = sim.renderOptions().bossChain;
+      expect(chain?.points.length).toBeGreaterThan(2);
       runFrames(sim, 1);
       expect(sim.snapshot().dying).toBe(false);
     });
 
     it("has no chain while either ghost is still in the house", () => {
       const sim = startChained();
-      const player = playerEid(sim);
-      const row = worldToRow(Position.y[player]!);
-      const col = worldToCol(Position.x[player]!);
-      placeChain(sim, row, [col - 4, col + 4]);
+      placeChainEnds(sim, { col: 5, row: 5 }, { col: 15, row: 5 });
       GhostPhase.value[chainEnds(sim)[1]] = GHOST_PHASE.inHouse;
       expect(sim.snapshot().boss?.chainLive).toBe(false);
       runFrames(sim, 1);
       expect(sim.snapshot().dying).toBe(false);
     });
 
-    it("draws the live chain between the two ghosts", () => {
+    it("has no chain while either ghost is still leaving the house", () => {
       const sim = startChained();
-      const player = playerEid(sim);
-      placeChain(sim, worldToRow(Position.y[player]!), [1, 2]);
+      placeChainEnds(sim, { col: 5, row: 5 }, { col: 15, row: 5 });
+      GhostPhase.value[chainEnds(sim)[1]] = GHOST_PHASE.leaving;
+      expect(sim.snapshot().boss?.chainLive).toBe(false);
+    });
+
+    it("draws the live chain between the two ghosts along the hallway", () => {
+      const sim = startChained();
+      placeChainEnds(sim, { col: 1, row: 5 }, { col: 4, row: 5 });
       const [a, b] = chainEnds(sim);
-      expect(sim.renderOptions().bossChain).toMatchObject({
-        x1: Position.x[a],
-        y1: Position.y[a],
-        x2: Position.x[b],
-        y2: Position.y[b],
-      });
+      const chain = sim.renderOptions().bossChain;
+      expect(chain?.points[0]).toEqual({ x: Position.x[a], y: Position.y[a] });
+      expect(chain?.points.at(-1)).toEqual({ x: Position.x[b], y: Position.y[b] });
     });
 
     it("releases both ghosts so the chain goes live in play", () => {
