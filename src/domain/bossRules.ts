@@ -1,38 +1,73 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
-export type BossId = "doubleBlinky";
+export const BOSS_IDS = ["blinkySwarm", "chainedGhosts"] as const;
+
+export type BossId = (typeof BOSS_IDS)[number];
 
 export type BossDef = {
   id: BossId;
-  ghostKind: GhostKindId;
+  ghostKinds: readonly GhostKindId[];
   startGhosts: number;
   spawnPellets: number;
   maxHouseGhosts: number;
-  tunnelCount: number;
+  tunnelCount: number | null;
   houseReleaseStaggerMs: number;
+  chained: boolean;
 };
 
 export const BOSS_DEFS: Record<BossId, BossDef> = {
-  doubleBlinky: {
-    id: "doubleBlinky",
-    ghostKind: GHOST_KIND.blinky,
+  blinkySwarm: {
+    id: "blinkySwarm",
+    ghostKinds: [GHOST_KIND.blinky],
     startGhosts: 2,
     spawnPellets: 8,
     maxHouseGhosts: 4,
     tunnelCount: 3,
     houseReleaseStaggerMs: 600,
+    chained: false,
+  },
+  chainedGhosts: {
+    id: "chainedGhosts",
+    ghostKinds: [GHOST_KIND.blinky, GHOST_KIND.clyde],
+    startGhosts: 2,
+    spawnPellets: 0,
+    maxHouseGhosts: 2,
+    tunnelCount: null,
+    houseReleaseStaggerMs: 1500,
+    chained: true,
   },
 };
 
-const BOSS_BY_LEVEL: Partial<Record<number, BossId>> = { 9: "doubleBlinky" };
+export const BOSS_LEVEL = 9;
 
-export function bossForLevel(levelIndex: number): BossDef | null {
-  const id = BOSS_BY_LEVEL[levelIndex];
-  return id === undefined ? null : BOSS_DEFS[id];
+export function isBossLevel(levelIndex: number): boolean {
+  return levelIndex === BOSS_LEVEL;
+}
+
+export function pickBoss(forced: BossId | null, roll: () => number): BossDef {
+  const id = forced ?? BOSS_IDS[Math.floor(roll() * BOSS_IDS.length)]!;
+  return BOSS_DEFS[id];
+}
+
+export function parseBossParam(params: URLSearchParams): BossId | null {
+  const raw = params.get("boss");
+  return BOSS_IDS.find((id) => id === raw) ?? null;
+}
+
+export function bossGhostKind(def: BossDef, index: number): GhostKindId {
+  return def.ghostKinds[Math.min(index, def.ghostKinds.length - 1)]!;
 }
 
 export function maxBossGhosts(def: BossDef): number {
   return def.startGhosts + def.spawnPellets;
+}
+
+export function bossStartGhosts(def: BossDef, tuning: Tuning = DEFAULT_TUNING): number {
+  if (def.id !== "blinkySwarm") {
+    return def.startGhosts;
+  }
+  return Math.min(maxBossGhosts(def), Math.max(def.startGhosts, tuning.bossSwarmStartGhosts));
 }
 
 export type BossState = {
@@ -64,16 +99,4 @@ export function recordBossPelletsEaten(state: BossState, remaining: number): Bos
 export function splitBossGhosts(def: BossDef, total: number): { house: number; tunnel: number } {
   const house = Math.min(total, def.maxHouseGhosts);
   return { house, tunnel: total - house };
-}
-
-export function parseBossGhostsParam(params: URLSearchParams, def: BossDef): number | null {
-  const raw = params.get("bossGhosts");
-  if (raw === null || !/^\d+$/.test(raw)) {
-    return null;
-  }
-  const value = Number(raw);
-  if (value < def.startGhosts || value > maxBossGhosts(def)) {
-    return null;
-  }
-  return value;
 }
