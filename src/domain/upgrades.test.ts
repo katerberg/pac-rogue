@@ -20,6 +20,11 @@ import {
   HAUNTING_MS,
   armHaunt,
   hauntDurationMs,
+  STREAK_ENGINE_ENHANCED_INVULN_MS,
+  STREAK_ENGINE_EVERY,
+  applyStreakEngineInvuln,
+  streakEngineEvery,
+  streakEngineInvulnMs,
   hauntedGhost,
   hauntedGhostEid,
   tickHaunt,
@@ -166,6 +171,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveInterest",
   "passiveNearMiss",
   "passiveHaunting",
+  "passiveStreakEngine",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -1234,5 +1240,34 @@ describe("School Specialists", () => {
       (def) => def.id,
     );
     expect(ids).toEqual(["passiveDefyDeath"]);
+  });
+});
+
+describe("Streak Engine", () => {
+  it("fires every 30 pellets in both forms", () => {
+    expect(streakEngineEvery([])).toBeNull();
+    expect(streakEngineEvery(["passiveStreakEngine"])).toBe(STREAK_ENGINE_EVERY);
+    expect(streakEngineEvery(["passiveStreakEnginePlus"])).toBe(STREAK_ENGINE_EVERY);
+  });
+
+  it("grants Ghost Proof only when enhanced, scaled by Overcharge", () => {
+    expect(streakEngineInvulnMs(["passiveStreakEngine"])).toBe(0);
+    expect(streakEngineInvulnMs(["passiveStreakEnginePlus"])).toBe(
+      STREAK_ENGINE_ENHANCED_INVULN_MS,
+    );
+    const base = createRunUpgrades(["passiveStreakEngine"]);
+    expect(applyStreakEngineInvuln(base, base.owned)).toBe(base);
+    const plus = createRunUpgrades(["passiveStreakEnginePlus", "passiveOvercharge"]);
+    expect(applyStreakEngineInvuln(plus, plus.owned).invulnRemainingMs).toBe(
+      STREAK_ENGINE_ENHANCED_INVULN_MS * 2,
+    );
+  });
+
+  it("never shortens a longer Ghost Proof", () => {
+    const state = {
+      ...createRunUpgrades(["passiveStreakEnginePlus"]),
+      invulnRemainingMs: STREAK_ENGINE_ENHANCED_INVULN_MS + 500,
+    };
+    expect(applyStreakEngineInvuln(state, state.owned)).toBe(state);
   });
 });

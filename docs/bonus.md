@@ -13,6 +13,7 @@ A persistent HUD meter that pays one **Quarter** each time it fills. Eating pell
 - The charge lasts the whole run: deaths, level advances and store floors keep it. `?bonus=` sets the starting charge.
 - A **streak** counts pellets the player's own body collects: the `collectPellets` player frame (including the Pickup Range radius) and the Tunnel Dash sweep. A power pellet counts as one. Extra Hungry, Remote Transference, Ghost Harvest and Death's Harvest removals neither extend nor break a streak.
 - Each time the streak reaches a multiple of `BONUS_STREAK_TIER_SIZE` (5), the bar bumps by `bonusTierBump(tier)`; pellets in between add nothing. One frame that crosses several thresholds adds them all.
+- With [Streak Engine](./upgrades.md#streak-engine), every 30th pellet of a streak also fires your power-pellet effects, and 5, 10 … 30 pop off the pellets.
 - The streak breaks (charge kept) when:
   - the player steps onto a **blank tile**: the new cell has no pellet and was not just eaten (see below), or
   - no pellet is collected for `BONUS_STREAK_IDLE_MS` (400) while a streak is running, or

@@ -53,6 +53,7 @@ import type { HeldKeys } from "../systems/heldKeys";
 import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import { playTurnSparks } from "./turnSparks";
+import { playStreakPop } from "./streakPop";
 import {
   createRender,
   GHOST_TEXTURE_BY_ID,
@@ -222,6 +223,8 @@ export class LearnScene extends Phaser.Scene {
         this.playRender.bouncePowerPellet(event.eid);
       } else if (event.type === "turnSparks") {
         playTurnSparks(this, event);
+      } else if (event.type === "streakPop") {
+        playStreakPop(this, event);
       } else if (event.type === "learnPopup") {
         this.showPopup(event);
       }

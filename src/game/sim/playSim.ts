@@ -160,6 +160,7 @@ import {
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   applyShieldBreakInvuln,
+  applyStreakEngineInvuln,
   bankShields,
   clearUpgradeTimers,
   shieldPelletsCap,
@@ -179,6 +180,7 @@ import {
   hauntedGhost,
   hauntedGhostEid,
   nearMissCharge,
+  streakEngineEvery,
   moneyTalksCost,
   interestPayout,
   deathsHarvestRadiusTiles,
@@ -252,6 +254,7 @@ import { Velocity } from "../components/Velocity";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
 import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
+import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
@@ -360,6 +363,8 @@ export class PlaySim {
   private deathsThisBoard = 0;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
   private nearMissesPaid = 0;
+  private streakPopCount = 0;
+  private lastStreakPop: number | null = null;
   private quarters = 0;
   private bonus: BonusBar;
   private lastPlayerCell: Cell | null = null;
@@ -642,6 +647,7 @@ export class PlaySim {
       deathsThisBoard: this.deathsThisBoard,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       nearMissesPaid: this.nearMissesPaid,
+      streakPops: { count: this.streakPopCount, last: this.lastStreakPop },
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
@@ -953,7 +959,7 @@ export class PlaySim {
               secondChompMs(this.effectiveUpgrades()),
             );
           }
-          this.applyBonus(applyStreakPellets(this.bonus, dash.sweptCells));
+          const dashStreakFires = this.applyStreakCells(dash.sweptCells);
           const collectResult = applyPelletCollect(
             this.pelletProgress,
             dash.sweptPelletEids.length,
@@ -965,6 +971,9 @@ export class PlaySim {
             dash.sweptPowerRemoved > 0 &&
             this.resolvePowerPelletTrigger(dash.sweptPowerRemoved)
           ) {
+            return;
+          }
+          if (this.fireStreakEngine(dashStreakFires)) {
             return;
           }
           if (collectResult.shouldRecordClear) {
@@ -1001,8 +1010,9 @@ export class PlaySim {
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);
     }
+    let streakFires = 0;
     if (playerFrame.removedCells.length > 0) {
-      this.applyBonus(applyStreakPellets(this.bonus, playerFrame.removedCells));
+      streakFires = this.applyStreakCells(playerFrame.removedCells);
     } else {
       this.bonus = tickStreakIdle(this.bonus, delta, this.currentTuning.bonusStreakIdleMs);
     }
@@ -1058,6 +1068,9 @@ export class PlaySim {
       this.lifetimeCollected += totalRemoved;
     }
     this.notePellets();
+    if (this.fireStreakEngine(streakFires)) {
+      return;
+    }
 
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
@@ -1268,6 +1281,39 @@ export class PlaySim {
     if (result.tier > 0 || result.filled > 0) {
       this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
     }
+  }
+
+  private applyStreakCells(cells: readonly Cell[]): number {
+    const prevStreak = this.bonus.streak;
+    this.applyBonus(applyStreakPellets(this.bonus, cells));
+    const every = streakEngineEvery(this.effectiveUpgrades());
+    if (every === null) {
+      return 0;
+    }
+    for (const pop of streakPops(prevStreak, this.bonus.streak, every)) {
+      const cell = cells[pop.cellIndex]!;
+      this.streakPopCount += 1;
+      this.lastStreakPop = pop.value;
+      this.emit({
+        type: "streakPop",
+        value: pop.value,
+        x: cellCenterX(cell.col),
+        y: cellCenterY(cell.row),
+      });
+    }
+    return streakEngineFires(prevStreak, this.bonus.streak, every);
+  }
+
+  private fireStreakEngine(fires: number): boolean {
+    for (let fired = 0; fired < fires; fired += 1) {
+      this.recorder.activation("streakEngine");
+      const ended = this.resolvePowerPelletTrigger(1);
+      this.runUpgrades = applyStreakEngineInvuln(this.runUpgrades, this.effectiveUpgrades());
+      if (ended) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private payDeathsBounty(): boolean {

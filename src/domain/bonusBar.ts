@@ -1,7 +1,7 @@
 import { DEFAULT_TUNING } from "./tuning";
 
 export const BONUS_BAR_MAX = 300;
-const BONUS_STREAK_TIER_SIZE = 5;
+export const BONUS_STREAK_TIER_SIZE = 5;
 export const BONUS_STREAK_IDLE_MS = DEFAULT_TUNING.bonusStreakIdleMs;
 export const FRUIT_BONUS_CHARGE = BONUS_BAR_MAX / 2;
 const BONUS_TIER_BUMPS = [2, 3, 5, 8, 12, 16] as const;
