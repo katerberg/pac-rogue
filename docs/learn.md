@@ -6,11 +6,12 @@ live.
 
 ## Seen record
 
-Only ghosts and upgrades this machine has met in real play are selectable.
+All four ghosts are always selectable. Only upgrades this machine has met in real play are listed.
 
 - [`src/domain/seenRecord.ts`](../src/domain/seenRecord.ts): `SeenRecord` (`ghosts`,
   `upgrades`), parse/serialize, `withSeenGhosts` / `withSeenUpgrade` merges
-  (return the same object when nothing is new), `allSeenRecord`, `parseLearnAllMode`.
+  (return the same object when nothing is new), `allSeenRecord`, `learnSeenRecord`,
+  `parseLearnAllMode`.
 - [`src/game/storage/seenRecordStorage.ts`](../src/game/storage/seenRecordStorage.ts): localStorage
   key `pac-rogue.seen.v1`. Missing, unreadable, or malformed data → empty record; a record saved
   before `upgrades` existed parses with `upgrades: []`, and a legacy `corruptions` field is ignored and
@@ -20,15 +21,13 @@ Only ghosts and upgrades this machine has met in real play are selectable.
   set, the level-1 starting-upgrade grant, and a level-clear modal confirm — an upgrade only ever
   seen via `?enableUpgrade=` still counts as seen.
 - `?learnAll=1|0` (without `?play=1`) boots straight into LEARN instead of the menu; `play=1` wins.
-- `?learnAll=1` treats every ghost and upgrade as seen without touching storage.
-  `?learnAll=0` treats **nothing** as seen — overriding real localStorage — useful for exercising the
-  empty `PLAY TO MEET GHOSTS` state on demand. Either way the seen record is read-only in Learn; only
+- `?learnAll=1` lists every upgrade without touching storage. `?learnAll=0` lists **none** —
+  overriding real localStorage. Either way the seen record is read-only in Learn; only
   `PlayScene` ever writes it.
 
 ## Screen
 
-- Title, then four ghost slots (Blinky, Pinky, Inky, Clyde). Unseen slots show a black silhouette
-  and cannot be picked. The selected slot has a yellow frame.
+- Title, then four ghost slots (Blinky, Pinky, Inky, Clyde). The selected slot has a yellow frame.
 - Seen upgrades are listed beside the maze, grouped under a colored school header
   (`groupUpgradesBySchool`, `UPGRADE_SCHOOL_ORDER`; empty schools are skipped). `splitSchoolColumns`
   ([`src/domain/learnUpgradeColumns.ts`](../src/domain/learnUpgradeColumns.ts)) fills the left column
@@ -55,12 +54,11 @@ Only ghosts and upgrades this machine has met in real play are selectable.
   gains a `+` while enhanced. The preview card and the "no visible effect" banner use the owned form.
   Toggling the row off removes whichever form is owned; Pellet Surge's enhance converts one more
   pellet at once.
-- Nothing seen yet → `PLAY TO MEET GHOSTS` over the maze; only Maze-Man spawns.
 
 ## Controls
 
 Arrows / WASD move, `1`–`4` or click select a ghost slot, click toggles an upgrade,
-hover an upgrade row to preview it, Esc or **BACK** returns to the menu. The first seen ghost is
+hover an upgrade row to preview it, Esc or **BACK** returns to the menu. Blinky is
 selected on entry.
 
 ## Overlay
