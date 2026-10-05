@@ -4,6 +4,9 @@ import type { LineArt, LinePaint } from "../../domain/lineArt";
 
 export const CLYDE_LINE_COLOR = 0xffb852;
 const LINE_GLOW_QUALITY = 24;
+// The glow is filtered without anti-aliasing, so its silhouette edge is jagged. Its outline is
+// this much narrower (canvas px) than the crisp one, keeping that edge hidden under the stroke.
+const GLOW_SOURCE_INSET_PX = 2;
 
 export type LineArtObject = {
   art: Phaser.GameObjects.Graphics;
@@ -48,7 +51,12 @@ function drawStrands(
       g.fillPoints(points, true);
     }
     if (strand.stroke !== "none") {
-      g.lineStyle(look.lineWidth * art.width * unit, resolvePaint(strand.stroke, color), 1);
+      const width = look.lineWidth * art.width * unit;
+      g.lineStyle(
+        backdrop === null ? Math.max(0, width - GLOW_SOURCE_INSET_PX) : width,
+        resolvePaint(strand.stroke, color),
+        1,
+      );
       g.strokePoints(points, strand.closed, strand.closed);
     }
   }
