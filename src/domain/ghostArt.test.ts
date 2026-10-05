@@ -47,12 +47,12 @@ describe("ghostLineArtLook", () => {
     });
   });
 
-  it("defaults to a soft glow, a 4.5% line and pixel-ghost width", () => {
+  it("defaults to the tuned soft glow, 6.5% line and stretch", () => {
     expect(ghostLineArtLook(resolveTuning({}))).toEqual({
-      glow: { outerStrength: 1.2, distancePx: 6 },
-      lineWidth: 0.045,
-      widthScale: 1.24,
-      heightScale: 1,
+      glow: { outerStrength: 1.6, distancePx: 6 },
+      lineWidth: 0.065,
+      widthScale: 1.16,
+      heightScale: 1.14,
     });
   });
 

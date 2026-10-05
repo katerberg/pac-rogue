@@ -9,6 +9,7 @@ export type LineArtObject = {
   art: Phaser.GameObjects.Graphics;
   glow: Phaser.GameObjects.Graphics | null;
   color: number;
+  backdrop: number;
   look: GhostLineArtLook;
   glowUnit: number;
 };
@@ -22,7 +23,7 @@ function drawStrands(
   art: LineArt,
   color: number,
   look: GhostLineArtLook,
-  glowSource: boolean,
+  backdrop: number | null,
   unit = 1,
 ): void {
   g.clear();
@@ -37,8 +38,13 @@ function drawStrands(
         ),
     );
     if (strand.fill !== "none") {
-      // An opaque silhouette makes the Glow filter emit only outside the body.
-      g.fillStyle(resolvePaint(strand.fill, color), glowSource ? 1 : strand.fillOpacity);
+      // backdrop null = glow source: an opaque silhouette makes the Glow emit only outside.
+      // Otherwise translucent fills sit on an opaque backdrop so nothing shows through.
+      if (backdrop !== null && strand.fillOpacity < 1) {
+        g.fillStyle(backdrop, 1);
+        g.fillPoints(points, true);
+      }
+      g.fillStyle(resolvePaint(strand.fill, color), backdrop === null ? 1 : strand.fillOpacity);
       g.fillPoints(points, true);
     }
     if (strand.stroke !== "none") {
@@ -52,6 +58,7 @@ export function createLineArtObject(
   scene: Phaser.Scene,
   art: LineArt,
   color: number,
+  backdrop: number,
   size: number,
   look: GhostLineArtLook,
   withGlow: boolean,
@@ -62,7 +69,7 @@ export function createLineArtObject(
   let glow: Phaser.GameObjects.Graphics | null = null;
   if (withGlow && look.glow !== null) {
     glow = scene.add.graphics().setScale(1 / pixelsPerWorld);
-    drawStrands(glow, art, color, look, true, glowUnit);
+    drawStrands(glow, art, color, look, null, glowUnit);
     // Graphics have no bounds, so Phaser would filter the whole screen every frame.
     // Focus the filter on the art box plus the glow reach, one texel per canvas pixel.
     const reach = Math.ceil(look.glow.distancePx * pixelsPerWorld);
@@ -85,17 +92,23 @@ export function createLineArtObject(
     );
   }
   const artGraphics = scene.add.graphics().setScale(scale);
-  drawStrands(artGraphics, art, color, look, false);
-  return { art: artGraphics, glow, color, look, glowUnit };
+  drawStrands(artGraphics, art, color, look, backdrop);
+  return { art: artGraphics, glow, color, backdrop, look, glowUnit };
 }
 
-export function restyleLineArtObject(obj: LineArtObject, art: LineArt, color: number): void {
-  drawStrands(obj.art, art, color, obj.look, false);
+export function restyleLineArtObject(
+  obj: LineArtObject,
+  art: LineArt,
+  color: number,
+  backdrop: number,
+): void {
+  drawStrands(obj.art, art, color, obj.look, backdrop);
   if (obj.glow !== null) {
-    drawStrands(obj.glow, art, color, obj.look, true, obj.glowUnit);
+    drawStrands(obj.glow, art, color, obj.look, null, obj.glowUnit);
     (obj.glow.filters!.internal.list[0] as Phaser.Filters.Glow).color = color;
   }
   obj.color = color;
+  obj.backdrop = backdrop;
 }
 
 export function placeLineArtObject(obj: LineArtObject, x: number, y: number, alpha: number): void {

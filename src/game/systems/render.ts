@@ -537,14 +537,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
               scene,
               lineArt,
               color,
+              wallStyle.background,
               size,
               ghostLook,
               glow,
               renderScaleOf(scene),
             );
             lineArtObjects.set(key, obj);
-          } else if (obj.color !== color) {
-            restyleLineArtObject(obj, lineArt, color);
+          } else if (obj.color !== color || obj.backdrop !== wallStyle.background) {
+            restyleLineArtObject(obj, lineArt, color, wallStyle.background);
           }
           placeLineArtObject(obj, px, py, alpha);
         };

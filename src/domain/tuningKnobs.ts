@@ -202,7 +202,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   ghostLineWidth:
     "Outline thickness of line-art ghosts, as a percent of the ghost's size. Visual only; collision is unchanged.",
   ghostWidth:
-    "Horizontal stretch of line-art ghosts. 1.24 makes the body as wide as the pixel ghosts. Visual only; collision is unchanged.",
+    "Horizontal stretch of line-art ghosts. About 1.2 makes the body as wide as the pixel ghosts. Visual only; collision is unchanged.",
   ghostHeight:
     "Vertical stretch of line-art ghosts. 1 = the SVG's own proportions. Visual only; collision is unchanged.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
