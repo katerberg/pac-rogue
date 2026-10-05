@@ -57,7 +57,7 @@ describe("LearnSim", () => {
     expect(worldSnapshot(sim.world).optionalPellets).toBe(0);
   });
 
-  it("Afterburner speeds the player up only when entering a cell without a pellet", () => {
+  it("Afterburner speeds the player up faster entering an empty cell and slower entering a pellet cell", () => {
     const sim = new LearnSim("learn");
     sim.start();
     const player = query(sim.world, [Player, Position])[0]!;
@@ -83,7 +83,7 @@ describe("LearnSim", () => {
     const base = speedWhenMoving(1);
     sim.toggleUpgrade("passiveAfterburner");
     place();
-    expect(speedWhenMoving(1)).toBeCloseTo(base);
+    expect(speedWhenMoving(1)).toBeCloseTo(base * 0.9);
     place();
     expect(speedWhenMoving(-1)).toBeCloseTo(base * 1.3);
   });

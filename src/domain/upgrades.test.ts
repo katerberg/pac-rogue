@@ -80,7 +80,7 @@ import {
   pickUpgradeChoiceOffer,
   pelletCollectRadiusBonusPx,
   playerIsInvulnerable,
-  emptyCellSpeedMultiplier,
+  cellSpeedMultiplier,
   playerSpeedMultiplier,
   queuePowerPelletRespawns,
   SECOND_CHOMP_MS,
@@ -654,13 +654,12 @@ describe("speed burst / power pellet", () => {
     both = { ...both, speedBurstRemainingMs: SPEED_BURST_MS };
     expect(playerSpeedMultiplier(both.owned)).toBe(1);
     expect(
-      emptyCellSpeedMultiplier(both.owned, true) *
-        (speedBurstActive(both) ? PLAYER_SPEED_BURST_MUL : 1),
+      cellSpeedMultiplier(both.owned, true) * (speedBurstActive(both) ? PLAYER_SPEED_BURST_MUL : 1),
     ).toBe(AFTERBURNER_MUL * PLAYER_SPEED_BURST_MUL);
 
     const expired = { ...both, speedBurstRemainingMs: 0 };
     expect(
-      emptyCellSpeedMultiplier(expired.owned, true) *
+      cellSpeedMultiplier(expired.owned, true) *
         (speedBurstActive(expired) ? PLAYER_SPEED_BURST_MUL : 1),
     ).toBe(AFTERBURNER_MUL);
   });
@@ -1066,10 +1065,11 @@ describe("enhanced upgrades", () => {
   });
 
   it("returns base versus enhanced numbers from the owned list", () => {
-    expect(emptyCellSpeedMultiplier(["passiveAfterburner"], true)).toBe(1.3);
-    expect(emptyCellSpeedMultiplier(["passiveAfterburnerPlus"], true)).toBe(1.5);
-    expect(emptyCellSpeedMultiplier(["passiveAfterburnerPlus"], false)).toBe(1);
-    expect(emptyCellSpeedMultiplier([], true)).toBe(1);
+    expect(cellSpeedMultiplier(["passiveAfterburner"], true)).toBe(1.3);
+    expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], true)).toBe(1.5);
+    expect(cellSpeedMultiplier(["passiveAfterburner"], false)).toBe(0.9);
+    expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], false)).toBe(0.9);
+    expect(cellSpeedMultiplier([], true)).toBe(1);
     expect(AFTERBURNER_ENHANCED_MUL).toBe(1.5);
     expect(ghostSpeedMultiplier(["passiveGhostSlow"])).toBe(0.8);
     expect(ghostSpeedMultiplier(["passiveGhostSlowPlus"])).toBe(0.65);

@@ -37,6 +37,7 @@ import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   baseIdOf,
+  cellSpeedMultiplier,
   enhancedIdOf,
   deathsHarvestRadiusTiles,
   defyDeathActive,
@@ -85,7 +86,6 @@ import {
   ghostSpeedMultiplier,
   grantUpgrade,
   pelletCollectRadiusBonusPx,
-  emptyCellSpeedMultiplier,
   playerSpeedMultiplier,
   revokeUpgrade,
   speedBurstActive,
@@ -337,7 +337,7 @@ export class LearnSim {
       this.world,
       levelSpeedMul *
         playerSpeedMultiplier(this.learnUpgrades.owned) *
-        emptyCellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
+        cellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
         (speedBurstActive(this.learnUpgrades)
           ? speedBurstMultiplier(this.learnUpgrades.owned)
           : 1) *
