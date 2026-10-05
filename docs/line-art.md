@@ -10,7 +10,7 @@ A prototype of thin neon line art next to the pixel art. On levels 5–8 Clyde i
 - **The canvas is CSS-smoothed** (`image-rendering: auto` in `src/styles.css`). The 3× canvas is downscaled to fit the window, and nearest downscaling would make thin lines shimmer.
 - **Glow** uses Phaser 4's `Glow` filter, as a knockout (glow-only) layer under the crisp art:
   - Vector actors: one glow Graphics per actor, holding only the strokes. Its filter is focused on the art box plus the glow reach. Graphics have no bounds, and without that focus Phaser would filter the whole screen every frame.
-  - Maze walls: the glow is static, so it is filtered once into a full-resolution `RenderTexture` whenever the wall style changes (`renderGlowTexture`). Strength comes from `wallGlowFilter` (`src/domain/wallStyle.ts`). It is on by default (`DEFAULT_TUNING.wallGlow` = 0.6).
+  - Maze walls: the glow is static, so it is filtered once into a full-resolution `RenderTexture` whenever the wall style changes (in `render.ts`). Strength comes from `wallGlowFilter` (`src/domain/wallStyle.ts`). It is on by default (`DEFAULT_TUNING.wallGlow` = 0.6).
 
 Code: `src/domain/lineArt.ts` (parser, pure), `src/game/systems/lineArtRender.ts` (Phaser drawing), and the line-art branch of `src/game/systems/render.ts`.
 
@@ -32,7 +32,7 @@ Each strand becomes `{ id, points: {x, y, s}[], length, closed, stroke, fill, fi
 ## Adding a vector actor
 
 1. Put the SVG under `src/game/art/` and parse it once with `parseLineArt` (`import svg from "./x.svg?raw"`, like `clydeArt.ts`). Add a test that pins its strands.
-2. Map its drawable id in `render.ts`: `LINE_ART_BY_DRAWABLE_ID` and `LINE_COLOR_BY_DRAWABLE_ID`.
+2. Map its drawable id in `render.ts`: `LINE_ART_BY_DRAWABLE_ID` (art + colour).
 3. Decide when it is vector in a pure domain rule, like `ghostArtStyle` in `src/domain/ghostArt.ts`. `PlaySim.renderOptions()` sends the matching ids as `lineArtDrawableIds`, and `snapshot().lineArtGhosts` exposes them to probes. `render.ts` only acts on what it is told. With the option absent (e.g. LEARN), everything stays pixel art.
 
 Frozen ghosts recolour the line, fill and glow cyan (the eyes stay white). Dimming uses alpha. Warp-glide afterimages are vector copies without glow.

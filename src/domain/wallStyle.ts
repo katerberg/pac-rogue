@@ -11,7 +11,7 @@ export type WallStyle = {
   background: number;
 };
 
-export const WALL_GLOW_MAX_OUTER = 4;
+const WALL_GLOW_MAX_OUTER = 4;
 
 export function wallStyleFor(tuning: Tuning | null, mazeColorIndex: number): WallStyle {
   if (tuning === null) {

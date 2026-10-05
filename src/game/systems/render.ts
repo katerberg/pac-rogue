@@ -23,7 +23,6 @@ import {
   createLineArtObject,
   destroyLineArtObject,
   placeLineArtObject,
-  renderGlowTexture,
   restyleLineArtObject,
   type LineArtObject,
 } from "./lineArtRender";
@@ -83,11 +82,8 @@ export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [INKY_DRAWABLE_ID]: INKY_TEXTURE_KEY,
   [CLYDE_DRAWABLE_ID]: CLYDE_TEXTURE_KEY,
 };
-const LINE_ART_BY_DRAWABLE_ID: Record<string, LineArt> = {
-  [CLYDE_DRAWABLE_ID]: CLYDE_LINE_ART,
-};
-const LINE_COLOR_BY_DRAWABLE_ID: Record<string, number> = {
-  [CLYDE_DRAWABLE_ID]: CLYDE_LINE_COLOR,
+const LINE_ART_BY_DRAWABLE_ID: Record<string, { art: LineArt; color: number }> = {
+  [CLYDE_DRAWABLE_ID]: { art: CLYDE_LINE_ART, color: CLYDE_LINE_COLOR },
 };
 const WALL_GLOW_QUALITY = 10;
 const BOSS_PELLET_SIZE_MUL = 2;
@@ -297,7 +293,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     .renderTexture(0, 0, PLAYFIELD_WIDTH * RENDER_SCALE, PLAYFIELD_HEIGHT * RENDER_SCALE)
     .setOrigin(0, 0)
     .setScale(1 / RENDER_SCALE);
-  const wallGlowSource = scene.make.graphics({}, false);
+  const wallGlowSource = scene.make.graphics({}, false).enableFilters();
+  wallGlowSource.filtersAutoFocus = false;
+  wallGlowSource.filtersFocusContext = false;
+  wallGlowSource.setFilterSize(wallGlowTexture.width, wallGlowTexture.height);
+  wallGlowSource.filterCamera.setOrigin(0, 0);
   const wallGraphics = scene.add.graphics();
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
@@ -398,19 +398,24 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
       strokeWallPath(wallGraphics, commands, wallStyle, 1);
+      // The glow is static: filter it once at full resolution into a texture.
       const glow = wallGlowFilter(wallStyle);
+      wallGlowTexture.clear();
       if (glow !== null) {
         strokeWallPath(wallGlowSource, commands, wallStyle, RENDER_SCALE);
+        wallGlowSource.filters!.internal.clear();
+        wallGlowSource.filters!.internal.addGlow(
+          wallStyle.color,
+          glow.outerStrength,
+          0,
+          1,
+          true,
+          WALL_GLOW_QUALITY,
+          glow.distance * RENDER_SCALE,
+        );
+        wallGlowTexture.draw(wallGlowSource);
       }
-      renderGlowTexture(
-        wallGlowTexture,
-        wallGlowSource,
-        wallStyle.color,
-        glow === null
-          ? null
-          : { outerStrength: glow.outerStrength, distance: glow.distance * RENDER_SCALE },
-        WALL_GLOW_QUALITY,
-      );
+      wallGlowTexture.render();
       if (wallStyleOverride !== null) {
         scene.cameras.main.setBackgroundColor(wallStyle.background);
       }
@@ -484,10 +489,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           : null;
       const ghostAlpha = dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1;
 
-      const lineArt = lineArtIds.has(id) ? LINE_ART_BY_DRAWABLE_ID[id] : undefined;
-      if (lineArt !== undefined) {
+      const lineArtEntry = lineArtIds.has(id) ? LINE_ART_BY_DRAWABLE_ID[id] : undefined;
+      if (lineArtEntry !== undefined) {
         destroyImage(primaryKey);
-        const look = { color: ghostTint ?? LINE_COLOR_BY_DRAWABLE_ID[id]! };
+        const lineArt = lineArtEntry.art;
+        const color = ghostTint ?? lineArtEntry.color;
         const placeLineArt = (
           key: string,
           glow: boolean,
@@ -498,10 +504,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           alive.add(key);
           let obj = lineArtObjects.get(key);
           if (!obj) {
-            obj = createLineArtObject(scene, lineArt, look, size, glow);
+            obj = createLineArtObject(scene, lineArt, color, size, glow);
             lineArtObjects.set(key, obj);
-          } else if (obj.color !== look.color) {
-            restyleLineArtObject(obj, lineArt, look);
+          } else if (obj.color !== color) {
+            restyleLineArtObject(obj, lineArt, color);
           }
           placeLineArtObject(obj, px, py, alpha);
         };
