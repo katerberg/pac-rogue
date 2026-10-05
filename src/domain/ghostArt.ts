@@ -1,16 +1,19 @@
-import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import type { GhostKindId } from "./ghostKind";
 import type { Tuning } from "./tuning";
 
-export type GhostArtStyle = "pixel" | "line";
+export type GhostStyle = "neon" | "pixel";
 
-export const LINE_ART_CLYDE_LEVELS = { first: 5, last: 8 } as const;
+export const DEFAULT_GHOST_STYLE: GhostStyle = "neon";
 
-export function ghostArtStyle(kind: GhostKindId, levelIndex: number): GhostArtStyle {
-  return kind === GHOST_KIND.clyde &&
-    levelIndex >= LINE_ART_CLYDE_LEVELS.first &&
-    levelIndex <= LINE_ART_CLYDE_LEVELS.last
-    ? "line"
-    : "pixel";
+export function parseGhostStyle(raw: string | null): GhostStyle {
+  return raw === "neon" || raw === "pixel" ? raw : DEFAULT_GHOST_STYLE;
+}
+
+export function lineArtGhostKinds(
+  style: GhostStyle,
+  presentKinds: Iterable<GhostKindId>,
+): GhostKindId[] {
+  return style === "neon" ? [...new Set(presentKinds)] : [];
 }
 
 export type GhostGlow = { outerStrength: number; distancePx: number };

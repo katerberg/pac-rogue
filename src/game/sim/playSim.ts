@@ -65,7 +65,7 @@ import {
 } from "../../domain/fruit";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import { ghostArtStyle } from "../../domain/ghostArt";
+import { DEFAULT_GHOST_STYLE, lineArtGhostKinds, type GhostStyle } from "../../domain/ghostArt";
 import {
   createGhostModeClock,
   GHOST_AI_MODE,
@@ -419,6 +419,7 @@ export class PlaySim {
   private prevKeys: HeldKeys = NO_KEYS_HELD;
 
   private currentTuning: Tuning;
+  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
   private readonly recorder: RunRecorder;
 
   constructor(
@@ -442,6 +443,10 @@ export class PlaySim {
 
   setTuning(tuning: Tuning): void {
     this.currentTuning = tuning;
+  }
+
+  setGhostStyle(style: GhostStyle): void {
+    this.ghostStyle = style;
   }
 
   start(): SimEvent[] {
@@ -652,14 +657,13 @@ export class PlaySim {
   }
 
   private lineArtGhostKinds(): GhostKindId[] {
-    const kinds = new Set<GhostKindId>();
-    for (const eid of query(this.world, [Ghost, GhostKind])) {
-      const kind = GhostKind.kind[eid] as GhostKindId;
-      if (ghostArtStyle(kind, this.levelIndex) === "line") {
-        kinds.add(kind);
-      }
-    }
-    return [...kinds];
+    return lineArtGhostKinds(
+      this.ghostStyle,
+      Array.from(
+        query(this.world, [Ghost, GhostKind]),
+        (eid) => GhostKind.kind[eid] as GhostKindId,
+      ),
+    );
   }
 
   snapshot() {

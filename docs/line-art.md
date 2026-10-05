@@ -1,6 +1,6 @@
 # Line art (vector sprites)
 
-A prototype of thin neon line art next to the pixel art. On levels 5–8 Clyde is drawn from a hand-written SVG; every other sprite is still a PNG, in the same frame. Nothing is animated yet, but the SVG is parsed into point lists that carry distance along the path, so a later "unspool" (trim the stroke away along its path) needs no data rework.
+Thin neon line art next to the pixel art. By default every ghost (in play, in LEARN and on the LEARN picker) is drawn from one hand-written SVG, `src/game/art/ghost.svg`, in its own neon colour; every other sprite is still a PNG, in the same frame. Settings → **GHOSTS** (NEON / PIXEL, stored as `pac-rogue.ghost-style.v1`) switches all ghosts back to the pixel PNGs. Nothing is animated yet, but the SVG is parsed into point lists that carry distance along the path, so a later "unspool" (trim the stroke away along its path) needs no data rework.
 
 ## Rendering model
 
@@ -30,10 +30,10 @@ Each strand becomes `{ id, points: {x, y, s}[], length, closed, stroke, fill, fi
 
 ## Adding a vector actor
 
-1. Put the SVG under `src/game/art/` and parse it once with `parseLineArt` (`import svg from "./x.svg?raw"`, like `clydeArt.ts`). Add a test that pins its strands.
-2. Map its drawable id in `render.ts`: `LINE_ART_BY_DRAWABLE_ID` (art + colour).
-3. Decide when it is vector in a pure domain rule, like `ghostArtStyle` in `src/domain/ghostArt.ts`. `PlaySim.renderOptions()` sends the matching ids as `lineArtDrawableIds`, and `snapshot().lineArtGhosts` exposes them to probes. `render.ts` only acts on what it is told. With the option absent (e.g. LEARN), everything stays pixel art.
+1. Put the SVG under `src/game/art/` and parse it once with `parseLineArt` (`import svg from "./x.svg?raw"`, like `ghostLineArt.ts`). Add a test that pins its strands.
+2. Map its drawable id in `render.ts`: `LINE_ART_BY_DRAWABLE_ID` (art + colour). The four ghosts share `GHOST_LINE_ART` with colours blinky `#ff5a5a`, pinky `#ff9ce6`, inky `#5ff2ff`, clyde `#ffb852`.
+3. Decide when it is vector in a pure domain rule, like `lineArtGhostKinds(style, presentKinds)` in `src/domain/ghostArt.ts`. `PlaySim` and `LearnSim` (both `setGhostStyle`, called by their scenes from the stored setting) send the matching ids as `lineArtDrawableIds`, and `PlaySim.snapshot().lineArtGhosts` exposes them to probes. `render.ts` only acts on what it is told; with the option absent everything stays pixel art. Static pictures outside the maze (the LEARN picker) use `addGhostIcon` from `render.ts`.
 
-Translucent fills (the body's 0.25 tint) sit on an opaque layer of the maze background colour, so nothing behind a line-art ghost (Dot-Man, pellets) shows through. Frozen ghosts recolour the line, fill and glow cyan (the eyes stay white). Dimming uses alpha. Warp-glide afterimages are vector copies without glow.
+Translucent fills (the body's 0.25 tint) sit on an opaque layer of the maze background colour, so nothing behind a line-art ghost (Dot-Man, pellets) shows through. Frozen ghosts recolour the line, fill and glow icy white (`#e6f6ff`; the pixel freeze tint would read as Inky's cyan). The eyes stay white. Dimming uses alpha. Warp-glide afterimages are vector copies without glow.
 
-Collision never depends on the drawing: every ghost catches with the same body circle (`Drawable.radius = ghostRadius()`, set in `PlaySim`), so glow, thickness and width are visual only (pinned by the PlaySim "line-art Clyde" test).
+Collision never depends on the drawing: every ghost catches with the same body circle (`Drawable.radius = ghostRadius()`, set in `PlaySim`), so glow, thickness and width are visual only (pinned by the PlaySim "ghost style" tests).

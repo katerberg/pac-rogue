@@ -17,9 +17,8 @@ import {
   type WallStyle,
 } from "../../domain/wallStyle";
 import type { LineArt } from "../../domain/lineArt";
-import { CLYDE_LINE_ART } from "../art/clydeArt";
+import { GHOST_LINE_ART } from "../art/ghostLineArt";
 import {
-  CLYDE_LINE_COLOR,
   createLineArtObject,
   destroyLineArtObject,
   placeLineArtObject,
@@ -49,6 +48,7 @@ import {
   ghostLineArtLook,
   sameGhostLineArtLook,
   type GhostLineArtLook,
+  type GhostStyle,
 } from "../../domain/ghostArt";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { DEFAULT_TUNING } from "../../domain/tuning";
@@ -90,8 +90,13 @@ export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [CLYDE_DRAWABLE_ID]: CLYDE_TEXTURE_KEY,
 };
 const LINE_ART_BY_DRAWABLE_ID: Record<string, { art: LineArt; color: number }> = {
-  [CLYDE_DRAWABLE_ID]: { art: CLYDE_LINE_ART, color: CLYDE_LINE_COLOR },
+  [BLINKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xff5a5a },
+  [PINKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xff9ce6 },
+  [INKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0x5ff2ff },
+  [CLYDE_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xffb852 },
 };
+// Icy white: the pixel frozen tint (pale blue) would read as Inky's neon cyan.
+const LINE_ART_FROZEN_COLOR = 0xe6f6ff;
 const WALL_GLOW_QUALITY = 10;
 const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
@@ -201,6 +206,37 @@ function textureKeyForDrawable(drawableId: string): string {
     return FRUIT_TEXTURE_KEY;
   }
   return pelletTextureKey(drawableId);
+}
+
+/** A static ghost picture (menus, pickers) in the chosen ghost style. */
+export function addGhostIcon(
+  scene: Phaser.Scene,
+  drawableId: string,
+  x: number,
+  y: number,
+  size: number,
+  style: GhostStyle,
+): void {
+  const lineArt = LINE_ART_BY_DRAWABLE_ID[drawableId];
+  if (style === "pixel" || lineArt === undefined) {
+    scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+    return;
+  }
+  const background = wallStyleFor(
+    null,
+    clampMazeColorIndex(loadMazeColorSettings().colorIndex),
+  ).background;
+  const icon = createLineArtObject(
+    scene,
+    lineArt.art,
+    lineArt.color,
+    background,
+    size,
+    ghostLineArtLook(DEFAULT_TUNING),
+    true,
+    renderScaleOf(scene),
+  );
+  placeLineArtObject(icon, x, y, 1);
 }
 
 export function preloadPlayArt(scene: Phaser.Scene): void {
@@ -540,7 +576,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       if (lineArtEntry !== undefined) {
         destroyImage(primaryKey);
         const lineArt = lineArtEntry.art;
-        const color = ghostTint ?? lineArtEntry.color;
+        const color = ghostTint === null ? lineArtEntry.color : LINE_ART_FROZEN_COLOR;
         const placeLineArt = (
           key: string,
           glow: boolean,

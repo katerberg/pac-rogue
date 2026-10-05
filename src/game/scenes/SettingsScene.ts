@@ -6,6 +6,7 @@ import {
   type AudioCategory,
   type AudioSettings,
 } from "../../domain/audioSettings";
+import type { GhostStyle } from "../../domain/ghostArt";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import {
@@ -23,6 +24,7 @@ import {
   type SfxId,
 } from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
+import { loadGhostStyle, saveGhostStyle } from "../storage/ghostStyleStorage";
 import { loadMazeColorSettings, saveMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   addPixelText,
@@ -35,8 +37,9 @@ import {
 import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
-const FOCUS_BACK = 3;
-const FOCUS_COUNT = 4;
+const FOCUS_GHOST_STYLE = 3;
+const FOCUS_BACK = 4;
+const FOCUS_COUNT = 5;
 
 const ROW_Y: Record<AudioCategory, number> = {
   music: 200,
@@ -68,7 +71,13 @@ const MAZE_COLOR_SWATCH_GAP = 48;
 const MAZE_COLOR_SWATCH_RADIUS = 10;
 const MAZE_COLOR_CURSOR_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 5;
 const MAZE_COLOR_ACTIVE_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 2;
-const AUDIO_DISABLED_WARNING_Y = 440;
+const GHOST_STYLE_ROW_Y = 440;
+const GHOST_STYLE_OPTIONS: { style: GhostStyle; label: string; x: number }[] = [
+  { style: "neon", label: "NEON", x: SLIDER_LEFT },
+  { style: "pixel", label: "PIXEL", x: SLIDER_LEFT + 120 },
+];
+const AUDIO_DISABLED_WARNING_Y = 500;
+const BACK_Y = PLAYFIELD_HEIGHT - 50;
 
 type CategoryRow = {
   category: AudioCategory;
@@ -100,6 +109,10 @@ export class SettingsScene extends Phaser.Scene {
   private mazeColorLabel!: Phaser.GameObjects.BitmapText;
   private mazeColorCursorRing!: Phaser.GameObjects.Arc;
   private mazeColorActiveRing!: Phaser.GameObjects.Arc;
+
+  private ghostStyle: GhostStyle = "neon";
+  private ghostStyleLabel!: Phaser.GameObjects.BitmapText;
+  private ghostStyleTexts: Phaser.GameObjects.BitmapText[] = [];
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -140,6 +153,7 @@ export class SettingsScene extends Phaser.Scene {
     syncMusicPlayback(this, this.musicId, this.settings);
     this.mazeColorSettings = loadMazeColorSettings();
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
+    this.ghostStyle = loadGhostStyle();
 
     this.add.rectangle(
       PLAYFIELD_WIDTH / 2,
@@ -157,6 +171,7 @@ export class SettingsScene extends Phaser.Scene {
     }
 
     this.createMazeColorRow();
+    this.createGhostStyleRow();
 
     if (this.audioDisabled) {
       const warning = addPixelText(
@@ -173,12 +188,12 @@ export class SettingsScene extends Phaser.Scene {
     this.backText = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
-      PLAYFIELD_HEIGHT - 80,
+      BACK_Y,
       "> BACK",
       MENU_OPTION_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     );
-    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
+    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
     this.backText.setInteractive({ useHandCursor: true });
     this.backText.on("pointerdown", () => {
       this.goBack();
@@ -253,6 +268,13 @@ export class SettingsScene extends Phaser.Scene {
     } else if (
       this.moveCooldownMs === 0 &&
       (left || right) &&
+      this.focusIndex === FOCUS_GHOST_STYLE
+    ) {
+      this.toggleGhostStyle();
+      this.moveCooldownMs = 120;
+    } else if (
+      this.moveCooldownMs === 0 &&
+      (left || right) &&
       this.rows[this.focusIndex] !== undefined
     ) {
       this.nudgeFocusedLevel(left ? -1 : 1);
@@ -267,6 +289,8 @@ export class SettingsScene extends Phaser.Scene {
         this.pendingBack = true;
       } else if (this.focusIndex === FOCUS_MAZE_COLOR) {
         this.commitMazeColor();
+      } else if (this.focusIndex === FOCUS_GHOST_STYLE) {
+        this.toggleGhostStyle();
       } else {
         const row = this.rows[this.focusIndex];
         if (row !== undefined) {
@@ -374,6 +398,32 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorCursorRing = this.add
       .circle(MAZE_COLOR_SWATCH_START_X, centerY, MAZE_COLOR_CURSOR_RADIUS, 0x000000, 0)
       .setStrokeStyle(2, TEXT_COLOR_YELLOW);
+  }
+
+  private createGhostStyleRow(): void {
+    const centerY = GHOST_STYLE_ROW_Y;
+    this.ghostStyleLabel = addPixelText(this, LABEL_X, centerY, "GHOSTS", MENU_OPTION_FONT_SIZE);
+    placePixelText(this.ghostStyleLabel, LABEL_X, centerY, 0, 0.5);
+    this.ghostStyleTexts = GHOST_STYLE_OPTIONS.map((option) => {
+      const text = addPixelText(this, option.x, centerY, option.label, MENU_OPTION_FONT_SIZE);
+      placePixelText(text, option.x, centerY, 0, 0.5);
+      text.setInteractive({ useHandCursor: true });
+      text.on("pointerdown", () => {
+        this.focusIndex = FOCUS_GHOST_STYLE;
+        this.setGhostStyle(option.style);
+      });
+      return text;
+    });
+  }
+
+  private toggleGhostStyle(): void {
+    this.setGhostStyle(this.ghostStyle === "neon" ? "pixel" : "neon");
+  }
+
+  private setGhostStyle(style: GhostStyle): void {
+    this.ghostStyle = style;
+    saveGhostStyle(style);
+    this.refreshUi();
   }
 
   private isCategoryEnabled(category: AudioCategory): boolean {
@@ -487,9 +537,17 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorCursorRing.setPosition(cursorX, MAZE_COLOR_ROW_Y);
     this.mazeColorCursorRing.setVisible(mazeColorFocused);
 
+    const ghostStyleFocused = this.focusIndex === FOCUS_GHOST_STYLE;
+    this.ghostStyleLabel.setTint(ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+    for (const [index, option] of GHOST_STYLE_OPTIONS.entries()) {
+      const active = option.style === this.ghostStyle;
+      const activeTint = ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
+      this.ghostStyleTexts[index]!.setTint(active ? activeTint : TEXT_COLOR_DIM);
+    }
+
     this.backText.setText(this.focusIndex === FOCUS_BACK ? "> BACK" : "  BACK");
     this.backText.setTint(this.focusIndex === FOCUS_BACK ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT - 80, 0.5, 0.5);
+    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
   }
 
   private goBack(): void {

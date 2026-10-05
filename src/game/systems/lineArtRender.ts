@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import type { GhostLineArtLook } from "../../domain/ghostArt";
 import type { LineArt, LinePaint } from "../../domain/lineArt";
 
-export const CLYDE_LINE_COLOR = 0xffb852;
 const LINE_GLOW_QUALITY = 24;
 // The glow is filtered without anti-aliasing, so its silhouette edge is jagged. Its outline is
 // this much narrower (canvas px) than the crisp one, keeping that edge hidden under the stroke.

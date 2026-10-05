@@ -19,7 +19,15 @@ import {
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
-import { CLYDE_DRAWABLE_ID, ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
+import {
+  BLINKY_DRAWABLE_ID,
+  CLYDE_DRAWABLE_ID,
+  ghostRadius,
+  INKY_DRAWABLE_ID,
+  PINKY_DRAWABLE_ID,
+  PLAYER_SPEED,
+  playerRadius,
+} from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -3380,24 +3388,43 @@ describe("Haunting", () => {
   });
 });
 
-describe("line-art Clyde", () => {
-  it("draws Clyde as line art on levels 5-8 only", () => {
-    for (const [level, expected] of [
-      [4, []],
-      [5, ["clyde"]],
-      [6, ["clyde"]],
-      [7, ["clyde"]],
-      [8, ["clyde"]],
-      [9, []],
-    ] as const) {
-      expect(startSim({ level }, "lineart").snapshot().lineArtGhosts).toEqual(expected);
+describe("ghost style (neon line art vs pixel)", () => {
+  const sorted = (values: readonly string[] | readonly number[] | undefined) =>
+    [...(values ?? [])].map(String).sort();
+
+  it("draws every present ghost as neon line art by default, on every level", () => {
+    expect(sorted(startSim({ level: 5 }, "lineart").snapshot().lineArtGhosts)).toEqual([
+      "blinky",
+      "clyde",
+      "inky",
+      "pinky",
+    ]);
+    for (const level of [1, 9]) {
+      const snap = startSim({ level }, "lineart").snapshot();
+      expect(snap.lineArtGhosts.length).toBeGreaterThan(0);
+      expect(sorted(snap.lineArtGhosts)).toEqual(
+        sorted([...new Set(snap.ghosts.map((g) => g.kind))]),
+      );
     }
   });
 
   it("tells the renderer which drawables are line art", () => {
     const events = runFrames(startSim({ level: 5 }, "lineart"), 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
-    expect(draws.at(-1)?.lineArtDrawableIds).toEqual([CLYDE_DRAWABLE_ID]);
+    expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
+      sorted([BLINKY_DRAWABLE_ID, PINKY_DRAWABLE_ID, INKY_DRAWABLE_ID, CLYDE_DRAWABLE_ID]),
+    );
+  });
+
+  it("draws no line art with the pixel style, and switches back mid-run", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    sim.setGhostStyle("pixel");
+    const events = runFrames(sim, 1);
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(draws.at(-1)?.lineArtDrawableIds).toEqual([]);
+    expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    sim.setGhostStyle("neon");
+    expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
   });
 
   it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {
@@ -3436,9 +3463,9 @@ describe("line-art Clyde", () => {
     ).toBe(plain);
   });
 
-  it("follows a ghosts override without Clyde", () => {
+  it("follows a ghosts override", () => {
     const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
-    expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "pinky"]);
   });
 });
 

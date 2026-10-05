@@ -1,24 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { ghostArtStyle, ghostLineArtLook, sameGhostLineArtLook } from "./ghostArt";
+import {
+  DEFAULT_GHOST_STYLE,
+  ghostLineArtLook,
+  lineArtGhostKinds,
+  parseGhostStyle,
+  sameGhostLineArtLook,
+} from "./ghostArt";
 import { resolveTuning } from "./tuning";
 import { GHOST_KIND } from "./ghostKind";
 
-describe("ghostArtStyle", () => {
-  it("draws Clyde as line art on levels 5-8 only", () => {
-    for (const level of [1, 4, 9]) {
-      expect(ghostArtStyle(GHOST_KIND.clyde, level)).toBe("pixel");
-    }
-    for (const level of [5, 6, 7, 8]) {
-      expect(ghostArtStyle(GHOST_KIND.clyde, level)).toBe("line");
-    }
+describe("parseGhostStyle", () => {
+  it("reads a stored style and defaults to neon", () => {
+    expect(parseGhostStyle("pixel")).toBe("pixel");
+    expect(parseGhostStyle("neon")).toBe("neon");
+    expect(parseGhostStyle(null)).toBe(DEFAULT_GHOST_STYLE);
+    expect(parseGhostStyle("sparkly")).toBe("neon");
+  });
+});
+
+describe("lineArtGhostKinds", () => {
+  it("draws every present ghost kind as line art when neon, once each", () => {
+    expect(
+      lineArtGhostKinds("neon", [GHOST_KIND.blinky, GHOST_KIND.blinky, GHOST_KIND.clyde]),
+    ).toEqual([GHOST_KIND.blinky, GHOST_KIND.clyde]);
   });
 
-  it("keeps the other ghosts pixel art", () => {
-    for (const kind of [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky]) {
-      for (const level of [5, 6, 7, 8]) {
-        expect(ghostArtStyle(kind, level)).toBe("pixel");
-      }
-    }
+  it("draws none as line art when pixel", () => {
+    expect(lineArtGhostKinds("pixel", [GHOST_KIND.blinky, GHOST_KIND.clyde])).toEqual([]);
   });
 });
 

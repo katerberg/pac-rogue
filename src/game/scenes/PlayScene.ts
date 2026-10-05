@@ -50,6 +50,7 @@ import {
 import { PlaySim } from "../sim/playSim";
 import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
+import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { saveRun } from "../storage/runHistoryStorage";
 import { newRunLogMeta, saveRunLog } from "../storage/runLogStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
@@ -168,6 +169,7 @@ export class PlayScene extends Phaser.Scene {
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
     const runLogMeta = newRunLogMeta(params);
     this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning, runLogMeta);
+    this.sim.setGhostStyle(loadGhostStyle());
     this.pausedAtMs = null;
     this.hiddenAtMs = null;
 
@@ -358,6 +360,8 @@ export class PlayScene extends Phaser.Scene {
       this.pausedAtMs = null;
     }
     this.sim.suppressInputUntilRelease();
+    // Settings may have been opened from the pause menu.
+    this.sim.setGhostStyle(loadGhostStyle());
     if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.rearmSelectionKeys();
     }
