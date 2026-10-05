@@ -10,7 +10,8 @@ All four ghosts are always selectable. Only upgrades this machine has met in rea
 
 - [`src/domain/seenRecord.ts`](../src/domain/seenRecord.ts): `SeenRecord` (`ghosts`,
   `upgrades`), parse/serialize, `withSeenGhosts` / `withSeenUpgrade` merges
-  (return the same object when nothing is new), `allSeenRecord`, `parseLearnAllMode`.
+  (return the same object when nothing is new), `allSeenRecord`, `learnSeenRecord`,
+  `parseLearnAllMode`.
 - [`src/game/storage/seenRecordStorage.ts`](../src/game/storage/seenRecordStorage.ts): localStorage
   key `pac-rogue.seen.v1`. Missing, unreadable, or malformed data → empty record; a record saved
   before `upgrades` existed parses with `upgrades: []`, and a legacy `corruptions` field is ignored and
