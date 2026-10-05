@@ -42,7 +42,8 @@ export type BaseUpgradeId =
   | "passiveDisruptionSpecialist"
   | "passiveMartyr"
   | "passiveInterest"
-  | "passiveNearMiss";
+  | "passiveNearMiss"
+  | "passiveHaunting";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -100,6 +101,7 @@ export type UpgradeEffects = {
   martyrGhosts?: MartyrGhostPlacement;
   interestPerQuarters?: number;
   nearMissCharge?: number;
+  hauntMs?: number;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -146,6 +148,8 @@ export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
 export const GHOST_HARVEST_MS = 5000;
 export const DEFY_DEATH_MS = 5000;
+export const HAUNTING_MS = 10_000;
+export const HAUNTING_ENHANCED_MS = Number.POSITIVE_INFINITY;
 export const MONEY_TALKS_QUARTERS = 3;
 export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
 export const SHIELD_PELLETS_CAP = 1;
@@ -680,6 +684,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       nearMissCharge: NEAR_MISS_ENHANCED_CHARGE,
     },
   },
+  {
+    id: "passiveHaunting",
+    label: "Haunting",
+    school: "death",
+    description: "The ghost that last caught you stays caged in the ghost house for 10 seconds.",
+    storePrice: STORE_UPGRADE_PRICE,
+    hauntMs: HAUNTING_MS,
+    enhanced: {
+      enhanceNote: "Haunting cages the ghost for the rest of the level instead of 10 seconds.",
+      description: "The ghost that last caught you stays caged in the ghost house for the level.",
+      hauntMs: HAUNTING_ENHANCED_MS,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -831,6 +848,8 @@ export type RunUpgrades = {
   speedBurstRemainingMs: number;
   ghostHarvestRemainingMs: number;
   defyDeathRemainingMs: number;
+  hauntRemainingMs: number;
+  hauntedGhostEid: number | null;
   shieldsBanked: number;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
@@ -854,6 +873,8 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     speedBurstRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
     defyDeathRemainingMs: 0,
+    hauntRemainingMs: 0,
+    hauntedGhostEid: null,
     shieldsBanked: 0,
     lastDeclinedUpgradeId: null,
   };
@@ -1051,7 +1072,36 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     speedBurstRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
     defyDeathRemainingMs: 0,
+    hauntRemainingMs: 0,
+    hauntedGhostEid: null,
   };
+}
+
+export function armHaunt(state: RunUpgrades, ghostEid: number, durationMs: number): RunUpgrades {
+  return { ...state, hauntRemainingMs: durationMs, hauntedGhostEid: ghostEid };
+}
+
+export function tickHaunt(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.hauntRemainingMs <= 0) {
+    return state;
+  }
+  const remaining = Math.max(0, state.hauntRemainingMs - Math.max(0, deltaMs));
+  return {
+    ...state,
+    hauntRemainingMs: remaining,
+    hauntedGhostEid: remaining > 0 ? state.hauntedGhostEid : null,
+  };
+}
+
+export function hauntedGhostEid(state: RunUpgrades): number | null {
+  return state.hauntRemainingMs > 0 ? state.hauntedGhostEid : null;
+}
+
+export type HauntedGhost = { eid: number; remainingMs: number };
+
+export function hauntedGhost(state: RunUpgrades): HauntedGhost | null {
+  const eid = hauntedGhostEid(state);
+  return eid === null ? null : { eid, remainingMs: state.hauntRemainingMs };
 }
 
 export function tickFreeze(state: RunUpgrades, deltaMs: number): RunUpgrades {
@@ -1334,6 +1384,10 @@ export function nearMissCharge(owned: readonly UpgradeId[]): number {
 
 export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
   return ownedValue(owned, "martyrGhosts") ?? null;
+}
+
+export function hauntDurationMs(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "hauntMs") ?? null;
 }
 
 export function overchargeMultiplier(owned: readonly UpgradeId[]): number {

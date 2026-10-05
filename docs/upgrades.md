@@ -5,7 +5,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, `shieldsBanked`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, Haunting timer + `hauntedGhostEid`, `shieldsBanked`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay, up/down/left/right button slots). Offer math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice` / `declineUpgrades`).
 - No ECS upgrade components in v1.
 - Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
@@ -54,6 +54,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveMartyr`               | Martyr                | Death      | A catch that doesn't end the run respawns you at the nearest walkable cell to where you fell; ghosts that were out land on their Scatter Burst corner cells instead of going home (see [Martyr](#martyr) below)                                                                                                                                                                                                                  |
 | `passiveInterest`             | Interest              | Harvest    | Entering a store pays 1 Quarter for every `INTEREST_PER_QUARTERS` (3) you hold, rounded down (see [Interest](#interest) below)                                                                                                                                                                                                                                                                                                   |
 | `passiveNearMiss`             | Near Miss             | Protection | A ghost that comes within 1 tile of you and leaves again without a catch adds `NEAR_MISS_CHARGE` (15) to the BONUS bar (see [Near Miss](#near-miss) below)                                                                                                                                                                                                                                                                       |
+| `passiveHaunting`             | Haunting              | Death      | The ghost that last caught you stays caged in the ghost house for `HAUNTING_MS` (10000) after play resumes (see [Haunting](#haunting) below)                                                                                                                                                                                                                                                                                     |
 
 ## Enhanced upgrades
 
@@ -109,6 +110,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveMartyr`               | Martyr                | Every ghost goes back into the ghost house instead of to its corner                                                                          |
 | `passiveInterest`             | Interest              | Pays 1 Quarter for every 2 held instead of every 3                                                                                           |
 | `passiveNearMiss`             | Near Miss             | Each pass adds `NEAR_MISS_ENHANCED_CHARGE` (30) instead of 15                                                                                |
+| `passiveHaunting`             | Haunting              | The ghost stays caged for the rest of the level (`HAUNTING_ENHANCED_MS` is `Infinity`); the cage never blinks                                |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -299,6 +301,21 @@ While `passiveNearMiss` is owned, every ghost that brushes past without catching
 - It adds charge only, through `addBonusCharge` / `applyBonus` (run-log Quarter source `nearMiss`), like fruit: it neither extends nor breaks the pellet streak. There is no extra sound or popup in play; the bar's spring fill is the feedback.
 - Boss Blinkys count like any ghost. It is not an `onPowerPellet` effect, so Overcharge and Fruit Power do not touch it. Protection Specialist enhances it as usual.
 - **LEARN** mirrors it: a pass adds to LEARN's BONUS bar, pops `+15 BONUS` (`+30` enhanced) and shows the `BONUS` status line. LEARN contact never kills unless a catch-demo upgrade is owned, so a ghost can pass straight through Maze-Man there and still pay.
+
+### Haunting
+
+While `passiveHaunting` is owned, a catch that doesn't end the run cages the ghost that caught you. `PlaySim` remembers the catcher (`catchPlayer`'s result) at the catch. At the actor reset, after `clearUpgradeTimers`, `armHaunt` sets `hauntedGhostEid` and `hauntRemainingMs` on `RunUpgrades` to `hauntDurationMs(owned)`: `HAUNTING_MS` (10000), or `HAUNTING_ENHANCED_MS` (`Infinity`, so the rest of the level) for `passiveHauntingPlus`.
+
+- **Hold.** The caged ghost is in the house like the others after a death. `ghostRelease` skips the `heldGhostEid` in the release adds, both for its own gate and for the idle push-out, which picks the next waiting ghost instead. `tickHaunt` runs with the other upgrade timers, so it counts down only once play resumes after READY. When it reaches 0, the ghost's normal after-death gate applies; if that gate already passed, it leaves right away.
+- **One at a time.** A later death replaces the caged ghost with the new catcher (in both forms), and the old one goes back to its normal release.
+- **Reset:** `clearUpgradeTimers` frees it on level advance and store entry; the reset after a death re-arms it.
+- **Saves** (Defy Death, Money Talks, `infiniteLives`) still cage the catcher. A Shield Pellets break is not a death and cages nothing. A Death's Harvest catch that empties the board is a level clear, so nothing is caged.
+- **Martyr:** the caged ghost always goes home, even when Martyr sends the other ghosts to their corners.
+- **Boss level:** no effect, since the boss Blinkys are rebuilt on every death.
+- **Overcharge and Fruit Power:** no effect; Haunting is not a power-pellet effect.
+- **Cage.** `SimRenderOptions.hauntedGhost` (`{ eid, remainingMs }`) makes `render` draw a light grey frame with 3 vertical bars around the ghost (`hauntCageLines`, [`src/domain/hauntCage.ts`](../src/domain/hauntCage.ts)). `hauntCageVisible` keeps it solid, then blinks it every 100ms in the last 1000ms, like Ghost Proof. The rest-of-level cage never blinks.
+- **Snapshot:** `play.hauntedGhost` (ghost name or `null`) and `play.timers.hauntMs` (`-1` for rest of level).
+- **LEARN** mirrors it through the demo catch: the catcher is seated at the ghost-house exit, caged for `HAUNTING_MS` (10s even for Haunting+, since LEARN has no level end), and the popup adds `HAUNTED`. Toggling Haunting off frees it.
 
 ### Overcharge
 

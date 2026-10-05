@@ -127,4 +127,24 @@ describe("ghostRelease per kind", () => {
     expect(ghostRelease(world, clock, 0)).toBe(false);
     expect(GhostPhase.value[eid]).toBe(GHOST_PHASE.inHouse);
   });
+
+  it("keeps the held ghost in the house even when its gate has passed", () => {
+    const { world, blinky, pinky, inky, clyde } = fourGhosts();
+    const clock = tickGhostRelease(createGhostReleaseClock(3), true, BLINKY_RELEASE_DELAY_MS);
+    ghostRelease(world, clock, 0, false, { heldGhostEid: blinky });
+    expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.inHouse);
+    for (const eid of [pinky, inky, clyde]) {
+      expect(GhostPhase.value[eid]).toBe(GHOST_PHASE.leaving);
+    }
+  });
+
+  it("idle expiry skips the held ghost and pushes out the next one", () => {
+    const { world, blinky, pinky, inky, clyde } = fourGhosts();
+    GhostPhase.value[blinky] = GHOST_PHASE.active;
+    GhostPhase.value[pinky] = GHOST_PHASE.active;
+    const clock = tickGhostRelease(createGhostReleaseClock(1), true, IDLE_RELEASE_MS);
+    expect(ghostRelease(world, clock, 0, false, { heldGhostEid: inky })).toBe(true);
+    expect(GhostPhase.value[inky]).toBe(GHOST_PHASE.inHouse);
+    expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.leaving);
+  });
 });

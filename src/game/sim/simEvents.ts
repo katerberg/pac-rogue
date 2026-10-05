@@ -2,7 +2,7 @@ import type { RunLogRecord } from "../../domain/runLog";
 import type { GhostKindId } from "../../domain/ghostKind";
 import type { TurnFeedbackKind } from "../../domain/turnTuning";
 import type { StorePromptView } from "../../domain/store";
-import type { UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
+import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 
@@ -18,6 +18,7 @@ export type SimRenderOptions = {
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
+  hauntedGhost?: HauntedGhost | null;
 };
 
 export type MoneyTalksSpend = {

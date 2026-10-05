@@ -66,7 +66,10 @@ export function ghostRelease(
   let idleEid: number | undefined;
   let idleRank = Number.POSITIVE_INFINITY;
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing, Speed])) {
-    if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
+    if (
+      (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse ||
+      eid === adds.heldGhostEid
+    ) {
       continue;
     }
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;

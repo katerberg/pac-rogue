@@ -33,6 +33,14 @@ import { pelletTint } from "../../domain/lazyLooper";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
+import {
+  HAUNT_CAGE_ALPHA,
+  HAUNT_CAGE_COLOR,
+  HAUNT_CAGE_LINE_PX,
+  hauntCageLines,
+  hauntCageVisible,
+} from "../../domain/hauntCage";
+import type { HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -235,6 +243,7 @@ export type RenderOptions = {
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
+  hauntedGhost?: HauntedGhost | null;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -249,12 +258,15 @@ export type PlayRender = {
 };
 
 const DIM_GHOST_ALPHA = 0.4;
+const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const wallGraphics = scene.add.graphics();
+  const cageGraphics = scene.add.graphics();
+  cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let wallStyleOverride: WallStyle | null = null;
   let bossPelletTint = 0xffffff;
@@ -539,6 +551,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             applyPlayerTint(twinGo, playerTint);
           }
         }
+      }
+    }
+
+    cageGraphics.clear();
+    const haunted = opts?.hauntedGhost ?? null;
+    if (haunted !== null && hauntCageVisible(haunted.remainingMs, scene.time.now)) {
+      const id = Drawable.id[haunted.eid] ?? "unknown";
+      cageGraphics.lineStyle(HAUNT_CAGE_LINE_PX, HAUNT_CAGE_COLOR, HAUNT_CAGE_ALPHA);
+      for (const line of hauntCageLines(
+        Position.x[haunted.eid] ?? 0,
+        Position.y[haunted.eid] ?? 0,
+        displaySizeForDrawable(id),
+      )) {
+        cageGraphics.lineBetween(line.x1, line.y1, line.x2, line.y2);
       }
     }
 

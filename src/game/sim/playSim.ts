@@ -173,6 +173,11 @@ import {
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
   martyrGhostPlacement,
+  hauntDurationMs,
+  armHaunt,
+  tickHaunt,
+  hauntedGhost,
+  hauntedGhostEid,
   nearMissCharge,
   moneyTalksCost,
   interestPayout,
@@ -381,6 +386,7 @@ export class PlaySim {
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
   private fellAt: Point | null = null;
+  private caughtByEid: number | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private shieldCrack: { index: number; elapsedMs: number } | null = null;
@@ -610,6 +616,7 @@ export class PlaySim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
+      hauntedGhost: hauntedGhost(this.runUpgrades),
     };
   }
 
@@ -631,6 +638,7 @@ export class PlaySim {
         draining: this.timeBonusDrain !== null,
       },
       deathsThisBoard: this.deathsThisBoard,
+      hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       nearMissesPaid: this.nearMissesPaid,
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
@@ -644,6 +652,7 @@ export class PlaySim {
         speedBurstMs: upgrades.speedBurstRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
+        hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
         shieldsBanked: upgrades.shieldsBanked,
         eatDragMs: this.eatDragMs,
         turnBoostMs: this.turnTuning.boostMs,
@@ -836,6 +845,7 @@ export class PlaySim {
       delayAddMs: ghostHouseReleaseDelayAddMs(this.effectiveUpgrades()),
       clydePelletAdd: ghostHouseClydePelletAdd(this.effectiveUpgrades()),
       tuning: this.currentTuning,
+      heldGhostEid: hauntedGhostEid(this.runUpgrades),
     };
     ghostHouseSeating(
       this.world,
@@ -866,6 +876,7 @@ export class PlaySim {
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
     this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
     this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
+    this.runUpgrades = tickHaunt(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
     for (const pos of respawnTick.ready) {
@@ -1183,6 +1194,7 @@ export class PlaySim {
         }
       }
       this.fellAt = this.playerPosition();
+      this.caughtByEid = caughtBy;
       this.emit({ type: "loopStop", id: "gameplayMusic" });
       const defied = defyDeathActive(this.runUpgrades);
       const boughtFor =
@@ -2211,6 +2223,9 @@ export class PlaySim {
     }
     const toCorners =
       this.bossState === null && martyrGhostPlacement(this.effectiveUpgrades()) === "corners";
+    const hauntMs = hauntDurationMs(this.effectiveUpgrades());
+    const hauntEid = this.bossState === null && hauntMs !== null ? this.caughtByEid : null;
+    this.caughtByEid = null;
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -2225,7 +2240,7 @@ export class PlaySim {
       Input.direction[eid] = DIRECTION.none;
       Facing.direction[eid] = DIRECTION.none;
       Speed.px[eid] = 0;
-      if (!toCorners || GhostPhase.value[eid] !== GHOST_PHASE.active) {
+      if (!toCorners || eid === hauntEid || GhostPhase.value[eid] !== GHOST_PHASE.active) {
         GhostPhase.value[eid] = GHOST_PHASE.inHouse;
       }
       Ghost.decidedCol[eid] = Number.NaN;
@@ -2244,6 +2259,7 @@ export class PlaySim {
       this.ghostReleaseClock,
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
+      { heldGhostEid: hauntEid },
     );
     if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
       this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
@@ -2259,6 +2275,9 @@ export class PlaySim {
     };
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    if (hauntEid !== null && hauntMs !== null) {
+      this.runUpgrades = armHaunt(this.runUpgrades, hauntEid, hauntMs);
+    }
     this.eatDragMs = 0;
     this.turnTuning.reset();
 

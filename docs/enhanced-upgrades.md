@@ -60,6 +60,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 37  | `passiveMartyr`               | Martyr                | Dying sends the ghosts to their corners and respawns you where you fell                                          | Ghosts go back into the ghost house instead                                                                                                  |
 | 38  | `passiveInterest`             | Interest              | Each store pays 1 Quarter for every 3 you hold                                                                   | Pays 1 Quarter for every 2 held instead                                                                                                      |
 | 39  | `passiveNearMiss`             | Near Miss             | A ghost passing within 1 tile without catching you bumps the BONUS bar                                           | Bigger bump: 30 per pass instead of 15                                                                                                       |
+| 40  | `passiveHaunting`             | Haunting              | The ghost that last caught you stays caged in the house for 10 seconds                                           | Caged for the rest of the level                                                                                                              |
 
 ## Decisions
 

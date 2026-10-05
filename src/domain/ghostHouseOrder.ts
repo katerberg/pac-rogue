@@ -47,21 +47,24 @@ export function compareInHouseReleaseOrder(
   return GHOST_RELEASE_PRIORITY.indexOf(a) - GHOST_RELEASE_PRIORITY.indexOf(b);
 }
 
-export function sortInHouseGhosts<T extends { kind: GhostKindId }>(
+export function sortInHouseGhosts<T extends { kind: GhostKindId; eid?: number }>(
   ghosts: readonly T[],
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
   adds: GhostReleaseAdds = {},
 ): T[] {
-  return [...ghosts].sort((left, right) =>
-    compareInHouseReleaseOrder(
-      left.kind,
-      right.kind,
-      clock,
-      collectedCount,
-      afterLifeRelease,
-      adds,
-    ),
+  const held = (ghost: T): number => (ghost.eid === adds.heldGhostEid ? 1 : 0);
+  return [...ghosts].sort(
+    (left, right) =>
+      held(left) - held(right) ||
+      compareInHouseReleaseOrder(
+        left.kind,
+        right.kind,
+        clock,
+        collectedCount,
+        afterLifeRelease,
+        adds,
+      ),
   );
 }

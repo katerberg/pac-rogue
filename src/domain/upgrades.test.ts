@@ -17,6 +17,12 @@ import {
   SHIELD_PELLETS_ENHANCED_CAP,
   applyShieldBreakInvuln,
   martyrGhostPlacement,
+  HAUNTING_MS,
+  armHaunt,
+  hauntDurationMs,
+  hauntedGhost,
+  hauntedGhostEid,
+  tickHaunt,
   interestPayout,
   nearMissCharge,
   NEAR_MISS_CHARGE,
@@ -157,6 +163,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveMartyr",
   "passiveInterest",
   "passiveNearMiss",
+  "passiveHaunting",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -705,6 +712,29 @@ describe("Near Miss", () => {
     expect(nearMissCharge([])).toBe(0);
     expect(nearMissCharge(["passiveNearMiss"])).toBe(NEAR_MISS_CHARGE);
     expect(nearMissCharge(["passiveNearMissPlus"])).toBe(NEAR_MISS_ENHANCED_CHARGE);
+  });
+});
+
+describe("Haunting", () => {
+  it("cages for 10 seconds, or the rest of the level when enhanced", () => {
+    expect(hauntDurationMs([])).toBeNull();
+    expect(hauntDurationMs(["passiveHaunting"])).toBe(HAUNTING_MS);
+    expect(hauntDurationMs(["passiveHauntingPlus"])).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("holds the ghost until the timer runs out", () => {
+    const armed = armHaunt(createRunUpgrades(["passiveHaunting"]), 7, HAUNTING_MS);
+    expect(hauntedGhost(armed)).toEqual({ eid: 7, remainingMs: HAUNTING_MS });
+    expect(hauntedGhostEid(tickHaunt(armed, HAUNTING_MS - 1))).toBe(7);
+    const expired = tickHaunt(armed, HAUNTING_MS);
+    expect(hauntedGhostEid(expired)).toBeNull();
+    expect(hauntedGhost(expired)).toBeNull();
+  });
+
+  it("never expires a rest-of-level haunt, but clearing the timers frees it", () => {
+    const armed = armHaunt(createRunUpgrades(["passiveHauntingPlus"]), 3, Infinity);
+    expect(hauntedGhostEid(tickHaunt(armed, 1_000_000))).toBe(3);
+    expect(hauntedGhostEid(clearUpgradeTimers(armed))).toBeNull();
   });
 });
 

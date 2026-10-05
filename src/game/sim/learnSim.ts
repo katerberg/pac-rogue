@@ -59,6 +59,12 @@ import {
   shieldPelletsCap,
   spendShield,
   createRunUpgrades,
+  clearUpgradeTimers,
+  armHaunt,
+  hauntedGhost,
+  hauntedGhostEid,
+  tickHaunt,
+  HAUNTING_MS,
   frozenGhostEid,
   getUpgradeDef,
   ghostSpeedMultiplier,
@@ -165,6 +171,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveMyogenesis",
   "passiveMoneyTalks",
   "passiveShieldPellets",
+  "passiveHaunting",
 ];
 
 export class LearnSim {
@@ -291,6 +298,7 @@ export class LearnSim {
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
     this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
+    this.tickHaunt(delta);
     this.turnTuning.tick(delta);
     this.catchGraceMs = Math.max(0, this.catchGraceMs - delta);
     this.releaseHeldGhost(delta, anyKeyHeld(keys));
@@ -415,7 +423,7 @@ export class LearnSim {
       this.payNearMisses(catchOptions);
     } else {
       this.nearMissPasses = createNearMissPasses();
-      this.resolveDemoCatch();
+      this.resolveDemoCatch(caught);
     }
 
     this.events.push({
@@ -436,6 +444,7 @@ export class LearnSim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
+        hauntedGhost: hauntedGhost(this.learnUpgrades),
       },
     });
     return this.takeEvents();
@@ -464,16 +473,7 @@ export class LearnSim {
         DIRECTION.right,
       );
     }
-    this.learnUpgrades = {
-      ...this.learnUpgrades,
-      freezeRemainingMs: 0,
-      frozenGhostEid: null,
-      wallPassRemainingMs: 0,
-      invulnRemainingMs: 0,
-      speedBurstRemainingMs: 0,
-      ghostHarvestRemainingMs: 0,
-      defyDeathRemainingMs: 0,
-    };
+    this.learnUpgrades = clearUpgradeTimers(this.learnUpgrades);
     this.recallHoldGhostEids = [];
     this.recallHoldRemainingMs = 0;
     this.ghostCornerWarps = [];
@@ -537,6 +537,9 @@ export class LearnSim {
     const lifetimeBefore = fruitLifetimeMultiplier(before);
     this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
     const after = this.learnUpgrades.owned;
+    if (!hasUpgrade(after, "passiveHaunting")) {
+      this.releaseHauntedGhost();
+    }
     if (!hasUpgrade(after, "passiveTurnTuning")) {
       this.turnTuning.reset();
     }
@@ -648,6 +651,28 @@ export class LearnSim {
     this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
   }
 
+  private tickHaunt(delta: number): void {
+    const haunted = hauntedGhostEid(this.learnUpgrades);
+    this.learnUpgrades = tickHaunt(this.learnUpgrades, delta);
+    if (haunted !== null && hauntedGhostEid(this.learnUpgrades) === null) {
+      this.freeGhost(haunted);
+    }
+  }
+
+  private releaseHauntedGhost(): void {
+    const haunted = hauntedGhostEid(this.learnUpgrades);
+    this.learnUpgrades = { ...this.learnUpgrades, hauntRemainingMs: 0, hauntedGhostEid: null };
+    if (haunted !== null) {
+      this.freeGhost(haunted);
+    }
+  }
+
+  private freeGhost(eid: number): void {
+    if (eid !== this.houseHold.eid) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+  }
+
   private seatGhostAtExit(eid: number): void {
     const exit = getActiveLayout().ghostHouseExit;
     Position.x[eid] = cellCenterX(exit.col);
@@ -731,7 +756,7 @@ export class LearnSim {
     }
   }
 
-  private resolveDemoCatch(): void {
+  private resolveDemoCatch(caughtBy: number): void {
     const spent = spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
@@ -756,6 +781,12 @@ export class LearnSim {
     lines.push(
       outcome.kind === "saved" ? "SAVED" : outcome.kind === "reset" ? "LIVES RESET" : "LIFE LOST",
     );
+    if (hasUpgrade(owned, "passiveHaunting")) {
+      this.releaseHauntedGhost();
+      this.seatGhostAtExit(caughtBy);
+      this.learnUpgrades = armHaunt(this.learnUpgrades, caughtBy, HAUNTING_MS);
+      lines.push("HAUNTED");
+    }
     if (outcome.quartersPaid > 0) {
       lines.push(`-${outcome.quartersPaid} Q`);
     }
