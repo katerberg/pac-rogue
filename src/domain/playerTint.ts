@@ -5,7 +5,7 @@ const PLAYER_INVULN_URGENCY_MS = 1000;
 
 export type PlayerTint = { color: number; mode: "multiply" | "add" };
 
-export type PlayerTintInput = {
+type PlayerTintInput = {
   wallPassOn: boolean;
   invulnRemainingMs: number;
   nowMs: number;
