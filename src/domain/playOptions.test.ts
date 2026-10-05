@@ -14,7 +14,7 @@ describe("parsePlayOptions", () => {
       quarters: null,
       bonus: null,
       ghosts: null,
-      bossGhosts: null,
+      boss: null,
       jumpToUpgrade: false,
       store: null,
       infiniteLives: false,
@@ -32,7 +32,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&bossGhosts=5&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus",
+        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&boss=chainedGhosts&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus",
       ),
     );
     expect(warnings).toEqual([]);
@@ -43,7 +43,7 @@ describe("parsePlayOptions", () => {
       quarters: 3,
       bonus: 120,
       ghosts: [GHOST_KIND.pinky],
-      bossGhosts: 5,
+      boss: "chainedGhosts",
       jumpToUpgrade: true,
       store: 1,
       disableLevelUpgrades: true,
@@ -61,7 +61,7 @@ describe("parsePlayOptions", () => {
   it("warns once per invalid flag, in flag order", () => {
     const { warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=a%20b&maze=nope&level=0&quarters=-1&bonus=300&bossGhosts=99&lives=0&maxLives=x",
+        "seed=a%20b&maze=nope&level=0&quarters=-1&bonus=300&boss=nope&lives=0&maxLives=x",
       ),
     );
     expect(warnings).toEqual([
@@ -70,10 +70,22 @@ describe("parsePlayOptions", () => {
       "Unknown ?level= value; expected positive integer",
       "Unknown ?quarters= value; expected non-negative integer",
       "Unknown ?bonus= value; expected an integer 0..299",
-      "Unknown ?bossGhosts= value; expected an integer 2..10",
+      "Unknown ?boss= value; expected blinkySwarm|chainedGhosts",
       "Unknown ?lives= value; expected positive integer",
       "Unknown ?maxLives= value; expected positive integer",
     ]);
+  });
+
+  it("jumps to the boss level for ?boss= unless ?level= is given", () => {
+    expect(parsePlayOptions(new URLSearchParams("boss=blinkySwarm")).options).toMatchObject({
+      boss: "blinkySwarm",
+      level: 9,
+      highScoresDisabled: true,
+    });
+    expect(
+      parsePlayOptions(new URLSearchParams("boss=chainedGhosts&level=3")).options,
+    ).toMatchObject({ boss: "chainedGhosts", level: 3 });
+    expect(parsePlayOptions(new URLSearchParams("boss=nope")).options.level).toBeNull();
   });
 
   it("defaults maxLives to lives unless maxLives is set", () => {

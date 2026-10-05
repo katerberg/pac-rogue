@@ -28,7 +28,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "forceUpgrade",
   "store",
   "ghosts",
-  "bossGhosts",
+  "boss",
   "knobs",
 ] as const;
 
