@@ -24,10 +24,13 @@ function drainAll(remaining: number): TimeBonusTick[] {
 }
 
 describe("timeBonusPoints", () => {
-  it("pays one point per half second left", () => {
+  it("pays the square of the time left, so fast clears pay far more", () => {
+    expect(timeBonusPoints(999)).toBe(443);
+    expect(timeBonusPoints(700)).toBe(217);
     expect(timeBonusPoints(450)).toBe(90);
-    expect(timeBonusPoints(999)).toBe(199);
-    expect(timeBonusPoints(4)).toBe(0);
+    expect(timeBonusPoints(225)).toBe(22);
+    expect(timeBonusPoints(47)).toBe(0);
+    expect(timeBonusPoints(-10)).toBe(0);
   });
 });
 
@@ -43,15 +46,20 @@ describe("tickTimeBonusDrain", () => {
     const last = ticks[ticks.length - 1]!;
     expect(last.done).toBe(true);
     expect(ticks.length * FRAME_MS).toBeLessThanOrEqual(TIME_BONUS_DRAIN_MS + FRAME_MS);
-    expect(ticks.reduce((sum, t) => sum + t.points, 0)).toBe(199);
+    expect(ticks.reduce((sum, t) => sum + t.points, 0)).toBe(443);
     expect(last.remaining).toBe(0);
     const remaining = ticks.map((t) => t.remaining);
     expect(remaining).toEqual([...remaining].sort((a, b) => b - a));
   });
 
+  it("pays the most valuable time first", () => {
+    const points = drainAll(999).map((t) => t.points);
+    expect(points[0]).toBeGreaterThan(points[points.length - 1]! + 5);
+  });
+
   it("takes the same time for a small remainder", () => {
-    const ticks = drainAll(12);
+    const ticks = drainAll(100);
     expect(ticks.length * FRAME_MS).toBeGreaterThan(TIME_BONUS_DRAIN_MS - FRAME_MS);
-    expect(ticks.reduce((sum, t) => sum + t.points, 0)).toBe(2);
+    expect(ticks.reduce((sum, t) => sum + t.points, 0)).toBe(4);
   });
 });
