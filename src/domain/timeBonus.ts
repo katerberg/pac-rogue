@@ -1,4 +1,4 @@
-const BONUS_TIME_UNITS_PER_POINT = 5;
+const BONUS_TIME_SQUARE_DIVISOR = 2250;
 export const TIME_BONUS_DRAIN_MS = 1200;
 
 export type TimeBonusDrain = { startUnits: number; elapsedMs: number; creditedPoints: number };
@@ -11,7 +11,8 @@ export type TimeBonusTick = {
 };
 
 export function timeBonusPoints(remaining: number): number {
-  return Math.floor(Math.max(0, remaining) / BONUS_TIME_UNITS_PER_POINT);
+  const units = Math.max(0, remaining);
+  return Math.floor((units * units) / BONUS_TIME_SQUARE_DIVISOR);
 }
 
 export function createTimeBonusDrain(remaining: number): TimeBonusDrain | null {
@@ -24,11 +25,12 @@ export function tickTimeBonusDrain(drain: TimeBonusDrain, deltaMs: number): Time
     elapsedMs >= TIME_BONUS_DRAIN_MS
       ? drain.startUnits
       : Math.floor((drain.startUnits * elapsedMs) / TIME_BONUS_DRAIN_MS);
-  const earned = timeBonusPoints(drained);
+  const remaining = drain.startUnits - drained;
+  const earned = timeBonusPoints(drain.startUnits) - timeBonusPoints(remaining);
   return {
     drain: { ...drain, elapsedMs, creditedPoints: earned },
-    remaining: drain.startUnits - drained,
+    remaining,
     points: earned - drain.creditedPoints,
-    done: drained === drain.startUnits,
+    done: remaining === 0,
   };
 }

@@ -1785,7 +1785,7 @@ describe("PlaySim bonus bar", () => {
     drainToOffer(sim);
     sim.chooseUpgrade({ kind: "quarters", amount: 2 });
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
-    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 249 });
+    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 193 });
   });
 });
 
@@ -2058,7 +2058,7 @@ describe("PlaySim level-end time bonus", () => {
     expect(sim.snapshot().timeRemaining).toBeLessThan(999);
     const rest = runUntil(sim, () => !sim.snapshot().bonus.draining, 60);
     expect(rest).toContainEqual({ type: "timeBonus", active: false });
-    expect(sim.snapshot()).toMatchObject({ timeRemaining: 0, bonus: { charge: 199 } });
+    expect(sim.snapshot()).toMatchObject({ timeRemaining: 0, quarters: 1, bonus: { charge: 143 } });
     expect(sim.offer()).not.toBeNull();
   });
 
@@ -2068,13 +2068,13 @@ describe("PlaySim level-end time bonus", () => {
     expect(sim.offer()).toBeNull();
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
     drainToOffer(sim);
-    expect(sim.snapshot().bonus.charge).toBe(99);
+    expect(sim.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 43 } });
   });
 
   it("drains on level 1, then moves on to level 2", () => {
     const { sim } = startClear({ level: 1 });
     runUntil(sim, () => !sim.snapshot().bonus.draining, 90);
-    expect(sim.snapshot().bonus.charge).toBe(199);
+    expect(sim.snapshot().bonus.charge).toBe(143);
     runUntil(sim, () => sim.snapshot().level === 2, 120);
   });
 
