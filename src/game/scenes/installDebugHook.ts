@@ -27,6 +27,13 @@ function sceneStatus(scene: Phaser.Scene): SceneStatus | null {
   return scene.scene.isSleeping() ? "sleeping" : null;
 }
 
+function playingSounds(game: Phaser.Game): Record<string, boolean> {
+  if (game.config.audio.noAudio === true) {
+    return {};
+  }
+  return Object.fromEntries(game.sound.getAllPlaying().map((sound) => [sound.key, true]));
+}
+
 export function installDebugHook(game: Phaser.Game): void {
   window.__PAC_ROGUE_DEBUG__ = {
     snapshot: () => {
@@ -42,7 +49,7 @@ export function installDebugHook(game: Phaser.Game): void {
         scenes,
         play: play instanceof PlayScene && "PlayScene" in scenes ? play.debugSnapshot() : null,
         runLog: { stored: storedRunCount(), overrun: runLogOverrunActive() },
-        sounds: Object.fromEntries(game.sound.getAllPlaying().map((sound) => [sound.key, true])),
+        sounds: playingSounds(game),
       };
     },
   };
