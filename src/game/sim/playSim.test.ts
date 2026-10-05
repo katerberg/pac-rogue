@@ -463,6 +463,16 @@ describe("PlaySim", () => {
     expect(sim.snapshot().upgrades).not.toContain(pick);
   });
 
+  it("an enhanced offer pick pays the enhanced life bonus once", () => {
+    const livesAfter = (enhanced: boolean) => {
+      const sim = startSim({ jumpToUpgrade: true, level: 4, lives: 2, maxLives: 6 });
+      drainToOffer(sim);
+      sim.chooseUpgrade({ kind: "upgrade", id: "passiveExtraLife", enhanced });
+      return sim.snapshot().lives;
+    };
+    expect(livesAfter(true)).toBe(livesAfter(false) + 1);
+  });
+
   it("clears a board once every non-power pellet is eaten, leaving power pellets", () => {
     const sim = startSim({ level: 2, infiniteLives: true });
     const eids = regularPelletEids(sim);

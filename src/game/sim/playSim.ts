@@ -537,7 +537,9 @@ export class PlaySim {
       );
       if (!alreadyOwned) {
         this.recorder.gained(grantedId, "offer", this.levelIndex);
-        this.enhanceLivesPaid.add(chosen.id);
+        if (chosen.enhanced === true) {
+          this.enhanceLivesPaid.add(chosen.id);
+        }
         this.applyGrantEffects(grantedId);
         this.grantSpecialistLives();
         this.emit({ type: "lives", pulse: false });
