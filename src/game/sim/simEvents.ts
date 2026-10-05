@@ -20,7 +20,7 @@ export type SimRenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
-  bossChain?: ChainSegment | null;
+  bossChains?: ChainSegment[];
   lineArtDrawableIds?: string[];
 };
 

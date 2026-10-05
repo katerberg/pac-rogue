@@ -3,6 +3,8 @@ import {
   BOSS_DEFS,
   bossGhostKind,
   bossStartGhosts,
+  chainPairForKind,
+  CHAIN_PAIR,
   createBossState,
   isBossLevel,
   maxBossGhosts,
@@ -71,18 +73,29 @@ describe("Blinky Swarm", () => {
 });
 
 describe("Chained Ghosts", () => {
-  it("is Blinky and Clyde, chained, with no boss pellets and no growth", () => {
-    expect([bossGhostKind(chained, 0), bossGhostKind(chained, 1)]).toEqual([
+  it("is the full roster, two chain pairs, with no boss pellets and no growth", () => {
+    expect([0, 1, 2, 3].map((i) => bossGhostKind(chained, i))).toEqual([
       GHOST_KIND.blinky,
+      GHOST_KIND.pinky,
+      GHOST_KIND.inky,
       GHOST_KIND.clyde,
     ]);
     expect(chained.chained).toBe(true);
-    expect(maxBossGhosts(chained)).toBe(2);
-    expect(splitBossGhosts(chained, 2)).toEqual({ house: 2, tunnel: 0 });
+    expect(maxBossGhosts(chained)).toBe(4);
+    expect(splitBossGhosts(chained, 4)).toEqual({ house: 4, tunnel: 0 });
   });
 
   it("ignores the swarm start knob", () => {
-    expect(bossStartGhosts(chained, { ...DEFAULT_TUNING, bossSwarmStartGhosts: 7 })).toBe(2);
+    expect(bossStartGhosts(chained, { ...DEFAULT_TUNING, bossSwarmStartGhosts: 7 })).toBe(4);
+  });
+});
+
+describe("chainPairForKind", () => {
+  it("maps Blinky/Clyde and Pinky/Inky to the two lightning pairs", () => {
+    expect(chainPairForKind(GHOST_KIND.blinky)).toBe(CHAIN_PAIR.blinkyClyde);
+    expect(chainPairForKind(GHOST_KIND.clyde)).toBe(CHAIN_PAIR.blinkyClyde);
+    expect(chainPairForKind(GHOST_KIND.pinky)).toBe(CHAIN_PAIR.pinkyInky);
+    expect(chainPairForKind(GHOST_KIND.inky)).toBe(CHAIN_PAIR.pinkyInky);
   });
 });
 
