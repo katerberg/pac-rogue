@@ -83,7 +83,7 @@ On agent ports (**5174** / **4174**), audio is disabled (`noAudio`) unless `?sou
 - Opens the page with Playwright Chromium
 - Waits for a `canvas` element
 - Clicks **Start** on the menu, then captures `artifacts/visual-smoke.png` (**PlayScene** maze/HUD — primary CI smoke image)
-- Reloads with `?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference`, waits for Remote Transference in the offer, and captures `artifacts/visual-smoke-upgrade.png`
+- Reloads with `?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference&seed=smoke`, waits for Remote Transference in the offer, and captures `artifacts/visual-smoke-upgrade.png`
 
 Agents must **read that image** (or an equivalent live capture) when claiming visual verification — not merely note that the script exited 0.
 

@@ -8,7 +8,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 - `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, Haunting timer + `hauntedGhostEid`, `shieldsBanked`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay, up/down/left/right button slots). Offer math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice` / `declineUpgrades`).
 - No ECS upgrade components in v1.
-- Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`): see [README Flags](../README.md#flags).
+- Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`, `forceUpgrade`): see [README Flags](../README.md#flags).
 - See [docs/learn.md](./learn.md#upgrade-fidelity) for how each upgrade behaves in LEARN mode (every upgrade except the School Specialists has a visible LEARN demo).
 
 ### Current defs
@@ -133,10 +133,12 @@ Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored
 - Clearing a level (2 through 8; not level 1 or the final boss level 9 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned. The modal always opens on this trigger — there is no "0 eligible → skip" case anymore, since the Quarters option is always available.
 - `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — no modal at all, immediate level transition. Also skips the level-1 starting upgrade (no card). Does not affect `enableUpgrade`.
 - `?jumpToUpgrade=1` (debug): fires the trigger immediately on the first board — clears all its pellets and, after the 1.2 s [level-end time drain](./bonus.md#time-bonus), opens the modal without playing the level. Defaults the start level to 2 when `?level=` is omitted, since level 1 never offers this modal. Disables high-score saving for the run (same as `disableLevelUpgrades` / `infiniteLives`).
+- `?forceUpgrade=<id>` (debug): while that upgrade is still eligible, every level-clear offer includes it (a Plus id is treated as its base). Does not grant it, does not change store stock, and does not override `disableLevelUpgrades`. Pair with `jumpToUpgrade` to land on the modal. Disables high-score saving.
 - `pickUpgradeChoiceOffer` returns an offer of `{ quarters: QUARTERS_CHOICE_AMOUNT, upgrades, enhanced }`, where `upgrades` holds up to three ids (`min(3, eligible.length)`):
   - Never repeats an id.
   - Prefers excluding `lastDeclinedUpgradeId`.
   - If excluding decline would leave the offer short, re-includes last-declined only as needed to fill it.
+  - If a `forced` id is eligible and missing from the picks, it replaces one slot before the shuffle (and can put last-declined back).
   - After the shuffle, each upgrade is independently marked enhanced with `enhancedOfferChance(level)` (`1/8` after levels 4–8, else 0). Those extra `upgradeOffer` stream draws happen last, so seeded offers on other levels stay unchanged. `enhanced` is the subset shown as `+` cards (gold `STORE_ENHANCE_BORDER_COLOR` border, Plus label and description).
 - The modal lays these out as four fixed direction slots — **up/down/left/right**, D-pad style:
   - **Down is always the Quarters option** (`+QUARTERS_CHOICE_AMOUNT`, currently 2), regardless of how many upgrades are offered.
