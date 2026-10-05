@@ -24,6 +24,13 @@ describe("parseCondition", () => {
     expect(parseCondition("play.layout==mazeSmall").expected).toBe("mazeSmall");
   });
 
+  it("accepts dashed keys such as sound keys", () => {
+    expect(parseCondition("sounds.menu-music==true")).toMatchObject({
+      path: "sounds.menu-music",
+      expected: true,
+    });
+  });
+
   it("rejects text without an operator", () => {
     expect(() => parseCondition("play.lives")).toThrow(/Bad condition/);
   });
