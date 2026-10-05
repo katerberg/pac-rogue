@@ -70,7 +70,7 @@ import {
   ghostSpeedMultiplier,
   grantUpgrade,
   pelletCollectRadiusBonusPx,
-  emptyCellSpeedMultiplier,
+  cellSpeedMultiplier,
   playerSpeedMultiplier,
   revokeUpgrade,
   speedBurstActive,
@@ -321,7 +321,7 @@ export class LearnSim {
       this.world,
       levelSpeedMul *
         playerSpeedMultiplier(this.learnUpgrades.owned) *
-        emptyCellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
+        cellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
         (speedBurstActive(this.learnUpgrades)
           ? speedBurstMultiplier(this.learnUpgrades.owned)
           : 1) *

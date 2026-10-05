@@ -212,7 +212,7 @@ import {
   pickUpgradeChoiceOffer,
   playerIsInvulnerable,
   playerTintRemainingMs,
-  emptyCellSpeedMultiplier,
+  cellSpeedMultiplier,
   playerSpeedMultiplier,
   queuePowerPelletRespawns,
   revokeUpgrade,
@@ -890,7 +890,7 @@ export class PlaySim {
     const playerSpeedMul =
       levelSpeedMul *
       playerSpeedMultiplier(this.effectiveUpgrades()) *
-      emptyCellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)) *
+      cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)) *
       (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.effectiveUpgrades()) : 1) *
       eatDragMultiplier(this.eatDragMs, this.currentTuning) *
       this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
@@ -1446,7 +1446,7 @@ export class PlaySim {
       this.world,
       speedLevelMultiplier(this.levelIndex, this.currentTuning) *
         playerSpeedMultiplier(this.effectiveUpgrades()) *
-        emptyCellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)),
+        cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)),
       this.currentTuning,
     );
     movement(this.world, delta, undefined, true);

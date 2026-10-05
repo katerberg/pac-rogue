@@ -270,15 +270,15 @@ describe("PlaySim Afterburner", () => {
     return { pellet: measure(sim, 1) / base, empty: measure(sim, -1) / base };
   }
 
-  it("speeds up only when entering a cell without a pellet", () => {
+  it("speeds up entering a cell without a pellet and slows entering one with a pellet", () => {
     const ratios = speedRatios("passiveAfterburner");
-    expect(ratios.pellet).toBeCloseTo(1);
+    expect(ratios.pellet).toBeCloseTo(0.9);
     expect(ratios.empty).toBeCloseTo(1.3);
   });
 
-  it("Afterburner+ gives +50%", () => {
+  it("Afterburner+ gives +50% and keeps the 10% pellet-cell slowdown", () => {
     const ratios = speedRatios("passiveAfterburnerPlus");
-    expect(ratios.pellet).toBeCloseTo(1);
+    expect(ratios.pellet).toBeCloseTo(0.9);
     expect(ratios.empty).toBeCloseTo(1.5);
   });
 

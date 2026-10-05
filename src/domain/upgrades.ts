@@ -73,6 +73,7 @@ export type MartyrGhostPlacement = "corners" | "house";
 export type UpgradeEffects = {
   playerSpeedMul?: number;
   emptyCellSpeedMul?: number;
+  pelletCellSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitLifetimeMul?: number;
   fruitQuarters?: number;
@@ -159,6 +160,7 @@ export const SHIELD_BREAK_INVULN_MS = 1000;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
 export const AFTERBURNER_MUL = 1.3;
+export const AFTERBURNER_PELLET_MUL = 0.9;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
 
@@ -244,14 +246,16 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveAfterburner",
     label: "Afterburner",
     school: "speed",
-    description: "Empty corridors light your tail. +30% speed on cleared tiles.",
+    description: "Cleared corridors light your tail: +30% speed there, 10% slower over pellets.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Afterburner gives +50% speed on cleared tiles instead of +30%.",
-      description: "Empty corridors roar. +50% speed on cleared tiles.",
+      enhanceNote:
+        "Afterburner gives +50% speed on cleared tiles instead of +30%. Pellet cells still cost 10%.",
+      description: "Cleared corridors roar: +50% speed there, 10% slower over pellets.",
       emptyCellSpeedMul: AFTERBURNER_ENHANCED_MUL,
     },
     emptyCellSpeedMul: AFTERBURNER_MUL,
+    pelletCellSpeedMul: AFTERBURNER_PELLET_MUL,
   },
   {
     id: "passiveGhostSlow",
@@ -1292,7 +1296,12 @@ export function applyPowerPelletEffects(
 
 function speedMultiplier(
   owned: readonly UpgradeId[],
-  key: "playerSpeedMul" | "emptyCellSpeedMul" | "ghostSpeedMul" | "fruitLifetimeMul",
+  key:
+    | "playerSpeedMul"
+    | "emptyCellSpeedMul"
+    | "pelletCellSpeedMul"
+    | "ghostSpeedMul"
+    | "fruitLifetimeMul",
 ): number {
   let mul = 1;
   for (const id of owned) {
@@ -1308,11 +1317,11 @@ export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "playerSpeedMul");
 }
 
-export function emptyCellSpeedMultiplier(
+export function cellSpeedMultiplier(
   owned: readonly UpgradeId[],
   enteringEmptyCell: boolean,
 ): number {
-  return enteringEmptyCell ? speedMultiplier(owned, "emptyCellSpeedMul") : 1;
+  return speedMultiplier(owned, enteringEmptyCell ? "emptyCellSpeedMul" : "pelletCellSpeedMul");
 }
 
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
