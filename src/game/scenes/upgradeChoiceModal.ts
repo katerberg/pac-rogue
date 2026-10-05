@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
+import { STORE_ENHANCE_BORDER_COLOR } from "../../domain/store";
 import {
+  enhancedIdOf,
   getUpgradeDef,
   UPGRADE_SCHOOL_LABELS,
   type UpgradeChoiceOffer,
@@ -109,7 +111,12 @@ function hintPositionForSlot(slot: Slot): { x: number; y: number } {
   }
 }
 
-type CardCopy = { label: string; description: string; school?: UpgradeSchool };
+type CardCopy = {
+  label: string;
+  description: string;
+  school?: UpgradeSchool;
+  enhanced?: boolean;
+};
 
 function copyForOption(option: UpgradeChoiceOption): CardCopy {
   if (option.kind === "quarters") {
@@ -118,8 +125,13 @@ function copyForOption(option: UpgradeChoiceOption): CardCopy {
       description: `Bank ${option.amount} Quarters instead of an upgrade.`,
     };
   }
-  const def = getUpgradeDef(option.id);
-  return { label: def.label, description: def.description, school: def.school };
+  const def = getUpgradeDef(option.enhanced === true ? enhancedIdOf(option.id) : option.id);
+  return {
+    label: def.label,
+    description: def.description,
+    school: def.school,
+    enhanced: option.enhanced === true,
+  };
 }
 
 export type UpgradeCardVisual = {
@@ -141,7 +153,8 @@ export function buildUpgradeCardVisual(
 ): UpgradeCardVisual {
   const targetLabel = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
   const targetDescription = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
-  const borderColor = schoolBorderColor(copy.school);
+  const borderColor =
+    copy.enhanced === true ? STORE_ENHANCE_BORDER_COLOR : schoolBorderColor(copy.school);
   const bg = scene.add
     .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
     .setStrokeStyle(BUTTON_STROKE_REST, borderColor);
@@ -445,7 +458,7 @@ export function createUpgradeChoiceModal(
       const slots: { slot: Slot; option: UpgradeChoiceOption }[] = offer.upgrades.map(
         (id, index) => ({
           slot: upgradeSlots[index]!,
-          option: { kind: "upgrade", id },
+          option: { kind: "upgrade", id, enhanced: offer.enhanced.includes(id) },
         }),
       );
       slots.push({ slot: "down", option: { kind: "quarters", amount: offer.quarters } });

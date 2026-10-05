@@ -281,6 +281,32 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
     expect(offer.upgrades).toHaveLength(3);
   });
 
+  it("marks no option enhanced at chance 0 and every option at chance 1", () => {
+    expect(pickUpgradeChoiceOffer([], null, () => 0.5).enhanced).toEqual([]);
+    const all = pickUpgradeChoiceOffer([], null, () => 0.5, 1);
+    expect(all.enhanced).toHaveLength(3);
+    expect(all.enhanced).toEqual(expect.arrayContaining(all.upgrades));
+  });
+
+  it("enhances each option independently at the given chance", () => {
+    const draws = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.1, 0.9, 0.9];
+    let i = 0;
+    const offer = pickUpgradeChoiceOffer([], null, () => draws[i++ % draws.length]!, 0.125);
+    expect(offer.enhanced).toHaveLength(1);
+    expect(offer.upgrades).toContain(offer.enhanced[0]);
+  });
+
+  it("confirm grants the enhanced form when one is given", () => {
+    const state = confirmUpgradeChoice(
+      createRunUpgrades(),
+      ["passiveGhostSlow", "passiveAfterburner"],
+      "passiveGhostSlow",
+      "passiveGhostSlowPlus",
+    );
+    expect(state.owned).toContain("passiveGhostSlowPlus");
+    expect(state.owned).not.toContain("passiveGhostSlow");
+  });
+
   it("confirm grants chosen and tracks the single declined option", () => {
     const state = createRunUpgrades();
     const options: BaseUpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];

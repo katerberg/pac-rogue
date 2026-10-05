@@ -133,10 +133,11 @@ Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored
 - Clearing a level (2 through 8; not level 1 or the final boss level 9 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned. The modal always opens on this trigger — there is no "0 eligible → skip" case anymore, since the Quarters option is always available.
 - `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — no modal at all, immediate level transition. Also skips the level-1 starting upgrade (no card). Does not affect `enableUpgrade`.
 - `?jumpToUpgrade=1` (debug): fires the trigger immediately on the first board — clears all its pellets and, after the 1.2 s [level-end time drain](./bonus.md#time-bonus), opens the modal without playing the level. Defaults the start level to 2 when `?level=` is omitted, since level 1 never offers this modal. Disables high-score saving for the run (same as `disableLevelUpgrades` / `infiniteLives`).
-- `pickUpgradeChoiceOffer` returns an offer of `{ quarters: QUARTERS_CHOICE_AMOUNT, upgrades }`, where `upgrades` holds up to three ids (`min(3, eligible.length)`):
+- `pickUpgradeChoiceOffer` returns an offer of `{ quarters: QUARTERS_CHOICE_AMOUNT, upgrades, enhanced }`, where `upgrades` holds up to three ids (`min(3, eligible.length)`):
   - Never repeats an id.
   - Prefers excluding `lastDeclinedUpgradeId`.
   - If excluding decline would leave the offer short, re-includes last-declined only as needed to fill it.
+  - After the shuffle, each upgrade is independently marked enhanced with `enhancedOfferChance(level)` (`1/8` after levels 4–8, else 0). Those extra `upgradeOffer` stream draws happen last, so seeded offers on other levels stay unchanged. `enhanced` is the subset shown as `+` cards (gold `STORE_ENHANCE_BORDER_COLOR` border, Plus label and description).
 - The modal lays these out as four fixed direction slots — **up/down/left/right**, D-pad style:
   - **Down is always the Quarters option** (`+QUARTERS_CHOICE_AMOUNT`, currently 2), regardless of how many upgrades are offered.
   - The upgrade slots fill in a fixed order based on count: 0 → none (down-only); 1 → up; 2 → left + right (matching the old two-button layout); 3 → up + left + right.
@@ -144,7 +145,7 @@ Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored
 - **0.5s lockout** after open: fuzz-in (alpha ramp + light jitter + BitmapText scramble). Keyboard and click disabled.
 - After lockout: already in selection mode (highlight + directional hints on each active slot). **Click** a button to choose it, or press the matching direction (**Arrow keys or WASD**) once any held direction keys from before the modal opened have been released (keys held through open/lockout are ignored). Each active slot confirms independently — there is no single "either direction" shortcut. No Esc / dismiss — must pick.
 - On confirm:
-  - Choosing an **upgrade** slot: `confirmUpgradeChoice` grants that id; if exactly one other upgrade was offered alongside it, `lastDeclinedUpgradeId` is set to that one (ambiguous with 0 or 2 other upgrades offered, so it is left unchanged in those cases).
+  - Choosing an **upgrade** slot: `confirmUpgradeChoice` grants that id, or its `Plus` form when the card was rolled enhanced; if exactly one other upgrade was offered alongside it, `lastDeclinedUpgradeId` is set to that one (ambiguous with 0 or 2 other upgrades offered, so it is left unchanged in those cases). An enhanced Extra Life pick pays both lives up front and records `enhanceLivesPaid` so a later specialist enhancement does not pay again.
   - Choosing the **Quarters** slot: no upgrade is granted; `PlayScene` adds `QUARTERS_CHOICE_AMOUNT` to the Quarters HUD count and calls `declineUpgrades`, which sets `lastDeclinedUpgradeId` only when exactly one upgrade was offered (again left unchanged otherwise).
   - HUD refreshes either way.
 - After confirm: **confirm outro** while sim stays frozen — chosen option double-pulses (scale bounce + stroke thicken, ~400ms); the other options fade out during that pulse; then the whole modal (dim + chrome + chosen) fades out over **1s**. Then play resumes; movement keys held from the modal are ignored until released.
@@ -272,7 +273,7 @@ There is one specialist per school except Neutral: `passiveDeathSpecialist`, `pa
 - **Effect.** `effectiveOwned(owned)` maps every owned base id in a specialist's school to its `Plus` form while the school holds at least the threshold of **other** owned upgrades (base or Plus; specialists never count, and are never enhanced by another specialist). `RunUpgrades.owned` never changes, so the effect is live: a store swap that drops the school below 3 turns it off again, and a later pick from the school is enhanced on arrival. `PlaySim` reads every effect through a memoized `effectiveOwned`, and `applyPowerPelletEffects` resolves it itself, so Overcharge and Fruit Power see the enhanced timers.
 - **Offers.** `eligibleUpgrades` offers a specialist (level-clear modal and store shelves) only once 3 non-specialist upgrades of its school are owned. It is never in `STARTING_UPGRADE_POOL`.
 - **Store enhance.** `enhanceableUpgrades` skips upgrades a specialist already enhances (`specialistEnhancedBases`).
-- **Grant effects.** The first time Extra Life becomes enhanced through Death Specialist, `PlaySim` grants `enhanceGrantLives` (+1). It is paid once per run per upgrade (shared with a store enhancement) and never taken back.
+- **Grant effects.** The first time Extra Life becomes enhanced through Death Specialist, `PlaySim` grants `enhanceGrantLives` (+1). It is paid once per run per upgrade (shared with a store enhancement or an enhanced level-clear pick, which grants the Plus lives up front) and never taken back.
 - **Display.** The HUD and pause list show the effective labels, so enhanced upgrades read `+`. Snapshot `play.upgrades` stays the owned ids; `play.effectiveUpgrades` shows the effective ones.
 - **LEARN.** Specialists are left off the LEARN list (`learnUpgradeDefs`).
 

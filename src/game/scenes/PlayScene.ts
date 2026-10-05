@@ -341,6 +341,7 @@ export class PlayScene extends Phaser.Scene {
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
+      upgradeOfferEnhanced: this.upgradeChoiceModal.offer()?.enhanced ?? null,
       cursor: this.input.manager.canvas.style.cursor || "default",
       runEndMenu: {
         open: this.runEndMenu !== null,

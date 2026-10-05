@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "./ghostKind";
 import { GHOST_AI_MODE } from "./ghostMode";
 import {
+  enhancedOfferChance,
   ghostBaseSpeedRatio,
   ghostKindsForLevel,
   ghostModeWavesForLevel,
@@ -140,6 +141,17 @@ describe("isInvertedMazeLevel", () => {
     expect(isInvertedMazeLevel(7)).toBe(true);
     for (const level of [1, 2, 3, 4, 5, 8]) {
       expect(isInvertedMazeLevel(level)).toBe(false);
+    }
+  });
+});
+
+describe("enhancedOfferChance", () => {
+  it("is 1/8 after levels 4-8 and 0 otherwise", () => {
+    for (const level of [1, 2, 3, 9]) {
+      expect(enhancedOfferChance(level)).toBe(0);
+    }
+    for (const level of [4, 5, 6, 7, 8]) {
+      expect(enhancedOfferChance(level)).toBe(1 / 8);
     }
   });
 });
