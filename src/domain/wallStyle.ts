@@ -34,7 +34,6 @@ export function wallStyleFor(tuning: Tuning | null, mazeColorIndex: number): Wal
   };
 }
 
-// distance is in world px; the renderer scales it to device px.
 export function wallGlowFilter(
   style: WallStyle,
 ): { outerStrength: number; distance: number } | null {

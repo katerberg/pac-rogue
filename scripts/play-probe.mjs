@@ -68,7 +68,6 @@ function readArgs() {
   return values;
 }
 
-// The canvas renders at a multiple of the world (RENDER_SCALE); steps use world coordinates.
 async function worldSize(page) {
   return page.evaluate(() => {
     const g = globalThis.__PAC_ROGUE_GAME__;

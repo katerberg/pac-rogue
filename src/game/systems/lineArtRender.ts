@@ -5,7 +5,6 @@ const LINE_ART_STROKE_VB = 9;
 export const CLYDE_LINE_COLOR = 0xffb852;
 const LINE_GLOW = { outerStrength: 3, distancePx: 4, quality: 10 } as const;
 
-// The crisp art, plus a glow-only copy of its strokes drawn underneath.
 export type LineArtObject = {
   art: Phaser.GameObjects.Graphics;
   glow: Phaser.GameObjects.Graphics | null;

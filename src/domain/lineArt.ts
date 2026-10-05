@@ -1,6 +1,3 @@
-// Parses a restricted SVG subset (see docs/line-art.md) into flattened strands with
-// distance-along-path, so a later trim/unspool animation needs no data rework.
-
 export type LinePaint = "currentColor" | "none" | number;
 export type LinePoint = { x: number; y: number; s: number };
 export type LineStrand = {

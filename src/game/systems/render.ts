@@ -398,7 +398,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
       strokeWallPath(wallGraphics, commands, wallStyle, 1);
-      // The glow is static: filter it once at full resolution into a texture.
       const glow = wallGlowFilter(wallStyle);
       wallGlowTexture.clear();
       if (glow !== null) {
