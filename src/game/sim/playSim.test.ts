@@ -47,6 +47,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
+import { Velocity } from "../components/Velocity";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
 import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
@@ -239,6 +240,52 @@ describe("PlaySim fruit feast", () => {
     const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true });
     eatPellets(sim, 60);
     expect(sim.snapshot().fruit).toBe(false);
+  });
+});
+
+describe("PlaySim Afterburner", () => {
+  function speedRatios(id: UpgradeId | null): { empty: number; pellet: number } {
+    const baseline = startSim({ level: 2, maze: "maze1" });
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: id === null ? [] : [id] });
+    const target = regularPelletEids(sim)[0]!;
+    const col = worldToCol(Position.x[target]!);
+    const row = worldToRow(Position.y[target]!);
+    const measure = (world: PlaySim, vx: number): number => {
+      const pellets = Array.from(query(world.world, [Pellet, Position]));
+      const keep = regularPelletEids(world).find(
+        (eid) => worldToCol(Position.x[eid]!) === col && worldToRow(Position.y[eid]!) === row,
+      );
+      for (const eid of pellets) {
+        if (eid !== keep) {
+          removeEntity(world.world, eid);
+        }
+      }
+      teleportPlayer(world, cellCenterX(col - 1), cellCenterY(row));
+      Velocity.x[playerEid(world)] = vx;
+      Velocity.y[playerEid(world)] = 0;
+      runFrames(world, 1);
+      return Speed.px[playerEid(world)]!;
+    };
+    const base = measure(baseline, 1);
+    return { pellet: measure(sim, 1) / base, empty: measure(sim, -1) / base };
+  }
+
+  it("speeds up only when entering a cell without a pellet", () => {
+    const ratios = speedRatios("passiveAfterburner");
+    expect(ratios.pellet).toBeCloseTo(1);
+    expect(ratios.empty).toBeCloseTo(1.3);
+  });
+
+  it("Afterburner+ gives +50%", () => {
+    const ratios = speedRatios("passiveAfterburnerPlus");
+    expect(ratios.pellet).toBeCloseTo(1);
+    expect(ratios.empty).toBeCloseTo(1.5);
+  });
+
+  it("changes nothing without the upgrade", () => {
+    const ratios = speedRatios(null);
+    expect(ratios.empty).toBeCloseTo(1);
+    expect(ratios.pellet).toBeCloseTo(1);
   });
 });
 
