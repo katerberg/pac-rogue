@@ -1488,12 +1488,16 @@ export function hauntDurationMs(owned: readonly UpgradeId[]): number | null {
   return ownedValue(owned, "hauntMs") ?? null;
 }
 
+export function echoEffects(owned: readonly UpgradeId[]): EchoEffects | null {
+  return ownedValue(owned, "echoEffects") ?? null;
+}
+
 export function queueEcho(state: RunUpgrades, rng: () => number): RunUpgrades {
   const owned = effectiveOwned(state.owned);
   const powerBases = owned
     .filter((id) => getUpgradeDef(id).onPowerPellet !== undefined)
     .map(baseIdOf);
-  const bases = pickEchoBases(ownedValue(owned, "echoEffects") ?? null, powerBases, rng);
+  const bases = pickEchoBases(echoEffects(owned), powerBases, rng);
   if (bases.length === 0) {
     return state;
   }

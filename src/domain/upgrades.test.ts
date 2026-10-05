@@ -130,6 +130,7 @@ import {
   turnBoostMs,
   turnPerfectPx,
   wallPassLoopOwned,
+  echoEffects,
   queueEcho,
 } from "./upgrades";
 import { ECHO_DELAY_MS } from "./echo";
@@ -1368,6 +1369,12 @@ describe("Echo", () => {
     expect(queueEcho(noEcho, firstPick)).toBe(noEcho);
     const noPower = createRunUpgrades(["passiveEcho", "passiveGhostSlow"]);
     expect(queueEcho(noPower, firstPick)).toBe(noPower);
+  });
+
+  it("reads one or all from the owned form", () => {
+    expect(echoEffects(["passiveEcho"])).toBe("one");
+    expect(echoEffects(["passiveEchoPlus"])).toBe("all");
+    expect(echoEffects(["powerPelletInvuln"])).toBeNull();
   });
 
   it("keeps each queued echo separate", () => {

@@ -77,6 +77,7 @@ import {
   spendShield,
   createRunUpgrades,
   clearUpgradeTimers,
+  echoEffects,
   queueEcho,
   armHaunt,
   hauntedGhost,
@@ -1095,6 +1096,6 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
     shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
-    pendingEchoes: hasUpgrade(owned, "passiveEcho") ? state.pendingEchoes : [],
+    pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
   };
 }
