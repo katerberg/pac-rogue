@@ -277,7 +277,9 @@ describe("PlaySim Afterburner", () => {
   });
 
   it("Afterburner+ gives +50%", () => {
-    expect(speedRatios("passiveAfterburnerPlus").empty).toBeCloseTo(1.5);
+    const ratios = speedRatios("passiveAfterburnerPlus");
+    expect(ratios.pellet).toBeCloseTo(1);
+    expect(ratios.empty).toBeCloseTo(1.5);
   });
 
   it("changes nothing without the upgrade", () => {
