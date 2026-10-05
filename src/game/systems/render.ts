@@ -296,22 +296,23 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const lineArtObjects = new Map<string, LineArtObject>();
   const playerVisuals = new Map<number, PlayerVisual>();
-  const wallGlowScale = renderScaleOf(scene);
-  const wallGlowTexture = scene.add
-    .renderTexture(
-      0,
-      0,
-      Math.round(PLAYFIELD_WIDTH * wallGlowScale),
-      Math.round(PLAYFIELD_HEIGHT * wallGlowScale),
-    )
-    .setOrigin(0, 0)
-    .setScale(1 / wallGlowScale);
+  let wallGlowScale = renderScaleOf(scene);
+  const wallGlowTexture = scene.add.renderTexture(0, 0, 1, 1).setOrigin(0, 0);
   const wallGlowSource = scene.make.graphics({}, false).enableFilters();
   wallGlowSource.filtersAutoFocus = false;
   wallGlowSource.filtersFocusContext = false;
-  wallGlowSource.setFilterSize(wallGlowTexture.width, wallGlowTexture.height);
   wallGlowSource.filterCamera.setOrigin(0, 0);
-  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => wallGlowSource.destroy());
+  const sizeWallGlowToCanvas = (): void => {
+    wallGlowScale = renderScaleOf(scene);
+    wallGlowTexture
+      .resize(
+        Math.round(PLAYFIELD_WIDTH * wallGlowScale),
+        Math.round(PLAYFIELD_HEIGHT * wallGlowScale),
+      )
+      .setScale(1 / wallGlowScale);
+    wallGlowSource.setFilterSize(wallGlowTexture.width, wallGlowTexture.height);
+  };
+  sizeWallGlowToCanvas();
   const wallGraphics = scene.add.graphics();
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
@@ -319,6 +320,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let wallStyleOverride: WallStyle | null = null;
   let ghostLook = ghostLineArtLook(DEFAULT_TUNING);
   let bossPelletTint = 0xffffff;
+
+  // Glow textures are baked at the canvas density; rebuild them when the canvas resizes.
+  const onCanvasResize = (): void => {
+    sizeWallGlowToCanvas();
+    drawnWallStyle = null;
+    for (const key of [...lineArtObjects.keys()]) {
+      destroyLineArt(key);
+    }
+  };
+  scene.scale.on(Phaser.Scale.Events.RESIZE, onCanvasResize);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    scene.scale.off(Phaser.Scale.Events.RESIZE, onCanvasResize);
+    wallGlowSource.destroy();
+  });
 
   const destroyImage = (key: string): void => {
     const go = drawableObjects.get(key);
