@@ -62,6 +62,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 39  | `passiveNearMiss`             | Near Miss             | A ghost passing within 1 tile without catching you bumps the BONUS bar                                           | Bigger bump: 30 per pass instead of 15                                                                                                       |
 | 40  | `passiveHaunting`             | Haunting              | The ghost that last caught you stays caged in the house for 10 seconds                                           | Caged for the rest of the level                                                                                                              |
 | 41  | `passiveTunnelSanctuary`      | Tunnel Sanctuary      | Coming out of a tunnel gives 1s of Ghost Proof; ghosts cross tunnels at 0.9x player speed                        | Ghosts can no longer travel through tunnels and keep the normal slow                                                                         |
+| 42  | `passiveStreakEngine`         | Streak Engine         | Every 30-pellet streak fires your power-pellet effects                                                           | Each fire also grants 3 seconds of Ghost Proof                                                                                               |
 
 ## Decisions
 

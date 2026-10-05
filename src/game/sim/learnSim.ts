@@ -2,7 +2,16 @@ import { addComponent, addEntity, createWorld, query, removeEntity, type World }
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
-import { BONUS_BAR_MAX, FRUIT_BONUS_CHARGE } from "../../domain/bonusBar";
+import {
+  BONUS_BAR_MAX,
+  FRUIT_BONUS_CHARGE,
+  applyStreakPellets,
+  createBonusBar,
+  tickStreakIdle,
+  type BonusBar,
+  type Cell,
+} from "../../domain/bonusBar";
+import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import {
   createFruitPresence,
   extendFruitLifetime,
@@ -58,6 +67,9 @@ import {
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   applyShieldBreakInvuln,
+  applyStreakEngineInvuln,
+  streakEngineEvery,
+  streakEngineInvulnMs,
   bankShields,
   shieldPelletsCap,
   spendShield,
@@ -203,6 +215,7 @@ export class LearnSim {
   private houseHoldEaten = 0;
   private catchGraceMs = 0;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
+  private streakBar: BonusBar = createBonusBar();
   private fruitPresence: FruitPresence = createFruitPresence();
   private boardCollected = 0;
 
@@ -399,6 +412,7 @@ export class LearnSim {
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
     this.releaseAll(removedEids);
     this.countCollected(removedEids.length);
+    this.stepStreakEngine(playerFrame.removedCells, delta);
     if (hasUpgrade(this.learnUpgrades.owned, "passivePowerPelletRecharge")) {
       this.pendingPowerRespawns = queuePowerPelletRespawns(
         this.pendingPowerRespawns,
@@ -478,6 +492,7 @@ export class LearnSim {
       }
     }
     this.houseHold.clear();
+    this.streakBar = createBonusBar();
     this.resetPellets();
 
     const exit = getActiveLayout().ghostHouseExit;
@@ -656,6 +671,34 @@ export class LearnSim {
     }
   }
 
+  private stepStreakEngine(cells: readonly Cell[], delta: number): void {
+    const every = streakEngineEvery(this.learnUpgrades.owned);
+    if (every === null) {
+      this.streakBar = createBonusBar();
+      return;
+    }
+    if (cells.length === 0) {
+      this.streakBar = tickStreakIdle(this.streakBar, delta);
+      return;
+    }
+    const prevStreak = this.streakBar.streak;
+    this.streakBar = applyStreakPellets(this.streakBar, cells).bar;
+    for (const pop of streakPops(prevStreak, this.streakBar.streak, every)) {
+      const cell = cells[pop.cellIndex]!;
+      this.events.push({
+        type: "streakPop",
+        value: pop.value,
+        x: cellCenterX(cell.col),
+        y: cellCenterY(cell.row),
+      });
+    }
+    const fires = streakEngineFires(prevStreak, this.streakBar.streak, every);
+    for (let fired = 0; fired < fires; fired += 1) {
+      this.resolvePowerPelletTrigger(1);
+      this.learnUpgrades = applyStreakEngineInvuln(this.learnUpgrades, this.learnUpgrades.owned);
+    }
+  }
+
   private recallClosestGhost(): void {
     const playerEid = query(this.world, [Player, Position])[0];
     if (playerEid === undefined) {
@@ -787,6 +830,7 @@ export class LearnSim {
   }
 
   private resolveDemoCatch(caughtBy: number): void {
+    this.streakBar = createBonusBar();
     const spent = spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
@@ -1026,7 +1070,8 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     invulnRemainingMs:
       hasField("playerInvulnMs") ||
       hasField("warpInvulnMs") ||
-      owned.some((id) => getUpgradeDef(id).tunnelExitInvulnMs !== undefined)
+      owned.some((id) => getUpgradeDef(id).tunnelExitInvulnMs !== undefined) ||
+      streakEngineInvulnMs(owned) > 0
         ? state.invulnRemainingMs
         : 0,
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,

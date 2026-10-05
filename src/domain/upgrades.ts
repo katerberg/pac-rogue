@@ -44,7 +44,8 @@ export type BaseUpgradeId =
   | "passiveInterest"
   | "passiveNearMiss"
   | "passiveHaunting"
-  | "passiveTunnelSanctuary";
+  | "passiveTunnelSanctuary"
+  | "passiveStreakEngine";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -106,6 +107,8 @@ export type UpgradeEffects = {
   interestPerQuarters?: number;
   nearMissCharge?: number;
   hauntMs?: number;
+  streakEngineEvery?: number;
+  streakEngineInvulnMs?: number;
   specialistThreshold?: number;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -161,6 +164,8 @@ export const SHIELD_PELLETS_ENHANCED_CAP = 3;
 export const SHIELD_BREAK_INVULN_MS = 1000;
 export const TUNNEL_SANCTUARY_INVULN_MS = 1000;
 export const TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO = 0.9;
+export const STREAK_ENGINE_EVERY = 30;
+export const STREAK_ENGINE_ENHANCED_INVULN_MS = 3000;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
 export const AFTERBURNER_MUL = 1.3;
@@ -719,6 +724,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
         "Leaving a tunnel makes you ghost-proof for a second, and ghosts can't use tunnels.",
       ghostTunnelSpeedRatio: undefined,
       ghostsBlockedFromTunnels: true,
+    },
+  },
+  {
+    id: "passiveStreakEngine",
+    label: "Streak Engine",
+    school: "harvest",
+    description: "Every 30-pellet streak fires your power-pellet effects.",
+    storePrice: STORE_UPGRADE_PRICE,
+    streakEngineEvery: STREAK_ENGINE_EVERY,
+    enhanced: {
+      enhanceNote: "Streak Engine also grants 3 seconds of Ghost Proof on every 30-pellet streak.",
+      description: "Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof.",
+      streakEngineInvulnMs: STREAK_ENGINE_ENHANCED_INVULN_MS,
     },
   },
 ];
@@ -1413,6 +1431,14 @@ export function nearMissCharge(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "nearMissCharge") ?? 0;
 }
 
+export function streakEngineEvery(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "streakEngineEvery") ?? null;
+}
+
+export function streakEngineInvulnMs(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "streakEngineInvulnMs") ?? 0;
+}
+
 export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
   return ownedValue(owned, "martyrGhosts") ?? null;
 }
@@ -1573,6 +1599,14 @@ export function applyShieldBreakInvuln(state: RunUpgrades): RunUpgrades {
     SHIELD_BREAK_INVULN_MS * overchargeMultiplier(state.owned),
   );
   return { ...state, invulnRemainingMs };
+}
+
+export function applyStreakEngineInvuln(
+  state: RunUpgrades,
+  effectiveOwned: readonly UpgradeId[],
+): RunUpgrades {
+  const grantMs = streakEngineInvulnMs(effectiveOwned) * overchargeMultiplier(effectiveOwned);
+  return grantMs > state.invulnRemainingMs ? { ...state, invulnRemainingMs: grantMs } : state;
 }
 
 export function learnUpgradeDefs(seen: readonly UpgradeId[]): UpgradeDef[] {
