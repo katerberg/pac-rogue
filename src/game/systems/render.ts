@@ -12,10 +12,22 @@ import {
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import {
   sameWallStyle,
-  wallGlowLayers,
+  wallGlowFilter,
   wallStyleFor,
   type WallStyle,
 } from "../../domain/wallStyle";
+import type { LineArt } from "../../domain/lineArt";
+import { CLYDE_LINE_ART } from "../art/clydeArt";
+import {
+  CLYDE_LINE_COLOR,
+  createLineArtObject,
+  destroyLineArtObject,
+  placeLineArtObject,
+  renderGlowTexture,
+  restyleLineArtObject,
+  type LineArtObject,
+} from "./lineArtRender";
+import { RENDER_SCALE } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -26,6 +38,8 @@ import {
   PELLET_DRAWABLE_ID,
   PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
+  PLAYFIELD_HEIGHT,
+  PLAYFIELD_WIDTH,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { turnFlashPulse } from "../../domain/turnTuning";
@@ -69,6 +83,13 @@ export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [INKY_DRAWABLE_ID]: INKY_TEXTURE_KEY,
   [CLYDE_DRAWABLE_ID]: CLYDE_TEXTURE_KEY,
 };
+const LINE_ART_BY_DRAWABLE_ID: Record<string, LineArt> = {
+  [CLYDE_DRAWABLE_ID]: CLYDE_LINE_ART,
+};
+const LINE_COLOR_BY_DRAWABLE_ID: Record<string, number> = {
+  [CLYDE_DRAWABLE_ID]: CLYDE_LINE_COLOR,
+};
+const WALL_GLOW_QUALITY = 10;
 const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
@@ -146,17 +167,23 @@ function bossPelletPulse(nowMs: number): { size: number; alpha: number } {
   };
 }
 
-function applyWallPathCommands(
+function strokeWallPath(
   graphics: Phaser.GameObjects.Graphics,
   commands: readonly WallPathCommand[],
+  style: WallStyle,
+  scale: number,
 ): void {
+  graphics.clear();
+  graphics.lineStyle(style.thickness * scale, style.color, 1);
+  graphics.beginPath();
   for (const command of commands) {
     if (command.type === "move") {
-      graphics.moveTo(command.x, command.y);
+      graphics.moveTo(command.x * scale, command.y * scale);
     } else {
-      graphics.lineTo(command.x, command.y);
+      graphics.lineTo(command.x * scale, command.y * scale);
     }
   }
+  graphics.strokePath();
 }
 
 function textureKeyForDrawable(drawableId: string): string {
@@ -244,6 +271,7 @@ export type RenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
+  lineArtDrawableIds?: string[];
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -263,7 +291,13 @@ const SPEED_TRAIL_DEPTH = -1;
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
+  const lineArtObjects = new Map<string, LineArtObject>();
   const playerVisuals = new Map<number, PlayerVisual>();
+  const wallGlowTexture = scene.add
+    .renderTexture(0, 0, PLAYFIELD_WIDTH * RENDER_SCALE, PLAYFIELD_HEIGHT * RENDER_SCALE)
+    .setOrigin(0, 0)
+    .setScale(1 / RENDER_SCALE);
+  const wallGlowSource = scene.make.graphics({}, false);
   const wallGraphics = scene.add.graphics();
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
@@ -271,15 +305,27 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let wallStyleOverride: WallStyle | null = null;
   let bossPelletTint = 0xffffff;
 
-  const releaseDrawable = (eid: number): void => {
-    for (const key of [String(eid), `${eid}:twin`] as const) {
-      const go = drawableObjects.get(key);
-      if (go) {
-        scene.tweens.killTweensOf(go);
-        go.destroy();
-        drawableObjects.delete(key);
-      }
+  const destroyImage = (key: string): void => {
+    const go = drawableObjects.get(key);
+    if (go) {
+      scene.tweens.killTweensOf(go);
+      go.destroy();
+      drawableObjects.delete(key);
     }
+  };
+
+  const destroyLineArt = (key: string): void => {
+    const obj = lineArtObjects.get(key);
+    if (obj) {
+      destroyLineArtObject(obj);
+      lineArtObjects.delete(key);
+    }
+  };
+
+  const releaseDrawable = (eid: number): void => {
+    destroyImage(String(eid));
+    destroyImage(`${eid}:twin`);
+    destroyLineArt(String(eid));
     playerVisuals.delete(eid);
   };
 
@@ -289,6 +335,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       go.destroy();
     }
     drawableObjects.clear();
+    for (const obj of lineArtObjects.values()) {
+      destroyLineArtObject(obj);
+    }
+    lineArtObjects.clear();
     playerVisuals.clear();
     wallGraphics.clear();
     drawnWallStyle = null;
@@ -322,6 +372,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const warpGlide = opts?.playerWarpGlide;
     const speedTrail = opts?.playerSpeedTrail;
     const ghostWarpGlides = opts?.ghostWarpGlides;
+    const lineArtIds = new Set(opts?.lineArtDrawableIds ?? []);
     const wallPassOn = opts?.wallPassActive === true;
     const twinSolids =
       opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
@@ -345,17 +396,21 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
     if (!sameWallStyle(wallStyle, drawnWallStyle)) {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
-      wallGraphics.clear();
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
-      for (const layer of [
-        ...wallGlowLayers(wallStyle),
-        { width: wallStyle.thickness, alpha: 1 },
-      ]) {
-        wallGraphics.lineStyle(layer.width, wallStyle.color, layer.alpha);
-        wallGraphics.beginPath();
-        applyWallPathCommands(wallGraphics, commands);
-        wallGraphics.strokePath();
+      strokeWallPath(wallGraphics, commands, wallStyle, 1);
+      const glow = wallGlowFilter(wallStyle);
+      if (glow !== null) {
+        strokeWallPath(wallGlowSource, commands, wallStyle, RENDER_SCALE);
       }
+      renderGlowTexture(
+        wallGlowTexture,
+        wallGlowSource,
+        wallStyle.color,
+        glow === null
+          ? null
+          : { outerStrength: glow.outerStrength, distance: glow.distance * RENDER_SCALE },
+        WALL_GLOW_QUALITY,
+      );
       if (wallStyleOverride !== null) {
         scene.cameras.main.setBackgroundColor(wallStyle.background);
       }
@@ -420,6 +475,43 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       const y = glideHead?.y ?? Position.y[eid] ?? 0;
       const size = displaySizeForDrawable(id);
       const radius = Drawable.radius[eid] ?? size / 2;
+      const ghostTint =
+        ghostTexture !== undefined &&
+        frozenEid !== null &&
+        eid === frozenEid &&
+        (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse
+          ? GHOST_FROZEN_TINT
+          : null;
+      const ghostAlpha = dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1;
+
+      const lineArt = lineArtIds.has(id) ? LINE_ART_BY_DRAWABLE_ID[id] : undefined;
+      if (lineArt !== undefined) {
+        destroyImage(primaryKey);
+        const look = { color: ghostTint ?? LINE_COLOR_BY_DRAWABLE_ID[id]! };
+        const placeLineArt = (
+          key: string,
+          glow: boolean,
+          px: number,
+          py: number,
+          alpha: number,
+        ): void => {
+          alive.add(key);
+          let obj = lineArtObjects.get(key);
+          if (!obj) {
+            obj = createLineArtObject(scene, lineArt, look, size, glow);
+            lineArtObjects.set(key, obj);
+          } else if (obj.color !== look.color) {
+            restyleLineArtObject(obj, lineArt, look);
+          }
+          placeLineArtObject(obj, px, py, alpha);
+        };
+        placeLineArt(primaryKey, true, x, y, ghostAlpha * (glideHead?.alpha ?? 1));
+        glide?.slice(1).forEach((trail, i) => {
+          placeLineArt(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha);
+        });
+        continue;
+      }
+      destroyLineArt(primaryKey);
 
       let go = drawableObjects.get(primaryKey);
       if (!go) {
@@ -451,23 +543,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
 
       if (ghostTexture !== undefined) {
-        const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
-        const tint =
-          frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse
-            ? GHOST_FROZEN_TINT
-            : null;
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
-          if (tint === null) {
+          if (ghostTint === null) {
             target.clearTint();
           } else {
-            target.setTint(tint);
+            target.setTint(ghostTint);
           }
         };
         applyGhostTint(go);
-        go.setAlpha(
-          (dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1) *
-            (glideHead?.alpha ?? 1),
-        );
+        go.setAlpha(ghostAlpha * (glideHead?.alpha ?? 1));
         if (glide !== undefined) {
           drawGlideTrail(eid, id, glide.slice(1), go.texture.key, size, applyGhostTint);
         }
@@ -575,6 +659,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         if (!key.includes(":")) {
           playerVisuals.delete(Number(key));
         }
+      }
+    }
+    for (const key of lineArtObjects.keys()) {
+      if (!alive.has(key)) {
+        destroyLineArt(key);
       }
     }
   };

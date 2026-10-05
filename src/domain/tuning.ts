@@ -96,7 +96,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   bonusStreakIdleMs: 400,
   wallThickness: 2,
   wallColor: 0x2121ff,
-  wallGlow: 0,
+  wallGlow: 0.6,
   wallGlowRadius: 4,
   wallCornerRadius: 6,
   backgroundColor: 0x1a1a2e,

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { MAZE_BACKGROUND_COLOR, WALL_CORNER_RADIUS, WALL_STROKE_WEIGHT } from "./maze";
 import { mazeColorForIndex } from "./mazeColorSettings";
-import { resolveTuning } from "./tuning";
-import { sameWallStyle, wallGlowLayers, wallStyleFor } from "./wallStyle";
+import { DEFAULT_TUNING, resolveTuning } from "./tuning";
+import { sameWallStyle, wallGlowFilter, wallStyleFor } from "./wallStyle";
 
 describe("wallStyleFor", () => {
-  it("keeps today's look without knobs, following the maze color setting", () => {
+  it("glows by default without knobs, following the maze color setting", () => {
     expect(wallStyleFor(null, 2)).toEqual({
       color: mazeColorForIndex(2),
       thickness: WALL_STROKE_WEIGHT,
-      glow: 0,
-      glowRadius: 0,
+      glow: 0.6,
+      glowRadius: 4,
       cornerRadius: WALL_CORNER_RADIUS,
       background: MAZE_BACKGROUND_COLOR,
     });
@@ -23,21 +23,26 @@ describe("wallStyleFor", () => {
   });
 });
 
-describe("wallGlowLayers", () => {
-  it("is empty with no glow", () => {
-    expect(wallGlowLayers(wallStyleFor(null, 0))).toEqual([]);
+describe("wallGlowFilter", () => {
+  it("is null with no glow strength or radius", () => {
+    expect(wallGlowFilter(wallStyleFor(resolveTuning({ wallGlow: 0 }), 0))).toBeNull();
     expect(
-      wallGlowLayers(wallStyleFor(resolveTuning({ wallGlow: 0.5, wallGlowRadius: 0 }), 0)),
-    ).toEqual([]);
+      wallGlowFilter(wallStyleFor(resolveTuning({ wallGlow: 0.5, wallGlowRadius: 0 }), 0)),
+    ).toBeNull();
   });
 
-  it("draws four layers, widest and faintest first", () => {
-    const layers = wallGlowLayers(
-      wallStyleFor(resolveTuning({ wallGlow: 1, wallGlowRadius: 4, wallThickness: 2 }), 0),
-    );
-    expect(layers.map((l) => l.width)).toEqual([10, 8, 6, 4]);
-    expect(layers[0]!.alpha).toBeLessThan(layers[3]!.alpha);
-    expect(layers[3]!.alpha).toBeCloseTo(0.35);
+  it("scales strength by glow and uses the radius as distance", () => {
+    expect(
+      wallGlowFilter(wallStyleFor(resolveTuning({ wallGlow: 0.5, wallGlowRadius: 6 }), 0)),
+    ).toEqual({ outerStrength: 2, distance: 6 });
+  });
+
+  it("glows by default", () => {
+    expect(DEFAULT_TUNING.wallGlow).toBe(0.6);
+    expect(wallGlowFilter(wallStyleFor(null, 0))).toEqual({
+      outerStrength: 0.6 * 4,
+      distance: 4,
+    });
   });
 });
 

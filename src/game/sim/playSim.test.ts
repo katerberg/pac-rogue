@@ -18,7 +18,7 @@ import {
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
-import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
+import { CLYDE_DRAWABLE_ID, ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -3066,5 +3066,29 @@ describe("Haunting", () => {
     runUntil(sim, () => sim.snapshot().inStore || sim.snapshot().level === 4, 600);
     expect(sim.snapshot().timers.hauntMs).toBe(0);
     expect(sim.snapshot().hauntedGhost).toBeNull();
+  });
+});
+
+describe("line-art Clyde", () => {
+  it("draws Clyde as line art on levels 5-8 only", () => {
+    for (const [level, expected] of [
+      [4, []],
+      [5, ["clyde"]],
+      [8, ["clyde"]],
+      [9, []],
+    ] as const) {
+      expect(startSim({ level }, "lineart").snapshot().lineArtGhosts).toEqual(expected);
+    }
+  });
+
+  it("tells the renderer which drawables are line art", () => {
+    const events = runFrames(startSim({ level: 5 }, "lineart"), 1);
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(draws.at(-1)?.lineArtDrawableIds).toEqual([CLYDE_DRAWABLE_ID]);
+  });
+
+  it("follows a ghosts override without Clyde", () => {
+    const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
+    expect(sim.snapshot().lineArtGhosts).toEqual([]);
   });
 });

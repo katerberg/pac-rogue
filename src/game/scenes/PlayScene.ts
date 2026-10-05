@@ -75,6 +75,7 @@ import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
+import { applyRenderScale } from "../renderScale";
 
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
@@ -143,6 +144,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(data: PlaySceneData = {}): void {
+    applyRenderScale(this);
     stopLoopingSfx(this, "menuMusic");
     this.clearLevelBanner();
 
@@ -619,8 +621,8 @@ export class PlayScene extends Phaser.Scene {
   private shakeCamera(): void {
     const camera = this.cameras.main;
     const shake = this.sim.random.stream("bossShake");
-    const maxX = BOSS_SHAKE_INTENSITY * camera.width;
-    const maxY = BOSS_SHAKE_INTENSITY * camera.height;
+    const maxX = BOSS_SHAKE_INTENSITY * PLAYFIELD_WIDTH;
+    const maxY = BOSS_SHAKE_INTENSITY * PLAYFIELD_HEIGHT;
     this.tweens.addCounter({
       duration: BOSS_SHAKE_MS,
       onUpdate: () => camera.setScroll((shake() * 2 - 1) * maxX, (shake() * 2 - 1) * maxY),

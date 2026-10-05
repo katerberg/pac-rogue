@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Stroke-only body; path direction = future unspool order (left skirt tip, up, over, down, scallops back). -->
+  <path id="body" stroke="currentColor" fill="currentColor" fill-opacity="0.25" stroke-width="9"
+    d="M12 88 L12 46 A38 38 0 0 1 88 46 L88 88 A9.5 9.5 0 0 1 69 88 A9.5 9.5 0 0 1 50 88 A9.5 9.5 0 0 1 31 88 A9.5 9.5 0 0 1 12 88 Z" />
+  <!-- Crescent eyes: outer r11 disc minus inner r8 disc offset +4x, filled white. -->
+  <path id="eye-left" stroke="none" fill="#ffffff"
+    d="M43.13 39.86 A11 11 0 1 0 43.13 52.14 A8 8 0 1 1 43.13 39.86 Z" />
+  <path id="eye-right" stroke="none" fill="#ffffff"
+    d="M75.13 39.86 A11 11 0 1 0 75.13 52.14 A8 8 0 1 1 75.13 39.86 Z" />
+</svg>

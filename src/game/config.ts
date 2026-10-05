@@ -3,6 +3,7 @@ import { colorToCssHex, MAZE_BACKGROUND_COLOR } from "../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../domain/playfield";
 import { bootSceneKey } from "../domain/playFlag";
 import { isSoundEnabled } from "../domain/soundFlag";
+import { RENDER_SCALE } from "./renderScale";
 import { HighScoresScene } from "./scenes/HighScoresScene";
 import { LearnScene } from "./scenes/LearnScene";
 import { MenuScene } from "./scenes/MenuScene";
@@ -39,8 +40,8 @@ const bootScenes = [firstScene, ...allScenes.filter((scene) => scene !== firstSc
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "game-container",
-  width: GAME_WIDTH,
-  height: GAME_HEIGHT,
+  width: GAME_WIDTH * RENDER_SCALE,
+  height: GAME_HEIGHT * RENDER_SCALE,
   backgroundColor: colorToCssHex(MAZE_BACKGROUND_COLOR),
   banner: false,
   scene: bootScenes,
@@ -49,7 +50,10 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: {
-    pixelArt: true,
+    pixelArt: false,
+    antialias: false,
+    antialiasGL: true,
+    roundPixels: true,
   },
   audio: soundEnabled ? (audioContext ? { context: audioContext } : undefined) : { noAudio: true },
   callbacks: {

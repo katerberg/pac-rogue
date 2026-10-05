@@ -10,6 +10,7 @@ import {
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
+import { applyRenderScale } from "../renderScale";
 
 const CENTER_X = PLAYFIELD_WIDTH / 2;
 
@@ -23,6 +24,7 @@ export class RunLogOverrunScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyRenderScale(this);
     const title = addPixelText(this, 0, 0, "RUN LOG FULL", MENU_TITLE_FONT_SIZE, TEXT_COLOR_YELLOW);
     placePixelText(title, CENTER_X, 140, 0.5, 0.5);
 

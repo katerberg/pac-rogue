@@ -61,6 +61,7 @@ import {
 } from "../../domain/fruit";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { ghostArtStyle } from "../../domain/ghostArt";
 import {
   createGhostModeClock,
   GHOST_AI_MODE,
@@ -617,7 +618,19 @@ export class PlaySim {
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       hauntedGhost: hauntedGhost(this.runUpgrades),
+      lineArtDrawableIds: this.lineArtGhostKinds().map((kind) => GHOST_DRAWABLE_BY_KIND[kind]),
     };
+  }
+
+  private lineArtGhostKinds(): GhostKindId[] {
+    const kinds = new Set<GhostKindId>();
+    for (const eid of query(this.world, [Ghost, GhostKind])) {
+      const kind = GhostKind.kind[eid] as GhostKindId;
+      if (ghostArtStyle(kind, this.levelIndex) === "line") {
+        kinds.add(kind);
+      }
+    }
+    return [...kinds];
   }
 
   snapshot() {
@@ -685,6 +698,7 @@ export class PlaySim {
           ? null
           : (promptView(this.store, this.quarters, this.runUpgrades.owned)?.kind ?? null),
       boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
+      lineArtGhosts: this.lineArtGhostKinds().map((kind) => nameOf(GHOST_KIND, kind)),
       runLog: {
         id: this.recorder.record.id,
         outcome: this.recorder.outcome,

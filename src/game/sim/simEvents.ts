@@ -19,6 +19,7 @@ export type SimRenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
+  lineArtDrawableIds?: string[];
 };
 
 export type MoneyTalksSpend = {

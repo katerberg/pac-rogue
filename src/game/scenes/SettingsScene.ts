@@ -32,6 +32,7 @@ import {
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
+import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
 const FOCUS_BACK = 3;
@@ -119,6 +120,7 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   create(data?: { returnScene?: string; musicId?: SfxId }): void {
+    applyRenderScale(this);
     // Boot order (see docs/ARCHITECTURE.md) places SettingsScene below PlayScene/PauseScene,
     // so opening it from the pause menu needs an explicit bring-to-top or the paused maze
     // (still rendering underneath) shows through the opaque background below.
@@ -191,7 +193,7 @@ export class SettingsScene extends Phaser.Scene {
       if (this.dragging === null || !pointer.isDown) {
         return;
       }
-      this.setLevelFromPointer(this.dragging, pointer.x);
+      this.setLevelFromPointer(this.dragging, pointer.worldX);
     });
 
     this.refreshUi();
@@ -339,7 +341,7 @@ export class SettingsScene extends Phaser.Scene {
         return;
       }
       this.dragging = category;
-      this.setLevelFromPointer(category, pointer.x);
+      this.setLevelFromPointer(category, pointer.worldX);
     });
 
     const fill = this.add

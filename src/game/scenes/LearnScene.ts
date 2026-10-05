@@ -76,6 +76,7 @@ import {
   wrapText,
   type UpgradeCardVisual,
 } from "./upgradeChoiceModal";
+import { applyRenderScale } from "../renderScale";
 
 const SLOT_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.blinky,
@@ -157,6 +158,7 @@ export class LearnScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyRenderScale(this);
     startLoopingSfx(this, "menuMusic");
     const urlParams = new URLSearchParams(location.search);
     this.sim = new LearnSim(parseSeedParam(urlParams) ?? freshSeed());
@@ -369,7 +371,7 @@ export class LearnScene extends Phaser.Scene {
     zone.setInteractive({ useHandCursor: true });
     zone.on("pointerdown", () => this.toggleUpgrade(def.id));
     zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
-      this.scheduleUpgradePreview(def.id, column, pointer.y),
+      this.scheduleUpgradePreview(def.id, column, pointer.worldY),
     );
     zone.on("pointerout", () => this.cancelUpgradePreview());
     const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, UPGRADE_ROW_GAP - 2);
