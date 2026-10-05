@@ -3136,17 +3136,17 @@ describe("Streak Engine", () => {
     return events.flatMap((event) => (event.type === "streakPop" ? [event.value] : []));
   }
 
-  it("fires the power-pellet effects when the streak reaches 40", () => {
+  it("fires the power-pellet effects when the streak reaches 30", () => {
     const sim = startStreak(["passiveStreakEngine", "powerPelletSpeedBurst"]);
-    eatUntilStreak(sim, 39);
+    eatUntilStreak(sim, 29);
     expect(sim.snapshot().timers.speedBurstMs).toBe(0);
-    eatUntilStreak(sim, 40);
+    eatUntilStreak(sim, 30);
     expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
   });
 
   it("does nothing without the upgrade", () => {
     const sim = startStreak(["powerPelletSpeedBurst"]);
-    const events = eatUntilStreak(sim, 40);
+    const events = eatUntilStreak(sim, 30);
     expect(sim.snapshot().timers.speedBurstMs).toBe(0);
     expect(popValues(events)).toEqual([]);
   });
@@ -3156,36 +3156,36 @@ describe("Streak Engine", () => {
     eatUntilStreak(sim, 20);
     runFrames(sim, 40);
     expect(sim.snapshot().bonus.streak).toBe(0);
-    eatUntilStreak(sim, 39);
+    eatUntilStreak(sim, 29);
     expect(sim.snapshot().timers.speedBurstMs).toBe(0);
   });
 
-  it("pops 5 through 40 from the pellets along the streak", () => {
+  it("pops 5 through 30 from the pellets along the streak", () => {
     const sim = startStreak(["passiveStreakEngine"]);
-    const events = eatUntilStreak(sim, 40);
-    expect(popValues(events)).toEqual([5, 10, 15, 20, 25, 30, 35, 40]);
-    expect(sim.snapshot().streakPops).toEqual({ count: 8, last: 40 });
+    const events = eatUntilStreak(sim, 30);
+    expect(popValues(events)).toEqual([5, 10, 15, 20, 25, 30]);
+    expect(sim.snapshot().streakPops).toEqual({ count: 6, last: 30 });
   });
 
-  it("restarts the pop-offs at 5 after 40", () => {
+  it("restarts the pop-offs at 5 after 30", () => {
     const sim = startStreak(["passiveStreakEngine"]);
-    eatUntilStreak(sim, 40);
-    expect(popValues(eatUntilStreak(sim, 45))).toEqual([5]);
+    eatUntilStreak(sim, 30);
+    expect(popValues(eatUntilStreak(sim, 35))).toEqual([5]);
   });
 
   it("keeps Plus Ghost Proof when Warp Farthest+ also fires", () => {
     const sim = startStreak(["passiveStreakEnginePlus", "powerPelletWarpFarthestPlus"]);
-    eatUntilStreak(sim, 40);
+    eatUntilStreak(sim, 30);
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
   });
 
   it("grants 3s of Ghost Proof only when enhanced", () => {
     const base = startStreak(["passiveStreakEngine"]);
-    eatUntilStreak(base, 40);
+    eatUntilStreak(base, 30);
     expect(base.snapshot().timers.invulnMs).toBe(0);
 
     const plus = startStreak(["passiveStreakEnginePlus"]);
-    eatUntilStreak(plus, 40);
+    eatUntilStreak(plus, 30);
     expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
     expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(STREAK_ENGINE_ENHANCED_INVULN_MS);
   });
@@ -3198,13 +3198,13 @@ describe("Streak Engine", () => {
       "fruitFecundity",
       "fruitFeast",
     ]);
-    eatUntilStreak(sim, 40);
+    eatUntilStreak(sim, 30);
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
   });
 
   it("doubles the Ghost Proof with Overcharge", () => {
     const sim = startStreak(["passiveStreakEnginePlus", "passiveOvercharge"]);
-    eatUntilStreak(sim, 40);
+    eatUntilStreak(sim, 30);
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(
       2 * STREAK_ENGINE_ENHANCED_INVULN_MS - 100,
     );
@@ -3216,7 +3216,7 @@ describe("Streak Engine", () => {
       "passiveShieldPellets",
       "powerPelletSpeedBurst",
     ]);
-    eatUntilStreak(sim, 40);
+    eatUntilStreak(sim, 30);
     expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, speedBurstMs: 0 });
   });
 });

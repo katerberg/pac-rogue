@@ -1244,7 +1244,7 @@ describe("School Specialists", () => {
 });
 
 describe("Streak Engine", () => {
-  it("fires every 40 pellets in both forms", () => {
+  it("fires every 30 pellets in both forms", () => {
     expect(streakEngineEvery([])).toBeNull();
     expect(streakEngineEvery(["passiveStreakEngine"])).toBe(STREAK_ENGINE_EVERY);
     expect(streakEngineEvery(["passiveStreakEnginePlus"])).toBe(STREAK_ENGINE_EVERY);

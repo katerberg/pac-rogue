@@ -159,7 +159,7 @@ export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
 export const SHIELD_PELLETS_CAP = 1;
 export const SHIELD_PELLETS_ENHANCED_CAP = 3;
 export const SHIELD_BREAK_INVULN_MS = 1000;
-export const STREAK_ENGINE_EVERY = 40;
+export const STREAK_ENGINE_EVERY = 30;
 export const STREAK_ENGINE_ENHANCED_INVULN_MS = 3000;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
@@ -707,12 +707,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveStreakEngine",
     label: "Streak Engine",
     school: "harvest",
-    description: "Every 40-pellet streak fires your power-pellet effects.",
+    description: "Every 30-pellet streak fires your power-pellet effects.",
     storePrice: STORE_UPGRADE_PRICE,
     streakEngineEvery: STREAK_ENGINE_EVERY,
     enhanced: {
-      enhanceNote: "Streak Engine also grants 3 seconds of Ghost Proof on every 40-pellet streak.",
-      description: "Every 40-pellet streak fires your power-pellet effects and grants Ghost Proof.",
+      enhanceNote: "Streak Engine also grants 3 seconds of Ghost Proof on every 30-pellet streak.",
+      description: "Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof.",
       streakEngineInvulnMs: STREAK_ENGINE_ENHANCED_INVULN_MS,
     },
   },
