@@ -26,7 +26,8 @@ export type ActivationKind =
   | "defyDeath"
   | "collectExtra"
   | "pelletSurge"
-  | "shieldBreak";
+  | "shieldBreak"
+  | "streakEngine";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   "fruit" | "bonusBar" | "deathsBounty" | "nearMiss" | "offer" | "interest";

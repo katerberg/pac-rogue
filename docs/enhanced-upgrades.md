@@ -61,6 +61,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | 38  | `passiveInterest`             | Interest              | Each store pays 1 Quarter for every 3 you hold                                                                   | Pays 1 Quarter for every 2 held instead                                                                                                      |
 | 39  | `passiveNearMiss`             | Near Miss             | A ghost passing within 1 tile without catching you bumps the BONUS bar                                           | Bigger bump: 30 per pass instead of 15                                                                                                       |
 | 40  | `passiveHaunting`             | Haunting              | The ghost that last caught you stays caged in the house for 10 seconds                                           | Caged for the rest of the level                                                                                                              |
+| 41  | `passiveStreakEngine`         | Streak Engine         | Every 30-pellet streak fires your power-pellet effects                                                           | Each fire also grants 3 seconds of Ghost Proof                                                                                               |
 
 ## Decisions
 

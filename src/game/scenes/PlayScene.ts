@@ -73,6 +73,7 @@ import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
+import { playStreakPop } from "./streakPop";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 
@@ -420,6 +421,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "turnSparks":
         playTurnSparks(this, event);
+        break;
+      case "streakPop":
+        playStreakPop(this, event);
         break;
       case "banner":
         if (event.boss) {

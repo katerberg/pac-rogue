@@ -55,6 +55,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveInterest`             | Interest              | Harvest    | Entering a store pays 1 Quarter for every `INTEREST_PER_QUARTERS` (3) you hold, rounded down (see [Interest](#interest) below)                                                                                                                                                                                                                                                                                                   |
 | `passiveNearMiss`             | Near Miss             | Protection | A ghost that comes within 1 tile of you and leaves again without a catch adds `NEAR_MISS_CHARGE` (15) to the BONUS bar (see [Near Miss](#near-miss) below)                                                                                                                                                                                                                                                                       |
 | `passiveHaunting`             | Haunting              | Death      | The ghost that last caught you stays caged in the ghost house for `HAUNTING_MS` (10000) after play resumes (see [Haunting](#haunting) below)                                                                                                                                                                                                                                                                                     |
+| `passiveStreakEngine`         | Streak Engine         | Harvest    | Every `STREAK_ENGINE_EVERY` (30) pellets in a BONUS streak fires every owned `onPowerPellet` effect, as if you had eaten a power pellet; 5, 10 … 30 pop off the pellets as you eat them (see [Streak Engine](#streak-engine) below)                                                                                                                                                                                              |
 
 ## Enhanced upgrades
 
@@ -111,6 +112,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveInterest`             | Interest              | Pays 1 Quarter for every 2 held instead of every 3                                                                                           |
 | `passiveNearMiss`             | Near Miss             | Each pass adds `NEAR_MISS_ENHANCED_CHARGE` (30) instead of 15                                                                                |
 | `passiveHaunting`             | Haunting              | The ghost stays caged for the rest of the level (`HAUNTING_ENHANCED_MS` is `Infinity`); the cage never blinks                                |
+| `passiveStreakEngine`         | Streak Engine         | Each fire also grants `STREAK_ENGINE_ENHANCED_INVULN_MS` (3s) of Ghost Proof                                                                 |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -320,6 +322,17 @@ While `passiveHaunting` is owned, a catch that doesn't end the run cages the gho
 - **Cage.** `SimRenderOptions.hauntedGhost` (`{ eid, remainingMs }`) makes `render` draw a light grey frame with 3 vertical bars around the ghost (`hauntCageLines`, [`src/domain/hauntCage.ts`](../src/domain/hauntCage.ts)). `hauntCageVisible` keeps it solid, then blinks it every 100ms in the last 1000ms, like Ghost Proof. The rest-of-level cage never blinks.
 - **Snapshot:** `play.hauntedGhost` (ghost name or `null`) and `play.timers.hauntMs` (`-1` for rest of level).
 - **LEARN** mirrors it through the demo catch: the catcher is seated at the ghost-house exit, caged for `HAUNTING_MS` (10s even for Haunting+, since LEARN has no level end), and the popup adds `HAUNTED`. Toggling Haunting off frees it.
+
+### Streak Engine
+
+While `passiveStreakEngine` is owned, the [BONUS streak](./bonus.md#rules) fires your power-pellet effects every `STREAK_ENGINE_EVERY` (30) pellets. `applyStreakCells` in `PlaySim` reads the streak before and after the bar bump; `streakEngineFires` ([`src/domain/streakEngine.ts`](../src/domain/streakEngine.ts)) counts the multiples of 30 crossed (a frame that crosses two fires twice), and `fireStreakEngine` runs each one through `resolvePowerPelletTrigger(1)`, the same path as a Fruit Power pickup.
+
+- **What counts.** The same pellets the BONUS streak counts: the player's own `collectPellets` frame and Tunnel Dash sweeps. Extra Hungry, Remote Transference, Ghost Harvest and Death's Harvest removals neither count nor break it. A break restarts the count at 0; the streak keeps climbing past 30 and fires again at 60, 90 and so on.
+- **Effects.** Every owned `onPowerPellet` field, Overcharge included. With Shield Pellets the fire banks a shield instead. If an Extra Hungry pass empties the board it clears the level, like Fruit Power. It never reaches the power-pellet run-log count; the run log records a `streakEngine` activation.
+- **Enhanced.** Each fire also raises `invulnRemainingMs` to at least `STREAK_ENGINE_ENHANCED_INVULN_MS` (3000) × Overcharge (`applyStreakEngineInvuln`), with the Ghost Proof gold tint and blink. A longer Ghost Proof is never shortened. It is applied at the fire, even when Shield Pellets banks instead.
+- **Pop-offs.** While owned (either form), each multiple of 5 emits a `streakPop` event (`{ value, x, y }`) at the pellet that completed it (the swept cell for a Tunnel Dash sweep). `streakPops` cycles the number 5, 10 … 30 and starts again at 5 (the 35th pellet shows `5`). `PlayScene` draws it as yellow pixel text rising `STREAK_POP_RISE_PX` and fading over `STREAK_POP_MS` (`streakPopLook`); the 30 is `STREAK_POP_CAP_SIZE_MUL` times larger. Snapshot `play.streakPops` is `{ count, last }` for the run.
+- **Reset:** nothing of its own to reset; the streak breaks on death, new board and store entry as usual.
+- **LEARN** mirrors it: `LearnSim` keeps a private streak that breaks after `BONUS_STREAK_IDLE_MS` without a pellet (no blank-tile rule), pops the same numbers and fires the same effects.
 
 ### Overcharge
 
