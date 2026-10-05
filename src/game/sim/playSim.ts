@@ -133,12 +133,8 @@ import {
   playerSpeed,
 } from "../../domain/playfield";
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
-import {
-  TEST_RUN_LOG_META,
-  didWrap,
-  type QuarterSource,
-  type RunLogMeta,
-} from "../../domain/runLog";
+import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
+import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
@@ -2169,15 +2165,7 @@ export class PlaySim {
   }
 
   private noteTunnelExit(before: Point | null): void {
-    const after = this.playerPosition();
-    if (before === null || after === null) {
-      return;
-    }
-    const { cols, rows, tileSize } = getActiveLayout();
-    if (
-      didWrap(before.x, after.x, cols * tileSize) ||
-      didWrap(before.y, after.y, rows * tileSize)
-    ) {
+    if (playerExitedTunnel(before, this.playerPosition())) {
       this.runUpgrades = applyTunnelExitInvuln(this.runUpgrades, this.effectiveUpgrades());
     }
   }

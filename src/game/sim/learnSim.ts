@@ -23,7 +23,7 @@ import {
   isWalkable,
   pelletCellCenters,
 } from "../../domain/maze";
-import { didWrap } from "../../domain/runLog";
+import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
@@ -595,15 +595,7 @@ export class LearnSim {
   }
 
   private noteTunnelExit(before: { x: number; y: number } | null): void {
-    const after = this.playerPosition();
-    if (before === null || after === null) {
-      return;
-    }
-    const { cols, rows, tileSize } = getActiveLayout();
-    if (
-      didWrap(before.x, after.x, cols * tileSize) ||
-      didWrap(before.y, after.y, rows * tileSize)
-    ) {
+    if (playerExitedTunnel(before, this.playerPosition())) {
       this.learnUpgrades = applyTunnelExitInvuln(this.learnUpgrades, this.learnUpgrades.owned);
     }
   }
