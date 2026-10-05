@@ -262,7 +262,7 @@ export type PlayRender = {
 const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
-const CHAIN_AMPLITUDE_TILES = 0.35;
+const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
   { strand: 0, width: 2.5, color: 0x9fe0ff, alpha: 0.95 },
