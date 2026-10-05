@@ -9,7 +9,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import type { CatchOptions } from "./catchPlayer";
 
-export type BossChain = ChainSegment & { a: number; b: number };
+type BossChain = ChainSegment & { a: number; b: number };
 
 export function bossChain(world: World, options: CatchOptions = {}): BossChain | null {
   const ends = [...query(world, [Ghost, ChainedGhost, GhostPhase, Position])];

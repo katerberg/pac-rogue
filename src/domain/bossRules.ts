@@ -13,7 +13,6 @@ export type BossDef = {
   maxHouseGhosts: number;
   tunnelCount: number | null;
   houseReleaseStaggerMs: number;
-  ghostsBlock: boolean;
   chained: boolean;
 };
 
@@ -26,7 +25,6 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     maxHouseGhosts: 4,
     tunnelCount: 3,
     houseReleaseStaggerMs: 600,
-    ghostsBlock: true,
     chained: false,
   },
   chainedGhosts: {
@@ -37,7 +35,6 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     maxHouseGhosts: 2,
     tunnelCount: null,
     houseReleaseStaggerMs: 1500,
-    ghostsBlock: false,
     chained: true,
   },
 };

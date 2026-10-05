@@ -77,7 +77,6 @@ describe("Chained Ghosts", () => {
       GHOST_KIND.clyde,
     ]);
     expect(chained.chained).toBe(true);
-    expect(chained.ghostsBlock).toBe(false);
     expect(maxBossGhosts(chained)).toBe(2);
     expect(splitBossGhosts(chained, 2)).toEqual({ house: 2, tunnel: 0 });
   });

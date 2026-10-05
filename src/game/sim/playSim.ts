@@ -940,7 +940,7 @@ export class PlaySim {
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
       ? wallPassSolids(this.effectiveUpgrades())
       : undefined;
-    if (this.bossState?.def.ghostsBlock === true) {
+    if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
     const facingBeforeMove = playerFacing(this.world);
@@ -1715,7 +1715,7 @@ export class PlaySim {
     this.bossState = null;
     if (boss !== null) {
       this.startBoss(boss);
-      this.recordSeen([...new Set(boss.ghostKinds)]);
+      this.recordSeen([...boss.ghostKinds]);
     } else {
       const ghostKinds =
         this.options.ghosts ?? ghostKindsForLevel(this.levelIndex, this.secondGhostKind);
@@ -1878,14 +1878,14 @@ export class PlaySim {
     this.notePellets();
     this.recorder.levelCleared(
       this.clock.remaining,
-      !isBossLevel(this.levelIndex) ? timeBonusPoints(this.clock.remaining) : 0,
+      isBossLevel(this.levelIndex) ? 0 : timeBonusPoints(this.clock.remaining),
     );
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "sfx", id: "levelComplete" });
     this.emitDraw();
-    this.timeBonusDrain = !isBossLevel(this.levelIndex)
-      ? createTimeBonusDrain(this.clock.remaining)
-      : null;
+    this.timeBonusDrain = isBossLevel(this.levelIndex)
+      ? null
+      : createTimeBonusDrain(this.clock.remaining);
     if (this.timeBonusDrain !== null) {
       this.emit({ type: "timeBonus", active: true });
       return;

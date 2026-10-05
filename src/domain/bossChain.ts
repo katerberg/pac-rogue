@@ -2,7 +2,7 @@ export type ChainSegment = { x1: number; y1: number; x2: number; y2: number };
 
 export type ChainPoint = { x: number; y: number };
 
-export const CHAIN_HIT_RADIUS_FRACTION = 0.5;
+const CHAIN_HIT_RADIUS_FRACTION = 0.5;
 
 const LIGHTNING_STEP_PX = 10;
 const LIGHTNING_FLICKER_MS = 50;
