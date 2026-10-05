@@ -5,6 +5,24 @@ export const BOSS_IDS = ["blinkySwarm", "chainedGhosts"] as const;
 
 export type BossId = (typeof BOSS_IDS)[number];
 
+/** Lightning pair ids on Chained Ghosts: 0 = Blinky↔Clyde, 1 = Pinky↔Inky. */
+export const CHAIN_PAIR = {
+  blinkyClyde: 0,
+  pinkyInky: 1,
+} as const;
+
+export type ChainPairId = (typeof CHAIN_PAIR)[keyof typeof CHAIN_PAIR];
+
+export function chainPairForKind(kind: GhostKindId): ChainPairId | null {
+  if (kind === GHOST_KIND.blinky || kind === GHOST_KIND.clyde) {
+    return CHAIN_PAIR.blinkyClyde;
+  }
+  if (kind === GHOST_KIND.pinky || kind === GHOST_KIND.inky) {
+    return CHAIN_PAIR.pinkyInky;
+  }
+  return null;
+}
+
 export type BossDef = {
   id: BossId;
   ghostKinds: readonly GhostKindId[];
@@ -29,10 +47,10 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
   },
   chainedGhosts: {
     id: "chainedGhosts",
-    ghostKinds: [GHOST_KIND.blinky, GHOST_KIND.clyde],
-    startGhosts: 2,
+    ghostKinds: [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde],
+    startGhosts: 4,
     spawnPellets: 0,
-    maxHouseGhosts: 2,
+    maxHouseGhosts: 4,
     tunnelCount: null,
     houseReleaseStaggerMs: 1500,
     chained: true,

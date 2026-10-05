@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { FRUIT_LIFETIME_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { CHAIN_PAIR } from "../../domain/bossRules";
 import {
   canEnterDirection,
   cellCenterX,
@@ -1312,38 +1313,72 @@ describe("PlaySim", () => {
       return startSim({ level: 9, boss: "chainedGhosts", infiniteLives: true, ...overrides });
     }
 
-    function chainEnds(sim: PlaySim): [number, number] {
-      return query(sim.world, [ChainedGhost, Ghost]) as unknown as [number, number];
+    function chainedEids(sim: PlaySim): number[] {
+      return [...query(sim.world, [ChainedGhost, Ghost])];
     }
 
-    function placeChain(sim: PlaySim, row: number, cols: [number, number]): void {
-      const ends = chainEnds(sim);
-      ends.forEach((eid, i) => {
+    function pairEnds(sim: PlaySim, pair: number): [number, number] {
+      const ends = chainedEids(sim).filter((eid) => ChainedGhost.pair[eid] === pair);
+      expect(ends).toHaveLength(2);
+      return ends as [number, number];
+    }
+
+    function placePair(sim: PlaySim, pair: number, row: number, cols: [number, number]): void {
+      pairEnds(sim, pair).forEach((eid, i) => {
         GhostPhase.value[eid] = GHOST_PHASE.active;
         Position.x[eid] = cellCenterX(cols[i]!);
         Position.y[eid] = cellCenterY(row) + TILE_SIZE * 3 * (i === 0 ? -1 : 1);
       });
     }
 
-    it("spawns only Blinky and Clyde, chained, with no boss pellets", () => {
+    it("spawns all four ghosts in two chain pairs, with no boss pellets", () => {
       const sim = startChained();
       expect(sim.snapshot().boss).toMatchObject({
         id: "chainedGhosts",
-        ghostCount: 2,
+        ghostCount: 4,
         chainLive: false,
       });
       expect(sim.snapshot().bossPellets).toBe(0);
-      const kinds = chainEnds(sim).map((eid) => GhostKind.kind[eid]);
-      expect(kinds).toEqual([GHOST_KIND.blinky, GHOST_KIND.clyde]);
-      expect(query(sim.world, [Ghost]).length).toBe(2);
+      const kinds = [...query(sim.world, [Ghost, GhostKind])].map((eid) => GhostKind.kind[eid]);
+      expect(kinds).toEqual([
+        GHOST_KIND.blinky,
+        GHOST_KIND.pinky,
+        GHOST_KIND.inky,
+        GHOST_KIND.clyde,
+      ]);
+      expect(query(sim.world, [Ghost]).length).toBe(4);
+      expect(chainedEids(sim)).toHaveLength(4);
+      for (const eid of pairEnds(sim, CHAIN_PAIR.blinkyClyde)) {
+        expect([GHOST_KIND.blinky, GHOST_KIND.clyde]).toContain(GhostKind.kind[eid]);
+      }
+      for (const eid of pairEnds(sim, CHAIN_PAIR.pinkyInky)) {
+        expect([GHOST_KIND.pinky, GHOST_KIND.inky]).toContain(GhostKind.kind[eid]);
+      }
     });
 
-    it("catches the player on the line between the ghosts, away from both", () => {
+    it("releases ghosts in classic order with the house stagger", () => {
+      const sim = startChained();
+      const delays = [...query(sim.world, [BossGhost, GhostKind])]
+        .map((eid) => ({
+          kind: GhostKind.kind[eid],
+          delay: BossGhost.releaseDelayMs[eid],
+        }))
+        .sort((a, b) => a.delay! - b.delay!);
+      expect(delays.map((d) => d.kind)).toEqual([
+        GHOST_KIND.blinky,
+        GHOST_KIND.pinky,
+        GHOST_KIND.inky,
+        GHOST_KIND.clyde,
+      ]);
+      expect(delays.map((d) => d.delay)).toEqual([100, 1600, 3100, 4600]);
+    });
+
+    it("catches the player on the line between a chained pair, away from both", () => {
       const sim = startChained();
       const player = playerEid(sim);
       const row = worldToRow(Position.y[player]!);
       const col = worldToCol(Position.x[player]!);
-      placeChain(sim, row, [col - 4, col + 4]);
+      placePair(sim, CHAIN_PAIR.blinkyClyde, row, [col - 4, col + 4]);
       expect(sim.snapshot().boss?.chainLive).toBe(true);
       const events = runFrames(sim, 1);
       expect(sim.snapshot().dying).toBe(true);
@@ -1355,37 +1390,51 @@ describe("PlaySim", () => {
       const player = playerEid(sim);
       const row = worldToRow(Position.y[player]!);
       const col = worldToCol(Position.x[player]!);
-      placeChain(sim, row, [col + 2, col + 6]);
+      placePair(sim, CHAIN_PAIR.blinkyClyde, row, [col + 2, col + 6]);
       runFrames(sim, 1);
       expect(sim.snapshot().dying).toBe(false);
     });
 
-    it("has no chain while either ghost is still in the house", () => {
+    it("has no chain for a pair while either end is still in the house", () => {
       const sim = startChained();
       const player = playerEid(sim);
       const row = worldToRow(Position.y[player]!);
       const col = worldToCol(Position.x[player]!);
-      placeChain(sim, row, [col - 4, col + 4]);
-      GhostPhase.value[chainEnds(sim)[1]] = GHOST_PHASE.inHouse;
+      placePair(sim, CHAIN_PAIR.blinkyClyde, row, [col - 4, col + 4]);
+      GhostPhase.value[pairEnds(sim, CHAIN_PAIR.blinkyClyde)[1]] = GHOST_PHASE.inHouse;
       expect(sim.snapshot().boss?.chainLive).toBe(false);
       runFrames(sim, 1);
       expect(sim.snapshot().dying).toBe(false);
     });
 
-    it("draws the live chain between the two ghosts", () => {
+    it("draws live chains for each active pair", () => {
       const sim = startChained();
       const player = playerEid(sim);
-      placeChain(sim, worldToRow(Position.y[player]!), [1, 2]);
-      const [a, b] = chainEnds(sim);
-      expect(sim.renderOptions().bossChain).toMatchObject({
-        x1: Position.x[a],
-        y1: Position.y[a],
-        x2: Position.x[b],
-        y2: Position.y[b],
-      });
+      const row = worldToRow(Position.y[player]!);
+      placePair(sim, CHAIN_PAIR.blinkyClyde, row, [1, 2]);
+      placePair(sim, CHAIN_PAIR.pinkyInky, row + 2, [4, 5]);
+      const [a, b] = pairEnds(sim, CHAIN_PAIR.blinkyClyde);
+      const [c, d] = pairEnds(sim, CHAIN_PAIR.pinkyInky);
+      expect(sim.renderOptions().bossChains).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            x1: Position.x[a],
+            y1: Position.y[a],
+            x2: Position.x[b],
+            y2: Position.y[b],
+          }),
+          expect.objectContaining({
+            x1: Position.x[c],
+            y1: Position.y[c],
+            x2: Position.x[d],
+            y2: Position.y[d],
+          }),
+        ]),
+      );
+      expect(sim.renderOptions().bossChains).toHaveLength(2);
     });
 
-    it("releases both ghosts so the chain goes live in play", () => {
+    it("releases ghosts so a chain goes live in play", () => {
       const sim = startChained({ godMode: true });
       runUntil(sim, () => sim.snapshot().boss?.chainLive === true, 600, { keys: held("left") });
       expect(sim.snapshot().boss?.chainLive).toBe(true);
@@ -1394,7 +1443,7 @@ describe("PlaySim", () => {
     it("keeps the chained ghosts out of the side tunnels", () => {
       const sim = startChained({ godMode: true });
       const [row] = horizontalTunnelRows();
-      const [a] = chainEnds(sim);
+      const [a] = pairEnds(sim, CHAIN_PAIR.pinkyInky);
       GhostPhase.value[a] = GHOST_PHASE.active;
       Position.x[a] = cellCenterX(0);
       Position.y[a] = cellCenterY(row!);

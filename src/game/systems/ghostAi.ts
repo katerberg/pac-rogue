@@ -27,7 +27,6 @@ import {
   worldToRow,
 } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
-import { ChainedGhost } from "../components/ChainedGhost";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
@@ -36,6 +35,7 @@ import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { occupiedBossGhostTiles } from "./bossGhosts";
+import { chainPartnerEid } from "./bossChain";
 
 function playerTileAndFacing(world: World): {
   col: number;
@@ -144,7 +144,7 @@ function bossAwareCanEnter(
   y: number,
   rules: ReturnType<typeof ghostMovementRules>,
 ): GhostCanEnter {
-  const occupied = occupiedBossGhostTiles(world, eid);
+  const occupied = occupiedBossGhostTiles(world, eid, chainPartnerEid(world, eid));
   if (occupied.size === 0) {
     return rules.canEnter;
   }
@@ -205,7 +205,7 @@ export function ghostAi(
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
     const facing = storedFacing !== DIRECTION.none ? storedFacing : intent;
     const canEnter =
-      isBossGhost && phase === GHOST_PHASE.active && !hasComponent(world, eid, ChainedGhost)
+      isBossGhost && phase === GHOST_PHASE.active
         ? bossAwareCanEnter(world, eid, x, y, rules)
         : rules.canEnter;
     const next = pickGhostDirection({

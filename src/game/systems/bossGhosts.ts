@@ -26,10 +26,14 @@ export function countBossPellets(world: World): number {
   return query(world, [BossPellet]).length;
 }
 
-export function occupiedBossGhostTiles(world: World, exceptEid: number): Set<string> {
+export function occupiedBossGhostTiles(
+  world: World,
+  exceptEid: number,
+  alsoExceptEid: number | null = null,
+): Set<string> {
   const tiles = new Set<string>();
   for (const eid of activeBossGhosts(world)) {
-    if (eid !== exceptEid) {
+    if (eid !== exceptEid && eid !== alsoExceptEid) {
       tiles.add(tileKey(worldToCol(Position.x[eid] ?? 0), worldToRow(Position.y[eid] ?? 0)));
     }
   }

@@ -1,1 +1,3 @@
-export const ChainedGhost = {};
+export const ChainedGhost = {
+  pair: [] as number[],
+};

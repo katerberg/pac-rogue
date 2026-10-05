@@ -35,6 +35,7 @@ import {
 import {
   bossGhostKind,
   bossStartGhosts,
+  chainPairForKind,
   createBossState,
   isBossLevel,
   pickBoss,
@@ -259,7 +260,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
-import { bossChain, chainCatch } from "../systems/bossChain";
+import { bossChains, chainCatch } from "../systems/bossChain";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
 import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
@@ -642,7 +643,7 @@ export class PlaySim {
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       hauntedGhost: hauntedGhost(this.runUpgrades),
-      bossChain: bossChain(this.world, this.catchOptions()),
+      bossChains: bossChains(this.world, this.catchOptions()),
     };
   }
 
@@ -717,7 +718,7 @@ export class PlaySim {
           : {
               id: this.bossState.def.id,
               ghostCount: this.bossState.ghostCount,
-              chainLive: bossChain(this.world, this.catchOptions()) !== null,
+              chainLive: bossChains(this.world, this.catchOptions()).length > 0,
             },
       runLog: {
         id: this.recorder.record.id,
@@ -2443,8 +2444,10 @@ export class PlaySim {
   private spawnBossGhost(kind: GhostKindId): number {
     const eid = this.spawnGhost(kind);
     addComponent(this.world, eid, BossGhost);
-    if (this.bossState?.def.chained === true) {
+    const pair = chainPairForKind(kind);
+    if (this.bossState?.def.chained === true && pair !== null) {
       addComponent(this.world, eid, ChainedGhost);
+      ChainedGhost.pair[eid] = pair;
     }
     const corners = [
       blinkyScatterTarget(),
