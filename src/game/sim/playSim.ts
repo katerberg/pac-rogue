@@ -84,6 +84,7 @@ import {
   pinkyScatterTarget,
 } from "../../domain/ghostTarget";
 import {
+  enhancedOfferChance,
   ghostKindsForLevel,
   isInvertedMazeLevel,
   MAX_LEVEL,
@@ -521,11 +522,18 @@ export class PlaySim {
       this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
     } else {
       const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
+      const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
       this.recorder.picked(chosen.id);
-      this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id);
+      this.runUpgrades = confirmUpgradeChoice(
+        this.runUpgrades,
+        offer.upgrades,
+        chosen.id,
+        grantedId,
+      );
       if (!alreadyOwned) {
-        this.recorder.gained(chosen.id, "offer", this.levelIndex);
-        this.applyGrantEffects(chosen.id);
+        this.recorder.gained(grantedId, "offer", this.levelIndex);
+        this.enhanceLivesPaid.add(chosen.id);
+        this.applyGrantEffects(grantedId);
         this.grantSpecialistLives();
         this.emit({ type: "lives", pulse: false });
         this.recordSeenUpgrades();
@@ -1823,6 +1831,7 @@ export class PlaySim {
       this.runUpgrades.owned,
       this.runUpgrades.lastDeclinedUpgradeId,
       this.random.stream("upgradeOffer", this.levelIndex),
+      enhancedOfferChance(this.levelIndex),
     );
     this.pendingLevelClear = true;
     this.awaitingChoice = true;

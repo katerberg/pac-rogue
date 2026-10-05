@@ -145,7 +145,7 @@ export function createStoreState(
     } else if (kind === "swap" && !firstStore && owned.length > 0) {
       const outgoingId = takeRandomFrom([...owned], rng);
       slots.push({ kind, col, row, outgoingId, sold: false });
-    } else if (kind === "enhance" && !firstStore) {
+    } else if (kind === "enhance") {
       const targets = enhanceableUpgrades(owned);
       if (targets.length > 0) {
         slots.push({ kind, col, row, targetId: takeRandomFrom(targets, rng), sold: false });

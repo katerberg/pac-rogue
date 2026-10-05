@@ -109,14 +109,20 @@ describe("createStoreState", () => {
     expect(enhance).toMatchObject({ targetId: "passiveAfterburner", sold: false });
   });
 
-  it("the first store has only lives and abilities", () => {
+  it("the first store has lives, abilities and an enhancement but no swap", () => {
     const first = createStoreState(
       parseStoreSlots(STORE_MAZE_ASCII),
       ["passiveAfterburner"],
       zeroRng,
       true,
     );
-    expect(first.slots.map((s) => s.kind).sort()).toEqual(["life", "life", "upgrade", "upgrade"]);
+    expect(first.slots.map((s) => s.kind).sort()).toEqual([
+      "enhance",
+      "life",
+      "life",
+      "upgrade",
+      "upgrade",
+    ]);
   });
 
   it("offers only as many life tiles as there is room under the life cap", () => {

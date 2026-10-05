@@ -442,6 +442,26 @@ describe("PlaySim", () => {
     expect(sim.snapshot().upgrades).toContain(chosen);
   });
 
+  it("offers enhanced upgrades only from level 4, and grants the enhanced form when picked", () => {
+    const early = drainToOffer(startSim({ jumpToUpgrade: true, level: 3 }));
+    expect(early.enhanced).toEqual([]);
+
+    let found: { sim: PlaySim; offer: UpgradeChoiceOffer } | null = null;
+    for (let n = 0; n < 200 && found === null; n += 1) {
+      const sim = startSim({ jumpToUpgrade: true, level: 4 }, `enh${n}`);
+      const offer = drainToOffer(sim);
+      if (offer.enhanced.length > 0) {
+        found = { sim, offer };
+      }
+    }
+    expect(found).not.toBeNull();
+    const { sim, offer } = found!;
+    const pick = offer.enhanced[0]!;
+    sim.chooseUpgrade({ kind: "upgrade", id: pick, enhanced: true });
+    expect(sim.snapshot().upgrades).toContain(`${pick}Plus`);
+    expect(sim.snapshot().upgrades).not.toContain(pick);
+  });
+
   it("clears a board once every non-power pellet is eaten, leaving power pellets", () => {
     const sim = startSim({ level: 2, infiniteLives: true });
     const eids = regularPelletEids(sim);
@@ -959,7 +979,7 @@ describe("PlaySim", () => {
       return runFrames(sim, 1, { storeConfirm: true });
     }
 
-    it("the first store stocks only two lives and two abilities", () => {
+    it("the first store stocks two lives, two abilities and an enhancement", () => {
       const sim = startSim({
         store: 1,
         lives: 2,
@@ -968,12 +988,13 @@ describe("PlaySim", () => {
         enableUpgrades: ["passiveGhostSlow"],
       });
       expect([...sim.snapshot().storeStock!].map((s) => s.split(":")[0]).sort()).toEqual([
+        "enhance",
         "life",
         "life",
         expect.any(String),
         expect.any(String),
       ]);
-      expect(sim.snapshot().storeStock).toHaveLength(4);
+      expect(sim.snapshot().storeStock).toHaveLength(5);
     });
 
     it("offers no life tile at the life cap and one when a single life below it", () => {

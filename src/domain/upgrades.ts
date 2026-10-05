@@ -945,17 +945,19 @@ function shuffleInPlace<T>(ids: T[], rng: () => number): void {
 }
 
 export type UpgradeChoiceOption =
-  { kind: "upgrade"; id: BaseUpgradeId } | { kind: "quarters"; amount: number };
+  { kind: "upgrade"; id: BaseUpgradeId; enhanced?: boolean } | { kind: "quarters"; amount: number };
 
 export type UpgradeChoiceOffer = {
   quarters: number;
   upgrades: BaseUpgradeId[];
+  enhanced: BaseUpgradeId[];
 };
 
 export function pickUpgradeChoiceOffer(
   owned: readonly UpgradeId[],
   lastDeclined: BaseUpgradeId | null,
   rng: () => number,
+  enhancedChance = 0,
 ): UpgradeChoiceOffer {
   const eligible = eligibleUpgrades(owned);
   const desiredCount = Math.min(UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS, eligible.length);
@@ -978,7 +980,8 @@ export function pickUpgradeChoiceOffer(
 
   const upgrades = picked.slice(0, desiredCount);
   shuffleInPlace(upgrades, rng);
-  return { quarters: QUARTERS_CHOICE_AMOUNT, upgrades };
+  const enhanced = enhancedChance > 0 ? upgrades.filter(() => rng() < enhancedChance) : [];
+  return { quarters: QUARTERS_CHOICE_AMOUNT, upgrades, enhanced };
 }
 
 export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
@@ -1015,8 +1018,9 @@ export function confirmUpgradeChoice(
   state: RunUpgrades,
   options: readonly BaseUpgradeId[],
   chosenId: BaseUpgradeId,
+  grantedId: UpgradeId = chosenId,
 ): RunUpgrades {
-  const next = grantUpgrade(state, chosenId);
+  const next = grantUpgrade(state, grantedId);
   return withDeclined(
     next,
     options.filter((id) => id !== chosenId),
