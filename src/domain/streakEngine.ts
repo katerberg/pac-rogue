@@ -1,4 +1,4 @@
-const STREAK_POP_STEP = 5;
+import { BONUS_STREAK_TIER_SIZE } from "./bonusBar";
 
 export const STREAK_POP_MS = 700;
 export const STREAK_POP_RISE_PX = 22;
@@ -13,10 +13,10 @@ export function streakEngineFires(prevStreak: number, nextStreak: number, every:
 
 export function streakPops(prevStreak: number, nextStreak: number, cycle: number): StreakPop[] {
   const pops: StreakPop[] = [];
-  const from = Math.floor(prevStreak / STREAK_POP_STEP) + 1;
-  const to = Math.floor(nextStreak / STREAK_POP_STEP);
+  const from = Math.floor(prevStreak / BONUS_STREAK_TIER_SIZE) + 1;
+  const to = Math.floor(nextStreak / BONUS_STREAK_TIER_SIZE);
   for (let milestone = from; milestone <= to; milestone += 1) {
-    const count = milestone * STREAK_POP_STEP;
+    const count = milestone * BONUS_STREAK_TIER_SIZE;
     pops.push({ value: ((count - 1) % cycle) + 1, cellIndex: count - prevStreak - 1 });
   }
   return pops;
