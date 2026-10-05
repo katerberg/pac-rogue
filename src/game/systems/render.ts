@@ -245,7 +245,7 @@ export type RenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
-  bossChain?: ChainSegment | null;
+  bossChains?: ChainSegment[];
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -573,15 +573,17 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
 
     chainGraphics.clear();
-    const chain = opts?.bossChain ?? null;
-    if (chain !== null) {
+    const chains = opts?.bossChains ?? [];
+    if (chains.length > 0) {
       const amplitude = getActiveLayout().tileSize * CHAIN_AMPLITUDE_TILES;
-      for (const stroke of CHAIN_STROKES) {
-        chainGraphics.lineStyle(stroke.width, stroke.color, stroke.alpha);
-        strokePolyline(
-          chainGraphics,
-          lightningPoints(chain, scene.time.now, amplitude, stroke.strand),
-        );
+      for (const chain of chains) {
+        for (const stroke of CHAIN_STROKES) {
+          chainGraphics.lineStyle(stroke.width, stroke.color, stroke.alpha);
+          strokePolyline(
+            chainGraphics,
+            lightningPoints(chain, scene.time.now, amplitude, stroke.strand),
+          );
+        }
       }
     }
 

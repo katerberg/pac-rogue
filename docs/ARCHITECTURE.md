@@ -97,7 +97,7 @@ src/
       Drawable.ts
       BossGhost.ts            # boss marker: scatter corner + house release delay
       BossPellet.ts           # boss pellet marker (eating one spawns a boss ghost)
-      ChainedGhost.ts         # Chained Ghosts marker (the two lightning-chain ends)
+      ChainedGhost.ts         # Chained Ghosts marker + pair id (Blinky↔Clyde / Pinky↔Inky)
     sim/                      # headless, Phaser-free run state + pipelines (Vitest-drivable)
       playSim.ts              # PlaySim: start / step(input, delta) → SimEvent[]; chooseUpgrade; snapshot
       learnSim.ts             # LearnSim: LEARN sandbox pipeline
@@ -125,7 +125,7 @@ src/
       ghostFreeze.ts          # power-pellet freeze closest leaving/active ghost
       movement.ts             # Facing + collision (per-eid Speed + solids)
       bossGhosts.ts           # boss head-on reverse, free tunnel mouth pick, boss pellet count
-      bossChain.ts            # Chained Ghosts: live chain segment + chain catch
+      bossChain.ts            # Chained Ghosts: live chain segments (per pair) + chain catch
       catchPlayer.ts          # circle overlap → catching ghost eid or null (skip frozen eid or player invulnerable)
       collectPellets.ts
       collectFruit.ts
