@@ -70,6 +70,7 @@ import {
   ghostSpeedMultiplier,
   grantUpgrade,
   pelletCollectRadiusBonusPx,
+  emptyCellSpeedMultiplier,
   playerSpeedMultiplier,
   revokeUpgrade,
   speedBurstActive,
@@ -124,6 +125,7 @@ import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
+import { enteringEmptyCell } from "../systems/enteringEmptyCell";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import { tickWarpGlide, type WarpGlide, warpGlideSprites } from "../../domain/warpGlide";
@@ -319,6 +321,7 @@ export class LearnSim {
       this.world,
       levelSpeedMul *
         playerSpeedMultiplier(this.learnUpgrades.owned) *
+        emptyCellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
         (speedBurstActive(this.learnUpgrades)
           ? speedBurstMultiplier(this.learnUpgrades.owned)
           : 1) *

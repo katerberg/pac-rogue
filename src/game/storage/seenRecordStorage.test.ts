@@ -43,7 +43,7 @@ describe("seenRecordStorage", () => {
     const store = installMemoryStorage();
     const record = {
       ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky],
-      upgrades: ["passivePlayerSpeedUp" as const],
+      upgrades: ["passiveAfterburner" as const],
     };
     saveSeenRecord(record);
     expect(loadSeenRecord()).toEqual(record);

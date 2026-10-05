@@ -21,11 +21,11 @@ describe("parseSeenRecord", () => {
   it("drops unknown ids and duplicates, and ignores wrong types", () => {
     const raw = JSON.stringify({
       ghosts: [GHOST_KIND.inky, 99, GHOST_KIND.inky, "blinky", GHOST_KIND.blinky],
-      upgrades: ["passivePlayerSpeedUp", "bogus", "passivePlayerSpeedUp"],
+      upgrades: ["passiveAfterburner", "bogus", "passiveAfterburner"],
     });
     expect(parseSeenRecord(raw)).toEqual({
       ghosts: [GHOST_KIND.blinky, GHOST_KIND.inky],
-      upgrades: ["passivePlayerSpeedUp"],
+      upgrades: ["passiveAfterburner"],
     });
     expect(parseSeenRecord(JSON.stringify({ ghosts: "x", upgrades: 3 }))).toEqual(
       emptySeenRecord(),
@@ -41,10 +41,10 @@ describe("parseSeenRecord", () => {
     const raw = JSON.stringify({
       ghosts: [GHOST_KIND.blinky],
       corruptions: ["slimeTrail", "falseScatter"],
-      upgrades: ["passivePlayerSpeedUp"],
+      upgrades: ["passiveAfterburner"],
     });
     const parsed = parseSeenRecord(raw);
-    expect(parsed).toEqual({ ghosts: [GHOST_KIND.blinky], upgrades: ["passivePlayerSpeedUp"] });
+    expect(parsed).toEqual({ ghosts: [GHOST_KIND.blinky], upgrades: ["passiveAfterburner"] });
     expect(serializeSeenRecord(parsed)).not.toContain("corruptions");
   });
 
@@ -59,17 +59,17 @@ describe("parseSeenRecord", () => {
 
 describe("withSeenUpgrade with enhanced ids", () => {
   it("records the base id for a Plus upgrade", () => {
-    const seen = withSeenUpgrade(emptySeenRecord(), "passivePlayerSpeedUpPlus");
-    expect(seen.upgrades).toEqual(["passivePlayerSpeedUp"]);
-    expect(withSeenUpgrade(seen, "passivePlayerSpeedUp")).toBe(seen);
+    const seen = withSeenUpgrade(emptySeenRecord(), "passiveAfterburnerPlus");
+    expect(seen.upgrades).toEqual(["passiveAfterburner"]);
+    expect(withSeenUpgrade(seen, "passiveAfterburner")).toBe(seen);
   });
 });
 describe("withSeenGhosts / withSeenUpgrade", () => {
   it("returns the same reference when nothing is new", () => {
     const record = withSeenGhosts(emptySeenRecord(), [GHOST_KIND.blinky, GHOST_KIND.pinky]);
     expect(withSeenGhosts(record, [GHOST_KIND.pinky])).toBe(record);
-    const withUpgrade = withSeenUpgrade(record, "passivePlayerSpeedUp");
-    expect(withSeenUpgrade(withUpgrade, "passivePlayerSpeedUp")).toBe(withUpgrade);
+    const withUpgrade = withSeenUpgrade(record, "passiveAfterburner");
+    expect(withSeenUpgrade(withUpgrade, "passiveAfterburner")).toBe(withUpgrade);
   });
 
   it("merges in canonical order", () => {
