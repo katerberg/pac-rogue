@@ -12,7 +12,8 @@ export type RandomStream =
   | "fruitPowerConvert"
   | "bossPick"
   | "bossScatter"
-  | "bossShake";
+  | "bossShake"
+  | "echo";
 
 export type RunRandom = {
   seed: string;
