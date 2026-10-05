@@ -7,7 +7,7 @@ describe("ghostArtStyle", () => {
     for (const level of [1, 4, 9]) {
       expect(ghostArtStyle(GHOST_KIND.clyde, level)).toBe("pixel");
     }
-    for (const level of [5, 6, 8]) {
+    for (const level of [5, 6, 7, 8]) {
       expect(ghostArtStyle(GHOST_KIND.clyde, level)).toBe("line");
     }
   });

@@ -3074,6 +3074,8 @@ describe("line-art Clyde", () => {
     for (const [level, expected] of [
       [4, []],
       [5, ["clyde"]],
+      [6, ["clyde"]],
+      [7, ["clyde"]],
       [8, ["clyde"]],
       [9, []],
     ] as const) {
