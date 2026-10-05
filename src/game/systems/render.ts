@@ -343,9 +343,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const wallPassOn = opts?.wallPassActive === true;
     const twinSolids =
       opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
-    const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
-    const playerInvulnTintOn = !wallPassOn && expiryTintOn(invulnRemainingMs, scene.time.now);
+    const playerInvulnTintOn =
+      !wallPassOn && expiryTintOn(opts?.playerInvulnRemainingMs ?? 0, scene.time.now);
     const frozenTintOn = expiryTintOn(opts?.frozenGhostRemainingMs ?? 0, scene.time.now);
     const playerTint =
       turnFlash.brighten > 0
