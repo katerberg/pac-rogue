@@ -948,6 +948,11 @@ export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
   return ids;
 }
 
+export function parseForceUpgradeParam(params: URLSearchParams): BaseUpgradeId | null {
+  const id = parseUpgradeId(params.get("forceUpgrade"));
+  return id === null ? null : baseIdOf(id);
+}
+
 export function parseDisableLevelUpgradesFlag(params: URLSearchParams): boolean {
   return params.get("disableLevelUpgrades") === "1";
 }
@@ -1003,6 +1008,7 @@ export function pickUpgradeChoiceOffer(
   lastDeclined: BaseUpgradeId | null,
   rng: () => number,
   enhancedChance = 0,
+  forced: BaseUpgradeId | null = null,
 ): UpgradeChoiceOffer {
   const eligible = eligibleUpgrades(owned);
   const desiredCount = Math.min(UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS, eligible.length);
@@ -1024,6 +1030,9 @@ export function pickUpgradeChoiceOffer(
   }
 
   const upgrades = picked.slice(0, desiredCount);
+  if (forced !== null && eligible.includes(forced) && !upgrades.includes(forced)) {
+    upgrades[0] = forced;
+  }
   shuffleInPlace(upgrades, rng);
   const enhanced = enhancedChance > 0 ? upgrades.filter(() => rng() < enhancedChance) : [];
   return { quarters: QUARTERS_CHOICE_AMOUNT, upgrades, enhanced };

@@ -254,6 +254,20 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
     expect(offer.upgrades).toEqual(["powerPelletWarpFarthest"]);
   });
 
+  it("forces an eligible upgrade into the offer, but never an owned one", () => {
+    const offer = pickUpgradeChoiceOffer([], null, () => 0, 0, "passiveRemoteTransference");
+    expect(offer.upgrades).toHaveLength(3);
+    expect(offer.upgrades).toContain("passiveRemoteTransference");
+    const owned = pickUpgradeChoiceOffer(
+      ["passiveRemoteTransference"],
+      null,
+      () => 0,
+      0,
+      "passiveRemoteTransference",
+    );
+    expect(owned.upgrades).not.toContain("passiveRemoteTransference");
+  });
+
   it("returns up to three distinct unowned upgrade options", () => {
     const offer = pickUpgradeChoiceOffer([], null, () => 0);
     expect(offer.upgrades).toHaveLength(3);

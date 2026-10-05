@@ -1899,6 +1899,7 @@ export class PlaySim {
       this.runUpgrades.lastDeclinedUpgradeId,
       this.random.stream("upgradeOffer", this.levelIndex),
       enhancedOfferChance(this.levelIndex),
+      this.options.forceUpgrade,
     );
     this.pendingLevelClear = true;
     this.awaitingChoice = true;
