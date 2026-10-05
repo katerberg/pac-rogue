@@ -82,21 +82,18 @@ export function musicDownloadInFlight(fileState: number | undefined): boolean {
   return fileState !== undefined && DOWNLOADING_FILE_STATES.has(fileState);
 }
 
-function downloadRegistryKey(entry: SfxEntry): string {
-  return `audio-download:${entry.key}`;
-}
-
 function stopEventName(entry: SfxEntry): string {
   return `music-stop:${entry.key}`;
 }
 
 function downloadMusic(scene: Phaser.Scene, entry: SfxEntry): void {
-  const pending = scene.registry.get(downloadRegistryKey(entry)) as Phaser.Loader.File | undefined;
+  const registryKey = `audio-download:${entry.key}`;
+  const pending = scene.registry.get(registryKey) as Phaser.Loader.File | undefined;
   if (musicDownloadInFlight(pending?.state)) {
     return;
   }
   const track = (_key: string, _type: string, _loader: unknown, file: Phaser.Loader.File): void => {
-    scene.registry.set(downloadRegistryKey(entry), file);
+    scene.registry.set(registryKey, file);
   };
   scene.load.on("addfile", track);
   scene.load.audio(entry.key, entry.url);
