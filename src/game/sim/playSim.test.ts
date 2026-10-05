@@ -2044,7 +2044,7 @@ describe("PlaySim level-end time bonus", () => {
     expect(sim.offer()).toBeNull();
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
     drainToOffer(sim);
-    expect(sim.snapshot().bonus.charge).toBe(43);
+    expect(sim.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 43 } });
   });
 
   it("drains on level 1, then moves on to level 2", () => {
