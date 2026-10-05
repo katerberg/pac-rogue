@@ -503,6 +503,51 @@ describe("LearnSim upgrade demos", () => {
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
 
+  describe("Streak Engine", () => {
+    function eatPellets(sim: LearnSim, player: number, count: number) {
+      const events: ReturnType<LearnSim["step"]> = [];
+      for (let eaten = 0; eaten < count; eaten += 1) {
+        const pellet = query(sim.world, [Pellet, Position]).find(
+          (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+        )!;
+        moveTo(player, posOf(pellet));
+        events.push(...sim.step(NO_KEYS_HELD, FRAME_MS));
+      }
+      return events;
+    }
+
+    function invulnMs(events: ReturnType<LearnSim["step"]>): number {
+      const draws = events.filter((event) => event.type === "draw");
+      const last = draws[draws.length - 1]!;
+      return last.type === "draw" ? last.options.playerInvulnRemainingMs : 0;
+    }
+
+    it("fires the power-pellet effects on the 40th pellet and pops 5 through 40", () => {
+      const { sim, player } = setup("passiveStreakEngine", "powerPelletInvuln");
+      const early = eatPellets(sim, player, 39);
+      expect(invulnMs(early)).toBe(0);
+      const last = eatPellets(sim, player, 1);
+      expect(invulnMs(last)).toBeGreaterThan(0);
+      const pops = [...early, ...last].flatMap((event) =>
+        event.type === "streakPop" ? [event.value] : [],
+      );
+      expect(pops).toEqual([5, 10, 15, 20, 25, 30, 35, 40]);
+    });
+
+    it("does nothing without the upgrade", () => {
+      const { sim, player } = setup("powerPelletInvuln");
+      const events = eatPellets(sim, player, 40);
+      expect(invulnMs(events)).toBe(0);
+      expect(events.some((event) => event.type === "streakPop")).toBe(false);
+    });
+
+    it("grants Ghost Proof when enhanced", () => {
+      const { sim, player } = setup("passiveStreakEngine");
+      sim.toggleEnhanced("passiveStreakEngine");
+      expect(invulnMs(eatPellets(sim, player, 40))).toBeGreaterThan(0);
+    });
+  });
+
   it("Myogenesis regains two lives when the board refills, without a popup", () => {
     const { sim, player } = setup("passiveMyogenesis");
     catchByGhost(sim, player);

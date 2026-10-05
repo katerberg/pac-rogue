@@ -31,6 +31,7 @@ import {
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
   SHIELD_BREAK_INVULN_MS,
+  STREAK_ENGINE_ENHANCED_INVULN_MS,
   STARTING_UPGRADE_POOL,
   type UpgradeChoiceOffer,
   type UpgradeId,
@@ -3113,5 +3114,91 @@ describe("Haunting", () => {
     runUntil(sim, () => sim.snapshot().inStore || sim.snapshot().level === 4, 600);
     expect(sim.snapshot().timers.hauntMs).toBe(0);
     expect(sim.snapshot().hauntedGhost).toBeNull();
+  });
+});
+
+describe("Streak Engine", () => {
+  function startStreak(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades }, "streak1");
+  }
+
+  function eatUntilStreak(sim: PlaySim, streak: number): SimEvent[] {
+    const events: SimEvent[] = [];
+    while (sim.snapshot().bonus.streak < streak) {
+      const eid = regularPelletEids(sim)[0]!;
+      teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+      events.push(...runFrames(sim, 1));
+    }
+    return events;
+  }
+
+  function popValues(events: SimEvent[]): number[] {
+    return events.flatMap((event) => (event.type === "streakPop" ? [event.value] : []));
+  }
+
+  it("fires the power-pellet effects when the streak reaches 40", () => {
+    const sim = startStreak(["passiveStreakEngine", "powerPelletSpeedBurst"]);
+    eatUntilStreak(sim, 39);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+    eatUntilStreak(sim, 40);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startStreak(["powerPelletSpeedBurst"]);
+    const events = eatUntilStreak(sim, 40);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+    expect(popValues(events)).toEqual([]);
+  });
+
+  it("starts over when the streak breaks", () => {
+    const sim = startStreak(["passiveStreakEngine", "powerPelletSpeedBurst"]);
+    eatUntilStreak(sim, 20);
+    runFrames(sim, 40);
+    expect(sim.snapshot().bonus.streak).toBe(0);
+    eatUntilStreak(sim, 39);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+  });
+
+  it("pops 5 through 40 from the pellets along the streak", () => {
+    const sim = startStreak(["passiveStreakEngine"]);
+    const events = eatUntilStreak(sim, 40);
+    expect(popValues(events)).toEqual([5, 10, 15, 20, 25, 30, 35, 40]);
+    expect(sim.snapshot().streakPops).toEqual({ count: 8, last: 40 });
+  });
+
+  it("restarts the pop-offs at 5 after 40", () => {
+    const sim = startStreak(["passiveStreakEngine"]);
+    eatUntilStreak(sim, 40);
+    expect(popValues(eatUntilStreak(sim, 45))).toEqual([5]);
+  });
+
+  it("grants 3s of Ghost Proof only when enhanced", () => {
+    const base = startStreak(["passiveStreakEngine"]);
+    eatUntilStreak(base, 40);
+    expect(base.snapshot().timers.invulnMs).toBe(0);
+
+    const plus = startStreak(["passiveStreakEnginePlus"]);
+    eatUntilStreak(plus, 40);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
+    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(STREAK_ENGINE_ENHANCED_INVULN_MS);
+  });
+
+  it("doubles the Ghost Proof with Overcharge", () => {
+    const sim = startStreak(["passiveStreakEnginePlus", "passiveOvercharge"]);
+    eatUntilStreak(sim, 40);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(
+      2 * STREAK_ENGINE_ENHANCED_INVULN_MS - 100,
+    );
+  });
+
+  it("banks a shield instead of firing when Shield Pellets is owned", () => {
+    const sim = startStreak([
+      "passiveStreakEngine",
+      "passiveShieldPellets",
+      "powerPelletSpeedBurst",
+    ]);
+    eatUntilStreak(sim, 40);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, speedBurstMs: 0 });
   });
 });
