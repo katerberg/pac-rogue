@@ -5,7 +5,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 ## Model
 
 - [`src/domain/upgrades.ts`](../src/domain/upgrades.ts): `UpgradeDef` rows in `UPGRADE_DEFS` (id, label, description, effects), pure helpers, `RunUpgrades` state.
-- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, Haunting timer + `hauntedGhostEid`, `shieldsBanked`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
+- `PlayScene` owns one `RunUpgrades` per run (`owned` ids, freeze timer + `frozenGhostEid`, wall-pass/invuln/speed-burst/ghost-harvest timers, Haunting timer + `hauntedGhostEid`, `shieldsBanked`, Echo `pendingEchoes`, `lastDeclinedUpgradeId`). **Owned upgrades survive level advances**; freeze/wall-pass/invuln/speed-burst timers (and freeze target) clear on advance. Cleared when the scene is recreated (menu return / new Start).
 - Choice UI: [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts) (Phaser overlay, up/down/left/right button slots). Offer math stays in domain (`pickUpgradeChoiceOffer` / `confirmUpgradeChoice` / `declineUpgrades`).
 - No ECS upgrade components in v1.
 - Dev URL flags (repeatable `enableUpgrade`, `disableLevelUpgrades`, `forceUpgrade`): see [README Flags](../README.md#flags).
@@ -57,6 +57,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveHaunting`             | Haunting              | Death      | The ghost that last caught you stays caged in the ghost house for `HAUNTING_MS` (10000) after play resumes (see [Haunting](#haunting) below)                                                                                                                                                                                                                                                                                     |
 | `passiveTunnelSanctuary`      | Tunnel Sanctuary      | Protection | Coming out of a tunnel gives `TUNNEL_SANCTUARY_INVULN_MS` (1000) of Ghost Proof; ghost tunnel speed becomes `TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO` (0.9) × player speed instead of 0.6 (see [Tunnel Sanctuary](#tunnel-sanctuary) below)                                                                                                                                                                                          |
 | `passiveStreakEngine`         | Streak Engine         | Harvest    | Every `STREAK_ENGINE_EVERY` (30) pellets in a BONUS streak fires every owned `onPowerPellet` effect, as if you had eaten a power pellet; 5, 10 … 30 pop off the pellets as you eat them (see [Streak Engine](#streak-engine) below)                                                                                                                                                                                              |
+| `passiveEcho`                 | Echo                  | Neutral    | Every power-pellet trigger fires one random owned `onPowerPellet` upgrade again `ECHO_DELAY_MS` (3s) later (see [Echo](#echo) below)                                                                                                                                                                                                                                                                                             |
 
 ## Enhanced upgrades
 
@@ -115,6 +116,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveHaunting`             | Haunting              | The ghost stays caged for the rest of the level (`HAUNTING_ENHANCED_MS` is `Infinity`); the cage never blinks                                |
 | `passiveTunnelSanctuary`      | Tunnel Sanctuary      | Ghosts can no longer travel through tunnels; they walk out of one but never back through, and keep the normal tunnel slow                    |
 | `passiveStreakEngine`         | Streak Engine         | Each fire also grants `STREAK_ENGINE_ENHANCED_INVULN_MS` (3s) of Ghost Proof                                                                 |
+| `passiveEcho`                 | Echo                  | Every owned `onPowerPellet` upgrade echoes, not one at random                                                                                |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -338,6 +340,20 @@ While `passiveStreakEngine` is owned, the [BONUS streak](./bonus.md#rules) fires
 - **Pop-offs.** While owned (either form), each multiple of 5 emits a `streakPop` event (`{ value, x, y }`) at the pellet that completed it (the swept cell for a Tunnel Dash sweep). `streakPops` cycles the number 5, 10 … 30 and starts again at 5 (the 35th pellet shows `5`). `PlayScene` draws it as yellow pixel text rising `STREAK_POP_RISE_PX` and fading over `STREAK_POP_MS` (`streakPopLook`); the 30 is `STREAK_POP_CAP_SIZE_MUL` times larger. Snapshot `play.streakPops` is `{ count, last }` for the run.
 - **Reset:** nothing of its own to reset; the streak breaks on death, new board and store entry as usual.
 - **LEARN** mirrors it: `LearnSim` keeps a private streak that breaks after `BONUS_STREAK_IDLE_MS` without a pellet (no blank-tile rule), pops the same numbers and fires the same effects.
+
+### Echo
+
+While `passiveEcho` is owned, every power-pellet trigger queues an echo: `queueEcho` ([`src/domain/upgrades.ts`](../src/domain/upgrades.ts)) picks one owned upgrade with an `onPowerPellet` field (`pickEchoBases`, [`src/domain/echo.ts`](../src/domain/echo.ts), on the `echo` `RunRandom` stream) and pushes `{ remainingMs: ECHO_DELAY_MS, bases }` onto `RunUpgrades.pendingEchoes`. `PlaySim.fireDueEchoes` ticks the queue (`tickEchoes`) and fires each due echo through `firePowerPelletEffects(1, bases)`, which passes `bases` to `applyPowerPelletEffects` so only those upgrades resolve.
+
+- **Triggers.** Anything that goes through `applyPowerEffects`: a chomped power pellet (player or Ghost Harvester), a Tunnel Dash sweep, Fruit Power, Streak Engine and a Shield Pellets break. A chomp that Shield Pellets banks as a shield queues nothing.
+- **Pick.** A random upgrade is chosen again on every trigger, as a whole upgrade (Warp Farthest+ echoes both its warp and its Ghost Proof). The Streak Engine+ and shield-break Ghost Proof grants are not `onPowerPellet` effects and never echo. No power-pellet upgrades owned: nothing is queued.
+- **Stacking.** Each trigger queues its own echo; two chomps 1s apart echo 3s after each. An echo never queues another echo.
+- **Timers.** An echoed timer is set again like a fresh chomp (Ghost Proof at +3s runs about 6s in total). Overcharge scales the echoed durations, not the 3s delay. An echoed Extra Hungry that empties the board clears the level.
+- **Enhanced.** `echoEffects: "all"` echoes every owned power-pellet upgrade instead of one.
+- **Feedback:** none of its own; the echoed effect is the feedback. The run log records an `echo` activation per echo fired.
+- **Reset:** `clearUpgradeTimers` drops pending echoes on level advance, life loss and store entry.
+- **Snapshot:** `play.timers.echoesMs` lists the time left on each pending echo.
+- **LEARN** mirrors it with the same queue; toggling Echo off drops pending echoes.
 
 ### Overcharge
 

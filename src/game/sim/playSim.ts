@@ -169,6 +169,7 @@ import {
   applyStreakEngineInvuln,
   bankShields,
   clearUpgradeTimers,
+  queueEcho,
   shieldPelletsCap,
   spendShield,
   deathsBountyCharge,
@@ -264,6 +265,7 @@ import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/
 import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
+import { tickEchoes } from "../../domain/echo";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
@@ -681,6 +683,7 @@ export class PlaySim {
         defyDeathMs: upgrades.defyDeathRemainingMs,
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
         shieldsBanked: upgrades.shieldsBanked,
+        echoesMs: upgrades.pendingEchoes.map((echo) => echo.remainingMs),
         eatDragMs: this.eatDragMs,
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
@@ -915,6 +918,9 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = respawnTick.pending;
     for (const pos of respawnTick.ready) {
       this.spawnRespawnedPowerPellet(pos.x, pos.y);
+    }
+    if (this.fireDueEchoes(delta)) {
+      return;
     }
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
@@ -1995,8 +2001,26 @@ export class PlaySim {
     }
   }
 
-  private firePowerPelletEffects(powerRemoved: number): boolean {
-    const powerEffects = this.applyPowerEffects(powerRemoved);
+  private fireDueEchoes(delta: number): boolean {
+    if (this.runUpgrades.pendingEchoes.length === 0) {
+      return false;
+    }
+    const echoTick = tickEchoes(this.runUpgrades.pendingEchoes, delta);
+    this.runUpgrades = { ...this.runUpgrades, pendingEchoes: echoTick.pending };
+    for (const bases of echoTick.ready) {
+      this.recorder.activation("echo");
+      if (this.firePowerPelletEffects(1, bases)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private firePowerPelletEffects(
+    powerRemoved: number,
+    echoBases?: readonly BaseUpgradeId[],
+  ): boolean {
+    const powerEffects = this.applyPowerEffects(powerRemoved, echoBases);
     if (powerEffects.collectExtraPellets > 0) {
       const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
       for (const eid of bonusEids) {
@@ -2194,10 +2218,13 @@ export class PlaySim {
     this.emitRunLog();
   }
 
-  private applyPowerEffects(powerRemoved: number) {
+  private applyPowerEffects(powerRemoved: number, onlyBases?: readonly BaseUpgradeId[]) {
     const before = this.runUpgrades;
-    const powerEffects = applyPowerPelletEffects(before, powerRemoved);
+    const powerEffects = applyPowerPelletEffects(before, powerRemoved, onlyBases);
     this.runUpgrades = powerEffects.state;
+    if (onlyBases === undefined && powerRemoved > 0) {
+      this.runUpgrades = queueEcho(this.runUpgrades, this.random.stream("echo", this.levelIndex));
+    }
     if (powerEffects.freezeClosestMs !== null) {
       this.runUpgrades = freezeClosestGhost(
         this.world,

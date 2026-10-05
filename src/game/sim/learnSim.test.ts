@@ -1,5 +1,6 @@
 import { query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
+import { ECHO_DELAY_MS } from "../../domain/echo";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
@@ -514,6 +515,26 @@ describe("LearnSim upgrade demos", () => {
     catchByGhost(sim, player);
     sim.toggleUpgrade("passiveHaunting");
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
+  });
+
+  describe("Echo", () => {
+    function invulnAfterChompAndEcho(...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number {
+      const { sim, player } = setup(...ids);
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      runMs(sim, ECHO_DELAY_MS + 500);
+      const draws = sim.step(NO_KEYS_HELD, FRAME_MS).filter((event) => event.type === "draw");
+      const last = draws[draws.length - 1]!;
+      return last.type === "draw" ? last.options.playerInvulnRemainingMs : 0;
+    }
+
+    it("fires the power-pellet effect again 3s later", () => {
+      expect(invulnAfterChompAndEcho("passiveEcho", "powerPelletInvuln")).toBeGreaterThan(0);
+    });
+
+    it("lets the effect expire without the upgrade", () => {
+      expect(invulnAfterChompAndEcho("powerPelletInvuln")).toBe(0);
+    });
   });
 
   describe("Streak Engine", () => {
