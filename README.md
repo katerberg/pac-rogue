@@ -113,6 +113,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [docs/bonus.md](./docs/bonus.md) — the BONUS bar (pellet streaks pay Quarters)
 - [docs/bosses.md](./docs/bosses.md) — boss levels (level 9: Double Blinky)
 - [docs/learn.md](./docs/learn.md) — LEARN mode (meet seen ghosts / upgrades)
+- [docs/line-art.md](./docs/line-art.md) — vector line-art sprites (3× render scale, SVG authoring rules)
 - [docs/RUN_LOG.md](./docs/RUN_LOG.md) — always-on local run log (schema, field definitions, RUN LOG FULL purge)
 - [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `bonus`, `enableUpgrade`, `disableLevelUpgrades`, `infiniteLives`, `lives`, `maxLives`, `godMode`, `jumpToUpgrade`, `ghosts`, `bossGhosts`, `knobs`, `learnAll`, `sound`, `runLogFill`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work
