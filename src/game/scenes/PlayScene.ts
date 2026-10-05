@@ -28,7 +28,7 @@ import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { freshSeed } from "../../domain/runRandom";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
-import { upgradeLabels, type UpgradeId } from "../../domain/upgrades";
+import { getUpgradeDef, upgradeLabels, type UpgradeId } from "../../domain/upgrades";
 import {
   HUD_ICON_GAP,
   HUD_ICON_LEFT_X,
@@ -75,7 +75,11 @@ import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
-import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
+import {
+  createUpgradeChoiceModal,
+  SCHOOL_COLORS,
+  type UpgradeChoiceModal,
+} from "./upgradeChoiceModal";
 
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
@@ -119,7 +123,7 @@ export class PlayScene extends Phaser.Scene {
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
-  private upgradesText!: Phaser.GameObjects.BitmapText;
+  private upgradeLines: Phaser.GameObjects.BitmapText[] = [];
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private shieldIcons: Phaser.GameObjects.Rectangle[] = [];
@@ -178,19 +182,13 @@ export class PlayScene extends Phaser.Scene {
     this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
-    this.upgradesText = addPixelText(
-      this,
-      12,
-      PLAYFIELD_HEIGHT / 2,
-      "",
-      UPGRADES_HUD_FONT_SIZE,
-    ).setVisible(false);
+    this.upgradeLines = [];
 
     const bonusLabel = addPixelText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
     placePixelText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
     this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
     this.barFx = createBarFx(this.sim.hud().bonusCharge);
-    this.sideHud.add([this.timerText, this.upgradesText]);
+    this.sideHud.add(this.timerText);
     this.chrome.add([bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
     this.shieldIcons = [];
@@ -374,7 +372,7 @@ export class PlayScene extends Phaser.Scene {
 
   private pauseForMenu(): void {
     this.pausedAtMs = performance.now();
-    this.upgradesText.setVisible(false);
+    this.upgradeLines.forEach((line) => line.setVisible(false));
     this.clearStoreExitCursor();
     this.scene.pause();
     this.scene.launch("PauseScene");
@@ -843,14 +841,28 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private refreshUpgradesHud(): void {
-    const labels = upgradeLabels(this.sim.hud().upgrades);
-    if (labels.length === 0) {
-      this.upgradesText.setVisible(false);
+    const owned = this.sim.hud().upgrades;
+    const labels = upgradeLabels(owned);
+    this.upgradeLines.forEach((line) => line.destroy());
+    this.upgradeLines = labels.map((label, i) => {
+      const line = addPixelText(
+        this,
+        12,
+        0,
+        label,
+        UPGRADES_HUD_FONT_SIZE,
+        SCHOOL_COLORS[getUpgradeDef(owned[i]).school],
+      );
+      this.sideHud.add(line);
+      return line;
+    });
+    const first = this.upgradeLines[0];
+    if (first === undefined) {
       return;
     }
-    this.upgradesText.setVisible(true);
-    this.upgradesText.setText(labels.join("\n"));
-    placePixelText(this.upgradesText, 12, PLAYFIELD_HEIGHT / 2, 0, 0.5);
+    const lineHeight = first.getTextBounds(true).local.height;
+    const top = PLAYFIELD_HEIGHT / 2 - (lineHeight * labels.length) / 2;
+    this.upgradeLines.forEach((line, i) => placePixelText(line, 12, top + lineHeight * i));
   }
 
   private timerLabel(): string {
