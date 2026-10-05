@@ -39,9 +39,11 @@ import {
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Fruit } from "../components/Fruit";
+import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
+import { DIRECTION, Input } from "../components/Input";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -271,15 +273,15 @@ describe("PlaySim Afterburner", () => {
     return { pellet: measure(sim, 1) / base, empty: measure(sim, -1) / base };
   }
 
-  it("speeds up only when entering a cell without a pellet", () => {
+  it("speeds up entering a cell without a pellet and slows entering one with a pellet", () => {
     const ratios = speedRatios("passiveAfterburner");
-    expect(ratios.pellet).toBeCloseTo(1);
+    expect(ratios.pellet).toBeCloseTo(0.9);
     expect(ratios.empty).toBeCloseTo(1.3);
   });
 
-  it("Afterburner+ gives +50%", () => {
+  it("Afterburner+ gives +50% and keeps the 10% pellet-cell slowdown", () => {
     const ratios = speedRatios("passiveAfterburnerPlus");
-    expect(ratios.pellet).toBeCloseTo(1);
+    expect(ratios.pellet).toBeCloseTo(0.9);
     expect(ratios.empty).toBeCloseTo(1.5);
   });
 
@@ -1231,6 +1233,22 @@ describe("PlaySim", () => {
     teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
     runUntil(sim, () => sim.snapshot().boss?.ghostCount === 3, 30);
     expect(sim.snapshot().bossPellets).toBe(7);
+  });
+
+  it("lets a boss Blinky leave its tunnel mouth when Tunnel Sanctuary+ blocks tunnels", () => {
+    const sim = startSim({
+      level: 9,
+      godMode: true,
+      enableUpgrades: ["passiveTunnelSanctuaryPlus"],
+    });
+    const before = new Set(query(sim.world, [BossGhost, Position]));
+    const pellet = query(sim.world, [BossPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
+    runUntil(sim, () => sim.snapshot().boss?.ghostCount === 3, 30);
+    const spawned = query(sim.world, [BossGhost, Position]).find((eid) => !before.has(eid))!;
+    const startX = Position.x[spawned]!;
+    runFrames(sim, 180);
+    expect(Math.abs(Position.x[spawned]! - startX)).toBeGreaterThan(20);
   });
 
   it("replays the same run from the same seed and inputs", () => {
@@ -3145,6 +3163,146 @@ describe("Haunting", () => {
     runUntil(sim, () => sim.snapshot().inStore || sim.snapshot().level === 4, 600);
     expect(sim.snapshot().timers.hauntMs).toBe(0);
     expect(sim.snapshot().hauntedGhost).toBeNull();
+  });
+});
+
+describe("Tunnel Sanctuary", () => {
+  const tunnelRow = () => horizontalTunnelRows()[0]!;
+
+  function wrapPlayerLeft(sim: PlaySim): void {
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(tunnelRow()));
+    runUntil(sim, () => sim.snapshot().runLog.tunnelWraps === 1, 120, { keys: held("left") });
+  }
+
+  function ghostInTunnelMouth(sim: PlaySim): number {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(0);
+    Position.y[ghost] = cellCenterY(tunnelRow());
+    return ghost;
+  }
+
+  it.each([
+    ["passiveTunnelSanctuary", 0.9],
+    ["passiveTunnelSanctuaryPlus", 0.6],
+  ] as const)("%s sets the ghost tunnel speed to %f x Maze-Man's", (id, ratio) => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+    const ghost = ghostInTunnelMouth(sim);
+    runFrames(sim, 1);
+    expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(ratio);
+  });
+
+  it("keeps the faster ghost tunnel speed when Tunnel Dash+ is also owned", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelDashPlus", "passiveTunnelSanctuary"],
+    });
+    const ghost = ghostInTunnelMouth(sim);
+    runFrames(sim, 1);
+    expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(0.9);
+  });
+
+  it.each(["passiveTunnelSanctuary", "passiveTunnelSanctuaryPlus"] as const)(
+    "%s grants 1s of Ghost Proof on coming out of a tunnel",
+    (id) => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+      expect(sim.snapshot().timers.invulnMs).toBe(0);
+      wrapPlayerLeft(sim);
+      expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(1000 - 2 * FRAME_MS);
+      expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
+    },
+  );
+
+  it("grants nothing on a tunnel wrap without the upgrade", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    wrapPlayerLeft(sim);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+  });
+
+  it("never shortens a longer Ghost Proof", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuary"],
+    });
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(tunnelRow()));
+    sim["runUpgrades"] = { ...sim["runUpgrades"], invulnRemainingMs: INVULN_MS };
+    runUntil(sim, () => sim.snapshot().runLog.tunnelWraps === 1, 120, { keys: held("left") });
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(1000);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(INVULN_MS);
+  });
+
+  it("is not doubled by Overcharge", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuary", "passiveOvercharge"],
+    });
+    wrapPlayerLeft(sim);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
+  });
+
+  it("does not grant Ghost Proof for a teleport that is not a tunnel exit", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      godMode: true,
+      enableUpgrades: ["passiveTunnelSanctuary", "powerPelletWarpFarthest"],
+    });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const before = { x: Position.x[power]!, y: Position.y[power]! };
+    teleportPlayer(sim, before.x, before.y);
+    runFrames(sim, 30);
+    expect(Math.abs(Position.x[playerEid(sim)]! - before.x)).toBeGreaterThan(0);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+    expect(sim.snapshot().runLog.tunnelWraps).toBe(0);
+  });
+
+  it("grants Ghost Proof when a Tunnel Dash lands the player at the far mouth", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuary", "passiveTunnelDash"],
+    });
+    teleportPlayer(sim, cellCenterX(3), cellCenterY(tunnelRow()));
+    runUntil(sim, () => sim.snapshot().timers.invulnMs > 0, 240, { keys: held("left") });
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
+  });
+
+  it("lets a ghost wrap through the tunnel in the base form and blocks it in the enhanced form", () => {
+    for (const [id, wraps] of [
+      ["passiveTunnelSanctuary", true],
+      ["passiveTunnelSanctuaryPlus", false],
+    ] as const) {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+      const ghost = ghostInTunnelMouth(sim);
+      const width = getActiveLayout().cols * getActiveLayout().tileSize;
+      let wrapped = false;
+      for (let frame = 0; frame < 90; frame += 1) {
+        Facing.direction[ghost] = DIRECTION.left;
+        Input.direction[ghost] = DIRECTION.left;
+        Ghost.decidedCol[ghost] = 0;
+        Ghost.decidedRow[ghost] = tunnelRow();
+        Position.x[ghost] = Math.min(Position.x[ghost]!, cellCenterX(0) + 1);
+        runFrames(sim, 1);
+        wrapped ||= Position.x[ghost]! > width / 2;
+      }
+      expect(wrapped).toBe(wraps);
+    }
+  });
+
+  it("still lets a blocked ghost walk out of the tunnel", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuaryPlus"],
+    });
+    const ghost = ghostInTunnelMouth(sim);
+    Facing.direction[ghost] = DIRECTION.right;
+    Input.direction[ghost] = DIRECTION.right;
+    runFrames(sim, 30);
+    expect(Position.x[ghost]!).toBeGreaterThan(cellCenterX(0) + 2);
   });
 });
 

@@ -8,6 +8,7 @@ import {
   cellCenterX,
   cellCenterY,
   clampAgainstFacingWall,
+  clampToGridCenters,
   easePerpendicularToCenterline,
   getActiveLayout,
   isAlignedForTurn,
@@ -133,6 +134,7 @@ export function movement(
   playerSolidsOverride?: SolidGrid,
   playerStopOnRelease = false,
   playerPreTurn: number = playerPreTurnPx(),
+  ghostsBlockTunnels = false,
 ): void {
   const dt = deltaMs / 1000;
   const playerSolids = playerSolidsOverride ?? getActiveLayout().playerSolids;
@@ -140,7 +142,7 @@ export function movement(
   for (const eid of query(world, [Position, Velocity, Input, Facing, Speed])) {
     const speed = Speed.px[eid] ?? 0;
     const ghost = hasComponent(world, eid, Ghost)
-      ? ghostMovementRules(ghostPhaseOf(world, eid))
+      ? ghostMovementRules(ghostPhaseOf(world, eid), ghostsBlockTunnels)
       : null;
     const solids: SolidGrid = ghost?.solids ?? playerSolids;
     const frameTravel = speed * dt;
@@ -212,7 +214,10 @@ export function movement(
       Velocity.x[eid] = vx;
       Velocity.y[eid] = vy;
 
-      const wrapped = wrapPosition(nextX, nextY, solids);
+      const wrapped =
+        ghost && ghostsBlockTunnels
+          ? clampToGridCenters(nextX, nextY)
+          : wrapPosition(nextX, nextY, solids);
       const playfield = clampPositionToPlayfield(wrapped.x, wrapped.y);
       Position.x[eid] = playfield.x;
       Position.y[eid] = playfield.y;
@@ -286,7 +291,10 @@ export function movement(
     nextX = centered.x;
     nextY = centered.y;
 
-    const wrapped = wrapPosition(nextX, nextY, solids);
+    const wrapped =
+      ghost && ghostsBlockTunnels
+        ? clampToGridCenters(nextX, nextY)
+        : wrapPosition(nextX, nextY, solids);
     nextX = wrapped.x;
     nextY = wrapped.y;
 

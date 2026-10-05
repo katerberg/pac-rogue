@@ -44,6 +44,7 @@ export type BaseUpgradeId =
   | "passiveInterest"
   | "passiveNearMiss"
   | "passiveHaunting"
+  | "passiveTunnelSanctuary"
   | "passiveStreakEngine";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -74,6 +75,7 @@ export type MartyrGhostPlacement = "corners" | "house";
 export type UpgradeEffects = {
   playerSpeedMul?: number;
   emptyCellSpeedMul?: number;
+  pelletCellSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitLifetimeMul?: number;
   fruitQuarters?: number;
@@ -93,6 +95,8 @@ export type UpgradeEffects = {
   deathsBountyDecay?: number;
   overchargeMul?: number;
   ghostTunnelSpeedRatio?: number;
+  tunnelExitInvulnMs?: number;
+  ghostsBlockedFromTunnels?: true;
   secondChompMs?: number;
   speedBurstMul?: number;
   turnBoostMs?: number;
@@ -159,11 +163,14 @@ export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
 export const SHIELD_PELLETS_CAP = 1;
 export const SHIELD_PELLETS_ENHANCED_CAP = 3;
 export const SHIELD_BREAK_INVULN_MS = 1000;
+export const TUNNEL_SANCTUARY_INVULN_MS = 1000;
+export const TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO = 0.9;
 export const STREAK_ENGINE_EVERY = 30;
 export const STREAK_ENGINE_ENHANCED_INVULN_MS = 3000;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
 export const AFTERBURNER_MUL = 1.3;
+export const AFTERBURNER_PELLET_MUL = 0.9;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
 
@@ -249,14 +256,16 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveAfterburner",
     label: "Afterburner",
     school: "speed",
-    description: "Empty corridors light your tail. +30% speed on cleared tiles.",
+    description: "Cleared corridors light your tail: +30% speed there, 10% slower over pellets.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Afterburner gives +50% speed on cleared tiles instead of +30%.",
-      description: "Empty corridors roar. +50% speed on cleared tiles.",
+      enhanceNote:
+        "Afterburner gives +50% speed on cleared tiles instead of +30%. Pellet cells still cost 10%.",
+      description: "Cleared corridors roar: +50% speed there, 10% slower over pellets.",
       emptyCellSpeedMul: AFTERBURNER_ENHANCED_MUL,
     },
     emptyCellSpeedMul: AFTERBURNER_MUL,
+    pelletCellSpeedMul: AFTERBURNER_PELLET_MUL,
   },
   {
     id: "passiveGhostSlow",
@@ -701,6 +710,24 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       enhanceNote: "Haunting cages the ghost for the rest of the level instead of 10 seconds.",
       description: "The ghost that last caught you stays caged in the ghost house for the level.",
       hauntMs: HAUNTING_ENHANCED_MS,
+    },
+  },
+  {
+    id: "passiveTunnelSanctuary",
+    label: "Tunnel Sanctuary",
+    school: "protection",
+    description:
+      "Leaving a tunnel makes you ghost-proof for a second, but ghosts speed through them.",
+    storePrice: STORE_UPGRADE_PRICE,
+    tunnelExitInvulnMs: TUNNEL_SANCTUARY_INVULN_MS,
+    ghostTunnelSpeedRatio: TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO,
+    enhanced: {
+      enhanceNote:
+        "Tunnel Sanctuary stops ghosts from travelling through tunnels, and tunnels slow them as usual.",
+      description:
+        "Leaving a tunnel makes you ghost-proof for a second, and ghosts can't use tunnels.",
+      ghostTunnelSpeedRatio: undefined,
+      ghostsBlockedFromTunnels: true,
     },
   },
   {
@@ -1314,7 +1341,12 @@ export function applyPowerPelletEffects(
 
 function speedMultiplier(
   owned: readonly UpgradeId[],
-  key: "playerSpeedMul" | "emptyCellSpeedMul" | "ghostSpeedMul" | "fruitLifetimeMul",
+  key:
+    | "playerSpeedMul"
+    | "emptyCellSpeedMul"
+    | "pelletCellSpeedMul"
+    | "ghostSpeedMul"
+    | "fruitLifetimeMul",
 ): number {
   let mul = 1;
   for (const id of owned) {
@@ -1330,11 +1362,8 @@ export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "playerSpeedMul");
 }
 
-export function emptyCellSpeedMultiplier(
-  owned: readonly UpgradeId[],
-  enteringEmptyCell: boolean,
-): number {
-  return enteringEmptyCell ? speedMultiplier(owned, "emptyCellSpeedMul") : 1;
+export function cellSpeedMultiplier(owned: readonly UpgradeId[], emptyAhead: boolean): number {
+  return speedMultiplier(owned, emptyAhead ? "emptyCellSpeedMul" : "pelletCellSpeedMul");
 }
 
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
@@ -1433,7 +1462,33 @@ export function overchargeMultiplier(owned: readonly UpgradeId[]): number {
 }
 
 export function ghostTunnelSpeedRatio(owned: readonly UpgradeId[]): number | null {
-  return ownedValue(owned, "ghostTunnelSpeedRatio") ?? null;
+  let best: number | null = null;
+  for (const id of owned) {
+    const ratio = UPGRADE_BY_ID.get(id)?.ghostTunnelSpeedRatio;
+    if (ratio !== undefined && (best === null || ratio > best)) {
+      best = ratio;
+    }
+  }
+  return best;
+}
+
+export function tunnelExitInvulnMs(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "tunnelExitInvulnMs") ?? 0;
+}
+
+export function ghostsBlockedFromTunnels(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "ghostsBlockedFromTunnels") === true;
+}
+
+export function applyTunnelExitInvuln(
+  state: RunUpgrades,
+  owned: readonly UpgradeId[],
+): RunUpgrades {
+  const ms = tunnelExitInvulnMs(owned);
+  if (ms <= state.invulnRemainingMs) {
+    return state;
+  }
+  return { ...state, invulnRemainingMs: ms };
 }
 
 export function secondChompMs(owned: readonly UpgradeId[]): number {
