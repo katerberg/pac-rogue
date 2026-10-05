@@ -431,6 +431,16 @@ describe("PlaySim", () => {
     expect(count(full.start(), "startingUpgrade")).toBe(0);
   });
 
+  it("forceUpgrade puts that upgrade in the level-clear offer", () => {
+    for (const seed of ["f1", "f2", "f3"]) {
+      const sim = startSim(
+        { jumpToUpgrade: true, forceUpgrade: "passiveRemoteTransference" },
+        seed,
+      );
+      expect(drainToOffer(sim)!.upgrades).toContain("passiveRemoteTransference");
+    }
+  });
+
   it("clears a board into an upgrade offer, then the next level", () => {
     const sim = startSim({ jumpToUpgrade: true });
     const offer = drainToOffer(sim);

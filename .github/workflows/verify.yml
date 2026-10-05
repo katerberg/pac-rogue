@@ -45,7 +45,7 @@ jobs:
           name: visual-smoke
           path: |
             artifacts/visual-smoke.png
-            artifacts/visual-smoke-menu.png
+            artifacts/visual-smoke-upgrade.png
           if-no-files-found: ignore
 
       - name: Publish visual smoke image for PR
@@ -65,8 +65,8 @@ jobs:
 
           WORK=$(mktemp -d)
           cp artifacts/visual-smoke.png "$WORK/visual-smoke.png"
-          if [ -f artifacts/visual-smoke-menu.png ]; then
-            cp artifacts/visual-smoke-menu.png "$WORK/visual-smoke-menu.png"
+          if [ -f artifacts/visual-smoke-upgrade.png ]; then
+            cp artifacts/visual-smoke-upgrade.png "$WORK/visual-smoke-upgrade.png"
           fi
           cd "$WORK"
 
@@ -75,8 +75,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add visual-smoke.png
-          if [ -f visual-smoke-menu.png ]; then
-            git add visual-smoke-menu.png
+          if [ -f visual-smoke-upgrade.png ]; then
+            git add visual-smoke-upgrade.png
           fi
           git commit -q -m "Visual smoke for PR #${{ github.event.number }} (run ${{ github.run_id }})"
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
@@ -85,8 +85,8 @@ jobs:
           {
             echo "has_image=true"
             echo "image_url=https://raw.githubusercontent.com/${{ github.repository }}/${BRANCH}/visual-smoke.png?run=${{ github.run_id }}"
-            if [ -f visual-smoke-menu.png ]; then
-              echo "menu_image_url=https://raw.githubusercontent.com/${{ github.repository }}/${BRANCH}/visual-smoke-menu.png?run=${{ github.run_id }}"
+            if [ -f visual-smoke-upgrade.png ]; then
+              echo "upgrade_image_url=https://raw.githubusercontent.com/${{ github.repository }}/${BRANCH}/visual-smoke-upgrade.png?run=${{ github.run_id }}"
             fi
           } >> "$GITHUB_OUTPUT"
 
@@ -114,10 +114,10 @@ jobs:
               echo
               echo "![Visual smoke — play](${{ steps.publish_smoke.outputs.image_url }})"
               echo
-              if [ -n "${{ steps.publish_smoke.outputs.menu_image_url }}" ]; then
-                echo "### MenuScene"
+              if [ -n "${{ steps.publish_smoke.outputs.upgrade_image_url }}" ]; then
+                echo "### Upgrade offer (Remote Transference)"
                 echo
-                echo "![Visual smoke — menu](${{ steps.publish_smoke.outputs.menu_image_url }})"
+                echo "![Visual smoke — upgrade offer](${{ steps.publish_smoke.outputs.upgrade_image_url }})"
                 echo
               fi
             fi

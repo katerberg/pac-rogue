@@ -15,6 +15,8 @@ import { parseStoreFlag, type StoreIndex } from "./storeFlag";
 import {
   parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
+  parseForceUpgradeParam,
+  type BaseUpgradeId,
   type UpgradeId,
 } from "./upgrades";
 
@@ -35,6 +37,7 @@ export type PlayOptions = {
   godMode: boolean;
   knobs: boolean;
   enableUpgrades: UpgradeId[];
+  forceUpgrade: BaseUpgradeId | null;
   highScoresDisabled: boolean;
 };
 
@@ -96,6 +99,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       godMode: parseGodModeFlag(params),
       knobs: parseKnobsFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
+      forceUpgrade: parseForceUpgradeParam(params),
       highScoresDisabled: highScoresDisabled(params),
     },
     warnings,

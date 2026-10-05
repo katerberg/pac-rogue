@@ -25,6 +25,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "maxLives",
   "godMode",
   "jumpToUpgrade",
+  "forceUpgrade",
   "store",
   "ghosts",
   "bossGhosts",
