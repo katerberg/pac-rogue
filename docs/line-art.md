@@ -9,7 +9,7 @@ A prototype of thin neon line art next to the pixel art. On levels 5–8 Clyde i
 - **Graphics are multisampled** (`antialiasGL: true`), so 16px line art is crisp.
 - **The canvas is CSS-smoothed** (`image-rendering: auto` in `src/styles.css`). The 3× canvas is downscaled to fit the window, and nearest downscaling would make thin lines shimmer.
 - **Glow** uses Phaser 4's `Glow` filter, as a knockout (glow-only) layer under the crisp art:
-  - Vector actors: one glow Graphics per actor, holding only the strokes. Its filter is focused on the art box plus the glow reach. Graphics have no bounds, and without that focus Phaser would filter the whole screen every frame. Strength and reach come from the `?knobs=1` **Ghost glow** / **Ghost glow radius** knobs (defaults 1.2 and 6px, via `ghostGlowFilter` in `src/domain/ghostArt.ts`); changing them rebuilds the line-art objects, since Phaser fixes the glow distance at creation.
+  - Vector actors: one glow Graphics per actor, holding only the strokes. Its filter is focused on the art box plus the glow reach. Graphics have no bounds, and without that focus Phaser would filter the whole screen every frame. Strength and reach come from the `?knobs=1` **Ghost glow** / **Ghost glow radius** knobs (defaults 1.2 and 6px). **Ghost line thickness** (stroke as % of the ghost's size, default 4.5) and **Ghost width** (horizontal stretch of the geometry, default 1.24 so the body is as wide as the 16px pixel ghosts) are knobs too. All four go through `ghostLineArtLook` in `src/domain/ghostArt.ts`; changing any of them rebuilds the line-art objects, since Phaser fixes the glow distance at creation.
   - Maze walls: the glow is static, so it is filtered once into a full-resolution `RenderTexture` whenever the wall style changes (in `render.ts`). Strength comes from `wallGlowFilter` (`src/domain/wallStyle.ts`). It is off by default (`DEFAULT_TUNING.wallGlow` = 0); turn it up with the `?knobs=1` **Wall glow** knob.
 
 Code: `src/domain/lineArt.ts` (parser, pure), `src/game/systems/lineArtRender.ts` (Phaser drawing), and the line-art branch of `src/game/systems/render.ts`.
@@ -23,7 +23,7 @@ Code: `src/domain/lineArt.ts` (parser, pure), `src/game/systems/lineArtRender.ts
 - One subpath per path: no second `M`, and nothing after `Z`. Split shapes into separate ids.
 - Keep strokes as strokes. Never "outline stroke" or "expand" them in an editor: the stroke's path is what a future unspool will trim.
 - **Path direction is the future unspool order.** Draw each path in the order it should appear.
-- `stroke` / `fill`: `currentColor` (the actor's colour, set in code), `none`, or `#rrggbb`. A missing attribute means `none`. `fill-opacity` is a number (default 1). `stroke-width` is ignored (preview only); the renderer uses `LINE_ART_STROKE_VB` in viewBox units.
+- `stroke` / `fill`: `currentColor` (the actor's colour, set in code), `none`, or `#rrggbb`. A missing attribute means `none`. `fill-opacity` is a number (default 1). `stroke-width` is ignored (preview only); the renderer uses the Ghost line thickness knob.
 - Path commands: `M L H V C Q A Z`, absolute and relative. `S`/`T` are not supported. Arc flags must be space- or comma-separated (packed flags like `011` are not parsed).
 - Strands are drawn in document order. Fill comes first, then stroke.
 
@@ -36,3 +36,5 @@ Each strand becomes `{ id, points: {x, y, s}[], length, closed, stroke, fill, fi
 3. Decide when it is vector in a pure domain rule, like `ghostArtStyle` in `src/domain/ghostArt.ts`. `PlaySim.renderOptions()` sends the matching ids as `lineArtDrawableIds`, and `snapshot().lineArtGhosts` exposes them to probes. `render.ts` only acts on what it is told. With the option absent (e.g. LEARN), everything stays pixel art.
 
 Frozen ghosts recolour the line, fill and glow cyan (the eyes stay white). Dimming uses alpha. Warp-glide afterimages are vector copies without glow.
+
+Collision never depends on the drawing: every ghost catches with the same body circle (`Drawable.radius = ghostRadius()`, set in `PlaySim`), so glow, thickness and width are visual only (pinned by the PlaySim "line-art Clyde" test).

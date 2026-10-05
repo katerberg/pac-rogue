@@ -100,6 +100,8 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("wallGlowRadius", "Visuals", "Glow radius", 0, 12, 1, "px"),
   range("ghostGlow", "Visuals", "Ghost glow", 0, 4, 0.1),
   range("ghostGlowRadius", "Visuals", "Ghost glow radius", 0, 12, 1, "px"),
+  range("ghostLineWidth", "Visuals", "Ghost line thickness", 1, 15, 0.5, "%"),
+  range("ghostWidth", "Visuals", "Ghost width", 0.6, 1.5, 0.01, "×"),
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 8, 1, "px"),
   { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
 ];
@@ -196,6 +198,10 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   ghostGlow: "Strength of the neon glow around line-art ghosts (Clyde on levels 5-8). 0 = no glow.",
   ghostGlowRadius:
     "How far the line-art ghost glow spreads beyond the outline, in pixels. 0 = no glow.",
+  ghostLineWidth:
+    "Outline thickness of line-art ghosts, as a percent of the ghost's size. Visual only; collision is unchanged.",
+  ghostWidth:
+    "Horizontal stretch of line-art ghosts. 1.24 makes the body as wide as the pixel ghosts. Visual only; collision is unchanged.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
 };

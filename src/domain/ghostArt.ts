@@ -15,9 +15,30 @@ export function ghostArtStyle(kind: GhostKindId, levelIndex: number): GhostArtSt
 
 export type GhostGlow = { outerStrength: number; distancePx: number };
 
-export function ghostGlowFilter(tuning: Tuning): GhostGlow | null {
-  if (tuning.ghostGlow <= 0 || tuning.ghostGlowRadius <= 0) {
-    return null;
-  }
-  return { outerStrength: tuning.ghostGlow, distancePx: tuning.ghostGlowRadius };
+export type GhostLineArtLook = {
+  glow: GhostGlow | null;
+  /** Stroke width as a fraction of the art's viewBox width. */
+  lineWidth: number;
+  /** Horizontal stretch of the geometry (stroke width unchanged). */
+  widthScale: number;
+};
+
+export function ghostLineArtLook(tuning: Tuning): GhostLineArtLook {
+  return {
+    glow:
+      tuning.ghostGlow <= 0 || tuning.ghostGlowRadius <= 0
+        ? null
+        : { outerStrength: tuning.ghostGlow, distancePx: tuning.ghostGlowRadius },
+    lineWidth: tuning.ghostLineWidth / 100,
+    widthScale: tuning.ghostWidth,
+  };
+}
+
+export function sameGhostLineArtLook(a: GhostLineArtLook, b: GhostLineArtLook): boolean {
+  return (
+    a.glow?.outerStrength === b.glow?.outerStrength &&
+    a.glow?.distancePx === b.glow?.distancePx &&
+    a.lineWidth === b.lineWidth &&
+    a.widthScale === b.widthScale
+  );
 }

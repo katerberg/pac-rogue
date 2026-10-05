@@ -48,6 +48,8 @@ export type Tuning = {
   readonly wallGlowRadius: number;
   readonly ghostGlow: number;
   readonly ghostGlowRadius: number;
+  readonly ghostLineWidth: number;
+  readonly ghostWidth: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
 };
@@ -102,6 +104,8 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   wallGlowRadius: 4,
   ghostGlow: 1.2,
   ghostGlowRadius: 6,
+  ghostLineWidth: 4.5,
+  ghostWidth: 1.24,
   wallCornerRadius: 6,
   backgroundColor: 0x1a1a2e,
 });

@@ -52,6 +52,8 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
+import { catchPlayer } from "../systems/catchPlayer";
+import { Drawable } from "../components/Drawable";
 import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
@@ -3204,6 +3206,36 @@ describe("line-art Clyde", () => {
     const events = runFrames(startSim({ level: 5 }, "lineart"), 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
     expect(draws.at(-1)?.lineArtDrawableIds).toEqual([CLYDE_DRAWABLE_ID]);
+  });
+
+  it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {
+    const furthestCatch = (tuning: Tuning): number => {
+      const sim = new PlaySim({ ...defaultPlayOptions(), level: 5 }, "lineart", tuning);
+      sim.start();
+      const clyde = query(sim.world, [Ghost, GhostKind]).find(
+        (eid) => GhostKind.kind[eid] === GHOST_KIND.clyde,
+      )!;
+      expect(Drawable.radius[clyde]).toBe(ghostRadius());
+      GhostPhase.value[clyde] = GHOST_PHASE.active;
+      const player = playerEid(sim);
+      let furthest = 0;
+      for (let d = 0; d <= 40; d += 0.25) {
+        Position.x[clyde] = Position.x[player]! + d;
+        Position.y[clyde] = Position.y[player]!;
+        if (catchPlayer(sim.world) === clyde) {
+          furthest = d;
+        }
+      }
+      return furthest;
+    };
+    const plain = furthestCatch(DEFAULT_TUNING);
+    expect(plain).toBeGreaterThan(0);
+    expect(plain).toBeLessThan(2 * ghostRadius());
+    expect(
+      furthestCatch(
+        resolveTuning({ ghostGlow: 4, ghostGlowRadius: 12, ghostLineWidth: 15, ghostWidth: 1.5 }),
+      ),
+    ).toBe(plain);
   });
 
   it("follows a ghosts override without Clyde", () => {

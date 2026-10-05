@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ghostArtStyle, ghostGlowFilter } from "./ghostArt";
+import { ghostArtStyle, ghostLineArtLook, sameGhostLineArtLook } from "./ghostArt";
 import { resolveTuning } from "./tuning";
 import { GHOST_KIND } from "./ghostKind";
 
@@ -22,17 +22,38 @@ describe("ghostArtStyle", () => {
   });
 });
 
-describe("ghostGlowFilter", () => {
-  it("is null with no glow strength or radius", () => {
-    expect(ghostGlowFilter(resolveTuning({ ghostGlow: 0 }))).toBeNull();
-    expect(ghostGlowFilter(resolveTuning({ ghostGlowRadius: 0 }))).toBeNull();
+describe("ghostLineArtLook", () => {
+  it("has no glow with no glow strength or radius", () => {
+    expect(ghostLineArtLook(resolveTuning({ ghostGlow: 0 })).glow).toBeNull();
+    expect(ghostLineArtLook(resolveTuning({ ghostGlowRadius: 0 })).glow).toBeNull();
   });
 
-  it("uses the knob strength and radius, glowing softly by default", () => {
-    expect(ghostGlowFilter(resolveTuning({ ghostGlow: 2, ghostGlowRadius: 8 }))).toEqual({
-      outerStrength: 2,
-      distancePx: 8,
+  it("reads glow, line thickness and width from the knobs", () => {
+    expect(
+      ghostLineArtLook(
+        resolveTuning({ ghostGlow: 2, ghostGlowRadius: 8, ghostLineWidth: 9, ghostWidth: 1.1 }),
+      ),
+    ).toEqual({ glow: { outerStrength: 2, distancePx: 8 }, lineWidth: 0.09, widthScale: 1.1 });
+  });
+
+  it("defaults to a soft glow, a 4.5% line and pixel-ghost width", () => {
+    expect(ghostLineArtLook(resolveTuning({}))).toEqual({
+      glow: { outerStrength: 1.2, distancePx: 6 },
+      lineWidth: 0.045,
+      widthScale: 1.24,
     });
-    expect(ghostGlowFilter(resolveTuning({}))).toEqual({ outerStrength: 1.2, distancePx: 6 });
+  });
+
+  it("compares every field", () => {
+    const base = ghostLineArtLook(resolveTuning({}));
+    expect(sameGhostLineArtLook(base, ghostLineArtLook(resolveTuning({})))).toBe(true);
+    for (const change of [
+      { ghostGlow: 0 },
+      { ghostGlowRadius: 7 },
+      { ghostLineWidth: 6 },
+      { ghostWidth: 1 },
+    ]) {
+      expect(sameGhostLineArtLook(base, ghostLineArtLook(resolveTuning(change)))).toBe(false);
+    }
   });
 });
