@@ -130,7 +130,9 @@ import {
   turnBoostMs,
   turnPerfectPx,
   wallPassLoopOwned,
+  queueEcho,
 } from "./upgrades";
+import { ECHO_DELAY_MS } from "./echo";
 import { TILE_SIZE } from "./maze";
 
 const ALL_IDS: BaseUpgradeId[] = [
@@ -176,6 +178,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveHaunting",
   "passiveTunnelSanctuary",
   "passiveStreakEngine",
+  "passiveEcho",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -1334,5 +1337,57 @@ describe("Streak Engine", () => {
       invulnRemainingMs: STREAK_ENGINE_ENHANCED_INVULN_MS + 500,
     };
     expect(applyStreakEngineInvuln(state, state.owned)).toBe(state);
+  });
+});
+
+describe("Echo", () => {
+  const firstPick = (): number => 0;
+
+  it("queues one random owned power-pellet upgrade 3s out", () => {
+    const state = createRunUpgrades(["passiveEcho", "powerPelletInvuln", "powerPelletFreeze"]);
+    expect(queueEcho(state, () => 0.99).pendingEchoes).toEqual([
+      { remainingMs: ECHO_DELAY_MS, bases: ["powerPelletFreeze"] },
+    ]);
+  });
+
+  it("queues every owned power-pellet upgrade when enhanced", () => {
+    const state = createRunUpgrades(["passiveEchoPlus", "powerPelletInvuln", "passiveGhostSlow"]);
+    const next = queueEcho(state, firstPick);
+    expect(next.pendingEchoes).toEqual([
+      { remainingMs: ECHO_DELAY_MS, bases: ["powerPelletInvuln"] },
+    ]);
+    const both = queueEcho(
+      createRunUpgrades(["passiveEchoPlus", "powerPelletInvuln", "powerPelletFreeze"]),
+      firstPick,
+    );
+    expect(both.pendingEchoes[0]!.bases).toEqual(["powerPelletInvuln", "powerPelletFreeze"]);
+  });
+
+  it("queues nothing without Echo or without power-pellet upgrades", () => {
+    const noEcho = createRunUpgrades(["powerPelletInvuln"]);
+    expect(queueEcho(noEcho, firstPick)).toBe(noEcho);
+    const noPower = createRunUpgrades(["passiveEcho", "passiveGhostSlow"]);
+    expect(queueEcho(noPower, firstPick)).toBe(noPower);
+  });
+
+  it("keeps each queued echo separate", () => {
+    const state = createRunUpgrades(["passiveEcho", "powerPelletInvuln"]);
+    expect(queueEcho(queueEcho(state, firstPick), firstPick).pendingEchoes).toHaveLength(2);
+  });
+
+  it("is cleared with the other upgrade timers", () => {
+    const state = queueEcho(createRunUpgrades(["passiveEcho", "powerPelletInvuln"]), firstPick);
+    expect(clearUpgradeTimers(state).pendingEchoes).toEqual([]);
+  });
+
+  it("fires only the echoed upgrades, still scaled by Overcharge", () => {
+    const state = createRunUpgrades([
+      "powerPelletInvuln",
+      "powerPelletSpeedBurst",
+      "passiveOvercharge",
+    ]);
+    const echo = applyPowerPelletEffects(state, 1, ["powerPelletInvuln"]);
+    expect(echo.state.invulnRemainingMs).toBe(INVULN_MS * 2);
+    expect(echo.state.speedBurstRemainingMs).toBe(0);
   });
 });

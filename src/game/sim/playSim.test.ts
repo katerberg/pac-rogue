@@ -36,6 +36,7 @@ import {
   type UpgradeChoiceOffer,
   type UpgradeId,
 } from "../../domain/upgrades";
+import { ECHO_DELAY_MS } from "../../domain/echo";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Fruit } from "../components/Fruit";
@@ -3437,5 +3438,85 @@ describe("Streak Engine", () => {
     ]);
     eatUntilStreak(sim, 30);
     expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, speedBurstMs: 0 });
+  });
+});
+
+describe("Echo", () => {
+  const AFTER_ECHO_MS = ECHO_DELAY_MS + 500;
+
+  function startEcho(enableUpgrades: UpgradeId[], godMode = true): PlaySim {
+    return startSim({ level: 2, maze: "maze1", godMode, enableUpgrades }, "echo1");
+  }
+
+  function chompPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function runMs(sim: PlaySim, ms: number): SimEvent[] {
+    return runFrames(sim, Math.ceil(ms / FRAME_MS));
+  }
+
+  it("fires a power-pellet effect again 3s after the chomp", () => {
+    const sim = startEcho(["passiveEcho", "powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.echoesMs).toEqual([ECHO_DELAY_MS]);
+    runMs(sim, AFTER_ECHO_MS);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(INVULN_MS - 600);
+    expect(sim.snapshot().timers.echoesMs).toEqual([]);
+  });
+
+  it("leaves the effect to expire without the upgrade", () => {
+    const sim = startEcho(["powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.echoesMs).toEqual([]);
+    runMs(sim, AFTER_ECHO_MS);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+  });
+
+  it("echoes one random effect, or every effect when enhanced", () => {
+    const echoed = (id: UpgradeId): number => {
+      const sim = startEcho([id, "powerPelletInvuln", "powerPelletSpeedBurst"]);
+      chompPowerPellet(sim);
+      runMs(sim, AFTER_ECHO_MS);
+      const { invulnMs, speedBurstMs } = sim.snapshot().timers;
+      return [invulnMs, speedBurstMs].filter((ms) => ms > 0).length;
+    };
+    expect(echoed("passiveEcho")).toBe(1);
+    expect(echoed("passiveEchoPlus")).toBe(2);
+  });
+
+  it("queues a separate echo for each trigger", () => {
+    const sim = startEcho(["passiveEcho", "powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    runMs(sim, 1000);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.echoesMs).toHaveLength(2);
+    runMs(sim, AFTER_ECHO_MS);
+    expect(sim.snapshot().timers.echoesMs).toEqual([]);
+  });
+
+  it("doubles the echoed duration with Overcharge", () => {
+    const sim = startEcho(["passiveEcho", "powerPelletInvuln", "passiveOvercharge"]);
+    chompPowerPellet(sim);
+    runMs(sim, 2 * INVULN_MS - 100);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(INVULN_MS);
+  });
+
+  it("does not echo a shield banked by Shield Pellets", () => {
+    const sim = startEcho(["passiveEcho", "passiveShieldPellets", "powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, echoesMs: [] });
+  });
+
+  it("drops pending echoes when a life is lost", () => {
+    const sim = startEcho(["passiveEcho", "powerPelletSpeedBurst"], false);
+    chompPowerPellet(sim);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().timers.echoesMs).toEqual([]);
   });
 });
