@@ -633,6 +633,7 @@ export class PlaySim {
   renderOptions(): SimRenderOptions {
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
+      frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
       wallPassActive: wallPassActive(this.runUpgrades),
       wallPassLoopActive:

@@ -9,6 +9,7 @@ import type { WarpGlideSprite } from "../../domain/warpGlide";
 
 export type SimRenderOptions = {
   frozenGhostEid: number | null;
+  frozenGhostRemainingMs?: number;
   playerInvulnRemainingMs: number;
   wallPassActive: boolean;
   wallPassLoopActive?: boolean;
