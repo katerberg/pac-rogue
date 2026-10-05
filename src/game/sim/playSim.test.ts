@@ -475,6 +475,26 @@ describe("PlaySim", () => {
     expect(livesAfter(true)).toBe(livesAfter(false) + 1);
   });
 
+  it("a plain Extra Life offer still pays when Death Specialist enhances it", () => {
+    const livesAfter = (enableSpecialist: boolean) => {
+      const sim = startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        lives: 2,
+        maxLives: 6,
+        enableUpgrades: [
+          "passiveDefyDeath",
+          "passiveMoneyTalks",
+          ...(enableSpecialist ? (["passiveDeathSpecialist"] as const) : []),
+        ],
+      });
+      drainToOffer(sim);
+      sim.chooseUpgrade({ kind: "upgrade", id: "passiveExtraLife" });
+      return sim.snapshot().lives;
+    };
+    expect(livesAfter(true)).toBe(livesAfter(false) + 1);
+  });
+
   it("clears a board once every non-power pellet is eaten, leaving power pellets", () => {
     const sim = startSim({ level: 2, infiniteLives: true });
     const eids = regularPelletEids(sim);
