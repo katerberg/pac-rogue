@@ -3188,7 +3188,20 @@ describe("Tunnel Sanctuary", () => {
     expect(sim.snapshot().timers.invulnMs).toBe(0);
   });
 
-  it("never shortens a longer Ghost Proof and is not doubled by Overcharge", () => {
+  it("never shortens a longer Ghost Proof", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveTunnelSanctuary"],
+    });
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(tunnelRow()));
+    sim["runUpgrades"] = { ...sim["runUpgrades"], invulnRemainingMs: INVULN_MS };
+    runUntil(sim, () => sim.snapshot().runLog.tunnelWraps === 1, 120, { keys: held("left") });
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(1000);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(INVULN_MS);
+  });
+
+  it("is not doubled by Overcharge", () => {
     const sim = startSim({
       level: 2,
       maze: "maze1",

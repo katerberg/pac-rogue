@@ -16,6 +16,7 @@ import {
   SHIELD_PELLETS_CAP,
   SHIELD_PELLETS_ENHANCED_CAP,
   applyShieldBreakInvuln,
+  applyTunnelExitInvuln,
   martyrGhostPlacement,
   HAUNTING_MS,
   armHaunt,
@@ -592,6 +593,19 @@ describe("invuln / power pellet", () => {
 
     const partial = { ...armed.state, invulnRemainingMs: 500 };
     expect(applyPowerPelletEffects(partial, 2).state.invulnRemainingMs).toBe(INVULN_MS);
+  });
+
+  it("raises Ghost Proof to 1s on a tunnel exit and never shortens a longer timer", () => {
+    const owned = createRunUpgrades(["passiveTunnelSanctuary"]);
+    expect(applyTunnelExitInvuln(owned, owned.owned).invulnRemainingMs).toBe(1000);
+    expect(
+      applyTunnelExitInvuln({ ...owned, invulnRemainingMs: INVULN_MS }, owned.owned)
+        .invulnRemainingMs,
+    ).toBe(INVULN_MS);
+    const plus = createRunUpgrades(["passiveTunnelSanctuaryPlus", "passiveOverchargePlus"]);
+    expect(applyTunnelExitInvuln(plus, plus.owned).invulnRemainingMs).toBe(1000);
+    const bare = createRunUpgrades();
+    expect(applyTunnelExitInvuln(bare, bare.owned)).toBe(bare);
   });
 });
 
