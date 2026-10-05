@@ -157,6 +157,7 @@ import {
   type StoreState,
 } from "../../domain/store";
 import {
+  cellSpeedMultiplier,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   applyShieldBreakInvuln,
@@ -212,7 +213,6 @@ import {
   pickUpgradeChoiceOffer,
   playerIsInvulnerable,
   playerTintRemainingMs,
-  cellSpeedMultiplier,
   playerSpeedMultiplier,
   queuePowerPelletRespawns,
   revokeUpgrade,

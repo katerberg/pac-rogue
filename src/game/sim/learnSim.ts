@@ -27,6 +27,7 @@ import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   baseIdOf,
+  cellSpeedMultiplier,
   enhancedIdOf,
   deathsHarvestRadiusTiles,
   defyDeathActive,
@@ -70,7 +71,6 @@ import {
   ghostSpeedMultiplier,
   grantUpgrade,
   pelletCollectRadiusBonusPx,
-  cellSpeedMultiplier,
   playerSpeedMultiplier,
   revokeUpgrade,
   speedBurstActive,
