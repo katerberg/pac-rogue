@@ -102,7 +102,7 @@ describe("allSeenRecord / parseLearnAllMode", () => {
 });
 
 describe("learnSeenRecord", () => {
-  const stored = () => ({ ghosts: [], upgrades: ["passivePlayerSpeedUp" as const] });
+  const stored = () => ({ ghosts: [], upgrades: ["passiveAfterburner" as const] });
 
   it("always shows every ghost", () => {
     for (const mode of [null, "all", "none"] as const) {
@@ -113,6 +113,6 @@ describe("learnSeenRecord", () => {
   it("learnAll=0 lists no upgrades, learnAll=1 all, otherwise the stored ones", () => {
     expect(learnSeenRecord("none", stored).upgrades).toEqual([]);
     expect(learnSeenRecord("all", stored).upgrades).toEqual(allSeenRecord().upgrades);
-    expect(learnSeenRecord(null, stored).upgrades).toEqual(["passivePlayerSpeedUp"]);
+    expect(learnSeenRecord(null, stored).upgrades).toEqual(["passiveAfterburner"]);
   });
 });
