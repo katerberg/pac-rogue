@@ -298,6 +298,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   wallGlowSource.filtersFocusContext = false;
   wallGlowSource.setFilterSize(wallGlowTexture.width, wallGlowTexture.height);
   wallGlowSource.filterCamera.setOrigin(0, 0);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => wallGlowSource.destroy());
   const wallGraphics = scene.add.graphics();
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
