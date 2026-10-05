@@ -35,6 +35,7 @@ src/
     mazeTiling.ts             # 9×11 mirrored polyomino tiling solver (procedural)
     mazeGenerate.ts           # tiling → 28×34 ASCII + board seed / level≥2 selection
     playfieldBounds.ts        # PLAYFIELD_WIDTH/HEIGHT (no maze import)
+    renderScale.ts            # renderScaleFor(view, devicePixelRatio) + canvasSizeFor: canvas pixels per world pixel (1-4)
     runLevel.ts               # ?level= URL parse, clamped to MAX_LEVEL
     playOptions.ts            # parsePlayOptions: every PlayScene URL flag → PlayOptions + warnings
     tuning.ts                 # Tuning (every ?knobs=1 knob) + DEFAULT_TUNING; stored-override parse/serialize; level speed ramps
@@ -79,8 +80,8 @@ src/
     learnUpgradeColumns.ts    # LEARN upgrade school split (3 left / 3 right) + hover-preview anchor
     learnOverlay.ts           # LEARN reticle clamp, predicted path, target derivation, segment clip
   game/
-    config.ts                 # Phaser GameConfig (FIT scale, 3× canvas, nearest textures + multisampled Graphics)
-    renderScale.ts            # RENDER_SCALE (3) + applyRenderScale(scene): camera zoom, called first in every scene's create()
+    config.ts                 # Phaser GameConfig (FIT scale, canvas sized to device pixels, smoothPixelArt + multisampled Graphics)
+    renderScale.ts            # canvas size from window × devicePixelRatio, applyRenderScale(scene) (zoom, called first in every create()), resize follow
     art/                      # line-art SVGs + their parsed LineArt (clyde.svg → clydeArt.ts)
     audio/sfx.ts              # SFX manifest (incl. menuMusic / gameplayMusic loops); volumes scaled by audioSettings
     components/               # data only — no Phaser
@@ -170,7 +171,7 @@ docs/
 
 ## Scenes
 
-The game renders at a fixed 3× internal resolution (2400×1800 canvas, world stays 800×600); every scene calls `applyRenderScale(this)` first in `create()` and reads pointers in world units (`pointer.worldX/worldY`). See [line-art.md](./line-art.md).
+The canvas matches the screen's physical pixels (800×600 world × `renderScaleFor(window, devicePixelRatio)`, 1–4, re-fit on resize); every scene calls `applyRenderScale(this)` first in `create()` and reads pointers in world units (`pointer.worldX/worldY`). See [line-art.md](./line-art.md).
 
 Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `LearnScene`, `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`, `RunLogOverrunScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
 

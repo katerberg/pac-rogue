@@ -31,9 +31,20 @@ describe("ghostLineArtLook", () => {
   it("reads glow, line thickness and width from the knobs", () => {
     expect(
       ghostLineArtLook(
-        resolveTuning({ ghostGlow: 2, ghostGlowRadius: 8, ghostLineWidth: 9, ghostWidth: 1.1 }),
+        resolveTuning({
+          ghostGlow: 2,
+          ghostGlowRadius: 8,
+          ghostLineWidth: 9,
+          ghostWidth: 1.1,
+          ghostHeight: 0.9,
+        }),
       ),
-    ).toEqual({ glow: { outerStrength: 2, distancePx: 8 }, lineWidth: 0.09, widthScale: 1.1 });
+    ).toEqual({
+      glow: { outerStrength: 2, distancePx: 8 },
+      lineWidth: 0.09,
+      widthScale: 1.1,
+      heightScale: 0.9,
+    });
   });
 
   it("defaults to a soft glow, a 4.5% line and pixel-ghost width", () => {
@@ -41,6 +52,7 @@ describe("ghostLineArtLook", () => {
       glow: { outerStrength: 1.2, distancePx: 6 },
       lineWidth: 0.045,
       widthScale: 1.24,
+      heightScale: 1,
     });
   });
 
@@ -52,6 +64,7 @@ describe("ghostLineArtLook", () => {
       { ghostGlowRadius: 7 },
       { ghostLineWidth: 6 },
       { ghostWidth: 1 },
+      { ghostHeight: 1.2 },
     ]) {
       expect(sameGhostLineArtLook(base, ghostLineArtLook(resolveTuning(change)))).toBe(false);
     }

@@ -26,7 +26,7 @@ import {
   restyleLineArtObject,
   type LineArtObject,
 } from "./lineArtRender";
-import { RENDER_SCALE } from "../renderScale";
+import { renderScaleOf } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -296,10 +296,16 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const lineArtObjects = new Map<string, LineArtObject>();
   const playerVisuals = new Map<number, PlayerVisual>();
+  const wallGlowScale = renderScaleOf(scene);
   const wallGlowTexture = scene.add
-    .renderTexture(0, 0, PLAYFIELD_WIDTH * RENDER_SCALE, PLAYFIELD_HEIGHT * RENDER_SCALE)
+    .renderTexture(
+      0,
+      0,
+      Math.round(PLAYFIELD_WIDTH * wallGlowScale),
+      Math.round(PLAYFIELD_HEIGHT * wallGlowScale),
+    )
     .setOrigin(0, 0)
-    .setScale(1 / RENDER_SCALE);
+    .setScale(1 / wallGlowScale);
   const wallGlowSource = scene.make.graphics({}, false).enableFilters();
   wallGlowSource.filtersAutoFocus = false;
   wallGlowSource.filtersFocusContext = false;
@@ -410,7 +416,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       const glow = wallGlowFilter(wallStyle);
       wallGlowTexture.clear();
       if (glow !== null) {
-        strokeWallPath(wallGlowSource, commands, wallStyle, RENDER_SCALE);
+        strokeWallPath(wallGlowSource, commands, wallStyle, wallGlowScale);
         wallGlowSource.filters!.internal.clear();
         wallGlowSource.filters!.internal.addGlow(
           wallStyle.color,
@@ -419,7 +425,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           1,
           true,
           WALL_GLOW_QUALITY,
-          glow.distance * RENDER_SCALE,
+          glow.distance * wallGlowScale,
         );
         wallGlowTexture.draw(wallGlowSource);
       }
@@ -512,7 +518,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           alive.add(key);
           let obj = lineArtObjects.get(key);
           if (!obj) {
-            obj = createLineArtObject(scene, lineArt, color, size, ghostLook, glow);
+            obj = createLineArtObject(
+              scene,
+              lineArt,
+              color,
+              size,
+              ghostLook,
+              glow,
+              renderScaleOf(scene),
+            );
             lineArtObjects.set(key, obj);
           } else if (obj.color !== color) {
             restyleLineArtObject(obj, lineArt, color);

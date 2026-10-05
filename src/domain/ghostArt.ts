@@ -19,8 +19,9 @@ export type GhostLineArtLook = {
   glow: GhostGlow | null;
   /** Stroke width as a fraction of the art's viewBox width. */
   lineWidth: number;
-  /** Horizontal stretch of the geometry (stroke width unchanged). */
+  /** Horizontal and vertical stretch of the geometry (stroke width unchanged). */
   widthScale: number;
+  heightScale: number;
 };
 
 export function ghostLineArtLook(tuning: Tuning): GhostLineArtLook {
@@ -31,6 +32,7 @@ export function ghostLineArtLook(tuning: Tuning): GhostLineArtLook {
         : { outerStrength: tuning.ghostGlow, distancePx: tuning.ghostGlowRadius },
     lineWidth: tuning.ghostLineWidth / 100,
     widthScale: tuning.ghostWidth,
+    heightScale: tuning.ghostHeight,
   };
 }
 
@@ -39,6 +41,7 @@ export function sameGhostLineArtLook(a: GhostLineArtLook, b: GhostLineArtLook): 
     a.glow?.outerStrength === b.glow?.outerStrength &&
     a.glow?.distancePx === b.glow?.distancePx &&
     a.lineWidth === b.lineWidth &&
-    a.widthScale === b.widthScale
+    a.widthScale === b.widthScale &&
+    a.heightScale === b.heightScale
   );
 }

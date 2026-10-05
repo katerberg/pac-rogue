@@ -101,7 +101,8 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("ghostGlow", "Visuals", "Ghost glow", 0, 4, 0.1),
   range("ghostGlowRadius", "Visuals", "Ghost glow radius", 0, 12, 1, "px"),
   range("ghostLineWidth", "Visuals", "Ghost line thickness", 1, 15, 0.5, "%"),
-  range("ghostWidth", "Visuals", "Ghost width", 0.6, 1.5, 0.01, "×"),
+  range("ghostWidth", "Visuals", "Line ghost width", 0.6, 1.5, 0.01, "×"),
+  range("ghostHeight", "Visuals", "Line ghost height", 0.6, 1.5, 0.01, "×"),
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 8, 1, "px"),
   { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
 ];
@@ -202,6 +203,8 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Outline thickness of line-art ghosts, as a percent of the ghost's size. Visual only; collision is unchanged.",
   ghostWidth:
     "Horizontal stretch of line-art ghosts. 1.24 makes the body as wide as the pixel ghosts. Visual only; collision is unchanged.",
+  ghostHeight:
+    "Vertical stretch of line-art ghosts. 1 = the SVG's own proportions. Visual only; collision is unchanged.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
 };

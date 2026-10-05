@@ -3233,7 +3233,13 @@ describe("line-art Clyde", () => {
     expect(plain).toBeLessThan(2 * ghostRadius());
     expect(
       furthestCatch(
-        resolveTuning({ ghostGlow: 4, ghostGlowRadius: 12, ghostLineWidth: 15, ghostWidth: 1.5 }),
+        resolveTuning({
+          ghostGlow: 4,
+          ghostGlowRadius: 12,
+          ghostLineWidth: 15,
+          ghostWidth: 1.5,
+          ghostHeight: 1.5,
+        }),
       ),
     ).toBe(plain);
   });
