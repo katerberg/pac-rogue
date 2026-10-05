@@ -28,8 +28,8 @@ import {
 } from "../../domain/maze";
 import { GHOST_DRAWABLE_BY_KIND, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
-  allSeenRecord,
   emptySeenRecord,
+  learnSeenRecord,
   parseLearnAllMode,
   type SeenRecord,
 } from "../../domain/seenRecord";
@@ -61,7 +61,6 @@ import {
 } from "../systems/render";
 import {
   addPixelText,
-  HUD_FONT_SIZE,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
   placePixelText,
@@ -90,7 +89,6 @@ const SLOT_GAP = 16;
 const SLOT_STROKE = 4;
 const SLOT_STROKE_COLOR = 0x444444;
 const SLOT_ICON_SIZE = 32;
-const UNSEEN_ALPHA = 0.35;
 const BACK_Y = 550;
 const OVERLAY_DEPTH = 5;
 const PATH_ALPHA = 0.6;
@@ -161,12 +159,7 @@ export class LearnScene extends Phaser.Scene {
     const urlParams = new URLSearchParams(location.search);
     this.sim = new LearnSim(parseSeedParam(urlParams) ?? freshSeed());
     const learnAllMode = parseLearnAllMode(urlParams);
-    this.seen =
-      learnAllMode === "all"
-        ? allSeenRecord()
-        : learnAllMode === "none"
-          ? emptySeenRecord()
-          : loadSeenRecord();
+    this.seen = learnSeenRecord(learnAllMode, loadSeenRecord);
     this.reticlePx = null;
     this.statusShown = "";
     this.hoverPreviewTimer = null;
@@ -202,22 +195,7 @@ export class LearnScene extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.FOUR,
     ].map((code) => keyboard.addKey(code));
 
-    const firstSeen = SLOT_KINDS.find((kind) => this.seen.ghosts.includes(kind));
-    if (firstSeen === undefined) {
-      const layout = getActiveLayout();
-      const message = addPixelText(this, 0, 0, "PLAY TO MEET GHOSTS", HUD_FONT_SIZE).setDepth(
-        OVERLAY_DEPTH + 1,
-      );
-      placePixelText(
-        message,
-        layout.offsetX + layout.pixelWidth / 2,
-        layout.offsetY + layout.pixelHeight / 2,
-        0.5,
-        0.5,
-      );
-    } else {
-      this.selectGhost(firstSeen);
-    }
+    this.selectGhost(SLOT_KINDS[0]!);
   }
 
   update(_time: number, delta: number): void {
@@ -252,9 +230,6 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private selectGhost(kind: GhostKindId): void {
-    if (!this.seen.ghosts.includes(kind)) {
-      return;
-    }
     this.applyEvents(this.sim.selectGhost(kind));
     this.reticlePx = null;
     this.refreshSlots();
@@ -280,16 +255,10 @@ export class LearnScene extends Phaser.Scene {
       const x = firstX + index * (SLOT_SIZE + SLOT_GAP);
       const frame = this.add.graphics();
       const texture = GHOST_TEXTURE_BY_ID[GHOST_DRAWABLE_BY_KIND[kind]]!;
-      const icon = this.add
-        .image(x, SLOT_Y, texture)
-        .setDisplaySize(SLOT_ICON_SIZE, SLOT_ICON_SIZE);
-      if (this.seen.ghosts.includes(kind)) {
-        const zone = this.add.zone(x, SLOT_Y, SLOT_SIZE, SLOT_SIZE);
-        zone.setInteractive({ useHandCursor: true });
-        zone.on("pointerdown", () => this.selectGhost(kind));
-      } else {
-        icon.setTint(0x000000).setAlpha(UNSEEN_ALPHA);
-      }
+      this.add.image(x, SLOT_Y, texture).setDisplaySize(SLOT_ICON_SIZE, SLOT_ICON_SIZE);
+      const zone = this.add.zone(x, SLOT_Y, SLOT_SIZE, SLOT_SIZE);
+      zone.setInteractive({ useHandCursor: true });
+      zone.on("pointerdown", () => this.selectGhost(kind));
       this.slots.push({ kind, frame, x });
     });
     this.refreshSlots();

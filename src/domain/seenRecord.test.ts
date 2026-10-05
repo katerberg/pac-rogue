@@ -3,6 +3,7 @@ import { GHOST_KIND } from "./ghostKind";
 import {
   allSeenRecord,
   emptySeenRecord,
+  learnSeenRecord,
   parseLearnAllMode,
   parseSeenRecord,
   serializeSeenRecord,
@@ -97,5 +98,21 @@ describe("allSeenRecord / parseLearnAllMode", () => {
     expect(parseLearnAllMode(new URLSearchParams("learnAll=0"))).toBe("none");
     expect(parseLearnAllMode(new URLSearchParams(""))).toBeNull();
     expect(parseLearnAllMode(new URLSearchParams("learnAll=yes"))).toBeNull();
+  });
+});
+
+describe("learnSeenRecord", () => {
+  const stored = () => ({ ghosts: [], upgrades: ["passivePlayerSpeedUp" as const] });
+
+  it("always shows every ghost", () => {
+    for (const mode of [null, "all", "none"] as const) {
+      expect(learnSeenRecord(mode, stored).ghosts).toEqual(allSeenRecord().ghosts);
+    }
+  });
+
+  it("learnAll=0 lists no upgrades, learnAll=1 all, otherwise the stored ones", () => {
+    expect(learnSeenRecord("none", stored).upgrades).toEqual([]);
+    expect(learnSeenRecord("all", stored).upgrades).toEqual(allSeenRecord().upgrades);
+    expect(learnSeenRecord(null, stored).upgrades).toEqual(["passivePlayerSpeedUp"]);
   });
 });
