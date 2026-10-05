@@ -44,6 +44,7 @@ export type BaseUpgradeId =
   | "passiveInterest"
   | "passiveNearMiss"
   | "passiveHaunting"
+  | "passiveTunnelSanctuary"
   | "passiveStreakEngine";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -93,6 +94,8 @@ export type UpgradeEffects = {
   deathsBountyDecay?: number;
   overchargeMul?: number;
   ghostTunnelSpeedRatio?: number;
+  tunnelExitInvulnMs?: number;
+  ghostsBlockedFromTunnels?: true;
   secondChompMs?: number;
   speedBurstMul?: number;
   turnBoostMs?: number;
@@ -159,6 +162,8 @@ export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
 export const SHIELD_PELLETS_CAP = 1;
 export const SHIELD_PELLETS_ENHANCED_CAP = 3;
 export const SHIELD_BREAK_INVULN_MS = 1000;
+export const TUNNEL_SANCTUARY_INVULN_MS = 1000;
+export const TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO = 0.9;
 export const STREAK_ENGINE_EVERY = 30;
 export const STREAK_ENGINE_ENHANCED_INVULN_MS = 3000;
 export const NEAR_MISS_CHARGE = 15;
@@ -701,6 +706,24 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       enhanceNote: "Haunting cages the ghost for the rest of the level instead of 10 seconds.",
       description: "The ghost that last caught you stays caged in the ghost house for the level.",
       hauntMs: HAUNTING_ENHANCED_MS,
+    },
+  },
+  {
+    id: "passiveTunnelSanctuary",
+    label: "Tunnel Sanctuary",
+    school: "protection",
+    description:
+      "Leaving a tunnel makes you ghost-proof for a second, but ghosts speed through them.",
+    storePrice: STORE_UPGRADE_PRICE,
+    tunnelExitInvulnMs: TUNNEL_SANCTUARY_INVULN_MS,
+    ghostTunnelSpeedRatio: TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO,
+    enhanced: {
+      enhanceNote:
+        "Tunnel Sanctuary stops ghosts from travelling through tunnels, and tunnels slow them as usual.",
+      description:
+        "Leaving a tunnel makes you ghost-proof for a second, and ghosts can't use tunnels.",
+      ghostTunnelSpeedRatio: undefined,
+      ghostsBlockedFromTunnels: true,
     },
   },
   {
@@ -1429,7 +1452,33 @@ export function overchargeMultiplier(owned: readonly UpgradeId[]): number {
 }
 
 export function ghostTunnelSpeedRatio(owned: readonly UpgradeId[]): number | null {
-  return ownedValue(owned, "ghostTunnelSpeedRatio") ?? null;
+  let best: number | null = null;
+  for (const id of owned) {
+    const ratio = UPGRADE_BY_ID.get(id)?.ghostTunnelSpeedRatio;
+    if (ratio !== undefined && (best === null || ratio > best)) {
+      best = ratio;
+    }
+  }
+  return best;
+}
+
+export function tunnelExitInvulnMs(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "tunnelExitInvulnMs") ?? 0;
+}
+
+export function ghostsBlockedFromTunnels(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "ghostsBlockedFromTunnels") === true;
+}
+
+export function applyTunnelExitInvuln(
+  state: RunUpgrades,
+  owned: readonly UpgradeId[],
+): RunUpgrades {
+  const ms = tunnelExitInvulnMs(owned);
+  if (ms <= state.invulnRemainingMs) {
+    return state;
+  }
+  return { ...state, invulnRemainingMs: ms };
 }
 
 export function secondChompMs(owned: readonly UpgradeId[]): number {

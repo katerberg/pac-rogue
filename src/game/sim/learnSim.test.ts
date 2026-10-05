@@ -8,6 +8,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  horizontalTunnelRows,
   TILE_SIZE,
   worldToCol,
   worldToRow,
@@ -378,6 +379,18 @@ describe("LearnSim upgrade demos", () => {
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(4_000);
+  });
+
+  it("Tunnel Sanctuary tints Maze-Man for a second after a tunnel wrap", () => {
+    const { sim, player } = setup("passiveTunnelSanctuary");
+    moveTo(player, { x: cellCenterX(0), y: cellCenterY(horizontalTunnelRows()[0]!) });
+    let tint = 0;
+    for (let i = 0; i < 120 && tint === 0; i += 1) {
+      const draw = sim.step(held("left"), FRAME_MS).find((event) => event.type === "draw");
+      tint = draw?.type === "draw" ? (draw.options.playerInvulnRemainingMs ?? 0) : 0;
+    }
+    expect(tint).toBeGreaterThan(900);
+    expect(tint).toBeLessThanOrEqual(1_000);
   });
 
   it("Quarter Bounty pays a Quarter per fruit and shows it", () => {

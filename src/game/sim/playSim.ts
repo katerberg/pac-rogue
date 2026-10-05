@@ -134,6 +134,7 @@ import {
 } from "../../domain/playfield";
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
 import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
+import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
@@ -198,6 +199,8 @@ import {
   fruitPersistsUntilLevelEnd,
   fruitStacksSideBySide,
   ghostTunnelSpeedRatio,
+  ghostsBlockedFromTunnels,
+  applyTunnelExitInvuln,
   baseIdOf,
   pelletSurgeCount,
   specialistEnhancedBases,
@@ -919,8 +922,16 @@ export class PlaySim {
     }
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
-    movement(this.world, delta, playerSolidsOverride, false, playerPreTurnPx(this.currentTuning));
+    movement(
+      this.world,
+      delta,
+      playerSolidsOverride,
+      false,
+      playerPreTurnPx(this.currentTuning),
+      ghostsBlockedFromTunnels(this.effectiveUpgrades()),
+    );
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
+    this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
     this.emitTurnSparks(
       this.turnTuning.afterMove(
@@ -931,12 +942,14 @@ export class PlaySim {
       ),
     );
     if (this.tunnelDashAnim !== null) {
+      const positionBeforeDash = this.playerPosition();
       this.tunnelDashAnim = tickTunnelDashAnimation(
         this.world,
         this.tunnelDashAnim,
         delta,
         playerSpeed(this.currentTuning) * TUNNEL_DASH_SPEED_MUL,
       );
+      this.noteTunnelExit(positionBeforeDash);
     } else if (hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
@@ -1075,10 +1088,16 @@ export class PlaySim {
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world);
+      forceGhostReverse(this.world, ghostsBlockedFromTunnels(this.effectiveUpgrades()));
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
-      ghostAi(this.world, modeStep.mode, this.pelletProgress.pelletsRemaining, this.currentTuning);
+      ghostAi(
+        this.world,
+        modeStep.mode,
+        this.pelletProgress.pelletsRemaining,
+        this.currentTuning,
+        ghostsBlockedFromTunnels(this.effectiveUpgrades()),
+      );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recordRecall(
@@ -2193,6 +2212,12 @@ export class PlaySim {
   private playerPosition(): Point | null {
     const eid = query(this.world, [Player, Position])[0];
     return eid === undefined ? null : { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+  }
+
+  private noteTunnelExit(before: Point | null): void {
+    if (playerExitedTunnel(before, this.playerPosition())) {
+      this.runUpgrades = applyTunnelExitInvuln(this.runUpgrades, this.effectiveUpgrades());
+    }
   }
 
   private notePlayerMovement(

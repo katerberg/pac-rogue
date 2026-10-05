@@ -16,6 +16,7 @@ import {
   SHIELD_PELLETS_CAP,
   SHIELD_PELLETS_ENHANCED_CAP,
   applyShieldBreakInvuln,
+  applyTunnelExitInvuln,
   martyrGhostPlacement,
   HAUNTING_MS,
   armHaunt,
@@ -114,6 +115,8 @@ import {
   fruitPersistsUntilLevelEnd,
   fruitPowerConvertsPellet,
   ghostTunnelSpeedRatio,
+  ghostsBlockedFromTunnels,
+  tunnelExitInvulnMs,
   hasUpgrade,
   isEnhancedId,
   learnEnhanceToggleState,
@@ -171,6 +174,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveInterest",
   "passiveNearMiss",
   "passiveHaunting",
+  "passiveTunnelSanctuary",
   "passiveStreakEngine",
 ];
 
@@ -595,6 +599,19 @@ describe("invuln / power pellet", () => {
 
     const partial = { ...armed.state, invulnRemainingMs: 500 };
     expect(applyPowerPelletEffects(partial, 2).state.invulnRemainingMs).toBe(INVULN_MS);
+  });
+
+  it("raises Ghost Proof to 1s on a tunnel exit and never shortens a longer timer", () => {
+    const owned = createRunUpgrades(["passiveTunnelSanctuary"]);
+    expect(applyTunnelExitInvuln(owned, owned.owned).invulnRemainingMs).toBe(1000);
+    expect(
+      applyTunnelExitInvuln({ ...owned, invulnRemainingMs: INVULN_MS }, owned.owned)
+        .invulnRemainingMs,
+    ).toBe(INVULN_MS);
+    const plus = createRunUpgrades(["passiveTunnelSanctuaryPlus", "passiveOverchargePlus"]);
+    expect(applyTunnelExitInvuln(plus, plus.owned).invulnRemainingMs).toBe(1000);
+    const bare = createRunUpgrades();
+    expect(applyTunnelExitInvuln(bare, bare.owned)).toBe(bare);
   });
 });
 
@@ -1069,6 +1086,14 @@ describe("enhanced upgrades", () => {
     expect(turnPerfectPx(["passiveTurnTuningPlus"])).toBe(12);
     expect(ghostTunnelSpeedRatio(["passiveTunnelDash"])).toBeNull();
     expect(ghostTunnelSpeedRatio(["passiveTunnelDashPlus"])).toBe(0.3);
+    expect(ghostTunnelSpeedRatio(["passiveTunnelSanctuary"])).toBe(0.9);
+    expect(ghostTunnelSpeedRatio(["passiveTunnelSanctuaryPlus"])).toBeNull();
+    expect(ghostTunnelSpeedRatio(["passiveTunnelDashPlus", "passiveTunnelSanctuary"])).toBe(0.9);
+    expect(tunnelExitInvulnMs(["passiveTunnelSanctuary"])).toBe(1000);
+    expect(tunnelExitInvulnMs(["passiveTunnelSanctuaryPlus"])).toBe(1000);
+    expect(tunnelExitInvulnMs([])).toBe(0);
+    expect(ghostsBlockedFromTunnels(["passiveTunnelSanctuary"])).toBe(false);
+    expect(ghostsBlockedFromTunnels(["passiveTunnelSanctuaryPlus"])).toBe(true);
     expect(lifeFloorBonus(["passiveExtraLifePlus"])).toBe(2);
     expect(pelletSurgeCount(["passivePelletToPowerPlus"])).toBe(2);
     expect(ghostHouseReleaseDelayAddMs(["passiveGhostHouseDelayPlus"])).toBe(3000);

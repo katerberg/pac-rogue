@@ -32,6 +32,7 @@ import {
   isWalkable,
   pelletCellCenters,
 } from "../../domain/maze";
+import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
@@ -58,6 +59,8 @@ import {
   type BaseUpgradeId,
   wallPassLoopOwned,
   ghostTunnelSpeedRatio,
+  ghostsBlockedFromTunnels,
+  applyTunnelExitInvuln,
   pelletSurgeCount,
   lazyLooperRings,
   speedBurstMultiplier,
@@ -348,11 +351,16 @@ export class LearnSim {
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
     const facingBeforeMove = playerFacing(this.world);
+    const positionBeforeMove = this.playerPosition();
     movement(
       this.world,
       delta,
       wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
+      false,
+      undefined,
+      ghostsBlockedFromTunnels(this.learnUpgrades.owned),
     );
+    this.noteTunnelExit(positionBeforeMove);
     this.pushTurnSparks(
       this.turnTuning.afterMove(
         this.world,
@@ -372,12 +380,14 @@ export class LearnSim {
         : [];
 
     if (this.tunnelDashAnim !== null) {
+      const positionBeforeDash = this.playerPosition();
       this.tunnelDashAnim = tickTunnelDashAnimation(
         this.world,
         this.tunnelDashAnim,
         delta,
         PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
       );
+      this.noteTunnelExit(positionBeforeDash);
     } else if (hasUpgrade(this.learnUpgrades.owned, "passiveTunnelDash")) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
@@ -428,7 +438,13 @@ export class LearnSim {
 
     this.tickFruit(delta);
 
-    ghostAi(this.world, GHOST_AI_MODE.chase, NO_ELROY_PELLETS);
+    ghostAi(
+      this.world,
+      GHOST_AI_MODE.chase,
+      NO_ELROY_PELLETS,
+      undefined,
+      ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+    );
 
     const catchOptions = {
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
@@ -588,6 +604,17 @@ export class LearnSim {
       this.spawnFruitEntity();
     } else if (scheduled && lifetimeRatio > 1) {
       this.fruitPresence = extendFruitLifetime(this.fruitPresence, lifetimeRatio);
+    }
+  }
+
+  private playerPosition(): { x: number; y: number } | null {
+    const eid = query(this.world, [Player, Position])[0];
+    return eid === undefined ? null : { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+  }
+
+  private noteTunnelExit(before: { x: number; y: number } | null): void {
+    if (playerExitedTunnel(before, this.playerPosition())) {
+      this.learnUpgrades = applyTunnelExitInvuln(this.learnUpgrades, this.learnUpgrades.owned);
     }
   }
 
@@ -1041,7 +1068,10 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
     wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
     invulnRemainingMs:
-      hasField("playerInvulnMs") || hasField("warpInvulnMs") || streakEngineInvulnMs(owned) > 0
+      hasField("playerInvulnMs") ||
+      hasField("warpInvulnMs") ||
+      owned.some((id) => getUpgradeDef(id).tunnelExitInvulnMs !== undefined) ||
+      streakEngineInvulnMs(owned) > 0
         ? state.invulnRemainingMs
         : 0,
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
