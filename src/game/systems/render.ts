@@ -208,7 +208,6 @@ function textureKeyForDrawable(drawableId: string): string {
   return pelletTextureKey(drawableId);
 }
 
-/** A static ghost picture (menus, pickers) in the chosen ghost style. */
 export function addGhostIcon(
   scene: Phaser.Scene,
   drawableId: string,

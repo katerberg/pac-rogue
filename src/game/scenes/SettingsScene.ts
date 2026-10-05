@@ -6,7 +6,7 @@ import {
   type AudioCategory,
   type AudioSettings,
 } from "../../domain/audioSettings";
-import type { GhostStyle } from "../../domain/ghostArt";
+import { DEFAULT_GHOST_STYLE, type GhostStyle } from "../../domain/ghostArt";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import {
@@ -110,7 +110,7 @@ export class SettingsScene extends Phaser.Scene {
   private mazeColorCursorRing!: Phaser.GameObjects.Arc;
   private mazeColorActiveRing!: Phaser.GameObjects.Arc;
 
-  private ghostStyle: GhostStyle = "neon";
+  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
   private ghostStyleLabel!: Phaser.GameObjects.BitmapText;
   private ghostStyleTexts: Phaser.GameObjects.BitmapText[] = [];
 
@@ -538,11 +538,11 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorCursorRing.setVisible(mazeColorFocused);
 
     const ghostStyleFocused = this.focusIndex === FOCUS_GHOST_STYLE;
-    this.ghostStyleLabel.setTint(ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+    const ghostStyleTint = ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
+    this.ghostStyleLabel.setTint(ghostStyleTint);
     for (const [index, option] of GHOST_STYLE_OPTIONS.entries()) {
       const active = option.style === this.ghostStyle;
-      const activeTint = ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
-      this.ghostStyleTexts[index]!.setTint(active ? activeTint : TEXT_COLOR_DIM);
+      this.ghostStyleTexts[index]!.setTint(active ? ghostStyleTint : TEXT_COLOR_DIM);
     }
 
     this.backText.setText(this.focusIndex === FOCUS_BACK ? "> BACK" : "  BACK");
