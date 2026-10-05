@@ -21,6 +21,8 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { Speed } from "../components/Speed";
+import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
 import { LearnSim } from "./learnSim";
@@ -53,6 +55,37 @@ describe("LearnSim", () => {
     expect(worldSnapshot(sim.world).optionalPellets).toBeGreaterThan(base);
     sim.toggleUpgrade("passiveLazyLooperPlus");
     expect(worldSnapshot(sim.world).optionalPellets).toBe(0);
+  });
+
+  it("Afterburner speeds the player up only when entering a cell without a pellet", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    const player = query(sim.world, [Player, Position])[0]!;
+    const speedWhenMoving = (vx: number): number => {
+      Velocity.x[player] = vx;
+      Velocity.y[player] = 0;
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      return Speed.px[player]!;
+    };
+    const target = query(sim.world, [Pellet, Position])[0]!;
+    const col = worldToCol(Position.x[target]!);
+    const row = worldToRow(Position.y[target]!);
+    for (const eid of query(sim.world, [Pellet, Position])) {
+      if (eid !== target) {
+        removeEntity(sim.world, eid);
+      }
+    }
+    const place = () => {
+      Position.x[player] = cellCenterX(col - 1);
+      Position.y[player] = cellCenterY(row);
+    };
+    place();
+    const base = speedWhenMoving(1);
+    sim.toggleUpgrade("passiveAfterburner");
+    place();
+    expect(speedWhenMoving(1)).toBeCloseTo(base);
+    place();
+    expect(speedWhenMoving(-1)).toBeCloseTo(base * 1.3);
   });
 
   it("turns one pellet into a power pellet when Pellet Surge is toggled on", () => {

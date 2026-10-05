@@ -13,6 +13,7 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
+import { Speed } from "../components/Speed";
 import { worldSnapshot } from "./worldSnapshot";
 
 function spawnAt(world: ReturnType<typeof createWorld>, col: number, row: number) {
@@ -44,6 +45,16 @@ describe("worldSnapshot", () => {
     Facing.direction[eid] = DIRECTION.upLeft;
 
     expect(worldSnapshot(world).player).toMatchObject({ col: 3, row: 5, facing: "upLeft" });
+  });
+
+  it("reports the player's applied speed", () => {
+    const world = createWorld();
+    const eid = spawnAt(world, 3, 5);
+    addComponent(world, eid, Player);
+    addComponent(world, eid, Speed);
+    Speed.px[eid] = 159.84;
+
+    expect(worldSnapshot(world).player).toMatchObject({ speedPx: 159.8 });
   });
 
   it("names ghost kind and phase and flags boss ghosts", () => {

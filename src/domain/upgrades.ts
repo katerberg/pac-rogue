@@ -5,7 +5,7 @@ import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 
 export type BaseUpgradeId =
   | "powerPelletFreeze"
-  | "passivePlayerSpeedUp"
+  | "passiveAfterburner"
   | "passiveGhostSlow"
   | "powerPelletScatterBurst"
   | "powerPelletGhostRecall"
@@ -73,6 +73,7 @@ export type MartyrGhostPlacement = "corners" | "house";
 
 export type UpgradeEffects = {
   playerSpeedMul?: number;
+  emptyCellSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitLifetimeMul?: number;
   fruitQuarters?: number;
@@ -162,7 +163,7 @@ export const TUNNEL_SANCTUARY_INVULN_MS = 1000;
 export const TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO = 0.9;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
-export const PLAYER_SPEED_UP_MUL = 1.25;
+export const AFTERBURNER_MUL = 1.3;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
 
@@ -185,7 +186,7 @@ export const INVULN_ENHANCED_MS = 5000;
 export const GHOST_HARVEST_ENHANCED_MS = 8000;
 export const DEFY_DEATH_ENHANCED_MS = 8000;
 export const WARP_TOP_INVULN_MS = 2000;
-export const PLAYER_SPEED_UP_ENHANCED_MUL = 1.5;
+export const AFTERBURNER_ENHANCED_MUL = 1.5;
 export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
 export const GHOST_SLOW_ENHANCED_MUL = 0.65;
 export const PICKUP_RANGE_ENHANCED_TILES = 2;
@@ -245,17 +246,17 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     onPowerPellet: { freezeClosestGhostMs: FREEZE_MS },
   },
   {
-    id: "passivePlayerSpeedUp",
-    label: "Speed Up",
+    id: "passiveAfterburner",
+    label: "Afterburner",
     school: "speed",
-    description: "You run hotter. Corners feel closer.",
+    description: "Empty corridors light your tail. +30% speed on cleared tiles.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Speed Up makes you 50% faster instead of 25%.",
-      description: "You run white-hot. Corners come to you.",
-      playerSpeedMul: PLAYER_SPEED_UP_ENHANCED_MUL,
+      enhanceNote: "Afterburner gives +50% speed on cleared tiles instead of +30%.",
+      description: "Empty corridors roar. +50% speed on cleared tiles.",
+      emptyCellSpeedMul: AFTERBURNER_ENHANCED_MUL,
     },
-    playerSpeedMul: PLAYER_SPEED_UP_MUL,
+    emptyCellSpeedMul: AFTERBURNER_MUL,
   },
   {
     id: "passiveGhostSlow",
@@ -1314,7 +1315,7 @@ export function applyPowerPelletEffects(
 
 function speedMultiplier(
   owned: readonly UpgradeId[],
-  key: "playerSpeedMul" | "ghostSpeedMul" | "fruitLifetimeMul",
+  key: "playerSpeedMul" | "emptyCellSpeedMul" | "ghostSpeedMul" | "fruitLifetimeMul",
 ): number {
   let mul = 1;
   for (const id of owned) {
@@ -1328,6 +1329,13 @@ function speedMultiplier(
 
 export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "playerSpeedMul");
+}
+
+export function emptyCellSpeedMultiplier(
+  owned: readonly UpgradeId[],
+  enteringEmptyCell: boolean,
+): number {
+  return enteringEmptyCell ? speedMultiplier(owned, "emptyCellSpeedMul") : 1;
 }
 
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {

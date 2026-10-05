@@ -14,6 +14,7 @@ import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { Speed } from "../components/Speed";
 import { PowerPellet } from "../components/PowerPellet";
 
 export type ActorSnapshot = {
@@ -32,7 +33,7 @@ export type GhostSnapshot = ActorSnapshot & {
 };
 
 export type WorldSnapshot = {
-  player: ActorSnapshot | null;
+  player: (ActorSnapshot & { speedPx: number }) | null;
   ghosts: GhostSnapshot[];
   pellets: number;
   powerPellets: number;
@@ -68,7 +69,10 @@ export function worldSnapshot(world: World): WorldSnapshot {
   }));
   const powerPellets = query(world, [PowerPellet]).length;
   return {
-    player: playerEid === undefined ? null : actor(playerEid),
+    player:
+      playerEid === undefined
+        ? null
+        : { ...actor(playerEid), speedPx: Math.round((Speed.px[playerEid] ?? 0) * 10) / 10 },
     ghosts,
     pellets: query(world, [Pellet]).length - powerPellets,
     powerPellets,

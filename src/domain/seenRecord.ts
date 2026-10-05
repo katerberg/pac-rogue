@@ -68,6 +68,12 @@ export function withSeenUpgrade(record: SeenRecord, id: UpgradeId): SeenRecord {
 
 export type LearnAllMode = "all" | "none";
 
+export function learnSeenRecord(mode: LearnAllMode | null, stored: () => SeenRecord): SeenRecord {
+  const upgrades =
+    mode === "all" ? allSeenRecord().upgrades : mode === "none" ? [] : stored().upgrades;
+  return { ghosts: [...GHOST_KIND_IDS], upgrades };
+}
+
 export function parseLearnAllMode(params: URLSearchParams): LearnAllMode | null {
   const raw = params.get("learnAll");
   if (raw === "1") {

@@ -22,7 +22,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 | #   | Id                            | Label                 | Now                                                                                                              | Enhanced                                                                                                                                     |
 | --- | ----------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | `powerPelletFreeze`           | Freeze                | Power pellet freezes the nearest ghost for 3s                                                                    | Freeze 5s                                                                                                                                    |
-| 2   | `passivePlayerSpeedUp`        | Speed Up              | Player speed ×1.25                                                                                               | Speed ×1.5                                                                                                                                   |
+| 2   | `passiveAfterburner`          | Afterburner           | Speed ×1.3 on empty cells                                                                                        | Speed ×1.5 on empty cells                                                                                                                    |
 | 3   | `passiveGhostSlow`            | Ghost Slow            | Ghost speed ×0.75                                                                                                | Ghost speed ×0.65. **Base also changes:** 0.75 → 0.8                                                                                         |
 | 4   | `powerPelletScatterBurst`     | Scatter Burst         | Power pellet warps every active ghost to its corner                                                              | Ghosts also hold still for 2s after landing                                                                                                  |
 | 5   | `powerPelletGhostRecall`      | Ghost Recall          | Power pellet sends the nearest ghost back to the house                                                           | Sends the nearest 2 ghosts home                                                                                                              |
@@ -71,7 +71,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 - **Fruit Power and Overcharge scale with enhanced upgrades.** Both read the owned effects, so enhanced timers flow through (Overcharge tripling included).
 - **Not tripled by Overcharge:** Warp Farthest's 2s invulnerability.
 - **Wall Pass** stays 6s (code value); [upgrades.md](./upgrades.md) saying 3s was a doc bug, now fixed.
-- **Speed stacking is intended:** Speed Up × Speed Burst × the turn boost can reach about 2.8×. No cap.
+- **Speed stacking is intended:** Afterburner × Speed Burst × the turn boost can reach about 2.8×. No cap.
 - **Pickup Range** (2 tiles) still needs line of sight.
 - **Base values that change for every run:** Ghost Slow ×0.8 (from ×0.75), Quarter Bounty (a Quarter replaces the bar charge), ghost tunnel speed 0.6× (from 0.5×).
 
