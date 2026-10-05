@@ -12,6 +12,7 @@ import {
   type Cell,
 } from "../../domain/bonusBar";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
+import { tickEchoes } from "../../domain/echo";
 import {
   createFruitPresence,
   extendFruitLifetime,
@@ -76,6 +77,8 @@ import {
   spendShield,
   createRunUpgrades,
   clearUpgradeTimers,
+  echoEffects,
+  queueEcho,
   armHaunt,
   hauntedGhost,
   hauntedGhostEid,
@@ -316,6 +319,7 @@ export class LearnSim {
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
     this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
+    this.fireDueEchoes(delta);
     this.tickHaunt(delta);
     this.turnTuning.tick(delta);
     this.catchGraceMs = Math.max(0, this.catchGraceMs - delta);
@@ -644,9 +648,23 @@ export class LearnSim {
     this.firePowerPelletEffects(powerRemoved);
   }
 
-  private firePowerPelletEffects(powerRemoved: number): void {
-    const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved);
+  private fireDueEchoes(delta: number): void {
+    if (this.learnUpgrades.pendingEchoes.length === 0) {
+      return;
+    }
+    const echoTick = tickEchoes(this.learnUpgrades.pendingEchoes, delta);
+    this.learnUpgrades = { ...this.learnUpgrades, pendingEchoes: echoTick.pending };
+    for (const bases of echoTick.ready) {
+      this.firePowerPelletEffects(1, bases);
+    }
+  }
+
+  private firePowerPelletEffects(powerRemoved: number, echoBases?: readonly BaseUpgradeId[]): void {
+    const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved, echoBases);
     this.learnUpgrades = powerEffects.state;
+    if (echoBases === undefined && powerRemoved > 0) {
+      this.learnUpgrades = queueEcho(this.learnUpgrades, this.random.stream("echo"));
+    }
     if (powerEffects.freezeClosestMs !== null) {
       this.learnUpgrades = freezeClosestGhost(
         this.world,
@@ -1078,5 +1096,6 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
     shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
+    pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
   };
 }

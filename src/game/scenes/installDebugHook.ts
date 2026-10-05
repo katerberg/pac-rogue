@@ -11,6 +11,7 @@ declare global {
         scenes: Record<string, SceneStatus>;
         play: ReturnType<PlayScene["debugSnapshot"]> | null;
         runLog: { stored: number; overrun: boolean };
+        sounds: Record<string, boolean>;
       };
     };
   }
@@ -24,6 +25,13 @@ function sceneStatus(scene: Phaser.Scene): SceneStatus | null {
     return "paused";
   }
   return scene.scene.isSleeping() ? "sleeping" : null;
+}
+
+function playingSounds(game: Phaser.Game): Record<string, boolean> {
+  if (game.config.audio.noAudio === true) {
+    return {};
+  }
+  return Object.fromEntries(game.sound.getAllPlaying().map((sound) => [sound.key, true]));
 }
 
 export function installDebugHook(game: Phaser.Game): void {
@@ -41,6 +49,7 @@ export function installDebugHook(game: Phaser.Game): void {
         scenes,
         play: play instanceof PlayScene && "PlayScene" in scenes ? play.debugSnapshot() : null,
         runLog: { stored: storedRunCount(), overrun: runLogOverrunActive() },
+        sounds: playingSounds(game),
       };
     },
   };

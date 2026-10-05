@@ -1,4 +1,5 @@
 import { BONUS_BAR_MAX } from "./bonusBar";
+import { ECHO_DELAY_MS, type EchoEffects, type PendingEcho, pickEchoBases } from "./echo";
 import type { LazyLooperRings } from "./lazyLooper";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE } from "./maze";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
@@ -45,7 +46,8 @@ export type BaseUpgradeId =
   | "passiveNearMiss"
   | "passiveHaunting"
   | "passiveTunnelSanctuary"
-  | "passiveStreakEngine";
+  | "passiveStreakEngine"
+  | "passiveEcho";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -111,6 +113,7 @@ export type UpgradeEffects = {
   streakEngineEvery?: number;
   streakEngineInvulnMs?: number;
   specialistThreshold?: number;
+  echoEffects?: EchoEffects;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -743,6 +746,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       streakEngineInvulnMs: STREAK_ENGINE_ENHANCED_INVULN_MS,
     },
   },
+  {
+    id: "passiveEcho",
+    label: "Echo",
+    school: "neutral",
+    description: "Power pellets echo: one random effect fires again 3 seconds later.",
+    storePrice: STORE_UPGRADE_PRICE,
+    echoEffects: "one",
+    enhanced: {
+      enhanceNote: "Echo repeats every power-pellet effect you own instead of one at random.",
+      description: "Power pellets echo: every effect fires again 3 seconds later.",
+      echoEffects: "all",
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -897,6 +913,7 @@ export type RunUpgrades = {
   hauntRemainingMs: number;
   hauntedGhostEid: number | null;
   shieldsBanked: number;
+  pendingEchoes: PendingEcho[];
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -922,6 +939,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
     shieldsBanked: 0,
+    pendingEchoes: [],
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -1133,6 +1151,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
+    pendingEchoes: [],
   };
 }
 
@@ -1228,6 +1247,7 @@ export function tickDefyDeath(state: RunUpgrades, deltaMs: number): RunUpgrades 
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
+  onlyBases?: readonly BaseUpgradeId[],
 ): PowerPelletApplyResult {
   if (powerRemoved <= 0) {
     return {
@@ -1253,7 +1273,9 @@ export function applyPowerPelletEffects(
   let collectExtraPellets = 0;
 
   const owned = effectiveOwned(state.owned);
-  for (const id of owned) {
+  const firing =
+    onlyBases === undefined ? owned : owned.filter((id) => onlyBases.includes(baseIdOf(id)));
+  for (const id of firing) {
     const onPower = UPGRADE_BY_ID.get(id)?.onPowerPellet;
     if (!onPower) {
       continue;
@@ -1464,6 +1486,25 @@ export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPl
 
 export function hauntDurationMs(owned: readonly UpgradeId[]): number | null {
   return ownedValue(owned, "hauntMs") ?? null;
+}
+
+export function echoEffects(owned: readonly UpgradeId[]): EchoEffects | null {
+  return ownedValue(owned, "echoEffects") ?? null;
+}
+
+export function queueEcho(state: RunUpgrades, rng: () => number): RunUpgrades {
+  const owned = effectiveOwned(state.owned);
+  const powerBases = owned
+    .filter((id) => getUpgradeDef(id).onPowerPellet !== undefined)
+    .map(baseIdOf);
+  const bases = pickEchoBases(echoEffects(owned), powerBases, rng);
+  if (bases.length === 0) {
+    return state;
+  }
+  return {
+    ...state,
+    pendingEchoes: [...state.pendingEchoes, { remainingMs: ECHO_DELAY_MS, bases }],
+  };
 }
 
 export function overchargeMultiplier(owned: readonly UpgradeId[]): number {
