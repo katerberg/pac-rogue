@@ -667,8 +667,8 @@ export class LearnSim {
     }
     const fires = streakEngineFires(prevStreak, this.streakBar.streak, every);
     for (let fired = 0; fired < fires; fired += 1) {
-      this.learnUpgrades = applyStreakEngineInvuln(this.learnUpgrades, this.learnUpgrades.owned);
       this.resolvePowerPelletTrigger(1);
+      this.learnUpgrades = applyStreakEngineInvuln(this.learnUpgrades, this.learnUpgrades.owned);
     }
   }
 

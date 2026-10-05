@@ -3173,6 +3173,12 @@ describe("Streak Engine", () => {
     expect(popValues(eatUntilStreak(sim, 45))).toEqual([5]);
   });
 
+  it("keeps Plus Ghost Proof when Warp Farthest+ also fires", () => {
+    const sim = startStreak(["passiveStreakEnginePlus", "powerPelletWarpFarthestPlus"]);
+    eatUntilStreak(sim, 40);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
+  });
+
   it("grants 3s of Ghost Proof only when enhanced", () => {
     const base = startStreak(["passiveStreakEngine"]);
     eatUntilStreak(base, 40);
