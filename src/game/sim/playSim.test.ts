@@ -2498,7 +2498,7 @@ describe("PlaySim enhanced upgrades", () => {
       GhostPhase.value[eid] = GHOST_PHASE.active;
     }
     chomp(sim);
-    const start = sim.renderOptions().frozenGhostRemainingMs!;
+    const start = sim.renderOptions().frozenGhostRemainingMs;
     expect(start).toBeGreaterThan(1000);
     runFrames(sim, 10);
     const later = sim.renderOptions();
