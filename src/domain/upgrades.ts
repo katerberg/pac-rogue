@@ -1317,11 +1317,8 @@ export function playerSpeedMultiplier(owned: readonly UpgradeId[]): number {
   return speedMultiplier(owned, "playerSpeedMul");
 }
 
-export function cellSpeedMultiplier(
-  owned: readonly UpgradeId[],
-  enteringEmptyCell: boolean,
-): number {
-  return speedMultiplier(owned, enteringEmptyCell ? "emptyCellSpeedMul" : "pelletCellSpeedMul");
+export function cellSpeedMultiplier(owned: readonly UpgradeId[], emptyAhead: boolean): number {
+  return speedMultiplier(owned, emptyAhead ? "emptyCellSpeedMul" : "pelletCellSpeedMul");
 }
 
 export function ghostSpeedMultiplier(owned: readonly UpgradeId[]): number {
