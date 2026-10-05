@@ -1307,7 +1307,7 @@ export class PlaySim {
   private fireStreakEngine(fires: number): boolean {
     for (let fired = 0; fired < fires; fired += 1) {
       this.recorder.activation("streakEngine");
-      this.runUpgrades = applyStreakEngineInvuln(this.runUpgrades);
+      this.runUpgrades = applyStreakEngineInvuln(this.runUpgrades, this.effectiveUpgrades());
       if (this.resolvePowerPelletTrigger(1)) {
         return true;
       }

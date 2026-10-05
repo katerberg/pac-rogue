@@ -1552,8 +1552,11 @@ export function applyShieldBreakInvuln(state: RunUpgrades): RunUpgrades {
   return { ...state, invulnRemainingMs };
 }
 
-export function applyStreakEngineInvuln(state: RunUpgrades): RunUpgrades {
-  const grantMs = streakEngineInvulnMs(state.owned) * overchargeMultiplier(state.owned);
+export function applyStreakEngineInvuln(
+  state: RunUpgrades,
+  effectiveOwned: readonly UpgradeId[],
+): RunUpgrades {
+  const grantMs = streakEngineInvulnMs(effectiveOwned) * overchargeMultiplier(effectiveOwned);
   return grantMs > state.invulnRemainingMs ? { ...state, invulnRemainingMs: grantMs } : state;
 }
 

@@ -476,6 +476,7 @@ export class LearnSim {
       }
     }
     this.houseHold.clear();
+    this.streakBar = createBonusBar();
     this.resetPellets();
 
     const exit = getActiveLayout().ghostHouseExit;
@@ -666,7 +667,7 @@ export class LearnSim {
     }
     const fires = streakEngineFires(prevStreak, this.streakBar.streak, every);
     for (let fired = 0; fired < fires; fired += 1) {
-      this.learnUpgrades = applyStreakEngineInvuln(this.learnUpgrades);
+      this.learnUpgrades = applyStreakEngineInvuln(this.learnUpgrades, this.learnUpgrades.owned);
       this.resolvePowerPelletTrigger(1);
     }
   }
@@ -802,6 +803,7 @@ export class LearnSim {
   }
 
   private resolveDemoCatch(caughtBy: number): void {
+    this.streakBar = createBonusBar();
     const spent = spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;

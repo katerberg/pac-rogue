@@ -1256,9 +1256,9 @@ describe("Streak Engine", () => {
       STREAK_ENGINE_ENHANCED_INVULN_MS,
     );
     const base = createRunUpgrades(["passiveStreakEngine"]);
-    expect(applyStreakEngineInvuln(base)).toBe(base);
+    expect(applyStreakEngineInvuln(base, base.owned)).toBe(base);
     const plus = createRunUpgrades(["passiveStreakEnginePlus", "passiveOvercharge"]);
-    expect(applyStreakEngineInvuln(plus).invulnRemainingMs).toBe(
+    expect(applyStreakEngineInvuln(plus, plus.owned).invulnRemainingMs).toBe(
       STREAK_ENGINE_ENHANCED_INVULN_MS * 2,
     );
   });
@@ -1268,6 +1268,6 @@ describe("Streak Engine", () => {
       ...createRunUpgrades(["passiveStreakEnginePlus"]),
       invulnRemainingMs: STREAK_ENGINE_ENHANCED_INVULN_MS + 500,
     };
-    expect(applyStreakEngineInvuln(state)).toBe(state);
+    expect(applyStreakEngineInvuln(state, state.owned)).toBe(state);
   });
 });

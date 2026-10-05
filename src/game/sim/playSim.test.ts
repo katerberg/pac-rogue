@@ -3184,6 +3184,18 @@ describe("Streak Engine", () => {
     expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(STREAK_ENGINE_ENHANCED_INVULN_MS);
   });
 
+  it("grants the Ghost Proof when Harvest Specialist enhances it", () => {
+    const sim = startStreak([
+      "passiveStreakEngine",
+      "passiveHarvestSpecialist",
+      "fruitPowerPellet",
+      "fruitFecundity",
+      "fruitFeast",
+    ]);
+    eatUntilStreak(sim, 40);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(STREAK_ENGINE_ENHANCED_INVULN_MS - 100);
+  });
+
   it("doubles the Ghost Proof with Overcharge", () => {
     const sim = startStreak(["passiveStreakEnginePlus", "passiveOvercharge"]);
     eatUntilStreak(sim, 40);
