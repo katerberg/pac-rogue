@@ -1,4 +1,4 @@
-const CONDITION = /^([\w.]+)\s*(==|!=|<=|>=|<|>)\s*(.*)$/;
+const CONDITION = /^([\w.-]+)\s*(==|!=|<=|>=|<|>)\s*(.*)$/;
 
 function parseValue(raw) {
   if (raw === "true" || raw === "false") {

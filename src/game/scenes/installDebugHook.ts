@@ -11,6 +11,7 @@ declare global {
         scenes: Record<string, SceneStatus>;
         play: ReturnType<PlayScene["debugSnapshot"]> | null;
         runLog: { stored: number; overrun: boolean };
+        sounds: Record<string, boolean>;
       };
     };
   }
@@ -41,6 +42,7 @@ export function installDebugHook(game: Phaser.Game): void {
         scenes,
         play: play instanceof PlayScene && "PlayScene" in scenes ? play.debugSnapshot() : null,
         runLog: { stored: storedRunCount(), overrun: runLogOverrunActive() },
+        sounds: Object.fromEntries(game.sound.getAllPlaying().map((sound) => [sound.key, true])),
       };
     },
   };

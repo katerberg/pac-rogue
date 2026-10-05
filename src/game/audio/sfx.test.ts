@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { musicIdForContext, pelletCollectSfxId } from "./sfx";
+import { loadsInBackground, musicIdForContext, pelletCollectSfxId } from "./sfx";
 
 describe("pelletCollectSfxId", () => {
   it("uses munch for non-multiples of 2", () => {
@@ -26,5 +26,19 @@ describe("musicIdForContext", () => {
     expect(musicIdForContext("PauseScene")).toBe("gameplayMusic");
     expect(musicIdForContext("MenuScene")).toBe("menuMusic");
     expect(musicIdForContext("HighScoresScene")).toBe("menuMusic");
+  });
+});
+
+describe("loadsInBackground", () => {
+  it("defers music so scenes start without waiting on it", () => {
+    expect(loadsInBackground("menuMusic")).toBe(true);
+    expect(loadsInBackground("storeMusic")).toBe(true);
+    expect(loadsInBackground("gameplayMusic")).toBe(true);
+  });
+
+  it("preloads sound effects so they are ready when they fire", () => {
+    expect(loadsInBackground("pelletMunch")).toBe(false);
+    expect(loadsInBackground("death")).toBe(false);
+    expect(loadsInBackground("levelComplete")).toBe(false);
   });
 });

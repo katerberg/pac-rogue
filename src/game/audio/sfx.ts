@@ -61,13 +61,33 @@ export function pelletCollectSfxId(pickupNumber: number): SfxId {
   return pickupNumber > 0 && pickupNumber % 2 === 0 ? "pelletMunch2" : "pelletMunch";
 }
 
+export function loadsInBackground(id: SfxId): boolean {
+  return categoryForSfx(id) === "music";
+}
+
 export function preloadSfx(scene: Phaser.Scene): void {
   if (scene.game.config.audio.noAudio === true) {
     return;
   }
-  for (const entry of Object.values(SFX_MANIFEST)) {
-    scene.load.audio(entry.key, entry.url);
+  for (const [id, entry] of Object.entries(SFX_MANIFEST) as [SfxId, SfxEntry][]) {
+    if (!loadsInBackground(id)) {
+      scene.load.audio(entry.key, entry.url);
+    }
   }
+}
+
+function loadedEventName(entry: SfxEntry): string {
+  return `filecomplete-audio-${entry.key}`;
+}
+
+function startLoopWhenLoaded(scene: Phaser.Scene, id: SfxId): void {
+  const entry = SFX_MANIFEST[id];
+  if (scene.game.config.audio.noAudio === true || !loadsInBackground(id)) {
+    return;
+  }
+  scene.load.audio(entry.key, entry.url);
+  scene.load.once(loadedEventName(entry), () => startLoopingSfx(scene, id));
+  scene.load.start();
 }
 
 function categoryVolume(settings: AudioSettings, id: SfxId): number {
@@ -92,11 +112,15 @@ export function playSfx(scene: Phaser.Scene, id: SfxId): void {
 
 export function startLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
   const entry = SFX_MANIFEST[id];
-  if (!scene.cache.audio.exists(entry.key) || scene.sound.isPlaying(entry.key)) {
-    return;
-  }
   const volume = categoryVolume(loadAudioSettings(), id);
   if (volume <= 0) {
+    return;
+  }
+  if (!scene.cache.audio.exists(entry.key)) {
+    startLoopWhenLoaded(scene, id);
+    return;
+  }
+  if (scene.sound.isPlaying(entry.key)) {
     return;
   }
   scene.sound.play(entry.key, { volume, loop: true });
@@ -104,6 +128,7 @@ export function startLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
 
 export function stopLoopingSfx(scene: Phaser.Scene, id: SfxId): void {
   const entry = SFX_MANIFEST[id];
+  scene.load.off(loadedEventName(entry));
   scene.sound.stopByKey(entry.key);
 }
 
@@ -131,12 +156,13 @@ export function playSfxPreview(scene: Phaser.Scene, settings: AudioSettings): vo
 
 export function syncMusicPlayback(scene: Phaser.Scene, id: SfxId, settings: AudioSettings): void {
   const entry = SFX_MANIFEST[id];
-  if (!scene.cache.audio.exists(entry.key)) {
-    return;
-  }
   const volume = categoryVolume(settings, id);
   if (volume <= 0) {
     stopLoopingSfx(scene, id);
+    return;
+  }
+  if (!scene.cache.audio.exists(entry.key)) {
+    startLoopWhenLoaded(scene, id);
     return;
   }
   if (scene.sound.isPlaying(entry.key)) {
