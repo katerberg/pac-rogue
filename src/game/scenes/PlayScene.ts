@@ -21,6 +21,7 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
+import { ghostGlowFilter } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
@@ -271,6 +272,7 @@ export class PlayScene extends Phaser.Scene {
   private applyKnobTuning(tuning: Tuning): void {
     this.sim.setTuning(tuning);
     this.playRender.setWallStyle(wallStyleFor(tuning, 0));
+    this.playRender.setGhostGlow(ghostGlowFilter(tuning));
   }
 
   private restartAtCurrentLevel(): void {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ghostArtStyle } from "./ghostArt";
+import { ghostArtStyle, ghostGlowFilter } from "./ghostArt";
+import { resolveTuning } from "./tuning";
 import { GHOST_KIND } from "./ghostKind";
 
 describe("ghostArtStyle", () => {
@@ -18,5 +19,20 @@ describe("ghostArtStyle", () => {
         expect(ghostArtStyle(kind, level)).toBe("pixel");
       }
     }
+  });
+});
+
+describe("ghostGlowFilter", () => {
+  it("is null with no glow strength or radius", () => {
+    expect(ghostGlowFilter(resolveTuning({ ghostGlow: 0 }))).toBeNull();
+    expect(ghostGlowFilter(resolveTuning({ ghostGlowRadius: 0 }))).toBeNull();
+  });
+
+  it("uses the knob strength and radius, glowing softly by default", () => {
+    expect(ghostGlowFilter(resolveTuning({ ghostGlow: 2, ghostGlowRadius: 8 }))).toEqual({
+      outerStrength: 2,
+      distancePx: 8,
+    });
+    expect(ghostGlowFilter(resolveTuning({}))).toEqual({ outerStrength: 1.2, distancePx: 6 });
   });
 });

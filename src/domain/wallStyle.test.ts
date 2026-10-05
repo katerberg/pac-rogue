@@ -5,11 +5,11 @@ import { DEFAULT_TUNING, resolveTuning } from "./tuning";
 import { sameWallStyle, wallGlowFilter, wallStyleFor } from "./wallStyle";
 
 describe("wallStyleFor", () => {
-  it("glows by default without knobs, following the maze color setting", () => {
+  it("follows the maze color setting without knobs, with the default glow", () => {
     expect(wallStyleFor(null, 2)).toEqual({
       color: mazeColorForIndex(2),
       thickness: WALL_STROKE_WEIGHT,
-      glow: 0.6,
+      glow: DEFAULT_TUNING.wallGlow,
       glowRadius: 4,
       cornerRadius: WALL_CORNER_RADIUS,
       background: MAZE_BACKGROUND_COLOR,
@@ -37,12 +37,8 @@ describe("wallGlowFilter", () => {
     ).toEqual({ outerStrength: 2, distance: 6 });
   });
 
-  it("glows by default", () => {
-    expect(DEFAULT_TUNING.wallGlow).toBe(0.6);
-    expect(wallGlowFilter(wallStyleFor(null, 0))).toEqual({
-      outerStrength: 0.6 * 4,
-      distance: 4,
-    });
+  it("does not glow by default", () => {
+    expect(wallGlowFilter(wallStyleFor(null, 0))).toBeNull();
   });
 });
 

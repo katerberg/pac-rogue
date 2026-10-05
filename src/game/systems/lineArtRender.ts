@@ -1,9 +1,10 @@
 import Phaser from "phaser";
+import type { GhostGlow } from "../../domain/ghostArt";
 import type { LineArt, LinePaint } from "../../domain/lineArt";
 
-const LINE_ART_STROKE_VB = 9;
+const LINE_ART_STROKE_VB = 4.5;
 export const CLYDE_LINE_COLOR = 0xffb852;
-const LINE_GLOW = { outerStrength: 3, distancePx: 4, quality: 10 } as const;
+const LINE_GLOW_QUALITY = 24;
 
 export type LineArtObject = {
   art: Phaser.GameObjects.Graphics;
@@ -42,16 +43,16 @@ export function createLineArtObject(
   art: LineArt,
   color: number,
   size: number,
-  withGlow: boolean,
+  glowLook: GhostGlow | null,
 ): LineArtObject {
   const scale = size / art.width;
   let glow: Phaser.GameObjects.Graphics | null = null;
-  if (withGlow) {
+  if (glowLook !== null) {
     glow = scene.add.graphics().setScale(scale);
     drawStrands(glow, art, color, true);
     // Graphics have no bounds, so Phaser would filter the whole screen every frame.
     // Focus the filter on the art box plus the glow reach (one texel per viewBox unit).
-    const reach = Math.ceil(LINE_GLOW.distancePx / scale);
+    const reach = Math.ceil(glowLook.distancePx / scale);
     glow.enableFilters();
     glow.filtersAutoFocus = false;
     glow.filtersFocusContext = false;
@@ -59,11 +60,11 @@ export function createLineArtObject(
     glow.filterCamera.setZoom(1 / scale);
     glow.filters!.internal.addGlow(
       color,
-      LINE_GLOW.outerStrength,
+      glowLook.outerStrength,
       0,
       1,
       true,
-      LINE_GLOW.quality,
+      LINE_GLOW_QUALITY,
       reach,
     );
   }

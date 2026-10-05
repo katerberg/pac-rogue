@@ -44,7 +44,9 @@ import {
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { pelletTint } from "../../domain/lazyLooper";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
+import { ghostGlowFilter, type GhostGlow } from "../../domain/ghostArt";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
+import { DEFAULT_TUNING } from "../../domain/tuning";
 import { reviveSplashLook } from "../../domain/reviveSplash";
 import {
   HAUNT_CAGE_ALPHA,
@@ -279,6 +281,7 @@ export type PlayRender = {
   resetForNewBoard: () => void;
   bouncePowerPellet: (eid: number) => void;
   setWallStyle: (style: WallStyle | null) => void;
+  setGhostGlow: (glow: GhostGlow | null) => void;
 };
 
 const DIM_GHOST_ALPHA = 0.4;
@@ -304,6 +307,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let wallStyleOverride: WallStyle | null = null;
+  let ghostGlow = ghostGlowFilter(DEFAULT_TUNING);
   let bossPelletTint = 0xffffff;
 
   const destroyImage = (key: string): void => {
@@ -496,7 +500,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const color = ghostTint ?? lineArtEntry.color;
         const placeLineArt = (
           key: string,
-          glow: boolean,
+          glow: GhostGlow | null,
           px: number,
           py: number,
           alpha: number,
@@ -511,9 +515,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           }
           placeLineArtObject(obj, px, py, alpha);
         };
-        placeLineArt(primaryKey, true, x, y, ghostAlpha * (glideHead?.alpha ?? 1));
+        placeLineArt(primaryKey, ghostGlow, x, y, ghostAlpha * (glideHead?.alpha ?? 1));
         glide?.slice(1).forEach((trail, i) => {
-          placeLineArt(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha);
+          placeLineArt(`${eid}:lglide${i}`, null, trail.x, trail.y, trail.alpha);
         });
         continue;
       }
@@ -678,5 +682,26 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     wallStyleOverride = style;
   };
 
-  return { draw, releaseDrawable, resetForNewBoard, bouncePowerPellet, setWallStyle };
+  // Glow distance is fixed when the filter is created, so rebuild line art on change.
+  const setGhostGlow = (glow: GhostGlow | null): void => {
+    if (
+      glow?.outerStrength === ghostGlow?.outerStrength &&
+      glow?.distancePx === ghostGlow?.distancePx
+    ) {
+      return;
+    }
+    ghostGlow = glow;
+    for (const key of [...lineArtObjects.keys()]) {
+      destroyLineArt(key);
+    }
+  };
+
+  return {
+    draw,
+    releaseDrawable,
+    resetForNewBoard,
+    bouncePowerPellet,
+    setWallStyle,
+    setGhostGlow,
+  };
 }

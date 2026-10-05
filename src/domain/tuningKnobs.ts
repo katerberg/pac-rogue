@@ -98,6 +98,8 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   { key: "wallColor", group: "Visuals", label: "Wall color", kind: "color" },
   range("wallGlow", "Visuals", "Wall glow", 0, 1, 0.05),
   range("wallGlowRadius", "Visuals", "Glow radius", 0, 12, 1, "px"),
+  range("ghostGlow", "Visuals", "Ghost glow", 0, 4, 0.1),
+  range("ghostGlowRadius", "Visuals", "Ghost glow radius", 0, 12, 1, "px"),
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 8, 1, "px"),
   { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
 ];
@@ -191,6 +193,9 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   wallColor: "Color of the wall outline (overrides the Settings maze color while knobs are on).",
   wallGlow: "Strength of the glow drawn around the walls. 0 = no glow.",
   wallGlowRadius: "How far the wall glow spreads beyond the outline, in pixels.",
+  ghostGlow: "Strength of the neon glow around line-art ghosts (Clyde on levels 5-8). 0 = no glow.",
+  ghostGlowRadius:
+    "How far the line-art ghost glow spreads beyond the outline, in pixels. 0 = no glow.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
 };

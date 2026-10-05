@@ -9,8 +9,8 @@ A prototype of thin neon line art next to the pixel art. On levels 5–8 Clyde i
 - **Graphics are multisampled** (`antialiasGL: true`), so 16px line art is crisp.
 - **The canvas is CSS-smoothed** (`image-rendering: auto` in `src/styles.css`). The 3× canvas is downscaled to fit the window, and nearest downscaling would make thin lines shimmer.
 - **Glow** uses Phaser 4's `Glow` filter, as a knockout (glow-only) layer under the crisp art:
-  - Vector actors: one glow Graphics per actor, holding only the strokes. Its filter is focused on the art box plus the glow reach. Graphics have no bounds, and without that focus Phaser would filter the whole screen every frame.
-  - Maze walls: the glow is static, so it is filtered once into a full-resolution `RenderTexture` whenever the wall style changes (in `render.ts`). Strength comes from `wallGlowFilter` (`src/domain/wallStyle.ts`). It is on by default (`DEFAULT_TUNING.wallGlow` = 0.6).
+  - Vector actors: one glow Graphics per actor, holding only the strokes. Its filter is focused on the art box plus the glow reach. Graphics have no bounds, and without that focus Phaser would filter the whole screen every frame. Strength and reach come from the `?knobs=1` **Ghost glow** / **Ghost glow radius** knobs (defaults 1.2 and 6px, via `ghostGlowFilter` in `src/domain/ghostArt.ts`); changing them rebuilds the line-art objects, since Phaser fixes the glow distance at creation.
+  - Maze walls: the glow is static, so it is filtered once into a full-resolution `RenderTexture` whenever the wall style changes (in `render.ts`). Strength comes from `wallGlowFilter` (`src/domain/wallStyle.ts`). It is off by default (`DEFAULT_TUNING.wallGlow` = 0); turn it up with the `?knobs=1` **Wall glow** knob.
 
 Code: `src/domain/lineArt.ts` (parser, pure), `src/game/systems/lineArtRender.ts` (Phaser drawing), and the line-art branch of `src/game/systems/render.ts`.
 
