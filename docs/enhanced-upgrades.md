@@ -15,7 +15,7 @@ The Enhanced column below was written by the designer and drove the one-shot pla
 | 5   | New ability          | `U` slot                                 | see above                                         |
 | 6   | Ability trade        | `S` swap slot                            | rename only                                       | Warps farthest from ghosts **and** grants 2s invulnerability with the Ghost Proof tint (own timer) |
 
-The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 2 lives and 2 new abilities. Later stores offer all six.
+The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers the 2 lives, 2 new abilities, and an enhancement. Later stores also offer the trade. The first store still omits Swap.
 
 ## Upgrades and their enhanced versions
 
@@ -80,7 +80,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers only the 
 
 - **Tunnel Dash:** ghost tunnel speed 0.6× is global; enhanced Tunnel Dash makes it 0.3×.
 - **Limited lives:** two separate life tiles, each sold once per visit (a bought tile disappears). Today's unlimited `L` slot becomes these two.
-- **Enhancement tile:** picks one owned, unenhanced upgrade at random and swaps it for its enhanced version. No eligible upgrade means no tile. Only the first store omits it.
+- **Enhancement tile:** picks one owned, unenhanced upgrade at random and swaps it for its enhanced version. No eligible upgrade means no tile. Stocked in every store, including the first.
 - **Visuals:** an enhanced upgrade's name gets a `+`; its store tile glows and has a different border color.
 
 ## Prices
