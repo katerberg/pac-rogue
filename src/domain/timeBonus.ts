@@ -25,11 +25,12 @@ export function tickTimeBonusDrain(drain: TimeBonusDrain, deltaMs: number): Time
     elapsedMs >= TIME_BONUS_DRAIN_MS
       ? drain.startUnits
       : Math.floor((drain.startUnits * elapsedMs) / TIME_BONUS_DRAIN_MS);
-  const earned = timeBonusPoints(drain.startUnits) - timeBonusPoints(drain.startUnits - drained);
+  const remaining = drain.startUnits - drained;
+  const earned = timeBonusPoints(drain.startUnits) - timeBonusPoints(remaining);
   return {
     drain: { ...drain, elapsedMs, creditedPoints: earned },
-    remaining: drain.startUnits - drained,
+    remaining,
     points: earned - drain.creditedPoints,
-    done: drained === drain.startUnits,
+    done: remaining === 0,
   };
 }
