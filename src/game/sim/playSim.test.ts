@@ -38,6 +38,7 @@ import {
 } from "../../domain/upgrades";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
+import { ChainedGhost } from "../components/ChainedGhost";
 import { Fruit } from "../components/Fruit";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -431,6 +432,16 @@ describe("PlaySim", () => {
 
     const full = new PlaySim({ ...opts, enableUpgrades: [...STARTING_UPGRADE_POOL] }, "test");
     expect(count(full.start(), "startingUpgrade")).toBe(0);
+  });
+
+  it("forceUpgrade puts that upgrade in the level-clear offer", () => {
+    for (const seed of ["f1", "f2", "f3"]) {
+      const sim = startSim(
+        { jumpToUpgrade: true, forceUpgrade: "passiveRemoteTransference" },
+        seed,
+      );
+      expect(drainToOffer(sim)!.upgrades).toContain("passiveRemoteTransference");
+    }
   });
 
   it("clears a board into an upgrade offer, then the next level", () => {
@@ -1249,7 +1260,7 @@ describe("PlaySim", () => {
   });
 
   it("adds a Blinky when the player eats a boss pellet", () => {
-    const sim = startSim({ level: 9 });
+    const sim = startSim({ level: 9, boss: "blinkySwarm" });
     expect(sim.snapshot().boss?.ghostCount).toBe(2);
     const pellet = query(sim.world, [BossPellet, Position])[0]!;
     teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
@@ -1260,6 +1271,7 @@ describe("PlaySim", () => {
   it("lets a boss Blinky leave its tunnel mouth when Tunnel Sanctuary+ blocks tunnels", () => {
     const sim = startSim({
       level: 9,
+      boss: "blinkySwarm",
       godMode: true,
       enableUpgrades: ["passiveTunnelSanctuaryPlus"],
     });
@@ -1271,6 +1283,128 @@ describe("PlaySim", () => {
     const startX = Position.x[spawned]!;
     runFrames(sim, 180);
     expect(Math.abs(Position.x[spawned]! - startX)).toBeGreaterThan(20);
+  });
+
+  describe("boss pick", () => {
+    it("rolls either boss from the seed, the same boss for the same seed", () => {
+      const picks = new Set<string>();
+      for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]) {
+        const id = startSim({ level: 9 }, seed).snapshot().boss?.id;
+        expect(startSim({ level: 9 }, seed).snapshot().boss?.id).toBe(id);
+        picks.add(id!);
+      }
+      expect([...picks].sort()).toEqual(["blinkySwarm", "chainedGhosts"]);
+    });
+
+    it("starts the Blinky Swarm with the knob's Blinky count", () => {
+      const sim = new PlaySim(
+        { ...defaultPlayOptions(), level: 9, boss: "blinkySwarm" },
+        "test",
+        resolveTuning({ bossSwarmStartGhosts: 6 }),
+      );
+      sim.start();
+      expect(sim.snapshot().boss?.ghostCount).toBe(6);
+      runFrames(sim, 1);
+      expect(query(sim.world, [BossGhost]).length).toBe(6);
+    });
+  });
+
+  describe("Chained Ghosts boss", () => {
+    function startChained(overrides: Partial<PlayOptions> = {}): PlaySim {
+      return startSim({ level: 9, boss: "chainedGhosts", infiniteLives: true, ...overrides });
+    }
+
+    function chainEnds(sim: PlaySim): [number, number] {
+      return query(sim.world, [ChainedGhost, Ghost]) as unknown as [number, number];
+    }
+
+    function placeChain(sim: PlaySim, row: number, cols: [number, number]): void {
+      const ends = chainEnds(sim);
+      ends.forEach((eid, i) => {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+        Position.x[eid] = cellCenterX(cols[i]!);
+        Position.y[eid] = cellCenterY(row) + TILE_SIZE * 3 * (i === 0 ? -1 : 1);
+      });
+    }
+
+    it("spawns only Blinky and Clyde, chained, with no boss pellets", () => {
+      const sim = startChained();
+      expect(sim.snapshot().boss).toMatchObject({
+        id: "chainedGhosts",
+        ghostCount: 2,
+        chainLive: false,
+      });
+      expect(sim.snapshot().bossPellets).toBe(0);
+      const kinds = chainEnds(sim).map((eid) => GhostKind.kind[eid]);
+      expect(kinds).toEqual([GHOST_KIND.blinky, GHOST_KIND.clyde]);
+      expect(query(sim.world, [Ghost]).length).toBe(2);
+    });
+
+    it("catches the player on the line between the ghosts, away from both", () => {
+      const sim = startChained();
+      const player = playerEid(sim);
+      const row = worldToRow(Position.y[player]!);
+      const col = worldToCol(Position.x[player]!);
+      placeChain(sim, row, [col - 4, col + 4]);
+      expect(sim.snapshot().boss?.chainLive).toBe(true);
+      const events = runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+      expect(events).toContainEqual({ type: "sfx", id: "death" });
+    });
+
+    it("does not catch a player off the line", () => {
+      const sim = startChained();
+      const player = playerEid(sim);
+      const row = worldToRow(Position.y[player]!);
+      const col = worldToCol(Position.x[player]!);
+      placeChain(sim, row, [col + 2, col + 6]);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+    });
+
+    it("has no chain while either ghost is still in the house", () => {
+      const sim = startChained();
+      const player = playerEid(sim);
+      const row = worldToRow(Position.y[player]!);
+      const col = worldToCol(Position.x[player]!);
+      placeChain(sim, row, [col - 4, col + 4]);
+      GhostPhase.value[chainEnds(sim)[1]] = GHOST_PHASE.inHouse;
+      expect(sim.snapshot().boss?.chainLive).toBe(false);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+    });
+
+    it("draws the live chain between the two ghosts", () => {
+      const sim = startChained();
+      const player = playerEid(sim);
+      placeChain(sim, worldToRow(Position.y[player]!), [1, 2]);
+      const [a, b] = chainEnds(sim);
+      expect(sim.renderOptions().bossChain).toMatchObject({
+        x1: Position.x[a],
+        y1: Position.y[a],
+        x2: Position.x[b],
+        y2: Position.y[b],
+      });
+    });
+
+    it("releases both ghosts so the chain goes live in play", () => {
+      const sim = startChained({ godMode: true });
+      runUntil(sim, () => sim.snapshot().boss?.chainLive === true, 600, { keys: held("left") });
+      expect(sim.snapshot().boss?.chainLive).toBe(true);
+    });
+
+    it("keeps the chained ghosts out of the side tunnels", () => {
+      const sim = startChained({ godMode: true });
+      const [row] = horizontalTunnelRows();
+      const [a] = chainEnds(sim);
+      GhostPhase.value[a] = GHOST_PHASE.active;
+      Position.x[a] = cellCenterX(0);
+      Position.y[a] = cellCenterY(row!);
+      Facing.direction[a] = DIRECTION.left;
+      Input.direction[a] = DIRECTION.left;
+      runFrames(sim, 30);
+      expect(Position.x[a]!).toBeLessThan(getActiveLayout().cols * TILE_SIZE * 0.5);
+    });
   });
 
   it("replays the same run from the same seed and inputs", () => {
@@ -2251,7 +2385,11 @@ describe("PlaySim enhanced upgrades", () => {
   });
 
   it("Scatter Burst lands boss ghosts sharing a corner on one cell, and they still split up", () => {
-    const sim = startSim({ level: 9, enableUpgrades: ["powerPelletScatterBurst"] });
+    const sim = startSim({
+      level: 9,
+      boss: "blinkySwarm",
+      enableUpgrades: ["powerPelletScatterBurst"],
+    });
     const bosses = Array.from(query(sim.world, [Ghost, BossGhost, Position]));
     expect(bosses.length).toBeGreaterThanOrEqual(2);
     for (const eid of bosses) {
@@ -2556,7 +2694,11 @@ describe("Lazy Looper", () => {
   });
 
   it("never makes boss pellets optional", () => {
-    const sim = startSim({ level: 9, enableUpgrades: ["passiveLazyLooperPlus"] });
+    const sim = startSim({
+      level: 9,
+      boss: "blinkySwarm",
+      enableUpgrades: ["passiveLazyLooperPlus"],
+    });
     const boss = query(sim.world, [BossPellet]);
     expect(boss.length).toBeGreaterThan(0);
     expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);

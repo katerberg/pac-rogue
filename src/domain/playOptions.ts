@@ -1,5 +1,5 @@
 import { parseBonusParam } from "./bonusFlag";
-import { BOSS_DEFS, parseBossGhostsParam } from "./bossRules";
+import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
 import { parseGodModeFlag } from "./godModeFlag";
@@ -15,6 +15,8 @@ import { parseStoreFlag, type StoreIndex } from "./storeFlag";
 import {
   parseDisableLevelUpgradesFlag,
   parseEnableUpgradeParams,
+  parseForceUpgradeParam,
+  type BaseUpgradeId,
   type UpgradeId,
 } from "./upgrades";
 
@@ -25,7 +27,7 @@ export type PlayOptions = {
   quarters: number | null;
   bonus: number | null;
   ghosts: GhostKindId[] | null;
-  bossGhosts: number | null;
+  boss: BossId | null;
   jumpToUpgrade: boolean;
   store: StoreIndex | null;
   disableLevelUpgrades: boolean;
@@ -35,6 +37,7 @@ export type PlayOptions = {
   godMode: boolean;
   knobs: boolean;
   enableUpgrades: UpgradeId[];
+  forceUpgrade: BaseUpgradeId | null;
   highScoresDisabled: boolean;
 };
 
@@ -68,12 +71,8 @@ export function parsePlayOptions(params: URLSearchParams): {
     ghosts === null,
     "Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde",
   );
-  const bossGhosts = parseBossGhostsParam(params, BOSS_DEFS.doubleBlinky);
-  warnIf(
-    "bossGhosts",
-    bossGhosts === null,
-    "Unknown ?bossGhosts= value; expected an integer 2..10",
-  );
+  const boss = parseBossParam(params);
+  warnIf("boss", boss === null, "Unknown ?boss= value; expected blinkySwarm|chainedGhosts");
   const lives = parseLivesCountParam(params, "lives");
   warnIf("lives", lives === null, "Unknown ?lives= value; expected positive integer");
   const maxLives = parseLivesCountParam(params, "maxLives");
@@ -82,11 +81,11 @@ export function parsePlayOptions(params: URLSearchParams): {
     options: {
       seed,
       maze,
-      level,
+      level: level ?? (boss !== null && !params.has("level") ? BOSS_LEVEL : null),
       quarters,
       bonus,
       ghosts,
-      bossGhosts,
+      boss,
       jumpToUpgrade: parseJumpToUpgradeFlag(params),
       store: parseStoreFlag(params),
       disableLevelUpgrades: parseDisableLevelUpgradesFlag(params),
@@ -96,6 +95,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       godMode: parseGodModeFlag(params),
       knobs: parseKnobsFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
+      forceUpgrade: parseForceUpgradeParam(params),
       highScoresDisabled: highScoresDisabled(params),
     },
     warnings,

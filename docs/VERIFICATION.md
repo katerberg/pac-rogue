@@ -81,8 +81,9 @@ On agent ports (**5174** / **4174**), audio is disabled (`noAudio`) unless `?sou
 
 - Serves `dist/` via Vite preview on the **agent** preview port (`http://127.0.0.1:4174`)
 - Opens the page with Playwright Chromium
-- Waits for a `canvas` element, captures `artifacts/visual-smoke-menu.png`
+- Waits for a `canvas` element
 - Clicks **Start** on the menu, then captures `artifacts/visual-smoke.png` (**PlayScene** maze/HUD — primary CI smoke image)
+- Reloads with `?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference&seed=smoke`, waits for Remote Transference in the offer, and captures `artifacts/visual-smoke-upgrade.png`
 
 Agents must **read that image** (or an equivalent live capture) when claiming visual verification — not merely note that the script exited 0.
 
@@ -108,7 +109,7 @@ Level 1 opens a **starting-upgrade card** that swallows the first keypress. Afte
 
 Without `seed=`, every run rolls fresh randomness: generated boards (levels 2+), the starting upgrade, the second ghost, upgrade offers, Store stock and more. **Pass `seed=<anything>` on every probe** so reruns see the same run (see [Seeded runs](#seeded-runs)). `maze=maze1|maze2|mazeSmall` additionally pins a hand-made layout for the first board. `play.seed` reports the seed in use, including the fresh one an unseeded run picked (players see it faded bottom-left on the pause, Game Over and Run Complete screens), so a flaky or surprising run can be replayed with `seed=<play.seed>`.
 
-Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `store`, `enableUpgrade`, `ghosts`, `bossGhosts`, `infiniteLives`, `lives`, `maxLives`, `godMode`). On any failed step the probe writes `artifacts/<name>-failure.json` (snapshot) and `artifacts/<name>-failure.png`. Read both before changing code.
+Use URL flags from the README to reach the state under test (`level`, `maze`, `quarters`, `store`, `enableUpgrade`, `ghosts`, `boss`, `infiniteLives`, `lives`, `maxLives`, `godMode`). On any failed step the probe writes `artifacts/<name>-failure.json` (snapshot) and `artifacts/<name>-failure.png`. Read both before changing code.
 
 ### Modes touched
 
@@ -120,7 +121,7 @@ Use URL flags from the README to reach the state under test (`level`, `maze`, `q
 | Generated board (levels 2–8) | `play=1&level=2`                                                                                                                |
 | Inverted board (levels 6–7)  | `play=1&level=6`                                                                                                                |
 | Store floor (`tickStore`)    | `play=1&store=1&quarters=10`                                                                                                    |
-| Boss (`tickBoss`, level 9)   | `play=1&level=9` (`bossGhosts=N` for more Blinkys)                                                                              |
+| Boss (`tickBoss`, level 9)   | `play=1&boss=blinkySwarm` / `play=1&boss=chainedGhosts` (`level=9` alone rolls one; more Blinkys: Swarm knob)                   |
 | Level-clear upgrade modal    | `play=1&jumpToUpgrade=1`                                                                                                        |
 | Death / respawn              | `play=1&level=2&infiniteLives=1`, then get caught                                                                               |
 | Pause → Settings → Resume    | `press:Escape`, then `click:` menu rows                                                                                         |
@@ -159,7 +160,7 @@ On agent ports only (**5174** / **4174**), `window.__PAC_ROGUE_DEBUG__.snapshot(
 | `play.upgradeOfferEnhanced`                                                                                                                                                                                | subset of `play.upgradeOffer` shown as enhanced (`+`) cards, else `null`                                                                                                                                                                                                                                |
 | `play.highScoresDisabled`                                                                                                                                                                                  | a debug flag is in the URL, so Game Over and Run Complete will not save a high score                                                                                                                                                                                                                    |
 | `play.lineArtGhosts`                                                                                                                                                                                       | ghost kinds drawn as vector line art this board (`["clyde"]` on levels 5–8 when Clyde is present, else `[]`; [docs/line-art.md](./line-art.md))                                                                                                                                                         |
-| `play.inStore`, `play.boss.ghostCount`                                                                                                                                                                     | store floor; boss Blinky count (`play.boss` is `null` off-boss)                                                                                                                                                                                                                                         |
+| `play.inStore`, `play.boss.{id,ghostCount,chainLive}`                                                                                                                                                      | store floor; boss id, boss ghost count, Chained Ghosts lightning live (`play.boss` is `null` off-boss)                                                                                                                                                                                                  |
 | `play.storePrompt`                                                                                                                                                                                         | Open store prompt kind (`confirm`, `needQuarters`, `nothingToSwap`, `nothingToEnhance`), else `null`                                                                                                                                                                                                    |
 | `play.storeRoute`                                                                                                                                                                                          | Store click-to-exit target cell `{col,row}` while Pac-Man walks to a clicked tunnel, else `null`                                                                                                                                                                                                        |
 | `play.cursor`                                                                                                                                                                                              | Canvas CSS cursor (`default`, `pointer` over a store tile or tunnel mouth)                                                                                                                                                                                                                              |
@@ -190,7 +191,7 @@ The live check still applies: the unit test covers the decision, and the probe c
 
 `PlaySim` runs a whole game headlessly, so gameplay flows are tested in `npm run test` without a browser. **Every gameplay feature or bug fix adds or extends a `PlaySim` test** (`src/game/sim/playSim.test.ts`); for a bug fix, the test fails before the fix.
 
-- Build a sim with `new PlaySim({ ...defaultPlayOptions(), ...overrides }, "<seed>")`, then `sim.start()`. `overrides` are the same knobs as the URL flags (`level`, `maze`, `store`, `quarters`, `jumpToUpgrade`, `bossGhosts`, `enableUpgrades`, …).
+- Build a sim with `new PlaySim({ ...defaultPlayOptions(), ...overrides }, "<seed>")`, then `sim.start()`. `overrides` are the same knobs as the URL flags (`level`, `maze`, `store`, `quarters`, `jumpToUpgrade`, `boss`, `enableUpgrades`, …).
 - Drive it with `runFrames(sim, n, { keys: held("left") })` / `runUntil(sim, () => cond, maxFrames)` from `src/game/sim/simTesting.ts`. They step at a fixed `1000/60` ms, so runs are exact and repeatable.
 - Assert on `sim.snapshot()` (the same fields as the probe's `play.*`) and on the returned `SimEvent`s (`{ type: "sfx", id: "death" }`, `saveRun`, `upgradeOffer`, …). Set up hard-to-reach states by editing components directly (e.g. teleport the player onto a boss pellet via `Position`).
 - Upgrade offers: `sim.offer()` / `sim.chooseUpgrade(option)`. Store prompts: pass `storeToggle` / `storeConfirm` in the input.

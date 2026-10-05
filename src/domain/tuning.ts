@@ -15,6 +15,7 @@ export type Tuning = {
   readonly elroy1Ratio: number;
   readonly elroy2Ratio: number;
   readonly bossGhostRatio: number;
+  readonly bossSwarmStartGhosts: number;
   readonly timerMax: number;
   readonly timerTickMs: number;
   readonly pinkyLookahead: number;
@@ -72,6 +73,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   elroy1Ratio: 1,
   elroy2Ratio: 85 / 80,
   bossGhostRatio: 1,
+  bossSwarmStartGhosts: 2,
   timerMax: 999,
   timerTickMs: 100,
   pinkyLookahead: 4,

@@ -1,10 +1,13 @@
 # Boss levels
 
-A boss level replaces a regular board with a scripted fight. `bossForLevel(levelIndex)` in
-[`src/domain/bossRules.ts`](../src/domain/bossRules.ts) maps a level to a `BossDef`; every other
-level returns `null` and plays normally. Today only level 9 has a boss.
+A boss level replaces a regular board with a scripted fight. Level 9 (`isBossLevel` in
+[`src/domain/bossRules.ts`](../src/domain/bossRules.ts)) is the only boss level. Its boss is
+rolled once per run from the seeded `bossPick` stream (`pickBoss`): **Blinky Swarm** or
+**Chained Ghosts**, 50/50.
 
-`?level=9` (with or without `?play=1`) jumps straight into the boss fight.
+- `?level=9` (with or without `?play=1`) jumps straight into the boss fight (random boss).
+- `?boss=blinkySwarm` / `?boss=chainedGhosts` forces that boss. Without `?level=` it also starts
+  the run in the boss fight. Disables high-score saving.
 
 ## Entrance
 
@@ -12,7 +15,7 @@ Instead of the `LEVEL N` banner, a large red `BOSS` title slams in (scale 3 → 
 the camera shakes (400ms), the title holds for 1.2s and then fades. Play is not frozen and no
 extra sound plays.
 
-## Double Blinky (level 9)
+## Blinky Swarm
 
 | Rule             | Behavior                                                                                                                                                                                                                                                                                                       |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -27,20 +30,38 @@ extra sound plays.
 | Death            | Keeps the Blinky count and eaten pellets. The first 4 Blinkys restart in the house; the rest come out of the tunnels right away.                                                                                                                                                                               |
 | Other            | Fruit behaves as on a normal level. Power pellets and upgrades work as usual; boss pellets are not power pellets.                                                                                                                                                                                              |
 
-Debug: `?bossGhosts=N` (2..10) starts the boss with N Blinkys (disables high-score saving).
+Debug: the **Swarm start Blinkys** knob (`?knobs=1`, Boss group, 2..10) starts the swarm with that
+many Blinkys.
+
+## Chained Ghosts
+
+| Rule      | Behavior                                                                                                                                                                                                                                                                                                                         |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Board     | Regular procedural 28×34 maze. Full regular + power pellet board, no boss pellets.                                                                                                                                                                                                                                               |
+| Win       | Clear every pellet, same as Blinky Swarm.                                                                                                                                                                                                                                                                                        |
+| Ghosts    | Only Blinky and Clyde, both in the house. Blinky leaves 0.1s after the first input, Clyde 1.5s later. No more ghosts ever spawn.                                                                                                                                                                                                 |
+| Chain     | Once both are out of the house, a lightning chain joins their centers. It cuts straight through walls. Touching it catches Maze-Man like a ghost does (his center within half his radius of the line; the death is recorded against the nearer ghost). The ghosts do not block each other, so their paths (and the chain) cross. |
+| Off       | The chain is off while either ghost is in the house, frozen (Freeze) or mid Scatter Burst glide. Invulnerability and `godMode` ignore it like any ghost.                                                                                                                                                                         |
+| Tunnels   | Both ghosts are kept out of the side-tunnel wrap so the chain never jumps across the board.                                                                                                                                                                                                                                      |
+| Targeting | Normal scatter/chase waves. Blinky chases Maze-Man, Clyde keeps his shy chase. In scatter each heads for its own randomly assigned corner.                                                                                                                                                                                       |
+| Speed     | Same flat boss speed as Blinky Swarm.                                                                                                                                                                                                                                                                                            |
+| Look      | A flickering lightning bolt (blue glow, pale blue bolt, white core) redrawn every 50ms between the two ghosts, under the ghost sprites.                                                                                                                                                                                          |
+| Death     | Both ghosts restart in the house; the chain comes back once both are out again.                                                                                                                                                                                                                                                  |
 
 ## Code map
 
-- `src/domain/bossRules.ts` — `BossDef` table, `bossForLevel`, `BossState`, `splitBossGhosts`, `?bossGhosts` parse.
+- `src/domain/bossRules.ts` — `BossDef` table, `isBossLevel`, `pickBoss`, `bossStartGhosts`, `BossState`, `splitBossGhosts`, `?boss` parse.
+- `src/domain/bossChain.ts` — chain hit test (`chainHitsCircle`) and the lightning polyline (`lightningPoints`).
 - `src/domain/bossBoard.ts` — tunnel mouth order and boss pellet placement.
 - `src/domain/bossGhostBlocking.ts` — corridor occupancy walk used by `ghostAi`.
-- `src/game/components/BossGhost.ts`, `BossPellet.ts` — markers (per-ghost scatter corner and house release delay).
-- `src/game/systems/bossGhosts.ts` — head-on reversal, free-mouth pick, boss pellet count.
+- `src/game/components/BossGhost.ts`, `BossPellet.ts`, `ChainedGhost.ts` — markers (per-ghost scatter corner and house release delay; chain ends).
+- `src/game/systems/bossGhosts.ts` — head-on reversal, free-mouth pick, boss pellet count (Blinky Swarm).
+- `src/game/systems/bossChain.ts` — live chain segment (`bossChain`) and `chainCatch`, run after `catchPlayer`; `render.ts` draws the bolt from `SimRenderOptions.bossChain`.
 - `ghostAi`, `ghostRelease`, `applyGhostSpeed` switch behavior on the `BossGhost` component.
 - `PlayScene` wires it: `startBoss` / `tagBossPellets` in `startBoard`, `tickBoss` each frame, `spawnBossGhostsForLife` on death reset, `showBossBanner`.
 
 ## Adding a boss
 
-1. Add an id to `BossId` and a `BossDef` entry in `BOSS_DEFS`; map its level in `BOSS_BY_LEVEL` (raise `MAX_LEVEL` if it is a new level).
+1. Add an id to `BOSS_IDS` and a `BossDef` entry in `BOSS_DEFS` (it joins the level-9 roll and the `?boss=` flag).
 2. Reuse the `BossGhost` / `BossPellet` markers where the rules match, or add new fields/systems for new rules.
 3. Document it in a new section above and in [docs/levels.md](./levels.md).

@@ -33,8 +33,11 @@ import {
   type BossTunnelMouth,
 } from "../../domain/bossBoard";
 import {
-  bossForLevel,
+  bossGhostKind,
+  bossStartGhosts,
   createBossState,
+  isBossLevel,
+  pickBoss,
   recordBossPelletsEaten,
   splitBossGhosts,
   type BossDef,
@@ -244,6 +247,7 @@ import {
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
+import { ChainedGhost } from "../components/ChainedGhost";
 import { tagOptionalPellets } from "../systems/lazyLooper";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -256,6 +260,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
+import { bossChain, chainCatch } from "../systems/bossChain";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
 import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
@@ -638,6 +643,7 @@ export class PlaySim {
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       hauntedGhost: hauntedGhost(this.runUpgrades),
+      bossChain: bossChain(this.world, this.catchOptions()),
       lineArtDrawableIds: this.lineArtGhostKinds().map((kind) => GHOST_DRAWABLE_BY_KIND[kind]),
     };
   }
@@ -718,7 +724,14 @@ export class PlaySim {
         this.store === null
           ? null
           : (promptView(this.store, this.quarters, this.runUpgrades.owned)?.kind ?? null),
-      boss: this.bossState === null ? null : { ghostCount: this.bossState.ghostCount },
+      boss:
+        this.bossState === null
+          ? null
+          : {
+              id: this.bossState.def.id,
+              ghostCount: this.bossState.ghostCount,
+              chainLive: bossChain(this.world, this.catchOptions()) !== null,
+            },
       lineArtGhosts: this.lineArtGhostKinds().map((kind) => nameOf(GHOST_KIND, kind)),
       runLog: {
         id: this.recorder.record.id,
@@ -941,7 +954,7 @@ export class PlaySim {
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
       ? wallPassSolids(this.effectiveUpgrades())
       : undefined;
-    if (this.bossState !== null) {
+    if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
     const facingBeforeMove = playerFacing(this.world);
@@ -952,7 +965,7 @@ export class PlaySim {
       playerSolidsOverride,
       false,
       playerPreTurnPx(this.currentTuning),
-      ghostsBlockedFromTunnels(this.effectiveUpgrades()),
+      this.ghostsBlockedFromTunnels(),
     );
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
     this.noteTunnelExit(positionBeforeMove);
@@ -1112,7 +1125,7 @@ export class PlaySim {
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world, ghostsBlockedFromTunnels(this.effectiveUpgrades()));
+      forceGhostReverse(this.world, this.ghostsBlockedFromTunnels());
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
       ghostAi(
@@ -1120,7 +1133,7 @@ export class PlaySim {
         modeStep.mode,
         this.pelletProgress.pelletsRemaining,
         this.currentTuning,
-        ghostsBlockedFromTunnels(this.effectiveUpgrades()),
+        this.ghostsBlockedFromTunnels(),
       );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
@@ -1207,14 +1220,8 @@ export class PlaySim {
 
     this.tickBoss();
 
-    const frozenEid = frozenGhostEid(this.runUpgrades);
-    const playerInvulnerable = this.options.godMode || playerIsInvulnerable(this.runUpgrades);
-    const catchOptions = {
-      frozenGhostEid: frozenEid,
-      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
-      playerInvulnerable,
-    };
-    const caughtBy = catchPlayer(this.world, catchOptions);
+    const catchOptions = this.catchOptions();
+    const caughtBy = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
     this.emitDraw();
 
     if (caughtBy === null) {
@@ -1302,6 +1309,20 @@ export class PlaySim {
       }
       this.death = beginDeathSequence(result.gameOver);
     }
+  }
+
+  private catchOptions(): CatchOptions {
+    return {
+      frozenGhostEid: frozenGhostEid(this.runUpgrades),
+      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      playerInvulnerable: this.options.godMode || playerIsInvulnerable(this.runUpgrades),
+    };
+  }
+
+  private ghostsBlockedFromTunnels(): boolean {
+    return (
+      this.bossState?.def.chained === true || ghostsBlockedFromTunnels(this.effectiveUpgrades())
+    );
   }
 
   private checkStreakCell(): void {
@@ -1669,7 +1690,9 @@ export class PlaySim {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
-    const boss = bossForLevel(this.levelIndex);
+    const boss = isBossLevel(this.levelIndex)
+      ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
+      : null;
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
     let layoutLabel = "maze2";
     if (selection.kind === "static") {
@@ -1706,7 +1729,7 @@ export class PlaySim {
     this.bossState = null;
     if (boss !== null) {
       this.startBoss(boss);
-      this.recordSeen([boss.ghostKind]);
+      this.recordSeen([...boss.ghostKinds]);
     } else {
       const ghostKinds =
         this.options.ghosts ?? ghostKindsForLevel(this.levelIndex, this.secondGhostKind);
@@ -1759,7 +1782,7 @@ export class PlaySim {
     seed: string,
     boss: BossDef | null,
   ): ReturnType<typeof generateMazeAsciiWithRetries> {
-    if (boss === null) {
+    if (boss?.tunnelCount == null) {
       return generateMazeAsciiWithRetries(seed);
     }
     const bossBoard = generateMazeAsciiWithRetries(seed, GENERATE_MAX_ATTEMPTS, {
@@ -1777,7 +1800,7 @@ export class PlaySim {
   private startBoss(boss: BossDef): void {
     const { cols } = getActiveLayout();
     this.bossMouths = bossTunnelMouths(horizontalTunnelRows(), cols);
-    this.bossState = createBossState(boss, this.options.bossGhosts ?? boss.startGhosts);
+    this.bossState = createBossState(boss, bossStartGhosts(boss, this.currentTuning));
     this.spawnBossGhostsForLife();
   }
 
@@ -1788,7 +1811,10 @@ export class PlaySim {
     const { def, ghostCount } = this.bossState;
     const { house, tunnel } = splitBossGhosts(def, ghostCount);
     for (let i = 0; i < house; i += 1) {
-      this.spawnBossGhostInHouse(BLINKY_RELEASE_DELAY_MS + i * def.houseReleaseStaggerMs);
+      this.spawnBossGhostInHouse(
+        bossGhostKind(def, i),
+        BLINKY_RELEASE_DELAY_MS + i * def.houseReleaseStaggerMs,
+      );
     }
     this.bossState = { ...this.bossState, pendingSpawns: tunnel };
   }
@@ -1819,14 +1845,15 @@ export class PlaySim {
     }
     let state = recordBossPelletsEaten(this.bossState, countBossPellets(this.world));
     while (state.pendingSpawns > 0) {
+      const kind = bossGhostKind(state.def, state.ghostCount - state.pendingSpawns);
       if (this.bossMouths.length === 0) {
-        this.spawnBossGhostInHouse(0);
+        this.spawnBossGhostInHouse(kind, 0);
       } else {
         const index = pickFreeBossMouth(this.world, this.bossMouths, state.nextMouthIndex);
         if (index === null) {
           break;
         }
-        this.spawnBossGhostAtMouth(this.bossMouths[index]!);
+        this.spawnBossGhostAtMouth(kind, this.bossMouths[index]!);
         state = { ...state, nextMouthIndex: (index + 1) % this.bossMouths.length };
       }
       state = { ...state, pendingSpawns: state.pendingSpawns - 1 };
@@ -1865,13 +1892,14 @@ export class PlaySim {
     this.notePellets();
     this.recorder.levelCleared(
       this.clock.remaining,
-      bossForLevel(this.levelIndex) === null ? timeBonusPoints(this.clock.remaining) : 0,
+      isBossLevel(this.levelIndex) ? 0 : timeBonusPoints(this.clock.remaining),
     );
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "sfx", id: "levelComplete" });
     this.emitDraw();
-    this.timeBonusDrain =
-      bossForLevel(this.levelIndex) === null ? createTimeBonusDrain(this.clock.remaining) : null;
+    this.timeBonusDrain = isBossLevel(this.levelIndex)
+      ? null
+      : createTimeBonusDrain(this.clock.remaining);
     if (this.timeBonusDrain !== null) {
       this.emit({ type: "timeBonus", active: true });
       return;
@@ -1913,6 +1941,7 @@ export class PlaySim {
       this.runUpgrades.lastDeclinedUpgradeId,
       this.random.stream("upgradeOffer", this.levelIndex),
       enhancedOfferChance(this.levelIndex),
+      this.options.forceUpgrade,
     );
     this.pendingLevelClear = true;
     this.awaitingChoice = true;
@@ -2090,7 +2119,7 @@ export class PlaySim {
     this.emit({
       type: "banner",
       text: text ?? `LEVEL ${this.levelIndex}`,
-      boss: text === undefined && bossForLevel(this.levelIndex) !== null,
+      boss: text === undefined && isBossLevel(this.levelIndex),
     });
   }
 
@@ -2410,13 +2439,13 @@ export class PlaySim {
     }
   }
 
-  private spawnBossGhostInHouse(releaseDelayMs: number): void {
-    const eid = this.spawnBossGhost();
+  private spawnBossGhostInHouse(kind: GhostKindId, releaseDelayMs: number): void {
+    const eid = this.spawnBossGhost(kind);
     BossGhost.releaseDelayMs[eid] = releaseDelayMs;
   }
 
-  private spawnBossGhostAtMouth(mouth: BossTunnelMouth): void {
-    const eid = this.spawnBossGhost();
+  private spawnBossGhostAtMouth(kind: GhostKindId, mouth: BossTunnelMouth): void {
+    const eid = this.spawnBossGhost(kind);
     BossGhost.releaseDelayMs[eid] = 0;
     Position.x[eid] = cellCenterX(mouth.col);
     Position.y[eid] = cellCenterY(mouth.row);
@@ -2425,10 +2454,12 @@ export class PlaySim {
     Input.direction[eid] = mouth.facing;
   }
 
-  private spawnBossGhost(): number {
-    const kind = this.bossState?.def.ghostKind ?? GHOST_KIND.blinky;
+  private spawnBossGhost(kind: GhostKindId): number {
     const eid = this.spawnGhost(kind);
     addComponent(this.world, eid, BossGhost);
+    if (this.bossState?.def.chained === true) {
+      addComponent(this.world, eid, ChainedGhost);
+    }
     const corners = [
       blinkyScatterTarget(),
       pinkyScatterTarget(),

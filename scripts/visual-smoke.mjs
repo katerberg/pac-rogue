@@ -4,8 +4,10 @@ import { dirname, join } from "node:path";
 import { chromium } from "playwright";
 import { chromiumLaunchOptions, ports, root, stopProcess, waitForServer } from "./lib/server.mjs";
 const playArtifactPath = join(root, "artifacts", "visual-smoke.png");
-const menuArtifactPath = join(root, "artifacts", "visual-smoke-menu.png");
-const url = `http://127.0.0.1:${ports.agentPreview}/?maze=maze1`;
+const upgradeArtifactPath = join(root, "artifacts", "visual-smoke-upgrade.png");
+const baseUrl = `http://127.0.0.1:${ports.agentPreview}/`;
+const url = `${baseUrl}?maze=maze1`;
+const upgradeUrl = `${baseUrl}?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference&seed=smoke`;
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
@@ -65,15 +67,26 @@ async function main() {
     await waitForActiveScene(page, "MenuScene");
 
     const canvas = page.locator("canvas").first();
-    await canvas.screenshot({ path: menuArtifactPath });
-
     await clickGamePoint(page, canvas, MENU_START_X, MENU_START_Y);
     await waitForActiveScene(page, "PlayScene");
 
     await canvas.screenshot({ path: playArtifactPath });
+
+    await page.goto(upgradeUrl, { waitUntil: "networkidle" });
+    await page.waitForSelector("canvas", { timeout: 15_000 });
+    await page.waitForFunction(
+      () =>
+        globalThis.__PAC_ROGUE_DEBUG__
+          ?.snapshot()
+          .play?.upgradeOffer?.includes("passiveRemoteTransference") === true,
+      undefined,
+      { timeout: 30_000 },
+    );
+    await page.waitForTimeout(2_000);
+    await page.locator("canvas").first().screenshot({ path: upgradeArtifactPath });
     await browser.close();
 
-    console.log(`Visual smoke OK — menu: ${menuArtifactPath}`);
+    console.log(`Visual smoke OK — upgrade: ${upgradeArtifactPath}`);
     console.log(`Visual smoke OK — play: ${playArtifactPath}`);
   } catch (error) {
     console.error("Visual smoke failed.");
