@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { fitFontSize } from "../../domain/fitFontSize";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { STORE_ENHANCE_BORDER_COLOR } from "../../domain/store";
 import {
@@ -37,6 +38,7 @@ const CHOICE_BUTTON_HEIGHT = 150;
 const CHOICE_LABEL_MAX_CHARS = 8;
 const CHOICE_DESCRIPTION_MAX_CHARS = 22;
 const CHOICE_LABEL_FONT_SIZE = 22;
+const CHOICE_LABEL_MARGIN = 16;
 
 const CENTER_X = PLAYFIELD_WIDTH / 2;
 const CENTER_Y = PLAYFIELD_HEIGHT / 2 + 40;
@@ -158,7 +160,14 @@ export function buildUpgradeCardVisual(
   const bg = scene.add
     .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
     .setStrokeStyle(BUTTON_STROKE_REST, borderColor);
-  const label = addPixelText(scene, 0, 0, targetLabel, CHOICE_LABEL_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const label = addPixelText(
+    scene,
+    0,
+    0,
+    targetLabel,
+    fitFontSize(copy.label, CHOICE_BUTTON_WIDTH - CHOICE_LABEL_MARGIN, CHOICE_LABEL_FONT_SIZE),
+    TEXT_COLOR_YELLOW,
+  );
   const description = addPixelText(
     scene,
     0,

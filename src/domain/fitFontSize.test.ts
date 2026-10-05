@@ -10,6 +10,10 @@ describe("fitFontSize", () => {
     expect(fitFontSize("Remote Transference", 300, 32)).toBe(24);
   });
 
+  it("fits a long upgrade name inside the choice card", () => {
+    expect(fitFontSize("Remote Transference", 214, 22)).toBe(16);
+  });
+
   it("never drops below one glyph", () => {
     expect(fitFontSize("Supercalifragilisticexpialidocious", 100, 32)).toBe(8);
   });
