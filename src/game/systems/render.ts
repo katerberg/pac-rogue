@@ -208,6 +208,10 @@ function textureKeyForDrawable(drawableId: string): string {
   return pelletTextureKey(drawableId);
 }
 
+function storedWallStyle(): WallStyle {
+  return wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
+}
+
 export function addGhostIcon(
   scene: Phaser.Scene,
   drawableId: string,
@@ -221,15 +225,11 @@ export function addGhostIcon(
     scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
     return;
   }
-  const background = wallStyleFor(
-    null,
-    clampMazeColorIndex(loadMazeColorSettings().colorIndex),
-  ).background;
   const icon = createLineArtObject(
     scene,
     lineArt.art,
     lineArt.color,
-    background,
+    storedWallStyle().background,
     size,
     ghostLineArtLook(DEFAULT_TUNING),
     true,
@@ -474,9 +474,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           : playerInvulnTintOn
             ? { color: PLAYER_INVULN_TINT, mode: Phaser.TintModes.MULTIPLY }
             : null;
-    const wallStyle =
-      wallStyleOverride ??
-      wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
+    const wallStyle = wallStyleOverride ?? storedWallStyle();
     if (!sameWallStyle(wallStyle, drawnWallStyle)) {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
