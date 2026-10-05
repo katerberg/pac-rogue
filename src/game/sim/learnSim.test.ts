@@ -470,7 +470,7 @@ describe("LearnSim upgrade demos", () => {
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
 
-  it("Myogenesis regains two lives when the board refills", () => {
+  it("Myogenesis regains two lives when the board refills, without a popup", () => {
     const { sim, player } = setup("passiveMyogenesis");
     catchByGhost(sim, player);
     runMs(sim, 1_600);
@@ -479,7 +479,7 @@ describe("LearnSim upgrade demos", () => {
     for (const eid of query(sim.world, [Pellet])) {
       removeEntity(sim.world, eid);
     }
-    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual(["+2 LIFE"]);
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([]);
     expect(sim.statusText()).toContain("LIVES 3");
   });
 
