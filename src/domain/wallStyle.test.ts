@@ -55,8 +55,8 @@ describe("wallGlowFilter", () => {
 
   it("glows by default under NEON and not under PIXEL", () => {
     expect(wallGlowFilter(wallStyleFor(null, 0, "neon"))).toEqual({
-      outerStrength: 2.4,
-      distance: 4,
+      outerStrength: 4,
+      distance: 21,
     });
     expect(wallGlowFilter(wallStyleFor(null, 0, "pixel"))).toBeNull();
   });
