@@ -1,4 +1,5 @@
-import { MAZE_BACKGROUND_COLOR, WALL_CORNER_RADIUS, WALL_STROKE_WEIGHT } from "./maze";
+import { DEFAULT_GHOST_STYLE, type GhostStyle } from "./ghostArt";
+import { MAZE_BACKGROUND_COLOR, WALL_CORNER_RADIUS } from "./maze";
 import { mazeColorForIndex } from "./mazeColorSettings";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
@@ -11,15 +12,18 @@ export type WallStyle = {
   background: number;
 };
 
-const WALL_GLOW_MAX_OUTER = 4;
-
-export function wallStyleFor(tuning: Tuning | null, mazeColorIndex: number): WallStyle {
+export function wallStyleFor(
+  tuning: Tuning | null,
+  mazeColorIndex: number,
+  style: GhostStyle = DEFAULT_GHOST_STYLE,
+): WallStyle {
   if (tuning === null) {
+    const neon = style === "neon";
     return {
       color: mazeColorForIndex(mazeColorIndex),
-      thickness: WALL_STROKE_WEIGHT,
-      glow: DEFAULT_TUNING.wallGlow,
-      glowRadius: DEFAULT_TUNING.wallGlowRadius,
+      thickness: DEFAULT_TUNING.wallThickness,
+      glow: neon ? DEFAULT_TUNING.wallGlow : 0,
+      glowRadius: neon ? DEFAULT_TUNING.wallGlowRadius : 0,
       cornerRadius: WALL_CORNER_RADIUS,
       background: MAZE_BACKGROUND_COLOR,
     };
@@ -40,7 +44,7 @@ export function wallGlowFilter(
   if (style.glow <= 0 || style.glowRadius <= 0) {
     return null;
   }
-  return { outerStrength: style.glow * WALL_GLOW_MAX_OUTER, distance: style.glowRadius };
+  return { outerStrength: style.glow, distance: style.glowRadius };
 }
 
 export function sameWallStyle(a: WallStyle | null, b: WallStyle | null): boolean {
