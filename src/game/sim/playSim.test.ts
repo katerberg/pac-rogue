@@ -20,8 +20,10 @@ import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
+import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
+import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
   DEFY_DEATH_MS,
@@ -1872,6 +1874,28 @@ describe("Turn Tuning", () => {
     runFrames(sim, 40, { keys: held("up") });
     expect(sim.snapshot().timers.turnBoostMs).toBe(0);
     expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
+  });
+
+  it("keeps Pac-Man gold through a turn flash while invulnerable", () => {
+    const { sim, turn } = setup(true);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], invulnRemainingMs: INVULN_MS };
+    cruiseFrom(sim, turn, 2);
+    placeAhead(sim, turn, 6);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().timers.turnFlashMs > 0, 60, cruise);
+    runFrames(sim, 3, { keys: held("up") });
+    const opts = sim.renderOptions();
+    const flash = turnFlashPulse(opts.turnFlashRemainingMs ?? 0);
+    expect(opts.playerInvulnRemainingMs).toBeGreaterThan(0);
+    expect(flash.brighten).toBeGreaterThan(0);
+    expect(
+      playerTint({
+        wallPassOn: opts.wallPassActive === true,
+        invulnRemainingMs: opts.playerInvulnRemainingMs ?? 0,
+        nowMs: 0,
+        flashBrighten: flash.brighten,
+      }),
+    ).toEqual({ color: brightenColor(PLAYER_INVULN_TINT, flash.brighten), mode: "multiply" });
   });
 
   it("Turn Tuning+ rewards a tap 10px early and holds the boost for 750ms", () => {
