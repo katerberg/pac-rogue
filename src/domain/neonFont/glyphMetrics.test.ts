@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { NEON_TRACKING, glyphInkXBounds, neonGlyphMetrics, pathInkXBounds } from "./glyphGrammar";
+import {
+  NEON_GLYPH_ADVANCE,
+  NEON_TRACKING,
+  glyphInkXBounds,
+  neonGlyphMetrics,
+  neonKern,
+  neonStringAdvance,
+  pathInkXBounds,
+} from "./glyphGrammar";
 import { neonGlyph } from "./glyphs";
 import { DEFAULT_TUNING } from "../tuning";
 
@@ -39,12 +47,21 @@ describe("neon glyph metrics", () => {
     expect(loose.advance - base.advance).toBeCloseTo(0.4, 5);
   });
 
-  it("uses optical insets so open-sided letters advance tighter than full rounds", () => {
+  it("kerns open-sided pairs without touching unrelated neighbors", () => {
+    expect(neonKern("T", "A")).toBeLessThan(0);
+    expect(neonKern("T", "-")).toBeLessThan(0);
+    expect(neonKern("A", "V")).toBeLessThan(0);
+    expect(neonKern("D", "O")).toBe(0);
+    expect(neonKern("M", "A")).toBe(0);
+  });
+
+  it("kerns DOT-MAN so the hyphen pair is tighter than unkerned DOTXMAN", () => {
     const thickness = DEFAULT_TUNING.fontThickness;
-    const tee = neonGlyphMetrics(neonGlyph("T")!, thickness, 0);
-    const oh = neonGlyphMetrics(neonGlyph("O")!, thickness, 0);
-    const el = neonGlyphMetrics(neonGlyph("L")!, thickness, 0);
-    expect(tee.advance).toBeLessThan(oh.advance - 0.3);
-    expect(el.advance).toBeLessThan(oh.advance - 0.2);
+    const withHyphen = neonStringAdvance("DOT-MAN", thickness, 0, neonGlyph);
+    const unkernedShape = neonStringAdvance("DOTXMAN", thickness, 0, neonGlyph);
+    expect(neonKern("T", "-")).toBeLessThan(0);
+    // Hyphen is narrower than X; kerned title should not balloon past a 7-letter word of rounds.
+    expect(withHyphen).toBeLessThan(unkernedShape);
+    expect(withHyphen).toBeGreaterThan(6 * NEON_GLYPH_ADVANCE);
   });
 });

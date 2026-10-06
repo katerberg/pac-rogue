@@ -8,18 +8,13 @@ export const NEON_GLYPH_HEIGHT = 4;
  */
 export const NEON_GLYPH_ADVANCE = 2.4;
 /** Optical gap between adjacent stroke outsides at default tracking (viewBox units). */
-export const NEON_TRACKING = 0.28;
+export const NEON_TRACKING = 0.22;
 
 export type NeonGlyph = {
   /** SVG path `d` strings; one subpath each (H/V + quarter arcs only). */
   readonly strands: readonly string[];
   /** Used for space / empty glyphs; ink glyphs ignore this in favor of metrics. */
   readonly advance: number;
-  /**
-   * Optional optical x-bounds (viewBox units). When set, metrics use these instead of
-   * geometric path ink so open-sided letters (T, L, …) can tuck neighbors under bars.
-   */
-  readonly opticalInk?: NeonGlyphInk;
 };
 
 export type NeonGlyphInk = { minX: number; maxX: number };
@@ -247,15 +242,98 @@ export function neonGlyphMetrics(
       ink: { minX: 0, maxX: 0 },
     };
   }
-  const geometric = glyphInkXBounds(glyph);
-  const ink = glyph.opticalInk ?? geometric;
+  const ink = glyphInkXBounds(glyph);
   const inkWidth = Math.max(ink.maxX - ink.minX, 0.05);
   const stroke = Math.max(0, thickness) * NEON_GLYPH_HEIGHT;
   const pad = stroke / 2 + (NEON_TRACKING + letterSpacing) / 2;
-  // Draw from geometric path coords; shift so optical ink sits on the bearing box.
   return {
     drawShift: pad - ink.minX,
     advance: inkWidth + 2 * pad,
     ink,
   };
+}
+
+/**
+ * Pair kerning in viewBox units (added to the left of `right` after `left`'s advance).
+ * Negative values tuck open-sided pairs; keep modest so geometric ink never collides.
+ */
+const NEON_KERN_PAIRS: Readonly<Record<string, number>> = {
+  TA: -0.22,
+  Ta: -0.18,
+  TC: -0.12,
+  TG: -0.12,
+  TO: -0.12,
+  To: -0.1,
+  TQ: -0.12,
+  TV: -0.22,
+  TW: -0.18,
+  TY: -0.22,
+  "T.": -0.28,
+  "T,": -0.28,
+  "T-": -0.32,
+  FA: -0.22,
+  Fa: -0.18,
+  "F.": -0.28,
+  "F,": -0.28,
+  PA: -0.18,
+  Pa: -0.15,
+  "P.": -0.25,
+  "P,": -0.25,
+  LT: -0.18,
+  LV: -0.15,
+  LY: -0.15,
+  "L-": -0.12,
+  AV: -0.18,
+  Av: -0.15,
+  AW: -0.15,
+  AY: -0.18,
+  "A-": -0.12,
+  VA: -0.18,
+  Va: -0.15,
+  "V.": -0.25,
+  "V,": -0.25,
+  "V-": -0.18,
+  YA: -0.18,
+  Ya: -0.15,
+  "Y.": -0.25,
+  "Y,": -0.25,
+  "Y-": -0.18,
+  "r.": -0.12,
+  "r,": -0.12,
+  "7-": -0.12,
+};
+
+export function neonKern(left: string, right: string): number {
+  if (left.length === 0 || right.length === 0) {
+    return 0;
+  }
+  return NEON_KERN_PAIRS[left + right] ?? 0;
+}
+
+/** Total advance of a string in viewBox units (for tests / layout math). */
+export function neonStringAdvance(
+  text: string,
+  thickness: number,
+  letterSpacing: number,
+  glyphFor: (ch: string) => NeonGlyph | undefined = () => undefined,
+): number {
+  let total = 0;
+  let prev = "";
+  for (const ch of text) {
+    if (ch === "\n") {
+      prev = "";
+      continue;
+    }
+    if (prev !== "") {
+      total += neonKern(prev, ch);
+    }
+    const glyph = glyphFor(ch);
+    if (glyph === undefined) {
+      total += NEON_GLYPH_WIDTH * 0.6;
+    } else {
+      total += neonGlyphMetrics(glyph, thickness, letterSpacing).advance;
+    }
+    prev = ch;
+  }
+  return total;
 }

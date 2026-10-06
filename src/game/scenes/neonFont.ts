@@ -5,6 +5,7 @@ import {
   NEON_GLYPH_HEIGHT,
   NEON_GLYPH_WIDTH,
   neonGlyphMetrics,
+  neonKern,
   type NeonGlyph,
 } from "../../domain/neonFont/glyphGrammar";
 import { neonGlyph } from "../../domain/neonFont/glyphs";
@@ -248,8 +249,12 @@ export class NeonText extends Phaser.GameObjects.Container {
 
     for (const line of lines) {
       let cursorX = 0;
+      let prevChar = "";
       for (const char of line) {
         const glyph = neonGlyph(char);
+        if (prevChar !== "") {
+          cursorX += neonKern(prevChar, char) * unit;
+        }
         if (glyph === undefined) {
           ensurePixelFont(this.scene);
           const fb = this.scene.add
@@ -259,11 +264,13 @@ export class NeonText extends Phaser.GameObjects.Container {
           this.add(fb);
           this.fallbackChars.push(fb);
           cursorX += this.fontSize * 0.6;
+          prevChar = char;
           continue;
         }
         const metrics = neonGlyphMetrics(glyph, this.look.thickness, this.look.letterSpacing);
         if (glyph.strands.length === 0) {
           cursorX += metrics.advance * unit;
+          prevChar = char;
           continue;
         }
         const art = glyphArtFor(char, glyph);
@@ -294,6 +301,7 @@ export class NeonText extends Phaser.GameObjects.Container {
           );
         }
         cursorX += metrics.advance * unit;
+        prevChar = char;
       }
       maxWidth = Math.max(maxWidth, cursorX);
       cursorY += this.fontSize * heightScale + this.lineSpacingPx;
