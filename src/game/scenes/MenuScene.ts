@@ -58,15 +58,23 @@ export class MenuScene extends Phaser.Scene {
 
     const startY = 280;
     const gap = 48;
+    // Fixed hit strips at option centers — neon advances vary by glyph, so text
+    // bounds alone are a brittle click target for probes and fat-finger UX.
+    const hitW = 280;
+    const hitH = 40;
     OPTIONS.forEach((option, index) => {
       const center = { x: PLAYFIELD_WIDTH / 2, y: startY + index * gap };
       const text = addGameText(this, center.x, center.y, option.label, MENU_OPTION_FONT_SIZE);
+      const hit = this.add
+        .zone(center.x, center.y, hitW, hitH)
+        .setOrigin(0.5, 0.5)
+        .setInteractive({ useHandCursor: true });
 
-      text.on("pointerover", () => {
+      hit.on("pointerover", () => {
         this.selectedIndex = index;
         this.refreshOptions();
       });
-      text.on("pointerdown", () => {
+      hit.on("pointerdown", () => {
         this.selectedIndex = index;
         this.activateSelected();
       });
@@ -76,9 +84,6 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.refreshOptions();
-    for (const text of this.optionTexts) {
-      text.setInteractive({ useHandCursor: true });
-    }
 
     if (this.input.keyboard === null) {
       return;
