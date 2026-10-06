@@ -28,6 +28,7 @@ import {
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
+import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
@@ -62,8 +63,6 @@ const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
 export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 const PLAYER_INVULN_TINT = 0xc48a00;
-const PLAYER_INVULN_BLINK_MS = 100;
-const PLAYER_INVULN_URGENCY_MS = 1000;
 export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -234,6 +233,7 @@ function ensurePlayerVisual(
 
 export type RenderOptions = {
   frozenGhostEid?: number | null;
+  frozenGhostRemainingMs?: number;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
   wallPassLoopActive?: boolean;
@@ -343,13 +343,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const wallPassOn = opts?.wallPassActive === true;
     const twinSolids =
       opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
-    const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
     const playerInvulnTintOn =
-      !wallPassOn &&
-      invulnRemainingMs > 0 &&
-      (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
-        Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
+      !wallPassOn && expiryTintOn(opts?.playerInvulnRemainingMs ?? 0, scene.time.now);
+    const frozenTintOn = expiryTintOn(opts?.frozenGhostRemainingMs ?? 0, scene.time.now);
     const playerTint =
       turnFlash.brighten > 0
         ? { color: grayColor(turnFlash.brighten), mode: Phaser.TintModes.ADD }
@@ -471,7 +468,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       if (ghostTexture !== undefined) {
         const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
         const tint =
-          frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse
+          frozenTintOn && eid === frozenEid && phase !== GHOST_PHASE.inHouse
             ? GHOST_FROZEN_TINT
             : null;
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
