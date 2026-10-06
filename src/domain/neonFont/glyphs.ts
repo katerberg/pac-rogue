@@ -26,7 +26,6 @@ export const NEON_DIGIT_PATHS: Record<string, readonly string[]> = {
   "9": ["M0 4 L1 4 A1 1 0 0 0 2 3 L2 1 A1 1 0 0 0 1 0 A1 1 0 0 0 0 1 L0 2 A1 1 0 0 0 1 3 L2 3"],
 };
 
-/** Replacement neon G: open bowl with right stem curling up into the center. */
 export const NEON_G_REPLACEMENT: readonly string[] = [
   "M2 1 A1 1 0 0 0 1 0 A1 1 0 0 0 0 1 L0 3 A1 1 0 0 0 1 4 A1 1 0 0 0 2 3 L2 2 L1.1 2 L1.1 1.2",
 ];

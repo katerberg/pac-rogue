@@ -1,5 +1,3 @@
-/** Shared neon bar-curve glyph geometry (viewBox units). */
-
 export const NEON_GLYPH_WIDTH = 2;
 export const NEON_GLYPH_HEIGHT = 4;
 /** Optical gap between adjacent stroke outsides at default tracking (viewBox units). */
@@ -23,10 +21,6 @@ export type NeonGlyphMetrics = {
 
 const EPS = 1e-6;
 
-/**
- * Lint a path `d` for the bar-curve grammar: only M/L/H/V/A/Z, L/H/V must stay
- * axis-aligned, arcs must be circular quarter turns (rx === ry, rotation 0, large-arc 0).
- */
 function tokenizePath(d: string): (string | number)[] {
   const tokens: (string | number)[] = [];
   const pattern = /([A-Za-z])|(-?(?:\d*\.\d+|\d+\.?)(?:e[-+]?\d+)?)|([\s,]+)|(.)/gi;
@@ -42,6 +36,10 @@ function tokenizePath(d: string): (string | number)[] {
   return tokens;
 }
 
+/**
+ * Lint a path `d` for the bar-curve grammar: only M/L/H/V/A/Z, L/H/V must stay
+ * axis-aligned, arcs must be circular quarter turns (rx === ry, rotation 0, large-arc 0).
+ */
 export function assertBarCurvePath(d: string, label: string): void {
   const tokens = tokenizePath(d);
   let i = 0;
