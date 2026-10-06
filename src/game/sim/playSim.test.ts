@@ -3832,3 +3832,263 @@ describe("Echo", () => {
     expect(sim.snapshot().timers.echoesMs).toEqual([]);
   });
 });
+
+describe("Hunter", () => {
+  const LEFT = { keys: held("left") };
+
+  function startHunter(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim(
+      { level: 2, maze: "maze1", infiniteLives: true, enableUpgrades, ...overrides },
+      "hunter",
+    );
+  }
+
+  function ghosts(sim: PlaySim): number[] {
+    return [...query(sim.world, [Ghost, Position])];
+  }
+
+  function outOfHouse(sim: PlaySim): number[] {
+    return ghosts(sim).filter((eid) => GhostPhase.value[eid] !== GHOST_PHASE.inHouse);
+  }
+
+  function letGhostsOut(sim: PlaySim, count: number): void {
+    (sim as unknown as { options: PlayOptions }).options.godMode = true;
+    runUntil(sim, () => outOfHouse(sim).length >= count, 60 * 15, LEFT);
+    (sim as unknown as { options: PlayOptions }).options.godMode = false;
+  }
+
+  function chompPowerPellet(sim: PlaySim): SimEvent[] {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    return runFrames(sim, 1);
+  }
+
+  function ghostOnto(sim: PlaySim, eid: number): SimEvent[] {
+    const player = playerEid(sim);
+    Position.x[eid] = Position.x[player]!;
+    Position.y[eid] = Position.y[player]!;
+    return runFrames(sim, 1);
+  }
+
+  it("frightens every ghost out of the house on a chomp and slows it to 0.6x speed", () => {
+    const plain = startHunter([]);
+    const sim = startHunter(["powerPelletHunter"]);
+    letGhostsOut(plain, 2);
+    letGhostsOut(sim, 2);
+    const out = outOfHouse(sim);
+    const speedOf = (of: PlaySim) => {
+      runFrames(of, 1);
+      return Speed.px[out[0]!]!;
+    };
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.frightenedMs).toBe(5500);
+    expect(sim.renderOptions().frightenedGhosts?.eids.sort()).toEqual(out.sort());
+    expect(sim.snapshot().frightenedGhosts).toHaveLength(out.length);
+    const frightenedSpeed = speedOf(sim);
+    chompPowerPellet(plain);
+    expect(plain.snapshot().frightenedGhosts).toEqual([]);
+    expect(frightenedSpeed).toBeCloseTo(speedOf(plain) * 0.6);
+  });
+
+  it("eats a frightened ghost on touch: home with a glide, 75 then 150 then a full bar", () => {
+    const sim = startHunter(["powerPelletHunter"]);
+    letGhostsOut(sim, 3);
+    chompPowerPellet(sim);
+    const [first, second, third] = outOfHouse(sim);
+    const charge = sim.snapshot().bonus.charge;
+    const quarters = sim.snapshot().quarters;
+
+    const events = ghostOnto(sim, first!);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(GhostPhase.value[first!]).toBe(GHOST_PHASE.inHouse);
+    expect(sim.renderOptions().ghostWarpGlides?.[first!]).toBeDefined();
+    expect(events).toContainEqual({ type: "sfx", id: "pelletMunch2" });
+    expect(sim.snapshot().bonus.charge).toBe(charge + 75);
+
+    ghostOnto(sim, second!);
+    expect(sim.snapshot().bonus.charge).toBe(charge + 225);
+    ghostOnto(sim, third!);
+    expect(sim.snapshot().quarters).toBe(quarters + 1);
+    expect(sim.snapshot().bonus.charge).toBe(charge + 225);
+    expect(sim.snapshot().ghostsEatenThisFright).toBe(3);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("eating the frozen ghost thaws it", () => {
+    const sim = startHunter(["powerPelletHunter", "powerPelletFreeze"]);
+    letGhostsOut(sim, 1);
+    chompPowerPellet(sim);
+    const frozen = frozenGhostEid(sim["runUpgrades"])!;
+    expect(sim.renderOptions().frightenedGhosts?.eids).toContain(frozen);
+    ghostOnto(sim, frozen);
+    expect(GhostPhase.value[frozen]).toBe(GHOST_PHASE.inHouse);
+    expect(frozenGhostEid(sim["runUpgrades"])).toBeNull();
+  });
+
+  it("does not eat a ghost still gliding to its Scatter Burst corner", () => {
+    const sim = startHunter(["powerPelletHunter", "powerPelletScatterBurst"], { godMode: true });
+    runUntil(
+      sim,
+      () => ghosts(sim).some((eid) => GhostPhase.value[eid] === GHOST_PHASE.active),
+      60 * 15,
+      LEFT,
+    );
+    chompPowerPellet(sim);
+    const [ghost] = outOfHouse(sim).filter(
+      (eid) => sim.renderOptions().ghostWarpGlides?.[eid] !== undefined,
+    );
+    expect(ghost).toBeDefined();
+    ghostOnto(sim, ghost!);
+    expect(GhostPhase.value[ghost!]).not.toBe(GHOST_PHASE.inHouse);
+    expect(sim.snapshot().ghostsEatenThisFright).toBe(0);
+  });
+
+  it("eats through Ghost Proof", () => {
+    const sim = startHunter(["powerPelletHunter", "powerPelletInvuln"]);
+    letGhostsOut(sim, 1);
+    chompPowerPellet(sim);
+    const [ghost] = outOfHouse(sim);
+    ghostOnto(sim, ghost!);
+    expect(GhostPhase.value[ghost!]).toBe(GHOST_PHASE.inHouse);
+    expect(sim.snapshot().ghostsEatenThisFright).toBe(1);
+  });
+
+  it("an eaten ghost comes back out normal and catches again, until the next chomp", () => {
+    const sim = startHunter(["powerPelletHunter"]);
+    letGhostsOut(sim, 1);
+    chompPowerPellet(sim);
+    const [ghost] = outOfHouse(sim);
+    ghostOnto(sim, ghost!);
+    (sim as unknown as { options: PlayOptions }).options.godMode = true;
+    runUntil(sim, () => GhostPhase.value[ghost!] !== GHOST_PHASE.inHouse, 60 * 5, LEFT);
+    expect(sim.snapshot().frightenedGhosts).not.toContain(ghostName(sim.world, ghost!));
+    (sim as unknown as { options: PlayOptions }).options.godMode = false;
+
+    chompPowerPellet(sim);
+    expect(sim.renderOptions().frightenedGhosts?.eids).toContain(ghost);
+    expect(sim.snapshot().ghostsEatenThisFright).toBe(0);
+  });
+
+  it("a touch kills again once the fright runs out", () => {
+    const sim = startHunter(["powerPelletHunter"]);
+    letGhostsOut(sim, 1);
+    chompPowerPellet(sim);
+    const [ghost] = outOfHouse(sim);
+    runUntil(sim, () => sim.snapshot().timers.frightenedMs === 0, 60 * 7);
+    expect(sim.snapshot().frightenedGhosts).toEqual([]);
+    ghostOnto(sim, ghost!);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("without Hunter a power pellet frightens nothing and a touch kills", () => {
+    const sim = startHunter([]);
+    letGhostsOut(sim, 1);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.frightenedMs).toBe(0);
+    ghostOnto(sim, outOfHouse(sim)[0]!);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("Hunter+ keeps an eaten ghost home until the fright ends, at 6s on any level", () => {
+    const sim = startHunter(["powerPelletHunterPlus"], { level: 5 });
+    letGhostsOut(sim, 1);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.frightenedMs).toBe(6000);
+    const [ghost] = outOfHouse(sim);
+    ghostOnto(sim, ghost!);
+    expect(sim.snapshot().hunterHeld).toEqual([ghostName(sim.world, ghost!)]);
+    (sim as unknown as { options: PlayOptions }).options.godMode = true;
+    runUntil(sim, () => sim.snapshot().timers.frightenedMs === 0, 60 * 7, LEFT);
+    expect(GhostPhase.value[ghost!]).toBe(GHOST_PHASE.inHouse);
+    expect(sim.snapshot().hunterHeld).toEqual([]);
+    runUntil(sim, () => GhostPhase.value[ghost!] !== GHOST_PHASE.inHouse, 60 * 5, LEFT);
+  });
+
+  it("base Hunter shortens to 4s by level 5, and Overcharge doubles it", () => {
+    const base = startHunter(["powerPelletHunter"], { level: 5 });
+    chompPowerPellet(base);
+    expect(base.snapshot().timers.frightenedMs).toBe(4000);
+    const overcharged = startHunter(["powerPelletHunter", "passiveOvercharge"], { level: 5 });
+    chompPowerPellet(overcharged);
+    expect(overcharged.snapshot().timers.frightenedMs).toBe(8000);
+  });
+
+  it("Shield Pellets banks the chomp instead of frightening", () => {
+    const sim = startHunter(["powerPelletHunter", "passiveShieldPellets"]);
+    letGhostsOut(sim, 1);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.frightenedMs).toBe(0);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+  });
+
+  it("clears the fright on a death", () => {
+    const sim = startHunter(["powerPelletHunter"]);
+    letGhostsOut(sim, 2);
+    chompPowerPellet(sim);
+    runUntil(sim, () => sim.snapshot().timers.frightenedMs === 0, 60 * 7);
+    ghostOnto(sim, outOfHouse(sim)[0]!);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().frightenedGhosts).toEqual([]);
+  });
+
+  it("frightens only the 4 closest Blinkys on the Blinky Swarm", () => {
+    const sim = new PlaySim(
+      {
+        ...defaultPlayOptions(),
+        level: 9,
+        boss: "blinkySwarm",
+        enableUpgrades: ["powerPelletHunter"],
+        godMode: true,
+      },
+      "hunter",
+      resolveTuning({ bossSwarmStartGhosts: 6 }),
+    );
+    sim.start();
+    const target = regularPelletEids(sim)[0]!;
+    convertPelletToPower(sim.world, target);
+    ghosts(sim).forEach((eid, i) => {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+      Position.x[eid] = Position.x[target]! + TILE_SIZE * (i + 2);
+      Position.y[eid] = Position.y[target]!;
+    });
+    teleportPlayer(sim, Position.x[target]!, Position.y[target]!);
+    runFrames(sim, 1);
+    const frightened = sim.renderOptions().frightenedGhosts?.eids ?? [];
+    expect(frightened).toHaveLength(4);
+    expect(frightened.sort()).toEqual(ghosts(sim).slice(0, 4).sort());
+  });
+
+  it("frightens the Chained Ghosts, but their lightning still kills", () => {
+    const sim = startSim(
+      {
+        level: 9,
+        boss: "chainedGhosts",
+        infiniteLives: true,
+        enableUpgrades: ["powerPelletHunter"],
+      },
+      "hunter",
+    );
+    const chained = [...query(sim.world, [ChainedGhost, Ghost])];
+    const ends = chained.filter((eid) => ChainedGhost.pair[eid] === CHAIN_PAIR.blinkyClyde);
+    const target = regularPelletEids(sim)[0]!;
+    convertPelletToPower(sim.world, target);
+    chained.forEach((eid, i) => {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+      Position.x[eid] = cellCenterX(1 + i);
+      Position.y[eid] = cellCenterY(1);
+    });
+    teleportPlayer(sim, Position.x[target]!, Position.y[target]!);
+    runFrames(sim, 1);
+    expect(sim.renderOptions().frightenedGhosts?.eids.sort()).toEqual(chained.sort());
+
+    const player = playerEid(sim);
+    const row = worldToRow(Position.y[player]!);
+    const col = worldToCol(Position.x[player]!);
+    ends.forEach((eid, i) => {
+      Position.x[eid] = cellCenterX(col + (i === 0 ? -4 : 4));
+      Position.y[eid] = cellCenterY(row) + TILE_SIZE * 3 * (i === 0 ? -1 : 1);
+    });
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+});

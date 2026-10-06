@@ -92,7 +92,7 @@ export type GhostReleaseAdds = {
   delayAddMs?: number;
   clydePelletAdd?: number;
   tuning?: Tuning;
-  heldGhostEid?: number | null;
+  heldGhostEids?: readonly number[];
 };
 
 export function isTimeGatedRelease(kind: GhostKindId, afterLifeRelease: boolean): boolean {

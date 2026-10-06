@@ -104,6 +104,12 @@ import {
   type UpgradeDef,
   type UpgradeId,
   remoteTransferEvery,
+  eatFrightenedGhost,
+  NO_FRIGHT,
+  frightenedGhostEids,
+  frightenedGhosts,
+  hunterHoldsEaten,
+  tickFrightened,
 } from "../../domain/upgrades";
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { Drawable } from "../components/Drawable";
@@ -137,7 +143,8 @@ import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../sys
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
 import { playerFacing, playerPose } from "../systems/playerDirection";
-import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
+import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
+import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
@@ -147,7 +154,12 @@ import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
-import { tickWarpGlide, type WarpGlide, warpGlideSprites } from "../../domain/warpGlide";
+import {
+  startWarpGlide,
+  tickWarpGlide,
+  type WarpGlide,
+  warpGlideSprites,
+} from "../../domain/warpGlide";
 import { speedTrailSprites, tickSpeedTrail, type SpeedTrail } from "../../domain/speedTrail";
 import { warpPlayerFarthestFromGhosts } from "../systems/playerWarp";
 import {
@@ -327,6 +339,7 @@ export class LearnSim {
     this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
     this.fireDueEchoes(delta);
     this.tickHaunt(delta);
+    this.tickFright(delta);
     this.turnTuning.tick(delta);
     this.catchGraceMs = Math.max(0, this.catchGraceMs - delta);
     this.releaseHeldGhost(delta, anyKeyHeld(keys));
@@ -358,6 +371,7 @@ export class LearnSim {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
       heldGhostEids: heldGhostEids(this.ghostCornerWarps),
+      frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
     const facingBeforeMove = playerFacing(this.world);
@@ -454,11 +468,20 @@ export class LearnSim {
       NO_ELROY_PELLETS,
       undefined,
       ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+      frightenedGhostEids(this.learnUpgrades),
     );
+    frightenedGhostAi(
+      this.world,
+      frightenedGhostEids(this.learnUpgrades),
+      this.random.stream("frightened"),
+      ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+    );
+    this.eatFrightenedGhosts();
 
     const catchOptions = {
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      edibleGhostEids: frightenedGhostEids(this.learnUpgrades),
       playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
     };
     const caught = this.catchDemoOwned() ? catchPlayer(this.world, catchOptions) : null;
@@ -489,6 +512,7 @@ export class LearnSim {
           : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
+        frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         lineArtDrawableIds: lineArtGhostKinds(
           this.ghostStyle,
           Array.from(
@@ -587,7 +611,9 @@ export class LearnSim {
     const before = this.learnUpgrades.owned;
     const wasScheduled = this.fruitScheduled();
     const lifetimeBefore = fruitLifetimeMultiplier(before);
+    const hunterHeld = this.learnUpgrades.hunterHeldEids;
     this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
+    this.freeHunterHeld(hunterHeld);
     const after = this.learnUpgrades.owned;
     if (!hasUpgrade(after, "passiveHaunting")) {
       this.releaseHauntedGhost();
@@ -679,6 +705,16 @@ export class LearnSim {
     if (echoBases === undefined && powerRemoved > 0) {
       this.learnUpgrades = queueEcho(this.learnUpgrades, this.random.stream("echo"));
     }
+    if (powerEffects.frightenGhosts) {
+      this.learnUpgrades = {
+        ...this.learnUpgrades,
+        frightenedGhostEids: frightenGhosts(
+          this.world,
+          null,
+          ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+        ),
+      };
+    }
     if (powerEffects.freezeClosestMs !== null) {
       this.learnUpgrades = freezeClosestGhost(
         this.world,
@@ -761,6 +797,50 @@ export class LearnSim {
     this.learnUpgrades = tickHaunt(this.learnUpgrades, delta);
     if (haunted !== null && hauntedGhostEid(this.learnUpgrades) === null) {
       this.freeGhost(haunted);
+    }
+  }
+
+  private tickFright(delta: number): void {
+    const held = this.learnUpgrades.hunterHeldEids;
+    this.learnUpgrades = tickFrightened(this.learnUpgrades, delta);
+    this.freeHunterHeld(held);
+  }
+
+  private freeHunterHeld(wasHeld: readonly number[]): void {
+    for (const eid of wasHeld) {
+      if (!this.learnUpgrades.hunterHeldEids.includes(eid)) {
+        this.freeGhost(eid);
+      }
+    }
+  }
+
+  private eatFrightenedGhosts(): void {
+    const gliding = glidingGhostEids(this.ghostCornerWarps);
+    for (const eid of edibleGhostsTouchingPlayer(
+      this.world,
+      new Set([...frightenedGhostEids(this.learnUpgrades)].filter((eid) => !gliding.has(eid))),
+    )) {
+      if (eid === frozenGhostEid(this.learnUpgrades)) {
+        this.learnUpgrades = { ...this.learnUpgrades, freezeRemainingMs: 0, frozenGhostEid: null };
+      }
+      const from = { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+      const holds = hunterHoldsEaten(this.learnUpgrades.owned);
+      const ate = eatFrightenedGhost(this.learnUpgrades, eid, holds);
+      this.learnUpgrades = ate.state;
+      this.seatGhostAtExit(eid);
+      this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, [
+        {
+          eid,
+          glide: startWarpGlide(from, { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 }),
+          holdMs: 0,
+        },
+      ]);
+      if (!holds) {
+        this.recallHoldGhostEids.push(eid);
+        this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
+      }
+      this.runState.addBonusCharge(ate.charge);
+      this.popup(`+${ate.charge} BONUS`);
     }
   }
 
@@ -1111,5 +1191,8 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
     shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
+    ...(hasField("frightenGhostsMs")
+      ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
+      : NO_FRIGHT),
   };
 }
