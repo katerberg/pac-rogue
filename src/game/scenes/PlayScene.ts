@@ -609,20 +609,19 @@ export class PlayScene extends Phaser.Scene {
     this.clearLevelBanner();
     const x = PLAYFIELD_WIDTH / 2;
     const y = PLAYFIELD_HEIGHT / 2;
-    const banner = addGameText(this, x, y, "BOSS", MENU_TITLE_FONT_SIZE * 2, BOSS_BANNER_COLOR)
-      .setDepth(800)
-      .setScale(BOSS_BANNER_START_SCALE);
-    placeGameText(banner, x, y, 0.5, 0.5);
+    const banner = addGameText(this, 0, 0, "BOSS", MENU_TITLE_FONT_SIZE * 2, BOSS_BANNER_COLOR);
+    placeGameText(banner, 0, 0, 0.5, 0.5);
+    const wrap = this.add.container(x, y, [banner]).setDepth(800).setScale(BOSS_BANNER_START_SCALE);
     this.levelBannerText = banner;
     this.tweens.add({
-      targets: banner,
+      targets: wrap,
       scale: 1,
       duration: BOSS_BANNER_SLAM_MS,
       ease: "Cubic.easeIn",
       onComplete: () => {
         this.shakeCamera();
         this.tweens.add({
-          targets: banner,
+          targets: wrap,
           alpha: 0,
           delay: BOSS_BANNER_HOLD_MS,
           duration: BOSS_BANNER_FADE_MS,
@@ -649,7 +648,16 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private clearLevelBanner(): void {
-    this.levelBannerText?.destroy();
+    const text = this.levelBannerText;
+    if (text === null) {
+      return;
+    }
+    const parent = text.parentContainer;
+    if (parent !== null) {
+      parent.destroy();
+    } else {
+      text.destroy();
+    }
     this.levelBannerText = null;
   }
 
