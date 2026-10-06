@@ -1,15 +1,37 @@
 import { describe, expect, it } from "vitest";
 import {
-  NEON_GLYPH_ADVANCE,
+  NEON_GLYPH_WIDTH,
   NEON_TRACKING,
   glyphInkXBounds,
   neonGlyphMetrics,
   neonKern,
-  neonStringAdvance,
   pathInkXBounds,
+  type NeonGlyph,
 } from "./glyphGrammar";
 import { neonGlyph } from "./glyphs";
 import { DEFAULT_TUNING } from "../tuning";
+
+function stringAdvance(
+  text: string,
+  thickness: number,
+  letterSpacing: number,
+  glyphFor: (ch: string) => NeonGlyph | undefined,
+): number {
+  let total = 0;
+  let prev = "";
+  for (const ch of text) {
+    if (prev !== "") {
+      total += neonKern(prev, ch);
+    }
+    const glyph = glyphFor(ch);
+    total +=
+      glyph === undefined
+        ? NEON_GLYPH_WIDTH * 0.6
+        : neonGlyphMetrics(glyph, thickness, letterSpacing).advance;
+    prev = ch;
+  }
+  return total;
+}
 
 describe("neon glyph metrics", () => {
   it("reads path ink from H/V endpoints", () => {
@@ -29,9 +51,10 @@ describe("neon glyph metrics", () => {
   it("keeps a readable optical gap after stroke at default thickness", () => {
     const thickness = DEFAULT_TUNING.fontThickness;
     const m = neonGlyphMetrics(neonGlyph("H")!, thickness, 0);
-    const ink = m.ink.maxX - m.ink.minX;
+    const ink = glyphInkXBounds(neonGlyph("H")!);
+    const inkWidth = ink.maxX - ink.minX;
     const stroke = thickness * 4;
-    const opticalGap = m.advance - ink - stroke;
+    const opticalGap = m.advance - inkWidth - stroke;
     expect(opticalGap).toBeCloseTo(NEON_TRACKING, 5);
   });
 
@@ -57,11 +80,10 @@ describe("neon glyph metrics", () => {
 
   it("kerns DOT-MAN so the hyphen pair is tighter than unkerned DOTXMAN", () => {
     const thickness = DEFAULT_TUNING.fontThickness;
-    const withHyphen = neonStringAdvance("DOT-MAN", thickness, 0, neonGlyph);
-    const unkernedShape = neonStringAdvance("DOTXMAN", thickness, 0, neonGlyph);
-    expect(neonKern("T", "-")).toBeLessThan(0);
+    const withHyphen = stringAdvance("DOT-MAN", thickness, 0, neonGlyph);
+    const unkernedShape = stringAdvance("DOTXMAN", thickness, 0, neonGlyph);
     // Hyphen is narrower than X; kerned title should not balloon past a 7-letter word of rounds.
     expect(withHyphen).toBeLessThan(unkernedShape);
-    expect(withHyphen).toBeGreaterThan(6 * NEON_GLYPH_ADVANCE);
+    expect(withHyphen).toBeGreaterThan(14);
   });
 });

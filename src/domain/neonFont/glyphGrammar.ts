@@ -2,19 +2,14 @@
 
 export const NEON_GLYPH_WIDTH = 2;
 export const NEON_GLYPH_HEIGHT = 4;
-/**
- * Fallback advance when a glyph has no ink (e.g. space). Layout prefers
- * {@link neonGlyphMetrics} from ink bounds + side bearings.
- */
-export const NEON_GLYPH_ADVANCE = 2.4;
 /** Optical gap between adjacent stroke outsides at default tracking (viewBox units). */
 export const NEON_TRACKING = 0.22;
 
 export type NeonGlyph = {
   /** SVG path `d` strings; one subpath each (H/V + quarter arcs only). */
   readonly strands: readonly string[];
-  /** Used for space / empty glyphs; ink glyphs ignore this in favor of metrics. */
-  readonly advance: number;
+  /** Space / empty glyphs only; ink glyphs advance via {@link neonGlyphMetrics}. */
+  readonly advance?: number;
 };
 
 export type NeonGlyphInk = { minX: number; maxX: number };
@@ -24,7 +19,6 @@ export type NeonGlyphMetrics = {
   readonly drawShift: number;
   /** Advance to next glyph origin (viewBox units). */
   readonly advance: number;
-  readonly ink: NeonGlyphInk;
 };
 
 const EPS = 1e-6;
@@ -238,8 +232,7 @@ export function neonGlyphMetrics(
   if (glyph.strands.length === 0) {
     return {
       drawShift: 0,
-      advance: Math.max(0, glyph.advance + letterSpacing),
-      ink: { minX: 0, maxX: 0 },
+      advance: Math.max(0, (glyph.advance ?? 0) + letterSpacing),
     };
   }
   const ink = glyphInkXBounds(glyph);
@@ -249,7 +242,6 @@ export function neonGlyphMetrics(
   return {
     drawShift: pad - ink.minX,
     advance: inkWidth + 2 * pad,
-    ink,
   };
 }
 
@@ -304,36 +296,5 @@ const NEON_KERN_PAIRS: Readonly<Record<string, number>> = {
 };
 
 export function neonKern(left: string, right: string): number {
-  if (left.length === 0 || right.length === 0) {
-    return 0;
-  }
   return NEON_KERN_PAIRS[left + right] ?? 0;
-}
-
-/** Total advance of a string in viewBox units (for tests / layout math). */
-export function neonStringAdvance(
-  text: string,
-  thickness: number,
-  letterSpacing: number,
-  glyphFor: (ch: string) => NeonGlyph | undefined = () => undefined,
-): number {
-  let total = 0;
-  let prev = "";
-  for (const ch of text) {
-    if (ch === "\n") {
-      prev = "";
-      continue;
-    }
-    if (prev !== "") {
-      total += neonKern(prev, ch);
-    }
-    const glyph = glyphFor(ch);
-    if (glyph === undefined) {
-      total += NEON_GLYPH_WIDTH * 0.6;
-    } else {
-      total += neonGlyphMetrics(glyph, thickness, letterSpacing).advance;
-    }
-    prev = ch;
-  }
-  return total;
 }
