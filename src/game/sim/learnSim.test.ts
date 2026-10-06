@@ -9,6 +9,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  ghostHouseSpawnCenter,
   horizontalTunnelRows,
   TILE_SIZE,
   worldToCol,
@@ -536,23 +537,34 @@ describe("LearnSim upgrade demos", () => {
     return sim.step(NO_KEYS_HELD, FRAME_MS);
   }
 
-  it("Hunter frightens the ghost; eating it pays BONUS and seats it briefly", () => {
+  it("Hunter frightens the ghost; eating it pays BONUS and seats it in the house briefly", () => {
     const { sim, player } = setup("powerPelletHunter");
     const ghost = sim.ghostEid!;
     const draw = chompPower(sim, player).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.frightenedGhosts?.eids).toEqual([ghost]);
     expect(popups(catchByGhost(sim, player))).toEqual(["+75 BONUS"]);
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    const spawn = ghostHouseSpawnCenter();
+    const exit = getActiveLayout().ghostHouseExit;
+    expect({ x: Position.x[ghost], y: Position.y[ghost] }).toEqual(spawn);
+    expect({ x: Position.x[ghost], y: Position.y[ghost] }).not.toEqual({
+      x: cellCenterX(exit.col),
+      y: cellCenterY(exit.row),
+    });
     expect(runUntilFreed(sim, ghost, 2_000)).toBe(true);
+    expect({ x: Position.x[ghost], y: Position.y[ghost] }).not.toEqual(spawn);
   });
 
-  it("Hunter+ keeps the eaten ghost seated until the fright ends", () => {
+  it("Hunter+ keeps the eaten ghost seated in the house until the fright ends", () => {
     const { sim, player } = setup("powerPelletHunterPlus");
     const ghost = sim.ghostEid!;
     chompPower(sim, player);
     catchByGhost(sim, player);
+    const spawn = ghostHouseSpawnCenter();
+    expect({ x: Position.x[ghost], y: Position.y[ghost] }).toEqual(spawn);
     runMs(sim, 5_500);
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    expect({ x: Position.x[ghost], y: Position.y[ghost] }).toEqual(spawn);
     expect(runUntilFreed(sim, ghost, 1_000)).toBe(true);
   });
 

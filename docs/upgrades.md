@@ -374,7 +374,7 @@ While `powerPelletHunter` is owned, a power pellet frightens the ghosts and lets
 - **Look.** Frightened ghosts out of the house draw with `art/ghosts/blue_ghost.png` (`showsFrightenedLook`), blinking back to their normal sprite every 100ms in the last 1000ms.
 - **Reset:** `clearUpgradeTimers` clears the fright, the held ghosts and the eat count on level advance, life loss and store entry; losing Hunter clears them too.
 - **Snapshot:** `play.timers.frightenedMs`, `play.frightenedGhosts`, `play.hunterHeld`, `play.ghostsEatenThisFright`. The run log records `frighten` and `ghostEaten` activations.
-- **LEARN** mirrors it: the chase ghost turns blue and wanders, and touching it pops `+75 BONUS` and seats it at the house exit for `LEARN_RECALL_HOLD_MS` (Hunter+ holds it until the fright ends).
+- **LEARN** mirrors it: the chase ghost turns blue and wanders, and touching it pops `+75 BONUS` and seats it at the ghost-house spawn for `LEARN_RECALL_HOLD_MS` (Hunter+ holds it in the house until the fright ends), then frees it at the house exit.
 
 ### Overcharge
 

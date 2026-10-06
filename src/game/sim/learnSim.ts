@@ -31,6 +31,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  ghostHouseSpawnCenter,
   isWalkable,
   pelletCellCenters,
 } from "../../domain/maze";
@@ -348,9 +349,7 @@ export class LearnSim {
       this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
       if (this.recallHoldRemainingMs === 0) {
         for (const eid of this.recallHoldGhostEids) {
-          if (eid !== this.houseHold.eid) {
-            GhostPhase.value[eid] = GHOST_PHASE.active;
-          }
+          this.freeGhost(eid);
         }
         this.recallHoldGhostEids = [];
       }
@@ -827,7 +826,7 @@ export class LearnSim {
       const holds = hunterHoldsEaten(this.learnUpgrades.owned);
       const ate = eatFrightenedGhost(this.learnUpgrades, eid, holds);
       this.learnUpgrades = ate.state;
-      this.seatGhostAtExit(eid);
+      this.seatGhostInHouse(eid);
       this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, [
         {
           eid,
@@ -854,14 +853,24 @@ export class LearnSim {
 
   private freeGhost(eid: number): void {
     if (eid !== this.houseHold.eid) {
+      this.seatGhostAtExit(eid);
       GhostPhase.value[eid] = GHOST_PHASE.active;
     }
   }
 
+  private seatGhostInHouse(eid: number): void {
+    const spawn = ghostHouseSpawnCenter();
+    this.parkGhost(eid, spawn.x, spawn.y);
+  }
+
   private seatGhostAtExit(eid: number): void {
     const exit = getActiveLayout().ghostHouseExit;
-    Position.x[eid] = cellCenterX(exit.col);
-    Position.y[eid] = cellCenterY(exit.row);
+    this.parkGhost(eid, cellCenterX(exit.col), cellCenterY(exit.row));
+  }
+
+  private parkGhost(eid: number, x: number, y: number): void {
+    Position.x[eid] = x;
+    Position.y[eid] = y;
     Velocity.x[eid] = 0;
     Velocity.y[eid] = 0;
     Speed.px[eid] = 0;
@@ -887,6 +896,7 @@ export class LearnSim {
       this.houseHoldEaten,
     );
     if (released !== null) {
+      this.seatGhostAtExit(released);
       GhostPhase.value[released] = GHOST_PHASE.active;
     }
   }
