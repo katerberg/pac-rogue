@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
+import type { GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
@@ -47,6 +48,7 @@ import {
   type UpgradeDef,
   type UpgradeId,
 } from "../../domain/upgrades";
+import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
 import { createHeldKeysReader } from "../systems/playerInput";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -54,12 +56,7 @@ import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import { playTurnSparks } from "./turnSparks";
 import { playStreakPop } from "./streakPop";
-import {
-  createRender,
-  GHOST_TEXTURE_BY_ID,
-  preloadPlayArt,
-  type PlayRender,
-} from "../systems/render";
+import { addGhostIcon, createRender, preloadPlayArt, type PlayRender } from "../systems/render";
 import {
   addPixelText,
   MENU_OPTION_FONT_SIZE,
@@ -76,6 +73,7 @@ import {
   wrapText,
   type UpgradeCardVisual,
 } from "./upgradeChoiceModal";
+import { applyRenderScale } from "../renderScale";
 
 const SLOT_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.blinky,
@@ -156,9 +154,12 @@ export class LearnScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyRenderScale(this);
     startLoopingSfx(this, "menuMusic");
     const urlParams = new URLSearchParams(location.search);
     this.sim = new LearnSim(parseSeedParam(urlParams) ?? freshSeed());
+    const ghostStyle = loadGhostStyle();
+    this.sim.setGhostStyle(ghostStyle);
     const learnAllMode = parseLearnAllMode(urlParams);
     this.seen = learnSeenRecord(learnAllMode, loadSeenRecord);
     this.reticlePx = null;
@@ -172,7 +173,7 @@ export class LearnScene extends Phaser.Scene {
 
     const title = addPixelText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
     placePixelText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
-    this.buildGhostSlots();
+    this.buildGhostSlots(ghostStyle);
     this.buildUpgradeRows();
     this.buildBackButton();
 
@@ -250,15 +251,14 @@ export class LearnScene extends Phaser.Scene {
     this.refreshNoEffectBanner();
   }
 
-  private buildGhostSlots(): void {
+  private buildGhostSlots(ghostStyle: GhostStyle): void {
     this.slots = [];
     const rowWidth = SLOT_KINDS.length * SLOT_SIZE + (SLOT_KINDS.length - 1) * SLOT_GAP;
     const firstX = PLAYFIELD_WIDTH / 2 - rowWidth / 2 + SLOT_SIZE / 2;
     SLOT_KINDS.forEach((kind, index) => {
       const x = firstX + index * (SLOT_SIZE + SLOT_GAP);
       const frame = this.add.graphics();
-      const texture = GHOST_TEXTURE_BY_ID[GHOST_DRAWABLE_BY_KIND[kind]]!;
-      this.add.image(x, SLOT_Y, texture).setDisplaySize(SLOT_ICON_SIZE, SLOT_ICON_SIZE);
+      addGhostIcon(this, GHOST_DRAWABLE_BY_KIND[kind], x, SLOT_Y, SLOT_ICON_SIZE, ghostStyle);
       const zone = this.add.zone(x, SLOT_Y, SLOT_SIZE, SLOT_SIZE);
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerdown", () => this.selectGhost(kind));
@@ -341,7 +341,7 @@ export class LearnScene extends Phaser.Scene {
     zone.setInteractive({ useHandCursor: true });
     zone.on("pointerdown", () => this.toggleUpgrade(def.id));
     zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
-      this.scheduleUpgradePreview(def.id, column, pointer.y),
+      this.scheduleUpgradePreview(def.id, column, pointer.worldY),
     );
     zone.on("pointerout", () => this.cancelUpgradePreview());
     const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, UPGRADE_ROW_GAP - 2);

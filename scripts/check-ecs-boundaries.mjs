@@ -26,10 +26,12 @@ const requiredPaths = [
 const phaserAllow = [
   /^src\/main\.ts$/,
   /^src\/game\/config\.ts$/,
+  /^src\/game\/renderScale\.ts$/,
   /^src\/game\/scenes\//,
   /^src\/game\/audio\//,
   /^src\/game\/systems\/playerInput\.ts$/,
   /^src\/game\/systems\/render\.ts$/,
+  /^src\/game\/systems\/lineArtRender\.ts$/,
 ];
 
 const phaserImport = /\bfrom\s+["']phaser(?:\/[^"']*)?["']|\bimport\s+["']phaser(?:\/[^"']*)?["']/;

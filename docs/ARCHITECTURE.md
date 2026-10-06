@@ -35,12 +35,13 @@ src/
     mazeTiling.ts             # 9×11 mirrored polyomino tiling solver (procedural)
     mazeGenerate.ts           # tiling → 28×34 ASCII + board seed / level≥2 selection
     playfieldBounds.ts        # PLAYFIELD_WIDTH/HEIGHT (no maze import)
+    renderScale.ts            # renderScaleFor(view, devicePixelRatio) + canvasSizeFor: canvas pixels per world pixel (1-4)
     runLevel.ts               # ?level= URL parse, clamped to MAX_LEVEL
     playOptions.ts            # parsePlayOptions: every PlayScene URL flag → PlayOptions + warnings
     tuning.ts                 # Tuning (every ?knobs=1 knob) + DEFAULT_TUNING; stored-override parse/serialize; level speed ramps
     tuningKnobs.ts            # knob table (group, label, range/step/unit) the ?knobs=1 panels render from
     knobsFlag.ts              # ?knobs=1 parse
-    wallStyle.ts              # wall color/thickness/glow/corner/background from the maze color setting or tuning
+    wallStyle.ts              # wall color/thickness/glow/corner/background from the maze color setting or tuning; wallGlowFilter
     runRandom.ts              # ?seed= parse + RunRandom: named seeded streams, the only allowed randomness source
     quartersFlag.ts           # ?quarters= URL parse (non-negative integer default count)
     store.ts                  # store floor schedule, slot parse, stock roll, prompt/purchase state machine
@@ -57,6 +58,8 @@ src/
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostKind.ts              # blinky / pinky / inky / clyde kind ids
+    ghostArt.ts               # GhostStyle (Settings: neon line art / pixel), lineArtGhostKinds, line-art look from tuning
+    lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points (see docs/line-art.md)
     ghostTarget.ts            # Blinky/Pinky/Inky/Clyde chase/scatter/Elroy target tiles
     ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-scheduled scatter/chase wave clock
@@ -78,7 +81,9 @@ src/
     learnUpgradeColumns.ts    # LEARN upgrade school split (3 left / 3 right) + hover-preview anchor
     learnOverlay.ts           # LEARN reticle clamp, predicted path, target derivation, segment clip
   game/
-    config.ts                 # Phaser GameConfig (FIT scale + pixelArt)
+    config.ts                 # Phaser GameConfig (FIT scale, canvas sized to device pixels, smoothPixelArt + multisampled Graphics)
+    renderScale.ts            # canvas size from window × devicePixelRatio, applyRenderScale(scene) (zoom, called first in every create()), resize follow
+    art/                      # line-art SVGs + their parsed LineArt (ghost.svg → ghostLineArt.ts, shared by all four ghosts)
     audio/sfx.ts              # SFX manifest (incl. menuMusic / gameplayMusic loops); volumes scaled by audioSettings
     components/               # data only — no Phaser
       Position.ts
@@ -135,7 +140,8 @@ src/
       playerWarp.ts           # power-pellet warp farthest from ghosts (returns the glide to animate)
       playerCell.ts           # player's current maze cell (store slot/exit lookup)
       playerSlide.ts          # store exit: move the player straight out a tunnel (no wrap)
-      render.ts               # sprites + rounded wall stroke; preloadPlayArt
+      render.ts               # sprites + rounded wall stroke (cached Glow-filter wall glow); vector ghosts when told; addGhostIcon; preloadPlayArt
+      lineArtRender.ts        # Phaser drawing for LineArt: crisp Graphics + focused knockout Glow layer
       worldSnapshot.ts        # read-only world → JSON for the agent debug snapshot (probe expect/waitFor)
     scenes/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
@@ -167,6 +173,8 @@ docs/
 - Agent ports expose a read-only `window.__PAC_ROGUE_DEBUG__.snapshot()` (`src/game/scenes/installDebugHook.ts` → `PlayScene.debugSnapshot()` → `PlaySim.snapshot()` + `worldSnapshot`) for `npm run probe` assertions; see [VERIFICATION.md](./VERIFICATION.md#game-state-snapshot).
 
 ## Scenes
+
+The canvas matches the screen's physical pixels (800×600 world × `renderScaleFor(window, devicePixelRatio)`, 1–4, re-fit on resize); every scene calls `applyRenderScale(this)` first in `create()` and reads pointers in world units (`pointer.worldX/worldY`). See [line-art.md](./line-art.md).
 
 Boot order in `gameConfig.scene`: `MenuScene` (first = entry), `LearnScene`, `HighScoresScene`, `SettingsScene`, `PlayScene`, `PauseScene`, `RunLogOverrunScene`. With `?play=1`, `PlayScene` is first so boot skips the menu (Game Over still returns to `MenuScene`).
 
@@ -251,20 +259,20 @@ See also [docs/upgrades.md](./upgrades.md) and [docs/levels.md](./levels.md).
 5. Targeting: Blinky chase / Elroy → player tile; Blinky scatter → `(cols-3, -3)`. Pinky chase → 4 tiles ahead of player facing (`Facing.none` → left); Pinky scatter → `(2, -3)`. Inky chase → doubled vector from Blinky’s tile through a clean 2-tile Pac look-ahead (`Facing.none` → left; missing Blinky → house spawn tile); Inky scatter → `(cols-1, rows+2)`. Clyde chase → player tile when Euclidean tile distance `≥ CLYDE_SHY_TILES` (8), else Clyde scatter `(0, rows+2)`; Clyde scatter mode → same SW corner. Scatter corners scale with layout size (classic 28×31 matches the old absolute tiles). Delays and shy radius are tunable named constants. Steering: min squared distance at cell centers (tie: up > left > down > right); no voluntary reverse at Ls.
 6. Speeds (vs `PLAYER_SPEED`, roughly matched to arcade Ms. Pac-Man's crossing): Maze-Man and ghosts both × `speedLevelMultiplier(levelIndex)` (`1 + 0.05×(level−1)`) each frame. Ghosts: base × `ghostBaseSpeedRatio(levelIndex)` (`0.8` at level 1, +0.05/level, pinned at `1.0` from level 5 on — ghosts start 20% slower than Maze-Man and catch up to parity by level 5); tunnel a constant 0.5× `PLAYER_SPEED` on every level (not ramped, matching the arcade); Elroy1/2 only for Blinky and unaffected by the ramp (layout-scaled remaining-pellet cutoffs; maze1 ≤20 / ≤10 → 1.0× / 1.0625× `PLAYER_SPEED` flat); then × level mul × run upgrade muls (Afterburner via `cellSpeedMultiplier`: ×1.3 when the look-ahead cell is empty, ×0.9 when it holds a pellet or fruit / `passiveGhostSlow`). Maze-Man additionally takes a brief eat drag (`eatDrag.ts`): eating a dot restarts a 100ms timer that cuts speed by up to 25%, easing linearly back to full (≈10% average loss on a dot run, like the arcade's one-frame stall without the hitch); a power pellet holds the peak for 300ms. It never stacks, is cleared on life loss / store / new board, and only runs in the main pipeline. `play.timers.eatDragMs` in the snapshot exposes the time left. Closest-ghost freeze sets that leaving/active ghost’s speed to 0.
 7. Catch: circle overlap while any ghost is `leaving` or `active` → stop game-play music, play death SFX, spend one life. Full pipeline halt for `DEATH_HOLD_MS` (845, knob). If lives remain: reset player/ghosts to start/house, despawn fruit, clear freeze/wall-pass/invuln/speed-burst timers and ghost corner warps, reset release/mode clocks, set `afterLifeRelease`, `READY_PAUSE_MS` (1000) freeze, then resume (game-play music on); run/release clocks wait for direction again (`RunClock.started = false`); no high-score write. If last life: append high-score run (**lifetime** pellets + remaining countdown) unless a debug flag is present for this run (`highScoresDisabled`: every URL flag except `play`, `sound`, `learnAll`), then 500ms black fade (visual only) → `GAME OVER` + lifetime collected for `GAME_OVER_HOLD_MS` (2000) → `MenuScene`. Skipped for the frozen closest ghost or while player invuln is active; thaw/expiry while overlapping still kills.
-8. Pellet clear: level-complete SFX (no history write). Level 1: brief transition freeze straight into the next board. Levels 2-8: the pick-one upgrade-choice modal always opens first — up to three eligible upgrades at the up/left/right slots plus an always-available Quarters option at the down slot (see [docs/upgrades.md](./upgrades.md)) — and the transition freeze starts only after it resolves. Level 9 (boss): no upgrade offer; the transition freeze is followed by a `RUN COMPLETE` screen that waits for the player to pick `NEW GAME` or `MENU` (see [docs/levels.md](./levels.md)) instead of a next board. Advancing rebuilds a **procedural** maze in the same `PlayScene` (carry lives, owned upgrades, lifetime Collected, Quarters; reset board pellet progress, clocks, fruit, freeze/scatter/wall-pass/invuln/speed-burst timers; Time back to 999; `LEVEL N` banner fades). Power pellets play both munches and stay inert unless an owned upgrade reacts. `render` draws rounded wall stroke from maze knobs, pac-man chomp, pellets, ghosts (cyan tint on the frozen closest ghost), bonus fruit, and tunnel twin (player wall-pass tint while active; else darker-gold invuln tint that blinks in the last second).
+8. Pellet clear: level-complete SFX (no history write). Level 1: brief transition freeze straight into the next board. Levels 2-8: the pick-one upgrade-choice modal always opens first — up to three eligible upgrades at the up/left/right slots plus an always-available Quarters option at the down slot (see [docs/upgrades.md](./upgrades.md)) — and the transition freeze starts only after it resolves. Level 9 (boss): no upgrade offer; the transition freeze is followed by a `RUN COMPLETE` screen that waits for the player to pick `NEW GAME` or `MENU` (see [docs/levels.md](./levels.md)) instead of a next board. Advancing rebuilds a **procedural** maze in the same `PlayScene` (carry lives, owned upgrades, lifetime Collected, Quarters; reset board pellet progress, clocks, fruit, freeze/scatter/wall-pass/invuln/speed-burst timers; Time back to 999; `LEVEL N` banner fades). Power pellets play both munches and stay inert unless an owned upgrade reacts. `render` draws rounded wall stroke from maze knobs (optional glow from a once-filtered Glow texture, off by default; `?knobs=1` Wall glow), pac-man chomp, pellets, ghosts (cyan tint on the frozen closest ghost; neon line art or pixel art per the Settings GHOSTS option, see [line-art.md](./line-art.md)), bonus fruit, and tunnel twin (player wall-pass tint while active; else darker-gold invuln tint that blinks in the last second).
 9. Bonus fruit: level 1 spawns a single fruit after 70 **board** pellets are collected (unscaled — mazeSmall's pellet count is well above 70, so no second fruit fires); from level 2+, after layout-scaled **board** pellet thresholds (maze1 70 and 170), spawn at the derived under-house fruit cell for 10 real seconds (Phaser `delta` ms); cherries use `strawberry.png` stand-in; pickup removes the entity, plays both munches, and adds half a [BONUS bar](./bonus.md) of charge (each fill pays a Quarter; spent at [store floors](./store.md)) — no upgrade effect (the upgrade choice comes from clearing the level, not from fruit; see item 8 and [docs/upgrades.md](./upgrades.md)).
 
 ## ECS boundary
 
-| Layer                                                      | May import Phaser? | May mutate component arrays?                         | Role                                    |
-| ---------------------------------------------------------- | ------------------ | ---------------------------------------------------- | --------------------------------------- |
-| `game/components/**`                                       | No                 | Define storage only                                  | Data                                    |
-| logic systems (`movement`, `ghostAi`, `collectPellets`, …) | No                 | Yes                                                  | Pure simulation                         |
-| `game/systems/playerDirection.ts`                          | No                 | No (reads `Input` only)                              | Pure query helper                       |
-| `game/systems/playerInput.ts`, `render.ts`                 | Yes                | Read keys / drawable sync                            | Bridges                                 |
-| `game/sim/**` (`PlaySim`, `LearnSim`)                      | No                 | Yes; only layer that creates worlds/entities         | Run state + pipeline; emits `SimEvent`s |
-| `game/scenes/**`                                           | Yes                | No (ESLint bans `bitecs`, components, logic systems) | Adapters: input in, events applied out  |
-| `domain/**`                                                | No                 | No bitecs world APIs                                 | Pure helpers                            |
+| Layer                                                          | May import Phaser? | May mutate component arrays?                         | Role                                    |
+| -------------------------------------------------------------- | ------------------ | ---------------------------------------------------- | --------------------------------------- |
+| `game/components/**`                                           | No                 | Define storage only                                  | Data                                    |
+| logic systems (`movement`, `ghostAi`, `collectPellets`, …)     | No                 | Yes                                                  | Pure simulation                         |
+| `game/systems/playerDirection.ts`                              | No                 | No (reads `Input` only)                              | Pure query helper                       |
+| `game/systems/playerInput.ts`, `render.ts`, `lineArtRender.ts` | Yes                | Read keys / drawable sync                            | Bridges                                 |
+| `game/sim/**` (`PlaySim`, `LearnSim`)                          | No                 | Yes; only layer that creates worlds/entities         | Run state + pipeline; emits `SimEvent`s |
+| `game/scenes/**`                                               | Yes                | No (ESLint bans `bitecs`, components, logic systems) | Adapters: input in, events applied out  |
+| `domain/**`                                                    | No                 | No bitecs world APIs                                 | Pure helpers                            |
 
 `npm run verify` enforces this via ESLint `no-restricted-imports` and `npm run check:ecs`. Docs are not the gate.
 

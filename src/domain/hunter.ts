@@ -6,7 +6,7 @@ import { GHOST_DIR, reverseGhostDir, type GhostDir } from "./ghostPath";
 export const HUNTER_FRIGHTENED_MS = 6000;
 export const HUNTER_FRIGHTENED_LEVEL_STEP_MS = 500;
 export const HUNTER_FRIGHTENED_MIN_MS = 4000;
-export const HUNTER_FRIGHTENED_SPEED_MUL = 0.5;
+export const HUNTER_FRIGHTENED_SPEED_MUL = 0.6;
 export const HUNTER_FULL_BAR_EAT = 3;
 export const HUNTER_SWARM_FRIGHTEN_LIMIT = 4;
 

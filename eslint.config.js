@@ -163,6 +163,7 @@ export default tseslint.config(
     ignores: [
       "src/game/systems/playerInput.ts",
       "src/game/systems/render.ts",
+      "src/game/systems/lineArtRender.ts",
       "src/game/systems/**/*.test.ts",
     ],
     rules: {
@@ -173,7 +174,7 @@ export default tseslint.config(
             {
               name: "phaser",
               message:
-                "Logic systems are Phaser-free. Only playerInput.ts and render.ts may import Phaser.",
+                "Logic systems are Phaser-free. Only playerInput.ts, render.ts and lineArtRender.ts may import Phaser.",
             },
           ],
         },

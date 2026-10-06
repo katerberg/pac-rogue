@@ -19,9 +19,19 @@ import {
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
-import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
+import {
+  BLINKY_DRAWABLE_ID,
+  CLYDE_DRAWABLE_ID,
+  ghostRadius,
+  INKY_DRAWABLE_ID,
+  PINKY_DRAWABLE_ID,
+  PLAYER_SPEED,
+  playerRadius,
+} from "../../domain/playfield";
+import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
+import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
   DEFY_DEATH_MS,
@@ -55,6 +65,8 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
+import { catchPlayer } from "../systems/catchPlayer";
+import { Drawable } from "../components/Drawable";
 import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
@@ -1874,6 +1886,28 @@ describe("Turn Tuning", () => {
     expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
   });
 
+  it("keeps Pac-Man gold through a turn flash while invulnerable", () => {
+    const { sim, turn } = setup(true);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], invulnRemainingMs: INVULN_MS };
+    cruiseFrom(sim, turn, 2);
+    placeAhead(sim, turn, 6);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().timers.turnFlashMs > 0, 60, cruise);
+    runFrames(sim, 3, { keys: held("up") });
+    const opts = sim.renderOptions();
+    const flash = turnFlashPulse(opts.turnFlashRemainingMs ?? 0);
+    expect(opts.playerInvulnRemainingMs).toBeGreaterThan(0);
+    expect(flash.brighten).toBeGreaterThan(0);
+    expect(
+      playerTint({
+        wallPassOn: opts.wallPassActive === true,
+        invulnRemainingMs: opts.playerInvulnRemainingMs ?? 0,
+        nowMs: 0,
+        flashBrighten: flash.brighten,
+      }),
+    ).toEqual({ color: brightenColor(PLAYER_INVULN_TINT, flash.brighten), mode: "multiply" });
+  });
+
   it("Turn Tuning+ rewards a tap 10px early and holds the boost for 750ms", () => {
     for (const mode of [true, "plus"] as const) {
       const { sim, turn } = setup(mode);
@@ -3394,6 +3428,87 @@ describe("Haunting", () => {
   });
 });
 
+describe("ghost style (neon line art vs pixel)", () => {
+  const sorted = (values: readonly string[] | readonly number[] | undefined) =>
+    [...(values ?? [])].map(String).sort();
+
+  it("draws every present ghost as neon line art by default, on every level", () => {
+    expect(sorted(startSim({ level: 5 }, "lineart").snapshot().lineArtGhosts)).toEqual([
+      "blinky",
+      "clyde",
+      "inky",
+      "pinky",
+    ]);
+    for (const level of [1, 9]) {
+      const snap = startSim({ level }, "lineart").snapshot();
+      expect(snap.lineArtGhosts.length).toBeGreaterThan(0);
+      expect(sorted(snap.lineArtGhosts)).toEqual(
+        sorted([...new Set(snap.ghosts.map((g) => g.kind))]),
+      );
+    }
+  });
+
+  it("tells the renderer which drawables are line art", () => {
+    const events = runFrames(startSim({ level: 5 }, "lineart"), 1);
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
+      sorted([BLINKY_DRAWABLE_ID, PINKY_DRAWABLE_ID, INKY_DRAWABLE_ID, CLYDE_DRAWABLE_ID]),
+    );
+  });
+
+  it("draws no line art with the pixel style, and switches back mid-run", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    sim.setGhostStyle("pixel");
+    const events = runFrames(sim, 1);
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(draws.at(-1)?.lineArtDrawableIds).toEqual([]);
+    expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    sim.setGhostStyle("neon");
+    expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
+  });
+
+  it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {
+    const furthestCatch = (tuning: Tuning): number => {
+      const sim = new PlaySim({ ...defaultPlayOptions(), level: 5 }, "lineart", tuning);
+      sim.start();
+      const clyde = query(sim.world, [Ghost, GhostKind]).find(
+        (eid) => GhostKind.kind[eid] === GHOST_KIND.clyde,
+      )!;
+      expect(Drawable.radius[clyde]).toBe(ghostRadius());
+      GhostPhase.value[clyde] = GHOST_PHASE.active;
+      const player = playerEid(sim);
+      let furthest = 0;
+      for (let d = 0; d <= 40; d += 0.25) {
+        Position.x[clyde] = Position.x[player]! + d;
+        Position.y[clyde] = Position.y[player]!;
+        if (catchPlayer(sim.world) === clyde) {
+          furthest = d;
+        }
+      }
+      return furthest;
+    };
+    const plain = furthestCatch(DEFAULT_TUNING);
+    expect(plain).toBeGreaterThan(0);
+    expect(plain).toBeLessThan(2 * ghostRadius());
+    expect(
+      furthestCatch(
+        resolveTuning({
+          ghostGlow: 4,
+          ghostGlowRadius: 12,
+          ghostLineWidth: 15,
+          ghostWidth: 1.5,
+          ghostHeight: 1.5,
+        }),
+      ),
+    ).toBe(plain);
+  });
+
+  it("follows a ghosts override", () => {
+    const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
+    expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "pinky"]);
+  });
+});
+
 describe("Tunnel Sanctuary", () => {
   const tunnelRow = () => horizontalTunnelRows()[0]!;
 
@@ -3755,7 +3870,7 @@ describe("Hunter", () => {
     return runFrames(sim, 1);
   }
 
-  it("frightens every ghost out of the house on a chomp and slows it to half speed", () => {
+  it("frightens every ghost out of the house on a chomp and slows it to 0.6x speed", () => {
     const plain = startHunter([]);
     const sim = startHunter(["powerPelletHunter"]);
     letGhostsOut(plain, 2);
@@ -3772,7 +3887,7 @@ describe("Hunter", () => {
     const frightenedSpeed = speedOf(sim);
     chompPowerPellet(plain);
     expect(plain.snapshot().frightenedGhosts).toEqual([]);
-    expect(frightenedSpeed * 2).toBeCloseTo(speedOf(plain));
+    expect(frightenedSpeed).toBeCloseTo(speedOf(plain) * 0.6);
   });
 
   it("eats a frightened ghost on touch: home with a glide, 75 then 150 then a full bar", () => {

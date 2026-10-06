@@ -26,6 +26,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
+import { BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID } from "../../domain/playfield";
 import { LearnSim } from "./learnSim";
 import { FRAME_MS, held } from "./simTesting";
 
@@ -203,6 +204,27 @@ describe("LearnSim", () => {
     }
     const after = sim.step(NO_KEYS_HELD, FRAME_MS);
     expect(after.some((e) => e.type === "draw" && e.options.ghostWarpGlides)).toBe(false);
+  });
+});
+
+describe("LearnSim ghost style", () => {
+  function lastDraw(sim: LearnSim) {
+    return sim
+      .step(NO_KEYS_HELD, FRAME_MS)
+      .flatMap((e) => (e.type === "draw" ? [e.options] : []))
+      .at(-1)!;
+  }
+
+  it("draws the demo ghosts as neon line art by default, and as pixel art when set", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.inky);
+    expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual([
+      BLINKY_DRAWABLE_ID,
+      INKY_DRAWABLE_ID,
+    ]);
+    sim.setGhostStyle("pixel");
+    expect(lastDraw(sim).lineArtDrawableIds).toEqual([]);
   });
 });
 

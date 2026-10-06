@@ -14,8 +14,7 @@ body {
 
 #game-container canvas {
   display: block;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  image-rendering: auto !important;
 }
 
 .knobs-panel {

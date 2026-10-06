@@ -24,6 +24,7 @@ export type SimRenderOptions = {
   hauntedGhost?: HauntedGhost | null;
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
+  lineArtDrawableIds?: string[];
 };
 
 export type MoneyTalksSpend = {

@@ -65,6 +65,7 @@ import {
 } from "../../domain/fruit";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { DEFAULT_GHOST_STYLE, lineArtGhostKinds, type GhostStyle } from "../../domain/ghostArt";
 import {
   createGhostModeClock,
   GHOST_AI_MODE,
@@ -427,6 +428,7 @@ export class PlaySim {
   private prevKeys: HeldKeys = NO_KEYS_HELD;
 
   private currentTuning: Tuning;
+  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
   private readonly recorder: RunRecorder;
 
   constructor(
@@ -450,6 +452,10 @@ export class PlaySim {
 
   setTuning(tuning: Tuning): void {
     this.currentTuning = tuning;
+  }
+
+  setGhostStyle(style: GhostStyle): void {
+    this.ghostStyle = style;
   }
 
   start(): SimEvent[] {
@@ -657,7 +663,18 @@ export class PlaySim {
       hauntedGhost: hauntedGhost(this.runUpgrades),
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
+      lineArtDrawableIds: this.lineArtGhostKinds().map((kind) => GHOST_DRAWABLE_BY_KIND[kind]),
     };
+  }
+
+  private lineArtGhostKinds(): GhostKindId[] {
+    return lineArtGhostKinds(
+      this.ghostStyle,
+      Array.from(
+        query(this.world, [Ghost, GhostKind]),
+        (eid) => GhostKind.kind[eid] as GhostKindId,
+      ),
+    );
   }
 
   snapshot() {
@@ -738,6 +755,7 @@ export class PlaySim {
               ghostCount: this.bossState.ghostCount,
               chainLive: bossChains(this.world, this.catchOptions()).length > 0,
             },
+      lineArtGhosts: this.lineArtGhostKinds().map((kind) => nameOf(GHOST_KIND, kind)),
       runLog: {
         id: this.recorder.record.id,
         outcome: this.recorder.outcome,

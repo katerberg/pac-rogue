@@ -23,6 +23,7 @@ import {
   SCORES_FONT_SIZE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
+import { applyRenderScale } from "../renderScale";
 
 const LIST_TOP = 200;
 const BACK_Y = PLAYFIELD_HEIGHT - 80;
@@ -55,6 +56,7 @@ export class HighScoresScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyRenderScale(this);
     this.pendingBack = false;
     startLoopingSfx(this, "menuMusic");
     const rows = toHighScoreRows(loadRunHistory());
