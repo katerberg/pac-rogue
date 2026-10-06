@@ -1,7 +1,7 @@
 export const NEON_GLYPH_WIDTH = 2;
 export const NEON_GLYPH_HEIGHT = 4;
 /** Optical gap between adjacent stroke outsides at default tracking (viewBox units). */
-export const NEON_TRACKING = 0.22;
+export const NEON_TRACKING = 0.32;
 
 export type NeonGlyph = {
   /** SVG path `d` strings; one subpath each (H/V + quarter arcs only). */
@@ -260,7 +260,7 @@ const NEON_KERN_PAIRS: Readonly<Record<string, number>> = {
   TY: -0.22,
   "T.": -0.28,
   "T,": -0.28,
-  "T-": -0.32,
+  "T-": -0.25,
   FA: -0.22,
   Fa: -0.18,
   "F.": -0.28,
