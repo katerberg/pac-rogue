@@ -35,39 +35,48 @@ Read it first. It also lists every existing upgrade, which you need for the inte
 
 ## 2. Question round
 
-Follow the `one-shot-plan` skill exactly (one dump, numbered **Decide**, lettered **Proposed
-locks**, then stop). Start with a 5–12 line "today's world" summary. Pull from the bank below and
-skip any question the pitch already answers.
+Follow the `one-shot-plan` skill (one dump, numbered **Decide**, lettered **Proposed locks**, then
+stop). Start with a 5–12 line "today's world" summary.
 
-### Decide bank (real forks we keep hitting)
+**Default to locking, not asking.** Past rounds averaged ~10 Decide items and nearly every
+recommendation was accepted. Answer from the pitch, `docs/upgrades.md` and the closest existing
+upgrade, and put the answer under Proposed locks. A question earns a Decide slot only if the pitch
+leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-visible gameplay.
+
+- **Expect 0–4 Decide items, but there is no cap.** Ask every real fork, however many. Demote an
+  item to Proposed locks only if it fails the test above. If you have none, say "No open forks"
+  and send only locks.
+- **Never ask** about the bank's "locked by default" items below. List them as one-line locks
+  (`Overcharge: does not double, like Defy Death`) so the user can veto, not answer.
+- Skip any question the pitch already answers.
+- Do not run the `one-shot-plan` lens sweep here. This bank replaces it.
+
+### Locked by default (put in Proposed locks, never Decide)
+
+- **Interactions:** Overcharge doubles `onPowerPellet` durations only when the effect is a
+  power-pellet duration; Fruit Power arms every `onPowerPellet` field; Extra Hungry, Tunnel Dash
+  sweeps, Death's Harvest and ghost-harvested pellets do **not** count as "eaten" unless the pitch
+  says so; Extra Life icon floor and `infiniteLives` are unchanged; boss level 9 pellets are never
+  removed or converted; store floors, inverted boards and the level-1 starting pool are untouched.
+- **Numbers:** scale to maze size when the pitch gives a pellet count; otherwise use the pitch's
+  absolute value. Use named constants.
+- **Collisions with an active timer:** refresh on re-trigger, never stack.
+- **Feedback:** reuse the closest existing tint, blink-in-last-1000ms and sfx. No new art, sound or
+  particles unless the pitch asks.
+- **Enhanced version:** if the pitch gives numbers, use them. If not, propose concrete numbers as a
+  lock (one clear step up from base, no new behaviour). Do not ask for them.
+- **LEARN:** mirror it if the effect is simple and deterministic, otherwise
+  `LEARN_NO_EFFECT_UPGRADE_IDS`.
+- **Edge cases:** waived and listed under "Out of scope" with one line each.
+
+### Decide bank (only when the pitch leaves it open)
 
 - **Trigger:** passive/always-on, `onPowerPellet`, fruit pickup, grant-time, on catch, on level
   clear, or a counter.
-- **Numbers:** absolute or **scaled to maze size** (fruit thresholds scale, so a "140 pellets"
-  pitch is ambiguous). Small mazes and level 1 differ.
-- **Collisions with existing rules:** what happens when the new event is due while the old one
-  is active (replace / wait / drop)? What about refreshing on a re-chomp?
-- **Interactions** (name each one that applies, with a proposed answer):
-  - **Overcharge** doubles `onPowerPellet` durations. Does it double this one? Defy Death: no.
-  - **Fruit Power** resolves every `onPowerPellet` field on fruit pickup, so it arms this too.
-  - **Extra Hungry, Tunnel Dash sweeps, Death's Harvest and ghost-harvested pellets:** do they
-    count as "eaten" for this upgrade's counters and triggers?
-  - **Extra Life:** the life icon floor (3, or 4 with Extra Life), and `infiniteLives`.
-  - **Boss level 9:** boss pellets spawn Blinkys. Never remove or convert them unless that is
-    deliberate.
-  - **Store floors, inverted boards (levels 6–7) and the starting upgrade on level 1.**
-- **Feedback:**
-  - **Tint:** reuse an existing convention, or add a new tint.
-  - **Expiry blink:** blink in the last 1000ms, like Ghost Proof.
-  - **Sound:** a new sound, which the user must supply (`public/sound/`).
-  - **Splash or particles.**
-  - Or no feedback at all. Ask; do not invent big visuals unprompted.
-- **Enhanced version:** what does the `Plus` form do (new numbers or a new behavior)? Which base
-  values, if any, change for everyone? Does it interact with Overcharge (does it triple?) or Fruit
-  Power? Ask for the numbers; never invent them.
-- **LEARN:** mirror it in `LearnSim`, or show the "no visible effect" banner?
-- **Edge cases the user may waive:** offer "skip, it's an edge case" as an explicit option. The
-  user often takes it.
+- **A genuinely new rule:** an effect with no precedent among existing upgrades whose edge
+  behaviour changes how it plays.
+- **A number the pitch implies but never gives**, when no existing upgrade suggests a sensible
+  value.
 
 ### Proposed locks (defaults; adjust to the pitch)
 

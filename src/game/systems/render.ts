@@ -40,7 +40,9 @@ import {
   PLAYFIELD_WIDTH,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
+import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
+import { brightenColor, playerTint, type PlayerTint } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
@@ -79,10 +81,6 @@ const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
-export const PLAYER_WALL_PASS_TINT = 0xd3d333;
-const PLAYER_INVULN_TINT = 0xc48a00;
-const PLAYER_INVULN_BLINK_MS = 100;
-const PLAYER_INVULN_URGENCY_MS = 1000;
 export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -141,29 +139,13 @@ function displaySizeForDrawable(drawableId: string): number {
   return playerDisplaySize();
 }
 
-function grayColor(level: number): number {
-  const channel = Math.round(Math.min(1, level) * 0xff);
-  return (channel << 16) | (channel << 8) | channel;
-}
-
-function applyPlayerTint(
-  go: Phaser.GameObjects.Image,
-  tint: { color: number; mode: Phaser.TintModes } | null,
-): void {
+function applyPlayerTint(go: Phaser.GameObjects.Image, tint: PlayerTint | null): void {
   if (tint === null) {
     go.clearTint();
     return;
   }
   go.setTint(tint.color);
-  go.setTintMode(tint.mode);
-}
-
-function brightenColor(color: number, towardWhite: number): number {
-  const channel = (shift: number) => {
-    const value = (color >> shift) & 0xff;
-    return Math.round(value + (0xff - value) * towardWhite) << shift;
-  };
-  return channel(16) | channel(8) | channel(0);
+  go.setTintMode(tint.mode === "add" ? Phaser.TintModes.ADD : Phaser.TintModes.MULTIPLY);
 }
 
 function bossPelletPulse(nowMs: number): { size: number; alpha: number } {
@@ -298,6 +280,7 @@ function ensurePlayerVisual(
 
 export type RenderOptions = {
   frozenGhostEid?: number | null;
+  frozenGhostRemainingMs?: number;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
   wallPassLoopActive?: boolean;
@@ -459,21 +442,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const wallPassOn = opts?.wallPassActive === true;
     const twinSolids =
       opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
-    const invulnRemainingMs = opts?.playerInvulnRemainingMs ?? 0;
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
-    const playerInvulnTintOn =
-      !wallPassOn &&
-      invulnRemainingMs > 0 &&
-      (invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
-        Math.floor(scene.time.now / PLAYER_INVULN_BLINK_MS) % 2 === 0);
-    const playerTint =
-      turnFlash.brighten > 0
-        ? { color: grayColor(turnFlash.brighten), mode: Phaser.TintModes.ADD }
-        : wallPassOn
-          ? { color: PLAYER_WALL_PASS_TINT, mode: Phaser.TintModes.MULTIPLY }
-          : playerInvulnTintOn
-            ? { color: PLAYER_INVULN_TINT, mode: Phaser.TintModes.MULTIPLY }
-            : null;
+    const playerTintNow = playerTint({
+      wallPassOn,
+      invulnRemainingMs: opts?.playerInvulnRemainingMs ?? 0,
+      nowMs: scene.time.now,
+      flashBrighten: turnFlash.brighten,
+    });
+    const frozenTintOn = expiryTintOn(opts?.frozenGhostRemainingMs ?? 0, scene.time.now);
     const wallStyle = wallStyleOverride ?? storedWallStyle();
     if (!sameWallStyle(wallStyle, drawnWallStyle)) {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
@@ -562,7 +538,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       const radius = Drawable.radius[eid] ?? size / 2;
       const ghostTint =
         ghostTexture !== undefined &&
-        frozenEid !== null &&
+        frozenTintOn &&
         eid === frozenEid &&
         (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse
           ? GHOST_FROZEN_TINT
@@ -679,7 +655,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         visual.lastX = x;
         visual.lastY = y;
 
-        applyPlayerTint(go, playerTint);
+        applyPlayerTint(go, playerTintNow);
         go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
         go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha * (glideHead?.alpha ?? 1));
         if (reviveProgress !== undefined) {
@@ -690,7 +666,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
         if (glide !== undefined) {
           drawGlideTrail(eid, id, glide.slice(1), visual.textureKey, size, (target) =>
-            applyPlayerTint(target, playerTint),
+            applyPlayerTint(target, playerTintNow),
           );
         } else if (speedTrail !== undefined && reviveProgress === undefined) {
           drawGlideTrail(
@@ -699,7 +675,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             speedTrail,
             visual.textureKey,
             size,
-            (target) => applyPlayerTint(target, playerTint),
+            (target) => applyPlayerTint(target, playerTintNow),
             "speed",
             SPEED_TRAIL_DEPTH,
           );
@@ -727,7 +703,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
               }
             }
             twinGo.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
-            applyPlayerTint(twinGo, playerTint);
+            applyPlayerTint(twinGo, playerTintNow);
           }
         }
       }

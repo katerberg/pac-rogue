@@ -64,7 +64,8 @@ Tuned so an 80%-efficient run earns about one Quarter per level, roughly 70% fro
 
 [`src/domain/timeBonus.ts`](../src/domain/timeBonus.ts): clearing a board drains the time left into the bar.
 
-- Each `BONUS_TIME_UNITS_PER_POINT` (5) timer units — half a second — is worth one point. A full 999 timer is worth 199 points; a typical good clear with about 45 s left (450) is worth 90.
+- The payout is the square of the time left over `BONUS_TIME_SQUARE_DIVISOR` (2250), so fast clears pay far more than slow ones. A typical good clear with about 45 s left (450) is worth 90; 70 s left (700) is worth 217; a full 999 timer is worth 443 (over a Quarter); 22 s left (225) is worth 22.
+- The drain pays the most valuable time first: each tick credits what the drained slice of the curve is worth, so the bar rises fastest at the start.
 - The drain always takes `TIME_BONUS_DRAIN_MS` (1200), whatever the amount. `Time:` counts down to 0 in pellet yellow while the bar rises; Quarters are paid as it fills (the usual fill wave and pulse), so they are in hand before the upgrade offer.
 - Order at a clear: level-complete fanfare → drain → upgrade offer (levels 2–8) or the transition (level 1).
 - No drain when the timer is already 0, and none on the level-9 boss clear (the run ends there).

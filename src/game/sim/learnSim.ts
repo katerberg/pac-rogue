@@ -473,6 +473,7 @@ export class LearnSim {
       type: "draw",
       options: {
         frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+        frozenGhostRemainingMs: this.learnUpgrades.freezeRemainingMs,
         playerInvulnRemainingMs: Math.max(
           playerTintRemainingMs(this.learnUpgrades),
           this.catchGraceMs,

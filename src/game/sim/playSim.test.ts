@@ -28,8 +28,10 @@ import {
   PLAYER_SPEED,
   playerRadius,
 } from "../../domain/playfield";
+import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
+import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
   DEFY_DEATH_MS,
@@ -1793,7 +1795,7 @@ describe("PlaySim bonus bar", () => {
     drainToOffer(sim);
     sim.chooseUpgrade({ kind: "quarters", amount: 2 });
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
-    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 249 });
+    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 193 });
   });
 });
 
@@ -1882,6 +1884,28 @@ describe("Turn Tuning", () => {
     runFrames(sim, 40, { keys: held("up") });
     expect(sim.snapshot().timers.turnBoostMs).toBe(0);
     expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
+  });
+
+  it("keeps Pac-Man gold through a turn flash while invulnerable", () => {
+    const { sim, turn } = setup(true);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], invulnRemainingMs: INVULN_MS };
+    cruiseFrom(sim, turn, 2);
+    placeAhead(sim, turn, 6);
+    runFrames(sim, 1, tapUp);
+    runUntil(sim, () => sim.snapshot().timers.turnFlashMs > 0, 60, cruise);
+    runFrames(sim, 3, { keys: held("up") });
+    const opts = sim.renderOptions();
+    const flash = turnFlashPulse(opts.turnFlashRemainingMs ?? 0);
+    expect(opts.playerInvulnRemainingMs).toBeGreaterThan(0);
+    expect(flash.brighten).toBeGreaterThan(0);
+    expect(
+      playerTint({
+        wallPassOn: opts.wallPassActive === true,
+        invulnRemainingMs: opts.playerInvulnRemainingMs ?? 0,
+        nowMs: 0,
+        flashBrighten: flash.brighten,
+      }),
+    ).toEqual({ color: brightenColor(PLAYER_INVULN_TINT, flash.brighten), mode: "multiply" });
   });
 
   it("Turn Tuning+ rewards a tap 10px early and holds the boost for 750ms", () => {
@@ -2044,7 +2068,7 @@ describe("PlaySim level-end time bonus", () => {
     expect(sim.snapshot().timeRemaining).toBeLessThan(999);
     const rest = runUntil(sim, () => !sim.snapshot().bonus.draining, 60);
     expect(rest).toContainEqual({ type: "timeBonus", active: false });
-    expect(sim.snapshot()).toMatchObject({ timeRemaining: 0, bonus: { charge: 199 } });
+    expect(sim.snapshot()).toMatchObject({ timeRemaining: 0, quarters: 1, bonus: { charge: 143 } });
     expect(sim.offer()).not.toBeNull();
   });
 
@@ -2054,13 +2078,13 @@ describe("PlaySim level-end time bonus", () => {
     expect(sim.offer()).toBeNull();
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
     drainToOffer(sim);
-    expect(sim.snapshot().bonus.charge).toBe(99);
+    expect(sim.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 43 } });
   });
 
   it("drains on level 1, then moves on to level 2", () => {
     const { sim } = startClear({ level: 1 });
     runUntil(sim, () => !sim.snapshot().bonus.draining, 90);
-    expect(sim.snapshot().bonus.charge).toBe(199);
+    expect(sim.snapshot().bonus.charge).toBe(143);
     runUntil(sim, () => sim.snapshot().level === 2, 120);
   });
 
@@ -2500,6 +2524,22 @@ describe("PlaySim enhanced upgrades", () => {
     expect(frozen).toHaveLength(1);
     expect(home).toHaveLength(1);
     expect(home).not.toContain(frozen[0]);
+  });
+
+  it("Freeze hands render the time left so the ghost can blink before thawing", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
+    for (const eid of query(sim.world, [Ghost, Position])) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    chomp(sim);
+    const start = sim.renderOptions().frozenGhostRemainingMs;
+    expect(start).toBeGreaterThan(1000);
+    runFrames(sim, 10);
+    const later = sim.renderOptions();
+    expect(later.frozenGhostRemainingMs).toBeLessThan(start);
+    expect(later.frozenGhostRemainingMs).toBe(sim.snapshot().timers.freezeMs);
+    runUntil(sim, () => frozenGhostEid(sim["runUpgrades"]) === null, 600);
+    expect(sim.renderOptions().frozenGhostRemainingMs).toBe(0);
   });
 
   it("Second Chomp+ respawns a power pellet after 7s instead of 10s", () => {
