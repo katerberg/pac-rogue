@@ -20,6 +20,8 @@ import {
 } from "../../domain/upgrades";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { PLAYER_OPEN_MOUTH_TEXTURE_KEY, QUARTER_TEXTURE_KEY } from "../systems/render";
+import { textStyleFor } from "../../domain/ghostArt";
+import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
 import {
   HUD_FONT_SIZE,
@@ -301,7 +303,10 @@ export function createStoreOverlay(
       const school = enhance ? null : slotSchool(slot);
       const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
       const text = addGameText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
-      const inkOffset = (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8;
+      const inkOffset =
+        textStyleFor(loadGhostStyle()) === "pixel"
+          ? (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8
+          : 0;
       placeGameText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
       glyph = text;
     }

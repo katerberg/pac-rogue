@@ -9,6 +9,7 @@ import {
   type NeonGlyph,
 } from "../../domain/neonFont/glyphGrammar";
 import { neonGlyph } from "../../domain/neonFont/glyphs";
+import { neonCenteredLineOrigins, neonTextLocalHeight } from "../../domain/neonFont/layout";
 import { fontLineArtLook, type FontLineArtLook } from "../../domain/neonFont/fontLook";
 import { DEFAULT_TUNING } from "../../domain/tuning";
 import { renderScaleOf } from "../renderScale";
@@ -77,6 +78,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   private localHeight = 0;
   private ready = false;
   private lineSpacingPx = 0;
+  private centerAlign = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -96,8 +98,10 @@ export class NeonText extends Phaser.GameObjects.Container {
     this.add(this.core);
     scene.add.existing(this);
     liveNeonTexts.add(this);
+    scene.events.on(Phaser.Scenes.Events.PRE_UPDATE, this.syncGlowTransform, this);
     this.once(Phaser.GameObjects.Events.DESTROY, () => {
       liveNeonTexts.delete(this);
+      scene.events.off(Phaser.Scenes.Events.PRE_UPDATE, this.syncGlowTransform, this);
       this.glow?.destroy();
     });
     this.ready = true;
@@ -124,6 +128,11 @@ export class NeonText extends Phaser.GameObjects.Container {
   }
 
   setCenterAlign(): this {
+    if (this.centerAlign) {
+      return this;
+    }
+    this.centerAlign = true;
+    this.rebuild();
     return this;
   }
 
@@ -181,24 +190,69 @@ export class NeonText extends Phaser.GameObjects.Container {
     return this.glow;
   }
 
-  private syncGlowTransform(): void {
+  private effectiveVisible(): boolean {
+    if (!this.visible) {
+      return false;
+    }
+    let parent: Phaser.GameObjects.Container | null = this.parentContainer;
+    while (parent !== null) {
+      if (!parent.visible) {
+        return false;
+      }
+      parent = parent.parentContainer;
+    }
+    return true;
+  }
+
+  private effectiveAlpha(): number {
+    let alpha = this.alpha;
+    let parent = this.parentContainer;
+    while (parent !== null) {
+      alpha *= parent.alpha;
+      parent = parent.parentContainer;
+    }
+    return alpha;
+  }
+
+  private syncGlowTransform = (): void => {
     if (!this.ready || this.glow === null) {
       return;
     }
-    this.glow.setPosition(this.x, this.y);
-    this.glow.setAlpha(this.alpha);
-    this.glow.setVisible(this.visible);
-    this.glow.setScale(this.scaleX, this.scaleY);
-  }
+    const matrix = this.getWorldTransformMatrix();
+    const { translateX, translateY, scaleX, scaleY, rotation } = matrix.decomposeMatrix();
+    this.glow.setPosition(translateX, translateY);
+    this.glow.setScale(scaleX, scaleY);
+    this.glow.setRotation(rotation);
+    this.glow.setAlpha(this.effectiveAlpha());
+    this.glow.setVisible(this.effectiveVisible());
+    if (this.look.glow !== null) {
+      this.glow.filterCamera.centerOn(
+        translateX + (this.localWidth * scaleX) / 2,
+        translateY + (this.localHeight * scaleY) / 2,
+      );
+    }
+  };
 
   override setPosition(x?: number, y?: number, z?: number, w?: number): this {
     super.setPosition(x, y, z, w);
-    if (!this.ready) {
-      return this;
+    if (this.ready) {
+      this.syncGlowTransform();
     }
-    this.syncGlowTransform();
-    if (this.glow !== null && this.look.glow !== null) {
-      this.glow.filterCamera.centerOn(this.x + this.localWidth / 2, this.y + this.localHeight / 2);
+    return this;
+  }
+
+  override setX(value?: number): this {
+    super.setX(value);
+    if (this.ready) {
+      this.syncGlowTransform();
+    }
+    return this;
+  }
+
+  override setY(value?: number): this {
+    super.setY(value);
+    if (this.ready) {
+      this.syncGlowTransform();
     }
     return this;
   }
@@ -214,7 +268,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   override setAlpha(value?: number): this {
     super.setAlpha(value);
     if (this.ready) {
-      this.glow?.setAlpha(this.alpha);
+      this.syncGlowTransform();
     }
     return this;
   }
@@ -222,7 +276,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   override setVisible(value: boolean): this {
     super.setVisible(value);
     if (this.ready) {
-      this.glow?.setVisible(value);
+      this.syncGlowTransform();
     }
     return this;
   }
@@ -230,7 +284,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   override setScale(x?: number, y?: number): this {
     super.setScale(x, y);
     if (this.ready) {
-      this.glow?.setScale(this.scaleX, this.scaleY);
+      this.syncGlowTransform();
     }
     return this;
   }
@@ -244,11 +298,18 @@ export class NeonText extends Phaser.GameObjects.Container {
     const heightScale = this.look.heightScale;
     const strokeWidth = Math.max(0.5, this.look.thickness * this.fontSize);
     const lines = this.content.split("\n");
-    let cursorY = 0;
-    let maxWidth = 0;
+    const { maxWidth: maxWidthVb, originsX } = neonCenteredLineOrigins(
+      lines,
+      this.look.thickness,
+      this.look.letterSpacing,
+      this.centerAlign,
+    );
+    const lineHeightPx = this.fontSize * heightScale;
 
-    for (const line of lines) {
-      let cursorX = 0;
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex]!;
+      let cursorX = originsX[lineIndex]! * unit;
+      const cursorY = lineIndex * (lineHeightPx + this.lineSpacingPx);
       let prevChar = "";
       for (const char of line) {
         const glyph = neonGlyph(char);
@@ -303,12 +364,10 @@ export class NeonText extends Phaser.GameObjects.Container {
         cursorX += metrics.advance * unit;
         prevChar = char;
       }
-      maxWidth = Math.max(maxWidth, cursorX);
-      cursorY += this.fontSize * heightScale + this.lineSpacingPx;
     }
 
-    this.localWidth = maxWidth;
-    this.localHeight = lines.length === 0 ? 0 : cursorY;
+    this.localWidth = maxWidthVb * unit;
+    this.localHeight = neonTextLocalHeight(lines.length, lineHeightPx, this.lineSpacingPx);
     this.setSize(Math.max(1, this.localWidth), Math.max(1, this.localHeight));
     this.refreshGlowFilter(glow);
   }
@@ -349,7 +408,7 @@ export class NeonText extends Phaser.GameObjects.Container {
       Math.ceil(Math.max(1, this.localHeight) * pixelsPerWorld) + 2 * reach,
     );
     glow.filterCamera.setZoom(pixelsPerWorld);
-    glow.filterCamera.centerOn(this.x + this.localWidth / 2, this.y + this.localHeight / 2);
+    this.syncGlowTransform();
     glow.filters!.internal.addGlow(
       this.look.glowColor,
       this.look.glow.outerStrength,

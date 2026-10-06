@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
-import type { GhostStyle } from "../../domain/ghostArt";
+import { textStyleFor, type GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
@@ -323,10 +323,11 @@ export class LearnScene extends Phaser.Scene {
       .setStrokeStyle(2, TEXT_COLOR_YELLOW)
       .setVisible(false);
     const plus = addGameText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+    const pixelInk = textStyleFor(loadGhostStyle()) === "pixel";
     placeGameText(
       plus,
-      plusX + (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8,
-      y + (glyphInkCenterOffsetY("+") * UPGRADES_HUD_FONT_SIZE) / 8,
+      plusX + (pixelInk ? (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8 : 0),
+      y + (pixelInk ? (glyphInkCenterOffsetY("+") * UPGRADES_HUD_FONT_SIZE) / 8 : 0),
       0.5,
       0.5,
     );

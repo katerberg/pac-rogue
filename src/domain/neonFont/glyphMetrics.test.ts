@@ -1,37 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  NEON_GLYPH_WIDTH,
   NEON_TRACKING,
   glyphInkXBounds,
   neonGlyphMetrics,
   neonKern,
   pathInkXBounds,
-  type NeonGlyph,
 } from "./glyphGrammar";
 import { neonGlyph } from "./glyphs";
+import { neonLineAdvance } from "./layout";
 import { DEFAULT_TUNING } from "../tuning";
-
-function stringAdvance(
-  text: string,
-  thickness: number,
-  letterSpacing: number,
-  glyphFor: (ch: string) => NeonGlyph | undefined,
-): number {
-  let total = 0;
-  let prev = "";
-  for (const ch of text) {
-    if (prev !== "") {
-      total += neonKern(prev, ch);
-    }
-    const glyph = glyphFor(ch);
-    total +=
-      glyph === undefined
-        ? NEON_GLYPH_WIDTH * 0.6
-        : neonGlyphMetrics(glyph, thickness, letterSpacing).advance;
-    prev = ch;
-  }
-  return total;
-}
 
 describe("neon glyph metrics", () => {
   it("reads path ink from H/V endpoints", () => {
@@ -80,8 +57,8 @@ describe("neon glyph metrics", () => {
 
   it("kerns DOT-MAN so the hyphen pair is tighter than unkerned DOTXMAN", () => {
     const thickness = DEFAULT_TUNING.fontThickness;
-    const withHyphen = stringAdvance("DOT-MAN", thickness, 0, neonGlyph);
-    const unkernedShape = stringAdvance("DOTXMAN", thickness, 0, neonGlyph);
+    const withHyphen = neonLineAdvance("DOT-MAN", thickness, 0);
+    const unkernedShape = neonLineAdvance("DOTXMAN", thickness, 0);
     // Hyphen is narrower than X; kerned title should not balloon past a 7-letter word of rounds.
     expect(withHyphen).toBeLessThan(unkernedShape);
     expect(withHyphen).toBeGreaterThan(14);

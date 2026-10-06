@@ -1,0 +1,78 @@
+import { NEON_GLYPH_HEIGHT, neonGlyphMetrics, neonKern, type NeonGlyph } from "./glyphGrammar";
+import { neonGlyph } from "./glyphs";
+
+/**
+ * Fallback unknown-char advance in viewBox units.
+ * Matches NeonText: `fontSize * 0.6` with `unit = fontSize / NEON_GLYPH_HEIGHT`.
+ */
+export const NEON_FALLBACK_ADVANCE = NEON_GLYPH_HEIGHT * 0.6;
+
+export function neonCharAdvance(
+  char: string,
+  thickness: number,
+  letterSpacing: number,
+  glyph: NeonGlyph | undefined = neonGlyph(char),
+): number {
+  if (glyph === undefined) {
+    return NEON_FALLBACK_ADVANCE;
+  }
+  return neonGlyphMetrics(glyph, thickness, letterSpacing).advance;
+}
+
+/** Single-line advance in viewBox units (kerning + per-glyph advances). */
+export function neonLineAdvance(line: string, thickness: number, letterSpacing: number): number {
+  let total = 0;
+  let prev = "";
+  for (const ch of line) {
+    if (prev !== "") {
+      total += neonKern(prev, ch);
+    }
+    total += neonCharAdvance(ch, thickness, letterSpacing);
+    prev = ch;
+  }
+  return total;
+}
+
+/** Max line advance across a multi-line string (viewBox units). */
+export function neonStringAdvance(
+  content: string,
+  thickness: number,
+  letterSpacing: number,
+): number {
+  let max = 0;
+  for (const line of content.split("\n")) {
+    max = Math.max(max, neonLineAdvance(line, thickness, letterSpacing));
+  }
+  return max;
+}
+
+/**
+ * Per-line origin X in viewBox units. When `centerAlign`, each line is offset so
+ * shorter lines sit centered under the widest line (BitmapText setCenterAlign).
+ */
+export function neonCenteredLineOrigins(
+  lines: readonly string[],
+  thickness: number,
+  letterSpacing: number,
+  centerAlign: boolean,
+): { maxWidth: number; originsX: number[] } {
+  const widths = lines.map((line) => neonLineAdvance(line, thickness, letterSpacing));
+  const maxWidth = widths.reduce((a, b) => Math.max(a, b), 0);
+  const originsX = centerAlign ? widths.map((w) => (maxWidth - w) / 2) : widths.map(() => 0);
+  return { maxWidth, originsX };
+}
+
+/**
+ * Local height for multi-line neon text. Line spacing is between lines only
+ * (BitmapText semantics), not after the last line.
+ */
+export function neonTextLocalHeight(
+  lineCount: number,
+  lineHeightPx: number,
+  lineSpacingPx: number,
+): number {
+  if (lineCount <= 0) {
+    return 0;
+  }
+  return lineCount * lineHeightPx + Math.max(0, lineCount - 1) * lineSpacingPx;
+}
