@@ -425,33 +425,19 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     .renderTexture(0, 0, 1, 1)
     .setOrigin(0, 0)
     .setDepth(PELLET_GLOW_DEPTH);
-  const optionalPelletGlowTexture = scene.add
-    .renderTexture(0, 0, 1, 1)
-    .setOrigin(0, 0)
-    .setDepth(PELLET_GLOW_DEPTH);
   const pelletGlowSource = scene.make.graphics({}, false).enableFilters();
   pelletGlowSource.filtersAutoFocus = false;
   pelletGlowSource.filtersFocusContext = false;
   pelletGlowSource.filterCamera.setOrigin(0, 0);
-  const optionalPelletGlowSource = scene.make.graphics({}, false).enableFilters();
-  optionalPelletGlowSource.filtersAutoFocus = false;
-  optionalPelletGlowSource.filtersFocusContext = false;
-  optionalPelletGlowSource.filterCamera.setOrigin(0, 0);
   const sizePelletGlowToCanvas = (): void => {
     pelletGlowScale = renderScaleOf(scene);
-    for (const texture of [pelletGlowTexture, optionalPelletGlowTexture]) {
-      texture
-        .resize(
-          Math.round(PLAYFIELD_WIDTH * pelletGlowScale),
-          Math.round(PLAYFIELD_HEIGHT * pelletGlowScale),
-        )
-        .setScale(1 / pelletGlowScale);
-    }
+    pelletGlowTexture
+      .resize(
+        Math.round(PLAYFIELD_WIDTH * pelletGlowScale),
+        Math.round(PLAYFIELD_HEIGHT * pelletGlowScale),
+      )
+      .setScale(1 / pelletGlowScale);
     pelletGlowSource.setFilterSize(pelletGlowTexture.width, pelletGlowTexture.height);
-    optionalPelletGlowSource.setFilterSize(
-      optionalPelletGlowTexture.width,
-      optionalPelletGlowTexture.height,
-    );
   };
   sizePelletGlowToCanvas();
 
@@ -488,7 +474,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     scene.scale.off(Phaser.Scale.Events.RESIZE, onCanvasResize);
     wallGlowSource.destroy();
     pelletGlowSource.destroy();
-    optionalPelletGlowSource.destroy();
   });
 
   const destroyImage = (key: string): void => {
@@ -518,25 +503,31 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
   const bakePelletGlowLayer = (
     texture: Phaser.GameObjects.RenderTexture,
-    source: Phaser.GameObjects.Graphics,
     layers: readonly {
       pellets: readonly { x: number; y: number; look: PelletKindLook }[];
       look: PelletKindLook;
     }[],
   ): void => {
     texture.clear();
-    let drew = false;
     for (const layer of layers) {
       const glow = pelletGlowFilter(layer.look);
       if (glow === null || layer.pellets.length === 0) {
         continue;
       }
-      source.clear();
+      pelletGlowSource.clear();
       for (const pellet of layer.pellets) {
-        strokePelletRing(source, pellet.x, pellet.y, pellet.look, pelletGlowScale, 1, true);
+        strokePelletRing(
+          pelletGlowSource,
+          pellet.x,
+          pellet.y,
+          pellet.look,
+          pelletGlowScale,
+          1,
+          true,
+        );
       }
-      source.filters!.internal.clear();
-      source.filters!.internal.addGlow(
+      pelletGlowSource.filters!.internal.clear();
+      pelletGlowSource.filters!.internal.addGlow(
         layer.look.glowColor,
         glow.outerStrength,
         0,
@@ -545,12 +536,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         PELLET_GLOW_QUALITY,
         glow.distance * pelletGlowScale,
       );
-      texture.draw(source);
-      drew = true;
-    }
-    if (!drew) {
-      texture.render();
-      return;
+      texture.draw(pelletGlowSource);
     }
     texture.render();
   };
@@ -622,7 +608,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     wallGraphics.clear();
     pelletCrispGraphics.clear();
     pelletGlowTexture.clear();
-    optionalPelletGlowTexture.clear();
     drawnWallStyle = null;
     drawnPelletStyle = null;
     pelletBakeSignature = "";
@@ -991,8 +976,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     if (pelletStyle === null) {
       pelletGlowTexture.clear();
       pelletGlowTexture.render();
-      optionalPelletGlowTexture.clear();
-      optionalPelletGlowTexture.render();
       for (const glow of bossPelletGlows.values()) {
         glow.destroy();
       }
@@ -1041,13 +1024,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
       signatureParts.sort();
       const signature = signatureParts.join("|");
-      const styleChanged = !samePelletStyle(pelletStyle, drawnPelletStyle);
-      if (styleChanged || signature !== pelletBakeSignature) {
-        bakePelletGlowLayer(pelletGlowTexture, pelletGlowSource, [
+      if (!samePelletStyle(pelletStyle, drawnPelletStyle) || signature !== pelletBakeSignature) {
+        bakePelletGlowLayer(pelletGlowTexture, [
           { pellets: regularGlowPellets, look: pelletStyle.regular },
           { pellets: powerGlowPellets, look: pelletStyle.power },
-        ]);
-        bakePelletGlowLayer(optionalPelletGlowTexture, optionalPelletGlowSource, [
           { pellets: optionalGlowPellets, look: pelletStyle.optional },
         ]);
         drawnPelletStyle = pelletStyle;

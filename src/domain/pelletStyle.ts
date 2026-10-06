@@ -1,5 +1,4 @@
 import { DEFAULT_GHOST_STYLE, type GhostStyle } from "./ghostArt";
-import { LAZY_LOOPER_OPTIONAL_TINT } from "./lazyLooper";
 import { mazeColorForIndex } from "./mazeColorSettings";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
@@ -21,14 +20,10 @@ export type PelletStyle = {
   optional: PelletKindLook;
 };
 
-function kindLook(partial: PelletKindLook): PelletKindLook {
-  return partial;
-}
-
 function fromTuning(tuning: Tuning, mazeGlowColor: number): PelletStyle {
   const core = tuning.pelletCoreColor;
   return {
-    regular: kindLook({
+    regular: {
       radius: tuning.pelletRadius,
       strokeWidth: tuning.pelletStrokeWidth,
       coreColor: core,
@@ -37,8 +32,8 @@ function fromTuning(tuning: Tuning, mazeGlowColor: number): PelletStyle {
       glowColor: mazeGlowColor,
       fillColor: core,
       fillOpacity: tuning.pelletFillOpacity,
-    }),
-    power: kindLook({
+    },
+    power: {
       radius: tuning.powerPelletRadius,
       strokeWidth: tuning.powerPelletStrokeWidth,
       coreColor: core,
@@ -47,8 +42,8 @@ function fromTuning(tuning: Tuning, mazeGlowColor: number): PelletStyle {
       glowColor: mazeGlowColor,
       fillColor: core,
       fillOpacity: tuning.powerPelletFillOpacity,
-    }),
-    boss: kindLook({
+    },
+    boss: {
       radius: tuning.bossPelletRadius,
       strokeWidth: tuning.bossPelletStrokeWidth,
       coreColor: core,
@@ -57,8 +52,8 @@ function fromTuning(tuning: Tuning, mazeGlowColor: number): PelletStyle {
       glowColor: mazeGlowColor,
       fillColor: core,
       fillOpacity: tuning.bossPelletFillOpacity,
-    }),
-    optional: kindLook({
+    },
+    optional: {
       radius: tuning.optionalPelletRadius,
       strokeWidth: tuning.optionalPelletStrokeWidth,
       coreColor: tuning.optionalPelletFillColor,
@@ -67,7 +62,7 @@ function fromTuning(tuning: Tuning, mazeGlowColor: number): PelletStyle {
       glowColor: tuning.optionalPelletGlowColor,
       fillColor: tuning.optionalPelletFillColor,
       fillOpacity: tuning.optionalPelletFillOpacity,
-    }),
+    },
   };
 }
 
@@ -118,5 +113,3 @@ export function samePelletStyle(a: PelletStyle | null, b: PelletStyle | null): b
     sameKind(a.optional, b.optional)
   );
 }
-
-export const OPTIONAL_PELLET_DEFAULT_FILL = LAZY_LOOPER_OPTIONAL_TINT;
