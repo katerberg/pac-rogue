@@ -16,6 +16,13 @@ import {
   wallStyleFor,
   type WallStyle,
 } from "../../domain/wallStyle";
+import {
+  pelletGlowFilter,
+  pelletStyleFor,
+  samePelletStyle,
+  type PelletKindLook,
+  type PelletStyle,
+} from "../../domain/pelletStyle";
 import type { LineArt } from "../../domain/lineArt";
 import { GHOST_LINE_ART } from "../art/ghostLineArt";
 import {
@@ -100,6 +107,9 @@ const LINE_ART_BY_DRAWABLE_ID: Record<string, { art: LineArt; color: number }> =
 const LINE_ART_FROZEN_COLOR = 0xe6f6ff;
 const LINE_ART_FRIGHTENED_COLOR = 0x6f7bff;
 const WALL_GLOW_QUALITY = 10;
+const PELLET_GLOW_QUALITY = 10;
+const PELLET_GLOW_DEPTH = -1;
+const PELLET_CRISP_DEPTH = 0;
 const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
@@ -200,6 +210,54 @@ function storedWallStyle(): WallStyle {
     clampMazeColorIndex(loadMazeColorSettings().colorIndex),
     loadGhostStyle(),
   );
+}
+
+function storedPelletStyle(): PelletStyle | null {
+  return pelletStyleFor(
+    null,
+    clampMazeColorIndex(loadMazeColorSettings().colorIndex),
+    loadGhostStyle(),
+  );
+}
+
+function isPelletDrawableId(id: string): boolean {
+  return (
+    id === PELLET_DRAWABLE_ID || id === POWER_PELLET_DRAWABLE_ID || id === BOSS_PELLET_DRAWABLE_ID
+  );
+}
+
+function lookForPellet(style: PelletStyle, id: string, optional: boolean): PelletKindLook {
+  if (id === BOSS_PELLET_DRAWABLE_ID) {
+    return style.boss;
+  }
+  if (id === POWER_PELLET_DRAWABLE_ID) {
+    return style.power;
+  }
+  return optional ? style.optional : style.regular;
+}
+
+function strokePelletRing(
+  graphics: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  look: PelletKindLook,
+  scale: number,
+  alpha: number,
+  forGlow: boolean,
+): void {
+  const sx = x * scale;
+  const sy = y * scale;
+  const radius = look.radius * scale;
+  const stroke = Math.max(forGlow ? 0.5 : 0.1, look.strokeWidth * scale);
+  if (look.fillOpacity > 0) {
+    graphics.fillStyle(
+      forGlow ? look.glowColor : look.fillColor,
+      forGlow ? 1 : look.fillOpacity * alpha,
+    );
+    graphics.fillCircle(sx, sy, radius);
+  }
+  graphics.lineStyle(stroke, forGlow ? look.glowColor : look.coreColor, forGlow ? 1 : alpha);
+  graphics.strokeCircle(sx, sy, radius);
 }
 
 export function addGhostIcon(
@@ -315,6 +373,7 @@ export type PlayRender = {
   resetForNewBoard: () => void;
   bouncePowerPellet: (eid: number) => void;
   setWallStyle: (style: WallStyle | null) => void;
+  setPelletStyle: (style: PelletStyle | null) => void;
   setGhostLook: (look: GhostLineArtLook) => void;
 };
 
@@ -341,6 +400,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const lineArtObjects = new Map<string, LineArtObject>();
   const playerVisuals = new Map<number, PlayerVisual>();
+  const bossPelletGlows = new Map<number, Phaser.GameObjects.Graphics>();
+  const neonPowerBounceMul = new Map<number, number>();
   let wallGlowScale = renderScaleOf(scene);
   const wallGlowTexture = scene.add.renderTexture(0, 0, 1, 1).setOrigin(0, 0);
   const wallGlowSource = scene.make.graphics({}, false).enableFilters();
@@ -358,27 +419,76 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     wallGlowSource.setFilterSize(wallGlowTexture.width, wallGlowTexture.height);
   };
   sizeWallGlowToCanvas();
+
+  let pelletGlowScale = renderScaleOf(scene);
+  const pelletGlowTexture = scene.add
+    .renderTexture(0, 0, 1, 1)
+    .setOrigin(0, 0)
+    .setDepth(PELLET_GLOW_DEPTH);
+  const optionalPelletGlowTexture = scene.add
+    .renderTexture(0, 0, 1, 1)
+    .setOrigin(0, 0)
+    .setDepth(PELLET_GLOW_DEPTH);
+  const pelletGlowSource = scene.make.graphics({}, false).enableFilters();
+  pelletGlowSource.filtersAutoFocus = false;
+  pelletGlowSource.filtersFocusContext = false;
+  pelletGlowSource.filterCamera.setOrigin(0, 0);
+  const optionalPelletGlowSource = scene.make.graphics({}, false).enableFilters();
+  optionalPelletGlowSource.filtersAutoFocus = false;
+  optionalPelletGlowSource.filtersFocusContext = false;
+  optionalPelletGlowSource.filterCamera.setOrigin(0, 0);
+  const sizePelletGlowToCanvas = (): void => {
+    pelletGlowScale = renderScaleOf(scene);
+    for (const texture of [pelletGlowTexture, optionalPelletGlowTexture]) {
+      texture
+        .resize(
+          Math.round(PLAYFIELD_WIDTH * pelletGlowScale),
+          Math.round(PLAYFIELD_HEIGHT * pelletGlowScale),
+        )
+        .setScale(1 / pelletGlowScale);
+    }
+    pelletGlowSource.setFilterSize(pelletGlowTexture.width, pelletGlowTexture.height);
+    optionalPelletGlowSource.setFilterSize(
+      optionalPelletGlowTexture.width,
+      optionalPelletGlowTexture.height,
+    );
+  };
+  sizePelletGlowToCanvas();
+
   const wallGraphics = scene.add.graphics();
+  const pelletCrispGraphics = scene.add.graphics().setDepth(PELLET_CRISP_DEPTH);
   const chainGraphics = scene.add.graphics();
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let wallStyleOverride: WallStyle | null = null;
+  let drawnPelletStyle: PelletStyle | null = null;
+  let pelletStyleOverride: PelletStyle | null = null;
+  let pelletBakeSignature = "";
   let ghostLook = ghostLineArtLook(DEFAULT_TUNING);
   let bossPelletTint = 0xffffff;
 
   // Glow textures are baked at the canvas density; rebuild them when the canvas resizes.
   const onCanvasResize = (): void => {
     sizeWallGlowToCanvas();
+    sizePelletGlowToCanvas();
     drawnWallStyle = null;
+    drawnPelletStyle = null;
+    pelletBakeSignature = "";
     for (const key of [...lineArtObjects.keys()]) {
       destroyLineArt(key);
     }
+    for (const glow of bossPelletGlows.values()) {
+      glow.destroy();
+    }
+    bossPelletGlows.clear();
   };
   scene.scale.on(Phaser.Scale.Events.RESIZE, onCanvasResize);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
     scene.scale.off(Phaser.Scale.Events.RESIZE, onCanvasResize);
     wallGlowSource.destroy();
+    pelletGlowSource.destroy();
+    optionalPelletGlowSource.destroy();
   });
 
   const destroyImage = (key: string): void => {
@@ -398,11 +508,99 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
+  const destroyBossPelletGlow = (eid: number): void => {
+    const glow = bossPelletGlows.get(eid);
+    if (glow) {
+      glow.destroy();
+      bossPelletGlows.delete(eid);
+    }
+  };
+
+  const bakePelletGlowLayer = (
+    texture: Phaser.GameObjects.RenderTexture,
+    source: Phaser.GameObjects.Graphics,
+    layers: readonly {
+      pellets: readonly { x: number; y: number; look: PelletKindLook }[];
+      look: PelletKindLook;
+    }[],
+  ): void => {
+    texture.clear();
+    let drew = false;
+    for (const layer of layers) {
+      const glow = pelletGlowFilter(layer.look);
+      if (glow === null || layer.pellets.length === 0) {
+        continue;
+      }
+      source.clear();
+      for (const pellet of layer.pellets) {
+        strokePelletRing(source, pellet.x, pellet.y, pellet.look, pelletGlowScale, 1, true);
+      }
+      source.filters!.internal.clear();
+      source.filters!.internal.addGlow(
+        layer.look.glowColor,
+        glow.outerStrength,
+        0,
+        1,
+        true,
+        PELLET_GLOW_QUALITY,
+        glow.distance * pelletGlowScale,
+      );
+      texture.draw(source);
+      drew = true;
+    }
+    if (!drew) {
+      texture.render();
+      return;
+    }
+    texture.render();
+  };
+
+  const ensureBossPelletGlow = (
+    eid: number,
+    look: PelletKindLook,
+  ): Phaser.GameObjects.Graphics | null => {
+    const filter = pelletGlowFilter(look);
+    if (filter === null) {
+      destroyBossPelletGlow(eid);
+      return null;
+    }
+    const px = renderScaleOf(scene);
+    let glow = bossPelletGlows.get(eid);
+    if (!glow) {
+      glow = scene.add
+        .graphics()
+        .setScale(1 / px)
+        .setDepth(PELLET_GLOW_DEPTH);
+      glow.enableFilters();
+      glow.filtersAutoFocus = false;
+      glow.filtersFocusContext = false;
+      bossPelletGlows.set(eid, glow);
+    }
+    const reach = Math.ceil(filter.distance * px);
+    const box = Math.ceil((look.radius + look.strokeWidth) * 2 * px) + 2 * reach;
+    glow.setFilterSize(box, box);
+    glow.filterCamera.setZoom(px);
+    glow.filters!.internal.clear();
+    glow.filters!.internal.addGlow(
+      look.glowColor,
+      filter.outerStrength,
+      0,
+      1,
+      true,
+      PELLET_GLOW_QUALITY,
+      reach,
+    );
+    return glow;
+  };
+
   const releaseDrawable = (eid: number): void => {
     destroyImage(String(eid));
     destroyImage(`${eid}:twin`);
     destroyLineArt(String(eid));
+    destroyBossPelletGlow(eid);
+    neonPowerBounceMul.delete(eid);
     playerVisuals.delete(eid);
+    pelletBakeSignature = "";
   };
 
   const resetForNewBoard = (): void => {
@@ -415,12 +613,41 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       destroyLineArtObject(obj);
     }
     lineArtObjects.clear();
+    for (const glow of bossPelletGlows.values()) {
+      glow.destroy();
+    }
+    bossPelletGlows.clear();
+    neonPowerBounceMul.clear();
     playerVisuals.clear();
     wallGraphics.clear();
+    pelletCrispGraphics.clear();
+    pelletGlowTexture.clear();
+    optionalPelletGlowTexture.clear();
     drawnWallStyle = null;
+    drawnPelletStyle = null;
+    pelletBakeSignature = "";
   };
 
   const bouncePowerPellet = (eid: number): void => {
+    const pelletStyle = pelletStyleOverride ?? storedPelletStyle();
+    if (pelletStyle !== null) {
+      const target = { mul: 1 };
+      neonPowerBounceMul.set(eid, 1);
+      scene.tweens.add({
+        targets: target,
+        mul: POWER_PELLET_BOUNCE_MUL,
+        duration: POWER_PELLET_BOUNCE_MS,
+        yoyo: true,
+        ease: "Sine.easeOut",
+        onUpdate: () => {
+          neonPowerBounceMul.set(eid, target.mul);
+        },
+        onComplete: () => {
+          neonPowerBounceMul.delete(eid);
+        },
+      });
+      return;
+    }
     const go = drawableObjects.get(String(eid));
     if (!go) {
       return;
@@ -487,6 +714,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
       drawnWallStyle = wallStyle;
     }
+
+    const pelletStyle = pelletStyleOverride ?? storedPelletStyle();
+    const neonPellets: {
+      eid: number;
+      id: string;
+      x: number;
+      y: number;
+      look: PelletKindLook;
+      optional: boolean;
+      bounceMul: number;
+    }[] = [];
+    const aliveBossGlow = new Set<number>();
 
     const alive = new Set<string>();
     const drawGlideTrail = (
@@ -558,6 +797,22 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         ghostTexture !== undefined &&
         (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse &&
         showsFrightenedLook(opts?.frightenedGhosts, eid, scene.time.now);
+
+      if (pelletStyle !== null && isPelletDrawableId(id)) {
+        destroyImage(primaryKey);
+        destroyLineArt(primaryKey);
+        const optional = hasComponent(world, eid, OptionalPellet);
+        neonPellets.push({
+          eid,
+          id,
+          x,
+          y,
+          look: lookForPellet(pelletStyle, id, optional),
+          optional,
+          bounceMul: neonPowerBounceMul.get(eid) ?? 1,
+        });
+        continue;
+      }
 
       const lineArtEntry = lineArtIds.has(id) ? LINE_ART_BY_DRAWABLE_ID[id] : undefined;
       if (lineArtEntry !== undefined) {
@@ -732,6 +987,79 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
     }
 
+    pelletCrispGraphics.clear();
+    if (pelletStyle === null) {
+      pelletGlowTexture.clear();
+      pelletGlowTexture.render();
+      optionalPelletGlowTexture.clear();
+      optionalPelletGlowTexture.render();
+      for (const glow of bossPelletGlows.values()) {
+        glow.destroy();
+      }
+      bossPelletGlows.clear();
+      drawnPelletStyle = null;
+      pelletBakeSignature = "";
+    } else {
+      const regularGlowPellets: { x: number; y: number; look: PelletKindLook }[] = [];
+      const powerGlowPellets: { x: number; y: number; look: PelletKindLook }[] = [];
+      const optionalGlowPellets: { x: number; y: number; look: PelletKindLook }[] = [];
+      const signatureParts: string[] = [];
+      for (const pellet of neonPellets) {
+        let radiusMul = pellet.bounceMul;
+        let alpha = 1;
+        if (pellet.id === BOSS_PELLET_DRAWABLE_ID) {
+          const pulse = bossPelletPulse(scene.time.now);
+          radiusMul = pulse.size / (pelletDisplaySize() * BOSS_PELLET_SIZE_MUL);
+          alpha = pulse.alpha;
+        }
+        const look: PelletKindLook = {
+          ...pellet.look,
+          radius: pellet.look.radius * radiusMul,
+          strokeWidth: pellet.look.strokeWidth * Math.max(1, Math.sqrt(radiusMul)),
+        };
+        strokePelletRing(pelletCrispGraphics, pellet.x, pellet.y, look, 1, alpha, false);
+        if (pellet.id === BOSS_PELLET_DRAWABLE_ID) {
+          aliveBossGlow.add(pellet.eid);
+          const glow = ensureBossPelletGlow(pellet.eid, look);
+          if (glow !== null) {
+            const px = renderScaleOf(scene);
+            glow.clear();
+            strokePelletRing(glow, 0, 0, look, px, 1, true);
+            glow.setPosition(pellet.x, pellet.y);
+            glow.setAlpha(alpha);
+          }
+        } else if (pellet.optional) {
+          optionalGlowPellets.push({ x: pellet.x, y: pellet.y, look });
+          signatureParts.push(`o${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
+        } else if (pellet.id === POWER_PELLET_DRAWABLE_ID) {
+          powerGlowPellets.push({ x: pellet.x, y: pellet.y, look });
+          signatureParts.push(`w${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
+        } else {
+          regularGlowPellets.push({ x: pellet.x, y: pellet.y, look });
+          signatureParts.push(`p${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
+        }
+      }
+      signatureParts.sort();
+      const signature = signatureParts.join("|");
+      const styleChanged = !samePelletStyle(pelletStyle, drawnPelletStyle);
+      if (styleChanged || signature !== pelletBakeSignature) {
+        bakePelletGlowLayer(pelletGlowTexture, pelletGlowSource, [
+          { pellets: regularGlowPellets, look: pelletStyle.regular },
+          { pellets: powerGlowPellets, look: pelletStyle.power },
+        ]);
+        bakePelletGlowLayer(optionalPelletGlowTexture, optionalPelletGlowSource, [
+          { pellets: optionalGlowPellets, look: pelletStyle.optional },
+        ]);
+        drawnPelletStyle = pelletStyle;
+        pelletBakeSignature = signature;
+      }
+      for (const eid of [...bossPelletGlows.keys()]) {
+        if (!aliveBossGlow.has(eid)) {
+          destroyBossPelletGlow(eid);
+        }
+      }
+    }
+
     chainGraphics.clear();
     const chains = opts?.bossChains ?? [];
     if (chains.length > 0) {
@@ -781,6 +1109,12 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     wallStyleOverride = style;
   };
 
+  const setPelletStyle = (style: PelletStyle | null): void => {
+    pelletStyleOverride = style;
+    drawnPelletStyle = null;
+    pelletBakeSignature = "";
+  };
+
   // Glow distance is fixed when the filter is created, so rebuild line art on change.
   const setGhostLook = (look: GhostLineArtLook): void => {
     if (sameGhostLineArtLook(look, ghostLook)) {
@@ -798,6 +1132,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     resetForNewBoard,
     bouncePowerPellet,
     setWallStyle,
+    setPelletStyle,
     setGhostLook,
   };
 }

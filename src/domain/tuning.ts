@@ -54,6 +54,30 @@ export type Tuning = {
   readonly ghostHeight: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
+  readonly pelletRadius: number;
+  readonly pelletStrokeWidth: number;
+  readonly pelletGlow: number;
+  readonly pelletGlowRadius: number;
+  readonly pelletCoreColor: number;
+  readonly pelletGlowColor: number;
+  readonly pelletFillOpacity: number;
+  readonly powerPelletRadius: number;
+  readonly powerPelletStrokeWidth: number;
+  readonly powerPelletGlow: number;
+  readonly powerPelletGlowRadius: number;
+  readonly powerPelletFillOpacity: number;
+  readonly bossPelletRadius: number;
+  readonly bossPelletStrokeWidth: number;
+  readonly bossPelletGlow: number;
+  readonly bossPelletGlowRadius: number;
+  readonly bossPelletFillOpacity: number;
+  readonly optionalPelletRadius: number;
+  readonly optionalPelletStrokeWidth: number;
+  readonly optionalPelletGlow: number;
+  readonly optionalPelletGlowRadius: number;
+  readonly optionalPelletFillColor: number;
+  readonly optionalPelletGlowColor: number;
+  readonly optionalPelletFillOpacity: number;
 };
 
 export type TuningKey = keyof Tuning;
@@ -112,6 +136,30 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   ghostHeight: 1.14,
   wallCornerRadius: 6,
   backgroundColor: 0x1a1a2e,
+  pelletRadius: 2.5,
+  pelletStrokeWidth: 1.0,
+  pelletGlow: 1.2,
+  pelletGlowRadius: 7,
+  pelletCoreColor: 0xffffff,
+  pelletGlowColor: 0x2121ff,
+  pelletFillOpacity: 0,
+  powerPelletRadius: 5.5,
+  powerPelletStrokeWidth: 2.0,
+  powerPelletGlow: 2.2,
+  powerPelletGlowRadius: 12,
+  powerPelletFillOpacity: 0,
+  bossPelletRadius: 4.0,
+  bossPelletStrokeWidth: 1.5,
+  bossPelletGlow: 1.8,
+  bossPelletGlowRadius: 10,
+  bossPelletFillOpacity: 0,
+  optionalPelletRadius: 2.5,
+  optionalPelletStrokeWidth: 1.0,
+  optionalPelletGlow: 0.6,
+  optionalPelletGlowRadius: 5,
+  optionalPelletFillColor: 0x6e6e6e,
+  optionalPelletGlowColor: 0xa0a0b4,
+  optionalPelletFillOpacity: 1,
 });
 
 const TUNING_STORAGE_VERSION = 1;
