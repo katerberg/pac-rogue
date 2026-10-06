@@ -1,25 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { MAZE_BACKGROUND_COLOR, WALL_CORNER_RADIUS, WALL_STROKE_WEIGHT } from "./maze";
+import { MAZE_BACKGROUND_COLOR, WALL_CORNER_RADIUS } from "./maze";
 import { mazeColorForIndex } from "./mazeColorSettings";
 import { DEFAULT_TUNING, resolveTuning } from "./tuning";
 import { sameWallStyle, wallGlowFilter, wallStyleFor } from "./wallStyle";
 
 describe("wallStyleFor", () => {
-  it("follows the maze color setting without knobs, with the default glow", () => {
-    expect(wallStyleFor(null, 2)).toEqual({
+  it("uses neon defaults without knobs, following the maze color setting", () => {
+    expect(wallStyleFor(null, 2, "neon")).toEqual({
       color: mazeColorForIndex(2),
-      thickness: WALL_STROKE_WEIGHT,
+      thickness: DEFAULT_TUNING.wallThickness,
       glow: DEFAULT_TUNING.wallGlow,
-      glowRadius: 4,
+      glowRadius: DEFAULT_TUNING.wallGlowRadius,
       cornerRadius: WALL_CORNER_RADIUS,
       background: MAZE_BACKGROUND_COLOR,
     });
   });
 
-  it("uses the knob values with knobs on", () => {
-    const style = wallStyleFor(resolveTuning({ wallColor: 0xff0000, wallThickness: 5 }), 2);
+  it("turns wall glow off under PIXEL style without knobs", () => {
+    expect(wallStyleFor(null, 0, "pixel")).toEqual({
+      color: mazeColorForIndex(0),
+      thickness: DEFAULT_TUNING.wallThickness,
+      glow: 0,
+      glowRadius: 0,
+      cornerRadius: WALL_CORNER_RADIUS,
+      background: MAZE_BACKGROUND_COLOR,
+    });
+  });
+
+  it("uses the knob values with knobs on, ignoring style", () => {
+    const style = wallStyleFor(
+      resolveTuning({ wallColor: 0xff0000, wallThickness: 5, wallGlow: 3 }),
+      2,
+      "pixel",
+    );
     expect(style.color).toBe(0xff0000);
     expect(style.thickness).toBe(5);
+    expect(style.glow).toBe(3);
   });
 });
 
@@ -31,14 +47,18 @@ describe("wallGlowFilter", () => {
     ).toBeNull();
   });
 
-  it("scales strength by glow and uses the radius as distance", () => {
+  it("uses glow as raw outerStrength and radius as distance", () => {
     expect(
-      wallGlowFilter(wallStyleFor(resolveTuning({ wallGlow: 0.5, wallGlowRadius: 6 }), 0)),
-    ).toEqual({ outerStrength: 2, distance: 6 });
+      wallGlowFilter(wallStyleFor(resolveTuning({ wallGlow: 3, wallGlowRadius: 6 }), 0)),
+    ).toEqual({ outerStrength: 3, distance: 6 });
   });
 
-  it("does not glow by default", () => {
-    expect(wallGlowFilter(wallStyleFor(null, 0))).toBeNull();
+  it("glows by default under NEON and not under PIXEL", () => {
+    expect(wallGlowFilter(wallStyleFor(null, 0, "neon"))).toEqual({
+      outerStrength: 2.4,
+      distance: 4,
+    });
+    expect(wallGlowFilter(wallStyleFor(null, 0, "pixel"))).toBeNull();
   });
 });
 

@@ -402,7 +402,7 @@ export class SettingsScene extends Phaser.Scene {
 
   private createGhostStyleRow(): void {
     const centerY = GHOST_STYLE_ROW_Y;
-    this.ghostStyleLabel = addPixelText(this, LABEL_X, centerY, "GHOSTS", MENU_OPTION_FONT_SIZE);
+    this.ghostStyleLabel = addPixelText(this, LABEL_X, centerY, "STYLE", MENU_OPTION_FONT_SIZE);
     placePixelText(this.ghostStyleLabel, LABEL_X, centerY, 0, 0.5);
     this.ghostStyleTexts = GHOST_STYLE_OPTIONS.map((option) => {
       const text = addPixelText(this, option.x, centerY, option.label, MENU_OPTION_FONT_SIZE);

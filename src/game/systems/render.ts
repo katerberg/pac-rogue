@@ -26,6 +26,7 @@ import {
   type LineArtObject,
 } from "./lineArtRender";
 import { renderScaleOf } from "../renderScale";
+import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -191,7 +192,11 @@ function textureKeyForDrawable(drawableId: string): string {
 }
 
 function storedWallStyle(): WallStyle {
-  return wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
+  return wallStyleFor(
+    null,
+    clampMazeColorIndex(loadMazeColorSettings().colorIndex),
+    loadGhostStyle(),
+  );
 }
 
 export function addGhostIcon(
