@@ -97,7 +97,7 @@ const LINE_ART_BY_DRAWABLE_ID: Record<string, { art: LineArt; color: number }> =
 };
 // Icy white: the pixel frozen tint (pale blue) would read as Inky's neon cyan.
 const LINE_ART_FROZEN_COLOR = 0xe6f6ff;
-const LINE_ART_FRIGHTENED_COLOR = 0x2121ff;
+const LINE_ART_FRIGHTENED_COLOR = 0x6f7bff;
 const WALL_GLOW_QUALITY = 10;
 const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
