@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_TUNING } from "../tuning";
 import {
   neonCenteredLineOrigins,
+  neonGlowDepth,
   neonLineAdvance,
   neonStringAdvance,
   neonTextLocalHeight,
@@ -45,5 +46,11 @@ describe("neon text layout", () => {
     expect(neonTextLocalHeight(1, 10, 4)).toBe(10);
     expect(neonTextLocalHeight(2, 10, 4)).toBe(24);
     expect(neonTextLocalHeight(3, 10, 4)).toBe(38);
+  });
+
+  it("glow depth follows the outermost ancestor, else local depth", () => {
+    expect(neonGlowDepth(0, [])).toBeCloseTo(-0.1, 5);
+    expect(neonGlowDepth(0, [10])).toBeCloseTo(9.9, 5);
+    expect(neonGlowDepth(0, [1, 900])).toBeCloseTo(899.9, 5);
   });
 });

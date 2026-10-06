@@ -9,7 +9,11 @@ import {
   type NeonGlyph,
 } from "../../domain/neonFont/glyphGrammar";
 import { neonGlyph } from "../../domain/neonFont/glyphs";
-import { neonCenteredLineOrigins, neonTextLocalHeight } from "../../domain/neonFont/layout";
+import {
+  neonCenteredLineOrigins,
+  neonGlowDepth,
+  neonTextLocalHeight,
+} from "../../domain/neonFont/layout";
 import { fontLineArtLook, type FontLineArtLook } from "../../domain/neonFont/fontLook";
 import { DEFAULT_TUNING } from "../../domain/tuning";
 import { renderScaleOf } from "../renderScale";
@@ -185,9 +189,25 @@ export class NeonText extends Phaser.GameObjects.Container {
     }
     // Sibling of the container (not a child): Glow filters mis-focus inside Containers.
     this.glow = this.scene.add.graphics();
-    this.glow.setDepth(this.depth - 0.1);
     this.syncGlowTransform();
     return this.glow;
+  }
+
+  private ancestorDepths(): number[] {
+    const depths: number[] = [];
+    let parent = this.parentContainer;
+    while (parent !== null) {
+      depths.push(parent.depth);
+      parent = parent.parentContainer;
+    }
+    return depths;
+  }
+
+  private syncGlowDepth(): void {
+    if (this.glow === null) {
+      return;
+    }
+    this.glow.setDepth(neonGlowDepth(this.depth, this.ancestorDepths()));
   }
 
   private effectiveVisible(): boolean {
@@ -225,6 +245,7 @@ export class NeonText extends Phaser.GameObjects.Container {
     this.glow.setRotation(rotation);
     this.glow.setAlpha(this.effectiveAlpha());
     this.glow.setVisible(this.effectiveVisible());
+    this.syncGlowDepth();
     if (this.look.glow !== null && this.glow.filterCamera !== null) {
       this.glow.filterCamera.centerOn(
         translateX + (this.localWidth * scaleX) / 2,
@@ -260,7 +281,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   override setDepth(value: number): this {
     super.setDepth(value);
     if (this.ready) {
-      this.glow?.setDepth(value - 0.1);
+      this.syncGlowDepth();
     }
     return this;
   }

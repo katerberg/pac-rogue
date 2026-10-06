@@ -7,6 +7,15 @@ import { neonGlyph } from "./glyphs";
  */
 export const NEON_FALLBACK_ADVANCE = NEON_GLYPH_HEIGHT * 0.6;
 
+/**
+ * Scene-root glow depth for NeonText: use the outermost display-list ancestor's depth
+ * (container nesting), else the text's own depth. Glow sits slightly under that.
+ */
+export function neonGlowDepth(localDepth: number, ancestorDepths: readonly number[]): number {
+  const root = ancestorDepths.length > 0 ? ancestorDepths[ancestorDepths.length - 1]! : localDepth;
+  return root - 0.1;
+}
+
 export function neonCharAdvance(
   char: string,
   thickness: number,
