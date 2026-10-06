@@ -225,7 +225,7 @@ export class NeonText extends Phaser.GameObjects.Container {
     this.glow.setRotation(rotation);
     this.glow.setAlpha(this.effectiveAlpha());
     this.glow.setVisible(this.effectiveVisible());
-    if (this.look.glow !== null) {
+    if (this.look.glow !== null && this.glow.filterCamera !== null) {
       this.glow.filterCamera.centerOn(
         translateX + (this.localWidth * scaleX) / 2,
         translateY + (this.localHeight * scaleY) / 2,
