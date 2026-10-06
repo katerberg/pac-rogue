@@ -104,6 +104,7 @@ import {
   type UpgradeId,
   remoteTransferEvery,
   eatFrightenedGhost,
+  NO_FRIGHT,
   frightenedGhostEids,
   frightenedGhosts,
   hunterHoldsEaten,
@@ -1175,6 +1176,6 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
     ...(hasField("frightenGhostsMs")
       ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
-      : { frightenedRemainingMs: 0, frightenedGhostEids: [], hunterHeldEids: [] }),
+      : NO_FRIGHT),
   };
 }

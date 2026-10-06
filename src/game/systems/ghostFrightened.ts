@@ -62,7 +62,9 @@ export function frightenedGhostAi(
       continue;
     }
     const facing =
-      facingNow !== DIRECTION.none ? facingNow : ((Input.direction[eid] ?? 0) as GhostDir);
+      facingNow !== DIRECTION.none
+        ? facingNow
+        : ((Input.direction[eid] ?? DIRECTION.none) as GhostDir);
     const next = pickFrightenedDirection(opens, facing, roll) as Direction;
     if (next !== DIRECTION.none) {
       Input.direction[eid] = next;

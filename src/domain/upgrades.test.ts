@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  eatFrightenedGhost,
+  frightenedGhostEids,
+  frightenedGhosts,
+  hunterHoldsEaten,
+  tickFrightened,
   DEFY_DEATH_ENHANCED_MS,
   effectiveOwned,
   isSpecialist,
@@ -132,13 +137,6 @@ import {
   wallPassLoopOwned,
   echoEffects,
   queueEcho,
-} from "./upgrades";
-import {
-  eatFrightenedGhost,
-  frightenedGhostEids,
-  frightenedGhosts,
-  hunterHoldsEaten,
-  tickFrightened,
 } from "./upgrades";
 import { ECHO_DELAY_MS } from "./echo";
 import { TILE_SIZE } from "./maze";

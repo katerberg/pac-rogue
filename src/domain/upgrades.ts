@@ -956,7 +956,7 @@ export type PowerPelletApplyResult = {
   frightenGhosts: boolean;
 };
 
-const NO_FRIGHT: Pick<
+export const NO_FRIGHT: Pick<
   RunUpgrades,
   "frightenedRemainingMs" | "frightenedGhostEids" | "hunterHeldEids" | "ghostsEatenThisFright"
 > = {
@@ -1167,7 +1167,9 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
     ...state,
     owned,
     shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
-    ...(baseId === "powerPelletHunter" ? NO_FRIGHT : {}),
+    ...(owned.some((id) => getUpgradeDef(id).onPowerPellet?.frightenGhostsMs !== undefined)
+      ? {}
+      : NO_FRIGHT),
   };
 }
 
