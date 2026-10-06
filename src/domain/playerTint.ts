@@ -1,7 +1,7 @@
+import { expiryTintOn } from "./expiryBlink";
+
 export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 export const PLAYER_INVULN_TINT = 0xc48a00;
-const PLAYER_INVULN_BLINK_MS = 100;
-const PLAYER_INVULN_URGENCY_MS = 1000;
 
 export type PlayerTint = { color: number; mode: "multiply" | "add" };
 
@@ -24,11 +24,7 @@ function baseTint(input: PlayerTintInput): number | null {
   if (input.wallPassOn) {
     return PLAYER_WALL_PASS_TINT;
   }
-  const invulnOn =
-    input.invulnRemainingMs > 0 &&
-    (input.invulnRemainingMs > PLAYER_INVULN_URGENCY_MS ||
-      Math.floor(input.nowMs / PLAYER_INVULN_BLINK_MS) % 2 === 0);
-  return invulnOn ? PLAYER_INVULN_TINT : null;
+  return expiryTintOn(input.invulnRemainingMs, input.nowMs) ? PLAYER_INVULN_TINT : null;
 }
 
 export function playerTint(input: PlayerTintInput): PlayerTint | null {

@@ -28,6 +28,7 @@ import {
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
+import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { brightenColor, playerTint, type PlayerTint } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
@@ -215,6 +216,7 @@ function ensurePlayerVisual(
 
 export type RenderOptions = {
   frozenGhostEid?: number | null;
+  frozenGhostRemainingMs?: number;
   playerInvulnRemainingMs?: number;
   wallPassActive?: boolean;
   wallPassLoopActive?: boolean;
@@ -331,6 +333,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       nowMs: scene.time.now,
       flashBrighten: turnFlash.brighten,
     });
+    const frozenTintOn = expiryTintOn(opts?.frozenGhostRemainingMs ?? 0, scene.time.now);
     const wallStyle =
       wallStyleOverride ??
       wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
@@ -444,7 +447,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       if (ghostTexture !== undefined) {
         const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
         const tint =
-          frozenEid !== null && eid === frozenEid && phase !== GHOST_PHASE.inHouse
+          frozenTintOn && eid === frozenEid && phase !== GHOST_PHASE.inHouse
             ? GHOST_FROZEN_TINT
             : null;
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {

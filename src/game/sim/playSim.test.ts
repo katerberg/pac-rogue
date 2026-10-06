@@ -2516,6 +2516,22 @@ describe("PlaySim enhanced upgrades", () => {
     expect(home).not.toContain(frozen[0]);
   });
 
+  it("Freeze hands render the time left so the ghost can blink before thawing", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
+    for (const eid of query(sim.world, [Ghost, Position])) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    chomp(sim);
+    const start = sim.renderOptions().frozenGhostRemainingMs;
+    expect(start).toBeGreaterThan(1000);
+    runFrames(sim, 10);
+    const later = sim.renderOptions();
+    expect(later.frozenGhostRemainingMs).toBeLessThan(start);
+    expect(later.frozenGhostRemainingMs).toBe(sim.snapshot().timers.freezeMs);
+    runUntil(sim, () => frozenGhostEid(sim["runUpgrades"]) === null, 600);
+    expect(sim.renderOptions().frozenGhostRemainingMs).toBe(0);
+  });
+
   it("Second Chomp+ respawns a power pellet after 7s instead of 10s", () => {
     for (const [id, ms] of [
       ["passivePowerPelletRecharge", 10000],
