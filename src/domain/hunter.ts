@@ -22,7 +22,6 @@ export function hunterFrightenedMs(
   return Math.max(HUNTER_FRIGHTENED_MIN_MS, shortened);
 }
 
-/** Charge for the ghost eaten after `eatenBefore` others on this power pellet; the 3rd fills a whole bar. */
 export function hunterEatCharge(eatenBefore: number): number {
   return BONUS_BAR_MAX * 2 ** (eatenBefore + 1 - HUNTER_FULL_BAR_EAT);
 }
