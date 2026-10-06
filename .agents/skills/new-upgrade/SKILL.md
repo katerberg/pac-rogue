@@ -43,8 +43,9 @@ recommendation was accepted. Answer from the pitch, `docs/upgrades.md` and the c
 upgrade, and put the answer under Proposed locks. A question earns a Decide slot only if the pitch
 leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-visible gameplay.
 
-- **Target 0–4 Decide items; hard cap 5.** If you have more, demote the rest to Proposed locks
-  with your recommended answer. If you have none, say "No open forks" and send only locks.
+- **Expect 0–4 Decide items, but there is no cap.** Ask every real fork, however many. Demote an
+  item to Proposed locks only if it fails the test above. If you have none, say "No open forks"
+  and send only locks.
 - **Never ask** about the bank's "locked by default" items below. List them as one-line locks
   (`Overcharge: does not double, like Defy Death`) so the user can veto, not answer.
 - Skip any question the pitch already answers.
