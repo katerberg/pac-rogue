@@ -68,7 +68,7 @@ export function ghostRelease(
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing, Speed])) {
     if (
       (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse ||
-      eid === adds.heldGhostEid
+      adds.heldGhostEids?.includes(eid) === true
     ) {
       continue;
     }

@@ -137,7 +137,7 @@ export function resolveGhostTarget(
   });
 }
 
-function bossAwareCanEnter(
+export function bossAwareCanEnter(
   world: World,
   eid: number,
   x: number,
@@ -168,12 +168,16 @@ export function ghostAi(
   pelletsRemaining: number,
   tuning: Tuning = DEFAULT_TUNING,
   blockTunnels = false,
+  frightenedEids: ReadonlySet<number> = new Set(),
 ): void {
   const ctx = ghostAiContext(world, tuning);
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
-    if (phase === GHOST_PHASE.inHouse) {
+    if (
+      phase === GHOST_PHASE.inHouse ||
+      (phase === GHOST_PHASE.active && frightenedEids.has(eid))
+    ) {
       continue;
     }
 

@@ -54,7 +54,8 @@ export function sortInHouseGhosts<T extends { kind: GhostKindId; eid?: number }>
   afterLifeRelease = false,
   adds: GhostReleaseAdds = {},
 ): T[] {
-  const held = (ghost: T): number => (ghost.eid === adds.heldGhostEid ? 1 : 0);
+  const held = (ghost: T): number =>
+    ghost.eid !== undefined && adds.heldGhostEids?.includes(ghost.eid) === true ? 1 : 0;
   return [...ghosts].sort(
     (left, right) =>
       held(left) - held(right) ||

@@ -62,6 +62,7 @@ import {
   hauntCageLines,
   hauntCageVisible,
 } from "../../domain/hauntCage";
+import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
@@ -79,6 +80,7 @@ const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
 const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
+const FRIGHTENED_GHOST_TEXTURE_KEY = "ghost-frightened";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
 export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
@@ -95,6 +97,7 @@ const LINE_ART_BY_DRAWABLE_ID: Record<string, { art: LineArt; color: number }> =
 };
 // Icy white: the pixel frozen tint (pale blue) would read as Inky's neon cyan.
 const LINE_ART_FROZEN_COLOR = 0xe6f6ff;
+const LINE_ART_FRIGHTENED_COLOR = 0x6f7bff;
 const WALL_GLOW_QUALITY = 10;
 const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
@@ -233,6 +236,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
   scene.load.image(INKY_TEXTURE_KEY, "art/ghosts/inky.png");
   scene.load.image(CLYDE_TEXTURE_KEY, "art/ghosts/clyde.png");
+  scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
   scene.load.image(FRUIT_TEXTURE_KEY, fruitArtPath(fruitSpecForLevel(CURRENT_LEVEL).kind));
 }
 
@@ -292,6 +296,7 @@ export type RenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
+  frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   lineArtDrawableIds?: string[];
 };
@@ -544,12 +549,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           ? GHOST_FROZEN_TINT
           : null;
       const ghostAlpha = dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1;
+      const frightenedLook =
+        ghostTexture !== undefined &&
+        (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse &&
+        showsFrightenedLook(opts?.frightenedGhosts, eid, scene.time.now);
 
       const lineArtEntry = lineArtIds.has(id) ? LINE_ART_BY_DRAWABLE_ID[id] : undefined;
       if (lineArtEntry !== undefined) {
         destroyImage(primaryKey);
         const lineArt = lineArtEntry.art;
-        const color = ghostTint === null ? lineArtEntry.color : LINE_ART_FROZEN_COLOR;
+        const color = frightenedLook
+          ? LINE_ART_FRIGHTENED_COLOR
+          : ghostTint === null
+            ? lineArtEntry.color
+            : LINE_ART_FROZEN_COLOR;
         const placeLineArt = (
           key: string,
           glow: boolean,
@@ -614,6 +627,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
 
       if (ghostTexture !== undefined) {
+        const ghostKey = frightenedLook ? FRIGHTENED_GHOST_TEXTURE_KEY : ghostTexture;
+        if (go.texture.key !== ghostKey) {
+          go.setTexture(ghostKey);
+          go.setDisplaySize(size, size);
+        }
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
           if (ghostTint === null) {
             target.clearTint();

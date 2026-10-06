@@ -27,7 +27,8 @@ export function stepNearMisses(
       catchable:
         catchOptions.playerInvulnerable !== true &&
         eid !== catchOptions.frozenGhostEid &&
-        catchOptions.skipGhostEids?.has(eid) !== true,
+        catchOptions.skipGhostEids?.has(eid) !== true &&
+        catchOptions.edibleGhostEids?.has(eid) !== true,
     }));
   return stepNearMissPasses(passes, samples, tileSize);
 }

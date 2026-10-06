@@ -1,6 +1,12 @@
 import { BONUS_BAR_MAX } from "./bonusBar";
 import { ECHO_DELAY_MS, type EchoEffects, type PendingEcho, pickEchoBases } from "./echo";
 import type { LazyLooperRings } from "./lazyLooper";
+import {
+  HUNTER_FRIGHTENED_MS,
+  hunterEatCharge,
+  hunterFrightenedMs,
+  type FrightenedGhosts,
+} from "./hunter";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE } from "./maze";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 
@@ -47,7 +53,8 @@ export type BaseUpgradeId =
   | "passiveHaunting"
   | "passiveTunnelSanctuary"
   | "passiveStreakEngine"
-  | "passiveEcho";
+  | "passiveEcho"
+  | "powerPelletHunter";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -114,6 +121,7 @@ export type UpgradeEffects = {
   streakEngineInvulnMs?: number;
   specialistThreshold?: number;
   echoEffects?: EchoEffects;
+  hunterHoldsEaten?: true;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -127,6 +135,8 @@ export type UpgradeEffects = {
     recallClosestGhosts?: number;
     warpPlayerFarthest?: true;
     collectExtraPellets?: number;
+    frightenGhostsMs?: number;
+    frightenShortensPerLevel?: true;
   };
 };
 
@@ -759,6 +769,21 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       echoEffects: "all",
     },
   },
+  {
+    id: "powerPelletHunter",
+    label: "Hunter",
+    school: "disruption",
+    description: "Power pellets frighten ghosts. Eat them!",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote:
+        "Hunter keeps eaten ghosts in the ghost house until the fright ends, and never shortens.",
+      description: "Power pellets frighten ghosts. Eaten ghosts stay home until the fright ends.",
+      hunterHoldsEaten: true,
+      onPowerPellet: { frightenGhostsMs: HUNTER_FRIGHTENED_MS },
+    },
+    onPowerPellet: { frightenGhostsMs: HUNTER_FRIGHTENED_MS, frightenShortensPerLevel: true },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -914,6 +939,10 @@ export type RunUpgrades = {
   hauntedGhostEid: number | null;
   shieldsBanked: number;
   pendingEchoes: PendingEcho[];
+  frightenedRemainingMs: number;
+  frightenedGhostEids: number[];
+  hunterHeldEids: number[];
+  ghostsEatenThisFright: number;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -924,6 +953,17 @@ export type PowerPelletApplyResult = {
   cornerTeleportHoldMs: number | null;
   warpPlayerFarthest: boolean;
   collectExtraPellets: number;
+  frightenGhosts: boolean;
+};
+
+export const NO_FRIGHT: Pick<
+  RunUpgrades,
+  "frightenedRemainingMs" | "frightenedGhostEids" | "hunterHeldEids" | "ghostsEatenThisFright"
+> = {
+  frightenedRemainingMs: 0,
+  frightenedGhostEids: [],
+  hunterHeldEids: [],
+  ghostsEatenThisFright: 0,
 };
 
 export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrades {
@@ -940,6 +980,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     hauntedGhostEid: null,
     shieldsBanked: 0,
     pendingEchoes: [],
+    ...NO_FRIGHT,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -1126,6 +1167,9 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
     ...state,
     owned,
     shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
+    ...(owned.some((id) => getUpgradeDef(id).onPowerPellet?.frightenGhostsMs !== undefined)
+      ? {}
+      : NO_FRIGHT),
   };
 }
 
@@ -1152,6 +1196,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
     pendingEchoes: [],
+    ...NO_FRIGHT,
   };
 }
 
@@ -1244,10 +1289,51 @@ export function tickDefyDeath(state: RunUpgrades, deltaMs: number): RunUpgrades 
   };
 }
 
+export function tickFrightened(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.frightenedRemainingMs <= 0) {
+    return state;
+  }
+  const remaining = Math.max(0, state.frightenedRemainingMs - Math.max(0, deltaMs));
+  return remaining > 0
+    ? { ...state, frightenedRemainingMs: remaining }
+    : { ...state, ...NO_FRIGHT };
+}
+
+export function frightenedGhostEids(state: RunUpgrades): ReadonlySet<number> {
+  return new Set(state.frightenedRemainingMs > 0 ? state.frightenedGhostEids : []);
+}
+
+export function frightenedGhosts(state: RunUpgrades): FrightenedGhosts | null {
+  return state.frightenedRemainingMs > 0 && state.frightenedGhostEids.length > 0
+    ? { eids: state.frightenedGhostEids, remainingMs: state.frightenedRemainingMs }
+    : null;
+}
+
+export function eatFrightenedGhost(
+  state: RunUpgrades,
+  eid: number,
+  holdsEaten: boolean,
+): { state: RunUpgrades; charge: number } {
+  return {
+    state: {
+      ...state,
+      frightenedGhostEids: state.frightenedGhostEids.filter((frightened) => frightened !== eid),
+      hunterHeldEids: holdsEaten ? [...state.hunterHeldEids, eid] : state.hunterHeldEids,
+      ghostsEatenThisFright: state.ghostsEatenThisFright + 1,
+    },
+    charge: hunterEatCharge(state.ghostsEatenThisFright),
+  };
+}
+
+export function hunterHoldsEaten(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "hunterHoldsEaten") === true;
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
   onlyBases?: readonly BaseUpgradeId[],
+  levelIndex = 1,
 ): PowerPelletApplyResult {
   if (powerRemoved <= 0) {
     return {
@@ -1257,6 +1343,7 @@ export function applyPowerPelletEffects(
       cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
+      frightenGhosts: false,
     };
   }
 
@@ -1271,6 +1358,7 @@ export function applyPowerPelletEffects(
   let warpInvulnMs = 0;
   let warpPlayerFarthest = false;
   let collectExtraPellets = 0;
+  let frightenMs: number | null = null;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1328,6 +1416,14 @@ export function applyPowerPelletEffects(
     if (onPower.collectExtraPellets !== undefined) {
       collectExtraPellets = Math.max(collectExtraPellets, onPower.collectExtraPellets);
     }
+    if (onPower.frightenGhostsMs !== undefined) {
+      const ms = hunterFrightenedMs(
+        onPower.frightenGhostsMs,
+        onPower.frightenShortensPerLevel === true,
+        levelIndex,
+      );
+      frightenMs = frightenMs === null ? ms : Math.max(frightenMs, ms);
+    }
   }
 
   const overcharge = overchargeMultiplier(owned);
@@ -1339,6 +1435,7 @@ export function applyPowerPelletEffects(
   speedBurstMs = scaled(speedBurstMs);
   ghostHarvestMs = scaled(ghostHarvestMs);
   defyDeathMs = scaled(defyDeathMs);
+  frightenMs = scaled(frightenMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
@@ -1359,6 +1456,9 @@ export function applyPowerPelletEffects(
   if (defyDeathMs !== null) {
     next = { ...next, defyDeathRemainingMs: defyDeathMs };
   }
+  if (frightenMs !== null) {
+    next = { ...next, frightenedRemainingMs: frightenMs, ghostsEatenThisFright: 0 };
+  }
 
   return {
     state: next,
@@ -1367,6 +1467,7 @@ export function applyPowerPelletEffects(
     cornerTeleportHoldMs,
     warpPlayerFarthest,
     collectExtraPellets,
+    frightenGhosts: frightenMs !== null,
   };
 }
 

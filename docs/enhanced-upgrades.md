@@ -64,6 +64,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers the 2 liv
 | 41  | `passiveTunnelSanctuary`      | Tunnel Sanctuary      | Coming out of a tunnel gives 1s of Ghost Proof; ghosts cross tunnels at 0.9x player speed                        | Ghosts can no longer travel through tunnels and keep the normal slow                                                                         |
 | 42  | `passiveStreakEngine`         | Streak Engine         | Every 30-pellet streak fires your power-pellet effects                                                           | Each fire also grants 3 seconds of Ghost Proof                                                                                               |
 | 43  | `passiveEcho`                 | Echo                  | One random power-pellet effect fires again 3 seconds later                                                       | Every power-pellet effect fires again                                                                                                        |
+| 44  | `powerPelletHunter`           | Hunter                | Power pellets frighten ghosts for 6s (shortening 0.5s a level to 4s); eat them for BONUS charge                  | Eaten ghosts stay in the ghost house until the fright ends; the fright stays 6s on every level                                               |
 
 ## Decisions
 

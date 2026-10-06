@@ -16,10 +16,18 @@ import { Facing } from "../components/Facing";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
 
-export function forceGhostReverse(world: World, blockTunnels = false): void {
+export function forceGhostReverse(
+  world: World,
+  blockTunnels = false,
+  onlyEids?: ReadonlySet<number>,
+): void {
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Facing, Input, Position])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.active;
-    if (phase === GHOST_PHASE.inHouse || phase === GHOST_PHASE.leaving) {
+    if (
+      phase === GHOST_PHASE.inHouse ||
+      phase === GHOST_PHASE.leaving ||
+      onlyEids?.has(eid) === false
+    ) {
       continue;
     }
 
