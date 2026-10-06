@@ -2,13 +2,34 @@
 
 export const NEON_GLYPH_WIDTH = 2;
 export const NEON_GLYPH_HEIGHT = 4;
-/** Default advance = width + small gap (overridden per glyph when needed). */
+/**
+ * Fallback advance when a glyph has no ink (e.g. space). Layout prefers
+ * {@link neonGlyphMetrics} from ink bounds + side bearings.
+ */
 export const NEON_GLYPH_ADVANCE = 2.4;
+/** Optical gap between adjacent stroke outsides at default tracking (viewBox units). */
+export const NEON_TRACKING = 0.28;
 
 export type NeonGlyph = {
   /** SVG path `d` strings; one subpath each (H/V + quarter arcs only). */
   readonly strands: readonly string[];
+  /** Used for space / empty glyphs; ink glyphs ignore this in favor of metrics. */
   readonly advance: number;
+  /**
+   * Optional optical x-bounds (viewBox units). When set, metrics use these instead of
+   * geometric path ink so open-sided letters (T, L, …) can tuck neighbors under bars.
+   */
+  readonly opticalInk?: NeonGlyphInk;
+};
+
+export type NeonGlyphInk = { minX: number; maxX: number };
+
+export type NeonGlyphMetrics = {
+  /** Add to cursor before scaling path x by unit (viewBox units). */
+  readonly drawShift: number;
+  /** Advance to next glyph origin (viewBox units). */
+  readonly advance: number;
+  readonly ink: NeonGlyphInk;
 };
 
 const EPS = 1e-6;
@@ -139,4 +160,102 @@ export function assertBarCurveGlyph(glyph: NeonGlyph, label: string): void {
   for (const [index, d] of glyph.strands.entries()) {
     assertBarCurvePath(d, `${label}[${index}]`);
   }
+}
+
+/** Axis-aligned ink bounds of a bar-curve path (endpoints only; quarter arcs stay in bbox). */
+export function pathInkXBounds(d: string): NeonGlyphInk {
+  const tokens = tokenizePath(d);
+  let i = 0;
+  let cmd = "";
+  let x = 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  const touch = (px: number): void => {
+    minX = Math.min(minX, px);
+    maxX = Math.max(maxX, px);
+  };
+  while (i < tokens.length) {
+    const t = tokens[i]!;
+    if (typeof t === "string") {
+      cmd = t.toUpperCase();
+      i += 1;
+      continue;
+    }
+    if (cmd === "A") {
+      const x2 = Number(tokens[i + 5]);
+      touch(x);
+      touch(x2);
+      x = x2;
+      i += 7;
+      continue;
+    }
+    if (cmd === "M" || cmd === "L") {
+      x = Number(tokens[i]);
+      touch(x);
+      i += 2;
+      continue;
+    }
+    if (cmd === "H") {
+      x = Number(tokens[i]);
+      touch(x);
+      i += 1;
+      continue;
+    }
+    if (cmd === "V") {
+      touch(x);
+      i += 1;
+      continue;
+    }
+    if (cmd === "Z") {
+      continue;
+    }
+    throw new Error(`neonFont ink: unexpected token ${t}`);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(maxX)) {
+    throw new Error("neonFont ink: empty path");
+  }
+  return { minX, maxX };
+}
+
+export function glyphInkXBounds(glyph: NeonGlyph): NeonGlyphInk {
+  if (glyph.strands.length === 0) {
+    return { minX: 0, maxX: 0 };
+  }
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  for (const d of glyph.strands) {
+    const ink = pathInkXBounds(d);
+    minX = Math.min(minX, ink.minX);
+    maxX = Math.max(maxX, ink.maxX);
+  }
+  return { minX, maxX };
+}
+
+/**
+ * Proportional metrics: side bearings include half the stroke so thick tubes do not collide,
+ * plus {@link NEON_TRACKING} (and knob letterSpacing) as the optical gap between outsides.
+ */
+export function neonGlyphMetrics(
+  glyph: NeonGlyph,
+  thickness: number,
+  letterSpacing: number,
+): NeonGlyphMetrics {
+  if (glyph.strands.length === 0) {
+    return {
+      drawShift: 0,
+      advance: Math.max(0, glyph.advance + letterSpacing),
+      ink: { minX: 0, maxX: 0 },
+    };
+  }
+  const geometric = glyphInkXBounds(glyph);
+  const ink = glyph.opticalInk ?? geometric;
+  const inkWidth = Math.max(ink.maxX - ink.minX, 0.05);
+  const stroke = Math.max(0, thickness) * NEON_GLYPH_HEIGHT;
+  const pad = stroke / 2 + (NEON_TRACKING + letterSpacing) / 2;
+  // Draw from geometric path coords; shift so optical ink sits on the bearing box.
+  return {
+    drawShift: pad - ink.minX,
+    advance: inkWidth + 2 * pad,
+    ink,
+  };
 }

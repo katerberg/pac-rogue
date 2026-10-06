@@ -13,7 +13,7 @@ IBM VGA 8×8 bitmasks in `src/game/scenes/font8x8Basic.ts`, atlas built at runti
 
 ## Neon font
 
-Bar-curve glyphs: **axis-aligned** horizontal/vertical segments and **quarter-circle** arcs only (`src/domain/neonFont/`). ViewBox is 2×4 units per glyph.
+Bar-curve glyphs: **axis-aligned** horizontal/vertical segments and **quarter-circle** arcs only (`src/domain/neonFont/`). ViewBox is 2×4 units per glyph. Layout uses **ink-bounds metrics** (`neonGlyphMetrics`): each character advances by its path width plus thickness-aware side bearings and default tracking (`NEON_TRACKING`), so words read with even gaps instead of a fixed cell.
 
 - Digits `0–9` are frozen to the approved sheet paths in `NEON_DIGIT_PATHS`.
 - Uppercase **G** is the replacement silhouette (open bowl with the right stem curling into the center), not the notebook inlet-bar G.
@@ -33,7 +33,7 @@ Visuals group — restrained defaults, wide extremes:
 | Font thickness            | Stroke width as a fraction of glyph height |
 | Font bloom / bloom radius | Phaser glow strength and reach             |
 | Font glow color           | Bloom color (core uses the call-site tint) |
-| Font letter spacing       | Extra gap in viewBox units                 |
+| Font letter spacing       | Extra tracking on top of default bearings  |
 | Font height               | Vertical stretch                           |
 | Font glow knockout        | Knockout bloom under crisp stroke          |
 

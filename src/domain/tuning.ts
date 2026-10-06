@@ -123,7 +123,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   fontBloom: 0.8,
   fontBloomRadius: 4,
   fontGlowColor: 0x7ec8ff,
-  fontLetterSpacing: 0.15,
+  fontLetterSpacing: 0,
   fontHeightScale: 1,
   fontGlowKnockout: true,
 });

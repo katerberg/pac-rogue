@@ -225,7 +225,8 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   fontBloom: "Phaser outerStrength of the bloom around neon text. 0 = no bloom.",
   fontBloomRadius: "How far neon text bloom spreads beyond the stroke, in pixels. 0 = no bloom.",
   fontGlowColor: "Color of the bloom around neon text (the core uses the call-site tint).",
-  fontLetterSpacing: "Extra gap between neon glyphs in viewBox units (glyph width is 2).",
+  fontLetterSpacing:
+    "Extra tracking added to neon side bearings (0 = default optical gap; glyph ink drives width).",
   fontHeightScale: "Vertical stretch of neon glyphs. 1 = natural proportions.",
   fontGlowKnockout:
     "On: bloom is a knockout glow under a crisp stroke (ghost-style). Off: bloom uses the same stroke width as the core.",

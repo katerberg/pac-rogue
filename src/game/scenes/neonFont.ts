@@ -4,6 +4,7 @@ import { parseLineArt, type LineArt } from "../../domain/lineArt";
 import {
   NEON_GLYPH_HEIGHT,
   NEON_GLYPH_WIDTH,
+  neonGlyphMetrics,
   type NeonGlyph,
 } from "../../domain/neonFont/glyphGrammar";
 import { neonGlyph } from "../../domain/neonFont/glyphs";
@@ -260,15 +261,17 @@ export class NeonText extends Phaser.GameObjects.Container {
           cursorX += this.fontSize * 0.6;
           continue;
         }
+        const metrics = neonGlyphMetrics(glyph, this.look.thickness, this.look.letterSpacing);
         if (glyph.strands.length === 0) {
-          cursorX += (glyph.advance + this.look.letterSpacing) * unit;
+          cursorX += metrics.advance * unit;
           continue;
         }
         const art = glyphArtFor(char, glyph);
+        const glyphX = cursorX + metrics.drawShift * unit;
         this.strokeGlyph(
           this.core,
           art,
-          cursorX,
+          glyphX,
           cursorY,
           unit,
           heightScale,
@@ -282,7 +285,7 @@ export class NeonText extends Phaser.GameObjects.Container {
           this.strokeGlyph(
             glow,
             art,
-            cursorX,
+            glyphX,
             cursorY,
             unit,
             heightScale,
@@ -290,7 +293,7 @@ export class NeonText extends Phaser.GameObjects.Container {
             this.look.glowColor,
           );
         }
-        cursorX += (glyph.advance + this.look.letterSpacing) * unit;
+        cursorX += metrics.advance * unit;
       }
       maxWidth = Math.max(maxWidth, cursorX);
       cursorY += this.fontSize * heightScale + this.lineSpacingPx;

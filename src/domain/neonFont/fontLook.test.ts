@@ -13,7 +13,7 @@ describe("fontLineArtLook", () => {
       thickness: 0.12,
       glow: { outerStrength: 0.8, distancePx: 4 },
       glowColor: 0x7ec8ff,
-      letterSpacing: 0.15,
+      letterSpacing: 0,
       heightScale: 1,
       glowKnockout: true,
     });

@@ -1,8 +1,14 @@
 import { NEON_GLYPH_ADVANCE, type NeonGlyph, assertBarCurveGlyph } from "./glyphGrammar";
 
-function g(strands: string | readonly string[], advance = NEON_GLYPH_ADVANCE): NeonGlyph {
+function g(
+  strands: string | readonly string[],
+  advance = NEON_GLYPH_ADVANCE,
+  opticalInk?: NeonGlyph["opticalInk"],
+): NeonGlyph {
   const list = typeof strands === "string" ? [strands] : [...strands];
-  return { strands: list, advance };
+  return opticalInk === undefined
+    ? { strands: list, advance }
+    : { strands: list, advance, opticalInk };
 }
 
 /**
@@ -33,16 +39,16 @@ export const NEON_G_REPLACEMENT: readonly string[] = [
 ];
 
 const GLYPHS: Record<string, NeonGlyph> = {
-  " ": { strands: [], advance: 1.2 },
+  " ": { strands: [], advance: 1.05 },
 
   "0": g(NEON_DIGIT_PATHS["0"]!),
-  "1": g(NEON_DIGIT_PATHS["1"]!, 1.6),
+  "1": g(NEON_DIGIT_PATHS["1"]!),
   "2": g(NEON_DIGIT_PATHS["2"]!),
   "3": g(NEON_DIGIT_PATHS["3"]!),
   "4": g(NEON_DIGIT_PATHS["4"]!),
   "5": g(NEON_DIGIT_PATHS["5"]!),
   "6": g(NEON_DIGIT_PATHS["6"]!),
-  "7": g(NEON_DIGIT_PATHS["7"]!),
+  "7": g(NEON_DIGIT_PATHS["7"]!, NEON_GLYPH_ADVANCE, { minX: 0.55, maxX: 1.55 }),
   "8": g(NEON_DIGIT_PATHS["8"]!),
   "9": g(NEON_DIGIT_PATHS["9"]!),
 
@@ -54,26 +60,32 @@ const GLYPHS: Record<string, NeonGlyph> = {
   C: g(["M2 1 A1 1 0 0 0 1 0 A1 1 0 0 0 0 1 L0 3 A1 1 0 0 0 1 4 A1 1 0 0 0 2 3"]),
   D: g(["M0 0 L0 4 L1 4 A1 1 0 0 0 2 3 L2 1 A1 1 0 0 0 1 0 L0 0"]),
   E: g(["M2 0 L0 0 L0 4 L2 4", "M0 2 L1.5 2"]),
-  F: g(["M2 0 L0 0 L0 4", "M0 2 L1.5 2"]),
+  F: g(["M2 0 L0 0 L0 4", "M0 2 L1.5 2"], NEON_GLYPH_ADVANCE, { minX: 0, maxX: 1.45 }),
   G: g(NEON_G_REPLACEMENT),
   H: g(["M0 0 L0 4", "M2 0 L2 4", "M0 2 L2 2"]),
-  I: g(["M0 0 L2 0", "M1 0 L1 4", "M0 4 L2 4"], 2),
-  J: g(["M0 0 L2 0", "M1.5 0 L1.5 3 A1 1 0 0 1 0.5 4 L0.5 3"]),
+  I: g(["M0.35 0 L1.65 0", "M1 0 L1 4", "M0.35 4 L1.65 4"]),
+  J: g(["M0 0 L2 0", "M1.5 0 L1.5 3 A1 1 0 0 1 0.5 4 L0.5 3"], NEON_GLYPH_ADVANCE, {
+    minX: 0.35,
+    maxX: 1.65,
+  }),
   K: g(["M0 0 L0 4", "M2 0 L2 0 L1 0 L1 2 L0 2", "M1 2 L1 4 L2 4"]),
-  L: g(["M0 0 L0 4 L2 4"]),
+  L: g(["M0 0 L0 4 L2 4"], NEON_GLYPH_ADVANCE, { minX: 0, maxX: 1.45 }),
   M: g(
     ["M0 4 L0 0 L0.5 0 L0.5 4", "M0.5 0 L1 0 L1 2", "M1 0 L1.5 0 L1.5 4", "M1.5 0 L2 0 L2 4"],
     2.6,
   ),
   N: g(["M0 4 L0 0 L1 0 L1 4 L2 4 L2 0"]),
   O: g(["M0 1 A1 1 0 0 1 1 0 A1 1 0 0 1 2 1 L2 3 A1 1 0 0 1 1 4 A1 1 0 0 1 0 3 L0 1"]),
-  P: g(["M0 4 L0 0 L1 0 A1 1 0 0 1 2 1 A1 1 0 0 1 1 2 L0 2"]),
+  P: g(["M0 4 L0 0 L1 0 A1 1 0 0 1 2 1 A1 1 0 0 1 1 2 L0 2"], NEON_GLYPH_ADVANCE, {
+    minX: 0,
+    maxX: 1.55,
+  }),
   Q: g(["M0 1 A1 1 0 0 1 1 0 A1 1 0 0 1 2 1 L2 3 A1 1 0 0 1 1 4 A1 1 0 0 1 0 3 L0 1", "M1 4 L1 3"]),
   R: g(["M0 4 L0 0 L1 0 A1 1 0 0 1 2 1 A1 1 0 0 1 1 2 L0 2", "M1 2 L1 4 L2 4"]),
   S: g([
     "M2 1 A1 1 0 0 0 1 0 L1 0 A1 1 0 0 0 0 1 A1 1 0 0 0 1 2 L1 2 A1 1 0 0 1 2 3 A1 1 0 0 1 1 4 L1 4 A1 1 0 0 1 0 3",
   ]),
-  T: g(["M0 0 L2 0", "M1 0 L1 4"]),
+  T: g(["M0 0 L2 0", "M1 0 L1 4"], NEON_GLYPH_ADVANCE, { minX: 0.55, maxX: 1.45 }),
   U: g(["M0 0 L0 3 A1 1 0 0 0 1 4 A1 1 0 0 0 2 3 L2 0"]),
   V: g(["M0 0 L0 3 A1 1 0 0 0 1 4 A1 1 0 0 0 2 3 L2 0"]),
   W: g(["M0 0 L0 4 L0.5 4 L0.5 2", "M0.5 2 L1 2 L1 4 L1.5 4 L1.5 2", "M1.5 2 L2 2 L2 0"], 2.6),
