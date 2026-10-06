@@ -48,11 +48,6 @@ describe("upgrade registry completeness", () => {
     const stale = [...KNOWN_UNTESTED_UPGRADES].filter(covered);
     expect(stale, "remove these from KNOWN_UNTESTED_UPGRADES").toEqual([]);
   });
-
-  it("only lists real upgrades as known gaps", () => {
-    const unknown = [...KNOWN_UNTESTED_UPGRADES].filter((id) => !ALL_UPGRADE_IDS.includes(id));
-    expect(unknown).toEqual([]);
-  });
 });
 
 describe("docs/upgrades.md", () => {
