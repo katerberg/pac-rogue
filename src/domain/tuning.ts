@@ -1,3 +1,4 @@
+import { LAZY_LOOPER_OPTIONAL_TINT } from "./lazyLooper";
 import { TUNING_KNOBS, type KnobDef } from "./tuningKnobs";
 
 export type Tuning = {
@@ -157,7 +158,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   optionalPelletStrokeWidth: 1.0,
   optionalPelletGlow: 0.6,
   optionalPelletGlowRadius: 5,
-  optionalPelletFillColor: 0x6e6e6e,
+  optionalPelletFillColor: LAZY_LOOPER_OPTIONAL_TINT,
   optionalPelletGlowColor: 0xa0a0b4,
   optionalPelletFillOpacity: 1,
 });

@@ -402,6 +402,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const playerVisuals = new Map<number, PlayerVisual>();
   const bossPelletGlows = new Map<number, Phaser.GameObjects.Graphics>();
   const neonPowerBounceMul = new Map<number, number>();
+  const neonPowerBounceTarget = new Map<number, { mul: number }>();
+  const killNeonPowerBounce = (eid: number): void => {
+    const target = neonPowerBounceTarget.get(eid);
+    if (target) {
+      scene.tweens.killTweensOf(target);
+      neonPowerBounceTarget.delete(eid);
+    }
+    neonPowerBounceMul.delete(eid);
+  };
   let wallGlowScale = renderScaleOf(scene);
   const wallGlowTexture = scene.add.renderTexture(0, 0, 1, 1).setOrigin(0, 0);
   const wallGlowSource = scene.make.graphics({}, false).enableFilters();
@@ -584,7 +593,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     destroyImage(`${eid}:twin`);
     destroyLineArt(String(eid));
     destroyBossPelletGlow(eid);
-    neonPowerBounceMul.delete(eid);
+    killNeonPowerBounce(eid);
     playerVisuals.delete(eid);
     pelletBakeSignature = "";
   };
@@ -603,6 +612,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       glow.destroy();
     }
     bossPelletGlows.clear();
+    for (const target of neonPowerBounceTarget.values()) {
+      scene.tweens.killTweensOf(target);
+    }
+    neonPowerBounceTarget.clear();
     neonPowerBounceMul.clear();
     playerVisuals.clear();
     wallGraphics.clear();
@@ -616,7 +629,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const bouncePowerPellet = (eid: number): void => {
     const pelletStyle = pelletStyleOverride ?? storedPelletStyle();
     if (pelletStyle !== null) {
+      killNeonPowerBounce(eid);
       const target = { mul: 1 };
+      neonPowerBounceTarget.set(eid, target);
       neonPowerBounceMul.set(eid, 1);
       scene.tweens.add({
         targets: target,
@@ -629,6 +644,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         },
         onComplete: () => {
           neonPowerBounceMul.delete(eid);
+          neonPowerBounceTarget.delete(eid);
         },
       });
       return;
@@ -995,30 +1011,30 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           radiusMul = pulse.size / (pelletDisplaySize() * BOSS_PELLET_SIZE_MUL);
           alpha = pulse.alpha;
         }
-        const look: PelletKindLook = {
+        const scaledLook: PelletKindLook = {
           ...pellet.look,
           radius: pellet.look.radius * radiusMul,
           strokeWidth: pellet.look.strokeWidth * Math.max(1, Math.sqrt(radiusMul)),
         };
-        strokePelletRing(pelletCrispGraphics, pellet.x, pellet.y, look, 1, alpha, false);
+        strokePelletRing(pelletCrispGraphics, pellet.x, pellet.y, scaledLook, 1, alpha, false);
         if (pellet.id === BOSS_PELLET_DRAWABLE_ID) {
           aliveBossGlow.add(pellet.eid);
-          const glow = ensureBossPelletGlow(pellet.eid, look);
+          const glow = ensureBossPelletGlow(pellet.eid, scaledLook);
           if (glow !== null) {
             const px = renderScaleOf(scene);
             glow.clear();
-            strokePelletRing(glow, 0, 0, look, px, 1, true);
+            strokePelletRing(glow, 0, 0, scaledLook, px, 1, true);
             glow.setPosition(pellet.x, pellet.y);
             glow.setAlpha(alpha);
           }
         } else if (pellet.optional) {
-          optionalGlowPellets.push({ x: pellet.x, y: pellet.y, look });
+          optionalGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
           signatureParts.push(`o${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
         } else if (pellet.id === POWER_PELLET_DRAWABLE_ID) {
-          powerGlowPellets.push({ x: pellet.x, y: pellet.y, look });
+          powerGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
           signatureParts.push(`w${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
         } else {
-          regularGlowPellets.push({ x: pellet.x, y: pellet.y, look });
+          regularGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
           signatureParts.push(`p${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
         }
       }

@@ -28,6 +28,35 @@ describe("TUNING_KNOBS", () => {
       }
     }
   });
+
+  it("keeps Dots extreme maxes and the Dots panel group", () => {
+    expect(RIGHT_KNOB_GROUPS).toContain("Dots");
+    const dotsMax: Partial<Record<TuningKey, number>> = {
+      pelletRadius: 48,
+      pelletStrokeWidth: 32,
+      pelletGlow: 36,
+      pelletGlowRadius: 120,
+      powerPelletRadius: 48,
+      powerPelletStrokeWidth: 32,
+      powerPelletGlow: 36,
+      powerPelletGlowRadius: 120,
+      bossPelletRadius: 48,
+      bossPelletStrokeWidth: 32,
+      bossPelletGlow: 36,
+      bossPelletGlowRadius: 120,
+      optionalPelletRadius: 48,
+      optionalPelletStrokeWidth: 32,
+      optionalPelletGlow: 36,
+      optionalPelletGlowRadius: 120,
+    };
+    for (const knob of TUNING_KNOBS) {
+      const max = dotsMax[knob.key];
+      if (max === undefined || knob.kind !== "range") {
+        continue;
+      }
+      expect(knob.max, knob.key).toBe(max);
+    }
+  });
 });
 
 describe("KNOB_HELP", () => {
