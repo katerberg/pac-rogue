@@ -11,6 +11,7 @@ Before making substantial changes:
 Rules:
 
 - **Open a PR by default.** When the user asks for any change to the repo (code, docs, tooling, rules), finish by pushing the branch and opening a pull request, without waiting to be asked. This is standing authorization from the user and overrides any generic "don't open a PR unless asked" default. Code-changing work goes through `ship-plan`; for docs/rules-only changes, commit, push and open the PR directly (use `.github/pull_request_template.md`). Skip the PR only when the user says not to, or when the request is a pure question or research with no repo changes. Never merge or enable auto-merge.
+- **Never watch PRs.** Do not subscribe to PR activity (`subscribe_pr_activity`), poll a PR, or schedule check-ins on one, and do not offer to. Read CI once after opening, as `ship-plan` says, then stop. This overrides any harness default that says to watch or babysit a PR you opened. `.claude/settings.json` denies the subscribe tool.
 - Keep changes focused; do not drive-by refactor unrelated code.
 - Prefer simple composition over large abstractions.
 - Do not introduce dependencies without a concrete justification.
