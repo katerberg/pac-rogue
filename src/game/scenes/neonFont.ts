@@ -74,6 +74,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   private localWidth = 0;
   private localHeight = 0;
   private ready = false;
+  private lineSpacingPx = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -124,7 +125,9 @@ export class NeonText extends Phaser.GameObjects.Container {
     return this;
   }
 
-  setLineSpacing(_value: number): this {
+  setLineSpacing(value: number): this {
+    this.lineSpacingPx = value;
+    this.rebuild();
     return this;
   }
 
@@ -290,7 +293,7 @@ export class NeonText extends Phaser.GameObjects.Container {
         cursorX += (glyph.advance + this.look.letterSpacing) * unit;
       }
       maxWidth = Math.max(maxWidth, cursorX);
-      cursorY += this.fontSize * heightScale * 1.15;
+      cursorY += this.fontSize * heightScale + this.lineSpacingPx;
     }
 
     this.localWidth = maxWidth;
