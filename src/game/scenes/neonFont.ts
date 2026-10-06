@@ -75,6 +75,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   private fallbackChars: Phaser.GameObjects.BitmapText[] = [];
   private localWidth = 0;
   private localHeight = 0;
+  private ready = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -98,6 +99,7 @@ export class NeonText extends Phaser.GameObjects.Container {
       liveNeonTexts.delete(this);
       this.glow?.destroy();
     });
+    this.ready = true;
     this.rebuild();
   }
 
@@ -169,9 +171,65 @@ export class NeonText extends Phaser.GameObjects.Container {
     if (this.look.glow === null) {
       return null;
     }
+    // Sibling of the container (not a child): Glow filters mis-focus inside Containers.
     this.glow = this.scene.add.graphics();
-    this.addAt(this.glow, 0);
+    this.glow.setDepth(this.depth - 0.1);
+    this.syncGlowTransform();
     return this.glow;
+  }
+
+  private syncGlowTransform(): void {
+    if (!this.ready || this.glow === null) {
+      return;
+    }
+    this.glow.setPosition(this.x, this.y);
+    this.glow.setAlpha(this.alpha);
+    this.glow.setVisible(this.visible);
+    this.glow.setScale(this.scaleX, this.scaleY);
+  }
+
+  override setPosition(x?: number, y?: number, z?: number, w?: number): this {
+    super.setPosition(x, y, z, w);
+    if (!this.ready) {
+      return this;
+    }
+    this.syncGlowTransform();
+    if (this.glow !== null && this.look.glow !== null) {
+      this.glow.filterCamera.centerOn(this.x + this.localWidth / 2, this.y + this.localHeight / 2);
+    }
+    return this;
+  }
+
+  override setDepth(value: number): this {
+    super.setDepth(value);
+    if (this.ready) {
+      this.glow?.setDepth(value - 0.1);
+    }
+    return this;
+  }
+
+  override setAlpha(value?: number): this {
+    super.setAlpha(value);
+    if (this.ready) {
+      this.glow?.setAlpha(this.alpha);
+    }
+    return this;
+  }
+
+  override setVisible(value: boolean): this {
+    super.setVisible(value);
+    if (this.ready) {
+      this.glow?.setVisible(value);
+    }
+    return this;
+  }
+
+  override setScale(x?: number, y?: number): this {
+    super.setScale(x, y);
+    if (this.ready) {
+      this.glow?.setScale(this.scaleX, this.scaleY);
+    }
+    return this;
   }
 
   private rebuild(): void {
@@ -279,7 +337,7 @@ export class NeonText extends Phaser.GameObjects.Container {
       Math.ceil(Math.max(1, this.localHeight) * pixelsPerWorld) + 2 * reach,
     );
     glow.filterCamera.setZoom(pixelsPerWorld);
-    glow.filterCamera.centerOn(this.localWidth / 2, this.localHeight / 2);
+    glow.filterCamera.centerOn(this.x + this.localWidth / 2, this.y + this.localHeight / 2);
     glow.filters!.internal.addGlow(
       this.look.glowColor,
       this.look.glow.outerStrength,
