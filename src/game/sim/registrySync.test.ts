@@ -32,7 +32,8 @@ const KNOWN_UNTESTED_UPGRADES: ReadonlySet<BaseUpgradeId> = new Set([
 
 describe("upgrade registry completeness", () => {
   const playSimTests = read("src/game/sim/playSim.test.ts");
-  const covered = (id: BaseUpgradeId): boolean => playSimTests.includes(`"${id}`);
+  const covered = (id: BaseUpgradeId): boolean =>
+    playSimTests.includes(`"${id}"`) || playSimTests.includes(`"${id}Plus"`);
 
   it("has a PlaySim test for every upgrade, except the known gaps", () => {
     const missing = ALL_UPGRADE_IDS.filter(
@@ -107,7 +108,9 @@ function sceneOnlySnapshotKeys(): string[] {
   const start = source.indexOf("public debugSnapshot()");
   expect(start, "PlayScene.debugSnapshot missing").toBeGreaterThanOrEqual(0);
   const body = source.slice(start, source.indexOf("\n  }\n", start));
-  return [...body.matchAll(/^ {6}(\w+):/gm)].map((match) => match[1]!);
+  const keys = [...body.matchAll(/^ {6}(\w+):/gm)].map((match) => match[1]!);
+  expect(keys, "debugSnapshot scene-only keys not found").toContain("startingUpgradeCardOpen");
+  return keys;
 }
 
 describe("docs/VERIFICATION.md game-state snapshot table", () => {
