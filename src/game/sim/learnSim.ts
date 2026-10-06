@@ -802,10 +802,14 @@ export class LearnSim {
   }
 
   private eatFrightenedGhosts(): void {
+    const gliding = glidingGhostEids(this.ghostCornerWarps);
     for (const eid of edibleGhostsTouchingPlayer(
       this.world,
-      frightenedGhostEids(this.learnUpgrades),
+      new Set([...frightenedGhostEids(this.learnUpgrades)].filter((eid) => !gliding.has(eid))),
     )) {
+      if (eid === frozenGhostEid(this.learnUpgrades)) {
+        this.learnUpgrades = { ...this.learnUpgrades, freezeRemainingMs: 0, frozenGhostEid: null };
+      }
       const from = { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
       const holds = hunterHoldsEaten(this.learnUpgrades.owned);
       const ate = eatFrightenedGhost(this.learnUpgrades, eid, holds);

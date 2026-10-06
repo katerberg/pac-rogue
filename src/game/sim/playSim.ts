@@ -1344,8 +1344,15 @@ export class PlaySim {
   }
 
   private eatFrightenedGhosts(): void {
-    const eaten = edibleGhostsTouchingPlayer(this.world, frightenedGhostEids(this.runUpgrades));
+    const gliding = glidingGhostEids(this.ghostCornerWarps);
+    const eaten = edibleGhostsTouchingPlayer(
+      this.world,
+      new Set([...frightenedGhostEids(this.runUpgrades)].filter((eid) => !gliding.has(eid))),
+    );
     for (const eid of eaten) {
+      if (eid === frozenGhostEid(this.runUpgrades)) {
+        this.runUpgrades = { ...this.runUpgrades, freezeRemainingMs: 0, frozenGhostEid: null };
+      }
       const from = { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
       const ate = eatFrightenedGhost(
         this.runUpgrades,
@@ -2286,15 +2293,15 @@ export class PlaySim {
     const powerEffects = applyPowerPelletEffects(before, powerRemoved, onlyBases, this.levelIndex);
     this.runUpgrades = powerEffects.state;
     if (powerEffects.frightenGhosts) {
-      this.runUpgrades = {
-        ...this.runUpgrades,
-        frightenedGhostEids: frightenGhosts(
-          this.world,
-          hunterFrightenLimit(this.bossState?.def.id ?? null),
-          this.ghostsBlockedFromTunnels(),
-        ),
-      };
-      this.recorder.activation("frighten");
+      const frightened = frightenGhosts(
+        this.world,
+        hunterFrightenLimit(this.bossState?.def.id ?? null),
+        this.ghostsBlockedFromTunnels(),
+      );
+      this.runUpgrades = { ...this.runUpgrades, frightenedGhostEids: frightened };
+      if (frightened.length > 0) {
+        this.recorder.activation("frighten");
+      }
     }
     if (onlyBases === undefined && powerRemoved > 0) {
       this.runUpgrades = queueEcho(this.runUpgrades, this.random.stream("echo", this.levelIndex));

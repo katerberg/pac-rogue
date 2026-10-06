@@ -3799,6 +3799,35 @@ describe("Hunter", () => {
     expect(sim.snapshot().dying).toBe(false);
   });
 
+  it("eating the frozen ghost thaws it", () => {
+    const sim = startHunter(["powerPelletHunter", "powerPelletFreeze"]);
+    letGhostsOut(sim, 1);
+    chompPowerPellet(sim);
+    const frozen = frozenGhostEid(sim["runUpgrades"])!;
+    expect(sim.renderOptions().frightenedGhosts?.eids).toContain(frozen);
+    ghostOnto(sim, frozen);
+    expect(GhostPhase.value[frozen]).toBe(GHOST_PHASE.inHouse);
+    expect(frozenGhostEid(sim["runUpgrades"])).toBeNull();
+  });
+
+  it("does not eat a ghost still gliding to its Scatter Burst corner", () => {
+    const sim = startHunter(["powerPelletHunter", "powerPelletScatterBurst"], { godMode: true });
+    runUntil(
+      sim,
+      () => ghosts(sim).some((eid) => GhostPhase.value[eid] === GHOST_PHASE.active),
+      60 * 15,
+      LEFT,
+    );
+    chompPowerPellet(sim);
+    const [ghost] = outOfHouse(sim).filter(
+      (eid) => sim.renderOptions().ghostWarpGlides?.[eid] !== undefined,
+    );
+    expect(ghost).toBeDefined();
+    ghostOnto(sim, ghost!);
+    expect(GhostPhase.value[ghost!]).not.toBe(GHOST_PHASE.inHouse);
+    expect(sim.snapshot().ghostsEatenThisFright).toBe(0);
+  });
+
   it("eats through Ghost Proof", () => {
     const sim = startHunter(["powerPelletHunter", "powerPelletInvuln"]);
     letGhostsOut(sim, 1);
