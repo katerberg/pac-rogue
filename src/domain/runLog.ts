@@ -28,10 +28,12 @@ export type ActivationKind =
   | "pelletSurge"
   | "shieldBreak"
   | "streakEngine"
-  | "echo";
+  | "echo"
+  | "frighten"
+  | "ghostEaten";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
-  "fruit" | "bonusBar" | "deathsBounty" | "nearMiss" | "offer" | "interest";
+  "fruit" | "bonusBar" | "deathsBounty" | "nearMiss" | "offer" | "interest" | "hunter";
 export type GhostName = keyof typeof GHOST_KIND;
 
 export type RunLogMeta = {

@@ -42,7 +42,18 @@ export function recallClosestGhostToHouse(
   if (eid === null) {
     return null;
   }
+  sendGhostToHouse(world, eid, clock, collectedCount, afterLifeRelease, adds);
+  return eid;
+}
 
+export function sendGhostToHouse(
+  world: World,
+  eid: number,
+  clock: GhostReleaseClock,
+  collectedCount: number,
+  afterLifeRelease = false,
+  adds: GhostReleaseAdds = {},
+): void {
   GhostPhase.value[eid] = GHOST_PHASE.inHouse;
   Velocity.x[eid] = 0;
   Velocity.y[eid] = 0;
@@ -53,5 +64,4 @@ export function recallClosestGhostToHouse(
   Ghost.decidedRow[eid] = Number.NaN;
 
   placeInHouseGhostsAtPredictedSeats(world, clock, collectedCount, afterLifeRelease, adds);
-  return eid;
 }

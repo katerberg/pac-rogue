@@ -133,6 +133,13 @@ import {
   echoEffects,
   queueEcho,
 } from "./upgrades";
+import {
+  eatFrightenedGhost,
+  frightenedGhostEids,
+  frightenedGhosts,
+  hunterHoldsEaten,
+  tickFrightened,
+} from "./upgrades";
 import { ECHO_DELAY_MS } from "./echo";
 import { TILE_SIZE } from "./maze";
 
@@ -180,6 +187,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveTunnelSanctuary",
   "passiveStreakEngine",
   "passiveEcho",
+  "powerPelletHunter",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -430,6 +438,7 @@ describe("grantUpgrade", () => {
       cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
+      frightenGhosts: false,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
@@ -446,6 +455,7 @@ describe("grantUpgrade", () => {
       cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
+      frightenGhosts: false,
     });
   });
 
@@ -501,6 +511,7 @@ describe("freeze / power pellet", () => {
       cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
+      frightenGhosts: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
@@ -525,6 +536,7 @@ describe("freeze / power pellet", () => {
       cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
+      frightenGhosts: false,
     });
   });
 });
@@ -632,6 +644,7 @@ describe("invuln / power pellet", () => {
       cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
+      frightenGhosts: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
@@ -853,6 +866,7 @@ describe("passiveOvercharge", () => {
       cornerTeleportHoldMs: null,
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
+      frightenGhosts: false,
     });
   });
 });
@@ -1396,5 +1410,81 @@ describe("Echo", () => {
     const echo = applyPowerPelletEffects(state, 1, ["powerPelletInvuln"]);
     expect(echo.state.invulnRemainingMs).toBe(INVULN_MS * 2);
     expect(echo.state.speedBurstRemainingMs).toBe(0);
+  });
+});
+
+describe("Hunter", () => {
+  const chomp = (owned: UpgradeId[], level = 1) =>
+    applyPowerPelletEffects(createRunUpgrades(owned), 1, undefined, level);
+
+  it("frightens for 6s at level 1, shortening per level to 4s; Hunter+ stays at 6s", () => {
+    expect(chomp(["powerPelletHunter"]).state.frightenedRemainingMs).toBe(6000);
+    expect(chomp(["powerPelletHunter"], 3).state.frightenedRemainingMs).toBe(5000);
+    expect(chomp(["powerPelletHunter"], 8).state.frightenedRemainingMs).toBe(4000);
+    expect(chomp(["powerPelletHunterPlus"], 8).state.frightenedRemainingMs).toBe(6000);
+    expect(chomp(["powerPelletHunter"]).frightenGhosts).toBe(true);
+    expect(chomp([]).frightenGhosts).toBe(false);
+  });
+
+  it("Overcharge doubles the fright and Overcharge+ triples it", () => {
+    expect(chomp(["powerPelletHunter", "passiveOvercharge"], 5).state.frightenedRemainingMs).toBe(
+      8000,
+    );
+    expect(
+      chomp(["powerPelletHunterPlus", "passiveOverchargePlus"]).state.frightenedRemainingMs,
+    ).toBe(18_000);
+  });
+
+  it("pays 75, 150 then 300 per ghost eaten and restarts the count on a new chomp", () => {
+    let state = {
+      ...chomp(["powerPelletHunter"]).state,
+      frightenedGhostEids: [1, 2, 3],
+    };
+    const charges: number[] = [];
+    for (const eid of [1, 2, 3]) {
+      const ate = eatFrightenedGhost(state, eid, false);
+      charges.push(ate.charge);
+      state = ate.state;
+    }
+    expect(charges).toEqual([75, 150, 300]);
+    expect(state.frightenedGhostEids).toEqual([]);
+    expect(state.hunterHeldEids).toEqual([]);
+    expect(applyPowerPelletEffects(state, 1).state.ghostsEatenThisFright).toBe(0);
+  });
+
+  it("Hunter+ holds eaten ghosts until the fright ends", () => {
+    expect(hunterHoldsEaten(["powerPelletHunter"])).toBe(false);
+    expect(hunterHoldsEaten(["powerPelletHunterPlus"])).toBe(true);
+    const frightened = {
+      ...chomp(["powerPelletHunterPlus"]).state,
+      frightenedGhostEids: [1, 2],
+    };
+    let state = eatFrightenedGhost(frightened, 1, true).state;
+    expect(state.hunterHeldEids).toEqual([1]);
+    expect(frightenedGhosts(state)).toEqual({ eids: [2], remainingMs: 6000 });
+    state = tickFrightened(state, 5999);
+    expect(state.hunterHeldEids).toEqual([1]);
+    state = tickFrightened(state, 1);
+    expect(state.hunterHeldEids).toEqual([]);
+    expect(frightenedGhostEids(state).size).toBe(0);
+    expect(frightenedGhosts(state)).toBeNull();
+  });
+
+  it("clears the fright on timer reset and when Hunter is lost", () => {
+    const state = {
+      ...chomp(["powerPelletHunterPlus"]).state,
+      frightenedGhostEids: [1],
+      hunterHeldEids: [2],
+    };
+    for (const cleared of [
+      clearUpgradeTimers(state),
+      revokeUpgrade(state, "powerPelletHunterPlus"),
+    ]) {
+      expect(cleared).toMatchObject({
+        frightenedRemainingMs: 0,
+        frightenedGhostEids: [],
+        hunterHeldEids: [],
+      });
+    }
   });
 });

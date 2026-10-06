@@ -78,6 +78,7 @@ import {
   createGhostReleaseClock,
   resetIdle,
   tickGhostRelease,
+  type GhostReleaseAdds,
   type GhostReleaseClock,
 } from "../../domain/ghostRelease";
 import {
@@ -187,6 +188,11 @@ import {
   tickHaunt,
   hauntedGhost,
   hauntedGhostEid,
+  eatFrightenedGhost,
+  frightenedGhostEids,
+  frightenedGhosts,
+  hunterHoldsEaten,
+  tickFrightened,
   nearMissCharge,
   streakEngineEvery,
   moneyTalksCost,
@@ -263,7 +269,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossChains, chainCatch } from "../systems/bossChain";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
-import { catchPlayer, type CatchOptions } from "../systems/catchPlayer";
+import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import { tickEchoes } from "../../domain/echo";
@@ -283,7 +289,7 @@ import {
   ghostHouseSeating,
   placeInHouseGhostsAtPredictedSeats,
 } from "../systems/ghostHouseSeating";
-import { recallClosestGhostToHouse } from "../systems/ghostRecall";
+import { recallClosestGhostToHouse, sendGhostToHouse } from "../systems/ghostRecall";
 import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
@@ -311,6 +317,7 @@ import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domai
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
+  startWarpGlide,
   tickWarpGlide,
   type Point,
   type WarpGlide,
@@ -329,6 +336,8 @@ import {
   type GhostCornerWarp,
 } from "../../domain/ghostCornerWarp";
 import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
+import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
+import { hunterFrightenLimit } from "../../domain/hunter";
 import {
   applyTunnelDash,
   tickTunnelDashAnimation,
@@ -646,6 +655,7 @@ export class PlaySim {
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       hauntedGhost: hauntedGhost(this.runUpgrades),
+      frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
     };
   }
@@ -670,6 +680,9 @@ export class PlaySim {
       deathsThisBoard: this.deathsThisBoard,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       nearMissesPaid: this.nearMissesPaid,
+      frightenedGhosts: [...frightenedGhostEids(upgrades)].map((eid) => ghostName(this.world, eid)),
+      hunterHeld: upgrades.hunterHeldEids.map((eid) => ghostName(this.world, eid)),
+      ghostsEatenThisFright: upgrades.ghostsEatenThisFright,
       streakPops: { count: this.streakPopCount, last: this.lastStreakPop },
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
@@ -686,6 +699,7 @@ export class PlaySim {
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
         shieldsBanked: upgrades.shieldsBanked,
         echoesMs: upgrades.pendingEchoes.map((echo) => echo.remainingMs),
+        frightenedMs: upgrades.frightenedRemainingMs,
         eatDragMs: this.eatDragMs,
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
@@ -880,12 +894,7 @@ export class PlaySim {
       delta,
       this.pelletProgress.boardCollected,
     );
-    const releaseAdds = {
-      delayAddMs: ghostHouseReleaseDelayAddMs(this.effectiveUpgrades()),
-      clydePelletAdd: ghostHouseClydePelletAdd(this.effectiveUpgrades()),
-      tuning: this.currentTuning,
-      heldGhostEid: hauntedGhostEid(this.runUpgrades),
-    };
+    const releaseAdds = this.releaseAdds();
     ghostHouseSeating(
       this.world,
       this.ghostReleaseClock,
@@ -916,6 +925,7 @@ export class PlaySim {
     this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
     this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
     this.runUpgrades = tickHaunt(this.runUpgrades, delta);
+    this.runUpgrades = tickFrightened(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
     for (const pos of respawnTick.ready) {
@@ -942,6 +952,7 @@ export class PlaySim {
         ghostSpeedMultiplier(this.effectiveUpgrades()),
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       heldGhostEids: heldGhostEids(this.ghostCornerWarps),
+      frightenedGhostEids: frightenedGhostEids(this.runUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
       tuning: this.currentTuning,
     });
@@ -1128,6 +1139,13 @@ export class PlaySim {
         this.pelletProgress.pelletsRemaining,
         this.currentTuning,
         this.ghostsBlockedFromTunnels(),
+        frightenedGhostEids(this.runUpgrades),
+      );
+      frightenedGhostAi(
+        this.world,
+        frightenedGhostEids(this.runUpgrades),
+        this.random.stream("frightened", this.levelIndex),
+        this.ghostsBlockedFromTunnels(),
       );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
@@ -1213,6 +1231,7 @@ export class PlaySim {
     }
 
     this.tickBoss();
+    this.eatFrightenedGhosts();
 
     const catchOptions = this.catchOptions();
     const caughtBy = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
@@ -1309,8 +1328,50 @@ export class PlaySim {
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      edibleGhostEids: frightenedGhostEids(this.runUpgrades),
       playerInvulnerable: this.options.godMode || playerIsInvulnerable(this.runUpgrades),
     };
+  }
+
+  private releaseAdds(): GhostReleaseAdds {
+    const haunted = hauntedGhostEid(this.runUpgrades);
+    return {
+      delayAddMs: ghostHouseReleaseDelayAddMs(this.effectiveUpgrades()),
+      clydePelletAdd: ghostHouseClydePelletAdd(this.effectiveUpgrades()),
+      tuning: this.currentTuning,
+      heldGhostEids: [...(haunted === null ? [] : [haunted]), ...this.runUpgrades.hunterHeldEids],
+    };
+  }
+
+  private eatFrightenedGhosts(): void {
+    const eaten = edibleGhostsTouchingPlayer(this.world, frightenedGhostEids(this.runUpgrades));
+    for (const eid of eaten) {
+      const from = { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+      const ate = eatFrightenedGhost(
+        this.runUpgrades,
+        eid,
+        hunterHoldsEaten(this.effectiveUpgrades()),
+      );
+      this.runUpgrades = ate.state;
+      sendGhostToHouse(
+        this.world,
+        eid,
+        this.ghostReleaseClock,
+        this.pelletProgress.boardCollected,
+        this.afterLifeRelease,
+        this.releaseAdds(),
+      );
+      const to = { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
+      this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, [
+        { eid, glide: startWarpGlide(from, to), holdMs: 0 },
+      ]);
+      const charged = addBonusCharge(this.bonus, ate.charge);
+      this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "hunter");
+      this.recorder.activation("ghostEaten");
+    }
+    if (eaten.length > 0) {
+      this.emitMunch();
+    }
   }
 
   private ghostsBlockedFromTunnels(): boolean {
@@ -2222,8 +2283,19 @@ export class PlaySim {
 
   private applyPowerEffects(powerRemoved: number, onlyBases?: readonly BaseUpgradeId[]) {
     const before = this.runUpgrades;
-    const powerEffects = applyPowerPelletEffects(before, powerRemoved, onlyBases);
+    const powerEffects = applyPowerPelletEffects(before, powerRemoved, onlyBases, this.levelIndex);
     this.runUpgrades = powerEffects.state;
+    if (powerEffects.frightenGhosts) {
+      this.runUpgrades = {
+        ...this.runUpgrades,
+        frightenedGhostEids: frightenGhosts(
+          this.world,
+          hunterFrightenLimit(this.bossState?.def.id ?? null),
+          this.ghostsBlockedFromTunnels(),
+        ),
+      };
+      this.recorder.activation("frighten");
+    }
     if (onlyBases === undefined && powerRemoved > 0) {
       this.runUpgrades = queueEcho(this.runUpgrades, this.random.stream("echo", this.levelIndex));
     }
@@ -2403,7 +2475,7 @@ export class PlaySim {
       this.ghostReleaseClock,
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
-      { heldGhostEid: hauntEid },
+      { heldGhostEids: hauntEid === null ? [] : [hauntEid] },
     );
     if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
       this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);

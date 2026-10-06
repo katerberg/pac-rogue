@@ -42,6 +42,7 @@ import {
   hauntCageLines,
   hauntCageVisible,
 } from "../../domain/hauntCage";
+import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
@@ -59,6 +60,7 @@ const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
 const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
+const FRIGHTENED_GHOST_TEXTURE_KEY = "ghost-frightened";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
 export const PLAYER_WALL_PASS_TINT = 0xd3d333;
@@ -186,6 +188,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
   scene.load.image(INKY_TEXTURE_KEY, "art/ghosts/inky.png");
   scene.load.image(CLYDE_TEXTURE_KEY, "art/ghosts/clyde.png");
+  scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
   scene.load.image(FRUIT_TEXTURE_KEY, fruitArtPath(fruitSpecForLevel(CURRENT_LEVEL).kind));
 }
 
@@ -245,6 +248,7 @@ export type RenderOptions = {
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
+  frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
 };
 
@@ -467,6 +471,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
       if (ghostTexture !== undefined) {
         const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
+        const ghostKey =
+          phase !== GHOST_PHASE.inHouse &&
+          showsFrightenedLook(opts?.frightenedGhosts, eid, scene.time.now)
+            ? FRIGHTENED_GHOST_TEXTURE_KEY
+            : ghostTexture;
+        if (go.texture.key !== ghostKey) {
+          go.setTexture(ghostKey);
+          go.setDisplaySize(size, size);
+        }
         const tint =
           frozenTintOn && eid === frozenEid && phase !== GHOST_PHASE.inHouse
             ? GHOST_FROZEN_TINT

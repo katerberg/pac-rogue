@@ -5,6 +5,7 @@ import {
   resolveBossGhostSpeed,
   resolveGhostSpeedForKind,
 } from "../../domain/ghostSpeed";
+import { HUNTER_FRIGHTENED_SPEED_MUL } from "../../domain/hunter";
 import { playerSpeed } from "../../domain/playfield";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
@@ -20,6 +21,7 @@ export type GhostSpeedOptions = {
   ghostSpeedMul?: number;
   frozenGhostEid?: number | null;
   heldGhostEids?: ReadonlySet<number>;
+  frightenedGhostEids?: ReadonlySet<number>;
   tunnelSpeedRatio?: number | null;
   tuning?: Tuning;
 };
@@ -64,6 +66,8 @@ export function applyGhostSpeed(
           tunnelSpeed,
           tuning,
         );
-    Speed.px[eid] = base * ghostSpeedMul;
+    const frightenedMul =
+      options.frightenedGhostEids?.has(eid) === true ? HUNTER_FRIGHTENED_SPEED_MUL : 1;
+    Speed.px[eid] = base * ghostSpeedMul * frightenedMul;
   }
 }

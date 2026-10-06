@@ -13,7 +13,8 @@ export type RandomStream =
   | "bossPick"
   | "bossScatter"
   | "bossShake"
-  | "echo";
+  | "echo"
+  | "frightened";
 
 export type RunRandom = {
   seed: string;

@@ -509,6 +509,40 @@ describe("LearnSim upgrade demos", () => {
     }
   });
 
+  function chompPower(sim: LearnSim, player: number): ReturnType<LearnSim["step"]> {
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    return sim.step(NO_KEYS_HELD, FRAME_MS);
+  }
+
+  it("Hunter frightens the ghost; eating it pays BONUS and seats it briefly", () => {
+    const { sim, player } = setup("powerPelletHunter");
+    const ghost = sim.ghostEid!;
+    const draw = chompPower(sim, player).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.frightenedGhosts?.eids).toEqual([ghost]);
+    expect(popups(catchByGhost(sim, player))).toEqual(["+75 BONUS"]);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    expect(runUntilFreed(sim, ghost, 2_000)).toBe(true);
+  });
+
+  it("Hunter+ keeps the eaten ghost seated until the fright ends", () => {
+    const { sim, player } = setup("powerPelletHunterPlus");
+    const ghost = sim.ghostEid!;
+    chompPower(sim, player);
+    catchByGhost(sim, player);
+    runMs(sim, 5_500);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    expect(runUntilFreed(sim, ghost, 1_000)).toBe(true);
+  });
+
+  it("toggling Hunter+ back to Hunter lets a held ghost out", () => {
+    const { sim, player } = setup("powerPelletHunterPlus");
+    const ghost = sim.ghostEid!;
+    chompPower(sim, player);
+    catchByGhost(sim, player);
+    sim.toggleEnhanced("powerPelletHunter");
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
+  });
+
   it("toggling Haunting off lets the caged ghost out", () => {
     const { sim, player } = setup("passiveHaunting");
     const ghost = sim.ghostEid!;

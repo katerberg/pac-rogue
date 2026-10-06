@@ -71,7 +71,7 @@ describe("ghostHouseOrder", () => {
       clock,
       0,
       true,
-      { heldGhostEid: 1 },
+      { heldGhostEids: [1] },
     );
     expect(sorted.map((g) => g.eid)).toEqual([2, 3, 1]);
   });
