@@ -1,4 +1,5 @@
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
+import { DEFAULT_GHOST_STYLE, lineArtGhostKinds, type GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
@@ -221,9 +222,14 @@ export class LearnSim {
   private streakBar: BonusBar = createBonusBar();
   private fruitPresence: FruitPresence = createFruitPresence();
   private boardCollected = 0;
+  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
 
   constructor(seed: string) {
     this.random = createRunRandom(seed);
+  }
+
+  setGhostStyle(style: GhostStyle): void {
+    this.ghostStyle = style;
   }
 
   get selectedKind(): GhostKindId | null {
@@ -483,6 +489,13 @@ export class LearnSim {
           : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
+        lineArtDrawableIds: lineArtGhostKinds(
+          this.ghostStyle,
+          Array.from(
+            query(this.world, [Ghost, GhostKind]),
+            (eid) => GhostKind.kind[eid] as GhostKindId,
+          ),
+        ).map((kind) => GHOST_DRAWABLE_BY_KIND[kind]),
       },
     });
     return this.takeEvents();

@@ -21,6 +21,7 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
+import { ghostLineArtLook } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
@@ -49,6 +50,7 @@ import {
 import { PlaySim } from "../sim/playSim";
 import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
+import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { saveRun } from "../storage/runHistoryStorage";
 import { newRunLogMeta, saveRunLog } from "../storage/runLogStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
@@ -80,6 +82,7 @@ import {
   SCHOOL_COLORS,
   type UpgradeChoiceModal,
 } from "./upgradeChoiceModal";
+import { applyRenderScale } from "../renderScale";
 
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
@@ -148,6 +151,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(data: PlaySceneData = {}): void {
+    applyRenderScale(this);
     stopLoopingSfx(this, "menuMusic");
     this.clearLevelBanner();
 
@@ -165,6 +169,7 @@ export class PlayScene extends Phaser.Scene {
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
     const runLogMeta = newRunLogMeta(params);
     this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning, runLogMeta);
+    this.sim.setGhostStyle(loadGhostStyle());
     this.pausedAtMs = null;
     this.hiddenAtMs = null;
 
@@ -267,6 +272,7 @@ export class PlayScene extends Phaser.Scene {
   private applyKnobTuning(tuning: Tuning): void {
     this.sim.setTuning(tuning);
     this.playRender.setWallStyle(wallStyleFor(tuning, 0));
+    this.playRender.setGhostLook(ghostLineArtLook(tuning));
   }
 
   private restartAtCurrentLevel(): void {
@@ -354,6 +360,8 @@ export class PlayScene extends Phaser.Scene {
       this.pausedAtMs = null;
     }
     this.sim.suppressInputUntilRelease();
+    // Settings may have been opened from the pause menu.
+    this.sim.setGhostStyle(loadGhostStyle());
     if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.rearmSelectionKeys();
     }
@@ -622,8 +630,8 @@ export class PlayScene extends Phaser.Scene {
   private shakeCamera(): void {
     const camera = this.cameras.main;
     const shake = this.sim.random.stream("bossShake");
-    const maxX = BOSS_SHAKE_INTENSITY * camera.width;
-    const maxY = BOSS_SHAKE_INTENSITY * camera.height;
+    const maxX = BOSS_SHAKE_INTENSITY * PLAYFIELD_WIDTH;
+    const maxY = BOSS_SHAKE_INTENSITY * PLAYFIELD_HEIGHT;
     this.tweens.addCounter({
       duration: BOSS_SHAKE_MS,
       onUpdate: () => camera.setScroll((shake() * 2 - 1) * maxX, (shake() * 2 - 1) * maxY),

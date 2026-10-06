@@ -16,6 +16,7 @@ import {
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
 import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
+import { applyRenderScale } from "../renderScale";
 
 const UPGRADE_LIST_X = 12;
 const UPGRADE_ROW_GAP = 16;
@@ -68,6 +69,7 @@ export class PauseScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyRenderScale(this);
     this.selectedIndex = RESUME_INDEX;
     this.moveCooldownMs = 0;
     this.upRepeat = createKeyRepeatState();
@@ -270,7 +272,7 @@ export class PauseScene extends Phaser.Scene {
       row.setInteractive({ useHandCursor: true });
       row.on("pointerover", (pointer: Phaser.Input.Pointer) => {
         row.setTint(TEXT_COLOR_YELLOW);
-        this.showUpgradePreview(id, pointer.y);
+        this.showUpgradePreview(id, pointer.worldY);
       });
       row.on("pointerout", () => {
         row.setTint(TEXT_COLOR_WHITE);

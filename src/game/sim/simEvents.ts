@@ -22,6 +22,7 @@ export type SimRenderOptions = {
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   hauntedGhost?: HauntedGhost | null;
   bossChains?: ChainSegment[];
+  lineArtDrawableIds?: string[];
 };
 
 export type MoneyTalksSpend = {

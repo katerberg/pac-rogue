@@ -68,6 +68,14 @@ function readArgs() {
   return values;
 }
 
+async function worldSize(page) {
+  return page.evaluate(() => {
+    const g = globalThis.__PAC_ROGUE_GAME__;
+    const zoom = g.scene.getScenes(true)[0]?.cameras.main.zoom ?? 1;
+    return { width: g.scale.gameSize.width / zoom, height: g.scale.gameSize.height / zoom };
+  });
+}
+
 async function readSnapshot(page) {
   const snapshot = await page.evaluate(() => globalThis.__PAC_ROGUE_DEBUG__?.snapshot() ?? null);
   if (snapshot === null) {
@@ -115,10 +123,7 @@ async function runStep(page, canvas, step, name) {
       if (box === null) {
         throw new Error("canvas has no bounding box");
       }
-      const game = await page.evaluate(() => {
-        const g = globalThis.__PAC_ROGUE_GAME__;
-        return { width: g.scale.gameSize.width, height: g.scale.gameSize.height };
-      });
+      const game = await worldSize(page);
       await page.mouse.click(
         box.x + (Number(a) / game.width) * box.width,
         box.y + (Number(b) / game.height) * box.height,
@@ -130,10 +135,7 @@ async function runStep(page, canvas, step, name) {
       if (box === null) {
         throw new Error("canvas has no bounding box");
       }
-      const game = await page.evaluate(() => {
-        const g = globalThis.__PAC_ROGUE_GAME__;
-        return { width: g.scale.gameSize.width, height: g.scale.gameSize.height };
-      });
+      const game = await worldSize(page);
       await page.mouse.move(
         box.x + (Number(a) / game.width) * box.width,
         box.y + (Number(b) / game.height) * box.height,

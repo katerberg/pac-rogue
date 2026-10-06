@@ -19,7 +19,15 @@ import {
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
-import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
+import {
+  BLINKY_DRAWABLE_ID,
+  CLYDE_DRAWABLE_ID,
+  ghostRadius,
+  INKY_DRAWABLE_ID,
+  PINKY_DRAWABLE_ID,
+  PLAYER_SPEED,
+  playerRadius,
+} from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
@@ -57,6 +65,8 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
+import { catchPlayer } from "../systems/catchPlayer";
+import { Drawable } from "../components/Drawable";
 import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
@@ -3415,6 +3425,87 @@ describe("Haunting", () => {
     runUntil(sim, () => sim.snapshot().inStore || sim.snapshot().level === 4, 600);
     expect(sim.snapshot().timers.hauntMs).toBe(0);
     expect(sim.snapshot().hauntedGhost).toBeNull();
+  });
+});
+
+describe("ghost style (neon line art vs pixel)", () => {
+  const sorted = (values: readonly string[] | readonly number[] | undefined) =>
+    [...(values ?? [])].map(String).sort();
+
+  it("draws every present ghost as neon line art by default, on every level", () => {
+    expect(sorted(startSim({ level: 5 }, "lineart").snapshot().lineArtGhosts)).toEqual([
+      "blinky",
+      "clyde",
+      "inky",
+      "pinky",
+    ]);
+    for (const level of [1, 9]) {
+      const snap = startSim({ level }, "lineart").snapshot();
+      expect(snap.lineArtGhosts.length).toBeGreaterThan(0);
+      expect(sorted(snap.lineArtGhosts)).toEqual(
+        sorted([...new Set(snap.ghosts.map((g) => g.kind))]),
+      );
+    }
+  });
+
+  it("tells the renderer which drawables are line art", () => {
+    const events = runFrames(startSim({ level: 5 }, "lineart"), 1);
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
+      sorted([BLINKY_DRAWABLE_ID, PINKY_DRAWABLE_ID, INKY_DRAWABLE_ID, CLYDE_DRAWABLE_ID]),
+    );
+  });
+
+  it("draws no line art with the pixel style, and switches back mid-run", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    sim.setGhostStyle("pixel");
+    const events = runFrames(sim, 1);
+    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
+    expect(draws.at(-1)?.lineArtDrawableIds).toEqual([]);
+    expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    sim.setGhostStyle("neon");
+    expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
+  });
+
+  it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {
+    const furthestCatch = (tuning: Tuning): number => {
+      const sim = new PlaySim({ ...defaultPlayOptions(), level: 5 }, "lineart", tuning);
+      sim.start();
+      const clyde = query(sim.world, [Ghost, GhostKind]).find(
+        (eid) => GhostKind.kind[eid] === GHOST_KIND.clyde,
+      )!;
+      expect(Drawable.radius[clyde]).toBe(ghostRadius());
+      GhostPhase.value[clyde] = GHOST_PHASE.active;
+      const player = playerEid(sim);
+      let furthest = 0;
+      for (let d = 0; d <= 40; d += 0.25) {
+        Position.x[clyde] = Position.x[player]! + d;
+        Position.y[clyde] = Position.y[player]!;
+        if (catchPlayer(sim.world) === clyde) {
+          furthest = d;
+        }
+      }
+      return furthest;
+    };
+    const plain = furthestCatch(DEFAULT_TUNING);
+    expect(plain).toBeGreaterThan(0);
+    expect(plain).toBeLessThan(2 * ghostRadius());
+    expect(
+      furthestCatch(
+        resolveTuning({
+          ghostGlow: 4,
+          ghostGlowRadius: 12,
+          ghostLineWidth: 15,
+          ghostWidth: 1.5,
+          ghostHeight: 1.5,
+        }),
+      ),
+    ).toBe(plain);
+  });
+
+  it("follows a ghosts override", () => {
+    const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
+    expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "pinky"]);
   });
 });
 

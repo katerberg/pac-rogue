@@ -1,6 +1,6 @@
 import { MAZE_BACKGROUND_COLOR, WALL_CORNER_RADIUS, WALL_STROKE_WEIGHT } from "./maze";
 import { mazeColorForIndex } from "./mazeColorSettings";
-import type { Tuning } from "./tuning";
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export type WallStyle = {
   color: number;
@@ -11,18 +11,15 @@ export type WallStyle = {
   background: number;
 };
 
-type GlowLayer = { width: number; alpha: number };
-
-const GLOW_LAYER_COUNT = 4;
-const GLOW_MAX_ALPHA = 0.35;
+const WALL_GLOW_MAX_OUTER = 4;
 
 export function wallStyleFor(tuning: Tuning | null, mazeColorIndex: number): WallStyle {
   if (tuning === null) {
     return {
       color: mazeColorForIndex(mazeColorIndex),
       thickness: WALL_STROKE_WEIGHT,
-      glow: 0,
-      glowRadius: 0,
+      glow: DEFAULT_TUNING.wallGlow,
+      glowRadius: DEFAULT_TUNING.wallGlowRadius,
       cornerRadius: WALL_CORNER_RADIUS,
       background: MAZE_BACKGROUND_COLOR,
     };
@@ -37,18 +34,13 @@ export function wallStyleFor(tuning: Tuning | null, mazeColorIndex: number): Wal
   };
 }
 
-export function wallGlowLayers(style: WallStyle): GlowLayer[] {
+export function wallGlowFilter(
+  style: WallStyle,
+): { outerStrength: number; distance: number } | null {
   if (style.glow <= 0 || style.glowRadius <= 0) {
-    return [];
+    return null;
   }
-  const layers: GlowLayer[] = [];
-  for (let i = GLOW_LAYER_COUNT; i >= 1; i -= 1) {
-    layers.push({
-      width: style.thickness + (2 * style.glowRadius * i) / GLOW_LAYER_COUNT,
-      alpha: style.glow * GLOW_MAX_ALPHA * (1 - (i - 1) / GLOW_LAYER_COUNT),
-    });
-  }
-  return layers;
+  return { outerStrength: style.glow * WALL_GLOW_MAX_OUTER, distance: style.glowRadius };
 }
 
 export function sameWallStyle(a: WallStyle | null, b: WallStyle | null): boolean {

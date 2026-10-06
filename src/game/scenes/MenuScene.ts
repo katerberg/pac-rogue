@@ -11,6 +11,7 @@ import {
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
+import { applyRenderScale } from "../renderScale";
 
 const OPTIONS = [
   { label: "START", scene: "PlayScene" },
@@ -41,6 +42,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyRenderScale(this);
     if (runLogOverrunActive()) {
       this.scene.start("RunLogOverrunScene");
       return;
