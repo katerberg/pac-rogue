@@ -108,6 +108,13 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×"),
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px"),
   { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
+  range("fontThickness", "Visuals", "Font thickness", 0.02, 0.8, 0.01),
+  range("fontBloom", "Visuals", "Font bloom", 0, 12, 0.1),
+  range("fontBloomRadius", "Visuals", "Font bloom radius", 0, 48, 1, "px"),
+  { key: "fontGlowColor", group: "Visuals", label: "Font glow color", kind: "color" },
+  range("fontLetterSpacing", "Visuals", "Font letter spacing", -0.5, 2, 0.05),
+  range("fontHeightScale", "Visuals", "Font height", 0.4, 3, 0.05, "×"),
+  { key: "fontGlowKnockout", group: "Visuals", label: "Font glow knockout", kind: "toggle" },
 ];
 
 function stepDecimals(step: number): number {
@@ -213,4 +220,13 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Vertical stretch of line-art ghosts. 1 = the SVG's own proportions. Visual only; collision is unchanged.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
+  fontThickness:
+    "Neon typeface stroke thickness as a fraction of glyph height. Visual only; extreme values are for dialing-in.",
+  fontBloom: "Phaser outerStrength of the bloom around neon text. 0 = no bloom.",
+  fontBloomRadius: "How far neon text bloom spreads beyond the stroke, in pixels. 0 = no bloom.",
+  fontGlowColor: "Color of the bloom around neon text (the core uses the call-site tint).",
+  fontLetterSpacing: "Extra gap between neon glyphs in viewBox units (glyph width is 2).",
+  fontHeightScale: "Vertical stretch of neon glyphs. 1 = natural proportions.",
+  fontGlowKnockout:
+    "On: bloom is a knockout glow under a crisp stroke (ghost-style). Off: bloom uses the same stroke width as the core.",
 };

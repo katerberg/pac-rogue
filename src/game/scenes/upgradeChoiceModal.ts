@@ -11,13 +11,12 @@ import {
   type UpgradeSchool,
 } from "../../domain/upgrades";
 import {
-  addPixelText,
   MENU_OPTION_FONT_SIZE,
-  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import { addGameText, placeGameText, type GameText } from "./neonFont";
 
 export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
 export const UPGRADE_CONFIRM_PULSE_MS = 400;
@@ -140,9 +139,9 @@ export type UpgradeCardVisual = {
   root: Phaser.GameObjects.Container;
   bg: Phaser.GameObjects.Rectangle;
   borderColor: number;
-  label: Phaser.GameObjects.BitmapText;
-  school: Phaser.GameObjects.BitmapText | null;
-  description: Phaser.GameObjects.BitmapText;
+  label: GameText;
+  school: GameText | null;
+  description: GameText;
   targetLabel: string;
   targetDescription: string;
 };
@@ -160,7 +159,7 @@ export function buildUpgradeCardVisual(
   const bg = scene.add
     .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
     .setStrokeStyle(BUTTON_STROKE_REST, borderColor);
-  const label = addPixelText(
+  const label = addGameText(
     scene,
     0,
     0,
@@ -168,7 +167,7 @@ export function buildUpgradeCardVisual(
     fitFontSize(copy.label, CHOICE_BUTTON_WIDTH - CHOICE_LABEL_MARGIN, CHOICE_LABEL_FONT_SIZE),
     TEXT_COLOR_YELLOW,
   );
-  const description = addPixelText(
+  const description = addGameText(
     scene,
     0,
     0,
@@ -192,9 +191,9 @@ type ButtonView = {
   root: Phaser.GameObjects.Container;
   bg: Phaser.GameObjects.Rectangle;
   borderColor: number;
-  label: Phaser.GameObjects.BitmapText;
-  school: Phaser.GameObjects.BitmapText | null;
-  description: Phaser.GameObjects.BitmapText;
+  label: GameText;
+  school: GameText | null;
+  description: GameText;
   targetLabel: string;
   targetDescription: string;
   baseX: number;
@@ -220,7 +219,7 @@ export function createUpgradeChoiceModal(
   let onConfirm: ((chosen: UpgradeChoiceOption) => void) | null = null;
   let dim: Phaser.GameObjects.Rectangle | null = null;
   let buttons: ButtonView[] = [];
-  let hints: Phaser.GameObjects.BitmapText[] = [];
+  let hints: GameText[] = [];
   let selectionFrame: Phaser.GameObjects.Rectangle | null = null;
   let cursors: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
   let keyA: Phaser.Input.Keyboard.Key | null = null;
@@ -395,7 +394,7 @@ export function createUpgradeChoiceModal(
       buttons.push(view);
 
       const hintPos = hintPositionForSlot(slot);
-      const hint = addPixelText(
+      const hint = addGameText(
         scene,
         hintPos.x,
         hintPos.y,
@@ -406,7 +405,7 @@ export function createUpgradeChoiceModal(
         .setDepth(MODAL_DEPTH + 3)
         .setAlpha(0)
         .setVisible(true);
-      placePixelText(hint, hintPos.x, hintPos.y, 0.5, 0.5);
+      placeGameText(hint, hintPos.x, hintPos.y, 0.5, 0.5);
       hints.push(hint);
     });
 
@@ -545,11 +544,8 @@ export function createUpgradeChoiceModal(
   };
 }
 
-export function addSchoolTag(
-  scene: Phaser.Scene,
-  school: UpgradeSchool,
-): Phaser.GameObjects.BitmapText {
-  return addPixelText(
+export function addSchoolTag(scene: Phaser.Scene, school: UpgradeSchool): GameText {
+  return addGameText(
     scene,
     0,
     0,
@@ -564,9 +560,9 @@ function placeButtonText(button: ButtonView): void {
 }
 
 export function layoutCardText(
-  label: Phaser.GameObjects.BitmapText,
-  school: Phaser.GameObjects.BitmapText | null,
-  description: Phaser.GameObjects.BitmapText,
+  label: GameText,
+  school: GameText | null,
+  description: GameText,
   centerY = 0,
 ): void {
   stackTexts(
@@ -581,25 +577,19 @@ export function layoutCardText(
 
 export const SCHOOL_GAP = SCHOOL_GAP_BELOW_LABEL;
 
-export function setSchoolTag(
-  tag: Phaser.GameObjects.BitmapText,
-  school: UpgradeSchool | null,
-): void {
+export function setSchoolTag(tag: GameText, school: UpgradeSchool | null): void {
   tag.setVisible(school !== null);
   if (school !== null) {
     tag.setText(UPGRADE_SCHOOL_LABELS[school].toUpperCase()).setTint(SCHOOL_COLORS[school]);
   }
 }
 
-export function stackTexts(
-  stack: { text: Phaser.GameObjects.BitmapText; gapBelow: number }[],
-  centerY: number,
-): void {
+export function stackTexts(stack: { text: GameText; gapBelow: number }[], centerY: number): void {
   const rows = stack.map((row) => ({ ...row, height: row.text.getTextBounds(true).local.height }));
   const total = rows.reduce((sum, row) => sum + row.height + row.gapBelow, 0);
   let top = centerY - total / 2;
   for (const row of rows) {
-    placePixelText(row.text, 0, top, 0.5, 0);
+    placeGameText(row.text, 0, top, 0.5, 0);
     top += row.height + row.gapBelow;
   }
 }

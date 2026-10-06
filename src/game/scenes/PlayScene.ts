@@ -64,13 +64,14 @@ import {
   type PlayRender,
 } from "../systems/render";
 import {
-  addPixelText,
   HUD_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
-  placePixelText,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import { addGameText, placeGameText, setActiveFontLook, type GameText } from "./neonFont";
+import { fontLineArtLook } from "../../domain/neonFont/fontLook";
+import { textStyleFor } from "../../domain/ghostArt";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
@@ -125,9 +126,9 @@ export class PlayScene extends Phaser.Scene {
   private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
-  private timerText!: Phaser.GameObjects.BitmapText;
-  private upgradeLines: Phaser.GameObjects.BitmapText[] = [];
-  private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
+  private timerText!: GameText;
+  private upgradeLines: GameText[] = [];
+  private levelBannerText: GameText | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private shieldIcons: Phaser.GameObjects.Rectangle[] = [];
   private shieldCrackHalves: Phaser.GameObjects.Rectangle[] = [];
@@ -184,13 +185,13 @@ export class PlayScene extends Phaser.Scene {
     this.sideHud = this.add.container(0, 0).setVisible(!options.knobs);
     this.chrome.add(this.sideHud);
     this.chromeShake = null;
-    this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
-    placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+    this.timerText = addGameText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
+    placeGameText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
     this.upgradeLines = [];
 
-    const bonusLabel = addPixelText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
-    placePixelText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
+    const bonusLabel = addGameText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
+    placeGameText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
     this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
     this.barFx = createBarFx(this.sim.hud().bonusCharge);
     this.sideHud.add(this.timerText);
@@ -273,6 +274,7 @@ export class PlayScene extends Phaser.Scene {
     this.sim.setTuning(tuning);
     this.playRender.setWallStyle(wallStyleFor(tuning, 0));
     this.playRender.setGhostLook(ghostLineArtLook(tuning));
+    setActiveFontLook(fontLineArtLook(tuning));
   }
 
   private restartAtCurrentLevel(): void {
@@ -342,6 +344,7 @@ export class PlayScene extends Phaser.Scene {
   public debugSnapshot() {
     return {
       ...this.sim.snapshot(),
+      textStyle: textStyleFor(loadGhostStyle()),
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
@@ -362,6 +365,12 @@ export class PlayScene extends Phaser.Scene {
     this.sim.suppressInputUntilRelease();
     // Settings may have been opened from the pause menu.
     this.sim.setGhostStyle(loadGhostStyle());
+    const timerVisible = this.timerText.visible;
+    this.timerText.destroy();
+    this.timerText = addGameText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
+    placeGameText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+    this.timerText.setVisible(timerVisible);
+    this.sideHud.add(this.timerText);
     if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.rearmSelectionKeys();
     }
@@ -464,7 +473,7 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "timer":
         this.timerText.setText(this.timerLabel());
-        placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+        placeGameText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
         break;
       case "timerVisible":
         this.timerText.setVisible(event.visible);
@@ -574,7 +583,7 @@ export class PlayScene extends Phaser.Scene {
 
   private showLevelBanner(text: string): void {
     this.clearLevelBanner();
-    const banner = addPixelText(
+    const banner = addGameText(
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2,
@@ -582,7 +591,7 @@ export class PlayScene extends Phaser.Scene {
       MENU_TITLE_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(800);
-    placePixelText(banner, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
+    placeGameText(banner, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
     this.levelBannerText = banner;
     this.tweens.add({
       targets: banner,
@@ -600,10 +609,10 @@ export class PlayScene extends Phaser.Scene {
     this.clearLevelBanner();
     const x = PLAYFIELD_WIDTH / 2;
     const y = PLAYFIELD_HEIGHT / 2;
-    const banner = addPixelText(this, x, y, "BOSS", MENU_TITLE_FONT_SIZE * 2, BOSS_BANNER_COLOR)
-      .setOrigin(0.5, 0.5)
+    const banner = addGameText(this, x, y, "BOSS", MENU_TITLE_FONT_SIZE * 2, BOSS_BANNER_COLOR)
       .setDepth(800)
       .setScale(BOSS_BANNER_START_SCALE);
+    placeGameText(banner, x, y, 0.5, 0.5);
     this.levelBannerText = banner;
     this.tweens.add({
       targets: banner,
@@ -663,7 +672,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private showCenteredEndText(title: string): void {
-    const titleText = addPixelText(
+    const titleText = addGameText(
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2 - 20,
@@ -671,16 +680,16 @@ export class PlayScene extends Phaser.Scene {
       MENU_TITLE_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(1001);
-    placePixelText(titleText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 - 20, 0.5, 0.5);
+    placeGameText(titleText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 - 20, 0.5, 0.5);
 
-    const collected = addPixelText(
+    const collected = addGameText(
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2 + 24,
       `Collected: ${this.sim.hud().collected}`,
       HUD_FONT_SIZE,
     ).setDepth(1001);
-    placePixelText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
+    placeGameText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
     addSeedLabel(this, this.sim.random.seed).setDepth(1001);
   }
 
@@ -853,7 +862,7 @@ export class PlayScene extends Phaser.Scene {
     const labels = upgradeLabels(owned);
     this.upgradeLines.forEach((line) => line.destroy());
     this.upgradeLines = labels.map((label, i) => {
-      const line = addPixelText(
+      const line = addGameText(
         this,
         12,
         0,
@@ -870,7 +879,7 @@ export class PlayScene extends Phaser.Scene {
     }
     const lineHeight = first.getTextBounds(true).local.height;
     const top = PLAYFIELD_HEIGHT / 2 - (lineHeight * labels.length) / 2;
-    this.upgradeLines.forEach((line, i) => placePixelText(line, 12, top + lineHeight * i));
+    this.upgradeLines.forEach((line, i) => placeGameText(line, 12, top + lineHeight * i));
   }
 
   private timerLabel(): string {

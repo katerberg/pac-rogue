@@ -58,7 +58,8 @@ src/
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostKind.ts              # blinky / pinky / inky / clyde kind ids
-    ghostArt.ts               # GhostStyle (Settings → STYLE: neon line art / pixel; also gates wall glow), lineArtGhostKinds, line-art look from tuning
+    ghostArt.ts               # GhostStyle (Settings → STYLE: neon line art / pixel; also gates wall glow + UI font), textStyleFor, lineArtGhostKinds, line-art look from tuning
+    neonFont/                 # Bar-curve neon glyph catalog + fontLineArtLook (see docs/fonts.md)
     lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points (see docs/line-art.md)
     ghostTarget.ts            # Blinky/Pinky/Inky/Clyde chase/scatter/Elroy target tiles
     ghostPhase.ts             # inHouse / leaving / active phase ids
@@ -145,6 +146,7 @@ src/
       worldSnapshot.ts        # read-only world → JSON for the agent debug snapshot (probe expect/waitFor)
     scenes/
       pixelFont.ts            # RetroFont BitmapText helpers + VGA 8x8 atlas
+      neonFont.ts             # NeonText + addGameText / placeGameText (STYLE → neon bar-curve or pixel)
       font8x8Basic.ts         # public-domain IBM VGA glyph bitmaps (U+0020..7E)
       upgradeChoiceModal.ts   # level-clear pick-one overlay (Phaser)
       turnSparks.ts           # Turn Tuning feedback: perfect burst + close sparks (Phaser)

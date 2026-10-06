@@ -1,12 +1,7 @@
 import Phaser from "phaser";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import {
-  addPixelText,
-  MENU_OPTION_FONT_SIZE,
-  placePixelText,
-  TEXT_COLOR_WHITE,
-  TEXT_COLOR_YELLOW,
-} from "./pixelFont";
+import { MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE, TEXT_COLOR_YELLOW } from "./pixelFont";
+import { addGameText, placeGameText } from "./neonFont";
 import type { RunEndChoice } from "../sim/playSim";
 
 const ROWS: readonly { choice: RunEndChoice; label: string }[] = [
@@ -40,7 +35,7 @@ export function createRunEndMenu(
     )
     .setDepth(1000);
   const texts = ROWS.map((row, index) => {
-    const text = addPixelText(scene, ROW_X, rowY(index), "", MENU_OPTION_FONT_SIZE)
+    const text = addGameText(scene, ROW_X, rowY(index), "", MENU_OPTION_FONT_SIZE)
       .setDepth(1001)
       .setAlpha(UNARMED_ALPHA);
     text.on("pointerover", () => focus(index));
@@ -65,7 +60,7 @@ export function createRunEndMenu(
       const isSelected = i === selectedIndex;
       text.setText(isSelected ? `> ${ROWS[i]!.label}` : `  ${ROWS[i]!.label}`);
       text.setTint(isSelected ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-      placePixelText(text, ROW_X, rowY(i), 0.5, 0.5);
+      placeGameText(text, ROW_X, rowY(i), 0.5, 0.5);
     });
   }
 

@@ -4,13 +4,12 @@ import { PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { runLogOverrunActive } from "../storage/runLogStorage";
 import {
-  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
-  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
+import { addGameText, placeGameText, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const OPTIONS = [
@@ -22,9 +21,9 @@ const OPTIONS = [
 
 export class MenuScene extends Phaser.Scene {
   private selectedIndex = 0;
-  private optionTexts: Phaser.GameObjects.BitmapText[] = [];
+  private optionTexts: GameText[] = [];
   private optionCenters: { x: number; y: number }[] = [];
-  private titleText!: Phaser.GameObjects.BitmapText;
+  private titleText!: GameText;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
@@ -54,14 +53,14 @@ export class MenuScene extends Phaser.Scene {
     this.downRepeat = createKeyRepeatState();
     startLoopingSfx(this, "menuMusic");
 
-    this.titleText = addPixelText(this, PLAYFIELD_WIDTH / 2, 120, "DOT-MAN", MENU_TITLE_FONT_SIZE);
-    placePixelText(this.titleText, PLAYFIELD_WIDTH / 2, 120, 0.5, 0.5);
+    this.titleText = addGameText(this, PLAYFIELD_WIDTH / 2, 120, "DOT-MAN", MENU_TITLE_FONT_SIZE);
+    placeGameText(this.titleText, PLAYFIELD_WIDTH / 2, 120, 0.5, 0.5);
 
     const startY = 280;
     const gap = 48;
     OPTIONS.forEach((option, index) => {
       const center = { x: PLAYFIELD_WIDTH / 2, y: startY + index * gap };
-      const text = addPixelText(this, center.x, center.y, option.label, MENU_OPTION_FONT_SIZE);
+      const text = addGameText(this, center.x, center.y, option.label, MENU_OPTION_FONT_SIZE);
 
       text.on("pointerover", () => {
         this.selectedIndex = index;
@@ -139,7 +138,7 @@ export class MenuScene extends Phaser.Scene {
       const center = this.optionCenters[index]!;
       text.setText(selected ? `> ${label}` : `  ${label}`);
       text.setTint(selected ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-      placePixelText(text, center.x, center.y, 0.5, 0.5);
+      placeGameText(text, center.x, center.y, 0.5, 0.5);
     });
   }
 

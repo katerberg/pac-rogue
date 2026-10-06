@@ -116,6 +116,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [docs/bosses.md](./docs/bosses.md) — boss levels (level 9: Blinky Swarm or Chained Ghosts)
 - [docs/learn.md](./docs/learn.md) — LEARN mode (meet seen ghosts / upgrades)
 - [docs/line-art.md](./docs/line-art.md) — neon line-art ghosts (device-pixel canvas, glow, SVG authoring rules)
+- [docs/fonts.md](./docs/fonts.md) — pixel vs neon UI typefaces (Settings STYLE, bar-curve glyphs, font knobs)
 - [docs/RUN_LOG.md](./docs/RUN_LOG.md) — always-on local run log (schema, field definitions, RUN LOG FULL purge)
 - [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `bonus`, `enableUpgrade`, `disableLevelUpgrades`, `infiniteLives`, `lives`, `maxLives`, `godMode`, `jumpToUpgrade`, `forceUpgrade`, `ghosts`, `boss`, `knobs`, `learnAll`, `sound`, `runLogFill`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work

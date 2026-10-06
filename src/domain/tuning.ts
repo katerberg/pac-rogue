@@ -54,6 +54,13 @@ export type Tuning = {
   readonly ghostHeight: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
+  readonly fontThickness: number;
+  readonly fontBloom: number;
+  readonly fontBloomRadius: number;
+  readonly fontGlowColor: number;
+  readonly fontLetterSpacing: number;
+  readonly fontHeightScale: number;
+  readonly fontGlowKnockout: boolean;
 };
 
 export type TuningKey = keyof Tuning;
@@ -112,6 +119,13 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   ghostHeight: 1.14,
   wallCornerRadius: 6,
   backgroundColor: 0x1a1a2e,
+  fontThickness: 0.12,
+  fontBloom: 0.8,
+  fontBloomRadius: 4,
+  fontGlowColor: 0x7ec8ff,
+  fontLetterSpacing: 0.15,
+  fontHeightScale: 1,
+  fontGlowKnockout: true,
 });
 
 const TUNING_STORAGE_VERSION = 1;

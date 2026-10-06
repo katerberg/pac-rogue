@@ -27,13 +27,12 @@ import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsSt
 import { loadGhostStyle, saveGhostStyle } from "../storage/ghostStyleStorage";
 import { loadMazeColorSettings, saveMazeColorSettings } from "../storage/mazeColorStorage";
 import {
-  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
-  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
+import { addGameText, placeGameText, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
@@ -82,7 +81,7 @@ const BACK_Y = PLAYFIELD_HEIGHT - 50;
 type CategoryRow = {
   category: AudioCategory;
   focusIndex: number;
-  label: Phaser.GameObjects.BitmapText;
+  label: GameText;
   checkbox: Phaser.GameObjects.Rectangle;
   checkMark: Phaser.GameObjects.Rectangle;
   track: Phaser.GameObjects.Rectangle;
@@ -99,20 +98,20 @@ export class SettingsScene extends Phaser.Scene {
   private pendingBack = false;
   private audioDisabled = false;
   private rows: CategoryRow[] = [];
-  private backText!: Phaser.GameObjects.BitmapText;
+  private backText!: GameText;
   private dragging: AudioCategory | null = null;
   private returnScene = "MenuScene";
   private musicId: SfxId = "menuMusic";
 
   private mazeColorSettings: MazeColorSettings = defaultMazeColorSettings();
   private mazeColorCursorIndex = 0;
-  private mazeColorLabel!: Phaser.GameObjects.BitmapText;
+  private mazeColorLabel!: GameText;
   private mazeColorCursorRing!: Phaser.GameObjects.Arc;
   private mazeColorActiveRing!: Phaser.GameObjects.Arc;
 
   private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
-  private ghostStyleLabel!: Phaser.GameObjects.BitmapText;
-  private ghostStyleTexts: Phaser.GameObjects.BitmapText[] = [];
+  private ghostStyleLabel!: GameText;
+  private ghostStyleTexts: GameText[] = [];
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -163,8 +162,8 @@ export class SettingsScene extends Phaser.Scene {
       MAZE_BACKGROUND_COLOR,
     );
 
-    const title = addPixelText(this, PLAYFIELD_WIDTH / 2, 80, "SETTINGS", MENU_TITLE_FONT_SIZE);
-    placePixelText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
+    const title = addGameText(this, PLAYFIELD_WIDTH / 2, 80, "SETTINGS", MENU_TITLE_FONT_SIZE);
+    placeGameText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
 
     for (const [index, category] of CATEGORIES.entries()) {
       this.rows.push(this.createRow(category, index));
@@ -174,7 +173,7 @@ export class SettingsScene extends Phaser.Scene {
     this.createGhostStyleRow();
 
     if (this.audioDisabled) {
-      const warning = addPixelText(
+      const warning = addGameText(
         this,
         PLAYFIELD_WIDTH / 2,
         AUDIO_DISABLED_WARNING_Y,
@@ -182,10 +181,10 @@ export class SettingsScene extends Phaser.Scene {
         MENU_OPTION_FONT_SIZE,
         TEXT_COLOR_YELLOW,
       );
-      placePixelText(warning, PLAYFIELD_WIDTH / 2, AUDIO_DISABLED_WARNING_Y, 0.5, 0.5);
+      placeGameText(warning, PLAYFIELD_WIDTH / 2, AUDIO_DISABLED_WARNING_Y, 0.5, 0.5);
     }
 
-    this.backText = addPixelText(
+    this.backText = addGameText(
       this,
       PLAYFIELD_WIDTH / 2,
       BACK_Y,
@@ -193,7 +192,7 @@ export class SettingsScene extends Phaser.Scene {
       MENU_OPTION_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     );
-    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    placeGameText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
     this.backText.setInteractive({ useHandCursor: true });
     this.backText.on("pointerdown", () => {
       this.goBack();
@@ -331,8 +330,8 @@ export class SettingsScene extends Phaser.Scene {
 
   private createRow(category: AudioCategory, focusIndex: number): CategoryRow {
     const centerY = ROW_Y[category];
-    const label = addPixelText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
-    placePixelText(label, LABEL_X, centerY, 0, 0.5);
+    const label = addGameText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
+    placeGameText(label, LABEL_X, centerY, 0, 0.5);
 
     const checkbox = this.add
       .rectangle(CHECK_X, centerY, CHECK_SIZE, CHECK_SIZE)
@@ -377,8 +376,8 @@ export class SettingsScene extends Phaser.Scene {
 
   private createMazeColorRow(): void {
     const centerY = MAZE_COLOR_ROW_Y;
-    this.mazeColorLabel = addPixelText(this, LABEL_X, centerY, "MAZE COLOR", MENU_OPTION_FONT_SIZE);
-    placePixelText(this.mazeColorLabel, LABEL_X, centerY, 0, 0.5);
+    this.mazeColorLabel = addGameText(this, LABEL_X, centerY, "MAZE COLOR", MENU_OPTION_FONT_SIZE);
+    placeGameText(this.mazeColorLabel, LABEL_X, centerY, 0, 0.5);
 
     for (const [index, option] of MAZE_COLOR_OPTIONS.entries()) {
       const x = MAZE_COLOR_SWATCH_START_X + index * MAZE_COLOR_SWATCH_GAP;
@@ -402,11 +401,11 @@ export class SettingsScene extends Phaser.Scene {
 
   private createGhostStyleRow(): void {
     const centerY = GHOST_STYLE_ROW_Y;
-    this.ghostStyleLabel = addPixelText(this, LABEL_X, centerY, "STYLE", MENU_OPTION_FONT_SIZE);
-    placePixelText(this.ghostStyleLabel, LABEL_X, centerY, 0, 0.5);
+    this.ghostStyleLabel = addGameText(this, LABEL_X, centerY, "STYLE", MENU_OPTION_FONT_SIZE);
+    placeGameText(this.ghostStyleLabel, LABEL_X, centerY, 0, 0.5);
     this.ghostStyleTexts = GHOST_STYLE_OPTIONS.map((option) => {
-      const text = addPixelText(this, option.x, centerY, option.label, MENU_OPTION_FONT_SIZE);
-      placePixelText(text, option.x, centerY, 0, 0.5);
+      const text = addGameText(this, option.x, centerY, option.label, MENU_OPTION_FONT_SIZE);
+      placeGameText(text, option.x, centerY, 0, 0.5);
       text.setInteractive({ useHandCursor: true });
       text.on("pointerdown", () => {
         this.focusIndex = FOCUS_GHOST_STYLE;
@@ -421,9 +420,13 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private setGhostStyle(style: GhostStyle): void {
+    if (style === this.ghostStyle) {
+      this.refreshUi();
+      return;
+    }
     this.ghostStyle = style;
     saveGhostStyle(style);
-    this.refreshUi();
+    this.scene.restart();
   }
 
   private isCategoryEnabled(category: AudioCategory): boolean {
@@ -547,7 +550,7 @@ export class SettingsScene extends Phaser.Scene {
 
     this.backText.setText(this.focusIndex === FOCUS_BACK ? "> BACK" : "  BACK");
     this.backText.setTint(this.focusIndex === FOCUS_BACK ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    placeGameText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
   }
 
   private goBack(): void {

@@ -5,6 +5,7 @@ import {
   lineArtGhostKinds,
   parseGhostStyle,
   sameGhostLineArtLook,
+  textStyleFor,
 } from "./ghostArt";
 import { resolveTuning } from "./tuning";
 import { GHOST_KIND } from "./ghostKind";
@@ -15,6 +16,13 @@ describe("parseGhostStyle", () => {
     expect(parseGhostStyle("neon")).toBe("neon");
     expect(parseGhostStyle(null)).toBe(DEFAULT_GHOST_STYLE);
     expect(parseGhostStyle("sparkly")).toBe("neon");
+  });
+});
+
+describe("textStyleFor", () => {
+  it("maps STYLE to the matching typeface", () => {
+    expect(textStyleFor("neon")).toBe("neon");
+    expect(textStyleFor("pixel")).toBe("pixel");
   });
 });
 

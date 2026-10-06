@@ -1,6 +1,6 @@
 # Line art (vector sprites)
 
-Thin neon line art next to the pixel art. By default every ghost (in play, in LEARN and on the LEARN picker) is drawn from one hand-written SVG, `src/game/art/ghost.svg`, in its own neon colour; every other sprite is still a PNG, in the same frame. Settings → **STYLE** (NEON / PIXEL, stored as `pac-rogue.ghost-style.v1`) switches all ghosts back to the pixel PNGs and turns maze wall glow off (NEON keeps the soft wall glow on). Nothing is animated yet, but the SVG is parsed into point lists that carry distance along the path, so a later "unspool" (trim the stroke away along its path) needs no data rework.
+Thin neon line art next to the pixel art. By default every ghost (in play, in LEARN and on the LEARN picker) is drawn from one hand-written SVG, `src/game/art/ghost.svg`, in its own neon colour; every other sprite is still a PNG, in the same frame. Settings → **STYLE** (NEON / PIXEL, stored as `pac-rogue.ghost-style.v1`) switches all ghosts back to the pixel PNGs and turns maze wall glow off (NEON keeps the soft wall glow on). The same STYLE setting also selects the UI typeface (neon bar-curve vs VGA pixel) — see [fonts.md](./fonts.md). Nothing is animated yet, but the SVG is parsed into point lists that carry distance along the path, so a later "unspool" (trim the stroke away along its path) needs no data rework.
 
 ## Rendering model
 

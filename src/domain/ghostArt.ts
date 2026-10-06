@@ -9,6 +9,11 @@ export function parseGhostStyle(raw: string | null): GhostStyle {
   return raw === "neon" || raw === "pixel" ? raw : DEFAULT_GHOST_STYLE;
 }
 
+/** Which typeface UI text uses for a given Settings STYLE. */
+export function textStyleFor(style: GhostStyle): "neon" | "pixel" {
+  return style;
+}
+
 export function lineArtGhostKinds(
   style: GhostStyle,
   presentKinds: Iterable<GhostKindId>,
