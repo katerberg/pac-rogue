@@ -32,11 +32,6 @@ export const NEON_G_REPLACEMENT: readonly string[] = [
   "M2 1 A1 1 0 0 0 1 0 A1 1 0 0 0 0 1 L0 3 A1 1 0 0 0 1 4 A1 1 0 0 0 2 3 L2 2 L1.1 2 L1.1 1.2",
 ];
 
-/** Notebook-style inlet-bar G (must NOT be used for neon G). */
-export const NEON_G_NOTEBOOK_INLET: readonly string[] = [
-  "M2 1 A1 1 0 0 0 1 0 A1 1 0 0 0 0 1 L0 3 A1 1 0 0 0 1 4 A1 1 0 0 0 2 3 L2 2 L1 2",
-];
-
 const GLYPHS: Record<string, NeonGlyph> = {
   " ": { strands: [], advance: 1.2 },
 
@@ -207,8 +202,4 @@ export function neonGlyph(char: string): NeonGlyph | undefined {
     return undefined;
   }
   return GLYPHS[char];
-}
-
-export function hasNeonGlyph(char: string): boolean {
-  return neonGlyph(char) !== undefined;
 }

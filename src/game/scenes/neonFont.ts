@@ -41,11 +41,7 @@ function glyphArtFor(char: string, glyph: NeonGlyph): LineArt {
   return art;
 }
 
-export function getActiveFontLook(): FontLineArtLook {
-  return activeFontLook;
-}
-
-export function setActiveFontLook(look: FontLineArtLook): void {
+function setActiveFontLook(look: FontLineArtLook): void {
   activeFontLook = look;
   fontLookSynced = true;
   for (const text of liveNeonTexts) {
@@ -53,7 +49,7 @@ export function setActiveFontLook(look: FontLineArtLook): void {
   }
 }
 
-export function syncFontLookFromStorage(): FontLineArtLook {
+function syncFontLookFromStorage(): FontLineArtLook {
   const look = fontLineArtLook(loadDebugTuning());
   setActiveFontLook(look);
   return look;
@@ -64,6 +60,8 @@ function ensureFontLookSynced(): void {
     syncFontLookFromStorage();
   }
 }
+
+export { setActiveFontLook };
 
 export class NeonText extends Phaser.GameObjects.Container {
   private content: string;
@@ -356,7 +354,7 @@ export function isNeonText(text: GameText): text is NeonText {
   return text instanceof NeonText;
 }
 
-export function addNeonText(
+function addNeonText(
   scene: Phaser.Scene,
   x: number,
   y: number,

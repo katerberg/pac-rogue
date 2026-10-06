@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fontLineArtLook, sameFontLook } from "./fontLook";
+import { fontLineArtLook } from "./fontLook";
 import { resolveTuning } from "../tuning";
 
 describe("fontLineArtLook", () => {
@@ -12,7 +12,6 @@ describe("fontLineArtLook", () => {
     expect(fontLineArtLook(resolveTuning({}))).toEqual({
       thickness: 0.12,
       glow: { outerStrength: 0.8, distancePx: 4 },
-      coreColor: null,
       glowColor: 0x7ec8ff,
       letterSpacing: 0.15,
       heightScale: 1,
@@ -20,19 +19,26 @@ describe("fontLineArtLook", () => {
     });
   });
 
-  it("compares every field", () => {
-    const base = fontLineArtLook(resolveTuning({}));
-    expect(sameFontLook(base, fontLineArtLook(resolveTuning({})))).toBe(true);
-    for (const change of [
-      { fontThickness: 0.2 },
-      { fontBloom: 0 },
-      { fontBloomRadius: 8 },
-      { fontGlowColor: 0xff0000 },
-      { fontLetterSpacing: 0.5 },
-      { fontHeightScale: 1.2 },
-      { fontGlowKnockout: false },
-    ]) {
-      expect(sameFontLook(base, fontLineArtLook(resolveTuning(change)))).toBe(false);
-    }
+  it("picks up knob overrides", () => {
+    expect(
+      fontLineArtLook(
+        resolveTuning({
+          fontThickness: 0.2,
+          fontBloom: 2,
+          fontBloomRadius: 8,
+          fontGlowColor: 0xff0000,
+          fontLetterSpacing: 0.5,
+          fontHeightScale: 1.2,
+          fontGlowKnockout: false,
+        }),
+      ),
+    ).toEqual({
+      thickness: 0.2,
+      glow: { outerStrength: 2, distancePx: 8 },
+      glowColor: 0xff0000,
+      letterSpacing: 0.5,
+      heightScale: 1.2,
+      glowKnockout: false,
+    });
   });
 });

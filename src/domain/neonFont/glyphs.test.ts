@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { assertBarCurvePath } from "./glyphGrammar";
-import {
-  NEON_DIGIT_PATHS,
-  NEON_G_NOTEBOOK_INLET,
-  NEON_G_REPLACEMENT,
-  NEON_REQUIRED_CHARS,
-  neonGlyph,
-} from "./glyphs";
+import { NEON_DIGIT_PATHS, NEON_G_REPLACEMENT, NEON_REQUIRED_CHARS, neonGlyph } from "./glyphs";
+
+const NOTEBOOK_INLET_G = [
+  "M2 1 A1 1 0 0 0 1 0 A1 1 0 0 0 0 1 L0 3 A1 1 0 0 0 1 4 A1 1 0 0 0 2 3 L2 2 L1 2",
+];
 
 describe("neonFont glyphs", () => {
   it("covers every required character", () => {
@@ -23,7 +21,7 @@ describe("neonFont glyphs", () => {
 
   it("uses the replacement G, not the notebook inlet-bar G", () => {
     expect(neonGlyph("G")!.strands).toEqual([...NEON_G_REPLACEMENT]);
-    expect(neonGlyph("G")!.strands).not.toEqual([...NEON_G_NOTEBOOK_INLET]);
+    expect(neonGlyph("G")!.strands).not.toEqual(NOTEBOOK_INLET_G);
   });
 
   it("rejects diagonal strokes in the grammar lint", () => {
