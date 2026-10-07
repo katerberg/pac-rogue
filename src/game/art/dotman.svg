@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <!-- Faint filled silhouette (no stroke): keeps the glow outside the body, out of the pipe gaps. Mouth half-angle 40deg. -->
+  <!-- Faint filled silhouette (no stroke): keeps the glow outside the body, out of the pipe gaps. Mouth half-angle 30deg. -->
   <path id="body" stroke="none" fill="currentColor" fill-opacity="0.2"
-    d="M50 50 L86.01 19.79 A47 47 0 1 0 86.01 80.21 Z" />
+    d="M50 50 L90.7 26.5 A47 47 0 1 0 90.7 73.5 Z" />
   <!-- One pipe folding on itself, radiant-heat style. Path direction = future unspool order:
        outer ring r44 from the upper lip round the back, U-bend in the lower lip,
        middle ring r28 back to the upper lip, U-bend, inner ring r12 to the lower lip. -->
   <path id="pipe" stroke="currentColor" fill="none" stroke-width="6.5" stroke-linecap="round"
-    d="M83.71 21.72 A44 44 0 1 0 83.71 78.28 A8 8 0 0 0 71.45 68 A28 28 0 1 1 71.45 32 A8 8 0 0 1 59.19 42.29 A12 12 0 1 0 59.19 57.71" />
+    d="M88.11 28 A44 44 0 1 0 88.11 72 A8 8 0 0 0 74.25 64 A28 28 0 1 1 74.25 36 A8 8 0 0 1 60.39 44 A12 12 0 1 0 60.39 56" />
 </svg>
