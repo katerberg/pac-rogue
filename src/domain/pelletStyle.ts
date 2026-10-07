@@ -88,14 +88,7 @@ export function pelletStyleFor(
     return null;
   }
   const neon = fromTuning(DEFAULT_TUNING, mazeColorForIndex(mazeColorIndex));
-  if (!styleUsesGlow(style)) {
-    return withoutGlow(neon);
-  }
-  // Neon: skip regular-dot bloom (dense majority); power/boss/optional keep glow.
-  return {
-    ...neon,
-    regular: { ...neon.regular, glow: 0, glowRadius: 0 },
-  };
+  return styleUsesGlow(style) ? neon : withoutGlow(neon);
 }
 
 export function pelletGlowFilter(

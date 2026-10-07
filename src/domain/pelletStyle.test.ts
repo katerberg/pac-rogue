@@ -17,12 +17,14 @@ describe("pelletStyleFor", () => {
       radius: DEFAULT_TUNING.pelletRadius,
       strokeWidth: DEFAULT_TUNING.pelletStrokeWidth,
       coreColor: DEFAULT_TUNING.pelletCoreColor,
-      glow: 0,
-      glowRadius: 0,
+      glow: DEFAULT_TUNING.pelletGlow,
+      glowRadius: DEFAULT_TUNING.pelletGlowRadius,
       glowColor: mazeColorForIndex(2),
       fillColor: DEFAULT_TUNING.pelletCoreColor,
       fillOpacity: 1,
     });
+    expect(DEFAULT_TUNING.pelletGlow).toBe(0);
+    expect(DEFAULT_TUNING.pelletGlowRadius).toBe(0);
     expect(pelletGlowFilter(style!.regular)).toBeNull();
     expect(style!.power.radius).toBe(DEFAULT_TUNING.powerPelletRadius);
     expect(style!.power.strokeWidth).toBe(DEFAULT_TUNING.powerPelletStrokeWidth);
