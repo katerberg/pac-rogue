@@ -52,6 +52,7 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import { ECHO_DELAY_MS } from "../../domain/echo";
+import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { ChainedGhost } from "../components/ChainedGhost";
@@ -2849,16 +2850,28 @@ describe("Lazy Looper", () => {
     expect(sim.snapshot().optionalPellets).toBe(before - 1);
   });
 
-  it("never makes boss pellets optional", () => {
-    const sim = startSim({
-      level: 9,
-      boss: "blinkySwarm",
-      enableUpgrades: ["passiveLazyLooperPlus"],
-    });
-    const boss = query(sim.world, [BossPellet]);
-    expect(boss.length).toBeGreaterThan(0);
-    expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);
-    expect(boss.every((eid) => !hasComponent(sim.world, eid, OptionalPellet))).toBe(true);
+  it("does nothing on boss fights", () => {
+    for (const boss of ["blinkySwarm", "chainedGhosts"] as const) {
+      const sim = startSim({
+        level: 9,
+        boss,
+        enableUpgrades: ["passiveLazyLooperPlus"],
+      });
+      expect(sim.snapshot().optionalPellets).toBe(0);
+      expect(partition(sim).optional).toEqual([]);
+      const required = new Set(
+        lazyLooperRequiredCells(getActiveLayout(), "outer").map(({ col, row }) => `${col},${row}`),
+      );
+      for (const eid of regularPelletEids(sim)) {
+        const cell = `${worldToCol(Position.x[eid]!)},${worldToRow(Position.y[eid]!)}`;
+        if (required.has(cell)) {
+          eatPelletAt(sim, eid);
+        }
+      }
+      runFrames(sim, 90);
+      expect(sim.snapshot().runComplete).toBe(false);
+      expect(sim.snapshot().pellets).toBeGreaterThan(0);
+    }
   });
 });
 
