@@ -16,13 +16,12 @@ import {
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { loadRunHistory } from "../storage/runHistoryStorage";
 import {
-  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
-  placePixelText,
   SCORES_FONT_SIZE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
+import { addGameText, placeGameText, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const LIST_TOP = 200;
@@ -39,8 +38,8 @@ const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 export class HighScoresScene extends Phaser.Scene {
   private scrollState: ScoreListScrollState = createScoreListScroll(0, SCROLL);
   private itemCount = 0;
-  private rowTexts: Phaser.GameObjects.BitmapText[] = [];
-  private backText!: Phaser.GameObjects.BitmapText;
+  private rowTexts: GameText[] = [];
+  private backText!: GameText;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private keyBackspace!: Phaser.Input.Keyboard.Key;
   private keyEnter!: Phaser.Input.Keyboard.Key;
@@ -65,26 +64,26 @@ export class HighScoresScene extends Phaser.Scene {
     this.rowTexts = [];
 
     const headerLine = formatHighScoreHeader();
-    const probe = addPixelText(this, 0, 0, headerLine, SCORES_FONT_SIZE).setVisible(false);
+    const probe = addGameText(this, 0, 0, headerLine, SCORES_FONT_SIZE).setVisible(false);
     const listWidth = probe.width;
     const listLeftX = Math.round(PLAYFIELD_WIDTH / 2 - listWidth / 2);
     probe.destroy();
 
     if (rows.length === 0) {
-      const empty = addPixelText(
+      const empty = addGameText(
         this,
         PLAYFIELD_WIDTH / 2,
         LIST_TOP + VIEWPORT_HEIGHT / 2,
         "NO SCORES YET",
         SCORES_FONT_SIZE,
       ).setDepth(1);
-      placePixelText(empty, PLAYFIELD_WIDTH / 2, LIST_TOP + VIEWPORT_HEIGHT / 2, 0.5, 0.5);
+      placeGameText(empty, PLAYFIELD_WIDTH / 2, LIST_TOP + VIEWPORT_HEIGHT / 2, 0.5, 0.5);
     } else {
-      addPixelText(this, listLeftX, HEADER_Y, headerLine, SCORES_FONT_SIZE).setDepth(10);
+      addGameText(this, listLeftX, HEADER_Y, headerLine, SCORES_FONT_SIZE).setDepth(10);
       this.add.rectangle(PLAYFIELD_WIDTH / 2, HEADER_LINE_Y, listWidth, 2, 0xffffff).setDepth(10);
 
       for (const [index, row] of rows.entries()) {
-        const text = addPixelText(
+        const text = addGameText(
           this,
           listLeftX,
           LIST_TOP + index * SCROLL.rowHeight,
@@ -105,16 +104,16 @@ export class HighScoresScene extends Phaser.Scene {
       .rectangle(PLAYFIELD_WIDTH / 2, belowTop + belowHeight / 2, PLAYFIELD_WIDTH, belowHeight, BG)
       .setDepth(5);
 
-    const title = addPixelText(
+    const title = addGameText(
       this,
       PLAYFIELD_WIDTH / 2,
       80,
       "HIGH SCORES",
       MENU_TITLE_FONT_SIZE,
     ).setDepth(10);
-    placePixelText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
+    placeGameText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
 
-    this.backText = addPixelText(
+    this.backText = addGameText(
       this,
       PLAYFIELD_WIDTH / 2,
       BACK_Y,
@@ -122,7 +121,7 @@ export class HighScoresScene extends Phaser.Scene {
       MENU_OPTION_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(10);
-    placePixelText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    placeGameText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
     this.backText.setInteractive({ useHandCursor: true });
     this.backText.on("pointerdown", () => {
       this.goBack();
