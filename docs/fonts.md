@@ -21,6 +21,7 @@ Bar-curve glyphs: **axis-aligned** horizontal/vertical segments and **quarter-ci
 - Uppercase **V** is a full left stem, a half right stem, and an r=2 quarter from mid-right to the bottom-left corner.
 - Punctuation set: space and `!"#$%'()+,-./:<=>?[]`.
 - Missing codepoints fall back to a pixel glyph for that character only.
+- Directional UI hints (upgrade-choice slots) reuse `>` and rotate it; do not invent `v` / `^` stand-ins (see `upgradeChoiceHints.ts`).
 
 Authoring references (not loaded at runtime): `src/game/art/refs/neon-alphabet-glow.png`, `neon-g-replacement.png`, `neon-notebook-sketch.png`.
 

@@ -3,6 +3,11 @@ import { fitFontSize } from "../../domain/fitFontSize";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { STORE_ENHANCE_BORDER_COLOR } from "../../domain/store";
 import {
+  UPGRADE_SLOT_HINT_GLYPH,
+  upgradeSlotHintAngleDeg,
+  type UpgradeChoiceSlot,
+} from "../../domain/upgradeChoiceHints";
+import {
   enhancedIdOf,
   getUpgradeDef,
   UPGRADE_SCHOOL_LABELS,
@@ -17,7 +22,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addGameText, placeGameText, type GameText } from "./neonFont";
+import { addGameText, isNeonText, placeGameText, type GameText } from "./neonFont";
 
 export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
 export const UPGRADE_CONFIRM_PULSE_MS = 400;
@@ -69,22 +74,13 @@ const BUTTON_SCALE_PEAK = 1.08;
 const PULSE_BEATS = 2;
 
 type Phase = "opening" | "selecting" | "confirming";
-type Slot = "up" | "down" | "left" | "right";
+type Slot = UpgradeChoiceSlot;
 
 const SLOT_POSITIONS: Record<Slot, { x: number; y: number }> = {
   up: { x: CENTER_X, y: CENTER_Y - V_OFFSET },
   down: { x: CENTER_X, y: CENTER_Y + V_OFFSET },
   left: { x: CENTER_X - H_OFFSET, y: CENTER_Y },
   right: { x: CENTER_X + H_OFFSET, y: CENTER_Y },
-};
-
-// Short glyphs, not words — "< LEFT" / "RIGHT >" style hints run off the edge of the
-// canvas once the buttons also have up/down neighbors to make room for.
-const SLOT_HINTS: Record<Slot, string> = {
-  up: "^",
-  down: "v",
-  left: "<",
-  right: ">",
 };
 
 function upgradeSlotsFor(count: number): Slot[] {
@@ -112,6 +108,33 @@ function hintPositionForSlot(slot: Slot): { x: number; y: number } {
     case "right":
       return { x: pos.x + CHOICE_BUTTON_WIDTH / 2 + HINT_GAP / 2, y: pos.y };
   }
+}
+
+function placeSlotHint(
+  scene: Phaser.Scene,
+  slot: Slot,
+  x: number,
+  y: number,
+): Phaser.GameObjects.Container {
+  const glyph = addGameText(
+    scene,
+    0,
+    0,
+    UPGRADE_SLOT_HINT_GLYPH,
+    MENU_OPTION_FONT_SIZE,
+    TEXT_COLOR_YELLOW,
+  );
+  const bounds = glyph.getTextBounds(true);
+  if (isNeonText(glyph)) {
+    // NeonText is a Container: ITRS rotates around (x,y), not the sized center.
+    glyph.setPosition(-bounds.local.width / 2, -bounds.local.height / 2);
+  } else {
+    glyph.setOrigin(0.5, 0.5).setPosition(0, 0);
+  }
+  return scene.add
+    .container(x, y, [glyph])
+    .setAngle(upgradeSlotHintAngleDeg(slot))
+    .setDepth(MODAL_DEPTH + 3);
 }
 
 type CardCopy = {
@@ -226,7 +249,7 @@ export function createUpgradeChoiceModal(
   let onConfirm: ((chosen: UpgradeChoiceOption) => void) | null = null;
   let dim: Phaser.GameObjects.Rectangle | null = null;
   let buttons: ButtonView[] = [];
-  let hints: GameText[] = [];
+  let hints: Phaser.GameObjects.Container[] = [];
   let selectionFrame: Phaser.GameObjects.Rectangle | null = null;
   let cursors: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
   let keyA: Phaser.Input.Keyboard.Key | null = null;
@@ -401,18 +424,7 @@ export function createUpgradeChoiceModal(
       buttons.push(view);
 
       const hintPos = hintPositionForSlot(slot);
-      const hint = addGameText(
-        scene,
-        hintPos.x,
-        hintPos.y,
-        SLOT_HINTS[slot],
-        MENU_OPTION_FONT_SIZE,
-        TEXT_COLOR_YELLOW,
-      )
-        .setDepth(MODAL_DEPTH + 3)
-        .setAlpha(0)
-        .setVisible(true);
-      placeGameText(hint, hintPos.x, hintPos.y, 0.5, 0.5);
+      const hint = placeSlotHint(scene, slot, hintPos.x, hintPos.y).setAlpha(0).setVisible(true);
       hints.push(hint);
     });
 
