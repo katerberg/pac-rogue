@@ -1,4 +1,3 @@
-/** Direction slots on the level-clear upgrade modal. */
 export type UpgradeChoiceSlot = "up" | "down" | "left" | "right";
 
 /**
@@ -8,7 +7,7 @@ export type UpgradeChoiceSlot = "up" | "down" | "left" | "right";
  */
 export const UPGRADE_SLOT_HINT_GLYPH = ">";
 
-/** Phaser degrees: `>` points at the slot's outside edge. */
+/** Phaser degrees so `>` points at the slot's outside edge. */
 export function upgradeSlotHintAngleDeg(slot: UpgradeChoiceSlot): number {
   switch (slot) {
     case "right":

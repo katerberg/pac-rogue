@@ -110,7 +110,6 @@ function hintPositionForSlot(slot: Slot): { x: number; y: number } {
   }
 }
 
-/** Pivot at the hint center so a rotated `>` points the same way in neon and pixel. */
 function placeSlotHint(
   scene: Phaser.Scene,
   slot: Slot,
