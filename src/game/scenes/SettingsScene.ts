@@ -16,11 +16,7 @@ import {
   type MazeColorSettings,
 } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import {
-  SETTINGS_FOCUS_COUNT,
-  SETTINGS_FOCUS_GHOST_STYLE,
-  resolveSettingsFocusIndex,
-} from "../../domain/settingsFocus";
+import { SETTINGS_FOCUS_COUNT, resolveSettingsFocusIndex } from "../../domain/settingsFocus";
 import {
   musicIdForContext,
   playSfxPreview,
@@ -41,7 +37,7 @@ import { addGameText, placeGameText, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
-const FOCUS_GHOST_STYLE = SETTINGS_FOCUS_GHOST_STYLE;
+const FOCUS_GHOST_STYLE = 3;
 const FOCUS_BACK = 4;
 const FOCUS_COUNT = SETTINGS_FOCUS_COUNT;
 
