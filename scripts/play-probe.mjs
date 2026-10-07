@@ -18,7 +18,7 @@ const outDir = join(root, "artifacts");
 const WAIT_FOR_DEFAULT_MS = 10_000;
 const WAIT_FOR_POLL_MS = 50;
 
-const USAGE = `Usage: node scripts/play-probe.mjs --query "<url query>" --steps "<steps>" [--name <prefix>]
+const USAGE = `Usage: node scripts/play-probe.mjs --query "<url query>" --steps "<steps>" [--name <prefix>] [--viewport WxH] [--dpr N]
 
 Drives the game on the agent dev port (${ports.agentDev}) with real keyboard input and
 saves canvas screenshots under artifacts/. Fails on page errors or console errors.
@@ -40,6 +40,10 @@ Steps (comma-separated):
   waitFor:<cond>[:<ms>]  poll until the condition holds (default timeout ${WAIT_FOR_DEFAULT_MS}ms), else fail
   dump:<label>           write the game-state snapshot to artifacts/<name>-<label>.json
 
+Options:
+  --viewport WxH         browser viewport (default 900x700); odd sizes give fractional render scales
+  --dpr N                device pixel ratio (default 1); at 2+ headless screenshots get slow
+
 Conditions read window.__PAC_ROGUE_DEBUG__.snapshot() (agent ports only):
   <path><op><value>, op one of == != < <= > >=, value a number, true/false/null or bare string.
   Paths are dotted, with array indexes and .length: play.lives==3, play.player.col<10,
@@ -58,6 +62,8 @@ function readArgs() {
       query: { type: "string", default: "play=1" },
       steps: { type: "string", default: "shot:boot" },
       name: { type: "string", default: "probe" },
+      viewport: { type: "string", default: "900x700" },
+      dpr: { type: "string", default: "1" },
       help: { type: "boolean", default: false },
     },
   });
@@ -65,7 +71,18 @@ function readArgs() {
     console.log(USAGE);
     process.exit(0);
   }
-  return values;
+  const match = /^(\d+)x(\d+)$/.exec(values.viewport);
+  const deviceScaleFactor = Number(values.dpr);
+  if (match === null || !(deviceScaleFactor > 0)) {
+    throw new Error(
+      `Bad --viewport "${values.viewport}" or --dpr "${values.dpr}"; use e.g. 802x634 and 1.5`,
+    );
+  }
+  return {
+    ...values,
+    viewport: { width: Number(match[1]), height: Number(match[2]) },
+    deviceScaleFactor,
+  };
 }
 
 async function worldSize(page) {
@@ -244,7 +261,7 @@ async function saveFailureEvidence(page, canvas, name) {
 }
 
 async function main() {
-  const { query, steps, name } = readArgs();
+  const { query, steps, name, viewport, deviceScaleFactor } = readArgs();
   const baseUrl = `http://127.0.0.1:${ports.agentDev}/`;
   mkdirSync(outDir, { recursive: true });
 
@@ -262,7 +279,7 @@ async function main() {
   try {
     await waitForServer(baseUrl);
     browser = await chromium.launch({ headless: true, ...chromiumLaunchOptions() });
-    const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
+    const page = await browser.newPage({ viewport, deviceScaleFactor });
     page.on("pageerror", (error) => problems.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
       if (message.type() === "error") {
