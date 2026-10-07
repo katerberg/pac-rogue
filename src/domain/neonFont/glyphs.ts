@@ -12,6 +12,7 @@ function dot(x: number, y: number): string {
 /**
  * Approved digit paths (2×4 grid, r=1 quarter arcs). Frozen by unit tests.
  * Uppercase G is the replacement silhouette (curl into bowl), not the notebook inlet-bar G.
+ * Uppercase V uses an r=2 quarter (full glyph width) from mid-right to bottom-left.
  */
 export const NEON_DIGIT_PATHS: Record<string, readonly string[]> = {
   "0": ["M0 1 L0 3 A1 1 0 0 0 1 4 A1 1 0 0 0 2 3 L2 1 A1 1 0 0 0 1 0 A1 1 0 0 0 0 1"],
@@ -81,7 +82,7 @@ const GLYPHS: Record<string, NeonGlyph> = {
   S: g([S_CURVE]),
   T: g(["M0 0 L2 0", STEM]),
   U: g([CUP]),
-  V: g(["M0 0 L0 2 A1 1 0 0 0 1 3 A1 1 0 0 0 2 2 L2 0", "M1 3 L1 4"]),
+  V: g(["M0 0 L0 4", "M2 2 A2 2 0 0 1 0 4", "M2 0 L2 2"]),
   W: g([CUP, STEM]),
   X: g([
     "M0 0 L0 1 A1 1 0 0 0 1 2 A1 1 0 0 1 2 3 L2 4",

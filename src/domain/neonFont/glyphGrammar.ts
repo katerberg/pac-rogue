@@ -47,9 +47,13 @@ function assertOnGrid(x: number, y: number, label: string): void {
   }
 }
 
+/** Allowed arc radii: cell (r=1) or full glyph width (r=2). */
+const NEON_ARC_RADII = new Set([1, 2]);
+
 /**
  * Lint a path `d` for the bar-curve grammar: only M/L/H/V/A/Z, every point on the
- * integer 3×5 grid, L/H/V axis-aligned, arcs r=1 quarter turns (rotation 0, large-arc 0).
+ * integer 3×5 grid, L/H/V axis-aligned, arcs r=1 or r=2 quarter turns (rotation 0,
+ * large-arc 0). r=2 spans the full glyph width.
  */
 export function assertBarCurvePath(d: string, label: string): void {
   const tokens = tokenizePath(d);
@@ -87,8 +91,8 @@ export function assertBarCurvePath(d: string, label: string): void {
         number,
         number,
       ];
-      if (rx !== 1 || ry !== 1) {
-        throw new Error(`neonFont ${label}: arc radius must be 1 (${rx},${ry})`);
+      if (rx !== ry || !NEON_ARC_RADII.has(rx)) {
+        throw new Error(`neonFont ${label}: arc radius must be 1 or 2 (${rx},${ry})`);
       }
       if (rot !== 0) {
         throw new Error(`neonFont ${label}: arc rotation must be 0`);
@@ -98,8 +102,10 @@ export function assertBarCurvePath(d: string, label: string): void {
       }
       const dx = Math.abs(x2 - x);
       const dy = Math.abs(y2 - y);
-      if (dx !== 1 || dy !== 1) {
-        throw new Error(`neonFont ${label}: arc must be a quarter turn (got Δ(${dx},${dy}))`);
+      if (dx !== rx || dy !== ry) {
+        throw new Error(
+          `neonFont ${label}: arc must be a quarter turn (got Δ(${dx},${dy}) for r=${rx})`,
+        );
       }
       assertOnGrid(x2, y2, label);
       x = x2;

@@ -31,6 +31,7 @@ describe("neonFont glyphs", () => {
 
   it("rejects non-quarter arcs", () => {
     expect(() => assertBarCurvePath("M0 0 A1 1 0 0 1 2 0", "half")).toThrow(/quarter/);
+    expect(() => assertBarCurvePath("M0 0 A2 2 0 0 1 2 0", "r2-half")).toThrow(/quarter/);
   });
 
   it("rejects points off the integer 3×5 grid", () => {
@@ -39,8 +40,14 @@ describe("neonFont glyphs", () => {
     expect(() => assertBarCurvePath("M3 0 L3 4", "right")).toThrow(/grid/);
   });
 
-  it("rejects arcs that are not radius 1", () => {
-    expect(() => assertBarCurvePath("M0 0 A2 2 0 0 1 2 2", "r2")).toThrow(/radius/);
+  it("allows r=1 and r=2 quarter arcs, rejects other radii", () => {
+    expect(() => assertBarCurvePath("M0 0 A1 1 0 0 1 1 1", "r1")).not.toThrow();
+    expect(() => assertBarCurvePath("M0 0 A2 2 0 0 1 2 2", "r2")).not.toThrow();
+    expect(() => assertBarCurvePath("M0 0 A3 3 0 0 1 2 2", "r3")).toThrow(/radius/);
+  });
+
+  it("draws V as dual stems with a full-width quarter from mid-right to bottom-left", () => {
+    expect(neonGlyph("V")!.strands).toEqual(["M0 0 L0 4", "M2 2 A2 2 0 0 1 0 4", "M2 0 L2 2"]);
   });
 
   it("has no lowercase glyphs (neon text renders uppercase)", () => {
