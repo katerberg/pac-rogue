@@ -467,6 +467,30 @@ describe("rare upgrades", () => {
     expect(RARE_OFFER_WEIGHT).toBe(0.5);
   });
 
+  it("shows up in a level-clear offer at half a common's weight", () => {
+    const left: BaseUpgradeId[] = [
+      "passiveMartyr",
+      "passiveGhostSlow",
+      "passiveAfterburner",
+      "fruitFeast",
+    ];
+    const owned = ALL_UPGRADE_IDS.filter((id) => !left.includes(id));
+    let x = 7;
+    const rng = () => {
+      x = (x * 1103515245 + 12345) % 2147483648;
+      return x / 2147483648;
+    };
+    const draws = 4000;
+    let withRare = 0;
+    for (let i = 0; i < draws; i += 1) {
+      const offer = pickUpgradeChoiceOffer(owned, null, rng);
+      expect(offer.upgrades).toHaveLength(3);
+      withRare += offer.upgrades.includes("passiveMartyr") ? 1 : 0;
+    }
+    const expected = 1 - (3 / 3.5) * (2 / 2.5) * (1 / 1.5);
+    expect(Math.abs(withRare / draws - expected)).toBeLessThan(0.03);
+  });
+
   it("is never a starting upgrade", () => {
     expect(STARTING_UPGRADE_POOL.filter(isRare)).toEqual([]);
   });

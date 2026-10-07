@@ -25,7 +25,7 @@ Slot glyphs are walkable empty cells to the maze builder; `parseStoreSlots` turn
 | `S`   | Trade: lose a shown owned upgrade, gain a hidden random one (same form)      | `STORE_SWAP_PRICE` (1)                                     |
 | `E`   | Enhance: a random owned, unenhanced upgrade becomes its enhanced `Plus` form | `STORE_ENHANCE_PRICE` (2)                                  |
 
-`createStoreState(cells, owned, rng, firstStore)` rolls stock once on entry: two distinct unowned upgrades, at most one of them [rare](./upgrades.md#rarity) and rares drawn at half weight (fewer if the pool is short — unfilled slots are omitted), both life tiles, and an enhancement whose target is picked at random from owned upgrades that are not yet enhanced (no such upgrade → no `E` tile). Later stores also stock a trade whose outgoing upgrade is picked at random from anything owned; the **first store** (after level 3, `STORE_FIRST_LEVEL`) omits the trade. No restock.
+`createStoreState(cells, owned, rng, firstStore)` rolls stock once on entry: two distinct unowned upgrades, at most one of them [rare](./upgrades.md#rarity) and rares drawn at half weight (fewer if the pool is short — unfilled slots are omitted), both life tiles, and an enhancement whose target is picked at random from owned upgrades that are not yet enhanced (no such upgrade → no `E` tile). Later stores also stock a trade whose outgoing upgrade is picked at random from anything owned (the incoming one is drawn on purchase, rares at half weight, see [Rarity](./upgrades.md#rarity)); the **first store** (after level 3, `STORE_FIRST_LEVEL`) omits the trade. No restock.
 
 ## Movement
 

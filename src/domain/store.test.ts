@@ -136,6 +136,29 @@ describe("createStoreState", () => {
     expect(shelvedRare).toBeGreaterThan(0);
   });
 
+  it("shelves a rare at half a common's weight", () => {
+    const left: UpgradeId[] = [
+      "passiveMartyr",
+      "passiveGhostSlow",
+      "passiveAfterburner",
+      "fruitFeast",
+    ];
+    const owned = ALL_UPGRADE_IDS.filter((id) => !left.includes(id));
+    let x = 11;
+    const rng = () => {
+      x = (x * 1103515245 + 12345) % 2147483648;
+      return x / 2147483648;
+    };
+    const draws = 4000;
+    let withRare = 0;
+    for (let i = 0; i < draws; i += 1) {
+      const state = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, rng);
+      withRare += state.slots.some((s) => s.kind === "upgrade" && s.id === "passiveMartyr") ? 1 : 0;
+    }
+    const expected = 0.5 / 3.5 + (3 / 3.5) * (0.5 / 2.5);
+    expect(Math.abs(withRare / draws - expected)).toBeLessThan(0.03);
+  });
+
   it("shelves no rare before two upgrades are owned", () => {
     for (const owned of [[], ["passiveAfterburner"]] as UpgradeId[][]) {
       const state = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, () => 0.999);
