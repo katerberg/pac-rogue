@@ -27,6 +27,21 @@ Authoring references (not loaded at runtime): `src/game/art/refs/neon-alphabet-g
 
 Rendering: `NeonText` in `src/game/scenes/neonFont.ts` strokes parsed path points with Phaser Graphics and optional knockout `addGlow` bloom (same idea as line-art ghosts). Scenes use `addGameText` / `placeGameText`, which pick neon vs pixel from `textStyleFor(loadGhostStyle())`.
 
+## Stacked UI text (cards / store)
+
+Two different vertical rules — do not conflate them:
+
+| Rule                         | Where                                                     | Helper                                                                 |
+| ---------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Intra-`NeonText` leading** | Lines inside one multi-line string (`\n` from `wrapText`) | `neonLinePitch` / `NEON_LINE_LEADING` (0.5×) in `layout.ts`            |
+| **Inter-object gaps**        | Separate `GameText` rows (title → school → body → cost)   | `interTextGap` in `textStack.ts` (`×1.5` for neon, identity for pixel) |
+
+Supported surfaces route through `stackTexts` / `layoutCardText` (choice modal, starting card, store confirm + side panel). Pixel STYLE keeps today's gap and wrap numbers.
+
+**Char wrap:** still character-count `wrapText`, but neon uses a wider budget via `wrapCharBudget(pixelBudget, style)` (`NEON_WRAP_CHAR_MUL = 1.75`) so thin neon glyphs fill card width instead of wrapping as early as the 8×8 pixel font. Upgrade descriptions stay single prose strings — no per-upgrade `\n` edits.
+
+**Title fit floors:** `fitFontSize(..., textStyle)` uses a 4px neon cell (pixel stays 8). Preferred size ≥ 22 floors at **16**; otherwise floor **8**. School, body (8), cost, and SURE/YES/NO are never shrunk for stack pressure. If a stack is still taller than the box after the floor, leave it — do not grow the box or drop below the floor. Bloom is visual-only and is not added into gap math.
+
 ## Knobs (`?knobs=1`)
 
 Visuals group — restrained defaults, wide extremes:
