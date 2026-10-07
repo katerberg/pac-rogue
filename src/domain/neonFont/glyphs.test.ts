@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseLineArt } from "../lineArt";
 import { assertBarCurvePath } from "./glyphGrammar";
 import { NEON_DIGIT_PATHS, NEON_G_REPLACEMENT, NEON_REQUIRED_CHARS, neonGlyph } from "./glyphs";
 
@@ -49,11 +50,16 @@ describe("neonFont glyphs", () => {
 
   it("spans the full 0–4 height on every letter and digit", () => {
     for (const ch of "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-      const ys = neonGlyph(ch)!.strands.flatMap((d) =>
-        [...d.matchAll(/(-?\d+)\s+(-?\d+)(?=\s*(?:[A-Za-z]|$))/g)].map((m) => Number(m[2])),
+      const paths = neonGlyph(ch)!
+        .strands.map((d, i) => `<path id="s${i}" stroke="currentColor" fill="none" d="${d}" />`)
+        .join("");
+      const art = parseLineArt(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 4">${paths}</svg>`,
+        0.15,
       );
-      expect(Math.min(...ys), ch).toBe(0);
-      expect(Math.max(...ys), ch).toBe(4);
+      const ys = art.strands.flatMap((s) => s.points.map((p) => p.y));
+      expect(Math.min(...ys), ch).toBeCloseTo(0, 5);
+      expect(Math.max(...ys), ch).toBeCloseTo(4, 5);
     }
   });
 });

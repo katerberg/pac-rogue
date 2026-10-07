@@ -16,6 +16,37 @@ export function neonGlowDepth(localDepth: number, ancestorDepths: readonly numbe
   return root - 0.1;
 }
 
+/**
+ * Glow source geometry in canvas pixels, centered on the text box: the glow Graphics sits
+ * at the box center (scaled by `scale / pixelsPerWorld`), so local (0,0) maps to `origin`.
+ * The filter covers the scaled box plus the bloom reach on every side.
+ */
+export function neonGlowFrame(frame: {
+  localWidth: number;
+  localHeight: number;
+  pixelsPerWorld: number;
+  scaleX: number;
+  scaleY: number;
+  reachPx: number;
+}): {
+  originX: number;
+  originY: number;
+  scaleX: number;
+  scaleY: number;
+  filterWidth: number;
+  filterHeight: number;
+} {
+  const { localWidth, localHeight, pixelsPerWorld: pps, scaleX, scaleY, reachPx } = frame;
+  return {
+    originX: (-localWidth / 2) * pps,
+    originY: (-localHeight / 2) * pps,
+    scaleX: scaleX / pps,
+    scaleY: scaleY / pps,
+    filterWidth: Math.ceil(Math.max(1, localWidth) * pps * Math.abs(scaleX)) + 2 * reachPx,
+    filterHeight: Math.ceil(Math.max(1, localHeight) * pps * Math.abs(scaleY)) + 2 * reachPx,
+  };
+}
+
 /** Neon glyphs are uppercase-only. */
 export function neonDisplayText(content: string): string {
   return content.toUpperCase();

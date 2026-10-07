@@ -13,9 +13,11 @@ import {
   neonCenteredLineOrigins,
   neonDisplayText,
   neonGlowDepth,
+  neonGlowFrame,
   neonLinePitch,
   neonTextLocalHeight,
 } from "../../domain/neonFont/layout";
+import { neonRoundJoinIndices } from "../../domain/neonFont/strokeJoins";
 import { fontLineArtLook, type FontLineArtLook } from "../../domain/neonFont/fontLook";
 import { DEFAULT_TUNING } from "../../domain/tuning";
 import { renderScaleOf } from "../renderScale";
@@ -239,6 +241,17 @@ export class NeonText extends Phaser.GameObjects.Container {
     return alpha;
   }
 
+  private glowFrame(scaleX = 1, scaleY = 1): ReturnType<typeof neonGlowFrame> {
+    return neonGlowFrame({
+      localWidth: this.localWidth,
+      localHeight: this.localHeight,
+      pixelsPerWorld: this.glowPixelsPerWorld,
+      scaleX,
+      scaleY,
+      reachPx: this.glowReachPx,
+    });
+  }
+
   private syncGlowTransform = (): void => {
     if (!this.ready || this.glow === null) {
       return;
@@ -246,18 +259,15 @@ export class NeonText extends Phaser.GameObjects.Container {
     const matrix = this.getWorldTransformMatrix();
     const { scaleX, scaleY, rotation } = matrix.decomposeMatrix();
     const center = matrix.transformPoint(this.localWidth / 2, this.localHeight / 2);
-    const pps = this.glowPixelsPerWorld;
+    const frame = this.glowFrame(scaleX, scaleY);
     this.glow.setPosition(center.x, center.y);
-    this.glow.setScale(scaleX / pps, scaleY / pps);
+    this.glow.setScale(frame.scaleX, frame.scaleY);
     this.glow.setRotation(rotation);
     this.glow.setAlpha(this.effectiveAlpha());
     this.glow.setVisible(this.effectiveVisible());
     this.syncGlowDepth();
     if (this.glow.filterCamera !== null) {
-      this.glow.setFilterSize(
-        Math.ceil(Math.max(1, this.localWidth) * pps * Math.abs(scaleX)) + 2 * this.glowReachPx,
-        Math.ceil(Math.max(1, this.localHeight) * pps * Math.abs(scaleY)) + 2 * this.glowReachPx,
-      );
+      this.glow.setFilterSize(frame.filterWidth, frame.filterHeight);
       this.glow.filterCamera.centerOn(center.x, center.y);
     }
   };
@@ -338,6 +348,7 @@ export class NeonText extends Phaser.GameObjects.Container {
     this.setSize(Math.max(1, this.localWidth), Math.max(1, this.localHeight));
     const glow = this.resetGlow();
     const pps = this.glowPixelsPerWorld;
+    const glowOrigin = this.glowFrame();
 
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       const line = lines[lineIndex]!;
@@ -386,8 +397,8 @@ export class NeonText extends Phaser.GameObjects.Container {
           this.strokeGlyph(
             glow,
             art,
-            (glyphX - this.localWidth / 2) * pps,
-            (cursorY - this.localHeight / 2) * pps,
+            glowOrigin.originX + glyphX * pps,
+            glowOrigin.originY + cursorY * pps,
             unit * pps,
             heightScale,
             glowWidthPx,
@@ -421,9 +432,9 @@ export class NeonText extends Phaser.GameObjects.Container {
       const points = strand.points.map(
         (p) => new Phaser.Math.Vector2(offsetX + p.x * unit, offsetY + p.y * unit * heightScale),
       );
-      // Graphics strokes have butt caps and no joins: round every vertex so corners and ends close.
-      for (const p of points) {
-        g.fillCircle(p.x, p.y, strokeWidth / 2);
+      // Graphics strokes have butt caps and no joins at narrow widths.
+      for (const i of neonRoundJoinIndices(points)) {
+        g.fillCircle(points[i]!.x, points[i]!.y, strokeWidth / 2);
       }
       if (points.length > 1) {
         g.strokePoints(points, false, false);

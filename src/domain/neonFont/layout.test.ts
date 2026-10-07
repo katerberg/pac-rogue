@@ -4,6 +4,7 @@ import {
   neonCenteredLineOrigins,
   neonDisplayText,
   neonGlowDepth,
+  neonGlowFrame,
   neonLineAdvance,
   neonLinePitch,
   neonStringAdvance,
@@ -53,6 +54,23 @@ describe("neon text layout", () => {
     expect(neonTextLocalHeight(1, 10, 4)).toBe(10);
     expect(neonTextLocalHeight(2, 10, 4)).toBe(29);
     expect(neonTextLocalHeight(3, 10, 4)).toBe(48);
+  });
+
+  it("centers the glow source on the text box in canvas pixels", () => {
+    const frame = neonGlowFrame({
+      localWidth: 40,
+      localHeight: 10,
+      pixelsPerWorld: 2,
+      scaleX: 1.5,
+      scaleY: -1,
+      reachPx: 6,
+    });
+    expect(frame.originX).toBe(-40);
+    expect(frame.originY).toBe(-10);
+    expect(frame.scaleX).toBe(0.75);
+    expect(frame.scaleY).toBe(-0.5);
+    expect(frame.filterWidth).toBe(40 * 2 * 1.5 + 12);
+    expect(frame.filterHeight).toBe(10 * 2 + 12);
   });
 
   it("glow depth follows the outermost ancestor, else local depth", () => {
