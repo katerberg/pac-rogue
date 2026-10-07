@@ -556,12 +556,6 @@ export function placeSelectableMenuOption(
   text.setText(label);
   const labelWidth = text.getTextBounds(true).local.width;
   text.setText(menuOptionText(label, selected));
-  const bounds = text.getTextBounds(true);
-  if (!isNeonText(text)) {
-    text.setOrigin(0, 0);
-  }
-  text.setPosition(
-    Math.round(menuOptionLeftX(centerX, bounds.local.width, labelWidth)),
-    Math.round(centerY - bounds.local.height / 2),
-  );
+  const fullWidth = text.getTextBounds(true).local.width;
+  placeGameText(text, menuOptionLeftX(centerX, fullWidth, labelWidth), centerY, 0, 0.5);
 }
