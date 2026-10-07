@@ -169,7 +169,6 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
     this.ghostStyle = loadGhostStyle();
 
-    // Under neon-text glow (−0.1 when text depth is 0).
     this.add
       .rectangle(
         PLAYFIELD_WIDTH / 2,
