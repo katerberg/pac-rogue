@@ -31,4 +31,29 @@ describe("neonFont glyphs", () => {
   it("rejects non-quarter arcs", () => {
     expect(() => assertBarCurvePath("M0 0 A1 1 0 0 1 2 0", "half")).toThrow(/quarter/);
   });
+
+  it("rejects points off the integer 3×5 grid", () => {
+    expect(() => assertBarCurvePath("M0 2 L1.5 2", "fraction")).toThrow(/grid/);
+    expect(() => assertBarCurvePath("M0 4 L0 5", "below")).toThrow(/grid/);
+    expect(() => assertBarCurvePath("M3 0 L3 4", "right")).toThrow(/grid/);
+  });
+
+  it("rejects arcs that are not radius 1", () => {
+    expect(() => assertBarCurvePath("M0 0 A2 2 0 0 1 2 2", "r2")).toThrow(/radius/);
+  });
+
+  it("has no lowercase glyphs (neon text renders uppercase)", () => {
+    expect(NEON_REQUIRED_CHARS).not.toMatch(/[a-z]/);
+    expect(neonGlyph("a")).toBeUndefined();
+  });
+
+  it("spans the full 0–4 height on every letter and digit", () => {
+    for (const ch of "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+      const ys = neonGlyph(ch)!.strands.flatMap((d) =>
+        [...d.matchAll(/(-?\d+)\s+(-?\d+)(?=\s*(?:[A-Za-z]|$))/g)].map((m) => Number(m[2])),
+      );
+      expect(Math.min(...ys), ch).toBe(0);
+      expect(Math.max(...ys), ch).toBe(4);
+    }
+  });
 });

@@ -36,9 +36,22 @@ function tokenizePath(d: string): (string | number)[] {
   return tokens;
 }
 
+function assertOnGrid(x: number, y: number, label: string): void {
+  const onGrid =
+    Number.isInteger(x) &&
+    Number.isInteger(y) &&
+    x >= 0 &&
+    x <= NEON_GLYPH_WIDTH &&
+    y >= 0 &&
+    y <= NEON_GLYPH_HEIGHT;
+  if (!onGrid) {
+    throw new Error(`neonFont ${label}: point ${x},${y} is off the 3×5 grid`);
+  }
+}
+
 /**
- * Lint a path `d` for the bar-curve grammar: only M/L/H/V/A/Z, L/H/V must stay
- * axis-aligned, arcs must be circular quarter turns (rx === ry, rotation 0, large-arc 0).
+ * Lint a path `d` for the bar-curve grammar: only M/L/H/V/A/Z, every point on the
+ * integer 3×5 grid, L/H/V axis-aligned, arcs r=1 quarter turns (rotation 0, large-arc 0).
  */
 export function assertBarCurvePath(d: string, label: string): void {
   const tokens = tokenizePath(d);
@@ -76,8 +89,8 @@ export function assertBarCurvePath(d: string, label: string): void {
         number,
         number,
       ];
-      if (Math.abs(rx - ry) > EPS) {
-        throw new Error(`neonFont ${label}: arc rx!=ry (${rx},${ry})`);
+      if (rx !== 1 || ry !== 1) {
+        throw new Error(`neonFont ${label}: arc radius must be 1 (${rx},${ry})`);
       }
       if (rot !== 0) {
         throw new Error(`neonFont ${label}: arc rotation must be 0`);
@@ -87,11 +100,12 @@ export function assertBarCurvePath(d: string, label: string): void {
       }
       const dx = Math.abs(x2 - x);
       const dy = Math.abs(y2 - y);
-      if (Math.abs(dx - ry) > 0.05 || Math.abs(dy - ry) > 0.05) {
+      if (dx !== 1 || dy !== 1) {
         throw new Error(
           `neonFont ${label}: arc must be a quarter turn (got Δ(${dx},${dy}) r=${ry})`,
         );
       }
+      assertOnGrid(x2, y2, label);
       x = x2;
       y = y2;
       i += 7;
@@ -109,6 +123,7 @@ export function assertBarCurvePath(d: string, label: string): void {
           throw new Error(`neonFont ${label}: diagonal L ${x},${y} → ${nx},${ny}`);
         }
       }
+      assertOnGrid(nx, ny, label);
       x = nx;
       y = ny;
       if (cmd === "M") {
@@ -123,6 +138,7 @@ export function assertBarCurvePath(d: string, label: string): void {
       if (!Number.isFinite(nx)) {
         throw new Error(`neonFont ${label}: bad H arg`);
       }
+      assertOnGrid(nx, y, label);
       x = nx;
       i += 1;
       continue;
@@ -132,6 +148,7 @@ export function assertBarCurvePath(d: string, label: string): void {
       if (!Number.isFinite(ny)) {
         throw new Error(`neonFont ${label}: bad V arg`);
       }
+      assertOnGrid(x, ny, label);
       y = ny;
       i += 1;
       continue;
@@ -221,6 +238,7 @@ export function glyphInkXBounds(glyph: NeonGlyph): NeonGlyphInk {
 /**
  * Proportional metrics: side bearings include half the stroke so thick tubes do not collide,
  * plus {@link NEON_TRACKING} (and knob letterSpacing) as the optical gap between outsides.
+ * `thickness` is the stroke width in grid cells (one cell = fontSize / NEON_GLYPH_HEIGHT).
  */
 export function neonGlyphMetrics(
   glyph: NeonGlyph,
@@ -235,8 +253,7 @@ export function neonGlyphMetrics(
   }
   const ink = glyphInkXBounds(glyph);
   const inkWidth = Math.max(ink.maxX - ink.minX, 0.05);
-  const stroke = Math.max(0, thickness) * NEON_GLYPH_HEIGHT;
-  const pad = stroke / 2 + (NEON_TRACKING + letterSpacing) / 2;
+  const pad = Math.max(0, thickness) / 2 + (NEON_TRACKING + letterSpacing) / 2;
   return {
     drawShift: pad - ink.minX,
     advance: inkWidth + 2 * pad,
@@ -249,11 +266,9 @@ export function neonGlyphMetrics(
  */
 const NEON_KERN_PAIRS: Readonly<Record<string, number>> = {
   TA: -0.22,
-  Ta: -0.18,
   TC: -0.12,
   TG: -0.12,
   TO: -0.12,
-  To: -0.1,
   TQ: -0.12,
   TV: -0.22,
   TW: -0.18,
@@ -262,11 +277,9 @@ const NEON_KERN_PAIRS: Readonly<Record<string, number>> = {
   "T,": -0.28,
   "T-": -0.25,
   FA: -0.22,
-  Fa: -0.18,
   "F.": -0.28,
   "F,": -0.28,
   PA: -0.18,
-  Pa: -0.15,
   "P.": -0.25,
   "P,": -0.25,
   LT: -0.18,
@@ -274,22 +287,17 @@ const NEON_KERN_PAIRS: Readonly<Record<string, number>> = {
   LY: -0.15,
   "L-": -0.12,
   AV: -0.18,
-  Av: -0.15,
   AW: -0.15,
   AY: -0.18,
   "A-": -0.12,
   VA: -0.18,
-  Va: -0.15,
   "V.": -0.25,
   "V,": -0.25,
   "V-": -0.18,
   YA: -0.18,
-  Ya: -0.15,
   "Y.": -0.25,
   "Y,": -0.25,
   "Y-": -0.18,
-  "r.": -0.12,
-  "r,": -0.12,
   "7-": -0.12,
 };
 

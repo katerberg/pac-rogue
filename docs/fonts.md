@@ -13,7 +13,7 @@ IBM VGA 8×8 bitmasks in `src/game/scenes/font8x8Basic.ts`, atlas built at runti
 
 ## Neon font
 
-Bar-curve glyphs: **axis-aligned** horizontal/vertical segments and **quarter-circle** arcs only (`src/domain/neonFont/`). ViewBox is 2×4 units per glyph. Layout uses **ink-bounds metrics** (`neonGlyphMetrics`): each character advances by its path width plus thickness-aware side bearings and default tracking (`NEON_TRACKING`), plus a small pair-kerning table (`neonKern`) for open-sided pairs (TA, AV, T-, …).
+Bar-curve glyphs: **axis-aligned** horizontal/vertical segments and **quarter-circle** arcs only (`src/domain/neonFont/`). Every glyph sits on a 3×5 grid of points (viewBox 2×4 units): all path points are integers, every arc is an r=1 quarter turn, and dots are zero-length strands drawn as round dots; `assertBarCurvePath` lints this at module load. Neon text is uppercase only (`neonDisplayText`). Layout uses **ink-bounds metrics** (`neonGlyphMetrics`): each character advances by its path width plus thickness-aware side bearings and default tracking (`NEON_TRACKING`), plus a small pair-kerning table (`neonKern`) for open-sided pairs (TA, AV, T-, …).
 
 - Digits `0–9` are frozen to the approved sheet paths in `NEON_DIGIT_PATHS`.
 - Uppercase **G** is the replacement silhouette (open bowl with the right stem curling into the center), not the notebook inlet-bar G.
@@ -28,14 +28,14 @@ Rendering: `NeonText` in `src/game/scenes/neonFont.ts` strokes parsed path point
 
 Visuals group — restrained defaults, wide extremes:
 
-| Knob                      | Role                                       |
-| ------------------------- | ------------------------------------------ |
-| Font thickness            | Stroke width as a fraction of glyph height |
-| Font bloom / bloom radius | Phaser glow strength and reach             |
-| Font glow color           | Bloom color (core uses the call-site tint) |
-| Font letter spacing       | Extra tracking on top of default bearings  |
-| Font height               | Vertical stretch                           |
-| Font glow knockout        | Knockout bloom under crisp stroke          |
+| Knob                      | Role                                              |
+| ------------------------- | ------------------------------------------------- |
+| Font thickness            | Stroke width in grid cells (1 cell = ¼ font size) |
+| Font bloom / bloom radius | Phaser glow strength and reach                    |
+| Font glow color           | Bloom color (core uses the call-site tint)        |
+| Font letter spacing       | Extra tracking on top of default bearings         |
+| Font height               | Vertical stretch                                  |
+| Font glow knockout        | Knockout bloom under crisp stroke                 |
 
 `fontLineArtLook(tuning)` in `src/domain/neonFont/fontLook.ts`. Play applies look live via `setActiveFontLook` when knobs change.
 
