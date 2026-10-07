@@ -20,18 +20,18 @@ describe("splitSchoolColumns", () => {
   it("puts the fourth seen school alone on the right", () => {
     const { left, right } = splitSchoolColumns(groups(4));
     expect(left.map((g) => g.school)).toEqual(["death", "harvest", "speed"]);
-    expect(right.map((g) => g.school)).toEqual(["protection"]);
+    expect(right.map((g) => g.school)).toEqual(["automation"]);
   });
 
-  it("splits six schools 3 and 3 in order", () => {
-    const { left, right } = splitSchoolColumns(groups(6));
+  it("splits all seven schools 3 left and 4 right in order", () => {
+    const { left, right } = splitSchoolColumns(groups(7));
     expect(left.map((g) => g.school)).toEqual(["death", "harvest", "speed"]);
-    expect(right.map((g) => g.school)).toEqual(["protection", "disruption", "neutral"]);
-  });
-
-  it("keeps any schools past the sixth on the right", () => {
-    const extra = [...groups(6), { school: "neutral" as const, defs: [] }];
-    expect(splitSchoolColumns(extra).right).toHaveLength(4);
+    expect(right.map((g) => g.school)).toEqual([
+      "automation",
+      "protection",
+      "disruption",
+      "neutral",
+    ]);
   });
 });
 

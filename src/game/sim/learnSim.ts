@@ -31,6 +31,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  ghostHouseSpawnCenter,
   isWalkable,
   pelletCellCenters,
 } from "../../domain/maze";
@@ -138,7 +139,9 @@ import {
   type GhostAiContext,
 } from "../systems/ghostAi";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
+import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
+import { sendGhostOutOfHouse } from "../systems/ghostRelease";
 import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../systems/heldKeys";
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
@@ -348,9 +351,7 @@ export class LearnSim {
       this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
       if (this.recallHoldRemainingMs === 0) {
         for (const eid of this.recallHoldGhostEids) {
-          if (eid !== this.houseHold.eid) {
-            GhostPhase.value[eid] = GHOST_PHASE.active;
-          }
+          this.releaseGhostFromHouse(eid);
         }
         this.recallHoldGhostEids = [];
       }
@@ -384,6 +385,7 @@ export class LearnSim {
       undefined,
       ghostsBlockedFromTunnels(this.learnUpgrades.owned),
     );
+    ghostExitHouse(this.world);
     this.noteTunnelExit(positionBeforeMove);
     this.pushTurnSparks(
       this.turnTuning.afterMove(
@@ -809,7 +811,7 @@ export class LearnSim {
   private freeHunterHeld(wasHeld: readonly number[]): void {
     for (const eid of wasHeld) {
       if (!this.learnUpgrades.hunterHeldEids.includes(eid)) {
-        this.freeGhost(eid);
+        this.releaseGhostFromHouse(eid);
       }
     }
   }
@@ -827,7 +829,7 @@ export class LearnSim {
       const holds = hunterHoldsEaten(this.learnUpgrades.owned);
       const ate = eatFrightenedGhost(this.learnUpgrades, eid, holds);
       this.learnUpgrades = ate.state;
-      this.seatGhostAtExit(eid);
+      this.seatGhostInHouse(eid);
       this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, [
         {
           eid,
@@ -854,14 +856,30 @@ export class LearnSim {
 
   private freeGhost(eid: number): void {
     if (eid !== this.houseHold.eid) {
+      this.seatGhostAtExit(eid);
       GhostPhase.value[eid] = GHOST_PHASE.active;
     }
   }
 
+  private releaseGhostFromHouse(eid: number): void {
+    if (eid !== this.houseHold.eid) {
+      sendGhostOutOfHouse(this.world, eid);
+    }
+  }
+
+  private seatGhostInHouse(eid: number): void {
+    const spawn = ghostHouseSpawnCenter();
+    this.parkGhost(eid, spawn.x, spawn.y);
+  }
+
   private seatGhostAtExit(eid: number): void {
     const exit = getActiveLayout().ghostHouseExit;
-    Position.x[eid] = cellCenterX(exit.col);
-    Position.y[eid] = cellCenterY(exit.row);
+    this.parkGhost(eid, cellCenterX(exit.col), cellCenterY(exit.row));
+  }
+
+  private parkGhost(eid: number, x: number, y: number): void {
+    Position.x[eid] = x;
+    Position.y[eid] = y;
     Velocity.x[eid] = 0;
     Velocity.y[eid] = 0;
     Speed.px[eid] = 0;
@@ -887,6 +905,7 @@ export class LearnSim {
       this.houseHoldEaten,
     );
     if (released !== null) {
+      this.seatGhostAtExit(released);
       GhostPhase.value[released] = GHOST_PHASE.active;
     }
   }
