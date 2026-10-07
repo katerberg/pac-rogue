@@ -110,6 +110,13 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×"),
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px"),
   { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
+  range("fontThickness", "Visuals", "Font thickness", 0.05, 3, 0.05),
+  range("fontBloom", "Visuals", "Font bloom", 0, 12, 0.1),
+  range("fontBloomRadius", "Visuals", "Font bloom radius", 0, 48, 1, "px"),
+  { key: "fontGlowColor", group: "Visuals", label: "Font glow color", kind: "color" },
+  range("fontLetterSpacing", "Visuals", "Font letter spacing", -0.5, 2, 0.05),
+  range("fontHeightScale", "Visuals", "Font height", 0.4, 3, 0.05, "×"),
+  { key: "fontGlowKnockout", group: "Visuals", label: "Font glow knockout", kind: "toggle" },
   range("pelletRadius", "Dots", "Dot radius", 0.5, 48, 0.1, "px"),
   range("pelletStrokeWidth", "Dots", "Dot stroke", 0.1, 32, 0.1, "px"),
   range("pelletGlow", "Dots", "Dot glow", 0, 36, 8),
@@ -249,6 +256,16 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Vertical stretch of line-art ghosts. 1 = the SVG's own proportions. Visual only; collision is unchanged.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
+  fontThickness:
+    "Neon typeface stroke width in grid cells (a glyph is 2×4 cells; 1 cell = a quarter of the font size). Visual only; extreme values are for dialing-in.",
+  fontBloom: "Phaser outerStrength of the bloom around neon text. 0 = no bloom.",
+  fontBloomRadius: "How far neon text bloom spreads beyond the stroke, in pixels. 0 = no bloom.",
+  fontGlowColor: "Color of the bloom around neon text (the core uses the call-site tint).",
+  fontLetterSpacing:
+    "Extra tracking added to neon side bearings (0 = default optical gap; glyph ink drives width).",
+  fontHeightScale: "Vertical stretch of neon glyphs. 1 = natural proportions.",
+  fontGlowKnockout:
+    "On: bloom is a knockout glow under a crisp stroke (ghost-style). Off: bloom uses the same stroke width as the core.",
   pelletRadius:
     "Radius of the neon regular dot in world pixels. Visual only; collision is unchanged.",
   pelletStrokeWidth: "Stroke thickness around neon regular dots in pixels. Visual only.",

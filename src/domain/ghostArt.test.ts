@@ -6,6 +6,7 @@ import {
   parseGhostStyle,
   sameGhostLineArtLook,
   styleUsesGlow,
+  textStyleFor,
 } from "./ghostArt";
 import { resolveTuning } from "./tuning";
 import { GHOST_KIND } from "./ghostKind";
@@ -25,6 +26,14 @@ describe("styleUsesGlow", () => {
     expect(styleUsesGlow("neon")).toBe(true);
     expect(styleUsesGlow("lined")).toBe(false);
     expect(styleUsesGlow("pixel")).toBe(false);
+  });
+});
+
+describe("textStyleFor", () => {
+  it("maps STYLE to the matching typeface", () => {
+    expect(textStyleFor("neon")).toBe("neon");
+    expect(textStyleFor("lined")).toBe("neon");
+    expect(textStyleFor("pixel")).toBe("pixel");
   });
 });
 

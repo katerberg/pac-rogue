@@ -15,22 +15,25 @@ import {
 import {
   enhancedIdOf,
   getUpgradeDef,
+  isRare,
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { PLAYER_OPEN_MOUTH_TEXTURE_KEY, QUARTER_TEXTURE_KEY } from "../systems/render";
+import { textStyleFor } from "../../domain/ghostArt";
+import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
+import { addRareFx, createRareFxToggle } from "./rareFx";
 import {
-  addPixelText,
   HUD_FONT_SIZE,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
-  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import { addGameText, placeGameText } from "./neonFont";
 import {
   BUTTON_HEIGHT,
   BUTTON_WIDTH,
@@ -58,6 +61,7 @@ const TILE_DOT_PX = 2;
 const TILE_COIN_PX = 8;
 const TILE_COIN_GAP_PX = 1;
 const TILE_GLYPH_Y = -5;
+const TILE_SPARKLES = 3;
 
 export type StoreOverlay = {
   open: (state: StoreState) => void;
@@ -69,6 +73,7 @@ export type StoreOverlay = {
 type PanelContent = {
   title: string;
   school: UpgradeSchool | null;
+  rare: boolean;
   body: string;
   footer: string;
 };
@@ -78,6 +83,10 @@ function slotSchool(slot: StoreSlot): UpgradeSchool | null {
     return getUpgradeDef(slot.id).school;
   }
   return slot.kind === "enhance" ? getUpgradeDef(slot.targetId).school : null;
+}
+
+function slotRare(slot: StoreSlot): boolean {
+  return slot.kind === "upgrade" && isRare(slot.id);
 }
 
 function slotTitle(slot: StoreSlot): string {
@@ -143,14 +152,15 @@ export function createStoreOverlay(
   const panelBg = scene.add
     .rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x101820)
     .setStrokeStyle(2, TEXT_COLOR_YELLOW);
-  const panelTitle = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-  const panelSchool = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
-  const panelBody = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
-  const panelFooter = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const panelTitle = addGameText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const panelSchool = addGameText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
+  const panelBody = addGameText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
+  const panelFooter = addGameText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
   const panel = scene.add
     .container(panelX, panelY, [panelBg, panelTitle, panelSchool, panelBody, panelFooter])
     .setDepth(PANEL_DEPTH)
     .setVisible(false);
+  const panelRare = createRareFxToggle(scene, panel, PANEL_WIDTH, PANEL_HEIGHT);
 
   const dim = scene.add
     .rectangle(
@@ -166,7 +176,7 @@ export function createStoreOverlay(
   const modalBg = scene.add
     .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
     .setStrokeStyle(4, TEXT_COLOR_YELLOW);
-  const modalTitle = addPixelText(
+  const modalTitle = addGameText(
     scene,
     0,
     0,
@@ -174,8 +184,8 @@ export function createStoreOverlay(
     MENU_TITLE_FONT_SIZE,
     TEXT_COLOR_YELLOW,
   ).setCenterAlign();
-  const modalSchool = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
-  const modalBody = addPixelText(
+  const modalSchool = addGameText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
+  const modalBody = addGameText(
     scene,
     0,
     0,
@@ -183,13 +193,13 @@ export function createStoreOverlay(
     UPGRADES_HUD_FONT_SIZE,
     TEXT_COLOR_WHITE,
   ).setCenterAlign();
-  const modalCost = addPixelText(scene, 0, 0, "", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
-  const modalSure = addPixelText(scene, 0, 0, "SURE?", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
-  const modalYes = addPixelText(scene, 0, 0, "YES", MENU_OPTION_FONT_SIZE);
-  const modalNo = addPixelText(scene, 0, 0, "NO", MENU_OPTION_FONT_SIZE);
-  placePixelText(modalSure, -70, 80, 0.5, 0.5);
-  placePixelText(modalYes, 10, 80, 0.5, 0.5);
-  placePixelText(modalNo, 70, 80, 0.5, 0.5);
+  const modalCost = addGameText(scene, 0, 0, "", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
+  const modalSure = addGameText(scene, 0, 0, "SURE?", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
+  const modalYes = addGameText(scene, 0, 0, "YES", MENU_OPTION_FONT_SIZE);
+  const modalNo = addGameText(scene, 0, 0, "NO", MENU_OPTION_FONT_SIZE);
+  placeGameText(modalSure, -70, 80, 0.5, 0.5);
+  placeGameText(modalYes, 10, 80, 0.5, 0.5);
+  placeGameText(modalNo, 70, 80, 0.5, 0.5);
   for (const [text, choice] of [
     [modalYes, "yes"],
     [modalNo, "no"],
@@ -209,6 +219,7 @@ export function createStoreOverlay(
     ])
     .setDepth(MODAL_DEPTH + 1)
     .setVisible(false);
+  const modalRare = createRareFxToggle(scene, modal, BUTTON_WIDTH, BUTTON_HEIGHT);
 
   const showModal = (prompt: StorePromptView | null, confirmYes: boolean): void => {
     dim.setVisible(prompt !== null);
@@ -225,6 +236,7 @@ export function createStoreOverlay(
     modalCost.setText(`COST ${prompt.price}`);
     const school = slotSchool(prompt.slot);
     modalBg.setStrokeStyle(4, schoolBorderColor(school));
+    modalRare(slotRare(prompt.slot), schoolBorderColor(school));
     setSchoolTag(modalSchool, school);
     stackTexts(
       [
@@ -233,8 +245,8 @@ export function createStoreOverlay(
       ],
       -58,
     );
-    placePixelText(modalBody, 0, 8, 0.5, 0.5);
-    placePixelText(modalCost, 0, 44, 0.5, 0.5);
+    placeGameText(modalBody, 0, 8, 0.5, 0.5);
+    placeGameText(modalCost, 0, 44, 0.5, 0.5);
     modalYes.setTint(confirmYes ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
     modalNo.setTint(confirmYes ? TEXT_COLOR_WHITE : TEXT_COLOR_YELLOW);
   };
@@ -245,6 +257,7 @@ export function createStoreOverlay(
       return;
     }
     panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
+    panelRare(content.rare, schoolBorderColor(content.school));
     panelTitle.setText(wrapText(content.title, PANEL_TITLE_MAX_CHARS));
     panelTitle.setFontSize(
       fitFontSize(content.title, PANEL_WIDTH - PANEL_TITLE_MARGIN, HUD_FONT_SIZE),
@@ -252,16 +265,16 @@ export function createStoreOverlay(
     panelBody.setText(wrapText(content.body, PANEL_BODY_MAX_CHARS));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
-    placePixelText(panelTitle, 0, -PANEL_HEIGHT / 2 + 10, 0.5, 0);
-    placePixelText(
+    placeGameText(panelTitle, 0, -PANEL_HEIGHT / 2 + 10, 0.5, 0);
+    placeGameText(
       panelSchool,
       0,
       panelTitle.y + panelTitle.getTextBounds(true).local.height + SCHOOL_GAP,
       0.5,
       0,
     );
-    placePixelText(panelBody, 0, 0, 0.5, 0.5);
-    placePixelText(panelFooter, 0, PANEL_HEIGHT / 2 - 10, 0.5, 1);
+    placeGameText(panelBody, 0, 0, 0.5, 0.5);
+    placeGameText(panelFooter, 0, PANEL_HEIGHT / 2 - 10, 0.5, 1);
   };
 
   const buildTile = (slot: StoreSlot, index: number): Phaser.GameObjects.Container => {
@@ -301,9 +314,12 @@ export function createStoreOverlay(
         slot.kind === "swap" ? "?" : enhance ? "+" : slotTitle(slot).charAt(0).toUpperCase();
       const school = enhance ? null : slotSchool(slot);
       const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
-      const text = addPixelText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
-      const inkOffset = (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8;
-      placePixelText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
+      const text = addGameText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
+      const inkOffset =
+        textStyleFor(loadGhostStyle()) === "pixel"
+          ? (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8
+          : 0;
+      placeGameText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
       glyph = text;
     }
     const zone = scene.add.zone(0, 0, size, size).setInteractive({ useHandCursor: true });
@@ -320,9 +336,13 @@ export function createStoreOverlay(
       ? scene.add.rectangle(0, 0, size + 4, size + 4, STORE_ENHANCE_BORDER_COLOR, 0.3)
       : null;
     glows[index] = glow;
-    return scene.add
+    const container = scene.add
       .container(x, y, [...(glow === null ? [] : [glow]), frame, glyph, ...coins, zone])
       .setDepth(TILE_DEPTH);
+    if (slotRare(slot)) {
+      addRareFx(scene, container, size, size, schoolBorderColor(tileSchool), TILE_SPARKLES);
+    }
+    return container;
   };
 
   const clearTiles = (): void => {
@@ -370,6 +390,7 @@ export function createStoreOverlay(
         showPanel({
           title: slotTitle(prompt.slot),
           school: slotSchool(prompt.slot),
+          rare: slotRare(prompt.slot),
           body: slotBody(prompt.slot),
           footer: promptFooter(prompt),
         });
@@ -380,6 +401,7 @@ export function createStoreOverlay(
         showPanel({
           title: slotTitle(slot),
           school: slotSchool(slot),
+          rare: slotRare(slot),
           body: slotBody(slot),
           footer: `COST ${slotPrice(slot)}`,
         });
@@ -390,7 +412,13 @@ export function createStoreOverlay(
     showPurchased: (id) => {
       const def = getUpgradeDef(id);
       toast = {
-        content: { title: def.label, school: def.school, body: def.description, footer: "GOT IT!" },
+        content: {
+          title: def.label,
+          school: def.school,
+          rare: def.rare === true,
+          body: def.description,
+          footer: "GOT IT!",
+        },
         remainingMs: TOAST_MS,
       };
     },

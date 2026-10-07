@@ -3,14 +3,13 @@ import { fitFontSize } from "../../domain/fitFontSize";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import {
-  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
-  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import { addGameText, placeGameText } from "./neonFont";
 import {
   BUTTON_HEIGHT,
   BUTTON_WIDTH,
@@ -76,7 +75,7 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
       const bg = scene.add
         .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
         .setStrokeStyle(4, TEXT_COLOR_YELLOW);
-      const header = addPixelText(
+      const header = addGameText(
         scene,
         0,
         0,
@@ -84,7 +83,7 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         MENU_OPTION_FONT_SIZE,
         TEXT_COLOR_WHITE,
       );
-      const label = addPixelText(
+      const label = addGameText(
         scene,
         0,
         0,
@@ -92,7 +91,7 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         fitFontSize(def.label, BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN, MENU_TITLE_FONT_SIZE),
         TEXT_COLOR_YELLOW,
       );
-      const description = addPixelText(
+      const description = addGameText(
         scene,
         0,
         0,
@@ -100,7 +99,7 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         UPGRADES_HUD_FONT_SIZE,
         TEXT_COLOR_WHITE,
       );
-      placePixelText(header, 0, -84, 0.5, 0.5);
+      placeGameText(header, 0, -84, 0.5, 0.5);
       const school = addSchoolTag(scene, def.school);
       layoutCardText(label, school, description, STARTING_CARD_BODY_CENTER_Y);
       card = scene.add

@@ -14,6 +14,11 @@ export function styleUsesGlow(style: GhostStyle): boolean {
   return style === "neon";
 }
 
+/** Which typeface UI text uses for a given Settings STYLE. */
+export function textStyleFor(style: GhostStyle): "neon" | "pixel" {
+  return style === "pixel" ? "pixel" : "neon";
+}
+
 export function lineArtGhostKinds(
   style: GhostStyle,
   presentKinds: Iterable<GhostKindId>,

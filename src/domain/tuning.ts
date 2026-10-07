@@ -55,6 +55,13 @@ export type Tuning = {
   readonly ghostHeight: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
+  readonly fontThickness: number;
+  readonly fontBloom: number;
+  readonly fontBloomRadius: number;
+  readonly fontGlowColor: number;
+  readonly fontLetterSpacing: number;
+  readonly fontHeightScale: number;
+  readonly fontGlowKnockout: boolean;
   readonly pelletRadius: number;
   readonly pelletStrokeWidth: number;
   readonly pelletGlow: number;
@@ -137,6 +144,13 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   ghostHeight: 1.14,
   wallCornerRadius: 6,
   backgroundColor: 0x1a1a2e,
+  fontThickness: 0.4,
+  fontBloom: 0.8,
+  fontBloomRadius: 4,
+  fontGlowColor: 0x7ec8ff,
+  fontLetterSpacing: 0,
+  fontHeightScale: 1,
+  fontGlowKnockout: true,
   pelletRadius: 1.25,
   pelletStrokeWidth: 1.0,
   pelletGlow: 8.0,
