@@ -194,7 +194,6 @@ export class NeonText extends Phaser.GameObjects.Container {
     this.glowPixelsPerWorld = renderScaleOf(this.scene);
     this.glowReachPx = Math.ceil(this.look.glow.distancePx * this.glowPixelsPerWorld);
     // Sibling of the container (not a child): Glow filters mis-focus inside Containers.
-    // Drawn in canvas pixels around the text center at 1/pps scale, like line-art ghost glow.
     this.glow = this.scene.add.graphics();
     return this.glow;
   }

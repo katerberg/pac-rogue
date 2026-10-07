@@ -16,7 +16,7 @@ export function neonGlowDepth(localDepth: number, ancestorDepths: readonly numbe
   return root - 0.1;
 }
 
-/** Neon glyphs are uppercase-only; every neon string is shown in caps. */
+/** Neon glyphs are uppercase-only. */
 export function neonDisplayText(content: string): string {
   return content.toUpperCase();
 }
@@ -82,12 +82,10 @@ export function neonCenteredLineOrigins(
  */
 const NEON_LINE_LEADING = 0.5;
 
-/** Distance between consecutive neon line tops; `lineSpacingPx` is the call-site extra. */
 export function neonLinePitch(lineHeightPx: number, lineSpacingPx: number): number {
   return lineHeightPx * (1 + NEON_LINE_LEADING) + lineSpacingPx;
 }
 
-/** Local height for multi-line neon text; leading and spacing sit between lines only. */
 export function neonTextLocalHeight(
   lineCount: number,
   lineHeightPx: number,
