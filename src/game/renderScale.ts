@@ -31,3 +31,8 @@ export function followWindowRenderScale(game: Phaser.Game): void {
     }
   });
 }
+
+export function makeTextureCrisp(texture: Phaser.Textures.Texture): void {
+  texture.setSmoothPixelArt(false);
+  texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+}

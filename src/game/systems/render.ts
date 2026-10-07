@@ -25,7 +25,7 @@ import {
   restyleLineArtObject,
   type LineArtObject,
 } from "./lineArtRender";
-import { renderScaleOf } from "../renderScale";
+import { makeTextureCrisp, renderScaleOf } from "../renderScale";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -229,6 +229,11 @@ export function addGhostIcon(
 }
 
 export function preloadPlayArt(scene: Phaser.Scene): void {
+  scene.load.on(Phaser.Loader.Events.FILE_COMPLETE, (key: string, type: string) => {
+    if (type === "image") {
+      makeTextureCrisp(scene.textures.get(key));
+    }
+  });
   for (const dir of PACMAN_DIRS) {
     for (const frame of [1, 2, 3] as const) {
       scene.load.image(pacmanTextureKey(dir, frame), `art/pacman-${dir}/${frame}.png`);

@@ -45,7 +45,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: {
-    pixelArt: true,
+    smoothPixelArt: true,
     roundPixels: true,
   },
   audio: soundEnabled ? (audioContext ? { context: audioContext } : undefined) : { noAudio: true },

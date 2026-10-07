@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { makeTextureCrisp } from "../renderScale";
 import { font8x8Glyph } from "./font8x8Basic";
 
 export const PIXEL_FONT_KEY = "pac-pixel";
@@ -112,4 +113,5 @@ function buildPixelFontAtlas(scene: Phaser.Scene): void {
 
   ctx.putImageData(imageData, 0, 0);
   canvasTexture.refresh();
+  makeTextureCrisp(canvasTexture);
 }
