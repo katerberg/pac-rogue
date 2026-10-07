@@ -87,22 +87,21 @@ describe("parseLineArt", () => {
 
 describe("rotateLineArt", () => {
   const art = parseLineArt(svg(`<path id="a" stroke="currentColor" d="M50 50 L90 50" />`));
-  const tip = (degrees: number) => rotateLineArt(art, degrees).strands[0]!.points.at(-1)!;
+  const round = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
+  const tip = (degrees: number) => {
+    const p = rotateLineArt(art, degrees).strands[0]!.points.at(-1)!;
+    return [p.x, p.y, p.s].map(round);
+  };
 
-  it("turns quarter turns exactly, clockwise on screen, keeping distance along the strand", () => {
-    expect(tip(0)).toEqual({ x: 90, y: 50, s: 40 });
-    expect(tip(90)).toEqual({ x: 50, y: 90, s: 40 });
-    expect(tip(180)).toEqual({ x: 10, y: 50, s: 40 });
-    expect(tip(270)).toEqual({ x: 50, y: 10, s: 40 });
+  it("turns clockwise on screen about the centre, keeping distance along the strand", () => {
+    expect(tip(0)).toEqual([90, 50, 40]);
+    expect(tip(90)).toEqual([50, 90, 40]);
+    expect(tip(180)).toEqual([10, 50, 40]);
+    expect(tip(270)).toEqual([50, 10, 40]);
     expect(tip(-90)).toEqual(tip(270));
+    const diagonal = round(50 + 40 * Math.SQRT1_2);
+    expect(tip(45)).toEqual([diagonal, diagonal, 40]);
     expect(rotateLineArt(art, 90).strands[0]!.length).toBe(40);
-  });
-
-  it("turns by any angle about the centre", () => {
-    const p = tip(45);
-    expect(p.x).toBeCloseTo(50 + 40 * Math.SQRT1_2);
-    expect(p.y).toBeCloseTo(50 + 40 * Math.SQRT1_2);
-    expect(p.s).toBe(40);
   });
 
   it("rejects non-square art", () => {

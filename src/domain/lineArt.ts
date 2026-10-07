@@ -300,22 +300,13 @@ function withDistance(raw: Vec[]): LinePoint[] {
   return points;
 }
 
-const QUARTER_TURN_COS_SIN: readonly (readonly [number, number])[] = [
-  [1, 0],
-  [0, 1],
-  [-1, 0],
-  [0, -1],
-];
-
 export function rotateLineArt(art: LineArt, degrees: number): LineArt {
   if (art.width !== art.height) {
     fail("rotateLineArt needs a square viewBox");
   }
   const c = art.width / 2;
-  const [cos, sin] =
-    degrees % 90 === 0
-      ? QUARTER_TURN_COS_SIN[(((degrees / 90) % 4) + 4) % 4]!
-      : [Math.cos((degrees * Math.PI) / 180), Math.sin((degrees * Math.PI) / 180)];
+  const cos = Math.cos((degrees * Math.PI) / 180);
+  const sin = Math.sin((degrees * Math.PI) / 180);
   const turn = (p: LinePoint): LinePoint => {
     const dx = p.x - c;
     const dy = p.y - c;

@@ -312,7 +312,7 @@ export function addDotManIcon(
   const box = size + 2 * reach;
   const key = `dotman-icon-${style}-${size}-${px}-${backdrop}`;
   if (!scene.textures.exists(key)) {
-    // Baked at canvas density so the icon can live in containers and tween like a sprite.
+    // The glow filter centres on world coordinates, so it breaks inside containers (HUD, store tiles).
     const texturePx = Math.ceil(box * px);
     const texture = scene.textures.addDynamicTexture(key, texturePx, texturePx)!;
     const obj = createLineArtObject(
