@@ -10,6 +10,8 @@ const GLOW_SOURCE_INSET_PX = 2;
 export type LineArtObject = {
   art: Phaser.GameObjects.Graphics;
   glow: Phaser.GameObjects.Graphics | null;
+  source: LineArt;
+  scale: number;
   color: number;
   backdrop: number;
   look: GhostLineArtLook;
@@ -51,12 +53,19 @@ function drawStrands(
     }
     if (strand.stroke !== "none") {
       const width = look.lineWidth * art.width * unit;
-      g.lineStyle(
-        backdrop === null ? Math.max(0, width - GLOW_SOURCE_INSET_PX) : width,
-        resolvePaint(strand.stroke, color),
-        1,
-      );
+      const strokeWidth = backdrop === null ? Math.max(0, width - GLOW_SOURCE_INSET_PX) : width;
+      const strokeColor = resolvePaint(strand.stroke, color);
+      g.lineStyle(strokeWidth, strokeColor, 1);
       g.strokePoints(points, strand.closed, strand.closed);
+      // Graphics strokes are butt-capped, so open strands get round end disks.
+      if (!strand.closed && points.length > 0 && strokeWidth > 0) {
+        g.fillStyle(strokeColor, 1);
+        const r = strokeWidth / 2;
+        g.fillCircle(points[0]!.x, points[0]!.y, r);
+        if (points.length > 1) {
+          g.fillCircle(points[points.length - 1]!.x, points[points.length - 1]!.y, r);
+        }
+      }
     }
   }
 }
@@ -100,7 +109,16 @@ export function createLineArtObject(
   }
   const artGraphics = scene.add.graphics().setScale(scale);
   drawStrands(artGraphics, art, color, look, backdrop);
-  return { art: artGraphics, glow, color, backdrop, look, glowUnit };
+  return {
+    art: artGraphics,
+    glow,
+    source: art,
+    scale,
+    color,
+    backdrop,
+    look,
+    glowUnit,
+  };
 }
 
 export function restyleLineArtObject(
@@ -114,12 +132,23 @@ export function restyleLineArtObject(
     drawStrands(obj.glow, art, color, obj.look, null, obj.glowUnit);
     (obj.glow.filters!.internal.list[0] as Phaser.Filters.Glow).color = color;
   }
+  obj.source = art;
   obj.color = color;
   obj.backdrop = backdrop;
 }
 
-export function placeLineArtObject(obj: LineArtObject, x: number, y: number, alpha: number): void {
-  obj.art.setPosition(x, y).setAlpha(alpha);
+export function placeLineArtObject(
+  obj: LineArtObject,
+  x: number,
+  y: number,
+  alpha: number,
+  scale = 1,
+): void {
+  obj.art
+    .setPosition(x, y)
+    .setAlpha(alpha)
+    .setScale(obj.scale * scale);
+  // The glow keeps its built size: a scaled filtered Graphics overshoots the art.
   if (obj.glow !== null) {
     obj.glow.setPosition(x, y).setAlpha(alpha);
     obj.glow.filterCamera.centerOn(x, y);

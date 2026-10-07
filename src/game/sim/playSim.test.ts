@@ -25,6 +25,7 @@ import {
   ghostRadius,
   INKY_DRAWABLE_ID,
   PINKY_DRAWABLE_ID,
+  PLAYER_DRAWABLE_ID,
   PLAYER_SPEED,
   playerRadius,
 } from "../../domain/playfield";
@@ -3534,12 +3535,20 @@ describe("ghost style (neon line art vs pixel)", () => {
     }
   });
 
-  it("tells the renderer which drawables are line art", () => {
-    const events = runFrames(startSim({ level: 5 }, "lineart"), 1);
+  it("tells the renderer which drawables are line art, Dot-Man included", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    const events = runFrames(sim, 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
     expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
-      sorted([BLINKY_DRAWABLE_ID, PINKY_DRAWABLE_ID, INKY_DRAWABLE_ID, CLYDE_DRAWABLE_ID]),
+      sorted([
+        PLAYER_DRAWABLE_ID,
+        BLINKY_DRAWABLE_ID,
+        PINKY_DRAWABLE_ID,
+        INKY_DRAWABLE_ID,
+        CLYDE_DRAWABLE_ID,
+      ]),
     );
+    expect(sim.snapshot().lineArtPlayer).toBe(true);
   });
 
   it("draws no line art with the pixel style, and switches back mid-run", () => {
@@ -3549,14 +3558,17 @@ describe("ghost style (neon line art vs pixel)", () => {
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
     expect(draws.at(-1)?.lineArtDrawableIds).toEqual([]);
     expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    expect(sim.snapshot().lineArtPlayer).toBe(false);
     sim.setGhostStyle("neon");
     expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
+    expect(sim.snapshot().lineArtPlayer).toBe(true);
   });
 
-  it("keeps line-art ghosts under lined style", () => {
+  it("keeps line-art ghosts and Dot-Man under lined style", () => {
     const sim = startSim({ level: 5 }, "lineart");
     sim.setGhostStyle("lined");
     expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
+    expect(sim.snapshot().lineArtPlayer).toBe(true);
   });
 
   it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {

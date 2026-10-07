@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseLineArt, type LineStrand } from "./lineArt";
+import { parseLineArt, turnLineArt, type LineStrand } from "./lineArt";
 
 function svg(...paths: string[]): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${paths.join("")}</svg>`;
@@ -81,6 +81,26 @@ describe("parseLineArt", () => {
     expect(() => strand("M0 0 L1 1 Z M5 5 L6 6")).toThrow("lineArt: one subpath per path");
     expect(() => parseLineArt('<svg viewBox="1 0 10 10"></svg>')).toThrow(
       'lineArt: viewBox must be "0 0 W H"',
+    );
+  });
+});
+
+describe("turnLineArt", () => {
+  const art = parseLineArt(svg(`<path id="a" stroke="currentColor" d="M50 50 L90 50" />`));
+  const tip = (turns: number) => turnLineArt(art, turns).strands[0]!.points.at(-1)!;
+
+  it("turns clockwise on screen about the centre, keeping distance along the strand", () => {
+    expect(tip(0)).toEqual({ x: 90, y: 50, s: 40 });
+    expect(tip(1)).toEqual({ x: 50, y: 90, s: 40 });
+    expect(tip(2)).toEqual({ x: 10, y: 50, s: 40 });
+    expect(tip(3)).toEqual({ x: 50, y: 10, s: 40 });
+    expect(tip(-1)).toEqual(tip(3));
+    expect(turnLineArt(art, 1).strands[0]!.length).toBe(40);
+  });
+
+  it("rejects non-square art", () => {
+    expect(() => turnLineArt({ ...art, height: 50 }, 1)).toThrow(
+      "lineArt: turnLineArt needs a square viewBox",
     );
   });
 });
