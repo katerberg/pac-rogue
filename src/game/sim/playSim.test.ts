@@ -460,24 +460,17 @@ describe("PlaySim", () => {
   });
 
   it("offers rares at level clear only once two upgrades are owned", () => {
-    let sawRare = false;
-    for (let n = 0; n < 6; n += 1) {
-      const one = startSim(
-        { jumpToUpgrade: true, level: 4, enableUpgrades: ["passiveGhostSlow"] },
-        `rareOffer${n}`,
-      );
-      expect(drainToOffer(one).upgrades.filter(isRare)).toEqual([]);
-      const two = startSim(
-        {
+    const offer = (owned: UpgradeId[]) =>
+      drainToOffer(
+        startSim({
           jumpToUpgrade: true,
           level: 4,
-          enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
-        },
-        `rareOffer${n}`,
-      );
-      sawRare ||= drainToOffer(two).upgrades.some(isRare);
-    }
-    expect(sawRare).toBe(true);
+          enableUpgrades: owned,
+          forceUpgrade: "passiveMartyr",
+        }),
+      ).upgrades;
+    expect(offer(["passiveGhostSlow"]).filter(isRare)).toEqual([]);
+    expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveMartyr");
   });
 
   it("clears a board into an upgrade offer, then the next level", () => {
