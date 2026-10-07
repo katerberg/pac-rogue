@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { fontLineArtLook, neonFontGlowSourceWidthPx } from "./fontLook";
+import { fontLineArtLook, fontLookWithoutBloom, neonFontGlowSourceWidthPx } from "./fontLook";
 import { DEFAULT_TUNING, resolveTuning } from "../tuning";
+
+describe("fontLookWithoutBloom", () => {
+  it("zeros bloom and leaves a null-glow look unchanged", () => {
+    const neon = fontLineArtLook(null, "neon");
+    expect(fontLookWithoutBloom(neon).glow).toBeNull();
+    expect(fontLookWithoutBloom(neon)).toMatchObject({
+      thickness: neon.thickness,
+      glowColor: neon.glowColor,
+    });
+    const lined = fontLineArtLook(null, "lined");
+    expect(fontLookWithoutBloom(lined)).toBe(lined);
+  });
+});
 
 describe("neonFontGlowSourceWidthPx", () => {
   it("keeps menu-thin strokes above the old flat-inset collapse", () => {

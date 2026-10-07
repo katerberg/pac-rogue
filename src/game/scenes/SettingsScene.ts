@@ -169,13 +169,16 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
     this.ghostStyle = loadGhostStyle();
 
-    this.add.rectangle(
-      PLAYFIELD_WIDTH / 2,
-      PLAYFIELD_HEIGHT / 2,
-      PLAYFIELD_WIDTH,
-      PLAYFIELD_HEIGHT,
-      MAZE_BACKGROUND_COLOR,
-    );
+    // Under neon-text glow (−0.1 when text depth is 0).
+    this.add
+      .rectangle(
+        PLAYFIELD_WIDTH / 2,
+        PLAYFIELD_HEIGHT / 2,
+        PLAYFIELD_WIDTH,
+        PLAYFIELD_HEIGHT,
+        MAZE_BACKGROUND_COLOR,
+      )
+      .setDepth(-1);
 
     const title = addGameText(this, PLAYFIELD_WIDTH / 2, 80, "SETTINGS", MENU_TITLE_FONT_SIZE);
     placeGameText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);

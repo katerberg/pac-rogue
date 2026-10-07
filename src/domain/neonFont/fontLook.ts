@@ -35,3 +35,8 @@ export function fontLineArtLook(
 export function neonFontGlowSourceWidthPx(sourceStrokePx: number, insetPx: number = 2): number {
   return Math.max(0.5, sourceStrokePx - Math.min(insetPx, sourceStrokePx * 0.5));
 }
+
+/** Crisp neon strokes without bloom (e.g. dense LEARN upgrade lists). */
+export function fontLookWithoutBloom(look: FontLineArtLook): FontLineArtLook {
+  return look.glow === null ? look : { ...look, glow: null };
+}

@@ -22,6 +22,7 @@ import {
 import { neonRoundJoinIndices } from "../../domain/neonFont/strokeJoins";
 import {
   fontLineArtLook,
+  fontLookWithoutBloom,
   neonFontGlowSourceWidthPx,
   type FontLineArtLook,
 } from "../../domain/neonFont/fontLook";
@@ -107,6 +108,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   private ready = false;
   private lineSpacingPx = 0;
   private centerAlign = false;
+  private allowBloom = true;
 
   constructor(
     scene: Phaser.Scene,
@@ -196,6 +198,19 @@ export class NeonText extends Phaser.GameObjects.Container {
     this.rebuild();
   }
 
+  setAllowBloom(allow: boolean): this {
+    if (this.allowBloom === allow) {
+      return this;
+    }
+    this.allowBloom = allow;
+    this.rebuild();
+    return this;
+  }
+
+  private effectiveLook(): FontLineArtLook {
+    return this.allowBloom ? this.look : fontLookWithoutBloom(this.look);
+  }
+
   private clearFallback(): void {
     for (const fb of this.fallbackChars) {
       fb.destroy();
@@ -208,11 +223,12 @@ export class NeonText extends Phaser.GameObjects.Container {
       this.glow.destroy();
       this.glow = null;
     }
-    if (this.look.glow === null) {
+    const look = this.effectiveLook();
+    if (look.glow === null) {
       return null;
     }
     this.glowPixelsPerWorld = renderScaleOf(this.scene);
-    this.glowReachPx = Math.ceil(this.look.glow.distancePx * this.glowPixelsPerWorld);
+    this.glowReachPx = Math.ceil(look.glow.distancePx * this.glowPixelsPerWorld);
     // Sibling of the container (not a child): Glow filters mis-focus inside Containers.
     this.glow = this.scene.add.graphics();
     return this.glow;
@@ -429,8 +445,9 @@ export class NeonText extends Phaser.GameObjects.Container {
           this.tintColor,
         );
         if (glow !== null) {
+          const look = this.effectiveLook();
           const sourceStroke = strokeWidth * pps;
-          const glowWidthPx = this.look.glowKnockout
+          const glowWidthPx = look.glowKnockout
             ? neonFontGlowSourceWidthPx(sourceStroke)
             : sourceStroke;
           this.strokeGlyph(
@@ -441,7 +458,7 @@ export class NeonText extends Phaser.GameObjects.Container {
             unit * pps,
             heightScale,
             glowWidthPx,
-            this.look.glowColor,
+            look.glowColor,
           );
         }
         cursorX += metrics.advance * unit;
@@ -482,7 +499,8 @@ export class NeonText extends Phaser.GameObjects.Container {
   }
 
   private refreshGlowFilter(glow: Phaser.GameObjects.Graphics | null): void {
-    if (glow === null || this.look.glow === null) {
+    const look = this.effectiveLook();
+    if (glow === null || look.glow === null) {
       return;
     }
     glow.enableFilters();
@@ -491,8 +509,8 @@ export class NeonText extends Phaser.GameObjects.Container {
     glow.filterCamera.setZoom(this.glowPixelsPerWorld);
     this.syncGlowTransform();
     glow.filters!.internal.addGlow(
-      this.look.glowColor,
-      this.look.glow.outerStrength,
+      look.glowColor,
+      look.glow.outerStrength,
       0,
       1,
       true,
@@ -506,6 +524,12 @@ export type GameText = Phaser.GameObjects.BitmapText | NeonText;
 
 export function isNeonText(text: GameText): text is NeonText {
   return text instanceof NeonText;
+}
+
+export function setGameTextBloom(text: GameText, allow: boolean): void {
+  if (isNeonText(text)) {
+    text.setAllowBloom(allow);
+  }
 }
 
 function addNeonText(
