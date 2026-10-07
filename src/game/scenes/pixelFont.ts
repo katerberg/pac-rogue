@@ -5,6 +5,8 @@ import { font8x8Glyph } from "./font8x8Basic";
 export const PIXEL_FONT_KEY = "pac-pixel";
 const PIXEL_FONT_ATLAS_KEY = "pac-pixel-atlas";
 const CHAR_SIZE = 8;
+const GUTTER = 1;
+const CELL_SIZE = CHAR_SIZE + GUTTER * 2;
 const CHARS_PER_ROW = 16;
 const CHARSET = Phaser.GameObjects.RetroFont.TEXT_SET1;
 
@@ -35,10 +37,10 @@ export function ensurePixelFont(scene: Phaser.Scene): void {
       chars: CHARSET,
       charsPerRow: CHARS_PER_ROW,
       lineSpacing: 0,
-      "offset.x": 0,
-      "offset.y": 0,
-      "spacing.x": 0,
-      "spacing.y": 0,
+      "offset.x": GUTTER,
+      "offset.y": GUTTER,
+      "spacing.x": GUTTER * 2,
+      "spacing.y": GUTTER * 2,
     }),
   );
 }
@@ -75,8 +77,8 @@ export function placePixelText(
 
 function buildPixelFontAtlas(scene: Phaser.Scene): void {
   const rows = Math.ceil(CHARSET.length / CHARS_PER_ROW);
-  const width = CHARS_PER_ROW * CHAR_SIZE;
-  const height = rows * CHAR_SIZE;
+  const width = CHARS_PER_ROW * CELL_SIZE;
+  const height = rows * CELL_SIZE;
   const canvasTexture = scene.textures.createCanvas(PIXEL_FONT_ATLAS_KEY, width, height);
   if (canvasTexture === null) {
     throw new Error("Failed to create pixel font atlas canvas");
@@ -93,8 +95,8 @@ function buildPixelFontAtlas(scene: Phaser.Scene): void {
     if (glyph === undefined) {
       continue;
     }
-    const cellX = (index % CHARS_PER_ROW) * CHAR_SIZE;
-    const cellY = Math.floor(index / CHARS_PER_ROW) * CHAR_SIZE;
+    const cellX = (index % CHARS_PER_ROW) * CELL_SIZE + GUTTER;
+    const cellY = Math.floor(index / CHARS_PER_ROW) * CELL_SIZE + GUTTER;
     for (let row = 0; row < CHAR_SIZE; row += 1) {
       const bits = glyph[row]!;
       for (let col = 0; col < CHAR_SIZE; col += 1) {
