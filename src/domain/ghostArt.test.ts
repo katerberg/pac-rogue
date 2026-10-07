@@ -8,6 +8,7 @@ import {
   parseGhostStyle,
   playerLineArtLook,
   sameGhostLineArtLook,
+  learnCheckboxLook,
   styleUsesGlow,
   textStyleFor,
 } from "./ghostArt";
@@ -38,6 +39,17 @@ describe("textStyleFor", () => {
     expect(textStyleFor("neon")).toBe("neon");
     expect(textStyleFor("lined")).toBe("neon");
     expect(textStyleFor("pixel")).toBe("pixel");
+  });
+});
+
+describe("learnCheckboxLook", () => {
+  it("uses a thin circle under neon and lined", () => {
+    expect(learnCheckboxLook("neon")).toEqual({ shape: "circle", strokeWidth: 1 });
+    expect(learnCheckboxLook("lined")).toEqual({ shape: "circle", strokeWidth: 1 });
+  });
+
+  it("keeps the square box under pixel", () => {
+    expect(learnCheckboxLook("pixel")).toEqual({ shape: "square", strokeWidth: 2 });
   });
 });
 

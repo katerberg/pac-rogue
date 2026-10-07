@@ -33,7 +33,7 @@ All four ghosts are always selectable. Only upgrades this machine has met in rea
   ([`src/domain/learnUpgradeColumns.ts`](../src/domain/learnUpgradeColumns.ts)) fills the left column
   with the first 3 seen schools and the right column with the rest, in order (4 seen schools → 3 left,
   1 right). Each school has one row per seen
-  `UpgradeDef` in canonical `UPGRADE_DEFS` order within each group: a checkbox + label, filled in yellow while selected. Multiple upgrades can be
+  `UpgradeDef` in canonical `UPGRADE_DEFS` order within each group: a checkbox + label, filled in yellow while selected. Under Settings → STYLE = NEON or LINED the checkbox is a thin circle (`learnCheckboxLook`); under PIXEL it stays a square. Multiple upgrades can be
   selected at once (a local `RunUpgrades` bag, not tied to any real run) and stay selected across a
   ghost switch — only the transient power-pellet timers (freeze/wall-pass/invuln/speed-burst), any
   ghost corner glide/hold and any in-flight recall hold reset when the ghost changes.

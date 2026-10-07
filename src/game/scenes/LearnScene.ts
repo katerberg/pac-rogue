@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
-import { textStyleFor, type GhostStyle } from "../../domain/ghostArt";
+import { learnCheckboxLook, textStyleFor, type GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
@@ -119,7 +119,7 @@ const HOVER_PREVIEW_Y_MAX = 510;
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
 type UpgradeRow = {
   id: BaseUpgradeId;
-  checkMark: Phaser.GameObjects.Rectangle;
+  checkMark: Phaser.GameObjects.Shape;
   label: GameText;
   plus: GameText;
   plusBox: Phaser.GameObjects.Rectangle;
@@ -173,7 +173,7 @@ export class LearnScene extends Phaser.Scene {
     const title = addGameText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
     placeGameText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
     this.buildGhostSlots(ghostStyle);
-    this.buildUpgradeRows();
+    this.buildUpgradeRows(ghostStyle);
     this.buildBackButton();
 
     this.noEffectBanner = addGameText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
@@ -281,7 +281,7 @@ export class LearnScene extends Phaser.Scene {
     }
   }
 
-  private buildUpgradeRows(): void {
+  private buildUpgradeRows(ghostStyle: GhostStyle): void {
     this.upgradeRows = [];
     const columns = splitSchoolColumns(groupUpgradesBySchool(learnUpgradeDefs(this.seen.upgrades)));
     for (const column of ["left", "right"] as const) {
@@ -299,23 +299,45 @@ export class LearnScene extends Phaser.Scene {
         placeGameText(header, UPGRADE_COLUMN_X[column], y, 0, 0.5);
         for (const def of defs) {
           y += UPGRADE_ROW_GAP;
-          this.buildUpgradeRow(def, column, y);
+          this.buildUpgradeRow(def, column, y, ghostStyle);
         }
       }
     }
   }
 
-  private buildUpgradeRow(def: UpgradeDef, column: LearnColumn, y: number): void {
+  private buildUpgradeRow(
+    def: UpgradeDef,
+    column: LearnColumn,
+    y: number,
+    ghostStyle: GhostStyle,
+  ): void {
     const columnX = UPGRADE_COLUMN_X[column];
     const plusX = columnX + UPGRADE_ROW_WIDTH - UPGRADE_PLUS_INSET;
     const checkboxX = columnX + UPGRADE_CHECK_SIZE / 2;
     const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
-    this.add
-      .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
-      .setStrokeStyle(2, TEXT_COLOR_WHITE);
-    const checkMark = this.add
-      .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, TEXT_COLOR_YELLOW)
-      .setVisible(false);
+    const look = learnCheckboxLook(ghostStyle);
+    const checkRadius = UPGRADE_CHECK_SIZE / 2;
+    if (look.shape === "circle") {
+      this.add
+        .circle(checkboxX, y, checkRadius, 0x000000, 0)
+        .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE);
+    } else {
+      this.add
+        .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
+        .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE);
+    }
+    const checkMark =
+      look.shape === "circle"
+        ? this.add.circle(checkboxX, y, checkRadius - 2, TEXT_COLOR_YELLOW).setVisible(false)
+        : this.add
+            .rectangle(
+              checkboxX,
+              y,
+              UPGRADE_CHECK_SIZE - 4,
+              UPGRADE_CHECK_SIZE - 4,
+              TEXT_COLOR_YELLOW,
+            )
+            .setVisible(false);
     const label = addGameText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
     placeGameText(label, labelX, y, 0, 0.5);
     const plusBox = this.add
@@ -323,7 +345,7 @@ export class LearnScene extends Phaser.Scene {
       .setStrokeStyle(2, TEXT_COLOR_YELLOW)
       .setVisible(false);
     const plus = addGameText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-    const pixelInk = textStyleFor(loadGhostStyle()) === "pixel";
+    const pixelInk = textStyleFor(ghostStyle) === "pixel";
     placeGameText(
       plus,
       plusX + (pixelInk ? (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8 : 0),
