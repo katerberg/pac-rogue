@@ -1,6 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { fontLineArtLook } from "./fontLook";
-import { resolveTuning } from "../tuning";
+import { fontLineArtLook, fontLookWithoutBloom, neonFontGlowSourceWidthPx } from "./fontLook";
+import { DEFAULT_TUNING, resolveTuning } from "../tuning";
+
+describe("fontLookWithoutBloom", () => {
+  it("zeros bloom and leaves a null-glow look unchanged", () => {
+    const neon = fontLineArtLook(null, "neon");
+    expect(fontLookWithoutBloom(neon).glow).toBeNull();
+    expect(fontLookWithoutBloom(neon)).toMatchObject({
+      thickness: neon.thickness,
+      glowColor: neon.glowColor,
+    });
+    const lined = fontLineArtLook(null, "lined");
+    expect(fontLookWithoutBloom(lined)).toBe(lined);
+  });
+});
+
+describe("neonFontGlowSourceWidthPx", () => {
+  it("keeps menu-thin strokes above the old flat-inset collapse", () => {
+    expect(neonFontGlowSourceWidthPx(1.6)).toBe(0.8);
+  });
+
+  it("uses the full inset on thick strokes", () => {
+    expect(neonFontGlowSourceWidthPx(4)).toBe(2);
+    expect(neonFontGlowSourceWidthPx(10)).toBe(8);
+  });
+
+  it("floors at 0.5", () => {
+    expect(neonFontGlowSourceWidthPx(0.5)).toBe(0.5);
+    expect(neonFontGlowSourceWidthPx(0)).toBe(0.5);
+  });
+});
 
 describe("fontLineArtLook", () => {
   it("has no bloom with no bloom strength or radius", () => {
@@ -8,10 +37,25 @@ describe("fontLineArtLook", () => {
     expect(fontLineArtLook(resolveTuning({ fontBloomRadius: 0 })).glow).toBeNull();
   });
 
-  it("reads restrained defaults", () => {
-    expect(fontLineArtLook(resolveTuning({}))).toEqual({
+  it("keeps neon bloom with null tuning and drops it under lined/pixel", () => {
+    expect(fontLineArtLook(null, "neon").glow).toEqual({
+      outerStrength: DEFAULT_TUNING.fontBloom,
+      distancePx: DEFAULT_TUNING.fontBloomRadius,
+    });
+    expect(fontLineArtLook(null, "lined").glow).toBeNull();
+    expect(fontLineArtLook(null, "pixel").glow).toBeNull();
+  });
+
+  it("ignores STYLE glow when knobs are on", () => {
+    expect(
+      fontLineArtLook(resolveTuning({ fontBloom: 3, fontBloomRadius: 9 }), "lined").glow,
+    ).toEqual({ outerStrength: 3, distancePx: 9 });
+  });
+
+  it("reads neon defaults", () => {
+    expect(fontLineArtLook(null, "neon")).toEqual({
       thickness: 0.4,
-      glow: { outerStrength: 0.8, distancePx: 4 },
+      glow: { outerStrength: 2.4, distancePx: 12 },
       glowColor: 0x7ec8ff,
       letterSpacing: 0,
       heightScale: 1,

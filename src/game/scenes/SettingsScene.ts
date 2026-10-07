@@ -33,7 +33,13 @@ import {
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
-import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
+import {
+  addGameText,
+  placeGameText,
+  placeSelectableMenuOption,
+  syncFontLookFromStorage,
+  type GameText,
+} from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
@@ -163,13 +169,15 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
     this.ghostStyle = loadGhostStyle();
 
-    this.add.rectangle(
-      PLAYFIELD_WIDTH / 2,
-      PLAYFIELD_HEIGHT / 2,
-      PLAYFIELD_WIDTH,
-      PLAYFIELD_HEIGHT,
-      MAZE_BACKGROUND_COLOR,
-    );
+    this.add
+      .rectangle(
+        PLAYFIELD_WIDTH / 2,
+        PLAYFIELD_HEIGHT / 2,
+        PLAYFIELD_WIDTH,
+        PLAYFIELD_HEIGHT,
+        MAZE_BACKGROUND_COLOR,
+      )
+      .setDepth(-1);
 
     const title = addGameText(this, PLAYFIELD_WIDTH / 2, 80, "SETTINGS", MENU_TITLE_FONT_SIZE);
     placeGameText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
@@ -433,6 +441,7 @@ export class SettingsScene extends Phaser.Scene {
     }
     this.ghostStyle = style;
     saveGhostStyle(style);
+    syncFontLookFromStorage();
     const data: SettingsSceneData = {
       returnScene: this.returnScene,
       musicId: this.musicId,

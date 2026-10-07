@@ -258,7 +258,8 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   backgroundColor: "Color behind the maze.",
   fontThickness:
     "Neon typeface stroke width in grid cells (a glyph is 2×4 cells; 1 cell = a quarter of the font size). Visual only; extreme values are for dialing-in.",
-  fontBloom: "Phaser outerStrength of the bloom around neon text. 0 = no bloom.",
+  fontBloom:
+    "Phaser outerStrength of the bloom around neon text. 0 = no bloom. With knobs on this always applies; without knobs, Settings → STYLE = PIXEL or LINED turns font bloom off.",
   fontBloomRadius: "How far neon text bloom spreads beyond the stroke, in pixels. 0 = no bloom.",
   fontGlowColor: "Color of the bloom around neon text (the core uses the call-site tint).",
   fontLetterSpacing:
