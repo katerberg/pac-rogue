@@ -16,7 +16,7 @@ describe("pelletStyleFor", () => {
       glowRadius: DEFAULT_TUNING.pelletGlowRadius,
       glowColor: mazeColorForIndex(2),
       fillColor: DEFAULT_TUNING.pelletCoreColor,
-      fillOpacity: 0,
+      fillOpacity: 1,
     });
     expect(style!.power.radius).toBe(DEFAULT_TUNING.powerPelletRadius);
     expect(style!.power.strokeWidth).toBe(DEFAULT_TUNING.powerPelletStrokeWidth);

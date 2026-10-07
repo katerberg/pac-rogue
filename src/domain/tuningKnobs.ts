@@ -250,27 +250,27 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
   pelletRadius:
-    "Radius of the neon regular-dot stroke ring in world pixels. Visual only; collision is unchanged.",
-  pelletStrokeWidth: "Stroke thickness of neon regular dots in pixels. Visual only.",
+    "Radius of the neon regular dot in world pixels. Visual only; collision is unchanged.",
+  pelletStrokeWidth: "Stroke thickness around neon regular dots in pixels. Visual only.",
   pelletGlow:
     "Phaser outerStrength of the neon glow around regular dots. 0 = no glow. With knobs on this always applies; without knobs, Settings → STYLE = PIXEL keeps PNG dots.",
-  pelletGlowRadius: "How far the regular-dot glow spreads beyond the ring, in pixels. 0 = no glow.",
-  pelletCoreColor: "Stroke colour of neon regular, power, and boss dots (default white).",
+  pelletGlowRadius: "How far the regular-dot glow spreads beyond the disc, in pixels. 0 = no glow.",
+  pelletCoreColor: "Fill and stroke colour of neon regular, power, and boss dots (default white).",
   pelletGlowColor:
     "Glow tint for neon regular, power, and boss dots. Without knobs this follows Settings → MAZE COLOR.",
   pelletFillOpacity:
-    "Fill opacity inside regular neon rings (0 = hollow stroke). Does not affect Lazy Looper optional dots.",
-  powerPelletRadius: "Radius of neon power-pellet rings. Larger than regular dots by default.",
+    "Fill opacity of regular neon dots (0 = hollow stroke only). Does not affect Lazy Looper optional dots.",
+  powerPelletRadius: "Radius of neon power pellets. Larger than regular dots by default.",
   powerPelletStrokeWidth:
     "Stroke thickness of neon power pellets. Thicker than regular by default.",
   powerPelletGlow: "Phaser outerStrength of the neon glow around power pellets. 0 = no glow.",
   powerPelletGlowRadius: "How far the power-pellet glow spreads, in pixels. 0 = no glow.",
-  powerPelletFillOpacity: "Fill opacity inside neon power-pellet rings (0 = hollow).",
-  bossPelletRadius: "Base radius of neon boss-pellet rings before the size pulse.",
+  powerPelletFillOpacity: "Fill opacity of neon power pellets (0 = hollow stroke only).",
+  bossPelletRadius: "Base radius of neon boss pellets before the size pulse.",
   bossPelletStrokeWidth: "Stroke thickness of neon boss pellets.",
   bossPelletGlow: "Phaser outerStrength of the neon glow around boss pellets. 0 = no glow.",
   bossPelletGlowRadius: "How far the boss-pellet glow spreads, in pixels. 0 = no glow.",
-  bossPelletFillOpacity: "Fill opacity inside neon boss-pellet rings (0 = hollow).",
+  bossPelletFillOpacity: "Fill opacity of neon boss pellets (0 = hollow stroke only).",
   optionalPelletRadius: "Radius of Lazy Looper optional neon dots.",
   optionalPelletStrokeWidth: "Stroke thickness of Lazy Looper optional neon dots.",
   optionalPelletGlow:
