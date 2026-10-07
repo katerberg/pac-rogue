@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseLineArt, turnLineArt, type LineStrand } from "./lineArt";
+import { parseLineArt, rotateLineArt, type LineStrand } from "./lineArt";
 
 function svg(...paths: string[]): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${paths.join("")}</svg>`;
@@ -85,22 +85,28 @@ describe("parseLineArt", () => {
   });
 });
 
-describe("turnLineArt", () => {
+describe("rotateLineArt", () => {
   const art = parseLineArt(svg(`<path id="a" stroke="currentColor" d="M50 50 L90 50" />`));
-  const tip = (turns: number) => turnLineArt(art, turns).strands[0]!.points.at(-1)!;
+  const round = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
+  const tip = (degrees: number) => {
+    const p = rotateLineArt(art, degrees).strands[0]!.points.at(-1)!;
+    return [p.x, p.y, p.s].map(round);
+  };
 
   it("turns clockwise on screen about the centre, keeping distance along the strand", () => {
-    expect(tip(0)).toEqual({ x: 90, y: 50, s: 40 });
-    expect(tip(1)).toEqual({ x: 50, y: 90, s: 40 });
-    expect(tip(2)).toEqual({ x: 10, y: 50, s: 40 });
-    expect(tip(3)).toEqual({ x: 50, y: 10, s: 40 });
-    expect(tip(-1)).toEqual(tip(3));
-    expect(turnLineArt(art, 1).strands[0]!.length).toBe(40);
+    expect(tip(0)).toEqual([90, 50, 40]);
+    expect(tip(90)).toEqual([50, 90, 40]);
+    expect(tip(180)).toEqual([10, 50, 40]);
+    expect(tip(270)).toEqual([50, 10, 40]);
+    expect(tip(-90)).toEqual(tip(270));
+    const diagonal = round(50 + 40 * Math.SQRT1_2);
+    expect(tip(45)).toEqual([diagonal, diagonal, 40]);
+    expect(rotateLineArt(art, 90).strands[0]!.length).toBe(40);
   });
 
   it("rejects non-square art", () => {
-    expect(() => turnLineArt({ ...art, height: 50 }, 1)).toThrow(
-      "lineArt: turnLineArt needs a square viewBox",
+    expect(() => rotateLineArt({ ...art, height: 50 }, 90)).toThrow(
+      "lineArt: rotateLineArt needs a square viewBox",
     );
   });
 });
