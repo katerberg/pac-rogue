@@ -13,7 +13,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addGameText, placeGameText, type GameText } from "./neonFont";
+import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
 import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
 
@@ -367,10 +367,13 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private setRowText(text: GameText, label: string, index: number): void {
-    const selected = index === this.selectedIndex;
-    text.setText(selected ? `> ${label}` : `  ${label}`);
-    text.setTint(selected ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    placeGameText(text, ROW_CENTER_X, ROW_Y[index]!, 0.5, 0.5);
+    placeSelectableMenuOption(
+      text,
+      label,
+      index === this.selectedIndex,
+      ROW_CENTER_X,
+      ROW_Y[index]!,
+    );
   }
 
   private refreshQuitConfirmTint(): void {

@@ -15,13 +15,8 @@ import {
 } from "../../domain/scoreListScroll";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { loadRunHistory } from "../storage/runHistoryStorage";
-import {
-  MENU_OPTION_FONT_SIZE,
-  MENU_TITLE_FONT_SIZE,
-  SCORES_FONT_SIZE,
-  TEXT_COLOR_YELLOW,
-} from "./pixelFont";
-import { addGameText, placeGameText, type GameText } from "./neonFont";
+import { MENU_OPTION_FONT_SIZE, MENU_TITLE_FONT_SIZE, SCORES_FONT_SIZE } from "./pixelFont";
+import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const LIST_TOP = 200;
@@ -117,11 +112,10 @@ export class HighScoresScene extends Phaser.Scene {
       this,
       PLAYFIELD_WIDTH / 2,
       BACK_Y,
-      "> BACK",
+      "BACK",
       MENU_OPTION_FONT_SIZE,
-      TEXT_COLOR_YELLOW,
     ).setDepth(10);
-    placeGameText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    placeSelectableMenuOption(this.backText, "BACK", true, PLAYFIELD_WIDTH / 2, BACK_Y);
     this.backText.setInteractive({ useHandCursor: true });
     this.backText.on("pointerdown", () => {
       this.goBack();
