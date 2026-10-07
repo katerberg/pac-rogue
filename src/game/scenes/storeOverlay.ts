@@ -61,7 +61,6 @@ const TILE_DOT_PX = 2;
 const TILE_COIN_PX = 8;
 const TILE_COIN_GAP_PX = 1;
 const TILE_GLYPH_Y = -5;
-const TILE_SPARKLES = 3;
 
 export type StoreOverlay = {
   open: (state: StoreState) => void;
@@ -340,7 +339,7 @@ export function createStoreOverlay(
       .container(x, y, [...(glow === null ? [] : [glow]), frame, glyph, ...coins, zone])
       .setDepth(TILE_DEPTH);
     if (slotRare(slot)) {
-      addRareFx(scene, container, size, size, schoolBorderColor(tileSchool), TILE_SPARKLES);
+      addRareFx(scene, container, size, size, schoolBorderColor(tileSchool));
     }
     return container;
   };
