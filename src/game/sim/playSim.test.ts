@@ -44,6 +44,9 @@ import {
   SHIELD_BREAK_INVULN_MS,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
   STARTING_UPGRADE_POOL,
+  STORE_RARE_UPGRADE_PRICE,
+  isRare,
+  type BaseUpgradeId,
   type UpgradeChoiceOffer,
   type UpgradeId,
 } from "../../domain/upgrades";
@@ -454,6 +457,27 @@ describe("PlaySim", () => {
       );
       expect(drainToOffer(sim)!.upgrades).toContain("passiveRemoteTransference");
     }
+  });
+
+  it("offers rares at level clear only once two upgrades are owned", () => {
+    let sawRare = false;
+    for (let n = 0; n < 6; n += 1) {
+      const one = startSim(
+        { jumpToUpgrade: true, level: 4, enableUpgrades: ["passiveGhostSlow"] },
+        `rareOffer${n}`,
+      );
+      expect(drainToOffer(one).upgrades.filter(isRare)).toEqual([]);
+      const two = startSim(
+        {
+          jumpToUpgrade: true,
+          level: 4,
+          enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
+        },
+        `rareOffer${n}`,
+      );
+      sawRare ||= drainToOffer(two).upgrades.some(isRare);
+    }
+    expect(sawRare).toBe(true);
   });
 
   it("clears a board into an upgrade offer, then the next level", () => {
@@ -1036,6 +1060,30 @@ describe("PlaySim", () => {
       runFrames(sim, 1, { storeToggle: true });
       return runFrames(sim, 1, { storeConfirm: true });
     }
+
+    it("sells a shelved rare for 4 Quarters, and never shelves two", () => {
+      const owned = ["passiveGhostSlow", "passiveAfterburner"] as const;
+      let bought = false;
+      for (let n = 0; n < 60 && !bought; n += 1) {
+        const sim = startSim(
+          { store: 1, level: 5, quarters: 10, lives: 4, maxLives: 4, enableUpgrades: [...owned] },
+          `rare${n}`,
+        );
+        const shelf = sim
+          .snapshot()
+          .storeStock!.filter((s) => s !== "life" && !s.includes(":")) as BaseUpgradeId[];
+        expect(shelf.filter(isRare).length).toBeLessThanOrEqual(1);
+        const nth = shelf.findIndex(isRare);
+        if (nth === -1) {
+          continue;
+        }
+        buy(sim, "upgrade", nth);
+        expect(sim.snapshot().quarters).toBe(10 - STORE_RARE_UPGRADE_PRICE);
+        expect(sim.snapshot().upgrades).toEqual([...owned, shelf[nth]]);
+        bought = true;
+      }
+      expect(bought).toBe(true);
+    });
 
     it("the first store stocks two lives, two abilities and an enhancement", () => {
       const sim = startSim({

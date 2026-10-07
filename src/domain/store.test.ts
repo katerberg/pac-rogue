@@ -13,12 +13,19 @@ import {
   parseStoreSlots,
   pickMidStoreLevel,
   promptView,
+  slotPrice,
   storeAfterLevel,
   storeStep,
   type StoreState,
   type StoreStepInput,
 } from "./store";
-import { ALL_UPGRADE_IDS, STORE_UPGRADE_PRICE, type UpgradeId } from "./upgrades";
+import {
+  ALL_UPGRADE_IDS,
+  STORE_RARE_UPGRADE_PRICE,
+  STORE_UPGRADE_PRICE,
+  isRare,
+  type UpgradeId,
+} from "./upgrades";
 
 const zeroRng = () => 0;
 
@@ -107,6 +114,33 @@ describe("createStoreState", () => {
     expect(swap).toMatchObject({ outgoingId: "passiveAfterburner", sold: false });
     const enhance = state.slots.find((s) => s.kind === "enhance");
     expect(enhance).toMatchObject({ targetId: "passiveAfterburner", sold: false });
+  });
+
+  it("shelves at most one rare, priced 4", () => {
+    const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
+    let shelvedRare = 0;
+    for (let seed = 1; seed <= 200; seed += 1) {
+      let x = seed;
+      const rng = () => {
+        x = (x * 1103515245 + 12345) % 2147483648;
+        return x / 2147483648;
+      };
+      const state = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, rng);
+      const rares = state.slots.filter((s) => s.kind === "upgrade" && isRare(s.id));
+      expect(rares.length).toBeLessThanOrEqual(1);
+      for (const slot of rares) {
+        expect(slotPrice(slot)).toBe(STORE_RARE_UPGRADE_PRICE);
+      }
+      shelvedRare += rares.length;
+    }
+    expect(shelvedRare).toBeGreaterThan(0);
+  });
+
+  it("shelves no rare before two upgrades are owned", () => {
+    for (const owned of [[], ["passiveAfterburner"]] as UpgradeId[][]) {
+      const state = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, () => 0.999);
+      expect(state.slots.some((s) => s.kind === "upgrade" && isRare(s.id))).toBe(false);
+    }
   });
 
   it("the first store has lives, abilities and an enhancement but no swap", () => {
@@ -280,6 +314,26 @@ describe("storeStep", () => {
     expect(step.purchase?.kind === "swap" && step.purchase.incomingId).not.toBe(
       "passiveDeathSpecialist",
     );
+  });
+
+  it("never swaps into a rare once the shelf has shown one, sold or not", () => {
+    const owned = ALL_UPGRADE_IDS.filter((id) => !isRare(id) && id !== "passiveGhostSlow");
+    const shelf = (second: UpgradeId): StoreState => {
+      const base = stateWith(owned);
+      let n = 0;
+      const slots = base.slots.map((s) => {
+        if (s.kind !== "upgrade") {
+          return s;
+        }
+        n += 1;
+        return n === 1
+          ? { ...s, id: "passiveGhostSlow" as const, sold: false }
+          : { ...s, id: second as typeof s.id, sold: true };
+      });
+      return storeStep({ ...base, slots }, input({ ...swapCell, owned }), zeroRng).state;
+    };
+    expect(promptView(shelf("passiveGhostSlow"), 10, owned)?.kind).toBe("confirm");
+    expect(promptView(shelf("passiveMartyr"), 10, owned)?.kind).toBe("nothingToSwap");
   });
 
   it("reports nothing to swap when every other upgrade is owned or on the shelf", () => {

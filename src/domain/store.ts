@@ -4,6 +4,7 @@ import {
   eligibleUpgrades,
   enhanceableUpgrades,
   enhancedIdOf,
+  isRare,
   storePriceFor,
   takeRandomFrom,
   type BaseUpgradeId,
@@ -131,7 +132,7 @@ export function createStoreState(
   firstStore = false,
   lifeRoom = Number.POSITIVE_INFINITY,
 ): StoreState {
-  const pool = eligibleUpgrades(owned);
+  let pool = eligibleUpgrades(owned);
   const slots: StoreSlot[] = [];
   let lifeSlots = 0;
   for (const { kind, col, row } of cells) {
@@ -141,7 +142,11 @@ export function createStoreState(
         slots.push({ kind, col, row, sold: false });
       }
     } else if (kind === "upgrade" && pool.length > 0) {
-      slots.push({ kind, col, row, id: takeRandomFrom(pool, rng), sold: false });
+      const id = takeRandomFrom(pool, rng);
+      slots.push({ kind, col, row, id, sold: false });
+      if (isRare(id)) {
+        pool = pool.filter((other) => !isRare(other));
+      }
     } else if (kind === "swap" && !firstStore && owned.length > 0) {
       const outgoingId = takeRandomFrom([...owned], rng);
       slots.push({ kind, col, row, outgoingId, sold: false });
@@ -181,10 +186,10 @@ export function slotIndexAtCell(state: StoreState, col: number, row: number): nu
 }
 
 function swapPool(state: StoreState, owned: readonly UpgradeId[]): BaseUpgradeId[] {
-  const onShelf = new Set(
-    state.slots.flatMap((slot) => (slot.kind === "upgrade" && !slot.sold ? [slot.id] : [])),
-  );
-  return eligibleUpgrades(owned).filter((id) => !onShelf.has(id));
+  const shelf = state.slots.flatMap((slot) => (slot.kind === "upgrade" ? [slot] : []));
+  const onShelf = new Set(shelf.flatMap((slot) => (slot.sold ? [] : [slot.id])));
+  const shelfHasRare = shelf.some((slot) => isRare(slot.id));
+  return eligibleUpgrades(owned).filter((id) => !onShelf.has(id) && !(shelfHasRare && isRare(id)));
 }
 
 export function promptView(

@@ -10,6 +10,7 @@ import {
   type UpgradeChoiceOption,
   type UpgradeSchool,
 } from "../../domain/upgrades";
+import { addRareFx } from "./rareFx";
 import {
   addPixelText,
   MENU_OPTION_FONT_SIZE,
@@ -119,6 +120,7 @@ type CardCopy = {
   description: string;
   school?: UpgradeSchool;
   enhanced?: boolean;
+  rare?: boolean;
 };
 
 function copyForOption(option: UpgradeChoiceOption): CardCopy {
@@ -134,6 +136,7 @@ function copyForOption(option: UpgradeChoiceOption): CardCopy {
     description: def.description,
     school: def.school,
     enhanced: option.enhanced === true,
+    rare: def.rare === true,
   };
 }
 
@@ -184,6 +187,9 @@ export function buildUpgradeCardVisual(
     y,
     school === null ? [bg, label, description] : [bg, label, school, description],
   );
+  if (copy.rare === true) {
+    addRareFx(scene, root, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, borderColor);
+  }
   return { root, bg, borderColor, label, school, description, targetLabel, targetDescription };
 }
 

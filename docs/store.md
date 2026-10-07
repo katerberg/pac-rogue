@@ -18,14 +18,14 @@ On a level that also offers the level-clear upgrade modal (3, 5, 6, 8), the moda
 
 Slot glyphs are walkable empty cells to the maze builder; `parseStoreSlots` turns each 2×2 block into a slot (row, then col order):
 
-| Glyph | Slot                                                                         | Price                                                           |
-| ----- | ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `L`   | Extra life (+1 life); two tiles, each sold once                              | `STORE_LIFE_PRICE` (1)                                          |
-| `U`   | Random unowned upgrade; two tiles                                            | `storePriceFor(id)` — `UpgradeDef.storePrice` (required; all 3) |
-| `S`   | Trade: lose a shown owned upgrade, gain a hidden random one (same form)      | `STORE_SWAP_PRICE` (1)                                          |
-| `E`   | Enhance: a random owned, unenhanced upgrade becomes its enhanced `Plus` form | `STORE_ENHANCE_PRICE` (2)                                       |
+| Glyph | Slot                                                                         | Price                                                      |
+| ----- | ---------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `L`   | Extra life (+1 life); two tiles, each sold once                              | `STORE_LIFE_PRICE` (1)                                     |
+| `U`   | Random unowned upgrade; two tiles                                            | `storePriceFor(id)` — `UpgradeDef.storePrice` (3; rares 4) |
+| `S`   | Trade: lose a shown owned upgrade, gain a hidden random one (same form)      | `STORE_SWAP_PRICE` (1)                                     |
+| `E`   | Enhance: a random owned, unenhanced upgrade becomes its enhanced `Plus` form | `STORE_ENHANCE_PRICE` (2)                                  |
 
-`createStoreState(cells, owned, rng, firstStore)` rolls stock once on entry: two distinct unowned upgrades (fewer if the pool is short — unfilled slots are omitted), both life tiles, and an enhancement whose target is picked at random from owned upgrades that are not yet enhanced (no such upgrade → no `E` tile). Later stores also stock a trade whose outgoing upgrade is picked at random from anything owned; the **first store** (after level 3, `STORE_FIRST_LEVEL`) omits the trade. No restock.
+`createStoreState(cells, owned, rng, firstStore)` rolls stock once on entry: two distinct unowned upgrades, at most one of them [rare](./upgrades.md#rarity) (fewer if the pool is short — unfilled slots are omitted), both life tiles, and an enhancement whose target is picked at random from owned upgrades that are not yet enhanced (no such upgrade → no `E` tile). Later stores also stock a trade whose outgoing upgrade is picked at random from anything owned; the **first store** (after level 3, `STORE_FIRST_LEVEL`) omits the trade. No restock.
 
 ## Movement
 

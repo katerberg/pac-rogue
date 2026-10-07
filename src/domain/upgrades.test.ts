@@ -55,7 +55,9 @@ import {
   SPEED_BURST_MS,
   WALL_PASS_MS,
   QUARTERS_CHOICE_AMOUNT,
+  STORE_RARE_UPGRADE_PRICE,
   STORE_UPGRADE_PRICE,
+  isRare,
   UPGRADE_DEFS,
   UPGRADE_SCHOOL_LABELS,
   UPGRADE_SCHOOL_ORDER,
@@ -409,12 +411,53 @@ describe("pickStartingUpgrade", () => {
 
 describe("eligibleUpgrades", () => {
   it("excludes owned ids", () => {
-    const unlocked = ALL_IDS.filter((id) => !isSpecialist(id));
+    const unlocked = ALL_IDS.filter((id) => !isSpecialist(id) && !isRare(id));
     expect(eligibleUpgrades([])).toEqual(unlocked);
     expect(eligibleUpgrades(["passiveAfterburner"])).toEqual(
       unlocked.filter((id) => id !== "passiveAfterburner"),
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
+  });
+});
+
+describe("rare upgrades", () => {
+  const RARE_IDS = [
+    "powerPelletWallPass",
+    "fruitPowerPellet",
+    "passiveOvercharge",
+    "passiveLazyLooper",
+    "passiveShieldPellets",
+    "passiveMartyr",
+    "passiveStreakEngine",
+    "powerPelletHunter",
+  ];
+
+  it("marks the build-around upgrades rare, in both forms", () => {
+    expect(ALL_UPGRADE_IDS.filter(isRare).sort()).toEqual([...RARE_IDS].sort());
+    for (const id of ALL_UPGRADE_IDS) {
+      expect(isRare(enhancedIdOf(id)), id).toBe(isRare(id));
+    }
+  });
+
+  it("costs 4 in the store, and every other upgrade 3", () => {
+    for (const id of ALL_UPGRADE_IDS) {
+      expect(storePriceFor(id), id).toBe(
+        isRare(id) ? STORE_RARE_UPGRADE_PRICE : STORE_UPGRADE_PRICE,
+      );
+    }
+    expect(STORE_RARE_UPGRADE_PRICE).toBe(4);
+  });
+
+  it("is never a starting upgrade", () => {
+    expect(STARTING_UPGRADE_POOL.filter(isRare)).toEqual([]);
+  });
+
+  it("only becomes eligible once two upgrades are owned", () => {
+    expect(eligibleUpgrades([]).filter(isRare)).toEqual([]);
+    expect(eligibleUpgrades(["passiveAfterburner"]).filter(isRare)).toEqual([]);
+    expect(eligibleUpgrades(["passiveAfterburner", "passiveGhostSlowPlus"]).filter(isRare)).toEqual(
+      ALL_UPGRADE_IDS.filter(isRare),
+    );
   });
 });
 
@@ -1078,7 +1121,9 @@ describe("enhanced upgrades", () => {
 
   it("keeps Plus ids out of every pool", () => {
     expect(ALL_UPGRADE_IDS.some((id) => isEnhancedId(id))).toBe(false);
-    expect(eligibleUpgrades([])).toEqual(ALL_UPGRADE_IDS.filter((id) => !isSpecialist(id)));
+    expect(eligibleUpgrades([])).toEqual(
+      ALL_UPGRADE_IDS.filter((id) => !isSpecialist(id) && !isRare(id)),
+    );
     expect(eligibleUpgrades(["passiveGhostSlowPlus"])).not.toContain("passiveGhostSlow");
   });
 
