@@ -15,7 +15,7 @@ const SPARKLE_SPOTS: readonly { fx: number; fy: number }[] = [
   { fx: -0.5, fy: 0.15 },
 ];
 
-export type RareFx = { destroy: () => void };
+type RareFx = { destroy: () => void };
 
 function drawSparkle(scene: Phaser.Scene, arm: number): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics();
