@@ -20,7 +20,7 @@ import {
   type UpgradeSchool,
 } from "../../domain/upgrades";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
-import { PLAYER_OPEN_MOUTH_TEXTURE_KEY, QUARTER_TEXTURE_KEY } from "../systems/render";
+import { addDotManIcon, QUARTER_TEXTURE_KEY } from "../systems/render";
 import { textStyleFor } from "../../domain/ghostArt";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
@@ -305,9 +305,7 @@ export function createStoreOverlay(
     );
     let glyph: Phaser.GameObjects.GameObject;
     if (slot.kind === "life") {
-      glyph = scene.add
-        .image(0, TILE_GLYPH_Y, PLAYER_OPEN_MOUTH_TEXTURE_KEY)
-        .setDisplaySize(tile - 2, tile - 2);
+      glyph = addDotManIcon(scene, 0, TILE_GLYPH_Y, tile - 2, loadGhostStyle());
     } else {
       const char =
         slot.kind === "swap" ? "?" : enhance ? "+" : slotTitle(slot).charAt(0).toUpperCase();

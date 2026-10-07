@@ -63,10 +63,10 @@ import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
 import {
+  addDotManIcon,
   createRender,
   preloadPlayArt,
   QUARTER_TEXTURE_KEY,
-  PLAYER_OPEN_MOUTH_TEXTURE_KEY,
   type PlayRender,
 } from "../systems/render";
 import {
@@ -396,6 +396,7 @@ export class PlayScene extends Phaser.Scene {
       this.upgradeChoiceModal.rearmSelectionKeys();
     }
     this.refreshUpgradesHud();
+    this.refreshLivesIcons(false);
     this.scene.resume();
   }
 
@@ -731,7 +732,7 @@ export class PlayScene extends Phaser.Scene {
     const y = this.hudIconY();
     for (let i = 0; i < livesHudIconCount(this.sim.hud().lives); i += 1) {
       const x = HUD_ICON_LEFT_X + size / 2 + i * (size + HUD_ICON_GAP);
-      const icon = this.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
+      const icon = addDotManIcon(this, x, y, size, loadGhostStyle());
       this.sideHud.add(icon);
       this.lifeIcons.push(icon);
     }

@@ -61,7 +61,8 @@ src/
     ghostKind.ts              # blinky / pinky / inky / clyde kind ids
     ghostArt.ts               # GhostStyle (Settings → STYLE: neon / lined / pixel; glow only on neon), textStyleFor (UI font), lineArtGhostKinds / lineArtDrawableIds (ghosts + Dot-Man), line-art looks from tuning+STYLE
     neonFont/                 # Bar-curve neon glyph catalog + fontLineArtLook (see docs/fonts.md)
-    lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points; turnLineArt (see docs/line-art.md)
+    lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points; rotateLineArt (see docs/line-art.md)
+    dotManTurn.ts             # Dot-Man facing rotation: quarter turns and fast 180° reversals (see docs/line-art.md)
     ghostTarget.ts            # Blinky/Pinky/Inky/Clyde chase/scatter/Elroy target tiles
     ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-scheduled scatter/chase wave clock
