@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_LINE_WIDTH } from "../../domain/ghostArt";
+import dotmanSvg from "./dotman.svg?raw";
 import { DOTMAN_LINE_ART, DOTMAN_LINE_ART_BY_DIR } from "./dotmanLineArt";
 
 const [body, pipe] = DOTMAN_LINE_ART.strands;
@@ -10,6 +11,7 @@ describe("DOTMAN_LINE_ART", () => {
     expect(DOTMAN_LINE_ART.strands.map((s) => s.id)).toEqual(["body", "pipe"]);
     expect(body).toMatchObject({ stroke: "none", fill: "currentColor", closed: true });
     expect(pipe).toMatchObject({ stroke: "currentColor", fill: "none", closed: false });
+    expect(dotmanSvg).toMatch(/id="pipe"[^>]*stroke-linecap="round"/);
   });
 
   it("folds the pipe through three rings, 16 units apart", () => {

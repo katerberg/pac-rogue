@@ -53,12 +53,19 @@ function drawStrands(
     }
     if (strand.stroke !== "none") {
       const width = look.lineWidth * art.width * unit;
-      g.lineStyle(
-        backdrop === null ? Math.max(0, width - GLOW_SOURCE_INSET_PX) : width,
-        resolvePaint(strand.stroke, color),
-        1,
-      );
+      const strokeWidth = backdrop === null ? Math.max(0, width - GLOW_SOURCE_INSET_PX) : width;
+      const strokeColor = resolvePaint(strand.stroke, color);
+      g.lineStyle(strokeWidth, strokeColor, 1);
       g.strokePoints(points, strand.closed, strand.closed);
+      // Graphics strokes are butt-capped; round open ends to match stroke-linecap="round".
+      if (!strand.closed && points.length > 0 && strokeWidth > 0) {
+        g.fillStyle(strokeColor, 1);
+        const r = strokeWidth / 2;
+        g.fillCircle(points[0]!.x, points[0]!.y, r);
+        if (points.length > 1) {
+          g.fillCircle(points[points.length - 1]!.x, points[points.length - 1]!.y, r);
+        }
+      }
     }
   }
 }
