@@ -15,12 +15,14 @@ import {
 import {
   enhancedIdOf,
   getUpgradeDef,
+  isRare,
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { PLAYER_OPEN_MOUTH_TEXTURE_KEY, QUARTER_TEXTURE_KEY } from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
+import { addRareFx, createRareFxToggle } from "./rareFx";
 import {
   addPixelText,
   HUD_FONT_SIZE,
@@ -58,6 +60,7 @@ const TILE_DOT_PX = 2;
 const TILE_COIN_PX = 8;
 const TILE_COIN_GAP_PX = 1;
 const TILE_GLYPH_Y = -5;
+const TILE_SPARKLES = 3;
 
 export type StoreOverlay = {
   open: (state: StoreState) => void;
@@ -69,6 +72,7 @@ export type StoreOverlay = {
 type PanelContent = {
   title: string;
   school: UpgradeSchool | null;
+  rare: boolean;
   body: string;
   footer: string;
 };
@@ -78,6 +82,10 @@ function slotSchool(slot: StoreSlot): UpgradeSchool | null {
     return getUpgradeDef(slot.id).school;
   }
   return slot.kind === "enhance" ? getUpgradeDef(slot.targetId).school : null;
+}
+
+function slotRare(slot: StoreSlot): boolean {
+  return slot.kind === "upgrade" && isRare(slot.id);
 }
 
 function slotTitle(slot: StoreSlot): string {
@@ -151,6 +159,7 @@ export function createStoreOverlay(
     .container(panelX, panelY, [panelBg, panelTitle, panelSchool, panelBody, panelFooter])
     .setDepth(PANEL_DEPTH)
     .setVisible(false);
+  const panelRare = createRareFxToggle(scene, panel, PANEL_WIDTH, PANEL_HEIGHT);
 
   const dim = scene.add
     .rectangle(
@@ -209,6 +218,7 @@ export function createStoreOverlay(
     ])
     .setDepth(MODAL_DEPTH + 1)
     .setVisible(false);
+  const modalRare = createRareFxToggle(scene, modal, BUTTON_WIDTH, BUTTON_HEIGHT);
 
   const showModal = (prompt: StorePromptView | null, confirmYes: boolean): void => {
     dim.setVisible(prompt !== null);
@@ -225,6 +235,7 @@ export function createStoreOverlay(
     modalCost.setText(`COST ${prompt.price}`);
     const school = slotSchool(prompt.slot);
     modalBg.setStrokeStyle(4, schoolBorderColor(school));
+    modalRare(slotRare(prompt.slot), schoolBorderColor(school));
     setSchoolTag(modalSchool, school);
     stackTexts(
       [
@@ -245,6 +256,7 @@ export function createStoreOverlay(
       return;
     }
     panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
+    panelRare(content.rare, schoolBorderColor(content.school));
     panelTitle.setText(wrapText(content.title, PANEL_TITLE_MAX_CHARS));
     panelTitle.setFontSize(
       fitFontSize(content.title, PANEL_WIDTH - PANEL_TITLE_MARGIN, HUD_FONT_SIZE),
@@ -320,9 +332,13 @@ export function createStoreOverlay(
       ? scene.add.rectangle(0, 0, size + 4, size + 4, STORE_ENHANCE_BORDER_COLOR, 0.3)
       : null;
     glows[index] = glow;
-    return scene.add
+    const container = scene.add
       .container(x, y, [...(glow === null ? [] : [glow]), frame, glyph, ...coins, zone])
       .setDepth(TILE_DEPTH);
+    if (slotRare(slot)) {
+      addRareFx(scene, container, size, size, schoolBorderColor(tileSchool), TILE_SPARKLES);
+    }
+    return container;
   };
 
   const clearTiles = (): void => {
@@ -370,6 +386,7 @@ export function createStoreOverlay(
         showPanel({
           title: slotTitle(prompt.slot),
           school: slotSchool(prompt.slot),
+          rare: slotRare(prompt.slot),
           body: slotBody(prompt.slot),
           footer: promptFooter(prompt),
         });
@@ -380,6 +397,7 @@ export function createStoreOverlay(
         showPanel({
           title: slotTitle(slot),
           school: slotSchool(slot),
+          rare: slotRare(slot),
           body: slotBody(slot),
           footer: `COST ${slotPrice(slot)}`,
         });
@@ -390,7 +408,13 @@ export function createStoreOverlay(
     showPurchased: (id) => {
       const def = getUpgradeDef(id);
       toast = {
-        content: { title: def.label, school: def.school, body: def.description, footer: "GOT IT!" },
+        content: {
+          title: def.label,
+          school: def.school,
+          rare: def.rare === true,
+          body: def.description,
+          footer: "GOT IT!",
+        },
         remainingMs: TOAST_MS,
       };
     },

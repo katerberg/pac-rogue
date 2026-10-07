@@ -55,7 +55,12 @@ import {
   SPEED_BURST_MS,
   WALL_PASS_MS,
   QUARTERS_CHOICE_AMOUNT,
+  STORE_RARE_UPGRADE_PRICE,
   STORE_UPGRADE_PRICE,
+  isRare,
+  RARE_OFFER_WEIGHT,
+  takeRandomFrom,
+  takeWeightedUpgrade,
   UPGRADE_DEFS,
   UPGRADE_SCHOOL_LABELS,
   UPGRADE_SCHOOL_ORDER,
@@ -409,12 +414,93 @@ describe("pickStartingUpgrade", () => {
 
 describe("eligibleUpgrades", () => {
   it("excludes owned ids", () => {
-    const unlocked = ALL_IDS.filter((id) => !isSpecialist(id));
+    const unlocked = ALL_IDS.filter((id) => !isSpecialist(id) && !isRare(id));
     expect(eligibleUpgrades([])).toEqual(unlocked);
     expect(eligibleUpgrades(["passiveAfterburner"])).toEqual(
       unlocked.filter((id) => id !== "passiveAfterburner"),
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
+  });
+});
+
+describe("rare upgrades", () => {
+  const RARE_IDS = [
+    "powerPelletWallPass",
+    "fruitPowerPellet",
+    "passiveOvercharge",
+    "passiveLazyLooper",
+    "passiveShieldPellets",
+    "passiveMartyr",
+    "passiveStreakEngine",
+    "powerPelletHunter",
+  ];
+
+  it("marks the build-around upgrades rare, in both forms", () => {
+    expect(ALL_UPGRADE_IDS.filter(isRare).sort()).toEqual([...RARE_IDS].sort());
+    for (const id of ALL_UPGRADE_IDS) {
+      expect(isRare(enhancedIdOf(id)), id).toBe(isRare(id));
+    }
+  });
+
+  it("costs 4 in the store, and every other upgrade 3", () => {
+    for (const id of ALL_UPGRADE_IDS) {
+      expect(storePriceFor(id), id).toBe(
+        isRare(id) ? STORE_RARE_UPGRADE_PRICE : STORE_UPGRADE_PRICE,
+      );
+    }
+    expect(STORE_RARE_UPGRADE_PRICE).toBe(4);
+  });
+
+  it("is drawn at half a common's weight, removing the pick from the pool", () => {
+    const draw = (roll: number) => {
+      const pool: BaseUpgradeId[] = ["passiveMartyr", "passiveGhostSlow"];
+      return { picked: takeWeightedUpgrade(pool, () => roll), pool };
+    };
+    expect(draw(0)).toEqual({ picked: "passiveMartyr", pool: ["passiveGhostSlow"] });
+    expect(draw(0.33).picked).toBe("passiveMartyr");
+    expect(draw(0.34)).toEqual({ picked: "passiveGhostSlow", pool: ["passiveMartyr"] });
+    expect(draw(0.9999).picked).toBe("passiveGhostSlow");
+    const commons: BaseUpgradeId[] = ["passiveGhostSlow", "passiveAfterburner", "fruitFeast"];
+    expect(takeWeightedUpgrade([...commons], () => 0.5)).toBe(
+      takeRandomFrom([...commons], () => 0.5),
+    );
+    expect(RARE_OFFER_WEIGHT).toBe(0.5);
+  });
+
+  it("shows up in a level-clear offer at half a common's weight", () => {
+    const left: BaseUpgradeId[] = [
+      "passiveMartyr",
+      "passiveGhostSlow",
+      "passiveAfterburner",
+      "fruitFeast",
+    ];
+    const owned = ALL_UPGRADE_IDS.filter((id) => !left.includes(id));
+    let x = 7;
+    const rng = () => {
+      x = (x * 1103515245 + 12345) % 2147483648;
+      return x / 2147483648;
+    };
+    const draws = 4000;
+    let withRare = 0;
+    for (let i = 0; i < draws; i += 1) {
+      const offer = pickUpgradeChoiceOffer(owned, null, rng);
+      expect(offer.upgrades).toHaveLength(3);
+      withRare += offer.upgrades.includes("passiveMartyr") ? 1 : 0;
+    }
+    const expected = 1 - (3 / 3.5) * (2 / 2.5) * (1 / 1.5);
+    expect(Math.abs(withRare / draws - expected)).toBeLessThan(0.03);
+  });
+
+  it("is never a starting upgrade", () => {
+    expect(STARTING_UPGRADE_POOL.filter(isRare)).toEqual([]);
+  });
+
+  it("only becomes eligible once two upgrades are owned", () => {
+    expect(eligibleUpgrades([]).filter(isRare)).toEqual([]);
+    expect(eligibleUpgrades(["passiveAfterburner"]).filter(isRare)).toEqual([]);
+    expect(eligibleUpgrades(["passiveAfterburner", "passiveGhostSlowPlus"]).filter(isRare)).toEqual(
+      ALL_UPGRADE_IDS.filter(isRare),
+    );
   });
 });
 
@@ -1078,7 +1164,9 @@ describe("enhanced upgrades", () => {
 
   it("keeps Plus ids out of every pool", () => {
     expect(ALL_UPGRADE_IDS.some((id) => isEnhancedId(id))).toBe(false);
-    expect(eligibleUpgrades([])).toEqual(ALL_UPGRADE_IDS.filter((id) => !isSpecialist(id)));
+    expect(eligibleUpgrades([])).toEqual(
+      ALL_UPGRADE_IDS.filter((id) => !isSpecialist(id) && !isRare(id)),
+    );
     expect(eligibleUpgrades(["passiveGhostSlowPlus"])).not.toContain("passiveGhostSlow");
   });
 

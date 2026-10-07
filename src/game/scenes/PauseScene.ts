@@ -289,6 +289,7 @@ export class PauseScene extends Phaser.Scene {
       label: def.label,
       description: def.description,
       school: def.school,
+      rare: def.rare === true,
     });
     visual.root.setDepth(MODAL_DEPTH + 1);
     this.upgradePreview = visual;
