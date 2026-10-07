@@ -3,8 +3,6 @@ import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export type GhostStyle = "neon" | "lined" | "pixel";
 
-export const GHOST_STYLES: readonly GhostStyle[] = ["neon", "lined", "pixel"];
-
 export const DEFAULT_GHOST_STYLE: GhostStyle = "neon";
 
 export function parseGhostStyle(raw: string | null): GhostStyle {

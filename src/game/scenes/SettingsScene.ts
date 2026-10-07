@@ -6,7 +6,7 @@ import {
   type AudioCategory,
   type AudioSettings,
 } from "../../domain/audioSettings";
-import { DEFAULT_GHOST_STYLE, GHOST_STYLES, type GhostStyle } from "../../domain/ghostArt";
+import { DEFAULT_GHOST_STYLE, type GhostStyle } from "../../domain/ghostArt";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import {
@@ -418,9 +418,12 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private nudgeGhostStyle(delta: number): void {
-    const index = GHOST_STYLES.indexOf(this.ghostStyle);
-    const next = GHOST_STYLES[(index + delta + GHOST_STYLES.length) % GHOST_STYLES.length]!;
-    this.setGhostStyle(next);
+    const index = GHOST_STYLE_OPTIONS.findIndex((option) => option.style === this.ghostStyle);
+    const next =
+      GHOST_STYLE_OPTIONS[
+        (index + delta + GHOST_STYLE_OPTIONS.length) % GHOST_STYLE_OPTIONS.length
+      ]!;
+    this.setGhostStyle(next.style);
   }
 
   private setGhostStyle(style: GhostStyle): void {
