@@ -10,7 +10,7 @@ import {
 import { DEFAULT_TUNING, resolveTuning } from "./tuning";
 
 describe("pelletStyleFor", () => {
-  it("returns neon defaults with maze-coloured bloom when STYLE is neon", () => {
+  it("returns neon defaults with bloom on power/boss/optional but not regular", () => {
     const style = pelletStyleFor(null, 2, "neon");
     expect(style).not.toBeNull();
     expect(style!.regular).toEqual({
@@ -23,12 +23,17 @@ describe("pelletStyleFor", () => {
       fillColor: DEFAULT_TUNING.pelletCoreColor,
       fillOpacity: 1,
     });
+    expect(DEFAULT_TUNING.pelletGlow).toBe(0);
+    expect(DEFAULT_TUNING.pelletGlowRadius).toBe(0);
+    expect(pelletGlowFilter(style!.regular)).toBeNull();
     expect(style!.power.radius).toBe(DEFAULT_TUNING.powerPelletRadius);
     expect(style!.power.strokeWidth).toBe(DEFAULT_TUNING.powerPelletStrokeWidth);
     expect(style!.power.glow).toBe(DEFAULT_TUNING.powerPelletGlow);
     expect(style!.power.glowRadius).toBe(DEFAULT_TUNING.powerPelletGlowRadius);
     expect(style!.power.glowColor).toBe(mazeColorForIndex(2));
+    expect(pelletGlowFilter(style!.power)).not.toBeNull();
     expect(style!.boss.radius).toBe(DEFAULT_TUNING.bossPelletRadius);
+    expect(style!.boss.glow).toBe(DEFAULT_TUNING.bossPelletGlow);
     expect(style!.optional).toEqual({
       radius: DEFAULT_TUNING.optionalPelletRadius,
       strokeWidth: DEFAULT_TUNING.optionalPelletStrokeWidth,
@@ -97,14 +102,14 @@ describe("pelletGlowFilter", () => {
 describe("pelletGlowSourceLook", () => {
   it("uses a filled disc inset under the crisp radius so bloom starts inside the white", () => {
     const style = pelletStyleFor(null, 0, "neon")!;
-    expect(style.regular.fillOpacity).toBe(1);
-    const source = pelletGlowSourceLook(style.regular);
+    expect(style.power.fillOpacity).toBe(1);
+    const source = pelletGlowSourceLook(style.power);
     expect(source.fillOpacity).toBe(1);
     expect(source.strokeWidth).toBe(0);
-    expect(source.radius).toBeLessThan(style.regular.radius);
-    expect(source.radius).toBeCloseTo(style.regular.radius - 0.25);
-    expect(source.glowColor).toBe(style.regular.glowColor);
-    expect(source.glow).toBe(style.regular.glow);
+    expect(source.radius).toBeLessThan(style.power.radius);
+    expect(source.radius).toBeCloseTo(style.power.radius - 0.25);
+    expect(source.glowColor).toBe(style.power.glowColor);
+    expect(source.glow).toBe(style.power.glow);
   });
 
   it("insets larger kinds the same way", () => {

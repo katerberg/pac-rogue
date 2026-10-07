@@ -610,7 +610,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     destroyBossPelletGlow(eid);
     killNeonPowerBounce(eid);
     playerVisuals.delete(eid);
-    pelletBakeSignature = "";
   };
 
   const resetForNewBoard = (): void => {
@@ -1119,7 +1118,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         } else if (pellet.id === POWER_PELLET_DRAWABLE_ID) {
           powerGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
           signatureParts.push(`w${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
-        } else {
+        } else if (pelletGlowFilter(pellet.look) !== null) {
           regularGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
           signatureParts.push(`p${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
         }
