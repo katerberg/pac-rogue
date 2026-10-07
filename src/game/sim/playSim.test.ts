@@ -3123,15 +3123,30 @@ describe("Interest", () => {
     expect(storeWith([]).snapshot().quarters).toBe(9);
   });
 
-  it("is enhanced by Harvest Specialist", () => {
-    const sim = storeWith([
+  it("is enhanced by Automation Specialist, not Harvest Specialist", () => {
+    const automation = storeWith([
+      "passiveInterest",
+      "passivePickupRange",
+      "passiveEcho",
+      "passivePelletToPower",
+      "passiveAutomationSpecialist",
+    ]);
+    expect(automation.snapshot().quarters).toBe(13);
+    expect(automation.hud().upgrades).toEqual([
+      "passiveInterestPlus",
+      "passivePickupRangePlus",
+      "passiveEchoPlus",
+      "passivePelletToPowerPlus",
+      "passiveAutomationSpecialist",
+    ]);
+    const harvest = storeWith([
       "passiveInterest",
       "fruitQuarterBounty",
       "fruitFecundity",
       "fruitFeast",
       "passiveHarvestSpecialist",
     ]);
-    expect(sim.snapshot().quarters).toBe(13);
+    expect(harvest.snapshot().quarters).toBe(12);
   });
 
   it("pops the paid Quarters into the HUD one at a time", () => {

@@ -45,6 +45,7 @@ export type BaseUpgradeId =
   | "passiveDeathSpecialist"
   | "passiveHarvestSpecialist"
   | "passiveSpeedSpecialist"
+  | "passiveAutomationSpecialist"
   | "passiveProtectionSpecialist"
   | "passiveDisruptionSpecialist"
   | "passiveMartyr"
@@ -59,12 +60,14 @@ export type BaseUpgradeId =
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
 
-export type UpgradeSchool = "death" | "harvest" | "speed" | "protection" | "disruption" | "neutral";
+export type UpgradeSchool =
+  "death" | "harvest" | "speed" | "automation" | "protection" | "disruption" | "neutral";
 
 export const UPGRADE_SCHOOL_LABELS: Record<UpgradeSchool, string> = {
   death: "Death",
   harvest: "Harvest",
   speed: "Speed",
+  automation: "Automation",
   protection: "Protection",
   disruption: "Disruption",
   neutral: "Neutral",
@@ -74,6 +77,7 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
   "death",
   "harvest",
   "speed",
+  "automation",
   "protection",
   "disruption",
   "neutral",
@@ -336,13 +340,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "passivePickupRange",
     label: "Pickup Range",
-    school: "speed",
-    description: "Pellets within a cell of you snap into your mouth.",
+    school: "automation",
+    description: "You eat pellets up to 1 tile away without touching them.",
     storePrice: STORE_UPGRADE_PRICE,
     pelletCollectRadiusBonusPx: TILE_SIZE,
     enhanced: {
       enhanceNote: "Pickup Range reaches 2 tiles instead of 1.",
-      description: "Pellets two cells away snap into your mouth.",
+      description: "You eat pellets up to 2 tiles away without touching them.",
       pelletCollectRadiusBonusPx: PICKUP_RANGE_ENHANCED_TILES * TILE_SIZE,
     },
   },
@@ -380,25 +384,25 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "passivePelletToPower",
     label: "Pellet Surge",
-    school: "neutral",
-    description: "A quiet pellet turns hot, and another may follow.",
+    school: "automation",
+    description: "Each board, one regular pellet becomes a power pellet.",
     storePrice: STORE_UPGRADE_PRICE,
     pelletSurgeCount: PELLET_SURGE_COUNT,
     enhanced: {
       enhanceNote: "Pellet Surge turns 2 pellets hot per board instead of 1.",
-      description: "Two quiet pellets turn hot.",
+      description: "Each board, two regular pellets become power pellets.",
       pelletSurgeCount: PELLET_SURGE_ENHANCED_COUNT,
     },
   },
   {
     id: "powerPelletExtraHungry",
     label: "Extra Hungry",
-    school: "speed",
-    description: "Power pellet gulps the five farthest pellets with it.",
+    school: "automation",
+    description: "Power pellets also eat the 5 pellets farthest from you.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Extra Hungry eats the 10 farthest pellets instead of 5.",
-      description: "Power pellet gulps the ten farthest pellets with it.",
+      description: "Power pellets also eat the 10 pellets farthest from you.",
       onPowerPellet: { collectExtraPellets: EXTRA_HUNGRY_ENHANCED_COUNT },
     },
     onPowerPellet: { collectExtraPellets: EXTRA_HUNGRY_COUNT },
@@ -446,12 +450,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "powerPelletGhostHarvester",
     label: "Ghost Harvester",
-    school: "speed",
-    description: "Power pellet sends ghosts to gobble pellets for you.",
+    school: "automation",
+    description: "Power pellets make ghosts eat pellets for you for 5 seconds.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Ghost Harvester lasts 8 seconds instead of 5.",
-      description: "Power pellet sends ghosts to gobble pellets for you, for longer.",
+      description: "Power pellets make ghosts eat pellets for you for 8 seconds.",
       onPowerPellet: { ghostHarvestMs: GHOST_HARVEST_ENHANCED_MS },
     },
     onPowerPellet: { ghostHarvestMs: GHOST_HARVEST_MS },
@@ -564,12 +568,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "passiveRemoteTransference",
     label: "Remote Transference",
-    school: "speed",
-    description: "Every fifth pellet also eats the farthest one.",
+    school: "automation",
+    description: "Every 5th pellet you eat also eats the farthest pellet.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Remote Transference triggers every 3rd pellet instead of every 5th.",
-      description: "Every third pellet also eats the farthest one.",
+      description: "Every 3rd pellet you eat also eats the farthest pellet.",
       remoteTransferEveryPellets: REMOTE_TRANSFER_ENHANCED_EVERY_PELLETS,
     },
     remoteTransferEveryPellets: REMOTE_TRANSFER_EVERY_PELLETS,
@@ -671,6 +675,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   specialistDef("death", "passiveDeathSpecialist"),
   specialistDef("harvest", "passiveHarvestSpecialist"),
   specialistDef("speed", "passiveSpeedSpecialist"),
+  specialistDef("automation", "passiveAutomationSpecialist"),
   specialistDef("protection", "passiveProtectionSpecialist"),
   specialistDef("disruption", "passiveDisruptionSpecialist"),
   {
@@ -689,13 +694,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "passiveInterest",
     label: "Interest",
-    school: "harvest",
-    description: "Each store pays 1 Quarter for every 3 you hold.",
+    school: "automation",
+    description: "Entering a store pays 1 Quarter for every 3 you hold.",
     storePrice: STORE_UPGRADE_PRICE,
     interestPerQuarters: INTEREST_PER_QUARTERS,
     enhanced: {
       enhanceNote: "Interest pays 1 Quarter per 2 held instead of per 3.",
-      description: "Each store pays 1 Quarter for every 2 you hold.",
+      description: "Entering a store pays 1 Quarter for every 2 you hold.",
       interestPerQuarters: INTEREST_ENHANCED_PER_QUARTERS,
     },
   },
@@ -759,13 +764,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   {
     id: "passiveEcho",
     label: "Echo",
-    school: "neutral",
-    description: "Power pellets echo: one random effect fires again 3 seconds later.",
+    school: "automation",
+    description: "Power pellets fire a random one of your power effects again 3 seconds later.",
     storePrice: STORE_UPGRADE_PRICE,
     echoEffects: "one",
     enhanced: {
       enhanceNote: "Echo repeats every power-pellet effect you own instead of one at random.",
-      description: "Power pellets echo: every effect fires again 3 seconds later.",
+      description: "Power pellets fire all of your power effects again 3 seconds later.",
       echoEffects: "all",
     },
   },
