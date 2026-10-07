@@ -22,6 +22,9 @@ export const DOTMAN_CHOMP_MOUTH_HALF_DEG = [
   MOUTH_MID_HALF_DEG,
 ] as const;
 
+/** Pixel Pac-Man texture frames for the same open→mid→closed→mid beat. */
+export const DOTMAN_CHOMP_PIXEL_FRAMES = [1, 2, 3, 2] as const;
+
 export type DotManChomp = { carry: number; cycleIndex: number };
 
 export function dotManMouthHalfAngle(cycleIndex: number, moving: boolean): number {

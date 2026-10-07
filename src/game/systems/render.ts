@@ -28,6 +28,7 @@ import type { LineArt } from "../../domain/lineArt";
 import { DOTMAN_LINE_ART, dotManLineArt } from "../art/dotmanLineArt";
 import {
   advanceDotManChomp,
+  DOTMAN_CHOMP_PIXEL_FRAMES,
   DOTMAN_CHOMP_PIXELS_PER_FRAME,
   dotManMouthHalfAngle,
 } from "../../domain/dotManMouth";
@@ -124,8 +125,7 @@ const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
 const BOSS_PELLET_MIN_ALPHA = 0.6;
-const CHOMP_CYCLE = [1, 2, 3, 2] as const;
-const OPEN_MOUTH_FRAME = 1;
+const OPEN_MOUTH_FRAME = DOTMAN_CHOMP_PIXEL_FRAMES[0];
 const PACMAN_DIRS = ["up", "down", "left", "right"] as const;
 
 type PacmanDir = (typeof PACMAN_DIRS)[number];
@@ -1067,7 +1067,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           );
           visual.chompCarry = stepped.carry;
           visual.cycleIndex = stepped.cycleIndex;
-          const frame = CHOMP_CYCLE[visual.cycleIndex] ?? OPEN_MOUTH_FRAME;
+          const frame =
+            DOTMAN_CHOMP_PIXEL_FRAMES[visual.cycleIndex % DOTMAN_CHOMP_PIXEL_FRAMES.length] ??
+            OPEN_MOUTH_FRAME;
           nextKey = pacmanTextureKey(visual.lastDir, frame);
         } else {
           nextKey = pacmanTextureKey(visual.lastDir, OPEN_MOUTH_FRAME);

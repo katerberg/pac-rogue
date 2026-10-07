@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   advanceDotManChomp,
   DOTMAN_CHOMP_MOUTH_HALF_DEG,
+  DOTMAN_CHOMP_PIXEL_FRAMES,
   DOTMAN_CHOMP_PIXELS_PER_FRAME,
   DOTMAN_INNER_RADIUS,
   DOTMAN_MID_RADIUS,
@@ -28,6 +29,7 @@ describe("dotManMouthHalfAngle", () => {
       DOTMAN_MOUTH_CLOSED_HALF_DEG,
       (DOTMAN_MOUTH_OPEN_HALF_DEG + DOTMAN_MOUTH_CLOSED_HALF_DEG) / 2,
     ]);
+    expect(DOTMAN_CHOMP_PIXEL_FRAMES).toHaveLength(DOTMAN_CHOMP_MOUTH_HALF_DEG.length);
     expect(dotManMouthHalfAngle(0, true)).toBe(DOTMAN_MOUTH_OPEN_HALF_DEG);
     expect(dotManMouthHalfAngle(2, true)).toBe(DOTMAN_MOUTH_CLOSED_HALF_DEG);
   });
