@@ -119,7 +119,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   ghostHeight: 1.14,
   wallCornerRadius: 6,
   backgroundColor: 0x1a1a2e,
-  fontThickness: 0.12,
+  fontThickness: 0.4,
   fontBloom: 0.8,
   fontBloomRadius: 4,
   fontGlowColor: 0x7ec8ff,

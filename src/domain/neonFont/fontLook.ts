@@ -3,7 +3,7 @@ import type { Tuning } from "../tuning";
 export type FontGlow = { outerStrength: number; distancePx: number };
 
 export type FontLineArtLook = {
-  /** Stroke width as a fraction of the glyph viewBox height (fontSize mapping). */
+  /** Stroke width in glyph grid cells (one cell = fontSize / NEON_GLYPH_HEIGHT). */
   thickness: number;
   glow: FontGlow | null;
   glowColor: number;

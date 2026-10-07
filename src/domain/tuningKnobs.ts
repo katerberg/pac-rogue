@@ -108,7 +108,7 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×"),
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px"),
   { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
-  range("fontThickness", "Visuals", "Font thickness", 0.02, 0.8, 0.01),
+  range("fontThickness", "Visuals", "Font thickness", 0.05, 3, 0.05),
   range("fontBloom", "Visuals", "Font bloom", 0, 12, 0.1),
   range("fontBloomRadius", "Visuals", "Font bloom radius", 0, 48, 1, "px"),
   { key: "fontGlowColor", group: "Visuals", label: "Font glow color", kind: "color" },
@@ -221,7 +221,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
   fontThickness:
-    "Neon typeface stroke thickness as a fraction of glyph height. Visual only; extreme values are for dialing-in.",
+    "Neon typeface stroke width in grid cells (a glyph is 2×4 cells; 1 cell = a quarter of the font size). Visual only; extreme values are for dialing-in.",
   fontBloom: "Phaser outerStrength of the bloom around neon text. 0 = no bloom.",
   fontBloomRadius: "How far neon text bloom spreads beyond the stroke, in pixels. 0 = no bloom.",
   fontGlowColor: "Color of the bloom around neon text (the core uses the call-site tint).",

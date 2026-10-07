@@ -10,7 +10,7 @@ describe("fontLineArtLook", () => {
 
   it("reads restrained defaults", () => {
     expect(fontLineArtLook(resolveTuning({}))).toEqual({
-      thickness: 0.12,
+      thickness: 0.4,
       glow: { outerStrength: 0.8, distancePx: 4 },
       glowColor: 0x7ec8ff,
       letterSpacing: 0,
@@ -23,7 +23,7 @@ describe("fontLineArtLook", () => {
     expect(
       fontLineArtLook(
         resolveTuning({
-          fontThickness: 0.2,
+          fontThickness: 0.8,
           fontBloom: 2,
           fontBloomRadius: 8,
           fontGlowColor: 0xff0000,
@@ -33,7 +33,7 @@ describe("fontLineArtLook", () => {
         }),
       ),
     ).toEqual({
-      thickness: 0.2,
+      thickness: 0.8,
       glow: { outerStrength: 2, distancePx: 8 },
       glowColor: 0xff0000,
       letterSpacing: 0.5,
