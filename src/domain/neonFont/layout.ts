@@ -47,6 +47,18 @@ export function neonGlowFrame(frame: {
   };
 }
 
+/**
+ * Input hit rectangle for top-left-drawn neon text. Phaser hit-tests Containers as if they
+ * were centered (it adds width/2, height/2 to the local pointer), so the rect is shifted by
+ * the same amount to cover local (0,0)–(width,height).
+ */
+export function neonHitArea(
+  width: number,
+  height: number,
+): { x: number; y: number; width: number; height: number } {
+  return { x: width / 2, y: height / 2, width, height };
+}
+
 /** Neon glyphs are uppercase-only. */
 export function neonDisplayText(content: string): string {
   return content.toUpperCase();

@@ -14,6 +14,7 @@ import {
   neonDisplayText,
   neonGlowDepth,
   neonGlowFrame,
+  neonHitArea,
   neonLinePitch,
   neonTextLocalHeight,
 } from "../../domain/neonFont/layout";
@@ -89,6 +90,7 @@ export class NeonText extends Phaser.GameObjects.Container {
   private ready = false;
   private lineSpacingPx = 0;
   private centerAlign = false;
+  private autoHitArea = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -328,6 +330,25 @@ export class NeonText extends Phaser.GameObjects.Container {
     return this;
   }
 
+  override setInteractive(
+    hitArea?: Phaser.Types.Input.InputConfiguration | Phaser.Geom.Rectangle,
+    callback?: Phaser.Types.Input.HitAreaCallback,
+    dropZone?: boolean,
+  ): this {
+    super.setInteractive(hitArea, callback, dropZone);
+    this.autoHitArea = hitArea === undefined || this.input?.customHitArea === false;
+    this.syncHitArea();
+    return this;
+  }
+
+  private syncHitArea(): void {
+    if (!this.autoHitArea || !(this.input?.hitArea instanceof Phaser.Geom.Rectangle)) {
+      return;
+    }
+    const rect = neonHitArea(this.width, this.height);
+    this.input.hitArea.setTo(rect.x, rect.y, rect.width, rect.height);
+  }
+
   private rebuild(): void {
     this.clearFallback();
     this.core.clear();
@@ -346,6 +367,7 @@ export class NeonText extends Phaser.GameObjects.Container {
     this.localWidth = maxWidthVb * unit;
     this.localHeight = neonTextLocalHeight(lines.length, lineHeightPx, this.lineSpacingPx);
     this.setSize(Math.max(1, this.localWidth), Math.max(1, this.localHeight));
+    this.syncHitArea();
     const glow = this.resetGlow();
     const pps = this.glowPixelsPerWorld;
     const glowOrigin = this.glowFrame();

@@ -5,6 +5,7 @@ import {
   neonDisplayText,
   neonGlowDepth,
   neonGlowFrame,
+  neonHitArea,
   neonLineAdvance,
   neonLinePitch,
   neonStringAdvance,
@@ -13,6 +14,21 @@ import {
 
 describe("neon text layout", () => {
   const thickness = DEFAULT_TUNING.fontThickness;
+
+  it("hit area covers the drawn text box after Phaser's centered-container shift", () => {
+    const width = 80;
+    const height = 20;
+    const rect = neonHitArea(width, height);
+    const hits = (localX: number, localY: number): boolean => {
+      const x = localX + width / 2;
+      const y = localY + height / 2;
+      return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
+    };
+    expect(hits(1, 1)).toBe(true);
+    expect(hits(width - 1, height - 1)).toBe(true);
+    expect(hits(-width / 4, height / 2)).toBe(false);
+    expect(hits(width / 2, -height / 4)).toBe(false);
+  });
 
   it("shows neon strings in uppercase", () => {
     expect(neonDisplayText("Speed Burst\nx2 lives!")).toBe("SPEED BURST\nX2 LIVES!");
