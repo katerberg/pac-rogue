@@ -85,11 +85,13 @@ On agent ports (**5174** / **4174**), audio is disabled (`noAudio`) unless `?sou
 - Clicks **Start** on the menu, then captures `artifacts/visual-smoke.png` (**PlayScene** maze/HUD — primary CI smoke image)
 - Reloads with `?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference&seed=smoke`, waits for Remote Transference in the offer, and captures `artifacts/visual-smoke-upgrade.png`
 
+- Opens a second page at **802×634** (a fractional render scale) on the menu and fails if any dim pixels sit in the empty rows under the text (`scripts/lib/strayPixels.mjs`). That catches texture-edge bleed (dashes under glyphs, smeared sprite edges), which does not show at the default 900×700. It saves `artifacts/visual-smoke-menu.png`.
+
 Agents must **read that image** (or an equivalent live capture) when claiming visual verification — not merely note that the script exited 0.
 
 ## Live check
 
-Required for gameplay and presentation changes. `npm run probe` is the default tool everywhere, including cloud sessions with no browser pane. It drives the game on the agent dev port (**5174**, started automatically if nothing is listening) with real Playwright keyboard/mouse input. It fails on page errors or `console.error`. Run `npm run probe -- --help` for the full step syntax.
+Required for gameplay and presentation changes. `npm run probe` is the default tool everywhere, including cloud sessions with no browser pane. It drives the game on the agent dev port (**5174**, started automatically if nothing is listening) with real Playwright keyboard/mouse input. It fails on page errors or `console.error`. Run `npm run probe -- --help` for the full step syntax. Pass `--viewport WxH` and `--dpr N` (e.g. `--viewport 802x634 --dpr 1.5`) to check presentation at fractional or hi-DPI render scales, where texture-sampling artifacts appear; the default is 900×700 at 1×.
 
 ### Evidence rules
 

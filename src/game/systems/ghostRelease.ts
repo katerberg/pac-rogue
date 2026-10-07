@@ -36,7 +36,7 @@ function directionTowardTile(
   return DIRECTION.up;
 }
 
-function sendOut(world: World, eid: number): void {
+export function sendGhostOutOfHouse(world: World, eid: number): void {
   const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
   const x = Position.x[eid] ?? 0;
   const y = Position.y[eid] ?? 0;
@@ -85,12 +85,12 @@ export function ghostRelease(
       }
       continue;
     }
-    sendOut(world, eid);
+    sendGhostOutOfHouse(world, eid);
     released = true;
   }
   if (!released && idleReleaseDue(clock, adds.delayAddMs ?? 0, adds.tuning)) {
     if (idleEid !== undefined) {
-      sendOut(world, idleEid);
+      sendGhostOutOfHouse(world, idleEid);
       released = true;
     }
   }

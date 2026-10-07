@@ -31,3 +31,21 @@ export function followWindowRenderScale(game: Phaser.Game): void {
     }
   });
 }
+
+export function makeTextureCrisp(texture: Phaser.Textures.Texture): void {
+  texture.setSmoothPixelArt(false);
+  texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+}
+
+export function padTextureWithGutter(textures: Phaser.Textures.TextureManager, key: string): void {
+  const source = textures.get(key).getSourceImage() as HTMLImageElement;
+  const { width, height } = source;
+  const padded = document.createElement("canvas");
+  padded.width = width + 2;
+  padded.height = height + 2;
+  padded.getContext("2d")!.drawImage(source, 1, 1);
+  textures.remove(key);
+  const texture = textures.addCanvas(key, padded)!;
+  texture.get().setSize(width, height, 1, 1);
+  makeTextureCrisp(texture);
+}
