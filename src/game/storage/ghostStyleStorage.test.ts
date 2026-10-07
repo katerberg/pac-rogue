@@ -43,6 +43,8 @@ describe("ghostStyleStorage", () => {
     saveGhostStyle("pixel");
     expect(store.get(GHOST_STYLE_STORAGE_KEY)).toBe("pixel");
     expect(loadGhostStyle()).toBe("pixel");
+    saveGhostStyle("lined");
+    expect(loadGhostStyle()).toBe("lined");
   });
 
   it("falls back to the default for unknown values or missing storage", () => {

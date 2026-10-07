@@ -3482,6 +3482,12 @@ describe("ghost style (neon line art vs pixel)", () => {
     expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
   });
 
+  it("keeps line-art ghosts under lined style", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    sim.setGhostStyle("lined");
+    expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
+  });
+
   it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {
     const furthestCatch = (tuning: Tuning): number => {
       const sim = new PlaySim({ ...defaultPlayOptions(), level: 5 }, "lineart", tuning);

@@ -1,19 +1,26 @@
 import type { GhostKindId } from "./ghostKind";
-import type { Tuning } from "./tuning";
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
-export type GhostStyle = "neon" | "pixel";
+export type GhostStyle = "neon" | "lined" | "pixel";
+
+export const GHOST_STYLES: readonly GhostStyle[] = ["neon", "lined", "pixel"];
 
 export const DEFAULT_GHOST_STYLE: GhostStyle = "neon";
 
 export function parseGhostStyle(raw: string | null): GhostStyle {
-  return raw === "neon" || raw === "pixel" ? raw : DEFAULT_GHOST_STYLE;
+  return raw === "neon" || raw === "lined" || raw === "pixel" ? raw : DEFAULT_GHOST_STYLE;
+}
+
+/** Soft glow on walls, ghosts, and pellets when knobs are off. Neon only. */
+export function styleUsesGlow(style: GhostStyle): boolean {
+  return style === "neon";
 }
 
 export function lineArtGhostKinds(
   style: GhostStyle,
   presentKinds: Iterable<GhostKindId>,
 ): GhostKindId[] {
-  return style === "neon" ? [...new Set(presentKinds)] : [];
+  return style === "pixel" ? [] : [...new Set(presentKinds)];
 }
 
 export type GhostGlow = { outerStrength: number; distancePx: number };
@@ -27,15 +34,24 @@ export type GhostLineArtLook = {
   heightScale: number;
 };
 
-export function ghostLineArtLook(tuning: Tuning): GhostLineArtLook {
+/**
+ * Line-art look from knobs (`tuning !== null`, STYLE ignored) or from STYLE when
+ * knobs are off (`tuning === null`): neon keeps default glow, lined/pixel force none.
+ */
+export function ghostLineArtLook(
+  tuning: Tuning | null,
+  style: GhostStyle = DEFAULT_GHOST_STYLE,
+): GhostLineArtLook {
+  const t = tuning ?? DEFAULT_TUNING;
+  const allowGlow = tuning !== null || styleUsesGlow(style);
   return {
     glow:
-      tuning.ghostGlow <= 0 || tuning.ghostGlowRadius <= 0
+      !allowGlow || t.ghostGlow <= 0 || t.ghostGlowRadius <= 0
         ? null
-        : { outerStrength: tuning.ghostGlow, distancePx: tuning.ghostGlowRadius },
-    lineWidth: tuning.ghostLineWidth / 100,
-    widthScale: tuning.ghostWidth,
-    heightScale: tuning.ghostHeight,
+        : { outerStrength: t.ghostGlow, distancePx: t.ghostGlowRadius },
+    lineWidth: t.ghostLineWidth / 100,
+    widthScale: t.ghostWidth,
+    heightScale: t.ghostHeight,
   };
 }
 
