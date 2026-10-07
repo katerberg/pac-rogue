@@ -157,6 +157,7 @@ export class SettingsScene extends Phaser.Scene {
     this.returnScene = data?.returnScene ?? "MenuScene";
     this.audioDisabled = this.game.config.audio.noAudio === true;
     this.musicId = data?.musicId ?? musicIdForContext(this.returnScene);
+    this.sys.settings.data = {};
     syncMusicPlayback(this, this.musicId, this.settings);
     this.mazeColorSettings = loadMazeColorSettings();
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
@@ -448,7 +449,10 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   public debugSnapshot(): { focusIndex: number; ghostStyle: GhostStyle } {
-    return { focusIndex: this.focusIndex, ghostStyle: this.ghostStyle };
+    return {
+      focusIndex: this.focusIndex,
+      ghostStyle: this.ghostStyle,
+    };
   }
 
   private isCategoryEnabled(category: AudioCategory): boolean {

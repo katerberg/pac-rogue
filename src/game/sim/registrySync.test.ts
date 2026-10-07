@@ -103,13 +103,13 @@ function leafPaths(prefix: string, value: Json, depth: number): string[] {
   );
 }
 
-function sceneOnlySnapshotKeys(): string[] {
-  const source = read("src/game/scenes/PlayScene.ts");
+function sceneOnlySnapshotKeys(scenePath: string, mustContain: string): string[] {
+  const source = read(scenePath);
   const start = source.indexOf("public debugSnapshot()");
-  expect(start, "PlayScene.debugSnapshot missing").toBeGreaterThanOrEqual(0);
+  expect(start, `${scenePath} debugSnapshot missing`).toBeGreaterThanOrEqual(0);
   const body = source.slice(start, source.indexOf("\n  }\n", start));
   const keys = [...body.matchAll(/^ {6}(\w+):/gm)].map((match) => match[1]!);
-  expect(keys, "debugSnapshot scene-only keys not found").toContain("startingUpgradeCardOpen");
+  expect(keys, `${scenePath} debugSnapshot keys not found`).toContain(mustContain);
   return keys;
 }
 
@@ -121,12 +121,15 @@ describe("docs/VERIFICATION.md game-state snapshot table", () => {
 
   const actualPaths = [
     ...Object.entries(simSnapshot).flatMap(([key, value]) => leafPaths(`play.${key}`, value, 2)),
-    ...sceneOnlySnapshotKeys().map((key) => `play.${key}`),
+    ...sceneOnlySnapshotKeys("src/game/scenes/PlayScene.ts", "startingUpgradeCardOpen").map(
+      (key) => `play.${key}`,
+    ),
     "scenes.PlayScene",
     "play",
     "settings",
-    "settings.focusIndex",
-    "settings.ghostStyle",
+    ...sceneOnlySnapshotKeys("src/game/scenes/SettingsScene.ts", "focusIndex").map(
+      (key) => `settings.${key}`,
+    ),
     "runLog.stored",
     "runLog.overrun",
     "sounds.menu-music",
