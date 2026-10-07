@@ -142,12 +142,12 @@ export function neonTextLocalHeight(
 
 /**
  * Pitch between separately placed upgrade HUD rows (Play side list).
- * Neon rows each carry their own bloom, so they need a full blank line of air
- * (0.5× built-in leading + 0.5× line height of extra spacing); pixel rows stay tight.
+ * Neon rows each carry their own bloom, so they need two blank lines of air
+ * (0.5× built-in leading + 1.5× line height of extra spacing); pixel rows stay tight.
  */
 export function upgradeStackRowPitch(lineHeightPx: number, textStyle: "neon" | "pixel"): number {
   return textStyle === "neon"
-    ? neonLinePitch(lineHeightPx, lineHeightPx * NEON_LINE_LEADING)
+    ? neonLinePitch(lineHeightPx, lineHeightPx * (1 + NEON_LINE_LEADING))
     : lineHeightPx;
 }
 

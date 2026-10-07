@@ -76,12 +76,12 @@ describe("neon text layout", () => {
     expect(neonTextLocalHeight(3, 10, 4)).toBe(48);
   });
 
-  it("upgrade stack pitch doubles neon rows and keeps pixel rows tight", () => {
+  it("upgrade stack pitch triples neon rows and keeps pixel rows tight", () => {
     expect(upgradeStackRowPitch(8, "pixel")).toBe(8);
-    expect(upgradeStackRowPitch(8, "neon")).toBe(16);
+    expect(upgradeStackRowPitch(8, "neon")).toBe(24);
     expect(upgradeStackHeight(0, 8, "neon")).toBe(0);
     expect(upgradeStackHeight(1, 8, "neon")).toBe(8);
-    expect(upgradeStackHeight(2, 8, "neon")).toBe(24);
+    expect(upgradeStackHeight(2, 8, "neon")).toBe(32);
     expect(upgradeStackHeight(2, 8, "pixel")).toBe(16);
   });
 
