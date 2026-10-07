@@ -23,6 +23,7 @@ import {
 } from "../../domain/maze";
 import { ghostLineArtLook } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
+import { pelletStyleFor } from "../../domain/pelletStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
 import { parsePlayOptions } from "../../domain/playOptions";
@@ -272,6 +273,7 @@ export class PlayScene extends Phaser.Scene {
   private applyKnobTuning(tuning: Tuning): void {
     this.sim.setTuning(tuning);
     this.playRender.setWallStyle(wallStyleFor(tuning, 0));
+    this.playRender.setPelletStyle(pelletStyleFor(tuning, 0));
     this.playRender.setGhostLook(ghostLineArtLook(tuning));
   }
 
