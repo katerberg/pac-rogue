@@ -90,7 +90,6 @@ export class NeonText extends Phaser.GameObjects.Container {
   private ready = false;
   private lineSpacingPx = 0;
   private centerAlign = false;
-  private autoHitArea = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -336,13 +335,15 @@ export class NeonText extends Phaser.GameObjects.Container {
     dropZone?: boolean,
   ): this {
     super.setInteractive(hitArea, callback, dropZone);
-    this.autoHitArea = hitArea === undefined || this.input?.customHitArea === false;
     this.syncHitArea();
     return this;
   }
 
   private syncHitArea(): void {
-    if (!this.autoHitArea || !(this.input?.hitArea instanceof Phaser.Geom.Rectangle)) {
+    if (
+      this.input?.customHitArea !== false ||
+      !(this.input.hitArea instanceof Phaser.Geom.Rectangle)
+    ) {
       return;
     }
     const rect = neonHitArea(this.width, this.height);
