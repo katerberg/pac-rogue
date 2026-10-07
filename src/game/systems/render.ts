@@ -850,6 +850,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     for (const key of lineArtObjects.keys()) {
       if (!alive.has(key)) {
         destroyLineArt(key);
+        if (!key.includes(":")) {
+          playerVisuals.delete(Number(key));
+        }
       }
     }
   };
