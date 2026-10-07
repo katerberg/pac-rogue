@@ -73,7 +73,8 @@ const MAZE_COLOR_ACTIVE_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 2;
 const GHOST_STYLE_ROW_Y = 440;
 const GHOST_STYLE_OPTIONS: { style: GhostStyle; label: string; x: number }[] = [
   { style: "neon", label: "NEON", x: SLIDER_LEFT },
-  { style: "pixel", label: "PIXEL", x: SLIDER_LEFT + 120 },
+  { style: "lined", label: "LINED", x: SLIDER_LEFT + 120 },
+  { style: "pixel", label: "PIXEL", x: SLIDER_LEFT + 240 },
 ];
 const AUDIO_DISABLED_WARNING_Y = 500;
 const BACK_Y = PLAYFIELD_HEIGHT - 50;
@@ -269,7 +270,7 @@ export class SettingsScene extends Phaser.Scene {
       (left || right) &&
       this.focusIndex === FOCUS_GHOST_STYLE
     ) {
-      this.toggleGhostStyle();
+      this.nudgeGhostStyle(left ? -1 : 1);
       this.moveCooldownMs = 120;
     } else if (
       this.moveCooldownMs === 0 &&
@@ -289,7 +290,7 @@ export class SettingsScene extends Phaser.Scene {
       } else if (this.focusIndex === FOCUS_MAZE_COLOR) {
         this.commitMazeColor();
       } else if (this.focusIndex === FOCUS_GHOST_STYLE) {
-        this.toggleGhostStyle();
+        this.nudgeGhostStyle(1);
       } else {
         const row = this.rows[this.focusIndex];
         if (row !== undefined) {
@@ -415,8 +416,13 @@ export class SettingsScene extends Phaser.Scene {
     });
   }
 
-  private toggleGhostStyle(): void {
-    this.setGhostStyle(this.ghostStyle === "neon" ? "pixel" : "neon");
+  private nudgeGhostStyle(delta: number): void {
+    const index = GHOST_STYLE_OPTIONS.findIndex((option) => option.style === this.ghostStyle);
+    const next =
+      GHOST_STYLE_OPTIONS[
+        (index + delta + GHOST_STYLE_OPTIONS.length) % GHOST_STYLE_OPTIONS.length
+      ]!;
+    this.setGhostStyle(next.style);
   }
 
   private setGhostStyle(style: GhostStyle): void {

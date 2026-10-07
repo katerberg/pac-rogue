@@ -5,6 +5,7 @@ import {
   lineArtGhostKinds,
   parseGhostStyle,
   sameGhostLineArtLook,
+  styleUsesGlow,
   textStyleFor,
 } from "./ghostArt";
 import { resolveTuning } from "./tuning";
@@ -14,14 +15,24 @@ describe("parseGhostStyle", () => {
   it("reads a stored style and defaults to neon", () => {
     expect(parseGhostStyle("pixel")).toBe("pixel");
     expect(parseGhostStyle("neon")).toBe("neon");
+    expect(parseGhostStyle("lined")).toBe("lined");
     expect(parseGhostStyle(null)).toBe(DEFAULT_GHOST_STYLE);
     expect(parseGhostStyle("sparkly")).toBe("neon");
+  });
+});
+
+describe("styleUsesGlow", () => {
+  it("is only neon", () => {
+    expect(styleUsesGlow("neon")).toBe(true);
+    expect(styleUsesGlow("lined")).toBe(false);
+    expect(styleUsesGlow("pixel")).toBe(false);
   });
 });
 
 describe("textStyleFor", () => {
   it("maps STYLE to the matching typeface", () => {
     expect(textStyleFor("neon")).toBe("neon");
+    expect(textStyleFor("lined")).toBe("neon");
     expect(textStyleFor("pixel")).toBe("pixel");
   });
 });
@@ -31,6 +42,13 @@ describe("lineArtGhostKinds", () => {
     expect(
       lineArtGhostKinds("neon", [GHOST_KIND.blinky, GHOST_KIND.blinky, GHOST_KIND.clyde]),
     ).toEqual([GHOST_KIND.blinky, GHOST_KIND.clyde]);
+  });
+
+  it("draws line art under lined the same as neon", () => {
+    expect(lineArtGhostKinds("lined", [GHOST_KIND.blinky, GHOST_KIND.inky])).toEqual([
+      GHOST_KIND.blinky,
+      GHOST_KIND.inky,
+    ]);
   });
 
   it("draws none as line art when pixel", () => {
@@ -70,6 +88,23 @@ describe("ghostLineArtLook", () => {
       widthScale: 1.16,
       heightScale: 1.14,
     });
+  });
+
+  it("keeps neon glow with null tuning and drops it under lined", () => {
+    expect(ghostLineArtLook(null, "neon").glow).toEqual({
+      outerStrength: 1.6,
+      distancePx: 6,
+    });
+    expect(ghostLineArtLook(null, "lined").glow).toBeNull();
+    expect(ghostLineArtLook(null, "lined").lineWidth).toBe(
+      ghostLineArtLook(null, "neon").lineWidth,
+    );
+  });
+
+  it("ignores STYLE glow when knobs are on", () => {
+    expect(
+      ghostLineArtLook(resolveTuning({ ghostGlow: 3, ghostGlowRadius: 9 }), "lined").glow,
+    ).toEqual({ outerStrength: 3, distancePx: 9 });
   });
 
   it("compares every field", () => {

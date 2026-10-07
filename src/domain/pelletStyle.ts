@@ -1,4 +1,4 @@
-import { DEFAULT_GHOST_STYLE, type GhostStyle } from "./ghostArt";
+import { DEFAULT_GHOST_STYLE, styleUsesGlow, type GhostStyle } from "./ghostArt";
 import { mazeColorForIndex } from "./mazeColorSettings";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
@@ -66,6 +66,16 @@ function fromTuning(tuning: Tuning, mazeGlowColor: number): PelletStyle {
   };
 }
 
+function withoutGlow(style: PelletStyle): PelletStyle {
+  const zero = (look: PelletKindLook): PelletKindLook => ({ ...look, glow: 0, glowRadius: 0 });
+  return {
+    regular: zero(style.regular),
+    power: zero(style.power),
+    boss: zero(style.boss),
+    optional: zero(style.optional),
+  };
+}
+
 export function pelletStyleFor(
   tuning: Tuning | null,
   mazeColorIndex: number,
@@ -74,10 +84,11 @@ export function pelletStyleFor(
   if (tuning !== null) {
     return fromTuning(tuning, tuning.pelletGlowColor);
   }
-  if (style !== "neon") {
+  if (style === "pixel") {
     return null;
   }
-  return fromTuning(DEFAULT_TUNING, mazeColorForIndex(mazeColorIndex));
+  const neon = fromTuning(DEFAULT_TUNING, mazeColorForIndex(mazeColorIndex));
+  return styleUsesGlow(style) ? neon : withoutGlow(neon);
 }
 
 export function pelletGlowFilter(

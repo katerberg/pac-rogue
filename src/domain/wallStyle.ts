@@ -1,4 +1,4 @@
-import { DEFAULT_GHOST_STYLE, type GhostStyle } from "./ghostArt";
+import { DEFAULT_GHOST_STYLE, styleUsesGlow, type GhostStyle } from "./ghostArt";
 import { MAZE_BACKGROUND_COLOR, WALL_CORNER_RADIUS } from "./maze";
 import { mazeColorForIndex } from "./mazeColorSettings";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
@@ -18,12 +18,12 @@ export function wallStyleFor(
   style: GhostStyle = DEFAULT_GHOST_STYLE,
 ): WallStyle {
   if (tuning === null) {
-    const neon = style === "neon";
+    const glow = styleUsesGlow(style);
     return {
       color: mazeColorForIndex(mazeColorIndex),
       thickness: DEFAULT_TUNING.wallThickness,
-      glow: neon ? DEFAULT_TUNING.wallGlow : 0,
-      glowRadius: neon ? DEFAULT_TUNING.wallGlowRadius : 0,
+      glow: glow ? DEFAULT_TUNING.wallGlow : 0,
+      glowRadius: glow ? DEFAULT_TUNING.wallGlowRadius : 0,
       cornerRadius: WALL_CORNER_RADIUS,
       background: MAZE_BACKGROUND_COLOR,
     };
