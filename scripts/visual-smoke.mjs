@@ -41,6 +41,11 @@ async function waitForActiveScene(page, sceneKey, timeoutMs = 15_000) {
 
 async function assertCrispMenuText(browser) {
   const page = await browser.newPage({ viewport: FRACTIONAL_SCALE_VIEWPORT });
+  // Bleed is a bitmap-texture artifact; neon text is anti-aliased vector strokes whose
+  // edge fringe would read as stray pixels, so check the pixel font.
+  await page.addInitScript(() => {
+    localStorage.setItem("pac-rogue.ghost-style.v1", "pixel");
+  });
   await page.goto(url, { waitUntil: "networkidle" });
   await page.waitForSelector("canvas", { timeout: 15_000 });
   await waitForActiveScene(page, "MenuScene");

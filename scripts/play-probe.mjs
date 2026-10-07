@@ -265,6 +265,7 @@ async function main() {
   const baseUrl = `http://127.0.0.1:${ports.agentDev}/`;
   mkdirSync(outDir, { recursive: true });
 
+  const problems = [];
   let dev = null;
   if (!(await isUp(baseUrl))) {
     dev = spawn(process.execPath, [join(root, "node_modules", "vite", "bin", "vite.js")], {
@@ -272,12 +273,21 @@ async function main() {
       env: { ...process.env, PAC_ROGUE_AGENT: "1" },
       stdio: ["ignore", "ignore", "inherit"],
     });
+    dev.once("exit", (code, signal) => {
+      if (code !== 0 && code !== null) {
+        problems.push(
+          `vite exited early (code ${code}${signal ? `, ${signal}` : ""}) — is :${ports.agentDev} already bound by something that is not serving HTTP?`,
+        );
+      }
+    });
   }
 
-  const problems = [];
   let browser = null;
   try {
     await waitForServer(baseUrl);
+    if (problems.length > 0) {
+      throw new Error(problems.join("\n"));
+    }
     browser = await chromium.launch({ headless: true, ...chromiumLaunchOptions() });
     const page = await browser.newPage({ viewport, deviceScaleFactor });
     page.on("pageerror", (error) => problems.push(`pageerror: ${error.message}`));

@@ -4,8 +4,10 @@ import {
   eligibleUpgrades,
   enhanceableUpgrades,
   enhancedIdOf,
+  isRare,
   storePriceFor,
   takeRandomFrom,
+  takeWeightedUpgrade,
   type BaseUpgradeId,
   type UpgradeId,
 } from "./upgrades";
@@ -131,7 +133,7 @@ export function createStoreState(
   firstStore = false,
   lifeRoom = Number.POSITIVE_INFINITY,
 ): StoreState {
-  const pool = eligibleUpgrades(owned);
+  let pool = eligibleUpgrades(owned);
   const slots: StoreSlot[] = [];
   let lifeSlots = 0;
   for (const { kind, col, row } of cells) {
@@ -141,7 +143,11 @@ export function createStoreState(
         slots.push({ kind, col, row, sold: false });
       }
     } else if (kind === "upgrade" && pool.length > 0) {
-      slots.push({ kind, col, row, id: takeRandomFrom(pool, rng), sold: false });
+      const id = takeWeightedUpgrade(pool, rng);
+      slots.push({ kind, col, row, id, sold: false });
+      if (isRare(id)) {
+        pool = pool.filter((other) => !isRare(other));
+      }
     } else if (kind === "swap" && !firstStore && owned.length > 0) {
       const outgoingId = takeRandomFrom([...owned], rng);
       slots.push({ kind, col, row, outgoingId, sold: false });
@@ -296,7 +302,7 @@ export function storeStep(
     input.owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId)) ?? slot.outgoingId;
   const remaining = input.owned.filter((id) => baseIdOf(id) !== baseIdOf(outgoingId));
   const afterSwap = swapPool(next, remaining).filter((id) => id !== baseIdOf(outgoingId));
-  const incomingBase = takeRandomFrom(
+  const incomingBase = takeWeightedUpgrade(
     afterSwap.length > 0 ? afterSwap : swapPool(next, input.owned),
     rng,
   );

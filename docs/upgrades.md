@@ -133,13 +133,22 @@ Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored
 - **Death**: life loss and lives. **Harvest**: maximizing gains from a level, possibly at the cost of speed. **Speed**: finishing a level fast by moving faster or skipping work. **Automation**: pellets, power pellets and Quarters that come to you without your own movement. **Protection**: shrugging off hits. **Disruption**: impeding ghost mobility and goals. **Neutral**: generically useful.
 - New defs must set `school` (required by the type).
 
+### Rarity
+
+An upgrade is **common**, **rare** or a [School Specialist](#school-specialists). Rare defs set `rare: true` (`isRare`) and `storePrice: STORE_RARE_UPGRADE_PRICE` (4); every other def costs `STORE_UPGRADE_PRICE` (3). Rares are the build-around upgrades: Wall Pass, Fruit Power, Overcharge, Lazy Looper, Shield Pellets, Martyr, Streak Engine and Hunter.
+
+- **Gate.** `eligibleUpgrades` leaves rares out until `RARE_MIN_OWNED` (2) upgrades are owned (any kind, specialists included), so a rare is never your first or second upgrade. It is never in `STARTING_UPGRADE_POOL`.
+- **Weight.** Every random upgrade draw (level-clear offer, store shelves, trade tile) goes through `takeWeightedUpgrade`, where a rare has `RARE_OFFER_WEIGHT` (0.5) the chance of a common. A pool with no rares draws exactly like `takeRandomFrom`. There is no cap on rares per level-clear offer.
+- **Store.** At most one rare on the shelves per store: `createStoreState` drops rares from the shelf pool once one is shelved. The trade tile is not capped; it can swap into a rare (at half weight) even when the shelf shows one.
+- **Look.** Every rare card (level-clear modal, LEARN and pause hover previews, store hover panel, confirm modal and purchase toast) and rare store tile gets `addRareFx` ([`src/game/scenes/rareFx.ts`](../src/game/scenes/rareFx.ts)): a soft halo in the school color that pulses, plus small sparkles that twinkle in turn around the edge. The store panel and modal swap it on and off with `createRareFxToggle`. The FX tweens are removed when the card is destroyed.
+
 ## Grant rules
 
 - Collecting bonus fruit plays both munches, despawns fruit, and adds half a [BONUS bar](./bonus.md) of charge (a Quarter instead with Quarter Bounty) — no modal.
 - Clearing a level (2 through 8; not level 1 or the final boss level 9 — `offersUpgradeAfterLevel`) is the trigger: eligible pool = upgrade ids not already owned. The modal always opens on this trigger — there is no "0 eligible → skip" case anymore, since the Quarters option is always available.
 - `?disableLevelUpgrades=1` (debug): skips the trigger entirely on every level-clear — no modal at all, immediate level transition. Also skips the level-1 starting upgrade (no card). Does not affect `enableUpgrade`.
 - `?jumpToUpgrade=1` (debug): fires the trigger immediately on the first board — clears all its pellets and, after the 1.2 s [level-end time drain](./bonus.md#time-bonus), opens the modal without playing the level. Defaults the start level to 2 when `?level=` is omitted, since level 1 never offers this modal. Disables high-score saving for the run (same as `disableLevelUpgrades` / `infiniteLives`).
-- `?forceUpgrade=<id>` (debug): while that upgrade is still eligible, every level-clear offer includes it (a Plus id is treated as its base). Does not grant it, does not change store stock, and does not override `disableLevelUpgrades`. Pair with `jumpToUpgrade` to land on the modal. Disables high-score saving.
+- `?forceUpgrade=<id>` (debug): while that upgrade is still eligible (a [rare](#rarity) needs two upgrades owned first, e.g. two `enableUpgrade`s), every level-clear offer includes it (a Plus id is treated as its base). Does not grant it, does not change store stock, and does not override `disableLevelUpgrades`. Pair with `jumpToUpgrade` to land on the modal. Disables high-score saving.
 - `pickUpgradeChoiceOffer` returns an offer of `{ quarters: QUARTERS_CHOICE_AMOUNT, upgrades, enhanced }`, where `upgrades` holds up to three ids (`min(3, eligible.length)`):
   - Never repeats an id.
   - Prefers excluding `lastDeclinedUpgradeId`.
@@ -462,7 +471,7 @@ Left mid-height BitmapText (`x ≈ 12`, `y ≈ PLAYFIELD_HEIGHT / 2`, 8px so lab
 
 Use the [`new-upgrade` skill](../.agents/skills/new-upgrade/SKILL.md). It has the question bank, the full list of files every upgrade touches (ids, defs, `ALL_IDS`, `seenRecord` count, LEARN, docs, README), the live-check recipes and the merge-conflict playbook. In short:
 
-1. Add a `BaseUpgradeId` and a row at the end of `BASE_UPGRADE_DEFS` (label, school, description, required `storePrice`, plus passives / `onPowerPellet` as needed) **and its required `enhanced` override** (a new `description` plus any effect fields it changes; the type rejects a row without one).
+1. Add a `BaseUpgradeId` and a row at the end of `BASE_UPGRADE_DEFS` (label, school, description, required `storePrice` (`STORE_RARE_UPGRADE_PRICE` plus `rare: true` for a rare, see [Rarity](#rarity)), plus passives / `onPowerPellet` as needed) **and its required `enhanced` override** (a new `description` plus any effect fields it changes; the type rejects a row without one).
 2. If the effect is already covered (speed mul or existing `onPowerPellet` fields), stop there.
 3. If it is a **new kind** of effect, extend the def shape and add one resolve site (domain helper + `PlaySim` call). Do not add a plugin bus.
 4. Document the new id in [README Flags](../README.md#flags), the defs table above, the [Enhanced table](#enhanced-upgrades) and the [LEARN fidelity table](./learn.md#upgrade-fidelity).

@@ -124,6 +124,7 @@ export type UpgradeEffects = {
   streakEngineEvery?: number;
   streakEngineInvulnMs?: number;
   specialistThreshold?: number;
+  rare?: true;
   echoEffects?: EchoEffects;
   hunterHoldsEaten?: true;
   onPowerPellet?: {
@@ -196,6 +197,9 @@ export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
 export const EXTRA_HUNGRY_COUNT = 5;
 export const QUARTERS_CHOICE_AMOUNT = 2;
 export const STORE_UPGRADE_PRICE = 3;
+export const STORE_RARE_UPGRADE_PRICE = 4;
+export const RARE_MIN_OWNED = 2;
+export const RARE_OFFER_WEIGHT = 0.5;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
@@ -412,7 +416,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Wall Pass",
     school: "speed",
     description: "Power pellet lets you slip through walls for a breath.",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     enhanced: {
       enhanceNote: "Wall Pass also lets you loop around every edge of the maze.",
       description: "Power pellet lets you slip through walls and loop around the maze edges.",
@@ -465,7 +470,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Fruit Power",
     school: "harvest",
     description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     enhanced: {
       enhanceNote: "Fruit Power also turns a random pellet into a power pellet.",
       description: "Bonus fruit hits like a power pellet and turns a pellet hot.",
@@ -532,7 +538,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Overcharge",
     school: "neutral",
     description: "Doubles the duration of every other power pellet timer you're running.",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     overchargeMul: OVERCHARGE_MUL,
     enhanced: {
       enhanceNote: "Overcharge triples power pellet timers instead of doubling them.",
@@ -651,7 +658,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     school: "speed",
     description:
       "Only the outer pellet ring and the pellets beside the ghost house clear the board.",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     lazyLooperRings: "outerInner",
     enhanced: {
       enhanceNote: "Lazy Looper needs only the outer ring, not the pellets beside the ghost house.",
@@ -664,7 +672,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Shield Pellets",
     school: "protection",
     description: "Power pellets bank a shield. A ghost hit breaks it and fires your power effects.",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     shieldCap: SHIELD_PELLETS_CAP,
     enhanced: {
       enhanceNote: "Shield Pellets banks up to 3 shields instead of 1.",
@@ -683,7 +692,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Martyr",
     school: "death",
     description: "Dying scatters the ghosts to their corners. You respawn where you fell.",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     martyrGhosts: "corners",
     enhanced: {
       enhanceNote: "Martyr sends the ghosts back into the ghost house instead of their corners.",
@@ -753,7 +763,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Streak Engine",
     school: "harvest",
     description: "Every 30-pellet streak fires your power-pellet effects.",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     streakEngineEvery: STREAK_ENGINE_EVERY,
     enhanced: {
       enhanceNote: "Streak Engine also grants 3 seconds of Ghost Proof on every 30-pellet streak.",
@@ -779,7 +790,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Hunter",
     school: "disruption",
     description: "Power pellets frighten ghosts. Eat them!",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     enhanced: {
       enhanceNote:
         "Hunter keeps eaten ghosts in the ghost house until the fright ends, and never shortens.",
@@ -857,6 +869,10 @@ export function enhanceableUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[
   return owned.filter(
     (id): id is BaseUpgradeId => !isEnhancedId(id) && !specialistEnhanced.has(id),
   );
+}
+
+export function isRare(id: UpgradeId): boolean {
+  return getUpgradeDef(id).rare === true;
 }
 
 export function isSpecialist(id: UpgradeId): boolean {
@@ -1038,6 +1054,7 @@ export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   return ALL_UPGRADE_IDS.filter(
     (id) =>
       !ownedBases.has(id) &&
+      (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
       (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
   );
 }
@@ -1047,6 +1064,13 @@ export function takeRandomFrom<T>(pool: T[], rng: () => number): T {
   const picked = pool[index]!;
   pool.splice(index, 1);
   return picked;
+}
+
+export function takeWeightedUpgrade(pool: BaseUpgradeId[], rng: () => number): BaseUpgradeId {
+  const weight = (id: BaseUpgradeId): number => (isRare(id) ? RARE_OFFER_WEIGHT : 1);
+  let roll = rng() * pool.reduce((sum, id) => sum + weight(id), 0);
+  const index = pool.findIndex((id) => (roll -= weight(id)) < 0);
+  return pool.splice(index === -1 ? pool.length - 1 : index, 1)[0]!;
 }
 
 function shuffleInPlace<T>(ids: T[], rng: () => number): void {
@@ -1081,7 +1105,7 @@ export function pickUpgradeChoiceOffer(
   const picked: BaseUpgradeId[] = [];
   const drawPool = [...preferred];
   while (picked.length < desiredCount && drawPool.length > 0) {
-    picked.push(takeRandomFrom(drawPool, rng));
+    picked.push(takeWeightedUpgrade(drawPool, rng));
   }
 
   if (

@@ -1,12 +1,8 @@
 import type Phaser from "phaser";
 import { STREAK_ENGINE_EVERY } from "../../domain/upgrades";
 import { STREAK_POP_MS, streakPopLook } from "../../domain/streakEngine";
-import {
-  addPixelText,
-  placePixelText,
-  TEXT_COLOR_YELLOW,
-  UPGRADES_HUD_FONT_SIZE,
-} from "./pixelFont";
+import { TEXT_COLOR_YELLOW, UPGRADES_HUD_FONT_SIZE } from "./pixelFont";
+import { addGameText, placeGameText } from "./neonFont";
 
 const STREAK_POP_DEPTH = 850;
 
@@ -15,10 +11,10 @@ export function playStreakPop(
   event: { value: number; x: number; y: number },
 ): void {
   const size = UPGRADES_HUD_FONT_SIZE * streakPopLook(0, event.value, STREAK_ENGINE_EVERY).sizeMul;
-  const text = addPixelText(scene, 0, 0, String(event.value), size, TEXT_COLOR_YELLOW)
+  const text = addGameText(scene, 0, 0, String(event.value), size, TEXT_COLOR_YELLOW)
     .setDepth(STREAK_POP_DEPTH)
     .setCenterAlign();
-  placePixelText(text, event.x, event.y, 0.5, 1);
+  placeGameText(text, event.x, event.y, 0.5, 1);
   const baseY = text.y;
   const clock = { progress: 0 };
   scene.tweens.add({

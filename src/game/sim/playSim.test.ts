@@ -45,6 +45,10 @@ import {
   SHIELD_BREAK_INVULN_MS,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
   STARTING_UPGRADE_POOL,
+  ALL_UPGRADE_IDS,
+  STORE_RARE_UPGRADE_PRICE,
+  isRare,
+  type BaseUpgradeId,
   type UpgradeChoiceOffer,
   type UpgradeId,
 } from "../../domain/upgrades";
@@ -455,6 +459,20 @@ describe("PlaySim", () => {
       );
       expect(drainToOffer(sim)!.upgrades).toContain("passiveRemoteTransference");
     }
+  });
+
+  it("offers rares at level clear only once two upgrades are owned", () => {
+    const offer = (owned: UpgradeId[]) =>
+      drainToOffer(
+        startSim({
+          jumpToUpgrade: true,
+          level: 4,
+          enableUpgrades: owned,
+          forceUpgrade: "passiveMartyr",
+        }),
+      ).upgrades;
+    expect(offer(["passiveGhostSlow"]).filter(isRare)).toEqual([]);
+    expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveMartyr");
   });
 
   it("clears a board into an upgrade offer, then the next level", () => {
@@ -1037,6 +1055,46 @@ describe("PlaySim", () => {
       runFrames(sim, 1, { storeToggle: true });
       return runFrames(sim, 1, { storeConfirm: true });
     }
+
+    it("sells a shelved rare for 4 Quarters, and never shelves two", () => {
+      const owned = ["passiveGhostSlow", "passiveAfterburner"] as const;
+      let bought = false;
+      for (let n = 0; n < 60 && !bought; n += 1) {
+        const sim = startSim(
+          { store: 1, level: 5, quarters: 10, lives: 4, maxLives: 4, enableUpgrades: [...owned] },
+          `rare${n}`,
+        );
+        const shelf = sim
+          .snapshot()
+          .storeStock!.filter((s) => s !== "life" && !s.includes(":")) as BaseUpgradeId[];
+        expect(shelf.filter(isRare).length).toBeLessThanOrEqual(1);
+        const nth = shelf.findIndex(isRare);
+        if (nth === -1) {
+          continue;
+        }
+        buy(sim, "upgrade", nth);
+        expect(sim.snapshot().quarters).toBe(10 - STORE_RARE_UPGRADE_PRICE);
+        expect(sim.snapshot().upgrades).toEqual([...owned, shelf[nth]]);
+        bought = true;
+      }
+      expect(bought).toBe(true);
+    });
+
+    it("trades into a rare even when the shelf already shows one", () => {
+      const owned = ALL_UPGRADE_IDS.filter((id) => !isRare(id));
+      const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: owned });
+      const shelf = (
+        sim
+          .snapshot()
+          .storeStock!.filter((s) => s !== "life" && !s.includes(":")) as BaseUpgradeId[]
+      ).filter(isRare);
+      expect(shelf).toHaveLength(1);
+      buy(sim, "swap");
+      const gained = sim.snapshot().upgrades.filter((id) => !owned.includes(id as BaseUpgradeId));
+      expect(gained).toHaveLength(1);
+      expect(isRare(gained[0]!)).toBe(true);
+      expect(gained).not.toContain(shelf[0]);
+    });
 
     it("the first store stocks two lives, two abilities and an enhancement", () => {
       const sim = startSim({

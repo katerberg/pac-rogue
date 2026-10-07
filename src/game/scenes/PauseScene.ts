@@ -7,14 +7,13 @@ import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import type { PlayScene } from "./PlayScene";
 import { addSeedLabel } from "./seedLabel";
 import {
-  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
-  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
+import { addGameText, placeGameText, type GameText } from "./neonFont";
 import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
 
@@ -46,12 +45,12 @@ export class PauseScene extends Phaser.Scene {
   private confirmingQuit = false;
   private quitSelectingYes = false;
 
-  private resumeText!: Phaser.GameObjects.BitmapText;
-  private settingsText!: Phaser.GameObjects.BitmapText;
-  private quitText!: Phaser.GameObjects.BitmapText;
-  private sureLabel!: Phaser.GameObjects.BitmapText;
-  private yesText!: Phaser.GameObjects.BitmapText;
-  private noText!: Phaser.GameObjects.BitmapText;
+  private resumeText!: GameText;
+  private settingsText!: GameText;
+  private quitText!: GameText;
+  private sureLabel!: GameText;
+  private yesText!: GameText;
+  private noText!: GameText;
 
   private upgradePreview: UpgradeCardVisual | null = null;
 
@@ -88,37 +87,37 @@ export class PauseScene extends Phaser.Scene {
 
     addSeedLabel(this, (this.scene.get("PlayScene") as PlayScene).runSeed());
 
-    const title = addPixelText(this, ROW_CENTER_X, 160, "PAUSED", MENU_TITLE_FONT_SIZE);
-    placePixelText(title, ROW_CENTER_X, 160, 0.5, 0.5);
+    const title = addGameText(this, ROW_CENTER_X, 160, "PAUSED", MENU_TITLE_FONT_SIZE);
+    placeGameText(title, ROW_CENTER_X, 160, 0.5, 0.5);
 
-    this.resumeText = addPixelText(
+    this.resumeText = addGameText(
       this,
       ROW_CENTER_X,
       ROW_Y[RESUME_INDEX]!,
       "",
       MENU_OPTION_FONT_SIZE,
     );
-    this.settingsText = addPixelText(
+    this.settingsText = addGameText(
       this,
       ROW_CENTER_X,
       ROW_Y[SETTINGS_INDEX]!,
       "",
       MENU_OPTION_FONT_SIZE,
     );
-    this.quitText = addPixelText(this, ROW_CENTER_X, ROW_Y[QUIT_INDEX]!, "", MENU_OPTION_FONT_SIZE);
+    this.quitText = addGameText(this, ROW_CENTER_X, ROW_Y[QUIT_INDEX]!, "", MENU_OPTION_FONT_SIZE);
 
-    this.sureLabel = addPixelText(
+    this.sureLabel = addGameText(
       this,
       SURE_LABEL_X,
       ROW_Y[QUIT_INDEX]!,
       "SURE?",
       MENU_OPTION_FONT_SIZE,
     );
-    this.yesText = addPixelText(this, YES_X, ROW_Y[QUIT_INDEX]!, "YES", MENU_OPTION_FONT_SIZE);
-    this.noText = addPixelText(this, NO_X, ROW_Y[QUIT_INDEX]!, "NO", MENU_OPTION_FONT_SIZE);
-    placePixelText(this.sureLabel, SURE_LABEL_X, ROW_Y[QUIT_INDEX]!, 0.5, 0.5);
-    placePixelText(this.yesText, YES_X, ROW_Y[QUIT_INDEX]!, 0.5, 0.5);
-    placePixelText(this.noText, NO_X, ROW_Y[QUIT_INDEX]!, 0.5, 0.5);
+    this.yesText = addGameText(this, YES_X, ROW_Y[QUIT_INDEX]!, "YES", MENU_OPTION_FONT_SIZE);
+    this.noText = addGameText(this, NO_X, ROW_Y[QUIT_INDEX]!, "NO", MENU_OPTION_FONT_SIZE);
+    placeGameText(this.sureLabel, SURE_LABEL_X, ROW_Y[QUIT_INDEX]!, 0.5, 0.5);
+    placeGameText(this.yesText, YES_X, ROW_Y[QUIT_INDEX]!, 0.5, 0.5);
+    placeGameText(this.noText, NO_X, ROW_Y[QUIT_INDEX]!, 0.5, 0.5);
 
     for (const [text, index] of [
       [this.resumeText, RESUME_INDEX],
@@ -254,7 +253,7 @@ export class PauseScene extends Phaser.Scene {
     }
     const top = PLAYFIELD_HEIGHT / 2 - ((owned.length - 1) * UPGRADE_ROW_GAP) / 2;
     const titleY = top - UPGRADE_LIST_TITLE_GAP;
-    const title = addPixelText(
+    const title = addGameText(
       this,
       UPGRADE_LIST_X,
       titleY,
@@ -262,13 +261,13 @@ export class PauseScene extends Phaser.Scene {
       UPGRADES_HUD_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     );
-    placePixelText(title, UPGRADE_LIST_X, titleY, 0, 0.5);
+    placeGameText(title, UPGRADE_LIST_X, titleY, 0, 0.5);
 
     owned.forEach((id, i) => {
       const y = top + i * UPGRADE_ROW_GAP;
       const def = getUpgradeDef(id);
-      const row = addPixelText(this, UPGRADE_LIST_X, y, def.label, UPGRADES_HUD_FONT_SIZE);
-      placePixelText(row, UPGRADE_LIST_X, y, 0, 0.5);
+      const row = addGameText(this, UPGRADE_LIST_X, y, def.label, UPGRADES_HUD_FONT_SIZE);
+      placeGameText(row, UPGRADE_LIST_X, y, 0, 0.5);
       row.setInteractive({ useHandCursor: true });
       row.on("pointerover", (pointer: Phaser.Input.Pointer) => {
         row.setTint(TEXT_COLOR_YELLOW);
@@ -289,6 +288,7 @@ export class PauseScene extends Phaser.Scene {
       label: def.label,
       description: def.description,
       school: def.school,
+      rare: def.rare === true,
     });
     visual.root.setDepth(MODAL_DEPTH + 1);
     this.upgradePreview = visual;
@@ -366,11 +366,11 @@ export class PauseScene extends Phaser.Scene {
     }
   }
 
-  private setRowText(text: Phaser.GameObjects.BitmapText, label: string, index: number): void {
+  private setRowText(text: GameText, label: string, index: number): void {
     const selected = index === this.selectedIndex;
     text.setText(selected ? `> ${label}` : `  ${label}`);
     text.setTint(selected ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    placePixelText(text, ROW_CENTER_X, ROW_Y[index]!, 0.5, 0.5);
+    placeGameText(text, ROW_CENTER_X, ROW_Y[index]!, 0.5, 0.5);
   }
 
   private refreshQuitConfirmTint(): void {

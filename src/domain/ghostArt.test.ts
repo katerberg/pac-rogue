@@ -8,6 +8,7 @@ import {
   parseGhostStyle,
   playerLineArtLook,
   sameGhostLineArtLook,
+  textStyleFor,
 } from "./ghostArt";
 import { BLINKY_DRAWABLE_ID, CLYDE_DRAWABLE_ID, PLAYER_DRAWABLE_ID } from "./playfield";
 import { resolveTuning } from "./tuning";
@@ -19,6 +20,13 @@ describe("parseGhostStyle", () => {
     expect(parseGhostStyle("neon")).toBe("neon");
     expect(parseGhostStyle(null)).toBe(DEFAULT_GHOST_STYLE);
     expect(parseGhostStyle("sparkly")).toBe("neon");
+  });
+});
+
+describe("textStyleFor", () => {
+  it("maps STYLE to the matching typeface", () => {
+    expect(textStyleFor("neon")).toBe("neon");
+    expect(textStyleFor("pixel")).toBe("pixel");
   });
 });
 
