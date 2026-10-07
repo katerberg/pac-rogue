@@ -57,7 +57,7 @@ function drawStrands(
       const strokeColor = resolvePaint(strand.stroke, color);
       g.lineStyle(strokeWidth, strokeColor, 1);
       g.strokePoints(points, strand.closed, strand.closed);
-      // Graphics strokes are butt-capped; round open ends to match stroke-linecap="round".
+      // Graphics strokes are butt-capped, so open strands get round end disks.
       if (!strand.closed && points.length > 0 && strokeWidth > 0) {
         g.fillStyle(strokeColor, 1);
         const r = strokeWidth / 2;
