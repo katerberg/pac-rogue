@@ -18,6 +18,7 @@ import {
 } from "../../domain/wallStyle";
 import {
   pelletGlowFilter,
+  pelletGlowSourceLook,
   pelletStyleFor,
   samePelletStyle,
   type PelletKindLook,
@@ -249,11 +250,8 @@ function strokePelletRing(
   const sy = y * scale;
   const radius = look.radius * scale;
   const stroke = Math.max(forGlow ? 0.5 : 0.1, look.strokeWidth * scale);
-  if (look.fillOpacity > 0) {
-    graphics.fillStyle(
-      forGlow ? look.glowColor : look.fillColor,
-      forGlow ? 1 : look.fillOpacity * alpha,
-    );
+  if (!forGlow && look.fillOpacity > 0) {
+    graphics.fillStyle(look.fillColor, look.fillOpacity * alpha);
     graphics.fillCircle(sx, sy, radius);
   }
   graphics.lineStyle(stroke, forGlow ? look.glowColor : look.coreColor, forGlow ? 1 : alpha);
@@ -517,7 +515,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       look: PelletKindLook;
     }[],
   ): void => {
+    // DynamicTexture.draw queues a GameObject *reference*; render() rasters later.
+    // Flush after each layer so clearing/reusing pelletGlowSource cannot erase
+    // earlier kinds (regular was lost when power overwrote the shared source).
     texture.clear();
+    texture.render();
     for (const layer of layers) {
       const glow = pelletGlowFilter(layer.look);
       if (glow === null || layer.pellets.length === 0) {
@@ -529,7 +531,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           pelletGlowSource,
           pellet.x,
           pellet.y,
-          pellet.look,
+          pelletGlowSourceLook(pellet.look),
           pelletGlowScale,
           1,
           true,
@@ -546,8 +548,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         glow.distance * pelletGlowScale,
       );
       texture.draw(pelletGlowSource);
+      texture.render();
     }
-    texture.render();
   };
 
   const ensureBossPelletGlow = (
@@ -560,6 +562,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       return null;
     }
     const px = renderScaleOf(scene);
+    const source = pelletGlowSourceLook(look);
     let glow = bossPelletGlows.get(eid);
     if (!glow) {
       glow = scene.add
@@ -572,7 +575,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       bossPelletGlows.set(eid, glow);
     }
     const reach = Math.ceil(filter.distance * px);
-    const box = Math.ceil((look.radius + look.strokeWidth) * 2 * px) + 2 * reach;
+    const box = Math.ceil((source.radius + source.strokeWidth) * 2 * px) + 2 * reach;
     glow.setFilterSize(box, box);
     glow.filterCamera.setZoom(px);
     glow.filters!.internal.clear();
@@ -1023,7 +1026,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           if (glow !== null) {
             const px = renderScaleOf(scene);
             glow.clear();
-            strokePelletRing(glow, 0, 0, scaledLook, px, 1, true);
+            strokePelletRing(glow, 0, 0, pelletGlowSourceLook(scaledLook), px, 1, true);
             glow.setPosition(pellet.x, pellet.y);
             glow.setAlpha(alpha);
           }
