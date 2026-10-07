@@ -122,13 +122,20 @@ describe("layoutHighScoreColumns", () => {
   it("keeps every row's cells on the same column edges under a proportional measure", () => {
     const layout = layoutHighScoreColumns(proportionalMeasure, SAMPLE_ROWS);
     const listLeftX = 100;
-    const timeXs = SAMPLE_ROWS.map(() => highScoreCellX(layout, "time", "right", listLeftX));
-    expect(new Set(timeXs).size).toBe(1);
     expect(highScoreCellX(layout, "pellets", "right", listLeftX)).toBe(
       listLeftX + layout.left.pellets + layout.width.pellets,
     );
     expect(highScoreCellX(layout, "date", "left", listLeftX)).toBe(listLeftX + layout.left.date);
     expect(highScoreCellX(layout, "time", "left", listLeftX)).toBe(listLeftX + layout.left.time);
+    expect(layout.left.time).toBe(layout.left.pellets + layout.width.pellets + layout.gap);
+    expect(layout.left.date).toBe(layout.left.time + layout.width.time + layout.gap);
+    for (const row of SAMPLE_ROWS) {
+      expect(proportionalMeasure(String(row.collectedCount))).toBeLessThanOrEqual(
+        layout.width.pellets,
+      );
+      expect(proportionalMeasure(String(row.remainingTime))).toBeLessThanOrEqual(layout.width.time);
+      expect(proportionalMeasure(row.dateLabel)).toBeLessThanOrEqual(layout.width.date);
+    }
 
     const paddedStarts = SAMPLE_ROWS.map((row) => {
       const pellets = String(row.collectedCount).padStart(7);
@@ -142,7 +149,9 @@ describe("layoutHighScoreColumns", () => {
     const layout = layoutHighScoreColumns(monospaceMeasure, SAMPLE_ROWS);
     expect(layout.gap).toBe(HIGH_SCORE_COLUMN_GAP.length);
     expect(layout.width.pellets).toBe("PELLETS".length);
-    expect(layout.width.time).toBe(Math.max("TIME".length, 3));
+    expect(layout.width.time).toBe(
+      Math.max("TIME".length, ...SAMPLE_ROWS.map((r) => String(r.remainingTime).length)),
+    );
     expect(layout.width.date).toBe("2026-04-04".length);
     expect(layout.totalWidth).toBe(
       layout.width.pellets + layout.gap + layout.width.time + layout.gap + layout.width.date,
