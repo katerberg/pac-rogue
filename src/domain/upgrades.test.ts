@@ -176,6 +176,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveDeathSpecialist",
   "passiveHarvestSpecialist",
   "passiveSpeedSpecialist",
+  "passiveAutomationSpecialist",
   "passiveProtectionSpecialist",
   "passiveDisruptionSpecialist",
   "passiveMartyr",
@@ -781,8 +782,8 @@ describe("interestPayout", () => {
     expect(interestPayout(["passiveInterestPlus"], 9)).toBe(4);
   });
 
-  it("is enhanced by Harvest Specialist", () => {
-    const owned = effectiveOwned(["passiveInterest", "passiveHarvestSpecialistPlus"]);
+  it("is enhanced by Automation Specialist", () => {
+    const owned = effectiveOwned(["passiveInterest", "passiveAutomationSpecialistPlus"]);
     expect(interestPayout(owned, 9)).toBe(4);
   });
 });
@@ -1023,9 +1024,17 @@ describe("fruitLifetimeMultiplier", () => {
 });
 
 describe("upgrade schools", () => {
-  it("assigns every upgrade one of the six schools", () => {
+  it("assigns every upgrade one of the seven schools", () => {
     const schools = Object.keys(UPGRADE_SCHOOL_LABELS).sort();
-    expect(schools).toEqual(["death", "disruption", "harvest", "neutral", "protection", "speed"]);
+    expect(schools).toEqual([
+      "automation",
+      "death",
+      "disruption",
+      "harvest",
+      "neutral",
+      "protection",
+      "speed",
+    ]);
     for (const def of UPGRADE_DEFS) {
       expect(schools, def.id).toContain(def.school);
     }
