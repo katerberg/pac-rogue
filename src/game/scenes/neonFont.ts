@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { textStyleFor, type GhostStyle } from "../../domain/ghostArt";
+import { parseKnobsFlag } from "../../domain/knobsFlag";
 import { parseLineArt, type LineArt } from "../../domain/lineArt";
 import {
   NEON_GLYPH_HEIGHT,
@@ -21,7 +22,6 @@ import {
 import { neonRoundJoinIndices } from "../../domain/neonFont/strokeJoins";
 import { fontLineArtLook, type FontLineArtLook } from "../../domain/neonFont/fontLook";
 import { menuOptionLeftX, menuOptionText } from "../../domain/menuOptionLayout";
-import { DEFAULT_TUNING } from "../../domain/tuning";
 import { renderScaleOf } from "../renderScale";
 import { loadDebugTuning } from "../storage/debugTuningStorage";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
@@ -37,8 +37,8 @@ const LINE_GLOW_QUALITY = 24;
 const GLOW_SOURCE_INSET_PX = 2;
 const glyphArtCache = new Map<string, LineArt>();
 
-let activeFontLook: FontLineArtLook = fontLineArtLook(DEFAULT_TUNING);
-let fontLookSynced = false;
+let activeFontLook: FontLineArtLook = fontLineArtLook(null, "neon");
+let fontLookKey: string | null = null;
 const liveNeonTexts = new Set<NeonText>();
 
 function glyphArtFor(char: string, glyph: NeonGlyph): LineArt {
@@ -60,22 +60,31 @@ function glyphArtFor(char: string, glyph: NeonGlyph): LineArt {
   return art;
 }
 
+function fontLookStorageKey(knobs: boolean, style: GhostStyle): string {
+  return `${knobs ? "knobs" : "style"}:${style}`;
+}
+
 function setActiveFontLook(look: FontLineArtLook): void {
   activeFontLook = look;
-  fontLookSynced = true;
+  const knobs = parseKnobsFlag(new URLSearchParams(location.search));
+  fontLookKey = fontLookStorageKey(knobs, loadGhostStyle());
   for (const text of liveNeonTexts) {
     text.applyLook(look);
   }
 }
 
 function syncFontLookFromStorage(): FontLineArtLook {
-  const look = fontLineArtLook(loadDebugTuning());
+  const knobs = parseKnobsFlag(new URLSearchParams(location.search));
+  const style = loadGhostStyle();
+  const look = fontLineArtLook(knobs ? loadDebugTuning() : null, style);
   setActiveFontLook(look);
   return look;
 }
 
 function ensureFontLookSynced(): void {
-  if (!fontLookSynced) {
+  const knobs = parseKnobsFlag(new URLSearchParams(location.search));
+  const style = loadGhostStyle();
+  if (fontLookKey !== fontLookStorageKey(knobs, style)) {
     syncFontLookFromStorage();
   }
 }
@@ -419,9 +428,10 @@ export class NeonText extends Phaser.GameObjects.Container {
           this.tintColor,
         );
         if (glow !== null) {
+          const sourceStroke = strokeWidth * pps;
           const glowWidthPx = this.look.glowKnockout
-            ? Math.max(0.5, strokeWidth * pps - GLOW_SOURCE_INSET_PX)
-            : strokeWidth * pps;
+            ? Math.max(0.5, sourceStroke - Math.min(GLOW_SOURCE_INSET_PX, sourceStroke * 0.5))
+            : sourceStroke;
           this.strokeGlyph(
             glow,
             art,

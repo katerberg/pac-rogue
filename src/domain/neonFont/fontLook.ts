@@ -1,4 +1,5 @@
-import type { Tuning } from "../tuning";
+import { DEFAULT_GHOST_STYLE, styleUsesGlow, type GhostStyle } from "../ghostArt";
+import { DEFAULT_TUNING, type Tuning } from "../tuning";
 
 export type FontGlow = { outerStrength: number; distancePx: number };
 
@@ -12,16 +13,26 @@ export type FontLineArtLook = {
   glowKnockout: boolean;
 };
 
-export function fontLineArtLook(tuning: Tuning): FontLineArtLook {
+/**
+ * Neon typeface look from knobs (`tuning !== null`, STYLE ignored for glow) or from
+ * STYLE when knobs are off (`tuning === null`): neon keeps default bloom, lined/pixel
+ * force none.
+ */
+export function fontLineArtLook(
+  tuning: Tuning | null,
+  style: GhostStyle = DEFAULT_GHOST_STYLE,
+): FontLineArtLook {
+  const t = tuning ?? DEFAULT_TUNING;
+  const allowGlow = tuning !== null || styleUsesGlow(style);
   return {
-    thickness: tuning.fontThickness,
+    thickness: t.fontThickness,
     glow:
-      tuning.fontBloom <= 0 || tuning.fontBloomRadius <= 0
+      !allowGlow || t.fontBloom <= 0 || t.fontBloomRadius <= 0
         ? null
-        : { outerStrength: tuning.fontBloom, distancePx: tuning.fontBloomRadius },
-    glowColor: tuning.fontGlowColor,
-    letterSpacing: tuning.fontLetterSpacing,
-    heightScale: tuning.fontHeightScale,
-    glowKnockout: tuning.fontGlowKnockout,
+        : { outerStrength: t.fontBloom, distancePx: t.fontBloomRadius },
+    glowColor: t.fontGlowColor,
+    letterSpacing: t.fontLetterSpacing,
+    heightScale: t.fontHeightScale,
+    glowKnockout: t.fontGlowKnockout,
   };
 }
