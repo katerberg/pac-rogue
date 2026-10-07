@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BONUS_BAR_MAX } from "./bonusBar";
 import {
+  BONUS_BAR_INNER_W,
   BONUS_COLORS,
   BONUS_SLOTS,
   barRects,
@@ -16,7 +17,6 @@ import {
 } from "./bonusBarFx";
 
 const { frame, fill, highlight, flash } = BONUS_COLORS;
-const INNER_W = 71;
 
 function bodies(rects: BarRect[]): BarRect[] {
   return rects.filter((r) => r.h === 4);
@@ -27,7 +27,7 @@ function floorLines(rects: BarRect[]): BarRect[] {
 }
 
 function trough(rects: BarRect[]): BarRect[] {
-  return rects.filter((r) => r.h === 1 && r.color === frame && r.w === INNER_W);
+  return rects.filter((r) => r.h === 1 && r.color === frame && r.w === BONUS_BAR_INNER_W);
 }
 
 function stepFrames(s: BarFxState, frames: number, charge: number): BarFxState[] {
@@ -103,8 +103,8 @@ describe("barRects (neon)", () => {
   it("draws the frame and one continuous trough when empty", () => {
     const rects = barRects(createBarFx(0), "neon");
     expect(rects.filter((r) => r.w === 75 || r.h === 8)).toHaveLength(4);
-    expect(trough(rects)).toEqual([{ x: 2, y: 5, w: INNER_W, h: 1, color: frame }]);
-    expect(floorLines(rects).filter((r) => r.w <= 5)).toHaveLength(0);
+    expect(trough(rects)).toEqual([{ x: 2, y: 5, w: BONUS_BAR_INNER_W, h: 1, color: frame }]);
+    expect(floorLines(rects)).toHaveLength(0);
     expect(bodies(rects)).toHaveLength(0);
   });
 
@@ -115,7 +115,7 @@ describe("barRects (neon)", () => {
     expect(body).toMatchObject({
       x: 2,
       y: 2,
-      w: Math.round((80 / BONUS_BAR_MAX) * INNER_W),
+      w: Math.round((80 / BONUS_BAR_MAX) * BONUS_BAR_INNER_W),
       h: 4,
       color: fill,
     });
@@ -131,7 +131,7 @@ describe("barRects (neon)", () => {
 
   it("spans the full inner width at full charge", () => {
     const [body] = bodies(barRects(createBarFx(BONUS_BAR_MAX), "neon"));
-    expect(body).toMatchObject({ x: 2, w: INNER_W, color: fill });
+    expect(body).toMatchObject({ x: 2, w: BONUS_BAR_INNER_W, color: fill });
   });
 
   it("shows any charge as at least a 1-pixel sliver", () => {

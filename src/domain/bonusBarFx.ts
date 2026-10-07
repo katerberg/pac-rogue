@@ -14,7 +14,6 @@ export const BONUS_COLORS = {
   flash: 0xffffff,
 } as const;
 
-/** Phaser Glow on the neon BONUS tube (HUD-scale; not knobs). */
 const BONUS_NEON_GLOW_STRENGTH = 6;
 const BONUS_NEON_GLOW_DISTANCE = 16;
 
@@ -23,7 +22,7 @@ const SLOT_W = 5;
 const SLOT_H = 4;
 const SLOT_STEP = 6;
 const SLOT_INSET = 2;
-const INNER_W = BONUS_BAR_ART_W - 2 * SLOT_INSET;
+export const BONUS_BAR_INNER_W = BONUS_BAR_ART_W - 2 * SLOT_INSET;
 const STEP_MS = 1000 / 60;
 const SPRING_PULL = 0.09;
 const SPRING_DAMP = 0.74;
@@ -225,7 +224,6 @@ function slotOffset(s: BarFxState, slot: number): number {
   return dy;
 }
 
-/** Strongest active slot-pop as a whole-fill / tip pulse (neon draw). */
 function pulseOffset(s: BarFxState): number {
   let dy = 0;
   for (let slot = 0; slot < BONUS_SLOTS; slot += 1) {
@@ -236,7 +234,6 @@ function pulseOffset(s: BarFxState): number {
 
 export type BonusBarGlow = { outerStrength: number; distance: number };
 
-/** Neon STYLE only; glow is an enhancement — solid neon rects still draw without it. */
 export function bonusBarGlowFilter(style: GhostStyle): BonusBarGlow | null {
   if (!styleUsesGlow(style)) {
     return null;
@@ -275,12 +272,12 @@ function neonBarRects(s: BarFxState): BarRect[] {
   rects.push({
     x: gx + SLOT_INSET,
     y: troughY,
-    w: INNER_W,
+    w: BONUS_BAR_INNER_W,
     h: 1,
     color: frame,
   });
   const frac = shown / BONUS_BAR_MAX;
-  const w = shown > 0 ? Math.max(1, Math.round(INNER_W * frac)) : 0;
+  const w = shown > 0 ? Math.max(1, Math.round(BONUS_BAR_INNER_W * frac)) : 0;
   if (w > 0) {
     const x = gx + SLOT_INSET;
     const y = gy + SLOT_INSET + pulseDy;
@@ -312,10 +309,6 @@ function pixelBarRects(s: BarFxState): BarRect[] {
   return rects;
 }
 
-/**
- * Pixel STYLE keeps the 12-slot art-pixel meter. Neon/lined draw a continuous tube;
- * defaults to pixel so accidental callers stay segmented.
- */
 export function barRects(s: BarFxState, style: GhostStyle = "pixel"): BarRect[] {
   return style === "pixel" ? pixelBarRects(s) : neonBarRects(s);
 }

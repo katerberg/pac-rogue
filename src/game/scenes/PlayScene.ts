@@ -884,10 +884,6 @@ export class PlayScene extends Phaser.Scene {
     this.syncBonusBarGlow(rects);
   }
 
-  /**
-   * Knockout Glow under the crisp bar, same canvas-density pattern as pellet/ghost glow.
-   * Kept off the chrome Container so filter focus stays reliable.
-   */
   private syncBonusBarGlow(rects: BarRect[]): void {
     const glow = bonusBarGlowFilter(this.ghostStyle);
     const px = renderScaleOf(this);
@@ -908,7 +904,6 @@ export class PlayScene extends Phaser.Scene {
         const pad = BONUS_GLOW_PAD_WORLD;
         const filterW = Math.ceil((BONUS_BAR_ART_W * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
         const filterH = Math.ceil((BONUS_BAR_ART_H * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
-        this.bonusGlowGfx.setScale(1);
         this.bonusGlowGfx.enableFilters();
         this.bonusGlowGfx.filtersAutoFocus = false;
         this.bonusGlowGfx.filtersFocusContext = false;
