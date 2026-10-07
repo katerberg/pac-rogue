@@ -405,7 +405,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const lineArtObjects = new Map<string, LineArtObject>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const bossPelletGlows = new Map<number, Phaser.GameObjects.Graphics>();
-  const neonPowerBounceMul = new Map<number, number>();
   const neonPowerBounceTarget = new Map<number, { mul: number }>();
   const killNeonPowerBounce = (eid: number): void => {
     const target = neonPowerBounceTarget.get(eid);
@@ -413,7 +412,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       scene.tweens.killTweensOf(target);
       neonPowerBounceTarget.delete(eid);
     }
-    neonPowerBounceMul.delete(eid);
   };
   let wallGlowScale = renderScaleOf(scene);
   const wallGlowTexture = scene.add.renderTexture(0, 0, 1, 1).setOrigin(0, 0);
@@ -625,7 +623,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       scene.tweens.killTweensOf(target);
     }
     neonPowerBounceTarget.clear();
-    neonPowerBounceMul.clear();
     playerVisuals.clear();
     wallGraphics.clear();
     pelletCrispGraphics.clear();
@@ -641,18 +638,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       killNeonPowerBounce(eid);
       const target = { mul: 1 };
       neonPowerBounceTarget.set(eid, target);
-      neonPowerBounceMul.set(eid, 1);
       scene.tweens.add({
         targets: target,
         mul: POWER_PELLET_BOUNCE_MUL,
         duration: POWER_PELLET_BOUNCE_MS,
         yoyo: true,
         ease: "Sine.easeOut",
-        onUpdate: () => {
-          neonPowerBounceMul.set(eid, target.mul);
-        },
         onComplete: () => {
-          neonPowerBounceMul.delete(eid);
           neonPowerBounceTarget.delete(eid);
         },
       });
@@ -819,7 +811,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           y,
           look: lookForPellet(pelletStyle, id, optional),
           optional,
-          bounceMul: neonPowerBounceMul.get(eid) ?? 1,
+          bounceMul: neonPowerBounceTarget.get(eid)?.mul ?? 1,
         });
         continue;
       }
