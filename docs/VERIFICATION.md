@@ -85,7 +85,7 @@ On agent ports (**5174** / **4174**), audio is disabled (`noAudio`) unless `?sou
 - Clicks **Start** on the menu, then captures `artifacts/visual-smoke.png` (**PlayScene** maze/HUD — primary CI smoke image)
 - Reloads with `?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference&seed=smoke`, waits for Remote Transference in the offer, and captures `artifacts/visual-smoke-upgrade.png`
 
-- Opens a second page at **802×634** (a fractional render scale) on the menu and fails if any dim pixels sit in the empty rows under the text (`scripts/lib/strayPixels.mjs`). That catches texture-edge bleed (dashes under glyphs, smeared sprite edges), which does not show at the default 900×700. It saves `artifacts/visual-smoke-menu.png`.
+- Opens a second page at **802×634** (a fractional render scale) on the menu with Settings **STYLE = PIXEL** (bleed is a bitmap-atlas artifact; neon text is vector strokes whose one-row anti-aliasing fringe would false-positive, so this image is not evidence for the default neon menu) and fails if any dim pixels sit in the empty rows under the text (`scripts/lib/strayPixels.mjs`). That catches texture-edge bleed (dashes under glyphs, smeared sprite edges), which does not show at the default 900×700. It saves `artifacts/visual-smoke-menu.png`.
 
 Agents must **read that image** (or an equivalent live capture) when claiming visual verification — not merely note that the script exited 0.
 
