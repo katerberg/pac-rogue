@@ -2,7 +2,10 @@ import Phaser from "phaser";
 import {
   barRects,
   BONUS_ART_SCALE,
+  BONUS_BAR_ART_H,
   BONUS_BAR_ART_W,
+  BONUS_COLORS,
+  bonusBarGlowFilter,
   bonusBumpFx,
   bumpBarFx,
   createBarFx,
@@ -10,6 +13,7 @@ import {
   slowFillBarFx,
   stepBarFx,
   type BarFxState,
+  type BarRect,
 } from "../../domain/bonusBarFx";
 import { playTurnSparks } from "./turnSparks";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
@@ -21,7 +25,7 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
-import { ghostLineArtLook } from "../../domain/ghostArt";
+import { ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { pelletStyleFor } from "../../domain/pelletStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
@@ -84,8 +88,10 @@ import {
   SCHOOL_COLORS,
   type UpgradeChoiceModal,
 } from "./upgradeChoiceModal";
-import { applyRenderScale } from "../renderScale";
+import { applyRenderScale, renderScaleOf } from "../renderScale";
 
+const BONUS_GLOW_QUALITY = 24;
+const BONUS_GLOW_PAD_WORLD = 10;
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
 const BOSS_BANNER_SLAM_MS = 220;
@@ -123,7 +129,10 @@ export class PlayScene extends Phaser.Scene {
   private sideHud!: Phaser.GameObjects.Container;
   private knobsPanel: KnobsPanel | null = null;
   private chromeShake: Phaser.Time.TimerEvent | null = null;
+  private bonusGlowGfx!: Phaser.GameObjects.Graphics;
   private bonusGfx!: Phaser.GameObjects.Graphics;
+  private bonusGlowKey = "";
+  private ghostStyle: GhostStyle = "neon";
   private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
@@ -171,7 +180,9 @@ export class PlayScene extends Phaser.Scene {
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
     const runLogMeta = newRunLogMeta(params);
     this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning, runLogMeta);
-    this.sim.setGhostStyle(loadGhostStyle());
+    this.ghostStyle = loadGhostStyle();
+    this.sim.setGhostStyle(this.ghostStyle);
+    this.bonusGlowKey = "";
     this.pausedAtMs = null;
     this.hiddenAtMs = null;
 
@@ -193,10 +204,11 @@ export class PlayScene extends Phaser.Scene {
 
     const bonusLabel = addGameText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
     placeGameText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
+    this.bonusGlowGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
     this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
     this.barFx = createBarFx(this.sim.hud().bonusCharge);
     this.sideHud.add(this.timerText);
-    this.chrome.add([bonusLabel, this.bonusGfx]);
+    this.chrome.add([bonusLabel, this.bonusGlowGfx, this.bonusGfx]);
     this.lifeIcons = [];
     this.shieldIcons = [];
     this.shieldCrackHalves = [];
@@ -366,7 +378,9 @@ export class PlayScene extends Phaser.Scene {
     }
     this.sim.suppressInputUntilRelease();
     // Settings may have been opened from the pause menu.
-    this.sim.setGhostStyle(loadGhostStyle());
+    this.ghostStyle = loadGhostStyle();
+    this.sim.setGhostStyle(this.ghostStyle);
+    this.bonusGlowKey = "";
     const timerVisible = this.timerText.visible;
     this.timerText.destroy();
     this.timerText = addGameText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
@@ -855,14 +869,72 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private drawBonusBar(): void {
+    const rects = barRects(this.barFx, this.ghostStyle);
     this.bonusGfx.clear();
-    for (const rect of barRects(this.barFx)) {
+    for (const rect of rects) {
       this.bonusGfx.fillStyle(rect.color, 1);
       this.bonusGfx.fillRect(
         rect.x * BONUS_ART_SCALE,
         rect.y * BONUS_ART_SCALE,
         rect.w * BONUS_ART_SCALE,
         rect.h * BONUS_ART_SCALE,
+      );
+    }
+    this.syncBonusBarGlow(rects);
+  }
+
+  private syncBonusBarGlow(rects: BarRect[]): void {
+    const glow = bonusBarGlowFilter(this.ghostStyle);
+    const px = renderScaleOf(this);
+    if (glow === null) {
+      this.bonusGlowGfx.clear();
+      this.bonusGlowGfx.setVisible(false);
+      this.bonusGlowGfx.filters?.internal.clear();
+      this.bonusGlowKey = `off:${px}`;
+      return;
+    }
+    this.bonusGlowGfx.setVisible(true);
+    const key = `on:${px}:${glow.outerStrength}:${glow.distance}`;
+    if (this.bonusGlowKey !== key) {
+      this.bonusGlowKey = key;
+      try {
+        const reach = Math.ceil(glow.distance * px);
+        const pad = BONUS_GLOW_PAD_WORLD;
+        const filterW = Math.ceil((BONUS_BAR_ART_W * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
+        const filterH = Math.ceil((BONUS_BAR_ART_H * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
+        this.bonusGlowGfx.setScale(1 / px);
+        this.bonusGlowGfx.enableFilters();
+        this.bonusGlowGfx.filtersAutoFocus = false;
+        this.bonusGlowGfx.filtersFocusContext = false;
+        this.bonusGlowGfx.setFilterSize(filterW, filterH);
+        this.bonusGlowGfx.filterCamera.setZoom(px);
+        this.bonusGlowGfx.filterCamera.setOrigin(0, 0);
+        this.bonusGlowGfx.filterCamera.scrollX = -pad;
+        this.bonusGlowGfx.filterCamera.scrollY = -pad;
+        this.bonusGlowGfx.filters!.internal.clear();
+        this.bonusGlowGfx.filters!.internal.addGlow(
+          BONUS_COLORS.fill,
+          glow.outerStrength,
+          0,
+          1,
+          true,
+          BONUS_GLOW_QUALITY,
+          reach,
+        );
+      } catch {
+        this.bonusGlowKey = "";
+        this.bonusGlowGfx.clear();
+        return;
+      }
+    }
+    this.bonusGlowGfx.clear();
+    for (const rect of rects) {
+      this.bonusGlowGfx.fillStyle(rect.color, 1);
+      this.bonusGlowGfx.fillRect(
+        rect.x * BONUS_ART_SCALE * px,
+        rect.y * BONUS_ART_SCALE * px,
+        rect.w * BONUS_ART_SCALE * px,
+        rect.h * BONUS_ART_SCALE * px,
       );
     }
   }

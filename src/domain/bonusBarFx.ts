@@ -1,8 +1,9 @@
 import { BONUS_BAR_MAX } from "./bonusBar";
+import { styleUsesGlow, type GhostStyle } from "./ghostArt";
 
 export const BONUS_ART_SCALE = 2;
 export const BONUS_BAR_ART_W = 75;
-const BONUS_BAR_ART_H = 8;
+export const BONUS_BAR_ART_H = 8;
 export const BONUS_SLOTS = 12;
 const BONUS_PUNCH_TIER = 6;
 const BONUS_CHROME_SHAKE_TIER = 8;
@@ -13,11 +14,16 @@ export const BONUS_COLORS = {
   flash: 0xffffff,
 } as const;
 
+/** Phaser Glow on the neon BONUS tube (HUD-scale; not knobs). */
+const BONUS_NEON_GLOW_STRENGTH = 2.5;
+const BONUS_NEON_GLOW_DISTANCE = 8;
+
 const POINTS_PER_SLOT = BONUS_BAR_MAX / BONUS_SLOTS;
 const SLOT_W = 5;
 const SLOT_H = 4;
 const SLOT_STEP = 6;
 const SLOT_INSET = 2;
+const INNER_W = BONUS_BAR_ART_W - 2 * SLOT_INSET;
 const STEP_MS = 1000 / 60;
 const SPRING_PULL = 0.09;
 const SPRING_DAMP = 0.74;
@@ -219,20 +225,77 @@ function slotOffset(s: BarFxState, slot: number): number {
   return dy;
 }
 
-export function barRects(s: BarFxState): BarRect[] {
-  const { gx, gy } = barOffset(s);
-  const { frame, fill, highlight, flash } = BONUS_COLORS;
-  const rects: BarRect[] = [
+/** Strongest active slot-pop as a whole-fill / tip pulse (neon draw). */
+function pulseOffset(s: BarFxState): number {
+  let dy = 0;
+  for (let slot = 0; slot < BONUS_SLOTS; slot += 1) {
+    dy = Math.min(dy, slotOffset(s, slot));
+  }
+  return dy;
+}
+
+export type BonusBarGlow = { outerStrength: number; distance: number };
+
+/** Neon STYLE only; glow is an enhancement — solid neon rects still draw without it. */
+export function bonusBarGlowFilter(style: GhostStyle): BonusBarGlow | null {
+  if (!styleUsesGlow(style)) {
+    return null;
+  }
+  return { outerStrength: BONUS_NEON_GLOW_STRENGTH, distance: BONUS_NEON_GLOW_DISTANCE };
+}
+
+function fillColors(s: BarFxState, shown: number): { body: number; top: number } {
+  const { fill, highlight, flash } = BONUS_COLORS;
+  const flashing = s.nowMs < s.flashUntilMs;
+  const blink = shown / BONUS_BAR_MAX >= NEAR_FULL && Math.floor(s.nowMs / BLINK_MS) % 2 === 1;
+  return {
+    body: flashing ? flash : blink ? highlight : fill,
+    top: flashing ? flash : highlight,
+  };
+}
+
+function frameRects(gx: number, gy: number): BarRect[] {
+  const { frame } = BONUS_COLORS;
+  return [
     { x: gx, y: gy, w: BONUS_BAR_ART_W, h: 1, color: frame },
     { x: gx, y: gy + BONUS_BAR_ART_H - 1, w: BONUS_BAR_ART_W, h: 1, color: frame },
     { x: gx, y: gy, w: 1, h: BONUS_BAR_ART_H, color: frame },
     { x: gx + BONUS_BAR_ART_W - 1, y: gy, w: 1, h: BONUS_BAR_ART_H, color: frame },
   ];
+}
+
+function neonBarRects(s: BarFxState): BarRect[] {
+  const { gx, gy } = barOffset(s);
+  const { frame } = BONUS_COLORS;
+  const rects = frameRects(gx, gy);
   const shown = Math.max(0, Math.min(BONUS_BAR_MAX, s.shown));
-  const flashing = s.nowMs < s.flashUntilMs;
-  const blink = shown / BONUS_BAR_MAX >= NEAR_FULL && Math.floor(s.nowMs / BLINK_MS) % 2 === 1;
-  const body = flashing ? flash : blink ? highlight : fill;
-  const top = flashing ? flash : highlight;
+  const { body, top } = fillColors(s, shown);
+  const pulseDy = pulseOffset(s);
+  const troughY = gy + SLOT_INSET + SLOT_H - 1;
+  rects.push({
+    x: gx + SLOT_INSET,
+    y: troughY,
+    w: INNER_W,
+    h: 1,
+    color: frame,
+  });
+  const frac = shown / BONUS_BAR_MAX;
+  const w = shown > 0 ? Math.max(1, Math.round(INNER_W * frac)) : 0;
+  if (w > 0) {
+    const x = gx + SLOT_INSET;
+    const y = gy + SLOT_INSET + pulseDy;
+    rects.push({ x, y, w, h: SLOT_H, color: body });
+    rects.push({ x, y, w, h: 1, color: top });
+  }
+  return rects;
+}
+
+function pixelBarRects(s: BarFxState): BarRect[] {
+  const { gx, gy } = barOffset(s);
+  const { frame } = BONUS_COLORS;
+  const rects = frameRects(gx, gy);
+  const shown = Math.max(0, Math.min(BONUS_BAR_MAX, s.shown));
+  const { body, top } = fillColors(s, shown);
   for (let slot = 0; slot < BONUS_SLOTS; slot += 1) {
     const x = gx + SLOT_INSET + slot * SLOT_STEP;
     const y = gy + SLOT_INSET + slotOffset(s, slot);
@@ -247,4 +310,12 @@ export function barRects(s: BarFxState): BarRect[] {
     }
   }
   return rects;
+}
+
+/**
+ * Pixel STYLE keeps the 12-slot art-pixel meter. Neon/lined draw a continuous tube;
+ * defaults to pixel so accidental callers stay segmented.
+ */
+export function barRects(s: BarFxState, style: GhostStyle = "pixel"): BarRect[] {
+  return style === "pixel" ? pixelBarRects(s) : neonBarRects(s);
 }

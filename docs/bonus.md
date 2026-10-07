@@ -44,14 +44,16 @@ Tuned so an 80%-efficient run earns about one Quarter per level, roughly 70% fro
 
 ## HUD
 
-[`src/domain/bonusBarFx.ts`](../src/domain/bonusBarFx.ts) holds all the presentation math (pure, unit-tested); `PlayScene` steps it every frame and draws the rectangles it returns with one `Graphics` object.
+[`src/domain/bonusBarFx.ts`](../src/domain/bonusBarFx.ts) holds all the presentation math (pure, unit-tested); `PlayScene` steps it every frame and draws the rectangles it returns with Phaser `Graphics` (crisp bar plus, under STYLE = NEON, a knockout Glow layer).
 
-- A `BONUS` label and a 75×8 **art-pixel** bar at top center, drawn at `BONUS_ART_SCALE` (2). Three colors, hard edges, no gradient: maze blue `0x2121de` (1 px frame, and a 1 px floor line in each empty slot), pellet yellow `0xffd800` (fill) and pale yellow `0xfff4a3` (the fill's top row). White appears only during a punch flash.
-- 12 slots of 25 points, each 5×4 art pixels with 1 px gaps. A partly filled slot draws whole pixels, at least 1 px for any charge.
-- The displayed fill follows the charge on a soft spring (slight overshoot). A slot pops up as it lights. At 75% full the fill blinks yellow / pale yellow every 260 ms.
+- A `BONUS` label and a 75×8 art-pixel bar at top center, drawn at `BONUS_ART_SCALE` (2). Three colors, hard edges, no gradient: maze blue `0x2121de` (frame), pellet yellow `0xffd800` (fill) and pale yellow `0xfff4a3` (the fill's top row). White appears only during a punch flash.
+- Settings → **STYLE** skins the meter (same store as ghosts/walls; see [line-art.md](./line-art.md)):
+  - **PIXEL:** 12 slots of 25 points, each 5×4 art pixels with 1 px gaps. Empty slots get a 1 px floor dash. A partly filled slot draws whole pixels, at least 1 px for any charge. Slot pops raise individual segments.
+  - **NEON / LINED:** one continuous yellow tube over a dim continuous blue trough (no slot gaps). Slot-pop FX remaps to a whole-fill pulse. **NEON** also adds a soft Phaser Glow (`bonusBarGlowFilter`, strength 2.5 / distance 8 px); **LINED** keeps the solid tube without glow.
+- The displayed fill follows the charge on a soft spring (slight overshoot). At 75% full the fill blinks yellow / pale yellow every 260 ms.
 - Bumps (`bonusBumpFx(tier)`): tiers 1–5 **bounce** (the bar hops and wobbles; a slot wave from tier 4). Tier 6+ **punch** (white flash, hard horizontal shake, every slot pops at once). Tier 8+ also shakes the **HUD chrome**.
 - The chrome is one `Container` holding the Quarter icons, `Time:`, the upgrades list, the life icons and the bar. A chrome shake steps it through fixed offsets; the maze, actors and camera never move.
-- A fill runs the bar up to full, pops a wave across all 12 slots, resets to the carried-over charge, pulses the new Quarter icon and plays both munch sounds.
+- A fill runs the bar up to full, pops a wave across all 12 slots (neon: whole-fill pulse), resets to the carried-over charge, pulses the new Quarter icon and plays both munch sounds.
 - On store floors the bar stays visible and static.
 
 ## Testing flag
