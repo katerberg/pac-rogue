@@ -1069,16 +1069,8 @@ export function takeRandomFrom<T>(pool: T[], rng: () => number): T {
 export function takeWeightedUpgrade(pool: BaseUpgradeId[], rng: () => number): BaseUpgradeId {
   const weight = (id: BaseUpgradeId): number => (isRare(id) ? RARE_OFFER_WEIGHT : 1);
   let roll = rng() * pool.reduce((sum, id) => sum + weight(id), 0);
-  let index = pool.length - 1;
-  for (let i = 0; i < pool.length; i += 1) {
-    roll -= weight(pool[i]!);
-    if (roll < 0) {
-      index = i;
-      break;
-    }
-  }
-  const [picked] = pool.splice(index, 1);
-  return picked!;
+  const index = pool.findIndex((id) => (roll -= weight(id)) < 0);
+  return pool.splice(index === -1 ? pool.length - 1 : index, 1)[0]!;
 }
 
 function shuffleInPlace<T>(ids: T[], rng: () => number): void {
