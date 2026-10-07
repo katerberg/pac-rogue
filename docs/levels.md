@@ -9,7 +9,7 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../
 | 3-8   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                                                                             | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level; after 3, after 5 or 6, and after 8 a store floor comes first |
 | 9     | Procedural 28×34               | Boss, rolled per run: Blinky Swarm (3-tunnel board, 2 → 10 Blinkys) or Chained Ghosts (see [bosses](./bosses.md)) | present (charges the BONUS bar)                  | No upgrade offer; a `RUN COMPLETE` screen with a `NEW GAME` / `MENU` choice                                                                            |
 
-Ghosts are drawn as neon line art on every level by default; Settings → STYLE switches them to pixel art and turns wall glow off (see [line-art.md](./line-art.md)).
+Ghosts are drawn as neon line art on every level by default; Settings → STYLE switches them to pixel art, turns wall glow off, and restores classic PNG pellets (see [line-art.md](./line-art.md)).
 
 Store floors (between levels 3→4, 5→6 or 6→7, and 8→9 right before the boss) are where Quarters are spent; see [docs/store.md](./store.md).
 

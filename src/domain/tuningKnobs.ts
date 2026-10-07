@@ -11,7 +11,8 @@ export type KnobGroup =
   | "Ghost AI"
   | "Release"
   | "Scatter"
-  | "Visuals";
+  | "Visuals"
+  | "Dots";
 
 type KnobBase = { key: TuningKey; group: KnobGroup; label: string };
 
@@ -40,6 +41,7 @@ export const RIGHT_KNOB_GROUPS: readonly KnobGroup[] = [
   "Release",
   "Scatter",
   "Visuals",
+  "Dots",
 ];
 
 function range(
@@ -115,6 +117,40 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("fontLetterSpacing", "Visuals", "Font letter spacing", -0.5, 2, 0.05),
   range("fontHeightScale", "Visuals", "Font height", 0.4, 3, 0.05, "×"),
   { key: "fontGlowKnockout", group: "Visuals", label: "Font glow knockout", kind: "toggle" },
+  range("pelletRadius", "Dots", "Dot radius", 0.5, 48, 0.1, "px"),
+  range("pelletStrokeWidth", "Dots", "Dot stroke", 0.1, 32, 0.1, "px"),
+  range("pelletGlow", "Dots", "Dot glow", 0, 36, 8),
+  range("pelletGlowRadius", "Dots", "Dot glow radius", 0, 120, 1, "px"),
+  { key: "pelletCoreColor", group: "Dots", label: "Dot core colour", kind: "color" },
+  { key: "pelletGlowColor", group: "Dots", label: "Dot glow colour", kind: "color" },
+  range("pelletFillOpacity", "Dots", "Dot fill opacity", 0, 1, 0.05),
+  range("powerPelletRadius", "Dots", "Power radius", 0.5, 48, 0.1, "px"),
+  range("powerPelletStrokeWidth", "Dots", "Power stroke", 0.1, 32, 0.1, "px"),
+  range("powerPelletGlow", "Dots", "Power glow", 0, 36, 8),
+  range("powerPelletGlowRadius", "Dots", "Power glow radius", 0, 120, 1, "px"),
+  range("powerPelletFillOpacity", "Dots", "Power fill opacity", 0, 1, 0.05),
+  range("bossPelletRadius", "Dots", "Boss radius", 0.5, 48, 0.1, "px"),
+  range("bossPelletStrokeWidth", "Dots", "Boss stroke", 0.1, 32, 0.1, "px"),
+  range("bossPelletGlow", "Dots", "Boss glow", 0, 36, 0.1),
+  range("bossPelletGlowRadius", "Dots", "Boss glow radius", 0, 120, 1, "px"),
+  range("bossPelletFillOpacity", "Dots", "Boss fill opacity", 0, 1, 0.05),
+  range("optionalPelletRadius", "Dots", "Optional radius", 0.5, 48, 0.1, "px"),
+  range("optionalPelletStrokeWidth", "Dots", "Optional stroke", 0.1, 32, 0.1, "px"),
+  range("optionalPelletGlow", "Dots", "Optional glow", 0, 36, 0.1),
+  range("optionalPelletGlowRadius", "Dots", "Optional glow radius", 0, 120, 1, "px"),
+  {
+    key: "optionalPelletFillColor",
+    group: "Dots",
+    label: "Optional fill colour",
+    kind: "color",
+  },
+  {
+    key: "optionalPelletGlowColor",
+    group: "Dots",
+    label: "Optional glow colour",
+    kind: "color",
+  },
+  range("optionalPelletFillOpacity", "Dots", "Optional fill opacity", 0, 1, 0.05),
 ];
 
 function stepDecimals(step: number): number {
@@ -230,4 +266,36 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   fontHeightScale: "Vertical stretch of neon glyphs. 1 = natural proportions.",
   fontGlowKnockout:
     "On: bloom is a knockout glow under a crisp stroke (ghost-style). Off: bloom uses the same stroke width as the core.",
+  pelletRadius:
+    "Radius of the neon regular dot in world pixels. Visual only; collision is unchanged.",
+  pelletStrokeWidth: "Stroke thickness around neon regular dots in pixels. Visual only.",
+  pelletGlow:
+    "Phaser outerStrength of the neon glow around regular dots. 0 = no glow. With knobs on this always applies; without knobs, Settings → STYLE = PIXEL keeps PNG dots.",
+  pelletGlowRadius: "How far the regular-dot glow spreads beyond the disc, in pixels. 0 = no glow.",
+  pelletCoreColor: "Fill and stroke colour of neon regular, power, and boss dots (default white).",
+  pelletGlowColor:
+    "Glow tint for neon regular, power, and boss dots. Without knobs this follows Settings → MAZE COLOR.",
+  pelletFillOpacity:
+    "Fill opacity of regular neon dots (0 = hollow stroke only). Does not affect Lazy Looper optional dots.",
+  powerPelletRadius: "Radius of neon power pellets. Larger than regular dots by default.",
+  powerPelletStrokeWidth:
+    "Stroke thickness of neon power pellets. Thicker than regular by default.",
+  powerPelletGlow: "Phaser outerStrength of the neon glow around power pellets. 0 = no glow.",
+  powerPelletGlowRadius: "How far the power-pellet glow spreads, in pixels. 0 = no glow.",
+  powerPelletFillOpacity: "Fill opacity of neon power pellets (0 = hollow stroke only).",
+  bossPelletRadius: "Base radius of neon boss pellets before the size pulse.",
+  bossPelletStrokeWidth: "Stroke thickness of neon boss pellets.",
+  bossPelletGlow: "Phaser outerStrength of the neon glow around boss pellets. 0 = no glow.",
+  bossPelletGlowRadius: "How far the boss-pellet glow spreads, in pixels. 0 = no glow.",
+  bossPelletFillOpacity: "Fill opacity of neon boss pellets (0 = hollow stroke only).",
+  optionalPelletRadius: "Radius of Lazy Looper optional neon dots.",
+  optionalPelletStrokeWidth: "Stroke thickness of Lazy Looper optional neon dots.",
+  optionalPelletGlow:
+    "Phaser outerStrength of the muted glow around Lazy Looper optional dots. 0 = no glow.",
+  optionalPelletGlowRadius: "How far the optional-dot glow spreads, in pixels. 0 = no glow.",
+  optionalPelletFillColor: "Fill colour inside Lazy Looper optional neon dots (default grey).",
+  optionalPelletGlowColor:
+    "Muted glow tint for Lazy Looper optional dots (default cool grey, not the maze wall colour).",
+  optionalPelletFillOpacity:
+    "Fill opacity for Lazy Looper optional neon dots (default solid grey).",
 };
