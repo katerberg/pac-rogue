@@ -765,7 +765,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveEcho",
     label: "Echo",
     school: "automation",
-    description: "Power pellets fire one of your power effects again 3 seconds later.",
+    description: "Power pellets fire a random one of your power effects again 3 seconds later.",
     storePrice: STORE_UPGRADE_PRICE,
     echoEffects: "one",
     enhanced: {
