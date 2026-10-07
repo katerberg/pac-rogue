@@ -37,7 +37,7 @@ const LINE_GLOW_QUALITY = 24;
 const GLOW_SOURCE_INSET_PX = 2;
 const glyphArtCache = new Map<string, LineArt>();
 
-let activeFontLook: FontLineArtLook = fontLineArtLook(null, "neon");
+let activeFontLook: FontLineArtLook = fontLineArtLook(null);
 let fontLookKey: string | null = null;
 const liveNeonTexts = new Set<NeonText>();
 
@@ -60,31 +60,29 @@ function glyphArtFor(char: string, glyph: NeonGlyph): LineArt {
   return art;
 }
 
-function fontLookStorageKey(knobs: boolean, style: GhostStyle): string {
-  return `${knobs ? "knobs" : "style"}:${style}`;
+function fontLookSource(): { knobs: boolean; style: GhostStyle; key: string } {
+  const knobs = parseKnobsFlag(new URLSearchParams(location.search));
+  const style = loadGhostStyle();
+  return { knobs, style, key: `${knobs ? "knobs" : "style"}:${style}` };
 }
 
 function setActiveFontLook(look: FontLineArtLook): void {
   activeFontLook = look;
-  const knobs = parseKnobsFlag(new URLSearchParams(location.search));
-  fontLookKey = fontLookStorageKey(knobs, loadGhostStyle());
+  fontLookKey = fontLookSource().key;
   for (const text of liveNeonTexts) {
     text.applyLook(look);
   }
 }
 
 function syncFontLookFromStorage(): FontLineArtLook {
-  const knobs = parseKnobsFlag(new URLSearchParams(location.search));
-  const style = loadGhostStyle();
+  const { knobs, style } = fontLookSource();
   const look = fontLineArtLook(knobs ? loadDebugTuning() : null, style);
   setActiveFontLook(look);
   return look;
 }
 
 function ensureFontLookSynced(): void {
-  const knobs = parseKnobsFlag(new URLSearchParams(location.search));
-  const style = loadGhostStyle();
-  if (fontLookKey !== fontLookStorageKey(knobs, style)) {
+  if (fontLookKey !== fontLookSource().key) {
     syncFontLookFromStorage();
   }
 }
