@@ -249,13 +249,19 @@ function strokePelletRing(
   const sx = x * scale;
   const sy = y * scale;
   const radius = look.radius * scale;
-  const stroke = Math.max(forGlow ? 0.5 : 0.1, look.strokeWidth * scale);
-  if (!forGlow && look.fillOpacity > 0) {
-    graphics.fillStyle(look.fillColor, look.fillOpacity * alpha);
+  if (look.fillOpacity > 0) {
+    graphics.fillStyle(
+      forGlow ? look.glowColor : look.fillColor,
+      forGlow ? 1 : look.fillOpacity * alpha,
+    );
     graphics.fillCircle(sx, sy, radius);
   }
-  graphics.lineStyle(stroke, forGlow ? look.glowColor : look.coreColor, forGlow ? 1 : alpha);
-  graphics.strokeCircle(sx, sy, radius);
+  const stroke =
+    look.strokeWidth <= 0 ? 0 : Math.max(forGlow ? 0.5 : 0.1, look.strokeWidth * scale);
+  if (stroke > 0) {
+    graphics.lineStyle(stroke, forGlow ? look.glowColor : look.coreColor, forGlow ? 1 : alpha);
+    graphics.strokeCircle(sx, sy, radius);
+  }
 }
 
 export function addGhostIcon(

@@ -90,21 +90,18 @@ export function pelletGlowFilter(
 }
 
 /**
- * Phaser's Glow filter samples nearby opaque texels. Crisp neon dots can be
- * filled sub-2px discs; using that geometry as the glow source yields ~zero
- * outer bloom even at high outerStrength. Bake a stroke-ring silhouette with
- * a floor on radius/stroke so Dot glow knobs stay visible; crisp fill stays
- * on the separate Graphics layer.
+ * Knockout glow emits outside the opaque source. Match a filled disc inset
+ * under the crisp edge so bloom starts at/inside the white (no dark gap).
+ * Crisp fill stays on the separate Graphics layer.
  */
-const PELLET_GLOW_SOURCE_MIN_RADIUS = 2.25;
-const PELLET_GLOW_SOURCE_MIN_STROKE = 1.5;
+const PELLET_GLOW_SOURCE_INSET = 0.25;
 
 export function pelletGlowSourceLook(look: PelletKindLook): PelletKindLook {
   return {
     ...look,
-    radius: Math.max(look.radius, PELLET_GLOW_SOURCE_MIN_RADIUS),
-    strokeWidth: Math.max(look.strokeWidth, PELLET_GLOW_SOURCE_MIN_STROKE),
-    fillOpacity: 0,
+    radius: Math.max(0.25, look.radius - PELLET_GLOW_SOURCE_INSET),
+    strokeWidth: 0,
+    fillOpacity: 1,
   };
 }
 

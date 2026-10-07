@@ -84,28 +84,28 @@ describe("pelletGlowFilter", () => {
 });
 
 describe("pelletGlowSourceLook", () => {
-  it("uses a stroke-ring silhouette with size floors for tiny filled discs", () => {
+  it("uses a filled disc inset under the crisp radius so bloom starts inside the white", () => {
     const style = pelletStyleFor(null, 0, "neon")!;
     expect(style.regular.fillOpacity).toBe(1);
-    expect(style.regular.radius).toBeLessThan(2.25);
     const source = pelletGlowSourceLook(style.regular);
-    expect(source.fillOpacity).toBe(0);
-    expect(source.radius).toBe(2.25);
-    expect(source.strokeWidth).toBeGreaterThanOrEqual(1.5);
+    expect(source.fillOpacity).toBe(1);
+    expect(source.strokeWidth).toBe(0);
+    expect(source.radius).toBeLessThan(style.regular.radius);
+    expect(source.radius).toBeCloseTo(style.regular.radius - 0.25);
     expect(source.glowColor).toBe(style.regular.glowColor);
     expect(source.glow).toBe(style.regular.glow);
   });
 
-  it("keeps larger kind geometry when already above the floors", () => {
+  it("insets larger kinds the same way", () => {
     const style = pelletStyleFor(
       resolveTuning({ powerPelletRadius: 5, powerPelletStrokeWidth: 3 }),
       0,
       "neon",
     )!;
     const source = pelletGlowSourceLook(style.power);
-    expect(source.radius).toBe(5);
-    expect(source.strokeWidth).toBe(3);
-    expect(source.fillOpacity).toBe(0);
+    expect(source.radius).toBeCloseTo(4.75);
+    expect(source.strokeWidth).toBe(0);
+    expect(source.fillOpacity).toBe(1);
   });
 });
 
