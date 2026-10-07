@@ -1,8 +1,11 @@
 import Phaser from "phaser";
 import {
-  formatHighScoreHeader,
-  formatHighScoreLine,
+  HIGH_SCORE_COLUMNS,
+  highScoreCellX,
+  layoutHighScoreColumns,
   toHighScoreRows,
+  type HighScoreColumnLayout,
+  type HighScoreRow,
 } from "../../domain/highScoresView";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -33,7 +36,7 @@ const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 export class HighScoresScene extends Phaser.Scene {
   private scrollState: ScoreListScrollState = createScoreListScroll(0, SCROLL);
   private itemCount = 0;
-  private rowTexts: GameText[] = [];
+  private rowTexts: GameText[][] = [];
   private backText!: GameText;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private keyBackspace!: Phaser.Input.Keyboard.Key;
@@ -58,12 +61,6 @@ export class HighScoresScene extends Phaser.Scene {
     this.scrollState = createScoreListScroll(this.itemCount, SCROLL);
     this.rowTexts = [];
 
-    const headerLine = formatHighScoreHeader();
-    const probe = addGameText(this, 0, 0, headerLine, SCORES_FONT_SIZE).setVisible(false);
-    const listWidth = probe.width;
-    const listLeftX = Math.round(PLAYFIELD_WIDTH / 2 - listWidth / 2);
-    probe.destroy();
-
     if (rows.length === 0) {
       const empty = addGameText(
         this,
@@ -74,18 +71,32 @@ export class HighScoresScene extends Phaser.Scene {
       ).setDepth(1);
       placeGameText(empty, PLAYFIELD_WIDTH / 2, LIST_TOP + VIEWPORT_HEIGHT / 2, 0.5, 0.5);
     } else {
-      addGameText(this, listLeftX, HEADER_Y, headerLine, SCORES_FONT_SIZE).setDepth(10);
-      this.add.rectangle(PLAYFIELD_WIDTH / 2, HEADER_LINE_Y, listWidth, 2, 0xffffff).setDepth(10);
+      const probe = addGameText(this, 0, 0, "", SCORES_FONT_SIZE).setVisible(false);
+      const measure = (text: string): number => {
+        probe.setText(text);
+        // Round so right-aligned cells share an integer column edge after placeGameText.
+        return Math.round(probe.getTextBounds(true).local.width);
+      };
+      const layout = layoutHighScoreColumns(measure, rows);
+      probe.destroy();
+
+      const listLeftX = Math.round(PLAYFIELD_WIDTH / 2 - layout.totalWidth / 2);
+      this.placeScoreRow("header", layout, listLeftX, HEADER_Y, 10);
+
+      this.add
+        .rectangle(PLAYFIELD_WIDTH / 2, HEADER_LINE_Y, layout.totalWidth, 2, 0xffffff)
+        .setDepth(10);
 
       for (const [index, row] of rows.entries()) {
-        const text = addGameText(
-          this,
+        const cells = this.placeScoreRow(
+          "cell",
+          layout,
           listLeftX,
           LIST_TOP + index * SCROLL.rowHeight,
-          formatHighScoreLine(row),
-          SCORES_FONT_SIZE,
-        ).setDepth(1);
-        this.rowTexts.push(text);
+          1,
+          row,
+        );
+        this.rowTexts.push(cells);
       }
       this.applyScrollOffset();
     }
@@ -160,10 +171,31 @@ export class HighScoresScene extends Phaser.Scene {
     }
   }
 
+  private placeScoreRow(
+    role: "header" | "cell",
+    layout: HighScoreColumnLayout,
+    listLeftX: number,
+    y: number,
+    depth: number,
+    row?: HighScoreRow,
+  ): GameText[] {
+    return HIGH_SCORE_COLUMNS.map((column) => {
+      const content = role === "header" ? column.header : column.text(row!);
+      const align = role === "header" ? column.headerAlign : column.cellAlign;
+      const text = addGameText(this, 0, 0, content, SCORES_FONT_SIZE).setDepth(depth);
+      const originX = align === "right" ? 1 : 0;
+      placeGameText(text, highScoreCellX(layout, column.id, align, listLeftX), y, originX, 0);
+      return text;
+    });
+  }
+
   private applyScrollOffset(): void {
     const offsetY = this.scrollState.offsetY;
-    for (const [index, text] of this.rowTexts.entries()) {
-      text.setY(LIST_TOP + index * SCROLL.rowHeight - offsetY);
+    for (const [index, cells] of this.rowTexts.entries()) {
+      const y = LIST_TOP + index * SCROLL.rowHeight - offsetY;
+      for (const text of cells) {
+        text.setY(y);
+      }
     }
   }
 
