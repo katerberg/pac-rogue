@@ -10,6 +10,8 @@ import {
   neonLinePitch,
   neonStringAdvance,
   neonTextLocalHeight,
+  upgradeStackHeight,
+  upgradeStackRowPitch,
 } from "./layout";
 
 describe("neon text layout", () => {
@@ -72,6 +74,15 @@ describe("neon text layout", () => {
     expect(neonTextLocalHeight(1, 10, 4)).toBe(10);
     expect(neonTextLocalHeight(2, 10, 4)).toBe(29);
     expect(neonTextLocalHeight(3, 10, 4)).toBe(48);
+  });
+
+  it("upgrade stack pitch doubles neon rows and keeps pixel rows tight", () => {
+    expect(upgradeStackRowPitch(8, "pixel")).toBe(8);
+    expect(upgradeStackRowPitch(8, "neon")).toBe(16);
+    expect(upgradeStackHeight(0, 8, "neon")).toBe(0);
+    expect(upgradeStackHeight(1, 8, "neon")).toBe(8);
+    expect(upgradeStackHeight(2, 8, "neon")).toBe(24);
+    expect(upgradeStackHeight(2, 8, "pixel")).toBe(16);
   });
 
   it("centers the glow source on the text box in canvas pixels", () => {

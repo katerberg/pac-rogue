@@ -72,6 +72,7 @@ import {
 } from "./pixelFont";
 import { addGameText, placeGameText, setActiveFontLook, type GameText } from "./neonFont";
 import { fontLineArtLook } from "../../domain/neonFont/fontLook";
+import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/neonFont/layout";
 import { textStyleFor } from "../../domain/ghostArt";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
@@ -888,8 +889,10 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     const lineHeight = first.getTextBounds(true).local.height;
-    const top = PLAYFIELD_HEIGHT / 2 - (lineHeight * labels.length) / 2;
-    this.upgradeLines.forEach((line, i) => placeGameText(line, 12, top + lineHeight * i));
+    const textStyle = textStyleFor(loadGhostStyle());
+    const pitch = upgradeStackRowPitch(lineHeight, textStyle);
+    const top = PLAYFIELD_HEIGHT / 2 - upgradeStackHeight(labels.length, lineHeight, textStyle) / 2;
+    this.upgradeLines.forEach((line, i) => placeGameText(line, 12, top + pitch * i));
   }
 
   private timerLabel(): string {
