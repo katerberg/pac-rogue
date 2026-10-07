@@ -2,14 +2,19 @@ import Phaser from "phaser";
 import {
   barRects,
   BONUS_ART_SCALE,
+  BONUS_BAR_ART_H,
   BONUS_BAR_ART_W,
+  BONUS_COLORS,
+  bonusBarGlowFilter,
   bonusBumpFx,
   bumpBarFx,
   createBarFx,
   fillBarFx,
+  neonBarTube,
   slowFillBarFx,
   stepBarFx,
   type BarFxState,
+  type NeonBarTube,
 } from "../../domain/bonusBarFx";
 import { playTurnSparks } from "./turnSparks";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
@@ -21,7 +26,7 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
-import { ghostLineArtLook } from "../../domain/ghostArt";
+import { ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { pelletStyleFor } from "../../domain/pelletStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
@@ -58,10 +63,10 @@ import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
 import {
+  addDotManIcon,
   createRender,
   preloadPlayArt,
   QUARTER_TEXTURE_KEY,
-  PLAYER_OPEN_MOUTH_TEXTURE_KEY,
   type PlayRender,
 } from "../systems/render";
 import {
@@ -84,8 +89,13 @@ import {
   SCHOOL_COLORS,
   type UpgradeChoiceModal,
 } from "./upgradeChoiceModal";
-import { applyRenderScale } from "../renderScale";
+import { applyRenderScale, renderScaleOf } from "../renderScale";
 
+const BONUS_GLOW_QUALITY = 24;
+const BONUS_GLOW_PAD_WORLD = 12;
+const BONUS_TUBE_INSET = 2;
+const BONUS_TUBE_STROKE = 2;
+const BONUS_TRACK_ALPHA = 0.45;
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
 const BOSS_BANNER_SLAM_MS = 220;
@@ -123,7 +133,10 @@ export class PlayScene extends Phaser.Scene {
   private sideHud!: Phaser.GameObjects.Container;
   private knobsPanel: KnobsPanel | null = null;
   private chromeShake: Phaser.Time.TimerEvent | null = null;
+  private bonusGlowGfx!: Phaser.GameObjects.Graphics;
   private bonusGfx!: Phaser.GameObjects.Graphics;
+  private bonusGlowKey = "";
+  private ghostStyle: GhostStyle = "neon";
   private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
@@ -171,7 +184,9 @@ export class PlayScene extends Phaser.Scene {
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
     const runLogMeta = newRunLogMeta(params);
     this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning, runLogMeta);
-    this.sim.setGhostStyle(loadGhostStyle());
+    this.ghostStyle = loadGhostStyle();
+    this.sim.setGhostStyle(this.ghostStyle);
+    this.bonusGlowKey = "";
     this.pausedAtMs = null;
     this.hiddenAtMs = null;
 
@@ -193,6 +208,8 @@ export class PlayScene extends Phaser.Scene {
 
     const bonusLabel = addGameText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
     placeGameText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
+    // Glow lives outside chrome (filters + Container break focus); position tracks chrome shake.
+    this.bonusGlowGfx = this.add.graphics().setDepth(9);
     this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
     this.barFx = createBarFx(this.sim.hud().bonusCharge);
     this.sideHud.add(this.timerText);
@@ -366,7 +383,9 @@ export class PlayScene extends Phaser.Scene {
     }
     this.sim.suppressInputUntilRelease();
     // Settings may have been opened from the pause menu.
-    this.sim.setGhostStyle(loadGhostStyle());
+    this.ghostStyle = loadGhostStyle();
+    this.sim.setGhostStyle(this.ghostStyle);
+    this.bonusGlowKey = "";
     const timerVisible = this.timerText.visible;
     this.timerText.destroy();
     this.timerText = addGameText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
@@ -377,6 +396,7 @@ export class PlayScene extends Phaser.Scene {
       this.upgradeChoiceModal.rearmSelectionKeys();
     }
     this.refreshUpgradesHud();
+    this.refreshLivesIcons(false);
     this.scene.resume();
   }
 
@@ -712,7 +732,7 @@ export class PlayScene extends Phaser.Scene {
     const y = this.hudIconY();
     for (let i = 0; i < livesHudIconCount(this.sim.hud().lives); i += 1) {
       const x = HUD_ICON_LEFT_X + size / 2 + i * (size + HUD_ICON_GAP);
-      const icon = this.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
+      const icon = addDotManIcon(this, x, y, size, loadGhostStyle());
       this.sideHud.add(icon);
       this.lifeIcons.push(icon);
     }
@@ -856,15 +876,122 @@ export class PlayScene extends Phaser.Scene {
 
   private drawBonusBar(): void {
     this.bonusGfx.clear();
-    for (const rect of barRects(this.barFx)) {
-      this.bonusGfx.fillStyle(rect.color, 1);
-      this.bonusGfx.fillRect(
-        rect.x * BONUS_ART_SCALE,
-        rect.y * BONUS_ART_SCALE,
-        rect.w * BONUS_ART_SCALE,
-        rect.h * BONUS_ART_SCALE,
-      );
+    if (this.ghostStyle === "pixel") {
+      this.bonusGlowGfx.clear();
+      this.bonusGlowGfx.setVisible(false);
+      this.bonusGlowGfx.filters?.internal.clear();
+      this.bonusGlowKey = "";
+      for (const rect of barRects(this.barFx, "pixel")) {
+        this.bonusGfx.fillStyle(rect.color, 1);
+        this.bonusGfx.fillRect(
+          rect.x * BONUS_ART_SCALE,
+          rect.y * BONUS_ART_SCALE,
+          rect.w * BONUS_ART_SCALE,
+          rect.h * BONUS_ART_SCALE,
+        );
+      }
+      return;
     }
+    const tube = neonBarTube(this.barFx);
+    this.paintNeonTube(this.bonusGfx, tube, false);
+    this.syncBonusBarGlow(tube);
+  }
+
+  private paintNeonTube(
+    gfx: Phaser.GameObjects.Graphics,
+    tube: NeonBarTube,
+    forGlow: boolean,
+  ): void {
+    const s = BONUS_ART_SCALE;
+    const x = tube.x * s;
+    const y = tube.y * s;
+    const w = tube.w * s;
+    const h = tube.h * s;
+    const radius = h / 2;
+    const inset = BONUS_TUBE_INSET;
+    const innerX = x + inset;
+    const innerY = y + inset;
+    const innerH = h - inset * 2;
+    const innerW = w - inset * 2;
+    const innerR = innerH / 2;
+    if (forGlow) {
+      gfx.lineStyle(BONUS_TUBE_STROKE + 1, BONUS_COLORS.fill, 1);
+      gfx.strokeRoundedRect(x, y, w, h, radius);
+      if (tube.fillFrac > 0) {
+        const fillW = Math.min(innerW, Math.max(innerH, tube.fillFrac * innerW));
+        gfx.fillStyle(BONUS_COLORS.fill, 1);
+        gfx.fillRoundedRect(innerX, innerY, fillW, innerH, innerR);
+      }
+      return;
+    }
+    gfx.fillStyle(tube.trackColor, BONUS_TRACK_ALPHA);
+    gfx.fillRoundedRect(x, y, w, h, radius);
+    gfx.lineStyle(BONUS_TUBE_STROKE, tube.frameColor, 1);
+    gfx.strokeRoundedRect(x, y, w, h, radius);
+    if (tube.fillFrac <= 0) {
+      return;
+    }
+    const fillW = Math.min(innerW, Math.max(innerH, tube.fillFrac * innerW));
+    gfx.fillStyle(tube.fillColor, 1);
+    gfx.fillRoundedRect(innerX, innerY, fillW, innerH, innerR);
+    const coreH = Math.max(2, Math.round(innerH * 0.35));
+    const coreY = innerY + (innerH - coreH) / 2;
+    const corePad = innerR * 0.45;
+    const coreW = Math.max(0, fillW - corePad * 2);
+    if (coreW > 0) {
+      gfx.fillStyle(tube.coreColor, 0.95);
+      gfx.fillRoundedRect(innerX + corePad, coreY, coreW, coreH, coreH / 2);
+    }
+  }
+
+  private syncBonusBarGlow(tube: NeonBarTube): void {
+    const glow = bonusBarGlowFilter(this.ghostStyle);
+    const px = renderScaleOf(this);
+    this.bonusGlowGfx.setPosition(this.chrome.x + BONUS_BAR_X, this.chrome.y + BONUS_BAR_Y);
+    if (glow === null) {
+      this.bonusGlowGfx.clear();
+      this.bonusGlowGfx.setVisible(false);
+      this.bonusGlowGfx.filters?.internal.clear();
+      this.bonusGlowKey = `off:${px}`;
+      return;
+    }
+    this.bonusGlowGfx.setVisible(true);
+    const key = `on:${px}:${glow.outerStrength}:${glow.distance}`;
+    if (this.bonusGlowKey !== key) {
+      this.bonusGlowKey = key;
+      try {
+        const reach = Math.ceil(glow.distance * px);
+        const pad = BONUS_GLOW_PAD_WORLD;
+        const filterW = Math.ceil((BONUS_BAR_ART_W * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
+        const filterH = Math.ceil((BONUS_BAR_ART_H * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
+        this.bonusGlowGfx.enableFilters();
+        this.bonusGlowGfx.filtersAutoFocus = false;
+        this.bonusGlowGfx.filtersFocusContext = false;
+        this.bonusGlowGfx.setFilterSize(filterW, filterH);
+        this.bonusGlowGfx.filterCamera.setZoom(px);
+        this.bonusGlowGfx.filterCamera.centerOn(
+          (BONUS_BAR_ART_W * BONUS_ART_SCALE) / 2,
+          (BONUS_BAR_ART_H * BONUS_ART_SCALE) / 2,
+        );
+        this.bonusGlowGfx.filters!.internal.clear();
+        this.bonusGlowGfx.filters!.internal.addGlow(
+          BONUS_COLORS.fill,
+          glow.outerStrength,
+          0,
+          1,
+          true,
+          BONUS_GLOW_QUALITY,
+          reach,
+        );
+      } catch {
+        this.bonusGlowKey = "";
+        this.bonusGlowGfx.clear();
+        this.bonusGlowGfx.setVisible(false);
+        return;
+      }
+    }
+    this.bonusGlowGfx.clear();
+    this.paintNeonTube(this.bonusGlowGfx, tube, true);
   }
 
   private refreshUpgradesHud(): void {

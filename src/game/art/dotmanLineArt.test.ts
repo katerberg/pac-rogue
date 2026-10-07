@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_LINE_WIDTH } from "../../domain/ghostArt";
 import dotmanSvg from "./dotman.svg?raw";
-import { DOTMAN_LINE_ART, DOTMAN_LINE_ART_BY_DIR } from "./dotmanLineArt";
+import { DOTMAN_LINE_ART, dotManLineArt } from "./dotmanLineArt";
 
 const [body, pipe] = DOTMAN_LINE_ART.strands;
 const radiusOf = (p: { x: number; y: number }) => Math.hypot(p.x - 50, p.y - 50);
@@ -30,16 +30,23 @@ describe("DOTMAN_LINE_ART", () => {
     }
   });
 
-  it("opens its mouth right, then turns it to face each direction", () => {
-    const mouth = (dir: keyof typeof DOTMAN_LINE_ART_BY_DIR) => {
-      const points = DOTMAN_LINE_ART_BY_DIR[dir].strands[0]!.points;
+  it("opens its mouth right, then turns it to face each angle", () => {
+    const mouth = (degrees: number) => {
+      const points = dotManLineArt(degrees).strands[0]!.points;
       const mean = (axis: "x" | "y") =>
         points.reduce((sum, p) => sum + p[axis] - 50, 0) / points.length;
       return [mean("x"), mean("y")].map((v) => -Math.sign(Math.round(v)) || 0);
     };
-    expect(mouth("right")).toEqual([1, 0]);
-    expect(mouth("down")).toEqual([0, 1]);
-    expect(mouth("left")).toEqual([-1, 0]);
-    expect(mouth("up")).toEqual([0, -1]);
+    expect(mouth(0)).toEqual([1, 0]);
+    expect(mouth(90)).toEqual([0, 1]);
+    expect(mouth(180)).toEqual([-1, 0]);
+    expect(mouth(270)).toEqual([0, -1]);
+    expect(mouth(45)).toEqual([1, 1]);
+  });
+
+  it("reuses one art per whole degree", () => {
+    expect(dotManLineArt(0)).toBe(DOTMAN_LINE_ART);
+    expect(dotManLineArt(90.4)).toBe(dotManLineArt(450));
+    expect(dotManLineArt(-90)).toBe(dotManLineArt(270));
   });
 });

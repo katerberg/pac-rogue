@@ -300,19 +300,17 @@ function withDistance(raw: Vec[]): LinePoint[] {
   return points;
 }
 
-export function turnLineArt(art: LineArt, quarterTurns: number): LineArt {
+export function rotateLineArt(art: LineArt, degrees: number): LineArt {
   if (art.width !== art.height) {
-    fail("turnLineArt needs a square viewBox");
+    fail("rotateLineArt needs a square viewBox");
   }
   const c = art.width / 2;
-  const turns = ((quarterTurns % 4) + 4) % 4;
+  const cos = Math.cos((degrees * Math.PI) / 180);
+  const sin = Math.sin((degrees * Math.PI) / 180);
   const turn = (p: LinePoint): LinePoint => {
-    let dx = p.x - c;
-    let dy = p.y - c;
-    for (let k = 0; k < turns; k += 1) {
-      [dx, dy] = [-dy, dx];
-    }
-    return { x: c + dx, y: c + dy, s: p.s };
+    const dx = p.x - c;
+    const dy = p.y - c;
+    return { x: c + dx * cos - dy * sin, y: c + dx * sin + dy * cos, s: p.s };
   };
   return {
     ...art,
