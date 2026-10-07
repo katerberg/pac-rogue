@@ -80,7 +80,7 @@ export function neonCenteredLineOrigins(
  * Neon caps fill the whole line height, unlike the pixel font's built-in leading,
  * so stacked lines get this extra gap (fraction of line height).
  */
-export const NEON_LINE_LEADING = 0.5;
+const NEON_LINE_LEADING = 0.5;
 
 /** Distance between consecutive neon line tops; `lineSpacingPx` is the call-site extra. */
 export function neonLinePitch(lineHeightPx: number, lineSpacingPx: number): number {

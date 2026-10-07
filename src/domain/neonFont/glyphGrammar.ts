@@ -19,8 +19,6 @@ export type NeonGlyphMetrics = {
   readonly advance: number;
 };
 
-const EPS = 1e-6;
-
 function tokenizePath(d: string): (string | number)[] {
   const tokens: (string | number)[] = [];
   const pattern = /([A-Za-z])|(-?(?:\d*\.\d+|\d+\.?)(?:e[-+]?\d+)?)|([\s,]+)|(.)/gi;
@@ -101,9 +99,7 @@ export function assertBarCurvePath(d: string, label: string): void {
       const dx = Math.abs(x2 - x);
       const dy = Math.abs(y2 - y);
       if (dx !== 1 || dy !== 1) {
-        throw new Error(
-          `neonFont ${label}: arc must be a quarter turn (got Δ(${dx},${dy}) r=${ry})`,
-        );
+        throw new Error(`neonFont ${label}: arc must be a quarter turn (got Δ(${dx},${dy}))`);
       }
       assertOnGrid(x2, y2, label);
       x = x2;
@@ -118,8 +114,7 @@ export function assertBarCurvePath(d: string, label: string): void {
         throw new Error(`neonFont ${label}: bad ${cmd} args`);
       }
       if (cmd === "L") {
-        const axisAligned = Math.abs(nx - x) < EPS || Math.abs(ny - y) < EPS;
-        if (!axisAligned) {
+        if (nx !== x && ny !== y) {
           throw new Error(`neonFont ${label}: diagonal L ${x},${y} → ${nx},${ny}`);
         }
       }
