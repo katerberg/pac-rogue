@@ -7,12 +7,48 @@ export type HighScoreRow = {
   recordedAt: string;
 };
 
+export type HighScoreAlign = "left" | "right";
+
+export type HighScoreColumnId = "pellets" | "time" | "date";
+
+export type HighScoreColumn = {
+  id: HighScoreColumnId;
+  header: string;
+  align: HighScoreAlign;
+  text: (row: HighScoreRow) => string;
+};
+
 const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}/;
 
-export const HIGH_SCORE_PELLETS_WIDTH = 7;
-export const HIGH_SCORE_TIME_WIDTH = 4;
-export const HIGH_SCORE_DATE_WIDTH = 10;
 export const HIGH_SCORE_COLUMN_GAP = "  ";
+
+export const HIGH_SCORE_COLUMNS: readonly HighScoreColumn[] = [
+  {
+    id: "pellets",
+    header: "PELLETS",
+    align: "right",
+    text: (row) => String(row.collectedCount),
+  },
+  {
+    id: "time",
+    header: "TIME",
+    align: "right",
+    text: (row) => String(row.remainingTime),
+  },
+  {
+    id: "date",
+    header: "DATE",
+    align: "left",
+    text: (row) => row.dateLabel,
+  },
+];
+
+export type HighScoreColumnLayout = {
+  left: Record<HighScoreColumnId, number>;
+  width: Record<HighScoreColumnId, number>;
+  totalWidth: number;
+  gap: number;
+};
 
 export function dateLabelFromRecordedAt(recordedAt: string): string {
   const match = ISO_DATE_PREFIX.exec(recordedAt);
@@ -41,10 +77,40 @@ export function toHighScoreRows(history: RunHistory): HighScoreRow[] {
     });
 }
 
-export function formatHighScoreHeader(): string {
-  return `${"PELLETS".padEnd(HIGH_SCORE_PELLETS_WIDTH)}${HIGH_SCORE_COLUMN_GAP}${"TIME".padEnd(HIGH_SCORE_TIME_WIDTH)}${HIGH_SCORE_COLUMN_GAP}${"DATE".padEnd(HIGH_SCORE_DATE_WIDTH)}`;
+export function layoutHighScoreColumns(
+  measure: (text: string) => number,
+  rows: readonly HighScoreRow[],
+): HighScoreColumnLayout {
+  const gap = measure(HIGH_SCORE_COLUMN_GAP);
+  const left = {} as Record<HighScoreColumnId, number>;
+  const width = {} as Record<HighScoreColumnId, number>;
+  let x = 0;
+  for (const column of HIGH_SCORE_COLUMNS) {
+    let w = measure(column.header);
+    for (const row of rows) {
+      w = Math.max(w, measure(column.text(row)));
+    }
+    left[column.id] = x;
+    width[column.id] = w;
+    x += w + gap;
+  }
+  return {
+    left,
+    width,
+    totalWidth: Math.max(0, x - gap),
+    gap,
+  };
 }
 
-export function formatHighScoreLine(row: HighScoreRow): string {
-  return `${String(row.collectedCount).padStart(HIGH_SCORE_PELLETS_WIDTH)}${HIGH_SCORE_COLUMN_GAP}${String(row.remainingTime).padStart(HIGH_SCORE_TIME_WIDTH)}${HIGH_SCORE_COLUMN_GAP}${row.dateLabel.padEnd(HIGH_SCORE_DATE_WIDTH)}`;
+export function highScoreCellX(
+  layout: HighScoreColumnLayout,
+  columnId: HighScoreColumnId,
+  align: HighScoreAlign,
+  listLeftX: number,
+): number {
+  const colLeft = listLeftX + layout.left[columnId];
+  if (align === "right") {
+    return colLeft + layout.width[columnId];
+  }
+  return colLeft;
 }
