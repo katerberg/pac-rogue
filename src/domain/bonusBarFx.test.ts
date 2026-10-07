@@ -149,7 +149,7 @@ describe("neonBarTube", () => {
 
 describe("bonusBarGlowFilter", () => {
   it("returns glow only for neon STYLE", () => {
-    expect(bonusBarGlowFilter("neon")).toEqual({ outerStrength: 5, distance: 14 });
+    expect(bonusBarGlowFilter("neon")).toEqual({ outerStrength: 7, distance: 18 });
     expect(bonusBarGlowFilter("pixel")).toBeNull();
     expect(bonusBarGlowFilter("lined")).toBeNull();
   });

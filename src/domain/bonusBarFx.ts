@@ -14,8 +14,8 @@ export const BONUS_COLORS = {
   flash: 0xffffff,
 } as const;
 
-const BONUS_NEON_GLOW_STRENGTH = 5;
-const BONUS_NEON_GLOW_DISTANCE = 14;
+const BONUS_NEON_GLOW_STRENGTH = 7;
+const BONUS_NEON_GLOW_DISTANCE = 18;
 export const BONUS_NEON_TRACK = 0x0a0a40;
 
 const POINTS_PER_SLOT = BONUS_BAR_MAX / BONUS_SLOTS;
