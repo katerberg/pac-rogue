@@ -77,9 +77,17 @@ export function neonCenteredLineOrigins(
 }
 
 /**
- * Local height for multi-line neon text. Line spacing is between lines only
- * (BitmapText semantics), not after the last line.
+ * Neon caps fill the whole line height, unlike the pixel font's built-in leading,
+ * so stacked lines get this extra gap (fraction of line height).
  */
+export const NEON_LINE_LEADING = 0.5;
+
+/** Distance between consecutive neon line tops; `lineSpacingPx` is the call-site extra. */
+export function neonLinePitch(lineHeightPx: number, lineSpacingPx: number): number {
+  return lineHeightPx * (1 + NEON_LINE_LEADING) + lineSpacingPx;
+}
+
+/** Local height for multi-line neon text; leading and spacing sit between lines only. */
 export function neonTextLocalHeight(
   lineCount: number,
   lineHeightPx: number,
@@ -88,5 +96,5 @@ export function neonTextLocalHeight(
   if (lineCount <= 0) {
     return 0;
   }
-  return lineCount * lineHeightPx + Math.max(0, lineCount - 1) * lineSpacingPx;
+  return lineHeightPx + (lineCount - 1) * neonLinePitch(lineHeightPx, lineSpacingPx);
 }

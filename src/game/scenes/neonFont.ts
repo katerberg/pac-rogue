@@ -13,6 +13,7 @@ import {
   neonCenteredLineOrigins,
   neonDisplayText,
   neonGlowDepth,
+  neonLinePitch,
   neonTextLocalHeight,
 } from "../../domain/neonFont/layout";
 import { fontLineArtLook, type FontLineArtLook } from "../../domain/neonFont/fontLook";
@@ -342,7 +343,7 @@ export class NeonText extends Phaser.GameObjects.Container {
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       const line = lines[lineIndex]!;
       let cursorX = originsX[lineIndex]! * unit;
-      const cursorY = lineIndex * (lineHeightPx + this.lineSpacingPx);
+      const cursorY = lineIndex * neonLinePitch(lineHeightPx, this.lineSpacingPx);
       let prevChar = "";
       for (const char of line) {
         const glyph = neonGlyph(char);
@@ -418,15 +419,16 @@ export class NeonText extends Phaser.GameObjects.Container {
       if (strand.stroke === "none" || strand.points.length === 0) {
         continue;
       }
-      if (strand.points.length === 1) {
-        const p = strand.points[0]!;
-        g.fillCircle(offsetX + p.x * unit, offsetY + p.y * unit * heightScale, strokeWidth / 2);
-        continue;
-      }
       const points = strand.points.map(
         (p) => new Phaser.Math.Vector2(offsetX + p.x * unit, offsetY + p.y * unit * heightScale),
       );
-      g.strokePoints(points, false, false);
+      // Graphics strokes have butt caps and no joins: round every vertex so corners and ends close.
+      for (const p of points) {
+        g.fillCircle(p.x, p.y, strokeWidth / 2);
+      }
+      if (points.length > 1) {
+        g.strokePoints(points, false, false);
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import {
   neonDisplayText,
   neonGlowDepth,
   neonLineAdvance,
+  neonLinePitch,
   neonStringAdvance,
   neonTextLocalHeight,
 } from "./layout";
@@ -46,11 +47,12 @@ describe("neon text layout", () => {
     expect(originsX).toEqual([0, 0]);
   });
 
-  it("local height adds line spacing only between lines", () => {
+  it("local height adds leading and line spacing only between lines", () => {
+    expect(neonLinePitch(10, 4)).toBe(19);
     expect(neonTextLocalHeight(0, 10, 4)).toBe(0);
     expect(neonTextLocalHeight(1, 10, 4)).toBe(10);
-    expect(neonTextLocalHeight(2, 10, 4)).toBe(24);
-    expect(neonTextLocalHeight(3, 10, 4)).toBe(38);
+    expect(neonTextLocalHeight(2, 10, 4)).toBe(29);
+    expect(neonTextLocalHeight(3, 10, 4)).toBe(48);
   });
 
   it("glow depth follows the outermost ancestor, else local depth", () => {
