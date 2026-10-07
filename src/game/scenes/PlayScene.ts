@@ -10,10 +10,11 @@ import {
   bumpBarFx,
   createBarFx,
   fillBarFx,
+  neonBarTube,
   slowFillBarFx,
   stepBarFx,
   type BarFxState,
-  type BarRect,
+  type NeonBarTube,
 } from "../../domain/bonusBarFx";
 import { playTurnSparks } from "./turnSparks";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
@@ -91,7 +92,10 @@ import {
 import { applyRenderScale, renderScaleOf } from "../renderScale";
 
 const BONUS_GLOW_QUALITY = 24;
-const BONUS_GLOW_PAD_WORLD = 10;
+const BONUS_GLOW_PAD_WORLD = 12;
+const BONUS_TUBE_INSET = 2;
+const BONUS_TUBE_STROKE = 2;
+const BONUS_TRACK_ALPHA = 0.45;
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
 const BOSS_BANNER_SLAM_MS = 220;
@@ -870,21 +874,76 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private drawBonusBar(): void {
-    const rects = barRects(this.barFx, this.ghostStyle);
     this.bonusGfx.clear();
-    for (const rect of rects) {
-      this.bonusGfx.fillStyle(rect.color, 1);
-      this.bonusGfx.fillRect(
-        rect.x * BONUS_ART_SCALE,
-        rect.y * BONUS_ART_SCALE,
-        rect.w * BONUS_ART_SCALE,
-        rect.h * BONUS_ART_SCALE,
-      );
+    if (this.ghostStyle === "pixel") {
+      this.bonusGlowGfx.clear();
+      this.bonusGlowGfx.setVisible(false);
+      this.bonusGlowGfx.filters?.internal.clear();
+      this.bonusGlowKey = "";
+      for (const rect of barRects(this.barFx, "pixel")) {
+        this.bonusGfx.fillStyle(rect.color, 1);
+        this.bonusGfx.fillRect(
+          rect.x * BONUS_ART_SCALE,
+          rect.y * BONUS_ART_SCALE,
+          rect.w * BONUS_ART_SCALE,
+          rect.h * BONUS_ART_SCALE,
+        );
+      }
+      return;
     }
-    this.syncBonusBarGlow(rects);
+    const tube = neonBarTube(this.barFx);
+    this.paintNeonTube(this.bonusGfx, tube, false);
+    this.syncBonusBarGlow(tube);
   }
 
-  private syncBonusBarGlow(rects: BarRect[]): void {
+  private paintNeonTube(
+    gfx: Phaser.GameObjects.Graphics,
+    tube: NeonBarTube,
+    forGlow: boolean,
+  ): void {
+    const s = BONUS_ART_SCALE;
+    const x = tube.x * s;
+    const y = tube.y * s;
+    const w = tube.w * s;
+    const h = tube.h * s;
+    const radius = h / 2;
+    const inset = BONUS_TUBE_INSET;
+    const innerX = x + inset;
+    const innerY = y + inset;
+    const innerH = h - inset * 2;
+    const innerW = w - inset * 2;
+    const innerR = innerH / 2;
+    if (forGlow) {
+      gfx.lineStyle(BONUS_TUBE_STROKE + 1, BONUS_COLORS.fill, 1);
+      gfx.strokeRoundedRect(x, y, w, h, radius);
+      if (tube.fillFrac > 0) {
+        const fillW = Math.min(innerW, Math.max(innerH, tube.fillFrac * innerW));
+        gfx.fillStyle(BONUS_COLORS.fill, 1);
+        gfx.fillRoundedRect(innerX, innerY, fillW, innerH, innerR);
+      }
+      return;
+    }
+    gfx.fillStyle(tube.trackColor, BONUS_TRACK_ALPHA);
+    gfx.fillRoundedRect(x, y, w, h, radius);
+    gfx.lineStyle(BONUS_TUBE_STROKE, tube.frameColor, 1);
+    gfx.strokeRoundedRect(x, y, w, h, radius);
+    if (tube.fillFrac <= 0) {
+      return;
+    }
+    const fillW = Math.min(innerW, Math.max(innerH, tube.fillFrac * innerW));
+    gfx.fillStyle(tube.fillColor, 1);
+    gfx.fillRoundedRect(innerX, innerY, fillW, innerH, innerR);
+    const coreH = Math.max(2, Math.round(innerH * 0.35));
+    const coreY = innerY + (innerH - coreH) / 2;
+    const corePad = innerR * 0.45;
+    const coreW = Math.max(0, fillW - corePad * 2);
+    if (coreW > 0) {
+      gfx.fillStyle(tube.coreColor, 0.95);
+      gfx.fillRoundedRect(innerX + corePad, coreY, coreW, coreH, coreH / 2);
+    }
+  }
+
+  private syncBonusBarGlow(tube: NeonBarTube): void {
     const glow = bonusBarGlowFilter(this.ghostStyle);
     const px = renderScaleOf(this);
     this.bonusGlowGfx.setPosition(this.chrome.x + BONUS_BAR_X, this.chrome.y + BONUS_BAR_Y);
@@ -931,18 +990,7 @@ export class PlayScene extends Phaser.Scene {
       }
     }
     this.bonusGlowGfx.clear();
-    for (const rect of rects) {
-      if (rect.color === BONUS_COLORS.frame) {
-        continue;
-      }
-      this.bonusGlowGfx.fillStyle(BONUS_COLORS.fill, 1);
-      this.bonusGlowGfx.fillRect(
-        rect.x * BONUS_ART_SCALE,
-        rect.y * BONUS_ART_SCALE,
-        rect.w * BONUS_ART_SCALE,
-        rect.h * BONUS_ART_SCALE,
-      );
-    }
+    this.paintNeonTube(this.bonusGlowGfx, tube, true);
   }
 
   private refreshUpgradesHud(): void {

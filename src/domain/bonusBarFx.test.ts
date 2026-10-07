@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { BONUS_BAR_MAX } from "./bonusBar";
 import {
-  BONUS_BAR_INNER_W,
+  BONUS_BAR_ART_H,
+  BONUS_BAR_ART_W,
   BONUS_COLORS,
+  BONUS_NEON_TRACK,
   BONUS_SLOTS,
   barRects,
   bonusBarGlowFilter,
@@ -10,6 +12,7 @@ import {
   bumpBarFx,
   createBarFx,
   fillBarFx,
+  neonBarTube,
   slowFillBarFx,
   stepBarFx,
   type BarFxState,
@@ -24,10 +27,6 @@ function bodies(rects: BarRect[]): BarRect[] {
 
 function floorLines(rects: BarRect[]): BarRect[] {
   return rects.filter((r) => r.h === 1 && r.color === frame && r.w <= 5);
-}
-
-function trough(rects: BarRect[]): BarRect[] {
-  return rects.filter((r) => r.h === 1 && r.color === frame && r.w === BONUS_BAR_INNER_W);
 }
 
 function stepFrames(s: BarFxState, frames: number, charge: number): BarFxState[] {
@@ -97,73 +96,60 @@ describe("barRects (pixel)", () => {
   it("defaults to the pixel meter when style is omitted", () => {
     expect(bodies(barRects(createBarFx(BONUS_BAR_MAX)))).toHaveLength(BONUS_SLOTS);
   });
+
+  it("returns no rects for neon STYLE (tube path owns that draw)", () => {
+    expect(barRects(createBarFx(80), "neon")).toEqual([]);
+    expect(barRects(createBarFx(80), "lined")).toEqual([]);
+  });
 });
 
-describe("barRects (neon)", () => {
-  it("draws the frame and one continuous trough when empty", () => {
-    const rects = barRects(createBarFx(0), "neon");
-    expect(rects.filter((r) => r.w === 75 || r.h === 8)).toHaveLength(4);
-    expect(trough(rects)).toEqual([{ x: 2, y: 5, w: BONUS_BAR_INNER_W, h: 1, color: frame }]);
-    expect(floorLines(rects)).toHaveLength(0);
-    expect(bodies(rects)).toHaveLength(0);
-  });
-
-  it("fills a single continuous body proportional to charge", () => {
-    const rects = barRects(createBarFx(80), "neon");
-    const [body] = bodies(rects);
-    expect(bodies(rects)).toHaveLength(1);
-    expect(body).toMatchObject({
-      x: 2,
-      y: 2,
-      w: Math.round((80 / BONUS_BAR_MAX) * BONUS_BAR_INNER_W),
-      h: 4,
-      color: fill,
-    });
-    expect(trough(rects)).toHaveLength(1);
-    expect(rects).toContainEqual({
-      x: 2,
-      y: 2,
-      w: body!.w,
-      h: 1,
-      color: highlight,
+describe("neonBarTube", () => {
+  it("describes an empty capsule with dim track colors", () => {
+    expect(neonBarTube(createBarFx(0))).toMatchObject({
+      x: 0,
+      y: 0,
+      w: BONUS_BAR_ART_W,
+      h: BONUS_BAR_ART_H,
+      fillFrac: 0,
+      frameColor: frame,
+      trackColor: BONUS_NEON_TRACK,
     });
   });
 
-  it("spans the full inner width at full charge", () => {
-    const [body] = bodies(barRects(createBarFx(BONUS_BAR_MAX), "neon"));
-    expect(body).toMatchObject({ x: 2, w: BONUS_BAR_INNER_W, color: fill });
+  it("sets fillFrac proportional to charge", () => {
+    expect(neonBarTube(createBarFx(80)).fillFrac).toBeCloseTo(80 / BONUS_BAR_MAX, 5);
+    expect(neonBarTube(createBarFx(BONUS_BAR_MAX)).fillFrac).toBe(1);
   });
 
-  it("shows any charge as at least a 1-pixel sliver", () => {
-    const [sliver] = bodies(barRects(createBarFx(2), "neon"));
-    expect(sliver).toMatchObject({ x: 2, w: 1 });
-  });
-
-  it("blinks the continuous fill once the bar is 75% full", () => {
+  it("uses fill/core colors and blinks near full", () => {
     const start = createBarFx(240);
-    expect(bodies(barRects(start, "neon"))[0]!.color).toBe(fill);
+    expect(neonBarTube(start).fillColor).toBe(fill);
+    expect(neonBarTube(start).coreColor).toBe(highlight);
     const later = stepBarFx(start, 270, 240);
-    expect(bodies(barRects(later, "neon"))[0]!.color).toBe(highlight);
+    expect(neonBarTube(later).fillColor).toBe(highlight);
   });
 
-  it("pulses the whole fill upward when pops are active", () => {
+  it("flashes white on a punch", () => {
+    const bumped = bumpBarFx(createBarFx(100), bonusBumpFx(6));
+    const soon = stepBarFx(bumped, 40, 100);
+    expect(neonBarTube(soon).fillColor).toBe(flash);
+  });
+
+  it("pulses the tube upward when pops are active", () => {
     const bumped = bumpBarFx(createBarFx(100), bonusBumpFx(7));
     const soon = stepBarFx(bumped, 40, 100);
-    const [body] = bodies(barRects(soon, "neon"));
-    expect(bodies(barRects(soon, "neon"))).toHaveLength(1);
-    expect(body!.y).toBeLessThan(2);
+    expect(neonBarTube(soon).y).toBeLessThan(0);
   });
 
-  it("lined matches neon geometry without using slots", () => {
-    const neon = bodies(barRects(createBarFx(80), "neon"));
-    const lined = bodies(barRects(createBarFx(80), "lined"));
-    expect(lined).toEqual(neon);
+  it("matches for lined and neon geometry", () => {
+    // lined/neon share neonBarTube; STYLE only gates glow in the scene.
+    expect(neonBarTube(createBarFx(80)).fillFrac).toBeCloseTo(80 / BONUS_BAR_MAX, 5);
   });
 });
 
 describe("bonusBarGlowFilter", () => {
   it("returns glow only for neon STYLE", () => {
-    expect(bonusBarGlowFilter("neon")).toEqual({ outerStrength: 6, distance: 16 });
+    expect(bonusBarGlowFilter("neon")).toEqual({ outerStrength: 5, distance: 14 });
     expect(bonusBarGlowFilter("pixel")).toBeNull();
     expect(bonusBarGlowFilter("lined")).toBeNull();
   });

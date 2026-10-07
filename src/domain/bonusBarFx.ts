@@ -14,8 +14,9 @@ export const BONUS_COLORS = {
   flash: 0xffffff,
 } as const;
 
-const BONUS_NEON_GLOW_STRENGTH = 6;
-const BONUS_NEON_GLOW_DISTANCE = 16;
+const BONUS_NEON_GLOW_STRENGTH = 5;
+const BONUS_NEON_GLOW_DISTANCE = 14;
+export const BONUS_NEON_TRACK = 0x0a0a40;
 
 const POINTS_PER_SLOT = BONUS_BAR_MAX / BONUS_SLOTS;
 const SLOT_W = 5;
@@ -234,6 +235,18 @@ function pulseOffset(s: BarFxState): number {
 
 export type BonusBarGlow = { outerStrength: number; distance: number };
 
+export type NeonBarTube = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fillFrac: number;
+  fillColor: number;
+  coreColor: number;
+  frameColor: number;
+  trackColor: number;
+};
+
 export function bonusBarGlowFilter(style: GhostStyle): BonusBarGlow | null {
   if (!styleUsesGlow(style)) {
     return null;
@@ -251,46 +264,32 @@ function fillColors(s: BarFxState, shown: number): { body: number; top: number }
   };
 }
 
-function frameRects(gx: number, gy: number): BarRect[] {
-  const { frame } = BONUS_COLORS;
-  return [
-    { x: gx, y: gy, w: BONUS_BAR_ART_W, h: 1, color: frame },
-    { x: gx, y: gy + BONUS_BAR_ART_H - 1, w: BONUS_BAR_ART_W, h: 1, color: frame },
-    { x: gx, y: gy, w: 1, h: BONUS_BAR_ART_H, color: frame },
-    { x: gx + BONUS_BAR_ART_W - 1, y: gy, w: 1, h: BONUS_BAR_ART_H, color: frame },
-  ];
-}
-
-function neonBarRects(s: BarFxState): BarRect[] {
+export function neonBarTube(s: BarFxState): NeonBarTube {
   const { gx, gy } = barOffset(s);
-  const { frame } = BONUS_COLORS;
-  const rects = frameRects(gx, gy);
   const shown = Math.max(0, Math.min(BONUS_BAR_MAX, s.shown));
   const { body, top } = fillColors(s, shown);
-  const pulseDy = pulseOffset(s);
-  const troughY = gy + SLOT_INSET + SLOT_H - 1;
-  rects.push({
-    x: gx + SLOT_INSET,
-    y: troughY,
-    w: BONUS_BAR_INNER_W,
-    h: 1,
-    color: frame,
-  });
-  const frac = shown / BONUS_BAR_MAX;
-  const w = shown > 0 ? Math.max(1, Math.round(BONUS_BAR_INNER_W * frac)) : 0;
-  if (w > 0) {
-    const x = gx + SLOT_INSET;
-    const y = gy + SLOT_INSET + pulseDy;
-    rects.push({ x, y, w, h: SLOT_H, color: body });
-    rects.push({ x, y, w, h: 1, color: top });
-  }
-  return rects;
+  return {
+    x: gx,
+    y: gy + pulseOffset(s),
+    w: BONUS_BAR_ART_W,
+    h: BONUS_BAR_ART_H,
+    fillFrac: shown / BONUS_BAR_MAX,
+    fillColor: body,
+    coreColor: top,
+    frameColor: BONUS_COLORS.frame,
+    trackColor: BONUS_NEON_TRACK,
+  };
 }
 
 function pixelBarRects(s: BarFxState): BarRect[] {
   const { gx, gy } = barOffset(s);
   const { frame } = BONUS_COLORS;
-  const rects = frameRects(gx, gy);
+  const rects: BarRect[] = [
+    { x: gx, y: gy, w: BONUS_BAR_ART_W, h: 1, color: frame },
+    { x: gx, y: gy + BONUS_BAR_ART_H - 1, w: BONUS_BAR_ART_W, h: 1, color: frame },
+    { x: gx, y: gy, w: 1, h: BONUS_BAR_ART_H, color: frame },
+    { x: gx + BONUS_BAR_ART_W - 1, y: gy, w: 1, h: BONUS_BAR_ART_H, color: frame },
+  ];
   const shown = Math.max(0, Math.min(BONUS_BAR_MAX, s.shown));
   const { body, top } = fillColors(s, shown);
   for (let slot = 0; slot < BONUS_SLOTS; slot += 1) {
@@ -310,5 +309,5 @@ function pixelBarRects(s: BarFxState): BarRect[] {
 }
 
 export function barRects(s: BarFxState, style: GhostStyle = "pixel"): BarRect[] {
-  return style === "pixel" ? pixelBarRects(s) : neonBarRects(s);
+  return style === "pixel" ? pixelBarRects(s) : [];
 }
