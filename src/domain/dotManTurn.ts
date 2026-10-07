@@ -1,7 +1,7 @@
 export type DotManFacing = "right" | "down" | "left" | "up";
 
 export const DOTMAN_TURN_MS = 90;
-export const DOTMAN_REVERSE_MS = 50;
+export const DOTMAN_REVERSE_MS = 160;
 
 const FACING_DEGREES: Record<DotManFacing, number> = { right: 0, down: 90, left: 180, up: 270 };
 

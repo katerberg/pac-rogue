@@ -32,10 +32,10 @@ describe("Dot-Man turns", () => {
     expect(down.durationMs).toBe(DOTMAN_REVERSE_MS);
   });
 
-  it("reverses 180 degrees clockwise, faster than a quarter turn", () => {
+  it("reverses 180 degrees clockwise, slower than a quarter turn", () => {
     const reverse = turnToward(restingTurn("right"), "left", 0);
     expect(reverse).toMatchObject({ fromDeg: 0, toDeg: 180, durationMs: DOTMAN_REVERSE_MS });
-    expect(DOTMAN_REVERSE_MS).toBeLessThan(DOTMAN_TURN_MS);
+    expect(DOTMAN_REVERSE_MS).toBeGreaterThan(DOTMAN_TURN_MS);
   });
 
   it("retargets mid-turn from the angle shown now", () => {
