@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_TUNING } from "../tuning";
 import {
   neonCenteredLineOrigins,
+  neonDisplayText,
   neonGlowDepth,
   neonLineAdvance,
   neonStringAdvance,
@@ -10,6 +11,10 @@ import {
 
 describe("neon text layout", () => {
   const thickness = DEFAULT_TUNING.fontThickness;
+
+  it("shows neon strings in uppercase", () => {
+    expect(neonDisplayText("Speed Burst\nx2 lives!")).toBe("SPEED BURST\nX2 LIVES!");
+  });
 
   it("advances a line with kerning (DOT-MAN tighter than unkerned shape)", () => {
     const withHyphen = neonLineAdvance("DOT-MAN", thickness, 0);

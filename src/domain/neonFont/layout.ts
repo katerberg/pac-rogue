@@ -16,6 +16,11 @@ export function neonGlowDepth(localDepth: number, ancestorDepths: readonly numbe
   return root - 0.1;
 }
 
+/** Neon glyphs are uppercase-only; every neon string is shown in caps. */
+export function neonDisplayText(content: string): string {
+  return content.toUpperCase();
+}
+
 export function neonCharAdvance(
   char: string,
   thickness: number,
