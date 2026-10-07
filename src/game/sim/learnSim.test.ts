@@ -224,6 +224,10 @@ describe("LearnSim ghost style", () => {
     expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual(
       [PLAYER_DRAWABLE_ID, BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID].sort(),
     );
+    sim.setGhostStyle("lined");
+    expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual(
+      [PLAYER_DRAWABLE_ID, BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID].sort(),
+    );
     sim.setGhostStyle("pixel");
     expect(lastDraw(sim).lineArtDrawableIds).toEqual([]);
   });

@@ -243,7 +243,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   wallThickness: "Width of the wall outline in pixels. Visual only; collision is unchanged.",
   wallColor: "Color of the wall outline (overrides the Settings maze color while knobs are on).",
   wallGlow:
-    "Phaser outerStrength of the neon glow around the walls. 0 = no glow. With knobs on this always applies; without knobs, Settings → STYLE = PIXEL turns wall glow off.",
+    "Phaser outerStrength of the neon glow around the walls. 0 = no glow. With knobs on this always applies; without knobs, Settings → STYLE = PIXEL or LINED turns wall glow off.",
   wallGlowRadius: "How far the wall glow spreads beyond the outline, in pixels. 0 = no glow.",
   ghostGlow: "Phaser outerStrength of the neon glow around line-art ghosts. 0 = no glow.",
   ghostGlowRadius:

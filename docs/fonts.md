@@ -1,11 +1,12 @@
 # Fonts
 
-Two typefaces, selected by Settings → **STYLE** (`neon` / `pixel`, same storage as ghost art: `pac-rogue.ghost-style.v1`).
+Two typefaces, selected by Settings → **STYLE** (`neon` / `lined` / `pixel`, same storage as ghost art: `pac-rogue.ghost-style.v1`). LINED uses the neon typeface (`textStyleFor`).
 
-| STYLE          | Ghosts              | UI text                        |
-| -------------- | ------------------- | ------------------------------ |
-| NEON (default) | SVG line art + glow | Bar-curve neon strokes + bloom |
-| PIXEL          | PNG sprites         | VGA 8×8 bitmap (`pac-pixel`)   |
+| STYLE          | Ghosts                 | UI text                        |
+| -------------- | ---------------------- | ------------------------------ |
+| NEON (default) | SVG line art + glow    | Bar-curve neon strokes + bloom |
+| LINED          | SVG line art, glow off | Bar-curve neon strokes + bloom |
+| PIXEL          | PNG sprites            | VGA 8×8 bitmap (`pac-pixel`)   |
 
 ## Pixel font
 
@@ -20,6 +21,7 @@ Bar-curve glyphs: **axis-aligned** horizontal/vertical segments and **quarter-ci
 - Uppercase **V** is a full left stem, a half right stem, and an r=2 quarter from mid-right to the bottom-left corner.
 - Punctuation set: space and `!"#$%'()+,-./:<=>?[]`.
 - Missing codepoints fall back to a pixel glyph for that character only.
+- Directional UI hints (upgrade-choice slots) reuse `>` and rotate it; do not invent `v` / `^` stand-ins (see `upgradeChoiceHints.ts`).
 
 Authoring references (not loaded at runtime): `src/game/art/refs/neon-alphabet-glow.png`, `neon-g-replacement.png`, `neon-notebook-sketch.png`.
 

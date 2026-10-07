@@ -64,7 +64,6 @@ import {
   type GhostStyle,
 } from "../../domain/ghostArt";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
-import { DEFAULT_TUNING } from "../../domain/tuning";
 import { reviveSplashLook } from "../../domain/reviveSplash";
 import {
   HAUNT_CAGE_ALPHA,
@@ -286,7 +285,7 @@ export function addGhostIcon(
     lineArt.color,
     storedWallStyle().background,
     size,
-    ghostLineArtLook(DEFAULT_TUNING),
+    ghostLineArtLook(null, style),
     true,
     renderScaleOf(scene),
   );
@@ -470,7 +469,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let drawnPelletStyle: PelletStyle | null = null;
   let pelletStyleOverride: PelletStyle | null = null;
   let pelletBakeSignature = "";
-  let ghostLook = ghostLineArtLook(DEFAULT_TUNING);
+  let ghostLookOverride: GhostLineArtLook | null = null;
+  let ghostLook = ghostLineArtLook(null, loadGhostStyle());
   let bossPelletTint = 0xffffff;
 
   // Glow textures are baked at the canvas density; rebuild them when the canvas resizes.
@@ -723,6 +723,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         scene.cameras.main.setBackgroundColor(wallStyle.background);
       }
       drawnWallStyle = wallStyle;
+    }
+
+    const nextGhostLook = ghostLookOverride ?? ghostLineArtLook(null, loadGhostStyle());
+    if (!sameGhostLineArtLook(nextGhostLook, ghostLook)) {
+      ghostLook = nextGhostLook;
+      for (const key of [...lineArtObjects.keys()]) {
+        destroyLineArt(key);
+      }
     }
 
     const pelletStyle = pelletStyleOverride ?? storedPelletStyle();
@@ -1193,7 +1201,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   };
 
   // Glow distance is fixed when the filter is created, so rebuild line art on change.
+  // Knobs set an override; otherwise each draw re-reads STYLE from storage (like walls).
   const setGhostLook = (look: GhostLineArtLook): void => {
+    ghostLookOverride = look;
     if (sameGhostLineArtLook(look, ghostLook)) {
       return;
     }

@@ -16,15 +16,17 @@ describe("wallStyleFor", () => {
     });
   });
 
-  it("turns wall glow off under PIXEL style without knobs", () => {
-    expect(wallStyleFor(null, 0, "pixel")).toEqual({
-      color: mazeColorForIndex(0),
-      thickness: DEFAULT_TUNING.wallThickness,
-      glow: 0,
-      glowRadius: 0,
-      cornerRadius: WALL_CORNER_RADIUS,
-      background: MAZE_BACKGROUND_COLOR,
-    });
+  it("turns wall glow off under PIXEL and LINED without knobs", () => {
+    for (const style of ["pixel", "lined"] as const) {
+      expect(wallStyleFor(null, 0, style)).toEqual({
+        color: mazeColorForIndex(0),
+        thickness: DEFAULT_TUNING.wallThickness,
+        glow: 0,
+        glowRadius: 0,
+        cornerRadius: WALL_CORNER_RADIUS,
+        background: MAZE_BACKGROUND_COLOR,
+      });
+    }
   });
 
   it("uses the knob values with knobs on, ignoring style", () => {
@@ -53,12 +55,13 @@ describe("wallGlowFilter", () => {
     ).toEqual({ outerStrength: 3, distance: 6 });
   });
 
-  it("glows by default under NEON and not under PIXEL", () => {
+  it("glows by default under NEON and not under PIXEL or LINED", () => {
     expect(wallGlowFilter(wallStyleFor(null, 0, "neon"))).toEqual({
       outerStrength: 4,
       distance: 21,
     });
     expect(wallGlowFilter(wallStyleFor(null, 0, "pixel"))).toBeNull();
+    expect(wallGlowFilter(wallStyleFor(null, 0, "lined"))).toBeNull();
   });
 });
 

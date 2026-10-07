@@ -32,7 +32,7 @@ import {
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
-import { addGameText, placeGameText, type GameText } from "./neonFont";
+import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
@@ -73,7 +73,8 @@ const MAZE_COLOR_ACTIVE_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 2;
 const GHOST_STYLE_ROW_Y = 440;
 const GHOST_STYLE_OPTIONS: { style: GhostStyle; label: string; x: number }[] = [
   { style: "neon", label: "NEON", x: SLIDER_LEFT },
-  { style: "pixel", label: "PIXEL", x: SLIDER_LEFT + 120 },
+  { style: "lined", label: "LINED", x: SLIDER_LEFT + 120 },
+  { style: "pixel", label: "PIXEL", x: SLIDER_LEFT + 240 },
 ];
 const AUDIO_DISABLED_WARNING_Y = 500;
 const BACK_Y = PLAYFIELD_HEIGHT - 50;
@@ -184,15 +185,8 @@ export class SettingsScene extends Phaser.Scene {
       placeGameText(warning, PLAYFIELD_WIDTH / 2, AUDIO_DISABLED_WARNING_Y, 0.5, 0.5);
     }
 
-    this.backText = addGameText(
-      this,
-      PLAYFIELD_WIDTH / 2,
-      BACK_Y,
-      "> BACK",
-      MENU_OPTION_FONT_SIZE,
-      TEXT_COLOR_YELLOW,
-    );
-    placeGameText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    this.backText = addGameText(this, PLAYFIELD_WIDTH / 2, BACK_Y, "BACK", MENU_OPTION_FONT_SIZE);
+    placeSelectableMenuOption(this.backText, "BACK", false, PLAYFIELD_WIDTH / 2, BACK_Y);
     this.backText.setInteractive({ useHandCursor: true });
     this.backText.on("pointerdown", () => {
       this.goBack();
@@ -269,7 +263,7 @@ export class SettingsScene extends Phaser.Scene {
       (left || right) &&
       this.focusIndex === FOCUS_GHOST_STYLE
     ) {
-      this.toggleGhostStyle();
+      this.nudgeGhostStyle(left ? -1 : 1);
       this.moveCooldownMs = 120;
     } else if (
       this.moveCooldownMs === 0 &&
@@ -289,7 +283,7 @@ export class SettingsScene extends Phaser.Scene {
       } else if (this.focusIndex === FOCUS_MAZE_COLOR) {
         this.commitMazeColor();
       } else if (this.focusIndex === FOCUS_GHOST_STYLE) {
-        this.toggleGhostStyle();
+        this.nudgeGhostStyle(1);
       } else {
         const row = this.rows[this.focusIndex];
         if (row !== undefined) {
@@ -415,8 +409,13 @@ export class SettingsScene extends Phaser.Scene {
     });
   }
 
-  private toggleGhostStyle(): void {
-    this.setGhostStyle(this.ghostStyle === "neon" ? "pixel" : "neon");
+  private nudgeGhostStyle(delta: number): void {
+    const index = GHOST_STYLE_OPTIONS.findIndex((option) => option.style === this.ghostStyle);
+    const next =
+      GHOST_STYLE_OPTIONS[
+        (index + delta + GHOST_STYLE_OPTIONS.length) % GHOST_STYLE_OPTIONS.length
+      ]!;
+    this.setGhostStyle(next.style);
   }
 
   private setGhostStyle(style: GhostStyle): void {
@@ -548,9 +547,13 @@ export class SettingsScene extends Phaser.Scene {
       this.ghostStyleTexts[index]!.setTint(active ? ghostStyleTint : TEXT_COLOR_DIM);
     }
 
-    this.backText.setText(this.focusIndex === FOCUS_BACK ? "> BACK" : "  BACK");
-    this.backText.setTint(this.focusIndex === FOCUS_BACK ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    placeGameText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    placeSelectableMenuOption(
+      this.backText,
+      "BACK",
+      this.focusIndex === FOCUS_BACK,
+      PLAYFIELD_WIDTH / 2,
+      BACK_Y,
+    );
   }
 
   private goBack(): void {

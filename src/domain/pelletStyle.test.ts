@@ -45,6 +45,17 @@ describe("pelletStyleFor", () => {
     expect(pelletStyleFor(null, 0, "pixel")).toBeNull();
   });
 
+  it("keeps neon stroke rings under LINED with all glow off", () => {
+    const neon = pelletStyleFor(null, 2, "neon")!;
+    const lined = pelletStyleFor(null, 2, "lined")!;
+    expect(lined).not.toBeNull();
+    expect(lined.regular).toEqual({ ...neon.regular, glow: 0, glowRadius: 0 });
+    expect(lined.power).toEqual({ ...neon.power, glow: 0, glowRadius: 0 });
+    expect(lined.boss).toEqual({ ...neon.boss, glow: 0, glowRadius: 0 });
+    expect(lined.optional).toEqual({ ...neon.optional, glow: 0, glowRadius: 0 });
+    expect(pelletGlowFilter(lined.regular)).toBeNull();
+  });
+
   it("uses knob values including glow colour when tuning is set", () => {
     const style = pelletStyleFor(
       resolveTuning({

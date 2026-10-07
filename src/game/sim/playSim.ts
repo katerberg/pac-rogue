@@ -1861,7 +1861,10 @@ export class PlaySim {
     if (this.bossState !== null) {
       this.tagBossPellets(this.bossState);
     }
-    tagOptionalPellets(this.world, lazyLooperRings(this.effectiveUpgrades()));
+    tagOptionalPellets(
+      this.world,
+      this.bossState !== null ? null : lazyLooperRings(this.effectiveUpgrades()),
+    );
   }
 
   private generateBoard(

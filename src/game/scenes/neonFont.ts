@@ -20,11 +20,18 @@ import {
 } from "../../domain/neonFont/layout";
 import { neonRoundJoinIndices } from "../../domain/neonFont/strokeJoins";
 import { fontLineArtLook, type FontLineArtLook } from "../../domain/neonFont/fontLook";
+import { menuOptionLeftX, menuOptionText } from "../../domain/menuOptionLayout";
 import { DEFAULT_TUNING } from "../../domain/tuning";
 import { renderScaleOf } from "../renderScale";
 import { loadDebugTuning } from "../storage/debugTuningStorage";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
-import { ensurePixelFont, PIXEL_FONT_KEY, TEXT_COLOR_WHITE, addPixelText } from "./pixelFont";
+import {
+  ensurePixelFont,
+  PIXEL_FONT_KEY,
+  TEXT_COLOR_WHITE,
+  TEXT_COLOR_YELLOW,
+  addPixelText,
+} from "./pixelFont";
 
 const LINE_GLOW_QUALITY = 24;
 const GLOW_SOURCE_INSET_PX = 2;
@@ -531,4 +538,24 @@ export function placeGameText(
     Math.round(x - bounds.local.width * originX),
     Math.round(y - bounds.local.height * originY),
   );
+}
+
+/**
+ * Tint, prefix, and place a selectable menu row so the label stays centered
+ * at `(centerX, centerY)` when the caret appears (neon prefixes are not
+ * monospace; centering the full string would bounce the letters).
+ */
+export function placeSelectableMenuOption(
+  text: GameText,
+  label: string,
+  selected: boolean,
+  centerX: number,
+  centerY: number,
+): void {
+  text.setTint(selected ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+  text.setText(label);
+  const labelWidth = text.getTextBounds(true).local.width;
+  text.setText(menuOptionText(label, selected));
+  const fullWidth = text.getTextBounds(true).local.width;
+  placeGameText(text, menuOptionLeftX(centerX, fullWidth, labelWidth), centerY, 0, 0.5);
 }
