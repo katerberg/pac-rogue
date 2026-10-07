@@ -1,11 +1,7 @@
 import { parseLineArt, type LineArt } from "./lineArt";
 
-/** Resting / idle mouth half-angle (full opening = 2×). Wider than the old static 30°. */
 export const DOTMAN_MOUTH_OPEN_HALF_DEG = 48;
-/**
- * Tightest chomp half-angle. Kept wide enough that the inner ring (r12) still shows a
- * gap between round caps at the default 6.5% stroke (~chord ≥ stroke width).
- */
+/** Closed half-angle: chord on r12 stays ≥ default stroke so every ring keeps a gap. */
 export const DOTMAN_MOUTH_CLOSED_HALF_DEG = 16;
 
 export const DOTMAN_OUTER_RADIUS = 44;
@@ -19,7 +15,6 @@ export const DOTMAN_CHOMP_PIXELS_PER_FRAME = 12;
 
 const MOUTH_MID_HALF_DEG = (DOTMAN_MOUTH_OPEN_HALF_DEG + DOTMAN_MOUTH_CLOSED_HALF_DEG) / 2;
 
-/** Same 4-beat cycle as the pixel frames: open → mid → closed → mid. */
 export const DOTMAN_CHOMP_MOUTH_HALF_DEG = [
   DOTMAN_MOUTH_OPEN_HALF_DEG,
   MOUTH_MID_HALF_DEG,
@@ -33,10 +28,7 @@ export function dotManMouthHalfAngle(cycleIndex: number, moving: boolean): numbe
   if (!moving) {
     return DOTMAN_MOUTH_OPEN_HALF_DEG;
   }
-  const phase =
-    ((cycleIndex % DOTMAN_CHOMP_MOUTH_HALF_DEG.length) + DOTMAN_CHOMP_MOUTH_HALF_DEG.length) %
-    DOTMAN_CHOMP_MOUTH_HALF_DEG.length;
-  return DOTMAN_CHOMP_MOUTH_HALF_DEG[phase]!;
+  return DOTMAN_CHOMP_MOUTH_HALF_DEG[cycleIndex % DOTMAN_CHOMP_MOUTH_HALF_DEG.length]!;
 }
 
 export function advanceDotManChomp(
@@ -62,7 +54,6 @@ function lip(radius: number, sign: 1 | -1, halfRad: number): string {
   return `${fmt(DOTMAN_VIEW / 2 + radius * Math.cos(a))} ${fmt(DOTMAN_VIEW / 2 + radius * Math.sin(a))}`;
 }
 
-/** Authoring SVG for a right-facing mouth at `halfAngleDeg` (matches `dotman.svg` at open). */
 export function dotManMouthSvg(halfAngleDeg: number): string {
   const half = (halfAngleDeg * Math.PI) / 180;
   const ou = lip(DOTMAN_OUTER_RADIUS, -1, half);

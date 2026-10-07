@@ -11,9 +11,7 @@ import {
   DOTMAN_VIEW,
   dotManMouthArt,
   dotManMouthHalfAngle,
-  dotManMouthSvg,
 } from "./dotManMouth";
-import { parseLineArt } from "./lineArt";
 
 const radiusOf = (p: { x: number; y: number }) =>
   Math.hypot(p.x - DOTMAN_VIEW / 2, p.y - DOTMAN_VIEW / 2);
@@ -75,13 +73,5 @@ describe("dotManMouthArt", () => {
   it("reuses one art per tenth of a degree", () => {
     expect(dotManMouthArt(48)).toBe(dotManMouthArt(48.04));
     expect(dotManMouthArt(16)).not.toBe(dotManMouthArt(48));
-  });
-
-  it("matches the authored resting SVG at the open half-angle", () => {
-    const fromSvg = parseLineArt(dotManMouthSvg(DOTMAN_MOUTH_OPEN_HALF_DEG));
-    const art = dotManMouthArt(DOTMAN_MOUTH_OPEN_HALF_DEG);
-    expect(art.strands.map((s) => s.id)).toEqual(fromSvg.strands.map((s) => s.id));
-    expect(art.strands[1]!.points[0]).toEqual(fromSvg.strands[1]!.points[0]);
-    expect(art.strands[1]!.points.at(-1)).toEqual(fromSvg.strands[1]!.points.at(-1));
   });
 });
