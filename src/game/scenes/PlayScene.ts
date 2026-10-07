@@ -932,6 +932,9 @@ export class PlayScene extends Phaser.Scene {
     }
     this.bonusGlowGfx.clear();
     for (const rect of rects) {
+      if (rect.color === BONUS_COLORS.frame) {
+        continue;
+      }
       this.bonusGlowGfx.fillStyle(BONUS_COLORS.fill, 1);
       this.bonusGlowGfx.fillRect(
         rect.x * BONUS_ART_SCALE,
