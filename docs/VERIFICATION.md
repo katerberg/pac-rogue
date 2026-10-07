@@ -65,6 +65,8 @@ Ports are defined in `scripts/ports.json`. Do not share listeners.
 
 Agents may freely kill and restart **5174** / **4174**. Do not bind to or kill the human ports.
 
+`isUp` / `waitForServer` (`scripts/lib/server.mjs`) use a 1s HTTP timeout per attempt. A process that **listens** on an agent port but never answers HTTP (seen locally with a Cursor Agents Window port forward) used to hang `fetch` forever and freeze `probe` / `visual`; those calls now fail the wait instead of wedging.
+
 ### Cloud sessions
 
 `.claude/settings.json` runs `scripts/cloud-setup.sh` on session start. It does nothing locally and is a fast no-op when the environment's own setup script (`nvm install 24 && npm ci && npx playwright install --with-deps chromium`) already ran; otherwise it performs the same setup (see the script). The cloud environment must allow network access to the npm registry, `github.com`, `raw.githubusercontent.com` (nvm), `nodejs.org`, and `cdn.playwright.dev`.
