@@ -1,7 +1,10 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
+import { textStyleFor } from "../../domain/ghostArt";
+import { wrapCharBudget } from "../../domain/neonFont/textStack";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
+import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import {
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
@@ -62,6 +65,7 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
       clearViews();
       elapsedMs = 0;
       const def = getUpgradeDef(id);
+      const textStyle = textStyleFor(loadGhostStyle());
       dim = scene.add
         .rectangle(
           PLAYFIELD_WIDTH / 2,
@@ -87,21 +91,26 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         scene,
         0,
         0,
-        wrapText(def.label, LABEL_MAX_CHARS),
-        fitFontSize(def.label, BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN, MENU_TITLE_FONT_SIZE),
+        wrapText(def.label, wrapCharBudget(LABEL_MAX_CHARS, textStyle)),
+        fitFontSize(
+          def.label,
+          BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN,
+          MENU_TITLE_FONT_SIZE,
+          textStyle,
+        ),
         TEXT_COLOR_YELLOW,
       );
       const description = addGameText(
         scene,
         0,
         0,
-        wrapText(def.description, DESCRIPTION_MAX_CHARS),
+        wrapText(def.description, wrapCharBudget(DESCRIPTION_MAX_CHARS, textStyle)),
         UPGRADES_HUD_FONT_SIZE,
         TEXT_COLOR_WHITE,
       );
       placeGameText(header, 0, -84, 0.5, 0.5);
       const school = addSchoolTag(scene, def.school);
-      layoutCardText(label, school, description, STARTING_CARD_BODY_CENTER_Y);
+      layoutCardText(label, school, description, STARTING_CARD_BODY_CENTER_Y, textStyle);
       card = scene.add
         .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
           bg,

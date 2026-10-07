@@ -1,5 +1,7 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
+import { textStyleFor } from "../../domain/ghostArt";
+import { interTextGap, wrapCharBudget, type TextStyle } from "../../domain/neonFont/textStack";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { STORE_ENHANCE_BORDER_COLOR } from "../../domain/store";
 import {
@@ -15,6 +17,7 @@ import {
   type UpgradeChoiceOption,
   type UpgradeSchool,
 } from "../../domain/upgrades";
+import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { addRareFx } from "./rareFx";
 import {
   MENU_OPTION_FONT_SIZE,
@@ -179,8 +182,12 @@ export function buildUpgradeCardVisual(
   y: number,
   copy: CardCopy,
 ): UpgradeCardVisual {
-  const targetLabel = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
-  const targetDescription = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
+  const textStyle = textStyleFor(loadGhostStyle());
+  const targetLabel = wrapText(copy.label, wrapCharBudget(CHOICE_LABEL_MAX_CHARS, textStyle));
+  const targetDescription = wrapText(
+    copy.description,
+    wrapCharBudget(CHOICE_DESCRIPTION_MAX_CHARS, textStyle),
+  );
   const borderColor =
     copy.enhanced === true ? STORE_ENHANCE_BORDER_COLOR : schoolBorderColor(copy.school);
   const bg = scene.add
@@ -191,7 +198,12 @@ export function buildUpgradeCardVisual(
     0,
     0,
     targetLabel,
-    fitFontSize(copy.label, CHOICE_BUTTON_WIDTH - CHOICE_LABEL_MARGIN, CHOICE_LABEL_FONT_SIZE),
+    fitFontSize(
+      copy.label,
+      CHOICE_BUTTON_WIDTH - CHOICE_LABEL_MARGIN,
+      CHOICE_LABEL_FONT_SIZE,
+      textStyle,
+    ),
     TEXT_COLOR_YELLOW,
   );
   const description = addGameText(
@@ -203,7 +215,7 @@ export function buildUpgradeCardVisual(
     TEXT_COLOR_WHITE,
   );
   const school = copy.school === undefined ? null : addSchoolTag(scene, copy.school);
-  layoutCardText(label, school, description);
+  layoutCardText(label, school, description, 0, textStyle);
   const root = scene.add.container(
     x,
     y,
@@ -583,11 +595,14 @@ export function layoutCardText(
   school: GameText | null,
   description: GameText,
   centerY = 0,
+  textStyle: TextStyle = textStyleFor(loadGhostStyle()),
 ): void {
+  const schoolGap = interTextGap(SCHOOL_GAP_BELOW_LABEL, textStyle);
+  const descriptionGap = interTextGap(DESCRIPTION_GAP, textStyle);
   stackTexts(
     [
-      { text: label, gapBelow: school === null ? DESCRIPTION_GAP : SCHOOL_GAP_BELOW_LABEL },
-      ...(school === null ? [] : [{ text: school, gapBelow: DESCRIPTION_GAP }]),
+      { text: label, gapBelow: school === null ? descriptionGap : schoolGap },
+      ...(school === null ? [] : [{ text: school, gapBelow: descriptionGap }]),
       { text: description, gapBelow: 0 },
     ],
     centerY,
@@ -595,6 +610,7 @@ export function layoutCardText(
 }
 
 export const SCHOOL_GAP = SCHOOL_GAP_BELOW_LABEL;
+export const CARD_DESCRIPTION_GAP = DESCRIPTION_GAP;
 
 export function setSchoolTag(tag: GameText, school: UpgradeSchool | null): void {
   tag.setVisible(school !== null);
