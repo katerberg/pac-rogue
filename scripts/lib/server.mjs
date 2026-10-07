@@ -21,9 +21,12 @@ export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Per-attempt HTTP budget. Untimed fetch hangs forever on a TCP listener that never answers (e.g. a stale Cursor port forward on 5174/4174). */
+const IS_UP_TIMEOUT_MS = 1_000;
+
 export async function isUp(url) {
   try {
-    return (await fetch(url)).ok;
+    return (await fetch(url, { signal: AbortSignal.timeout(IS_UP_TIMEOUT_MS) })).ok;
   } catch {
     return false;
   }
@@ -37,7 +40,9 @@ export async function waitForServer(url, timeoutMs = 30_000) {
     }
     await sleep(250);
   }
-  throw new Error(`Timed out waiting for server at ${url}`);
+  throw new Error(
+    `Timed out waiting for server at ${url} (port may be held by a non-HTTP listener; free agent ports ${ports.agentDev}/${ports.agentPreview} and retry)`,
+  );
 }
 
 export async function stopProcess(child) {
