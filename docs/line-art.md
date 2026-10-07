@@ -1,6 +1,6 @@
 # Line art (vector sprites)
 
-Thin neon line art next to the pixel art. By default every ghost (in play, in LEARN and on the LEARN picker) is drawn from one hand-written SVG, `src/game/art/ghost.svg`, in its own neon colour; every other sprite is still a PNG, in the same frame. Settings → **STYLE** (NEON / PIXEL, stored as `pac-rogue.ghost-style.v1`) switches all ghosts back to the pixel PNGs and turns maze wall glow off (NEON keeps the soft wall glow on). Nothing is animated yet, but the SVG is parsed into point lists that carry distance along the path, so a later "unspool" (trim the stroke away along its path) needs no data rework.
+Thin neon line art next to the pixel art. By default every ghost (in play, in LEARN and on the LEARN picker) is drawn from one hand-written SVG, `src/game/art/ghost.svg`, in its own neon colour, and Dot-Man in the maze (play and LEARN) from `src/game/art/dotman.svg` in neon yellow (`#ffe600`). Every other sprite (HUD lives, the store glyph, pellets, fruit) is still a PNG, in the same frame. Settings → **STYLE** (NEON / PIXEL, stored as `pac-rogue.ghost-style.v1`) switches all ghosts and Dot-Man back to the pixel PNGs and turns maze wall glow off (NEON keeps the soft wall glow on). Nothing is animated yet, but the SVG is parsed into point lists that carry distance along the path, so a later "unspool" (trim the stroke away along its path) needs no data rework.
 
 ## Rendering model
 
@@ -26,7 +26,7 @@ Code: `src/domain/lineArt.ts` (parser, pure), `src/game/systems/lineArtRender.ts
 - Path commands: `M L H V C Q A Z`, absolute and relative. `S`/`T` are not supported. Arc flags must be space- or comma-separated (packed flags like `011` are not parsed).
 - Strands are drawn in document order. Fill comes first, then stroke.
 
-Each strand becomes `{ id, points: {x, y, s}[], length, closed, stroke, fill, fillOpacity }` in viewBox units. `s` is the distance along the strand from its start.
+Each strand becomes `{ id, points: {x, y, s}[], length, closed, stroke, fill, fillOpacity }` in viewBox units. `s` is the distance along the strand from its start. `turnLineArt(art, quarterTurns)` rotates square art clockwise about its centre.
 
 ## Adding a vector actor
 
@@ -35,5 +35,14 @@ Each strand becomes `{ id, points: {x, y, s}[], length, closed, stroke, fill, fi
 3. Decide when it is vector in a pure domain rule, like `lineArtGhostKinds(style, presentKinds)` in `src/domain/ghostArt.ts`. `PlaySim` and `LearnSim` (both `setGhostStyle`, called by their scenes from the stored setting) send the matching ids as `lineArtDrawableIds`, and `PlaySim.snapshot().lineArtGhosts` exposes them to probes. `render.ts` only acts on what it is told; with the option absent everything stays pixel art. Static pictures outside the maze (the LEARN picker) use `addGhostIcon` from `render.ts`.
 
 Translucent fills (the body's 0.25 tint) sit on an opaque layer of the maze background colour, so nothing behind a line-art ghost (Dot-Man, pellets) shows through. Frozen ghosts recolour the line, fill and glow icy white (`#e6f6ff`; the pixel freeze tint would read as Inky's cyan). Hunter-frightened ghosts recolour them light blue (`#6f7bff`, brighter than the default walls), blinking back to their own colour in the last second like the pixel sprite. The eyes stay white. Dimming uses alpha. Warp-glide afterimages are vector copies without glow.
+
+## Dot-Man
+
+`dotman.svg` is one pipe folded on itself, radiant-heat style: an outer ring (r 44) from the upper lip round the back, a U-bend in the lower lip, a middle ring (r 28) back to the upper lip, a second U-bend, and an inner ring (r 12) ending at the lower lip. The mouth is open 80° to the right. The rings are 16 units apart, so at one tile (16px) the gaps stay open at a 1x render scale. Under the pipe sits an unstroked `body` pie at 0.2 fill. Like the ghost body, it is opaque in the glow layer, so the glow stays outside the silhouette instead of filling the pipe gaps. The whole stroked pipe stays inside the 100×100 box, so Dot-Man is no bigger than the pixel sprite and fits between the walls.
+
+- **Static.** No chomp. The mouth faces the last move direction: `DOTMAN_LINE_ART_BY_DIR` (`src/game/art/dotmanLineArt.ts`) is the art turned by `turnLineArt` (`src/domain/lineArt.ts`), so `s` (unspool order) is the same in every direction.
+- **Look.** `playerLineArtLook` (`src/domain/ghostArt.ts`) uses the ghost glow knobs, a fixed 6.5% line and no stretch.
+- **Effects.** Wall-pass and invulnerability tints recolour the line the way the pixel sprite's texture tint does (`tintedColor` in `src/domain/playerTint.ts`). The turn flash brightens it and scales the crisp art; the glow keeps its built size, because a scaled filtered Graphics overshoots the art. The tunnel twin is a second glowing copy. Warp-glide and Speed Burst afterimages are glow-less copies. The revive splash is a glow-less copy, since it starts screen-sized.
+- `PlaySim.snapshot().lineArtPlayer` reports it to probes.
 
 Collision never depends on the drawing: every ghost catches with the same body circle (`Drawable.radius = ghostRadius()`, set in `PlaySim`), so glow, thickness and width are visual only (pinned by the PlaySim "ghost style" tests).

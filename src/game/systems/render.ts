@@ -640,6 +640,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         if (reviveProgress !== undefined) {
           // The splash starts screen-sized, far past the glow filter's focus box.
           const revive = reviveSplashLook(reviveProgress, size);
+          destroyLineArt(primaryKey);
           placeDotMan(`${eid}:lrevive`, false, x, y, revive.alpha, revive.size / size);
           continue;
         }

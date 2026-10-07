@@ -12,7 +12,6 @@ export type LineArtObject = {
   glow: Phaser.GameObjects.Graphics | null;
   source: LineArt;
   scale: number;
-  pixelsPerWorld: number;
   color: number;
   backdrop: number;
   look: GhostLineArtLook;
@@ -108,7 +107,6 @@ export function createLineArtObject(
     glow,
     source: art,
     scale,
-    pixelsPerWorld,
     color,
     backdrop,
     look,
@@ -143,11 +141,9 @@ export function placeLineArtObject(
     .setPosition(x, y)
     .setAlpha(alpha)
     .setScale(obj.scale * scale);
+  // The glow keeps its built size: a scaled filtered Graphics overshoots the art.
   if (obj.glow !== null) {
-    obj.glow
-      .setPosition(x, y)
-      .setAlpha(alpha)
-      .setScale(scale / obj.pixelsPerWorld);
+    obj.glow.setPosition(x, y).setAlpha(alpha);
     obj.glow.filterCamera.centerOn(x, y);
   }
 }

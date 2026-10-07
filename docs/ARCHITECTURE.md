@@ -58,8 +58,8 @@ src/
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostKind.ts              # blinky / pinky / inky / clyde kind ids
-    ghostArt.ts               # GhostStyle (Settings → STYLE: neon line art / pixel; also gates wall glow), lineArtGhostKinds, line-art look from tuning
-    lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points (see docs/line-art.md)
+    ghostArt.ts               # GhostStyle (Settings → STYLE: neon line art / pixel; also gates wall glow), lineArtGhostKinds / lineArtDrawableIds (ghosts + Dot-Man), line-art looks from tuning
+    lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points; turnLineArt (see docs/line-art.md)
     ghostTarget.ts            # Blinky/Pinky/Inky/Clyde chase/scatter/Elroy target tiles
     ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-scheduled scatter/chase wave clock
@@ -83,7 +83,7 @@ src/
   game/
     config.ts                 # Phaser GameConfig (FIT scale, canvas sized to device pixels, smoothPixelArt + multisampled Graphics)
     renderScale.ts            # canvas size from window × devicePixelRatio, applyRenderScale(scene) (zoom, called first in every create()), resize follow
-    art/                      # line-art SVGs + their parsed LineArt (ghost.svg → ghostLineArt.ts, shared by all four ghosts)
+    art/                      # line-art SVGs + their parsed LineArt (ghost.svg → ghostLineArt.ts, shared by all four ghosts; dotman.svg → dotmanLineArt.ts, one art per facing)
     audio/sfx.ts              # SFX manifest (incl. menuMusic / gameplayMusic loops); volumes scaled by audioSettings
     components/               # data only — no Phaser
       Position.ts
