@@ -27,7 +27,6 @@ function baseTint(input: PlayerTintInput): number | null {
   return expiryTintOn(input.invulnRemainingMs, input.nowMs) ? PLAYER_INVULN_TINT : null;
 }
 
-/** The colour a texture tint would give `color`, for art drawn in a solid colour. */
 export function tintedColor(color: number, tint: PlayerTint | null): number {
   if (tint === null) {
     return color;

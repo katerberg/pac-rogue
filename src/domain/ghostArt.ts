@@ -56,7 +56,6 @@ export function ghostLineArtLook(tuning: Tuning): GhostLineArtLook {
 
 export const PLAYER_LINE_WIDTH = 0.065;
 
-/** Dot-Man shares the ghost glow knobs; his pipes keep their own thickness and no stretch. */
 export function playerLineArtLook(ghostLook: GhostLineArtLook): GhostLineArtLook {
   return { ...ghostLook, lineWidth: PLAYER_LINE_WIDTH, widthScale: 1, heightScale: 1 };
 }

@@ -29,7 +29,6 @@ describe("DOTMAN_LINE_ART", () => {
   });
 
   it("opens its mouth right, then turns it to face each direction", () => {
-    // The silhouette's centroid sits opposite the mouth.
     const mouth = (dir: keyof typeof DOTMAN_LINE_ART_BY_DIR) => {
       const points = DOTMAN_LINE_ART_BY_DIR[dir].strands[0]!.points;
       const mean = (axis: "x" | "y") =>

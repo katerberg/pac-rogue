@@ -300,7 +300,6 @@ function withDistance(raw: Vec[]): LinePoint[] {
   return points;
 }
 
-/** Rotates square art clockwise (screen axes, y down) about its centre; `s` is unchanged. */
 export function turnLineArt(art: LineArt, quarterTurns: number): LineArt {
   if (art.width !== art.height) {
     fail("turnLineArt needs a square viewBox");
