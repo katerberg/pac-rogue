@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { BONUS_BAR_MAX } from "./bonusBar";
 import {
+  BONUS_BAR_ART_H,
+  BONUS_BAR_ART_W,
   BONUS_COLORS,
+  BONUS_NEON_TRACK,
   BONUS_SLOTS,
   barRects,
+  bonusBarGlowFilter,
   bonusBumpFx,
   bumpBarFx,
   createBarFx,
   fillBarFx,
+  neonBarTube,
   slowFillBarFx,
   stepBarFx,
   type BarFxState,
@@ -52,23 +57,23 @@ describe("bonusBumpFx", () => {
   });
 });
 
-describe("barRects", () => {
+describe("barRects (pixel)", () => {
   it("draws the frame and an empty floor line per slot when empty", () => {
-    const rects = barRects(createBarFx(0));
+    const rects = barRects(createBarFx(0), "pixel");
     expect(rects.filter((r) => r.w === 75 || r.h === 8)).toHaveLength(4);
     expect(floorLines(rects)).toHaveLength(BONUS_SLOTS);
     expect(rects.some((r) => r.color === fill)).toBe(false);
   });
 
   it("fills every slot at full charge", () => {
-    const rects = barRects(createBarFx(BONUS_BAR_MAX));
+    const rects = barRects(createBarFx(BONUS_BAR_MAX), "pixel");
     expect(bodies(rects)).toHaveLength(BONUS_SLOTS);
     expect(bodies(rects).every((r) => r.w === 5 && r.color === fill)).toBe(true);
     expect(floorLines(rects)).toHaveLength(0);
   });
 
   it("draws a partial slot in whole pixels with a highlight row", () => {
-    const rects = barRects(createBarFx(37.5));
+    const rects = barRects(createBarFx(37.5), "pixel");
     const [first, second] = bodies(rects);
     expect(first).toMatchObject({ x: 2, y: 2, w: 5 });
     expect(second).toMatchObject({ x: 8, w: 3 });
@@ -77,15 +82,76 @@ describe("barRects", () => {
   });
 
   it("shows any charge as at least a 1-pixel sliver", () => {
-    const [sliver] = bodies(barRects(createBarFx(2)));
+    const [sliver] = bodies(barRects(createBarFx(2), "pixel"));
     expect(sliver).toMatchObject({ x: 2, w: 1 });
   });
 
   it("blinks the fill once the bar is 75% full", () => {
     const start = createBarFx(240);
-    expect(bodies(barRects(start))[0]!.color).toBe(fill);
+    expect(bodies(barRects(start, "pixel"))[0]!.color).toBe(fill);
     const later = stepBarFx(start, 270, 240);
-    expect(bodies(barRects(later))[0]!.color).toBe(highlight);
+    expect(bodies(barRects(later, "pixel"))[0]!.color).toBe(highlight);
+  });
+
+  it("defaults to the pixel meter when style is omitted", () => {
+    expect(bodies(barRects(createBarFx(BONUS_BAR_MAX)))).toHaveLength(BONUS_SLOTS);
+  });
+
+  it("returns no rects for neon STYLE (tube path owns that draw)", () => {
+    expect(barRects(createBarFx(80), "neon")).toEqual([]);
+    expect(barRects(createBarFx(80), "lined")).toEqual([]);
+  });
+});
+
+describe("neonBarTube", () => {
+  it("describes an empty capsule with dim track colors", () => {
+    expect(neonBarTube(createBarFx(0))).toMatchObject({
+      x: 0,
+      y: 0,
+      w: BONUS_BAR_ART_W,
+      h: BONUS_BAR_ART_H,
+      fillFrac: 0,
+      frameColor: frame,
+      trackColor: BONUS_NEON_TRACK,
+    });
+  });
+
+  it("sets fillFrac proportional to charge", () => {
+    expect(neonBarTube(createBarFx(80)).fillFrac).toBeCloseTo(80 / BONUS_BAR_MAX, 5);
+    expect(neonBarTube(createBarFx(BONUS_BAR_MAX)).fillFrac).toBe(1);
+  });
+
+  it("uses fill/core colors and blinks near full", () => {
+    const start = createBarFx(240);
+    expect(neonBarTube(start).fillColor).toBe(fill);
+    expect(neonBarTube(start).coreColor).toBe(highlight);
+    const later = stepBarFx(start, 270, 240);
+    expect(neonBarTube(later).fillColor).toBe(highlight);
+  });
+
+  it("flashes white on a punch", () => {
+    const bumped = bumpBarFx(createBarFx(100), bonusBumpFx(6));
+    const soon = stepBarFx(bumped, 40, 100);
+    expect(neonBarTube(soon).fillColor).toBe(flash);
+  });
+
+  it("pulses the tube upward when pops are active", () => {
+    const bumped = bumpBarFx(createBarFx(100), bonusBumpFx(7));
+    const soon = stepBarFx(bumped, 40, 100);
+    expect(neonBarTube(soon).y).toBeLessThan(0);
+  });
+
+  it("matches for lined and neon geometry", () => {
+    // lined/neon share neonBarTube; STYLE only gates glow in the scene.
+    expect(neonBarTube(createBarFx(80)).fillFrac).toBeCloseTo(80 / BONUS_BAR_MAX, 5);
+  });
+});
+
+describe("bonusBarGlowFilter", () => {
+  it("returns glow only for neon STYLE", () => {
+    expect(bonusBarGlowFilter("neon")).toEqual({ outerStrength: 7, distance: 18 });
+    expect(bonusBarGlowFilter("pixel")).toBeNull();
+    expect(bonusBarGlowFilter("lined")).toBeNull();
   });
 });
 
