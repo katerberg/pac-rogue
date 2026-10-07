@@ -32,7 +32,7 @@ import {
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
-import { addGameText, placeGameText, type GameText } from "./neonFont";
+import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
@@ -185,15 +185,8 @@ export class SettingsScene extends Phaser.Scene {
       placeGameText(warning, PLAYFIELD_WIDTH / 2, AUDIO_DISABLED_WARNING_Y, 0.5, 0.5);
     }
 
-    this.backText = addGameText(
-      this,
-      PLAYFIELD_WIDTH / 2,
-      BACK_Y,
-      "> BACK",
-      MENU_OPTION_FONT_SIZE,
-      TEXT_COLOR_YELLOW,
-    );
-    placeGameText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    this.backText = addGameText(this, PLAYFIELD_WIDTH / 2, BACK_Y, "BACK", MENU_OPTION_FONT_SIZE);
+    placeSelectableMenuOption(this.backText, "BACK", false, PLAYFIELD_WIDTH / 2, BACK_Y);
     this.backText.setInteractive({ useHandCursor: true });
     this.backText.on("pointerdown", () => {
       this.goBack();
@@ -554,9 +547,13 @@ export class SettingsScene extends Phaser.Scene {
       this.ghostStyleTexts[index]!.setTint(active ? ghostStyleTint : TEXT_COLOR_DIM);
     }
 
-    this.backText.setText(this.focusIndex === FOCUS_BACK ? "> BACK" : "  BACK");
-    this.backText.setTint(this.focusIndex === FOCUS_BACK ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    placeGameText(this.backText, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    placeSelectableMenuOption(
+      this.backText,
+      "BACK",
+      this.focusIndex === FOCUS_BACK,
+      PLAYFIELD_WIDTH / 2,
+      BACK_Y,
+    );
   }
 
   private goBack(): void {

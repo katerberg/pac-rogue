@@ -3,13 +3,8 @@ import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../
 import { PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { runLogOverrunActive } from "../storage/runLogStorage";
-import {
-  MENU_OPTION_FONT_SIZE,
-  MENU_TITLE_FONT_SIZE,
-  TEXT_COLOR_WHITE,
-  TEXT_COLOR_YELLOW,
-} from "./pixelFont";
-import { addGameText, placeGameText, type GameText } from "./neonFont";
+import { MENU_OPTION_FONT_SIZE, MENU_TITLE_FONT_SIZE } from "./pixelFont";
+import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const OPTIONS = [
@@ -138,12 +133,14 @@ export class MenuScene extends Phaser.Scene {
 
   private refreshOptions(): void {
     this.optionTexts.forEach((text, index) => {
-      const selected = index === this.selectedIndex;
-      const label = OPTIONS[index].label;
       const center = this.optionCenters[index]!;
-      text.setText(selected ? `> ${label}` : `  ${label}`);
-      text.setTint(selected ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-      placeGameText(text, center.x, center.y, 0.5, 0.5);
+      placeSelectableMenuOption(
+        text,
+        OPTIONS[index].label,
+        index === this.selectedIndex,
+        center.x,
+        center.y,
+      );
     });
   }
 
