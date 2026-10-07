@@ -139,7 +139,9 @@ import {
   type GhostAiContext,
 } from "../systems/ghostAi";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
+import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
+import { sendGhostOutOfHouse } from "../systems/ghostRelease";
 import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../systems/heldKeys";
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
@@ -349,7 +351,7 @@ export class LearnSim {
       this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
       if (this.recallHoldRemainingMs === 0) {
         for (const eid of this.recallHoldGhostEids) {
-          this.freeGhost(eid);
+          this.releaseGhostFromHouse(eid);
         }
         this.recallHoldGhostEids = [];
       }
@@ -383,6 +385,7 @@ export class LearnSim {
       undefined,
       ghostsBlockedFromTunnels(this.learnUpgrades.owned),
     );
+    ghostExitHouse(this.world);
     this.noteTunnelExit(positionBeforeMove);
     this.pushTurnSparks(
       this.turnTuning.afterMove(
@@ -808,7 +811,7 @@ export class LearnSim {
   private freeHunterHeld(wasHeld: readonly number[]): void {
     for (const eid of wasHeld) {
       if (!this.learnUpgrades.hunterHeldEids.includes(eid)) {
-        this.freeGhost(eid);
+        this.releaseGhostFromHouse(eid);
       }
     }
   }
@@ -855,6 +858,12 @@ export class LearnSim {
     if (eid !== this.houseHold.eid) {
       this.seatGhostAtExit(eid);
       GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+  }
+
+  private releaseGhostFromHouse(eid: number): void {
+    if (eid !== this.houseHold.eid) {
+      sendGhostOutOfHouse(this.world, eid);
     }
   }
 
