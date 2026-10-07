@@ -33,7 +33,13 @@ import {
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
-import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
+import {
+  addGameText,
+  placeGameText,
+  placeSelectableMenuOption,
+  syncFontLookFromStorage,
+  type GameText,
+} from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
@@ -433,6 +439,7 @@ export class SettingsScene extends Phaser.Scene {
     }
     this.ghostStyle = style;
     saveGhostStyle(style);
+    syncFontLookFromStorage();
     const data: SettingsSceneData = {
       returnScene: this.returnScene,
       musicId: this.musicId,

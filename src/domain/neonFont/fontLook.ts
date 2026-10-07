@@ -31,3 +31,7 @@ export function fontLineArtLook(
     glowKnockout: t.fontGlowKnockout,
   };
 }
+
+export function neonFontGlowSourceWidthPx(sourceStrokePx: number, insetPx: number = 2): number {
+  return Math.max(0.5, sourceStrokePx - Math.min(insetPx, sourceStrokePx * 0.5));
+}

@@ -20,7 +20,11 @@ import {
   neonTextLocalHeight,
 } from "../../domain/neonFont/layout";
 import { neonRoundJoinIndices } from "../../domain/neonFont/strokeJoins";
-import { fontLineArtLook, type FontLineArtLook } from "../../domain/neonFont/fontLook";
+import {
+  fontLineArtLook,
+  neonFontGlowSourceWidthPx,
+  type FontLineArtLook,
+} from "../../domain/neonFont/fontLook";
 import { menuOptionLeftX, menuOptionText } from "../../domain/menuOptionLayout";
 import { renderScaleOf } from "../renderScale";
 import { loadDebugTuning } from "../storage/debugTuningStorage";
@@ -34,7 +38,6 @@ import {
 } from "./pixelFont";
 
 const LINE_GLOW_QUALITY = 24;
-const GLOW_SOURCE_INSET_PX = 2;
 const glyphArtCache = new Map<string, LineArt>();
 
 let activeFontLook: FontLineArtLook = fontLineArtLook(null);
@@ -63,7 +66,7 @@ function glyphArtFor(char: string, glyph: NeonGlyph): LineArt {
 function fontLookSource(): { knobs: boolean; style: GhostStyle; key: string } {
   const knobs = parseKnobsFlag(new URLSearchParams(location.search));
   const style = loadGhostStyle();
-  return { knobs, style, key: `${knobs ? "knobs" : "style"}:${style}` };
+  return { knobs, style, key: knobs ? "knobs" : `style:${style}` };
 }
 
 function setActiveFontLook(look: FontLineArtLook): void {
@@ -87,7 +90,7 @@ function ensureFontLookSynced(): void {
   }
 }
 
-export { setActiveFontLook };
+export { setActiveFontLook, syncFontLookFromStorage };
 
 export class NeonText extends Phaser.GameObjects.Container {
   private content: string;
@@ -428,7 +431,7 @@ export class NeonText extends Phaser.GameObjects.Container {
         if (glow !== null) {
           const sourceStroke = strokeWidth * pps;
           const glowWidthPx = this.look.glowKnockout
-            ? Math.max(0.5, sourceStroke - Math.min(GLOW_SOURCE_INSET_PX, sourceStroke * 0.5))
+            ? neonFontGlowSourceWidthPx(sourceStroke)
             : sourceStroke;
           this.strokeGlyph(
             glow,

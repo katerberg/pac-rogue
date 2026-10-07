@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { fontLineArtLook } from "./fontLook";
+import { fontLineArtLook, neonFontGlowSourceWidthPx } from "./fontLook";
 import { DEFAULT_TUNING, resolveTuning } from "../tuning";
+
+describe("neonFontGlowSourceWidthPx", () => {
+  it("keeps menu-thin strokes above the old flat-inset collapse", () => {
+    expect(neonFontGlowSourceWidthPx(1.6)).toBe(0.8);
+  });
+
+  it("uses the full inset on thick strokes", () => {
+    expect(neonFontGlowSourceWidthPx(4)).toBe(2);
+    expect(neonFontGlowSourceWidthPx(10)).toBe(8);
+  });
+
+  it("floors at 0.5", () => {
+    expect(neonFontGlowSourceWidthPx(0.5)).toBe(0.5);
+    expect(neonFontGlowSourceWidthPx(0)).toBe(0.5);
+  });
+});
 
 describe("fontLineArtLook", () => {
   it("has no bloom with no bloom strength or radius", () => {
