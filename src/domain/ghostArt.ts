@@ -1,4 +1,5 @@
 import type { GhostKindId } from "./ghostKind";
+import { GHOST_DRAWABLE_BY_KIND, PLAYER_DRAWABLE_ID } from "./playfield";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export type GhostStyle = "neon" | "lined" | "pixel";
@@ -24,6 +25,20 @@ export function lineArtGhostKinds(
   presentKinds: Iterable<GhostKindId>,
 ): GhostKindId[] {
   return style === "pixel" ? [] : [...new Set(presentKinds)];
+}
+
+export function lineArtPlayer(style: GhostStyle): boolean {
+  return style !== "pixel";
+}
+
+export function lineArtDrawableIds(
+  style: GhostStyle,
+  presentKinds: Iterable<GhostKindId>,
+): string[] {
+  return [
+    ...(lineArtPlayer(style) ? [PLAYER_DRAWABLE_ID] : []),
+    ...lineArtGhostKinds(style, presentKinds).map((kind) => GHOST_DRAWABLE_BY_KIND[kind]),
+  ];
 }
 
 export type GhostGlow = { outerStrength: number; distancePx: number };
@@ -56,6 +71,12 @@ export function ghostLineArtLook(
     widthScale: t.ghostWidth,
     heightScale: t.ghostHeight,
   };
+}
+
+export const PLAYER_LINE_WIDTH = 0.065;
+
+export function playerLineArtLook(ghostLook: GhostLineArtLook): GhostLineArtLook {
+  return { ...ghostLook, lineWidth: PLAYER_LINE_WIDTH, widthScale: 1, heightScale: 1 };
 }
 
 export function sameGhostLineArtLook(a: GhostLineArtLook, b: GhostLineArtLook): boolean {

@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_GHOST_STYLE,
   ghostLineArtLook,
+  lineArtDrawableIds,
   lineArtGhostKinds,
+  lineArtPlayer,
   parseGhostStyle,
+  playerLineArtLook,
   sameGhostLineArtLook,
   styleUsesGlow,
   textStyleFor,
 } from "./ghostArt";
+import { BLINKY_DRAWABLE_ID, CLYDE_DRAWABLE_ID, PLAYER_DRAWABLE_ID } from "./playfield";
 import { resolveTuning } from "./tuning";
 import { GHOST_KIND } from "./ghostKind";
 
@@ -53,6 +57,43 @@ describe("lineArtGhostKinds", () => {
 
   it("draws none as line art when pixel", () => {
     expect(lineArtGhostKinds("pixel", [GHOST_KIND.blinky, GHOST_KIND.clyde])).toEqual([]);
+  });
+});
+
+describe("lineArtDrawableIds", () => {
+  it("draws Dot-Man and every present ghost as line art when neon", () => {
+    expect(lineArtPlayer("neon")).toBe(true);
+    expect(lineArtDrawableIds("neon", [GHOST_KIND.blinky, GHOST_KIND.clyde])).toEqual([
+      PLAYER_DRAWABLE_ID,
+      BLINKY_DRAWABLE_ID,
+      CLYDE_DRAWABLE_ID,
+    ]);
+  });
+
+  it("keeps Dot-Man as line art when lined", () => {
+    expect(lineArtDrawableIds("lined", [GHOST_KIND.blinky])).toEqual([
+      PLAYER_DRAWABLE_ID,
+      BLINKY_DRAWABLE_ID,
+    ]);
+  });
+
+  it("draws nothing as line art when pixel", () => {
+    expect(lineArtPlayer("pixel")).toBe(false);
+    expect(lineArtDrawableIds("pixel", [GHOST_KIND.blinky])).toEqual([]);
+  });
+});
+
+describe("playerLineArtLook", () => {
+  it("keeps the ghost glow but its own line width and no stretch", () => {
+    const ghost = ghostLineArtLook(
+      resolveTuning({ ghostGlow: 3, ghostLineWidth: 12, ghostWidth: 1.4, ghostHeight: 0.8 }),
+    );
+    expect(playerLineArtLook(ghost)).toEqual({
+      glow: ghost.glow,
+      lineWidth: 0.065,
+      widthScale: 1,
+      heightScale: 1,
+    });
   });
 });
 

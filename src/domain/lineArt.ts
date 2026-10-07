@@ -300,6 +300,26 @@ function withDistance(raw: Vec[]): LinePoint[] {
   return points;
 }
 
+export function turnLineArt(art: LineArt, quarterTurns: number): LineArt {
+  if (art.width !== art.height) {
+    fail("turnLineArt needs a square viewBox");
+  }
+  const c = art.width / 2;
+  const turns = ((quarterTurns % 4) + 4) % 4;
+  const turn = (p: LinePoint): LinePoint => {
+    let dx = p.x - c;
+    let dy = p.y - c;
+    for (let k = 0; k < turns; k += 1) {
+      [dx, dy] = [-dy, dx];
+    }
+    return { x: c + dx, y: c + dy, s: p.s };
+  };
+  return {
+    ...art,
+    strands: art.strands.map((strand) => ({ ...strand, points: strand.points.map(turn) })),
+  };
+}
+
 export function parseLineArt(svg: string, step = 1): LineArt {
   for (const tag of UNSUPPORTED_TAGS) {
     if (new RegExp(`<${tag}\\b`).test(svg)) {

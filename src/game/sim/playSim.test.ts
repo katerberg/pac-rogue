@@ -25,6 +25,7 @@ import {
   ghostRadius,
   INKY_DRAWABLE_ID,
   PINKY_DRAWABLE_ID,
+  PLAYER_DRAWABLE_ID,
   PLAYER_SPEED,
   playerRadius,
 } from "../../domain/playfield";
@@ -52,6 +53,7 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import { ECHO_DELAY_MS } from "../../domain/echo";
+import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { ChainedGhost } from "../components/ChainedGhost";
@@ -2849,16 +2851,28 @@ describe("Lazy Looper", () => {
     expect(sim.snapshot().optionalPellets).toBe(before - 1);
   });
 
-  it("never makes boss pellets optional", () => {
-    const sim = startSim({
-      level: 9,
-      boss: "blinkySwarm",
-      enableUpgrades: ["passiveLazyLooperPlus"],
-    });
-    const boss = query(sim.world, [BossPellet]);
-    expect(boss.length).toBeGreaterThan(0);
-    expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);
-    expect(boss.every((eid) => !hasComponent(sim.world, eid, OptionalPellet))).toBe(true);
+  it("does nothing on boss fights", () => {
+    for (const boss of ["blinkySwarm", "chainedGhosts"] as const) {
+      const sim = startSim({
+        level: 9,
+        boss,
+        enableUpgrades: ["passiveLazyLooperPlus"],
+      });
+      expect(sim.snapshot().optionalPellets).toBe(0);
+      expect(partition(sim).optional).toEqual([]);
+      const required = new Set(
+        lazyLooperRequiredCells(getActiveLayout(), "outer").map(({ col, row }) => `${col},${row}`),
+      );
+      for (const eid of regularPelletEids(sim)) {
+        const cell = `${worldToCol(Position.x[eid]!)},${worldToRow(Position.y[eid]!)}`;
+        if (required.has(cell)) {
+          eatPelletAt(sim, eid);
+        }
+      }
+      runFrames(sim, 90);
+      expect(sim.snapshot().runComplete).toBe(false);
+      expect(sim.snapshot().pellets).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -3521,12 +3535,20 @@ describe("ghost style (neon line art vs pixel)", () => {
     }
   });
 
-  it("tells the renderer which drawables are line art", () => {
-    const events = runFrames(startSim({ level: 5 }, "lineart"), 1);
+  it("tells the renderer which drawables are line art, Dot-Man included", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    const events = runFrames(sim, 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
     expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
-      sorted([BLINKY_DRAWABLE_ID, PINKY_DRAWABLE_ID, INKY_DRAWABLE_ID, CLYDE_DRAWABLE_ID]),
+      sorted([
+        PLAYER_DRAWABLE_ID,
+        BLINKY_DRAWABLE_ID,
+        PINKY_DRAWABLE_ID,
+        INKY_DRAWABLE_ID,
+        CLYDE_DRAWABLE_ID,
+      ]),
     );
+    expect(sim.snapshot().lineArtPlayer).toBe(true);
   });
 
   it("draws no line art with the pixel style, and switches back mid-run", () => {
@@ -3536,14 +3558,17 @@ describe("ghost style (neon line art vs pixel)", () => {
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
     expect(draws.at(-1)?.lineArtDrawableIds).toEqual([]);
     expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    expect(sim.snapshot().lineArtPlayer).toBe(false);
     sim.setGhostStyle("neon");
     expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
+    expect(sim.snapshot().lineArtPlayer).toBe(true);
   });
 
-  it("keeps line-art ghosts under lined style", () => {
+  it("keeps line-art ghosts and Dot-Man under lined style", () => {
     const sim = startSim({ level: 5 }, "lineart");
     sim.setGhostStyle("lined");
     expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
+    expect(sim.snapshot().lineArtPlayer).toBe(true);
   });
 
   it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {

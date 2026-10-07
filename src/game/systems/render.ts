@@ -25,6 +25,7 @@ import {
   type PelletStyle,
 } from "../../domain/pelletStyle";
 import type { LineArt } from "../../domain/lineArt";
+import { DOTMAN_LINE_ART_BY_DIR } from "../art/dotmanLineArt";
 import { GHOST_LINE_ART } from "../art/ghostLineArt";
 import {
   createLineArtObject,
@@ -51,12 +52,13 @@ import {
 } from "../../domain/playfield";
 import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
-import { brightenColor, playerTint, type PlayerTint } from "../../domain/playerTint";
+import { brightenColor, playerTint, tintedColor, type PlayerTint } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import {
   ghostLineArtLook,
+  playerLineArtLook,
   sameGhostLineArtLook,
   type GhostLineArtLook,
   type GhostStyle,
@@ -106,6 +108,7 @@ const LINE_ART_BY_DRAWABLE_ID: Record<string, { art: LineArt; color: number }> =
 // Icy white: the pixel frozen tint (pale blue) would read as Inky's neon cyan.
 const LINE_ART_FROZEN_COLOR = 0xe6f6ff;
 const LINE_ART_FRIGHTENED_COLOR = 0x6f7bff;
+const DOTMAN_LINE_ART_COLOR = 0xffe600;
 const WALL_GLOW_QUALITY = 10;
 const PELLET_GLOW_QUALITY = 10;
 const PELLET_GLOW_DEPTH = -1;
@@ -607,7 +610,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     destroyBossPelletGlow(eid);
     killNeonPowerBounce(eid);
     playerVisuals.delete(eid);
-    pelletBakeSignature = "";
   };
 
   const resetForNewBoard = (): void => {
@@ -771,6 +773,44 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         applyTint(trailGo);
       }
     };
+    const placeLineArt = (
+      key: string,
+      art: LineArt,
+      color: number,
+      size: number,
+      look: GhostLineArtLook,
+      glow: boolean,
+      px: number,
+      py: number,
+      alpha: number,
+      scale = 1,
+      depth = 0,
+    ): void => {
+      alive.add(key);
+      let obj = lineArtObjects.get(key);
+      if (!obj) {
+        obj = createLineArtObject(
+          scene,
+          art,
+          color,
+          wallStyle.background,
+          size,
+          look,
+          glow,
+          renderScaleOf(scene),
+        );
+        obj.art.setDepth(depth);
+        obj.glow?.setDepth(depth);
+        lineArtObjects.set(key, obj);
+      } else if (
+        obj.source !== art ||
+        obj.color !== color ||
+        obj.backdrop !== wallStyle.background
+      ) {
+        restyleLineArtObject(obj, art, color, wallStyle.background);
+      }
+      placeLineArtObject(obj, px, py, alpha, scale);
+    };
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
       const ghostTexture = GHOST_TEXTURE_BY_ID[id];
@@ -832,42 +872,73 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       const lineArtEntry = lineArtIds.has(id) ? LINE_ART_BY_DRAWABLE_ID[id] : undefined;
       if (lineArtEntry !== undefined) {
         destroyImage(primaryKey);
-        const lineArt = lineArtEntry.art;
         const color = frightenedLook
           ? LINE_ART_FRIGHTENED_COLOR
           : ghostTint === null
             ? lineArtEntry.color
             : LINE_ART_FROZEN_COLOR;
-        const placeLineArt = (
+        const placeGhost = (key: string, glow: boolean, px: number, py: number, alpha: number) =>
+          placeLineArt(key, lineArtEntry.art, color, size, ghostLook, glow, px, py, alpha);
+        placeGhost(primaryKey, true, x, y, ghostAlpha * (glideHead?.alpha ?? 1));
+        glide?.slice(1).forEach((trail, i) => {
+          placeGhost(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha);
+        });
+        continue;
+      }
+      if (id === PLAYER_DRAWABLE_ID && lineArtIds.has(id)) {
+        destroyImage(primaryKey);
+        const visual = ensurePlayerVisual(playerVisuals, eid, x, y);
+        visual.lastDir = facingToDir(Facing.direction[eid] ?? DIRECTION.none) ?? visual.lastDir;
+        const art = DOTMAN_LINE_ART_BY_DIR[visual.lastDir];
+        const color = tintedColor(DOTMAN_LINE_ART_COLOR, playerTintNow);
+        const look = playerLineArtLook(ghostLook);
+        const placeDotMan = (
           key: string,
           glow: boolean,
           px: number,
           py: number,
           alpha: number,
-        ): void => {
-          alive.add(key);
-          let obj = lineArtObjects.get(key);
-          if (!obj) {
-            obj = createLineArtObject(
-              scene,
-              lineArt,
-              color,
-              wallStyle.background,
-              size,
-              ghostLook,
-              glow,
-              renderScaleOf(scene),
+          scale = 1,
+          depth = 0,
+        ) => placeLineArt(key, art, color, size, look, glow, px, py, alpha, scale, depth);
+        if (reviveProgress !== undefined) {
+          // The splash starts screen-sized, far past the glow filter's focus box.
+          const revive = reviveSplashLook(reviveProgress, size);
+          destroyLineArt(primaryKey);
+          placeDotMan(`${eid}:lrevive`, false, x, y, revive.alpha, revive.size / size);
+          continue;
+        }
+        placeDotMan(
+          primaryKey,
+          true,
+          x,
+          y,
+          (playerAlpha ?? 1) * turnFlash.alpha * (glideHead?.alpha ?? 1),
+          turnFlash.scale,
+        );
+        if (glide !== undefined) {
+          glide.slice(1).forEach((trail, i) => {
+            placeDotMan(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha);
+          });
+        } else if (speedTrail !== undefined) {
+          speedTrail.forEach((trail, i) => {
+            placeDotMan(
+              `${eid}:lspeed${i}`,
+              false,
+              trail.x,
+              trail.y,
+              trail.alpha,
+              1,
+              SPEED_TRAIL_DEPTH,
             );
-            lineArtObjects.set(key, obj);
-          } else if (obj.color !== color || obj.backdrop !== wallStyle.background) {
-            restyleLineArtObject(obj, lineArt, color, wallStyle.background);
+          });
+        }
+        if (glide === undefined && playerAlpha === undefined && hasComponent(world, eid, Player)) {
+          const twin = wrappedTwinPosition(x, y, radius, twinSolids);
+          if (twin) {
+            placeDotMan(`${eid}:ltwin`, true, twin.x, twin.y, 1, turnFlash.scale);
           }
-          placeLineArtObject(obj, px, py, alpha);
-        };
-        placeLineArt(primaryKey, true, x, y, ghostAlpha * (glideHead?.alpha ?? 1));
-        glide?.slice(1).forEach((trail, i) => {
-          placeLineArt(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha);
-        });
+        }
         continue;
       }
       destroyLineArt(primaryKey);
@@ -1047,7 +1118,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         } else if (pellet.id === POWER_PELLET_DRAWABLE_ID) {
           powerGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
           signatureParts.push(`w${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
-        } else {
+        } else if (pelletGlowFilter(pellet.look) !== null) {
           regularGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
           signatureParts.push(`p${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
         }
@@ -1111,6 +1182,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     for (const key of lineArtObjects.keys()) {
       if (!alive.has(key)) {
         destroyLineArt(key);
+        if (!key.includes(":")) {
+          playerVisuals.delete(Number(key));
+        }
       }
     }
   };

@@ -16,6 +16,7 @@ import {
   type MazeColorSettings,
 } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
+import { SETTINGS_FOCUS_COUNT, resolveSettingsFocusIndex } from "../../domain/settingsFocus";
 import {
   musicIdForContext,
   playSfxPreview,
@@ -38,7 +39,13 @@ import { applyRenderScale } from "../renderScale";
 const FOCUS_MAZE_COLOR = 2;
 const FOCUS_GHOST_STYLE = 3;
 const FOCUS_BACK = 4;
-const FOCUS_COUNT = 5;
+const FOCUS_COUNT = SETTINGS_FOCUS_COUNT;
+
+type SettingsSceneData = {
+  returnScene?: string;
+  musicId?: SfxId;
+  focusIndex?: number;
+};
 
 const ROW_Y: Record<AudioCategory, number> = {
   music: 200,
@@ -132,7 +139,7 @@ export class SettingsScene extends Phaser.Scene {
     preloadSfx(this);
   }
 
-  create(data?: { returnScene?: string; musicId?: SfxId }): void {
+  create(data?: SettingsSceneData): void {
     applyRenderScale(this);
     // Boot order (see docs/ARCHITECTURE.md) places SettingsScene below PlayScene/PauseScene,
     // so opening it from the pause menu needs an explicit bring-to-top or the paused maze
@@ -140,7 +147,7 @@ export class SettingsScene extends Phaser.Scene {
     this.scene.bringToTop();
 
     this.settings = loadAudioSettings();
-    this.focusIndex = 0;
+    this.focusIndex = resolveSettingsFocusIndex(data?.focusIndex);
     this.moveCooldownMs = 0;
     this.upRepeat = createKeyRepeatState();
     this.downRepeat = createKeyRepeatState();
@@ -150,6 +157,7 @@ export class SettingsScene extends Phaser.Scene {
     this.returnScene = data?.returnScene ?? "MenuScene";
     this.audioDisabled = this.game.config.audio.noAudio === true;
     this.musicId = data?.musicId ?? musicIdForContext(this.returnScene);
+    this.sys.settings.data = {};
     syncMusicPlayback(this, this.musicId, this.settings);
     this.mazeColorSettings = loadMazeColorSettings();
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
@@ -425,7 +433,19 @@ export class SettingsScene extends Phaser.Scene {
     }
     this.ghostStyle = style;
     saveGhostStyle(style);
-    this.scene.restart();
+    const data: SettingsSceneData = {
+      returnScene: this.returnScene,
+      musicId: this.musicId,
+      focusIndex: this.focusIndex,
+    };
+    this.scene.restart(data);
+  }
+
+  public debugSnapshot(): { focusIndex: number; ghostStyle: GhostStyle } {
+    return {
+      focusIndex: this.focusIndex,
+      ghostStyle: this.ghostStyle,
+    };
   }
 
   private isCategoryEnabled(category: AudioCategory): boolean {
