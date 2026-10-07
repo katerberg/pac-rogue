@@ -204,11 +204,12 @@ export class PlayScene extends Phaser.Scene {
 
     const bonusLabel = addGameText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
     placeGameText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
-    this.bonusGlowGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
+    // Glow lives outside chrome (filters + Container break focus); position tracks chrome shake.
+    this.bonusGlowGfx = this.add.graphics().setDepth(9);
     this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
     this.barFx = createBarFx(this.sim.hud().bonusCharge);
     this.sideHud.add(this.timerText);
-    this.chrome.add([bonusLabel, this.bonusGlowGfx, this.bonusGfx]);
+    this.chrome.add([bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
     this.shieldIcons = [];
     this.shieldCrackHalves = [];
@@ -883,9 +884,14 @@ export class PlayScene extends Phaser.Scene {
     this.syncBonusBarGlow(rects);
   }
 
+  /**
+   * Knockout Glow under the crisp bar, same canvas-density pattern as pellet/ghost glow.
+   * Kept off the chrome Container so filter focus stays reliable.
+   */
   private syncBonusBarGlow(rects: BarRect[]): void {
     const glow = bonusBarGlowFilter(this.ghostStyle);
     const px = renderScaleOf(this);
+    this.bonusGlowGfx.setPosition(this.chrome.x + BONUS_BAR_X, this.chrome.y + BONUS_BAR_Y);
     if (glow === null) {
       this.bonusGlowGfx.clear();
       this.bonusGlowGfx.setVisible(false);
@@ -902,15 +908,16 @@ export class PlayScene extends Phaser.Scene {
         const pad = BONUS_GLOW_PAD_WORLD;
         const filterW = Math.ceil((BONUS_BAR_ART_W * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
         const filterH = Math.ceil((BONUS_BAR_ART_H * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
-        this.bonusGlowGfx.setScale(1 / px);
+        this.bonusGlowGfx.setScale(1);
         this.bonusGlowGfx.enableFilters();
         this.bonusGlowGfx.filtersAutoFocus = false;
         this.bonusGlowGfx.filtersFocusContext = false;
         this.bonusGlowGfx.setFilterSize(filterW, filterH);
         this.bonusGlowGfx.filterCamera.setZoom(px);
-        this.bonusGlowGfx.filterCamera.setOrigin(0, 0);
-        this.bonusGlowGfx.filterCamera.scrollX = -pad;
-        this.bonusGlowGfx.filterCamera.scrollY = -pad;
+        this.bonusGlowGfx.filterCamera.centerOn(
+          (BONUS_BAR_ART_W * BONUS_ART_SCALE) / 2,
+          (BONUS_BAR_ART_H * BONUS_ART_SCALE) / 2,
+        );
         this.bonusGlowGfx.filters!.internal.clear();
         this.bonusGlowGfx.filters!.internal.addGlow(
           BONUS_COLORS.fill,
@@ -924,17 +931,18 @@ export class PlayScene extends Phaser.Scene {
       } catch {
         this.bonusGlowKey = "";
         this.bonusGlowGfx.clear();
+        this.bonusGlowGfx.setVisible(false);
         return;
       }
     }
     this.bonusGlowGfx.clear();
     for (const rect of rects) {
-      this.bonusGlowGfx.fillStyle(rect.color, 1);
+      this.bonusGlowGfx.fillStyle(BONUS_COLORS.fill, 1);
       this.bonusGlowGfx.fillRect(
-        rect.x * BONUS_ART_SCALE * px,
-        rect.y * BONUS_ART_SCALE * px,
-        rect.w * BONUS_ART_SCALE * px,
-        rect.h * BONUS_ART_SCALE * px,
+        rect.x * BONUS_ART_SCALE,
+        rect.y * BONUS_ART_SCALE,
+        rect.w * BONUS_ART_SCALE,
+        rect.h * BONUS_ART_SCALE,
       );
     }
   }

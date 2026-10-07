@@ -163,7 +163,7 @@ describe("barRects (neon)", () => {
 
 describe("bonusBarGlowFilter", () => {
   it("returns glow only for neon STYLE", () => {
-    expect(bonusBarGlowFilter("neon")).toEqual({ outerStrength: 2.5, distance: 8 });
+    expect(bonusBarGlowFilter("neon")).toEqual({ outerStrength: 6, distance: 16 });
     expect(bonusBarGlowFilter("pixel")).toBeNull();
     expect(bonusBarGlowFilter("lined")).toBeNull();
   });

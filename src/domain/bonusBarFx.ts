@@ -15,8 +15,8 @@ export const BONUS_COLORS = {
 } as const;
 
 /** Phaser Glow on the neon BONUS tube (HUD-scale; not knobs). */
-const BONUS_NEON_GLOW_STRENGTH = 2.5;
-const BONUS_NEON_GLOW_DISTANCE = 8;
+const BONUS_NEON_GLOW_STRENGTH = 6;
+const BONUS_NEON_GLOW_DISTANCE = 16;
 
 const POINTS_PER_SLOT = BONUS_BAR_MAX / BONUS_SLOTS;
 const SLOT_W = 5;
