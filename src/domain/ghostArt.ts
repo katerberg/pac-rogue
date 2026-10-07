@@ -1,4 +1,5 @@
 import type { GhostKindId } from "./ghostKind";
+import { GHOST_DRAWABLE_BY_KIND, PLAYER_DRAWABLE_ID } from "./playfield";
 import type { Tuning } from "./tuning";
 
 export type GhostStyle = "neon" | "pixel";
@@ -14,6 +15,20 @@ export function lineArtGhostKinds(
   presentKinds: Iterable<GhostKindId>,
 ): GhostKindId[] {
   return style === "neon" ? [...new Set(presentKinds)] : [];
+}
+
+export function lineArtPlayer(style: GhostStyle): boolean {
+  return style === "neon";
+}
+
+export function lineArtDrawableIds(
+  style: GhostStyle,
+  presentKinds: Iterable<GhostKindId>,
+): string[] {
+  return [
+    ...(lineArtPlayer(style) ? [PLAYER_DRAWABLE_ID] : []),
+    ...lineArtGhostKinds(style, presentKinds).map((kind) => GHOST_DRAWABLE_BY_KIND[kind]),
+  ];
 }
 
 export type GhostGlow = { outerStrength: number; distancePx: number };
@@ -37,6 +52,13 @@ export function ghostLineArtLook(tuning: Tuning): GhostLineArtLook {
     widthScale: tuning.ghostWidth,
     heightScale: tuning.ghostHeight,
   };
+}
+
+export const PLAYER_LINE_WIDTH = 0.065;
+
+/** Dot-Man shares the ghost glow knobs; his pipes keep their own thickness and no stretch. */
+export function playerLineArtLook(ghostLook: GhostLineArtLook): GhostLineArtLook {
+  return { ...ghostLook, lineWidth: PLAYER_LINE_WIDTH, widthScale: 1, heightScale: 1 };
 }
 
 export function sameGhostLineArtLook(a: GhostLineArtLook, b: GhostLineArtLook): boolean {

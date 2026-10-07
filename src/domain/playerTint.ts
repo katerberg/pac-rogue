@@ -27,6 +27,19 @@ function baseTint(input: PlayerTintInput): number | null {
   return expiryTintOn(input.invulnRemainingMs, input.nowMs) ? PLAYER_INVULN_TINT : null;
 }
 
+/** The colour a texture tint would give `color`, for art drawn in a solid colour. */
+export function tintedColor(color: number, tint: PlayerTint | null): number {
+  if (tint === null) {
+    return color;
+  }
+  const channel = (shift: number) => {
+    const a = (color >> shift) & 0xff;
+    const b = (tint.color >> shift) & 0xff;
+    return (tint.mode === "add" ? Math.min(0xff, a + b) : Math.round((a * b) / 0xff)) << shift;
+  };
+  return channel(16) | channel(8) | channel(0);
+}
+
 export function playerTint(input: PlayerTintInput): PlayerTint | null {
   const base = baseTint(input);
   if (base !== null) {

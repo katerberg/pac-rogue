@@ -10,6 +10,9 @@ const GLOW_SOURCE_INSET_PX = 2;
 export type LineArtObject = {
   art: Phaser.GameObjects.Graphics;
   glow: Phaser.GameObjects.Graphics | null;
+  source: LineArt;
+  scale: number;
+  pixelsPerWorld: number;
   color: number;
   backdrop: number;
   look: GhostLineArtLook;
@@ -100,7 +103,17 @@ export function createLineArtObject(
   }
   const artGraphics = scene.add.graphics().setScale(scale);
   drawStrands(artGraphics, art, color, look, backdrop);
-  return { art: artGraphics, glow, color, backdrop, look, glowUnit };
+  return {
+    art: artGraphics,
+    glow,
+    source: art,
+    scale,
+    pixelsPerWorld,
+    color,
+    backdrop,
+    look,
+    glowUnit,
+  };
 }
 
 export function restyleLineArtObject(
@@ -114,14 +127,27 @@ export function restyleLineArtObject(
     drawStrands(obj.glow, art, color, obj.look, null, obj.glowUnit);
     (obj.glow.filters!.internal.list[0] as Phaser.Filters.Glow).color = color;
   }
+  obj.source = art;
   obj.color = color;
   obj.backdrop = backdrop;
 }
 
-export function placeLineArtObject(obj: LineArtObject, x: number, y: number, alpha: number): void {
-  obj.art.setPosition(x, y).setAlpha(alpha);
+export function placeLineArtObject(
+  obj: LineArtObject,
+  x: number,
+  y: number,
+  alpha: number,
+  scale = 1,
+): void {
+  obj.art
+    .setPosition(x, y)
+    .setAlpha(alpha)
+    .setScale(obj.scale * scale);
   if (obj.glow !== null) {
-    obj.glow.setPosition(x, y).setAlpha(alpha);
+    obj.glow
+      .setPosition(x, y)
+      .setAlpha(alpha)
+      .setScale(scale / obj.pixelsPerWorld);
     obj.glow.filterCamera.centerOn(x, y);
   }
 }

@@ -28,7 +28,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
-import { BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID } from "../../domain/playfield";
+import { BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID, PLAYER_DRAWABLE_ID } from "../../domain/playfield";
 import { LearnSim } from "./learnSim";
 import { FRAME_MS, held } from "./simTesting";
 
@@ -221,10 +221,9 @@ describe("LearnSim ghost style", () => {
     const sim = new LearnSim("learn");
     sim.start();
     sim.selectGhost(GHOST_KIND.inky);
-    expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual([
-      BLINKY_DRAWABLE_ID,
-      INKY_DRAWABLE_ID,
-    ]);
+    expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual(
+      [PLAYER_DRAWABLE_ID, BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID].sort(),
+    );
     sim.setGhostStyle("pixel");
     expect(lastDraw(sim).lineArtDrawableIds).toEqual([]);
   });

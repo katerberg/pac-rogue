@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { PLAYER_INVULN_TINT, PLAYER_WALL_PASS_TINT, brightenColor, playerTint } from "./playerTint";
+import {
+  PLAYER_INVULN_TINT,
+  PLAYER_WALL_PASS_TINT,
+  brightenColor,
+  playerTint,
+  tintedColor,
+} from "./playerTint";
 
 const idle = { wallPassOn: false, invulnRemainingMs: 0, nowMs: 0, flashBrighten: 0 };
 
@@ -40,5 +46,22 @@ describe("playerTint", () => {
       PLAYER_INVULN_TINT,
     );
     expect(playerTint({ ...idle, invulnRemainingMs: 900, nowMs: 150 })).toBeNull();
+  });
+});
+
+describe("tintedColor", () => {
+  it("leaves the colour alone untinted", () => {
+    expect(tintedColor(0xffe600, null)).toBe(0xffe600);
+  });
+
+  it("multiplies channels like a multiply texture tint", () => {
+    expect(tintedColor(0xffe600, { color: 0x808080, mode: "multiply" })).toBe(0x807300);
+    expect(tintedColor(0xffffff, { color: PLAYER_INVULN_TINT, mode: "multiply" })).toBe(
+      PLAYER_INVULN_TINT,
+    );
+  });
+
+  it("adds channels, clamped at white, like an add texture tint", () => {
+    expect(tintedColor(0xffe600, { color: 0x333333, mode: "add" })).toBe(0xffff33);
   });
 });
