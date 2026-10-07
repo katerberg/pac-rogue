@@ -13,11 +13,6 @@ export type FontLineArtLook = {
   glowKnockout: boolean;
 };
 
-/**
- * Neon typeface look from knobs (`tuning !== null`, STYLE ignored for glow) or from
- * STYLE when knobs are off (`tuning === null`): neon keeps default bloom, lined/pixel
- * force none.
- */
 export function fontLineArtLook(
   tuning: Tuning | null,
   style: GhostStyle = DEFAULT_GHOST_STYLE,
