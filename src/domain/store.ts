@@ -7,6 +7,7 @@ import {
   isRare,
   storePriceFor,
   takeRandomFrom,
+  takeWeightedUpgrade,
   type BaseUpgradeId,
   type UpgradeId,
 } from "./upgrades";
@@ -142,7 +143,7 @@ export function createStoreState(
         slots.push({ kind, col, row, sold: false });
       }
     } else if (kind === "upgrade" && pool.length > 0) {
-      const id = takeRandomFrom(pool, rng);
+      const id = takeWeightedUpgrade(pool, rng);
       slots.push({ kind, col, row, id, sold: false });
       if (isRare(id)) {
         pool = pool.filter((other) => !isRare(other));
@@ -186,10 +187,10 @@ export function slotIndexAtCell(state: StoreState, col: number, row: number): nu
 }
 
 function swapPool(state: StoreState, owned: readonly UpgradeId[]): BaseUpgradeId[] {
-  const shelf = state.slots.flatMap((slot) => (slot.kind === "upgrade" ? [slot] : []));
-  const onShelf = new Set(shelf.flatMap((slot) => (slot.sold ? [] : [slot.id])));
-  const shelfHasRare = shelf.some((slot) => isRare(slot.id));
-  return eligibleUpgrades(owned).filter((id) => !onShelf.has(id) && !(shelfHasRare && isRare(id)));
+  const onShelf = new Set(
+    state.slots.flatMap((slot) => (slot.kind === "upgrade" && !slot.sold ? [slot.id] : [])),
+  );
+  return eligibleUpgrades(owned).filter((id) => !onShelf.has(id));
 }
 
 export function promptView(
@@ -301,7 +302,7 @@ export function storeStep(
     input.owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId)) ?? slot.outgoingId;
   const remaining = input.owned.filter((id) => baseIdOf(id) !== baseIdOf(outgoingId));
   const afterSwap = swapPool(next, remaining).filter((id) => id !== baseIdOf(outgoingId));
-  const incomingBase = takeRandomFrom(
+  const incomingBase = takeWeightedUpgrade(
     afterSwap.length > 0 ? afterSwap : swapPool(next, input.owned),
     rng,
   );

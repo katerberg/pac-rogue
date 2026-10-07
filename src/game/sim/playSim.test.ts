@@ -44,6 +44,7 @@ import {
   SHIELD_BREAK_INVULN_MS,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
   STARTING_UPGRADE_POOL,
+  ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   isRare,
   type BaseUpgradeId,
@@ -1076,6 +1077,22 @@ describe("PlaySim", () => {
         bought = true;
       }
       expect(bought).toBe(true);
+    });
+
+    it("trades into a rare even when the shelf already shows one", () => {
+      const owned = ALL_UPGRADE_IDS.filter((id) => !isRare(id));
+      const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: owned });
+      const shelf = (
+        sim
+          .snapshot()
+          .storeStock!.filter((s) => s !== "life" && !s.includes(":")) as BaseUpgradeId[]
+      ).filter(isRare);
+      expect(shelf).toHaveLength(1);
+      buy(sim, "swap");
+      const gained = sim.snapshot().upgrades.filter((id) => !owned.includes(id as BaseUpgradeId));
+      expect(gained).toHaveLength(1);
+      expect(isRare(gained[0]!)).toBe(true);
+      expect(gained).not.toContain(shelf[0]);
     });
 
     it("the first store stocks two lives, two abilities and an enhancement", () => {

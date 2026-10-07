@@ -199,6 +199,7 @@ export const QUARTERS_CHOICE_AMOUNT = 2;
 export const STORE_UPGRADE_PRICE = 3;
 export const STORE_RARE_UPGRADE_PRICE = 4;
 export const RARE_MIN_OWNED = 2;
+export const RARE_OFFER_WEIGHT = 0.5;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
@@ -1065,6 +1066,21 @@ export function takeRandomFrom<T>(pool: T[], rng: () => number): T {
   return picked;
 }
 
+export function takeWeightedUpgrade(pool: BaseUpgradeId[], rng: () => number): BaseUpgradeId {
+  const weight = (id: BaseUpgradeId): number => (isRare(id) ? RARE_OFFER_WEIGHT : 1);
+  let roll = rng() * pool.reduce((sum, id) => sum + weight(id), 0);
+  let index = pool.length - 1;
+  for (let i = 0; i < pool.length; i += 1) {
+    roll -= weight(pool[i]!);
+    if (roll < 0) {
+      index = i;
+      break;
+    }
+  }
+  const [picked] = pool.splice(index, 1);
+  return picked!;
+}
+
 function shuffleInPlace<T>(ids: T[], rng: () => number): void {
   for (let i = ids.length - 1; i > 0; i -= 1) {
     const j = Math.min(i, Math.floor(rng() * (i + 1)));
@@ -1097,7 +1113,7 @@ export function pickUpgradeChoiceOffer(
   const picked: BaseUpgradeId[] = [];
   const drawPool = [...preferred];
   while (picked.length < desiredCount && drawPool.length > 0) {
-    picked.push(takeRandomFrom(drawPool, rng));
+    picked.push(takeWeightedUpgrade(drawPool, rng));
   }
 
   if (

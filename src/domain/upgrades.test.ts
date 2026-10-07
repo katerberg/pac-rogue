@@ -58,6 +58,9 @@ import {
   STORE_RARE_UPGRADE_PRICE,
   STORE_UPGRADE_PRICE,
   isRare,
+  RARE_OFFER_WEIGHT,
+  takeRandomFrom,
+  takeWeightedUpgrade,
   UPGRADE_DEFS,
   UPGRADE_SCHOOL_LABELS,
   UPGRADE_SCHOOL_ORDER,
@@ -446,6 +449,22 @@ describe("rare upgrades", () => {
       );
     }
     expect(STORE_RARE_UPGRADE_PRICE).toBe(4);
+  });
+
+  it("is drawn at half a common's weight, removing the pick from the pool", () => {
+    const draw = (roll: number) => {
+      const pool: BaseUpgradeId[] = ["passiveMartyr", "passiveGhostSlow"];
+      return { picked: takeWeightedUpgrade(pool, () => roll), pool };
+    };
+    expect(draw(0)).toEqual({ picked: "passiveMartyr", pool: ["passiveGhostSlow"] });
+    expect(draw(0.33).picked).toBe("passiveMartyr");
+    expect(draw(0.34)).toEqual({ picked: "passiveGhostSlow", pool: ["passiveMartyr"] });
+    expect(draw(0.9999).picked).toBe("passiveGhostSlow");
+    const commons: BaseUpgradeId[] = ["passiveGhostSlow", "passiveAfterburner", "fruitFeast"];
+    expect(takeWeightedUpgrade([...commons], () => 0.5)).toBe(
+      takeRandomFrom([...commons], () => 0.5),
+    );
+    expect(RARE_OFFER_WEIGHT).toBe(0.5);
   });
 
   it("is never a starting upgrade", () => {

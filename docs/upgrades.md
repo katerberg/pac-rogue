@@ -138,8 +138,8 @@ Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored
 An upgrade is **common**, **rare** or a [School Specialist](#school-specialists). Rare defs set `rare: true` (`isRare`) and `storePrice: STORE_RARE_UPGRADE_PRICE` (4); every other def costs `STORE_UPGRADE_PRICE` (3). Rares are the build-around upgrades: Wall Pass, Fruit Power, Overcharge, Lazy Looper, Shield Pellets, Martyr, Streak Engine and Hunter.
 
 - **Gate.** `eligibleUpgrades` leaves rares out until `RARE_MIN_OWNED` (2) upgrades are owned (any kind, specialists included), so a rare is never your first or second upgrade. It is never in `STARTING_UPGRADE_POOL`.
-- **Level-clear offer.** Once eligible, rares are drawn like any other upgrade: no extra weight and no cap per offer.
-- **Store.** At most one rare per store. `createStoreState` drops rares from the shelf pool once one is shelved, and the trade tile never swaps into a rare while the shelf has shown one (sold or not).
+- **Weight.** Every random upgrade draw (level-clear offer, store shelves, trade tile) goes through `takeWeightedUpgrade`, where a rare has `RARE_OFFER_WEIGHT` (0.5) the chance of a common. A pool with no rares draws exactly like `takeRandomFrom`. There is no cap on rares per level-clear offer.
+- **Store.** At most one rare on the shelves per store: `createStoreState` drops rares from the shelf pool once one is shelved. The trade tile is not capped; it can swap into a rare (at half weight) even when the shelf shows one.
 - **Look.** Every rare card (level-clear modal, LEARN and pause hover previews, store hover panel, confirm modal and purchase toast) and rare store tile gets `addRareFx` ([`src/game/scenes/rareFx.ts`](../src/game/scenes/rareFx.ts)): a soft halo in the school color that pulses, plus small sparkles that twinkle in turn around the edge. The store panel and modal swap it on and off with `createRareFxToggle`. The FX tweens are removed when the card is destroyed.
 
 ## Grant rules

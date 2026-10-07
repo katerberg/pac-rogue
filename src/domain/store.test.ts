@@ -316,24 +316,15 @@ describe("storeStep", () => {
     );
   });
 
-  it("never swaps into a rare once the shelf has shown one, sold or not", () => {
-    const owned = ALL_UPGRADE_IDS.filter((id) => !isRare(id) && id !== "passiveGhostSlow");
-    const shelf = (second: UpgradeId): StoreState => {
-      const base = stateWith(owned);
-      let n = 0;
-      const slots = base.slots.map((s) => {
-        if (s.kind !== "upgrade") {
-          return s;
-        }
-        n += 1;
-        return n === 1
-          ? { ...s, id: "passiveGhostSlow" as const, sold: false }
-          : { ...s, id: second as typeof s.id, sold: true };
-      });
-      return storeStep({ ...base, slots }, input({ ...swapCell, owned }), zeroRng).state;
-    };
-    expect(promptView(shelf("passiveGhostSlow"), 10, owned)?.kind).toBe("confirm");
-    expect(promptView(shelf("passiveMartyr"), 10, owned)?.kind).toBe("nothingToSwap");
+  it("trades into a rare even when the shelf already shows one", () => {
+    const owned = ALL_UPGRADE_IDS.filter((id) => !isRare(id));
+    const arrived = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
+    const shelf = arrived.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
+    expect(shelf.filter(isRare)).toHaveLength(1);
+    const step = confirmYes(arrived, { ...swapCell, owned });
+    const incoming = step.purchase?.kind === "swap" ? step.purchase.incomingId : null;
+    expect(incoming !== null && isRare(incoming)).toBe(true);
+    expect(shelf).not.toContain(incoming);
   });
 
   it("reports nothing to swap when every other upgrade is owned or on the shelf", () => {
