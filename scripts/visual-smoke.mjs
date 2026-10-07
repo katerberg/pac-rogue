@@ -2,12 +2,16 @@ import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { chromium } from "playwright";
+import { readPixels, strayPixelsBelowText } from "./lib/strayPixels.mjs";
 import { chromiumLaunchOptions, ports, root, stopProcess, waitForServer } from "./lib/server.mjs";
 const playArtifactPath = join(root, "artifacts", "visual-smoke.png");
+const menuArtifactPath = join(root, "artifacts", "visual-smoke-menu.png");
 const upgradeArtifactPath = join(root, "artifacts", "visual-smoke-upgrade.png");
 const baseUrl = `http://127.0.0.1:${ports.agentPreview}/`;
 const url = `${baseUrl}?maze=maze1`;
 const upgradeUrl = `${baseUrl}?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference&seed=smoke`;
+
+const FRACTIONAL_SCALE_VIEWPORT = { width: 802, height: 634 };
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
@@ -33,6 +37,22 @@ async function waitForActiveScene(page, sceneKey, timeoutMs = 15_000) {
     sceneKey,
     { timeout: timeoutMs },
   );
+}
+
+async function assertCrispMenuText(browser) {
+  const page = await browser.newPage({ viewport: FRACTIONAL_SCALE_VIEWPORT });
+  await page.goto(url, { waitUntil: "networkidle" });
+  await page.waitForSelector("canvas", { timeout: 15_000 });
+  await waitForActiveScene(page, "MenuScene");
+  await page.waitForTimeout(500);
+  const shot = await page.locator("canvas").first().screenshot({ path: menuArtifactPath });
+  const stray = strayPixelsBelowText(await readPixels(page, shot));
+  await page.close();
+  if (stray > 0) {
+    throw new Error(
+      `Menu text has ${stray} stray pixels under its glyphs at ${FRACTIONAL_SCALE_VIEWPORT.width}x${FRACTIONAL_SCALE_VIEWPORT.height} (texture edge bleed); see ${menuArtifactPath}`,
+    );
+  }
 }
 
 async function main() {
@@ -84,8 +104,12 @@ async function main() {
     );
     await page.waitForTimeout(2_000);
     await page.locator("canvas").first().screenshot({ path: upgradeArtifactPath });
+    await assertCrispMenuText(browser);
     await browser.close();
 
+    console.log(
+      `Visual smoke OK — menu text crisp at ${FRACTIONAL_SCALE_VIEWPORT.width}x${FRACTIONAL_SCALE_VIEWPORT.height}: ${menuArtifactPath}`,
+    );
     console.log(`Visual smoke OK — upgrade: ${upgradeArtifactPath}`);
     console.log(`Visual smoke OK — play: ${playArtifactPath}`);
   } catch (error) {
