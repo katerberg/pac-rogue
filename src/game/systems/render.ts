@@ -25,7 +25,8 @@ import {
   type PelletStyle,
 } from "../../domain/pelletStyle";
 import type { LineArt } from "../../domain/lineArt";
-import { DOTMAN_LINE_ART_BY_DIR } from "../art/dotmanLineArt";
+import { DOTMAN_LINE_ART, dotManLineArt } from "../art/dotmanLineArt";
+import { restingTurn, turnAngle, turnToward, type DotManTurn } from "../../domain/dotManTurn";
 import { GHOST_LINE_ART } from "../art/ghostLineArt";
 import {
   createLineArtObject,
@@ -58,6 +59,7 @@ import { pelletTint } from "../../domain/lazyLooper";
 import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
 import {
   ghostLineArtLook,
+  lineArtPlayer,
   playerLineArtLook,
   sameGhostLineArtLook,
   type GhostLineArtLook,
@@ -126,6 +128,7 @@ type PacmanDir = (typeof PACMAN_DIRS)[number];
 
 type PlayerVisual = {
   lastDir: PacmanDir;
+  turn: DotManTurn;
   chompCarry: number;
   cycleIndex: number;
   lastX: number;
@@ -292,6 +295,44 @@ export function addGhostIcon(
   placeLineArtObject(icon, x, y, 1);
 }
 
+export function addDotManIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+  style: GhostStyle,
+): Phaser.GameObjects.Image {
+  if (!lineArtPlayer(style)) {
+    return scene.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
+  }
+  const px = renderScaleOf(scene);
+  const backdrop = storedWallStyle().background;
+  const look = playerLineArtLook(ghostLineArtLook(null, style));
+  const reach = look.glow?.distancePx ?? 0;
+  const box = size + 2 * reach;
+  const key = `dotman-icon-${style}-${size}-${px}-${backdrop}`;
+  if (!scene.textures.exists(key)) {
+    // Baked at canvas density so the icon can live in containers and tween like a sprite.
+    const texturePx = Math.ceil(box * px);
+    const texture = scene.textures.addDynamicTexture(key, texturePx, texturePx)!;
+    const obj = createLineArtObject(
+      scene,
+      DOTMAN_LINE_ART,
+      DOTMAN_LINE_ART_COLOR,
+      backdrop,
+      size * px,
+      look.glow === null ? look : { ...look, glow: { ...look.glow, distancePx: reach * px } },
+      true,
+      1,
+    );
+    placeLineArtObject(obj, texturePx / 2, texturePx / 2, 1);
+    texture.draw(obj.glow === null ? [obj.art] : [obj.glow, obj.art]);
+    texture.render();
+    destroyLineArtObject(obj);
+  }
+  return scene.add.image(x, y, key).setDisplaySize(box, box);
+}
+
 export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.on(Phaser.Loader.Events.FILE_COMPLETE, (key: string, type: string) => {
     if (type === "image") {
@@ -345,6 +386,7 @@ function ensurePlayerVisual(
   if (!visual) {
     visual = {
       lastDir: "right",
+      turn: restingTurn("right"),
       chompCarry: 0,
       cycleIndex: 0,
       lastX: x,
@@ -889,7 +931,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         destroyImage(primaryKey);
         const visual = ensurePlayerVisual(playerVisuals, eid, x, y);
         visual.lastDir = facingToDir(Facing.direction[eid] ?? DIRECTION.none) ?? visual.lastDir;
-        const art = DOTMAN_LINE_ART_BY_DIR[visual.lastDir];
+        visual.turn = turnToward(visual.turn, visual.lastDir, scene.time.now);
+        const art = dotManLineArt(turnAngle(visual.turn, scene.time.now));
         const color = tintedColor(DOTMAN_LINE_ART_COLOR, playerTintNow);
         const look = playerLineArtLook(ghostLook);
         const placeDotMan = (
