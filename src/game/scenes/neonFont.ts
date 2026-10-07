@@ -330,11 +330,9 @@ export class NeonText extends Phaser.GameObjects.Container {
   }
 
   override setInteractive(
-    hitArea?: Phaser.Types.Input.InputConfiguration | Phaser.Geom.Rectangle,
-    callback?: Phaser.Types.Input.HitAreaCallback,
-    dropZone?: boolean,
+    ...args: Parameters<Phaser.GameObjects.Container["setInteractive"]>
   ): this {
-    super.setInteractive(hitArea, callback, dropZone);
+    super.setInteractive(...args);
     this.syncHitArea();
     return this;
   }

@@ -24,8 +24,10 @@ describe("neon text layout", () => {
       const y = localY + height / 2;
       return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
     };
-    expect(hits(1, 1)).toBe(true);
-    expect(hits(width - 1, height - 1)).toBe(true);
+    expect(hits(0, 0)).toBe(true);
+    expect(hits(width, height)).toBe(true);
+    expect(hits(width + 1, height / 2)).toBe(false);
+    expect(hits(width / 2, height + 1)).toBe(false);
     expect(hits(-width / 4, height / 2)).toBe(false);
     expect(hits(width / 2, -height / 4)).toBe(false);
   });
