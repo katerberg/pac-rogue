@@ -91,7 +91,6 @@ describe("toHighScoreRows", () => {
   });
 });
 
-/** Proportional fake: narrow "1" / space, wider everything else (neon digits). */
 function proportionalMeasure(text: string): number {
   let total = 0;
   for (const ch of text) {
@@ -131,7 +130,6 @@ describe("layoutHighScoreColumns", () => {
     expect(highScoreCellX(layout, "date", "left", listLeftX)).toBe(listLeftX + layout.left.date);
     expect(highScoreCellX(layout, "time", "left", listLeftX)).toBe(listLeftX + layout.left.time);
 
-    // Space-padded single string would shift TIME's start by digit width (fails without columns).
     const paddedStarts = SAMPLE_ROWS.map((row) => {
       const pellets = String(row.collectedCount).padStart(7);
       const time = String(row.remainingTime).padStart(4);

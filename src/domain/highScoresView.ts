@@ -14,38 +14,31 @@ export type HighScoreColumnId = "pellets" | "time" | "date";
 export type HighScoreColumn = {
   id: HighScoreColumnId;
   header: string;
-  /** Headers stay left-aligned in the column box (old padEnd). */
-  headerAlign: HighScoreAlign;
-  /** Numeric cells right-align; dates left-align (old padStart / padEnd). */
-  cellAlign: HighScoreAlign;
+  align: HighScoreAlign;
   text: (row: HighScoreRow) => string;
 };
 
 const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}/;
 
-/** Gap string measured between columns (same visual rhythm as the old monospace pad). */
 export const HIGH_SCORE_COLUMN_GAP = "  ";
 
 export const HIGH_SCORE_COLUMNS: readonly HighScoreColumn[] = [
   {
     id: "pellets",
     header: "PELLETS",
-    headerAlign: "left",
-    cellAlign: "right",
+    align: "right",
     text: (row) => String(row.collectedCount),
   },
   {
     id: "time",
     header: "TIME",
-    headerAlign: "left",
-    cellAlign: "right",
+    align: "right",
     text: (row) => String(row.remainingTime),
   },
   {
     id: "date",
     header: "DATE",
-    headerAlign: "left",
-    cellAlign: "left",
+    align: "left",
     text: (row) => row.dateLabel,
   },
 ];
@@ -84,11 +77,6 @@ export function toHighScoreRows(history: RunHistory): HighScoreRow[] {
     });
 }
 
-/**
- * Column boxes from measured glyph widths. Works for proportional neon and
- * monospace pixel: each column is max(header, cells), then packed left→right
- * with {@link HIGH_SCORE_COLUMN_GAP}.
- */
 export function layoutHighScoreColumns(
   measure: (text: string) => number,
   rows: readonly HighScoreRow[],
@@ -114,7 +102,6 @@ export function layoutHighScoreColumns(
   };
 }
 
-/** Absolute X for {@link placeGameText}: right align uses the column's right edge. */
 export function highScoreCellX(
   layout: HighScoreColumnLayout,
   columnId: HighScoreColumnId,

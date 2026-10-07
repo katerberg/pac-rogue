@@ -4,8 +4,9 @@ import {
   highScoreCellX,
   layoutHighScoreColumns,
   toHighScoreRows,
+  type HighScoreAlign,
+  type HighScoreColumnId,
   type HighScoreColumnLayout,
-  type HighScoreRow,
 } from "../../domain/highScoresView";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -74,29 +75,42 @@ export class HighScoresScene extends Phaser.Scene {
       const probe = addGameText(this, 0, 0, "", SCORES_FONT_SIZE).setVisible(false);
       const measure = (text: string): number => {
         probe.setText(text);
-        // Round so right-aligned cells share an integer column edge after placeGameText.
         return Math.round(probe.getTextBounds(true).local.width);
       };
       const layout = layoutHighScoreColumns(measure, rows);
       probe.destroy();
 
       const listLeftX = Math.round(PLAYFIELD_WIDTH / 2 - layout.totalWidth / 2);
-      this.placeScoreRow("header", layout, listLeftX, HEADER_Y, 10);
+      this.placeScoreCells(
+        HIGH_SCORE_COLUMNS.map((column) => ({
+          id: column.id,
+          content: column.header,
+          align: "left" as const,
+        })),
+        layout,
+        listLeftX,
+        HEADER_Y,
+        10,
+      );
 
       this.add
         .rectangle(PLAYFIELD_WIDTH / 2, HEADER_LINE_Y, layout.totalWidth, 2, 0xffffff)
         .setDepth(10);
 
       for (const [index, row] of rows.entries()) {
-        const cells = this.placeScoreRow(
-          "cell",
-          layout,
-          listLeftX,
-          LIST_TOP + index * SCROLL.rowHeight,
-          1,
-          row,
+        this.rowTexts.push(
+          this.placeScoreCells(
+            HIGH_SCORE_COLUMNS.map((column) => ({
+              id: column.id,
+              content: column.text(row),
+              align: column.align,
+            })),
+            layout,
+            listLeftX,
+            LIST_TOP + index * SCROLL.rowHeight,
+            1,
+          ),
         );
-        this.rowTexts.push(cells);
       }
       this.applyScrollOffset();
     }
@@ -171,20 +185,22 @@ export class HighScoresScene extends Phaser.Scene {
     }
   }
 
-  private placeScoreRow(
-    role: "header" | "cell",
+  private placeScoreCells(
+    cells: readonly { id: HighScoreColumnId; content: string; align: HighScoreAlign }[],
     layout: HighScoreColumnLayout,
     listLeftX: number,
     y: number,
     depth: number,
-    row?: HighScoreRow,
   ): GameText[] {
-    return HIGH_SCORE_COLUMNS.map((column) => {
-      const content = role === "header" ? column.header : column.text(row!);
-      const align = role === "header" ? column.headerAlign : column.cellAlign;
-      const text = addGameText(this, 0, 0, content, SCORES_FONT_SIZE).setDepth(depth);
-      const originX = align === "right" ? 1 : 0;
-      placeGameText(text, highScoreCellX(layout, column.id, align, listLeftX), y, originX, 0);
+    return cells.map((cell) => {
+      const text = addGameText(this, 0, 0, cell.content, SCORES_FONT_SIZE).setDepth(depth);
+      placeGameText(
+        text,
+        highScoreCellX(layout, cell.id, cell.align, listLeftX),
+        y,
+        cell.align === "right" ? 1 : 0,
+        0,
+      );
       return text;
     });
   }
