@@ -174,6 +174,7 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
           continue;
         }
         const nested = el("details", { className: "knob-subgroup" });
+        nested.open = true;
         nested.dataset.subgroup = subgroup;
         nested.append(el("summary", { textContent: subgroup }));
         for (const knob of subKnobs) {
