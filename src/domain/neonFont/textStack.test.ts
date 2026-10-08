@@ -84,7 +84,7 @@ describe("text stack layout", () => {
 
 describe("store panel horizontal fit (neon)", () => {
   const PANEL_WIDTH = 168;
-  const PANEL_SIDE_PAD = 28;
+  const PANEL_SIDE_PAD = 34;
   const TITLE_SIZE = 16;
   const BODY_SIZE = 8;
   const thickness = DEFAULT_TUNING.fontThickness;

@@ -61,7 +61,7 @@ const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
 /** Inner pad so neon title/body keep clear air from the panel stroke + bloom. */
-const PANEL_SIDE_PAD = 28;
+const PANEL_SIDE_PAD = 34;
 const PANEL_TOP_PAD = 12;
 const PANEL_TITLE_MAX_CHARS = 10;
 const MODAL_TITLE_MARGIN = 40;
