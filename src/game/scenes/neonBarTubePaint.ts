@@ -54,7 +54,6 @@ export function paintNeonBarTube(
   }
 }
 
-/** Install or refresh a knockout Glow on a tube Graphics object. Returns the cache key used. */
 export function syncNeonBarTubeGlow(
   gfx: Phaser.GameObjects.Graphics,
   tube: NeonBarTube,
