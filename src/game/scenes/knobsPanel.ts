@@ -194,6 +194,9 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
     for (const group of groups) {
       const section = el("details", { className: "knob-group" });
       section.dataset.group = group;
+      if (group === "Visuals") {
+        section.open = true;
+      }
       section.append(el("summary", { textContent: group }));
       appendGroupKnobs(section, group);
       if (group === "Ghost speed") {

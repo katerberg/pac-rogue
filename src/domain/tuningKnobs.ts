@@ -49,14 +49,12 @@ export const LEFT_KNOB_GROUPS: readonly KnobGroup[] = [
   "Death",
   "Bonus",
   "Boss",
-];
-
-export const RIGHT_KNOB_GROUPS: readonly KnobGroup[] = [
   "Ghost AI",
   "Release",
   "Scatter",
-  "Visuals",
 ];
+
+export const RIGHT_KNOB_GROUPS: readonly KnobGroup[] = ["Visuals"];
 
 function range(
   key: TuningKey,

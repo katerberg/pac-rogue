@@ -155,7 +155,7 @@ src/
       upgradeChoiceModal.ts   # level-clear pick-one overlay (Phaser)
       turnSparks.ts           # Turn Tuning feedback: perfect burst + close sparks (Phaser)
       storeOverlay.ts         # store floor tiles, hover/prompt panel, purchase toast (Phaser)
-      knobsPanel.ts           # ?knobs=1 DOM panels (collapsible groups; Visuals subgroups) + RESTART / RESET OPTIONS
+      knobsPanel.ts           # ?knobs=1 DOM: left gameplay groups, right Visuals (open) + RESTART / RESET OPTIONS
       MenuScene.ts            # boot title + Start / Learn / High Scores / Settings (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       SettingsScene.ts        # music/SFX: LEARN-style checkboxes; neon tube volume (bonus bar look) under NEON/LINED, 0..10 notches under PIXEL (no ECS)

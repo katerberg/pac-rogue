@@ -51,7 +51,19 @@ describe("TUNING_KNOBS", () => {
 
   it("keeps Dots extreme maxes under the Visuals Dots subgroup", () => {
     expect(VISUALS_SUBGROUPS).toContain("Dots");
-    expect(RIGHT_KNOB_GROUPS).toEqual(["Ghost AI", "Release", "Scatter", "Visuals"]);
+    expect(RIGHT_KNOB_GROUPS).toEqual(["Visuals"]);
+    expect(LEFT_KNOB_GROUPS).toEqual([
+      "Movement",
+      "Ghost speed",
+      "Timer",
+      "Fruit",
+      "Death",
+      "Bonus",
+      "Boss",
+      "Ghost AI",
+      "Release",
+      "Scatter",
+    ]);
     const dotsMax: Partial<Record<TuningKey, number>> = {
       pelletRadius: 48,
       pelletStrokeWidth: 32,

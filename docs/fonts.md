@@ -46,7 +46,7 @@ Supported surfaces route through `stackTexts` / `layoutCardText` (choice modal, 
 
 ## Knobs (`?knobs=1`)
 
-Visuals → **Font** subgroup (`?knobs=1` groups start collapsed; Visuals subgroups start open) — wide extremes; neon defaults are a clear soft bloom (strength **2.4**, radius **12px**):
+Visuals → **Font** subgroup (right gutter; Visuals + subgroups start open) — wide extremes; neon defaults are a clear soft bloom (strength **2.4**, radius **12px**):
 
 | Knob                      | Role                                              |
 | ------------------------- | ------------------------------------------------- |
