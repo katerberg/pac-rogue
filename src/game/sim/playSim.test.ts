@@ -5,6 +5,7 @@ import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorne
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { CHAIN_PAIR } from "../../domain/bossRules";
 import {
+  BOSS_STAGE_BLACK_HOLD_MS,
   BOSS_STAGE_ENTITY_FADE_MS,
   BOSS_STAGE_FLICKER_MS,
   BOSS_STAGE_TOTAL_MS,
@@ -1700,6 +1701,18 @@ describe("PlaySim", () => {
       sim["jumpToLevelClear"]();
       expect(sim.snapshot().bossStageTransition).toBe(true);
       sim["tickBossStageTransitionFrame"](BOSS_STAGE_ENTITY_FADE_MS + BOSS_STAGE_FLICKER_MS);
+      expect(sim.snapshot().boss?.stage).toBe(2);
+      expect(sim.renderOptions().wallAlpha).toBe(0);
+      expect(sim.renderOptions().entityAlpha).toBe(0);
+    });
+
+    it("keeps draw alphas at 0 mid black-hold after rebuild", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", godMode: true });
+      sim["jumpToLevelClear"]();
+      sim["tickBossStageTransitionFrame"](BOSS_STAGE_ENTITY_FADE_MS + BOSS_STAGE_FLICKER_MS);
+      expect(sim.snapshot().boss?.stage).toBe(2);
+      sim["tickBossStageTransitionFrame"](BOSS_STAGE_BLACK_HOLD_MS / 2);
+      expect(sim.snapshot().bossStageTransition).toBe(true);
       expect(sim.snapshot().boss?.stage).toBe(2);
       expect(sim.renderOptions().wallAlpha).toBe(0);
       expect(sim.renderOptions().entityAlpha).toBe(0);
