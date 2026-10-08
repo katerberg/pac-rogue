@@ -3121,6 +3121,33 @@ describe("Shield Pellets", () => {
     expect(crack).toContainEqual({ type: "shieldCrack", index: 0, progress: 1 });
   });
 
+  it("breaks the pellet streak and keeps the charge", () => {
+    const sim = startSim(
+      {
+        level: 2,
+        maze: "maze1",
+        infiniteLives: true,
+        enableUpgrades: ["passiveShieldPellets"],
+        bonus: 40,
+      },
+      "shield-streak",
+    );
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    while (sim.snapshot().bonus.streak < 5) {
+      const eid = regularPelletEids(sim)[0]!;
+      teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+      runFrames(sim, 1);
+    }
+    const { charge, streak } = sim.snapshot().bonus;
+    expect(streak).toBeGreaterThanOrEqual(5);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
   it("grants 1s of immunity on its own, multiplied by Overcharge", () => {
     const sim = startShieldSim(["passiveShieldPellets"]);
     chompPowerPellet(sim);
