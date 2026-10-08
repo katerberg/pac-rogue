@@ -3709,15 +3709,21 @@ describe("ghost style (neon line art vs pixel)", () => {
   const sorted = (values: readonly string[] | readonly number[] | undefined) =>
     [...(values ?? [])].map(String).sort();
 
-  it("draws every present ghost as neon line art by default, on every level", () => {
-    expect(sorted(startSim({ level: 5 }, "lineart").snapshot().lineArtGhosts)).toEqual([
-      "blinky",
-      "clyde",
-      "inky",
-      "pinky",
-    ]);
+  it("draws no line art by default (pixel STYLE)", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    expect(sim.snapshot().lineArtPlayer).toBe(false);
+    expect(sim.snapshot().lineArtQuarter).toBe(false);
+  });
+
+  it("draws every present ghost as neon line art under neon STYLE, on every level", () => {
+    const neonSim = startSim({ level: 5 }, "lineart");
+    neonSim.setGhostStyle("neon");
+    expect(sorted(neonSim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
     for (const level of [1, 9]) {
-      const snap = startSim({ level }, "lineart").snapshot();
+      const sim = startSim({ level }, "lineart");
+      sim.setGhostStyle("neon");
+      const snap = sim.snapshot();
       expect(snap.lineArtGhosts.length).toBeGreaterThan(0);
       expect(sorted(snap.lineArtGhosts)).toEqual(
         sorted([...new Set(snap.ghosts.map((g) => g.kind))]),
@@ -3727,6 +3733,7 @@ describe("ghost style (neon line art vs pixel)", () => {
 
   it("tells the renderer which drawables are line art, Dot-Man included", () => {
     const sim = startSim({ level: 5 }, "lineart");
+    sim.setGhostStyle("neon");
     const events = runFrames(sim, 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
     expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
@@ -3803,6 +3810,7 @@ describe("ghost style (neon line art vs pixel)", () => {
 
   it("follows a ghosts override", () => {
     const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
+    sim.setGhostStyle("neon");
     expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "pinky"]);
   });
 });
