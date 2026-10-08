@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  activateAsciiLayout,
+  activateLayout,
   getActiveLayout,
   MAZE_COLS,
   horizontalTunnelRows,
@@ -56,6 +58,8 @@ import {
   worldToCol,
   worldToRow,
 } from "./maze";
+import { invertMazeAscii } from "./mazeGenerate";
+import { SMALL_MAZE_ASCII } from "./mazeLayouts";
 import { GHOST_PHASE } from "./ghostTarget";
 
 describe("maze", () => {
@@ -198,6 +202,72 @@ describe("maze", () => {
     expect(gates).toHaveLength(1);
     expect(gates[0]!.x1).toBe(cellOriginX(13));
     expect(gates[0]!.x2).toBe(cellOriginX(14) + TILE_SIZE);
+  });
+
+  it("keeps the ghost-house mouth as wide as the gate, with open pipe ends", () => {
+    const assertMouth = (mouthTowardHouseFloor: 1 | -1) => {
+      const gate = doorGateEdges()[0]!;
+      const inset = clampedWallInset();
+      const doorRow = worldToRow(gate.y1);
+      const commands = wallPathCommands();
+      // Corridor-facing stroke on the door row: top when the house is below, bottom when inverted.
+      const mouthY =
+        mouthTowardHouseFloor > 0
+          ? cellOriginY(doorRow) + inset
+          : cellOriginY(doorRow) + TILE_SIZE - inset;
+      const mouthSegs: { x1: number; x2: number }[] = [];
+      for (let index = 1; index < commands.length; index += 1) {
+        const prev = commands[index - 1];
+        const command = commands[index];
+        if (!prev || prev.type !== "move" || command.type !== "line") {
+          continue;
+        }
+        if (Math.abs(prev.y - mouthY) > 0.5 || Math.abs(command.y - mouthY) > 0.5) {
+          continue;
+        }
+        mouthSegs.push({ x1: Math.min(prev.x, command.x), x2: Math.max(prev.x, command.x) });
+      }
+      expect(mouthSegs.some((seg) => Math.abs(seg.x2 - gate.x1) < 0.01)).toBe(true);
+      expect(mouthSegs.some((seg) => Math.abs(seg.x1 - gate.x2) < 0.01)).toBe(true);
+      expect(gate.x2 - gate.x1).toBe(2 * TILE_SIZE);
+
+      const midY = cellOriginY(doorRow) + TILE_SIZE / 2;
+      const hasVerticalCapAt = (x: number) =>
+        commands.some((command, index) => {
+          if (command.type !== "line") {
+            return false;
+          }
+          const prev = commands[index - 1];
+          if (!prev) {
+            return false;
+          }
+          return (
+            Math.abs(prev.x - x) < 0.01 &&
+            Math.abs(command.x - x) < 0.01 &&
+            Math.min(prev.y, command.y) <= midY &&
+            Math.max(prev.y, command.y) >= midY
+          );
+        });
+      expect(hasVerticalCapAt(gate.x1)).toBe(false);
+      expect(hasVerticalCapAt(gate.x2)).toBe(false);
+
+      const hornPastMouth = commands.some((command) => {
+        const pastMouth =
+          mouthTowardHouseFloor > 0
+            ? command.y < mouthY - 0.5 && command.y >= cellOriginY(doorRow) - 0.5
+            : command.y > mouthY + 0.5 && command.y <= cellOriginY(doorRow) + TILE_SIZE + 0.5;
+        return pastMouth && command.x > gate.x1 - 1 && command.x < gate.x2 + 1;
+      });
+      expect(hornPastMouth).toBe(false);
+    };
+
+    for (const id of ["maze1", "mazeSmall"] as const) {
+      activateLayout(id);
+      assertMouth(1);
+    }
+    activateAsciiLayout(invertMazeAscii(SMALL_MAZE_ASCII));
+    assertMouth(-1);
+    activateLayout("maze1");
   });
 
   it("treats the exit corridor as outside the house", () => {
