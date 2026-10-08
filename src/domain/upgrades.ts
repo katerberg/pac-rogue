@@ -200,6 +200,8 @@ export const STORE_UPGRADE_PRICE = 3;
 export const STORE_RARE_UPGRADE_PRICE = 4;
 export const RARE_MIN_OWNED = 2;
 export const RARE_OFFER_WEIGHT = 0.5;
+export const SCHOOL_AFFINITY_COMMON_RATE = 0.1;
+export const SCHOOL_AFFINITY_RARE_RATE = 0.15;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
@@ -1066,8 +1068,28 @@ export function takeRandomFrom<T>(pool: T[], rng: () => number): T {
   return picked;
 }
 
-export function takeWeightedUpgrade(pool: BaseUpgradeId[], rng: () => number): BaseUpgradeId {
-  const weight = (id: BaseUpgradeId): number => (isRare(id) ? RARE_OFFER_WEIGHT : 1);
+export function schoolAffinityPoints(owned: readonly UpgradeId[], school: UpgradeSchool): number {
+  if (school === "neutral") {
+    return 0;
+  }
+  return owned.filter((id) => getUpgradeDef(id).school === school).length;
+}
+
+export function upgradeOfferWeight(id: BaseUpgradeId, owned: readonly UpgradeId[]): number {
+  const school = getUpgradeDef(id).school;
+  const points = schoolAffinityPoints(owned, school);
+  const schoolMult =
+    school === "neutral" || points === 0
+      ? 1
+      : 1 + (isRare(id) ? SCHOOL_AFFINITY_RARE_RATE : SCHOOL_AFFINITY_COMMON_RATE) * points;
+  return schoolMult * (isRare(id) ? RARE_OFFER_WEIGHT : 1);
+}
+
+export function takeWeightedUpgrade(
+  pool: BaseUpgradeId[],
+  rng: () => number,
+  weight: (id: BaseUpgradeId) => number = (id) => (isRare(id) ? RARE_OFFER_WEIGHT : 1),
+): BaseUpgradeId {
   let roll = rng() * pool.reduce((sum, id) => sum + weight(id), 0);
   const index = pool.findIndex((id) => (roll -= weight(id)) < 0);
   return pool.splice(index === -1 ? pool.length - 1 : index, 1)[0]!;
@@ -1104,8 +1126,9 @@ export function pickUpgradeChoiceOffer(
   const preferred = eligible.filter((id) => id !== lastDeclined);
   const picked: BaseUpgradeId[] = [];
   const drawPool = [...preferred];
+  const weight = (id: BaseUpgradeId) => upgradeOfferWeight(id, owned);
   while (picked.length < desiredCount && drawPool.length > 0) {
-    picked.push(takeWeightedUpgrade(drawPool, rng));
+    picked.push(takeWeightedUpgrade(drawPool, rng, weight));
   }
 
   if (
