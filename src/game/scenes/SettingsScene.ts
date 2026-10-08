@@ -17,11 +17,8 @@ import {
 } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { SETTINGS_FOCUS_COUNT, resolveSettingsFocusIndex } from "../../domain/settingsFocus";
-import {
-  settingsVolumeGlowFilter,
-  settingsVolumeTube,
-  settingsVolumeUsesNeonTube,
-} from "../../domain/settingsVolumeBar";
+import { bonusBarGlowFilter } from "../../domain/bonusBarFx";
+import { settingsVolumeTube, settingsVolumeUsesNeonTube } from "../../domain/settingsVolumeBar";
 import {
   musicIdForContext,
   playSfxPreview,
@@ -600,14 +597,6 @@ export class SettingsScene extends Phaser.Scene {
     this.refreshUi();
   }
 
-  private setCheckboxStroke(shape: CheckboxShape, width: number, color: number): void {
-    shape.setStrokeStyle(width, color);
-  }
-
-  private setCheckMarkFill(shape: CheckboxShape, color: number): void {
-    shape.setFillStyle(color);
-  }
-
   private refreshUi(): void {
     const look = learnCheckboxLook(this.ghostStyle);
     const px = renderScaleOf(this);
@@ -616,9 +605,9 @@ export class SettingsScene extends Phaser.Scene {
       const focused = this.focusIndex === row.focusIndex;
       const tint = focused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
       row.label.setTint(tint);
-      this.setCheckboxStroke(row.checkbox, look.strokeWidth, tint);
+      row.checkbox.setStrokeStyle(look.strokeWidth, tint);
       row.checkMark.setVisible(enabled);
-      this.setCheckMarkFill(row.checkMark, tint);
+      row.checkMark.setFillStyle(tint);
 
       const level = this.getLevel(row.category);
       if (row.tubeGfx !== null) {
@@ -632,8 +621,13 @@ export class SettingsScene extends Phaser.Scene {
         row.tubeGfx.clear();
         paintNeonBarTube(row.tubeGfx, tube);
         if (row.tubeGlowGfx !== null) {
-          const glow = settingsVolumeGlowFilter(this.ghostStyle);
-          row.tubeGlowKey = syncNeonBarTubeGlow(row.tubeGlowGfx, tube, glow, px, row.tubeGlowKey);
+          row.tubeGlowKey = syncNeonBarTubeGlow(
+            row.tubeGlowGfx,
+            tube,
+            bonusBarGlowFilter(this.ghostStyle),
+            px,
+            row.tubeGlowKey,
+          );
         }
       } else if (row.fill !== null && row.track !== null) {
         const width = Math.max(0, (level / AUDIO_LEVEL_MAX) * SLIDER_WIDTH);

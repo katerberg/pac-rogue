@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AUDIO_LEVEL_MAX } from "./audioSettings";
 import { BONUS_COLORS, BONUS_NEON_TRACK } from "./bonusBarFx";
-import {
-  settingsVolumeGlowFilter,
-  settingsVolumeTube,
-  settingsVolumeUsesNeonTube,
-} from "./settingsVolumeBar";
+import { settingsVolumeTube, settingsVolumeUsesNeonTube } from "./settingsVolumeBar";
 
 const LAYOUT = { x: 10, y: 20, w: 220, h: 16 };
 
@@ -36,13 +32,5 @@ describe("settingsVolumeTube", () => {
     expect(tube.fillFrac).toBeCloseTo(0.8, 5);
     expect(tube.fillColor).not.toBe(BONUS_COLORS.fill);
     expect(tube.frameColor).not.toBe(BONUS_COLORS.frame);
-  });
-});
-
-describe("settingsVolumeGlowFilter", () => {
-  it("matches the bonus bar glow gate", () => {
-    expect(settingsVolumeGlowFilter("neon")).toEqual({ outerStrength: 7, distance: 18 });
-    expect(settingsVolumeGlowFilter("lined")).toBeNull();
-    expect(settingsVolumeGlowFilter("pixel")).toBeNull();
   });
 });

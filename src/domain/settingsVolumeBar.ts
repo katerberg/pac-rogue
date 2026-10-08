@@ -1,5 +1,5 @@
 import { AUDIO_LEVEL_MAX } from "./audioSettings";
-import { BONUS_COLORS, BONUS_NEON_TRACK, bonusBarGlowFilter, type NeonBarTube } from "./bonusBarFx";
+import { BONUS_COLORS, BONUS_NEON_TRACK, type NeonBarTube } from "./bonusBarFx";
 import type { GhostStyle } from "./ghostArt";
 
 const DIM_COLORS = {
@@ -9,7 +9,6 @@ const DIM_COLORS = {
   track: 0x050520,
 } as const;
 
-/** NEON/LINED use the bonus-style capsule tube; PIXEL keeps the notched slider. */
 export function settingsVolumeUsesNeonTube(style: GhostStyle): boolean {
   return style !== "pixel";
 }
@@ -20,31 +19,25 @@ export function settingsVolumeTube(
   enabled: boolean,
 ): NeonBarTube {
   const fillFrac = Math.max(0, Math.min(1, level / AUDIO_LEVEL_MAX));
-  if (!enabled) {
-    return {
-      x: layout.x,
-      y: layout.y,
-      w: layout.w,
-      h: layout.h,
-      fillFrac,
-      fillColor: DIM_COLORS.fill,
-      coreColor: DIM_COLORS.highlight,
-      frameColor: DIM_COLORS.frame,
-      trackColor: DIM_COLORS.track,
-    };
-  }
+  const colors = enabled
+    ? {
+        fillColor: BONUS_COLORS.fill,
+        coreColor: BONUS_COLORS.highlight,
+        frameColor: BONUS_COLORS.frame,
+        trackColor: BONUS_NEON_TRACK,
+      }
+    : {
+        fillColor: DIM_COLORS.fill,
+        coreColor: DIM_COLORS.highlight,
+        frameColor: DIM_COLORS.frame,
+        trackColor: DIM_COLORS.track,
+      };
   return {
     x: layout.x,
     y: layout.y,
     w: layout.w,
     h: layout.h,
     fillFrac,
-    fillColor: BONUS_COLORS.fill,
-    coreColor: BONUS_COLORS.highlight,
-    frameColor: BONUS_COLORS.frame,
-    trackColor: BONUS_NEON_TRACK,
+    ...colors,
   };
 }
-
-/** Same knockout glow as the HUD bonus bar; NEON only. */
-export const settingsVolumeGlowFilter = bonusBarGlowFilter;

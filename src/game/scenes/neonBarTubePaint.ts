@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BONUS_COLORS, type NeonBarTube } from "../../domain/bonusBarFx";
+import { BONUS_COLORS, type BonusBarGlow, type NeonBarTube } from "../../domain/bonusBarFx";
 
 export const NEON_BAR_TUBE_INSET = 2;
 export const NEON_BAR_TUBE_STROKE = 2;
@@ -7,50 +7,36 @@ export const NEON_BAR_TRACK_ALPHA = 0.45;
 export const NEON_BAR_GLOW_QUALITY = 24;
 export const NEON_BAR_GLOW_PAD_WORLD = 12;
 
-export type PaintNeonBarTubeOpts = {
-  scale?: number;
-  forGlow?: boolean;
-  inset?: number;
-  stroke?: number;
-  trackAlpha?: number;
-  glowFill?: number;
-};
-
-/** Capsule neon tube shared by the HUD bonus bar and Settings volume rows. */
 export function paintNeonBarTube(
   gfx: Phaser.GameObjects.Graphics,
   tube: NeonBarTube,
-  opts: PaintNeonBarTubeOpts = {},
+  opts: { scale?: number; forGlow?: boolean } = {},
 ): void {
   const s = opts.scale ?? 1;
   const forGlow = opts.forGlow ?? false;
-  const inset = opts.inset ?? NEON_BAR_TUBE_INSET;
-  const stroke = opts.stroke ?? NEON_BAR_TUBE_STROKE;
-  const trackAlpha = opts.trackAlpha ?? NEON_BAR_TRACK_ALPHA;
-  const glowFill = opts.glowFill ?? BONUS_COLORS.fill;
   const x = tube.x * s;
   const y = tube.y * s;
   const w = tube.w * s;
   const h = tube.h * s;
   const radius = h / 2;
-  const innerX = x + inset;
-  const innerY = y + inset;
-  const innerH = h - inset * 2;
-  const innerW = w - inset * 2;
+  const innerX = x + NEON_BAR_TUBE_INSET;
+  const innerY = y + NEON_BAR_TUBE_INSET;
+  const innerH = h - NEON_BAR_TUBE_INSET * 2;
+  const innerW = w - NEON_BAR_TUBE_INSET * 2;
   const innerR = innerH / 2;
   if (forGlow) {
-    gfx.lineStyle(stroke + 1, glowFill, 1);
+    gfx.lineStyle(NEON_BAR_TUBE_STROKE + 1, BONUS_COLORS.fill, 1);
     gfx.strokeRoundedRect(x, y, w, h, radius);
     if (tube.fillFrac > 0) {
       const fillW = Math.min(innerW, Math.max(innerH, tube.fillFrac * innerW));
-      gfx.fillStyle(glowFill, 1);
+      gfx.fillStyle(BONUS_COLORS.fill, 1);
       gfx.fillRoundedRect(innerX, innerY, fillW, innerH, innerR);
     }
     return;
   }
-  gfx.fillStyle(tube.trackColor, trackAlpha);
+  gfx.fillStyle(tube.trackColor, NEON_BAR_TRACK_ALPHA);
   gfx.fillRoundedRect(x, y, w, h, radius);
-  gfx.lineStyle(stroke, tube.frameColor, 1);
+  gfx.lineStyle(NEON_BAR_TUBE_STROKE, tube.frameColor, 1);
   gfx.strokeRoundedRect(x, y, w, h, radius);
   if (tube.fillFrac <= 0) {
     return;
@@ -68,13 +54,11 @@ export function paintNeonBarTube(
   }
 }
 
-export type NeonBarGlowFilter = { outerStrength: number; distance: number };
-
 /** Install or refresh a knockout Glow on a tube Graphics object. Returns the cache key used. */
 export function syncNeonBarTubeGlow(
   gfx: Phaser.GameObjects.Graphics,
   tube: NeonBarTube,
-  glow: NeonBarGlowFilter | null,
+  glow: BonusBarGlow | null,
   px: number,
   prevKey: string,
 ): string {
