@@ -11,8 +11,9 @@ Every boss fight has **two stages**. Clearing the board in stage 1 runs a mid-fi
 - `?level=9` (with or without `?play=1`) jumps straight into the boss fight (random boss).
 - `?boss=blinkySwarm` / `?boss=chainedGhosts` forces that boss. Without `?level=` it also starts
   the run in the boss fight. Disables high-score saving.
-- `?bossStageAdvance=1` (with `?boss=`) starts the stage-1→2 transition choreography as soon as
-  the boss board is ready (live-check / probe helper). Disables high-score saving.
+- `?bossStageAdvance=1` starts the stage-1→2 transition choreography as soon as the boss board is
+  ready (works with `?boss=` or `?level=9` alone). If also combined with `?store=1`, stage advance
+  wins and the store is skipped. Disables high-score saving.
 
 ## Entrance
 
@@ -29,7 +30,8 @@ When stage 1 is cleared (every required pellet gone):
 3. Maze walls flicker out (5×100ms on/off pulses).
 4. `levelComplete` is cut mid-play; the same maze is refilled (pellets, power pellets, fruit
    presence reset). Ghosts despawn and respawn for stage 2. Dot-Man stays where he is.
-5. Hold black (~800ms) with walls and entities fully off — the impact beat between stages.
+5. Empty-board hold (~800ms) with walls and entities fully off — the maze backdrop stays; this is
+   not forced to pure black. Impact beat between stages.
 6. Maze walls flicker back in with an **inverted wall color** (`invertRgb24`); that invert
    stays for the rest of stage 2.
 7. Entities fade in (1200ms); gameplay music loops again.
