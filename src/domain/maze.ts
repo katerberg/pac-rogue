@@ -1,6 +1,11 @@
 import { GHOST_PHASE } from "./ghostPhase";
 import { MAZE_ASCII_BY_ID, type MazeLayoutId } from "./mazeLayouts";
-import { HUD_BOTTOM_MARGIN_PX, PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
+import {
+  HUD_BOTTOM_MARGIN_PX,
+  HUD_TOP_MARGIN_PX,
+  PLAYFIELD_HEIGHT,
+  PLAYFIELD_WIDTH,
+} from "./playfieldBounds";
 
 export type { MazeLayoutId } from "./mazeLayouts";
 export { pickLayoutId, parseMazeParam, MAZE_LAYOUT_IDS } from "./mazeLayouts";
@@ -18,7 +23,7 @@ export const HOUSE_FLOOR_MIN_COLS = 6;
 export const HOUSE_FLOOR_MIN_ROWS = 3;
 export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 
-export const MAZE_TOP_MARGIN_PX = 8;
+export const MAZE_TOP_MARGIN_PX = HUD_TOP_MARGIN_PX;
 export const MAZE_BOTTOM_MARGIN_PX = HUD_BOTTOM_MARGIN_PX;
 
 // Fixed tile size for every layout — Pac-Man/ghosts stay one pixel size across
@@ -58,13 +63,14 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
   }
   const pixelHeight = rows * tileSize;
-  // Short boards: center in the HUD margin band (8px like the lives inset).
-  // Tall boards (generated 28×34): center on the playfield so the empty outer
-  // wall ring crops off-screen and the playable maze fills the view.
+  // Short boards: center in the HUD margin band (below BONUS, above lives).
+  // Tall boards: playfield-centered crop (fills after the undrawn outer wall
+  // ring), then shift down by the top HUD clearance so the gaps below BONUS
+  // and above the bottom edge match.
   const offsetY =
     pixelHeight <= usableHeight
       ? MAZE_TOP_MARGIN_PX + Math.floor((usableHeight - pixelHeight) / 2)
-      : Math.floor((PLAYFIELD_HEIGHT - pixelHeight) / 2);
+      : Math.floor((PLAYFIELD_HEIGHT - pixelHeight) / 2) + MAZE_TOP_MARGIN_PX;
   return { cols, rows, tileSize, pixelWidth, pixelHeight, offsetX, offsetY };
 }
 

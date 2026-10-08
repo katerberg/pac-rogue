@@ -12,8 +12,10 @@ Playfield stays **800×600** (`PLAYFIELD_*`). Every layout uses the same fixed t
 pixelWidth = cols * TILE_SIZE_PX
 pixelHeight = rows * TILE_SIZE_PX
 offsetX = (800 - pixelWidth) / 2
-# short boards: center in the 8px HUD margin band (same inset as lives)
-# tall boards: center on the playfield (offsetY may be negative — border crops)
+# short boards: center between HUD_TOP_MARGIN_PX (32 — clears BONUS) and
+#   HUD_BOTTOM_MARGIN_PX (8 — lives inset)
+# tall boards: playfield-centered crop, then shift down by HUD_TOP_MARGIN_PX so
+#   the gaps below BONUS and at the bottom edge match
 ```
 
 Hard rejects:
@@ -21,7 +23,7 @@ Hard rejects:
 - `pixelWidth > 800`
 - `offsetX < 80` (left HUD gutter — upgrades/lives stay at playfield `x ≈ 12`)
 
-Generated **28×34** → tile **20** (560×680, side gutter 120; ~40px cropped top/bottom so the playable maze fills the playfield with ~8px HUD clearance). Classic **28×31** is the same tile. Level-1 **22×21** `mazeSmall` uses the **same** 20px tile — smaller centered footprint. Life / shield HUD icons that would extend past `offsetX` are omitted.
+Generated **28×34** → tile **20** (560×680, side gutter 120; outer wall ring cropped, then shifted so the gaps below BONUS and under the maze match). Classic **28×31** is the same tile. Level-1 **22×21** `mazeSmall` uses the **same** 20px tile — smaller centered footprint. Life / shield HUD icons that would extend past `offsetX` are omitted.
 
 ## ASCII legend
 
