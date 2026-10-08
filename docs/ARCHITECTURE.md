@@ -59,7 +59,7 @@ src/
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostKind.ts              # blinky / pinky / inky / clyde kind ids
-    ghostArt.ts               # GhostStyle (Settings → STYLE: neon / lined / pixel; glow only on neon), textStyleFor (UI font), learnCheckboxLook (LEARN + Settings enable checkboxes), lineArtGhostKinds / lineArtDrawableIds (ghosts + Dot-Man), line-art looks from tuning+STYLE
+    ghostArt.ts               # GhostStyle (Settings → STYLE: neon / lined / pixel; glow only on neon), textStyleFor (UI font), learnCheckboxLook (LEARN + Settings enable checkboxes), lineArtGhostKinds / lineArtDrawableIds (ghosts + Dot-Man), lineArtQuarter + quarterLineArtLook, line-art looks from tuning+STYLE
     settingsVolumeBar.ts      # Settings volume neon-tube layout (bonus palette) + STYLE gate vs notched slider
     neonFont/                 # Bar-curve neon glyph catalog + fontLineArtLook (see docs/fonts.md)
     lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points; rotateLineArt (see docs/line-art.md)
@@ -88,7 +88,7 @@ src/
   game/
     config.ts                 # Phaser GameConfig (FIT scale, canvas sized to device pixels, smoothPixelArt + multisampled Graphics)
     renderScale.ts            # canvas size from window × devicePixelRatio, applyRenderScale(scene) (zoom, called first in every create()), resize follow
-    art/                      # line-art SVGs + their parsed LineArt (ghost.svg → ghostLineArt.ts, shared by all four ghosts; dotman.svg → dotmanLineArt.ts, one art per facing)
+    art/                      # line-art SVGs + their parsed LineArt (ghost.svg → ghostLineArt.ts, shared by all four ghosts; dotman.svg → dotmanLineArt.ts, one art per facing; quarter.svg → quarterLineArt.ts for HUD/store/Money Talks icons)
     audio/sfx.ts              # SFX manifest (incl. menuMusic / gameplayMusic loops); volumes scaled by audioSettings
     components/               # data only — no Phaser
       Position.ts
@@ -209,7 +209,7 @@ PlayScene --caught (last life)--> death hold → fade → GAME OVER → MenuScen
 
 Pausing (Escape) is available at any point during `PlayScene`, including mid-death-sequence, mid-level-transition, and while the level-clear upgrade-choice modal is open — `scene.pause()` halts `PlayScene.update()` entirely, so whichever of those states was active simply freezes and resumes exactly where it left off; `scene.pause()` never touches the Sound Manager, so the game-play music loop keeps playing unattended through the pause menu. `SettingsScene` accepts an optional `returnScene` value (Phaser scene init data) so it can return to either `MenuScene` (default) or `PauseScene` depending on how it was opened; `PlayScene` itself is never restarted by this round trip. `PauseScene`'s Quit option turns into an inline `SURE?  YES  NO` on the same row (default focus: NO); Up cancels the confirm and moves focus to Settings, same as a normal Up from the Quit row. Confirming Yes stops `PlayScene` (its existing `SHUTDOWN` handler covers game-play music/modal/banner cleanup) without ever calling `saveRun`.
 
-**Debug tuning (`?knobs=1`):** `PlaySim` takes a per-run `Tuning` (constructor arg, `setTuning`) and passes it to every helper and system it tunes; helpers default the param to `DEFAULT_TUNING`, which equals the old constants, so runs without the flag and `LearnSim` are unchanged. Only with `?knobs=1` does `PlayScene` load stored overrides (`debugTuningStorage`), hide the side HUD, and mount `knobsPanel` (plain DOM, positioned from the canvas rect and maze offsets); panel edits call `sim.setTuning` + save, and wall knobs reach `render.ts` through `setWallStyle`. Per-board values (timer max, release dots, fruit thresholds) take effect on the next board. RESTART calls `scene.restart({ restartLevel, seed })`, which `PlayScene.create` reads to start a fresh run at that level with the same seed.
+**Debug tuning (`?knobs=1`):** `PlaySim` takes a per-run `Tuning` (constructor arg, `setTuning`) and passes it to every helper and system it tunes; helpers default the param to `DEFAULT_TUNING`, which equals the old constants, so runs without the flag and `LearnSim` are unchanged. Only with `?knobs=1` does `PlayScene` load stored overrides (`debugTuningStorage`), hide the side HUD (Quarters stay on chrome and shift to the maze column so their knobs can be dialed live over the gutter panels), and mount `knobsPanel` (plain DOM, positioned from the canvas rect and maze offsets); panel edits call `sim.setTuning` + save, and wall knobs reach `render.ts` through `setWallStyle` (Quarter knobs rebuild HUD icons and an open store overlay). Per-board values (timer max, release dots, fruit thresholds) take effect on the next board. RESTART calls `scene.restart({ restartLevel, seed })`, which `PlayScene.create` reads to start a fresh run at that level with the same seed.
 
 High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (collected pellets desc, then remaining time desc). Rows are three measured columns (pellets / time / date) so proportional neon text lines up the same way as monospace pixel. Storage remains chronological append order.
 

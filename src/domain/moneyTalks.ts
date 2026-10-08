@@ -6,7 +6,7 @@ export const MONEY_TALKS_COIN_FLY_MS = 1000;
 export const MONEY_TALKS_END_SIZE_FRAC = 1.5;
 export const MONEY_TALKS_FADE_START = 0.6;
 
-const QUARTER_HUD_LEFT = 12;
+export const QUARTER_HUD_LEFT = 12;
 const QUARTER_HUD_TOP = 8;
 const QUARTER_HUD_GAP = 4;
 
@@ -21,9 +21,14 @@ export function lastLifeSaveCost(
   return cost !== null && lives <= 1 && quarters >= cost ? cost : null;
 }
 
-export function quarterHudIconPosition(index: number, size: number): Point {
+/** `left` is the row's left edge (default gutter); knobs mode shifts into the maze column. */
+export function quarterHudIconPosition(
+  index: number,
+  size: number,
+  left: number = QUARTER_HUD_LEFT,
+): Point {
   return {
-    x: QUARTER_HUD_LEFT + size / 2 + index * (size + QUARTER_HUD_GAP),
+    x: left + size / 2 + index * (size + QUARTER_HUD_GAP),
     y: QUARTER_HUD_TOP + size / 2,
   };
 }

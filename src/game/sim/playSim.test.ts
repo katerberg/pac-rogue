@@ -3665,6 +3665,7 @@ describe("ghost style (neon line art vs pixel)", () => {
       ]),
     );
     expect(sim.snapshot().lineArtPlayer).toBe(true);
+    expect(sim.snapshot().lineArtQuarter).toBe(true);
   });
 
   it("draws no line art with the pixel style, and switches back mid-run", () => {
@@ -3675,9 +3676,11 @@ describe("ghost style (neon line art vs pixel)", () => {
     expect(draws.at(-1)?.lineArtDrawableIds).toEqual([]);
     expect(sim.snapshot().lineArtGhosts).toEqual([]);
     expect(sim.snapshot().lineArtPlayer).toBe(false);
+    expect(sim.snapshot().lineArtQuarter).toBe(false);
     sim.setGhostStyle("neon");
     expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
     expect(sim.snapshot().lineArtPlayer).toBe(true);
+    expect(sim.snapshot().lineArtQuarter).toBe(true);
   });
 
   it("keeps line-art ghosts and Dot-Man under lined style", () => {
@@ -3685,6 +3688,7 @@ describe("ghost style (neon line art vs pixel)", () => {
     sim.setGhostStyle("lined");
     expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
     expect(sim.snapshot().lineArtPlayer).toBe(true);
+    expect(sim.snapshot().lineArtQuarter).toBe(true);
   });
 
   it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {

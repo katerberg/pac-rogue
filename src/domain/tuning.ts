@@ -58,6 +58,9 @@ export type Tuning = {
   readonly ghostLineWidth: number;
   readonly ghostWidth: number;
   readonly ghostHeight: number;
+  readonly quarterGlow: number;
+  readonly quarterGlowRadius: number;
+  readonly quarterLineWidth: number;
   readonly dotManChompSpeed: number;
   readonly dotManMouthOpenDeg: number;
   readonly dotManMouthClosedDeg: number;
@@ -157,6 +160,9 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   ghostLineWidth: 6.5,
   ghostWidth: 1.16,
   ghostHeight: 1.14,
+  quarterGlow: 0.6,
+  quarterGlowRadius: 5,
+  quarterLineWidth: 6,
   dotManChompSpeed: DOTMAN_CHOMP_SPEED_DEFAULT,
   dotManMouthOpenDeg: DOTMAN_MOUTH_OPEN_HALF_DEG,
   dotManMouthClosedDeg: DOTMAN_MOUTH_CLOSED_HALF_DEG,

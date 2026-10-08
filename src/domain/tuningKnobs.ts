@@ -108,6 +108,9 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("ghostLineWidth", "Visuals", "Ghost line thickness", 1, 45, 0.5, "%"),
   range("ghostWidth", "Visuals", "Line ghost width", 0.6, 4.5, 0.01, "×"),
   range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×"),
+  range("quarterGlow", "Visuals", "Quarter glow", 0, 12, 0.1),
+  range("quarterGlowRadius", "Visuals", "Quarter glow radius", 0, 36, 1, "px"),
+  range("quarterLineWidth", "Visuals", "Quarter line thickness", 1, 45, 0.5, "%"),
   range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×"),
   range("dotManMouthOpenDeg", "Visuals", "Mouth open", 20, 75, 1, "°"),
   range("dotManMouthClosedDeg", "Visuals", "Mouth closed", 4, 40, 1, "°"),
@@ -264,6 +267,12 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Horizontal stretch of line-art ghosts. About 1.2 makes the body as wide as the pixel ghosts. Visual only; collision is unchanged.",
   ghostHeight:
     "Vertical stretch of line-art ghosts. 1 = the SVG's own proportions. Visual only; collision is unchanged.",
+  quarterGlow:
+    "Phaser outerStrength of the neon glow around line-art Quarter icons (HUD, store, Money Talks). 0 = no glow.",
+  quarterGlowRadius:
+    "How far the line-art Quarter glow spreads beyond the outline, in pixels. 0 = no glow.",
+  quarterLineWidth:
+    "Outline thickness of line-art Quarter icons, as a percent of the icon size. Visual only.",
   dotManChompSpeed:
     "How fast Dot-Man's mouth cycles while moving (pixel frames and neon spiral). 1× = one beat every 12 px of travel; default 1.25×. Visual only.",
   dotManMouthOpenDeg:

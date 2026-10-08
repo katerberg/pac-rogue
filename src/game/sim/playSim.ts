@@ -70,6 +70,7 @@ import {
   lineArtDrawableIds,
   lineArtGhostKinds,
   lineArtPlayer,
+  lineArtQuarter,
   type GhostStyle,
 } from "../../domain/ghostArt";
 import {
@@ -762,6 +763,7 @@ export class PlaySim {
         nameOf(GHOST_KIND, kind),
       ),
       lineArtPlayer: lineArtPlayer(this.ghostStyle),
+      lineArtQuarter: lineArtQuarter(this.ghostStyle),
       runLog: {
         id: this.recorder.record.id,
         outcome: this.recorder.outcome,
