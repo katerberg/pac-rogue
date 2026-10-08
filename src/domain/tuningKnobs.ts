@@ -14,7 +14,6 @@ export type KnobGroup =
   | "Visuals"
   | "Dots";
 
-/** Sub-headings inside the Visuals group (order = panel order). */
 export type VisualsSubgroup = "Walls" | "Ghosts" | "Dot-Man" | "Background" | "Font";
 
 export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
@@ -29,7 +28,6 @@ type KnobBase = {
   key: TuningKey;
   group: KnobGroup;
   label: string;
-  /** Only set for Visuals knobs; omitted elsewhere. */
   subgroup?: VisualsSubgroup;
 };
 
