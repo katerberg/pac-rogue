@@ -36,11 +36,14 @@ import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
+  FREEZE_MS,
   HAUNTING_MS,
   frozenGhostEid,
   grantUpgrade,
+  INVULN_ENHANCED_MS,
   INVULN_MS,
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
@@ -49,6 +52,7 @@ import {
   STARTING_UPGRADE_POOL,
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
+  WALL_PASS_MS,
   isRare,
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
@@ -2432,9 +2436,19 @@ describe("PlaySim enhanced upgrades", () => {
   }
 
   it.each([
-    ["powerPelletInvuln", "invulnMs", 3000, 5000],
+    [
+      "powerPelletInvuln",
+      "invulnMs",
+      levelScaledDurationMs(INVULN_MS, 2),
+      levelScaledDurationMs(INVULN_ENHANCED_MS, 2),
+    ],
     ["powerPelletGhostHarvester", "ghostHarvestMs", 5000, 8000],
-    ["powerPelletWallPass", "wallPassMs", 6000, 6000],
+    [
+      "powerPelletWallPass",
+      "wallPassMs",
+      levelScaledDurationMs(WALL_PASS_MS, 2),
+      levelScaledDurationMs(WALL_PASS_MS, 2),
+    ],
     ["passiveDefyDeath", "defyDeathMs", 5000, 8000],
   ] as const)("%s: power-pellet timer %s is %i ms, Plus %i ms", (id, key, base, plus) => {
     for (const [owned, expected] of [
@@ -2450,14 +2464,16 @@ describe("PlaySim enhanced upgrades", () => {
   });
 
   it("Overcharge triples enhanced timers (and only doubles with the base)", () => {
+    const doubled = levelScaledDurationMs(INVULN_MS, 2) * 2;
+    const tripled = levelScaledDurationMs(INVULN_ENHANCED_MS, 2) * 3;
     const base = startSim({
       level: 2,
       maze: "maze1",
       enableUpgrades: ["powerPelletInvuln", "passiveOvercharge"],
     });
     chomp(base);
-    expect(base.snapshot().timers.invulnMs).toBeGreaterThan(5800);
-    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(6000);
+    expect(base.snapshot().timers.invulnMs).toBeGreaterThan(doubled - 200);
+    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(doubled);
 
     const plus = startSim({
       level: 2,
@@ -2465,8 +2481,8 @@ describe("PlaySim enhanced upgrades", () => {
       enableUpgrades: ["powerPelletInvulnPlus", "passiveOverchargePlus"],
     });
     chomp(plus);
-    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(14800);
-    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(15000);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(tripled - 200);
+    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(tripled);
   });
 
   it("Overcharge extends the Defy Death window", () => {
@@ -3096,6 +3112,8 @@ describe("debug tuning", () => {
 });
 
 describe("Shield Pellets", () => {
+  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
+
   function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
     return startSim({ level: 2, maze: "maze1", enableUpgrades });
   }
@@ -3143,7 +3161,7 @@ describe("Shield Pellets", () => {
       deathsThisBoard: 0,
       shieldCrackProgress: 0,
     });
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: LEVEL2_INVULN_MS });
     expect(events).toContainEqual({ type: "shieldCrack", index: 0, progress: 0 });
     expect(events).not.toContainEqual({ type: "sfx", id: "death" });
     const crack = runUntil(sim, () => sim.snapshot().shieldCrackProgress === null, 120);
@@ -3237,7 +3255,7 @@ describe("Shield Pellets", () => {
   it("does nothing without the upgrade", () => {
     const sim = startShieldSim(["powerPelletInvuln"]);
     chompPowerPellet(sim);
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: LEVEL2_INVULN_MS });
   });
 });
 
@@ -4035,6 +4053,7 @@ describe("Streak Engine", () => {
 
 describe("Echo", () => {
   const AFTER_ECHO_MS = ECHO_DELAY_MS + 500;
+  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
 
   function startEcho(enableUpgrades: UpgradeId[], godMode = true): PlaySim {
     return startSim({ level: 2, maze: "maze1", godMode, enableUpgrades }, "echo1");
@@ -4055,7 +4074,7 @@ describe("Echo", () => {
     chompPowerPellet(sim);
     expect(sim.snapshot().timers.echoesMs).toEqual([ECHO_DELAY_MS]);
     runMs(sim, AFTER_ECHO_MS);
-    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(INVULN_MS - 600);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(LEVEL2_INVULN_MS - 600);
     expect(sim.snapshot().timers.echoesMs).toEqual([]);
   });
 
@@ -4092,8 +4111,8 @@ describe("Echo", () => {
   it("doubles the echoed duration with Overcharge", () => {
     const sim = startEcho(["passiveEcho", "powerPelletInvuln", "passiveOvercharge"]);
     chompPowerPellet(sim);
-    runMs(sim, 2 * INVULN_MS - 100);
-    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(INVULN_MS);
+    runMs(sim, 2 * LEVEL2_INVULN_MS - 100);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(LEVEL2_INVULN_MS);
   });
 
   it("does not echo a shield banked by Shield Pellets", () => {
@@ -4110,6 +4129,31 @@ describe("Echo", () => {
     expect(sim.snapshot().dying).toBe(true);
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().timers.echoesMs).toEqual([]);
+  });
+});
+
+describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
+  function chompPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  it.each([
+    ["powerPelletFreeze", "freezeMs", levelScaledDurationMs(FREEZE_MS, 5)],
+    ["powerPelletInvuln", "invulnMs", levelScaledDurationMs(INVULN_MS, 5)],
+    ["powerPelletWallPass", "wallPassMs", levelScaledDurationMs(WALL_PASS_MS, 5)],
+  ] as const)("%s shortens to %i ms by level 5", (id, key, expected) => {
+    const sim = startSim({ level: 5, maze: "maze1", enableUpgrades: [id] }, "level-scale");
+    if (id === "powerPelletFreeze") {
+      for (const eid of query(sim.world, [Ghost, Position])) {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+      }
+    }
+    chompPowerPellet(sim);
+    const ms = sim.snapshot().timers[key];
+    expect(ms).toBeLessThanOrEqual(expected);
+    expect(ms).toBeGreaterThan(expected - 200);
   });
 });
 
