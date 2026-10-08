@@ -99,6 +99,19 @@ describe("movement stopOnRelease", () => {
     expect(Position.y[eid]).toBe(y);
   });
 
+  it("stops a centered diagonal facing on release without NaN", () => {
+    const { world, eid } = spawnAt(1, 1);
+    Facing.direction[eid] = DIRECTION.downRight;
+    Input.direction[eid] = DIRECTION.none;
+    movement(world, 16, undefined, true);
+    expect(Position.x[eid]).toBe(cellCenterX(1));
+    expect(Position.y[eid]).toBe(cellCenterY(1));
+    expect(Facing.direction[eid]).toBe(DIRECTION.none);
+    expect(Velocity.x[eid]).toBe(0);
+    expect(Velocity.y[eid]).toBe(0);
+    expect(Number.isNaN(Position.x[eid]!)).toBe(false);
+  });
+
   it("keeps a diagonal move going on release without the flag", () => {
     const { eid, x } = releasedDiagonal(false);
     expect(Position.x[eid]).toBeGreaterThan(x);

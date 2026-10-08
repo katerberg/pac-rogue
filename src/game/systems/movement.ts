@@ -168,12 +168,20 @@ export function movement(
         const dx = center.x - x;
         const dy = center.y - y;
         const dist = Math.hypot(dx, dy);
-        const settled = dist <= frameTravel;
-        Position.x[eid] = settled ? center.x : x + (dx / dist) * frameTravel;
-        Position.y[eid] = settled ? center.y : y + (dy / dist) * frameTravel;
-        Velocity.x[eid] = settled ? 0 : (dx / dist) * speed;
-        Velocity.y[eid] = settled ? 0 : (dy / dist) * speed;
-        Facing.direction[eid] = settled ? DIRECTION.none : facing;
+        if (dist === 0 || dist <= frameTravel) {
+          Position.x[eid] = center.x;
+          Position.y[eid] = center.y;
+          Velocity.x[eid] = 0;
+          Velocity.y[eid] = 0;
+          Facing.direction[eid] = DIRECTION.none;
+          continue;
+        }
+        const inv = 1 / dist;
+        Position.x[eid] = x + dx * inv * frameTravel;
+        Position.y[eid] = y + dy * inv * frameTravel;
+        Velocity.x[eid] = dx * inv * speed;
+        Velocity.y[eid] = dy * inv * speed;
+        Facing.direction[eid] = facing;
         continue;
       }
       const desired = nextIntent !== DIRECTION.none ? nextIntent : facing;
