@@ -28,6 +28,10 @@ describe("quarterHudIconPosition", () => {
     expect(quarterHudIconPosition(0, 10)).toEqual({ x: 17, y: 13 });
     expect(quarterHudIconPosition(2, 10)).toEqual({ x: 45, y: 13 });
   });
+
+  it("accepts a custom left edge for knobs mode", () => {
+    expect(quarterHudIconPosition(0, 10, 84)).toEqual({ x: 89, y: 13 });
+  });
 });
 
 describe("moneyTalksLaunchedCount", () => {

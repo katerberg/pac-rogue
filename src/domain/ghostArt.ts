@@ -44,6 +44,12 @@ export function lineArtPlayer(style: GhostStyle): boolean {
   return style !== "pixel";
 }
 
+export function lineArtQuarter(style: GhostStyle): boolean {
+  return lineArtPlayer(style);
+}
+
+export const QUARTER_LINE_ART_COLOR = 0xc8d0e0;
+
 export function lineArtDrawableIds(
   style: GhostStyle,
   presentKinds: Iterable<GhostKindId>,
@@ -90,6 +96,27 @@ export const PLAYER_LINE_WIDTH = 0.065;
 
 export function playerLineArtLook(ghostLook: GhostLineArtLook): GhostLineArtLook {
   return { ...ghostLook, lineWidth: PLAYER_LINE_WIDTH, widthScale: 1, heightScale: 1 };
+}
+
+/**
+ * Quarter-icon look from knobs (`tuning !== null`, STYLE glow ignored) or from STYLE
+ * when knobs are off: neon keeps default glow, lined/pixel force none. No stretch.
+ */
+export function quarterLineArtLook(
+  tuning: Tuning | null,
+  style: GhostStyle = DEFAULT_GHOST_STYLE,
+): GhostLineArtLook {
+  const t = tuning ?? DEFAULT_TUNING;
+  const allowGlow = tuning !== null || styleUsesGlow(style);
+  return {
+    glow:
+      !allowGlow || t.quarterGlow <= 0 || t.quarterGlowRadius <= 0
+        ? null
+        : { outerStrength: t.quarterGlow, distancePx: t.quarterGlowRadius },
+    lineWidth: t.quarterLineWidth / 100,
+    widthScale: 1,
+    heightScale: 1,
+  };
 }
 
 export function sameGhostLineArtLook(a: GhostLineArtLook, b: GhostLineArtLook): boolean {

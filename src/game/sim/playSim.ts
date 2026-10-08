@@ -70,6 +70,7 @@ import {
   lineArtDrawableIds,
   lineArtGhostKinds,
   lineArtPlayer,
+  lineArtQuarter,
   type GhostStyle,
 } from "../../domain/ghostArt";
 import {
@@ -280,6 +281,8 @@ import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/
 import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
+import { pelletAbsorbActive, pelletAbsorbSpawnFor } from "../../domain/pelletAbsorb";
+import type { RemovedPelletSnap } from "../systems/collectPellets";
 import { tickEchoes } from "../../domain/echo";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
@@ -760,6 +763,7 @@ export class PlaySim {
         nameOf(GHOST_KIND, kind),
       ),
       lineArtPlayer: lineArtPlayer(this.ghostStyle),
+      lineArtQuarter: lineArtQuarter(this.ghostStyle),
       runLog: {
         id: this.recorder.record.id,
         outcome: this.recorder.outcome,
@@ -800,6 +804,27 @@ export class PlaySim {
 
   private releaseDrawable(eid: number): void {
     this.emit({ type: "releaseDrawable", eid });
+  }
+
+  private emitPelletAbsorb(snap: RemovedPelletSnap): void {
+    if (!pelletAbsorbActive(this.currentTuning)) {
+      return;
+    }
+    const spawn = pelletAbsorbSpawnFor(
+      this.ghostStyle,
+      snap.drawableId,
+      snap.optional,
+      snap.x,
+      snap.y,
+    );
+    if (spawn !== null) {
+      this.emit({ type: "pelletAbsorb", ...spawn });
+    }
+  }
+
+  private releasePelletSnap(snap: RemovedPelletSnap): void {
+    this.emitPelletAbsorb(snap);
+    this.releaseDrawable(snap.eid);
   }
 
   private tick(input: SimInput, delta: number): void {
@@ -1077,14 +1102,17 @@ export class PlaySim {
     });
     const ghostFrame = ghostHarvestActive(this.runUpgrades)
       ? harvestPelletsByGhosts(this.world)
-      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
+      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [], removedSnaps: [] };
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
     const removedPelletEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
     const removedPowerPositions = [
       ...playerFrame.removedPowerPositions,
       ...ghostFrame.removedPowerPositions,
     ];
-    for (const eid of removedPelletEids) {
+    for (const snap of playerFrame.removedSnaps) {
+      this.releasePelletSnap(snap);
+    }
+    for (const eid of ghostFrame.removedEids) {
       this.releaseDrawable(eid);
     }
     let streakFires = 0;
@@ -1124,11 +1152,11 @@ export class PlaySim {
     const powerEffects = this.applyPowerEffects(shielded ? 0 : powerRemoved);
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
-      for (const eid of bonusEids) {
-        this.releaseDrawable(eid);
+      const bonusSnaps = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
+      for (const snap of bonusSnaps) {
+        this.releasePelletSnap(snap);
       }
-      bonusRemoved = bonusEids.length;
+      bonusRemoved = bonusSnaps.length;
       if (bonusRemoved > 0) {
         this.emitMunch();
       }
@@ -1506,20 +1534,20 @@ export class PlaySim {
     const before = this.remoteTransferCounter;
     this.remoteTransferCounter += removedThisFrame;
     const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
-    const eids = applyRemoteTransference(this.world, triggers);
-    for (const eid of eids) {
-      this.releaseDrawable(eid);
+    const snaps = applyRemoteTransference(this.world, triggers);
+    for (const snap of snaps) {
+      this.releasePelletSnap(snap);
     }
-    if (eids.length > 0) {
+    if (snaps.length > 0) {
       this.emit({
         type: "pelletSfx",
         previousCollected: this.lifetimeCollected + removedThisFrame,
-        removed: eids.length,
+        removed: snaps.length,
         powerRemoved: 0,
       });
-      this.remoteTransferCounter += eids.length;
+      this.remoteTransferCounter += snaps.length;
     }
-    return eids.length;
+    return snaps.length;
   }
 
   private emitMunch(): void {
@@ -2115,19 +2143,19 @@ export class PlaySim {
   ): boolean {
     const powerEffects = this.applyPowerEffects(powerRemoved, echoBases);
     if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
-      for (const eid of bonusEids) {
-        this.releaseDrawable(eid);
+      const bonusSnaps = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
+      for (const snap of bonusSnaps) {
+        this.releasePelletSnap(snap);
       }
-      if (bonusEids.length > 0) {
+      if (bonusSnaps.length > 0) {
         this.emitMunch();
         const collectResult = applyPelletCollect(
           this.pelletProgress,
-          bonusEids.length,
+          bonusSnaps.length,
           noRequiredPelletsLeft(this.world),
         );
         this.pelletProgress = collectResult.progress;
-        this.lifetimeCollected += bonusEids.length;
+        this.lifetimeCollected += bonusSnaps.length;
         if (collectResult.shouldRecordClear) {
           this.triggerLevelClear();
           return true;
@@ -2389,6 +2417,10 @@ export class PlaySim {
       at !== null && speedBurstActive(this.runUpgrades)
         ? tickSpeedTrail(this.speedTrail, at, delta)
         : [];
+  }
+
+  playerWorldPosition(): Point | null {
+    return this.playerPosition();
   }
 
   private playerPosition(): Point | null {

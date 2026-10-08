@@ -1,7 +1,11 @@
 import { addComponent, addEntity, createWorld, query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { cellCenterX, cellCenterY } from "../../domain/maze";
-import { PELLET_RADIUS } from "../../domain/playfield";
+import {
+  PELLET_DRAWABLE_ID,
+  PELLET_RADIUS,
+  POWER_PELLET_DRAWABLE_ID,
+} from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -28,8 +32,13 @@ function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number
   }
   Position.x[eid] = x;
   Position.y[eid] = y;
+  Drawable.id[eid] = power ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID;
   Drawable.radius[eid] = PELLET_RADIUS;
   return eid;
+}
+
+function snapEids(snaps: { eid: number }[]): number[] {
+  return snaps.map((snap) => snap.eid);
 }
 
 describe("collectExtraPellets", () => {
@@ -51,7 +60,7 @@ describe("collectExtraPellets", () => {
     const farthest = spawnPellet(world, cellCenterX(6), py);
     const power = spawnPellet(world, cellCenterX(9), py, true);
 
-    expect(collectExtraPellets(world, 2)).toEqual([farthest, far]);
+    expect(snapEids(collectExtraPellets(world, 2))).toEqual([farthest, far]);
     expect([...query(world, [Pellet])].sort()).toEqual([near, mid, power].sort());
     expect(query(world, [PowerPellet])).toEqual([power]);
   });
@@ -68,7 +77,7 @@ describe("collectExtraPellets", () => {
     const world = createWorld();
     spawnPlayer(world, cellCenterX(2), cellCenterY(1));
     const only = spawnPellet(world, cellCenterX(0), cellCenterY(1));
-    expect(collectExtraPellets(world, 3)).toEqual([only]);
+    expect(snapEids(collectExtraPellets(world, 3))).toEqual([only]);
     expect(query(world, [Pellet])).toHaveLength(0);
   });
 });

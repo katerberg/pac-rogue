@@ -8,13 +8,18 @@ import {
   worldToRow,
   type SolidGrid,
 } from "../../domain/maze";
-import { PELLET_RADIUS, playerRadius } from "../../domain/playfield";
+import {
+  PELLET_DRAWABLE_ID,
+  PELLET_RADIUS,
+  POWER_PELLET_DRAWABLE_ID,
+  playerRadius,
+} from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
-import { collectPellets, countPellets } from "./collectPellets";
+import { collectPellets, countPellets, type RemovedPelletSnap } from "./collectPellets";
 
 function spawnPlayer(x: number, y: number) {
   const world = createWorld();
@@ -38,8 +43,19 @@ function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number
   }
   Position.x[eid] = x;
   Position.y[eid] = y;
+  Drawable.id[eid] = power ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID;
   Drawable.radius[eid] = PELLET_RADIUS;
   return eid;
+}
+
+function snap(eid: number, x: number, y: number, power = false): RemovedPelletSnap {
+  return {
+    eid,
+    x,
+    y,
+    drawableId: power ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID,
+    optional: false,
+  };
 }
 
 function cellOf(x: number, y: number) {
@@ -65,6 +81,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [pelletEid],
       removedPowerPositions: [],
+      removedSnaps: [snap(pelletEid, 100, 100)],
       removedCells: [cellOf(100, 100)],
     });
     expect(query(world, [Pellet, Position])).toHaveLength(0);
@@ -78,6 +95,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [],
       removedPowerPositions: [],
+      removedSnaps: [],
       removedCells: [],
     });
     expect(query(world, [Pellet, Position])).toEqual([pelletEid]);
@@ -93,6 +111,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [a, b],
       removedPowerPositions: [],
+      removedSnaps: [snap(a, 100 + playerRadius(), 100), snap(b, 100, 100 + playerRadius())],
       removedCells: [cellOf(100 + playerRadius(), 100), cellOf(100, 100 + playerRadius())],
     });
     expect(query(world, [Pellet, Position])).toHaveLength(1);
@@ -107,6 +126,7 @@ describe("collectPellets", () => {
       powerRemoved: 1,
       removedEids: [power, regular],
       removedPowerPositions: [{ x: 100, y: 100 }],
+      removedSnaps: [snap(power, 100, 100, true), snap(regular, 100 + playerRadius(), 100)],
       removedCells: [cellOf(100, 100), cellOf(100 + playerRadius(), 100)],
     });
   });
@@ -186,6 +206,7 @@ describe("collectPellets", () => {
       powerRemoved: 1,
       removedEids: [power],
       removedPowerPositions: [{ x: 100, y: 100 }],
+      removedSnaps: [snap(power, 100, 100, true)],
       removedCells: [cellOf(100, 100)],
     });
   });

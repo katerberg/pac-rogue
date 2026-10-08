@@ -6,6 +6,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  isAlignedForTurn,
   isWalkable,
   TURN_ALIGN_EPS,
   worldToCol,
@@ -67,22 +68,48 @@ describe("movement stopOnRelease", () => {
     expect(Position.x[eid]).toBeGreaterThan(cellCenterX(2));
   });
 
-  function releasedDiagonal(stopOnRelease: boolean, ghost = false) {
-    const { world, eid } = spawnAt(1, 1, ghost);
+  function releasedDiagonal(stopOnRelease: boolean) {
+    const { world, eid } = spawnAt(1, 1);
     Input.direction[eid] = DIRECTION.downRight;
-    movement(world, 16);
+    for (let i = 0; i < 8; i += 1) {
+      movement(world, 16);
+    }
+    expect(isAlignedForTurn(Position.x[eid]!, Position.y[eid]!)).toBe(false);
     Input.direction[eid] = DIRECTION.none;
     const x = Position.x[eid]!;
-    const y = Position.y[eid]!;
     movement(world, 16, undefined, stopOnRelease);
-    return { eid, x, y };
+    return { world, eid, x };
   }
 
-  it("stops a diagonal move when input is cleared", () => {
-    const { eid, x, y } = releasedDiagonal(true);
-    expect(Position.x[eid]).toBe(x);
-    expect(Position.y[eid]).toBe(y);
+  it("settles a released diagonal on the cell center, then moves on a single key", () => {
+    const { world, eid } = releasedDiagonal(true);
+    for (let i = 0; i < 40; i += 1) {
+      movement(world, 16, undefined, true);
+    }
+    expect(isAlignedForTurn(Position.x[eid]!, Position.y[eid]!)).toBe(true);
     expect(Facing.direction[eid]).toBe(DIRECTION.none);
+    expect(Velocity.x[eid]).toBe(0);
+    expect(Velocity.y[eid]).toBe(0);
+
+    const { x, y } = { x: Position.x[eid]!, y: Position.y[eid]! };
+    Input.direction[eid] = DIRECTION.right;
+    movement(world, 16, undefined, true);
+    expect(Facing.direction[eid]).toBe(DIRECTION.right);
+    expect(Position.x[eid]).toBeGreaterThan(x);
+    expect(Position.y[eid]).toBe(y);
+  });
+
+  it("stops a centered diagonal facing on release without NaN", () => {
+    const { world, eid } = spawnAt(1, 1);
+    Facing.direction[eid] = DIRECTION.downRight;
+    Input.direction[eid] = DIRECTION.none;
+    movement(world, 16, undefined, true);
+    expect(Position.x[eid]).toBe(cellCenterX(1));
+    expect(Position.y[eid]).toBe(cellCenterY(1));
+    expect(Facing.direction[eid]).toBe(DIRECTION.none);
+    expect(Velocity.x[eid]).toBe(0);
+    expect(Velocity.y[eid]).toBe(0);
+    expect(Number.isNaN(Position.x[eid]!)).toBe(false);
   });
 
   it("keeps a diagonal move going on release without the flag", () => {

@@ -13,11 +13,13 @@ export type KnobGroup =
   | "Scatter"
   | "Visuals";
 
-export type VisualsSubgroup = "Walls" | "Ghosts" | "Dot-Man" | "Background" | "Font" | "Dots";
+export type VisualsSubgroup =
+  "Walls" | "Ghosts" | "Quarters" | "Dot-Man" | "Background" | "Font" | "Dots";
 
 export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
   "Walls",
   "Ghosts",
+  "Quarters",
   "Dot-Man",
   "Background",
   "Font",
@@ -122,6 +124,9 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("ghostLineWidth", "Visuals", "Ghost line thickness", 1, 45, 0.5, "%", "Ghosts"),
   range("ghostWidth", "Visuals", "Line ghost width", 0.6, 4.5, 0.01, "×", "Ghosts"),
   range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×", "Ghosts"),
+  range("quarterGlow", "Visuals", "Quarter glow", 0, 12, 0.1, "", "Quarters"),
+  range("quarterGlowRadius", "Visuals", "Quarter glow radius", 0, 36, 1, "px", "Quarters"),
+  range("quarterLineWidth", "Visuals", "Quarter line thickness", 1, 45, 0.5, "%", "Quarters"),
   range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×", "Dot-Man"),
   range("dotManMouthOpenDeg", "Visuals", "Mouth open", 20, 75, 1, "°", "Dot-Man"),
   range("dotManMouthClosedDeg", "Visuals", "Mouth closed", 4, 40, 1, "°", "Dot-Man"),
@@ -199,6 +204,19 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
     subgroup: "Dots",
   },
   range("optionalPelletFillOpacity", "Visuals", "Optional fill opacity", 0, 1, 0.05, "", "Dots"),
+  {
+    key: "pelletAbsorbEnabled",
+    group: "Visuals",
+    label: "Absorb FX",
+    kind: "toggle",
+    subgroup: "Dots",
+  },
+  range("pelletAbsorbMs", "Visuals", "Absorb duration", 0, 500, 5, "ms", "Dots"),
+  range("pelletAbsorbStretchEnd", "Visuals", "Absorb stretch", 0.05, 0.95, 0.05, "", "Dots"),
+  range("pelletAbsorbMidThin", "Visuals", "Absorb mid thin", 0, 1, 0.05, "", "Dots"),
+  range("pelletAbsorbNearShrink", "Visuals", "Absorb near shrink", 0, 1, 0.05, "", "Dots"),
+  range("pelletAbsorbFarShrink", "Visuals", "Absorb far shrink", 0, 1, 0.05, "", "Dots"),
+  range("pelletAbsorbSuckEase", "Visuals", "Absorb suck ease", 1, 4, 0.25, "", "Dots"),
 ];
 
 function stepDecimals(step: number): number {
@@ -302,6 +320,12 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Horizontal stretch of line-art ghosts. About 1.2 makes the body as wide as the pixel ghosts. Visual only; collision is unchanged.",
   ghostHeight:
     "Vertical stretch of line-art ghosts. 1 = the SVG's own proportions. Visual only; collision is unchanged.",
+  quarterGlow:
+    "Phaser outerStrength of the neon glow around line-art Quarter icons (HUD, store, Money Talks). 0 = no glow.",
+  quarterGlowRadius:
+    "How far the line-art Quarter glow spreads beyond the outline, in pixels. 0 = no glow.",
+  quarterLineWidth:
+    "Outline thickness of line-art Quarter icons, as a percent of the icon size. Visual only.",
   dotManChompSpeed:
     "How fast Dot-Man's mouth cycles while moving (pixel frames and neon spiral). 1× = one beat every 12 px of travel; default 1.25×. Visual only.",
   dotManMouthOpenDeg:
@@ -353,4 +377,18 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Muted glow tint for Lazy Looper optional dots (default cool grey, not the maze wall colour).",
   optionalPelletFillOpacity:
     "Fill opacity for Lazy Looper optional neon dots (default solid grey).",
+  pelletAbsorbEnabled:
+    "On: neon/lined regular and optional dots gum-stretch into Dot-Man on collect. Off: instant vanish. Visual only; PIXEL ignores this.",
+  pelletAbsorbMs:
+    "How long the gum-stretch absorb lasts in milliseconds. 0 = skip the FX (instant vanish). Default 10.",
+  pelletAbsorbStretchEnd:
+    "Fraction of the absorb spent thinning the strand (far end parked, near on Dot-Man) before the suck-in. Default 0.10.",
+  pelletAbsorbMidThin:
+    "How much the mid-strand width shrinks during the stretch phase (0 = stays full, 1 = thins to a hair). Default 0.95. Mid fill also fades to 0 over the whole absorb.",
+  pelletAbsorbNearShrink:
+    "How much the near (Dot-Man) ball shrinks during the stretch phase. Default 0.10.",
+  pelletAbsorbFarShrink:
+    "How much the far (pellet) ball shrinks during the stretch phase. Default 0.15.",
+  pelletAbsorbSuckEase:
+    "Ease power on the suck-in (1 = linear, 2 = quadratic ease-in, higher = snappier end). Default 3.25.",
 };
