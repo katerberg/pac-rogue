@@ -27,10 +27,10 @@ export const MAZE_TOP_MARGIN_PX = HUD_TOP_MARGIN_PX;
 export const MAZE_BOTTOM_MARGIN_PX = HUD_BOTTOM_MARGIN_PX;
 
 // Fixed tile size for every layout — Pac-Man/ghosts stay one pixel size across
-// levels. 20px is large enough that level-2 generated boards (28×34) fill the
-// playfield after the thick outer wall ring is cropped off-screen; level 1
-// mazeSmall keeps the same character size with a smaller centered footprint.
-export const TILE_SIZE_PX = 20;
+// levels. Sized so the tallest generated board (28×34) fits the HUD band
+// between BONUS and the lives inset: floor((600-32-8)/34) = 16. Level 1
+// mazeSmall keeps that same character size with a smaller centered footprint.
+export const TILE_SIZE_PX = 16;
 if (TILE_SIZE_PX < MIN_TILE_SIZE) {
   throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
 }
@@ -58,19 +58,17 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
   if (pixelWidth > PLAYFIELD_WIDTH) {
     throw new Error(`maze pixel width ${pixelWidth} exceeds playfield width ${PLAYFIELD_WIDTH}`);
   }
+  const pixelHeight = rows * tileSize;
+  if (pixelHeight > usableHeight) {
+    throw new Error(`maze pixel height ${pixelHeight} exceeds usable height ${usableHeight}`);
+  }
   const offsetX = (PLAYFIELD_WIDTH - pixelWidth) / 2;
   if (offsetX < MIN_MAZE_OFFSET_X) {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
   }
-  const pixelHeight = rows * tileSize;
-  // Short boards: center in the HUD margin band (below BONUS, above lives).
-  // Tall boards: playfield-centered crop (fills after the undrawn outer wall
-  // ring), then shift down by the top HUD clearance so the gaps below BONUS
-  // and above the bottom edge match.
-  const offsetY =
-    pixelHeight <= usableHeight
-      ? MAZE_TOP_MARGIN_PX + Math.floor((usableHeight - pixelHeight) / 2)
-      : Math.floor((PLAYFIELD_HEIGHT - pixelHeight) / 2) + MAZE_TOP_MARGIN_PX;
+  // Center in the HUD band: below BONUS, above the lives inset. Tall level-2
+  // boards nearly fill it; short level-1 boards keep the same tile size.
+  const offsetY = MAZE_TOP_MARGIN_PX + Math.floor((usableHeight - pixelHeight) / 2);
   return { cols, rows, tileSize, pixelWidth, pixelHeight, offsetX, offsetY };
 }
 
@@ -1290,6 +1288,12 @@ function shouldDrawPipeAgainst(
   exterior: SolidGrid,
   door: SolidGrid,
 ): boolean {
+  // Outside the grid: outline the maze shell. (`isWall` treats OOB as solid for
+  // movement clamps, which would otherwise suppress every outer edge.) Geometry
+  // already insets the board under BONUS / above lives, so the shell stays in band.
+  if (!inBounds(col, row)) {
+    return true;
+  }
   if (isWall(col, row, walls)) {
     return false;
   }

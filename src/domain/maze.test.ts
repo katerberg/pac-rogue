@@ -70,9 +70,12 @@ describe("maze", () => {
     expect(getActiveLayout().playerSolids[0]).toHaveLength(MAZE_COLS);
     expect(TILE_SIZE).toBe(TILE_SIZE_PX);
     expect(MAZE_OFFSET_X).toBe((800 - MAZE_PIXEL_WIDTH) / 2);
-    // Classic 28×31 at tile 20 is taller than the usable band — shifted under BONUS.
-    expect(MAZE_OFFSET_Y).toBe(Math.floor((600 - MAZE_ROWS * TILE_SIZE) / 2) + MAZE_TOP_MARGIN_PX);
-    expect(MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT).toBeGreaterThan(600);
+    expect(MAZE_OFFSET_Y).toBe(
+      MAZE_TOP_MARGIN_PX +
+        Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2),
+    );
+    expect(MAZE_OFFSET_Y).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
+    expect(MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT).toBeLessThanOrEqual(600 - MAZE_BOTTOM_MARGIN_PX);
     expect(MAZE_OFFSET_X).toBeGreaterThanOrEqual(80);
     expect(getActiveLayout().cols).toBe(28);
     expect(getActiveLayout().rows).toBe(31);
@@ -452,23 +455,22 @@ describe("maze", () => {
     expect(() => parseMaze("#\n")).toThrow(/cols/);
   });
 
-  it("rejects out-of-band sizes; short boards center, tall boards crop the border ring", () => {
+  it("rejects out-of-band and oversized-fit sizes; boards share tile size and center in the HUD band", () => {
     expect(() => computeMazeGeometry(19, 31)).toThrow(/cols/);
     expect(() => computeMazeGeometry(28, 20)).toThrow(/rows/);
+    expect(() => computeMazeGeometry(28, 36)).toThrow(/height/i);
     const tall = computeMazeGeometry(28, 34);
     const small = computeMazeGeometry(22, 21);
     expect(tall.tileSize).toBe(TILE_SIZE_PX);
     expect(small.tileSize).toBe(TILE_SIZE_PX);
     expect(small.pixelHeight).toBeLessThan(tall.pixelHeight);
-    // Tall generated boards crop the border ring and shift down under BONUS.
-    expect(tall.pixelHeight).toBeGreaterThan(600);
-    expect(tall.offsetY).toBe(Math.floor((600 - tall.pixelHeight) / 2) + MAZE_TOP_MARGIN_PX);
-    expect(tall.offsetY + tall.pixelHeight).toBeGreaterThan(600);
-    // Short boards center in the HUD margin band (below BONUS, above lives).
+    // Tall boards fit the usable band (below BONUS, above lives) — not past the bottom.
+    expect(tall.offsetY).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
+    expect(tall.offsetY + tall.pixelHeight).toBeLessThanOrEqual(600 - MAZE_BOTTOM_MARGIN_PX);
+    // Short boards center with matching leftover above/below in the band.
     const smallTop = small.offsetY - MAZE_TOP_MARGIN_PX;
     const smallBottom = 600 - MAZE_BOTTOM_MARGIN_PX - (small.offsetY + small.pixelHeight);
     expect(Math.abs(smallTop - smallBottom)).toBeLessThanOrEqual(1);
-    expect(small.offsetY).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
   });
 
   it("lists wall centers and pipe edges without treating exterior as walls", () => {
@@ -479,6 +481,16 @@ describe("maze", () => {
 
     const edges = pipeEdges();
     expect(edges.length).toBeGreaterThan(0);
+  });
+
+  it("outlines the outer maze shell inside the HUD band", () => {
+    const edges = pipeEdges();
+    const topY = MAZE_OFFSET_Y;
+    const bottomY = MAZE_OFFSET_Y + MAZE_ROWS * TILE_SIZE;
+    expect(edges.some((e) => e.y1 === topY && e.y2 === topY)).toBe(true);
+    expect(edges.some((e) => e.y1 === bottomY && e.y2 === bottomY)).toBe(true);
+    expect(topY).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
+    expect(bottomY).toBeLessThanOrEqual(600 - MAZE_BOTTOM_MARGIN_PX);
   });
 
   it("does not outline exterior voids that touch the outer map edge", () => {
