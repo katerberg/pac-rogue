@@ -154,6 +154,13 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
     kind: "color",
   },
   range("optionalPelletFillOpacity", "Dots", "Optional fill opacity", 0, 1, 0.05),
+  { key: "pelletAbsorbEnabled", group: "Dots", label: "Absorb FX", kind: "toggle" },
+  range("pelletAbsorbMs", "Dots", "Absorb duration", 0, 500, 5, "ms"),
+  range("pelletAbsorbStretchEnd", "Dots", "Absorb stretch", 0.05, 0.95, 0.05),
+  range("pelletAbsorbMidThin", "Dots", "Absorb mid thin", 0, 1, 0.05),
+  range("pelletAbsorbNearShrink", "Dots", "Absorb near shrink", 0, 1, 0.05),
+  range("pelletAbsorbFarShrink", "Dots", "Absorb far shrink", 0, 1, 0.05),
+  range("pelletAbsorbSuckEase", "Dots", "Absorb suck ease", 1, 4, 0.25),
 ];
 
 function stepDecimals(step: number): number {
@@ -308,4 +315,18 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Muted glow tint for Lazy Looper optional dots (default cool grey, not the maze wall colour).",
   optionalPelletFillOpacity:
     "Fill opacity for Lazy Looper optional neon dots (default solid grey).",
+  pelletAbsorbEnabled:
+    "On: neon/lined regular and optional dots gum-stretch into Dot-Man on collect. Off: instant vanish. Visual only; PIXEL ignores this.",
+  pelletAbsorbMs:
+    "How long the gum-stretch absorb lasts in milliseconds. 0 = skip the FX (instant vanish). Default 100.",
+  pelletAbsorbStretchEnd:
+    "Fraction of the absorb spent thinning the strand (far end parked, near on Dot-Man) before the suck-in. Default 0.55.",
+  pelletAbsorbMidThin:
+    "How much the mid-strand width shrinks during the stretch phase (0 = stays full, 1 = thins to a hair). Default 0.75.",
+  pelletAbsorbNearShrink:
+    "How much the near (Dot-Man) ball shrinks during the stretch phase. Default 0.35.",
+  pelletAbsorbFarShrink:
+    "How much the far (pellet) ball shrinks during the stretch phase. Default 0.15.",
+  pelletAbsorbSuckEase:
+    "Ease power on the suck-in (1 = linear, 2 = quadratic ease-in, higher = snappier end). Default 2.",
 };

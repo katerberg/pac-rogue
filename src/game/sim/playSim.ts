@@ -280,7 +280,7 @@ import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/
 import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { stepNearMisses } from "../systems/nearMiss";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
-import { pelletAbsorbSpawnFor } from "../../domain/pelletAbsorb";
+import { pelletAbsorbActive, pelletAbsorbSpawnFor } from "../../domain/pelletAbsorb";
 import type { RemovedPelletSnap } from "../systems/collectPellets";
 import { tickEchoes } from "../../domain/echo";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
@@ -805,6 +805,9 @@ export class PlaySim {
   }
 
   private emitPelletAbsorb(snap: RemovedPelletSnap): void {
+    if (!pelletAbsorbActive(this.currentTuning)) {
+      return;
+    }
     const spawn = pelletAbsorbSpawnFor(
       this.ghostStyle,
       snap.drawableId,

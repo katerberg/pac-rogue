@@ -94,6 +94,13 @@ export type Tuning = {
   readonly optionalPelletFillColor: number;
   readonly optionalPelletGlowColor: number;
   readonly optionalPelletFillOpacity: number;
+  readonly pelletAbsorbEnabled: boolean;
+  readonly pelletAbsorbMs: number;
+  readonly pelletAbsorbStretchEnd: number;
+  readonly pelletAbsorbMidThin: number;
+  readonly pelletAbsorbNearShrink: number;
+  readonly pelletAbsorbFarShrink: number;
+  readonly pelletAbsorbSuckEase: number;
 };
 
 export type TuningKey = keyof Tuning;
@@ -186,6 +193,13 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   optionalPelletFillColor: LAZY_LOOPER_OPTIONAL_TINT,
   optionalPelletGlowColor: 0xa0a0b4,
   optionalPelletFillOpacity: 1,
+  pelletAbsorbEnabled: true,
+  pelletAbsorbMs: 100,
+  pelletAbsorbStretchEnd: 0.55,
+  pelletAbsorbMidThin: 0.75,
+  pelletAbsorbNearShrink: 0.35,
+  pelletAbsorbFarShrink: 0.15,
+  pelletAbsorbSuckEase: 2,
 });
 
 const TUNING_STORAGE_VERSION = 1;

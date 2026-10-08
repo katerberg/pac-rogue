@@ -56,6 +56,8 @@ import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import { playTurnSparks } from "./turnSparks";
 import { playStreakPop } from "./streakPop";
+import { pelletAbsorbLookTuning } from "../../domain/pelletAbsorb";
+import { DEFAULT_TUNING } from "../../domain/tuning";
 import { killPelletAbsorbs, playPelletAbsorb } from "./pelletAbsorb";
 import { addGhostIcon, createRender, preloadPlayArt, type PlayRender } from "../systems/render";
 import {
@@ -220,7 +222,15 @@ export class LearnScene extends Phaser.Scene {
       if (event.type === "releaseDrawable") {
         this.playRender.releaseDrawable(event.eid);
       } else if (event.type === "pelletAbsorb") {
-        playPelletAbsorb(this, event, () => this.sim.playerWorldPosition());
+        playPelletAbsorb(
+          this,
+          event,
+          () => this.sim.playerWorldPosition(),
+          () => ({
+            ms: DEFAULT_TUNING.pelletAbsorbMs,
+            look: pelletAbsorbLookTuning(DEFAULT_TUNING),
+          }),
+        );
       } else if (event.type === "resetBoard") {
         killPelletAbsorbs(this);
       } else if (event.type === "draw") {

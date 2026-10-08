@@ -1,9 +1,11 @@
 import type { GhostStyle } from "./ghostArt";
 import { pelletStyleFor } from "./pelletStyle";
 import { BOSS_PELLET_DRAWABLE_ID, PELLET_DRAWABLE_ID, POWER_PELLET_DRAWABLE_ID } from "./playfield";
+import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
-export const PELLET_ABSORB_MS = 100;
-export const PELLET_ABSORB_STRETCH_END = 0.55;
+/** Defaults match `DEFAULT_TUNING` absorb knobs. */
+export const PELLET_ABSORB_MS = DEFAULT_TUNING.pelletAbsorbMs;
+export const PELLET_ABSORB_STRETCH_END = DEFAULT_TUNING.pelletAbsorbStretchEnd;
 
 export type PelletAbsorbPoint = { x: number; y: number };
 
@@ -23,6 +25,32 @@ export type PelletAbsorbSpawn = {
   radius: number;
 };
 
+export type PelletAbsorbLookTuning = {
+  stretchEnd: number;
+  midThin: number;
+  nearShrink: number;
+  farShrink: number;
+  suckEase: number;
+};
+
+export const DEFAULT_PELLET_ABSORB_LOOK: PelletAbsorbLookTuning = {
+  stretchEnd: DEFAULT_TUNING.pelletAbsorbStretchEnd,
+  midThin: DEFAULT_TUNING.pelletAbsorbMidThin,
+  nearShrink: DEFAULT_TUNING.pelletAbsorbNearShrink,
+  farShrink: DEFAULT_TUNING.pelletAbsorbFarShrink,
+  suckEase: DEFAULT_TUNING.pelletAbsorbSuckEase,
+};
+
+export function pelletAbsorbLookTuning(tuning: Tuning): PelletAbsorbLookTuning {
+  return {
+    stretchEnd: tuning.pelletAbsorbStretchEnd,
+    midThin: tuning.pelletAbsorbMidThin,
+    nearShrink: tuning.pelletAbsorbNearShrink,
+    farShrink: tuning.pelletAbsorbFarShrink,
+    suckEase: tuning.pelletAbsorbSuckEase,
+  };
+}
+
 export function pelletAbsorbStyleOk(style: GhostStyle): boolean {
   return style !== "pixel";
 }
@@ -34,12 +62,17 @@ export function pelletAbsorbKindOk(drawableId: string, _optional: boolean): bool
   return drawableId === PELLET_DRAWABLE_ID;
 }
 
+export function pelletAbsorbActive(tuning: Tuning): boolean {
+  return tuning.pelletAbsorbEnabled && tuning.pelletAbsorbMs > 0;
+}
+
 function clamp01(t: number): number {
   return Math.min(1, Math.max(0, t));
 }
 
-function easeInQuad(u: number): number {
-  return u * u;
+function easeInPow(u: number, power: number): number {
+  const p = Math.max(1, power);
+  return u ** p;
 }
 
 export function pelletAbsorbSpawnFor(
@@ -69,29 +102,37 @@ export function pelletAbsorbLook(
   from: PelletAbsorbPoint,
   to: PelletAbsorbPoint,
   startRadius: number,
+  look: PelletAbsorbLookTuning = DEFAULT_PELLET_ABSORB_LOOK,
 ): PelletAbsorbLook {
   const p = clamp01(t);
   const r0 = Math.max(0.1, startRadius);
+  const stretchEnd = Math.min(0.95, Math.max(0.05, look.stretchEnd));
+  const midThin = clamp01(look.midThin);
+  const nearShrink = clamp01(look.nearShrink);
+  const farShrink = clamp01(look.farShrink);
 
-  if (p <= PELLET_ABSORB_STRETCH_END) {
-    const s = p / PELLET_ABSORB_STRETCH_END;
+  if (p <= stretchEnd) {
+    const s = p / stretchEnd;
     return {
-      near: { x: to.x, y: to.y, r: r0 * (1 - 0.35 * s) },
-      far: { x: from.x, y: from.y, r: r0 * (1 - 0.15 * s) },
-      midWidth: r0 * (1 - 0.75 * s),
+      near: { x: to.x, y: to.y, r: r0 * (1 - nearShrink * s) },
+      far: { x: from.x, y: from.y, r: r0 * (1 - farShrink * s) },
+      midWidth: r0 * (1 - midThin * s),
       alpha: 1,
     };
   }
 
-  const u = easeInQuad((p - PELLET_ABSORB_STRETCH_END) / (1 - PELLET_ABSORB_STRETCH_END));
+  const u = easeInPow((p - stretchEnd) / (1 - stretchEnd), look.suckEase);
+  const nearStart = r0 * (1 - nearShrink);
+  const farStart = r0 * (1 - farShrink);
+  const midStart = r0 * (1 - midThin);
   return {
-    near: { x: to.x, y: to.y, r: Math.max(0, r0 * 0.65 * (1 - u)) },
+    near: { x: to.x, y: to.y, r: Math.max(0, nearStart * (1 - u)) },
     far: {
       x: from.x + (to.x - from.x) * u,
       y: from.y + (to.y - from.y) * u,
-      r: Math.max(0, r0 * 0.85 * (1 - u)),
+      r: Math.max(0, farStart * (1 - u)),
     },
-    midWidth: Math.max(0, r0 * 0.25 * (1 - u)),
+    midWidth: Math.max(0, midStart * (1 - u)),
     alpha: 1 - u,
   };
 }

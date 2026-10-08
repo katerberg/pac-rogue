@@ -436,6 +436,19 @@ describe("PlaySim", () => {
       expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
     });
 
+    it("skips absorb when the Absorb FX knob is off", () => {
+      const sim = new PlaySim(
+        { ...defaultPlayOptions(), level: 2, maze: "maze1" },
+        "absorb-off",
+        resolveTuning({ pelletAbsorbEnabled: false }),
+      );
+      sim.start();
+      sim.setGhostStyle("neon");
+      const events = runFrames(sim, 60, { keys: held("left") });
+      expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
+      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
+    });
+
     it("does not absorb power pellets", () => {
       const sim = startSim({ level: 2, maze: "maze1" }, "absorb-power");
       sim.setGhostStyle("neon");

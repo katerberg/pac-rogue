@@ -1,12 +1,17 @@
 import Phaser from "phaser";
 import {
-  PELLET_ABSORB_MS,
   pelletAbsorbLook,
+  type PelletAbsorbLookTuning,
   type PelletAbsorbPoint,
 } from "../../domain/pelletAbsorb";
 import type { SimEvent } from "../sim/simEvents";
 
 type PelletAbsorbEvent = Extract<SimEvent, { type: "pelletAbsorb" }>;
+
+export type PelletAbsorbRuntime = {
+  ms: number;
+  look: PelletAbsorbLookTuning;
+};
 
 /** Above crisp pellets (0), under typical actor sprites (~10+) and turn sparks (50). */
 const ABSORB_DEPTH = 8;
@@ -37,7 +42,12 @@ export function playPelletAbsorb(
   scene: Phaser.Scene,
   event: PelletAbsorbEvent,
   getTarget: () => PelletAbsorbPoint | null,
+  getRuntime: () => PelletAbsorbRuntime,
 ): void {
+  const runtime = getRuntime();
+  if (runtime.ms <= 0) {
+    return;
+  }
   const from = { x: event.x, y: event.y };
   const graphics = scene.add.graphics().setDepth(ABSORB_DEPTH);
   const clock = { progress: 0 };
@@ -62,7 +72,7 @@ export function playPelletAbsorb(
       destroyFx();
       return;
     }
-    const look = pelletAbsorbLook(clock.progress, from, to, event.radius);
+    const look = pelletAbsorbLook(clock.progress, from, to, event.radius, getRuntime().look);
     graphics.clear();
     if (look.alpha <= 0) {
       return;
@@ -73,7 +83,7 @@ export function playPelletAbsorb(
   scene.tweens.add({
     targets: clock,
     progress: 1,
-    duration: PELLET_ABSORB_MS,
+    duration: runtime.ms,
     onUpdate: draw,
     onComplete: destroyFx,
   });

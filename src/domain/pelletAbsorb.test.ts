@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PELLET_ABSORB_LOOK,
   PELLET_ABSORB_STRETCH_END,
+  pelletAbsorbActive,
   pelletAbsorbKindOk,
   pelletAbsorbLook,
+  pelletAbsorbLookTuning,
   pelletAbsorbSpawnFor,
   pelletAbsorbStyleOk,
 } from "./pelletAbsorb";
 import { BOSS_PELLET_DRAWABLE_ID, PELLET_DRAWABLE_ID, POWER_PELLET_DRAWABLE_ID } from "./playfield";
-import { DEFAULT_TUNING } from "./tuning";
+import { DEFAULT_TUNING, resolveTuning } from "./tuning";
 
 describe("pelletAbsorbStyleOk", () => {
   it("allows neon and lined, rejects pixel", () => {
@@ -26,6 +29,23 @@ describe("pelletAbsorbKindOk", () => {
   it("rejects power and boss", () => {
     expect(pelletAbsorbKindOk(POWER_PELLET_DRAWABLE_ID, false)).toBe(false);
     expect(pelletAbsorbKindOk(BOSS_PELLET_DRAWABLE_ID, false)).toBe(false);
+  });
+});
+
+describe("pelletAbsorbActive", () => {
+  it("follows the enabled toggle and duration", () => {
+    expect(pelletAbsorbActive(DEFAULT_TUNING)).toBe(true);
+    expect(pelletAbsorbActive(resolveTuning({ pelletAbsorbEnabled: false }))).toBe(false);
+    expect(pelletAbsorbActive(resolveTuning({ pelletAbsorbMs: 0 }))).toBe(false);
+  });
+});
+
+describe("pelletAbsorbLookTuning", () => {
+  it("reads absorb look knobs from Tuning", () => {
+    expect(pelletAbsorbLookTuning(DEFAULT_TUNING)).toEqual(DEFAULT_PELLET_ABSORB_LOOK);
+    expect(
+      pelletAbsorbLookTuning(resolveTuning({ pelletAbsorbMidThin: 0.5, pelletAbsorbSuckEase: 3 })),
+    ).toMatchObject({ midThin: 0.5, suckEase: 3 });
   });
 });
 
@@ -48,6 +68,18 @@ describe("pelletAbsorbLook", () => {
     expect(look.near).toMatchObject({ x: to.x, y: to.y });
     expect(look.midWidth).toBeLessThan(r);
     expect(look.alpha).toBe(1);
+  });
+
+  it("honours midThin and shrink knobs", () => {
+    const look = pelletAbsorbLook(PELLET_ABSORB_STRETCH_END, from, to, r, {
+      ...DEFAULT_PELLET_ABSORB_LOOK,
+      midThin: 1,
+      nearShrink: 0.5,
+      farShrink: 0.25,
+    });
+    expect(look.midWidth).toBeCloseTo(0);
+    expect(look.near.r).toBeCloseTo(r * 0.5);
+    expect(look.far.r).toBeCloseTo(r * 0.75);
   });
 
   it("late suck pulls far near to and fades out", () => {
