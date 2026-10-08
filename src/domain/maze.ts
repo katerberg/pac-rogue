@@ -1431,34 +1431,12 @@ function pipeAdjacency(edges: readonly PipeEdge[]): Map<string, Set<string>> {
   return adj;
 }
 
-function edgeFacesDoor(edge: PipeEdge, door: SolidGrid): boolean {
-  const mx = (edge.x1 + edge.x2) / 2;
-  const my = (edge.y1 + edge.y2) / 2;
-  if (edge.y1 === edge.y2) {
-    const col = Math.floor((mx - MAZE_OFFSET_X) / TILE_SIZE);
-    const row = Math.floor((my - MAZE_OFFSET_Y) / TILE_SIZE);
-    return isDoor(col, row, door) || isDoor(col, row - 1, door);
-  }
-  if (edge.x1 === edge.x2) {
-    const col = Math.floor((mx - MAZE_OFFSET_X) / TILE_SIZE);
-    const row = Math.floor((my - MAZE_OFFSET_Y) / TILE_SIZE);
-    return isDoor(col, row, door) || isDoor(col - 1, row, door);
-  }
-  return false;
-}
-
 function edgeInsetOffset(
   edge: PipeEdge,
   walls: SolidGrid,
   inset: number,
-  door: SolidGrid,
 ): { ox: number; oy: number } {
   if (inset <= 0) {
-    return { ox: 0, oy: 0 };
-  }
-  // Keep ghost-house door jambs flush with the gate: insetting the door face
-  // widens the opening past the pink bar and leaves no thickness for fillets.
-  if (edgeFacesDoor(edge, door)) {
     return { ox: 0, oy: 0 };
   }
   const mx = (edge.x1 + edge.x2) / 2;
@@ -1491,7 +1469,6 @@ function insetVertexPositions(
   adj: Map<string, Set<string>>,
   walls: SolidGrid,
   inset: number,
-  door: SolidGrid,
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
   for (const [key, neighbors] of adj) {
@@ -1510,7 +1487,6 @@ function insetVertexPositions(
         { x1: vx, y1: vy, x2: cellOriginX(n.vc), y2: cellOriginY(n.vr) },
         walls,
         inset,
-        door,
       );
       if (ox !== 0) {
         x = vx + ox;
@@ -1522,15 +1498,6 @@ function insetVertexPositions(
     positions.set(key, { x, y });
   }
   return positions;
-}
-
-function vertexTouchesDoor(vc: number, vr: number, door: SolidGrid): boolean {
-  return (
-    isDoor(vc - 1, vr - 1, door) ||
-    isDoor(vc, vr - 1, door) ||
-    isDoor(vc - 1, vr, door) ||
-    isDoor(vc, vr, door)
-  );
 }
 
 function vertexCornerQuads(
@@ -1560,18 +1527,13 @@ export function wallPathCommands(
   const commands: WallPathCommand[] = [];
   const trimmed = new Set<string>();
   const adj = pipeAdjacency(edges);
-  const positions = insetVertexPositions(adj, walls, inset, door);
+  const positions = insetVertexPositions(adj, walls, inset);
 
   if (r > 0) {
     for (const [key, neighbors] of adj) {
       const { vc, vr } = parseVertexKey(key);
       const pos = positions.get(key);
       if (!pos) {
-        continue;
-      }
-      // Flat door-jamb caps: fillets at the house mouth read as outward "horns"
-      // once inset has already collapsed the one-tile top wall.
-      if (vertexTouchesDoor(vc, vr, door)) {
         continue;
       }
 
