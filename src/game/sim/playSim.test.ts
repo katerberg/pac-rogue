@@ -920,6 +920,32 @@ describe("PlaySim", () => {
     expect(startSim({ store: 1, lives: 4, maxLives: 4, quarters: 10 }).snapshot().lives).toBe(4);
   });
 
+  it("stacks Myogenesis level regen with store-entry regen", () => {
+    const stacked = startSim({
+      jumpToUpgrade: true,
+      level: 3,
+      enableUpgrades: ["passiveMyogenesis"],
+      lives: 1,
+      maxLives: 4,
+    });
+    (stacked as unknown as { lives: number }).lives = 1;
+    stacked.chooseUpgrade({ kind: "upgrade", id: drainToOffer(stacked).upgrades[0]! });
+    runUntil(stacked, () => stacked.snapshot().inStore, 240);
+    expect(stacked.snapshot().lives).toBe(3);
+
+    const natural = startSim({
+      jumpToUpgrade: true,
+      level: 3,
+      enableUpgrades: [],
+      lives: 1,
+      maxLives: 4,
+    });
+    (natural as unknown as { lives: number }).lives = 1;
+    natural.chooseUpgrade({ kind: "upgrade", id: drainToOffer(natural).upgrades[0]! });
+    runUntil(natural, () => natural.snapshot().inStore, 240);
+    expect(natural.snapshot().lives).toBe(2);
+  });
+
   it("buys a life at the store", () => {
     const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
     const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
