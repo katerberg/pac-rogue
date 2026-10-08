@@ -82,11 +82,11 @@ export type WallCornerCurveKind = "circular" | "quadratic";
 export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
 /**
- * Extra pixels past each wall stroke center on the actor display box.
- * Line-art rings sit inside their viewBox; without overscan they leave air in
- * the painted corridor. Visual only; collision uses `playerRadius`.
+ * Gap from each wall stroke center to the actor display-box edge.
+ * Keeps Dot-Man/ghosts inside the painted corridor (fractional OK).
+ * Visual only; collision uses `playerRadius`.
  */
-export const PLAYER_CORRIDOR_OVERSCAN_PX = 1;
+export const PLAYER_CORRIDOR_CLEARANCE_PX = 1.25;
 export const PELLET_DISPLAY_SIZE_MAX = 16;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
@@ -166,11 +166,11 @@ export function clampedWallInset(inset: number = WALL_INSET_PX): number {
 }
 
 export function playerDisplaySize(
-  overscanPx: number = PLAYER_CORRIDOR_OVERSCAN_PX,
+  clearancePx: number = PLAYER_CORRIDOR_CLEARANCE_PX,
   tileSize: number = TILE_SIZE,
   insetPx: number = clampedWallInset(),
 ): number {
-  return Math.max(1, tileSize + 2 * insetPx + 2 * overscanPx);
+  return Math.max(1, tileSize + 2 * insetPx - 2 * clearancePx);
 }
 
 const WALL_CHAR = "#";
