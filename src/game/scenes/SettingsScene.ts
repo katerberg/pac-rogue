@@ -39,6 +39,7 @@ import {
   addGameText,
   placeGameText,
   placeSelectableMenuOption,
+  setGameTextBloom,
   syncFontLookFromStorage,
   type GameText,
 } from "./neonFont";
