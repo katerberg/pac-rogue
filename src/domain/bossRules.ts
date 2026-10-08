@@ -23,11 +23,16 @@ export function chainPairForKind(kind: GhostKindId): ChainPairId | null {
   return null;
 }
 
+export type BossStageDef = {
+  spawnPellets: number;
+  chainPairs: readonly ChainPairId[];
+};
+
 export type BossDef = {
   id: BossId;
   ghostKinds: readonly GhostKindId[];
   startGhosts: number;
-  spawnPellets: number;
+  stages: readonly BossStageDef[];
   maxHouseGhosts: number;
   tunnelCount: number | null;
   houseReleaseStaggerMs: number;
@@ -39,7 +44,10 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     id: "blinkySwarm",
     ghostKinds: [GHOST_KIND.blinky],
     startGhosts: 2,
-    spawnPellets: 8,
+    stages: [
+      { spawnPellets: 3, chainPairs: [] },
+      { spawnPellets: 5, chainPairs: [] },
+    ],
     maxHouseGhosts: 4,
     tunnelCount: 3,
     houseReleaseStaggerMs: 600,
@@ -49,7 +57,10 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     id: "chainedGhosts",
     ghostKinds: [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde],
     startGhosts: 4,
-    spawnPellets: 0,
+    stages: [
+      { spawnPellets: 0, chainPairs: [CHAIN_PAIR.blinkyClyde] },
+      { spawnPellets: 0, chainPairs: [CHAIN_PAIR.blinkyClyde, CHAIN_PAIR.pinkyInky] },
+    ],
     maxHouseGhosts: 4,
     tunnelCount: null,
     houseReleaseStaggerMs: 1500,
@@ -77,8 +88,21 @@ export function bossGhostKind(def: BossDef, index: number): GhostKindId {
   return def.ghostKinds[Math.min(index, def.ghostKinds.length - 1)]!;
 }
 
+export function bossStageCount(def: BossDef): number {
+  return def.stages.length;
+}
+
+export function bossStage(def: BossDef, stageIndex: number): BossStageDef {
+  const clamped = Math.min(Math.max(0, stageIndex), def.stages.length - 1);
+  return def.stages[clamped]!;
+}
+
+export function totalBossSpawnPellets(def: BossDef): number {
+  return def.stages.reduce((sum, stage) => sum + stage.spawnPellets, 0);
+}
+
 export function maxBossGhosts(def: BossDef): number {
-  return def.startGhosts + def.spawnPellets;
+  return def.startGhosts + totalBossSpawnPellets(def);
 }
 
 export function bossStartGhosts(def: BossDef, tuning: Tuning = DEFAULT_TUNING): number {
@@ -94,10 +118,45 @@ export type BossState = {
   pendingSpawns: number;
   nextMouthIndex: number;
   bossPelletsRemaining: number;
+  stageIndex: number;
+  mazeColorInverted: boolean;
 };
 
 export function createBossState(def: BossDef, ghostCount: number): BossState {
-  return { def, ghostCount, pendingSpawns: 0, nextMouthIndex: 0, bossPelletsRemaining: 0 };
+  return {
+    def,
+    ghostCount,
+    pendingSpawns: 0,
+    nextMouthIndex: 0,
+    bossPelletsRemaining: 0,
+    stageIndex: 0,
+    mazeColorInverted: false,
+  };
+}
+
+export function isFinalBossStage(state: BossState): boolean {
+  return state.stageIndex >= bossStageCount(state.def) - 1;
+}
+
+export function advanceBossStage(state: BossState): BossState {
+  if (isFinalBossStage(state)) {
+    return state;
+  }
+  return {
+    ...state,
+    stageIndex: state.stageIndex + 1,
+    mazeColorInverted: true,
+    pendingSpawns: 0,
+    bossPelletsRemaining: 0,
+  };
+}
+
+export function invertRgb24(color: number): number {
+  return color ^ 0xffffff;
+}
+
+export function bossTimerLabel(glitch: boolean, remaining: number): string {
+  return glitch ? "Time: 888" : `Time: ${remaining}`;
 }
 
 export function recordBossPelletsEaten(state: BossState, remaining: number): BossState {

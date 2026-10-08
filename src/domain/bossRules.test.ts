@@ -1,17 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  advanceBossStage,
   BOSS_DEFS,
   bossGhostKind,
+  bossStage,
+  bossStageCount,
   bossStartGhosts,
+  bossTimerLabel,
   chainPairForKind,
   CHAIN_PAIR,
   createBossState,
+  invertRgb24,
   isBossLevel,
+  isFinalBossStage,
   maxBossGhosts,
   parseBossParam,
   pickBoss,
   recordBossPelletsEaten,
   splitBossGhosts,
+  totalBossSpawnPellets,
 } from "./bossRules";
 import { GHOST_KIND } from "./ghostKind";
 import { DEFAULT_TUNING } from "./tuning";
@@ -57,11 +64,14 @@ describe("parseBossParam", () => {
 });
 
 describe("Blinky Swarm", () => {
-  it("starts with 2 Blinkys and ends at 10 after all 8 boss pellets", () => {
+  it("starts with 2 Blinkys and ends at 10 after both stages of boss pellets", () => {
     expect(bossGhostKind(def, 0)).toBe(GHOST_KIND.blinky);
     expect(bossGhostKind(def, 9)).toBe(GHOST_KIND.blinky);
     expect(def.startGhosts).toBe(2);
-    expect(def.spawnPellets).toBe(8);
+    expect(bossStageCount(def)).toBe(2);
+    expect(bossStage(def, 0)).toEqual({ spawnPellets: 3, chainPairs: [] });
+    expect(bossStage(def, 1)).toEqual({ spawnPellets: 5, chainPairs: [] });
+    expect(totalBossSpawnPellets(def)).toBe(8);
     expect(maxBossGhosts(def)).toBe(10);
   });
 
@@ -73,7 +83,7 @@ describe("Blinky Swarm", () => {
 });
 
 describe("Chained Ghosts", () => {
-  it("is the full roster, two chain pairs, with no boss pellets and no growth", () => {
+  it("is the full roster with staged chain pairs and no boss pellets", () => {
     expect([0, 1, 2, 3].map((i) => bossGhostKind(chained, i))).toEqual([
       GHOST_KIND.blinky,
       GHOST_KIND.pinky,
@@ -83,6 +93,11 @@ describe("Chained Ghosts", () => {
     expect(chained.chained).toBe(true);
     expect(maxBossGhosts(chained)).toBe(4);
     expect(splitBossGhosts(chained, 4)).toEqual({ house: 4, tunnel: 0 });
+    expect(bossStage(chained, 0).chainPairs).toEqual([CHAIN_PAIR.blinkyClyde]);
+    expect(bossStage(chained, 1).chainPairs).toEqual([
+      CHAIN_PAIR.blinkyClyde,
+      CHAIN_PAIR.pinkyInky,
+    ]);
   });
 
   it("ignores the swarm start knob", () => {
@@ -107,29 +122,55 @@ describe("splitBossGhosts", () => {
   });
 });
 
+describe("boss stages", () => {
+  it("advances to stage 2 and inverts the maze color once", () => {
+    const start = createBossState(def, 2);
+    expect(isFinalBossStage(start)).toBe(false);
+    expect(start.stageIndex).toBe(0);
+    expect(start.mazeColorInverted).toBe(false);
+
+    const next = advanceBossStage(start);
+    expect(next.stageIndex).toBe(1);
+    expect(next.mazeColorInverted).toBe(true);
+    expect(isFinalBossStage(next)).toBe(true);
+    expect(advanceBossStage(next)).toBe(next);
+  });
+
+  it("inverts 24-bit RGB with XOR white", () => {
+    expect(invertRgb24(0x000000)).toBe(0xffffff);
+    expect(invertRgb24(0xffffff)).toBe(0x000000);
+    expect(invertRgb24(0x123456)).toBe(0xedcba9);
+  });
+
+  it("formats the broken timer as Time: 888 while glitching", () => {
+    expect(bossTimerLabel(true, 42)).toBe("Time: 888");
+    expect(bossTimerLabel(false, 42)).toBe("Time: 42");
+  });
+});
+
 describe("recordBossPelletsEaten", () => {
-  it("adds one pending Blinky per boss pellet eaten, reaching 10 after all 8", () => {
-    let state = { ...createBossState(def, 2), bossPelletsRemaining: 8 };
-    for (let remaining = 7; remaining >= 0; remaining -= 1) {
+  it("adds one pending Blinky per boss pellet eaten in stage 1", () => {
+    let state = { ...createBossState(def, 2), bossPelletsRemaining: 3 };
+    for (let remaining = 2; remaining >= 0; remaining -= 1) {
       state = recordBossPelletsEaten(state, remaining);
     }
-    expect(state.ghostCount).toBe(10);
-    expect(state.pendingSpawns).toBe(8);
+    expect(state.ghostCount).toBe(5);
+    expect(state.pendingSpawns).toBe(3);
     expect(state.bossPelletsRemaining).toBe(0);
   });
 
   it("handles several pellets eaten in one frame and no-ops when none were", () => {
-    const start = { ...createBossState(def, 2), bossPelletsRemaining: 8 };
-    expect(recordBossPelletsEaten(start, 8)).toBe(start);
-    expect(recordBossPelletsEaten(start, 5)).toMatchObject({ ghostCount: 5, pendingSpawns: 3 });
+    const start = { ...createBossState(def, 2), bossPelletsRemaining: 3 };
+    expect(recordBossPelletsEaten(start, 3)).toBe(start);
+    expect(recordBossPelletsEaten(start, 1)).toMatchObject({ ghostCount: 4, pendingSpawns: 2 });
   });
 
   it("never grows past the boss max (e.g. a 10-Blinky knob start)", () => {
-    const full = { ...createBossState(def, 10), bossPelletsRemaining: 8 };
-    expect(recordBossPelletsEaten(full, 6)).toMatchObject({
+    const full = { ...createBossState(def, 10), bossPelletsRemaining: 3 };
+    expect(recordBossPelletsEaten(full, 1)).toMatchObject({
       ghostCount: 10,
       pendingSpawns: 0,
-      bossPelletsRemaining: 6,
+      bossPelletsRemaining: 1,
     });
   });
 });

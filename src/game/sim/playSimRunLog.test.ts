@@ -116,7 +116,13 @@ describe("PlaySim run log", () => {
   });
 
   it("finishes as complete when the last level is cleared", () => {
-    const { sim } = startSim({ jumpToUpgrade: true, level: 9 });
+    const { sim } = startSim({ level: 9, boss: "blinkySwarm", bossStageAdvance: true });
+    runUntil(
+      sim,
+      () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+      200,
+    );
+    sim["jumpToLevelClear"]();
     const events = runUntil(sim, () => sim.snapshot().runComplete, 300);
     expect(runLogs(events).at(-1)).toMatchObject({ outcome: "complete", finalLevel: 9 });
   });
