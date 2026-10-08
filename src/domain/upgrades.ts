@@ -7,6 +7,7 @@ import {
   hunterFrightenedMs,
   type FrightenedGhosts,
 } from "./hunter";
+import { levelScaledDurationMs } from "./levelScaledDuration";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE } from "./maze";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 
@@ -266,11 +267,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletFreeze",
     label: "Freeze",
     school: "disruption",
-    description: "Chomp a power pellet and the nearest ghost locks solid for a few seconds.",
+    description:
+      "Chomp a power pellet and the nearest ghost locks solid for 3s (shortening toward 2s by level 5).",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Freeze locks for 5 seconds instead of 3.",
-      description: "Chomp a power pellet and the nearest ghost locks solid for five seconds.",
+      enhanceNote: "Freeze locks for 5 seconds instead of 3 (still shortens by level).",
+      description:
+        "Chomp a power pellet and the nearest ghost locks solid for 5s (shortening toward ~3.3s by level 5).",
       onPowerPellet: { freezeClosestGhostMs: FREEZE_ENHANCED_MS },
     },
     onPowerPellet: { freezeClosestGhostMs: FREEZE_MS },
@@ -417,12 +420,14 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletWallPass",
     label: "Wall Pass",
     school: "speed",
-    description: "Power pellet lets you slip through walls for a breath.",
+    description: "Power pellet lets you slip through walls for 6s (shortening 0.5s a level to 4s).",
     storePrice: STORE_RARE_UPGRADE_PRICE,
     rare: true,
     enhanced: {
-      enhanceNote: "Wall Pass also lets you loop around every edge of the maze.",
-      description: "Power pellet lets you slip through walls and loop around the maze edges.",
+      enhanceNote:
+        "Wall Pass also lets you loop around every edge of the maze (duration still shortens by level).",
+      description:
+        "Power pellet lets you slip through walls and loop around the maze edges for 6s (shortening to 4s by level 5).",
       onPowerPellet: { wallPassMs: WALL_PASS_MS, wallPassLoop: true },
     },
     onPowerPellet: { wallPassMs: WALL_PASS_MS },
@@ -445,11 +450,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletInvuln",
     label: "Ghost Proof",
     school: "protection",
-    description: "Power pellet lets you pass through ghosts briefly.",
+    description:
+      "Power pellet lets you pass through ghosts for 3s (shortening toward 2s by level 5).",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Ghost Proof lasts 5 seconds instead of 3.",
-      description: "Power pellet lets you pass through ghosts for five seconds.",
+      enhanceNote: "Ghost Proof lasts 5 seconds instead of 3 (still shortens by level).",
+      description:
+        "Power pellet lets you pass through ghosts for 5s (shortening toward ~3.3s by level 5).",
       onPowerPellet: { playerInvulnMs: INVULN_ENHANCED_MS },
     },
     onPowerPellet: { playerInvulnMs: INVULN_MS },
@@ -1477,6 +1484,12 @@ export function applyPowerPelletEffects(
       frightenMs = frightenMs === null ? ms : Math.max(frightenMs, ms);
     }
   }
+
+  const byLevel = (ms: number | null): number | null =>
+    ms === null ? null : levelScaledDurationMs(ms, levelIndex);
+  freezeClosestMs = byLevel(freezeClosestMs);
+  wallPassMs = byLevel(wallPassMs);
+  invulnMs = byLevel(invulnMs);
 
   const overcharge = overchargeMultiplier(owned);
   const scaled = (ms: number | null): number | null => (ms === null ? null : ms * overcharge);

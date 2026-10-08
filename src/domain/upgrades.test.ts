@@ -1637,6 +1637,40 @@ describe("Echo", () => {
   });
 });
 
+describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
+  const chomp = (owned: UpgradeId[], level = 1) =>
+    applyPowerPelletEffects(createRunUpgrades(owned), 1, undefined, level);
+
+  it("shortens Freeze / Ghost Proof / Wall Pass by level; enhanced shortens from its own base", () => {
+    expect(chomp(["powerPelletFreeze"]).freezeClosestMs).toBe(FREEZE_MS);
+    expect(chomp(["powerPelletFreeze"], 5).freezeClosestMs).toBe(2000);
+    expect(chomp(["powerPelletFreezePlus"], 5).freezeClosestMs).toBe(3333);
+
+    expect(chomp(["powerPelletInvuln"]).state.invulnRemainingMs).toBe(INVULN_MS);
+    expect(chomp(["powerPelletInvuln"], 5).state.invulnRemainingMs).toBe(2000);
+    expect(chomp(["powerPelletInvulnPlus"], 5).state.invulnRemainingMs).toBe(3333);
+
+    expect(chomp(["powerPelletWallPass"]).state.wallPassRemainingMs).toBe(WALL_PASS_MS);
+    expect(chomp(["powerPelletWallPass"], 5).state.wallPassRemainingMs).toBe(4000);
+    expect(chomp(["powerPelletWallPassPlus"], 5).state.wallPassRemainingMs).toBe(4000);
+  });
+
+  it("Overcharge doubles the already-shortened L5 duration", () => {
+    expect(chomp(["powerPelletFreeze", "passiveOvercharge"], 5).freezeClosestMs).toBe(4000);
+    expect(chomp(["powerPelletInvuln", "passiveOvercharge"], 5).state.invulnRemainingMs).toBe(4000);
+    expect(chomp(["powerPelletWallPass", "passiveOvercharge"], 5).state.wallPassRemainingMs).toBe(
+      8000,
+    );
+  });
+
+  it("does not level-scale Warp Farthest+ invuln", () => {
+    expect(chomp(["powerPelletWarpFarthestPlus"], 5).state.invulnRemainingMs).toBe(2000);
+    expect(
+      chomp(["powerPelletWarpFarthestPlus", "powerPelletInvuln"], 5).state.invulnRemainingMs,
+    ).toBe(2000);
+  });
+});
+
 describe("Hunter", () => {
   const chomp = (owned: UpgradeId[], level = 1) =>
     applyPowerPelletEffects(createRunUpgrades(owned), 1, undefined, level);
