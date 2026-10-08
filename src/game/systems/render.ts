@@ -26,6 +26,13 @@ import {
 } from "../../domain/pelletStyle";
 import type { LineArt } from "../../domain/lineArt";
 import { DOTMAN_LINE_ART, dotManLineArt } from "../art/dotmanLineArt";
+import {
+  advanceDotManChomp,
+  DOTMAN_CHOMP_PIXEL_FRAMES,
+  DOTMAN_CHOMP_PIXELS_PER_FRAME,
+  dotManChompPixelsPerFrame,
+  dotManMouthHalfAngle,
+} from "../../domain/dotManMouth";
 import { restingTurn, turnAngle, turnToward, type DotManTurn } from "../../domain/dotManTurn";
 import { GHOST_LINE_ART } from "../art/ghostLineArt";
 import {
@@ -119,9 +126,7 @@ const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
 const BOSS_PELLET_MIN_ALPHA = 0.6;
-const CHOMP_PIXELS_PER_FRAME = 12;
-const CHOMP_CYCLE = [1, 2, 3, 2] as const;
-const OPEN_MOUTH_FRAME = 1;
+const OPEN_MOUTH_FRAME = DOTMAN_CHOMP_PIXEL_FRAMES[0];
 const PACMAN_DIRS = ["up", "down", "left", "right"] as const;
 
 type PacmanDir = (typeof PACMAN_DIRS)[number];
@@ -428,6 +433,7 @@ export type PlayRender = {
   setWallStyle: (style: WallStyle | null) => void;
   setPelletStyle: (style: PelletStyle | null) => void;
   setGhostLook: (look: GhostLineArtLook) => void;
+  setDotManChompSpeed: (speed: number) => void;
 };
 
 const DIM_GHOST_ALPHA = 0.4;
@@ -513,6 +519,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let pelletBakeSignature = "";
   let ghostLookOverride: GhostLineArtLook | null = null;
   let ghostLook = ghostLineArtLook(null, loadGhostStyle());
+  let chompPixelsPerFrame = DOTMAN_CHOMP_PIXELS_PER_FRAME;
   let bossPelletTint = 0xffffff;
 
   // Glow textures are baked at the canvas density; rebuild them when the canvas resizes.
@@ -930,9 +937,24 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       if (id === PLAYER_DRAWABLE_ID && lineArtIds.has(id)) {
         destroyImage(primaryKey);
         const visual = ensurePlayerVisual(playerVisuals, eid, x, y);
-        visual.lastDir = facingToDir(Facing.direction[eid] ?? DIRECTION.none) ?? visual.lastDir;
+        const movingDir = facingToDir(Facing.direction[eid] ?? DIRECTION.none);
+        if (movingDir) {
+          visual.lastDir = movingDir;
+          const stepped = advanceDotManChomp(
+            { carry: visual.chompCarry, cycleIndex: visual.cycleIndex },
+            Math.hypot(x - visual.lastX, y - visual.lastY),
+            chompPixelsPerFrame,
+          );
+          visual.chompCarry = stepped.carry;
+          visual.cycleIndex = stepped.cycleIndex;
+        }
+        visual.lastX = x;
+        visual.lastY = y;
         visual.turn = turnToward(visual.turn, visual.lastDir, scene.time.now);
-        const art = dotManLineArt(turnAngle(visual.turn, scene.time.now));
+        const art = dotManLineArt(
+          turnAngle(visual.turn, scene.time.now),
+          dotManMouthHalfAngle(visual.cycleIndex, movingDir !== null),
+        );
         const color = tintedColor(DOTMAN_LINE_ART_COLOR, playerTintNow);
         const look = playerLineArtLook(ghostLook);
         const placeDotMan = (
@@ -1042,14 +1064,16 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         let nextKey: string;
         if (movingDir) {
           visual.lastDir = movingDir;
-          const dx = x - visual.lastX;
-          const dy = y - visual.lastY;
-          visual.chompCarry += Math.hypot(dx, dy);
-          while (visual.chompCarry >= CHOMP_PIXELS_PER_FRAME) {
-            visual.chompCarry -= CHOMP_PIXELS_PER_FRAME;
-            visual.cycleIndex = (visual.cycleIndex + 1) % CHOMP_CYCLE.length;
-          }
-          const frame = CHOMP_CYCLE[visual.cycleIndex] ?? OPEN_MOUTH_FRAME;
+          const stepped = advanceDotManChomp(
+            { carry: visual.chompCarry, cycleIndex: visual.cycleIndex },
+            Math.hypot(x - visual.lastX, y - visual.lastY),
+            chompPixelsPerFrame,
+          );
+          visual.chompCarry = stepped.carry;
+          visual.cycleIndex = stepped.cycleIndex;
+          const frame =
+            DOTMAN_CHOMP_PIXEL_FRAMES[visual.cycleIndex % DOTMAN_CHOMP_PIXEL_FRAMES.length] ??
+            OPEN_MOUTH_FRAME;
           nextKey = pacmanTextureKey(visual.lastDir, frame);
         } else {
           nextKey = pacmanTextureKey(visual.lastDir, OPEN_MOUTH_FRAME);
@@ -1255,6 +1279,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
+  const setDotManChompSpeed = (speed: number): void => {
+    chompPixelsPerFrame = dotManChompPixelsPerFrame(speed);
+  };
+
   return {
     draw,
     releaseDrawable,
@@ -1263,5 +1291,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     setWallStyle,
     setPelletStyle,
     setGhostLook,
+    setDotManChompSpeed,
   };
 }
