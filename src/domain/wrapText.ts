@@ -1,4 +1,3 @@
-/** Word-wrap by character budget (style-agnostic; pass `wrapCharBudget` / `wrapCharsForBox` result). */
 export function wrapText(text: string, maxCharsPerLine: number): string {
   const words = text.split(" ");
   const lines: string[] = [];

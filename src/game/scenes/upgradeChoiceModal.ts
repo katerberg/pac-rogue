@@ -632,7 +632,6 @@ export function stackTexts(stack: { text: GameText; gapBelow: number }[], center
   }
 }
 
-/** Top-anchored stack (store side panel): pack from `topY` downward with no empty band above. */
 export function stackTextsFromTop(
   stack: { text: GameText; gapBelow: number }[],
   topY: number,
