@@ -472,6 +472,38 @@ describe("rare upgrades", () => {
     expect(RARE_OFFER_WEIGHT).toBe(0.5);
   });
 
+  it("is drawn at half a common's weight in a closed pool when school affinity is idle", () => {
+    const left: BaseUpgradeId[] = [
+      "passiveMartyr",
+      "passiveGhostSlow",
+      "passiveAfterburner",
+      "fruitFeast",
+    ];
+    const owned: UpgradeId[] = ["powerPelletWarpFarthest", "passiveShieldPellets"];
+    for (const id of left) {
+      expect(schoolAffinityPoints(owned, getUpgradeDef(id).school)).toBe(0);
+      expect(upgradeOfferWeight(id, owned)).toBe(isRare(id) ? RARE_OFFER_WEIGHT : 1);
+    }
+    let x = 7;
+    const rng = () => {
+      x = (x * 1103515245 + 12345) % 2147483648;
+      return x / 2147483648;
+    };
+    const draws = 4000;
+    let withRare = 0;
+    for (let i = 0; i < draws; i += 1) {
+      const pool = [...left];
+      const picked = [
+        takeWeightedUpgrade(pool, rng, (id) => upgradeOfferWeight(id, owned)),
+        takeWeightedUpgrade(pool, rng, (id) => upgradeOfferWeight(id, owned)),
+        takeWeightedUpgrade(pool, rng, (id) => upgradeOfferWeight(id, owned)),
+      ];
+      withRare += picked.includes("passiveMartyr") ? 1 : 0;
+    }
+    const expected = 1 - (3 / 3.5) * (2 / 2.5) * (1 / 1.5);
+    expect(Math.abs(withRare / draws - expected)).toBeLessThan(0.03);
+  });
+
   it("shows up in a level-clear offer at half a common's weight times school affinity", () => {
     const left: BaseUpgradeId[] = [
       "passiveMartyr",

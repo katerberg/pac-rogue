@@ -164,6 +164,7 @@ Level-clear offers softly favor schools the player already owns so specializatio
 - **Points.** `schoolAffinityPoints(owned, school)` counts every owned upgrade of that school (base, Plus, and specialists). Neutral always scores 0 and never contributes.
 - **Weight.** `upgradeOfferWeight(id, owned)` returns `schoolMult × (isRare(id) ? RARE_OFFER_WEIGHT : 1)`. For a non-Neutral candidate with `points > 0`, `schoolMult = 1 + rate × points` where `rate` is `SCHOOL_AFFINITY_COMMON_RATE` (0.10) for commons and `SCHOOL_AFFINITY_RARE_RATE` (0.15) for rares. Uncapped. Neutral candidates and schools with 0 points keep `schoolMult = 1`.
 - **Examples.** Own 2 Death → Death common weight `1.2`; Death rare weight `1.3 × 0.5 = 0.65`. Empty owned → today’s rare-only weights.
+
 - The modal lays these out as four fixed direction slots — **up/down/left/right**, D-pad style:
   - **Down is always the Quarters option** (`+QUARTERS_CHOICE_AMOUNT`, currently 2), regardless of how many upgrades are offered.
   - The upgrade slots fill in a fixed order based on count: 0 → none (down-only); 1 → up; 2 → left + right (matching the old two-button layout); 3 → up + left + right.
