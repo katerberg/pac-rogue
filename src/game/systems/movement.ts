@@ -13,6 +13,7 @@ import {
   getActiveLayout,
   isAlignedForTurn,
   snapPerpendicularToCenterline,
+  snapToCellCenter,
   worldToCol,
   worldToRow,
   wrapPosition,
@@ -162,9 +163,20 @@ export function movement(
     };
 
     if (speed > 0 && (isDiagonalDirection(facing) || isDiagonalDirection(nextIntent))) {
-      const stopsOnRelease = playerStopOnRelease && !ghost;
-      const desired =
-        nextIntent !== DIRECTION.none ? nextIntent : stopsOnRelease ? DIRECTION.none : facing;
+      if (nextIntent === DIRECTION.none && playerStopOnRelease && !ghost) {
+        const center = snapToCellCenter(x, y);
+        const dx = center.x - x;
+        const dy = center.y - y;
+        const dist = Math.hypot(dx, dy);
+        const settled = dist <= frameTravel;
+        Position.x[eid] = settled ? center.x : x + (dx / dist) * frameTravel;
+        Position.y[eid] = settled ? center.y : y + (dy / dist) * frameTravel;
+        Velocity.x[eid] = settled ? 0 : (dx / dist) * speed;
+        Velocity.y[eid] = settled ? 0 : (dy / dist) * speed;
+        Facing.direction[eid] = settled ? DIRECTION.none : facing;
+        continue;
+      }
+      const desired = nextIntent !== DIRECTION.none ? nextIntent : facing;
       const step = directionStep(desired);
       const norm = Math.hypot(step.dx, step.dy) || 1;
       const vx = (step.dx / norm) * speed;
@@ -182,8 +194,8 @@ export function movement(
 
       let nextX = x;
       let nextY = y;
-      let movedX = desired === DIRECTION.none || step.dx === 0;
-      let movedY = desired === DIRECTION.none || step.dy === 0;
+      let movedX = step.dx === 0;
+      let movedY = step.dy === 0;
       if (step.dx !== 0) {
         if (xOpen) {
           nextX = x + vx * dt;
@@ -201,7 +213,7 @@ export function movement(
         }
       }
 
-      if (desired === DIRECTION.none || (!movedX && !movedY)) {
+      if (!movedX && !movedY) {
         Facing.direction[eid] = DIRECTION.none;
         Velocity.x[eid] = 0;
         Velocity.y[eid] = 0;
