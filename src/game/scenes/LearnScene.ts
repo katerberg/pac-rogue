@@ -122,7 +122,7 @@ type UpgradeRow = {
   checkMark: Phaser.GameObjects.Shape;
   label: GameText;
   plus: GameText;
-  plusBox: Phaser.GameObjects.Rectangle;
+  plusBox: Phaser.GameObjects.Shape;
   plusZone: Phaser.GameObjects.Zone;
 };
 
@@ -342,10 +342,17 @@ export class LearnScene extends Phaser.Scene {
     const label = addGameText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
     setGameTextBloom(label, false);
     placeGameText(label, labelX, y, 0, 0.5);
-    const plusBox = this.add
-      .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
-      .setStrokeStyle(2, TEXT_COLOR_YELLOW)
-      .setVisible(false);
+    const plusRadius = UPGRADE_PLUS_BOX_SIZE / 2;
+    const plusBox =
+      look.shape === "circle"
+        ? this.add
+            .circle(plusX, y, plusRadius, 0x000000, 0)
+            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_YELLOW)
+            .setVisible(false)
+        : this.add
+            .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
+            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_YELLOW)
+            .setVisible(false);
     const plus = addGameText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
     setGameTextBloom(plus, false);
     const pixelInk = textStyleFor(ghostStyle) === "pixel";
@@ -357,19 +364,23 @@ export class LearnScene extends Phaser.Scene {
       0.5,
     );
     plus.setVisible(false);
-    const zone = this.add.zone(
-      columnX + UPGRADE_ROW_WIDTH / 2,
-      y,
-      UPGRADE_ROW_WIDTH,
-      UPGRADE_ROW_GAP - 2,
-    );
-    zone.setInteractive({ useHandCursor: true });
-    zone.on("pointerdown", () => this.toggleUpgrade(def.id));
-    zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
+    const rowHitH = UPGRADE_ROW_GAP - 2;
+    const checkZoneW = UPGRADE_CHECK_SIZE + UPGRADE_CHECK_GAP;
+    const checkZone = this.add.zone(columnX + checkZoneW / 2, y, checkZoneW, rowHitH);
+    checkZone.setInteractive({ useHandCursor: true });
+    checkZone.on("pointerdown", () => this.toggleUpgrade(def.id));
+    checkZone.on("pointerover", () => this.cancelUpgradePreview());
+    const labelZoneLeft = columnX + checkZoneW;
+    const labelZoneRight = plusX - UPGRADE_PLUS_ZONE_WIDTH / 2;
+    const labelZoneW = Math.max(1, labelZoneRight - labelZoneLeft);
+    const labelZone = this.add.zone(labelZoneLeft + labelZoneW / 2, y, labelZoneW, rowHitH);
+    labelZone.setInteractive({ useHandCursor: true });
+    labelZone.on("pointerdown", () => this.toggleUpgrade(def.id));
+    labelZone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
       this.scheduleUpgradePreview(def.id, column, pointer.worldY),
     );
-    zone.on("pointerout", () => this.cancelUpgradePreview());
-    const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, UPGRADE_ROW_GAP - 2);
+    labelZone.on("pointerout", () => this.cancelUpgradePreview());
+    const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, rowHitH);
     plusZone.on("pointerdown", () => this.toggleEnhanced(def.baseId));
     plusZone.on("pointerover", () => this.cancelUpgradePreview());
     this.upgradeRows.push({ id: def.baseId, checkMark, label, plus, plusBox, plusZone });
