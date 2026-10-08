@@ -285,7 +285,7 @@ export class RunRecorder {
 
   livesRegenerated(before: number, after: number): void {
     if (this.level !== null) {
-      this.level.livesRegenerated = after - before;
+      this.level.livesRegenerated += after - before;
       this.level.livesEnd = after;
       this.lives(after);
     }

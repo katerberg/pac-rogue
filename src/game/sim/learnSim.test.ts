@@ -441,9 +441,9 @@ describe("LearnSim upgrade demos", () => {
 
   it("Extra Life shows an extra life and a catch costs one", () => {
     const { sim, player } = setup("passiveExtraLife");
-    expect(sim.statusText()).toContain("LIVES 4");
+    expect(sim.statusText()).toContain("LIVES 5");
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
-    expect(sim.statusText()).toContain("LIVES 3");
+    expect(sim.statusText()).toContain("LIVES 4");
     expect(popups(catchByGhost(sim, player))).toEqual([]);
     sim.toggleUpgrade("passiveExtraLife");
     expect(sim.statusText()).toBe("");
@@ -469,7 +469,7 @@ describe("LearnSim upgrade demos", () => {
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     sim.step(NO_KEYS_HELD, FRAME_MS);
     expect(popups(catchByGhost(sim, player))).toEqual(["SAVED"]);
-    expect(sim.statusText()).toContain("LIVES 3");
+    expect(sim.statusText()).toContain("LIVES 4");
     runMs(sim, 1_600);
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
@@ -483,7 +483,7 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toContain("SHIELDS 1/1");
     expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
     expect(sim.statusText()).toContain("SHIELDS 0/1");
-    expect(sim.statusText()).toContain("LIVES 3");
+    expect(sim.statusText()).toContain("LIVES 4");
     runMs(sim, 3_100);
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
@@ -510,6 +510,8 @@ describe("LearnSim upgrade demos", () => {
     eatFruit(sim, player);
     expect(sim.statusText()).toContain("QUARTERS 1");
     catchByGhost(sim, player);
+    runMs(sim, 1_600);
+    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
     runMs(sim, 1_600);
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
     runMs(sim, 1_600);
@@ -676,12 +678,12 @@ describe("LearnSim upgrade demos", () => {
     });
   });
 
-  it("Myogenesis regains two lives when the board refills, without a popup", () => {
+  it("Myogenesis regains one life when the board refills, without a popup", () => {
     const { sim, player } = setup("passiveMyogenesis");
     catchByGhost(sim, player);
     runMs(sim, 1_600);
     catchByGhost(sim, player);
-    expect(sim.statusText()).toContain("LIVES 1");
+    expect(sim.statusText()).toContain("LIVES 2");
     for (const eid of query(sim.world, [Pellet])) {
       removeEntity(sim.world, eid);
     }

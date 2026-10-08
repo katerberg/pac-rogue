@@ -402,6 +402,7 @@ describe("pickStartingUpgrade", () => {
 
   it("never starts a run with Fruit Feast", () => {
     expect(STARTING_UPGRADE_POOL).not.toContain("fruitFeast");
+    expect(STARTING_UPGRADE_POOL).not.toContain("passiveMyogenesis");
   });
 
   it("picks uniformly from unowned starting-pool ids by rng", () => {

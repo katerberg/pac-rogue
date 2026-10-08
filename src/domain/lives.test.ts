@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_LIVES_FLAG,
   START_LIVES,
+  STORE_REGEN_AMOUNT,
   levelLivesIconFloor,
   levelRegenAmount,
   livesAfterLevelRegen,
@@ -13,8 +14,8 @@ import {
 } from "./lives";
 
 describe("livesRemainingAfterCatch", () => {
-  it("starts from START_LIVES of 3", () => {
-    expect(START_LIVES).toBe(3);
+  it("starts from START_LIVES of 4", () => {
+    expect(START_LIVES).toBe(4);
   });
 
   it("decrements without game over when more than one life remains", () => {
@@ -79,6 +80,10 @@ describe("livesAfterLevelRegen", () => {
     expect(livesAfterLevelRegen(4)).toBe(4);
     expect(livesAfterLevelRegen(5)).toBe(5);
   });
+
+  it("leaves lives unchanged when regen amount is zero", () => {
+    expect(livesAfterLevelRegen(2, 3, 0)).toBe(2);
+  });
 });
 
 describe("levelLivesIconFloor", () => {
@@ -100,9 +105,10 @@ describe("levelLivesIconFloor", () => {
 });
 
 describe("levelRegenAmount", () => {
-  it("regenerates two lives with Myogenesis, one otherwise", () => {
-    expect(levelRegenAmount(false)).toBe(1);
-    expect(levelRegenAmount(true)).toBe(2);
+  it("regenerates one life with Myogenesis and none without", () => {
+    expect(STORE_REGEN_AMOUNT).toBe(1);
+    expect(levelRegenAmount(false)).toBe(0);
+    expect(levelRegenAmount(true)).toBe(1);
     expect(levelRegenAmount(true, true)).toBe(Number.POSITIVE_INFINITY);
     expect(livesAfterLevelRegen(2, levelLivesIconFloor(2), levelRegenAmount(true, true))).toBe(6);
   });
