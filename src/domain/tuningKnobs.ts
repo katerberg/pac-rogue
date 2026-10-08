@@ -11,10 +11,27 @@ export type KnobGroup =
   | "Ghost AI"
   | "Release"
   | "Scatter"
-  | "Visuals"
-  | "Dots";
+  | "Visuals";
 
-type KnobBase = { key: TuningKey; group: KnobGroup; label: string };
+export type VisualsSubgroup =
+  "Walls" | "Ghosts" | "Quarters" | "Dot-Man" | "Background" | "Font" | "Dots";
+
+export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
+  "Walls",
+  "Ghosts",
+  "Quarters",
+  "Dot-Man",
+  "Background",
+  "Font",
+  "Dots",
+];
+
+type KnobBase = {
+  key: TuningKey;
+  group: KnobGroup;
+  label: string;
+  subgroup?: VisualsSubgroup;
+};
 
 export type RangeKnob = KnobBase & {
   kind: "range";
@@ -34,15 +51,12 @@ export const LEFT_KNOB_GROUPS: readonly KnobGroup[] = [
   "Death",
   "Bonus",
   "Boss",
-];
-
-export const RIGHT_KNOB_GROUPS: readonly KnobGroup[] = [
   "Ghost AI",
   "Release",
   "Scatter",
-  "Visuals",
-  "Dots",
 ];
+
+export const RIGHT_KNOB_GROUPS: readonly KnobGroup[] = ["Visuals"];
 
 function range(
   key: TuningKey,
@@ -52,8 +66,9 @@ function range(
   max: number,
   step: number,
   unit = "",
+  subgroup?: VisualsSubgroup,
 ): RangeKnob {
-  return { key, group, label, kind: "range", min, max, step, unit };
+  return { key, group, label, kind: "range", min, max, step, unit, subgroup };
 }
 
 export const TUNING_KNOBS: readonly KnobDef[] = [
@@ -99,61 +114,109 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("scatterEarlyMs", "Scatter", "Scatter L2-4", 0, 30000, 250, "ms"),
   range("scatterLateMs", "Scatter", "Late scatter", 0, 30000, 250, "ms"),
   range("chaseMs", "Scatter", "Chase", 1000, 60000, 500, "ms"),
-  range("wallThickness", "Visuals", "Wall thickness", 1, 24, 0.5, "px"),
-  { key: "wallColor", group: "Visuals", label: "Wall color", kind: "color" },
-  range("wallGlow", "Visuals", "Wall glow", 0, 12, 0.1),
-  range("wallGlowRadius", "Visuals", "Wall glow radius", 0, 36, 1, "px"),
-  range("ghostGlow", "Visuals", "Ghost glow", 0, 12, 0.1),
-  range("ghostGlowRadius", "Visuals", "Ghost glow radius", 0, 36, 1, "px"),
-  range("ghostLineWidth", "Visuals", "Ghost line thickness", 1, 45, 0.5, "%"),
-  range("ghostWidth", "Visuals", "Line ghost width", 0.6, 4.5, 0.01, "×"),
-  range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×"),
-  range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×"),
-  range("dotManMouthOpenDeg", "Visuals", "Mouth open", 20, 75, 1, "°"),
-  range("dotManMouthClosedDeg", "Visuals", "Mouth closed", 4, 40, 1, "°"),
-  range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px"),
-  { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
-  range("fontThickness", "Visuals", "Font thickness", 0.05, 3, 0.05),
-  range("fontBloom", "Visuals", "Font bloom", 0, 12, 0.1),
-  range("fontBloomRadius", "Visuals", "Font bloom radius", 0, 48, 1, "px"),
-  { key: "fontGlowColor", group: "Visuals", label: "Font glow color", kind: "color" },
-  range("fontLetterSpacing", "Visuals", "Font letter spacing", -0.5, 2, 0.05),
-  range("fontHeightScale", "Visuals", "Font height", 0.4, 3, 0.05, "×"),
-  { key: "fontGlowKnockout", group: "Visuals", label: "Font glow knockout", kind: "toggle" },
-  range("pelletRadius", "Dots", "Dot radius", 0.5, 48, 0.1, "px"),
-  range("pelletStrokeWidth", "Dots", "Dot stroke", 0.1, 32, 0.1, "px"),
-  range("pelletGlow", "Dots", "Dot glow", 0, 36, 8),
-  range("pelletGlowRadius", "Dots", "Dot glow radius", 0, 120, 1, "px"),
-  { key: "pelletCoreColor", group: "Dots", label: "Dot core colour", kind: "color" },
-  { key: "pelletGlowColor", group: "Dots", label: "Dot glow colour", kind: "color" },
-  range("pelletFillOpacity", "Dots", "Dot fill opacity", 0, 1, 0.05),
-  range("powerPelletRadius", "Dots", "Power radius", 0.5, 48, 0.1, "px"),
-  range("powerPelletStrokeWidth", "Dots", "Power stroke", 0.1, 32, 0.1, "px"),
-  range("powerPelletGlow", "Dots", "Power glow", 0, 36, 8),
-  range("powerPelletGlowRadius", "Dots", "Power glow radius", 0, 120, 1, "px"),
-  range("powerPelletFillOpacity", "Dots", "Power fill opacity", 0, 1, 0.05),
-  range("bossPelletRadius", "Dots", "Boss radius", 0.5, 48, 0.1, "px"),
-  range("bossPelletStrokeWidth", "Dots", "Boss stroke", 0.1, 32, 0.1, "px"),
-  range("bossPelletGlow", "Dots", "Boss glow", 0, 36, 0.1),
-  range("bossPelletGlowRadius", "Dots", "Boss glow radius", 0, 120, 1, "px"),
-  range("bossPelletFillOpacity", "Dots", "Boss fill opacity", 0, 1, 0.05),
-  range("optionalPelletRadius", "Dots", "Optional radius", 0.5, 48, 0.1, "px"),
-  range("optionalPelletStrokeWidth", "Dots", "Optional stroke", 0.1, 32, 0.1, "px"),
-  range("optionalPelletGlow", "Dots", "Optional glow", 0, 36, 0.1),
-  range("optionalPelletGlowRadius", "Dots", "Optional glow radius", 0, 120, 1, "px"),
+  range("wallThickness", "Visuals", "Wall thickness", 1, 24, 0.5, "px", "Walls"),
+  { key: "wallColor", group: "Visuals", label: "Wall color", kind: "color", subgroup: "Walls" },
+  range("wallGlow", "Visuals", "Wall glow", 0, 12, 0.1, "", "Walls"),
+  range("wallGlowRadius", "Visuals", "Wall glow radius", 0, 36, 1, "px", "Walls"),
+  range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px", "Walls"),
+  range("ghostGlow", "Visuals", "Ghost glow", 0, 12, 0.1, "", "Ghosts"),
+  range("ghostGlowRadius", "Visuals", "Ghost glow radius", 0, 36, 1, "px", "Ghosts"),
+  range("ghostLineWidth", "Visuals", "Ghost line thickness", 1, 45, 0.5, "%", "Ghosts"),
+  range("ghostWidth", "Visuals", "Line ghost width", 0.6, 4.5, 0.01, "×", "Ghosts"),
+  range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×", "Ghosts"),
+  range("quarterGlow", "Visuals", "Quarter glow", 0, 12, 0.1, "", "Quarters"),
+  range("quarterGlowRadius", "Visuals", "Quarter glow radius", 0, 36, 1, "px", "Quarters"),
+  range("quarterLineWidth", "Visuals", "Quarter line thickness", 1, 45, 0.5, "%", "Quarters"),
+  range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×", "Dot-Man"),
+  range("dotManMouthOpenDeg", "Visuals", "Mouth open", 20, 75, 1, "°", "Dot-Man"),
+  range("dotManMouthClosedDeg", "Visuals", "Mouth closed", 4, 40, 1, "°", "Dot-Man"),
+  {
+    key: "backgroundColor",
+    group: "Visuals",
+    label: "Background",
+    kind: "color",
+    subgroup: "Background",
+  },
+  range("fontThickness", "Visuals", "Font thickness", 0.05, 3, 0.05, "", "Font"),
+  range("fontBloom", "Visuals", "Font bloom", 0, 12, 0.1, "", "Font"),
+  range("fontBloomRadius", "Visuals", "Font bloom radius", 0, 48, 1, "px", "Font"),
+  {
+    key: "fontGlowColor",
+    group: "Visuals",
+    label: "Font glow color",
+    kind: "color",
+    subgroup: "Font",
+  },
+  range("fontLetterSpacing", "Visuals", "Font letter spacing", -0.5, 2, 0.05, "", "Font"),
+  range("fontHeightScale", "Visuals", "Font height", 0.4, 3, 0.05, "×", "Font"),
+  {
+    key: "fontGlowKnockout",
+    group: "Visuals",
+    label: "Font glow knockout",
+    kind: "toggle",
+    subgroup: "Font",
+  },
+  range("pelletRadius", "Visuals", "Dot radius", 0.5, 48, 0.1, "px", "Dots"),
+  range("pelletStrokeWidth", "Visuals", "Dot stroke", 0.1, 32, 0.1, "px", "Dots"),
+  range("pelletGlow", "Visuals", "Dot glow", 0, 36, 8, "", "Dots"),
+  range("pelletGlowRadius", "Visuals", "Dot glow radius", 0, 120, 1, "px", "Dots"),
+  {
+    key: "pelletCoreColor",
+    group: "Visuals",
+    label: "Dot core colour",
+    kind: "color",
+    subgroup: "Dots",
+  },
+  {
+    key: "pelletGlowColor",
+    group: "Visuals",
+    label: "Dot glow colour",
+    kind: "color",
+    subgroup: "Dots",
+  },
+  range("pelletFillOpacity", "Visuals", "Dot fill opacity", 0, 1, 0.05, "", "Dots"),
+  range("powerPelletRadius", "Visuals", "Power radius", 0.5, 48, 0.1, "px", "Dots"),
+  range("powerPelletStrokeWidth", "Visuals", "Power stroke", 0.1, 32, 0.1, "px", "Dots"),
+  range("powerPelletGlow", "Visuals", "Power glow", 0, 36, 8, "", "Dots"),
+  range("powerPelletGlowRadius", "Visuals", "Power glow radius", 0, 120, 1, "px", "Dots"),
+  range("powerPelletFillOpacity", "Visuals", "Power fill opacity", 0, 1, 0.05, "", "Dots"),
+  range("bossPelletRadius", "Visuals", "Boss radius", 0.5, 48, 0.1, "px", "Dots"),
+  range("bossPelletStrokeWidth", "Visuals", "Boss stroke", 0.1, 32, 0.1, "px", "Dots"),
+  range("bossPelletGlow", "Visuals", "Boss glow", 0, 36, 0.1, "", "Dots"),
+  range("bossPelletGlowRadius", "Visuals", "Boss glow radius", 0, 120, 1, "px", "Dots"),
+  range("bossPelletFillOpacity", "Visuals", "Boss fill opacity", 0, 1, 0.05, "", "Dots"),
+  range("optionalPelletRadius", "Visuals", "Optional radius", 0.5, 48, 0.1, "px", "Dots"),
+  range("optionalPelletStrokeWidth", "Visuals", "Optional stroke", 0.1, 32, 0.1, "px", "Dots"),
+  range("optionalPelletGlow", "Visuals", "Optional glow", 0, 36, 0.1, "", "Dots"),
+  range("optionalPelletGlowRadius", "Visuals", "Optional glow radius", 0, 120, 1, "px", "Dots"),
   {
     key: "optionalPelletFillColor",
-    group: "Dots",
+    group: "Visuals",
     label: "Optional fill colour",
     kind: "color",
+    subgroup: "Dots",
   },
   {
     key: "optionalPelletGlowColor",
-    group: "Dots",
+    group: "Visuals",
     label: "Optional glow colour",
     kind: "color",
+    subgroup: "Dots",
   },
-  range("optionalPelletFillOpacity", "Dots", "Optional fill opacity", 0, 1, 0.05),
+  range("optionalPelletFillOpacity", "Visuals", "Optional fill opacity", 0, 1, 0.05, "", "Dots"),
+  {
+    key: "pelletAbsorbEnabled",
+    group: "Visuals",
+    label: "Absorb FX",
+    kind: "toggle",
+    subgroup: "Dots",
+  },
+  range("pelletAbsorbMs", "Visuals", "Absorb duration", 0, 500, 5, "ms", "Dots"),
+  range("pelletAbsorbStretchEnd", "Visuals", "Absorb stretch", 0.05, 0.95, 0.05, "", "Dots"),
+  range("pelletAbsorbMidThin", "Visuals", "Absorb mid thin", 0, 1, 0.05, "", "Dots"),
+  range("pelletAbsorbNearShrink", "Visuals", "Absorb near shrink", 0, 1, 0.05, "", "Dots"),
+  range("pelletAbsorbFarShrink", "Visuals", "Absorb far shrink", 0, 1, 0.05, "", "Dots"),
+  range("pelletAbsorbSuckEase", "Visuals", "Absorb suck ease", 1, 4, 0.25, "", "Dots"),
 ];
 
 function stepDecimals(step: number): number {
@@ -184,7 +247,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Ghost speed at level 1 as a fraction of Maze-Man's speed (0.8 = ghosts 20% slower).",
   ghostRatioStep: "How much the ghost speed ratio grows each level until it reaches the cap.",
   ghostRatioCap:
-    "Highest ghost speed ratio the per-level growth can reach (1.0 = parity with Maze-Man).",
+    "Highest ghost speed ratio the per-level growth can reach (1.0 = parity with Maze-Man; default 1.1 lets ghosts edge past parity by level 7–8).",
   ghostTunnelRatio:
     "Ghost speed inside side tunnels as a fraction of Maze-Man's base speed (the level ramp and upgrades still multiply it).",
   ghostHouseExitRatio:
@@ -257,6 +320,12 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Horizontal stretch of line-art ghosts. About 1.2 makes the body as wide as the pixel ghosts. Visual only; collision is unchanged.",
   ghostHeight:
     "Vertical stretch of line-art ghosts. 1 = the SVG's own proportions. Visual only; collision is unchanged.",
+  quarterGlow:
+    "Phaser outerStrength of the neon glow around line-art Quarter icons (HUD, store, Money Talks). 0 = no glow.",
+  quarterGlowRadius:
+    "How far the line-art Quarter glow spreads beyond the outline, in pixels. 0 = no glow.",
+  quarterLineWidth:
+    "Outline thickness of line-art Quarter icons, as a percent of the icon size. Visual only.",
   dotManChompSpeed:
     "How fast Dot-Man's mouth cycles while moving (pixel frames and neon spiral). 1× = one beat every 12 px of travel; default 1.25×. Visual only.",
   dotManMouthOpenDeg:
@@ -308,4 +377,18 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Muted glow tint for Lazy Looper optional dots (default cool grey, not the maze wall colour).",
   optionalPelletFillOpacity:
     "Fill opacity for Lazy Looper optional neon dots (default solid grey).",
+  pelletAbsorbEnabled:
+    "On: neon/lined regular and optional dots gum-stretch into Dot-Man on collect. Off: instant vanish. Visual only; PIXEL ignores this.",
+  pelletAbsorbMs:
+    "How long the gum-stretch absorb lasts in milliseconds. 0 = skip the FX (instant vanish). Default 10.",
+  pelletAbsorbStretchEnd:
+    "Fraction of the absorb spent thinning the strand (far end parked, near on Dot-Man) before the suck-in. Default 0.10.",
+  pelletAbsorbMidThin:
+    "How much the mid-strand width shrinks during the stretch phase (0 = stays full, 1 = thins to a hair). Default 0.95. Mid fill also fades to 0 over the whole absorb.",
+  pelletAbsorbNearShrink:
+    "How much the near (Dot-Man) ball shrinks during the stretch phase. Default 0.10.",
+  pelletAbsorbFarShrink:
+    "How much the far (pellet) ball shrinks during the stretch phase. Default 0.15.",
+  pelletAbsorbSuckEase:
+    "Ease power on the suck-in (1 = linear, 2 = quadratic ease-in, higher = snappier end). Default 3.25.",
 };

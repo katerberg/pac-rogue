@@ -38,11 +38,20 @@ describe("applyGhostSpeed", () => {
     expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 0.8 * 0.75);
   });
 
-  it("resolves the level-5 base speed (100% of player, ratio pinned)", () => {
+  it("resolves the level-5 base speed (100% of player)", () => {
     const world = createWorld();
     const eid = spawnGhost(world, GHOST_PHASE.active);
     applyGhostSpeed(world, 100, 5, { ghostSpeedMul: 0.75 });
     expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 1 * 0.75);
+  });
+
+  it("resolves past-parity base speed on levels 6–8 (cap 1.1)", () => {
+    const world = createWorld();
+    const eid = spawnGhost(world, GHOST_PHASE.active);
+    applyGhostSpeed(world, 100, 6, { ghostSpeedMul: 0.75 });
+    expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 1.05 * 0.75);
+    applyGhostSpeed(world, 100, 8, { ghostSpeedMul: 0.75 });
+    expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 1.1 * 0.75);
   });
 
   it("zeros only the frozen ghost", () => {

@@ -15,6 +15,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  ghostHouseSpawnCenter,
   horizontalTunnelRows,
   isAlignedForTurn,
   isWalkable,
@@ -41,11 +42,14 @@ import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
+  FREEZE_MS,
   HAUNTING_MS,
   frozenGhostEid,
   grantUpgrade,
+  INVULN_ENHANCED_MS,
   INVULN_MS,
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
@@ -54,6 +58,7 @@ import {
   STARTING_UPGRADE_POOL,
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
+  WALL_PASS_MS,
   isRare,
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
@@ -374,6 +379,23 @@ describe("PlaySim", () => {
     expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(0.6);
   });
 
+  it.each([
+    [5, 1],
+    [6, 1.05],
+    [8, 1.1],
+  ] as const)(
+    "moves open-maze ghosts on level %i at %f× Maze-Man (past-parity ramp)",
+    (level, ratio) => {
+      const sim = startSim({ level, maze: "maze1" });
+      const ghost = query(sim.world, [Ghost, Position])[0]!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      Position.x[ghost] = cellCenterX(13);
+      Position.y[ghost] = cellCenterY(11);
+      runFrames(sim, 1);
+      expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(ratio);
+    },
+  );
+
   it("Tunnel Dash+ slows ghosts to 0.3x in the tunnel; base Tunnel Dash keeps 0.6x", () => {
     for (const [id, ratio] of [
       ["passiveTunnelDash", 0.6],
@@ -421,6 +443,56 @@ describe("PlaySim", () => {
     const events = runFrames(sim, 60, { keys: held("left") });
     expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
+  });
+
+  describe("pelletAbsorb", () => {
+    it("emits absorb for neon regular pellets Dot-Man eats", () => {
+      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-neon");
+      sim.setGhostStyle("neon");
+      const events = runFrames(sim, 60, { keys: held("left") });
+      const absorbs = events.filter((event) => event.type === "pelletAbsorb");
+      expect(absorbs.length).toBeGreaterThan(0);
+      expect(absorbs[0]).toMatchObject({ type: "pelletAbsorb" });
+      expect(typeof absorbs[0]!.x).toBe("number");
+      expect(typeof absorbs[0]!.y).toBe("number");
+      expect(absorbs[0]!.radius).toBeGreaterThan(0);
+    });
+
+    it("skips absorb under pixel style", () => {
+      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-pixel");
+      sim.setGhostStyle("pixel");
+      const events = runFrames(sim, 60, { keys: held("left") });
+      expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
+      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
+    });
+
+    it("skips absorb when the Absorb FX knob is off", () => {
+      const sim = new PlaySim(
+        { ...defaultPlayOptions(), level: 2, maze: "maze1" },
+        "absorb-off",
+        resolveTuning({ pelletAbsorbEnabled: false }),
+      );
+      sim.start();
+      sim.setGhostStyle("neon");
+      const events = runFrames(sim, 60, { keys: held("left") });
+      expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
+      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
+    });
+
+    it("does not absorb power pellets", () => {
+      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-power");
+      sim.setGhostStyle("neon");
+      for (const eid of query(sim.world, [Pellet])) {
+        if (!hasComponent(sim.world, eid, PowerPellet)) {
+          removeEntity(sim.world, eid);
+        }
+      }
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      const events = runFrames(sim, 2);
+      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
+      expect(count(events, "releaseDrawable")).toBeGreaterThan(0);
+    });
   });
 
   it("drags Maze-Man's speed briefly after eating a dot, then eases back to full", () => {
@@ -1202,6 +1274,18 @@ describe("PlaySim", () => {
       expect(sim.snapshot().storeStock!.filter((s) => s === "life")).toHaveLength(1);
     });
 
+    it("charges 1 for a life in the first store and 2 in later stores", () => {
+      const first = startSim({ store: 1, lives: 1, maxLives: 4, quarters: 10 });
+      buy(first, "life", 0);
+      expect(first.snapshot().quarters).toBe(9);
+      expect(first.snapshot().lives).toBe(3);
+
+      const later = startSim({ store: 2, lives: 1, maxLives: 4, quarters: 10 });
+      buy(later, "life", 0);
+      expect(later.snapshot().quarters).toBe(8);
+      expect(later.snapshot().lives).toBe(3);
+    });
+
     it("enhancement costs 2, swaps the owned upgrade for its Plus form and keeps order", () => {
       const sim = startSim({
         store: 1,
@@ -1898,12 +1982,15 @@ describe("Ghost Harvester", () => {
     armWithPowerPellet(sim);
     const player = playerEid(sim);
     const target = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
+    const house = ghostHouseSpawnCenter();
+    teleportPlayer(sim, house.x, house.y);
     const before = sim.snapshot().boardCollected;
     parkGhostOn(sim, target);
     const events = runFrames(sim, 1);
     expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
     expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
+    expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
 
     runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
     const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
@@ -2556,9 +2643,19 @@ describe("PlaySim enhanced upgrades", () => {
   }
 
   it.each([
-    ["powerPelletInvuln", "invulnMs", 3000, 5000],
+    [
+      "powerPelletInvuln",
+      "invulnMs",
+      levelScaledDurationMs(INVULN_MS, 2),
+      levelScaledDurationMs(INVULN_ENHANCED_MS, 2),
+    ],
     ["powerPelletGhostHarvester", "ghostHarvestMs", 5000, 8000],
-    ["powerPelletWallPass", "wallPassMs", 6000, 6000],
+    [
+      "powerPelletWallPass",
+      "wallPassMs",
+      levelScaledDurationMs(WALL_PASS_MS, 2),
+      levelScaledDurationMs(WALL_PASS_MS, 2),
+    ],
     ["passiveDefyDeath", "defyDeathMs", 5000, 8000],
   ] as const)("%s: power-pellet timer %s is %i ms, Plus %i ms", (id, key, base, plus) => {
     for (const [owned, expected] of [
@@ -2574,14 +2671,16 @@ describe("PlaySim enhanced upgrades", () => {
   });
 
   it("Overcharge triples enhanced timers (and only doubles with the base)", () => {
+    const doubled = levelScaledDurationMs(INVULN_MS, 2) * 2;
+    const tripled = levelScaledDurationMs(INVULN_ENHANCED_MS, 2) * 3;
     const base = startSim({
       level: 2,
       maze: "maze1",
       enableUpgrades: ["powerPelletInvuln", "passiveOvercharge"],
     });
     chomp(base);
-    expect(base.snapshot().timers.invulnMs).toBeGreaterThan(5800);
-    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(6000);
+    expect(base.snapshot().timers.invulnMs).toBeGreaterThan(doubled - 200);
+    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(doubled);
 
     const plus = startSim({
       level: 2,
@@ -2589,8 +2688,8 @@ describe("PlaySim enhanced upgrades", () => {
       enableUpgrades: ["powerPelletInvulnPlus", "passiveOverchargePlus"],
     });
     chomp(plus);
-    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(14800);
-    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(15000);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(tripled - 200);
+    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(tripled);
   });
 
   it("Overcharge extends the Defy Death window", () => {
@@ -3220,6 +3319,8 @@ describe("debug tuning", () => {
 });
 
 describe("Shield Pellets", () => {
+  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
+
   function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
     return startSim({ level: 2, maze: "maze1", enableUpgrades });
   }
@@ -3267,11 +3368,38 @@ describe("Shield Pellets", () => {
       deathsThisBoard: 0,
       shieldCrackProgress: 0,
     });
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: LEVEL2_INVULN_MS });
     expect(events).toContainEqual({ type: "shieldCrack", index: 0, progress: 0 });
     expect(events).not.toContainEqual({ type: "sfx", id: "death" });
     const crack = runUntil(sim, () => sim.snapshot().shieldCrackProgress === null, 120);
     expect(crack).toContainEqual({ type: "shieldCrack", index: 0, progress: 1 });
+  });
+
+  it("breaks the pellet streak and keeps the charge", () => {
+    const sim = startSim(
+      {
+        level: 2,
+        maze: "maze1",
+        infiniteLives: true,
+        enableUpgrades: ["passiveShieldPellets"],
+        bonus: 40,
+      },
+      "shield-streak",
+    );
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    while (sim.snapshot().bonus.streak < 5) {
+      const eid = regularPelletEids(sim)[0]!;
+      teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+      runFrames(sim, 1);
+    }
+    const { charge, streak } = sim.snapshot().bonus;
+    expect(streak).toBeGreaterThanOrEqual(5);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    expect(sim.snapshot().dying).toBe(false);
   });
 
   it("grants 1s of immunity on its own, multiplied by Overcharge", () => {
@@ -3334,7 +3462,7 @@ describe("Shield Pellets", () => {
   it("does nothing without the upgrade", () => {
     const sim = startShieldSim(["powerPelletInvuln"]);
     chompPowerPellet(sim);
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: LEVEL2_INVULN_MS });
   });
 });
 
@@ -3788,15 +3916,21 @@ describe("ghost style (neon line art vs pixel)", () => {
   const sorted = (values: readonly string[] | readonly number[] | undefined) =>
     [...(values ?? [])].map(String).sort();
 
-  it("draws every present ghost as neon line art by default, on every level", () => {
-    expect(sorted(startSim({ level: 5 }, "lineart").snapshot().lineArtGhosts)).toEqual([
-      "blinky",
-      "clyde",
-      "inky",
-      "pinky",
-    ]);
+  it("draws no line art by default (pixel STYLE)", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    expect(sim.snapshot().lineArtPlayer).toBe(false);
+    expect(sim.snapshot().lineArtQuarter).toBe(false);
+  });
+
+  it("draws every present ghost as neon line art under neon STYLE, on every level", () => {
+    const neonSim = startSim({ level: 5 }, "lineart");
+    neonSim.setGhostStyle("neon");
+    expect(sorted(neonSim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
     for (const level of [1, 9]) {
-      const snap = startSim({ level }, "lineart").snapshot();
+      const sim = startSim({ level }, "lineart");
+      sim.setGhostStyle("neon");
+      const snap = sim.snapshot();
       expect(snap.lineArtGhosts.length).toBeGreaterThan(0);
       expect(sorted(snap.lineArtGhosts)).toEqual(
         sorted([...new Set(snap.ghosts.map((g) => g.kind))]),
@@ -3806,6 +3940,7 @@ describe("ghost style (neon line art vs pixel)", () => {
 
   it("tells the renderer which drawables are line art, Dot-Man included", () => {
     const sim = startSim({ level: 5 }, "lineart");
+    sim.setGhostStyle("neon");
     const events = runFrames(sim, 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
     expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
@@ -3818,6 +3953,7 @@ describe("ghost style (neon line art vs pixel)", () => {
       ]),
     );
     expect(sim.snapshot().lineArtPlayer).toBe(true);
+    expect(sim.snapshot().lineArtQuarter).toBe(true);
   });
 
   it("draws no line art with the pixel style, and switches back mid-run", () => {
@@ -3828,9 +3964,11 @@ describe("ghost style (neon line art vs pixel)", () => {
     expect(draws.at(-1)?.lineArtDrawableIds).toEqual([]);
     expect(sim.snapshot().lineArtGhosts).toEqual([]);
     expect(sim.snapshot().lineArtPlayer).toBe(false);
+    expect(sim.snapshot().lineArtQuarter).toBe(false);
     sim.setGhostStyle("neon");
     expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
     expect(sim.snapshot().lineArtPlayer).toBe(true);
+    expect(sim.snapshot().lineArtQuarter).toBe(true);
   });
 
   it("keeps line-art ghosts and Dot-Man under lined style", () => {
@@ -3838,6 +3976,7 @@ describe("ghost style (neon line art vs pixel)", () => {
     sim.setGhostStyle("lined");
     expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
     expect(sim.snapshot().lineArtPlayer).toBe(true);
+    expect(sim.snapshot().lineArtQuarter).toBe(true);
   });
 
   it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {
@@ -3878,6 +4017,7 @@ describe("ghost style (neon line art vs pixel)", () => {
 
   it("follows a ghosts override", () => {
     const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
+    sim.setGhostStyle("neon");
     expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "pinky"]);
   });
 });
@@ -4128,6 +4268,7 @@ describe("Streak Engine", () => {
 
 describe("Echo", () => {
   const AFTER_ECHO_MS = ECHO_DELAY_MS + 500;
+  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
 
   function startEcho(enableUpgrades: UpgradeId[], godMode = true): PlaySim {
     return startSim({ level: 2, maze: "maze1", godMode, enableUpgrades }, "echo1");
@@ -4148,7 +4289,7 @@ describe("Echo", () => {
     chompPowerPellet(sim);
     expect(sim.snapshot().timers.echoesMs).toEqual([ECHO_DELAY_MS]);
     runMs(sim, AFTER_ECHO_MS);
-    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(INVULN_MS - 600);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(LEVEL2_INVULN_MS - 600);
     expect(sim.snapshot().timers.echoesMs).toEqual([]);
   });
 
@@ -4185,8 +4326,8 @@ describe("Echo", () => {
   it("doubles the echoed duration with Overcharge", () => {
     const sim = startEcho(["passiveEcho", "powerPelletInvuln", "passiveOvercharge"]);
     chompPowerPellet(sim);
-    runMs(sim, 2 * INVULN_MS - 100);
-    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(INVULN_MS);
+    runMs(sim, 2 * LEVEL2_INVULN_MS - 100);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(LEVEL2_INVULN_MS);
   });
 
   it("does not echo a shield banked by Shield Pellets", () => {
@@ -4203,6 +4344,31 @@ describe("Echo", () => {
     expect(sim.snapshot().dying).toBe(true);
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().timers.echoesMs).toEqual([]);
+  });
+});
+
+describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
+  function chompPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  it.each([
+    ["powerPelletFreeze", "freezeMs", levelScaledDurationMs(FREEZE_MS, 5)],
+    ["powerPelletInvuln", "invulnMs", levelScaledDurationMs(INVULN_MS, 5)],
+    ["powerPelletWallPass", "wallPassMs", levelScaledDurationMs(WALL_PASS_MS, 5)],
+  ] as const)("%s shortens to %i ms by level 5", (id, key, expected) => {
+    const sim = startSim({ level: 5, maze: "maze1", enableUpgrades: [id] }, "level-scale");
+    if (id === "powerPelletFreeze") {
+      for (const eid of query(sim.world, [Ghost, Position])) {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+      }
+    }
+    chompPowerPellet(sim);
+    const ms = sim.snapshot().timers[key];
+    expect(ms).toBeLessThanOrEqual(expected);
+    expect(ms).toBeGreaterThan(expected - 200);
   });
 });
 

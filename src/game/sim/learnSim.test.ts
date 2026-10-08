@@ -103,6 +103,17 @@ describe("LearnSim", () => {
     expect(events.some((event) => event.type === "bouncePowerPellet")).toBe(true);
   });
 
+  it("emits pelletAbsorb when Dot-Man eats a neon regular pellet", () => {
+    const sim = new LearnSim("absorb-learn");
+    sim.start();
+    sim.setGhostStyle("neon");
+    const events: import("./simEvents").SimEvent[] = [];
+    for (let i = 0; i < 60; i += 1) {
+      events.push(...sim.step(held("left"), FRAME_MS));
+    }
+    expect(events.some((event) => event.type === "pelletAbsorb")).toBe(true);
+  });
+
   it("regenerates every power pellet once the last one is eaten", () => {
     const sim = new LearnSim("learn");
     sim.start();
@@ -217,10 +228,12 @@ describe("LearnSim ghost style", () => {
       .at(-1)!;
   }
 
-  it("draws the demo ghosts as neon line art by default, and as pixel art when set", () => {
+  it("draws pixel art by default, and neon/lined line art when set", () => {
     const sim = new LearnSim("learn");
     sim.start();
     sim.selectGhost(GHOST_KIND.inky);
+    expect(lastDraw(sim).lineArtDrawableIds).toEqual([]);
+    sim.setGhostStyle("neon");
     expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual(
       [PLAYER_DRAWABLE_ID, BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID].sort(),
     );

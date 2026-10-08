@@ -13,6 +13,7 @@ import {
 } from "./upgrades";
 
 export const STORE_LIFE_PRICE = 1;
+export const STORE_LATER_LIFE_PRICE = 2;
 export const STORE_SWAP_PRICE = 1;
 export const STORE_ENHANCE_PRICE = 2;
 export const STORE_ENHANCE_BORDER_COLOR = 0xffd24a;
@@ -28,10 +29,14 @@ type StoreSlotKind = "life" | "upgrade" | "swap" | "enhance";
 export type StoreSlotCell = { kind: StoreSlotKind; col: number; row: number };
 
 export type StoreSlot =
-  | { kind: "life"; col: number; row: number; sold: boolean }
+  | { kind: "life"; col: number; row: number; sold: boolean; price: number }
   | { kind: "upgrade"; col: number; row: number; id: BaseUpgradeId; sold: boolean }
   | { kind: "swap"; col: number; row: number; outgoingId: UpgradeId; sold: boolean }
   | { kind: "enhance"; col: number; row: number; targetId: BaseUpgradeId; sold: boolean };
+
+export function lifePriceForStore(firstStore: boolean): number {
+  return firstStore ? STORE_LIFE_PRICE : STORE_LATER_LIFE_PRICE;
+}
 
 export function storeSlotLabel(slot: StoreSlot): string {
   switch (slot.kind) {
@@ -140,7 +145,7 @@ export function createStoreState(
     if (kind === "life") {
       if (lifeSlots < lifeRoom) {
         lifeSlots += 1;
-        slots.push({ kind, col, row, sold: false });
+        slots.push({ kind, col, row, sold: false, price: lifePriceForStore(firstStore) });
       }
     } else if (kind === "upgrade" && pool.length > 0) {
       const id = takeWeightedUpgrade(pool, rng);
@@ -164,7 +169,7 @@ export function createStoreState(
 export function slotPrice(slot: StoreSlot): number {
   switch (slot.kind) {
     case "life":
-      return STORE_LIFE_PRICE;
+      return slot.price;
     case "swap":
       return STORE_SWAP_PRICE;
     case "enhance":

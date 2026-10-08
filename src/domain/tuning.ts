@@ -58,6 +58,9 @@ export type Tuning = {
   readonly ghostLineWidth: number;
   readonly ghostWidth: number;
   readonly ghostHeight: number;
+  readonly quarterGlow: number;
+  readonly quarterGlowRadius: number;
+  readonly quarterLineWidth: number;
   readonly dotManChompSpeed: number;
   readonly dotManMouthOpenDeg: number;
   readonly dotManMouthClosedDeg: number;
@@ -94,6 +97,13 @@ export type Tuning = {
   readonly optionalPelletFillColor: number;
   readonly optionalPelletGlowColor: number;
   readonly optionalPelletFillOpacity: number;
+  readonly pelletAbsorbEnabled: boolean;
+  readonly pelletAbsorbMs: number;
+  readonly pelletAbsorbStretchEnd: number;
+  readonly pelletAbsorbMidThin: number;
+  readonly pelletAbsorbNearShrink: number;
+  readonly pelletAbsorbFarShrink: number;
+  readonly pelletAbsorbSuckEase: number;
 };
 
 export type TuningKey = keyof Tuning;
@@ -107,7 +117,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   preTurnPx: 4,
   ghostRatioStart: 0.8,
   ghostRatioStep: 0.05,
-  ghostRatioCap: 1,
+  ghostRatioCap: 1.1,
   ghostTunnelRatio: 0.6,
   ghostHouseExitRatio: 0.5,
   elroy1Ratio: 1,
@@ -150,6 +160,9 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   ghostLineWidth: 6.5,
   ghostWidth: 1.16,
   ghostHeight: 1.14,
+  quarterGlow: 0.6,
+  quarterGlowRadius: 5,
+  quarterLineWidth: 6,
   dotManChompSpeed: DOTMAN_CHOMP_SPEED_DEFAULT,
   dotManMouthOpenDeg: DOTMAN_MOUTH_OPEN_HALF_DEG,
   dotManMouthClosedDeg: DOTMAN_MOUTH_CLOSED_HALF_DEG,
@@ -186,6 +199,13 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   optionalPelletFillColor: LAZY_LOOPER_OPTIONAL_TINT,
   optionalPelletGlowColor: 0xa0a0b4,
   optionalPelletFillOpacity: 1,
+  pelletAbsorbEnabled: true,
+  pelletAbsorbMs: 10,
+  pelletAbsorbStretchEnd: 0.1,
+  pelletAbsorbMidThin: 0.95,
+  pelletAbsorbNearShrink: 0.1,
+  pelletAbsorbFarShrink: 0.15,
+  pelletAbsorbSuckEase: 3.25,
 });
 
 const TUNING_STORAGE_VERSION = 1;

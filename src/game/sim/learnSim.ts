@@ -13,6 +13,8 @@ import {
   type Cell,
 } from "../../domain/bonusBar";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
+import { pelletAbsorbSpawnFor } from "../../domain/pelletAbsorb";
+import type { RemovedPelletSnap } from "../systems/collectPellets";
 import { tickEchoes } from "../../domain/echo";
 import {
   createFruitPresence,
@@ -433,10 +435,11 @@ export class LearnSim {
     });
     const ghostFrame = ghostHarvestActive(this.learnUpgrades)
       ? harvestPelletsByGhosts(this.world)
-      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
+      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [], removedSnaps: [] };
     const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
-    this.releaseAll(removedEids);
+    this.releaseSnaps(playerFrame.removedSnaps);
+    this.releaseAll(ghostFrame.removedEids);
     this.countCollected(removedEids.length);
     this.stepStreakEngine(playerFrame.removedCells, delta);
     if (hasUpgrade(this.learnUpgrades.owned, "passivePowerPelletRecharge")) {
@@ -653,6 +656,10 @@ export class LearnSim {
     }
   }
 
+  playerWorldPosition(): { x: number; y: number } | null {
+    return this.playerPosition();
+  }
+
   private playerPosition(): { x: number; y: number } | null {
     const eid = query(this.world, [Player, Position])[0];
     return eid === undefined ? null : { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
@@ -679,6 +686,26 @@ export class LearnSim {
   private releaseAll(eids: readonly number[]): void {
     for (const eid of eids) {
       this.events.push({ type: "releaseDrawable", eid });
+    }
+  }
+
+  private emitPelletAbsorb(snap: RemovedPelletSnap): void {
+    const spawn = pelletAbsorbSpawnFor(
+      this.ghostStyle,
+      snap.drawableId,
+      snap.optional,
+      snap.x,
+      snap.y,
+    );
+    if (spawn !== null) {
+      this.events.push({ type: "pelletAbsorb", ...spawn });
+    }
+  }
+
+  private releaseSnaps(snaps: readonly RemovedPelletSnap[]): void {
+    for (const snap of snaps) {
+      this.emitPelletAbsorb(snap);
+      this.events.push({ type: "releaseDrawable", eid: snap.eid });
     }
   }
 
@@ -725,7 +752,7 @@ export class LearnSim {
       );
     }
     if (powerEffects.collectExtraPellets > 0) {
-      this.releaseAll(collectExtraPellets(this.world, powerEffects.collectExtraPellets));
+      this.releaseSnaps(collectExtraPellets(this.world, powerEffects.collectExtraPellets));
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
@@ -1119,9 +1146,9 @@ export class LearnSim {
     const before = this.remoteTransferCounter;
     this.remoteTransferCounter += removedThisFrame;
     const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
-    const eids = applyRemoteTransference(this.world, triggers);
-    this.releaseAll(eids);
-    this.remoteTransferCounter += eids.length;
+    const snaps = applyRemoteTransference(this.world, triggers);
+    this.releaseSnaps(snaps);
+    this.remoteTransferCounter += snaps.length;
   }
 
   private resetPellets(): void {

@@ -3,10 +3,12 @@ import { activateAsciiLayout, activateLayout, isWalkable } from "./maze";
 import { STORE_MAZE_ASCII } from "./mazeLayouts";
 import {
   STORE_ENHANCE_PRICE,
+  STORE_LATER_LIFE_PRICE,
   STORE_LIFE_PRICE,
   enhanceGlowAlpha,
   STORE_SWAP_PRICE,
   createStoreState,
+  lifePriceForStore,
   STORE_EXIT_SLIDE_TILES,
   storeExitAlpha,
   storeExitDirection,
@@ -182,6 +184,19 @@ describe("createStoreState", () => {
     ]);
   });
 
+  it("prices extra lives at 1 in the first store and 2 after", () => {
+    expect(lifePriceForStore(true)).toBe(STORE_LIFE_PRICE);
+    expect(lifePriceForStore(false)).toBe(STORE_LATER_LIFE_PRICE);
+    const first = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, true);
+    const later = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, false);
+    for (const slot of first.slots.filter((s) => s.kind === "life")) {
+      expect(slotPrice(slot)).toBe(STORE_LIFE_PRICE);
+    }
+    for (const slot of later.slots.filter((s) => s.kind === "life")) {
+      expect(slotPrice(slot)).toBe(STORE_LATER_LIFE_PRICE);
+    }
+  });
+
   it("offers only as many life tiles as there is room under the life cap", () => {
     const lifeKinds = (room: number) =>
       createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, false, room).slots.filter(
@@ -289,11 +304,24 @@ describe("storeStep", () => {
   it("sells each life tile once and removes it", () => {
     const state = storeStep(stateWith([]), input(lifeCell), zeroRng).state;
     const step = confirmYes(state, lifeCell);
-    expect(step.purchase).toEqual({ kind: "life", price: STORE_LIFE_PRICE });
+    expect(step.purchase).toEqual({ kind: "life", price: STORE_LATER_LIFE_PRICE });
     expect(promptView(step.state, 10, [])).toBeNull();
     expect(storeStep(step.state, input(lifeCell), zeroRng).state.activeSlot).toBeNull();
     const other = storeStep(step.state, input({ col: 10, row: 8 }), zeroRng).state;
     expect(promptView(other, 10, [])?.kind).toBe("confirm");
+  });
+
+  it("sells a first-store life for 1 and blocks a later-store life at 1 Quarter", () => {
+    const first = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, true);
+    const bought = confirmYes(storeStep(first, input(lifeCell), zeroRng).state, {
+      ...lifeCell,
+      quarters: 1,
+    });
+    expect(bought.purchase).toEqual({ kind: "life", price: STORE_LIFE_PRICE });
+
+    const later = storeStep(stateWith([]), input({ ...lifeCell, quarters: 1 }), zeroRng).state;
+    expect(promptView(later, 1, [])?.kind).toBe("needQuarters");
+    expect(confirmYes(later, { ...lifeCell, quarters: 1 }).purchase).toBeNull();
   });
 
   it("shows no confirm and ignores keys without enough quarters", () => {

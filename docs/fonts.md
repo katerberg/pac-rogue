@@ -2,11 +2,11 @@
 
 Two typefaces, selected by Settings → **STYLE** (`neon` / `lined` / `pixel`, same storage as ghost art: `pac-rogue.ghost-style.v1`). LINED uses the neon typeface (`textStyleFor`).
 
-| STYLE          | Ghosts                 | UI text                           |
-| -------------- | ---------------------- | --------------------------------- |
-| NEON (default) | SVG line art + glow    | Bar-curve neon strokes + bloom    |
-| LINED          | SVG line art, glow off | Bar-curve neon strokes, bloom off |
-| PIXEL          | PNG sprites            | VGA 8×8 bitmap (`pac-pixel`)      |
+| STYLE           | Ghosts                 | UI text                           |
+| --------------- | ---------------------- | --------------------------------- |
+| NEON            | SVG line art + glow    | Bar-curve neon strokes + bloom    |
+| LINED           | SVG line art, glow off | Bar-curve neon strokes, bloom off |
+| PIXEL (default) | PNG sprites            | VGA 8×8 bitmap (`pac-pixel`)      |
 
 ## Pixel font
 
@@ -46,7 +46,7 @@ Supported surfaces route through `stackTexts` / `layoutCardText` (choice modal, 
 
 ## Knobs (`?knobs=1`)
 
-Visuals group — wide extremes; neon defaults are a clear soft bloom (strength **2.4**, radius **12px**):
+Visuals → **Font** subgroup (right gutter; Visuals + subgroups start open) — wide extremes; neon defaults are a clear soft bloom (strength **2.4**, radius **12px**):
 
 | Knob                      | Role                                              |
 | ------------------------- | ------------------------------------------------- |

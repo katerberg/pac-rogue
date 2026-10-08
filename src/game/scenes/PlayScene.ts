@@ -27,7 +27,7 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
-import { ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
+import { DEFAULT_GHOST_STYLE, ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { pelletStyleFor } from "../../domain/pelletStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
@@ -65,9 +65,10 @@ import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
 import {
   addDotManIcon,
+  addQuarterIcon,
   createRender,
   preloadPlayArt,
-  QUARTER_TEXTURE_KEY,
+  setActiveQuarterLook,
   type PlayRender,
 } from "../systems/render";
 import {
@@ -79,12 +80,14 @@ import {
 import { addGameText, placeGameText, setActiveFontLook, type GameText } from "./neonFont";
 import { fontLineArtLook } from "../../domain/neonFont/fontLook";
 import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/neonFont/layout";
-import { textStyleFor } from "../../domain/ghostArt";
+import { quarterLineArtLook, textStyleFor } from "../../domain/ghostArt";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
+import { pelletAbsorbLookTuning } from "../../domain/pelletAbsorb";
+import { killPelletAbsorbs, playPelletAbsorb } from "./pelletAbsorb";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import {
   createUpgradeChoiceModal,
@@ -136,7 +139,7 @@ export class PlayScene extends Phaser.Scene {
   private bonusGlowGfx!: Phaser.GameObjects.Graphics;
   private bonusGfx!: Phaser.GameObjects.Graphics;
   private bonusGlowKey = "";
-  private ghostStyle: GhostStyle = "neon";
+  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
   private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
@@ -244,6 +247,8 @@ export class PlayScene extends Phaser.Scene {
     this.playRender = createRender(this);
     if (options.knobs) {
       this.openKnobsPanel(tuning);
+    } else {
+      setActiveQuarterLook(null);
     }
 
     this.applyEvents(this.sim.start(), 0);
@@ -299,6 +304,31 @@ export class PlayScene extends Phaser.Scene {
       mouthClosedDeg: tuning.dotManMouthClosedDeg,
     });
     setActiveFontLook(fontLineArtLook(tuning));
+    setActiveQuarterLook(quarterLineArtLook(tuning));
+    this.refreshQuartersHud(false);
+    for (const coin of this.walletCoins) {
+      coin.destroy();
+    }
+    this.walletCoins = [];
+    this.rebuildStoreOverlayIfOpen();
+  }
+
+  private rebuildStoreOverlayIfOpen(): void {
+    const state = this.sim.storeState();
+    if (this.storeOverlay === null || state === null) {
+      return;
+    }
+    this.storeOverlay.destroy();
+    this.storeOverlay = createStoreOverlay(
+      this,
+      (choice) => {
+        this.storeChoice = choice;
+      },
+      (index) => {
+        this.storeClick = index;
+      },
+    );
+    this.storeOverlay.open(state);
   }
 
   private restartAtCurrentLevel(): void {
@@ -391,6 +421,7 @@ export class PlayScene extends Phaser.Scene {
     this.ghostStyle = loadGhostStyle();
     this.sim.setGhostStyle(this.ghostStyle);
     this.bonusGlowKey = "";
+    setActiveQuarterLook(this.knobsPanel === null ? null : quarterLineArtLook(this.sim.tuning));
     const timerVisible = this.timerText.visible;
     this.timerText.destroy();
     this.timerText = addGameText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
@@ -402,6 +433,12 @@ export class PlayScene extends Phaser.Scene {
     }
     this.refreshUpgradesHud();
     this.refreshLivesIcons(false);
+    this.refreshQuartersHud(false);
+    for (const coin of this.walletCoins) {
+      coin.destroy();
+    }
+    this.walletCoins = [];
+    this.rebuildStoreOverlayIfOpen();
     this.scene.resume();
   }
 
@@ -452,7 +489,19 @@ export class PlayScene extends Phaser.Scene {
       case "releaseDrawable":
         this.playRender.releaseDrawable(event.eid);
         break;
+      case "pelletAbsorb":
+        playPelletAbsorb(
+          this,
+          event,
+          () => this.sim.playerWorldPosition(),
+          () => ({
+            ms: this.sim.tuning.pelletAbsorbMs,
+            look: pelletAbsorbLookTuning(this.sim.tuning),
+          }),
+        );
+        break;
       case "resetBoard":
+        killPelletAbsorbs(this);
         this.playRender.resetForNewBoard();
         break;
       case "draw":
@@ -815,10 +864,13 @@ export class PlayScene extends Phaser.Scene {
     }
     this.quarterIcons = [];
     const size = pelletDisplaySize();
+    // Knobs panels cover the left gutter — park icons at the maze column so they stay visible.
+    const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
     for (let i = 0; i < this.sim.hud().quarters; i += 1) {
-      const { x, y } = quarterHudIconPosition(i, size);
-      const icon = this.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
-      this.sideHud.add(icon);
+      const { x, y } = quarterHudIconPosition(i, size, left);
+      // Stay on chrome (not sideHud) so ?knobs=1 can dial Quarter look live.
+      const icon = addQuarterIcon(this, x, y, size, this.ghostStyle);
+      this.chrome.add(icon);
       this.quarterIcons.push(icon);
     }
     const newest = this.quarterIcons[this.quarterIcons.length - 1];
@@ -830,7 +882,11 @@ export class PlayScene extends Phaser.Scene {
   private drawWalletCoins(spend: MoneyTalksSpend | null): void {
     const count = spend?.count ?? 0;
     while (this.walletCoins.length < count) {
-      this.walletCoins.push(this.add.image(0, 0, QUARTER_TEXTURE_KEY).setDepth(WALLET_COIN_DEPTH));
+      this.walletCoins.push(
+        addQuarterIcon(this, 0, 0, pelletDisplaySize(), this.ghostStyle).setDepth(
+          WALLET_COIN_DEPTH,
+        ),
+      );
     }
     const size = pelletDisplaySize();
     this.walletCoins.forEach((coin, i) => {

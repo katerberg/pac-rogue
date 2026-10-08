@@ -33,9 +33,10 @@ afterEach(() => {
 });
 
 describe("ghostStyleStorage", () => {
-  it("defaults to neon when nothing is stored", () => {
+  it("defaults to pixel when nothing is stored", () => {
     installMemoryStorage();
     expect(loadGhostStyle()).toBe(DEFAULT_GHOST_STYLE);
+    expect(DEFAULT_GHOST_STYLE).toBe("pixel");
   });
 
   it("saves and reloads the style", () => {
