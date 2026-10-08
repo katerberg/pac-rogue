@@ -10,7 +10,7 @@ export function parseGhostStyle(raw: string | null): GhostStyle {
   return raw === "neon" || raw === "lined" || raw === "pixel" ? raw : DEFAULT_GHOST_STYLE;
 }
 
-/** Soft glow on walls, ghosts, and pellets when knobs are off. Neon only. */
+/** Soft glow on walls, ghosts, pellets, and UI neon-font bloom when knobs are off. Neon only. */
 export function styleUsesGlow(style: GhostStyle): boolean {
   return style === "neon";
 }

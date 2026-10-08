@@ -63,6 +63,7 @@ src/
     neonFont/                 # Bar-curve neon glyph catalog + fontLineArtLook (see docs/fonts.md)
     lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points; rotateLineArt (see docs/line-art.md)
     dotManTurn.ts             # Dot-Man facing rotation: quarter turns and fast 180° reversals (see docs/line-art.md)
+    dotManMouth.ts            # Dot-Man spiral mouth half-angle poses + chomp beat (see docs/line-art.md)
     ghostTarget.ts            # Blinky/Pinky/Inky/Clyde chase/scatter/Elroy target tiles
     ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-scheduled scatter/chase wave clock
@@ -208,7 +209,7 @@ Pausing (Escape) is available at any point during `PlayScene`, including mid-dea
 
 **Debug tuning (`?knobs=1`):** `PlaySim` takes a per-run `Tuning` (constructor arg, `setTuning`) and passes it to every helper and system it tunes; helpers default the param to `DEFAULT_TUNING`, which equals the old constants, so runs without the flag and `LearnSim` are unchanged. Only with `?knobs=1` does `PlayScene` load stored overrides (`debugTuningStorage`), hide the side HUD, and mount `knobsPanel` (plain DOM, positioned from the canvas rect and maze offsets); panel edits call `sim.setTuning` + save, and wall knobs reach `render.ts` through `setWallStyle`. Per-board values (timer max, release dots, fruit thresholds) take effect on the next board. RESTART calls `scene.restart({ restartLevel, seed })`, which `PlayScene.create` reads to start a fresh run at that level with the same seed.
 
-High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (collected pellets desc, then remaining time desc). Storage remains chronological append order.
+High Scores reads `loadRunHistory()` and builds a **display-only** sorted view via `highScoresView` (collected pellets desc, then remaining time desc). Rows are three measured columns (pellets / time / date) so proportional neon text lines up the same way as monospace pixel. Storage remains chronological append order.
 
 Settings reads/writes `audioSettings` via `audioSettingsStorage` (`pac-rogue.audio-settings.v1`). **Music** scales whichever music track is currently playing (`menuMusic` or `gameplayMusic` — see below); **SFX** scales every other clip. Adjusting the Music slider or toggling Music on/off (`syncMusicPlayback` in `game/audio/sfx.ts`) directly starts, stops, or re-volumes the live track instead of playing a separate preview clip; the SFX slider still plays a one-shot `pelletMunch` preview on change. `SettingsScene` resolves which track it controls via `musicIdForContext(returnScene)`: `gameplayMusic` when opened from `PauseScene`, `menuMusic` otherwise. Agent `noAudio` still wins for playback; Settings stays editable and shows `AUDIO DISABLED` when muted.
 

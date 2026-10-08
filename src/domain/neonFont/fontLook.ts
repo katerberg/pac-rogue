@@ -1,4 +1,5 @@
-import type { Tuning } from "../tuning";
+import { DEFAULT_GHOST_STYLE, styleUsesGlow, type GhostStyle } from "../ghostArt";
+import { DEFAULT_TUNING, type Tuning } from "../tuning";
 
 export type FontGlow = { outerStrength: number; distancePx: number };
 
@@ -12,16 +13,29 @@ export type FontLineArtLook = {
   glowKnockout: boolean;
 };
 
-export function fontLineArtLook(tuning: Tuning): FontLineArtLook {
+export function fontLineArtLook(
+  tuning: Tuning | null,
+  style: GhostStyle = DEFAULT_GHOST_STYLE,
+): FontLineArtLook {
+  const t = tuning ?? DEFAULT_TUNING;
+  const allowGlow = tuning !== null || styleUsesGlow(style);
   return {
-    thickness: tuning.fontThickness,
+    thickness: t.fontThickness,
     glow:
-      tuning.fontBloom <= 0 || tuning.fontBloomRadius <= 0
+      !allowGlow || t.fontBloom <= 0 || t.fontBloomRadius <= 0
         ? null
-        : { outerStrength: tuning.fontBloom, distancePx: tuning.fontBloomRadius },
-    glowColor: tuning.fontGlowColor,
-    letterSpacing: tuning.fontLetterSpacing,
-    heightScale: tuning.fontHeightScale,
-    glowKnockout: tuning.fontGlowKnockout,
+        : { outerStrength: t.fontBloom, distancePx: t.fontBloomRadius },
+    glowColor: t.fontGlowColor,
+    letterSpacing: t.fontLetterSpacing,
+    heightScale: t.fontHeightScale,
+    glowKnockout: t.fontGlowKnockout,
   };
+}
+
+export function neonFontGlowSourceWidthPx(sourceStrokePx: number): number {
+  return Math.max(0.5, sourceStrokePx - Math.min(2, sourceStrokePx * 0.5));
+}
+
+export function fontLookWithoutBloom(look: FontLineArtLook): FontLineArtLook {
+  return look.glow === null ? look : { ...look, glow: null };
 }

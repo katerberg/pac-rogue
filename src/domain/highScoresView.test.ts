@@ -2,13 +2,11 @@ import { describe, expect, it } from "vitest";
 import { RUN_HISTORY_VERSION } from "./runHistory";
 import {
   dateLabelFromRecordedAt,
-  formatHighScoreHeader,
-  formatHighScoreLine,
   HIGH_SCORE_COLUMN_GAP,
-  HIGH_SCORE_DATE_WIDTH,
-  HIGH_SCORE_PELLETS_WIDTH,
-  HIGH_SCORE_TIME_WIDTH,
+  highScoreCellX,
+  layoutHighScoreColumns,
   toHighScoreRows,
+  type HighScoreRow,
 } from "./highScoresView";
 
 describe("dateLabelFromRecordedAt", () => {
@@ -93,25 +91,74 @@ describe("toHighScoreRows", () => {
   });
 });
 
-describe("formatHighScoreHeader / formatHighScoreLine", () => {
-  it("uses one fixed-width template so header and rows share columns", () => {
-    const header = formatHighScoreHeader();
-    const line = formatHighScoreLine({
-      collectedCount: 42,
-      remainingTime: 880,
-      dateLabel: "2026-01-01",
-      recordedAt: "2026-01-01T00:00:00.000Z",
-    });
-    expect(header).toBe("PELLETS  TIME  DATE      ");
-    expect(line).toBe("     42   880  2026-01-01");
-    expect(header.length).toBe(line.length);
-    expect(header.length).toBe(
-      HIGH_SCORE_PELLETS_WIDTH +
-        HIGH_SCORE_COLUMN_GAP.length +
-        HIGH_SCORE_TIME_WIDTH +
-        HIGH_SCORE_COLUMN_GAP.length +
-        HIGH_SCORE_DATE_WIDTH,
+function proportionalMeasure(text: string): number {
+  let total = 0;
+  for (const ch of text) {
+    total += ch === "1" || ch === " " ? 1 : 2;
+  }
+  return total;
+}
+
+function monospaceMeasure(text: string): number {
+  return text.length;
+}
+
+const SAMPLE_ROWS: HighScoreRow[] = [
+  {
+    collectedCount: 9999,
+    remainingTime: 1,
+    dateLabel: "2026-04-04",
+    recordedAt: "2026-04-04T00:00:00.000Z",
+  },
+  {
+    collectedCount: 1,
+    remainingTime: 880,
+    dateLabel: "2026-01-01",
+    recordedAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
+describe("layoutHighScoreColumns", () => {
+  it("keeps every row's cells on the same column edges under a proportional measure", () => {
+    const layout = layoutHighScoreColumns(proportionalMeasure, SAMPLE_ROWS);
+    const listLeftX = 100;
+    expect(highScoreCellX(layout, "pellets", "right", listLeftX)).toBe(
+      listLeftX + layout.left.pellets + layout.width.pellets,
     );
-    expect(header.indexOf("DATE")).toBe(line.indexOf("2026"));
+    expect(highScoreCellX(layout, "date", "left", listLeftX)).toBe(listLeftX + layout.left.date);
+    expect(highScoreCellX(layout, "time", "left", listLeftX)).toBe(listLeftX + layout.left.time);
+    expect(layout.left.time).toBe(layout.left.pellets + layout.width.pellets + layout.gap);
+    expect(layout.left.date).toBe(layout.left.time + layout.width.time + layout.gap);
+    for (const row of SAMPLE_ROWS) {
+      expect(proportionalMeasure(String(row.collectedCount))).toBeLessThanOrEqual(
+        layout.width.pellets,
+      );
+      expect(proportionalMeasure(String(row.remainingTime))).toBeLessThanOrEqual(layout.width.time);
+      expect(proportionalMeasure(row.dateLabel)).toBeLessThanOrEqual(layout.width.date);
+    }
+
+    const paddedStarts = SAMPLE_ROWS.map((row) => {
+      const pellets = String(row.collectedCount).padStart(7);
+      const time = String(row.remainingTime).padStart(4);
+      return proportionalMeasure(`${pellets}${HIGH_SCORE_COLUMN_GAP}${time}`);
+    });
+    expect(new Set(paddedStarts).size).toBeGreaterThan(1);
+  });
+
+  it("packs columns with the measured gap and matches monospace pad widths", () => {
+    const layout = layoutHighScoreColumns(monospaceMeasure, SAMPLE_ROWS);
+    expect(layout.gap).toBe(HIGH_SCORE_COLUMN_GAP.length);
+    expect(layout.width.pellets).toBe("PELLETS".length);
+    expect(layout.width.time).toBe(
+      Math.max("TIME".length, ...SAMPLE_ROWS.map((r) => String(r.remainingTime).length)),
+    );
+    expect(layout.width.date).toBe("2026-04-04".length);
+    expect(layout.totalWidth).toBe(
+      layout.width.pellets + layout.gap + layout.width.time + layout.gap + layout.width.date,
+    );
+    expect(layout.left.time).toBe(layout.width.pellets + layout.gap);
+    expect(layout.left.date).toBe(
+      layout.width.pellets + layout.gap + layout.width.time + layout.gap,
+    );
   });
 });

@@ -64,7 +64,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addGameText, placeGameText, type GameText } from "./neonFont";
+import { addGameText, placeGameText, setGameTextBloom, type GameText } from "./neonFont";
 import {
   buildUpgradeCardVisual,
   SCHOOL_COLORS,
@@ -296,6 +296,7 @@ export class LearnScene extends Phaser.Scene {
           UPGRADES_HUD_FONT_SIZE,
           SCHOOL_COLORS[school],
         );
+        setGameTextBloom(header, false);
         placeGameText(header, UPGRADE_COLUMN_X[column], y, 0, 0.5);
         for (const def of defs) {
           y += UPGRADE_ROW_GAP;
@@ -317,12 +318,14 @@ export class LearnScene extends Phaser.Scene {
       .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, TEXT_COLOR_YELLOW)
       .setVisible(false);
     const label = addGameText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
+    setGameTextBloom(label, false);
     placeGameText(label, labelX, y, 0, 0.5);
     const plusBox = this.add
       .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
       .setStrokeStyle(2, TEXT_COLOR_YELLOW)
       .setVisible(false);
     const plus = addGameText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+    setGameTextBloom(plus, false);
     const pixelInk = textStyleFor(loadGhostStyle()) === "pixel";
     placeGameText(
       plus,

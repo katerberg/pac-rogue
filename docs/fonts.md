@@ -2,11 +2,11 @@
 
 Two typefaces, selected by Settings → **STYLE** (`neon` / `lined` / `pixel`, same storage as ghost art: `pac-rogue.ghost-style.v1`). LINED uses the neon typeface (`textStyleFor`).
 
-| STYLE          | Ghosts                 | UI text                        |
-| -------------- | ---------------------- | ------------------------------ |
-| NEON (default) | SVG line art + glow    | Bar-curve neon strokes + bloom |
-| LINED          | SVG line art, glow off | Bar-curve neon strokes + bloom |
-| PIXEL          | PNG sprites            | VGA 8×8 bitmap (`pac-pixel`)   |
+| STYLE          | Ghosts                 | UI text                           |
+| -------------- | ---------------------- | --------------------------------- |
+| NEON (default) | SVG line art + glow    | Bar-curve neon strokes + bloom    |
+| LINED          | SVG line art, glow off | Bar-curve neon strokes, bloom off |
+| PIXEL          | PNG sprites            | VGA 8×8 bitmap (`pac-pixel`)      |
 
 ## Pixel font
 
@@ -25,7 +25,7 @@ Bar-curve glyphs: **axis-aligned** horizontal/vertical segments and **quarter-ci
 
 Authoring references (not loaded at runtime): `src/game/art/refs/neon-alphabet-glow.png`, `neon-g-replacement.png`, `neon-notebook-sketch.png`.
 
-Rendering: `NeonText` in `src/game/scenes/neonFont.ts` strokes parsed path points with Phaser Graphics and optional knockout `addGlow` bloom (same idea as line-art ghosts). Scenes use `addGameText` / `placeGameText`, which pick neon vs pixel from `textStyleFor(loadGhostStyle())`.
+Rendering: `NeonText` in `src/game/scenes/neonFont.ts` strokes parsed path points with Phaser Graphics and optional knockout `addGlow` bloom (same idea as line-art ghosts). Scenes use `addGameText` / `placeGameText`, which pick neon vs pixel from `textStyleFor(loadGhostStyle())`. Without knobs, bloom follows Settings → STYLE (`styleUsesGlow`: on for NEON, off for LINED/PIXEL).
 
 ## Stacked UI text (cards / store)
 
@@ -46,7 +46,7 @@ Supported surfaces route through `stackTexts` / `layoutCardText` (choice modal, 
 
 ## Knobs (`?knobs=1`)
 
-Visuals group — restrained defaults, wide extremes:
+Visuals group — wide extremes; neon defaults are a clear soft bloom (strength **2.4**, radius **12px**):
 
 | Knob                      | Role                                              |
 | ------------------------- | ------------------------------------------------- |
@@ -57,7 +57,7 @@ Visuals group — restrained defaults, wide extremes:
 | Font height               | Vertical stretch                                  |
 | Font glow knockout        | Knockout bloom under crisp stroke                 |
 
-`fontLineArtLook(tuning)` in `src/domain/neonFont/fontLook.ts`. Play applies look live via `setActiveFontLook` when knobs change.
+`fontLineArtLook(tuning, style)` in `src/domain/neonFont/fontLook.ts` — same null-tuning / STYLE pattern as ghosts and walls. Play applies look live via `setActiveFontLook` when knobs change.
 
 ## Probe
 
