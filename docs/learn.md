@@ -33,24 +33,24 @@ All four ghosts are always selectable. Only upgrades this machine has met in rea
   ([`src/domain/learnUpgradeColumns.ts`](../src/domain/learnUpgradeColumns.ts)) fills the left column
   with the first 3 seen schools and the right column with the rest, in order (4 seen schools → 3 left,
   1 right). Each school has one row per seen
-  `UpgradeDef` in canonical `UPGRADE_DEFS` order within each group: a checkbox + label, filled in yellow while selected. Multiple upgrades can be
+  `UpgradeDef` in canonical `UPGRADE_DEFS` order within each group: a checkbox + label, filled in yellow while selected. Under Settings → STYLE = NEON or LINED the checkbox is a thin circle (`learnCheckboxLook`); under PIXEL it stays a square. Multiple upgrades can be
   selected at once (a local `RunUpgrades` bag, not tied to any real run) and stay selected across a
   ghost switch — only the transient power-pellet timers (freeze/wall-pass/invuln/speed-burst), any
   ghost corner glide/hold and any in-flight recall hold reset when the ghost changes.
-- Hovering an upgrade row for `HOVER_PREVIEW_DELAY_MS` (500ms) shows a preview card near the pointer
+- Hovering the upgrade **label** (not the checkbox or `+`) for `HOVER_PREVIEW_DELAY_MS` (500ms) shows a preview card near the pointer
   on the same side of the screen as the row (fixed x from `hoverPreviewX(column)`, y follows the pointer clamped to stay
   on-screen) — never over the play area — using `buildUpgradeCardVisual` from
   [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts), the same
   function the level-clear upgrade picker's buttons use, so the card matches exactly (bg, border,
-  school tag, label, description). Moving off the row before the delay elapses cancels it; moving to a new row
-  restarts the delay (and re-anchors to that row's pointer position).
+  school tag, label, description). Moving off the label before the delay elapses cancels it; moving to a new label
+  restarts the delay (and re-anchors to that row's pointer position). Hovering the checkbox or `+` cancels any pending preview.
 - Selecting an upgrade with no observable effect on this board (`LEARN_NO_EFFECT_UPGRADE_IDS`, currently Martyr and Interest) shows a
   small two-line banner positioned between the ghost slots and the maze (`NO_EFFECT_BANNER_Y`),
   capped to the maze's own pixel width (`wrapText` wraps the names line if it would overflow): the
   selected upgrade name(s) on the first line, `NO VISIBLE EFFECT HERE` always on its own line below.
-- Every selected upgrade row also shows a small `+` box at the right end of the row (`UPGRADE_PLUS_INSET` from the row edge, in either column),
-  hidden while the row is unselected (`learnEnhanceToggleState`). Clicking it flips that upgrade to its
-  enhanced `<id>Plus` form and back (`LearnSim.toggleEnhanced`): the box fills yellow and the label
+- Every selected upgrade row also shows a small `+` mark at the right end of the row (`UPGRADE_PLUS_INSET` from the row edge, in either column),
+  hidden while the row is unselected (`learnEnhanceToggleState`). Under NEON/LINED it is a thin circle (same `learnCheckboxLook` as the checkbox); under PIXEL it stays a square. Clicking it flips that upgrade to its
+  enhanced `<id>Plus` form and back (`LearnSim.toggleEnhanced`): the mark fills yellow and the label
   gains a `+` while enhanced. The preview card and the "no visible effect" banner use the owned form.
   Toggling the row off removes whichever form is owned; Pellet Surge's enhance converts one more
   pellet at once.

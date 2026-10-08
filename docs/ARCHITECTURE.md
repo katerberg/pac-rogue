@@ -59,7 +59,7 @@ src/
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
     ghostKind.ts              # blinky / pinky / inky / clyde kind ids
-    ghostArt.ts               # GhostStyle (Settings → STYLE: neon / lined / pixel; glow only on neon), textStyleFor (UI font), lineArtGhostKinds / lineArtDrawableIds (ghosts + Dot-Man), line-art looks from tuning+STYLE
+    ghostArt.ts               # GhostStyle (Settings → STYLE: neon / lined / pixel; glow only on neon), textStyleFor (UI font), learnCheckboxLook (LEARN upgrade checkboxes), lineArtGhostKinds / lineArtDrawableIds (ghosts + Dot-Man), line-art looks from tuning+STYLE
     neonFont/                 # Bar-curve neon glyph catalog + fontLineArtLook (see docs/fonts.md)
     lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points; rotateLineArt (see docs/line-art.md)
     dotManTurn.ts             # Dot-Man facing rotation: quarter turns and fast 180° reversals (see docs/line-art.md)

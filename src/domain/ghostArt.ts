@@ -20,6 +20,19 @@ export function textStyleFor(style: GhostStyle): "neon" | "pixel" {
   return style === "pixel" ? "pixel" : "neon";
 }
 
+/** LEARN upgrade-row checkbox chrome for a given Settings STYLE. */
+export type LearnCheckboxLook = {
+  shape: "circle" | "square";
+  strokeWidth: number;
+};
+
+/** NEON/LINED: thin circular stroke; PIXEL: the classic square box. */
+export function learnCheckboxLook(style: GhostStyle): LearnCheckboxLook {
+  return style === "pixel"
+    ? { shape: "square", strokeWidth: 2 }
+    : { shape: "circle", strokeWidth: 1 };
+}
+
 export function lineArtGhostKinds(
   style: GhostStyle,
   presentKinds: Iterable<GhostKindId>,

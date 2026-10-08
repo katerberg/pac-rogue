@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
-import { textStyleFor, type GhostStyle } from "../../domain/ghostArt";
+import { learnCheckboxLook, textStyleFor, type GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
@@ -119,10 +119,10 @@ const HOVER_PREVIEW_Y_MAX = 510;
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
 type UpgradeRow = {
   id: BaseUpgradeId;
-  checkMark: Phaser.GameObjects.Rectangle;
+  checkMark: Phaser.GameObjects.Shape;
   label: GameText;
   plus: GameText;
-  plusBox: Phaser.GameObjects.Rectangle;
+  plusBox: Phaser.GameObjects.Shape;
   plusZone: Phaser.GameObjects.Zone;
 };
 
@@ -138,7 +138,7 @@ export class LearnScene extends Phaser.Scene {
   private noEffectBanner!: GameText;
   private statusText!: GameText;
   private statusShown = "";
-  private hoverPreviewTimer: Phaser.Time.TimerEvent | null = null;
+  private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private hoverPreviewCard: UpgradeCardVisual | null = null;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private slotKeys: Phaser.Input.Keyboard.Key[] = [];
@@ -173,7 +173,7 @@ export class LearnScene extends Phaser.Scene {
     const title = addGameText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
     placeGameText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
     this.buildGhostSlots(ghostStyle);
-    this.buildUpgradeRows();
+    this.buildUpgradeRows(ghostStyle);
     this.buildBackButton();
 
     this.noEffectBanner = addGameText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
@@ -197,6 +197,7 @@ export class LearnScene extends Phaser.Scene {
     ].map((code) => keyboard.addKey(code));
 
     this.selectGhost(SLOT_KINDS[0]!);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cancelUpgradePreview());
   }
 
   update(_time: number, delta: number): void {
@@ -281,7 +282,7 @@ export class LearnScene extends Phaser.Scene {
     }
   }
 
-  private buildUpgradeRows(): void {
+  private buildUpgradeRows(ghostStyle: GhostStyle): void {
     this.upgradeRows = [];
     const columns = splitSchoolColumns(groupUpgradesBySchool(learnUpgradeDefs(this.seen.upgrades)));
     for (const column of ["left", "right"] as const) {
@@ -300,33 +301,62 @@ export class LearnScene extends Phaser.Scene {
         placeGameText(header, UPGRADE_COLUMN_X[column], y, 0, 0.5);
         for (const def of defs) {
           y += UPGRADE_ROW_GAP;
-          this.buildUpgradeRow(def, column, y);
+          this.buildUpgradeRow(def, column, y, ghostStyle);
         }
       }
     }
   }
 
-  private buildUpgradeRow(def: UpgradeDef, column: LearnColumn, y: number): void {
+  private buildUpgradeRow(
+    def: UpgradeDef,
+    column: LearnColumn,
+    y: number,
+    ghostStyle: GhostStyle,
+  ): void {
     const columnX = UPGRADE_COLUMN_X[column];
     const plusX = columnX + UPGRADE_ROW_WIDTH - UPGRADE_PLUS_INSET;
     const checkboxX = columnX + UPGRADE_CHECK_SIZE / 2;
     const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
-    this.add
-      .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
-      .setStrokeStyle(2, TEXT_COLOR_WHITE);
-    const checkMark = this.add
-      .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, TEXT_COLOR_YELLOW)
-      .setVisible(false);
+    const look = learnCheckboxLook(ghostStyle);
+    const checkRadius = UPGRADE_CHECK_SIZE / 2;
+    if (look.shape === "circle") {
+      this.add
+        .circle(checkboxX, y, checkRadius, 0x000000, 0)
+        .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE);
+    } else {
+      this.add
+        .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
+        .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE);
+    }
+    const checkMark =
+      look.shape === "circle"
+        ? this.add.circle(checkboxX, y, checkRadius - 2, TEXT_COLOR_YELLOW).setVisible(false)
+        : this.add
+            .rectangle(
+              checkboxX,
+              y,
+              UPGRADE_CHECK_SIZE - 4,
+              UPGRADE_CHECK_SIZE - 4,
+              TEXT_COLOR_YELLOW,
+            )
+            .setVisible(false);
     const label = addGameText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
     setGameTextBloom(label, false);
     placeGameText(label, labelX, y, 0, 0.5);
-    const plusBox = this.add
-      .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
-      .setStrokeStyle(2, TEXT_COLOR_YELLOW)
-      .setVisible(false);
+    const plusRadius = UPGRADE_PLUS_BOX_SIZE / 2;
+    const plusBox =
+      look.shape === "circle"
+        ? this.add
+            .circle(plusX, y, plusRadius, 0x000000, 0)
+            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_YELLOW)
+            .setVisible(false)
+        : this.add
+            .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
+            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_YELLOW)
+            .setVisible(false);
     const plus = addGameText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
     setGameTextBloom(plus, false);
-    const pixelInk = textStyleFor(loadGhostStyle()) === "pixel";
+    const pixelInk = textStyleFor(ghostStyle) === "pixel";
     placeGameText(
       plus,
       plusX + (pixelInk ? (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8 : 0),
@@ -335,19 +365,22 @@ export class LearnScene extends Phaser.Scene {
       0.5,
     );
     plus.setVisible(false);
-    const zone = this.add.zone(
-      columnX + UPGRADE_ROW_WIDTH / 2,
-      y,
-      UPGRADE_ROW_WIDTH,
-      UPGRADE_ROW_GAP - 2,
-    );
-    zone.setInteractive({ useHandCursor: true });
-    zone.on("pointerdown", () => this.toggleUpgrade(def.id));
-    zone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
+    const rowHitH = UPGRADE_ROW_GAP - 2;
+    const checkZoneW = UPGRADE_CHECK_SIZE + UPGRADE_CHECK_GAP;
+    const checkZone = this.add.zone(columnX + checkZoneW / 2, y, checkZoneW, rowHitH);
+    checkZone.setInteractive({ useHandCursor: true });
+    checkZone.on("pointerdown", () => this.toggleUpgrade(def.id));
+    const labelZoneLeft = columnX + checkZoneW;
+    const labelZoneRight = plusX - UPGRADE_PLUS_ZONE_WIDTH / 2;
+    const labelZoneW = Math.max(1, labelZoneRight - labelZoneLeft);
+    const labelZone = this.add.zone(labelZoneLeft + labelZoneW / 2, y, labelZoneW, rowHitH);
+    labelZone.setInteractive({ useHandCursor: true });
+    labelZone.on("pointerdown", () => this.toggleUpgrade(def.id));
+    labelZone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
       this.scheduleUpgradePreview(def.id, column, pointer.worldY),
     );
-    zone.on("pointerout", () => this.cancelUpgradePreview());
-    const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, UPGRADE_ROW_GAP - 2);
+    labelZone.on("pointerout", () => this.cancelUpgradePreview());
+    const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, rowHitH);
     plusZone.on("pointerdown", () => this.toggleEnhanced(def.baseId));
     plusZone.on("pointerover", () => this.cancelUpgradePreview());
     this.upgradeRows.push({ id: def.baseId, checkMark, label, plus, plusBox, plusZone });
@@ -425,10 +458,10 @@ export class LearnScene extends Phaser.Scene {
 
   private scheduleUpgradePreview(id: UpgradeId, column: LearnColumn, pointerY: number): void {
     this.cancelUpgradePreview();
-    this.hoverPreviewTimer = this.time.delayedCall(HOVER_PREVIEW_DELAY_MS, () => {
+    this.hoverPreviewTimer = setTimeout(() => {
       this.hoverPreviewTimer = null;
       this.showUpgradePreview(id, column, pointerY);
-    });
+    }, HOVER_PREVIEW_DELAY_MS);
   }
 
   private showUpgradePreview(id: UpgradeId, column: LearnColumn, pointerY: number): void {
@@ -445,8 +478,10 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private cancelUpgradePreview(): void {
-    this.hoverPreviewTimer?.remove();
-    this.hoverPreviewTimer = null;
+    if (this.hoverPreviewTimer !== null) {
+      clearTimeout(this.hoverPreviewTimer);
+      this.hoverPreviewTimer = null;
+    }
     this.hoverPreviewCard?.root.destroy(true);
     this.hoverPreviewCard = null;
   }
