@@ -309,6 +309,41 @@ export function addGhostIcon(
   placeLineArtObject(icon, x, y, 1);
 }
 
+/** Glow filters centre on world coords and break inside containers — bake once. */
+function addBakedLineArtIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+  art: LineArt,
+  color: number,
+  look: GhostLineArtLook,
+  textureKey: string,
+): Phaser.GameObjects.Image {
+  const px = renderScaleOf(scene);
+  const reach = look.glow?.distancePx ?? 0;
+  const box = size + 2 * reach;
+  if (!scene.textures.exists(textureKey)) {
+    const texturePx = Math.ceil(box * px);
+    const texture = scene.textures.addDynamicTexture(textureKey, texturePx, texturePx)!;
+    const obj = createLineArtObject(
+      scene,
+      art,
+      color,
+      storedWallStyle().background,
+      size * px,
+      look.glow === null ? look : { ...look, glow: { ...look.glow, distancePx: reach * px } },
+      true,
+      1,
+    );
+    placeLineArtObject(obj, texturePx / 2, texturePx / 2, 1);
+    texture.draw(obj.glow === null ? [obj.art] : [obj.glow, obj.art]);
+    texture.render();
+    destroyLineArtObject(obj);
+  }
+  return scene.add.image(x, y, textureKey).setDisplaySize(box, box);
+}
+
 export function addDotManIcon(
   scene: Phaser.Scene,
   x: number,
@@ -322,29 +357,17 @@ export function addDotManIcon(
   const px = renderScaleOf(scene);
   const backdrop = storedWallStyle().background;
   const look = playerLineArtLook(ghostLineArtLook(null, style));
-  const reach = look.glow?.distancePx ?? 0;
-  const box = size + 2 * reach;
   const key = `dotman-icon-${style}-${size}-${px}-${backdrop}-${DOTMAN_MOUTH_ICON_HALF_DEG}`;
-  if (!scene.textures.exists(key)) {
-    // The glow filter centres on world coordinates, so it breaks inside containers (HUD, store tiles).
-    const texturePx = Math.ceil(box * px);
-    const texture = scene.textures.addDynamicTexture(key, texturePx, texturePx)!;
-    const obj = createLineArtObject(
-      scene,
-      dotManMouthArt(DOTMAN_MOUTH_ICON_HALF_DEG),
-      DOTMAN_LINE_ART_COLOR,
-      backdrop,
-      size * px,
-      look.glow === null ? look : { ...look, glow: { ...look.glow, distancePx: reach * px } },
-      true,
-      1,
-    );
-    placeLineArtObject(obj, texturePx / 2, texturePx / 2, 1);
-    texture.draw(obj.glow === null ? [obj.art] : [obj.glow, obj.art]);
-    texture.render();
-    destroyLineArtObject(obj);
-  }
-  return scene.add.image(x, y, key).setDisplaySize(box, box);
+  return addBakedLineArtIcon(
+    scene,
+    x,
+    y,
+    size,
+    dotManMouthArt(DOTMAN_MOUTH_ICON_HALF_DEG),
+    DOTMAN_LINE_ART_COLOR,
+    look,
+    key,
+  );
 }
 
 let activeQuarterLook: GhostLineArtLook | null = null;
@@ -376,29 +399,17 @@ export function addQuarterIcon(
   const px = renderScaleOf(scene);
   const backdrop = storedWallStyle().background;
   const look = quarterIconLook(style);
-  const reach = look.glow?.distancePx ?? 0;
-  const box = size + 2 * reach;
   const key = `quarter-icon-${style}-${size}-${px}-${backdrop}-${quarterLookKey(look)}`;
-  if (!scene.textures.exists(key)) {
-    // Glow filters break inside containers (HUD, store tiles), so bake once like Dot-Man icons.
-    const texturePx = Math.ceil(box * px);
-    const texture = scene.textures.addDynamicTexture(key, texturePx, texturePx)!;
-    const obj = createLineArtObject(
-      scene,
-      QUARTER_LINE_ART,
-      QUARTER_LINE_ART_COLOR,
-      backdrop,
-      size * px,
-      look.glow === null ? look : { ...look, glow: { ...look.glow, distancePx: reach * px } },
-      true,
-      1,
-    );
-    placeLineArtObject(obj, texturePx / 2, texturePx / 2, 1);
-    texture.draw(obj.glow === null ? [obj.art] : [obj.glow, obj.art]);
-    texture.render();
-    destroyLineArtObject(obj);
-  }
-  return scene.add.image(x, y, key).setDisplaySize(box, box);
+  return addBakedLineArtIcon(
+    scene,
+    x,
+    y,
+    size,
+    QUARTER_LINE_ART,
+    QUARTER_LINE_ART_COLOR,
+    look,
+    key,
+  );
 }
 
 export function preloadPlayArt(scene: Phaser.Scene): void {
