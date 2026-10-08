@@ -1,7 +1,12 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
 import { textStyleFor } from "../../domain/ghostArt";
-import { interTextGap, wrapCharBudget } from "../../domain/neonFont/textStack";
+import {
+  interTextGap,
+  wrapCharBudget,
+  wrapCharsFittingWidth,
+} from "../../domain/neonFont/textStack";
+import { DEFAULT_TUNING } from "../../domain/tuning";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import { mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -47,6 +52,7 @@ import {
   schoolBorderColor,
   setSchoolTag,
   stackTexts,
+  stackTextsFromTop,
   wrapText,
 } from "./upgradeChoiceModal";
 
@@ -54,8 +60,10 @@ const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
+/** Inner pad so neon title/body keep clear air from the panel stroke. */
+const PANEL_SIDE_PAD = 24;
+const PANEL_TOP_PAD = 12;
 const PANEL_TITLE_MAX_CHARS = 10;
-const PANEL_TITLE_MARGIN = 16;
 const MODAL_TITLE_MARGIN = 40;
 const PANEL_BODY_MAX_CHARS = 18;
 const TOAST_MS = 2000;
@@ -265,26 +273,51 @@ export function createStoreOverlay(
     const textStyle = textStyleFor(loadGhostStyle());
     panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
     panelRare(content.rare, schoolBorderColor(content.school));
-    panelTitle.setText(wrapText(content.title, wrapCharBudget(PANEL_TITLE_MAX_CHARS, textStyle)));
-    panelTitle.setFontSize(
-      fitFontSize(content.title, PANEL_WIDTH - PANEL_TITLE_MARGIN, HUD_FONT_SIZE, textStyle),
+    const titleBudget = Math.min(
+      wrapCharBudget(PANEL_TITLE_MAX_CHARS, textStyle),
+      wrapCharsFittingWidth(
+        content.title,
+        PANEL_WIDTH,
+        HUD_FONT_SIZE,
+        textStyle,
+        PANEL_SIDE_PAD,
+        DEFAULT_TUNING.fontThickness,
+        DEFAULT_TUNING.fontLetterSpacing,
+        wrapText,
+      ),
     );
-    panelBody.setText(wrapText(content.body, wrapCharBudget(PANEL_BODY_MAX_CHARS, textStyle)));
+    const bodyBudget = Math.min(
+      wrapCharBudget(PANEL_BODY_MAX_CHARS, textStyle),
+      wrapCharsFittingWidth(
+        content.body,
+        PANEL_WIDTH,
+        UPGRADES_HUD_FONT_SIZE,
+        textStyle,
+        PANEL_SIDE_PAD,
+        DEFAULT_TUNING.fontThickness,
+        DEFAULT_TUNING.fontLetterSpacing,
+        wrapText,
+      ),
+    );
+    panelTitle.setText(wrapText(content.title, titleBudget));
+    panelTitle.setFontSize(
+      fitFontSize(content.title, PANEL_WIDTH - 2 * PANEL_SIDE_PAD, HUD_FONT_SIZE, textStyle),
+    );
+    panelBody.setText(wrapText(content.body, bodyBudget));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
     const schoolGap = interTextGap(SCHOOL_GAP, textStyle);
-    const bodyGap = interTextGap(CARD_DESCRIPTION_GAP, textStyle);
-    const footerY = PANEL_HEIGHT / 2 - 10;
-    const contentCenterY = (-PANEL_HEIGHT / 2 + 10 + footerY) / 2;
-    stackTexts(
+    const sectionGap = interTextGap(CARD_DESCRIPTION_GAP, textStyle);
+    const topY = -PANEL_HEIGHT / 2 + PANEL_TOP_PAD;
+    stackTextsFromTop(
       [
-        { text: panelTitle, gapBelow: content.school === null ? bodyGap : schoolGap },
-        ...(content.school === null ? [] : [{ text: panelSchool, gapBelow: bodyGap }]),
-        { text: panelBody, gapBelow: 0 },
+        { text: panelTitle, gapBelow: content.school === null ? sectionGap : schoolGap },
+        ...(content.school === null ? [] : [{ text: panelSchool, gapBelow: sectionGap }]),
+        { text: panelBody, gapBelow: sectionGap },
+        { text: panelFooter, gapBelow: 0 },
       ],
-      contentCenterY,
+      topY,
     );
-    placeGameText(panelFooter, 0, footerY, 0.5, 1);
   };
 
   const buildTile = (slot: StoreSlot, index: number): Phaser.GameObjects.Container => {

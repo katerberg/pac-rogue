@@ -17,6 +17,7 @@ import {
   type UpgradeChoiceOption,
   type UpgradeSchool,
 } from "../../domain/upgrades";
+import { wrapText } from "../../domain/wrapText";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { addRareFx } from "./rareFx";
 import {
@@ -26,6 +27,8 @@ import {
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
 import { addGameText, isNeonText, placeGameText, type GameText } from "./neonFont";
+
+export { wrapText };
 
 export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
 export const UPGRADE_CONFIRM_PULSE_MS = 400;
@@ -629,23 +632,16 @@ export function stackTexts(stack: { text: GameText; gapBelow: number }[], center
   }
 }
 
-export function wrapText(text: string, maxCharsPerLine: number): string {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const next = current.length === 0 ? word : `${current} ${word}`;
-    if (next.length > maxCharsPerLine && current.length > 0) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
+/** Top-anchored stack (store side panel): pack from `topY` downward with no empty band above. */
+export function stackTextsFromTop(
+  stack: { text: GameText; gapBelow: number }[],
+  topY: number,
+): void {
+  let top = topY;
+  for (const row of stack) {
+    placeGameText(row.text, 0, top, 0.5, 0);
+    top += row.text.getTextBounds(true).local.height + row.gapBelow;
   }
-  if (current.length > 0) {
-    lines.push(current);
-  }
-  return lines.join("\n");
 }
 
 function scrambleToward(target: string, progress: number, rng: () => number): string {
