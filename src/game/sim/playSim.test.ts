@@ -462,6 +462,21 @@ describe("PlaySim", () => {
     }
   });
 
+  it("level-clear offer stays valid when owned upgrades give school affinity", () => {
+    const owned = ["passiveExtraLife", "passiveDeathsHarvest", "passiveDefyDeath"] as const;
+    const sim = startSim({
+      jumpToUpgrade: true,
+      level: 4,
+      enableUpgrades: [...owned],
+    });
+    const offer = drainToOffer(sim);
+    expect(offer.upgrades).toHaveLength(3);
+    expect(new Set(offer.upgrades).size).toBe(3);
+    for (const id of offer.upgrades) {
+      expect(owned).not.toContain(id);
+    }
+  });
+
   it("offers rares at level clear only once two upgrades are owned", () => {
     const offer = (owned: UpgradeId[]) =>
       drainToOffer(

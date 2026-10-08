@@ -128,7 +128,7 @@ Modal copy uses each def’s punchy `description` string (iterate freely).
 
 ### Schools
 
-Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored tag directly under the title on every upgrade card: the choice modal, the level-1 starting-upgrade card, the Learn hover preview, and the store's hover panel, confirm modal and purchase toast (`SCHOOL_COLORS` / `layoutCardText` in `upgradeChoiceModal.ts`; the Quarters, Extra Life and Swap cards have none). Store tiles tint their upgrade letter with the school color (Extra Life and Swap stay yellow). Schools carry one gameplay rule: the [School Specialists](#school-specialists). Neutral is not a school for that rule.
+Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored tag directly under the title on every upgrade card: the choice modal, the level-1 starting-upgrade card, the Learn hover preview, and the store's hover panel, confirm modal and purchase toast (`SCHOOL_COLORS` / `layoutCardText` in `upgradeChoiceModal.ts`; the Quarters, Extra Life and Swap cards have none). Store tiles tint their upgrade letter with the school color (Extra Life and Swap stay yellow). Schools carry two gameplay rules: the [School Specialists](#school-specialists) and soft [school affinity](#school-affinity) on level-clear offers. Neutral is not a school for either rule.
 
 - **Death**: life loss and lives. **Harvest**: maximizing gains from a level, possibly at the cost of speed. **Speed**: finishing a level fast by moving faster or skipping work. **Automation**: pellets, power pellets and Quarters that come to you without your own movement. **Protection**: shrugging off hits. **Disruption**: impeding ghost mobility and goals. **Neutral**: generically useful.
 - New defs must set `school` (required by the type).
@@ -138,7 +138,7 @@ Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored
 An upgrade is **common**, **rare** or a [School Specialist](#school-specialists). Rare defs set `rare: true` (`isRare`) and `storePrice: STORE_RARE_UPGRADE_PRICE` (4); every other def costs `STORE_UPGRADE_PRICE` (3). Rares are the build-around upgrades: Wall Pass, Fruit Power, Overcharge, Lazy Looper, Shield Pellets, Martyr, Streak Engine and Hunter.
 
 - **Gate.** `eligibleUpgrades` leaves rares out until `RARE_MIN_OWNED` (2) upgrades are owned (any kind, specialists included), so a rare is never your first or second upgrade. It is never in `STARTING_UPGRADE_POOL`.
-- **Weight.** Every random upgrade draw (level-clear offer, store shelves, trade tile) goes through `takeWeightedUpgrade`, where a rare has `RARE_OFFER_WEIGHT` (0.5) the chance of a common. A pool with no rares draws exactly like `takeRandomFrom`. There is no cap on rares per level-clear offer.
+- **Weight.** Every random upgrade draw goes through `takeWeightedUpgrade`. By default a rare has `RARE_OFFER_WEIGHT` (0.5) the chance of a common (store shelves, trade tile, and the rare half of level-clear weights). A pool with no rares and no school affinity draws exactly like `takeRandomFrom`. There is no cap on rares per level-clear offer. Level-clear offers also multiply by [school affinity](#school-affinity); the store does not.
 - **Store.** At most one rare on the shelves per store: `createStoreState` drops rares from the shelf pool once one is shelved. The trade tile is not capped; it can swap into a rare (at half weight) even when the shelf shows one.
 - **Look.** Every rare card (level-clear modal, LEARN and pause hover previews, store hover panel, confirm modal and purchase toast) and rare store tile gets `addRareFx` ([`src/game/scenes/rareFx.ts`](../src/game/scenes/rareFx.ts)): a soft halo in the school color that pulses. The store panel and modal swap it on and off with `createRareFxToggle`. The FX tween is removed when the card is destroyed.
 
@@ -152,9 +152,19 @@ An upgrade is **common**, **rare** or a [School Specialist](#school-specialists)
 - `pickUpgradeChoiceOffer` returns an offer of `{ quarters: QUARTERS_CHOICE_AMOUNT, upgrades, enhanced }`, where `upgrades` holds up to three ids (`min(3, eligible.length)`):
   - Never repeats an id.
   - Prefers excluding `lastDeclinedUpgradeId`.
+  - Draws via `takeWeightedUpgrade` with `upgradeOfferWeight` ([school affinity](#school-affinity) × rare half-weight). Soft weight only — there is no guaranteed matching-school slot.
   - If excluding decline would leave the offer short, re-includes last-declined only as needed to fill it.
   - If a `forced` id is eligible and missing from the picks, it replaces one slot before the shuffle (and can put last-declined back).
   - After the shuffle, each upgrade is independently marked enhanced with `enhancedOfferChance(level)` (`1/8` after levels 4–8, else 0). Those extra `upgradeOffer` stream draws happen last, so seeded offers on other levels stay unchanged. `enhanced` is the subset shown as `+` cards (gold `STORE_ENHANCE_BORDER_COLOR` border, Plus label and description).
+
+### School affinity
+
+Level-clear offers softly favor schools the player already owns so specialization is easier without locking a build. Invisible — no HUD or modal affinity readout. Starting upgrade and store draws are unaffected.
+
+- **Points.** `schoolAffinityPoints(owned, school)` counts every owned upgrade of that school (base, Plus, and specialists). Neutral always scores 0 and never contributes.
+- **Weight.** `upgradeOfferWeight(id, owned)` returns `schoolMult × (isRare(id) ? RARE_OFFER_WEIGHT : 1)`. For a non-Neutral candidate with `points > 0`, `schoolMult = 1 + rate × points` where `rate` is `SCHOOL_AFFINITY_COMMON_RATE` (0.10) for commons and `SCHOOL_AFFINITY_RARE_RATE` (0.15) for rares. Uncapped. Neutral candidates and schools with 0 points keep `schoolMult = 1`.
+- **Examples.** Own 2 Death → Death common weight `1.2`; Death rare weight `1.3 × 0.5 = 0.65`. Empty owned → today’s rare-only weights.
+
 - The modal lays these out as four fixed direction slots — **up/down/left/right**, D-pad style:
   - **Down is always the Quarters option** (`+QUARTERS_CHOICE_AMOUNT`, currently 2), regardless of how many upgrades are offered.
   - The upgrade slots fill in a fixed order based on count: 0 → none (down-only); 1 → up; 2 → left + right (matching the old two-button layout); 3 → up + left + right.
