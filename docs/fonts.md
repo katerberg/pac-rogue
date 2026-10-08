@@ -27,6 +27,23 @@ Authoring references (not loaded at runtime): `src/game/art/refs/neon-alphabet-g
 
 Rendering: `NeonText` in `src/game/scenes/neonFont.ts` strokes parsed path points with Phaser Graphics and optional knockout `addGlow` bloom (same idea as line-art ghosts). Scenes use `addGameText` / `placeGameText`, which pick neon vs pixel from `textStyleFor(loadGhostStyle())`. Without knobs, bloom follows Settings → STYLE (`styleUsesGlow`: on for NEON, off for LINED/PIXEL).
 
+## Stacked UI text (cards / store)
+
+Two different vertical rules — do not conflate them:
+
+| Rule                         | Where                                                     | Helper                                                                 |
+| ---------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Intra-`NeonText` leading** | Lines inside one multi-line string (`\n` from `wrapText`) | `neonLinePitch` / `NEON_LINE_LEADING` (0.5×) in `layout.ts`            |
+| **Inter-object gaps**        | Separate `GameText` rows (title → school → body → cost)   | `interTextGap` in `textStack.ts` (`×1.5` for neon, identity for pixel) |
+
+Supported surfaces route through `stackTexts` / `layoutCardText` (choice modal, starting card, store confirm + side panel). Pixel STYLE keeps today's gap and wrap numbers.
+
+**Char wrap:** still character-count `wrapText` (`src/domain/wrapText.ts`). Neon starts from a wider budget via `wrapCharBudget` (1.75×), and store panels further clamp with `wrapCharsFittingWidth` so each line's measured neon advance stays inside the box minus style-gated side pads (neon bloom pad 34; pixel legacy pad 8 so wrap budgets stay at today's numbers). Fitting measures `neonDisplayText` (uppercase) advances — mixed-case strings under-measure the glyphs NeonText draws. Upgrade descriptions stay single prose strings — no per-upgrade `\n` edits.
+
+**Store side panel:** top-anchors title → school → body → footer via `stackTextsFromTop` with school-sized `interTextGap` between rows (short 190px panel; tall stacks may still clip NEED/QUARTERS — leave it).
+
+**Title fit floors:** `fitFontSize(..., textStyle)` for neon steps down from preferred in 4px increments while measured `lineWidthPx` exceeds `maxWidth` (pixel stays 8px glyph cells). Preferred size ≥ 22 floors at **16**; otherwise floor **8**. School, body (8), cost, and SURE/YES/NO are never shrunk for stack pressure. If a stack is still taller than the box after the floor, leave it — do not grow the box or drop below the floor. Bloom is visual-only and is not added into gap math.
+
 ## Knobs (`?knobs=1`)
 
 Visuals group — wide extremes; neon defaults are a clear soft bloom (strength **2.4**, radius **12px**):

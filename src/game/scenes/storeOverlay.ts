@@ -1,5 +1,12 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
+import { textStyleFor } from "../../domain/ghostArt";
+import {
+  interTextGap,
+  wrapCharBudget,
+  wrapCharsFittingWidth,
+} from "../../domain/neonFont/textStack";
+import { DEFAULT_TUNING } from "../../domain/tuning";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import { mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -19,10 +26,10 @@ import {
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
+import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
-import { addDotManIcon, QUARTER_TEXTURE_KEY } from "../systems/render";
-import { textStyleFor } from "../../domain/ghostArt";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
+import { addDotManIcon, QUARTER_TEXTURE_KEY } from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
 import { addRareFx, createRareFxToggle } from "./rareFx";
 import {
@@ -40,20 +47,24 @@ import {
   DESCRIPTION_MAX_CHARS,
   LABEL_MAX_CHARS,
   MODAL_DEPTH,
+  CARD_DESCRIPTION_GAP,
   SCHOOL_COLORS,
   SCHOOL_GAP,
   schoolBorderColor,
   setSchoolTag,
   stackTexts,
-  wrapText,
+  stackTextsFromTop,
 } from "./upgradeChoiceModal";
 
 const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
+/** Neon bloom clearance from the panel stroke; pixel keeps the legacy wrap pad. */
+const PANEL_NEON_SIDE_PAD = 34;
+const PANEL_PIXEL_SIDE_PAD = 8;
+const PANEL_TOP_PAD = 12;
 const PANEL_TITLE_MAX_CHARS = 10;
-const PANEL_TITLE_MARGIN = 16;
 const MODAL_TITLE_MARGIN = 40;
 const PANEL_BODY_MAX_CHARS = 18;
 const TOAST_MS = 2000;
@@ -226,26 +237,31 @@ export function createStoreOverlay(
     if (prompt === null) {
       return;
     }
+    const textStyle = textStyleFor(loadGhostStyle());
     const title = slotTitle(prompt.slot);
-    modalTitle.setText(wrapText(title, LABEL_MAX_CHARS));
+    modalTitle.setText(wrapText(title, wrapCharBudget(LABEL_MAX_CHARS, textStyle)));
     modalTitle.setFontSize(
-      fitFontSize(title, BUTTON_WIDTH - MODAL_TITLE_MARGIN, MENU_TITLE_FONT_SIZE),
+      fitFontSize(title, BUTTON_WIDTH - MODAL_TITLE_MARGIN, MENU_TITLE_FONT_SIZE, textStyle),
     );
-    modalBody.setText(wrapText(slotBody(prompt.slot), DESCRIPTION_MAX_CHARS));
+    modalBody.setText(
+      wrapText(slotBody(prompt.slot), wrapCharBudget(DESCRIPTION_MAX_CHARS, textStyle)),
+    );
     modalCost.setText(`COST ${prompt.price}`);
     const school = slotSchool(prompt.slot);
     modalBg.setStrokeStyle(4, schoolBorderColor(school));
     modalRare(slotRare(prompt.slot), schoolBorderColor(school));
     setSchoolTag(modalSchool, school);
+    const schoolGap = interTextGap(SCHOOL_GAP, textStyle);
+    const sectionGap = interTextGap(CARD_DESCRIPTION_GAP, textStyle);
     stackTexts(
       [
-        { text: modalTitle, gapBelow: SCHOOL_GAP },
-        ...(school === null ? [] : [{ text: modalSchool, gapBelow: 0 }]),
+        { text: modalTitle, gapBelow: school === null ? sectionGap : schoolGap },
+        ...(school === null ? [] : [{ text: modalSchool, gapBelow: sectionGap }]),
+        { text: modalBody, gapBelow: sectionGap },
+        { text: modalCost, gapBelow: 0 },
       ],
-      -58,
+      -20,
     );
-    placeGameText(modalBody, 0, 8, 0.5, 0.5);
-    placeGameText(modalCost, 0, 44, 0.5, 0.5);
     modalYes.setTint(confirmYes ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
     modalNo.setTint(confirmYes ? TEXT_COLOR_WHITE : TEXT_COLOR_YELLOW);
   };
@@ -255,25 +271,49 @@ export function createStoreOverlay(
     if (content === null) {
       return;
     }
+    const textStyle = textStyleFor(loadGhostStyle());
     panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
     panelRare(content.rare, schoolBorderColor(content.school));
-    panelTitle.setText(wrapText(content.title, PANEL_TITLE_MAX_CHARS));
-    panelTitle.setFontSize(
-      fitFontSize(content.title, PANEL_WIDTH - PANEL_TITLE_MARGIN, HUD_FONT_SIZE),
+    const sidePad = textStyle === "neon" ? PANEL_NEON_SIDE_PAD : PANEL_PIXEL_SIDE_PAD;
+    const titleSize = fitFontSize(
+      content.title,
+      PANEL_WIDTH - 2 * sidePad,
+      HUD_FONT_SIZE,
+      textStyle,
     );
-    panelBody.setText(wrapText(content.body, PANEL_BODY_MAX_CHARS));
+    const panelBudget = (text: string, fontSize: number, pixelMax: number): number =>
+      Math.min(
+        wrapCharBudget(pixelMax, textStyle),
+        wrapCharsFittingWidth(
+          text,
+          PANEL_WIDTH,
+          fontSize,
+          textStyle,
+          sidePad,
+          DEFAULT_TUNING.fontThickness,
+          DEFAULT_TUNING.fontLetterSpacing,
+        ),
+      );
+    const titleBudget = panelBudget(content.title, titleSize, PANEL_TITLE_MAX_CHARS);
+    const bodyBudget = panelBudget(content.body, UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS);
+    panelTitle.setText(wrapText(content.title, titleBudget));
+    panelTitle.setFontSize(titleSize);
+    panelBody.setText(wrapText(content.body, bodyBudget));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
-    placeGameText(panelTitle, 0, -PANEL_HEIGHT / 2 + 10, 0.5, 0);
-    placeGameText(
-      panelSchool,
-      0,
-      panelTitle.y + panelTitle.getTextBounds(true).local.height + SCHOOL_GAP,
-      0.5,
-      0,
+    // Prefer school-sized gaps on the short panel; tall neon stacks may still clip
+    // NEED/QUARTERS — leave it (same policy as fonts.md).
+    const rowGap = interTextGap(SCHOOL_GAP, textStyle);
+    const topY = -PANEL_HEIGHT / 2 + PANEL_TOP_PAD;
+    stackTextsFromTop(
+      [
+        { text: panelTitle, gapBelow: rowGap },
+        ...(content.school === null ? [] : [{ text: panelSchool, gapBelow: rowGap }]),
+        { text: panelBody, gapBelow: rowGap },
+        { text: panelFooter, gapBelow: 0 },
+      ],
+      topY,
     );
-    placeGameText(panelBody, 0, 0, 0.5, 0.5);
-    placeGameText(panelFooter, 0, PANEL_HEIGHT / 2 - 10, 0.5, 1);
   };
 
   const buildTile = (slot: StoreSlot, index: number): Phaser.GameObjects.Container => {
