@@ -14,14 +14,24 @@ type PelletAbsorbEvent = {
 
 /** Above crisp pellets (0), under typical actor sprites (~10+) and turn sparks (50). */
 const ABSORB_DEPTH = 8;
+const LIVE_KEY = "pelletAbsorbs";
 
 type LiveAbsorb = {
   destroy: () => void;
 };
 
-const live: LiveAbsorb[] = [];
+function liveFor(scene: Phaser.Scene): LiveAbsorb[] {
+  const existing = scene.data.get(LIVE_KEY) as LiveAbsorb[] | undefined;
+  if (existing !== undefined) {
+    return existing;
+  }
+  const created: LiveAbsorb[] = [];
+  scene.data.set(LIVE_KEY, created);
+  return created;
+}
 
-export function killPelletAbsorbs(_scene: Phaser.Scene): void {
+export function killPelletAbsorbs(scene: Phaser.Scene): void {
+  const live = liveFor(scene);
   for (const fx of live.splice(0)) {
     fx.destroy();
   }
@@ -35,6 +45,7 @@ export function playPelletAbsorb(
   const from = { x: event.x, y: event.y };
   const graphics = scene.add.graphics().setDepth(ABSORB_DEPTH);
   const clock = { progress: 0 };
+  const live = liveFor(scene);
   let dead = false;
   const destroyFx = (): void => {
     if (dead) {
