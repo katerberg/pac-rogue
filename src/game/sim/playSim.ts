@@ -411,6 +411,7 @@ export class PlaySim {
   private bossState: BossState | null = null;
   private bossMouths: BossTunnelMouth[] = [];
   private bossStageTransition: BossStageTransition | null = null;
+  private bossStageDraw: { entityAlpha: number; wallAlpha: number } | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runCompleteElapsedMs: number | null = null;
@@ -661,10 +662,6 @@ export class PlaySim {
   }
 
   renderOptions(): SimRenderOptions {
-    const stage =
-      this.bossStageTransition === null
-        ? null
-        : tickBossStageTransition(this.bossStageTransition, 0);
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
@@ -683,8 +680,8 @@ export class PlaySim {
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
       lineArtDrawableIds: lineArtDrawableIds(this.ghostStyle, this.presentGhostKinds()),
-      entityAlpha: stage?.entityAlpha,
-      wallAlpha: stage?.wallAlpha,
+      entityAlpha: this.bossStageDraw?.entityAlpha,
+      wallAlpha: this.bossStageDraw?.wallAlpha,
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
     };
   }
@@ -2032,6 +2029,7 @@ export class PlaySim {
       return;
     }
     this.bossStageTransition = createBossStageTransition();
+    this.bossStageDraw = { entityAlpha: 1, wallAlpha: 1 };
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "sfx", id: "levelComplete" });
     this.emit({ type: "timer" });
@@ -2055,9 +2053,11 @@ export class PlaySim {
     if (tick.startGameplayMusic) {
       this.emit({ type: "loopStart", id: "gameplayMusic" });
     }
+    this.bossStageDraw = { entityAlpha: tick.entityAlpha, wallAlpha: tick.wallAlpha };
     this.emitDraw();
     if (tick.done) {
       this.bossStageTransition = null;
+      this.bossStageDraw = null;
       this.emit({ type: "timer" });
       this.emitDraw();
     }
@@ -2078,6 +2078,7 @@ export class PlaySim {
       removeEntity(this.world, eid);
       this.releaseDrawable(eid);
     }
+    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.bossState = advanceBossStage(this.bossState);
     spawnBoardPellets(this.world);
     this.tagBossPellets(this.bossState);

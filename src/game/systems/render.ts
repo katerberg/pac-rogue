@@ -1214,15 +1214,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           radius: pellet.look.radius * radiusMul,
           strokeWidth: pellet.look.strokeWidth * Math.max(1, Math.sqrt(radiusMul)),
         };
-        strokePelletRing(
-          pelletCrispGraphics,
-          pellet.x,
-          pellet.y,
-          scaledLook,
-          1,
-          alpha * entityAlpha,
-          false,
-        );
+        strokePelletRing(pelletCrispGraphics, pellet.x, pellet.y, scaledLook, 1, alpha, false);
         if (pellet.id === BOSS_PELLET_DRAWABLE_ID) {
           aliveBossGlow.add(pellet.eid);
           const glow = ensureBossPelletGlow(pellet.eid, scaledLook);

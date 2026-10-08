@@ -4,6 +4,7 @@ import { FRUIT_LIFETIME_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { CHAIN_PAIR } from "../../domain/bossRules";
+import { BOSS_STAGE_ENTITY_FADE_MS, BOSS_STAGE_FLICKER_MS } from "../../domain/bossStageTransition";
 import {
   canEnterDirection,
   cellCenterX,
@@ -1686,6 +1687,32 @@ describe("PlaySim", () => {
       waitStage2(sim);
       expect(worldToCol(Position.x[player]!)).toBe(10);
       expect(worldToRow(Position.y[player]!)).toBe(12);
+    });
+
+    it("keeps wallAlpha at 0 on the rebuild draw frame", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", godMode: true });
+      sim["jumpToLevelClear"]();
+      expect(sim.snapshot().bossStageTransition).toBe(true);
+      sim["tickBossStageTransitionFrame"](BOSS_STAGE_ENTITY_FADE_MS + BOSS_STAGE_FLICKER_MS);
+      expect(sim.snapshot().boss?.stage).toBe(2);
+      expect(sim.renderOptions().wallAlpha).toBe(0);
+      expect(sim.renderOptions().entityAlpha).toBe(0);
+    });
+
+    it("clears eid-bound upgrade timers when the stage board refills", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", godMode: true });
+      const [ghost] = query(sim.world, [Ghost]);
+      expect(ghost).toBeDefined();
+      sim["runUpgrades"] = {
+        ...sim["runUpgrades"],
+        freezeRemainingMs: 4000,
+        frozenGhostEid: ghost!,
+      };
+      expect(frozenGhostEid(sim["runUpgrades"])).toBe(ghost);
+      sim["jumpToLevelClear"]();
+      waitStage2(sim);
+      expect(frozenGhostEid(sim["runUpgrades"])).toBeNull();
+      expect(sim["runUpgrades"].freezeRemainingMs).toBe(0);
     });
   });
 
