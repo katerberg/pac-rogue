@@ -138,7 +138,7 @@ export class LearnScene extends Phaser.Scene {
   private noEffectBanner!: GameText;
   private statusText!: GameText;
   private statusShown = "";
-  private hoverPreviewTimer: Phaser.Time.TimerEvent | null = null;
+  private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private hoverPreviewCard: UpgradeCardVisual | null = null;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private slotKeys: Phaser.Input.Keyboard.Key[] = [];
@@ -197,6 +197,7 @@ export class LearnScene extends Phaser.Scene {
     ].map((code) => keyboard.addKey(code));
 
     this.selectGhost(SLOT_KINDS[0]!);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cancelUpgradePreview());
   }
 
   update(_time: number, delta: number): void {
@@ -369,7 +370,6 @@ export class LearnScene extends Phaser.Scene {
     const checkZone = this.add.zone(columnX + checkZoneW / 2, y, checkZoneW, rowHitH);
     checkZone.setInteractive({ useHandCursor: true });
     checkZone.on("pointerdown", () => this.toggleUpgrade(def.id));
-    checkZone.on("pointerover", () => this.cancelUpgradePreview());
     const labelZoneLeft = columnX + checkZoneW;
     const labelZoneRight = plusX - UPGRADE_PLUS_ZONE_WIDTH / 2;
     const labelZoneW = Math.max(1, labelZoneRight - labelZoneLeft);
@@ -458,10 +458,10 @@ export class LearnScene extends Phaser.Scene {
 
   private scheduleUpgradePreview(id: UpgradeId, column: LearnColumn, pointerY: number): void {
     this.cancelUpgradePreview();
-    this.hoverPreviewTimer = this.time.delayedCall(HOVER_PREVIEW_DELAY_MS, () => {
+    this.hoverPreviewTimer = setTimeout(() => {
       this.hoverPreviewTimer = null;
       this.showUpgradePreview(id, column, pointerY);
-    });
+    }, HOVER_PREVIEW_DELAY_MS);
   }
 
   private showUpgradePreview(id: UpgradeId, column: LearnColumn, pointerY: number): void {
@@ -478,8 +478,10 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private cancelUpgradePreview(): void {
-    this.hoverPreviewTimer?.remove();
-    this.hoverPreviewTimer = null;
+    if (this.hoverPreviewTimer !== null) {
+      clearTimeout(this.hoverPreviewTimer);
+      this.hoverPreviewTimer = null;
+    }
     this.hoverPreviewCard?.root.destroy(true);
     this.hoverPreviewCard = null;
   }
