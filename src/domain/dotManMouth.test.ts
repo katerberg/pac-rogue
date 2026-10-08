@@ -12,9 +12,11 @@ import {
   DOTMAN_MOUTH_OPEN_HALF_DEG,
   DOTMAN_OUTER_RADIUS,
   DOTMAN_VIEW,
+  dotManChompMouthHalfDegs,
   dotManChompPixelsPerFrame,
   dotManMouthArt,
   dotManMouthHalfAngle,
+  resolveDotManMouthAngles,
 } from "./dotManMouth";
 
 const radiusOf = (p: { x: number; y: number }) =>
@@ -35,6 +37,24 @@ describe("dotManMouthHalfAngle", () => {
     expect(DOTMAN_CHOMP_PIXEL_FRAMES).toHaveLength(DOTMAN_CHOMP_MOUTH_HALF_DEG.length);
     expect(dotManMouthHalfAngle(0, true)).toBe(DOTMAN_MOUTH_OPEN_HALF_DEG);
     expect(dotManMouthHalfAngle(2, true)).toBe(DOTMAN_MOUTH_CLOSED_HALF_DEG);
+  });
+
+  it("uses the supplied open/closed angles for the chomp cycle", () => {
+    const angles = { openHalfDeg: 60, closedHalfDeg: 10 };
+    expect(dotManMouthHalfAngle(0, false, angles)).toBe(60);
+    expect(dotManChompMouthHalfDegs(angles)).toEqual([60, 35, 10, 35]);
+    expect(dotManMouthHalfAngle(2, true, angles)).toBe(10);
+  });
+});
+
+describe("resolveDotManMouthAngles", () => {
+  it("keeps closed strictly below open", () => {
+    expect(resolveDotManMouthAngles(40, 40)).toEqual({ openHalfDeg: 40, closedHalfDeg: 39 });
+    expect(resolveDotManMouthAngles(30, 50)).toEqual({ openHalfDeg: 30, closedHalfDeg: 29 });
+    expect(resolveDotManMouthAngles(48, 16)).toEqual({
+      openHalfDeg: 48,
+      closedHalfDeg: 16,
+    });
   });
 });
 

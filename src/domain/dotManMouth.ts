@@ -22,25 +22,52 @@ export function dotManChompPixelsPerFrame(speed: number): number {
 /** Travel (px) per mouth beat at the default chomp speed (2×). */
 export const DOTMAN_CHOMP_PIXELS_PER_FRAME = dotManChompPixelsPerFrame(DOTMAN_CHOMP_SPEED_DEFAULT);
 
-const MOUTH_MID_HALF_DEG = (DOTMAN_MOUTH_OPEN_HALF_DEG + DOTMAN_MOUTH_CLOSED_HALF_DEG) / 2;
+export type DotManMouthAngles = {
+  openHalfDeg: number;
+  closedHalfDeg: number;
+};
 
-export const DOTMAN_CHOMP_MOUTH_HALF_DEG = [
-  DOTMAN_MOUTH_OPEN_HALF_DEG,
-  MOUTH_MID_HALF_DEG,
-  DOTMAN_MOUTH_CLOSED_HALF_DEG,
-  MOUTH_MID_HALF_DEG,
-] as const;
+export const DOTMAN_MOUTH_ANGLES_DEFAULT: DotManMouthAngles = {
+  openHalfDeg: DOTMAN_MOUTH_OPEN_HALF_DEG,
+  closedHalfDeg: DOTMAN_MOUTH_CLOSED_HALF_DEG,
+};
+
+/** Keep closed strictly below open so the chomp still travels. */
+export function resolveDotManMouthAngles(
+  openHalfDeg: number,
+  closedHalfDeg: number,
+): DotManMouthAngles {
+  const open = Math.max(1, openHalfDeg);
+  return {
+    openHalfDeg: open,
+    closedHalfDeg: Math.min(Math.max(0, closedHalfDeg), open - 1),
+  };
+}
+
+export function dotManChompMouthHalfDegs(
+  angles: DotManMouthAngles = DOTMAN_MOUTH_ANGLES_DEFAULT,
+): readonly [number, number, number, number] {
+  const mid = (angles.openHalfDeg + angles.closedHalfDeg) / 2;
+  return [angles.openHalfDeg, mid, angles.closedHalfDeg, mid];
+}
+
+export const DOTMAN_CHOMP_MOUTH_HALF_DEG = dotManChompMouthHalfDegs();
 
 /** Pixel Pac-Man texture frames for the same open→mid→closed→mid beat. */
 export const DOTMAN_CHOMP_PIXEL_FRAMES = [1, 2, 3, 2] as const;
 
 export type DotManChomp = { carry: number; cycleIndex: number };
 
-export function dotManMouthHalfAngle(cycleIndex: number, moving: boolean): number {
+export function dotManMouthHalfAngle(
+  cycleIndex: number,
+  moving: boolean,
+  angles: DotManMouthAngles = DOTMAN_MOUTH_ANGLES_DEFAULT,
+): number {
   if (!moving) {
-    return DOTMAN_MOUTH_OPEN_HALF_DEG;
+    return angles.openHalfDeg;
   }
-  return DOTMAN_CHOMP_MOUTH_HALF_DEG[cycleIndex % DOTMAN_CHOMP_MOUTH_HALF_DEG.length]!;
+  const cycle = dotManChompMouthHalfDegs(angles);
+  return cycle[cycleIndex % cycle.length]!;
 }
 
 export function advanceDotManChomp(
@@ -52,7 +79,7 @@ export function advanceDotManChomp(
   let cycleIndex = chomp.cycleIndex;
   while (carry >= pixelsPerFrame) {
     carry -= pixelsPerFrame;
-    cycleIndex = (cycleIndex + 1) % DOTMAN_CHOMP_MOUTH_HALF_DEG.length;
+    cycleIndex = (cycleIndex + 1) % DOTMAN_CHOMP_PIXEL_FRAMES.length;
   }
   return { carry, cycleIndex };
 }
