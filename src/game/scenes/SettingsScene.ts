@@ -661,9 +661,7 @@ export class SettingsScene extends Phaser.Scene {
     this.ghostStyleLabel.setTint(ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
     for (const [index, option] of GHOST_STYLE_OPTIONS.entries()) {
       const active = option.style === this.ghostStyle;
-      const text = this.ghostStyleTexts[index]!;
-      text.setTint(active ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-      setGameTextBloom(text, active);
+      this.ghostStyleTexts[index]!.setTint(active ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
     }
 
     placeSelectableMenuOption(
