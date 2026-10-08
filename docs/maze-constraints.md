@@ -6,22 +6,22 @@ Rectangular ASCII mazes of variable size. Levels ≥ 2 can use the procedural ti
 
 Nominal band: **20–32 cols × 21–36 rows**.
 
-Playfield stays **800×600** (`PLAYFIELD_*`). Every layout uses the same fixed tile size, `TILE_SIZE_PX` (17px, `src/domain/maze.ts`) — Pac-Man, ghosts, and wall strokes render at the same pixel size on every level. That value is sized so level-2+ **28×34** generated boards fill the usable height (`floor((600-8-8)/34) = 17`); it is **not** refit per layout. Geometry is that fixed tile, horizontally centered and **vertically centered** in the band between `MAZE_TOP_MARGIN_PX` / `MAZE_BOTTOM_MARGIN_PX` (both 8; bottom matches the lives HUD inset):
+Playfield stays **800×600** (`PLAYFIELD_*`). Every layout uses the same fixed tile size, `TILE_SIZE_PX` (20px, `src/domain/maze.ts`) — Pac-Man, ghosts, and wall strokes render at the same pixel size on every level. 20px is large enough that level-2+ **28×34** generated boards fill the view after the thick outer wall ring is cropped off-screen; it is **not** refit per layout.
 
 ```text
 pixelWidth = cols * TILE_SIZE_PX
 pixelHeight = rows * TILE_SIZE_PX
 offsetX = (800 - pixelWidth) / 2
-offsetY = 8 + floor((584 - pixelHeight) / 2)
+# short boards: center in the 8px HUD margin band (same inset as lives)
+# tall boards: center on the playfield (offsetY may be negative — border crops)
 ```
 
 Hard rejects:
 
 - `pixelWidth > 800`
-- `pixelHeight > 584` (usable height between top and bottom margins)
 - `offsetX < 80` (left HUD gutter — upgrades/lives stay at playfield `x ≈ 12`)
 
-At 17px, the width and gutter rejects are unreachable within the nominal col band. The reachable reject in practice is height: a board near the 36-row ceiling (36 × 17 = 612) exceeds the 584px usable band. Generated **28×34** (levels ≥ 2) fills nearly the full height at tile **17** (476×578, gutter 162, ~3px leftover each side of the band). Classic **28×31** is the same tile (476×527). Level-1 **22×21** `mazeSmall` uses the **same** 17px tile — smaller footprint, vertically centered. Life / shield HUD icons that would extend past `offsetX` are omitted.
+Generated **28×34** → tile **20** (560×680, side gutter 120; ~40px cropped top/bottom so the playable maze fills the playfield with ~8px HUD clearance). Classic **28×31** is the same tile. Level-1 **22×21** `mazeSmall` uses the **same** 20px tile — smaller centered footprint. Life / shield HUD icons that would extend past `offsetX` are omitted.
 
 ## ASCII legend
 
@@ -69,7 +69,7 @@ Fruit / Inky / Clyde / Elroy pellet thresholds scale vs maze1 pellet count (unch
 
 ## Procedural (levels ≥ 2)
 
-- Tiling solver on a 9×11 mirrored polyomino grid with a fixed center house, rasterized to **28×34** ASCII (2×2 wall cells, 1-cell corridors, outer border) → tile 17, gutter 162.
+- Tiling solver on a 9×11 mirrored polyomino grid with a fixed center house, rasterized to **28×34** ASCII (2×2 wall cells, 1-cell corridors, outer border) → tile 20, gutter 120 (border ring crops off-screen).
 - **Density:** aim for `GENERATED_PELLET_TARGET` (240, near classic maze1's 244). Corridor comes from piece boundaries, so the shape draw leans on small pieces; the attempt loop returns the first board at or above the target and otherwise the densest board it saw. Delivered boards run ~226–252 pellets, mean ~240.
 - Horizontal tunnels only; **1 or 2** tunnel rows, and only on the tiling's corridor rows (`1 + sy*3 + 2`), which keeps them ≥ 3 apart and stops a tunnel from running alongside the corridor row next to it.
 - **No parallel corridors:** no 2×2 block of player-open cells anywhere. Two side-by-side lanes read as a double line rather than a maze; a 2×2 open block is exactly that case, and plus/T intersections never form one. Checked on `playerSolids` (so it covers what the player can actually reach) and rejected, not patched. This subsumes the older “no 2×2 pellet blocks” rule.

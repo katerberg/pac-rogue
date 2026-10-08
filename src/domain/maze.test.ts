@@ -69,11 +69,9 @@ describe("maze", () => {
     expect(getActiveLayout().playerSolids[0]).toHaveLength(MAZE_COLS);
     expect(TILE_SIZE).toBe(TILE_SIZE_PX);
     expect(MAZE_OFFSET_X).toBe((800 - MAZE_PIXEL_WIDTH) / 2);
-    expect(MAZE_OFFSET_Y).toBe(
-      MAZE_TOP_MARGIN_PX +
-        Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2),
-    );
-    expect(MAZE_OFFSET_Y).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
+    // Classic 28×31 at tile 20 is taller than the usable band — crops the border.
+    expect(MAZE_OFFSET_Y).toBe(Math.floor((600 - MAZE_ROWS * TILE_SIZE) / 2));
+    expect(MAZE_OFFSET_Y).toBeLessThan(0);
     expect(MAZE_OFFSET_X).toBeGreaterThanOrEqual(80);
     expect(getActiveLayout().cols).toBe(28);
     expect(getActiveLayout().rows).toBe(31);
@@ -453,21 +451,18 @@ describe("maze", () => {
     expect(() => parseMaze("#\n")).toThrow(/cols/);
   });
 
-  it("rejects out-of-band and oversized-fit sizes; short boards share tile size and center", () => {
+  it("rejects out-of-band sizes; short boards center, tall boards crop the border ring", () => {
     expect(() => computeMazeGeometry(19, 31)).toThrow(/cols/);
     expect(() => computeMazeGeometry(28, 20)).toThrow(/rows/);
-    expect(() => computeMazeGeometry(28, 36)).toThrow(/height/i);
     const tall = computeMazeGeometry(28, 34);
     const small = computeMazeGeometry(22, 21);
     expect(tall.tileSize).toBe(TILE_SIZE_PX);
     expect(small.tileSize).toBe(TILE_SIZE_PX);
     expect(small.pixelHeight).toBeLessThan(tall.pixelHeight);
-    // Tall boards nearly fill the usable band (level 2 stretch).
-    expect(tall.pixelHeight).toBeGreaterThanOrEqual(
-      600 - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX - TILE_SIZE_PX,
-    );
-    expect(tall.offsetY).toBeLessThanOrEqual(MAZE_TOP_MARGIN_PX + TILE_SIZE_PX);
-    // Short boards center with matching leftover above/below.
+    // Tall generated boards are taller than the playfield — border crops off-screen.
+    expect(tall.pixelHeight).toBeGreaterThan(600);
+    expect(tall.offsetY).toBeLessThan(0);
+    // Short boards center in the HUD margin band.
     const smallTop = small.offsetY - MAZE_TOP_MARGIN_PX;
     const smallBottom = 600 - MAZE_BOTTOM_MARGIN_PX - (small.offsetY + small.pixelHeight);
     expect(Math.abs(smallTop - smallBottom)).toBeLessThanOrEqual(1);

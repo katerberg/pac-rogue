@@ -1,6 +1,12 @@
 import { clamp } from "./clamp";
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
-import { TILE_SIZE } from "./maze";
+import {
+  MAZE_OFFSET_X,
+  MAZE_OFFSET_Y,
+  MAZE_PIXEL_HEIGHT,
+  MAZE_PIXEL_WIDTH,
+  TILE_SIZE,
+} from "./maze";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
@@ -73,8 +79,14 @@ export function clampPositionToPlayfield(
   y: number,
   radius = playerRadius(),
 ): { x: number; y: number } {
+  // Tall boards crop past the playfield; wall-pass loops still need to reach the
+  // maze wrap seams (which can sit outside the visible 800×600).
+  const minX = Math.min(playfieldMinX(radius), MAZE_OFFSET_X);
+  const maxX = Math.max(playfieldMaxX(radius), MAZE_OFFSET_X + MAZE_PIXEL_WIDTH);
+  const minY = Math.min(playfieldMinY(radius), MAZE_OFFSET_Y);
+  const maxY = Math.max(playfieldMaxY(radius), MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT);
   return {
-    x: clamp(x, playfieldMinX(radius), playfieldMaxX(radius)),
-    y: clamp(y, playfieldMinY(radius), playfieldMaxY(radius)),
+    x: clamp(x, minX, maxX),
+    y: clamp(y, minY, maxY),
   };
 }

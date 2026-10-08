@@ -22,10 +22,10 @@ export const MAZE_TOP_MARGIN_PX = 8;
 export const MAZE_BOTTOM_MARGIN_PX = HUD_BOTTOM_MARGIN_PX;
 
 // Fixed tile size for every layout — Pac-Man/ghosts stay one pixel size across
-// levels. Sized so level-2+ generated boards (28×34) fill the usable height:
-// floor((600 - 8 - 8) / 34) = 17. Level 1 mazeSmall keeps that same tile (same
-// character size) with a smaller footprint, vertically centered in the band.
-export const TILE_SIZE_PX = 17;
+// levels. 20px is large enough that level-2 generated boards (28×34) fill the
+// playfield after the thick outer wall ring is cropped off-screen; level 1
+// mazeSmall keeps the same character size with a smaller centered footprint.
+export const TILE_SIZE_PX = 20;
 if (TILE_SIZE_PX < MIN_TILE_SIZE) {
   throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
 }
@@ -53,17 +53,18 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
   if (pixelWidth > PLAYFIELD_WIDTH) {
     throw new Error(`maze pixel width ${pixelWidth} exceeds playfield width ${PLAYFIELD_WIDTH}`);
   }
-  const pixelHeight = rows * tileSize;
-  if (pixelHeight > usableHeight) {
-    throw new Error(`maze pixel height ${pixelHeight} exceeds usable height ${usableHeight}`);
-  }
   const offsetX = (PLAYFIELD_WIDTH - pixelWidth) / 2;
   if (offsetX < MIN_MAZE_OFFSET_X) {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
   }
-  // Center in the usable band: tall level-2 boards nearly fill it; short level-1
-  // boards stay the same character size with equal top/bottom empty space.
-  const offsetY = MAZE_TOP_MARGIN_PX + Math.floor((usableHeight - pixelHeight) / 2);
+  const pixelHeight = rows * tileSize;
+  // Short boards: center in the HUD margin band (8px like the lives inset).
+  // Tall boards (generated 28×34): center on the playfield so the empty outer
+  // wall ring crops off-screen and the playable maze fills the view.
+  const offsetY =
+    pixelHeight <= usableHeight
+      ? MAZE_TOP_MARGIN_PX + Math.floor((usableHeight - pixelHeight) / 2)
+      : Math.floor((PLAYFIELD_HEIGHT - pixelHeight) / 2);
   return { cols, rows, tileSize, pixelWidth, pixelHeight, offsetX, offsetY };
 }
 
