@@ -2,13 +2,10 @@ import { wrapText } from "../wrapText";
 import { NEON_GLYPH_HEIGHT } from "./glyphGrammar";
 import { neonDisplayText, neonLineAdvance } from "./layout";
 
-/** Neon ink is ~half a pixel cell wide; char-wrap budgets scale so cards fill sideways. */
 const NEON_WRAP_CHAR_MUL = 1.75;
 
-/** Extra air between separately placed GameText rows (not inside one NeonText). */
 const NEON_INTER_ROW_GAP_MUL = 1.5;
 
-/** Assumed neon cell width for title fit (pixel uses 8). */
 export const NEON_FIT_CELL_PX = 4;
 
 export type TextStyle = "neon" | "pixel";
@@ -17,10 +14,6 @@ export function wrapCharBudget(pixelBudget: number, textStyle: TextStyle): numbe
   return textStyle === "neon" ? Math.round(pixelBudget * NEON_WRAP_CHAR_MUL) : pixelBudget;
 }
 
-/**
- * Char budget from box width minus side pads. Neon assumes ~half pixel advance per em
- * (`NEON_FIT_CELL_PX / 8`); pixel assumes advance ≈ fontSize.
- */
 export function wrapCharsForBox(
   boxWidthPx: number,
   fontSize: number,
@@ -32,7 +25,6 @@ export function wrapCharsForBox(
   return Math.max(1, Math.floor(inner / charPx));
 }
 
-/** Estimated drawn width of a neon (or pixel-monospace) line at `fontSize`. */
 export function lineWidthPx(
   line: string,
   fontSize: number,
@@ -54,12 +46,10 @@ export function interTextGap(baseGapPx: number, textStyle: TextStyle): number {
   return textStyle === "neon" ? Math.round(baseGapPx * NEON_INTER_ROW_GAP_MUL) : baseGapPx;
 }
 
-/** Preferred ≥ 22 → floor 16; otherwise floor 8. Never go tiny on titles. */
 export function fitFontSizeFloor(preferredSize: number): number {
   return preferredSize >= 22 ? 16 : 8;
 }
 
-/** Top Y of each row when stacking downward from `topY`. */
 export function stackRowTopsFromTop(
   heights: readonly number[],
   gapsBelow: readonly number[],
@@ -74,10 +64,6 @@ export function stackRowTopsFromTop(
   return tops;
 }
 
-/**
- * Top Y of each row when stacking top-anchored blocks around `centerY`.
- * Heights and gaps are in the same units (px).
- */
 export function stackRowTops(
   heights: readonly number[],
   gapsBelow: readonly number[],
@@ -90,10 +76,6 @@ export function stackRowTops(
   return stackRowTopsFromTop(heights, gapsBelow, centerY - total / 2);
 }
 
-/**
- * Largest char budget whose wrapped lines all fit in `boxWidthPx - 2*sidePadPx`.
- * Starts from `wrapCharsForBox` and steps down using real neon/pixel advances.
- */
 export function wrapCharsFittingWidth(
   text: string,
   boxWidthPx: number,

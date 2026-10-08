@@ -76,7 +76,6 @@ describe("text stack layout", () => {
     const schoolH = 8;
     const bodyH = neonTextLocalHeight(3, 8, 0);
     const footerH = neonTextLocalHeight(2, 16, 0);
-    // Short panel: school-sized gaps between every row (matches storeOverlay showPanel).
     const rowGap = interTextGap(8, "neon");
     const heights = [titleH, schoolH, bodyH, footerH];
     const gaps = [rowGap, rowGap, rowGap, 0];
@@ -122,7 +121,6 @@ describe("store panel horizontal fit (neon)", () => {
         thickness,
         letterSpacing,
       );
-      // Fitting must account for NeonText uppercasing — mixed-case advance under-measures.
       for (const line of wrapText(def.label, titleBudget).split("\n")) {
         expect(lineWidthPx(line, titleSize, "neon", thickness, letterSpacing)).toBeLessThanOrEqual(
           maxContent,
