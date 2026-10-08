@@ -139,9 +139,10 @@ describe("quarterLineArtLook", () => {
 
   it("keeps neon glow with null tuning and drops it under lined", () => {
     expect(quarterLineArtLook(null, "neon").glow).toEqual({
-      outerStrength: 1.6,
-      distancePx: 6,
+      outerStrength: 0.6,
+      distancePx: 5,
     });
+    expect(quarterLineArtLook(null, "neon").lineWidth).toBe(0.06);
     expect(quarterLineArtLook(null, "lined").glow).toBeNull();
     expect(quarterLineArtLook(null, "lined").lineWidth).toBe(
       quarterLineArtLook(null, "neon").lineWidth,
