@@ -11,10 +11,9 @@ export type KnobGroup =
   | "Ghost AI"
   | "Release"
   | "Scatter"
-  | "Visuals"
-  | "Dots";
+  | "Visuals";
 
-export type VisualsSubgroup = "Walls" | "Ghosts" | "Dot-Man" | "Background" | "Font";
+export type VisualsSubgroup = "Walls" | "Ghosts" | "Dot-Man" | "Background" | "Font" | "Dots";
 
 export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
   "Walls",
@@ -22,6 +21,7 @@ export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
   "Dot-Man",
   "Background",
   "Font",
+  "Dots",
 ];
 
 type KnobBase = {
@@ -56,7 +56,6 @@ export const RIGHT_KNOB_GROUPS: readonly KnobGroup[] = [
   "Release",
   "Scatter",
   "Visuals",
-  "Dots",
 ];
 
 function range(
@@ -154,40 +153,54 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
     kind: "toggle",
     subgroup: "Font",
   },
-  range("pelletRadius", "Dots", "Dot radius", 0.5, 48, 0.1, "px"),
-  range("pelletStrokeWidth", "Dots", "Dot stroke", 0.1, 32, 0.1, "px"),
-  range("pelletGlow", "Dots", "Dot glow", 0, 36, 8),
-  range("pelletGlowRadius", "Dots", "Dot glow radius", 0, 120, 1, "px"),
-  { key: "pelletCoreColor", group: "Dots", label: "Dot core colour", kind: "color" },
-  { key: "pelletGlowColor", group: "Dots", label: "Dot glow colour", kind: "color" },
-  range("pelletFillOpacity", "Dots", "Dot fill opacity", 0, 1, 0.05),
-  range("powerPelletRadius", "Dots", "Power radius", 0.5, 48, 0.1, "px"),
-  range("powerPelletStrokeWidth", "Dots", "Power stroke", 0.1, 32, 0.1, "px"),
-  range("powerPelletGlow", "Dots", "Power glow", 0, 36, 8),
-  range("powerPelletGlowRadius", "Dots", "Power glow radius", 0, 120, 1, "px"),
-  range("powerPelletFillOpacity", "Dots", "Power fill opacity", 0, 1, 0.05),
-  range("bossPelletRadius", "Dots", "Boss radius", 0.5, 48, 0.1, "px"),
-  range("bossPelletStrokeWidth", "Dots", "Boss stroke", 0.1, 32, 0.1, "px"),
-  range("bossPelletGlow", "Dots", "Boss glow", 0, 36, 0.1),
-  range("bossPelletGlowRadius", "Dots", "Boss glow radius", 0, 120, 1, "px"),
-  range("bossPelletFillOpacity", "Dots", "Boss fill opacity", 0, 1, 0.05),
-  range("optionalPelletRadius", "Dots", "Optional radius", 0.5, 48, 0.1, "px"),
-  range("optionalPelletStrokeWidth", "Dots", "Optional stroke", 0.1, 32, 0.1, "px"),
-  range("optionalPelletGlow", "Dots", "Optional glow", 0, 36, 0.1),
-  range("optionalPelletGlowRadius", "Dots", "Optional glow radius", 0, 120, 1, "px"),
+  range("pelletRadius", "Visuals", "Dot radius", 0.5, 48, 0.1, "px", "Dots"),
+  range("pelletStrokeWidth", "Visuals", "Dot stroke", 0.1, 32, 0.1, "px", "Dots"),
+  range("pelletGlow", "Visuals", "Dot glow", 0, 36, 8, "", "Dots"),
+  range("pelletGlowRadius", "Visuals", "Dot glow radius", 0, 120, 1, "px", "Dots"),
+  {
+    key: "pelletCoreColor",
+    group: "Visuals",
+    label: "Dot core colour",
+    kind: "color",
+    subgroup: "Dots",
+  },
+  {
+    key: "pelletGlowColor",
+    group: "Visuals",
+    label: "Dot glow colour",
+    kind: "color",
+    subgroup: "Dots",
+  },
+  range("pelletFillOpacity", "Visuals", "Dot fill opacity", 0, 1, 0.05, "", "Dots"),
+  range("powerPelletRadius", "Visuals", "Power radius", 0.5, 48, 0.1, "px", "Dots"),
+  range("powerPelletStrokeWidth", "Visuals", "Power stroke", 0.1, 32, 0.1, "px", "Dots"),
+  range("powerPelletGlow", "Visuals", "Power glow", 0, 36, 8, "", "Dots"),
+  range("powerPelletGlowRadius", "Visuals", "Power glow radius", 0, 120, 1, "px", "Dots"),
+  range("powerPelletFillOpacity", "Visuals", "Power fill opacity", 0, 1, 0.05, "", "Dots"),
+  range("bossPelletRadius", "Visuals", "Boss radius", 0.5, 48, 0.1, "px", "Dots"),
+  range("bossPelletStrokeWidth", "Visuals", "Boss stroke", 0.1, 32, 0.1, "px", "Dots"),
+  range("bossPelletGlow", "Visuals", "Boss glow", 0, 36, 0.1, "", "Dots"),
+  range("bossPelletGlowRadius", "Visuals", "Boss glow radius", 0, 120, 1, "px", "Dots"),
+  range("bossPelletFillOpacity", "Visuals", "Boss fill opacity", 0, 1, 0.05, "", "Dots"),
+  range("optionalPelletRadius", "Visuals", "Optional radius", 0.5, 48, 0.1, "px", "Dots"),
+  range("optionalPelletStrokeWidth", "Visuals", "Optional stroke", 0.1, 32, 0.1, "px", "Dots"),
+  range("optionalPelletGlow", "Visuals", "Optional glow", 0, 36, 0.1, "", "Dots"),
+  range("optionalPelletGlowRadius", "Visuals", "Optional glow radius", 0, 120, 1, "px", "Dots"),
   {
     key: "optionalPelletFillColor",
-    group: "Dots",
+    group: "Visuals",
     label: "Optional fill colour",
     kind: "color",
+    subgroup: "Dots",
   },
   {
     key: "optionalPelletGlowColor",
-    group: "Dots",
+    group: "Visuals",
     label: "Optional glow colour",
     kind: "color",
+    subgroup: "Dots",
   },
-  range("optionalPelletFillOpacity", "Dots", "Optional fill opacity", 0, 1, 0.05),
+  range("optionalPelletFillOpacity", "Visuals", "Optional fill opacity", 0, 1, 0.05, "", "Dots"),
 ];
 
 function stepDecimals(step: number): number {

@@ -39,7 +39,7 @@ src/
     runLevel.ts               # ?level= URL parse, clamped to MAX_LEVEL
     playOptions.ts            # parsePlayOptions: every PlayScene URL flag → PlayOptions + warnings
     tuning.ts                 # Tuning (every ?knobs=1 knob) + DEFAULT_TUNING; stored-override parse/serialize; level speed ramps
-    tuningKnobs.ts            # knob table (group, Visuals subgroup, label, range/step/unit) the ?knobs=1 panels render from
+    tuningKnobs.ts            # knob table (group, Visuals subgroup incl. Dots, label, range/step/unit) for ?knobs=1
     knobsFlag.ts              # ?knobs=1 parse
     wallStyle.ts              # wall color/thickness/glow/corner/background from maze color, STYLE (neon/lined/pixel), or tuning; wallGlowFilter
     pelletStyle.ts            # neon/lined pellet stroke looks from STYLE + maze color or Dots knobs; neon zeros regular glow; lined zeros all glow; pelletGlowFilter
