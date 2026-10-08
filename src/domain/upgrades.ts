@@ -589,10 +589,10 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveMyogenesis",
     label: "Myogenesis",
     school: "death",
-    description: "Regenerate two lives on level clear.",
+    description: "Regenerate one life every level.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Myogenesis refills every empty life slot instead of 2 per level.",
+      enhanceNote: "Myogenesis refills every empty life slot instead of 1 per level.",
       description: "Refill every empty life slot on level clear.",
       regenToFull: true,
     },

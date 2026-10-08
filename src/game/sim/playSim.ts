@@ -106,6 +106,7 @@ import {
 import {
   DEFAULT_MAX_LIVES,
   START_LIVES,
+  STORE_REGEN_AMOUNT,
   levelLivesIconFloor,
   levelRegenAmount,
   livesAfterLevelRegen,
@@ -502,9 +503,6 @@ export class PlaySim {
       this.recordSeenUpgrades();
     }
     this.emit({ type: "upgrades" });
-    if (options.lives === null) {
-      this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
-    }
     this.recorder.livesStart(this.lives);
     this.emit({ type: "lives", pulse: false });
     this.emitRunLog();
@@ -1546,6 +1544,7 @@ export class PlaySim {
     spawnWalls(this.world);
     spawnPlayer(this.world);
 
+    this.applyLifeRegen(STORE_REGEN_AMOUNT);
     this.store = createStoreState(
       parseStoreSlots(STORE_MAZE_ASCII),
       this.runUpgrades.owned,
@@ -2017,10 +2016,7 @@ export class PlaySim {
   }
 
   private finishLevelClear(): void {
-    const livesBeforeRegen = this.lives;
-    this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), this.regenAmount());
-    this.recorder.livesRegenerated(livesBeforeRegen, this.lives);
-    this.emit({ type: "lives", pulse: this.lives > livesBeforeRegen });
+    this.applyLifeRegen(this.regenAmount(), true);
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
       this.beginLevelTransition();
       return;
@@ -2179,6 +2175,19 @@ export class PlaySim {
       hasUpgrade(this.effectiveUpgrades(), "passiveMyogenesis"),
       regenToFull(this.effectiveUpgrades()),
     );
+  }
+
+  private applyLifeRegen(amount: number, recordEnd = false): void {
+    const livesBefore = this.lives;
+    if (amount > 0) {
+      this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), amount);
+    }
+    if (amount > 0 || recordEnd) {
+      this.recorder.livesRegenerated(livesBefore, this.lives);
+    }
+    if (this.lives > livesBefore) {
+      this.emit({ type: "lives", pulse: true });
+    }
   }
 
   private applyGrantEffects(id: UpgradeId): void {

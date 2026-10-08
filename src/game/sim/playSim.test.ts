@@ -841,28 +841,25 @@ describe("PlaySim", () => {
     expect(count(events, "saveRun")).toBe(saves);
   });
 
-  it("regenerates up to 4 icons at level 1 when Extra Life is owned", () => {
-    const sim = startSim({ level: 1, enableUpgrades: ["passiveExtraLife"] });
-    expect(sim.snapshot().lives).toBe(5);
+  it("starts at 4 lives, or 5 with Extra Life's grant", () => {
+    expect(startSim({ level: 1, enableUpgrades: [] }).snapshot().lives).toBe(4);
+    expect(startSim({ level: 1, enableUpgrades: ["passiveExtraLife"] }).snapshot().lives).toBe(5);
   });
 
-  it("regenerates up to 3 icons at level 1 without Extra Life", () => {
-    const sim = startSim({ level: 1, enableUpgrades: [] });
-    expect(sim.snapshot().lives).toBe(4);
-  });
-
-  it("starts with exactly ?lives= lives and regens back up to it", () => {
+  it("starts with exactly ?lives= and does not regen on non-store level clear", () => {
     const sim = startSim({ level: 1, enableUpgrades: [], lives: 7, maxLives: 7 });
     expect(sim.snapshot().lives).toBe(7);
-    expect(livesAfterLevelClear({ lives: 7, maxLives: 7 }, 5)).toBe(6);
+    expect(livesAfterLevelClear({ lives: 7, maxLives: 7 }, 5)).toBe(5);
     expect(livesAfterLevelClear({ lives: 7, maxLives: 7 }, 7)).toBe(7);
   });
 
-  it("starts with ?lives= even when ?maxLives= is higher, regenerating toward maxLives", () => {
+  it("starts with ?lives= even when ?maxLives= is higher", () => {
     const sim = startSim({ level: 1, enableUpgrades: [], lives: 2, maxLives: 6 });
     expect(sim.snapshot().lives).toBe(2);
-    expect(livesAfterLevelClear({ lives: 2, maxLives: 6 }, 5)).toBe(6);
-    expect(livesAfterLevelClear({ lives: 2, maxLives: 6 }, 6)).toBe(6);
+    expect(livesAfterLevelClear({ lives: 2, maxLives: 6 }, 5)).toBe(5);
+    expect(
+      livesAfterLevelClear({ lives: 2, maxLives: 6, enableUpgrades: ["passiveMyogenesis"] }, 5),
+    ).toBe(6);
   });
 
   it("adds upgrade life grants on top of ?lives=", () => {
@@ -870,8 +867,8 @@ describe("PlaySim", () => {
     expect(sim.snapshot().lives).toBe(3);
   });
 
-  it("caps level-1 regen at ?maxLives= without ?lives=", () => {
-    expect(startSim({ level: 1, enableUpgrades: [], maxLives: 3 }).snapshot().lives).toBe(3);
+  it("keeps START_LIVES above ?maxLives= without trimming", () => {
+    expect(startSim({ level: 1, enableUpgrades: [], maxLives: 3 }).snapshot().lives).toBe(4);
     expect(startSim({ level: 1, enableUpgrades: [], maxLives: 6 }).snapshot().lives).toBe(4);
   });
 
@@ -887,32 +884,40 @@ describe("PlaySim", () => {
   }
 
   it.each([
-    ["passiveMyogenesis", 1, 3],
+    ["passiveMyogenesis", 1, 2],
     ["passiveMyogenesis", 3, 4],
-    [null, 1, 2],
-    [null, 3, 4],
+    [null, 1, 1],
+    [null, 3, 3],
   ] as const)("level clear with %s from %i lives ends at %i", (upgrade, startLives, endLives) => {
     expect(livesAfterLevelClear({ enableUpgrades: upgrade ? [upgrade] : [] }, startLives)).toBe(
       endLives,
     );
   });
 
-  it("regenerates the life when the level ends, before the store opens", () => {
+  it("does not regenerate on level clear without Myogenesis", () => {
     const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
     (sim as unknown as { lives: number }).lives = 1;
-    const pick = drainToOffer(sim).upgrades[0]!;
-    sim.chooseUpgrade({ kind: "upgrade", id: pick });
-    runUntil(sim, () => sim.snapshot().levelTransition, 60);
-    expect(sim.snapshot().level).toBe(2);
-    expect(sim.snapshot().lives).toBe(2);
+    const events = runUntil(sim, () => sim.offer() !== null, 90);
+    expect(events).not.toContainEqual({ type: "lives", pulse: true });
+    expect(sim.snapshot().lives).toBe(1);
   });
 
-  it("regenerates the life before the upgrade offer is chosen", () => {
-    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
+  it("Myogenesis regenerates one life before the upgrade offer", () => {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades: ["passiveMyogenesis"] });
     (sim as unknown as { lives: number }).lives = 1;
     const events = runUntil(sim, () => sim.offer() !== null, 90);
     expect(events).toContainEqual({ type: "lives", pulse: true });
     expect(sim.snapshot().lives).toBe(2);
+  });
+
+  it("regenerates one life on store entry", () => {
+    const fresh = new PlaySim(
+      { ...defaultPlayOptions(), store: 1, lives: 2, maxLives: 4, quarters: 10 },
+      "test",
+    );
+    expect(fresh.start()).toContainEqual({ type: "lives", pulse: true });
+    expect(fresh.snapshot().lives).toBe(3);
+    expect(startSim({ store: 1, lives: 4, maxLives: 4, quarters: 10 }).snapshot().lives).toBe(4);
   });
 
   it("buys a life at the store", () => {
@@ -1100,7 +1105,7 @@ describe("PlaySim", () => {
     it("the first store stocks two lives, two abilities and an enhancement", () => {
       const sim = startSim({
         store: 1,
-        lives: 2,
+        lives: 1,
         maxLives: 4,
         quarters: 10,
         enableUpgrades: ["passiveGhostSlow"],
@@ -1115,20 +1120,21 @@ describe("PlaySim", () => {
       expect(sim.snapshot().storeStock).toHaveLength(5);
     });
 
-    it("offers no life tile at the life cap and one when a single life below it", () => {
+    it("offers life tiles for room left after store-entry regen", () => {
       const lifeTiles = (lives: number) =>
         startSim({ store: 1, level: 5, quarters: 10, lives, maxLives: 4 })
           .snapshot()
           .storeStock!.filter((s) => s === "life").length;
       expect(lifeTiles(4)).toBe(0);
-      expect(lifeTiles(3)).toBe(1);
-      expect(lifeTiles(2)).toBe(2);
+      expect(lifeTiles(3)).toBe(0);
+      expect(lifeTiles(2)).toBe(1);
+      expect(lifeTiles(1)).toBe(2);
     });
 
     it("a later store adds a trade tile and an enhancement tile", () => {
       const sim = startSim({
         store: 1,
-        lives: 2,
+        lives: 1,
         maxLives: 4,
         level: 5,
         quarters: 10,
@@ -1141,7 +1147,7 @@ describe("PlaySim", () => {
     });
 
     it("buying a life removes that tile and the second life tile stays", () => {
-      const sim = startSim({ store: 1, lives: 2, maxLives: 4, level: 5, quarters: 10 });
+      const sim = startSim({ store: 1, lives: 1, maxLives: 4, level: 5, quarters: 10 });
       buy(sim, "life", 0);
       expect(sim.snapshot().storeStock!.filter((s) => s === "life")).toHaveLength(1);
     });
@@ -1204,9 +1210,10 @@ describe("PlaySim", () => {
   });
 
   it("stops a diagonal walk when it opens a store prompt", () => {
-    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
-    const life = parseStoreSlots(STORE_MAZE_ASCII)
-      .filter((slot) => slot.kind === "life")
+    const sim = startSim({ store: 1, lives: 1, maxLives: 4, quarters: 10 });
+    const life = sim
+      .storeState()!
+      .slots.filter((slot) => slot.kind === "life")
       .at(-1)!;
     teleportPlayer(sim, cellCenterX(life.col - 1), cellCenterY(life.row - 1));
     runFrames(sim, 1);
@@ -2636,9 +2643,9 @@ describe("PlaySim enhanced upgrades", () => {
     expect(plus["regenIconFloor"]()).toBe(5);
   });
 
-  it("Myogenesis+ regenerates to full, the base two per level", () => {
+  it("Myogenesis+ regenerates to full, the base one per level", () => {
     const base = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveMyogenesis"] });
-    expect(base["regenAmount"]()).toBe(2);
+    expect(base["regenAmount"]()).toBe(1);
     const plus = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveMyogenesisPlus"] });
     expect(plus["regenAmount"]()).toBe(Number.POSITIVE_INFINITY);
   });
