@@ -1,4 +1,8 @@
-import { DOTMAN_CHOMP_SPEED_DEFAULT } from "./dotManMouth";
+import {
+  DOTMAN_CHOMP_SPEED_DEFAULT,
+  DOTMAN_MOUTH_CLOSED_HALF_DEG,
+  DOTMAN_MOUTH_OPEN_HALF_DEG,
+} from "./dotManMouth";
 import { LAZY_LOOPER_OPTIONAL_TINT } from "./lazyLooper";
 import { TUNING_KNOBS, type KnobDef } from "./tuningKnobs";
 
@@ -55,6 +59,8 @@ export type Tuning = {
   readonly ghostWidth: number;
   readonly ghostHeight: number;
   readonly dotManChompSpeed: number;
+  readonly dotManMouthOpenDeg: number;
+  readonly dotManMouthClosedDeg: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
   readonly fontThickness: number;
@@ -145,6 +151,8 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   ghostWidth: 1.16,
   ghostHeight: 1.14,
   dotManChompSpeed: DOTMAN_CHOMP_SPEED_DEFAULT,
+  dotManMouthOpenDeg: DOTMAN_MOUTH_OPEN_HALF_DEG,
+  dotManMouthClosedDeg: DOTMAN_MOUTH_CLOSED_HALF_DEG,
   wallCornerRadius: 6,
   backgroundColor: 0x1a1a2e,
   fontThickness: 0.4,

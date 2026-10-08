@@ -12,9 +12,11 @@ import {
   DOTMAN_MOUTH_OPEN_HALF_DEG,
   DOTMAN_OUTER_RADIUS,
   DOTMAN_VIEW,
+  dotManChompMouthHalfDegs,
   dotManChompPixelsPerFrame,
   dotManMouthArt,
   dotManMouthHalfAngle,
+  resolveDotManMouthAngles,
 } from "./dotManMouth";
 
 const radiusOf = (p: { x: number; y: number }) =>
@@ -36,12 +38,30 @@ describe("dotManMouthHalfAngle", () => {
     expect(dotManMouthHalfAngle(0, true)).toBe(DOTMAN_MOUTH_OPEN_HALF_DEG);
     expect(dotManMouthHalfAngle(2, true)).toBe(DOTMAN_MOUTH_CLOSED_HALF_DEG);
   });
+
+  it("uses the supplied open/closed angles for the chomp cycle", () => {
+    const angles = { openHalfDeg: 60, closedHalfDeg: 10 };
+    expect(dotManMouthHalfAngle(0, false, angles)).toBe(60);
+    expect(dotManChompMouthHalfDegs(angles)).toEqual([60, 35, 10, 35]);
+    expect(dotManMouthHalfAngle(2, true, angles)).toBe(10);
+  });
+});
+
+describe("resolveDotManMouthAngles", () => {
+  it("keeps closed strictly below open", () => {
+    expect(resolveDotManMouthAngles(40, 40)).toEqual({ openHalfDeg: 40, closedHalfDeg: 39 });
+    expect(resolveDotManMouthAngles(30, 50)).toEqual({ openHalfDeg: 30, closedHalfDeg: 29 });
+    expect(resolveDotManMouthAngles(70, 5)).toEqual({
+      openHalfDeg: 70,
+      closedHalfDeg: 5,
+    });
+  });
 });
 
 describe("dotManChompPixelsPerFrame", () => {
-  it("defaults to 2× speed (half the 1× travel distance)", () => {
-    expect(DOTMAN_CHOMP_SPEED_DEFAULT).toBe(2);
-    expect(DOTMAN_CHOMP_PIXELS_PER_FRAME).toBe(DOTMAN_CHOMP_PIXELS_AT_1X / 2);
+  it("defaults to 1.25× speed", () => {
+    expect(DOTMAN_CHOMP_SPEED_DEFAULT).toBe(1.25);
+    expect(DOTMAN_CHOMP_PIXELS_PER_FRAME).toBe(DOTMAN_CHOMP_PIXELS_AT_1X / 1.25);
     expect(dotManChompPixelsPerFrame(1)).toBe(DOTMAN_CHOMP_PIXELS_AT_1X);
     expect(dotManChompPixelsPerFrame(4)).toBe(DOTMAN_CHOMP_PIXELS_AT_1X / 4);
   });
@@ -85,7 +105,7 @@ describe("dotManMouthArt", () => {
   });
 
   it("reuses one art per tenth of a degree", () => {
-    expect(dotManMouthArt(48)).toBe(dotManMouthArt(48.04));
-    expect(dotManMouthArt(16)).not.toBe(dotManMouthArt(48));
+    expect(dotManMouthArt(70)).toBe(dotManMouthArt(70.04));
+    expect(dotManMouthArt(5)).not.toBe(dotManMouthArt(70));
   });
 });
