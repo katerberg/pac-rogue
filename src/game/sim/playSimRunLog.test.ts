@@ -1,3 +1,4 @@
+import { BOSS_STAGE_TOTAL_MS } from "../../domain/bossStageTransition";
 import { query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { cellCenterX, cellCenterY, horizontalTunnelRows, TILE_SIZE } from "../../domain/maze";
@@ -14,7 +15,9 @@ import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 import { PlaySim } from "./playSim";
 import type { SimEvent } from "./simEvents";
-import { held, runFrames, runUntil } from "./simTesting";
+import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
+
+const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
 function startSim(
   overrides: Partial<PlayOptions>,
@@ -120,7 +123,7 @@ describe("PlaySim run log", () => {
     runUntil(
       sim,
       () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
-      200,
+      BOSS_STAGE_WAIT_FRAMES,
     );
     sim["jumpToLevelClear"]();
     const events = runUntil(sim, () => sim.snapshot().runComplete, 300);

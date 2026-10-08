@@ -25,15 +25,16 @@ extra sound plays.
 When stage 1 is cleared (every required pellet gone):
 
 1. Gameplay music stops; `levelComplete` plays.
-2. Board entities fade out (400ms) while walls stay solid.
-3. Maze walls flicker out (3×80ms on/off pulses).
+2. Board entities fade out (1200ms) while walls stay solid.
+3. Maze walls flicker out (5×100ms on/off pulses).
 4. `levelComplete` is cut mid-play; the same maze is refilled (pellets, power pellets, fruit
    presence reset). Ghosts despawn and respawn for stage 2. Dot-Man stays where he is.
-5. Maze walls flicker back in with an **inverted wall color** (`invertRgb24`); that invert
+5. Hold black (~800ms) with walls and entities fully off — the impact beat between stages.
+6. Maze walls flicker back in with an **inverted wall color** (`invertRgb24`); that invert
    stays for the rest of stage 2.
-6. Entities fade in (400ms); gameplay music loops again.
-7. During the whole transition the timer HUD shows blinking `Time: 888` while the real countdown
-   keeps ticking. No STAGE 2 banner.
+7. Entities fade in (1200ms); gameplay music loops again.
+8. During the whole transition (~5.2s) the timer HUD shows blinking `Time: 888` while the real
+   countdown keeps ticking. No STAGE 2 banner.
 
 Mid-stage clear grants no time bonus, upgrade, store visit, life regen, or run-complete. Death
 during either stage preserves `stage`, invert flag, and (for Swarm) ghost/pellet progress.

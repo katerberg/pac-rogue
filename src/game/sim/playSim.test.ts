@@ -4,7 +4,11 @@ import { FRUIT_LIFETIME_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { CHAIN_PAIR } from "../../domain/bossRules";
-import { BOSS_STAGE_ENTITY_FADE_MS, BOSS_STAGE_FLICKER_MS } from "../../domain/bossStageTransition";
+import {
+  BOSS_STAGE_ENTITY_FADE_MS,
+  BOSS_STAGE_FLICKER_MS,
+  BOSS_STAGE_TOTAL_MS,
+} from "../../domain/bossStageTransition";
 import {
   canEnterDirection,
   cellCenterX,
@@ -80,6 +84,8 @@ import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
+
+const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
 function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
   const sim = new PlaySim({ ...defaultPlayOptions(), ...overrides }, seed);
@@ -1583,7 +1589,7 @@ describe("PlaySim", () => {
       runUntil(
         sim,
         () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
-        200,
+        BOSS_STAGE_WAIT_FRAMES,
       );
       expect(sim.snapshot().boss).toMatchObject({
         stage: 2,
@@ -1604,7 +1610,7 @@ describe("PlaySim", () => {
       runUntil(
         sim,
         () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
-        200,
+        BOSS_STAGE_WAIT_FRAMES,
       );
     }
 
@@ -2347,7 +2353,7 @@ describe("PlaySim level-end time bonus", () => {
     runUntil(
       sim,
       () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
-      200,
+      BOSS_STAGE_WAIT_FRAMES,
     );
     sim["jumpToLevelClear"]();
     const events = runFrames(sim, 90);
@@ -2363,14 +2369,14 @@ describe("PlaySim run complete menu", () => {
       runUntil(
         sim,
         () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
-        200,
+        BOSS_STAGE_WAIT_FRAMES,
       );
     } else if (sim.snapshot().boss?.stage === 1) {
       sim["jumpToLevelClear"]();
       runUntil(
         sim,
         () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
-        200,
+        BOSS_STAGE_WAIT_FRAMES,
       );
     }
     sim["jumpToLevelClear"]();
@@ -2426,7 +2432,7 @@ describe("PlaySim run complete menu", () => {
       ...runUntil(
         sim,
         () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
-        200,
+        BOSS_STAGE_WAIT_FRAMES,
       ),
     ];
     sim["jumpToLevelClear"]();
@@ -2449,7 +2455,7 @@ describe("PlaySim run complete menu", () => {
       ...runUntil(
         sim,
         () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
-        200,
+        BOSS_STAGE_WAIT_FRAMES,
       ),
     ];
     sim["jumpToLevelClear"]();

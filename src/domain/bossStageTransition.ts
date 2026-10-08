@@ -1,12 +1,25 @@
 import { clamp } from "./clamp";
 
-export const BOSS_STAGE_ENTITY_FADE_MS = 400;
-export const BOSS_STAGE_FLICKER_PULSE_MS = 80;
-export const BOSS_STAGE_FLICKER_PULSES = 3;
+export const BOSS_STAGE_ENTITY_FADE_MS = 1200;
+export const BOSS_STAGE_FLICKER_PULSE_MS = 100;
+export const BOSS_STAGE_FLICKER_PULSES = 5;
 export const BOSS_STAGE_FLICKER_MS = BOSS_STAGE_FLICKER_PULSE_MS * 2 * BOSS_STAGE_FLICKER_PULSES;
+export const BOSS_STAGE_BLACK_HOLD_MS = 800;
+export const BOSS_STAGE_TOTAL_MS =
+  BOSS_STAGE_ENTITY_FADE_MS +
+  BOSS_STAGE_FLICKER_MS +
+  BOSS_STAGE_BLACK_HOLD_MS +
+  BOSS_STAGE_FLICKER_MS +
+  BOSS_STAGE_ENTITY_FADE_MS;
 
 export type BossStageTransitionPhase =
-  "entityFadeOut" | "mazeFlickerOut" | "rebuild" | "mazeFlickerIn" | "entityFadeIn" | "done";
+  | "entityFadeOut"
+  | "mazeFlickerOut"
+  | "rebuild"
+  | "blackHold"
+  | "mazeFlickerIn"
+  | "entityFadeIn"
+  | "done";
 
 export type BossStageTransition = {
   elapsedMs: number;
@@ -28,7 +41,8 @@ export type BossStageTransitionTick = {
 
 const ENTITY_FADE_OUT_END = BOSS_STAGE_ENTITY_FADE_MS;
 const MAZE_FLICKER_OUT_END = ENTITY_FADE_OUT_END + BOSS_STAGE_FLICKER_MS;
-const MAZE_FLICKER_IN_END = MAZE_FLICKER_OUT_END + BOSS_STAGE_FLICKER_MS;
+const BLACK_HOLD_END = MAZE_FLICKER_OUT_END + BOSS_STAGE_BLACK_HOLD_MS;
+const MAZE_FLICKER_IN_END = BLACK_HOLD_END + BOSS_STAGE_FLICKER_MS;
 const ENTITY_FADE_IN_END = MAZE_FLICKER_IN_END + BOSS_STAGE_ENTITY_FADE_MS;
 
 export function createBossStageTransition(): BossStageTransition {
@@ -71,10 +85,14 @@ export function tickBossStageTransition(
     phase = "mazeFlickerOut";
     entityAlpha = 0;
     wallAlpha = flickerAlpha(elapsedMs - ENTITY_FADE_OUT_END);
+  } else if (elapsedMs < BLACK_HOLD_END) {
+    phase = "blackHold";
+    entityAlpha = 0;
+    wallAlpha = 0;
   } else if (elapsedMs < MAZE_FLICKER_IN_END) {
     phase = "mazeFlickerIn";
     entityAlpha = 0;
-    wallAlpha = flickerAlpha(elapsedMs - MAZE_FLICKER_OUT_END);
+    wallAlpha = flickerAlpha(elapsedMs - BLACK_HOLD_END);
   } else if (elapsedMs < ENTITY_FADE_IN_END) {
     phase = "entityFadeIn";
     entityAlpha = (elapsedMs - MAZE_FLICKER_IN_END) / BOSS_STAGE_ENTITY_FADE_MS;

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOSS_STAGE_BLACK_HOLD_MS,
   BOSS_STAGE_ENTITY_FADE_MS,
   BOSS_STAGE_FLICKER_MS,
   BOSS_STAGE_FLICKER_PULSE_MS,
+  BOSS_STAGE_TOTAL_MS,
   createBossStageTransition,
   tickBossStageTransition,
 } from "./bossStageTransition";
@@ -17,7 +19,7 @@ describe("tickBossStageTransition", () => {
     expect(mid.cutSuccessSfx).toBe(false);
   });
 
-  it("flickers the maze out with deterministic 80ms pulses, then rebuilds and cuts success SFX", () => {
+  it("flickers the maze out with deterministic pulses, then rebuilds and cuts success SFX", () => {
     let state = createBossStageTransition();
     state = tickBossStageTransition(state, BOSS_STAGE_ENTITY_FADE_MS).state;
 
@@ -42,7 +44,7 @@ describe("tickBossStageTransition", () => {
     expect(rebuild.entityAlpha).toBe(0);
   });
 
-  it("flickers the maze back in, then fades entities while restarting gameplay music once", () => {
+  it("holds black after rebuild before flickering the maze back in", () => {
     let state = createBossStageTransition();
     const toRebuild = tickBossStageTransition(
       state,
@@ -51,15 +53,40 @@ describe("tickBossStageTransition", () => {
     expect(toRebuild.shouldRebuild).toBe(true);
     state = toRebuild.state;
 
-    const flickerIn = tickBossStageTransition(state, 1);
+    const hold = tickBossStageTransition(state, 1);
+    expect(hold.phase).toBe("blackHold");
+    expect(hold.entityAlpha).toBe(0);
+    expect(hold.wallAlpha).toBe(0);
+    state = hold.state;
+
+    const midHold = tickBossStageTransition(state, BOSS_STAGE_BLACK_HOLD_MS / 2);
+    expect(midHold.phase).toBe("blackHold");
+    expect(midHold.entityAlpha).toBe(0);
+    expect(midHold.wallAlpha).toBe(0);
+    state = midHold.state;
+
+    const flickerIn = tickBossStageTransition(state, BOSS_STAGE_BLACK_HOLD_MS);
     expect(flickerIn.phase).toBe("mazeFlickerIn");
     expect(flickerIn.entityAlpha).toBe(0);
     expect(flickerIn.wallAlpha).toBe(1);
+  });
+
+  it("flickers the maze back in, then fades entities while restarting gameplay music once", () => {
+    let state = createBossStageTransition();
+    const toHold = tickBossStageTransition(
+      state,
+      BOSS_STAGE_ENTITY_FADE_MS + BOSS_STAGE_FLICKER_MS + BOSS_STAGE_BLACK_HOLD_MS,
+    );
+    expect(toHold.shouldRebuild).toBe(true);
+    state = toHold.state;
+
+    const flickerIn = tickBossStageTransition(state, 1);
+    expect(flickerIn.phase).toBe("mazeFlickerIn");
     state = flickerIn.state;
 
     let musicStarts = 0;
     let fadeInSeen = false;
-    for (let i = 0; i < 200; i += 1) {
+    for (let i = 0; i < 500; i += 1) {
       const tick = tickBossStageTransition(state, 16);
       state = tick.state;
       if (tick.startGameplayMusic) {
@@ -83,12 +110,7 @@ describe("tickBossStageTransition", () => {
   });
 
   it("rebuilds on the first crossing of flicker-out, then reaches done on the next tick past total duration", () => {
-    const total =
-      BOSS_STAGE_ENTITY_FADE_MS +
-      BOSS_STAGE_FLICKER_MS +
-      BOSS_STAGE_FLICKER_MS +
-      BOSS_STAGE_ENTITY_FADE_MS;
-    const rebuild = tickBossStageTransition(createBossStageTransition(), total);
+    const rebuild = tickBossStageTransition(createBossStageTransition(), BOSS_STAGE_TOTAL_MS);
     expect(rebuild.phase).toBe("rebuild");
     expect(rebuild.shouldRebuild).toBe(true);
     expect(rebuild.cutSuccessSfx).toBe(true);
@@ -101,12 +123,17 @@ describe("tickBossStageTransition", () => {
     expect(done.shouldRebuild).toBe(false);
   });
 
+  it("lasts about three times the original 1.76s choreography", () => {
+    expect(BOSS_STAGE_TOTAL_MS).toBe(5200);
+    expect(BOSS_STAGE_TOTAL_MS / 1760).toBeCloseTo(2.95, 1);
+  });
+
   it("emits cut and music flags only once across many ticks", () => {
     let state = createBossStageTransition();
     let cuts = 0;
     let music = 0;
     let rebuilds = 0;
-    for (let i = 0; i < 200; i += 1) {
+    for (let i = 0; i < 400; i += 1) {
       const tick = tickBossStageTransition(state, 20);
       state = tick.state;
       if (tick.cutSuccessSfx) {
