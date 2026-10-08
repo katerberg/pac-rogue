@@ -6,7 +6,9 @@ import {
   LEFT_KNOB_GROUPS,
   RIGHT_KNOB_GROUPS,
   TUNING_KNOBS,
+  VISUALS_SUBGROUPS,
   type RangeKnob,
+  type VisualsSubgroup,
 } from "./tuningKnobs";
 
 describe("TUNING_KNOBS", () => {
@@ -29,8 +31,39 @@ describe("TUNING_KNOBS", () => {
     }
   });
 
-  it("keeps Dots extreme maxes and the Dots panel group", () => {
-    expect(RIGHT_KNOB_GROUPS).toContain("Dots");
+  it("puts every Visuals knob in a known subgroup and nowhere else uses subgroups", () => {
+    const allowed = new Set<VisualsSubgroup>(VISUALS_SUBGROUPS);
+    for (const knob of TUNING_KNOBS) {
+      if (knob.group === "Visuals") {
+        expect(knob.subgroup, knob.key).toBeDefined();
+        expect(allowed.has(knob.subgroup as VisualsSubgroup), knob.key).toBe(true);
+      } else {
+        expect(knob.subgroup, knob.key).toBeUndefined();
+      }
+    }
+    for (const subgroup of VISUALS_SUBGROUPS) {
+      expect(
+        TUNING_KNOBS.some((k) => k.group === "Visuals" && k.subgroup === subgroup),
+        subgroup,
+      ).toBe(true);
+    }
+  });
+
+  it("keeps Dots extreme maxes under the Visuals Dots subgroup", () => {
+    expect(VISUALS_SUBGROUPS).toContain("Dots");
+    expect(RIGHT_KNOB_GROUPS).toEqual(["Visuals"]);
+    expect(LEFT_KNOB_GROUPS).toEqual([
+      "Movement",
+      "Ghost speed",
+      "Timer",
+      "Fruit",
+      "Death",
+      "Bonus",
+      "Boss",
+      "Ghost AI",
+      "Release",
+      "Scatter",
+    ]);
     const dotsMax: Partial<Record<TuningKey, number>> = {
       pelletRadius: 48,
       pelletStrokeWidth: 32,
@@ -50,10 +83,14 @@ describe("TUNING_KNOBS", () => {
       optionalPelletGlowRadius: 120,
     };
     for (const knob of TUNING_KNOBS) {
+      if (knob.subgroup === "Dots") {
+        expect(knob.group, knob.key).toBe("Visuals");
+      }
       const max = dotsMax[knob.key];
       if (max === undefined || knob.kind !== "range") {
         continue;
       }
+      expect(knob.subgroup, knob.key).toBe("Dots");
       expect(knob.max, knob.key).toBe(max);
     }
   });

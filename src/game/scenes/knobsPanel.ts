@@ -12,6 +12,7 @@ import {
   LEFT_KNOB_GROUPS,
   RIGHT_KNOB_GROUPS,
   TUNING_KNOBS,
+  VISUALS_SUBGROUPS,
   type KnobDef,
   type KnobGroup,
 } from "../../domain/tuningKnobs";
@@ -164,16 +165,44 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
     return row;
   };
 
+  const appendGroupKnobs = (parent: HTMLElement, group: KnobGroup): void => {
+    const knobs = TUNING_KNOBS.filter((k) => k.group === group);
+    if (group === "Visuals") {
+      for (const subgroup of VISUALS_SUBGROUPS) {
+        const subKnobs = knobs.filter((k) => k.subgroup === subgroup);
+        if (subKnobs.length === 0) {
+          continue;
+        }
+        const nested = el("details", { className: "knob-subgroup" });
+        nested.open = true;
+        nested.dataset.subgroup = subgroup;
+        nested.append(el("summary", { textContent: subgroup }));
+        for (const knob of subKnobs) {
+          nested.append(buildRow(knob));
+        }
+        parent.append(nested);
+      }
+      return;
+    }
+    for (const knob of knobs) {
+      parent.append(buildRow(knob));
+    }
+  };
+
   const buildPanel = (id: string, groups: readonly KnobGroup[]): HTMLDivElement => {
     const panel = el("div", { id, className: "knobs-panel" });
     for (const group of groups) {
-      panel.append(el("h3", { textContent: group }));
-      for (const knob of TUNING_KNOBS.filter((k) => k.group === group)) {
-        panel.append(buildRow(knob));
+      const section = el("details", { className: "knob-group" });
+      section.dataset.group = group;
+      if (group === "Visuals") {
+        section.open = true;
       }
+      section.append(el("summary", { textContent: group }));
+      appendGroupKnobs(section, group);
       if (group === "Ghost speed") {
-        panel.append(ghostEffective);
+        section.append(ghostEffective);
       }
+      panel.append(section);
     }
     panel.addEventListener("keydown", (event) => event.stopPropagation());
     return panel;
