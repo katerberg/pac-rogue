@@ -848,8 +848,10 @@ export class PlayScene extends Phaser.Scene {
     }
     this.quarterIcons = [];
     const size = pelletDisplaySize();
+    // Knobs panels cover the left gutter — park icons at the maze column so they stay visible.
+    const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
     for (let i = 0; i < this.sim.hud().quarters; i += 1) {
-      const { x, y } = quarterHudIconPosition(i, size);
+      const { x, y } = quarterHudIconPosition(i, size, left);
       // Stay on chrome (not sideHud) so ?knobs=1 can dial Quarter look live.
       const icon = addQuarterIcon(this, x, y, size, this.ghostStyle);
       this.chrome.add(icon);
