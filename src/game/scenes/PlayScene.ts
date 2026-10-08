@@ -293,6 +293,7 @@ export class PlayScene extends Phaser.Scene {
     this.playRender.setWallStyle(wallStyleFor(tuning, 0));
     this.playRender.setPelletStyle(pelletStyleFor(tuning, 0));
     this.playRender.setGhostLook(ghostLineArtLook(tuning));
+    this.playRender.setDotManChompSpeed(tuning.dotManChompSpeed);
     setActiveFontLook(fontLineArtLook(tuning));
   }
 

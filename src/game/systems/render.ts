@@ -30,6 +30,7 @@ import {
   advanceDotManChomp,
   DOTMAN_CHOMP_PIXEL_FRAMES,
   DOTMAN_CHOMP_PIXELS_PER_FRAME,
+  dotManChompPixelsPerFrame,
   dotManMouthHalfAngle,
 } from "../../domain/dotManMouth";
 import { restingTurn, turnAngle, turnToward, type DotManTurn } from "../../domain/dotManTurn";
@@ -432,6 +433,7 @@ export type PlayRender = {
   setWallStyle: (style: WallStyle | null) => void;
   setPelletStyle: (style: PelletStyle | null) => void;
   setGhostLook: (look: GhostLineArtLook) => void;
+  setDotManChompSpeed: (speed: number) => void;
 };
 
 const DIM_GHOST_ALPHA = 0.4;
@@ -517,6 +519,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let pelletBakeSignature = "";
   let ghostLookOverride: GhostLineArtLook | null = null;
   let ghostLook = ghostLineArtLook(null, loadGhostStyle());
+  let chompPixelsPerFrame = DOTMAN_CHOMP_PIXELS_PER_FRAME;
   let bossPelletTint = 0xffffff;
 
   // Glow textures are baked at the canvas density; rebuild them when the canvas resizes.
@@ -940,6 +943,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           const stepped = advanceDotManChomp(
             { carry: visual.chompCarry, cycleIndex: visual.cycleIndex },
             Math.hypot(x - visual.lastX, y - visual.lastY),
+            chompPixelsPerFrame,
           );
           visual.chompCarry = stepped.carry;
           visual.cycleIndex = stepped.cycleIndex;
@@ -1063,7 +1067,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           const stepped = advanceDotManChomp(
             { carry: visual.chompCarry, cycleIndex: visual.cycleIndex },
             Math.hypot(x - visual.lastX, y - visual.lastY),
-            DOTMAN_CHOMP_PIXELS_PER_FRAME,
+            chompPixelsPerFrame,
           );
           visual.chompCarry = stepped.carry;
           visual.cycleIndex = stepped.cycleIndex;
@@ -1275,6 +1279,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
+  const setDotManChompSpeed = (speed: number): void => {
+    chompPixelsPerFrame = dotManChompPixelsPerFrame(speed);
+  };
+
   return {
     draw,
     releaseDrawable,
@@ -1283,5 +1291,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     setWallStyle,
     setPelletStyle,
     setGhostLook,
+    setDotManChompSpeed,
   };
 }

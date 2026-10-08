@@ -3,13 +3,16 @@ import {
   advanceDotManChomp,
   DOTMAN_CHOMP_MOUTH_HALF_DEG,
   DOTMAN_CHOMP_PIXEL_FRAMES,
+  DOTMAN_CHOMP_PIXELS_AT_1X,
   DOTMAN_CHOMP_PIXELS_PER_FRAME,
+  DOTMAN_CHOMP_SPEED_DEFAULT,
   DOTMAN_INNER_RADIUS,
   DOTMAN_MID_RADIUS,
   DOTMAN_MOUTH_CLOSED_HALF_DEG,
   DOTMAN_MOUTH_OPEN_HALF_DEG,
   DOTMAN_OUTER_RADIUS,
   DOTMAN_VIEW,
+  dotManChompPixelsPerFrame,
   dotManMouthArt,
   dotManMouthHalfAngle,
 } from "./dotManMouth";
@@ -32,6 +35,15 @@ describe("dotManMouthHalfAngle", () => {
     expect(DOTMAN_CHOMP_PIXEL_FRAMES).toHaveLength(DOTMAN_CHOMP_MOUTH_HALF_DEG.length);
     expect(dotManMouthHalfAngle(0, true)).toBe(DOTMAN_MOUTH_OPEN_HALF_DEG);
     expect(dotManMouthHalfAngle(2, true)).toBe(DOTMAN_MOUTH_CLOSED_HALF_DEG);
+  });
+});
+
+describe("dotManChompPixelsPerFrame", () => {
+  it("defaults to 2× speed (half the 1× travel distance)", () => {
+    expect(DOTMAN_CHOMP_SPEED_DEFAULT).toBe(2);
+    expect(DOTMAN_CHOMP_PIXELS_PER_FRAME).toBe(DOTMAN_CHOMP_PIXELS_AT_1X / 2);
+    expect(dotManChompPixelsPerFrame(1)).toBe(DOTMAN_CHOMP_PIXELS_AT_1X);
+    expect(dotManChompPixelsPerFrame(4)).toBe(DOTMAN_CHOMP_PIXELS_AT_1X / 4);
   });
 });
 

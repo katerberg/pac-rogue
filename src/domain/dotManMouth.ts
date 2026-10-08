@@ -11,7 +11,16 @@ export const DOTMAN_BEND_RADIUS = 8;
 export const DOTMAN_BODY_RADIUS = 47;
 export const DOTMAN_VIEW = 100;
 
-export const DOTMAN_CHOMP_PIXELS_PER_FRAME = 12;
+/** Travel (px) between mouth beats at chomp speed 1×. Higher speed → fewer px → faster chomp. */
+export const DOTMAN_CHOMP_PIXELS_AT_1X = 12;
+export const DOTMAN_CHOMP_SPEED_DEFAULT = 2;
+
+export function dotManChompPixelsPerFrame(speed: number): number {
+  return DOTMAN_CHOMP_PIXELS_AT_1X / Math.max(speed, 0.01);
+}
+
+/** Travel (px) per mouth beat at the default chomp speed (2×). */
+export const DOTMAN_CHOMP_PIXELS_PER_FRAME = dotManChompPixelsPerFrame(DOTMAN_CHOMP_SPEED_DEFAULT);
 
 const MOUTH_MID_HALF_DEG = (DOTMAN_MOUTH_OPEN_HALF_DEG + DOTMAN_MOUTH_CLOSED_HALF_DEG) / 2;
 

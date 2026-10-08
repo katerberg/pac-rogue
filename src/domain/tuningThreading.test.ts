@@ -12,9 +12,19 @@ import { GHOST_PHASE, clydeTarget, pinkyTarget } from "./ghostTarget";
 import { ghostModeWavesForLevel } from "./levelRules";
 import { playerPreTurnPx, playerSpeed } from "./playfield";
 import { createRunClock, tickRunClock } from "./runClock";
+import { DOTMAN_CHOMP_PIXELS_AT_1X, dotManChompPixelsPerFrame } from "./dotManMouth";
 import { DEFAULT_TUNING, resolveTuning } from "./tuning";
 
 describe("tuning threads into gameplay helpers", () => {
+  it("maps Dot-Man chomp speed to travel per mouth beat", () => {
+    expect(dotManChompPixelsPerFrame(DEFAULT_TUNING.dotManChompSpeed)).toBe(
+      DOTMAN_CHOMP_PIXELS_AT_1X / 2,
+    );
+    expect(dotManChompPixelsPerFrame(resolveTuning({ dotManChompSpeed: 1 }).dotManChompSpeed)).toBe(
+      DOTMAN_CHOMP_PIXELS_AT_1X,
+    );
+  });
+
   it("builds scatter waves from the scatter knobs", () => {
     const tuned = resolveTuning({ scatterEarlyMs: 1000, chaseMs: 3000, scatterLateMs: 500 });
     expect(ghostModeWavesForLevel(2, tuned).map((w) => w.durationMs)).toEqual([
