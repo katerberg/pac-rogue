@@ -6,14 +6,14 @@ The Enhanced column below was written by the designer and drove the one-shot pla
 
 ## Store offers
 
-| #   | Offer                | Today's equivalent                       | Gap                                               |
-| --- | -------------------- | ---------------------------------------- | ------------------------------------------------- |
-| 1   | Extra life           | `L` slot (unlimited, `STORE_LIFE_PRICE`) | none                                              |
-| 2   | Extra life (limit 2) | none                                     | stock limit of 2                                  |
-| 3   | Ability enhancement  | none                                     | upgrades an owned ability to its enhanced version |
-| 4   | New ability          | `U` slot (3 per store)                   | cut to 2                                          |
-| 5   | New ability          | `U` slot                                 | see above                                         |
-| 6   | Ability trade        | `S` swap slot                            | rename only                                       | Warps farthest from ghosts **and** grants 2s invulnerability with the Ghost Proof tint (own timer) |
+| #   | Offer                | Today's equivalent                                                                   | Gap                                               |
+| --- | -------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| 1   | Extra life           | `L` slot (unlimited; `STORE_LIFE_PRICE` first store, `STORE_LATER_LIFE_PRICE` after) | none                                              |
+| 2   | Extra life (limit 2) | none                                                                                 | stock limit of 2                                  |
+| 3   | Ability enhancement  | none                                                                                 | upgrades an owned ability to its enhanced version |
+| 4   | New ability          | `U` slot (3 per store)                                                               | cut to 2                                          |
+| 5   | New ability          | `U` slot                                                                             | see above                                         |
+| 6   | Ability trade        | `S` swap slot                                                                        | rename only                                       | Warps farthest from ghosts **and** grants 2s invulnerability with the Ghost Proof tint (own timer) |
 
 The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers the 2 lives, 2 new abilities, and an enhancement. Later stores also offer the trade. The first store still omits Swap.
 

@@ -1262,6 +1262,18 @@ describe("PlaySim", () => {
       expect(sim.snapshot().storeStock!.filter((s) => s === "life")).toHaveLength(1);
     });
 
+    it("charges 1 for a life in the first store and 2 in later stores", () => {
+      const first = startSim({ store: 1, lives: 1, maxLives: 4, quarters: 10 });
+      buy(first, "life", 0);
+      expect(first.snapshot().quarters).toBe(9);
+      expect(first.snapshot().lives).toBe(3);
+
+      const later = startSim({ store: 2, lives: 1, maxLives: 4, quarters: 10 });
+      buy(later, "life", 0);
+      expect(later.snapshot().quarters).toBe(8);
+      expect(later.snapshot().lives).toBe(3);
+    });
+
     it("enhancement costs 2, swaps the owned upgrade for its Plus form and keeps order", () => {
       const sim = startSim({
         store: 1,
