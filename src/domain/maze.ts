@@ -18,12 +18,12 @@ export const HOUSE_FLOOR_MIN_COLS = 6;
 export const HOUSE_FLOOR_MIN_ROWS = 3;
 export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 
-export const MAZE_TOP_MARGIN_PX = 28;
+export const MAZE_TOP_MARGIN_PX = 8;
 
 // Fixed pixel size for every maze tile, all layouts — Pac-Man, ghosts, and wall
 // strokes render at the same size regardless of grid dimensions. Capped by the
-// tallest layout in use (28x34 generated boards): floor((600-28)/34) = 16.
-export const TILE_SIZE_PX = 16;
+// tallest layout in use (28x34 generated boards): floor((600-8)/34) = 17.
+export const TILE_SIZE_PX = 17;
 if (TILE_SIZE_PX < MIN_TILE_SIZE) {
   throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
 }
@@ -82,7 +82,7 @@ export type WallCornerCurveKind = "circular" | "quadratic";
 export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
 export const PLAYER_WALL_PADDING_PX = 0;
-export const PELLET_DISPLAY_SIZE_MAX = 16;
+export const PELLET_DISPLAY_SIZE_MAX = 17;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export function pelletDisplaySize(tileSize: number = TILE_SIZE): number {

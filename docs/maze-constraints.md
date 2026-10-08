@@ -6,7 +6,7 @@ Rectangular ASCII mazes of variable size. Levels ≥ 2 can use the procedural ti
 
 Nominal band: **20–32 cols × 21–36 rows**.
 
-Playfield stays **800×600** (`PLAYFIELD_*`). Every layout uses the same fixed tile size, `TILE_SIZE_PX` (16px, `src/domain/maze.ts`) — Pac-Man, ghosts, and wall strokes render at the same pixel size regardless of grid dimensions. That value is capped by the tallest layout in use (28×34 generated boards: `floor((600-28)/34) = 16`); it is **not** refit per layout. A layout's geometry is just that fixed tile centered under `MAZE_TOP_MARGIN_PX` (28):
+Playfield stays **800×600** (`PLAYFIELD_*`). Every layout uses the same fixed tile size, `TILE_SIZE_PX` (17px, `src/domain/maze.ts`) — Pac-Man, ghosts, and wall strokes render at the same pixel size regardless of grid dimensions. That value is capped by the tallest layout in use (28×34 generated boards: `floor((600-8)/34) = 17`); it is **not** refit per layout. A layout's geometry is just that fixed tile centered under `MAZE_TOP_MARGIN_PX` (8):
 
 ```text
 pixelWidth = cols * TILE_SIZE_PX
@@ -17,10 +17,10 @@ offsetX = (800 - pixelWidth) / 2
 Hard rejects:
 
 - `pixelWidth > 800`
-- `pixelHeight > 572` (usable height below the top margin)
+- `pixelHeight > 592` (usable height below the top margin)
 - `offsetX < 80` (left HUD gutter — upgrades/lives stay at playfield `x ≈ 12`)
 
-At 16px, the width and gutter rejects are unreachable within the nominal col band (max 32 cols → 512px wide, 144px gutter) — they stay in place as defensive checks in case `TILE_SIZE_PX` or the col band ever changes. The reachable reject in practice is height: a board near the 36-row ceiling (36 × 16 = 576) exceeds the 572px usable band. Classic **28×31** and generated **28×34** both render at tile **16**, gutter **176** / **176** respectively (448×496 and 448×544 px); level-1's **22×21** `mazeSmall` renders smaller still (352×336 px) since it has fewer tiles at the same tile size — a smaller maze footprint, not a smaller Pac-Man.
+At 17px, the width and gutter rejects are unreachable within the nominal col band (max 32 cols → 544px wide, 128px gutter) — they stay in place as defensive checks in case `TILE_SIZE_PX` or the col band ever changes. The reachable reject in practice is height: a board near the 36-row ceiling (36 × 17 = 612) exceeds the 592px usable band. Classic **28×31** and generated **28×34** both render at tile **17**, gutter **162** / **162** respectively (476×527 and 476×578 px); level-1's **22×21** `mazeSmall` renders smaller still (374×357 px) since it has fewer tiles at the same tile size — a smaller maze footprint, not a smaller Pac-Man.
 
 ## ASCII legend
 
@@ -68,7 +68,7 @@ Fruit / Inky / Clyde / Elroy pellet thresholds scale vs maze1 pellet count (unch
 
 ## Procedural (levels ≥ 2)
 
-- Tiling solver on a 9×11 mirrored polyomino grid with a fixed center house, rasterized to **28×34** ASCII (2×2 wall cells, 1-cell corridors, outer border) → tile 16, gutter 176.
+- Tiling solver on a 9×11 mirrored polyomino grid with a fixed center house, rasterized to **28×34** ASCII (2×2 wall cells, 1-cell corridors, outer border) → tile 17, gutter 162.
 - **Density:** aim for `GENERATED_PELLET_TARGET` (240, near classic maze1's 244). Corridor comes from piece boundaries, so the shape draw leans on small pieces; the attempt loop returns the first board at or above the target and otherwise the densest board it saw. Delivered boards run ~226–252 pellets, mean ~240.
 - Horizontal tunnels only; **1 or 2** tunnel rows, and only on the tiling's corridor rows (`1 + sy*3 + 2`), which keeps them ≥ 3 apart and stops a tunnel from running alongside the corridor row next to it.
 - **No parallel corridors:** no 2×2 block of player-open cells anywhere. Two side-by-side lanes read as a double line rather than a maze; a 2×2 open block is exactly that case, and plus/T intersections never form one. Checked on `playerSolids` (so it covers what the player can actually reach) and rejected, not patched. This subsumes the older “no 2×2 pellet blocks” rule.

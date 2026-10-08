@@ -7,7 +7,7 @@ import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
-import { catchPlayer } from "./catchPlayer";
+import { catchPlayer, GHOST_CATCH_MIN_OVERLAP_FRACTION } from "./catchPlayer";
 
 function spawnPlayer(world: ReturnType<typeof createWorld>, x: number, y: number) {
   const eid = addEntity(world);
@@ -92,14 +92,16 @@ describe("catchPlayer", () => {
   it("does not catch on a graze that falls short of the required overlap", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
-    spawnGhost(world, 111, 100, GHOST_PHASE.active);
+    const reach = (playerRadius() + ghostRadius()) * (1 - GHOST_CATCH_MIN_OVERLAP_FRACTION);
+    spawnGhost(world, 100 + reach + 0.5, 100, GHOST_PHASE.active);
     expect(catchPlayer(world)).toBeNull();
   });
 
   it("catches once the ghost clears the required overlap threshold", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
-    spawnGhost(world, 110, 100, GHOST_PHASE.active);
+    const reach = (playerRadius() + ghostRadius()) * (1 - GHOST_CATCH_MIN_OVERLAP_FRACTION);
+    spawnGhost(world, 100 + reach - 0.5, 100, GHOST_PHASE.active);
     expect(catchPlayer(world)).not.toBeNull();
   });
 });
