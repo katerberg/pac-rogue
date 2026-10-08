@@ -15,6 +15,7 @@ describe("parsePlayOptions", () => {
       bonus: null,
       ghosts: null,
       boss: null,
+      bossStageAdvance: false,
       jumpToUpgrade: false,
       store: null,
       infiniteLives: false,
@@ -32,7 +33,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&boss=chainedGhosts&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus",
+        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&boss=chainedGhosts&bossStageAdvance=1&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus",
       ),
     );
     expect(warnings).toEqual([]);
@@ -44,6 +45,7 @@ describe("parsePlayOptions", () => {
       bonus: 120,
       ghosts: [GHOST_KIND.pinky],
       boss: "chainedGhosts",
+      bossStageAdvance: true,
       jumpToUpgrade: true,
       store: 1,
       disableLevelUpgrades: true,

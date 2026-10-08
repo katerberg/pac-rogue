@@ -9,6 +9,7 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import {
   sameWallStyle,
@@ -486,6 +487,9 @@ export type RenderOptions = {
   turnFlashRemainingMs?: number;
   dimGhostEid?: number | null;
   playerAlpha?: number;
+  entityAlpha?: number;
+  wallAlpha?: number;
+  mazeColorInverted?: boolean;
   playerReviveProgress?: number;
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
@@ -591,6 +595,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
+  let drawnMazeInverted = false;
+  let drawnWallAlpha = 1;
   let wallStyleOverride: WallStyle | null = null;
   let drawnPelletStyle: PelletStyle | null = null;
   let pelletStyleOverride: PelletStyle | null = null;
@@ -760,9 +766,16 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     neonPowerBounceTarget.clear();
     playerVisuals.clear();
     wallGraphics.clear();
+    wallGraphics.setAlpha(1);
+    wallGlowTexture.setAlpha(1);
     pelletCrispGraphics.clear();
+    pelletCrispGraphics.setAlpha(1);
     pelletGlowTexture.clear();
+    pelletGlowTexture.setAlpha(1);
+    chainGraphics.setAlpha(1);
     drawnWallStyle = null;
+    drawnMazeInverted = false;
+    drawnWallAlpha = 1;
     drawnPelletStyle = null;
     pelletBakeSignature = "";
   };
@@ -807,7 +820,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const draw = (world: World, opts?: RenderOptions): void => {
     const frozenEid = opts?.frozenGhostEid ?? null;
     const dimGhostEid = opts?.dimGhostEid ?? null;
-    const playerAlpha = opts?.playerAlpha;
+    const entityAlpha = opts?.entityAlpha ?? 1;
+    const playerAlphaOpt = opts?.playerAlpha;
+    const playerAlpha = (playerAlphaOpt ?? 1) * entityAlpha;
     const reviveProgress = opts?.playerReviveProgress;
     const warpGlide = opts?.playerWarpGlide;
     const speedTrail = opts?.playerSpeedTrail;
@@ -824,8 +839,12 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       flashBrighten: turnFlash.brighten,
     });
     const frozenTintOn = expiryTintOn(opts?.frozenGhostRemainingMs ?? 0, scene.time.now);
-    const wallStyle = wallStyleOverride ?? storedWallStyle();
-    if (!sameWallStyle(wallStyle, drawnWallStyle)) {
+    const baseWallStyle = wallStyleOverride ?? storedWallStyle();
+    const mazeInverted = opts?.mazeColorInverted === true;
+    const wallStyle = mazeInverted
+      ? { ...baseWallStyle, color: invertRgb24(baseWallStyle.color) }
+      : baseWallStyle;
+    if (!sameWallStyle(wallStyle, drawnWallStyle) || mazeInverted !== drawnMazeInverted) {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
       strokeWallPath(wallGraphics, commands, wallStyle, 1);
@@ -850,6 +869,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         scene.cameras.main.setBackgroundColor(wallStyle.background);
       }
       drawnWallStyle = wallStyle;
+      drawnMazeInverted = mazeInverted;
+    }
+    const wallAlpha = opts?.wallAlpha ?? 1;
+    if (wallAlpha !== drawnWallAlpha) {
+      wallGraphics.setAlpha(wallAlpha);
+      wallGlowTexture.setAlpha(wallAlpha);
+      drawnWallAlpha = wallAlpha;
     }
 
     const nextGhostLook = ghostLookOverride ?? ghostLineArtLook(null, loadGhostStyle());
@@ -897,7 +923,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         trailGo.setTexture(textureKey);
         trailGo.setDisplaySize(size, size);
         trailGo.setPosition(trail.x, trail.y);
-        trailGo.setAlpha(trail.alpha);
+        trailGo.setAlpha(trail.alpha * entityAlpha);
         applyTint(trailGo);
       }
     };
@@ -1007,9 +1033,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             : LINE_ART_FROZEN_COLOR;
         const placeGhost = (key: string, glow: boolean, px: number, py: number, alpha: number) =>
           placeLineArt(key, lineArtEntry.art, color, size, ghostLook, glow, px, py, alpha);
-        placeGhost(primaryKey, true, x, y, ghostAlpha * (glideHead?.alpha ?? 1));
+        placeGhost(primaryKey, true, x, y, ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1));
         glide?.slice(1).forEach((trail, i) => {
-          placeGhost(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha);
+          placeGhost(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha * entityAlpha);
         });
         continue;
       }
@@ -1077,10 +1103,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             );
           });
         }
-        if (glide === undefined && playerAlpha === undefined && hasComponent(world, eid, Player)) {
+        if (
+          glide === undefined &&
+          playerAlphaOpt === undefined &&
+          hasComponent(world, eid, Player)
+        ) {
           const twin = wrappedTwinPosition(x, y, radius, twinSolids);
           if (twin) {
-            placeDotMan(`${eid}:ltwin`, true, twin.x, twin.y, 1, turnFlash.scale);
+            placeDotMan(`${eid}:ltwin`, true, twin.x, twin.y, entityAlpha, turnFlash.scale);
           }
         }
         continue;
@@ -1113,7 +1143,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         go.setTint(bossPelletTint);
         const pulse = bossPelletPulse(scene.time.now);
         go.setDisplaySize(pulse.size, pulse.size);
-        go.setAlpha(pulse.alpha);
+        go.setAlpha(pulse.alpha * entityAlpha);
+      } else if (
+        id === PELLET_DRAWABLE_ID ||
+        id === POWER_PELLET_DRAWABLE_ID ||
+        id === FRUIT_DRAWABLE_ID
+      ) {
+        go.setAlpha(entityAlpha);
       }
 
       if (ghostTexture !== undefined) {
@@ -1130,7 +1166,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           }
         };
         applyGhostTint(go);
-        go.setAlpha(ghostAlpha * (glideHead?.alpha ?? 1));
+        go.setAlpha(ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1));
         if (glide !== undefined) {
           drawGlideTrail(eid, id, glide.slice(1), go.texture.key, size, applyGhostTint);
         }
@@ -1192,7 +1228,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
         if (
           glide === undefined &&
-          playerAlpha === undefined &&
+          playerAlphaOpt === undefined &&
           reviveProgress === undefined &&
           hasComponent(world, eid, Player)
         ) {
@@ -1256,7 +1292,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             glow.clear();
             strokePelletRing(glow, 0, 0, pelletGlowSourceLook(scaledLook), px, 1, true);
             glow.setPosition(pellet.x, pellet.y);
-            glow.setAlpha(alpha);
+            glow.setAlpha(alpha * entityAlpha);
           }
         } else if (pellet.optional) {
           optionalGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
@@ -1288,6 +1324,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
 
     chainGraphics.clear();
+    chainGraphics.setAlpha(entityAlpha);
+    pelletCrispGraphics.setAlpha(entityAlpha);
+    pelletGlowTexture.setAlpha(entityAlpha);
     const chains = opts?.bossChains ?? [];
     if (chains.length > 0) {
       const amplitude = getActiveLayout().tileSize * CHAIN_AMPLITUDE_TILES;
