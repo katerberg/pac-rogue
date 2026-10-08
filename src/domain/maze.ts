@@ -82,7 +82,7 @@ export type WallCornerCurveKind = "circular" | "quadratic";
 export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
 export const PLAYER_WALL_PADDING_PX = 0;
-export const PELLET_DISPLAY_SIZE_MAX = 17;
+export const PELLET_DISPLAY_SIZE_MAX = TILE_SIZE_PX;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export function pelletDisplaySize(tileSize: number = TILE_SIZE): number {
