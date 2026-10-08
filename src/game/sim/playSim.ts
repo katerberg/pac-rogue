@@ -2102,6 +2102,7 @@ export class PlaySim {
     }
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
+    this.resetStreak();
     this.shieldCrack = { index: spent.shieldsBanked, elapsedMs: 0 };
     this.emit({ type: "shields" });
     this.emit({ type: "shieldCrack", index: spent.shieldsBanked, progress: 0 });

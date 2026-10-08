@@ -17,7 +17,7 @@ A persistent HUD meter that pays one **Quarter** each time it fills. Eating pell
 - The streak breaks (charge kept) when:
   - the player steps onto a **blank tile**: the new cell has no pellet and was not just eaten (see below), or
   - no pellet is collected for `BONUS_STREAK_IDLE_MS` (400) while a streak is running, or
-  - the player dies, a new board starts, or a store floor is entered.
+  - the player dies, a Shield Pellets shield breaks, a new board starts, or a store floor is entered.
 - Blank-tile check: a pellet is eaten about 6 px before the player's cell changes to its tile, so each eaten pellet **credits** its cell. Entering a credited cell uses the credit up; walking back over a tile eaten earlier in the streak is a blank. Tunnels, the fruit tile and cleared corridors all break a streak.
 - The clocks only run in normal play frames (not during cards, modals, deaths, transitions or stores).
 
