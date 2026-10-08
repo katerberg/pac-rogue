@@ -1,5 +1,5 @@
 import {
-  TILE_SIZE,
+  TILE_SIZE_PX,
   canEnterDirection,
   cellCenterX,
   cellCenterY,
@@ -11,10 +11,7 @@ import { playerPreTurnPx } from "./playfield";
 
 export const TURN_TUNING_BOOST_MS = 500;
 export const TURN_TUNING_BOOST_MUL = 1.25;
-/** Two tiles of the active layout — read via getter so per-layout tile sizes apply. */
-export function turnTuningWindowPx(tileSize: number = TILE_SIZE): number {
-  return tileSize * 2;
-}
+export const TURN_TUNING_WINDOW_PX = TILE_SIZE_PX * 2;
 export const TURN_TUNING_PERFECT_PX = 8;
 export const TURN_TUNING_CLOSE_PX = 20;
 export const TURN_TUNING_SPAM_MS = 300;
@@ -42,10 +39,9 @@ export function turnTapAheadPx(
     facing.dx !== 0 ? (x - cellCenterX(col)) * facing.dx : (y - cellCenterY(row)) * facing.dy;
   const open = (c: number, r: number, step: CardinalStep) =>
     canEnterDirection(cellCenterX(c), cellCenterY(r), step.dx, step.dy, solids);
-  const windowPx = turnTuningWindowPx();
   for (let k = 0; ; k += 1) {
-    const ahead = k * TILE_SIZE - pastCenter;
-    if (ahead > windowPx) {
+    const ahead = k * TILE_SIZE_PX - pastCenter;
+    if (ahead > TURN_TUNING_WINDOW_PX) {
       return null;
     }
     if (k > 0 && !open(col + (k - 1) * facing.dx, row + (k - 1) * facing.dy, facing)) {
