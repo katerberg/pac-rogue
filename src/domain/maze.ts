@@ -81,8 +81,13 @@ export const WALL_CORNER_CURVE_MIN_STEPS = 5;
 export type WallCornerCurveKind = "circular" | "quadratic";
 export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
-/** Gap from each wall stroke center to the actor edge. Visual only; collision uses `playerRadius`. */
-export const PLAYER_WALL_PADDING_PX = 1;
+/**
+ * Gap from each wall stroke center to the actor *display box* edge.
+ * Negative grows the box past the stroke so stroked line-art (rings sit inside
+ * the viewBox) still scrapes the painted corridor. Visual only; collision uses
+ * `playerRadius`.
+ */
+export const PLAYER_WALL_PADDING_PX = -1;
 export const PELLET_DISPLAY_SIZE_MAX = 16;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 

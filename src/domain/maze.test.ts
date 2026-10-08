@@ -549,7 +549,7 @@ describe("maze", () => {
     expect(playerDisplaySize()).toBe(TILE_SIZE + 2 * inset - 2 * PLAYER_WALL_PADDING_PX);
     expect(playerDisplaySize(4, TILE_SIZE, 0)).toBe(TILE_SIZE - 8);
     expect(playerDisplaySize(2, TILE_SIZE, 3)).toBe(TILE_SIZE + 6 - 4);
-    expect(playerDisplaySize()).toBeGreaterThan(TILE_SIZE);
+    expect(playerDisplaySize()).toBeGreaterThan(TILE_SIZE + 2 * inset);
   });
 
   it("clamps wall corner radius to a half tile", () => {
