@@ -10,6 +10,7 @@ import {
   cellCenterY,
   getActiveLayout,
   horizontalTunnelRows,
+  isAlignedForTurn,
   isWalkable,
   playerFarthestFromGhostsSpawn,
   TILE_SIZE,
@@ -1250,19 +1251,32 @@ describe("PlaySim", () => {
     expect(sim.storeState()).not.toBeNull();
   });
 
-  it("stops a diagonal walk when it opens a store prompt", () => {
+  it("settles on the tile after a diagonal store entry and resumes on a single key", () => {
     const sim = startSim({ store: 1, lives: 1, maxLives: 4, quarters: 10 });
     const life = sim
       .storeState()!
       .slots.filter((slot) => slot.kind === "life")
       .at(-1)!;
+    const diagonal = { ...held("down"), right: 0 };
     teleportPlayer(sim, cellCenterX(life.col - 1), cellCenterY(life.row - 1));
     runFrames(sim, 1);
-    runFrames(sim, 120, { keys: { ...held("down"), right: 0 } });
+    runFrames(sim, 120, { keys: diagonal });
     expect(sim.storeState()?.activeSlot).not.toBeNull();
-    const at = { x: sim.snapshot().player?.x, y: sim.snapshot().player?.y };
-    runFrames(sim, 30, { keys: { ...held("down"), right: 0 } });
-    expect(sim.snapshot().player).toMatchObject(at);
+    expect(sim.snapshot().storePrompt).toBe("confirm");
+
+    runFrames(sim, 30, { keys: diagonal });
+    const settled = sim.snapshot().player!;
+    expect(isAlignedForTurn(settled.x, settled.y)).toBe(true);
+    expect(settled.facing).toBe("none");
+
+    runFrames(sim, 1, { storeChoice: "no" });
+    runFrames(sim, 1);
+    expect(sim.snapshot().storePrompt).toBeNull();
+    expect(sim.snapshot().inputSuppressed).toBe(false);
+
+    const at = { ...sim.snapshot().player! };
+    runFrames(sim, 10, { keys: held("up") });
+    expect(sim.snapshot().player?.y).toBeLessThan(at.y);
   });
 
   it.each([
