@@ -21,7 +21,7 @@ Hard rejects:
 - `pixelHeight > 560` (usable height between BONUS clearance and lives inset)
 - `offsetX < 80` (left HUD gutter — upgrades/lives stay at playfield `x ≈ 12`)
 
-Generated **28×34** → tile **16** (448×544, gutter 176; centered in the band with ~8px leftover each side — clears BONUS, does not pass the bottom; outer shell is stroked). Classic **28×31** is the same tile. Level-1 **22×21** `mazeSmall` uses the **same** 16px tile — smaller centered footprint. Life / shield HUD icons that would extend past `offsetX` are omitted.
+Generated **28×34** → tile **16** (448×544, gutter 176; centered in the band with ~8px leftover each side — clears BONUS, does not pass the bottom). Pipe strokes follow the playable wall mass (no separate OOB outer shell). Classic **28×31** is the same tile. Level-1 **22×21** `mazeSmall` uses the **same** 16px tile — smaller centered footprint. Life / shield HUD icons that would extend past `offsetX` are omitted.
 
 ## ASCII legend
 

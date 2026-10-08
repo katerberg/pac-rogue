@@ -483,16 +483,6 @@ describe("maze", () => {
     expect(edges.length).toBeGreaterThan(0);
   });
 
-  it("outlines the outer maze shell inside the HUD band", () => {
-    const edges = pipeEdges();
-    const topY = MAZE_OFFSET_Y;
-    const bottomY = MAZE_OFFSET_Y + MAZE_ROWS * TILE_SIZE;
-    expect(edges.some((e) => e.y1 === topY && e.y2 === topY)).toBe(true);
-    expect(edges.some((e) => e.y1 === bottomY && e.y2 === bottomY)).toBe(true);
-    expect(topY).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
-    expect(bottomY).toBeLessThanOrEqual(600 - MAZE_BOTTOM_MARGIN_PX);
-  });
-
   it("does not outline exterior voids that touch the outer map edge", () => {
     const edges = pipeEdges();
     const left = cellOriginX(0);

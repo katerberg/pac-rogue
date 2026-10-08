@@ -1288,12 +1288,6 @@ function shouldDrawPipeAgainst(
   exterior: SolidGrid,
   door: SolidGrid,
 ): boolean {
-  // Outside the grid: outline the maze shell. (`isWall` treats OOB as solid for
-  // movement clamps, which would otherwise suppress every outer edge.) Geometry
-  // already insets the board under BONUS / above lives, so the shell stays in band.
-  if (!inBounds(col, row)) {
-    return true;
-  }
   if (isWall(col, row, walls)) {
     return false;
   }
