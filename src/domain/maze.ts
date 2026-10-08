@@ -1,6 +1,6 @@
 import { GHOST_PHASE } from "./ghostPhase";
 import { MAZE_ASCII_BY_ID, type MazeLayoutId } from "./mazeLayouts";
-import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
+import { HUD_BOTTOM_MARGIN_PX, PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 export type { MazeLayoutId } from "./mazeLayouts";
 export { pickLayoutId, parseMazeParam, MAZE_LAYOUT_IDS } from "./mazeLayouts";
@@ -19,10 +19,11 @@ export const HOUSE_FLOOR_MIN_ROWS = 3;
 export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 
 export const MAZE_TOP_MARGIN_PX = 8;
+export const MAZE_BOTTOM_MARGIN_PX = HUD_BOTTOM_MARGIN_PX;
 
 // Fixed pixel size for every maze tile, all layouts — Pac-Man, ghosts, and wall
 // strokes render at the same size regardless of grid dimensions. Capped by the
-// tallest layout in use (28x34 generated boards): floor((600-8)/34) = 17.
+// tallest layout in use (28x34 generated boards): floor((600-8-8)/34) = 17.
 export const TILE_SIZE_PX = 17;
 if (TILE_SIZE_PX < MIN_TILE_SIZE) {
   throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
@@ -45,7 +46,7 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
   if (rows < MAZE_ROWS_MIN || rows > MAZE_ROWS_MAX) {
     throw new Error(`maze rows ${rows} outside ${MAZE_ROWS_MIN}..${MAZE_ROWS_MAX}`);
   }
-  const usableHeight = Math.max(1, PLAYFIELD_HEIGHT - MAZE_TOP_MARGIN_PX);
+  const usableHeight = Math.max(1, PLAYFIELD_HEIGHT - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX);
   const tileSize = TILE_SIZE_PX;
   const pixelWidth = cols * tileSize;
   if (pixelWidth > PLAYFIELD_WIDTH) {
@@ -59,7 +60,10 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
   if (offsetX < MIN_MAZE_OFFSET_X) {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
   }
-  const offsetY = MAZE_TOP_MARGIN_PX + Math.floor((usableHeight - pixelHeight) / 2);
+  const offsetY = PLAYFIELD_HEIGHT - pixelHeight - MAZE_BOTTOM_MARGIN_PX;
+  if (offsetY < MAZE_TOP_MARGIN_PX) {
+    throw new Error(`maze top offset ${offsetY} below minimum ${MAZE_TOP_MARGIN_PX}`);
+  }
   return { cols, rows, tileSize, pixelWidth, pixelHeight, offsetX, offsetY };
 }
 

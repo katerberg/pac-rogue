@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  HUD_ICON_GAP,
+  HUD_ICON_LEFT_X,
   SHIELD_CRACK_FALL_PX,
   SHIELD_CRACK_MS,
   SHIELD_CRACK_SPLIT_PX,
+  SHIELD_HUD_SIZE_FRAC,
+  hudIconCenterY,
+  hudIconsThatFit,
   shieldCrackLook,
   shieldCrackProgress,
   shieldHudIconX,
+  shieldHudIconsThatFit,
 } from "./shieldCrack";
 
 describe("shieldCrackProgress", () => {
@@ -43,5 +49,36 @@ describe("shieldHudIconX", () => {
 
   it("starts at the left edge with no life icons", () => {
     expect(shieldHudIconX(0, 0, 10)).toBe(12 + 3);
+  });
+});
+
+describe("hudIconsThatFit", () => {
+  it("returns the full count when every icon clears the maze left edge", () => {
+    expect(hudIconsThatFit(3, 10, 200)).toBe(3);
+  });
+
+  it("stops before an icon that would cross the maze", () => {
+    const size = 10;
+    const twoIconRight = HUD_ICON_LEFT_X + 2 * size + HUD_ICON_GAP;
+    expect(hudIconsThatFit(5, size, twoIconRight)).toBe(2);
+    expect(hudIconsThatFit(5, size, twoIconRight - 1)).toBe(1);
+    expect(hudIconsThatFit(5, size, HUD_ICON_LEFT_X + size)).toBe(1);
+    expect(hudIconsThatFit(5, size, HUD_ICON_LEFT_X + size - 1)).toBe(0);
+  });
+});
+
+describe("shieldHudIconsThatFit", () => {
+  it("keeps shields that stay left of the maze after the life row", () => {
+    const lifeSize = 10;
+    const shieldSize = lifeSize * SHIELD_HUD_SIZE_FRAC;
+    const firstRight = shieldHudIconX(2, 0, lifeSize) + shieldSize / 2;
+    expect(shieldHudIconsThatFit(3, 2, lifeSize, firstRight)).toBe(1);
+    expect(shieldHudIconsThatFit(3, 2, lifeSize, firstRight - 1)).toBe(0);
+  });
+});
+
+describe("hudIconCenterY", () => {
+  it("matches the lives bottom inset", () => {
+    expect(hudIconCenterY(17, 600, 8)).toBe(600 - 8 - 17 / 2);
   });
 });

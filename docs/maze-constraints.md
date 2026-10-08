@@ -6,21 +6,23 @@ Rectangular ASCII mazes of variable size. Levels ≥ 2 can use the procedural ti
 
 Nominal band: **20–32 cols × 21–36 rows**.
 
-Playfield stays **800×600** (`PLAYFIELD_*`). Every layout uses the same fixed tile size, `TILE_SIZE_PX` (17px, `src/domain/maze.ts`) — Pac-Man, ghosts, and wall strokes render at the same pixel size regardless of grid dimensions. That value is capped by the tallest layout in use (28×34 generated boards: `floor((600-8)/34) = 17`); it is **not** refit per layout. A layout's geometry is just that fixed tile centered under `MAZE_TOP_MARGIN_PX` (8):
+Playfield stays **800×600** (`PLAYFIELD_*`). Every layout uses the same fixed tile size, `TILE_SIZE_PX` (17px, `src/domain/maze.ts`) — Pac-Man, ghosts, and wall strokes render at the same pixel size regardless of grid dimensions. That value is capped by the tallest layout in use (28×34 generated boards: `floor((600-8-8)/34) = 17`); it is **not** refit per layout. A layout's geometry is that fixed tile, horizontally centered and **bottom-pinned** with `MAZE_BOTTOM_MARGIN_PX` (8, same inset as the lives HUD):
 
 ```text
 pixelWidth = cols * TILE_SIZE_PX
 pixelHeight = rows * TILE_SIZE_PX
 offsetX = (800 - pixelWidth) / 2
+offsetY = 600 - pixelHeight - MAZE_BOTTOM_MARGIN_PX
 ```
 
 Hard rejects:
 
 - `pixelWidth > 800`
-- `pixelHeight > 592` (usable height below the top margin)
+- `pixelHeight > 584` (usable height between top and bottom margins)
+- `offsetY < 8` (top margin)
 - `offsetX < 80` (left HUD gutter — upgrades/lives stay at playfield `x ≈ 12`)
 
-At 17px, the width and gutter rejects are unreachable within the nominal col band (max 32 cols → 544px wide, 128px gutter) — they stay in place as defensive checks in case `TILE_SIZE_PX` or the col band ever changes. The reachable reject in practice is height: a board near the 36-row ceiling (36 × 17 = 612) exceeds the 592px usable band. Classic **28×31** and generated **28×34** both render at tile **17**, gutter **162** / **162** respectively (476×527 and 476×578 px); level-1's **22×21** `mazeSmall` renders smaller still (374×357 px) since it has fewer tiles at the same tile size — a smaller maze footprint, not a smaller Pac-Man.
+At 17px, the width and gutter rejects are unreachable within the nominal col band (max 32 cols → 544px wide, 128px gutter) — they stay in place as defensive checks in case `TILE_SIZE_PX` or the col band ever changes. The reachable reject in practice is height: a board near the 36-row ceiling (36 × 17 = 612) exceeds the 584px usable band. Classic **28×31** and generated **28×34** both render at tile **17**, gutter **162** / **162** respectively (476×527 and 476×578 px); level-1's **22×21** `mazeSmall` renders smaller still (374×357 px) since it has fewer tiles at the same tile size — a smaller maze footprint, not a smaller Pac-Man. Shorter boards leave empty space on **top** only. Life / shield HUD icons that would extend past `offsetX` are omitted (only as many as fit in the left gutter are drawn).
 
 ## ASCII legend
 

@@ -8,6 +8,7 @@ import {
   MAZE_OFFSET_X,
   MAZE_OFFSET_Y,
   MAZE_PIXEL_WIDTH,
+  MAZE_BOTTOM_MARGIN_PX,
   MAZE_TOP_MARGIN_PX,
   MAZE_ROWS,
   TILE_SIZE,
@@ -68,9 +69,7 @@ describe("maze", () => {
     expect(getActiveLayout().playerSolids[0]).toHaveLength(MAZE_COLS);
     expect(TILE_SIZE).toBe(TILE_SIZE_PX);
     expect(MAZE_OFFSET_X).toBe((800 - MAZE_PIXEL_WIDTH) / 2);
-    expect(MAZE_OFFSET_Y).toBe(
-      MAZE_TOP_MARGIN_PX + Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2),
-    );
+    expect(MAZE_OFFSET_Y).toBe(600 - MAZE_ROWS * TILE_SIZE - MAZE_BOTTOM_MARGIN_PX);
     expect(MAZE_OFFSET_Y).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
     expect(MAZE_OFFSET_X).toBeGreaterThanOrEqual(80);
     expect(getActiveLayout().cols).toBe(28);
