@@ -26,6 +26,7 @@ import {
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
+import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { addDotManIcon, QUARTER_TEXTURE_KEY } from "../systems/render";
@@ -53,7 +54,6 @@ import {
   setSchoolTag,
   stackTexts,
   stackTextsFromTop,
-  wrapText,
 } from "./upgradeChoiceModal";
 
 const TILE_DEPTH = -1;
@@ -279,32 +279,21 @@ export function createStoreOverlay(
       HUD_FONT_SIZE,
       textStyle,
     );
-    const titleBudget = Math.min(
-      wrapCharBudget(PANEL_TITLE_MAX_CHARS, textStyle),
-      wrapCharsFittingWidth(
-        content.title,
-        PANEL_WIDTH,
-        titleSize,
-        textStyle,
-        PANEL_SIDE_PAD,
-        DEFAULT_TUNING.fontThickness,
-        DEFAULT_TUNING.fontLetterSpacing,
-        wrapText,
-      ),
-    );
-    const bodyBudget = Math.min(
-      wrapCharBudget(PANEL_BODY_MAX_CHARS, textStyle),
-      wrapCharsFittingWidth(
-        content.body,
-        PANEL_WIDTH,
-        UPGRADES_HUD_FONT_SIZE,
-        textStyle,
-        PANEL_SIDE_PAD,
-        DEFAULT_TUNING.fontThickness,
-        DEFAULT_TUNING.fontLetterSpacing,
-        wrapText,
-      ),
-    );
+    const panelBudget = (text: string, fontSize: number, pixelMax: number): number =>
+      Math.min(
+        wrapCharBudget(pixelMax, textStyle),
+        wrapCharsFittingWidth(
+          text,
+          PANEL_WIDTH,
+          fontSize,
+          textStyle,
+          PANEL_SIDE_PAD,
+          DEFAULT_TUNING.fontThickness,
+          DEFAULT_TUNING.fontLetterSpacing,
+        ),
+      );
+    const titleBudget = panelBudget(content.title, titleSize, PANEL_TITLE_MAX_CHARS);
+    const bodyBudget = panelBudget(content.body, UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS);
     panelTitle.setText(wrapText(content.title, titleBudget));
     panelTitle.setFontSize(titleSize);
     panelBody.setText(wrapText(content.body, bodyBudget));

@@ -1,7 +1,13 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
 import { textStyleFor } from "../../domain/ghostArt";
-import { interTextGap, wrapCharBudget, type TextStyle } from "../../domain/neonFont/textStack";
+import {
+  interTextGap,
+  stackRowTops,
+  stackRowTopsFromTop,
+  wrapCharBudget,
+  type TextStyle,
+} from "../../domain/neonFont/textStack";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { STORE_ENHANCE_BORDER_COLOR } from "../../domain/store";
 import {
@@ -27,8 +33,6 @@ import {
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
 import { addGameText, isNeonText, placeGameText, type GameText } from "./neonFont";
-
-export { wrapText };
 
 export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
 export const UPGRADE_CONFIRM_PULSE_MS = 400;
@@ -623,12 +627,11 @@ export function setSchoolTag(tag: GameText, school: UpgradeSchool | null): void 
 }
 
 export function stackTexts(stack: { text: GameText; gapBelow: number }[], centerY: number): void {
-  const rows = stack.map((row) => ({ ...row, height: row.text.getTextBounds(true).local.height }));
-  const total = rows.reduce((sum, row) => sum + row.height + row.gapBelow, 0);
-  let top = centerY - total / 2;
-  for (const row of rows) {
-    placeGameText(row.text, 0, top, 0.5, 0);
-    top += row.height + row.gapBelow;
+  const heights = stack.map((row) => row.text.getTextBounds(true).local.height);
+  const gapsBelow = stack.map((row) => row.gapBelow);
+  const tops = stackRowTops(heights, gapsBelow, centerY);
+  for (let i = 0; i < stack.length; i += 1) {
+    placeGameText(stack[i]!.text, 0, tops[i]!, 0.5, 0);
   }
 }
 
@@ -636,10 +639,11 @@ export function stackTextsFromTop(
   stack: { text: GameText; gapBelow: number }[],
   topY: number,
 ): void {
-  let top = topY;
-  for (const row of stack) {
-    placeGameText(row.text, 0, top, 0.5, 0);
-    top += row.text.getTextBounds(true).local.height + row.gapBelow;
+  const heights = stack.map((row) => row.text.getTextBounds(true).local.height);
+  const gapsBelow = stack.map((row) => row.gapBelow);
+  const tops = stackRowTopsFromTop(heights, gapsBelow, topY);
+  for (let i = 0; i < stack.length; i += 1) {
+    placeGameText(stack[i]!.text, 0, tops[i]!, 0.5, 0);
   }
 }
 

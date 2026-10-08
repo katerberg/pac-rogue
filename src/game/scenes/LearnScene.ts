@@ -65,11 +65,11 @@ import {
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
 import { addGameText, placeGameText, setGameTextBloom, type GameText } from "./neonFont";
+import { wrapText } from "../../domain/wrapText";
 import {
   buildUpgradeCardVisual,
   SCHOOL_COLORS,
   MODAL_DEPTH,
-  wrapText,
   type UpgradeCardVisual,
 } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";

@@ -4,6 +4,7 @@ import { textStyleFor } from "../../domain/ghostArt";
 import { wrapCharBudget } from "../../domain/neonFont/textStack";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
+import { wrapText } from "../../domain/wrapText";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import {
   MENU_OPTION_FONT_SIZE,
@@ -21,7 +22,6 @@ import {
   layoutCardText,
   LABEL_MAX_CHARS,
   MODAL_DEPTH,
-  wrapText,
 } from "./upgradeChoiceModal";
 
 export const STARTING_UPGRADE_HOLD_MS = 10_000;

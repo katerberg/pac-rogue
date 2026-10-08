@@ -38,7 +38,7 @@ Two different vertical rules — do not conflate them:
 
 Supported surfaces route through `stackTexts` / `layoutCardText` (choice modal, starting card, store confirm + side panel). Pixel STYLE keeps today's gap and wrap numbers.
 
-**Char wrap:** still character-count `wrapText` (`src/domain/wrapText.ts`). Neon starts from a wider budget via `wrapCharBudget` (`NEON_WRAP_CHAR_MUL = 1.75`), and store panels further clamp with `wrapCharsFittingWidth` so each line's measured neon advance stays inside the box minus side pads (`PANEL_SIDE_PAD`). Fitting measures `neonDisplayText` (uppercase) advances — mixed-case strings under-measure the glyphs NeonText draws. Upgrade descriptions stay single prose strings — no per-upgrade `\n` edits.
+**Char wrap:** still character-count `wrapText` (`src/domain/wrapText.ts`). Neon starts from a wider budget via `wrapCharBudget` (1.75×), and store panels further clamp with `wrapCharsFittingWidth` so each line's measured neon advance stays inside the box minus side pads (`PANEL_SIDE_PAD`). Fitting measures `neonDisplayText` (uppercase) advances — mixed-case strings under-measure the glyphs NeonText draws. Upgrade descriptions stay single prose strings — no per-upgrade `\n` edits.
 
 **Store side panel:** top-anchors title → school → body → footer via `stackTextsFromTop` with school-sized `interTextGap` between rows (short 190px panel; section gaps overflow NEED/QUARTERS).
 

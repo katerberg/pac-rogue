@@ -8,13 +8,21 @@ import {
   fitFontSizeFloor,
   interTextGap,
   lineWidthPx,
-  stackRowsNonOverlapping,
   stackRowTops,
   stackRowTopsFromTop,
   wrapCharBudget,
   wrapCharsFittingWidth,
   wrapCharsForBox,
 } from "./textStack";
+
+function stackRowsNonOverlapping(heights: readonly number[], tops: readonly number[]): boolean {
+  for (let i = 0; i < heights.length - 1; i += 1) {
+    if (tops[i]! + heights[i]! > tops[i + 1]!) {
+      return false;
+    }
+  }
+  return true;
+}
 
 describe("text stack layout", () => {
   it("keeps pixel wrap budgets and widens neon by 1.75×", () => {
@@ -68,6 +76,7 @@ describe("text stack layout", () => {
     const schoolH = 8;
     const bodyH = neonTextLocalHeight(3, 8, 0);
     const footerH = neonTextLocalHeight(2, 16, 0);
+    // Short panel: school-sized gaps between every row (matches storeOverlay showPanel).
     const rowGap = interTextGap(8, "neon");
     const heights = [titleH, schoolH, bodyH, footerH];
     const gaps = [rowGap, rowGap, rowGap, 0];
@@ -103,7 +112,6 @@ describe("store panel horizontal fit (neon)", () => {
         PANEL_SIDE_PAD,
         thickness,
         letterSpacing,
-        wrapText,
       );
       const bodyBudget = wrapCharsFittingWidth(
         def.description,
@@ -113,8 +121,8 @@ describe("store panel horizontal fit (neon)", () => {
         PANEL_SIDE_PAD,
         thickness,
         letterSpacing,
-        wrapText,
       );
+      // Fitting must account for NeonText uppercasing — mixed-case advance under-measures.
       for (const line of wrapText(def.label, titleBudget).split("\n")) {
         expect(lineWidthPx(line, titleSize, "neon", thickness, letterSpacing)).toBeLessThanOrEqual(
           maxContent,
@@ -144,7 +152,6 @@ describe("store panel horizontal fit (neon)", () => {
       PANEL_SIDE_PAD,
       thickness,
       letterSpacing,
-      wrapText,
     );
     expect(fitted).toBeLessThan(naiveBudget);
   });
@@ -159,7 +166,6 @@ describe("store panel horizontal fit (neon)", () => {
       PANEL_SIDE_PAD,
       thickness,
       letterSpacing,
-      wrapText,
     );
     expect(fitted).toBeLessThanOrEqual(fromBox);
   });
