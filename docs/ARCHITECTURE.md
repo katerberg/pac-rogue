@@ -39,7 +39,7 @@ src/
     runLevel.ts               # ?level= URL parse, clamped to MAX_LEVEL
     playOptions.ts            # parsePlayOptions: every PlayScene URL flag → PlayOptions + warnings
     tuning.ts                 # Tuning (every ?knobs=1 knob) + DEFAULT_TUNING; stored-override parse/serialize; level speed ramps
-    tuningKnobs.ts            # knob table (group, label, range/step/unit) the ?knobs=1 panels render from
+    tuningKnobs.ts            # knob table (group, Visuals subgroup, label, range/step/unit) the ?knobs=1 panels render from
     knobsFlag.ts              # ?knobs=1 parse
     wallStyle.ts              # wall color/thickness/glow/corner/background from maze color, STYLE (neon/lined/pixel), or tuning; wallGlowFilter
     pelletStyle.ts            # neon/lined pellet stroke looks from STYLE + maze color or Dots knobs; neon zeros regular glow; lined zeros all glow; pelletGlowFilter
@@ -155,7 +155,7 @@ src/
       upgradeChoiceModal.ts   # level-clear pick-one overlay (Phaser)
       turnSparks.ts           # Turn Tuning feedback: perfect burst + close sparks (Phaser)
       storeOverlay.ts         # store floor tiles, hover/prompt panel, purchase toast (Phaser)
-      knobsPanel.ts           # ?knobs=1 DOM panels over the canvas gutters + RESTART / RESET OPTIONS buttons
+      knobsPanel.ts           # ?knobs=1 DOM panels (collapsible groups; Visuals subgroups) + RESTART / RESET OPTIONS
       MenuScene.ts            # boot title + Start / Learn / High Scores / Settings (no ECS)
       HighScoresScene.ts      # localStorage scores list + scroll (no ECS)
       SettingsScene.ts        # music/SFX: LEARN-style checkboxes; neon tube volume (bonus bar look) under NEON/LINED, 0..10 notches under PIXEL (no ECS)

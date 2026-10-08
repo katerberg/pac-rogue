@@ -6,7 +6,9 @@ import {
   LEFT_KNOB_GROUPS,
   RIGHT_KNOB_GROUPS,
   TUNING_KNOBS,
+  VISUALS_SUBGROUPS,
   type RangeKnob,
+  type VisualsSubgroup,
 } from "./tuningKnobs";
 
 describe("TUNING_KNOBS", () => {
@@ -26,6 +28,24 @@ describe("TUNING_KNOBS", () => {
       } else {
         expect(typeof value, knob.key).toBe(knob.kind === "toggle" ? "boolean" : "number");
       }
+    }
+  });
+
+  it("puts every Visuals knob in a known subgroup and nowhere else uses subgroups", () => {
+    const allowed = new Set<VisualsSubgroup>(VISUALS_SUBGROUPS);
+    for (const knob of TUNING_KNOBS) {
+      if (knob.group === "Visuals") {
+        expect(knob.subgroup, knob.key).toBeDefined();
+        expect(allowed.has(knob.subgroup as VisualsSubgroup), knob.key).toBe(true);
+      } else {
+        expect(knob.subgroup, knob.key).toBeUndefined();
+      }
+    }
+    for (const subgroup of VISUALS_SUBGROUPS) {
+      expect(
+        TUNING_KNOBS.some((k) => k.group === "Visuals" && k.subgroup === subgroup),
+        subgroup,
+      ).toBe(true);
     }
   });
 

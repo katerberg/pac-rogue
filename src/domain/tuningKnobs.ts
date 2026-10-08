@@ -14,7 +14,24 @@ export type KnobGroup =
   | "Visuals"
   | "Dots";
 
-type KnobBase = { key: TuningKey; group: KnobGroup; label: string };
+/** Sub-headings inside the Visuals group (order = panel order). */
+export type VisualsSubgroup = "Walls" | "Ghosts" | "Dot-Man" | "Background" | "Font";
+
+export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
+  "Walls",
+  "Ghosts",
+  "Dot-Man",
+  "Background",
+  "Font",
+];
+
+type KnobBase = {
+  key: TuningKey;
+  group: KnobGroup;
+  label: string;
+  /** Only set for Visuals knobs; omitted elsewhere. */
+  subgroup?: VisualsSubgroup;
+};
 
 export type RangeKnob = KnobBase & {
   kind: "range";
@@ -52,8 +69,19 @@ function range(
   max: number,
   step: number,
   unit = "",
+  subgroup?: VisualsSubgroup,
 ): RangeKnob {
-  return { key, group, label, kind: "range", min, max, step, unit };
+  return {
+    key,
+    group,
+    label,
+    kind: "range",
+    min,
+    max,
+    step,
+    unit,
+    ...(subgroup ? { subgroup } : {}),
+  };
 }
 
 export const TUNING_KNOBS: readonly KnobDef[] = [
@@ -99,27 +127,45 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("scatterEarlyMs", "Scatter", "Scatter L2-4", 0, 30000, 250, "ms"),
   range("scatterLateMs", "Scatter", "Late scatter", 0, 30000, 250, "ms"),
   range("chaseMs", "Scatter", "Chase", 1000, 60000, 500, "ms"),
-  range("wallThickness", "Visuals", "Wall thickness", 1, 24, 0.5, "px"),
-  { key: "wallColor", group: "Visuals", label: "Wall color", kind: "color" },
-  range("wallGlow", "Visuals", "Wall glow", 0, 12, 0.1),
-  range("wallGlowRadius", "Visuals", "Wall glow radius", 0, 36, 1, "px"),
-  range("ghostGlow", "Visuals", "Ghost glow", 0, 12, 0.1),
-  range("ghostGlowRadius", "Visuals", "Ghost glow radius", 0, 36, 1, "px"),
-  range("ghostLineWidth", "Visuals", "Ghost line thickness", 1, 45, 0.5, "%"),
-  range("ghostWidth", "Visuals", "Line ghost width", 0.6, 4.5, 0.01, "×"),
-  range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×"),
-  range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×"),
-  range("dotManMouthOpenDeg", "Visuals", "Mouth open", 20, 75, 1, "°"),
-  range("dotManMouthClosedDeg", "Visuals", "Mouth closed", 4, 40, 1, "°"),
-  range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px"),
-  { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
-  range("fontThickness", "Visuals", "Font thickness", 0.05, 3, 0.05),
-  range("fontBloom", "Visuals", "Font bloom", 0, 12, 0.1),
-  range("fontBloomRadius", "Visuals", "Font bloom radius", 0, 48, 1, "px"),
-  { key: "fontGlowColor", group: "Visuals", label: "Font glow color", kind: "color" },
-  range("fontLetterSpacing", "Visuals", "Font letter spacing", -0.5, 2, 0.05),
-  range("fontHeightScale", "Visuals", "Font height", 0.4, 3, 0.05, "×"),
-  { key: "fontGlowKnockout", group: "Visuals", label: "Font glow knockout", kind: "toggle" },
+  range("wallThickness", "Visuals", "Wall thickness", 1, 24, 0.5, "px", "Walls"),
+  { key: "wallColor", group: "Visuals", label: "Wall color", kind: "color", subgroup: "Walls" },
+  range("wallGlow", "Visuals", "Wall glow", 0, 12, 0.1, "", "Walls"),
+  range("wallGlowRadius", "Visuals", "Wall glow radius", 0, 36, 1, "px", "Walls"),
+  range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px", "Walls"),
+  range("ghostGlow", "Visuals", "Ghost glow", 0, 12, 0.1, "", "Ghosts"),
+  range("ghostGlowRadius", "Visuals", "Ghost glow radius", 0, 36, 1, "px", "Ghosts"),
+  range("ghostLineWidth", "Visuals", "Ghost line thickness", 1, 45, 0.5, "%", "Ghosts"),
+  range("ghostWidth", "Visuals", "Line ghost width", 0.6, 4.5, 0.01, "×", "Ghosts"),
+  range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×", "Ghosts"),
+  range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×", "Dot-Man"),
+  range("dotManMouthOpenDeg", "Visuals", "Mouth open", 20, 75, 1, "°", "Dot-Man"),
+  range("dotManMouthClosedDeg", "Visuals", "Mouth closed", 4, 40, 1, "°", "Dot-Man"),
+  {
+    key: "backgroundColor",
+    group: "Visuals",
+    label: "Background",
+    kind: "color",
+    subgroup: "Background",
+  },
+  range("fontThickness", "Visuals", "Font thickness", 0.05, 3, 0.05, "", "Font"),
+  range("fontBloom", "Visuals", "Font bloom", 0, 12, 0.1, "", "Font"),
+  range("fontBloomRadius", "Visuals", "Font bloom radius", 0, 48, 1, "px", "Font"),
+  {
+    key: "fontGlowColor",
+    group: "Visuals",
+    label: "Font glow color",
+    kind: "color",
+    subgroup: "Font",
+  },
+  range("fontLetterSpacing", "Visuals", "Font letter spacing", -0.5, 2, 0.05, "", "Font"),
+  range("fontHeightScale", "Visuals", "Font height", 0.4, 3, 0.05, "×", "Font"),
+  {
+    key: "fontGlowKnockout",
+    group: "Visuals",
+    label: "Font glow knockout",
+    kind: "toggle",
+    subgroup: "Font",
+  },
   range("pelletRadius", "Dots", "Dot radius", 0.5, 48, 0.1, "px"),
   range("pelletStrokeWidth", "Dots", "Dot stroke", 0.1, 32, 0.1, "px"),
   range("pelletGlow", "Dots", "Dot glow", 0, 36, 8),
