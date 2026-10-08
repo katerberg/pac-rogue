@@ -109,7 +109,6 @@ type CategoryRow = {
   tubeGfx: Phaser.GameObjects.Graphics | null;
   tubeGlowGfx: Phaser.GameObjects.Graphics | null;
   tubeGlowKey: string;
-  tubeHit: Phaser.GameObjects.Rectangle | null;
 };
 
 export class SettingsScene extends Phaser.Scene {
@@ -372,7 +371,7 @@ export class SettingsScene extends Phaser.Scene {
     });
     const checkMark: CheckboxShape =
       look.shape === "circle"
-        ? this.add.circle(CHECK_X, centerY, checkRadius - 3, TEXT_COLOR_WHITE).setVisible(false)
+        ? this.add.circle(CHECK_X, centerY, checkRadius - 2, TEXT_COLOR_WHITE).setVisible(false)
         : this.add
             .rectangle(CHECK_X, centerY, CHECK_SIZE - 8, CHECK_SIZE - 8, TEXT_COLOR_WHITE)
             .setVisible(false);
@@ -383,12 +382,11 @@ export class SettingsScene extends Phaser.Scene {
     const notches: Phaser.GameObjects.Rectangle[] = [];
     let tubeGfx: Phaser.GameObjects.Graphics | null = null;
     let tubeGlowGfx: Phaser.GameObjects.Graphics | null = null;
-    let tubeHit: Phaser.GameObjects.Rectangle | null = null;
 
     if (neonTube) {
       tubeGlowGfx = this.add.graphics().setDepth(0);
       tubeGfx = this.add.graphics().setDepth(1);
-      tubeHit = this.add
+      const tubeHit = this.add
         .rectangle(
           SLIDER_LEFT + SLIDER_WIDTH / 2,
           centerY,
@@ -398,15 +396,7 @@ export class SettingsScene extends Phaser.Scene {
           0,
         )
         .setInteractive({ useHandCursor: true });
-      tubeHit.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-        this.focusIndex = focusIndex;
-        if (!this.isCategoryEnabled(category)) {
-          this.refreshUi();
-          return;
-        }
-        this.dragging = category;
-        this.setLevelFromPointer(category, pointer.worldX);
-      });
+      this.bindVolumePointer(tubeHit, category, focusIndex);
     } else {
       for (let i = 0; i < NOTCH_COUNT; i += 1) {
         const x = SLIDER_LEFT + (i / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
@@ -422,15 +412,7 @@ export class SettingsScene extends Phaser.Scene {
           SLIDER_TRACK,
         )
         .setInteractive({ useHandCursor: true });
-      track.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-        this.focusIndex = focusIndex;
-        if (!this.isCategoryEnabled(category)) {
-          this.refreshUi();
-          return;
-        }
-        this.dragging = category;
-        this.setLevelFromPointer(category, pointer.worldX);
-      });
+      this.bindVolumePointer(track, category, focusIndex);
 
       fill = this.add
         .rectangle(SLIDER_LEFT, centerY, 1, SLIDER_HEIGHT - 4, SLIDER_FILL)
@@ -449,8 +431,23 @@ export class SettingsScene extends Phaser.Scene {
       tubeGfx,
       tubeGlowGfx,
       tubeGlowKey: "",
-      tubeHit,
     };
+  }
+
+  private bindVolumePointer(
+    target: Phaser.GameObjects.Rectangle,
+    category: AudioCategory,
+    focusIndex: number,
+  ): void {
+    target.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      this.focusIndex = focusIndex;
+      if (!this.isCategoryEnabled(category)) {
+        this.refreshUi();
+        return;
+      }
+      this.dragging = category;
+      this.setLevelFromPointer(category, pointer.worldX);
+    });
   }
 
   private createMazeColorRow(): void {
