@@ -71,17 +71,7 @@ function range(
   unit = "",
   subgroup?: VisualsSubgroup,
 ): RangeKnob {
-  return {
-    key,
-    group,
-    label,
-    kind: "range",
-    min,
-    max,
-    step,
-    unit,
-    ...(subgroup ? { subgroup } : {}),
-  };
+  return { key, group, label, kind: "range", min, max, step, unit, subgroup };
 }
 
 export const TUNING_KNOBS: readonly KnobDef[] = [
