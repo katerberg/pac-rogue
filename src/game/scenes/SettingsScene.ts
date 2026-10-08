@@ -658,11 +658,10 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorCursorRing.setVisible(mazeColorFocused);
 
     const ghostStyleFocused = this.focusIndex === FOCUS_GHOST_STYLE;
-    const ghostStyleTint = ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
-    this.ghostStyleLabel.setTint(ghostStyleTint);
+    this.ghostStyleLabel.setTint(ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
     for (const [index, option] of GHOST_STYLE_OPTIONS.entries()) {
       const active = option.style === this.ghostStyle;
-      this.ghostStyleTexts[index]!.setTint(active ? ghostStyleTint : TEXT_COLOR_DIM);
+      this.ghostStyleTexts[index]!.setTint(active ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
     }
 
     placeSelectableMenuOption(
