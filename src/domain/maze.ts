@@ -82,7 +82,7 @@ export type WallCornerCurveKind = "circular" | "quadratic";
 export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
 /** Gap from each wall stroke center to the actor edge. Visual only; collision uses `playerRadius`. */
-export const PLAYER_WALL_PADDING_PX = 2;
+export const PLAYER_WALL_PADDING_PX = 1;
 export const PELLET_DISPLAY_SIZE_MAX = 16;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
