@@ -367,6 +367,23 @@ describe("PlaySim", () => {
     expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(0.6);
   });
 
+  it.each([
+    [5, 1],
+    [6, 1.05],
+    [8, 1.1],
+  ] as const)(
+    "moves open-maze ghosts on level %i at %f× Maze-Man (past-parity ramp)",
+    (level, ratio) => {
+      const sim = startSim({ level, maze: "maze1" });
+      const ghost = query(sim.world, [Ghost, Position])[0]!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      Position.x[ghost] = cellCenterX(13);
+      Position.y[ghost] = cellCenterY(11);
+      runFrames(sim, 1);
+      expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(ratio);
+    },
+  );
+
   it("Tunnel Dash+ slows ghosts to 0.3x in the tunnel; base Tunnel Dash keeps 0.6x", () => {
     for (const [id, ratio] of [
       ["passiveTunnelDash", 0.6],

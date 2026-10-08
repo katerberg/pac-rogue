@@ -46,7 +46,9 @@ describe("DEFAULT_TUNING", () => {
   it("keeps the level speed ramps", () => {
     expect(speedLevelMultiplier(3)).toBeCloseTo(1.1);
     expect(ghostBaseSpeedRatio(1)).toBeCloseTo(0.8);
-    expect(ghostBaseSpeedRatio(9)).toBe(1);
+    expect(ghostBaseSpeedRatio(5)).toBe(1);
+    expect(ghostBaseSpeedRatio(8)).toBeCloseTo(1.1);
+    expect(ghostBaseSpeedRatio(9)).toBeCloseTo(1.1);
   });
 });
 
