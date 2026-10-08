@@ -1,5 +1,7 @@
 import Phaser from "phaser";
 import {
+  DEFAULT_PELLET_ABSORB_LOOK,
+  PELLET_ABSORB_MS,
   pelletAbsorbLook,
   type PelletAbsorbLookTuning,
   type PelletAbsorbPoint,
@@ -11,6 +13,11 @@ type PelletAbsorbEvent = Extract<SimEvent, { type: "pelletAbsorb" }>;
 export type PelletAbsorbRuntime = {
   ms: number;
   look: PelletAbsorbLookTuning;
+};
+
+const DEFAULT_RUNTIME: PelletAbsorbRuntime = {
+  ms: PELLET_ABSORB_MS,
+  look: DEFAULT_PELLET_ABSORB_LOOK,
 };
 
 /** Above crisp pellets (0), under typical actor sprites (~10+) and turn sparks (50). */
@@ -42,7 +49,7 @@ export function playPelletAbsorb(
   scene: Phaser.Scene,
   event: PelletAbsorbEvent,
   getTarget: () => PelletAbsorbPoint | null,
-  getRuntime: () => PelletAbsorbRuntime,
+  getRuntime: () => PelletAbsorbRuntime = () => DEFAULT_RUNTIME,
 ): void {
   const runtime = getRuntime();
   if (runtime.ms <= 0) {

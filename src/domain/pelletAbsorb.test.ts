@@ -89,6 +89,20 @@ describe("pelletAbsorbLook", () => {
     expect(look.midWidth).toBeLessThan(r * 0.1);
   });
 
+  it("suckEase power delays then snaps the far end", () => {
+    const t = PELLET_ABSORB_STRETCH_END + (1 - PELLET_ABSORB_STRETCH_END) * 0.5;
+    const linear = pelletAbsorbLook(t, from, to, r, {
+      ...DEFAULT_PELLET_ABSORB_LOOK,
+      suckEase: 1,
+    });
+    const snappy = pelletAbsorbLook(t, from, to, r, {
+      ...DEFAULT_PELLET_ABSORB_LOOK,
+      suckEase: 4,
+    });
+    expect(snappy.far.x).toBeLessThan(linear.far.x);
+    expect(snappy.alpha).toBeGreaterThan(linear.alpha);
+  });
+
   it("at t=1 collapses onto to with alpha 0", () => {
     const look = pelletAbsorbLook(1, from, to, r);
     expect(look.far).toMatchObject({ x: to.x, y: to.y });

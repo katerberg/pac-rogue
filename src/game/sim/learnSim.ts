@@ -13,8 +13,7 @@ import {
   type Cell,
 } from "../../domain/bonusBar";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
-import { pelletAbsorbActive, pelletAbsorbSpawnFor } from "../../domain/pelletAbsorb";
-import { DEFAULT_TUNING } from "../../domain/tuning";
+import { pelletAbsorbSpawnFor } from "../../domain/pelletAbsorb";
 import type { RemovedPelletSnap } from "../systems/collectPellets";
 import { tickEchoes } from "../../domain/echo";
 import {
@@ -691,9 +690,6 @@ export class LearnSim {
   }
 
   private emitPelletAbsorb(snap: RemovedPelletSnap): void {
-    if (!pelletAbsorbActive(DEFAULT_TUNING)) {
-      return;
-    }
     const spawn = pelletAbsorbSpawnFor(
       this.ghostStyle,
       snap.drawableId,
