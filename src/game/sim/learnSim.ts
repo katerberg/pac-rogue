@@ -656,7 +656,6 @@ export class LearnSim {
     }
   }
 
-  /** World-space Dot-Man center for presentation FX that chase the player. */
   playerWorldPosition(): { x: number; y: number } | null {
     return this.playerPosition();
   }

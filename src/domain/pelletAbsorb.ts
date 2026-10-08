@@ -3,7 +3,6 @@ import { pelletStyleFor } from "./pelletStyle";
 import { BOSS_PELLET_DRAWABLE_ID, PELLET_DRAWABLE_ID, POWER_PELLET_DRAWABLE_ID } from "./playfield";
 
 export const PELLET_ABSORB_MS = 100;
-/** Fraction of the absorb where the gum is stretched; remainder is the suck-in. */
 export const PELLET_ABSORB_STRETCH_END = 0.55;
 
 export type PelletAbsorbPoint = { x: number; y: number };

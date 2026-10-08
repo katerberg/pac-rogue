@@ -81,6 +81,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [pelletEid],
       removedPowerPositions: [],
+      removedSnaps: [snap(pelletEid, 100, 100)],
       removedCells: [cellOf(100, 100)],
     });
     expect(query(world, [Pellet, Position])).toHaveLength(0);
@@ -94,6 +95,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [],
       removedPowerPositions: [],
+      removedSnaps: [],
       removedCells: [],
     });
     expect(query(world, [Pellet, Position])).toEqual([pelletEid]);
@@ -109,6 +111,7 @@ describe("collectPellets", () => {
       powerRemoved: 0,
       removedEids: [a, b],
       removedPowerPositions: [],
+      removedSnaps: [snap(a, 100 + playerRadius(), 100), snap(b, 100, 100 + playerRadius())],
       removedCells: [cellOf(100 + playerRadius(), 100), cellOf(100, 100 + playerRadius())],
     });
     expect(query(world, [Pellet, Position])).toHaveLength(1);
@@ -123,6 +126,7 @@ describe("collectPellets", () => {
       powerRemoved: 1,
       removedEids: [power, regular],
       removedPowerPositions: [{ x: 100, y: 100 }],
+      removedSnaps: [snap(power, 100, 100, true), snap(regular, 100 + playerRadius(), 100)],
       removedCells: [cellOf(100, 100), cellOf(100 + playerRadius(), 100)],
     });
   });
@@ -202,6 +206,7 @@ describe("collectPellets", () => {
       powerRemoved: 1,
       removedEids: [power],
       removedPowerPositions: [{ x: 100, y: 100 }],
+      removedSnaps: [snap(power, 100, 100, true)],
       removedCells: [cellOf(100, 100)],
     });
   });
