@@ -1277,11 +1277,17 @@ function shouldDrawPipeAgainst(
   row: number,
   walls: SolidGrid,
   exterior: SolidGrid,
+  door: SolidGrid,
 ): boolean {
   if (isWall(col, row, walls)) {
     return false;
   }
   if (isExterior(col, row, exterior)) {
+    return false;
+  }
+  // Open pipe ends at the ghost-house mouth: a vertical cap on the door face
+  // reads as upward "horns" once neon stroke + glow fatten the joint.
+  if (isDoor(col, row, door)) {
     return false;
   }
   return true;
@@ -1290,6 +1296,7 @@ function shouldDrawPipeAgainst(
 export function pipeEdges(
   walls: SolidGrid = getActiveLayout().walls,
   exterior: SolidGrid = getActiveLayout().exterior,
+  door: SolidGrid = getActiveLayout().door,
 ): PipeEdge[] {
   const edges: PipeEdge[] = [];
 
@@ -1303,16 +1310,16 @@ export function pipeEdges(
       const top = cellOriginY(row);
       const bottom = top + TILE_SIZE;
 
-      if (shouldDrawPipeAgainst(col, row - 1, walls, exterior)) {
+      if (shouldDrawPipeAgainst(col, row - 1, walls, exterior, door)) {
         edges.push({ x1: left, y1: top, x2: right, y2: top });
       }
-      if (shouldDrawPipeAgainst(col, row + 1, walls, exterior)) {
+      if (shouldDrawPipeAgainst(col, row + 1, walls, exterior, door)) {
         edges.push({ x1: left, y1: bottom, x2: right, y2: bottom });
       }
-      if (shouldDrawPipeAgainst(col - 1, row, walls, exterior)) {
+      if (shouldDrawPipeAgainst(col - 1, row, walls, exterior, door)) {
         edges.push({ x1: left, y1: top, x2: left, y2: bottom });
       }
-      if (shouldDrawPipeAgainst(col + 1, row, walls, exterior)) {
+      if (shouldDrawPipeAgainst(col + 1, row, walls, exterior, door)) {
         edges.push({ x1: right, y1: top, x2: right, y2: bottom });
       }
     }
@@ -1549,7 +1556,7 @@ export function wallPathCommands(
 ): WallPathCommand[] {
   const r = clampedWallCornerRadius(cornerRadius);
   const inset = clampedWallInset(insetPx);
-  const edges = pipeEdges(walls, exterior);
+  const edges = pipeEdges(walls, exterior, door);
   const commands: WallPathCommand[] = [];
   const trimmed = new Set<string>();
   const adj = pipeAdjacency(edges);
