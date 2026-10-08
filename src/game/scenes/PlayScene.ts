@@ -307,6 +307,25 @@ export class PlayScene extends Phaser.Scene {
       coin.destroy();
     }
     this.walletCoins = [];
+    this.rebuildStoreOverlayIfOpen();
+  }
+
+  private rebuildStoreOverlayIfOpen(): void {
+    const state = this.sim.storeState();
+    if (this.storeOverlay === null || state === null) {
+      return;
+    }
+    this.storeOverlay.destroy();
+    this.storeOverlay = createStoreOverlay(
+      this,
+      (choice) => {
+        this.storeChoice = choice;
+      },
+      (index) => {
+        this.storeClick = index;
+      },
+    );
+    this.storeOverlay.open(state);
   }
 
   private restartAtCurrentLevel(): void {
@@ -399,6 +418,7 @@ export class PlayScene extends Phaser.Scene {
     this.ghostStyle = loadGhostStyle();
     this.sim.setGhostStyle(this.ghostStyle);
     this.bonusGlowKey = "";
+    setActiveQuarterLook(this.knobsPanel === null ? null : quarterLineArtLook(this.sim.tuning));
     const timerVisible = this.timerText.visible;
     this.timerText.destroy();
     this.timerText = addGameText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
@@ -410,6 +430,12 @@ export class PlayScene extends Phaser.Scene {
     }
     this.refreshUpgradesHud();
     this.refreshLivesIcons(false);
+    this.refreshQuartersHud(false);
+    for (const coin of this.walletCoins) {
+      coin.destroy();
+    }
+    this.walletCoins = [];
+    this.rebuildStoreOverlayIfOpen();
     this.scene.resume();
   }
 
@@ -824,8 +850,9 @@ export class PlayScene extends Phaser.Scene {
     const size = pelletDisplaySize();
     for (let i = 0; i < this.sim.hud().quarters; i += 1) {
       const { x, y } = quarterHudIconPosition(i, size);
+      // Stay on chrome (not sideHud) so ?knobs=1 can dial Quarter look live.
       const icon = addQuarterIcon(this, x, y, size, this.ghostStyle);
-      this.sideHud.add(icon);
+      this.chrome.add(icon);
       this.quarterIcons.push(icon);
     }
     const newest = this.quarterIcons[this.quarterIcons.length - 1];
