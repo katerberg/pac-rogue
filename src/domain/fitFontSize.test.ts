@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fitFontSize } from "./fitFontSize";
+import { lineWidthPx } from "./neonFont/textStack";
+import { DEFAULT_TUNING } from "./tuning";
 
 describe("fitFontSize", () => {
   it("keeps the preferred size when the longest word fits", () => {
@@ -35,5 +37,20 @@ describe("fitFontSize", () => {
   it("neon panel titles (preferred 16) floor at 8", () => {
     const size = fitFontSize("Supercalifragilisticexpialidocious", 100, 16, "neon");
     expect(size).toBe(8);
+  });
+
+  it("neon confirm titles shrink until measured advance fits maxWidth", () => {
+    const maxWidth = 300;
+    const size = fitFontSize("Tunnel Sanctuary", maxWidth, 32, "neon");
+    expect(size).toBeLessThan(32);
+    expect(
+      lineWidthPx(
+        "Tunnel Sanctuary",
+        size,
+        "neon",
+        DEFAULT_TUNING.fontThickness,
+        DEFAULT_TUNING.fontLetterSpacing,
+      ),
+    ).toBeLessThanOrEqual(maxWidth);
   });
 });

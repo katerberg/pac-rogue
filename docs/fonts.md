@@ -38,11 +38,11 @@ Two different vertical rules — do not conflate them:
 
 Supported surfaces route through `stackTexts` / `layoutCardText` (choice modal, starting card, store confirm + side panel). Pixel STYLE keeps today's gap and wrap numbers.
 
-**Char wrap:** still character-count `wrapText` (`src/domain/wrapText.ts`). Neon starts from a wider budget via `wrapCharBudget` (1.75×), and store panels further clamp with `wrapCharsFittingWidth` so each line's measured neon advance stays inside the box minus side pads (`PANEL_SIDE_PAD`). Fitting measures `neonDisplayText` (uppercase) advances — mixed-case strings under-measure the glyphs NeonText draws. Upgrade descriptions stay single prose strings — no per-upgrade `\n` edits.
+**Char wrap:** still character-count `wrapText` (`src/domain/wrapText.ts`). Neon starts from a wider budget via `wrapCharBudget` (1.75×), and store panels further clamp with `wrapCharsFittingWidth` so each line's measured neon advance stays inside the box minus style-gated side pads (neon bloom pad 34; pixel legacy pad 8 so wrap budgets stay at today's numbers). Fitting measures `neonDisplayText` (uppercase) advances — mixed-case strings under-measure the glyphs NeonText draws. Upgrade descriptions stay single prose strings — no per-upgrade `\n` edits.
 
-**Store side panel:** top-anchors title → school → body → footer via `stackTextsFromTop` with school-sized `interTextGap` between rows (short 190px panel; section gaps overflow NEED/QUARTERS).
+**Store side panel:** top-anchors title → school → body → footer via `stackTextsFromTop` with school-sized `interTextGap` between rows (short 190px panel; tall stacks may still clip NEED/QUARTERS — leave it).
 
-**Title fit floors:** `fitFontSize(..., textStyle)` uses a 4px neon cell (pixel stays 8). Preferred size ≥ 22 floors at **16**; otherwise floor **8**. School, body (8), cost, and SURE/YES/NO are never shrunk for stack pressure. If a stack is still taller than the box after the floor, leave it — do not grow the box or drop below the floor. Bloom is visual-only and is not added into gap math.
+**Title fit floors:** `fitFontSize(..., textStyle)` for neon steps down from preferred in 4px increments while measured `lineWidthPx` exceeds `maxWidth` (pixel stays 8px glyph cells). Preferred size ≥ 22 floors at **16**; otherwise floor **8**. School, body (8), cost, and SURE/YES/NO are never shrunk for stack pressure. If a stack is still taller than the box after the floor, leave it — do not grow the box or drop below the floor. Bloom is visual-only and is not added into gap math.
 
 ## Knobs (`?knobs=1`)
 

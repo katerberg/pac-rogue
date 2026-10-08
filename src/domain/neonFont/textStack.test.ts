@@ -89,14 +89,15 @@ describe("text stack layout", () => {
   });
 });
 
-describe("store panel horizontal fit (neon)", () => {
+describe("store panel horizontal fit", () => {
   const PANEL_WIDTH = 168;
-  const PANEL_SIDE_PAD = 34;
+  const PANEL_NEON_SIDE_PAD = 34;
+  const PANEL_PIXEL_SIDE_PAD = 8;
   const TITLE_SIZE = 16;
   const BODY_SIZE = 8;
   const thickness = DEFAULT_TUNING.fontThickness;
   const letterSpacing = DEFAULT_TUNING.fontLetterSpacing;
-  const maxContent = PANEL_WIDTH - 2 * PANEL_SIDE_PAD;
+  const maxContent = PANEL_WIDTH - 2 * PANEL_NEON_SIDE_PAD;
 
   it.each(["passiveTunnelSanctuary", "passiveRemoteTransference"] as const)(
     "%s title and body stay inside side pads (display case)",
@@ -108,7 +109,7 @@ describe("store panel horizontal fit (neon)", () => {
         PANEL_WIDTH,
         titleSize,
         "neon",
-        PANEL_SIDE_PAD,
+        PANEL_NEON_SIDE_PAD,
         thickness,
         letterSpacing,
       );
@@ -117,7 +118,7 @@ describe("store panel horizontal fit (neon)", () => {
         PANEL_WIDTH,
         BODY_SIZE,
         "neon",
-        PANEL_SIDE_PAD,
+        PANEL_NEON_SIDE_PAD,
         thickness,
         letterSpacing,
       );
@@ -136,7 +137,7 @@ describe("store panel horizontal fit (neon)", () => {
 
   it("mixed-case Tunnel Sanctuary body would overflow without display-case fitting", () => {
     const body = getUpgradeDef("passiveTunnelSanctuary").description;
-    const naiveBudget = wrapCharsForBox(PANEL_WIDTH, BODY_SIZE, "neon", PANEL_SIDE_PAD);
+    const naiveBudget = wrapCharsForBox(PANEL_WIDTH, BODY_SIZE, "neon", PANEL_NEON_SIDE_PAD);
     const naiveLines = wrapText(body, naiveBudget).split("\n");
     const naiveOverflows = naiveLines.some(
       (line) => lineWidthPx(line, BODY_SIZE, "neon", thickness, letterSpacing) > maxContent,
@@ -147,7 +148,7 @@ describe("store panel horizontal fit (neon)", () => {
       PANEL_WIDTH,
       BODY_SIZE,
       "neon",
-      PANEL_SIDE_PAD,
+      PANEL_NEON_SIDE_PAD,
       thickness,
       letterSpacing,
     );
@@ -155,16 +156,33 @@ describe("store panel horizontal fit (neon)", () => {
   });
 
   it("wrapCharsForBox is an upper bound before advance fitting", () => {
-    const fromBox = wrapCharsForBox(PANEL_WIDTH, BODY_SIZE, "neon", PANEL_SIDE_PAD);
+    const fromBox = wrapCharsForBox(PANEL_WIDTH, BODY_SIZE, "neon", PANEL_NEON_SIDE_PAD);
     const fitted = wrapCharsFittingWidth(
       getUpgradeDef("passiveTunnelSanctuary").description,
       PANEL_WIDTH,
       BODY_SIZE,
       "neon",
-      PANEL_SIDE_PAD,
+      PANEL_NEON_SIDE_PAD,
       thickness,
       letterSpacing,
     );
     expect(fitted).toBeLessThanOrEqual(fromBox);
+  });
+
+  it("pixel panel body wrap budget stays at the legacy 18", () => {
+    const body = getUpgradeDef("passiveTunnelSanctuary").description;
+    const budget = Math.min(
+      wrapCharBudget(18, "pixel"),
+      wrapCharsFittingWidth(
+        body,
+        PANEL_WIDTH,
+        BODY_SIZE,
+        "pixel",
+        PANEL_PIXEL_SIDE_PAD,
+        thickness,
+        letterSpacing,
+      ),
+    );
+    expect(budget).toBe(18);
   });
 });

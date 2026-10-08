@@ -60,8 +60,9 @@ const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
-/** Inner pad so neon title/body keep clear air from the panel stroke + bloom. */
-const PANEL_SIDE_PAD = 34;
+/** Neon bloom clearance from the panel stroke; pixel keeps the legacy wrap pad. */
+const PANEL_NEON_SIDE_PAD = 34;
+const PANEL_PIXEL_SIDE_PAD = 8;
 const PANEL_TOP_PAD = 12;
 const PANEL_TITLE_MAX_CHARS = 10;
 const MODAL_TITLE_MARGIN = 40;
@@ -273,9 +274,10 @@ export function createStoreOverlay(
     const textStyle = textStyleFor(loadGhostStyle());
     panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
     panelRare(content.rare, schoolBorderColor(content.school));
+    const sidePad = textStyle === "neon" ? PANEL_NEON_SIDE_PAD : PANEL_PIXEL_SIDE_PAD;
     const titleSize = fitFontSize(
       content.title,
-      PANEL_WIDTH - 2 * PANEL_SIDE_PAD,
+      PANEL_WIDTH - 2 * sidePad,
       HUD_FONT_SIZE,
       textStyle,
     );
@@ -287,7 +289,7 @@ export function createStoreOverlay(
           PANEL_WIDTH,
           fontSize,
           textStyle,
-          PANEL_SIDE_PAD,
+          sidePad,
           DEFAULT_TUNING.fontThickness,
           DEFAULT_TUNING.fontLetterSpacing,
         ),
@@ -299,8 +301,8 @@ export function createStoreOverlay(
     panelBody.setText(wrapText(content.body, bodyBudget));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
-    // Panel is short (190px): use the smaller school gap between every row so neon
-    // multi-line title/body/footer still fit without clipping NEED/QUARTERS.
+    // Prefer school-sized gaps on the short panel; tall neon stacks may still clip
+    // NEED/QUARTERS — leave it (same policy as fonts.md).
     const rowGap = interTextGap(SCHOOL_GAP, textStyle);
     const topY = -PANEL_HEIGHT / 2 + PANEL_TOP_PAD;
     stackTextsFromTop(
