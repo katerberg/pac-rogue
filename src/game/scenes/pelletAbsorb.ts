@@ -4,13 +4,9 @@ import {
   pelletAbsorbLook,
   type PelletAbsorbPoint,
 } from "../../domain/pelletAbsorb";
+import type { SimEvent } from "../sim/simEvents";
 
-type PelletAbsorbEvent = {
-  x: number;
-  y: number;
-  color: number;
-  radius: number;
-};
+type PelletAbsorbEvent = Extract<SimEvent, { type: "pelletAbsorb" }>;
 
 /** Above crisp pellets (0), under typical actor sprites (~10+) and turn sparks (50). */
 const ABSORB_DEPTH = 8;
@@ -56,6 +52,7 @@ export function playPelletAbsorb(
     if (index >= 0) {
       live.splice(index, 1);
     }
+    scene.events.off("shutdown", destroyFx);
     scene.tweens.killTweensOf(clock);
     graphics.destroy();
   };

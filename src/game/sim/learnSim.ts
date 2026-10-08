@@ -438,7 +438,7 @@ export class LearnSim {
       : { powerRemoved: 0, removedEids: [], removedPowerPositions: [], removedSnaps: [] };
     const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
-    this.releaseSnaps(playerFrame.removedSnaps, true);
+    this.releaseSnaps(playerFrame.removedSnaps);
     this.releaseAll(ghostFrame.removedEids);
     this.countCollected(removedEids.length);
     this.stepStreakEngine(playerFrame.removedCells, delta);
@@ -702,11 +702,9 @@ export class LearnSim {
     }
   }
 
-  private releaseSnaps(snaps: readonly RemovedPelletSnap[], absorb: boolean): void {
+  private releaseSnaps(snaps: readonly RemovedPelletSnap[]): void {
     for (const snap of snaps) {
-      if (absorb) {
-        this.emitPelletAbsorb(snap);
-      }
+      this.emitPelletAbsorb(snap);
       this.events.push({ type: "releaseDrawable", eid: snap.eid });
     }
   }
@@ -754,7 +752,7 @@ export class LearnSim {
       );
     }
     if (powerEffects.collectExtraPellets > 0) {
-      this.releaseSnaps(collectExtraPellets(this.world, powerEffects.collectExtraPellets), true);
+      this.releaseSnaps(collectExtraPellets(this.world, powerEffects.collectExtraPellets));
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
@@ -1149,7 +1147,7 @@ export class LearnSim {
     this.remoteTransferCounter += removedThisFrame;
     const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
     const snaps = applyRemoteTransference(this.world, triggers);
-    this.releaseSnaps(snaps, true);
+    this.releaseSnaps(snaps);
     this.remoteTransferCounter += snaps.length;
   }
 

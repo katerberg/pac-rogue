@@ -817,10 +817,8 @@ export class PlaySim {
     }
   }
 
-  private releasePelletSnap(snap: RemovedPelletSnap, absorb: boolean): void {
-    if (absorb) {
-      this.emitPelletAbsorb(snap);
-    }
+  private releasePelletSnap(snap: RemovedPelletSnap): void {
+    this.emitPelletAbsorb(snap);
     this.releaseDrawable(snap.eid);
   }
 
@@ -1107,7 +1105,7 @@ export class PlaySim {
       ...ghostFrame.removedPowerPositions,
     ];
     for (const snap of playerFrame.removedSnaps) {
-      this.releasePelletSnap(snap, true);
+      this.releasePelletSnap(snap);
     }
     for (const eid of ghostFrame.removedEids) {
       this.releaseDrawable(eid);
@@ -1151,7 +1149,7 @@ export class PlaySim {
     if (powerEffects.collectExtraPellets > 0) {
       const bonusSnaps = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
       for (const snap of bonusSnaps) {
-        this.releasePelletSnap(snap, true);
+        this.releasePelletSnap(snap);
       }
       bonusRemoved = bonusSnaps.length;
       if (bonusRemoved > 0) {
@@ -1533,7 +1531,7 @@ export class PlaySim {
     const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
     const snaps = applyRemoteTransference(this.world, triggers);
     for (const snap of snaps) {
-      this.releasePelletSnap(snap, true);
+      this.releasePelletSnap(snap);
     }
     if (snaps.length > 0) {
       this.emit({
@@ -2142,7 +2140,7 @@ export class PlaySim {
     if (powerEffects.collectExtraPellets > 0) {
       const bonusSnaps = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
       for (const snap of bonusSnaps) {
-        this.releasePelletSnap(snap, true);
+        this.releasePelletSnap(snap);
       }
       if (bonusSnaps.length > 0) {
         this.emitMunch();
@@ -2416,7 +2414,6 @@ export class PlaySim {
         : [];
   }
 
-  /** World-space Dot-Man center for presentation FX that chase the player. */
   playerWorldPosition(): Point | null {
     return this.playerPosition();
   }

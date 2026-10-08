@@ -16,11 +16,17 @@ export type PelletAbsorbLook = {
   alpha: number;
 };
 
+export type PelletAbsorbSpawn = {
+  x: number;
+  y: number;
+  color: number;
+  radius: number;
+};
+
 export function pelletAbsorbStyleOk(style: GhostStyle): boolean {
   return style !== "pixel";
 }
 
-/** Regular and optional share `pellet`; power/boss never absorb. */
 export function pelletAbsorbKindOk(drawableId: string, _optional: boolean): boolean {
   if (drawableId === POWER_PELLET_DRAWABLE_ID || drawableId === BOSS_PELLET_DRAWABLE_ID) {
     return false;
@@ -36,30 +42,17 @@ function easeInQuad(u: number): number {
   return u * u;
 }
 
-/**
- * Gum-stretch look for a pellet being sucked into Dot-Man.
- * `to` is Dot-Man's current world center (caller refreshes each frame to chase).
- */
-export type PelletAbsorbSpawn = {
-  x: number;
-  y: number;
-  color: number;
-  radius: number;
-};
-
-/** Presentation payload when a Dot-Man collect should show the absorb FX; else null. */
 export function pelletAbsorbSpawnFor(
   style: GhostStyle,
   drawableId: string,
   optional: boolean,
   x: number,
   y: number,
-  mazeColorIndex = 0,
 ): PelletAbsorbSpawn | null {
   if (!pelletAbsorbStyleOk(style) || !pelletAbsorbKindOk(drawableId, optional)) {
     return null;
   }
-  const lookStyle = pelletStyleFor(null, mazeColorIndex, style);
+  const lookStyle = pelletStyleFor(null, 0, style);
   if (lookStyle === null) {
     return null;
   }
@@ -67,6 +60,10 @@ export function pelletAbsorbSpawnFor(
   return { x, y, color: look.fillColor, radius: look.radius };
 }
 
+/**
+ * Gum-stretch look for a pellet being sucked into Dot-Man.
+ * `to` is Dot-Man's current world center (caller refreshes each frame to chase).
+ */
 export function pelletAbsorbLook(
   t: number,
   from: PelletAbsorbPoint,
