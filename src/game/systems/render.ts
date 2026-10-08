@@ -30,8 +30,11 @@ import {
   advanceDotManChomp,
   DOTMAN_CHOMP_PIXEL_FRAMES,
   DOTMAN_CHOMP_PIXELS_PER_FRAME,
+  DOTMAN_MOUTH_ANGLES_DEFAULT,
   dotManChompPixelsPerFrame,
   dotManMouthHalfAngle,
+  resolveDotManMouthAngles,
+  type DotManMouthAngles,
 } from "../../domain/dotManMouth";
 import { restingTurn, turnAngle, turnToward, type DotManTurn } from "../../domain/dotManTurn";
 import { GHOST_LINE_ART } from "../art/ghostLineArt";
@@ -433,7 +436,11 @@ export type PlayRender = {
   setWallStyle: (style: WallStyle | null) => void;
   setPelletStyle: (style: PelletStyle | null) => void;
   setGhostLook: (look: GhostLineArtLook) => void;
-  setDotManChompSpeed: (speed: number) => void;
+  setDotManLook: (look: {
+    chompSpeed: number;
+    mouthOpenDeg: number;
+    mouthClosedDeg: number;
+  }) => void;
 };
 
 const DIM_GHOST_ALPHA = 0.4;
@@ -520,6 +527,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let ghostLookOverride: GhostLineArtLook | null = null;
   let ghostLook = ghostLineArtLook(null, loadGhostStyle());
   let chompPixelsPerFrame = DOTMAN_CHOMP_PIXELS_PER_FRAME;
+  let mouthAngles: DotManMouthAngles = DOTMAN_MOUTH_ANGLES_DEFAULT;
   let bossPelletTint = 0xffffff;
 
   // Glow textures are baked at the canvas density; rebuild them when the canvas resizes.
@@ -953,7 +961,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         visual.turn = turnToward(visual.turn, visual.lastDir, scene.time.now);
         const art = dotManLineArt(
           turnAngle(visual.turn, scene.time.now),
-          dotManMouthHalfAngle(visual.cycleIndex, movingDir !== null),
+          dotManMouthHalfAngle(visual.cycleIndex, movingDir !== null, mouthAngles),
         );
         const color = tintedColor(DOTMAN_LINE_ART_COLOR, playerTintNow);
         const look = playerLineArtLook(ghostLook);
@@ -1279,8 +1287,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
-  const setDotManChompSpeed = (speed: number): void => {
-    chompPixelsPerFrame = dotManChompPixelsPerFrame(speed);
+  const setDotManLook = (look: {
+    chompSpeed: number;
+    mouthOpenDeg: number;
+    mouthClosedDeg: number;
+  }): void => {
+    chompPixelsPerFrame = dotManChompPixelsPerFrame(look.chompSpeed);
+    mouthAngles = resolveDotManMouthAngles(look.mouthOpenDeg, look.mouthClosedDeg);
   };
 
   return {
@@ -1291,6 +1304,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     setWallStyle,
     setPelletStyle,
     setGhostLook,
-    setDotManChompSpeed,
+    setDotManLook,
   };
 }

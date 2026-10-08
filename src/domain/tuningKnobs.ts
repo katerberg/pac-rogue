@@ -109,6 +109,8 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("ghostWidth", "Visuals", "Line ghost width", 0.6, 4.5, 0.01, "×"),
   range("ghostHeight", "Visuals", "Line ghost height", 0.6, 4.5, 0.01, "×"),
   range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×"),
+  range("dotManMouthOpenDeg", "Visuals", "Mouth open", 20, 75, 1, "°"),
+  range("dotManMouthClosedDeg", "Visuals", "Mouth closed", 4, 40, 1, "°"),
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px"),
   { key: "backgroundColor", group: "Visuals", label: "Background", kind: "color" },
   range("fontThickness", "Visuals", "Font thickness", 0.05, 3, 0.05),
@@ -256,7 +258,11 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   ghostHeight:
     "Vertical stretch of line-art ghosts. 1 = the SVG's own proportions. Visual only; collision is unchanged.",
   dotManChompSpeed:
-    "How fast Dot-Man's mouth cycles while moving (pixel frames and neon spiral). 1× = one beat every 12 px of travel; default 2× eats twice as fast. Visual only.",
+    "How fast Dot-Man's mouth cycles while moving (pixel frames and neon spiral). 1× = one beat every 12 px of travel; default 1.25×. Visual only.",
+  dotManMouthOpenDeg:
+    "Resting / fully-open mouth half-angle in degrees (full opening = 2×). Neon spiral lips sit on ±this ray; idle always uses this. Visual only.",
+  dotManMouthClosedDeg:
+    "Tightest chomp half-angle in degrees. Clamped below Mouth open. Visual only.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
   fontThickness:
