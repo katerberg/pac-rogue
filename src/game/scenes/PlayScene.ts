@@ -303,6 +303,10 @@ export class PlayScene extends Phaser.Scene {
     setActiveFontLook(fontLineArtLook(tuning));
     setActiveQuarterLook(quarterLineArtLook(tuning));
     this.refreshQuartersHud(false);
+    for (const coin of this.walletCoins) {
+      coin.destroy();
+    }
+    this.walletCoins = [];
   }
 
   private restartAtCurrentLevel(): void {
