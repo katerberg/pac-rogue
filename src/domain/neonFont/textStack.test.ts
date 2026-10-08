@@ -68,15 +68,17 @@ describe("text stack layout", () => {
     const schoolH = 8;
     const bodyH = neonTextLocalHeight(3, 8, 0);
     const footerH = neonTextLocalHeight(2, 16, 0);
-    const schoolGap = interTextGap(8, "neon");
-    const sectionGap = interTextGap(16, "neon");
+    // Short panel: school-sized gaps between every row (matches storeOverlay showPanel).
+    const rowGap = interTextGap(8, "neon");
     const heights = [titleH, schoolH, bodyH, footerH];
-    const gaps = [schoolGap, sectionGap, sectionGap, 0];
-    const topY = -190 / 2 + 12;
+    const gaps = [rowGap, rowGap, rowGap, 0];
+    const panelH = 190;
+    const topY = -panelH / 2 + 12;
     const tops = stackRowTopsFromTop(heights, gaps, topY);
     expect(stackRowsNonOverlapping(heights, tops)).toBe(true);
     expect(tops[0]).toBe(topY);
     expect(tops[2]! + bodyH).toBeLessThanOrEqual(tops[3]!);
+    expect(tops[3]! + footerH).toBeLessThanOrEqual(panelH / 2);
   });
 });
 
@@ -90,7 +92,7 @@ describe("store panel horizontal fit (neon)", () => {
   const maxContent = PANEL_WIDTH - 2 * PANEL_SIDE_PAD;
 
   it.each(["passiveTunnelSanctuary", "passiveRemoteTransference"] as const)(
-    "%s title and body stay inside side pads",
+    "%s title and body stay inside side pads (display case)",
     (id) => {
       const def = getUpgradeDef(id as UpgradeId);
       const titleSize = fitFontSize(def.label, maxContent, TITLE_SIZE, "neon");
@@ -114,6 +116,7 @@ describe("store panel horizontal fit (neon)", () => {
         letterSpacing,
         wrapText,
       );
+      // Fitting must account for NeonText uppercasing — mixed-case advance under-measures.
       for (const line of wrapText(def.label, titleBudget).split("\n")) {
         expect(lineWidthPx(line, titleSize, "neon", thickness, letterSpacing)).toBeLessThanOrEqual(
           maxContent,
@@ -126,6 +129,27 @@ describe("store panel horizontal fit (neon)", () => {
       }
     },
   );
+
+  it("mixed-case Tunnel Sanctuary body would overflow without display-case fitting", () => {
+    const body = getUpgradeDef("passiveTunnelSanctuary").description;
+    const naiveBudget = wrapCharsForBox(PANEL_WIDTH, BODY_SIZE, "neon", PANEL_SIDE_PAD);
+    const naiveLines = wrapText(body, naiveBudget).split("\n");
+    const naiveOverflows = naiveLines.some(
+      (line) => lineWidthPx(line, BODY_SIZE, "neon", thickness, letterSpacing) > maxContent,
+    );
+    expect(naiveOverflows).toBe(true);
+    const fitted = wrapCharsFittingWidth(
+      body,
+      PANEL_WIDTH,
+      BODY_SIZE,
+      "neon",
+      PANEL_SIDE_PAD,
+      thickness,
+      letterSpacing,
+      wrapText,
+    );
+    expect(fitted).toBeLessThan(naiveBudget);
+  });
 
   it("wrapCharsForBox is an upper bound before advance fitting", () => {
     const fromBox = wrapCharsForBox(PANEL_WIDTH, BODY_SIZE, "neon", PANEL_SIDE_PAD);

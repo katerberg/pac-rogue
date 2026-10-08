@@ -1,5 +1,5 @@
 import { NEON_GLYPH_HEIGHT } from "./glyphGrammar";
-import { neonLineAdvance } from "./layout";
+import { neonDisplayText, neonLineAdvance } from "./layout";
 
 /** Neon ink is ~half a pixel cell wide; char-wrap budgets scale so cards fill sideways. */
 export const NEON_WRAP_CHAR_MUL = 1.75;
@@ -42,7 +42,11 @@ export function lineWidthPx(
   if (textStyle === "pixel") {
     return line.length * fontSize;
   }
-  return neonLineAdvance(line, thickness, letterSpacing) * (fontSize / NEON_GLYPH_HEIGHT);
+  // NeonText uppercases before draw; measure the glyphs that actually appear.
+  return (
+    neonLineAdvance(neonDisplayText(line), thickness, letterSpacing) *
+    (fontSize / NEON_GLYPH_HEIGHT)
+  );
 }
 
 export function interTextGap(baseGapPx: number, textStyle: TextStyle): number {
@@ -119,9 +123,10 @@ export function wrapCharsFittingWidth(
   wrap: (text: string, maxChars: number) => string,
 ): number {
   const maxW = boxWidthPx - 2 * sidePadPx;
+  const source = textStyle === "neon" ? neonDisplayText(text) : text;
   let budget = wrapCharsForBox(boxWidthPx, fontSize, textStyle, sidePadPx);
   while (budget > 1) {
-    const lines = wrap(text, budget).split("\n");
+    const lines = wrap(source, budget).split("\n");
     const fits = lines.every(
       (line) => lineWidthPx(line, fontSize, textStyle, thickness, letterSpacing) <= maxW,
     );

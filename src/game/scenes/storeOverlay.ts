@@ -310,14 +310,15 @@ export function createStoreOverlay(
     panelBody.setText(wrapText(content.body, bodyBudget));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
-    const schoolGap = interTextGap(SCHOOL_GAP, textStyle);
-    const sectionGap = interTextGap(CARD_DESCRIPTION_GAP, textStyle);
+    // Panel is short (190px): use the smaller school gap between every row so neon
+    // multi-line title/body/footer still fit without clipping NEED/QUARTERS.
+    const rowGap = interTextGap(SCHOOL_GAP, textStyle);
     const topY = -PANEL_HEIGHT / 2 + PANEL_TOP_PAD;
     stackTextsFromTop(
       [
-        { text: panelTitle, gapBelow: content.school === null ? sectionGap : schoolGap },
-        ...(content.school === null ? [] : [{ text: panelSchool, gapBelow: sectionGap }]),
-        { text: panelBody, gapBelow: sectionGap },
+        { text: panelTitle, gapBelow: rowGap },
+        ...(content.school === null ? [] : [{ text: panelSchool, gapBelow: rowGap }]),
+        { text: panelBody, gapBelow: rowGap },
         { text: panelFooter, gapBelow: 0 },
       ],
       topY,
