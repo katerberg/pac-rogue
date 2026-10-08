@@ -1627,7 +1627,6 @@ describe("PlaySim", () => {
       expect(sim.snapshot().boss?.ghostCount).toBe(5);
       sim["jumpToLevelClear"]();
       expect(sim.snapshot().bossStageTransition).toBe(true);
-      expect(sim.snapshot().timerGlitch).toBe(true);
       expect(sim.snapshot().runComplete).toBe(false);
       const player = playerEid(sim);
       const col = worldToCol(Position.x[player]!);

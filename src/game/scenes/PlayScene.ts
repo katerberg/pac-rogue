@@ -981,11 +981,11 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private timerLabel(): string {
-    return bossTimerLabel(this.sim.snapshot().timerGlitch === true, this.sim.hud().time);
+    return bossTimerLabel(this.sim.snapshot().bossStageTransition === true, this.sim.hud().time);
   }
 
   private syncTimerGlitchBlink(): void {
-    if (this.sim.snapshot().timerGlitch !== true) {
+    if (this.sim.snapshot().bossStageTransition !== true) {
       this.timerText.setAlpha(1);
       return;
     }

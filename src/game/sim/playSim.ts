@@ -411,11 +411,6 @@ export class PlaySim {
   private bossState: BossState | null = null;
   private bossMouths: BossTunnelMouth[] = [];
   private bossStageTransition: BossStageTransition | null = null;
-  private bossStageDraw: {
-    entityAlpha: number;
-    wallAlpha: number;
-    mazeColorInverted: boolean;
-  } | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runCompleteElapsedMs: number | null = null;
@@ -666,8 +661,10 @@ export class PlaySim {
   }
 
   renderOptions(): SimRenderOptions {
-    const stageDraw = this.bossStageDraw;
-    const mazeInverted = this.bossState?.mazeColorInverted === true;
+    const stage =
+      this.bossStageTransition === null
+        ? null
+        : tickBossStageTransition(this.bossStageTransition, 0);
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
@@ -686,9 +683,9 @@ export class PlaySim {
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
       lineArtDrawableIds: lineArtDrawableIds(this.ghostStyle, this.presentGhostKinds()),
-      entityAlpha: stageDraw?.entityAlpha,
-      wallAlpha: stageDraw?.wallAlpha,
-      mazeColorInverted: stageDraw?.mazeColorInverted ?? mazeInverted,
+      entityAlpha: stage?.entityAlpha,
+      wallAlpha: stage?.wallAlpha,
+      mazeColorInverted: this.bossState?.mazeColorInverted === true,
     };
   }
 
@@ -760,7 +757,6 @@ export class PlaySim {
         this.shieldCrack === null ? null : shieldCrackProgress(this.shieldCrack.elapsedMs),
       levelTransition: this.levelTransitionRemainingMs > 0,
       bossStageTransition: this.bossStageTransition !== null,
-      timerGlitch: this.bossStageTransition !== null,
       runComplete: this.runCompleteElapsedMs !== null,
       runEndMenuArmed: this.runEndMenuArmed(),
       highScoresDisabled: this.options.highScoresDisabled,
@@ -2036,11 +2032,6 @@ export class PlaySim {
       return;
     }
     this.bossStageTransition = createBossStageTransition();
-    this.bossStageDraw = {
-      entityAlpha: 1,
-      wallAlpha: 1,
-      mazeColorInverted: this.bossState.mazeColorInverted,
-    };
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "sfx", id: "levelComplete" });
     this.emit({ type: "timer" });
@@ -2064,16 +2055,9 @@ export class PlaySim {
     if (tick.startGameplayMusic) {
       this.emit({ type: "loopStart", id: "gameplayMusic" });
     }
-    const inverted = this.bossState?.mazeColorInverted === true || tick.phase === "mazeFlickerIn";
-    this.bossStageDraw = {
-      entityAlpha: tick.entityAlpha,
-      wallAlpha: tick.wallAlpha,
-      mazeColorInverted: inverted,
-    };
     this.emitDraw();
     if (tick.done) {
       this.bossStageTransition = null;
-      this.bossStageDraw = null;
       this.emit({ type: "timer" });
       this.emitDraw();
     }

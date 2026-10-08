@@ -1,3 +1,5 @@
+import { clamp } from "./clamp";
+
 export const BOSS_STAGE_ENTITY_FADE_MS = 400;
 export const BOSS_STAGE_FLICKER_PULSE_MS = 80;
 export const BOSS_STAGE_FLICKER_PULSES = 3;
@@ -21,7 +23,6 @@ export type BossStageTransitionTick = {
   startGameplayMusic: boolean;
   shouldRebuild: boolean;
   done: boolean;
-  timerGlitch: boolean;
   state: BossStageTransition;
 };
 
@@ -42,10 +43,6 @@ export function createBossStageTransition(): BossStageTransition {
 function flickerAlpha(elapsedInPhase: number): number {
   const pulseIndex = Math.floor(elapsedInPhase / BOSS_STAGE_FLICKER_PULSE_MS);
   return pulseIndex % 2 === 0 ? 1 : 0;
-}
-
-function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value));
 }
 
 export function tickBossStageTransition(
@@ -102,13 +99,12 @@ export function tickBossStageTransition(
 
   return {
     phase,
-    entityAlpha: clamp01(entityAlpha),
-    wallAlpha: clamp01(wallAlpha),
+    entityAlpha: clamp(entityAlpha, 0, 1),
+    wallAlpha: clamp(wallAlpha, 0, 1),
     cutSuccessSfx,
     startGameplayMusic,
     shouldRebuild,
     done,
-    timerGlitch: !done,
     state: {
       elapsedMs,
       rebuilt,

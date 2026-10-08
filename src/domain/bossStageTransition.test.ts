@@ -13,7 +13,7 @@ describe("tickBossStageTransition", () => {
     expect(mid.phase).toBe("entityFadeOut");
     expect(mid.entityAlpha).toBeCloseTo(0.5);
     expect(mid.wallAlpha).toBe(1);
-    expect(mid.timerGlitch).toBe(true);
+    expect(mid.done).toBe(false);
     expect(mid.cutSuccessSfx).toBe(false);
   });
 
@@ -75,7 +75,7 @@ describe("tickBossStageTransition", () => {
         expect(musicStarts).toBe(1);
         expect(tick.entityAlpha).toBe(1);
         expect(tick.wallAlpha).toBe(1);
-        expect(tick.timerGlitch).toBe(false);
+        expect(tick.done).toBe(true);
         return;
       }
     }
