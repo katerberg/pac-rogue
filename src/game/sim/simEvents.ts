@@ -17,6 +17,9 @@ export type SimRenderOptions = {
   turnFlashRemainingMs?: number;
   dimGhostEid?: number | null;
   playerAlpha?: number;
+  entityAlpha?: number;
+  wallAlpha?: number;
+  mazeColorInverted?: boolean;
   playerReviveProgress?: number;
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];

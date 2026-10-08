@@ -33,17 +33,25 @@ import {
   type BossTunnelMouth,
 } from "../../domain/bossBoard";
 import {
+  advanceBossStage,
   bossGhostKind,
+  bossStage,
   bossStartGhosts,
   chainPairForKind,
   createBossState,
   isBossLevel,
+  isFinalBossStage,
   pickBoss,
   recordBossPelletsEaten,
   splitBossGhosts,
   type BossDef,
   type BossState,
 } from "../../domain/bossRules";
+import {
+  createBossStageTransition,
+  tickBossStageTransition,
+  type BossStageTransition,
+} from "../../domain/bossStageTransition";
 import {
   beginDeathSequence,
   tickDeathSequence,
@@ -405,6 +413,8 @@ export class PlaySim {
   private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
   private bossState: BossState | null = null;
   private bossMouths: BossTunnelMouth[] = [];
+  private bossStageTransition: BossStageTransition | null = null;
+  private bossStageDraw: { entityAlpha: number; wallAlpha: number } | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runCompleteElapsedMs: number | null = null;
@@ -519,6 +529,8 @@ export class PlaySim {
     this.emit({ type: "loopStart", id: "gameplayMusic" });
     if (options.jumpToUpgrade) {
       this.jumpToLevelClear();
+    } else if (options.bossStageAdvance && this.bossState !== null) {
+      this.beginBossStageTransition();
     } else if (options.store !== null) {
       this.enterStore();
     }
@@ -671,6 +683,9 @@ export class PlaySim {
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
       lineArtDrawableIds: lineArtDrawableIds(this.ghostStyle, this.presentGhostKinds()),
+      entityAlpha: this.bossStageDraw?.entityAlpha,
+      wallAlpha: this.bossStageDraw?.wallAlpha,
+      mazeColorInverted: this.bossState?.mazeColorInverted === true,
     };
   }
 
@@ -741,6 +756,7 @@ export class PlaySim {
       shieldCrackProgress:
         this.shieldCrack === null ? null : shieldCrackProgress(this.shieldCrack.elapsedMs),
       levelTransition: this.levelTransitionRemainingMs > 0,
+      bossStageTransition: this.bossStageTransition !== null,
       runComplete: this.runCompleteElapsedMs !== null,
       runEndMenuArmed: this.runEndMenuArmed(),
       highScoresDisabled: this.options.highScoresDisabled,
@@ -758,6 +774,9 @@ export class PlaySim {
               id: this.bossState.def.id,
               ghostCount: this.bossState.ghostCount,
               chainLive: bossChains(this.world, this.catchOptions()).length > 0,
+              stage: this.bossState.stageIndex + 1,
+              chainPairs: [...bossStage(this.bossState.def, this.bossState.stageIndex).chainPairs],
+              mazeColorInverted: this.bossState.mazeColorInverted,
             },
       lineArtGhosts: lineArtGhostKinds(this.ghostStyle, this.presentGhostKinds()).map((kind) =>
         nameOf(GHOST_KIND, kind),
@@ -854,6 +873,11 @@ export class PlaySim {
 
     if (this.runCompleteElapsedMs !== null) {
       this.runCompleteElapsedMs += delta;
+      return;
+    }
+
+    if (this.bossStageTransition !== null) {
+      this.tickBossStageTransitionFrame(delta);
       return;
     }
 
@@ -1936,6 +1960,7 @@ export class PlaySim {
   }
 
   private tagBossPellets(state: BossState): void {
+    const spawnPellets = bossStage(state.def, state.stageIndex).spawnPellets;
     const regular = [...query(this.world, [Pellet, Position])].filter(
       (eid) => Drawable.id[eid] === PELLET_DRAWABLE_ID,
     );
@@ -1944,8 +1969,8 @@ export class PlaySim {
       col: worldToCol(Position.x[eid] ?? 0),
       row: worldToRow(Position.y[eid] ?? 0),
     }));
-    const picks = pickBossPelletCells(cells, getActiveLayout().playerSpawn, state.def.spawnPellets);
-    if (picks.length < state.def.spawnPellets) {
+    const picks = pickBossPelletCells(cells, getActiveLayout().playerSpawn, spawnPellets);
+    if (picks.length < spawnPellets) {
       console.warn(`only ${picks.length} boss pellets fit this board`);
     }
     for (const pick of picks) {
@@ -2005,6 +2030,10 @@ export class PlaySim {
   }
 
   private triggerLevelClear(): void {
+    if (this.bossState !== null && !isFinalBossStage(this.bossState)) {
+      this.beginBossStageTransition();
+      return;
+    }
     this.notePellets();
     this.recorder.levelCleared(
       this.clock.remaining,
@@ -2021,6 +2050,84 @@ export class PlaySim {
       return;
     }
     this.finishLevelClear();
+  }
+
+  private beginBossStageTransition(): void {
+    if (this.bossState === null || isFinalBossStage(this.bossState)) {
+      return;
+    }
+    this.bossStageTransition = createBossStageTransition();
+    this.bossStageDraw = { entityAlpha: 1, wallAlpha: 1 };
+    this.emit({ type: "loopStop", id: "gameplayMusic" });
+    this.emit({ type: "sfx", id: "levelComplete" });
+    this.emit({ type: "timer" });
+    this.emitDraw();
+  }
+
+  private tickBossStageTransitionFrame(delta: number): void {
+    if (this.bossStageTransition === null) {
+      return;
+    }
+    this.clock = tickRunClock(this.clock, true, delta, this.currentTuning);
+    this.emit({ type: "timer" });
+    const tick = tickBossStageTransition(this.bossStageTransition, delta);
+    this.bossStageTransition = tick.state;
+    if (tick.cutSuccessSfx) {
+      this.emit({ type: "loopStop", id: "levelComplete" });
+    }
+    if (tick.shouldRebuild) {
+      this.refillBossStageBoard();
+    }
+    if (tick.startGameplayMusic) {
+      this.emit({ type: "loopStart", id: "gameplayMusic" });
+    }
+    this.bossStageDraw = { entityAlpha: tick.entityAlpha, wallAlpha: tick.wallAlpha };
+    this.emitDraw();
+    if (tick.done) {
+      this.bossStageTransition = null;
+      this.bossStageDraw = null;
+      this.emit({ type: "timer" });
+      this.emitDraw();
+    }
+  }
+
+  private refillBossStageBoard(): void {
+    if (this.bossState === null) {
+      return;
+    }
+    for (const eid of [...query(this.world, [Pellet])]) {
+      removeEntity(this.world, eid);
+      this.releaseDrawable(eid);
+    }
+    this.clearFruitEntities();
+    this.fruitPresence = createFruitPresence();
+    this.pendingPowerPelletRespawns = [];
+    for (const eid of [...query(this.world, [Ghost])]) {
+      removeEntity(this.world, eid);
+      this.releaseDrawable(eid);
+    }
+    this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    this.bossState = advanceBossStage(this.bossState);
+    spawnBoardPellets(this.world);
+    this.tagBossPellets(this.bossState);
+    tagOptionalPellets(this.world, null);
+    this.pelletProgress = createPelletProgress(countPellets(this.world));
+    this.spawnBossGhostsForLife();
+    this.ghostReleaseClock = createGhostReleaseClock(this.levelIndex);
+    this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
+    this.previousEffectiveGhostMode = this.ghostModeClock.mode;
+    this.afterLifeRelease = false;
+    placeInHouseGhostsAtPredictedSeats(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.boardCollected,
+      this.afterLifeRelease,
+    );
+    this.tunnelDashAnim = null;
+    this.warpGlide = null;
+    this.speedTrail = [];
+    this.ghostCornerWarps = [];
+    this.resetStreak();
   }
 
   private tickTimeBonus(drain: TimeBonusDrain, delta: number): void {
@@ -2619,7 +2726,11 @@ export class PlaySim {
     const eid = this.spawnGhost(kind);
     addComponent(this.world, eid, BossGhost);
     const pair = chainPairForKind(kind);
-    if (this.bossState?.def.chained === true && pair !== null) {
+    if (
+      this.bossState?.def.chained === true &&
+      pair !== null &&
+      bossStage(this.bossState.def, this.bossState.stageIndex).chainPairs.includes(pair)
+    ) {
       addComponent(this.world, eid, ChainedGhost);
       ChainedGhost.pair[eid] = pair;
     }

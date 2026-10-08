@@ -5,6 +5,12 @@ import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorne
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { CHAIN_PAIR } from "../../domain/bossRules";
 import {
+  BOSS_STAGE_BLACK_HOLD_MS,
+  BOSS_STAGE_ENTITY_FADE_MS,
+  BOSS_STAGE_FLICKER_MS,
+  BOSS_STAGE_TOTAL_MS,
+} from "../../domain/bossStageTransition";
+import {
   canEnterDirection,
   cellCenterX,
   cellCenterY,
@@ -36,11 +42,14 @@ import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
+  FREEZE_MS,
   HAUNTING_MS,
   frozenGhostEid,
   grantUpgrade,
+  INVULN_ENHANCED_MS,
   INVULN_MS,
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
@@ -49,6 +58,7 @@ import {
   STARTING_UPGRADE_POOL,
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
+  WALL_PASS_MS,
   isRare,
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
@@ -80,6 +90,8 @@ import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
+
+const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
 function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
   const sim = new PlaySim({ ...defaultPlayOptions(), ...overrides }, seed);
@@ -1479,7 +1491,7 @@ describe("PlaySim", () => {
     const pellet = query(sim.world, [BossPellet, Position])[0]!;
     teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
     runUntil(sim, () => sim.snapshot().boss?.ghostCount === 3, 30);
-    expect(sim.snapshot().bossPellets).toBe(7);
+    expect(sim.snapshot().bossPellets).toBe(2);
   });
 
   it("lets a boss Blinky leave its tunnel mouth when Tunnel Sanctuary+ blocks tunnels", () => {
@@ -1546,12 +1558,15 @@ describe("PlaySim", () => {
       });
     }
 
-    it("spawns all four ghosts in two chain pairs, with no boss pellets", () => {
+    it("spawns all four ghosts with only Blinky↔Clyde chained in stage 1", () => {
       const sim = startChained();
       expect(sim.snapshot().boss).toMatchObject({
         id: "chainedGhosts",
         ghostCount: 4,
         chainLive: false,
+        stage: 1,
+        chainPairs: [CHAIN_PAIR.blinkyClyde],
+        mazeColorInverted: false,
       });
       expect(sim.snapshot().bossPellets).toBe(0);
       const kinds = [...query(sim.world, [Ghost, GhostKind])].map((eid) => GhostKind.kind[eid]);
@@ -1562,12 +1577,9 @@ describe("PlaySim", () => {
         GHOST_KIND.clyde,
       ]);
       expect(query(sim.world, [Ghost]).length).toBe(4);
-      expect(chainedEids(sim)).toHaveLength(4);
+      expect(chainedEids(sim)).toHaveLength(2);
       for (const eid of pairEnds(sim, CHAIN_PAIR.blinkyClyde)) {
         expect([GHOST_KIND.blinky, GHOST_KIND.clyde]).toContain(GhostKind.kind[eid]);
-      }
-      for (const eid of pairEnds(sim, CHAIN_PAIR.pinkyInky)) {
-        expect([GHOST_KIND.pinky, GHOST_KIND.inky]).toContain(GhostKind.kind[eid]);
       }
     });
 
@@ -1622,31 +1634,20 @@ describe("PlaySim", () => {
       expect(sim.snapshot().dying).toBe(false);
     });
 
-    it("draws live chains for each active pair", () => {
+    it("draws the live Blinky↔Clyde chain in stage 1", () => {
       const sim = startChained();
       const player = playerEid(sim);
       const row = worldToRow(Position.y[player]!);
       placePair(sim, CHAIN_PAIR.blinkyClyde, row, [1, 2]);
-      placePair(sim, CHAIN_PAIR.pinkyInky, row + 2, [4, 5]);
       const [a, b] = pairEnds(sim, CHAIN_PAIR.blinkyClyde);
-      const [c, d] = pairEnds(sim, CHAIN_PAIR.pinkyInky);
-      expect(sim.renderOptions().bossChains).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            x1: Position.x[a],
-            y1: Position.y[a],
-            x2: Position.x[b],
-            y2: Position.y[b],
-          }),
-          expect.objectContaining({
-            x1: Position.x[c],
-            y1: Position.y[c],
-            x2: Position.x[d],
-            y2: Position.y[d],
-          }),
-        ]),
-      );
-      expect(sim.renderOptions().bossChains).toHaveLength(2);
+      expect(sim.renderOptions().bossChains).toEqual([
+        expect.objectContaining({
+          x1: Position.x[a],
+          y1: Position.y[a],
+          x2: Position.x[b],
+          y2: Position.y[b],
+        }),
+      ]);
     });
 
     it("releases ghosts so a chain goes live in play", () => {
@@ -1658,7 +1659,7 @@ describe("PlaySim", () => {
     it("keeps the chained ghosts out of the side tunnels", () => {
       const sim = startChained({ godMode: true });
       const [row] = horizontalTunnelRows();
-      const [a] = pairEnds(sim, CHAIN_PAIR.pinkyInky);
+      const [a] = pairEnds(sim, CHAIN_PAIR.blinkyClyde);
       GhostPhase.value[a] = GHOST_PHASE.active;
       Position.x[a] = cellCenterX(0);
       Position.y[a] = cellCenterY(row!);
@@ -1666,6 +1667,155 @@ describe("PlaySim", () => {
       Input.direction[a] = DIRECTION.left;
       runFrames(sim, 30);
       expect(Position.x[a]!).toBeLessThan(getActiveLayout().cols * TILE_SIZE * 0.5);
+    });
+
+    it("chains both pairs after the stage advance", () => {
+      const sim = startChained({ bossStageAdvance: true });
+      runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      );
+      expect(sim.snapshot().boss).toMatchObject({
+        stage: 2,
+        chainPairs: [CHAIN_PAIR.blinkyClyde, CHAIN_PAIR.pinkyInky],
+        mazeColorInverted: true,
+      });
+      expect(chainedEids(sim)).toHaveLength(4);
+      const player = playerEid(sim);
+      const row = worldToRow(Position.y[player]!);
+      placePair(sim, CHAIN_PAIR.blinkyClyde, row, [1, 2]);
+      placePair(sim, CHAIN_PAIR.pinkyInky, row + 2, [4, 5]);
+      expect(sim.renderOptions().bossChains).toHaveLength(2);
+    });
+  });
+
+  describe("boss second stage", () => {
+    function waitStage2(sim: PlaySim): void {
+      runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      );
+    }
+
+    it("starts Blinky Swarm with 3 boss pellets in stage 1", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm" });
+      expect(sim.snapshot().boss).toMatchObject({
+        id: "blinkySwarm",
+        stage: 1,
+        ghostCount: 2,
+        mazeColorInverted: false,
+      });
+      expect(sim.snapshot().bossPellets).toBe(3);
+    });
+
+    it("advances swarm to stage 2 with 5 boss pellets and carried ghost count", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", godMode: true });
+      for (const pellet of [...query(sim.world, [BossPellet, Position])]) {
+        teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
+        runUntil(sim, () => !hasComponent(sim.world, pellet, BossPellet), 30);
+      }
+      expect(sim.snapshot().boss?.ghostCount).toBe(5);
+      sim["jumpToLevelClear"]();
+      expect(sim.snapshot().bossStageTransition).toBe(true);
+      expect(sim.snapshot().runComplete).toBe(false);
+      const player = playerEid(sim);
+      const col = worldToCol(Position.x[player]!);
+      const row = worldToRow(Position.y[player]!);
+      waitStage2(sim);
+      expect(sim.snapshot().boss).toMatchObject({
+        stage: 2,
+        ghostCount: 5,
+        mazeColorInverted: true,
+      });
+      expect(sim.snapshot().bossPellets).toBe(5);
+      expect(worldToCol(Position.x[player]!)).toBe(col);
+      expect(worldToRow(Position.y[player]!)).toBe(row);
+      expect(sim.snapshot().runComplete).toBe(false);
+    });
+
+    it("ends the run only after the final boss stage clear", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", bossStageAdvance: true });
+      waitStage2(sim);
+      const events = (() => {
+        sim["jumpToLevelClear"]();
+        return runFrames(sim, 90);
+      })();
+      expect(events).toContainEqual({ type: "endText", title: "RUN COMPLETE" });
+    });
+
+    it("preserves stage across a mid-fight death", () => {
+      const sim = startSim({
+        level: 9,
+        boss: "blinkySwarm",
+        bossStageAdvance: true,
+        infiniteLives: true,
+      });
+      waitStage2(sim);
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      runUntil(sim, () => !sim.snapshot().dying, 400);
+      expect(sim.snapshot().boss?.stage).toBe(2);
+      expect(sim.snapshot().boss?.mazeColorInverted).toBe(true);
+    });
+
+    it("keeps the timer ticking during the stage transition", () => {
+      const sim = startSim({ level: 9, boss: "chainedGhosts", bossStageAdvance: true });
+      expect(sim.snapshot().bossStageTransition).toBe(true);
+      const before = sim.snapshot().timeRemaining;
+      runFrames(sim, 60);
+      expect(sim.snapshot().bossStageTransition).toBe(true);
+      expect(sim.snapshot().timeRemaining).toBeLessThan(before);
+    });
+
+    it("keeps the player in place across a chained stage advance", () => {
+      const sim = startSim({ level: 9, boss: "chainedGhosts", godMode: true });
+      const player = playerEid(sim);
+      Position.x[player] = cellCenterX(10);
+      Position.y[player] = cellCenterY(12);
+      sim["jumpToLevelClear"]();
+      waitStage2(sim);
+      expect(worldToCol(Position.x[player]!)).toBe(10);
+      expect(worldToRow(Position.y[player]!)).toBe(12);
+    });
+
+    it("keeps wallAlpha at 0 on the rebuild draw frame", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", godMode: true });
+      sim["jumpToLevelClear"]();
+      expect(sim.snapshot().bossStageTransition).toBe(true);
+      sim["tickBossStageTransitionFrame"](BOSS_STAGE_ENTITY_FADE_MS + BOSS_STAGE_FLICKER_MS);
+      expect(sim.snapshot().boss?.stage).toBe(2);
+      expect(sim.renderOptions().wallAlpha).toBe(0);
+      expect(sim.renderOptions().entityAlpha).toBe(0);
+    });
+
+    it("keeps draw alphas at 0 mid black-hold after rebuild", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", godMode: true });
+      sim["jumpToLevelClear"]();
+      sim["tickBossStageTransitionFrame"](BOSS_STAGE_ENTITY_FADE_MS + BOSS_STAGE_FLICKER_MS);
+      expect(sim.snapshot().boss?.stage).toBe(2);
+      sim["tickBossStageTransitionFrame"](BOSS_STAGE_BLACK_HOLD_MS / 2);
+      expect(sim.snapshot().bossStageTransition).toBe(true);
+      expect(sim.snapshot().boss?.stage).toBe(2);
+      expect(sim.renderOptions().wallAlpha).toBe(0);
+      expect(sim.renderOptions().entityAlpha).toBe(0);
+    });
+
+    it("clears eid-bound upgrade timers when the stage board refills", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", godMode: true });
+      const [ghost] = query(sim.world, [Ghost]);
+      expect(ghost).toBeDefined();
+      sim["runUpgrades"] = {
+        ...sim["runUpgrades"],
+        freezeRemainingMs: 4000,
+        frozenGhostEid: ghost!,
+      };
+      expect(frozenGhostEid(sim["runUpgrades"])).toBe(ghost);
+      sim["jumpToLevelClear"]();
+      waitStage2(sim);
+      expect(frozenGhostEid(sim["runUpgrades"])).toBeNull();
+      expect(sim["runUpgrades"].freezeRemainingMs).toBe(0);
     });
   });
 
@@ -2293,19 +2443,53 @@ describe("PlaySim level-end time bonus", () => {
     runUntil(sim, () => sim.snapshot().level === 2, 120);
   });
 
-  it("skips the drain on the boss clear", () => {
-    const { sim, events } = startClear({ level: 9 });
+  it("skips the drain on the final boss clear", () => {
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), level: 9, boss: "blinkySwarm", bossStageAdvance: true },
+      "drain",
+    );
+    const startEvents = sim.start();
+    expect(startEvents.some((e) => e.type === "timeBonus")).toBe(false);
+    runUntil(
+      sim,
+      () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+      BOSS_STAGE_WAIT_FRAMES,
+    );
+    sim["jumpToLevelClear"]();
+    const events = runFrames(sim, 90);
     expect(events.some((e) => e.type === "timeBonus")).toBe(false);
     expect(sim.snapshot().bonus).toMatchObject({ charge: 0, draining: false });
-    expect(runFrames(sim, 90)).toContainEqual({ type: "endText", title: "RUN COMPLETE" });
+    expect(events).toContainEqual({ type: "endText", title: "RUN COMPLETE" });
   });
 });
 
 describe("PlaySim run complete menu", () => {
-  function startRunComplete(): PlaySim {
-    const sim = new PlaySim({ ...defaultPlayOptions(), jumpToUpgrade: true, level: 9 }, "run-end");
-    sim.start();
+  function clearBossRun(sim: PlaySim): void {
+    if (sim.snapshot().bossStageTransition) {
+      runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      );
+    } else if (sim.snapshot().boss?.stage === 1) {
+      sim["jumpToLevelClear"]();
+      runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      );
+    }
+    sim["jumpToLevelClear"]();
     runUntil(sim, () => sim.snapshot().runComplete, 300);
+  }
+
+  function startRunComplete(): PlaySim {
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), level: 9, boss: "blinkySwarm", bossStageAdvance: true },
+      "run-end",
+    );
+    sim.start();
+    clearBossRun(sim);
     return sim;
   }
 
@@ -2339,16 +2523,43 @@ describe("PlaySim run complete menu", () => {
   });
 
   it("saves the run once when it completes", () => {
-    const sim = new PlaySim({ ...defaultPlayOptions(), jumpToUpgrade: true, level: 9 }, "run-end");
-    const events = [...sim.start(), ...runUntil(sim, () => sim.snapshot().runComplete, 300)];
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), level: 9, boss: "blinkySwarm", bossStageAdvance: true },
+      "run-end-save",
+    );
+    const events = [
+      ...sim.start(),
+      ...runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      ),
+    ];
+    sim["jumpToLevelClear"]();
+    events.push(...runUntil(sim, () => sim.snapshot().runComplete, 300));
     events.push(...runFrames(sim, 120));
     expect(count(events, "saveRun")).toBe(1);
   });
 
   it("skips the save when high scores are disabled", () => {
-    const options = { ...defaultPlayOptions(), jumpToUpgrade: true, level: 9 };
-    const sim = new PlaySim({ ...options, highScoresDisabled: true }, "run-end");
-    const events = [...sim.start(), ...runUntil(sim, () => sim.snapshot().runComplete, 300)];
+    const options = {
+      ...defaultPlayOptions(),
+      level: 9,
+      boss: "blinkySwarm" as const,
+      bossStageAdvance: true,
+      highScoresDisabled: true,
+    };
+    const sim = new PlaySim(options, "run-end");
+    const events = [
+      ...sim.start(),
+      ...runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      ),
+    ];
+    sim["jumpToLevelClear"]();
+    events.push(...runUntil(sim, () => sim.snapshot().runComplete, 300));
     expect(count(events, "saveRun")).toBe(0);
   });
 
@@ -2432,9 +2643,19 @@ describe("PlaySim enhanced upgrades", () => {
   }
 
   it.each([
-    ["powerPelletInvuln", "invulnMs", 3000, 5000],
+    [
+      "powerPelletInvuln",
+      "invulnMs",
+      levelScaledDurationMs(INVULN_MS, 2),
+      levelScaledDurationMs(INVULN_ENHANCED_MS, 2),
+    ],
     ["powerPelletGhostHarvester", "ghostHarvestMs", 5000, 8000],
-    ["powerPelletWallPass", "wallPassMs", 6000, 6000],
+    [
+      "powerPelletWallPass",
+      "wallPassMs",
+      levelScaledDurationMs(WALL_PASS_MS, 2),
+      levelScaledDurationMs(WALL_PASS_MS, 2),
+    ],
     ["passiveDefyDeath", "defyDeathMs", 5000, 8000],
   ] as const)("%s: power-pellet timer %s is %i ms, Plus %i ms", (id, key, base, plus) => {
     for (const [owned, expected] of [
@@ -2450,14 +2671,16 @@ describe("PlaySim enhanced upgrades", () => {
   });
 
   it("Overcharge triples enhanced timers (and only doubles with the base)", () => {
+    const doubled = levelScaledDurationMs(INVULN_MS, 2) * 2;
+    const tripled = levelScaledDurationMs(INVULN_ENHANCED_MS, 2) * 3;
     const base = startSim({
       level: 2,
       maze: "maze1",
       enableUpgrades: ["powerPelletInvuln", "passiveOvercharge"],
     });
     chomp(base);
-    expect(base.snapshot().timers.invulnMs).toBeGreaterThan(5800);
-    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(6000);
+    expect(base.snapshot().timers.invulnMs).toBeGreaterThan(doubled - 200);
+    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(doubled);
 
     const plus = startSim({
       level: 2,
@@ -2465,8 +2688,8 @@ describe("PlaySim enhanced upgrades", () => {
       enableUpgrades: ["powerPelletInvulnPlus", "passiveOverchargePlus"],
     });
     chomp(plus);
-    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(14800);
-    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(15000);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(tripled - 200);
+    expect(plus.snapshot().timers.invulnMs).toBeLessThanOrEqual(tripled);
   });
 
   it("Overcharge extends the Defy Death window", () => {
@@ -3096,6 +3319,8 @@ describe("debug tuning", () => {
 });
 
 describe("Shield Pellets", () => {
+  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
+
   function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
     return startSim({ level: 2, maze: "maze1", enableUpgrades });
   }
@@ -3143,7 +3368,7 @@ describe("Shield Pellets", () => {
       deathsThisBoard: 0,
       shieldCrackProgress: 0,
     });
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: LEVEL2_INVULN_MS });
     expect(events).toContainEqual({ type: "shieldCrack", index: 0, progress: 0 });
     expect(events).not.toContainEqual({ type: "sfx", id: "death" });
     const crack = runUntil(sim, () => sim.snapshot().shieldCrackProgress === null, 120);
@@ -3237,7 +3462,7 @@ describe("Shield Pellets", () => {
   it("does nothing without the upgrade", () => {
     const sim = startShieldSim(["powerPelletInvuln"]);
     chompPowerPellet(sim);
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: INVULN_MS });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: LEVEL2_INVULN_MS });
   });
 });
 
@@ -3691,15 +3916,21 @@ describe("ghost style (neon line art vs pixel)", () => {
   const sorted = (values: readonly string[] | readonly number[] | undefined) =>
     [...(values ?? [])].map(String).sort();
 
-  it("draws every present ghost as neon line art by default, on every level", () => {
-    expect(sorted(startSim({ level: 5 }, "lineart").snapshot().lineArtGhosts)).toEqual([
-      "blinky",
-      "clyde",
-      "inky",
-      "pinky",
-    ]);
+  it("draws no line art by default (pixel STYLE)", () => {
+    const sim = startSim({ level: 5 }, "lineart");
+    expect(sim.snapshot().lineArtGhosts).toEqual([]);
+    expect(sim.snapshot().lineArtPlayer).toBe(false);
+    expect(sim.snapshot().lineArtQuarter).toBe(false);
+  });
+
+  it("draws every present ghost as neon line art under neon STYLE, on every level", () => {
+    const neonSim = startSim({ level: 5 }, "lineart");
+    neonSim.setGhostStyle("neon");
+    expect(sorted(neonSim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
     for (const level of [1, 9]) {
-      const snap = startSim({ level }, "lineart").snapshot();
+      const sim = startSim({ level }, "lineart");
+      sim.setGhostStyle("neon");
+      const snap = sim.snapshot();
       expect(snap.lineArtGhosts.length).toBeGreaterThan(0);
       expect(sorted(snap.lineArtGhosts)).toEqual(
         sorted([...new Set(snap.ghosts.map((g) => g.kind))]),
@@ -3709,6 +3940,7 @@ describe("ghost style (neon line art vs pixel)", () => {
 
   it("tells the renderer which drawables are line art, Dot-Man included", () => {
     const sim = startSim({ level: 5 }, "lineart");
+    sim.setGhostStyle("neon");
     const events = runFrames(sim, 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
     expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
@@ -3785,6 +4017,7 @@ describe("ghost style (neon line art vs pixel)", () => {
 
   it("follows a ghosts override", () => {
     const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
+    sim.setGhostStyle("neon");
     expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "pinky"]);
   });
 });
@@ -4035,6 +4268,7 @@ describe("Streak Engine", () => {
 
 describe("Echo", () => {
   const AFTER_ECHO_MS = ECHO_DELAY_MS + 500;
+  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
 
   function startEcho(enableUpgrades: UpgradeId[], godMode = true): PlaySim {
     return startSim({ level: 2, maze: "maze1", godMode, enableUpgrades }, "echo1");
@@ -4055,7 +4289,7 @@ describe("Echo", () => {
     chompPowerPellet(sim);
     expect(sim.snapshot().timers.echoesMs).toEqual([ECHO_DELAY_MS]);
     runMs(sim, AFTER_ECHO_MS);
-    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(INVULN_MS - 600);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(LEVEL2_INVULN_MS - 600);
     expect(sim.snapshot().timers.echoesMs).toEqual([]);
   });
 
@@ -4092,8 +4326,8 @@ describe("Echo", () => {
   it("doubles the echoed duration with Overcharge", () => {
     const sim = startEcho(["passiveEcho", "powerPelletInvuln", "passiveOvercharge"]);
     chompPowerPellet(sim);
-    runMs(sim, 2 * INVULN_MS - 100);
-    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(INVULN_MS);
+    runMs(sim, 2 * LEVEL2_INVULN_MS - 100);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(LEVEL2_INVULN_MS);
   });
 
   it("does not echo a shield banked by Shield Pellets", () => {
@@ -4110,6 +4344,31 @@ describe("Echo", () => {
     expect(sim.snapshot().dying).toBe(true);
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().timers.echoesMs).toEqual([]);
+  });
+});
+
+describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
+  function chompPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  it.each([
+    ["powerPelletFreeze", "freezeMs", levelScaledDurationMs(FREEZE_MS, 5)],
+    ["powerPelletInvuln", "invulnMs", levelScaledDurationMs(INVULN_MS, 5)],
+    ["powerPelletWallPass", "wallPassMs", levelScaledDurationMs(WALL_PASS_MS, 5)],
+  ] as const)("%s shortens to %i ms by level 5", (id, key, expected) => {
+    const sim = startSim({ level: 5, maze: "maze1", enableUpgrades: [id] }, "level-scale");
+    if (id === "powerPelletFreeze") {
+      for (const eid of query(sim.world, [Ghost, Position])) {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+      }
+    }
+    chompPowerPellet(sim);
+    const ms = sim.snapshot().timers[key];
+    expect(ms).toBeLessThanOrEqual(expected);
+    expect(ms).toBeGreaterThan(expected - 200);
   });
 });
 

@@ -17,6 +17,7 @@ import {
   type NeonBarTube,
 } from "../../domain/bonusBarFx";
 import { playTurnSparks } from "./turnSparks";
+import { bossTimerLabel } from "../../domain/bossRules";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
 import {
@@ -26,7 +27,7 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
-import { ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
+import { DEFAULT_GHOST_STYLE, ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { pelletStyleFor } from "../../domain/pelletStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
@@ -138,7 +139,7 @@ export class PlayScene extends Phaser.Scene {
   private bonusGlowGfx!: Phaser.GameObjects.Graphics;
   private bonusGfx!: Phaser.GameObjects.Graphics;
   private bonusGlowKey = "";
-  private ghostStyle: GhostStyle = "neon";
+  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
   private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
@@ -549,6 +550,7 @@ export class PlayScene extends Phaser.Scene {
       case "timer":
         this.timerText.setText(this.timerLabel());
         placeGameText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+        this.syncTimerGlitchBlink();
         break;
       case "timerVisible":
         this.timerText.setVisible(event.visible);
@@ -1035,6 +1037,15 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private timerLabel(): string {
-    return `Time: ${this.sim.hud().time}`;
+    return bossTimerLabel(this.sim.snapshot().bossStageTransition === true, this.sim.hud().time);
+  }
+
+  private syncTimerGlitchBlink(): void {
+    if (this.sim.snapshot().bossStageTransition !== true) {
+      this.timerText.setAlpha(1);
+      return;
+    }
+    const pulse = Math.floor(this.time.now / 120) % 2 === 0 ? 1 : 0.2;
+    this.timerText.setAlpha(pulse);
   }
 }

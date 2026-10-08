@@ -1,4 +1,5 @@
 import { parseBonusParam } from "./bonusFlag";
+import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
 import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
@@ -28,6 +29,7 @@ export type PlayOptions = {
   bonus: number | null;
   ghosts: GhostKindId[] | null;
   boss: BossId | null;
+  bossStageAdvance: boolean;
   jumpToUpgrade: boolean;
   store: StoreIndex | null;
   disableLevelUpgrades: boolean;
@@ -86,6 +88,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       bonus,
       ghosts,
       boss,
+      bossStageAdvance: parseBossStageAdvanceFlag(params),
       jumpToUpgrade: parseJumpToUpgradeFlag(params),
       store: parseStoreFlag(params),
       disableLevelUpgrades: parseDisableLevelUpgradesFlag(params),

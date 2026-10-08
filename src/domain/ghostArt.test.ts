@@ -19,12 +19,13 @@ import { resolveTuning } from "./tuning";
 import { GHOST_KIND } from "./ghostKind";
 
 describe("parseGhostStyle", () => {
-  it("reads a stored style and defaults to neon", () => {
+  it("reads a stored style and defaults to pixel", () => {
     expect(parseGhostStyle("pixel")).toBe("pixel");
     expect(parseGhostStyle("neon")).toBe("neon");
     expect(parseGhostStyle("lined")).toBe("lined");
     expect(parseGhostStyle(null)).toBe(DEFAULT_GHOST_STYLE);
-    expect(parseGhostStyle("sparkly")).toBe("neon");
+    expect(parseGhostStyle("sparkly")).toBe(DEFAULT_GHOST_STYLE);
+    expect(DEFAULT_GHOST_STYLE).toBe("pixel");
   });
 });
 
