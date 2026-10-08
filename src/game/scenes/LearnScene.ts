@@ -56,6 +56,7 @@ import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import { playTurnSparks } from "./turnSparks";
 import { playStreakPop } from "./streakPop";
+import { killPelletAbsorbs, playPelletAbsorb } from "./pelletAbsorb";
 import { addGhostIcon, createRender, preloadPlayArt, type PlayRender } from "../systems/render";
 import {
   MENU_OPTION_FONT_SIZE,
@@ -218,6 +219,10 @@ export class LearnScene extends Phaser.Scene {
     for (const event of events) {
       if (event.type === "releaseDrawable") {
         this.playRender.releaseDrawable(event.eid);
+      } else if (event.type === "pelletAbsorb") {
+        playPelletAbsorb(this, event, () => this.sim.playerWorldPosition());
+      } else if (event.type === "resetBoard") {
+        killPelletAbsorbs(this);
       } else if (event.type === "draw") {
         this.playRender.draw(this.sim.world, event.options);
       } else if (event.type === "bouncePowerPellet") {

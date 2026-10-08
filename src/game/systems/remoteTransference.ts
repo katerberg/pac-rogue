@@ -5,8 +5,9 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
+import { pelletSnap, type RemovedPelletSnap } from "./collectPellets";
 
-export function applyRemoteTransference(world: World, count: number): number[] {
+export function applyRemoteTransference(world: World, count: number): RemovedPelletSnap[] {
   if (count <= 0) {
     return [];
   }
@@ -28,8 +29,10 @@ export function applyRemoteTransference(world: World, count: number): number[] {
     Position.y[playerEid] ?? 0,
     count,
   );
+  const snaps: RemovedPelletSnap[] = [];
   for (const eid of chosen) {
+    snaps.push(pelletSnap(world, eid));
     removeEntity(world, eid);
   }
-  return chosen;
+  return snaps;
 }

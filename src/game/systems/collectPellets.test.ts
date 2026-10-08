@@ -8,13 +8,18 @@ import {
   worldToRow,
   type SolidGrid,
 } from "../../domain/maze";
-import { PELLET_RADIUS, playerRadius } from "../../domain/playfield";
+import {
+  PELLET_DRAWABLE_ID,
+  PELLET_RADIUS,
+  POWER_PELLET_DRAWABLE_ID,
+  playerRadius,
+} from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
-import { collectPellets, countPellets } from "./collectPellets";
+import { collectPellets, countPellets, type RemovedPelletSnap } from "./collectPellets";
 
 function spawnPlayer(x: number, y: number) {
   const world = createWorld();
@@ -38,8 +43,19 @@ function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number
   }
   Position.x[eid] = x;
   Position.y[eid] = y;
+  Drawable.id[eid] = power ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID;
   Drawable.radius[eid] = PELLET_RADIUS;
   return eid;
+}
+
+function snap(eid: number, x: number, y: number, power = false): RemovedPelletSnap {
+  return {
+    eid,
+    x,
+    y,
+    drawableId: power ? POWER_PELLET_DRAWABLE_ID : PELLET_DRAWABLE_ID,
+    optional: false,
+  };
 }
 
 function cellOf(x: number, y: number) {

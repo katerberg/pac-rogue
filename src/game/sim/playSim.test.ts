@@ -9,6 +9,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  ghostHouseSpawnCenter,
   horizontalTunnelRows,
   isWalkable,
   playerFarthestFromGhostsSpawn,
@@ -412,6 +413,43 @@ describe("PlaySim", () => {
     const events = runFrames(sim, 60, { keys: held("left") });
     expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
+  });
+
+  describe("pelletAbsorb", () => {
+    it("emits absorb for neon regular pellets Dot-Man eats", () => {
+      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-neon");
+      sim.setGhostStyle("neon");
+      const events = runFrames(sim, 60, { keys: held("left") });
+      const absorbs = events.filter((event) => event.type === "pelletAbsorb");
+      expect(absorbs.length).toBeGreaterThan(0);
+      expect(absorbs[0]).toMatchObject({ type: "pelletAbsorb" });
+      expect(typeof absorbs[0]!.x).toBe("number");
+      expect(typeof absorbs[0]!.y).toBe("number");
+      expect(absorbs[0]!.radius).toBeGreaterThan(0);
+    });
+
+    it("skips absorb under pixel style", () => {
+      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-pixel");
+      sim.setGhostStyle("pixel");
+      const events = runFrames(sim, 60, { keys: held("left") });
+      expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
+      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
+    });
+
+    it("does not absorb power pellets", () => {
+      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-power");
+      sim.setGhostStyle("neon");
+      for (const eid of query(sim.world, [Pellet])) {
+        if (!hasComponent(sim.world, eid, PowerPellet)) {
+          removeEntity(sim.world, eid);
+        }
+      }
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      const events = runFrames(sim, 2);
+      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
+      expect(count(events, "releaseDrawable")).toBeGreaterThan(0);
+    });
   });
 
   it("drags Maze-Man's speed briefly after eating a dot, then eases back to full", () => {
@@ -1723,12 +1761,15 @@ describe("Ghost Harvester", () => {
     armWithPowerPellet(sim);
     const player = playerEid(sim);
     const target = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
+    const house = ghostHouseSpawnCenter();
+    teleportPlayer(sim, house.x, house.y);
     const before = sim.snapshot().boardCollected;
     parkGhostOn(sim, target);
     const events = runFrames(sim, 1);
     expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
     expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
+    expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
 
     runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
     const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);

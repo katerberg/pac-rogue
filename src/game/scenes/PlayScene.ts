@@ -84,6 +84,7 @@ import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
+import { killPelletAbsorbs, playPelletAbsorb } from "./pelletAbsorb";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import {
   createUpgradeChoiceModal,
@@ -451,7 +452,11 @@ export class PlayScene extends Phaser.Scene {
       case "releaseDrawable":
         this.playRender.releaseDrawable(event.eid);
         break;
+      case "pelletAbsorb":
+        playPelletAbsorb(this, event, () => this.sim.playerWorldPosition());
+        break;
       case "resetBoard":
+        killPelletAbsorbs(this);
         this.playRender.resetForNewBoard();
         break;
       case "draw":
