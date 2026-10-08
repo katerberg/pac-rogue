@@ -21,14 +21,6 @@ export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 export const MAZE_TOP_MARGIN_PX = 8;
 export const MAZE_BOTTOM_MARGIN_PX = HUD_BOTTOM_MARGIN_PX;
 
-// Fixed pixel size for every maze tile, all layouts — Pac-Man, ghosts, and wall
-// strokes render at the same size regardless of grid dimensions. Capped by the
-// tallest layout in use (28x34 generated boards): floor((600-8-8)/34) = 17.
-export const TILE_SIZE_PX = 17;
-if (TILE_SIZE_PX < MIN_TILE_SIZE) {
-  throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
-}
-
 export type MazeGeometry = {
   cols: number;
   rows: number;
@@ -39,6 +31,13 @@ export type MazeGeometry = {
   offsetY: number;
 };
 
+/** Largest integer tile that fits `cols`×`rows` in the playfield with HUD margins. */
+export function fitTileSize(cols: number, rows: number): number {
+  const usableHeight = Math.max(1, PLAYFIELD_HEIGHT - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX);
+  const usableWidth = Math.max(1, PLAYFIELD_WIDTH - 2 * MIN_MAZE_OFFSET_X);
+  return Math.min(Math.floor(usableHeight / rows), Math.floor(usableWidth / cols));
+}
+
 export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
   if (cols < MAZE_COLS_MIN || cols > MAZE_COLS_MAX) {
     throw new Error(`maze cols ${cols} outside ${MAZE_COLS_MIN}..${MAZE_COLS_MAX}`);
@@ -46,16 +45,12 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
   if (rows < MAZE_ROWS_MIN || rows > MAZE_ROWS_MAX) {
     throw new Error(`maze rows ${rows} outside ${MAZE_ROWS_MIN}..${MAZE_ROWS_MAX}`);
   }
-  const usableHeight = Math.max(1, PLAYFIELD_HEIGHT - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX);
-  const tileSize = TILE_SIZE_PX;
+  const tileSize = fitTileSize(cols, rows);
+  if (tileSize < MIN_TILE_SIZE) {
+    throw new Error(`maze tile size ${tileSize} below minimum ${MIN_TILE_SIZE}`);
+  }
   const pixelWidth = cols * tileSize;
-  if (pixelWidth > PLAYFIELD_WIDTH) {
-    throw new Error(`maze pixel width ${pixelWidth} exceeds playfield width ${PLAYFIELD_WIDTH}`);
-  }
   const pixelHeight = rows * tileSize;
-  if (pixelHeight > usableHeight) {
-    throw new Error(`maze pixel height ${pixelHeight} exceeds usable height ${usableHeight}`);
-  }
   const offsetX = (PLAYFIELD_WIDTH - pixelWidth) / 2;
   if (offsetX < MIN_MAZE_OFFSET_X) {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
@@ -86,11 +81,10 @@ export type WallCornerCurveKind = "circular" | "quadratic";
 export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
 export const PLAYER_WALL_PADDING_PX = 0;
-export const PELLET_DISPLAY_SIZE_MAX = TILE_SIZE_PX;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
 export function pelletDisplaySize(tileSize: number = TILE_SIZE): number {
-  return Math.min(PELLET_DISPLAY_SIZE_MAX, tileSize);
+  return tileSize;
 }
 
 export function powerPelletDisplaySize(tileSize: number = TILE_SIZE): number {

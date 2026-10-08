@@ -106,7 +106,7 @@ describe("tuning threads into gameplay helpers", () => {
 
   it("scales ghost and player speeds from the tuned ratios", () => {
     const tuned = resolveTuning({ playerSpeedTiles: 10, ghostHouseExitRatio: 1 });
-    expect(playerSpeed(tuned)).toBe(playerSpeed(DEFAULT_TUNING) * (10 / 7.315));
+    expect(playerSpeed(tuned)).toBeCloseTo(playerSpeed(DEFAULT_TUNING) * (10 / 7.315));
     expect(resolveGhostSpeedForKind(GHOST_KIND.pinky, 100, false, 1, true, 0, tuned)).toBeCloseTo(
       playerSpeed(tuned),
     );

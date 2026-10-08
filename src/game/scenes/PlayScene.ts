@@ -23,6 +23,7 @@ import {
   MAZE_OFFSET_X,
   MAZE_OFFSET_Y,
   MAZE_PIXEL_HEIGHT,
+  TILE_SIZE,
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
@@ -417,6 +418,9 @@ export class PlayScene extends Phaser.Scene {
       cursor: this.input.manager.canvas.style.cursor || "default",
       livesHudIcons: livesHudIcons,
       shieldsHudIcons: shieldsHudIcons,
+      tileSize: TILE_SIZE,
+      mazeOffsetY: MAZE_OFFSET_Y,
+      mazeBottomY: MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT,
       runEndMenu: {
         open: this.runEndMenu !== null,
         selected: this.runEndMenu?.selected() ?? null,
