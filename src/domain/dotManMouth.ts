@@ -53,6 +53,9 @@ export function dotManChompMouthHalfDegs(
 
 export const DOTMAN_CHOMP_MOUTH_HALF_DEG = dotManChompMouthHalfDegs();
 
+/** HUD lives / store life glyph: halfway between open and closed. */
+export const DOTMAN_MOUTH_ICON_HALF_DEG = DOTMAN_CHOMP_MOUTH_HALF_DEG[1];
+
 /** Pixel Pac-Man texture frames for the same open→mid→closed→mid beat. */
 export const DOTMAN_CHOMP_PIXEL_FRAMES = [1, 2, 3, 2] as const;
 

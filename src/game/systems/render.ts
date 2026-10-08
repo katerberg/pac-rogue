@@ -25,13 +25,15 @@ import {
   type PelletStyle,
 } from "../../domain/pelletStyle";
 import type { LineArt } from "../../domain/lineArt";
-import { DOTMAN_LINE_ART, dotManLineArt } from "../art/dotmanLineArt";
+import { dotManLineArt } from "../art/dotmanLineArt";
 import {
   advanceDotManChomp,
   DOTMAN_CHOMP_PIXEL_FRAMES,
   DOTMAN_CHOMP_PIXELS_PER_FRAME,
   DOTMAN_MOUTH_ANGLES_DEFAULT,
+  DOTMAN_MOUTH_ICON_HALF_DEG,
   dotManChompPixelsPerFrame,
+  dotManMouthArt,
   dotManMouthHalfAngle,
   resolveDotManMouthAngles,
   type DotManMouthAngles,
@@ -318,14 +320,14 @@ export function addDotManIcon(
   const look = playerLineArtLook(ghostLineArtLook(null, style));
   const reach = look.glow?.distancePx ?? 0;
   const box = size + 2 * reach;
-  const key = `dotman-icon-${style}-${size}-${px}-${backdrop}`;
+  const key = `dotman-icon-${style}-${size}-${px}-${backdrop}-${DOTMAN_MOUTH_ICON_HALF_DEG}`;
   if (!scene.textures.exists(key)) {
     // The glow filter centres on world coordinates, so it breaks inside containers (HUD, store tiles).
     const texturePx = Math.ceil(box * px);
     const texture = scene.textures.addDynamicTexture(key, texturePx, texturePx)!;
     const obj = createLineArtObject(
       scene,
-      DOTMAN_LINE_ART,
+      dotManMouthArt(DOTMAN_MOUTH_ICON_HALF_DEG),
       DOTMAN_LINE_ART_COLOR,
       backdrop,
       size * px,

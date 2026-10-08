@@ -9,6 +9,7 @@ import {
   DOTMAN_INNER_RADIUS,
   DOTMAN_MID_RADIUS,
   DOTMAN_MOUTH_CLOSED_HALF_DEG,
+  DOTMAN_MOUTH_ICON_HALF_DEG,
   DOTMAN_MOUTH_OPEN_HALF_DEG,
   DOTMAN_OUTER_RADIUS,
   DOTMAN_VIEW,
@@ -37,6 +38,9 @@ describe("dotManMouthHalfAngle", () => {
     expect(DOTMAN_CHOMP_PIXEL_FRAMES).toHaveLength(DOTMAN_CHOMP_MOUTH_HALF_DEG.length);
     expect(dotManMouthHalfAngle(0, true)).toBe(DOTMAN_MOUTH_OPEN_HALF_DEG);
     expect(dotManMouthHalfAngle(2, true)).toBe(DOTMAN_MOUTH_CLOSED_HALF_DEG);
+    expect(DOTMAN_MOUTH_ICON_HALF_DEG).toBe(
+      (DOTMAN_MOUTH_OPEN_HALF_DEG + DOTMAN_MOUTH_CLOSED_HALF_DEG) / 2,
+    );
   });
 
   it("uses the supplied open/closed angles for the chomp cycle", () => {
