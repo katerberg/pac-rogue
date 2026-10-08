@@ -2016,7 +2016,7 @@ export class PlaySim {
   }
 
   private finishLevelClear(): void {
-    this.applyLifeRegen(this.regenAmount(), true);
+    this.applyLifeRegen(this.regenAmount());
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
       this.beginLevelTransition();
       return;
@@ -2177,14 +2177,12 @@ export class PlaySim {
     );
   }
 
-  private applyLifeRegen(amount: number, recordEnd = false): void {
+  private applyLifeRegen(amount: number): void {
     const livesBefore = this.lives;
     if (amount > 0) {
       this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), amount);
     }
-    if (amount > 0 || recordEnd) {
-      this.recorder.livesRegenerated(livesBefore, this.lives);
-    }
+    this.recorder.livesRegenerated(livesBefore, this.lives);
     if (this.lives > livesBefore) {
       this.emit({ type: "lives", pulse: true });
     }

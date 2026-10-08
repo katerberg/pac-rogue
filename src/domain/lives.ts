@@ -34,7 +34,6 @@ export function levelLivesIconFloor(floorBonus: number, maxLives = DEFAULT_MAX_L
   return livesHudIconCount(maxLives) + floorBonus;
 }
 
-/** Lives granted on level clear when Myogenesis is owned (0 without it). */
 export function levelRegenAmount(hasMyogenesis: boolean, toFull = false): number {
   if (!hasMyogenesis) {
     return 0;
