@@ -5,10 +5,8 @@
   <!-- Outer rim. Path direction = future unspool order. -->
   <path id="rim" stroke="currentColor" fill="none" stroke-width="6.5" stroke-linecap="round"
     d="M50 12 A38 38 0 1 1 50 88 A38 38 0 1 1 50 12" />
-  <!-- Minimal left-facing profile: one open stroke (brow ? nose ? chin ? neck). -->
   <path id="profile" stroke="currentColor" fill="none" stroke-width="6.5" stroke-linecap="round"
     d="M58 32 C50 26 42 30 40 40 C38 50 42 58 50 64 L50 72" />
-  <!-- Tiny queue bump on the right. -->
   <path id="queue" stroke="currentColor" fill="none" stroke-width="6.5" stroke-linecap="round"
     d="M60 40 Q66 46 62 54" />
 </svg>

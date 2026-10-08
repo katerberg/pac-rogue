@@ -44,12 +44,10 @@ export function lineArtPlayer(style: GhostStyle): boolean {
   return style !== "pixel";
 }
 
-/** HUD / store / Money Talks Quarter icons use line art under NEON and LINED. */
 export function lineArtQuarter(style: GhostStyle): boolean {
   return lineArtPlayer(style);
 }
 
-/** Silver coin tint for line-art Quarters (`#c8d0e0`). */
 export const QUARTER_LINE_ART_COLOR = 0xc8d0e0;
 
 export function lineArtDrawableIds(
