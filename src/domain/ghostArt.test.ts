@@ -5,8 +5,10 @@ import {
   lineArtDrawableIds,
   lineArtGhostKinds,
   lineArtPlayer,
+  lineArtQuarter,
   parseGhostStyle,
   playerLineArtLook,
+  quarterLineArtLook,
   sameGhostLineArtLook,
   learnCheckboxLook,
   styleUsesGlow,
@@ -106,6 +108,55 @@ describe("playerLineArtLook", () => {
       widthScale: 1,
       heightScale: 1,
     });
+  });
+});
+
+describe("lineArtQuarter", () => {
+  it("uses line art under neon and lined, not pixel", () => {
+    expect(lineArtQuarter("neon")).toBe(true);
+    expect(lineArtQuarter("lined")).toBe(true);
+    expect(lineArtQuarter("pixel")).toBe(false);
+  });
+});
+
+describe("quarterLineArtLook", () => {
+  it("reads glow and line thickness from the quarter knobs", () => {
+    expect(
+      quarterLineArtLook(
+        resolveTuning({
+          quarterGlow: 2.5,
+          quarterGlowRadius: 10,
+          quarterLineWidth: 8,
+        }),
+      ),
+    ).toEqual({
+      glow: { outerStrength: 2.5, distancePx: 10 },
+      lineWidth: 0.08,
+      widthScale: 1,
+      heightScale: 1,
+    });
+  });
+
+  it("keeps neon glow with null tuning and drops it under lined", () => {
+    expect(quarterLineArtLook(null, "neon").glow).toEqual({
+      outerStrength: 1.6,
+      distancePx: 6,
+    });
+    expect(quarterLineArtLook(null, "lined").glow).toBeNull();
+    expect(quarterLineArtLook(null, "lined").lineWidth).toBe(
+      quarterLineArtLook(null, "neon").lineWidth,
+    );
+  });
+
+  it("ignores STYLE glow when knobs are on", () => {
+    expect(
+      quarterLineArtLook(resolveTuning({ quarterGlow: 3, quarterGlowRadius: 9 }), "lined").glow,
+    ).toEqual({ outerStrength: 3, distancePx: 9 });
+  });
+
+  it("has no glow with no glow strength or radius", () => {
+    expect(quarterLineArtLook(resolveTuning({ quarterGlow: 0 })).glow).toBeNull();
+    expect(quarterLineArtLook(resolveTuning({ quarterGlowRadius: 0 })).glow).toBeNull();
   });
 });
 

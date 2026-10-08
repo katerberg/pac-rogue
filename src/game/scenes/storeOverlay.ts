@@ -29,7 +29,7 @@ import {
 import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
-import { addDotManIcon, QUARTER_TEXTURE_KEY } from "../systems/render";
+import { addDotManIcon, addQuarterIcon } from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
 import { addRareFx, createRareFxToggle } from "./rareFx";
 import {
@@ -341,7 +341,7 @@ export function createStoreOverlay(
     }
     const coinY = size / 2 - 3 - TILE_COIN_PX / 2;
     const coins = coinRowXs(slotPrice(slot), size - 6).map((cx) =>
-      scene.add.image(cx, coinY, QUARTER_TEXTURE_KEY).setDisplaySize(TILE_COIN_PX, TILE_COIN_PX),
+      addQuarterIcon(scene, cx, coinY, TILE_COIN_PX, loadGhostStyle()),
     );
     let glyph: Phaser.GameObjects.GameObject;
     if (slot.kind === "life") {

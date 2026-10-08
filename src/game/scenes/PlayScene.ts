@@ -64,9 +64,10 @@ import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
 import {
   addDotManIcon,
+  addQuarterIcon,
   createRender,
   preloadPlayArt,
-  QUARTER_TEXTURE_KEY,
+  setActiveQuarterLook,
   type PlayRender,
 } from "../systems/render";
 import {
@@ -78,7 +79,7 @@ import {
 import { addGameText, placeGameText, setActiveFontLook, type GameText } from "./neonFont";
 import { fontLineArtLook } from "../../domain/neonFont/fontLook";
 import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/neonFont/layout";
-import { textStyleFor } from "../../domain/ghostArt";
+import { quarterLineArtLook, textStyleFor } from "../../domain/ghostArt";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
@@ -243,6 +244,8 @@ export class PlayScene extends Phaser.Scene {
     this.playRender = createRender(this);
     if (options.knobs) {
       this.openKnobsPanel(tuning);
+    } else {
+      setActiveQuarterLook(null);
     }
 
     this.applyEvents(this.sim.start(), 0);
@@ -298,6 +301,8 @@ export class PlayScene extends Phaser.Scene {
       mouthClosedDeg: tuning.dotManMouthClosedDeg,
     });
     setActiveFontLook(fontLineArtLook(tuning));
+    setActiveQuarterLook(quarterLineArtLook(tuning));
+    this.refreshQuartersHud(false);
   }
 
   private restartAtCurrentLevel(): void {
@@ -815,7 +820,7 @@ export class PlayScene extends Phaser.Scene {
     const size = pelletDisplaySize();
     for (let i = 0; i < this.sim.hud().quarters; i += 1) {
       const { x, y } = quarterHudIconPosition(i, size);
-      const icon = this.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
+      const icon = addQuarterIcon(this, x, y, size, this.ghostStyle);
       this.sideHud.add(icon);
       this.quarterIcons.push(icon);
     }
@@ -828,7 +833,11 @@ export class PlayScene extends Phaser.Scene {
   private drawWalletCoins(spend: MoneyTalksSpend | null): void {
     const count = spend?.count ?? 0;
     while (this.walletCoins.length < count) {
-      this.walletCoins.push(this.add.image(0, 0, QUARTER_TEXTURE_KEY).setDepth(WALLET_COIN_DEPTH));
+      this.walletCoins.push(
+        addQuarterIcon(this, 0, 0, pelletDisplaySize(), this.ghostStyle).setDepth(
+          WALLET_COIN_DEPTH,
+        ),
+      );
     }
     const size = pelletDisplaySize();
     this.walletCoins.forEach((coin, i) => {

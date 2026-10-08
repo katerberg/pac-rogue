@@ -40,6 +40,7 @@ import {
 } from "../../domain/dotManMouth";
 import { restingTurn, turnAngle, turnToward, type DotManTurn } from "../../domain/dotManTurn";
 import { GHOST_LINE_ART } from "../art/ghostLineArt";
+import { QUARTER_LINE_ART } from "../art/quarterLineArt";
 import {
   createLineArtObject,
   destroyLineArtObject,
@@ -72,7 +73,10 @@ import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fru
 import {
   ghostLineArtLook,
   lineArtPlayer,
+  lineArtQuarter,
   playerLineArtLook,
+  quarterLineArtLook,
+  QUARTER_LINE_ART_COLOR,
   sameGhostLineArtLook,
   type GhostLineArtLook,
   type GhostStyle,
@@ -329,6 +333,60 @@ export function addDotManIcon(
       scene,
       dotManMouthArt(DOTMAN_MOUTH_ICON_HALF_DEG),
       DOTMAN_LINE_ART_COLOR,
+      backdrop,
+      size * px,
+      look.glow === null ? look : { ...look, glow: { ...look.glow, distancePx: reach * px } },
+      true,
+      1,
+    );
+    placeLineArtObject(obj, texturePx / 2, texturePx / 2, 1);
+    texture.draw(obj.glow === null ? [obj.art] : [obj.glow, obj.art]);
+    texture.render();
+    destroyLineArtObject(obj);
+  }
+  return scene.add.image(x, y, key).setDisplaySize(box, box);
+}
+
+let activeQuarterLook: GhostLineArtLook | null = null;
+
+/** When knobs are on, PlayScene pushes the live look so baked Quarter icons rebuild. */
+export function setActiveQuarterLook(look: GhostLineArtLook | null): void {
+  activeQuarterLook = look;
+}
+
+function quarterIconLook(style: GhostStyle): GhostLineArtLook {
+  return activeQuarterLook ?? quarterLineArtLook(null, style);
+}
+
+function quarterLookKey(look: GhostLineArtLook): string {
+  const glow = look.glow;
+  return `${look.lineWidth}-${glow?.outerStrength ?? 0}-${glow?.distancePx ?? 0}`;
+}
+
+export function addQuarterIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+  style: GhostStyle,
+): Phaser.GameObjects.Image {
+  if (!lineArtQuarter(style)) {
+    return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
+  }
+  const px = renderScaleOf(scene);
+  const backdrop = storedWallStyle().background;
+  const look = quarterIconLook(style);
+  const reach = look.glow?.distancePx ?? 0;
+  const box = size + 2 * reach;
+  const key = `quarter-icon-${style}-${size}-${px}-${backdrop}-${quarterLookKey(look)}`;
+  if (!scene.textures.exists(key)) {
+    // Glow filters break inside containers (HUD, store tiles), so bake once like Dot-Man icons.
+    const texturePx = Math.ceil(box * px);
+    const texture = scene.textures.addDynamicTexture(key, texturePx, texturePx)!;
+    const obj = createLineArtObject(
+      scene,
+      QUARTER_LINE_ART,
+      QUARTER_LINE_ART_COLOR,
       backdrop,
       size * px,
       look.glow === null ? look : { ...look, glow: { ...look.glow, distancePx: reach * px } },
