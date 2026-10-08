@@ -86,7 +86,7 @@ export const WALL_INSET_PX = 12;
  * Keeps Dot-Man/ghosts inside the painted corridor (fractional OK).
  * Visual only; collision uses `playerRadius`.
  */
-export const PLAYER_CORRIDOR_CLEARANCE_PX = 1.25;
+export const PLAYER_CORRIDOR_CLEARANCE_PX = 1.75;
 export const PELLET_DISPLAY_SIZE_MAX = 16;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
