@@ -544,9 +544,12 @@ describe("maze", () => {
     expect(withEmptyExterior.length).toBeGreaterThan(withDefault.length);
   });
 
-  it("derives player display size from wall padding", () => {
-    expect(playerDisplaySize()).toBe(TILE_SIZE - 2 * PLAYER_WALL_PADDING_PX);
-    expect(playerDisplaySize(4, TILE_SIZE)).toBe(TILE_SIZE - 8);
+  it("derives player display size from corridor width (tile + inset) minus padding", () => {
+    const inset = clampedWallInset();
+    expect(playerDisplaySize()).toBe(TILE_SIZE + 2 * inset - 2 * PLAYER_WALL_PADDING_PX);
+    expect(playerDisplaySize(4, TILE_SIZE, 0)).toBe(TILE_SIZE - 8);
+    expect(playerDisplaySize(2, TILE_SIZE, 3)).toBe(TILE_SIZE + 6 - 4);
+    expect(playerDisplaySize()).toBeGreaterThan(TILE_SIZE);
   });
 
   it("clamps wall corner radius to a half tile", () => {
