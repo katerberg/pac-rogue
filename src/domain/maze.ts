@@ -26,11 +26,15 @@ export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 export const MAZE_TOP_MARGIN_PX = HUD_TOP_MARGIN_PX;
 export const MAZE_BOTTOM_MARGIN_PX = HUD_BOTTOM_MARGIN_PX;
 
+/** Tallest board we size tiles for (generated 28×34). */
+export const TILE_FIT_ROWS = 34;
+
 // Fixed tile size for every layout — Pac-Man/ghosts stay one pixel size across
-// levels. Sized so the tallest generated board (28×34) fits the HUD band
-// between BONUS and the lives inset: floor((600-32-8)/34) = 16. Level 1
-// mazeSmall keeps that same character size with a smaller centered footprint.
-export const TILE_SIZE_PX = 16;
+// levels. Scale the 16px-class grid so TILE_FIT_ROWS exactly fills the HUD band
+// between BONUS and the lives inset (560/34). Level 1 mazeSmall keeps that same
+// character size with a smaller centered footprint.
+const USABLE_HEIGHT_PX = Math.max(1, PLAYFIELD_HEIGHT - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX);
+export const TILE_SIZE_PX = USABLE_HEIGHT_PX / TILE_FIT_ROWS;
 if (TILE_SIZE_PX < MIN_TILE_SIZE) {
   throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
 }
@@ -52,14 +56,14 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
   if (rows < MAZE_ROWS_MIN || rows > MAZE_ROWS_MAX) {
     throw new Error(`maze rows ${rows} outside ${MAZE_ROWS_MIN}..${MAZE_ROWS_MAX}`);
   }
-  const usableHeight = Math.max(1, PLAYFIELD_HEIGHT - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX);
+  const usableHeight = USABLE_HEIGHT_PX;
   const tileSize = TILE_SIZE_PX;
   const pixelWidth = cols * tileSize;
   if (pixelWidth > PLAYFIELD_WIDTH) {
     throw new Error(`maze pixel width ${pixelWidth} exceeds playfield width ${PLAYFIELD_WIDTH}`);
   }
   const pixelHeight = rows * tileSize;
-  if (pixelHeight > usableHeight) {
+  if (pixelHeight > usableHeight + 1e-6) {
     throw new Error(`maze pixel height ${pixelHeight} exceeds usable height ${usableHeight}`);
   }
   const offsetX = (PLAYFIELD_WIDTH - pixelWidth) / 2;
@@ -67,8 +71,8 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
   }
   // Center in the HUD band: below BONUS, above the lives inset. Tall level-2
-  // boards nearly fill it; short level-1 boards keep the same tile size.
-  const offsetY = MAZE_TOP_MARGIN_PX + Math.floor((usableHeight - pixelHeight) / 2);
+  // boards fill the band; short level-1 boards keep the same tile size.
+  const offsetY = MAZE_TOP_MARGIN_PX + (usableHeight - pixelHeight) / 2;
   return { cols, rows, tileSize, pixelWidth, pixelHeight, offsetX, offsetY };
 }
 

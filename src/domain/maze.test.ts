@@ -69,13 +69,16 @@ describe("maze", () => {
     expect(getActiveLayout().playerSolids).toHaveLength(MAZE_ROWS);
     expect(getActiveLayout().playerSolids[0]).toHaveLength(MAZE_COLS);
     expect(TILE_SIZE).toBe(TILE_SIZE_PX);
-    expect(MAZE_OFFSET_X).toBe((800 - MAZE_PIXEL_WIDTH) / 2);
-    expect(MAZE_OFFSET_Y).toBe(
+    expect(MAZE_OFFSET_X).toBeCloseTo((800 - MAZE_PIXEL_WIDTH) / 2, 5);
+    expect(MAZE_OFFSET_Y).toBeCloseTo(
       MAZE_TOP_MARGIN_PX +
-        Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2),
+        (600 - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2,
+      5,
     );
-    expect(MAZE_OFFSET_Y).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
-    expect(MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT).toBeLessThanOrEqual(600 - MAZE_BOTTOM_MARGIN_PX);
+    expect(MAZE_OFFSET_Y).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX - 1e-6);
+    expect(MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT).toBeLessThanOrEqual(
+      600 - MAZE_BOTTOM_MARGIN_PX + 1e-6,
+    );
     expect(MAZE_OFFSET_X).toBeGreaterThanOrEqual(80);
     expect(getActiveLayout().cols).toBe(28);
     expect(getActiveLayout().rows).toBe(31);
@@ -233,7 +236,7 @@ describe("maze", () => {
       }
       expect(mouthSegs.some((seg) => Math.abs(seg.x2 - gate.x1) < 0.01)).toBe(true);
       expect(mouthSegs.some((seg) => Math.abs(seg.x1 - gate.x2) < 0.01)).toBe(true);
-      expect(gate.x2 - gate.x1).toBe(2 * TILE_SIZE);
+      expect(gate.x2 - gate.x1).toBeCloseTo(2 * TILE_SIZE, 5);
 
       const midY = cellOriginY(doorRow) + TILE_SIZE / 2;
       const hasVerticalCapAt = (x: number) =>
@@ -455,7 +458,7 @@ describe("maze", () => {
     expect(() => parseMaze("#\n")).toThrow(/cols/);
   });
 
-  it("rejects out-of-band and oversized-fit sizes; boards share tile size and center in the HUD band", () => {
+  it("rejects out-of-band and oversized-fit sizes; boards share tile size and fill/center in the HUD band", () => {
     expect(() => computeMazeGeometry(19, 31)).toThrow(/cols/);
     expect(() => computeMazeGeometry(28, 20)).toThrow(/rows/);
     expect(() => computeMazeGeometry(28, 36)).toThrow(/height/i);
@@ -464,13 +467,14 @@ describe("maze", () => {
     expect(tall.tileSize).toBe(TILE_SIZE_PX);
     expect(small.tileSize).toBe(TILE_SIZE_PX);
     expect(small.pixelHeight).toBeLessThan(tall.pixelHeight);
-    // Tall boards fit the usable band (below BONUS, above lives) — not past the bottom.
-    expect(tall.offsetY).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
-    expect(tall.offsetY + tall.pixelHeight).toBeLessThanOrEqual(600 - MAZE_BOTTOM_MARGIN_PX);
+    // Tall boards exactly fill the usable band (scaled 16px-class grid).
+    expect(tall.pixelHeight).toBeCloseTo(600 - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX, 5);
+    expect(tall.offsetY).toBeCloseTo(MAZE_TOP_MARGIN_PX, 5);
+    expect(tall.offsetY + tall.pixelHeight).toBeCloseTo(600 - MAZE_BOTTOM_MARGIN_PX, 5);
     // Short boards center with matching leftover above/below in the band.
     const smallTop = small.offsetY - MAZE_TOP_MARGIN_PX;
     const smallBottom = 600 - MAZE_BOTTOM_MARGIN_PX - (small.offsetY + small.pixelHeight);
-    expect(Math.abs(smallTop - smallBottom)).toBeLessThanOrEqual(1);
+    expect(Math.abs(smallTop - smallBottom)).toBeLessThanOrEqual(1e-6);
   });
 
   it("lists wall centers and pipe edges without treating exterior as walls", () => {
