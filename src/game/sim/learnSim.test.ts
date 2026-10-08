@@ -228,10 +228,12 @@ describe("LearnSim ghost style", () => {
       .at(-1)!;
   }
 
-  it("draws the demo ghosts as neon line art by default, and as pixel art when set", () => {
+  it("draws pixel art by default, and neon/lined line art when set", () => {
     const sim = new LearnSim("learn");
     sim.start();
     sim.selectGhost(GHOST_KIND.inky);
+    expect(lastDraw(sim).lineArtDrawableIds).toEqual([]);
+    sim.setGhostStyle("neon");
     expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual(
       [PLAYER_DRAWABLE_ID, BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID].sort(),
     );

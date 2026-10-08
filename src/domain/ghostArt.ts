@@ -4,7 +4,7 @@ import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export type GhostStyle = "neon" | "lined" | "pixel";
 
-export const DEFAULT_GHOST_STYLE: GhostStyle = "neon";
+export const DEFAULT_GHOST_STYLE: GhostStyle = "pixel";
 
 export function parseGhostStyle(raw: string | null): GhostStyle {
   return raw === "neon" || raw === "lined" || raw === "pixel" ? raw : DEFAULT_GHOST_STYLE;

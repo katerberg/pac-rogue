@@ -26,7 +26,7 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
-import { ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
+import { DEFAULT_GHOST_STYLE, ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { pelletStyleFor } from "../../domain/pelletStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
@@ -138,7 +138,7 @@ export class PlayScene extends Phaser.Scene {
   private bonusGlowGfx!: Phaser.GameObjects.Graphics;
   private bonusGfx!: Phaser.GameObjects.Graphics;
   private bonusGlowKey = "";
-  private ghostStyle: GhostStyle = "neon";
+  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
   private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
