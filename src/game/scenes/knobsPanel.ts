@@ -174,6 +174,7 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
           continue;
         }
         const nested = el("details", { className: "knob-subgroup" });
+        nested.dataset.subgroup = subgroup;
         nested.append(el("summary", { textContent: subgroup }));
         for (const knob of subKnobs) {
           nested.append(buildRow(knob));
@@ -191,6 +192,7 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
     const panel = el("div", { id, className: "knobs-panel" });
     for (const group of groups) {
       const section = el("details", { className: "knob-group" });
+      section.dataset.group = group;
       section.append(el("summary", { textContent: group }));
       appendGroupKnobs(section, group);
       if (group === "Ghost speed") {
