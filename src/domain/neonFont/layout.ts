@@ -139,3 +139,21 @@ export function neonTextLocalHeight(
   }
   return lineHeightPx + (lineCount - 1) * neonLinePitch(lineHeightPx, lineSpacingPx);
 }
+
+/** Neon Play-HUD upgrade rows: 3× line height so per-row bloom does not collide. */
+const NEON_UPGRADE_STACK_PITCH_MUL = 3;
+
+export function upgradeStackRowPitch(lineHeightPx: number, textStyle: "neon" | "pixel"): number {
+  return textStyle === "neon" ? lineHeightPx * NEON_UPGRADE_STACK_PITCH_MUL : lineHeightPx;
+}
+
+export function upgradeStackHeight(
+  lineCount: number,
+  lineHeightPx: number,
+  textStyle: "neon" | "pixel",
+): number {
+  if (lineCount <= 0) {
+    return 0;
+  }
+  return lineHeightPx + (lineCount - 1) * upgradeStackRowPitch(lineHeightPx, textStyle);
+}
