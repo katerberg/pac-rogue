@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  activateLayout,
   getActiveLayout,
   MAZE_COLS,
   horizontalTunnelRows,
@@ -198,6 +199,55 @@ describe("maze", () => {
     expect(gates).toHaveLength(1);
     expect(gates[0]!.x1).toBe(cellOriginX(13));
     expect(gates[0]!.x2).toBe(cellOriginX(14) + TILE_SIZE);
+  });
+
+  it("keeps the ghost-house mouth as wide as the pink gate, without horn fillets", () => {
+    for (const id of ["maze1", "mazeSmall"] as const) {
+      activateLayout(id);
+      const gate = doorGateEdges()[0]!;
+      const inset = clampedWallInset();
+      let doorRow = -1;
+      for (let row = 0; row < getActiveLayout().rows; row += 1) {
+        for (let col = 0; col < getActiveLayout().cols; col += 1) {
+          if (isDoor(col, row)) {
+            doorRow = row;
+          }
+        }
+      }
+      expect(doorRow).toBeGreaterThanOrEqual(0);
+      const commands = wallPathCommands();
+      const midY = cellOriginY(doorRow) + TILE_SIZE / 2;
+      const hasVerticalCapAt = (x: number) =>
+        commands.some((command, index) => {
+          if (command.type !== "line") {
+            return false;
+          }
+          const prev = commands[index - 1];
+          if (!prev) {
+            return false;
+          }
+          return (
+            Math.abs(prev.x - x) < 0.01 &&
+            Math.abs(command.x - x) < 0.01 &&
+            Math.min(prev.y, command.y) <= midY &&
+            Math.max(prev.y, command.y) >= midY
+          );
+        });
+      expect(hasVerticalCapAt(gate.x1)).toBe(true);
+      expect(hasVerticalCapAt(gate.x2)).toBe(true);
+      expect(gate.x2 - gate.x1).toBe(2 * TILE_SIZE);
+
+      const outerTopY = cellOriginY(doorRow) + inset;
+      const hornAboveMouth = commands.some(
+        (command) =>
+          command.y < outerTopY - 0.5 &&
+          command.y >= cellOriginY(doorRow) - 0.5 &&
+          command.x > gate.x1 - 1 &&
+          command.x < gate.x2 + 1,
+      );
+      expect(hornAboveMouth).toBe(false);
+    }
+    activateLayout("maze1");
   });
 
   it("treats the exit corridor as outside the house", () => {
