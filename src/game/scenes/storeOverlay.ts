@@ -60,8 +60,8 @@ const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
-/** Inner pad so neon title/body keep clear air from the panel stroke. */
-const PANEL_SIDE_PAD = 24;
+/** Inner pad so neon title/body keep clear air from the panel stroke + bloom. */
+const PANEL_SIDE_PAD = 28;
 const PANEL_TOP_PAD = 12;
 const PANEL_TITLE_MAX_CHARS = 10;
 const MODAL_TITLE_MARGIN = 40;
@@ -273,12 +273,18 @@ export function createStoreOverlay(
     const textStyle = textStyleFor(loadGhostStyle());
     panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
     panelRare(content.rare, schoolBorderColor(content.school));
+    const titleSize = fitFontSize(
+      content.title,
+      PANEL_WIDTH - 2 * PANEL_SIDE_PAD,
+      HUD_FONT_SIZE,
+      textStyle,
+    );
     const titleBudget = Math.min(
       wrapCharBudget(PANEL_TITLE_MAX_CHARS, textStyle),
       wrapCharsFittingWidth(
         content.title,
         PANEL_WIDTH,
-        HUD_FONT_SIZE,
+        titleSize,
         textStyle,
         PANEL_SIDE_PAD,
         DEFAULT_TUNING.fontThickness,
@@ -300,9 +306,7 @@ export function createStoreOverlay(
       ),
     );
     panelTitle.setText(wrapText(content.title, titleBudget));
-    panelTitle.setFontSize(
-      fitFontSize(content.title, PANEL_WIDTH - 2 * PANEL_SIDE_PAD, HUD_FONT_SIZE, textStyle),
-    );
+    panelTitle.setFontSize(titleSize);
     panelBody.setText(wrapText(content.body, bodyBudget));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);

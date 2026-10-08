@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fitFontSize } from "../fitFontSize";
 import { DEFAULT_TUNING } from "../tuning";
 import { getUpgradeDef, type UpgradeId } from "../upgrades";
 import { wrapText } from "../wrapText";
@@ -81,7 +82,7 @@ describe("text stack layout", () => {
 
 describe("store panel horizontal fit (neon)", () => {
   const PANEL_WIDTH = 168;
-  const PANEL_SIDE_PAD = 24;
+  const PANEL_SIDE_PAD = 28;
   const TITLE_SIZE = 16;
   const BODY_SIZE = 8;
   const thickness = DEFAULT_TUNING.fontThickness;
@@ -92,10 +93,11 @@ describe("store panel horizontal fit (neon)", () => {
     "%s title and body stay inside side pads",
     (id) => {
       const def = getUpgradeDef(id as UpgradeId);
+      const titleSize = fitFontSize(def.label, maxContent, TITLE_SIZE, "neon");
       const titleBudget = wrapCharsFittingWidth(
         def.label,
         PANEL_WIDTH,
-        TITLE_SIZE,
+        titleSize,
         "neon",
         PANEL_SIDE_PAD,
         thickness,
@@ -113,7 +115,7 @@ describe("store panel horizontal fit (neon)", () => {
         wrapText,
       );
       for (const line of wrapText(def.label, titleBudget).split("\n")) {
-        expect(lineWidthPx(line, TITLE_SIZE, "neon", thickness, letterSpacing)).toBeLessThanOrEqual(
+        expect(lineWidthPx(line, titleSize, "neon", thickness, letterSpacing)).toBeLessThanOrEqual(
           maxContent,
         );
       }
