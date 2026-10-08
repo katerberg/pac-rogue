@@ -194,12 +194,12 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   optionalPelletGlowColor: 0xa0a0b4,
   optionalPelletFillOpacity: 1,
   pelletAbsorbEnabled: true,
-  pelletAbsorbMs: 100,
-  pelletAbsorbStretchEnd: 0.55,
-  pelletAbsorbMidThin: 0.75,
-  pelletAbsorbNearShrink: 0.35,
+  pelletAbsorbMs: 10,
+  pelletAbsorbStretchEnd: 0.1,
+  pelletAbsorbMidThin: 0.95,
+  pelletAbsorbNearShrink: 0.1,
   pelletAbsorbFarShrink: 0.15,
-  pelletAbsorbSuckEase: 2,
+  pelletAbsorbSuckEase: 3.25,
 });
 
 const TUNING_STORAGE_VERSION = 1;

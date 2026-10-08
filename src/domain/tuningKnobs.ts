@@ -318,15 +318,15 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   pelletAbsorbEnabled:
     "On: neon/lined regular and optional dots gum-stretch into Dot-Man on collect. Off: instant vanish. Visual only; PIXEL ignores this.",
   pelletAbsorbMs:
-    "How long the gum-stretch absorb lasts in milliseconds. 0 = skip the FX (instant vanish). Default 100.",
+    "How long the gum-stretch absorb lasts in milliseconds. 0 = skip the FX (instant vanish). Default 10.",
   pelletAbsorbStretchEnd:
-    "Fraction of the absorb spent thinning the strand (far end parked, near on Dot-Man) before the suck-in. Default 0.55.",
+    "Fraction of the absorb spent thinning the strand (far end parked, near on Dot-Man) before the suck-in. Default 0.10.",
   pelletAbsorbMidThin:
-    "How much the mid-strand width shrinks during the stretch phase (0 = stays full, 1 = thins to a hair). Default 0.75.",
+    "How much the mid-strand width shrinks during the stretch phase (0 = stays full, 1 = thins to a hair). Default 0.95. Mid fill also fades to 0 over the whole absorb.",
   pelletAbsorbNearShrink:
-    "How much the near (Dot-Man) ball shrinks during the stretch phase. Default 0.35.",
+    "How much the near (Dot-Man) ball shrinks during the stretch phase. Default 0.10.",
   pelletAbsorbFarShrink:
     "How much the far (pellet) ball shrinks during the stretch phase. Default 0.15.",
   pelletAbsorbSuckEase:
-    "Ease power on the suck-in (1 = linear, 2 = quadratic ease-in, higher = snappier end). Default 2.",
+    "Ease power on the suck-in (1 = linear, 2 = quadratic ease-in, higher = snappier end). Default 3.25.",
 };

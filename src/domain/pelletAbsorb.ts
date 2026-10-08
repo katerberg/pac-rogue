@@ -15,7 +15,10 @@ export type PelletAbsorbLook = {
   near: PelletAbsorbEnd;
   far: PelletAbsorbEnd;
   midWidth: number;
+  /** End-cap alpha (stretch holds 1; suck fades out). */
   alpha: number;
+  /** Mid-strand fill alpha; fades 1 → 0 over the whole absorb. */
+  midAlpha: number;
 };
 
 export type PelletAbsorbSpawn = {
@@ -111,6 +114,8 @@ export function pelletAbsorbLook(
   const nearShrink = clamp01(look.nearShrink);
   const farShrink = clamp01(look.farShrink);
 
+  const midAlpha = 1 - p;
+
   if (p <= stretchEnd) {
     const s = p / stretchEnd;
     return {
@@ -118,6 +123,7 @@ export function pelletAbsorbLook(
       far: { x: from.x, y: from.y, r: r0 * (1 - farShrink * s) },
       midWidth: r0 * (1 - midThin * s),
       alpha: 1,
+      midAlpha,
     };
   }
 
@@ -134,5 +140,6 @@ export function pelletAbsorbLook(
     },
     midWidth: Math.max(0, midStart * (1 - u)),
     alpha: 1 - u,
+    midAlpha,
   };
 }

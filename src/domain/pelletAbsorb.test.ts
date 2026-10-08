@@ -59,6 +59,7 @@ describe("pelletAbsorbLook", () => {
     expect(look.far).toMatchObject({ x: from.x, y: from.y });
     expect(look.near).toMatchObject({ x: to.x, y: to.y });
     expect(look.alpha).toBe(1);
+    expect(look.midAlpha).toBe(1);
     expect(look.midWidth).toBeCloseTo(r);
   });
 
@@ -68,6 +69,13 @@ describe("pelletAbsorbLook", () => {
     expect(look.near).toMatchObject({ x: to.x, y: to.y });
     expect(look.midWidth).toBeLessThan(r);
     expect(look.alpha).toBe(1);
+    expect(look.midAlpha).toBeCloseTo(1 - PELLET_ABSORB_STRETCH_END * 0.5);
+  });
+
+  it("fades midAlpha to zero over the whole absorb", () => {
+    expect(pelletAbsorbLook(0.25, from, to, r).midAlpha).toBeCloseTo(0.75);
+    expect(pelletAbsorbLook(0.5, from, to, r).midAlpha).toBeCloseTo(0.5);
+    expect(pelletAbsorbLook(1, from, to, r).midAlpha).toBe(0);
   });
 
   it("honours midThin and shrink knobs", () => {
@@ -108,7 +116,16 @@ describe("pelletAbsorbLook", () => {
     expect(look.far).toMatchObject({ x: to.x, y: to.y });
     expect(look.near).toMatchObject({ x: to.x, y: to.y });
     expect(look.alpha).toBe(0);
+    expect(look.midAlpha).toBe(0);
     expect(look.midWidth).toBe(0);
+  });
+
+  it("pins DEFAULT_TUNING absorb defaults", () => {
+    expect(DEFAULT_TUNING.pelletAbsorbMs).toBe(10);
+    expect(DEFAULT_TUNING.pelletAbsorbStretchEnd).toBe(0.1);
+    expect(DEFAULT_TUNING.pelletAbsorbMidThin).toBe(0.95);
+    expect(DEFAULT_TUNING.pelletAbsorbNearShrink).toBe(0.1);
+    expect(DEFAULT_TUNING.pelletAbsorbSuckEase).toBe(3.25);
   });
 });
 

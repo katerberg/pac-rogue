@@ -81,11 +81,10 @@ export function playPelletAbsorb(
     }
     const look = pelletAbsorbLook(clock.progress, from, to, event.radius, getRuntime().look);
     graphics.clear();
-    if (look.alpha <= 0) {
+    if (look.alpha <= 0 && look.midAlpha <= 0) {
       return;
     }
-    graphics.fillStyle(event.color, look.alpha);
-    drawGum(graphics, look.near, look.far, look.midWidth);
+    drawGum(graphics, event.color, look);
   };
   scene.tweens.add({
     targets: clock,
@@ -101,17 +100,24 @@ export function playPelletAbsorb(
 
 function drawGum(
   graphics: Phaser.GameObjects.Graphics,
-  near: { x: number; y: number; r: number },
-  far: { x: number; y: number; r: number },
-  midWidth: number,
+  color: number,
+  look: {
+    near: { x: number; y: number; r: number };
+    far: { x: number; y: number; r: number };
+    midWidth: number;
+    alpha: number;
+    midAlpha: number;
+  },
 ): void {
+  const { near, far, midWidth, alpha, midAlpha } = look;
   const dx = near.x - far.x;
   const dy = near.y - far.y;
   const len = Math.hypot(dx, dy);
-  if (len > 0.01 && midWidth > 0) {
+  if (len > 0.01 && midWidth > 0 && midAlpha > 0) {
     const nx = -dy / len;
     const ny = dx / len;
     const hw = midWidth * 0.5;
+    graphics.fillStyle(color, midAlpha);
     graphics.fillPoints(
       [
         new Phaser.Math.Vector2(far.x + nx * hw, far.y + ny * hw),
@@ -122,10 +128,13 @@ function drawGum(
       true,
     );
   }
-  if (far.r > 0) {
-    graphics.fillCircle(far.x, far.y, far.r);
-  }
-  if (near.r > 0) {
-    graphics.fillCircle(near.x, near.y, near.r);
+  if (alpha > 0) {
+    graphics.fillStyle(color, alpha);
+    if (far.r > 0) {
+      graphics.fillCircle(far.x, far.y, far.r);
+    }
+    if (near.r > 0) {
+      graphics.fillCircle(near.x, near.y, near.r);
+    }
   }
 }
