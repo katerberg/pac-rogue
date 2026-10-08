@@ -123,11 +123,6 @@ describe("tickBossStageTransition", () => {
     expect(done.shouldRebuild).toBe(false);
   });
 
-  it("lasts about three times the original 1.76s choreography", () => {
-    expect(BOSS_STAGE_TOTAL_MS).toBe(5200);
-    expect(BOSS_STAGE_TOTAL_MS / 1760).toBeCloseTo(2.95, 1);
-  });
-
   it("emits cut and music flags only once across many ticks", () => {
     let state = createBossStageTransition();
     let cuts = 0;

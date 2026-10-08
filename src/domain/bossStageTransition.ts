@@ -43,7 +43,6 @@ const ENTITY_FADE_OUT_END = BOSS_STAGE_ENTITY_FADE_MS;
 const MAZE_FLICKER_OUT_END = ENTITY_FADE_OUT_END + BOSS_STAGE_FLICKER_MS;
 const BLACK_HOLD_END = MAZE_FLICKER_OUT_END + BOSS_STAGE_BLACK_HOLD_MS;
 const MAZE_FLICKER_IN_END = BLACK_HOLD_END + BOSS_STAGE_FLICKER_MS;
-const ENTITY_FADE_IN_END = MAZE_FLICKER_IN_END + BOSS_STAGE_ENTITY_FADE_MS;
 
 export function createBossStageTransition(): BossStageTransition {
   return {
@@ -93,7 +92,7 @@ export function tickBossStageTransition(
     phase = "mazeFlickerIn";
     entityAlpha = 0;
     wallAlpha = flickerAlpha(elapsedMs - BLACK_HOLD_END);
-  } else if (elapsedMs < ENTITY_FADE_IN_END) {
+  } else if (elapsedMs < BOSS_STAGE_TOTAL_MS) {
     phase = "entityFadeIn";
     entityAlpha = (elapsedMs - MAZE_FLICKER_IN_END) / BOSS_STAGE_ENTITY_FADE_MS;
     wallAlpha = 1;
