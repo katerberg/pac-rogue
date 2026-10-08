@@ -22,9 +22,9 @@ export const MAZE_TOP_MARGIN_PX = 8;
 export const MAZE_BOTTOM_MARGIN_PX = HUD_BOTTOM_MARGIN_PX;
 
 // Fixed tile size for every layout — Pac-Man/ghosts stay one pixel size across
-// levels. Capped by the tallest boards in use (28×34 generated, levels ≥ 2):
-// floor((600 - 8 - 8) / 34) = 17. Level 1's shorter mazeSmall keeps a smaller
-// footprint at this same tile size; it is not scaled up to fill the playfield.
+// levels. Sized so level-2+ generated boards (28×34) fill the usable height:
+// floor((600 - 8 - 8) / 34) = 17. Level 1 mazeSmall keeps that same tile (same
+// character size) with a smaller footprint, vertically centered in the band.
 export const TILE_SIZE_PX = 17;
 if (TILE_SIZE_PX < MIN_TILE_SIZE) {
   throw new Error(`fixed tile size ${TILE_SIZE_PX} below minimum ${MIN_TILE_SIZE}`);
@@ -61,10 +61,9 @@ export function computeMazeGeometry(cols: number, rows: number): MazeGeometry {
   if (offsetX < MIN_MAZE_OFFSET_X) {
     throw new Error(`maze left gutter ${offsetX} below minimum ${MIN_MAZE_OFFSET_X}`);
   }
-  const offsetY = PLAYFIELD_HEIGHT - pixelHeight - MAZE_BOTTOM_MARGIN_PX;
-  if (offsetY < MAZE_TOP_MARGIN_PX) {
-    throw new Error(`maze top offset ${offsetY} below minimum ${MAZE_TOP_MARGIN_PX}`);
-  }
+  // Center in the usable band: tall level-2 boards nearly fill it; short level-1
+  // boards stay the same character size with equal top/bottom empty space.
+  const offsetY = MAZE_TOP_MARGIN_PX + Math.floor((usableHeight - pixelHeight) / 2);
   return { cols, rows, tileSize, pixelWidth, pixelHeight, offsetX, offsetY };
 }
 

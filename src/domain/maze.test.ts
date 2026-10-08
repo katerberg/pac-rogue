@@ -7,7 +7,6 @@ import {
   horizontalTunnelRows,
   MAZE_OFFSET_X,
   MAZE_OFFSET_Y,
-  MAZE_PIXEL_HEIGHT,
   MAZE_PIXEL_WIDTH,
   MAZE_BOTTOM_MARGIN_PX,
   MAZE_TOP_MARGIN_PX,
@@ -70,10 +69,12 @@ describe("maze", () => {
     expect(getActiveLayout().playerSolids[0]).toHaveLength(MAZE_COLS);
     expect(TILE_SIZE).toBe(TILE_SIZE_PX);
     expect(MAZE_OFFSET_X).toBe((800 - MAZE_PIXEL_WIDTH) / 2);
-    expect(MAZE_OFFSET_Y).toBe(600 - MAZE_ROWS * TILE_SIZE - MAZE_BOTTOM_MARGIN_PX);
+    expect(MAZE_OFFSET_Y).toBe(
+      MAZE_TOP_MARGIN_PX +
+        Math.floor((600 - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX - MAZE_ROWS * TILE_SIZE) / 2),
+    );
     expect(MAZE_OFFSET_Y).toBeGreaterThanOrEqual(MAZE_TOP_MARGIN_PX);
     expect(MAZE_OFFSET_X).toBeGreaterThanOrEqual(80);
-    expect(MAZE_OFFSET_Y + MAZE_PIXEL_HEIGHT).toBe(600 - MAZE_BOTTOM_MARGIN_PX);
     expect(getActiveLayout().cols).toBe(28);
     expect(getActiveLayout().rows).toBe(31);
 
@@ -452,7 +453,7 @@ describe("maze", () => {
     expect(() => parseMaze("#\n")).toThrow(/cols/);
   });
 
-  it("rejects out-of-band and oversized-fit sizes; short boards share tile size", () => {
+  it("rejects out-of-band and oversized-fit sizes; short boards share tile size and center", () => {
     expect(() => computeMazeGeometry(19, 31)).toThrow(/cols/);
     expect(() => computeMazeGeometry(28, 20)).toThrow(/rows/);
     expect(() => computeMazeGeometry(28, 36)).toThrow(/height/i);
@@ -461,8 +462,15 @@ describe("maze", () => {
     expect(tall.tileSize).toBe(TILE_SIZE_PX);
     expect(small.tileSize).toBe(TILE_SIZE_PX);
     expect(small.pixelHeight).toBeLessThan(tall.pixelHeight);
-    expect(tall.offsetY + tall.pixelHeight).toBe(600 - MAZE_BOTTOM_MARGIN_PX);
-    expect(small.offsetY + small.pixelHeight).toBe(600 - MAZE_BOTTOM_MARGIN_PX);
+    // Tall boards nearly fill the usable band (level 2 stretch).
+    expect(tall.pixelHeight).toBeGreaterThanOrEqual(
+      600 - MAZE_TOP_MARGIN_PX - MAZE_BOTTOM_MARGIN_PX - TILE_SIZE_PX,
+    );
+    expect(tall.offsetY).toBeLessThanOrEqual(MAZE_TOP_MARGIN_PX + TILE_SIZE_PX);
+    // Short boards center with matching leftover above/below.
+    const smallTop = small.offsetY - MAZE_TOP_MARGIN_PX;
+    const smallBottom = 600 - MAZE_BOTTOM_MARGIN_PX - (small.offsetY + small.pixelHeight);
+    expect(Math.abs(smallTop - smallBottom)).toBeLessThanOrEqual(1);
   });
 
   it("lists wall centers and pipe edges without treating exterior as walls", () => {
