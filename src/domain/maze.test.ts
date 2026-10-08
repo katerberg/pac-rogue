@@ -201,7 +201,7 @@ describe("maze", () => {
     expect(gates[0]!.x2).toBe(cellOriginX(14) + TILE_SIZE);
   });
 
-  it("keeps the ghost-house mouth as wide as the pink gate, without horn fillets", () => {
+  it("keeps the ghost-house mouth as wide as the gate, with open pipe ends", () => {
     for (const id of ["maze1", "mazeSmall"] as const) {
       activateLayout(id);
       const gate = doorGateEdges()[0]!;
@@ -216,6 +216,25 @@ describe("maze", () => {
       }
       expect(doorRow).toBeGreaterThanOrEqual(0);
       const commands = wallPathCommands();
+      const outerTopY = cellOriginY(doorRow) + inset;
+      const topSegs: { x1: number; x2: number }[] = [];
+      for (let index = 1; index < commands.length; index += 1) {
+        const prev = commands[index - 1];
+        const command = commands[index];
+        if (!prev || prev.type !== "move" || command.type !== "line") {
+          continue;
+        }
+        if (Math.abs(prev.y - outerTopY) > 0.5 || Math.abs(command.y - outerTopY) > 0.5) {
+          continue;
+        }
+        topSegs.push({ x1: Math.min(prev.x, command.x), x2: Math.max(prev.x, command.x) });
+      }
+      const leftEndsAtGate = topSegs.some((seg) => Math.abs(seg.x2 - gate.x1) < 0.01);
+      const rightStartsAtGate = topSegs.some((seg) => Math.abs(seg.x1 - gate.x2) < 0.01);
+      expect(leftEndsAtGate).toBe(true);
+      expect(rightStartsAtGate).toBe(true);
+      expect(gate.x2 - gate.x1).toBe(2 * TILE_SIZE);
+
       const midY = cellOriginY(doorRow) + TILE_SIZE / 2;
       const hasVerticalCapAt = (x: number) =>
         commands.some((command, index) => {
@@ -233,11 +252,9 @@ describe("maze", () => {
             Math.max(prev.y, command.y) >= midY
           );
         });
-      expect(hasVerticalCapAt(gate.x1)).toBe(true);
-      expect(hasVerticalCapAt(gate.x2)).toBe(true);
-      expect(gate.x2 - gate.x1).toBe(2 * TILE_SIZE);
+      expect(hasVerticalCapAt(gate.x1)).toBe(false);
+      expect(hasVerticalCapAt(gate.x2)).toBe(false);
 
-      const outerTopY = cellOriginY(doorRow) + inset;
       const hornAboveMouth = commands.some(
         (command) =>
           command.y < outerTopY - 0.5 &&
