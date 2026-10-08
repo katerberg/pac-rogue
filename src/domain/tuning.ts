@@ -117,7 +117,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   preTurnPx: 4,
   ghostRatioStart: 0.8,
   ghostRatioStep: 0.05,
-  ghostRatioCap: 1,
+  ghostRatioCap: 1.1,
   ghostTunnelRatio: 0.6,
   ghostHouseExitRatio: 0.5,
   elroy1Ratio: 1,

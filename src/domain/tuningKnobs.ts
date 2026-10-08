@@ -247,7 +247,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Ghost speed at level 1 as a fraction of Maze-Man's speed (0.8 = ghosts 20% slower).",
   ghostRatioStep: "How much the ghost speed ratio grows each level until it reaches the cap.",
   ghostRatioCap:
-    "Highest ghost speed ratio the per-level growth can reach (1.0 = parity with Maze-Man).",
+    "Highest ghost speed ratio the per-level growth can reach (1.0 = parity with Maze-Man; default 1.1 lets ghosts edge past parity by level 7–8).",
   ghostTunnelRatio:
     "Ghost speed inside side tunnels as a fraction of Maze-Man's base speed (the level ramp and upgrades still multiply it).",
   ghostHouseExitRatio:
