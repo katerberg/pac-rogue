@@ -52,6 +52,7 @@ function reachChart(
   counts: readonly number[],
   baseline: readonly number[],
   size: { barWidth: number; height: number; labels: boolean },
+  ariaLabel: string,
 ): SVGSVGElement {
   const total = counts.reduce((sum, n) => sum + n, 0);
   const baseTotal = baseline.reduce((sum, n) => sum + n, 0);
@@ -67,6 +68,7 @@ function reachChart(
     height: size.height + labelHeight,
     class: "reach-chart",
     role: "img",
+    "aria-label": ariaLabel,
   });
   chart.append(svg("line", { x1: 0, x2: width, y1: size.height, y2: size.height, class: "axis" }));
   for (let bin = 0; bin < counts.length; bin += 1) {
@@ -132,7 +134,14 @@ function upgradeRow(row: UpgradeRow, baseline: readonly number[]): HTMLTableRowE
   }
   const chart = el("td", "chart");
   if (row.runs > 0) {
-    chart.append(reachChart(row.reach, baseline, { barWidth: 12, height: 26, labels: false }));
+    chart.append(
+      reachChart(
+        row.reach,
+        baseline,
+        { barWidth: 12, height: 26, labels: false },
+        `Where runs with ${row.label} ended`,
+      ),
+    );
   }
   tr.append(
     name,
@@ -212,7 +221,12 @@ export function renderDataPage(
   const overall = el("div", "overall");
   overall.append(
     el("div", "tile-label", "Where all runs ended"),
-    reachChart(summary.reach, summary.reach, { barWidth: 28, height: 60, labels: true }),
+    reachChart(
+      summary.reach,
+      summary.reach,
+      { barWidth: 28, height: 60, labels: true },
+      "Where all runs ended",
+    ),
   );
   strip.append(
     tile("Runs", String(summary.runs)),
