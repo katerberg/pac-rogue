@@ -501,6 +501,32 @@ describe("LearnSim upgrade demos", () => {
     );
   });
 
+  it("Shield Break+ fires pickup effects when the bank is full", () => {
+    const { sim, player } = setup(
+      "passiveShieldPellets",
+      "passiveShieldBreakPlus",
+      "powerPelletInvuln",
+    );
+    const [first, second] = query(sim.world, [PowerPellet, Position]);
+    moveTo(player, posOf(first!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    moveTo(player, posOf(second!));
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(0);
+  });
+
+  it("Shield Break fires on a Starting Shield break", () => {
+    const { sim, player } = setup(
+      "passiveStartingShield",
+      "passiveShieldBreak",
+      "powerPelletInvuln",
+    );
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(1000);
+  });
+
   it("Shield Break holds pickup effects until a catch breaks the shield", () => {
     const { sim, player } = setup(
       "passiveShieldPellets",
