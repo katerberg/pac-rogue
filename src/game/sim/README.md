@@ -16,7 +16,7 @@ sim.chooseUpgrade(option); // answers a pending level-clear offer
 sim.chooseRunEnd("newGame"); // answers the Run Complete menu ("newGame" / "menu")
 ```
 
-- `options` come from `parsePlayOptions(new URLSearchParams(location.search))` in the game and from `{ ...defaultPlayOptions(), ...overrides }` in tests (`src/domain/playOptions.ts`).
+- `options` come from `parsePlayOptions(parseQueryParams(location.search))` in the game and from `{ ...defaultPlayOptions(), ...overrides }` in tests (`src/domain/playOptions.ts`).
 - All randomness is drawn from `sim.random` (seeded `RunRandom`), so a seed plus the same inputs replays the run exactly.
 - Read-only views for the adapter: `world`, `hud()`, `renderOptions()`, `storeState()`, `offer()`, `inStore()`, `readsStoreKeys()`, `snapshot()` (the debug snapshot's `play.*` fields, minus the scene's UI flags).
 - `step` keeps `PlayScene`'s old gate order exactly: starting card → death sequence → run complete → level transition → store → level-end time drain → pending upgrade choice → pending level clear → the main pipeline (see `docs/ARCHITECTURE.md#game-loop`).

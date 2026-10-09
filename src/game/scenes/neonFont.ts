@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { parseQueryParams } from "../../domain/queryParams";
 import { textStyleFor, type GhostStyle } from "../../domain/ghostArt";
 import { parseKnobsFlag } from "../../domain/knobsFlag";
 import { parseLineArt, type LineArt } from "../../domain/lineArt";
@@ -65,7 +66,7 @@ function glyphArtFor(char: string, glyph: NeonGlyph): LineArt {
 }
 
 function fontLookSource(): { knobs: boolean; style: GhostStyle; key: string } {
-  const knobs = parseKnobsFlag(new URLSearchParams(location.search));
+  const knobs = parseKnobsFlag(parseQueryParams(location.search));
   const style = loadGhostStyle();
   return { knobs, style, key: knobs ? "knobs" : `style:${style}` };
 }

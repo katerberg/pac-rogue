@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { parseQueryParams } from "../domain/queryParams";
 import { colorToCssHex, MAZE_BACKGROUND_COLOR } from "../domain/maze";
 import { bootSceneKey } from "../domain/playFlag";
 import { isSoundEnabled } from "../domain/soundFlag";
@@ -18,7 +19,7 @@ function createInteractiveAudioContext(): AudioContext | undefined {
   return new AudioContext({ latencyHint: "interactive" });
 }
 
-const urlParams = new URLSearchParams(location.search);
+const urlParams = parseQueryParams(location.search);
 const soundEnabled = isSoundEnabled(urlParams, location.port);
 const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
 const allScenes = [
