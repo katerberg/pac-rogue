@@ -1,7 +1,7 @@
 import type { FruitKind } from "./fruit";
 import type { GHOST_KIND } from "./ghostKind";
 import type { StorePurchase } from "./store";
-import type { BaseUpgradeId, UpgradeId } from "./upgrades";
+import { ALL_UPGRADE_IDS, type BaseUpgradeId, type UpgradeId } from "./upgrades";
 
 export const RUN_LOG_VERSION = 1 as const;
 export const RUN_LOG_SOFT_CAP = 500;
@@ -329,14 +329,24 @@ export function parseRunLogRecord(raw: string | null): RunLogRecord | null {
 
 export function syntheticRunLog(index: number, meta: RunLogMeta): RunLogRecord {
   const record = createRunLog(meta, `fill${index}`, true);
-  beginLevelLog(record, {
-    level: 1,
-    layout: "maze1",
-    inverted: false,
-    boss: false,
-    countdownStart: 0,
-    livesStart: 0,
-  });
-  record.outcome = "death";
+  const ids = ALL_UPGRADE_IDS;
+  const first = index % ids.length;
+  const finalLevel = 1 + (((first % 7) + Math.floor(index / ids.length) * 2 + (index % 3)) % 9);
+  for (let level = 1; level <= finalLevel; level += 1) {
+    const log = beginLevelLog(record, {
+      level,
+      layout: "maze1",
+      inverted: false,
+      boss: false,
+      countdownStart: 0,
+      livesStart: 0,
+    });
+    const offered = [0, 1, 2].map((k) => ids[(first + level * 3 + k) % ids.length]!);
+    log.offer = { upgrades: offered, quarters: 1, picked: offered[0]!, choiceMs: 0 };
+  }
+  for (const [k, id] of [ids[first]!, ids[(first + 11) % ids.length]!].entries()) {
+    addLoadout(record, id, k === 0 ? "start" : "offer", 1 + k);
+  }
+  record.outcome = finalLevel === 9 && index % 2 === 0 ? "complete" : "death";
   return record;
 }

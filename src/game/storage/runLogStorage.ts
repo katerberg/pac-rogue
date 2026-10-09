@@ -106,6 +106,29 @@ export function relabelAbandoned(): void {
   }
 }
 
+export function loadAllRuns(): { runs: RunLogRecord[]; unreadable: number } {
+  const storage = readStorage();
+  const runs: RunLogRecord[] = [];
+  let unreadable = 0;
+  if (storage === null) {
+    return { runs, unreadable };
+  }
+  for (const id of loadIndex(storage)) {
+    let record: RunLogRecord | null = null;
+    try {
+      record = parseRunLogRecord(storage.getItem(runKey(id)));
+    } catch {
+      record = null;
+    }
+    if (record === null) {
+      unreadable += 1;
+    } else {
+      runs.push(record);
+    }
+  }
+  return { runs, unreadable };
+}
+
 export function storedRunCount(): number {
   const storage = readStorage();
   return storage === null ? 0 : loadIndex(storage).length;

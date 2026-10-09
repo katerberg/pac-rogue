@@ -119,18 +119,19 @@ Use URL flags from the README to reach the state under test (`level`, `maze`, `q
 
 `PlayScene` runs separate paths, and a change in shared code (movement, input, render, systems) can reach all of them. Before the live check, list which of these the diff can reach, and probe each one. Anything left unprobed goes under "not checked" in the PR body.
 
-| Mode                         | How to reach it                                                                                                                                            |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Level 1 board (fixed layout) | `play=1&maze=mazeSmall` (starting-upgrade card)                                                                                                            |
-| Generated board (levels 2–8) | `play=1&level=2`                                                                                                                                           |
-| Inverted board (levels 6–7)  | `play=1&level=6`                                                                                                                                           |
-| Store floor (`tickStore`)    | `play=1&store=1&quarters=10`                                                                                                                               |
-| Boss (`tickBoss`, level 9)   | `play=1&boss=blinkySwarm` / `play=1&boss=chainedGhosts` (`level=9` alone rolls one; more Blinkys: Swarm knob; stage transition demo: `bossStageAdvance=1`) |
-| Level-clear upgrade modal    | `play=1&jumpToUpgrade=1`                                                                                                                                   |
-| Death / respawn              | `play=1&level=2&infiniteLives=1`, then get caught                                                                                                          |
-| Pause → Settings → Resume    | `press:Escape`, then `click:` menu rows                                                                                                                    |
-| Knobs panel (`?knobs=1`)     | `play=1&knobs=1` (DOM panels: drive with `domFill:` / `domClick:`, capture with `pageShot:`)                                                               |
-| LEARN sandbox (`LearnScene`) | menu → Learn (own copy of several systems; snapshot has only `scenes.LearnScene`, so LEARN behavior is screenshot-only for now)                            |
+| Mode                         | How to reach it                                                                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Level 1 board (fixed layout) | `play=1&maze=mazeSmall` (starting-upgrade card)                                                                                                                                            |
+| Generated board (levels 2–8) | `play=1&level=2`                                                                                                                                                                           |
+| Inverted board (levels 6–7)  | `play=1&level=6`                                                                                                                                                                           |
+| Store floor (`tickStore`)    | `play=1&store=1&quarters=10`                                                                                                                                                               |
+| Boss (`tickBoss`, level 9)   | `play=1&boss=blinkySwarm` / `play=1&boss=chainedGhosts` (`level=9` alone rolls one; more Blinkys: Swarm knob; stage transition demo: `bossStageAdvance=1`)                                 |
+| Level-clear upgrade modal    | `play=1&jumpToUpgrade=1`                                                                                                                                                                   |
+| Death / respawn              | `play=1&level=2&infiniteLives=1`, then get caught                                                                                                                                          |
+| Pause → Settings → Resume    | `press:Escape`, then `click:` menu rows                                                                                                                                                    |
+| Knobs panel (`?knobs=1`)     | `play=1&knobs=1` (DOM panels: drive with `domFill:` / `domClick:`, capture with `pageShot:`)                                                                                               |
+| Run data page (`/data`)      | `runLogFill=120`, then `goto:/data`; tick `domClick:input[data-toggle=includeDebug]`; assert `data.*` (`stored`, `shownRuns`, `rows`, `charts`, `sort`, `empty`), capture with `pageShot:` |
+| LEARN sandbox (`LearnScene`) | menu → Learn (own copy of several systems; snapshot has only `scenes.LearnScene`, so LEARN behavior is screenshot-only for now)                                                            |
 
 ### Game-state snapshot
 
