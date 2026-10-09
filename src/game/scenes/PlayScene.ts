@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { parseQueryParams } from "../../domain/queryParams";
 import {
   barRects,
   BONUS_ART_SCALE,
@@ -173,7 +174,7 @@ export class PlayScene extends Phaser.Scene {
     stopLoopingSfx(this, "menuMusic");
     this.clearLevelBanner();
 
-    const params = new URLSearchParams(location.search);
+    const params = parseQueryParams(location.search);
     const { options, warnings } = parsePlayOptions(params);
     for (const warning of warnings) {
       console.warn(warning);

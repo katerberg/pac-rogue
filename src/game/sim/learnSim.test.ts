@@ -637,6 +637,62 @@ describe("LearnSim upgrade demos", () => {
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
 
+  describe("Hyperspeed", () => {
+    function chomp(sim: LearnSim, player: number): void {
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+
+    function speedAfterChomp(...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number {
+      const { sim, player } = setup(...ids);
+      chomp(sim, player);
+      sim.step(held("left"), FRAME_MS);
+      return Speed.px[player]!;
+    }
+
+    it("runs at 10x speed for 2s after a power pellet", () => {
+      const plain = speedAfterChomp();
+      const hyper = speedAfterChomp("powerPelletHyperspeed");
+      expect(hyper).toBeCloseTo(plain * 10);
+      const { sim, player } = setup("powerPelletHyperspeed");
+      chomp(sim, player);
+      expect(sim["learnUpgrades"].hyperspeedRemainingMs).toBeGreaterThan(1900);
+      runMs(sim, 2100);
+      expect(sim["learnUpgrades"].hyperspeedRemainingMs).toBe(0);
+    });
+
+    it("Hyperspeed+ arms 3s and a shield that absorbs the first catch", () => {
+      const { sim, player } = setup("powerPelletHyperspeed");
+      sim.toggleEnhanced("powerPelletHyperspeed");
+      chomp(sim, player);
+      expect(sim["learnUpgrades"].hyperspeedRemainingMs).toBeGreaterThan(2900);
+      expect(sim["learnUpgrades"].hyperspeedShieldRemainingMs).toBeGreaterThan(1900);
+      expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+      expect(sim["learnUpgrades"].hyperspeedShieldRemainingMs).toBe(0);
+      expect(sim["learnUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
+    });
+
+    it("holds movement for 200ms after a turn", () => {
+      const { sim, player } = setup("powerPelletHyperspeed");
+      const spawn = posOf(player);
+      chomp(sim, player);
+      moveTo(player, spawn);
+      sim.step(held("right"), FRAME_MS);
+      sim.step(held("left"), FRAME_MS);
+      expect(sim["learnUpgrades"].hyperspeedTurnDelayMs).toBeGreaterThan(150);
+      const x = Position.x[player]!;
+      sim.step(held("left"), FRAME_MS);
+      expect(Position.x[player]).toBe(x);
+    });
+
+    it("drops the timers when the upgrade is toggled off", () => {
+      const { sim, player } = setup("powerPelletHyperspeed");
+      chomp(sim, player);
+      sim.toggleUpgrade("powerPelletHyperspeed");
+      expect(sim["learnUpgrades"].hyperspeedRemainingMs).toBe(0);
+    });
+  });
+
   describe("Echo", () => {
     function invulnAfterChompAndEcho(...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number {
       const { sim, player } = setup(...ids);

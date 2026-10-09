@@ -57,7 +57,8 @@ export type BaseUpgradeId =
   | "passiveStreakEngine"
   | "passiveEcho"
   | "powerPelletHunter"
-  | "passiveStartingShield";
+  | "passiveStartingShield"
+  | "powerPelletHyperspeed";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -114,6 +115,7 @@ export type UpgradeEffects = {
   ghostsBlockedFromTunnels?: true;
   secondChompMs?: number;
   speedBurstMul?: number;
+  hyperspeedMul?: number;
   turnBoostMs?: number;
   turnPerfectPx?: number;
   deathQuarterCost?: number;
@@ -138,6 +140,8 @@ export type UpgradeEffects = {
     playerInvulnMs?: number;
     warpInvulnMs?: number;
     playerSpeedBurstMs?: number;
+    hyperspeedMs?: number;
+    hyperspeedShieldMs?: number;
     ghostHarvestMs?: number;
     defyDeathMs?: number;
     recallClosestGhosts?: number;
@@ -175,6 +179,11 @@ export const FREEZE_MS = 3000;
 export const WALL_PASS_MS = 6000;
 export const INVULN_MS = 3000;
 export const SPEED_BURST_MS = 3000;
+export const HYPERSPEED_MS = 2000;
+export const HYPERSPEED_ENHANCED_MS = 3000;
+export const HYPERSPEED_SHIELD_MS = 2000;
+export const HYPERSPEED_MUL = 10;
+export const HYPERSPEED_TURN_DELAY_MS = 200;
 export const GHOST_HARVEST_MS = 5000;
 export const DEFY_DEATH_MS = 5000;
 export const HAUNTING_MS = 10_000;
@@ -827,6 +836,24 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       startingShields: STARTING_SHIELD_ENHANCED_COUNT,
     },
   },
+  {
+    id: "powerPelletHyperspeed",
+    label: "Hyperspeed",
+    school: "speed",
+    description: "Power pellet: for 2s, run at 10x speed. Every turn costs a beat.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    hyperspeedMul: HYPERSPEED_MUL,
+    enhanced: {
+      enhanceNote: "Hyperspeed lasts 3 seconds instead of 2 and adds a shield for the first 2.",
+      description: "Power pellet: for 3s, run at 10x speed. A shield blocks one catch for 2s.",
+      onPowerPellet: {
+        hyperspeedMs: HYPERSPEED_ENHANCED_MS,
+        hyperspeedShieldMs: HYPERSPEED_SHIELD_MS,
+      },
+    },
+    onPowerPellet: { hyperspeedMs: HYPERSPEED_MS },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -980,6 +1007,9 @@ export type RunUpgrades = {
   wallPassRemainingMs: number;
   invulnRemainingMs: number;
   speedBurstRemainingMs: number;
+  hyperspeedRemainingMs: number;
+  hyperspeedTurnDelayMs: number;
+  hyperspeedShieldRemainingMs: number;
   ghostHarvestRemainingMs: number;
   defyDeathRemainingMs: number;
   hauntRemainingMs: number;
@@ -1021,6 +1051,9 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     wallPassRemainingMs: 0,
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
+    hyperspeedRemainingMs: 0,
+    hyperspeedTurnDelayMs: 0,
+    hyperspeedShieldRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
@@ -1267,6 +1300,9 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     wallPassRemainingMs: 0,
     invulnRemainingMs: 0,
     speedBurstRemainingMs: 0,
+    hyperspeedRemainingMs: 0,
+    hyperspeedTurnDelayMs: 0,
+    hyperspeedShieldRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
@@ -1343,6 +1379,36 @@ export function tickSpeedBurst(state: RunUpgrades, deltaMs: number): RunUpgrades
     ...state,
     speedBurstRemainingMs: Math.max(0, state.speedBurstRemainingMs - Math.max(0, deltaMs)),
   };
+}
+
+export function tickHyperspeed(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (
+    state.hyperspeedRemainingMs <= 0 &&
+    state.hyperspeedTurnDelayMs <= 0 &&
+    state.hyperspeedShieldRemainingMs <= 0
+  ) {
+    return state;
+  }
+  const dt = Math.max(0, deltaMs);
+  const remaining = Math.max(0, state.hyperspeedRemainingMs - dt);
+  const turnDelay = state.hyperspeedTurnDelayMs - dt;
+  return {
+    ...state,
+    hyperspeedRemainingMs: remaining,
+    hyperspeedTurnDelayMs: remaining > 0 && turnDelay > 1e-6 ? turnDelay : 0,
+    hyperspeedShieldRemainingMs: Math.max(0, state.hyperspeedShieldRemainingMs - dt),
+  };
+}
+
+export function startHyperspeedTurnDelay(state: RunUpgrades): RunUpgrades {
+  return { ...state, hyperspeedTurnDelayMs: HYPERSPEED_TURN_DELAY_MS };
+}
+
+export function spendHyperspeedShield(state: RunUpgrades): RunUpgrades | null {
+  if (state.hyperspeedShieldRemainingMs <= 0) {
+    return null;
+  }
+  return applyShieldBreakInvuln({ ...state, hyperspeedShieldRemainingMs: 0 });
 }
 
 export function tickGhostHarvest(state: RunUpgrades, deltaMs: number): RunUpgrades {
@@ -1428,6 +1494,8 @@ export function applyPowerPelletEffects(
   let wallPassMs: number | null = null;
   let invulnMs: number | null = null;
   let speedBurstMs: number | null = null;
+  let hyperspeedMs: number | null = null;
+  let hyperspeedShieldMs: number | null = null;
   let ghostHarvestMs: number | null = null;
   let defyDeathMs: number | null = null;
   let recallGhostCount = 0;
@@ -1469,6 +1537,16 @@ export function applyPowerPelletEffects(
         speedBurstMs === null
           ? onPower.playerSpeedBurstMs
           : Math.max(speedBurstMs, onPower.playerSpeedBurstMs);
+    }
+    if (onPower.hyperspeedMs !== undefined) {
+      hyperspeedMs =
+        hyperspeedMs === null ? onPower.hyperspeedMs : Math.max(hyperspeedMs, onPower.hyperspeedMs);
+    }
+    if (onPower.hyperspeedShieldMs !== undefined) {
+      hyperspeedShieldMs =
+        hyperspeedShieldMs === null
+          ? onPower.hyperspeedShieldMs
+          : Math.max(hyperspeedShieldMs, onPower.hyperspeedShieldMs);
     }
     if (onPower.ghostHarvestMs !== undefined) {
       ghostHarvestMs =
@@ -1515,6 +1593,8 @@ export function applyPowerPelletEffects(
   wallPassMs = scaled(wallPassMs);
   invulnMs = scaled(invulnMs);
   speedBurstMs = scaled(speedBurstMs);
+  hyperspeedMs = scaled(hyperspeedMs);
+  hyperspeedShieldMs = scaled(hyperspeedShieldMs);
   ghostHarvestMs = scaled(ghostHarvestMs);
   defyDeathMs = scaled(defyDeathMs);
   frightenMs = scaled(frightenMs);
@@ -1531,6 +1611,12 @@ export function applyPowerPelletEffects(
   }
   if (speedBurstMs !== null) {
     next = { ...next, speedBurstRemainingMs: speedBurstMs };
+  }
+  if (hyperspeedMs !== null) {
+    next = { ...next, hyperspeedRemainingMs: hyperspeedMs };
+  }
+  if (hyperspeedShieldMs !== null) {
+    next = { ...next, hyperspeedShieldRemainingMs: hyperspeedShieldMs };
   }
   if (ghostHarvestMs !== null) {
     next = { ...next, ghostHarvestRemainingMs: ghostHarvestMs };
@@ -1728,6 +1814,10 @@ export function secondChompMs(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "secondChompMs") ?? SECOND_CHOMP_MS;
 }
 
+export function hyperspeedMultiplier(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "hyperspeedMul") ?? 1;
+}
+
 export function speedBurstMultiplier(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "speedBurstMul") ?? 1;
 }
@@ -1800,7 +1890,11 @@ export function playerIsInvulnerable(state: RunUpgrades): boolean {
 }
 
 export function playerTintRemainingMs(state: RunUpgrades): number {
-  return Math.max(state.invulnRemainingMs, state.defyDeathRemainingMs);
+  return Math.max(
+    state.invulnRemainingMs,
+    state.defyDeathRemainingMs,
+    state.hyperspeedShieldRemainingMs,
+  );
 }
 
 export function wallPassActive(state: RunUpgrades): boolean {
@@ -1809,6 +1903,10 @@ export function wallPassActive(state: RunUpgrades): boolean {
 
 export function speedBurstActive(state: RunUpgrades): boolean {
   return state.speedBurstRemainingMs > 0;
+}
+
+export function hyperspeedActive(state: RunUpgrades): boolean {
+  return state.hyperspeedRemainingMs > 0;
 }
 
 export function ghostHarvestActive(state: RunUpgrades): boolean {
