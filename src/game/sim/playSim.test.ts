@@ -3347,7 +3347,7 @@ describe("debug tuning", () => {
   });
 });
 
-describe("Shield Pellets", () => {
+describe("Shield", () => {
   const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
 
   function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
@@ -3367,10 +3367,11 @@ describe("Shield Pellets", () => {
     }
   }
 
-  it("banks a shield instead of firing power-pellet effects", () => {
+  it("banks a shield and still fires power-pellet effects at pickup", () => {
     const sim = startShieldSim(["passiveShieldPellets", "powerPelletInvuln"]);
     const events = chompPowerPellet(sim);
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, invulnMs: 0 });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
     expect(sim.hud().shields).toBe(1);
     expect(events).toContainEqual({ type: "shields" });
   });
@@ -3385,9 +3386,9 @@ describe("Shield Pellets", () => {
     expect(plus.snapshot().timers.shieldsBanked).toBe(3);
   });
 
-  it("a catch breaks a shield, fires the effects and costs no life or death", () => {
+  it("a catch breaks a shield, fires nothing and costs no life or death", () => {
     const sim = startShieldSim(["passiveShieldPellets", "powerPelletInvuln"]);
-    chompPowerPellet(sim);
+    chompPowerPellets(sim, 1);
     const livesBefore = sim.snapshot().lives;
     ghostOntoPlayer(sim);
     const events = runFrames(sim, 1);
@@ -3397,7 +3398,8 @@ describe("Shield Pellets", () => {
       deathsThisBoard: 0,
       shieldCrackProgress: 0,
     });
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: LEVEL2_INVULN_MS });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(SHIELD_BREAK_INVULN_MS);
     expect(events).toContainEqual({ type: "shieldCrack", index: 0, progress: 0 });
     expect(events).not.toContainEqual({ type: "sfx", id: "death" });
     const crack = runUntil(sim, () => sim.snapshot().shieldCrackProgress === null, 120);
@@ -3447,7 +3449,7 @@ describe("Shield Pellets", () => {
   });
 
   it("does not trigger Defy Death's save but arms its window", () => {
-    const sim = startShieldSim(["passiveShieldPellets", "passiveDefyDeath"]);
+    const sim = startShieldSim(["passiveShieldPellets", "passiveShieldBreak", "passiveDefyDeath"]);
     chompPowerPellet(sim);
     expect(sim.snapshot().timers.defyDeathMs).toBe(0);
     ghostOntoPlayer(sim);
@@ -3464,7 +3466,7 @@ describe("Shield Pellets", () => {
     expect(sim.snapshot()).toMatchObject({ dying: true, lives: livesBefore - 1 });
   });
 
-  it("Fruit Power banks a shield instead of firing", () => {
+  it("Fruit Power banks a shield and fires the effects", () => {
     const sim = startSim({
       level: 2,
       maze: "maze1",
@@ -3474,7 +3476,8 @@ describe("Shield Pellets", () => {
     const fruit = query(sim.world, [Fruit, Position])[0]!;
     teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
     runFrames(sim, 1);
-    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, invulnMs: 0 });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
   });
 
   it("empties the bank on level advance", () => {
@@ -3492,6 +3495,99 @@ describe("Shield Pellets", () => {
     const sim = startShieldSim(["powerPelletInvuln"]);
     chompPowerPellet(sim);
     expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: LEVEL2_INVULN_MS });
+  });
+});
+
+describe("Shield Break", () => {
+  function startBreakSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  function chomp(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  it("holds power pellet effects at pickup and still banks the shield", () => {
+    const sim = startBreakSim(["passiveShieldPellets", "passiveShieldBreak", "powerPelletInvuln"]);
+    chomp(sim);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+  });
+
+  it("fires every power pellet effect when the shield breaks", () => {
+    const sim = startBreakSim([
+      "passiveShieldPellets",
+      "passiveShieldBreak",
+      "powerPelletSpeedBurst",
+      "powerPelletInvuln",
+    ]);
+    chomp(sim);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({ dying: false });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(SHIELD_BREAK_INVULN_MS - 2 * FRAME_MS);
+  });
+
+  it("applies without Shield, firing on a Starting Shield break", () => {
+    const sim = startBreakSim([
+      "passiveStartingShield",
+      "passiveShieldBreak",
+      "powerPelletSpeedBurst",
+    ]);
+    chomp(sim);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+
+  it("fires on a Hyperspeed+ shield break without renewing the shield", () => {
+    const sim = startBreakSim(["powerPelletHyperspeedPlus", "passiveShieldBreak"]);
+    chomp(sim);
+    expect(sim.snapshot().timers.hyperspeedMs).toBe(0);
+    sim["runUpgrades"] = {
+      ...sim["runUpgrades"],
+      hyperspeedRemainingMs: 3000,
+      hyperspeedShieldRemainingMs: 2000,
+    };
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({ dying: false });
+    expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(2500);
+    expect(sim.snapshot().timers.hyperspeedShieldMs).toBe(0);
+  });
+
+  it("Plus fires effects when a pellet is eaten with a full bank", () => {
+    const sim = startBreakSim([
+      "passiveShieldPellets",
+      "passiveShieldBreakPlus",
+      "powerPelletSpeedBurst",
+    ]);
+    const [first, second] = query(sim.world, [PowerPellet, Position]);
+    teleportPlayer(sim, Position.x[first!]!, Position.y[first!]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, speedBurstMs: 0 });
+    teleportPlayer(sim, Position.x[second!]!, Position.y[second!]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+
+  it("base Shield Break wastes the pellet at a full bank", () => {
+    const sim = startBreakSim([
+      "passiveShieldPellets",
+      "passiveShieldBreak",
+      "powerPelletSpeedBurst",
+    ]);
+    for (const power of query(sim.world, [PowerPellet, Position]).slice(0, 2)) {
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+    }
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, speedBurstMs: 0 });
   });
 });
 
@@ -3568,7 +3664,7 @@ describe("Starting Shield", () => {
     expect(sim.snapshot().timers.shieldsBanked).toBe(2);
   });
 
-  it("a break fires power-pellet effects only with Shield Pellets", () => {
+  it("a break fires power-pellet effects only with Shield Break", () => {
     const alone = startShieldSim(["passiveStartingShield", "powerPelletSpeedBurst"]);
     ghostOntoPlayer(alone);
     runFrames(alone, 1);
@@ -3577,7 +3673,7 @@ describe("Starting Shield", () => {
 
     const paired = startShieldSim([
       "passiveStartingShield",
-      "passiveShieldPellets",
+      "passiveShieldBreak",
       "powerPelletSpeedBurst",
     ]);
     ghostOntoPlayer(paired);
@@ -4375,10 +4471,11 @@ describe("Streak Engine", () => {
     );
   });
 
-  it("banks a shield instead of firing when Shield Pellets is owned", () => {
+  it("banks a shield instead of firing when Shield Break is owned", () => {
     const sim = startStreak([
       "passiveStreakEngine",
       "passiveShieldPellets",
+      "passiveShieldBreak",
       "powerPelletSpeedBurst",
     ]);
     eatUntilStreak(sim, 30);
@@ -4450,8 +4547,13 @@ describe("Echo", () => {
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(LEVEL2_INVULN_MS);
   });
 
-  it("does not echo a shield banked by Shield Pellets", () => {
-    const sim = startEcho(["passiveEcho", "passiveShieldPellets", "powerPelletInvuln"]);
+  it("does not echo a shield banked under Shield Break", () => {
+    const sim = startEcho([
+      "passiveEcho",
+      "passiveShieldPellets",
+      "passiveShieldBreak",
+      "powerPelletInvuln",
+    ]);
     chompPowerPellet(sim);
     expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 1, echoesMs: [] });
   });
@@ -4672,8 +4774,8 @@ describe("Hunter", () => {
     expect(overcharged.snapshot().timers.frightenedMs).toBe(8000);
   });
 
-  it("Shield Pellets banks the chomp instead of frightening", () => {
-    const sim = startHunter(["powerPelletHunter", "passiveShieldPellets"]);
+  it("Shield Break banks the chomp instead of frightening", () => {
+    const sim = startHunter(["powerPelletHunter", "passiveShieldPellets", "passiveShieldBreak"]);
     letGhostsOut(sim, 1);
     chompPowerPellet(sim);
     expect(sim.snapshot().timers.frightenedMs).toBe(0);

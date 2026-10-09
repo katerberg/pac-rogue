@@ -58,7 +58,8 @@ export type BaseUpgradeId =
   | "passiveEcho"
   | "powerPelletHunter"
   | "passiveStartingShield"
-  | "powerPelletHyperspeed";
+  | "powerPelletHyperspeed"
+  | "passiveShieldBreak";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -122,6 +123,8 @@ export type UpgradeEffects = {
   lazyLooperRings?: LazyLooperRings;
   shieldCap?: number;
   startingShields?: number;
+  shieldBreak?: true;
+  shieldOverflowFires?: true;
   martyrGhosts?: MartyrGhostPlacement;
   interestPerQuarters?: number;
   nearMissCharge?: number;
@@ -691,15 +694,15 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   },
   {
     id: "passiveShieldPellets",
-    label: "Shield Pellets",
+    label: "Shield",
     school: "protection",
-    description: "Power pellets bank a shield. A ghost hit breaks it and fires your power effects.",
+    description: "Power pellets provide a shield. A ghost hit breaks it.",
     storePrice: STORE_RARE_UPGRADE_PRICE,
     rare: true,
     shieldCap: SHIELD_PELLETS_CAP,
     enhanced: {
-      enhanceNote: "Shield Pellets banks up to 3 shields instead of 1.",
-      description: "Power pellets bank up to 3 shields. Each ghost hit breaks one.",
+      enhanceNote: "Shield stores up to 3 shields instead of 1.",
+      description: "Power pellets provide a shield. Store up to 3. Each ghost hit breaks one.",
       shieldCap: SHIELD_PELLETS_ENHANCED_CAP,
     },
   },
@@ -853,6 +856,23 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       },
     },
     onPowerPellet: { hyperspeedMs: HYPERSPEED_MS },
+  },
+  {
+    id: "passiveShieldBreak",
+    label: "Shield Break",
+    school: "protection",
+    description:
+      "When a shield breaks, fire all power pellet effects. Power pellet effects no longer trigger at pickup.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    shieldBreak: true,
+    enhanced: {
+      enhanceNote:
+        "Shield Break also fires power pellet effects when you get a shield at your maximum.",
+      description:
+        "When a shield breaks, fire all power pellet effects. Getting a shield at your maximum fires them too.",
+      shieldOverflowFires: true,
+    },
   },
 ];
 
@@ -1110,9 +1130,11 @@ export function grantLivesForUpgrade(id: UpgradeId): number {
 
 export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   const ownedBases = new Set(owned.map(baseIdOf));
+  const shieldsOwned = providesShields(owned);
   return ALL_UPGRADE_IDS.filter(
     (id) =>
       !ownedBases.has(id) &&
+      (getUpgradeDef(id).shieldBreak !== true || shieldsOwned) &&
       (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
       (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
   );
@@ -1932,6 +1954,41 @@ export function shieldBankCap(owned: readonly UpgradeId[]): number {
 export function grantStartingShields(state: RunUpgrades): RunUpgrades {
   const count = startingShieldCount(effectiveOwned(state.owned));
   return count > state.shieldsBanked ? { ...state, shieldsBanked: count } : state;
+}
+
+export function providesShields(owned: readonly UpgradeId[]): boolean {
+  return effectiveOwned(owned).some((id) => {
+    const def = getUpgradeDef(id);
+    return (
+      def.shieldCap !== undefined ||
+      def.startingShields !== undefined ||
+      def.onPowerPellet?.hyperspeedShieldMs !== undefined
+    );
+  });
+}
+
+export function shieldBreakOwned(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "shieldBreak") === true;
+}
+
+export function shieldOverflow(state: RunUpgrades, count: number): number {
+  const owned = effectiveOwned(state.owned);
+  if (shieldPelletsCap(owned) === null) {
+    return 0;
+  }
+  const cap = shieldBankCap(owned);
+  return Math.max(0, state.shieldsBanked + Math.max(0, count) - cap);
+}
+
+export function powerPelletPickupFires(
+  owned: readonly UpgradeId[],
+  powerRemoved: number,
+  overflow: number,
+): number {
+  if (!shieldBreakOwned(owned)) {
+    return powerRemoved;
+  }
+  return ownedValue(owned, "shieldOverflowFires") === true ? overflow : 0;
 }
 
 export function bankShields(state: RunUpgrades, count: number): RunUpgrades {

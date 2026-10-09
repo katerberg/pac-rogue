@@ -43,7 +43,11 @@ import {
   NEAR_MISS_ENHANCED_CHARGE,
   bankShields,
   grantStartingShields,
+  powerPelletPickupFires,
+  providesShields,
   shieldBankCap,
+  shieldBreakOwned,
+  shieldOverflow,
   startingShieldCount,
   STARTING_SHIELD_COUNT,
   STARTING_SHIELD_ENHANCED_COUNT,
@@ -210,6 +214,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletHunter",
   "passiveStartingShield",
   "powerPelletHyperspeed",
+  "passiveShieldBreak",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -453,6 +458,7 @@ describe("rare upgrades", () => {
     "passiveStreakEngine",
     "powerPelletHunter",
     "powerPelletHyperspeed",
+    "passiveShieldBreak",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
@@ -570,7 +576,7 @@ describe("rare upgrades", () => {
     expect(eligibleUpgrades([]).filter(isRare)).toEqual([]);
     expect(eligibleUpgrades(["passiveAfterburner"]).filter(isRare)).toEqual([]);
     expect(eligibleUpgrades(["passiveAfterburner", "passiveGhostSlowPlus"]).filter(isRare)).toEqual(
-      ALL_UPGRADE_IDS.filter(isRare),
+      ALL_UPGRADE_IDS.filter((id) => isRare(id) && id !== "passiveShieldBreak"),
     );
   });
 });
@@ -1864,5 +1870,60 @@ describe("Hyperspeed", () => {
     expect(cleared.hyperspeedRemainingMs).toBe(0);
     expect(cleared.hyperspeedTurnDelayMs).toBe(0);
     expect(cleared.hyperspeedShieldRemainingMs).toBe(0);
+  });
+});
+
+describe("Shield Break", () => {
+  const twoOwned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
+
+  it("is offered only while a shield source is owned", () => {
+    expect(eligibleUpgrades(twoOwned)).not.toContain("passiveShieldBreak");
+    for (const source of [
+      "passiveShieldPellets",
+      "passiveShieldPelletsPlus",
+      "passiveStartingShield",
+      "powerPelletHyperspeedPlus",
+    ] as const) {
+      expect(eligibleUpgrades([...twoOwned, source])).toContain("passiveShieldBreak");
+    }
+    expect(eligibleUpgrades([...twoOwned, "powerPelletHyperspeed"])).not.toContain(
+      "passiveShieldBreak",
+    );
+  });
+
+  it("counts Hyperspeed as a shield source when a specialist enhances it", () => {
+    const owned: UpgradeId[] = [
+      "powerPelletHyperspeed",
+      "passiveSpeedSpecialistPlus",
+      "passiveAfterburner",
+    ];
+    expect(providesShields(owned)).toBe(true);
+  });
+
+  it("is never a starting upgrade", () => {
+    expect(STARTING_UPGRADE_POOL).not.toContain("passiveShieldBreak");
+  });
+
+  it("moves every pickup effect to the break", () => {
+    expect(powerPelletPickupFires(["passiveShieldPellets"], 2, 0)).toBe(2);
+    expect(powerPelletPickupFires(["passiveShieldPellets", "passiveShieldBreak"], 2, 1)).toBe(0);
+    expect(powerPelletPickupFires(["passiveStartingShield", "passiveShieldBreak"], 1, 0)).toBe(0);
+    expect(shieldBreakOwned(["passiveShieldBreakPlus"])).toBe(true);
+    expect(shieldBreakOwned(["passiveShieldPellets"])).toBe(false);
+  });
+
+  it("Plus fires for pellets that could not bank a shield", () => {
+    const owned: UpgradeId[] = ["passiveShieldPellets", "passiveShieldBreakPlus"];
+    const full = { ...createRunUpgrades(owned), shieldsBanked: 1 };
+    expect(shieldOverflow(full, 1)).toBe(1);
+    expect(powerPelletPickupFires(owned, 1, shieldOverflow(full, 1))).toBe(1);
+    const empty = createRunUpgrades(owned);
+    expect(shieldOverflow(empty, 1)).toBe(0);
+    expect(powerPelletPickupFires(owned, 1, 0)).toBe(0);
+  });
+
+  it("has no overflow without a pellet shield source", () => {
+    const state = { ...createRunUpgrades(["passiveStartingShield"]), shieldsBanked: 1 };
+    expect(shieldOverflow(state, 3)).toBe(0);
   });
 });

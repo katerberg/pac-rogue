@@ -184,7 +184,7 @@ describe("PlaySim run log", () => {
     expect(level.activeMs.freeze).toBeGreaterThan(0);
   });
 
-  it("records a Shield Pellets break as an activation, not a death", () => {
+  it("records a Shield break as an activation, not a death", () => {
     const { sim } = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveShieldPellets"] });
     const power = query(sim.world, [Pellet, PowerPellet, Position])[0]!;
     teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
