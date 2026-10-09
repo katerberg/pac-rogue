@@ -3495,6 +3495,97 @@ describe("Shield Pellets", () => {
   });
 });
 
+describe("Starting Shield", () => {
+  function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  it("starts the board with 1 shield, or 2 with Starting Shield+", () => {
+    expect(startShieldSim(["passiveStartingShield"]).snapshot().timers.shieldsBanked).toBe(1);
+    expect(startShieldSim(["passiveStartingShieldPlus"]).snapshot().timers.shieldsBanked).toBe(2);
+    expect(startShieldSim(["passiveStartingShield"]).hud().shields).toBe(1);
+  });
+
+  it("a catch breaks a shield, costing no life, then a second catch is a death", () => {
+    const sim = startShieldSim(["passiveStartingShield"]);
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({ dying: false, lives: livesBefore });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 400);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("refills the shields on every new level", () => {
+    const sim = startShieldSim(["passiveStartingShieldPlus"]);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    sim["jumpToLevelClear"]();
+    drainToOffer(sim);
+    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+  });
+
+  it("does not refill on a death, and does nothing without the upgrade", () => {
+    expect(startShieldSim(["powerPelletInvuln"]).snapshot().timers.shieldsBanked).toBe(0);
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveStartingShield"],
+      infiniteLives: true,
+    });
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 400);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 400);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+  });
+
+  it("banks shields when bought in a store and tops up when enhanced", () => {
+    const sim = startShieldSim([]);
+    sim["applyStorePurchase"]({ kind: "upgrade", id: "passiveStartingShield", price: 0 });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    sim["applyStorePurchase"]({ kind: "enhance", targetId: "passiveStartingShield", price: 0 });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+  });
+
+  it("adds its cap to Shield Pellets", () => {
+    const sim = startShieldSim(["passiveStartingShield", "passiveShieldPellets"]);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    const [first, second] = query(sim.world, [PowerPellet, Position]);
+    for (const power of [first!, second!]) {
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+    }
+    expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+  });
+
+  it("a break fires power-pellet effects only with Shield Pellets", () => {
+    const alone = startShieldSim(["passiveStartingShield", "powerPelletSpeedBurst"]);
+    ghostOntoPlayer(alone);
+    runFrames(alone, 1);
+    expect(alone.snapshot().timers).toMatchObject({ shieldsBanked: 0, speedBurstMs: 0 });
+    expect(alone.snapshot().timers.invulnMs).toBeGreaterThan(0);
+
+    const paired = startShieldSim([
+      "passiveStartingShield",
+      "passiveShieldPellets",
+      "powerPelletSpeedBurst",
+    ]);
+    ghostOntoPlayer(paired);
+    runFrames(paired, 1);
+    expect(paired.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+});
+
 describe("PlaySim ghost catch overlap", () => {
   function ghostAtReachFraction(fraction: number): PlaySim {
     const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true });

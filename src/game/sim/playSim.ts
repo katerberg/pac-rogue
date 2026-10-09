@@ -196,6 +196,7 @@ import {
   applyShieldBreakInvuln,
   applyStreakEngineInvuln,
   bankShields,
+  grantStartingShields,
   clearUpgradeTimers,
   queueEcho,
   shieldPelletsCap,
@@ -1939,6 +1940,7 @@ export class PlaySim {
       this.recorder.gained(id, "enhance", this.levelIndex);
       this.runUpgrades = enhanceUpgrade(this.runUpgrades, purchase.targetId);
       this.payEnhanceLives(purchase.targetId);
+      this.topUpStartingShields();
     } else {
       if (purchase.kind === "swap") {
         this.recorder.lost(purchase.outgoingId, this.levelIndex);
@@ -1996,6 +1998,7 @@ export class PlaySim {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
+    this.topUpStartingShields();
     const boss = isBossLevel(this.levelIndex)
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
       : null;
@@ -2374,6 +2377,14 @@ export class PlaySim {
     }
   }
 
+  private topUpStartingShields(): void {
+    const next = grantStartingShields(this.runUpgrades);
+    if (next !== this.runUpgrades) {
+      this.runUpgrades = next;
+      this.emit({ type: "shields" });
+    }
+  }
+
   private moveHyperspeed(delta: number, moveFrame: (frameDelta: number) => void): void {
     const speed = Speed.px[query(this.world, [Player, Speed])[0] ?? 0] ?? 0;
     const steps = hyperspeedSubstepCount((speed * delta) / 1000, getActiveLayout().tileSize);
@@ -2451,7 +2462,9 @@ export class PlaySim {
     this.shieldCrack = { index: spent.shieldsBanked, elapsedMs: 0 };
     this.emit({ type: "shields" });
     this.emit({ type: "shieldCrack", index: spent.shieldsBanked, progress: 0 });
-    this.firePowerPelletEffects(1);
+    if (shieldPelletsCap(this.effectiveUpgrades()) !== null) {
+      this.firePowerPelletEffects(1);
+    }
     this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
     return true;
   }
@@ -2564,6 +2577,7 @@ export class PlaySim {
 
   private applyGrantEffects(id: UpgradeId): void {
     this.lives += grantLivesForUpgrade(id);
+    this.topUpStartingShields();
     if (baseIdOf(id) === "passiveMyogenesis") {
       this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1);
     }

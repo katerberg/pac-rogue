@@ -42,6 +42,11 @@ import {
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
   bankShields,
+  grantStartingShields,
+  shieldBankCap,
+  startingShieldCount,
+  STARTING_SHIELD_COUNT,
+  STARTING_SHIELD_ENHANCED_COUNT,
   shieldPelletsCap,
   spendShield,
   OVERCHARGE_MUL,
@@ -203,6 +208,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveStreakEngine",
   "passiveEcho",
   "powerPelletHunter",
+  "passiveStartingShield",
   "powerPelletHyperspeed",
 ];
 
@@ -1225,6 +1231,35 @@ describe("shield pellets", () => {
   it("keeps the bank through clearUpgradeTimers", () => {
     const banked = bankShields(createRunUpgrades(["passiveShieldPellets"]), 1);
     expect(clearUpgradeTimers(banked).shieldsBanked).toBe(1);
+  });
+});
+
+describe("starting shield", () => {
+  it("counts 1 base, 2 enhanced, 0 unowned", () => {
+    expect(startingShieldCount([])).toBe(0);
+    expect(startingShieldCount(["passiveStartingShield"])).toBe(STARTING_SHIELD_COUNT);
+    expect(startingShieldCount(["passiveStartingShieldPlus"])).toBe(STARTING_SHIELD_ENHANCED_COUNT);
+  });
+
+  it("tops the bank up to the count without exceeding or stacking", () => {
+    const base = createRunUpgrades(["passiveStartingShield"]);
+    expect(grantStartingShields(base).shieldsBanked).toBe(1);
+    const plus = createRunUpgrades(["passiveStartingShieldPlus"]);
+    expect(grantStartingShields({ ...plus, shieldsBanked: 1 }).shieldsBanked).toBe(2);
+    expect(grantStartingShields({ ...plus, shieldsBanked: 3 }).shieldsBanked).toBe(3);
+    expect(grantStartingShields(createRunUpgrades()).shieldsBanked).toBe(0);
+  });
+
+  it("banks power pellets only with Shield Pellets and adds the caps", () => {
+    expect(shieldPelletsCap(["passiveStartingShield"])).toBeNull();
+    expect(shieldBankCap(["passiveStartingShieldPlus"])).toBe(2);
+    expect(shieldBankCap(["passiveStartingShield", "passiveShieldPellets"])).toBe(2);
+    expect(shieldBankCap(["passiveStartingShieldPlus", "passiveShieldPelletsPlus"])).toBe(5);
+  });
+
+  it("clamps the bank when revoked", () => {
+    const plus = grantStartingShields(createRunUpgrades(["passiveStartingShieldPlus"]));
+    expect(revokeUpgrade(plus, "passiveStartingShieldPlus").shieldsBanked).toBe(0);
   });
 });
 
