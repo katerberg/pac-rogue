@@ -1,6 +1,6 @@
 import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
-import { FRUIT_LIFETIME_MS } from "../../domain/fruit";
+import { FRUIT_FLICKER_MS, FRUIT_LIFETIME_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { CHAIN_PAIR } from "../../domain/bossRules";
@@ -168,6 +168,19 @@ describe("PlaySim fruit lifetime", () => {
     expect(sim.snapshot().fruit).toBe(true);
     runFrames(sim, framesFor(1_000));
     expect(sim.snapshot().fruit).toBe(false);
+  });
+
+  it("reports the countdown to render and the snapshot so the fruit can flicker before it goes", () => {
+    const sim = startWithFruit([]);
+    expect(sim.renderOptions().fruitRemainingMs).toBe(FRUIT_LIFETIME_MS);
+    runFrames(sim, framesFor(FRUIT_LIFETIME_MS - 1_000));
+    const { fruitRemainingMs } = sim.renderOptions();
+    expect(fruitRemainingMs).toBeLessThanOrEqual(FRUIT_FLICKER_MS);
+    expect(fruitRemainingMs).toBeGreaterThan(0);
+    expect(sim.snapshot().timers.fruitMs).toBe(fruitRemainingMs);
+    runFrames(sim, framesFor(1_500));
+    expect(sim.snapshot().fruit).toBe(false);
+    expect(sim.renderOptions().fruitRemainingMs).toBe(0);
   });
 
   it("lasts twice as long with fruitFecundity", () => {
