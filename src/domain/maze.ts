@@ -83,10 +83,11 @@ export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
 /**
  * Gap from each wall stroke center to the actor display-box edge.
- * Keeps Dot-Man/ghosts inside the painted corridor (fractional OK).
- * Visual only; collision uses `playerRadius`.
+ * Leaves ~half a regular pellet (4px opaque in `dot.png`) of air past each
+ * wall's inner face; +0.75 covers half the default 1.5px stroke so clearance
+ * is measured from stroke centers. Visual only; collision uses `playerRadius`.
  */
-export const PLAYER_CORRIDOR_CLEARANCE_PX = 1.75;
+export const PLAYER_CORRIDOR_CLEARANCE_PX = 2.75;
 export const PELLET_DISPLAY_SIZE_MAX = 16;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
