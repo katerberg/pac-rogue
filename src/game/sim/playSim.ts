@@ -2395,7 +2395,9 @@ export class PlaySim {
         this.hyperspeedFruitEaten += 1;
       }
       this.eatFrightenedGhosts();
-      if (catchPlayer(this.world, this.catchOptions()) !== null && !this.breakHyperspeedShield()) {
+      const catchOptions = this.catchOptions();
+      const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+      if (hit !== null && !this.breakHyperspeedShield()) {
         caught = true;
         this.zeroPlayerSpeed();
       }

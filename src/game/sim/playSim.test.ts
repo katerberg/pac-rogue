@@ -4877,6 +4877,31 @@ describe("Hyperspeed", () => {
     expect(sim.snapshot().dying).toBe(true);
   });
 
+  it("eats fruit along the run", () => {
+    const sim = startHyper(["powerPelletHyperspeed"]);
+    sim["spawnFruitEntity"](false);
+    const fruit = query(sim.world, [Fruit, Position])[0]!;
+    chompPowerPellet(sim);
+    Position.x[fruit] = 200;
+    Position.y[fruit] = 170;
+    const events = runFrames(sim, 8, DOWN);
+    expect(sim.snapshot().fruit).toBe(false);
+    expect(events).toContainEqual({ type: "fruitBonus" });
+  });
+
+  it("keeps running past a ghost once the Hyperspeed+ shield pops", () => {
+    const sim = startHyper(["powerPelletHyperspeedPlus"], { infiniteLives: false });
+    chompPowerPellet(sim);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = Position.x[playerEid(sim)]!;
+    Position.y[ghost] = Position.y[playerEid(sim)]! + TILE_SIZE * 2;
+    runFrames(sim, 8, DOWN);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().timers.hyperspeedShieldMs).toBe(0);
+    expect(Position.y[playerEid(sim)]).toBeGreaterThan(Position.y[ghost]!);
+  });
+
   it("Hyperspeed+ shield absorbs one catch with 1s of grace and fires no power pellet effect", () => {
     const sim = startHyper(["powerPelletHyperspeedPlus"], { infiniteLives: false });
     chompPowerPellet(sim);
