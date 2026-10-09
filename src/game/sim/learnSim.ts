@@ -14,7 +14,13 @@ import {
 } from "../../domain/bonusBar";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import { pelletAbsorbSpawnFor } from "../../domain/pelletAbsorb";
-import type { RemovedPelletSnap } from "../systems/collectPellets";
+import type { PlayerPelletFrame, RemovedPelletSnap } from "../systems/collectPellets";
+import {
+  emptyPlayerPelletFrame,
+  hyperspeedSubstepCount,
+  mergePlayerPelletFrames,
+  noteHyperspeedFacing,
+} from "../systems/hyperspeed";
 import { tickEchoes } from "../../domain/echo";
 import {
   createFruitPresence,
@@ -79,6 +85,11 @@ import {
   bankShields,
   shieldPelletsCap,
   spendShield,
+  hyperspeedActive,
+  hyperspeedMultiplier,
+  spendHyperspeedShield,
+  startHyperspeedTurnDelay,
+  tickHyperspeed,
   createRunUpgrades,
   clearUpgradeTimers,
   echoEffects,
@@ -210,12 +221,15 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveMoneyTalks",
   "passiveShieldPellets",
   "passiveHaunting",
+  "powerPelletHyperspeed",
 ];
 
 export class LearnSim {
   world: World = createWorld();
   readonly random: RunRandom;
   private events: SimEvent[] = [];
+  private hyperspeedDirection: Direction | null = null;
+  private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
   private selected: GhostKindId | null = null;
   private ghost: number | null = null;
   private helperBlinky: number | null = null;
@@ -340,6 +354,10 @@ export class LearnSim {
     }
     this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
+    this.learnUpgrades = tickHyperspeed(this.learnUpgrades, delta);
+    if (!hyperspeedActive(this.learnUpgrades)) {
+      this.hyperspeedDirection = null;
+    }
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
     this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
     this.fireDueEchoes(delta);
@@ -359,16 +377,22 @@ export class LearnSim {
       }
     }
 
+    const hyperspeedMul =
+      this.learnUpgrades.hyperspeedTurnDelayMs > 0
+        ? 0
+        : levelSpeedMul * hyperspeedMultiplier(this.learnUpgrades.owned);
     applyPlayerSpeed(
       this.world,
-      levelSpeedMul *
-        playerSpeedMultiplier(this.learnUpgrades.owned) *
-        cellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
-        (speedBurstActive(this.learnUpgrades)
-          ? speedBurstMultiplier(this.learnUpgrades.owned)
-          : 1) *
-        this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
-        (warping ? 0 : 1),
+      hyperspeedActive(this.learnUpgrades)
+        ? hyperspeedMul * (warping ? 0 : 1)
+        : levelSpeedMul *
+            playerSpeedMultiplier(this.learnUpgrades.owned) *
+            cellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
+            (speedBurstActive(this.learnUpgrades)
+              ? speedBurstMultiplier(this.learnUpgrades.owned)
+              : 1) *
+            this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
+            (warping ? 0 : 1),
     );
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
@@ -379,14 +403,20 @@ export class LearnSim {
     });
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
-    movement(
-      this.world,
-      delta,
-      wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
-      false,
-      undefined,
-      ghostsBlockedFromTunnels(this.learnUpgrades.owned),
-    );
+    const moveFrame = (frameDelta: number): void =>
+      movement(
+        this.world,
+        frameDelta,
+        wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
+        false,
+        undefined,
+        ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+      );
+    if (hyperspeedActive(this.learnUpgrades)) {
+      this.moveHyperspeed(delta, moveFrame);
+    } else {
+      moveFrame(delta);
+    }
     ghostExitHouse(this.world);
     this.noteTunnelExit(positionBeforeMove);
     this.pushTurnSparks(
@@ -399,7 +429,8 @@ export class LearnSim {
     );
     const trailEid = query(this.world, [Player, Position])[0];
     this.speedTrail =
-      trailEid !== undefined && speedBurstActive(this.learnUpgrades)
+      trailEid !== undefined &&
+      (speedBurstActive(this.learnUpgrades) || hyperspeedActive(this.learnUpgrades))
         ? tickSpeedTrail(
             this.speedTrail,
             { x: Position.x[trailEid] ?? 0, y: Position.y[trailEid] ?? 0 },
@@ -429,10 +460,14 @@ export class LearnSim {
       }
     }
 
-    const playerFrame = collectPellets(this.world, {
-      radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
-      solids: getActiveLayout().playerSolids,
-    });
+    const playerFrame = mergePlayerPelletFrames(
+      this.hyperspeedPellets,
+      collectPellets(this.world, {
+        radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
+        solids: getActiveLayout().playerSolids,
+      }),
+    );
+    this.hyperspeedPellets = emptyPlayerPelletFrame();
     const ghostFrame = ghostHarvestActive(this.learnUpgrades)
       ? harvestPelletsByGhosts(this.world)
       : { powerRemoved: 0, removedEids: [], removedPowerPositions: [], removedSnaps: [] };
@@ -483,12 +518,7 @@ export class LearnSim {
     );
     this.eatFrightenedGhosts();
 
-    const catchOptions = {
-      frozenGhostEid: frozenGhostEid(this.learnUpgrades),
-      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
-      edibleGhostEids: frightenedGhostEids(this.learnUpgrades),
-      playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
-    };
+    const catchOptions = this.catchOptions();
     const caught = this.catchDemoOwned() ? catchPlayer(this.world, catchOptions) : null;
     if (caught === null) {
       this.payNearMisses(catchOptions);
@@ -512,9 +542,10 @@ export class LearnSim {
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
         dimGhostEid: this.helperBlinky,
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
-        playerSpeedTrail: speedBurstActive(this.learnUpgrades)
-          ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
-          : undefined,
+        playerSpeedTrail:
+          speedBurstActive(this.learnUpgrades) || hyperspeedActive(this.learnUpgrades)
+            ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
+            : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
@@ -555,6 +586,8 @@ export class LearnSim {
       );
     }
     this.learnUpgrades = clearUpgradeTimers(this.learnUpgrades);
+    this.hyperspeedDirection = null;
+    this.hyperspeedPellets = emptyPlayerPelletFrame();
     this.recallHoldGhostEids = [];
     this.recallHoldRemainingMs = 0;
     this.ghostCornerWarps = [];
@@ -987,8 +1020,67 @@ export class LearnSim {
     }
   }
 
+  private moveHyperspeed(delta: number, moveFrame: (frameDelta: number) => void): void {
+    const playerEid = query(this.world, [Player, Speed])[0];
+    const speed = playerEid === undefined ? 0 : (Speed.px[playerEid] ?? 0);
+    const steps = hyperspeedSubstepCount((speed * delta) / 1000, getActiveLayout().tileSize);
+    const stepDelta = delta / steps;
+    let caught = false;
+    for (let step = 0; step < steps; step += 1) {
+      moveFrame(stepDelta);
+      const turn = noteHyperspeedFacing(
+        this.hyperspeedDirection,
+        playerFacing(this.world),
+        this.learnUpgrades.hyperspeedTurnDelayMs > 0,
+      );
+      this.hyperspeedDirection = turn.lastDirection;
+      if (turn.turned) {
+        this.learnUpgrades = startHyperspeedTurnDelay(this.learnUpgrades);
+        applyPlayerSpeed(this.world, 0);
+      }
+      if (caught) {
+        continue;
+      }
+      this.hyperspeedPellets = mergePlayerPelletFrames(
+        this.hyperspeedPellets,
+        collectPellets(this.world, {
+          radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
+          solids: getActiveLayout().playerSolids,
+        }),
+      );
+      this.eatFrightenedGhosts();
+      const hit = catchPlayer(this.world, this.catchOptions());
+      if (hit !== null && !this.breakHyperspeedShield()) {
+        caught = true;
+        applyPlayerSpeed(this.world, 0);
+      }
+    }
+  }
+
+  private catchOptions(): CatchOptions {
+    return {
+      frozenGhostEid: frozenGhostEid(this.learnUpgrades),
+      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      edibleGhostEids: frightenedGhostEids(this.learnUpgrades),
+      playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
+    };
+  }
+
+  private breakHyperspeedShield(): boolean {
+    const spent = spendHyperspeedShield(this.learnUpgrades);
+    if (spent === null) {
+      return false;
+    }
+    this.learnUpgrades = spent;
+    this.popup("SHIELD BROKEN");
+    return true;
+  }
+
   private resolveDemoCatch(caughtBy: number): void {
     this.streakBar = createBonusBar();
+    if (this.breakHyperspeedShield()) {
+      return;
+    }
     const spent = spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
@@ -1233,6 +1325,11 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
         ? state.invulnRemainingMs
         : 0,
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
+    hyperspeedRemainingMs: hasField("hyperspeedMs") ? state.hyperspeedRemainingMs : 0,
+    hyperspeedTurnDelayMs: hasField("hyperspeedMs") ? state.hyperspeedTurnDelayMs : 0,
+    hyperspeedShieldRemainingMs: hasField("hyperspeedShieldMs")
+      ? state.hyperspeedShieldRemainingMs
+      : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
     shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),

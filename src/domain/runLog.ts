@@ -22,6 +22,7 @@ export type ActivationKind =
   | "wallPass"
   | "invuln"
   | "speedBurst"
+  | "hyperspeed"
   | "ghostHarvest"
   | "defyDeath"
   | "collectExtra"

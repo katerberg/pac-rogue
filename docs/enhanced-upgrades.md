@@ -66,6 +66,7 @@ The first store ([`STORE_FIRST_LEVEL`](../src/domain/store.ts)) offers the 2 liv
 | 43  | `passiveEcho`                 | Echo                  | One random power-pellet effect fires again 3 seconds later                                                        | Every power-pellet effect fires again                                                                                                                                  |
 | 44  | `powerPelletHunter`           | Hunter                | Power pellets frighten ghosts for 6s (shortening 0.5s a level to 4s); eat them for BONUS charge                   | Eaten ghosts stay in the ghost house until the fright ends; the fright stays 6s on every level                                                                         |
 | 45  | `passiveAutomationSpecialist` | Automation Specialist | With 3+ other Automation upgrades owned, every Automation upgrade is enhanced                                     | Every Automation upgrade is enhanced, no threshold                                                                                                                     |
+| 46  | `powerPelletHyperspeed`       | Hyperspeed            | Power pellet: 2s of 10× speed, a 200ms hold on every turn                                                         | 3s of 10× speed plus a one-catch shield for the first 2s                                                                                                               |
 
 ## Decisions
 
