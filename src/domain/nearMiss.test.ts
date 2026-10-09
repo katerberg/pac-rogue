@@ -19,12 +19,13 @@ function run(distances: readonly number[], catchable: readonly boolean[] = []): 
 }
 
 describe("stepNearMissPasses", () => {
-  it("pays once when a ghost enters 1 tile and leaves", () => {
+  it("pays once when a ghost first touches within 1 tile", () => {
+    expect(run([40, 16])).toBe(1);
     expect(run([40, 16, 10, 17])).toBe(1);
   });
 
-  it("does not pay while the ghost is still within 1 tile", () => {
-    expect(run([40, 16, 4, 12])).toBe(0);
+  it("pays while the ghost is still touching, such as one tailing you round a corner", () => {
+    expect(run([40, 16, 4, 12])).toBe(1);
   });
 
   it("does not pay a ghost that never came within 1 tile", () => {
@@ -36,14 +37,13 @@ describe("stepNearMissPasses", () => {
     expect(run([10, 20, 25, 10, 20])).toBe(2);
   });
 
-  it("pays and re-arms in one step when the ghost jumps past 1.5 tiles", () => {
+  it("pays and re-arms when the ghost jumps past 1.5 tiles", () => {
     expect(run([10, 30, 10, 30])).toBe(2);
   });
 
-  it("voids a pass that was not catchable at any point", () => {
+  it("pays nothing for a ghost that could not catch you on contact", () => {
     expect(run([10, 10, 20], [false, true, true])).toBe(0);
-    expect(run([10, 10, 20], [true, false, true])).toBe(0);
-    expect(run([10, 20], [true, false])).toBe(0);
+    expect(run([10, 20], [false, true])).toBe(0);
   });
 
   it("forgets ghosts that drop out of the samples", () => {
@@ -55,20 +55,12 @@ describe("stepNearMissPasses", () => {
   });
 
   it("counts several ghosts in one step", () => {
-    let passes: NearMissPasses = createNearMissPasses();
-    passes = stepNearMissPasses(
-      passes,
+    const step = stepNearMissPasses(
+      createNearMissPasses(),
       [
         { eid: 1, distancePx: 8, catchable: true },
         { eid: 2, distancePx: 8, catchable: true },
-      ],
-      TILE,
-    ).passes;
-    const step = stepNearMissPasses(
-      passes,
-      [
-        { eid: 1, distancePx: 20, catchable: true },
-        { eid: 2, distancePx: 20, catchable: true },
+        { eid: 3, distancePx: 30, catchable: true },
       ],
       TILE,
     );

@@ -4,12 +4,10 @@ export const NEAR_MISS_REARM_TILES = 1.5;
 
 export type NearMissSample = { eid: number; distancePx: number; catchable: boolean };
 
-type PassPhase = "inside" | "spent";
-
-export type NearMissPasses = ReadonlyMap<number, PassPhase>;
+export type NearMissPasses = ReadonlySet<number>;
 
 export function createNearMissPasses(): NearMissPasses {
-  return new Map();
+  return new Set();
 }
 
 export function stepNearMissPasses(
@@ -17,21 +15,17 @@ export function stepNearMissPasses(
   samples: readonly NearMissSample[],
   tileSize: number,
 ): { passes: NearMissPasses; completed: number } {
-  const next = new Map<number, PassPhase>();
+  const next = new Set<number>();
   let completed = 0;
   for (const { eid, distancePx, catchable } of samples) {
-    const near = isNearMiss(distancePx, tileSize);
-    const rearmed = distancePx > tileSize * NEAR_MISS_REARM_TILES;
-    const phase = passes.get(eid);
-    if (phase === "inside" && catchable && !near) {
-      completed += 1;
-      if (!rearmed) {
-        next.set(eid, "spent");
+    const spent = passes.has(eid);
+    if (spent && distancePx <= tileSize * NEAR_MISS_REARM_TILES) {
+      next.add(eid);
+    } else if (!spent && isNearMiss(distancePx, tileSize)) {
+      next.add(eid);
+      if (catchable) {
+        completed += 1;
       }
-    } else if (phase === "inside" || (phase === undefined && near)) {
-      next.set(eid, catchable ? "inside" : "spent");
-    } else if (phase === "spent" && !rearmed) {
-      next.set(eid, "spent");
     }
   }
   return { passes: next, completed };

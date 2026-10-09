@@ -3829,17 +3829,16 @@ describe("Near Miss", () => {
     expect(sim.snapshot().bonus.charge).toBe(100);
   });
 
-  it("pays nothing while the ghost stays within 1 tile", () => {
+  it("pays on contact even while the ghost stays within 1 tile, once", () => {
     const sim = startNearMiss(["passiveNearMiss"]);
     ghostBesidePlayer(sim, query(sim.world, [Ghost, Position])[0]!);
-    runFrames(sim, 1);
-    expect(sim.snapshot().nearMissesPaid).toBe(0);
+    runFrames(sim, 3);
+    expect(sim.snapshot().nearMissesPaid).toBe(1);
+    expect(sim.snapshot().bonus.charge).toBe(100 + NEAR_MISS_CHARGE);
   });
 
   it("pays nothing when the ghost catches you", () => {
     const sim = startNearMiss(["passiveNearMiss"]);
-    ghostBesidePlayer(sim, query(sim.world, [Ghost, Position])[0]!);
-    runFrames(sim, 1);
     ghostOntoPlayer(sim);
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
