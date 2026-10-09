@@ -149,6 +149,10 @@ import {
   wallPassLoopOwned,
   echoEffects,
   queueEcho,
+  tickHyperspeed,
+  startHyperspeedTurnDelay,
+  spendHyperspeedShield,
+  hyperspeedMultiplier,
 } from "./upgrades";
 import { ECHO_DELAY_MS } from "./echo";
 import { TILE_SIZE } from "./maze";
@@ -199,6 +203,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveStreakEngine",
   "passiveEcho",
   "powerPelletHunter",
+  "powerPelletHyperspeed",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -441,6 +446,7 @@ describe("rare upgrades", () => {
     "passiveMartyr",
     "passiveStreakEngine",
     "powerPelletHunter",
+    "powerPelletHyperspeed",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
@@ -1763,5 +1769,65 @@ describe("Hunter", () => {
         hunterHeldEids: [],
       });
     }
+  });
+});
+
+describe("Hyperspeed", () => {
+  const chomp = (owned: UpgradeId[], level = 1) =>
+    applyPowerPelletEffects(createRunUpgrades(owned), 1, undefined, level);
+
+  it("arms 2s, or 3s plus a 2s shield with Hyperspeed+, regardless of level", () => {
+    expect(chomp(["powerPelletHyperspeed"]).state.hyperspeedRemainingMs).toBe(2000);
+    expect(chomp(["powerPelletHyperspeed"], 8).state.hyperspeedRemainingMs).toBe(2000);
+    expect(chomp(["powerPelletHyperspeed"]).state.hyperspeedShieldRemainingMs).toBe(0);
+    const plus = chomp(["powerPelletHyperspeedPlus"]).state;
+    expect(plus.hyperspeedRemainingMs).toBe(3000);
+    expect(plus.hyperspeedShieldRemainingMs).toBe(2000);
+  });
+
+  it("is doubled by Overcharge, shield included", () => {
+    const state = chomp(["powerPelletHyperspeedPlus", "passiveOvercharge"]).state;
+    expect(state.hyperspeedRemainingMs).toBe(6000);
+    expect(state.hyperspeedShieldRemainingMs).toBe(4000);
+  });
+
+  it("refreshes instead of stacking on a second chomp", () => {
+    const first = chomp(["powerPelletHyperspeed"]).state;
+    const ticked = tickHyperspeed(first, 1500);
+    const second = applyPowerPelletEffects(ticked, 1).state;
+    expect(second.hyperspeedRemainingMs).toBe(2000);
+  });
+
+  it("ticks the window, the turn delay and the shield, and clears the delay with the window", () => {
+    let state = startHyperspeedTurnDelay(chomp(["powerPelletHyperspeedPlus"]).state);
+    expect(state.hyperspeedTurnDelayMs).toBe(200);
+    state = tickHyperspeed(state, 150);
+    expect(state.hyperspeedTurnDelayMs).toBe(50);
+    expect(state.hyperspeedRemainingMs).toBe(2850);
+    expect(state.hyperspeedShieldRemainingMs).toBe(1850);
+    state = tickHyperspeed(state, 3000);
+    expect(state.hyperspeedRemainingMs).toBe(0);
+    expect(state.hyperspeedTurnDelayMs).toBe(0);
+    expect(state.hyperspeedShieldRemainingMs).toBe(0);
+  });
+
+  it("spends the shield once into 1s of grace, and tints while it is up", () => {
+    const state = chomp(["powerPelletHyperspeedPlus"]).state;
+    expect(playerTintRemainingMs(state)).toBe(2000);
+    const spent = spendHyperspeedShield(state)!;
+    expect(spent.hyperspeedShieldRemainingMs).toBe(0);
+    expect(spent.invulnRemainingMs).toBe(1000);
+    expect(spendHyperspeedShield(spent)).toBeNull();
+  });
+
+  it("reads its multiplier through the def and clears with the other timers", () => {
+    expect(hyperspeedMultiplier(["powerPelletHyperspeed"])).toBe(10);
+    expect(hyperspeedMultiplier([])).toBe(1);
+    const cleared = clearUpgradeTimers(
+      startHyperspeedTurnDelay(chomp(["powerPelletHyperspeedPlus"]).state),
+    );
+    expect(cleared.hyperspeedRemainingMs).toBe(0);
+    expect(cleared.hyperspeedTurnDelayMs).toBe(0);
+    expect(cleared.hyperspeedShieldRemainingMs).toBe(0);
   });
 });

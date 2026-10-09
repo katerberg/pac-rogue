@@ -730,7 +730,11 @@ export class LearnSim {
 
   private firePowerPelletEffects(powerRemoved: number, echoBases?: readonly BaseUpgradeId[]): void {
     const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved, echoBases);
-    this.learnUpgrades = powerEffects.state;
+    this.learnUpgrades = {
+      ...powerEffects.state,
+      hyperspeedRemainingMs: 0,
+      hyperspeedShieldRemainingMs: 0,
+    };
     if (echoBases === undefined && powerRemoved > 0) {
       this.learnUpgrades = queueEcho(this.learnUpgrades, this.random.stream("echo"));
     }

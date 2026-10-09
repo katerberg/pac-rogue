@@ -4772,3 +4772,127 @@ describe("timed tunnels", () => {
     expect(x).toBeLessThanOrEqual(clampToGridCenters(1e9, 0).x);
   });
 });
+
+describe("Hyperspeed", () => {
+  const RIGHT = { keys: held("right") };
+  const UP = { keys: held("up") };
+  const DOWN = { keys: held("down") };
+
+  function startHyper(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim(
+      { level: 2, maze: "maze1", infiniteLives: true, enableUpgrades, ...overrides },
+      "hyperspeed",
+    );
+  }
+
+  function chompPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  it("does nothing without the upgrade", () => {
+    const sim = startHyper([]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.hyperspeedMs).toBe(0);
+  });
+
+  it("arms a 2s window, 3s with Hyperspeed+, doubled by Overcharge", () => {
+    const base = startHyper(["powerPelletHyperspeed"]);
+    chompPowerPellet(base);
+    expect(base.snapshot().timers.hyperspeedMs).toBeGreaterThan(1900);
+    expect(base.snapshot().timers.hyperspeedMs).toBeLessThanOrEqual(2000);
+    expect(base.snapshot().timers.hyperspeedShieldMs).toBe(0);
+
+    const plus = startHyper(["powerPelletHyperspeedPlus"]);
+    chompPowerPellet(plus);
+    expect(plus.snapshot().timers.hyperspeedMs).toBeGreaterThan(2900);
+    expect(plus.snapshot().timers.hyperspeedShieldMs).toBeGreaterThan(1900);
+
+    const charged = startHyper(["powerPelletHyperspeed", "passiveOvercharge"]);
+    chompPowerPellet(charged);
+    expect(charged.snapshot().timers.hyperspeedMs).toBeGreaterThan(3900);
+  });
+
+  function runDownColumn(enableUpgrades: UpgradeId[]) {
+    const sim = startHyper(enableUpgrades);
+    chompPowerPellet(sim);
+    const inColumn = (): number =>
+      query(sim.world, [Pellet, Position]).filter(
+        (eid) =>
+          Math.abs(Position.x[eid]! - 200) < 1 && Position.y[eid]! > 130 && Position.y[eid]! < 202,
+      ).length;
+    const before = inColumn();
+    runFrames(sim, 8, DOWN);
+    return { before, left: inColumn(), speed: Speed.px[playerEid(sim)]! };
+  }
+
+  it("runs at 10x speed and eats every pellet along the way along a straight run", () => {
+    const plain = runDownColumn([]);
+    const hyper = runDownColumn(["powerPelletHyperspeed"]);
+    expect(hyper.before).toBeGreaterThan(2);
+    expect(plain.left).toBeGreaterThan(0);
+    expect(hyper.left).toBe(0);
+    expect(hyper.speed).toBeGreaterThan(plain.speed * 10);
+  });
+
+  it("returns to normal speed when the window ends", () => {
+    const speedAfter = (enableUpgrades: UpgradeId[]) => {
+      const sim = startHyper(enableUpgrades);
+      chompPowerPellet(sim);
+      runFrames(sim, 130, DOWN);
+      return { speed: Speed.px[playerEid(sim)]!, left: sim.snapshot().timers.hyperspeedMs };
+    };
+    const plain = speedAfter([]);
+    const hyper = speedAfter(["powerPelletHyperspeed"]);
+    expect(hyper.left).toBe(0);
+    expect(hyper.speed).toBe(plain.speed);
+  });
+
+  it("holds movement for 200ms after a turn but lets facing change", () => {
+    const sim = startHyper(["powerPelletHyperspeed"]);
+    chompPowerPellet(sim);
+    runFrames(sim, 8, UP);
+    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBe(0);
+    runFrames(sim, 1, RIGHT);
+    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(150);
+    const x = Position.x[playerEid(sim)]!;
+    runFrames(sim, 4, DOWN);
+    expect(Position.x[playerEid(sim)]).toBe(x);
+    runFrames(sim, 8, RIGHT);
+    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBe(0);
+    runFrames(sim, 2, RIGHT);
+    expect(Position.x[playerEid(sim)]).toBeGreaterThan(x + TILE_SIZE);
+  });
+
+  it("is caught by a ghost on the path", () => {
+    const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
+    chompPowerPellet(sim);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    const player = playerEid(sim);
+    Position.x[ghost] = Position.x[player]!;
+    Position.y[ghost] = Position.y[player]! + TILE_SIZE * 3;
+    runFrames(sim, 10, DOWN);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("Hyperspeed+ shield absorbs one catch with 1s of grace and fires no power pellet effect", () => {
+    const sim = startHyper(["powerPelletHyperspeedPlus"], { infiniteLives: false });
+    chompPowerPellet(sim);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().timers.hyperspeedShieldMs).toBe(0);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(900);
+    expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(0);
+  });
+
+  it("clears the window on life loss", () => {
+    const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
+    chompPowerPellet(sim);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 90);
+    expect(sim.snapshot().timers.hyperspeedMs).toBe(0);
+  });
+});
