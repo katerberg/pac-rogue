@@ -1535,14 +1535,17 @@ export class PlaySim {
   }
 
   private cancelTunnelDashForTimedClose(): void {
-    if (this.tunnelDashAnim === null) {
+    if (this.tunnelDashAnim === null || this.timedTunnelGatedRow === null) {
       return;
     }
-    this.tunnelDashAnim = null;
     const eid = query(this.world, [Player, Position])[0];
     if (eid === undefined) {
       return;
     }
+    if (worldToRow(Position.y[eid] ?? 0) !== this.timedTunnelGatedRow) {
+      return;
+    }
+    this.tunnelDashAnim = null;
     const clamped = clampToGridCenters(Position.x[eid] ?? 0, Position.y[eid] ?? 0);
     Position.x[eid] = clamped.x;
     Position.y[eid] = clamped.y;
