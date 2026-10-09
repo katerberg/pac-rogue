@@ -1905,7 +1905,10 @@ export class PlaySim {
       this.applyGrantEffects(id);
       this.grantSpecialistLives();
     }
-    this.emit({ type: "lives", pulse: grantLivesForUpgrade(id) > 0 });
+    this.emit({
+      type: "lives",
+      pulse: grantLivesForUpgrade(id) > 0 || baseIdOf(id) === "passiveMyogenesis",
+    });
     this.recordSeenUpgrades();
     this.emit({ type: "upgrades" });
     this.emit({ type: "storePurchased", id });
@@ -2448,6 +2451,9 @@ export class PlaySim {
 
   private applyGrantEffects(id: UpgradeId): void {
     this.lives += grantLivesForUpgrade(id);
+    if (baseIdOf(id) === "passiveMyogenesis") {
+      this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1);
+    }
     if (baseIdOf(id) === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([id]));
     }

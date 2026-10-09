@@ -966,6 +966,18 @@ describe("PlaySim", () => {
     expect(sim.snapshot().lives).toBe(3);
   });
 
+  it("taking Myogenesis fills an empty life slot, but not when full", () => {
+    const take = (livesBefore: number): number => {
+      const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
+      (sim as unknown as { lives: number }).lives = livesBefore;
+      drainToOffer(sim);
+      sim.chooseUpgrade({ kind: "upgrade", id: "passiveMyogenesis" });
+      return sim.snapshot().lives;
+    };
+    expect(take(2)).toBe(3);
+    expect(take(4)).toBe(4);
+  });
+
   it("keeps START_LIVES above ?maxLives= without trimming", () => {
     expect(startSim({ level: 1, enableUpgrades: [], maxLives: 3 }).snapshot().lives).toBe(4);
     expect(startSim({ level: 1, enableUpgrades: [], maxLives: 6 }).snapshot().lives).toBe(4);
