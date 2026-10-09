@@ -1048,6 +1048,7 @@ export class LearnSim {
           solids: getActiveLayout().playerSolids,
         }),
       );
+      this.eatFrightenedGhosts();
       const hit = catchPlayer(this.world, this.catchOptions());
       if (hit !== null && !this.breakHyperspeedShield()) {
         caught = true;

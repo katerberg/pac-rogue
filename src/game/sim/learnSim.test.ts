@@ -661,6 +661,19 @@ describe("LearnSim upgrade demos", () => {
       expect(sim["learnUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
     });
 
+    it("holds movement for 200ms after a turn", () => {
+      const { sim, player } = setup("powerPelletHyperspeed");
+      const spawn = posOf(player);
+      chomp(sim, player);
+      moveTo(player, spawn);
+      sim.step(held("right"), FRAME_MS);
+      sim.step(held("left"), FRAME_MS);
+      expect(sim["learnUpgrades"].hyperspeedTurnDelayMs).toBeGreaterThan(150);
+      const x = Position.x[player]!;
+      sim.step(held("left"), FRAME_MS);
+      expect(Position.x[player]).toBe(x);
+    });
+
     it("drops the timers when the upgrade is toggled off", () => {
       const { sim, player } = setup("powerPelletHyperspeed");
       chomp(sim, player);
