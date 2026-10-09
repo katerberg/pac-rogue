@@ -2351,7 +2351,9 @@ export class PlaySim {
     this.shieldCrack = { index: spent.shieldsBanked, elapsedMs: 0 };
     this.emit({ type: "shields" });
     this.emit({ type: "shieldCrack", index: spent.shieldsBanked, progress: 0 });
-    this.firePowerPelletEffects(1);
+    if (shieldPelletsCap(this.effectiveUpgrades()) !== null) {
+      this.firePowerPelletEffects(1);
+    }
     this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
     return true;
   }

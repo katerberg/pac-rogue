@@ -1828,7 +1828,7 @@ export function startingShieldCount(owned: readonly UpgradeId[]): number {
 }
 
 export function shieldBankCap(owned: readonly UpgradeId[]): number {
-  return Math.max(shieldPelletsCap(owned) ?? 0, startingShieldCount(owned));
+  return (shieldPelletsCap(owned) ?? 0) + startingShieldCount(owned);
 }
 
 export function grantStartingShields(state: RunUpgrades): RunUpgrades {

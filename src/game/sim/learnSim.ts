@@ -995,7 +995,9 @@ export class LearnSim {
     const spent = spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
-      this.firePowerPelletEffects(1);
+      if (shieldPelletsCap(this.learnUpgrades.owned) !== null) {
+        this.firePowerPelletEffects(1);
+      }
       this.learnUpgrades = applyShieldBreakInvuln(this.learnUpgrades);
       this.popup("SHIELD BROKEN");
       return;

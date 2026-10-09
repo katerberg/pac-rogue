@@ -3556,13 +3556,32 @@ describe("Starting Shield", () => {
     expect(sim.snapshot().timers.shieldsBanked).toBe(2);
   });
 
-  it("stacks with Shield Pellets up to the larger cap", () => {
-    const sim = startShieldSim(["passiveStartingShield", "passiveShieldPelletsPlus"]);
+  it("adds its cap to Shield Pellets", () => {
+    const sim = startShieldSim(["passiveStartingShield", "passiveShieldPellets"]);
     expect(sim.snapshot().timers.shieldsBanked).toBe(1);
-    const power = query(sim.world, [PowerPellet, Position])[0]!;
-    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
-    runFrames(sim, 1);
+    const [first, second] = query(sim.world, [PowerPellet, Position]);
+    for (const power of [first!, second!]) {
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+    }
     expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+  });
+
+  it("a break fires power-pellet effects only with Shield Pellets", () => {
+    const alone = startShieldSim(["passiveStartingShield", "powerPelletSpeedBurst"]);
+    ghostOntoPlayer(alone);
+    runFrames(alone, 1);
+    expect(alone.snapshot().timers).toMatchObject({ shieldsBanked: 0, speedBurstMs: 0 });
+    expect(alone.snapshot().timers.invulnMs).toBeGreaterThan(0);
+
+    const paired = startShieldSim([
+      "passiveStartingShield",
+      "passiveShieldPellets",
+      "powerPelletSpeedBurst",
+    ]);
+    ghostOntoPlayer(paired);
+    runFrames(paired, 1);
+    expect(paired.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
   });
 });
 

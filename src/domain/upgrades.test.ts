@@ -1244,10 +1244,11 @@ describe("starting shield", () => {
     expect(grantStartingShields(createRunUpgrades()).shieldsBanked).toBe(0);
   });
 
-  it("banks power pellets only with Shield Pellets and uses the larger cap", () => {
+  it("banks power pellets only with Shield Pellets and adds the caps", () => {
     expect(shieldPelletsCap(["passiveStartingShield"])).toBeNull();
     expect(shieldBankCap(["passiveStartingShieldPlus"])).toBe(2);
-    expect(shieldBankCap(["passiveStartingShieldPlus", "passiveShieldPelletsPlus"])).toBe(3);
+    expect(shieldBankCap(["passiveStartingShield", "passiveShieldPellets"])).toBe(2);
+    expect(shieldBankCap(["passiveStartingShieldPlus", "passiveShieldPelletsPlus"])).toBe(5);
   });
 
   it("clamps the bank when revoked", () => {

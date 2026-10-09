@@ -302,8 +302,8 @@ While `passiveShieldPellets` is owned, power pellets stop firing `onPowerPellet`
 
 `passiveStartingShield` has a `startingShields` field (`STARTING_SHIELD_COUNT` 1, `STARTING_SHIELD_ENHANCED_COUNT` 2 enhanced). `grantStartingShields` raises the bank to that count (never lowers it, never stacks past it). `PlaySim` calls it in `startBoard` (first board and every level advance, after the bank was emptied), when the upgrade is granted (store buy, swap, starting card, enhance) and nothing else: a death keeps the bank as it is, so a spent shield does not come back until the next level.
 
-- **Same shield as Shield Pellets.** It uses `shieldsBanked`, the HUD squares, the break (no life lost, BONUS streak reset, every owned `onPowerPellet` effect fires, 1s of Ghost Proof) and the crack animation. Power pellets keep firing their effects unless Shield Pellets is also owned.
-- **With Shield Pellets.** The bank cap is the larger of the two (`shieldBankCap`): Starting Shield gives its shields at level start and pellets fill the rest up to the Shield Pellets cap.
+- **Same shield as Shield Pellets.** It uses `shieldsBanked`, the HUD squares, the break (no life lost, BONUS streak reset, 1s of Ghost Proof) and the crack animation. A break fires the owned `onPowerPellet` effects only when Shield Pellets is also owned; that is Shield Pellets' own rule. Power pellets keep firing their effects unless Shield Pellets is also owned.
+- **With Shield Pellets.** The bank cap is the sum of the two (`shieldBankCap`, so both base forms give 2): Starting Shield gives its shields at level start and pellets fill the rest.
 - **Losing it** (a store Swap, or a LEARN toggle off or back to base) clamps the bank to the new cap.
 - **LEARN** grants the shields on toggle and on every board refill, and shows `SHIELDS n/cap`.
 
