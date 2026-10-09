@@ -136,12 +136,12 @@ function resolveWrap(
   solids: SolidGrid,
   ghost: boolean,
   ghostsBlockTunnels: boolean,
-  blockTunnelRows: ReadonlySet<number> | null,
+  blockTunnelRow: number | null,
 ): { x: number; y: number } {
   if (ghost && ghostsBlockTunnels) {
     return clampToGridCenters(x, y);
   }
-  return wrapPosition(x, y, solids, blockTunnelRows);
+  return wrapPosition(x, y, solids, blockTunnelRow);
 }
 
 export function movement(
@@ -151,7 +151,7 @@ export function movement(
   playerStopOnRelease = false,
   playerPreTurn: number = playerPreTurnPx(),
   ghostsBlockTunnels = false,
-  blockTunnelRows: ReadonlySet<number> | null = null,
+  blockTunnelRow: number | null = null,
 ): void {
   const dt = deltaMs / 1000;
   const playerSolids = playerSolidsOverride ?? getActiveLayout().playerSolids;
@@ -159,7 +159,7 @@ export function movement(
   for (const eid of query(world, [Position, Velocity, Input, Facing, Speed])) {
     const speed = Speed.px[eid] ?? 0;
     const ghost = hasComponent(world, eid, Ghost)
-      ? ghostMovementRules(ghostPhaseOf(world, eid), ghostsBlockTunnels, blockTunnelRows)
+      ? ghostMovementRules(ghostPhaseOf(world, eid), ghostsBlockTunnels, blockTunnelRow)
       : null;
     const solids: SolidGrid = ghost?.solids ?? playerSolids;
     const frameTravel = speed * dt;
@@ -179,7 +179,7 @@ export function movement(
         return false;
       }
       if (
-        blockTunnelRows?.has(worldToRow(py)) &&
+        worldToRow(py) === blockTunnelRow &&
         !inBounds(worldToCol(px) + dx, worldToRow(py) + dy)
       ) {
         return false;
@@ -265,7 +265,7 @@ export function movement(
         solids,
         ghost !== null,
         ghostsBlockTunnels,
-        blockTunnelRows,
+        blockTunnelRow,
       );
       const playfield = clampPositionToPlayfield(wrapped.x, wrapped.y);
       Position.x[eid] = playfield.x;
@@ -346,7 +346,7 @@ export function movement(
       solids,
       ghost !== null,
       ghostsBlockTunnels,
-      blockTunnelRows,
+      blockTunnelRow,
     );
     nextX = wrapped.x;
     nextY = wrapped.y;

@@ -139,9 +139,8 @@ describe("maze", () => {
   it("clamps instead of wrapping when the tunnel row is blocked", () => {
     const y = cellCenterY(14);
     const pastLeft = MAZE_OFFSET_X - 4;
-    const blocked = new Set([14]);
-    expect(wrapPosition(pastLeft, y, undefined, blocked).x).toBe(cellCenterX(0));
-    expect(wrappedTwinPosition(MAZE_OFFSET_X + 2, y, TILE_SIZE / 2, undefined, blocked)).toBeNull();
+    expect(wrapPosition(pastLeft, y, undefined, 14).x).toBe(cellCenterX(0));
+    expect(wrappedTwinPosition(MAZE_OFFSET_X + 2, y, TILE_SIZE / 2, undefined, 14)).toBeNull();
   });
 
   it("still wraps other tunnel rows when only one row is blocked", () => {
@@ -152,8 +151,7 @@ describe("maze", () => {
     const openRow = rows.find((row) => row !== rows[0])!;
     const y = cellCenterY(openRow);
     const pastLeft = MAZE_OFFSET_X - 4;
-    const blocked = new Set([rows[0]!]);
-    expect(wrapPosition(pastLeft, y, undefined, blocked).x).toBeCloseTo(
+    expect(wrapPosition(pastLeft, y, undefined, rows[0]!).x).toBeCloseTo(
       pastLeft + MAZE_PIXEL_WIDTH,
       5,
     );

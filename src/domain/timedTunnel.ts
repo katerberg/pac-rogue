@@ -7,6 +7,12 @@ export const TIMED_TUNNEL_CYCLE_MS = TIMED_TUNNEL_OPEN_MS + TIMED_TUNNEL_CLOSED_
 
 export type TimedTunnelPhase = "open" | "warn" | "closed";
 
+export type TimedTunnelRenderState = {
+  row: number;
+  phase: TimedTunnelPhase;
+  blinkOn: boolean;
+};
+
 export function timedTunnelPhase(elapsedMs: number): TimedTunnelPhase {
   const t = ((elapsedMs % TIMED_TUNNEL_CYCLE_MS) + TIMED_TUNNEL_CYCLE_MS) % TIMED_TUNNEL_CYCLE_MS;
   if (t >= TIMED_TUNNEL_OPEN_MS) {
@@ -36,22 +42,7 @@ export function pickTimedTunnelRow(
   if (rows.length === 0) {
     return null;
   }
-  if (rows.length === 1) {
-    return rows[0]!;
-  }
   return rows[Math.floor(nextRandom() * rows.length)]!;
-}
-
-export function timedTunnelBlocksWrap(args: {
-  phase: TimedTunnelPhase;
-  gatedRow: number | null;
-  entityRow: number;
-  wallPassLoopActive: boolean;
-}): boolean {
-  if (args.wallPassLoopActive || args.gatedRow === null || args.phase !== "closed") {
-    return false;
-  }
-  return args.entityRow === args.gatedRow;
 }
 
 export function timedTunnelMouthBlinkOn(phase: TimedTunnelPhase, nowMs: number): boolean {

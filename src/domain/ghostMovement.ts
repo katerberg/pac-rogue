@@ -16,7 +16,7 @@ export type GhostMovementRules = {
 export function ghostMovementRules(
   phase: number,
   blockTunnels = false,
-  blockTunnelRows: ReadonlySet<number> | null = null,
+  blockTunnelRow: number | null = null,
 ): GhostMovementRules {
   const layout = getActiveLayout();
   const solids = phase === GHOST_PHASE.active ? layout.playerSolids : layout.ghostSolids;
@@ -32,7 +32,7 @@ export function ghostMovementRules(
       door,
       layout.house,
       blockTunnels,
-      blockTunnelRows,
+      blockTunnelRow,
     );
 
   return {

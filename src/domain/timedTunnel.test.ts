@@ -5,7 +5,6 @@ import {
   TIMED_TUNNEL_CYCLE_MS,
   TIMED_TUNNEL_OPEN_MS,
   TIMED_TUNNEL_WARN_MS,
-  timedTunnelBlocksWrap,
   timedTunnelMouthBlinkOn,
   timedTunnelPhase,
   timedTunnelPhaseRemainingMs,
@@ -50,39 +49,11 @@ describe("pickTimedTunnelRow", () => {
     expect(pickTimedTunnelRow([], () => 0.9)).toBeNull();
   });
 
-  it("returns the only row without rolling", () => {
-    expect(
-      pickTimedTunnelRow([12], () => {
-        throw new Error("should not roll");
-      }),
-    ).toBe(12);
-  });
-
   it("picks by floor(next * length)", () => {
+    expect(pickTimedTunnelRow([12], () => 0)).toBe(12);
     expect(pickTimedTunnelRow([3, 9, 15], () => 0)).toBe(3);
     expect(pickTimedTunnelRow([3, 9, 15], () => 0.5)).toBe(9);
     expect(pickTimedTunnelRow([3, 9, 15], () => 0.99)).toBe(15);
-  });
-});
-
-describe("timedTunnelBlocksWrap", () => {
-  const base = {
-    phase: "closed" as const,
-    gatedRow: 14,
-    entityRow: 14,
-    wallPassLoopActive: false,
-  };
-
-  it("blocks only when closed on the gated row", () => {
-    expect(timedTunnelBlocksWrap(base)).toBe(true);
-    expect(timedTunnelBlocksWrap({ ...base, phase: "open" })).toBe(false);
-    expect(timedTunnelBlocksWrap({ ...base, phase: "warn" })).toBe(false);
-    expect(timedTunnelBlocksWrap({ ...base, entityRow: 10 })).toBe(false);
-    expect(timedTunnelBlocksWrap({ ...base, gatedRow: null })).toBe(false);
-  });
-
-  it("never blocks while Wall Pass+ loop is active", () => {
-    expect(timedTunnelBlocksWrap({ ...base, wallPassLoopActive: true })).toBe(false);
   });
 });
 

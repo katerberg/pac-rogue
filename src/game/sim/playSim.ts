@@ -1049,7 +1049,7 @@ export class PlaySim {
     }
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
-    const blockedTunnelRows = this.blockedTunnelRows();
+    const blockTunnelRow = this.closedGatedTunnelRow();
     movement(
       this.world,
       delta,
@@ -1057,7 +1057,7 @@ export class PlaySim {
       false,
       playerPreTurnPx(this.currentTuning),
       this.ghostsBlockedFromTunnels(),
-      blockedTunnelRows,
+      blockTunnelRow,
     );
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
     this.noteTunnelExit(positionBeforeMove);
@@ -1223,7 +1223,7 @@ export class PlaySim {
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world, this.ghostsBlockedFromTunnels(), undefined, blockedTunnelRows);
+      forceGhostReverse(this.world, this.ghostsBlockedFromTunnels(), undefined, blockTunnelRow);
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
       ghostAi(
@@ -1233,14 +1233,14 @@ export class PlaySim {
         this.currentTuning,
         this.ghostsBlockedFromTunnels(),
         frightenedGhostEids(this.runUpgrades),
-        blockedTunnelRows,
+        blockTunnelRow,
       );
       frightenedGhostAi(
         this.world,
         frightenedGhostEids(this.runUpgrades),
         this.random.stream("frightened", this.levelIndex),
         this.ghostsBlockedFromTunnels(),
-        blockedTunnelRows,
+        blockTunnelRow,
       );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
@@ -1514,36 +1514,24 @@ export class PlaySim {
     }
   }
 
-  private timedTunnelCurrentPhase(): TimedTunnelPhase | null {
-    if (this.timedTunnelGatedRow === null) {
-      return null;
-    }
-    return timedTunnelPhase(this.timedTunnelElapsedMs);
-  }
-
-  private blockedTunnelRows(): ReadonlySet<number> | null {
-    const phase = this.timedTunnelCurrentPhase();
+  private closedGatedTunnelRow(): number | null {
     if (
       this.timedTunnelGatedRow === null ||
-      phase !== "closed" ||
+      timedTunnelPhase(this.timedTunnelElapsedMs) !== "closed" ||
       this.timedTunnelWallPassLoopActive()
     ) {
       return null;
     }
-    return new Set([this.timedTunnelGatedRow]);
+    return this.timedTunnelGatedRow;
   }
 
   private timedTunnelBlocksPlayerDash(): boolean {
-    const phase = this.timedTunnelCurrentPhase();
-    if (
-      this.timedTunnelGatedRow === null ||
-      phase !== "closed" ||
-      this.timedTunnelWallPassLoopActive()
-    ) {
+    const closedRow = this.closedGatedTunnelRow();
+    if (closedRow === null) {
       return false;
     }
     const at = this.playerPosition();
-    return at !== null && worldToRow(at.y) === this.timedTunnelGatedRow;
+    return at !== null && worldToRow(at.y) === closedRow;
   }
 
   private cancelTunnelDashForTimedClose(): void {
@@ -2599,7 +2587,7 @@ export class PlaySim {
         this.world,
         hunterFrightenLimit(this.bossState?.def.id ?? null),
         this.ghostsBlockedFromTunnels(),
-        this.blockedTunnelRows(),
+        this.closedGatedTunnelRow(),
       );
       this.runUpgrades = { ...this.runUpgrades, frightenedGhostEids: frightened };
       if (frightened.length > 0) {

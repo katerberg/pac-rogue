@@ -20,7 +20,7 @@ export function forceGhostReverse(
   world: World,
   blockTunnels = false,
   onlyEids?: ReadonlySet<number>,
-  blockTunnelRows: ReadonlySet<number> | null = null,
+  blockTunnelRow: number | null = null,
 ): void {
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Facing, Input, Position])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.active;
@@ -42,7 +42,7 @@ export function forceGhostReverse(
     const y = Position.y[eid] ?? 0;
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRows);
+    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRow);
     const opens = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
 
     let next: Direction = reversed;

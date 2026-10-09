@@ -811,13 +811,13 @@ export function canGhostEnterDirection(
   door: SolidGrid = getActiveLayout().door,
   house: SolidGrid = getActiveLayout().house,
   blockTunnels = false,
-  blockTunnelRows: ReadonlySet<number> | null = null,
+  blockTunnelRow: number | null = null,
 ): boolean {
   if (!canEnterDirection(x, y, dx, dy, solids)) {
     return false;
   }
   const nextOutOfBounds = !inBounds(worldToCol(x) + dx, worldToRow(y) + dy);
-  if (nextOutOfBounds && (blockTunnels || (blockTunnelRows?.has(worldToRow(y)) ?? false))) {
+  if (nextOutOfBounds && (blockTunnels || worldToRow(y) === blockTunnelRow)) {
     return false;
   }
   if (dy !== 0) {
@@ -1167,7 +1167,7 @@ export function wrapPosition(
   x: number,
   y: number,
   solids: SolidGrid = getActiveLayout().playerSolids,
-  blockHorizontalTunnelRows: ReadonlySet<number> | null = null,
+  blockHorizontalTunnelRow: number | null = null,
 ): { x: number; y: number } {
   let nextX = x;
   let nextY = y;
@@ -1175,7 +1175,7 @@ export function wrapPosition(
   const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
 
   if (hasHorizontalTunnel(row, solids)) {
-    if (blockHorizontalTunnelRows?.has(row)) {
+    if (row === blockHorizontalTunnelRow) {
       nextX = Math.min(cellCenterX(MAZE_COLS - 1), Math.max(cellCenterX(0), nextX));
     } else if (nextX < MAZE_OFFSET_X) {
       nextX += MAZE_PIXEL_WIDTH;
@@ -1200,12 +1200,12 @@ export function wrappedTwinPosition(
   y: number,
   radius: number,
   solids: SolidGrid = getActiveLayout().playerSolids,
-  blockHorizontalTunnelRows: ReadonlySet<number> | null = null,
+  blockHorizontalTunnelRow: number | null = null,
 ): { x: number; y: number } | null {
   const row = Math.min(MAZE_ROWS - 1, Math.max(0, worldToRow(y)));
   const col = Math.min(MAZE_COLS - 1, Math.max(0, worldToCol(x)));
 
-  if (hasHorizontalTunnel(row, solids) && !blockHorizontalTunnelRows?.has(row)) {
+  if (hasHorizontalTunnel(row, solids) && row !== blockHorizontalTunnelRow) {
     if (x - radius < MAZE_OFFSET_X) {
       return { x: x + MAZE_PIXEL_WIDTH, y };
     }

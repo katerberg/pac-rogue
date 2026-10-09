@@ -11,7 +11,7 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
-import type { TimedTunnelPhase } from "../../domain/timedTunnel";
+import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import {
@@ -501,11 +501,7 @@ export type RenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   lineArtDrawableIds?: string[];
-  timedTunnel?: {
-    row: number;
-    phase: TimedTunnelPhase;
-    blinkOn: boolean;
-  } | null;
+  timedTunnel?: TimedTunnelRenderState | null;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -842,8 +838,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const wallPassLoopOn = opts?.wallPassLoopActive === true;
     const twinSolids = wallPassLoopOn ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
     const timedTunnel = opts?.timedTunnel ?? null;
-    const blockTunnelRows =
-      !wallPassLoopOn && timedTunnel?.phase === "closed" ? new Set([timedTunnel.row]) : null;
+    const blockTunnelRow =
+      !wallPassLoopOn && timedTunnel?.phase === "closed" ? timedTunnel.row : null;
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
     const playerTintNow = playerTint({
       wallPassOn,
@@ -1121,7 +1117,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           playerAlphaOpt === undefined &&
           hasComponent(world, eid, Player)
         ) {
-          const twin = wrappedTwinPosition(x, y, radius, twinSolids, blockTunnelRows);
+          const twin = wrappedTwinPosition(x, y, radius, twinSolids, blockTunnelRow);
           if (twin) {
             placeDotMan(`${eid}:ltwin`, true, twin.x, twin.y, entityAlpha, turnFlash.scale);
           }
@@ -1245,7 +1241,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           reviveProgress === undefined &&
           hasComponent(world, eid, Player)
         ) {
-          const twin = wrappedTwinPosition(x, y, radius, twinSolids, blockTunnelRows);
+          const twin = wrappedTwinPosition(x, y, radius, twinSolids, blockTunnelRow);
           if (twin) {
             alive.add(twinKey);
             let twinGo = drawableObjects.get(twinKey);

@@ -6,14 +6,10 @@ import type { StorePromptView } from "../../domain/store";
 import type { FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
-import type { TimedTunnelPhase } from "../../domain/timedTunnel";
+import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 
-export type TimedTunnelRenderState = {
-  row: number;
-  phase: TimedTunnelPhase;
-  blinkOn: boolean;
-};
+export type { TimedTunnelRenderState };
 
 export type SimRenderOptions = {
   frozenGhostEid: number | null;
