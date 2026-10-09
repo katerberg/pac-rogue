@@ -85,6 +85,9 @@ import {
   bankShields,
   grantStartingShields,
   shieldBankCap,
+  powerPelletPickupFires,
+  shieldBreakOwned,
+  shieldOverflow,
   shieldPelletsCap,
   spendShield,
   hyperspeedActive,
@@ -225,6 +228,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveStartingShield",
   "passiveHaunting",
   "powerPelletHyperspeed",
+  "passiveShieldBreak",
 ];
 
 export class LearnSim {
@@ -746,11 +750,15 @@ export class LearnSim {
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): void {
-    if (shieldPelletsCap(this.learnUpgrades.owned) !== null) {
+    const owned = this.learnUpgrades.owned;
+    const overflow = shieldOverflow(this.learnUpgrades, powerRemoved);
+    if (shieldPelletsCap(owned) !== null) {
       this.learnUpgrades = bankShields(this.learnUpgrades, powerRemoved);
-      return;
     }
-    this.firePowerPelletEffects(powerRemoved);
+    const fires = powerPelletPickupFires(owned, powerRemoved, overflow);
+    if (fires > 0) {
+      this.firePowerPelletEffects(fires);
+    }
   }
 
   private fireDueEchoes(delta: number): void {
@@ -1075,6 +1083,10 @@ export class LearnSim {
       return false;
     }
     this.learnUpgrades = spent;
+    if (shieldBreakOwned(this.learnUpgrades.owned)) {
+      this.firePowerPelletEffects(1);
+      this.learnUpgrades = { ...this.learnUpgrades, hyperspeedShieldRemainingMs: 0 };
+    }
     this.popup("SHIELD BROKEN");
     return true;
   }
@@ -1087,7 +1099,7 @@ export class LearnSim {
     const spent = spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
-      if (shieldPelletsCap(this.learnUpgrades.owned) !== null) {
+      if (shieldBreakOwned(this.learnUpgrades.owned)) {
         this.firePowerPelletEffects(1);
       }
       this.learnUpgrades = applyShieldBreakInvuln(this.learnUpgrades);

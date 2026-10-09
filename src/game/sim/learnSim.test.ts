@@ -487,8 +487,26 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
-  it("Shield Pellets banks a shield and a catch breaks it instead of costing a life", () => {
+  it("Shield fires pickup effects and banks a shield; its break fires nothing", () => {
     const { sim, player } = setup("passiveShieldPellets", "powerPelletInvuln");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(0);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    runMs(sim, 3_100);
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    const after = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(after.type === "draw" && after.options.playerInvulnRemainingMs).toBeLessThanOrEqual(
+      1000,
+    );
+  });
+
+  it("Shield Break holds pickup effects until a catch breaks the shield", () => {
+    const { sim, player } = setup(
+      "passiveShieldPellets",
+      "passiveShieldBreak",
+      "powerPelletInvuln",
+    );
     expect(sim.statusText()).toContain("SHIELDS 0/1");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
@@ -501,7 +519,7 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
-  it("Shield Pellets drops shields over the cap when toggled down or off", () => {
+  it("Shield drops shields over the cap when toggled down or off", () => {
     const { sim, player } = setup("passiveShieldPellets");
     sim.toggleEnhanced("passiveShieldPellets");
     for (const power of [...query(sim.world, [PowerPellet, Position])]) {

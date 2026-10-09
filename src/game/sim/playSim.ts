@@ -199,6 +199,9 @@ import {
   grantStartingShields,
   clearUpgradeTimers,
   queueEcho,
+  powerPelletPickupFires,
+  shieldBreakOwned,
+  shieldOverflow,
   shieldPelletsCap,
   spendShield,
   deathsBountyCharge,
@@ -1234,11 +1237,7 @@ export class PlaySim {
     }
     this.recorder.powerPellets("player", playerFrame.powerRemoved);
     this.recorder.powerPellets("ghostHarvest", ghostFrame.powerRemoved);
-    const shielded = shieldPelletsCap(this.effectiveUpgrades()) !== null;
-    if (shielded) {
-      this.bankShields(powerRemoved);
-    }
-    const powerEffects = this.applyPowerEffects(shielded ? 0 : powerRemoved);
+    const powerEffects = this.applyPowerEffects(this.bankAndCountPickupFires(powerRemoved));
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
       const bonusSnaps = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
@@ -2362,11 +2361,16 @@ export class PlaySim {
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): boolean {
+    const fires = this.bankAndCountPickupFires(powerRemoved);
+    return fires > 0 ? this.firePowerPelletEffects(fires) : false;
+  }
+
+  private bankAndCountPickupFires(powerRemoved: number): number {
+    const overflow = shieldOverflow(this.runUpgrades, powerRemoved);
     if (shieldPelletsCap(this.effectiveUpgrades()) !== null) {
       this.bankShields(powerRemoved);
-      return false;
     }
-    return this.firePowerPelletEffects(powerRemoved);
+    return powerPelletPickupFires(this.effectiveUpgrades(), powerRemoved, overflow);
   }
 
   private bankShields(count: number): void {
@@ -2448,6 +2452,10 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
+    if (shieldBreakOwned(this.effectiveUpgrades())) {
+      this.firePowerPelletEffects(1);
+      this.runUpgrades = { ...this.runUpgrades, hyperspeedShieldRemainingMs: 0 };
+    }
     return true;
   }
 
@@ -2462,7 +2470,7 @@ export class PlaySim {
     this.shieldCrack = { index: spent.shieldsBanked, elapsedMs: 0 };
     this.emit({ type: "shields" });
     this.emit({ type: "shieldCrack", index: spent.shieldsBanked, progress: 0 });
-    if (shieldPelletsCap(this.effectiveUpgrades()) !== null) {
+    if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
     }
     this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
