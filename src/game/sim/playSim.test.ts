@@ -3494,6 +3494,70 @@ describe("Shield Pellets", () => {
   });
 });
 
+describe("Starting Shield", () => {
+  function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  it("starts the board with 1 shield, or 2 with Starting Shield+", () => {
+    expect(startShieldSim(["passiveStartingShield"]).snapshot().timers.shieldsBanked).toBe(1);
+    expect(startShieldSim(["passiveStartingShieldPlus"]).snapshot().timers.shieldsBanked).toBe(2);
+    expect(startShieldSim(["passiveStartingShield"]).hud().shields).toBe(1);
+  });
+
+  it("a catch breaks a shield, costing no life, then a second catch is a death", () => {
+    const sim = startShieldSim(["passiveStartingShield"]);
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({ dying: false, lives: livesBefore });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 400);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("refills the shields on every new level", () => {
+    const sim = startShieldSim(["passiveStartingShieldPlus"]);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    sim["jumpToLevelClear"]();
+    drainToOffer(sim);
+    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 240);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+  });
+
+  it("does not refill on a death, and does nothing without the upgrade", () => {
+    expect(startShieldSim(["powerPelletInvuln"]).snapshot().timers.shieldsBanked).toBe(0);
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveStartingShield"],
+      infiniteLives: true,
+    });
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 400);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 400);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+  });
+
+  it("stacks with Shield Pellets up to the larger cap", () => {
+    const sim = startShieldSim(["passiveStartingShield", "passiveShieldPelletsPlus"]);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+  });
+});
+
 describe("PlaySim ghost catch overlap", () => {
   function ghostAtReachFraction(fraction: number): PlaySim {
     const sim = startSim({ level: 2, maze: "maze1", infiniteLives: true });

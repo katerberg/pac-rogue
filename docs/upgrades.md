@@ -60,6 +60,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveStreakEngine`         | Streak Engine         | Harvest    | Every `STREAK_ENGINE_EVERY` (30) pellets in a BONUS streak fires every owned `onPowerPellet` effect, as if you had eaten a power pellet; 5, 10 … 30 pop off the pellets as you eat them (see [Streak Engine](#streak-engine) below)                                                                                                                                                                                                         |
 | `passiveEcho`                 | Echo                  | Automation | Every power-pellet trigger fires one random owned `onPowerPellet` upgrade again `ECHO_DELAY_MS` (3s) later (see [Echo](#echo) below)                                                                                                                                                                                                                                                                                                        |
 | `powerPelletHunter`           | Hunter                | Disruption | Power pellet frightens every ghost out of the house for `HUNTER_FRIGHTENED_MS` (6000), 500ms less per level down to 4000: they turn blue, slow to 0.6× speed and wander; touching one eats it for BONUS charge and sends it home (see [Hunter](#hunter) below)                                                                                                                                                                              |
+| `passiveStartingShield`       | Starting Shield       | Protection | Every level starts with `STARTING_SHIELD_COUNT` (1) shield banked; a catch breaks it like a [Shield Pellets](#shield-pellets) shield (see [Starting Shield](#starting-shield) below)                                                                                                                                                                                                                                                        |
 
 ## Enhanced upgrades
 
@@ -121,6 +122,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveStreakEngine`         | Streak Engine         | Each fire also grants `STREAK_ENGINE_ENHANCED_INVULN_MS` (3s) of Ghost Proof                                                                                           |
 | `passiveEcho`                 | Echo                  | Every owned `onPowerPellet` upgrade echoes, not one at random                                                                                                          |
 | `powerPelletHunter`           | Hunter                | Eaten ghosts stay in the ghost house until the fright ends; the fright stays 6s on every level                                                                         |
+| `passiveStartingShield`       | Starting Shield       | Start every level with 2 shields (`STARTING_SHIELD_ENHANCED_COUNT`)                                                                                                    |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -295,6 +297,15 @@ While `passiveShieldPellets` is owned, power pellets stop firing `onPowerPellet`
 - **Reset:** the bank is not a timer, so `clearUpgradeTimers` keeps it; it empties on level advance (`advanceToNextLevel`). Losing the upgrade (a store Swap, or a LEARN toggle off or back to base) clamps the bank to the new cap (`revokeUpgrade`, LEARN's `clearStaleUpgradeTimers`).
 - **HUD:** one `SHIELD_HUD_COLOR` square per banked shield, right of the life icons (`shieldHudIconX`). On a break the sim emits `shieldCrack` with progress 0 to 1 over `SHIELD_CRACK_MS` (600ms), and `PlayScene` splits the spent square into two halves that `shieldCrackLook` (`src/domain/shieldCrack.ts`) pushes apart, drops, spins and fades. `play.timers.shieldsBanked` and `play.shieldCrackProgress` expose both in the debug snapshot.
 - **LEARN** mirrors banking and the break through the demo catch: the status line shows `SHIELDS n/cap` and a break pops `SHIELD BROKEN`.
+
+### Starting Shield
+
+`passiveStartingShield` has a `startingShields` field (`STARTING_SHIELD_COUNT` 1, `STARTING_SHIELD_ENHANCED_COUNT` 2 enhanced). `grantStartingShields` raises the bank to that count (never lowers it, never stacks past it). `PlaySim` calls it in `startBoard` (first board and every level advance, after the bank was emptied), when the upgrade is granted (store buy, swap, starting card, enhance) and nothing else: a death keeps the bank as it is, so a spent shield does not come back until the next level.
+
+- **Same shield as Shield Pellets.** It uses `shieldsBanked`, the HUD squares, the break (no life lost, BONUS streak reset, every owned `onPowerPellet` effect fires, 1s of Ghost Proof) and the crack animation. Power pellets keep firing their effects unless Shield Pellets is also owned.
+- **With Shield Pellets.** The bank cap is the larger of the two (`shieldBankCap`): Starting Shield gives its shields at level start and pellets fill the rest up to the Shield Pellets cap.
+- **Losing it** (a store Swap, or a LEARN toggle off or back to base) clamps the bank to the new cap.
+- **LEARN** grants the shields on toggle and on every board refill, and shows `SHIELDS n/cap`.
 
 ### School Specialists
 

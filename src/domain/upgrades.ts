@@ -56,7 +56,8 @@ export type BaseUpgradeId =
   | "passiveTunnelSanctuary"
   | "passiveStreakEngine"
   | "passiveEcho"
-  | "powerPelletHunter";
+  | "powerPelletHunter"
+  | "passiveStartingShield";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -118,6 +119,7 @@ export type UpgradeEffects = {
   deathQuarterCost?: number;
   lazyLooperRings?: LazyLooperRings;
   shieldCap?: number;
+  startingShields?: number;
   martyrGhosts?: MartyrGhostPlacement;
   interestPerQuarters?: number;
   nearMissCharge?: number;
@@ -182,6 +184,8 @@ export const MONEY_TALKS_ENHANCED_QUARTERS = 1;
 export const SHIELD_PELLETS_CAP = 1;
 export const SHIELD_PELLETS_ENHANCED_CAP = 3;
 export const SHIELD_BREAK_INVULN_MS = 1000;
+export const STARTING_SHIELD_COUNT = 1;
+export const STARTING_SHIELD_ENHANCED_COUNT = 2;
 export const TUNNEL_SANCTUARY_INVULN_MS = 1000;
 export const TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO = 0.9;
 export const STREAK_ENGINE_EVERY = 30;
@@ -810,6 +814,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { frightenGhostsMs: HUNTER_FRIGHTENED_MS, frightenShortensPerLevel: true },
   },
+  {
+    id: "passiveStartingShield",
+    label: "Starting Shield",
+    school: "protection",
+    description: "Start every level with a shield. A ghost hit breaks it.",
+    storePrice: STORE_UPGRADE_PRICE,
+    startingShields: STARTING_SHIELD_COUNT,
+    enhanced: {
+      enhanceNote: "Starting Shield gives 2 shields every level instead of 1.",
+      description: "Start every level with 2 shields. Each ghost hit breaks one.",
+      startingShields: STARTING_SHIELD_ENHANCED_COUNT,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1225,7 +1242,7 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
   return {
     ...state,
     owned,
-    shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
+    shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
     ...(owned.some((id) => getUpgradeDef(id).onPowerPellet?.frightenGhostsMs !== undefined)
       ? {}
       : NO_FRIGHT),
@@ -1806,8 +1823,21 @@ export function shieldPelletsCap(owned: readonly UpgradeId[]): number | null {
   return ownedValue(owned, "shieldCap") ?? null;
 }
 
+export function startingShieldCount(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "startingShields") ?? 0;
+}
+
+export function shieldBankCap(owned: readonly UpgradeId[]): number {
+  return Math.max(shieldPelletsCap(owned) ?? 0, startingShieldCount(owned));
+}
+
+export function grantStartingShields(state: RunUpgrades): RunUpgrades {
+  const count = startingShieldCount(effectiveOwned(state.owned));
+  return count > state.shieldsBanked ? { ...state, shieldsBanked: count } : state;
+}
+
 export function bankShields(state: RunUpgrades, count: number): RunUpgrades {
-  const cap = shieldPelletsCap(effectiveOwned(state.owned)) ?? 0;
+  const cap = shieldBankCap(effectiveOwned(state.owned));
   const shieldsBanked = Math.min(cap, state.shieldsBanked + Math.max(0, count));
   return shieldsBanked === state.shieldsBanked ? state : { ...state, shieldsBanked };
 }

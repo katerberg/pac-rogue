@@ -196,6 +196,7 @@ import {
   applyShieldBreakInvuln,
   applyStreakEngineInvuln,
   bankShields,
+  grantStartingShields,
   clearUpgradeTimers,
   queueEcho,
   shieldPelletsCap,
@@ -1896,6 +1897,7 @@ export class PlaySim {
       this.recorder.gained(id, "enhance", this.levelIndex);
       this.runUpgrades = enhanceUpgrade(this.runUpgrades, purchase.targetId);
       this.payEnhanceLives(purchase.targetId);
+      this.topUpStartingShields();
     } else {
       if (purchase.kind === "swap") {
         this.recorder.lost(purchase.outgoingId, this.levelIndex);
@@ -1953,6 +1955,7 @@ export class PlaySim {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
+    this.topUpStartingShields();
     const boss = isBossLevel(this.levelIndex)
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
       : null;
@@ -2329,6 +2332,14 @@ export class PlaySim {
     }
   }
 
+  private topUpStartingShields(): void {
+    const next = grantStartingShields(this.runUpgrades);
+    if (next !== this.runUpgrades) {
+      this.runUpgrades = next;
+      this.emit({ type: "shields" });
+    }
+  }
+
   private breakShield(): boolean {
     const spent = spendShield(this.runUpgrades);
     if (spent === null) {
@@ -2453,6 +2464,7 @@ export class PlaySim {
 
   private applyGrantEffects(id: UpgradeId): void {
     this.lives += grantLivesForUpgrade(id);
+    this.topUpStartingShields();
     if (baseIdOf(id) === "passiveMyogenesis") {
       this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1);
     }

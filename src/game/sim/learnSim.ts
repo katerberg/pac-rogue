@@ -77,6 +77,8 @@ import {
   streakEngineEvery,
   streakEngineInvulnMs,
   bankShields,
+  grantStartingShields,
+  shieldBankCap,
   shieldPelletsCap,
   spendShield,
   createRunUpgrades,
@@ -209,6 +211,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveMyogenesis",
   "passiveMoneyTalks",
   "passiveShieldPellets",
+  "passiveStartingShield",
   "passiveHaunting",
 ];
 
@@ -617,7 +620,7 @@ export class LearnSim {
     const wasScheduled = this.fruitScheduled();
     const lifetimeBefore = fruitLifetimeMultiplier(before);
     const hunterHeld = this.learnUpgrades.hunterHeldEids;
-    this.learnUpgrades = clearStaleUpgradeTimers(toggled.owned, toggled);
+    this.learnUpgrades = grantStartingShields(clearStaleUpgradeTimers(toggled.owned, toggled));
     this.freeHunterHeld(hunterHeld);
     const after = this.learnUpgrades.owned;
     if (!hasUpgrade(after, "passiveHaunting")) {
@@ -1106,8 +1109,8 @@ export class LearnSim {
     if (this.catchDemoOwned()) {
       lines.push(`LIVES ${this.runState.lives}`);
     }
-    const shieldCap = shieldPelletsCap(owned);
-    if (shieldCap !== null) {
+    const shieldCap = shieldBankCap(owned);
+    if (shieldCap > 0) {
       lines.push(`SHIELDS ${this.learnUpgrades.shieldsBanked}/${shieldCap}`);
     }
     if (this.bonusDemoOwned()) {
@@ -1167,6 +1170,7 @@ export class LearnSim {
   }
 
   private spawnPellets(): void {
+    this.learnUpgrades = grantStartingShields(this.learnUpgrades);
     spawnBoardPellets(this.world);
     this.tagOptionalPellets();
   }
@@ -1235,7 +1239,7 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
-    shieldsBanked: Math.min(state.shieldsBanked, shieldPelletsCap(owned) ?? 0),
+    shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
     ...(hasField("frightenGhostsMs")
       ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }

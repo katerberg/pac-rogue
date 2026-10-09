@@ -516,6 +516,17 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
+  it("Starting Shield gives a shield now and after a board refill, and breaks on a catch", () => {
+    const { sim, player } = setup("passiveStartingShieldPlus");
+    expect(sim.statusText()).toContain("SHIELDS 2/2");
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    expect(sim.statusText()).toContain("SHIELDS 1/2");
+    sim.toggleEnhanced("passiveStartingShield");
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    sim.toggleUpgrade("passiveStartingShield");
+    expect(sim.statusText()).not.toContain("SHIELDS");
+  });
+
   it("Money Talks pays Quarters to save the last life", () => {
     const { sim, player } = setup("passiveMoneyTalksPlus");
     eatFruit(sim, player);
