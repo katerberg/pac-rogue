@@ -1050,8 +1050,12 @@ export class PlaySim {
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex, this.currentTuning);
+    const hyperspeedMul =
+      this.runUpgrades.hyperspeedTurnDelayMs > 0
+        ? 0
+        : levelSpeedMul * hyperspeedMultiplier(this.effectiveUpgrades());
     const playerSpeedMul = hyperspeedActive(this.runUpgrades)
-      ? this.hyperspeedSpeedMultiplier(levelSpeedMul) * (warping ? 0 : 1)
+      ? hyperspeedMul * (warping ? 0 : 1)
       : levelSpeedMul *
         playerSpeedMultiplier(this.effectiveUpgrades()) *
         cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)) *
@@ -2366,13 +2370,6 @@ export class PlaySim {
       this.runUpgrades = next;
       this.emit({ type: "shields" });
     }
-  }
-
-  private hyperspeedSpeedMultiplier(levelSpeedMul: number): number {
-    if (this.runUpgrades.hyperspeedTurnDelayMs > 0) {
-      return 0;
-    }
-    return levelSpeedMul * hyperspeedMultiplier(this.effectiveUpgrades());
   }
 
   private moveHyperspeed(delta: number, moveFrame: (frameDelta: number) => void): void {
