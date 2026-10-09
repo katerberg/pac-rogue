@@ -1,7 +1,6 @@
 import {
   formatPercent,
   formatReach,
-  REACH_BINS,
   sortUpgradeRows,
   summarize,
   upgradeRows,
@@ -62,7 +61,7 @@ function reachChart(
     0.01,
   );
   const labelHeight = size.labels ? 14 : 0;
-  const width = REACH_BINS * size.barWidth;
+  const width = counts.length * size.barWidth;
   const chart = svg("svg", {
     width,
     height: size.height + labelHeight,
@@ -70,7 +69,7 @@ function reachChart(
     role: "img",
   });
   chart.append(svg("line", { x1: 0, x2: width, y1: size.height, y2: size.height, class: "axis" }));
-  for (let bin = 0; bin < REACH_BINS; bin += 1) {
+  for (let bin = 0; bin < counts.length; bin += 1) {
     const x = bin * size.barWidth;
     const own = share(counts[bin]!, total);
     const base = share(baseline[bin]!, baseTotal);

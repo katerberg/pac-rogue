@@ -8,14 +8,13 @@ import {
   type UpgradeSchool,
 } from "./upgrades";
 
-export const REACH_BINS = MAX_LEVEL + 1;
-export const COMPLETE_REACH = REACH_BINS;
-export const LOW_SAMPLE_RUNS = 5;
+export const COMPLETE_REACH = MAX_LEVEL + 1;
+const LOW_SAMPLE_RUNS = 5;
 
 export type RunScope = { includeUnfinished: boolean; includeDebug: boolean };
 export type SortKey = "medianReach" | "runs" | "completeRate" | "pickRate";
 
-export type Summary = {
+type Summary = {
   runs: number;
   completeRate: number | null;
   medianReach: number | null;
@@ -62,7 +61,7 @@ export function formatPercent(rate: number | null): string {
   return rate === null ? "—" : `${Math.round(rate * 100)}%`;
 }
 
-export function scopedRuns(runs: readonly RunLogRecord[], scope: RunScope): RunLogRecord[] {
+function scopedRuns(runs: readonly RunLogRecord[], scope: RunScope): RunLogRecord[] {
   return runs.filter(
     (run) =>
       (scope.includeDebug || !run.debug) &&
@@ -82,7 +81,7 @@ export function median(values: readonly number[]): number | null {
 }
 
 function reachCounts(runs: readonly RunLogRecord[]): number[] {
-  const counts = new Array<number>(REACH_BINS).fill(0);
+  const counts = new Array<number>(COMPLETE_REACH).fill(0);
   for (const run of runs) {
     counts[reachOf(run) - 1]! += 1;
   }
