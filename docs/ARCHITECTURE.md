@@ -12,7 +12,12 @@ Current shape of Dot-Man. Keep this document short and truthful — update it wh
 ## Layout
 
 ```text
+data/index.html               # /data page entry (run log analytics; see docs/RUN_LOG.md#viewing-data)
 src/
+  data/                       # /data page: DOM + inline SVG over runAnalytics (no Phaser)
+    main.ts                   # loads runs, renders, agent-port debug snapshot (data.*)
+    dataPage.ts               # summary tiles, reach charts, sortable upgrades table
+    data.css
   main.ts                     # Phaser.Game bootstrap + installs the agent-port debug hook (see game/scenes/installDebugHook.ts)
   styles.css                  # Page chrome around the canvas
   domain/                     # Pure helpers (no Phaser, no bitecs world APIs)
@@ -27,6 +32,7 @@ src/
     runHistory.ts
     runLog.ts                 # run log schema + pure recorders (every PlayScene run; see docs/RUN_LOG.md)
     runLogFillFlag.ts         # ?runLogFill= parse (agent-port synthetic runs)
+    runAnalytics.ts           # /data counting: run scope, reach, per-upgrade rows, sort
     highScoresView.ts
     scoreListScroll.ts
     playfield.ts              # speeds, sizes, drawable ids

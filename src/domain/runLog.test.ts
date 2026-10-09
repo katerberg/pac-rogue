@@ -88,6 +88,14 @@ describe("runLog", () => {
     expect(runLogOverrun(0, true)).toBe(true);
   });
 
+  it("varies synthetic runs across levels, outcomes and loadouts", () => {
+    const runs = Array.from({ length: 90 }, (_, i) => syntheticRunLog(i, TEST_RUN_LOG_META));
+    expect(new Set(runs.map((run) => run.finalLevel)).size).toBe(9);
+    expect(runs.some((run) => run.outcome === "complete")).toBe(true);
+    expect(runs.every((run) => run.debug && run.loadout.length === 2)).toBe(true);
+    expect(runs.every((run) => run.levels.length === run.finalLevel)).toBe(true);
+  });
+
   it("round-trips a record and rejects garbage or other versions", () => {
     const record = syntheticRunLog(1, TEST_RUN_LOG_META);
     expect(parseRunLogRecord(JSON.stringify(record))).toEqual(record);
