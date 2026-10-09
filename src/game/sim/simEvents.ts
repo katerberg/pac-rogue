@@ -6,7 +6,10 @@ import type { StorePromptView } from "../../domain/store";
 import type { FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
+import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
+
+export type { TimedTunnelRenderState };
 
 export type SimRenderOptions = {
   frozenGhostEid: number | null;
@@ -28,6 +31,7 @@ export type SimRenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   lineArtDrawableIds?: string[];
+  timedTunnel?: TimedTunnelRenderState | null;
 };
 
 export type MoneyTalksSpend = {

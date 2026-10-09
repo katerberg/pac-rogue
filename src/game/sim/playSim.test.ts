@@ -14,11 +14,14 @@ import {
   canEnterDirection,
   cellCenterX,
   cellCenterY,
+  clampToGridCenters,
   getActiveLayout,
   ghostHouseSpawnCenter,
   horizontalTunnelRows,
   isAlignedForTurn,
   isWalkable,
+  MAZE_OFFSET_X,
+  MAZE_PIXEL_WIDTH,
   playerFarthestFromGhostsSpawn,
   TILE_SIZE,
   worldToCol,
@@ -4629,5 +4632,131 @@ describe("Hunter", () => {
     });
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
+  });
+});
+
+describe("timed tunnels", () => {
+  function framesFor(ms: number): number {
+    return Math.ceil(ms / FRAME_MS);
+  }
+
+  function advanceToPhase(sim: PlaySim, phase: "open" | "warn" | "closed"): void {
+    runUntil(sim, () => sim.snapshot().timedTunnel?.phase === phase, framesFor(20_000));
+  }
+
+  it("gates one seeded tunnel row on levels 7 and 8 only", () => {
+    const a = startSim({ level: 7, maze: "maze1" }, "tt-seed");
+    const b = startSim({ level: 7, maze: "maze1" }, "tt-seed");
+    const row = a.snapshot().timedTunnel?.row;
+    expect(row).toBeDefined();
+    expect(horizontalTunnelRows()).toContain(row);
+    expect(b.snapshot().timedTunnel?.row).toBe(row);
+    expect(startSim({ level: 8, maze: "maze1" }, "tt-seed").snapshot().timedTunnel).not.toBeNull();
+    expect(startSim({ level: 6, maze: "maze1" }, "tt-seed").snapshot().timedTunnel).toBeNull();
+  });
+
+  function wrapLeftFromMouth(sim: PlaySim, row: number): void {
+    const wrapsBefore = sim.snapshot().runLog.tunnelWraps;
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(row));
+    runUntil(sim, () => sim.snapshot().runLog.tunnelWraps > wrapsBefore, 120, {
+      keys: held("left"),
+    });
+  }
+
+  it("still wraps during open and warn, then clamps when closed", () => {
+    const sim = startSim({ level: 7, maze: "maze1", infiniteLives: true }, "tt-wrap");
+    const row = sim.snapshot().timedTunnel!.row;
+    expect(sim.snapshot().timedTunnel!.phase).toBe("open");
+
+    wrapLeftFromMouth(sim, row);
+    expect(Position.x[playerEid(sim)]!).toBeGreaterThan(MAZE_OFFSET_X + MAZE_PIXEL_WIDTH / 2);
+
+    advanceToPhase(sim, "warn");
+    wrapLeftFromMouth(sim, row);
+    expect(sim.snapshot().timedTunnel!.phase).toBe("warn");
+
+    advanceToPhase(sim, "closed");
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(row));
+    const wrapsBefore = sim.snapshot().runLog.tunnelWraps;
+    runFrames(sim, 90, { keys: held("left") });
+    expect(sim.snapshot().runLog.tunnelWraps).toBe(wrapsBefore);
+    expect(Position.x[playerEid(sim)]!).toBeLessThan(MAZE_PIXEL_WIDTH / 2);
+  });
+
+  it("blocks ghosts from wrapping the gated row while closed", () => {
+    const sim = startSim({ level: 8, maze: "maze1", infiniteLives: true }, "tt-ghost");
+    const row = sim.snapshot().timedTunnel!.row;
+    advanceToPhase(sim, "closed");
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(0);
+    Position.y[ghost] = cellCenterY(row);
+    const width = getActiveLayout().cols * getActiveLayout().tileSize;
+    let wrapped = false;
+    for (let frame = 0; frame < 90; frame += 1) {
+      Facing.direction[ghost] = DIRECTION.left;
+      Input.direction[ghost] = DIRECTION.left;
+      Ghost.decidedCol[ghost] = 0;
+      Ghost.decidedRow[ghost] = row;
+      Position.x[ghost] = Math.min(Position.x[ghost]!, cellCenterX(0) + 1);
+      runFrames(sim, 1);
+      wrapped ||= Position.x[ghost]! > width / 2;
+    }
+    expect(wrapped).toBe(false);
+  });
+
+  it("lets Wall Pass+ walk through a closed gate while bars stay up", () => {
+    const sim = startSim(
+      {
+        level: 7,
+        maze: "maze1",
+        infiniteLives: true,
+        enableUpgrades: ["powerPelletWallPassPlus"],
+      },
+      "tt-wpp",
+    );
+    const row = sim.snapshot().timedTunnel!.row;
+    advanceToPhase(sim, "closed");
+    sim["runUpgrades"] = {
+      ...sim["runUpgrades"],
+      wallPassRemainingMs: WALL_PASS_MS,
+    };
+    expect(sim.renderOptions().timedTunnel?.gateVisible).toBe(true);
+    wrapLeftFromMouth(sim, row);
+    expect(sim.snapshot().timedTunnel!.phase).toBe("closed");
+    expect(sim.renderOptions().timedTunnel?.gateVisible).toBe(true);
+  });
+
+  it("cancels an in-flight Tunnel Dash when the gate closes", () => {
+    const sim = startSim(
+      {
+        level: 7,
+        maze: "maze1",
+        infiniteLives: true,
+        enableUpgrades: ["passiveTunnelDash"],
+      },
+      "tt-dash",
+    );
+    const row = sim.snapshot().timedTunnel!.row;
+    runUntil(
+      sim,
+      () => {
+        const state = sim.snapshot().timedTunnel!;
+        return state.phase === "warn" && state.remainingMs <= FRAME_MS * 2;
+      },
+      framesFor(20_000),
+    );
+    sim["tunnelDashAnim"] = {
+      targetX: cellCenterX(0),
+      wrapToX: cellCenterX(getActiveLayout().cols - 1),
+      y: cellCenterY(row),
+    };
+    Position.x[playerEid(sim)] = MAZE_OFFSET_X - 20;
+    Position.y[playerEid(sim)] = cellCenterY(row);
+    advanceToPhase(sim, "closed");
+    expect(sim["tunnelDashAnim"]).toBeNull();
+    const x = Position.x[playerEid(sim)]!;
+    expect(x).toBeGreaterThanOrEqual(clampToGridCenters(-1e9, 0).x);
+    expect(x).toBeLessThanOrEqual(clampToGridCenters(1e9, 0).x);
   });
 });

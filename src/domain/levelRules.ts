@@ -84,3 +84,7 @@ export function ghostModeWavesForLevel(
 export function isInvertedMazeLevel(levelIndex: number): boolean {
   return levelIndex === 6 || levelIndex === 7;
 }
+
+export function isTimedTunnelLevel(levelIndex: number): boolean {
+  return levelIndex === 7 || levelIndex === 8;
+}

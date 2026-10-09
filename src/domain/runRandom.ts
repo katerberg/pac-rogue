@@ -14,7 +14,8 @@ export type RandomStream =
   | "bossScatter"
   | "bossShake"
   | "echo"
-  | "frightened";
+  | "frightened"
+  | "timedTunnel";
 
 export type RunRandom = {
   seed: string;

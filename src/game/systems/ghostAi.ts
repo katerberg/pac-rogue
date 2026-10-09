@@ -169,6 +169,7 @@ export function ghostAi(
   tuning: Tuning = DEFAULT_TUNING,
   blockTunnels = false,
   frightenedEids: ReadonlySet<number> = new Set(),
+  blockTunnelRow: number | null = null,
 ): void {
   const ctx = ghostAiContext(world, tuning);
 
@@ -189,7 +190,7 @@ export function ghostAi(
 
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(phase, blockTunnels);
+    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRow);
     const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     const alreadyDecided = Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row;
     if (alreadyDecided) {

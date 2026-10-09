@@ -11,6 +11,7 @@ import {
   clampToGridCenters,
   easePerpendicularToCenterline,
   getActiveLayout,
+  inBounds,
   isAlignedForTurn,
   snapPerpendicularToCenterline,
   snapToCellCenter,
@@ -129,6 +130,20 @@ function ghostPhaseOf(world: World, eid: number): number {
   return GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
 }
 
+function resolveWrap(
+  x: number,
+  y: number,
+  solids: SolidGrid,
+  ghost: boolean,
+  ghostsBlockTunnels: boolean,
+  blockTunnelRow: number | null,
+): { x: number; y: number } {
+  if (ghost && ghostsBlockTunnels) {
+    return clampToGridCenters(x, y);
+  }
+  return wrapPosition(x, y, solids, blockTunnelRow);
+}
+
 export function movement(
   world: World,
   deltaMs: number,
@@ -136,6 +151,7 @@ export function movement(
   playerStopOnRelease = false,
   playerPreTurn: number = playerPreTurnPx(),
   ghostsBlockTunnels = false,
+  blockTunnelRow: number | null = null,
 ): void {
   const dt = deltaMs / 1000;
   const playerSolids = playerSolidsOverride ?? getActiveLayout().playerSolids;
@@ -143,7 +159,7 @@ export function movement(
   for (const eid of query(world, [Position, Velocity, Input, Facing, Speed])) {
     const speed = Speed.px[eid] ?? 0;
     const ghost = hasComponent(world, eid, Ghost)
-      ? ghostMovementRules(ghostPhaseOf(world, eid), ghostsBlockTunnels)
+      ? ghostMovementRules(ghostPhaseOf(world, eid), ghostsBlockTunnels, blockTunnelRow)
       : null;
     const solids: SolidGrid = ghost?.solids ?? playerSolids;
     const frameTravel = speed * dt;
@@ -159,7 +175,16 @@ export function movement(
       if (ghost) {
         return ghost.canEnter(px, py, dx, dy);
       }
-      return canEnterDirection(px, py, dx, dy, solids);
+      if (!canEnterDirection(px, py, dx, dy, solids)) {
+        return false;
+      }
+      if (
+        worldToRow(py) === blockTunnelRow &&
+        !inBounds(worldToCol(px) + dx, worldToRow(py) + dy)
+      ) {
+        return false;
+      }
+      return true;
     };
 
     if (speed > 0 && (isDiagonalDirection(facing) || isDiagonalDirection(nextIntent))) {
@@ -234,10 +259,14 @@ export function movement(
       Velocity.x[eid] = vx;
       Velocity.y[eid] = vy;
 
-      const wrapped =
-        ghost && ghostsBlockTunnels
-          ? clampToGridCenters(nextX, nextY)
-          : wrapPosition(nextX, nextY, solids);
+      const wrapped = resolveWrap(
+        nextX,
+        nextY,
+        solids,
+        ghost !== null,
+        ghostsBlockTunnels,
+        blockTunnelRow,
+      );
       const playfield = clampPositionToPlayfield(wrapped.x, wrapped.y);
       Position.x[eid] = playfield.x;
       Position.y[eid] = playfield.y;
@@ -311,10 +340,14 @@ export function movement(
     nextX = centered.x;
     nextY = centered.y;
 
-    const wrapped =
-      ghost && ghostsBlockTunnels
-        ? clampToGridCenters(nextX, nextY)
-        : wrapPosition(nextX, nextY, solids);
+    const wrapped = resolveWrap(
+      nextX,
+      nextY,
+      solids,
+      ghost !== null,
+      ghostsBlockTunnels,
+      blockTunnelRow,
+    );
     nextX = wrapped.x;
     nextY = wrapped.y;
 
