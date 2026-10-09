@@ -43,7 +43,7 @@ import {
   playerFarthestFromGhostsSpawn,
   pelletCellCenters,
   tunnelDashOutwardEdge,
-  PLAYER_WALL_PADDING_PX,
+  PLAYER_CORRIDOR_CLEARANCE_PX,
   WALL_CORNER_RADIUS,
   WALL_CORNER_CURVE_MIN_STEPS,
   WALL_CORNER_CURVE_KIND,
@@ -544,9 +544,14 @@ describe("maze", () => {
     expect(withEmptyExterior.length).toBeGreaterThan(withDefault.length);
   });
 
-  it("derives player display size from wall padding", () => {
-    expect(playerDisplaySize()).toBe(TILE_SIZE - 2 * PLAYER_WALL_PADDING_PX);
-    expect(playerDisplaySize(4, TILE_SIZE)).toBe(TILE_SIZE - 8);
+  it("derives player display size from corridor width (tile + inset) minus clearance", () => {
+    const inset = clampedWallInset();
+    const corridor = TILE_SIZE + 2 * inset;
+    expect(playerDisplaySize()).toBe(corridor - 2 * PLAYER_CORRIDOR_CLEARANCE_PX);
+    expect(playerDisplaySize(0, TILE_SIZE, 0)).toBe(TILE_SIZE);
+    expect(playerDisplaySize(0.5, TILE_SIZE, 3)).toBe(TILE_SIZE + 6 - 1);
+    expect(playerDisplaySize()).toBeGreaterThan(TILE_SIZE);
+    expect(playerDisplaySize()).toBeLessThan(corridor);
   });
 
   it("clamps wall corner radius to a half tile", () => {

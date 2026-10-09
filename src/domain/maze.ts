@@ -81,7 +81,13 @@ export const WALL_CORNER_CURVE_MIN_STEPS = 5;
 export type WallCornerCurveKind = "circular" | "quadratic";
 export const WALL_CORNER_CURVE_KIND: WallCornerCurveKind = "circular";
 export const WALL_INSET_PX = 12;
-export const PLAYER_WALL_PADDING_PX = 0;
+/**
+ * Gap from each wall stroke center to the actor display-box edge.
+ * Leaves ~half a regular pellet (4px opaque in `dot.png`) of air past each
+ * wall's inner face; +0.75 covers half the default 1.5px stroke so clearance
+ * is measured from stroke centers. Visual only; collision uses `playerRadius`.
+ */
+export const PLAYER_CORRIDOR_CLEARANCE_PX = 2.75;
 export const PELLET_DISPLAY_SIZE_MAX = 16;
 export const DOOR_GATE_COLOR = 0xffb8ff;
 
@@ -161,10 +167,11 @@ export function clampedWallInset(inset: number = WALL_INSET_PX): number {
 }
 
 export function playerDisplaySize(
-  paddingPx: number = PLAYER_WALL_PADDING_PX,
+  clearancePx: number = PLAYER_CORRIDOR_CLEARANCE_PX,
   tileSize: number = TILE_SIZE,
+  insetPx: number = clampedWallInset(),
 ): number {
-  return Math.max(1, tileSize - 2 * paddingPx);
+  return Math.max(1, tileSize + 2 * insetPx - 2 * clearancePx);
 }
 
 const WALL_CHAR = "#";
