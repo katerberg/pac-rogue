@@ -3548,6 +3548,14 @@ describe("Starting Shield", () => {
     expect(sim.snapshot().timers.shieldsBanked).toBe(0);
   });
 
+  it("banks shields when bought in a store and tops up when enhanced", () => {
+    const sim = startShieldSim([]);
+    sim["applyStorePurchase"]({ kind: "upgrade", id: "passiveStartingShield", price: 0 });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    sim["applyStorePurchase"]({ kind: "enhance", targetId: "passiveStartingShield", price: 0 });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(2);
+  });
+
   it("stacks with Shield Pellets up to the larger cap", () => {
     const sim = startShieldSim(["passiveStartingShield", "passiveShieldPelletsPlus"]);
     expect(sim.snapshot().timers.shieldsBanked).toBe(1);
