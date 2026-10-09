@@ -1578,11 +1578,7 @@ export class PlaySim {
     return {
       row: this.timedTunnelGatedRow,
       phase,
-      gateVisible: timedTunnelGateVisible(
-        phase,
-        this.timedTunnelElapsedMs,
-        this.timedTunnelWallPassLoopActive(),
-      ),
+      gateVisible: timedTunnelGateVisible(phase, this.timedTunnelElapsedMs),
     };
   }
 

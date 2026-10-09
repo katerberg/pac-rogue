@@ -69,15 +69,10 @@ describe("timedTunnelMouthBlinkOn", () => {
 
 describe("timedTunnelGateVisible", () => {
   it("stays solid while closed and blinks during warn", () => {
-    expect(timedTunnelGateVisible("closed", 0, false)).toBe(true);
-    expect(timedTunnelGateVisible("closed", 100, false)).toBe(true);
-    expect(timedTunnelGateVisible("warn", 0, false)).toBe(true);
-    expect(timedTunnelGateVisible("warn", 100, false)).toBe(false);
-    expect(timedTunnelGateVisible("open", 0, false)).toBe(false);
-  });
-
-  it("hides while Wall Pass+ suspends the mechanic", () => {
-    expect(timedTunnelGateVisible("closed", 0, true)).toBe(false);
-    expect(timedTunnelGateVisible("warn", 0, true)).toBe(false);
+    expect(timedTunnelGateVisible("closed", 0)).toBe(true);
+    expect(timedTunnelGateVisible("closed", 100)).toBe(true);
+    expect(timedTunnelGateVisible("warn", 0)).toBe(true);
+    expect(timedTunnelGateVisible("warn", 100)).toBe(false);
+    expect(timedTunnelGateVisible("open", 0)).toBe(false);
   });
 });

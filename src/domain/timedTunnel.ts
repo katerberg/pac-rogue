@@ -49,13 +49,6 @@ export function timedTunnelMouthBlinkOn(phase: TimedTunnelPhase, nowMs: number):
   return phase === "warn" && Math.floor(nowMs / EXPIRY_BLINK_MS) % 2 === 0;
 }
 
-export function timedTunnelGateVisible(
-  phase: TimedTunnelPhase,
-  nowMs: number,
-  suspended: boolean,
-): boolean {
-  if (suspended) {
-    return false;
-  }
+export function timedTunnelGateVisible(phase: TimedTunnelPhase, nowMs: number): boolean {
   return phase === "closed" || timedTunnelMouthBlinkOn(phase, nowMs);
 }

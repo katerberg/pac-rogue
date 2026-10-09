@@ -4705,7 +4705,7 @@ describe("timed tunnels", () => {
     expect(wrapped).toBe(false);
   });
 
-  it("lets Wall Pass+ suspend the closed gate", () => {
+  it("lets Wall Pass+ walk through a closed gate while bars stay up", () => {
     const sim = startSim(
       {
         level: 7,
@@ -4721,8 +4721,10 @@ describe("timed tunnels", () => {
       ...sim["runUpgrades"],
       wallPassRemainingMs: WALL_PASS_MS,
     };
+    expect(sim.renderOptions().timedTunnel?.gateVisible).toBe(true);
     wrapLeftFromMouth(sim, row);
     expect(sim.snapshot().timedTunnel!.phase).toBe("closed");
+    expect(sim.renderOptions().timedTunnel?.gateVisible).toBe(true);
   });
 
   it("cancels an in-flight Tunnel Dash when the gate closes", () => {
