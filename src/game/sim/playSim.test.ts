@@ -3822,6 +3822,19 @@ describe("Near Miss", () => {
     expect(sim.snapshot().bonus.charge).toBe(100 + 2 * NEAR_MISS_CHARGE);
   });
 
+  it("pays again on a fresh touch after separating by only a little", () => {
+    const sim = startNearMiss(["passiveNearMiss"]);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    const player = playerEid(sim);
+    ghostBesidePlayer(sim, ghost);
+    runFrames(sim, 1);
+    Position.x[ghost] = Position.x[player]! + 1.2 * TILE_SIZE;
+    runFrames(sim, 1);
+    ghostBesidePlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(sim.snapshot().nearMissesPaid).toBe(2);
+  });
+
   it("pays nothing when not owned", () => {
     const sim = startNearMiss([]);
     passGhost(sim);
@@ -3829,7 +3842,7 @@ describe("Near Miss", () => {
     expect(sim.snapshot().bonus.charge).toBe(100);
   });
 
-  it("pays on contact even while the ghost stays within 1 tile, once", () => {
+  it("pays on contact even while the ghost stays touching, once", () => {
     const sim = startNearMiss(["passiveNearMiss"]);
     ghostBesidePlayer(sim, query(sim.world, [Ghost, Position])[0]!);
     runFrames(sim, 3);
