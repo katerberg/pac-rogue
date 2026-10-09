@@ -680,6 +680,7 @@ export class PlaySim {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
+      fruitRemainingMs: this.fruitPresence.remainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
       wallPassLoopActive:
         wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.effectiveUpgrades()),
@@ -749,6 +750,7 @@ export class PlaySim {
         echoesMs: upgrades.pendingEchoes.map((echo) => echo.remainingMs),
         frightenedMs: upgrades.frightenedRemainingMs,
         eatDragMs: this.eatDragMs,
+        fruitMs: this.fruitPresence.remainingMs,
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),

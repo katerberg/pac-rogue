@@ -1,3 +1,4 @@
+import { EXPIRY_BLINK_MS } from "./expiryBlink";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 import {
   cellCenterX,
@@ -34,6 +35,15 @@ export const FRUIT_BY_LEVEL: readonly FruitLevelSpec[] = [
 
 export const FRUIT_LIFETIME_MS = DEFAULT_TUNING.fruitLifetimeMs;
 export const FRUIT_FEAST_GAP_MS = 5_000;
+
+export const FRUIT_FLICKER_MS = 2_000;
+
+export function fruitFlickerAlpha(remainingMs: number, nowMs: number): number {
+  if (remainingMs <= 0 || remainingMs > FRUIT_FLICKER_MS) {
+    return 1;
+  }
+  return Math.floor(nowMs / EXPIRY_BLINK_MS) % 2 === 0 ? 1 : 0;
+}
 
 export const CURRENT_LEVEL = 1;
 
