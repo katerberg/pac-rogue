@@ -136,6 +136,29 @@ describe("maze", () => {
     expect(wrapped.x).toBe(pastLeft);
   });
 
+  it("clamps instead of wrapping when the tunnel row is blocked", () => {
+    const y = cellCenterY(14);
+    const pastLeft = MAZE_OFFSET_X - 4;
+    const blocked = new Set([14]);
+    expect(wrapPosition(pastLeft, y, undefined, blocked).x).toBe(cellCenterX(0));
+    expect(wrappedTwinPosition(MAZE_OFFSET_X + 2, y, TILE_SIZE / 2, undefined, blocked)).toBeNull();
+  });
+
+  it("still wraps other tunnel rows when only one row is blocked", () => {
+    const rows = horizontalTunnelRows();
+    if (rows.length < 2) {
+      return;
+    }
+    const openRow = rows.find((row) => row !== rows[0])!;
+    const y = cellCenterY(openRow);
+    const pastLeft = MAZE_OFFSET_X - 4;
+    const blocked = new Set([rows[0]!]);
+    expect(wrapPosition(pastLeft, y, undefined, blocked).x).toBeCloseTo(
+      pastLeft + MAZE_PIXEL_WIDTH,
+      5,
+    );
+  });
+
   it("reports a twin while the sprite straddles a tunnel seam", () => {
     const y = cellCenterY(14);
     const radius = TILE_SIZE / 2;

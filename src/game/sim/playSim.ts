@@ -108,6 +108,7 @@ import {
   enhancedOfferChance,
   ghostKindsForLevel,
   isInvertedMazeLevel,
+  isTimedTunnelLevel,
   MAX_LEVEL,
   offersUpgradeAfterLevel,
   speedLevelMultiplier,
@@ -127,12 +128,20 @@ import {
   activateLayout,
   cellCenterX,
   cellCenterY,
+  clampToGridCenters,
   getActiveLayout,
   horizontalTunnelRows,
   worldToCol,
   worldToRow,
   type MazeLayoutId,
 } from "../../domain/maze";
+import {
+  pickTimedTunnelRow,
+  timedTunnelMouthBlinkOn,
+  timedTunnelPhase,
+  timedTunnelPhaseRemainingMs,
+  type TimedTunnelPhase,
+} from "../../domain/timedTunnel";
 import {
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
@@ -421,6 +430,8 @@ export class PlaySim {
   private fruitPresence: FruitPresence = createFruitPresence();
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private tunnelDashAnim: TunnelDashAnimation | null = null;
+  private timedTunnelGatedRow: number | null = null;
+  private timedTunnelElapsedMs = 0;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
@@ -686,6 +697,7 @@ export class PlaySim {
       entityAlpha: this.bossStageDraw?.entityAlpha,
       wallAlpha: this.bossStageDraw?.wallAlpha,
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
+      timedTunnel: this.timedTunnelRenderState(),
     };
   }
 
@@ -742,6 +754,7 @@ export class PlaySim {
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
       },
+      timedTunnel: this.timedTunnelSnapshot(),
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
       reviveProgress:
@@ -926,6 +939,7 @@ export class PlaySim {
       speedBurst: speedBurstActive(this.runUpgrades),
       ghostHarvest: ghostHarvestActive(this.runUpgrades),
     });
+    this.tickTimedTunnel(delta);
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const turnTuningOpts =
@@ -1035,6 +1049,7 @@ export class PlaySim {
     }
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
+    const blockedTunnelRows = this.blockedTunnelRows();
     movement(
       this.world,
       delta,
@@ -1042,6 +1057,7 @@ export class PlaySim {
       false,
       playerPreTurnPx(this.currentTuning),
       this.ghostsBlockedFromTunnels(),
+      blockedTunnelRows,
     );
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
     this.noteTunnelExit(positionBeforeMove);
@@ -1063,7 +1079,10 @@ export class PlaySim {
         playerSpeed(this.currentTuning) * TUNNEL_DASH_SPEED_MUL,
       );
       this.noteTunnelExit(positionBeforeDash);
-    } else if (hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash")) {
+    } else if (
+      hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash") &&
+      !this.timedTunnelBlocksPlayerDash()
+    ) {
       const dash = applyTunnelDash(this.world);
       if (dash !== null) {
         this.recorder.tunnelDash();
@@ -1204,7 +1223,7 @@ export class PlaySim {
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
     if (modeStep.mode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world, this.ghostsBlockedFromTunnels());
+      forceGhostReverse(this.world, this.ghostsBlockedFromTunnels(), undefined, blockedTunnelRows);
       this.previousEffectiveGhostMode = modeStep.mode;
     } else {
       ghostAi(
@@ -1214,12 +1233,14 @@ export class PlaySim {
         this.currentTuning,
         this.ghostsBlockedFromTunnels(),
         frightenedGhostEids(this.runUpgrades),
+        blockedTunnelRows,
       );
       frightenedGhostAi(
         this.world,
         frightenedGhostEids(this.runUpgrades),
         this.random.stream("frightened", this.levelIndex),
         this.ghostsBlockedFromTunnels(),
+        blockedTunnelRows,
       );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
@@ -1459,6 +1480,116 @@ export class PlaySim {
     return (
       this.bossState?.def.chained === true || ghostsBlockedFromTunnels(this.effectiveUpgrades())
     );
+  }
+
+  private timedTunnelWallPassLoopActive(): boolean {
+    return wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.effectiveUpgrades());
+  }
+
+  private resetTimedTunnel(): void {
+    this.timedTunnelElapsedMs = 0;
+    if (!isTimedTunnelLevel(this.levelIndex)) {
+      this.timedTunnelGatedRow = null;
+      return;
+    }
+    this.timedTunnelGatedRow = pickTimedTunnelRow(
+      horizontalTunnelRows(),
+      this.random.stream("timedTunnel", this.levelIndex),
+    );
+  }
+
+  private tickTimedTunnel(deltaMs: number): void {
+    if (this.timedTunnelGatedRow === null) {
+      return;
+    }
+    const phaseBefore = timedTunnelPhase(this.timedTunnelElapsedMs);
+    this.timedTunnelElapsedMs += deltaMs;
+    const phaseAfter = timedTunnelPhase(this.timedTunnelElapsedMs);
+    if (
+      phaseBefore !== "closed" &&
+      phaseAfter === "closed" &&
+      !this.timedTunnelWallPassLoopActive()
+    ) {
+      this.cancelTunnelDashForTimedClose();
+    }
+  }
+
+  private timedTunnelCurrentPhase(): TimedTunnelPhase | null {
+    if (this.timedTunnelGatedRow === null) {
+      return null;
+    }
+    return timedTunnelPhase(this.timedTunnelElapsedMs);
+  }
+
+  private blockedTunnelRows(): ReadonlySet<number> | null {
+    const phase = this.timedTunnelCurrentPhase();
+    if (
+      this.timedTunnelGatedRow === null ||
+      phase !== "closed" ||
+      this.timedTunnelWallPassLoopActive()
+    ) {
+      return null;
+    }
+    return new Set([this.timedTunnelGatedRow]);
+  }
+
+  private timedTunnelBlocksPlayerDash(): boolean {
+    const phase = this.timedTunnelCurrentPhase();
+    if (
+      this.timedTunnelGatedRow === null ||
+      phase !== "closed" ||
+      this.timedTunnelWallPassLoopActive()
+    ) {
+      return false;
+    }
+    const at = this.playerPosition();
+    return at !== null && worldToRow(at.y) === this.timedTunnelGatedRow;
+  }
+
+  private cancelTunnelDashForTimedClose(): void {
+    if (this.tunnelDashAnim === null) {
+      return;
+    }
+    this.tunnelDashAnim = null;
+    const eid = query(this.world, [Player, Position])[0];
+    if (eid === undefined) {
+      return;
+    }
+    const clamped = clampToGridCenters(Position.x[eid] ?? 0, Position.y[eid] ?? 0);
+    Position.x[eid] = clamped.x;
+    Position.y[eid] = clamped.y;
+  }
+
+  private timedTunnelSnapshot(): {
+    row: number;
+    phase: TimedTunnelPhase;
+    remainingMs: number;
+  } | null {
+    if (this.timedTunnelGatedRow === null) {
+      return null;
+    }
+    return {
+      row: this.timedTunnelGatedRow,
+      phase: timedTunnelPhase(this.timedTunnelElapsedMs),
+      remainingMs: timedTunnelPhaseRemainingMs(this.timedTunnelElapsedMs),
+    };
+  }
+
+  private timedTunnelRenderState(): {
+    row: number;
+    phase: TimedTunnelPhase;
+    blinkOn: boolean;
+  } | null {
+    if (this.timedTunnelGatedRow === null) {
+      return null;
+    }
+    const phase = timedTunnelPhase(this.timedTunnelElapsedMs);
+    const suspended = this.timedTunnelWallPassLoopActive();
+    return {
+      row: this.timedTunnelGatedRow,
+      phase,
+      blinkOn: !suspended && timedTunnelMouthBlinkOn(phase, this.timedTunnelElapsedMs),
+    };
   }
 
   private checkStreakCell(): void {
@@ -1893,6 +2024,7 @@ export class PlaySim {
     this.fruitPresence = createFruitPresence();
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
+    this.resetTimedTunnel();
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
@@ -2467,6 +2599,7 @@ export class PlaySim {
         this.world,
         hunterFrightenLimit(this.bossState?.def.id ?? null),
         this.ghostsBlockedFromTunnels(),
+        this.blockedTunnelRows(),
       );
       this.runUpgrades = { ...this.runUpgrades, frightenedGhostEids: frightened };
       if (frightened.length > 0) {

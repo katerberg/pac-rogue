@@ -14,7 +14,12 @@ import { Position } from "../components/Position";
 import { bossAwareCanEnter } from "./ghostAi";
 import { forceGhostReverse } from "./ghostReverse";
 
-export function frightenGhosts(world: World, limit: number | null, blockTunnels = false): number[] {
+export function frightenGhosts(
+  world: World,
+  limit: number | null,
+  blockTunnels = false,
+  blockTunnelRows: ReadonlySet<number> | null = null,
+): number[] {
   const playerEid = query(world, [Player, Position])[0];
   if (playerEid === undefined) {
     return [];
@@ -27,7 +32,7 @@ export function frightenGhosts(world: World, limit: number | null, blockTunnels 
     { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 },
     limit,
   );
-  forceGhostReverse(world, blockTunnels, new Set(targets));
+  forceGhostReverse(world, blockTunnels, new Set(targets), blockTunnelRows);
   return targets;
 }
 
@@ -36,6 +41,7 @@ export function frightenedGhostAi(
   frightenedEids: ReadonlySet<number>,
   roll: () => number,
   blockTunnels = false,
+  blockTunnelRows: ReadonlySet<number> | null = null,
 ): void {
   for (const eid of query(world, [Ghost, GhostPhase, Position, Input, Facing])) {
     if (!frightenedEids.has(eid) || GhostPhase.value[eid] !== GHOST_PHASE.active) {
@@ -48,7 +54,7 @@ export function frightenedGhostAi(
     }
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(GHOST_PHASE.active, blockTunnels);
+    const rules = ghostMovementRules(GHOST_PHASE.active, blockTunnels, blockTunnelRows);
     const canEnter = hasComponent(world, eid, BossGhost)
       ? bossAwareCanEnter(world, eid, x, y, rules)
       : rules.canEnter;

@@ -1,6 +1,8 @@
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
+  cellCenterX,
+  cellCenterY,
   getActiveLayout,
   playerDisplaySize,
   pelletDisplaySize,
@@ -9,6 +11,7 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import type { TimedTunnelPhase } from "../../domain/timedTunnel";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import {
@@ -498,6 +501,11 @@ export type RenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   lineArtDrawableIds?: string[];
+  timedTunnel?: {
+    row: number;
+    phase: TimedTunnelPhase;
+    blinkOn: boolean;
+  } | null;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -594,6 +602,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const chainGraphics = scene.add.graphics();
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const timedTunnelGraphics = scene.add.graphics();
+  timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
@@ -829,8 +839,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const ghostWarpGlides = opts?.ghostWarpGlides;
     const lineArtIds = new Set(opts?.lineArtDrawableIds ?? []);
     const wallPassOn = opts?.wallPassActive === true;
-    const twinSolids =
-      opts?.wallPassLoopActive === true ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
+    const wallPassLoopOn = opts?.wallPassLoopActive === true;
+    const twinSolids = wallPassLoopOn ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
+    const timedTunnel = opts?.timedTunnel ?? null;
+    const blockTunnelRows =
+      !wallPassLoopOn && timedTunnel?.phase === "closed" ? new Set([timedTunnel.row]) : null;
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
     const playerTintNow = playerTint({
       wallPassOn,
@@ -1108,7 +1121,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           playerAlphaOpt === undefined &&
           hasComponent(world, eid, Player)
         ) {
-          const twin = wrappedTwinPosition(x, y, radius, twinSolids);
+          const twin = wrappedTwinPosition(x, y, radius, twinSolids, blockTunnelRows);
           if (twin) {
             placeDotMan(`${eid}:ltwin`, true, twin.x, twin.y, entityAlpha, turnFlash.scale);
           }
@@ -1232,7 +1245,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           reviveProgress === undefined &&
           hasComponent(world, eid, Player)
         ) {
-          const twin = wrappedTwinPosition(x, y, radius, twinSolids);
+          const twin = wrappedTwinPosition(x, y, radius, twinSolids, blockTunnelRows);
           if (twin) {
             alive.add(twinKey);
             let twinGo = drawableObjects.get(twinKey);
@@ -1353,6 +1366,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       )) {
         cageGraphics.lineBetween(line.x1, line.y1, line.x2, line.y2);
       }
+    }
+
+    timedTunnelGraphics.clear();
+    if (timedTunnel?.blinkOn === true) {
+      const layout = getActiveLayout();
+      const tile = layout.tileSize;
+      const barW = Math.max(3, Math.round(tile * 0.35));
+      const barH = Math.max(4, Math.round(tile * 0.85));
+      const y = cellCenterY(timedTunnel.row) - barH / 2;
+      timedTunnelGraphics.fillStyle(0xffcc33, 0.85);
+      timedTunnelGraphics.fillRect(cellCenterX(0) - barW / 2, y, barW, barH);
+      timedTunnelGraphics.fillRect(cellCenterX(layout.cols - 1) - barW / 2, y, barW, barH);
     }
 
     for (const [key, go] of drawableObjects) {
