@@ -424,7 +424,7 @@ Each subsequent frame while `tunnelDashAnim` is set, `tickTunnelDashAnimation` (
 - **Hyperspeed+.** `HYPERSPEED_ENHANCED_MS` (3000) of movement and a single shield for the first `HYPERSPEED_SHIELD_MS` (2000, `hyperspeedShieldRemainingMs`). Overcharge doubles both. The first catch inside the window spends the shield (`spendHyperspeedShield`): no kill, no power-pellet effect, and `SHIELD_BREAK_INVULN_MS` (1s) of Ghost Proof so the overlap does not kill you on the next sub-step. While the shield is up the player gets the Ghost Proof gold tint (`playerTintRemainingMs`). It is separate from Shield Pellets' `shieldsBanked`.
 - **Feedback.** The Speed Burst trail draws during the window. No new art or sound.
 - **Reset:** `clearUpgradeTimers` clears all three timers on level advance, life loss and store entry; `PlaySim` also drops the in-flight turn direction and pending pickups. Exposed as `play.timers.hyperspeedMs`, `hyperspeedTurnDelayMs` and `hyperspeedShieldMs`.
-- **LEARN:** no demo. The upgrade is listed under `NO VISIBLE EFFECT HERE`, and `LearnSim` drops its timers.
+- **LEARN:** `LearnSim` mirrors it: the same tick, 10× speed, sub-stepped movement with pellet pickup, turn hold and shield (a ghost touch inside a sub-step spends it and pops `SHIELD BROKEN`). Hyperspeed counts as a catch-demo upgrade, so an unshielded touch costs a demo life like Defy Death does. Fruit mid-run and boss chains do not apply there.
 
 ### Second Chomp
 
