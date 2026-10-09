@@ -142,7 +142,6 @@ export function neonTextLocalHeight(
 
 /** Neon Play-HUD upgrade rows: 3× line height so per-row bloom does not collide. */
 const NEON_UPGRADE_STACK_PITCH_MUL = 3;
-/** Pixel Play-HUD upgrade rows: one blank line between rows, matching the pause list. */
 const PIXEL_UPGRADE_STACK_PITCH_MUL = 2;
 
 export function upgradeStackRowPitch(lineHeightPx: number, textStyle: "neon" | "pixel"): number {
