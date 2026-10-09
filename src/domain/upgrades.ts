@@ -1134,7 +1134,7 @@ export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   return ALL_UPGRADE_IDS.filter(
     (id) =>
       !ownedBases.has(id) &&
-      (!requiresShieldSource(id) || shieldsOwned) &&
+      (getUpgradeDef(id).shieldBreak !== true || shieldsOwned) &&
       (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
       (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
   );
@@ -1956,10 +1956,6 @@ export function grantStartingShields(state: RunUpgrades): RunUpgrades {
   return count > state.shieldsBanked ? { ...state, shieldsBanked: count } : state;
 }
 
-function requiresShieldSource(id: UpgradeId): boolean {
-  return getUpgradeDef(id).shieldBreak === true;
-}
-
 export function providesShields(owned: readonly UpgradeId[]): boolean {
   return effectiveOwned(owned).some((id) => {
     const def = getUpgradeDef(id);
@@ -1976,10 +1972,11 @@ export function shieldBreakOwned(owned: readonly UpgradeId[]): boolean {
 }
 
 export function shieldOverflow(state: RunUpgrades, count: number): number {
-  if (shieldPelletsCap(effectiveOwned(state.owned)) === null) {
+  const owned = effectiveOwned(state.owned);
+  if (shieldPelletsCap(owned) === null) {
     return 0;
   }
-  const cap = shieldBankCap(effectiveOwned(state.owned));
+  const cap = shieldBankCap(owned);
   return Math.max(0, state.shieldsBanked + Math.max(0, count) - cap);
 }
 
