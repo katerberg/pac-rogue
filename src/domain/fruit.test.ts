@@ -9,7 +9,9 @@ import {
 import {
   CURRENT_LEVEL,
   FRUIT_FEAST_GAP_MS,
+  FRUIT_FLICKER_MS,
   FRUIT_LIFETIME_MS,
+  fruitFlickerAlpha,
   extendFruitLifetime,
   createFruitPresence,
   fruitArtPath,
@@ -21,6 +23,24 @@ import {
 } from "./fruit";
 
 const FEAST = BASE_FEAST_FRUIT_SPAWN_THRESHOLDS;
+
+describe("fruitFlickerAlpha", () => {
+  it("stays solid while plenty of time remains", () => {
+    expect(fruitFlickerAlpha(FRUIT_LIFETIME_MS, 100)).toBe(1);
+    expect(fruitFlickerAlpha(FRUIT_FLICKER_MS + 1, 100)).toBe(1);
+  });
+
+  it("blinks on and off in the final flicker window", () => {
+    expect(fruitFlickerAlpha(FRUIT_FLICKER_MS, 0)).toBe(1);
+    expect(fruitFlickerAlpha(FRUIT_FLICKER_MS, 100)).toBe(0);
+    expect(fruitFlickerAlpha(500, 200)).toBe(1);
+    expect(fruitFlickerAlpha(500, 300)).toBe(0);
+  });
+
+  it("is solid when no countdown is running", () => {
+    expect(fruitFlickerAlpha(0, 100)).toBe(1);
+  });
+});
 
 describe("fruitSpecForLevel", () => {
   it("returns cherries for level 1", () => {

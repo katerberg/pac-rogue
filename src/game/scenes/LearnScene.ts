@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { parseQueryParams } from "../../domain/queryParams";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
 import { learnCheckboxLook, textStyleFor, type GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
@@ -156,7 +157,7 @@ export class LearnScene extends Phaser.Scene {
   create(): void {
     applyRenderScale(this);
     startLoopingSfx(this, "menuMusic");
-    const urlParams = new URLSearchParams(location.search);
+    const urlParams = parseQueryParams(location.search);
     this.sim = new LearnSim(parseSeedParam(urlParams) ?? freshSeed());
     const ghostStyle = loadGhostStyle();
     this.sim.setGhostStyle(ghostStyle);

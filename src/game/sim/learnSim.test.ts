@@ -487,8 +487,52 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
-  it("Shield Pellets banks a shield and a catch breaks it instead of costing a life", () => {
+  it("Shield fires pickup effects and banks a shield; its break fires nothing", () => {
     const { sim, player } = setup("passiveShieldPellets", "powerPelletInvuln");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(0);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    runMs(sim, 3_100);
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    const after = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(after.type === "draw" && after.options.playerInvulnRemainingMs).toBeLessThanOrEqual(
+      1000,
+    );
+  });
+
+  it("Shield Break+ fires pickup effects when the bank is full", () => {
+    const { sim, player } = setup(
+      "passiveShieldPellets",
+      "passiveShieldBreakPlus",
+      "powerPelletInvuln",
+    );
+    const [first, second] = query(sim.world, [PowerPellet, Position]);
+    moveTo(player, posOf(first!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    moveTo(player, posOf(second!));
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(0);
+  });
+
+  it("Shield Break fires on a Starting Shield break", () => {
+    const { sim, player } = setup(
+      "passiveStartingShield",
+      "passiveShieldBreak",
+      "powerPelletInvuln",
+    );
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(1000);
+  });
+
+  it("Shield Break holds pickup effects until a catch breaks the shield", () => {
+    const { sim, player } = setup(
+      "passiveShieldPellets",
+      "passiveShieldBreak",
+      "powerPelletInvuln",
+    );
     expect(sim.statusText()).toContain("SHIELDS 0/1");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
@@ -501,7 +545,7 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
-  it("Shield Pellets drops shields over the cap when toggled down or off", () => {
+  it("Shield drops shields over the cap when toggled down or off", () => {
     const { sim, player } = setup("passiveShieldPellets");
     sim.toggleEnhanced("passiveShieldPellets");
     for (const power of [...query(sim.world, [PowerPellet, Position])]) {
@@ -514,6 +558,17 @@ describe("LearnSim upgrade demos", () => {
     sim.toggleUpgrade("passiveShieldPellets");
     sim.toggleUpgrade("passiveExtraLife");
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
+  });
+
+  it("Starting Shield gives a shield now and after a board refill, and breaks on a catch", () => {
+    const { sim, player } = setup("passiveStartingShieldPlus");
+    expect(sim.statusText()).toContain("SHIELDS 2/2");
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    expect(sim.statusText()).toContain("SHIELDS 1/2");
+    sim.toggleEnhanced("passiveStartingShield");
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    sim.toggleUpgrade("passiveStartingShield");
+    expect(sim.statusText()).not.toContain("SHIELDS");
   });
 
   it("Money Talks pays Quarters to save the last life", () => {
@@ -624,6 +679,62 @@ describe("LearnSim upgrade demos", () => {
     catchByGhost(sim, player);
     sim.toggleUpgrade("passiveHaunting");
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
+  });
+
+  describe("Hyperspeed", () => {
+    function chomp(sim: LearnSim, player: number): void {
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+
+    function speedAfterChomp(...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number {
+      const { sim, player } = setup(...ids);
+      chomp(sim, player);
+      sim.step(held("left"), FRAME_MS);
+      return Speed.px[player]!;
+    }
+
+    it("runs at 10x speed for 2s after a power pellet", () => {
+      const plain = speedAfterChomp();
+      const hyper = speedAfterChomp("powerPelletHyperspeed");
+      expect(hyper).toBeCloseTo(plain * 10);
+      const { sim, player } = setup("powerPelletHyperspeed");
+      chomp(sim, player);
+      expect(sim["learnUpgrades"].hyperspeedRemainingMs).toBeGreaterThan(1900);
+      runMs(sim, 2100);
+      expect(sim["learnUpgrades"].hyperspeedRemainingMs).toBe(0);
+    });
+
+    it("Hyperspeed+ arms 3s and a shield that absorbs the first catch", () => {
+      const { sim, player } = setup("powerPelletHyperspeed");
+      sim.toggleEnhanced("powerPelletHyperspeed");
+      chomp(sim, player);
+      expect(sim["learnUpgrades"].hyperspeedRemainingMs).toBeGreaterThan(2900);
+      expect(sim["learnUpgrades"].hyperspeedShieldRemainingMs).toBeGreaterThan(1900);
+      expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+      expect(sim["learnUpgrades"].hyperspeedShieldRemainingMs).toBe(0);
+      expect(sim["learnUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
+    });
+
+    it("holds movement for 200ms after a turn", () => {
+      const { sim, player } = setup("powerPelletHyperspeed");
+      const spawn = posOf(player);
+      chomp(sim, player);
+      moveTo(player, spawn);
+      sim.step(held("right"), FRAME_MS);
+      sim.step(held("left"), FRAME_MS);
+      expect(sim["learnUpgrades"].hyperspeedTurnDelayMs).toBeGreaterThan(150);
+      const x = Position.x[player]!;
+      sim.step(held("left"), FRAME_MS);
+      expect(Position.x[player]).toBe(x);
+    });
+
+    it("drops the timers when the upgrade is toggled off", () => {
+      const { sim, player } = setup("powerPelletHyperspeed");
+      chomp(sim, player);
+      sim.toggleUpgrade("powerPelletHyperspeed");
+      expect(sim["learnUpgrades"].hyperspeedRemainingMs).toBe(0);
+    });
   });
 
   describe("Echo", () => {

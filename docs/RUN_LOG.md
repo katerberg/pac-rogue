@@ -99,4 +99,19 @@ At 500 stored runs, or after any save throws (quota), `MenuScene` hands off to `
 
 Unparseable records and records with an unknown `version` stay in storage, count toward the cap and are skipped when relabelling. A corrupt index reads as empty and the next save rewrites it, orphaning the old run keys.
 
-`?runLogFill=N` (agent ports only) writes N synthetic `debug: true` runs at boot to reach this screen in a live check.
+`?runLogFill=N` (agent ports only) writes N synthetic `debug: true` runs at boot to reach this screen in a live check. The synthetic runs vary their last level, outcome, loadout and offers so the `/data` charts have something to draw.
+
+## Viewing: `/data`
+
+Open `/data` on the same origin you play on (`http://localhost:5173/data` for `npm run dev`). It is a separate page (`data/index.html`, code in `src/data/`), not linked from the game, and it reads the same localStorage. The dev and preview servers redirect `/data` to `/data/`. The counting is in `src/domain/runAnalytics.ts`; the page only draws.
+
+- **Which runs count:** `death` and `complete` runs, never `debug` ones. **Include quit / abandoned** adds those. On agent ports only, **Include debug runs** adds the debug runs too (for live checks with `?runLogFill`). `inProgress` runs never count.
+- **Reach:** a run's last level played, or **WIN** for a complete run. Medians count WIN as level 10.
+- **Summary:** runs, win rate, median reach, and a chart of where all counted runs ended.
+- **Upgrades table:** one row per base upgrade (a Plus form counts toward its base row; the **Plus** column counts runs that owned the Plus form). A run counts for an upgrade if it owned it at any point. Columns:
+  - **Where runs ended:** bars for L1–L9 then WIN, each the share of this upgrade's runs ending there, drawn over grey bars for all counted runs. Hover a bar for the counts.
+  - **Median reach**, **Win %**.
+  - **Median level taken:** the median level the upgrade was first taken. Upgrades only available late look strong because those runs already got far; compare against this column.
+  - **Pick %:** times picked out of times offered at a level clear (store purchases are not offers).
+- **Sorting:** click Runs, Median reach, Win % or Pick %. Rows with fewer than 5 runs sink below the rest, greyed and tagged "low sample"; upgrades no counted run owned sit at the bottom.
+- Not yet: a runs list or per-run detail, a game-version filter, death maps.

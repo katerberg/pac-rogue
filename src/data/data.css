@@ -1,0 +1,202 @@
+:root {
+  color-scheme: dark;
+  --surface: #1a1a2e;
+  --surface-2: #232340;
+  --ink: #f2f2f7;
+  --ink-2: #b9bbcc;
+  --ink-muted: #8a8ca0;
+  --rule: #34345a;
+  --accent: #ffd800;
+  --series: #5b8fd6;
+  --baseline: #5a5c74;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font:
+    14px/1.4 ui-monospace,
+    "SFMono-Regular",
+    Menlo,
+    Consolas,
+    monospace;
+}
+
+#data-root {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+h1,
+h2 {
+  margin: 0;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+}
+
+.notes {
+  margin: 4px 0 16px;
+  color: var(--ink-muted);
+}
+
+.controls {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  color: var(--ink-2);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+
+.tile,
+.overall {
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.tile-value {
+  font-size: 28px;
+  color: var(--ink);
+}
+
+.tile-label {
+  color: var(--ink-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.legend {
+  color: var(--ink-2);
+  margin: 8px 0 12px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+.swatch-own {
+  background: var(--series);
+}
+
+.swatch-baseline {
+  background: var(--baseline);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table.upgrades {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: middle;
+}
+
+th {
+  color: var(--ink-muted);
+  font-weight: normal;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+td.num {
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+td.school {
+  color: var(--ink-2);
+}
+
+button.sort {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+button.sort.active {
+  color: var(--accent);
+}
+
+button.sort.active::after {
+  content: " ▼";
+}
+
+tr.low-sample {
+  opacity: 0.55;
+}
+
+tr.unowned {
+  opacity: 0.35;
+}
+
+.tag {
+  margin-left: 8px;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.reach-chart .axis {
+  stroke: var(--rule);
+}
+
+.reach-chart .bar-baseline {
+  fill: var(--baseline);
+  opacity: 0.6;
+}
+
+.reach-chart .bar-own {
+  fill: var(--series);
+}
+
+.reach-chart .bin-label {
+  fill: var(--ink-muted);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.reach-chart .hit {
+  fill: transparent;
+}
+
+.reach-chart .hit:hover {
+  fill: rgba(255, 255, 255, 0.08);
+}
+
+.empty {
+  padding: 48px 0;
+}
+
+.empty a {
+  color: var(--series);
+}

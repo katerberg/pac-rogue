@@ -42,6 +42,15 @@ import {
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
   bankShields,
+  grantStartingShields,
+  powerPelletPickupFires,
+  providesShields,
+  shieldBankCap,
+  shieldBreakOwned,
+  shieldOverflow,
+  startingShieldCount,
+  STARTING_SHIELD_COUNT,
+  STARTING_SHIELD_ENHANCED_COUNT,
   shieldPelletsCap,
   spendShield,
   OVERCHARGE_MUL,
@@ -149,6 +158,10 @@ import {
   wallPassLoopOwned,
   echoEffects,
   queueEcho,
+  tickHyperspeed,
+  startHyperspeedTurnDelay,
+  spendHyperspeedShield,
+  hyperspeedMultiplier,
 } from "./upgrades";
 import { ECHO_DELAY_MS } from "./echo";
 import { TILE_SIZE } from "./maze";
@@ -199,6 +212,9 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveStreakEngine",
   "passiveEcho",
   "powerPelletHunter",
+  "passiveStartingShield",
+  "powerPelletHyperspeed",
+  "passiveShieldBreak",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -441,6 +457,8 @@ describe("rare upgrades", () => {
     "passiveMartyr",
     "passiveStreakEngine",
     "powerPelletHunter",
+    "powerPelletHyperspeed",
+    "passiveShieldBreak",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
@@ -558,7 +576,7 @@ describe("rare upgrades", () => {
     expect(eligibleUpgrades([]).filter(isRare)).toEqual([]);
     expect(eligibleUpgrades(["passiveAfterburner"]).filter(isRare)).toEqual([]);
     expect(eligibleUpgrades(["passiveAfterburner", "passiveGhostSlowPlus"]).filter(isRare)).toEqual(
-      ALL_UPGRADE_IDS.filter(isRare),
+      ALL_UPGRADE_IDS.filter((id) => isRare(id) && id !== "passiveShieldBreak"),
     );
   });
 });
@@ -1222,6 +1240,35 @@ describe("shield pellets", () => {
   });
 });
 
+describe("starting shield", () => {
+  it("counts 1 base, 2 enhanced, 0 unowned", () => {
+    expect(startingShieldCount([])).toBe(0);
+    expect(startingShieldCount(["passiveStartingShield"])).toBe(STARTING_SHIELD_COUNT);
+    expect(startingShieldCount(["passiveStartingShieldPlus"])).toBe(STARTING_SHIELD_ENHANCED_COUNT);
+  });
+
+  it("tops the bank up to the count without exceeding or stacking", () => {
+    const base = createRunUpgrades(["passiveStartingShield"]);
+    expect(grantStartingShields(base).shieldsBanked).toBe(1);
+    const plus = createRunUpgrades(["passiveStartingShieldPlus"]);
+    expect(grantStartingShields({ ...plus, shieldsBanked: 1 }).shieldsBanked).toBe(2);
+    expect(grantStartingShields({ ...plus, shieldsBanked: 3 }).shieldsBanked).toBe(3);
+    expect(grantStartingShields(createRunUpgrades()).shieldsBanked).toBe(0);
+  });
+
+  it("banks power pellets only with Shield Pellets and adds the caps", () => {
+    expect(shieldPelletsCap(["passiveStartingShield"])).toBeNull();
+    expect(shieldBankCap(["passiveStartingShieldPlus"])).toBe(2);
+    expect(shieldBankCap(["passiveStartingShield", "passiveShieldPellets"])).toBe(2);
+    expect(shieldBankCap(["passiveStartingShieldPlus", "passiveShieldPelletsPlus"])).toBe(5);
+  });
+
+  it("clamps the bank when revoked", () => {
+    const plus = grantStartingShields(createRunUpgrades(["passiveStartingShieldPlus"]));
+    expect(revokeUpgrade(plus, "passiveStartingShieldPlus").shieldsBanked).toBe(0);
+  });
+});
+
 describe("fruitLifetimeMultiplier", () => {
   it("is 1 by default and doubles with fruitFecundity", () => {
     expect(fruitLifetimeMultiplier([])).toBe(1);
@@ -1763,5 +1810,120 @@ describe("Hunter", () => {
         hunterHeldEids: [],
       });
     }
+  });
+});
+
+describe("Hyperspeed", () => {
+  const chomp = (owned: UpgradeId[], level = 1) =>
+    applyPowerPelletEffects(createRunUpgrades(owned), 1, undefined, level);
+
+  it("arms 2s, or 3s plus a 2s shield with Hyperspeed+, regardless of level", () => {
+    expect(chomp(["powerPelletHyperspeed"]).state.hyperspeedRemainingMs).toBe(2000);
+    expect(chomp(["powerPelletHyperspeed"], 8).state.hyperspeedRemainingMs).toBe(2000);
+    expect(chomp(["powerPelletHyperspeed"]).state.hyperspeedShieldRemainingMs).toBe(0);
+    const plus = chomp(["powerPelletHyperspeedPlus"]).state;
+    expect(plus.hyperspeedRemainingMs).toBe(3000);
+    expect(plus.hyperspeedShieldRemainingMs).toBe(2000);
+  });
+
+  it("is doubled by Overcharge, shield included", () => {
+    const state = chomp(["powerPelletHyperspeedPlus", "passiveOvercharge"]).state;
+    expect(state.hyperspeedRemainingMs).toBe(6000);
+    expect(state.hyperspeedShieldRemainingMs).toBe(4000);
+  });
+
+  it("refreshes instead of stacking on a second chomp", () => {
+    const first = chomp(["powerPelletHyperspeed"]).state;
+    const ticked = tickHyperspeed(first, 1500);
+    const second = applyPowerPelletEffects(ticked, 1).state;
+    expect(second.hyperspeedRemainingMs).toBe(2000);
+  });
+
+  it("ticks the window, the turn delay and the shield, and clears the delay with the window", () => {
+    let state = startHyperspeedTurnDelay(chomp(["powerPelletHyperspeedPlus"]).state);
+    expect(state.hyperspeedTurnDelayMs).toBe(200);
+    state = tickHyperspeed(state, 150);
+    expect(state.hyperspeedTurnDelayMs).toBe(50);
+    expect(state.hyperspeedRemainingMs).toBe(2850);
+    expect(state.hyperspeedShieldRemainingMs).toBe(1850);
+    state = tickHyperspeed(state, 3000);
+    expect(state.hyperspeedRemainingMs).toBe(0);
+    expect(state.hyperspeedTurnDelayMs).toBe(0);
+    expect(state.hyperspeedShieldRemainingMs).toBe(0);
+  });
+
+  it("spends the shield once into 1s of grace, and tints while it is up", () => {
+    const state = chomp(["powerPelletHyperspeedPlus"]).state;
+    expect(playerTintRemainingMs(state)).toBe(2000);
+    const spent = spendHyperspeedShield(state)!;
+    expect(spent.hyperspeedShieldRemainingMs).toBe(0);
+    expect(spent.invulnRemainingMs).toBe(1000);
+    expect(spendHyperspeedShield(spent)).toBeNull();
+  });
+
+  it("reads its multiplier through the def and clears with the other timers", () => {
+    expect(hyperspeedMultiplier(["powerPelletHyperspeed"])).toBe(10);
+    expect(hyperspeedMultiplier([])).toBe(1);
+    const cleared = clearUpgradeTimers(
+      startHyperspeedTurnDelay(chomp(["powerPelletHyperspeedPlus"]).state),
+    );
+    expect(cleared.hyperspeedRemainingMs).toBe(0);
+    expect(cleared.hyperspeedTurnDelayMs).toBe(0);
+    expect(cleared.hyperspeedShieldRemainingMs).toBe(0);
+  });
+});
+
+describe("Shield Break", () => {
+  const twoOwned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
+
+  it("is offered only while a shield source is owned", () => {
+    expect(eligibleUpgrades(twoOwned)).not.toContain("passiveShieldBreak");
+    for (const source of [
+      "passiveShieldPellets",
+      "passiveShieldPelletsPlus",
+      "passiveStartingShield",
+      "powerPelletHyperspeedPlus",
+    ] as const) {
+      expect(eligibleUpgrades([...twoOwned, source])).toContain("passiveShieldBreak");
+    }
+    expect(eligibleUpgrades([...twoOwned, "powerPelletHyperspeed"])).not.toContain(
+      "passiveShieldBreak",
+    );
+  });
+
+  it("counts Hyperspeed as a shield source when a specialist enhances it", () => {
+    const owned: UpgradeId[] = [
+      "powerPelletHyperspeed",
+      "passiveSpeedSpecialistPlus",
+      "passiveAfterburner",
+    ];
+    expect(providesShields(owned)).toBe(true);
+  });
+
+  it("is never a starting upgrade", () => {
+    expect(STARTING_UPGRADE_POOL).not.toContain("passiveShieldBreak");
+  });
+
+  it("moves every pickup effect to the break", () => {
+    expect(powerPelletPickupFires(["passiveShieldPellets"], 2, 0)).toBe(2);
+    expect(powerPelletPickupFires(["passiveShieldPellets", "passiveShieldBreak"], 2, 1)).toBe(0);
+    expect(powerPelletPickupFires(["passiveStartingShield", "passiveShieldBreak"], 1, 0)).toBe(0);
+    expect(shieldBreakOwned(["passiveShieldBreakPlus"])).toBe(true);
+    expect(shieldBreakOwned(["passiveShieldPellets"])).toBe(false);
+  });
+
+  it("Plus fires for pellets that could not bank a shield", () => {
+    const owned: UpgradeId[] = ["passiveShieldPellets", "passiveShieldBreakPlus"];
+    const full = { ...createRunUpgrades(owned), shieldsBanked: 1 };
+    expect(shieldOverflow(full, 1)).toBe(1);
+    expect(powerPelletPickupFires(owned, 1, shieldOverflow(full, 1))).toBe(1);
+    const empty = createRunUpgrades(owned);
+    expect(shieldOverflow(empty, 1)).toBe(0);
+    expect(powerPelletPickupFires(owned, 1, 0)).toBe(0);
+  });
+
+  it("has no overflow without a pellet shield source", () => {
+    const state = { ...createRunUpgrades(["passiveStartingShield"]), shieldsBanked: 1 };
+    expect(shieldOverflow(state, 3)).toBe(0);
   });
 });

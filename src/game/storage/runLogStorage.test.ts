@@ -8,6 +8,7 @@ import {
 import {
   fillSyntheticRuns,
   getInstallId,
+  loadAllRuns,
   newRunLogMeta,
   purgeOldestRuns,
   relabelAbandoned,
@@ -128,10 +129,22 @@ describe("runLogStorage", () => {
     expect(meta.id).not.toBe(newRunLogMeta(new URLSearchParams()).id);
   });
 
+  it("loads every readable run in index order and counts the unreadable ones", () => {
+    const store = installMemoryStorage();
+    saveRunLog(recordWith("a", "death"));
+    saveRunLog(recordWith("b", "complete"));
+    store.set(RUN_LOG_INDEX_KEY, JSON.stringify(["a", "corrupt", "b", "missing"]));
+    store.set(`${RUN_LOG_RUN_KEY_PREFIX}corrupt`, "{oops");
+    const { runs, unreadable } = loadAllRuns();
+    expect(runs.map((run) => run.id)).toEqual(["a", "b"]);
+    expect(unreadable).toBe(2);
+  });
+
   it("does nothing without localStorage", () => {
     vi.stubGlobal("localStorage", undefined);
     saveRunLog(recordWith("a"));
     purgeOldestRuns();
     expect(storedRunCount()).toBe(0);
+    expect(loadAllRuns()).toEqual({ runs: [], unreadable: 0 });
   });
 });

@@ -32,6 +32,8 @@ Steps (comma-separated):
   hover:<x>:<y>          move the mouse to game coordinates, scaled onto the canvas
   shot:<label>           screenshot to artifacts/<name>-<label>.png
   pageShot:<label>       full-viewport screenshot (includes DOM overlays such as ?knobs=1 panels)
+  goto:<path>            navigate to another page on the agent dev port (e.g. goto:/data); use
+                         pageShot and dom* steps there, since it may have no canvas
   domClick:<css>         click the first DOM element matching a CSS selector (e.g. #knobs-restart)
   domFill:<css>:<value>  set an input's value and fire input + change (e.g. domFill:#knob-timerMax:120)
   scene:<SceneKey>       fail unless that scene is active (MenuScene, PlayScene, ...)
@@ -165,6 +167,9 @@ async function runStep(page, canvas, step, name) {
       console.log(`shot ${path}`);
       break;
     }
+    case "goto":
+      await page.goto(`http://127.0.0.1:${ports.agentDev}${a}`, { waitUntil: "domcontentloaded" });
+      break;
     case "pageShot": {
       const path = join(outDir, `${name}-${a}.png`);
       await page.screenshot({ path });
@@ -247,7 +252,8 @@ async function runStep(page, canvas, step, name) {
 
 async function saveFailureEvidence(page, canvas, name) {
   try {
-    await canvas.screenshot({ path: join(outDir, `${name}-failure.png`) });
+    const path = join(outDir, `${name}-failure.png`);
+    await ((await canvas.count()) > 0 ? canvas.screenshot({ path }) : page.screenshot({ path }));
     writeFileSync(
       join(outDir, `${name}-failure.json`),
       `${JSON.stringify(await readSnapshot(page), null, 2)}\n`,

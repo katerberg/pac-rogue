@@ -76,13 +76,13 @@ describe("neon text layout", () => {
     expect(neonTextLocalHeight(3, 10, 4)).toBe(48);
   });
 
-  it("upgrade stack pitch triples neon rows and keeps pixel rows tight", () => {
-    expect(upgradeStackRowPitch(8, "pixel")).toBe(8);
+  it("upgrade stack pitch triples neon rows and doubles pixel rows so labels never touch", () => {
+    expect(upgradeStackRowPitch(8, "pixel")).toBe(16);
     expect(upgradeStackRowPitch(8, "neon")).toBe(24);
     expect(upgradeStackHeight(0, 8, "neon")).toBe(0);
     expect(upgradeStackHeight(1, 8, "neon")).toBe(8);
     expect(upgradeStackHeight(2, 8, "neon")).toBe(32);
-    expect(upgradeStackHeight(2, 8, "pixel")).toBe(16);
+    expect(upgradeStackHeight(2, 8, "pixel")).toBe(24);
   });
 
   it("centers the glow source on the text box in canvas pixels", () => {

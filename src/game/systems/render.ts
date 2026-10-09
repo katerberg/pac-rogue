@@ -73,7 +73,12 @@ import { turnFlashPulse } from "../../domain/turnTuning";
 import { brightenColor, playerTint, tintedColor, type PlayerTint } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
-import { fruitArtPath, fruitSpecForLevel, CURRENT_LEVEL } from "../../domain/fruit";
+import {
+  fruitArtPath,
+  fruitFlickerAlpha,
+  fruitSpecForLevel,
+  CURRENT_LEVEL,
+} from "../../domain/fruit";
 import {
   ghostLineArtLook,
   lineArtPlayer,
@@ -485,6 +490,7 @@ export type RenderOptions = {
   frozenGhostEid?: number | null;
   frozenGhostRemainingMs?: number;
   playerInvulnRemainingMs?: number;
+  fruitRemainingMs?: number;
   wallPassActive?: boolean;
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
@@ -1153,11 +1159,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const pulse = bossPelletPulse(scene.time.now);
         go.setDisplaySize(pulse.size, pulse.size);
         go.setAlpha(pulse.alpha * entityAlpha);
-      } else if (
-        id === PELLET_DRAWABLE_ID ||
-        id === POWER_PELLET_DRAWABLE_ID ||
-        id === FRUIT_DRAWABLE_ID
-      ) {
+      } else if (id === FRUIT_DRAWABLE_ID) {
+        go.setAlpha(entityAlpha * fruitFlickerAlpha(opts?.fruitRemainingMs ?? 0, scene.time.now));
+      } else if (id === PELLET_DRAWABLE_ID || id === POWER_PELLET_DRAWABLE_ID) {
         go.setAlpha(entityAlpha);
       }
 

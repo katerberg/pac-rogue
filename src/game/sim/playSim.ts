@@ -196,8 +196,12 @@ import {
   applyShieldBreakInvuln,
   applyStreakEngineInvuln,
   bankShields,
+  grantStartingShields,
   clearUpgradeTimers,
   queueEcho,
+  powerPelletPickupFires,
+  shieldBreakOwned,
+  shieldOverflow,
   shieldPelletsCap,
   spendShield,
   deathsBountyCharge,
@@ -225,6 +229,11 @@ import {
   interestPayout,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
+  hyperspeedActive,
+  hyperspeedMultiplier,
+  spendHyperspeedShield,
+  startHyperspeedTurnDelay,
+  tickHyperspeed,
   secondChompMs,
   lifeFloorBonus,
   hasUpgrade,
@@ -306,7 +315,19 @@ import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { wallPassSolids } from "../systems/wallPassSolids";
 import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
-import { collectPellets, countPellets, noRequiredPelletsLeft } from "../systems/collectPellets";
+import {
+  collectPellets,
+  countPellets,
+  noRequiredPelletsLeft,
+  type PlayerPelletFrame,
+} from "../systems/collectPellets";
+import {
+  emptyPlayerPelletFrame,
+  hyperspeedSubstepCount,
+  mergePlayerPelletFrames,
+  noteHyperspeedFacing,
+} from "../systems/hyperspeed";
+import type { Direction } from "../components/Input";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { shieldCrackProgress } from "../../domain/shieldCrack";
 import { ghostAi } from "../systems/ghostAi";
@@ -434,6 +455,9 @@ export class PlaySim {
   private timedTunnelElapsedMs = 0;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
+  private hyperspeedDirection: Direction | null = null;
+  private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
+  private hyperspeedFruitEaten = 0;
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private effectiveCache: { owned: readonly UpgradeId[]; effective: readonly UpgradeId[] } | null =
@@ -680,13 +704,15 @@ export class PlaySim {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
+      fruitRemainingMs: this.fruitPresence.remainingMs,
       wallPassActive: wallPassActive(this.runUpgrades),
       wallPassLoopActive:
         wallPassActive(this.runUpgrades) && wallPassLoopOwned(this.effectiveUpgrades()),
       turnFlashRemainingMs: this.turnTuning.flashMs,
       playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
       playerSpeedTrail:
-        this.death === null && speedBurstActive(this.runUpgrades)
+        this.death === null &&
+        (speedBurstActive(this.runUpgrades) || hyperspeedActive(this.runUpgrades))
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
@@ -742,6 +768,9 @@ export class PlaySim {
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
+        hyperspeedMs: upgrades.hyperspeedRemainingMs,
+        hyperspeedTurnDelayMs: upgrades.hyperspeedTurnDelayMs,
+        hyperspeedShieldMs: upgrades.hyperspeedShieldRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
@@ -749,6 +778,7 @@ export class PlaySim {
         echoesMs: upgrades.pendingEchoes.map((echo) => echo.remainingMs),
         frightenedMs: upgrades.frightenedRemainingMs,
         eatDragMs: this.eatDragMs,
+        fruitMs: this.fruitPresence.remainingMs,
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),
@@ -1007,6 +1037,10 @@ export class PlaySim {
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
+    this.runUpgrades = tickHyperspeed(this.runUpgrades, delta);
+    if (!hyperspeedActive(this.runUpgrades)) {
+      this.hyperspeedDirection = null;
+    }
     this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
     this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
     this.runUpgrades = tickHaunt(this.runUpgrades, delta);
@@ -1022,14 +1056,19 @@ export class PlaySim {
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex, this.currentTuning);
-    const playerSpeedMul =
-      levelSpeedMul *
-      playerSpeedMultiplier(this.effectiveUpgrades()) *
-      cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)) *
-      (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.effectiveUpgrades()) : 1) *
-      eatDragMultiplier(this.eatDragMs, this.currentTuning) *
-      this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
-      (warping ? 0 : 1);
+    const hyperspeedMul =
+      this.runUpgrades.hyperspeedTurnDelayMs > 0
+        ? 0
+        : levelSpeedMul * hyperspeedMultiplier(this.effectiveUpgrades());
+    const playerSpeedMul = hyperspeedActive(this.runUpgrades)
+      ? hyperspeedMul * (warping ? 0 : 1)
+      : levelSpeedMul *
+        playerSpeedMultiplier(this.effectiveUpgrades()) *
+        cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)) *
+        (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.effectiveUpgrades()) : 1) *
+        eatDragMultiplier(this.eatDragMs, this.currentTuning) *
+        this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
+        (warping ? 0 : 1);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -1050,15 +1089,21 @@ export class PlaySim {
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const blockTunnelRow = this.closedGatedTunnelRow();
-    movement(
-      this.world,
-      delta,
-      playerSolidsOverride,
-      false,
-      playerPreTurnPx(this.currentTuning),
-      this.ghostsBlockedFromTunnels(),
-      blockTunnelRow,
-    );
+    const moveFrame = (frameDelta: number): void =>
+      movement(
+        this.world,
+        frameDelta,
+        playerSolidsOverride,
+        false,
+        playerPreTurnPx(this.currentTuning),
+        this.ghostsBlockedFromTunnels(),
+        blockTunnelRow,
+      );
+    if (hyperspeedActive(this.runUpgrades)) {
+      this.moveHyperspeed(delta, moveFrame);
+    } else {
+      moveFrame(delta);
+    }
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
@@ -1139,10 +1184,14 @@ export class PlaySim {
     this.clock = tickRunClock(this.clock, hasInput, delta, this.currentTuning);
     this.emit({ type: "timer" });
 
-    const playerFrame = collectPellets(this.world, {
-      radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
-      solids: getActiveLayout().playerSolids,
-    });
+    const playerFrame = mergePlayerPelletFrames(
+      this.hyperspeedPellets,
+      collectPellets(this.world, {
+        radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
+        solids: getActiveLayout().playerSolids,
+      }),
+    );
+    this.hyperspeedPellets = emptyPlayerPelletFrame();
     const ghostFrame = ghostHarvestActive(this.runUpgrades)
       ? harvestPelletsByGhosts(this.world)
       : { powerRemoved: 0, removedEids: [], removedPowerPositions: [], removedSnaps: [] };
@@ -1188,11 +1237,7 @@ export class PlaySim {
     }
     this.recorder.powerPellets("player", playerFrame.powerRemoved);
     this.recorder.powerPellets("ghostHarvest", ghostFrame.powerRemoved);
-    const shielded = shieldPelletsCap(this.effectiveUpgrades()) !== null;
-    if (shielded) {
-      this.bankShields(powerRemoved);
-    }
-    const powerEffects = this.applyPowerEffects(shielded ? 0 : powerRemoved);
+    const powerEffects = this.applyPowerEffects(this.bankAndCountPickupFires(powerRemoved));
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
       const bonusSnaps = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
@@ -1284,19 +1329,18 @@ export class PlaySim {
     for (const eid of removedFruitEids) {
       this.releaseDrawable(eid);
     }
-    if (removedFruitEids.length > 0) {
+    const fruitEaten = removedFruitEids.length + this.hyperspeedFruitEaten;
+    this.hyperspeedFruitEaten = 0;
+    if (fruitEaten > 0) {
       this.emitMunch();
-      this.recorder.fruitEaten(removedFruitEids.length);
+      this.recorder.fruitEaten(fruitEaten);
       const fruitQuarters = fruitQuartersPerFruit(this.effectiveUpgrades());
       if (fruitQuarters !== null) {
-        this.quarters += removedFruitEids.length * fruitQuarters;
-        this.recorder.quarters("fruit", removedFruitEids.length * fruitQuarters);
+        this.quarters += fruitEaten * fruitQuarters;
+        this.recorder.quarters("fruit", fruitEaten * fruitQuarters);
         this.emit({ type: "quarters", pulse: false });
       } else {
-        const fruitCharge = addBonusCharge(
-          this.bonus,
-          removedFruitEids.length * FRUIT_BONUS_CHARGE,
-        );
+        const fruitCharge = addBonusCharge(this.bonus, fruitEaten * FRUIT_BONUS_CHARGE);
         this.emit({ type: "fruitBonus" });
         this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
       }
@@ -1336,7 +1380,7 @@ export class PlaySim {
       this.recorder.nearMisses(this.world, getActiveLayout().tileSize);
       this.payNearMisses(catchOptions);
     } else {
-      if (this.breakShield()) {
+      if (this.breakShield() || this.breakHyperspeedShield()) {
         return;
       }
       const deathCell = playerCell(this.world);
@@ -1708,6 +1752,7 @@ export class PlaySim {
     this.turnTuning.reset();
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
+    this.resetHyperspeedMovement();
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
@@ -1894,6 +1939,7 @@ export class PlaySim {
       this.recorder.gained(id, "enhance", this.levelIndex);
       this.runUpgrades = enhanceUpgrade(this.runUpgrades, purchase.targetId);
       this.payEnhanceLives(purchase.targetId);
+      this.topUpStartingShields();
     } else {
       if (purchase.kind === "swap") {
         this.recorder.lost(purchase.outgoingId, this.levelIndex);
@@ -1905,7 +1951,10 @@ export class PlaySim {
       this.applyGrantEffects(id);
       this.grantSpecialistLives();
     }
-    this.emit({ type: "lives", pulse: grantLivesForUpgrade(id) > 0 });
+    this.emit({
+      type: "lives",
+      pulse: grantLivesForUpgrade(id) > 0 || baseIdOf(id) === "passiveMyogenesis",
+    });
     this.recordSeenUpgrades();
     this.emit({ type: "upgrades" });
     this.emit({ type: "storePurchased", id });
@@ -1948,6 +1997,7 @@ export class PlaySim {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
+    this.topUpStartingShields();
     const boss = isBossLevel(this.levelIndex)
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
       : null;
@@ -2014,6 +2064,7 @@ export class PlaySim {
     this.fruitPresence = createFruitPresence();
     this.pendingPowerPelletRespawns = [];
     this.tunnelDashAnim = null;
+    this.resetHyperspeedMovement();
     this.resetTimedTunnel();
     this.warpGlide = null;
     this.speedTrail = [];
@@ -2246,6 +2297,7 @@ export class PlaySim {
       this.afterLifeRelease,
     );
     this.tunnelDashAnim = null;
+    this.resetHyperspeedMovement();
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
@@ -2309,11 +2361,16 @@ export class PlaySim {
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): boolean {
+    const fires = this.bankAndCountPickupFires(powerRemoved);
+    return fires > 0 ? this.firePowerPelletEffects(fires) : false;
+  }
+
+  private bankAndCountPickupFires(powerRemoved: number): number {
+    const overflow = shieldOverflow(this.runUpgrades, powerRemoved);
     if (shieldPelletsCap(this.effectiveUpgrades()) !== null) {
       this.bankShields(powerRemoved);
-      return false;
     }
-    return this.firePowerPelletEffects(powerRemoved);
+    return powerPelletPickupFires(this.effectiveUpgrades(), powerRemoved, overflow);
   }
 
   private bankShields(count: number): void {
@@ -2322,6 +2379,84 @@ export class PlaySim {
       this.runUpgrades = next;
       this.emit({ type: "shields" });
     }
+  }
+
+  private topUpStartingShields(): void {
+    const next = grantStartingShields(this.runUpgrades);
+    if (next !== this.runUpgrades) {
+      this.runUpgrades = next;
+      this.emit({ type: "shields" });
+    }
+  }
+
+  private moveHyperspeed(delta: number, moveFrame: (frameDelta: number) => void): void {
+    const speed = Speed.px[query(this.world, [Player, Speed])[0] ?? 0] ?? 0;
+    const steps = hyperspeedSubstepCount((speed * delta) / 1000, getActiveLayout().tileSize);
+    const stepDelta = delta / steps;
+    let caught = false;
+    for (let step = 0; step < steps; step += 1) {
+      moveFrame(stepDelta);
+      this.noteHyperspeedTurn();
+      if (caught) {
+        continue;
+      }
+      this.hyperspeedPellets = mergePlayerPelletFrames(
+        this.hyperspeedPellets,
+        collectPellets(this.world, {
+          radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
+          solids: getActiveLayout().playerSolids,
+        }),
+      );
+      for (const eid of collectFruit(this.world)) {
+        this.releaseDrawable(eid);
+        this.hyperspeedFruitEaten += 1;
+      }
+      this.eatFrightenedGhosts();
+      const catchOptions = this.catchOptions();
+      const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+      if (hit !== null && !this.breakHyperspeedShield()) {
+        caught = true;
+        this.zeroPlayerSpeed();
+      }
+    }
+  }
+
+  private noteHyperspeedTurn(): void {
+    const turn = noteHyperspeedFacing(
+      this.hyperspeedDirection,
+      playerFacing(this.world),
+      this.runUpgrades.hyperspeedTurnDelayMs > 0,
+    );
+    this.hyperspeedDirection = turn.lastDirection;
+    if (turn.turned) {
+      this.runUpgrades = startHyperspeedTurnDelay(this.runUpgrades);
+      this.zeroPlayerSpeed();
+    }
+  }
+
+  private resetHyperspeedMovement(): void {
+    this.hyperspeedDirection = null;
+    this.hyperspeedPellets = emptyPlayerPelletFrame();
+    this.hyperspeedFruitEaten = 0;
+  }
+
+  private zeroPlayerSpeed(): void {
+    applyPlayerSpeed(this.world, 0, this.currentTuning);
+  }
+
+  private breakHyperspeedShield(): boolean {
+    const spent = spendHyperspeedShield(this.runUpgrades);
+    if (spent === null) {
+      return false;
+    }
+    this.runUpgrades = spent;
+    this.recorder.activation("shieldBreak");
+    this.resetStreak();
+    if (shieldBreakOwned(this.effectiveUpgrades())) {
+      this.firePowerPelletEffects(1);
+      this.runUpgrades = { ...this.runUpgrades, hyperspeedShieldRemainingMs: 0 };
+    }
+    return true;
   }
 
   private breakShield(): boolean {
@@ -2335,7 +2470,9 @@ export class PlaySim {
     this.shieldCrack = { index: spent.shieldsBanked, elapsedMs: 0 };
     this.emit({ type: "shields" });
     this.emit({ type: "shieldCrack", index: spent.shieldsBanked, progress: 0 });
-    this.firePowerPelletEffects(1);
+    if (shieldBreakOwned(this.effectiveUpgrades())) {
+      this.firePowerPelletEffects(1);
+    }
     this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
     return true;
   }
@@ -2448,6 +2585,10 @@ export class PlaySim {
 
   private applyGrantEffects(id: UpgradeId): void {
     this.lives += grantLivesForUpgrade(id);
+    this.topUpStartingShields();
+    if (baseIdOf(id) === "passiveMyogenesis") {
+      this.lives = livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1);
+    }
     if (baseIdOf(id) === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([id]));
     }
@@ -2613,6 +2754,7 @@ export class PlaySim {
       ["wallPass", before.wallPassRemainingMs, after.wallPassRemainingMs],
       ["invuln", before.invulnRemainingMs, after.invulnRemainingMs],
       ["speedBurst", before.speedBurstRemainingMs, after.speedBurstRemainingMs],
+      ["hyperspeed", before.hyperspeedRemainingMs, after.hyperspeedRemainingMs],
       ["ghostHarvest", before.ghostHarvestRemainingMs, after.ghostHarvestRemainingMs],
       ["defyDeath", before.defyDeathRemainingMs, after.defyDeathRemainingMs],
     ] as const;
@@ -2645,7 +2787,7 @@ export class PlaySim {
   private tickSpeedTrail(delta: number): void {
     const at = this.playerPosition();
     this.speedTrail =
-      at !== null && speedBurstActive(this.runUpgrades)
+      at !== null && (speedBurstActive(this.runUpgrades) || hyperspeedActive(this.runUpgrades))
         ? tickSpeedTrail(this.speedTrail, at, delta)
         : [];
   }
@@ -2718,6 +2860,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.tunnelDashAnim = null;
+    this.resetHyperspeedMovement();
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
