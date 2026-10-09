@@ -10,7 +10,7 @@ export type TimedTunnelPhase = "open" | "warn" | "closed";
 export type TimedTunnelRenderState = {
   row: number;
   phase: TimedTunnelPhase;
-  blinkOn: boolean;
+  gateVisible: boolean;
 };
 
 export function timedTunnelPhase(elapsedMs: number): TimedTunnelPhase {
@@ -47,4 +47,15 @@ export function pickTimedTunnelRow(
 
 export function timedTunnelMouthBlinkOn(phase: TimedTunnelPhase, nowMs: number): boolean {
   return phase === "warn" && Math.floor(nowMs / EXPIRY_BLINK_MS) % 2 === 0;
+}
+
+export function timedTunnelGateVisible(
+  phase: TimedTunnelPhase,
+  nowMs: number,
+  suspended: boolean,
+): boolean {
+  if (suspended) {
+    return false;
+  }
+  return phase === "closed" || timedTunnelMouthBlinkOn(phase, nowMs);
 }

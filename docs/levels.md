@@ -27,7 +27,7 @@ Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostB
 
 ## Timed tunnels (levels 7–8)
 
-`isTimedTunnelLevel(levelIndex)` marks levels 7 and 8. On those boards, one tunnel row (picked from `horizontalTunnelRows` via the seeded `timedTunnel` stream) cycles **open 6s → closed 2.5s**. The last 1.5s of the open window is a **warn** phase: the left and right mouth cells blink. While closed, wrap is blocked for the player and ghosts on that row only (the corridor stays walkable); any other tunnel row still wraps. Wall Pass+ loop form suspends the mechanic for the duration. If Tunnel Dash is mid-animation when the gate closes, the dash cancels and the player snaps to the nearest in-bounds cell center. Store floors and the boss are unaffected.
+`isTimedTunnelLevel(levelIndex)` marks levels 7 and 8. On those boards, one tunnel row (picked from `horizontalTunnelRows` via the seeded `timedTunnel` stream) cycles **open 6s → closed 2.5s**. The last 1.5s of the open window is a **warn** phase: the left and right mouth cells blink yellow. While closed, wrap is blocked for the player and ghosts on that row only (the corridor stays walkable) and the yellow mouth bars stay solid so the blocked seam is obvious; any other tunnel row still wraps. Wall Pass+ loop form suspends the mechanic for the duration. If Tunnel Dash is mid-animation when the gate closes, the dash cancels and the player snaps to the nearest in-bounds cell center. Store floors and the boss are unaffected.
 
 ## Second ghost (levels 1-2)
 

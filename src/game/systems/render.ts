@@ -1365,7 +1365,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
 
     timedTunnelGraphics.clear();
-    if (timedTunnel?.blinkOn === true) {
+    if (timedTunnel?.gateVisible === true) {
       const layout = getActiveLayout();
       const tile = layout.tileSize;
       const barW = Math.max(3, Math.round(tile * 0.35));

@@ -137,7 +137,7 @@ import {
 } from "../../domain/maze";
 import {
   pickTimedTunnelRow,
-  timedTunnelMouthBlinkOn,
+  timedTunnelGateVisible,
   timedTunnelPhase,
   timedTunnelPhaseRemainingMs,
   type TimedTunnelPhase,
@@ -1569,17 +1569,20 @@ export class PlaySim {
   private timedTunnelRenderState(): {
     row: number;
     phase: TimedTunnelPhase;
-    blinkOn: boolean;
+    gateVisible: boolean;
   } | null {
     if (this.timedTunnelGatedRow === null) {
       return null;
     }
     const phase = timedTunnelPhase(this.timedTunnelElapsedMs);
-    const suspended = this.timedTunnelWallPassLoopActive();
     return {
       row: this.timedTunnelGatedRow,
       phase,
-      blinkOn: !suspended && timedTunnelMouthBlinkOn(phase, this.timedTunnelElapsedMs),
+      gateVisible: timedTunnelGateVisible(
+        phase,
+        this.timedTunnelElapsedMs,
+        this.timedTunnelWallPassLoopActive(),
+      ),
     };
   }
 
