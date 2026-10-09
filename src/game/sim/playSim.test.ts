@@ -3475,14 +3475,14 @@ describe("PlaySim ghost catch overlap", () => {
     return sim;
   }
 
-  it("does not kill on a graze short of the 35% overlap bar", () => {
-    const sim = ghostAtReachFraction(0.72);
+  it("does not kill on a graze short of the 25% overlap bar", () => {
+    const sim = ghostAtReachFraction(0.82);
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(false);
   });
 
-  it("kills once the ghost overlaps past the 35% overlap bar", () => {
-    const sim = ghostAtReachFraction(0.5);
+  it("kills once the ghost overlaps past the 25% overlap bar", () => {
+    const sim = ghostAtReachFraction(0.65);
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
   });

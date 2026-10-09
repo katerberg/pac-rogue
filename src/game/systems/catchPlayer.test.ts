@@ -92,14 +92,16 @@ describe("catchPlayer", () => {
   it("does not catch on a graze that falls short of the required overlap", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
-    spawnGhost(world, 111, 100, GHOST_PHASE.active);
+    // reach = playerRadius() + ghostRadius() = 16; within plain touching
+    // range (<= 16) but short of the 25% overlap threshold (<= 12).
+    spawnGhost(world, 113, 100, GHOST_PHASE.active);
     expect(catchPlayer(world)).toBeNull();
   });
 
   it("catches once the ghost clears the required overlap threshold", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
-    spawnGhost(world, 110, 100, GHOST_PHASE.active);
+    spawnGhost(world, 112, 100, GHOST_PHASE.active);
     expect(catchPlayer(world)).not.toBeNull();
   });
 });
