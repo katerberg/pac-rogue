@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { parseQueryParams } from "./domain/queryParams";
 import { parseRunLogFillFlag } from "./domain/runLogFillFlag";
 import { isAgentPort } from "./domain/soundFlag";
 import { installDebugHook } from "./game/scenes/installDebugHook";
@@ -7,7 +8,7 @@ import { fillSyntheticRuns, relabelAbandoned } from "./game/storage/runLogStorag
 import "./styles.css";
 
 relabelAbandoned();
-const runLogFill = parseRunLogFillFlag(new URLSearchParams(location.search));
+const runLogFill = parseRunLogFillFlag(parseQueryParams(location.search));
 if (runLogFill !== null && isAgentPort(location.port)) {
   fillSyntheticRuns(runLogFill);
 }

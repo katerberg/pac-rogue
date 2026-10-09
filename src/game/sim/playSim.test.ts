@@ -29,6 +29,7 @@ import {
 } from "../../domain/maze";
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
+import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import {
   BLINKY_DRAWABLE_ID,
@@ -4932,5 +4933,22 @@ describe("Hyperspeed", () => {
     ghostOntoPlayer(sim);
     runFrames(sim, 90);
     expect(sim.snapshot().timers.hyperspeedMs).toBe(0);
+  });
+});
+
+describe("bare query flags", () => {
+  it("treats a flag without a value as =1 when starting a run", () => {
+    const parsed = parsePlayOptions(parseQueryParams("?godMode&infiniteLives&jumpToUpgrade"));
+    expect(parsed.options).toMatchObject({
+      godMode: true,
+      infiniteLives: true,
+      jumpToUpgrade: true,
+      highScoresDisabled: true,
+    });
+
+    const sim = new PlaySim(parsed.options, "test");
+    const events = sim.start();
+    events.push(...runFrames(sim, 30));
+    expect(events.length).toBeGreaterThan(0);
   });
 });
