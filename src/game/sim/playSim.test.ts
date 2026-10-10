@@ -5157,3 +5157,12 @@ describe("bare query flags", () => {
     expect(events.length).toBeGreaterThan(0);
   });
 });
+
+describe("PlaySim Spunky", () => {
+  it("is LEARN-only: no level spawns him", () => {
+    for (let level = 1; level <= 9; level += 1) {
+      const sim = startSim({ level }, "spunky");
+      expect(sim.snapshot().ghosts.map((g) => g.kind)).not.toContain("spunky");
+    }
+  });
+});

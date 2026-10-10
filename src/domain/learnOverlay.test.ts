@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { GHOST_KIND } from "./ghostKind";
 import { GHOST_DIR } from "./ghostPath";
-import { CLYDE_SHY_TILES } from "./ghostTarget";
+import { CLYDE_SHY_TILES, SPUNKY_AGGRO_TILES } from "./ghostTarget";
 import {
   clampTileToBoard,
   clipSegmentToRect,
@@ -93,6 +93,14 @@ describe("targetDerivation", () => {
       kind: "circle",
       center: input.player,
       radiusTiles: CLYDE_SHY_TILES,
+    });
+  });
+
+  it("circles the player at Spunky's aggro radius", () => {
+    expect(targetDerivation(GHOST_KIND.spunky, input)).toEqual({
+      kind: "circle",
+      center: input.player,
+      radiusTiles: SPUNKY_AGGRO_TILES,
     });
   });
 });

@@ -118,6 +118,7 @@ export function releaseDots(
   if (afterLifeRelease) {
     switch (kind) {
       case GHOST_KIND.pinky:
+      case GHOST_KIND.spunky:
         return tuning.postLifePinkyDots;
       case GHOST_KIND.inky:
         return tuning.postLifeInkyDots;
@@ -139,6 +140,7 @@ export function releaseDots(
             : 0) + clydeAdd
       );
     case GHOST_KIND.pinky:
+    case GHOST_KIND.spunky:
     case GHOST_KIND.blinky:
       return 0;
   }

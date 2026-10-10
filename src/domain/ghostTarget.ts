@@ -14,6 +14,8 @@ export const CLYDE_SHY_TILES = DEFAULT_TUNING.clydeShyTiles;
 
 export const INKY_LOOKAHEAD_TILES = DEFAULT_TUNING.inkyLookahead;
 
+export const SPUNKY_AGGRO_TILES = 6;
+
 export type GhostTarget = {
   col: number;
   row: number;
@@ -36,6 +38,10 @@ export function inkyScatterTarget(
 
 export function clydeScatterTarget(rows: number = getActiveLayout().rows): GhostTarget {
   return { col: 0, row: rows + 2 };
+}
+
+export function spunkyPostTarget(cols: number = getActiveLayout().cols): GhostTarget {
+  return { col: Math.floor(cols / 2), row: -3 };
 }
 
 export function lookAheadTile(
@@ -158,4 +164,27 @@ export function inkyTarget(args: {
     col: 2 * pivot.col - args.blinkyCol,
     row: 2 * pivot.row - args.blinkyRow,
   };
+}
+
+export function spunkyTarget(args: {
+  phase: GhostPhaseValue;
+  mode: GhostAiMode;
+  playerCol: number;
+  playerRow: number;
+  ghostCol: number;
+  ghostRow: number;
+}): GhostTarget {
+  if (args.phase === GHOST_PHASE.leaving) {
+    return leavingHouseTarget(args.ghostCol, args.ghostRow);
+  }
+
+  if (args.mode === GHOST_AI_MODE.scatter) {
+    return spunkyPostTarget();
+  }
+
+  const distance = Math.hypot(args.ghostCol - args.playerCol, args.ghostRow - args.playerRow);
+  if (distance <= SPUNKY_AGGRO_TILES) {
+    return { col: args.playerCol, row: args.playerRow };
+  }
+  return spunkyPostTarget();
 }
