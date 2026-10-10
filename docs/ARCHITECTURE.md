@@ -73,7 +73,7 @@ src/
     dotManMouth.ts            # Dot-Man spiral mouth half-angle poses + chomp beat (see docs/line-art.md)
     ghostTarget.ts            # Blinky/Pinky/Inky/Clyde chase/scatter/Elroy target tiles
     ghostPhase.ts             # inHouse / leaving / active phase ids
-    ghostMode.ts              # level-scheduled scatter/chase wave clock
+    ghostMode.ts              # level-scheduled scatter/chase wave clock; chase forced below 15 pellets
     ghostRelease.ts           # per-level release rules: Blinky/Pinky timers, Inky/Clyde dot counts, post-death shared counter, idle timer
     ghostHouseOrder.ts        # predicted in-house release sort (L→R seats)
     ghostHouseSeats.ts        # derived seat centers + sticky seat assign

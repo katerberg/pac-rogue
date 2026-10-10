@@ -84,6 +84,7 @@ import {
 import {
   createGhostModeClock,
   GHOST_AI_MODE,
+  effectiveGhostMode,
   resolveGhostModeStep,
   startGhostModeClock,
   type GhostAiMode,
@@ -760,7 +761,7 @@ export class PlaySim {
       streakPops: { count: this.streakPopCount, last: this.lastStreakPop },
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
-      ghostMode: nameOf(GHOST_AI_MODE, this.ghostModeClock.mode),
+      ghostMode: nameOf(GHOST_AI_MODE, this.settledGhostMode()),
       upgrades: upgrades.owned,
       effectiveUpgrades: this.effectiveUpgrades(),
       timers: {
@@ -1267,13 +1268,14 @@ export class PlaySim {
 
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
-    if (modeStep.mode !== this.previousEffectiveGhostMode) {
+    const ghostMode = this.settledGhostMode();
+    if (ghostMode !== this.previousEffectiveGhostMode) {
       forceGhostReverse(this.world, this.ghostsBlockedFromTunnels(), undefined, blockTunnelRow);
-      this.previousEffectiveGhostMode = modeStep.mode;
+      this.previousEffectiveGhostMode = ghostMode;
     } else {
       ghostAi(
         this.world,
-        modeStep.mode,
+        ghostMode,
         this.pelletProgress.pelletsRemaining,
         this.currentTuning,
         this.ghostsBlockedFromTunnels(),
@@ -2823,6 +2825,10 @@ export class PlaySim {
     );
   }
 
+  private settledGhostMode(): GhostAiMode {
+    return effectiveGhostMode(this.ghostModeClock.mode, this.pelletProgress.pelletsRemaining);
+  }
+
   private notePellets(): void {
     this.recorder.pellets(
       this.pelletProgress.boardCollected,
@@ -2910,7 +2916,7 @@ export class PlaySim {
       this.pelletProgress.boardCollected,
     );
     this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
-    this.previousEffectiveGhostMode = this.ghostModeClock.mode;
+    this.previousEffectiveGhostMode = this.settledGhostMode();
     this.afterLifeRelease = true;
     placeInHouseGhostsAtPredictedSeats(
       this.world,
@@ -2921,7 +2927,7 @@ export class PlaySim {
     );
     if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
       this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
-      this.previousEffectiveGhostMode = this.ghostModeClock.mode;
+      this.previousEffectiveGhostMode = this.settledGhostMode();
     }
 
     this.clearFruitEntities();
