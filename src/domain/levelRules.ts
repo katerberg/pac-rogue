@@ -27,19 +27,6 @@ function arcadeWaves(
 
 const TAPER_SECOND_SCATTER_FRACTION = 0.6;
 
-function taperedWaves(
-  scatterWindowsMs: readonly number[],
-  chaseMs: number,
-): readonly GhostModeWave[] {
-  return scatterWindowsMs.flatMap((scatterMs, i) => [
-    { mode: 0, durationMs: scatterMs },
-    {
-      mode: 1,
-      durationMs: i === scatterWindowsMs.length - 1 ? Number.POSITIVE_INFINITY : chaseMs,
-    },
-  ]);
-}
-
 function lateWaves(level: number, tuning: Tuning): readonly GhostModeWave[] {
   const full = tuning.scatterLateMs;
   const short = full * TAPER_SECOND_SCATTER_FRACTION;
@@ -47,10 +34,18 @@ function lateWaves(level: number, tuning: Tuning): readonly GhostModeWave[] {
     return CHASE_ONLY_WAVES;
   }
   if (level === MAX_LEVEL - 1) {
-    return taperedWaves([short], tuning.chaseMs);
+    return [
+      { mode: 0, durationMs: short },
+      { mode: 1, durationMs: Number.POSITIVE_INFINITY },
+    ];
   }
   if (level === MAX_LEVEL - 2) {
-    return taperedWaves([full, short], tuning.chaseMs);
+    return [
+      { mode: 0, durationMs: full },
+      { mode: 1, durationMs: tuning.chaseMs },
+      { mode: 0, durationMs: short },
+      { mode: 1, durationMs: Number.POSITIVE_INFINITY },
+    ];
   }
   return arcadeWaves(full, full, tuning.chaseMs);
 }
