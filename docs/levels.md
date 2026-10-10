@@ -42,6 +42,8 @@ Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostB
 | 8      | 3s                                              |
 | 9      | none (boss fight is chase only)                 |
 
+Scatter also never runs with fewer than 15 pellets left (`effectiveGhostMode` in `src/domain/ghostMode.ts`). If a scatter wave is running when the count drops below 15, ghosts reverse and chase for the rest of the board; the wave clock keeps running underneath. Counts include power pellets, like Cruise Elroy.
+
 The 3s windows are 60% of `scatterLateMs`. Scatter Burst is a separate upgrade effect and still works on every level.
 
 ## Second ghost (levels 1-2)

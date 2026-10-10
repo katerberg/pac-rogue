@@ -1970,6 +1970,26 @@ describe("PlaySim", () => {
     expect([...modes]).toEqual(["chase"]);
   });
 
+  it("drops out of scatter once fewer than 15 pellets remain", () => {
+    const sim = startSim({ level: 2, godMode: true }, "scatter-low-pellets");
+    const eatDownTo = (left: number): void => {
+      for (const eid of regularPelletEids(sim)) {
+        if (sim.snapshot().pelletsRemaining <= left) {
+          return;
+        }
+        eatPelletAt(sim, eid);
+      }
+    };
+    eatDownTo(15);
+    expect(sim.snapshot().pelletsRemaining).toBe(15);
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    eatDownTo(14);
+    expect(sim.snapshot().pelletsRemaining).toBe(14);
+    expect(sim.snapshot().ghostMode).toBe("chase");
+    runFrames(sim, 60 * 8);
+    expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
   it("moves ghosts at tunnel speed while they leave the house, then at full speed", () => {
     const sim = startSim({ level: 2, infiniteLives: true }, "house-exit-speed");
     const leaving = () =>

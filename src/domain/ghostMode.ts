@@ -8,6 +8,12 @@ export const GHOST_AI_MODE = {
 
 export type GhostAiMode = (typeof GHOST_AI_MODE)[keyof typeof GHOST_AI_MODE];
 
+export const SCATTER_MIN_PELLETS_LEFT = 15;
+
+export function effectiveGhostMode(mode: GhostAiMode, pelletsRemaining: number): GhostAiMode {
+  return pelletsRemaining < SCATTER_MIN_PELLETS_LEFT ? GHOST_AI_MODE.chase : mode;
+}
+
 export type GhostModeWave = {
   mode: GhostAiMode;
   durationMs: number;
