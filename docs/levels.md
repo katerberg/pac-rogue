@@ -29,6 +29,21 @@ Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostB
 
 `isTimedTunnelLevel(levelIndex)` marks levels 7 and 8. On those boards, one tunnel row (picked from `horizontalTunnelRows` via the seeded `timedTunnel` stream) cycles **open 6s → closed 2.5s**. The last 1.5s of the open window is a **warn** phase: the left and right mouth cells blink yellow. While closed, wrap is blocked for the player and ghosts on that row only (the corridor stays walkable) and the yellow mouth bars stay solid so the blocked seam is obvious; any other tunnel row still wraps. Wall Pass+ loop form still shows the bars but lets the player walk through the closed gate (wrap works again for them only). If Tunnel Dash is mid-animation when the gate closes, the dash cancels and the player snaps to the nearest in-bounds cell center. Store floors and the boss are unaffected.
 
+## Scatter schedule
+
+`ghostModeWavesForLevel` (`src/domain/levelRules.ts`) builds each level's scatter/chase waves. Scatter is an early-run source of randomness and tapers out so it is not an escape hatch at the end. The last chase of every level lasts forever.
+
+| Levels | Scatter windows (chase between them: `chaseMs`) |
+| ------ | ----------------------------------------------- |
+| 1      | none (`level1ChaseOnly`)                        |
+| 2-4    | 7s, 7s, 5s                                      |
+| 5-6    | 5s, 5s, 5s                                      |
+| 7      | 5s, 3s                                          |
+| 8      | 3s                                              |
+| 9      | none (boss fight is chase only)                 |
+
+The 3s windows are 60% of `scatterLateMs`. Scatter Burst is a separate upgrade effect and still works on every level.
+
 ## Second ghost (levels 1-2)
 
 `PlaySim.start()` picks `secondGhostKind` once per run — 50/50 Pinky or Inky from the seeded `secondGhost` stream — and holds it for the whole run (including level advances). `ghostKindsForLevel(levelIndex, secondGhostKind)` in `levelRules.ts` uses it for level 1 (Blinky + `secondGhostKind`) and level 2 (Blinky + `secondGhostKind` + the other of Pinky/Inky, so level 2 always spawns Blinky, Pinky, and Inky); levels 3+ always spawn all four regardless of the value.
