@@ -84,9 +84,9 @@ A LEARN-only ghost (green, `GHOST_KIND.spunky`), after Pac-Mania's Spunky, who w
 maze and only goes after Pac-Man when he is near. `spunkyTarget` (`ghostTarget.ts`) is the inverse
 of Clyde: inside `SPUNKY_AGGRO_TILES` (6) of Maze-Man he targets Maze-Man's tile; farther away, or in
 scatter, he targets his post, the top-center tile above the maze (`spunkyPostTarget`, also his Scatter
-Burst landing cell). He is never in a level roster (`ghostKindsForLevel`), has no release or speed
-rules of his own (he is spawned active, like every LEARN ghost) and does not count toward the
-four-ghost cap in play. The radius is a plain constant, not a `?knobs=1` knob.
+Burst landing cell). He is never in a level roster (`ghostKindsForLevel`), releases like Pinky (timed, so
+Ghost House Delay holds him; otherwise he is spawned active like every LEARN ghost) and has no speed
+rules of his own. The radius is a plain constant, not a `?knobs=1` knob.
 
 ## Differences from play
 

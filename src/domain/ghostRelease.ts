@@ -96,7 +96,10 @@ export type GhostReleaseAdds = {
 };
 
 export function isTimeGatedRelease(kind: GhostKindId, afterLifeRelease: boolean): boolean {
-  return kind === GHOST_KIND.blinky || (kind === GHOST_KIND.pinky && !afterLifeRelease);
+  return (
+    kind === GHOST_KIND.blinky ||
+    ((kind === GHOST_KIND.pinky || kind === GHOST_KIND.spunky) && !afterLifeRelease)
+  );
 }
 
 export function releaseDelayMs(

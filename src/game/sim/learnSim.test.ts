@@ -873,6 +873,24 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toBe("");
     expect(posOf(ghost)).not.toEqual(held);
   });
+
+  it("House Delay also holds Spunky for the delayed release", () => {
+    const { sim, player } = setup("passiveGhostHouseDelay");
+    sim.selectGhost(GHOST_KIND.spunky);
+    const ghost = sim.ghostEid!;
+    const held = posOf(ghost);
+    moveTo(player, { x: held.x, y: held.y + 400 });
+    for (let t = 0; t < 1_900; t += FRAME_MS) {
+      sim.step(held_right, FRAME_MS);
+    }
+    expect(posOf(ghost)).toEqual(held);
+    expect(sim.statusText()).toContain("HOUSE RELEASE IN");
+    expect(sim.statusText()).not.toContain("PELLETS");
+    for (let t = 0; t < 400; t += FRAME_MS) {
+      sim.step(held_right, FRAME_MS);
+    }
+    expect(sim.statusText()).toBe("");
+  });
 });
 
 const held_right = held("right");
