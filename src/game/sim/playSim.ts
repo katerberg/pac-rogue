@@ -1694,12 +1694,7 @@ export class PlaySim {
     if (charge === 0) {
       return;
     }
-    const step = stepNearMisses(
-      this.world,
-      this.nearMissPasses,
-      getActiveLayout().tileSize,
-      catchOptions,
-    );
+    const step = stepNearMisses(this.world, this.nearMissPasses, catchOptions);
     this.nearMissPasses = step.passes;
     if (step.completed === 0) {
       return;

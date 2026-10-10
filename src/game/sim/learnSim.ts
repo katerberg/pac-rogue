@@ -1183,12 +1183,7 @@ export class LearnSim {
       this.nearMissPasses = createNearMissPasses();
       return;
     }
-    const step = stepNearMisses(
-      this.world,
-      this.nearMissPasses,
-      getActiveLayout().tileSize,
-      catchOptions,
-    );
+    const step = stepNearMisses(this.world, this.nearMissPasses, catchOptions);
     this.nearMissPasses = step.passes;
     if (step.completed > 0) {
       this.runState.addBonusCharge(step.completed * charge);
