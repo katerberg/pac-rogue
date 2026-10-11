@@ -59,6 +59,8 @@ import {
   BLINKY_DRAWABLE_ID,
   BOSS_PELLET_DRAWABLE_ID,
   CLYDE_DRAWABLE_ID,
+  SPUNKY_DRAWABLE_ID,
+  WARDEN_DRAWABLE_ID,
   FRUIT_DRAWABLE_ID,
   INKY_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
@@ -117,6 +119,8 @@ const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
 const INKY_TEXTURE_KEY = "ghost-inky";
 const CLYDE_TEXTURE_KEY = "ghost-clyde";
+const SPUNKY_TEXTURE_KEY = "ghost-spunky";
+const WARDEN_TEXTURE_KEY = "ghost-warden";
 const FRIGHTENED_GHOST_TEXTURE_KEY = "ghost-frightened";
 const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
@@ -125,12 +129,16 @@ export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
   [INKY_DRAWABLE_ID]: INKY_TEXTURE_KEY,
   [CLYDE_DRAWABLE_ID]: CLYDE_TEXTURE_KEY,
+  [SPUNKY_DRAWABLE_ID]: SPUNKY_TEXTURE_KEY,
+  [WARDEN_DRAWABLE_ID]: WARDEN_TEXTURE_KEY,
 };
 const LINE_ART_BY_DRAWABLE_ID: Record<string, { art: LineArt; color: number }> = {
   [BLINKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xff5a5a },
   [PINKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xff9ce6 },
   [INKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0x5ff2ff },
   [CLYDE_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xffb852 },
+  [SPUNKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0x6dff6d },
+  [WARDEN_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xb98cff },
 };
 // Icy white: the pixel frozen tint (pale blue) would read as Inky's neon cyan.
 const LINE_ART_FROZEN_COLOR = 0xe6f6ff;
@@ -439,6 +447,8 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
   scene.load.image(INKY_TEXTURE_KEY, "art/ghosts/inky.png");
   scene.load.image(CLYDE_TEXTURE_KEY, "art/ghosts/clyde.png");
+  scene.load.image(SPUNKY_TEXTURE_KEY, "art/ghosts/spunky.png");
+  scene.load.image(WARDEN_TEXTURE_KEY, "art/ghosts/warden.png");
   scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
   scene.load.image(FRUIT_TEXTURE_KEY, fruitArtPath(fruitSpecForLevel(CURRENT_LEVEL).kind));
 }

@@ -3,6 +3,8 @@ export const GHOST_KIND = {
   pinky: 1,
   clyde: 2,
   inky: 3,
+  spunky: 4,
+  warden: 5,
 } as const;
 
 export type GhostKindId = (typeof GHOST_KIND)[keyof typeof GHOST_KIND];

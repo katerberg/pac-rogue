@@ -14,6 +14,10 @@ export const CLYDE_SHY_TILES = DEFAULT_TUNING.clydeShyTiles;
 
 export const INKY_LOOKAHEAD_TILES = DEFAULT_TUNING.inkyLookahead;
 
+export const SPUNKY_AGGRO_TILES = 6;
+
+export const WARDEN_STRIKE_TILES = 6;
+
 export type GhostTarget = {
   col: number;
   row: number;
@@ -36,6 +40,10 @@ export function inkyScatterTarget(
 
 export function clydeScatterTarget(rows: number = getActiveLayout().rows): GhostTarget {
   return { col: 0, row: rows + 2 };
+}
+
+export function spunkyPostTarget(cols: number = getActiveLayout().cols): GhostTarget {
+  return { col: Math.floor(cols / 2), row: -3 };
 }
 
 export function lookAheadTile(
@@ -158,4 +166,99 @@ export function inkyTarget(args: {
     col: 2 * pivot.col - args.blinkyCol,
     row: 2 * pivot.row - args.blinkyRow,
   };
+}
+
+export function spunkyTarget(args: {
+  phase: GhostPhaseValue;
+  mode: GhostAiMode;
+  playerCol: number;
+  playerRow: number;
+  ghostCol: number;
+  ghostRow: number;
+}): GhostTarget {
+  if (args.phase === GHOST_PHASE.leaving) {
+    return leavingHouseTarget(args.ghostCol, args.ghostRow);
+  }
+
+  if (args.mode === GHOST_AI_MODE.scatter) {
+    return spunkyPostTarget();
+  }
+
+  const distance = Math.hypot(args.ghostCol - args.playerCol, args.ghostRow - args.playerRow);
+  if (distance <= SPUNKY_AGGRO_TILES) {
+    return { col: args.playerCol, row: args.playerRow };
+  }
+  return spunkyPostTarget();
+}
+
+export function wardenScatterTarget(
+  cols: number = getActiveLayout().cols,
+  rows: number = getActiveLayout().rows,
+): GhostTarget {
+  return { col: Math.floor(cols / 2), row: rows + 2 };
+}
+
+export function rimDistance(
+  col: number,
+  row: number,
+  cols: number = getActiveLayout().cols,
+  rows: number = getActiveLayout().rows,
+): number {
+  return Math.min(col, cols - 1 - col, row, rows - 1 - row);
+}
+
+export function wardenRimTile(args: {
+  playerCol: number;
+  playerRow: number;
+  playerFacing: GhostDir;
+  cols?: number;
+  rows?: number;
+}): GhostTarget {
+  const cols = args.cols ?? getActiveLayout().cols;
+  const rows = args.rows ?? getActiveLayout().rows;
+  const { playerCol: col, playerRow: row } = args;
+  let facing = args.playerFacing;
+  if (facing === GHOST_DIR.none) {
+    const toEdge = [
+      [GHOST_DIR.up, row],
+      [GHOST_DIR.left, col],
+      [GHOST_DIR.down, rows - 1 - row],
+      [GHOST_DIR.right, cols - 1 - col],
+    ] as const;
+    facing = toEdge.reduce((best, edge) => (edge[1] < best[1] ? edge : best))[0];
+  }
+  switch (facing) {
+    case GHOST_DIR.up:
+      return { col, row: 0 };
+    case GHOST_DIR.down:
+      return { col, row: rows - 1 };
+    case GHOST_DIR.right:
+      return { col: cols - 1, row };
+    case GHOST_DIR.left:
+    default:
+      return { col: 0, row };
+  }
+}
+
+export function wardenTarget(args: {
+  phase: GhostPhaseValue;
+  mode: GhostAiMode;
+  playerCol: number;
+  playerRow: number;
+  playerFacing: GhostDir;
+  ghostCol: number;
+  ghostRow: number;
+}): GhostTarget {
+  if (args.phase === GHOST_PHASE.leaving) {
+    return leavingHouseTarget(args.ghostCol, args.ghostRow);
+  }
+
+  if (args.mode === GHOST_AI_MODE.scatter) {
+    return wardenScatterTarget();
+  }
+
+  if (rimDistance(args.playerCol, args.playerRow) <= WARDEN_STRIKE_TILES) {
+    return { col: args.playerCol, row: args.playerRow };
+  }
+  return wardenRimTile(args);
 }

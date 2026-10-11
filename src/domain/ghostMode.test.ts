@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   createGhostModeClock,
+  effectiveGhostMode,
   GHOST_AI_MODE,
   resolveGhostModeStep,
   startGhostModeClock,
+  SCATTER_MIN_PELLETS_LEFT,
   tickGhostMode,
 } from "./ghostMode";
 
@@ -82,5 +84,19 @@ describe("ghostMode", () => {
     const step = resolveGhostModeStep(idle, 5_000);
     expect(step.clock).toEqual(idle);
     expect(step.mode).toBe(GHOST_AI_MODE.chase);
+  });
+});
+
+describe("effectiveGhostMode", () => {
+  it("allows scatter at 15 pellets left and forces chase below", () => {
+    expect(SCATTER_MIN_PELLETS_LEFT).toBe(15);
+    expect(effectiveGhostMode(GHOST_AI_MODE.scatter, 15)).toBe(GHOST_AI_MODE.scatter);
+    expect(effectiveGhostMode(GHOST_AI_MODE.scatter, 14)).toBe(GHOST_AI_MODE.chase);
+    expect(effectiveGhostMode(GHOST_AI_MODE.scatter, 0)).toBe(GHOST_AI_MODE.chase);
+  });
+
+  it("leaves chase as chase", () => {
+    expect(effectiveGhostMode(GHOST_AI_MODE.chase, 100)).toBe(GHOST_AI_MODE.chase);
+    expect(effectiveGhostMode(GHOST_AI_MODE.chase, 3)).toBe(GHOST_AI_MODE.chase);
   });
 });

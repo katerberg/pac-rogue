@@ -2,6 +2,7 @@ import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import {
   createGhostReleaseClock,
   idleReleaseDue,
+  isTimeGatedRelease,
   releaseDelayMs,
   releaseDots,
   shouldReleaseKind,
@@ -66,7 +67,7 @@ export class LearnHouseHold {
     if (!this.clock.started) {
       return "GHOST HELD IN HOUSE - MOVE TO START";
     }
-    if (this.heldKind === GHOST_KIND.blinky || this.heldKind === GHOST_KIND.pinky) {
+    if (isTimeGatedRelease(this.heldKind, false)) {
       const delay = releaseDelayMs(this.heldKind, ghostHouseReleaseDelayAddMs(owned));
       return `HOUSE RELEASE IN ${(Math.max(0, delay - this.clock.elapsedMs) / 1000).toFixed(1)}S`;
     }

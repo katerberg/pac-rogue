@@ -123,14 +123,36 @@ describe("ghostModeWavesForLevel", () => {
     expect(ghostModeWavesForLevel(4)).toBe(waves);
   });
 
-  it("uses 5s scatters from level 5 on", () => {
+  it("uses three 5s scatters on levels 5-6", () => {
     const waves = ghostModeWavesForLevel(5);
     expect(waves.filter((w) => w.mode === GHOST_AI_MODE.scatter)).toEqual([
       { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
       { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
       { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
     ]);
-    expect(ghostModeWavesForLevel(9)).toBe(waves);
+    expect(ghostModeWavesForLevel(6)).toEqual(waves);
+  });
+
+  it("tapers scatter to 5s then 3s on level 7", () => {
+    expect(ghostModeWavesForLevel(7)).toEqual([
+      { mode: GHOST_AI_MODE.scatter, durationMs: 5_000 },
+      { mode: GHOST_AI_MODE.chase, durationMs: 20_000 },
+      { mode: GHOST_AI_MODE.scatter, durationMs: 3_000 },
+      { mode: GHOST_AI_MODE.chase, durationMs: Number.POSITIVE_INFINITY },
+    ]);
+  });
+
+  it("keeps one 3s scatter on level 8", () => {
+    expect(ghostModeWavesForLevel(8)).toEqual([
+      { mode: GHOST_AI_MODE.scatter, durationMs: 3_000 },
+      { mode: GHOST_AI_MODE.chase, durationMs: Number.POSITIVE_INFINITY },
+    ]);
+  });
+
+  it("is chase-only on the final level", () => {
+    expect(ghostModeWavesForLevel(MAX_LEVEL)).toEqual([
+      { mode: GHOST_AI_MODE.chase, durationMs: Number.POSITIVE_INFINITY },
+    ]);
   });
 
   it("clamps below 1 to level 1 schedule", () => {
