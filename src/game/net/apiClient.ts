@@ -7,7 +7,7 @@ const REQUEST_TIMEOUT_MS = 5000;
 
 let draining = false;
 
-export function apiBaseUrl(): string | null {
+function apiBaseUrl(): string | null {
   return import.meta.env.VITE_API_URL?.replace(/\/$/, "") || null;
 }
 

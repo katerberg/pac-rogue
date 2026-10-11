@@ -1,6 +1,6 @@
 import { parseRunLogRecord, type RunLogRecord } from "./runLog";
 
-export const RUN_EXPORT_SOURCE = "pac-rogue";
+const RUN_EXPORT_SOURCE = "pac-rogue";
 
 export type RunExport = { exportedAt: string; runs: RunLogRecord[]; unreadable: number };
 
