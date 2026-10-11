@@ -4,10 +4,12 @@ import { parseRunLogFillFlag } from "./domain/runLogFillFlag";
 import { isAgentPort } from "./domain/soundFlag";
 import { installDebugHook } from "./game/scenes/installDebugHook";
 import { gameConfig } from "./game/config";
+import { drainRunUploads } from "./game/net/apiClient";
 import { fillSyntheticRuns, relabelAbandoned } from "./game/storage/runLogStorage";
 import "./styles.css";
 
 relabelAbandoned();
+void drainRunUploads();
 const runLogFill = parseRunLogFillFlag(parseQueryParams(location.search));
 if (runLogFill !== null && isAgentPort(location.port)) {
   fillSyntheticRuns(runLogFill);

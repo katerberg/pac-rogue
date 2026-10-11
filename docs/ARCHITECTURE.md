@@ -33,6 +33,9 @@ src/
     runLog.ts                 # run log schema + pure recorders (every PlayScene run; see docs/RUN_LOG.md)
     runLogFillFlag.ts         # ?runLogFill= parse (agent-port synthetic runs)
     runAnalytics.ts           # /data counting: run scope, reach, per-upgrade rows, sort
+    runUpload.ts              # which runs upload (finished, non-debug, since marker), platform parse
+    runExport.ts              # data:pull export file parse for /data
+    privacySettings.ts        # SHARE RUN STATS opt-out
     highScoresView.ts
     scoreListScroll.ts
     playfield.ts              # speeds, sizes, drawable ids
@@ -121,8 +124,12 @@ src/
       simInput.ts             # SimInput (HeldKeys, uiOpen, store toggle/confirm)
       simTesting.ts           # test harness: runFrames / runUntil / held at a fixed 1000/60 step
       runRecorder.ts          # RunRecorder: PlaySim's run-log draft (per-level counters, deaths, store, loadout)
+    net/
+      apiClient.ts            # drainRunUploads: POST finished runs to VITE_API_URL (no-op without it or when opted out)
     storage/
       runHistoryStorage.ts    # localStorage adapter for death-run history
+      runUploadStorage.ts     # upload state: since marker + uploaded run ids
+      privacySettingsStorage.ts # SHARE RUN STATS opt-out
       runLogStorage.ts        # run log: per-run localStorage keys + index, abandoned relabel, overrun/purge
       audioSettingsStorage.ts # localStorage adapter for music/SFX prefs
       seenRecordStorage.ts    # localStorage adapter for the LEARN seen record
@@ -174,6 +181,8 @@ src/
   art/                        # Pac-Man / pellet / power-pellet / ghost / fruit PNGs
   sound/                      # SFX (pickups, level complete, death) + looping menu/game-play music
 scripts/
+  data-pull.mjs               # npm run data:pull: page the D1 runs table into data-exports/latest.json
+worker/                       # dot-man-api Cloudflare Worker + D1 (POST /runs); see worker/README.md
 docs/
 ```
 
@@ -181,6 +190,7 @@ docs/
 
 - Humans: `npm run dev` → 5173, `npm run preview` → 4173
 - Agents: `npm run dev:agent` → 5174, preview/visual → 4174
+- API Worker (local): humans `npm run worker:dev` → 8787, agents `npm run worker:dev:agent` → 8788
 - Agents may kill/restart only their ports.
 - Agent ports disable audio unless `?sound=1` (`src/domain/soundFlag.ts` → `gameConfig.audio.noAudio`).
 - Agent ports expose a read-only `window.__PAC_ROGUE_DEBUG__.snapshot()` (`src/game/scenes/installDebugHook.ts` → `PlayScene.debugSnapshot()` → `PlaySim.snapshot()` + `worldSnapshot`) for `npm run probe` assertions; see [VERIFICATION.md](./VERIFICATION.md#game-state-snapshot).

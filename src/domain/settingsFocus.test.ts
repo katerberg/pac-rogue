@@ -6,6 +6,12 @@ describe("resolveSettingsFocusIndex", () => {
     expect(resolveSettingsFocusIndex(3)).toBe(3);
   });
 
+  it("keeps the SHARE RUN STATS and BACK rows, the last two", () => {
+    expect(SETTINGS_FOCUS_COUNT).toBe(6);
+    expect(resolveSettingsFocusIndex(4)).toBe(4);
+    expect(resolveSettingsFocusIndex(5)).toBe(5);
+  });
+
   it("defaults missing focus to the top row", () => {
     expect(resolveSettingsFocusIndex(undefined)).toBe(0);
   });

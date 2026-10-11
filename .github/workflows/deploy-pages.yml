@@ -3,6 +3,7 @@ name: GitHub Pages deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -31,6 +32,9 @@ jobs:
 
       - name: Build
         run: npm run build && touch ./dist/.nojekyll
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
+          VITE_PLATFORM: web
 
       - name: Deploy to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4

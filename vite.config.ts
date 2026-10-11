@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Connect, type Plugin } from "vite";
 import ports from "./scripts/ports.json";
@@ -22,10 +23,30 @@ const redirectDataRoute: Connect.NextHandleFunction = (req, res, next) => {
   res.end();
 };
 
+const LATEST_EXPORT = fileURLToPath(new URL("./data-exports/latest.json", import.meta.url));
+
+const servePulledExport: Connect.NextHandleFunction = (req, res, next) => {
+  if ((req.url ?? "").split("?")[0] !== "/data/export.json") {
+    next();
+    return;
+  }
+  readFile(LATEST_EXPORT)
+    .then((body) => {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Cache-Control", "no-store");
+      res.end(body);
+    })
+    .catch(() => {
+      res.statusCode = 204;
+      res.end();
+    });
+};
+
 const dataRoute: Plugin = {
   name: "data-route",
   configureServer: (server) => {
     server.middlewares.use(redirectDataRoute);
+    server.middlewares.use(servePulledExport);
   },
   configurePreviewServer: (server) => {
     server.middlewares.use(redirectDataRoute);

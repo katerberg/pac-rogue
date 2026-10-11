@@ -3,3 +3,6 @@ artifacts
 node_modules
 package-lock.json
 LICENSE
+.wrangler
+worker/.wrangler
+data-exports

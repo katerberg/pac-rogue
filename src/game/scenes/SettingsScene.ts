@@ -7,6 +7,7 @@ import {
   type AudioSettings,
 } from "../../domain/audioSettings";
 import { DEFAULT_GHOST_STYLE, learnCheckboxLook, type GhostStyle } from "../../domain/ghostArt";
+import { defaultPrivacySettings, type PrivacySettings } from "../../domain/privacySettings";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
 import {
@@ -27,6 +28,8 @@ import {
   type SfxId,
 } from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
+import { loadPrivacySettings, savePrivacySettings } from "../storage/privacySettingsStorage";
+import { getInstallId } from "../storage/runLogStorage";
 import { loadGhostStyle, saveGhostStyle } from "../storage/ghostStyleStorage";
 import { loadMazeColorSettings, saveMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -47,7 +50,8 @@ import { paintNeonBarTube, syncNeonBarTubeGlow } from "./neonBarTubePaint";
 
 const FOCUS_MAZE_COLOR = 2;
 const FOCUS_GHOST_STYLE = 3;
-const FOCUS_BACK = 4;
+const FOCUS_SHARE_RUN_STATS = 4;
+const FOCUS_BACK = 5;
 const FOCUS_COUNT = SETTINGS_FOCUS_COUNT;
 
 type SettingsSceneData = {
@@ -57,8 +61,8 @@ type SettingsSceneData = {
 };
 
 const ROW_Y: Record<AudioCategory, number> = {
-  music: 200,
-  sfx: 280,
+  music: 170,
+  sfx: 240,
 };
 const CATEGORIES: AudioCategory[] = ["music", "sfx"];
 const ROW_LABEL: Record<AudioCategory, string> = {
@@ -80,19 +84,21 @@ const SLIDER_FILL_DIM = 0x666600;
 const SLIDER_NOTCH = 0xaaaaaa;
 const SLIDER_NOTCH_DIM = 0x555555;
 
-const MAZE_COLOR_ROW_Y = 360;
+const MAZE_COLOR_ROW_Y = 310;
 const MAZE_COLOR_SWATCH_START_X = SLIDER_LEFT;
 const MAZE_COLOR_SWATCH_GAP = 48;
 const MAZE_COLOR_SWATCH_RADIUS = 10;
 const MAZE_COLOR_CURSOR_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 5;
 const MAZE_COLOR_ACTIVE_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 2;
-const GHOST_STYLE_ROW_Y = 440;
+const GHOST_STYLE_ROW_Y = 380;
 const GHOST_STYLE_OPTIONS: { style: GhostStyle; label: string; x: number }[] = [
   { style: "neon", label: "NEON", x: SLIDER_LEFT },
   { style: "lined", label: "LINED", x: SLIDER_LEFT + 120 },
   { style: "pixel", label: "PIXEL", x: SLIDER_LEFT + 240 },
 ];
-const AUDIO_DISABLED_WARNING_Y = 500;
+const SHARE_ROW_Y = 446;
+const SHARE_NOTE_Y = 480;
+const AUDIO_DISABLED_WARNING_Y = 510;
 const BACK_Y = PLAYFIELD_HEIGHT - 50;
 
 type CheckboxShape = Phaser.GameObjects.Arc | Phaser.GameObjects.Rectangle;
@@ -135,6 +141,10 @@ export class SettingsScene extends Phaser.Scene {
   private ghostStyleLabel!: GameText;
   private ghostStyleTexts: GameText[] = [];
 
+  private privacy: PrivacySettings = defaultPrivacySettings();
+  private shareLabel!: GameText;
+  private shareCheck!: { checkbox: CheckboxShape; checkMark: CheckboxShape };
+
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
@@ -176,6 +186,7 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorSettings = loadMazeColorSettings();
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
     this.ghostStyle = loadGhostStyle();
+    this.privacy = loadPrivacySettings();
 
     this.add
       .rectangle(
@@ -196,6 +207,7 @@ export class SettingsScene extends Phaser.Scene {
 
     this.createMazeColorRow();
     this.createGhostStyleRow();
+    this.createShareRow();
 
     if (this.audioDisabled) {
       const warning = addGameText(
@@ -308,6 +320,8 @@ export class SettingsScene extends Phaser.Scene {
         this.commitMazeColor();
       } else if (this.focusIndex === FOCUS_GHOST_STYLE) {
         this.nudgeGhostStyle(1);
+      } else if (this.focusIndex === FOCUS_SHARE_RUN_STATS) {
+        this.toggleShareRunStats();
       } else {
         const row = this.rows[this.focusIndex];
         if (row !== undefined) {
@@ -351,30 +365,10 @@ export class SettingsScene extends Phaser.Scene {
     const label = addGameText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
     placeGameText(label, LABEL_X, centerY, 0, 0.5);
 
-    const look = learnCheckboxLook(this.ghostStyle);
-    const checkRadius = CHECK_SIZE / 2;
-    const checkbox: CheckboxShape =
-      look.shape === "circle"
-        ? this.add
-            .circle(CHECK_X, centerY, checkRadius, 0x000000, 0)
-            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE)
-        : this.add
-            .rectangle(CHECK_X, centerY, CHECK_SIZE, CHECK_SIZE)
-            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE)
-            .setFillStyle(0x000000, 0);
-    const checkboxHit = this.add
-      .rectangle(CHECK_X, centerY, 32, 28, 0x000000, 0)
-      .setInteractive({ useHandCursor: true });
-    checkboxHit.on("pointerdown", () => {
+    const { checkbox, checkMark } = this.addCheckbox(CHECK_X, centerY, () => {
       this.focusIndex = focusIndex;
       this.toggleCategory(category);
     });
-    const checkMark: CheckboxShape =
-      look.shape === "circle"
-        ? this.add.circle(CHECK_X, centerY, checkRadius - 2, TEXT_COLOR_WHITE).setVisible(false)
-        : this.add
-            .rectangle(CHECK_X, centerY, CHECK_SIZE - 8, CHECK_SIZE - 8, TEXT_COLOR_WHITE)
-            .setVisible(false);
 
     const neonTube = settingsVolumeUsesNeonTube(this.ghostStyle);
     let track: Phaser.GameObjects.Rectangle | null = null;
@@ -432,6 +426,65 @@ export class SettingsScene extends Phaser.Scene {
       tubeGlowGfx,
       tubeGlowKey: "",
     };
+  }
+
+  private addCheckbox(
+    x: number,
+    y: number,
+    onToggle: () => void,
+  ): { checkbox: CheckboxShape; checkMark: CheckboxShape } {
+    const look = learnCheckboxLook(this.ghostStyle);
+    const checkRadius = CHECK_SIZE / 2;
+    const checkbox: CheckboxShape =
+      look.shape === "circle"
+        ? this.add
+            .circle(x, y, checkRadius, 0x000000, 0)
+            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE)
+        : this.add
+            .rectangle(x, y, CHECK_SIZE, CHECK_SIZE)
+            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE)
+            .setFillStyle(0x000000, 0);
+    const checkboxHit = this.add
+      .rectangle(x, y, 32, 28, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+    checkboxHit.on("pointerdown", onToggle);
+    const checkMark: CheckboxShape =
+      look.shape === "circle"
+        ? this.add.circle(x, y, checkRadius - 2, TEXT_COLOR_WHITE).setVisible(false)
+        : this.add
+            .rectangle(x, y, CHECK_SIZE - 8, CHECK_SIZE - 8, TEXT_COLOR_WHITE)
+            .setVisible(false);
+    return { checkbox, checkMark };
+  }
+
+  private createShareRow(): void {
+    this.shareLabel = addGameText(
+      this,
+      LABEL_X,
+      SHARE_ROW_Y,
+      "SHARE RUN STATS",
+      MENU_OPTION_FONT_SIZE,
+    );
+    placeGameText(this.shareLabel, LABEL_X, SHARE_ROW_Y, 0, 0.5);
+    this.shareCheck = this.addCheckbox(SLIDER_LEFT, SHARE_ROW_Y, () => {
+      this.focusIndex = FOCUS_SHARE_RUN_STATS;
+      this.toggleShareRunStats();
+    });
+    const note = addGameText(
+      this,
+      LABEL_X,
+      SHARE_NOTE_Y,
+      `ANONYMOUS, NO IP STORED - ID ${getInstallId().slice(0, 8)}`,
+      MENU_OPTION_FONT_SIZE,
+      TEXT_COLOR_DIM,
+    );
+    placeGameText(note, LABEL_X, SHARE_NOTE_Y, 0, 0.5);
+  }
+
+  private toggleShareRunStats(): void {
+    this.privacy = { shareRunStats: !this.privacy.shareRunStats };
+    savePrivacySettings(this.privacy);
+    this.refreshUi();
   }
 
   private bindVolumePointer(
@@ -516,10 +569,11 @@ export class SettingsScene extends Phaser.Scene {
     this.scene.restart(data);
   }
 
-  public debugSnapshot(): { focusIndex: number; ghostStyle: GhostStyle } {
+  public debugSnapshot(): { focusIndex: number; ghostStyle: GhostStyle; shareRunStats: boolean } {
     return {
       focusIndex: this.focusIndex,
       ghostStyle: this.ghostStyle,
+      shareRunStats: this.privacy.shareRunStats,
     };
   }
 
@@ -663,6 +717,13 @@ export class SettingsScene extends Phaser.Scene {
       const active = option.style === this.ghostStyle;
       this.ghostStyleTexts[index]!.setTint(active ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
     }
+
+    const shareTint =
+      this.focusIndex === FOCUS_SHARE_RUN_STATS ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
+    this.shareLabel.setTint(shareTint);
+    this.shareCheck.checkbox.setStrokeStyle(look.strokeWidth, shareTint);
+    this.shareCheck.checkMark.setVisible(this.privacy.shareRunStats);
+    this.shareCheck.checkMark.setFillStyle(shareTint);
 
     placeSelectableMenuOption(
       this.backText,

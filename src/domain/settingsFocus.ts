@@ -1,4 +1,4 @@
-export const SETTINGS_FOCUS_COUNT = 5;
+export const SETTINGS_FOCUS_COUNT = 6;
 
 export function resolveSettingsFocusIndex(focusIndex: number | undefined): number {
   if (
