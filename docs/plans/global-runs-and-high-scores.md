@@ -26,7 +26,7 @@ PR 2 starts only after PR 1 is merged.
 | 7   | Leaderboard is all-time (no seasons, no version filter)                                                                                                                                                           | user           |
 | 8   | This plan updates PR #273 in place                                                                                                                                                                                | user           |
 | A   | Worker in `worker/` (TypeScript): `wrangler.toml`, `src/index.ts` (thin handler), `src/runs.ts` + (PR 2) `src/scores.ts` (pure validation/SQL/mapping), `migrations/`, `sql/`                                     | default        |
-| B   | Worker name `pac-rogue-api`, D1 database `pac-rogue`                                                                                                                                                              | default        |
+| B   | Worker name `dot-man-api`, D1 database `dot-man-api` (both already created by the owner; API URL `https://dot-man-api.busy-patch7259.workers.dev`)                                                                | default        |
 | C   | `runs` stores the raw record JSON plus indexed columns; schema growth never needs a migration                                                                                                                     | default        |
 | D   | Upload only finished runs (`death`, `complete`, `quit`, `abandoned`), never `inProgress`, never `debug: true`. Server rejects both too                                                                            | default        |
 | E   | `POST /runs` is idempotent: insert-or-update by run `id`, and an update only applies when the stored `install_id` matches                                                                                         | default        |
@@ -95,18 +95,18 @@ Re-check these anchors against `main` before starting; adapt line references, ke
 `worker/wrangler.toml`:
 
 ```toml
-name = "pac-rogue-api"
+name = "dot-man-api"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "pac-rogue"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_name = "dot-man-api"
+database_id = "<the owner's dot-man-api Database ID; commit the real value, it is not secret>"
 migrations_dir = "migrations"
 ```
 
-Secret `IP_HASH_KEY` (set with `wrangler secret put IP_HASH_KEY`; for local dev put it in `worker/.dev.vars`, gitignored).
+Secret `IP_HASH_KEY`, set once after the first deploy, either in the dashboard (**Workers & Pages → dot-man-api → Settings → Variables and Secrets → Add → Secret**) or with `wrangler secret put IP_HASH_KEY`. For local dev it goes in `worker/.dev.vars` (gitignored).
 
 `worker/migrations/0001_runs.sql`:
 
@@ -160,19 +160,19 @@ DELETE FROM runs WHERE install_id LIKE '<8 chars>%';
 
 ### 5. Pull and import
 
-- `scripts/data-pull.mjs` (new; `npm run data:pull`): pages with `npx wrangler d1 execute pac-rogue --remote --json --config worker/wrangler.toml --command "SELECT id, record, received_at FROM runs WHERE hidden_reason IS NULL AND received_at > '<cursor>' ORDER BY received_at LIMIT 1000"` until a page has fewer than 1000 rows. It parses each `record`, keeps the ones `parseRunLogRecord` accepts, and writes `{ exportedAt, source: "pac-rogue", runs: RunLogRecord[] }` to `data-exports/runs-<YYYY-MM-DD>.json` and `data-exports/latest.json`. It prints the run count and file path. Fails clearly if wrangler is not logged in. A `--local` flag reads the local dev database instead (for testing).
+- `scripts/data-pull.mjs` (new; `npm run data:pull`): pages with `npx wrangler d1 execute dot-man-api --remote --json --config worker/wrangler.toml --command "SELECT id, record, received_at FROM runs WHERE hidden_reason IS NULL AND received_at > '<cursor>' ORDER BY received_at LIMIT 1000"` until a page has fewer than 1000 rows. It parses each `record`, keeps the ones `parseRunLogRecord` accepts, and writes `{ exportedAt, source: "pac-rogue", runs: RunLogRecord[] }` to `data-exports/runs-<YYYY-MM-DD>.json` and `data-exports/latest.json`. It prints the run count and file path. Fails clearly if wrangler is not logged in. A `--local` flag reads the local dev database instead (for testing).
 - `src/domain/runExport.ts` (new, pure): `parseRunExport(json: unknown): { exportedAt: string; runs: RunLogRecord[]; unreadable: number } | null`.
 - `vite.config.ts`: extend the `data-route` plugin's **dev server only** (`configureServer`) to serve `GET /data/export.json` from `data-exports/latest.json` (404 when missing). Not in `configurePreviewServer`, not in the build.
 - `src/data/main.ts` / `dataPage.ts`: a source switch above the toggles, `THIS BROWSER | GLOBAL (PULLED)`. Global fetches `./export.json` once (404 → the message `NO PULLED DATA — RUN npm run data:pull`). Plus a `LOAD FILE…` button (`<input type="file">`) that reads any export file. The header notes `exported <date> · N runs`. Everything else on the page works the same on either source. In global mode, runs from other installs never have `debug: true`, so the debug toggle changes nothing there.
 
 ### 6. Tooling and CI
 
-- `package.json`: devDeps `wrangler`, `@cloudflare/workers-types` (current majors via `npm install -D`). Scripts: `"typecheck": "tsc --noEmit && tsc --noEmit -p worker"`, `"worker:migrate:local": "wrangler d1 migrations apply pac-rogue --local --config worker/wrangler.toml"`, `"worker:dev": "wrangler dev --config worker/wrangler.toml --local --port 8787"`, `"worker:dev:agent": "wrangler dev --config worker/wrangler.toml --local --port 8788"`, `"data:pull": "node scripts/data-pull.mjs"`.
+- `package.json`: devDeps `wrangler`, `@cloudflare/workers-types` (current majors via `npm install -D`). Scripts: `"typecheck": "tsc --noEmit && tsc --noEmit -p worker"`, `"worker:migrate:local": "wrangler d1 migrations apply dot-man-api --local --config worker/wrangler.toml"`, `"worker:dev": "wrangler dev --config worker/wrangler.toml --local --port 8787"`, `"worker:dev:agent": "wrangler dev --config worker/wrangler.toml --local --port 8788"`, `"data:pull": "node scripts/data-pull.mjs"`.
 - `scripts/ports.json`: add `"humanWorker": 8787, "agentWorker": 8788`.
 - `vitest.config.ts`: include `worker/**/*.test.ts`.
 - `.gitignore`: `.wrangler/`, `worker/.wrangler/`, `worker/.dev.vars`, `data-exports/`.
-- `deploy-pages.yml` build step env: `VITE_API_URL: ${{ vars.API_URL }}`, `VITE_PLATFORM: web`.
-- `.github/workflows/deploy-worker.yml` (new): triggers `push` to `main` with `paths: ["worker/**", "src/domain/runLog.ts", ".github/workflows/deploy-worker.yml"]` and `workflow_dispatch`; `concurrency: deploy-worker`; checkout → setup-node (`.nvmrc`, npm cache) → `npm ci` → a `check` step that outputs `enabled=false` and prints a notice when `CLOUDFLARE_API_TOKEN` is empty → (if enabled) `npx wrangler d1 migrations apply pac-rogue --remote --config worker/wrangler.toml` → `npx wrangler deploy --config worker/wrangler.toml`. Env from secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. `IP_HASH_KEY` is set once by hand with `wrangler secret put` (documented), not by CI.
+- `deploy-pages.yml`: add a `workflow_dispatch` trigger (so the owner can rebuild after setting `API_URL` without a dummy commit), and build step env `VITE_API_URL: ${{ vars.API_URL }}`, `VITE_PLATFORM: web`.
+- `.github/workflows/deploy-worker.yml` (new): triggers `push` to `main` with `paths: ["worker/**", "src/domain/runLog.ts", ".github/workflows/deploy-worker.yml"]` and `workflow_dispatch`; `concurrency: deploy-worker`; checkout → setup-node (`.nvmrc`, npm cache) → `npm ci` → a `check` step that outputs `enabled=false` and prints a notice when `CLOUDFLARE_API_TOKEN` is empty → (if enabled) `npx wrangler d1 migrations apply dot-man-api --remote --config worker/wrangler.toml` → `npx wrangler deploy --config worker/wrangler.toml`. Env from secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. `IP_HASH_KEY` is set once by hand with `wrangler secret put` (documented), not by CI.
 - `verify.yml`: unchanged (never sets `VITE_API_URL`).
 
 ## Approach — PR 2: global leaderboard
@@ -245,7 +245,7 @@ Responses: 201 `{ ok: true }`; 400 `{ error: "invalid" }`; 413 `{ error: "too_la
 ## Docs
 
 - `docs/PRIVACY.md` (new, player-facing): what is sent (finished run stats, random install id, game version, platform, country), what is not (no IP, no name, no account), opt-out in Settings, how to ask for deletion (the 8-character id), where it is stored (Cloudflare D1).
-- `README.md`: "Global runs and high scores" section with the one-time setup: Cloudflare account; `npx wrangler login`; `npx wrangler d1 create pac-rogue`; paste the id into `worker/wrangler.toml`; `npx wrangler secret put IP_HASH_KEY --config worker/wrangler.toml`; repo secrets `CLOUDFLARE_API_TOKEN` (Workers Scripts:Edit + D1:Edit) and `CLOUDFLARE_ACCOUNT_ID`; run the deploy-worker workflow; set repo variable `API_URL` to the `workers.dev` URL; redeploy Pages. Plus local dev (`worker:migrate:local`, `worker:dev`, `VITE_API_URL=http://127.0.0.1:8787 npm run dev`), `npm run data:pull` → open `/data` → GLOBAL, the worker ports, and links to `worker/README.md` and `docs/PRIVACY.md`.
+- `README.md`: "Global runs and high scores" section with the one-time setup: Cloudflare account; `npx wrangler login`; `npx wrangler d1 create dot-man-api`; paste the id into `worker/wrangler.toml`; `npx wrangler secret put IP_HASH_KEY --config worker/wrangler.toml`; repo secrets `CLOUDFLARE_API_TOKEN` (Workers Scripts:Edit + D1:Edit) and `CLOUDFLARE_ACCOUNT_ID`; run the deploy-worker workflow; set repo variable `API_URL` to the `workers.dev` URL; redeploy Pages. Plus local dev (`worker:migrate:local`, `worker:dev`, `VITE_API_URL=http://127.0.0.1:8787 npm run dev`), `npm run data:pull` → open `/data` → GLOBAL, the worker ports, and links to `worker/README.md` and `docs/PRIVACY.md`.
 - `worker/README.md` (new): API contract, schema, rate limit, hide/undo/delete recipes, rebuild step (PR 2), cost notes (free-tier caps fail closed).
 - `docs/RUN_LOG.md`: an "Uploads" section (what uploads, when, `since`, opt-out) and the `/data` source switch.
 - `docs/ARCHITECTURE.md`: layout adds `src/domain/runUpload.ts`, `privacySettings.ts`, `runExport.ts`, (PR 2) `leaderboard.ts`; `src/game/net/apiClient.ts`; the new storage files; `src/vite-env.d.ts`; `worker/`; `scripts/data-pull.mjs`; ports 8787/8788.
@@ -274,7 +274,7 @@ npm run worker:dev:agent &   # port 8788
 # POST it again with a different installId → row unchanged
 # POST debug:true or outcome:inProgress → 400
 # 31 POSTs in a row → the 31st returns 429
-npx wrangler d1 execute pac-rogue --local --config worker/wrangler.toml --command "SELECT id, ip_hash, length(record) FROM runs"   # no raw IP anywhere
+npx wrangler d1 execute dot-man-api --local --config worker/wrangler.toml --command "SELECT id, ip_hash, length(record) FROM runs"   # no raw IP anywhere
 npm run data:pull -- --local   # writes data-exports/latest.json with the runs
 ```
 
