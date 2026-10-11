@@ -98,7 +98,8 @@ export type GhostReleaseAdds = {
 export function isTimeGatedRelease(kind: GhostKindId, afterLifeRelease: boolean): boolean {
   return (
     kind === GHOST_KIND.blinky ||
-    ((kind === GHOST_KIND.pinky || kind === GHOST_KIND.spunky) && !afterLifeRelease)
+    ((kind === GHOST_KIND.pinky || kind === GHOST_KIND.spunky || kind === GHOST_KIND.warden) &&
+      !afterLifeRelease)
   );
 }
 
@@ -122,6 +123,7 @@ export function releaseDots(
     switch (kind) {
       case GHOST_KIND.pinky:
       case GHOST_KIND.spunky:
+      case GHOST_KIND.warden:
         return tuning.postLifePinkyDots;
       case GHOST_KIND.inky:
         return tuning.postLifeInkyDots;
@@ -144,6 +146,7 @@ export function releaseDots(
       );
     case GHOST_KIND.pinky:
     case GHOST_KIND.spunky:
+    case GHOST_KIND.warden:
     case GHOST_KIND.blinky:
       return 0;
   }

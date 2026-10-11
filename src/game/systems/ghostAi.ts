@@ -17,6 +17,7 @@ import {
   inkyTarget,
   pinkyTarget,
   spunkyTarget,
+  wardenTarget,
   GHOST_PHASE,
   type GhostTarget,
 } from "../../domain/ghostTarget";
@@ -107,6 +108,17 @@ export function resolveGhostTarget(
       mode,
       playerCol: player.col,
       playerRow: player.row,
+      ghostCol: col,
+      ghostRow: row,
+    });
+  }
+  if (kind === GHOST_KIND.warden) {
+    return wardenTarget({
+      phase,
+      mode,
+      playerCol: player.col,
+      playerRow: player.row,
+      playerFacing: player.facing,
       ghostCol: col,
       ghostRow: row,
     });
