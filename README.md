@@ -14,23 +14,26 @@ npx playwright install chromium
 
 ## Commands
 
-| Command                    | Purpose                                         |
-| -------------------------- | ----------------------------------------------- |
-| `npm run dev`              | Human dev server — <http://127.0.0.1:5173>      |
-| `npm run dev:agent`        | Agent dev server — <http://127.0.0.1:5174>      |
-| `npm run build`            | Typecheck + production build → `dist/`          |
-| `npm run preview`          | Human production preview — :4173                |
-| `npm run preview:agent`    | Agent production preview — :4174                |
-| `npm run test`             | Unit tests (Vitest)                             |
-| `npm run lint`             | ESLint                                          |
-| `npm run format`           | Prettier write                                  |
-| `npm run visual`           | Headless canvas smoke on agent preview port     |
-| `npm run probe`            | Scripted live check with state asserts (:5174)  |
-| `npm run check:ecs`        | ECS layer boundaries (also part of `verify`)    |
-| `npm run verify:precommit` | Fast gate — typecheck, lint, format, ECS, tests |
-| `npm run verify`           | **Canonical gate** — precommit + build + visual |
-| `npm run verify:record`    | `verify`, then record the result for ship-plan  |
-| `npm run check:ship`       | Check ship-plan evidence before opening a PR    |
+| Command                        | Purpose                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------------- |
+| `npm run dev`                  | Human dev server — <http://127.0.0.1:5173>                                              |
+| `npm run dev:agent`            | Agent dev server — <http://127.0.0.1:5174>                                              |
+| `npm run build`                | Typecheck + production build → `dist/`                                                  |
+| `npm run preview`              | Human production preview — :4173                                                        |
+| `npm run preview:agent`        | Agent production preview — :4174                                                        |
+| `npm run test`                 | Unit tests (Vitest)                                                                     |
+| `npm run lint`                 | ESLint                                                                                  |
+| `npm run format`               | Prettier write                                                                          |
+| `npm run visual`               | Headless canvas smoke on agent preview port                                             |
+| `npm run probe`                | Scripted live check with state asserts (:5174)                                          |
+| `npm run check:ecs`            | ECS layer boundaries (also part of `verify`)                                            |
+| `npm run verify:precommit`     | Fast gate — typecheck, lint, format, ECS, tests                                         |
+| `npm run verify`               | **Canonical gate** — precommit + build + visual                                         |
+| `npm run verify:record`        | `verify`, then record the result for ship-plan                                          |
+| `npm run check:ship`           | Check ship-plan evidence before opening a PR                                            |
+| `npm run worker:dev`           | Run the API Worker locally — :8787 (agents: `worker:dev:agent` → :8788)                 |
+| `npm run worker:migrate:local` | Create/upgrade the local D1 database for `worker:dev`                                   |
+| `npm run data:pull`            | Export every uploaded run to `data-exports/latest.json` (`-- --local` for the local DB) |
 
 `npm install` points Git at `.githooks/` (`core.hooksPath`). The pre-commit hook runs `npm run verify:precommit` (no build/visual). Full `npm run verify` remains the CI and completion gate.
 
@@ -107,6 +110,25 @@ Pushes to `main` run [`.github/workflows/deploy-pages.yml`](./.github/workflows/
 
 GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). After the first successful deploy, set that in the repo’s Pages settings if it is not already.
 
+## Global runs and high scores
+
+Finished, non-debug runs are uploaded to a Cloudflare Worker (`worker/`, name `dot-man-api`) backed by D1, so `/data` can show runs from every player and (soon) a global high-score board. Players can opt out in **Settings → SHARE RUN STATS**; see [docs/PRIVACY.md](./docs/PRIVACY.md). API, schema and SQL recipes: [worker/README.md](./worker/README.md). Nothing is sent unless the build has `VITE_API_URL`, which only the Pages deploy sets (dev, preview, CI and probes never do).
+
+**One-time setup (owner):**
+
+1. Cloudflare account (free, no card), with a `workers.dev` subdomain.
+2. D1 database `dot-man-api` (its id is committed in `worker/wrangler.toml`).
+3. API token: **My Profile → API Tokens → Create Token → "Edit Cloudflare Workers"**, plus **Account → D1 → Edit**, scoped to your account.
+4. GitHub **Settings → Environments → New environment** `production`, deployment branches limited to `main`, with environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Do not add them as plain repository secrets: any branch could read those.
+5. Merge to `main` (or run **Actions → Worker deploy → Run workflow**): it applies the D1 migrations and deploys the Worker.
+6. Add the Worker secret `IP_HASH_KEY` (a long random value; dashboard **Workers & Pages → dot-man-api → Settings → Variables and Secrets**). Until then uploads get 503 and retry later.
+7. Repository **variable** `API_URL` = `https://dot-man-api.<subdomain>.workers.dev` (no trailing slash), then **Actions → GitHub Pages deploy → Run workflow**.
+8. Check: play a run to Game Over on the live site and look for `POST …/runs → 201` in DevTools.
+
+**Reading the data:** run `npx wrangler login` once, then `npm run data:pull`, start `npm run dev`, open `/data` and click **GLOBAL (PULLED)** (or **LOAD FILE…** for any export).
+
+**Local development:** see [worker/README.md](./worker/README.md#local). Worker ports: humans 8787, agents 8788.
+
 ## Docs for agents
 
 - [AGENTS.md](./AGENTS.md) — guardrails (every code-changing plan includes `/simplify-pr` then `/no-comments`)
@@ -120,6 +142,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 - [docs/line-art.md](./docs/line-art.md) — neon line-art ghosts (device-pixel canvas, glow, SVG authoring rules)
 - [docs/fonts.md](./docs/fonts.md) — pixel vs neon UI typefaces (Settings STYLE, bar-curve glyphs, font knobs)
 - [docs/RUN_LOG.md](./docs/RUN_LOG.md) — always-on local run log (schema, field definitions, RUN LOG FULL purge) and the `/data` analytics page
+- [docs/PRIVACY.md](./docs/PRIVACY.md) — what run uploads send, opt-out and deletion; [worker/README.md](./worker/README.md) — the `dot-man-api` Worker
 - [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `bonus`, `enableUpgrade`, `disableLevelUpgrades`, `infiniteLives`, `lives`, `maxLives`, `godMode`, `jumpToUpgrade`, `forceUpgrade`, `ghosts`, `boss`, `bossStageAdvance`, `knobs`, `learnAll`, `sound`, `runLogFill`)
 - [docs/VERIFICATION.md](./docs/VERIFICATION.md) — how to prove work
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow

@@ -7,6 +7,7 @@ import {
   type RunLogRecord,
 } from "../../domain/runLog";
 import { freshId } from "../../domain/runRandom";
+import { forgetUploaded } from "./runUploadStorage";
 
 declare const __GAME_VERSION__: string | undefined;
 
@@ -145,10 +146,12 @@ export function purgeOldestRuns(): void {
   }
   try {
     const index = loadIndex(storage);
-    for (const id of index.slice(0, RUN_LOG_PURGE_COUNT)) {
+    const purged = index.slice(0, RUN_LOG_PURGE_COUNT);
+    for (const id of purged) {
       storage.removeItem(runKey(id));
     }
     storage.setItem(RUN_LOG_INDEX_KEY, JSON.stringify(index.slice(RUN_LOG_PURGE_COUNT)));
+    forgetUploaded(purged);
     quotaFailed = false;
   } catch {
     return;

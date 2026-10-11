@@ -200,3 +200,31 @@ tr.unowned {
 .empty a {
   color: var(--series);
 }
+
+.source-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+button.source {
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+button.source.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.source-note {
+  color: var(--ink-muted);
+  margin-left: 8px;
+}

@@ -60,6 +60,7 @@ import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { saveRun } from "../storage/runHistoryStorage";
+import { drainRunUploads } from "../net/apiClient";
 import { newRunLogMeta, saveRunLog } from "../storage/runLogStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -621,6 +622,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "runLog":
         saveRunLog(event.record);
+        if (event.record.outcome !== "inProgress") {
+          void drainRunUploads();
+        }
         break;
       case "seenGhosts": {
         const seen = loadSeenRecord();

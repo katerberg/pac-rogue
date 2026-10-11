@@ -101,9 +101,19 @@ Unparseable records and records with an unknown `version` stay in storage, count
 
 `?runLogFill=N` (agent ports only) writes N synthetic `debug: true` runs at boot to reach this screen in a live check. The synthetic runs vary their last level, outcome, loadout and offers so the `/data` charts have something to draw.
 
+## Uploads
+
+Finished runs also go to the `dot-man-api` Worker (see [worker/README.md](../worker/README.md) and [PRIVACY.md](./PRIVACY.md)), so `/data` can show every player's runs.
+
+- **What uploads:** runs whose outcome is not `inProgress`, that are not `debug`, and that started at or after `since`: the time this browser first ran an upload-capable build. Older runs stay local only.
+- **When:** `src/game/net/apiClient.ts` `drainRunUploads()` runs at boot and after every saved run with a final outcome. Each drain sends up to 10 runs, oldest first, one request at a time, with a 5 s timeout. A 2xx or 400 marks the run done; a 429, 5xx or network error stops the drain and the next one retries.
+- **State:** `pac-rogue.run-upload.v1` holds `{ since, uploaded: [run ids] }`. A RUN LOG FULL purge drops the purged ids from it.
+- **Opt-out:** Settings **SHARE RUN STATS** (`pac-rogue.privacy.v1`, on by default). When it's off, nothing is sent.
+- **Off in dev:** nothing is sent unless the build has `VITE_API_URL`, which only the Pages deploy sets.
+
 ## Viewing: `/data`
 
-Open `/data` on the same origin you play on (`http://localhost:5173/data` for `npm run dev`). It is a separate page (`data/index.html`, code in `src/data/`), not linked from the game, and it reads the same localStorage. The dev and preview servers redirect `/data` to `/data/`. The counting is in `src/domain/runAnalytics.ts`; the page only draws.
+Open `/data` on the same origin you play on (`http://localhost:5173/data` for `npm run dev`). The source switch at the top picks **THIS BROWSER** (this origin's localStorage) or **GLOBAL (PULLED)**: every uploaded run, from the file `npm run data:pull` writes to `data-exports/latest.json`. The dev server (not preview or the build) serves that file at `/data/export.json`. **LOAD FILE…** opens any export file instead. It is a separate page (`data/index.html`, code in `src/data/`), not linked from the game, and it reads the same localStorage. The dev and preview servers redirect `/data` to `/data/`. The counting is in `src/domain/runAnalytics.ts`; the page only draws.
 
 - **Which runs count:** `death` and `complete` runs, never `debug` ones. **Include quit / abandoned** adds those. On agent ports only, **Include debug runs** adds the debug runs too (for live checks with `?runLogFill`). `inProgress` runs never count.
 - **Reach:** a run's last level played, or **WIN** for a complete run. Medians count WIN as level 10.

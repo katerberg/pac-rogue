@@ -1,0 +1,9 @@
+name = "dot-man-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dot-man-api"
+database_id = "d6d036ac-0289-466e-88a4-9c181f9f18cc"
+migrations_dir = "migrations"
