@@ -55,6 +55,35 @@ describe("ghostCornerCell", () => {
   });
 });
 
+describe("ghostCornerCell for the LEARN-only ghosts", () => {
+  afterEach(() => {
+    activateLayout("maze1");
+  });
+
+  it("lands Spunky at the top and the Warden at the bottom on every board", () => {
+    const boards = ["corner-a", "corner-b", "corner-c"].map(
+      (seed) => () => activateAsciiLayout(generateMazeAsciiWithRetries(seed)!.ascii),
+    );
+    boards.push(
+      () => activateLayout("maze1"),
+      () => activateLayout("mazeSmall"),
+    );
+    for (const activate of boards) {
+      activate();
+      const { cols, rows } = getActiveLayout();
+      const spunky = ghostCornerCell(scatterTargetForKind(GHOST_KIND.spunky));
+      const warden = ghostCornerCell(scatterTargetForKind(GHOST_KIND.warden));
+      for (const cell of [spunky, warden]) {
+        expect(isWalkable(cell.col, cell.row)).toBe(true);
+        expect(isHouse(cell.col, cell.row)).toBe(false);
+        expect(Math.abs(cell.col - cols / 2)).toBeLessThanOrEqual(cols / 4);
+      }
+      expect(spunky.row).toBeLessThan(rows / 2);
+      expect(warden.row).toBeGreaterThanOrEqual(rows / 2);
+    }
+  });
+});
+
 describe("ghostTeleportCell", () => {
   afterEach(() => {
     activateLayout("maze1");
