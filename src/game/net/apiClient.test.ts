@@ -12,6 +12,7 @@ function seedRuns(count: number): void {
   for (let i = 0; i < count; i += 1) {
     const meta = {
       ...TEST_RUN_LOG_META,
+      params: { play: "1", fbclid: "tracking" },
       id: `run-${String(i).padStart(2, "0")}`,
       startedAt: new Date(Date.now() + 1000 + i).toISOString(),
     };
@@ -63,6 +64,8 @@ describe("drainRunUploads", () => {
     await drainRunUploads();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]![0]).toBe("https://api.test/runs");
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body).toMatchObject({ platform: "web", record: { id: "run-00", params: {} } });
     expect(loadUploadState().uploaded).toEqual(["run-00", "run-01"]);
     await drainRunUploads();
     expect(fetchMock).toHaveBeenCalledTimes(2);

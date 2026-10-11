@@ -30,7 +30,7 @@ export async function drainRunUploads(): Promise<void> {
   try {
     const platform = parsePlatform(import.meta.env.VITE_PLATFORM);
     for (const record of nextUploads(loadAllRuns().runs, loadUploadState())) {
-      if ((await uploadRun(baseUrl, { platform, record })) === "retry") {
+      if ((await uploadRun(baseUrl, { platform, record: { ...record, params: {} } })) === "retry") {
         return;
       }
       markUploaded(record.id);

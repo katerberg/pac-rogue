@@ -70,6 +70,12 @@ describe("worker fetch", () => {
   it("rejects oversize, malformed and invalid bodies", async () => {
     const { env: e, calls } = env();
     expect((await worker.fetch(post(null, "x".repeat(70_000)), e)).status).toBe(413);
+    const declared = new Request("https://api.test/runs", {
+      method: "POST",
+      headers: { "Content-Length": "999999" },
+      body: "{}",
+    });
+    expect((await worker.fetch(declared, e)).status).toBe(413);
     expect((await worker.fetch(post(null, "{not json"), e)).status).toBe(400);
     expect((await worker.fetch(post({ platform: "web", record: {} }), e)).status).toBe(400);
     expect(calls).toHaveLength(0);

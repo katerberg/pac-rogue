@@ -41,6 +41,9 @@ async function postRun(request: Request, env: Env): Promise<Response> {
   if (!env.IP_HASH_KEY) {
     return json(503, { error: "unconfigured" });
   }
+  if (Number(request.headers.get("Content-Length") ?? 0) > MAX_BODY_BYTES) {
+    return json(413, { error: "too_large" });
+  }
   const text = await request.text();
   if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
     return json(413, { error: "too_large" });
