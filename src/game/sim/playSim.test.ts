@@ -1953,6 +1953,43 @@ describe("PlaySim", () => {
     expect(sim.snapshot().ghostMode).toBe("chase");
   });
 
+  it("tapers scatter to one short window on level 8 and none on the level 9 boss", () => {
+    const l8 = startSim({ level: 8, infiniteLives: true, ghosts: [GHOST_KIND.blinky] }, "taper-8");
+    expect(l8.snapshot().ghostMode).toBe("scatter");
+    runFrames(l8, Math.ceil(3.5 * 60), { keys: held("left") });
+    expect(l8.snapshot().ghostMode).toBe("chase");
+    runFrames(l8, 60 * 30, { keys: held("left") });
+    expect(l8.snapshot().ghostMode).toBe("chase");
+
+    const boss = startSim({ level: 9, boss: "blinkySwarm", infiniteLives: true }, "taper-9");
+    const modes = new Set<string>();
+    for (let i = 0; i < 60 * 30; i += 1) {
+      runFrames(boss, 1, { keys: held("left") });
+      modes.add(boss.snapshot().ghostMode);
+    }
+    expect([...modes]).toEqual(["chase"]);
+  });
+
+  it("drops out of scatter once fewer than 15 pellets remain", () => {
+    const sim = startSim({ level: 2, godMode: true }, "scatter-low-pellets");
+    const eatDownTo = (left: number): void => {
+      for (const eid of regularPelletEids(sim)) {
+        if (sim.snapshot().pelletsRemaining <= left) {
+          return;
+        }
+        eatPelletAt(sim, eid);
+      }
+    };
+    eatDownTo(15);
+    expect(sim.snapshot().pelletsRemaining).toBe(15);
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    eatDownTo(14);
+    expect(sim.snapshot().pelletsRemaining).toBe(14);
+    expect(sim.snapshot().ghostMode).toBe("chase");
+    runFrames(sim, 60 * 8);
+    expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
   it("moves ghosts at tunnel speed while they leave the house, then at full speed", () => {
     const sim = startSim({ level: 2, infiniteLives: true }, "house-exit-speed");
     const leaving = () =>

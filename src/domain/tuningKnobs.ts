@@ -304,7 +304,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   scatterEarlyMs:
     "Levels 2-4: length of the first two scatter waves, when ghosts head to their corners instead of chasing.",
   scatterLateMs:
-    "Length of the third scatter wave on levels 2-4, and of every scatter wave from level 5 on.",
+    "Length of the third scatter wave on levels 2-4, and of the scatter waves from level 5 on (tapering to 60% on the last windows of levels 7-8; level 9 has none).",
   chaseMs: "Length of each chase wave between scatter waves. The final chase lasts forever.",
   wallThickness: "Width of the wall outline in pixels. Visual only; collision is unchanged.",
   wallColor: "Color of the wall outline (overrides the Settings maze color while knobs are on).",

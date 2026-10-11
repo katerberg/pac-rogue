@@ -49,6 +49,13 @@ describe("tuning threads into gameplay helpers", () => {
       Number.POSITIVE_INFINITY,
     ]);
     expect(ghostModeWavesForLevel(6, tuned)[0]!.durationMs).toBe(500);
+    expect(ghostModeWavesForLevel(7, tuned).map((w) => w.durationMs)).toEqual([
+      500,
+      3000,
+      300,
+      Number.POSITIVE_INFINITY,
+    ]);
+    expect(ghostModeWavesForLevel(9, tuned)).toHaveLength(1);
     expect(ghostModeWavesForLevel(1, tuned)).toHaveLength(1);
     const scatterL1 = ghostModeWavesForLevel(1, resolveTuning({ level1ChaseOnly: false }));
     expect(scatterL1[0]).toEqual({ mode: GHOST_AI_MODE.scatter, durationMs: 7000 });

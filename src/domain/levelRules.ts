@@ -25,15 +25,38 @@ function arcadeWaves(
   ];
 }
 
+const TAPER_SECOND_SCATTER_FRACTION = 0.6;
+
+function lateWaves(level: number, tuning: Tuning): readonly GhostModeWave[] {
+  const full = tuning.scatterLateMs;
+  const short = full * TAPER_SECOND_SCATTER_FRACTION;
+  if (level >= MAX_LEVEL) {
+    return CHASE_ONLY_WAVES;
+  }
+  if (level === MAX_LEVEL - 1) {
+    return [
+      { mode: 0, durationMs: short },
+      { mode: 1, durationMs: Number.POSITIVE_INFINITY },
+    ];
+  }
+  if (level === MAX_LEVEL - 2) {
+    return [
+      { mode: 0, durationMs: full },
+      { mode: 1, durationMs: tuning.chaseMs },
+      { mode: 0, durationMs: short },
+      { mode: 1, durationMs: Number.POSITIVE_INFINITY },
+    ];
+  }
+  return arcadeWaves(full, full, tuning.chaseMs);
+}
+
 const DEFAULT_EARLY_WAVES = arcadeWaves(
   DEFAULT_TUNING.scatterEarlyMs,
   DEFAULT_TUNING.scatterLateMs,
   DEFAULT_TUNING.chaseMs,
 );
-const DEFAULT_LATE_WAVES = arcadeWaves(
-  DEFAULT_TUNING.scatterLateMs,
-  DEFAULT_TUNING.scatterLateMs,
-  DEFAULT_TUNING.chaseMs,
+const DEFAULT_LATE_WAVES = Array.from({ length: MAX_LEVEL - 4 }, (_, i) =>
+  lateWaves(i + 5, DEFAULT_TUNING),
 );
 
 export function offersUpgradeAfterLevel(levelIndex: number): boolean {
@@ -73,12 +96,15 @@ export function ghostModeWavesForLevel(
   if (level <= 1 && tuning.level1ChaseOnly) {
     return CHASE_ONLY_WAVES;
   }
-  const late = level > 4;
-  if (tuning === DEFAULT_TUNING) {
-    return late ? DEFAULT_LATE_WAVES : DEFAULT_EARLY_WAVES;
+  if (level > 4) {
+    return tuning === DEFAULT_TUNING
+      ? DEFAULT_LATE_WAVES[Math.min(level, MAX_LEVEL) - 5]!
+      : lateWaves(level, tuning);
   }
-  const opening = late ? tuning.scatterLateMs : tuning.scatterEarlyMs;
-  return arcadeWaves(opening, tuning.scatterLateMs, tuning.chaseMs);
+  if (tuning === DEFAULT_TUNING) {
+    return DEFAULT_EARLY_WAVES;
+  }
+  return arcadeWaves(tuning.scatterEarlyMs, tuning.scatterLateMs, tuning.chaseMs);
 }
 
 export function isInvertedMazeLevel(levelIndex: number): boolean {
