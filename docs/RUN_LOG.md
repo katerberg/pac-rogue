@@ -109,7 +109,7 @@ Finished runs also go to the `dot-man-api` Worker (see [worker/README.md](../wor
 - **When:** `src/game/net/apiClient.ts` `drainRunUploads()` runs at boot and after every saved run with a final outcome. Each drain sends up to 10 runs, oldest first, one request at a time, with a 5 s timeout. A 2xx or 400 marks the run done; a 429, 5xx or network error stops the drain and the next one retries.
 - **State:** `pac-rogue.run-upload.v1` holds `{ since, uploaded: [run ids] }`. A RUN LOG FULL purge drops the purged ids from it.
 - **Opt-out:** Settings **SHARE RUN STATS** (`pac-rogue.privacy.v1`, on by default). When it's off, nothing is sent.
-- **Off in dev:** nothing is sent unless the build has `VITE_API_URL`, which only the Pages deploy sets.
+- **Off in dev:** nothing is sent unless the build has `VITE_API_URL`, which only the Pages deploy sets. On top of that, a page served from `localhost` / `127.0.0.1` only ever talks to a local API (`resolveApiUrl` in `src/domain/runUpload.ts`): a production URL leaking into a dev shell or `.env` file cannot make local play, probes or CI write to the real database. A build without `VITE_API_URL` contains no upload code at all.
 
 ## Viewing: `/data`
 

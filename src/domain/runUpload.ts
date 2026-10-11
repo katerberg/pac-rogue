@@ -8,6 +8,25 @@ export const MAX_UPLOADS_PER_DRAIN = 10;
 export type UploadState = { since: string; uploaded: string[] };
 export type RunUpload = { platform: Platform; record: RunLogRecord };
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+export function resolveApiUrl(raw: string | undefined, pageHostname: string): string | null {
+  const trimmed = raw?.trim().replace(/\/$/, "");
+  if (!trimmed) {
+    return null;
+  }
+  let apiHost: string;
+  try {
+    apiHost = new URL(trimmed).hostname;
+  } catch {
+    return null;
+  }
+  if (LOCAL_HOSTS.has(pageHostname) && !LOCAL_HOSTS.has(apiHost)) {
+    return null;
+  }
+  return trimmed;
+}
+
 export function parsePlatform(value: string | undefined): Platform {
   return PLATFORMS.find((platform) => platform === value) ?? "web";
 }

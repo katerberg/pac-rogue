@@ -5,6 +5,7 @@ import {
   nextUploads,
   parsePlatform,
   parseUploadState,
+  resolveApiUrl,
   uploadable,
   type UploadState,
 } from "./runUpload";
@@ -40,6 +41,23 @@ describe("runUpload", () => {
     const queued = nextUploads(runs, STATE);
     expect(queued).toHaveLength(MAX_UPLOADS_PER_DRAIN);
     expect(queued[0]!.id).toBe(`r${MAX_UPLOADS_PER_DRAIN + 2}`);
+  });
+
+  it("never lets a localhost page talk to a non-local API", () => {
+    const prod = "https://dot-man-api.example.workers.dev/";
+    expect(resolveApiUrl(prod, "katerberg.github.io")).toBe(
+      "https://dot-man-api.example.workers.dev",
+    );
+    expect(resolveApiUrl(prod, "127.0.0.1")).toBeNull();
+    expect(resolveApiUrl(prod, "localhost")).toBeNull();
+    expect(resolveApiUrl("http://127.0.0.1:8788", "127.0.0.1")).toBe("http://127.0.0.1:8788");
+    expect(resolveApiUrl("http://localhost:8787/", "localhost")).toBe("http://localhost:8787");
+  });
+
+  it("treats a missing or malformed API URL as off", () => {
+    expect(resolveApiUrl(undefined, "katerberg.github.io")).toBeNull();
+    expect(resolveApiUrl("  ", "katerberg.github.io")).toBeNull();
+    expect(resolveApiUrl("not a url", "katerberg.github.io")).toBeNull();
   });
 
   it("falls back to web for unknown platforms", () => {

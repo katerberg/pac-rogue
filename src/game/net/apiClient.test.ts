@@ -31,6 +31,7 @@ function stubFetch(...statuses: number[]) {
 
 beforeEach(() => {
   installMemoryStorage();
+  vi.stubGlobal("location", { hostname: "katerberg.github.io" });
   vi.stubEnv("VITE_API_URL", "https://api.test/");
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
 });
@@ -44,6 +45,14 @@ afterEach(() => {
 describe("drainRunUploads", () => {
   it("does nothing without an API URL", async () => {
     vi.stubEnv("VITE_API_URL", "");
+    seedRuns(1);
+    const fetchMock = stubFetch();
+    await drainRunUploads();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("never uploads from a localhost page to a non-local API", async () => {
+    vi.stubGlobal("location", { hostname: "127.0.0.1" });
     seedRuns(1);
     const fetchMock = stubFetch();
     await drainRunUploads();

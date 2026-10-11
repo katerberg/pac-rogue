@@ -1,4 +1,4 @@
-import { nextUploads, parsePlatform, type RunUpload } from "../../domain/runUpload";
+import { nextUploads, parsePlatform, resolveApiUrl, type RunUpload } from "../../domain/runUpload";
 import { loadPrivacySettings } from "../storage/privacySettingsStorage";
 import { loadAllRuns } from "../storage/runLogStorage";
 import { loadUploadState, markUploaded } from "../storage/runUploadStorage";
@@ -8,7 +8,7 @@ const REQUEST_TIMEOUT_MS = 5000;
 let draining = false;
 
 function apiBaseUrl(): string | null {
-  return import.meta.env.VITE_API_URL?.replace(/\/$/, "") || null;
+  return resolveApiUrl(import.meta.env.VITE_API_URL, location.hostname);
 }
 
 async function uploadRun(baseUrl: string, body: RunUpload): Promise<"done" | "retry"> {
