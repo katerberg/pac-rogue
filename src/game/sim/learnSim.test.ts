@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
+import { SPUNKY_AGGRO_TILES, spunkyPostTarget } from "../../domain/ghostTarget";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import {
   canEnterDirection,
@@ -46,6 +47,29 @@ describe("LearnSim", () => {
     }
     expect(Position.x[player]!).toBeGreaterThan(startX);
     expect(worldSnapshot(sim.world).ghosts).toHaveLength(2);
+  });
+
+  it("Spunky holds its post until Maze-Man comes within the aggro radius", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.spunky);
+    const ghost = sim.ghostEid!;
+    const player = query(sim.world, [Player, Position])[0]!;
+    const ghostTile = { col: worldToCol(Position.x[ghost]!), row: worldToRow(Position.y[ghost]!) };
+    const playerTile = {
+      col: worldToCol(Position.x[player]!),
+      row: worldToRow(Position.y[player]!),
+    };
+    expect(
+      Math.hypot(ghostTile.col - playerTile.col, ghostTile.row - playerTile.row),
+    ).toBeGreaterThan(SPUNKY_AGGRO_TILES);
+    expect(sim.overlayModel()!.target).toEqual(spunkyPostTarget());
+
+    Position.x[player] = cellCenterX(ghostTile.col);
+    Position.y[player] = cellCenterY(ghostTile.row + 2);
+    const near = sim.overlayModel()!;
+    expect(near.kind).toBe(GHOST_KIND.spunky);
+    expect(near.target).toEqual({ col: ghostTile.col, row: ghostTile.row + 2 });
   });
 
   it("greys the pellets Lazy Looper does not need, fewer kept with Plus, none once off", () => {
@@ -848,6 +872,24 @@ describe("LearnSim upgrade demos", () => {
     }
     expect(sim.statusText()).toBe("");
     expect(posOf(ghost)).not.toEqual(held);
+  });
+
+  it("House Delay also holds Spunky for the delayed release", () => {
+    const { sim, player } = setup("passiveGhostHouseDelay");
+    sim.selectGhost(GHOST_KIND.spunky);
+    const ghost = sim.ghostEid!;
+    const held = posOf(ghost);
+    moveTo(player, { x: held.x, y: held.y + 400 });
+    for (let t = 0; t < 1_900; t += FRAME_MS) {
+      sim.step(held_right, FRAME_MS);
+    }
+    expect(posOf(ghost)).toEqual(held);
+    expect(sim.statusText()).toContain("HOUSE RELEASE IN");
+    expect(sim.statusText()).not.toContain("PELLETS");
+    for (let t = 0; t < 400; t += FRAME_MS) {
+      sim.step(held_right, FRAME_MS);
+    }
+    expect(sim.statusText()).toBe("");
   });
 });
 

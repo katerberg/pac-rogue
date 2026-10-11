@@ -81,6 +81,7 @@ const SLOT_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.pinky,
   GHOST_KIND.inky,
   GHOST_KIND.clyde,
+  GHOST_KIND.spunky,
 ];
 const TITLE_Y = 30;
 const SLOT_Y = 90;
@@ -196,6 +197,7 @@ export class LearnScene extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.TWO,
       Phaser.Input.Keyboard.KeyCodes.THREE,
       Phaser.Input.Keyboard.KeyCodes.FOUR,
+      Phaser.Input.Keyboard.KeyCodes.FIVE,
     ].map((code) => keyboard.addKey(code));
 
     this.selectGhost(SLOT_KINDS[0]!);

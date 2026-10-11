@@ -5,6 +5,7 @@ import { GHOST_PHASE } from "./ghostPhase";
 import {
   CLYDE_SHY_TILES,
   INKY_LOOKAHEAD_TILES,
+  SPUNKY_AGGRO_TILES,
   lookAheadTile,
   type GhostTarget,
 } from "./ghostTarget";
@@ -18,6 +19,7 @@ export const GHOST_COLOR_BY_KIND: Record<GhostKindId, number> = {
   [GHOST_KIND.pinky]: 0xffb8ff,
   [GHOST_KIND.inky]: 0x00ffff,
   [GHOST_KIND.clyde]: 0xffb852,
+  [GHOST_KIND.spunky]: 0x66ff66,
 };
 
 export function clampTileToBoard(tile: GhostTarget, cols: number, rows: number): GhostTarget {
@@ -108,6 +110,8 @@ export function targetDerivation(
       };
     case GHOST_KIND.clyde:
       return { kind: "circle", center: input.player, radiusTiles: CLYDE_SHY_TILES };
+    case GHOST_KIND.spunky:
+      return { kind: "circle", center: input.player, radiusTiles: SPUNKY_AGGRO_TILES };
     default:
       return { kind: "none" };
   }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   CLYDE_SHY_TILES,
+  SPUNKY_AGGRO_TILES,
+  spunkyPostTarget,
+  spunkyTarget,
   INKY_LOOKAHEAD_TILES,
   PINKY_LOOKAHEAD_TILES,
   blinkyScatterTarget,
@@ -13,7 +16,7 @@ import {
   pinkyTarget,
   GHOST_PHASE,
 } from "./ghostTarget";
-import { GHOST_AI_MODE } from "./ghostMode";
+import { GHOST_AI_MODE, type GhostAiMode } from "./ghostMode";
 import { GHOST_DIR } from "./ghostPath";
 import { getActiveLayout } from "./maze";
 
@@ -345,5 +348,40 @@ describe("inkyTarget", () => {
       col: 2 * (12 - INKY_LOOKAHEAD_TILES) - 4,
       row: 2 * 18 - 10,
     });
+  });
+});
+
+describe("spunkyTarget", () => {
+  const post = spunkyPostTarget();
+  const args = (ghostCol: number, mode: GhostAiMode = GHOST_AI_MODE.chase) => ({
+    phase: GHOST_PHASE.active,
+    mode,
+    playerCol: 10,
+    playerRow: 10,
+    ghostCol,
+    ghostRow: 10,
+  });
+
+  it("chases Maze-Man once he is within the aggro radius", () => {
+    expect(spunkyTarget(args(10 + SPUNKY_AGGRO_TILES))).toEqual({ col: 10, row: 10 });
+  });
+
+  it("returns to its post while Maze-Man is farther than the aggro radius", () => {
+    expect(spunkyTarget(args(10 + SPUNKY_AGGRO_TILES + 1))).toEqual(post);
+  });
+
+  it("holds its post in scatter even when Maze-Man is adjacent", () => {
+    expect(spunkyTarget(args(11, GHOST_AI_MODE.scatter))).toEqual(post);
+  });
+
+  it("posts at the top-center above the maze", () => {
+    expect(post).toEqual({ col: Math.floor(getActiveLayout().cols / 2), row: -3 });
+  });
+
+  it("walks out through the door column while leaving", () => {
+    const exit = getActiveLayout().ghostHouseExit;
+    expect(
+      spunkyTarget({ ...args(exit.col), phase: GHOST_PHASE.leaving, ghostRow: exit.row + 1 }),
+    ).toEqual(exit);
   });
 });

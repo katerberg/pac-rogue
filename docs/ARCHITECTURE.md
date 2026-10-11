@@ -64,14 +64,14 @@ src/
     audioSettings.ts          # music/SFX enable + 0..10 levels; effectiveVolume
     ghostPath.ts              # intersection direction pick + reverse helper
     ghostMovement.ts          # phase solids, one-way enter, L reverse redirect
-    ghostKind.ts              # blinky / pinky / inky / clyde kind ids
+    ghostKind.ts              # blinky / pinky / inky / clyde kind ids, plus the LEARN-only spunky
     ghostArt.ts               # GhostStyle (Settings → STYLE: neon / lined / pixel; glow only on neon), textStyleFor (UI font), learnCheckboxLook (LEARN + Settings enable checkboxes), lineArtGhostKinds / lineArtDrawableIds (ghosts + Dot-Man), lineArtQuarter + quarterLineArtLook, line-art looks from tuning+STYLE
     settingsVolumeBar.ts      # Settings volume neon-tube layout (bonus palette) + STYLE gate vs notched slider
     neonFont/                 # Bar-curve neon glyph catalog + fontLineArtLook (see docs/fonts.md)
     lineArt.ts                # parseLineArt: restricted SVG subset → strands of {x,y,s} points; rotateLineArt (see docs/line-art.md)
     dotManTurn.ts             # Dot-Man facing rotation: quarter turns and fast 180° reversals (see docs/line-art.md)
     dotManMouth.ts            # Dot-Man spiral mouth half-angle poses + chomp beat (see docs/line-art.md)
-    ghostTarget.ts            # Blinky/Pinky/Inky/Clyde chase/scatter/Elroy target tiles
+    ghostTarget.ts            # Blinky/Pinky/Inky/Clyde chase/scatter/Elroy target tiles; Spunky post/aggro (LEARN only)
     ghostPhase.ts             # inHouse / leaving / active phase ids
     ghostMode.ts              # level-scheduled scatter/chase wave clock
     ghostRelease.ts           # per-level release rules: Blinky/Pinky timers, Inky/Clyde dot counts, post-death shared counter, idle timer
