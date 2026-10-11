@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
-import { SPUNKY_AGGRO_TILES, spunkyPostTarget } from "../../domain/ghostTarget";
+import {
+  SPUNKY_AGGRO_TILES,
+  WARDEN_STRIKE_TILES,
+  rimDistance,
+  spunkyPostTarget,
+} from "../../domain/ghostTarget";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import {
   canEnterDirection,
@@ -20,7 +25,9 @@ import {
 import { NEAR_MISS_CHARGE } from "../../domain/upgrades";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
+import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
+import { DIRECTION } from "../components/Input";
 import { GhostPhase } from "../components/GhostPhase";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -70,6 +77,24 @@ describe("LearnSim", () => {
     const near = sim.overlayModel()!;
     expect(near.kind).toBe(GHOST_KIND.spunky);
     expect(near.target).toEqual({ col: ghostTile.col, row: ghostTile.row + 2 });
+  });
+
+  it("the Warden waits on the rim ahead of Maze-Man, then strikes once he nears an edge", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.warden);
+    const player = query(sim.world, [Player, Position])[0]!;
+    const { cols, rows } = getActiveLayout();
+    const deep = { col: Math.floor(cols / 2), row: Math.floor(rows / 2) };
+    expect(rimDistance(deep.col, deep.row)).toBeGreaterThan(WARDEN_STRIKE_TILES);
+    Position.x[player] = cellCenterX(deep.col);
+    Position.y[player] = cellCenterY(deep.row);
+    Facing.direction[player] = DIRECTION.right;
+    expect(sim.overlayModel()!.target).toEqual({ col: cols - 1, row: deep.row });
+
+    const near = { col: WARDEN_STRIKE_TILES, row: deep.row };
+    Position.x[player] = cellCenterX(near.col);
+    expect(sim.overlayModel()!.target).toEqual(near);
   });
 
   it("greys the pellets Lazy Looper does not need, fewer kept with Plus, none once off", () => {
@@ -872,6 +897,23 @@ describe("LearnSim upgrade demos", () => {
     }
     expect(sim.statusText()).toBe("");
     expect(posOf(ghost)).not.toEqual(held);
+  });
+
+  it("House Delay also holds the Warden for the delayed release", () => {
+    const { sim, player } = setup("passiveGhostHouseDelay");
+    sim.selectGhost(GHOST_KIND.warden);
+    const ghost = sim.ghostEid!;
+    const held = posOf(ghost);
+    moveTo(player, { x: held.x, y: held.y + 400 });
+    for (let t = 0; t < 1_900; t += FRAME_MS) {
+      sim.step(held_right, FRAME_MS);
+    }
+    expect(posOf(ghost)).toEqual(held);
+    expect(sim.statusText()).toContain("HOUSE RELEASE IN");
+    for (let t = 0; t < 400; t += FRAME_MS) {
+      sim.step(held_right, FRAME_MS);
+    }
+    expect(sim.statusText()).toBe("");
   });
 
   it("House Delay also holds Spunky for the delayed release", () => {

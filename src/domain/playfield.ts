@@ -41,6 +41,7 @@ export const PINKY_DRAWABLE_ID = "pinky";
 export const INKY_DRAWABLE_ID = "inky";
 export const CLYDE_DRAWABLE_ID = "clyde";
 export const SPUNKY_DRAWABLE_ID = "spunky";
+export const WARDEN_DRAWABLE_ID = "warden";
 
 export const GHOST_DRAWABLE_BY_KIND: Record<GhostKindId, string> = {
   [GHOST_KIND.blinky]: BLINKY_DRAWABLE_ID,
@@ -48,6 +49,7 @@ export const GHOST_DRAWABLE_BY_KIND: Record<GhostKindId, string> = {
   [GHOST_KIND.inky]: INKY_DRAWABLE_ID,
   [GHOST_KIND.clyde]: CLYDE_DRAWABLE_ID,
   [GHOST_KIND.spunky]: SPUNKY_DRAWABLE_ID,
+  [GHOST_KIND.warden]: WARDEN_DRAWABLE_ID,
 };
 
 export const FRUIT_DRAWABLE_ID = "fruit";

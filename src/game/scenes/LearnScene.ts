@@ -82,6 +82,7 @@ const SLOT_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.inky,
   GHOST_KIND.clyde,
   GHOST_KIND.spunky,
+  GHOST_KIND.warden,
 ];
 const TITLE_Y = 30;
 const SLOT_Y = 90;
@@ -198,6 +199,7 @@ export class LearnScene extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.THREE,
       Phaser.Input.Keyboard.KeyCodes.FOUR,
       Phaser.Input.Keyboard.KeyCodes.FIVE,
+      Phaser.Input.Keyboard.KeyCodes.SIX,
     ].map((code) => keyboard.addKey(code));
 
     this.selectGhost(SLOT_KINDS[0]!);
@@ -556,6 +558,19 @@ export class LearnScene extends Phaser.Scene {
       this.strokePixelsClipped([blinkyPx, pivotPx, this.reticlePx], rect);
       this.overlay.fillStyle(DERIVATION_COLOR, DERIVATION_ALPHA);
       this.overlay.fillCircle(pivotPx.x, pivotPx.y, PIVOT_DOT_RADIUS);
+    } else if (derivation.kind === "rim") {
+      const inset = derivation.insetTiles * TILE_SIZE;
+      this.strokePixelsClipped(
+        [
+          { x: rect.left + inset, y: rect.top + inset },
+          { x: rect.right - inset, y: rect.top + inset },
+          { x: rect.right - inset, y: rect.bottom - inset },
+          { x: rect.left + inset, y: rect.bottom - inset },
+          { x: rect.left + inset, y: rect.top + inset },
+        ],
+        rect,
+      );
+      this.strokePixelsClipped([playerPx, this.reticlePx], rect);
     } else if (derivation.kind === "circle") {
       const radius = derivation.radiusTiles * TILE_SIZE;
       const points = Array.from({ length: CIRCLE_SEGMENTS + 1 }, (_, i) => {

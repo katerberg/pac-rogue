@@ -4,6 +4,11 @@ import {
   SPUNKY_AGGRO_TILES,
   spunkyPostTarget,
   spunkyTarget,
+  WARDEN_STRIKE_TILES,
+  rimDistance,
+  wardenRimTile,
+  wardenScatterTarget,
+  wardenTarget,
   INKY_LOOKAHEAD_TILES,
   PINKY_LOOKAHEAD_TILES,
   blinkyScatterTarget,
@@ -382,6 +387,74 @@ describe("spunkyTarget", () => {
     const exit = getActiveLayout().ghostHouseExit;
     expect(
       spunkyTarget({ ...args(exit.col), phase: GHOST_PHASE.leaving, ghostRow: exit.row + 1 }),
+    ).toEqual(exit);
+  });
+});
+
+describe("wardenRimTile", () => {
+  const board = { cols: 28, rows: 34 };
+
+  it("projects Maze-Man's facing to the rim at his own row or column", () => {
+    const at = (playerFacing: (typeof GHOST_DIR)[keyof typeof GHOST_DIR]) =>
+      wardenRimTile({ playerCol: 12, playerRow: 15, playerFacing, ...board });
+    expect(at(GHOST_DIR.up)).toEqual({ col: 12, row: 0 });
+    expect(at(GHOST_DIR.down)).toEqual({ col: 12, row: 33 });
+    expect(at(GHOST_DIR.left)).toEqual({ col: 0, row: 15 });
+    expect(at(GHOST_DIR.right)).toEqual({ col: 27, row: 15 });
+  });
+
+  it("uses the nearest edge when Maze-Man has no facing", () => {
+    expect(
+      wardenRimTile({ playerCol: 20, playerRow: 15, playerFacing: GHOST_DIR.none, ...board }),
+    ).toEqual({ col: 27, row: 15 });
+    expect(
+      wardenRimTile({ playerCol: 12, playerRow: 3, playerFacing: GHOST_DIR.none, ...board }),
+    ).toEqual({ col: 12, row: 0 });
+  });
+});
+
+describe("wardenTarget", () => {
+  const { cols, rows } = getActiveLayout();
+  const mid = { col: Math.floor(cols / 2), row: Math.floor(rows / 2) };
+  const args = (over: Partial<Parameters<typeof wardenTarget>[0]> = {}) => ({
+    phase: GHOST_PHASE.active,
+    mode: GHOST_AI_MODE.chase,
+    playerCol: mid.col,
+    playerRow: mid.row,
+    playerFacing: GHOST_DIR.right,
+    ghostCol: 1,
+    ghostRow: 1,
+    ...over,
+  });
+
+  it("waits on the rim in front of Maze-Man while he is deep in the board", () => {
+    expect(rimDistance(mid.col, mid.row)).toBeGreaterThan(WARDEN_STRIKE_TILES - 1);
+    expect(wardenTarget(args())).toEqual({ col: cols - 1, row: mid.row });
+  });
+
+  it("strikes Maze-Man directly once he is within the strike range of any edge", () => {
+    const col = WARDEN_STRIKE_TILES;
+    expect(wardenTarget(args({ playerCol: col, playerRow: mid.row }))).toEqual({
+      col,
+      row: mid.row,
+    });
+    expect(wardenTarget(args({ playerCol: col + 1, playerRow: mid.row }))).toEqual({
+      col: cols - 1,
+      row: mid.row,
+    });
+  });
+
+  it("goes to the bottom-center scatter point in scatter mode", () => {
+    expect(wardenTarget(args({ mode: GHOST_AI_MODE.scatter }))).toEqual(wardenScatterTarget());
+    expect(wardenScatterTarget()).toEqual({ col: Math.floor(cols / 2), row: rows + 2 });
+  });
+
+  it("walks out through the door column while leaving", () => {
+    const exit = getActiveLayout().ghostHouseExit;
+    expect(
+      wardenTarget(
+        args({ phase: GHOST_PHASE.leaving, ghostCol: exit.col, ghostRow: exit.row + 1 }),
+      ),
     ).toEqual(exit);
   });
 });
