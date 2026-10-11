@@ -10,7 +10,11 @@ export type RunUpload = { platform: Platform; record: RunLogRecord };
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
-export function resolveApiUrl(raw: string | undefined, pageHostname: string): string | null {
+export function resolveApiUrl(
+  raw: string | undefined,
+  pageHostname: string,
+  devServer: boolean,
+): string | null {
   const trimmed = raw?.trim().replace(/\/$/, "");
   if (!trimmed) {
     return null;
@@ -21,7 +25,7 @@ export function resolveApiUrl(raw: string | undefined, pageHostname: string): st
   } catch {
     return null;
   }
-  if (LOCAL_HOSTS.has(pageHostname) && !LOCAL_HOSTS.has(apiHost)) {
+  if ((devServer || LOCAL_HOSTS.has(pageHostname)) && !LOCAL_HOSTS.has(apiHost)) {
     return null;
   }
   return trimmed;

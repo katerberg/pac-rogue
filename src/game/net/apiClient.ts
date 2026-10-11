@@ -8,7 +8,7 @@ const REQUEST_TIMEOUT_MS = 5000;
 let draining = false;
 
 function apiBaseUrl(): string | null {
-  return resolveApiUrl(import.meta.env.VITE_API_URL, location.hostname);
+  return resolveApiUrl(import.meta.env.VITE_API_URL, location.hostname, import.meta.env.DEV);
 }
 
 async function uploadRun(baseUrl: string, body: RunUpload): Promise<"done" | "retry"> {

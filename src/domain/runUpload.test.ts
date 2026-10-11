@@ -45,19 +45,30 @@ describe("runUpload", () => {
 
   it("never lets a localhost page talk to a non-local API", () => {
     const prod = "https://dot-man-api.example.workers.dev/";
-    expect(resolveApiUrl(prod, "katerberg.github.io")).toBe(
+    expect(resolveApiUrl(prod, "katerberg.github.io", false)).toBe(
       "https://dot-man-api.example.workers.dev",
     );
-    expect(resolveApiUrl(prod, "127.0.0.1")).toBeNull();
-    expect(resolveApiUrl(prod, "localhost")).toBeNull();
-    expect(resolveApiUrl("http://127.0.0.1:8788", "127.0.0.1")).toBe("http://127.0.0.1:8788");
-    expect(resolveApiUrl("http://localhost:8787/", "localhost")).toBe("http://localhost:8787");
+    expect(resolveApiUrl(prod, "127.0.0.1", false)).toBeNull();
+    expect(resolveApiUrl(prod, "localhost", false)).toBeNull();
+    expect(resolveApiUrl("http://127.0.0.1:8788", "127.0.0.1", false)).toBe(
+      "http://127.0.0.1:8788",
+    );
+    expect(resolveApiUrl("http://localhost:8787/", "localhost", false)).toBe(
+      "http://localhost:8787",
+    );
+  });
+
+  it("never lets a dev server talk to a non-local API, whatever its hostname", () => {
+    expect(resolveApiUrl("https://api.example.dev", "192.168.1.20", true)).toBeNull();
+    expect(resolveApiUrl("http://127.0.0.1:8788", "192.168.1.20", true)).toBe(
+      "http://127.0.0.1:8788",
+    );
   });
 
   it("treats a missing or malformed API URL as off", () => {
-    expect(resolveApiUrl(undefined, "katerberg.github.io")).toBeNull();
-    expect(resolveApiUrl("  ", "katerberg.github.io")).toBeNull();
-    expect(resolveApiUrl("not a url", "katerberg.github.io")).toBeNull();
+    expect(resolveApiUrl(undefined, "katerberg.github.io", false)).toBeNull();
+    expect(resolveApiUrl("  ", "katerberg.github.io", false)).toBeNull();
+    expect(resolveApiUrl("not a url", "katerberg.github.io", false)).toBeNull();
   });
 
   it("falls back to web for unknown platforms", () => {

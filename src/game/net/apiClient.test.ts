@@ -33,6 +33,7 @@ beforeEach(() => {
   installMemoryStorage();
   vi.stubGlobal("location", { hostname: "katerberg.github.io" });
   vi.stubEnv("VITE_API_URL", "https://api.test/");
+  vi.stubEnv("DEV", false);
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
 });
 
@@ -53,6 +54,14 @@ describe("drainRunUploads", () => {
 
   it("never uploads from a localhost page to a non-local API", async () => {
     vi.stubGlobal("location", { hostname: "127.0.0.1" });
+    seedRuns(1);
+    const fetchMock = stubFetch();
+    await drainRunUploads();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("never uploads to a non-local API from the dev server", async () => {
+    vi.stubEnv("DEV", true);
     seedRuns(1);
     const fetchMock = stubFetch();
     await drainRunUploads();
