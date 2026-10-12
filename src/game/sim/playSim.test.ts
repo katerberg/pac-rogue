@@ -2,7 +2,8 @@ import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { FRUIT_FLICKER_MS, FRUIT_LIFETIME_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
-import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
+import { GHOST_ROSTERS, rosterIdForSeed } from "../../domain/ghostRoster";
 import { CHAIN_PAIR } from "../../domain/bossRules";
 import {
   BOSS_STAGE_BLACK_HOLD_MS,
@@ -4182,18 +4183,18 @@ describe("ghost style (neon line art vs pixel)", () => {
     [...(values ?? [])].map(String).sort();
 
   it("draws no line art by default (pixel STYLE)", () => {
-    const sim = startSim({ level: 5 }, "lineart");
+    const sim = startSim({ level: 5, roster: 0 }, "lineart");
     expect(sim.snapshot().lineArtGhosts).toEqual([]);
     expect(sim.snapshot().lineArtPlayer).toBe(false);
     expect(sim.snapshot().lineArtQuarter).toBe(false);
   });
 
   it("draws every present ghost as neon line art under neon STYLE, on every level", () => {
-    const neonSim = startSim({ level: 5 }, "lineart");
+    const neonSim = startSim({ level: 5, roster: 0 }, "lineart");
     neonSim.setGhostStyle("neon");
     expect(sorted(neonSim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
     for (const level of [1, 9]) {
-      const sim = startSim({ level }, "lineart");
+      const sim = startSim({ level, roster: 0 }, "lineart");
       sim.setGhostStyle("neon");
       const snap = sim.snapshot();
       expect(snap.lineArtGhosts.length).toBeGreaterThan(0);
@@ -4204,7 +4205,7 @@ describe("ghost style (neon line art vs pixel)", () => {
   });
 
   it("tells the renderer which drawables are line art, Dot-Man included", () => {
-    const sim = startSim({ level: 5 }, "lineart");
+    const sim = startSim({ level: 5, roster: 0 }, "lineart");
     sim.setGhostStyle("neon");
     const events = runFrames(sim, 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
@@ -4222,7 +4223,7 @@ describe("ghost style (neon line art vs pixel)", () => {
   });
 
   it("draws no line art with the pixel style, and switches back mid-run", () => {
-    const sim = startSim({ level: 5 }, "lineart");
+    const sim = startSim({ level: 5, roster: 0 }, "lineart");
     sim.setGhostStyle("pixel");
     const events = runFrames(sim, 1);
     const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
@@ -4237,7 +4238,7 @@ describe("ghost style (neon line art vs pixel)", () => {
   });
 
   it("keeps line-art ghosts and Dot-Man under lined style", () => {
-    const sim = startSim({ level: 5 }, "lineart");
+    const sim = startSim({ level: 5, roster: 0 }, "lineart");
     sim.setGhostStyle("lined");
     expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
     expect(sim.snapshot().lineArtPlayer).toBe(true);
@@ -4246,7 +4247,7 @@ describe("ghost style (neon line art vs pixel)", () => {
 
   it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {
     const furthestCatch = (tuning: Tuning): number => {
-      const sim = new PlaySim({ ...defaultPlayOptions(), level: 5 }, "lineart", tuning);
+      const sim = new PlaySim({ ...defaultPlayOptions(), level: 5, roster: 0 }, "lineart", tuning);
       sim.start();
       const clyde = query(sim.world, [Ghost, GhostKind]).find(
         (eid) => GhostKind.kind[eid] === GHOST_KIND.clyde,
@@ -5195,13 +5196,49 @@ describe("bare query flags", () => {
   });
 });
 
-describe("PlaySim LEARN-only ghosts", () => {
-  it("no level spawns Spunky or the Wardy", () => {
-    for (let level = 1; level <= 9; level += 1) {
-      const sim = startSim({ level }, "spunky");
-      const kinds = sim.snapshot().ghosts.map((g) => g.kind);
-      expect(kinds).not.toContain("spunky");
-      expect(kinds).not.toContain("wardy");
+describe("PlaySim rosters", () => {
+  const kindsOf = (sim: PlaySim) => sim.snapshot().ghosts.map((g) => g.kind);
+
+  it("spawns each roster in slot order, introduced over levels 1-3", () => {
+    GHOST_ROSTERS.forEach((roster, id) => {
+      const names = roster.map((kind) => ghostKindLabel(kind).toLowerCase());
+      expect(kindsOf(startSim({ level: 1, roster: id }, "roster"))).toEqual(names.slice(0, 2));
+      expect(kindsOf(startSim({ level: 2, roster: id }, "roster"))).toEqual(names.slice(0, 3));
+      expect(kindsOf(startSim({ level: 3, roster: id }, "roster"))).toEqual(names);
+      expect(startSim({ level: 3, roster: id }, "roster").snapshot().roster).toBe(id);
+    });
+  });
+
+  it("keeps the same roster on levels 3 through 8", () => {
+    for (const id of [0, 3, 5]) {
+      const level3 = kindsOf(startSim({ level: 3, roster: id }, "roster"));
+      for (const level of [4, 5, 6, 7, 8]) {
+        expect(kindsOf(startSim({ level, roster: id }, "roster"))).toEqual(level3);
+      }
     }
+  });
+
+  it("rolls the roster once from the seed, and replays it", () => {
+    const rolled = startSim({ level: 3 }, "roster-seed-a").snapshot().roster;
+    expect(startSim({ level: 3 }, "roster-seed-a").snapshot().roster).toBe(rolled);
+    expect(rolled).toBe(rosterIdForSeed("roster-seed-a"));
+  });
+
+  it("releases by slot: a Wardy in the front slot leaves on the first input like Pinky did", () => {
+    const sim = startSim({ level: 2, maze: "maze1", roster: 2 }, "roster-release");
+    const phaseOf = (name: string) => sim.snapshot().ghosts.find((g) => g.kind === name)!.phase;
+    expect(phaseOf("wardy")).toBe("inHouse");
+    runFrames(sim, 2, { keys: held("left") });
+    expect(phaseOf("wardy")).not.toBe("inHouse");
+  });
+
+  it("releases the same slot gates whichever ghosts fill them", () => {
+    const flankLeaves = (roster: number, flank: string) => {
+      const sim = startSim({ level: 2, maze: "maze1", roster }, "roster-flank");
+      runFrames(sim, 30, { keys: held("left") });
+      return sim.snapshot().ghosts.find((g) => g.kind === flank)!.phase !== "inHouse";
+    };
+    expect(flankLeaves(0, "inky")).toBe(true);
+    expect(flankLeaves(4, "wardy")).toBe(true);
   });
 });

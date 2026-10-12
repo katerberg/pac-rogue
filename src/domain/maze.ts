@@ -103,8 +103,8 @@ export const TURN_ALIGN_EPS = 2;
 
 export const BASE_FRUIT_SPAWN_THRESHOLDS = [70, 170] as const;
 export const BASE_FEAST_FRUIT_SPAWN_THRESHOLDS = [60, 130, 200] as const;
-export const BASE_INKY_RELEASE_PELLETS = 30;
-export const BASE_CLYDE_RELEASE_PELLETS = 60;
+export const BASE_FLANK_RELEASE_PELLETS = 30;
+export const BASE_RELIEF_RELEASE_PELLETS = 60;
 export const BASE_ELROY1_DOTS_LEFT = 20;
 export const BASE_ELROY2_DOTS_LEFT = 10;
 
@@ -138,8 +138,8 @@ export type MazeLayout = {
   fruitSpawn: MazeTile;
   pelletCount: number;
   fruitThresholds: readonly [number, number];
-  inkyReleasePellets: number;
-  clydeReleasePellets: number;
+  flankReleasePellets: number;
+  reliefReleasePellets: number;
   elroy1DotsLeft: number;
   elroy2DotsLeft: number;
 };
@@ -720,8 +720,8 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
     fruitSpawn,
     pelletCount,
     fruitThresholds,
-    inkyReleasePellets: scaleCount(BASE_INKY_RELEASE_PELLETS, pelletCount, basePelletCount),
-    clydeReleasePellets: scaleCount(BASE_CLYDE_RELEASE_PELLETS, pelletCount, basePelletCount),
+    flankReleasePellets: scaleCount(BASE_FLANK_RELEASE_PELLETS, pelletCount, basePelletCount),
+    reliefReleasePellets: scaleCount(BASE_RELIEF_RELEASE_PELLETS, pelletCount, basePelletCount),
     elroy1DotsLeft,
     elroy2DotsLeft,
   };

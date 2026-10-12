@@ -1,33 +1,32 @@
-import { type GhostKindId } from "./ghostKind";
+import type { ReleaseSlot } from "./ghostRoster";
 import {
-  GHOST_RELEASE_PRIORITY,
   isTimeGatedRelease,
   releaseDelayMs,
   releaseDots,
-  shouldReleaseKind,
+  shouldReleaseSlot,
   type GhostReleaseAdds,
   type GhostReleaseClock,
 } from "./ghostRelease";
 
 function remainingTimeMs(
-  kind: GhostKindId,
+  slot: ReleaseSlot,
   clock: GhostReleaseClock,
   adds: GhostReleaseAdds,
 ): number {
-  const delay = releaseDelayMs(kind, adds.delayAddMs ?? 0, adds.tuning);
+  const delay = releaseDelayMs(slot, adds.delayAddMs ?? 0, adds.tuning);
   return clock.started ? Math.max(0, delay - clock.elapsedMs) : delay;
 }
 
 export function compareInHouseReleaseOrder(
-  a: GhostKindId,
-  b: GhostKindId,
+  a: ReleaseSlot,
+  b: ReleaseSlot,
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
   adds: GhostReleaseAdds = {},
 ): number {
-  const aReady = shouldReleaseKind(a, clock, collectedCount, afterLifeRelease, adds);
-  const bReady = shouldReleaseKind(b, clock, collectedCount, afterLifeRelease, adds);
+  const aReady = shouldReleaseSlot(a, clock, collectedCount, afterLifeRelease, adds);
+  const bReady = shouldReleaseSlot(b, clock, collectedCount, afterLifeRelease, adds);
   if (aReady !== bReady) {
     return aReady ? -1 : 1;
   }
@@ -39,15 +38,15 @@ export function compareInHouseReleaseOrder(
   }
   const byGate = aTimed
     ? remainingTimeMs(a, clock, adds) - remainingTimeMs(b, clock, adds)
-    : releaseDots(a, clock.level, afterLifeRelease, adds.clydePelletAdd, adds.tuning) -
-      releaseDots(b, clock.level, afterLifeRelease, adds.clydePelletAdd, adds.tuning);
+    : releaseDots(a, clock.level, afterLifeRelease, adds.reliefPelletAdd, adds.tuning) -
+      releaseDots(b, clock.level, afterLifeRelease, adds.reliefPelletAdd, adds.tuning);
   if (byGate !== 0) {
     return byGate;
   }
-  return GHOST_RELEASE_PRIORITY.indexOf(a) - GHOST_RELEASE_PRIORITY.indexOf(b);
+  return a - b;
 }
 
-export function sortInHouseGhosts<T extends { kind: GhostKindId; eid?: number }>(
+export function sortInHouseGhosts<T extends { slot: ReleaseSlot; eid?: number }>(
   ghosts: readonly T[],
   clock: GhostReleaseClock,
   collectedCount: number,
@@ -60,8 +59,8 @@ export function sortInHouseGhosts<T extends { kind: GhostKindId; eid?: number }>
     (left, right) =>
       held(left) - held(right) ||
       compareInHouseReleaseOrder(
-        left.kind,
-        right.kind,
+        left.slot,
+        right.slot,
         clock,
         collectedCount,
         afterLifeRelease,

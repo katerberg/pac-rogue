@@ -73,6 +73,7 @@ import {
 } from "../../domain/fruit";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { pickRosterId, RELEASE_SLOT_BY_KIND, type ReleaseSlot } from "../../domain/ghostRoster";
 import {
   DEFAULT_GHOST_STYLE,
   lineArtDrawableIds,
@@ -91,7 +92,7 @@ import {
   type GhostModeClock,
 } from "../../domain/ghostMode";
 import {
-  BLINKY_RELEASE_DELAY_MS,
+  ANCHOR_RELEASE_DELAY_MS,
   createGhostReleaseClock,
   resetIdle,
   tickGhostRelease,
@@ -256,7 +257,7 @@ import {
   lazyLooperRings,
   regenToFull,
   frozenGhostEid,
-  ghostHouseClydePelletAdd,
+  ghostHouseReliefPelletAdd,
   ghostHouseReleaseDelayAddMs,
   ghostSpeedMultiplier,
   grantLivesForUpgrade,
@@ -441,7 +442,7 @@ export class PlaySim {
   private lastPlayerCell: Cell | null = null;
   private timeBonusDrain: TimeBonusDrain | null = null;
   private levelIndex = 1;
-  private secondGhostKind: GhostKindId = GHOST_KIND.pinky;
+  private rosterId = 0;
   private bossState: BossState | null = null;
   private bossMouths: BossTunnelMouth[] = [];
   private bossStageTransition: BossStageTransition | null = null;
@@ -525,8 +526,7 @@ export class PlaySim {
         : options.store !== null
           ? storeLevelFor(options.store, this.midStoreLevel)
           : 1);
-    this.secondGhostKind =
-      this.random.stream("secondGhost")() < 0.5 ? GHOST_KIND.pinky : GHOST_KIND.inky;
+    this.rosterId = options.roster ?? pickRosterId(this.random);
     this.runUpgrades = createRunUpgrades(options.enableUpgrades);
     for (const id of this.runUpgrades.owned) {
       this.lives += grantLivesForUpgrade(id);
@@ -735,10 +735,15 @@ export class PlaySim {
     );
   }
 
+  currentRoster(): number {
+    return this.rosterId;
+  }
+
   snapshot() {
     const upgrades = this.runUpgrades;
     return {
       seed: this.random.seed,
+      roster: this.rosterId,
       knobs: this.options.knobs,
       tuning: this.currentTuning,
       level: this.levelIndex,
@@ -1478,7 +1483,7 @@ export class PlaySim {
     const haunted = hauntedGhostEid(this.runUpgrades);
     return {
       delayAddMs: ghostHouseReleaseDelayAddMs(this.effectiveUpgrades()),
-      clydePelletAdd: ghostHouseClydePelletAdd(this.effectiveUpgrades()),
+      reliefPelletAdd: ghostHouseReliefPelletAdd(this.effectiveUpgrades()),
       tuning: this.currentTuning,
       heldGhostEids: [...(haunted === null ? [] : [haunted]), ...this.runUpgrades.hunterHeldEids],
     };
@@ -2036,11 +2041,10 @@ export class PlaySim {
       this.startBoss(boss);
       this.recordSeen([...boss.ghostKinds]);
     } else {
-      const ghostKinds =
-        this.options.ghosts ?? ghostKindsForLevel(this.levelIndex, this.secondGhostKind);
-      for (const kind of ghostKinds) {
-        this.spawnGhost(kind);
-      }
+      const ghostKinds = this.options.ghosts ?? ghostKindsForLevel(this.levelIndex, this.rosterId);
+      ghostKinds.forEach((kind, index) => {
+        this.spawnGhost(kind, this.options.ghosts === null ? (index as ReleaseSlot) : undefined);
+      });
       this.recordSeen(ghostKinds);
     }
 
@@ -2123,7 +2127,7 @@ export class PlaySim {
     for (let i = 0; i < house; i += 1) {
       this.spawnBossGhostInHouse(
         bossGhostKind(def, i),
-        BLINKY_RELEASE_DELAY_MS + i * def.houseReleaseStaggerMs,
+        ANCHOR_RELEASE_DELAY_MS + i * def.houseReleaseStaggerMs,
       );
     }
     this.bossState = { ...this.bossState, pendingSpawns: tunnel };
@@ -2535,7 +2539,7 @@ export class PlaySim {
           this.afterLifeRelease,
           {
             delayAddMs: ghostHouseReleaseDelayAddMs(this.effectiveUpgrades()),
-            clydePelletAdd: ghostHouseClydePelletAdd(this.effectiveUpgrades()),
+            reliefPelletAdd: ghostHouseReliefPelletAdd(this.effectiveUpgrades()),
           },
           frozenGhostEid(this.runUpgrades),
         ),
@@ -3014,7 +3018,7 @@ export class PlaySim {
     return eid;
   }
 
-  private spawnGhost(kind: GhostKindId): number {
+  private spawnGhost(kind: GhostKindId, slot: ReleaseSlot = RELEASE_SLOT_BY_KIND[kind]): number {
     const eid = addEntity(this.world);
     addComponent(this.world, eid, Position);
     addComponent(this.world, eid, Velocity);
@@ -3037,6 +3041,7 @@ export class PlaySim {
     Speed.px[eid] = 0;
     GhostKind.kind[eid] = kind;
     GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+    Ghost.releaseSlot[eid] = slot;
     Ghost.decidedCol[eid] = Number.NaN;
     Ghost.decidedRow[eid] = Number.NaN;
     Drawable.id[eid] = GHOST_DRAWABLE_BY_KIND[kind];

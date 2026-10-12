@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { GHOST_ELROY2_SPEED, GHOST_HOUSE_EXIT_SPEED, GHOST_TUNNEL_SPEED_RATIO } from "./ghostSpeed";
 import {
-  BASE_CLYDE_RELEASE_PELLETS,
+  BASE_RELIEF_RELEASE_PELLETS,
   BASE_ELROY1_DOTS_LEFT,
   BASE_ELROY2_DOTS_LEFT,
   BASE_FRUIT_SPAWN_THRESHOLDS,
-  BASE_INKY_RELEASE_PELLETS,
+  BASE_FLANK_RELEASE_PELLETS,
   MAZE_BACKGROUND_COLOR,
   WALL_CORNER_RADIUS,
   WALL_STROKE_COLOR,
@@ -25,8 +25,8 @@ import {
 
 describe("DEFAULT_TUNING", () => {
   it("matches the gameplay constants it replaces", () => {
-    expect(DEFAULT_TUNING.inkyReleasePellets).toBe(BASE_INKY_RELEASE_PELLETS);
-    expect(DEFAULT_TUNING.clydeReleasePellets).toBe(BASE_CLYDE_RELEASE_PELLETS);
+    expect(DEFAULT_TUNING.flankReleasePellets).toBe(BASE_FLANK_RELEASE_PELLETS);
+    expect(DEFAULT_TUNING.reliefReleasePellets).toBe(BASE_RELIEF_RELEASE_PELLETS);
     expect(DEFAULT_TUNING.elroy1DotsLeft).toBe(BASE_ELROY1_DOTS_LEFT);
     expect(DEFAULT_TUNING.elroy2DotsLeft).toBe(BASE_ELROY2_DOTS_LEFT);
     expect([DEFAULT_TUNING.fruitThreshold1, DEFAULT_TUNING.fruitThreshold2]).toEqual(

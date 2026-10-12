@@ -3,6 +3,8 @@ import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
 import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
+import { GHOST_ROSTERS } from "./ghostRoster";
+import { parseRosterParam } from "./rosterFlag";
 import { parseGodModeFlag } from "./godModeFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
 import { parseKnobsFlag } from "./knobsFlag";
@@ -28,6 +30,7 @@ export type PlayOptions = {
   quarters: number | null;
   bonus: number | null;
   ghosts: GhostKindId[] | null;
+  roster: number | null;
   boss: BossId | null;
   bossStageAdvance: boolean;
   jumpToUpgrade: boolean;
@@ -71,7 +74,13 @@ export function parsePlayOptions(params: URLSearchParams): {
   warnIf(
     "ghosts",
     ghosts === null,
-    "Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde",
+    "Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde|spunky|wardy",
+  );
+  const roster = parseRosterParam(params);
+  warnIf(
+    "roster",
+    roster === null,
+    `Unknown ?roster= value; expected an integer 0..${GHOST_ROSTERS.length - 1}`,
   );
   const boss = parseBossParam(params);
   warnIf("boss", boss === null, "Unknown ?boss= value; expected blinkySwarm|chainedGhosts");
@@ -87,6 +96,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       quarters,
       bonus,
       ghosts,
+      roster,
       boss,
       bossStageAdvance: parseBossStageAdvanceFlag(params),
       jumpToUpgrade: parseJumpToUpgradeFlag(params),

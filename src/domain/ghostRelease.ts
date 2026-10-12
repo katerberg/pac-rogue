@@ -1,25 +1,18 @@
-import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import { RELEASE_SLOT, type ReleaseSlot } from "./ghostRoster";
 import { scaleToActiveLayout } from "./maze";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
-export const BLINKY_RELEASE_DELAY_MS = DEFAULT_TUNING.blinkyReleaseMs;
-export const PINKY_RELEASE_DELAY_MS = DEFAULT_TUNING.pinkyReleaseMs;
+export const ANCHOR_RELEASE_DELAY_MS = DEFAULT_TUNING.anchorReleaseMs;
+export const FRONT_RELEASE_DELAY_MS = DEFAULT_TUNING.frontReleaseMs;
 
-export const LEVEL2_CLYDE_RELEASE_DOTS = DEFAULT_TUNING.level2ClydeDots;
-export const POST_LIFE_PINKY_RELEASE_DOTS = DEFAULT_TUNING.postLifePinkyDots;
-export const POST_LIFE_INKY_RELEASE_DOTS = DEFAULT_TUNING.postLifeInkyDots;
-export const POST_LIFE_CLYDE_RELEASE_DOTS = DEFAULT_TUNING.postLifeClydeDots;
+export const LEVEL2_RELIEF_RELEASE_DOTS = DEFAULT_TUNING.level2ReliefDots;
+export const POST_LIFE_FRONT_RELEASE_DOTS = DEFAULT_TUNING.postLifeFrontDots;
+export const POST_LIFE_FLANK_RELEASE_DOTS = DEFAULT_TUNING.postLifeFlankDots;
+export const POST_LIFE_RELIEF_RELEASE_DOTS = DEFAULT_TUNING.postLifeReliefDots;
 
 export const IDLE_RELEASE_MS = DEFAULT_TUNING.idleReleaseMs;
 export const IDLE_RELEASE_LATE_MS = DEFAULT_TUNING.idleReleaseLateMs;
 export const IDLE_RELEASE_LATE_FROM_LEVEL = 5;
-
-export const GHOST_RELEASE_PRIORITY: readonly GhostKindId[] = [
-  GHOST_KIND.blinky,
-  GHOST_KIND.pinky,
-  GHOST_KIND.inky,
-  GHOST_KIND.clyde,
-];
 
 export type GhostReleaseClock = {
   started: boolean;
@@ -90,81 +83,75 @@ export function shouldReleaseGhostAt(clock: GhostReleaseClock, delayMs: number):
 
 export type GhostReleaseAdds = {
   delayAddMs?: number;
-  clydePelletAdd?: number;
+  reliefPelletAdd?: number;
   tuning?: Tuning;
   heldGhostEids?: readonly number[];
 };
 
-export function isTimeGatedRelease(kind: GhostKindId, afterLifeRelease: boolean): boolean {
-  return (
-    kind === GHOST_KIND.blinky ||
-    ((kind === GHOST_KIND.pinky || kind === GHOST_KIND.spunky || kind === GHOST_KIND.wardy) &&
-      !afterLifeRelease)
-  );
+export function isTimeGatedRelease(slot: ReleaseSlot, afterLifeRelease: boolean): boolean {
+  return slot === RELEASE_SLOT.anchor || (slot === RELEASE_SLOT.front && !afterLifeRelease);
 }
 
 export function releaseDelayMs(
-  kind: GhostKindId,
+  slot: ReleaseSlot,
   delayAddMs = 0,
   tuning: Tuning = DEFAULT_TUNING,
 ): number {
-  return (kind === GHOST_KIND.blinky ? tuning.blinkyReleaseMs : tuning.pinkyReleaseMs) + delayAddMs;
+  return (
+    (slot === RELEASE_SLOT.anchor ? tuning.anchorReleaseMs : tuning.frontReleaseMs) + delayAddMs
+  );
 }
 
 export function releaseDots(
-  kind: GhostKindId,
+  slot: ReleaseSlot,
   level: number,
   afterLifeRelease: boolean,
-  clydePelletAdd = 0,
+  reliefPelletAdd = 0,
   tuning: Tuning = DEFAULT_TUNING,
 ): number {
-  const clydeAdd = kind === GHOST_KIND.clyde ? clydePelletAdd : 0;
+  const reliefAdd = slot === RELEASE_SLOT.relief ? reliefPelletAdd : 0;
   if (afterLifeRelease) {
-    switch (kind) {
-      case GHOST_KIND.pinky:
-      case GHOST_KIND.spunky:
-      case GHOST_KIND.wardy:
-        return tuning.postLifePinkyDots;
-      case GHOST_KIND.inky:
-        return tuning.postLifeInkyDots;
-      case GHOST_KIND.clyde:
-        return tuning.postLifeClydeDots + clydeAdd;
-      case GHOST_KIND.blinky:
+    switch (slot) {
+      case RELEASE_SLOT.front:
+        return tuning.postLifeFrontDots;
+      case RELEASE_SLOT.flank:
+        return tuning.postLifeFlankDots;
+      case RELEASE_SLOT.relief:
+        return tuning.postLifeReliefDots + reliefAdd;
+      case RELEASE_SLOT.anchor:
         return 0;
     }
   }
-  switch (kind) {
-    case GHOST_KIND.inky:
-      return level <= 1 ? scaleToActiveLayout(tuning.inkyReleasePellets) : 0;
-    case GHOST_KIND.clyde:
+  switch (slot) {
+    case RELEASE_SLOT.flank:
+      return level <= 1 ? scaleToActiveLayout(tuning.flankReleasePellets) : 0;
+    case RELEASE_SLOT.relief:
       return (
         (level <= 1
-          ? scaleToActiveLayout(tuning.clydeReleasePellets)
+          ? scaleToActiveLayout(tuning.reliefReleasePellets)
           : level === 2
-            ? tuning.level2ClydeDots
-            : 0) + clydeAdd
+            ? tuning.level2ReliefDots
+            : 0) + reliefAdd
       );
-    case GHOST_KIND.pinky:
-    case GHOST_KIND.spunky:
-    case GHOST_KIND.wardy:
-    case GHOST_KIND.blinky:
+    case RELEASE_SLOT.front:
+    case RELEASE_SLOT.anchor:
       return 0;
   }
 }
 
-export function shouldReleaseKind(
-  kind: GhostKindId,
+export function shouldReleaseSlot(
+  slot: ReleaseSlot,
   clock: GhostReleaseClock,
   collectedCount: number,
   afterLifeRelease = false,
   adds: GhostReleaseAdds = {},
 ): boolean {
-  if (isTimeGatedRelease(kind, afterLifeRelease)) {
-    return shouldReleaseGhostAt(clock, releaseDelayMs(kind, adds.delayAddMs ?? 0, adds.tuning));
+  if (isTimeGatedRelease(slot, afterLifeRelease)) {
+    return shouldReleaseGhostAt(clock, releaseDelayMs(slot, adds.delayAddMs ?? 0, adds.tuning));
   }
   const dots = afterLifeRelease ? collectedCount - clock.baselineCollected : collectedCount;
   return (
     clock.started &&
-    dots >= releaseDots(kind, clock.level, afterLifeRelease, adds.clydePelletAdd, adds.tuning)
+    dots >= releaseDots(slot, clock.level, afterLifeRelease, adds.reliefPelletAdd, adds.tuning)
   );
 }
