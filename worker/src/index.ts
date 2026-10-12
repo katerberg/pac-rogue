@@ -8,6 +8,7 @@ import {
   upsertRunValues,
   validateUpload,
 } from "./runs";
+import { BOARD_LIMIT, SELECT_BOARD, toBoardRow, UPSERT_BEST, type BoardDbRow } from "./scores";
 
 export type Env = { DB: D1Database; IP_HASH_KEY?: string };
 
@@ -22,6 +23,10 @@ function json(status: number, body: unknown): Response {
     status,
     headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
   });
+}
+
+function methodNotAllowed(): Response {
+  return json(405, { error: "method_not_allowed" });
 }
 
 async function hashIp(key: string, ip: string): Promise<string> {
@@ -70,10 +75,19 @@ async function postRun(request: Request, env: Env): Promise<Response> {
     return json(429, { error: "rate_limited" });
   }
   const country = countryOrUnknown((request as { cf?: { country?: unknown } }).cf?.country);
-  await env.DB.prepare(UPSERT_RUN)
-    .bind(...upsertRunValues(upload, { country, ipHash, receivedAt: new Date(now).toISOString() }))
-    .run();
+  await env.DB.batch([
+    env.DB.prepare(UPSERT_RUN).bind(
+      ...upsertRunValues(upload, { country, ipHash, receivedAt: new Date(now).toISOString() }),
+    ),
+    env.DB.prepare(UPSERT_BEST).bind(upload.record.id, upload.record.installId),
+  ]);
   return json(201, { ok: true });
+}
+
+async function getScores(url: URL, env: Env): Promise<Response> {
+  const requester = url.searchParams.get("installId");
+  const { results } = await env.DB.prepare(SELECT_BOARD).bind(BOARD_LIMIT).all<BoardDbRow>();
+  return json(200, { scores: results.map((row) => toBoardRow(row, requester)) });
 }
 
 export default {
@@ -82,14 +96,14 @@ export default {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS_HEADERS });
       }
-      const { pathname } = new URL(request.url);
-      if (pathname !== "/runs") {
-        return json(404, { error: "not_found" });
+      const url = new URL(request.url);
+      if (url.pathname === "/runs") {
+        return request.method === "POST" ? await postRun(request, env) : methodNotAllowed();
       }
-      if (request.method !== "POST") {
-        return json(405, { error: "method_not_allowed" });
+      if (url.pathname === "/scores") {
+        return request.method === "GET" ? await getScores(url, env) : methodNotAllowed();
       }
-      return await postRun(request, env);
+      return json(404, { error: "not_found" });
     } catch {
       return json(500, { error: "internal" });
     }

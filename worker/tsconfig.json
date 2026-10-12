@@ -12,5 +12,6 @@
     "noUnusedParameters": true,
     "types": ["@cloudflare/workers-types", "vitest/globals"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
 }

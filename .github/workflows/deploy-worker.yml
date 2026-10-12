@@ -5,8 +5,7 @@ on:
     branches: [main]
     paths:
       - "worker/**"
-      - "src/domain/runLog.ts"
-      - "src/domain/runUpload.ts"
+      - "src/domain/**"
       - ".github/workflows/deploy-worker.yml"
   workflow_dispatch:
 

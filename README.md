@@ -112,7 +112,7 @@ GitHub Pages must use source **branch `gh-pages` / folder `/`** (not `main`). Af
 
 ## Global runs and high scores
 
-Finished, non-debug runs are uploaded to a Cloudflare Worker (`worker/`, name `dot-man-api`) backed by D1, so `/data` can show runs from every player and (soon) a global high-score board. Players can opt out in **Settings → SHARE RUN STATS**; see [docs/PRIVACY.md](./docs/PRIVACY.md). API, schema and SQL recipes: [worker/README.md](./worker/README.md). Nothing is sent unless the build has `VITE_API_URL`, which only the Pages deploy sets (dev, preview, CI and probes never do); a page on `localhost` also refuses any non-local API URL, so automation can never write to the real database.
+Finished, non-debug runs are uploaded to a Cloudflare Worker (`worker/`, name `dot-man-api`) backed by D1, so `/data` can show runs from every player and **High Scores → GLOBAL** shows the best run of every player. Players can opt out in **Settings → SHARE RUN STATS**; see [docs/PRIVACY.md](./docs/PRIVACY.md). API, schema and SQL recipes: [worker/README.md](./worker/README.md). Nothing is sent unless the build has `VITE_API_URL`, which only the Pages deploy sets (dev, preview, CI and probes never do); a page on `localhost` also refuses any non-local API URL, so automation can never write to the real database.
 
 **One-time setup (owner):**
 
