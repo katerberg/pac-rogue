@@ -8,14 +8,7 @@ import {
   upsertRunValues,
   validateUpload,
 } from "./runs";
-import {
-  BOARD_LIMIT,
-  requesterInstallId,
-  SELECT_BOARD,
-  toBoardRow,
-  UPSERT_BEST,
-  type BoardDbRow,
-} from "./scores";
+import { BOARD_LIMIT, SELECT_BOARD, toBoardRow, UPSERT_BEST, type BoardDbRow } from "./scores";
 
 export type Env = { DB: D1Database; IP_HASH_KEY?: string };
 
@@ -92,7 +85,7 @@ async function postRun(request: Request, env: Env): Promise<Response> {
 }
 
 async function getScores(url: URL, env: Env): Promise<Response> {
-  const requester = requesterInstallId(url.searchParams.get("installId"));
+  const requester = url.searchParams.get("installId");
   const { results } = await env.DB.prepare(SELECT_BOARD).bind(BOARD_LIMIT).all<BoardDbRow>();
   return json(200, { scores: results.map((row) => toBoardRow(row, requester)) });
 }

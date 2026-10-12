@@ -53,20 +53,20 @@ export function parseGlobalScores(json: unknown): GlobalScoreRow[] | null {
   return Array.isArray(scores) && scores.every(isScoreRow) ? scores : null;
 }
 
-export function otherTab(tab: ScoreTab): ScoreTab {
-  return tab === "local" ? "global" : "local";
-}
+const EMPTY_MESSAGE: Record<GlobalBoard["kind"], string> = {
+  idle: "LOADING...",
+  loading: "LOADING...",
+  ok: "NO SCORES YET",
+  offline: "GLOBAL OFFLINE",
+  error: "GLOBAL UNAVAILABLE",
+};
 
-export function globalBoardMessage(board: GlobalBoard): string | null {
-  switch (board.kind) {
-    case "idle":
-    case "loading":
-      return "LOADING...";
-    case "ok":
-      return board.rows.length === 0 ? "NO SCORES YET" : null;
-    case "offline":
-      return "GLOBAL OFFLINE";
-    case "error":
-      return "GLOBAL UNAVAILABLE";
-  }
+export function globalBoardView(board: GlobalBoard): {
+  rows: GlobalScoreRow[];
+  emptyMessage: string;
+  mineRow: number | null;
+} {
+  const rows = board.kind === "ok" ? board.rows : [];
+  const mine = rows.findIndex((row) => row.mine);
+  return { rows, emptyMessage: EMPTY_MESSAGE[board.kind], mineRow: mine === -1 ? null : mine };
 }

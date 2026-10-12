@@ -11,8 +11,7 @@ import {
 } from "../../domain/highScoresView";
 import {
   GLOBAL_SCORE_COLUMNS,
-  globalBoardMessage,
-  otherTab,
+  globalBoardView,
   type GlobalBoard,
   type ScoreTab,
 } from "../../domain/leaderboard";
@@ -191,7 +190,7 @@ export class HighScoresScene extends Phaser.Scene {
   }
 
   private switchTab(): void {
-    this.tab = otherTab(this.tab);
+    this.tab = this.tab === "local" ? "global" : "local";
     this.placeTabs();
     if (this.tab === "global" && this.global.kind === "idle") {
       this.global = { kind: "loading" };
@@ -238,11 +237,9 @@ export class HighScoresScene extends Phaser.Scene {
       this.renderRows(toHighScoreRows(loadRunHistory()), HIGH_SCORE_COLUMNS, "NO SCORES YET");
       return;
     }
-    const message = globalBoardMessage(this.global);
-    const rows = this.global.kind === "ok" ? this.global.rows : [];
-    const mine = rows.findIndex((row) => row.mine);
-    this.mineRow = mine === -1 ? null : mine;
-    this.renderRows(rows, GLOBAL_SCORE_COLUMNS, message ?? "", this.mineRow);
+    const view = globalBoardView(this.global);
+    this.mineRow = view.mineRow;
+    this.renderRows(view.rows, GLOBAL_SCORE_COLUMNS, view.emptyMessage, view.mineRow);
   }
 
   private renderRows<R>(

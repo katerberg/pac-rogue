@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   GLOBAL_SCORE_COLUMNS,
-  globalBoardMessage,
-  otherTab,
+  globalBoardView,
   parseGlobalScores,
   type GlobalScoreRow,
 } from "./leaderboard";
@@ -42,15 +41,19 @@ describe("leaderboard", () => {
   });
 
   it("names every board state that has no rows to show", () => {
-    expect(globalBoardMessage({ kind: "loading" })).toBe("LOADING...");
-    expect(globalBoardMessage({ kind: "ok", rows: [] })).toBe("NO SCORES YET");
-    expect(globalBoardMessage({ kind: "ok", rows: [ROW] })).toBeNull();
-    expect(globalBoardMessage({ kind: "offline" })).toBe("GLOBAL OFFLINE");
-    expect(globalBoardMessage({ kind: "error" })).toBe("GLOBAL UNAVAILABLE");
+    const message = (board: Parameters<typeof globalBoardView>[0]) =>
+      globalBoardView(board).emptyMessage;
+    expect(message({ kind: "idle" })).toBe("LOADING...");
+    expect(message({ kind: "loading" })).toBe("LOADING...");
+    expect(message({ kind: "ok", rows: [] })).toBe("NO SCORES YET");
+    expect(message({ kind: "offline" })).toBe("GLOBAL OFFLINE");
+    expect(message({ kind: "error" })).toBe("GLOBAL UNAVAILABLE");
+    expect(globalBoardView({ kind: "error" }).rows).toEqual([]);
   });
 
-  it("toggles between tabs", () => {
-    expect(otherTab("local")).toBe("global");
-    expect(otherTab("global")).toBe("local");
+  it("finds the player's own row", () => {
+    const board = { kind: "ok" as const, rows: [ROW, { ...ROW, mine: true }] };
+    expect(globalBoardView(board)).toMatchObject({ rows: board.rows, mineRow: 1 });
+    expect(globalBoardView({ kind: "ok", rows: [ROW] }).mineRow).toBeNull();
   });
 });

@@ -1,7 +1,6 @@
 import type { GlobalScoreRow } from "../../src/domain/leaderboard";
 import { MAX_LEVEL } from "../../src/domain/levelRules";
 import { COMPLETE_REACH } from "../../src/domain/runAnalytics";
-import { UUID } from "./runs";
 
 export const BOARD_LIMIT = 50;
 
@@ -29,10 +28,6 @@ export type BoardDbRow = {
   country: string;
   received_at: string;
 };
-
-export function requesterInstallId(value: string | null): string | null {
-  return value !== null && UUID.test(value) ? value : null;
-}
 
 export function toBoardRow(row: BoardDbRow, requester: string | null): GlobalScoreRow {
   return {
