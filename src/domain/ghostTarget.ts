@@ -16,7 +16,7 @@ export const INKY_LOOKAHEAD_TILES = DEFAULT_TUNING.inkyLookahead;
 
 export const SPUNKY_AGGRO_TILES = 6;
 
-export const WARDEN_STRIKE_TILES = 6;
+export const WARDEN_STRIKE_TILES = 4;
 
 export type GhostTarget = {
   col: number;

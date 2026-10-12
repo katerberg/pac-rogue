@@ -77,7 +77,7 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
   are clipped to the maze rectangle. Points tied to Maze-Man or the helper Blinky follow their exact
   positions so the lines move smoothly; the targeting math itself stays tile-based. Spunky — the
   `SPUNKY_AGGRO_TILES` (6) circle around Maze-Man. Warden — the line from Maze-Man to the rim tile he is
-  heading for, plus the inner rectangle `WARDEN_STRIKE_TILES + 1` (7) tiles in from the maze edge.
+  heading for, plus the inner rectangle `WARDEN_STRIKE_TILES + 1` (5) tiles in from the maze edge.
 
 ## Spunky
 
@@ -93,9 +93,9 @@ rules of his own. The radius is a plain constant, not a `?knobs=1` knob.
 
 A LEARN-only purple ghost (`GHOST_KIND.warden`) that works the rim as Blinky's other half of a pincer:
 Blinky pushes from behind, the Warden waits at the end of the line you are running along.
-`wardenTarget` (`ghostTarget.ts`): while Maze-Man is farther than `WARDEN_STRIKE_TILES` (6) from every
+`wardenTarget` (`ghostTarget.ts`): while Maze-Man is farther than `WARDEN_STRIKE_TILES` (4) from every
 edge (`rimDistance`) he targets the rim tile in Maze-Man's facing direction at Maze-Man's own row or
-column (`wardenRimTile`; with no facing, the nearest edge); within 6 tiles of an edge he targets
+column (`wardenRimTile`; with no facing, the nearest edge); within 4 tiles of an edge he targets
 Maze-Man's tile; scatter targets bottom-center below the maze (`wardenScatterTarget`, also his Scatter
 Burst landing cell). Targets are only a rim tile, not a route: he steers greedily like every ghost, so he
 keeps looping through the interior corridors on the way. Like Spunky he never appears in a level roster,
