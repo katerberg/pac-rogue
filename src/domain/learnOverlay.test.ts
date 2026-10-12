@@ -47,6 +47,29 @@ describe("predictGhostPath", () => {
   });
 });
 
+describe("predictGhostPath with a target that changes along the path", () => {
+  it("follows the target resolved at each tile, not the one from the start", () => {
+    const start = { col: 1, row: 1 };
+    const farLeft = { col: 0, row: 1 };
+    const farRight = { col: 20, row: 1 };
+    const fixed = predictGhostPath({
+      start,
+      facing: GHOST_DIR.right,
+      target: farLeft,
+      maxSteps: 12,
+    });
+    const switching = predictGhostPath({
+      start,
+      facing: GHOST_DIR.right,
+      target: farLeft,
+      targetAt: (tile) => (tile.col >= 5 ? farRight : farLeft),
+      maxSteps: 12,
+    });
+    expect(switching).not.toEqual(fixed);
+    expect(switching.slice(0, 5)).toEqual(fixed.slice(0, 5));
+  });
+});
+
 describe("predictGhostPath loops", () => {
   it("stops before revisiting a tile when the target is unreachable", () => {
     const path = predictGhostPath({

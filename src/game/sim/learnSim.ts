@@ -204,6 +204,7 @@ import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } f
 export type LearnOverlayModel = {
   kind: GhostKindId;
   target: GhostTarget;
+  targetAt: (tile: GhostTarget) => GhostTarget;
   playerTile: GhostAiContext["player"];
   blinkyTile: GhostAiContext["blinky"];
   playerPx: { x: number; y: number } | null;
@@ -294,6 +295,7 @@ export class LearnSim {
     return {
       kind: this.selected,
       target,
+      targetAt: (tile) => resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, tile),
       playerTile: ctx.player,
       blinkyTile: ctx.blinky,
       playerPx:

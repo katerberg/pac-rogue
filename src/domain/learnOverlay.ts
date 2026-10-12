@@ -50,6 +50,7 @@ export function predictGhostPath(args: {
   start: GhostTarget;
   facing: GhostDir;
   target: GhostTarget;
+  targetAt?: (tile: GhostTarget) => GhostTarget;
   maxSteps?: number;
 }): GhostTarget[] {
   const { cols, rows } = getActiveLayout();
@@ -60,15 +61,16 @@ export function predictGhostPath(args: {
   let facing = args.facing;
 
   for (let step = 0; step < maxSteps; step += 1) {
-    if (tile.col === args.target.col && tile.row === args.target.row) {
+    const target = args.targetAt === undefined ? args.target : args.targetAt(tile);
+    if (tile.col === target.col && tile.row === target.row) {
       break;
     }
     const dir = pickGhostDirection({
       x: cellCenterX(tile.col),
       y: cellCenterY(tile.row),
       facing,
-      targetCol: args.target.col,
-      targetRow: args.target.row,
+      targetCol: target.col,
+      targetRow: target.row,
       solids: rules.solids,
       canEnter: rules.canEnter,
     });

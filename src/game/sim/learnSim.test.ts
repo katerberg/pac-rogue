@@ -79,6 +79,24 @@ describe("LearnSim", () => {
     expect(near.target).toEqual({ col: ghostTile.col, row: ghostTile.row + 2 });
   });
 
+  it("Spunky's prediction re-resolves the target for each tile the ghost reaches", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.spunky);
+    const ghost = sim.ghostEid!;
+    const player = query(sim.world, [Player, Position])[0]!;
+    const ghostTile = { col: worldToCol(Position.x[ghost]!), row: worldToRow(Position.y[ghost]!) };
+    const playerTile = { col: ghostTile.col, row: ghostTile.row + SPUNKY_AGGRO_TILES + 3 };
+    Position.x[player] = cellCenterX(playerTile.col);
+    Position.y[player] = cellCenterY(playerTile.row);
+    const model = sim.overlayModel()!;
+    expect(model.target).toEqual(spunkyPostTarget());
+
+    const inRange = { col: playerTile.col, row: playerTile.row - 2 };
+    expect(model.targetAt(ghostTile)).toEqual(spunkyPostTarget());
+    expect(model.targetAt(inRange)).toEqual(playerTile);
+  });
+
   it("the Wardy waits on the rim ahead of Maze-Man, then strikes once he nears an edge", () => {
     const sim = new LearnSim("learn");
     sim.start();

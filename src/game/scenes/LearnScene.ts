@@ -598,6 +598,7 @@ export class LearnScene extends Phaser.Scene {
       start: { col: worldToCol(ghostPx.x), row: worldToRow(ghostPx.y) },
       facing: model.ghostFacing,
       target: pathTarget,
+      targetAt: (tile) => clampTileToBoard(model.targetAt(tile), layout.cols, layout.rows),
     });
     const pathPx = path.map((tile) => ({ x: cellCenterX(tile.col), y: cellCenterY(tile.row) }));
     const last = path.at(-1);
