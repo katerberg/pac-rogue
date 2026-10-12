@@ -79,6 +79,40 @@ describe("LearnSim", () => {
     expect(near.target).toEqual({ col: ghostTile.col, row: ghostTile.row + 2 });
   });
 
+  const STATIC_TARGET_KINDS = Object.entries(GHOST_KIND).filter(([name]) => name !== "inky");
+
+  it.each(STATIC_TARGET_KINDS)(
+    "the predicted path of %s is the route it then takes",
+    (_name, kind) => {
+      const sim = new LearnSim("learn");
+      sim.start();
+      sim.selectGhost(kind);
+      const ghost = sim.ghostEid!;
+      const predicted = sim.overlayModel()!.path.map((tile) => `${tile.col},${tile.row}`);
+      expect(predicted.length).toBeGreaterThan(8);
+
+      const walked: string[] = [];
+      for (let i = 0; i < 60 * 60 && walked.length < predicted.length; i += 1) {
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+        const tile = `${worldToCol(Position.x[ghost]!)},${worldToRow(Position.y[ghost]!)}`;
+        if (tile !== walked.at(-1)) {
+          walked.push(tile);
+        }
+      }
+      expect(walked).toEqual(predicted);
+    },
+  );
+
+  it("Spunky's prediction runs the long loop to its off-board post", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.spunky);
+    const model = sim.overlayModel()!;
+    expect(model.target).toEqual(spunkyPostTarget());
+    expect(model.target.row).toBeLessThan(0);
+    expect(model.path.length).toBeGreaterThan(40);
+  });
+
   it("the Wardy waits on the rim ahead of Maze-Man, then strikes once he nears an edge", () => {
     const sim = new LearnSim("learn");
     sim.start();

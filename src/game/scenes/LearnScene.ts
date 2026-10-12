@@ -12,22 +12,13 @@ import {
 import type { GhostTarget } from "../../domain/ghostTarget";
 import {
   GHOST_COLOR_BY_KIND,
-  clampTileToBoard,
   clipSegmentToRect,
   easeToward,
-  predictGhostPath,
   targetDerivation,
   type PixelPoint,
   type PixelRect,
 } from "../../domain/learnOverlay";
-import {
-  cellCenterX,
-  cellCenterY,
-  getActiveLayout,
-  TILE_SIZE,
-  worldToCol,
-  worldToRow,
-} from "../../domain/maze";
+import { cellCenterX, cellCenterY, getActiveLayout, TILE_SIZE } from "../../domain/maze";
 import { GHOST_DRAWABLE_BY_KIND, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
   emptySeenRecord,
@@ -593,15 +584,10 @@ export class LearnScene extends Phaser.Scene {
       this.strokePixelsClipped(points, rect);
     }
 
-    const pathTarget = clampTileToBoard(target, layout.cols, layout.rows);
-    const path = predictGhostPath({
-      start: { col: worldToCol(ghostPx.x), row: worldToRow(ghostPx.y) },
-      facing: model.ghostFacing,
-      target: pathTarget,
-    });
+    const { path } = model;
     const pathPx = path.map((tile) => ({ x: cellCenterX(tile.col), y: cellCenterY(tile.row) }));
     const last = path.at(-1);
-    if (last !== undefined && last.col === pathTarget.col && last.row === pathTarget.row) {
+    if (last !== undefined && last.col === target.col && last.row === target.row) {
       pathPx[pathPx.length - 1] = reticle;
     }
     this.overlay.lineStyle(PATH_WIDTH, color, PATH_ALPHA);

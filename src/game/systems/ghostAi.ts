@@ -83,11 +83,12 @@ export function resolveGhostTarget(
   mode: GhostAiMode,
   pelletsRemaining: number,
   ctx: GhostAiContext,
+  tile?: { col: number; row: number },
 ): GhostTarget {
   const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
   const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
-  const col = worldToCol(Position.x[eid] ?? 0);
-  const row = worldToRow(Position.y[eid] ?? 0);
+  const col = tile?.col ?? worldToCol(Position.x[eid] ?? 0);
+  const row = tile?.row ?? worldToRow(Position.y[eid] ?? 0);
   const { player, blinky, tuning } = ctx;
 
   if (kind === GHOST_KIND.pinky) {
