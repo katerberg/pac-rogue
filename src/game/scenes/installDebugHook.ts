@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import { runLogOverrunActive, storedRunCount } from "../storage/runLogStorage";
+import { HighScoresScene } from "./HighScoresScene";
 import { PlayScene } from "./PlayScene";
 import { SettingsScene } from "./SettingsScene";
 
@@ -12,6 +13,7 @@ declare global {
         scenes: Record<string, SceneStatus>;
         play: ReturnType<PlayScene["debugSnapshot"]> | null;
         settings: ReturnType<SettingsScene["debugSnapshot"]> | null;
+        highScores: ReturnType<HighScoresScene["debugSnapshot"]> | null;
         runLog: { stored: number; overrun: boolean };
         sounds: Record<string, boolean>;
       };
@@ -48,12 +50,17 @@ export function installDebugHook(game: Phaser.Game): void {
       }
       const play = game.scene.getScene("PlayScene");
       const settings = game.scene.getScene("SettingsScene");
+      const highScores = game.scene.getScene("HighScoresScene");
       return {
         scenes,
         play: play instanceof PlayScene && "PlayScene" in scenes ? play.debugSnapshot() : null,
         settings:
           settings instanceof SettingsScene && "SettingsScene" in scenes
             ? settings.debugSnapshot()
+            : null,
+        highScores:
+          highScores instanceof HighScoresScene && "HighScoresScene" in scenes
+            ? highScores.debugSnapshot()
             : null,
         runLog: { stored: storedRunCount(), overrun: runLogOverrunActive() },
         sounds: playingSounds(game),

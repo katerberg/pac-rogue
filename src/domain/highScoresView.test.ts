@@ -3,6 +3,7 @@ import { RUN_HISTORY_VERSION } from "./runHistory";
 import {
   dateLabelFromRecordedAt,
   HIGH_SCORE_COLUMN_GAP,
+  HIGH_SCORE_COLUMNS,
   highScoreCellX,
   layoutHighScoreColumns,
   toHighScoreRows,
@@ -120,7 +121,7 @@ const SAMPLE_ROWS: HighScoreRow[] = [
 
 describe("layoutHighScoreColumns", () => {
   it("keeps every row's cells on the same column edges under a proportional measure", () => {
-    const layout = layoutHighScoreColumns(proportionalMeasure, SAMPLE_ROWS);
+    const layout = layoutHighScoreColumns(proportionalMeasure, SAMPLE_ROWS, HIGH_SCORE_COLUMNS);
     const listLeftX = 100;
     expect(highScoreCellX(layout, "pellets", "right", listLeftX)).toBe(
       listLeftX + layout.left.pellets + layout.width.pellets,
@@ -146,7 +147,7 @@ describe("layoutHighScoreColumns", () => {
   });
 
   it("packs columns with the measured gap and matches monospace pad widths", () => {
-    const layout = layoutHighScoreColumns(monospaceMeasure, SAMPLE_ROWS);
+    const layout = layoutHighScoreColumns(monospaceMeasure, SAMPLE_ROWS, HIGH_SCORE_COLUMNS);
     expect(layout.gap).toBe(HIGH_SCORE_COLUMN_GAP.length);
     expect(layout.width.pellets).toBe("PELLETS".length);
     expect(layout.width.time).toBe(

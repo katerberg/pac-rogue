@@ -1,6 +1,7 @@
+import { parseGlobalScores, type GlobalBoard } from "../../domain/leaderboard";
 import { nextUploads, parsePlatform, resolveApiUrl, type RunUpload } from "../../domain/runUpload";
 import { loadPrivacySettings } from "../storage/privacySettingsStorage";
-import { loadAllRuns } from "../storage/runLogStorage";
+import { getInstallId, runsNewestFirst } from "../storage/runLogStorage";
 import { loadUploadState, markUploaded } from "../storage/runUploadStorage";
 
 const REQUEST_TIMEOUT_MS = 5000;
@@ -29,7 +30,12 @@ export async function drainRunUploads(): Promise<void> {
   draining = true;
   try {
     const platform = parsePlatform(import.meta.env.VITE_PLATFORM);
-    for (const record of nextUploads(loadAllRuns().runs, loadUploadState())) {
+    const state = loadUploadState();
+    const sent = new Set(state.uploaded);
+    for (const record of nextUploads(
+      runsNewestFirst((id) => sent.has(id)),
+      state,
+    )) {
       if ((await uploadRun(baseUrl, { platform, record: { ...record, params: {} } })) === "retry") {
         return;
       }
@@ -39,5 +45,22 @@ export async function drainRunUploads(): Promise<void> {
     console.warn("run upload failed; will retry later");
   } finally {
     draining = false;
+  }
+}
+
+export async function fetchGlobalScores(): Promise<GlobalBoard> {
+  const baseUrl = apiBaseUrl();
+  if (baseUrl === null) {
+    return { kind: "offline" };
+  }
+  try {
+    const response = await fetch(
+      `${baseUrl}/scores?installId=${encodeURIComponent(getInstallId())}`,
+      { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
+    );
+    const rows = response.ok ? parseGlobalScores(await response.json()) : null;
+    return rows === null ? { kind: "error" } : { kind: "ok", rows };
+  } catch {
+    return { kind: "error" };
   }
 }

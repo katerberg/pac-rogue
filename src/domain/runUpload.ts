@@ -68,12 +68,18 @@ export function uploadable(record: RunLogRecord, state: UploadState): boolean {
 }
 
 export function nextUploads(
-  records: readonly RunLogRecord[],
+  newestFirst: Iterable<RunLogRecord>,
   state: UploadState,
   max = MAX_UPLOADS_PER_DRAIN,
 ): RunLogRecord[] {
-  return records
-    .filter((record) => uploadable(record, state))
-    .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-    .slice(0, max);
+  const pending: RunLogRecord[] = [];
+  for (const record of newestFirst) {
+    if (record.startedAt < state.since) {
+      break;
+    }
+    if (uploadable(record, state)) {
+      pending.push(record);
+    }
+  }
+  return pending.sort((a, b) => a.startedAt.localeCompare(b.startedAt)).slice(0, max);
 }

@@ -9,6 +9,7 @@ import {
   fillSyntheticRuns,
   getInstallId,
   loadAllRuns,
+  runsNewestFirst,
   newRunLogMeta,
   purgeOldestRuns,
   relabelAbandoned,
@@ -138,6 +139,17 @@ describe("runLogStorage", () => {
     const { runs, unreadable } = loadAllRuns();
     expect(runs.map((run) => run.id)).toEqual(["a", "b"]);
     expect(unreadable).toBe(2);
+  });
+
+  it("reads runs newest first without parsing the skipped ones", () => {
+    const store = installMemoryStorage();
+    saveRunLog(recordWith("a", "death"));
+    saveRunLog(recordWith("b", "death"));
+    saveRunLog(recordWith("c", "death"));
+    store.set(`${RUN_LOG_RUN_KEY_PREFIX}b`, "{oops");
+    const read = vi.spyOn(localStorage, "getItem");
+    expect([...runsNewestFirst((id) => id === "c")].map((run) => run.id)).toEqual(["a"]);
+    expect(read.mock.calls.map(([key]) => key)).not.toContain(`${RUN_LOG_RUN_KEY_PREFIX}c`);
   });
 
   it("does nothing without localStorage", () => {

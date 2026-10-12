@@ -17,9 +17,13 @@ When a run ends (game over, run complete, quit, or a run that was closed mid-way
 - No IP address is stored. The server keeps only a one-way keyed hash of it, used to rate-limit uploads.
 - Nothing from runs played before this feature shipped, and nothing from debug or test builds.
 
+## What other players see
+
+**High Scores → GLOBAL** lists the best finished run (game over or run complete) of each install: pellets, level reached, date and country. No name or id is shown; your own row is highlighted only on your device.
+
 ## Turning it off
 
-Open **Settings** and untick **SHARE RUN STATS**. From then on nothing is sent from that browser.
+Open **Settings** and untick **SHARE RUN STATS**. From then on nothing is sent from that browser; runs already sent (and your place on the global board) stay until you ask for deletion.
 
 ## Deleting your data
 

@@ -43,6 +43,15 @@ describe("runUpload", () => {
     expect(queued[0]!.id).toBe(`r${MAX_UPLOADS_PER_DRAIN + 2}`);
   });
 
+  it("stops at the first run older than the marker", () => {
+    function* newestFirst(): Generator<RunLogRecord> {
+      yield run("new");
+      yield run("old", { startedAt: "2026-10-11T00:00:00.000Z" });
+      throw new Error("read past the marker");
+    }
+    expect(nextUploads(newestFirst(), STATE).map((r) => r.id)).toEqual(["new"]);
+  });
+
   it("never lets a localhost page talk to a non-local API", () => {
     const prod = "https://dot-man-api.example.workers.dev/";
     expect(resolveApiUrl(prod, "katerberg.github.io", false)).toBe(

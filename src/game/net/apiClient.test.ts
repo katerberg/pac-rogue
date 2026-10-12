@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRunLog, TEST_RUN_LOG_META } from "../../domain/runLog";
 import { MAX_UPLOADS_PER_DRAIN } from "../../domain/runUpload";
 import { savePrivacySettings } from "../storage/privacySettingsStorage";
-import { saveRunLog } from "../storage/runLogStorage";
+import { getInstallId, saveRunLog } from "../storage/runLogStorage";
 import { loadUploadState } from "../storage/runUploadStorage";
 import { installMemoryStorage } from "../storage/testMemoryStorage";
-import { drainRunUploads } from "./apiClient";
+import { drainRunUploads, fetchGlobalScores } from "./apiClient";
 
 function seedRuns(count: number): void {
   loadUploadState();
@@ -111,5 +111,48 @@ describe("drainRunUploads", () => {
     const fetchMock = stubFetch();
     await Promise.all([drainRunUploads(), drainRunUploads()]);
     expect(fetchMock).toHaveBeenCalledTimes(MAX_UPLOADS_PER_DRAIN);
+  });
+});
+
+describe("fetchGlobalScores", () => {
+  const row = {
+    pellets: 5,
+    reach: 2,
+    country: "US",
+    receivedAt: "2026-10-12T01:00:00Z",
+    mine: true,
+  };
+
+  function stubBoard(status: number, body: unknown) {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(body), { status }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("is offline without an API URL and never fetches", async () => {
+    vi.stubEnv("VITE_API_URL", "");
+    const fetchMock = stubBoard(200, { scores: [row] });
+    expect(await fetchGlobalScores()).toEqual({ kind: "offline" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches the board with this install id", async () => {
+    const fetchMock = stubBoard(200, { scores: [row] });
+    expect(await fetchGlobalScores()).toEqual({ kind: "ok", rows: [row] });
+    expect(fetchMock.mock.calls[0]![0]).toBe(`https://api.test/scores?installId=${getInstallId()}`);
+  });
+
+  it("reports an error for a failed request or a malformed board", async () => {
+    stubBoard(500, { scores: [row] });
+    expect(await fetchGlobalScores()).toEqual({ kind: "error" });
+    stubBoard(200, { scores: [{ pellets: "lots" }] });
+    expect(await fetchGlobalScores()).toEqual({ kind: "error" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Promise.reject(new Error("offline"))),
+    );
+    expect(await fetchGlobalScores()).toEqual({ kind: "error" });
   });
 });

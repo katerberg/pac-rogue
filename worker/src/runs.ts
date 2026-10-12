@@ -5,7 +5,7 @@ export const RATE_LIMIT_MAX = 30;
 export const RATE_LIMIT_WINDOW_MS = 600_000;
 export const MAX_BODY_BYTES = 65_536;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FINISHED = ["death", "complete", "quit", "abandoned"];
 
 function intIn(value: unknown, min: number, max: number): boolean {

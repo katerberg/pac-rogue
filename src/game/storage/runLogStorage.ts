@@ -107,6 +107,14 @@ export function relabelAbandoned(): void {
   }
 }
 
+function readRun(storage: Storage, id: string): RunLogRecord | null {
+  try {
+    return parseRunLogRecord(storage.getItem(runKey(id)));
+  } catch {
+    return null;
+  }
+}
+
 export function loadAllRuns(): { runs: RunLogRecord[]; unreadable: number } {
   const storage = readStorage();
   const runs: RunLogRecord[] = [];
@@ -115,12 +123,7 @@ export function loadAllRuns(): { runs: RunLogRecord[]; unreadable: number } {
     return { runs, unreadable };
   }
   for (const id of loadIndex(storage)) {
-    let record: RunLogRecord | null = null;
-    try {
-      record = parseRunLogRecord(storage.getItem(runKey(id)));
-    } catch {
-      record = null;
-    }
+    const record = readRun(storage, id);
     if (record === null) {
       unreadable += 1;
     } else {
@@ -128,6 +131,24 @@ export function loadAllRuns(): { runs: RunLogRecord[]; unreadable: number } {
     }
   }
   return { runs, unreadable };
+}
+
+export function* runsNewestFirst(skipId: (id: string) => boolean): Generator<RunLogRecord> {
+  const storage = readStorage();
+  if (storage === null) {
+    return;
+  }
+  const index = loadIndex(storage);
+  for (let i = index.length - 1; i >= 0; i -= 1) {
+    const id = index[i]!;
+    if (skipId(id)) {
+      continue;
+    }
+    const record = readRun(storage, id);
+    if (record !== null) {
+      yield record;
+    }
+  }
 }
 
 export function storedRunCount(): number {

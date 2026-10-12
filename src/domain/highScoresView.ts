@@ -9,13 +9,13 @@ export type HighScoreRow = {
 
 export type HighScoreAlign = "left" | "right";
 
-export type HighScoreColumnId = "pellets" | "time" | "date";
+export type HighScoreColumnId = string;
 
-export type HighScoreColumn = {
+export type HighScoreColumn<R = HighScoreRow> = {
   id: HighScoreColumnId;
   header: string;
   align: HighScoreAlign;
-  text: (row: HighScoreRow) => string;
+  text: (row: R) => string;
 };
 
 const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}/;
@@ -77,15 +77,16 @@ export function toHighScoreRows(history: RunHistory): HighScoreRow[] {
     });
 }
 
-export function layoutHighScoreColumns(
+export function layoutHighScoreColumns<R>(
   measure: (text: string) => number,
-  rows: readonly HighScoreRow[],
+  rows: readonly R[],
+  columns: readonly HighScoreColumn<R>[],
 ): HighScoreColumnLayout {
   const gap = measure(HIGH_SCORE_COLUMN_GAP);
   const left = {} as Record<HighScoreColumnId, number>;
   const width = {} as Record<HighScoreColumnId, number>;
   let x = 0;
-  for (const column of HIGH_SCORE_COLUMNS) {
+  for (const column of columns) {
     let w = measure(column.header);
     for (const row of rows) {
       w = Math.max(w, measure(column.text(row)));
