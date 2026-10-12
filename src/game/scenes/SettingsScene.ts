@@ -29,7 +29,6 @@ import {
 } from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
 import { loadPrivacySettings, savePrivacySettings } from "../storage/privacySettingsStorage";
-import { getInstallId } from "../storage/runLogStorage";
 import { loadGhostStyle, saveGhostStyle } from "../storage/ghostStyleStorage";
 import { loadMazeColorSettings, saveMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -97,7 +96,6 @@ const GHOST_STYLE_OPTIONS: { style: GhostStyle; label: string; x: number }[] = [
   { style: "pixel", label: "PIXEL", x: SLIDER_LEFT + 240 },
 ];
 const SHARE_ROW_Y = 446;
-const SHARE_NOTE_Y = 480;
 const AUDIO_DISABLED_WARNING_Y = 510;
 const BACK_Y = PLAYFIELD_HEIGHT - 50;
 
@@ -470,15 +468,6 @@ export class SettingsScene extends Phaser.Scene {
       this.focusIndex = FOCUS_SHARE_RUN_STATS;
       this.toggleShareRunStats();
     });
-    const note = addGameText(
-      this,
-      LABEL_X,
-      SHARE_NOTE_Y,
-      `ANONYMOUS, NO IP STORED - ID ${getInstallId().slice(0, 8)}`,
-      MENU_OPTION_FONT_SIZE,
-      TEXT_COLOR_DIM,
-    );
-    placeGameText(note, LABEL_X, SHARE_NOTE_Y, 0, 0.5);
   }
 
   private toggleShareRunStats(): void {
