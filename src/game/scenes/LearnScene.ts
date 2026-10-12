@@ -125,6 +125,7 @@ const HOVER_PREVIEW_Y_MAX = 510;
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
 type UpgradeRow = {
   id: BaseUpgradeId;
+  accent: number;
   checkMark: Phaser.GameObjects.Shape;
   label: GameText;
   plus: GameText;
@@ -338,6 +339,7 @@ export class LearnScene extends Phaser.Scene {
     const plusX = columnX + UPGRADE_ROW_WIDTH - UPGRADE_PLUS_INSET;
     const checkboxX = columnX + UPGRADE_CHECK_SIZE / 2;
     const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
+    const accent = def.rare === true ? RARE_LABEL_COLOR : TEXT_COLOR_YELLOW;
     const look = learnCheckboxLook(ghostStyle);
     const checkRadius = UPGRADE_CHECK_SIZE / 2;
     if (look.shape === "circle") {
@@ -351,15 +353,9 @@ export class LearnScene extends Phaser.Scene {
     }
     const checkMark =
       look.shape === "circle"
-        ? this.add.circle(checkboxX, y, checkRadius - 2, TEXT_COLOR_YELLOW).setVisible(false)
+        ? this.add.circle(checkboxX, y, checkRadius - 2, accent).setVisible(false)
         : this.add
-            .rectangle(
-              checkboxX,
-              y,
-              UPGRADE_CHECK_SIZE - 4,
-              UPGRADE_CHECK_SIZE - 4,
-              TEXT_COLOR_YELLOW,
-            )
+            .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, accent)
             .setVisible(false);
     const label = addGameText(
       this,
@@ -376,13 +372,13 @@ export class LearnScene extends Phaser.Scene {
       look.shape === "circle"
         ? this.add
             .circle(plusX, y, plusRadius, 0x000000, 0)
-            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_YELLOW)
+            .setStrokeStyle(look.strokeWidth, accent)
             .setVisible(false)
         : this.add
             .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
-            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_YELLOW)
+            .setStrokeStyle(look.strokeWidth, accent)
             .setVisible(false);
-    const plus = addGameText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+    const plus = addGameText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, accent);
     setGameTextBloom(plus, false);
     const pixelInk = textStyleFor(ghostStyle) === "pixel";
     placeGameText(
@@ -411,7 +407,7 @@ export class LearnScene extends Phaser.Scene {
     const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, rowHitH);
     plusZone.on("pointerdown", () => this.toggleEnhanced(def.baseId));
     plusZone.on("pointerover", () => this.cancelUpgradePreview());
-    this.upgradeRows.push({ id: def.baseId, checkMark, label, plus, plusBox, plusZone });
+    this.upgradeRows.push({ id: def.baseId, accent, checkMark, label, plus, plusBox, plusZone });
   }
 
   private refreshUpgradeRows(): void {
@@ -420,8 +416,8 @@ export class LearnScene extends Phaser.Scene {
       row.checkMark.setVisible(state !== "hidden");
       row.plus.setVisible(state !== "hidden");
       row.plusBox.setVisible(state !== "hidden");
-      row.plusBox.setFillStyle(TEXT_COLOR_YELLOW, state === "on" ? 1 : 0);
-      row.plus.setTint(state === "on" ? UPGRADE_PLUS_ON_TINT : TEXT_COLOR_YELLOW);
+      row.plusBox.setFillStyle(row.accent, state === "on" ? 1 : 0);
+      row.plus.setTint(state === "on" ? UPGRADE_PLUS_ON_TINT : row.accent);
       row.label.setText(getUpgradeDef(state === "on" ? enhancedIdOf(row.id) : row.id).label);
       if (state === "hidden") {
         row.plusZone.disableInteractive();
