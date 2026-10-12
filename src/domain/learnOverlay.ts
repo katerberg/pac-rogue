@@ -12,7 +12,7 @@ import {
 } from "./ghostTarget";
 import { cellCenterX, cellCenterY, getActiveLayout } from "./maze";
 
-export const LEARN_PATH_MAX_STEPS = 48;
+export const LEARN_PATH_MAX_STEPS = 120;
 export const RETICLE_EASE_MS = 70;
 
 export const GHOST_COLOR_BY_KIND: Record<GhostKindId, number> = {
@@ -23,13 +23,6 @@ export const GHOST_COLOR_BY_KIND: Record<GhostKindId, number> = {
   [GHOST_KIND.spunky]: 0x66ff66,
   [GHOST_KIND.wardy]: 0xb070ff,
 };
-
-export function clampTileToBoard(tile: GhostTarget, cols: number, rows: number): GhostTarget {
-  return {
-    col: Math.min(cols - 1, Math.max(0, tile.col)),
-    row: Math.min(rows - 1, Math.max(0, tile.row)),
-  };
-}
 
 function stepTile(tile: GhostTarget, dir: GhostDir): GhostTarget {
   switch (dir) {
@@ -57,6 +50,7 @@ export function predictGhostPath(args: {
   const rules = ghostMovementRules(GHOST_PHASE.active);
   const maxSteps = args.maxSteps ?? LEARN_PATH_MAX_STEPS;
   const path: GhostTarget[] = [args.start];
+  const seen = new Set<string>([`${args.start.col},${args.start.row},${args.facing}`]);
   let tile = args.start;
   let facing = args.facing;
 
@@ -76,10 +70,11 @@ export function predictGhostPath(args: {
     });
     const next = stepTile(tile, dir);
     const offBoard = next.col < 0 || next.col >= cols || next.row < 0 || next.row >= rows;
-    const revisit = path.some((seen) => seen.col === next.col && seen.row === next.row);
-    if (dir === GHOST_DIR.none || offBoard || revisit) {
+    const state = `${next.col},${next.row},${dir}`;
+    if (dir === GHOST_DIR.none || offBoard || seen.has(state)) {
       break;
     }
+    seen.add(state);
     path.push(next);
     tile = next;
     facing = dir;

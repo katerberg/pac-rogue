@@ -79,23 +79,26 @@ describe("LearnSim", () => {
     expect(near.target).toEqual({ col: ghostTile.col, row: ghostTile.row + 2 });
   });
 
-  it("Spunky's prediction re-resolves the target for each tile the ghost reaches", () => {
+  it("the predicted path is the route the ghost then takes, off-board post and all", () => {
     const sim = new LearnSim("learn");
     sim.start();
     sim.selectGhost(GHOST_KIND.spunky);
     const ghost = sim.ghostEid!;
-    const player = query(sim.world, [Player, Position])[0]!;
-    const ghostTile = { col: worldToCol(Position.x[ghost]!), row: worldToRow(Position.y[ghost]!) };
-    const playerTile = { col: ghostTile.col, row: ghostTile.row + SPUNKY_AGGRO_TILES + 3 };
-    expect(playerTile.row).toBeLessThan(getActiveLayout().rows);
-    Position.x[player] = cellCenterX(playerTile.col);
-    Position.y[player] = cellCenterY(playerTile.row);
     const model = sim.overlayModel()!;
     expect(model.target).toEqual(spunkyPostTarget());
+    expect(model.target.row).toBeLessThan(0);
+    const predicted = model.path.map((tile) => `${tile.col},${tile.row}`);
+    expect(predicted.length).toBeGreaterThan(40);
 
-    const inRange = { col: playerTile.col, row: playerTile.row - 2 };
-    expect(model.targetAt(ghostTile)).toEqual(spunkyPostTarget());
-    expect(model.targetAt(inRange)).toEqual(playerTile);
+    const walked: string[] = [];
+    for (let i = 0; i < 60 * 60 && walked.length < predicted.length; i += 1) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      const tile = `${worldToCol(Position.x[ghost]!)},${worldToRow(Position.y[ghost]!)}`;
+      if (tile !== walked.at(-1)) {
+        walked.push(tile);
+      }
+    }
+    expect(walked).toEqual(predicted);
   });
 
   it("the Wardy waits on the rim ahead of Maze-Man, then strikes once he nears an edge", () => {

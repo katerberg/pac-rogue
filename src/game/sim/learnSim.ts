@@ -32,6 +32,7 @@ import {
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import type { GhostDir } from "../../domain/ghostPath";
 import type { GhostTarget } from "../../domain/ghostTarget";
+import { predictGhostPath } from "../../domain/learnOverlay";
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import {
   BASE_FRUIT_SPAWN_THRESHOLDS,
@@ -42,6 +43,8 @@ import {
   ghostHouseSpawnCenter,
   isWalkable,
   pelletCellCenters,
+  worldToCol,
+  worldToRow,
 } from "../../domain/maze";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
@@ -204,7 +207,7 @@ import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } f
 export type LearnOverlayModel = {
   kind: GhostKindId;
   target: GhostTarget;
-  targetAt: (tile: GhostTarget) => GhostTarget;
+  path: GhostTarget[];
   playerTile: GhostAiContext["player"];
   blinkyTile: GhostAiContext["blinky"];
   playerPx: { x: number; y: number } | null;
@@ -292,10 +295,19 @@ export class LearnSim {
     const target = resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx);
     const playerEid = query(this.world, [Player, Position])[0];
     const helper = this.helperBlinky;
+    const ghostX = Position.x[eid] ?? 0;
+    const ghostY = Position.y[eid] ?? 0;
+    const ghostFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     return {
       kind: this.selected,
       target,
-      targetAt: (tile) => resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, tile),
+      path: predictGhostPath({
+        start: { col: worldToCol(ghostX), row: worldToRow(ghostY) },
+        facing: ghostFacing,
+        target,
+        targetAt: (tile) =>
+          resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, tile),
+      }),
       playerTile: ctx.player,
       blinkyTile: ctx.blinky,
       playerPx:
@@ -303,8 +315,8 @@ export class LearnSim {
           ? null
           : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 },
       blinkyPx: helper === null ? null : { x: Position.x[helper] ?? 0, y: Position.y[helper] ?? 0 },
-      ghostPx: { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 },
-      ghostFacing: (Facing.direction[eid] ?? DIRECTION.none) as GhostDir,
+      ghostPx: { x: ghostX, y: ghostY },
+      ghostFacing,
     };
   }
 
