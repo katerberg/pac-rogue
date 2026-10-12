@@ -5,7 +5,7 @@ import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorne
 import { GHOST_KIND } from "../../domain/ghostKind";
 import {
   SPUNKY_AGGRO_TILES,
-  WARDEN_STRIKE_TILES,
+  WARDY_STRIKE_TILES,
   rimDistance,
   spunkyPostTarget,
 } from "../../domain/ghostTarget";
@@ -79,20 +79,20 @@ describe("LearnSim", () => {
     expect(near.target).toEqual({ col: ghostTile.col, row: ghostTile.row + 2 });
   });
 
-  it("the Warden waits on the rim ahead of Maze-Man, then strikes once he nears an edge", () => {
+  it("the Wardy waits on the rim ahead of Maze-Man, then strikes once he nears an edge", () => {
     const sim = new LearnSim("learn");
     sim.start();
-    sim.selectGhost(GHOST_KIND.warden);
+    sim.selectGhost(GHOST_KIND.wardy);
     const player = query(sim.world, [Player, Position])[0]!;
     const { cols, rows } = getActiveLayout();
     const deep = { col: Math.floor(cols / 2), row: Math.floor(rows / 2) };
-    expect(rimDistance(deep.col, deep.row)).toBeGreaterThan(WARDEN_STRIKE_TILES);
+    expect(rimDistance(deep.col, deep.row)).toBeGreaterThan(WARDY_STRIKE_TILES);
     Position.x[player] = cellCenterX(deep.col);
     Position.y[player] = cellCenterY(deep.row);
     Facing.direction[player] = DIRECTION.right;
     expect(sim.overlayModel()!.target).toEqual({ col: cols - 1, row: deep.row });
 
-    const near = { col: WARDEN_STRIKE_TILES, row: deep.row };
+    const near = { col: WARDY_STRIKE_TILES, row: deep.row };
     Position.x[player] = cellCenterX(near.col);
     expect(sim.overlayModel()!.target).toEqual(near);
   });
@@ -899,9 +899,9 @@ describe("LearnSim upgrade demos", () => {
     expect(posOf(ghost)).not.toEqual(held);
   });
 
-  it("House Delay also holds the Warden for the delayed release", () => {
+  it("House Delay also holds the Wardy for the delayed release", () => {
     const { sim, player } = setup("passiveGhostHouseDelay");
-    sim.selectGhost(GHOST_KIND.warden);
+    sim.selectGhost(GHOST_KIND.wardy);
     const ghost = sim.ghostEid!;
     const held = posOf(ghost);
     moveTo(player, { x: held.x, y: held.y + 400 });

@@ -6,7 +6,7 @@ live.
 
 ## Seen record
 
-All six ghosts are always selectable (Spunky and the Warden exist only here; no level spawns them). Only upgrades this machine has met in real play are listed.
+All six ghosts are always selectable (Spunky and the Wardy exist only here; no level spawns them). Only upgrades this machine has met in real play are listed.
 
 - [`src/domain/seenRecord.ts`](../src/domain/seenRecord.ts): `SeenRecord` (`ghosts`,
   `upgrades`), parse/serialize, `withSeenGhosts` / `withSeenUpgrade` merges
@@ -27,7 +27,7 @@ All six ghosts are always selectable (Spunky and the Warden exist only here; no 
 
 ## Screen
 
-- Title, then six ghost slots (Blinky, Pinky, Inky, Spunky, Warden, Clyde). The selected slot has a yellow frame.
+- Title, then six ghost slots (Blinky, Pinky, Inky, Spunky, Wardy, Clyde). The selected slot has a yellow frame.
 - Seen upgrades are listed beside the maze, grouped under a colored school header
   (`groupUpgradesBySchool`, `UPGRADE_SCHOOL_ORDER`; empty schools are skipped). `splitSchoolColumns`
   ([`src/domain/learnUpgradeColumns.ts`](../src/domain/learnUpgradeColumns.ts)) fills the left column
@@ -76,8 +76,8 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
   doubled target (plus a pivot dot); Clyde — the `CLYDE_SHY_TILES` circle around Maze-Man. Lines
   are clipped to the maze rectangle. Points tied to Maze-Man or the helper Blinky follow their exact
   positions so the lines move smoothly; the targeting math itself stays tile-based. Spunky — the
-  `SPUNKY_AGGRO_TILES` (7) circle around Maze-Man. Warden — the line from Maze-Man to the rim tile he is
-  heading for, plus the inner rectangle `WARDEN_STRIKE_TILES + 1` (5) tiles in from the maze edge.
+  `SPUNKY_AGGRO_TILES` (7) circle around Maze-Man. Wardy — the line from Maze-Man to the rim tile he is
+  heading for, plus the inner rectangle `WARDY_STRIKE_TILES + 1` (5) tiles in from the maze edge.
 
 ## Spunky
 
@@ -89,14 +89,14 @@ Burst landing cell). He is never in a level roster (`ghostKindsForLevel`), relea
 Ghost House Delay holds him; otherwise he is spawned active like every LEARN ghost) and has no speed
 rules of his own. The radius is a plain constant, not a `?knobs=1` knob.
 
-## Warden
+## Wardy
 
-A LEARN-only purple ghost (`GHOST_KIND.warden`) that works the rim as Blinky's other half of a pincer:
-Blinky pushes from behind, the Warden waits at the end of the line you are running along.
-`wardenTarget` (`ghostTarget.ts`): while Maze-Man is farther than `WARDEN_STRIKE_TILES` (4) from every
+A LEARN-only purple ghost (`GHOST_KIND.wardy`) that works the rim as Blinky's other half of a pincer:
+Blinky pushes from behind, the Wardy waits at the end of the line you are running along.
+`wardyTarget` (`ghostTarget.ts`): while Maze-Man is farther than `WARDY_STRIKE_TILES` (4) from every
 edge (`rimDistance`) he targets the rim tile in Maze-Man's facing direction at Maze-Man's own row or
-column (`wardenRimTile`; with no facing, the nearest edge); within 4 tiles of an edge he targets
-Maze-Man's tile; scatter targets bottom-center below the maze (`wardenScatterTarget`, also his Scatter
+column (`wardyRimTile`; with no facing, the nearest edge); within 4 tiles of an edge he targets
+Maze-Man's tile; scatter targets bottom-center below the maze (`wardyScatterTarget`, also his Scatter
 Burst landing cell). Targets are only a rim tile, not a route: he steers greedily like every ghost, so he
 keeps looping through the interior corridors on the way. Like Spunky he never appears in a level roster,
 is timed-release like Pinky (Ghost House Delay holds him), has no speed rules of his own and the radius

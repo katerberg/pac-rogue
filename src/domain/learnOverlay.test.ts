@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { GHOST_KIND } from "./ghostKind";
 import { GHOST_DIR } from "./ghostPath";
-import { CLYDE_SHY_TILES, SPUNKY_AGGRO_TILES, WARDEN_STRIKE_TILES } from "./ghostTarget";
+import { CLYDE_SHY_TILES, SPUNKY_AGGRO_TILES, WARDY_STRIKE_TILES } from "./ghostTarget";
 import {
   clampTileToBoard,
   clipSegmentToRect,
@@ -96,12 +96,12 @@ describe("targetDerivation", () => {
     });
   });
 
-  it("draws the Warden's strike band and the player-to-rim ray", () => {
-    expect(targetDerivation(GHOST_KIND.warden, input)).toEqual({
+  it("draws the Wardy's strike band and the player-to-rim ray", () => {
+    expect(targetDerivation(GHOST_KIND.wardy, input)).toEqual({
       kind: "rim",
       from: input.player,
       to: input.target,
-      insetTiles: WARDEN_STRIKE_TILES + 1,
+      insetTiles: WARDY_STRIKE_TILES + 1,
     });
   });
 

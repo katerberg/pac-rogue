@@ -17,7 +17,7 @@ import {
   inkyTarget,
   pinkyTarget,
   spunkyTarget,
-  wardenTarget,
+  wardyTarget,
   GHOST_PHASE,
   type GhostTarget,
 } from "../../domain/ghostTarget";
@@ -112,8 +112,8 @@ export function resolveGhostTarget(
       ghostRow: row,
     });
   }
-  if (kind === GHOST_KIND.warden) {
-    return wardenTarget({
+  if (kind === GHOST_KIND.wardy) {
+    return wardyTarget({
       phase,
       mode,
       playerCol: player.col,
