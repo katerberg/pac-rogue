@@ -154,6 +154,36 @@ describe("bests", () => {
     expect(summary(db)).toEqual(["1:400:1"]);
   });
 
+  it("rebuilds exactly the board the uploads built", () => {
+    const db = database(true);
+    store(
+      db,
+      { installId: install(1), pelletsCollected: 80, finalLevel: 40 },
+      "2026-10-12T01:00:00Z",
+    );
+    store(
+      db,
+      { installId: install(1), pelletsCollected: 80, finalLevel: 3 },
+      "2026-10-12T02:00:00Z",
+    );
+    store(
+      db,
+      { installId: install(2), pelletsCollected: 80, finalLevel: 9, outcome: "complete" },
+      "2026-10-12T03:00:00Z",
+    );
+    store(db, { installId: install(3), pelletsCollected: 20 }, "2026-10-12T04:00:00Z");
+    store(
+      db,
+      { installId: install(3), pelletsCollected: 50, outcome: "quit" },
+      "2026-10-12T05:00:00Z",
+    );
+    const all = () => db.prepare("SELECT * FROM bests ORDER BY install_id").all();
+    const incremental = all();
+    db.exec(sql("sql/rebuild-bests.sql"));
+    expect(all()).toEqual(incremental);
+    expect(summary(db)).toEqual(["2:80:10", "1:80:9", "3:20:1"]);
+  });
+
   it("maps rows without ids and marks only the requester's row", () => {
     const row: BoardDbRow = {
       install_id: install(1),
@@ -166,7 +196,7 @@ describe("bests", () => {
       pellets: 5,
       reach: 2,
       country: "US",
-      receivedAt: "2026-10-12T01:00:00Z",
+      receivedAt: "2026-10-12",
       mine: true,
     });
     expect(toBoardRow(row, null).mine).toBe(false);

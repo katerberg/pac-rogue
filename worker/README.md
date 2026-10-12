@@ -21,7 +21,7 @@ CORS `*` on every response (methods `GET, POST, OPTIONS`, header `Content-Type`)
 - Insert-or-update by run `id`; an update only applies when the stored `install_id` matches. In the same batch, a visible `death` or `complete` run replaces its install's best when it has more pellets, or equal pellets and a higher reach.
 - Responses: 201 `{ ok: true }`; 400 `invalid`; 413 `too_large`; 429 `rate_limited` (30 accepted uploads per IP hash per 10 minutes); 503 `unconfigured` (no `IP_HASH_KEY`); 500 `internal`.
 
-`GET /scores?installId=<uuid, optional>` → 200 `{ scores: [{ pellets, reach, country, receivedAt, mine }] }`, the top 50 bests ranked by pellets desc, then reach desc, then earliest `receivedAt`. `reach` is the final level (capped at 9), or 10 for a completed run (shown as `WIN`). `mine` is true only on the row whose install id matches the query.
+`GET /scores?installId=<uuid, optional>` → 200 `{ scores: [{ pellets, reach, country, receivedAt, mine }] }`, the top 50 bests ranked by pellets desc, then reach desc, then earliest upload. `receivedAt` is the upload date only (`YYYY-MM-DD`). `reach` is the final level (capped at 9), or 10 for a completed run (shown as `WIN`). `mine` is true only on the row whose install id matches the query.
 
 Other paths return 404; other methods 405.
 

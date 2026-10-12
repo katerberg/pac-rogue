@@ -34,7 +34,7 @@ export function toBoardRow(row: BoardDbRow, requester: string | null): GlobalSco
     pellets: row.pellets,
     reach: row.reach,
     country: row.country,
-    receivedAt: row.received_at,
+    receivedAt: row.received_at.slice(0, 10),
     mine: requester !== null && row.install_id === requester,
   };
 }
