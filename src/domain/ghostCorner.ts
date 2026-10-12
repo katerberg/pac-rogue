@@ -5,7 +5,7 @@ import {
   inkyScatterTarget,
   pinkyScatterTarget,
   spunkyPostTarget,
-  wardenScatterTarget,
+  wardyScatterTarget,
   type GhostTarget,
 } from "./ghostTarget";
 import { getActiveLayout, isDoor, isHouse, isTunnelMouth, isWalkable, type MazeTile } from "./maze";
@@ -22,8 +22,8 @@ export function scatterTargetForKind(kind: GhostKindId): GhostTarget {
       return clydeScatterTarget();
     case GHOST_KIND.spunky:
       return spunkyPostTarget();
-    case GHOST_KIND.warden:
-      return wardenScatterTarget();
+    case GHOST_KIND.wardy:
+      return wardyScatterTarget();
     default:
       return blinkyScatterTarget();
   }

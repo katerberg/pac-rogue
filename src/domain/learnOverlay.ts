@@ -6,7 +6,7 @@ import {
   CLYDE_SHY_TILES,
   INKY_LOOKAHEAD_TILES,
   SPUNKY_AGGRO_TILES,
-  WARDEN_STRIKE_TILES,
+  WARDY_STRIKE_TILES,
   lookAheadTile,
   type GhostTarget,
 } from "./ghostTarget";
@@ -21,7 +21,7 @@ export const GHOST_COLOR_BY_KIND: Record<GhostKindId, number> = {
   [GHOST_KIND.inky]: 0x00ffff,
   [GHOST_KIND.clyde]: 0xffb852,
   [GHOST_KIND.spunky]: 0x66ff66,
-  [GHOST_KIND.warden]: 0xb070ff,
+  [GHOST_KIND.wardy]: 0xb070ff,
 };
 
 export function clampTileToBoard(tile: GhostTarget, cols: number, rows: number): GhostTarget {
@@ -115,12 +115,12 @@ export function targetDerivation(
       return { kind: "circle", center: input.player, radiusTiles: CLYDE_SHY_TILES };
     case GHOST_KIND.spunky:
       return { kind: "circle", center: input.player, radiusTiles: SPUNKY_AGGRO_TILES };
-    case GHOST_KIND.warden:
+    case GHOST_KIND.wardy:
       return {
         kind: "rim",
         from: input.player,
         to: input.target,
-        insetTiles: WARDEN_STRIKE_TILES + 1,
+        insetTiles: WARDY_STRIKE_TILES + 1,
       };
     default:
       return { kind: "none" };

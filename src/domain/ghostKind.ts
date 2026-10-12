@@ -4,7 +4,7 @@ export const GHOST_KIND = {
   clyde: 2,
   inky: 3,
   spunky: 4,
-  warden: 5,
+  wardy: 5,
 } as const;
 
 export type GhostKindId = (typeof GHOST_KIND)[keyof typeof GHOST_KIND];

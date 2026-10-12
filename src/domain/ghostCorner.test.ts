@@ -60,7 +60,7 @@ describe("ghostCornerCell for the LEARN-only ghosts", () => {
     activateLayout("maze1");
   });
 
-  it("lands Spunky at the top and the Warden at the bottom on every board", () => {
+  it("lands Spunky at the top and the Wardy at the bottom on every board", () => {
     const boards = ["corner-a", "corner-b", "corner-c"].map(
       (seed) => () => activateAsciiLayout(generateMazeAsciiWithRetries(seed)!.ascii),
     );
@@ -72,14 +72,14 @@ describe("ghostCornerCell for the LEARN-only ghosts", () => {
       activate();
       const { cols, rows } = getActiveLayout();
       const spunky = ghostCornerCell(scatterTargetForKind(GHOST_KIND.spunky));
-      const warden = ghostCornerCell(scatterTargetForKind(GHOST_KIND.warden));
-      for (const cell of [spunky, warden]) {
+      const wardy = ghostCornerCell(scatterTargetForKind(GHOST_KIND.wardy));
+      for (const cell of [spunky, wardy]) {
         expect(isWalkable(cell.col, cell.row)).toBe(true);
         expect(isHouse(cell.col, cell.row)).toBe(false);
         expect(Math.abs(cell.col - cols / 2)).toBeLessThanOrEqual(cols / 4);
       }
       expect(spunky.row).toBeLessThan(rows / 2);
-      expect(warden.row).toBeGreaterThanOrEqual(rows / 2);
+      expect(wardy.row).toBeGreaterThanOrEqual(rows / 2);
     }
   });
 });

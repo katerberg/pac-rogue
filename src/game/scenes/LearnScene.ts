@@ -82,7 +82,7 @@ const SLOT_KINDS: readonly GhostKindId[] = [
   GHOST_KIND.inky,
   GHOST_KIND.clyde,
   GHOST_KIND.spunky,
-  GHOST_KIND.warden,
+  GHOST_KIND.wardy,
 ];
 const TITLE_Y = 30;
 const SLOT_Y = 90;
