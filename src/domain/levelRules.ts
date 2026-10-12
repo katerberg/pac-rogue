@@ -74,7 +74,7 @@ export function enhancedOfferChance(levelIndex: number): number {
 }
 
 export function ghostKindsForLevel(levelIndex: number, rosterId: number): GhostKindId[] {
-  const roster = GHOST_ROSTERS[rosterId] ?? GHOST_ROSTERS[0]!;
+  const roster = GHOST_ROSTERS[rosterId]!;
   const level = Math.max(1, levelIndex);
   return roster.slice(0, level === 1 ? 2 : level === 2 ? 3 : roster.length);
 }

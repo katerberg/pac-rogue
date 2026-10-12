@@ -3,8 +3,7 @@ import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
 import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
-import { GHOST_ROSTERS } from "./ghostRoster";
-import { parseRosterParam } from "./rosterFlag";
+import { GHOST_ROSTERS, parseRosterId } from "./ghostRoster";
 import { parseGodModeFlag } from "./godModeFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
 import { parseKnobsFlag } from "./knobsFlag";
@@ -76,7 +75,7 @@ export function parsePlayOptions(params: URLSearchParams): {
     ghosts === null,
     "Unknown ?ghosts= value; expected comma-separated blinky|pinky|inky|clyde|spunky|wardy",
   );
-  const roster = parseRosterParam(params);
+  const roster = parseRosterId(params.get("roster"));
   warnIf(
     "roster",
     roster === null,
