@@ -8,3 +8,8 @@ export const GHOST_KIND = {
 } as const;
 
 export type GhostKindId = (typeof GHOST_KIND)[keyof typeof GHOST_KIND];
+
+export function ghostKindLabel(kind: GhostKindId): string {
+  const name = Object.entries(GHOST_KIND).find(([, id]) => id === kind)![0];
+  return name.toUpperCase();
+}

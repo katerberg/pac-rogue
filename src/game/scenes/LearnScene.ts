@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { parseQueryParams } from "../../domain/queryParams";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
 import { learnCheckboxLook, textStyleFor, type GhostStyle } from "../../domain/ghostArt";
-import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
 import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
   hoverPreviewX,
@@ -88,6 +88,7 @@ const TITLE_Y = 30;
 const SLOT_Y = 90;
 const SLOT_SIZE = 48;
 const SLOT_GAP = 16;
+const GHOST_NAME_Y = SLOT_Y - SLOT_SIZE / 2 - 8;
 const SLOT_STROKE = 4;
 const SLOT_STROKE_COLOR = 0x444444;
 const SLOT_ICON_SIZE = 32;
@@ -141,6 +142,7 @@ export class LearnScene extends Phaser.Scene {
   private upgradeRows: UpgradeRow[] = [];
   private noEffectBanner!: GameText;
   private statusText!: GameText;
+  private ghostNameText!: GameText;
   private statusShown = "";
   private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private hoverPreviewCard: UpgradeCardVisual | null = null;
@@ -176,6 +178,7 @@ export class LearnScene extends Phaser.Scene {
 
     const title = addGameText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
     placeGameText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
+    this.ghostNameText = addGameText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
     this.buildGhostSlots(ghostStyle);
     this.buildUpgradeRows(ghostStyle);
     this.buildBackButton();
@@ -272,9 +275,16 @@ export class LearnScene extends Phaser.Scene {
       const zone = this.add.zone(x, SLOT_Y, SLOT_SIZE, SLOT_SIZE);
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerdown", () => this.selectGhost(kind));
+      zone.on("pointerover", () => this.showGhostName(kind, x));
+      zone.on("pointerout", () => this.ghostNameText.setText(""));
       this.slots.push({ kind, frame, x });
     });
     this.refreshSlots();
+  }
+
+  private showGhostName(kind: GhostKindId, x: number): void {
+    this.ghostNameText.setText(ghostKindLabel(kind));
+    placeGameText(this.ghostNameText, x, GHOST_NAME_Y, 0.5, 0.5);
   }
 
   private refreshSlots(): void {
