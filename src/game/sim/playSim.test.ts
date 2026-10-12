@@ -5196,12 +5196,12 @@ describe("bare query flags", () => {
 });
 
 describe("PlaySim LEARN-only ghosts", () => {
-  it("no level spawns Spunky or the Warden", () => {
+  it("no level spawns Spunky or the Wardy", () => {
     for (let level = 1; level <= 9; level += 1) {
       const sim = startSim({ level }, "spunky");
       const kinds = sim.snapshot().ghosts.map((g) => g.kind);
       expect(kinds).not.toContain("spunky");
-      expect(kinds).not.toContain("warden");
+      expect(kinds).not.toContain("wardy");
     }
   });
 });

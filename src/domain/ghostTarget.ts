@@ -16,7 +16,7 @@ export const INKY_LOOKAHEAD_TILES = DEFAULT_TUNING.inkyLookahead;
 
 export const SPUNKY_AGGRO_TILES = 6;
 
-export const WARDEN_STRIKE_TILES = 4;
+export const WARDY_STRIKE_TILES = 4;
 
 export type GhostTarget = {
   col: number;
@@ -191,7 +191,7 @@ export function spunkyTarget(args: {
   return spunkyPostTarget();
 }
 
-export function wardenScatterTarget(
+export function wardyScatterTarget(
   cols: number = getActiveLayout().cols,
   rows: number = getActiveLayout().rows,
 ): GhostTarget {
@@ -207,7 +207,7 @@ export function rimDistance(
   return Math.min(col, cols - 1 - col, row, rows - 1 - row);
 }
 
-export function wardenRimTile(args: {
+export function wardyRimTile(args: {
   playerCol: number;
   playerRow: number;
   playerFacing: GhostDir;
@@ -240,7 +240,7 @@ export function wardenRimTile(args: {
   }
 }
 
-export function wardenTarget(args: {
+export function wardyTarget(args: {
   phase: GhostPhaseValue;
   mode: GhostAiMode;
   playerCol: number;
@@ -254,11 +254,11 @@ export function wardenTarget(args: {
   }
 
   if (args.mode === GHOST_AI_MODE.scatter) {
-    return wardenScatterTarget();
+    return wardyScatterTarget();
   }
 
-  if (rimDistance(args.playerCol, args.playerRow) <= WARDEN_STRIKE_TILES) {
+  if (rimDistance(args.playerCol, args.playerRow) <= WARDY_STRIKE_TILES) {
     return { col: args.playerCol, row: args.playerRow };
   }
-  return wardenRimTile(args);
+  return wardyRimTile(args);
 }
