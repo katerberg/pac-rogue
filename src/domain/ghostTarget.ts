@@ -14,7 +14,7 @@ export const CLYDE_SHY_TILES = DEFAULT_TUNING.clydeShyTiles;
 
 export const INKY_LOOKAHEAD_TILES = DEFAULT_TUNING.inkyLookahead;
 
-export const SPUNKY_AGGRO_TILES = 6;
+export const SPUNKY_AGGRO_TILES = 7;
 
 export const WARDEN_STRIKE_TILES = 4;
 
