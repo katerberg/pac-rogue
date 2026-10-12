@@ -42,8 +42,7 @@ function stepTile(tile: GhostTarget, dir: GhostDir): GhostTarget {
 export function predictGhostPath(args: {
   start: GhostTarget;
   facing: GhostDir;
-  target: GhostTarget;
-  targetAt?: (tile: GhostTarget) => GhostTarget;
+  targetAt: (tile: GhostTarget) => GhostTarget;
   maxSteps?: number;
 }): GhostTarget[] {
   const { cols, rows } = getActiveLayout();
@@ -55,7 +54,7 @@ export function predictGhostPath(args: {
   let facing = args.facing;
 
   for (let step = 0; step < maxSteps; step += 1) {
-    const target = args.targetAt === undefined ? args.target : args.targetAt(tile);
+    const target = args.targetAt(tile);
     if (tile.col === target.col && tile.row === target.row) {
       break;
     }

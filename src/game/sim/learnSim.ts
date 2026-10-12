@@ -304,7 +304,6 @@ export class LearnSim {
       path: predictGhostPath({
         start: { col: worldToCol(ghostX), row: worldToRow(ghostY) },
         facing: ghostFacing,
-        target,
         targetAt: (tile) =>
           resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, tile),
       }),

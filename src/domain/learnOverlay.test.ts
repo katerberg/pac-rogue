@@ -20,7 +20,7 @@ describe("predictGhostPath", () => {
     const path = predictGhostPath({
       start: { col: 1, row: 1 },
       facing: GHOST_DIR.right,
-      target: { col: 20, row: 1 },
+      targetAt: () => ({ col: 20, row: 1 }),
     });
     expect(path[0]).toEqual({ col: 1, row: 1 });
     expect(path.at(-1)).toEqual({ col: 20, row: 1 });
@@ -31,7 +31,7 @@ describe("predictGhostPath", () => {
     const path = predictGhostPath({
       start: { col: 10, row: 1 },
       facing: GHOST_DIR.right,
-      target: { col: 1, row: 1 },
+      targetAt: () => ({ col: 1, row: 1 }),
       maxSteps: 5,
     });
     expect(path[1]).toEqual({ col: 11, row: 1 });
@@ -47,13 +47,12 @@ describe("predictGhostPath with a target that changes along the path", () => {
     const fixed = predictGhostPath({
       start,
       facing: GHOST_DIR.right,
-      target: farLeft,
+      targetAt: () => farLeft,
       maxSteps: 12,
     });
     const switching = predictGhostPath({
       start,
       facing: GHOST_DIR.right,
-      target: farLeft,
       targetAt: (tile) => (tile.col >= 5 ? farRight : farLeft),
       maxSteps: 12,
     });
@@ -67,7 +66,7 @@ describe("predictGhostPath loops", () => {
     const path = predictGhostPath({
       start: { col: 6, row: 10 },
       facing: GHOST_DIR.down,
-      target: { col: 10, row: 11 },
+      targetAt: () => ({ col: 10, row: 11 }),
     });
     expect(path.length).toBeLessThan(LEARN_PATH_MAX_STEPS);
   });
@@ -76,7 +75,7 @@ describe("predictGhostPath loops", () => {
     const path = predictGhostPath({
       start: { col: 10, row: 4 },
       facing: GHOST_DIR.left,
-      target: { col: 11, row: -3 },
+      targetAt: () => ({ col: 11, row: -3 }),
     });
     const keys = path.map((tile) => `${tile.col},${tile.row}`);
     expect(new Set(keys).size).toBeLessThan(keys.length);
