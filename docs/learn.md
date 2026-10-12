@@ -27,7 +27,7 @@ All six ghosts are always selectable (Spunky and the Wardy exist only here; no l
 
 ## Screen
 
-- Title, then six ghost slots (Blinky, Pinky, Inky, Clyde, Spunky, Wardy). The selected slot has a yellow frame.
+- Title, then six ghost slots (Blinky, Pinky, Inky, Spunky, Wardy, Clyde). The selected slot has a yellow frame.
 - Seen upgrades are listed beside the maze, grouped under a colored school header
   (`groupUpgradesBySchool`, `UPGRADE_SCHOOL_ORDER`; empty schools are skipped). `splitSchoolColumns`
   ([`src/domain/learnUpgradeColumns.ts`](../src/domain/learnUpgradeColumns.ts)) fills the left column
@@ -76,14 +76,14 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
   doubled target (plus a pivot dot); Clyde — the `CLYDE_SHY_TILES` circle around Maze-Man. Lines
   are clipped to the maze rectangle. Points tied to Maze-Man or the helper Blinky follow their exact
   positions so the lines move smoothly; the targeting math itself stays tile-based. Spunky — the
-  `SPUNKY_AGGRO_TILES` (6) circle around Maze-Man. Wardy — the line from Maze-Man to the rim tile he is
+  `SPUNKY_AGGRO_TILES` (7) circle around Maze-Man. Wardy — the line from Maze-Man to the rim tile he is
   heading for, plus the inner rectangle `WARDY_STRIKE_TILES + 1` (5) tiles in from the maze edge.
 
 ## Spunky
 
 A LEARN-only ghost (green, `GHOST_KIND.spunky`), after Pac-Mania's Spunky, who wanders the top of the
 maze and only goes after Pac-Man when he is near. `spunkyTarget` (`ghostTarget.ts`) is the inverse
-of Clyde: inside `SPUNKY_AGGRO_TILES` (6) of Maze-Man he targets Maze-Man's tile; farther away, or in
+of Clyde: inside `SPUNKY_AGGRO_TILES` (7) of Maze-Man he targets Maze-Man's tile; farther away, or in
 scatter, he targets his post, the top-center tile above the maze (`spunkyPostTarget`, also his Scatter
 Burst landing cell). He is never in a level roster (`ghostKindsForLevel`), releases like Pinky (timed, so
 Ghost House Delay holds him; otherwise he is spawned active like every LEARN ghost) and has no speed
