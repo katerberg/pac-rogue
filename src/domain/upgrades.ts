@@ -2029,7 +2029,10 @@ export function groupUpgradesBySchool(
 ): { school: UpgradeSchool; defs: UpgradeDef[] }[] {
   return UPGRADE_SCHOOL_ORDER.map((school) => ({
     school,
-    defs: defs.filter((def) => def.school === school),
+    defs: [
+      ...defs.filter((def) => def.school === school && def.rare !== true),
+      ...defs.filter((def) => def.school === school && def.rare === true),
+    ],
   })).filter((group) => group.defs.length > 0);
 }
 

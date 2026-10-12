@@ -91,6 +91,7 @@ const SLOT_GAP = 16;
 const GHOST_NAME_Y = SLOT_Y - SLOT_SIZE / 2 - 8;
 const SLOT_STROKE = 4;
 const SLOT_STROKE_COLOR = 0x444444;
+const RARE_LABEL_COLOR = 0xffd700;
 const SLOT_ICON_SIZE = 32;
 const BACK_Y = 550;
 const OVERLAY_DEPTH = 5;
@@ -360,7 +361,14 @@ export class LearnScene extends Phaser.Scene {
               TEXT_COLOR_YELLOW,
             )
             .setVisible(false);
-    const label = addGameText(this, 0, 0, def.label, UPGRADES_HUD_FONT_SIZE);
+    const label = addGameText(
+      this,
+      0,
+      0,
+      def.label,
+      UPGRADES_HUD_FONT_SIZE,
+      def.rare === true ? RARE_LABEL_COLOR : TEXT_COLOR_WHITE,
+    );
     setGameTextBloom(label, false);
     placeGameText(label, labelX, y, 0, 0.5);
     const plusRadius = UPGRADE_PLUS_BOX_SIZE / 2;
