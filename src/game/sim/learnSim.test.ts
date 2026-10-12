@@ -87,6 +87,7 @@ describe("LearnSim", () => {
     const player = query(sim.world, [Player, Position])[0]!;
     const ghostTile = { col: worldToCol(Position.x[ghost]!), row: worldToRow(Position.y[ghost]!) };
     const playerTile = { col: ghostTile.col, row: ghostTile.row + SPUNKY_AGGRO_TILES + 3 };
+    expect(playerTile.row).toBeLessThan(getActiveLayout().rows);
     Position.x[player] = cellCenterX(playerTile.col);
     Position.y[player] = cellCenterY(playerTile.row);
     const model = sim.overlayModel()!;
