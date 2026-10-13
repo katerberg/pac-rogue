@@ -1,16 +1,11 @@
 import type { UpgradeSchool } from "../../../domain/upgrades";
+import type { PlannerWeights } from "./planner";
 
 export type PersonaId = "cautious" | "speedrunner" | "disrupter" | "collector" | "casual";
 export type SkillTierId = "average" | "expert";
 
-export type MoveWeights = {
-  pellet: number;
-  ghostFear: number;
-  fearRadiusTiles: number;
-  powerSeek: number;
+export type MoveWeights = PlannerWeights & {
   powerHoldNearGhosts: boolean;
-  frightChase: number;
-  fruit: number;
   noise: number;
 };
 
@@ -25,7 +20,6 @@ export type Persona = {
   weights: MoveWeights;
   schoolPreference: Record<UpgradeSchool, number>;
   randomPicks: boolean;
-  mistakeMul: number;
   store: StorePolicy;
 };
 
@@ -50,12 +44,12 @@ const NEUTRAL_PREFERENCE: Record<UpgradeSchool, number> = {
 
 const BASE_WEIGHTS: MoveWeights = {
   pellet: 1,
-  ghostFear: 3,
-  fearRadiusTiles: 5,
-  powerSeek: 0.3,
+  power: 0.3,
+  fruit: 0.9,
+  frightChase: 1,
+  safety: 0.09,
+  margin: 0.2,
   powerHoldNearGhosts: false,
-  frightChase: 0,
-  fruit: 0.3,
   noise: 0,
 };
 
@@ -68,38 +62,33 @@ const BASE_STORE: StorePolicy = {
 
 export const PERSONAS: Record<PersonaId, Persona> = {
   cautious: {
-    weights: { ...BASE_WEIGHTS, ghostFear: 6, fearRadiusTiles: 6, powerSeek: 0.6 },
+    weights: { ...BASE_WEIGHTS, safety: 0.18, margin: 0.3, power: 0.6 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, protection: 2, death: 1.5 },
     randomPicks: false,
-    mistakeMul: 1,
     store: { ...BASE_STORE, lifeAtOrBelow: 2 },
   },
   speedrunner: {
-    weights: { ...BASE_WEIGHTS, pellet: 2, ghostFear: 1.5, fearRadiusTiles: 3, fruit: 0.1 },
+    weights: { ...BASE_WEIGHTS, pellet: 2, safety: 0.045, margin: 0, fruit: 0.3 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, speed: 2, automation: 1.5 },
     randomPicks: false,
-    mistakeMul: 1,
     store: { ...BASE_STORE, lifeAtOrBelow: 0 },
   },
   disrupter: {
-    weights: { ...BASE_WEIGHTS, powerSeek: 1, powerHoldNearGhosts: true, frightChase: 2 },
+    weights: { ...BASE_WEIGHTS, power: 1, powerHoldNearGhosts: true, frightChase: 7 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, disruption: 2 },
     randomPicks: false,
-    mistakeMul: 1,
     store: BASE_STORE,
   },
   collector: {
-    weights: { ...BASE_WEIGHTS, fruit: 2 },
+    weights: { ...BASE_WEIGHTS, fruit: 6 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, harvest: 2, automation: 1.5 },
     randomPicks: false,
-    mistakeMul: 1,
     store: { ...BASE_STORE, enhance: true },
   },
   casual: {
-    weights: { ...BASE_WEIGHTS, ghostFear: 2.5, noise: 0.2 },
+    weights: { ...BASE_WEIGHTS, safety: 0.075, noise: 0.2 },
     schoolPreference: NEUTRAL_PREFERENCE,
     randomPicks: true,
-    mistakeMul: 1,
     store: { ...BASE_STORE, maxPurchases: 1 },
   },
 };

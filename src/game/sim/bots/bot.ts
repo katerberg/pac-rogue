@@ -13,7 +13,7 @@ import { bestExit, neighbor, openExits, reverseOf, type CardinalDirection } from
 import { planExits, SURVIVABLE_SCORE, type PlannerState, type PlannerWeights } from "./planner";
 import { cellOf, Observer, playerEid, sampleGhosts, type GhostSample } from "./observe";
 import { pickOffer } from "./pick";
-import { profileFor, type Persona, type Profile } from "./profiles";
+import { profileFor, type MoveWeights, type Profile } from "./profiles";
 import { StoreBot } from "./storeBot";
 
 const LEAD_TILES = 0.75;
@@ -62,8 +62,10 @@ function decisionAhead(sim: PlaySim, observer: Observer): Decision | null {
     : { current: cell, cell: next, distPx: ahead + getActiveLayout().tileSize, facing };
 }
 
-function plannerWeights(persona: Persona, state: PlannerState): PlannerWeights {
-  const w = persona.weights;
+function plannerWeights(weights: MoveWeights, state: PlannerState): PlannerWeights {
+  if (!weights.powerHoldNearGhosts) {
+    return weights;
+  }
   const grid = state.grid;
   const startCol = state.start % grid.cols;
   const startRow = Math.floor(state.start / grid.cols);
@@ -71,14 +73,7 @@ function plannerWeights(persona: Persona, state: PlannerState): PlannerWeights {
     .filter((ghost) => ghost.frightenedSteps <= 0)
     .map((ghost) => Math.abs(ghost.col - startCol) + Math.abs(ghost.row - startRow));
   const ghostsNear = near.filter((d) => d <= 6).length >= 2 || near.some((d) => d <= 3);
-  return {
-    pellet: w.pellet,
-    power: w.powerHoldNearGhosts ? (ghostsNear ? 3 : -1) * w.powerSeek : w.powerSeek,
-    fruit: w.fruit * 3,
-    frightChase: 1 + w.frightChase * 3,
-    safety: w.ghostFear * 0.03,
-    margin: Math.max(0, (w.fearRadiusTiles - 3) * 0.1),
-  };
+  return { ...weights, power: (ghostsNear ? 3 : -1) * weights.power };
 }
 
 export class Bot {
@@ -201,13 +196,15 @@ export class Bot {
     const delayed = this.history[0] ?? [];
     const state = this.observer.plannerState(sim, delayed, decision, this.profile.skill.depth);
     const noise = this.profile.persona.weights.noise;
-    const scores = planExits(state, plannerWeights(this.profile.persona, state)).map((entry) => ({
-      ...entry,
-      score: entry.score + noise * this.gaussian(),
-    }));
+    const scores = planExits(state, plannerWeights(this.profile.persona.weights, state)).map(
+      (entry) => ({
+        ...entry,
+        score: entry.score + noise * this.gaussian(),
+      }),
+    );
     const reverse = reverseOf(decision.facing);
     let choice: Direction | null = bestExit(scores);
-    const mistakeRate = this.profile.skill.mistakeRate * this.profile.persona.mistakeMul;
+    const mistakeRate = this.profile.skill.mistakeRate;
     const survivable = scores.filter((entry) => entry.score > SURVIVABLE_SCORE);
     if (survivable.length > 1 && this.rng() < mistakeRate) {
       choice = survivable[Math.floor(this.rng() * survivable.length)]!.direction;
