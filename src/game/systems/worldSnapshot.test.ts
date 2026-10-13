@@ -35,6 +35,7 @@ describe("worldSnapshot", () => {
       bossPellets: 0,
       optionalPellets: 0,
       fruit: false,
+      fruitKinds: [],
     });
   });
 

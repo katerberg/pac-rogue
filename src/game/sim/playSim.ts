@@ -66,12 +66,14 @@ import { interestCoinsShown, type InterestPop } from "../../domain/interest";
 import {
   createFruitPresence,
   cornucopiaMaySpawn,
-  fruitSpecForLevel,
   extendFruitLifetime,
   fruitStackCenter,
   markFruitCollected,
+  takeFruitKind,
   tickFruitPresence,
+  type FruitKind,
   type FruitPresence,
+  type FruitSequenceState,
 } from "../../domain/fruit";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
@@ -321,7 +323,12 @@ import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { wallPassSolids } from "../systems/wallPassSolids";
-import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
+import {
+  collectFruit,
+  fruitKindsOnBoard,
+  fruitPositions,
+  removeAllFruit,
+} from "../systems/collectFruit";
 import {
   collectPellets,
   countPellets,
@@ -457,6 +464,11 @@ export class PlaySim {
   private pendingLevelClear = false;
   private runCompleteElapsedMs: number | null = null;
   private fruitPresence: FruitPresence = createFruitPresence();
+  private fruitSequence: FruitSequenceState = {
+    sequence: [],
+    spawnIndex: 0,
+    previousLevelFirstKind: null,
+  };
   private cornucopiaFruit: { eid: number; ms: number }[] = [];
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private secondChompUsed = 0;
@@ -2093,6 +2105,7 @@ export class PlaySim {
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.remoteTransferCounter = 0;
     this.fruitPresence = createFruitPresence();
+    this.fruitSequence = { ...this.fruitSequence, spawnIndex: 0 };
     this.resetCornucopiaFruit();
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
@@ -2327,6 +2340,7 @@ export class PlaySim {
     }
     this.clearFruitEntities();
     this.fruitPresence = createFruitPresence();
+    this.fruitSequence = { ...this.fruitSequence, spawnIndex: 0 };
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
     for (const eid of [...query(this.world, [Ghost])]) {
@@ -2671,6 +2685,12 @@ export class PlaySim {
   private advanceToNextLevel(): void {
     this.emit({ type: "newLevelModal" });
 
+    this.fruitSequence = {
+      sequence: [],
+      spawnIndex: 0,
+      previousLevelFirstKind:
+        this.fruitSequence.sequence[0] ?? this.fruitSequence.previousLevelFirstKind,
+    };
     this.levelIndex += 1;
     this.runUpgrades = { ...clearUpgradeTimers(this.runUpgrades), shieldsBanked: 0 };
     this.emit({ type: "shields" });
@@ -3056,30 +3076,43 @@ export class PlaySim {
       .map((fruit) => ({ ...fruit, ms: fruit.ms - elapsed }));
   }
 
+  private rollFruitKind(): FruitKind {
+    const rolled = takeFruitKind(
+      this.fruitSequence,
+      this.random.seed,
+      this.levelIndex,
+      fruitKindsOnBoard(this.world),
+    );
+    this.fruitSequence = rolled.state;
+    return rolled.kind;
+  }
+
   private spawnCornucopiaFruit(mode: "solo" | "alongside"): void {
     const onBoard = fruitPositions(this.world);
     const at = fruitStackCenter(onBoard);
     if (at === null || !cornucopiaMaySpawn(mode, onBoard.length)) {
       return;
     }
+    const kind = this.rollFruitKind();
     this.cornucopiaFruit.push({
-      eid: spawnFruit(this.world, at),
+      eid: spawnFruit(this.world, kind, at),
       ms: this.currentTuning.fruitLifetimeMs * fruitLifetimeMultiplier(this.effectiveUpgrades()),
     });
-    this.recorder.fruitSpawned(fruitSpecForLevel(this.levelIndex).kind);
+    this.recorder.fruitSpawned(kind);
   }
 
   private spawnFruitEntity(stack: boolean): void {
-    const kind = fruitSpecForLevel(this.levelIndex).kind;
     if (!stack) {
       this.clearFruitEntities(true);
-      spawnFruit(this.world, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
+      const kind = this.rollFruitKind();
+      spawnFruit(this.world, kind, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
       this.recorder.fruitSpawned(kind);
       return;
     }
     const center = fruitStackCenter(fruitPositions(this.world));
     if (center !== null) {
-      spawnFruit(this.world, center);
+      const kind = this.rollFruitKind();
+      spawnFruit(this.world, kind, center);
       this.recorder.fruitSpawned(kind);
     } else if (fruitPositions(this.world).length === 0) {
       this.fruitPresence = markFruitCollected(this.fruitPresence);

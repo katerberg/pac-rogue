@@ -15,12 +15,12 @@ describe("parseBalanceArgs", () => {
 
   it("parses lists, flags and numbers", () => {
     const options = parseBalanceArgs(
-      ["--only", "builds,pairs", "--profiles", "cautious@average", "--workers", "4", "--dry-run"],
+      ["--only", "builds,pairs", "--profiles", "cautious@expert", "--workers", "4", "--dry-run"],
       9,
     );
     expect(options).toMatchObject({
       only: ["builds", "pairs"],
-      profiles: ["cautious@average"],
+      profiles: ["cautious@expert"],
       workers: 4,
       dryRun: true,
     });

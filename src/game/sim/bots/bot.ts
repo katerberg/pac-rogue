@@ -9,17 +9,11 @@ import { Speed } from "../../components/Speed";
 import { KEY_FOR_DIRECTION, NO_KEYS_HELD, type HeldKeys } from "../../systems/heldKeys";
 import type { PlaySim } from "../playSim";
 import { IDLE_INPUT, type SimInput } from "../simInput";
-import {
-  bestExit,
-  neighbor,
-  openExits,
-  reverseOf,
-  scoreExits,
-  type CardinalDirection,
-} from "./navigate";
+import { bestExit, neighbor, openExits, reverseOf, type CardinalDirection } from "./navigate";
+import { planExits, SURVIVABLE_SCORE, type PlannerState, type PlannerWeights } from "./planner";
 import { cellOf, Observer, playerEid, sampleGhosts, type GhostSample } from "./observe";
 import { pickOffer } from "./pick";
-import { profileFor, type Profile } from "./profiles";
+import { profileFor, type MoveWeights, type Profile } from "./profiles";
 import { StoreBot } from "./storeBot";
 
 const LEAD_TILES = 0.75;
@@ -66,6 +60,20 @@ function decisionAhead(sim: PlaySim, observer: Observer): Decision | null {
   return next === -1
     ? { current: cell, cell, distPx: 0, facing }
     : { current: cell, cell: next, distPx: ahead + getActiveLayout().tileSize, facing };
+}
+
+function plannerWeights(weights: MoveWeights, state: PlannerState): PlannerWeights {
+  if (!weights.powerHoldNearGhosts) {
+    return weights;
+  }
+  const grid = state.grid;
+  const startCol = state.start % grid.cols;
+  const startRow = Math.floor(state.start / grid.cols);
+  const near = state.ghosts
+    .filter((ghost) => ghost.frightenedSteps <= 0)
+    .map((ghost) => Math.abs(ghost.col - startCol) + Math.abs(ghost.row - startRow));
+  const ghostsNear = near.filter((d) => d <= 6).length >= 2 || near.some((d) => d <= 3);
+  return { ...weights, power: (ghostsNear ? 3 : -1) * weights.power };
 }
 
 export class Bot {
@@ -186,20 +194,20 @@ export class Bot {
   private plan(sim: PlaySim, decision: Decision): void {
     this.planCell = decision.cell;
     const delayed = this.history[0] ?? [];
-    const view = this.observer.view(sim, delayed);
-    const scores = scoreExits(
-      view,
-      decision.current,
-      decision.cell,
-      decision.facing,
-      this.profile.persona.weights,
-      this.gaussian,
+    const state = this.observer.plannerState(sim, delayed, decision, this.profile.skill.depth);
+    const noise = this.profile.persona.weights.noise;
+    const scores = planExits(state, plannerWeights(this.profile.persona.weights, state)).map(
+      (entry) => ({
+        ...entry,
+        score: entry.score + noise * this.gaussian(),
+      }),
     );
     const reverse = reverseOf(decision.facing);
     let choice: Direction | null = bestExit(scores);
-    const mistakeRate = this.profile.skill.mistakeRate * this.profile.persona.mistakeMul;
-    if (scores.length > 1 && this.rng() < mistakeRate) {
-      choice = scores[Math.floor(this.rng() * scores.length)]!.direction;
+    const mistakeRate = this.profile.skill.mistakeRate;
+    const survivable = scores.filter((entry) => entry.score > SURVIVABLE_SCORE);
+    if (survivable.length > 1 && this.rng() < mistakeRate) {
+      choice = survivable[Math.floor(this.rng() * survivable.length)]!.direction;
     }
     if (choice === null || (choice === this.held && this.pending === null)) {
       this.pending = null;

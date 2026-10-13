@@ -1,4 +1,5 @@
 import { EXPIRY_BLINK_MS } from "./expiryBlink";
+import { randomFromSeed } from "./mazeTiling";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 import {
   cellCenterX,
@@ -10,28 +11,18 @@ import {
   worldToRow,
 } from "./maze";
 
-export type FruitKind =
-  "cherries" | "strawberry" | "peach" | "apple" | "grapes" | "galaxian" | "bell" | "key";
+export const FRUIT_KINDS = [
+  "apple",
+  "banana",
+  "blueberry",
+  "cherries",
+  "pear",
+  "strawberry",
+] as const;
 
-export type FruitLevelSpec = {
-  kind: FruitKind;
-};
+export type FruitKind = (typeof FRUIT_KINDS)[number];
 
-export const FRUIT_BY_LEVEL: readonly FruitLevelSpec[] = [
-  { kind: "cherries" },
-  { kind: "strawberry" },
-  { kind: "peach" },
-  { kind: "peach" },
-  { kind: "apple" },
-  { kind: "apple" },
-  { kind: "grapes" },
-  { kind: "grapes" },
-  { kind: "galaxian" },
-  { kind: "galaxian" },
-  { kind: "bell" },
-  { kind: "bell" },
-  { kind: "key" },
-];
+const FRUIT_DRAWABLE_PREFIX = "fruit-";
 
 export const FRUIT_LIFETIME_MS = DEFAULT_TUNING.fruitLifetimeMs;
 export const FRUIT_FEAST_GAP_MS = 5_000;
@@ -45,24 +36,80 @@ export function fruitFlickerAlpha(remainingMs: number, nowMs: number): number {
   return Math.floor(nowMs / EXPIRY_BLINK_MS) % 2 === 0 ? 1 : 0;
 }
 
-export const CURRENT_LEVEL = 1;
-
-const FRUIT_ART_BY_KIND: Partial<Record<FruitKind, string>> = {
-  cherries: "art/other/strawberry.png",
-  strawberry: "art/other/strawberry.png",
-  apple: "art/other/apple.png",
-};
-
-export function fruitSpecForLevel(level: number): FruitLevelSpec {
-  if (level < 1) {
-    return FRUIT_BY_LEVEL[0]!;
-  }
-  const index = Math.min(level, FRUIT_BY_LEVEL.length) - 1;
-  return FRUIT_BY_LEVEL[index]!;
+export function fruitArtPath(kind: FruitKind): string {
+  return `art/fruit/${kind}.png`;
 }
 
-export function fruitArtPath(kind: FruitKind): string {
-  return FRUIT_ART_BY_KIND[kind] ?? "art/other/apple.png";
+export function fruitDrawableId(kind: FruitKind): string {
+  return `${FRUIT_DRAWABLE_PREFIX}${kind}`;
+}
+
+export function isFruitDrawableId(id: string): boolean {
+  return id.startsWith(FRUIT_DRAWABLE_PREFIX);
+}
+
+export function fruitKindFromDrawableId(id: string): FruitKind | null {
+  if (!isFruitDrawableId(id)) {
+    return null;
+  }
+  const kind = id.slice(FRUIT_DRAWABLE_PREFIX.length);
+  return (FRUIT_KINDS as readonly string[]).includes(kind) ? (kind as FruitKind) : null;
+}
+
+export type NextFruitKindArgs = {
+  seed: string;
+  level: number;
+  spawnIndex: number;
+  previousLevelFirstKind: FruitKind | null;
+  onBoard: readonly FruitKind[];
+  alreadyChosen: FruitKind | undefined;
+};
+
+export function nextFruitKind(args: NextFruitKindArgs): FruitKind {
+  if (args.alreadyChosen !== undefined) {
+    return args.alreadyChosen;
+  }
+  let pool: FruitKind[] = [...FRUIT_KINDS];
+  if (args.spawnIndex === 0 && args.previousLevelFirstKind !== null) {
+    const withoutPrev = pool.filter((kind) => kind !== args.previousLevelFirstKind);
+    if (withoutPrev.length > 0) {
+      pool = withoutPrev;
+    }
+  }
+  const onBoard = new Set(args.onBoard);
+  const preferred = pool.filter((kind) => !onBoard.has(kind));
+  const choices = preferred.length > 0 ? preferred : pool;
+  const random = randomFromSeed(`fruit:${args.seed}:${args.level}:${args.spawnIndex}`);
+  return choices[Math.floor(random() * choices.length)]!;
+}
+
+export type FruitSequenceState = {
+  sequence: FruitKind[];
+  spawnIndex: number;
+  previousLevelFirstKind: FruitKind | null;
+};
+
+export function takeFruitKind(
+  state: FruitSequenceState,
+  seed: string,
+  level: number,
+  onBoard: readonly FruitKind[],
+): { kind: FruitKind; state: FruitSequenceState } {
+  const spawnIndex = state.spawnIndex;
+  const kind = nextFruitKind({
+    seed,
+    level,
+    spawnIndex,
+    previousLevelFirstKind: state.previousLevelFirstKind,
+    onBoard,
+    alreadyChosen: state.sequence[spawnIndex],
+  });
+  const sequence = state.sequence.slice();
+  sequence[spawnIndex] = kind;
+  return {
+    kind,
+    state: { ...state, sequence, spawnIndex: spawnIndex + 1 },
+  };
 }
 
 export function fruitSpawnCenter(): { x: number; y: number } {

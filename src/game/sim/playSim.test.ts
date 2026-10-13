@@ -1,6 +1,11 @@
 import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
-import { FRUIT_FLICKER_MS, FRUIT_LIFETIME_MS } from "../../domain/fruit";
+import {
+  createFruitPresence,
+  FRUIT_FLICKER_MS,
+  FRUIT_LIFETIME_MS,
+  nextFruitKind,
+} from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_ROSTERS, rosterIdForSeed } from "../../domain/ghostRoster";
@@ -238,6 +243,47 @@ describe("PlaySim Fruit Fecundity+", () => {
     teleportPlayer(sim, 0, 0);
     runFrames(sim, framesFor(FRUIT_LIFETIME_MS * 2 + 500));
     expect(query(sim.world, [Fruit, Position])).toHaveLength(0);
+  });
+
+  it("stacks two different fruit kinds when both are on the board", () => {
+    const sim = startSim(
+      { level: 2, maze: "maze1", enableUpgrades: ["fruitFecundityPlus"] },
+      "fruit-kinds",
+    );
+    const [first, second] = getActiveLayout().fruitThresholds;
+    eatPellets(sim, first);
+    teleportPlayer(sim, 0, 0);
+    eatPellets(sim, second - first);
+    runFrames(sim, 2);
+    const kinds = sim.snapshot().fruitKinds;
+    expect(kinds).toHaveLength(2);
+    expect(kinds[0]).not.toBe(kinds[1]);
+  });
+
+  it("keeps the first fruit kind when the level's spawn sequence is replayed", () => {
+    const seed = "fruit-replay";
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["fruitFecundityPlus"] }, seed);
+    const [first] = getActiveLayout().fruitThresholds;
+    eatPellets(sim, first);
+    teleportPlayer(sim, 0, 0);
+    const firstKind = sim.snapshot().fruitKinds[0];
+    expect(firstKind).toBeDefined();
+
+    sim["fruitSequence"] = { ...sim["fruitSequence"], spawnIndex: 0 };
+    sim["clearFruitEntities"]();
+    sim["fruitPresence"] = createFruitPresence();
+    sim["spawnFruitEntity"](false);
+    expect(sim.snapshot().fruitKinds[0]).toBe(firstKind);
+    expect(sim.snapshot().fruitKinds[0]).toBe(
+      nextFruitKind({
+        seed,
+        level: 2,
+        spawnIndex: 0,
+        previousLevelFirstKind: null,
+        onBoard: [],
+        alreadyChosen: firstKind,
+      }),
+    );
   });
 });
 

@@ -1,1 +1,3 @@
-export const Fruit = {};
+export const Fruit = {
+  kind: [] as string[],
+};

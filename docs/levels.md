@@ -40,4 +40,4 @@ Runs start at `START_LIVES`. Natural regen happens only on store entry (`livesAf
 
 ## Fruit
 
-Spawns at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a BONUS bar rather than giving an upgrade.
+Spawns at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a BONUS bar rather than giving an upgrade. Art is picked from `public/art/fruit/` in a seeded per-level order (same helpers in `fruit.ts`) so concurrent fruit prefer distinct kinds and a level keeps its spawn order across retries.
