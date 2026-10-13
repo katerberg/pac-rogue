@@ -330,7 +330,7 @@ export class LearnScene extends Phaser.Scene {
     const plusX = columnX + UPGRADE_ROW_WIDTH - UPGRADE_PLUS_INSET;
     const checkboxX = columnX + UPGRADE_CHECK_SIZE / 2;
     const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
-    const accent = def.rare === true ? RARE_LABEL_COLOR : TEXT_COLOR_YELLOW;
+    const accent = RARE_LABEL_COLOR;
     const look = learnCheckboxLook(ghostStyle);
     const checkRadius = UPGRADE_CHECK_SIZE / 2;
     if (look.shape === "circle") {
