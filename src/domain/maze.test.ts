@@ -41,7 +41,6 @@ import {
   playerSpawnCenter,
   playerFarthestFromGhostsCell,
   playerFarthestFromGhostsSpawn,
-  wallFacingStep,
   pelletCellCenters,
   tunnelDashOutwardEdge,
   PLAYER_CORRIDOR_CLEARANCE_PX,
@@ -381,25 +380,6 @@ describe("maze", () => {
     expect(playerFarthestFromGhostsCell([right], solids)).toEqual({ col: 2, row: 5 });
     const spawn = playerFarthestFromGhostsSpawn([left, right], solids);
     expect(spawn).toEqual({ x: cellCenterX(11), y: cellCenterY(6) });
-  });
-
-  it("wallFacingStep picks a blocked direction, or null in open space", () => {
-    const solids = Array.from({ length: MAZE_ROWS }, () =>
-      Array.from({ length: MAZE_COLS }, () => true),
-    );
-    for (const [col, row] of [
-      [5, 5],
-      [6, 5],
-      [4, 5],
-      [5, 4],
-      [5, 6],
-    ] as const) {
-      solids[row]![col] = false;
-    }
-    expect(wallFacingStep(cellCenterX(5), cellCenterY(5), solids)).toBeNull();
-    expect(wallFacingStep(cellCenterX(6), cellCenterY(5), solids)).toEqual({ dx: 0, dy: -1 });
-    solids[4]![6] = false;
-    expect(wallFacingStep(cellCenterX(6), cellCenterY(5), solids)).toEqual({ dx: 0, dy: 1 });
   });
 
   it("falls back to player spawn with no ghosts or no walkable cells", () => {

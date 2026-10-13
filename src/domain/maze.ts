@@ -1087,21 +1087,6 @@ export function playerFarthestFromGhostsSpawn(
   return { x: cellCenterX(cell.col), y: cellCenterY(cell.row) };
 }
 
-const WALL_PROBE_ORDER = [
-  { dx: 0, dy: -1 },
-  { dx: 0, dy: 1 },
-  { dx: -1, dy: 0 },
-  { dx: 1, dy: 0 },
-] as const;
-
-export function wallFacingStep(
-  x: number,
-  y: number,
-  solids: SolidGrid = getActiveLayout().playerSolids,
-): { dx: number; dy: number } | null {
-  return WALL_PROBE_ORDER.find(({ dx, dy }) => !canEnterDirection(x, y, dx, dy, solids)) ?? null;
-}
-
 export function nearestWalkableCellCenter(
   x: number,
   y: number,

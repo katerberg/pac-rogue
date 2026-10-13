@@ -6,7 +6,7 @@ import {
   cellCenterY,
   getActiveLayout,
   playerFarthestFromGhostsSpawn,
-  wallFacingStep,
+  canEnterDirection,
 } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -58,14 +58,11 @@ describe("warpPlayerFarthestFromGhosts", () => {
     expect(spawn).not.toEqual(ghost);
     expect(Velocity.x[eid]).toBe(0);
     expect(Velocity.y[eid]).toBe(0);
-    const wall = wallFacingStep(spawn.x, spawn.y)!;
-    const toWall = {
-      "0,-1": DIRECTION.up,
-      "0,1": DIRECTION.down,
-      "-1,0": DIRECTION.left,
-      "1,0": DIRECTION.right,
-    }[`${wall.dx},${wall.dy}` as "0,-1"];
-    expect(Input.direction[eid]).toBe(toWall);
+    const toWall = Input.direction[eid]!;
+    const dx = toWall === DIRECTION.left ? -1 : toWall === DIRECTION.right ? 1 : 0;
+    const dy = toWall === DIRECTION.up ? -1 : toWall === DIRECTION.down ? 1 : 0;
+    expect(toWall).not.toBe(DIRECTION.none);
+    expect(canEnterDirection(spawn.x, spawn.y, dx, dy)).toBe(false);
     expect(Facing.direction[eid]).toBe(toWall);
   });
 
