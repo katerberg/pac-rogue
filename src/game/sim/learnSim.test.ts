@@ -949,6 +949,20 @@ describe("LearnSim upgrade demos", () => {
       expect(fruitCount(sim)).toBe(0);
     });
 
+    it("eating its fruit leaves the always-present fruit and its respawn alone", () => {
+      const { sim, player } = setup("powerPelletCornucopiaPlus");
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(2);
+      const [cornucopia] = (sim as unknown as { cornucopiaEids: Set<number> }).cornucopiaEids;
+      const regular = posOf(query(sim.world, [Fruit]).find((eid) => eid !== cornucopia)!);
+      const at = posOf(cornucopia!);
+      moveTo(player, { x: at.x + (at.x - regular.x) * 0.45, y: at.y });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(fruitCount(sim)).toBe(1);
+      runMs(sim, 5_000);
+      expect(fruitCount(sim)).toBe(1);
+    });
+
     it("spawns on a scheduled-fruit board and swallows the scheduled fruit while out", () => {
       const { sim, player } = setup("powerPelletCornucopia");
       sim.toggleUpgrade("fruitFeast");
