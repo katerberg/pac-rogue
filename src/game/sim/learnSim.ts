@@ -30,10 +30,11 @@ import {
   fruitStackCenter,
   extendFruitLifetime,
   markFruitCollected,
-  nextFruitKind,
+  takeFruitKind,
   tickFruitPresence,
   type FruitKind,
   type FruitPresence,
+  type FruitSequenceState,
 } from "../../domain/fruit";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import type { GhostDir } from "../../domain/ghostPath";
@@ -276,8 +277,11 @@ export class LearnSim {
   private nearMissPasses: NearMissPasses = createNearMissPasses();
   private streakBar: BonusBar = createBonusBar();
   private fruitPresence: FruitPresence = createFruitPresence();
-  private levelFruitSequence: FruitKind[] = [];
-  private fruitSpawnIndex = 0;
+  private fruitSequence: FruitSequenceState = {
+    sequence: [],
+    spawnIndex: 0,
+    previousLevelFirstKind: null,
+  };
   private boardCollected = 0;
   private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
 
@@ -1354,18 +1358,14 @@ export class LearnSim {
   }
 
   private rollFruitKind(): FruitKind {
-    const spawnIndex = this.fruitSpawnIndex;
-    const kind = nextFruitKind({
-      seed: this.random.seed,
-      level: LEARN_LEVEL,
-      spawnIndex,
-      previousLevelFirstKind: null,
-      onBoard: fruitKindsOnBoard(this.world),
-      alreadyChosen: this.levelFruitSequence[spawnIndex],
-    });
-    this.levelFruitSequence[spawnIndex] = kind;
-    this.fruitSpawnIndex = spawnIndex + 1;
-    return kind;
+    const rolled = takeFruitKind(
+      this.fruitSequence,
+      this.random.seed,
+      LEARN_LEVEL,
+      fruitKindsOnBoard(this.world),
+    );
+    this.fruitSequence = rolled.state;
+    return rolled.kind;
   }
 
   private spawnFruitEntity(): void {

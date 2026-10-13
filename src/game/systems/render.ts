@@ -123,9 +123,6 @@ const SPUNKY_TEXTURE_KEY = "ghost-spunky";
 const WARDY_TEXTURE_KEY = "ghost-wardy";
 const FRIGHTENED_GHOST_TEXTURE_KEY = "ghost-frightened";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
-const FRUIT_TEXTURE_BY_ID: Record<string, string> = Object.fromEntries(
-  FRUIT_KINDS.map((kind) => [fruitDrawableId(kind), fruitDrawableId(kind)]),
-);
 export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -237,9 +234,8 @@ function textureKeyForDrawable(drawableId: string): string {
   if (ghostTexture !== undefined) {
     return ghostTexture;
   }
-  const fruitTexture = FRUIT_TEXTURE_BY_ID[drawableId];
-  if (fruitTexture !== undefined) {
-    return fruitTexture;
+  if (isFruitDrawableId(drawableId)) {
+    return drawableId;
   }
   return pelletTextureKey(drawableId);
 }

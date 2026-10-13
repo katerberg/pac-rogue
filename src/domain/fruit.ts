@@ -83,6 +83,35 @@ export function nextFruitKind(args: NextFruitKindArgs): FruitKind {
   return choices[Math.floor(random() * choices.length)]!;
 }
 
+export type FruitSequenceState = {
+  sequence: FruitKind[];
+  spawnIndex: number;
+  previousLevelFirstKind: FruitKind | null;
+};
+
+export function takeFruitKind(
+  state: FruitSequenceState,
+  seed: string,
+  level: number,
+  onBoard: readonly FruitKind[],
+): { kind: FruitKind; state: FruitSequenceState } {
+  const spawnIndex = state.spawnIndex;
+  const kind = nextFruitKind({
+    seed,
+    level,
+    spawnIndex,
+    previousLevelFirstKind: state.previousLevelFirstKind,
+    onBoard,
+    alreadyChosen: state.sequence[spawnIndex],
+  });
+  const sequence = state.sequence.slice();
+  sequence[spawnIndex] = kind;
+  return {
+    kind,
+    state: { ...state, sequence, spawnIndex: spawnIndex + 1 },
+  };
+}
+
 export function fruitSpawnCenter(): { x: number; y: number } {
   const { fruitSpawn } = getActiveLayout();
   return {

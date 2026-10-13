@@ -269,7 +269,7 @@ describe("PlaySim Fruit Fecundity+", () => {
     const firstKind = sim.snapshot().fruitKinds[0];
     expect(firstKind).toBeDefined();
 
-    sim["fruitSpawnIndex"] = 0;
+    sim["fruitSequence"] = { ...sim["fruitSequence"], spawnIndex: 0 };
     sim["clearFruitEntities"]();
     sim["fruitPresence"] = createFruitPresence();
     sim["spawnFruitEntity"](false);

@@ -69,10 +69,11 @@ import {
   extendFruitLifetime,
   fruitStackCenter,
   markFruitCollected,
-  nextFruitKind,
+  takeFruitKind,
   tickFruitPresence,
   type FruitKind,
   type FruitPresence,
+  type FruitSequenceState,
 } from "../../domain/fruit";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
@@ -463,9 +464,11 @@ export class PlaySim {
   private pendingLevelClear = false;
   private runCompleteElapsedMs: number | null = null;
   private fruitPresence: FruitPresence = createFruitPresence();
-  private levelFruitSequence: FruitKind[] = [];
-  private fruitSpawnIndex = 0;
-  private previousLevelFirstKind: FruitKind | null = null;
+  private fruitSequence: FruitSequenceState = {
+    sequence: [],
+    spawnIndex: 0,
+    previousLevelFirstKind: null,
+  };
   private cornucopiaFruit: { eid: number; ms: number }[] = [];
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private secondChompUsed = 0;
@@ -2102,7 +2105,7 @@ export class PlaySim {
     this.pelletProgress = createPelletProgress(countPellets(this.world));
     this.remoteTransferCounter = 0;
     this.fruitPresence = createFruitPresence();
-    this.fruitSpawnIndex = 0;
+    this.fruitSequence = { ...this.fruitSequence, spawnIndex: 0 };
     this.resetCornucopiaFruit();
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
@@ -2337,7 +2340,7 @@ export class PlaySim {
     }
     this.clearFruitEntities();
     this.fruitPresence = createFruitPresence();
-    this.fruitSpawnIndex = 0;
+    this.fruitSequence = { ...this.fruitSequence, spawnIndex: 0 };
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
     for (const eid of [...query(this.world, [Ghost])]) {
@@ -2682,9 +2685,12 @@ export class PlaySim {
   private advanceToNextLevel(): void {
     this.emit({ type: "newLevelModal" });
 
-    this.previousLevelFirstKind = this.levelFruitSequence[0] ?? this.previousLevelFirstKind;
-    this.levelFruitSequence = [];
-    this.fruitSpawnIndex = 0;
+    this.fruitSequence = {
+      sequence: [],
+      spawnIndex: 0,
+      previousLevelFirstKind:
+        this.fruitSequence.sequence[0] ?? this.fruitSequence.previousLevelFirstKind,
+    };
     this.levelIndex += 1;
     this.runUpgrades = { ...clearUpgradeTimers(this.runUpgrades), shieldsBanked: 0 };
     this.emit({ type: "shields" });
@@ -3071,18 +3077,14 @@ export class PlaySim {
   }
 
   private rollFruitKind(): FruitKind {
-    const spawnIndex = this.fruitSpawnIndex;
-    const kind = nextFruitKind({
-      seed: this.random.seed,
-      level: this.levelIndex,
-      spawnIndex,
-      previousLevelFirstKind: this.previousLevelFirstKind,
-      onBoard: fruitKindsOnBoard(this.world),
-      alreadyChosen: this.levelFruitSequence[spawnIndex],
-    });
-    this.levelFruitSequence[spawnIndex] = kind;
-    this.fruitSpawnIndex = spawnIndex + 1;
-    return kind;
+    const rolled = takeFruitKind(
+      this.fruitSequence,
+      this.random.seed,
+      this.levelIndex,
+      fruitKindsOnBoard(this.world),
+    );
+    this.fruitSequence = rolled.state;
+    return rolled.kind;
   }
 
   private spawnCornucopiaFruit(mode: "solo" | "alongside"): void {

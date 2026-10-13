@@ -23,6 +23,7 @@ import {
   isFruitDrawableId,
   markFruitCollected,
   nextFruitKind,
+  takeFruitKind,
   tickFruitPresence,
   type FruitKind,
 } from "./fruit";
@@ -120,6 +121,14 @@ describe("nextFruitKind", () => {
       previousLevelFirstKind: first,
     });
     expect(next).not.toBe(first);
+  });
+
+  it("takeFruitKind advances the sequence and sticks on replay", () => {
+    const empty = { sequence: [] as FruitKind[], spawnIndex: 0, previousLevelFirstKind: null };
+    const first = takeFruitKind(empty, "seq", 2, []);
+    const replay = takeFruitKind({ ...first.state, spawnIndex: 0 }, "seq", 2, []);
+    expect(replay.kind).toBe(first.kind);
+    expect(replay.state.spawnIndex).toBe(1);
   });
 });
 
