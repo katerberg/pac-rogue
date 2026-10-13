@@ -3026,12 +3026,8 @@ export class PlaySim {
     const kind = fruitSpecForLevel(this.levelIndex).kind;
     if (!stack) {
       this.clearFruitEntities(true);
-      const beside =
-        this.cornucopiaFruit.length === 0 ? null : fruitStackCenter(fruitPositions(this.world));
-      if (this.cornucopiaFruit.length === 0 || beside !== null) {
-        spawnFruit(this.world, beside ?? undefined);
-        this.recorder.fruitSpawned(kind);
-      }
+      spawnFruit(this.world, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
+      this.recorder.fruitSpawned(kind);
       return;
     }
     const center = fruitStackCenter(fruitPositions(this.world));
