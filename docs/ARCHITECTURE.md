@@ -13,7 +13,7 @@ Dot-Man: Phaser 4 for presentation, bitecs 0.4 for gameplay. This file holds str
 
 ## Scenes
 
-Boot order is `gameConfig.scene` (`src/game/config.ts`); the first scene is the entry (`?play=1` puts `PlayScene` first). Every scene calls `applyRenderScale(this)` first in `create()` and reads pointers in world units. Canvas scaling: [line-art.md](./line-art.md).
+Boot order is `gameConfig.scene` (`src/game/config.ts`); the first scene is the entry (`?play=1` puts `PlayScene` first). Every scene calls `applyRenderScale(this)` first in `create()` and reads pointers in world units. Canvas scaling: [line-art.md](./line-art.md) (PIXEL ghost pupils are runtime Graphics).
 
 ```text
 MenuScene -> PlayScene | LearnScene | HighScoresScene | SettingsScene | RunLogOverrunScene
