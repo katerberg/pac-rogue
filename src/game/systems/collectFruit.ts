@@ -1,5 +1,6 @@
 import { query, removeEntity, type World } from "bitecs";
 import { circlesOverlap } from "../../domain/circles";
+import type { FruitKind } from "../../domain/fruit";
 import { Drawable } from "../components/Drawable";
 import { Fruit } from "../components/Fruit";
 import { Player } from "../components/Player";
@@ -49,4 +50,8 @@ export function fruitPositions(world: World): { x: number; y: number }[] {
     x: Position.x[eid] ?? 0,
     y: Position.y[eid] ?? 0,
   }));
+}
+
+export function fruitKindsOnBoard(world: World): FruitKind[] {
+  return [...query(world, [Fruit])].map((eid) => Fruit.kind[eid] as FruitKind);
 }

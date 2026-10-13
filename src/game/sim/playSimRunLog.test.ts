@@ -159,10 +159,11 @@ describe("PlaySim run log", () => {
     const { sim } = startSim({ level: 2, maze: "maze1", infiniteLives: true });
     sim["spawnFruitEntity"](false);
     const fruit = query(sim.world, [Fruit, Position])[0]!;
+    const kind = sim.snapshot().fruitKinds[0]!;
     teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
     runFrames(sim, 1);
     expect(sim.runLogRecord().levels[0]!.fruit).toEqual([
-      { kind: "strawberry", spawnedMs: expect.any(Number), eatenMs: expect.any(Number) },
+      { kind, spawnedMs: expect.any(Number), eatenMs: expect.any(Number) },
     ]);
   });
 

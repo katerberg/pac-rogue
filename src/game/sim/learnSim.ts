@@ -30,8 +30,11 @@ import {
   fruitStackCenter,
   extendFruitLifetime,
   markFruitCollected,
+  takeFruitKind,
   tickFruitPresence,
+  type FruitKind,
   type FruitPresence,
+  type FruitSequenceState,
 } from "../../domain/fruit";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import type { GhostDir } from "../../domain/ghostPath";
@@ -155,7 +158,12 @@ import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { anyKeyHeld } from "../systems/heldKeys";
-import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
+import {
+  collectFruit,
+  fruitKindsOnBoard,
+  fruitPositions,
+  removeAllFruit,
+} from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
 import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
 import {
@@ -269,6 +277,11 @@ export class LearnSim {
   private nearMissPasses: NearMissPasses = createNearMissPasses();
   private streakBar: BonusBar = createBonusBar();
   private fruitPresence: FruitPresence = createFruitPresence();
+  private fruitSequence: FruitSequenceState = {
+    sequence: [],
+    spawnIndex: 0,
+    previousLevelFirstKind: null,
+  };
   private boardCollected = 0;
   private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
 
@@ -1344,9 +1357,21 @@ export class LearnSim {
     tagOptionalPellets(this.world, lazyLooperRings(this.learnUpgrades.owned));
   }
 
+  private rollFruitKind(): FruitKind {
+    const rolled = takeFruitKind(
+      this.fruitSequence,
+      this.random.seed,
+      LEARN_LEVEL,
+      fruitKindsOnBoard(this.world),
+    );
+    this.fruitSequence = rolled.state;
+    return rolled.kind;
+  }
+
   private spawnFruitEntity(): void {
     this.releaseAll(removeAllFruit(this.world, this.cornucopiaFruit));
-    spawnFruit(this.world, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
+    const kind = this.rollFruitKind();
+    spawnFruit(this.world, kind, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
   }
 
   private clearAllFruit(): void {
@@ -1360,8 +1385,9 @@ export class LearnSim {
     if (at === null || !cornucopiaMaySpawn(mode, onBoard.length)) {
       return;
     }
+    const kind = this.rollFruitKind();
     this.cornucopiaFruit.set(
-      spawnFruit(this.world, at),
+      spawnFruit(this.world, kind, at),
       FRUIT_LIFETIME_MS * fruitLifetimeMultiplier(this.learnUpgrades.owned),
     );
     if (mode === "solo") {

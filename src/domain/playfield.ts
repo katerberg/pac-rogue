@@ -52,8 +52,6 @@ export const GHOST_DRAWABLE_BY_KIND: Record<GhostKindId, string> = {
   [GHOST_KIND.wardy]: WARDY_DRAWABLE_ID,
 };
 
-export const FRUIT_DRAWABLE_ID = "fruit";
-
 export const FRUIT_RADIUS = 8;
 
 export function playfieldMinX(radius = playerRadius()): number {
