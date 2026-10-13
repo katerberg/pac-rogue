@@ -953,7 +953,9 @@ describe("LearnSim upgrade demos", () => {
       const { sim, player } = setup("powerPelletCornucopiaPlus");
       eatPower(sim, player);
       expect(fruitCount(sim)).toBe(2);
-      const [cornucopia] = (sim as unknown as { cornucopiaEids: Set<number> }).cornucopiaEids;
+      const [cornucopia] = (
+        sim as unknown as { cornucopiaFruit: Map<number, number> }
+      ).cornucopiaFruit.keys();
       const regular = posOf(query(sim.world, [Fruit]).find((eid) => eid !== cornucopia)!);
       const at = posOf(cornucopia!);
       moveTo(player, { x: at.x + (at.x - regular.x) * 0.45, y: at.y });
@@ -973,6 +975,37 @@ describe("LearnSim upgrade demos", () => {
       runMs(sim, 6_000);
       expect(fruitCount(sim)).toBe(1);
     });
+  });
+
+  it("scheduled fruit loops: a fruit at the threshold restarts the pellet count from zero", () => {
+    const { sim } = setup("fruitFeast");
+    const board = sim as unknown as { boardCollected: number };
+    board.boardCollected = 85;
+    runMs(sim, 100);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+    expect(board.boardCollected).toBe(0);
+    runMs(sim, 10_500);
+    expect(query(sim.world, [Fruit]).length).toBe(0);
+    expect(sim.statusText()).toContain("NEXT FRUIT AT 60 PELLETS (0)");
+    runMs(sim, 5_000);
+    board.boardCollected = 60;
+    runMs(sim, 100);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+  });
+
+  it("a Cornucopia fruit expires, so it cannot hold scheduled fruit back forever", () => {
+    const { sim, player } = setup("fruitFeast", "powerPelletCornucopia");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    moveTo(player, { x: 0, y: 0 });
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+    const board = sim as unknown as { boardCollected: number };
+    board.boardCollected = 85;
+    runMs(sim, 5_000);
+    expect(board.boardCollected).toBe(85);
+    runMs(sim, 6_000);
+    expect(board.boardCollected).toBe(0);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
   });
 
   it("Fruit Feast schedules three fruit on the Feast thresholds", () => {

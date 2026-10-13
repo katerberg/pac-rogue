@@ -256,7 +256,7 @@ While `fruitQuarterBounty` is owned, `fruitQuartersPerFruit(owned)` returns `FRU
 - **Enhanced.** Spawns a fruit on every power pellet, even with a regular or earlier Cornucopia fruit out, side by side. Scheduled fruit also spawn beside them.
 - **Eating it** pays like any fruit (bonus charge or Quarter Bounty, Fruit Power, Fruit Power+). Fruit Fecundity+ keeps it until the level ends. Regular fruit expiry or replacement never removes it.
 - **Reset** on board start, life loss and boss stage refills. Overcharge does not touch it. Extra Hungry and the other non-chomp paths do not count as eating a power pellet. The render flicker uses the shortest running fruit timer.
-- **LEARN.** Mirrors the same rules (`LearnSim.spawnCornucopiaFruit`), except its fruit stays until eaten. Eating a Cornucopia fruit never triggers the always-present fruit's respawn delay unless the board is then empty.
+- **LEARN.** Mirrors the same rules (`LearnSim.spawnCornucopiaFruit`), including the lifetime and the blocking of scheduled fruit. Eating or losing a Cornucopia fruit never triggers the always-present fruit's respawn delay unless the board is then empty.
 - It is in `STARTING_UPGRADE_POOL`.
 
 ### Fruit Feast
