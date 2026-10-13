@@ -232,7 +232,7 @@ Same closest-eligible pick as Ghost recall. Does not change phase — only arms 
 
 ### Warp Farthest
 
-`playerFarthestFromGhostsCell` scans player-walkable solids for the cell whose nearest **active** ghost (in-house and leaving ghosts are ignored) is farthest by straight-line distance from cell centers (tie: lower row, then lower col). With no active ghost it picks the player spawn cell. Sets player `Position` there and zeros `Velocity`; keeps `Facing` / `Input`.
+`playerFarthestFromGhostsCell` scans player-walkable solids for the cell whose nearest **active** ghost (in-house and leaving ghosts are ignored) is farthest by straight-line distance from cell centers (tie: lower row, then lower col). With no active ghost it picks the player spawn cell. Sets player `Position` there and zeros `Velocity`, then points `Facing` / `Input` at an adjacent wall (`wallFacingStep`; first blocked of up, down, left, right) so the player stops on landing instead of coasting into a neighbouring power pellet. Held keys still steer once the glide ends.
 
 ### Fruit Power
 

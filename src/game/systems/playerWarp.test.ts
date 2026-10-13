@@ -6,6 +6,7 @@ import {
   cellCenterY,
   getActiveLayout,
   playerFarthestFromGhostsSpawn,
+  wallFacingStep,
 } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -43,7 +44,7 @@ function setup() {
 }
 
 describe("warpPlayerFarthestFromGhosts", () => {
-  it("moves the player to the tile farthest from active ghosts, clearing velocity but keeping facing/input", () => {
+  it("moves the player to the tile farthest from active ghosts, clearing velocity and facing a wall", () => {
     const { world, eid, addGhost } = setup();
     const ghost = { x: Position.x[eid]!, y: Position.y[eid]! };
     addGhost(ghost.x, ghost.y, GHOST_PHASE.active);
@@ -57,8 +58,15 @@ describe("warpPlayerFarthestFromGhosts", () => {
     expect(spawn).not.toEqual(ghost);
     expect(Velocity.x[eid]).toBe(0);
     expect(Velocity.y[eid]).toBe(0);
-    expect(Input.direction[eid]).toBe(DIRECTION.right);
-    expect(Facing.direction[eid]).toBe(DIRECTION.right);
+    const wall = wallFacingStep(spawn.x, spawn.y)!;
+    const toWall = {
+      "0,-1": DIRECTION.up,
+      "0,1": DIRECTION.down,
+      "-1,0": DIRECTION.left,
+      "1,0": DIRECTION.right,
+    }[`${wall.dx},${wall.dy}` as "0,-1"];
+    expect(Input.direction[eid]).toBe(toWall);
+    expect(Facing.direction[eid]).toBe(toWall);
   });
 
   it("ignores in-house and leaving ghosts and falls back to the player spawn", () => {
