@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BudgetError, planJobs, presetArms, TESTABLE_UPGRADES } from "./experiments";
-import { AVERAGE_PROFILE_IDS, PROFILE_IDS } from "./profiles";
+import { EXPERT_PROFILE_IDS, PROFILE_IDS } from "./profiles";
 
 const M1_MAX = { buildSeconds: 2.2, forcedSeconds: 0.75, workers: 9 };
 
@@ -18,7 +18,7 @@ describe("presetArms", () => {
     expect(count("pairs")).toBe((upgrades * (upgrades - 1)) / 2);
     expect(count("schools")).toBe(6 * 2 * 2);
     expect(count("enemies")).toBe(12);
-    expect(arms.find((arm) => arm.experiment === "pairs")!.profiles).toEqual(AVERAGE_PROFILE_IDS);
+    expect(arms.find((arm) => arm.experiment === "pairs")!.profiles).toEqual(EXPERT_PROFILE_IDS);
     expect(arms.find((arm) => arm.experiment === "builds")!.profiles).toEqual(PROFILE_IDS);
   });
 
@@ -59,10 +59,10 @@ describe("planJobs", () => {
       throughput: null,
       budgetHours: null,
       only: ["singles"],
-      profiles: ["cautious@average"],
+      profiles: ["cautious@expert"],
     });
     expect(new Set(plan.jobs.map((job) => job.experiment))).toEqual(new Set(["singles"]));
-    expect(new Set(plan.jobs.map((job) => job.profile))).toEqual(new Set(["cautious@average"]));
+    expect(new Set(plan.jobs.map((job) => job.profile))).toEqual(new Set(["cautious@expert"]));
   });
 
   it("uses the same seeds in every arm", () => {
@@ -74,7 +74,7 @@ describe("planJobs", () => {
     });
     const seedsOf = (arm: string) =>
       plan.jobs
-        .filter((job) => job.arm === arm && job.profile === "cautious@average")
+        .filter((job) => job.arm === arm && job.profile === "cautious@expert")
         .map((job) => job.seed);
     expect(seedsOf("passiveExtraLife")).toEqual(seedsOf("none"));
   });

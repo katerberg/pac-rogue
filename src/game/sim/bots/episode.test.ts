@@ -16,7 +16,7 @@ describe("runJob", { timeout: 60_000 }, () => {
     const job = {
       experiment: "singles" as const,
       arm: "passiveExtraLife",
-      profile: "casual@novice",
+      profile: "casual@average",
       seed: "bal-3",
       level: 5,
       upgrades: ["passiveExtraLife" as const],
@@ -35,10 +35,22 @@ describe("runJob", { timeout: 60_000 }, () => {
 
   it("plays differently at different skill tiers on the same seed", () => {
     const job = { experiment: "singles" as const, arm: "none", seed: "bal-4", level: 3 };
-    const novice = runJob({ ...job, profile: "cautious@novice" });
+    const average = runJob({ ...job, profile: "cautious@average" });
     const expert = runJob({ ...job, profile: "cautious@expert" });
-    expect(novice.simMs).not.toBe(expert.simMs);
+    expect(average.simMs).not.toBe(expert.simMs);
   });
+
+  it("keeps the route search bounded while Wall Pass opens the maze", () => {
+    const result = runJob({
+      experiment: "schools",
+      arm: "school:speed",
+      profile: "cautious@expert",
+      seed: "bal-0",
+      level: 5,
+      upgrades: ["passiveAfterburner", "powerPelletWallPass", "powerPelletSpeedBurst"],
+    });
+    expect(result.outcome).not.toBe("error");
+  }, 20_000);
 
   it("plays one-level tests without stalling", () => {
     const outcomes = ["bal-0", "bal-1", "bal-2"].map(

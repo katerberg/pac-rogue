@@ -4,6 +4,7 @@ import { armKey } from "./experiments";
 import { meanCi, separated, synergy, wilson, type Interval } from "./stats";
 
 export const SUMMARY_VERSION = 1;
+const CURVE_LEVELS = [3, 4, 5, 6, 7, 8, 9];
 const STALL_LIMIT = 0.02;
 const minRows = (runs: number, floor: number, share: number) =>
   Math.max(floor, Math.round(runs * share));
@@ -26,6 +27,7 @@ export type BuildSummary = {
   upgradeValue: UpgradeValue[];
   compositions: { key: string; levelReached: Interval }[];
   coOwned: { pair: string; n: number; lift: number }[];
+  curve: { level: number; reached: number; deaths: number }[];
 };
 export type GhostLethality = { catches: number; outMinutes: number; perMinute: number };
 
@@ -148,6 +150,18 @@ function buildSummary(results: readonly EpisodeResult[]): BuildSummary {
     upgradeValue,
     compositions,
     coOwned,
+    curve: CURVE_LEVELS.map((level) => {
+      const played = results.filter((r) => r.levelReached >= level);
+      const deaths = played.reduce(
+        (sum, r) => sum + r.deaths.filter((death) => death.level === level).length,
+        0,
+      );
+      return {
+        level,
+        reached: played.length / Math.max(1, results.length),
+        deaths: played.length === 0 ? 0 : deaths / played.length,
+      };
+    }),
   };
 }
 
@@ -409,6 +423,21 @@ function buildsSection(summary: Summary): string[] {
         const b = summary.builds[p]!;
         return [p, String(b.n), ci(b.reachedBoss, pct), ci(b.levelReached)];
       }),
+    ),
+    "### Difficulty curve",
+    "",
+    "Each cell: share of runs that reached the level, then mean deaths on it among runs that played it. Level 9 is reaching the boss.",
+    "",
+    ...table(
+      ["Profile", ...CURVE_LEVELS.map((level) => `L${level}`)],
+      profiles.map((p) => [
+        p,
+        ...summary.builds[p]!.curve.map((point) =>
+          point.level === 9
+            ? pct(point.reached)
+            : `${pct(point.reached)} / ${num(point.deaths, 1)}`,
+        ),
+      ]),
     ),
     "### Upgrade value (took it vs offered it and passed)",
     "",

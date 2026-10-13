@@ -1,7 +1,7 @@
 import type { UpgradeSchool } from "../../../domain/upgrades";
 
 export type PersonaId = "cautious" | "speedrunner" | "disrupter" | "collector" | "casual";
-export type SkillTierId = "novice" | "average" | "expert";
+export type SkillTierId = "average" | "expert";
 
 export type MoveWeights = {
   pellet: number;
@@ -11,8 +11,6 @@ export type MoveWeights = {
   powerHoldNearGhosts: boolean;
   frightChase: number;
   fruit: number;
-  streak: number;
-  tunnel: number;
   noise: number;
 };
 
@@ -32,6 +30,7 @@ export type Persona = {
 };
 
 export type SkillTier = {
+  depth: number;
   reactionMs: number;
   jitterMs: number;
   mistakeRate: number;
@@ -57,8 +56,6 @@ const BASE_WEIGHTS: MoveWeights = {
   powerHoldNearGhosts: false,
   frightChase: 0,
   fruit: 0.3,
-  streak: 0,
-  tunnel: 0.3,
   noise: 0,
 };
 
@@ -71,7 +68,7 @@ const BASE_STORE: StorePolicy = {
 
 export const PERSONAS: Record<PersonaId, Persona> = {
   cautious: {
-    weights: { ...BASE_WEIGHTS, ghostFear: 6, fearRadiusTiles: 6, powerSeek: 0.6, tunnel: 0.6 },
+    weights: { ...BASE_WEIGHTS, ghostFear: 6, fearRadiusTiles: 6, powerSeek: 0.6 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, protection: 2, death: 1.5 },
     randomPicks: false,
     mistakeMul: 1,
@@ -92,49 +89,46 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     store: BASE_STORE,
   },
   collector: {
-    weights: { ...BASE_WEIGHTS, fruit: 2, streak: 1 },
+    weights: { ...BASE_WEIGHTS, fruit: 2 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, harvest: 2, automation: 1.5 },
     randomPicks: false,
     mistakeMul: 1,
     store: { ...BASE_STORE, enhance: true },
   },
   casual: {
-    weights: { ...BASE_WEIGHTS, ghostFear: 2.5, noise: 0.4 },
+    weights: { ...BASE_WEIGHTS, ghostFear: 2.5, noise: 0.2 },
     schoolPreference: NEUTRAL_PREFERENCE,
     randomPicks: true,
-    mistakeMul: 2,
+    mistakeMul: 1,
     store: { ...BASE_STORE, maxPurchases: 1 },
   },
 };
 
 const SKILL_TIERS: Record<SkillTierId, SkillTier> = {
-  novice: { reactionMs: 250, jitterMs: 100, mistakeRate: 0.02 },
-  average: { reactionMs: 180, jitterMs: 50, mistakeRate: 0.005 },
-  expert: { reactionMs: 100, jitterMs: 15, mistakeRate: 0 },
+  average: { depth: 12, reactionMs: 180, jitterMs: 50, mistakeRate: 0.005 },
+  expert: { depth: 16, reactionMs: 100, jitterMs: 15, mistakeRate: 0 },
 };
 
-export const PROFILE_IDS: readonly string[] = [
-  "cautious@average",
-  "speedrunner@average",
-  "disrupter@average",
-  "collector@average",
-  "casual@average",
-  "cautious@novice",
+export const EXPERT_PROFILE_IDS: readonly string[] = [
   "cautious@expert",
-  "casual@novice",
+  "speedrunner@expert",
+  "disrupter@expert",
+  "collector@expert",
   "casual@expert",
 ];
 
-export const AVERAGE_PROFILE_IDS: readonly string[] = PROFILE_IDS.filter((id) =>
-  id.endsWith("@average"),
-);
+export const PROFILE_IDS: readonly string[] = [
+  ...EXPERT_PROFILE_IDS,
+  "cautious@average",
+  "casual@average",
+];
 
 export function profileFor(id: string): Profile {
   const [personaId, tierId] = id.split("@");
   const persona = PERSONAS[personaId as PersonaId];
   const skill = SKILL_TIERS[tierId as SkillTierId];
   if (persona === undefined || skill === undefined) {
-    throw new Error(`Unknown bot profile "${id}"; expected <persona>@<novice|average|expert>`);
+    throw new Error(`Unknown bot profile "${id}"; expected <persona>@<average|expert>`);
   }
   return { persona, skill };
 }

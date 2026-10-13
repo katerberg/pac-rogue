@@ -9,7 +9,7 @@ import {
   type UpgradeSchool,
 } from "../../../domain/upgrades";
 import type { ExperimentId, Job } from "./episode";
-import { AVERAGE_PROFILE_IDS, PROFILE_IDS } from "./profiles";
+import { EXPERT_PROFILE_IDS, PROFILE_IDS } from "./profiles";
 
 export type PresetId = "smoke" | "pilot" | "full";
 
@@ -60,7 +60,7 @@ const SMOKE_PAIRS: readonly [BaseUpgradeId, BaseUpgradeId][] = [
   ["fruitPowerPellet", "powerPelletExtraHungry"],
 ];
 
-const SMOKE_PROFILES = ["cautious@average", "disrupter@average", "casual@novice"];
+const SMOKE_PROFILES = ["cautious@expert", "disrupter@expert", "casual@average"];
 
 export const TESTABLE_UPGRADES: readonly BaseUpgradeId[] = ALL_UPGRADE_IDS.filter(
   (id) => !isSpecialist(id),
@@ -188,17 +188,17 @@ export function presetArms(preset: PresetId): ArmSpec[] {
   }
   if (preset === "pilot") {
     return [
-      { experiment: "builds", arm: "build", profiles: AVERAGE_PROFILE_IDS },
-      ...singleArms(TESTABLE_UPGRADES, [5], AVERAGE_PROFILE_IDS, false),
-      ...pairArms(pairsOf(SMOKE_UPGRADES), AVERAGE_PROFILE_IDS),
-      ...schoolArms(SCHOOLS, [5], AVERAGE_PROFILE_IDS),
-      ...enemyArms(all, GHOST_KINDS, AVERAGE_PROFILE_IDS),
+      { experiment: "builds", arm: "build", profiles: EXPERT_PROFILE_IDS },
+      ...singleArms(TESTABLE_UPGRADES, [5], EXPERT_PROFILE_IDS, false),
+      ...pairArms(pairsOf(SMOKE_UPGRADES), EXPERT_PROFILE_IDS),
+      ...schoolArms(SCHOOLS, [5], EXPERT_PROFILE_IDS),
+      ...enemyArms(all, GHOST_KINDS, EXPERT_PROFILE_IDS),
     ];
   }
   return [
     { experiment: "builds", arm: "build", profiles: PROFILE_IDS },
     ...singleArms(TESTABLE_UPGRADES, [3, 5, 8], PROFILE_IDS, true),
-    ...pairArms(pairsOf(TESTABLE_UPGRADES), AVERAGE_PROFILE_IDS),
+    ...pairArms(pairsOf(TESTABLE_UPGRADES), EXPERT_PROFILE_IDS),
     ...schoolArms(SCHOOLS, [5, 8], PROFILE_IDS),
     ...enemyArms(all, GHOST_KINDS, PROFILE_IDS),
   ];
