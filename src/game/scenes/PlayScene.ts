@@ -663,10 +663,11 @@ export class PlayScene extends Phaser.Scene {
     if (frame === null) {
       this.intermission?.destroy();
       this.intermission = null;
-      return;
+    } else {
+      this.intermission ??= createIntermissionActors(this, this.ghostStyle);
+      this.intermission.place(frame);
     }
-    this.intermission ??= createIntermissionActors(this, this.ghostStyle);
-    this.intermission.place(frame);
+    this.upgradeLines.forEach((line) => line.setVisible(frame === null));
   }
 
   private closeStoreUi(): void {
@@ -1048,6 +1049,7 @@ export class PlayScene extends Phaser.Scene {
         UPGRADES_HUD_FONT_SIZE,
         SCHOOL_COLORS[getUpgradeDef(owned[i]).school],
       );
+      line.setVisible(this.intermission === null);
       this.sideHud.add(line);
       return line;
     });
