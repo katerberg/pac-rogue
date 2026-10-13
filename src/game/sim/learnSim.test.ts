@@ -993,6 +993,21 @@ describe("LearnSim upgrade demos", () => {
     expect(query(sim.world, [Fruit]).length).toBe(1);
   });
 
+  it("Fruit Fecundity also loops after its fruit expires", () => {
+    const { sim } = setup("fruitFecundity");
+    const board = sim as unknown as { boardCollected: number };
+    board.boardCollected = 70;
+    runMs(sim, 100);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+    expect(board.boardCollected).toBe(0);
+    runMs(sim, 20_500);
+    expect(query(sim.world, [Fruit]).length).toBe(0);
+    expect(sim.statusText()).toContain("NEXT FRUIT AT 70 PELLETS (0)");
+    board.boardCollected = 70;
+    runMs(sim, 100);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+  });
+
   it("a Cornucopia fruit expires, so it cannot hold scheduled fruit back forever", () => {
     const { sim, player } = setup("fruitFeast", "powerPelletCornucopia");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
