@@ -40,7 +40,7 @@ import { applyRenderScale } from "../renderScale";
 const FOCUS_MAZE_COLOR = 2;
 const FOCUS_SHARE_RUN_STATS = 3;
 const FOCUS_BACK = 4;
-const FOCUS_COUNT = 5;
+const FOCUS_COUNT = FOCUS_BACK + 1;
 
 type SettingsSceneData = {
   returnScene?: string;
