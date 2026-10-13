@@ -4241,12 +4241,36 @@ describe("Haunting", () => {
     expect(sim.snapshot().hauntedGhost).toBeNull();
   });
 
-  it("does not haunt on the boss level", () => {
-    const sim = startHaunting(["passiveHaunting"], 9);
-    dieToFirstGhost(sim);
-    expect(sim.snapshot().hauntedGhost).toBeNull();
-    expect(sim.snapshot().timers.hauntMs).toBe(0);
-  });
+  it.each(["blinkySwarm", "chainedGhosts"] as const)(
+    "cages the ghost that caught you in the %s boss fight",
+    (boss) => {
+      const sim = startSim({
+        level: 9,
+        boss,
+        infiniteLives: true,
+        enableUpgrades: ["passiveHaunting"],
+      });
+      runFrames(sim, 20, LEFT);
+      const killer = query(sim.world, [Ghost, Position])[0]!;
+      const killerKind = GhostKind.kind[killer];
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      const haunted = sim.renderOptions().hauntedGhost;
+      expect(haunted).not.toBeNull();
+      expect(GhostKind.kind[haunted!.eid]).toBe(killerKind);
+      expect(inHouse(haunted!.eid)).toBe(true);
+      expect(sim.snapshot().timers.hauntMs).toBe(HAUNTING_MS);
+      ignoreFurtherCatches(sim);
+
+      runFrames(sim, Math.floor((HAUNTING_MS - 200) / FRAME_MS), LEFT);
+      expect(inHouse(haunted!.eid)).toBe(true);
+      runUntil(sim, () => !inHouse(haunted!.eid), 60 * 5, LEFT);
+      expect(inHouse(haunted!.eid)).toBe(false);
+      expect(sim.snapshot().hauntedGhost).toBeNull();
+    },
+  );
 
   it("frees the caged ghost once the level ends", () => {
     const sim = startHaunting(["passiveHauntingPlus"]);

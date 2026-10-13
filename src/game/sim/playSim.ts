@@ -2940,18 +2940,23 @@ export class PlaySim {
       Facing.direction[eid] = DIRECTION.none;
     }
 
+    const hauntMs = hauntDurationMs(this.effectiveUpgrades());
+    const caughtKind =
+      this.caughtByEid === null ? null : (GhostKind.kind[this.caughtByEid] as GhostKindId);
+    let hauntEid = this.bossState === null && hauntMs !== null ? this.caughtByEid : null;
     if (this.bossState !== null) {
       for (const eid of [...query(this.world, [Ghost])]) {
         removeEntity(this.world, eid);
         this.releaseDrawable(eid);
       }
       this.spawnBossGhostsForLife();
+      if (hauntMs !== null && caughtKind !== null) {
+        hauntEid = this.pickBossHauntGhost(caughtKind);
+      }
     }
+    this.caughtByEid = null;
     const toCorners =
       this.bossState === null && martyrGhostPlacement(this.effectiveUpgrades()) === "corners";
-    const hauntMs = hauntDurationMs(this.effectiveUpgrades());
-    const hauntEid = this.bossState === null && hauntMs !== null ? this.caughtByEid : null;
-    this.caughtByEid = null;
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -3011,6 +3016,13 @@ export class PlaySim {
       ...this.clock,
       started: false,
     };
+  }
+
+  private pickBossHauntGhost(caughtKind: GhostKindId): number | null {
+    const inHouse = [...query(this.world, [Ghost, GhostKind, GhostPhase])].filter(
+      (eid) => GhostPhase.value[eid] === GHOST_PHASE.inHouse,
+    );
+    return inHouse.find((eid) => GhostKind.kind[eid] === caughtKind) ?? inHouse[0] ?? null;
   }
 
   private clearFruitEntities(keepCornucopia = false): void {
