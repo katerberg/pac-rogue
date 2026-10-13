@@ -76,10 +76,6 @@ export function placePixelText(
   );
 }
 
-/**
- * Tint, prefix, and place a selectable menu row so the label stays centered
- * at `(centerX, centerY)` when the caret appears.
- */
 export function placeSelectableMenuOption(
   text: Phaser.GameObjects.BitmapText,
   label: string,

@@ -9,7 +9,6 @@ export function dotManChompPixelsPerFrame(speed: number): number {
 /** Travel (px) per mouth beat at the default chomp speed. */
 export const DOTMAN_CHOMP_PIXELS_PER_FRAME = dotManChompPixelsPerFrame(DOTMAN_CHOMP_SPEED_DEFAULT);
 
-/** Pixel Pac-Man texture frames for the open→mid→closed→mid beat. */
 export const DOTMAN_CHOMP_PIXEL_FRAMES = [1, 2, 3, 2] as const;
 
 export type DotManChomp = { carry: number; cycleIndex: number };

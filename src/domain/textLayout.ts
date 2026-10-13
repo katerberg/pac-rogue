@@ -1,4 +1,3 @@
-/** Play-HUD upgrade rows sit two line heights apart so labels never touch. */
 const UPGRADE_STACK_PITCH_MUL = 2;
 
 export function upgradeStackRowPitch(lineHeightPx: number): number {
@@ -12,7 +11,6 @@ export function upgradeStackHeight(lineCount: number, lineHeightPx: number): num
   return lineHeightPx + (lineCount - 1) * upgradeStackRowPitch(lineHeightPx);
 }
 
-/** Characters of a monospace pixel font that fit a box once both side pads are removed. */
 export function wrapCharsForBox(boxWidthPx: number, fontSize: number, sidePadPx: number): number {
   const inner = Math.max(1, boxWidthPx - 2 * sidePadPx);
   return Math.max(1, Math.floor(inner / Math.max(1, fontSize)));

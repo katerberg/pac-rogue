@@ -54,7 +54,6 @@ const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
-/** Wrap pad between the panel stroke and its text. */
 const PANEL_SIDE_PAD = 8;
 const PANEL_TOP_PAD = 12;
 const PANEL_TITLE_MAX_CHARS = 10;
