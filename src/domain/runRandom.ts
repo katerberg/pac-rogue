@@ -15,7 +15,8 @@ export type RandomStream =
   | "bossShake"
   | "echo"
   | "frightened"
-  | "timedTunnel";
+  | "timedTunnel"
+  | "bot";
 
 export type RunRandom = {
   seed: string;

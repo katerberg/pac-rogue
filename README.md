@@ -34,6 +34,8 @@ npx playwright install chromium
 | `npm run worker:dev`           | Run the API Worker locally — :8787 (agents: `worker:dev:agent` → :8788)                 |
 | `npm run worker:migrate:local` | Create/upgrade the local D1 database for `worker:dev`                                   |
 | `npm run data:pull`            | Export every uploaded run to `data-exports/latest.json` (`-- --local` for the local DB) |
+| `npm run balance`              | Balance bots: headless bot batches → `artifacts/balance/` (see docs/BALANCE_BOTS.md)    |
+| `npm run balance:compare`      | Compare two balance runs (`-- <beforeDir> <afterDir>`)                                  |
 
 `npm install` points Git at `.githooks/` (`core.hooksPath`). The pre-commit hook runs `npm run verify:precommit` (no build/visual). Full `npm run verify` remains the CI and completion gate.
 
@@ -142,6 +144,7 @@ Finished, non-debug runs are uploaded to a Cloudflare Worker (`worker/`, name `d
 - [docs/learn.md](./docs/learn.md) — LEARN mode (meet seen ghosts / upgrades)
 - [docs/line-art.md](./docs/line-art.md) — neon line-art ghosts (device-pixel canvas, glow, SVG authoring rules)
 - [docs/fonts.md](./docs/fonts.md) — pixel vs neon UI typefaces (Settings STYLE, bar-curve glyphs, font knobs)
+- [docs/BALANCE_BOTS.md](./docs/BALANCE_BOTS.md) — balance bots: personas and skill tiers stress-test upgrades, builds and ghosts headlessly (`npm run balance`)
 - [docs/RUN_LOG.md](./docs/RUN_LOG.md) — always-on local run log (schema, field definitions, RUN LOG FULL purge) and the `/data` analytics page
 - [docs/PRIVACY.md](./docs/PRIVACY.md) — what run uploads send, opt-out and deletion; [worker/README.md](./worker/README.md) — the `dot-man-api` Worker
 - [Flags](#flags) — URL query params (`play`, `maze`, `level`, `quarters`, `bonus`, `enableUpgrade`, `disableLevelUpgrades`, `infiniteLives`, `lives`, `maxLives`, `godMode`, `jumpToUpgrade`, `forceUpgrade`, `ghosts`, `boss`, `bossStageAdvance`, `knobs`, `learnAll`, `sound`, `runLogFill`)
@@ -149,6 +152,7 @@ Finished, non-debug runs are uploaded to a Cloudflare Worker (`worker/`, name `d
 - [.agents/skills/simplify-pr/SKILL.md](./.agents/skills/simplify-pr/SKILL.md) — `/simplify-pr` workflow
 - [.agents/skills/no-comments/SKILL.md](./.agents/skills/no-comments/SKILL.md) — `/no-comments` workflow
 - [.agents/skills/ship-plan/SKILL.md](./.agents/skills/ship-plan/SKILL.md) — `ship-plan`: verify, review, fix, push PR (cloud-safe)
+- [.agents/skills/balance-report/SKILL.md](./.agents/skills/balance-report/SKILL.md) — `balance-report`: turn a balance-bot report into ranked tuning leads (read-only)
 - [.agents/skills/new-upgrade/SKILL.md](./.agents/skills/new-upgrade/SKILL.md) — `new-upgrade`: pitch → question round → every touch point → probe → PR for a new run upgrade
 
 ## Status
