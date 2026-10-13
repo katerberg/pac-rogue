@@ -61,7 +61,6 @@ import {
   CLYDE_DRAWABLE_ID,
   SPUNKY_DRAWABLE_ID,
   WARDY_DRAWABLE_ID,
-  FRUIT_DRAWABLE_ID,
   INKY_DRAWABLE_ID,
   PELLET_DRAWABLE_ID,
   PINKY_DRAWABLE_ID,
@@ -76,10 +75,11 @@ import { brightenColor, playerTint, tintedColor, type PlayerTint } from "../../d
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
 import {
+  FRUIT_KINDS,
   fruitArtPath,
+  fruitDrawableId,
   fruitFlickerAlpha,
-  fruitSpecForLevel,
-  CURRENT_LEVEL,
+  isFruitDrawableId,
 } from "../../domain/fruit";
 import {
   ghostLineArtLook,
@@ -122,8 +122,10 @@ const CLYDE_TEXTURE_KEY = "ghost-clyde";
 const SPUNKY_TEXTURE_KEY = "ghost-spunky";
 const WARDY_TEXTURE_KEY = "ghost-wardy";
 const FRIGHTENED_GHOST_TEXTURE_KEY = "ghost-frightened";
-const FRUIT_TEXTURE_KEY = "bonus-fruit";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
+const FRUIT_TEXTURE_BY_ID: Record<string, string> = Object.fromEntries(
+  FRUIT_KINDS.map((kind) => [fruitDrawableId(kind), fruitDrawableId(kind)]),
+);
 export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -235,8 +237,9 @@ function textureKeyForDrawable(drawableId: string): string {
   if (ghostTexture !== undefined) {
     return ghostTexture;
   }
-  if (drawableId === FRUIT_DRAWABLE_ID) {
-    return FRUIT_TEXTURE_KEY;
+  const fruitTexture = FRUIT_TEXTURE_BY_ID[drawableId];
+  if (fruitTexture !== undefined) {
+    return fruitTexture;
   }
   return pelletTextureKey(drawableId);
 }
@@ -477,7 +480,9 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(SPUNKY_TEXTURE_KEY, "art/ghosts/spunky.png");
   scene.load.image(WARDY_TEXTURE_KEY, "art/ghosts/wardy.png");
   scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
-  scene.load.image(FRUIT_TEXTURE_KEY, fruitArtPath(fruitSpecForLevel(CURRENT_LEVEL).kind));
+  for (const kind of FRUIT_KINDS) {
+    scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
+  }
 }
 
 function facingToDir(facing: Direction): PacmanDir | null {
@@ -1025,7 +1030,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         id !== PELLET_DRAWABLE_ID &&
         id !== POWER_PELLET_DRAWABLE_ID &&
         id !== BOSS_PELLET_DRAWABLE_ID &&
-        id !== FRUIT_DRAWABLE_ID &&
+        !isFruitDrawableId(id) &&
         ghostTexture === undefined
       ) {
         continue;
@@ -1196,7 +1201,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const pulse = bossPelletPulse(scene.time.now);
         go.setDisplaySize(pulse.size, pulse.size);
         go.setAlpha(pulse.alpha * entityAlpha);
-      } else if (id === FRUIT_DRAWABLE_ID) {
+      } else if (isFruitDrawableId(id)) {
         go.setAlpha(entityAlpha * fruitFlickerAlpha(opts?.fruitRemainingMs ?? 0, scene.time.now));
       } else if (id === PELLET_DRAWABLE_ID || id === POWER_PELLET_DRAWABLE_ID) {
         go.setAlpha(entityAlpha);

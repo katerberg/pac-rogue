@@ -1,11 +1,11 @@
 import { hasComponent, query, type World } from "bitecs";
+import type { FruitKind } from "../../domain/fruit";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { worldToCol, worldToRow } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Facing } from "../components/Facing";
-import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
@@ -16,6 +16,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { PowerPellet } from "../components/PowerPellet";
+import { fruitKindsOnBoard } from "./collectFruit";
 
 export type ActorSnapshot = {
   x: number;
@@ -40,6 +41,7 @@ export type WorldSnapshot = {
   bossPellets: number;
   optionalPellets: number;
   fruit: boolean;
+  fruitKinds: FruitKind[];
 };
 
 export function nameOf(table: Record<string, number>, value: number | undefined): string {
@@ -68,6 +70,7 @@ export function worldSnapshot(world: World): WorldSnapshot {
     boss: hasComponent(world, eid, BossGhost),
   }));
   const powerPellets = query(world, [PowerPellet]).length;
+  const fruitKinds = fruitKindsOnBoard(world);
   return {
     player:
       playerEid === undefined
@@ -78,6 +81,7 @@ export function worldSnapshot(world: World): WorldSnapshot {
     powerPellets,
     bossPellets: query(world, [BossPellet]).length,
     optionalPellets: query(world, [OptionalPellet]).length,
-    fruit: query(world, [Fruit]).length > 0,
+    fruit: fruitKinds.length > 0,
+    fruitKinds,
   };
 }

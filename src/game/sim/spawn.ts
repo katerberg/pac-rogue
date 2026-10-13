@@ -1,5 +1,5 @@
 import { addComponent, addEntity, type World } from "bitecs";
-import { fruitSpawnCenter } from "../../domain/fruit";
+import { fruitDrawableId, fruitSpawnCenter, type FruitKind } from "../../domain/fruit";
 import {
   pelletCellCenters,
   playerSpawnCenter,
@@ -7,7 +7,6 @@ import {
   type PelletKind,
 } from "../../domain/maze";
 import {
-  FRUIT_DRAWABLE_ID,
   FRUIT_RADIUS,
   PELLET_DRAWABLE_ID,
   PELLET_RADIUS,
@@ -83,6 +82,7 @@ export function spawnPlayer(world: World): void {
 
 export function spawnFruit(
   world: World,
+  kind: FruitKind,
   at: { x: number; y: number } = fruitSpawnCenter(),
 ): number {
   const eid = addEntity(world);
@@ -91,7 +91,8 @@ export function spawnFruit(
   addComponent(world, eid, Drawable);
   Position.x[eid] = at.x;
   Position.y[eid] = at.y;
-  Drawable.id[eid] = FRUIT_DRAWABLE_ID;
+  Fruit.kind[eid] = kind;
+  Drawable.id[eid] = fruitDrawableId(kind);
   Drawable.radius[eid] = FRUIT_RADIUS;
   return eid;
 }

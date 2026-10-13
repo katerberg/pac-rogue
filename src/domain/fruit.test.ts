@@ -7,20 +7,24 @@ import {
   isWalkable,
 } from "./maze";
 import {
-  CURRENT_LEVEL,
   FRUIT_FEAST_GAP_MS,
   FRUIT_FLICKER_MS,
+  FRUIT_KINDS,
   FRUIT_LIFETIME_MS,
   fruitFlickerAlpha,
   extendFruitLifetime,
   createFruitPresence,
   cornucopiaMaySpawn,
   fruitArtPath,
+  fruitDrawableId,
+  fruitKindFromDrawableId,
   fruitSpawnCenter,
   fruitStackCenter,
-  fruitSpecForLevel,
+  isFruitDrawableId,
   markFruitCollected,
+  nextFruitKind,
   tickFruitPresence,
+  type FruitKind,
 } from "./fruit";
 
 const FEAST = BASE_FEAST_FRUIT_SPAWN_THRESHOLDS;
@@ -43,27 +47,79 @@ describe("fruitFlickerAlpha", () => {
   });
 });
 
-describe("fruitSpecForLevel", () => {
-  it("returns cherries for level 1", () => {
-    expect(fruitSpecForLevel(CURRENT_LEVEL)).toEqual({ kind: "cherries" });
-  });
-
-  it("returns Holenet symbols for later levels", () => {
-    expect(fruitSpecForLevel(2).kind).toBe("strawberry");
-    expect(fruitSpecForLevel(5).kind).toBe("apple");
-    expect(fruitSpecForLevel(21).kind).toBe("key");
+describe("fruitArtPath", () => {
+  it("maps every kind to art/fruit/<kind>.png", () => {
+    for (const kind of FRUIT_KINDS) {
+      expect(fruitArtPath(kind)).toBe(`art/fruit/${kind}.png`);
+    }
   });
 });
 
-describe("fruitArtPath", () => {
-  it("uses strawberry art as cherries stand-in", () => {
-    expect(fruitArtPath("cherries")).toBe("art/other/strawberry.png");
+describe("fruit drawable ids", () => {
+  it("round-trips kind through drawable id", () => {
+    for (const kind of FRUIT_KINDS) {
+      const id = fruitDrawableId(kind);
+      expect(isFruitDrawableId(id)).toBe(true);
+      expect(fruitKindFromDrawableId(id)).toBe(kind);
+    }
+    expect(isFruitDrawableId("fruit")).toBe(false);
+    expect(fruitKindFromDrawableId("pellet")).toBe(null);
+  });
+});
+
+describe("nextFruitKind", () => {
+  const base = {
+    seed: "fruit-test",
+    level: 2,
+    previousLevelFirstKind: null as FruitKind | null,
+    onBoard: [] as FruitKind[],
+    alreadyChosen: undefined as FruitKind | undefined,
+  };
+
+  it("is stable for the same seed, level, and spawn index", () => {
+    const a = nextFruitKind({ ...base, spawnIndex: 0 });
+    const b = nextFruitKind({ ...base, spawnIndex: 0 });
+    expect(a).toBe(b);
+    expect(FRUIT_KINDS).toContain(a);
   });
 
-  it("maps strawberry and apple kinds to existing art", () => {
-    expect(fruitArtPath("strawberry")).toBe("art/other/strawberry.png");
-    expect(fruitArtPath("apple")).toBe("art/other/apple.png");
-    expect(fruitArtPath("key")).toBe("art/other/apple.png");
+  it("returns alreadyChosen without re-rolling", () => {
+    expect(
+      nextFruitKind({
+        ...base,
+        spawnIndex: 0,
+        alreadyChosen: "pear",
+        onBoard: ["pear"],
+        previousLevelFirstKind: "pear",
+      }),
+    ).toBe("pear");
+  });
+
+  it("avoids kinds already on the board when possible", () => {
+    const onBoard = FRUIT_KINDS.slice(0, 5) as FruitKind[];
+    const kind = nextFruitKind({ ...base, spawnIndex: 1, onBoard });
+    expect(onBoard).not.toContain(kind);
+    expect(kind).toBe(FRUIT_KINDS[5]);
+  });
+
+  it("allows a duplicate when every kind is on the board", () => {
+    const kind = nextFruitKind({
+      ...base,
+      spawnIndex: 3,
+      onBoard: [...FRUIT_KINDS],
+    });
+    expect(FRUIT_KINDS).toContain(kind);
+  });
+
+  it("does not start a level with the previous level's first fruit", () => {
+    const first = nextFruitKind({ ...base, level: 1, spawnIndex: 0 });
+    const next = nextFruitKind({
+      ...base,
+      level: 2,
+      spawnIndex: 0,
+      previousLevelFirstKind: first,
+    });
+    expect(next).not.toBe(first);
   });
 });
 
