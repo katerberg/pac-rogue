@@ -2,6 +2,7 @@ import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import {
+  canEnterDirection,
   cellCenterX,
   cellCenterY,
   getActiveLayout,
@@ -43,7 +44,7 @@ function setup() {
 }
 
 describe("warpPlayerFarthestFromGhosts", () => {
-  it("moves the player to the tile farthest from active ghosts, clearing velocity but keeping facing/input", () => {
+  it("moves the player to the tile farthest from active ghosts, clearing velocity and facing a wall", () => {
     const { world, eid, addGhost } = setup();
     const ghost = { x: Position.x[eid]!, y: Position.y[eid]! };
     addGhost(ghost.x, ghost.y, GHOST_PHASE.active);
@@ -57,8 +58,12 @@ describe("warpPlayerFarthestFromGhosts", () => {
     expect(spawn).not.toEqual(ghost);
     expect(Velocity.x[eid]).toBe(0);
     expect(Velocity.y[eid]).toBe(0);
-    expect(Input.direction[eid]).toBe(DIRECTION.right);
-    expect(Facing.direction[eid]).toBe(DIRECTION.right);
+    const toWall = Input.direction[eid]!;
+    const dx = toWall === DIRECTION.left ? -1 : toWall === DIRECTION.right ? 1 : 0;
+    const dy = toWall === DIRECTION.up ? -1 : toWall === DIRECTION.down ? 1 : 0;
+    expect(toWall).not.toBe(DIRECTION.none);
+    expect(canEnterDirection(spawn.x, spawn.y, dx, dy)).toBe(false);
+    expect(Facing.direction[eid]).toBe(toWall);
   });
 
   it("ignores in-house and leaving ghosts and falls back to the player spawn", () => {

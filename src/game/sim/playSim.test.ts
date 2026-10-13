@@ -2811,6 +2811,30 @@ describe("PlaySim enhanced upgrades", () => {
     expect(Position.y[player]).toBe(expected.y);
   });
 
+  it("Warp Farthest leaves the player facing a wall so they stop on landing", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletWarpFarthest"] });
+    for (const eid of query(sim.world, [Ghost, Position])) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1, { keys: held("left") });
+    const player = playerEid(sim);
+    const landed = { x: Position.x[player]!, y: Position.y[player]! };
+    const steps: Record<number, number[]> = {
+      [DIRECTION.up]: [0, -1],
+      [DIRECTION.down]: [0, 1],
+      [DIRECTION.left]: [-1, 0],
+      [DIRECTION.right]: [1, 0],
+    };
+    const toWall = steps[Input.direction[player]!]!;
+    expect(canEnterDirection(landed.x, landed.y, toWall[0]!, toWall[1]!)).toBe(false);
+    expect(Facing.direction[player]).toBe(Input.direction[player]);
+    runFrames(sim, Math.ceil(WARP_GLIDE_MS / FRAME_MS) + 30);
+    expect(Position.x[player]).toBe(landed.x);
+    expect(Position.y[player]).toBe(landed.y);
+  });
+
   it("Warp Farthest glides the sprite there over WARP_GLIDE_MS and holds controls until it lands", () => {
     const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletWarpFarthest"] });
     for (const eid of query(sim.world, [Ghost, Position])) {
