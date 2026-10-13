@@ -7,6 +7,8 @@ import {
   ghostPupilLookOffset,
   ghostPupilRects,
   ghostPupilsVisible,
+  GHOST_PUPIL_TURN_MS,
+  stepGhostPupilLook,
 } from "./ghostPupils";
 import { GHOST_DIR } from "./ghostPath";
 
@@ -55,7 +57,7 @@ describe("ghostPupilLookOffset", () => {
 describe("ghostPupilRects", () => {
   it("maps rest art top-lefts into world space for a known display size", () => {
     const displaySize = GHOST_ART_SIZE_PX;
-    const rects = ghostPupilRects(100, 50, displaySize, GHOST_DIR.none);
+    const rects = ghostPupilRects(100, 50, displaySize, ghostPupilLookOffset(GHOST_DIR.none));
     expect(rects).toHaveLength(2);
     expect(rects[0]).toEqual({
       x: 100 - displaySize / 2 + GHOST_PUPIL_REST_ART[0].x,
@@ -74,9 +76,35 @@ describe("ghostPupilRects", () => {
   it("applies facing offset in art space before scaling", () => {
     const displaySize = 32;
     const scale = displaySize / GHOST_ART_SIZE_PX;
-    const rest = ghostPupilRects(0, 0, displaySize, GHOST_DIR.none);
-    const looking = ghostPupilRects(0, 0, displaySize, GHOST_DIR.right);
+    const rest = ghostPupilRects(0, 0, displaySize, ghostPupilLookOffset(GHOST_DIR.none));
+    const looking = ghostPupilRects(0, 0, displaySize, ghostPupilLookOffset(GHOST_DIR.right));
     expect(looking[0]!.x - rest[0]!.x).toBeCloseTo(GHOST_PUPIL_LOOK_OFFSET_ART * scale);
     expect(looking[0]!.y).toBeCloseTo(rest[0]!.y);
+  });
+});
+
+describe("stepGhostPupilLook", () => {
+  it("starts at the facing offset with no tween", () => {
+    const { look } = stepGhostPupilLook(undefined, GHOST_DIR.left, 1000);
+    expect(look).toEqual({ dx: -GHOST_PUPIL_LOOK_OFFSET_ART, dy: 0 });
+  });
+
+  it("glides to a new facing over the turn duration", () => {
+    const a = stepGhostPupilLook(undefined, GHOST_DIR.left, 0);
+    const start = stepGhostPupilLook(a.state, GHOST_DIR.right, 100);
+    expect(start.look.dx).toBeCloseTo(-GHOST_PUPIL_LOOK_OFFSET_ART);
+    const mid = stepGhostPupilLook(start.state, GHOST_DIR.right, 100 + GHOST_PUPIL_TURN_MS / 2);
+    expect(mid.look.dx).toBeCloseTo(0);
+    const end = stepGhostPupilLook(mid.state, GHOST_DIR.right, 100 + GHOST_PUPIL_TURN_MS);
+    expect(end.look.dx).toBeCloseTo(GHOST_PUPIL_LOOK_OFFSET_ART);
+  });
+
+  it("retargets from the in-flight position without jumping", () => {
+    const a = stepGhostPupilLook(undefined, GHOST_DIR.left, 0);
+    const b = stepGhostPupilLook(a.state, GHOST_DIR.right, 0);
+    const mid = stepGhostPupilLook(b.state, GHOST_DIR.right, GHOST_PUPIL_TURN_MS / 2);
+    const turned = stepGhostPupilLook(mid.state, GHOST_DIR.up, GHOST_PUPIL_TURN_MS / 2);
+    expect(turned.look.dx).toBeCloseTo(mid.look.dx);
+    expect(turned.look.dy).toBeCloseTo(mid.look.dy);
   });
 });

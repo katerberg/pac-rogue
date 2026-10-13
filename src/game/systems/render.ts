@@ -101,7 +101,15 @@ import {
   hauntCageLines,
   hauntCageVisible,
 } from "../../domain/hauntCage";
-import { GHOST_PUPIL_COLOR, ghostPupilRects, ghostPupilsVisible } from "../../domain/ghostPupils";
+import {
+  GHOST_PUPIL_COLOR,
+  ghostPupilLookOffset,
+  ghostPupilRects,
+  ghostPupilsVisible,
+  stepGhostPupilLook,
+  type PupilLook,
+  type PupilLookState,
+} from "../../domain/ghostPupils";
 import { GHOST_DIR, type GhostDir } from "../../domain/ghostPath";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost } from "../../domain/upgrades";
@@ -321,11 +329,11 @@ function fillGhostPupils(
   cx: number,
   cy: number,
   displaySize: number,
-  facing: GhostDir,
+  look: PupilLook,
   alpha = 1,
 ): void {
   graphics.fillStyle(GHOST_PUPIL_COLOR, alpha);
-  for (const rect of ghostPupilRects(cx, cy, displaySize, facing)) {
+  for (const rect of ghostPupilRects(cx, cy, displaySize, look)) {
     graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
   }
 }
@@ -343,7 +351,7 @@ export function addGhostIcon(
     scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
     if (ghostPupilsVisible({ style, inFrightenedSet: false, drawKind: "primary" })) {
       const pupils = scene.add.graphics();
-      fillGhostPupils(pupils, x, y, size, GHOST_DIR.none);
+      fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
     }
     return;
   }
@@ -411,7 +419,7 @@ export function addGhostSprite(
     const container = scene.add.container(x, y, [image]);
     if (ghostPupilsVisible({ style, inFrightenedSet: false, drawKind: "primary" })) {
       const pupils = scene.add.graphics();
-      fillGhostPupils(pupils, 0, 0, size, GHOST_DIR.none);
+      fillGhostPupils(pupils, 0, 0, size, ghostPupilLookOffset(GHOST_DIR.none));
       container.add(pupils);
     }
     return container;
@@ -633,6 +641,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const lineArtObjects = new Map<string, LineArtObject>();
   const playerVisuals = new Map<number, PlayerVisual>();
+  const pupilLooks = new Map<number, PupilLookState>();
   const bossPelletGlows = new Map<number, Phaser.GameObjects.Graphics>();
   const neonPowerBounceTarget = new Map<number, { mul: number }>();
   const killNeonPowerBounce = (eid: number): void => {
@@ -861,6 +870,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
     neonPowerBounceTarget.clear();
     playerVisuals.clear();
+    pupilLooks.clear();
     wallGraphics.clear();
     wallGraphics.setAlpha(1);
     wallGlowTexture.setAlpha(1);
@@ -1277,12 +1287,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             drawKind: "primary",
           })
         ) {
+          const stepped = stepGhostPupilLook(
+            pupilLooks.get(eid),
+            facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
+            scene.time.now,
+          );
+          pupilLooks.set(eid, stepped.state);
           fillGhostPupils(
             pupilGraphics,
             x,
             y,
             size,
-            facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
+            stepped.look,
             ghostAlpha * (glideHead?.alpha ?? 1),
           );
         }

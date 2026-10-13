@@ -38,14 +38,45 @@ export function ghostPupilLookOffset(facing: GhostDir): { dx: number; dy: number
   }
 }
 
+export type PupilLook = { dx: number; dy: number };
+
+export type PupilLookState = { from: PupilLook; to: PupilLook; startMs: number };
+
+export const GHOST_PUPIL_TURN_MS = 250;
+
+function currentLook(state: PupilLookState, nowMs: number): PupilLook {
+  const t = Math.min(1, Math.max(0, (nowMs - state.startMs) / GHOST_PUPIL_TURN_MS));
+  const eased = t * t * (3 - 2 * t);
+  return {
+    dx: state.from.dx + (state.to.dx - state.from.dx) * eased,
+    dy: state.from.dy + (state.to.dy - state.from.dy) * eased,
+  };
+}
+
+export function stepGhostPupilLook(
+  prev: PupilLookState | undefined,
+  facing: GhostDir,
+  nowMs: number,
+): { state: PupilLookState; look: PupilLook } {
+  const target = ghostPupilLookOffset(facing);
+  if (prev === undefined) {
+    return { state: { from: target, to: target, startMs: nowMs }, look: target };
+  }
+  const state =
+    prev.to.dx === target.dx && prev.to.dy === target.dy
+      ? prev
+      : { from: currentLook(prev, nowMs), to: target, startMs: nowMs };
+  return { state, look: currentLook(state, nowMs) };
+}
+
 export function ghostPupilRects(
   cx: number,
   cy: number,
   displaySize: number,
-  facing: GhostDir,
+  look: PupilLook,
 ): PupilRect[] {
   const scale = displaySize / GHOST_ART_SIZE_PX;
-  const { dx, dy } = ghostPupilLookOffset(facing);
+  const { dx, dy } = look;
   const w = GHOST_PUPIL_ART_PX * scale;
   const h = GHOST_PUPIL_ART_PX * scale;
   const half = displaySize / 2;
