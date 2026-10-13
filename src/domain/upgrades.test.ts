@@ -453,12 +453,12 @@ describe("rare upgrades", () => {
     "fruitPowerPellet",
     "passiveOvercharge",
     "passiveLazyLooper",
-    "passiveShieldPellets",
     "passiveMartyr",
     "passiveStreakEngine",
     "powerPelletHunter",
     "powerPelletHyperspeed",
     "passiveShieldBreak",
+    "passiveEcho",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
@@ -1313,8 +1313,19 @@ describe("upgrade schools", () => {
     expect(groups.map((g) => g.school)).toEqual([...UPGRADE_SCHOOL_ORDER]);
     expect(groups.flatMap((g) => g.defs)).toHaveLength(UPGRADE_DEFS.length);
     const speed = groups.find((g) => g.school === "speed")!;
-    expect(speed.defs.map((d) => d.id)).toEqual(
-      UPGRADE_DEFS.filter((d) => d.school === "speed").map((d) => d.id),
+    const speedDefs = UPGRADE_DEFS.filter((d) => d.school === "speed");
+    const isStarting = (id: string) => (STARTING_UPGRADE_POOL as readonly string[]).includes(id);
+    expect(speed.defs.map((d) => d.id)).toEqual([
+      ...speedDefs.filter((d) => isStarting(d.id)).map((d) => d.id),
+      ...speedDefs.filter((d) => !isStarting(d.id)).map((d) => d.id),
+    ]);
+
+    const protection = groupUpgradesBySchool(UPGRADE_DEFS).find((g) => g.school === "protection")!;
+    const startingCount = protection.defs.filter((d) => isStarting(d.id)).length;
+    expect(startingCount).toBeGreaterThan(1);
+    expect(protection.defs.slice(0, startingCount).every((d) => isStarting(d.id))).toBe(true);
+    expect(protection.defs.slice(0, startingCount).map((d) => d.id)).toContain(
+      "passiveShieldPellets",
     );
 
     const some = UPGRADE_DEFS.filter((d) => d.school === "neutral" || d.school === "death");

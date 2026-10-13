@@ -697,8 +697,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Shield",
     school: "protection",
     description: "Power pellets provide a shield. A ghost hit breaks it.",
-    storePrice: STORE_RARE_UPGRADE_PRICE,
-    rare: true,
+    storePrice: STORE_UPGRADE_PRICE,
     shieldCap: SHIELD_PELLETS_CAP,
     enhanced: {
       enhanceNote: "Shield stores up to 3 shields instead of 1.",
@@ -802,7 +801,8 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Echo",
     school: "automation",
     description: "Power pellets fire a random one of your power effects again 3 seconds later.",
-    storePrice: STORE_UPGRADE_PRICE,
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
     echoEffects: "one",
     enhanced: {
       enhanceNote: "Echo repeats every power-pellet effect you own instead of one at random.",
@@ -1235,6 +1235,8 @@ export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
   "powerPelletSpeedBurst",
   "powerPelletGhostHarvester",
   "powerPelletScatterBurst",
+  "passiveShieldPellets",
+  "passiveDefyDeath",
 ];
 
 export function pickStartingUpgrade(
@@ -2027,10 +2029,14 @@ export function learnUpgradeDefs(seen: readonly UpgradeId[]): UpgradeDef[] {
 export function groupUpgradesBySchool(
   defs: readonly UpgradeDef[],
 ): { school: UpgradeSchool; defs: UpgradeDef[] }[] {
-  return UPGRADE_SCHOOL_ORDER.map((school) => ({
-    school,
-    defs: defs.filter((def) => def.school === school),
-  })).filter((group) => group.defs.length > 0);
+  const isStarting = (def: UpgradeDef) => STARTING_UPGRADE_POOL.includes(def.id as BaseUpgradeId);
+  return UPGRADE_SCHOOL_ORDER.map((school) => {
+    const inSchool = defs.filter((def) => def.school === school);
+    return {
+      school,
+      defs: [...inSchool.filter(isStarting), ...inSchool.filter((d) => !isStarting(d))],
+    };
+  }).filter((group) => group.defs.length > 0);
 }
 
 export function upgradeLabels(owned: readonly UpgradeId[]): string[] {
