@@ -5256,14 +5256,15 @@ describe("Hyperspeed", () => {
     chompPowerPellet(sim);
     expect(sim.snapshot().bonus.streak).toBe(1);
     const boardBefore = sim.snapshot().boardCollected;
-    let peak = 0;
+    let previous = 1;
     for (let frame = 0; frame < 8; frame += 1) {
       runFrames(sim, 1, DOWN);
-      peak = Math.max(peak, sim.snapshot().bonus.streak);
-      expect(sim.snapshot().bonus.streak).toBeGreaterThanOrEqual(peak);
+      const { streak } = sim.snapshot().bonus;
+      expect(streak).toBeGreaterThanOrEqual(previous);
+      previous = streak;
     }
-    expect(sim.snapshot().bonus.streak).toBe(sim.snapshot().boardCollected - boardBefore + 1);
-    expect(peak).toBeGreaterThan(3);
+    expect(previous).toBe(sim.snapshot().boardCollected - boardBefore + 1);
+    expect(previous).toBeGreaterThan(3);
   });
 
   it("returns to normal speed when the window ends", () => {
