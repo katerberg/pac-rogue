@@ -3522,6 +3522,18 @@ describe("Shield", () => {
     expect(overcharged.snapshot().timers.invulnMs).toBeGreaterThan(SHIELD_BREAK_INVULN_MS);
   });
 
+  it("an active Defy Death window saves the catch and keeps the shield", () => {
+    const sim = startShieldSim(["passiveShieldPellets", "passiveDefyDeath"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(0);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(events).toContainEqual({ type: "sfx", id: "revive" });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    expect(sim.snapshot().shieldCrackProgress).toBeNull();
+  });
+
   it("does not trigger Defy Death's save but arms its window", () => {
     const sim = startShieldSim(["passiveShieldPellets", "passiveShieldBreak", "passiveDefyDeath"]);
     chompPowerPellet(sim);

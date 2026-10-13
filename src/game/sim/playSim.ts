@@ -1392,7 +1392,10 @@ export class PlaySim {
       this.recorder.nearMisses(this.world, getActiveLayout().tileSize);
       this.payNearMisses(catchOptions);
     } else {
-      if (this.breakShield() || this.breakHyperspeedShield()) {
+      if (
+        !defyDeathActive(this.runUpgrades) &&
+        (this.breakShield() || this.breakHyperspeedShield())
+      ) {
         return;
       }
       const deathCell = playerCell(this.world);
@@ -2423,7 +2426,7 @@ export class PlaySim {
       this.eatFrightenedGhosts();
       const catchOptions = this.catchOptions();
       const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-      if (hit !== null && !this.breakHyperspeedShield()) {
+      if (hit !== null && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield())) {
         caught = true;
         this.zeroPlayerSpeed();
       }
