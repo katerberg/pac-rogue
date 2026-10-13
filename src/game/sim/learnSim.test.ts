@@ -36,7 +36,6 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
-import { BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID, PLAYER_DRAWABLE_ID } from "../../domain/playfield";
 import { LearnSim } from "./learnSim";
 import { FRAME_MS, held } from "./simTesting";
 
@@ -186,15 +185,14 @@ describe("LearnSim", () => {
     expect(events.some((event) => event.type === "bouncePowerPellet")).toBe(true);
   });
 
-  it("emits pelletAbsorb when Dot-Man eats a neon regular pellet", () => {
-    const sim = new LearnSim("absorb-learn");
+  it("releases the drawable of every pellet Dot-Man eats", () => {
+    const sim = new LearnSim("release-learn");
     sim.start();
-    sim.setGhostStyle("neon");
     const events: import("./simEvents").SimEvent[] = [];
     for (let i = 0; i < 60; i += 1) {
       events.push(...sim.step(held("left"), FRAME_MS));
     }
-    expect(events.some((event) => event.type === "pelletAbsorb")).toBe(true);
+    expect(events.some((event) => event.type === "releaseDrawable")).toBe(true);
   });
 
   it("regenerates every power pellet once the last one is eaten", () => {
@@ -304,32 +302,6 @@ describe("LearnSim", () => {
     }
     const after = sim.step(NO_KEYS_HELD, FRAME_MS);
     expect(after.some((e) => e.type === "draw" && e.options.ghostWarpGlides)).toBe(false);
-  });
-});
-
-describe("LearnSim ghost style", () => {
-  function lastDraw(sim: LearnSim) {
-    return sim
-      .step(NO_KEYS_HELD, FRAME_MS)
-      .flatMap((e) => (e.type === "draw" ? [e.options] : []))
-      .at(-1)!;
-  }
-
-  it("draws pixel art by default, and neon/lined line art when set", () => {
-    const sim = new LearnSim("learn");
-    sim.start();
-    sim.selectGhost(GHOST_KIND.inky);
-    expect(lastDraw(sim).lineArtDrawableIds).toEqual([]);
-    sim.setGhostStyle("neon");
-    expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual(
-      [PLAYER_DRAWABLE_ID, BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID].sort(),
-    );
-    sim.setGhostStyle("lined");
-    expect([...lastDraw(sim).lineArtDrawableIds!].sort()).toEqual(
-      [PLAYER_DRAWABLE_ID, BLINKY_DRAWABLE_ID, INKY_DRAWABLE_ID].sort(),
-    );
-    sim.setGhostStyle("pixel");
-    expect(lastDraw(sim).lineArtDrawableIds).toEqual([]);
   });
 });
 

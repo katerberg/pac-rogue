@@ -13,22 +13,10 @@ import {
 import { GHOST_DIR } from "./ghostPath";
 
 describe("ghostPupilsVisible", () => {
-  it("shows only for pixel primary ghosts that are not frightened", () => {
-    expect(
-      ghostPupilsVisible({ style: "pixel", inFrightenedSet: false, drawKind: "primary" }),
-    ).toBe(true);
-    expect(ghostPupilsVisible({ style: "neon", inFrightenedSet: false, drawKind: "primary" })).toBe(
-      false,
-    );
-    expect(
-      ghostPupilsVisible({ style: "lined", inFrightenedSet: false, drawKind: "primary" }),
-    ).toBe(false);
-    expect(ghostPupilsVisible({ style: "pixel", inFrightenedSet: true, drawKind: "primary" })).toBe(
-      false,
-    );
-    expect(
-      ghostPupilsVisible({ style: "pixel", inFrightenedSet: false, drawKind: "afterimage" }),
-    ).toBe(false);
+  it("shows only for primary ghosts that are not frightened", () => {
+    expect(ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })).toBe(true);
+    expect(ghostPupilsVisible({ inFrightenedSet: true, drawKind: "primary" })).toBe(false);
+    expect(ghostPupilsVisible({ inFrightenedSet: false, drawKind: "afterimage" })).toBe(false);
   });
 });
 

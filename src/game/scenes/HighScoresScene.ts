@@ -28,13 +28,15 @@ import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { fetchGlobalScores } from "../net/apiClient";
 import { loadRunHistory } from "../storage/runHistoryStorage";
 import {
+  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
+  placePixelText,
+  placeSelectableMenuOption,
   SCORES_FONT_SIZE,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
-import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
 import { applyRenderScale } from "../renderScale";
 
 const LIST_TOP = 200;
@@ -53,14 +55,14 @@ const VIEWPORT_HEIGHT = SCROLL.viewportRows * SCROLL.rowHeight;
 export class HighScoresScene extends Phaser.Scene {
   private scrollState: ScoreListScrollState = createScoreListScroll(0, SCROLL);
   private itemCount = 0;
-  private rowTexts: GameText[][] = [];
+  private rowTexts: Phaser.GameObjects.BitmapText[][] = [];
   private listObjects: Phaser.GameObjects.GameObject[] = [];
   private tab: ScoreTab = "local";
   private global: GlobalBoard = { kind: "idle" };
   private mineRow: number | null = null;
   private visit = 0;
-  private tabTexts!: Record<ScoreTab, GameText>;
-  private backText!: GameText;
+  private tabTexts!: Record<ScoreTab, Phaser.GameObjects.BitmapText>;
+  private backText!: Phaser.GameObjects.BitmapText;
   private keyLeft!: Phaser.Input.Keyboard.Key;
   private keyRight!: Phaser.Input.Keyboard.Key;
   private keyEsc!: Phaser.Input.Keyboard.Key;
@@ -96,18 +98,18 @@ export class HighScoresScene extends Phaser.Scene {
       .rectangle(PLAYFIELD_WIDTH / 2, belowTop + belowHeight / 2, PLAYFIELD_WIDTH, belowHeight, BG)
       .setDepth(5);
 
-    const title = addGameText(
+    const title = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
       80,
       "HIGH SCORES",
       MENU_TITLE_FONT_SIZE,
     ).setDepth(10);
-    placeGameText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
+    placePixelText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
 
     this.tabTexts = {
-      local: addGameText(this, 0, 0, "", MENU_OPTION_FONT_SIZE).setDepth(10),
-      global: addGameText(this, 0, 0, "", MENU_OPTION_FONT_SIZE).setDepth(10),
+      local: addPixelText(this, 0, 0, "", MENU_OPTION_FONT_SIZE).setDepth(10),
+      global: addPixelText(this, 0, 0, "", MENU_OPTION_FONT_SIZE).setDepth(10),
     };
     for (const tab of ["local", "global"] as const) {
       this.tabTexts[tab].setInteractive({ useHandCursor: true });
@@ -119,7 +121,7 @@ export class HighScoresScene extends Phaser.Scene {
     }
     this.placeTabs();
 
-    this.backText = addGameText(
+    this.backText = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
       BACK_Y,
@@ -252,13 +254,13 @@ export class HighScoresScene extends Phaser.Scene {
     this.scrollState = createScoreListScroll(this.itemCount, SCROLL);
 
     if (rows.length === 0) {
-      const empty = addGameText(this, 0, 0, emptyMessage, SCORES_FONT_SIZE).setDepth(1);
-      placeGameText(empty, PLAYFIELD_WIDTH / 2, LIST_TOP + VIEWPORT_HEIGHT / 2, 0.5, 0.5);
+      const empty = addPixelText(this, 0, 0, emptyMessage, SCORES_FONT_SIZE).setDepth(1);
+      placePixelText(empty, PLAYFIELD_WIDTH / 2, LIST_TOP + VIEWPORT_HEIGHT / 2, 0.5, 0.5);
       this.listObjects.push(empty);
       return;
     }
 
-    const probe = addGameText(this, 0, 0, "", SCORES_FONT_SIZE).setVisible(false);
+    const probe = addPixelText(this, 0, 0, "", SCORES_FONT_SIZE).setVisible(false);
     const measure = (text: string): number => {
       probe.setText(text);
       return Math.round(probe.getTextBounds(true).local.width);
@@ -307,11 +309,11 @@ export class HighScoresScene extends Phaser.Scene {
     y: number,
     depth: number,
     color: number,
-  ): GameText[] {
+  ): Phaser.GameObjects.BitmapText[] {
     return cells.map((cell) => {
-      const text = addGameText(this, 0, 0, cell.content, SCORES_FONT_SIZE, color).setDepth(depth);
+      const text = addPixelText(this, 0, 0, cell.content, SCORES_FONT_SIZE, color).setDepth(depth);
       this.listObjects.push(text);
-      placeGameText(
+      placePixelText(
         text,
         highScoreCellX(layout, cell.id, cell.align, listLeftX),
         y,

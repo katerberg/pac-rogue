@@ -1,12 +1,6 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
-import { textStyleFor } from "../../domain/ghostArt";
-import {
-  interTextGap,
-  wrapCharBudget,
-  wrapCharsFittingWidth,
-} from "../../domain/neonFont/textStack";
-import { DEFAULT_TUNING } from "../../domain/tuning";
+import { wrapCharsForBox } from "../../domain/textLayout";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import { mazeColorForIndex } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -28,19 +22,19 @@ import {
 } from "../../domain/upgrades";
 import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
-import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { addDotManIcon, addQuarterIcon } from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
 import { addRareFx, createRareFxToggle } from "./rareFx";
 import {
+  addPixelText,
   HUD_FONT_SIZE,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
+  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addGameText, placeGameText } from "./neonFont";
 import {
   BUTTON_HEIGHT,
   BUTTON_WIDTH,
@@ -60,9 +54,8 @@ const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
-/** Neon bloom clearance from the panel stroke; pixel keeps the legacy wrap pad. */
-const PANEL_NEON_SIDE_PAD = 34;
-const PANEL_PIXEL_SIDE_PAD = 8;
+/** Wrap pad between the panel stroke and its text. */
+const PANEL_SIDE_PAD = 8;
 const PANEL_TOP_PAD = 12;
 const PANEL_TITLE_MAX_CHARS = 10;
 const MODAL_TITLE_MARGIN = 40;
@@ -162,10 +155,10 @@ export function createStoreOverlay(
   const panelBg = scene.add
     .rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x101820)
     .setStrokeStyle(2, TEXT_COLOR_YELLOW);
-  const panelTitle = addGameText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-  const panelSchool = addGameText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
-  const panelBody = addGameText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
-  const panelFooter = addGameText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const panelTitle = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const panelSchool = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
+  const panelBody = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
+  const panelFooter = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
   const panel = scene.add
     .container(panelX, panelY, [panelBg, panelTitle, panelSchool, panelBody, panelFooter])
     .setDepth(PANEL_DEPTH)
@@ -186,7 +179,7 @@ export function createStoreOverlay(
   const modalBg = scene.add
     .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
     .setStrokeStyle(4, TEXT_COLOR_YELLOW);
-  const modalTitle = addGameText(
+  const modalTitle = addPixelText(
     scene,
     0,
     0,
@@ -194,8 +187,8 @@ export function createStoreOverlay(
     MENU_TITLE_FONT_SIZE,
     TEXT_COLOR_YELLOW,
   ).setCenterAlign();
-  const modalSchool = addGameText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
-  const modalBody = addGameText(
+  const modalSchool = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
+  const modalBody = addPixelText(
     scene,
     0,
     0,
@@ -203,13 +196,13 @@ export function createStoreOverlay(
     UPGRADES_HUD_FONT_SIZE,
     TEXT_COLOR_WHITE,
   ).setCenterAlign();
-  const modalCost = addGameText(scene, 0, 0, "", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
-  const modalSure = addGameText(scene, 0, 0, "SURE?", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
-  const modalYes = addGameText(scene, 0, 0, "YES", MENU_OPTION_FONT_SIZE);
-  const modalNo = addGameText(scene, 0, 0, "NO", MENU_OPTION_FONT_SIZE);
-  placeGameText(modalSure, -70, 80, 0.5, 0.5);
-  placeGameText(modalYes, 10, 80, 0.5, 0.5);
-  placeGameText(modalNo, 70, 80, 0.5, 0.5);
+  const modalCost = addPixelText(scene, 0, 0, "", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
+  const modalSure = addPixelText(scene, 0, 0, "SURE?", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
+  const modalYes = addPixelText(scene, 0, 0, "YES", MENU_OPTION_FONT_SIZE);
+  const modalNo = addPixelText(scene, 0, 0, "NO", MENU_OPTION_FONT_SIZE);
+  placePixelText(modalSure, -70, 80, 0.5, 0.5);
+  placePixelText(modalYes, 10, 80, 0.5, 0.5);
+  placePixelText(modalNo, 70, 80, 0.5, 0.5);
   for (const [text, choice] of [
     [modalYes, "yes"],
     [modalNo, "no"],
@@ -237,27 +230,22 @@ export function createStoreOverlay(
     if (prompt === null) {
       return;
     }
-    const textStyle = textStyleFor(loadGhostStyle());
     const title = slotTitle(prompt.slot);
-    modalTitle.setText(wrapText(title, wrapCharBudget(LABEL_MAX_CHARS, textStyle)));
+    modalTitle.setText(wrapText(title, LABEL_MAX_CHARS));
     modalTitle.setFontSize(
-      fitFontSize(title, BUTTON_WIDTH - MODAL_TITLE_MARGIN, MENU_TITLE_FONT_SIZE, textStyle),
+      fitFontSize(title, BUTTON_WIDTH - MODAL_TITLE_MARGIN, MENU_TITLE_FONT_SIZE),
     );
-    modalBody.setText(
-      wrapText(slotBody(prompt.slot), wrapCharBudget(DESCRIPTION_MAX_CHARS, textStyle)),
-    );
+    modalBody.setText(wrapText(slotBody(prompt.slot), DESCRIPTION_MAX_CHARS));
     modalCost.setText(`COST ${prompt.price}`);
     const school = slotSchool(prompt.slot);
     modalBg.setStrokeStyle(4, schoolBorderColor(school));
     modalRare(slotRare(prompt.slot), schoolBorderColor(school));
     setSchoolTag(modalSchool, school);
-    const schoolGap = interTextGap(SCHOOL_GAP, textStyle);
-    const sectionGap = interTextGap(CARD_DESCRIPTION_GAP, textStyle);
     stackTexts(
       [
-        { text: modalTitle, gapBelow: school === null ? sectionGap : schoolGap },
-        ...(school === null ? [] : [{ text: modalSchool, gapBelow: sectionGap }]),
-        { text: modalBody, gapBelow: sectionGap },
+        { text: modalTitle, gapBelow: school === null ? CARD_DESCRIPTION_GAP : SCHOOL_GAP },
+        ...(school === null ? [] : [{ text: modalSchool, gapBelow: CARD_DESCRIPTION_GAP }]),
+        { text: modalBody, gapBelow: CARD_DESCRIPTION_GAP },
         { text: modalCost, gapBelow: 0 },
       ],
       -20,
@@ -271,39 +259,19 @@ export function createStoreOverlay(
     if (content === null) {
       return;
     }
-    const textStyle = textStyleFor(loadGhostStyle());
     panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
     panelRare(content.rare, schoolBorderColor(content.school));
-    const sidePad = textStyle === "neon" ? PANEL_NEON_SIDE_PAD : PANEL_PIXEL_SIDE_PAD;
-    const titleSize = fitFontSize(
-      content.title,
-      PANEL_WIDTH - 2 * sidePad,
-      HUD_FONT_SIZE,
-      textStyle,
-    );
-    const panelBudget = (text: string, fontSize: number, pixelMax: number): number =>
-      Math.min(
-        wrapCharBudget(pixelMax, textStyle),
-        wrapCharsFittingWidth(
-          text,
-          PANEL_WIDTH,
-          fontSize,
-          textStyle,
-          sidePad,
-          DEFAULT_TUNING.fontThickness,
-          DEFAULT_TUNING.fontLetterSpacing,
-        ),
-      );
-    const titleBudget = panelBudget(content.title, titleSize, PANEL_TITLE_MAX_CHARS);
-    const bodyBudget = panelBudget(content.body, UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS);
+    const titleSize = fitFontSize(content.title, PANEL_WIDTH - 2 * PANEL_SIDE_PAD, HUD_FONT_SIZE);
+    const panelBudget = (fontSize: number, max: number): number =>
+      Math.min(max, wrapCharsForBox(PANEL_WIDTH, fontSize, PANEL_SIDE_PAD));
+    const titleBudget = panelBudget(titleSize, PANEL_TITLE_MAX_CHARS);
+    const bodyBudget = panelBudget(UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS);
     panelTitle.setText(wrapText(content.title, titleBudget));
     panelTitle.setFontSize(titleSize);
     panelBody.setText(wrapText(content.body, bodyBudget));
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
-    // Prefer school-sized gaps on the short panel; tall neon stacks may still clip
-    // NEED/QUARTERS — leave it (same policy as line-art.md).
-    const rowGap = interTextGap(SCHOOL_GAP, textStyle);
+    const rowGap = SCHOOL_GAP;
     const topY = -PANEL_HEIGHT / 2 + PANEL_TOP_PAD;
     stackTextsFromTop(
       [
@@ -341,22 +309,19 @@ export function createStoreOverlay(
     }
     const coinY = size / 2 - 3 - TILE_COIN_PX / 2;
     const coins = coinRowXs(slotPrice(slot), size - 6).map((cx) =>
-      addQuarterIcon(scene, cx, coinY, TILE_COIN_PX, loadGhostStyle()),
+      addQuarterIcon(scene, cx, coinY, TILE_COIN_PX),
     );
     let glyph: Phaser.GameObjects.GameObject;
     if (slot.kind === "life") {
-      glyph = addDotManIcon(scene, 0, TILE_GLYPH_Y, tile - 2, loadGhostStyle());
+      glyph = addDotManIcon(scene, 0, TILE_GLYPH_Y, tile - 2);
     } else {
       const char =
         slot.kind === "swap" ? "?" : enhance ? "+" : slotTitle(slot).charAt(0).toUpperCase();
       const school = enhance ? null : slotSchool(slot);
       const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
-      const text = addGameText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
-      const inkOffset =
-        textStyleFor(loadGhostStyle()) === "pixel"
-          ? (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8
-          : 0;
-      placeGameText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
+      const text = addPixelText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
+      const inkOffset = (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8;
+      placePixelText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
       glyph = text;
     }
     const zone = scene.add.zone(0, 0, size, size).setInteractive({ useHandCursor: true });

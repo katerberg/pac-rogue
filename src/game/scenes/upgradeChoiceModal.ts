@@ -1,13 +1,6 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
-import { textStyleFor } from "../../domain/ghostArt";
-import {
-  interTextGap,
-  stackRowTops,
-  stackRowTopsFromTop,
-  wrapCharBudget,
-  type TextStyle,
-} from "../../domain/neonFont/textStack";
+import { stackRowTops, stackRowTopsFromTop } from "../../domain/textLayout";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { STORE_ENHANCE_BORDER_COLOR } from "../../domain/store";
 import {
@@ -24,15 +17,15 @@ import {
   type UpgradeSchool,
 } from "../../domain/upgrades";
 import { wrapText } from "../../domain/wrapText";
-import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { addRareFx } from "./rareFx";
 import {
+  addPixelText,
   MENU_OPTION_FONT_SIZE,
+  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addGameText, isNeonText, placeGameText, type GameText } from "./neonFont";
 
 export const UPGRADE_CHOICE_LOCKOUT_MS = 500;
 export const UPGRADE_CONFIRM_PULSE_MS = 400;
@@ -126,7 +119,7 @@ function placeSlotHint(
   x: number,
   y: number,
 ): Phaser.GameObjects.Container {
-  const glyph = addGameText(
+  const glyph = addPixelText(
     scene,
     0,
     0,
@@ -134,13 +127,7 @@ function placeSlotHint(
     MENU_OPTION_FONT_SIZE,
     TEXT_COLOR_YELLOW,
   );
-  const bounds = glyph.getTextBounds(true);
-  if (isNeonText(glyph)) {
-    // NeonText is a Container: ITRS rotates around (x,y), not the sized center.
-    glyph.setPosition(-bounds.local.width / 2, -bounds.local.height / 2);
-  } else {
-    glyph.setOrigin(0.5, 0.5).setPosition(0, 0);
-  }
+  glyph.setOrigin(0.5, 0.5).setPosition(0, 0);
   return scene.add
     .container(x, y, [glyph])
     .setAngle(upgradeSlotHintAngleDeg(slot))
@@ -176,9 +163,9 @@ export type UpgradeCardVisual = {
   root: Phaser.GameObjects.Container;
   bg: Phaser.GameObjects.Rectangle;
   borderColor: number;
-  label: GameText;
-  school: GameText | null;
-  description: GameText;
+  label: Phaser.GameObjects.BitmapText;
+  school: Phaser.GameObjects.BitmapText | null;
+  description: Phaser.GameObjects.BitmapText;
   targetLabel: string;
   targetDescription: string;
 };
@@ -189,31 +176,22 @@ export function buildUpgradeCardVisual(
   y: number,
   copy: CardCopy,
 ): UpgradeCardVisual {
-  const textStyle = textStyleFor(loadGhostStyle());
-  const targetLabel = wrapText(copy.label, wrapCharBudget(CHOICE_LABEL_MAX_CHARS, textStyle));
-  const targetDescription = wrapText(
-    copy.description,
-    wrapCharBudget(CHOICE_DESCRIPTION_MAX_CHARS, textStyle),
-  );
+  const targetLabel = wrapText(copy.label, CHOICE_LABEL_MAX_CHARS);
+  const targetDescription = wrapText(copy.description, CHOICE_DESCRIPTION_MAX_CHARS);
   const borderColor =
     copy.enhanced === true ? STORE_ENHANCE_BORDER_COLOR : schoolBorderColor(copy.school);
   const bg = scene.add
     .rectangle(0, 0, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 0x101820)
     .setStrokeStyle(BUTTON_STROKE_REST, borderColor);
-  const label = addGameText(
+  const label = addPixelText(
     scene,
     0,
     0,
     targetLabel,
-    fitFontSize(
-      copy.label,
-      CHOICE_BUTTON_WIDTH - CHOICE_LABEL_MARGIN,
-      CHOICE_LABEL_FONT_SIZE,
-      textStyle,
-    ),
+    fitFontSize(copy.label, CHOICE_BUTTON_WIDTH - CHOICE_LABEL_MARGIN, CHOICE_LABEL_FONT_SIZE),
     TEXT_COLOR_YELLOW,
   );
-  const description = addGameText(
+  const description = addPixelText(
     scene,
     0,
     0,
@@ -222,7 +200,7 @@ export function buildUpgradeCardVisual(
     TEXT_COLOR_WHITE,
   );
   const school = copy.school === undefined ? null : addSchoolTag(scene, copy.school);
-  layoutCardText(label, school, description, 0, textStyle);
+  layoutCardText(label, school, description);
   const root = scene.add.container(
     x,
     y,
@@ -240,9 +218,9 @@ type ButtonView = {
   root: Phaser.GameObjects.Container;
   bg: Phaser.GameObjects.Rectangle;
   borderColor: number;
-  label: GameText;
-  school: GameText | null;
-  description: GameText;
+  label: Phaser.GameObjects.BitmapText;
+  school: Phaser.GameObjects.BitmapText | null;
+  description: Phaser.GameObjects.BitmapText;
   targetLabel: string;
   targetDescription: string;
   baseX: number;
@@ -582,8 +560,11 @@ export function createUpgradeChoiceModal(
   };
 }
 
-export function addSchoolTag(scene: Phaser.Scene, school: UpgradeSchool): GameText {
-  return addGameText(
+export function addSchoolTag(
+  scene: Phaser.Scene,
+  school: UpgradeSchool,
+): Phaser.GameObjects.BitmapText {
+  return addPixelText(
     scene,
     0,
     0,
@@ -598,18 +579,18 @@ function placeButtonText(button: ButtonView): void {
 }
 
 export function layoutCardText(
-  label: GameText,
-  school: GameText | null,
-  description: GameText,
+  label: Phaser.GameObjects.BitmapText,
+  school: Phaser.GameObjects.BitmapText | null,
+  description: Phaser.GameObjects.BitmapText,
   centerY = 0,
-  textStyle: TextStyle = textStyleFor(loadGhostStyle()),
 ): void {
-  const schoolGap = interTextGap(SCHOOL_GAP_BELOW_LABEL, textStyle);
-  const descriptionGap = interTextGap(DESCRIPTION_GAP, textStyle);
   stackTexts(
     [
-      { text: label, gapBelow: school === null ? descriptionGap : schoolGap },
-      ...(school === null ? [] : [{ text: school, gapBelow: descriptionGap }]),
+      {
+        text: label,
+        gapBelow: school === null ? DESCRIPTION_GAP : SCHOOL_GAP_BELOW_LABEL,
+      },
+      ...(school === null ? [] : [{ text: school, gapBelow: DESCRIPTION_GAP }]),
       { text: description, gapBelow: 0 },
     ],
     centerY,
@@ -619,31 +600,37 @@ export function layoutCardText(
 export const SCHOOL_GAP = SCHOOL_GAP_BELOW_LABEL;
 export const CARD_DESCRIPTION_GAP = DESCRIPTION_GAP;
 
-export function setSchoolTag(tag: GameText, school: UpgradeSchool | null): void {
+export function setSchoolTag(
+  tag: Phaser.GameObjects.BitmapText,
+  school: UpgradeSchool | null,
+): void {
   tag.setVisible(school !== null);
   if (school !== null) {
     tag.setText(UPGRADE_SCHOOL_LABELS[school].toUpperCase()).setTint(SCHOOL_COLORS[school]);
   }
 }
 
-export function stackTexts(stack: { text: GameText; gapBelow: number }[], centerY: number): void {
+export function stackTexts(
+  stack: { text: Phaser.GameObjects.BitmapText; gapBelow: number }[],
+  centerY: number,
+): void {
   const heights = stack.map((row) => row.text.getTextBounds(true).local.height);
   const gapsBelow = stack.map((row) => row.gapBelow);
   const tops = stackRowTops(heights, gapsBelow, centerY);
   for (let i = 0; i < stack.length; i += 1) {
-    placeGameText(stack[i]!.text, 0, tops[i]!, 0.5, 0);
+    placePixelText(stack[i]!.text, 0, tops[i]!, 0.5, 0);
   }
 }
 
 export function stackTextsFromTop(
-  stack: { text: GameText; gapBelow: number }[],
+  stack: { text: Phaser.GameObjects.BitmapText; gapBelow: number }[],
   topY: number,
 ): void {
   const heights = stack.map((row) => row.text.getTextBounds(true).local.height);
   const gapsBelow = stack.map((row) => row.gapBelow);
   const tops = stackRowTopsFromTop(heights, gapsBelow, topY);
   for (let i = 0; i < stack.length; i += 1) {
-    placeGameText(stack[i]!.text, 0, tops[i]!, 0.5, 0);
+    placePixelText(stack[i]!.text, 0, tops[i]!, 0.5, 0);
   }
 }
 

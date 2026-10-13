@@ -37,16 +37,7 @@ import { speedLevelMultiplier } from "../../domain/levelRules";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
-import {
-  BLINKY_DRAWABLE_ID,
-  CLYDE_DRAWABLE_ID,
-  ghostRadius,
-  INKY_DRAWABLE_ID,
-  PINKY_DRAWABLE_ID,
-  PLAYER_DRAWABLE_ID,
-  PLAYER_SPEED,
-  playerRadius,
-} from "../../domain/playfield";
+import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import { parseStoreSlots } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
@@ -93,8 +84,6 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
-import { catchPlayer } from "../systems/catchPlayer";
-import { Drawable } from "../components/Drawable";
 import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
@@ -509,54 +498,19 @@ describe("PlaySim", () => {
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
   });
 
-  describe("pelletAbsorb", () => {
-    it("emits absorb for neon regular pellets Dot-Man eats", () => {
-      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-neon");
-      sim.setGhostStyle("neon");
-      const events = runFrames(sim, 60, { keys: held("left") });
-      const absorbs = events.filter((event) => event.type === "pelletAbsorb");
-      expect(absorbs.length).toBeGreaterThan(0);
-      expect(absorbs[0]).toMatchObject({ type: "pelletAbsorb" });
-      expect(typeof absorbs[0]!.x).toBe("number");
-      expect(typeof absorbs[0]!.y).toBe("number");
-      expect(absorbs[0]!.radius).toBeGreaterThan(0);
-    });
-
-    it("skips absorb under pixel style", () => {
-      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-pixel");
-      sim.setGhostStyle("pixel");
-      const events = runFrames(sim, 60, { keys: held("left") });
-      expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
-      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
-    });
-
-    it("skips absorb when the Absorb FX knob is off", () => {
-      const sim = new PlaySim(
-        { ...defaultPlayOptions(), level: 2, maze: "maze1" },
-        "absorb-off",
-        resolveTuning({ pelletAbsorbEnabled: false }),
-      );
-      sim.start();
-      sim.setGhostStyle("neon");
-      const events = runFrames(sim, 60, { keys: held("left") });
-      expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
-      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
-    });
-
-    it("does not absorb power pellets", () => {
-      const sim = startSim({ level: 2, maze: "maze1" }, "absorb-power");
-      sim.setGhostStyle("neon");
-      for (const eid of query(sim.world, [Pellet])) {
-        if (!hasComponent(sim.world, eid, PowerPellet)) {
-          removeEntity(sim.world, eid);
-        }
+  it("releases the drawable of a power pellet Dot-Man eats", () => {
+    const sim = startSim({ level: 2, maze: "maze1" }, "release-power");
+    for (const eid of query(sim.world, [Pellet])) {
+      if (!hasComponent(sim.world, eid, PowerPellet)) {
+        removeEntity(sim.world, eid);
       }
-      const power = query(sim.world, [PowerPellet, Position])[0]!;
-      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
-      const events = runFrames(sim, 2);
-      expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
-      expect(count(events, "releaseDrawable")).toBeGreaterThan(0);
-    });
+    }
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    const events = runFrames(sim, 2);
+    expect(events.some((event) => event.type === "releaseDrawable" && event.eid === power)).toBe(
+      true,
+    );
   });
 
   it("drags Maze-Man's speed briefly after eating a dot, then eases back to full", () => {
@@ -2142,7 +2096,6 @@ describe("Ghost Harvester", () => {
     expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
     expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
     expect(count(events, "pelletSfx")).toBeGreaterThan(0);
-    expect(events.some((event) => event.type === "pelletAbsorb")).toBe(false);
 
     runUntil(sim, () => sim.snapshot().timers.ghostHarvestMs === 0, 400);
     const next = regularPelletFarFrom(sim, Position.x[player]!, Position.y[player]!);
@@ -4333,116 +4286,6 @@ describe("Haunting", () => {
     runUntil(sim, () => sim.snapshot().inStore || sim.snapshot().level === 4, 600);
     expect(sim.snapshot().timers.hauntMs).toBe(0);
     expect(sim.snapshot().hauntedGhost).toBeNull();
-  });
-});
-
-describe("ghost style (neon line art vs pixel)", () => {
-  const sorted = (values: readonly string[] | readonly number[] | undefined) =>
-    [...(values ?? [])].map(String).sort();
-
-  it("draws no line art by default (pixel STYLE)", () => {
-    const sim = startSim({ level: 5, roster: 0 }, "lineart");
-    expect(sim.snapshot().lineArtGhosts).toEqual([]);
-    expect(sim.snapshot().lineArtPlayer).toBe(false);
-    expect(sim.snapshot().lineArtQuarter).toBe(false);
-  });
-
-  it("draws every present ghost as neon line art under neon STYLE, on every level", () => {
-    const neonSim = startSim({ level: 5, roster: 0 }, "lineart");
-    neonSim.setGhostStyle("neon");
-    expect(sorted(neonSim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
-    for (const level of [1, 9]) {
-      const sim = startSim({ level, roster: 0 }, "lineart");
-      sim.setGhostStyle("neon");
-      const snap = sim.snapshot();
-      expect(snap.lineArtGhosts.length).toBeGreaterThan(0);
-      expect(sorted(snap.lineArtGhosts)).toEqual(
-        sorted([...new Set(snap.ghosts.map((g) => g.kind))]),
-      );
-    }
-  });
-
-  it("tells the renderer which drawables are line art, Dot-Man included", () => {
-    const sim = startSim({ level: 5, roster: 0 }, "lineart");
-    sim.setGhostStyle("neon");
-    const events = runFrames(sim, 1);
-    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
-    expect(sorted(draws.at(-1)?.lineArtDrawableIds)).toEqual(
-      sorted([
-        PLAYER_DRAWABLE_ID,
-        BLINKY_DRAWABLE_ID,
-        PINKY_DRAWABLE_ID,
-        INKY_DRAWABLE_ID,
-        CLYDE_DRAWABLE_ID,
-      ]),
-    );
-    expect(sim.snapshot().lineArtPlayer).toBe(true);
-    expect(sim.snapshot().lineArtQuarter).toBe(true);
-  });
-
-  it("draws no line art with the pixel style, and switches back mid-run", () => {
-    const sim = startSim({ level: 5, roster: 0 }, "lineart");
-    sim.setGhostStyle("pixel");
-    const events = runFrames(sim, 1);
-    const draws = events.flatMap((event) => (event.type === "draw" ? [event.options] : []));
-    expect(draws.at(-1)?.lineArtDrawableIds).toEqual([]);
-    expect(sim.snapshot().lineArtGhosts).toEqual([]);
-    expect(sim.snapshot().lineArtPlayer).toBe(false);
-    expect(sim.snapshot().lineArtQuarter).toBe(false);
-    sim.setGhostStyle("neon");
-    expect(sim.snapshot().lineArtGhosts).toHaveLength(4);
-    expect(sim.snapshot().lineArtPlayer).toBe(true);
-    expect(sim.snapshot().lineArtQuarter).toBe(true);
-  });
-
-  it("keeps line-art ghosts and Dot-Man under lined style", () => {
-    const sim = startSim({ level: 5, roster: 0 }, "lineart");
-    sim.setGhostStyle("lined");
-    expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "clyde", "inky", "pinky"]);
-    expect(sim.snapshot().lineArtPlayer).toBe(true);
-    expect(sim.snapshot().lineArtQuarter).toBe(true);
-  });
-
-  it("catches with the body circle only, whatever the ghost glow and line-art knobs", () => {
-    const furthestCatch = (tuning: Tuning): number => {
-      const sim = new PlaySim({ ...defaultPlayOptions(), level: 5, roster: 0 }, "lineart", tuning);
-      sim.start();
-      const clyde = query(sim.world, [Ghost, GhostKind]).find(
-        (eid) => GhostKind.kind[eid] === GHOST_KIND.clyde,
-      )!;
-      expect(Drawable.radius[clyde]).toBe(ghostRadius());
-      GhostPhase.value[clyde] = GHOST_PHASE.active;
-      const player = playerEid(sim);
-      let furthest = 0;
-      for (let d = 0; d <= 40; d += 0.25) {
-        Position.x[clyde] = Position.x[player]! + d;
-        Position.y[clyde] = Position.y[player]!;
-        if (catchPlayer(sim.world) === clyde) {
-          furthest = d;
-        }
-      }
-      return furthest;
-    };
-    const plain = furthestCatch(DEFAULT_TUNING);
-    expect(plain).toBeGreaterThan(0);
-    expect(plain).toBeLessThan(2 * ghostRadius());
-    expect(
-      furthestCatch(
-        resolveTuning({
-          ghostGlow: 4,
-          ghostGlowRadius: 12,
-          ghostLineWidth: 15,
-          ghostWidth: 1.5,
-          ghostHeight: 1.5,
-        }),
-      ),
-    ).toBe(plain);
-  });
-
-  it("follows a ghosts override", () => {
-    const sim = startSim({ level: 5, ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] }, "lineart");
-    sim.setGhostStyle("neon");
-    expect(sorted(sim.snapshot().lineArtGhosts)).toEqual(["blinky", "pinky"]);
   });
 });
 

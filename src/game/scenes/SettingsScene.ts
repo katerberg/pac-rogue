@@ -6,7 +6,6 @@ import {
   type AudioCategory,
   type AudioSettings,
 } from "../../domain/audioSettings";
-import { DEFAULT_GHOST_STYLE, learnCheckboxLook, type GhostStyle } from "../../domain/ghostArt";
 import { defaultPrivacySettings, type PrivacySettings } from "../../domain/privacySettings";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { MAZE_BACKGROUND_COLOR } from "../../domain/maze";
@@ -17,9 +16,6 @@ import {
   type MazeColorSettings,
 } from "../../domain/mazeColorSettings";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { SETTINGS_FOCUS_COUNT, resolveSettingsFocusIndex } from "../../domain/settingsFocus";
-import { bonusBarGlowFilter } from "../../domain/bonusBarFx";
-import { settingsVolumeTube, settingsVolumeUsesNeonTube } from "../../domain/settingsVolumeBar";
 import {
   musicIdForContext,
   playSfxPreview,
@@ -29,34 +25,26 @@ import {
 } from "../audio/sfx";
 import { loadAudioSettings, saveAudioSettings } from "../storage/audioSettingsStorage";
 import { loadPrivacySettings, savePrivacySettings } from "../storage/privacySettingsStorage";
-import { loadGhostStyle, saveGhostStyle } from "../storage/ghostStyleStorage";
 import { loadMazeColorSettings, saveMazeColorSettings } from "../storage/mazeColorStorage";
 import {
+  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
+  placePixelText,
+  placeSelectableMenuOption,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
-import {
-  addGameText,
-  placeGameText,
-  placeSelectableMenuOption,
-  syncFontLookFromStorage,
-  type GameText,
-} from "./neonFont";
-import { applyRenderScale, renderScaleOf } from "../renderScale";
-import { paintNeonBarTube, syncNeonBarTubeGlow } from "./neonBarTubePaint";
+import { applyRenderScale } from "../renderScale";
 
 const FOCUS_MAZE_COLOR = 2;
-const FOCUS_GHOST_STYLE = 3;
-const FOCUS_SHARE_RUN_STATS = 4;
-const FOCUS_BACK = 5;
-const FOCUS_COUNT = SETTINGS_FOCUS_COUNT;
+const FOCUS_SHARE_RUN_STATS = 3;
+const FOCUS_BACK = 4;
+const FOCUS_COUNT = 5;
 
 type SettingsSceneData = {
   returnScene?: string;
   musicId?: SfxId;
-  focusIndex?: number;
 };
 
 const ROW_Y: Record<AudioCategory, number> = {
@@ -72,6 +60,7 @@ const ROW_LABEL: Record<AudioCategory, string> = {
 const LABEL_X = 80;
 const CHECK_X = 332;
 const CHECK_SIZE = 18;
+const CHECKBOX_STROKE = 2;
 const SLIDER_LEFT = 420;
 const SLIDER_WIDTH = 220;
 const SLIDER_HEIGHT = 16;
@@ -89,30 +78,19 @@ const MAZE_COLOR_SWATCH_GAP = 48;
 const MAZE_COLOR_SWATCH_RADIUS = 10;
 const MAZE_COLOR_CURSOR_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 5;
 const MAZE_COLOR_ACTIVE_RADIUS = MAZE_COLOR_SWATCH_RADIUS + 2;
-const GHOST_STYLE_ROW_Y = 380;
-const GHOST_STYLE_OPTIONS: { style: GhostStyle; label: string; x: number }[] = [
-  { style: "neon", label: "NEON", x: SLIDER_LEFT },
-  { style: "lined", label: "LINED", x: SLIDER_LEFT + 120 },
-  { style: "pixel", label: "PIXEL", x: SLIDER_LEFT + 240 },
-];
-const SHARE_ROW_Y = 446;
+const SHARE_ROW_Y = 380;
 const AUDIO_DISABLED_WARNING_Y = 510;
 const BACK_Y = PLAYFIELD_HEIGHT - 50;
-
-type CheckboxShape = Phaser.GameObjects.Arc | Phaser.GameObjects.Rectangle;
 
 type CategoryRow = {
   category: AudioCategory;
   focusIndex: number;
-  label: GameText;
-  checkbox: CheckboxShape;
-  checkMark: CheckboxShape;
-  track: Phaser.GameObjects.Rectangle | null;
-  fill: Phaser.GameObjects.Rectangle | null;
+  label: Phaser.GameObjects.BitmapText;
+  checkbox: Phaser.GameObjects.Rectangle;
+  checkMark: Phaser.GameObjects.Rectangle;
+  track: Phaser.GameObjects.Rectangle;
+  fill: Phaser.GameObjects.Rectangle;
   notches: Phaser.GameObjects.Rectangle[];
-  tubeGfx: Phaser.GameObjects.Graphics | null;
-  tubeGlowGfx: Phaser.GameObjects.Graphics | null;
-  tubeGlowKey: string;
 };
 
 export class SettingsScene extends Phaser.Scene {
@@ -124,24 +102,23 @@ export class SettingsScene extends Phaser.Scene {
   private pendingBack = false;
   private audioDisabled = false;
   private rows: CategoryRow[] = [];
-  private backText!: GameText;
+  private backText!: Phaser.GameObjects.BitmapText;
   private dragging: AudioCategory | null = null;
   private returnScene = "MenuScene";
   private musicId: SfxId = "menuMusic";
 
   private mazeColorSettings: MazeColorSettings = defaultMazeColorSettings();
   private mazeColorCursorIndex = 0;
-  private mazeColorLabel!: GameText;
+  private mazeColorLabel!: Phaser.GameObjects.BitmapText;
   private mazeColorCursorRing!: Phaser.GameObjects.Arc;
   private mazeColorActiveRing!: Phaser.GameObjects.Arc;
 
-  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
-  private ghostStyleLabel!: GameText;
-  private ghostStyleTexts: GameText[] = [];
-
   private privacy: PrivacySettings = defaultPrivacySettings();
-  private shareLabel!: GameText;
-  private shareCheck!: { checkbox: CheckboxShape; checkMark: CheckboxShape };
+  private shareLabel!: Phaser.GameObjects.BitmapText;
+  private shareCheck!: {
+    checkbox: Phaser.GameObjects.Rectangle;
+    checkMark: Phaser.GameObjects.Rectangle;
+  };
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -169,7 +146,7 @@ export class SettingsScene extends Phaser.Scene {
     this.scene.bringToTop();
 
     this.settings = loadAudioSettings();
-    this.focusIndex = resolveSettingsFocusIndex(data?.focusIndex);
+    this.focusIndex = 0;
     this.moveCooldownMs = 0;
     this.upRepeat = createKeyRepeatState();
     this.downRepeat = createKeyRepeatState();
@@ -183,7 +160,6 @@ export class SettingsScene extends Phaser.Scene {
     syncMusicPlayback(this, this.musicId, this.settings);
     this.mazeColorSettings = loadMazeColorSettings();
     this.mazeColorCursorIndex = clampMazeColorIndex(this.mazeColorSettings.colorIndex);
-    this.ghostStyle = loadGhostStyle();
     this.privacy = loadPrivacySettings();
 
     this.add
@@ -196,19 +172,18 @@ export class SettingsScene extends Phaser.Scene {
       )
       .setDepth(-1);
 
-    const title = addGameText(this, PLAYFIELD_WIDTH / 2, 80, "SETTINGS", MENU_TITLE_FONT_SIZE);
-    placeGameText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
+    const title = addPixelText(this, PLAYFIELD_WIDTH / 2, 80, "SETTINGS", MENU_TITLE_FONT_SIZE);
+    placePixelText(title, PLAYFIELD_WIDTH / 2, 80, 0.5, 0.5);
 
     for (const [index, category] of CATEGORIES.entries()) {
       this.rows.push(this.createRow(category, index));
     }
 
     this.createMazeColorRow();
-    this.createGhostStyleRow();
     this.createShareRow();
 
     if (this.audioDisabled) {
-      const warning = addGameText(
+      const warning = addPixelText(
         this,
         PLAYFIELD_WIDTH / 2,
         AUDIO_DISABLED_WARNING_Y,
@@ -216,10 +191,10 @@ export class SettingsScene extends Phaser.Scene {
         MENU_OPTION_FONT_SIZE,
         TEXT_COLOR_YELLOW,
       );
-      placeGameText(warning, PLAYFIELD_WIDTH / 2, AUDIO_DISABLED_WARNING_Y, 0.5, 0.5);
+      placePixelText(warning, PLAYFIELD_WIDTH / 2, AUDIO_DISABLED_WARNING_Y, 0.5, 0.5);
     }
 
-    this.backText = addGameText(this, PLAYFIELD_WIDTH / 2, BACK_Y, "BACK", MENU_OPTION_FONT_SIZE);
+    this.backText = addPixelText(this, PLAYFIELD_WIDTH / 2, BACK_Y, "BACK", MENU_OPTION_FONT_SIZE);
     placeSelectableMenuOption(this.backText, "BACK", false, PLAYFIELD_WIDTH / 2, BACK_Y);
     this.backText.setInteractive({ useHandCursor: true });
     this.backText.on("pointerdown", () => {
@@ -295,13 +270,6 @@ export class SettingsScene extends Phaser.Scene {
     } else if (
       this.moveCooldownMs === 0 &&
       (left || right) &&
-      this.focusIndex === FOCUS_GHOST_STYLE
-    ) {
-      this.nudgeGhostStyle(left ? -1 : 1);
-      this.moveCooldownMs = 120;
-    } else if (
-      this.moveCooldownMs === 0 &&
-      (left || right) &&
       this.rows[this.focusIndex] !== undefined
     ) {
       this.nudgeFocusedLevel(left ? -1 : 1);
@@ -316,8 +284,6 @@ export class SettingsScene extends Phaser.Scene {
         this.pendingBack = true;
       } else if (this.focusIndex === FOCUS_MAZE_COLOR) {
         this.commitMazeColor();
-      } else if (this.focusIndex === FOCUS_GHOST_STYLE) {
-        this.nudgeGhostStyle(1);
       } else if (this.focusIndex === FOCUS_SHARE_RUN_STATS) {
         this.toggleShareRunStats();
       } else {
@@ -360,56 +326,28 @@ export class SettingsScene extends Phaser.Scene {
 
   private createRow(category: AudioCategory, focusIndex: number): CategoryRow {
     const centerY = ROW_Y[category];
-    const label = addGameText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
-    placeGameText(label, LABEL_X, centerY, 0, 0.5);
+    const label = addPixelText(this, LABEL_X, centerY, ROW_LABEL[category], MENU_OPTION_FONT_SIZE);
+    placePixelText(label, LABEL_X, centerY, 0, 0.5);
 
     const { checkbox, checkMark } = this.addCheckbox(CHECK_X, centerY, () => {
       this.focusIndex = focusIndex;
       this.toggleCategory(category);
     });
 
-    const neonTube = settingsVolumeUsesNeonTube(this.ghostStyle);
-    let track: Phaser.GameObjects.Rectangle | null = null;
-    let fill: Phaser.GameObjects.Rectangle | null = null;
     const notches: Phaser.GameObjects.Rectangle[] = [];
-    let tubeGfx: Phaser.GameObjects.Graphics | null = null;
-    let tubeGlowGfx: Phaser.GameObjects.Graphics | null = null;
-
-    if (neonTube) {
-      tubeGlowGfx = this.add.graphics().setDepth(0);
-      tubeGfx = this.add.graphics().setDepth(1);
-      const tubeHit = this.add
-        .rectangle(
-          SLIDER_LEFT + SLIDER_WIDTH / 2,
-          centerY,
-          SLIDER_WIDTH,
-          SLIDER_HEIGHT + 8,
-          0x000000,
-          0,
-        )
-        .setInteractive({ useHandCursor: true });
-      this.bindVolumePointer(tubeHit, category, focusIndex);
-    } else {
-      for (let i = 0; i < NOTCH_COUNT; i += 1) {
-        const x = SLIDER_LEFT + (i / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
-        notches.push(this.add.rectangle(x, centerY, 2, SLIDER_HEIGHT + 6, SLIDER_NOTCH));
-      }
-
-      track = this.add
-        .rectangle(
-          SLIDER_LEFT + SLIDER_WIDTH / 2,
-          centerY,
-          SLIDER_WIDTH,
-          SLIDER_HEIGHT,
-          SLIDER_TRACK,
-        )
-        .setInteractive({ useHandCursor: true });
-      this.bindVolumePointer(track, category, focusIndex);
-
-      fill = this.add
-        .rectangle(SLIDER_LEFT, centerY, 1, SLIDER_HEIGHT - 4, SLIDER_FILL)
-        .setOrigin(0, 0.5);
+    for (let i = 0; i < NOTCH_COUNT; i += 1) {
+      const x = SLIDER_LEFT + (i / AUDIO_LEVEL_MAX) * SLIDER_WIDTH;
+      notches.push(this.add.rectangle(x, centerY, 2, SLIDER_HEIGHT + 6, SLIDER_NOTCH));
     }
+
+    const track = this.add
+      .rectangle(SLIDER_LEFT + SLIDER_WIDTH / 2, centerY, SLIDER_WIDTH, SLIDER_HEIGHT, SLIDER_TRACK)
+      .setInteractive({ useHandCursor: true });
+    this.bindVolumePointer(track, category, focusIndex);
+
+    const fill = this.add
+      .rectangle(SLIDER_LEFT, centerY, 1, SLIDER_HEIGHT - 4, SLIDER_FILL)
+      .setOrigin(0, 0.5);
 
     return {
       category,
@@ -420,9 +358,6 @@ export class SettingsScene extends Phaser.Scene {
       track,
       fill,
       notches,
-      tubeGfx,
-      tubeGlowGfx,
-      tubeGlowKey: "",
     };
   }
 
@@ -430,40 +365,30 @@ export class SettingsScene extends Phaser.Scene {
     x: number,
     y: number,
     onToggle: () => void,
-  ): { checkbox: CheckboxShape; checkMark: CheckboxShape } {
-    const look = learnCheckboxLook(this.ghostStyle);
-    const checkRadius = CHECK_SIZE / 2;
-    const checkbox: CheckboxShape =
-      look.shape === "circle"
-        ? this.add
-            .circle(x, y, checkRadius, 0x000000, 0)
-            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE)
-        : this.add
-            .rectangle(x, y, CHECK_SIZE, CHECK_SIZE)
-            .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE)
-            .setFillStyle(0x000000, 0);
+  ): { checkbox: Phaser.GameObjects.Rectangle; checkMark: Phaser.GameObjects.Rectangle } {
+    const checkbox = this.add
+      .rectangle(x, y, CHECK_SIZE, CHECK_SIZE)
+      .setStrokeStyle(CHECKBOX_STROKE, TEXT_COLOR_WHITE)
+      .setFillStyle(0x000000, 0);
     const checkboxHit = this.add
       .rectangle(x, y, 32, 28, 0x000000, 0)
       .setInteractive({ useHandCursor: true });
     checkboxHit.on("pointerdown", onToggle);
-    const checkMark: CheckboxShape =
-      look.shape === "circle"
-        ? this.add.circle(x, y, checkRadius - 2, TEXT_COLOR_WHITE).setVisible(false)
-        : this.add
-            .rectangle(x, y, CHECK_SIZE - 8, CHECK_SIZE - 8, TEXT_COLOR_WHITE)
-            .setVisible(false);
+    const checkMark = this.add
+      .rectangle(x, y, CHECK_SIZE - 8, CHECK_SIZE - 8, TEXT_COLOR_WHITE)
+      .setVisible(false);
     return { checkbox, checkMark };
   }
 
   private createShareRow(): void {
-    this.shareLabel = addGameText(
+    this.shareLabel = addPixelText(
       this,
       LABEL_X,
       SHARE_ROW_Y,
       "SHARE RUN STATS",
       MENU_OPTION_FONT_SIZE,
     );
-    placeGameText(this.shareLabel, LABEL_X, SHARE_ROW_Y, 0, 0.5);
+    placePixelText(this.shareLabel, LABEL_X, SHARE_ROW_Y, 0, 0.5);
     this.shareCheck = this.addCheckbox(SLIDER_LEFT, SHARE_ROW_Y, () => {
       this.focusIndex = FOCUS_SHARE_RUN_STATS;
       this.toggleShareRunStats();
@@ -494,8 +419,8 @@ export class SettingsScene extends Phaser.Scene {
 
   private createMazeColorRow(): void {
     const centerY = MAZE_COLOR_ROW_Y;
-    this.mazeColorLabel = addGameText(this, LABEL_X, centerY, "MAZE COLOR", MENU_OPTION_FONT_SIZE);
-    placeGameText(this.mazeColorLabel, LABEL_X, centerY, 0, 0.5);
+    this.mazeColorLabel = addPixelText(this, LABEL_X, centerY, "MAZE COLOR", MENU_OPTION_FONT_SIZE);
+    placePixelText(this.mazeColorLabel, LABEL_X, centerY, 0, 0.5);
 
     for (const [index, option] of MAZE_COLOR_OPTIONS.entries()) {
       const x = MAZE_COLOR_SWATCH_START_X + index * MAZE_COLOR_SWATCH_GAP;
@@ -517,51 +442,9 @@ export class SettingsScene extends Phaser.Scene {
       .setStrokeStyle(2, TEXT_COLOR_YELLOW);
   }
 
-  private createGhostStyleRow(): void {
-    const centerY = GHOST_STYLE_ROW_Y;
-    this.ghostStyleLabel = addGameText(this, LABEL_X, centerY, "STYLE", MENU_OPTION_FONT_SIZE);
-    placeGameText(this.ghostStyleLabel, LABEL_X, centerY, 0, 0.5);
-    this.ghostStyleTexts = GHOST_STYLE_OPTIONS.map((option) => {
-      const text = addGameText(this, option.x, centerY, option.label, MENU_OPTION_FONT_SIZE);
-      placeGameText(text, option.x, centerY, 0, 0.5);
-      text.setInteractive({ useHandCursor: true });
-      text.on("pointerdown", () => {
-        this.focusIndex = FOCUS_GHOST_STYLE;
-        this.setGhostStyle(option.style);
-      });
-      return text;
-    });
-  }
-
-  private nudgeGhostStyle(delta: number): void {
-    const index = GHOST_STYLE_OPTIONS.findIndex((option) => option.style === this.ghostStyle);
-    const next =
-      GHOST_STYLE_OPTIONS[
-        (index + delta + GHOST_STYLE_OPTIONS.length) % GHOST_STYLE_OPTIONS.length
-      ]!;
-    this.setGhostStyle(next.style);
-  }
-
-  private setGhostStyle(style: GhostStyle): void {
-    if (style === this.ghostStyle) {
-      this.refreshUi();
-      return;
-    }
-    this.ghostStyle = style;
-    saveGhostStyle(style);
-    syncFontLookFromStorage();
-    const data: SettingsSceneData = {
-      returnScene: this.returnScene,
-      musicId: this.musicId,
-      focusIndex: this.focusIndex,
-    };
-    this.scene.restart(data);
-  }
-
-  public debugSnapshot(): { focusIndex: number; ghostStyle: GhostStyle; shareRunStats: boolean } {
+  public debugSnapshot(): { focusIndex: number; shareRunStats: boolean } {
     return {
       focusIndex: this.focusIndex,
-      ghostStyle: this.ghostStyle,
       shareRunStats: this.privacy.shareRunStats,
     };
   }
@@ -638,53 +521,30 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private refreshUi(): void {
-    const look = learnCheckboxLook(this.ghostStyle);
-    const px = renderScaleOf(this);
     for (const row of this.rows) {
       const enabled = this.isCategoryEnabled(row.category);
       const focused = this.focusIndex === row.focusIndex;
       const tint = focused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
       row.label.setTint(tint);
-      row.checkbox.setStrokeStyle(look.strokeWidth, tint);
+      row.checkbox.setStrokeStyle(CHECKBOX_STROKE, tint);
       row.checkMark.setVisible(enabled);
       row.checkMark.setFillStyle(tint);
 
       const level = this.getLevel(row.category);
-      if (row.tubeGfx !== null) {
-        const layout = {
-          x: SLIDER_LEFT,
-          y: ROW_Y[row.category] - SLIDER_HEIGHT / 2,
-          w: SLIDER_WIDTH,
-          h: SLIDER_HEIGHT,
-        };
-        const tube = settingsVolumeTube(level, layout, enabled);
-        row.tubeGfx.clear();
-        paintNeonBarTube(row.tubeGfx, tube);
-        if (row.tubeGlowGfx !== null) {
-          row.tubeGlowKey = syncNeonBarTubeGlow(
-            row.tubeGlowGfx,
-            tube,
-            bonusBarGlowFilter(this.ghostStyle),
-            px,
-            row.tubeGlowKey,
-          );
-        }
-      } else if (row.fill !== null && row.track !== null) {
-        const width = Math.max(0, (level / AUDIO_LEVEL_MAX) * SLIDER_WIDTH);
-        row.fill.setVisible(width > 0);
-        if (width > 0) {
-          row.fill.setSize(width, SLIDER_HEIGHT - 4);
-          row.fill.updateDisplayOrigin();
-        }
-        row.fill.setFillStyle(enabled ? SLIDER_FILL : SLIDER_FILL_DIM);
-        row.track.setFillStyle(enabled ? SLIDER_TRACK : TEXT_COLOR_DIM);
-        for (const [index, notch] of row.notches.entries()) {
-          const active = index <= level;
-          if (!enabled) {
-            notch.setFillStyle(SLIDER_NOTCH_DIM);
-          } else {
-            notch.setFillStyle(active ? SLIDER_FILL : SLIDER_NOTCH);
-          }
+      const width = Math.max(0, (level / AUDIO_LEVEL_MAX) * SLIDER_WIDTH);
+      row.fill.setVisible(width > 0);
+      if (width > 0) {
+        row.fill.setSize(width, SLIDER_HEIGHT - 4);
+        row.fill.updateDisplayOrigin();
+      }
+      row.fill.setFillStyle(enabled ? SLIDER_FILL : SLIDER_FILL_DIM);
+      row.track.setFillStyle(enabled ? SLIDER_TRACK : TEXT_COLOR_DIM);
+      for (const [index, notch] of row.notches.entries()) {
+        const active = index <= level;
+        if (!enabled) {
+          notch.setFillStyle(SLIDER_NOTCH_DIM);
+        } else {
+          notch.setFillStyle(active ? SLIDER_FILL : SLIDER_NOTCH);
         }
       }
     }
@@ -700,17 +560,10 @@ export class SettingsScene extends Phaser.Scene {
     this.mazeColorCursorRing.setPosition(cursorX, MAZE_COLOR_ROW_Y);
     this.mazeColorCursorRing.setVisible(mazeColorFocused);
 
-    const ghostStyleFocused = this.focusIndex === FOCUS_GHOST_STYLE;
-    this.ghostStyleLabel.setTint(ghostStyleFocused ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    for (const [index, option] of GHOST_STYLE_OPTIONS.entries()) {
-      const active = option.style === this.ghostStyle;
-      this.ghostStyleTexts[index]!.setTint(active ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    }
-
     const shareTint =
       this.focusIndex === FOCUS_SHARE_RUN_STATS ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE;
     this.shareLabel.setTint(shareTint);
-    this.shareCheck.checkbox.setStrokeStyle(look.strokeWidth, shareTint);
+    this.shareCheck.checkbox.setStrokeStyle(CHECKBOX_STROKE, shareTint);
     this.shareCheck.checkMark.setVisible(this.privacy.shareRunStats);
     this.shareCheck.checkMark.setFillStyle(shareTint);
 

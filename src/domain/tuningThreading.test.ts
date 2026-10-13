@@ -13,13 +13,7 @@ import { GHOST_PHASE, clydeTarget, pinkyTarget } from "./ghostTarget";
 import { ghostModeWavesForLevel } from "./levelRules";
 import { playerPreTurnPx, playerSpeed } from "./playfield";
 import { createRunClock, tickRunClock } from "./runClock";
-import {
-  DOTMAN_CHOMP_PIXELS_AT_1X,
-  DOTMAN_MOUTH_CLOSED_HALF_DEG,
-  DOTMAN_MOUTH_OPEN_HALF_DEG,
-  dotManChompPixelsPerFrame,
-  resolveDotManMouthAngles,
-} from "./dotManMouth";
+import { DOTMAN_CHOMP_PIXELS_AT_1X, dotManChompPixelsPerFrame } from "./dotManMouth";
 import { DEFAULT_TUNING, resolveTuning } from "./tuning";
 
 describe("tuning threads into gameplay helpers", () => {
@@ -31,12 +25,6 @@ describe("tuning threads into gameplay helpers", () => {
     expect(dotManChompPixelsPerFrame(resolveTuning({ dotManChompSpeed: 1 }).dotManChompSpeed)).toBe(
       DOTMAN_CHOMP_PIXELS_AT_1X,
     );
-  });
-
-  it("defaults mouth open/closed half-angles", () => {
-    expect(DEFAULT_TUNING.dotManMouthOpenDeg).toBe(DOTMAN_MOUTH_OPEN_HALF_DEG);
-    expect(DEFAULT_TUNING.dotManMouthClosedDeg).toBe(DOTMAN_MOUTH_CLOSED_HALF_DEG);
-    expect(resolveDotManMouthAngles(70, 5)).toEqual({ openHalfDeg: 70, closedHalfDeg: 5 });
   });
 
   it("builds scatter waves from the scatter knobs", () => {

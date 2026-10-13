@@ -9,19 +9,10 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 
-export type RemovedPelletSnap = {
-  eid: number;
-  x: number;
-  y: number;
-  drawableId: string;
-  optional: boolean;
-};
-
 export type PelletCollectFrame = {
   powerRemoved: number;
   removedEids: number[];
   removedPowerPositions: { x: number; y: number }[];
-  removedSnaps: RemovedPelletSnap[];
 };
 
 export type PlayerPelletFrame = PelletCollectFrame & { removedCells: Cell[] };
@@ -41,16 +32,6 @@ export function noRequiredPelletsLeft(world: World): boolean {
   );
 }
 
-export function pelletSnap(world: World, eid: number): RemovedPelletSnap {
-  return {
-    eid,
-    x: Position.x[eid] ?? 0,
-    y: Position.y[eid] ?? 0,
-    drawableId: Drawable.id[eid] ?? "",
-    optional: hasComponent(world, eid, OptionalPellet),
-  };
-}
-
 export function collectPellets(world: World, opts: CollectPelletsOptions = {}): PlayerPelletFrame {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {
@@ -58,7 +39,6 @@ export function collectPellets(world: World, opts: CollectPelletsOptions = {}): 
       powerRemoved: 0,
       removedEids: [],
       removedPowerPositions: [],
-      removedSnaps: [],
       removedCells: [],
     };
   }
@@ -96,9 +76,7 @@ export function collectPellets(world: World, opts: CollectPelletsOptions = {}): 
   let powerRemoved = 0;
   const removedPowerPositions: { x: number; y: number }[] = [];
   const removedCells: Cell[] = [];
-  const removedSnaps: RemovedPelletSnap[] = [];
   for (const eid of toRemove) {
-    removedSnaps.push(pelletSnap(world, eid));
     removedCells.push({
       col: worldToCol(Position.x[eid] ?? 0),
       row: worldToRow(Position.y[eid] ?? 0),
@@ -114,7 +92,6 @@ export function collectPellets(world: World, opts: CollectPelletsOptions = {}): 
     powerRemoved,
     removedEids: toRemove,
     removedPowerPositions,
-    removedSnaps,
     removedCells,
   };
 }

@@ -34,8 +34,6 @@ describe("DEFAULT_TUNING", () => {
     );
     expect(DEFAULT_TUNING.wallColor).toBe(WALL_STROKE_COLOR);
     expect(DEFAULT_TUNING.wallThickness).toBe(1.5);
-    expect(DEFAULT_TUNING.wallGlow).toBe(4);
-    expect(DEFAULT_TUNING.wallGlowRadius).toBe(21);
     expect(DEFAULT_TUNING.wallCornerRadius).toBe(WALL_CORNER_RADIUS);
     expect(DEFAULT_TUNING.backgroundColor).toBe(MAZE_BACKGROUND_COLOR);
     expect(GHOST_TUNNEL_SPEED_RATIO).toBe(0.6);

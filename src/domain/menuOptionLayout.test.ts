@@ -1,7 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { fontLineArtLook } from "./neonFont/fontLook";
-import { neonLineAdvance } from "./neonFont/layout";
-import { DEFAULT_TUNING } from "./tuning";
 import { menuOptionLeftX, menuOptionText } from "./menuOptionLayout";
 
 describe("menuOptionText", () => {
@@ -12,24 +9,16 @@ describe("menuOptionText", () => {
 });
 
 describe("menuOptionLeftX", () => {
-  it("keeps the label center fixed when the neon caret is wider than two spaces", () => {
-    const look = fontLineArtLook(DEFAULT_TUNING);
-    const { thickness, letterSpacing } = look;
+  it("keeps the label center fixed whether the caret or the idle spaces show", () => {
     const centerX = 400;
+    const glyph = 8;
     const label = "START";
-    const labelW = neonLineAdvance(label, thickness, letterSpacing);
-    const selectedFull = neonLineAdvance(menuOptionText(label, true), thickness, letterSpacing);
-    const idleFull = neonLineAdvance(menuOptionText(label, false), thickness, letterSpacing);
-
-    expect(selectedFull).toBeGreaterThan(idleFull);
-
-    const selectedLeft = menuOptionLeftX(centerX, selectedFull, labelW);
-    const idleLeft = menuOptionLeftX(centerX, idleFull, labelW);
-    const selectedLabelStart = selectedLeft + (selectedFull - labelW);
-    const idleLabelStart = idleLeft + (idleFull - labelW);
-
-    expect(selectedLabelStart).toBeCloseTo(idleLabelStart);
-    expect(selectedLabelStart + labelW / 2).toBeCloseTo(centerX);
+    const labelW = label.length * glyph;
+    for (const selected of [true, false]) {
+      const fullW = menuOptionText(label, selected).length * glyph;
+      const left = menuOptionLeftX(centerX, fullW, labelW);
+      expect(left + (fullW - labelW) + labelW / 2).toBeCloseTo(centerX);
+    }
   });
 
   it("differs from centering the full prefixed string when prefix widths differ", () => {

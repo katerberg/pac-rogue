@@ -37,10 +37,6 @@ function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number
   return eid;
 }
 
-function snapEids(snaps: { eid: number }[]): number[] {
-  return snaps.map((snap) => snap.eid);
-}
-
 describe("applyRemoteTransference", () => {
   it("removes the farthest regular pellet and never an energizer", () => {
     const world = createWorld();
@@ -49,7 +45,7 @@ describe("applyRemoteTransference", () => {
     spawnPellet(world, cellCenterX(3), y);
     const far = spawnPellet(world, cellCenterX(8), y);
     const energizer = spawnPellet(world, cellCenterX(20), y, true);
-    expect(snapEids(applyRemoteTransference(world, 1))).toEqual([far]);
+    expect(applyRemoteTransference(world, 1)).toEqual([far]);
     expect(query(world, [Pellet])).toContain(energizer);
     expect(query(world, [Pellet])).toHaveLength(2);
   });
@@ -70,7 +66,7 @@ describe("applyRemoteTransference", () => {
     const boss = spawnPellet(world, cellCenterX(20), y);
     addComponent(world, boss, BossPellet);
     const regular = spawnPellet(world, cellCenterX(5), y);
-    expect(snapEids(applyRemoteTransference(world, 1))).toEqual([regular]);
+    expect(applyRemoteTransference(world, 1)).toEqual([regular]);
     expect(query(world, [Pellet])).toContain(boss);
   });
 });

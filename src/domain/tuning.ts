@@ -1,9 +1,4 @@
-import {
-  DOTMAN_CHOMP_SPEED_DEFAULT,
-  DOTMAN_MOUTH_CLOSED_HALF_DEG,
-  DOTMAN_MOUTH_OPEN_HALF_DEG,
-} from "./dotManMouth";
-import { LAZY_LOOPER_OPTIONAL_TINT } from "./lazyLooper";
+import { DOTMAN_CHOMP_SPEED_DEFAULT } from "./dotManMouth";
 import { TUNING_KNOBS, type KnobDef } from "./tuningKnobs";
 
 export type Tuning = {
@@ -51,59 +46,9 @@ export type Tuning = {
   readonly bonusStreakIdleMs: number;
   readonly wallThickness: number;
   readonly wallColor: number;
-  readonly wallGlow: number;
-  readonly wallGlowRadius: number;
-  readonly ghostGlow: number;
-  readonly ghostGlowRadius: number;
-  readonly ghostLineWidth: number;
-  readonly ghostWidth: number;
-  readonly ghostHeight: number;
-  readonly quarterGlow: number;
-  readonly quarterGlowRadius: number;
-  readonly quarterLineWidth: number;
   readonly dotManChompSpeed: number;
-  readonly dotManMouthOpenDeg: number;
-  readonly dotManMouthClosedDeg: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
-  readonly fontThickness: number;
-  readonly fontBloom: number;
-  readonly fontBloomRadius: number;
-  readonly fontGlowColor: number;
-  readonly fontLetterSpacing: number;
-  readonly fontHeightScale: number;
-  readonly fontGlowKnockout: boolean;
-  readonly pelletRadius: number;
-  readonly pelletStrokeWidth: number;
-  readonly pelletGlow: number;
-  readonly pelletGlowRadius: number;
-  readonly pelletCoreColor: number;
-  readonly pelletGlowColor: number;
-  readonly pelletFillOpacity: number;
-  readonly powerPelletRadius: number;
-  readonly powerPelletStrokeWidth: number;
-  readonly powerPelletGlow: number;
-  readonly powerPelletGlowRadius: number;
-  readonly powerPelletFillOpacity: number;
-  readonly bossPelletRadius: number;
-  readonly bossPelletStrokeWidth: number;
-  readonly bossPelletGlow: number;
-  readonly bossPelletGlowRadius: number;
-  readonly bossPelletFillOpacity: number;
-  readonly optionalPelletRadius: number;
-  readonly optionalPelletStrokeWidth: number;
-  readonly optionalPelletGlow: number;
-  readonly optionalPelletGlowRadius: number;
-  readonly optionalPelletFillColor: number;
-  readonly optionalPelletGlowColor: number;
-  readonly optionalPelletFillOpacity: number;
-  readonly pelletAbsorbEnabled: boolean;
-  readonly pelletAbsorbMs: number;
-  readonly pelletAbsorbStretchEnd: number;
-  readonly pelletAbsorbMidThin: number;
-  readonly pelletAbsorbNearShrink: number;
-  readonly pelletAbsorbFarShrink: number;
-  readonly pelletAbsorbSuckEase: number;
 };
 
 export type TuningKey = keyof Tuning;
@@ -153,59 +98,9 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   bonusStreakIdleMs: 400,
   wallThickness: 1.5,
   wallColor: 0x2121ff,
-  wallGlow: 4,
-  wallGlowRadius: 21,
-  ghostGlow: 1.6,
-  ghostGlowRadius: 6,
-  ghostLineWidth: 6.5,
-  ghostWidth: 1.16,
-  ghostHeight: 1.14,
-  quarterGlow: 0.6,
-  quarterGlowRadius: 5,
-  quarterLineWidth: 6,
   dotManChompSpeed: DOTMAN_CHOMP_SPEED_DEFAULT,
-  dotManMouthOpenDeg: DOTMAN_MOUTH_OPEN_HALF_DEG,
-  dotManMouthClosedDeg: DOTMAN_MOUTH_CLOSED_HALF_DEG,
   wallCornerRadius: 6,
   backgroundColor: 0x1a1a2e,
-  fontThickness: 0.4,
-  fontBloom: 2.4,
-  fontBloomRadius: 12,
-  fontGlowColor: 0x7ec8ff,
-  fontLetterSpacing: 0,
-  fontHeightScale: 1,
-  fontGlowKnockout: true,
-  pelletRadius: 1.25,
-  pelletStrokeWidth: 1.0,
-  pelletGlow: 0,
-  pelletGlowRadius: 0,
-  pelletCoreColor: 0xffffff,
-  pelletGlowColor: 0x2121ff,
-  pelletFillOpacity: 1,
-  powerPelletRadius: 2.75,
-  powerPelletStrokeWidth: 2.0,
-  powerPelletGlow: 8.0,
-  powerPelletGlowRadius: 12,
-  powerPelletFillOpacity: 1,
-  bossPelletRadius: 2.0,
-  bossPelletStrokeWidth: 1.5,
-  bossPelletGlow: 1.8,
-  bossPelletGlowRadius: 10,
-  bossPelletFillOpacity: 1,
-  optionalPelletRadius: 1.25,
-  optionalPelletStrokeWidth: 1.0,
-  optionalPelletGlow: 0.6,
-  optionalPelletGlowRadius: 5,
-  optionalPelletFillColor: LAZY_LOOPER_OPTIONAL_TINT,
-  optionalPelletGlowColor: 0xa0a0b4,
-  optionalPelletFillOpacity: 1,
-  pelletAbsorbEnabled: true,
-  pelletAbsorbMs: 10,
-  pelletAbsorbStretchEnd: 0.1,
-  pelletAbsorbMidThin: 0.95,
-  pelletAbsorbNearShrink: 0.1,
-  pelletAbsorbFarShrink: 0.15,
-  pelletAbsorbSuckEase: 3.25,
 });
 
 const TUNING_STORAGE_VERSION = 1;

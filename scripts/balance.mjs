@@ -17,7 +17,6 @@ async function bundle() {
     bundle: true,
     platform: "node",
     format: "esm",
-    loader: { ".svg": "text" },
     outfile,
     logLevel: "warning",
   });

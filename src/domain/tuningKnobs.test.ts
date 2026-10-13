@@ -49,8 +49,7 @@ describe("TUNING_KNOBS", () => {
     }
   });
 
-  it("keeps Dots extreme maxes under the Visuals Dots subgroup", () => {
-    expect(VISUALS_SUBGROUPS).toContain("Dots");
+  it("keeps the knob panel groups fixed", () => {
     expect(RIGHT_KNOB_GROUPS).toEqual(["Visuals"]);
     expect(LEFT_KNOB_GROUPS).toEqual([
       "Movement",
@@ -64,35 +63,6 @@ describe("TUNING_KNOBS", () => {
       "Release",
       "Scatter",
     ]);
-    const dotsMax: Partial<Record<TuningKey, number>> = {
-      pelletRadius: 48,
-      pelletStrokeWidth: 32,
-      pelletGlow: 36,
-      pelletGlowRadius: 120,
-      powerPelletRadius: 48,
-      powerPelletStrokeWidth: 32,
-      powerPelletGlow: 36,
-      powerPelletGlowRadius: 120,
-      bossPelletRadius: 48,
-      bossPelletStrokeWidth: 32,
-      bossPelletGlow: 36,
-      bossPelletGlowRadius: 120,
-      optionalPelletRadius: 48,
-      optionalPelletStrokeWidth: 32,
-      optionalPelletGlow: 36,
-      optionalPelletGlowRadius: 120,
-    };
-    for (const knob of TUNING_KNOBS) {
-      if (knob.subgroup === "Dots") {
-        expect(knob.group, knob.key).toBe("Visuals");
-      }
-      const max = dotsMax[knob.key];
-      if (max === undefined || knob.kind !== "range") {
-        continue;
-      }
-      expect(knob.subgroup, knob.key).toBe("Dots");
-      expect(knob.max, knob.key).toBe(max);
-    }
   });
 });
 

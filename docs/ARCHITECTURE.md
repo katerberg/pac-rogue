@@ -6,14 +6,14 @@ Dot-Man: Phaser 4 for presentation, bitecs 0.4 for gameplay. This file holds str
 
 - `src/domain/` — pure helpers: maze, rules, parsing, tuning, storage shapes. No Phaser, no bitecs world APIs.
 - `src/game/components/` — bitecs component storage (data only).
-- `src/game/systems/` — Phaser-free logic systems, plus the bridges `playerInput.ts`, `render.ts`, `lineArtRender.ts`.
+- `src/game/systems/` — Phaser-free logic systems, plus the bridges `playerInput.ts`, `render.ts`.
 - `src/game/sim/` — headless `PlaySim` / `LearnSim`: own the world and system pipeline, emit `SimEvent`s. Helpers and test harness: [src/game/sim/README.md](../src/game/sim/README.md).
 - `src/game/scenes/` — Phaser scenes and overlays: adapters only.
 - `src/game/{audio,art,storage,net}/`, `src/data/` (the `/data` analytics page, DOM only), `worker/` (Cloudflare API, see [worker/README.md](../worker/README.md)).
 
 ## Scenes
 
-Boot order is `gameConfig.scene` (`src/game/config.ts`); the first scene is the entry (`?play=1` puts `PlayScene` first). Every scene calls `applyRenderScale(this)` first in `create()` and reads pointers in world units. Canvas scaling: [line-art.md](./line-art.md) (PIXEL ghost pupils are runtime Graphics).
+Boot order is `gameConfig.scene` (`src/game/config.ts`); the first scene is the entry (`?play=1` puts `PlayScene` first). Every scene calls `applyRenderScale(this)` first in `create()` and reads pointers in world units. Canvas scaling: [rendering.md](./rendering.md) (PIXEL ghost pupils are runtime Graphics).
 
 ```text
 MenuScene -> PlayScene | LearnScene | HighScoresScene | SettingsScene | RunLogOverrunScene
@@ -35,7 +35,7 @@ PlayScene: caught -> death sequence -> reset, or GAME OVER -> MenuScene
 
 - `components/**`: no Phaser; storage only.
 - Logic systems: no Phaser; may mutate component arrays.
-- `playerInput.ts`, `render.ts`, `lineArtRender.ts`: may import Phaser; bridges that read keys / sync drawables.
+- `playerInput.ts`, `render.ts`: may import Phaser; bridges that read keys / sync drawables.
 - `sim/**`: no Phaser; the only layer that creates worlds and entities.
 - `scenes/**`: may import Phaser; must not import bitecs, components or logic systems.
 - `domain/**`: no Phaser, no bitecs world APIs.
