@@ -52,6 +52,7 @@ import {
   tickBossStageTransition,
   type BossStageTransition,
 } from "../../domain/bossStageTransition";
+import { hasIntermissionAfter, intermissionFrame } from "../../domain/intermission";
 import {
   beginDeathSequence,
   tickDeathSequence,
@@ -449,6 +450,7 @@ export class PlaySim {
   private bossMouths: BossTunnelMouth[] = [];
   private bossStageTransition: BossStageTransition | null = null;
   private bossStageDraw: { entityAlpha: number; wallAlpha: number } | null = null;
+  private intermissionElapsedMs: number | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runCompleteElapsedMs: number | null = null;
@@ -810,6 +812,8 @@ export class PlaySim {
         this.shieldCrack === null ? null : shieldCrackProgress(this.shieldCrack.elapsedMs),
       levelTransition: this.levelTransitionRemainingMs > 0,
       bossStageTransition: this.bossStageTransition !== null,
+      intermission:
+        this.intermissionElapsedMs === null ? null : intermissionFrame(this.intermissionElapsedMs),
       runComplete: this.runCompleteElapsedMs !== null,
       runEndMenuArmed: this.runEndMenuArmed(),
       highScoresDisabled: this.options.highScoresDisabled,
@@ -934,10 +938,17 @@ export class PlaySim {
       return;
     }
 
+    if (this.intermissionElapsedMs !== null) {
+      this.tickIntermission(delta);
+      return;
+    }
+
     if (this.levelTransitionRemainingMs > 0) {
       this.levelTransitionRemainingMs = Math.max(0, this.levelTransitionRemainingMs - delta);
       if (this.levelTransitionRemainingMs === 0) {
-        if (this.store === null && storeAfterLevel(this.levelIndex, this.midStoreLevel)) {
+        if (hasIntermissionAfter(this.levelIndex)) {
+          this.beginIntermission();
+        } else if (this.store === null && storeAfterLevel(this.levelIndex, this.midStoreLevel)) {
           this.enterStore();
         } else if (this.levelIndex >= MAX_LEVEL) {
           this.beginRunComplete();
@@ -2269,6 +2280,26 @@ export class PlaySim {
       this.emit({ type: "timer" });
       this.emitDraw();
     }
+  }
+
+  private beginIntermission(): void {
+    this.intermissionElapsedMs = 0;
+    this.bossStageDraw = { entityAlpha: 0, wallAlpha: 0 };
+    this.emitDraw();
+    this.emit({ type: "intermission", frame: intermissionFrame(0) });
+  }
+
+  private tickIntermission(delta: number): void {
+    this.intermissionElapsedMs = (this.intermissionElapsedMs ?? 0) + delta;
+    const frame = intermissionFrame(this.intermissionElapsedMs);
+    if (!frame.done) {
+      this.emit({ type: "intermission", frame });
+      return;
+    }
+    this.intermissionElapsedMs = null;
+    this.bossStageDraw = null;
+    this.emit({ type: "intermission", frame: null });
+    this.advanceToNextLevel();
   }
 
   private refillBossStageBoard(): void {

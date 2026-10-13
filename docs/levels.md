@@ -73,6 +73,10 @@ Fruit spawns/despawns as before, 10s lifetime (20s with Fruit Fecundity): level 
 
 `parseLevelParam` clamps any value above 9 down to 9, so `?level=9` (or `?level=99`) jumps straight into the boss fight. Values below 1 or non-numeric still fall back to level 1.
 
+## Intermission
+
+After level 2 is cleared (and its upgrade choice resolved), the level-transition freeze is followed by a 4-second cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man left to right across the screen before level 3 begins. `PlaySim` owns the timer and emits `intermission` events with the actors' positions; `PlayScene` only moves two sprites (`intermissionActors.ts`). The sim is frozen and the Time countdown does not run while it plays. `play.intermission` in the snapshot is non-null for its duration. No other level has one.
+
 ## Run Complete
 
 Clearing level 9 (the boss) requires both stages (see [bosses](./bosses.md)). The final stage clear does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice and no [time bonus](./bonus.md#time-bonus) are given; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count and stays up with a `NEW GAME` / `MENU` choice (Up/Down or W/S to move, Enter/Space or click to pick; Esc does nothing). For the first `RUN_END_MENU_ARM_MS` (1000ms) the rows are dimmed with nothing selected and ignore keys, hover and clicks (so a key still held from the boss clear cannot skip the screen); then they fade in and `NEW GAME` is selected. `NEW GAME` restarts `PlayScene` with the same URL flags; `MENU` returns to `MenuScene`.

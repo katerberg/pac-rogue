@@ -28,6 +28,7 @@ import {
   pelletDisplaySize,
   playerDisplaySize,
 } from "../../domain/maze";
+import type { IntermissionFrame } from "../../domain/intermission";
 import { DEFAULT_GHOST_STYLE, ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { pelletStyleFor } from "../../domain/pelletStyle";
@@ -85,6 +86,7 @@ import { fontLineArtLook } from "../../domain/neonFont/fontLook";
 import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/neonFont/layout";
 import { quarterLineArtLook, textStyleFor } from "../../domain/ghostArt";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
+import { createIntermissionActors, type IntermissionActors } from "./intermissionActors";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
@@ -159,6 +161,7 @@ export class PlayScene extends Phaser.Scene {
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
+  private intermission: IntermissionActors | null = null;
   private pausedAtMs: number | null = null;
   private hiddenAtMs: number | null = null;
 
@@ -205,6 +208,7 @@ export class PlayScene extends Phaser.Scene {
     this.startingUpgradeCard = createStartingUpgradeCard(this);
     this.closeStoreUi();
     this.runEndMenu = null;
+    this.intermission = null;
 
     this.chrome = this.add.container(0, 0).setDepth(10);
     this.sideHud = this.add.container(0, 0).setVisible(!options.knobs);
@@ -529,6 +533,9 @@ export class PlayScene extends Phaser.Scene {
           this.showLevelBanner(event.text);
         }
         break;
+      case "intermission":
+        this.applyIntermission(event.frame);
+        break;
       case "lives":
         this.refreshLivesIcons(event.pulse);
         break;
@@ -650,6 +657,16 @@ export class PlayScene extends Phaser.Scene {
         break;
       }
     }
+  }
+
+  private applyIntermission(frame: IntermissionFrame | null): void {
+    if (frame === null) {
+      this.intermission?.destroy();
+      this.intermission = null;
+      return;
+    }
+    this.intermission ??= createIntermissionActors(this, this.ghostStyle);
+    this.intermission.place(frame);
   }
 
   private closeStoreUi(): void {

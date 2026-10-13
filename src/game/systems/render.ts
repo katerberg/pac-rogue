@@ -361,6 +361,33 @@ function addBakedLineArtIcon(
   return scene.add.image(x, y, textureKey).setDisplaySize(box, box);
 }
 
+export function addGhostSprite(
+  scene: Phaser.Scene,
+  drawableId: string,
+  x: number,
+  y: number,
+  size: number,
+  style: GhostStyle,
+): Phaser.GameObjects.Image {
+  const lineArt = LINE_ART_BY_DRAWABLE_ID[drawableId];
+  if (style === "pixel" || lineArt === undefined) {
+    return scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+  }
+  const px = renderScaleOf(scene);
+  const backdrop = storedWallStyle().background;
+  const key = `ghost-sprite-${drawableId}-${style}-${size}-${px}-${backdrop}`;
+  return addBakedLineArtIcon(
+    scene,
+    x,
+    y,
+    size,
+    lineArt.art,
+    lineArt.color,
+    ghostLineArtLook(null, style),
+    key,
+  );
+}
+
 export function addDotManIcon(
   scene: Phaser.Scene,
   x: number,
