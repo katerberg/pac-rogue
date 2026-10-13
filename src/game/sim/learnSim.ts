@@ -1014,10 +1014,11 @@ export class LearnSim {
     }
     const powerCells = pelletCellCenters().filter((cell) => cell.kind === "power");
     const at = this.playerPosition();
-    const { tileSize } = getActiveLayout();
+    const clearance =
+      getActiveLayout().tileSize + pelletCollectRadiusBonusPx(this.learnUpgrades.owned);
     if (
       at !== null &&
-      powerCells.some((cell) => Math.hypot(cell.x - at.x, cell.y - at.y) < tileSize)
+      powerCells.some((cell) => Math.hypot(cell.x - at.x, cell.y - at.y) < clearance)
     ) {
       return;
     }

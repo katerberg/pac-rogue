@@ -960,6 +960,18 @@ describe("LearnSim upgrade demos", () => {
       expect(query(sim.world, [PowerPellet]).length).toBe(4);
     });
 
+    it("Pickup Range widens how far the regeneration waits for Maze-Man to step away", () => {
+      const { sim, player } = setup("powerPelletCornucopiaPlus", "passivePickupRange");
+      for (let eaten = 0; eaten < 4; eaten += 1) {
+        moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+      }
+      const last = posOf(player);
+      moveTo(player, { x: last.x + 1.5 * getActiveLayout().tileSize, y: last.y });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(query(sim.world, [PowerPellet]).length).toBe(0);
+    });
+
     it("does nothing without the upgrade", () => {
       const { sim, player } = setup();
       for (const eid of query(sim.world, [Fruit])) {
