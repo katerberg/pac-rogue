@@ -1012,10 +1012,17 @@ export class LearnSim {
     if (this.pendingPowerRespawns.length > 0 || query(this.world, [PowerPellet]).length > 0) {
       return;
     }
-    for (const cell of pelletCellCenters()) {
-      if (cell.kind === "power") {
-        spawnPellet(this.world, cell.x, cell.y, "power");
-      }
+    const powerCells = pelletCellCenters().filter((cell) => cell.kind === "power");
+    const at = this.playerPosition();
+    const { tileSize } = getActiveLayout();
+    if (
+      at !== null &&
+      powerCells.some((cell) => Math.hypot(cell.x - at.x, cell.y - at.y) < tileSize)
+    ) {
+      return;
+    }
+    for (const cell of powerCells) {
+      spawnPellet(this.world, cell.x, cell.y, "power");
     }
   }
 

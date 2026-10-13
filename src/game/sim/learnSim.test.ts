@@ -213,8 +213,12 @@ describe("LearnSim", () => {
       Position.y[player] = at.y;
       sim.step(NO_KEYS_HELD, FRAME_MS);
       const left = query(sim.world, [PowerPellet]).length;
-      expect(left).toBe(i < total - 1 ? total - 1 - i : total);
+      expect(left).toBe(total - 1 - i);
     }
+    Position.x[player] = 0;
+    Position.y[player] = 0;
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(query(sim.world, [PowerPellet]).length).toBe(total);
     expect(query(sim.world, [Pellet]).length).toBeGreaterThan(total);
   });
 
@@ -938,6 +942,22 @@ describe("LearnSim upgrade demos", () => {
       eatPower(plus.sim, plus.player);
       eatPower(plus.sim, plus.player);
       expect(fruitCount(plus.sim)).toBe(before + 2);
+    });
+
+    it("the last power pellet spawns one fruit, not two, when the board regenerates under the player", () => {
+      const { sim, player } = setup("powerPelletCornucopiaPlus");
+      let before = fruitCount(sim);
+      for (let eaten = 1; eaten <= 4; eaten += 1) {
+        moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+        expect(fruitCount(sim)).toBe(before + 1);
+        before += 1;
+      }
+      expect(query(sim.world, [PowerPellet]).length).toBe(0);
+      moveTo(player, { x: 0, y: 0 });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(query(sim.world, [PowerPellet]).length).toBe(4);
     });
 
     it("does nothing without the upgrade", () => {

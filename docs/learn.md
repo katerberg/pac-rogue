@@ -119,7 +119,7 @@ the radius is a plain constant, not a `?knobs=1` knob.
   `PlaySim.spawnPellets` uses on the same `mazeSmall` layout. Eating the last one respawns the
   **whole board** immediately (checked once per frame: `query(world, [Pellet]).length === 0` →
   `spawnPellets()`) — no per-pellet timer, no score, no board-clear progress. Separately, once every power pellet is gone (and no Second Chomp
-  respawn is pending) the layout's power pellets regenerate at once, so the effects stay demoable
+  respawn is pending) the layout's power pellets regenerate at once (held back while Maze-Man is standing within a tile of a power pellet cell, so a regenerated pellet is never re-eaten the same instant), so the effects stay demoable
   while regular pellets remain.
 - One fruit spawns at the derived fruit cell below the ghost house (`fruitSpawnCenter()`, the same
   helper `PlayScene` uses). Eating it removes it via `collectFruit`; it reappears at the same cell
