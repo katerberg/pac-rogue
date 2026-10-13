@@ -5,7 +5,7 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `lev
 ## Flow
 
 - Level 1 clear: no reward (a starting upgrade was already granted), straight to level 2.
-- Levels 2-8 clear: level-end [time bonus](./bonus.md#time-bonus) drain, then the pick-one [upgrade](./upgrades.md) modal, then the next board. Store floors ([store.md](./store.md)) sit between certain levels (`storeFloors` in `store.ts`) and are where Quarters are spent.
+- Levels 2-8 clear: level-end [time bonus](./bonus.md#time-bonus) drain, then the pick-one [upgrade](./upgrades.md) modal, then the next board. Store floors ([store.md](./store.md)) sit between certain levels (`storeAfterLevel` in `store.ts`) and are where Quarters are spent.
 - Level 9 clear needs both boss stages, then RUN COMPLETE. No upgrade offer, no time bonus, no high-score write (only last-life Game Over writes history).
 - `?level=` clamps to `MAX_LEVEL`, so `level=9` jumps into the boss.
 
