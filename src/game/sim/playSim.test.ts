@@ -5242,3 +5242,104 @@ describe("PlaySim rosters", () => {
     expect(flankLeaves(4, "wardy")).toBe(true);
   });
 });
+
+describe("Cornucopia", () => {
+  const framesFor = (ms: number): number => Math.ceil(ms / FRAME_MS);
+
+  function start(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades });
+  }
+
+  function eatPower(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  const fruitCount = (sim: PlaySim): number => query(sim.world, [Fruit]).length;
+
+  function eatNextPower(sim: PlaySim): void {
+    eatPower(sim);
+    teleportPlayer(sim, 0, 0);
+  }
+
+  it("spawns a fruit right away on a power pellet", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    expect(fruitCount(sim)).toBe(0);
+    eatPower(sim);
+    expect(fruitCount(sim)).toBe(1);
+    const { cornucopiaFruitMs } = sim.snapshot().timers;
+    expect(cornucopiaFruitMs).toBeGreaterThan(FRUIT_LIFETIME_MS - 100);
+    expect(cornucopiaFruitMs).toBeLessThanOrEqual(FRUIT_LIFETIME_MS);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = start([]);
+    eatPower(sim);
+    expect(fruitCount(sim)).toBe(0);
+  });
+
+  it("does not spawn a second fruit while one is out", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    eatNextPower(sim);
+    eatNextPower(sim);
+    expect(fruitCount(sim)).toBe(1);
+  });
+
+  it("does not spawn beside a regular fruit, but Plus does", () => {
+    for (const [id, expected] of [
+      ["powerPelletCornucopia", 1],
+      ["powerPelletCornucopiaPlus", 2],
+    ] as const) {
+      const sim = start([id]);
+      sim["spawnFruitEntity"](false);
+      eatPower(sim);
+      expect(fruitCount(sim)).toBe(expected);
+    }
+  });
+
+  it("expires after the fruit lifetime", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    eatNextPower(sim);
+    runFrames(sim, framesFor(FRUIT_LIFETIME_MS + 100));
+    expect(fruitCount(sim)).toBe(0);
+    expect(sim.snapshot().timers.cornucopiaFruitMs).toBe(0);
+  });
+
+  it("swallows a scheduled fruit that would spawn while its fruit is out", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    eatNextPower(sim);
+    const [threshold] = getActiveLayout().fruitThresholds;
+    for (const eid of regularPelletEids(sim).slice(0, threshold)) {
+      eatPelletAt(sim, eid);
+    }
+    teleportPlayer(sim, 0, 0);
+    expect(fruitCount(sim)).toBe(1);
+    expect(sim.snapshot().timers.fruitMs).toBe(0);
+  });
+
+  it("Plus lets the scheduled fruit spawn alongside its fruit", () => {
+    const sim = start(["powerPelletCornucopiaPlus"]);
+    eatNextPower(sim);
+    const [threshold] = getActiveLayout().fruitThresholds;
+    for (const eid of regularPelletEids(sim).slice(0, threshold)) {
+      eatPelletAt(sim, eid);
+    }
+    teleportPlayer(sim, 0, 0);
+    expect(fruitCount(sim)).toBe(2);
+    const xs = query(sim.world, [Fruit, Position]).map((eid) => Position.x[eid]);
+    expect(new Set(xs).size).toBe(2);
+  });
+
+  it("pays out like any fruit when eaten and lets a new one spawn", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    eatNextPower(sim);
+    const fruit = query(sim.world, [Fruit, Position])[0]!;
+    teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
+    runFrames(sim, 1);
+    expect(fruitCount(sim)).toBe(0);
+    expect(sim.snapshot().bonus.charge).toBeGreaterThan(0);
+    eatNextPower(sim);
+    expect(fruitCount(sim)).toBe(1);
+  });
+});

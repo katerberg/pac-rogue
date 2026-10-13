@@ -33,8 +33,8 @@ export function collectFruit(world: World): number[] {
   return toRemove;
 }
 
-export function removeAllFruit(world: World): number[] {
-  const removedEids = [...query(world, [Fruit])];
+export function removeAllFruit(world: World, keepEid: number | null = null): number[] {
+  const removedEids = [...query(world, [Fruit])].filter((eid) => eid !== keepEid);
   for (const eid of removedEids) {
     removeEntity(world, eid);
   }

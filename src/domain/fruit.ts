@@ -95,6 +95,17 @@ export function fruitStackCenter(
   return null;
 }
 
+export function cornucopiaMaySpawn(
+  mode: "solo" | "alongside",
+  cornucopiaOut: boolean,
+  fruitOnBoard: number,
+): boolean {
+  if (cornucopiaOut) {
+    return false;
+  }
+  return mode === "alongside" || fruitOnBoard === 0;
+}
+
 export type FruitPresenceAction = "none" | "spawn" | "replace" | "despawn";
 
 export type FruitPresence = {
@@ -142,6 +153,7 @@ export type FruitTickOptions = {
   lifetimeMul?: number;
   persist?: boolean;
   stack?: boolean;
+  blocked?: boolean;
   tuning?: Tuning;
 };
 
@@ -157,6 +169,7 @@ export function tickFruitPresence(
     lifetimeMul = 1,
     persist = false,
     stack = false,
+    blocked = false,
     tuning = DEFAULT_TUNING,
   } = options;
   if (feastBase !== null) {
@@ -165,6 +178,7 @@ export function tickFruitPresence(
       lifetimeMul,
       persist,
       stack,
+      blocked,
       tuning,
     });
   }
@@ -184,6 +198,10 @@ export function tickFruitPresence(
     next.nextThresholdIndex < thresholds.length &&
     collectedCount >= thresholds[next.nextThresholdIndex]!
   ) {
+    if (blocked) {
+      next = { ...next, nextThresholdIndex: next.nextThresholdIndex + 1 };
+      continue;
+    }
     const wasActive = next.active;
     next = {
       ...next,
@@ -230,7 +248,7 @@ function tickFeastFruitPresence(
   levelIndex: number,
   options: Required<Omit<FruitTickOptions, "feastBase">> & { feastBase: readonly number[] },
 ): FruitPresenceTick {
-  const { feastBase, lifetimeMul, persist, stack, tuning } = options;
+  const { feastBase, lifetimeMul, persist, stack, blocked, tuning } = options;
   const thresholds = levelIndex <= 1 ? feastBase : scaleFeastThresholds(feastBase);
   const dt = Math.max(0, deltaMs);
 
@@ -248,7 +266,12 @@ function tickFeastFruitPresence(
 
   const gapMs = current.gapMs + dt;
   const threshold = thresholds[current.nextThresholdIndex];
-  if (threshold !== undefined && collectedCount >= threshold && gapMs >= FRUIT_FEAST_GAP_MS) {
+  if (
+    !blocked &&
+    threshold !== undefined &&
+    collectedCount >= threshold &&
+    gapMs >= FRUIT_FEAST_GAP_MS
+  ) {
     return {
       state: {
         nextThresholdIndex: current.nextThresholdIndex + 1,

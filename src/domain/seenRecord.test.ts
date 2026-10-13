@@ -90,7 +90,7 @@ describe("allSeenRecord / parseLearnAllMode", () => {
   it("covers every ghost and upgrade", () => {
     const all = allSeenRecord();
     expect(all.ghosts).toHaveLength(6);
-    expect(all.upgrades).toHaveLength(48);
+    expect(all.upgrades).toHaveLength(49);
   });
 
   it("only accepts learnAll=1 or learnAll=0", () => {

@@ -59,7 +59,8 @@ export type BaseUpgradeId =
   | "powerPelletHunter"
   | "passiveStartingShield"
   | "powerPelletHyperspeed"
-  | "passiveShieldBreak";
+  | "passiveShieldBreak"
+  | "powerPelletCornucopia";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -152,6 +153,8 @@ export type UpgradeEffects = {
     collectExtraPellets?: number;
     frightenGhostsMs?: number;
     frightenShortensPerLevel?: true;
+    cornucopiaFruit?: true;
+    cornucopiaAlongside?: true;
   };
 };
 
@@ -874,6 +877,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       shieldOverflowFires: true,
     },
   },
+  {
+    id: "powerPelletCornucopia",
+    label: "Cornucopia",
+    school: "harvest",
+    description: "Power pellet: spawns a bonus fruit, if none is out.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote: "Cornucopia fruit can appear alongside the regular bonus fruit.",
+      description: "Power pellet: spawns a bonus fruit, even beside a regular one.",
+      onPowerPellet: { cornucopiaFruit: true, cornucopiaAlongside: true },
+    },
+    onPowerPellet: { cornucopiaFruit: true },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1043,6 +1059,8 @@ export type RunUpgrades = {
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
+export type CornucopiaMode = "solo" | "alongside";
+
 export type PowerPelletApplyResult = {
   state: RunUpgrades;
   freezeClosestMs: number | null;
@@ -1051,6 +1069,7 @@ export type PowerPelletApplyResult = {
   warpPlayerFarthest: boolean;
   collectExtraPellets: number;
   frightenGhosts: boolean;
+  cornucopiaFruit: CornucopiaMode | null;
 };
 
 export const NO_FRIGHT: Pick<
@@ -1235,6 +1254,7 @@ export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
   "powerPelletSpeedBurst",
   "powerPelletGhostHarvester",
   "powerPelletScatterBurst",
+  "powerPelletCornucopia",
 ];
 
 export function pickStartingUpgrade(
@@ -1508,6 +1528,7 @@ export function applyPowerPelletEffects(
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
       frightenGhosts: false,
+      cornucopiaFruit: null,
     };
   }
 
@@ -1525,6 +1546,7 @@ export function applyPowerPelletEffects(
   let warpPlayerFarthest = false;
   let collectExtraPellets = 0;
   let frightenMs: number | null = null;
+  let cornucopiaFruit: CornucopiaMode | null = null;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1592,6 +1614,12 @@ export function applyPowerPelletEffects(
     if (onPower.collectExtraPellets !== undefined) {
       collectExtraPellets = Math.max(collectExtraPellets, onPower.collectExtraPellets);
     }
+    if (onPower.cornucopiaFruit) {
+      cornucopiaFruit =
+        onPower.cornucopiaAlongside === true || cornucopiaFruit === "alongside"
+          ? "alongside"
+          : "solo";
+    }
     if (onPower.frightenGhostsMs !== undefined) {
       const ms = hunterFrightenedMs(
         onPower.frightenGhostsMs,
@@ -1658,6 +1686,7 @@ export function applyPowerPelletEffects(
     warpPlayerFarthest,
     collectExtraPellets,
     frightenGhosts: frightenMs !== null,
+    cornucopiaFruit,
   };
 }
 
@@ -1850,6 +1879,10 @@ export function turnBoostMs(owned: readonly UpgradeId[]): number {
 
 export function turnPerfectPx(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "turnPerfectPx") ?? TURN_TUNING_PERFECT_PX;
+}
+
+export function cornucopiaAlongsideOwned(owned: readonly UpgradeId[]): boolean {
+  return owned.some((id) => UPGRADE_BY_ID.get(id)?.onPowerPellet?.cornucopiaAlongside === true);
 }
 
 export function wallPassLoopOwned(owned: readonly UpgradeId[]): boolean {
