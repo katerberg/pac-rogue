@@ -52,6 +52,15 @@ export const GHOST_DRAWABLE_BY_KIND: Record<GhostKindId, string> = {
   [GHOST_KIND.wardy]: WARDY_DRAWABLE_ID,
 };
 
+const ACTOR_DRAWABLE_IDS: ReadonlySet<string> = new Set([
+  PLAYER_DRAWABLE_ID,
+  ...Object.values(GHOST_DRAWABLE_BY_KIND),
+]);
+
+export function isActorDrawableId(drawableId: string): boolean {
+  return ACTOR_DRAWABLE_IDS.has(drawableId);
+}
+
 export const FRUIT_RADIUS = 8;
 
 export function playfieldMinX(radius = playerRadius()): number {

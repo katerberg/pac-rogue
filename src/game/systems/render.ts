@@ -1,6 +1,7 @@
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
+  actorDisplaySize,
   cellCenterX,
   cellCenterY,
   getActiveLayout,
@@ -62,6 +63,7 @@ import {
   SPUNKY_DRAWABLE_ID,
   WARDY_DRAWABLE_ID,
   INKY_DRAWABLE_ID,
+  isActorDrawableId,
   PELLET_DRAWABLE_ID,
   PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
@@ -196,7 +198,7 @@ function displaySizeForDrawable(drawableId: string): number {
   if (drawableId === BOSS_PELLET_DRAWABLE_ID) {
     return pelletDisplaySize() * BOSS_PELLET_SIZE_MUL;
   }
-  return playerDisplaySize();
+  return isActorDrawableId(drawableId) ? actorDisplaySize() : playerDisplaySize();
 }
 
 function applyPlayerTint(go: Phaser.GameObjects.Image, tint: PlayerTint | null): void {
