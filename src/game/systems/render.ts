@@ -323,8 +323,9 @@ function fillGhostPupils(
   cy: number,
   displaySize: number,
   facing: GhostDir,
+  alpha = 1,
 ): void {
-  graphics.fillStyle(GHOST_PUPIL_COLOR, 1);
+  graphics.fillStyle(GHOST_PUPIL_COLOR, alpha);
   for (const rect of ghostPupilRects(cx, cy, displaySize, facing)) {
     graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
   }
@@ -1281,6 +1282,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             y,
             size,
             facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
+            ghostAlpha * (glideHead?.alpha ?? 1),
           );
         }
         if (glide !== undefined) {
