@@ -20,15 +20,42 @@ npx playwright install chromium
 
 ## Flags
 
-Append query params to any local URL. Invalid values are ignored; a flag with no value means `=1`. **Every flag except `play`, `sound` and `learnAll` is a debug flag and disables high-score saving** (`HIGH_SCORE_DISABLING_FLAGS` in `src/domain/runHistory.ts`). Parsing, valid ranges and defaults are in `parsePlayOptions` (`src/domain/playOptions.ts`) and its tests.
+Append query params to any local URL (`5173` / `5174` / preview ports). Invalid values are ignored. A flag with no value (`?learnAll&godMode`) means `=1`; an explicit empty value (`?seed=`) stays empty. **Every flag except `play`, `sound` and `learnAll` is a debug flag and disables high-score saving for the run** — even with an invalid value (list: `HIGH_SCORE_DISABLING_FLAGS` in `src/domain/runHistory.ts`). Upgrade flag behavior: [docs/upgrades.md](./docs/upgrades.md).
 
-- Boot: `play` (skip the menu), `learnAll` (boot into LEARN; `1` lists all upgrades, `0` none), `knobs` (tuning panels), `sound` (agent ports only: opt in to audio).
-- Run setup: `level`, `maze` (`maze1`, `maze2`, `mazeSmall`), `seed` (replays every random roll), `quarters`, `bonus`, `lives`, `maxLives`, `store` (`1`-`3`), `roster` (`0`-`5`), `ghosts` (comma-separated kinds), `boss`, `bossStageAdvance`.
-- Upgrades: `enableUpgrade` (repeatable; any id from `ALL_UPGRADE_IDS`, plus `<id>Plus` for the enhanced form), `forceUpgrade`, `disableLevelUpgrades`, `jumpToUpgrade`.
-- Cheats: `infiniteLives`, `godMode`.
-- Agent ports only: `runLogFill` (synthetic debug runs for the RUN LOG FULL screen and `/data`).
+<!-- prettier-ignore -->
+| Flag | Values | Effect |
+| --- | --- | --- |
+| `play` | `1` | Skip the menu and boot straight into `PlayScene` (level 1 unless `level` is set). |
+| `maze` | `maze1` \| `maze2` \ Disables high-score saving. | `mazeSmall` | Force that layout for the **first** board of this Start; omit for level-1 `mazeSmall`. Levels ≥ 2 use the procedural generator unless this override is set for the first board. See [docs/maze-constraints.md](./docs/maze-constraints.md). |
+| `level` | positive integer | Start at that level index (ghost roster unlock + shared speed mul `1 + 0.05×(level−1)` for Maze-Man and ghosts); level ≥ 2 without `?maze=` starts on a generated board. Omit for level 1. Invalid → level 1. Fixed 9-level plan: values above 9 clamp to 9; `level=9` jumps straight into the boss fight. Disables high-score saving. |
+| `quarters` | non-negative integer | Start the run with that many quarters (HUD icons). Omit for 0. Invalid → 0. Disables high-score saving. |
+| `bonus` | integer 0..299 | Start the run with that much BONUS bar charge (300 fills it and pays a Quarter). Omit for 0. Invalid → 0. Disables high-score saving. See [docs/bonus.md](./docs/bonus.md). |
+| `enableUpgrade` | upgrade id (repeatable) | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Disables high-score saving. |
+| `disableLevelUpgrades` | `1` | Debug: skip the level-1 starting upgrade and the level-clear (levels 2-8) upgrade-choice modal entirely — clears straight to the next board with no offer. Does not affect `enableUpgrade`. Using this flag disables high-score saving for the run. |
+| `infiniteLives` | `1` | Debug: getting caught still plays the death SFX and full death sequence (hold / reset / ready / resume), but never spends a life and never triggers Game Over. Using this flag disables high-score saving for the run. |
+| `lives` | integer 1..99 | Debug: start the run with exactly that many lives (counting the one in play) instead of the normal 4; `enableUpgrade` / starting-card life grants still add on top. Also sets `maxLives` to the same value unless `maxLives` is given. Values above 99 clamp to 99; invalid → normal start. Disables high-score saving. |
+| `maxLives` | integer 1..99 | Debug: store-entry (and Myogenesis level-clear) life regen tops up to this many lives instead of 4 (Extra Life still raises it by its floor bonus). Defaults to `lives` when only `lives` is set. Lives above the cap (start lives, upgrade or store grants) are never removed. Values above 99 clamp to 99; invalid → normal cap. Disables high-score saving. |
+| `godMode` | `1` | Debug: ghosts pass through Maze-Man harmlessly (no catch, no death sequence, no life spent). Using this flag disables high-score saving for the run. |
+| `jumpToUpgrade` | `1` | Debug: immediately clears the first board (all pellets collected) into the level-clear upgrade-choice modal, after the 1.2 s level-end time drain. Without `?level=`, defaults the start level to 2 (the first level that offers an upgrade choice) instead of 1. Using this flag disables high-score saving for the run. |
+| `store` | `1` | Debug: start in a store floor for the current level (level 3 unless `level` is set); skips the level-1 starting upgrade. Combine with `quarters`. Using this flag disables high-score saving for the run. See [docs/store.md](./docs/store.md). |
+| `forceUpgrade` | upgrade id | Debug: guarantees that upgrade (an enhanced id is treated as its base) appears in every level-clear upgrade-choice offer while it is still eligible. Pair with `jumpToUpgrade`. Using this flag disables high-score saving for the run. |
+| `ghosts` | ghost names (comma-separated) | Replace the level's ghost roster with exactly these kinds on every level, e.g. `pinky` or `pinky,clyde` (`blinky` \ Disables high-score saving. | `pinky` \| `inky` \| `clyde` \| `spunky` \| `wardy`; unknown names skipped). |
+| `roster` | `0` … `5` | Force one of the six ghost rosters for the whole run instead of rolling it from the seed (see [docs/levels.md](./docs/levels.md#ghost-roster)). Disables high-score saving. |
+| `boss` | `blinkySwarm` \| `chainedGhosts` | Debug: use that boss on the level-9 boss fight instead of the random pick (see [docs/bosses.md](./docs/bosses.md)). Without `level`, the run starts straight in the boss fight. Invalid → random pick. Disables high-score saving. The Blinky Swarm start count is the **Swarm start Blinkys** knob (`knobs=1`). |
+| `bossStageAdvance` | `1` | Debug: on a boss board, start the stage-1→2 transition choreography as soon as the board is ready (fade / maze flicker / refill / inverted walls). Works with `boss=…` or `level=9` alone (random boss). When both `store` and `bossStageAdvance` are set, stage advance wins and the store is skipped. See [docs/bosses.md](./docs/bosses.md). Disables high-score saving. |
+| `learnAll` | `1` \| `0` | Without `play=1`, either value boots straight into LEARN instead of the menu. All six ghosts are always shown. `1`: LEARN lists every upgrade. `0`: LEARN lists no upgrades, even if real play has met some. Either way, read-only — never writes the seen record. See [docs/learn.md](./docs/learn.md). |
+| `runLogFill` | integer 0..600 | Agent ports only (ignored on 5173/4173): write that many varied synthetic `debug: true` runs into the run log at boot, for the RUN LOG FULL screen and the `/data` page (see [docs/RUN_LOG.md](./docs/RUN_LOG.md)). Adds them on every load. |
+| `seed` | 1-32 of `A-Z a-z 0-9 _ -` | Fixes every random roll in the run (generated boards, starting upgrade, ghost roster pick, upgrade offers, store stock, …) so the same URL replays the same run. Omit for a fresh random run. The run's seed (given or fresh) is shown faded in the bottom-left of the pause menu, Game Over and Run Complete screens. See [docs/VERIFICATION.md](./docs/VERIFICATION.md#seeded-runs). Disables high-score saving. |
+| `knobs` | `1` | Debug: hides the side HUD (upgrades, lives, `Time`) and shows two scrollable tuning panels over the canvas gutters. Left gutter: gameplay groups (Movement through Scatter), collapsible and collapsed by default. Right gutter: **Visuals** only, open by default, nesting Walls / Ghosts / Quarters / Dot-Man / Background / Font / Dots (subgroups start open). Sliders and color pickers cover player/ghost speed, eat drag, timer, ghost AI, release, scatter, fruit, death, bonus streak, boss, and visuals including Quarter icon glow/thickness and neon pellet stroke/glow extremes. Quarter icons stay visible (shifted into the maze column clear of the gutter panels) so those knobs can be dialed live. Values apply live and persist in localStorage (`pac-rogue.debug-tuning.v1`); they are ignored without this flag. **RESTART** (under the maze) starts a new run at the current level with the same seed; **RESET OPTIONS** clears every knob and restarts. Knob table: `src/domain/tuningKnobs.ts`. Disables high-score saving. |
+| `sound` | `1` | On agent ports only: opt in to audio (muted by default). Human ports keep sound on. |
 
-Example: `http://127.0.0.1:5174/?play=1&level=2&seed=demo&enableUpgrade=powerPelletFreeze`
+Every upgrade id (`ALL_UPGRADE_IDS`, see [docs/upgrades.md](./docs/upgrades.md#upgrade-table)) is accepted by `enableUpgrade` / `forceUpgrade`, and every id also accepts a `Plus` suffix for its enhanced form (e.g. `?enableUpgrade=passiveAfterburnerPlus`).
+
+```text
+http://127.0.0.1:5174/?play=1&level=2&seed=demo&enableUpgrade=powerPelletFreeze
+http://127.0.0.1:5174/?play=1&store=1&quarters=10
+http://127.0.0.1:5174/?play=1&boss=blinkySwarm&bossStageAdvance=1
+```
 
 ## Deploy (GitHub Pages)
 
