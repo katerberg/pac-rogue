@@ -141,7 +141,7 @@ Every def has a `school` (`UpgradeSchool`), a visual grouping shown as a colored
 
 ### Rarity
 
-An upgrade is **common**, **rare** or a [School Specialist](#school-specialists). Rare defs set `rare: true` (`isRare`) and `storePrice: STORE_RARE_UPGRADE_PRICE` (4); every other def costs `STORE_UPGRADE_PRICE` (3). Rares are the build-around upgrades: Wall Pass, Fruit Power, Overcharge, Lazy Looper, Shield, Shield Break, Martyr, Streak Engine, Hunter and Hyperspeed.
+An upgrade is **common**, **rare** or a [School Specialist](#school-specialists). Rare defs set `rare: true` (`isRare`) and `storePrice: STORE_RARE_UPGRADE_PRICE` (4); every other def costs `STORE_UPGRADE_PRICE` (3). Rares are the build-around upgrades: Wall Pass, Fruit Power, Overcharge, Lazy Looper, Shield Break, Martyr, Streak Engine, Echo, Hunter and Hyperspeed.
 
 - **Gate.** `eligibleUpgrades` leaves rares out until `RARE_MIN_OWNED` (2) upgrades are owned (any kind, specialists included), so a rare is never your first or second upgrade. It is never in `STARTING_UPGRADE_POOL`.
 - **Weight.** Every random upgrade draw goes through `takeWeightedUpgrade`. By default a rare has `RARE_OFFER_WEIGHT` (0.5) the chance of a common (store shelves, trade tile, and the rare half of level-clear weights). A pool with no rares and no school affinity draws exactly like `takeRandomFrom`. There is no cap on rares per level-clear offer. Level-clear offers also multiply by [school affinity](#school-affinity); the store does not.
@@ -186,7 +186,7 @@ Level-clear offers softly favor schools the player already owns so specializatio
 
 ## Starting upgrade
 
-- When a run's first board is level 1 (`?level` omitted or 1), `PlaySim.start` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade from `STARTING_UPGRADE_POOL` — Ghost Proof, Freeze, Extra Hungry, Speed Burst, Ghost Harvester, Scatter Burst (same grant side effects as a level-clear choice: Extra Life +1 life, Pellet Surge converts a pellet now).
+- When a run's first board is level 1 (`?level` omitted or 1), `PlaySim.start` loads the map, then `pickStartingUpgrade` grants one uniformly random unowned upgrade from `STARTING_UPGRADE_POOL` — Ghost Proof, Freeze, Extra Hungry, Speed Burst, Ghost Harvester, Scatter Burst, Shield, Defy Death (same grant side effects as a level-clear choice: Extra Life +1 life, Pellet Surge converts a pellet now).
 - [`src/game/scenes/startingUpgradeCard.ts`](../src/game/scenes/startingUpgradeCard.ts) shows a no-button card (`STARTING UPGRADE`, label, description) over the dimmed board: `STARTING_UPGRADE_HOLD_MS` (1500) hold, then `STARTING_UPGRADE_FADE_MS` (100) fade. Any key except Esc starts the fade early; Esc pause still works. The sim is frozen and game-play music is off until the fade ends. Movement keys held through the card are ignored until released.
 - No `LEVEL 1` banner when the card shows. Empty pool (every starting-pool id enabled via `enableUpgrade`) → no card, normal banner + start.
 - Level advances and `?level≥2` starts never grant a starting upgrade.
