@@ -109,6 +109,7 @@ import {
   playerIsInvulnerable,
   cellSpeedMultiplier,
   playerSpeedMultiplier,
+  claimSecondChompRespawns,
   queuePowerPelletRespawns,
   SECOND_CHOMP_MS,
   speedBurstActive,
@@ -153,6 +154,7 @@ import {
   pelletSurgeCount,
   regenToFull,
   secondChompMs,
+  secondChompPellets,
   speedBurstMultiplier,
   turnBoostMs,
   turnPerfectPx,
@@ -1117,6 +1119,19 @@ describe("passiveOvercharge", () => {
 });
 
 describe("power pellet respawns / Second Chomp", () => {
+  it("claims respawns only up to the per-level cap", () => {
+    const spots = [
+      { x: 1, y: 1 },
+      { x: 2, y: 2 },
+      { x: 3, y: 3 },
+    ];
+    expect(claimSecondChompRespawns(0, spots, 2)).toEqual({
+      positions: spots.slice(0, 2),
+      used: 2,
+    });
+    expect(claimSecondChompRespawns(2, spots, 2)).toEqual({ positions: [], used: 2 });
+  });
+
   it("queues a respawn per removed position and is a no-op for an empty list", () => {
     const queued = queuePowerPelletRespawns([], [{ x: 10, y: 20 }]);
     expect(queued).toEqual([{ x: 10, y: 20, remainingMs: SECOND_CHOMP_MS }]);
@@ -1445,6 +1460,8 @@ describe("enhanced upgrades", () => {
     expect(overchargeMultiplier(["passiveOvercharge"])).toBe(2);
     expect(overchargeMultiplier(["passiveOverchargePlus"])).toBe(3);
     expect(secondChompMs(["passivePowerPelletRechargePlus"])).toBe(7000);
+    expect(secondChompPellets(["passivePowerPelletRecharge"])).toBe(2);
+    expect(secondChompPellets(["passivePowerPelletRechargePlus"])).toBe(4);
     expect(remoteTransferEvery(["passiveRemoteTransferencePlus"])).toBe(3);
     expect(turnBoostMs(["passiveTurnTuningPlus"])).toBe(750);
     expect(turnPerfectPx(["passiveTurnTuningPlus"])).toBe(12);

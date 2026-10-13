@@ -3086,6 +3086,19 @@ describe("PlaySim enhanced upgrades", () => {
     }
   });
 
+  it("Second Chomp only respawns the first two power pellets per level, four when enhanced", () => {
+    for (const [id, cap] of [
+      ["passivePowerPelletRecharge", 2],
+      ["passivePowerPelletRechargePlus", 4],
+    ] as const) {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
+      for (let i = 0; i < 6; i += 1) {
+        sim["queueSecondChomp"]([{ x: i, y: 0 }]);
+      }
+      expect(sim["pendingPowerPelletRespawns"]).toHaveLength(cap);
+    }
+  });
+
   it("Pellet Surge+ converts two pellets per board, the base one", () => {
     const none = powerPelletCount(startSim({ level: 2, maze: "maze1" }));
     const base = powerPelletCount(

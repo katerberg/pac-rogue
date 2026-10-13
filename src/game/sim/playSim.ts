@@ -239,6 +239,7 @@ import {
   startHyperspeedTurnDelay,
   tickHyperspeed,
   secondChompMs,
+  secondChompPellets,
   lifeFloorBonus,
   hasUpgrade,
   effectiveOwned,
@@ -270,6 +271,7 @@ import {
   playerIsInvulnerable,
   playerTintRemainingMs,
   playerSpeedMultiplier,
+  claimSecondChompRespawns,
   queuePowerPelletRespawns,
   revokeUpgrade,
   speedBurstActive,
@@ -455,6 +457,7 @@ export class PlaySim {
   private fruitPresence: FruitPresence = createFruitPresence();
   private cornucopiaFruit: { eid: number; ms: number }[] = [];
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
+  private secondChompUsed = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
@@ -1153,11 +1156,7 @@ export class PlaySim {
             powerRemoved: dash.sweptPowerRemoved,
           });
           if (hasUpgrade(this.effectiveUpgrades(), "passivePowerPelletRecharge")) {
-            this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
-              this.pendingPowerPelletRespawns,
-              dash.sweptPowerPositions,
-              secondChompMs(this.effectiveUpgrades()),
-            );
+            this.queueSecondChomp(dash.sweptPowerPositions);
           }
           const dashStreakFires = this.applyStreakCells(dash.sweptCells);
           const collectResult = applyPelletCollect(
@@ -1239,11 +1238,7 @@ export class PlaySim {
       });
     }
     if (hasUpgrade(this.effectiveUpgrades(), "passivePowerPelletRecharge")) {
-      this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
-        this.pendingPowerPelletRespawns,
-        removedPowerPositions,
-        secondChompMs(this.effectiveUpgrades()),
-      );
+      this.queueSecondChomp(removedPowerPositions);
     }
     this.recorder.powerPellets("player", playerFrame.powerRemoved);
     this.recorder.powerPellets("ghostHarvest", ghostFrame.powerRemoved);
@@ -1751,6 +1746,21 @@ export class PlaySim {
     this.emit({ type: "sfx", id: "pelletMunch2" });
   }
 
+  private queueSecondChomp(positions: readonly { x: number; y: number }[]): void {
+    const owned = this.effectiveUpgrades();
+    const claim = claimSecondChompRespawns(
+      this.secondChompUsed,
+      positions,
+      secondChompPellets(owned),
+    );
+    this.secondChompUsed = claim.used;
+    this.pendingPowerPelletRespawns = queuePowerPelletRespawns(
+      this.pendingPowerPelletRespawns,
+      claim.positions,
+      secondChompMs(owned),
+    );
+  }
+
   private enterStore(): void {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
@@ -1758,6 +1768,7 @@ export class PlaySim {
     this.eatDragMs = 0;
     this.turnTuning.reset();
     this.pendingPowerPelletRespawns = [];
+    this.secondChompUsed = 0;
     this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.warpGlide = null;
@@ -2070,6 +2081,7 @@ export class PlaySim {
     this.fruitPresence = createFruitPresence();
     this.resetCornucopiaFruit();
     this.pendingPowerPelletRespawns = [];
+    this.secondChompUsed = 0;
     this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.resetTimedTunnel();
@@ -2282,6 +2294,7 @@ export class PlaySim {
     this.clearFruitEntities();
     this.fruitPresence = createFruitPresence();
     this.pendingPowerPelletRespawns = [];
+    this.secondChompUsed = 0;
     for (const eid of [...query(this.world, [Ghost])]) {
       removeEntity(this.world, eid);
       this.releaseDrawable(eid);

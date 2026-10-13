@@ -116,6 +116,7 @@ export type UpgradeEffects = {
   tunnelExitInvulnMs?: number;
   ghostsBlockedFromTunnels?: true;
   secondChompMs?: number;
+  secondChompPellets?: number;
   speedBurstMul?: number;
   hyperspeedMul?: number;
   turnBoostMs?: number;
@@ -228,6 +229,7 @@ export const DEATHS_HARVEST_RADIUS_TILES = 6;
 export const DEATHS_BOUNTY_DECAY = 0.8;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
+export const SECOND_CHOMP_PELLETS = 2;
 export const TUNNEL_DASH_SPEED_MUL = 10;
 
 export const FREEZE_ENHANCED_MS = 5000;
@@ -254,6 +256,7 @@ export const DEATHS_BOUNTY_ENHANCED_DECAY = 0.9;
 export const OVERCHARGE_ENHANCED_MUL = 3;
 export const GHOST_TUNNEL_ENHANCED_SPEED_RATIO = 0.3;
 export const SECOND_CHOMP_ENHANCED_MS = 7000;
+export const SECOND_CHOMP_ENHANCED_PELLETS = 4;
 export const REMOTE_TRANSFER_ENHANCED_EVERY_PELLETS = 3;
 export const TURN_TUNING_ENHANCED_BOOST_MS = 750;
 export const TURN_TUNING_ENHANCED_PERFECT_PX = 12;
@@ -591,13 +594,17 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passivePowerPelletRecharge",
     label: "Second Chomp",
     school: "harvest",
-    description: "Eaten power pellets regenerate after ten seconds.",
+    description: "The first two power pellets you eat each level regenerate after ten seconds.",
     storePrice: STORE_UPGRADE_PRICE,
     secondChompMs: SECOND_CHOMP_MS,
+    secondChompPellets: SECOND_CHOMP_PELLETS,
     enhanced: {
-      enhanceNote: "Second Chomp respawns power pellets after 7 seconds instead of 10.",
-      description: "Eaten power pellets regenerate after seven seconds.",
+      enhanceNote:
+        "Second Chomp regenerates the first 4 power pellets each level, after 7 seconds instead of 10.",
+      description:
+        "The first four power pellets you eat each level regenerate after seven seconds.",
       secondChompMs: SECOND_CHOMP_ENHANCED_MS,
+      secondChompPellets: SECOND_CHOMP_ENHANCED_PELLETS,
     },
   },
   {
@@ -1017,6 +1024,15 @@ export function queuePowerPelletRespawns(
     return pending;
   }
   return [...pending, ...positions.map((pos) => ({ x: pos.x, y: pos.y, remainingMs: respawnMs }))];
+}
+
+export function claimSecondChompRespawns(
+  used: number,
+  positions: readonly { x: number; y: number }[],
+  maxPerLevel: number,
+): { positions: { x: number; y: number }[]; used: number } {
+  const granted = positions.slice(0, Math.max(0, maxPerLevel - used));
+  return { positions: granted, used: used + granted.length };
 }
 
 export function tickPowerPelletRespawns(
@@ -1861,6 +1877,10 @@ export function applyTunnelExitInvuln(
     return state;
   }
   return { ...state, invulnRemainingMs: ms };
+}
+
+export function secondChompPellets(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "secondChompPellets") ?? SECOND_CHOMP_PELLETS;
 }
 
 export function secondChompMs(owned: readonly UpgradeId[]): number {
