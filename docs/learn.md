@@ -1,175 +1,41 @@
 # Learn mode
 
-`MenuScene` → **LEARN** opens `LearnScene`: a no-stakes sandbox on the level-1 `mazeSmall` board
-where the player drives Maze-Man around while one chosen ghost chases them, with its targeting drawn
-live.
+`MenuScene` -> LEARN opens `LearnScene`: a no-stakes sandbox on the level-1 `mazeSmall` board where the player drives Maze-Man while one chosen ghost chases, with its targeting drawn live. `LearnSim` (`src/game/sim/learnSim.ts`) is a reduced chase-only pipeline; the scene is an adapter like `PlayScene`.
 
 ## Seen record
 
-All six ghosts are always selectable. Only upgrades this machine has met in real play are listed.
+All six ghosts are always selectable; only upgrades met in real play are listed. The record (`src/domain/seenRecord.ts`, stored by `seenRecordStorage.ts`) is written **only** by `PlayScene` / `PlaySim` (every spawned ghost kind, and every owned upgrade id whenever `owned` can grow, `?enableUpgrade` included). Learn reads it. A malformed or missing record is empty.
 
-- [`src/domain/seenRecord.ts`](../src/domain/seenRecord.ts): `SeenRecord` (`ghosts`,
-  `upgrades`), parse/serialize, `withSeenGhosts` / `withSeenUpgrade` merges
-  (return the same object when nothing is new), `allSeenRecord`, `learnSeenRecord`,
-  `parseLearnAllMode`.
-- [`src/game/storage/seenRecordStorage.ts`](../src/game/storage/seenRecordStorage.ts): localStorage
-  key `pac-rogue.seen.v1`. Missing, unreadable, or malformed data → empty record; a record saved
-  before `upgrades` existed parses with `upgrades: []`, and a legacy `corruptions` field is ignored and
-  dropped on the next write.
-- `PlaySim.startBoard` records every ghost kind it spawns. `PlayScene` also records every
-  currently-owned upgrade id whenever `runUpgrades.owned` can grow: the initial `?enableUpgrade=`
-  set, the level-1 starting-upgrade grant, and a level-clear modal confirm — an upgrade only ever
-  seen via `?enableUpgrade=` still counts as seen.
-- `?learnAll=1|0` (without `?play=1`) boots straight into LEARN instead of the menu; `play=1` wins.
-- `?learnAll=1` lists every upgrade without touching storage. `?learnAll=0` lists **none** —
-  overriding real localStorage. Either way the seen record is read-only in Learn; only
-  `PlayScene` ever writes it.
+`?learnAll=1|0` (without `?play=1`) boots straight into LEARN. `1` lists every upgrade without touching storage; `0` lists none, overriding real storage.
 
-## Screen
+## Screen and overlay
 
-- Title, then six ghost slots (Blinky, Pinky, Inky, Spunky, Wardy, Clyde). The selected slot has a yellow frame.
-- Seen upgrades are listed beside the maze, grouped under a colored school header
-  (`groupUpgradesBySchool`, `UPGRADE_SCHOOL_ORDER`; empty schools are skipped). `splitSchoolColumns`
-  ([`src/domain/learnUpgradeColumns.ts`](../src/domain/learnUpgradeColumns.ts)) fills the left column
-  with the first 3 seen schools and the right column with the rest, in order (4 seen schools → 3 left,
-  1 right). Each school has one row per seen
-  `UpgradeDef` within each group, `STARTING_UPGRADE_POOL` upgrades first, then the rest in canonical `UPGRADE_DEFS` order: a checkbox + label, filled in yellow while selected. Under Settings → STYLE = NEON or LINED the checkbox is a thin circle (`learnCheckboxLook`; Settings music/SFX toggles reuse the same look); under PIXEL it stays a square. Multiple upgrades can be
-  selected at once (a local `RunUpgrades` bag, not tied to any real run) and stay selected across a
-  ghost switch — only the transient power-pellet timers (freeze/wall-pass/invuln/speed-burst), any
-  ghost corner glide/hold and any in-flight recall hold reset when the ghost changes.
-- Hovering the upgrade **label** (not the checkbox or `+`) for `HOVER_PREVIEW_DELAY_MS` (500ms) shows a preview card near the pointer
-  on the same side of the screen as the row (fixed x from `hoverPreviewX(column)`, y follows the pointer clamped to stay
-  on-screen) — never over the play area — using `buildUpgradeCardVisual` from
-  [`src/game/scenes/upgradeChoiceModal.ts`](../src/game/scenes/upgradeChoiceModal.ts), the same
-  function the level-clear upgrade picker's buttons use, so the card matches exactly (bg, border,
-  school tag, label, description). Moving off the label before the delay elapses cancels it; moving to a new label
-  restarts the delay (and re-anchors to that row's pointer position). Hovering the checkbox or `+` cancels any pending preview.
-- Selecting an upgrade with no observable effect on this board (`LEARN_NO_EFFECT_UPGRADE_IDS`, currently Martyr and Interest) shows a
-  small two-line banner positioned between the ghost slots and the maze (`NO_EFFECT_BANNER_Y`),
-  capped to the maze's own pixel width (`wrapText` wraps the names line if it would overflow): the
-  selected upgrade name(s) on the first line, `NO VISIBLE EFFECT HERE` always on its own line below.
-- Every selected upgrade row also shows a small `+` mark at the right end of the row (`UPGRADE_PLUS_INSET` from the row edge, in either column),
-  hidden while the row is unselected (`learnEnhanceToggleState`). Under NEON/LINED it is a thin circle (same `learnCheckboxLook` as the checkbox); under PIXEL it stays a square. Clicking it flips that upgrade to its
-  enhanced `<id>Plus` form and back (`LearnSim.toggleEnhanced`): the mark fills yellow and the label
-  gains a `+` while enhanced. The preview card and the "no visible effect" banner use the owned form.
-  Toggling the row off removes whichever form is owned; Pellet Surge's enhance converts one more
-  pellet at once.
-
-## Controls
-
-Arrows / WASD move, `1`–`6` or click select a ghost slot, click toggles an upgrade,
-hover an upgrade row to preview it, Esc or **BACK** returns to the menu. Blinky is
-selected on entry.
-
-## Overlay
-
-Drawn every frame from ECS state via `resolveGhostTarget` (the same target resolution `ghostAi` uses)
-and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverlay.ts):
-
-- **Reticle**: a square in the ghost's color that glides toward its target tile center
-  (`easeToward`, time constant `RETICLE_EASE_MS`) instead of snapping each tile, clamped onto the
-  board when the target is off-board (e.g. Clyde's scatter corner).
-- **Path**: the ghost's predicted greedy route toward the target (same direction rule as
-  `pickGhostDirection`, no reverse), up to `LEARN_PATH_MAX_STEPS` tiles, stopping before it would
-  revisit a tile. It is drawn from the ghost's exact position and ends on the gliding reticle.
-- **Derivation** (gray): Pinky — Maze-Man → 4-tile look-ahead; Inky — Blinky → 2-tile pivot →
-  doubled target (plus a pivot dot); Clyde — the `CLYDE_SHY_TILES` circle around Maze-Man. Lines
-  are clipped to the maze rectangle. Points tied to Maze-Man or the helper Blinky follow their exact
-  positions so the lines move smoothly; the targeting math itself stays tile-based. Spunky — the
-  `SPUNKY_AGGRO_TILES` (7) circle around Maze-Man. Wardy — the line from Maze-Man to the rim tile he is
-  heading for, plus the inner rectangle `WARDY_STRIKE_TILES + 1` (5) tiles in from the maze edge.
-
-## Spunky
-
-A relief-slot ghost (green, `GHOST_KIND.spunky`), after Pac-Mania's Spunky, who wanders the top of the
-maze and only goes after Pac-Man when he is near. `spunkyTarget` (`ghostTarget.ts`) is the inverse
-of Clyde: inside `SPUNKY_AGGRO_TILES` (7) of Maze-Man he targets Maze-Man's tile; farther away, or in
-scatter, he targets his post, the top-center tile above the maze (`spunkyPostTarget`, also his Scatter
-Burst landing cell). He fills a roster's relief slot in play (rosters 1, 3 and 5, see [levels](./levels.md#ghost-roster)). In
-LEARN he keeps the relief slot's release (pellets, so Ghost House Delay holds him; otherwise he is
-spawned active like every LEARN ghost) and has no speed rules of his own. The radius is a plain constant, not a `?knobs=1` knob.
-
-## Wardy
-
-A front-arm ghost (purple, `GHOST_KIND.wardy`) that works the rim as Blinky's other half of a pincer:
-Blinky pushes from behind, the Wardy waits at the end of the line you are running along.
-`wardyTarget` (`ghostTarget.ts`): while Maze-Man is farther than `WARDY_STRIKE_TILES` (4) from every
-edge (`rimDistance`) he targets the rim tile in Maze-Man's facing direction at Maze-Man's own row or
-column (`wardyRimTile`; with no facing, the nearest edge); within 4 tiles of an edge he targets
-Maze-Man's tile; scatter targets bottom-center below the maze (`wardyScatterTarget`, also his Scatter
-Burst landing cell). Targets are only a rim tile, not a route: he steers greedily like every ghost, so he
-keeps looping through the interior corridors on the way. In play he fills a roster's front-arm slot (rosters 2 and 3) or its second arm (4 and 5). In LEARN he
-keeps the front arm's timed release (Ghost House Delay holds him), has no speed rules of his own and
-the radius is a plain constant, not a `?knobs=1` knob.
+- Ghost slots on top, seen upgrades grouped by school beside the maze. Multiple upgrades can be selected at once (a local `RunUpgrades` bag, not a real run) and persist across ghost switches; only transient power-pellet timers, corner glides and recall holds reset.
+- Hovering an upgrade label shows the same card the level-clear picker uses (`buildUpgradeCardVisual`). A `+` mark on a selected row toggles its enhanced form (`LearnSim.toggleEnhanced`).
+- Selecting an upgrade with no observable effect here (`LEARN_NO_EFFECT_UPGRADE_IDS`) shows a "no visible effect" banner.
+- The overlay is drawn each frame from `resolveGhostTarget` (the same function `ghostAi` uses) and the pure helpers in `src/domain/learnOverlay.ts`: a target reticle, the ghost's predicted greedy path, and gray derivation lines per ghost (Pinky look-ahead, Inky pivot, Clyde shy circle, Spunky aggro circle, Wardy rim line). Targeting math stays tile-based.
+- Controls: arrows/WASD, `1`-`6` or click to pick a ghost, click to toggle an upgrade, Esc or BACK to leave.
 
 ## Differences from play
 
-- Chase mode only, level-1 speeds, no Cruise Elroy.
-- Contact never kills. The exception is the **demo catch**: while Death's Harvest, Death's Bounty, Defy
-  Death, Extra Life, Myogenesis, Money Talks, Shield, Starting Shield or Haunting is selected, a ghost touch runs the same helpers a real catch does
-  (pellet harvest, defy save, lives, BONUS payout) without resetting Maze-Man or ending the run: a
-  1.5s grace blink follows, a floating popup reports the outcome, and a status line under the maze shows
-  lives and BONUS/Quarters. At 0 lives the demo just resets them.
-- The chosen ghost spawns already `active` at the ghost-house exit; switching ghosts respawns it
-  there. Maze-Man keeps his position.
-- Picking Inky also spawns a faded, harmless Blinky so Inky's real targeting shows. It
-  spawns beside Inky facing the other way so it takes its own chase route toward Maze-Man instead
-  of trailing Inky out of the house.
-- The board spawns real pellets and power pellets from `pelletCellCenters()` — the same helper
-  `PlaySim.spawnPellets` uses on the same `mazeSmall` layout. Eating the last one respawns the
-  **whole board** immediately (checked once per frame: `query(world, [Pellet]).length === 0` →
-  `spawnPellets()`) — no per-pellet timer, no score, no board-clear progress. Separately, once every power pellet is gone (and no Second Chomp
-  respawn is pending) the layout's power pellets regenerate at once (held back while Maze-Man is standing within a tile of a power pellet cell, so a regenerated pellet is never re-eaten the same instant), so the effects stay demoable
-  while regular pellets remain.
-- One fruit spawns at the derived fruit cell below the ghost house (`fruitSpawnCenter()`, the same
-  helper `PlayScene` uses). Eating it removes it via `collectFruit`; it reappears at the same cell
-  after `FRUIT_RESPAWN_MS` (1000ms). No Quarters HUD, no munch SFX.
-- No sound, HUD, timer, lives, or history writes.
+- Chase mode only, level-1 speeds, no Cruise Elroy. No sound, HUD timer, lives or history writes.
+- Contact never kills, except the **demo catch**: while any upgrade that reacts to a catch (Death's Harvest, Bounty, Defy Death, Extra Life, Myogenesis, Money Talks, Shield, Starting Shield, Haunting) is selected, a touch runs the same helpers a real catch does without resetting Maze-Man; a grace blink, a popup and a status line report the outcome.
+- The chosen ghost spawns `active` at the house exit. Picking Inky also spawns a faded, harmless Blinky.
+- The board uses `pelletCellCenters()` (shared with `PlaySim`) and refills when empty. Power pellets regenerate when all are gone so effects stay demoable. One always-present fruit respawns after a short delay.
+- Spunky and Wardy keep their real release slot and targeting (`ghostTarget.ts`) but have no speed rules of their own.
 
 ## Upgrade fidelity
 
-`LearnScene` owns a local `RunUpgrades` bag (`createRunUpgrades()`) fed straight into the same
-domain/system functions `PlayScene` uses (`applyPowerPelletEffects`, `freezeClosestGhost`,
-`recallClosestGhostToHouse`... see per-row notes below) — not a reimplementation. Toggling a row
-calls `grantUpgrade` / `revokeUpgrade` and clears only the timer(s) tied to effect fields no longer
-owned by anything still selected.
+LEARN feeds its `RunUpgrades` straight into the same domain and system functions as `PlaySim` (`applyPowerPelletEffects`, `freezeClosestGhost`, ...), not a reimplementation. Toggling a row calls `grantUpgrade` / `revokeUpgrade` and clears only timers whose effect fields nothing selected still owns (`clearStaleUpgradeTimers`).
 
-Enhanced (`Plus`) forms reuse the same row's fidelity: they read the same helpers with the enhanced
-numbers (speeds, durations, Extra Hungry's 5 pellets, Overcharge ×3, Ghost Recall's two ghosts, Wall
-Pass+ looping through every edge via `wallPassSolids`).
-The new enhanced-only behavior that needs fruit timers, house release or lives (Fecundity+/Feast+ stacking, Quarter Bounty, Extra Life+, Myogenesis+) has none in LEARN.
+Rules for new upgrades: reuse the shared helper so LEARN gets it for free; if a new effect needs state LEARN lacks (store, lives, house release), say so in code and add the id to `LEARN_NO_EFFECT_UPGRADE_IDS` if nothing is visible. School Specialists are not listed in LEARN.
 
-The School Specialists (`passive<School>Specialist`) are not listed in LEARN at all (`learnUpgradeDefs`).
+Known simplifications (everything else is a reuse of play code):
 
-| Upgrade                                                                                   | Learn fidelity                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Freeze, Scatter Burst, Wall Pass, Speed Burst, Ghost Proof, Ghost Harvester, Extra Hungry | Full — same `onPowerPellet` resolution, same render tint options as `PlayScene`. Scatter Burst warps the active ghost(s) to their corners with the same `teleportGhostsToCorners` + glide/hold as play. Wall Pass reuses `snapPlayerToNearestWalkable` on expiry — the player is never left stranded on a solid tile (e.g. inside the ghost house) once the timer runs out.                                                                                                                                                                                                                                           |
-| Afterburner, Ghost Slow, Pickup Range                                                     | Full — same speed multiplier / pellet-radius helpers `PlayScene` uses.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Ghost Recall                                                                              | Simplified — snaps the closest eligible ghost straight to the house-exit tile, holds it there (`LEARN_RECALL_HOLD_MS` = 1500ms), then sends it out with `leaving` / `ghostExitHouse` (same walk-out as Hunter). Learn has no house-release clock to seat it through, so this skips the real seat/gate dance.                                                                                                                                                                                                                                                                                                          |
-| Warp Farthest                                                                             | Full — `warpPlayerFarthestFromGhosts` reused as-is.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Pellet Surge                                                                              | Partial — converts one regular pellet to power immediately on toggle-on (the "when first granted" half of the real effect). There is no per-board-spawn cycle in Learn to hook the ongoing conversion into.                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Overcharge                                                                                | Full — `applyPowerPelletEffects` doubles the same durations regardless of caller.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Tunnel Dash                                                                               | Full — `mazeSmall` has one tunnel row (row 7); `applyTunnelDash` / `tickTunnelDashAnimation` are reused as-is.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Remote Transference                                                                       | Full — same counter, `pickFurthestPelletEids` and `applyRemoteTransference` as `PlaySim`; the counter resets on pellet reset.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Fruit Power                                                                               | Full — eating the always-present fruit resolves every owned `onPowerPellet` effect via the same `resolveLearnPowerPelletTrigger(1)` path a power pellet uses, matching `PlayScene`'s fruit-collect handling.                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Second Chomp                                                                              | Full — `queuePowerPelletRespawns` / `tickPowerPelletRespawns` reused: an eaten power pellet reappears at its cell after `secondChompMs` (10s base). The queue clears on pellet reset and board refill.                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Defy Death                                                                                | Armed state only — a power pellet arms the window (ticked by `tickDefyDeath`) and Maze-Man wears the Ghost Proof tint. A ghost touch then runs the demo catch (below) and consumes it.                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Extra Life, Myogenesis, Death's Harvest, Death's Bounty, Money Talks                      | Demo catch — see below. Extra Life adds its lives to `LearnRunState`; Myogenesis regains lives on a board refill (`livesAfterLevelRegen`, status line only, no popup); Death's Harvest runs `harvestNearbyPellets`; Death's Bounty pays `deathsBountyCharge` into a local BONUS bar; Money Talks spends Quarters (earned from fruit) through `lastLifeSaveCost` to save the last life, with a `-N Q` popup and no coin animation.                                                                                                                                                                                     |
-| Shield                                                                                    | Full — power pellets bank a shield and still fire their effects, shown as `SHIELDS n/cap` in the status line. A ghost touch breaks one (`SHIELD BROKEN`) and grants the 1s immunity before any demo catch runs.                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Starting Shield                                                                           | Full — the bank starts at 1 shield (2 enhanced) when selected and refills each time the demo board refills, shown as `SHIELDS n/cap`. A ghost touch breaks one (`SHIELD BROKEN`) like Shield Pellets.                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Shield Break                                                                              | Full — pickup effects are held back; a shield break (a Shield or Starting Shield, or the Hyperspeed+ shield) fires them all. Shield Break+ also fires them when a pellet finds the bank full.                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Haunting                                                                                  | Demo catch — the catcher is seated at the ghost-house exit, caged (`hauntedGhost` draw option) for 10s, then let out; the popup adds `HAUNTED`. Haunting+ also cages for 10s, since LEARN has no level end.                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Tunnel Sanctuary                                                                          | Full — the tunnel exit grants 1s of Ghost Proof and the demo ghost crosses tunnels at 0.9×; the enhanced form blocks its wrap.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Streak Engine                                                                             | Full — a private pellet streak (idle break only) fires the power-pellet effects every 30 and pops 5 … 30 over the eaten pellets.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Echo                                                                                      | Full — the same `queueEcho` / `tickEchoes` queue fires the echoed `onPowerPellet` upgrades 3s after each trigger; toggling Echo off drops pending echoes.                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Hyperspeed                                                                                | Full — a power pellet opens the 10× window with the same `hyperspeedSubstepCount` / `noteHyperspeedFacing` helpers: pellets along the run are eaten, every turn holds 200ms, and the Speed Burst trail draws. Hyperspeed+ adds the 2s shield (gold tint); a ghost touch spends it (`SHIELD BROKEN`). An unshielded touch resolves as a demo catch.                                                                                                                                                                                                                                                                    |
-| Hunter                                                                                    | Full — a power pellet frightens the chase ghost with the same `frightenGhosts` / `frightenedGhostAi` as play (blue sprite, 0.6× speed, random turns). Touching it pays `hunterEatCharge` into the local BONUS bar (`+75 BONUS` popup) and seats it at the ghost-house spawn with a glide for `LEARN_RECALL_HOLD_MS`; release uses the same `leaving` walk-out as play (`sendGhostOutOfHouse` + `ghostExitHouse`). Hunter+ holds it in the house until the fright ends.                                                                                                                                                |
-| Quarter Bounty                                                                            | Full — eating the fruit pays Quarters (or BONUS charge without it) through `LearnRunState`, shown as a floating popup and in the status line.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Cornucopia                                                                                | Full — a power pellet spawns a fruit when none is out (always, enhanced) via the same `cornucopiaMaySpawn`; the fruit has the normal lifetime (kept until eaten with Fruit Fecundity+), and a base Cornucopia fruit holds scheduled fruit back while it is out                                                                                                                                                                                                                                                                                                                                                        |
-| Fruit Fecundity, Fruit Feast                                                              | Scheduled fruit — while either is owned, the always-present fruit is replaced by the real `tickFruitPresence` schedule (pellets eaten since the board refilled; Fecundity doubles the lifetime, Feast uses its thresholds). The status line counts down the fruit's time or the pellets until the next one. The schedule loops: each time a scheduled fruit spawns, the pellet count restarts from zero and the next fruit comes after another full first-threshold's worth of pellets, so the demo never runs out of fruit. Fruit stacking and persistence-until-level-end from the enhanced forms are not modelled. |
-| Ghost House Delay                                                                         | Held ghost — the chosen ghost is held at the house exit and released by the real release rules (`shouldReleaseKind`, idle push-out) with the delay added. The clock starts on your first key press; the status line counts it down. Turning the upgrade off releases it.                                                                                                                                                                                                                                                                                                                                              |
-| Turn Tuning                                                                               | Full — same `TurnTuningState` (`src/game/systems/turnTuningState.ts`) and `applyHeldKeys` early-turn filter as `PlaySim`: early taps, perfect-tap speed boost, turn flash, the perfect shockwave ring and the close-tap sparks (`turnSparks` event → `playTurnSparks`). Turns off with the toggle.                                                                                                                                                                                                                                                                                                                    |
-| Lazy Looper                                                                               | Partial — toggling it (or its enhanced form) greys the pellets a clear would not need, using the same `tagOptionalPellets` as `PlaySim`. Learn still refills the board only once every pellet is eaten.                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Martyr                                                                                    | None — the demo catch never moves Maze-Man, so the respawn has nothing to show; selecting it shows the "no visible effect" banner.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Interest                                                                                  | None — LEARN has no store, so there is no payout to show; selecting it shows the "no visible effect" banner.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Near Miss                                                                                 | Full — same `stepNearMissPasses` passes as play; each pass adds to LEARN's BONUS bar and pops `+15 BONUS` (`+30` enhanced). Contact never kills without a catch-demo upgrade, so a ghost passing through Maze-Man also pays.                                                                                                                                                                                                                                                                                                                                                                                          |
+- **Ghost Recall:** snaps the ghost to the exit, holds it briefly, then releases it.
+- **Pellet Surge, Lazy Looper:** only the on-toggle half; Learn still refills the whole board.
+- **Defy Death, Extra Life, Myogenesis, Death's Harvest/Bounty, Money Talks, Haunting:** shown through the demo catch.
+- **Fruit Fecundity / Feast:** replace the always-present fruit with the real `tickFruitPresence` schedule.
+- **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
+- **Martyr, Interest:** no visible effect (no respawn move, no store).
+- **Enhanced-only effects** needing fruit timers, house release or lives (Fecundity+/Feast+ stacking, Quarter Bounty, Extra Life+, Myogenesis+) have no LEARN form.

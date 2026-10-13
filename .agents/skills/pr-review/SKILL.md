@@ -8,62 +8,21 @@ description: >-
 
 # PR Review
 
-You are a senior engineer reviewing a teammate's PR. Be direct, specific, and
-opinionated. Every finding must reference a concrete file and line range.
+Review as a senior engineer: direct, specific, opinionated. Every finding references a concrete file and line range.
 
-## Step 1: Gather Context
+## Step 1: Gather context
 
-1. **Determine the target.** Parse the user's request for:
-   - A base branch (default: `origin/main`)
-   - A specific commit SHA
-   - A PR description or scope statement
-   - A requested focus area or reviewer emphasis from the user's prompt
-   - A requested count of findings (default: 10)
-
-2. **Get the diff.** Run one of:
-
-   ```bash
-   # Branch comparison (most common)
-   git diff origin/main...HEAD --stat
-   git diff origin/main...HEAD
-
-   # Specific commit
-   git show <sha> --stat
-   git show <sha>
-   ```
-
-   If the diff is very large (>3000 lines), work file-by-file using
-   `git diff origin/main...HEAD -- <path>` so you don't miss anything.
-
-3. **Read project conventions.** If AGENTS.md or .cursor/rules/ exist at the
-   repo root, skim them for codebase-specific standards the review should
-   enforce. Apply those standards when relevant.
+- Target: base branch (default `origin/main`), a specific commit, the PR description or scope statement, any requested focus, and a finding count (default 10).
+- Diff: `git diff origin/main...HEAD --stat` then the full diff (or `git show <sha>`). If over ~3000 lines, go file by file with `-- <path>`.
+- Skim `AGENTS.md` (and `.cursor/rules/` if present) and enforce the conventions that apply.
 
 ## Step 2: Review
 
-Work through the diff systematically. For every changed file, evaluate against
-**all** of these lenses, weighting them toward whatever focus the user requested:
-
-| Lens                | What to look for                                                                                                                                                                                                                             |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Correctness**     | Bugs, off-by-ones, race conditions, unhandled edge cases                                                                                                                                                                                     |
-| **Security**        | Injection, auth bypasses, secret leakage, unsafe deserialization                                                                                                                                                                             |
-| **Scope creep**     | Changes unrelated to the stated PR purpose                                                                                                                                                                                                   |
-| **Duplication**     | Code that duplicates existing utilities or patterns in the codebase                                                                                                                                                                          |
-| **Extraneous code** | Dead code, unused imports, unnecessary abstractions, over-engineering                                                                                                                                                                        |
-| **Readability**     | Long functions, unclear names, missing types, deeply nested logic                                                                                                                                                                            |
-| **Decomposition**   | Hooks, components, or modules that should be broken out                                                                                                                                                                                      |
-| **Scalability**     | N+1 queries, unbounded loops, missing pagination, memory leaks                                                                                                                                                                               |
-| **Maintainability** | Tight coupling, missing error handling, brittle assumptions                                                                                                                                                                                  |
-| **Tests**           | Missing coverage, brittle assertions, untested edge cases                                                                                                                                                                                    |
-| **Scene logic**     | A changed decision left inline in a scene / `render.ts` instead of the sim or a pure tested function; a gameplay change with no new/extended `PlaySim` test (AGENTS.md, docs/VERIFICATION.md#scene-and-render-logic, #sim-integration-tests) |
-| **Consistency**     | Deviations from patterns already established in the codebase                                                                                                                                                                                 |
+For every changed file, apply all lenses, weighted toward the requested focus: correctness (bugs, off-by-ones, races, edge cases), security, scope creep, duplication of existing utilities, extraneous code (dead code, unused imports, over-engineering), readability, decomposition, scalability, maintainability, tests (missing coverage, brittle assertions), consistency with established patterns, and **scene logic** (a changed decision left inline in a scene or `render.ts` instead of the sim or a tested pure function; a gameplay change with no new or extended `PlaySim` test; see `docs/VERIFICATION.md`).
 
 ## Step 3: Output
 
-Present findings as a **ranked list**, most important first.
-
-### Format for each finding
+A ranked list, most important first. Each finding:
 
 ```
 ## <rank>. <short title>
@@ -71,37 +30,12 @@ Present findings as a **ranked list**, most important first.
 **Severity:** Critical | Major | Minor | Nit
 **File:** `path/to/file.ts` L<start>-L<end>
 
-<1-3 sentence explanation of the problem and why it matters>
+<1-3 sentences: the problem and why it matters>
 
 **Suggestion:**
-<concrete fix or direction — show code when it helps>
+<concrete fix or direction; show code when it helps>
 ```
 
-### Severity guide
+Severity: **Critical** blocks merge (bugs, security, data loss); **Major** should fix before merge (perf, maintainability, missing tests); **Minor** nice to fix; **Nit** take it or leave it.
 
-| Level        | Meaning                                                        |
-| ------------ | -------------------------------------------------------------- |
-| **Critical** | Blocks merge — bugs, security holes, data loss risk            |
-| **Major**    | Should fix before merge — perf, maintainability, missing tests |
-| **Minor**    | Nice to fix — readability, small refactors, naming             |
-| **Nit**      | Take it or leave it — style, micro-optimizations               |
-
-### After the list
-
-End with a brief **Summary** section:
-
-- One sentence on overall PR quality
-- Call out anything done particularly well
-- If applicable, suggest ways to split the PR into smaller pieces
-
-## Tips
-
-- When the user provides a PR description, use it to evaluate scope. Flag
-  anything that doesn't serve the stated goals.
-- If you see a large new hook or provider, proactively suggest how to decompose
-  it even if the user didn't ask.
-- Prefer actionable suggestions ("extract lines 40-80 into a `useFoo` hook")
-  over vague advice ("consider refactoring").
-- If the codebase has an AGENTS.md or rules, cite the specific convention being
-  violated when flagging inconsistencies.
-- Don't pad the list. If you only find 6 real issues, report 6 — not 10.
+End with a short **Summary**: one sentence on overall quality, anything done well, and how to split the PR if it should be. Prefer actionable suggestions to vague advice, cite the specific `AGENTS.md` rule being violated, and don't pad: report 6 real issues, not 10.

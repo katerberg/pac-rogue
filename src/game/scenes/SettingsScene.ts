@@ -163,7 +163,7 @@ export class SettingsScene extends Phaser.Scene {
 
   create(data?: SettingsSceneData): void {
     applyRenderScale(this);
-    // Boot order (see docs/ARCHITECTURE.md) places SettingsScene below PlayScene/PauseScene,
+    // Boot order (see docs/ARCHITECTURE.md#scenes) places SettingsScene below PlayScene/PauseScene,
     // so opening it from the pause menu needs an explicit bring-to-top or the paused maze
     // (still rendering underneath) shows through the opaque background below.
     this.scene.bringToTop();

@@ -302,7 +302,7 @@ export function createStoreOverlay(
     panelFooter.setText(content.footer);
     setSchoolTag(panelSchool, content.school);
     // Prefer school-sized gaps on the short panel; tall neon stacks may still clip
-    // NEED/QUARTERS — leave it (same policy as fonts.md).
+    // NEED/QUARTERS — leave it (same policy as line-art.md).
     const rowGap = interTextGap(SCHOOL_GAP, textStyle);
     const topY = -PANEL_HEIGHT / 2 + PANEL_TOP_PAD;
     stackTextsFromTop(
