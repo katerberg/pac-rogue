@@ -2,11 +2,11 @@ import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import {
+  canEnterDirection,
   cellCenterX,
   cellCenterY,
   getActiveLayout,
   playerFarthestFromGhostsSpawn,
-  canEnterDirection,
 } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";

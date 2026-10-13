@@ -2821,9 +2821,13 @@ describe("PlaySim enhanced upgrades", () => {
     runFrames(sim, 1, { keys: held("left") });
     const player = playerEid(sim);
     const landed = { x: Position.x[player]!, y: Position.y[player]! };
-    const toWall = ({ 1: [0, -1], 2: [0, 1], 3: [-1, 0], 4: [1, 0] } as Record<number, number[]>)[
-      Input.direction[player]!
-    ]!;
+    const steps: Record<number, number[]> = {
+      [DIRECTION.up]: [0, -1],
+      [DIRECTION.down]: [0, 1],
+      [DIRECTION.left]: [-1, 0],
+      [DIRECTION.right]: [1, 0],
+    };
+    const toWall = steps[Input.direction[player]!]!;
     expect(canEnterDirection(landed.x, landed.y, toWall[0]!, toWall[1]!)).toBe(false);
     expect(Facing.direction[player]).toBe(Input.direction[player]);
     runFrames(sim, Math.ceil(WARP_GLIDE_MS / FRAME_MS) + 30);
