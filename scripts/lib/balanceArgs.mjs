@@ -3,7 +3,7 @@ const EXPERIMENTS = ["builds", "singles", "pairs", "schools", "enemies"];
 
 export const USAGE = `Usage:
   npm run balance -- [--preset smoke|pilot|full] [--budget-hours N] [--workers N]
-                     [--only builds,singles,pairs,schools,enemies] [--profiles cautious@average,...]
+                     [--only builds,singles,pairs,schools,enemies] [--profiles cautious@expert,...]
                      [--dry-run] [--calibrate-seconds N] [--out DIR]
   npm run balance:compare -- <beforeDir> <afterDir>`;
 

@@ -1,7 +1,17 @@
 import { hasComponent, query, type World } from "bitecs";
 import { GHOST_KIND } from "../../../domain/ghostKind";
 import { GHOST_PHASE } from "../../../domain/ghostPhase";
-import { getActiveLayout, worldToCol, worldToRow, type MazeLayout } from "../../../domain/maze";
+import { GHOST_AI_MODE } from "../../../domain/ghostMode";
+import { ghostMovementRules } from "../../../domain/ghostMovement";
+import { ghostDirStep, type GhostDir } from "../../../domain/ghostPath";
+import {
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+  worldToCol,
+  worldToRow,
+  type MazeLayout,
+} from "../../../domain/maze";
 import { Facing } from "../../components/Facing";
 import { Fruit } from "../../components/Fruit";
 import { Ghost } from "../../components/Ghost";
@@ -19,13 +29,12 @@ import { playerSpeedMultiplier } from "../../../domain/upgrades";
 import { Speed } from "../../components/Speed";
 import { nameOf } from "../../systems/worldSnapshot";
 import type { PlaySim } from "../playSim";
+import type { PlannerState } from "./planner";
 import {
   CARDINALS,
   cellIndex,
   gridFrom,
   neighbor,
-  reverseOf,
-  type BoardView,
   type CardinalDirection,
   type Grid,
 } from "./navigate";
@@ -93,13 +102,17 @@ export class Observer {
     return this.cache;
   }
 
-  view(sim: PlaySim, ghosts: readonly GhostSample[]): BoardView {
+  plannerState(
+    sim: PlaySim,
+    ghosts: readonly GhostSample[],
+    decision: { current: number; cell: number; distPx: number; facing: Direction },
+    depth: number,
+  ): PlannerState {
     const world = sim.world;
     const render = sim.renderOptions();
     this.wallPass = render.wallPassActive;
-    const { grid, tunnels } = this.grid();
+    const { grid } = this.grid();
     const layout = getActiveLayout();
-    const exitCell = cellIndex(grid, layout.ghostHouseExit.col, layout.ghostHouseExit.row);
     const cellsOf = (eids: Iterable<number>): number[] => {
       const cells: number[] = [];
       for (const eid of eids) {
@@ -114,36 +127,101 @@ export class Observer {
       (eid) => !hasComponent(world, eid, PowerPellet),
     );
     const required = regular.filter((eid) => !hasComponent(world, eid, OptionalPellet));
-    const fruit = cellsOf(query(world, [Fruit, Position]))[0] ?? null;
+    const pellets = cellsOf(required.length > 0 ? required : regular);
+    const powerPellets = cellsOf(query(world, [PowerPellet, Position]));
+    const snapshot = sim.snapshot();
     const playerSpeed =
       playerSpeedPx(sim.tuning) *
       speedLevelMultiplier(sim.currentLevel(), sim.tuning) *
       playerSpeedMultiplier(sim.hud().upgrades);
-    const frightened = new Set(render.frightenedGhosts?.eids ?? []);
+    const stepMs = (layout.tileSize / playerSpeed) * 1000;
+    const frightened = render.frightenedGhosts;
+    const mark = (cells: readonly number[]) => {
+      const set = new Uint8Array(grid.open.length);
+      cells.forEach((cell) => (set[cell] = 1));
+      return set;
+    };
+    const exitCell = cellIndex(grid, layout.ghostHouseExit.col, layout.ghostHouseExit.row);
+    const rules = ghostMovementRules(GHOST_PHASE.active);
     return {
       grid,
-      pellets: cellsOf(required.length > 0 ? required : regular),
-      powerPellets: cellsOf(query(world, [PowerPellet, Position])),
-      fruit,
-      tunnelCells: tunnels,
-      invulnerable: render.playerInvulnRemainingMs > 300,
-      ghosts: ghosts.map((ghost) => {
-        const cell = cellOf(grid, ghost.x, ghost.y);
-        const isFrightened = frightened.has(ghost.eid);
-        const frozen = render.frozenGhostEid === ghost.eid;
-        const onGrid = cell !== null && grid.open[cell] === 1;
-        const behind = reverseOf(ghost.facing);
-        return {
-          cell: onGrid ? cell : exitCell,
-          behind:
-            onGrid && CARDINALS.includes(behind as CardinalDirection)
-              ? neighbor(grid, cell, behind as CardinalDirection)
-              : -1,
-          speedRatio: (Math.max(ghost.speed, 1) / playerSpeed) * (frozen ? 0.3 : 1),
-          dangerous: ghost.phase !== GHOST_PHASE.inHouse && !isFrightened,
-          frightened: isFrightened,
-        };
-      }),
+      ghostSolids: rules.solids,
+      canEnter: rules.canEnter,
+      start: decision.cell,
+      current: decision.current,
+      facing: decision.facing,
+      leadSteps: decision.distPx / layout.tileSize,
+      ghosts: ghosts
+        .filter((ghost) => ghost.phase !== GHOST_PHASE.inHouse)
+        .map((ghost) => {
+          const placed = ghostPlacement(grid, ghost, exitCell, layout.tileSize);
+          return {
+            eid: ghost.eid,
+            ...placed,
+            speed: render.frozenGhostEid === ghost.eid ? 0 : Math.max(ghost.speed, 1) / playerSpeed,
+            frightenedSteps:
+              frightened != null && frightened.eids.includes(ghost.eid)
+                ? frightened.remainingMs / stepMs
+                : 0,
+            blinky: ghost.kind === "blinky",
+          };
+        }),
+      mode: GHOST_AI_MODE[snapshot.ghostMode as keyof typeof GHOST_AI_MODE] ?? GHOST_AI_MODE.chase,
+      pelletsRemaining: snapshot.pelletsRemaining,
+      tuning: sim.tuning,
+      invulnSteps: render.playerInvulnRemainingMs / stepMs,
+      pellets: mark(pellets),
+      power: mark(powerPellets),
+      fruit: cellsOf(query(world, [Fruit, Position]))[0] ?? null,
+      pelletDist: multiSourceBfs(grid, [...pellets, ...powerPellets]),
+      depth,
     };
   }
+}
+
+function ghostPlacement(
+  grid: Grid,
+  ghost: GhostSample,
+  exitCell: number,
+  tileSize: number,
+): { col: number; row: number; dir: GhostDir; progress: number } {
+  const cell = cellOf(grid, ghost.x, ghost.y);
+  const dir = (
+    CARDINALS.includes(ghost.facing as CardinalDirection) ? ghost.facing : DIRECTION.left
+  ) as GhostDir;
+  if (cell === null || ghost.phase !== GHOST_PHASE.active) {
+    return { col: exitCell % grid.cols, row: Math.floor(exitCell / grid.cols), dir, progress: 0 };
+  }
+  const col = cell % grid.cols;
+  const row = Math.floor(cell / grid.cols);
+  const { dx, dy } = ghostDirStep(dir);
+  const along = ((ghost.x - cellCenterX(col)) * dx + (ghost.y - cellCenterY(row)) * dy) / tileSize;
+  return along >= 0
+    ? { col, row, dir, progress: along }
+    : { col: col - dx, row: row - dy, dir, progress: 1 + along };
+}
+
+function multiSourceBfs(grid: Grid, sources: readonly number[]): Int32Array {
+  const dist = new Int32Array(grid.open.length).fill(-1);
+  const queue = new Int32Array(grid.open.length);
+  let tail = 0;
+  for (const cell of sources) {
+    if (dist[cell] === -1) {
+      dist[cell] = 0;
+      queue[tail] = cell;
+      tail += 1;
+    }
+  }
+  for (let head = 0; head < tail; head += 1) {
+    const at = queue[head]!;
+    for (const direction of CARDINALS) {
+      const next = neighbor(grid, at, direction);
+      if (next !== -1 && dist[next] === -1) {
+        dist[next] = dist[at]! + 1;
+        queue[tail] = next;
+        tail += 1;
+      }
+    }
+  }
+  return dist;
 }

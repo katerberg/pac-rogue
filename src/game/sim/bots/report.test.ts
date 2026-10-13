@@ -77,6 +77,11 @@ describe("summarize", () => {
     ).toBe(1);
     expect(summary.ghosts["cautious@average"]!.blinky!.perMinute).toBeCloseTo(1, 6);
     expect(summary.builds["cautious@average"]!.levelReached.value).toBe(6);
+    expect(summary.builds["cautious@average"]!.curve.find((point) => point.level === 6)).toEqual({
+      level: 6,
+      reached: 1,
+      deaths: 0,
+    });
   });
 
   it("marks a batch with too many stalls as untrustworthy", () => {
@@ -99,6 +104,7 @@ describe("renderReport", () => {
     for (const heading of [
       "## Health",
       "## Builds",
+      "### Difficulty curve",
       "## Singles",
       "## Pairs",
       "## School Specialists",

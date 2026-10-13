@@ -105,11 +105,11 @@ function runPool(bundlePath, jobs, workers, onResult, shouldStop) {
 async function calibrate(bundlePath, workers, seconds) {
   const jobs = Array.from({ length: 10_000 }, (_, i) =>
     i % 2 === 0
-      ? { experiment: "builds", arm: "build", profile: "cautious@average", seed: `cal-${i}` }
+      ? { experiment: "builds", arm: "build", profile: "cautious@expert", seed: `cal-${i}` }
       : {
           experiment: "singles",
           arm: "none",
-          profile: "cautious@average",
+          profile: "cautious@expert",
           seed: `cal-${i}`,
           level: 5,
         },
