@@ -44,6 +44,10 @@ Side effects the sim can't perform itself. The scene applies them in order, afte
 
 The LEARN sandbox: `start()`, `step(keys, deltaMs)`, `selectGhost(kind)`, `toggleUpgrade(id)`, plus getters the overlay reads (`selectedKind`, `ghostEid`, `helperBlinkyEid`, `ownedUpgrades`). The seen-record gating and all drawing stay in `LearnScene`.
 
+## Balance bots (`bots/`)
+
+`npm run balance` drives `PlaySim` with scripted bot profiles (persona × skill tier) to measure upgrades, builds and ghosts. Bots only produce `SimInput`s and answer offers and store prompts; they never write to the world. See [docs/BALANCE_BOTS.md](../../../docs/BALANCE_BOTS.md).
+
 ## Writing a sim test
 
 ```ts

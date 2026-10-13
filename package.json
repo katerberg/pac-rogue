@@ -30,6 +30,8 @@
     "worker:dev": "wrangler dev --config worker/wrangler.toml --local --port 8787",
     "worker:dev:agent": "wrangler dev --config worker/wrangler.toml --local --port 8788",
     "data:pull": "node scripts/data-pull.mjs",
+    "balance": "node scripts/balance.mjs",
+    "balance:compare": "node scripts/balance.mjs --compare",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
@@ -40,6 +42,7 @@
     "@cloudflare/workers-types": "^5.20261011.1",
     "@eslint/js": "^9.39.0",
     "@types/node": "^24.3.0",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.12.0",

@@ -126,6 +126,7 @@ src/
       simInput.ts             # SimInput (HeldKeys, uiOpen, store toggle/confirm)
       simTesting.ts           # test harness: runFrames / runUntil / held at a fixed 1000/60 step
       runRecorder.ts          # RunRecorder: PlaySim's run-log draft (per-level counters, deaths, store, loadout)
+      bots/                   # balance bots: personas × skill tiers drive PlaySim for `npm run balance` (see docs/BALANCE_BOTS.md)
     net/
       apiClient.ts            # drainRunUploads (POST finished runs; no-op without VITE_API_URL or when opted out), fetchGlobalScores (GET /scores)
     storage/
