@@ -63,6 +63,7 @@ Level 1 grants one random **starting upgrade** (below), and clearing a level (2 
 | `passiveStartingShield`       | Starting Shield       | Protection | Every level starts with `STARTING_SHIELD_COUNT` (1) shield banked; a catch breaks it like a [Shield](#shield) shield (see [Starting Shield](#starting-shield) below)                                                                                                                                                                                                                                                                        |
 | `powerPelletHyperspeed`       | Hyperspeed            | Speed      | Rare. Power pellet: for `HYPERSPEED_MS` (2000) the player runs at `HYPERSPEED_MUL` (10) × speed and every turn holds movement for `HYPERSPEED_TURN_DELAY_MS` (200); see [Hyperspeed](#hyperspeed)                                                                                                                                                                                                                                           |
 | `passiveShieldBreak`          | Shield Break          | Protection | Rare. Power pellet effects no longer fire at pickup; every shield break fires them all instead. Offered only while a shield source is owned (see [Shield Break](#shield-break) below)                                                                                                                                                                                                                                                       |
+| `powerPelletCornucopia`       | Cornucopia            | Harvest    | Power pellet: spawns a bonus fruit right away if none is out; see [Cornucopia](#cornucopia) below                                                                                                                                                                                                                                                                                                                                           |
 
 ## Enhanced upgrades
 
@@ -127,6 +128,7 @@ Global base changes that shipped with this feature: Ghost Slow ×0.8 (from ×0.7
 | `passiveStartingShield`       | Starting Shield       | Start every level with 2 shields (`STARTING_SHIELD_ENHANCED_COUNT`)                                                                                                    |
 | `powerPelletHyperspeed`       | Hyperspeed            | The window lasts `HYPERSPEED_ENHANCED_MS` (3s) and a one-catch shield covers the first `HYPERSPEED_SHIELD_MS` (2s)                                                     |
 | `passiveShieldBreak`          | Shield Break          | A power pellet that finds the shield bank full fires its effects (`shieldOverflowFires`)                                                                               |
+| `powerPelletCornucopia`       | Cornucopia            | Spawns a fruit on every power pellet, even with a fruit out (side by side)                                                                                             |
 
 Wall Pass+ opens `wallPassLoopPlayerSolids` (an all-open grid), so the existing tunnel wrap applies on both axes for the player only; nothing is carved. Fruit Fecundity+ keeps fruit until the level ends and spawns later fruit in the same row next to the first (`fruitStackCenter`).
 
@@ -245,6 +247,17 @@ While `fruitQuarterBounty` is owned, `fruitQuartersPerFruit(owned)` returns `FRU
 ### Fruit Fecundity
 
 `fruitLifetimeMultiplier(owned)` returns `FRUIT_FECUNDITY_MUL` (2) while `fruitFecundity` is owned, else 1. `PlaySim` passes it to `tickFruitPresence`, which starts every spawned or replacement fruit at `FRUIT_LIFETIME_MS × mul`. Granting the upgrade while a fruit is active runs `extendFruitLifetime`, doubling that fruit's remaining time immediately. No expiry visuals. Also applies to Fruit Feast fruit. Independent of Fruit Power, Quarter Bounty and Overcharge.
+
+### Cornucopia
+
+`powerPelletCornucopia` has `onPowerPellet.cornucopiaFruit`, so `applyPowerPelletEffects` reports a `cornucopiaFruit` mode (`solo`; `alongside` when enhanced) on every power pellet chomp, including Fruit Power's and Echo's. `cornucopiaMaySpawn(mode, fruitOnBoard)` decides: `solo` spawns only when no fruit is on the board, `alongside` always spawns. `PlaySim.spawnCornucopiaFruit` places the fruit at the fruit cell, or the nearest free cell in that row, and tracks each one (`cornucopiaFruit`: eid + time left, `play.timers.cornucopiaFruitMs` = longest). It lives `FRUIT_LIFETIME_MS × fruitLifetimeMultiplier`.
+
+- **Base.** Spawns only onto a fruit-free board; otherwise nothing happens. While its fruit is out, a scheduled fruit does nothing: the normal two-fruit schedule consumes that threshold, and Fruit Feast waits for it to be gone.
+- **Enhanced.** Spawns a fruit on every power pellet, even with a regular or earlier Cornucopia fruit out, side by side. Scheduled fruit also spawn beside them.
+- **Eating it** pays like any fruit (bonus charge or Quarter Bounty, Fruit Power, Fruit Power+). Fruit Fecundity+ keeps it until the level ends. Regular fruit expiry or replacement never removes it.
+- **Reset** on board start, life loss and boss stage refills. Overcharge does not touch it. Extra Hungry and the other non-chomp paths do not count as eating a power pellet. The render flicker uses the shortest running fruit timer.
+- **LEARN.** Mirrors the same rules (`LearnSim.spawnCornucopiaFruit`), including the lifetime and the blocking of scheduled fruit. Eating or losing a Cornucopia fruit never triggers the always-present fruit's respawn delay unless the board is then empty.
+- It is in `STARTING_UPGRADE_POOL`.
 
 ### Fruit Feast
 

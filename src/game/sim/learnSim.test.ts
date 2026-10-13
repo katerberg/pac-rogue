@@ -213,8 +213,12 @@ describe("LearnSim", () => {
       Position.y[player] = at.y;
       sim.step(NO_KEYS_HELD, FRAME_MS);
       const left = query(sim.world, [PowerPellet]).length;
-      expect(left).toBe(i < total - 1 ? total - 1 - i : total);
+      expect(left).toBe(total - 1 - i);
     }
+    Position.x[player] = 0;
+    Position.y[player] = 0;
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(query(sim.world, [PowerPellet]).length).toBe(total);
     expect(query(sim.world, [Pellet]).length).toBeGreaterThan(total);
   });
 
@@ -907,6 +911,147 @@ describe("LearnSim upgrade demos", () => {
     runMs(sim, 20_500);
     expect(query(sim.world, [Fruit]).length).toBe(0);
     sim.toggleUpgrade("fruitFecundity");
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+  });
+
+  describe("Cornucopia", () => {
+    const fruitCount = (sim: LearnSim): number => query(sim.world, [Fruit]).length;
+
+    function eatPower(sim: LearnSim, player: number): void {
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      moveTo(player, { x: 0, y: 0 });
+    }
+
+    it("spawns a fruit on a power pellet when the board has none", () => {
+      const { sim, player } = setup("powerPelletCornucopia");
+      for (const eid of query(sim.world, [Fruit])) {
+        removeEntity(sim.world, eid);
+      }
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(1);
+    });
+
+    it("does nothing while a fruit is out, but Plus always spawns one", () => {
+      const base = setup("powerPelletCornucopia");
+      const before = fruitCount(base.sim);
+      eatPower(base.sim, base.player);
+      expect(fruitCount(base.sim)).toBe(before);
+
+      const plus = setup("powerPelletCornucopiaPlus");
+      eatPower(plus.sim, plus.player);
+      eatPower(plus.sim, plus.player);
+      expect(fruitCount(plus.sim)).toBe(before + 2);
+    });
+
+    it("the last power pellet spawns one fruit, not two, when the board regenerates under the player", () => {
+      const { sim, player } = setup("powerPelletCornucopiaPlus");
+      let before = fruitCount(sim);
+      for (let eaten = 1; eaten <= 4; eaten += 1) {
+        moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+        expect(fruitCount(sim)).toBe(before + 1);
+        before += 1;
+      }
+      expect(query(sim.world, [PowerPellet]).length).toBe(0);
+      moveTo(player, { x: 0, y: 0 });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(query(sim.world, [PowerPellet]).length).toBe(4);
+    });
+
+    it("Pickup Range widens how far the regeneration waits for Maze-Man to step away", () => {
+      const { sim, player } = setup("powerPelletCornucopiaPlus", "passivePickupRange");
+      for (let eaten = 0; eaten < 4; eaten += 1) {
+        moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+      }
+      const last = posOf(player);
+      moveTo(player, { x: last.x + 1.5 * getActiveLayout().tileSize, y: last.y });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(query(sim.world, [PowerPellet]).length).toBe(0);
+    });
+
+    it("does nothing without the upgrade", () => {
+      const { sim, player } = setup();
+      for (const eid of query(sim.world, [Fruit])) {
+        removeEntity(sim.world, eid);
+      }
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(0);
+    });
+
+    it("eating its fruit leaves the always-present fruit and its respawn alone", () => {
+      const { sim, player } = setup("powerPelletCornucopiaPlus");
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(2);
+      const [cornucopia] = (
+        sim as unknown as { cornucopiaFruit: Map<number, number> }
+      ).cornucopiaFruit.keys();
+      const regular = posOf(query(sim.world, [Fruit]).find((eid) => eid !== cornucopia)!);
+      const at = posOf(cornucopia!);
+      moveTo(player, { x: at.x + (at.x - regular.x) * 0.45, y: at.y });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(fruitCount(sim)).toBe(1);
+      runMs(sim, 5_000);
+      expect(fruitCount(sim)).toBe(1);
+    });
+
+    it("spawns on a scheduled-fruit board and swallows the scheduled fruit while out", () => {
+      const { sim, player } = setup("powerPelletCornucopia");
+      sim.toggleUpgrade("fruitFeast");
+      expect(fruitCount(sim)).toBe(0);
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(1);
+      (sim as unknown as { boardCollected: number }).boardCollected = 60;
+      runMs(sim, 6_000);
+      expect(fruitCount(sim)).toBe(1);
+    });
+  });
+
+  it("scheduled fruit loops: a fruit at the threshold restarts the pellet count from zero", () => {
+    const { sim } = setup("fruitFeast");
+    const board = sim as unknown as { boardCollected: number };
+    board.boardCollected = 85;
+    runMs(sim, 100);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+    expect(board.boardCollected).toBe(0);
+    runMs(sim, 10_500);
+    expect(query(sim.world, [Fruit]).length).toBe(0);
+    expect(sim.statusText()).toContain("NEXT FRUIT AT 60 PELLETS (0)");
+    runMs(sim, 5_000);
+    board.boardCollected = 60;
+    runMs(sim, 100);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+  });
+
+  it("Fruit Fecundity also loops after its fruit expires", () => {
+    const { sim } = setup("fruitFecundity");
+    const board = sim as unknown as { boardCollected: number };
+    board.boardCollected = 70;
+    runMs(sim, 100);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+    expect(board.boardCollected).toBe(0);
+    runMs(sim, 20_500);
+    expect(query(sim.world, [Fruit]).length).toBe(0);
+    expect(sim.statusText()).toContain("NEXT FRUIT AT 70 PELLETS (0)");
+    board.boardCollected = 70;
+    runMs(sim, 100);
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+  });
+
+  it("a Cornucopia fruit expires, so it cannot hold scheduled fruit back forever", () => {
+    const { sim, player } = setup("fruitFeast", "powerPelletCornucopia");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    moveTo(player, { x: 0, y: 0 });
+    expect(query(sim.world, [Fruit]).length).toBe(1);
+    const board = sim as unknown as { boardCollected: number };
+    board.boardCollected = 85;
+    runMs(sim, 5_000);
+    expect(board.boardCollected).toBe(85);
+    runMs(sim, 6_000);
+    expect(board.boardCollected).toBe(0);
     expect(query(sim.world, [Fruit]).length).toBe(1);
   });
 

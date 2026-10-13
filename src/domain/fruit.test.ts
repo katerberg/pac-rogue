@@ -14,6 +14,7 @@ import {
   fruitFlickerAlpha,
   extendFruitLifetime,
   createFruitPresence,
+  cornucopiaMaySpawn,
   fruitArtPath,
   fruitSpawnCenter,
   fruitStackCenter,
@@ -342,5 +343,36 @@ describe("fruitStackCenter", () => {
     const third = fruitStackCenter([first!, second!]);
     expect(third!.y).toBe(first!.y);
     expect([first!.x, second!.x]).not.toContain(third!.x);
+  });
+});
+
+describe("cornucopiaMaySpawn", () => {
+  it("solo spawns only onto an empty board", () => {
+    expect(cornucopiaMaySpawn("solo", 0)).toBe(true);
+    expect(cornucopiaMaySpawn("solo", 1)).toBe(false);
+  });
+
+  it("alongside always spawns", () => {
+    expect(cornucopiaMaySpawn("alongside", 0)).toBe(true);
+    expect(cornucopiaMaySpawn("alongside", 3)).toBe(true);
+  });
+});
+
+describe("tickFruitPresence blocked", () => {
+  it("consumes a scheduled threshold without spawning", () => {
+    const [threshold] = getActiveLayout().fruitThresholds;
+    const tick = tickFruitPresence(createFruitPresence(), threshold!, 16, 2, { blocked: true });
+    expect(tick.action).toBe("none");
+    expect(tick.state.active).toBe(false);
+    expect(tick.state.nextThresholdIndex).toBe(1);
+  });
+
+  it("holds a Fruit Feast fruit until unblocked", () => {
+    const state = { ...createFruitPresence(), gapMs: FRUIT_FEAST_GAP_MS };
+    const options = { feastBase: FEAST };
+    const blocked = tickFruitPresence(state, FEAST[0]!, 16, 1, { ...options, blocked: true });
+    expect(blocked.action).toBe("none");
+    expect(blocked.state.nextThresholdIndex).toBe(0);
+    expect(tickFruitPresence(blocked.state, FEAST[0]!, 16, 1, options).action).toBe("spawn");
   });
 });

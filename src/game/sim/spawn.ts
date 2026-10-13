@@ -81,7 +81,10 @@ export function spawnPlayer(world: World): void {
   Drawable.radius[eid] = playerRadius();
 }
 
-export function spawnFruit(world: World, at: { x: number; y: number } = fruitSpawnCenter()): void {
+export function spawnFruit(
+  world: World,
+  at: { x: number; y: number } = fruitSpawnCenter(),
+): number {
   const eid = addEntity(world);
   addComponent(world, eid, Fruit);
   addComponent(world, eid, Position);
@@ -90,4 +93,5 @@ export function spawnFruit(world: World, at: { x: number; y: number } = fruitSpa
   Position.y[eid] = at.y;
   Drawable.id[eid] = FRUIT_DRAWABLE_ID;
   Drawable.radius[eid] = FRUIT_RADIUS;
+  return eid;
 }

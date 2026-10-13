@@ -83,6 +83,7 @@ import {
   groupUpgradesBySchool,
   storePriceFor,
   applyPowerPelletEffects,
+  cornucopiaAlongsideOwned,
   confirmUpgradeChoice,
   createRunUpgrades,
   declineUpgrades,
@@ -215,6 +216,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveStartingShield",
   "powerPelletHyperspeed",
   "passiveShieldBreak",
+  "powerPelletCornucopia",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -674,6 +676,7 @@ describe("grantUpgrade", () => {
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
       frightenGhosts: false,
+      cornucopiaFruit: null,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
@@ -691,6 +694,7 @@ describe("grantUpgrade", () => {
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
       frightenGhosts: false,
+      cornucopiaFruit: null,
     });
   });
 
@@ -749,6 +753,7 @@ describe("freeze / power pellet", () => {
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
       frightenGhosts: false,
+      cornucopiaFruit: null,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
@@ -774,6 +779,7 @@ describe("freeze / power pellet", () => {
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
       frightenGhosts: false,
+      cornucopiaFruit: null,
     });
   });
 });
@@ -882,6 +888,7 @@ describe("invuln / power pellet", () => {
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
       frightenGhosts: false,
+      cornucopiaFruit: null,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
@@ -1104,6 +1111,7 @@ describe("passiveOvercharge", () => {
       warpPlayerFarthest: false,
       collectExtraPellets: 0,
       frightenGhosts: false,
+      cornucopiaFruit: null,
     });
   });
 });
@@ -1949,5 +1957,26 @@ describe("Shield Break", () => {
   it("has no overflow without a pellet shield source", () => {
     const state = { ...createRunUpgrades(["passiveStartingShield"]), shieldsBanked: 1 };
     expect(shieldOverflow(state, 3)).toBe(0);
+  });
+});
+
+describe("Cornucopia", () => {
+  const apply = (id: UpgradeId) => applyPowerPelletEffects(createRunUpgrades([id]), 1);
+
+  it("asks for a solo fruit on a power pellet, and an alongside one when enhanced", () => {
+    expect(apply("powerPelletCornucopia").cornucopiaFruit).toBe("solo");
+    expect(apply("powerPelletCornucopiaPlus").cornucopiaFruit).toBe("alongside");
+    expect(apply("powerPelletFreeze").cornucopiaFruit).toBeNull();
+  });
+
+  it("does nothing without a power pellet", () => {
+    const none = applyPowerPelletEffects(createRunUpgrades(["powerPelletCornucopia"]), 0);
+    expect(none.cornucopiaFruit).toBeNull();
+  });
+
+  it("is a starting upgrade and reports the alongside rule", () => {
+    expect(STARTING_UPGRADE_POOL).toContain("powerPelletCornucopia");
+    expect(cornucopiaAlongsideOwned(["powerPelletCornucopia"])).toBe(false);
+    expect(cornucopiaAlongsideOwned(["powerPelletCornucopiaPlus"])).toBe(true);
   });
 });
