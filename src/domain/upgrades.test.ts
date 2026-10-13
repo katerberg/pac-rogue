@@ -1315,9 +1315,11 @@ describe("upgrade schools", () => {
     const speed = groups.find((g) => g.school === "speed")!;
     const speedDefs = UPGRADE_DEFS.filter((d) => d.school === "speed");
     const isStarting = (id: string) => (STARTING_UPGRADE_POOL as readonly string[]).includes(id);
+    const speedCommons = speedDefs.filter((d) => d.rare !== true);
     expect(speed.defs.map((d) => d.id)).toEqual([
-      ...speedDefs.filter((d) => isStarting(d.id)).map((d) => d.id),
-      ...speedDefs.filter((d) => !isStarting(d.id)).map((d) => d.id),
+      ...speedCommons.filter((d) => isStarting(d.id)).map((d) => d.id),
+      ...speedCommons.filter((d) => !isStarting(d.id)).map((d) => d.id),
+      ...speedDefs.filter((d) => d.rare === true).map((d) => d.id),
     ]);
 
     const protection = groupUpgradesBySchool(UPGRADE_DEFS).find((g) => g.school === "protection")!;
@@ -1331,6 +1333,15 @@ describe("upgrade schools", () => {
     const some = UPGRADE_DEFS.filter((d) => d.school === "neutral" || d.school === "death");
     expect(groupUpgradesBySchool(some).map((g) => g.school)).toEqual(["death", "neutral"]);
     expect(groupUpgradesBySchool([])).toEqual([]);
+  });
+
+  it("lists rare upgrades last within each school", () => {
+    for (const { defs } of groupUpgradesBySchool(UPGRADE_DEFS)) {
+      const firstRare = defs.findIndex((d) => d.rare === true);
+      if (firstRare >= 0) {
+        expect(defs.slice(firstRare).every((d) => d.rare === true)).toBe(true);
+      }
+    }
   });
 
   it("uses every school at least once", () => {

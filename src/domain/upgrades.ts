@@ -2032,9 +2032,13 @@ export function groupUpgradesBySchool(
   const isStarting = (def: UpgradeDef) => STARTING_UPGRADE_POOL.includes(def.id as BaseUpgradeId);
   return UPGRADE_SCHOOL_ORDER.map((school) => {
     const inSchool = defs.filter((def) => def.school === school);
+    const startingFirst = [
+      ...inSchool.filter(isStarting),
+      ...inSchool.filter((d) => !isStarting(d)),
+    ];
     return {
       school,
-      defs: [...inSchool.filter(isStarting), ...inSchool.filter((d) => !isStarting(d))],
+      defs: startingFirst.sort((a, b) => Number(a.rare === true) - Number(b.rare === true)),
     };
   }).filter((group) => group.defs.length > 0);
 }
