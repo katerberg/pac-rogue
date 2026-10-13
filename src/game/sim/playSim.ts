@@ -2941,16 +2941,18 @@ export class PlaySim {
     }
 
     const hauntMs = hauntDurationMs(this.effectiveUpgrades());
-    const caughtKind =
-      this.caughtByEid === null ? null : (GhostKind.kind[this.caughtByEid] as GhostKindId);
     let hauntEid = this.bossState === null && hauntMs !== null ? this.caughtByEid : null;
     if (this.bossState !== null) {
+      const caughtKind =
+        hauntMs !== null && this.caughtByEid !== null
+          ? (GhostKind.kind[this.caughtByEid] as GhostKindId)
+          : null;
       for (const eid of [...query(this.world, [Ghost])]) {
         removeEntity(this.world, eid);
         this.releaseDrawable(eid);
       }
       this.spawnBossGhostsForLife();
-      if (hauntMs !== null && caughtKind !== null) {
+      if (caughtKind !== null) {
         hauntEid = this.pickBossHauntGhost(caughtKind);
       }
     }
