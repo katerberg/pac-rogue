@@ -9,6 +9,10 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `lev
 - Level 9 clear needs both boss stages, then RUN COMPLETE. No upgrade offer, no time bonus, no high-score write (only last-life Game Over writes history).
 - `?level=` clamps to `MAX_LEVEL`, so `level=9` jumps into the boss.
 
+## Intermission
+
+After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man across the screen before level 3. `PlaySim` owns the timer and emits `intermission` events with actor positions; `PlayScene` only moves two sprites (`intermissionActors.ts`).
+
 ## Speed
 
 Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-exit and boss speeds are ratios of it, so they hold at any base. Both sides gain a per-level multiplier (`speedLevelMultiplier`); ghosts also start slower and catch up (`ghostBaseSpeedRatio`) so level 1 is forgiving. Timers (durations, waves, idle release, fruit) are wall-clock, independent of speed.

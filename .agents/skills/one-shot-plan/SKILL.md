@@ -9,25 +9,114 @@ description: >-
 
 # One-shot plan (batch questions, then lock)
 
-Goal: a weaker follow-up model can implement without asking. Research, dump **one** thorough interrogation (real forks + proposed defaults), then write a **fully locked** plan. Prefer one meaty turn over many tiny ones; never ask what research or convention already answers.
+Goal: a **weaker follow-up model** can implement without asking. You earn that by researching, then dumping **one** thorough interrogation (real forks + proposed defaults), then writing a **fully locked** plan.
 
-Skip for a typo, a one-file bug fix, "implement the attached plan", decisions already locked in-thread, or when the user wants a thin plan or no questions. Say so in one line.
+This is slower up front on purpose. Prefer one meaty turn over many tiny ones. Thorough ≠ padding: do not ask questions whose answer is already obvious from research or convention.
 
-## Hard rules
+## When this skill applies
 
-1. No implementation plan until after the question round (or the user says "lock defaults and plan"). No TBD, "Option A vs B" or "optional" in the plan.
-2. Do not drip 1-5 questions or use a 1-2 item multiple-choice widget; put the list in chat. This overrides any harness default to "ask 1-2 critical questions".
-3. Every dump has **Decide** (numbered `1..N`) and **Proposed locks** (lettered `A..Z`, may be short, never omitted).
-4. After answers: lock skipped Decide items yourself, treat approved locks as locked, state each default in one line, and plan against it.
+Use it when the user is **designing** (Plan mode, “flesh out a plan”, “one-shot”, “ask questions”, new system / mechanic / UX pivot).
+
+Skip it when:
+
+- The task is a typo, one-file bug fix, or “implement the attached plan.”
+- Decisions are already locked in-thread and the user wants a plan _now_.
+- They explicitly want a thin plan or to skip questions.
+
+If skipped, say so in one line.
+
+## Hard rules (all harnesses)
+
+1. **Do not write the implementation plan until after the question round** (or the user says “lock defaults and plan”).
+2. **Do not leave open questions in the plan.** No TBD, no “Option A vs B”, no “prefer X if Y”, no “optional.”
+3. **Do not drip 1–5 questions** as the whole interrogation. Cursor Plan mode’s “ask 1–2 critical questions” does **not** override this skill.
+4. **Do not use a 1–2 item multiple-choice widget** (`AskQuestion` / similar) as the primary vehicle. Put the list in the **chat message**.
+5. Every dump has **both** sections: **Decide** and **Proposed locks** (Proposed locks may be short, never omitted).
+6. Number **Decide** items `1…N` continuously so the user can answer `1: interior only`. Number **Proposed locks** `A…Z` (then `AA…` if needed).
+7. After answers: **lock skipped Decide items yourself**, treat approved Proposed locks as locked, state each default in one line, and plan against it.
 
 ## Workflow
 
-1. **Research (silent):** read `docs/`, nearby code, and what the feature might reuse or break; open the message with a 5-12 line "today's world" restatement.
-2. **One dump:** cover every applicable lens in [references/question-lenses.md](references/question-lenses.md) somewhere in Decide or Proposed locks (never skip scope, failure, docs, v1 vs out of scope).
-   - **Decide:** only real forks (preference, product shape, genuinely ambiguous research). One decision per item, closed choices preferred; if code has a default, say `Today: X. Keep or change?`. A huge Decide list usually means obvious items belong in locks.
-   - **Proposed locks:** research-backed defaults, one line each with a brief why.
-   - Close with: partial Decide answers are fine; reply `approve all` or `approve except B, D` / `B: override...`; skipped items get defaults; the plan will have no open questions. **Then stop.**
-3. **Follow-up:** a second dump only when answers create a new fork; never a third round unless asked.
-4. **Lock, then plan:** a table of locked decisions, then the plan from [assets/plan-template.md](assets/plan-template.md), aimed at a dumber implementer: files, types, call order, acceptance tests, docs, out of scope, and for gameplay changes a concrete `npm run probe` query and steps. Include a docs deliverable or `Docs: none` with a reason. Every code-changing plan ends with the `ship-plan` skill. The plan will likely run unattended, so it must be self-contained.
+```text
+research (silent) → one dump (Decide + Proposed locks) → wait → lock + plan
+```
 
-If a tool forces a plan artifact on the first turn, make it the interrogation stub, never a fake complete plan.
+### 1. Research first (do not ask yet)
+
+Spend the turn on the **current world**, not on guessing.
+
+- Read existing `docs/`, README “Where do I…?”, and nearby code.
+- Explore in parallel (subagents / greps) when the surface is large.
+- Note what already exists that the feature might reuse or break.
+
+Then open the question message with a **short** “today’s world” restatement (5–12 lines): what is true now, what the user’s pitch changes. No plan yet.
+
+### 2. One dump: Decide + Proposed locks
+
+Write **one message** with two sections. Read [references/question-lenses.md](references/question-lenses.md) and cover every applicable lens **somewhere in the dump** (Decide _or_ Proposed locks). Skip a lens only if it cannot apply. Do not skip **scope**, **failure**, **docs**, or **v1 vs out of scope**.
+
+#### Decide
+
+Only **real forks**: user preference, product shape, or research that is genuinely ambiguous.
+
+Each item is **one decision**, answerable in a short bullet. Prefer closed / enumerable choices. When the code already has a default but changing it is a real product choice, say so: `Today: manual camera. Keep or change?`
+
+**Smell test (not a hard cap):** if Decide is huge, you are probably asking obvious things — move those to Proposed locks. A long Decide list is fine when there are that many real forks.
+
+#### Proposed locks
+
+Research-backed defaults you would lock without a debate. One line each: decision + brief why (`Reuse existing X auth helper — already used by settings`).
+
+Ask for **grouped approval**, not per-item essays. Closing lines must include:
+
+- “Partial Decide answers are fine.”
+- “Reply `approve all` for Proposed locks, or `approve except B, D` / `B: override…`.”
+- “I will lock defaults for anything you skip.”
+- “After this, the plan will have no open questions.”
+
+**Then stop.** Do not draft the plan in the same message.
+
+### 3. Follow-up questions (rare)
+
+A second dump is allowed only when answers **create a new fork** that was not in the first list. Still batch as Decide + Proposed locks (not 1–2 drips). Never a third round unless the user asks.
+
+### 4. Lock, then plan
+
+After answers (or “lock defaults”):
+
+1. Table of **locked decisions** (Decide answers, overrides, and Proposed locks you kept).
+2. Write the plan from [assets/plan-template.md](assets/plan-template.md).
+3. Target a **dumber implementer**: files, types, call order, acceptance tests, docs, out of scope.
+
+Every plan includes a **docs** deliverable (`docs/`, README, folder READMEs) or **Docs: none** plus a one-line reason. Same PR as the code when the host repo expects that.
+
+Every **code-changing** plan ends with the `ship-plan` skill. The plan will likely be implemented by an unattended cloud agent, so all questions are asked **before** the lock; the plan itself must be fully self-contained.
+
+## Harness notes
+
+| Harness                        | Do this                                                                                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Cursor Plan mode**           | Research + dump in chat. **Do not** `CreatePlan` until after answers. Ignore the 1–2-question default. After lock, `CreatePlan` with a complete plan (no questions inside). |
+| **Cursor Agent / Cloud**       | Same phases. If you must emit a file before answers, write `INTERROGATION` only (Decide + Proposed locks + “plan after answers”) — never a fake complete plan.              |
+| **Claude Code, Codex, others** | Same phases. No Cursor-only tools required.                                                                                                                                 |
+
+If a tool **forces** a plan artifact on the first turn: the artifact is the interrogation stub, not the implementation plan.
+
+## Anti-patterns
+
+- Plan with “open questions” or alternatives for the user to resolve later
+- AskQuestion / 1–2 MCQs instead of the dump
+- Padding Decide with obvious / research-settled items instead of Proposed locks
+- Omitting the Proposed locks section
+- “Any other preferences?” as a substitute for lens coverage
+- Creating todos for code/tests and omitting docs
+- Omitting the `ship-plan` step from a code-changing plan
+- A plan whose acceptance tests do not say how to check runtime behavior (which `npm run probe` query/steps, or which flags)
+- Implementation starting during the question round
+
+## Done when
+
+- User received one Decide + Proposed locks dump covering the lenses
+- Plan has **zero** unresolved choices
+- A weaker model could implement from files + tests + docs sections alone
+- Code-changing plans end with the `ship-plan` step and give a concrete live-check recipe (probe query + steps) for gameplay/presentation changes

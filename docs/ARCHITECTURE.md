@@ -18,7 +18,7 @@ Boot order is `gameConfig.scene` (`src/game/config.ts`); the first scene is the 
 ```text
 MenuScene -> PlayScene | LearnScene | HighScoresScene | SettingsScene | RunLogOverrunScene
 PlayScene -Escape-> PauseScene -> Resume | SettingsScene (returns to PauseScene) | Quit (no high-score write)
-PlayScene: clear -> level transition -> upgrade modal (levels 2-8) -> next board | store floor | boss | RUN COMPLETE
+PlayScene: clear -> level transition -> upgrade modal (levels 2-8) -> level 2 only: Blinky-chases-Dot-Man intermission (`intermission.ts`, timed in `PlaySim`) -> next board | store floor | boss | RUN COMPLETE
 PlayScene: caught -> death sequence -> reset, or GAME OVER -> MenuScene
 ```
 
@@ -29,7 +29,7 @@ PlayScene: caught -> death sequence -> reset, or GAME OVER -> MenuScene
 
 ## Game loop
 
-`PlayScene.update` gathers input (Escape, modal UI), calls `PlaySim.step(input, delta)`, then applies the returned `SimEvent`s. `PlaySim.step` early-returns for blocking states (starting card, death sequence, run complete, level transition, store floor, pending upgrade offer, time-bonus drain) and otherwise runs the movement / collect / ghost / catch pipeline in a fixed order that is the source of truth in `playSim.ts`. Debug tuning (`?knobs=1`) passes a per-run `Tuning` into the sim; defaults equal the shipped constants.
+`PlayScene.update` gathers input (Escape, modal UI), calls `PlaySim.step(input, delta)`, then applies the returned `SimEvent`s. `PlaySim.step` early-returns for blocking states (starting card, death sequence, run complete, intermission, level transition, store floor, pending upgrade offer, time-bonus drain) and otherwise runs the movement / collect / ghost / catch pipeline in a fixed order that is the source of truth in `playSim.ts`. Debug tuning (`?knobs=1`) passes a per-run `Tuning` into the sim; defaults equal the shipped constants.
 
 ## ECS boundary
 
