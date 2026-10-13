@@ -13,9 +13,7 @@ export type ArmMetrics = {
   clearRate: Interval;
   progress: Interval;
   deaths: Interval;
-  clearSeconds: Interval;
   levelReached: Interval;
-  reachedBoss: Interval;
   stalled: number;
   errors: number;
 };
@@ -77,9 +75,7 @@ function armMetrics(results: readonly EpisodeResult[]): ArmMetrics {
     clearRate: wilson(clears.length, results.length),
     progress: meanCi(results.map((r) => r.progress)),
     deaths: meanCi(results.map((r) => r.deaths.length)),
-    clearSeconds: meanCi(clears.map((r) => r.simMs / 1000)),
     levelReached: meanCi(results.map((r) => r.levelReached)),
-    reachedBoss: wilson(results.filter((r) => r.outcome === "reachedBoss").length, results.length),
     stalled: results.filter((r) => r.outcome === "stalled").length,
     errors: results.filter((r) => r.outcome === "error").length,
   };

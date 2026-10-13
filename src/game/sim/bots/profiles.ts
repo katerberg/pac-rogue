@@ -24,7 +24,6 @@ export type StorePolicy = {
 };
 
 export type Persona = {
-  id: PersonaId;
   weights: MoveWeights;
   schoolPreference: Record<UpgradeSchool, number>;
   randomPicks: boolean;
@@ -33,13 +32,12 @@ export type Persona = {
 };
 
 export type SkillTier = {
-  id: SkillTierId;
   reactionMs: number;
   jitterMs: number;
   mistakeRate: number;
 };
 
-export type Profile = { id: string; persona: Persona; skill: SkillTier };
+export type Profile = { persona: Persona; skill: SkillTier };
 
 const NEUTRAL_PREFERENCE: Record<UpgradeSchool, number> = {
   death: 0.5,
@@ -73,7 +71,6 @@ const BASE_STORE: StorePolicy = {
 
 export const PERSONAS: Record<PersonaId, Persona> = {
   cautious: {
-    id: "cautious",
     weights: { ...BASE_WEIGHTS, ghostFear: 6, fearRadiusTiles: 6, powerSeek: 0.6, tunnel: 0.6 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, protection: 2, death: 1.5 },
     randomPicks: false,
@@ -81,7 +78,6 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     store: { ...BASE_STORE, lifeAtOrBelow: 2 },
   },
   speedrunner: {
-    id: "speedrunner",
     weights: { ...BASE_WEIGHTS, pellet: 2, ghostFear: 1.5, fearRadiusTiles: 3, fruit: 0.1 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, speed: 2, automation: 1.5 },
     randomPicks: false,
@@ -89,7 +85,6 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     store: { ...BASE_STORE, lifeAtOrBelow: 0 },
   },
   disrupter: {
-    id: "disrupter",
     weights: { ...BASE_WEIGHTS, powerSeek: 1, powerHoldNearGhosts: true, frightChase: 2 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, disruption: 2 },
     randomPicks: false,
@@ -97,7 +92,6 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     store: BASE_STORE,
   },
   collector: {
-    id: "collector",
     weights: { ...BASE_WEIGHTS, fruit: 2, streak: 1 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, harvest: 2, automation: 1.5 },
     randomPicks: false,
@@ -105,7 +99,6 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     store: { ...BASE_STORE, enhance: true },
   },
   casual: {
-    id: "casual",
     weights: { ...BASE_WEIGHTS, ghostFear: 2.5, noise: 0.4 },
     schoolPreference: NEUTRAL_PREFERENCE,
     randomPicks: true,
@@ -115,9 +108,9 @@ export const PERSONAS: Record<PersonaId, Persona> = {
 };
 
 const SKILL_TIERS: Record<SkillTierId, SkillTier> = {
-  novice: { id: "novice", reactionMs: 250, jitterMs: 100, mistakeRate: 0.02 },
-  average: { id: "average", reactionMs: 180, jitterMs: 50, mistakeRate: 0.005 },
-  expert: { id: "expert", reactionMs: 100, jitterMs: 15, mistakeRate: 0 },
+  novice: { reactionMs: 250, jitterMs: 100, mistakeRate: 0.02 },
+  average: { reactionMs: 180, jitterMs: 50, mistakeRate: 0.005 },
+  expert: { reactionMs: 100, jitterMs: 15, mistakeRate: 0 },
 };
 
 export const PROFILE_IDS: readonly string[] = [
@@ -143,5 +136,5 @@ export function profileFor(id: string): Profile {
   if (persona === undefined || skill === undefined) {
     throw new Error(`Unknown bot profile "${id}"; expected <persona>@<novice|average|expert>`);
   }
-  return { id, persona, skill };
+  return { persona, skill };
 }

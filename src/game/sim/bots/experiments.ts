@@ -35,7 +35,6 @@ export type Throughput = { buildSeconds: number; forcedSeconds: number; workers:
 
 export type Plan = {
   preset: PresetId;
-  budgetHours: number | null;
   arms: ArmSpec[];
   seedsPerArm: Record<ExperimentId, number>;
   rerun: { pairs: number; seeds: number };
@@ -353,5 +352,5 @@ export function planJobs({
       ].join("\n"),
     );
   }
-  return { preset, budgetHours, arms, seedsPerArm: seeds, rerun, jobs, estimatedSeconds };
+  return { preset, arms, seedsPerArm: seeds, rerun, jobs, estimatedSeconds };
 }
