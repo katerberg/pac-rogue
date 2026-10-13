@@ -7,7 +7,7 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-const GHOST_CATCH_MIN_OVERLAP_FRACTION = 0.25;
+const GHOST_CATCH_MIN_OVERLAP_FRACTION = 0.3;
 
 export type CatchOptions = {
   frozenGhostEid?: number | null;
