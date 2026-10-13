@@ -25,6 +25,8 @@ import {
 import { tickEchoes } from "../../domain/echo";
 import {
   createFruitPresence,
+  cornucopiaMaySpawn,
+  fruitStackCenter,
   extendFruitLifetime,
   markFruitCollected,
   tickFruitPresence,
@@ -56,6 +58,7 @@ import {
   enhancedIdOf,
   deathsHarvestRadiusTiles,
   defyDeathActive,
+  cornucopiaAlongsideOwned,
   fruitFeastThresholds,
   fruitLifetimeMultiplier,
   fruitPersistsUntilLevelEnd,
@@ -151,7 +154,7 @@ import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { anyKeyHeld } from "../systems/heldKeys";
-import { collectFruit, removeAllFruit } from "../systems/collectFruit";
+import { collectFruit, fruitPositions, removeAllFruit } from "../systems/collectFruit";
 import { collectPellets } from "../systems/collectPellets";
 import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
 import {
@@ -253,6 +256,7 @@ export class LearnSim {
   private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private fruitRespawnRemainingMs: number | null = null;
+  private cornucopiaEids = new Set<number>();
   private remoteTransferCounter = 0;
   private readonly turnTuning = new TurnTuningState();
   private prevKeys: HeldKeys = NO_KEYS_HELD;
@@ -698,7 +702,7 @@ export class LearnSim {
   private syncFruitMode(wasScheduled: boolean, lifetimeRatio: number): void {
     const scheduled = this.fruitScheduled();
     if (scheduled && !wasScheduled) {
-      this.releaseAll(removeAllFruit(this.world));
+      this.clearAllFruit();
       this.fruitPresence = createFruitPresence();
       this.boardCollected = 0;
       this.fruitRespawnRemainingMs = null;
@@ -823,6 +827,9 @@ export class LearnSim {
     }
     if (powerEffects.warpPlayerFarthest) {
       this.warpGlide = warpPlayerFarthestFromGhosts(this.world);
+    }
+    if (powerEffects.cornucopiaFruit !== null) {
+      this.spawnCornucopiaFruit(powerEffects.cornucopiaFruit);
     }
   }
 
@@ -1160,12 +1167,13 @@ export class LearnSim {
         feastBase: fruitFeastThresholds(owned),
         lifetimeMul: fruitLifetimeMultiplier(owned),
         persist: fruitPersistsUntilLevelEnd(owned),
+        blocked: this.cornucopiaEids.size > 0 && !cornucopiaAlongsideOwned(owned),
       });
       this.fruitPresence = tick.state;
       if (tick.action === "spawn" || tick.action === "replace") {
         this.spawnFruitEntity();
       } else if (tick.action === "despawn") {
-        this.releaseAll(removeAllFruit(this.world));
+        this.releaseAll(removeAllFruit(this.world, this.cornucopiaEids));
       }
     } else if (this.fruitRespawnRemainingMs !== null) {
       this.fruitRespawnRemainingMs -= delta;
@@ -1180,9 +1188,19 @@ export class LearnSim {
       return;
     }
     this.releaseAll(removedFruitEids);
+    const regularEaten = removedFruitEids.some((eid) => !this.cornucopiaEids.has(eid));
+    for (const eid of removedFruitEids) {
+      this.cornucopiaEids.delete(eid);
+    }
+    const fruitLeft = fruitPositions(this.world).length;
     if (scheduled) {
-      this.fruitPresence = markFruitCollected(this.fruitPresence);
-    } else {
+      if (regularEaten) {
+        this.fruitPresence = markFruitCollected(
+          this.fruitPresence,
+          fruitLeft > this.cornucopiaEids.size,
+        );
+      }
+    } else if (regularEaten || fruitLeft === 0) {
       this.fruitRespawnRemainingMs = FRUIT_RESPAWN_MS;
     }
     this.payFruit(removedFruitEids.length);
@@ -1275,7 +1293,7 @@ export class LearnSim {
     this.pendingPowerRespawns = [];
     this.fruitPresence = createFruitPresence();
     if (this.fruitScheduled()) {
-      this.releaseAll(removeAllFruit(this.world));
+      this.clearAllFruit();
     }
     for (const eid of query(this.world, [Pellet])) {
       this.events.push({ type: "releaseDrawable", eid });
@@ -1295,8 +1313,25 @@ export class LearnSim {
   }
 
   private spawnFruitEntity(): void {
+    this.releaseAll(removeAllFruit(this.world, this.cornucopiaEids));
+    spawnFruit(this.world, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
+  }
+
+  private clearAllFruit(): void {
     this.releaseAll(removeAllFruit(this.world));
-    spawnFruit(this.world);
+    this.cornucopiaEids.clear();
+  }
+
+  private spawnCornucopiaFruit(mode: "solo" | "alongside"): void {
+    const onBoard = fruitPositions(this.world);
+    const at = fruitStackCenter(onBoard);
+    if (at === null || !cornucopiaMaySpawn(mode, onBoard.length)) {
+      return;
+    }
+    this.cornucopiaEids.add(spawnFruit(this.world, at));
+    if (mode === "solo") {
+      this.fruitRespawnRemainingMs = null;
+    }
   }
 
   private spawnActiveGhost(

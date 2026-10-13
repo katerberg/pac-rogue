@@ -65,7 +65,6 @@ import { interestCoinsShown, type InterestPop } from "../../domain/interest";
 import {
   createFruitPresence,
   cornucopiaMaySpawn,
-  fruitSpawnCenter,
   fruitSpecForLevel,
   extendFruitLifetime,
   fruitStackCenter,
@@ -454,8 +453,7 @@ export class PlaySim {
   private pendingLevelClear = false;
   private runCompleteElapsedMs: number | null = null;
   private fruitPresence: FruitPresence = createFruitPresence();
-  private cornucopiaEid: number | null = null;
-  private cornucopiaMs = 0;
+  private cornucopiaFruit: { eid: number; ms: number }[] = [];
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private timedTunnelGatedRow: number | null = null;
@@ -790,7 +788,7 @@ export class PlaySim {
         frightenedMs: upgrades.frightenedRemainingMs,
         eatDragMs: this.eatDragMs,
         fruitMs: this.fruitPresence.remainingMs,
-        cornucopiaFruitMs: this.cornucopiaMs,
+        cornucopiaFruitMs: Math.max(0, ...this.cornucopiaFruit.map((fruit) => fruit.ms)),
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),
@@ -1332,7 +1330,8 @@ export class PlaySim {
         lifetimeMul: fruitLifetimeMultiplier(this.effectiveUpgrades()),
         persist: fruitPersistsUntilLevelEnd(this.effectiveUpgrades()),
         stack: stacksFruit,
-        blocked: this.cornucopiaEid !== null && !cornucopiaAlongsideOwned(this.effectiveUpgrades()),
+        blocked:
+          this.cornucopiaFruit.length > 0 && !cornucopiaAlongsideOwned(this.effectiveUpgrades()),
         tuning: this.currentTuning,
       },
     );
@@ -2968,7 +2967,8 @@ export class PlaySim {
   }
 
   private clearFruitEntities(keepCornucopia = false): void {
-    for (const eid of removeAllFruit(this.world, keepCornucopia ? this.cornucopiaEid : null)) {
+    const keep = new Set(keepCornucopia ? this.cornucopiaFruit.map((fruit) => fruit.eid) : []);
+    for (const eid of removeAllFruit(this.world, keep)) {
       this.releaseDrawable(eid);
     }
     if (!keepCornucopia) {
@@ -2977,46 +2977,48 @@ export class PlaySim {
   }
 
   private resetCornucopiaFruit(): void {
-    this.cornucopiaEid = null;
-    this.cornucopiaMs = 0;
+    this.cornucopiaFruit = [];
   }
 
   private noteFruitRemoved(eids: readonly number[]): void {
-    if (this.cornucopiaEid !== null && eids.includes(this.cornucopiaEid)) {
-      this.resetCornucopiaFruit();
-    }
+    this.cornucopiaFruit = this.cornucopiaFruit.filter((fruit) => !eids.includes(fruit.eid));
   }
 
   private regularFruitRemains(): boolean {
-    return fruitPositions(this.world).length > (this.cornucopiaEid === null ? 0 : 1);
+    return fruitPositions(this.world).length > this.cornucopiaFruit.length;
   }
 
   private flickerFruitMs(): number {
-    const timers = [this.fruitPresence.remainingMs, this.cornucopiaMs].filter((ms) => ms > 0);
-    return timers.length === 0 ? 0 : Math.min(...timers);
+    const timers = [this.fruitPresence.remainingMs, ...this.cornucopiaFruit.map((f) => f.ms)];
+    const running = timers.filter((ms) => ms > 0);
+    return running.length === 0 ? 0 : Math.min(...running);
   }
 
   private tickCornucopiaFruit(delta: number): void {
-    if (this.cornucopiaEid === null || fruitPersistsUntilLevelEnd(this.effectiveUpgrades())) {
+    if (fruitPersistsUntilLevelEnd(this.effectiveUpgrades())) {
       return;
     }
-    this.cornucopiaMs = Math.max(0, this.cornucopiaMs - Math.max(0, delta));
-    if (this.cornucopiaMs <= 0) {
-      removeEntity(this.world, this.cornucopiaEid);
-      this.releaseDrawable(this.cornucopiaEid);
-      this.resetCornucopiaFruit();
+    const elapsed = Math.max(0, delta);
+    const expired = this.cornucopiaFruit.filter((fruit) => fruit.ms <= elapsed);
+    for (const { eid } of expired) {
+      removeEntity(this.world, eid);
+      this.releaseDrawable(eid);
     }
+    this.cornucopiaFruit = this.cornucopiaFruit
+      .filter((fruit) => fruit.ms > elapsed)
+      .map((fruit) => ({ ...fruit, ms: fruit.ms - elapsed }));
   }
 
   private spawnCornucopiaFruit(mode: "solo" | "alongside"): void {
     const onBoard = fruitPositions(this.world);
-    if (!cornucopiaMaySpawn(mode, this.cornucopiaEid !== null, onBoard.length)) {
+    const at = fruitStackCenter(onBoard);
+    if (at === null || !cornucopiaMaySpawn(mode, onBoard.length)) {
       return;
     }
-    const at = fruitStackCenter(onBoard) ?? fruitSpawnCenter();
-    this.cornucopiaEid = spawnFruit(this.world, at);
-    this.cornucopiaMs =
-      this.currentTuning.fruitLifetimeMs * fruitLifetimeMultiplier(this.effectiveUpgrades());
+    this.cornucopiaFruit.push({
+      eid: spawnFruit(this.world, at),
+      ms: this.currentTuning.fruitLifetimeMs * fruitLifetimeMultiplier(this.effectiveUpgrades()),
+    });
     this.recorder.fruitSpawned(fruitSpecForLevel(this.levelIndex).kind);
   }
 
@@ -3025,8 +3027,8 @@ export class PlaySim {
     if (!stack) {
       this.clearFruitEntities(true);
       const beside =
-        this.cornucopiaEid === null ? null : fruitStackCenter(fruitPositions(this.world));
-      if (this.cornucopiaEid === null || beside !== null) {
+        this.cornucopiaFruit.length === 0 ? null : fruitStackCenter(fruitPositions(this.world));
+      if (this.cornucopiaFruit.length === 0 || beside !== null) {
         spawnFruit(this.world, beside ?? undefined);
         this.recorder.fruitSpawned(kind);
       }

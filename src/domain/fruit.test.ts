@@ -348,17 +348,13 @@ describe("fruitStackCenter", () => {
 
 describe("cornucopiaMaySpawn", () => {
   it("solo spawns only onto an empty board", () => {
-    expect(cornucopiaMaySpawn("solo", false, 0)).toBe(true);
-    expect(cornucopiaMaySpawn("solo", false, 1)).toBe(false);
+    expect(cornucopiaMaySpawn("solo", 0)).toBe(true);
+    expect(cornucopiaMaySpawn("solo", 1)).toBe(false);
   });
 
-  it("alongside spawns beside regular fruit", () => {
-    expect(cornucopiaMaySpawn("alongside", false, 1)).toBe(true);
-  });
-
-  it("never spawns a second Cornucopia fruit", () => {
-    expect(cornucopiaMaySpawn("solo", true, 1)).toBe(false);
-    expect(cornucopiaMaySpawn("alongside", true, 1)).toBe(false);
+  it("alongside always spawns", () => {
+    expect(cornucopiaMaySpawn("alongside", 0)).toBe(true);
+    expect(cornucopiaMaySpawn("alongside", 3)).toBe(true);
   });
 });
 

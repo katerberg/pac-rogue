@@ -910,6 +910,57 @@ describe("LearnSim upgrade demos", () => {
     expect(query(sim.world, [Fruit]).length).toBe(1);
   });
 
+  describe("Cornucopia", () => {
+    const fruitCount = (sim: LearnSim): number => query(sim.world, [Fruit]).length;
+
+    function eatPower(sim: LearnSim, player: number): void {
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      moveTo(player, { x: 0, y: 0 });
+    }
+
+    it("spawns a fruit on a power pellet when the board has none", () => {
+      const { sim, player } = setup("powerPelletCornucopia");
+      for (const eid of query(sim.world, [Fruit])) {
+        removeEntity(sim.world, eid);
+      }
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(1);
+    });
+
+    it("does nothing while a fruit is out, but Plus always spawns one", () => {
+      const base = setup("powerPelletCornucopia");
+      const before = fruitCount(base.sim);
+      eatPower(base.sim, base.player);
+      expect(fruitCount(base.sim)).toBe(before);
+
+      const plus = setup("powerPelletCornucopiaPlus");
+      eatPower(plus.sim, plus.player);
+      eatPower(plus.sim, plus.player);
+      expect(fruitCount(plus.sim)).toBe(before + 2);
+    });
+
+    it("does nothing without the upgrade", () => {
+      const { sim, player } = setup();
+      for (const eid of query(sim.world, [Fruit])) {
+        removeEntity(sim.world, eid);
+      }
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(0);
+    });
+
+    it("spawns on a scheduled-fruit board and swallows the scheduled fruit while out", () => {
+      const { sim, player } = setup("powerPelletCornucopia");
+      sim.toggleUpgrade("fruitFeast");
+      expect(fruitCount(sim)).toBe(0);
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(1);
+      (sim as unknown as { boardCollected: number }).boardCollected = 60;
+      runMs(sim, 6_000);
+      expect(fruitCount(sim)).toBe(1);
+    });
+  });
+
   it("Fruit Feast schedules three fruit on the Feast thresholds", () => {
     const { sim } = setup("fruitFeast");
     expect(sim.statusText()).toContain("NEXT FRUIT AT 60 PELLETS");

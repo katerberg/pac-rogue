@@ -5286,6 +5286,13 @@ describe("Cornucopia", () => {
     expect(fruitCount(sim)).toBe(1);
   });
 
+  it("Plus spawns another fruit on every power pellet, even with its own fruit out", () => {
+    const sim = start(["powerPelletCornucopiaPlus"]);
+    eatNextPower(sim);
+    eatNextPower(sim);
+    expect(fruitCount(sim)).toBe(2);
+  });
+
   it("does not spawn beside a regular fruit, but Plus does", () => {
     for (const [id, expected] of [
       ["powerPelletCornucopia", 1],

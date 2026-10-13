@@ -95,14 +95,7 @@ export function fruitStackCenter(
   return null;
 }
 
-export function cornucopiaMaySpawn(
-  mode: "solo" | "alongside",
-  cornucopiaOut: boolean,
-  fruitOnBoard: number,
-): boolean {
-  if (cornucopiaOut) {
-    return false;
-  }
+export function cornucopiaMaySpawn(mode: "solo" | "alongside", fruitOnBoard: number): boolean {
   return mode === "alongside" || fruitOnBoard === 0;
 }
 
