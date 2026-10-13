@@ -1,4 +1,5 @@
 import type { ChainSegment } from "../../domain/bossChain";
+import type { IntermissionFrame } from "../../domain/intermission";
 import type { RunLogRecord } from "../../domain/runLog";
 import type { GhostKindId } from "../../domain/ghostKind";
 import type { TurnFeedbackKind } from "../../domain/turnTuning";
@@ -64,6 +65,7 @@ export type SimEvent =
     }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "streakPop"; value: number; x: number; y: number }
+  | { type: "intermission"; frame: IntermissionFrame | null }
   | { type: "banner"; text: string; boss: boolean }
   | { type: "lives"; pulse: boolean }
   | { type: "quarters"; pulse: boolean }

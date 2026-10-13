@@ -46,6 +46,7 @@ src/
     mazeGenerate.ts           # tiling → 28×34 ASCII + board seed / level≥2 selection
     playfieldBounds.ts        # PLAYFIELD_WIDTH/HEIGHT (no maze import)
     renderScale.ts            # renderScaleFor(view, devicePixelRatio) + canvasSizeFor: canvas pixels per world pixel (1-4)
+    intermission.ts           # level 2 → 3 Blinky-chases-Dot-Man cutscene timing + actor positions
     runLevel.ts               # ?level= URL parse, clamped to MAX_LEVEL
     playOptions.ts            # parsePlayOptions: every PlayScene URL flag → PlayOptions + warnings
     tuning.ts                 # Tuning (every ?knobs=1 knob) + DEFAULT_TUNING; stored-override parse/serialize; level speed ramps
@@ -217,7 +218,7 @@ PauseScene --Resume or Escape--> PlayScene resumes immediately
 PauseScene --Settings--> SettingsScene --Back--> PauseScene (PlayScene stays paused throughout)
 PauseScene --Quit, confirm Yes--> MenuScene (PlayScene stopped; no high-score write)
 PlayScene --pellet clear, level 1--> level-complete SFX → brief freeze → next procedural maze (carry lives/upgrades/lifetime)
-PlayScene --pellet clear, levels 2-8--> level-complete SFX → upgrade-choice modal (if eligible) → brief freeze → next board (level 9 = boss, `BOSS` banner)
+PlayScene --pellet clear, levels 2-8--> level-complete SFX → upgrade-choice modal (if eligible) → brief freeze → (after level 2: Blinky-chases-Dot-Man intermission) → next board (level 9 = boss, `BOSS` banner)
 PlayScene --pellet clear, level 9 (boss)--> level-complete SFX → brief freeze → RUN COMPLETE → MenuScene (no upgrade offer)
 PlayScene --transition end after level 3 / 5-or-6 / 8--> store floor (see docs/store.md) --tunnel exit--> next level (after 8: the level-9 boss)
 PlayScene --caught (lives left)--> death hold → reset → ready → resume
@@ -244,6 +245,7 @@ PlaySim.step →
   (if starting card open: return; on close suppress input until key release)
   (if dying: tickDeathSequence → handle events (reset / fade / GO / resume / menu); return; no sim)
   (if run complete: tick hold → MenuScene; return)
+  (if intermission: tick cutscene → advance board; return)
   (if level transition: tick pause → store floor (after 3, 5-or-6, 8) else advance board (level < 9) or begin run complete (level 9); return)
   (if store floor: clicked-exit route step (else stop-on-release input) → movement → tunnel exit check (→ slide out + fade, then advance) → storeStep (Left/Right toggle, Enter confirm) → apply purchase → overlay sync → render; return)
   (if an upgrade offer is pending or its modal is still animating: return; then suppress input until key release)
