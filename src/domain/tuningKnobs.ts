@@ -100,14 +100,14 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("clydeShyTiles", "Ghost AI", "Clyde shy radius", 0, 20, 1, "tiles"),
   range("elroy1DotsLeft", "Ghost AI", "Elroy 1 dots left", 1, 100, 1, "dots"),
   range("elroy2DotsLeft", "Ghost AI", "Elroy 2 dots left", 1, 100, 1, "dots"),
-  range("blinkyReleaseMs", "Release", "Blinky release", 0, 10000, 50, "ms"),
-  range("pinkyReleaseMs", "Release", "Pinky release", 0, 10000, 50, "ms"),
-  range("inkyReleasePellets", "Release", "Inky dots (L1)", 1, 200, 1, "dots"),
-  range("clydeReleasePellets", "Release", "Clyde dots (L1)", 1, 200, 1, "dots"),
-  range("level2ClydeDots", "Release", "Clyde dots (L2)", 0, 200, 1, "dots"),
-  range("postLifePinkyDots", "Release", "Pinky after death", 0, 100, 1, "dots"),
-  range("postLifeInkyDots", "Release", "Inky after death", 0, 100, 1, "dots"),
-  range("postLifeClydeDots", "Release", "Clyde after death", 0, 100, 1, "dots"),
+  range("anchorReleaseMs", "Release", "Anchor release", 0, 10000, 50, "ms"),
+  range("frontReleaseMs", "Release", "Front-arm release", 0, 10000, 50, "ms"),
+  range("flankReleasePellets", "Release", "Flank dots (L1)", 1, 200, 1, "dots"),
+  range("reliefReleasePellets", "Release", "Relief dots (L1)", 1, 200, 1, "dots"),
+  range("level2ReliefDots", "Release", "Relief dots (L2)", 0, 200, 1, "dots"),
+  range("postLifeFrontDots", "Release", "Front arm after death", 0, 100, 1, "dots"),
+  range("postLifeFlankDots", "Release", "Flank after death", 0, 100, 1, "dots"),
+  range("postLifeReliefDots", "Release", "Relief after death", 0, 100, 1, "dots"),
   range("idleReleaseMs", "Release", "Idle push (L1-4)", 500, 20000, 100, "ms"),
   range("idleReleaseLateMs", "Release", "Idle push (L5+)", 500, 20000, 100, "ms"),
   { key: "level1ChaseOnly", group: "Scatter", label: "Level 1 chase only", kind: "toggle" },
@@ -251,7 +251,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   ghostTunnelRatio:
     "Ghost speed inside side tunnels as a fraction of Maze-Man's base speed (the level ramp and upgrades still multiply it).",
   ghostHouseExitRatio:
-    "Speed of Pinky, Inky and Clyde while leaving the ghost house, as a fraction of Maze-Man's base speed.",
+    "Speed of every ghost but the anchor (Blinky) while leaving the ghost house, as a fraction of Maze-Man's base speed.",
   elroy1Ratio:
     "Blinky's \"Cruise Elroy\" speed once few dots remain (first tier), as a fraction of Maze-Man's base speed.",
   elroy2Ratio:
@@ -281,20 +281,22 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Blinky enters Elroy 1 when this many dots or fewer remain (maze1 baseline, scaled to the board's dot count).",
   elroy2DotsLeft:
     "Blinky enters Elroy 2 when this many dots or fewer remain (maze1 baseline, scaled to the board's dot count).",
-  blinkyReleaseMs: "Time after your first move before Blinky leaves the ghost house.",
-  pinkyReleaseMs:
-    "Time after your first move before Pinky leaves the ghost house (first life of a board).",
-  inkyReleasePellets:
-    "Level 1 only: dots eaten before Inky leaves the house (maze1 baseline, scaled to the board). From level 2 Inky leaves immediately.",
-  clydeReleasePellets:
-    "Level 1 only: dots eaten before Clyde leaves the house (maze1 baseline, scaled to the board).",
-  level2ClydeDots:
-    "Level 2 only: dots eaten before Clyde leaves the house. From level 3 he leaves immediately.",
-  postLifePinkyDots:
-    "After a death: dots eaten since the death before Pinky leaves the house again.",
-  postLifeInkyDots: "After a death: dots eaten since the death before Inky leaves the house again.",
-  postLifeClydeDots:
-    "After a death: dots eaten since the death before Clyde leaves the house again.",
+  anchorReleaseMs:
+    "Time after your first move before the anchor ghost (Blinky) leaves the ghost house.",
+  frontReleaseMs:
+    "Time after your first move before the front-arm ghost (second to leave) leaves the ghost house (first life of a board).",
+  flankReleasePellets:
+    "Level 1 only: dots eaten before the third ghost out (flank slot) leaves the house (maze1 baseline, scaled to the board). From level 2 it leaves immediately.",
+  reliefReleasePellets:
+    "Level 1 only: dots eaten before the last ghost out (relief slot) leaves the house (maze1 baseline, scaled to the board).",
+  level2ReliefDots:
+    "Level 2 only: dots eaten before the relief-slot ghost leaves the house. From level 3 it leaves immediately.",
+  postLifeFrontDots:
+    "After a death: dots eaten since the death before the front-arm ghost leaves the house again.",
+  postLifeFlankDots:
+    "After a death: dots eaten since the death before the flank-slot ghost leaves the house again.",
+  postLifeReliefDots:
+    "After a death: dots eaten since the death before the relief-slot ghost leaves the house again.",
   idleReleaseMs:
     "Levels 1-4: if no dot is eaten for this long, the next waiting ghost is pushed out of the house.",
   idleReleaseLateMs:

@@ -1,16 +1,17 @@
 import { addComponent, addEntity, createWorld, type World } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "../../domain/ghostKind";
+import { RELEASE_SLOT } from "../../domain/ghostRoster";
 import {
-  BLINKY_RELEASE_DELAY_MS,
+  ANCHOR_RELEASE_DELAY_MS,
   IDLE_RELEASE_MS,
   createGhostReleaseClock,
   tickGhostRelease,
 } from "../../domain/ghostRelease";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
-  BASE_CLYDE_RELEASE_PELLETS,
-  BASE_INKY_RELEASE_PELLETS,
+  BASE_RELIEF_RELEASE_PELLETS,
+  BASE_FLANK_RELEASE_PELLETS,
   ghostHouseSpawnCenter,
 } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
@@ -24,7 +25,11 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { ghostRelease } from "./ghostRelease";
 
-function spawnHouseGhost(kind: number, world: World = createWorld()) {
+function spawnHouseGhost(
+  slot: number,
+  world: World = createWorld(),
+  kind: number = GHOST_KIND.blinky,
+) {
   const eid = addEntity(world);
   addComponent(world, eid, Position);
   addComponent(world, eid, Velocity);
@@ -41,16 +46,17 @@ function spawnHouseGhost(kind: number, world: World = createWorld()) {
   Facing.direction[eid] = DIRECTION.none;
   Speed.px[eid] = 0;
   GhostKind.kind[eid] = kind;
+  Ghost.releaseSlot[eid] = slot;
   GhostPhase.value[eid] = GHOST_PHASE.inHouse;
   return { world, eid };
 }
 
-describe("ghostRelease per kind", () => {
+describe("ghostRelease per slot", () => {
   function fourGhosts() {
-    const { world, eid: blinky } = spawnHouseGhost(GHOST_KIND.blinky);
-    const { eid: pinky } = spawnHouseGhost(GHOST_KIND.pinky, world);
-    const { eid: inky } = spawnHouseGhost(GHOST_KIND.inky, world);
-    const { eid: clyde } = spawnHouseGhost(GHOST_KIND.clyde, world);
+    const { world, eid: blinky } = spawnHouseGhost(RELEASE_SLOT.anchor);
+    const { eid: pinky } = spawnHouseGhost(RELEASE_SLOT.front, world);
+    const { eid: inky } = spawnHouseGhost(RELEASE_SLOT.flank, world);
+    const { eid: clyde } = spawnHouseGhost(RELEASE_SLOT.relief, world);
     return { world, blinky, pinky, inky, clyde };
   }
 
@@ -61,7 +67,7 @@ describe("ghostRelease per kind", () => {
     expect(GhostPhase.value[pinky]).toBe(GHOST_PHASE.leaving);
     expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.inHouse);
 
-    clock = tickGhostRelease(clock, true, BLINKY_RELEASE_DELAY_MS);
+    clock = tickGhostRelease(clock, true, ANCHOR_RELEASE_DELAY_MS);
     ghostRelease(world, clock, 0);
     expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.leaving);
   });
@@ -77,16 +83,16 @@ describe("ghostRelease per kind", () => {
   it("level 1: releases Inky at the Inky dot count and Clyde at the Clyde dot count", () => {
     const { world, inky, clyde } = fourGhosts();
     const clock = tickGhostRelease(createGhostReleaseClock(1), true, 1);
-    ghostRelease(world, clock, BASE_INKY_RELEASE_PELLETS);
+    ghostRelease(world, clock, BASE_FLANK_RELEASE_PELLETS);
     expect(GhostPhase.value[inky]).toBe(GHOST_PHASE.leaving);
     expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.inHouse);
-    ghostRelease(world, clock, BASE_CLYDE_RELEASE_PELLETS);
+    ghostRelease(world, clock, BASE_RELIEF_RELEASE_PELLETS);
     expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.leaving);
   });
 
   it("level 3: releases all four without eating once Blinky's delay passes", () => {
     const { world, blinky, pinky, inky, clyde } = fourGhosts();
-    const clock = tickGhostRelease(createGhostReleaseClock(3), true, BLINKY_RELEASE_DELAY_MS);
+    const clock = tickGhostRelease(createGhostReleaseClock(3), true, ANCHOR_RELEASE_DELAY_MS);
     ghostRelease(world, clock, 0);
     for (const eid of [blinky, pinky, inky, clyde]) {
       expect(GhostPhase.value[eid]).toBe(GHOST_PHASE.leaving);
@@ -120,7 +126,7 @@ describe("ghostRelease per kind", () => {
   });
 
   it("idle expiry skips boss ghosts", () => {
-    const { world, eid } = spawnHouseGhost(GHOST_KIND.blinky);
+    const { world, eid } = spawnHouseGhost(RELEASE_SLOT.anchor);
     addComponent(world, eid, BossGhost);
     BossGhost.releaseDelayMs[eid] = 60_000;
     const clock = tickGhostRelease(createGhostReleaseClock(1), true, IDLE_RELEASE_MS);
@@ -130,7 +136,7 @@ describe("ghostRelease per kind", () => {
 
   it("keeps the held ghost in the house even when its gate has passed", () => {
     const { world, blinky, pinky, inky, clyde } = fourGhosts();
-    const clock = tickGhostRelease(createGhostReleaseClock(3), true, BLINKY_RELEASE_DELAY_MS);
+    const clock = tickGhostRelease(createGhostReleaseClock(3), true, ANCHOR_RELEASE_DELAY_MS);
     ghostRelease(world, clock, 0, false, { heldGhostEids: [blinky] });
     expect(GhostPhase.value[blinky]).toBe(GHOST_PHASE.inHouse);
     for (const eid of [pinky, inky, clyde]) {
@@ -146,5 +152,23 @@ describe("ghostRelease per kind", () => {
     expect(ghostRelease(world, clock, 0, false, { heldGhostEids: [inky] })).toBe(true);
     expect(GhostPhase.value[inky]).toBe(GHOST_PHASE.inHouse);
     expect(GhostPhase.value[clyde]).toBe(GHOST_PHASE.leaving);
+  });
+
+  it("gates by slot, not by ghost: Wardy and Spunky take whichever slot they are given", () => {
+    const { world, eid: flank } = spawnHouseGhost(
+      RELEASE_SLOT.flank,
+      createWorld(),
+      GHOST_KIND.wardy,
+    );
+    const { eid: relief } = spawnHouseGhost(RELEASE_SLOT.relief, world, GHOST_KIND.spunky);
+    const clock = tickGhostRelease(createGhostReleaseClock(1), true, 1);
+    ghostRelease(world, clock, 0);
+    expect(GhostPhase.value[flank]).toBe(GHOST_PHASE.inHouse);
+    expect(GhostPhase.value[relief]).toBe(GHOST_PHASE.inHouse);
+    ghostRelease(world, clock, BASE_FLANK_RELEASE_PELLETS);
+    expect(GhostPhase.value[flank]).toBe(GHOST_PHASE.leaving);
+    expect(GhostPhase.value[relief]).toBe(GHOST_PHASE.inHouse);
+    ghostRelease(world, clock, BASE_RELIEF_RELEASE_PELLETS);
+    expect(GhostPhase.value[relief]).toBe(GHOST_PHASE.leaving);
   });
 });

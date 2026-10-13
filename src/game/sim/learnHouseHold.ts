@@ -1,16 +1,17 @@
-import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import type { GhostKindId } from "../../domain/ghostKind";
+import { RELEASE_SLOT, RELEASE_SLOT_BY_KIND, type ReleaseSlot } from "../../domain/ghostRoster";
 import {
   createGhostReleaseClock,
   idleReleaseDue,
   isTimeGatedRelease,
   releaseDelayMs,
   releaseDots,
-  shouldReleaseKind,
+  shouldReleaseSlot,
   tickGhostRelease,
   type GhostReleaseClock,
 } from "../../domain/ghostRelease";
 import {
-  ghostHouseClydePelletAdd,
+  ghostHouseReliefPelletAdd,
   ghostHouseReleaseDelayAddMs,
   type UpgradeId,
 } from "../../domain/upgrades";
@@ -20,7 +21,7 @@ const LEARN_LEVEL = 1;
 export class LearnHouseHold {
   private clock: GhostReleaseClock = createGhostReleaseClock(LEARN_LEVEL);
   private heldEid: number | null = null;
-  private heldKind: GhostKindId = GHOST_KIND.blinky;
+  private heldSlot: ReleaseSlot = RELEASE_SLOT.anchor;
 
   get eid(): number | null {
     return this.heldEid;
@@ -29,7 +30,7 @@ export class LearnHouseHold {
   begin(eid: number, kind: GhostKindId): void {
     this.clock = createGhostReleaseClock(LEARN_LEVEL);
     this.heldEid = eid;
-    this.heldKind = kind;
+    this.heldSlot = RELEASE_SLOT_BY_KIND[kind];
   }
 
   clear(): void {
@@ -48,9 +49,9 @@ export class LearnHouseHold {
     this.clock = tickGhostRelease(this.clock, hasInput, delta, pelletsEaten);
     const delayAddMs = ghostHouseReleaseDelayAddMs(owned);
     const due =
-      shouldReleaseKind(this.heldKind, this.clock, pelletsEaten, false, {
+      shouldReleaseSlot(this.heldSlot, this.clock, pelletsEaten, false, {
         delayAddMs,
-        clydePelletAdd: ghostHouseClydePelletAdd(owned),
+        reliefPelletAdd: ghostHouseReliefPelletAdd(owned),
       }) || idleReleaseDue(this.clock, delayAddMs);
     if (!due) {
       return null;
@@ -67,11 +68,11 @@ export class LearnHouseHold {
     if (!this.clock.started) {
       return "GHOST HELD IN HOUSE - MOVE TO START";
     }
-    if (isTimeGatedRelease(this.heldKind, false)) {
-      const delay = releaseDelayMs(this.heldKind, ghostHouseReleaseDelayAddMs(owned));
+    if (isTimeGatedRelease(this.heldSlot, false)) {
+      const delay = releaseDelayMs(this.heldSlot, ghostHouseReleaseDelayAddMs(owned));
       return `HOUSE RELEASE IN ${(Math.max(0, delay - this.clock.elapsedMs) / 1000).toFixed(1)}S`;
     }
-    const dots = releaseDots(this.heldKind, LEARN_LEVEL, false, ghostHouseClydePelletAdd(owned));
+    const dots = releaseDots(this.heldSlot, LEARN_LEVEL, false, ghostHouseReliefPelletAdd(owned));
     return `HOUSE RELEASE IN ${Math.max(0, dots - pelletsEaten)} PELLETS`;
   }
 }

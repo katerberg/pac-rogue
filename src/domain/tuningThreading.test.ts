@@ -4,6 +4,7 @@ import { beginDeathSequence, tickDeathSequence } from "./deathSequence";
 import { eatDragAfterCollect, eatDragMultiplier } from "./eatDrag";
 import { createFruitPresence, tickFruitPresence } from "./fruit";
 import { GHOST_KIND } from "./ghostKind";
+import { RELEASE_SLOT } from "./ghostRoster";
 import { GHOST_AI_MODE } from "./ghostMode";
 import { GHOST_DIR } from "./ghostPath";
 import { idleReleaseLimitMs, releaseDelayMs, releaseDots } from "./ghostRelease";
@@ -92,14 +93,14 @@ describe("tuning threads into gameplay helpers", () => {
 
   it("releases ghosts on the tuned timers and dot counts", () => {
     const tuned = resolveTuning({
-      blinkyReleaseMs: 900,
-      level2ClydeDots: 5,
-      postLifeInkyDots: 2,
+      anchorReleaseMs: 900,
+      level2ReliefDots: 5,
+      postLifeFlankDots: 2,
       idleReleaseMs: 1000,
     });
-    expect(releaseDelayMs(GHOST_KIND.blinky, 0, tuned)).toBe(900);
-    expect(releaseDots(GHOST_KIND.clyde, 2, false, 0, tuned)).toBe(5);
-    expect(releaseDots(GHOST_KIND.inky, 3, true, 0, tuned)).toBe(2);
+    expect(releaseDelayMs(RELEASE_SLOT.anchor, 0, tuned)).toBe(900);
+    expect(releaseDots(RELEASE_SLOT.relief, 2, false, 0, tuned)).toBe(5);
+    expect(releaseDots(RELEASE_SLOT.flank, 3, true, 0, tuned)).toBe(2);
     expect(idleReleaseLimitMs(1, 0, tuned)).toBe(1000);
   });
 

@@ -14,7 +14,7 @@ import {
   DEFY_DEATH_MS,
   FREEZE_ENHANCED_MS,
   FREEZE_MS,
-  GHOST_HOUSE_CLYDE_PELLET_ADD,
+  GHOST_HOUSE_RELIEF_PELLET_ADD,
   GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
   GHOST_SLOW_MUL,
   INVULN_ENHANCED_MS,
@@ -92,7 +92,7 @@ import {
   moneyTalksCost,
   type BaseUpgradeId,
   frozenGhostEid,
-  ghostHouseClydePelletAdd,
+  ghostHouseReliefPelletAdd,
   ghostHouseReleaseDelayAddMs,
   ghostSpeedMultiplier,
   grantUpgrade,
@@ -696,15 +696,17 @@ describe("grantUpgrade", () => {
 
   it("ghostHouseDelay sums release delay and Clyde pellet adds", () => {
     expect(ghostHouseReleaseDelayAddMs([])).toBe(0);
-    expect(ghostHouseClydePelletAdd([])).toBe(0);
+    expect(ghostHouseReliefPelletAdd([])).toBe(0);
     expect(ghostHouseReleaseDelayAddMs(["passiveGhostHouseDelay"])).toBe(
       GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
     );
-    expect(ghostHouseClydePelletAdd(["passiveGhostHouseDelay"])).toBe(GHOST_HOUSE_CLYDE_PELLET_ADD);
+    expect(ghostHouseReliefPelletAdd(["passiveGhostHouseDelay"])).toBe(
+      GHOST_HOUSE_RELIEF_PELLET_ADD,
+    );
     expect(ghostHouseReleaseDelayAddMs(["passiveGhostSlow", "passiveGhostHouseDelay"])).toBe(
       GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
     );
-    expect(ghostHouseClydePelletAdd(["passiveAfterburner"])).toBe(0);
+    expect(ghostHouseReliefPelletAdd(["passiveAfterburner"])).toBe(0);
   });
 });
 
@@ -1429,7 +1431,7 @@ describe("enhanced upgrades", () => {
     expect(lifeFloorBonus(["passiveExtraLifePlus"])).toBe(2);
     expect(pelletSurgeCount(["passivePelletToPowerPlus"])).toBe(2);
     expect(ghostHouseReleaseDelayAddMs(["passiveGhostHouseDelayPlus"])).toBe(3000);
-    expect(ghostHouseClydePelletAdd(["passiveGhostHouseDelayPlus"])).toBe(25);
+    expect(ghostHouseReliefPelletAdd(["passiveGhostHouseDelayPlus"])).toBe(25);
     expect(regenToFull(["passiveMyogenesisPlus"])).toBe(true);
     expect(fruitFeastThresholds(["fruitFeastPlus"])).toEqual([45, 100, 150, 200]);
     expect(fruitPersistsUntilLevelEnd(["fruitFecundityPlus"])).toBe(true);

@@ -1,4 +1,5 @@
-import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import type { GhostKindId } from "./ghostKind";
+import { GHOST_ROSTERS } from "./ghostRoster";
 import type { GhostModeWave } from "./ghostMode";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
@@ -72,20 +73,10 @@ export function enhancedOfferChance(levelIndex: number): number {
     : 0;
 }
 
-export function ghostKindsForLevel(
-  levelIndex: number,
-  secondGhostKind: GhostKindId,
-): GhostKindId[] {
+export function ghostKindsForLevel(levelIndex: number, rosterId: number): GhostKindId[] {
+  const roster = GHOST_ROSTERS[rosterId]!;
   const level = Math.max(1, levelIndex);
-  if (level === 1) {
-    return [GHOST_KIND.blinky, secondGhostKind];
-  }
-  if (level === 2) {
-    const thirdGhostKind =
-      secondGhostKind === GHOST_KIND.pinky ? GHOST_KIND.inky : GHOST_KIND.pinky;
-    return [GHOST_KIND.blinky, secondGhostKind, thirdGhostKind];
-  }
-  return [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde];
+  return roster.slice(0, level === 1 ? 2 : level === 2 ? 3 : roster.length);
 }
 
 export function ghostModeWavesForLevel(

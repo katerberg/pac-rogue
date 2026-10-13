@@ -1,7 +1,7 @@
 import { randomFromSeed } from "./mazeTiling";
 
 export type RandomStream =
-  | "secondGhost"
+  | "roster"
   | "midStore"
   | "startingUpgrade"
   | "upgradeOffer"

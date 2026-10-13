@@ -35,7 +35,7 @@ import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
 import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { freshSeed } from "../../domain/runRandom";
+import { mintFreshSeed } from "../../domain/ghostRoster";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
 import { getUpgradeDef, upgradeLabels, type UpgradeId } from "../../domain/upgrades";
 import {
@@ -58,6 +58,7 @@ import {
 import { PlaySim } from "../sim/playSim";
 import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
+import { loadLastRoster, saveLastRoster } from "../storage/lastRosterStorage";
 import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { saveRun } from "../storage/runHistoryStorage";
 import { drainRunUploads } from "../net/apiClient";
@@ -188,7 +189,10 @@ export class PlayScene extends Phaser.Scene {
     }
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
     const runLogMeta = newRunLogMeta(params);
-    this.sim = new PlaySim(options, data.seed ?? options.seed ?? freshSeed(), tuning, runLogMeta);
+    const seed =
+      data.seed ?? options.seed ?? mintFreshSeed(options.roster === null ? loadLastRoster() : null);
+    this.sim = new PlaySim(options, seed, tuning, runLogMeta);
+    saveLastRoster(this.sim.currentRoster());
     this.ghostStyle = loadGhostStyle();
     this.sim.setGhostStyle(this.ghostStyle);
     this.bonusGlowKey = "";

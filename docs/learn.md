@@ -6,7 +6,7 @@ live.
 
 ## Seen record
 
-All six ghosts are always selectable (Spunky and the Wardy exist only here; no level spawns them). Only upgrades this machine has met in real play are listed.
+All six ghosts are always selectable. Only upgrades this machine has met in real play are listed.
 
 - [`src/domain/seenRecord.ts`](../src/domain/seenRecord.ts): `SeenRecord` (`ghosts`,
   `upgrades`), parse/serialize, `withSeenGhosts` / `withSeenUpgrade` merges
@@ -81,26 +81,26 @@ and the pure helpers in [`src/domain/learnOverlay.ts`](../src/domain/learnOverla
 
 ## Spunky
 
-A LEARN-only ghost (green, `GHOST_KIND.spunky`), after Pac-Mania's Spunky, who wanders the top of the
+A relief-slot ghost (green, `GHOST_KIND.spunky`), after Pac-Mania's Spunky, who wanders the top of the
 maze and only goes after Pac-Man when he is near. `spunkyTarget` (`ghostTarget.ts`) is the inverse
 of Clyde: inside `SPUNKY_AGGRO_TILES` (7) of Maze-Man he targets Maze-Man's tile; farther away, or in
 scatter, he targets his post, the top-center tile above the maze (`spunkyPostTarget`, also his Scatter
-Burst landing cell). He is never in a level roster (`ghostKindsForLevel`), releases like Pinky (timed, so
-Ghost House Delay holds him; otherwise he is spawned active like every LEARN ghost) and has no speed
-rules of his own. The radius is a plain constant, not a `?knobs=1` knob.
+Burst landing cell). He fills a roster's relief slot in play (rosters 1, 3 and 5, see [levels](./levels.md#ghost-roster)). In
+LEARN he keeps the relief slot's release (pellets, so Ghost House Delay holds him; otherwise he is
+spawned active like every LEARN ghost) and has no speed rules of his own. The radius is a plain constant, not a `?knobs=1` knob.
 
 ## Wardy
 
-A LEARN-only purple ghost (`GHOST_KIND.wardy`) that works the rim as Blinky's other half of a pincer:
+A front-arm ghost (purple, `GHOST_KIND.wardy`) that works the rim as Blinky's other half of a pincer:
 Blinky pushes from behind, the Wardy waits at the end of the line you are running along.
 `wardyTarget` (`ghostTarget.ts`): while Maze-Man is farther than `WARDY_STRIKE_TILES` (4) from every
 edge (`rimDistance`) he targets the rim tile in Maze-Man's facing direction at Maze-Man's own row or
 column (`wardyRimTile`; with no facing, the nearest edge); within 4 tiles of an edge he targets
 Maze-Man's tile; scatter targets bottom-center below the maze (`wardyScatterTarget`, also his Scatter
 Burst landing cell). Targets are only a rim tile, not a route: he steers greedily like every ghost, so he
-keeps looping through the interior corridors on the way. Like Spunky he never appears in a level roster,
-is timed-release like Pinky (Ghost House Delay holds him), has no speed rules of his own and the radius
-is a plain constant, not a `?knobs=1` knob.
+keeps looping through the interior corridors on the way. In play he fills a roster's front-arm slot (rosters 2 and 3) or its second arm (4 and 5). In LEARN he
+keeps the front arm's timed release (Ghost House Delay holds him), has no speed rules of his own and
+the radius is a plain constant, not a `?knobs=1` knob.
 
 ## Differences from play
 

@@ -5,21 +5,21 @@ import {
   ghostHouseSeatCenters,
   type HouseSeatGhost,
 } from "../../domain/ghostHouseSeats";
-import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import type { ReleaseSlot } from "../../domain/ghostRoster";
 import type { GhostReleaseAdds, GhostReleaseClock } from "../../domain/ghostRelease";
 import { GHOST_SPEED } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { TURN_ALIGN_EPS } from "../../domain/maze";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
-import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
+import { ghostReleaseSlot } from "./ghostRelease";
 
-type InHouseGhost = HouseSeatGhost & { kind: GhostKindId };
+type InHouseGhost = HouseSeatGhost & { slot: ReleaseSlot };
 
 function directionToward(fromX: number, fromY: number, toX: number, toY: number): Direction {
   if (Math.abs(fromX - toX) > TURN_ALIGN_EPS) {
@@ -33,22 +33,13 @@ function directionToward(fromX: number, fromY: number, toX: number, toY: number)
 
 function collectInHouseGhosts(world: World): InHouseGhost[] {
   const inHouse: InHouseGhost[] = [];
-  for (const eid of query(world, [
-    Ghost,
-    GhostKind,
-    GhostPhase,
-    Position,
-    Input,
-    Facing,
-    Speed,
-    Velocity,
-  ])) {
+  for (const eid of query(world, [Ghost, GhostPhase, Position, Input, Facing, Speed, Velocity])) {
     if ((GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse) {
       continue;
     }
     inHouse.push({
       eid,
-      kind: (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId,
+      slot: ghostReleaseSlot(eid),
       x: Position.x[eid] ?? 0,
       y: Position.y[eid] ?? 0,
     });

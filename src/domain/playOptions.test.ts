@@ -33,7 +33,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&boss=chainedGhosts&bossStageAdvance=1&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus",
+        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&roster=3&boss=chainedGhosts&bossStageAdvance=1&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus",
       ),
     );
     expect(warnings).toEqual([]);
@@ -44,6 +44,7 @@ describe("parsePlayOptions", () => {
       quarters: 3,
       bonus: 120,
       ghosts: [GHOST_KIND.pinky],
+      roster: 3,
       boss: "chainedGhosts",
       bossStageAdvance: true,
       jumpToUpgrade: true,
@@ -63,7 +64,7 @@ describe("parsePlayOptions", () => {
   it("warns once per invalid flag, in flag order", () => {
     const { warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=a%20b&maze=nope&level=0&quarters=-1&bonus=300&boss=nope&lives=0&maxLives=x",
+        "seed=a%20b&maze=nope&level=0&quarters=-1&bonus=300&roster=6&boss=nope&lives=0&maxLives=x",
       ),
     );
     expect(warnings).toEqual([
@@ -72,6 +73,7 @@ describe("parsePlayOptions", () => {
       "Unknown ?level= value; expected positive integer",
       "Unknown ?quarters= value; expected non-negative integer",
       "Unknown ?bonus= value; expected an integer 0..299",
+      "Unknown ?roster= value; expected an integer 0..5",
       "Unknown ?boss= value; expected blinkySwarm|chainedGhosts",
       "Unknown ?lives= value; expected positive integer",
       "Unknown ?maxLives= value; expected positive integer",

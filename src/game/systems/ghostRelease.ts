@@ -1,21 +1,19 @@
 import { hasComponent, query, type World } from "bitecs";
 import {
-  GHOST_RELEASE_PRIORITY,
   idleReleaseDue,
   shouldReleaseGhostAt,
-  shouldReleaseKind,
+  shouldReleaseSlot,
   type GhostReleaseAdds,
   type GhostReleaseClock,
 } from "../../domain/ghostRelease";
 import { leavingHouseTarget } from "../../domain/ghostHouseLeave";
-import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { RELEASE_SLOT, type ReleaseSlot } from "../../domain/ghostRoster";
 import { GHOST_HOUSE_EXIT_SPEED, GHOST_SPEED } from "../../domain/ghostSpeed";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { worldToCol, worldToRow } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
-import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
@@ -36,8 +34,11 @@ function directionTowardTile(
   return DIRECTION.up;
 }
 
+export function ghostReleaseSlot(eid: number): ReleaseSlot {
+  return (Ghost.releaseSlot[eid] ?? RELEASE_SLOT.anchor) as ReleaseSlot;
+}
+
 export function sendGhostOutOfHouse(world: World, eid: number): void {
-  const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
   const x = Position.x[eid] ?? 0;
   const y = Position.y[eid] ?? 0;
   const col = worldToCol(x);
@@ -48,7 +49,7 @@ export function sendGhostOutOfHouse(world: World, eid: number): void {
   Input.direction[eid] = dir;
   Facing.direction[eid] = dir;
   Speed.px[eid] =
-    kind === GHOST_KIND.blinky || hasComponent(world, eid, BossGhost)
+    ghostReleaseSlot(eid) === RELEASE_SLOT.anchor || hasComponent(world, eid, BossGhost)
       ? GHOST_SPEED
       : GHOST_HOUSE_EXIT_SPEED;
   Ghost.decidedCol[eid] = Number.NaN;
@@ -65,23 +66,22 @@ export function ghostRelease(
   let released = false;
   let idleEid: number | undefined;
   let idleRank = Number.POSITIVE_INFINITY;
-  for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing, Speed])) {
+  for (const eid of query(world, [Ghost, GhostPhase, Position, Input, Facing, Speed])) {
     if (
       (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse ||
       adds.heldGhostEids?.includes(eid) === true
     ) {
       continue;
     }
-    const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
+    const slot = ghostReleaseSlot(eid);
     const isBoss = hasComponent(world, eid, BossGhost);
     const ready = isBoss
       ? shouldReleaseGhostAt(clock, (BossGhost.releaseDelayMs[eid] ?? 0) + (adds.delayAddMs ?? 0))
-      : shouldReleaseKind(kind, clock, collectedCount, afterLifeRelease, adds);
+      : shouldReleaseSlot(slot, clock, collectedCount, afterLifeRelease, adds);
     if (!ready) {
-      const rank = GHOST_RELEASE_PRIORITY.indexOf(kind);
-      if (!isBoss && rank < idleRank) {
+      if (!isBoss && slot < idleRank) {
         idleEid = eid;
-        idleRank = rank;
+        idleRank = slot;
       }
       continue;
     }

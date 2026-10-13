@@ -1,6 +1,7 @@
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import { DEFAULT_GHOST_STYLE, lineArtDrawableIds, type GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { RELEASE_SLOT_BY_KIND } from "../../domain/ghostRoster";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
 import {
@@ -1323,6 +1324,7 @@ export class LearnSim {
     Speed.px[eid] = 0;
     GhostKind.kind[eid] = kind;
     GhostPhase.value[eid] = GHOST_PHASE.active;
+    Ghost.releaseSlot[eid] = RELEASE_SLOT_BY_KIND[kind];
     Ghost.decidedCol[eid] = Number.NaN;
     Ghost.decidedRow[eid] = Number.NaN;
     Drawable.id[eid] = GHOST_DRAWABLE_BY_KIND[kind];

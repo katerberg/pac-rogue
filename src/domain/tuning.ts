@@ -29,14 +29,14 @@ export type Tuning = {
   readonly clydeShyTiles: number;
   readonly elroy1DotsLeft: number;
   readonly elroy2DotsLeft: number;
-  readonly blinkyReleaseMs: number;
-  readonly pinkyReleaseMs: number;
-  readonly inkyReleasePellets: number;
-  readonly clydeReleasePellets: number;
-  readonly level2ClydeDots: number;
-  readonly postLifePinkyDots: number;
-  readonly postLifeInkyDots: number;
-  readonly postLifeClydeDots: number;
+  readonly anchorReleaseMs: number;
+  readonly frontReleaseMs: number;
+  readonly flankReleasePellets: number;
+  readonly reliefReleasePellets: number;
+  readonly level2ReliefDots: number;
+  readonly postLifeFrontDots: number;
+  readonly postLifeFlankDots: number;
+  readonly postLifeReliefDots: number;
   readonly idleReleaseMs: number;
   readonly idleReleaseLateMs: number;
   readonly level1ChaseOnly: boolean;
@@ -131,14 +131,14 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   clydeShyTiles: 8,
   elroy1DotsLeft: 20,
   elroy2DotsLeft: 10,
-  blinkyReleaseMs: 100,
-  pinkyReleaseMs: 0,
-  inkyReleasePellets: 30,
-  clydeReleasePellets: 60,
-  level2ClydeDots: 50,
-  postLifePinkyDots: 7,
-  postLifeInkyDots: 17,
-  postLifeClydeDots: 32,
+  anchorReleaseMs: 100,
+  frontReleaseMs: 0,
+  flankReleasePellets: 30,
+  reliefReleasePellets: 60,
+  level2ReliefDots: 50,
+  postLifeFrontDots: 7,
+  postLifeFlankDots: 17,
+  postLifeReliefDots: 32,
   idleReleaseMs: 4_000,
   idleReleaseLateMs: 3_000,
   level1ChaseOnly: true,

@@ -4,9 +4,9 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../
 
 | Level | Maze                           | Ghosts                                                                                                                      | Fruit                                            | On clear                                                                                                                                               |
 | ----- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1     | `mazeSmall` (22×21, half-size) | Blinky + a randomly chosen Pinky or Inky (2 ghosts, see below)                                                              | present after 70 pellets (charges the BONUS bar) | No reward (level 1 already granted a starting upgrade); advance to level 2                                                                             |
-| 2     | Procedural 28×34               | Blinky, Pinky, and Inky (3 ghosts, see below)                                                                               | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3                                                                      |
-| 3-8   | Procedural 28×34               | All four (Blinky, Pinky, Inky, Clyde)                                                                                       | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level; after 3, after 5 or 6, and after 8 a store floor comes first |
+| 1     | `mazeSmall` (22×21, half-size) | Blinky + the roster's front arm (2 ghosts, see below)                                                                       | present after 70 pellets (charges the BONUS bar) | No reward (level 1 already granted a starting upgrade); advance to level 2                                                                             |
+| 2     | Procedural 28×34               | Blinky, the front arm and the flank slot (3 ghosts, see below)                                                              | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3                                                                      |
+| 3-8   | Procedural 28×34               | The run's full roster (4 ghosts, see below), unchanged through level 8                                                      | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level; after 3, after 5 or 6, and after 8 a store floor comes first |
 | 9     | Procedural 28×34               | Boss, rolled per run: Blinky Swarm (3-tunnel board, two-stage 2 → 10 Blinkys) or Chained Ghosts (see [bosses](./bosses.md)) | present (charges the BONUS bar)                  | Two-stage clear (stage-1 transition, then stage-2 clear); no upgrade offer; a `RUN COMPLETE` screen with a `NEW GAME` / `MENU` choice                  |
 
 Ghosts default to pixel sprites on every level; Settings → STYLE switches among PIXEL (sprites + PNG pellets, glow off, the default), NEON (line art, glow on), and LINED (same line art, glow off) — see [line-art.md](./line-art.md).
@@ -46,9 +46,20 @@ Scatter also never runs with fewer than 15 pellets left (`effectiveGhostMode` in
 
 The 3s windows are 60% of `scatterLateMs`. Scatter Burst is a separate upgrade effect and still works on every level.
 
-## Second ghost (levels 1-2)
+## Ghost roster
 
-`PlaySim.start()` picks `secondGhostKind` once per run — 50/50 Pinky or Inky from the seeded `secondGhost` stream — and holds it for the whole run (including level advances). `ghostKindsForLevel(levelIndex, secondGhostKind)` in `levelRules.ts` uses it for level 1 (Blinky + `secondGhostKind`) and level 2 (Blinky + `secondGhostKind` + the other of Pinky/Inky, so level 2 always spawns Blinky, Pinky, and Inky); levels 3+ always spawn all four regardless of the value.
+Blinky is always there. The other three ghosts come from one of six curated rosters, rolled once per run from the seed (`pickRosterId`, the `roster` stream; `?roster=0..5` forces one). Every roster has a **front arm** (Pinky or Wardy) in slot 1, a flank slot (Inky, or the other front arm) in slot 2 and a **relief** ghost (Clyde or Spunky) in slot 3, so Blinky's chase is always paired with a ghost ahead of you.
+
+| Roster | Slot 0 | Slot 1 | Slot 2 | Slot 3 |
+| ------ | ------ | ------ | ------ | ------ |
+| 0      | Blinky | Pinky  | Inky   | Clyde  |
+| 1      | Blinky | Pinky  | Inky   | Spunky |
+| 2      | Blinky | Wardy  | Inky   | Clyde  |
+| 3      | Blinky | Wardy  | Inky   | Spunky |
+| 4      | Blinky | Pinky  | Wardy  | Clyde  |
+| 5      | Blinky | Pinky  | Wardy  | Spunky |
+
+`ghostKindsForLevel(levelIndex, rosterId)` introduces the roster in slot order: level 1 spawns slots 0-1, level 2 slots 0-2, levels 3+ the whole roster, with the same four ghosts on every level through 8 (the level-9 boss is separate). Rosters are equally likely. For fresh seeds only, `mintFreshSeed` re-mints (up to 8 times) when the roster would equal the previous run's (`pac-rogue.last-roster.v1` in localStorage), so back-to-back runs never share a roster while any seed still replays the same run. An explicit `?seed=` or `?roster=` skips that check.
 
 ## Life regen
 
@@ -68,4 +79,4 @@ Clearing level 9 (the boss) requires both stages (see [bosses](./bosses.md)). Th
 
 ## Ghost house release
 
-Release tightens with level (arcade rules, except Blinky starts inside): nothing leaves before your first input, then Blinky leaves at 0.1s and Pinky immediately. Inky waits for the layout-scaled pellet count on level 1 and is immediate from level 2. Clyde waits for the layout-scaled count on level 1, 50 dots on level 2, and is immediate from level 3. After a death a shared counter releases Pinky, Inky and Clyde at 7, 17 and 32 dots eaten since the death. Stop eating for 4s (levels 1-4) or 3s (level 5+) and the next waiting ghost is pushed out. See [ARCHITECTURE](./ARCHITECTURE.md) for the mechanics.
+Release is keyed to the roster **slot**, never to a ghost's name, and tightens with level (arcade rules, except Blinky starts inside): nothing leaves before your first input, then slot 0 (anchor, Blinky) leaves at 0.1s and slot 1 (front arm) immediately. Slot 2 (flank) waits for the layout-scaled pellet count on level 1 and is immediate from level 2. Slot 3 (relief) waits for the layout-scaled count on level 1, 50 dots on level 2, and is immediate from level 3. After a death a shared counter releases slots 1, 2 and 3 at 7, 17 and 32 dots eaten since the death. Stop eating for 4s (levels 1-4) or 3s (level 5+) and the next waiting ghost is pushed out. See [ARCHITECTURE](./ARCHITECTURE.md) for the mechanics.

@@ -106,7 +106,7 @@ export type UpgradeEffects = {
   regenToFull?: true;
   pelletSurgeCount?: number;
   ghostHouseReleaseDelayAddMs?: number;
-  ghostHouseClydePelletAdd?: number;
+  ghostHouseReliefPelletAdd?: number;
   remoteTransferEveryPellets?: number;
   deathsHarvestRadiusTiles?: number;
   deathsBountyDecay?: number;
@@ -210,7 +210,7 @@ export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
 
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
-export const GHOST_HOUSE_CLYDE_PELLET_ADD = 15;
+export const GHOST_HOUSE_RELIEF_PELLET_ADD = 15;
 export const EXTRA_HUNGRY_COUNT = 5;
 export const QUARTERS_CHOICE_AMOUNT = 2;
 export const STORE_UPGRADE_PRICE = 3;
@@ -238,7 +238,7 @@ export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
 export const GHOST_SLOW_ENHANCED_MUL = 0.65;
 export const PICKUP_RANGE_ENHANCED_TILES = 2;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_ENHANCED_MS = 3000;
-export const GHOST_HOUSE_CLYDE_PELLET_ADD_ENHANCED = 25;
+export const GHOST_HOUSE_RELIEF_PELLET_ADD_ENHANCED = 25;
 export const EXTRA_LIFE_ENHANCED_LIVES = 2;
 export const EXTRA_HUNGRY_ENHANCED_COUNT = 10;
 export const PELLET_SURGE_COUNT = 1;
@@ -386,10 +386,10 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
         "House Delay holds ghosts 3 seconds instead of 2, and Clyde 25 dots instead of 15.",
       description: "Ghosts sulk in the house far longer before the hunt.",
       ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_ENHANCED_MS,
-      ghostHouseClydePelletAdd: GHOST_HOUSE_CLYDE_PELLET_ADD_ENHANCED,
+      ghostHouseReliefPelletAdd: GHOST_HOUSE_RELIEF_PELLET_ADD_ENHANCED,
     },
     ghostHouseReleaseDelayAddMs: GHOST_HOUSE_RELEASE_DELAY_ADD_MS,
-    ghostHouseClydePelletAdd: GHOST_HOUSE_CLYDE_PELLET_ADD,
+    ghostHouseReliefPelletAdd: GHOST_HOUSE_RELIEF_PELLET_ADD,
   },
   {
     id: "passiveExtraLife",
@@ -1873,7 +1873,7 @@ export function pelletCollectRadiusBonusPx(owned: readonly UpgradeId[]): number 
 
 function sumOwnedField(
   owned: readonly UpgradeId[],
-  key: "ghostHouseReleaseDelayAddMs" | "ghostHouseClydePelletAdd",
+  key: "ghostHouseReleaseDelayAddMs" | "ghostHouseReliefPelletAdd",
 ): number {
   let sum = 0;
   for (const id of owned) {
@@ -1899,8 +1899,8 @@ export function remoteTransferEvery(owned: readonly UpgradeId[]): number | null 
   return null;
 }
 
-export function ghostHouseClydePelletAdd(owned: readonly UpgradeId[]): number {
-  return sumOwnedField(owned, "ghostHouseClydePelletAdd");
+export function ghostHouseReliefPelletAdd(owned: readonly UpgradeId[]): number {
+  return sumOwnedField(owned, "ghostHouseReliefPelletAdd");
 }
 
 export function frozenGhostEid(state: RunUpgrades): number | null {
