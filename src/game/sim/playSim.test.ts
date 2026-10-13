@@ -5331,6 +5331,30 @@ describe("Cornucopia", () => {
     expect(new Set(xs).size).toBe(2);
   });
 
+  it("Plus keeps its fruit when the regular fruit expires", () => {
+    const sim = start(["powerPelletCornucopiaPlus"]);
+    const [threshold] = getActiveLayout().fruitThresholds;
+    for (const eid of regularPelletEids(sim).slice(0, threshold)) {
+      eatPelletAt(sim, eid);
+    }
+    eatNextPower(sim);
+    expect(fruitCount(sim)).toBe(2);
+    sim["fruitPresence"] = { ...sim["fruitPresence"], remainingMs: 50 };
+    runFrames(sim, 10);
+    expect(sim.snapshot().timers.fruitMs).toBe(0);
+    expect(fruitCount(sim)).toBe(1);
+    expect(sim.snapshot().timers.cornucopiaFruitMs).toBeGreaterThan(0);
+  });
+
+  it("clears its fruit when a life is lost", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    eatNextPower(sim);
+    ghostOntoPlayer(sim);
+    runFrames(sim, framesFor(5_000));
+    expect(fruitCount(sim)).toBe(0);
+    expect(sim.snapshot().timers.cornucopiaFruitMs).toBe(0);
+  });
+
   it("pays out like any fruit when eaten and lets a new one spawn", () => {
     const sim = start(["powerPelletCornucopia"]);
     eatNextPower(sim);
