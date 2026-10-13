@@ -102,6 +102,34 @@ export function runJob(job: Job): EpisodeResult {
     outcome = "error";
     error = caught instanceof Error ? caught.message : String(caught);
   }
+  try {
+    return episodeResult(sim, bot, job, outcome, simMs, error);
+  } catch (caught) {
+    return {
+      job,
+      outcome: "error",
+      levelReached: job.level ?? 0,
+      progress: 0,
+      simMs: Math.round(simMs),
+      deaths: [],
+      ghostOutMs: {},
+      offers: [],
+      finalLoadout: [],
+      quartersSpent: 0,
+      storeStall: false,
+      error: error ?? (caught instanceof Error ? caught.message : String(caught)),
+    };
+  }
+}
+
+function episodeResult(
+  sim: PlaySim,
+  bot: Bot,
+  job: Job,
+  outcome: EpisodeOutcome,
+  simMs: number,
+  error: string | undefined,
+): EpisodeResult {
   const record = sim.runLogRecord();
   const lastLevel = record.levels.at(-1);
   const progress =

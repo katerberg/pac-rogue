@@ -96,5 +96,6 @@ pilot and full first spend `--calibrate-seconds` (60) measuring seconds per buil
 - Bots play like bots. Absolute rates mean little; compare arms and profiles within one run.
 - The decision engine is heuristic. At level 3 with no upgrades, `cautious@average` clears about half the time; build runs average around level 4–5 and rarely reach the boss. Tune `navigate.ts` weights if bot strength becomes the bottleneck.
 - Upgrades that need deliberate use (Tunnel Dash timing, Hyperspeed steering, Wall Pass shortcuts) are only used as far as the generic weights reach them.
+- Board progress divides by every pellet on the board, so Lazy Looper (which only requires the outer ring and house-side pellets) reads lower than it plays; trust its clear rate over its progress.
 - Build runs start at the level-2 offer with full lives and the default Quarters, not with what a player would have earned on levels 1–2.
 - No boss (level 9), no evolutionary build search, no calibration against real player data yet.

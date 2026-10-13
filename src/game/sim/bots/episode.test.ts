@@ -33,6 +33,13 @@ describe("runJob", { timeout: 60_000 }, () => {
     expect(result.finalLoadout.some((id) => id.startsWith(start))).toBe(true);
   });
 
+  it("plays differently at different skill tiers on the same seed", () => {
+    const job = { experiment: "singles" as const, arm: "none", seed: "bal-4", level: 3 };
+    const novice = runJob({ ...job, profile: "cautious@novice" });
+    const expert = runJob({ ...job, profile: "cautious@expert" });
+    expect(novice.simMs).not.toBe(expert.simMs);
+  });
+
   it("plays one-level tests without stalling", () => {
     const outcomes = ["bal-0", "bal-1", "bal-2"].map(
       (seed) =>
