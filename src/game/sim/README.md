@@ -21,24 +21,9 @@ sim.chooseRunEnd("newGame"); // answers the Run Complete menu ("newGame" / "menu
 - Read-only views for the adapter: `world`, `hud()`, `renderOptions()`, `storeState()`, `offer()`, `inStore()`, `readsStoreKeys()`, `snapshot()` (the debug snapshot's `play.*` fields, minus the scene's UI flags).
 - `step` keeps `PlayScene`'s old gate order exactly: starting card → death sequence → run complete → level transition → store → level-end time drain → pending upgrade choice → pending level clear → the main pipeline (see `docs/ARCHITECTURE.md#game-loop`).
 
-### `SimInput` (`simInput.ts`)
+### `SimInput` and `SimEvent`
 
-| Field                          | Meaning                                                                                                                                                                    |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `keys: HeldKeys`               | Press time (`timeDown`) per held direction, `null` when up. Most recent wins per axis; perpendicular pairs become diagonals when allowed (`src/game/systems/heldKeys.ts`). |
-| `uiOpen`                       | The starting-upgrade card or level-clear modal is on screen (animating). The sim stays frozen while it is.                                                                 |
-| `storeToggle` / `storeConfirm` | Store prompt keys pressed this frame (the scene reads them only when `readsStoreKeys()`).                                                                                  |
-
-`IDLE_INPUT` is "nothing pressed, no UI".
-
-### `SimEvent` (`simEvents.ts`)
-
-Side effects the sim can't perform itself. The scene applies them in order, after `step` returns:
-
-- Sound: `sfx`, `pelletSfx`, `loopStart`, `loopStop`, `musicAfterFanfare` (the scene holds it until the level-complete fanfare ends).
-- Drawing: `draw` (with `SimRenderOptions`), `releaseDrawable`, `resetBoard`, `bouncePowerPellet`, `streakPop` (Streak Engine pop-off text).
-- HUD / UI: `lives` (`pulse`), `quarters`, `bonus` (`tier` reached, Quarters `filled`; see [docs/bonus.md](../../../docs/bonus.md)), `timeBonus` (`active` while the level-end time drain runs), `upgrades`, `timer`, `timerVisible`, `banner`, `startingUpgrade`, `upgradeOffer`, `newLevelModal`, `storeOpened`, `storeSync`, `storePurchased`, `storeClosed`, `deathFade`, `endText`, `goToMenu`, `newGame` (restart `PlayScene`; from `chooseRunEnd`).
-- Storage: `saveRun` (only when no debug flag is present), `seenGhosts`, `seenUpgrades`.
+`SimInput` (`simInput.ts`) carries held-key press times, whether a card or modal is animating (the sim stays frozen) and store prompt keys; `IDLE_INPUT` is nothing pressed. `SimEvent` (`simEvents.ts`) is the union of side effects the sim can't perform itself (sound, drawing, HUD/UI, storage); the scene applies them in order after `step` returns. Both files are the reference.
 
 ## `LearnSim` (`learnSim.ts`)
 

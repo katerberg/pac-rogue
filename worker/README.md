@@ -13,30 +13,11 @@ Cloudflare Worker + D1 database that receives finished runs from the game and se
 
 ## API
 
-CORS `*` on every response (methods `GET, POST, OPTIONS`, header `Content-Type`).
-
-`POST /runs` with `{ "platform": "web" | "itch" | "steam", "record": RunLogRecord }`.
-
-- The record must pass `parseRunLogRecord` (`src/domain/runLog.ts`), be finished (`death`, `complete`, `quit`, `abandoned`), not `debug`, have UUID `id` and `installId`, `finalLevel` 1..99, `pelletsCollected` 0..100000 and `gameVersion` 1..64 chars. The body must be at most 64 KB.
-- Insert-or-update by run `id`; an update only applies when the stored `install_id` matches. In the same batch, a visible `death` or `complete` run replaces its install's best when it has more pellets, or equal pellets and a higher reach.
-- Responses: 201 `{ ok: true }`; 400 `invalid`; 413 `too_large`; 429 `rate_limited` (30 accepted uploads per IP hash per 10 minutes); 503 `unconfigured` (no `IP_HASH_KEY`); 500 `internal`.
-
-`GET /scores?installId=<uuid, optional>` → 200 `{ scores: [{ pellets, reach, country, receivedAt, mine }] }`, the top 50 bests ranked by pellets desc, then reach desc, then earliest upload. `receivedAt` is the upload date only (`YYYY-MM-DD`). `reach` is the final level (capped at 9), or 10 for a completed run (shown as `WIN`). `mine` is true only on the row whose install id matches the query.
-
-Other paths return 404; other methods 405.
-
-## Client behaviour
-
-- Uploads: on boot and after every finished run, the game sends up to 10 queued runs, oldest first, one request each with a 5 s timeout. Runs that started before this build first ran are never sent. Network errors, 429 and 5xx leave the run queued for the next try; a 400 marks it sent so it is never retried. Turning **SHARE RUN STATS** off stops uploads; the board can still be viewed.
-- Board: High Scores fetches `/scores` once per visit, on the first switch to GLOBAL. Without `VITE_API_URL` it shows `GLOBAL OFFLINE`; any failure shows `GLOBAL UNAVAILABLE`.
+`POST /runs` takes `{ platform, record: RunLogRecord }`: validated by `parseRunLogRecord` plus size and range limits in `worker/src/`, upserted by run `id` (only for the matching `install_id`), and a visible `death` or `complete` run can replace its install's best. `GET /scores?installId=` returns the top 50 bests with the requester's own row marked. Statuses, rate limits (per IP hash) and CORS are in the Worker source and its tests. Client upload behaviour: [docs/RUN_LOG.md](../docs/RUN_LOG.md#uploads).
 
 ## Schema
 
-- `migrations/0001_runs.sql`: one `runs` row per run with indexed columns (`install_id`, `schema_version`, `game_version`, `platform`, `outcome`, `final_level`, `pellets`, `country`, `ip_hash`, `received_at`), the raw `record` JSON, and `hidden_reason` (NULL = visible). New record fields need no migration.
-- `migrations/0002_bests.sql`: `bests`, one row per install (`run_id`, `pellets`, `reach`, `country`, `received_at`), indexed in board order. The migration backfilled it from existing runs.
-- `sql/rebuild-bests.sql`: rebuilds `bests` from visible runs with the same ranking. Run it after any hide, undo or delete.
-
-Migrations apply automatically when `deploy-worker.yml` runs on `main`.
+Migrations in `worker/migrations/` (`runs` table with indexed columns, the raw `record` JSON and `hidden_reason`; `bests`, one row per install). `worker/sql/rebuild-bests.sql` rebuilds `bests` from visible runs; run it after any hide, undo or delete. Migrations apply automatically when `deploy-worker.yml` runs on `main`.
 
 ## Secret
 

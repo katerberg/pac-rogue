@@ -19,8 +19,9 @@ research → one-shot-plan dump (this file's question bank) → user answers →
   → user says "go" → implement (checklist below) → live check → ship-plan → follow-ups
 ```
 
-Source of truth for how upgrades work today: [docs/upgrades.md](../../../docs/upgrades.md).
-Read it first. It also lists every existing upgrade, which you need for the interaction pass.
+Source of truth for how upgrades work today: [docs/upgrades.md](../../../docs/upgrades.md)
+(model and cross-cutting rules). Read it first; every existing upgrade is in `UPGRADE_DEFS`
+(`src/domain/upgrades.ts`), which you need for the interaction pass.
 
 ## 1. Research (silent)
 
@@ -93,11 +94,10 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
 - **F. Tests:** add domain unit tests, an `upgrades.test.ts` entry and a `PlaySim` integration
   test. With the upgrade owned, the test shows the effect. Without it, behaviour is unchanged.
 - **K. Enhanced:** every upgrade ships with its `enhanced` override on its `BASE_UPGRADE_DEFS` row (the
-  type requires it) and a row in the Enhanced table in `docs/upgrades.md` and
-  `docs/enhanced-upgrades.md`. Test both forms (`<id>` and `<id>Plus`) in `upgrades.test.ts` and
+  type requires it). Test both forms (`<id>` and `<id>Plus`) in `upgrades.test.ts` and
   `PlaySim`. New effect fields are read through `ownedValue`-style helpers, never by id checks.
-- **G. Docs:** the `docs/upgrades.md` table row plus a section, the README `Upgrade ids` list,
-  and the `docs/learn.md` fidelity table.
+- **G. Docs:** none for the id, numbers or description (the def is the source of truth and
+  `docs/` links to code). Update `docs/upgrades.md` or `docs/learn.md` only when a cross-cutting rule changed.
 - **H. Live check:** `npm run probe` with `seed=` and `enableUpgrade=<id>`. Assert against the
   snapshot and add any missing snapshot field.
 - **I. Out of scope:** stacking, new art, and rebalancing existing upgrades.
@@ -120,14 +120,11 @@ Every upgrade PR touched all of these. Missing one fails `npm run verify` or lea
 | `src/game/sim/playSim.ts`                         | One call site. Reset any per-board state in `startBoard` and on life loss. Emit `SimEvent`s for sfx and visuals.                                                                                                                                                                                                                                           |
 | `src/game/sim/playSim.test.ts`                    | Add a `describe("<Label>")` block covering the owned path, the not-owned path and each interaction you locked.                                                                                                                                                                                                                                             |
 | `src/game/sim/simEvents.ts` / `render.ts`         | Only if there is new feedback. Keep the look curve in a domain function (see §5).                                                                                                                                                                                                                                                                          |
-| `src/game/sim/playSim.ts` `snapshot()` (`timers`) | Expose new timer or progress fields read-only, and add them to the snapshot table in `docs/VERIFICATION.md`.                                                                                                                                                                                                                                               |
+| `src/game/sim/playSim.ts` `snapshot()` (`timers`) | Expose new timer or progress fields read-only (the snapshot shape is the reference; no doc table).                                                                                                                                                                                                                                                         |
 | LEARN                                             | Either mirror it in `learnSim.ts` (plus a `learnSim.test.ts` case), or append the id to `LEARN_NO_EFFECT_UPGRADE_IDS` in `LearnScene.ts`.                                                                                                                                                                                                                  |
-| `docs/upgrades.md`                                | Add a defs-table row and a `### <Label>` section covering rules, interactions, reset points and LEARN behaviour. Update the `RunUpgrades` model bullet if it gained a timer.                                                                                                                                                                               |
-| `docs/learn.md`                                   | Add the upgrade to the matching fidelity-table row.                                                                                                                                                                                                                                                                                                        |
-| `README.md`                                       | Append the id to the `Upgrade ids:` line.                                                                                                                                                                                                                                                                                                                  |
+| `docs/upgrades.md`                                | Only when a cross-cutting rule changed (a new timer kind, a new catch-order step). No per-upgrade section or table row.                                                                                                                                                                                                                                    |
 | Other docs                                        | `levels.md`, `store.md` or `ARCHITECTURE.md` only when the rule they describe changed. Myogenesis needed `levels.md` and `store.md`.                                                                                                                                                                                                                       |
 
-Run `npx prettier --write` on the touched markdown. Aligned tables are re-padded on every edit,
 which is the main source of merge conflicts.
 
 ## 4. Live check
@@ -175,8 +172,8 @@ up to 40%", "same invulnerability tint and blink-out", "slow and strengthen the 
 ## 6. Merge conflicts with sibling upgrade PRs
 
 Several upgrades are often built in parallel. They conflict in the same places every time:
-`BaseUpgradeId` / `BASE_UPGRADE_DEFS`, `ALL_IDS`, the `seenRecord` count, the README id list, the
-`docs/upgrades.md` and `docs/learn.md` tables, and `LEARN_NO_EFFECT_UPGRADE_IDS`.
+`BaseUpgradeId` / `BASE_UPGRADE_DEFS`, `ALL_IDS`, the `seenRecord` count, the
+and `LEARN_NO_EFFECT_UPGRADE_IDS`.
 
 1. Run `git fetch origin main && git merge origin/main`. Never rebase a pushed branch.
 2. For each list, take `main`'s version, then re-append your entry at the end. Keep `ALL_IDS`
@@ -184,7 +181,7 @@ Several upgrades are often built in parallel. They conflict in the same places e
 3. Recount: the `seenRecord` length becomes `ALL_UPGRADE_IDS.length`. Give incoming defs any
    field your PR made required.
 4. Remove duplicate imports the merge left in `playSim.test.ts`.
-5. Re-run `npx prettier --write` on the tables, then `npm run verify`. Re-run the probe if
+5. Run `npm run verify`. Re-run the probe if
    runtime code merged.
 
 ## 7. Ship

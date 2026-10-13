@@ -50,7 +50,7 @@ Conditions read window.__PAC_ROGUE_DEBUG__.snapshot() (agent ports only):
   <path><op><value>, op one of == != < <= > >=, value a number, true/false/null or bare string.
   Paths are dotted, with array indexes and .length: play.lives==3, play.player.col<10,
   play.ghosts.length==4, play.ghosts.0.phase==active, play.inStore==true, scenes.PlayScene==running.
-  Fields: see docs/VERIFICATION.md#game-state-snapshot. On any failure the probe writes
+  Fields: see docs/VERIFICATION.md#game-state-snapshot (add a dump:<name> step to print it). On any failure the probe writes
   artifacts/<name>-failure.json and artifacts/<name>-failure.png.
 
 Example:

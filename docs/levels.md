@@ -1,86 +1,43 @@
 # Fixed level plan
 
-The run is a fixed 9-level plan (`MAX_LEVEL` in [`src/domain/levelRules.ts`](../src/domain/levelRules.ts)) — no endless/procedural progression past level 9. Level 9 is a boss fight (see [docs/bosses.md](./bosses.md)).
+The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `levelRules.ts` is the source for speeds, schedules, thresholds and rosters). Level 1 is the hand-made `mazeSmall`; levels 2-9 are generated boards (`mazeGenerate.ts`, rules in [maze-constraints.md](./maze-constraints.md)); level 9 is a boss ([bosses.md](./bosses.md)).
 
-| Level | Maze                           | Ghosts                                                                                                                      | Fruit                                            | On clear                                                                                                                                               |
-| ----- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1     | `mazeSmall` (22×21, half-size) | Blinky + the roster's front arm (2 ghosts, see below)                                                                       | present after 70 pellets (charges the BONUS bar) | No reward (level 1 already granted a starting upgrade); advance to level 2                                                                             |
-| 2     | Procedural 28×34               | Blinky, the front arm and the flank slot (3 ghosts, see below)                                                              | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to level 3                                                                      |
-| 3-8   | Procedural 28×34               | The run's full roster (4 ghosts, see below), unchanged through level 8                                                      | present (charges the BONUS bar)                  | Pick-one upgrade choice modal (or bank Quarters instead), then advance to the next level; after 3, after 5 or 6, and after 8 a store floor comes first |
-| 9     | Procedural 28×34               | Boss, rolled per run: Blinky Swarm (3-tunnel board, two-stage 2 → 10 Blinkys) or Chained Ghosts (see [bosses](./bosses.md)) | present (charges the BONUS bar)                  | Two-stage clear (stage-1 transition, then stage-2 clear); no upgrade offer; a `RUN COMPLETE` screen with a `NEW GAME` / `MENU` choice                  |
+## Flow
 
-Ghosts default to pixel sprites on every level; Settings → STYLE switches among PIXEL (sprites + PNG pellets, glow off, the default), NEON (line art, glow on), and LINED (same line art, glow off) — see [line-art.md](./line-art.md).
-
-Store floors (between levels 3→4, 5→6 or 6→7, and 8→9 right before the boss) are where Quarters are spent; see [docs/store.md](./store.md).
-
-## Base speed
-
-Maze-Man's base speed is `PLAYER_SPEED` (`src/domain/playfield.ts`), roughly matched to arcade Ms. Pac-Man. Every ghost, tunnel, Cruise Elroy, ghost-house exit and boss speed is a fixed ratio of it, so the ratios below hold at any base. Timers (upgrade durations, scatter/chase waves, idle release, fruit lifetime, the Time countdown) are real-time and do not scale with speed, as in the arcade.
-
-## Ghost catch-up speed (levels 1-8)
-
-Ghosts start slower than Maze-Man on level 1 and gain ground each level: `ghostBaseSpeedRatio(levelIndex)` in `levelRules.ts` scales ghost base speed to 80% of Maze-Man's base speed on level 1, +5% per level, reaching full parity (100%) by level 5, then edging past it (105% on level 6, 110% on levels 7–8, capped by `ghostRatioCap`). Ghost tunnel speed is not part of the ramp: it is a constant 50% of Maze-Man's base speed on every level, as in the arcade. The level-9 boss Blinkys ignore this ramp (see [docs/bosses.md](./bosses.md)). Blinky's Cruise Elroy tiers are unaffected — they stay fixed multiples of Maze-Man's speed regardless of level.
-
-## Inverted maze (levels 6-7)
-
-`isInvertedMazeLevel(levelIndex)` in `levelRules.ts` marks levels 6 and 7. For those levels, `PlaySim.startBoard()` row-reverses the generated board (`invertMazeAscii` in `mazeGenerate.ts`) before activating it: the player spawn and ghost house stamp move with the flip, so the player starts near the top of the maze and the ghost house door opens downward instead of upward. `deriveGhostHouseExit` and `deriveFruitSpawn` in `maze.ts` derive the exit/fruit direction from the ascii (which side of the door/house has the open corridor) rather than assuming "up"/"down", and `canGhostEnterDirection`'s one-way door rule blocks re-entry toward the house floor regardless of which way that is — so both orientations behave correctly without a maze-generation retry. Layout overrides (`?maze=`) are never inverted, only the procedural board.
-
-## Timed tunnels (levels 7–8)
-
-`isTimedTunnelLevel(levelIndex)` marks levels 7 and 8. On those boards, one tunnel row (picked from `horizontalTunnelRows` via the seeded `timedTunnel` stream) cycles **open 6s → closed 2.5s**. The last 1.5s of the open window is a **warn** phase: the left and right mouth cells blink yellow. While closed, wrap is blocked for the player and ghosts on that row only (the corridor stays walkable) and the yellow mouth bars stay solid so the blocked seam is obvious; any other tunnel row still wraps. Wall Pass+ loop form still shows the bars but lets the player walk through the closed gate (wrap works again for them only). If Tunnel Dash is mid-animation when the gate closes, the dash cancels and the player snaps to the nearest in-bounds cell center. Store floors and the boss are unaffected.
-
-## Scatter schedule
-
-`ghostModeWavesForLevel` (`src/domain/levelRules.ts`) builds each level's scatter/chase waves. Scatter is an early-run source of randomness and tapers out so it is not an escape hatch at the end. The last chase of every level lasts forever.
-
-| Levels | Scatter windows (chase between them: `chaseMs`) |
-| ------ | ----------------------------------------------- |
-| 1      | none (`level1ChaseOnly`)                        |
-| 2-4    | 7s, 7s, 5s                                      |
-| 5-6    | 5s, 5s, 5s                                      |
-| 7      | 5s, 3s                                          |
-| 8      | 3s                                              |
-| 9      | none (boss fight is chase only)                 |
-
-Scatter also never runs with fewer than 15 pellets left (`effectiveGhostMode` in `src/domain/ghostMode.ts`). If a scatter wave is running when the count drops below 15, ghosts reverse and chase for the rest of the board; the wave clock keeps running underneath. Counts include power pellets, like Cruise Elroy.
-
-The 3s windows are 60% of `scatterLateMs`. Scatter Burst is a separate upgrade effect and still works on every level.
-
-## Ghost roster
-
-Blinky is always there. The other three ghosts come from one of six curated rosters, rolled once per run from the seed (`pickRosterId`, the `roster` stream; `?roster=0..5` forces one). Every roster has a **front arm** (Pinky or Wardy) in slot 1, a flank slot (Inky, or the other front arm) in slot 2 and a **relief** ghost (Clyde or Spunky) in slot 3, so Blinky's chase is always paired with a ghost ahead of you.
-
-| Roster | Slot 0 | Slot 1 | Slot 2 | Slot 3 |
-| ------ | ------ | ------ | ------ | ------ |
-| 0      | Blinky | Pinky  | Inky   | Clyde  |
-| 1      | Blinky | Pinky  | Inky   | Spunky |
-| 2      | Blinky | Wardy  | Inky   | Clyde  |
-| 3      | Blinky | Wardy  | Inky   | Spunky |
-| 4      | Blinky | Pinky  | Wardy  | Clyde  |
-| 5      | Blinky | Pinky  | Wardy  | Spunky |
-
-`ghostKindsForLevel(levelIndex, rosterId)` introduces the roster in slot order: level 1 spawns slots 0-1, level 2 slots 0-2, levels 3+ the whole roster, with the same four ghosts on every level through 8 (the level-9 boss is separate). Rosters are equally likely. For fresh seeds only, `mintFreshSeed` re-mints (up to 8 times) when the roster would equal the previous run's (`pac-rogue.last-roster.v1` in localStorage), so back-to-back runs never share a roster while any seed still replays the same run. An explicit `?seed=` or `?roster=` skips that check.
-
-## Life regen
-
-Runs start at `START_LIVES` (4). Natural life regen happens only when entering a [store](./store.md): `livesAfterLevelRegen` (`src/domain/lives.ts`) grants one life (`STORE_REGEN_AMOUNT`) whenever fewer than 3 HUD icons are showing (4 while `passiveExtraLife` is owned, via `levelLivesIconFloor`). This is a one-life trickle toward the icon floor, not an instant refill — a run that lost several lives climbs back across store visits. Owning `passiveExtraLife` raises the floor to 4 icons (`lifeFloorBonus`), so a run with it regenerates up to 5 lives (enhanced: floor 5, up to 6 lives); the upgrade's own life (+1, enhanced +2) is not capped. Owning `passiveMyogenesis` additionally regenerates one life on every level clear (`levelRegenAmount`), still clamped at the floor, on top of the store regen; enhanced Myogenesis refills every missing slot up to the floor on level clear. The debug flag `?maxLives=` moves the base floor to that many lives (`maxLives − 1` icons, plus any Extra Life bonus); `?lives=` sets the starting lives exactly and also sets `maxLives` unless it is given (README [Flags](../README.md#flags)).
-
-## Fruit charges the BONUS bar
-
-Fruit spawns/despawns as before, 10s lifetime (20s with Fruit Fecundity): level 1 uses a single unscaled 70-pellet threshold, levels 2+ use layout-scaled pellet thresholds. Picking it up plays the munch SFX, removes it, and adds half a [BONUS bar](./bonus.md) of charge (`FRUIT_BONUS_CHARGE`, 150; a whole bar with Quarter Bounty). Each bar fill pays one Quarter (top-left HUD; spent at [store floors](./store.md)), so two fruits make a Quarter. The upgrade-choice reward instead comes from **clearing a level** (2 through 8); see [docs/upgrades.md](./upgrades.md).
-
-## `?level=` and the cap
-
-`parseLevelParam` clamps any value above 9 down to 9, so `?level=9` (or `?level=99`) jumps straight into the boss fight. Values below 1 or non-numeric still fall back to level 1.
+- Level 1 clear: no reward (a starting upgrade was already granted), straight to level 2.
+- Levels 2-8 clear: level-end [time bonus](./bonus.md#time-bonus) drain, then the pick-one [upgrade](./upgrades.md) modal, then the next board. Store floors ([store.md](./store.md)) sit between certain levels (`storeAfterLevel` in `store.ts`) and are where Quarters are spent.
+- Level 9 clear needs both boss stages, then RUN COMPLETE. No upgrade offer, no time bonus, no high-score write (only last-life Game Over writes history).
+- `?level=` clamps to `MAX_LEVEL`, so `level=9` jumps into the boss.
 
 ## Intermission
 
-After level 2 is cleared (and its upgrade choice resolved), the level-transition freeze is followed by a 4-second cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man left to right across the screen before level 3 begins. `PlaySim` owns the timer and emits `intermission` events with the actors' positions; `PlayScene` only moves two sprites (`intermissionActors.ts`). The sim is frozen and the Time countdown does not run while it plays. `play.intermission` in the snapshot is non-null for its duration. No other level has one.
+After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man across the screen before level 3. `PlaySim` owns the timer and emits `intermission` events with actor positions; `PlayScene` only moves two sprites (`intermissionActors.ts`).
 
-## Run Complete
+## Speed
 
-Clearing level 9 (the boss) requires both stages (see [bosses](./bosses.md)). The final stage clear does not write run history (same as any other level clear — only last-life Game Over does). No upgrade choice and no [time bonus](./bonus.md#time-bonus) are given; after the brief transition freeze, a `RUN COMPLETE` screen shows the lifetime `Collected` count and stays up with a `NEW GAME` / `MENU` choice (Up/Down or W/S to move, Enter/Space or click to pick; Esc does nothing). For the first `RUN_END_MENU_ARM_MS` (1000ms) the rows are dimmed with nothing selected and ignore keys, hover and clicks (so a key still held from the boss clear cannot skip the screen); then they fade in and `NEW GAME` is selected. `NEW GAME` restarts `PlayScene` with the same URL flags; `MENU` returns to `MenuScene`.
+Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-exit and boss speeds are ratios of it, so they hold at any base. Both sides gain a per-level multiplier (`speedLevelMultiplier`); ghosts also start slower and catch up (`ghostBaseSpeedRatio`) so level 1 is forgiving. Timers (durations, waves, idle release, fruit) are wall-clock, independent of speed.
+
+## Board variants
+
+- **Inverted** levels (`isInvertedMazeLevel`): the generated board is row-reversed in `startBoard` (`invertMazeAscii`) so spawn and house flip with it.
+- **Timed tunnel** levels (`isTimedTunnelLevel`): one seeded tunnel row cycles open / warn / closed.
+
+## Scatter and chase
+
+`ghostModeWavesForLevel` builds each level's waves. Level 1 and the boss are chase-only; scatter windows shrink with level so scatter is not a late escape hatch, and the last chase lasts forever. Scatter never runs below a pellet-count floor (`effectiveGhostMode`): ghosts reverse and chase for the rest of the board while the wave clock keeps running underneath.
+
+## Ghost roster
+
+Blinky is always present. The other three come from one of six curated rosters (`pickRosterId`, the `roster` seed stream; `?roster=0..5` forces one): a front arm (Pinky or Wardy) in slot 1, a flank in slot 2 (Inky, or the other front arm) and a relief ghost in slot 3 (Clyde or Spunky). `ghostKindsForLevel` introduces slots in order: level 1 slots 0-1, level 2 slots 0-2, level 3+ all four through level 8. Targeting per ghost: `ghostTarget.ts`.
 
 ## Ghost house release
 
-Release is keyed to the roster **slot**, never to a ghost's name, and tightens with level (arcade rules, except Blinky starts inside): nothing leaves before your first input, then slot 0 (anchor, Blinky) leaves at 0.1s and slot 1 (front arm) immediately. Slot 2 (flank) waits for the layout-scaled pellet count on level 1 and is immediate from level 2. Slot 3 (relief) waits for the layout-scaled count on level 1, 50 dots on level 2, and is immediate from level 3. After a death a shared counter releases slots 1, 2 and 3 at 7, 17 and 32 dots eaten since the death. Stop eating for 4s (levels 1-4) or 3s (level 5+) and the next waiting ghost is pushed out. See [ARCHITECTURE](./ARCHITECTURE.md) for the mechanics.
+Release is keyed to the roster **slot**, never the ghost's name. Nothing leaves before the first player input. Slots 0 and 1 leave on short timers, slots 2 and 3 on layout-scaled dot counts that relax with level, and after a life loss a shared dots-eaten counter releases slots 1-3. An idle push-out releases the lowest waiting slot when no dot is eaten for a while. All numbers: `ghostRelease.ts`, `ghostHouseLeave.ts`, `ghostHouseOrder.ts`. In-house ghosts sit in derived L-to-R seats ordered by predicted release.
+
+## Lives
+
+Runs start at `START_LIVES`. Natural regen happens only on store entry (`livesAfterLevelRegen`, `lives.ts`) and tops up toward a floor of HUD icons, so a run that fell below it trickles back across store visits. Extra Life and Myogenesis modify the floor and level-clear regen.
+
+## Fruit
+
+Spawns at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a BONUS bar rather than giving an upgrade.
