@@ -174,8 +174,7 @@ export function playerDisplaySize(
   return Math.max(1, tileSize + 2 * insetPx - 2 * clearancePx);
 }
 
-/** Dot-Man and ghosts draw below the corridor box, leaving air around them for attachments. */
-export const ACTOR_DISPLAY_SCALE = 0.8;
+const ACTOR_DISPLAY_SCALE = 0.8;
 
 export function actorDisplaySize(): number {
   return playerDisplaySize() * ACTOR_DISPLAY_SCALE;
