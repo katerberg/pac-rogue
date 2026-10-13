@@ -551,6 +551,18 @@ describe("PlaySim", () => {
     expect(count(full.start(), "startingUpgrade")).toBe(0);
   });
 
+  it("can start a run with Shield or Defy Death", () => {
+    const opts = { ...defaultPlayOptions(), maze: "mazeSmall" as const };
+    const others = STARTING_UPGRADE_POOL.filter(
+      (id) => id !== "passiveShieldPellets" && id !== "passiveDefyDeath",
+    );
+    const sim = new PlaySim({ ...opts, enableUpgrades: [...others] }, "test");
+    sim.start();
+    const granted = sim.snapshot().upgrades.filter((id) => !others.includes(id as never));
+    expect(granted).toHaveLength(1);
+    expect(["passiveShieldPellets", "passiveDefyDeath"]).toContain(granted[0]);
+  });
+
   it("forceUpgrade puts that upgrade in the level-clear offer", () => {
     for (const seed of ["f1", "f2", "f3"]) {
       const sim = startSim(
