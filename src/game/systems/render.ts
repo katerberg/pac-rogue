@@ -101,6 +101,16 @@ import {
   hauntCageLines,
   hauntCageVisible,
 } from "../../domain/hauntCage";
+import {
+  GHOST_PUPIL_COLOR,
+  ghostPupilLookOffset,
+  ghostPupilRects,
+  ghostPupilsVisible,
+  stepGhostPupilLook,
+  type PupilLook,
+  type PupilLookState,
+} from "../../domain/ghostPupils";
+import { GHOST_DIR, type GhostDir } from "../../domain/ghostPath";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
@@ -299,6 +309,35 @@ function strokePelletRing(
   }
 }
 
+function facingToGhostDir(facing: Direction): GhostDir {
+  switch (facing) {
+    case DIRECTION.up:
+      return GHOST_DIR.up;
+    case DIRECTION.down:
+      return GHOST_DIR.down;
+    case DIRECTION.left:
+      return GHOST_DIR.left;
+    case DIRECTION.right:
+      return GHOST_DIR.right;
+    default:
+      return GHOST_DIR.none;
+  }
+}
+
+function fillGhostPupils(
+  graphics: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  displaySize: number,
+  look: PupilLook,
+  alpha = 1,
+): void {
+  graphics.fillStyle(GHOST_PUPIL_COLOR, alpha);
+  for (const rect of ghostPupilRects(cx, cy, displaySize, look)) {
+    graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+}
+
 export function addGhostIcon(
   scene: Phaser.Scene,
   drawableId: string,
@@ -310,6 +349,10 @@ export function addGhostIcon(
   const lineArt = LINE_ART_BY_DRAWABLE_ID[drawableId];
   if (style === "pixel" || lineArt === undefined) {
     scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+    if (ghostPupilsVisible({ style, inFrightenedSet: false, drawKind: "primary" })) {
+      const pupils = scene.add.graphics();
+      fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
+    }
     return;
   }
   const icon = createLineArtObject(
@@ -367,10 +410,19 @@ export function addGhostSprite(
   y: number,
   size: number,
   style: GhostStyle,
-): Phaser.GameObjects.Image {
+): Phaser.GameObjects.Image | Phaser.GameObjects.Container {
   const lineArt = LINE_ART_BY_DRAWABLE_ID[drawableId];
   if (style === "pixel" || lineArt === undefined) {
-    return scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+    const image = scene.add
+      .image(0, 0, GHOST_TEXTURE_BY_ID[drawableId]!)
+      .setDisplaySize(size, size);
+    const container = scene.add.container(x, y, [image]);
+    if (ghostPupilsVisible({ style, inFrightenedSet: false, drawKind: "primary" })) {
+      const pupils = scene.add.graphics();
+      fillGhostPupils(pupils, 0, 0, size, ghostPupilLookOffset(GHOST_DIR.none));
+      container.add(pupils);
+    }
+    return container;
   }
   const px = renderScaleOf(scene);
   const backdrop = storedWallStyle().background;
@@ -589,6 +641,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const lineArtObjects = new Map<string, LineArtObject>();
   const playerVisuals = new Map<number, PlayerVisual>();
+  const pupilLooks = new Map<number, PupilLookState>();
   const bossPelletGlows = new Map<number, Phaser.GameObjects.Graphics>();
   const neonPowerBounceTarget = new Map<number, { mul: number }>();
   const killNeonPowerBounce = (eid: number): void => {
@@ -640,6 +693,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const wallGraphics = scene.add.graphics();
   const pelletCrispGraphics = scene.add.graphics().setDepth(PELLET_CRISP_DEPTH);
   const chainGraphics = scene.add.graphics();
+  const pupilGraphics = scene.add.graphics();
+  pupilGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
@@ -815,6 +870,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
     neonPowerBounceTarget.clear();
     playerVisuals.clear();
+    pupilLooks.clear();
     wallGraphics.clear();
     wallGraphics.setAlpha(1);
     wallGlowTexture.setAlpha(1);
@@ -822,6 +878,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     pelletCrispGraphics.setAlpha(1);
     pelletGlowTexture.clear();
     pelletGlowTexture.setAlpha(1);
+    pupilGraphics.clear();
     chainGraphics.setAlpha(1);
     drawnWallStyle = null;
     drawnMazeInverted = false;
@@ -878,6 +935,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const speedTrail = opts?.playerSpeedTrail;
     const ghostWarpGlides = opts?.ghostWarpGlides;
     const lineArtIds = new Set(opts?.lineArtDrawableIds ?? []);
+    const frightenedEids = new Set(opts?.frightenedGhosts?.eids ?? []);
+    pupilGraphics.clear();
+    pupilGraphics.setAlpha(entityAlpha);
     const wallPassOn = opts?.wallPassActive === true;
     const wallPassLoopOn = opts?.wallPassLoopActive === true;
     const twinSolids = wallPassLoopOn ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
@@ -1217,7 +1277,31 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           }
         };
         applyGhostTint(go);
-        go.setAlpha(ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1));
+        const bodyAlpha = ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1);
+        go.setAlpha(bodyAlpha);
+        if (
+          bodyAlpha > 0 &&
+          ghostPupilsVisible({
+            style: "pixel",
+            inFrightenedSet: frightenedEids.has(eid),
+            drawKind: "primary",
+          })
+        ) {
+          const stepped = stepGhostPupilLook(
+            pupilLooks.get(eid),
+            facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
+            scene.time.now,
+          );
+          pupilLooks.set(eid, stepped.state);
+          fillGhostPupils(
+            pupilGraphics,
+            x,
+            y,
+            size,
+            stepped.look,
+            ghostAlpha * (glideHead?.alpha ?? 1),
+          );
+        }
         if (glide !== undefined) {
           drawGlideTrail(eid, id, glide.slice(1), go.texture.key, size, applyGhostTint);
         }
