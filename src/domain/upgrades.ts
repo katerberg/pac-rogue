@@ -2029,7 +2029,9 @@ export function groupUpgradesBySchool(
 ): { school: UpgradeSchool; defs: UpgradeDef[] }[] {
   return UPGRADE_SCHOOL_ORDER.map((school) => ({
     school,
-    defs: defs.filter((def) => def.school === school),
+    defs: defs
+      .filter((def) => def.school === school)
+      .sort((a, b) => Number(a.rare === true) - Number(b.rare === true)),
   })).filter((group) => group.defs.length > 0);
 }
 
