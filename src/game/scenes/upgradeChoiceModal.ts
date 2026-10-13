@@ -67,9 +67,9 @@ export const SCHOOL_COLORS: Record<UpgradeSchool, number> = {
   death: 0xb36bff,
   harvest: 0xffa63d,
   speed: 0x4dd2ff,
-  automation: 0x8a9bff,
+  automation: 0xff9ce6,
   protection: 0x5ee07a,
-  disruption: 0xff5c7a,
+  disruption: 0xff5a5a,
   neutral: 0xb0b0b0,
 };
 
