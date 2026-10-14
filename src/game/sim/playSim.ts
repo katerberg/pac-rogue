@@ -1611,7 +1611,10 @@ export class PlaySim {
     const cell = playerCell(this.world);
     const last = this.lastPlayerCell;
     if (cell !== null && last !== null && (cell.col !== last.col || cell.row !== last.row)) {
-      this.bonus = enterCell(this.bonus, cell, pelletAtCell(this.world, cell));
+      const eatenThisFrame = this.hyperspeedPellets.removedCells.some(
+        (eaten) => eaten.col === cell.col && eaten.row === cell.row,
+      );
+      this.bonus = enterCell(this.bonus, cell, eatenThisFrame || pelletAtCell(this.world, cell));
     }
     this.lastPlayerCell = cell;
   }
