@@ -25,7 +25,6 @@ export function advanceGhostSkirtPhase(phase: number, dxPx: number, displaySize:
   return ((next % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
 }
 
-/** +1 waves rightward, -1 leftward; keeps `prev` while the queued move is not horizontal. */
 export function nextSkirtWaveSign(next: GhostDir, prev: number): number {
   if (next === GHOST_DIR.right) {
     return 1;
@@ -33,7 +32,6 @@ export function nextSkirtWaveSign(next: GhostDir, prev: number): number {
   return next === GHOST_DIR.left ? -1 : prev;
 }
 
-/** Horizontal travel plus vertical travel at half speed, waved toward `waveSign`. */
 export function ghostSkirtTravelPx(
   dxPx: number,
   dyPx: number,
