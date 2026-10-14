@@ -179,27 +179,19 @@ export function createStoreState(
     clickedSlot: null,
     confirmYes: false,
   };
-  const rolled: StoreSlot[] = [];
-  for (const slot of slots) {
-    rolled.push(rollSwapIncoming(slot, stocked, rolled, owned, rng));
-  }
-  return { ...stocked, slots: rolled };
+  return { ...stocked, slots: slots.map((slot) => rollSwapIncoming(slot, stocked, owned, rng)) };
 }
 
 function rollSwapIncoming(
   slot: StoreSlot,
   state: StoreState,
-  rolled: readonly StoreSlot[],
   owned: readonly UpgradeId[],
   rng: () => number,
 ): StoreSlot {
   if (slot.kind !== "swap") {
     return slot;
   }
-  const reserved = new Set(
-    rolled.flatMap((s) => (s.kind === "swap" && s.incomingBaseId ? [s.incomingBaseId] : [])),
-  );
-  const pool = swapIncomingPool(state, owned, slot.outgoingId).filter((id) => !reserved.has(id));
+  const pool = swapIncomingPool(state, owned, slot.outgoingId);
   return { ...slot, incomingBaseId: pool.length > 0 ? takeWeightedUpgrade(pool, rng) : null };
 }
 
