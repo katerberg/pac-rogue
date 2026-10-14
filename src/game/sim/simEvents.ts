@@ -33,6 +33,7 @@ export type SimRenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
 
 export type MoneyTalksSpend = {

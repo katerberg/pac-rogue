@@ -38,6 +38,23 @@ export function ghostPupilLookOffset(facing: GhostDir): { dx: number; dy: number
 
 export type PupilLook = { dx: number; dy: number };
 
+const BLINKY_EYES_TRACK_FROM_LEVEL = 4;
+
+export function blinkyEyesTrackPlayer(level: number): boolean {
+  return level >= BLINKY_EYES_TRACK_FROM_LEVEL;
+}
+
+export function ghostPupilLookToward(dx: number, dy: number): PupilLook {
+  const dist = Math.hypot(dx, dy);
+  if (dist === 0) {
+    return { dx: 0, dy: 0 };
+  }
+  return {
+    dx: (dx / dist) * GHOST_PUPIL_LOOK_OFFSET_ART,
+    dy: (dy / dist) * GHOST_PUPIL_LOOK_OFFSET_ART,
+  };
+}
+
 export type PupilLookState = { from: PupilLook; to: PupilLook; startMs: number };
 
 export const GHOST_PUPIL_TURN_MS = 250;

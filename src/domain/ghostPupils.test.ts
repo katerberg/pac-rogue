@@ -4,7 +4,9 @@ import {
   GHOST_PUPIL_ART_PX,
   GHOST_PUPIL_LOOK_OFFSET_ART,
   GHOST_PUPIL_REST_ART,
+  blinkyEyesTrackPlayer,
   ghostPupilLookOffset,
+  ghostPupilLookToward,
   ghostPupilRects,
   ghostPupilsVisible,
   GHOST_PUPIL_TURN_MS,
@@ -94,5 +96,32 @@ describe("stepGhostPupilLook", () => {
     const turned = stepGhostPupilLook(mid.state, GHOST_DIR.up, GHOST_PUPIL_TURN_MS / 2);
     expect(turned.look.dx).toBeCloseTo(mid.look.dx);
     expect(turned.look.dy).toBeCloseTo(mid.look.dy);
+  });
+});
+
+describe("blinkyEyesTrackPlayer", () => {
+  it("starts at level 4", () => {
+    expect([1, 2, 3, 4, 5, 9].map(blinkyEyesTrackPlayer)).toEqual([
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+    ]);
+  });
+});
+
+describe("ghostPupilLookToward", () => {
+  it("points a unit look offset at the target, at any distance", () => {
+    const near = ghostPupilLookToward(3, 4);
+    const far = ghostPupilLookToward(300, 400);
+    expect(near.dx).toBeCloseTo(0.6 * GHOST_PUPIL_LOOK_OFFSET_ART);
+    expect(near.dy).toBeCloseTo(0.8 * GHOST_PUPIL_LOOK_OFFSET_ART);
+    expect(far).toEqual(near);
+  });
+
+  it("rests when the target is on the ghost", () => {
+    expect(ghostPupilLookToward(0, 0)).toEqual({ dx: 0, dy: 0 });
   });
 });
