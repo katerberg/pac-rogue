@@ -1,6 +1,6 @@
 # Rendering, fonts and render scale
 
-The game has one look: PNG ghosts, Dot-Man, Quarters and pellets, VGA 8x8 bitmap text, no glow. **Black 2×2 art-pixel ghost pupils are runtime Graphics** (`src/domain/ghostPupils.ts` + `render.ts`), offset by each ghost's `Facing` (icons/intermission use a rest stare). Pupils hide while Hunter-frightened (including blink-off) and on warp afterimages. The ghost PNGs keep white sclera only.
+The game has one look: PNG ghosts, Dot-Man, Quarters and pellets, VGA 8x8 bitmap text, no glow. **Black 2×2 art-pixel ghost pupils are runtime Graphics** (`src/domain/ghostPupils.ts` + `render.ts`), offset by each ghost's `Facing` (icons/intermission use a rest stare). Pupils hide while Hunter-frightened (including blink-off) and on warp afterimages. The ghost PNGs keep white sclera only. **In the maze the PNG is cropped above the skirt and a per-ghost Graphics wave replaces it** (`src/domain/ghostSkirt.ts`); its phase advances with horizontal travel only, so vertical movement does not animate it. Icons, intermission and warp afterimages keep the baked skirt.
 
 Collision never depends on the drawing: every ghost catches with the same body circle, so sprite size is visual only.
 

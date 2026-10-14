@@ -68,6 +68,13 @@ import {
   type PupilLookState,
 } from "../../domain/ghostPupils";
 import { GHOST_DIR, type GhostDir } from "../../domain/ghostPath";
+import {
+  advanceGhostSkirtPhase,
+  GHOST_SKIRT_BODY_ART_ROWS,
+  GHOST_SKIRT_SAMPLE_ART,
+  ghostSkirtPoints,
+  multiplyTint,
+} from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
@@ -394,10 +401,14 @@ function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly 
   graphics.strokePath();
 }
 
+type GhostSkirt = { graphics: Phaser.GameObjects.Graphics; phase: number; lastX: number };
+
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const pupilLooks = new Map<number, PupilLookState>();
+  const ghostSkirts = new Map<number, GhostSkirt>();
+  const skirtBaseColors = new Map<string, number>();
   const wallGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
   const pupilGraphics = scene.add.graphics();
@@ -422,7 +433,27 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
+  const destroySkirt = (eid: number): void => {
+    ghostSkirts.get(eid)?.graphics.destroy();
+    ghostSkirts.delete(eid);
+  };
+
+  const skirtBaseColor = (textureKey: string): number => {
+    let color = skirtBaseColors.get(textureKey);
+    if (color === undefined) {
+      const pixel = scene.textures.getPixel(
+        GHOST_SKIRT_SAMPLE_ART.x,
+        GHOST_SKIRT_SAMPLE_ART.y,
+        textureKey,
+      );
+      color = pixel?.color ?? 0xffffff;
+      skirtBaseColors.set(textureKey, color);
+    }
+    return color;
+  };
+
   const releaseDrawable = (eid: number): void => {
+    destroySkirt(eid);
     destroyImage(String(eid));
     destroyImage(`${eid}:twin`);
     playerVisuals.delete(eid);
@@ -434,6 +465,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       go.destroy();
     }
     drawableObjects.clear();
+    for (const eid of [...ghostSkirts.keys()]) {
+      destroySkirt(eid);
+    }
     playerVisuals.clear();
     pupilLooks.clear();
     wallGraphics.clear();
@@ -633,6 +667,21 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         applyGhostTint(go);
         const bodyAlpha = ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1);
         go.setAlpha(bodyAlpha);
+        go.setCrop(0, 0, go.frame.width, GHOST_SKIRT_BODY_ART_ROWS);
+        let skirt = ghostSkirts.get(eid);
+        if (skirt === undefined) {
+          skirt = { graphics: scene.add.graphics(), phase: 0, lastX: x };
+          ghostSkirts.set(eid, skirt);
+        }
+        skirt.phase = advanceGhostSkirtPhase(skirt.phase, x - skirt.lastX, size);
+        skirt.lastX = x;
+        skirt.graphics.clear();
+        skirt.graphics.setAlpha(bodyAlpha);
+        skirt.graphics.fillStyle(multiplyTint(skirtBaseColor(go.texture.key), ghostTint), 1);
+        skirt.graphics.fillPoints(
+          ghostSkirtPoints(x, y, size, skirt.phase) as unknown as Phaser.Math.Vector2[],
+          true,
+        );
         if (
           bodyAlpha > 0 &&
           ghostPupilsVisible({
@@ -787,6 +836,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
     for (const [key, go] of drawableObjects) {
       if (!alive.has(key)) {
+        if (!key.includes(":")) {
+          destroySkirt(Number(key));
+        }
         go.destroy();
         drawableObjects.delete(key);
         if (!key.includes(":")) {
