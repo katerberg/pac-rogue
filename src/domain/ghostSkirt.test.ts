@@ -43,7 +43,7 @@ describe("ghostSkirtRects", () => {
       expect(rect.w).toBeCloseTo(scale);
       expect(rect.y).toBeCloseTo(top + 13.9 * scale);
       expect(rect.y + rect.h).toBeGreaterThanOrEqual(top + 14 * scale);
-      expect(rect.y + rect.h).toBeLessThanOrEqual(top + SIZE + 1e-9);
+      expect(rect.y + rect.h).toBeLessThanOrEqual(top + (GHOST_ART_SIZE_PX + 1) * scale + 1e-9);
       const artRow = (rect.y + rect.h - top) / scale;
       expect(artRow).toBeCloseTo(Math.round(artRow));
     }
