@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { GHOST_ART_SIZE_PX } from "./ghostPupils";
-import { advanceGhostSkirtPhase, ghostSkirtRects, multiplyTint } from "./ghostSkirt";
+import { GHOST_DIR } from "./ghostPath";
+import {
+  advanceGhostSkirtPhase,
+  ghostSkirtRects,
+  ghostSkirtTravelPx,
+  multiplyTint,
+  nextSkirtWaveSign,
+} from "./ghostSkirt";
 
 const SIZE = GHOST_ART_SIZE_PX * 2;
 
@@ -28,6 +35,33 @@ describe("advanceGhostSkirtPhase", () => {
       expect(phase).toBeGreaterThanOrEqual(0);
       expect(phase).toBeLessThan(2 * Math.PI);
     }
+  });
+});
+
+describe("nextSkirtWaveSign", () => {
+  it("follows a queued horizontal move and otherwise keeps the last direction", () => {
+    expect(nextSkirtWaveSign(GHOST_DIR.right, -1)).toBe(1);
+    expect(nextSkirtWaveSign(GHOST_DIR.left, 1)).toBe(-1);
+    expect(nextSkirtWaveSign(GHOST_DIR.up, -1)).toBe(-1);
+    expect(nextSkirtWaveSign(GHOST_DIR.none, 1)).toBe(1);
+  });
+});
+
+describe("ghostSkirtTravelPx", () => {
+  it("passes horizontal travel through unchanged", () => {
+    expect(ghostSkirtTravelPx(3, 0, SIZE, -1)).toBe(3);
+    expect(ghostSkirtTravelPx(-3, 0, SIZE, 1)).toBe(-3);
+  });
+
+  it("waves vertical travel at half speed toward the next horizontal move", () => {
+    expect(ghostSkirtTravelPx(0, 4, SIZE, 1)).toBe(2);
+    expect(ghostSkirtTravelPx(0, -4, SIZE, 1)).toBe(2);
+    expect(ghostSkirtTravelPx(0, 4, SIZE, -1)).toBe(-2);
+    expect(ghostSkirtTravelPx(0, -4, SIZE, -1)).toBe(-2);
+  });
+
+  it("ignores a teleport-sized vertical jump", () => {
+    expect(ghostSkirtTravelPx(0, SIZE * 5, SIZE, 1)).toBe(0);
   });
 });
 
