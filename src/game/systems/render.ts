@@ -130,6 +130,10 @@ function pacmanTextureKey(dir: PacmanDir, frame: number): string {
   return `pacman-${dir}-${frame}`;
 }
 
+function isActorTextureKey(key: string): boolean {
+  return key.startsWith("pacman-") || key.startsWith("ghost-");
+}
+
 export const PLAYER_OPEN_MOUTH_TEXTURE_KEY = pacmanTextureKey("right", OPEN_MOUTH_FRAME);
 
 function pelletTextureKey(drawableId: string): string {
@@ -354,7 +358,7 @@ export function addQuarterIcon(
 export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.on(Phaser.Loader.Events.FILE_COMPLETE, (key: string, type: string) => {
     if (type === "image") {
-      padTextureWithGutter(scene.textures, key);
+      padTextureWithGutter(scene.textures, key, isActorTextureKey(key));
     }
   });
   for (const dir of PACMAN_DIRS) {
