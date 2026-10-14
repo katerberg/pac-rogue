@@ -39,7 +39,7 @@ import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
-import { parseStoreSlots } from "../../domain/store";
+import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -1292,6 +1292,23 @@ describe("PlaySim", () => {
       expect(gained).toHaveLength(1);
       expect(isRare(gained[0]!)).toBe(true);
       expect(gained).not.toContain(shelf[0]);
+    });
+
+    it("the trade tile's shown school is the school of the upgrade gained", () => {
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap");
+      if (swap?.kind !== "swap") throw new Error("no swap slot");
+      const school = swapIncomingSchool(swap);
+      expect(school).not.toBeNull();
+      buy(sim, "swap");
+      const owned = sim.snapshot().upgrades;
+      expect(owned).toHaveLength(1);
+      expect(getUpgradeDef(owned[0]!).school).toBe(school);
     });
 
     it("the first store stocks two lives, two abilities and an enhancement", () => {

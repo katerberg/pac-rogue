@@ -33,7 +33,14 @@ export type StoreSlotCell = { kind: StoreSlotKind; col: number; row: number };
 export type StoreSlot =
   | { kind: "life"; col: number; row: number; sold: boolean; price: number }
   | { kind: "upgrade"; col: number; row: number; id: BaseUpgradeId; sold: boolean }
-  | { kind: "swap"; col: number; row: number; outgoingId: UpgradeId; sold: boolean }
+  | {
+      kind: "swap";
+      col: number;
+      row: number;
+      outgoingId: UpgradeId;
+      incomingBaseId: BaseUpgradeId | null;
+      sold: boolean;
+    }
   | { kind: "enhance"; col: number; row: number; targetId: BaseUpgradeId; sold: boolean };
 
 export function lifePriceForStore(firstStore: boolean): number {
@@ -189,7 +196,7 @@ export function createStoreState(
       }
     } else if (kind === "swap" && !firstStore && owned.length > 0) {
       const outgoingId = takeRandomFrom([...owned], rng);
-      slots.push({ kind, col, row, outgoingId, sold: false });
+      slots.push({ kind, col, row, outgoingId, incomingBaseId: null, sold: false });
     } else if (kind === "enhance") {
       const targets = enhanceableUpgrades(owned);
       if (targets.length > 0) {
@@ -197,7 +204,40 @@ export function createStoreState(
       }
     }
   }
-  return { slots, activeSlot: null, dismissedSlot: null, clickedSlot: null, confirmYes: false };
+  const stocked: StoreState = {
+    slots,
+    activeSlot: null,
+    dismissedSlot: null,
+    clickedSlot: null,
+    confirmYes: false,
+  };
+  return { ...stocked, slots: slots.map((slot) => rollSwapIncoming(slot, stocked, owned, rng)) };
+}
+
+function rollSwapIncoming(
+  slot: StoreSlot,
+  state: StoreState,
+  owned: readonly UpgradeId[],
+  rng: () => number,
+): StoreSlot {
+  if (slot.kind !== "swap") {
+    return slot;
+  }
+  const pool = swapIncomingPool(state, owned, slot.outgoingId);
+  return { ...slot, incomingBaseId: pool.length > 0 ? takeWeightedUpgrade(pool, rng) : null };
+}
+
+function swapIncomingPool(
+  state: StoreState,
+  owned: readonly UpgradeId[],
+  outgoingId: UpgradeId,
+): BaseUpgradeId[] {
+  const remaining = owned.filter((id) => baseIdOf(id) !== baseIdOf(outgoingId));
+  return swapPool(state, remaining).filter((id) => id !== baseIdOf(outgoingId));
+}
+
+export function swapIncomingSchool(slot: StoreSlot & { kind: "swap" }): UpgradeSchool | null {
+  return slot.incomingBaseId === null ? null : getUpgradeDef(slot.incomingBaseId).school;
 }
 
 export function slotPrice(slot: StoreSlot): number {
@@ -339,12 +379,11 @@ export function storeStep(
   }
   const outgoingId =
     input.owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId)) ?? slot.outgoingId;
-  const remaining = input.owned.filter((id) => baseIdOf(id) !== baseIdOf(outgoingId));
-  const afterSwap = swapPool(next, remaining).filter((id) => id !== baseIdOf(outgoingId));
-  const incomingBase = takeWeightedUpgrade(
-    afterSwap.length > 0 ? afterSwap : swapPool(next, input.owned),
-    rng,
-  );
+  const afterSwap = swapIncomingPool(next, input.owned, outgoingId);
+  const incomingBase =
+    slot.incomingBaseId !== null && afterSwap.includes(slot.incomingBaseId)
+      ? slot.incomingBaseId
+      : takeWeightedUpgrade(afterSwap.length > 0 ? afterSwap : swapPool(next, input.owned), rng);
   return {
     state: sold,
     purchase: {
