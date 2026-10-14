@@ -82,11 +82,10 @@ export type StorePurchase =
 export function purchaseSchool(purchase: StorePurchase): UpgradeSchool | null {
   switch (purchase.kind) {
     case "life":
+    case "swap":
       return null;
     case "upgrade":
       return getUpgradeDef(baseIdOf(purchase.id)).school;
-    case "swap":
-      return getUpgradeDef(baseIdOf(purchase.incomingId)).school;
     case "enhance":
       return getUpgradeDef(purchase.targetId).school;
   }

@@ -1379,6 +1379,23 @@ describe("PlaySim", () => {
       expect((sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool).toBeNull();
     });
 
+    it("a trade does not change the school guarantee", () => {
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
+      const hint = () => (sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool;
+      buy(sim, "swap");
+      expect(hint()).toBeNull();
+      buy(sim, "upgrade", 0);
+      const school = hint();
+      expect(school).not.toBeNull();
+      buy(sim, "swap");
+      expect(hint()).toBe(school);
+    });
+
     it("enhancement costs 2, swaps the owned upgrade for its Plus form and keeps order", () => {
       const sim = startSim({
         store: 1,

@@ -270,11 +270,8 @@ describe("createStoreState school guarantee", () => {
 });
 
 describe("purchaseSchool", () => {
-  it("reads the school of the bought, incoming or enhanced upgrade and ignores lives", () => {
+  it("reads the school of a bought or enhanced upgrade and ignores lives and random trades", () => {
     expect(purchaseSchool({ kind: "life", price: 1 })).toBeNull();
-    expect(purchaseSchool({ kind: "upgrade", id: "passiveAfterburner", price: 2 })).toBe(
-      getUpgradeDef("passiveAfterburner").school,
-    );
     expect(
       purchaseSchool({
         kind: "swap",
@@ -282,7 +279,10 @@ describe("purchaseSchool", () => {
         incomingId: "passiveAfterburnerPlus",
         price: 1,
       }),
-    ).toBe(getUpgradeDef("passiveAfterburner").school);
+    ).toBeNull();
+    expect(purchaseSchool({ kind: "upgrade", id: "passiveAfterburner", price: 2 })).toBe(
+      getUpgradeDef("passiveAfterburner").school,
+    );
     expect(purchaseSchool({ kind: "enhance", targetId: "passiveGhostSlow", price: 2 })).toBe(
       getUpgradeDef("passiveGhostSlow").school,
     );
