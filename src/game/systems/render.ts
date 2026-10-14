@@ -59,6 +59,7 @@ import {
   hauntCageVisible,
 } from "../../domain/hauntCage";
 import {
+  GHOST_ART_SIZE_PX,
   GHOST_PUPIL_COLOR,
   ghostPupilLookOffset,
   ghostPupilRects,
@@ -68,6 +69,13 @@ import {
   type PupilLookState,
 } from "../../domain/ghostPupils";
 import { GHOST_DIR, type GhostDir } from "../../domain/ghostPath";
+import {
+  advanceGhostSkirtPhase,
+  GHOST_SKIRT_BODY_ART_ROWS,
+  GHOST_SKIRT_SAMPLE_ART,
+  ghostSkirtRects,
+  multiplyTint,
+} from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
@@ -223,6 +231,44 @@ function fillGhostPupils(
   }
 }
 
+function skirtBaseColor(scene: Phaser.Scene, textureKey: string): number {
+  return (
+    scene.textures.getPixel(GHOST_SKIRT_SAMPLE_ART.x, GHOST_SKIRT_SAMPLE_ART.y, textureKey)
+      ?.color ?? 0xffffff
+  );
+}
+
+function fillGhostSkirt(
+  graphics: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  displaySize: number,
+  phase: number,
+  color: number,
+): void {
+  graphics.clear();
+  graphics.fillStyle(color, 1);
+  for (const rect of ghostSkirtRects(cx, cy, displaySize, phase)) {
+    graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+}
+
+/**
+ * Hide the baked skirt with a crop. Phaser crop does not change size, so keep a
+ * uniform size×size box centered on the ghost — sizing to the crop height alone
+ * scales against the full frame and leaves a gap above the runtime skirt.
+ */
+function placeCroppedGhostBody(
+  image: Phaser.GameObjects.Image,
+  cx: number,
+  cy: number,
+  size: number,
+): void {
+  image.setCrop(0, 0, GHOST_ART_SIZE_PX, GHOST_SKIRT_BODY_ART_ROWS);
+  image.setDisplaySize(size, size);
+  image.setPosition(cx, cy);
+}
+
 export function addGhostIcon(
   scene: Phaser.Scene,
   drawableId: string,
@@ -230,12 +276,24 @@ export function addGhostIcon(
   y: number,
   size: number,
 ): void {
-  scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+  const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
+  const image = scene.add.image(x, y, textureKey);
+  placeCroppedGhostBody(image, x, y, size);
+  const skirt = scene.add.graphics();
+  fillGhostSkirt(skirt, x, y, size, 0, skirtBaseColor(scene, textureKey));
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
   }
 }
+
+export type GhostSpriteHandle = {
+  container: Phaser.GameObjects.Container;
+  setPosition(x: number, y: number): void;
+  setDepth(depth: number): void;
+  destroy(): void;
+  setSkirtPhase(phase: number): void;
+};
 
 export function addGhostSprite(
   scene: Phaser.Scene,
@@ -243,15 +301,34 @@ export function addGhostSprite(
   x: number,
   y: number,
   size: number,
-): Phaser.GameObjects.Container {
-  const image = scene.add.image(0, 0, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
-  const container = scene.add.container(x, y, [image]);
+): GhostSpriteHandle {
+  const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
+  const image = scene.add.image(0, 0, textureKey);
+  placeCroppedGhostBody(image, 0, 0, size);
+  const skirt = scene.add.graphics();
+  const color = skirtBaseColor(scene, textureKey);
+  fillGhostSkirt(skirt, 0, 0, size, 0, color);
+  const container = scene.add.container(x, y, [image, skirt]);
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, 0, 0, size, ghostPupilLookOffset(GHOST_DIR.none));
     container.add(pupils);
   }
-  return container;
+  return {
+    container,
+    setPosition(nx, ny) {
+      container.setPosition(nx, ny);
+    },
+    setDepth(depth) {
+      container.setDepth(depth);
+    },
+    destroy() {
+      container.destroy();
+    },
+    setSkirtPhase(phase) {
+      fillGhostSkirt(skirt, 0, 0, size, phase, color);
+    },
+  };
 }
 
 export function addDotManIcon(
@@ -394,10 +471,13 @@ function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly 
   graphics.strokePath();
 }
 
+type GhostSkirt = { graphics: Phaser.GameObjects.Graphics; phase: number; lastX: number };
+
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const pupilLooks = new Map<number, PupilLookState>();
+  const ghostSkirts = new Map<number, GhostSkirt>();
   const wallGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
   const pupilGraphics = scene.add.graphics();
@@ -422,7 +502,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
+  const destroySkirt = (eid: number): void => {
+    ghostSkirts.get(eid)?.graphics.destroy();
+    ghostSkirts.delete(eid);
+  };
+
   const releaseDrawable = (eid: number): void => {
+    destroySkirt(eid);
     destroyImage(String(eid));
     destroyImage(`${eid}:twin`);
     playerVisuals.delete(eid);
@@ -434,6 +520,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       go.destroy();
     }
     drawableObjects.clear();
+    for (const eid of [...ghostSkirts.keys()]) {
+      destroySkirt(eid);
+    }
     playerVisuals.clear();
     pupilLooks.clear();
     wallGraphics.clear();
@@ -621,7 +710,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const ghostKey = frightenedLook ? FRIGHTENED_GHOST_TEXTURE_KEY : ghostTexture;
         if (go.texture.key !== ghostKey) {
           go.setTexture(ghostKey);
-          go.setDisplaySize(size, size);
         }
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
           if (ghostTint === null) {
@@ -633,6 +721,23 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         applyGhostTint(go);
         const bodyAlpha = ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1);
         go.setAlpha(bodyAlpha);
+        placeCroppedGhostBody(go, x, y, size);
+        let skirt = ghostSkirts.get(eid);
+        if (skirt === undefined) {
+          skirt = { graphics: scene.add.graphics(), phase: 0, lastX: x };
+          ghostSkirts.set(eid, skirt);
+        }
+        skirt.phase = advanceGhostSkirtPhase(skirt.phase, x - skirt.lastX, size);
+        skirt.lastX = x;
+        skirt.graphics.setAlpha(bodyAlpha);
+        fillGhostSkirt(
+          skirt.graphics,
+          x,
+          y,
+          size,
+          skirt.phase,
+          multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+        );
         if (
           bodyAlpha > 0 &&
           ghostPupilsVisible({
@@ -787,6 +892,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
     for (const [key, go] of drawableObjects) {
       if (!alive.has(key)) {
+        if (!key.includes(":")) {
+          destroySkirt(Number(key));
+        }
         go.destroy();
         drawableObjects.delete(key);
         if (!key.includes(":")) {

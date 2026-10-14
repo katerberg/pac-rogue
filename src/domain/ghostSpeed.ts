@@ -1,15 +1,20 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import { ghostBaseSpeedRatio } from "./levelRules";
 import { getActiveLayout, scaleToActiveLayout } from "./maze";
-import { PLAYER_SPEED, playerSpeed } from "./playfield";
+import { playerSpeed } from "./playfield";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
-export const GHOST_SPEED = PLAYER_SPEED * 0.9375;
-export const GHOST_ELROY1_SPEED = PLAYER_SPEED * DEFAULT_TUNING.elroy1Ratio;
-export const GHOST_ELROY2_SPEED = PLAYER_SPEED * DEFAULT_TUNING.elroy2Ratio;
+function ghostSpeedFromRatio(ratio: number, tuning: Tuning = DEFAULT_TUNING): number {
+  return playerSpeed(tuning) * ratio;
+}
+
 export const GHOST_TUNNEL_SPEED_RATIO = DEFAULT_TUNING.ghostTunnelRatio;
-export const GHOST_TUNNEL_SPEED = PLAYER_SPEED * GHOST_TUNNEL_SPEED_RATIO;
-export const GHOST_HOUSE_EXIT_SPEED = PLAYER_SPEED * DEFAULT_TUNING.ghostHouseExitRatio;
+export const GHOST_SPEED = ghostSpeedFromRatio(0.9375);
+export const GHOST_ELROY1_SPEED = ghostSpeedFromRatio(DEFAULT_TUNING.elroy1Ratio);
+export const GHOST_ELROY2_SPEED = ghostSpeedFromRatio(DEFAULT_TUNING.elroy2Ratio);
+export const GHOST_TUNNEL_SPEED = ghostSpeedFromRatio(GHOST_TUNNEL_SPEED_RATIO);
+export const GHOST_HOUSE_EXIT_SPEED = ghostSpeedFromRatio(DEFAULT_TUNING.ghostHouseExitRatio);
+export const BOSS_GHOST_SPEED = ghostSpeedFromRatio(DEFAULT_TUNING.bossGhostRatio);
 
 export const ELROY_TIER = {
   none: 0,
@@ -41,39 +46,34 @@ export function elroyTier(pelletsRemaining: number, tuning: Tuning = DEFAULT_TUN
   return ELROY_TIER.none;
 }
 
-export function ghostTunnelSpeed(tuning: Tuning = DEFAULT_TUNING): number {
-  return playerSpeed(tuning) * tuning.ghostTunnelRatio;
+function baseOrElroyRatio(pelletsRemaining: number, levelIndex: number, tuning: Tuning): number {
+  const tier = elroyTier(pelletsRemaining, tuning);
+  if (tier === ELROY_TIER.elroy2) {
+    return tuning.elroy2Ratio;
+  }
+  if (tier === ELROY_TIER.elroy1) {
+    return tuning.elroy1Ratio;
+  }
+  return ghostBaseSpeedRatio(levelIndex, tuning);
 }
 
 export function resolveGhostSpeed(
   pelletsRemaining: number,
   inTunnel: boolean,
   levelIndex: number,
-  tunnelSpeed: number = GHOST_TUNNEL_SPEED,
+  tunnelRatio: number = GHOST_TUNNEL_SPEED_RATIO,
   tuning: Tuning = DEFAULT_TUNING,
 ): number {
-  if (inTunnel) {
-    return tunnelSpeed;
-  }
-  const player = playerSpeed(tuning);
-  const tier = elroyTier(pelletsRemaining, tuning);
-  if (tier === ELROY_TIER.elroy2) {
-    return player * tuning.elroy2Ratio;
-  }
-  if (tier === ELROY_TIER.elroy1) {
-    return player * tuning.elroy1Ratio;
-  }
-  return player * ghostBaseSpeedRatio(levelIndex, tuning);
+  const ratio = inTunnel ? tunnelRatio : baseOrElroyRatio(pelletsRemaining, levelIndex, tuning);
+  return ghostSpeedFromRatio(ratio, tuning);
 }
-
-export const BOSS_GHOST_SPEED = PLAYER_SPEED * DEFAULT_TUNING.bossGhostRatio;
 
 export function resolveBossGhostSpeed(
   inTunnel: boolean,
-  tunnelSpeed: number = GHOST_TUNNEL_SPEED,
+  tunnelRatio: number = GHOST_TUNNEL_SPEED_RATIO,
   tuning: Tuning = DEFAULT_TUNING,
 ): number {
-  return inTunnel ? tunnelSpeed : playerSpeed(tuning) * tuning.bossGhostRatio;
+  return ghostSpeedFromRatio(inTunnel ? tunnelRatio : tuning.bossGhostRatio, tuning);
 }
 
 export function resolveGhostSpeedForKind(
@@ -82,16 +82,17 @@ export function resolveGhostSpeedForKind(
   inTunnel: boolean,
   levelIndex: number,
   leavingHouse = false,
-  tunnelSpeed: number = GHOST_TUNNEL_SPEED,
+  tunnelRatio: number = GHOST_TUNNEL_SPEED_RATIO,
   tuning: Tuning = DEFAULT_TUNING,
 ): number {
   if (kind === GHOST_KIND.blinky) {
-    return resolveGhostSpeed(pelletsRemaining, inTunnel, levelIndex, tunnelSpeed, tuning);
+    return resolveGhostSpeed(pelletsRemaining, inTunnel, levelIndex, tunnelRatio, tuning);
   }
   if (inTunnel) {
-    return tunnelSpeed;
+    return ghostSpeedFromRatio(tunnelRatio, tuning);
   }
-  return leavingHouse
-    ? playerSpeed(tuning) * tuning.ghostHouseExitRatio
-    : resolveGhostSpeed(Number.POSITIVE_INFINITY, false, levelIndex, tunnelSpeed, tuning);
+  return ghostSpeedFromRatio(
+    leavingHouse ? tuning.ghostHouseExitRatio : ghostBaseSpeedRatio(levelIndex, tuning),
+    tuning,
+  );
 }

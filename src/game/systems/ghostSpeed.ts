@@ -1,12 +1,7 @@
 import { hasComponent, query, type World } from "bitecs";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
-import {
-  ghostTunnelSpeed,
-  resolveBossGhostSpeed,
-  resolveGhostSpeedForKind,
-} from "../../domain/ghostSpeed";
+import { resolveBossGhostSpeed, resolveGhostSpeedForKind } from "../../domain/ghostSpeed";
 import { HUNTER_FRIGHTENED_SPEED_MUL } from "../../domain/hunter";
-import { playerSpeed } from "../../domain/playfield";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { isGhostTunnelSlow, worldToCol, worldToRow } from "../../domain/maze";
@@ -35,10 +30,7 @@ export function applyGhostSpeed(
   const ghostSpeedMul = options.ghostSpeedMul ?? 1;
   const frozenEid = options.frozenGhostEid ?? null;
   const tuning = options.tuning ?? DEFAULT_TUNING;
-  const tunnelSpeed =
-    options.tunnelSpeedRatio == null
-      ? ghostTunnelSpeed(tuning)
-      : playerSpeed(tuning) * options.tunnelSpeedRatio;
+  const tunnelRatio = options.tunnelSpeedRatio ?? tuning.ghostTunnelRatio;
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Speed])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
@@ -56,14 +48,14 @@ export function applyGhostSpeed(
     const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
     const inTunnel = isGhostTunnelSlow(col, row);
     const base = hasComponent(world, eid, BossGhost)
-      ? resolveBossGhostSpeed(inTunnel, tunnelSpeed, tuning)
+      ? resolveBossGhostSpeed(inTunnel, tunnelRatio, tuning)
       : resolveGhostSpeedForKind(
           kind,
           pelletsRemaining,
           inTunnel,
           levelIndex,
           phase === GHOST_PHASE.leaving,
-          tunnelSpeed,
+          tunnelRatio,
           tuning,
         );
     const frightenedMul =

@@ -17,7 +17,13 @@ import {
   type PixelPoint,
   type PixelRect,
 } from "../../domain/learnOverlay";
-import { cellCenterX, cellCenterY, getActiveLayout, TILE_SIZE } from "../../domain/maze";
+import {
+  actorDisplaySize,
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+  TILE_SIZE,
+} from "../../domain/maze";
 import { GHOST_DRAWABLE_BY_KIND, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
   emptySeenRecord,
@@ -81,7 +87,6 @@ const GHOST_NAME_Y = SLOT_Y - SLOT_SIZE / 2 - 8;
 const SLOT_STROKE = 4;
 const SLOT_STROKE_COLOR = 0x444444;
 const RARE_LABEL_COLOR = 0xffd700;
-const SLOT_ICON_SIZE = 32;
 const BACK_Y = 550;
 const OVERLAY_DEPTH = 5;
 const PATH_ALPHA = 0.6;
@@ -256,7 +261,7 @@ export class LearnScene extends Phaser.Scene {
     SLOT_KINDS.forEach((kind, index) => {
       const x = firstX + index * (SLOT_SIZE + SLOT_GAP);
       const frame = this.add.graphics();
-      addGhostIcon(this, GHOST_DRAWABLE_BY_KIND[kind], x, SLOT_Y, SLOT_ICON_SIZE);
+      addGhostIcon(this, GHOST_DRAWABLE_BY_KIND[kind], x, SLOT_Y, actorDisplaySize());
       const zone = this.add.zone(x, SLOT_Y, SLOT_SIZE, SLOT_SIZE);
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerdown", () => this.selectGhost(kind));

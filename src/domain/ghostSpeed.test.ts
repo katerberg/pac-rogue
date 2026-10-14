@@ -16,9 +16,7 @@ describe("ghostSpeed", () => {
     expect(resolveGhostSpeed(10, false, 1)).toBeCloseTo(GHOST_ELROY2_SPEED);
     for (const level of [1, 2, 3, 4, 5, 8]) {
       expect(resolveGhostSpeed(10, true, level)).toBeCloseTo(PLAYER_SPEED * 0.6);
-      expect(resolveGhostSpeed(10, true, level, PLAYER_SPEED * 0.3)).toBeCloseTo(
-        PLAYER_SPEED * 0.3,
-      );
+      expect(resolveGhostSpeed(10, true, level, 0.3)).toBeCloseTo(PLAYER_SPEED * 0.3);
     }
     expect(GHOST_ELROY1_SPEED).toBeCloseTo(PLAYER_SPEED);
   });
