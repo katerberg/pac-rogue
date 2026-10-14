@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { menuOptionLeftX, menuOptionText } from "../../domain/menuOptionLayout";
 import { makeTextureCrisp } from "../renderScale";
 import { font8x8Glyph } from "./font8x8Basic";
 
@@ -73,6 +74,21 @@ export function placePixelText(
     Math.round(x - bounds.local.width * originX),
     Math.round(y - bounds.local.height * originY),
   );
+}
+
+export function placeSelectableMenuOption(
+  text: Phaser.GameObjects.BitmapText,
+  label: string,
+  selected: boolean,
+  centerX: number,
+  centerY: number,
+): void {
+  text.setTint(selected ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+  text.setText(label);
+  const labelWidth = text.getTextBounds(true).local.width;
+  text.setText(menuOptionText(label, selected));
+  const fullWidth = text.getTextBounds(true).local.width;
+  placePixelText(text, menuOptionLeftX(centerX, fullWidth, labelWidth), centerY, 0, 0.5);
 }
 
 function buildPixelFontAtlas(scene: Phaser.Scene): void {

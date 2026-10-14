@@ -33,7 +33,6 @@ export function emptyPlayerPelletFrame(): PlayerPelletFrame {
     powerRemoved: 0,
     removedEids: [],
     removedPowerPositions: [],
-    removedSnaps: [],
     removedCells: [],
   };
 }
@@ -46,7 +45,6 @@ export function mergePlayerPelletFrames(
     powerRemoved: a.powerRemoved + b.powerRemoved,
     removedEids: [...a.removedEids, ...b.removedEids],
     removedPowerPositions: [...a.removedPowerPositions, ...b.removedPowerPositions],
-    removedSnaps: [...a.removedSnaps, ...b.removedSnaps],
     removedCells: [...a.removedCells, ...b.removedCells],
   };
 }

@@ -32,7 +32,6 @@ export type SimRenderOptions = {
   hauntedGhost?: HauntedGhost | null;
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
-  lineArtDrawableIds?: string[];
   timedTunnel?: TimedTunnelRenderState | null;
 };
 
@@ -50,7 +49,6 @@ export type SimEvent =
   | { type: "loopStop"; id: SfxId }
   | { type: "musicAfterFanfare"; id: SfxId }
   | { type: "releaseDrawable"; eid: number }
-  | { type: "pelletAbsorb"; x: number; y: number; color: number; radius: number }
   | { type: "resetBoard" }
   | { type: "draw"; options: SimRenderOptions }
   | { type: "bouncePowerPellet"; eid: number }

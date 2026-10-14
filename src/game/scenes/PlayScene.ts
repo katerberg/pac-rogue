@@ -3,19 +3,14 @@ import { parseQueryParams } from "../../domain/queryParams";
 import {
   barRects,
   BONUS_ART_SCALE,
-  BONUS_BAR_ART_H,
   BONUS_BAR_ART_W,
-  BONUS_COLORS,
-  bonusBarGlowFilter,
   bonusBumpFx,
   bumpBarFx,
   createBarFx,
   fillBarFx,
-  neonBarTube,
   slowFillBarFx,
   stepBarFx,
   type BarFxState,
-  type NeonBarTube,
 } from "../../domain/bonusBarFx";
 import { playTurnSparks } from "./turnSparks";
 import { bossTimerLabel } from "../../domain/bossRules";
@@ -29,9 +24,7 @@ import {
   playerDisplaySize,
 } from "../../domain/maze";
 import type { IntermissionFrame } from "../../domain/intermission";
-import { DEFAULT_GHOST_STYLE, ghostLineArtLook, type GhostStyle } from "../../domain/ghostArt";
 import { wallStyleFor } from "../../domain/wallStyle";
-import { pelletStyleFor } from "../../domain/pelletStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
 import { parsePlayOptions } from "../../domain/playOptions";
@@ -60,7 +53,6 @@ import { PlaySim } from "../sim/playSim";
 import type { MoneyTalksSpend, SimEvent } from "../sim/simEvents";
 import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/debugTuningStorage";
 import { loadLastRoster, saveLastRoster } from "../storage/lastRosterStorage";
-import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { saveRun } from "../storage/runHistoryStorage";
 import { drainRunUploads } from "../net/apiClient";
 import { newRunLogMeta, saveRunLog } from "../storage/runLogStorage";
@@ -72,38 +64,31 @@ import {
   addQuarterIcon,
   createRender,
   preloadPlayArt,
-  setActiveQuarterLook,
   type PlayRender,
 } from "../systems/render";
 import {
+  addPixelText,
   HUD_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
+  placePixelText,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addGameText, placeGameText, setActiveFontLook, type GameText } from "./neonFont";
-import { fontLineArtLook } from "../../domain/neonFont/fontLook";
-import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/neonFont/layout";
-import { quarterLineArtLook, textStyleFor } from "../../domain/ghostArt";
+import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/textLayout";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createIntermissionActors, type IntermissionActors } from "./intermissionActors";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
-import { pelletAbsorbLookTuning } from "../../domain/pelletAbsorb";
-import { killPelletAbsorbs, playPelletAbsorb } from "./pelletAbsorb";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import {
   createUpgradeChoiceModal,
   SCHOOL_COLORS,
   type UpgradeChoiceModal,
 } from "./upgradeChoiceModal";
-import { applyRenderScale, renderScaleOf } from "../renderScale";
-import { paintNeonBarTube } from "./neonBarTubePaint";
+import { applyRenderScale } from "../renderScale";
 
-const BONUS_GLOW_QUALITY = 24;
-const BONUS_GLOW_PAD_WORLD = 12;
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
 const BOSS_BANNER_SLAM_MS = 220;
@@ -141,16 +126,13 @@ export class PlayScene extends Phaser.Scene {
   private sideHud!: Phaser.GameObjects.Container;
   private knobsPanel: KnobsPanel | null = null;
   private chromeShake: Phaser.Time.TimerEvent | null = null;
-  private bonusGlowGfx!: Phaser.GameObjects.Graphics;
   private bonusGfx!: Phaser.GameObjects.Graphics;
-  private bonusGlowKey = "";
-  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
   private barFx!: BarFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
-  private timerText!: GameText;
-  private upgradeLines: GameText[] = [];
-  private levelBannerText: GameText | null = null;
+  private timerText!: Phaser.GameObjects.BitmapText;
+  private upgradeLines: Phaser.GameObjects.BitmapText[] = [];
+  private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private shieldIcons: Phaser.GameObjects.Rectangle[] = [];
   private shieldCrackHalves: Phaser.GameObjects.Rectangle[] = [];
@@ -196,9 +178,6 @@ export class PlayScene extends Phaser.Scene {
       data.seed ?? options.seed ?? mintFreshSeed(options.roster === null ? loadLastRoster() : null);
     this.sim = new PlaySim(options, seed, tuning, runLogMeta);
     saveLastRoster(this.sim.currentRoster());
-    this.ghostStyle = loadGhostStyle();
-    this.sim.setGhostStyle(this.ghostStyle);
-    this.bonusGlowKey = "";
     this.pausedAtMs = null;
     this.hiddenAtMs = null;
 
@@ -214,15 +193,13 @@ export class PlayScene extends Phaser.Scene {
     this.sideHud = this.add.container(0, 0).setVisible(!options.knobs);
     this.chrome.add(this.sideHud);
     this.chromeShake = null;
-    this.timerText = addGameText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
-    placeGameText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+    this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
+    placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
     this.upgradeLines = [];
 
-    const bonusLabel = addGameText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
-    placeGameText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
-    // Glow lives outside chrome (filters + Container break focus); position tracks chrome shake.
-    this.bonusGlowGfx = this.add.graphics().setDepth(9);
+    const bonusLabel = addPixelText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
+    placePixelText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
     this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
     this.barFx = createBarFx(this.sim.hud().bonusCharge);
     this.sideHud.add(this.timerText);
@@ -257,8 +234,6 @@ export class PlayScene extends Phaser.Scene {
     this.playRender = createRender(this);
     if (options.knobs) {
       this.openKnobsPanel(tuning);
-    } else {
-      setActiveQuarterLook(null);
     }
 
     this.applyEvents(this.sim.start(), 0);
@@ -306,21 +281,7 @@ export class PlayScene extends Phaser.Scene {
   private applyKnobTuning(tuning: Tuning): void {
     this.sim.setTuning(tuning);
     this.playRender.setWallStyle(wallStyleFor(tuning, 0));
-    this.playRender.setPelletStyle(pelletStyleFor(tuning, 0));
-    this.playRender.setGhostLook(ghostLineArtLook(tuning));
-    this.playRender.setDotManLook({
-      chompSpeed: tuning.dotManChompSpeed,
-      mouthOpenDeg: tuning.dotManMouthOpenDeg,
-      mouthClosedDeg: tuning.dotManMouthClosedDeg,
-    });
-    setActiveFontLook(fontLineArtLook(tuning));
-    setActiveQuarterLook(quarterLineArtLook(tuning));
-    this.refreshQuartersHud(false);
-    for (const coin of this.walletCoins) {
-      coin.destroy();
-    }
-    this.walletCoins = [];
-    this.rebuildStoreOverlayIfOpen();
+    this.playRender.setDotManLook({ chompSpeed: tuning.dotManChompSpeed });
   }
 
   private rebuildStoreOverlayIfOpen(): void {
@@ -408,7 +369,6 @@ export class PlayScene extends Phaser.Scene {
   public debugSnapshot() {
     return {
       ...this.sim.snapshot(),
-      textStyle: textStyleFor(loadGhostStyle()),
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
@@ -427,15 +387,10 @@ export class PlayScene extends Phaser.Scene {
       this.pausedAtMs = null;
     }
     this.sim.suppressInputUntilRelease();
-    // Settings may have been opened from the pause menu.
-    this.ghostStyle = loadGhostStyle();
-    this.sim.setGhostStyle(this.ghostStyle);
-    this.bonusGlowKey = "";
-    setActiveQuarterLook(this.knobsPanel === null ? null : quarterLineArtLook(this.sim.tuning));
     const timerVisible = this.timerText.visible;
     this.timerText.destroy();
-    this.timerText = addGameText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
-    placeGameText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+    this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
+    placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
     this.timerText.setVisible(timerVisible);
     this.sideHud.add(this.timerText);
     if (this.upgradeChoiceModal.isActive()) {
@@ -499,19 +454,7 @@ export class PlayScene extends Phaser.Scene {
       case "releaseDrawable":
         this.playRender.releaseDrawable(event.eid);
         break;
-      case "pelletAbsorb":
-        playPelletAbsorb(
-          this,
-          event,
-          () => this.sim.playerWorldPosition(),
-          () => ({
-            ms: this.sim.tuning.pelletAbsorbMs,
-            look: pelletAbsorbLookTuning(this.sim.tuning),
-          }),
-        );
-        break;
       case "resetBoard":
-        killPelletAbsorbs(this);
         this.playRender.resetForNewBoard();
         break;
       case "draw":
@@ -562,7 +505,7 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "timer":
         this.timerText.setText(this.timerLabel());
-        placeGameText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
+        placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
         this.syncTimerGlitchBlink();
         break;
       case "timerVisible":
@@ -664,7 +607,7 @@ export class PlayScene extends Phaser.Scene {
       this.intermission?.destroy();
       this.intermission = null;
     } else {
-      this.intermission ??= createIntermissionActors(this, this.ghostStyle);
+      this.intermission ??= createIntermissionActors(this);
       this.intermission.place(frame);
     }
     this.upgradeLines.forEach((line) => line.setVisible(frame === null));
@@ -687,7 +630,7 @@ export class PlayScene extends Phaser.Scene {
 
   private showLevelBanner(text: string): void {
     this.clearLevelBanner();
-    const banner = addGameText(
+    const banner = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2,
@@ -695,7 +638,7 @@ export class PlayScene extends Phaser.Scene {
       MENU_TITLE_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(800);
-    placeGameText(banner, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
+    placePixelText(banner, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, 0.5, 0.5);
     this.levelBannerText = banner;
     this.tweens.add({
       targets: banner,
@@ -713,8 +656,8 @@ export class PlayScene extends Phaser.Scene {
     this.clearLevelBanner();
     const x = PLAYFIELD_WIDTH / 2;
     const y = PLAYFIELD_HEIGHT / 2;
-    const banner = addGameText(this, 0, 0, "BOSS", MENU_TITLE_FONT_SIZE * 2, BOSS_BANNER_COLOR);
-    placeGameText(banner, 0, 0, 0.5, 0.5);
+    const banner = addPixelText(this, 0, 0, "BOSS", MENU_TITLE_FONT_SIZE * 2, BOSS_BANNER_COLOR);
+    placePixelText(banner, 0, 0, 0.5, 0.5);
     const wrap = this.add.container(x, y, [banner]).setDepth(800).setScale(BOSS_BANNER_START_SCALE);
     this.levelBannerText = banner;
     this.tweens.add({
@@ -784,7 +727,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private showCenteredEndText(title: string): void {
-    const titleText = addGameText(
+    const titleText = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2 - 20,
@@ -792,16 +735,16 @@ export class PlayScene extends Phaser.Scene {
       MENU_TITLE_FONT_SIZE,
       TEXT_COLOR_YELLOW,
     ).setDepth(1001);
-    placeGameText(titleText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 - 20, 0.5, 0.5);
+    placePixelText(titleText, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 - 20, 0.5, 0.5);
 
-    const collected = addGameText(
+    const collected = addPixelText(
       this,
       PLAYFIELD_WIDTH / 2,
       PLAYFIELD_HEIGHT / 2 + 24,
       `Collected: ${this.sim.hud().collected}`,
       HUD_FONT_SIZE,
     ).setDepth(1001);
-    placeGameText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
+    placePixelText(collected, PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2 + 24, 0.5, 0.5);
     addSeedLabel(this, this.sim.random.seed).setDepth(1001);
   }
 
@@ -814,7 +757,7 @@ export class PlayScene extends Phaser.Scene {
     const y = this.hudIconY();
     for (let i = 0; i < livesHudIconCount(this.sim.hud().lives); i += 1) {
       const x = HUD_ICON_LEFT_X + size / 2 + i * (size + HUD_ICON_GAP);
-      const icon = addDotManIcon(this, x, y, size, loadGhostStyle());
+      const icon = addDotManIcon(this, x, y, size);
       this.sideHud.add(icon);
       this.lifeIcons.push(icon);
     }
@@ -895,8 +838,8 @@ export class PlayScene extends Phaser.Scene {
     const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
     for (let i = 0; i < this.sim.hud().quarters; i += 1) {
       const { x, y } = quarterHudIconPosition(i, size, left);
-      // Stay on chrome (not sideHud) so ?knobs=1 can dial Quarter look live.
-      const icon = addQuarterIcon(this, x, y, size, this.ghostStyle);
+      // Stay on chrome (not sideHud) so they remain visible with ?knobs=1.
+      const icon = addQuarterIcon(this, x, y, size);
       this.chrome.add(icon);
       this.quarterIcons.push(icon);
     }
@@ -910,9 +853,7 @@ export class PlayScene extends Phaser.Scene {
     const count = spend?.count ?? 0;
     while (this.walletCoins.length < count) {
       this.walletCoins.push(
-        addQuarterIcon(this, 0, 0, pelletDisplaySize(), this.ghostStyle).setDepth(
-          WALLET_COIN_DEPTH,
-        ),
+        addQuarterIcon(this, 0, 0, pelletDisplaySize()).setDepth(WALLET_COIN_DEPTH),
       );
     }
     const size = pelletDisplaySize();
@@ -965,75 +906,15 @@ export class PlayScene extends Phaser.Scene {
 
   private drawBonusBar(): void {
     this.bonusGfx.clear();
-    if (this.ghostStyle === "pixel") {
-      this.bonusGlowGfx.clear();
-      this.bonusGlowGfx.setVisible(false);
-      this.bonusGlowGfx.filters?.internal.clear();
-      this.bonusGlowKey = "";
-      for (const rect of barRects(this.barFx, "pixel")) {
-        this.bonusGfx.fillStyle(rect.color, 1);
-        this.bonusGfx.fillRect(
-          rect.x * BONUS_ART_SCALE,
-          rect.y * BONUS_ART_SCALE,
-          rect.w * BONUS_ART_SCALE,
-          rect.h * BONUS_ART_SCALE,
-        );
-      }
-      return;
+    for (const rect of barRects(this.barFx)) {
+      this.bonusGfx.fillStyle(rect.color, 1);
+      this.bonusGfx.fillRect(
+        rect.x * BONUS_ART_SCALE,
+        rect.y * BONUS_ART_SCALE,
+        rect.w * BONUS_ART_SCALE,
+        rect.h * BONUS_ART_SCALE,
+      );
     }
-    const tube = neonBarTube(this.barFx);
-    paintNeonBarTube(this.bonusGfx, tube, { scale: BONUS_ART_SCALE });
-    this.syncBonusBarGlow(tube);
-  }
-
-  private syncBonusBarGlow(tube: NeonBarTube): void {
-    const glow = bonusBarGlowFilter(this.ghostStyle);
-    const px = renderScaleOf(this);
-    this.bonusGlowGfx.setPosition(this.chrome.x + BONUS_BAR_X, this.chrome.y + BONUS_BAR_Y);
-    if (glow === null) {
-      this.bonusGlowGfx.clear();
-      this.bonusGlowGfx.setVisible(false);
-      this.bonusGlowGfx.filters?.internal.clear();
-      this.bonusGlowKey = `off:${px}`;
-      return;
-    }
-    this.bonusGlowGfx.setVisible(true);
-    const key = `on:${px}:${glow.outerStrength}:${glow.distance}`;
-    if (this.bonusGlowKey !== key) {
-      this.bonusGlowKey = key;
-      try {
-        const reach = Math.ceil(glow.distance * px);
-        const pad = BONUS_GLOW_PAD_WORLD;
-        const filterW = Math.ceil((BONUS_BAR_ART_W * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
-        const filterH = Math.ceil((BONUS_BAR_ART_H * BONUS_ART_SCALE + 2 * pad) * px) + 2 * reach;
-        this.bonusGlowGfx.enableFilters();
-        this.bonusGlowGfx.filtersAutoFocus = false;
-        this.bonusGlowGfx.filtersFocusContext = false;
-        this.bonusGlowGfx.setFilterSize(filterW, filterH);
-        this.bonusGlowGfx.filterCamera.setZoom(px);
-        this.bonusGlowGfx.filterCamera.centerOn(
-          (BONUS_BAR_ART_W * BONUS_ART_SCALE) / 2,
-          (BONUS_BAR_ART_H * BONUS_ART_SCALE) / 2,
-        );
-        this.bonusGlowGfx.filters!.internal.clear();
-        this.bonusGlowGfx.filters!.internal.addGlow(
-          BONUS_COLORS.fill,
-          glow.outerStrength,
-          0,
-          1,
-          true,
-          BONUS_GLOW_QUALITY,
-          reach,
-        );
-      } catch {
-        this.bonusGlowKey = "";
-        this.bonusGlowGfx.clear();
-        this.bonusGlowGfx.setVisible(false);
-        return;
-      }
-    }
-    this.bonusGlowGfx.clear();
-    paintNeonBarTube(this.bonusGlowGfx, tube, { scale: BONUS_ART_SCALE, forGlow: true });
   }
 
   private refreshUpgradesHud(): void {
@@ -1041,7 +922,7 @@ export class PlayScene extends Phaser.Scene {
     const labels = upgradeLabels(owned);
     this.upgradeLines.forEach((line) => line.destroy());
     this.upgradeLines = labels.map((label, i) => {
-      const line = addGameText(
+      const line = addPixelText(
         this,
         12,
         0,
@@ -1058,10 +939,9 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     const lineHeight = first.getTextBounds(true).local.height;
-    const textStyle = textStyleFor(loadGhostStyle());
-    const pitch = upgradeStackRowPitch(lineHeight, textStyle);
-    const top = PLAYFIELD_HEIGHT / 2 - upgradeStackHeight(labels.length, lineHeight, textStyle) / 2;
-    this.upgradeLines.forEach((line, i) => placeGameText(line, 12, top + pitch * i));
+    const pitch = upgradeStackRowPitch(lineHeight);
+    const top = PLAYFIELD_HEIGHT / 2 - upgradeStackHeight(labels.length, lineHeight) / 2;
+    this.upgradeLines.forEach((line, i) => placePixelText(line, 12, top + pitch * i));
   }
 
   private timerLabel(): string {

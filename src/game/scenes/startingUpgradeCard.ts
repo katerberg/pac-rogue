@@ -1,19 +1,17 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
-import { textStyleFor } from "../../domain/ghostArt";
-import { wrapCharBudget } from "../../domain/neonFont/textStack";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import { wrapText } from "../../domain/wrapText";
-import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import {
+  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
+  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addGameText, placeGameText } from "./neonFont";
 import {
   BUTTON_HEIGHT,
   BUTTON_WIDTH,
@@ -65,7 +63,6 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
       clearViews();
       elapsedMs = 0;
       const def = getUpgradeDef(id);
-      const textStyle = textStyleFor(loadGhostStyle());
       dim = scene.add
         .rectangle(
           PLAYFIELD_WIDTH / 2,
@@ -79,7 +76,7 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
       const bg = scene.add
         .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
         .setStrokeStyle(4, TEXT_COLOR_YELLOW);
-      const header = addGameText(
+      const header = addPixelText(
         scene,
         0,
         0,
@@ -87,30 +84,25 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         MENU_OPTION_FONT_SIZE,
         TEXT_COLOR_WHITE,
       );
-      const label = addGameText(
+      const label = addPixelText(
         scene,
         0,
         0,
-        wrapText(def.label, wrapCharBudget(LABEL_MAX_CHARS, textStyle)),
-        fitFontSize(
-          def.label,
-          BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN,
-          MENU_TITLE_FONT_SIZE,
-          textStyle,
-        ),
+        wrapText(def.label, LABEL_MAX_CHARS),
+        fitFontSize(def.label, BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN, MENU_TITLE_FONT_SIZE),
         TEXT_COLOR_YELLOW,
       );
-      const description = addGameText(
+      const description = addPixelText(
         scene,
         0,
         0,
-        wrapText(def.description, wrapCharBudget(DESCRIPTION_MAX_CHARS, textStyle)),
+        wrapText(def.description, DESCRIPTION_MAX_CHARS),
         UPGRADES_HUD_FONT_SIZE,
         TEXT_COLOR_WHITE,
       );
-      placeGameText(header, 0, -84, 0.5, 0.5);
+      placePixelText(header, 0, -84, 0.5, 0.5);
       const school = addSchoolTag(scene, def.school);
-      layoutCardText(label, school, description, STARTING_CARD_BODY_CENTER_Y, textStyle);
+      layoutCardText(label, school, description, STARTING_CARD_BODY_CENTER_Y);
       card = scene.add
         .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
           bg,

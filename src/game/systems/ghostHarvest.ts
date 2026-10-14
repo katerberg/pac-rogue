@@ -33,5 +33,5 @@ export function harvestPelletsByGhosts(world: World): PelletCollectFrame {
   for (const eid of toRemove) {
     removeEntity(world, eid);
   }
-  return { powerRemoved: 0, removedEids: toRemove, removedPowerPositions: [], removedSnaps: [] };
+  return { powerRemoved: 0, removedEids: toRemove, removedPowerPositions: [] };
 }

@@ -13,7 +13,7 @@ A persistent HUD meter that pays one **Quarter** each time it fills; the remaind
 
 ## HUD
 
-The bar is drawn top center. Settings STYLE skins it (PIXEL: slotted art bar; NEON / LINED: capsule tube, NEON adds glow). Bumps animate by tier (bounce, then punch, then HUD chrome shake at higher tiers). The chrome is one `Container` (Quarters, `Time:`, upgrades, lives, bar), so shakes never move the maze or camera. State for probes: `play.bonus.{charge,streak,max,draining}`.
+The bar is drawn top center. It is a slotted pixel-art bar. Bumps animate by tier (bounce, then punch, then HUD chrome shake at higher tiers). The chrome is one `Container` (Quarters, `Time:`, upgrades, lives, bar), so shakes never move the maze or camera. State for probes: `play.bonus.{charge,streak,max,draining}`.
 
 ## Time bonus
 

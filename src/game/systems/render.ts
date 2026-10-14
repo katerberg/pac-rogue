@@ -15,46 +15,14 @@ import {
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
-import {
-  sameWallStyle,
-  wallGlowFilter,
-  wallStyleFor,
-  type WallStyle,
-} from "../../domain/wallStyle";
-import {
-  pelletGlowFilter,
-  pelletGlowSourceLook,
-  pelletStyleFor,
-  samePelletStyle,
-  type PelletKindLook,
-  type PelletStyle,
-} from "../../domain/pelletStyle";
-import type { LineArt } from "../../domain/lineArt";
-import { dotManLineArt } from "../art/dotmanLineArt";
+import { sameWallStyle, wallStyleFor, type WallStyle } from "../../domain/wallStyle";
 import {
   advanceDotManChomp,
   DOTMAN_CHOMP_PIXEL_FRAMES,
   DOTMAN_CHOMP_PIXELS_PER_FRAME,
-  DOTMAN_MOUTH_ANGLES_DEFAULT,
-  DOTMAN_MOUTH_ICON_HALF_DEG,
   dotManChompPixelsPerFrame,
-  dotManMouthArt,
-  dotManMouthHalfAngle,
-  resolveDotManMouthAngles,
-  type DotManMouthAngles,
 } from "../../domain/dotManMouth";
-import { restingTurn, turnAngle, turnToward, type DotManTurn } from "../../domain/dotManTurn";
-import { GHOST_LINE_ART } from "../art/ghostLineArt";
-import { QUARTER_LINE_ART } from "../art/quarterLineArt";
-import {
-  createLineArtObject,
-  destroyLineArtObject,
-  placeLineArtObject,
-  restyleLineArtObject,
-  type LineArtObject,
-} from "./lineArtRender";
-import { padTextureWithGutter, renderScaleOf } from "../renderScale";
-import { loadGhostStyle } from "../storage/ghostStyleStorage";
+import { padTextureWithGutter } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -67,13 +35,11 @@ import {
   PELLET_DRAWABLE_ID,
   PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
-  PLAYFIELD_HEIGHT,
-  PLAYFIELD_WIDTH,
   POWER_PELLET_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
-import { brightenColor, playerTint, tintedColor, type PlayerTint } from "../../domain/playerTint";
+import { brightenColor, playerTint, type PlayerTint } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
 import {
@@ -83,17 +49,6 @@ import {
   fruitFlickerAlpha,
   isFruitDrawableId,
 } from "../../domain/fruit";
-import {
-  ghostLineArtLook,
-  lineArtPlayer,
-  lineArtQuarter,
-  playerLineArtLook,
-  quarterLineArtLook,
-  QUARTER_LINE_ART_COLOR,
-  sameGhostLineArtLook,
-  type GhostLineArtLook,
-  type GhostStyle,
-} from "../../domain/ghostArt";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
 import {
@@ -143,22 +98,6 @@ export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [SPUNKY_DRAWABLE_ID]: SPUNKY_TEXTURE_KEY,
   [WARDY_DRAWABLE_ID]: WARDY_TEXTURE_KEY,
 };
-const LINE_ART_BY_DRAWABLE_ID: Record<string, { art: LineArt; color: number }> = {
-  [BLINKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xff5a5a },
-  [PINKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xff9ce6 },
-  [INKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0x5ff2ff },
-  [CLYDE_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xffb852 },
-  [SPUNKY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0x6dff6d },
-  [WARDY_DRAWABLE_ID]: { art: GHOST_LINE_ART, color: 0xb98cff },
-};
-// Icy white: the pixel frozen tint (pale blue) would read as Inky's neon cyan.
-const LINE_ART_FROZEN_COLOR = 0xe6f6ff;
-const LINE_ART_FRIGHTENED_COLOR = 0x6f7bff;
-const DOTMAN_LINE_ART_COLOR = 0xffe600;
-const WALL_GLOW_QUALITY = 10;
-const PELLET_GLOW_QUALITY = 10;
-const PELLET_GLOW_DEPTH = -1;
-const PELLET_CRISP_DEPTH = 0;
 const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
@@ -170,7 +109,6 @@ type PacmanDir = (typeof PACMAN_DIRS)[number];
 
 type PlayerVisual = {
   lastDir: PacmanDir;
-  turn: DotManTurn;
   chompCarry: number;
   cycleIndex: number;
   lastX: number;
@@ -253,62 +191,7 @@ function textureKeyForDrawable(drawableId: string): string {
 }
 
 function storedWallStyle(): WallStyle {
-  return wallStyleFor(
-    null,
-    clampMazeColorIndex(loadMazeColorSettings().colorIndex),
-    loadGhostStyle(),
-  );
-}
-
-function storedPelletStyle(): PelletStyle | null {
-  return pelletStyleFor(
-    null,
-    clampMazeColorIndex(loadMazeColorSettings().colorIndex),
-    loadGhostStyle(),
-  );
-}
-
-function isPelletDrawableId(id: string): boolean {
-  return (
-    id === PELLET_DRAWABLE_ID || id === POWER_PELLET_DRAWABLE_ID || id === BOSS_PELLET_DRAWABLE_ID
-  );
-}
-
-function lookForPellet(style: PelletStyle, id: string, optional: boolean): PelletKindLook {
-  if (id === BOSS_PELLET_DRAWABLE_ID) {
-    return style.boss;
-  }
-  if (id === POWER_PELLET_DRAWABLE_ID) {
-    return style.power;
-  }
-  return optional ? style.optional : style.regular;
-}
-
-function strokePelletRing(
-  graphics: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  look: PelletKindLook,
-  scale: number,
-  alpha: number,
-  forGlow: boolean,
-): void {
-  const sx = x * scale;
-  const sy = y * scale;
-  const radius = look.radius * scale;
-  if (look.fillOpacity > 0) {
-    graphics.fillStyle(
-      forGlow ? look.glowColor : look.fillColor,
-      forGlow ? 1 : look.fillOpacity * alpha,
-    );
-    graphics.fillCircle(sx, sy, radius);
-  }
-  const stroke =
-    look.strokeWidth <= 0 ? 0 : Math.max(forGlow ? 0.5 : 0.1, look.strokeWidth * scale);
-  if (stroke > 0) {
-    graphics.lineStyle(stroke, forGlow ? look.glowColor : look.coreColor, forGlow ? 1 : alpha);
-    graphics.strokeCircle(sx, sy, radius);
-  }
+  return wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
 }
 
 function facingToGhostDir(facing: Direction): GhostDir {
@@ -346,63 +229,12 @@ export function addGhostIcon(
   x: number,
   y: number,
   size: number,
-  style: GhostStyle,
 ): void {
-  const lineArt = LINE_ART_BY_DRAWABLE_ID[drawableId];
-  if (style === "pixel" || lineArt === undefined) {
-    scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
-    if (ghostPupilsVisible({ style, inFrightenedSet: false, drawKind: "primary" })) {
-      const pupils = scene.add.graphics();
-      fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
-    }
-    return;
+  scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+  if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
+    const pupils = scene.add.graphics();
+    fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
   }
-  const icon = createLineArtObject(
-    scene,
-    lineArt.art,
-    lineArt.color,
-    storedWallStyle().background,
-    size,
-    ghostLineArtLook(null, style),
-    true,
-    renderScaleOf(scene),
-  );
-  placeLineArtObject(icon, x, y, 1);
-}
-
-/** Glow filters centre on world coords and break inside containers — bake once. */
-function addBakedLineArtIcon(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  art: LineArt,
-  color: number,
-  look: GhostLineArtLook,
-  textureKey: string,
-): Phaser.GameObjects.Image {
-  const px = renderScaleOf(scene);
-  const reach = look.glow?.distancePx ?? 0;
-  const box = size + 2 * reach;
-  if (!scene.textures.exists(textureKey)) {
-    const texturePx = Math.ceil(box * px);
-    const texture = scene.textures.addDynamicTexture(textureKey, texturePx, texturePx)!;
-    const obj = createLineArtObject(
-      scene,
-      art,
-      color,
-      storedWallStyle().background,
-      size * px,
-      look.glow === null ? look : { ...look, glow: { ...look.glow, distancePx: reach * px } },
-      true,
-      1,
-    );
-    placeLineArtObject(obj, texturePx / 2, texturePx / 2, 1);
-    texture.draw(obj.glow === null ? [obj.art] : [obj.glow, obj.art]);
-    texture.render();
-    destroyLineArtObject(obj);
-  }
-  return scene.add.image(x, y, textureKey).setDisplaySize(box, box);
 }
 
 export function addGhostSprite(
@@ -411,34 +243,15 @@ export function addGhostSprite(
   x: number,
   y: number,
   size: number,
-  style: GhostStyle,
-): Phaser.GameObjects.Image | Phaser.GameObjects.Container {
-  const lineArt = LINE_ART_BY_DRAWABLE_ID[drawableId];
-  if (style === "pixel" || lineArt === undefined) {
-    const image = scene.add
-      .image(0, 0, GHOST_TEXTURE_BY_ID[drawableId]!)
-      .setDisplaySize(size, size);
-    const container = scene.add.container(x, y, [image]);
-    if (ghostPupilsVisible({ style, inFrightenedSet: false, drawKind: "primary" })) {
-      const pupils = scene.add.graphics();
-      fillGhostPupils(pupils, 0, 0, size, ghostPupilLookOffset(GHOST_DIR.none));
-      container.add(pupils);
-    }
-    return container;
+): Phaser.GameObjects.Container {
+  const image = scene.add.image(0, 0, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+  const container = scene.add.container(x, y, [image]);
+  if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
+    const pupils = scene.add.graphics();
+    fillGhostPupils(pupils, 0, 0, size, ghostPupilLookOffset(GHOST_DIR.none));
+    container.add(pupils);
   }
-  const px = renderScaleOf(scene);
-  const backdrop = storedWallStyle().background;
-  const key = `ghost-sprite-${drawableId}-${style}-${size}-${px}-${backdrop}`;
-  return addBakedLineArtIcon(
-    scene,
-    x,
-    y,
-    size,
-    lineArt.art,
-    lineArt.color,
-    ghostLineArtLook(null, style),
-    key,
-  );
+  return container;
 }
 
 export function addDotManIcon(
@@ -446,41 +259,8 @@ export function addDotManIcon(
   x: number,
   y: number,
   size: number,
-  style: GhostStyle,
 ): Phaser.GameObjects.Image {
-  if (!lineArtPlayer(style)) {
-    return scene.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
-  }
-  const px = renderScaleOf(scene);
-  const backdrop = storedWallStyle().background;
-  const look = playerLineArtLook(ghostLineArtLook(null, style));
-  const key = `dotman-icon-${style}-${size}-${px}-${backdrop}-${DOTMAN_MOUTH_ICON_HALF_DEG}`;
-  return addBakedLineArtIcon(
-    scene,
-    x,
-    y,
-    size,
-    dotManMouthArt(DOTMAN_MOUTH_ICON_HALF_DEG),
-    DOTMAN_LINE_ART_COLOR,
-    look,
-    key,
-  );
-}
-
-let activeQuarterLook: GhostLineArtLook | null = null;
-
-/** When knobs are on, PlayScene pushes the live look so baked Quarter icons rebuild. */
-export function setActiveQuarterLook(look: GhostLineArtLook | null): void {
-  activeQuarterLook = look;
-}
-
-function quarterIconLook(style: GhostStyle): GhostLineArtLook {
-  return activeQuarterLook ?? quarterLineArtLook(null, style);
-}
-
-function quarterLookKey(look: GhostLineArtLook): string {
-  const glow = look.glow;
-  return `${look.lineWidth}-${glow?.outerStrength ?? 0}-${glow?.distancePx ?? 0}`;
+  return scene.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
 export function addQuarterIcon(
@@ -488,25 +268,8 @@ export function addQuarterIcon(
   x: number,
   y: number,
   size: number,
-  style: GhostStyle,
 ): Phaser.GameObjects.Image {
-  if (!lineArtQuarter(style)) {
-    return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
-  }
-  const px = renderScaleOf(scene);
-  const backdrop = storedWallStyle().background;
-  const look = quarterIconLook(style);
-  const key = `quarter-icon-${style}-${size}-${px}-${backdrop}-${quarterLookKey(look)}`;
-  return addBakedLineArtIcon(
-    scene,
-    x,
-    y,
-    size,
-    QUARTER_LINE_ART,
-    QUARTER_LINE_ART_COLOR,
-    look,
-    key,
-  );
+  return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
 export function preloadPlayArt(scene: Phaser.Scene): void {
@@ -566,7 +329,6 @@ function ensurePlayerVisual(
   if (!visual) {
     visual = {
       lastDir: "right",
-      turn: restingTurn("right"),
       chompCarry: 0,
       cycleIndex: 0,
       lastX: x,
@@ -598,7 +360,6 @@ export type RenderOptions = {
   hauntedGhost?: HauntedGhost | null;
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
-  lineArtDrawableIds?: string[];
   timedTunnel?: TimedTunnelRenderState | null;
 };
 
@@ -611,13 +372,7 @@ export type PlayRender = {
   resetForNewBoard: () => void;
   bouncePowerPellet: (eid: number) => void;
   setWallStyle: (style: WallStyle | null) => void;
-  setPelletStyle: (style: PelletStyle | null) => void;
-  setGhostLook: (look: GhostLineArtLook) => void;
-  setDotManLook: (look: {
-    chompSpeed: number;
-    mouthOpenDeg: number;
-    mouthClosedDeg: number;
-  }) => void;
+  setDotManLook: (look: { chompSpeed: number }) => void;
 };
 
 const DIM_GHOST_ALPHA = 0.4;
@@ -641,59 +396,9 @@ function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly 
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
-  const lineArtObjects = new Map<string, LineArtObject>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const pupilLooks = new Map<number, PupilLookState>();
-  const bossPelletGlows = new Map<number, Phaser.GameObjects.Graphics>();
-  const neonPowerBounceTarget = new Map<number, { mul: number }>();
-  const killNeonPowerBounce = (eid: number): void => {
-    const target = neonPowerBounceTarget.get(eid);
-    if (target) {
-      scene.tweens.killTweensOf(target);
-      neonPowerBounceTarget.delete(eid);
-    }
-  };
-  let wallGlowScale = renderScaleOf(scene);
-  const wallGlowTexture = scene.add.renderTexture(0, 0, 1, 1).setOrigin(0, 0);
-  const wallGlowSource = scene.make.graphics({}, false).enableFilters();
-  wallGlowSource.filtersAutoFocus = false;
-  wallGlowSource.filtersFocusContext = false;
-  wallGlowSource.filterCamera.setOrigin(0, 0);
-  const sizeWallGlowToCanvas = (): void => {
-    wallGlowScale = renderScaleOf(scene);
-    wallGlowTexture
-      .resize(
-        Math.round(PLAYFIELD_WIDTH * wallGlowScale),
-        Math.round(PLAYFIELD_HEIGHT * wallGlowScale),
-      )
-      .setScale(1 / wallGlowScale);
-    wallGlowSource.setFilterSize(wallGlowTexture.width, wallGlowTexture.height);
-  };
-  sizeWallGlowToCanvas();
-
-  let pelletGlowScale = renderScaleOf(scene);
-  const pelletGlowTexture = scene.add
-    .renderTexture(0, 0, 1, 1)
-    .setOrigin(0, 0)
-    .setDepth(PELLET_GLOW_DEPTH);
-  const pelletGlowSource = scene.make.graphics({}, false).enableFilters();
-  pelletGlowSource.filtersAutoFocus = false;
-  pelletGlowSource.filtersFocusContext = false;
-  pelletGlowSource.filterCamera.setOrigin(0, 0);
-  const sizePelletGlowToCanvas = (): void => {
-    pelletGlowScale = renderScaleOf(scene);
-    pelletGlowTexture
-      .resize(
-        Math.round(PLAYFIELD_WIDTH * pelletGlowScale),
-        Math.round(PLAYFIELD_HEIGHT * pelletGlowScale),
-      )
-      .setScale(1 / pelletGlowScale);
-    pelletGlowSource.setFilterSize(pelletGlowTexture.width, pelletGlowTexture.height);
-  };
-  sizePelletGlowToCanvas();
-
   const wallGraphics = scene.add.graphics();
-  const pelletCrispGraphics = scene.add.graphics().setDepth(PELLET_CRISP_DEPTH);
   const chainGraphics = scene.add.graphics();
   const pupilGraphics = scene.add.graphics();
   pupilGraphics.setDepth(HAUNT_CAGE_DEPTH);
@@ -705,36 +410,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
   let wallStyleOverride: WallStyle | null = null;
-  let drawnPelletStyle: PelletStyle | null = null;
-  let pelletStyleOverride: PelletStyle | null = null;
-  let pelletBakeSignature = "";
-  let ghostLookOverride: GhostLineArtLook | null = null;
-  let ghostLook = ghostLineArtLook(null, loadGhostStyle());
   let chompPixelsPerFrame = DOTMAN_CHOMP_PIXELS_PER_FRAME;
-  let mouthAngles: DotManMouthAngles = DOTMAN_MOUTH_ANGLES_DEFAULT;
   let bossPelletTint = 0xffffff;
-
-  // Glow textures are baked at the canvas density; rebuild them when the canvas resizes.
-  const onCanvasResize = (): void => {
-    sizeWallGlowToCanvas();
-    sizePelletGlowToCanvas();
-    drawnWallStyle = null;
-    drawnPelletStyle = null;
-    pelletBakeSignature = "";
-    for (const key of [...lineArtObjects.keys()]) {
-      destroyLineArt(key);
-    }
-    for (const glow of bossPelletGlows.values()) {
-      glow.destroy();
-    }
-    bossPelletGlows.clear();
-  };
-  scene.scale.on(Phaser.Scale.Events.RESIZE, onCanvasResize);
-  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-    scene.scale.off(Phaser.Scale.Events.RESIZE, onCanvasResize);
-    wallGlowSource.destroy();
-    pelletGlowSource.destroy();
-  });
 
   const destroyImage = (key: string): void => {
     const go = drawableObjects.get(key);
@@ -745,111 +422,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
   };
 
-  const destroyLineArt = (key: string): void => {
-    const obj = lineArtObjects.get(key);
-    if (obj) {
-      destroyLineArtObject(obj);
-      lineArtObjects.delete(key);
-    }
-  };
-
-  const destroyBossPelletGlow = (eid: number): void => {
-    const glow = bossPelletGlows.get(eid);
-    if (glow) {
-      glow.destroy();
-      bossPelletGlows.delete(eid);
-    }
-  };
-
-  const bakePelletGlowLayer = (
-    texture: Phaser.GameObjects.RenderTexture,
-    layers: readonly {
-      pellets: readonly { x: number; y: number; look: PelletKindLook }[];
-      look: PelletKindLook;
-    }[],
-  ): void => {
-    // DynamicTexture.draw queues a GameObject *reference*; render() rasters later.
-    // Flush after each layer so clearing/reusing pelletGlowSource cannot erase
-    // earlier kinds (regular was lost when power overwrote the shared source).
-    texture.clear();
-    texture.render();
-    for (const layer of layers) {
-      const glow = pelletGlowFilter(layer.look);
-      if (glow === null || layer.pellets.length === 0) {
-        continue;
-      }
-      pelletGlowSource.clear();
-      for (const pellet of layer.pellets) {
-        strokePelletRing(
-          pelletGlowSource,
-          pellet.x,
-          pellet.y,
-          pelletGlowSourceLook(pellet.look),
-          pelletGlowScale,
-          1,
-          true,
-        );
-      }
-      pelletGlowSource.filters!.internal.clear();
-      pelletGlowSource.filters!.internal.addGlow(
-        layer.look.glowColor,
-        glow.outerStrength,
-        0,
-        1,
-        true,
-        PELLET_GLOW_QUALITY,
-        glow.distance * pelletGlowScale,
-      );
-      texture.draw(pelletGlowSource);
-      texture.render();
-    }
-  };
-
-  const ensureBossPelletGlow = (
-    eid: number,
-    look: PelletKindLook,
-  ): Phaser.GameObjects.Graphics | null => {
-    const filter = pelletGlowFilter(look);
-    if (filter === null) {
-      destroyBossPelletGlow(eid);
-      return null;
-    }
-    const px = renderScaleOf(scene);
-    const source = pelletGlowSourceLook(look);
-    let glow = bossPelletGlows.get(eid);
-    if (!glow) {
-      glow = scene.add
-        .graphics()
-        .setScale(1 / px)
-        .setDepth(PELLET_GLOW_DEPTH);
-      glow.enableFilters();
-      glow.filtersAutoFocus = false;
-      glow.filtersFocusContext = false;
-      bossPelletGlows.set(eid, glow);
-    }
-    const reach = Math.ceil(filter.distance * px);
-    const box = Math.ceil((source.radius + source.strokeWidth) * 2 * px) + 2 * reach;
-    glow.setFilterSize(box, box);
-    glow.filterCamera.setZoom(px);
-    glow.filters!.internal.clear();
-    glow.filters!.internal.addGlow(
-      look.glowColor,
-      filter.outerStrength,
-      0,
-      1,
-      true,
-      PELLET_GLOW_QUALITY,
-      reach,
-    );
-    return glow;
-  };
-
   const releaseDrawable = (eid: number): void => {
     destroyImage(String(eid));
     destroyImage(`${eid}:twin`);
-    destroyLineArt(String(eid));
-    destroyBossPelletGlow(eid);
-    killNeonPowerBounce(eid);
     playerVisuals.delete(eid);
   };
 
@@ -859,54 +434,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       go.destroy();
     }
     drawableObjects.clear();
-    for (const obj of lineArtObjects.values()) {
-      destroyLineArtObject(obj);
-    }
-    lineArtObjects.clear();
-    for (const glow of bossPelletGlows.values()) {
-      glow.destroy();
-    }
-    bossPelletGlows.clear();
-    for (const target of neonPowerBounceTarget.values()) {
-      scene.tweens.killTweensOf(target);
-    }
-    neonPowerBounceTarget.clear();
     playerVisuals.clear();
     pupilLooks.clear();
     wallGraphics.clear();
     wallGraphics.setAlpha(1);
-    wallGlowTexture.setAlpha(1);
-    pelletCrispGraphics.clear();
-    pelletCrispGraphics.setAlpha(1);
-    pelletGlowTexture.clear();
-    pelletGlowTexture.setAlpha(1);
     pupilGraphics.clear();
     chainGraphics.setAlpha(1);
     drawnWallStyle = null;
     drawnMazeInverted = false;
     drawnWallAlpha = 1;
-    drawnPelletStyle = null;
-    pelletBakeSignature = "";
   };
 
   const bouncePowerPellet = (eid: number): void => {
-    const pelletStyle = pelletStyleOverride ?? storedPelletStyle();
-    if (pelletStyle !== null) {
-      killNeonPowerBounce(eid);
-      const target = { mul: 1 };
-      neonPowerBounceTarget.set(eid, target);
-      scene.tweens.add({
-        targets: target,
-        mul: POWER_PELLET_BOUNCE_MUL,
-        duration: POWER_PELLET_BOUNCE_MS,
-        yoyo: true,
-        ease: "Sine.easeOut",
-        onComplete: () => {
-          neonPowerBounceTarget.delete(eid);
-        },
-      });
-      return;
-    }
     const go = drawableObjects.get(String(eid));
     if (!go) {
       return;
@@ -936,7 +475,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const warpGlide = opts?.playerWarpGlide;
     const speedTrail = opts?.playerSpeedTrail;
     const ghostWarpGlides = opts?.ghostWarpGlides;
-    const lineArtIds = new Set(opts?.lineArtDrawableIds ?? []);
     const frightenedEids = new Set(opts?.frightenedGhosts?.eids ?? []);
     pupilGraphics.clear();
     pupilGraphics.setAlpha(entityAlpha);
@@ -963,23 +501,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
       strokeWallPath(wallGraphics, commands, wallStyle, 1);
-      const glow = wallGlowFilter(wallStyle);
-      wallGlowTexture.clear();
-      if (glow !== null) {
-        strokeWallPath(wallGlowSource, commands, wallStyle, wallGlowScale);
-        wallGlowSource.filters!.internal.clear();
-        wallGlowSource.filters!.internal.addGlow(
-          wallStyle.color,
-          glow.outerStrength,
-          0,
-          1,
-          true,
-          WALL_GLOW_QUALITY,
-          glow.distance * wallGlowScale,
-        );
-        wallGlowTexture.draw(wallGlowSource);
-      }
-      wallGlowTexture.render();
       if (wallStyleOverride !== null) {
         scene.cameras.main.setBackgroundColor(wallStyle.background);
       }
@@ -989,29 +510,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const wallAlpha = opts?.wallAlpha ?? 1;
     if (wallAlpha !== drawnWallAlpha) {
       wallGraphics.setAlpha(wallAlpha);
-      wallGlowTexture.setAlpha(wallAlpha);
       drawnWallAlpha = wallAlpha;
     }
-
-    const nextGhostLook = ghostLookOverride ?? ghostLineArtLook(null, loadGhostStyle());
-    if (!sameGhostLineArtLook(nextGhostLook, ghostLook)) {
-      ghostLook = nextGhostLook;
-      for (const key of [...lineArtObjects.keys()]) {
-        destroyLineArt(key);
-      }
-    }
-
-    const pelletStyle = pelletStyleOverride ?? storedPelletStyle();
-    const neonPellets: {
-      eid: number;
-      id: string;
-      x: number;
-      y: number;
-      look: PelletKindLook;
-      optional: boolean;
-      bounceMul: number;
-    }[] = [];
-    const aliveBossGlow = new Set<number>();
 
     const alive = new Set<string>();
     const drawGlideTrail = (
@@ -1041,44 +541,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         trailGo.setAlpha(trail.alpha * entityAlpha);
         applyTint(trailGo);
       }
-    };
-    const placeLineArt = (
-      key: string,
-      art: LineArt,
-      color: number,
-      size: number,
-      look: GhostLineArtLook,
-      glow: boolean,
-      px: number,
-      py: number,
-      alpha: number,
-      scale = 1,
-      depth = 0,
-    ): void => {
-      alive.add(key);
-      let obj = lineArtObjects.get(key);
-      if (!obj) {
-        obj = createLineArtObject(
-          scene,
-          art,
-          color,
-          wallStyle.background,
-          size,
-          look,
-          glow,
-          renderScaleOf(scene),
-        );
-        obj.art.setDepth(depth);
-        obj.glow?.setDepth(depth);
-        lineArtObjects.set(key, obj);
-      } else if (
-        obj.source !== art ||
-        obj.color !== color ||
-        obj.backdrop !== wallStyle.background
-      ) {
-        restyleLineArtObject(obj, art, color, wallStyle.background);
-      }
-      placeLineArtObject(obj, px, py, alpha, scale);
     };
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
@@ -1121,116 +583,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         ghostTexture !== undefined &&
         (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse &&
         showsFrightenedLook(opts?.frightenedGhosts, eid, scene.time.now);
-
-      if (pelletStyle !== null && isPelletDrawableId(id)) {
-        destroyImage(primaryKey);
-        destroyLineArt(primaryKey);
-        const optional = hasComponent(world, eid, OptionalPellet);
-        neonPellets.push({
-          eid,
-          id,
-          x,
-          y,
-          look: lookForPellet(pelletStyle, id, optional),
-          optional,
-          bounceMul: neonPowerBounceTarget.get(eid)?.mul ?? 1,
-        });
-        continue;
-      }
-
-      const lineArtEntry = lineArtIds.has(id) ? LINE_ART_BY_DRAWABLE_ID[id] : undefined;
-      if (lineArtEntry !== undefined) {
-        destroyImage(primaryKey);
-        const color = frightenedLook
-          ? LINE_ART_FRIGHTENED_COLOR
-          : ghostTint === null
-            ? lineArtEntry.color
-            : LINE_ART_FROZEN_COLOR;
-        const placeGhost = (key: string, glow: boolean, px: number, py: number, alpha: number) =>
-          placeLineArt(key, lineArtEntry.art, color, size, ghostLook, glow, px, py, alpha);
-        placeGhost(primaryKey, true, x, y, ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1));
-        glide?.slice(1).forEach((trail, i) => {
-          placeGhost(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha * entityAlpha);
-        });
-        continue;
-      }
-      if (id === PLAYER_DRAWABLE_ID && lineArtIds.has(id)) {
-        destroyImage(primaryKey);
-        const visual = ensurePlayerVisual(playerVisuals, eid, x, y);
-        const movingDir = facingToDir(Facing.direction[eid] ?? DIRECTION.none);
-        if (movingDir) {
-          visual.lastDir = movingDir;
-          const stepped = advanceDotManChomp(
-            { carry: visual.chompCarry, cycleIndex: visual.cycleIndex },
-            Math.hypot(x - visual.lastX, y - visual.lastY),
-            chompPixelsPerFrame,
-          );
-          visual.chompCarry = stepped.carry;
-          visual.cycleIndex = stepped.cycleIndex;
-        }
-        visual.lastX = x;
-        visual.lastY = y;
-        visual.turn = turnToward(visual.turn, visual.lastDir, scene.time.now);
-        const art = dotManLineArt(
-          turnAngle(visual.turn, scene.time.now),
-          dotManMouthHalfAngle(visual.cycleIndex, movingDir !== null, mouthAngles),
-        );
-        const color = tintedColor(DOTMAN_LINE_ART_COLOR, playerTintNow);
-        const look = playerLineArtLook(ghostLook);
-        const placeDotMan = (
-          key: string,
-          glow: boolean,
-          px: number,
-          py: number,
-          alpha: number,
-          scale = 1,
-          depth = 0,
-        ) => placeLineArt(key, art, color, size, look, glow, px, py, alpha, scale, depth);
-        if (reviveProgress !== undefined) {
-          // The splash starts screen-sized, far past the glow filter's focus box.
-          const revive = reviveSplashLook(reviveProgress, size);
-          destroyLineArt(primaryKey);
-          placeDotMan(`${eid}:lrevive`, false, x, y, revive.alpha, revive.size / size);
-          continue;
-        }
-        placeDotMan(
-          primaryKey,
-          true,
-          x,
-          y,
-          (playerAlpha ?? 1) * turnFlash.alpha * (glideHead?.alpha ?? 1),
-          turnFlash.scale,
-        );
-        if (glide !== undefined) {
-          glide.slice(1).forEach((trail, i) => {
-            placeDotMan(`${eid}:lglide${i}`, false, trail.x, trail.y, trail.alpha);
-          });
-        } else if (speedTrail !== undefined) {
-          speedTrail.forEach((trail, i) => {
-            placeDotMan(
-              `${eid}:lspeed${i}`,
-              false,
-              trail.x,
-              trail.y,
-              trail.alpha,
-              1,
-              SPEED_TRAIL_DEPTH,
-            );
-          });
-        }
-        if (
-          glide === undefined &&
-          playerAlphaOpt === undefined &&
-          hasComponent(world, eid, Player)
-        ) {
-          const twin = wrappedTwinPosition(x, y, radius, twinSolids, blockTunnelRow);
-          if (twin) {
-            placeDotMan(`${eid}:ltwin`, true, twin.x, twin.y, entityAlpha, turnFlash.scale);
-          }
-        }
-        continue;
-      }
-      destroyLineArt(primaryKey);
 
       let go = drawableObjects.get(primaryKey);
       if (!go) {
@@ -1284,7 +636,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         if (
           bodyAlpha > 0 &&
           ghostPupilsVisible({
-            style: "pixel",
             inFrightenedSet: frightenedEids.has(eid),
             drawKind: "primary",
           })
@@ -1392,78 +743,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
     }
 
-    pelletCrispGraphics.clear();
-    if (pelletStyle === null) {
-      pelletGlowTexture.clear();
-      pelletGlowTexture.render();
-      for (const glow of bossPelletGlows.values()) {
-        glow.destroy();
-      }
-      bossPelletGlows.clear();
-      drawnPelletStyle = null;
-      pelletBakeSignature = "";
-    } else {
-      const regularGlowPellets: { x: number; y: number; look: PelletKindLook }[] = [];
-      const powerGlowPellets: { x: number; y: number; look: PelletKindLook }[] = [];
-      const optionalGlowPellets: { x: number; y: number; look: PelletKindLook }[] = [];
-      const signatureParts: string[] = [];
-      for (const pellet of neonPellets) {
-        let radiusMul = pellet.bounceMul;
-        let alpha = 1;
-        if (pellet.id === BOSS_PELLET_DRAWABLE_ID) {
-          const pulse = bossPelletPulse(scene.time.now);
-          radiusMul = pulse.size / (pelletDisplaySize() * BOSS_PELLET_SIZE_MUL);
-          alpha = pulse.alpha;
-        }
-        const scaledLook: PelletKindLook = {
-          ...pellet.look,
-          radius: pellet.look.radius * radiusMul,
-          strokeWidth: pellet.look.strokeWidth * Math.max(1, Math.sqrt(radiusMul)),
-        };
-        strokePelletRing(pelletCrispGraphics, pellet.x, pellet.y, scaledLook, 1, alpha, false);
-        if (pellet.id === BOSS_PELLET_DRAWABLE_ID) {
-          aliveBossGlow.add(pellet.eid);
-          const glow = ensureBossPelletGlow(pellet.eid, scaledLook);
-          if (glow !== null) {
-            const px = renderScaleOf(scene);
-            glow.clear();
-            strokePelletRing(glow, 0, 0, pelletGlowSourceLook(scaledLook), px, 1, true);
-            glow.setPosition(pellet.x, pellet.y);
-            glow.setAlpha(alpha * entityAlpha);
-          }
-        } else if (pellet.optional) {
-          optionalGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
-          signatureParts.push(`o${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
-        } else if (pellet.id === POWER_PELLET_DRAWABLE_ID) {
-          powerGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
-          signatureParts.push(`w${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
-        } else if (pelletGlowFilter(pellet.look) !== null) {
-          regularGlowPellets.push({ x: pellet.x, y: pellet.y, look: pellet.look });
-          signatureParts.push(`p${pellet.eid}:${pellet.x | 0}:${pellet.y | 0}`);
-        }
-      }
-      signatureParts.sort();
-      const signature = signatureParts.join("|");
-      if (!samePelletStyle(pelletStyle, drawnPelletStyle) || signature !== pelletBakeSignature) {
-        bakePelletGlowLayer(pelletGlowTexture, [
-          { pellets: regularGlowPellets, look: pelletStyle.regular },
-          { pellets: powerGlowPellets, look: pelletStyle.power },
-          { pellets: optionalGlowPellets, look: pelletStyle.optional },
-        ]);
-        drawnPelletStyle = pelletStyle;
-        pelletBakeSignature = signature;
-      }
-      for (const eid of [...bossPelletGlows.keys()]) {
-        if (!aliveBossGlow.has(eid)) {
-          destroyBossPelletGlow(eid);
-        }
-      }
-    }
-
     chainGraphics.clear();
     chainGraphics.setAlpha(entityAlpha);
-    pelletCrispGraphics.setAlpha(entityAlpha);
-    pelletGlowTexture.setAlpha(entityAlpha);
     const chains = opts?.bossChains ?? [];
     if (chains.length > 0) {
       const amplitude = getActiveLayout().tileSize * CHAIN_AMPLITUDE_TILES;
@@ -1513,46 +794,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
       }
     }
-    for (const key of lineArtObjects.keys()) {
-      if (!alive.has(key)) {
-        destroyLineArt(key);
-        if (!key.includes(":")) {
-          playerVisuals.delete(Number(key));
-        }
-      }
-    }
   };
 
   const setWallStyle = (style: WallStyle | null): void => {
     wallStyleOverride = style;
   };
 
-  const setPelletStyle = (style: PelletStyle | null): void => {
-    pelletStyleOverride = style;
-    drawnPelletStyle = null;
-    pelletBakeSignature = "";
-  };
-
-  // Glow distance is fixed when the filter is created, so rebuild line art on change.
-  // Knobs set an override; otherwise each draw re-reads STYLE from storage (like walls).
-  const setGhostLook = (look: GhostLineArtLook): void => {
-    ghostLookOverride = look;
-    if (sameGhostLineArtLook(look, ghostLook)) {
-      return;
-    }
-    ghostLook = look;
-    for (const key of [...lineArtObjects.keys()]) {
-      destroyLineArt(key);
-    }
-  };
-
-  const setDotManLook = (look: {
-    chompSpeed: number;
-    mouthOpenDeg: number;
-    mouthClosedDeg: number;
-  }): void => {
+  const setDotManLook = (look: { chompSpeed: number }): void => {
     chompPixelsPerFrame = dotManChompPixelsPerFrame(look.chompSpeed);
-    mouthAngles = resolveDotManMouthAngles(look.mouthOpenDeg, look.mouthClosedDeg);
   };
 
   return {
@@ -1561,8 +810,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     resetForNewBoard,
     bouncePowerPellet,
     setWallStyle,
-    setPelletStyle,
-    setGhostLook,
     setDotManLook,
   };
 }

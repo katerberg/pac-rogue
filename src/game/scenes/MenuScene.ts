@@ -3,8 +3,13 @@ import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../
 import { PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { preloadSfx, startLoopingSfx } from "../audio/sfx";
 import { runLogOverrunActive } from "../storage/runLogStorage";
-import { MENU_OPTION_FONT_SIZE, MENU_TITLE_FONT_SIZE } from "./pixelFont";
-import { addGameText, placeGameText, placeSelectableMenuOption, type GameText } from "./neonFont";
+import {
+  addPixelText,
+  MENU_OPTION_FONT_SIZE,
+  MENU_TITLE_FONT_SIZE,
+  placePixelText,
+  placeSelectableMenuOption,
+} from "./pixelFont";
 import { applyRenderScale } from "../renderScale";
 
 const OPTIONS = [
@@ -16,9 +21,9 @@ const OPTIONS = [
 
 export class MenuScene extends Phaser.Scene {
   private selectedIndex = 0;
-  private optionTexts: GameText[] = [];
+  private optionTexts: Phaser.GameObjects.BitmapText[] = [];
   private optionCenters: { x: number; y: number }[] = [];
-  private titleText!: GameText;
+  private titleText!: Phaser.GameObjects.BitmapText;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
@@ -48,18 +53,18 @@ export class MenuScene extends Phaser.Scene {
     this.downRepeat = createKeyRepeatState();
     startLoopingSfx(this, "menuMusic");
 
-    this.titleText = addGameText(this, PLAYFIELD_WIDTH / 2, 120, "DOT-MAN", MENU_TITLE_FONT_SIZE);
-    placeGameText(this.titleText, PLAYFIELD_WIDTH / 2, 120, 0.5, 0.5);
+    this.titleText = addPixelText(this, PLAYFIELD_WIDTH / 2, 120, "DOT-MAN", MENU_TITLE_FONT_SIZE);
+    placePixelText(this.titleText, PLAYFIELD_WIDTH / 2, 120, 0.5, 0.5);
 
     const startY = 280;
     const gap = 48;
-    // Fixed hit strips at option centers — neon advances vary by glyph, so text
-    // bounds alone are a brittle click target for probes and fat-finger UX.
+    // Fixed hit strips at option centers — text bounds alone are a brittle click
+    // target for probes and fat-finger UX.
     const hitW = 280;
     const hitH = 40;
     OPTIONS.forEach((option, index) => {
       const center = { x: PLAYFIELD_WIDTH / 2, y: startY + index * gap };
-      const text = addGameText(this, center.x, center.y, option.label, MENU_OPTION_FONT_SIZE);
+      const text = addPixelText(this, center.x, center.y, option.label, MENU_OPTION_FONT_SIZE);
       const hit = this.add
         .zone(center.x, center.y, hitW, hitH)
         .setOrigin(0.5, 0.5)

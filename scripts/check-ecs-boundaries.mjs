@@ -31,7 +31,6 @@ const phaserAllow = [
   /^src\/game\/audio\//,
   /^src\/game\/systems\/playerInput\.ts$/,
   /^src\/game\/systems\/render\.ts$/,
-  /^src\/game\/systems\/lineArtRender\.ts$/,
 ];
 
 const phaserImport = /\bfrom\s+["']phaser(?:\/[^"']*)?["']|\bimport\s+["']phaser(?:\/[^"']*)?["']/;

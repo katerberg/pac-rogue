@@ -37,10 +37,6 @@ function spawnPellet(world: ReturnType<typeof createWorld>, x: number, y: number
   return eid;
 }
 
-function snapEids(snaps: { eid: number }[]): number[] {
-  return snaps.map((snap) => snap.eid);
-}
-
 describe("collectExtraPellets", () => {
   it("no-ops when count is zero", () => {
     const world = createWorld();
@@ -60,7 +56,7 @@ describe("collectExtraPellets", () => {
     const farthest = spawnPellet(world, cellCenterX(6), py);
     const power = spawnPellet(world, cellCenterX(9), py, true);
 
-    expect(snapEids(collectExtraPellets(world, 2))).toEqual([farthest, far]);
+    expect(collectExtraPellets(world, 2)).toEqual([farthest, far]);
     expect([...query(world, [Pellet])].sort()).toEqual([near, mid, power].sort());
     expect(query(world, [PowerPellet])).toEqual([power]);
   });
@@ -77,7 +73,7 @@ describe("collectExtraPellets", () => {
     const world = createWorld();
     spawnPlayer(world, cellCenterX(2), cellCenterY(1));
     const only = spawnPellet(world, cellCenterX(0), cellCenterY(1));
-    expect(snapEids(collectExtraPellets(world, 3))).toEqual([only]);
+    expect(collectExtraPellets(world, 3)).toEqual([only]);
     expect(query(world, [Pellet])).toHaveLength(0);
   });
 });

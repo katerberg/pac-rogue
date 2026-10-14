@@ -1,5 +1,4 @@
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
-import { DEFAULT_GHOST_STYLE, lineArtDrawableIds, type GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { RELEASE_SLOT_BY_KIND } from "../../domain/ghostRoster";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
@@ -14,8 +13,7 @@ import {
   type Cell,
 } from "../../domain/bonusBar";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
-import { pelletAbsorbSpawnFor } from "../../domain/pelletAbsorb";
-import type { PlayerPelletFrame, RemovedPelletSnap } from "../systems/collectPellets";
+import type { PlayerPelletFrame } from "../systems/collectPellets";
 import {
   emptyPlayerPelletFrame,
   hyperspeedSubstepCount,
@@ -283,14 +281,9 @@ export class LearnSim {
     previousLevelFirstKind: null,
   };
   private boardCollected = 0;
-  private ghostStyle: GhostStyle = DEFAULT_GHOST_STYLE;
 
   constructor(seed: string) {
     this.random = createRunRandom(seed);
-  }
-
-  setGhostStyle(style: GhostStyle): void {
-    this.ghostStyle = style;
   }
 
   get selectedKind(): GhostKindId | null {
@@ -509,11 +502,10 @@ export class LearnSim {
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     const ghostFrame = ghostHarvestActive(this.learnUpgrades)
       ? harvestPelletsByGhosts(this.world)
-      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [], removedSnaps: [] };
+      : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
     const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
-    this.releaseSnaps(playerFrame.removedSnaps);
-    this.releaseAll(ghostFrame.removedEids);
+    this.releaseAll(removedEids);
     this.countCollected(removedEids.length);
     this.stepStreakEngine(playerFrame.removedCells, delta);
     if (hasUpgrade(this.learnUpgrades.owned, "passivePowerPelletRecharge")) {
@@ -588,13 +580,6 @@ export class LearnSim {
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
-        lineArtDrawableIds: lineArtDrawableIds(
-          this.ghostStyle,
-          Array.from(
-            query(this.world, [Ghost, GhostKind]),
-            (eid) => GhostKind.kind[eid] as GhostKindId,
-          ),
-        ),
       },
     });
     return this.takeEvents();
@@ -761,26 +746,6 @@ export class LearnSim {
     }
   }
 
-  private emitPelletAbsorb(snap: RemovedPelletSnap): void {
-    const spawn = pelletAbsorbSpawnFor(
-      this.ghostStyle,
-      snap.drawableId,
-      snap.optional,
-      snap.x,
-      snap.y,
-    );
-    if (spawn !== null) {
-      this.events.push({ type: "pelletAbsorb", ...spawn });
-    }
-  }
-
-  private releaseSnaps(snaps: readonly RemovedPelletSnap[]): void {
-    for (const snap of snaps) {
-      this.emitPelletAbsorb(snap);
-      this.events.push({ type: "releaseDrawable", eid: snap.eid });
-    }
-  }
-
   private resolvePowerPelletTrigger(powerRemoved: number): void {
     const owned = this.learnUpgrades.owned;
     const overflow = shieldOverflow(this.learnUpgrades, powerRemoved);
@@ -828,7 +793,7 @@ export class LearnSim {
       );
     }
     if (powerEffects.collectExtraPellets > 0) {
-      this.releaseSnaps(collectExtraPellets(this.world, powerEffects.collectExtraPellets));
+      this.releaseAll(collectExtraPellets(this.world, powerEffects.collectExtraPellets));
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
@@ -1327,9 +1292,9 @@ export class LearnSim {
     const before = this.remoteTransferCounter;
     this.remoteTransferCounter += removedThisFrame;
     const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
-    const snaps = applyRemoteTransference(this.world, triggers);
-    this.releaseSnaps(snaps);
-    this.remoteTransferCounter += snaps.length;
+    const transferredEids = applyRemoteTransference(this.world, triggers);
+    this.releaseAll(transferredEids);
+    this.remoteTransferCounter += transferredEids.length;
   }
 
   private resetPellets(): void {

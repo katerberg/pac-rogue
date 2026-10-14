@@ -1,4 +1,3 @@
-import type { GhostStyle } from "./ghostArt";
 import { GHOST_DIR, type GhostDir } from "./ghostPath";
 
 export const GHOST_PUPIL_COLOR = 0x000000;
@@ -16,11 +15,10 @@ export type PupilRect = { x: number; y: number; w: number; h: number };
 export type GhostPupilDrawKind = "primary" | "afterimage";
 
 export function ghostPupilsVisible(args: {
-  style: GhostStyle;
   inFrightenedSet: boolean;
   drawKind: GhostPupilDrawKind;
 }): boolean {
-  return args.style === "pixel" && args.drawKind === "primary" && !args.inFrightenedSet;
+  return args.drawKind === "primary" && !args.inFrightenedSet;
 }
 
 export function ghostPupilLookOffset(facing: GhostDir): { dx: number; dy: number } {

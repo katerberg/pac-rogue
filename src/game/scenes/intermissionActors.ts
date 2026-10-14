@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import { INTERMISSION_ACTOR_SIZE, type IntermissionFrame } from "../../domain/intermission";
 import { BLINKY_DRAWABLE_ID } from "../../domain/playfield";
 import { addDotManIcon, addGhostSprite } from "../systems/render";
-import type { GhostStyle } from "../../domain/ghostArt";
 
 const INTERMISSION_DEPTH = 700;
 
@@ -11,12 +10,9 @@ export type IntermissionActors = {
   destroy(): void;
 };
 
-export function createIntermissionActors(
-  scene: Phaser.Scene,
-  style: GhostStyle,
-): IntermissionActors {
-  const blinky = addGhostSprite(scene, BLINKY_DRAWABLE_ID, 0, 0, INTERMISSION_ACTOR_SIZE, style);
-  const dotMan = addDotManIcon(scene, 0, 0, INTERMISSION_ACTOR_SIZE, style);
+export function createIntermissionActors(scene: Phaser.Scene): IntermissionActors {
+  const blinky = addGhostSprite(scene, BLINKY_DRAWABLE_ID, 0, 0, INTERMISSION_ACTOR_SIZE);
+  const dotMan = addDotManIcon(scene, 0, 0, INTERMISSION_ACTOR_SIZE);
   blinky.setDepth(INTERMISSION_DEPTH);
   dotMan.setDepth(INTERMISSION_DEPTH);
   return {

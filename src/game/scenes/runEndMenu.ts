@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { MENU_OPTION_FONT_SIZE } from "./pixelFont";
-import { addGameText, placeSelectableMenuOption } from "./neonFont";
+import { addPixelText, MENU_OPTION_FONT_SIZE, placeSelectableMenuOption } from "./pixelFont";
 import type { RunEndChoice } from "../sim/playSim";
 
 const ROWS: readonly { choice: RunEndChoice; label: string }[] = [
@@ -35,7 +34,7 @@ export function createRunEndMenu(
     )
     .setDepth(1000);
   const texts = ROWS.map((row, index) => {
-    const text = addGameText(scene, ROW_X, rowY(index), "", MENU_OPTION_FONT_SIZE)
+    const text = addPixelText(scene, ROW_X, rowY(index), "", MENU_OPTION_FONT_SIZE)
       .setDepth(1001)
       .setAlpha(UNARMED_ALPHA);
     text.on("pointerover", () => focus(index));

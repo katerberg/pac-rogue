@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { parseQueryParams } from "../../domain/queryParams";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
-import { learnCheckboxLook, textStyleFor, type GhostStyle } from "../../domain/ghostArt";
 import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
 import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
@@ -40,7 +39,6 @@ import {
   type UpgradeDef,
   type UpgradeId,
 } from "../../domain/upgrades";
-import { loadGhostStyle } from "../storage/ghostStyleStorage";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
 import { createHeldKeysReader } from "../systems/playerInput";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -48,16 +46,16 @@ import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import { playTurnSparks } from "./turnSparks";
 import { playStreakPop } from "./streakPop";
-import { killPelletAbsorbs, playPelletAbsorb } from "./pelletAbsorb";
 import { addGhostIcon, createRender, preloadPlayArt, type PlayRender } from "../systems/render";
 import {
+  addPixelText,
   MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
+  placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addGameText, placeGameText, setGameTextBloom, type GameText } from "./neonFont";
 import { wrapText } from "../../domain/wrapText";
 import {
   buildUpgradeCardVisual,
@@ -99,6 +97,7 @@ const UPGRADE_ROW_START_Y = 100;
 const UPGRADE_ROW_GAP = 16;
 const UPGRADE_HEADER_GAP = 20;
 const UPGRADE_ROW_WIDTH = 190;
+const CHECKBOX_STROKE = 2;
 const UPGRADE_CHECK_SIZE = 10;
 const UPGRADE_CHECK_GAP = 4;
 const UPGRADE_PLUS_INSET = 6;
@@ -117,8 +116,8 @@ type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: num
 type UpgradeRow = {
   id: BaseUpgradeId;
   checkMark: Phaser.GameObjects.Shape;
-  label: GameText;
-  plus: GameText;
+  label: Phaser.GameObjects.BitmapText;
+  plus: Phaser.GameObjects.BitmapText;
   plusBox: Phaser.GameObjects.Shape;
   plusZone: Phaser.GameObjects.Zone;
 };
@@ -132,9 +131,9 @@ export class LearnScene extends Phaser.Scene {
   private reticlePx: PixelPoint | null = null;
   private slots: GhostSlot[] = [];
   private upgradeRows: UpgradeRow[] = [];
-  private noEffectBanner!: GameText;
-  private statusText!: GameText;
-  private ghostNameText!: GameText;
+  private noEffectBanner!: Phaser.GameObjects.BitmapText;
+  private statusText!: Phaser.GameObjects.BitmapText;
+  private ghostNameText!: Phaser.GameObjects.BitmapText;
   private statusShown = "";
   private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private hoverPreviewCard: UpgradeCardVisual | null = null;
@@ -155,8 +154,6 @@ export class LearnScene extends Phaser.Scene {
     startLoopingSfx(this, "menuMusic");
     const urlParams = parseQueryParams(location.search);
     this.sim = new LearnSim(parseSeedParam(urlParams) ?? freshSeed());
-    const ghostStyle = loadGhostStyle();
-    this.sim.setGhostStyle(ghostStyle);
     const learnAllMode = parseLearnAllMode(urlParams);
     this.seen = learnSeenRecord(learnAllMode, loadSeenRecord);
     this.reticlePx = null;
@@ -168,19 +165,19 @@ export class LearnScene extends Phaser.Scene {
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.applyEvents(this.sim.start());
 
-    const title = addGameText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
-    placeGameText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
-    this.ghostNameText = addGameText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-    this.buildGhostSlots(ghostStyle);
-    this.buildUpgradeRows(ghostStyle);
+    const title = addPixelText(this, 0, 0, "LEARN", MENU_TITLE_FONT_SIZE);
+    placePixelText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
+    this.ghostNameText = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+    this.buildGhostSlots();
+    this.buildUpgradeRows();
     this.buildBackButton();
 
-    this.noEffectBanner = addGameText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
+    this.noEffectBanner = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
       .setDepth(OVERLAY_DEPTH + 1)
       .setCenterAlign()
       .setLineSpacing(10);
     this.refreshNoEffectBanner();
-    this.statusText = addGameText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
+    this.statusText = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
       .setDepth(OVERLAY_DEPTH + 1)
       .setCenterAlign()
       .setLineSpacing(10);
@@ -219,10 +216,6 @@ export class LearnScene extends Phaser.Scene {
     for (const event of events) {
       if (event.type === "releaseDrawable") {
         this.playRender.releaseDrawable(event.eid);
-      } else if (event.type === "pelletAbsorb") {
-        playPelletAbsorb(this, event, () => this.sim.playerWorldPosition());
-      } else if (event.type === "resetBoard") {
-        killPelletAbsorbs(this);
       } else if (event.type === "draw") {
         this.playRender.draw(this.sim.world, event.options);
       } else if (event.type === "bouncePowerPellet") {
@@ -256,14 +249,14 @@ export class LearnScene extends Phaser.Scene {
     this.refreshNoEffectBanner();
   }
 
-  private buildGhostSlots(ghostStyle: GhostStyle): void {
+  private buildGhostSlots(): void {
     this.slots = [];
     const rowWidth = SLOT_KINDS.length * SLOT_SIZE + (SLOT_KINDS.length - 1) * SLOT_GAP;
     const firstX = PLAYFIELD_WIDTH / 2 - rowWidth / 2 + SLOT_SIZE / 2;
     SLOT_KINDS.forEach((kind, index) => {
       const x = firstX + index * (SLOT_SIZE + SLOT_GAP);
       const frame = this.add.graphics();
-      addGhostIcon(this, GHOST_DRAWABLE_BY_KIND[kind], x, SLOT_Y, SLOT_ICON_SIZE, ghostStyle);
+      addGhostIcon(this, GHOST_DRAWABLE_BY_KIND[kind], x, SLOT_Y, SLOT_ICON_SIZE);
       const zone = this.add.zone(x, SLOT_Y, SLOT_SIZE, SLOT_SIZE);
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerdown", () => this.selectGhost(kind));
@@ -276,7 +269,7 @@ export class LearnScene extends Phaser.Scene {
 
   private showGhostName(kind: GhostKindId, x: number): void {
     this.ghostNameText.setText(ghostKindLabel(kind));
-    placeGameText(this.ghostNameText, x, GHOST_NAME_Y, 0.5, 0.5);
+    placePixelText(this.ghostNameText, x, GHOST_NAME_Y, 0.5, 0.5);
   }
 
   private refreshSlots(): void {
@@ -294,14 +287,14 @@ export class LearnScene extends Phaser.Scene {
     }
   }
 
-  private buildUpgradeRows(ghostStyle: GhostStyle): void {
+  private buildUpgradeRows(): void {
     this.upgradeRows = [];
     const columns = splitSchoolColumns(groupUpgradesBySchool(learnUpgradeDefs(this.seen.upgrades)));
     for (const column of ["left", "right"] as const) {
       let y = UPGRADE_ROW_START_Y - UPGRADE_ROW_GAP;
       for (const { school, defs } of columns[column]) {
         y += UPGRADE_HEADER_GAP;
-        const header = addGameText(
+        const header = addPixelText(
           this,
           0,
           0,
@@ -309,50 +302,27 @@ export class LearnScene extends Phaser.Scene {
           UPGRADES_HUD_FONT_SIZE,
           SCHOOL_COLORS[school],
         );
-        setGameTextBloom(header, false);
-        placeGameText(header, UPGRADE_COLUMN_X[column], y, 0, 0.5);
+        placePixelText(header, UPGRADE_COLUMN_X[column], y, 0, 0.5);
         for (const def of defs) {
           y += UPGRADE_ROW_GAP;
-          this.buildUpgradeRow(def, column, y, ghostStyle);
+          this.buildUpgradeRow(def, column, y);
         }
       }
     }
   }
 
-  private buildUpgradeRow(
-    def: UpgradeDef,
-    column: LearnColumn,
-    y: number,
-    ghostStyle: GhostStyle,
-  ): void {
+  private buildUpgradeRow(def: UpgradeDef, column: LearnColumn, y: number): void {
     const columnX = UPGRADE_COLUMN_X[column];
     const plusX = columnX + UPGRADE_ROW_WIDTH - UPGRADE_PLUS_INSET;
     const checkboxX = columnX + UPGRADE_CHECK_SIZE / 2;
     const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
-    const look = learnCheckboxLook(ghostStyle);
-    const checkRadius = UPGRADE_CHECK_SIZE / 2;
-    if (look.shape === "circle") {
-      this.add
-        .circle(checkboxX, y, checkRadius, 0x000000, 0)
-        .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE);
-    } else {
-      this.add
-        .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
-        .setStrokeStyle(look.strokeWidth, TEXT_COLOR_WHITE);
-    }
-    const checkMark =
-      look.shape === "circle"
-        ? this.add.circle(checkboxX, y, checkRadius - 2, RARE_LABEL_COLOR).setVisible(false)
-        : this.add
-            .rectangle(
-              checkboxX,
-              y,
-              UPGRADE_CHECK_SIZE - 4,
-              UPGRADE_CHECK_SIZE - 4,
-              RARE_LABEL_COLOR,
-            )
-            .setVisible(false);
-    const label = addGameText(
+    this.add
+      .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
+      .setStrokeStyle(CHECKBOX_STROKE, TEXT_COLOR_WHITE);
+    const checkMark = this.add
+      .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, RARE_LABEL_COLOR)
+      .setVisible(false);
+    const label = addPixelText(
       this,
       0,
       0,
@@ -360,26 +330,16 @@ export class LearnScene extends Phaser.Scene {
       UPGRADES_HUD_FONT_SIZE,
       def.rare === true ? RARE_LABEL_COLOR : TEXT_COLOR_WHITE,
     );
-    setGameTextBloom(label, false);
-    placeGameText(label, labelX, y, 0, 0.5);
-    const plusRadius = UPGRADE_PLUS_BOX_SIZE / 2;
-    const plusBox =
-      look.shape === "circle"
-        ? this.add
-            .circle(plusX, y, plusRadius, 0x000000, 0)
-            .setStrokeStyle(look.strokeWidth, RARE_LABEL_COLOR)
-            .setVisible(false)
-        : this.add
-            .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
-            .setStrokeStyle(look.strokeWidth, RARE_LABEL_COLOR)
-            .setVisible(false);
-    const plus = addGameText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, RARE_LABEL_COLOR);
-    setGameTextBloom(plus, false);
-    const pixelInk = textStyleFor(ghostStyle) === "pixel";
-    placeGameText(
+    placePixelText(label, labelX, y, 0, 0.5);
+    const plusBox = this.add
+      .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
+      .setStrokeStyle(CHECKBOX_STROKE, RARE_LABEL_COLOR)
+      .setVisible(false);
+    const plus = addPixelText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, RARE_LABEL_COLOR);
+    placePixelText(
       plus,
-      plusX + (pixelInk ? (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8 : 0),
-      y + (pixelInk ? (glyphInkCenterOffsetY("+") * UPGRADES_HUD_FONT_SIZE) / 8 : 0),
+      plusX + (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8,
+      y + (glyphInkCenterOffsetY("+") * UPGRADES_HUD_FONT_SIZE) / 8,
       0.5,
       0.5,
     );
@@ -430,7 +390,7 @@ export class LearnScene extends Phaser.Scene {
     this.statusShown = text;
     const layout = getActiveLayout();
     this.statusText.setText(text);
-    placeGameText(
+    placePixelText(
       this.statusText,
       layout.offsetX + layout.pixelWidth / 2,
       layout.offsetY + layout.pixelHeight + STATUS_GAP_Y,
@@ -440,10 +400,10 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private showPopup(event: { text: string; x: number; y: number }): void {
-    const popup = addGameText(this, 0, 0, event.text, UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW)
+    const popup = addPixelText(this, 0, 0, event.text, UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW)
       .setDepth(OVERLAY_DEPTH + 2)
       .setCenterAlign();
-    placeGameText(popup, event.x, event.y, 0.5, 1);
+    placePixelText(popup, event.x, event.y, 0.5, 1);
     this.tweens.add({
       targets: popup,
       y: popup.y - POPUP_RISE_PX,
@@ -466,7 +426,7 @@ export class LearnScene extends Phaser.Scene {
       const namesLine = wrapText(selectedLabels.join(", "), maxCharsPerLine);
       this.noEffectBanner.setText(`${namesLine}\nNO VISIBLE EFFECT HERE`);
     }
-    placeGameText(
+    placePixelText(
       this.noEffectBanner,
       layout.offsetX + layout.pixelWidth / 2,
       NO_EFFECT_BANNER_Y,
@@ -506,8 +466,8 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private buildBackButton(): void {
-    const back = addGameText(this, 0, 0, "BACK", MENU_OPTION_FONT_SIZE);
-    placeGameText(back, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    const back = addPixelText(this, 0, 0, "BACK", MENU_OPTION_FONT_SIZE);
+    placePixelText(back, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
     back.setInteractive({ useHandCursor: true });
     back.on("pointerover", () => back.setTint(TEXT_COLOR_YELLOW));
     back.on("pointerout", () => back.setTint(TEXT_COLOR_WHITE));

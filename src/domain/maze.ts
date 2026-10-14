@@ -1305,7 +1305,7 @@ function shouldDrawPipeAgainst(
     return false;
   }
   // Open pipe ends at the ghost-house mouth: a vertical cap on the door face
-  // reads as upward "horns" once neon stroke + glow fatten the joint.
+  // reads as upward "horns" once the wall stroke fattens the joint.
   if (isDoor(col, row, door)) {
     return false;
   }
