@@ -1,6 +1,6 @@
 # Rendering, fonts and render scale
 
-The game has one look: PNG ghosts, Dot-Man, Quarters and pellets, VGA 8x8 bitmap text, no glow. **Black 2×2 art-pixel ghost pupils are runtime Graphics** (`src/domain/ghostPupils.ts` + `render.ts`), offset by each ghost's `Facing` (icons/intermission use a rest stare). Pupils hide while Hunter-frightened (including blink-off) and on warp afterimages. The ghost PNGs keep white sclera only. **Ghost PNGs are cropped above the skirt and a Graphics wave replaces it** (`src/domain/ghostSkirt.ts`): one `fillRect` per art column (pixel-stepped edge). Maze ghosts and the level-clear intermission advance phase with horizontal travel (world-static); learn icons use phase 0. Warp afterimages keep the baked skirt.
+The game has one look: PNG ghosts, Dot-Man, Quarters and pellets, VGA 8x8 bitmap text, no glow. **Black 2×2 art-pixel ghost pupils are runtime Graphics** (`src/domain/ghostPupils.ts` + `render.ts`), offset by each ghost's `Facing` (icons/intermission use a rest stare). Pupils hide while Hunter-frightened (including blink-off) and on warp afterimages. The ghost PNGs keep white sclera only. **Maze ghosts and the level-clear intermission crop the PNG above the skirt and draw a Graphics wave** (`src/domain/ghostSkirt.ts`: one `fillRect` per art column, phase from horizontal travel). Learn icons and warp afterimages use the baked skirt on the ghost PNGs.
 
 Collision never depends on the drawing: every ghost catches with the same body circle, so sprite size is visual only.
 

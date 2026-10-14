@@ -59,6 +59,7 @@ import {
   hauntCageVisible,
 } from "../../domain/hauntCage";
 import {
+  GHOST_ART_SIZE_PX,
   GHOST_PUPIL_COLOR,
   ghostPupilLookOffset,
   ghostPupilRects,
@@ -253,7 +254,7 @@ function fillGhostSkirt(
 }
 
 function cropGhostBody(image: Phaser.GameObjects.Image): void {
-  image.setCrop(0, 0, image.frame.width, GHOST_SKIRT_BODY_ART_ROWS);
+  image.setCrop(0, 0, GHOST_ART_SIZE_PX, GHOST_SKIRT_BODY_ART_ROWS);
 }
 
 export function addGhostIcon(
@@ -263,11 +264,7 @@ export function addGhostIcon(
   y: number,
   size: number,
 ): void {
-  const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
-  const image = scene.add.image(x, y, textureKey).setDisplaySize(size, size);
-  cropGhostBody(image);
-  const skirt = scene.add.graphics();
-  fillGhostSkirt(skirt, x, y, size, 0, skirtBaseColor(scene, textureKey));
+  scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
