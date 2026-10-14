@@ -544,6 +544,17 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
+  it("an armed Defy Death saves the life before a shield is spent", () => {
+    const { sim, player } = setup("passiveShieldPellets", "passiveDefyDeath");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(popups(catchByGhost(sim, player))).toEqual(["SAVED"]);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    runMs(sim, 1_600);
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+  });
+
   it("Shield fires pickup effects and banks a shield; its break fires nothing", () => {
     const { sim, player } = setup("passiveShieldPellets", "powerPelletInvuln");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
