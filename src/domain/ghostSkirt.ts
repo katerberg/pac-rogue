@@ -7,6 +7,8 @@ export const GHOST_SKIRT_BODY_ART_ROWS =
   GHOST_SKIRT_EDGE_ART_Y - Math.ceil(GHOST_SKIRT_AMPLITUDE_ART);
 const GHOST_SKIRT_OVERLAP_ART_Y = GHOST_SKIRT_BODY_ART_ROWS - 0.1;
 const GHOST_SKIRT_PHASE_PER_WAVELENGTH = 1;
+/** Shift so phase 0 (icons / idle house) is a graduated wave, not a square tooth. */
+const GHOST_SKIRT_PHASE_OFFSET = Math.PI / 8;
 
 export const GHOST_SKIRT_SAMPLE_ART = { x: 8, y: GHOST_SKIRT_BODY_ART_ROWS - 1 } as const;
 
@@ -35,7 +37,8 @@ export function ghostSkirtRects(
   for (let col = 0; col < GHOST_ART_SIZE_PX; col++) {
     const t = (col + 0.5) / GHOST_ART_SIZE_PX;
     const wave = Math.round(
-      GHOST_SKIRT_AMPLITUDE_ART * Math.sin(t * GHOST_SKIRT_WAVES * 2 * Math.PI + phase),
+      GHOST_SKIRT_AMPLITUDE_ART *
+        Math.sin(t * GHOST_SKIRT_WAVES * 2 * Math.PI + phase + GHOST_SKIRT_PHASE_OFFSET),
     );
     const edgeArtY = Math.max(GHOST_SKIRT_OVERLAP_ART_Y + 0.5, GHOST_SKIRT_EDGE_ART_Y + wave);
     const edgeY = top + edgeArtY * scale;

@@ -58,6 +58,13 @@ describe("ghostSkirtRects", () => {
     expect(Math.max(...bottoms)).toBeGreaterThan(15);
   });
 
+  it("uses a graduated rest silhouette instead of a two-level square tooth", () => {
+    const scale = SIZE / GHOST_ART_SIZE_PX;
+    const top = -SIZE / 2;
+    const bottoms = ghostSkirtRects(0, 0, SIZE, 0).map((rect) => (rect.y + rect.h - top) / scale);
+    expect(new Set(bottoms.map((y) => Math.round(y * 10) / 10)).size).toBeGreaterThan(2);
+  });
+
   it("moves the wave edge when the phase changes", () => {
     const a = ghostSkirtRects(0, 0, SIZE, 0);
     const b = ghostSkirtRects(0, 0, SIZE, Math.PI / 2);
