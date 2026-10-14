@@ -5205,6 +5205,20 @@ describe("Hyperspeed", () => {
     expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(0);
   });
 
+  it("an armed Defy Death saves the catch before the Hyperspeed+ shield pops", () => {
+    const sim = startHyper(["powerPelletHyperspeedPlus", "passiveDefyDeath"], {
+      infiniteLives: false,
+    });
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(0);
+    const shieldBefore = sim.snapshot().timers.hyperspeedShieldMs;
+    expect(shieldBefore).toBeGreaterThan(0);
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(events).toContainEqual({ type: "sfx", id: "revive" });
+    expect(sim.snapshot().timers.hyperspeedShieldMs).toBeGreaterThan(0);
+  });
+
   it("clears the window on life loss", () => {
     const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
     chompPowerPellet(sim);
