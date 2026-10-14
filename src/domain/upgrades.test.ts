@@ -603,7 +603,7 @@ describe("school offer affinity", () => {
   });
 
   it("weights matching-school commons and rares by affinity rates, times rare half-weight", () => {
-    expect(SCHOOL_AFFINITY_COMMON_RATE).toBe(0.1);
+    expect(SCHOOL_AFFINITY_COMMON_RATE).toBe(0.25);
     expect(SCHOOL_AFFINITY_RARE_RATE).toBe(0.15);
     expect(upgradeOfferWeight("passiveGhostSlow", [])).toBe(1);
     expect(upgradeOfferWeight("passiveMartyr", [])).toBe(RARE_OFFER_WEIGHT);
@@ -651,7 +651,8 @@ describe("school offer affinity", () => {
           : 0;
     }
     expect(deathPicks).toBeGreaterThan(flatPicks);
-    expect(deathPicks / draws).toBeCloseTo(1.3 / 3.3, 1);
+    const boosted = 1 + SCHOOL_AFFINITY_COMMON_RATE * 3;
+    expect(deathPicks / draws).toBeCloseTo(boosted / (boosted + 2), 1);
     expect(flatPicks / draws).toBeCloseTo(1 / 3, 1);
   });
 });
