@@ -9,6 +9,7 @@ import {
   STORE_SLOT_SIZE,
   enhanceGlowAlpha,
   slotPrice,
+  swapIncomingSchool,
   type StorePromptView,
   type StoreSlot,
   type StoreState,
@@ -17,6 +18,7 @@ import {
   enhancedIdOf,
   getUpgradeDef,
   isRare,
+  UPGRADE_SCHOOL_LABELS,
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
@@ -84,6 +86,9 @@ function slotSchool(slot: StoreSlot): UpgradeSchool | null {
   if (slot.kind === "upgrade") {
     return getUpgradeDef(slot.id).school;
   }
+  if (slot.kind === "swap") {
+    return swapIncomingSchool(slot);
+  }
   return slot.kind === "enhance" ? getUpgradeDef(slot.targetId).school : null;
 }
 
@@ -109,12 +114,19 @@ function slotBody(slot: StoreSlot): string {
     case "life":
       return "+1 life.";
     case "swap":
-      return `Lose ${getUpgradeDef(slot.outgoingId).label}. Gain ?`;
+      return swapBody(slot);
     case "enhance":
       return getUpgradeDef(enhancedIdOf(slot.targetId)).enhanceNote!;
     case "upgrade":
       return getUpgradeDef(slot.id).description;
   }
+}
+
+function swapBody(slot: StoreSlot & { kind: "swap" }): string {
+  const lost = getUpgradeDef(slot.outgoingId);
+  const incoming = swapIncomingSchool(slot);
+  const gain = incoming === null ? "?" : UPGRADE_SCHOOL_LABELS[incoming];
+  return `Lose ${lost.label} (${UPGRADE_SCHOOL_LABELS[lost.school]}). Gain ${gain}.`;
 }
 
 function promptFooter(prompt: StorePromptView): string {

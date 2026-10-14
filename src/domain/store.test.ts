@@ -16,6 +16,7 @@ import {
   pickMidStoreLevel,
   promptView,
   slotPrice,
+  swapIncomingSchool,
   storeAfterLevel,
   storeStep,
   type StoreState,
@@ -25,6 +26,7 @@ import {
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   STORE_UPGRADE_PRICE,
+  getUpgradeDef,
   isRare,
   type UpgradeId,
 } from "./upgrades";
@@ -354,6 +356,21 @@ describe("storeStep", () => {
     expect(incoming).not.toBeNull();
     expect(owned).not.toContain(incoming);
     expect(shelf).not.toContain(incoming);
+  });
+
+  it("swaps into the upgrade whose school the tile showed", () => {
+    const owned: UpgradeId[] = ["passiveAfterburner"];
+    for (let seed = 1; seed <= 40; seed += 1) {
+      let x = seed;
+      const rng = () => ((x = (x * 16807) % 2147483647) - 1) / 2147483646;
+      const stocked = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, rng);
+      const swap = stocked.slots.find((s) => s.kind === "swap");
+      if (swap?.kind !== "swap") throw new Error("no swap slot");
+      const state = storeStep(stocked, input({ ...swapCell, owned }), rng).state;
+      const bought = confirmYes(state, { ...swapCell, owned }).purchase;
+      if (bought?.kind !== "swap") throw new Error("no swap purchase");
+      expect(swapIncomingSchool(swap)).toBe(getUpgradeDef(bought.incomingId).school);
+    }
   });
 
   it("never swaps into a specialist the swap itself leaves below three", () => {
