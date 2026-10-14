@@ -560,7 +560,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     deathsHarvestRadiusTiles: DEATHS_HARVEST_RADIUS_TILES,
     enhanced: {
       enhanceNote: "Death's Harvest reaches 10 tiles instead of 6.",
-      description: "Dying harvests every pellet within ten tiles.",
+      description: "Dying harvests every regular pellet within ten tiles.",
       deathsHarvestRadiusTiles: DEATHS_HARVEST_ENHANCED_RADIUS_TILES,
     },
   },
