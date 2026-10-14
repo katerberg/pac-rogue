@@ -36,7 +36,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `fruitQuarterBounty` | Quarter Bounty | harvest | Bonus fruit pays a Quarter instead of charging the bonus bar. | Bonus fruit pays two Quarters. |
 | `fruitFecundity` | Fruit Fecundity | harvest | Bonus fruit lingers twice as long. | Bonus fruit waits until the level ends, and uncollected ones pile up side by side. |
 | `fruitFeast` | Fruit Feast | harvest | Bonus fruit appears three times per level, each after the last is gone. | Bonus fruit appears four times per level, each after the last is gone. |
-| `passiveDeathsHarvest` | Death's Harvest | death | Dying harvests nearby pellets. | Dying harvests every pellet within ten tiles. |
+| `passiveDeathsHarvest` | Death's Harvest | death | Dying harvests nearby pellets. | Dying harvests every regular pellet within ten tiles. |
 | `passiveOvercharge` | Overcharge (rare) | neutral | Doubles the duration of every other power pellet timer you're running. | Triples the duration of every other power pellet timer you're running. |
 | `passiveTunnelDash` | Tunnel Dash | speed | Tunnels move you the instant you touch them. | Tunnels move you the instant you touch them, and ghosts crawl through them. |
 | `passivePowerPelletRecharge` | Second Chomp | harvest | The first two power pellets you eat each level regenerate after ten seconds. | The first four power pellets you eat each level regenerate after seven seconds. |

@@ -1,8 +1,9 @@
-import { query, removeEntity, type World } from "bitecs";
+import { hasComponent, query, removeEntity, type World } from "bitecs";
 import { worldToCol, worldToRow } from "../../domain/maze";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 
 export function harvestNearbyPellets(world: World, radiusTiles: number): number[] {
   const players = query(world, [Player, Position]);
@@ -17,6 +18,9 @@ export function harvestNearbyPellets(world: World, radiusTiles: number): number[
 
   const toRemove: number[] = [];
   for (const eid of query(world, [Pellet, Position])) {
+    if (hasComponent(world, eid, PowerPellet)) {
+      continue;
+    }
     const dCol = worldToCol(Position.x[eid] ?? 0) - playerCol;
     const dRow = worldToRow(Position.y[eid] ?? 0) - playerRow;
     if (dCol * dCol + dRow * dRow <= radiusSq) {
