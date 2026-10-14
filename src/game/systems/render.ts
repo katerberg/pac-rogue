@@ -678,10 +678,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         skirt.graphics.clear();
         skirt.graphics.setAlpha(bodyAlpha);
         skirt.graphics.fillStyle(multiplyTint(skirtBaseColor(go.texture.key), ghostTint), 1);
-        skirt.graphics.fillPoints(
-          ghostSkirtPoints(x, y, size, skirt.phase) as unknown as Phaser.Math.Vector2[],
-          true,
-        );
+        const [first, ...rest] = ghostSkirtPoints(x, y, size, skirt.phase);
+        skirt.graphics.beginPath();
+        skirt.graphics.moveTo(first!.x, first!.y);
+        for (const point of rest) {
+          skirt.graphics.lineTo(point.x, point.y);
+        }
+        skirt.graphics.closePath();
+        skirt.graphics.fillPath();
         if (
           bodyAlpha > 0 &&
           ghostPupilsVisible({
