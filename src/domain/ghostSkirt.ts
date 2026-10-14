@@ -13,6 +13,9 @@ export const GHOST_SKIRT_SAMPLE_ART = { x: 8, y: GHOST_SKIRT_BODY_ART_ROWS - 1 }
 export type SkirtPoint = { x: number; y: number };
 
 export function advanceGhostSkirtPhase(phase: number, dxPx: number, displaySize: number): number {
+  if (Math.abs(dxPx) > displaySize) {
+    return phase;
+  }
   const wavelength = displaySize / GHOST_SKIRT_WAVES;
   const next = phase + (dxPx / wavelength) * GHOST_SKIRT_PHASE_PER_WAVELENGTH * 2 * Math.PI;
   return ((next % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);

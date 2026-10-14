@@ -17,8 +17,13 @@ describe("advanceGhostSkirtPhase", () => {
     expect(right + left).toBeCloseTo(2 * Math.PI);
   });
 
+  it("keeps the phase across a teleport-sized jump", () => {
+    expect(advanceGhostSkirtPhase(1.25, SIZE * 5, SIZE)).toBe(1.25);
+    expect(advanceGhostSkirtPhase(1.25, -SIZE * 5, SIZE)).toBe(1.25);
+  });
+
   it("stays within one turn", () => {
-    for (const dx of [0.3, 7, -9, 1000]) {
+    for (const dx of [0.3, 7, -9, SIZE]) {
       const phase = advanceGhostSkirtPhase(5, dx, SIZE);
       expect(phase).toBeGreaterThanOrEqual(0);
       expect(phase).toBeLessThan(2 * Math.PI);
