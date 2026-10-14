@@ -253,8 +253,20 @@ function fillGhostSkirt(
   }
 }
 
-function cropGhostBody(image: Phaser.GameObjects.Image): void {
+/**
+ * Hide the baked skirt with a crop. Phaser crop does not change size, so keep a
+ * uniform size×size box centered on the ghost — sizing to the crop height alone
+ * scales against the full frame and leaves a gap above the runtime skirt.
+ */
+function placeCroppedGhostBody(
+  image: Phaser.GameObjects.Image,
+  cx: number,
+  cy: number,
+  size: number,
+): void {
   image.setCrop(0, 0, GHOST_ART_SIZE_PX, GHOST_SKIRT_BODY_ART_ROWS);
+  image.setDisplaySize(size, size);
+  image.setPosition(cx, cy);
 }
 
 export function addGhostIcon(
@@ -264,7 +276,11 @@ export function addGhostIcon(
   y: number,
   size: number,
 ): void {
-  scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+  const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
+  const image = scene.add.image(x, y, textureKey);
+  placeCroppedGhostBody(image, x, y, size);
+  const skirt = scene.add.graphics();
+  fillGhostSkirt(skirt, x, y, size, 0, skirtBaseColor(scene, textureKey));
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
@@ -287,8 +303,8 @@ export function addGhostSprite(
   size: number,
 ): GhostSpriteHandle {
   const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
-  const image = scene.add.image(0, 0, textureKey).setDisplaySize(size, size);
-  cropGhostBody(image);
+  const image = scene.add.image(0, 0, textureKey);
+  placeCroppedGhostBody(image, 0, 0, size);
   const skirt = scene.add.graphics();
   const color = skirtBaseColor(scene, textureKey);
   fillGhostSkirt(skirt, 0, 0, size, 0, color);
@@ -709,7 +725,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const ghostKey = frightenedLook ? FRIGHTENED_GHOST_TEXTURE_KEY : ghostTexture;
         if (go.texture.key !== ghostKey) {
           go.setTexture(ghostKey);
-          go.setDisplaySize(size, size);
         }
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
           if (ghostTint === null) {
@@ -721,7 +736,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         applyGhostTint(go);
         const bodyAlpha = ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1);
         go.setAlpha(bodyAlpha);
-        go.setCrop(0, 0, go.frame.width, GHOST_SKIRT_BODY_ART_ROWS);
+        placeCroppedGhostBody(go, x, y, size);
         let skirt = ghostSkirts.get(eid);
         if (skirt === undefined) {
           skirt = { graphics: scene.add.graphics(), phase: 0, lastX: x };

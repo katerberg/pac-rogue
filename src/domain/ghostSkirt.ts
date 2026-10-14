@@ -37,7 +37,7 @@ export function ghostSkirtRects(
     const wave = Math.round(
       GHOST_SKIRT_AMPLITUDE_ART * Math.sin(t * GHOST_SKIRT_WAVES * 2 * Math.PI + phase),
     );
-    const edgeArtY = GHOST_SKIRT_EDGE_ART_Y + wave;
+    const edgeArtY = Math.max(GHOST_SKIRT_OVERLAP_ART_Y + 0.5, GHOST_SKIRT_EDGE_ART_Y + wave);
     const edgeY = top + edgeArtY * scale;
     rects.push({
       x: left + col * scale,
