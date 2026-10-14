@@ -1857,9 +1857,7 @@ export class PlaySim {
     }
     applyPlayerSpeed(
       this.world,
-      speedLevelMultiplier(this.levelIndex, this.currentTuning) *
-        playerSpeedMultiplier(this.effectiveUpgrades()) *
-        cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)),
+      speedLevelMultiplier(this.levelIndex, this.currentTuning),
       this.currentTuning,
     );
     movement(this.world, delta, undefined, true);

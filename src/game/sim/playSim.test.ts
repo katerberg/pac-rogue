@@ -1076,6 +1076,15 @@ describe("PlaySim", () => {
     expect(sim.snapshot().lives).toBe(2);
   });
 
+  it("ignores speed upgrades for Maze-Man's speed in the store", () => {
+    const storeSpeed = (enableUpgrades: UpgradeId[]): number => {
+      const sim = startSim({ store: 1, quarters: 10, enableUpgrades });
+      runFrames(sim, 2, { keys: held("right") });
+      return Speed.px[playerEid(sim)]!;
+    };
+    expect(storeSpeed(["passiveAfterburnerPlus"])).toBe(storeSpeed([]));
+  });
+
   it("regenerates one life on store entry", () => {
     const fresh = new PlaySim(
       { ...defaultPlayOptions(), store: 1, lives: 2, maxLives: 4, quarters: 10 },
