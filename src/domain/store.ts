@@ -14,19 +14,6 @@ import {
   type UpgradeSchool,
 } from "./upgrades";
 
-export function purchaseSchool(purchase: StorePurchase): UpgradeSchool | null {
-  switch (purchase.kind) {
-    case "life":
-      return null;
-    case "upgrade":
-      return getUpgradeDef(baseIdOf(purchase.id)).school;
-    case "swap":
-      return getUpgradeDef(baseIdOf(purchase.incomingId)).school;
-    case "enhance":
-      return getUpgradeDef(purchase.targetId).school;
-  }
-}
-
 export const STORE_LIFE_PRICE = 1;
 export const STORE_LATER_LIFE_PRICE = 2;
 export const STORE_SWAP_PRICE = 1;
@@ -91,6 +78,19 @@ export type StorePurchase =
   | { kind: "upgrade"; id: UpgradeId; price: number }
   | { kind: "swap"; outgoingId: UpgradeId; incomingId: UpgradeId; price: number }
   | { kind: "enhance"; targetId: BaseUpgradeId; price: number };
+
+export function purchaseSchool(purchase: StorePurchase): UpgradeSchool | null {
+  switch (purchase.kind) {
+    case "life":
+      return null;
+    case "upgrade":
+      return getUpgradeDef(baseIdOf(purchase.id)).school;
+    case "swap":
+      return getUpgradeDef(baseIdOf(purchase.incomingId)).school;
+    case "enhance":
+      return getUpgradeDef(purchase.targetId).school;
+  }
+}
 
 export type StorePromptView = {
   kind: "confirm" | "needQuarters" | "nothingToSwap" | "nothingToEnhance";
