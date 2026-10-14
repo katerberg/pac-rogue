@@ -126,7 +126,7 @@ function swapBody(slot: StoreSlot & { kind: "swap" }): string {
   const lost = getUpgradeDef(slot.outgoingId);
   const incoming = swapIncomingSchool(slot);
   const gain = incoming === null ? "?" : UPGRADE_SCHOOL_LABELS[incoming];
-  return `Lose ${lost.label} (${UPGRADE_SCHOOL_LABELS[lost.school]}). Gain ${gain}.`;
+  return `Lose ${lost.label}. Gain random ${gain} upgrade.`;
 }
 
 function promptFooter(prompt: StorePromptView): string {
