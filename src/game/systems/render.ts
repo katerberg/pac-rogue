@@ -72,7 +72,7 @@ import {
   advanceGhostSkirtPhase,
   GHOST_SKIRT_BODY_ART_ROWS,
   GHOST_SKIRT_SAMPLE_ART,
-  ghostSkirtPoints,
+  ghostSkirtRects,
   multiplyTint,
 } from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
@@ -678,14 +678,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         skirt.graphics.clear();
         skirt.graphics.setAlpha(bodyAlpha);
         skirt.graphics.fillStyle(multiplyTint(skirtBaseColor(go.texture.key), ghostTint), 1);
-        const [first, ...rest] = ghostSkirtPoints(x, y, size, skirt.phase);
-        skirt.graphics.beginPath();
-        skirt.graphics.moveTo(first!.x, first!.y);
-        for (const point of rest) {
-          skirt.graphics.lineTo(point.x, point.y);
+        for (const rect of ghostSkirtRects(x, y, size, skirt.phase)) {
+          skirt.graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
         }
-        skirt.graphics.closePath();
-        skirt.graphics.fillPath();
         if (
           bodyAlpha > 0 &&
           ghostPupilsVisible({

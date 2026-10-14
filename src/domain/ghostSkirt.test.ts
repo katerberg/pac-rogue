@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GHOST_ART_SIZE_PX } from "./ghostPupils";
-import { advanceGhostSkirtPhase, ghostSkirtPoints, multiplyTint } from "./ghostSkirt";
+import { advanceGhostSkirtPhase, ghostSkirtRects, multiplyTint } from "./ghostSkirt";
 
 const SIZE = GHOST_ART_SIZE_PX * 2;
 
@@ -31,55 +31,54 @@ describe("advanceGhostSkirtPhase", () => {
   });
 });
 
-describe("ghostSkirtPoints", () => {
-  it("spans the sprite width and stays inside the sprite's bottom rows", () => {
-    const points = ghostSkirtPoints(100, 50, SIZE, 0.7);
+describe("ghostSkirtRects", () => {
+  it("covers one art-pixel column each and stays in the skirt rows", () => {
+    const scale = SIZE / GHOST_ART_SIZE_PX;
     const top = 50 - SIZE / 2;
-    const xs = points.map((p) => p.x);
-    expect(Math.min(...xs)).toBeCloseTo(100 - SIZE / 2);
-    expect(Math.max(...xs)).toBeCloseTo(100 + SIZE / 2);
-    for (const p of points) {
-      expect(p.y).toBeGreaterThanOrEqual(top + 13 * 2);
-      expect(p.y).toBeLessThanOrEqual(top + SIZE + 1e-9);
+    const rects = ghostSkirtRects(100, 50, SIZE, 0.7);
+    expect(rects).toHaveLength(GHOST_ART_SIZE_PX);
+    expect(rects[0]!.x).toBeCloseTo(100 - SIZE / 2);
+    expect(rects[rects.length - 1]!.x + rects[rects.length - 1]!.w).toBeCloseTo(100 + SIZE / 2);
+    for (const rect of rects) {
+      expect(rect.w).toBeCloseTo(scale);
+      expect(rect.y).toBeCloseTo(top + 13.9 * scale);
+      expect(rect.y + rect.h).toBeGreaterThanOrEqual(top + 14 * scale);
+      expect(rect.y + rect.h).toBeLessThanOrEqual(top + SIZE + 1e-9);
+      const artRow = (rect.y + rect.h - top) / scale;
+      expect(artRow).toBeCloseTo(Math.round(artRow));
     }
   });
 
   it("moves the wave edge when the phase changes", () => {
-    const a = ghostSkirtPoints(0, 0, SIZE, 0);
-    const b = ghostSkirtPoints(0, 0, SIZE, Math.PI / 2);
+    const a = ghostSkirtRects(0, 0, SIZE, 0);
+    const b = ghostSkirtRects(0, 0, SIZE, Math.PI / 2);
     expect(a).toHaveLength(b.length);
-    expect(a.some((p, i) => Math.abs(p.y - b[i]!.y) > 0.1)).toBe(true);
+    expect(a.some((rect, i) => Math.abs(rect.h - b[i]!.h) > 0.1)).toBe(true);
   });
 
   it("keeps the wave fixed in world space as the ghost moves", () => {
     const cy = 50;
     const cx0 = 100;
-    const dx = SIZE / 6;
+    const scale = SIZE / GHOST_ART_SIZE_PX;
+    const dx = scale * 3;
     const phase0 = 0.4;
-    const before = ghostSkirtPoints(cx0, cy, SIZE, phase0);
-    const after = ghostSkirtPoints(cx0 + dx, cy, SIZE, advanceGhostSkirtPhase(phase0, dx, SIZE));
-    const worldX = cx0;
+    const before = ghostSkirtRects(cx0, cy, SIZE, phase0);
+    const after = ghostSkirtRects(cx0 + dx, cy, SIZE, advanceGhostSkirtPhase(phase0, dx, SIZE));
+    const worldX = cx0 + scale * 0.5;
     expect(skirtEdgeYAt(before, worldX)).toBeCloseTo(skirtEdgeYAt(after, worldX), 5);
   });
 });
 
-function skirtEdgeYAt(points: { x: number; y: number }[], worldX: number): number {
-  const edge = points.slice(2);
-  for (let i = 0; i < edge.length - 1; i++) {
-    const a = edge[i]!;
-    const b = edge[i + 1]!;
-    const lo = Math.min(a.x, b.x);
-    const hi = Math.max(a.x, b.x);
-    if (worldX < lo || worldX > hi) {
-      continue;
+function skirtEdgeYAt(
+  rects: { x: number; y: number; w: number; h: number }[],
+  worldX: number,
+): number {
+  for (const rect of rects) {
+    if (worldX >= rect.x && worldX < rect.x + rect.w) {
+      return rect.y + rect.h;
     }
-    if (hi === lo) {
-      return a.y;
-    }
-    const t = (worldX - a.x) / (b.x - a.x);
-    return a.y + t * (b.y - a.y);
   }
-  throw new Error(`worldX ${worldX} is outside the skirt edge`);
+  throw new Error(`worldX ${worldX} is outside the skirt`);
 }
 
 describe("multiplyTint", () => {
