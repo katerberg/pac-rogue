@@ -50,7 +50,37 @@ describe("ghostSkirtPoints", () => {
     expect(a).toHaveLength(b.length);
     expect(a.some((p, i) => Math.abs(p.y - b[i]!.y) > 0.1)).toBe(true);
   });
+
+  it("keeps the wave fixed in world space as the ghost moves", () => {
+    const cy = 50;
+    const cx0 = 100;
+    const dx = SIZE / 6;
+    const phase0 = 0.4;
+    const before = ghostSkirtPoints(cx0, cy, SIZE, phase0);
+    const after = ghostSkirtPoints(cx0 + dx, cy, SIZE, advanceGhostSkirtPhase(phase0, dx, SIZE));
+    const worldX = cx0;
+    expect(skirtEdgeYAt(before, worldX)).toBeCloseTo(skirtEdgeYAt(after, worldX), 5);
+  });
 });
+
+function skirtEdgeYAt(points: { x: number; y: number }[], worldX: number): number {
+  const edge = points.slice(2);
+  for (let i = 0; i < edge.length - 1; i++) {
+    const a = edge[i]!;
+    const b = edge[i + 1]!;
+    const lo = Math.min(a.x, b.x);
+    const hi = Math.max(a.x, b.x);
+    if (worldX < lo || worldX > hi) {
+      continue;
+    }
+    if (hi === lo) {
+      return a.y;
+    }
+    const t = (worldX - a.x) / (b.x - a.x);
+    return a.y + t * (b.y - a.y);
+  }
+  throw new Error(`worldX ${worldX} is outside the skirt edge`);
+}
 
 describe("multiplyTint", () => {
   it("passes the color through without a tint", () => {
