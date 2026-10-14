@@ -4,12 +4,14 @@ import {
   eligibleUpgrades,
   enhanceableUpgrades,
   enhancedIdOf,
+  getUpgradeDef,
   isRare,
   storePriceFor,
   takeRandomFrom,
   takeWeightedUpgrade,
   type BaseUpgradeId,
   type UpgradeId,
+  type UpgradeSchool,
 } from "./upgrades";
 
 export const STORE_LIFE_PRICE = 1;
@@ -31,7 +33,14 @@ export type StoreSlotCell = { kind: StoreSlotKind; col: number; row: number };
 export type StoreSlot =
   | { kind: "life"; col: number; row: number; sold: boolean; price: number }
   | { kind: "upgrade"; col: number; row: number; id: BaseUpgradeId; sold: boolean }
-  | { kind: "swap"; col: number; row: number; outgoingId: UpgradeId; sold: boolean }
+  | {
+      kind: "swap";
+      col: number;
+      row: number;
+      outgoingId: UpgradeId;
+      incomingBaseId: BaseUpgradeId | null;
+      sold: boolean;
+    }
   | { kind: "enhance"; col: number; row: number; targetId: BaseUpgradeId; sold: boolean };
 
 export function lifePriceForStore(firstStore: boolean): number {
@@ -76,6 +85,18 @@ export type StorePurchase =
   | { kind: "upgrade"; id: UpgradeId; price: number }
   | { kind: "swap"; outgoingId: UpgradeId; incomingId: UpgradeId; price: number }
   | { kind: "enhance"; targetId: BaseUpgradeId; price: number };
+
+export function purchaseSchool(purchase: StorePurchase): UpgradeSchool | null {
+  switch (purchase.kind) {
+    case "life":
+    case "swap":
+      return null;
+    case "upgrade":
+      return getUpgradeDef(baseIdOf(purchase.id)).school;
+    case "enhance":
+      return getUpgradeDef(purchase.targetId).school;
+  }
+}
 
 export type StorePromptView = {
   kind: "confirm" | "needQuarters" | "nothingToSwap" | "nothingToEnhance";
@@ -137,11 +158,31 @@ export function createStoreState(
   rng: () => number,
   firstStore = false,
   lifeRoom = Number.POSITIVE_INFINITY,
+  guaranteedSchool: UpgradeSchool | null = null,
 ): StoreState {
   let pool = eligibleUpgrades(owned);
   const slots: StoreSlot[] = [];
   let lifeSlots = 0;
-  for (const { kind, col, row } of cells) {
+  const upgradeCells = cells.filter((cell) => cell.kind === "upgrade");
+  const schoolPool =
+    guaranteedSchool === null
+      ? []
+      : pool.filter((id) => getUpgradeDef(id).school === guaranteedSchool);
+  let guaranteedCell: StoreSlotCell | null = null;
+  let guaranteedId: BaseUpgradeId | null = null;
+  if (schoolPool.length > 0 && upgradeCells.length > 0) {
+    guaranteedCell = takeRandomFrom([...upgradeCells], rng);
+    guaranteedId = takeWeightedUpgrade(schoolPool, rng);
+    pool = pool.filter(
+      (other) => other !== guaranteedId && !(isRare(guaranteedId!) && isRare(other)),
+    );
+  }
+  for (const cell of cells) {
+    const { kind, col, row } = cell;
+    if (cell === guaranteedCell) {
+      slots.push({ kind: "upgrade", col, row, id: guaranteedId!, sold: false });
+      continue;
+    }
     if (kind === "life") {
       if (lifeSlots < lifeRoom) {
         lifeSlots += 1;
@@ -155,7 +196,7 @@ export function createStoreState(
       }
     } else if (kind === "swap" && !firstStore && owned.length > 0) {
       const outgoingId = takeRandomFrom([...owned], rng);
-      slots.push({ kind, col, row, outgoingId, sold: false });
+      slots.push({ kind, col, row, outgoingId, incomingBaseId: null, sold: false });
     } else if (kind === "enhance") {
       const targets = enhanceableUpgrades(owned);
       if (targets.length > 0) {
@@ -163,7 +204,40 @@ export function createStoreState(
       }
     }
   }
-  return { slots, activeSlot: null, dismissedSlot: null, clickedSlot: null, confirmYes: false };
+  const stocked: StoreState = {
+    slots,
+    activeSlot: null,
+    dismissedSlot: null,
+    clickedSlot: null,
+    confirmYes: false,
+  };
+  return { ...stocked, slots: slots.map((slot) => rollSwapIncoming(slot, stocked, owned, rng)) };
+}
+
+function rollSwapIncoming(
+  slot: StoreSlot,
+  state: StoreState,
+  owned: readonly UpgradeId[],
+  rng: () => number,
+): StoreSlot {
+  if (slot.kind !== "swap") {
+    return slot;
+  }
+  const pool = swapIncomingPool(state, owned, slot.outgoingId);
+  return { ...slot, incomingBaseId: pool.length > 0 ? takeWeightedUpgrade(pool, rng) : null };
+}
+
+function swapIncomingPool(
+  state: StoreState,
+  owned: readonly UpgradeId[],
+  outgoingId: UpgradeId,
+): BaseUpgradeId[] {
+  const remaining = owned.filter((id) => baseIdOf(id) !== baseIdOf(outgoingId));
+  return swapPool(state, remaining).filter((id) => id !== baseIdOf(outgoingId));
+}
+
+export function swapIncomingSchool(slot: StoreSlot & { kind: "swap" }): UpgradeSchool | null {
+  return slot.incomingBaseId === null ? null : getUpgradeDef(slot.incomingBaseId).school;
 }
 
 export function slotPrice(slot: StoreSlot): number {
@@ -305,12 +379,11 @@ export function storeStep(
   }
   const outgoingId =
     input.owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId)) ?? slot.outgoingId;
-  const remaining = input.owned.filter((id) => baseIdOf(id) !== baseIdOf(outgoingId));
-  const afterSwap = swapPool(next, remaining).filter((id) => id !== baseIdOf(outgoingId));
-  const incomingBase = takeWeightedUpgrade(
-    afterSwap.length > 0 ? afterSwap : swapPool(next, input.owned),
-    rng,
-  );
+  const afterSwap = swapIncomingPool(next, input.owned, outgoingId);
+  const incomingBase =
+    slot.incomingBaseId !== null && afterSwap.includes(slot.incomingBaseId)
+      ? slot.incomingBaseId
+      : takeWeightedUpgrade(afterSwap.length > 0 ? afterSwap : swapPool(next, input.owned), rng);
   return {
     state: sold,
     purchase: {

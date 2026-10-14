@@ -35,15 +35,15 @@ function spawnPellet(
 }
 
 describe("harvestNearbyPellets", () => {
-  it("removes regular and power pellets within the tile radius", () => {
+  it("removes regular pellets but not power pellets within the tile radius", () => {
     const { world } = spawnPlayer(10, 10);
     const near = spawnPellet(world, 12, 10);
     const nearPower = spawnPellet(world, 10, 15, true);
 
     const removed = harvestNearbyPellets(world, 10);
 
-    expect(removed.sort()).toEqual([near, nearPower].sort());
-    expect(query(world, [Pellet])).toHaveLength(0);
+    expect(removed).toEqual([near]);
+    expect(query(world, [Pellet])).toEqual([nearPower]);
   });
 
   it("leaves pellets outside the radius", () => {

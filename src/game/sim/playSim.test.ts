@@ -39,7 +39,7 @@ import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
-import { parseStoreSlots } from "../../domain/store";
+import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -60,6 +60,7 @@ import {
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   WALL_PASS_MS,
+  getUpgradeDef,
   isRare,
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
@@ -1293,6 +1294,23 @@ describe("PlaySim", () => {
       expect(gained).not.toContain(shelf[0]);
     });
 
+    it("the trade tile's shown school is the school of the upgrade gained", () => {
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap");
+      if (swap?.kind !== "swap") throw new Error("no swap slot");
+      const school = swapIncomingSchool(swap);
+      expect(school).not.toBeNull();
+      buy(sim, "swap");
+      const owned = sim.snapshot().upgrades;
+      expect(owned).toHaveLength(1);
+      expect(getUpgradeDef(owned[0]!).school).toBe(school);
+    });
+
     it("the first store stocks two lives, two abilities and an enhancement", () => {
       const sim = startSim({
         store: 1,
@@ -1353,6 +1371,46 @@ describe("PlaySim", () => {
       buy(later, "life", 0);
       expect(later.snapshot().quarters).toBe(8);
       expect(later.snapshot().lives).toBe(3);
+    });
+
+    it("the next store guarantees an upgrade of the school last bought", () => {
+      const schoolOf = (id: string) => getUpgradeDef(id as UpgradeId).school;
+      for (let n = 0; n < 12; n += 1) {
+        const sim = startSim({ store: 1, level: 5, quarters: 10 }, `school${n}`);
+        const shelf = (): string[] =>
+          sim.snapshot().storeStock!.filter((s) => s !== "life" && !s.includes(":"));
+        buy(sim, "upgrade", 0);
+        buy(sim, "upgrade", 1);
+        const last = sim.snapshot().upgrades.at(-1)!;
+        teleportPlayer(sim, cellCenterX(10), cellCenterY(0));
+        runUntil(sim, () => !sim.snapshot().inStore, 600);
+        (sim as unknown as { enterStore(): void }).enterStore();
+        expect(shelf().some((id) => schoolOf(id) === schoolOf(last))).toBe(true);
+      }
+    });
+
+    it("buying only a life sets no school guarantee", () => {
+      const sim = startSim({ store: 1, level: 5, quarters: 10 });
+      expect((sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool).toBeNull();
+      buy(sim, "life");
+      expect((sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool).toBeNull();
+    });
+
+    it("a trade does not change the school guarantee", () => {
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
+      const hint = () => (sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool;
+      buy(sim, "swap");
+      expect(hint()).toBeNull();
+      buy(sim, "upgrade", 0);
+      const school = hint();
+      expect(school).not.toBeNull();
+      buy(sim, "swap");
+      expect(hint()).toBe(school);
     });
 
     it("enhancement costs 2, swaps the owned upgrade for its Plus form and keeps order", () => {
@@ -3164,6 +3222,24 @@ describe("PlaySim enhanced upgrades", () => {
     expect(harvested("passiveDeathsHarvestPlus")).toBeGreaterThan(
       harvested("passiveDeathsHarvest"),
     );
+  });
+
+  it("Death's Harvest leaves power pellets on the board", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["passiveDeathsHarvestPlus"],
+    });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const player = playerEid(sim);
+    Position.x[power] = Position.x[player]! + TILE_SIZE;
+    Position.y[power] = Position.y[player]!;
+    const powerCount = query(sim.world, [PowerPellet]).length;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    expect(query(sim.world, [PowerPellet])).toHaveLength(powerCount);
   });
 });
 
@@ -5185,6 +5261,20 @@ describe("Hyperspeed", () => {
     expect(sim.snapshot().timers.hyperspeedShieldMs).toBe(0);
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(900);
     expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(0);
+  });
+
+  it("an armed Defy Death saves the catch before the Hyperspeed+ shield pops", () => {
+    const sim = startHyper(["powerPelletHyperspeedPlus", "passiveDefyDeath"], {
+      infiniteLives: false,
+    });
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(0);
+    const shieldBefore = sim.snapshot().timers.hyperspeedShieldMs;
+    expect(shieldBefore).toBeGreaterThan(0);
+    ghostOntoPlayer(sim);
+    const events = runFrames(sim, 1);
+    expect(events).toContainEqual({ type: "sfx", id: "revive" });
+    expect(sim.snapshot().timers.hyperspeedShieldMs).toBeGreaterThan(0);
   });
 
   it("clears the window on life loss", () => {

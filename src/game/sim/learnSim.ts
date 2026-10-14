@@ -1069,7 +1069,7 @@ export class LearnSim {
       );
       this.eatFrightenedGhosts();
       const hit = catchPlayer(this.world, this.catchOptions());
-      if (hit !== null && !this.breakHyperspeedShield()) {
+      if (hit !== null && (defyDeathActive(this.learnUpgrades) || !this.breakHyperspeedShield())) {
         caught = true;
         applyPlayerSpeed(this.world, 0);
       }
@@ -1101,10 +1101,11 @@ export class LearnSim {
 
   private resolveDemoCatch(caughtBy: number): void {
     this.streakBar = createBonusBar();
-    if (this.breakHyperspeedShield()) {
+    const defied = defyDeathActive(this.learnUpgrades);
+    if (!defied && this.breakHyperspeedShield()) {
       return;
     }
-    const spent = spendShield(this.learnUpgrades);
+    const spent = defied ? null : spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
       if (shieldBreakOwned(this.learnUpgrades.owned)) {
@@ -1122,7 +1123,6 @@ export class LearnSim {
       this.countCollected(harvested.length);
       lines.push(`HARVEST ${harvested.length}`);
     }
-    const defied = defyDeathActive(this.learnUpgrades);
     if (defied) {
       this.learnUpgrades = { ...this.learnUpgrades, defyDeathRemainingMs: 0 };
     }
