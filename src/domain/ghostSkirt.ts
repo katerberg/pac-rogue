@@ -1,9 +1,10 @@
 import { GHOST_ART_SIZE_PX } from "./ghostPupils";
 
-export const GHOST_SKIRT_BODY_ART_ROWS = 14;
 const GHOST_SKIRT_WAVES = 2;
 const GHOST_SKIRT_EDGE_ART_Y = 15;
-const GHOST_SKIRT_AMPLITUDE_ART = 2;
+const GHOST_SKIRT_AMPLITUDE_ART = 1.5;
+export const GHOST_SKIRT_BODY_ART_ROWS =
+  GHOST_SKIRT_EDGE_ART_Y - Math.ceil(GHOST_SKIRT_AMPLITUDE_ART);
 const GHOST_SKIRT_OVERLAP_ART_Y = GHOST_SKIRT_BODY_ART_ROWS - 0.1;
 const GHOST_SKIRT_PHASE_PER_WAVELENGTH = 1;
 
@@ -36,7 +37,7 @@ export function ghostSkirtRects(
     const wave = Math.round(
       GHOST_SKIRT_AMPLITUDE_ART * Math.sin(t * GHOST_SKIRT_WAVES * 2 * Math.PI + phase),
     );
-    const edgeArtY = GHOST_SKIRT_EDGE_ART_Y + Math.max(0, wave);
+    const edgeArtY = GHOST_SKIRT_EDGE_ART_Y + wave;
     const edgeY = top + edgeArtY * scale;
     rects.push({
       x: left + col * scale,

@@ -230,6 +230,32 @@ function fillGhostPupils(
   }
 }
 
+function skirtBaseColor(scene: Phaser.Scene, textureKey: string): number {
+  return (
+    scene.textures.getPixel(GHOST_SKIRT_SAMPLE_ART.x, GHOST_SKIRT_SAMPLE_ART.y, textureKey)
+      ?.color ?? 0xffffff
+  );
+}
+
+function fillGhostSkirt(
+  graphics: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  displaySize: number,
+  phase: number,
+  color: number,
+): void {
+  graphics.clear();
+  graphics.fillStyle(color, 1);
+  for (const rect of ghostSkirtRects(cx, cy, displaySize, phase)) {
+    graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+}
+
+function cropGhostBody(image: Phaser.GameObjects.Image): void {
+  image.setCrop(0, 0, image.frame.width, GHOST_SKIRT_BODY_ART_ROWS);
+}
+
 export function addGhostIcon(
   scene: Phaser.Scene,
   drawableId: string,
@@ -237,12 +263,24 @@ export function addGhostIcon(
   y: number,
   size: number,
 ): void {
-  scene.add.image(x, y, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
+  const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
+  const image = scene.add.image(x, y, textureKey).setDisplaySize(size, size);
+  cropGhostBody(image);
+  const skirt = scene.add.graphics();
+  fillGhostSkirt(skirt, x, y, size, 0, skirtBaseColor(scene, textureKey));
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
   }
 }
+
+export type GhostSpriteHandle = {
+  container: Phaser.GameObjects.Container;
+  setPosition(x: number, y: number): void;
+  setDepth(depth: number): void;
+  destroy(): void;
+  setSkirtPhase(phase: number): void;
+};
 
 export function addGhostSprite(
   scene: Phaser.Scene,
@@ -250,15 +288,34 @@ export function addGhostSprite(
   x: number,
   y: number,
   size: number,
-): Phaser.GameObjects.Container {
-  const image = scene.add.image(0, 0, GHOST_TEXTURE_BY_ID[drawableId]!).setDisplaySize(size, size);
-  const container = scene.add.container(x, y, [image]);
+): GhostSpriteHandle {
+  const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
+  const image = scene.add.image(0, 0, textureKey).setDisplaySize(size, size);
+  cropGhostBody(image);
+  const skirt = scene.add.graphics();
+  const color = skirtBaseColor(scene, textureKey);
+  fillGhostSkirt(skirt, 0, 0, size, 0, color);
+  const container = scene.add.container(x, y, [image, skirt]);
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, 0, 0, size, ghostPupilLookOffset(GHOST_DIR.none));
     container.add(pupils);
   }
-  return container;
+  return {
+    container,
+    setPosition(nx, ny) {
+      container.setPosition(nx, ny);
+    },
+    setDepth(depth) {
+      container.setDepth(depth);
+    },
+    destroy() {
+      container.destroy();
+    },
+    setSkirtPhase(phase) {
+      fillGhostSkirt(skirt, 0, 0, size, phase, color);
+    },
+  };
 }
 
 export function addDotManIcon(

@@ -41,12 +41,21 @@ describe("ghostSkirtRects", () => {
     expect(rects[rects.length - 1]!.x + rects[rects.length - 1]!.w).toBeCloseTo(100 + SIZE / 2);
     for (const rect of rects) {
       expect(rect.w).toBeCloseTo(scale);
-      expect(rect.y).toBeCloseTo(top + 13.9 * scale);
-      expect(rect.y + rect.h).toBeGreaterThanOrEqual(top + 14 * scale);
+      expect(rect.y).toBeCloseTo(top + 12.9 * scale);
+      expect(rect.h).toBeGreaterThan(0);
+      expect(rect.y + rect.h).toBeGreaterThanOrEqual(top + 13 * scale);
       expect(rect.y + rect.h).toBeLessThanOrEqual(top + (GHOST_ART_SIZE_PX + 1) * scale + 1e-9);
       const artRow = (rect.y + rect.h - top) / scale;
       expect(artRow).toBeCloseTo(Math.round(artRow));
     }
+  });
+
+  it("raises valleys and lowers peaks from the skirt midline", () => {
+    const scale = SIZE / GHOST_ART_SIZE_PX;
+    const top = -SIZE / 2;
+    const bottoms = ghostSkirtRects(0, 0, SIZE, 0).map((rect) => (rect.y + rect.h - top) / scale);
+    expect(Math.min(...bottoms)).toBeLessThan(15);
+    expect(Math.max(...bottoms)).toBeGreaterThan(15);
   });
 
   it("moves the wave edge when the phase changes", () => {
