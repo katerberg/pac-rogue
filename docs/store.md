@@ -18,7 +18,7 @@ Quarters (from the [BONUS bar](./bonus.md) and the level-clear Quarters choice) 
 
 ## Movement
 
-In the store the player stops when no direction is held (`stopOnRelease`) and diagonals are always allowed. Cardinal release finishes to the next cell centre; diagonal release eases to the current centre.
+In the store the player stops when no direction is held (`stopOnRelease`) and diagonals are always allowed. Speed upgrades (Afterburner and the like) do not apply, so the player stays controllable; only the level speed curve does. Cardinal release finishes to the next cell centre; diagonal release eases to the current centre.
 
 ## Music
 
