@@ -14,6 +14,7 @@ Quarters (from the [BONUS bar](./bonus.md) and the level-clear Quarters choice) 
 
 - `L` extra life, `U` random unowned upgrade, `S` trade (lose a shown owned upgrade, gain a hidden random one), `E` enhance (a random owned, unenhanced upgrade becomes its Plus form).
 - Prices and counts: constants in `store.ts` (`storePriceFor`, `lifePriceForStore`, ...). `createStoreState` rolls stock once on entry: at most one rare shelved, rares at half weight, unfilled slots omitted, no `E` tile when nothing is enhanceable.
+- **School carry-over:** the last upgrade or enhance bought (lives and trades don't count, since a trade's gain is random) sets the school that the _next_ store must shelve at least once on a `U` tile (`purchaseSchool`, `PlaySim.nextStoreSchool`). It is consumed on entry, skipped when that school has nothing eligible left, and buying nothing in a store clears it.
 
 ## Movement
 

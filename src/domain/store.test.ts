@@ -15,6 +15,7 @@ import {
   parseStoreSlots,
   pickMidStoreLevel,
   promptView,
+  purchaseSchool,
   slotPrice,
   storeAfterLevel,
   storeStep,
@@ -25,6 +26,7 @@ import {
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   STORE_UPGRADE_PRICE,
+  getUpgradeDef,
   isRare,
   type UpgradeId,
 } from "./upgrades";
@@ -222,6 +224,68 @@ describe("createStoreState", () => {
     const owned = ALL_UPGRADE_IDS.slice(1);
     const upgrades = stateWith(owned).slots.filter((s) => s.kind === "upgrade");
     expect(upgrades).toHaveLength(1);
+  });
+});
+
+describe("createStoreState school guarantee", () => {
+  const upgradeIds = (state: StoreState) =>
+    state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
+
+  it("shelves an upgrade of the guaranteed school and no duplicates", () => {
+    for (const school of ["speed", "harvest", "death", "protection"] as const) {
+      for (let seed = 1; seed <= 40; seed += 1) {
+        let x = seed;
+        const rng = () => {
+          x = (x * 1103515245 + 12345) % 2147483648;
+          return x / 2147483648;
+        };
+        const state = createStoreState(
+          parseStoreSlots(STORE_MAZE_ASCII),
+          [],
+          rng,
+          false,
+          Number.POSITIVE_INFINITY,
+          school,
+        );
+        const ids = upgradeIds(state);
+        expect(ids.some((id) => getUpgradeDef(id).school === school)).toBe(true);
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(ids.filter(isRare).length).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("skips the guarantee when the school has nothing left to offer", () => {
+    const owned = ALL_UPGRADE_IDS.filter((id) => getUpgradeDef(id).school === "speed");
+    const state = createStoreState(
+      parseStoreSlots(STORE_MAZE_ASCII),
+      owned,
+      zeroRng,
+      false,
+      Number.POSITIVE_INFINITY,
+      "speed",
+    );
+    expect(upgradeIds(state).every((id) => getUpgradeDef(id).school !== "speed")).toBe(true);
+  });
+});
+
+describe("purchaseSchool", () => {
+  it("reads the school of a bought or enhanced upgrade and ignores lives and random trades", () => {
+    expect(purchaseSchool({ kind: "life", price: 1 })).toBeNull();
+    expect(
+      purchaseSchool({
+        kind: "swap",
+        outgoingId: "passiveGhostSlow",
+        incomingId: "passiveAfterburnerPlus",
+        price: 1,
+      }),
+    ).toBeNull();
+    expect(purchaseSchool({ kind: "upgrade", id: "passiveAfterburner", price: 2 })).toBe(
+      getUpgradeDef("passiveAfterburner").school,
+    );
+    expect(purchaseSchool({ kind: "enhance", targetId: "passiveGhostSlow", price: 2 })).toBe(
+      getUpgradeDef("passiveGhostSlow").school,
+    );
   });
 });
 

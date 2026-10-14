@@ -60,6 +60,7 @@ import {
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   WALL_PASS_MS,
+  getUpgradeDef,
   isRare,
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
@@ -1353,6 +1354,46 @@ describe("PlaySim", () => {
       buy(later, "life", 0);
       expect(later.snapshot().quarters).toBe(8);
       expect(later.snapshot().lives).toBe(3);
+    });
+
+    it("the next store guarantees an upgrade of the school last bought", () => {
+      const schoolOf = (id: string) => getUpgradeDef(id as UpgradeId).school;
+      for (let n = 0; n < 12; n += 1) {
+        const sim = startSim({ store: 1, level: 5, quarters: 10 }, `school${n}`);
+        const shelf = (): string[] =>
+          sim.snapshot().storeStock!.filter((s) => s !== "life" && !s.includes(":"));
+        buy(sim, "upgrade", 0);
+        buy(sim, "upgrade", 1);
+        const last = sim.snapshot().upgrades.at(-1)!;
+        teleportPlayer(sim, cellCenterX(10), cellCenterY(0));
+        runUntil(sim, () => !sim.snapshot().inStore, 600);
+        (sim as unknown as { enterStore(): void }).enterStore();
+        expect(shelf().some((id) => schoolOf(id) === schoolOf(last))).toBe(true);
+      }
+    });
+
+    it("buying only a life sets no school guarantee", () => {
+      const sim = startSim({ store: 1, level: 5, quarters: 10 });
+      expect((sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool).toBeNull();
+      buy(sim, "life");
+      expect((sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool).toBeNull();
+    });
+
+    it("a trade does not change the school guarantee", () => {
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
+      const hint = () => (sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool;
+      buy(sim, "swap");
+      expect(hint()).toBeNull();
+      buy(sim, "upgrade", 0);
+      const school = hint();
+      expect(school).not.toBeNull();
+      buy(sim, "swap");
+      expect(hint()).toBe(school);
     });
 
     it("enhancement costs 2, swaps the owned upgrade for its Plus form and keeps order", () => {

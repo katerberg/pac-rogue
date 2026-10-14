@@ -177,6 +177,7 @@ import {
   parseStoreSlots,
   pickMidStoreLevel,
   promptView,
+  purchaseSchool,
   slotIndexAtCell,
   storeAfterLevel,
   storeExitAlpha,
@@ -285,6 +286,7 @@ import {
   type UpgradeChoiceOption,
   type BaseUpgradeId,
   type UpgradeId,
+  type UpgradeSchool,
   remoteTransferEvery,
 } from "../../domain/upgrades";
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
@@ -477,6 +479,7 @@ export class PlaySim {
   private enhanceLivesPaid = new Set<BaseUpgradeId>();
   private midStoreLevel = 5;
   private store: StoreState | null = null;
+  private nextStoreSchool: UpgradeSchool | null = null;
   private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
   private storeRoute: Cell | null = null;
   private timerVisible = true;
@@ -1768,7 +1771,9 @@ export class PlaySim {
         lifeFloorBonus(this.effectiveUpgrades()),
         this.options.maxLives ?? DEFAULT_MAX_LIVES,
       ),
+      this.nextStoreSchool,
     );
+    this.nextStoreSchool = null;
     this.payInterest();
     this.recorder.storeOpened(this.levelIndex, this.quarters, this.store.slots.map(storeSlotLabel));
     this.emit({ type: "storeOpened" });
@@ -1918,6 +1923,7 @@ export class PlaySim {
 
   private applyStorePurchase(purchase: StorePurchase): void {
     this.recorder.storePurchase(purchase);
+    this.nextStoreSchool = purchaseSchool(purchase) ?? this.nextStoreSchool;
     this.quarters -= purchase.price;
     this.interestPop = null;
     this.emit({ type: "quarters", pulse: false });

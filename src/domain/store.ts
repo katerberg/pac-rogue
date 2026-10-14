@@ -4,12 +4,14 @@ import {
   eligibleUpgrades,
   enhanceableUpgrades,
   enhancedIdOf,
+  getUpgradeDef,
   isRare,
   storePriceFor,
   takeRandomFrom,
   takeWeightedUpgrade,
   type BaseUpgradeId,
   type UpgradeId,
+  type UpgradeSchool,
 } from "./upgrades";
 
 export const STORE_LIFE_PRICE = 1;
@@ -77,6 +79,18 @@ export type StorePurchase =
   | { kind: "swap"; outgoingId: UpgradeId; incomingId: UpgradeId; price: number }
   | { kind: "enhance"; targetId: BaseUpgradeId; price: number };
 
+export function purchaseSchool(purchase: StorePurchase): UpgradeSchool | null {
+  switch (purchase.kind) {
+    case "life":
+    case "swap":
+      return null;
+    case "upgrade":
+      return getUpgradeDef(baseIdOf(purchase.id)).school;
+    case "enhance":
+      return getUpgradeDef(purchase.targetId).school;
+  }
+}
+
 export type StorePromptView = {
   kind: "confirm" | "needQuarters" | "nothingToSwap" | "nothingToEnhance";
   slot: StoreSlot;
@@ -137,11 +151,31 @@ export function createStoreState(
   rng: () => number,
   firstStore = false,
   lifeRoom = Number.POSITIVE_INFINITY,
+  guaranteedSchool: UpgradeSchool | null = null,
 ): StoreState {
   let pool = eligibleUpgrades(owned);
   const slots: StoreSlot[] = [];
   let lifeSlots = 0;
-  for (const { kind, col, row } of cells) {
+  const upgradeCells = cells.filter((cell) => cell.kind === "upgrade");
+  const schoolPool =
+    guaranteedSchool === null
+      ? []
+      : pool.filter((id) => getUpgradeDef(id).school === guaranteedSchool);
+  let guaranteedCell: StoreSlotCell | null = null;
+  let guaranteedId: BaseUpgradeId | null = null;
+  if (schoolPool.length > 0 && upgradeCells.length > 0) {
+    guaranteedCell = takeRandomFrom([...upgradeCells], rng);
+    guaranteedId = takeWeightedUpgrade(schoolPool, rng);
+    pool = pool.filter(
+      (other) => other !== guaranteedId && !(isRare(guaranteedId!) && isRare(other)),
+    );
+  }
+  for (const cell of cells) {
+    const { kind, col, row } = cell;
+    if (cell === guaranteedCell) {
+      slots.push({ kind: "upgrade", col, row, id: guaranteedId!, sold: false });
+      continue;
+    }
     if (kind === "life") {
       if (lifeSlots < lifeRoom) {
         lifeSlots += 1;
