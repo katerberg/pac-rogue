@@ -174,6 +174,12 @@ export function playerDisplaySize(
   return Math.max(1, tileSize + 2 * insetPx - 2 * clearancePx);
 }
 
+const ACTOR_DISPLAY_SCALE = 0.8;
+
+export function actorDisplaySize(): number {
+  return playerDisplaySize() * ACTOR_DISPLAY_SCALE;
+}
+
 const WALL_CHAR = "#";
 const DOOR_CHAR = "=";
 const HOUSE_FLOOR_CHAR = "H";

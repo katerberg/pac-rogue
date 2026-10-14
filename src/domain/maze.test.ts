@@ -38,6 +38,7 @@ import {
   parseMaze,
   pipeEdges,
   playerDisplaySize,
+  actorDisplaySize,
   playerSpawnCenter,
   playerFarthestFromGhostsCell,
   playerFarthestFromGhostsSpawn,
@@ -573,6 +574,11 @@ describe("maze", () => {
     expect(playerDisplaySize(0.5, TILE_SIZE, 3)).toBe(TILE_SIZE + 6 - 1);
     expect(playerDisplaySize()).toBeGreaterThan(TILE_SIZE);
     expect(playerDisplaySize()).toBeLessThan(corridor);
+  });
+
+  it("draws actors smaller than the corridor box but still larger than a tile", () => {
+    expect(actorDisplaySize()).toBeLessThan(playerDisplaySize());
+    expect(actorDisplaySize()).toBeGreaterThan(TILE_SIZE);
   });
 
   it("clamps wall corner radius to a half tile", () => {
