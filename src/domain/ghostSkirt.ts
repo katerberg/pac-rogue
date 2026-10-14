@@ -1,3 +1,4 @@
+import { GHOST_DIR, type GhostDir } from "./ghostPath";
 import { GHOST_ART_SIZE_PX } from "./ghostPupils";
 
 const GHOST_SKIRT_WAVES = 2;
@@ -9,6 +10,7 @@ const GHOST_SKIRT_OVERLAP_ART_Y = GHOST_SKIRT_BODY_ART_ROWS - 0.1;
 const GHOST_SKIRT_PHASE_PER_WAVELENGTH = 1;
 /** Shift so phase 0 (icons / idle house) is a graduated wave, not a square tooth. */
 const GHOST_SKIRT_PHASE_OFFSET = Math.PI / 8;
+const GHOST_SKIRT_VERTICAL_SPEED = 0.5;
 
 export const GHOST_SKIRT_SAMPLE_ART = { x: 8, y: GHOST_SKIRT_BODY_ART_ROWS - 1 } as const;
 
@@ -21,6 +23,25 @@ export function advanceGhostSkirtPhase(phase: number, dxPx: number, displaySize:
   const wavelength = displaySize / GHOST_SKIRT_WAVES;
   const next = phase + (dxPx / wavelength) * GHOST_SKIRT_PHASE_PER_WAVELENGTH * 2 * Math.PI;
   return ((next % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+}
+
+/** +1 waves rightward, -1 leftward; keeps `prev` while the queued move is not horizontal. */
+export function nextSkirtWaveSign(next: GhostDir, prev: number): number {
+  if (next === GHOST_DIR.right) {
+    return 1;
+  }
+  return next === GHOST_DIR.left ? -1 : prev;
+}
+
+/** Horizontal travel plus vertical travel at half speed, waved toward `waveSign`. */
+export function ghostSkirtTravelPx(
+  dxPx: number,
+  dyPx: number,
+  displaySize: number,
+  waveSign: number,
+): number {
+  const vertical = Math.abs(dyPx) > displaySize ? 0 : Math.abs(dyPx);
+  return dxPx + waveSign * vertical * GHOST_SKIRT_VERTICAL_SPEED;
 }
 
 export function ghostSkirtRects(

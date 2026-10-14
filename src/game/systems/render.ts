@@ -71,10 +71,12 @@ import {
 import { GHOST_DIR, type GhostDir } from "../../domain/ghostPath";
 import {
   advanceGhostSkirtPhase,
+  ghostSkirtTravelPx,
   GHOST_SKIRT_BODY_ART_ROWS,
   GHOST_SKIRT_SAMPLE_ART,
   ghostSkirtRects,
   multiplyTint,
+  nextSkirtWaveSign,
 } from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost } from "../../domain/upgrades";
@@ -83,7 +85,7 @@ import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { GhostPhase } from "../components/GhostPhase";
 import { OptionalPellet } from "../components/OptionalPellet";
-import { DIRECTION, type Direction } from "../components/Input";
+import { DIRECTION, Input, type Direction } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
@@ -471,7 +473,13 @@ function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly 
   graphics.strokePath();
 }
 
-type GhostSkirt = { graphics: Phaser.GameObjects.Graphics; phase: number; lastX: number };
+type GhostSkirt = {
+  graphics: Phaser.GameObjects.Graphics;
+  phase: number;
+  lastX: number;
+  lastY: number;
+  waveSign: number;
+};
 
 export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
@@ -724,11 +732,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         placeCroppedGhostBody(go, x, y, size);
         let skirt = ghostSkirts.get(eid);
         if (skirt === undefined) {
-          skirt = { graphics: scene.add.graphics(), phase: 0, lastX: x };
+          skirt = { graphics: scene.add.graphics(), phase: 0, lastX: x, lastY: y, waveSign: 1 };
           ghostSkirts.set(eid, skirt);
         }
-        skirt.phase = advanceGhostSkirtPhase(skirt.phase, x - skirt.lastX, size);
+        skirt.waveSign = nextSkirtWaveSign(
+          facingToGhostDir(Input.direction[eid] ?? DIRECTION.none),
+          skirt.waveSign,
+        );
+        skirt.phase = advanceGhostSkirtPhase(
+          skirt.phase,
+          ghostSkirtTravelPx(x - skirt.lastX, y - skirt.lastY, size, skirt.waveSign),
+          size,
+        );
         skirt.lastX = x;
+        skirt.lastY = y;
         skirt.graphics.setAlpha(bodyAlpha);
         fillGhostSkirt(
           skirt.graphics,
