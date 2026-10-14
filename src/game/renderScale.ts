@@ -37,7 +37,11 @@ export function makeTextureCrisp(texture: Phaser.Textures.Texture): void {
   texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
 }
 
-export function padTextureWithGutter(textures: Phaser.Textures.TextureManager, key: string): void {
+export function padTextureWithGutter(
+  textures: Phaser.Textures.TextureManager,
+  key: string,
+  smoothPixelArt = false,
+): void {
   const source = textures.get(key).getSourceImage() as HTMLImageElement;
   const { width, height } = source;
   const padded = document.createElement("canvas");
@@ -47,5 +51,9 @@ export function padTextureWithGutter(textures: Phaser.Textures.TextureManager, k
   textures.remove(key);
   const texture = textures.addCanvas(key, padded)!;
   texture.get().setSize(width, height, 1, 1);
-  makeTextureCrisp(texture);
+  if (smoothPixelArt) {
+    texture.setSmoothPixelArt(true);
+  } else {
+    makeTextureCrisp(texture);
+  }
 }
