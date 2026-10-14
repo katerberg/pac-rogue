@@ -6,7 +6,7 @@ const GHOST_SKIRT_AMPLITUDE_ART = 1.5;
 export const GHOST_SKIRT_BODY_ART_ROWS =
   GHOST_SKIRT_EDGE_ART_Y - Math.ceil(GHOST_SKIRT_AMPLITUDE_ART);
 const GHOST_SKIRT_OVERLAP_ART_Y = GHOST_SKIRT_BODY_ART_ROWS - 0.1;
-const GHOST_SKIRT_PHASE_PER_WAVELENGTH = 1;
+const GHOST_SKIRT_PHASE_PER_WAVELENGTH = 0.5;
 /** Shift so phase 0 (icons / idle house) is a graduated wave, not a square tooth. */
 const GHOST_SKIRT_PHASE_OFFSET = Math.PI / 8;
 

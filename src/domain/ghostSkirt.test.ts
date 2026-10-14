@@ -29,6 +29,12 @@ describe("advanceGhostSkirtPhase", () => {
       expect(phase).toBeLessThan(2 * Math.PI);
     }
   });
+
+  it("advances half a cycle per wavelength of travel", () => {
+    const wavelength = SIZE / 2;
+    expect(advanceGhostSkirtPhase(0, wavelength, SIZE)).toBeCloseTo(Math.PI);
+    expect(advanceGhostSkirtPhase(0, wavelength * 2, SIZE)).toBeCloseTo(0);
+  });
 });
 
 describe("ghostSkirtRects", () => {
@@ -71,31 +77,7 @@ describe("ghostSkirtRects", () => {
     expect(a).toHaveLength(b.length);
     expect(a.some((rect, i) => Math.abs(rect.h - b[i]!.h) > 0.1)).toBe(true);
   });
-
-  it("keeps the wave fixed in world space as the ghost moves", () => {
-    const cy = 50;
-    const cx0 = 100;
-    const scale = SIZE / GHOST_ART_SIZE_PX;
-    const dx = scale * 3;
-    const phase0 = 0.4;
-    const before = ghostSkirtRects(cx0, cy, SIZE, phase0);
-    const after = ghostSkirtRects(cx0 + dx, cy, SIZE, advanceGhostSkirtPhase(phase0, dx, SIZE));
-    const worldX = cx0 + scale * 0.5;
-    expect(skirtEdgeYAt(before, worldX)).toBeCloseTo(skirtEdgeYAt(after, worldX), 5);
-  });
 });
-
-function skirtEdgeYAt(
-  rects: { x: number; y: number; w: number; h: number }[],
-  worldX: number,
-): number {
-  for (const rect of rects) {
-    if (worldX >= rect.x && worldX < rect.x + rect.w) {
-      return rect.y + rect.h;
-    }
-  }
-  throw new Error(`worldX ${worldX} is outside the skirt`);
-}
 
 describe("multiplyTint", () => {
   it("passes the color through without a tint", () => {
