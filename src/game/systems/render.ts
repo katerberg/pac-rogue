@@ -478,7 +478,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const playerVisuals = new Map<number, PlayerVisual>();
   const pupilLooks = new Map<number, PupilLookState>();
   const ghostSkirts = new Map<number, GhostSkirt>();
-  const skirtBaseColors = new Map<string, number>();
   const wallGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
   const pupilGraphics = scene.add.graphics();
@@ -506,20 +505,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const destroySkirt = (eid: number): void => {
     ghostSkirts.get(eid)?.graphics.destroy();
     ghostSkirts.delete(eid);
-  };
-
-  const skirtBaseColor = (textureKey: string): number => {
-    let color = skirtBaseColors.get(textureKey);
-    if (color === undefined) {
-      const pixel = scene.textures.getPixel(
-        GHOST_SKIRT_SAMPLE_ART.x,
-        GHOST_SKIRT_SAMPLE_ART.y,
-        textureKey,
-      );
-      color = pixel?.color ?? 0xffffff;
-      skirtBaseColors.set(textureKey, color);
-    }
-    return color;
   };
 
   const releaseDrawable = (eid: number): void => {
@@ -744,12 +729,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
         skirt.phase = advanceGhostSkirtPhase(skirt.phase, x - skirt.lastX, size);
         skirt.lastX = x;
-        skirt.graphics.clear();
         skirt.graphics.setAlpha(bodyAlpha);
-        skirt.graphics.fillStyle(multiplyTint(skirtBaseColor(go.texture.key), ghostTint), 1);
-        for (const rect of ghostSkirtRects(x, y, size, skirt.phase)) {
-          skirt.graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
-        }
+        fillGhostSkirt(
+          skirt.graphics,
+          x,
+          y,
+          size,
+          skirt.phase,
+          multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+        );
         if (
           bodyAlpha > 0 &&
           ghostPupilsVisible({
