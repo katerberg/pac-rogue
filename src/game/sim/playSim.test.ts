@@ -1301,8 +1301,9 @@ describe("PlaySim", () => {
         quarters: 10,
         enableUpgrades: ["passiveGhostSlow"],
       });
-      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap")!;
-      const school = swapIncomingSchool(swap as Parameters<typeof swapIncomingSchool>[0]);
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap");
+      if (swap?.kind !== "swap") throw new Error("no swap slot");
+      const school = swapIncomingSchool(swap);
       expect(school).not.toBeNull();
       buy(sim, "swap");
       const owned = sim.snapshot().upgrades;
