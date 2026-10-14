@@ -3165,6 +3165,24 @@ describe("PlaySim enhanced upgrades", () => {
       harvested("passiveDeathsHarvest"),
     );
   });
+
+  it("Death's Harvest leaves power pellets on the board", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["passiveDeathsHarvestPlus"],
+    });
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const player = playerEid(sim);
+    Position.x[power] = Position.x[player]! + TILE_SIZE;
+    Position.y[power] = Position.y[player]!;
+    const powerCount = query(sim.world, [PowerPellet]).length;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    expect(query(sim.world, [PowerPellet])).toHaveLength(powerCount);
+  });
 });
 
 describe("Death's Bounty", () => {
