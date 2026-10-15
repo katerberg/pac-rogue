@@ -217,6 +217,10 @@ import {
   hauntDurationMs,
   armHaunt,
   tickHaunt,
+  dropWall,
+  droppedWallBlocksPlayer,
+  tickWallDrop,
+  walkThroughDroppedWall,
   hauntedGhost,
   hauntedGhostEid,
   eatFrightenedGhost,
@@ -368,6 +372,8 @@ import {
   playerFacing,
   steerPlayer,
 } from "../systems/playerDirection";
+import { CARDINAL_STEP } from "../systems/heldKeys";
+import { wallDropCell, withSolidCell } from "../../domain/wallDrop";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -733,6 +739,7 @@ export class PlaySim {
       wallAlpha: this.bossStageDraw?.wallAlpha,
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
+      droppedWall: this.runUpgrades.droppedWall,
       pupilTarget: this.blinkyPupilTarget(),
     };
   }
@@ -793,6 +800,12 @@ export class PlaySim {
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
+        wallDropMs:
+          upgrades.droppedWall === null
+            ? 0
+            : Number.isFinite(upgrades.droppedWall.remainingMs)
+              ? upgrades.droppedWall.remainingMs
+              : -1,
         shieldsBanked: upgrades.shieldsBanked,
         echoesMs: upgrades.pendingEchoes.map((echo) => echo.remainingMs),
         frightenedMs: upgrades.frightenedRemainingMs,
@@ -805,6 +818,17 @@ export class PlaySim {
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
       },
       timedTunnel: this.timedTunnelSnapshot(),
+      wallDrop: {
+        armed: upgrades.wallDropArmed,
+        wall:
+          upgrades.droppedWall === null
+            ? null
+            : {
+                col: upgrades.droppedWall.col,
+                row: upgrades.droppedWall.row,
+                passable: upgrades.droppedWall.passable,
+              },
+      },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
       reviveProgress:
@@ -1047,6 +1071,7 @@ export class PlaySim {
     this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
     this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
     this.runUpgrades = tickHaunt(this.runUpgrades, delta);
+    this.runUpgrades = tickWallDrop(this.runUpgrades, delta);
     this.runUpgrades = tickFrightened(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
@@ -1083,9 +1108,12 @@ export class PlaySim {
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
       tuning: this.currentTuning,
     });
+    const playerWall = droppedWallBlocksPlayer(this.runUpgrades);
     const playerSolidsOverride = wallPassActive(this.runUpgrades)
       ? wallPassSolids(this.effectiveUpgrades())
-      : undefined;
+      : playerWall === null
+        ? undefined
+        : withSolidCell(getActiveLayout().playerSolids, playerWall);
     if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
@@ -1101,6 +1129,7 @@ export class PlaySim {
         playerPreTurnPx(this.currentTuning),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
+        this.runUpgrades.droppedWall,
       );
     if (hyperspeedActive(this.runUpgrades)) {
       this.moveHyperspeed(delta, moveFrame);
@@ -1108,6 +1137,7 @@ export class PlaySim {
       moveFrame(delta);
     }
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
+    this.updateWallDrop(facingBeforeMove);
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
     this.emitTurnSparks(
@@ -1261,7 +1291,13 @@ export class PlaySim {
     this.ghostModeClock = modeStep.clock;
     const ghostMode = this.settledGhostMode();
     if (ghostMode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world, this.ghostsBlockedFromTunnels(), undefined, blockTunnelRow);
+      forceGhostReverse(
+        this.world,
+        this.ghostsBlockedFromTunnels(),
+        undefined,
+        blockTunnelRow,
+        this.runUpgrades.droppedWall,
+      );
       this.previousEffectiveGhostMode = ghostMode;
     } else {
       ghostAi(
@@ -1272,6 +1308,7 @@ export class PlaySim {
         this.ghostsBlockedFromTunnels(),
         frightenedGhostEids(this.runUpgrades),
         blockTunnelRow,
+        this.runUpgrades.droppedWall,
       );
       frightenedGhostAi(
         this.world,
@@ -1279,6 +1316,7 @@ export class PlaySim {
         this.random.stream("frightened", this.levelIndex),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
+        this.runUpgrades.droppedWall,
       );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
@@ -2851,6 +2889,29 @@ export class PlaySim {
   private noteTunnelExit(before: Point | null): void {
     if (playerExitedTunnel(before, this.playerPosition())) {
       this.runUpgrades = applyTunnelExitInvuln(this.runUpgrades, this.effectiveUpgrades());
+    }
+  }
+
+  private updateWallDrop(facingBefore: Direction): void {
+    const player = this.playerPosition();
+    if (player === null) {
+      return;
+    }
+    const col = worldToCol(player.x);
+    const row = worldToRow(player.y);
+    this.runUpgrades = walkThroughDroppedWall(this.runUpgrades, col, row);
+    if (!this.runUpgrades.wallDropArmed) {
+      return;
+    }
+    const cell = wallDropCell(
+      col,
+      row,
+      CARDINAL_STEP[facingBefore],
+      CARDINAL_STEP[playerFacing(this.world)],
+    );
+    if (cell !== null) {
+      this.runUpgrades = dropWall(this.runUpgrades, cell, this.effectiveUpgrades());
+      this.recorder.activation("wallDrop");
     }
   }
 

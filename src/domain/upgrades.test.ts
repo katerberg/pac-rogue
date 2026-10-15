@@ -28,6 +28,10 @@ import {
   martyrGhostPlacement,
   HAUNTING_MS,
   armHaunt,
+  dropWall,
+  droppedWallBlocksPlayer,
+  tickWallDrop,
+  walkThroughDroppedWall,
   hauntDurationMs,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
   STREAK_ENGINE_EVERY,
@@ -168,6 +172,7 @@ import {
 } from "./upgrades";
 import { ECHO_DELAY_MS } from "./echo";
 import { TILE_SIZE } from "./maze";
+import { WALL_DROP_MS } from "./wallDrop";
 
 const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletFreeze",
@@ -219,6 +224,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletHyperspeed",
   "passiveShieldBreak",
   "powerPelletCornucopia",
+  "powerPelletWallDrop",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -1996,5 +2002,53 @@ describe("Cornucopia", () => {
     expect(STARTING_UPGRADE_POOL).toContain("powerPelletCornucopia");
     expect(cornucopiaAlongsideOwned(["powerPelletCornucopia"])).toBe(false);
     expect(cornucopiaAlongsideOwned(["powerPelletCornucopiaPlus"])).toBe(true);
+  });
+});
+
+describe("Wall Drop", () => {
+  const CELL = { col: 5, row: 7 };
+
+  function armed(id: UpgradeId) {
+    return applyPowerPelletEffects(createRunUpgrades([id]), 1).state;
+  }
+
+  it("a power pellet arms one wall drop only when owned", () => {
+    expect(armed("powerPelletWallDrop").wallDropArmed).toBe(true);
+    expect(applyPowerPelletEffects(createRunUpgrades(), 1).state.wallDropArmed).toBe(false);
+  });
+
+  it("drops an 8s wall that blocks the player and spends the charge", () => {
+    const state = dropWall(armed("powerPelletWallDrop"), CELL, ["powerPelletWallDrop"]);
+    expect(state.wallDropArmed).toBe(false);
+    expect(state.droppedWall).toEqual({ ...CELL, remainingMs: WALL_DROP_MS, passable: false });
+    expect(droppedWallBlocksPlayer(state)).toEqual(state.droppedWall);
+    expect(dropWall(state, { col: 1, row: 1 }, ["powerPelletWallDrop"])).toBe(state);
+  });
+
+  it("expires the base wall and lets Wall Pass through it", () => {
+    const state = dropWall(armed("powerPelletWallDrop"), CELL, ["powerPelletWallDrop"]);
+    expect(tickWallDrop(state, WALL_DROP_MS - 1).droppedWall?.remainingMs).toBe(1);
+    expect(tickWallDrop(state, WALL_DROP_MS).droppedWall).toBeNull();
+    expect(droppedWallBlocksPlayer({ ...state, wallPassRemainingMs: 100 })).toBeNull();
+    expect(walkThroughDroppedWall(state, CELL.col, CELL.row)).toBe(state);
+  });
+
+  it("enhanced: the wall never expires, never blocks the player, and walking through removes it", () => {
+    const state = dropWall(armed("powerPelletWallDropPlus"), CELL, ["powerPelletWallDropPlus"]);
+    expect(state.droppedWall?.passable).toBe(true);
+    expect(tickWallDrop(state, 1_000_000)).toBe(state);
+    expect(droppedWallBlocksPlayer(state)).toBeNull();
+    expect(walkThroughDroppedWall(state, CELL.col + 1, CELL.row)).toBe(state);
+    expect(walkThroughDroppedWall(state, CELL.col, CELL.row).droppedWall).toBeNull();
+  });
+
+  it("a new drop replaces the old wall, and timer clears remove wall and charge", () => {
+    const first = dropWall(armed("powerPelletWallDropPlus"), CELL, ["powerPelletWallDropPlus"]);
+    const rearmed = applyPowerPelletEffects(first, 1).state;
+    const second = dropWall(rearmed, { col: 9, row: 9 }, ["powerPelletWallDropPlus"]);
+    expect(second.droppedWall).toMatchObject({ col: 9, row: 9 });
+    const cleared = clearUpgradeTimers(applyPowerPelletEffects(second, 1).state);
+    expect(cleared.droppedWall).toBeNull();
+    expect(cleared.wallDropArmed).toBe(false);
   });
 });

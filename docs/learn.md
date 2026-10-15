@@ -37,5 +37,5 @@ Known simplifications (everything else is a reuse of play code):
 - **Defy Death, Extra Life, Myogenesis, Death's Harvest/Bounty, Money Talks, Haunting:** shown through the demo catch.
 - **Fruit Fecundity / Feast:** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
-- **Martyr, Interest:** no visible effect (no respawn move, no store).
+- **Martyr, Interest, Wall Drop:** no visible effect (no respawn move, no store; the reduced chase pipeline does not thread dropped walls).
 - **Enhanced-only effects** needing fruit timers, house release or lives (Fecundity+/Feast+ stacking, Quarter Bounty, Extra Life+, Myogenesis+) have no LEARN form.

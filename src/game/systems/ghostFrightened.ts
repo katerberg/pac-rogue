@@ -3,7 +3,13 @@ import { openGhostDirsAt, type GhostDir } from "../../domain/ghostPath";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { pickFrightenedDirection, pickFrightenTargets } from "../../domain/hunter";
-import { TURN_ALIGN_EPS, isAlignedForTurn, worldToCol, worldToRow } from "../../domain/maze";
+import {
+  TURN_ALIGN_EPS,
+  isAlignedForTurn,
+  worldToCol,
+  worldToRow,
+  type MazeTile,
+} from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -42,6 +48,7 @@ export function frightenedGhostAi(
   roll: () => number,
   blockTunnels = false,
   blockTunnelRow: number | null = null,
+  blockedCell: MazeTile | null = null,
 ): void {
   for (const eid of query(world, [Ghost, GhostPhase, Position, Input, Facing])) {
     if (!frightenedEids.has(eid) || GhostPhase.value[eid] !== GHOST_PHASE.active) {
@@ -54,7 +61,7 @@ export function frightenedGhostAi(
     }
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(GHOST_PHASE.active, blockTunnels, blockTunnelRow);
+    const rules = ghostMovementRules(GHOST_PHASE.active, blockTunnels, blockTunnelRow, blockedCell);
     const canEnter = hasComponent(world, eid, BossGhost)
       ? bossAwareCanEnter(world, eid, x, y, rules)
       : rules.canEnter;

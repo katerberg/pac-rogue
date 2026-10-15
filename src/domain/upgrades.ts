@@ -8,8 +8,9 @@ import {
   type FrightenedGhosts,
 } from "./hunter";
 import { levelScaledDurationMs } from "./levelScaledDuration";
-import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE } from "./maze";
+import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
+import { WALL_DROP_MS, type DroppedWall } from "./wallDrop";
 
 export type BaseUpgradeId =
   | "powerPelletFreeze"
@@ -60,7 +61,8 @@ export type BaseUpgradeId =
   | "passiveStartingShield"
   | "powerPelletHyperspeed"
   | "passiveShieldBreak"
-  | "powerPelletCornucopia";
+  | "powerPelletCornucopia"
+  | "powerPelletWallDrop";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -137,6 +139,8 @@ export type UpgradeEffects = {
   rare?: true;
   echoEffects?: EchoEffects;
   hunterHoldsEaten?: true;
+  wallDropMs?: number;
+  wallDropPassable?: true;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -156,6 +160,7 @@ export type UpgradeEffects = {
     frightenShortensPerLevel?: true;
     cornucopiaFruit?: true;
     cornucopiaAlongside?: true;
+    armWallDrop?: true;
   };
 };
 
@@ -897,6 +902,22 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { cornucopiaFruit: true },
   },
+  {
+    id: "powerPelletWallDrop",
+    label: "Wall Drop",
+    school: "protection",
+    description: "Power pellet: your next reversal drops a wall behind you for 8s.",
+    storePrice: STORE_UPGRADE_PRICE,
+    wallDropMs: WALL_DROP_MS,
+    enhanced: {
+      enhanceNote: "Wall Drop's wall lasts the whole level, and walking through it removes it.",
+      description:
+        "Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it.",
+      wallDropMs: Number.POSITIVE_INFINITY,
+      wallDropPassable: true,
+    },
+    onPowerPellet: { armWallDrop: true },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1072,6 +1093,8 @@ export type RunUpgrades = {
   frightenedGhostEids: number[];
   hunterHeldEids: number[];
   ghostsEatenThisFright: number;
+  wallDropArmed: boolean;
+  droppedWall: DroppedWall | null;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -1116,6 +1139,8 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     shieldsBanked: 0,
     pendingEchoes: [],
     ...NO_FRIGHT,
+    wallDropArmed: false,
+    droppedWall: null,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -1369,6 +1394,8 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     hauntedGhostEid: null,
     pendingEchoes: [],
     ...NO_FRIGHT,
+    wallDropArmed: false,
+    droppedWall: null,
   };
 }
 
@@ -1386,6 +1413,47 @@ export function tickHaunt(state: RunUpgrades, deltaMs: number): RunUpgrades {
     hauntRemainingMs: remaining,
     hauntedGhostEid: remaining > 0 ? state.hauntedGhostEid : null,
   };
+}
+
+export function dropWall(
+  state: RunUpgrades,
+  cell: MazeTile,
+  owned: readonly UpgradeId[],
+): RunUpgrades {
+  if (!state.wallDropArmed) {
+    return state;
+  }
+  return {
+    ...state,
+    wallDropArmed: false,
+    droppedWall: {
+      ...cell,
+      remainingMs: ownedValue(owned, "wallDropMs") ?? WALL_DROP_MS,
+      passable: ownedValue(owned, "wallDropPassable") === true,
+    },
+  };
+}
+
+export function tickWallDrop(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  const wall = state.droppedWall;
+  if (wall === null || !Number.isFinite(wall.remainingMs)) {
+    return state;
+  }
+  const remainingMs = wall.remainingMs - Math.max(0, deltaMs);
+  return { ...state, droppedWall: remainingMs > 0 ? { ...wall, remainingMs } : null };
+}
+
+export function walkThroughDroppedWall(state: RunUpgrades, col: number, row: number): RunUpgrades {
+  const wall = state.droppedWall;
+  if (wall === null || !wall.passable || wall.col !== col || wall.row !== row) {
+    return state;
+  }
+  return { ...state, droppedWall: null };
+}
+
+export function droppedWallBlocksPlayer(state: RunUpgrades): MazeTile | null {
+  const wall = state.droppedWall;
+  return wall === null || wall.passable || wallPassActive(state) ? null : wall;
 }
 
 export function hauntedGhostEid(state: RunUpgrades): number | null {
@@ -1565,6 +1633,7 @@ export function applyPowerPelletEffects(
   let collectExtraPellets = 0;
   let frightenMs: number | null = null;
   let cornucopiaFruit: CornucopiaMode | null = null;
+  let armWallDrop = false;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1638,6 +1707,9 @@ export function applyPowerPelletEffects(
           ? "alongside"
           : "solo";
     }
+    if (onPower.armWallDrop) {
+      armWallDrop = true;
+    }
     if (onPower.frightenGhostsMs !== undefined) {
       const ms = hunterFrightenedMs(
         onPower.frightenGhostsMs,
@@ -1694,6 +1766,9 @@ export function applyPowerPelletEffects(
   }
   if (frightenMs !== null) {
     next = { ...next, frightenedRemainingMs: frightenMs, ghostsEatenThisFright: 0 };
+  }
+  if (armWallDrop) {
+    next = { ...next, wallDropArmed: true };
   }
 
   return {

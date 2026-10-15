@@ -27,6 +27,7 @@ import {
   isAlignedForTurn,
   worldToCol,
   worldToRow,
+  type MazeTile,
 } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
@@ -194,6 +195,7 @@ export function ghostAi(
   blockTunnels = false,
   frightenedEids: ReadonlySet<number> = new Set(),
   blockTunnelRow: number | null = null,
+  blockedCell: MazeTile | null = null,
 ): void {
   const ctx = ghostAiContext(world, tuning);
 
@@ -214,7 +216,7 @@ export function ghostAi(
 
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRow);
+    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRow, blockedCell);
     const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     const alreadyDecided = Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row;
     if (alreadyDecided) {

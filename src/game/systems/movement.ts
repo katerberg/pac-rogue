@@ -18,6 +18,7 @@ import {
   worldToCol,
   worldToRow,
   wrapPosition,
+  type MazeTile,
   type SolidGrid,
 } from "../../domain/maze";
 import { clampPositionToPlayfield, playerPreTurnPx } from "../../domain/playfield";
@@ -152,6 +153,7 @@ export function movement(
   playerPreTurn: number = playerPreTurnPx(),
   ghostsBlockTunnels = false,
   blockTunnelRow: number | null = null,
+  ghostBlockedCell: MazeTile | null = null,
 ): void {
   const dt = deltaMs / 1000;
   const playerSolids = playerSolidsOverride ?? getActiveLayout().playerSolids;
@@ -159,7 +161,12 @@ export function movement(
   for (const eid of query(world, [Position, Velocity, Input, Facing, Speed])) {
     const speed = Speed.px[eid] ?? 0;
     const ghost = hasComponent(world, eid, Ghost)
-      ? ghostMovementRules(ghostPhaseOf(world, eid), ghostsBlockTunnels, blockTunnelRow)
+      ? ghostMovementRules(
+          ghostPhaseOf(world, eid),
+          ghostsBlockTunnels,
+          blockTunnelRow,
+          ghostBlockedCell,
+        )
       : null;
     const solids: SolidGrid = ghost?.solids ?? playerSolids;
     const frameTravel = speed * dt;
