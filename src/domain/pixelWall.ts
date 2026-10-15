@@ -39,9 +39,8 @@ function lineCells(
 export function pixelWallRects(
   commands: readonly WallPathCommand[],
   thicknessPx: number,
-  artPx: number = WALL_ART_PX,
 ): WallRect[] {
-  const span = Math.max(1, Math.round(thicknessPx / artPx));
+  const span = Math.max(1, Math.round(thicknessPx / WALL_ART_PX));
   const start = -Math.floor(span / 2);
   const rows = new Map<number, Set<number>>();
   const stamp = (cx: number, cy: number): void => {
@@ -60,8 +59,8 @@ export function pixelWallRects(
 
   let pen: { cx: number; cy: number } | null = null;
   for (const command of commands) {
-    const cx = Math.floor(command.x / artPx);
-    const cy = Math.floor(command.y / artPx);
+    const cx = Math.floor(command.x / WALL_ART_PX);
+    const cy = Math.floor(command.y / WALL_ART_PX);
     if (command.type === "line" && pen !== null) {
       lineCells(pen.cx, pen.cy, cx, cy, stamp);
     }
@@ -81,10 +80,10 @@ export function pixelWallRects(
       }
       if (runStart !== undefined && prev !== undefined) {
         rects.push({
-          x: runStart * artPx,
-          y: cy * artPx,
-          w: (prev - runStart + 1) * artPx,
-          h: artPx,
+          x: runStart * WALL_ART_PX,
+          y: cy * WALL_ART_PX,
+          w: (prev - runStart + 1) * WALL_ART_PX,
+          h: WALL_ART_PX,
         });
       }
       runStart = col;
