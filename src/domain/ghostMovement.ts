@@ -1,6 +1,13 @@
 import { GHOST_DIR, lCornerTurnDir, openGhostDirsAt, type GhostDir } from "./ghostPath";
 import { GHOST_PHASE } from "./ghostPhase";
-import { canGhostEnterDirection, getActiveLayout, type SolidGrid } from "./maze";
+import {
+  canGhostEnterDirection,
+  getActiveLayout,
+  worldToCol,
+  worldToRow,
+  type SolidGrid,
+} from "./maze";
+import { ghostStepBlockedByWall, withSolidCell, type DroppedWall } from "./wallDrop";
 
 export type GhostMovementRules = {
   solids: SolidGrid;
@@ -17,11 +24,22 @@ export function ghostMovementRules(
   phase: number,
   blockTunnels = false,
   blockTunnelRow: number | null = null,
+  droppedWall: DroppedWall | null = null,
+  ghostAt: { x: number; y: number } | null = null,
 ): GhostMovementRules {
   const layout = getActiveLayout();
-  const solids = phase === GHOST_PHASE.active ? layout.playerSolids : layout.ghostSolids;
+  const onWall =
+    droppedWall !== null &&
+    ghostAt !== null &&
+    worldToCol(ghostAt.x) === droppedWall.col &&
+    worldToRow(ghostAt.y) === droppedWall.row;
+  const solids = withSolidCell(
+    phase === GHOST_PHASE.active ? layout.playerSolids : layout.ghostSolids,
+    onWall ? null : droppedWall,
+  );
   const { door } = layout;
   const canEnter = (x: number, y: number, dx: number, dy: number) =>
+    !ghostStepBlockedByWall(droppedWall, worldToCol(x), worldToRow(y), dx, dy) &&
     canGhostEnterDirection(
       x,
       y,

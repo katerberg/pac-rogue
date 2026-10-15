@@ -13,6 +13,7 @@ import {
   type WallPathCommand,
 } from "../../domain/maze";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import { pixelWallRects } from "../../domain/pixelWall";
@@ -459,6 +460,7 @@ export type RenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
 
@@ -514,6 +516,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const droppedWallGraphics = scene.add.graphics();
+  droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
@@ -952,6 +956,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       timedTunnelGraphics.fillStyle(0xffcc33, 0.85);
       timedTunnelGraphics.fillRect(cellCenterX(0) - barW / 2, y, barW, barH);
       timedTunnelGraphics.fillRect(cellCenterX(layout.cols - 1) - barW / 2, y, barW, barH);
+    }
+
+    droppedWallGraphics.clear();
+    const droppedWall = opts?.droppedWall ?? null;
+    if (droppedWall !== null) {
+      const look = droppedWallLook(droppedWall, scene.time.now, wallStyle.cornerRadius);
+      droppedWallGraphics.lineStyle(wallStyle.thickness, look.color, look.alpha);
+      droppedWallGraphics.strokeRoundedRect(
+        cellCenterX(droppedWall.col) - look.size / 2,
+        cellCenterY(droppedWall.row) - look.size / 2,
+        look.size,
+        look.size,
+        look.cornerRadius,
+      );
     }
 
     for (const [key, go] of drawableObjects) {

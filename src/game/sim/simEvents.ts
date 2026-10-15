@@ -8,6 +8,7 @@ import type { FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import type { DroppedWall } from "../../domain/wallDrop";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 
 export type { TimedTunnelRenderState };
@@ -33,6 +34,7 @@ export type SimRenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
 

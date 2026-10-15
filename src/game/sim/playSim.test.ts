@@ -43,6 +43,7 @@ import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
@@ -5521,5 +5522,200 @@ describe("Cornucopia", () => {
     expect(sim.snapshot().bonus.charge).toBeGreaterThan(0);
     eatNextPower(sim);
     expect(fruitCount(sim)).toBe(1);
+  });
+});
+
+describe("Wall Drop", () => {
+  const RIGHT = { keys: held("right") };
+  const LEFT = { keys: held("left") };
+
+  function start(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
+  }
+
+  function eatPower(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function corridorStart(otherThanRow = -1): { col: number; row: number } {
+    const layout = getActiveLayout();
+    for (let row = 1; row < layout.rows - 1; row += 1) {
+      for (let col = 1; col + 6 < layout.cols - 1; col += 1) {
+        const run = [0, 1, 2, 3, 4, 5].every((d) => isWalkable(col + d, row));
+        if (
+          run &&
+          row !== otherThanRow &&
+          wallDropSpot(col + 2, row, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }) !== null &&
+          wallDropSpot(col + 3, row, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }) !== null
+        ) {
+          return { col, row };
+        }
+      }
+    }
+    throw new Error("no straight corridor");
+  }
+
+  function playerCell(sim: PlaySim): { col: number; row: number } {
+    const eid = playerEid(sim);
+    return { col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) };
+  }
+
+  function reverse(sim: PlaySim, otherThanRow = -1): { col: number; row: number } {
+    const { col, row } = corridorStart(otherThanRow);
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    Facing.direction[playerEid(sim)] = DIRECTION.right;
+    runUntil(sim, () => playerCell(sim).col === col + 3, 60, RIGHT);
+    runFrames(sim, 1, LEFT);
+    return playerCell(sim);
+  }
+
+  it("does nothing without the upgrade", () => {
+    const sim = start([]);
+    eatPower(sim);
+    reverse(sim);
+    expect(sim.snapshot().wallDrop).toEqual({ armed: false, wall: null });
+  });
+
+  it("needs a power pellet before a reversal drops a wall", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    reverse(sim);
+    expect(sim.snapshot().wallDrop).toEqual({ armed: false, wall: null });
+    eatPower(sim);
+    expect(sim.snapshot().wallDrop.armed).toBe(true);
+  });
+
+  it("drops one wall where you reversed that blocks your way back, then expires after 8s", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    eatPower(sim);
+    const cell = reverse(sim);
+    expect(sim.snapshot().wallDrop).toEqual({
+      armed: false,
+      wall: { ...cell, passable: false },
+    });
+    expect(sim.snapshot().timers.wallDropMs).toBeGreaterThan(WALL_DROP_MS - 2 * FRAME_MS);
+    expect(sim.renderOptions().droppedWall).toMatchObject(cell);
+
+    runUntil(sim, () => playerCell(sim).col === cell.col - 1, 30, LEFT);
+    runFrames(sim, 60, RIGHT);
+    expect(playerCell(sim).col).toBe(cell.col - 1);
+
+    runFrames(sim, 30, LEFT);
+    runFrames(sim, 1, RIGHT);
+    expect(sim.snapshot().wallDrop.wall).toEqual({ ...cell, passable: false });
+
+    runUntil(sim, () => sim.snapshot().wallDrop.wall === null, Math.ceil(WALL_DROP_MS / FRAME_MS));
+    expect(sim.snapshot().timers.wallDropMs).toBe(0);
+  });
+
+  function ghostHeadingInto(sim: PlaySim, cell: { col: number; row: number }): () => boolean {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(cell.col + 2);
+    Position.y[ghost] = cellCenterY(cell.row);
+    Facing.direction[ghost] = DIRECTION.left;
+    Input.direction[ghost] = DIRECTION.left;
+    return () =>
+      worldToCol(Position.x[ghost]!) === cell.col && worldToRow(Position.y[ghost]!) === cell.row;
+  }
+
+  it("keeps ghosts out of the wall tile", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    eatPower(sim);
+    const inWall = ghostHeadingInto(sim, reverse(sim));
+    for (let frame = 0; frame < 120; frame += 1) {
+      runFrames(sim, 1);
+      expect(inWall()).toBe(false);
+    }
+  });
+
+  it("lets a ghost caught on the wall tile leave, but never toward Dot-Man", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    eatPower(sim);
+    const cell = reverse(sim);
+    runUntil(sim, () => playerCell(sim).col === cell.col - 2, 60, LEFT);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(cell.col);
+    Position.y[ghost] = cellCenterY(cell.row);
+    Facing.direction[ghost] = DIRECTION.left;
+    Input.direction[ghost] = DIRECTION.left;
+    const ghostCol = () => worldToCol(Position.x[ghost]!);
+    for (let frame = 0; frame < 60 && ghostCol() <= cell.col; frame += 1) {
+      runFrames(sim, 1);
+      expect(ghostCol()).toBeGreaterThanOrEqual(cell.col);
+    }
+    expect(ghostCol()).toBeGreaterThan(cell.col);
+  });
+
+  it("without the upgrade the same ghost walks into that tile", () => {
+    const sim = start([]);
+    eatPower(sim);
+    runUntil(sim, ghostHeadingInto(sim, reverse(sim)), 120);
+  });
+
+  it("Plus: the wall stays, lets you through, and walking through removes it", () => {
+    const sim = start(["powerPelletWallDropPlus"]);
+    eatPower(sim);
+    const cell = reverse(sim);
+    expect(playerCell(sim)).toEqual(cell);
+    expect(sim.snapshot().wallDrop.wall).toEqual({ ...cell, passable: true });
+    expect(sim.snapshot().timers.wallDropMs).toBe(-1);
+    runFrames(sim, Math.ceil(WALL_DROP_MS / FRAME_MS) + 60);
+    expect(sim.snapshot().wallDrop.wall).toEqual({ ...cell, passable: true });
+
+    teleportPlayer(sim, cellCenterX(cell.col - 1), cellCenterY(cell.row));
+    runUntil(sim, () => sim.snapshot().wallDrop.wall === null, 60, RIGHT);
+    expect(playerCell(sim)).toEqual(cell);
+  });
+
+  it("Plus: crossing the wall at Hyperspeed still removes it", () => {
+    const sim = start(["powerPelletWallDropPlus", "powerPelletHyperspeed"]);
+    eatPower(sim);
+    sim["runUpgrades"] = {
+      ...sim["runUpgrades"],
+      hyperspeedRemainingMs: 0,
+      hyperspeedTurnDelayMs: 0,
+    };
+    const cell = reverse(sim);
+    expect(sim.snapshot().wallDrop.wall).toMatchObject(cell);
+    teleportPlayer(sim, cellCenterX(cell.col - 2), cellCenterY(cell.row));
+    sim["runUpgrades"] = { ...sim["runUpgrades"], hyperspeedRemainingMs: 3000 };
+    runUntil(sim, () => playerCell(sim).col > cell.col, 30, RIGHT);
+    expect(sim.snapshot().wallDrop.wall).toBeNull();
+  });
+
+  it("a second power pellet re-arms, and the next drop replaces the old wall", () => {
+    const sim = start(["powerPelletWallDropPlus"]);
+    eatPower(sim);
+    const first = reverse(sim);
+    expect(sim.snapshot().wallDrop.wall).toMatchObject(first);
+
+    eatPower(sim);
+    expect(sim.snapshot().wallDrop.armed).toBe(true);
+    const second = reverse(sim, first.row);
+    expect(second.row).not.toBe(first.row);
+    expect(sim.snapshot().wallDrop).toEqual({
+      armed: false,
+      wall: { ...second, passable: true },
+    });
+  });
+
+  it("losing a life clears the wall and the charge", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["powerPelletWallDropPlus"],
+    });
+    eatPower(sim);
+    reverse(sim);
+    eatPower(sim);
+    expect(sim.snapshot().wallDrop.wall).not.toBeNull();
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().wallDrop).toEqual({ armed: false, wall: null });
   });
 });

@@ -31,7 +31,8 @@ export type ActivationKind =
   | "streakEngine"
   | "echo"
   | "frighten"
-  | "ghostEaten";
+  | "ghostEaten"
+  | "wallDrop";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   "fruit" | "bonusBar" | "deathsBounty" | "nearMiss" | "offer" | "interest" | "hunter";
