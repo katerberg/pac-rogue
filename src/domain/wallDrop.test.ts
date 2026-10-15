@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { EXPIRY_BLINK_MS } from "./expiryBlink";
 import { getActiveLayout, isWalkable, MAZE_COLS } from "./maze";
 import {
+  DROPPED_WALL_COLOR,
   PASSABLE_WALL_ALPHA,
-  droppedWallAlpha,
+  droppedWallLook,
   wallDropCell,
   withSolidCell,
   type CardinalStep,
@@ -69,18 +70,33 @@ describe("withSolidCell", () => {
   });
 });
 
-describe("droppedWallAlpha", () => {
+describe("droppedWallLook", () => {
   const wall = { col: 0, row: 0, passable: false };
+  const alpha = (remainingMs: number, nowMs: number) =>
+    droppedWallLook({ ...wall, remainingMs }, nowMs, 4).alpha;
+
+  it("is a Dot-Man-yellow, Dot-Man-sized outline with the maze's corner radius", () => {
+    expect(droppedWallLook({ ...wall, remainingMs: 5000 }, 0, 4, 20)).toEqual({
+      color: DROPPED_WALL_COLOR,
+      alpha: 1,
+      size: 20,
+      cornerRadius: 4,
+    });
+    expect(droppedWallLook({ ...wall, remainingMs: 5000 }, 0, 30, 20).cornerRadius).toBe(10);
+  });
 
   it("is solid until the last second, then blinks", () => {
-    expect(droppedWallAlpha({ ...wall, remainingMs: 5000 }, EXPIRY_BLINK_MS)).toBe(1);
-    expect(droppedWallAlpha({ ...wall, remainingMs: 500 }, 0)).toBe(1);
-    expect(droppedWallAlpha({ ...wall, remainingMs: 500 }, EXPIRY_BLINK_MS)).toBe(0);
+    expect(alpha(5000, EXPIRY_BLINK_MS)).toBe(1);
+    expect(alpha(500, 0)).toBe(1);
+    expect(alpha(500, EXPIRY_BLINK_MS)).toBe(0);
   });
 
   it("draws a passable wall see-through", () => {
-    expect(
-      droppedWallAlpha({ ...wall, passable: true, remainingMs: Number.POSITIVE_INFINITY }, 0),
-    ).toBe(PASSABLE_WALL_ALPHA);
+    const look = droppedWallLook(
+      { ...wall, passable: true, remainingMs: Number.POSITIVE_INFINITY },
+      0,
+      4,
+    );
+    expect(look.alpha).toBe(PASSABLE_WALL_ALPHA);
   });
 });

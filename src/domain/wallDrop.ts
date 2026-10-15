@@ -1,5 +1,6 @@
 import { expiryTintOn } from "./expiryBlink";
 import {
+  actorDisplaySize,
   getActiveLayout,
   inBounds,
   isDoor,
@@ -15,6 +16,9 @@ export type DroppedWall = MazeTile & { remainingMs: number; passable: boolean };
 
 export const WALL_DROP_MS = 8000;
 export const PASSABLE_WALL_ALPHA = 0.45;
+export const DROPPED_WALL_COLOR = 0xffec00;
+
+export type DroppedWallLook = { color: number; alpha: number; size: number; cornerRadius: number };
 
 const NEIGHBORS: readonly CardinalStep[] = [
   { dx: 0, dy: -1 },
@@ -64,9 +68,17 @@ export function withSolidCell(solids: SolidGrid, cell: MazeTile | null): SolidGr
   );
 }
 
-export function droppedWallAlpha(wall: DroppedWall, nowMs: number): number {
-  if (wall.passable) {
-    return PASSABLE_WALL_ALPHA;
-  }
-  return expiryTintOn(wall.remainingMs, nowMs) ? 1 : 0;
+export function droppedWallLook(
+  wall: DroppedWall,
+  nowMs: number,
+  wallCornerRadius: number,
+  size: number = actorDisplaySize(),
+): DroppedWallLook {
+  const solidAlpha = expiryTintOn(wall.remainingMs, nowMs) ? 1 : 0;
+  return {
+    color: DROPPED_WALL_COLOR,
+    alpha: wall.passable ? PASSABLE_WALL_ALPHA : solidAlpha,
+    size,
+    cornerRadius: Math.min(wallCornerRadius, size / 2),
+  };
 }

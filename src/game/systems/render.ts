@@ -13,7 +13,7 @@ import {
   type WallPathCommand,
 } from "../../domain/maze";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
-import { droppedWallAlpha, type DroppedWall } from "../../domain/wallDrop";
+import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import { sameWallStyle, wallStyleFor, type WallStyle } from "../../domain/wallStyle";
@@ -947,13 +947,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     droppedWallGraphics.clear();
     const droppedWall = opts?.droppedWall ?? null;
     if (droppedWall !== null) {
-      const tile = getActiveLayout().tileSize;
-      droppedWallGraphics.fillStyle(wallStyle.color, droppedWallAlpha(droppedWall, scene.time.now));
-      droppedWallGraphics.fillRect(
-        cellCenterX(droppedWall.col) - tile / 2,
-        cellCenterY(droppedWall.row) - tile / 2,
-        tile,
-        tile,
+      const look = droppedWallLook(droppedWall, scene.time.now, wallStyle.cornerRadius);
+      droppedWallGraphics.lineStyle(wallStyle.thickness, look.color, look.alpha);
+      droppedWallGraphics.strokeRoundedRect(
+        cellCenterX(droppedWall.col) - look.size / 2,
+        cellCenterY(droppedWall.row) - look.size / 2,
+        look.size,
+        look.size,
+        look.cornerRadius,
       );
     }
 
