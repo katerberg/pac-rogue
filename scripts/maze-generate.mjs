@@ -5,7 +5,6 @@ import { pathToFileURL } from "node:url";
 import { root } from "./lib/server.mjs";
 
 const DEFAULT_COUNT = 500;
-const SEED_ATTEMPT_CEILING = 20_000;
 
 function parseArgs(argv) {
   let count = DEFAULT_COUNT;
@@ -25,7 +24,7 @@ function parseArgs(argv) {
 Generate N maze candidates (default ${DEFAULT_COUNT}) via generateMazeAsciiWithRetries
 and write artifacts/mazes/candidates.json for the /mazes/ curator.
 
-Seed index attempts are capped at ${SEED_ATTEMPT_CEILING}.`);
+Seed index attempts are capped by CANDIDATE_SEED_ATTEMPT_CEILING in mazeCandidate.ts.`);
       process.exit(0);
     } else {
       throw new Error(`Unknown arg ${arg}`);
@@ -58,10 +57,10 @@ async function main() {
     candidateSeed,
     generateMazeAsciiWithRetries,
     layoutFromAscii,
-    tunnelRowsFromAscii,
+    tunnelRowsFromLayout,
   } = mod;
 
-  const ceiling = CANDIDATE_SEED_ATTEMPT_CEILING ?? SEED_ATTEMPT_CEILING;
+  const ceiling = CANDIDATE_SEED_ATTEMPT_CEILING;
   const candidates = [];
   let seedIndex = 0;
   let failures = 0;
@@ -81,7 +80,7 @@ async function main() {
       seedUsed: result.seedUsed,
       ascii: result.ascii,
       pelletCount: layout.pelletCount,
-      tunnels: tunnelRowsFromAscii(result.ascii),
+      tunnels: tunnelRowsFromLayout(layout),
     });
     if (candidates.length % 50 === 0 || candidates.length === count) {
       console.log(

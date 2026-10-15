@@ -2,7 +2,6 @@ export const MAZE_CANDIDATES_VERSION = 1 as const;
 export const MAZE_POOL_VERSION = 1 as const;
 export const MAZE_CURATOR_STORAGE_KEY = "pac-rogue.maze-curator.v1";
 
-export const DEFAULT_CANDIDATE_COUNT = 500;
 /** Seed index attempts before giving up on filling `count` successes. */
 export const CANDIDATE_SEED_ATTEMPT_CEILING = 20_000;
 
@@ -33,7 +32,7 @@ export type MazePoolFile = {
 
 export type MazeCuratorState = {
   candidatesFingerprint: string;
-  /** Ordered ids that have a decision (newest last). */
+  /** Newest decision last — undo pops this order. */
   order: number[];
   decisions: Record<string, MazeCandidateDecision>;
 };
@@ -42,21 +41,20 @@ export function candidateSeed(index: number): string {
   return `pool-cand-${index}`;
 }
 
-export function tunnelRowsFromAscii(ascii: string): number[] {
-  const lines = ascii.split("\n");
-  const rows: number[] = [];
-  for (let row = 0; row < lines.length; row += 1) {
-    const line = lines[row]!;
-    if (line.length === 0) {
-      continue;
-    }
-    const left = line[0]!;
-    const right = line[line.length - 1]!;
-    if (left !== "#" && right !== "#") {
-      rows.push(row);
+export function tunnelRowsFromLayout(layout: {
+  cols: number;
+  rows: number;
+  playerSolids: ReadonlyArray<ReadonlyArray<boolean>>;
+}): number[] {
+  const found: number[] = [];
+  for (let row = 0; row < layout.rows; row += 1) {
+    const leftSolid = layout.playerSolids[row]?.[0] ?? true;
+    const rightSolid = layout.playerSolids[row]?.[layout.cols - 1] ?? true;
+    if (!leftSolid && !rightSolid) {
+      found.push(row);
     }
   }
-  return rows;
+  return found;
 }
 
 export function candidatesFingerprint(

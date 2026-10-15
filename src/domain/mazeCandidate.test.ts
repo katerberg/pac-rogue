@@ -10,7 +10,7 @@ import {
   parseCandidatesFile,
   parseCuratorState,
   remainingCount,
-  tunnelRowsFromAscii,
+  tunnelRowsFromLayout,
   undoLastDecision,
   type MazeCandidate,
   type MazeCandidatesFile,
@@ -35,9 +35,28 @@ describe("mazeCandidate", () => {
     expect(candidateSeed(42)).toBe("pool-cand-42");
   });
 
-  it("finds tunnel rows from ASCII edges", () => {
-    expect(tunnelRowsFromAscii(sampleAscii)).toEqual([1]);
-    expect(tunnelRowsFromAscii(["###", "###"].join("\n"))).toEqual([]);
+  it("finds tunnel rows from layout edge solids", () => {
+    expect(
+      tunnelRowsFromLayout({
+        cols: 3,
+        rows: 3,
+        playerSolids: [
+          [true, false, true],
+          [false, false, false],
+          [true, false, true],
+        ],
+      }),
+    ).toEqual([1]);
+    expect(
+      tunnelRowsFromLayout({
+        cols: 3,
+        rows: 2,
+        playerSolids: [
+          [true, true, true],
+          [true, false, true],
+        ],
+      }),
+    ).toEqual([]);
   });
 
   it("fingerprints candidates by generatedAt and count", () => {

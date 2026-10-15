@@ -11,6 +11,7 @@ import {
   undoLastDecision,
   type MazeCandidate,
   type MazeCandidatesFile,
+  type MazeCandidateDecision,
   type MazeCuratorState,
 } from "../domain/mazeCandidate";
 import { renderBoard } from "./renderBoard";
@@ -107,7 +108,7 @@ function mountCurator(file: MazeCandidatesFile): void {
 
   root.replaceChildren(title, notes, hud, boardWrap, actions, done);
 
-  const paint = (): void => {
+  function paint(): void {
     const idx = nextUndecidedIndex(file.candidates, state);
     const kept = keptCount(state);
     const remaining = remainingCount(file.candidates, state);
@@ -139,88 +140,57 @@ function mountCurator(file: MazeCandidatesFile): void {
     if (!current) {
       done.hidden = false;
       done.innerHTML = `<p>All ${file.candidates.length} candidates reviewed. Kept <strong>${kept}</strong>.</p><p>Download <code>maze-pool.json</code> for the follow-up wiring PR.</p>`;
-      actions.append(
-        button("DOWNLOAD POOL", "", () => downloadPool(file.candidates, state), kept === 0),
-        button(
-          "UNDO",
-          "",
-          () => {
-            state = undoLastDecision(state);
-            saveState(state);
-            paint();
-          },
-          state.order.length === 0,
-        ),
-        button("RESET", "", () => {
-          state = parseCuratorState(null, fingerprint);
-          saveState(state);
-          paint();
-        }),
-      );
+      actions.append(...sharedActions(kept));
       return;
     }
 
     boardWrap.appendChild(renderBoard(current.ascii));
-
-    const onYes = (): void => {
-      state = decideCandidate(state, current.id, "yes");
-      saveState(state);
-      paint();
-    };
-    const onNo = (): void => {
-      state = decideCandidate(state, current.id, "no");
-      saveState(state);
-      paint();
-    };
-
     actions.append(
-      button("NO", "no", onNo),
-      button("YES", "yes", onYes),
-      button(
-        "UNDO",
-        "",
-        () => {
-          state = undoLastDecision(state);
-          saveState(state);
-          paint();
-        },
-        state.order.length === 0,
-      ),
-      button("DOWNLOAD POOL", "", () => downloadPool(file.candidates, state), kept === 0),
-      button("RESET", "", () => {
-        state = parseCuratorState(null, fingerprint);
-        saveState(state);
-        paint();
-      }),
+      button("NO", "no", () => decide(current.id, "no")),
+      button("YES", "yes", () => decide(current.id, "yes")),
+      ...sharedActions(kept),
     );
     const keys = document.createElement("span");
     keys.className = "keys";
     keys.textContent = "Keys: Y / → yes · N / ← no · U undo";
     actions.appendChild(keys);
+  }
+
+  const commit = (next: MazeCuratorState): void => {
+    state = next;
+    saveState(state);
+    paint();
   };
+  const decide = (id: number, decision: MazeCandidateDecision): void => {
+    commit(decideCandidate(state, id, decision));
+  };
+  const undo = (): void => {
+    commit(undoLastDecision(state));
+  };
+  const reset = (): void => {
+    commit(parseCuratorState(null, fingerprint));
+  };
+  const sharedActions = (kept: number): HTMLButtonElement[] => [
+    button("UNDO", "", undo, state.order.length === 0),
+    button("DOWNLOAD POOL", "", () => downloadPool(file.candidates, state), kept === 0),
+    button("RESET", "", reset),
+  ];
 
   window.addEventListener("keydown", (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) {
       return;
     }
     const key = event.key.toLowerCase();
-    const idx = nextUndecidedIndex(file.candidates, state);
-    const current = file.candidates[idx];
+    const current = file.candidates[nextUndecidedIndex(file.candidates, state)];
     if ((key === "y" || key === "arrowright") && current) {
       event.preventDefault();
-      state = decideCandidate(state, current.id, "yes");
-      saveState(state);
-      paint();
+      decide(current.id, "yes");
     } else if ((key === "n" || key === "arrowleft") && current) {
       event.preventDefault();
-      state = decideCandidate(state, current.id, "no");
-      saveState(state);
-      paint();
+      decide(current.id, "no");
     } else if (key === "u") {
       event.preventDefault();
-      state = undoLastDecision(state);
-      saveState(state);
-      paint();
+      undo();
     }
   });
 
