@@ -82,7 +82,8 @@ import {
   nextSkirtWaveSign,
 } from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
-import type { HauntedGhost } from "../../domain/upgrades";
+import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
+import { UPGRADE_SCHOOL_ORDER, type HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -94,6 +95,7 @@ import { Position } from "../components/Position";
 
 export const PELLET_TEXTURE_KEY = "pellet-dot";
 export const QUARTER_TEXTURE_KEY = "quarter";
+export const REVERSE_TEXTURE_KEY = "reverse";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
@@ -350,6 +352,15 @@ export function addQuarterIcon(
   return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
+export function addReverseIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, REVERSE_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
 export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.on(Phaser.Loader.Events.FILE_COMPLETE, (key: string, type: string) => {
     if (type === "image") {
@@ -361,6 +372,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   }
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
+  scene.load.image(REVERSE_TEXTURE_KEY, "art/other/reverse.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
@@ -371,6 +383,12 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
   for (const kind of FRUIT_KINDS) {
     scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
+  }
+  for (const school of UPGRADE_SCHOOL_ORDER) {
+    const path = schoolArtPath(school);
+    if (path !== null) {
+      scene.load.image(schoolArtTextureKey(school), path);
+    }
   }
 }
 
