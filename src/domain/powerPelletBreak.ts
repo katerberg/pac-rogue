@@ -3,11 +3,9 @@ import { DEFAULT_TUNING, speedLevelMultiplier, type Tuning } from "./tuning";
 
 export const POWER_PELLET_BREAK_MS = 200;
 export const POWER_PELLET_BREAK_SPLIT_PX = 10;
-/** Extra fling for chips on the trail side (opposite travel) — shatter stays behind Dot-Man. */
 export const POWER_PELLET_BREAK_BEHIND_PX = 12;
 export const POWER_PELLET_BREAK_FALL_PX = 6;
 export const POWER_PELLET_BREAK_SPIN_RAD = 0.55;
-/** Ahead-side chips keep this fraction of along-facing travel so they don't leap in front. */
 export const POWER_PELLET_BREAK_AHEAD_FRAC = 0.06;
 export const POWER_PELLET_BREAK_COLOR = 0xffffff;
 export const POWER_PELLET_BREAK_FRAGMENT_FRAC = 0.36;
@@ -93,7 +91,6 @@ export function powerPelletBreakLook(
     const latY = diagY - projY;
 
     if (along < 0) {
-      // Trail side: fling further behind Dot-Man (opposite facing).
       return {
         id: q.id,
         offsetX: latX + projX - facing.dx * behindPush,
@@ -103,7 +100,6 @@ export function powerPelletBreakLook(
       };
     }
 
-    // Ahead side: soft lateral settle — do not leap out in front of him.
     return {
       id: q.id,
       offsetX: latX * 0.45 + projX * POWER_PELLET_BREAK_AHEAD_FRAC,

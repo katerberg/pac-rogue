@@ -110,7 +110,6 @@ describe("powerPelletBreakLook", () => {
   it("scales travel with intensity without changing the soft/hard ratio shape", () => {
     const soft = powerPelletBreakLook(1, { dx: 1, dy: 0 }, POWER_PELLET_BREAK_INTENSITY_SOFT);
     const hard = powerPelletBreakLook(1, { dx: 1, dy: 0 }, POWER_PELLET_BREAK_INTENSITY_HARD);
-    // Trail side when facing right is NW/SW (negative along).
     const softNw = soft.find((q) => q.id === "nw")!;
     const hardNw = hard.find((q) => q.id === "nw")!;
     expect(hardNw.offsetX / softNw.offsetX).toBeCloseTo(
