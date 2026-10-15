@@ -24,6 +24,7 @@ import {
 } from "../../domain/maze";
 import { NEAR_MISS_CHARGE } from "../../domain/upgrades";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import { WALL_DROP_MS, wallDropSpot, type CardinalStep } from "../../domain/wallDrop";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
@@ -747,6 +748,92 @@ describe("LearnSim upgrade demos", () => {
     catchByGhost(sim, player);
     sim.toggleUpgrade("passiveHaunting");
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
+  });
+
+  describe("Wall Drop", () => {
+    const RIGHT: CardinalStep = { dx: 1, dy: 0 };
+    const LEFT: CardinalStep = { dx: -1, dy: 0 };
+
+    function corridor(): { col: number; row: number } {
+      const layout = getActiveLayout();
+      for (let row = 1; row < layout.rows - 1; row += 1) {
+        for (let col = 1; col + 5 < layout.cols - 1; col += 1) {
+          const open = [0, 1, 2, 3, 4, 5].every((d) =>
+            canEnterDirection(cellCenterX(col + d), cellCenterY(row), 1, 0),
+          );
+          if (
+            open &&
+            wallDropSpot(col + 2, row, RIGHT, LEFT) !== null &&
+            wallDropSpot(col + 3, row, RIGHT, LEFT) !== null
+          ) {
+            return { col, row };
+          }
+        }
+      }
+      throw new Error("no straight corridor");
+    }
+
+    function reverse(sim: LearnSim, player: number): { col: number; row: number } {
+      const { col, row } = corridor();
+      moveTo(player, { x: cellCenterX(col), y: cellCenterY(row) });
+      Facing.direction[player] = DIRECTION.right;
+      for (let frame = 0; frame < 60 && worldToCol(Position.x[player]!) < col + 3; frame += 1) {
+        sim.step(held("right"), FRAME_MS);
+      }
+      sim.step(held("left"), FRAME_MS);
+      return { col: worldToCol(Position.x[player]!), row };
+    }
+
+    function drawnWall(sim: LearnSim) {
+      const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+      return draw.type === "draw" ? draw.options.droppedWall : undefined;
+    }
+
+    it("a power pellet arms a wall that the next reversal drops, blocking Maze-Man for 8s", () => {
+      const { sim, player } = setup("powerPelletWallDrop");
+      chompPower(sim, player);
+      expect(sim["learnUpgrades"].wallDropArmed).toBe(true);
+      const cell = reverse(sim, player);
+      expect(drawnWall(sim)).toMatchObject({ ...cell, passable: false });
+      for (let frame = 0; frame < 30 && worldToCol(Position.x[player]!) >= cell.col; frame += 1) {
+        sim.step(held("left"), FRAME_MS);
+      }
+      for (let frame = 0; frame < 60; frame += 1) {
+        sim.step(held("right"), FRAME_MS);
+      }
+      expect(worldToCol(Position.x[player]!)).toBe(cell.col - 1);
+      runMs(sim, WALL_DROP_MS);
+      expect(drawnWall(sim)).toBeNull();
+    });
+
+    it("Plus: the wall stays and walking through removes it", () => {
+      const { sim, player } = setup("powerPelletWallDrop");
+      sim.toggleEnhanced("powerPelletWallDrop");
+      chompPower(sim, player);
+      const cell = reverse(sim, player);
+      runMs(sim, WALL_DROP_MS + 1000);
+      expect(drawnWall(sim)).toMatchObject({ ...cell, passable: true });
+      moveTo(player, { x: cellCenterX(cell.col - 1), y: cellCenterY(cell.row) });
+      for (let frame = 0; frame < 60 && sim["learnUpgrades"].droppedWall !== null; frame += 1) {
+        sim.step(held("right"), FRAME_MS);
+      }
+      expect(sim["learnUpgrades"].droppedWall).toBeNull();
+    });
+
+    it("does nothing without the upgrade, and toggling it off clears the wall", () => {
+      const plain = setup();
+      chompPower(plain.sim, plain.player);
+      reverse(plain.sim, plain.player);
+      expect(drawnWall(plain.sim)).toBeNull();
+
+      const { sim, player } = setup("powerPelletWallDrop");
+      chompPower(sim, player);
+      reverse(sim, player);
+      expect(drawnWall(sim)).not.toBeNull();
+      sim.toggleUpgrade("powerPelletWallDrop");
+      expect(drawnWall(sim)).toBeNull();
+      expect(sim["learnUpgrades"].wallDropArmed).toBe(false);
+    });
   });
 
   describe("Hyperspeed", () => {

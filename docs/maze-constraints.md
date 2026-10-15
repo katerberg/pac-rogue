@@ -19,6 +19,6 @@ The playfield is fixed; every layout uses one fixed tile size (`TILE_SIZE_PX`), 
 
 ## Procedural boards (levels 2+)
 
-Solved on a mirrored polyomino tiling with a fixed centre house and rasterized to 28x34 ASCII. Invariants the generator enforces (reject, never patch): pellet count near `GENERATED_PELLET_TARGET`; 1-2 tunnel rows on corridor rows only; **no 2x2 block of player-open cells** (no parallel corridors); **no dead ends**; no house-adjacent or spawn-adjacent dots. Boards are deterministic from `boardMazeSeed(runSeed, levelIndex)` with bounded retries, falling back to `maze2` with a `console.warn`. `?maze=` forces the first board.
+Solved on a mirrored polyomino tiling with a fixed centre house and rasterized to 28x34 ASCII. Invariants the generator enforces (reject, never patch): pellet count near `GENERATED_PELLET_TARGET`; 1-2 tunnel rows on corridor rows only; **no 2x2 block of player-open cells** (no parallel corridors); **no dead ends**; no house-adjacent or spawn-adjacent dots. Boards are deterministic from `boardMazeSeed(runSeed, levelIndex)`: one base map per run shared by levels 2-8 (variants like inversion are applied on top), with the boss board keyed separately, with bounded retries, falling back to `maze2` with a `console.warn`. `?maze=` forces the first board.
 
 Out of scope: vertical tunnels, non-rectangular grids, multi-house, canvas resize or scroll.

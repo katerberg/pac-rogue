@@ -216,7 +216,6 @@ import {
   defyDeathActive,
   confirmUpgradeChoice,
   createRunUpgrades,
-  declineUpgrades,
   FRUIT_FECUNDITY_MUL,
   cornucopiaAlongsideOwned,
   fruitLifetimeMultiplier,
@@ -225,6 +224,7 @@ import {
   hauntDurationMs,
   armHaunt,
   tickHaunt,
+  tickWallDrop,
   hauntedGhost,
   hauntedGhostEid,
   eatFrightenedGhost,
@@ -376,6 +376,7 @@ import {
   playerFacing,
   steerPlayer,
 } from "../systems/playerDirection";
+import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -618,32 +619,19 @@ export class PlaySim {
       return [];
     }
     this.pendingChoice = null;
-    if (chosen.kind === "quarters") {
-      this.quarters += chosen.amount;
-      this.recorder.quarters("offer", chosen.amount);
-      this.recorder.picked("quarters");
-      this.emit({ type: "quarters", pulse: false });
-      this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
-    } else {
-      const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
-      const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
-      this.recorder.picked(chosen.id);
-      this.runUpgrades = confirmUpgradeChoice(
-        this.runUpgrades,
-        offer.upgrades,
-        chosen.id,
-        grantedId,
-      );
-      if (!alreadyOwned) {
-        this.recorder.gained(grantedId, "offer", this.levelIndex);
-        if (chosen.enhanced === true) {
-          this.enhanceLivesPaid.add(chosen.id);
-        }
-        this.applyGrantEffects(grantedId);
-        this.grantSpecialistLives();
-        this.emit({ type: "lives", pulse: false });
-        this.recordSeenUpgrades();
+    const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
+    const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
+    this.recorder.picked(chosen.id);
+    this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id, grantedId);
+    if (!alreadyOwned) {
+      this.recorder.gained(grantedId, "offer", this.levelIndex);
+      if (chosen.enhanced === true) {
+        this.enhanceLivesPaid.add(chosen.id);
       }
+      this.applyGrantEffects(grantedId);
+      this.grantSpecialistLives();
+      this.emit({ type: "lives", pulse: false });
+      this.recordSeenUpgrades();
     }
     this.emit({ type: "upgrades" });
     return this.takeEvents();
@@ -743,6 +731,7 @@ export class PlaySim {
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
       speedZones: this.speedZones,
+      droppedWall: this.runUpgrades.droppedWall,
       pupilTarget: this.blinkyPupilTarget(),
     };
   }
@@ -803,6 +792,12 @@ export class PlaySim {
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
+        wallDropMs:
+          upgrades.droppedWall === null
+            ? 0
+            : Number.isFinite(upgrades.droppedWall.remainingMs)
+              ? upgrades.droppedWall.remainingMs
+              : -1,
         shieldsBanked: upgrades.shieldsBanked,
         echoesMs: upgrades.pendingEchoes.map((echo) => echo.remainingMs),
         frightenedMs: upgrades.frightenedRemainingMs,
@@ -817,6 +812,17 @@ export class PlaySim {
       timedTunnel: this.timedTunnelSnapshot(),
       speedZones: this.speedZones,
       playerSpeedZone: this.playerSpeedZone(),
+      wallDrop: {
+        armed: upgrades.wallDropArmed,
+        wall:
+          upgrades.droppedWall === null
+            ? null
+            : {
+                col: upgrades.droppedWall.col,
+                row: upgrades.droppedWall.row,
+                passable: upgrades.droppedWall.passable,
+              },
+      },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
       reviveProgress:
@@ -1059,6 +1065,7 @@ export class PlaySim {
     this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
     this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
     this.runUpgrades = tickHaunt(this.runUpgrades, delta);
+    this.runUpgrades = tickWallDrop(this.runUpgrades, delta);
     this.runUpgrades = tickFrightened(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
@@ -1096,16 +1103,17 @@ export class PlaySim {
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
       tuning: this.currentTuning,
     });
-    const playerSolidsOverride = wallPassActive(this.runUpgrades)
-      ? wallPassSolids(this.effectiveUpgrades())
-      : undefined;
+    const playerSolidsOverride = playerSolidsWithWall(
+      this.runUpgrades,
+      wallPassActive(this.runUpgrades) ? wallPassSolids(this.effectiveUpgrades()) : undefined,
+    );
     if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const blockTunnelRow = this.closedGatedTunnelRow();
-    const moveFrame = (frameDelta: number): void =>
+    const moveFrame = (frameDelta: number): void => {
       movement(
         this.world,
         frameDelta,
@@ -1114,13 +1122,17 @@ export class PlaySim {
         playerPreTurnPx(this.currentTuning),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
+        this.runUpgrades.droppedWall,
       );
+      this.runUpgrades = trackWallOccupancy(this.world, this.runUpgrades);
+    };
     if (hyperspeedActive(this.runUpgrades)) {
       this.moveHyperspeed(delta, moveFrame);
     } else {
       moveFrame(delta);
     }
     this.notePlayerMovement(positionBeforeMove, hasInput, warping, delta);
+    this.updateWallDrop(facingBeforeMove);
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
     this.emitTurnSparks(
@@ -1274,7 +1286,13 @@ export class PlaySim {
     this.ghostModeClock = modeStep.clock;
     const ghostMode = this.settledGhostMode();
     if (ghostMode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(this.world, this.ghostsBlockedFromTunnels(), undefined, blockTunnelRow);
+      forceGhostReverse(
+        this.world,
+        this.ghostsBlockedFromTunnels(),
+        undefined,
+        blockTunnelRow,
+        this.runUpgrades.droppedWall,
+      );
       this.previousEffectiveGhostMode = ghostMode;
     } else {
       ghostAi(
@@ -1285,6 +1303,7 @@ export class PlaySim {
         this.ghostsBlockedFromTunnels(),
         frightenedGhostEids(this.runUpgrades),
         blockTunnelRow,
+        this.runUpgrades.droppedWall,
       );
       frightenedGhostAi(
         this.world,
@@ -1292,6 +1311,7 @@ export class PlaySim {
         this.random.stream("frightened", this.levelIndex),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
+        this.runUpgrades.droppedWall,
       );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
@@ -2399,6 +2419,10 @@ export class PlaySim {
       enhancedOfferChance(this.levelIndex),
       this.options.forceUpgrade,
     );
+    if (offer.upgrades.length === 0) {
+      this.beginLevelTransition();
+      return;
+    }
     this.pendingLevelClear = true;
     this.awaitingChoice = true;
     this.pendingChoice = offer;
@@ -2877,6 +2901,19 @@ export class PlaySim {
   private noteTunnelExit(before: Point | null): void {
     if (playerExitedTunnel(before, this.playerPosition())) {
       this.runUpgrades = applyTunnelExitInvuln(this.runUpgrades, this.effectiveUpgrades());
+    }
+  }
+
+  private updateWallDrop(facingBefore: Direction): void {
+    const before = this.runUpgrades;
+    this.runUpgrades = dropWallOnReversal(
+      this.world,
+      before,
+      this.effectiveUpgrades(),
+      facingBefore,
+    );
+    if (this.runUpgrades !== before) {
+      this.recorder.activation("wallDrop");
     }
   }
 

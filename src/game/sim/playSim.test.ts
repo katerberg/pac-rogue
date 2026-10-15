@@ -48,6 +48,7 @@ import {
   SLOW_ZONE_MULTIPLIER,
   type SpeedZone,
 } from "../../domain/speedZones";
+import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
@@ -137,6 +138,10 @@ function count(events: SimEvent[], type: SimEvent["type"]): number {
 function drainToOffer(sim: PlaySim): UpgradeChoiceOffer {
   runUntil(sim, () => sim.offer() !== null, 90);
   return sim.offer()!;
+}
+
+function takeFirstOffered(sim: PlaySim): void {
+  sim.chooseUpgrade({ kind: "upgrade", id: drainToOffer(sim).upgrades[0]! });
 }
 
 function regularPelletEids(sim: PlaySim): number[] {
@@ -497,6 +502,21 @@ describe("PlaySim", () => {
     }
   });
 
+  it("plays levels 2-8 on one base map per run, inverted on inverted levels", () => {
+    const solidsAt = (level: number): string[] => {
+      startSim({ level }, "one-map");
+      return getActiveLayout().playerSolids.map((row) => row.join(","));
+    };
+    const base = solidsAt(2);
+    expect(solidsAt(3)).toEqual(base);
+    expect(solidsAt(5)).toEqual(base);
+    expect(solidsAt(8)).toEqual(base);
+    expect(solidsAt(6)).toEqual([...base].reverse());
+    expect(solidsAt(7)).toEqual([...base].reverse());
+    startSim({ level: 2 }, "another-map");
+    expect(getActiveLayout().playerSolids.map((row) => row.join(","))).not.toEqual(base);
+  });
+
   it("collects pellets while the player moves", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
     const events = runFrames(sim, 60, { keys: held("left") });
@@ -579,6 +599,20 @@ describe("PlaySim", () => {
     }
   });
 
+  it("offers exactly two upgrades and no Quarters option at level clear", () => {
+    const offer = drainToOffer(startSim({ jumpToUpgrade: true, level: 4 }));
+    expect(offer.upgrades).toHaveLength(2);
+    expect(offer).not.toHaveProperty("quarters");
+  });
+
+  it("skips the offer when no upgrade is eligible", () => {
+    const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: [...ALL_UPGRADE_IDS] });
+    runFrames(sim, 90);
+    expect(sim.offer()).toBeNull();
+    runUntil(sim, () => sim.snapshot().levelTransition, 90);
+    expect(sim.snapshot().levelTransition).toBe(true);
+  });
+
   it("level-clear offer stays valid when owned upgrades give school affinity", () => {
     const owned = ["passiveExtraLife", "passiveDeathsHarvest", "passiveDefyDeath"] as const;
     const sim = startSim({
@@ -587,8 +621,8 @@ describe("PlaySim", () => {
       enableUpgrades: [...owned],
     });
     const offer = drainToOffer(sim);
-    expect(offer.upgrades).toHaveLength(3);
-    expect(new Set(offer.upgrades).size).toBe(3);
+    expect(offer.upgrades).toHaveLength(2);
+    expect(new Set(offer.upgrades).size).toBe(2);
     for (const id of offer.upgrades) {
       expect(owned).not.toContain(id);
     }
@@ -624,8 +658,7 @@ describe("PlaySim", () => {
 
   it("plays the Blinky chase intermission between level 2 and level 3", () => {
     const sim = startSim({ jumpToUpgrade: true });
-    drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    takeFirstOffered(sim);
     const events = runUntil(sim, () => sim.snapshot().intermission !== null, 120);
     expect(sim.snapshot().level).toBe(2);
     expect(sim.snapshot().levelTransition).toBe(false);
@@ -2342,8 +2375,7 @@ describe("PlaySim bonus bar", () => {
 
   it("keeps the charge, plus the time bonus, across a level advance", () => {
     const sim = startSim({ jumpToUpgrade: true, bonus: 50 });
-    drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
     expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 193 });
   });
@@ -3366,8 +3398,7 @@ describe("Death's Bounty", () => {
     for (const eid of regularPelletEids(sim)) {
       eatPelletAt(sim, eid);
     }
-    const offer = drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: offer.quarters });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 560);
     expect(sim.snapshot().deathsThisBoard).toBe(0);
     const before = sim.snapshot().quarters;
@@ -3453,8 +3484,7 @@ describe("Lazy Looper", () => {
     for (const eid of partition(sim).required) {
       eatPelletAt(sim, eid);
     }
-    const offer = drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: offer.quarters });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 560);
     expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);
     expect(sim.snapshot().optionalPellets).toBe(partition(sim).optional.length);
@@ -3718,8 +3748,7 @@ describe("Shield", () => {
     chompPowerPellets(sim, 2);
     expect(sim.snapshot().timers.shieldsBanked).toBe(2);
     sim["jumpToLevelClear"]();
-    drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
     expect(sim.snapshot().timers.shieldsBanked).toBe(0);
   });
@@ -3854,8 +3883,7 @@ describe("Starting Shield", () => {
     runFrames(sim, 1);
     expect(sim.snapshot().timers.shieldsBanked).toBe(1);
     sim["jumpToLevelClear"]();
-    drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
     expect(sim.snapshot().timers.shieldsBanked).toBe(2);
   });
@@ -5591,5 +5619,200 @@ describe("speed zones", () => {
   it("draws the zones for the render bridge", () => {
     const sim = startSim({ level: 6 }, "zones");
     expect(sim.renderOptions().speedZones).toEqual(sim.snapshot().speedZones);
+  });
+});
+
+describe("Wall Drop", () => {
+  const RIGHT = { keys: held("right") };
+  const LEFT = { keys: held("left") };
+
+  function start(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
+  }
+
+  function eatPower(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function corridorStart(otherThanRow = -1): { col: number; row: number } {
+    const layout = getActiveLayout();
+    for (let row = 1; row < layout.rows - 1; row += 1) {
+      for (let col = 1; col + 6 < layout.cols - 1; col += 1) {
+        const run = [0, 1, 2, 3, 4, 5].every((d) => isWalkable(col + d, row));
+        if (
+          run &&
+          row !== otherThanRow &&
+          wallDropSpot(col + 2, row, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }) !== null &&
+          wallDropSpot(col + 3, row, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }) !== null
+        ) {
+          return { col, row };
+        }
+      }
+    }
+    throw new Error("no straight corridor");
+  }
+
+  function playerCell(sim: PlaySim): { col: number; row: number } {
+    const eid = playerEid(sim);
+    return { col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) };
+  }
+
+  function reverse(sim: PlaySim, otherThanRow = -1): { col: number; row: number } {
+    const { col, row } = corridorStart(otherThanRow);
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    Facing.direction[playerEid(sim)] = DIRECTION.right;
+    runUntil(sim, () => playerCell(sim).col === col + 3, 60, RIGHT);
+    runFrames(sim, 1, LEFT);
+    return playerCell(sim);
+  }
+
+  it("does nothing without the upgrade", () => {
+    const sim = start([]);
+    eatPower(sim);
+    reverse(sim);
+    expect(sim.snapshot().wallDrop).toEqual({ armed: false, wall: null });
+  });
+
+  it("needs a power pellet before a reversal drops a wall", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    reverse(sim);
+    expect(sim.snapshot().wallDrop).toEqual({ armed: false, wall: null });
+    eatPower(sim);
+    expect(sim.snapshot().wallDrop.armed).toBe(true);
+  });
+
+  it("drops one wall where you reversed that blocks your way back, then expires after 8s", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    eatPower(sim);
+    const cell = reverse(sim);
+    expect(sim.snapshot().wallDrop).toEqual({
+      armed: false,
+      wall: { ...cell, passable: false },
+    });
+    expect(sim.snapshot().timers.wallDropMs).toBeGreaterThan(WALL_DROP_MS - 2 * FRAME_MS);
+    expect(sim.renderOptions().droppedWall).toMatchObject(cell);
+
+    runUntil(sim, () => playerCell(sim).col === cell.col - 1, 30, LEFT);
+    runFrames(sim, 60, RIGHT);
+    expect(playerCell(sim).col).toBe(cell.col - 1);
+
+    runFrames(sim, 30, LEFT);
+    runFrames(sim, 1, RIGHT);
+    expect(sim.snapshot().wallDrop.wall).toEqual({ ...cell, passable: false });
+
+    runUntil(sim, () => sim.snapshot().wallDrop.wall === null, Math.ceil(WALL_DROP_MS / FRAME_MS));
+    expect(sim.snapshot().timers.wallDropMs).toBe(0);
+  });
+
+  function ghostHeadingInto(sim: PlaySim, cell: { col: number; row: number }): () => boolean {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(cell.col + 2);
+    Position.y[ghost] = cellCenterY(cell.row);
+    Facing.direction[ghost] = DIRECTION.left;
+    Input.direction[ghost] = DIRECTION.left;
+    return () =>
+      worldToCol(Position.x[ghost]!) === cell.col && worldToRow(Position.y[ghost]!) === cell.row;
+  }
+
+  it("keeps ghosts out of the wall tile", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    eatPower(sim);
+    const inWall = ghostHeadingInto(sim, reverse(sim));
+    for (let frame = 0; frame < 120; frame += 1) {
+      runFrames(sim, 1);
+      expect(inWall()).toBe(false);
+    }
+  });
+
+  it("lets a ghost caught on the wall tile leave, but never toward Dot-Man", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    eatPower(sim);
+    const cell = reverse(sim);
+    runUntil(sim, () => playerCell(sim).col === cell.col - 2, 60, LEFT);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(cell.col);
+    Position.y[ghost] = cellCenterY(cell.row);
+    Facing.direction[ghost] = DIRECTION.left;
+    Input.direction[ghost] = DIRECTION.left;
+    const ghostCol = () => worldToCol(Position.x[ghost]!);
+    for (let frame = 0; frame < 60 && ghostCol() <= cell.col; frame += 1) {
+      runFrames(sim, 1);
+      expect(ghostCol()).toBeGreaterThanOrEqual(cell.col);
+    }
+    expect(ghostCol()).toBeGreaterThan(cell.col);
+  });
+
+  it("without the upgrade the same ghost walks into that tile", () => {
+    const sim = start([]);
+    eatPower(sim);
+    runUntil(sim, ghostHeadingInto(sim, reverse(sim)), 120);
+  });
+
+  it("Plus: the wall stays, lets you through, and walking through removes it", () => {
+    const sim = start(["powerPelletWallDropPlus"]);
+    eatPower(sim);
+    const cell = reverse(sim);
+    expect(playerCell(sim)).toEqual(cell);
+    expect(sim.snapshot().wallDrop.wall).toEqual({ ...cell, passable: true });
+    expect(sim.snapshot().timers.wallDropMs).toBe(-1);
+    runFrames(sim, Math.ceil(WALL_DROP_MS / FRAME_MS) + 60);
+    expect(sim.snapshot().wallDrop.wall).toEqual({ ...cell, passable: true });
+
+    teleportPlayer(sim, cellCenterX(cell.col - 1), cellCenterY(cell.row));
+    runUntil(sim, () => sim.snapshot().wallDrop.wall === null, 60, RIGHT);
+    expect(playerCell(sim)).toEqual(cell);
+  });
+
+  it("Plus: crossing the wall at Hyperspeed still removes it", () => {
+    const sim = start(["powerPelletWallDropPlus", "powerPelletHyperspeed"]);
+    eatPower(sim);
+    sim["runUpgrades"] = {
+      ...sim["runUpgrades"],
+      hyperspeedRemainingMs: 0,
+      hyperspeedTurnDelayMs: 0,
+    };
+    const cell = reverse(sim);
+    expect(sim.snapshot().wallDrop.wall).toMatchObject(cell);
+    teleportPlayer(sim, cellCenterX(cell.col - 2), cellCenterY(cell.row));
+    sim["runUpgrades"] = { ...sim["runUpgrades"], hyperspeedRemainingMs: 3000 };
+    runUntil(sim, () => playerCell(sim).col > cell.col, 30, RIGHT);
+    expect(sim.snapshot().wallDrop.wall).toBeNull();
+  });
+
+  it("a second power pellet re-arms, and the next drop replaces the old wall", () => {
+    const sim = start(["powerPelletWallDropPlus"]);
+    eatPower(sim);
+    const first = reverse(sim);
+    expect(sim.snapshot().wallDrop.wall).toMatchObject(first);
+
+    eatPower(sim);
+    expect(sim.snapshot().wallDrop.armed).toBe(true);
+    const second = reverse(sim, first.row);
+    expect(second.row).not.toBe(first.row);
+    expect(sim.snapshot().wallDrop).toEqual({
+      armed: false,
+      wall: { ...second, passable: true },
+    });
+  });
+
+  it("losing a life clears the wall and the charge", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["powerPelletWallDropPlus"],
+    });
+    eatPower(sim);
+    reverse(sim);
+    eatPower(sim);
+    expect(sim.snapshot().wallDrop.wall).not.toBeNull();
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().wallDrop).toEqual({ armed: false, wall: null });
   });
 });

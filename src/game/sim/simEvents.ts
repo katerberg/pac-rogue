@@ -9,6 +9,7 @@ import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/u
 import type { SfxId } from "../../domain/sfxId";
 import type { SpeedZone } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import type { DroppedWall } from "../../domain/wallDrop";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 
 export type { TimedTunnelRenderState };
@@ -35,6 +36,7 @@ export type SimRenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   speedZones?: readonly SpeedZone[];
+  droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
 
