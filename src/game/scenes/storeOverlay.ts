@@ -22,6 +22,7 @@ import {
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
+import { SCHOOL_WATERMARK_ALPHA } from "../../domain/schoolArt";
 import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { addDotManIcon, addQuarterIcon } from "../systems/render";
@@ -45,9 +46,8 @@ import {
   MODAL_DEPTH,
   CARD_DESCRIPTION_GAP,
   SCHOOL_COLORS,
-  SCHOOL_GAP,
   schoolBorderColor,
-  setSchoolTag,
+  setSchoolWatermark,
   stackTexts,
   stackTextsFromTop,
 } from "./upgradeChoiceModal";
@@ -58,6 +58,7 @@ const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
 const PANEL_SIDE_PAD = 8;
 const PANEL_TOP_PAD = 12;
+const PANEL_ROW_GAP = 8;
 const PANEL_TITLE_MAX_CHARS = 10;
 const MODAL_TITLE_MARGIN = 40;
 const PANEL_BODY_MAX_CHARS = 18;
@@ -167,11 +168,14 @@ export function createStoreOverlay(
     .rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x101820)
     .setStrokeStyle(2, TEXT_COLOR_YELLOW);
   const panelTitle = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-  const panelSchool = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
+  const panelWatermark = scene.add
+    .image(0, 0, "")
+    .setAlpha(SCHOOL_WATERMARK_ALPHA)
+    .setVisible(false);
   const panelBody = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
   const panelFooter = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
   const panel = scene.add
-    .container(panelX, panelY, [panelBg, panelTitle, panelSchool, panelBody, panelFooter])
+    .container(panelX, panelY, [panelBg, panelWatermark, panelTitle, panelBody, panelFooter])
     .setDepth(PANEL_DEPTH)
     .setVisible(false);
   const panelRare = createRareFxToggle(scene, panel, PANEL_WIDTH, PANEL_HEIGHT);
@@ -198,7 +202,10 @@ export function createStoreOverlay(
     MENU_TITLE_FONT_SIZE,
     TEXT_COLOR_YELLOW,
   ).setCenterAlign();
-  const modalSchool = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE);
+  const modalWatermark = scene.add
+    .image(0, 0, "")
+    .setAlpha(SCHOOL_WATERMARK_ALPHA)
+    .setVisible(false);
   const modalBody = addPixelText(
     scene,
     0,
@@ -223,8 +230,8 @@ export function createStoreOverlay(
   const modal = scene.add
     .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
       modalBg,
+      modalWatermark,
       modalTitle,
-      modalSchool,
       modalBody,
       modalCost,
       modalSure,
@@ -251,11 +258,10 @@ export function createStoreOverlay(
     const school = slotSchool(prompt.slot);
     modalBg.setStrokeStyle(4, schoolBorderColor(school));
     modalRare(slotRare(prompt.slot), schoolBorderColor(school));
-    setSchoolTag(modalSchool, school);
+    setSchoolWatermark(modalWatermark, school, BUTTON_WIDTH, BUTTON_HEIGHT);
     stackTexts(
       [
-        { text: modalTitle, gapBelow: school === null ? CARD_DESCRIPTION_GAP : SCHOOL_GAP },
-        ...(school === null ? [] : [{ text: modalSchool, gapBelow: CARD_DESCRIPTION_GAP }]),
+        { text: modalTitle, gapBelow: CARD_DESCRIPTION_GAP },
         { text: modalBody, gapBelow: CARD_DESCRIPTION_GAP },
         { text: modalCost, gapBelow: 0 },
       ],
@@ -281,13 +287,12 @@ export function createStoreOverlay(
     panelTitle.setFontSize(titleSize);
     panelBody.setText(wrapText(content.body, bodyBudget));
     panelFooter.setText(content.footer);
-    setSchoolTag(panelSchool, content.school);
-    const rowGap = SCHOOL_GAP;
+    setSchoolWatermark(panelWatermark, content.school, PANEL_WIDTH, PANEL_HEIGHT);
+    const rowGap = PANEL_ROW_GAP;
     const topY = -PANEL_HEIGHT / 2 + PANEL_TOP_PAD;
     stackTextsFromTop(
       [
         { text: panelTitle, gapBelow: rowGap },
-        ...(content.school === null ? [] : [{ text: panelSchool, gapBelow: rowGap }]),
         { text: panelBody, gapBelow: rowGap },
         { text: panelFooter, gapBelow: 0 },
       ],

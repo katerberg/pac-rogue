@@ -11,11 +11,16 @@ import {
 import {
   enhancedIdOf,
   getUpgradeDef,
-  UPGRADE_SCHOOL_LABELS,
   type UpgradeChoiceOffer,
   type UpgradeChoiceOption,
   type UpgradeSchool,
 } from "../../domain/upgrades";
+import {
+  SCHOOL_WATERMARK_ALPHA,
+  schoolArtPath,
+  schoolArtTextureKey,
+  schoolWatermarkSize,
+} from "../../domain/schoolArt";
 import { wrapText } from "../../domain/wrapText";
 import { addRareFx } from "./rareFx";
 import {
@@ -54,7 +59,6 @@ const H_OFFSET = 250;
 const V_OFFSET = 95;
 const HINT_GAP = 20;
 
-const SCHOOL_GAP_BELOW_LABEL = 8;
 const DESCRIPTION_GAP = 16;
 export const SCHOOL_COLORS: Record<UpgradeSchool, number> = {
   death: 0xb36bff,
@@ -164,7 +168,6 @@ export type UpgradeCardVisual = {
   bg: Phaser.GameObjects.Rectangle;
   borderColor: number;
   label: Phaser.GameObjects.BitmapText;
-  school: Phaser.GameObjects.BitmapText | null;
   description: Phaser.GameObjects.BitmapText;
   targetLabel: string;
   targetDescription: string;
@@ -199,17 +202,17 @@ export function buildUpgradeCardVisual(
     UPGRADES_HUD_FONT_SIZE,
     TEXT_COLOR_WHITE,
   );
-  const school = copy.school === undefined ? null : addSchoolTag(scene, copy.school);
-  layoutCardText(label, school, description);
+  layoutCardText(label, description);
+  const watermark = copy.school === undefined ? null : addSchoolWatermark(scene, copy.school);
   const root = scene.add.container(
     x,
     y,
-    school === null ? [bg, label, description] : [bg, label, school, description],
+    watermark === null ? [bg, label, description] : [bg, watermark, label, description],
   );
   if (copy.rare === true) {
     addRareFx(scene, root, CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, borderColor);
   }
-  return { root, bg, borderColor, label, school, description, targetLabel, targetDescription };
+  return { root, bg, borderColor, label, description, targetLabel, targetDescription };
 }
 
 type ButtonView = {
@@ -219,7 +222,6 @@ type ButtonView = {
   bg: Phaser.GameObjects.Rectangle;
   borderColor: number;
   label: Phaser.GameObjects.BitmapText;
-  school: Phaser.GameObjects.BitmapText | null;
   description: Phaser.GameObjects.BitmapText;
   targetLabel: string;
   targetDescription: string;
@@ -405,7 +407,6 @@ export function createUpgradeChoiceModal(
         bg: visual.bg,
         borderColor: visual.borderColor,
         label: visual.label,
-        school: visual.school,
         description: visual.description,
         targetLabel: visual.targetLabel,
         targetDescription: visual.targetDescription,
@@ -560,55 +561,53 @@ export function createUpgradeChoiceModal(
   };
 }
 
-export function addSchoolTag(
+export function addSchoolWatermark(
   scene: Phaser.Scene,
   school: UpgradeSchool,
-): Phaser.GameObjects.BitmapText {
-  return addPixelText(
-    scene,
-    0,
-    0,
-    UPGRADE_SCHOOL_LABELS[school].toUpperCase(),
-    UPGRADES_HUD_FONT_SIZE,
-    SCHOOL_COLORS[school],
-  );
+  cardWidth = CHOICE_BUTTON_WIDTH,
+  cardHeight = CHOICE_BUTTON_HEIGHT,
+): Phaser.GameObjects.Image | null {
+  if (schoolArtPath(school) === null) {
+    return null;
+  }
+  const image = scene.add.image(0, 0, schoolArtTextureKey(school));
+  const size = schoolWatermarkSize(cardWidth, cardHeight);
+  return image.setDisplaySize(size, size).setAlpha(SCHOOL_WATERMARK_ALPHA);
+}
+
+export function setSchoolWatermark(
+  image: Phaser.GameObjects.Image,
+  school: UpgradeSchool | null,
+  cardWidth: number,
+  cardHeight: number,
+): void {
+  const hasArt = school !== null && schoolArtPath(school) !== null;
+  image.setVisible(hasArt);
+  if (hasArt) {
+    const size = schoolWatermarkSize(cardWidth, cardHeight);
+    image.setTexture(schoolArtTextureKey(school)).setDisplaySize(size, size);
+  }
 }
 
 function placeButtonText(button: ButtonView): void {
-  layoutCardText(button.label, button.school, button.description);
+  layoutCardText(button.label, button.description);
 }
 
 export function layoutCardText(
   label: Phaser.GameObjects.BitmapText,
-  school: Phaser.GameObjects.BitmapText | null,
   description: Phaser.GameObjects.BitmapText,
   centerY = 0,
 ): void {
   stackTexts(
     [
-      {
-        text: label,
-        gapBelow: school === null ? DESCRIPTION_GAP : SCHOOL_GAP_BELOW_LABEL,
-      },
-      ...(school === null ? [] : [{ text: school, gapBelow: DESCRIPTION_GAP }]),
+      { text: label, gapBelow: DESCRIPTION_GAP },
       { text: description, gapBelow: 0 },
     ],
     centerY,
   );
 }
 
-export const SCHOOL_GAP = SCHOOL_GAP_BELOW_LABEL;
 export const CARD_DESCRIPTION_GAP = DESCRIPTION_GAP;
-
-export function setSchoolTag(
-  tag: Phaser.GameObjects.BitmapText,
-  school: UpgradeSchool | null,
-): void {
-  tag.setVisible(school !== null);
-  if (school !== null) {
-    tag.setText(UPGRADE_SCHOOL_LABELS[school].toUpperCase()).setTint(SCHOOL_COLORS[school]);
-  }
-}
 
 export function stackTexts(
   stack: { text: Phaser.GameObjects.BitmapText; gapBelow: number }[],

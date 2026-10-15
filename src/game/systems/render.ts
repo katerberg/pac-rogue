@@ -81,7 +81,8 @@ import {
   nextSkirtWaveSign,
 } from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
-import type { HauntedGhost } from "../../domain/upgrades";
+import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
+import { UPGRADE_SCHOOL_ORDER, type HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -376,6 +377,12 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
   for (const kind of FRUIT_KINDS) {
     scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
+  }
+  for (const school of UPGRADE_SCHOOL_ORDER) {
+    const path = schoolArtPath(school);
+    if (path !== null) {
+      scene.load.image(schoolArtTextureKey(school), path);
+    }
   }
 }
 
