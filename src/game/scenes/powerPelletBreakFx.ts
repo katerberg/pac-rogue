@@ -23,7 +23,6 @@ export type PowerPelletBreakFx = {
 };
 
 /**
- * Solid white quarter squares (same idea as shield crack halves).
  * Texture crops are not used: `power-pellet.png` is a tiny centered blob on a
  * transparent 16×16 canvas, so NW/NE/SW/SE crops of the file are nearly empty.
  */

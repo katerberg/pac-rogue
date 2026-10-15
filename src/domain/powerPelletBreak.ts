@@ -3,9 +3,7 @@ export const POWER_PELLET_BREAK_SPLIT_PX = 14;
 export const POWER_PELLET_BREAK_FORWARD_PX = 18;
 export const POWER_PELLET_BREAK_FALL_PX = 22;
 export const POWER_PELLET_BREAK_SPIN_RAD = 0.7;
-/** Rear quarters keep this fraction of their backward (along-facing) travel. */
 export const POWER_PELLET_BREAK_REAR_BACK_FRAC = 0.08;
-/** Matches the on-board power pellet fill (see `power-pellet.png` center). */
 export const POWER_PELLET_BREAK_COLOR = 0xffffff;
 
 export type PowerPelletBreakFacing = { dx: number; dy: number };
@@ -37,11 +35,6 @@ export function powerPelletBreakProgress(elapsedMs: number): number {
   return Math.min(1, Math.max(0, elapsedMs / POWER_PELLET_BREAK_MS));
 }
 
-/**
- * Quarter travel for a break-through shatter. Forward-side pieces fling along
- * `facing` and outward; rear-side pieces drop mostly down instead of flying back.
- * `facing` of `{0,0}` uses a plain four-diagonal split.
- */
 export function powerPelletBreakLook(
   progress: number,
   facing: PowerPelletBreakFacing,
@@ -93,7 +86,6 @@ export function powerPelletBreakLook(
   });
 }
 
-/** Assembled quarter center relative to the pellet center for a given display size. */
 export function powerPelletQuarterRestOffset(
   id: PowerPelletQuarterId,
   pelletDisplaySize: number,
