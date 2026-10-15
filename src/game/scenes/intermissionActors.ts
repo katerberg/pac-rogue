@@ -1,3 +1,5 @@
+import { ghostPupilLookOffset } from "../../domain/ghostPupils";
+import { GHOST_DIR } from "../../domain/ghostPath";
 import { advanceGhostSkirtPhase } from "../../domain/ghostSkirt";
 import { INTERMISSION_ACTOR_SIZE, type IntermissionFrame } from "../../domain/intermission";
 import { BLINKY_DRAWABLE_ID } from "../../domain/playfield";
@@ -11,7 +13,15 @@ export type IntermissionActors = {
 };
 
 export function createIntermissionActors(scene: Phaser.Scene): IntermissionActors {
-  const blinky = addGhostSprite(scene, BLINKY_DRAWABLE_ID, 0, 0, INTERMISSION_ACTOR_SIZE);
+  // Chase runs left→right with Dot-Man ahead; pupils look forward at him.
+  const blinky = addGhostSprite(
+    scene,
+    BLINKY_DRAWABLE_ID,
+    0,
+    0,
+    INTERMISSION_ACTOR_SIZE,
+    ghostPupilLookOffset(GHOST_DIR.right),
+  );
   const dotMan = addDotManIcon(scene, 0, 0, INTERMISSION_ACTOR_SIZE);
   blinky.setDepth(INTERMISSION_DEPTH);
   dotMan.setDepth(INTERMISSION_DEPTH);
