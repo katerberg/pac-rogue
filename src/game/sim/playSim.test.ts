@@ -5772,4 +5772,52 @@ describe("power pellet break VFX", () => {
     expect(breaks.every((e) => e.type === "powerPelletBreak" && e.facingDx === 1)).toBe(true);
     expect(sim.snapshot().powerPelletBreaks).toHaveLength(2);
   });
+
+  it("emits a facing-biased break when Tunnel Dash sweeps a power pellet", () => {
+    const sim = startSim(
+      { level: 2, maze: "maze1", enableUpgrades: ["passiveTunnelDash"] },
+      "pp-break-dash",
+    );
+    const row = horizontalTunnelRows()[0]!;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const x = cellCenterX(1);
+    const y = cellCenterY(row);
+    Position.x[power] = x;
+    Position.y[power] = y;
+    teleportPlayer(sim, cellCenterX(3), y);
+    Facing.direction[playerEid(sim)] = DIRECTION.left;
+    const left = { keys: held("left") };
+    const events = runFrames(sim, 1, left);
+    expect(events).toContainEqual({
+      type: "powerPelletBreak",
+      id: 1,
+      x,
+      y,
+      facingDx: -1,
+      facingDy: 0,
+      progress: 0,
+    });
+    expect(sim.snapshot().powerPelletBreaks).toEqual([{ id: 1, progress: 0 }]);
+    const done = runUntil(sim, () => sim.snapshot().powerPelletBreaks.length === 0, 60, left);
+    expect(done).toContainEqual({
+      type: "powerPelletBreak",
+      id: 1,
+      x,
+      y,
+      facingDx: -1,
+      facingDy: 0,
+      progress: 1,
+    });
+    expect(sim.snapshot().powerPelletBreaks).toEqual([]);
+  });
+
+  it("clears in-flight breaks on board reset", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] }, "pp-break-reset");
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1, { keys: held("left") });
+    expect(sim.snapshot().powerPelletBreaks).toHaveLength(1);
+    (sim as unknown as { enterStore(): void }).enterStore();
+    expect(sim.snapshot().powerPelletBreaks).toEqual([]);
+  });
 });

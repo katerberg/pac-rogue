@@ -1826,6 +1826,7 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
     this.tunnelDashAnim = null;
+    this.powerPelletBreaks = [];
     this.resetHyperspeedMovement();
     this.warpGlide = null;
     this.speedTrail = [];
@@ -2141,6 +2142,7 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
     this.tunnelDashAnim = null;
+    this.powerPelletBreaks = [];
     this.resetHyperspeedMovement();
     this.resetTimedTunnel();
     this.warpGlide = null;
