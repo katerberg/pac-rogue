@@ -479,6 +479,7 @@ function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly 
 
 type GhostSkirt = {
   graphics: Phaser.GameObjects.Graphics;
+  pupils: Phaser.GameObjects.Graphics;
   phase: number;
   lastX: number;
   lastY: number;
@@ -492,8 +493,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const ghostSkirts = new Map<number, GhostSkirt>();
   const wallGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
-  const pupilGraphics = scene.add.graphics();
-  pupilGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
@@ -515,7 +514,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   };
 
   const destroySkirt = (eid: number): void => {
-    ghostSkirts.get(eid)?.graphics.destroy();
+    const skirt = ghostSkirts.get(eid);
+    skirt?.graphics.destroy();
+    skirt?.pupils.destroy();
     ghostSkirts.delete(eid);
   };
 
@@ -539,7 +540,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     pupilLooks.clear();
     wallGraphics.clear();
     wallGraphics.setAlpha(1);
-    pupilGraphics.clear();
     chainGraphics.setAlpha(1);
     drawnWallStyle = null;
     drawnMazeInverted = false;
@@ -577,8 +577,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const speedTrail = opts?.playerSpeedTrail;
     const ghostWarpGlides = opts?.ghostWarpGlides;
     const frightenedEids = new Set(opts?.frightenedGhosts?.eids ?? []);
-    pupilGraphics.clear();
-    pupilGraphics.setAlpha(entityAlpha);
     const wallPassOn = opts?.wallPassActive === true;
     const wallPassLoopOn = opts?.wallPassLoopActive === true;
     const twinSolids = wallPassLoopOn ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
@@ -736,7 +734,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         placeCroppedGhostBody(go, x, y, size);
         let skirt = ghostSkirts.get(eid);
         if (skirt === undefined) {
-          skirt = { graphics: scene.add.graphics(), phase: 0, lastX: x, lastY: y, waveSign: 1 };
+          skirt = {
+            graphics: scene.add.graphics(),
+            pupils: scene.add.graphics(),
+            phase: 0,
+            lastX: x,
+            lastY: y,
+            waveSign: 1,
+          };
           ghostSkirts.set(eid, skirt);
         }
         skirt.waveSign = nextSkirtWaveSign(
@@ -759,6 +764,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           skirt.phase,
           multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
         );
+        skirt.pupils.clear();
+        skirt.pupils.setAlpha(entityAlpha);
         if (
           bodyAlpha > 0 &&
           ghostPupilsVisible({
@@ -773,7 +780,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           );
           pupilLooks.set(eid, stepped.state);
           fillGhostPupils(
-            pupilGraphics,
+            skirt.pupils,
             x,
             y,
             size,
