@@ -1,4 +1,4 @@
-import type { MazeTile, SolidGrid } from "./maze";
+import type { MazeLayout, MazeTile } from "./maze";
 
 export const SPEED_ZONE_SIZE = 4;
 export const SPEED_ZONE_MIN_WALKABLE = 6;
@@ -9,14 +9,10 @@ export type SpeedZoneKind = "slow" | "fast";
 
 export type SpeedZone = { kind: SpeedZoneKind; col: number; row: number; size: number };
 
-export type SpeedZoneBoard = {
-  cols: number;
-  rows: number;
-  playerSolids: SolidGrid;
-  house: SolidGrid;
-  door: SolidGrid;
-  playerSpawn: MazeTile;
-};
+export type SpeedZoneBoard = Pick<
+  MazeLayout,
+  "cols" | "rows" | "playerSolids" | "house" | "door" | "playerSpawn"
+>;
 
 export function isSpeedZoneLevel(levelIndex: number): boolean {
   return levelIndex >= 5 && levelIndex <= 8;
