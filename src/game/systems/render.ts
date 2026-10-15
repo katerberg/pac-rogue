@@ -14,7 +14,7 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
-import { GLOW_HALO_PULSE_MIN, GLOW_HALO_PULSE_MS, glowHaloStepAlpha } from "../../domain/glowHalo";
+import { GLOW_HALO_PULSE_TWEEN, glowHaloStepAlpha } from "../../domain/glowHalo";
 import {
   speedZoneHallwayCells,
   speedZoneOuterEdges,
@@ -537,14 +537,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const speedZoneGraphics = scene.add.graphics();
   speedZoneGraphics.setDepth(SPEED_ZONE_DEPTH);
   speedZoneGraphics.setBlendMode(Phaser.BlendModes.ADD);
-  scene.tweens.add({
-    targets: speedZoneGraphics,
-    alpha: { from: 1, to: GLOW_HALO_PULSE_MIN },
-    duration: GLOW_HALO_PULSE_MS,
-    ease: "Sine.easeInOut",
-    yoyo: true,
-    repeat: -1,
-  });
+  scene.tweens.add({ targets: speedZoneGraphics, ...GLOW_HALO_PULSE_TWEEN });
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
@@ -991,10 +984,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             tileSize,
           );
         }
+        const edges = speedZoneOuterEdges(cells);
         const reach = Math.max(3, Math.round(tileSize * SPEED_ZONE_GLOW_REACH_TILES));
         for (let step = 1; step <= reach; step += 1) {
           speedZoneGraphics.fillStyle(SPEED_ZONE_COLORS[zone.kind], glowHaloStepAlpha(step, reach));
-          for (const edge of speedZoneOuterEdges(cells)) {
+          for (const edge of edges) {
             fillGlowStrip(speedZoneGraphics, edge, tileSize, step);
           }
         }

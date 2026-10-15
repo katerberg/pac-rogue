@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { GLOW_HALO_PULSE_MIN, GLOW_HALO_PULSE_MS, glowHaloStepAlpha } from "../../domain/glowHalo";
+import { GLOW_HALO_PULSE_TWEEN, glowHaloStepAlpha } from "../../domain/glowHalo";
 
 type RareFx = { destroy: () => void };
 
@@ -18,14 +18,7 @@ export function addRareFx(
   }
   container.addAt(halo, 0);
 
-  const tween = scene.tweens.add({
-    targets: halo,
-    alpha: { from: 1, to: GLOW_HALO_PULSE_MIN },
-    duration: GLOW_HALO_PULSE_MS,
-    ease: "Sine.easeInOut",
-    yoyo: true,
-    repeat: -1,
-  });
+  const tween = scene.tweens.add({ targets: halo, ...GLOW_HALO_PULSE_TWEEN });
   const destroy = (): void => {
     tween.remove();
     halo.destroy();
