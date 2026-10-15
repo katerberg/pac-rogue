@@ -619,9 +619,6 @@ function reject<T>(build: () => T): T {
   }
 }
 
-// One base map per run: every generated non-boss level shares it (variants such as
-// inversion and timed tunnels are applied on top). The boss board keeps its own seed
-// because it can demand a specific tunnel count.
 export function boardMazeSeed(runSeed: string, levelIndex: number): string {
   return levelIndex >= MAX_LEVEL ? `${runSeed}:L${levelIndex}` : `${runSeed}:base`;
 }
