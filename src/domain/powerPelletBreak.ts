@@ -1,5 +1,5 @@
 import { PLAYER_SPEED } from "./playfield";
-import { speedLevelMultiplier } from "./tuning";
+import { DEFAULT_TUNING, speedLevelMultiplier, type Tuning } from "./tuning";
 
 export const POWER_PELLET_BREAK_MS = 200;
 export const POWER_PELLET_BREAK_SPLIT_PX = 10;
@@ -45,9 +45,10 @@ export function powerPelletBreakProgress(elapsedMs: number): number {
 export function powerPelletBreakIntensity(
   speedPx: number,
   baseSpeedPx: number = PLAYER_SPEED,
+  tuning: Tuning = DEFAULT_TUNING,
 ): number {
-  const softSpeed = baseSpeedPx * speedLevelMultiplier(1);
-  const hardSpeed = baseSpeedPx * speedLevelMultiplier(7);
+  const softSpeed = baseSpeedPx * speedLevelMultiplier(1, tuning);
+  const hardSpeed = baseSpeedPx * speedLevelMultiplier(7, tuning);
   const span = Math.max(1e-6, hardSpeed - softSpeed);
   const t = Math.min(1, Math.max(0, (speedPx - softSpeed) / span));
   return (

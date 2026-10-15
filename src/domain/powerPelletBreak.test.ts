@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_SPEED } from "./playfield";
-import { speedLevelMultiplier } from "./tuning";
+import { resolveTuning, speedLevelMultiplier } from "./tuning";
 import {
   POWER_PELLET_BREAK_FALL_PX,
   POWER_PELLET_BREAK_FORWARD_PX,
@@ -39,6 +39,21 @@ describe("powerPelletBreakIntensity", () => {
   it("clamps below soft and above hard", () => {
     expect(powerPelletBreakIntensity(0)).toBe(POWER_PELLET_BREAK_INTENSITY_SOFT);
     expect(powerPelletBreakIntensity(PLAYER_SPEED * 10)).toBe(POWER_PELLET_BREAK_INTENSITY_HARD);
+  });
+
+  it("anchors soft/hard to the given tuning levelSpeedRamp", () => {
+    const steep = resolveTuning({ levelSpeedRamp: 0.1 });
+    const defaultHardSpeed = PLAYER_SPEED * speedLevelMultiplier(7);
+    expect(powerPelletBreakIntensity(defaultHardSpeed)).toBeCloseTo(
+      POWER_PELLET_BREAK_INTENSITY_HARD,
+    );
+    expect(powerPelletBreakIntensity(defaultHardSpeed, PLAYER_SPEED, steep)).toBeCloseTo(
+      POWER_PELLET_BREAK_INTENSITY_SOFT +
+        0.5 * (POWER_PELLET_BREAK_INTENSITY_HARD - POWER_PELLET_BREAK_INTENSITY_SOFT),
+    );
+    expect(
+      powerPelletBreakIntensity(PLAYER_SPEED * speedLevelMultiplier(7, steep), PLAYER_SPEED, steep),
+    ).toBeCloseTo(POWER_PELLET_BREAK_INTENSITY_HARD);
   });
 });
 

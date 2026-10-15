@@ -5,6 +5,7 @@ import {
   type PowerPelletBreakFacing,
 } from "../../domain/powerPelletBreak";
 import { PLAYER_SPEED } from "../../domain/playfield";
+import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { DIRECTION, Input } from "../components/Input";
 import { Player } from "../components/Player";
 import { Speed } from "../components/Speed";
@@ -58,6 +59,7 @@ export function startPowerPelletBreaks(
   positions: readonly { x: number; y: number }[],
   emit: (event: PowerPelletBreakEvent) => void,
   baseSpeedPx: number = PLAYER_SPEED,
+  tuning: Tuning = DEFAULT_TUNING,
 ): number {
   if (positions.length === 0) {
     return nextId;
@@ -65,7 +67,7 @@ export function startPowerPelletBreaks(
   const facing = powerPelletBreakFacing(world);
   const speedEid = query(world, [Player, Speed])[0];
   const speedPx = speedEid === undefined ? 0 : (Speed.px[speedEid] ?? 0);
-  const intensity = powerPelletBreakIntensity(speedPx, baseSpeedPx);
+  const intensity = powerPelletBreakIntensity(speedPx, baseSpeedPx, tuning);
   let id = nextId;
   for (const pos of positions) {
     const brk: ActivePowerPelletBreak = {

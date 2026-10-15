@@ -1197,6 +1197,7 @@ export class PlaySim {
             dash.sweptPowerPositions,
             (event) => this.emit(event),
             playerSpeed(this.currentTuning),
+            this.currentTuning,
           );
           const dashStreakFires = this.applyStreakCells(dash.sweptCells);
           const collectResult = applyPelletCollect(
@@ -1257,6 +1258,7 @@ export class PlaySim {
       playerFrame.removedPowerPositions,
       (event) => this.emit(event),
       playerSpeed(this.currentTuning),
+      this.currentTuning,
     );
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);
