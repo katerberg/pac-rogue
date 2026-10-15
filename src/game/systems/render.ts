@@ -480,7 +480,6 @@ const SPEED_ZONE_GLOW_PEAK_ALPHA = 0.6;
 const SPEED_ZONE_GLOW_REACH_TILES = 0.7;
 const SPEED_ZONE_PULSE_MIN_ALPHA = 0.8;
 const SPEED_ZONE_PULSE_MS = 3600;
-const SPEED_ZONE_TEXTURE_KEYS = ["speed-zone-glow-0", "speed-zone-glow-1"];
 const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
@@ -488,12 +487,16 @@ const CHAIN_STROKES = [
   { strand: 1, width: 1, color: 0xffffff, alpha: 0.9 },
 ] as const;
 
+function speedZoneTextureKey(kind: SpeedZoneKind): string {
+  return `speed-zone-glow-${kind}`;
+}
+
 function addSpeedZoneGlow(
   scene: Phaser.Scene,
   container: Phaser.GameObjects.Container,
   zone: SpeedZone,
-  textureKey: string,
 ): void {
+  const textureKey = speedZoneTextureKey(zone.kind);
   const { tileSize, playerSolids } = getActiveLayout();
   const reachPx = Math.round(tileSize * SPEED_ZONE_GLOW_REACH_TILES);
   const mask = speedZoneGlowMask(zone, speedZoneHallwayCells(zone, playerSolids), {
@@ -568,9 +571,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
   const clearSpeedZones = (): void => {
     speedZoneLayer.removeAll(true);
-    for (const key of SPEED_ZONE_TEXTURE_KEYS) {
-      if (scene.textures.exists(key)) {
-        scene.textures.remove(key);
+    for (const kind of ["slow", "fast"] as const) {
+      if (scene.textures.exists(speedZoneTextureKey(kind))) {
+        scene.textures.remove(speedZoneTextureKey(kind));
       }
     }
   };
@@ -1007,9 +1010,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const speedZones = opts?.speedZones ?? [];
     if (speedZones !== drawnSpeedZones) {
       clearSpeedZones();
-      speedZones.forEach((zone, i) => {
-        addSpeedZoneGlow(scene, speedZoneLayer, zone, SPEED_ZONE_TEXTURE_KEYS[i]!);
-      });
+      for (const zone of speedZones) {
+        addSpeedZoneGlow(scene, speedZoneLayer, zone);
+      }
       drawnSpeedZones = speedZones;
     }
 
