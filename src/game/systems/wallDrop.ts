@@ -1,5 +1,5 @@
-import { query, type World } from "bitecs";
-import { getActiveLayout, worldToCol, worldToRow, type SolidGrid } from "../../domain/maze";
+import type { World } from "bitecs";
+import { getActiveLayout, type SolidGrid } from "../../domain/maze";
 import {
   dropWall,
   droppedWallBlocksPlayer,
@@ -8,19 +8,10 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import { wallDropCell, withSolidCell } from "../../domain/wallDrop";
-import { Player } from "../components/Player";
-import { Position } from "../components/Position";
 import type { Direction } from "../components/Input";
 import { CARDINAL_STEP } from "./heldKeys";
+import { playerCell } from "./playerCell";
 import { playerFacing } from "./playerDirection";
-
-function playerCell(world: World): { col: number; row: number } | null {
-  const eid = query(world, [Player, Position])[0];
-  if (eid === undefined) {
-    return null;
-  }
-  return { col: worldToCol(Position.x[eid] ?? 0), row: worldToRow(Position.y[eid] ?? 0) };
-}
 
 export function playerSolidsWithWall(
   state: RunUpgrades,
