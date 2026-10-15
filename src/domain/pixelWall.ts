@@ -69,25 +69,21 @@ export function pixelWallRects(
   const rects: WallRect[] = [];
   for (const [cy, cols] of rows) {
     const sorted = [...cols].sort((a, b) => a - b);
-    let runStart = sorted[0];
-    let prev = runStart;
-    for (let i = 1; i <= sorted.length; i += 1) {
-      const col = sorted[i];
-      if (col !== undefined && col === prev! + 1) {
-        prev = col;
-        continue;
+    let runStart = 0;
+    sorted.forEach((col, i) => {
+      if (i === 0 || col !== sorted[i - 1]! + 1) {
+        runStart = col;
       }
-      if (runStart !== undefined && prev !== undefined) {
-        rects.push({
-          x: runStart * WALL_ART_PX,
-          y: cy * WALL_ART_PX,
-          w: (prev - runStart + 1) * WALL_ART_PX,
-          h: WALL_ART_PX,
-        });
+      if (i + 1 < sorted.length && sorted[i + 1] === col + 1) {
+        return;
       }
-      runStart = col;
-      prev = col;
-    }
+      rects.push({
+        x: runStart * WALL_ART_PX,
+        y: cy * WALL_ART_PX,
+        w: (col - runStart + 1) * WALL_ART_PX,
+        h: WALL_ART_PX,
+      });
+    });
   }
   return rects;
 }
