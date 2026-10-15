@@ -16,6 +16,7 @@ import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
+import { pixelWallRects } from "../../domain/pixelWall";
 import { sameWallStyle, wallStyleFor, type WallStyle } from "../../domain/wallStyle";
 import {
   advanceDotManChomp,
@@ -82,7 +83,8 @@ import {
   nextSkirtWaveSign,
 } from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
-import type { HauntedGhost } from "../../domain/upgrades";
+import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
+import { UPGRADE_SCHOOL_ORDER, type HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -94,6 +96,7 @@ import { Position } from "../components/Position";
 
 export const PELLET_TEXTURE_KEY = "pellet-dot";
 export const QUARTER_TEXTURE_KEY = "quarter";
+export const REVERSE_TEXTURE_KEY = "reverse";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
@@ -179,16 +182,10 @@ function strokeWallPath(
   scale: number,
 ): void {
   graphics.clear();
-  graphics.lineStyle(style.thickness * scale, style.color, 1);
-  graphics.beginPath();
-  for (const command of commands) {
-    if (command.type === "move") {
-      graphics.moveTo(command.x * scale, command.y * scale);
-    } else {
-      graphics.lineTo(command.x * scale, command.y * scale);
-    }
+  graphics.fillStyle(style.color, 1);
+  for (const rect of pixelWallRects(commands, style.thickness)) {
+    graphics.fillRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
   }
-  graphics.strokePath();
 }
 
 function textureKeyForDrawable(drawableId: string): string {
@@ -308,6 +305,7 @@ export function addGhostSprite(
   x: number,
   y: number,
   size: number,
+  look: PupilLook = ghostPupilLookOffset(GHOST_DIR.none),
 ): GhostSpriteHandle {
   const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
   const image = scene.add.image(0, 0, textureKey);
@@ -318,7 +316,7 @@ export function addGhostSprite(
   const container = scene.add.container(x, y, [image, skirt]);
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
-    fillGhostPupils(pupils, 0, 0, size, ghostPupilLookOffset(GHOST_DIR.none));
+    fillGhostPupils(pupils, 0, 0, size, look);
     container.add(pupils);
   }
   return {
@@ -356,6 +354,15 @@ export function addQuarterIcon(
   return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
+export function addReverseIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, REVERSE_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
 export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.on(Phaser.Loader.Events.FILE_COMPLETE, (key: string, type: string) => {
     if (type === "image") {
@@ -367,6 +374,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   }
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
+  scene.load.image(REVERSE_TEXTURE_KEY, "art/other/reverse.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
@@ -377,6 +385,12 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
   for (const kind of FRUIT_KINDS) {
     scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
+  }
+  for (const school of UPGRADE_SCHOOL_ORDER) {
+    const path = schoolArtPath(school);
+    if (path !== null) {
+      scene.load.image(schoolArtTextureKey(school), path);
+    }
   }
 }
 
