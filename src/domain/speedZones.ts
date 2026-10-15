@@ -41,21 +41,44 @@ export function speedZoneHallwayCells(zone: SpeedZone, playerSolids: SolidGrid):
   return cells;
 }
 
-export type SpeedZoneEdge = MazeTile & { side: "up" | "down" | "left" | "right" };
+export type SpeedZoneGlowMask = { width: number; height: number; alpha: Float32Array };
 
-export function speedZoneOuterEdges(cells: readonly MazeTile[]): SpeedZoneEdge[] {
-  const inZone = new Set(cells.map((cell) => `${cell.col},${cell.row}`));
-  const sides = [
-    { side: "up", dc: 0, dr: -1 },
-    { side: "down", dc: 0, dr: 1 },
-    { side: "left", dc: -1, dr: 0 },
-    { side: "right", dc: 1, dr: 0 },
-  ] as const;
-  return cells.flatMap((cell) =>
-    sides
-      .filter(({ dc, dr }) => !inZone.has(`${cell.col + dc},${cell.row + dr}`))
-      .map(({ side }) => ({ ...cell, side })),
-  );
+export type SpeedZoneGlowStyle = {
+  tileSize: number;
+  reachPx: number;
+  fillAlpha: number;
+  glowPeakAlpha: number;
+};
+
+export function speedZoneGlowMask(
+  zone: SpeedZone,
+  cells: readonly MazeTile[],
+  style: SpeedZoneGlowStyle,
+): SpeedZoneGlowMask {
+  const { tileSize, reachPx, fillAlpha, glowPeakAlpha } = style;
+  const width = zone.size * tileSize + reachPx * 2;
+  const height = width;
+  const rects = cells.map((cell) => ({
+    x0: reachPx + (cell.col - zone.col) * tileSize,
+    y0: reachPx + (cell.row - zone.row) * tileSize,
+  }));
+  const alpha = new Float32Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const px = x + 0.5;
+      const py = y + 0.5;
+      let nearest = Infinity;
+      for (const { x0, y0 } of rects) {
+        const dx = Math.max(x0 - px, 0, px - (x0 + tileSize));
+        const dy = Math.max(y0 - py, 0, py - (y0 + tileSize));
+        nearest = Math.min(nearest, Math.hypot(dx, dy));
+      }
+      const falloff = 1 - nearest / reachPx;
+      alpha[y * width + x] =
+        nearest === 0 ? fillAlpha : falloff > 0 ? glowPeakAlpha * falloff * falloff : 0;
+    }
+  }
+  return { width, height, alpha };
 }
 
 export function speedZoneMultiplier(kind: SpeedZoneKind | null): number {

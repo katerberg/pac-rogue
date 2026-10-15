@@ -6,8 +6,8 @@ import {
   SLOW_ZONE_MULTIPLIER,
   SPEED_ZONE_SIZE,
   speedZoneAt,
+  speedZoneGlowMask,
   speedZoneHallwayCells,
-  speedZoneOuterEdges,
   speedZoneMultiplier,
   type SpeedZone,
   type SpeedZoneBoard,
@@ -93,27 +93,49 @@ describe("speedZoneHallwayCells", () => {
   });
 });
 
-describe("speedZoneOuterEdges", () => {
-  it("lists every cell side that does not touch another zone cell", () => {
+describe("speedZoneGlowMask", () => {
+  const style = { tileSize: 10, reachPx: 6, fillAlpha: 0.5, glowPeakAlpha: 0.8 };
+  const zone: SpeedZone = { kind: "slow", col: 0, row: 0, size: 4 };
+  const at = (mask: ReturnType<typeof speedZoneGlowMask>, x: number, y: number) =>
+    mask.alpha[y * mask.width + x]!;
+
+  it("pads the zone square by the glow reach on every side", () => {
+    const mask = speedZoneGlowMask(zone, [{ col: 0, row: 0 }], style);
+    expect(mask.width).toBe(4 * 10 + 2 * 6);
+    expect(mask.height).toBe(mask.width);
+  });
+
+  it("fills hallway cells and fades out with distance past their edges", () => {
+    const mask = speedZoneGlowMask(zone, [{ col: 1, row: 1 }], style);
+    expect(at(mask, 20, 20)).toBe(0.5);
+    const near = at(mask, 16 + 10, 20);
+    const far = at(mask, 16 + 13, 20);
+    expect(near).toBeGreaterThan(far);
+    expect(far).toBeGreaterThan(0);
+    expect(at(mask, 16 + 16, 20)).toBe(0);
+    expect(at(mask, 0, 0)).toBe(0);
+  });
+
+  it("rounds convex corners: a diagonal offset glows less than the same orthogonal offset", () => {
+    const mask = speedZoneGlowMask(zone, [{ col: 1, row: 1 }], style);
+    const edge = 16 + 10;
+    const orthogonal = at(mask, edge + 2, 20);
+    const diagonal = at(mask, edge + 2, edge + 2);
+    expect(diagonal).toBeGreaterThan(0);
+    expect(diagonal).toBeLessThan(orthogonal);
+  });
+
+  it("does not double up where two cells meet at an inside corner", () => {
     const cells = [
       { col: 1, row: 1 },
       { col: 2, row: 1 },
       { col: 2, row: 2 },
     ];
-    expect(speedZoneOuterEdges(cells)).toEqual([
-      { col: 1, row: 1, side: "up" },
-      { col: 1, row: 1, side: "down" },
-      { col: 1, row: 1, side: "left" },
-      { col: 2, row: 1, side: "up" },
-      { col: 2, row: 1, side: "right" },
-      { col: 2, row: 2, side: "down" },
-      { col: 2, row: 2, side: "left" },
-      { col: 2, row: 2, side: "right" },
-    ]);
-  });
-
-  it("has no edges without cells", () => {
-    expect(speedZoneOuterEdges([])).toEqual([]);
+    const mask = speedZoneGlowMask(zone, cells, style);
+    const insideCorner = at(mask, 24, 27);
+    const besideOneEdge = at(mask, 20, 14);
+    expect(insideCorner).toBeGreaterThan(0);
+    expect(insideCorner).toBeCloseTo(besideOneEdge, 5);
   });
 });
 

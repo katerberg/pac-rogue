@@ -1,5 +1,8 @@
 import Phaser from "phaser";
-import { GLOW_HALO_PULSE_TWEEN, glowHaloStepAlpha } from "../../domain/glowHalo";
+
+const HALO_PEAK_ALPHA = 0.85;
+const HALO_PULSE_MIN = 0.5;
+const HALO_PULSE_MS = 900;
 
 type RareFx = { destroy: () => void };
 
@@ -13,12 +16,20 @@ export function addRareFx(
   const reach = Math.max(4, Math.round(Math.min(width, height) * 0.12));
   const halo = scene.add.graphics();
   for (let step = 1; step <= reach; step += 1) {
-    halo.lineStyle(1, color, glowHaloStepAlpha(step, reach));
+    const falloff = 1 - step / (reach + 1);
+    halo.lineStyle(1, color, HALO_PEAK_ALPHA * falloff * falloff);
     halo.strokeRect(-width / 2 - step, -height / 2 - step, width + step * 2, height + step * 2);
   }
   container.addAt(halo, 0);
 
-  const tween = scene.tweens.add({ targets: halo, ...GLOW_HALO_PULSE_TWEEN });
+  const tween = scene.tweens.add({
+    targets: halo,
+    alpha: { from: 1, to: HALO_PULSE_MIN },
+    duration: HALO_PULSE_MS,
+    ease: "Sine.easeInOut",
+    yoyo: true,
+    repeat: -1,
+  });
   const destroy = (): void => {
     tween.remove();
     halo.destroy();

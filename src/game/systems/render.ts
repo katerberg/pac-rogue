@@ -14,12 +14,10 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
-import { GLOW_HALO_PULSE_TWEEN, glowHaloStepAlpha } from "../../domain/glowHalo";
 import {
+  speedZoneGlowMask,
   speedZoneHallwayCells,
-  speedZoneOuterEdges,
   type SpeedZone,
-  type SpeedZoneEdge,
   type SpeedZoneKind,
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
@@ -478,13 +476,55 @@ const SPEED_TRAIL_DEPTH = -1;
 const SPEED_ZONE_DEPTH = -2;
 const SPEED_ZONE_COLORS: Record<SpeedZoneKind, number> = { slow: 0x3fa9ff, fast: 0xff8a3d };
 const SPEED_ZONE_FILL_ALPHA = 0.7;
-const SPEED_ZONE_GLOW_REACH_TILES = 0.6;
+const SPEED_ZONE_GLOW_PEAK_ALPHA = 0.6;
+const SPEED_ZONE_GLOW_REACH_TILES = 0.7;
+const SPEED_ZONE_PULSE_MIN_ALPHA = 0.8;
+const SPEED_ZONE_PULSE_MS = 3600;
+const SPEED_ZONE_TEXTURE_KEYS = ["speed-zone-glow-0", "speed-zone-glow-1"];
 const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
   { strand: 0, width: 2.5, color: 0x9fe0ff, alpha: 0.95 },
   { strand: 1, width: 1, color: 0xffffff, alpha: 0.9 },
 ] as const;
+
+function addSpeedZoneGlow(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  zone: SpeedZone,
+  textureKey: string,
+): void {
+  const { tileSize, playerSolids } = getActiveLayout();
+  const reachPx = Math.round(tileSize * SPEED_ZONE_GLOW_REACH_TILES);
+  const mask = speedZoneGlowMask(zone, speedZoneHallwayCells(zone, playerSolids), {
+    tileSize,
+    reachPx,
+    fillAlpha: SPEED_ZONE_FILL_ALPHA,
+    glowPeakAlpha: SPEED_ZONE_GLOW_PEAK_ALPHA,
+  });
+  const texture = scene.textures.createCanvas(textureKey, mask.width, mask.height);
+  if (texture === null) {
+    return;
+  }
+  const ctx = texture.getContext();
+  const image = ctx.createImageData(mask.width, mask.height);
+  const color = SPEED_ZONE_COLORS[zone.kind];
+  mask.alpha.forEach((alpha, i) => {
+    image.data[i * 4] = (color >> 16) & 0xff;
+    image.data[i * 4 + 1] = (color >> 8) & 0xff;
+    image.data[i * 4 + 2] = color & 0xff;
+    image.data[i * 4 + 3] = Math.round(alpha * 255);
+  });
+  ctx.putImageData(image, 0, 0);
+  texture.refresh();
+  const glow = scene.add.image(
+    cellOriginX(zone.col) - reachPx,
+    cellOriginY(zone.row) - reachPx,
+    textureKey,
+  );
+  glow.setOrigin(0, 0).setBlendMode(Phaser.BlendModes.ADD);
+  container.add(glow);
+}
 
 function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly ChainPoint[]) {
   graphics.beginPath();
@@ -493,25 +533,6 @@ function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly 
     graphics.lineTo(point.x, point.y);
   }
   graphics.strokePath();
-}
-
-function fillGlowStrip(
-  graphics: Phaser.GameObjects.Graphics,
-  edge: SpeedZoneEdge,
-  tileSize: number,
-  step: number,
-): void {
-  const x = cellOriginX(edge.col);
-  const y = cellOriginY(edge.row);
-  if (edge.side === "up") {
-    graphics.fillRect(x, y - step, tileSize, 1);
-  } else if (edge.side === "down") {
-    graphics.fillRect(x, y + tileSize + step - 1, tileSize, 1);
-  } else if (edge.side === "left") {
-    graphics.fillRect(x - step, y, 1, tileSize);
-  } else {
-    graphics.fillRect(x + tileSize + step - 1, y, 1, tileSize);
-  }
 }
 
 type GhostSkirt = {
@@ -534,11 +555,25 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
-  const speedZoneGraphics = scene.add.graphics();
-  speedZoneGraphics.setDepth(SPEED_ZONE_DEPTH);
-  speedZoneGraphics.setBlendMode(Phaser.BlendModes.ADD);
-  scene.tweens.add({ targets: speedZoneGraphics, ...GLOW_HALO_PULSE_TWEEN });
+  const speedZoneLayer = scene.add.container(0, 0);
+  speedZoneLayer.setDepth(SPEED_ZONE_DEPTH);
+  scene.tweens.add({
+    targets: speedZoneLayer,
+    alpha: { from: 1, to: SPEED_ZONE_PULSE_MIN_ALPHA },
+    duration: SPEED_ZONE_PULSE_MS,
+    ease: "Sine.easeInOut",
+    yoyo: true,
+    repeat: -1,
+  });
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
+  const clearSpeedZones = (): void => {
+    speedZoneLayer.removeAll(true);
+    for (const key of SPEED_ZONE_TEXTURE_KEYS) {
+      if (scene.textures.exists(key)) {
+        scene.textures.remove(key);
+      }
+    }
+  };
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
@@ -586,7 +621,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     drawnWallStyle = null;
     drawnMazeInverted = false;
     drawnWallAlpha = 1;
-    speedZoneGraphics.clear();
+    clearSpeedZones();
     drawnSpeedZones = null;
   };
 
@@ -971,28 +1006,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
     const speedZones = opts?.speedZones ?? [];
     if (speedZones !== drawnSpeedZones) {
-      speedZoneGraphics.clear();
-      const { tileSize, playerSolids } = getActiveLayout();
-      for (const zone of speedZones) {
-        speedZoneGraphics.fillStyle(SPEED_ZONE_COLORS[zone.kind], SPEED_ZONE_FILL_ALPHA);
-        const cells = speedZoneHallwayCells(zone, playerSolids);
-        for (const cell of cells) {
-          speedZoneGraphics.fillRect(
-            cellOriginX(cell.col),
-            cellOriginY(cell.row),
-            tileSize,
-            tileSize,
-          );
-        }
-        const edges = speedZoneOuterEdges(cells);
-        const reach = Math.max(3, Math.round(tileSize * SPEED_ZONE_GLOW_REACH_TILES));
-        for (let step = 1; step <= reach; step += 1) {
-          speedZoneGraphics.fillStyle(SPEED_ZONE_COLORS[zone.kind], glowHaloStepAlpha(step, reach));
-          for (const edge of edges) {
-            fillGlowStrip(speedZoneGraphics, edge, tileSize, step);
-          }
-        }
-      }
+      clearSpeedZones();
+      speedZones.forEach((zone, i) => {
+        addSpeedZoneGlow(scene, speedZoneLayer, zone, SPEED_ZONE_TEXTURE_KEYS[i]!);
+      });
       drawnSpeedZones = speedZones;
     }
 
