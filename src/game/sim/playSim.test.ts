@@ -5579,6 +5579,15 @@ describe("speed zones", () => {
     }
   });
 
+  it("clears the zones when the store floor opens", () => {
+    const sim = startSim({ level: 5 }, "zones");
+    expect(sim.snapshot().speedZones).toHaveLength(2);
+    (sim as unknown as { enterStore(): void }).enterStore();
+    expect(sim.snapshot().inStore).toBe(true);
+    expect(sim.snapshot().speedZones).toEqual([]);
+    expect(sim.snapshot().playerSpeedZone).toBeNull();
+  });
+
   it("draws the zones for the render bridge", () => {
     const sim = startSim({ level: 6 }, "zones");
     expect(sim.renderOptions().speedZones).toEqual(sim.snapshot().speedZones);

@@ -1796,6 +1796,7 @@ export class PlaySim {
     this.world = createWorld();
     spawnWalls(this.world);
     spawnPlayer(this.world);
+    this.speedZones = [];
 
     this.applyLifeRegen(STORE_REGEN_AMOUNT);
     this.store = createStoreState(
