@@ -3,10 +3,12 @@ import { DEFAULT_TUNING, speedLevelMultiplier, type Tuning } from "./tuning";
 
 export const POWER_PELLET_BREAK_MS = 200;
 export const POWER_PELLET_BREAK_SPLIT_PX = 10;
-export const POWER_PELLET_BREAK_FORWARD_PX = 12;
+/** Extra fling for chips on the trail side (opposite travel) — shatter stays behind Dot-Man. */
+export const POWER_PELLET_BREAK_BEHIND_PX = 12;
 export const POWER_PELLET_BREAK_FALL_PX = 6;
 export const POWER_PELLET_BREAK_SPIN_RAD = 0.55;
-export const POWER_PELLET_BREAK_REAR_BACK_FRAC = 0.06;
+/** Ahead-side chips keep this fraction of along-facing travel so they don't leap in front. */
+export const POWER_PELLET_BREAK_AHEAD_FRAC = 0.06;
 export const POWER_PELLET_BREAK_COLOR = 0xffffff;
 export const POWER_PELLET_BREAK_FRAGMENT_FRAC = 0.36;
 export const POWER_PELLET_BREAK_REST_FRAC = 0.14;
@@ -66,9 +68,8 @@ export function powerPelletBreakLook(
   const scale = Math.max(0, intensity);
   const split = POWER_PELLET_BREAK_SPLIT_PX * scale * (1 - (1 - t) ** 2);
   const fall = POWER_PELLET_BREAK_FALL_PX * scale * t * t;
-  const forwardPush = POWER_PELLET_BREAK_FORWARD_PX * scale * (1 - (1 - t) ** 2);
+  const behindPush = POWER_PELLET_BREAK_BEHIND_PX * scale * (1 - (1 - t) ** 2);
   const hasFacing = facing.dx !== 0 || facing.dy !== 0;
-  const verticalTravel = hasFacing && facing.dy !== 0;
 
   return QUARTERS.map((q) => {
     const rotation = q.spin * POWER_PELLET_BREAK_SPIN_RAD * t;
@@ -90,22 +91,23 @@ export function powerPelletBreakLook(
     const projY = along * facing.dy;
     const latX = diagX - projX;
     const latY = diagY - projY;
-    const settle = verticalTravel ? 0 : fall;
 
-    if (along >= 0) {
+    if (along < 0) {
+      // Trail side: fling further behind Dot-Man (opposite facing).
       return {
         id: q.id,
-        offsetX: latX + projX + facing.dx * forwardPush,
-        offsetY: latY + projY + facing.dy * forwardPush + settle * 0.2,
+        offsetX: latX + projX - facing.dx * behindPush,
+        offsetY: latY + projY - facing.dy * behindPush + fall * 0.25,
         rotation,
         alpha,
       };
     }
 
+    // Ahead side: soft lateral settle — do not leap out in front of him.
     return {
       id: q.id,
-      offsetX: latX * 0.45 + projX * POWER_PELLET_BREAK_REAR_BACK_FRAC,
-      offsetY: latY * 0.45 + projY * POWER_PELLET_BREAK_REAR_BACK_FRAC + settle * 0.55,
+      offsetX: latX * 0.45 + projX * POWER_PELLET_BREAK_AHEAD_FRAC,
+      offsetY: latY * 0.45 + projY * POWER_PELLET_BREAK_AHEAD_FRAC + fall * 0.55,
       rotation,
       alpha,
     };

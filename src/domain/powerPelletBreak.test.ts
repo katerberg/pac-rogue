@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { PLAYER_SPEED } from "./playfield";
 import { resolveTuning, speedLevelMultiplier } from "./tuning";
 import {
+  POWER_PELLET_BREAK_AHEAD_FRAC,
+  POWER_PELLET_BREAK_BEHIND_PX,
   POWER_PELLET_BREAK_FALL_PX,
-  POWER_PELLET_BREAK_FORWARD_PX,
   POWER_PELLET_BREAK_FRAGMENT_FRAC,
   POWER_PELLET_BREAK_INTENSITY_HARD,
   POWER_PELLET_BREAK_INTENSITY_SOFT,
   POWER_PELLET_BREAK_MS,
-  POWER_PELLET_BREAK_REAR_BACK_FRAC,
   POWER_PELLET_BREAK_REST_FRAC,
   POWER_PELLET_BREAK_SPLIT_PX,
   powerPelletBreakFragmentSize,
@@ -73,40 +73,47 @@ describe("powerPelletBreakLook", () => {
     expect(end.every((q) => q.alpha === 0)).toBe(true);
   });
 
-  it("when moving left, left quarters fly forward and right quarters barely go back", () => {
+  it("when moving left, trail-side (right) chips fling behind and ahead chips barely go forward", () => {
     const end = powerPelletBreakLook(1, { dx: -1, dy: 0 });
     const nw = end.find((q) => q.id === "nw")!;
     const sw = end.find((q) => q.id === "sw")!;
     const ne = end.find((q) => q.id === "ne")!;
     const se = end.find((q) => q.id === "se")!;
 
-    expect(nw.offsetX).toBeCloseTo(-POWER_PELLET_BREAK_SPLIT_PX - POWER_PELLET_BREAK_FORWARD_PX);
-    expect(sw.offsetX).toBeCloseTo(-POWER_PELLET_BREAK_SPLIT_PX - POWER_PELLET_BREAK_FORWARD_PX);
-    expect(ne.offsetX).toBeLessThanOrEqual(
-      POWER_PELLET_BREAK_SPLIT_PX * POWER_PELLET_BREAK_REAR_BACK_FRAC + 0.01,
+    expect(ne.offsetX).toBeCloseTo(POWER_PELLET_BREAK_SPLIT_PX + POWER_PELLET_BREAK_BEHIND_PX);
+    expect(se.offsetX).toBeCloseTo(POWER_PELLET_BREAK_SPLIT_PX + POWER_PELLET_BREAK_BEHIND_PX);
+    expect(nw.offsetX).toBeGreaterThanOrEqual(
+      -POWER_PELLET_BREAK_SPLIT_PX * POWER_PELLET_BREAK_AHEAD_FRAC - 0.01,
     );
-    expect(se.offsetX).toBeLessThanOrEqual(
-      POWER_PELLET_BREAK_SPLIT_PX * POWER_PELLET_BREAK_REAR_BACK_FRAC + 0.01,
+    expect(sw.offsetX).toBeGreaterThanOrEqual(
+      -POWER_PELLET_BREAK_SPLIT_PX * POWER_PELLET_BREAK_AHEAD_FRAC - 0.01,
     );
   });
 
-  it("when moving up, rear (bottom) pieces do not get shoved downward behind the player", () => {
+  it("when moving up, trail-side (bottom) chips fling behind (down), not ahead", () => {
     const end = powerPelletBreakLook(1, { dx: 0, dy: -1 });
+    const nw = end.find((q) => q.id === "nw")!;
     const sw = end.find((q) => q.id === "sw")!;
     const se = end.find((q) => q.id === "se")!;
-    expect(sw.offsetY).toBeLessThan(POWER_PELLET_BREAK_FALL_PX * 0.5);
-    expect(se.offsetY).toBeLessThan(POWER_PELLET_BREAK_FALL_PX * 0.5);
-    expect(sw.offsetY).toBeGreaterThanOrEqual(
-      -POWER_PELLET_BREAK_SPLIT_PX * POWER_PELLET_BREAK_REAR_BACK_FRAC - 0.01,
+
+    const trailY =
+      POWER_PELLET_BREAK_SPLIT_PX +
+      POWER_PELLET_BREAK_BEHIND_PX +
+      POWER_PELLET_BREAK_FALL_PX * 0.25;
+    expect(sw.offsetY).toBeCloseTo(trailY);
+    expect(se.offsetY).toBeCloseTo(trailY);
+    expect(nw.offsetY).toBeGreaterThanOrEqual(
+      -POWER_PELLET_BREAK_SPLIT_PX * POWER_PELLET_BREAK_AHEAD_FRAC - 0.01,
     );
   });
 
   it("scales travel with intensity without changing the soft/hard ratio shape", () => {
     const soft = powerPelletBreakLook(1, { dx: 1, dy: 0 }, POWER_PELLET_BREAK_INTENSITY_SOFT);
     const hard = powerPelletBreakLook(1, { dx: 1, dy: 0 }, POWER_PELLET_BREAK_INTENSITY_HARD);
-    const softNe = soft.find((q) => q.id === "ne")!;
-    const hardNe = hard.find((q) => q.id === "ne")!;
-    expect(hardNe.offsetX / softNe.offsetX).toBeCloseTo(
+    // Trail side when facing right is NW/SW (negative along).
+    const softNw = soft.find((q) => q.id === "nw")!;
+    const hardNw = hard.find((q) => q.id === "nw")!;
+    expect(hardNw.offsetX / softNw.offsetX).toBeCloseTo(
       POWER_PELLET_BREAK_INTENSITY_HARD / POWER_PELLET_BREAK_INTENSITY_SOFT,
     );
   });
