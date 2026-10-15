@@ -11,9 +11,9 @@ export const POWER_PELLET_BREAK_SPIN_RAD = 0.55;
 export const POWER_PELLET_BREAK_REAR_BACK_FRAC = 0.06;
 export const POWER_PELLET_BREAK_COLOR = 0xffffff;
 /** Fragment edge length as a fraction of the power-pellet display size. */
-export const POWER_PELLET_BREAK_FRAGMENT_FRAC = 0.28;
+export const POWER_PELLET_BREAK_FRAGMENT_FRAC = 0.36;
 /** Assembled chip offset from pellet center (fraction of display size). */
-export const POWER_PELLET_BREAK_REST_FRAC = 0.12;
+export const POWER_PELLET_BREAK_REST_FRAC = 0.14;
 /** Level-1 / sink-crack travel scale. */
 export const POWER_PELLET_BREAK_INTENSITY_SOFT = 0.55;
 /** Level-7 / wall-hit travel scale. */
