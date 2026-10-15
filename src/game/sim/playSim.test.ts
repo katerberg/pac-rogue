@@ -43,6 +43,11 @@ import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import {
+  FAST_ZONE_MULTIPLIER,
+  SLOW_ZONE_MULTIPLIER,
+  type SpeedZone,
+} from "../../domain/speedZones";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
@@ -5506,5 +5511,76 @@ describe("Cornucopia", () => {
     expect(sim.snapshot().bonus.charge).toBeGreaterThan(0);
     eatNextPower(sim);
     expect(fruitCount(sim)).toBe(1);
+  });
+});
+
+describe("speed zones", () => {
+  function walkableCellIn(zone: SpeedZone): { col: number; row: number } {
+    for (let row = zone.row; row < zone.row + zone.size; row += 1) {
+      for (let col = zone.col; col < zone.col + zone.size; col += 1) {
+        if (!getActiveLayout().playerSolids[row]![col]) {
+          return { col, row };
+        }
+      }
+    }
+    throw new Error("zone has no walkable cell");
+  }
+
+  function speedAt(sim: PlaySim, eid: number, col: number, row: number): number {
+    sim["eatDragMs"] = 0;
+    Position.x[eid] = cellCenterX(col);
+    Position.y[eid] = cellCenterY(row);
+    runFrames(sim, 1);
+    return Speed.px[eid]!;
+  }
+
+  it("drops one seeded slow zone and one fast zone on levels 5-8 only", () => {
+    for (const level of [5, 6, 7, 8]) {
+      const zones = startSim({ level }, "zones").snapshot().speedZones;
+      expect(zones.map((zone) => zone.kind)).toEqual(["slow", "fast"]);
+      expect(zones.every((zone) => zone.size === 4)).toBe(true);
+      expect(startSim({ level }, "zones").snapshot().speedZones).toEqual(zones);
+    }
+    for (const level of [1, 2, 4, 9]) {
+      expect(startSim({ level }, "zones").snapshot().speedZones).toEqual([]);
+    }
+  });
+
+  it("slows the player in the slow zone and speeds them up in the fast zone", () => {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const player = playerEid(sim);
+    const [slow, fast] = sim.snapshot().speedZones as [SpeedZone, SpeedZone];
+    const slowCell = walkableCellIn(slow);
+    const fastCell = walkableCellIn(fast);
+
+    const inSlow = speedAt(sim, player, slowCell.col, slowCell.row);
+    expect(sim.snapshot().playerSpeedZone).toBe("slow");
+    const inFast = speedAt(sim, player, fastCell.col, fastCell.row);
+    expect(sim.snapshot().playerSpeedZone).toBe("fast");
+    sim["speedZones"] = [];
+    const outside = speedAt(sim, player, slowCell.col, slowCell.row);
+    expect(sim.snapshot().playerSpeedZone).toBeNull();
+
+    expect(inSlow).toBeCloseTo(outside * SLOW_ZONE_MULTIPLIER);
+    expect(inFast).toBeCloseTo(outside * FAST_ZONE_MULTIPLIER);
+  });
+
+  it("leaves ghost speed alone inside a zone", () => {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const zones = sim.snapshot().speedZones;
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    for (const zone of zones) {
+      const cell = walkableCellIn(zone);
+      sim["speedZones"] = zones;
+      const inZone = speedAt(sim, ghost, cell.col, cell.row);
+      sim["speedZones"] = [];
+      expect(speedAt(sim, ghost, cell.col, cell.row)).toBe(inZone);
+    }
+  });
+
+  it("draws the zones for the render bridge", () => {
+    const sim = startSim({ level: 6 }, "zones");
+    expect(sim.renderOptions().speedZones).toEqual(sim.snapshot().speedZones);
   });
 });

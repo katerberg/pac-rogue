@@ -21,6 +21,7 @@ Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-
 
 - **Inverted** levels (`isInvertedMazeLevel`): the generated board is row-reversed in `startBoard` (`invertMazeAscii`) so spawn and house flip with it.
 - **Timed tunnel** levels (`isTimedTunnelLevel`): one seeded tunnel row cycles open / warn / closed.
+- **Speed zone** levels (`isSpeedZoneLevel`, `src/domain/speedZones.ts`): one seeded 4x4 slow zone and one fast zone that scale only Dot-Man's speed while he stands in them; ghosts ignore them.
 
 ## Scatter and chase
 

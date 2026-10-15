@@ -4,6 +4,8 @@ import {
   actorDisplaySize,
   cellCenterX,
   cellCenterY,
+  cellOriginX,
+  cellOriginY,
   getActiveLayout,
   playerDisplaySize,
   pelletDisplaySize,
@@ -12,6 +14,7 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import type { SpeedZone, SpeedZoneKind } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
@@ -445,6 +448,7 @@ export type RenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  speedZones?: readonly SpeedZone[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
 
@@ -464,6 +468,10 @@ export type PlayRender = {
 const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
+const SPEED_ZONE_DEPTH = -2;
+const SPEED_ZONE_COLORS: Record<SpeedZoneKind, number> = { slow: 0x3fa9ff, fast: 0xff8a3d };
+const SPEED_ZONE_FILL_ALPHA = 0.18;
+const SPEED_ZONE_EDGE_ALPHA = 0.6;
 const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
@@ -500,6 +508,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const speedZoneGraphics = scene.add.graphics();
+  speedZoneGraphics.setDepth(SPEED_ZONE_DEPTH);
+  let drawnSpeedZones: readonly SpeedZone[] | null = null;
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
@@ -547,6 +558,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     drawnWallStyle = null;
     drawnMazeInverted = false;
     drawnWallAlpha = 1;
+    speedZoneGraphics.clear();
+    drawnSpeedZones = null;
   };
 
   const bouncePowerPellet = (eid: number): void => {
@@ -926,6 +939,22 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       )) {
         cageGraphics.lineBetween(line.x1, line.y1, line.x2, line.y2);
       }
+    }
+
+    const speedZones = opts?.speedZones ?? [];
+    if (speedZones !== drawnSpeedZones) {
+      speedZoneGraphics.clear();
+      const tile = getActiveLayout().tileSize;
+      for (const zone of speedZones) {
+        const color = SPEED_ZONE_COLORS[zone.kind];
+        const x = cellOriginX(zone.col);
+        const y = cellOriginY(zone.row);
+        speedZoneGraphics.fillStyle(color, SPEED_ZONE_FILL_ALPHA);
+        speedZoneGraphics.fillRect(x, y, zone.size * tile, zone.size * tile);
+        speedZoneGraphics.lineStyle(1, color, SPEED_ZONE_EDGE_ALPHA);
+        speedZoneGraphics.strokeRect(x + 0.5, y + 0.5, zone.size * tile - 1, zone.size * tile - 1);
+      }
+      drawnSpeedZones = speedZones;
     }
 
     timedTunnelGraphics.clear();

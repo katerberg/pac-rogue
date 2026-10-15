@@ -142,6 +142,14 @@ import {
   type TimedTunnelPhase,
 } from "../../domain/timedTunnel";
 import {
+  isSpeedZoneLevel,
+  pickSpeedZones,
+  speedZoneAt,
+  speedZoneMultiplier,
+  type SpeedZone,
+  type SpeedZoneKind,
+} from "../../domain/speedZones";
+import {
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
   invertMazeAscii,
@@ -468,6 +476,7 @@ export class PlaySim {
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
+  private speedZones: SpeedZone[] = [];
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
@@ -733,6 +742,7 @@ export class PlaySim {
       wallAlpha: this.bossStageDraw?.wallAlpha,
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
+      speedZones: this.speedZones,
       pupilTarget: this.blinkyPupilTarget(),
     };
   }
@@ -805,6 +815,8 @@ export class PlaySim {
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
       },
       timedTunnel: this.timedTunnelSnapshot(),
+      speedZones: this.speedZones,
+      playerSpeedZone: this.playerSpeedZone(),
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
       reviveProgress:
@@ -1071,6 +1083,7 @@ export class PlaySim {
         (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.effectiveUpgrades()) : 1) *
         eatDragMultiplier(this.eatDragMs, this.currentTuning) *
         this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
+        speedZoneMultiplier(this.playerSpeedZone()) *
         (warping ? 0 : 1);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
@@ -1537,6 +1550,17 @@ export class PlaySim {
       horizontalTunnelRows(),
       this.random.stream("timedTunnel", this.levelIndex),
     );
+  }
+
+  private resetSpeedZones(): void {
+    this.speedZones = isSpeedZoneLevel(this.levelIndex)
+      ? pickSpeedZones(getActiveLayout(), this.random.stream("speedZones", this.levelIndex))
+      : [];
+  }
+
+  private playerSpeedZone(): SpeedZoneKind | null {
+    const cell = playerCell(this.world);
+    return cell === null ? null : speedZoneAt(this.speedZones, cell.col, cell.row);
   }
 
   private tickTimedTunnel(deltaMs: number): void {
@@ -2080,6 +2104,7 @@ export class PlaySim {
     this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.resetTimedTunnel();
+    this.resetSpeedZones();
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
