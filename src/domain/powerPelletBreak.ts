@@ -1,12 +1,12 @@
 export const POWER_PELLET_BREAK_MS = 300;
-export const POWER_PELLET_BREAK_SPLIT_PX = 10;
-export const POWER_PELLET_BREAK_FORWARD_PX = 14;
-export const POWER_PELLET_BREAK_FALL_PX = 16;
+export const POWER_PELLET_BREAK_SPLIT_PX = 14;
+export const POWER_PELLET_BREAK_FORWARD_PX = 18;
+export const POWER_PELLET_BREAK_FALL_PX = 22;
 export const POWER_PELLET_BREAK_SPIN_RAD = 0.7;
 /** Rear quarters keep this fraction of their backward (along-facing) travel. */
 export const POWER_PELLET_BREAK_REAR_BACK_FRAC = 0.08;
-export const POWER_PELLET_ART_SIZE_PX = 16;
-export const POWER_PELLET_QUARTER_ART_PX = POWER_PELLET_ART_SIZE_PX / 2;
+/** Matches the on-board power pellet fill (see `power-pellet.png` center). */
+export const POWER_PELLET_BREAK_COLOR = 0xffffff;
 
 export type PowerPelletBreakFacing = { dx: number; dy: number };
 
@@ -14,8 +14,6 @@ export type PowerPelletQuarterId = "nw" | "ne" | "sw" | "se";
 
 export type PowerPelletQuarterLook = {
   id: PowerPelletQuarterId;
-  cropX: number;
-  cropY: number;
   /** Travel from the assembled quarter center (not including rest offset). */
   offsetX: number;
   offsetY: number;
@@ -25,23 +23,14 @@ export type PowerPelletQuarterLook = {
 
 const QUARTERS: readonly {
   id: PowerPelletQuarterId;
-  cropX: number;
-  cropY: number;
   bx: number;
   by: number;
   spin: number;
 }[] = [
-  { id: "nw", cropX: 0, cropY: 0, bx: -1, by: -1, spin: -1 },
-  { id: "ne", cropX: POWER_PELLET_QUARTER_ART_PX, cropY: 0, bx: 1, by: -1, spin: 1 },
-  { id: "sw", cropX: 0, cropY: POWER_PELLET_QUARTER_ART_PX, bx: -1, by: 1, spin: -1 },
-  {
-    id: "se",
-    cropX: POWER_PELLET_QUARTER_ART_PX,
-    cropY: POWER_PELLET_QUARTER_ART_PX,
-    bx: 1,
-    by: 1,
-    spin: 1,
-  },
+  { id: "nw", bx: -1, by: -1, spin: -1 },
+  { id: "ne", bx: 1, by: -1, spin: 1 },
+  { id: "sw", bx: -1, by: 1, spin: -1 },
+  { id: "se", bx: 1, by: 1, spin: 1 },
 ];
 
 export function powerPelletBreakProgress(elapsedMs: number): number {
@@ -69,8 +58,6 @@ export function powerPelletBreakLook(
     if (!hasFacing) {
       return {
         id: q.id,
-        cropX: q.cropX,
-        cropY: q.cropY,
         offsetX: q.bx * split,
         offsetY: q.by * split + fall,
         rotation,
@@ -89,8 +76,6 @@ export function powerPelletBreakLook(
     if (along >= 0) {
       return {
         id: q.id,
-        cropX: q.cropX,
-        cropY: q.cropY,
         offsetX: latX + projX + facing.dx * forwardPush,
         offsetY: latY + projY + facing.dy * forwardPush + fall * 0.4,
         rotation,
@@ -100,8 +85,6 @@ export function powerPelletBreakLook(
 
     return {
       id: q.id,
-      cropX: q.cropX,
-      cropY: q.cropY,
       offsetX: latX * 0.5 + projX * POWER_PELLET_BREAK_REAR_BACK_FRAC,
       offsetY: latY * 0.5 + projY * POWER_PELLET_BREAK_REAR_BACK_FRAC + fall,
       rotation,

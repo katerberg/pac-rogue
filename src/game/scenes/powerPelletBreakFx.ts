@@ -1,22 +1,12 @@
 import Phaser from "phaser";
 import {
-  POWER_PELLET_ART_SIZE_PX,
-  POWER_PELLET_QUARTER_ART_PX,
+  POWER_PELLET_BREAK_COLOR,
   powerPelletBreakLook,
   powerPelletQuarterRestOffset,
-  type PowerPelletQuarterId,
 } from "../../domain/powerPelletBreak";
 import { powerPelletDisplaySize } from "../../domain/maze";
-import { POWER_PELLET_TEXTURE_KEY } from "../systems/render";
 
-const BREAK_DEPTH = 40;
-
-const QUARTER_FRAME: Record<PowerPelletQuarterId, string> = {
-  nw: "pp-nw",
-  ne: "pp-ne",
-  sw: "pp-sw",
-  se: "pp-se",
-};
+const BREAK_DEPTH = 200;
 
 export type PowerPelletBreakEvent = {
   id: number;
@@ -27,29 +17,18 @@ export type PowerPelletBreakEvent = {
   progress: number;
 };
 
-export function ensurePowerPelletBreakFrames(scene: Phaser.Scene): void {
-  const tex = scene.textures.get(POWER_PELLET_TEXTURE_KEY);
-  if (!tex || tex.key === "__MISSING") {
-    return;
-  }
-  if (tex.has(QUARTER_FRAME.nw)) {
-    return;
-  }
-  const q = POWER_PELLET_QUARTER_ART_PX;
-  tex.add(QUARTER_FRAME.nw, 0, 0, 0, q, q);
-  tex.add(QUARTER_FRAME.ne, 0, q, 0, q, q);
-  tex.add(QUARTER_FRAME.sw, 0, 0, q, q, q);
-  tex.add(QUARTER_FRAME.se, 0, q, q, q, q);
-}
-
 export type PowerPelletBreakFx = {
   apply: (event: PowerPelletBreakEvent) => void;
   clear: () => void;
 };
 
+/**
+ * Solid white quarter squares (same idea as shield crack halves).
+ * Texture crops are not used: `power-pellet.png` is a tiny centered blob on a
+ * transparent 16×16 canvas, so NW/NE/SW/SE crops of the file are nearly empty.
+ */
 export function createPowerPelletBreakFx(scene: Phaser.Scene): PowerPelletBreakFx {
-  ensurePowerPelletBreakFrames(scene);
-  const piecesById = new Map<number, Phaser.GameObjects.Image[]>();
+  const piecesById = new Map<number, Phaser.GameObjects.Rectangle[]>();
   const pelletSize = powerPelletDisplaySize();
   const quarterSize = pelletSize / 2;
 
@@ -64,19 +43,17 @@ export function createPowerPelletBreakFx(scene: Phaser.Scene): PowerPelletBreakF
     piecesById.delete(id);
   };
 
-  const ensurePieces = (id: number): Phaser.GameObjects.Image[] => {
+  const ensurePieces = (id: number): Phaser.GameObjects.Rectangle[] => {
     const existing = piecesById.get(id);
     if (existing) {
       return existing;
     }
     const looks = powerPelletBreakLook(0, { dx: 0, dy: 0 });
-    const pieces = looks.map((look) => {
-      const image = scene.add
-        .image(0, 0, POWER_PELLET_TEXTURE_KEY, QUARTER_FRAME[look.id])
-        .setDisplaySize(quarterSize, quarterSize)
-        .setDepth(BREAK_DEPTH);
-      return image;
-    });
+    const pieces = looks.map(() =>
+      scene.add
+        .rectangle(0, 0, quarterSize, quarterSize, POWER_PELLET_BREAK_COLOR)
+        .setDepth(BREAK_DEPTH),
+    );
     piecesById.set(id, pieces);
     return pieces;
   };
@@ -108,9 +85,3 @@ export function createPowerPelletBreakFx(scene: Phaser.Scene): PowerPelletBreakF
     },
   };
 }
-
-/** Art size kept for tests / callers that assert crop geometry. */
-export const POWER_PELLET_BREAK_ART = {
-  full: POWER_PELLET_ART_SIZE_PX,
-  quarter: POWER_PELLET_QUARTER_ART_PX,
-} as const;
