@@ -70,7 +70,6 @@ import {
   CORNER_TELEPORT_HOLD_ENHANCED_MS,
   SPEED_BURST_MS,
   WALL_PASS_MS,
-  QUARTERS_CHOICE_AMOUNT,
   STORE_RARE_UPGRADE_PRICE,
   STORE_UPGRADE_PRICE,
   isRare,
@@ -90,7 +89,6 @@ import {
   cornucopiaAlongsideOwned,
   confirmUpgradeChoice,
   createRunUpgrades,
-  declineUpgrades,
   eligibleUpgrades,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
@@ -291,9 +289,8 @@ describe("parseDisableLevelUpgradesFlag", () => {
 });
 
 describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
-  it("always offers quarters, with an empty upgrade pool when none are eligible", () => {
+  it("offers no upgrades when none are eligible", () => {
     const offer = pickUpgradeChoiceOffer(ALL_IDS, null, () => 0);
-    expect(offer.quarters).toBe(QUARTERS_CHOICE_AMOUNT);
     expect(offer.upgrades).toEqual([]);
   });
 
@@ -305,7 +302,7 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
 
   it("forces an eligible upgrade into the offer, but never an owned one", () => {
     const offer = pickUpgradeChoiceOffer([], null, () => 0, 0, "passiveRemoteTransference");
-    expect(offer.upgrades).toHaveLength(3);
+    expect(offer.upgrades).toHaveLength(2);
     expect(offer.upgrades).toContain("passiveRemoteTransference");
     const owned = pickUpgradeChoiceOffer(
       ["passiveRemoteTransference"],
@@ -317,10 +314,10 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
     expect(owned.upgrades).not.toContain("passiveRemoteTransference");
   });
 
-  it("returns up to three distinct unowned upgrade options", () => {
+  it("returns up to two distinct unowned upgrade options", () => {
     const offer = pickUpgradeChoiceOffer([], null, () => 0);
-    expect(offer.upgrades).toHaveLength(3);
-    expect(new Set(offer.upgrades).size).toBe(3);
+    expect(offer.upgrades).toHaveLength(2);
+    expect(new Set(offer.upgrades).size).toBe(2);
     for (const id of offer.upgrades) {
       expect(ALL_IDS).toContain(id);
     }
@@ -329,30 +326,29 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   it("excludes lastDeclined when enough eligible remain", () => {
     const offer = pickUpgradeChoiceOffer([], "passiveGhostSlow", () => 0);
     expect(offer.upgrades).not.toContain("passiveGhostSlow");
-    expect(offer.upgrades).toHaveLength(3);
+    expect(offer.upgrades).toHaveLength(2);
   });
 
   it("re-includes lastDeclined when needed to fill the offer", () => {
     const owned = ALL_IDS.filter(
-      (id) =>
-        id !== "passiveGhostSlow" && id !== "powerPelletWarpFarthest" && id !== "passiveExtraLife",
+      (id) => id !== "passiveGhostSlow" && id !== "powerPelletWarpFarthest",
     );
     const offer = pickUpgradeChoiceOffer(owned, "passiveGhostSlow", () => 0);
     expect(offer.upgrades).toEqual(
-      expect.arrayContaining(["passiveGhostSlow", "powerPelletWarpFarthest", "passiveExtraLife"]),
+      expect.arrayContaining(["passiveGhostSlow", "powerPelletWarpFarthest"]),
     );
-    expect(offer.upgrades).toHaveLength(3);
+    expect(offer.upgrades).toHaveLength(2);
   });
 
   it("marks no option enhanced at chance 0 and every option at chance 1", () => {
     expect(pickUpgradeChoiceOffer([], null, () => 0.5).enhanced).toEqual([]);
     const all = pickUpgradeChoiceOffer([], null, () => 0.5, 1);
-    expect(all.enhanced).toHaveLength(3);
+    expect(all.enhanced).toHaveLength(2);
     expect(all.enhanced).toEqual(expect.arrayContaining(all.upgrades));
   });
 
   it("enhances each option independently at the given chance", () => {
-    const draws = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.1, 0.9, 0.9];
+    const draws = [0.9, 0.9, 0.9, 0.9, 0.1, 0.9];
     let i = 0;
     const offer = pickUpgradeChoiceOffer([], null, () => draws[i++ % draws.length]!, 0.125);
     expect(offer.enhanced).toHaveLength(1);
@@ -390,40 +386,6 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
     );
     expect(next.owned).toEqual(["powerPelletWarpFarthest"]);
     expect(next.lastDeclinedUpgradeId).toBe("passiveGhostSlow");
-  });
-
-  it("confirm with three options leaves lastDeclined unchanged (ambiguous)", () => {
-    const state = {
-      ...createRunUpgrades(),
-      lastDeclinedUpgradeId: "passiveGhostSlow" as BaseUpgradeId,
-    };
-    const options: BaseUpgradeId[] = [
-      "passiveAfterburner",
-      "powerPelletWarpFarthest",
-      "passiveExtraLife",
-    ];
-    const next = confirmUpgradeChoice(state, options, "passiveAfterburner");
-    expect(next.owned).toEqual(["passiveAfterburner"]);
-    expect(next.lastDeclinedUpgradeId).toBe("passiveGhostSlow");
-  });
-});
-
-describe("declineUpgrades", () => {
-  it("remembers the single declined upgrade when quarters is chosen instead", () => {
-    const state = createRunUpgrades();
-    const next = declineUpgrades(state, ["powerPelletWarpFarthest"]);
-    expect(next.lastDeclinedUpgradeId).toBe("powerPelletWarpFarthest");
-  });
-
-  it("leaves lastDeclined unchanged when zero or multiple upgrades were declined", () => {
-    const state = {
-      ...createRunUpgrades(),
-      lastDeclinedUpgradeId: "passiveGhostSlow" as BaseUpgradeId,
-    };
-    expect(declineUpgrades(state, []).lastDeclinedUpgradeId).toBe("passiveGhostSlow");
-    expect(
-      declineUpgrades(state, ["powerPelletWarpFarthest", "passiveExtraLife"]).lastDeclinedUpgradeId,
-    ).toBe("passiveGhostSlow");
   });
 });
 
@@ -552,7 +514,7 @@ describe("rare upgrades", () => {
     let withRare = 0;
     for (let i = 0; i < draws; i += 1) {
       const offer = pickUpgradeChoiceOffer(owned, null, rng);
-      expect(offer.upgrades).toHaveLength(3);
+      expect(offer.upgrades).toHaveLength(2);
       withRare += offer.upgrades.includes("passiveMartyr") ? 1 : 0;
     }
     const commons = left.filter((id) => id !== "passiveMartyr");
@@ -560,18 +522,15 @@ describe("rare upgrades", () => {
     for (let i = 0; i < commons.length; i += 1) {
       for (let j = 0; j < commons.length; j += 1) {
         if (j === i) continue;
-        for (let k = 0; k < commons.length; k += 1) {
-          if (k === i || k === j) continue;
-          const order = [commons[i]!, commons[j]!, commons[k]!];
-          let p = 1;
-          const remaining = [...left];
-          for (const pick of order) {
-            const total = remaining.reduce((sum, id) => sum + upgradeOfferWeight(id, owned), 0);
-            p *= upgradeOfferWeight(pick, owned) / total;
-            remaining.splice(remaining.indexOf(pick), 1);
-          }
-          pNone += p;
+        const order = [commons[i]!, commons[j]!];
+        let p = 1;
+        const remaining = [...left];
+        for (const pick of order) {
+          const total = remaining.reduce((sum, id) => sum + upgradeOfferWeight(id, owned), 0);
+          p *= upgradeOfferWeight(pick, owned) / total;
+          remaining.splice(remaining.indexOf(pick), 1);
         }
+        pNone += p;
       }
     }
     const expected = 1 - pNone;

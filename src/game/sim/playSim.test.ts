@@ -135,6 +135,10 @@ function drainToOffer(sim: PlaySim): UpgradeChoiceOffer {
   return sim.offer()!;
 }
 
+function takeFirstOffered(sim: PlaySim): void {
+  sim.chooseUpgrade({ kind: "upgrade", id: drainToOffer(sim).upgrades[0]! });
+}
+
 function regularPelletEids(sim: PlaySim): number[] {
   return Array.from(query(sim.world, [Pellet, Position])).filter(
     (eid) => !hasComponent(sim.world, eid, PowerPellet),
@@ -590,6 +594,20 @@ describe("PlaySim", () => {
     }
   });
 
+  it("offers exactly two upgrades and no Quarters option at level clear", () => {
+    const offer = drainToOffer(startSim({ jumpToUpgrade: true, level: 4 }));
+    expect(offer.upgrades).toHaveLength(2);
+    expect(offer).not.toHaveProperty("quarters");
+  });
+
+  it("skips the offer when no upgrade is eligible", () => {
+    const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: [...ALL_UPGRADE_IDS] });
+    runFrames(sim, 90);
+    expect(sim.offer()).toBeNull();
+    runUntil(sim, () => sim.snapshot().levelTransition, 90);
+    expect(sim.snapshot().levelTransition).toBe(true);
+  });
+
   it("level-clear offer stays valid when owned upgrades give school affinity", () => {
     const owned = ["passiveExtraLife", "passiveDeathsHarvest", "passiveDefyDeath"] as const;
     const sim = startSim({
@@ -598,8 +616,8 @@ describe("PlaySim", () => {
       enableUpgrades: [...owned],
     });
     const offer = drainToOffer(sim);
-    expect(offer.upgrades).toHaveLength(3);
-    expect(new Set(offer.upgrades).size).toBe(3);
+    expect(offer.upgrades).toHaveLength(2);
+    expect(new Set(offer.upgrades).size).toBe(2);
     for (const id of offer.upgrades) {
       expect(owned).not.toContain(id);
     }
@@ -635,8 +653,7 @@ describe("PlaySim", () => {
 
   it("plays the Blinky chase intermission between level 2 and level 3", () => {
     const sim = startSim({ jumpToUpgrade: true });
-    drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    takeFirstOffered(sim);
     const events = runUntil(sim, () => sim.snapshot().intermission !== null, 120);
     expect(sim.snapshot().level).toBe(2);
     expect(sim.snapshot().levelTransition).toBe(false);
@@ -2353,8 +2370,7 @@ describe("PlaySim bonus bar", () => {
 
   it("keeps the charge, plus the time bonus, across a level advance", () => {
     const sim = startSim({ jumpToUpgrade: true, bonus: 50 });
-    drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
     expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 193 });
   });
@@ -3377,8 +3393,7 @@ describe("Death's Bounty", () => {
     for (const eid of regularPelletEids(sim)) {
       eatPelletAt(sim, eid);
     }
-    const offer = drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: offer.quarters });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 560);
     expect(sim.snapshot().deathsThisBoard).toBe(0);
     const before = sim.snapshot().quarters;
@@ -3464,8 +3479,7 @@ describe("Lazy Looper", () => {
     for (const eid of partition(sim).required) {
       eatPelletAt(sim, eid);
     }
-    const offer = drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: offer.quarters });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 560);
     expect(sim.snapshot().optionalPellets).toBeGreaterThan(0);
     expect(sim.snapshot().optionalPellets).toBe(partition(sim).optional.length);
@@ -3729,8 +3743,7 @@ describe("Shield", () => {
     chompPowerPellets(sim, 2);
     expect(sim.snapshot().timers.shieldsBanked).toBe(2);
     sim["jumpToLevelClear"]();
-    drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
     expect(sim.snapshot().timers.shieldsBanked).toBe(0);
   });
@@ -3865,8 +3878,7 @@ describe("Starting Shield", () => {
     runFrames(sim, 1);
     expect(sim.snapshot().timers.shieldsBanked).toBe(1);
     sim["jumpToLevelClear"]();
-    drainToOffer(sim);
-    sim.chooseUpgrade({ kind: "quarters", amount: 2 });
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
     expect(sim.snapshot().timers.shieldsBanked).toBe(2);
   });

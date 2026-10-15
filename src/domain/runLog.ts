@@ -80,8 +80,7 @@ export type FruitLog = { kind: FruitKind; spawnedMs: number; eatenMs: number | n
 
 export type OfferLog = {
   upgrades: BaseUpgradeId[];
-  quarters: number;
-  picked: BaseUpgradeId | "quarters" | null;
+  picked: BaseUpgradeId | null;
   choiceMs: number | null;
 };
 
@@ -344,7 +343,7 @@ export function syntheticRunLog(index: number, meta: RunLogMeta): RunLogRecord {
       livesStart: 0,
     });
     const offered = [0, 1, 2].map((k) => ids[(first + level * 3 + k) % ids.length]!);
-    log.offer = { upgrades: offered, quarters: 1, picked: offered[0]!, choiceMs: 0 };
+    log.offer = { upgrades: offered, picked: offered[0]!, choiceMs: 0 };
   }
   for (const [k, id] of [ids[first]!, ids[(first + 11) % ids.length]!].entries()) {
     addLoadout(record, id, k === 0 ? "start" : "offer", 1 + k);

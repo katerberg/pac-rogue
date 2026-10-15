@@ -30,14 +30,11 @@ export function upgradeScore(
 }
 
 function offerOptions(offer: UpgradeChoiceOffer): UpgradeChoiceOption[] {
-  return [
-    ...offer.upgrades.map((id): UpgradeChoiceOption => ({
-      kind: "upgrade",
-      id,
-      enhanced: offer.enhanced.includes(id),
-    })),
-    { kind: "quarters", amount: offer.quarters },
-  ];
+  return offer.upgrades.map((id): UpgradeChoiceOption => ({
+    kind: "upgrade",
+    id,
+    enhanced: offer.enhanced.includes(id),
+  }));
 }
 
 export function pickOffer(
@@ -50,12 +47,9 @@ export function pickOffer(
   if (persona.randomPicks) {
     return options[Math.floor(rng() * options.length)]!;
   }
-  let best: UpgradeChoiceOption = { kind: "quarters", amount: offer.quarters };
-  let bestScore = 0;
+  let best = options[0]!;
+  let bestScore = -Infinity;
   for (const option of options) {
-    if (option.kind !== "upgrade") {
-      continue;
-    }
     const score = upgradeScore(option.id, owned, persona) + (option.enhanced ? 0.5 : 0);
     if (score > bestScore) {
       best = option;

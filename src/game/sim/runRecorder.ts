@@ -302,7 +302,6 @@ export class RunRecorder {
     if (this.level !== null) {
       this.level.offer = {
         upgrades: [...offer.upgrades],
-        quarters: offer.quarters,
         picked: null,
         choiceMs: null,
       };
@@ -310,7 +309,7 @@ export class RunRecorder {
     }
   }
 
-  picked(choice: BaseUpgradeId | "quarters"): void {
+  picked(choice: BaseUpgradeId): void {
     const offer = this.level?.offer;
     if (offer) {
       offer.picked = choice;
