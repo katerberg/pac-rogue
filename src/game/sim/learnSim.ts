@@ -176,7 +176,6 @@ import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { sendGhostOutOfHouse } from "../systems/ghostRelease";
 import {
-  CARDINAL_STEP,
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
@@ -187,9 +186,10 @@ import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
 import { playerFacing, playerPose } from "../systems/playerDirection";
 import {
-  powerPelletBreakProgress,
-  type PowerPelletBreakFacing,
-} from "../../domain/powerPelletBreak";
+  startPowerPelletBreaks,
+  tickPowerPelletBreaks,
+  type ActivePowerPelletBreak,
+} from "./powerPelletBreaks";
 import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
@@ -271,13 +271,7 @@ export class LearnSim {
   private recallHoldGhostEids: number[] = [];
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
-  private powerPelletBreaks: {
-    id: number;
-    x: number;
-    y: number;
-    facing: PowerPelletBreakFacing;
-    elapsedMs: number;
-  }[] = [];
+  private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
@@ -369,7 +363,9 @@ export class LearnSim {
 
   step(keys: HeldKeys, delta: number): SimEvent[] {
     this.events = [];
-    this.tickPowerPelletBreaks(delta);
+    this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
+      this.events.push(event),
+    );
     if (this.warpGlide !== null) {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
@@ -520,7 +516,13 @@ export class LearnSim {
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
           this.releaseAll(dash.sweptPelletEids);
-          this.startPowerPelletBreaks(dash.sweptPowerPositions);
+          this.nextPowerPelletBreakId = startPowerPelletBreaks(
+            this.world,
+            this.powerPelletBreaks,
+            this.nextPowerPelletBreakId,
+            dash.sweptPowerPositions,
+            (event) => this.events.push(event),
+          );
           if (dash.sweptPowerRemoved > 0) {
             this.resolvePowerPelletTrigger(dash.sweptPowerRemoved);
           }
@@ -542,7 +544,13 @@ export class LearnSim {
       : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
     const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
-    this.startPowerPelletBreaks(playerFrame.removedPowerPositions);
+    this.nextPowerPelletBreakId = startPowerPelletBreaks(
+      this.world,
+      this.powerPelletBreaks,
+      this.nextPowerPelletBreakId,
+      playerFrame.removedPowerPositions,
+      (event) => this.events.push(event),
+    );
     this.releaseAll(removedEids);
     this.countCollected(removedEids.length);
     this.stepStreakEngine(playerFrame.removedCells, delta);
@@ -787,68 +795,6 @@ export class LearnSim {
     for (const eid of eids) {
       this.events.push({ type: "releaseDrawable", eid });
     }
-  }
-
-  private breakFacing(): PowerPelletBreakFacing {
-    const facing = playerFacing(this.world);
-    const fromFacing = CARDINAL_STEP[facing];
-    if (fromFacing !== undefined) {
-      return fromFacing;
-    }
-    const eid = query(this.world, [Player, Input])[0];
-    const intent = eid === undefined ? DIRECTION.none : (Input.direction[eid] ?? DIRECTION.none);
-    return CARDINAL_STEP[intent] ?? { dx: 0, dy: 0 };
-  }
-
-  private startPowerPelletBreaks(positions: readonly { x: number; y: number }[]): void {
-    if (positions.length === 0) {
-      return;
-    }
-    const facing = this.breakFacing();
-    for (const pos of positions) {
-      const id = this.nextPowerPelletBreakId;
-      this.nextPowerPelletBreakId += 1;
-      this.powerPelletBreaks.push({
-        id,
-        x: pos.x,
-        y: pos.y,
-        facing,
-        elapsedMs: 0,
-      });
-      this.events.push({
-        type: "powerPelletBreak",
-        id,
-        x: pos.x,
-        y: pos.y,
-        facingDx: facing.dx,
-        facingDy: facing.dy,
-        progress: 0,
-      });
-    }
-  }
-
-  private tickPowerPelletBreaks(delta: number): void {
-    if (this.powerPelletBreaks.length === 0) {
-      return;
-    }
-    const remaining: typeof this.powerPelletBreaks = [];
-    for (const brk of this.powerPelletBreaks) {
-      brk.elapsedMs += delta;
-      const progress = powerPelletBreakProgress(brk.elapsedMs);
-      this.events.push({
-        type: "powerPelletBreak",
-        id: brk.id,
-        x: brk.x,
-        y: brk.y,
-        facingDx: brk.facing.dx,
-        facingDy: brk.facing.dy,
-        progress,
-      });
-      if (progress < 1) {
-        remaining.push(brk);
-      }
-    }
-    this.powerPelletBreaks = remaining;
   }
 
   private resolvePowerPelletTrigger(powerRemoved: number): void {

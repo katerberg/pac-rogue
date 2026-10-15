@@ -97,7 +97,7 @@ import { Position } from "../components/Position";
 export const PELLET_TEXTURE_KEY = "pellet-dot";
 export const QUARTER_TEXTURE_KEY = "quarter";
 export const REVERSE_TEXTURE_KEY = "reverse";
-export const POWER_PELLET_TEXTURE_KEY = "power-pellet";
+const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
 const INKY_TEXTURE_KEY = "ghost-inky";

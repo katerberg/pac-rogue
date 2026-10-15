@@ -99,14 +99,6 @@ export function powerPelletQuarterRestOffset(
   pelletDisplaySize: number,
 ): { x: number; y: number } {
   const inset = pelletDisplaySize / 4;
-  switch (id) {
-    case "nw":
-      return { x: -inset, y: -inset };
-    case "ne":
-      return { x: inset, y: -inset };
-    case "sw":
-      return { x: -inset, y: inset };
-    case "se":
-      return { x: inset, y: inset };
-  }
+  const q = QUARTERS.find((entry) => entry.id === id)!;
+  return { x: q.bx * inset, y: q.by * inset };
 }

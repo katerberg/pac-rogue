@@ -48,8 +48,7 @@ export function createPowerPelletBreakFx(scene: Phaser.Scene): PowerPelletBreakF
     if (existing) {
       return existing;
     }
-    const looks = powerPelletBreakLook(0, { dx: 0, dy: 0 });
-    const pieces = looks.map(() =>
+    const pieces = [0, 1, 2, 3].map(() =>
       scene.add
         .rectangle(0, 0, quarterSize, quarterSize, POWER_PELLET_BREAK_COLOR)
         .setDepth(BREAK_DEPTH),

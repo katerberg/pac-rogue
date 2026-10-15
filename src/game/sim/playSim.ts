@@ -338,10 +338,12 @@ import {
 import type { Direction } from "../components/Input";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { shieldCrackProgress } from "../../domain/shieldCrack";
+import { powerPelletBreakProgress } from "../../domain/powerPelletBreak";
 import {
-  powerPelletBreakProgress,
-  type PowerPelletBreakFacing,
-} from "../../domain/powerPelletBreak";
+  startPowerPelletBreaks,
+  tickPowerPelletBreaks,
+  type ActivePowerPelletBreak,
+} from "./powerPelletBreaks";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
@@ -355,7 +357,6 @@ import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import {
-  CARDINAL_STEP,
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
@@ -497,13 +498,7 @@ export class PlaySim {
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private shieldCrack: { index: number; elapsedMs: number } | null = null;
-  private powerPelletBreaks: {
-    id: number;
-    x: number;
-    y: number;
-    facing: PowerPelletBreakFacing;
-    elapsedMs: number;
-  }[] = [];
+  private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
   private interestPop: InterestPop | null = null;
@@ -928,7 +923,9 @@ export class PlaySim {
     }
     this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
     this.tickShieldCrack(delta);
-    this.tickPowerPelletBreaks(delta);
+    this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
+      this.emit(event),
+    );
     if (this.awaitingStartingCard) {
       if (input.uiOpen) {
         return;
@@ -1192,7 +1189,13 @@ export class PlaySim {
           if (hasUpgrade(this.effectiveUpgrades(), "passivePowerPelletRecharge")) {
             this.queueSecondChomp(dash.sweptPowerPositions);
           }
-          this.startPowerPelletBreaks(dash.sweptPowerPositions);
+          this.nextPowerPelletBreakId = startPowerPelletBreaks(
+            this.world,
+            this.powerPelletBreaks,
+            this.nextPowerPelletBreakId,
+            dash.sweptPowerPositions,
+            (event) => this.emit(event),
+          );
           const dashStreakFires = this.applyStreakCells(dash.sweptCells);
           const collectResult = applyPelletCollect(
             this.pelletProgress,
@@ -1245,7 +1248,13 @@ export class PlaySim {
       ...playerFrame.removedPowerPositions,
       ...ghostFrame.removedPowerPositions,
     ];
-    this.startPowerPelletBreaks(playerFrame.removedPowerPositions);
+    this.nextPowerPelletBreakId = startPowerPelletBreaks(
+      this.world,
+      this.powerPelletBreaks,
+      this.nextPowerPelletBreakId,
+      playerFrame.removedPowerPositions,
+      (event) => this.emit(event),
+    );
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);
     }
@@ -2579,70 +2588,6 @@ export class PlaySim {
     if (progress >= 1) {
       this.shieldCrack = null;
     }
-  }
-
-  private breakFacing(): PowerPelletBreakFacing {
-    const facing = playerFacing(this.world);
-    const fromFacing = CARDINAL_STEP[facing];
-    if (fromFacing !== undefined) {
-      return fromFacing;
-    }
-    // Corner pellets often block the collect frame's step, which clears Facing —
-    // fall back to the held intent so the shatter still breaks "through".
-    const eid = query(this.world, [Player, Input])[0];
-    const intent = eid === undefined ? DIRECTION.none : (Input.direction[eid] ?? DIRECTION.none);
-    return CARDINAL_STEP[intent] ?? { dx: 0, dy: 0 };
-  }
-
-  private startPowerPelletBreaks(positions: readonly { x: number; y: number }[]): void {
-    if (positions.length === 0) {
-      return;
-    }
-    const facing = this.breakFacing();
-    for (const pos of positions) {
-      const id = this.nextPowerPelletBreakId;
-      this.nextPowerPelletBreakId += 1;
-      this.powerPelletBreaks.push({
-        id,
-        x: pos.x,
-        y: pos.y,
-        facing,
-        elapsedMs: 0,
-      });
-      this.emit({
-        type: "powerPelletBreak",
-        id,
-        x: pos.x,
-        y: pos.y,
-        facingDx: facing.dx,
-        facingDy: facing.dy,
-        progress: 0,
-      });
-    }
-  }
-
-  private tickPowerPelletBreaks(delta: number): void {
-    if (this.powerPelletBreaks.length === 0) {
-      return;
-    }
-    const remaining: typeof this.powerPelletBreaks = [];
-    for (const brk of this.powerPelletBreaks) {
-      brk.elapsedMs += delta;
-      const progress = powerPelletBreakProgress(brk.elapsedMs);
-      this.emit({
-        type: "powerPelletBreak",
-        id: brk.id,
-        x: brk.x,
-        y: brk.y,
-        facingDx: brk.facing.dx,
-        facingDy: brk.facing.dy,
-        progress,
-      });
-      if (progress < 1) {
-        remaining.push(brk);
-      }
-    }
-    this.powerPelletBreaks = remaining;
   }
 
   private fireDueEchoes(delta: number): boolean {
