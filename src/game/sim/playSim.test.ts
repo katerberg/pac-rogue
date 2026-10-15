@@ -44,6 +44,7 @@ import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning"
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
+import { POWER_PELLET_BREAK_MS } from "../../domain/powerPelletBreak";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
@@ -5717,5 +5718,58 @@ describe("Wall Drop", () => {
     runFrames(sim, 1);
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().wallDrop).toEqual({ armed: false, wall: null });
+  });
+});
+
+describe("power pellet break VFX", () => {
+  it("emits a facing-biased break at each collected power pellet through progress 1", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] }, "pp-break");
+    sim.start();
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const x = Position.x[power]!;
+    const y = Position.y[power]!;
+    teleportPlayer(sim, x, y);
+    const left = { keys: held("left") };
+    const events = runFrames(sim, 1, left);
+    expect(events).toContainEqual({
+      type: "powerPelletBreak",
+      id: 1,
+      x,
+      y,
+      facingDx: -1,
+      facingDy: 0,
+      progress: 0,
+    });
+    expect(sim.snapshot().powerPelletBreaks).toEqual([{ id: 1, progress: 0 }]);
+
+    const done = runUntil(sim, () => sim.snapshot().powerPelletBreaks.length === 0, 60, left);
+    expect(done).toContainEqual({
+      type: "powerPelletBreak",
+      id: 1,
+      x,
+      y,
+      facingDx: -1,
+      facingDy: 0,
+      progress: 1,
+    });
+    expect(sim.snapshot().powerPelletBreaks).toEqual([]);
+    expect(Math.ceil(POWER_PELLET_BREAK_MS / FRAME_MS)).toBeLessThanOrEqual(60);
+  });
+
+  it("starts one break per power-pellet position in the same frame", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] }, "pp-break-2");
+    sim.start();
+    const powers = query(sim.world, [PowerPellet, Position]);
+    expect(powers.length).toBeGreaterThanOrEqual(2);
+    const a = powers[0]!;
+    const b = powers[1]!;
+    Position.x[b] = Position.x[a]!;
+    Position.y[b] = Position.y[a]!;
+    teleportPlayer(sim, Position.x[a]!, Position.y[a]!);
+    const events = runFrames(sim, 1, { keys: held("right") });
+    const breaks = events.filter((e) => e.type === "powerPelletBreak" && e.progress === 0);
+    expect(breaks).toHaveLength(2);
+    expect(breaks.every((e) => e.type === "powerPelletBreak" && e.facingDx === 1)).toBe(true);
+    expect(sim.snapshot().powerPelletBreaks).toHaveLength(2);
   });
 });
