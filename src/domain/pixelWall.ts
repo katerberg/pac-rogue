@@ -35,7 +35,6 @@ function lineCells(
   }
 }
 
-/** Snaps the wall path onto an art-pixel grid; corners become stair-steps, edges hard-aligned. */
 export function pixelWallRects(
   commands: readonly WallPathCommand[],
   thicknessPx: number,
