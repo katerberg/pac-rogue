@@ -35,10 +35,20 @@ function powerPelletBreakFacing(world: World): PowerPelletBreakFacing {
   return CARDINAL_STEP[intent] ?? { dx: 0, dy: 0 };
 }
 
-function playerBreakIntensity(world: World, baseSpeedPx: number): number {
-  const eid = query(world, [Player, Speed])[0];
-  const speedPx = eid === undefined ? 0 : (Speed.px[eid] ?? 0);
-  return powerPelletBreakIntensity(speedPx, baseSpeedPx);
+function powerPelletBreakEvent(
+  brk: ActivePowerPelletBreak,
+  progress: number,
+): PowerPelletBreakEvent {
+  return {
+    type: "powerPelletBreak",
+    id: brk.id,
+    x: brk.x,
+    y: brk.y,
+    facingDx: brk.facing.dx,
+    facingDy: brk.facing.dy,
+    intensity: brk.intensity,
+    progress,
+  };
 }
 
 export function startPowerPelletBreaks(
@@ -53,29 +63,22 @@ export function startPowerPelletBreaks(
     return nextId;
   }
   const facing = powerPelletBreakFacing(world);
-  const intensity = playerBreakIntensity(world, baseSpeedPx);
+  const speedEid = query(world, [Player, Speed])[0];
+  const speedPx = speedEid === undefined ? 0 : (Speed.px[speedEid] ?? 0);
+  const intensity = powerPelletBreakIntensity(speedPx, baseSpeedPx);
   let id = nextId;
   for (const pos of positions) {
-    const breakId = id;
-    id += 1;
-    breaks.push({
-      id: breakId,
+    const brk: ActivePowerPelletBreak = {
+      id,
       x: pos.x,
       y: pos.y,
       facing,
       intensity,
       elapsedMs: 0,
-    });
-    emit({
-      type: "powerPelletBreak",
-      id: breakId,
-      x: pos.x,
-      y: pos.y,
-      facingDx: facing.dx,
-      facingDy: facing.dy,
-      intensity,
-      progress: 0,
-    });
+    };
+    id += 1;
+    breaks.push(brk);
+    emit(powerPelletBreakEvent(brk, 0));
   }
   return id;
 }
@@ -92,16 +95,7 @@ export function tickPowerPelletBreaks(
   for (const brk of breaks) {
     brk.elapsedMs += delta;
     const progress = powerPelletBreakProgress(brk.elapsedMs);
-    emit({
-      type: "powerPelletBreak",
-      id: brk.id,
-      x: brk.x,
-      y: brk.y,
-      facingDx: brk.facing.dx,
-      facingDy: brk.facing.dy,
-      intensity: brk.intensity,
-      progress,
-    });
+    emit(powerPelletBreakEvent(brk, progress));
     if (progress < 1) {
       remaining.push(brk);
     }
