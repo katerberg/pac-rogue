@@ -129,7 +129,10 @@ function mountCurator(file: MazeCandidatesFile): void {
     }
     for (const [label, value] of stats) {
       const span = document.createElement("span");
-      span.innerHTML = `${label}: <strong>${value}</strong>`;
+      span.append(`${label}: `);
+      const strong = document.createElement("strong");
+      strong.textContent = value;
+      span.appendChild(strong);
       hud.appendChild(span);
     }
 
@@ -139,7 +142,18 @@ function mountCurator(file: MazeCandidatesFile): void {
 
     if (!current) {
       done.hidden = false;
-      done.innerHTML = `<p>All ${file.candidates.length} candidates reviewed. Kept <strong>${kept}</strong>.</p><p>Download <code>maze-pool.json</code> for the follow-up wiring PR.</p>`;
+      done.replaceChildren();
+      const p1 = document.createElement("p");
+      p1.append(`All ${file.candidates.length} candidates reviewed. Kept `);
+      const keptStrong = document.createElement("strong");
+      keptStrong.textContent = String(kept);
+      p1.append(keptStrong, ".");
+      const p2 = document.createElement("p");
+      p2.append("Download ");
+      const code = document.createElement("code");
+      code.textContent = "maze-pool.json";
+      p2.append(code, " for the follow-up wiring PR.");
+      done.append(p1, p2);
       actions.append(...sharedActions(kept));
       return;
     }

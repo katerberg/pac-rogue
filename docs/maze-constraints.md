@@ -25,8 +25,8 @@ Solved on a mirrored polyomino tiling with a fixed centre house and rasterized t
 
 Play still uses the live generator for levels 2+. To curate a fixed pool for a later wiring change:
 
-1. `npm run maze:generate` (default 500; `--count N` to override) writes `artifacts/mazes/candidates.json` (gitignored).
-2. Open `/mazes/` on the human or agent dev server and Yes/No each board (keys `Y`/`N`, undo `U`). Decisions stay in `localStorage` for that candidates batch.
+1. `npm run maze:generate` (`--count N` overrides the script default) writes `artifacts/mazes/candidates.json` (gitignored).
+2. Open `/mazes/` on the human or agent **dev** server (candidates middleware is also wired for preview) and Yes/No each board (keys `Y`/`→` yes, `N`/`←` no, `U` undo; Reset clears decisions). Decisions stay in `localStorage` for that candidates batch.
 3. **Download pool** exports `maze-pool.json` of the Yes maps (~200 is the intended keep size; the tool does not enforce a cap).
 
 The curator shows upright bases only. Wiring that pool into levels 2–8 (one draw per run, boss still generated, invert on 6–7 kept) is a follow-up.

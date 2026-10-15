@@ -57,10 +57,9 @@ export function tunnelRowsFromLayout(layout: {
   return found;
 }
 
-export function candidatesFingerprint(
-  file: Pick<MazeCandidatesFile, "generatedAt" | "count">,
-): string {
-  return `${file.generatedAt}|${file.count}`;
+export function candidatesFingerprint(file: MazeCandidatesFile): string {
+  const seeds = file.candidates.map((c) => c.seedUsed).join("\0");
+  return `${file.generatedAt}|${file.count}|${seeds}`;
 }
 
 export function emptyCuratorState(fingerprint: string): MazeCuratorState {
@@ -187,6 +186,7 @@ export function parseCandidatesFile(raw: unknown): MazeCandidatesFile | null {
     return null;
   }
   const candidates: MazeCandidate[] = [];
+  const seenIds = new Set<number>();
   for (const entry of record.candidates) {
     if (entry === null || typeof entry !== "object") {
       return null;
@@ -194,6 +194,7 @@ export function parseCandidatesFile(raw: unknown): MazeCandidatesFile | null {
     const c = entry as Record<string, unknown>;
     if (
       typeof c.id !== "number" ||
+      !Number.isInteger(c.id) ||
       typeof c.seed !== "string" ||
       typeof c.seedUsed !== "string" ||
       typeof c.ascii !== "string" ||
@@ -203,6 +204,10 @@ export function parseCandidatesFile(raw: unknown): MazeCandidatesFile | null {
     ) {
       return null;
     }
+    if (seenIds.has(c.id)) {
+      return null;
+    }
+    seenIds.add(c.id);
     candidates.push({
       id: c.id,
       seed: c.seed,
@@ -211,6 +216,9 @@ export function parseCandidatesFile(raw: unknown): MazeCandidatesFile | null {
       pelletCount: c.pelletCount,
       tunnels: c.tunnels as number[],
     });
+  }
+  if (record.count !== candidates.length) {
+    return null;
   }
   return {
     version: MAZE_CANDIDATES_VERSION,

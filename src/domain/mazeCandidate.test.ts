@@ -59,8 +59,14 @@ describe("mazeCandidate", () => {
     ).toEqual([]);
   });
 
-  it("fingerprints candidates by generatedAt and count", () => {
-    expect(candidatesFingerprint({ generatedAt: "t", count: 3 })).toBe("t|3");
+  it("fingerprints candidates by generatedAt, count, and seedUsed list", () => {
+    const file: MazeCandidatesFile = {
+      version: 1,
+      generatedAt: "t",
+      count: 2,
+      candidates: [cand(0), cand(1)],
+    };
+    expect(candidatesFingerprint(file)).toBe(`t|2|${cand(0).seedUsed}\0${cand(1).seedUsed}`);
   });
 
   it("parses curator state and resets on fingerprint mismatch", () => {
@@ -115,5 +121,13 @@ describe("mazeCandidate", () => {
     expect(parseCandidatesFile(file)?.candidates[0]?.id).toBe(0);
     expect(parseCandidatesFile({ version: 99 })).toBeNull();
     expect(parseCandidatesFile(null)).toBeNull();
+    expect(parseCandidatesFile({ ...file, count: 2 })).toBeNull();
+    expect(
+      parseCandidatesFile({
+        ...file,
+        count: 2,
+        candidates: [cand(0), { ...cand(1), id: 0 }],
+      }),
+    ).toBeNull();
   });
 });

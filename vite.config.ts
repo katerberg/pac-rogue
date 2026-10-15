@@ -85,6 +85,7 @@ const dataRoute: Plugin = {
   configurePreviewServer: (server) => {
     server.middlewares.use(redirectDataRoute);
     server.middlewares.use(redirectMazesRoute);
+    server.middlewares.use(serveMazeCandidates);
   },
 };
 

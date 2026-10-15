@@ -73,7 +73,13 @@ async function main() {
       failures += 1;
       continue;
     }
-    const layout = layoutFromAscii(result.ascii);
+    let layout;
+    try {
+      layout = layoutFromAscii(result.ascii);
+    } catch {
+      failures += 1;
+      continue;
+    }
     candidates.push({
       id: candidates.length,
       seed,
