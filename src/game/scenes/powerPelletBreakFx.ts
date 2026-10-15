@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {
   POWER_PELLET_BREAK_COLOR,
+  powerPelletBreakFragmentSize,
   powerPelletBreakLook,
   powerPelletQuarterRestOffset,
 } from "../../domain/powerPelletBreak";
@@ -14,6 +15,7 @@ export type PowerPelletBreakEvent = {
   y: number;
   facingDx: number;
   facingDy: number;
+  intensity: number;
   progress: number;
 };
 
@@ -29,7 +31,7 @@ export type PowerPelletBreakFx = {
 export function createPowerPelletBreakFx(scene: Phaser.Scene): PowerPelletBreakFx {
   const piecesById = new Map<number, Phaser.GameObjects.Rectangle[]>();
   const pelletSize = powerPelletDisplaySize();
-  const quarterSize = pelletSize / 2;
+  const fragmentSize = powerPelletBreakFragmentSize(pelletSize);
 
   const destroyBreak = (id: number): void => {
     const pieces = piecesById.get(id);
@@ -49,7 +51,7 @@ export function createPowerPelletBreakFx(scene: Phaser.Scene): PowerPelletBreakF
     }
     const pieces = [0, 1, 2, 3].map(() =>
       scene.add
-        .rectangle(0, 0, quarterSize, quarterSize, POWER_PELLET_BREAK_COLOR)
+        .rectangle(0, 0, fragmentSize, fragmentSize, POWER_PELLET_BREAK_COLOR)
         .setDepth(BREAK_DEPTH),
     );
     piecesById.set(id, pieces);
@@ -63,10 +65,11 @@ export function createPowerPelletBreakFx(scene: Phaser.Scene): PowerPelletBreakF
         return;
       }
       const pieces = ensurePieces(event.id);
-      const looks = powerPelletBreakLook(event.progress, {
-        dx: event.facingDx,
-        dy: event.facingDy,
-      });
+      const looks = powerPelletBreakLook(
+        event.progress,
+        { dx: event.facingDx, dy: event.facingDy },
+        event.intensity,
+      );
       for (const [i, look] of looks.entries()) {
         const piece = pieces[i]!;
         const rest = powerPelletQuarterRestOffset(look.id, pelletSize);

@@ -79,6 +79,7 @@ export type SimEvent =
       y: number;
       facingDx: number;
       facingDy: number;
+      intensity: number;
       progress: number;
     }
   | { type: "walletCoins"; spend: MoneyTalksSpend | null }

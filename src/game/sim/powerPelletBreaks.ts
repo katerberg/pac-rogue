@@ -1,10 +1,13 @@
 import { query, type World } from "bitecs";
 import {
+  powerPelletBreakIntensity,
   powerPelletBreakProgress,
   type PowerPelletBreakFacing,
 } from "../../domain/powerPelletBreak";
+import { PLAYER_SPEED } from "../../domain/playfield";
 import { DIRECTION, Input } from "../components/Input";
 import { Player } from "../components/Player";
+import { Speed } from "../components/Speed";
 import { CARDINAL_STEP } from "../systems/heldKeys";
 import { playerFacing } from "../systems/playerDirection";
 import type { SimEvent } from "./simEvents";
@@ -14,6 +17,7 @@ export type ActivePowerPelletBreak = {
   x: number;
   y: number;
   facing: PowerPelletBreakFacing;
+  intensity: number;
   elapsedMs: number;
 };
 
@@ -31,17 +35,25 @@ function powerPelletBreakFacing(world: World): PowerPelletBreakFacing {
   return CARDINAL_STEP[intent] ?? { dx: 0, dy: 0 };
 }
 
+function playerBreakIntensity(world: World, baseSpeedPx: number): number {
+  const eid = query(world, [Player, Speed])[0];
+  const speedPx = eid === undefined ? 0 : (Speed.px[eid] ?? 0);
+  return powerPelletBreakIntensity(speedPx, baseSpeedPx);
+}
+
 export function startPowerPelletBreaks(
   world: World,
   breaks: ActivePowerPelletBreak[],
   nextId: number,
   positions: readonly { x: number; y: number }[],
   emit: (event: PowerPelletBreakEvent) => void,
+  baseSpeedPx: number = PLAYER_SPEED,
 ): number {
   if (positions.length === 0) {
     return nextId;
   }
   const facing = powerPelletBreakFacing(world);
+  const intensity = playerBreakIntensity(world, baseSpeedPx);
   let id = nextId;
   for (const pos of positions) {
     const breakId = id;
@@ -51,6 +63,7 @@ export function startPowerPelletBreaks(
       x: pos.x,
       y: pos.y,
       facing,
+      intensity,
       elapsedMs: 0,
     });
     emit({
@@ -60,6 +73,7 @@ export function startPowerPelletBreaks(
       y: pos.y,
       facingDx: facing.dx,
       facingDy: facing.dy,
+      intensity,
       progress: 0,
     });
   }
@@ -85,6 +99,7 @@ export function tickPowerPelletBreaks(
       y: brk.y,
       facingDx: brk.facing.dx,
       facingDy: brk.facing.dy,
+      intensity: brk.intensity,
       progress,
     });
     if (progress < 1) {

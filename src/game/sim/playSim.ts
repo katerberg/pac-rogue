@@ -849,6 +849,7 @@ export class PlaySim {
       powerPelletBreaks: this.powerPelletBreaks.map((brk) => ({
         id: brk.id,
         progress: powerPelletBreakProgress(brk.elapsedMs),
+        intensity: brk.intensity,
       })),
       levelTransition: this.levelTransitionRemainingMs > 0,
       bossStageTransition: this.bossStageTransition !== null,
@@ -1195,6 +1196,7 @@ export class PlaySim {
             this.nextPowerPelletBreakId,
             dash.sweptPowerPositions,
             (event) => this.emit(event),
+            playerSpeed(this.currentTuning),
           );
           const dashStreakFires = this.applyStreakCells(dash.sweptCells);
           const collectResult = applyPelletCollect(
@@ -1254,6 +1256,7 @@ export class PlaySim {
       this.nextPowerPelletBreakId,
       playerFrame.removedPowerPositions,
       (event) => this.emit(event),
+      playerSpeed(this.currentTuning),
     );
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);

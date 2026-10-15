@@ -5731,27 +5731,33 @@ describe("power pellet break VFX", () => {
     teleportPlayer(sim, x, y);
     const left = { keys: held("left") };
     const events = runFrames(sim, 1, left);
-    expect(events).toContainEqual({
-      type: "powerPelletBreak",
-      id: 1,
-      x,
-      y,
-      facingDx: -1,
-      facingDy: 0,
-      progress: 0,
-    });
-    expect(sim.snapshot().powerPelletBreaks).toEqual([{ id: 1, progress: 0 }]);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "powerPelletBreak",
+        id: 1,
+        x,
+        y,
+        facingDx: -1,
+        facingDy: 0,
+        progress: 0,
+      }),
+    );
+    expect(sim.snapshot().powerPelletBreaks).toEqual([
+      expect.objectContaining({ id: 1, progress: 0 }),
+    ]);
 
     const done = runUntil(sim, () => sim.snapshot().powerPelletBreaks.length === 0, 60, left);
-    expect(done).toContainEqual({
-      type: "powerPelletBreak",
-      id: 1,
-      x,
-      y,
-      facingDx: -1,
-      facingDy: 0,
-      progress: 1,
-    });
+    expect(done).toContainEqual(
+      expect.objectContaining({
+        type: "powerPelletBreak",
+        id: 1,
+        x,
+        y,
+        facingDx: -1,
+        facingDy: 0,
+        progress: 1,
+      }),
+    );
     expect(sim.snapshot().powerPelletBreaks).toEqual([]);
     expect(Math.ceil(POWER_PELLET_BREAK_MS / FRAME_MS)).toBeLessThanOrEqual(60);
   });
@@ -5788,26 +5794,32 @@ describe("power pellet break VFX", () => {
     Facing.direction[playerEid(sim)] = DIRECTION.left;
     const left = { keys: held("left") };
     const events = runFrames(sim, 1, left);
-    expect(events).toContainEqual({
-      type: "powerPelletBreak",
-      id: 1,
-      x,
-      y,
-      facingDx: -1,
-      facingDy: 0,
-      progress: 0,
-    });
-    expect(sim.snapshot().powerPelletBreaks).toEqual([{ id: 1, progress: 0 }]);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "powerPelletBreak",
+        id: 1,
+        x,
+        y,
+        facingDx: -1,
+        facingDy: 0,
+        progress: 0,
+      }),
+    );
+    expect(sim.snapshot().powerPelletBreaks).toEqual([
+      expect.objectContaining({ id: 1, progress: 0 }),
+    ]);
     const done = runUntil(sim, () => sim.snapshot().powerPelletBreaks.length === 0, 60, left);
-    expect(done).toContainEqual({
-      type: "powerPelletBreak",
-      id: 1,
-      x,
-      y,
-      facingDx: -1,
-      facingDy: 0,
-      progress: 1,
-    });
+    expect(done).toContainEqual(
+      expect.objectContaining({
+        type: "powerPelletBreak",
+        id: 1,
+        x,
+        y,
+        facingDx: -1,
+        facingDy: 0,
+        progress: 1,
+      }),
+    );
     expect(sim.snapshot().powerPelletBreaks).toEqual([]);
   });
 
