@@ -1,7 +1,6 @@
 import {
   actorDisplaySize,
   getActiveLayout,
-  inBounds,
   isDoor,
   isWalkable,
   type MazeLayout,
@@ -56,15 +55,10 @@ export function wallDropSpot(
   if (before.dx !== -after.dx || before.dy !== -after.dy) {
     return null;
   }
-  const cell = { col, row };
-  if (
-    !inBounds(col, row) ||
-    !isWalkable(col, row, layout.playerSolids) ||
-    blocksGhostHouse(cell, layout)
-  ) {
+  if (!isWalkable(col, row, layout.playerSolids) || blocksGhostHouse({ col, row }, layout)) {
     return null;
   }
-  return { ...cell, awayStep: after };
+  return { col, row, awayStep: after };
 }
 
 export function ghostStepBlockedByWall(
