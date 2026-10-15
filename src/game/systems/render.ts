@@ -95,6 +95,7 @@ import { Position } from "../components/Position";
 
 export const PELLET_TEXTURE_KEY = "pellet-dot";
 export const QUARTER_TEXTURE_KEY = "quarter";
+export const REVERSE_TEXTURE_KEY = "reverse";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
 const PINKY_TEXTURE_KEY = "ghost-pinky";
@@ -351,6 +352,15 @@ export function addQuarterIcon(
   return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
+export function addReverseIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, REVERSE_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
 export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.on(Phaser.Loader.Events.FILE_COMPLETE, (key: string, type: string) => {
     if (type === "image") {
@@ -362,6 +372,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   }
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
+  scene.load.image(REVERSE_TEXTURE_KEY, "art/other/reverse.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
