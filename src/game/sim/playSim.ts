@@ -217,10 +217,7 @@ import {
   hauntDurationMs,
   armHaunt,
   tickHaunt,
-  dropWall,
-  droppedWallBlocksPlayer,
   tickWallDrop,
-  walkThroughDroppedWall,
   hauntedGhost,
   hauntedGhostEid,
   eatFrightenedGhost,
@@ -372,8 +369,7 @@ import {
   playerFacing,
   steerPlayer,
 } from "../systems/playerDirection";
-import { CARDINAL_STEP } from "../systems/heldKeys";
-import { wallDropCell, withSolidCell } from "../../domain/wallDrop";
+import { dropWallOnReversal, playerSolidsWithWall, walkThroughWall } from "../systems/wallDrop";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -1108,12 +1104,10 @@ export class PlaySim {
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
       tuning: this.currentTuning,
     });
-    const playerWall = droppedWallBlocksPlayer(this.runUpgrades);
-    const playerSolidsOverride = wallPassActive(this.runUpgrades)
-      ? wallPassSolids(this.effectiveUpgrades())
-      : playerWall === null
-        ? undefined
-        : withSolidCell(getActiveLayout().playerSolids, playerWall);
+    const playerSolidsOverride = playerSolidsWithWall(
+      this.runUpgrades,
+      wallPassActive(this.runUpgrades) ? wallPassSolids(this.effectiveUpgrades()) : undefined,
+    );
     if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
@@ -1131,7 +1125,7 @@ export class PlaySim {
         blockTunnelRow,
         this.runUpgrades.droppedWall,
       );
-      this.walkThroughDroppedWall();
+      this.runUpgrades = walkThroughWall(this.world, this.runUpgrades);
     };
     if (hyperspeedActive(this.runUpgrades)) {
       this.moveHyperspeed(delta, moveFrame);
@@ -2894,30 +2888,15 @@ export class PlaySim {
     }
   }
 
-  private walkThroughDroppedWall(): void {
-    const player = this.playerPosition();
-    if (player !== null) {
-      this.runUpgrades = walkThroughDroppedWall(
-        this.runUpgrades,
-        worldToCol(player.x),
-        worldToRow(player.y),
-      );
-    }
-  }
-
   private updateWallDrop(facingBefore: Direction): void {
-    const player = this.playerPosition();
-    if (player === null || !this.runUpgrades.wallDropArmed) {
-      return;
-    }
-    const cell = wallDropCell(
-      worldToCol(player.x),
-      worldToRow(player.y),
-      CARDINAL_STEP[facingBefore],
-      CARDINAL_STEP[playerFacing(this.world)],
+    const before = this.runUpgrades;
+    this.runUpgrades = dropWallOnReversal(
+      this.world,
+      before,
+      this.effectiveUpgrades(),
+      facingBefore,
     );
-    if (cell !== null) {
-      this.runUpgrades = dropWall(this.runUpgrades, cell, this.effectiveUpgrades());
+    if (this.runUpgrades !== before) {
       this.recorder.activation("wallDrop");
     }
   }
