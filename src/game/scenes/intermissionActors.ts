@@ -13,7 +13,6 @@ export type IntermissionActors = {
 };
 
 export function createIntermissionActors(scene: Phaser.Scene): IntermissionActors {
-  // Chase runs left→right with Dot-Man ahead; pupils look forward at him.
   const blinky = addGhostSprite(
     scene,
     BLINKY_DRAWABLE_ID,
