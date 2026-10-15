@@ -49,7 +49,7 @@ A violation is a failed architecture check:
 - GameObjects are never the source of truth for position; they mirror ECS `Position`.
 - Scenes are adapters: input in (`SimInput`), `SimEvent`s out (sounds, drawing, HUD, modals, storage). No simulation state, systems or world APIs in scenes. Scenes read derived state through sim getters, `snapshot()` or `LearnSim.overlayModel()`.
 - Gameplay decisions live in the sim, systems or `src/domain/**` and are tested headlessly ([VERIFICATION.md](./VERIFICATION.md#scene-and-render-logic)).
-- Wall layout and collision come from the domain maze grid; wall Graphics stroke domain path commands.
+- Wall layout and collision come from the domain maze grid; wall Graphics draw pixel rects rasterized from domain path commands.
 - One local GameObject map in the render bridge is enough. No Entity/Component/System manager classes, no god `GameManager`, no global mutable singletons.
 - All randomness comes from named `RunRandom` streams ([VERIFICATION.md](./VERIFICATION.md#seeded-runs)).
 - bitecs 0.4 only: no `bitecs/legacy`, no second ECS.

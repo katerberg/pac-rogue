@@ -15,6 +15,7 @@ import {
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
+import { pixelWallRects } from "../../domain/pixelWall";
 import { sameWallStyle, wallStyleFor, type WallStyle } from "../../domain/wallStyle";
 import {
   advanceDotManChomp,
@@ -178,16 +179,10 @@ function strokeWallPath(
   scale: number,
 ): void {
   graphics.clear();
-  graphics.lineStyle(style.thickness * scale, style.color, 1);
-  graphics.beginPath();
-  for (const command of commands) {
-    if (command.type === "move") {
-      graphics.moveTo(command.x * scale, command.y * scale);
-    } else {
-      graphics.lineTo(command.x * scale, command.y * scale);
-    }
+  graphics.fillStyle(style.color, 1);
+  for (const rect of pixelWallRects(commands, style.thickness)) {
+    graphics.fillRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
   }
-  graphics.strokePath();
 }
 
 function textureKeyForDrawable(drawableId: string): string {

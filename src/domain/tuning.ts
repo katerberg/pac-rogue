@@ -99,7 +99,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   wallThickness: 1.5,
   wallColor: 0x2121ff,
   dotManChompSpeed: DOTMAN_CHOMP_SPEED_DEFAULT,
-  wallCornerRadius: 6,
+  wallCornerRadius: 8,
   backgroundColor: 0x1a1a2e,
 });
 
