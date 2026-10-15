@@ -79,7 +79,6 @@ describe("powerPelletBreakLook", () => {
     const end = powerPelletBreakLook(1, { dx: 0, dy: -1 });
     const sw = end.find((q) => q.id === "sw")!;
     const se = end.find((q) => q.id === "se")!;
-    // Rear chips may drift slightly along facing (back frac) but must not pick up screen fall.
     expect(sw.offsetY).toBeLessThan(POWER_PELLET_BREAK_FALL_PX * 0.5);
     expect(se.offsetY).toBeLessThan(POWER_PELLET_BREAK_FALL_PX * 0.5);
     expect(sw.offsetY).toBeGreaterThanOrEqual(

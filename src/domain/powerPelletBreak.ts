@@ -2,21 +2,15 @@ import { PLAYER_SPEED } from "./playfield";
 import { speedLevelMultiplier } from "./tuning";
 
 export const POWER_PELLET_BREAK_MS = 200;
-/** Base travel at intensity 1 (mid ramp); scaled by `powerPelletBreakIntensity`. */
 export const POWER_PELLET_BREAK_SPLIT_PX = 10;
 export const POWER_PELLET_BREAK_FORWARD_PX = 12;
-/** Soft settle for horizontal travel only — never when moving vertically (reads as "behind"). */
 export const POWER_PELLET_BREAK_FALL_PX = 6;
 export const POWER_PELLET_BREAK_SPIN_RAD = 0.55;
 export const POWER_PELLET_BREAK_REAR_BACK_FRAC = 0.06;
 export const POWER_PELLET_BREAK_COLOR = 0xffffff;
-/** Fragment edge length as a fraction of the power-pellet display size. */
 export const POWER_PELLET_BREAK_FRAGMENT_FRAC = 0.36;
-/** Assembled chip offset from pellet center (fraction of display size). */
 export const POWER_PELLET_BREAK_REST_FRAC = 0.14;
-/** Level-1 / sink-crack travel scale. */
 export const POWER_PELLET_BREAK_INTENSITY_SOFT = 0.55;
-/** Level-7 / wall-hit travel scale. */
 export const POWER_PELLET_BREAK_INTENSITY_HARD = 1.4;
 
 export type PowerPelletBreakFacing = { dx: number; dy: number };
@@ -48,10 +42,6 @@ export function powerPelletBreakProgress(elapsedMs: number): number {
   return Math.min(1, Math.max(0, elapsedMs / POWER_PELLET_BREAK_MS));
 }
 
-/**
- * Maps current player speed onto soft (level-1 baseline) … hard (level-7 baseline).
- * Movement distances scale with this; fragment size does not.
- */
 export function powerPelletBreakIntensity(
   speedPx: number,
   baseSpeedPx: number = PLAYER_SPEED,
@@ -99,7 +89,6 @@ export function powerPelletBreakLook(
     const projY = along * facing.dy;
     const latX = diagX - projX;
     const latY = diagY - projY;
-    // Screen-down settle only on horizontal runs; vertical runs must not shove rear chips "behind".
     const settle = verticalTravel ? 0 : fall;
 
     if (along >= 0) {
