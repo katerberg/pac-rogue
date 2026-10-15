@@ -492,6 +492,21 @@ describe("PlaySim", () => {
     }
   });
 
+  it("plays levels 2-8 on one base map per run, inverted on inverted levels", () => {
+    const solidsAt = (level: number): string[] => {
+      startSim({ level }, "one-map");
+      return getActiveLayout().playerSolids.map((row) => row.join(","));
+    };
+    const base = solidsAt(2);
+    expect(solidsAt(3)).toEqual(base);
+    expect(solidsAt(5)).toEqual(base);
+    expect(solidsAt(8)).toEqual(base);
+    expect(solidsAt(6)).toEqual([...base].reverse());
+    expect(solidsAt(7)).toEqual([...base].reverse());
+    startSim({ level: 2 }, "another-map");
+    expect(getActiveLayout().playerSolids.map((row) => row.join(","))).not.toEqual(base);
+  });
+
   it("collects pellets while the player moves", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
     const events = runFrames(sim, 60, { keys: held("left") });
