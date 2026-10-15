@@ -15,7 +15,7 @@ import {
 import {
   BUTTON_HEIGHT,
   BUTTON_WIDTH,
-  addSchoolTag,
+  addSchoolWatermark,
   DESCRIPTION_MAX_CHARS,
   layoutCardText,
   LABEL_MAX_CHARS,
@@ -101,16 +101,17 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         TEXT_COLOR_WHITE,
       );
       placePixelText(header, 0, -84, 0.5, 0.5);
-      const school = addSchoolTag(scene, def.school);
-      layoutCardText(label, school, description, STARTING_CARD_BODY_CENTER_Y);
+      layoutCardText(label, description, STARTING_CARD_BODY_CENTER_Y);
+      const watermark = addSchoolWatermark(scene, def.school, BUTTON_WIDTH, BUTTON_HEIGHT);
+      watermark?.setY(STARTING_CARD_BODY_CENTER_Y);
       card = scene.add
-        .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
-          bg,
-          header,
-          label,
-          school,
-          description,
-        ])
+        .container(
+          PLAYFIELD_WIDTH / 2,
+          PLAYFIELD_HEIGHT / 2,
+          watermark === null
+            ? [bg, header, label, description]
+            : [bg, watermark, header, label, description],
+        )
         .setDepth(MODAL_DEPTH + 1);
       onKeyDown = (event) => {
         if (event.key === "Escape") {
