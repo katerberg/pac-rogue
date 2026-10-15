@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cellKind } from "./renderBoard";
+import { SMALL_MAZE_ASCII } from "../domain/mazeLayouts";
+import { boardPixelSize, cellKind } from "./renderBoard";
 
 describe("renderBoard", () => {
   it("maps ASCII glyphs to cell kinds", () => {
@@ -11,5 +12,11 @@ describe("renderBoard", () => {
     expect(cellKind("P")).toBe("spawn");
     expect(cellKind("-")).toBe("empty");
     expect(cellKind(" ")).toBe("empty");
+  });
+
+  it("sizes the board to the activated layout pixels", () => {
+    const size = boardPixelSize(SMALL_MAZE_ASCII);
+    expect(size.width).toBe(22 * 16);
+    expect(size.height).toBe(21 * 16);
   });
 });
