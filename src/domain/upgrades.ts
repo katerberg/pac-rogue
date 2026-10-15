@@ -221,14 +221,13 @@ export const GHOST_SLOW_MUL = 0.8;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_RELIEF_PELLET_ADD = 15;
 export const EXTRA_HUNGRY_COUNT = 5;
-export const QUARTERS_CHOICE_AMOUNT = 2;
 export const STORE_UPGRADE_PRICE = 3;
 export const STORE_RARE_UPGRADE_PRICE = 4;
 export const RARE_MIN_OWNED = 2;
 export const RARE_OFFER_WEIGHT = 0.5;
 export const SCHOOL_AFFINITY_COMMON_RATE = 0.25;
 export const SCHOOL_AFFINITY_RARE_RATE = 0.15;
-export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 3;
+export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 2;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
 export const DEATHS_BOUNTY_DECAY = 0.8;
@@ -1243,11 +1242,9 @@ function shuffleInPlace<T>(ids: T[], rng: () => number): void {
   }
 }
 
-export type UpgradeChoiceOption =
-  { kind: "upgrade"; id: BaseUpgradeId; enhanced?: boolean } | { kind: "quarters"; amount: number };
+export type UpgradeChoiceOption = { kind: "upgrade"; id: BaseUpgradeId; enhanced?: boolean };
 
 export type UpgradeChoiceOffer = {
-  quarters: number;
   upgrades: BaseUpgradeId[];
   enhanced: BaseUpgradeId[];
 };
@@ -1285,7 +1282,7 @@ export function pickUpgradeChoiceOffer(
   }
   shuffleInPlace(upgrades, rng);
   const enhanced = enhancedChance > 0 ? upgrades.filter(() => rng() < enhancedChance) : [];
-  return { quarters: QUARTERS_CHOICE_AMOUNT, upgrades, enhanced };
+  return { upgrades, enhanced };
 }
 
 export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
@@ -1332,13 +1329,6 @@ export function confirmUpgradeChoice(
     next,
     options.filter((id) => id !== chosenId),
   );
-}
-
-export function declineUpgrades(
-  state: RunUpgrades,
-  declinedIds: readonly BaseUpgradeId[],
-): RunUpgrades {
-  return withDeclined(state, declinedIds);
 }
 
 export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {

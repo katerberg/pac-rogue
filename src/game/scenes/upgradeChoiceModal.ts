@@ -90,18 +90,7 @@ const SLOT_POSITIONS: Record<Slot, { x: number; y: number }> = {
   right: { x: CENTER_X + H_OFFSET, y: CENTER_Y },
 };
 
-function upgradeSlotsFor(count: number): Slot[] {
-  if (count === 0) {
-    return [];
-  }
-  if (count === 1) {
-    return ["up"];
-  }
-  if (count === 2) {
-    return ["left", "right"];
-  }
-  return ["up", "left", "right"];
-}
+const OFFER_SLOTS: readonly Slot[] = ["left", "right"];
 
 function hintPositionForSlot(slot: Slot): { x: number; y: number } {
   const pos = SLOT_POSITIONS[slot];
@@ -147,12 +136,6 @@ type CardCopy = {
 };
 
 function copyForOption(option: UpgradeChoiceOption): CardCopy {
-  if (option.kind === "quarters") {
-    return {
-      label: "QUARTERS",
-      description: `Bank ${option.amount} Quarters instead of an upgrade.`,
-    };
-  }
   const def = getUpgradeDef(option.enhanced === true ? enhancedIdOf(option.id) : option.id);
   return {
     label: def.label,
@@ -479,14 +462,12 @@ export function createUpgradeChoiceModal(
           0.65,
         )
         .setDepth(MODAL_DEPTH);
-      const upgradeSlots = upgradeSlotsFor(offer.upgrades.length);
       const slots: { slot: Slot; option: UpgradeChoiceOption }[] = offer.upgrades.map(
         (id, index) => ({
-          slot: upgradeSlots[index]!,
+          slot: OFFER_SLOTS[index]!,
           option: { kind: "upgrade", id, enhanced: offer.enhanced.includes(id) },
         }),
       );
-      slots.push({ slot: "down", option: { kind: "quarters", amount: offer.quarters } });
       buildButtons(slots);
       applyFuzz(0);
     },

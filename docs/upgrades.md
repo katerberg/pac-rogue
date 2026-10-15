@@ -90,8 +90,8 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 ## Grant rules
 
 - Level 1 grants one random **starting upgrade** from `STARTING_UPGRADE_POOL` (a no-button card, `startingUpgradeCard.ts`). Later level advances and `level>=2` starts never grant one.
-- Clearing levels 2-8 (`offersUpgradeAfterLevel`) opens the pick-one modal: up to three upgrades at up/left/right plus an always-available Quarters option down. Never offered after level 1, level 9, or from fruit.
-- `pickUpgradeChoiceOffer`: no repeated ids, prefers excluding `lastDeclinedUpgradeId` (set only when exactly one upgrade was offered alongside the choice), applies a forced id, and rolls enhancement **last** so seeded offers on other levels stay unchanged.
+- Clearing levels 2-8 (`offersUpgradeAfterLevel`) opens the pick-one modal: two upgrades at left/right. There is no skip or Quarters fallback; if nothing is eligible the offer is skipped. Never offered after level 1, level 9, or from fruit.
+- `pickUpgradeChoiceOffer`: no repeated ids, prefers excluding `lastDeclinedUpgradeId` (the one card not taken from the last offer), applies a forced id, and rolls enhancement **last** so seeded offers on other levels stay unchanged.
 - The sim is fully frozen while the modal is open or animating; keys held through open are ignored until released. No dismiss: the player must pick.
 
 ## Cross-cutting rules

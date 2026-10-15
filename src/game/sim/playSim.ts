@@ -208,7 +208,6 @@ import {
   defyDeathActive,
   confirmUpgradeChoice,
   createRunUpgrades,
-  declineUpgrades,
   FRUIT_FECUNDITY_MUL,
   cornucopiaAlongsideOwned,
   fruitLifetimeMultiplier,
@@ -611,32 +610,19 @@ export class PlaySim {
       return [];
     }
     this.pendingChoice = null;
-    if (chosen.kind === "quarters") {
-      this.quarters += chosen.amount;
-      this.recorder.quarters("offer", chosen.amount);
-      this.recorder.picked("quarters");
-      this.emit({ type: "quarters", pulse: false });
-      this.runUpgrades = declineUpgrades(this.runUpgrades, offer.upgrades);
-    } else {
-      const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
-      const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
-      this.recorder.picked(chosen.id);
-      this.runUpgrades = confirmUpgradeChoice(
-        this.runUpgrades,
-        offer.upgrades,
-        chosen.id,
-        grantedId,
-      );
-      if (!alreadyOwned) {
-        this.recorder.gained(grantedId, "offer", this.levelIndex);
-        if (chosen.enhanced === true) {
-          this.enhanceLivesPaid.add(chosen.id);
-        }
-        this.applyGrantEffects(grantedId);
-        this.grantSpecialistLives();
-        this.emit({ type: "lives", pulse: false });
-        this.recordSeenUpgrades();
+    const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
+    const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
+    this.recorder.picked(chosen.id);
+    this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id, grantedId);
+    if (!alreadyOwned) {
+      this.recorder.gained(grantedId, "offer", this.levelIndex);
+      if (chosen.enhanced === true) {
+        this.enhanceLivesPaid.add(chosen.id);
       }
+      this.applyGrantEffects(grantedId);
+      this.grantSpecialistLives();
+      this.emit({ type: "lives", pulse: false });
+      this.recordSeenUpgrades();
     }
     this.emit({ type: "upgrades" });
     return this.takeEvents();
@@ -2407,6 +2393,10 @@ export class PlaySim {
       enhancedOfferChance(this.levelIndex),
       this.options.forceUpgrade,
     );
+    if (offer.upgrades.length === 0) {
+      this.beginLevelTransition();
+      return;
+    }
     this.pendingLevelClear = true;
     this.awaitingChoice = true;
     this.pendingChoice = offer;
