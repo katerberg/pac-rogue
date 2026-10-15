@@ -6,6 +6,7 @@ import {
   SLOW_ZONE_MULTIPLIER,
   SPEED_ZONE_SIZE,
   speedZoneAt,
+  speedZoneHallwayCells,
   speedZoneMultiplier,
   type SpeedZone,
   type SpeedZoneBoard,
@@ -72,6 +73,22 @@ describe("speedZoneAt", () => {
     expect(speedZoneAt(zones, 1, 3)).toBeNull();
     expect(speedZoneAt(zones, 11, 11)).toBe("fast");
     expect(speedZoneAt([], 2, 3)).toBeNull();
+  });
+});
+
+describe("speedZoneHallwayCells", () => {
+  it("lists only the walkable cells inside the zone", () => {
+    const solids = grid(6, 6, (c, r) => !(r === 2 || c === 3));
+    const zone: SpeedZone = { kind: "fast", col: 1, row: 1, size: 4 };
+    expect(speedZoneHallwayCells(zone, solids)).toEqual([
+      { col: 3, row: 1 },
+      { col: 1, row: 2 },
+      { col: 2, row: 2 },
+      { col: 3, row: 2 },
+      { col: 4, row: 2 },
+      { col: 3, row: 3 },
+      { col: 3, row: 4 },
+    ]);
   });
 });
 

@@ -14,7 +14,7 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
-import type { SpeedZone, SpeedZoneKind } from "../../domain/speedZones";
+import { speedZoneHallwayCells, type SpeedZone, type SpeedZoneKind } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
@@ -471,7 +471,6 @@ const SPEED_TRAIL_DEPTH = -1;
 const SPEED_ZONE_DEPTH = -2;
 const SPEED_ZONE_COLORS: Record<SpeedZoneKind, number> = { slow: 0x3fa9ff, fast: 0xff8a3d };
 const SPEED_ZONE_FILL_ALPHA = 0.18;
-const SPEED_ZONE_EDGE_ALPHA = 0.6;
 const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
@@ -944,15 +943,17 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const speedZones = opts?.speedZones ?? [];
     if (speedZones !== drawnSpeedZones) {
       speedZoneGraphics.clear();
-      const tile = getActiveLayout().tileSize;
+      const { tileSize, playerSolids } = getActiveLayout();
       for (const zone of speedZones) {
-        const color = SPEED_ZONE_COLORS[zone.kind];
-        const x = cellOriginX(zone.col);
-        const y = cellOriginY(zone.row);
-        speedZoneGraphics.fillStyle(color, SPEED_ZONE_FILL_ALPHA);
-        speedZoneGraphics.fillRect(x, y, zone.size * tile, zone.size * tile);
-        speedZoneGraphics.lineStyle(1, color, SPEED_ZONE_EDGE_ALPHA);
-        speedZoneGraphics.strokeRect(x + 0.5, y + 0.5, zone.size * tile - 1, zone.size * tile - 1);
+        speedZoneGraphics.fillStyle(SPEED_ZONE_COLORS[zone.kind], SPEED_ZONE_FILL_ALPHA);
+        for (const cell of speedZoneHallwayCells(zone, playerSolids)) {
+          speedZoneGraphics.fillRect(
+            cellOriginX(cell.col),
+            cellOriginY(cell.row),
+            tileSize,
+            tileSize,
+          );
+        }
       }
       drawnSpeedZones = speedZones;
     }

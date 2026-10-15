@@ -1,4 +1,4 @@
-import type { MazeLayout, MazeTile } from "./maze";
+import type { MazeLayout, MazeTile, SolidGrid } from "./maze";
 
 export const SPEED_ZONE_SIZE = 4;
 export const SPEED_ZONE_MIN_WALKABLE = 6;
@@ -27,6 +27,18 @@ export function speedZoneAt(
     (z) => col >= z.col && col < z.col + z.size && row >= z.row && row < z.row + z.size,
   );
   return zone?.kind ?? null;
+}
+
+export function speedZoneHallwayCells(zone: SpeedZone, playerSolids: SolidGrid): MazeTile[] {
+  const cells: MazeTile[] = [];
+  for (let row = zone.row; row < zone.row + zone.size; row += 1) {
+    for (let col = zone.col; col < zone.col + zone.size; col += 1) {
+      if (playerSolids[row]?.[col] === false) {
+        cells.push({ col, row });
+      }
+    }
+  }
+  return cells;
 }
 
 export function speedZoneMultiplier(kind: SpeedZoneKind | null): number {
