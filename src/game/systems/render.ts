@@ -304,6 +304,7 @@ export function addGhostSprite(
   x: number,
   y: number,
   size: number,
+  look: PupilLook = ghostPupilLookOffset(GHOST_DIR.none),
 ): GhostSpriteHandle {
   const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
   const image = scene.add.image(0, 0, textureKey);
@@ -314,7 +315,7 @@ export function addGhostSprite(
   const container = scene.add.container(x, y, [image, skirt]);
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
-    fillGhostPupils(pupils, 0, 0, size, ghostPupilLookOffset(GHOST_DIR.none));
+    fillGhostPupils(pupils, 0, 0, size, look);
     container.add(pupils);
   }
   return {
