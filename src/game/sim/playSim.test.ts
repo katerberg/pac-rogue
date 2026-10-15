@@ -2060,6 +2060,24 @@ describe("PlaySim", () => {
     expect(sim.snapshot().ghostMode).toBe("chase");
   });
 
+  it("aims Blinky's eyes at Dot-Man from level 4 on", () => {
+    const early = startSim(
+      { level: 3, infiniteLives: true, ghosts: [GHOST_KIND.blinky] },
+      "eyes-3",
+    );
+    expect(early.renderOptions().pupilTarget).toBeNull();
+
+    const sim = startSim({ level: 4, infiniteLives: true, ghosts: [GHOST_KIND.blinky] }, "eyes-4");
+    const target = sim.renderOptions().pupilTarget;
+    const blinky = query(sim.world, [Ghost, GhostKind]).filter(
+      (eid) => GhostKind.kind[eid] === GHOST_KIND.blinky,
+    );
+    expect(blinky).toHaveLength(1);
+    expect(target?.eids).toEqual(blinky);
+    const player = sim.playerWorldPosition()!;
+    expect(target).toMatchObject({ x: player.x, y: player.y });
+  });
+
   it("tapers scatter to one short window on level 8 and none on the level 9 boss", () => {
     const l8 = startSim({ level: 8, infiniteLives: true, ghosts: [GHOST_KIND.blinky] }, "taper-8");
     expect(l8.snapshot().ghostMode).toBe("scatter");

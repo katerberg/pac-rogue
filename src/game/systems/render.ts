@@ -63,6 +63,7 @@ import {
   GHOST_ART_SIZE_PX,
   GHOST_PUPIL_COLOR,
   ghostPupilLookOffset,
+  ghostPupilLookToward,
   ghostPupilRects,
   ghostPupilsVisible,
   stepGhostPupilLook,
@@ -444,6 +445,7 @@ export type RenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -776,20 +778,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             drawKind: "primary",
           })
         ) {
-          const stepped = stepGhostPupilLook(
-            pupilLooks.get(eid),
-            facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
-            scene.time.now,
-          );
-          pupilLooks.set(eid, stepped.state);
-          fillGhostPupils(
-            skirt.pupils,
-            x,
-            y,
-            size,
-            stepped.look,
-            ghostAlpha * (glideHead?.alpha ?? 1),
-          );
+          const pupilTarget = opts?.pupilTarget;
+          let look: PupilLook;
+          if (pupilTarget?.eids.includes(eid)) {
+            look = ghostPupilLookToward(pupilTarget.x - x, pupilTarget.y - y);
+          } else {
+            const stepped = stepGhostPupilLook(
+              pupilLooks.get(eid),
+              facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
+              scene.time.now,
+            );
+            pupilLooks.set(eid, stepped.state);
+            look = stepped.look;
+          }
+          fillGhostPupils(skirt.pupils, x, y, size, look, ghostAlpha * (glideHead?.alpha ?? 1));
         }
         if (glide !== undefined) {
           drawGlideTrail(eid, id, glide.slice(1), go.texture.key, size, applyGhostTint);

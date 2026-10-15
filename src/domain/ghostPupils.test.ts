@@ -4,7 +4,9 @@ import {
   GHOST_PUPIL_ART_PX,
   GHOST_PUPIL_LOOK_OFFSET_ART,
   GHOST_PUPIL_REST_ART,
+  blinkyEyesTrackPlayer,
   ghostPupilLookOffset,
+  ghostPupilLookToward,
   ghostPupilRects,
   ghostPupilsVisible,
   GHOST_PUPIL_TURN_MS,
@@ -94,5 +96,53 @@ describe("stepGhostPupilLook", () => {
     const turned = stepGhostPupilLook(mid.state, GHOST_DIR.up, GHOST_PUPIL_TURN_MS / 2);
     expect(turned.look.dx).toBeCloseTo(mid.look.dx);
     expect(turned.look.dy).toBeCloseTo(mid.look.dy);
+  });
+});
+
+describe("blinkyEyesTrackPlayer", () => {
+  it("starts at level 4", () => {
+    expect([1, 2, 3, 4, 5, 9].map(blinkyEyesTrackPlayer)).toEqual([
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+    ]);
+  });
+});
+
+describe("ghostPupilLookToward", () => {
+  it("points a unit look offset at the target, at any distance", () => {
+    const near = ghostPupilLookToward(3, 4);
+    const far = ghostPupilLookToward(300, 400);
+    expect(near.dx).toBeCloseTo(0.6 * GHOST_PUPIL_LOOK_OFFSET_ART);
+    expect(near.dy).toBeCloseTo(0.8 * GHOST_PUPIL_LOOK_OFFSET_ART);
+    expect(far).toEqual(near);
+  });
+
+  it("handles diagonals and arbitrary angles, not just the four directions", () => {
+    const d = GHOST_PUPIL_LOOK_OFFSET_ART * Math.SQRT1_2;
+    const diagonals = [
+      { from: [5, 5], to: { dx: d, dy: d } },
+      { from: [-5, 5], to: { dx: -d, dy: d } },
+      { from: [5, -5], to: { dx: d, dy: -d } },
+      { from: [-5, -5], to: { dx: -d, dy: -d } },
+    ] as const;
+    for (const { from, to } of diagonals) {
+      const look = ghostPupilLookToward(from[0], from[1]);
+      expect(look.dx).toBeCloseTo(to.dx);
+      expect(look.dy).toBeCloseTo(to.dy);
+    }
+    for (let deg = 0; deg < 360; deg += 7) {
+      const rad = (deg * Math.PI) / 180;
+      const look = ghostPupilLookToward(Math.cos(rad) * 123, Math.sin(rad) * 123);
+      expect(Math.hypot(look.dx, look.dy)).toBeCloseTo(GHOST_PUPIL_LOOK_OFFSET_ART);
+      expect(Math.atan2(look.dy, look.dx)).toBeCloseTo(Math.atan2(Math.sin(rad), Math.cos(rad)));
+    }
+  });
+
+  it("rests when the target is on the ghost", () => {
+    expect(ghostPupilLookToward(0, 0)).toEqual({ dx: 0, dy: 0 });
   });
 });

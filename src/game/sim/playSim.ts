@@ -76,7 +76,8 @@ import {
   type FruitSequenceState,
 } from "../../domain/fruit";
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
-import type { GhostKindId } from "../../domain/ghostKind";
+import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
+import { blinkyEyesTrackPlayer } from "../../domain/ghostPupils";
 import { pickRosterId, RELEASE_SLOT_BY_KIND, type ReleaseSlot } from "../../domain/ghostRoster";
 import {
   createGhostModeClock,
@@ -732,7 +733,19 @@ export class PlaySim {
       wallAlpha: this.bossStageDraw?.wallAlpha,
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
+      pupilTarget: this.blinkyPupilTarget(),
     };
+  }
+
+  private blinkyPupilTarget(): SimRenderOptions["pupilTarget"] {
+    const player = this.playerPosition();
+    if (player === null || !blinkyEyesTrackPlayer(this.levelIndex)) {
+      return null;
+    }
+    const eids = [...query(this.world, [Ghost, GhostKind])].filter(
+      (eid) => GhostKind.kind[eid] === GHOST_KIND.blinky,
+    );
+    return { eids, x: player.x, y: player.y };
   }
 
   currentRoster(): number {
