@@ -18,9 +18,9 @@ import {
   worldToCol,
   worldToRow,
   wrapPosition,
-  type MazeTile,
   type SolidGrid,
 } from "../../domain/maze";
+import type { DroppedWall } from "../../domain/wallDrop";
 import { clampPositionToPlayfield, playerPreTurnPx } from "../../domain/playfield";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -153,7 +153,7 @@ export function movement(
   playerPreTurn: number = playerPreTurnPx(),
   ghostsBlockTunnels = false,
   blockTunnelRow: number | null = null,
-  ghostBlockedCell: MazeTile | null = null,
+  droppedWall: DroppedWall | null = null,
 ): void {
   const dt = deltaMs / 1000;
   const playerSolids = playerSolidsOverride ?? getActiveLayout().playerSolids;
@@ -165,7 +165,8 @@ export function movement(
           ghostPhaseOf(world, eid),
           ghostsBlockTunnels,
           blockTunnelRow,
-          ghostBlockedCell,
+          droppedWall,
+          { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 },
         )
       : null;
     const solids: SolidGrid = ghost?.solids ?? playerSolids;

@@ -1,28 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { EXPIRY_BLINK_MS } from "./expiryBlink";
 import { getActiveLayout, isWalkable, MAZE_COLS } from "./maze";
 import {
   DROPPED_WALL_COLOR,
   PASSABLE_WALL_ALPHA,
+  WALL_DROP_BLINK_PERIOD_MS,
+  WALL_DROP_BLINK_WINDOW_MS,
   droppedWallLook,
-  wallDropCell,
+  ghostStepBlockedByWall,
+  wallDropSpot,
   withSolidCell,
   type CardinalStep,
+  type DroppedWall,
 } from "./wallDrop";
 
 const RIGHT: CardinalStep = { dx: 1, dy: 0 };
 const LEFT: CardinalStep = { dx: -1, dy: 0 };
 const UP: CardinalStep = { dx: 0, dy: -1 };
 
-function corridorCellWithOpenRight(): { col: number; row: number } {
+function corridorCell(): { col: number; row: number } {
   const layout = getActiveLayout();
   for (let row = 1; row < layout.rows - 1; row += 1) {
-    for (let col = 1; col < layout.cols - 2; col += 1) {
-      if (
-        isWalkable(col, row) &&
-        isWalkable(col + 1, row) &&
-        wallDropCell(col, row, RIGHT, LEFT) !== null
-      ) {
+    for (let col = 1; col < layout.cols - 1; col += 1) {
+      if (isWalkable(col, row) && wallDropSpot(col, row, RIGHT, LEFT) !== null) {
         return { col, row };
       }
     }
@@ -30,27 +29,53 @@ function corridorCellWithOpenRight(): { col: number; row: number } {
   throw new Error("no corridor");
 }
 
-describe("wallDropCell", () => {
-  it("drops on the tile ahead of the old heading after an exact reversal", () => {
-    const { col, row } = corridorCellWithOpenRight();
-    expect(wallDropCell(col, row, RIGHT, LEFT)).toEqual({ col: col + 1, row });
+describe("wallDropSpot", () => {
+  it("drops on the tile where Dot-Man reversed, facing away along his new heading", () => {
+    const { col, row } = corridorCell();
+    expect(wallDropSpot(col, row, RIGHT, LEFT)).toEqual({ col, row, awayStep: LEFT });
   });
 
   it("ignores turns, stops and starts", () => {
-    const { col, row } = corridorCellWithOpenRight();
-    expect(wallDropCell(col, row, RIGHT, UP)).toBeNull();
-    expect(wallDropCell(col, row, RIGHT, RIGHT)).toBeNull();
-    expect(wallDropCell(col, row, undefined, LEFT)).toBeNull();
-    expect(wallDropCell(col, row, RIGHT, undefined)).toBeNull();
+    const { col, row } = corridorCell();
+    expect(wallDropSpot(col, row, RIGHT, UP)).toBeNull();
+    expect(wallDropSpot(col, row, RIGHT, RIGHT)).toBeNull();
+    expect(wallDropSpot(col, row, undefined, LEFT)).toBeNull();
+    expect(wallDropSpot(col, row, RIGHT, undefined)).toBeNull();
   });
 
-  it("never drops into a maze wall, off the board, or on the ghost house exit", () => {
-    const layout = getActiveLayout();
-    expect(wallDropCell(0, 0, LEFT, RIGHT)).toBeNull();
-    expect(wallDropCell(MAZE_COLS - 1, 0, RIGHT, LEFT)).toBeNull();
-    const exit = layout.ghostHouseExit;
-    expect(wallDropCell(exit.col - 1, exit.row, RIGHT, LEFT)).toBeNull();
-    expect(wallDropCell(exit.col + 1, exit.row, LEFT, RIGHT)).toBeNull();
+  it("never drops on a maze wall, off the board, or on the ghost house exit", () => {
+    const exit = getActiveLayout().ghostHouseExit;
+    expect(wallDropSpot(0, 0, LEFT, RIGHT)).toBeNull();
+    expect(wallDropSpot(MAZE_COLS, 1, RIGHT, LEFT)).toBeNull();
+    expect(wallDropSpot(exit.col, exit.row, RIGHT, LEFT)).toBeNull();
+  });
+});
+
+describe("ghostStepBlockedByWall", () => {
+  const wall: DroppedWall = {
+    col: 5,
+    row: 7,
+    awayStep: LEFT,
+    remainingMs: 1000,
+    passable: false,
+    vacated: false,
+  };
+
+  it("keeps ghosts from entering the wall tile from any side", () => {
+    expect(ghostStepBlockedByWall(wall, 6, 7, -1, 0)).toBe(true);
+    expect(ghostStepBlockedByWall(wall, 4, 7, 1, 0)).toBe(true);
+    expect(ghostStepBlockedByWall(wall, 5, 6, 0, 1)).toBe(true);
+  });
+
+  it("lets a ghost on the wall tile leave, but never toward Dot-Man", () => {
+    expect(ghostStepBlockedByWall(wall, 5, 7, -1, 0)).toBe(true);
+    expect(ghostStepBlockedByWall(wall, 5, 7, 1, 0)).toBe(false);
+    expect(ghostStepBlockedByWall(wall, 5, 7, 0, -1)).toBe(false);
+  });
+
+  it("blocks nothing elsewhere or without a wall", () => {
+    expect(ghostStepBlockedByWall(wall, 9, 9, -1, 0)).toBe(false);
+    expect(ghostStepBlockedByWall(null, 6, 7, -1, 0)).toBe(false);
   });
 });
 
@@ -71,24 +96,33 @@ describe("withSolidCell", () => {
 });
 
 describe("droppedWallLook", () => {
-  const wall = { col: 0, row: 0, passable: false };
+  const wall: DroppedWall = {
+    col: 0,
+    row: 0,
+    awayStep: LEFT,
+    remainingMs: 5000,
+    passable: false,
+    vacated: false,
+  };
   const alpha = (remainingMs: number, nowMs: number) =>
     droppedWallLook({ ...wall, remainingMs }, nowMs, 4).alpha;
 
   it("is a Dot-Man-yellow, Dot-Man-sized outline with the maze's corner radius", () => {
-    expect(droppedWallLook({ ...wall, remainingMs: 5000 }, 0, 4, 20)).toEqual({
+    expect(droppedWallLook(wall, 0, 4, 20)).toEqual({
       color: DROPPED_WALL_COLOR,
       alpha: 1,
       size: 20,
       cornerRadius: 4,
     });
-    expect(droppedWallLook({ ...wall, remainingMs: 5000 }, 0, 30, 20).cornerRadius).toBe(10);
+    expect(droppedWallLook(wall, 0, 30, 20).cornerRadius).toBe(10);
   });
 
-  it("is solid until the last second, then blinks", () => {
-    expect(alpha(5000, EXPIRY_BLINK_MS)).toBe(1);
-    expect(alpha(500, 0)).toBe(1);
-    expect(alpha(500, EXPIRY_BLINK_MS)).toBe(0);
+  it("stays solid, then blinks for its last two seconds", () => {
+    const offPhase = WALL_DROP_BLINK_PERIOD_MS;
+    expect(alpha(WALL_DROP_BLINK_WINDOW_MS + 1, offPhase)).toBe(1);
+    expect(alpha(WALL_DROP_BLINK_WINDOW_MS, 0)).toBe(1);
+    expect(alpha(WALL_DROP_BLINK_WINDOW_MS, offPhase)).toBe(0);
+    expect(alpha(100, offPhase * 2)).toBe(1);
   });
 
   it("draws a passable wall see-through", () => {

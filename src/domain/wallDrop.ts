@@ -1,4 +1,3 @@
-import { expiryTintOn } from "./expiryBlink";
 import {
   actorDisplaySize,
   getActiveLayout,
@@ -12,10 +11,19 @@ import {
 
 export type CardinalStep = { dx: number; dy: number };
 
-export type DroppedWall = MazeTile & { remainingMs: number; passable: boolean };
+export type DroppedWall = MazeTile & {
+  remainingMs: number;
+  passable: boolean;
+  awayStep: CardinalStep;
+  vacated: boolean;
+};
+
+export type WallDropSpot = MazeTile & { awayStep: CardinalStep };
 
 export const WALL_DROP_MS = 8000;
 export const PASSABLE_WALL_ALPHA = 0.45;
+export const WALL_DROP_BLINK_WINDOW_MS = 2000;
+export const WALL_DROP_BLINK_PERIOD_MS = 150;
 export const DROPPED_WALL_COLOR = 0xffec00;
 
 export type DroppedWallLook = { color: number; alpha: number; size: number; cornerRadius: number };
@@ -35,28 +43,44 @@ function blocksGhostHouse(cell: MazeTile, layout: MazeLayout): boolean {
   return NEIGHBORS.some(({ dx, dy }) => isDoor(cell.col + dx, cell.row + dy, layout.door));
 }
 
-export function wallDropCell(
+export function wallDropSpot(
   col: number,
   row: number,
   before: CardinalStep | undefined,
   after: CardinalStep | undefined,
   layout: MazeLayout = getActiveLayout(),
-): MazeTile | null {
+): WallDropSpot | null {
   if (before === undefined || after === undefined) {
     return null;
   }
   if (before.dx !== -after.dx || before.dy !== -after.dy) {
     return null;
   }
-  const cell = { col: col + before.dx, row: row + before.dy };
+  const cell = { col, row };
   if (
-    !inBounds(cell.col, cell.row) ||
-    !isWalkable(cell.col, cell.row, layout.playerSolids) ||
+    !inBounds(col, row) ||
+    !isWalkable(col, row, layout.playerSolids) ||
     blocksGhostHouse(cell, layout)
   ) {
     return null;
   }
-  return cell;
+  return { ...cell, awayStep: after };
+}
+
+export function ghostStepBlockedByWall(
+  wall: DroppedWall | null,
+  col: number,
+  row: number,
+  dx: number,
+  dy: number,
+): boolean {
+  if (wall === null) {
+    return false;
+  }
+  const entering = col + dx === wall.col && row + dy === wall.row;
+  const leavingTowardPlayer =
+    col === wall.col && row === wall.row && dx === wall.awayStep.dx && dy === wall.awayStep.dy;
+  return entering || leavingTowardPlayer;
 }
 
 export function withSolidCell(solids: SolidGrid, cell: MazeTile | null): SolidGrid {
@@ -74,7 +98,10 @@ export function droppedWallLook(
   wallCornerRadius: number,
   size: number = actorDisplaySize(),
 ): DroppedWallLook {
-  const solidAlpha = expiryTintOn(wall.remainingMs, nowMs) ? 1 : 0;
+  const blinkOff =
+    wall.remainingMs <= WALL_DROP_BLINK_WINDOW_MS &&
+    Math.floor(nowMs / WALL_DROP_BLINK_PERIOD_MS) % 2 === 1;
+  const solidAlpha = blinkOff ? 0 : 1;
   return {
     color: DROPPED_WALL_COLOR,
     alpha: wall.passable ? PASSABLE_WALL_ALPHA : solidAlpha,

@@ -24,7 +24,7 @@ import {
 } from "../../domain/maze";
 import { NEAR_MISS_CHARGE } from "../../domain/upgrades";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
-import { WALL_DROP_MS, wallDropCell, type CardinalStep } from "../../domain/wallDrop";
+import { WALL_DROP_MS, wallDropSpot, type CardinalStep } from "../../domain/wallDrop";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
@@ -757,11 +757,15 @@ describe("LearnSim upgrade demos", () => {
     function corridor(): { col: number; row: number } {
       const layout = getActiveLayout();
       for (let row = 1; row < layout.rows - 1; row += 1) {
-        for (let col = 1; col + 4 < layout.cols - 1; col += 1) {
-          const open = [0, 1, 2, 3, 4].every((d) =>
+        for (let col = 1; col + 5 < layout.cols - 1; col += 1) {
+          const open = [0, 1, 2, 3, 4, 5].every((d) =>
             canEnterDirection(cellCenterX(col + d), cellCenterY(row), 1, 0),
           );
-          if (open && wallDropCell(col + 2, row, RIGHT, LEFT) !== null) {
+          if (
+            open &&
+            wallDropSpot(col + 2, row, RIGHT, LEFT) !== null &&
+            wallDropSpot(col + 3, row, RIGHT, LEFT) !== null
+          ) {
             return { col, row };
           }
         }
@@ -772,11 +776,12 @@ describe("LearnSim upgrade demos", () => {
     function reverse(sim: LearnSim, player: number): { col: number; row: number } {
       const { col, row } = corridor();
       moveTo(player, { x: cellCenterX(col), y: cellCenterY(row) });
-      for (let frame = 0; frame < 60 && worldToCol(Position.x[player]!) < col + 2; frame += 1) {
+      Facing.direction[player] = DIRECTION.right;
+      for (let frame = 0; frame < 60 && worldToCol(Position.x[player]!) < col + 3; frame += 1) {
         sim.step(held("right"), FRAME_MS);
       }
       sim.step(held("left"), FRAME_MS);
-      return { col: worldToCol(Position.x[player]!) + 1, row };
+      return { col: worldToCol(Position.x[player]!), row };
     }
 
     function drawnWall(sim: LearnSim) {
@@ -790,6 +795,9 @@ describe("LearnSim upgrade demos", () => {
       expect(sim["learnUpgrades"].wallDropArmed).toBe(true);
       const cell = reverse(sim, player);
       expect(drawnWall(sim)).toMatchObject({ ...cell, passable: false });
+      for (let frame = 0; frame < 30 && worldToCol(Position.x[player]!) >= cell.col; frame += 1) {
+        sim.step(held("left"), FRAME_MS);
+      }
       for (let frame = 0; frame < 60; frame += 1) {
         sim.step(held("right"), FRAME_MS);
       }

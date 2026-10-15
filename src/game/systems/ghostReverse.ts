@@ -8,7 +8,8 @@ import {
 } from "../../domain/ghostPath";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
-import { worldToCol, worldToRow, type MazeTile } from "../../domain/maze";
+import { worldToCol, worldToRow } from "../../domain/maze";
+import type { DroppedWall } from "../../domain/wallDrop";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
@@ -21,7 +22,7 @@ export function forceGhostReverse(
   blockTunnels = false,
   onlyEids?: ReadonlySet<number>,
   blockTunnelRow: number | null = null,
-  blockedCell: MazeTile | null = null,
+  droppedWall: DroppedWall | null = null,
 ): void {
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Facing, Input, Position])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.active;
@@ -43,7 +44,7 @@ export function forceGhostReverse(
     const y = Position.y[eid] ?? 0;
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRow, blockedCell);
+    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRow, droppedWall, { x, y });
     const opens = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
 
     let next: Direction = reversed;

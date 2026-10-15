@@ -3,11 +3,11 @@ import { getActiveLayout, type SolidGrid } from "../../domain/maze";
 import {
   dropWall,
   droppedWallBlocksPlayer,
-  walkThroughDroppedWall,
+  trackPlayerOnWall,
   type RunUpgrades,
   type UpgradeId,
 } from "../../domain/upgrades";
-import { wallDropCell, withSolidCell } from "../../domain/wallDrop";
+import { wallDropSpot, withSolidCell } from "../../domain/wallDrop";
 import type { Direction } from "../components/Input";
 import { CARDINAL_STEP } from "./heldKeys";
 import { playerCell } from "./playerCell";
@@ -24,9 +24,9 @@ export function playerSolidsWithWall(
   return wall === null ? undefined : withSolidCell(getActiveLayout().playerSolids, wall);
 }
 
-export function walkThroughWall(world: World, state: RunUpgrades): RunUpgrades {
+export function trackWallOccupancy(world: World, state: RunUpgrades): RunUpgrades {
   const cell = playerCell(world);
-  return cell === null ? state : walkThroughDroppedWall(state, cell.col, cell.row);
+  return cell === null ? state : trackPlayerOnWall(state, cell.col, cell.row);
 }
 
 export function dropWallOnReversal(
@@ -39,11 +39,11 @@ export function dropWallOnReversal(
   if (cell === null) {
     return state;
   }
-  const wall = wallDropCell(
+  const spot = wallDropSpot(
     cell.col,
     cell.row,
     CARDINAL_STEP[facingBefore],
     CARDINAL_STEP[playerFacing(world)],
   );
-  return wall === null ? state : dropWall(state, wall, owned);
+  return spot === null ? state : dropWall(state, spot, owned);
 }

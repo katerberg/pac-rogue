@@ -369,7 +369,7 @@ import {
   playerFacing,
   steerPlayer,
 } from "../systems/playerDirection";
-import { dropWallOnReversal, playerSolidsWithWall, walkThroughWall } from "../systems/wallDrop";
+import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -1125,7 +1125,7 @@ export class PlaySim {
         blockTunnelRow,
         this.runUpgrades.droppedWall,
       );
-      this.runUpgrades = walkThroughWall(this.world, this.runUpgrades);
+      this.runUpgrades = trackWallOccupancy(this.world, this.runUpgrades);
     };
     if (hyperspeedActive(this.runUpgrades)) {
       this.moveHyperspeed(delta, moveFrame);

@@ -27,8 +27,8 @@ import {
   isAlignedForTurn,
   worldToCol,
   worldToRow,
-  type MazeTile,
 } from "../../domain/maze";
+import type { DroppedWall } from "../../domain/wallDrop";
 import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
@@ -195,7 +195,7 @@ export function ghostAi(
   blockTunnels = false,
   frightenedEids: ReadonlySet<number> = new Set(),
   blockTunnelRow: number | null = null,
-  blockedCell: MazeTile | null = null,
+  droppedWall: DroppedWall | null = null,
 ): void {
   const ctx = ghostAiContext(world, tuning);
 
@@ -216,7 +216,7 @@ export function ghostAi(
 
     const col = worldToCol(x);
     const row = worldToRow(y);
-    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRow, blockedCell);
+    const rules = ghostMovementRules(phase, blockTunnels, blockTunnelRow, droppedWall, { x, y });
     const facingNow = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     const alreadyDecided = Ghost.decidedCol[eid] === col && Ghost.decidedRow[eid] === row;
     if (alreadyDecided) {

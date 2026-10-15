@@ -155,7 +155,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
-import { dropWallOnReversal, playerSolidsWithWall, walkThroughWall } from "../systems/wallDrop";
+import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { anyKeyHeld } from "../systems/heldKeys";
 import {
@@ -453,7 +453,7 @@ export class LearnSim {
         null,
         this.learnUpgrades.droppedWall,
       );
-      this.learnUpgrades = walkThroughWall(this.world, this.learnUpgrades);
+      this.learnUpgrades = trackWallOccupancy(this.world, this.learnUpgrades);
     };
     if (hyperspeedActive(this.learnUpgrades)) {
       this.moveHyperspeed(delta, moveFrame);

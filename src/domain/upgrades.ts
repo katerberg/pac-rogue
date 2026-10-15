@@ -10,7 +10,7 @@ import {
 import { levelScaledDurationMs } from "./levelScaledDuration";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
-import { WALL_DROP_MS, type DroppedWall } from "./wallDrop";
+import { WALL_DROP_MS, type DroppedWall, type WallDropSpot } from "./wallDrop";
 
 export type BaseUpgradeId =
   | "powerPelletFreeze"
@@ -1417,7 +1417,7 @@ export function tickHaunt(state: RunUpgrades, deltaMs: number): RunUpgrades {
 
 export function dropWall(
   state: RunUpgrades,
-  cell: MazeTile,
+  spot: WallDropSpot,
   owned: readonly UpgradeId[],
 ): RunUpgrades {
   if (!state.wallDropArmed) {
@@ -1427,9 +1427,10 @@ export function dropWall(
     ...state,
     wallDropArmed: false,
     droppedWall: {
-      ...cell,
+      ...spot,
       remainingMs: ownedValue(owned, "wallDropMs") ?? WALL_DROP_MS,
       passable: ownedValue(owned, "wallDropPassable") === true,
+      vacated: false,
     },
   };
 }
@@ -1443,17 +1444,21 @@ export function tickWallDrop(state: RunUpgrades, deltaMs: number): RunUpgrades {
   return { ...state, droppedWall: remainingMs > 0 ? { ...wall, remainingMs } : null };
 }
 
-export function walkThroughDroppedWall(state: RunUpgrades, col: number, row: number): RunUpgrades {
+export function trackPlayerOnWall(state: RunUpgrades, col: number, row: number): RunUpgrades {
   const wall = state.droppedWall;
-  if (wall === null || !wall.passable || wall.col !== col || wall.row !== row) {
+  if (wall === null) {
     return state;
   }
-  return { ...state, droppedWall: null };
+  const onWall = wall.col === col && wall.row === row;
+  if (!onWall) {
+    return wall.vacated ? state : { ...state, droppedWall: { ...wall, vacated: true } };
+  }
+  return wall.vacated && wall.passable ? { ...state, droppedWall: null } : state;
 }
 
 export function droppedWallBlocksPlayer(state: RunUpgrades): MazeTile | null {
   const wall = state.droppedWall;
-  return wall === null || wall.passable || wallPassActive(state) ? null : wall;
+  return wall === null || wall.passable || !wall.vacated || wallPassActive(state) ? null : wall;
 }
 
 export function hauntedGhostEid(state: RunUpgrades): number | null {

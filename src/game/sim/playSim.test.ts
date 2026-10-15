@@ -43,7 +43,7 @@ import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
-import { WALL_DROP_MS, wallDropCell } from "../../domain/wallDrop";
+import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
@@ -5532,8 +5532,8 @@ describe("Wall Drop", () => {
         if (
           run &&
           row !== otherThanRow &&
-          wallDropCell(col + 2, row, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }) !== null &&
-          wallDropCell(col + 3, row, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }) !== null
+          wallDropSpot(col + 2, row, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }) !== null &&
+          wallDropSpot(col + 3, row, { dx: 1, dy: 0 }, { dx: -1, dy: 0 }) !== null
         ) {
           return { col, row };
         }
@@ -5550,9 +5550,10 @@ describe("Wall Drop", () => {
   function reverse(sim: PlaySim, otherThanRow = -1): { col: number; row: number } {
     const { col, row } = corridorStart(otherThanRow);
     teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
-    runUntil(sim, () => playerCell(sim).col === col + 2, 60, RIGHT);
+    Facing.direction[playerEid(sim)] = DIRECTION.right;
+    runUntil(sim, () => playerCell(sim).col === col + 3, 60, RIGHT);
     runFrames(sim, 1, LEFT);
-    return { col: playerCell(sim).col + 1, row };
+    return playerCell(sim);
   }
 
   it("does nothing without the upgrade", () => {
@@ -5570,7 +5571,7 @@ describe("Wall Drop", () => {
     expect(sim.snapshot().wallDrop.armed).toBe(true);
   });
 
-  it("drops one wall behind you on the next reversal that blocks you, then expires after 8s", () => {
+  it("drops one wall where you reversed that blocks your way back, then expires after 8s", () => {
     const sim = start(["powerPelletWallDrop"]);
     eatPower(sim);
     const cell = reverse(sim);
@@ -5581,6 +5582,7 @@ describe("Wall Drop", () => {
     expect(sim.snapshot().timers.wallDropMs).toBeGreaterThan(WALL_DROP_MS - 2 * FRAME_MS);
     expect(sim.renderOptions().droppedWall).toMatchObject(cell);
 
+    runUntil(sim, () => playerCell(sim).col === cell.col - 1, 30, LEFT);
     runFrames(sim, 60, RIGHT);
     expect(playerCell(sim).col).toBe(cell.col - 1);
 
@@ -5613,6 +5615,25 @@ describe("Wall Drop", () => {
     }
   });
 
+  it("lets a ghost caught on the wall tile leave, but never toward Dot-Man", () => {
+    const sim = start(["powerPelletWallDrop"]);
+    eatPower(sim);
+    const cell = reverse(sim);
+    runUntil(sim, () => playerCell(sim).col === cell.col - 2, 60, LEFT);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(cell.col);
+    Position.y[ghost] = cellCenterY(cell.row);
+    Facing.direction[ghost] = DIRECTION.left;
+    Input.direction[ghost] = DIRECTION.left;
+    const ghostCol = () => worldToCol(Position.x[ghost]!);
+    for (let frame = 0; frame < 60 && ghostCol() <= cell.col; frame += 1) {
+      runFrames(sim, 1);
+      expect(ghostCol()).toBeGreaterThanOrEqual(cell.col);
+    }
+    expect(ghostCol()).toBeGreaterThan(cell.col);
+  });
+
   it("without the upgrade the same ghost walks into that tile", () => {
     const sim = start([]);
     eatPower(sim);
@@ -5623,6 +5644,7 @@ describe("Wall Drop", () => {
     const sim = start(["powerPelletWallDropPlus"]);
     eatPower(sim);
     const cell = reverse(sim);
+    expect(playerCell(sim)).toEqual(cell);
     expect(sim.snapshot().wallDrop.wall).toEqual({ ...cell, passable: true });
     expect(sim.snapshot().timers.wallDropMs).toBe(-1);
     runFrames(sim, Math.ceil(WALL_DROP_MS / FRAME_MS) + 60);
