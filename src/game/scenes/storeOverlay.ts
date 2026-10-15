@@ -24,7 +24,7 @@ import {
 } from "../../domain/upgrades";
 import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
-import { addDotManIcon, addQuarterIcon } from "../systems/render";
+import { addDotManIcon, addQuarterIcon, addReverseIcon } from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
 import { addRareFx, createRareFxToggle } from "./rareFx";
 import {
@@ -325,9 +325,12 @@ export function createStoreOverlay(
     let glyph: Phaser.GameObjects.GameObject;
     if (slot.kind === "life") {
       glyph = addDotManIcon(scene, 0, TILE_GLYPH_Y, tile - 2);
+    } else if (slot.kind === "swap") {
+      const school = slotSchool(slot);
+      const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
+      glyph = addReverseIcon(scene, 0, TILE_GLYPH_Y, tile - 2).setTint(glyphColor);
     } else {
-      const char =
-        slot.kind === "swap" ? "?" : enhance ? "+" : slotTitle(slot).charAt(0).toUpperCase();
+      const char = enhance ? "+" : slotTitle(slot).charAt(0).toUpperCase();
       const school = enhance ? null : slotSchool(slot);
       const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
       const text = addPixelText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
