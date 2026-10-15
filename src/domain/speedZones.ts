@@ -41,6 +41,23 @@ export function speedZoneHallwayCells(zone: SpeedZone, playerSolids: SolidGrid):
   return cells;
 }
 
+export type SpeedZoneEdge = MazeTile & { side: "up" | "down" | "left" | "right" };
+
+export function speedZoneOuterEdges(cells: readonly MazeTile[]): SpeedZoneEdge[] {
+  const inZone = new Set(cells.map((cell) => `${cell.col},${cell.row}`));
+  const sides = [
+    { side: "up", dc: 0, dr: -1 },
+    { side: "down", dc: 0, dr: 1 },
+    { side: "left", dc: -1, dr: 0 },
+    { side: "right", dc: 1, dr: 0 },
+  ] as const;
+  return cells.flatMap((cell) =>
+    sides
+      .filter(({ dc, dr }) => !inZone.has(`${cell.col + dc},${cell.row + dr}`))
+      .map(({ side }) => ({ ...cell, side })),
+  );
+}
+
 export function speedZoneMultiplier(kind: SpeedZoneKind | null): number {
   if (kind === "slow") {
     return SLOW_ZONE_MULTIPLIER;

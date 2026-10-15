@@ -14,7 +14,14 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
-import { speedZoneHallwayCells, type SpeedZone, type SpeedZoneKind } from "../../domain/speedZones";
+import { GLOW_HALO_PULSE_MIN, GLOW_HALO_PULSE_MS, glowHaloStepAlpha } from "../../domain/glowHalo";
+import {
+  speedZoneHallwayCells,
+  speedZoneOuterEdges,
+  type SpeedZone,
+  type SpeedZoneEdge,
+  type SpeedZoneKind,
+} from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
@@ -470,7 +477,8 @@ const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
 const SPEED_ZONE_DEPTH = -2;
 const SPEED_ZONE_COLORS: Record<SpeedZoneKind, number> = { slow: 0x3fa9ff, fast: 0xff8a3d };
-const SPEED_ZONE_FILL_ALPHA = 0.18;
+const SPEED_ZONE_FILL_ALPHA = 0.7;
+const SPEED_ZONE_GLOW_REACH_TILES = 0.6;
 const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
@@ -485,6 +493,25 @@ function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly 
     graphics.lineTo(point.x, point.y);
   }
   graphics.strokePath();
+}
+
+function fillGlowStrip(
+  graphics: Phaser.GameObjects.Graphics,
+  edge: SpeedZoneEdge,
+  tileSize: number,
+  step: number,
+): void {
+  const x = cellOriginX(edge.col);
+  const y = cellOriginY(edge.row);
+  if (edge.side === "up") {
+    graphics.fillRect(x, y - step, tileSize, 1);
+  } else if (edge.side === "down") {
+    graphics.fillRect(x, y + tileSize + step - 1, tileSize, 1);
+  } else if (edge.side === "left") {
+    graphics.fillRect(x - step, y, 1, tileSize);
+  } else {
+    graphics.fillRect(x + tileSize + step - 1, y, 1, tileSize);
+  }
 }
 
 type GhostSkirt = {
@@ -509,6 +536,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const speedZoneGraphics = scene.add.graphics();
   speedZoneGraphics.setDepth(SPEED_ZONE_DEPTH);
+  speedZoneGraphics.setBlendMode(Phaser.BlendModes.ADD);
+  scene.tweens.add({
+    targets: speedZoneGraphics,
+    alpha: { from: 1, to: GLOW_HALO_PULSE_MIN },
+    duration: GLOW_HALO_PULSE_MS,
+    ease: "Sine.easeInOut",
+    yoyo: true,
+    repeat: -1,
+  });
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
@@ -946,13 +982,21 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       const { tileSize, playerSolids } = getActiveLayout();
       for (const zone of speedZones) {
         speedZoneGraphics.fillStyle(SPEED_ZONE_COLORS[zone.kind], SPEED_ZONE_FILL_ALPHA);
-        for (const cell of speedZoneHallwayCells(zone, playerSolids)) {
+        const cells = speedZoneHallwayCells(zone, playerSolids);
+        for (const cell of cells) {
           speedZoneGraphics.fillRect(
             cellOriginX(cell.col),
             cellOriginY(cell.row),
             tileSize,
             tileSize,
           );
+        }
+        const reach = Math.max(3, Math.round(tileSize * SPEED_ZONE_GLOW_REACH_TILES));
+        for (let step = 1; step <= reach; step += 1) {
+          speedZoneGraphics.fillStyle(SPEED_ZONE_COLORS[zone.kind], glowHaloStepAlpha(step, reach));
+          for (const edge of speedZoneOuterEdges(cells)) {
+            fillGlowStrip(speedZoneGraphics, edge, tileSize, step);
+          }
         }
       }
       drawnSpeedZones = speedZones;

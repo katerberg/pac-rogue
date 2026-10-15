@@ -7,6 +7,7 @@ import {
   SPEED_ZONE_SIZE,
   speedZoneAt,
   speedZoneHallwayCells,
+  speedZoneOuterEdges,
   speedZoneMultiplier,
   type SpeedZone,
   type SpeedZoneBoard,
@@ -89,6 +90,30 @@ describe("speedZoneHallwayCells", () => {
       { col: 3, row: 3 },
       { col: 3, row: 4 },
     ]);
+  });
+});
+
+describe("speedZoneOuterEdges", () => {
+  it("lists every cell side that does not touch another zone cell", () => {
+    const cells = [
+      { col: 1, row: 1 },
+      { col: 2, row: 1 },
+      { col: 2, row: 2 },
+    ];
+    expect(speedZoneOuterEdges(cells)).toEqual([
+      { col: 1, row: 1, side: "up" },
+      { col: 1, row: 1, side: "down" },
+      { col: 1, row: 1, side: "left" },
+      { col: 2, row: 1, side: "up" },
+      { col: 2, row: 1, side: "right" },
+      { col: 2, row: 2, side: "down" },
+      { col: 2, row: 2, side: "left" },
+      { col: 2, row: 2, side: "right" },
+    ]);
+  });
+
+  it("has no edges without cells", () => {
+    expect(speedZoneOuterEdges([])).toEqual([]);
   });
 });
 
