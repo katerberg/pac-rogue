@@ -5633,6 +5633,22 @@ describe("Wall Drop", () => {
     expect(playerCell(sim)).toEqual(cell);
   });
 
+  it("Plus: crossing the wall at Hyperspeed still removes it", () => {
+    const sim = start(["powerPelletWallDropPlus", "powerPelletHyperspeed"]);
+    eatPower(sim);
+    sim["runUpgrades"] = {
+      ...sim["runUpgrades"],
+      hyperspeedRemainingMs: 0,
+      hyperspeedTurnDelayMs: 0,
+    };
+    const cell = reverse(sim);
+    expect(sim.snapshot().wallDrop.wall).toMatchObject(cell);
+    teleportPlayer(sim, cellCenterX(cell.col - 2), cellCenterY(cell.row));
+    sim["runUpgrades"] = { ...sim["runUpgrades"], hyperspeedRemainingMs: 3000 };
+    runUntil(sim, () => playerCell(sim).col > cell.col, 30, RIGHT);
+    expect(sim.snapshot().wallDrop.wall).toBeNull();
+  });
+
   it("a second power pellet re-arms, and the next drop replaces the old wall", () => {
     const sim = start(["powerPelletWallDropPlus"]);
     eatPower(sim);

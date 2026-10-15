@@ -1120,7 +1120,7 @@ export class PlaySim {
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const blockTunnelRow = this.closedGatedTunnelRow();
-    const moveFrame = (frameDelta: number): void =>
+    const moveFrame = (frameDelta: number): void => {
       movement(
         this.world,
         frameDelta,
@@ -1131,6 +1131,8 @@ export class PlaySim {
         blockTunnelRow,
         this.runUpgrades.droppedWall,
       );
+      this.walkThroughDroppedWall();
+    };
     if (hyperspeedActive(this.runUpgrades)) {
       this.moveHyperspeed(delta, moveFrame);
     } else {
@@ -2892,20 +2894,25 @@ export class PlaySim {
     }
   }
 
+  private walkThroughDroppedWall(): void {
+    const player = this.playerPosition();
+    if (player !== null) {
+      this.runUpgrades = walkThroughDroppedWall(
+        this.runUpgrades,
+        worldToCol(player.x),
+        worldToRow(player.y),
+      );
+    }
+  }
+
   private updateWallDrop(facingBefore: Direction): void {
     const player = this.playerPosition();
-    if (player === null) {
-      return;
-    }
-    const col = worldToCol(player.x);
-    const row = worldToRow(player.y);
-    this.runUpgrades = walkThroughDroppedWall(this.runUpgrades, col, row);
-    if (!this.runUpgrades.wallDropArmed) {
+    if (player === null || !this.runUpgrades.wallDropArmed) {
       return;
     }
     const cell = wallDropCell(
-      col,
-      row,
+      worldToCol(player.x),
+      worldToRow(player.y),
       CARDINAL_STEP[facingBefore],
       CARDINAL_STEP[playerFacing(this.world)],
     );
