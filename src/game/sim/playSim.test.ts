@@ -502,6 +502,7 @@ describe("PlaySim", () => {
     expect(solidsAt(5)).toEqual(base);
     expect(solidsAt(8)).toEqual(base);
     expect(solidsAt(6)).toEqual([...base].reverse());
+    expect(solidsAt(7)).toEqual([...base].reverse());
     startSim({ level: 2 }, "another-map");
     expect(getActiveLayout().playerSolids.map((row) => row.join(","))).not.toEqual(base);
   });
