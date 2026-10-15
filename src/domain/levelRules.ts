@@ -61,7 +61,7 @@ const DEFAULT_LATE_WAVES = Array.from({ length: MAX_LEVEL - 4 }, (_, i) =>
 );
 
 export function offersUpgradeAfterLevel(levelIndex: number): boolean {
-  return levelIndex > 1 && levelIndex < MAX_LEVEL;
+  return levelIndex >= 1 && levelIndex < MAX_LEVEL;
 }
 
 const ENHANCED_OFFER_FIRST_LEVEL = 4;

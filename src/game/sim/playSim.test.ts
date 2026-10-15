@@ -670,11 +670,16 @@ describe("PlaySim", () => {
     ).toBe(true);
   });
 
-  it("skips the intermission after level 1", () => {
+  it("offers an upgrade after clearing level 1, then skips the intermission", () => {
     const sim = startSim({ level: 1, maze: "mazeSmall" });
+    const startOwned = sim.snapshot().upgrades.length;
     sim["jumpToLevelClear"]();
+    const offer = drainToOffer(sim);
+    expect(offer.upgrades).toHaveLength(2);
+    sim.chooseUpgrade({ kind: "upgrade", id: offer.upgrades[0]! });
     runUntil(sim, () => sim.snapshot().level === 2, 400);
     expect(sim.snapshot().intermission).toBeNull();
+    expect(sim.snapshot().upgrades.length).toBe(startOwned + 1);
   });
 
   it("offers enhanced upgrades only from level 4, and grants the enhanced form when picked", () => {
@@ -2658,10 +2663,11 @@ describe("PlaySim level-end time bonus", () => {
     expect(sim.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 43 } });
   });
 
-  it("drains on level 1, then moves on to level 2", () => {
+  it("drains on level 1, then offers an upgrade before level 2", () => {
     const { sim } = startClear({ level: 1 });
     runUntil(sim, () => !sim.snapshot().bonus.draining, 90);
     expect(sim.snapshot().bonus.charge).toBe(143);
+    takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 2, 120);
   });
 
