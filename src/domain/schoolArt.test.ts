@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { schoolArtPath, schoolArtTextureKey, schoolWatermarkSize } from "./schoolArt";
+import { schoolArtPath, schoolArtTextureKey, schoolArtSize } from "./schoolArt";
 import { UPGRADE_SCHOOL_ORDER } from "./upgrades";
 
 describe("schoolArt", () => {
@@ -26,9 +26,9 @@ describe("schoolArt", () => {
   });
 
   it("scales the watermark in whole art pixels from the smaller card side", () => {
-    expect(schoolWatermarkSize(230, 150)).toBe(112);
-    expect(schoolWatermarkSize(340, 220)).toBe(160);
-    expect(schoolWatermarkSize(168, 190)).toBe(112);
-    expect(schoolWatermarkSize(10, 10)).toBe(16);
+    expect(schoolArtSize(230, 150)).toBe(112);
+    expect(schoolArtSize(340, 220)).toBe(160);
+    expect(schoolArtSize(168, 190)).toBe(112);
+    expect(schoolArtSize(10, 10)).toBe(16);
   });
 });

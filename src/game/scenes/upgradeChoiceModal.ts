@@ -19,7 +19,7 @@ import {
   SCHOOL_WATERMARK_ALPHA,
   schoolArtPath,
   schoolArtTextureKey,
-  schoolWatermarkSize,
+  schoolArtSize,
 } from "../../domain/schoolArt";
 import { wrapText } from "../../domain/wrapText";
 import { addRareFx } from "./rareFx";
@@ -571,7 +571,7 @@ export function addSchoolWatermark(
     return null;
   }
   const image = scene.add.image(0, 0, schoolArtTextureKey(school));
-  const size = schoolWatermarkSize(cardWidth, cardHeight);
+  const size = schoolArtSize(cardWidth, cardHeight);
   return image.setDisplaySize(size, size).setAlpha(SCHOOL_WATERMARK_ALPHA);
 }
 
@@ -584,7 +584,7 @@ export function setSchoolWatermark(
   const hasArt = school !== null && schoolArtPath(school) !== null;
   image.setVisible(hasArt);
   if (hasArt) {
-    const size = schoolWatermarkSize(cardWidth, cardHeight);
+    const size = schoolArtSize(cardWidth, cardHeight);
     image.setTexture(schoolArtTextureKey(school)).setDisplaySize(size, size);
   }
 }

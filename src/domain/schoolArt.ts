@@ -13,7 +13,7 @@ export function schoolArtTextureKey(school: UpgradeSchool): string {
   return `school-${school}`;
 }
 
-export function schoolWatermarkSize(cardWidth: number, cardHeight: number): number {
+export function schoolArtSize(cardWidth: number, cardHeight: number): number {
   const wholePixels = Math.floor(
     (Math.min(cardWidth, cardHeight) * WATERMARK_FILL) / SCHOOL_ART_PIXELS,
   );

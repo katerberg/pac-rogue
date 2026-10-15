@@ -22,7 +22,12 @@ import {
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
-import { SCHOOL_WATERMARK_ALPHA } from "../../domain/schoolArt";
+import {
+  SCHOOL_WATERMARK_ALPHA,
+  schoolArtPath,
+  schoolArtSize,
+  schoolArtTextureKey,
+} from "../../domain/schoolArt";
 import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { addDotManIcon, addQuarterIcon } from "../systems/render";
@@ -330,6 +335,15 @@ export function createStoreOverlay(
     let glyph: Phaser.GameObjects.GameObject;
     if (slot.kind === "life") {
       glyph = addDotManIcon(scene, 0, TILE_GLYPH_Y, tile - 2);
+    } else if (
+      slot.kind === "upgrade" &&
+      tileSchool !== null &&
+      schoolArtPath(tileSchool) !== null
+    ) {
+      const iconPx = schoolArtSize(size, size);
+      glyph = scene.add
+        .image(0, TILE_GLYPH_Y, schoolArtTextureKey(tileSchool))
+        .setDisplaySize(iconPx, iconPx);
     } else {
       const char =
         slot.kind === "swap" ? "?" : enhance ? "+" : slotTitle(slot).charAt(0).toUpperCase();
