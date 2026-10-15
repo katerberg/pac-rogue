@@ -369,6 +369,7 @@ export class PlayScene extends Phaser.Scene {
   public debugSnapshot() {
     return {
       ...this.sim.snapshot(),
+      playerSpriteRotation: this.playRender.playerSpriteRotation(),
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
