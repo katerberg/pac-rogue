@@ -121,6 +121,27 @@ describe("ghostPupilLookToward", () => {
     expect(far).toEqual(near);
   });
 
+  it("handles diagonals and arbitrary angles, not just the four directions", () => {
+    const d = GHOST_PUPIL_LOOK_OFFSET_ART * Math.SQRT1_2;
+    const diagonals = [
+      { from: [5, 5], to: { dx: d, dy: d } },
+      { from: [-5, 5], to: { dx: -d, dy: d } },
+      { from: [5, -5], to: { dx: d, dy: -d } },
+      { from: [-5, -5], to: { dx: -d, dy: -d } },
+    ] as const;
+    for (const { from, to } of diagonals) {
+      const look = ghostPupilLookToward(from[0], from[1]);
+      expect(look.dx).toBeCloseTo(to.dx);
+      expect(look.dy).toBeCloseTo(to.dy);
+    }
+    for (let deg = 0; deg < 360; deg += 7) {
+      const rad = (deg * Math.PI) / 180;
+      const look = ghostPupilLookToward(Math.cos(rad) * 123, Math.sin(rad) * 123);
+      expect(Math.hypot(look.dx, look.dy)).toBeCloseTo(GHOST_PUPIL_LOOK_OFFSET_ART);
+      expect(Math.atan2(look.dy, look.dx)).toBeCloseTo(Math.atan2(Math.sin(rad), Math.cos(rad)));
+    }
+  });
+
   it("rests when the target is on the ghost", () => {
     expect(ghostPupilLookToward(0, 0)).toEqual({ dx: 0, dy: 0 });
   });
