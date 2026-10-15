@@ -1,4 +1,5 @@
 import { layoutFromAscii, type MazeLayout, type SolidGrid } from "./maze";
+import { MAX_LEVEL } from "./levelRules";
 import { pickLayoutId, type MazeLayoutId } from "./mazeLayouts";
 import {
   CENTER_PIECE,
@@ -618,8 +619,11 @@ function reject<T>(build: () => T): T {
   }
 }
 
+// One base map per run: every generated non-boss level shares it (variants such as
+// inversion and timed tunnels are applied on top). The boss board keeps its own seed
+// because it can demand a specific tunnel count.
 export function boardMazeSeed(runSeed: string, levelIndex: number): string {
-  return `${runSeed}:L${levelIndex}`;
+  return levelIndex >= MAX_LEVEL ? `${runSeed}:L${levelIndex}` : `${runSeed}:base`;
 }
 
 // Row-reverses a validated board: the player spawn (marked "P") and the ghost house
