@@ -6,8 +6,8 @@ export const SPEED_ZONE_MAX_LENGTH = 6;
 export const SPEED_ZONE_MIN_GAP_TILES = 4;
 export const SLOW_ZONE_MULTIPLIER = 0.6;
 export const FAST_ZONE_MULTIPLIER = 1.5;
-export const SPEED_ZONE_PULSE_SPACING_TILES = 1.25;
-export const SPEED_ZONE_PULSE_TILES_PER_SEC = 2.5;
+const SPEED_ZONE_PULSE_SPACING_TILES = 1.25;
+const SPEED_ZONE_PULSE_TILES_PER_SEC = 2.5;
 
 export type SpeedZoneAxis = "horizontal" | "vertical";
 export type SpeedZoneFastDir = "up" | "down" | "left" | "right";
@@ -21,6 +21,8 @@ export type SpeedZone = {
   fastDir: SpeedZoneFastDir;
 };
 
+type SpeedZoneShape = Omit<SpeedZone, "fastDir">;
+
 export type SpeedZoneBoard = Pick<
   MazeLayout,
   "cols" | "rows" | "playerSolids" | "house" | "door" | "playerSpawn"
@@ -30,7 +32,7 @@ export function isSpeedZoneLevel(levelIndex: number): boolean {
   return levelIndex >= 5 && levelIndex <= 8;
 }
 
-export function speedZoneCells(zone: SpeedZone): MazeTile[] {
+export function speedZoneCells(zone: SpeedZoneShape): MazeTile[] {
   return Array.from({ length: zone.length }, (_, i) =>
     zone.axis === "horizontal"
       ? { col: zone.col + i, row: zone.row }
@@ -51,12 +53,12 @@ export function speedZoneAt(
 }
 
 export function speedZoneEffect(zone: SpeedZone, dx: number, dy: number): SpeedZoneEffect | null {
-  const along = zone.axis === "horizontal" ? dx : dy;
+  const fast = speedZoneFastVector(zone);
+  const along = Math.sign(zone.axis === "horizontal" ? dx : dy);
   if (along === 0) {
     return null;
   }
-  const fastSign = zone.fastDir === "right" || zone.fastDir === "down" ? 1 : -1;
-  return Math.sign(along) === fastSign ? "fast" : "slow";
+  return along === (zone.axis === "horizontal" ? fast.dx : fast.dy) ? "fast" : "slow";
 }
 
 export function speedZoneMultiplier(effect: SpeedZoneEffect | null): number {
@@ -146,7 +148,7 @@ function cellAllowed(board: SpeedZoneBoard, col: number, row: number): boolean {
   );
 }
 
-function tooClose(a: SpeedZone, b: SpeedZone): boolean {
+function tooClose(a: SpeedZoneShape, b: SpeedZoneShape): boolean {
   const bCells = speedZoneCells(b);
   return speedZoneCells(a).some((ca) =>
     bCells.some(
@@ -158,14 +160,14 @@ function tooClose(a: SpeedZone, b: SpeedZone): boolean {
 }
 
 export function pickSpeedZones(board: SpeedZoneBoard, nextRandom: () => number): SpeedZone[] {
-  const candidates: Omit<SpeedZone, "fastDir">[] = [];
+  const candidates: SpeedZoneShape[] = [];
   for (const axis of ["horizontal", "vertical"] as const) {
     for (let row = 0; row < board.rows; row += 1) {
       for (let col = 0; col < board.cols; col += 1) {
         for (let length = SPEED_ZONE_MIN_LENGTH; length <= SPEED_ZONE_MAX_LENGTH; length += 1) {
-          const lane = { col, row, axis, length, fastDir: "right" as const };
+          const lane = { col, row, axis, length };
           if (speedZoneCells(lane).every((cell) => cellAllowed(board, cell.col, cell.row))) {
-            candidates.push({ col, row, axis, length });
+            candidates.push(lane);
           }
         }
       }
@@ -173,9 +175,7 @@ export function pickSpeedZones(board: SpeedZoneBoard, nextRandom: () => number):
   }
   const zones: SpeedZone[] = [];
   while (zones.length < SPEED_ZONE_COUNT) {
-    const open = candidates.filter((c) =>
-      zones.every((zone) => !tooClose(zone, { ...c, fastDir: "right" })),
-    );
+    const open = candidates.filter((c) => zones.every((zone) => !tooClose(zone, c)));
     if (open.length === 0) {
       break;
     }

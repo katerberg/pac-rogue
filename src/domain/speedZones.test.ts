@@ -61,7 +61,7 @@ describe("speedZoneCells / speedZoneAt", () => {
       { col: 4, row: 3 },
       { col: 5, row: 3 },
     ]);
-    expect(speedZoneCells({ ...lane, axis: "vertical", length: 3, fastDir: "up" })).toEqual([
+    expect(speedZoneCells({ ...lane, axis: "vertical", length: 3 })).toEqual([
       { col: 2, row: 3 },
       { col: 2, row: 4 },
       { col: 2, row: 5 },
