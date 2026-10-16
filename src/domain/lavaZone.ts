@@ -172,7 +172,6 @@ export function pickLavaZone(
 function cellSignedDistance(
   cell: LavaCell,
   axis: Step,
-  maxDistance: number,
   reachTiles: number,
   u: number,
   v: number,
@@ -181,9 +180,6 @@ function cellSignedDistance(
     return reachTiles >= 0.5 ? Infinity : reachTiles - Math.abs((axis.dx !== 0 ? u : v) - 0.5);
   }
   const fill = Math.min(1, reachTiles - (cell.distance - 0.5));
-  if (fill >= 1 && cell.distance < maxDistance) {
-    return Infinity;
-  }
   const { dx, dy, turn } = cell;
   if (turn === null || fill <= 0) {
     const depth = dx !== 0 ? (dx > 0 ? u : 1 - u) : dy > 0 ? v : 1 - v;
@@ -210,10 +206,9 @@ export function lavaSignedDistancePx(
     return null;
   }
   const axis = zone.cells.find((c) => c.distance === 1) ?? { dx: 1, dy: 0 };
-  const maxDistance = Math.max(...zone.cells.map((c) => c.distance));
   const u = (x - cellOriginX(col)) / TILE_SIZE;
   const v = (y - cellOriginY(row)) / TILE_SIZE;
-  return cellSignedDistance(cell, axis, maxDistance, reachTiles, u, v) * TILE_SIZE;
+  return cellSignedDistance(cell, axis, reachTiles, u, v) * TILE_SIZE;
 }
 
 export function lavaTouchesCircle(

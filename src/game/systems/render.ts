@@ -525,10 +525,9 @@ function lavaHash(a: number, b: number, c: number): number {
 function lavaPixelColor(lava: LavaRenderState, px: number, py: number, frame: number): number {
   const d = lavaSignedDistancePx(lava.zone, lava.reachTiles, px + LAVA_PX / 2, py + LAVA_PX / 2);
   if (d === null || d <= 0) {
-    if (lava.phase === "emerging" && d !== null && d > -3 * LAVA_PX) {
-      if (lavaHash(px, py, frame) > 0.8) {
-        return LAVA_PALETTE[4]!;
-      }
+    const ember = lava.phase === "emerging" && d !== null && d > -3 * LAVA_PX;
+    if (ember && lavaHash(px, py, frame) > 0.8) {
+      return LAVA_PALETTE[4]!;
     }
     const bed = lava.flashOn ? LAVA_BED_FLASH_COLORS : LAVA_BED_COLORS;
     return bed[Math.floor(lavaHash(px, py, 7) * bed.length)]!;
