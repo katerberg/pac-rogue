@@ -16,6 +16,7 @@ export const LAVA_HOLD_MS = 4000;
 export const LAVA_RETRACT_MS = 2000;
 export const LAVA_CYCLE_MS = LAVA_DORMANT_MS + LAVA_EMERGE_MS + LAVA_HOLD_MS + LAVA_RETRACT_MS;
 export const LAVA_MAX_REACH_TILES = 3.5;
+const LAVA_MAX_CELL_DISTANCE = Math.ceil(LAVA_MAX_REACH_TILES - 0.5);
 const LAVA_TOUCH_RADIUS_FRACTION = 0.6;
 
 export type LavaPhase = "dormant" | "warn" | "emerging" | "full" | "retracting";
@@ -115,11 +116,10 @@ function cellAllowed(board: LavaZoneBoard, avoid: LavaAvoid, cell: MazeTile): bo
 }
 
 function lavaCellsFrom(board: LavaZoneBoard, col: number, row: number): LavaCell[] {
-  const maxDistance = Math.ceil(LAVA_MAX_REACH_TILES - 0.5);
   const cells: LavaCell[] = [{ col, row, distance: 0, dx: 0, dy: 0, turn: null }];
   for (let i = 0; i < cells.length; i += 1) {
     const from = cells[i]!;
-    if (from.distance >= maxDistance) {
+    if (from.distance >= LAVA_MAX_CELL_DISTANCE) {
       continue;
     }
     for (const s of openSteps(board, from.col, from.row)) {
@@ -172,7 +172,6 @@ export function pickLavaZone(
 function cellSignedDistance(
   cell: LavaCell,
   axis: Step,
-  maxDistance: number,
   reachTiles: number,
   u: number,
   v: number,
@@ -181,7 +180,7 @@ function cellSignedDistance(
     return reachTiles >= 0.5 ? Infinity : reachTiles - Math.abs((axis.dx !== 0 ? u : v) - 0.5);
   }
   const fill = Math.min(1, reachTiles - (cell.distance - 0.5));
-  if (fill >= 1 && cell.distance < maxDistance) {
+  if (fill >= 1 && cell.distance < LAVA_MAX_CELL_DISTANCE) {
     return Infinity;
   }
   const { dx, dy, turn } = cell;
@@ -210,10 +209,9 @@ export function lavaSignedDistancePx(
     return null;
   }
   const axis = zone.cells.find((c) => c.distance === 1) ?? { dx: 1, dy: 0 };
-  const maxDistance = Math.max(...zone.cells.map((c) => c.distance));
   const u = (x - cellOriginX(col)) / TILE_SIZE;
   const v = (y - cellOriginY(row)) / TILE_SIZE;
-  return cellSignedDistance(cell, axis, maxDistance, reachTiles, u, v) * TILE_SIZE;
+  return cellSignedDistance(cell, axis, reachTiles, u, v) * TILE_SIZE;
 }
 
 export function lavaTouchesCircle(
