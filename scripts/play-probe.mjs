@@ -28,6 +28,7 @@ Steps (comma-separated):
   hold:<Key>:<ms>        keydown, wait, keyup (Playwright key names, e.g. ArrowLeft)
   hold:<KeyA>+<KeyB>:<ms> hold multiple keys down at once (e.g. ArrowUp+ArrowLeft for diagonal)
   press:<Key>            tap a key
+  down:<Key> / up:<Key>  press or release a key and leave it, so expect:/waitFor: can run mid-move
   click:<x>:<y>          click at game coordinates (800x600), scaled onto the canvas
   hover:<x>:<y>          move the mouse to game coordinates, scaled onto the canvas
   shot:<label>           screenshot to artifacts/<name>-<label>.png
@@ -130,6 +131,12 @@ async function runStep(page, canvas, step, name) {
       }
       break;
     }
+    case "down":
+      await page.keyboard.down(a);
+      break;
+    case "up":
+      await page.keyboard.up(a);
+      break;
     case "press":
       // A zero-delay down+up can both be processed before Phaser's next frame
       // reads the key's justDown flag, which its own keyup handler also clears —

@@ -43,6 +43,12 @@ import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import {
+  FAST_ZONE_MULTIPLIER,
+  SLOW_ZONE_MULTIPLIER,
+  speedZoneCells,
+  type SpeedZone,
+} from "../../domain/speedZones";
 import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
 import { POWER_PELLET_BREAK_MS } from "../../domain/powerPelletBreak";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
@@ -5541,6 +5547,122 @@ describe("Cornucopia", () => {
     expect(sim.snapshot().bonus.charge).toBeGreaterThan(0);
     eatNextPower(sim);
     expect(fruitCount(sim)).toBe(1);
+  });
+});
+
+describe("speed zones", () => {
+  const KEY_FOR: Record<SpeedZone["fastDir"], "up" | "down" | "left" | "right"> = {
+    up: "up",
+    down: "down",
+    left: "left",
+    right: "right",
+  };
+  const OPPOSITE: Record<SpeedZone["fastDir"], SpeedZone["fastDir"]> = {
+    up: "down",
+    down: "up",
+    left: "right",
+    right: "left",
+  };
+
+  function laneMiddle(zone: SpeedZone): { col: number; row: number } {
+    return speedZoneCells(zone)[Math.floor(zone.length / 2)]!;
+  }
+
+  function speedMovingThrough(
+    zoneIndex: number,
+    dir: SpeedZone["fastDir"],
+    zonesOn: boolean,
+  ): { speed: number; effect: string | null } {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const zone = sim.snapshot().speedZones[zoneIndex]!;
+    if (!zonesOn) {
+      sim["speedZones"] = [];
+    }
+    const cell = laneMiddle(zone);
+    const player = playerEid(sim);
+    for (let frame = 0; frame < 2; frame += 1) {
+      sim["eatDragMs"] = 0;
+      Position.x[player] = cellCenterX(cell.col);
+      Position.y[player] = cellCenterY(cell.row);
+      runFrames(sim, 1, { keys: held(KEY_FOR[dir]) });
+    }
+    return { speed: Speed.px[player]!, effect: sim.snapshot().playerSpeedZone };
+  }
+
+  it("lays two straight seeded lanes of 3+ tiles on levels 5-8 only", () => {
+    for (const level of [5, 6, 7, 8]) {
+      const zones = startSim({ level }, "zones").snapshot().speedZones;
+      expect(zones).toHaveLength(2);
+      for (const zone of zones) {
+        expect(zone.length).toBeGreaterThanOrEqual(3);
+        for (const cell of speedZoneCells(zone)) {
+          expect(getActiveLayout().playerSolids[cell.row]![cell.col]).toBe(false);
+        }
+      }
+      expect(startSim({ level }, "zones").snapshot().speedZones).toEqual(zones);
+    }
+    for (const level of [1, 2, 4, 9]) {
+      expect(startSim({ level }, "zones").snapshot().speedZones).toEqual([]);
+    }
+  });
+
+  it("speeds Dot-Man up along the fast direction and slows him the other way", () => {
+    for (const index of [0, 1]) {
+      const fastDir = startSim({ level: 5 }, "zones").snapshot().speedZones[index]!.fastDir;
+      const slowDir = OPPOSITE[fastDir];
+      const fast = speedMovingThrough(index, fastDir, true);
+      const slow = speedMovingThrough(index, slowDir, true);
+      expect(fast.effect).toBe("fast");
+      expect(slow.effect).toBe("slow");
+      expect(fast.speed).toBeCloseTo(
+        speedMovingThrough(index, fastDir, false).speed * FAST_ZONE_MULTIPLIER,
+      );
+      expect(slow.speed).toBeCloseTo(
+        speedMovingThrough(index, slowDir, false).speed * SLOW_ZONE_MULTIPLIER,
+      );
+    }
+  });
+
+  it("has no effect while Dot-Man stands still in a lane", () => {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const cell = laneMiddle(sim.snapshot().speedZones[0]!);
+    teleportPlayer(sim, cellCenterX(cell.col), cellCenterY(cell.row));
+    runFrames(sim, 2);
+    expect(sim.snapshot().playerSpeedZone).toBeNull();
+  });
+
+  it("leaves ghost speed alone inside a lane", () => {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const zones = sim.snapshot().speedZones;
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    for (const zone of zones) {
+      const cell = laneMiddle(zone);
+      const ghostSpeed = (): number => {
+        Position.x[ghost] = cellCenterX(cell.col);
+        Position.y[ghost] = cellCenterY(cell.row);
+        runFrames(sim, 1);
+        return Speed.px[ghost]!;
+      };
+      sim["speedZones"] = zones;
+      const inLane = ghostSpeed();
+      sim["speedZones"] = [];
+      expect(ghostSpeed()).toBe(inLane);
+    }
+  });
+
+  it("clears the lanes when the store floor opens", () => {
+    const sim = startSim({ level: 5 }, "zones");
+    expect(sim.snapshot().speedZones).toHaveLength(2);
+    (sim as unknown as { enterStore(): void }).enterStore();
+    expect(sim.snapshot().inStore).toBe(true);
+    expect(sim.snapshot().speedZones).toEqual([]);
+    expect(sim.snapshot().playerSpeedZone).toBeNull();
+  });
+
+  it("draws the lanes for the render bridge", () => {
+    const sim = startSim({ level: 6 }, "zones");
+    expect(sim.renderOptions().speedZones).toEqual(sim.snapshot().speedZones);
   });
 });
 
