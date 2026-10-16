@@ -66,6 +66,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `powerPelletHyperspeed` | Hyperspeed (rare) | speed | Power pellet: for 2s, run at 10x speed. Every turn costs a beat. | Power pellet: for 3s, run at 10x speed. A shield blocks one catch for 2s. |
 | `passiveShieldBreak` | Shield Break (rare) | protection | When a shield breaks, fire all power pellet effects. Power pellet effects no longer trigger at pickup. | When a shield breaks, fire all power pellet effects. Getting a shield at your maximum fires them too. |
 | `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a bonus fruit, if none is out. | Power pellet: always spawns a bonus fruit, even beside others. |
+| `powerPelletWallDrop` | Wall Drop | protection | Power pellet: your next reversal drops a wall behind you for 8s. | Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it. |
 
 ## Power pellets
 
@@ -89,8 +90,8 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 ## Grant rules
 
 - Level 1 grants one random **starting upgrade** from `STARTING_UPGRADE_POOL` (a no-button card, `startingUpgradeCard.ts`). Later level advances and `level>=2` starts never grant one.
-- Clearing levels 2-8 (`offersUpgradeAfterLevel`) opens the pick-one modal: up to three upgrades at up/left/right plus an always-available Quarters option down. Never offered after level 1, level 9, or from fruit.
-- `pickUpgradeChoiceOffer`: no repeated ids, prefers excluding `lastDeclinedUpgradeId` (set only when exactly one upgrade was offered alongside the choice), applies a forced id, and rolls enhancement **last** so seeded offers on other levels stay unchanged.
+- Clearing levels 2-8 (`offersUpgradeAfterLevel`) opens the pick-one modal: two upgrades at left/right. There is no skip or Quarters fallback; if nothing is eligible the offer is skipped. Never offered after level 1, level 9, or from fruit.
+- `pickUpgradeChoiceOffer`: no repeated ids, prefers excluding `lastDeclinedUpgradeId` (the one card not taken from the last offer), applies a forced id, and rolls enhancement **last** so seeded offers on other levels stay unchanged.
 - The sim is fully frozen while the modal is open or animating; keys held through open are ignored until released. No dismiss: the player must pick.
 
 ## Cross-cutting rules

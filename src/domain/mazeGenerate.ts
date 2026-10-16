@@ -1,4 +1,5 @@
 import { layoutFromAscii, type MazeLayout, type SolidGrid } from "./maze";
+import { MAX_LEVEL } from "./levelRules";
 import { pickLayoutId, type MazeLayoutId } from "./mazeLayouts";
 import {
   CENTER_PIECE,
@@ -619,7 +620,7 @@ function reject<T>(build: () => T): T {
 }
 
 export function boardMazeSeed(runSeed: string, levelIndex: number): string {
-  return `${runSeed}:L${levelIndex}`;
+  return levelIndex >= MAX_LEVEL ? `${runSeed}:L${levelIndex}` : `${runSeed}:base`;
 }
 
 // Row-reverses a validated board: the player spawn (marked "P") and the ghost house

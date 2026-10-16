@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createRunRandom } from "../../../domain/runRandom";
 import { pickOffer } from "./pick";
-import { PERSONAS, type Persona } from "./profiles";
+import { PERSONAS } from "./profiles";
 
 const offer = {
-  quarters: 2,
-  upgrades: ["passiveAfterburner", "powerPelletInvuln", "fruitFeast"] as const,
+  upgrades: ["passiveAfterburner", "powerPelletInvuln"] as const,
   enhanced: [],
 };
 
@@ -36,22 +35,8 @@ describe("pickOffer", () => {
         PERSONAS.casual,
         rng,
       );
-      seen.add(choice.kind === "upgrade" ? choice.id : "quarters");
+      seen.add(choice.id);
     }
-    expect(seen.size).toBe(4);
-  });
-
-  it("banks Quarters when nothing scores above zero", () => {
-    const rng = createRunRandom("quarters").stream("bot");
-    const sour: Persona = {
-      ...PERSONAS.cautious,
-      schoolPreference: Object.fromEntries(
-        Object.keys(PERSONAS.cautious.schoolPreference).map((school) => [school, -1]),
-      ) as Persona["schoolPreference"],
-    };
-    expect(pickOffer({ ...offer, upgrades: [...offer.upgrades] }, [], sour, rng)).toEqual({
-      kind: "quarters",
-      amount: 2,
-    });
+    expect(seen.size).toBe(2);
   });
 });

@@ -10,6 +10,7 @@ import {
   isTunnelMouth,
   isWalkable,
 } from "./maze";
+import { MAX_LEVEL } from "./levelRules";
 import { GHOST_PHASE } from "./ghostPhase";
 import {
   boardMazeSeed,
@@ -39,10 +40,12 @@ describe("mazeGenerate", () => {
     });
   });
 
-  it("boardMazeSeed is stable and level-sensitive", () => {
-    expect(boardMazeSeed("abc", 2)).toBe("abc:L2");
-    expect(boardMazeSeed("abc", 2)).toBe(boardMazeSeed("abc", 2));
-    expect(boardMazeSeed("abc", 3)).not.toBe(boardMazeSeed("abc", 2));
+  it("boardMazeSeed shares one base map across levels 2-8 and keys the boss separately", () => {
+    for (let level = 2; level < MAX_LEVEL; level += 1) {
+      expect(boardMazeSeed("abc", level)).toBe(boardMazeSeed("abc", 2));
+    }
+    expect(boardMazeSeed("abc", MAX_LEVEL)).not.toBe(boardMazeSeed("abc", 2));
+    expect(boardMazeSeed("abd", 2)).not.toBe(boardMazeSeed("abc", 2));
   });
 
   it("hasThinInteriorWallSeparator detects a lone wall between corridors", () => {
