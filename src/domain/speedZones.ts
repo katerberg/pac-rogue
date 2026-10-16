@@ -6,8 +6,11 @@ export const SPEED_ZONE_MAX_LENGTH = 6;
 export const SPEED_ZONE_MIN_GAP_TILES = 4;
 export const SLOW_ZONE_MULTIPLIER = 0.6;
 export const FAST_ZONE_MULTIPLIER = 1.5;
-const SPEED_ZONE_PULSE_SPACING_TILES = 1.25;
-const SPEED_ZONE_PULSE_TILES_PER_SEC = 2.5;
+const SPEED_ZONE_PARTICLES_PER_TILE = 2;
+const SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC = 0.5;
+const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.6;
+const SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES = 0.6;
+const SPEED_ZONE_PARTICLE_PEAK_ALPHA = 0.45;
 
 export type SpeedZoneAxis = "horizontal" | "vertical";
 export type SpeedZoneFastDir = "up" | "down" | "left" | "right";
@@ -81,27 +84,34 @@ export function speedZoneFastVector(zone: SpeedZone): { dx: number; dy: number }
   }
 }
 
-export function speedZonePulsePoints(
-  zone: SpeedZone,
-  nowMs: number,
-): { col: number; row: number; alpha: number }[] {
+export type SpeedZoneParticle = { col: number; row: number; alpha: number; size: number };
+
+function unitHash(n: number): number {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+export function speedZoneParticles(zone: SpeedZone, nowMs: number): SpeedZoneParticle[] {
   const { dx, dy } = speedZoneFastVector(zone);
   const startCol = dx < 0 ? zone.col + zone.length : zone.col + (dx === 0 ? 0.5 : 0);
   const startRow = dy < 0 ? zone.row + zone.length : zone.row + (dy === 0 ? 0.5 : 0);
-  const travel = (nowMs / 1000) * SPEED_ZONE_PULSE_TILES_PER_SEC;
-  const points: { col: number; row: number; alpha: number }[] = [];
-  for (
-    let at = travel % SPEED_ZONE_PULSE_SPACING_TILES;
-    at < zone.length;
-    at += SPEED_ZONE_PULSE_SPACING_TILES
-  ) {
-    points.push({
-      col: startCol + dx * at,
-      row: startRow + dy * at,
-      alpha: Math.sin((Math.PI * at) / zone.length),
-    });
-  }
-  return points;
+  const seed = zone.col * 31 + zone.row * 17 + zone.length;
+  const count = zone.length * SPEED_ZONE_PARTICLES_PER_TILE;
+  const seconds = nowMs / 1000;
+  return Array.from({ length: count }, (_, i) => {
+    const key = seed * 101 + i;
+    const tilesPerSec =
+      SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC + unitHash(key + 1) * SPEED_ZONE_PARTICLE_SPEED_SPREAD;
+    const progress = (unitHash(key) + (seconds * tilesPerSec) / zone.length) % 1;
+    const side = (unitHash(key + 2) - 0.5) * SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES;
+    const along = progress * zone.length;
+    return {
+      col: startCol + dx * along + dy * side,
+      row: startRow + dy * along + dx * side,
+      alpha: SPEED_ZONE_PARTICLE_PEAK_ALPHA * Math.sin(Math.PI * progress),
+      size: 0.5 + unitHash(key + 3),
+    };
+  });
 }
 
 export type SpeedZoneGlowMask = { width: number; height: number; alpha: Float32Array };

@@ -1,3 +1,5 @@
+import { parseLevelModifiersFlag } from "./levelModifiersFlag";
+
 export const RUN_HISTORY_VERSION = 2 as const;
 export const RUN_HISTORY_MAX_RUNS = 100;
 
@@ -34,7 +36,9 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
 ] as const;
 
 export function highScoresDisabled(params: URLSearchParams): boolean {
-  return HIGH_SCORE_DISABLING_FLAGS.some((flag) => params.has(flag));
+  return (
+    HIGH_SCORE_DISABLING_FLAGS.some((flag) => params.has(flag)) || !parseLevelModifiersFlag(params)
+  );
 }
 
 export function emptyRunHistory(): RunHistory {

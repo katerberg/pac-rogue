@@ -13,7 +13,7 @@ import {
   speedZoneEffect,
   speedZoneGlowMask,
   speedZoneMultiplier,
-  speedZonePulsePoints,
+  speedZoneParticles,
   type SpeedZone,
   type SpeedZoneBoard,
 } from "./speedZones";
@@ -93,27 +93,39 @@ describe("speedZoneEffect", () => {
   });
 });
 
-describe("speedZonePulsePoints", () => {
-  it("runs pulses from the slow end toward the fast end over time", () => {
-    const at = (ms: number) => speedZonePulsePoints(lane, ms)[0]!;
-    expect(at(0).col).toBe(2);
-    expect(at(0).row).toBe(3.5);
-    expect(at(200).col).toBeGreaterThan(at(0).col);
+describe("speedZoneParticles", () => {
+  it("drifts particles toward the fast end without a fixed cadence", () => {
+    const first = speedZoneParticles(lane, 0);
+    const later = speedZoneParticles(lane, 50);
+    expect(first).toHaveLength(lane.length * 2);
+    expect(later.every((p, i) => p.col >= first[i]!.col || p.alpha < 0.05)).toBe(true);
+    expect(new Set(first.map((p) => p.col.toFixed(3))).size).toBeGreaterThan(lane.length);
     const left = { ...lane, fastDir: "left" as const };
-    expect(speedZonePulsePoints(left, 0)[0]!.col).toBe(6);
-    expect(speedZonePulsePoints(left, 200)[0]!.col).toBeLessThan(6);
+    const a = speedZoneParticles(left, 0);
+    const b = speedZoneParticles(left, 50);
+    expect(b.every((p, i) => p.col <= a[i]!.col || p.alpha < 0.05)).toBe(true);
   });
 
-  it("keeps every pulse inside the lane and fades them at the ends", () => {
-    for (const ms of [0, 130, 470, 999]) {
-      for (const pulse of speedZonePulsePoints(lane, ms)) {
-        expect(pulse.col).toBeGreaterThanOrEqual(2);
-        expect(pulse.col).toBeLessThan(6);
-        expect(pulse.alpha).toBeGreaterThanOrEqual(0);
-        expect(pulse.alpha).toBeLessThanOrEqual(1);
+  it("keeps every particle inside the lane, faint, and fading at the ends", () => {
+    for (const zone of [lane, { ...lane, axis: "vertical" as const, fastDir: "up" as const }]) {
+      const vertical = zone.axis === "vertical";
+      for (const ms of [0, 130, 470, 999, 12345]) {
+        for (const p of speedZoneParticles(zone, ms)) {
+          const along = vertical ? p.row - zone.row : p.col - zone.col;
+          const across = vertical ? p.col - zone.col : p.row - zone.row;
+          expect(along).toBeGreaterThanOrEqual(0);
+          expect(along).toBeLessThanOrEqual(zone.length);
+          expect(across).toBeGreaterThan(0.1);
+          expect(across).toBeLessThan(0.9);
+          expect(p.alpha).toBeGreaterThanOrEqual(0);
+          expect(p.alpha).toBeLessThanOrEqual(0.5);
+        }
       }
     }
-    expect(speedZonePulsePoints(lane, 0)[0]!.alpha).toBe(0);
+  });
+
+  it("is deterministic for a lane and time", () => {
+    expect(speedZoneParticles(lane, 777)).toEqual(speedZoneParticles(lane, 777));
   });
 });
 

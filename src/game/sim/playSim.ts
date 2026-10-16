@@ -1607,10 +1607,15 @@ export class PlaySim {
     );
   }
 
+  private isInvertedLevel(): boolean {
+    return this.options.levelModifiers && isInvertedMazeLevel(this.levelIndex);
+  }
+
   private resetSpeedZones(): void {
-    this.speedZones = isSpeedZoneLevel(this.levelIndex)
-      ? pickSpeedZones(getActiveLayout(), this.random.stream("speedZones", this.levelIndex))
-      : [];
+    this.speedZones =
+      this.options.levelModifiers && isSpeedZoneLevel(this.levelIndex)
+        ? pickSpeedZones(getActiveLayout(), this.random.stream("speedZones", this.levelIndex))
+        : [];
   }
 
   private playerSpeedZone(): SpeedZoneEffect | null {
@@ -2110,9 +2115,7 @@ export class PlaySim {
       const generated = this.generateBoard(selection.seed, boss);
       if (generated) {
         try {
-          const ascii = isInvertedMazeLevel(this.levelIndex)
-            ? invertMazeAscii(generated.ascii)
-            : generated.ascii;
+          const ascii = this.isInvertedLevel() ? invertMazeAscii(generated.ascii) : generated.ascii;
           activateAsciiLayout(ascii);
           layoutLabel = `gen:${generated.seedUsed}`;
         } catch (error) {
@@ -2150,7 +2153,7 @@ export class PlaySim {
     this.recorder.beginLevel({
       level: this.levelIndex,
       layout: layoutLabel,
-      inverted: selection.kind !== "static" && isInvertedMazeLevel(this.levelIndex),
+      inverted: selection.kind !== "static" && this.isInvertedLevel(),
       boss: boss !== null,
       countdownStart: this.clock.remaining,
       livesStart: this.lives,
