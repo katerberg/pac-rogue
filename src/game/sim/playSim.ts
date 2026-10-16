@@ -1602,16 +1602,11 @@ export class PlaySim {
 
   private lavaSnapshot() {
     const state = this.lavaRenderState();
-    return state === null
-      ? null
-      : {
-          col: state.zone.col,
-          row: state.zone.row,
-          cells: state.zone.cells.map(({ col, row }) => ({ col, row })),
-          phase: state.phase,
-          reachTiles: state.reachTiles,
-          cracksFlashOn: state.cracksFlashOn,
-        };
+    if (state === null) {
+      return null;
+    }
+    const { zone, ...rest } = state;
+    return { ...zone, ...rest };
   }
 
   private playerTouchesLava(catchOptions: CatchOptions): boolean {

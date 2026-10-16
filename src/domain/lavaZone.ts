@@ -8,7 +8,6 @@ export const LAVA_HOLD_MS = 2000;
 export const LAVA_RETRACT_MS = 5000;
 export const LAVA_CYCLE_MS = LAVA_DORMANT_MS + LAVA_EMERGE_MS + LAVA_HOLD_MS + LAVA_RETRACT_MS;
 export const LAVA_MAX_REACH_TILES = 1.5;
-export const LAVA_MIN_INTERSECTION_DISTANCE = 2;
 const LAVA_TOUCH_RADIUS_FRACTION = 0.6;
 
 export type LavaPhase = "dormant" | "warn" | "emerging" | "full" | "retracting";
@@ -130,23 +129,6 @@ function lavaCellsFrom(board: LavaZoneBoard, col: number, row: number): LavaCell
   return cells;
 }
 
-function nearIntersection(board: LavaZoneBoard, col: number, row: number): boolean {
-  const seen: MazeTile[] = [{ col, row }];
-  let frontier: MazeTile[] = [{ col, row }];
-  for (let distance = 0; distance < LAVA_MIN_INTERSECTION_DISTANCE; distance += 1) {
-    if (frontier.some((c) => isIntersection(board, c.col, c.row))) {
-      return true;
-    }
-    frontier = frontier.flatMap((c) =>
-      openSteps(board, c.col, c.row)
-        .map((s) => ({ col: c.col + s.dx, row: c.row + s.dy }))
-        .filter((n) => !seen.some((v) => v.col === n.col && v.row === n.row)),
-    );
-    seen.push(...frontier);
-  }
-  return false;
-}
-
 function isStraightHallway(board: LavaZoneBoard, col: number, row: number): boolean {
   const open = openSteps(board, col, row);
   return open.length === 2 && open[0]!.dx === -open[1]!.dx && open[0]!.dy === -open[1]!.dy;
@@ -159,15 +141,13 @@ export function lavaZoneCandidates(
   const zones: LavaZone[] = [];
   for (let row = 0; row < board.rows; row += 1) {
     for (let col = 0; col < board.cols; col += 1) {
-      if (
-        !cellAllowed(board, tunnelRows, { col, row }) ||
-        !isStraightHallway(board, col, row) ||
-        nearIntersection(board, col, row)
-      ) {
+      if (!cellAllowed(board, tunnelRows, { col, row }) || !isStraightHallway(board, col, row)) {
         continue;
       }
       const cells = lavaCellsFrom(board, col, row);
-      if (cells.every((cell) => cellAllowed(board, tunnelRows, cell))) {
+      const clear = (cell: LavaCell) =>
+        cellAllowed(board, tunnelRows, cell) && !isIntersection(board, cell.col, cell.row);
+      if (cells.every(clear)) {
         zones.push({ col, row, cells });
       }
     }
