@@ -448,6 +448,7 @@ export class PlaySim {
   private lastPlayerCell: Cell | null = null;
   private timeBonusDrain: TimeBonusDrain | null = null;
   private levelIndex = 1;
+  private boardLayoutLabel = "maze2";
   private rosterId = 0;
   private bossState: BossState | null = null;
   private bossMouths: BossTunnelMouth[] = [];
@@ -761,7 +762,7 @@ export class PlaySim {
       knobs: this.options.knobs,
       tuning: this.currentTuning,
       level: this.levelIndex,
-      layout: getActiveLayout().id,
+      layout: this.boardLayoutLabel,
       lives: this.lives,
       quarters: this.quarters,
       timeRemaining: this.clock.remaining,
@@ -2038,6 +2039,7 @@ export class PlaySim {
         activateLayout("maze2");
       }
     }
+    this.boardLayoutLabel = layoutLabel;
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
     spawnWalls(this.world);
