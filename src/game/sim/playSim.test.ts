@@ -47,6 +47,7 @@ import { LAVA_CYCLE_MS, LAVA_EMERGE_MS, LAVA_MAX_REACH_TILES } from "../../domai
 import {
   FAST_ZONE_MULTIPLIER,
   SLOW_ZONE_MULTIPLIER,
+  SPEED_ZONE_MIN_LENGTH,
   speedZoneCells,
   type SpeedZone,
 } from "../../domain/speedZones";
@@ -5813,12 +5814,12 @@ describe("speed zones", () => {
     return { speed: Speed.px[player]!, effect: sim.snapshot().playerSpeedZone };
   }
 
-  it("lays two straight seeded lanes of 3+ tiles on levels 5-8 only", () => {
+  it("lays two straight seeded lanes of SPEED_ZONE_MIN_LENGTH+ tiles on levels 5-8 only", () => {
     for (const level of [5, 6, 7, 8]) {
       const zones = startSim({ level }, "zones").snapshot().speedZones;
       expect(zones).toHaveLength(2);
       for (const zone of zones) {
-        expect(zone.length).toBeGreaterThanOrEqual(3);
+        expect(zone.length).toBeGreaterThanOrEqual(SPEED_ZONE_MIN_LENGTH);
         for (const cell of speedZoneCells(zone)) {
           expect(getActiveLayout().playerSolids[cell.row]![cell.col]).toBe(false);
         }
