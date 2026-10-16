@@ -1,8 +1,8 @@
 import type { MazeLayout, MazeTile } from "./maze";
 
 export const SPEED_ZONE_COUNT = 2;
-export const SPEED_ZONE_MIN_LENGTH = 3;
-export const SPEED_ZONE_MAX_LENGTH = 6;
+export const SPEED_ZONE_MIN_LENGTH = 9;
+export const SPEED_ZONE_MAX_LENGTH = 18;
 export const SPEED_ZONE_MIN_GAP_TILES = 4;
 export const SLOW_ZONE_MULTIPLIER = 0.6;
 export const FAST_ZONE_MULTIPLIER = 1.5;
