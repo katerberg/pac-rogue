@@ -9,7 +9,7 @@ Dot-Man: Phaser 4 for presentation, bitecs 0.4 for gameplay. This file holds str
 - `src/game/systems/` — Phaser-free logic systems, plus the bridges `playerInput.ts`, `render.ts`.
 - `src/game/sim/` — headless `PlaySim` / `LearnSim`: own the world and system pipeline, emit `SimEvent`s. Helpers and test harness: [src/game/sim/README.md](../src/game/sim/README.md).
 - `src/game/scenes/` — Phaser scenes and overlays: adapters only.
-- `src/game/{audio,art,storage,net}/`, `src/data/` (the `/data` analytics page, DOM only), `src/mazes/` (dev `/mazes/` pool curator, DOM only; [maze-constraints.md](./maze-constraints.md)), `worker/` (Cloudflare API, see [worker/README.md](../worker/README.md)).
+- `src/game/{audio,art,storage,net}/`, `src/data/` (the `/data` analytics page, DOM only), `worker/` (Cloudflare API, see [worker/README.md](../worker/README.md)).
 
 ## Scenes
 

@@ -148,6 +148,7 @@ import {
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
+import { mazePoolMap } from "../../domain/mazePool";
 import {
   addPelletsToProgress,
   applyPelletCollect,
@@ -2005,7 +2006,7 @@ export class PlaySim {
     });
   }
 
-  private startBoard(layoutOverride: MazeLayoutId | null = null): void {
+  private startBoard(layoutOverride: MazeLayoutId | number | null = null): void {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
@@ -2018,6 +2019,26 @@ export class PlaySim {
     if (selection.kind === "static") {
       activateLayout(selection.id);
       layoutLabel = selection.id;
+    } else if (selection.kind === "pool") {
+      const map = mazePoolMap(selection.index);
+      if (map) {
+        try {
+          const ascii = isInvertedMazeLevel(this.levelIndex)
+            ? invertMazeAscii(map.ascii)
+            : map.ascii;
+          activateAsciiLayout(ascii);
+          layoutLabel = `pool:${selection.index}`;
+        } catch (error) {
+          console.warn(
+            `maze activate failed for pool:${selection.index}; falling back to maze2`,
+            error,
+          );
+          activateLayout("maze2");
+        }
+      } else {
+        console.warn(`unknown pool index ${selection.index}; falling back to maze2`);
+        activateLayout("maze2");
+      }
     } else {
       const generated = this.generateBoard(selection.seed, boss);
       if (generated) {

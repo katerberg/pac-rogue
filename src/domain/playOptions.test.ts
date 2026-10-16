@@ -39,7 +39,7 @@ describe("parsePlayOptions", () => {
     expect(warnings).toEqual([]);
     expect(options).toEqual({
       seed: "abc",
-      maze: "maze1",
+      maze: "maze1" as const,
       level: 4,
       quarters: 3,
       bonus: 120,
@@ -69,7 +69,9 @@ describe("parsePlayOptions", () => {
     );
     expect(warnings).toEqual([
       "Unknown ?seed= value; expected 1-32 of A-Z a-z 0-9 _ -",
-      "Unknown ?maze= value; expected maze1|maze2|mazeSmall",
+      expect.stringMatching(
+        /^Unknown \?maze= value; expected maze1\|maze2\|mazeSmall or pool index/,
+      ),
       "Unknown ?level= value; expected positive integer",
       "Unknown ?quarters= value; expected non-negative integer",
       "Unknown ?bonus= value; expected an integer 0..299",

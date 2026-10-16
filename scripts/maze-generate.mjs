@@ -22,7 +22,7 @@ function parseArgs(argv) {
       console.log(`Usage: npm run maze:generate -- [--count N]
 
 Generate N maze candidates (default ${DEFAULT_COUNT}) via generateMazeAsciiWithRetries
-and write artifacts/mazes/candidates.json for the /mazes/ curator.
+and write artifacts/mazes/candidates.json for offline curation into mazePool.json.
 
 Seed index attempts are capped by CANDIDATE_SEED_ATTEMPT_CEILING in mazeCandidate.ts.`);
       process.exit(0);

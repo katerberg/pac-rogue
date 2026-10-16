@@ -17,18 +17,17 @@ The playfield is fixed; every layout uses one fixed tile size (`TILE_SIZE_PX`), 
 - Every layout except the store has a house: 2-wide door on top, a floor big enough for four seats, an exit above the door and a fruit cell below the house, all **derived** from the ASCII.
 - Tunnels are horizontal only, at least one per board, never adjacent. The slow band is a fraction of columns, so it scales with width. Scatter targets and pellet-based thresholds also scale with the layout.
 
-## Procedural boards (levels 2+)
+## Play boards
 
-Solved on a mirrored polyomino tiling with a fixed centre house and rasterized to 28x34 ASCII. Invariants the generator enforces (reject, never patch): pellet count near `GENERATED_PELLET_TARGET`; 1-2 tunnel rows on corridor rows only; **no 2x2 block of player-open cells** (no parallel corridors); **no dead ends**; no house-adjacent or spawn-adjacent dots. Boards are deterministic from `boardMazeSeed(runSeed, levelIndex)`: one base map per run shared by levels 2-8 (variants like inversion are applied on top), with the boss board keyed separately, with bounded retries, falling back to `maze2` with a `console.warn`. `?maze=` forces the first board.
+- Level 1: curated `mazeSmall`.
+- Levels 2–8: one map drawn from the committed pool (`src/domain/mazePool.json`, `pickPoolIndex(runSeed)`); the same base is reused for the run. Inversion (6–7) and timed tunnels (7–8) still apply on top. Layout label: `pool:<index>`.
+- Level 9 (boss): still live-generated from `boardMazeSeed` (tunnel count can be forced); fallback `maze2` with a `console.warn` on failure.
+- `?maze=maze1|maze2|mazeSmall` forces that fixture for the first board; `?maze=<n>` forces pool index `n` (dense `0..count-1`).
 
-## Pool curation (dev)
+## Generator (offline / boss)
 
-Play still uses the live generator for levels 2+. To curate a fixed pool for a later wiring change:
+Solved on a mirrored polyomino tiling with a fixed centre house and rasterized to 28x34 ASCII. Invariants (reject, never patch): pellet count near `GENERATED_PELLET_TARGET`; 1-2 tunnel rows on corridor rows only; **no 2x2 block of player-open cells** (no parallel corridors); **no dead ends**; no house-adjacent or spawn-adjacent dots. Code: `mazeTiling.ts` + `mazeGenerate.ts`.
 
-1. `npm run maze:generate` (`--count N` overrides the script default) writes `artifacts/mazes/candidates.json` (gitignored).
-2. Open `/mazes/` on the human or agent **dev** server (candidates middleware is also wired for preview) and Yes/No each board (keys `Y`/`→` yes, `N`/`←` no, `U` undo; Reset clears decisions). Decisions stay in `localStorage` for that candidates batch.
-3. **Download pool** exports `maze-pool.json` of the Yes maps (~200 is the intended keep size; the tool does not enforce a cap).
-
-The curator shows upright bases only. Wiring that pool into levels 2–8 (one draw per run, boss still generated, invert on 6–7 kept) is a follow-up.
+To expand the pool later: `npm run maze:generate` writes `artifacts/mazes/candidates.json` (gitignored). Curate offline (the old `/mazes/` Yes/No page remains in git history), renumber kept maps to dense ids, and replace `src/domain/mazePool.json`.
 
 Out of scope: vertical tunnels, non-rectangular grids, multi-house, canvas resize or scroll.
