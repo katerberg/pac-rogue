@@ -496,7 +496,6 @@ const SPEED_ZONE_FILL_ALPHA = 0.5;
 const SPEED_ZONE_GLOW_PEAK_ALPHA = 0.6;
 const SPEED_ZONE_GLOW_REACH_TILES = 0.7;
 const SPEED_ZONE_PARTICLE_COLOR = 0xd8f2ff;
-const SPEED_ZONE_PARTICLE_BASE_RADIUS_PX = 1;
 const SPEED_ZONE_TEXTURE_KEYS = Array.from(
   { length: SPEED_ZONE_COUNT },
   (_, i) => `speed-zone-glow-${i}`,
@@ -555,11 +554,10 @@ function drawSpeedZoneParticles(
   const originY = cellOriginY(0);
   for (const particle of speedZoneParticles(zone, nowMs)) {
     graphics.fillStyle(SPEED_ZONE_PARTICLE_COLOR, particle.alpha);
-    graphics.fillCircle(
-      originX + particle.col * tileSize,
-      originY + particle.row * tileSize,
-      SPEED_ZONE_PARTICLE_BASE_RADIUS_PX * particle.size,
-    );
+    const size = particle.size < 1 ? 2 : 3;
+    const x = Math.round(originX + particle.col * tileSize - size / 2);
+    const y = Math.round(originY + particle.row * tileSize - size / 2);
+    graphics.fillRect(x, y, size, size);
   }
 }
 
@@ -595,7 +593,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const speedZoneLayer = scene.add.container(0, 0);
   speedZoneLayer.setDepth(SPEED_ZONE_DEPTH);
   const speedZoneParticleGraphics = scene.add.graphics();
-  speedZoneParticleGraphics.setDepth(SPEED_ZONE_PARTICLE_DEPTH).setBlendMode(Phaser.BlendModes.ADD);
+  speedZoneParticleGraphics.setDepth(SPEED_ZONE_PARTICLE_DEPTH);
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
   const clearSpeedZones = (): void => {
     speedZoneLayer.removeAll(true);
