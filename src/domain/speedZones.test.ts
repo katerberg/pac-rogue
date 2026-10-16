@@ -4,11 +4,16 @@ import {
   isSpeedZoneLevel,
   pickSpeedZones,
   SLOW_ZONE_MULTIPLIER,
-  SPEED_ZONE_SIZE,
+  SPEED_ZONE_COUNT,
+  SPEED_ZONE_MAX_LENGTH,
+  SPEED_ZONE_MIN_GAP_TILES,
+  SPEED_ZONE_MIN_LENGTH,
   speedZoneAt,
+  speedZoneCells,
+  speedZoneEffect,
   speedZoneGlowMask,
-  speedZoneHallwayCells,
   speedZoneMultiplier,
+  speedZonePulsePoints,
   type SpeedZone,
   type SpeedZoneBoard,
 } from "./speedZones";
@@ -19,26 +24,23 @@ function grid(cols: number, rows: number, fill: (col: number, row: number) => bo
   );
 }
 
-function openBoard(cols = 12, rows = 12): SpeedZoneBoard {
+function board(cols: number, rows: number, solid: (col: number, row: number) => boolean) {
   return {
     cols,
     rows,
-    playerSolids: grid(cols, rows, () => false),
+    playerSolids: grid(cols, rows, solid),
     house: grid(cols, rows, () => false),
     door: grid(cols, rows, () => false),
     playerSpawn: { col: 0, row: 0 },
-  };
+  } satisfies SpeedZoneBoard;
 }
 
-function cells(zone: SpeedZone): string[] {
-  const out: string[] = [];
-  for (let r = zone.row; r < zone.row + zone.size; r += 1) {
-    for (let c = zone.col; c < zone.col + zone.size; c += 1) {
-      out.push(`${c},${r}`);
-    }
-  }
-  return out;
+function lcg(seed: number): () => number {
+  let n = seed;
+  return () => (n = (n * 9301 + 49297) % 233280) / 233280;
 }
+
+const lane: SpeedZone = { col: 2, row: 3, axis: "horizontal", length: 4, fastDir: "right" };
 
 describe("isSpeedZoneLevel", () => {
   it("is true only for levels 5 through 8", () => {
@@ -51,136 +53,143 @@ describe("isSpeedZoneLevel", () => {
   });
 });
 
-describe("speedZoneMultiplier", () => {
-  it("slows, speeds up or leaves the player alone", () => {
-    expect(speedZoneMultiplier("slow")).toBe(SLOW_ZONE_MULTIPLIER);
-    expect(speedZoneMultiplier("fast")).toBe(FAST_ZONE_MULTIPLIER);
-    expect(speedZoneMultiplier(null)).toBe(1);
-    expect(SLOW_ZONE_MULTIPLIER).toBeLessThan(1);
-    expect(FAST_ZONE_MULTIPLIER).toBeGreaterThan(1);
-  });
-});
-
-describe("speedZoneAt", () => {
-  const zones: SpeedZone[] = [
-    { kind: "slow", col: 2, row: 3, size: 4 },
-    { kind: "fast", col: 8, row: 8, size: 4 },
-  ];
-
-  it("covers exactly the 4x4 square", () => {
-    expect(speedZoneAt(zones, 2, 3)).toBe("slow");
-    expect(speedZoneAt(zones, 5, 6)).toBe("slow");
-    expect(speedZoneAt(zones, 6, 6)).toBeNull();
-    expect(speedZoneAt(zones, 1, 3)).toBeNull();
-    expect(speedZoneAt(zones, 11, 11)).toBe("fast");
-    expect(speedZoneAt([], 2, 3)).toBeNull();
-  });
-});
-
-describe("speedZoneHallwayCells", () => {
-  it("lists only the walkable cells inside the zone", () => {
-    const solids = grid(6, 6, (c, r) => !(r === 2 || c === 3));
-    const zone: SpeedZone = { kind: "fast", col: 1, row: 1, size: 4 };
-    expect(speedZoneHallwayCells(zone, solids)).toEqual([
-      { col: 3, row: 1 },
-      { col: 1, row: 2 },
-      { col: 2, row: 2 },
-      { col: 3, row: 2 },
-      { col: 4, row: 2 },
+describe("speedZoneCells / speedZoneAt", () => {
+  it("lists a straight run of cells along the lane axis", () => {
+    expect(speedZoneCells(lane)).toEqual([
+      { col: 2, row: 3 },
       { col: 3, row: 3 },
-      { col: 3, row: 4 },
+      { col: 4, row: 3 },
+      { col: 5, row: 3 },
     ]);
+    expect(speedZoneCells({ ...lane, axis: "vertical", length: 3, fastDir: "up" })).toEqual([
+      { col: 2, row: 3 },
+      { col: 2, row: 4 },
+      { col: 2, row: 5 },
+    ]);
+  });
+
+  it("finds the lane covering a cell", () => {
+    expect(speedZoneAt([lane], 5, 3)).toBe(lane);
+    expect(speedZoneAt([lane], 6, 3)).toBeNull();
+    expect(speedZoneAt([lane], 3, 4)).toBeNull();
+  });
+});
+
+describe("speedZoneEffect", () => {
+  it("is fast along the fast direction, slow against it, and neutral across", () => {
+    expect(speedZoneEffect(lane, 140, 0)).toBe("fast");
+    expect(speedZoneEffect(lane, -140, 0)).toBe("slow");
+    expect(speedZoneEffect(lane, 0, 140)).toBeNull();
+    expect(speedZoneEffect(lane, 0, 0)).toBeNull();
+    const up: SpeedZone = { ...lane, axis: "vertical", fastDir: "up" };
+    expect(speedZoneEffect(up, 0, -140)).toBe("fast");
+    expect(speedZoneEffect(up, 0, 140)).toBe("slow");
+  });
+
+  it("maps effects to multipliers", () => {
+    expect(speedZoneMultiplier("fast")).toBe(FAST_ZONE_MULTIPLIER);
+    expect(speedZoneMultiplier("slow")).toBe(SLOW_ZONE_MULTIPLIER);
+    expect(speedZoneMultiplier(null)).toBe(1);
+  });
+});
+
+describe("speedZonePulsePoints", () => {
+  it("runs pulses from the slow end toward the fast end over time", () => {
+    const at = (ms: number) => speedZonePulsePoints(lane, ms)[0]!;
+    expect(at(0).col).toBe(2);
+    expect(at(0).row).toBe(3.5);
+    expect(at(200).col).toBeGreaterThan(at(0).col);
+    const left = { ...lane, fastDir: "left" as const };
+    expect(speedZonePulsePoints(left, 0)[0]!.col).toBe(6);
+    expect(speedZonePulsePoints(left, 200)[0]!.col).toBeLessThan(6);
+  });
+
+  it("keeps every pulse inside the lane and fades them at the ends", () => {
+    for (const ms of [0, 130, 470, 999]) {
+      for (const pulse of speedZonePulsePoints(lane, ms)) {
+        expect(pulse.col).toBeGreaterThanOrEqual(2);
+        expect(pulse.col).toBeLessThan(6);
+        expect(pulse.alpha).toBeGreaterThanOrEqual(0);
+        expect(pulse.alpha).toBeLessThanOrEqual(1);
+      }
+    }
+    expect(speedZonePulsePoints(lane, 0)[0]!.alpha).toBe(0);
   });
 });
 
 describe("speedZoneGlowMask", () => {
   const style = { tileSize: 10, reachPx: 6, fillAlpha: 0.5, glowPeakAlpha: 0.8 };
-  const zone: SpeedZone = { kind: "slow", col: 0, row: 0, size: 4 };
-  const at = (mask: ReturnType<typeof speedZoneGlowMask>, x: number, y: number) =>
-    mask.alpha[y * mask.width + x]!;
+  const mask = speedZoneGlowMask(lane, style);
+  const at = (x: number, y: number) => mask.alpha[y * mask.width + x]!;
 
-  it("pads the zone square by the glow reach on every side", () => {
-    const mask = speedZoneGlowMask(zone, [{ col: 0, row: 0 }], style);
-    expect(mask.width).toBe(4 * 10 + 2 * 6);
-    expect(mask.height).toBe(mask.width);
+  it("covers the lane padded by the glow reach", () => {
+    expect(mask.width).toBe(4 * 10 + 12);
+    expect(mask.height).toBe(10 + 12);
   });
 
-  it("fills hallway cells and fades out with distance past their edges", () => {
-    const mask = speedZoneGlowMask(zone, [{ col: 1, row: 1 }], style);
-    expect(at(mask, 20, 20)).toBe(0.5);
-    const near = at(mask, 16 + 10, 20);
-    const far = at(mask, 16 + 13, 20);
-    expect(near).toBeGreaterThan(far);
-    expect(far).toBeGreaterThan(0);
-    expect(at(mask, 16 + 16, 20)).toBe(0);
-    expect(at(mask, 0, 0)).toBe(0);
+  it("fills the lane body and fades with distance outside it", () => {
+    expect(at(26, 11)).toBe(0.5);
+    expect(at(26, 3)).toBeGreaterThan(at(26, 1));
+    expect(at(0, 0)).toBe(0);
   });
 
-  it("rounds convex corners: a diagonal offset glows less than the same orthogonal offset", () => {
-    const mask = speedZoneGlowMask(zone, [{ col: 1, row: 1 }], style);
-    const edge = 16 + 10;
-    const orthogonal = at(mask, edge + 2, 20);
-    const diagonal = at(mask, edge + 2, edge + 2);
-    expect(diagonal).toBeGreaterThan(0);
-    expect(diagonal).toBeLessThan(orthogonal);
-  });
-
-  it("does not double up where two cells meet at an inside corner", () => {
-    const cells = [
-      { col: 1, row: 1 },
-      { col: 2, row: 1 },
-      { col: 2, row: 2 },
-    ];
-    const mask = speedZoneGlowMask(zone, cells, style);
-    const insideCorner = at(mask, 24, 27);
-    const besideOneEdge = at(mask, 20, 14);
-    expect(insideCorner).toBeGreaterThan(0);
-    expect(insideCorner).toBeCloseTo(besideOneEdge, 5);
+  it("rounds the lane ends instead of squaring them", () => {
+    const squareCorner = at(6, 6);
+    const endMiddle = at(6, 11);
+    expect(endMiddle).toBe(0.5);
+    expect(squareCorner).toBeLessThan(0.5);
   });
 });
 
 describe("pickSpeedZones", () => {
-  it("drops one 4x4 slow zone and one 4x4 fast zone that do not overlap", () => {
-    for (let seed = 0; seed < 50; seed += 1) {
-      let n = seed;
-      const zones = pickSpeedZones(openBoard(), () => (n = (n * 9301 + 49297) % 233280) / 233280);
-      expect(zones.map((z) => z.kind)).toEqual(["slow", "fast"]);
+  const maze = board(14, 14, (c, r) => !(r % 4 === 1 || c % 4 === 1));
+
+  it("drops two straight lanes of 3-6 walkable tiles kept apart by the minimum gap", () => {
+    for (let seed = 0; seed < 40; seed += 1) {
+      const zones = pickSpeedZones(maze, lcg(seed));
+      expect(zones).toHaveLength(SPEED_ZONE_COUNT);
       for (const zone of zones) {
-        expect(zone.size).toBe(SPEED_ZONE_SIZE);
-        expect(zone.col + zone.size).toBeLessThanOrEqual(12);
-        expect(zone.row + zone.size).toBeLessThanOrEqual(12);
+        expect(zone.length).toBeGreaterThanOrEqual(SPEED_ZONE_MIN_LENGTH);
+        expect(zone.length).toBeLessThanOrEqual(SPEED_ZONE_MAX_LENGTH);
+        expect(zone.fastDir).toMatch(zone.axis === "horizontal" ? /left|right/ : /up|down/);
+        for (const cell of speedZoneCells(zone)) {
+          expect(maze.playerSolids[cell.row]![cell.col]).toBe(false);
+          expect(cell.col).toBeGreaterThan(0);
+          expect(cell.col).toBeLessThan(maze.cols - 1);
+        }
       }
-      const slow = new Set(cells(zones[0]!));
-      expect(cells(zones[1]!).some((cell) => slow.has(cell))).toBe(false);
+      const [a, b] = zones as [SpeedZone, SpeedZone];
+      const near = speedZoneCells(a).some((ca) =>
+        speedZoneCells(b).some(
+          (cb) =>
+            Math.abs(ca.col - cb.col) < SPEED_ZONE_MIN_GAP_TILES &&
+            Math.abs(ca.row - cb.row) < SPEED_ZONE_MIN_GAP_TILES,
+        ),
+      );
+      expect(near).toBe(false);
     }
   });
 
-  it("keeps zones off the ghost house, door and player spawn", () => {
-    const board = openBoard();
-    board.house = grid(12, 12, (c, r) => c >= 4 && c < 8 && r >= 4 && r < 6);
-    board.door = grid(12, 12, (c, r) => c === 5 && r === 3);
-    board.playerSpawn = { col: 6, row: 9 };
-    for (const r of [0, 0.25, 0.5, 0.75, 0.999]) {
-      for (const zone of pickSpeedZones(board, () => r)) {
-        for (const cell of cells(zone)) {
-          const [c, row] = cell.split(",").map(Number) as [number, number];
-          expect(board.house[row]![c]).toBe(false);
-          expect(board.door[row]![c]).toBe(false);
-          expect(c === 6 && row === 9).toBe(false);
+  it("never lays a lane on the ghost house, door or player spawn", () => {
+    const blocked = {
+      ...maze,
+      house: grid(14, 14, (c, r) => r === 5 && c >= 4),
+      door: grid(14, 14, (c, r) => r === 9 && c === 6),
+      playerSpawn: { col: 3, row: 1 },
+    };
+    for (let seed = 0; seed < 40; seed += 1) {
+      for (const zone of pickSpeedZones(blocked, lcg(seed))) {
+        for (const cell of speedZoneCells(zone)) {
+          expect(blocked.house[cell.row]![cell.col]).toBe(false);
+          expect(blocked.door[cell.row]![cell.col]).toBe(false);
+          expect(cell.col === 3 && cell.row === 1).toBe(false);
         }
       }
     }
   });
 
-  it("skips squares that are mostly wall", () => {
-    const board = openBoard(8, 4);
-    board.playerSolids = grid(8, 4, (c, r) => !(c >= 6 && r < 3));
-    const zones = pickSpeedZones(board, () => 0);
-    expect(zones).toEqual([{ kind: "slow", col: 4, row: 0, size: 4 }]);
-  });
-
-  it("returns no zones when nothing fits", () => {
-    const board = openBoard(3, 3);
-    expect(pickSpeedZones(board, () => 0)).toEqual([]);
+  it("returns no lanes when no straight run reaches three tiles", () => {
+    const tiny = board(4, 4, (c, r) => !(r === 1 && c <= 2));
+    expect(pickSpeedZones(tiny, lcg(1))).toEqual([]);
   });
 });

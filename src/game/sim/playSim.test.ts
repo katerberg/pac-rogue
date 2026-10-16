@@ -46,6 +46,7 @@ import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import {
   FAST_ZONE_MULTIPLIER,
   SLOW_ZONE_MULTIPLIER,
+  speedZoneCells,
   type SpeedZone,
 } from "../../domain/speedZones";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
@@ -5515,30 +5516,54 @@ describe("Cornucopia", () => {
 });
 
 describe("speed zones", () => {
-  function walkableCellIn(zone: SpeedZone): { col: number; row: number } {
-    for (let row = zone.row; row < zone.row + zone.size; row += 1) {
-      for (let col = zone.col; col < zone.col + zone.size; col += 1) {
-        if (!getActiveLayout().playerSolids[row]![col]) {
-          return { col, row };
-        }
-      }
+  const KEY_FOR: Record<SpeedZone["fastDir"], "up" | "down" | "left" | "right"> = {
+    up: "up",
+    down: "down",
+    left: "left",
+    right: "right",
+  };
+  const OPPOSITE: Record<SpeedZone["fastDir"], SpeedZone["fastDir"]> = {
+    up: "down",
+    down: "up",
+    left: "right",
+    right: "left",
+  };
+
+  function laneMiddle(zone: SpeedZone): { col: number; row: number } {
+    return speedZoneCells(zone)[Math.floor(zone.length / 2)]!;
+  }
+
+  function speedMovingThrough(
+    zoneIndex: number,
+    dir: SpeedZone["fastDir"],
+    zonesOn: boolean,
+  ): { speed: number; effect: string | null } {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const zone = sim.snapshot().speedZones[zoneIndex]!;
+    if (!zonesOn) {
+      sim["speedZones"] = [];
     }
-    throw new Error("zone has no walkable cell");
+    const cell = laneMiddle(zone);
+    const player = playerEid(sim);
+    for (let frame = 0; frame < 2; frame += 1) {
+      sim["eatDragMs"] = 0;
+      Position.x[player] = cellCenterX(cell.col);
+      Position.y[player] = cellCenterY(cell.row);
+      runFrames(sim, 1, { keys: held(KEY_FOR[dir]) });
+    }
+    return { speed: Speed.px[player]!, effect: sim.snapshot().playerSpeedZone };
   }
 
-  function speedAt(sim: PlaySim, eid: number, col: number, row: number): number {
-    sim["eatDragMs"] = 0;
-    Position.x[eid] = cellCenterX(col);
-    Position.y[eid] = cellCenterY(row);
-    runFrames(sim, 1);
-    return Speed.px[eid]!;
-  }
-
-  it("drops one seeded slow zone and one fast zone on levels 5-8 only", () => {
+  it("lays two straight seeded lanes of 3+ tiles on levels 5-8 only", () => {
     for (const level of [5, 6, 7, 8]) {
       const zones = startSim({ level }, "zones").snapshot().speedZones;
-      expect(zones.map((zone) => zone.kind)).toEqual(["slow", "fast"]);
-      expect(zones.every((zone) => zone.size === 4)).toBe(true);
+      expect(zones).toHaveLength(2);
+      for (const zone of zones) {
+        expect(zone.length).toBeGreaterThanOrEqual(3);
+        for (const cell of speedZoneCells(zone)) {
+          expect(getActiveLayout().playerSolids[cell.row]![cell.col]).toBe(false);
+        }
+      }
       expect(startSim({ level }, "zones").snapshot().speedZones).toEqual(zones);
     }
     for (const level of [1, 2, 4, 9]) {
@@ -5546,40 +5571,52 @@ describe("speed zones", () => {
     }
   });
 
-  it("slows the player in the slow zone and speeds them up in the fast zone", () => {
-    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
-    const player = playerEid(sim);
-    const [slow, fast] = sim.snapshot().speedZones as [SpeedZone, SpeedZone];
-    const slowCell = walkableCellIn(slow);
-    const fastCell = walkableCellIn(fast);
-
-    const inSlow = speedAt(sim, player, slowCell.col, slowCell.row);
-    expect(sim.snapshot().playerSpeedZone).toBe("slow");
-    const inFast = speedAt(sim, player, fastCell.col, fastCell.row);
-    expect(sim.snapshot().playerSpeedZone).toBe("fast");
-    sim["speedZones"] = [];
-    const outside = speedAt(sim, player, slowCell.col, slowCell.row);
-    expect(sim.snapshot().playerSpeedZone).toBeNull();
-
-    expect(inSlow).toBeCloseTo(outside * SLOW_ZONE_MULTIPLIER);
-    expect(inFast).toBeCloseTo(outside * FAST_ZONE_MULTIPLIER);
+  it("speeds Dot-Man up along the fast direction and slows him the other way", () => {
+    for (const index of [0, 1]) {
+      const fastDir = startSim({ level: 5 }, "zones").snapshot().speedZones[index]!.fastDir;
+      const slowDir = OPPOSITE[fastDir];
+      const fast = speedMovingThrough(index, fastDir, true);
+      const slow = speedMovingThrough(index, slowDir, true);
+      expect(fast.effect).toBe("fast");
+      expect(slow.effect).toBe("slow");
+      expect(fast.speed).toBeCloseTo(
+        speedMovingThrough(index, fastDir, false).speed * FAST_ZONE_MULTIPLIER,
+      );
+      expect(slow.speed).toBeCloseTo(
+        speedMovingThrough(index, slowDir, false).speed * SLOW_ZONE_MULTIPLIER,
+      );
+    }
   });
 
-  it("leaves ghost speed alone inside a zone", () => {
+  it("has no effect while Dot-Man stands still in a lane", () => {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const cell = laneMiddle(sim.snapshot().speedZones[0]!);
+    teleportPlayer(sim, cellCenterX(cell.col), cellCenterY(cell.row));
+    runFrames(sim, 2);
+    expect(sim.snapshot().playerSpeedZone).toBeNull();
+  });
+
+  it("leaves ghost speed alone inside a lane", () => {
     const sim = startSim({ level: 5, infiniteLives: true }, "zones");
     const zones = sim.snapshot().speedZones;
     const ghost = query(sim.world, [Ghost, Position])[0]!;
     GhostPhase.value[ghost] = GHOST_PHASE.active;
     for (const zone of zones) {
-      const cell = walkableCellIn(zone);
+      const cell = laneMiddle(zone);
+      const ghostSpeed = (): number => {
+        Position.x[ghost] = cellCenterX(cell.col);
+        Position.y[ghost] = cellCenterY(cell.row);
+        runFrames(sim, 1);
+        return Speed.px[ghost]!;
+      };
       sim["speedZones"] = zones;
-      const inZone = speedAt(sim, ghost, cell.col, cell.row);
+      const inLane = ghostSpeed();
       sim["speedZones"] = [];
-      expect(speedAt(sim, ghost, cell.col, cell.row)).toBe(inZone);
+      expect(ghostSpeed()).toBe(inLane);
     }
   });
 
-  it("clears the zones when the store floor opens", () => {
+  it("clears the lanes when the store floor opens", () => {
     const sim = startSim({ level: 5 }, "zones");
     expect(sim.snapshot().speedZones).toHaveLength(2);
     (sim as unknown as { enterStore(): void }).enterStore();
@@ -5588,7 +5625,7 @@ describe("speed zones", () => {
     expect(sim.snapshot().playerSpeedZone).toBeNull();
   });
 
-  it("draws the zones for the render bridge", () => {
+  it("draws the lanes for the render bridge", () => {
     const sim = startSim({ level: 6 }, "zones");
     expect(sim.renderOptions().speedZones).toEqual(sim.snapshot().speedZones);
   });

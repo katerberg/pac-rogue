@@ -145,9 +145,10 @@ import {
   isSpeedZoneLevel,
   pickSpeedZones,
   speedZoneAt,
+  speedZoneEffect,
   speedZoneMultiplier,
   type SpeedZone,
-  type SpeedZoneKind,
+  type SpeedZoneEffect,
 } from "../../domain/speedZones";
 import {
   GENERATE_MAX_ATTEMPTS,
@@ -1558,9 +1559,16 @@ export class PlaySim {
       : [];
   }
 
-  private playerSpeedZone(): SpeedZoneKind | null {
+  private playerSpeedZone(): SpeedZoneEffect | null {
     const cell = playerCell(this.world);
-    return cell === null ? null : speedZoneAt(this.speedZones, cell.col, cell.row);
+    const zone = cell === null ? null : speedZoneAt(this.speedZones, cell.col, cell.row);
+    if (zone === null) {
+      return null;
+    }
+    const eid = query(this.world, [Player, Velocity])[0];
+    return eid === undefined
+      ? null
+      : speedZoneEffect(zone, Velocity.x[eid] ?? 0, Velocity.y[eid] ?? 0);
   }
 
   private tickTimedTunnel(deltaMs: number): void {
