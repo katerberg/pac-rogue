@@ -758,12 +758,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         decorate?.(trailKey);
       }
     };
-    const drawVisor = (
-      bodyKey: string,
-      pose: VisorPose,
-      liftArtPx: number,
-      applyTint: (go: Phaser.GameObjects.Image) => void,
-    ): void => {
+    const drawVisor = (bodyKey: string, pose: VisorPose, liftArtPx: number): void => {
       const body = drawableObjects.get(bodyKey);
       if (!body) {
         return;
@@ -786,7 +781,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       visor.setFlipX(pose.flipX);
       visor.setDepth(body.depth);
       visor.setAlpha(body.alpha);
-      applyTint(visor);
+      applyPlayerTint(visor, playerTintNow);
     };
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
@@ -978,7 +973,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           go.setDisplaySize(look.size, look.size);
           go.setAlpha(look.alpha);
         }
-        drawVisor(primaryKey, pose, visorLift, applyTintNow);
+        drawVisor(primaryKey, pose, visorLift);
 
         const trail =
           glide !== undefined
@@ -996,7 +991,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             applyTintNow,
             trail.tag,
             trail.depth,
-            (trailKey) => drawVisor(trailKey, pose, visorLift, applyTintNow),
+            (trailKey) => drawVisor(trailKey, pose, visorLift),
           );
         }
         if (
@@ -1018,7 +1013,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             }
             twinGo.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
             applyTintNow(twinGo);
-            drawVisor(twinKey, pose, visorLift, applyTintNow);
+            drawVisor(twinKey, pose, visorLift);
           }
         }
       }
