@@ -34,10 +34,6 @@ export function stepHeading(current: number, target: number, dtMs: number): numb
 
 export type VisorPose = { rotation: number; flipX: boolean };
 
-/**
- * Pose for the right-facing visor art at a heading angle. Leftward headings mirror the
- * art instead of rotating it past vertical, so the visor stays upright and bobs up.
- */
 export function visorPose(angle: number): VisorPose {
   const wrapped = Math.atan2(Math.sin(angle), Math.cos(angle));
   if (Math.cos(wrapped) >= -1e-6) {

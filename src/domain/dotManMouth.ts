@@ -9,10 +9,8 @@ export function dotManChompPixelsPerFrame(speed: number): number {
 /** Travel (px) per mouth beat at the default chomp speed. */
 export const DOTMAN_CHOMP_PIXELS_PER_FRAME = dotManChompPixelsPerFrame(DOTMAN_CHOMP_SPEED_DEFAULT);
 
-/** Chomp beats per visor bob: the visor rises and falls once every this many beats. */
 export const DOTMAN_CHOMP_BEATS = 4;
 
-/** Peak visor lift, in art pixels. */
 export const DOTMAN_VISOR_BOB_ART_PX = 1;
 
 export type DotManChomp = { carry: number; cycleIndex: number };
@@ -31,7 +29,6 @@ export function advanceDotManChomp(
   return { carry, cycleIndex };
 }
 
-/** Visor lift (art px) for a chomp state: one smooth rise and fall per cycle, peaking mid-cycle. */
 export function dotManVisorLift(
   chomp: DotManChomp,
   pixelsPerFrame: number = DOTMAN_CHOMP_PIXELS_PER_FRAME,

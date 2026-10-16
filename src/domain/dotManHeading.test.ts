@@ -51,7 +51,6 @@ describe("visorPose", () => {
     const downLeft = (3 * Math.PI) / 4;
     const pose = visorPose(downLeft);
     expect(pose.flipX).toBe(true);
-    // Mirrored art faces -x; rotating it by the pose must point along the heading.
     expect(-Math.cos(pose.rotation)).toBeCloseTo(Math.cos(downLeft));
     expect(-Math.sin(pose.rotation)).toBeCloseTo(Math.sin(downLeft));
   });
