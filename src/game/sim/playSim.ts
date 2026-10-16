@@ -142,9 +142,20 @@ import {
   type TimedTunnelPhase,
 } from "../../domain/timedTunnel";
 import {
+  isLavaZoneLevel,
+  lavaFlashOn,
+  lavaPhase,
+  lavaReachTiles,
+  lavaTouchesCircle,
+  pickLavaZone,
+  type LavaRenderState,
+  type LavaZone,
+} from "../../domain/lavaZone";
+import {
   isSpeedZoneLevel,
   pickSpeedZones,
   speedZoneAt,
+  speedZoneCells,
   speedZoneEffect,
   speedZoneMultiplier,
   type SpeedZone,
@@ -486,6 +497,8 @@ export class PlaySim {
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
+  private lavaZone: LavaZone | null = null;
+  private lavaElapsedMs = 0;
   private speedZones: SpeedZone[] = [];
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
@@ -741,6 +754,7 @@ export class PlaySim {
       wallAlpha: this.bossStageDraw?.wallAlpha,
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
+      lava: this.lavaRenderState(),
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       pupilTarget: this.blinkyPupilTarget(),
@@ -821,6 +835,7 @@ export class PlaySim {
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
       },
       timedTunnel: this.timedTunnelSnapshot(),
+      lava: this.lavaSnapshot(),
       speedZones: this.speedZones,
       playerSpeedZone: this.playerSpeedZone(),
       wallDrop: {
@@ -1010,6 +1025,7 @@ export class PlaySim {
       ghostHarvest: ghostHarvestActive(this.runUpgrades),
     });
     this.tickTimedTunnel(delta);
+    this.lavaElapsedMs += delta;
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const turnTuningOpts =
@@ -1438,9 +1454,10 @@ export class PlaySim {
 
     const catchOptions = this.catchOptions();
     const caughtBy = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+    const lavaKill = caughtBy === null && this.playerTouchesLava(catchOptions);
     this.emitDraw();
 
-    if (caughtBy === null) {
+    if (caughtBy === null && !lavaKill) {
       this.recorder.nearMisses(this.world, getActiveLayout().tileSize);
       this.payNearMisses(catchOptions);
     } else {
@@ -1509,7 +1526,8 @@ export class PlaySim {
         col: deathCell?.col ?? -1,
         row: deathCell?.row ?? -1,
         ghost: ghostName(this.world, caughtBy),
-        bossGhost: hasComponent(this.world, caughtBy, BossGhost),
+        bossGhost: caughtBy !== null && hasComponent(this.world, caughtBy, BossGhost),
+        lava: lavaKill,
         countdown: this.clock.remaining,
         pelletsLeft: this.pelletProgress.pelletsRemaining,
         ghostMode: nameOf(GHOST_AI_MODE, this.previousEffectiveGhostMode),
@@ -1606,6 +1624,56 @@ export class PlaySim {
     this.timedTunnelGatedRow = pickTimedTunnelRow(
       horizontalTunnelRows(),
       this.random.stream("timedTunnel", this.levelIndex),
+    );
+  }
+
+  private resetLavaZone(): void {
+    this.lavaElapsedMs = 0;
+    this.lavaZone =
+      this.options.levelModifiers && isLavaZoneLevel(this.levelIndex)
+        ? pickLavaZone(
+            getActiveLayout(),
+            {
+              tunnelRows: horizontalTunnelRows(),
+              cells: this.speedZones.flatMap(speedZoneCells),
+            },
+            this.random.stream("lavaZone", this.levelIndex),
+          )
+        : null;
+  }
+
+  private lavaRenderState(): LavaRenderState | null {
+    if (this.lavaZone === null) {
+      return null;
+    }
+    return {
+      zone: this.lavaZone,
+      phase: lavaPhase(this.lavaElapsedMs),
+      reachTiles: lavaReachTiles(this.lavaElapsedMs),
+      flashOn: lavaFlashOn(this.lavaElapsedMs),
+    };
+  }
+
+  private lavaSnapshot() {
+    const state = this.lavaRenderState();
+    if (state === null) {
+      return null;
+    }
+    const { zone, ...rest } = state;
+    return { ...zone, ...rest };
+  }
+
+  private playerTouchesLava(catchOptions: CatchOptions): boolean {
+    const eid = query(this.world, [Player, Position, Drawable])[0];
+    if (this.lavaZone === null || eid === undefined || catchOptions.playerInvulnerable === true) {
+      return false;
+    }
+    return lavaTouchesCircle(
+      this.lavaZone,
+      lavaReachTiles(this.lavaElapsedMs),
+      Position.x[eid] ?? 0,
+      Position.y[eid] ?? 0,
+      Drawable.radius[eid] ?? 0,
     );
   }
 
@@ -1867,6 +1935,7 @@ export class PlaySim {
     this.world = createWorld();
     spawnWalls(this.world);
     spawnPlayer(this.world);
+    this.lavaZone = null;
     this.speedZones = [];
 
     this.applyLifeRegen(STORE_REGEN_AMOUNT);
@@ -2175,6 +2244,7 @@ export class PlaySim {
     this.resetHyperspeedMovement();
     this.resetTimedTunnel();
     this.resetSpeedZones();
+    this.resetLavaZone();
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
@@ -2563,7 +2633,8 @@ export class PlaySim {
       this.eatFrightenedGhosts();
       const catchOptions = this.catchOptions();
       const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-      if (hit !== null && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield())) {
+      const touched = hit !== null || this.playerTouchesLava(catchOptions);
+      if (touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield())) {
         caught = true;
         this.zeroPlayerSpeed();
       }
@@ -3034,6 +3105,7 @@ export class PlaySim {
   }
 
   private resetAfterLifeLoss(): void {
+    this.lavaElapsedMs = 0;
     this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.warpGlide = null;

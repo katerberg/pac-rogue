@@ -43,6 +43,7 @@ import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import { LAVA_CYCLE_MS, LAVA_EMERGE_MS, LAVA_MAX_REACH_TILES } from "../../domain/lavaZone";
 import {
   FAST_ZONE_MULTIPLIER,
   SLOW_ZONE_MULTIPLIER,
@@ -5193,6 +5194,209 @@ describe("timed tunnels", () => {
     const x = Position.x[playerEid(sim)]!;
     expect(x).toBeGreaterThanOrEqual(clampToGridCenters(-1e9, 0).x);
     expect(x).toBeLessThanOrEqual(clampToGridCenters(1e9, 0).x);
+  });
+});
+
+describe("lava zone", () => {
+  function framesFor(ms: number): number {
+    return Math.ceil(ms / FRAME_MS);
+  }
+
+  function lavaSim(seed: string, overrides: Partial<PlayOptions> = {}): PlaySim {
+    const sim = startSim({ level: 8, maze: "maze1", infiniteLives: true, ...overrides }, seed);
+    for (const eid of query(sim.world, [Ghost])) {
+      removeEntity(sim.world, eid);
+    }
+    return sim;
+  }
+
+  function parkAwayFromLava(sim: PlaySim): void {
+    const spawn = getActiveLayout().playerSpawn;
+    teleportPlayer(sim, cellCenterX(spawn.col), cellCenterY(spawn.row));
+  }
+
+  function lavaDeaths(sim: PlaySim) {
+    return sim
+      .runLogRecord()
+      .levels.at(-1)!
+      .deaths.filter((death) => death.lava);
+  }
+
+  it("places one seeded zone on level 8 only, centred on a straight hallway away from intersections", () => {
+    const lava = startSim({ level: 8, maze: "maze1" }, "lava-seed").snapshot().lava!;
+    expect(startSim({ level: 8, maze: "maze1" }, "lava-seed").snapshot().lava).toEqual(lava);
+    expect(lava.phase).toBe("dormant");
+    expect(lava.cells.length).toBeGreaterThanOrEqual(3);
+    const open = (col: number, row: number) => isWalkable(col, row);
+    const { col, row } = lava;
+    expect(open(col - 1, row) === open(col + 1, row)).toBe(true);
+    expect(open(col, row - 1) === open(col, row + 1)).toBe(true);
+    expect(open(col - 1, row) !== open(col, row - 1)).toBe(true);
+    for (const cell of lava.cells) {
+      const exits = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ].filter(([dx, dy]) => open(cell.col + dx!, cell.row + dy!));
+      expect(exits.length).toBeLessThanOrEqual(2);
+    }
+    for (const level of [2, 5, 7]) {
+      expect(startSim({ level, maze: "maze1" }, "lava-seed").snapshot().lava).toBeNull();
+    }
+  });
+
+  it("is a level modifier that ?levelModifiers=0 turns off", () => {
+    expect(startSim({ level: 8 }, "lava-mods").snapshot().lava).not.toBeNull();
+    expect(startSim({ level: 8, levelModifiers: false }, "lava-mods").snapshot().lava).toBeNull();
+  });
+
+  it("never puts a lava cell on a speed lane", () => {
+    for (let i = 0; i < 40; i += 1) {
+      const snap = startSim({ level: 8 }, `lava-lane-${i}`).snapshot();
+      const laneCells = new Set(
+        snap.speedZones.flatMap(speedZoneCells).map((c) => `${c.col},${c.row}`),
+      );
+      expect(snap.speedZones).toHaveLength(2);
+      for (const cell of snap.lava!.cells) {
+        expect(laneCells.has(`${cell.col},${cell.row}`)).toBe(false);
+      }
+    }
+  });
+
+  it("is harmless while dormant and warning, then kills Dot-Man at full reach", () => {
+    const sim = lavaSim("lava-kill");
+    const { col, row } = sim.snapshot().lava!;
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    const flashes = { dormant: new Set<boolean>(), warn: new Set<boolean>() };
+    runUntil(
+      sim,
+      () => {
+        const lava = sim.snapshot().lava!;
+        if (lava.phase === "dormant" || lava.phase === "warn") {
+          flashes[lava.phase].add(lava.flashOn);
+        }
+        return flashes.warn.has(true) && flashes.warn.has(false);
+      },
+      framesFor(10_000),
+    );
+    expect([...flashes.dormant]).toEqual([false]);
+    expect(flashes.warn).toEqual(new Set([true, false]));
+    expect(sim.snapshot().dying).toBe(false);
+
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
+    expect(sim.snapshot().lava!.reachTiles).toBe(LAVA_MAX_REACH_TILES);
+    expect(sim.snapshot().dying).toBe(false);
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    expect(lavaDeaths(sim)).toHaveLength(1);
+    expect(lavaDeaths(sim)[0]).toMatchObject({ ghost: null, col, row });
+  });
+
+  it("creeps out from the centre, so an outer cell is safe early and deadly later", () => {
+    const sim = lavaSim("lava-creep");
+    const outer = sim.snapshot().lava!.cells.at(-1)!;
+    teleportPlayer(sim, cellCenterX(outer.col), cellCenterY(outer.row));
+    runUntil(sim, () => sim.snapshot().lava!.phase === "emerging", framesFor(10_000));
+    runUntil(sim, () => sim.snapshot().lava!.reachTiles >= 0.5, framesFor(5000));
+    expect(sim.snapshot().dying).toBe(false);
+    runUntil(sim, () => sim.snapshot().dying, framesFor(LAVA_EMERGE_MS));
+    expect(sim.snapshot().lava!.phase).toBe("emerging");
+    expect(sim.snapshot().lava!.reachTiles).toBeLessThan(LAVA_MAX_REACH_TILES);
+  });
+
+  it("retracts to nothing, rests, and comes back on a 16s cycle", () => {
+    const sim = lavaSim("lava-cycle");
+    parkAwayFromLava(sim);
+    const phases: string[] = [];
+    for (let frame = 0; frame < framesFor(LAVA_CYCLE_MS + 7500); frame += 1) {
+      runFrames(sim, 1);
+      const phase = sim.snapshot().lava!.phase;
+      if (phases.at(-1) !== phase) {
+        phases.push(phase);
+      }
+    }
+    expect(phases).toEqual([
+      "dormant",
+      "warn",
+      "emerging",
+      "full",
+      "retracting",
+      "dormant",
+      "warn",
+      "emerging",
+    ]);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("restarts the cycle dormant after a lava death so a respawn on the spot is safe", () => {
+    const sim = lavaSim("lava-respawn");
+    const { col, row } = sim.snapshot().lava!;
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    runUntil(sim, () => !sim.snapshot().dying, 600);
+    expect(sim.snapshot().lava).toMatchObject({ phase: "dormant", reachTiles: 0 });
+  });
+
+  it("catches a Hyperspeed dash that would skip over a thin sliver of lava", () => {
+    const sim = lavaSim("lava-dash", { enableUpgrades: ["powerPelletHyperspeed"] });
+    const lava = sim.snapshot().lava!;
+    const step = lava.cells.find(
+      (c) => isWalkable(2 * c.col - lava.col, 2 * c.row - lava.row) && c !== lava.cells[0],
+    )!;
+    const dx = step.col - lava.col;
+    const dy = step.row - lava.row;
+    const toward = dx > 0 ? "left" : dx < 0 ? "right" : dy > 0 ? "up" : "down";
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "emerging", framesFor(10_000));
+    expect(sim.snapshot().lava!.reachTiles).toBeLessThan(0.05);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], hyperspeedRemainingMs: 2000 };
+    teleportPlayer(sim, cellCenterX(lava.col + 2 * dx), cellCenterY(lava.row + 2 * dy));
+    runFrames(sim, 4, { keys: held(toward) });
+    expect(sim.snapshot().dying).toBe(true);
+    expect(lavaDeaths(sim)).toHaveLength(1);
+  });
+
+  it("does not kill an invulnerable Dot-Man", () => {
+    const sim = lavaSim("lava-god", { godMode: true });
+    const { col, row } = sim.snapshot().lava!;
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 10);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("lets ghosts cross it unharmed", () => {
+    const sim = startSim({ level: 8, maze: "maze1", godMode: true }, "lava-ghost");
+    const { col, row } = sim.snapshot().lava!;
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cellCenterX(col);
+    Position.y[ghost] = cellCenterY(row);
+    runFrames(sim, 20);
+    expect(hasComponent(sim.world, ghost, Ghost)).toBe(true);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
+    expect(
+      Math.hypot(Position.x[ghost]! - cellCenterX(col), Position.y[ghost]! - cellCenterY(row)),
+    ).toBeGreaterThan(TILE_SIZE);
+  });
+
+  it("carries the zone into render options and clears it on store floors", () => {
+    const sim = startSim({ level: 8, maze: "maze1" }, "lava-render");
+    expect(sim.renderOptions().lava?.zone.col).toBe(sim.snapshot().lava!.col);
+    const cleared = startSim({ level: 8, maze: "maze1", jumpToUpgrade: true }, "lava-store");
+    expect(cleared.snapshot().lava).not.toBeNull();
+    takeFirstOffered(cleared);
+    runUntil(cleared, () => cleared.snapshot().inStore, framesFor(20_000));
+    expect(cleared.snapshot().lava).toBeNull();
+    expect(cleared.renderOptions().lava).toBeNull();
   });
 });
 

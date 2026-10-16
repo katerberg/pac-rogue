@@ -14,6 +14,7 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import {
   SPEED_ZONE_COUNT,
   speedZoneGlowMask,
@@ -468,6 +469,7 @@ export type RenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  lava?: LavaRenderState | null;
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
@@ -489,6 +491,13 @@ export type PlayRender = {
 const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
+const LAVA_DEPTH = -1.25;
+const LAVA_PX = 2;
+const LAVA_FLICKER_MS = 90;
+const LAVA_PALETTE = [0x5c0a00, 0x9e1800, 0xd83a00, 0xff6a00, 0xffa21f, 0xffd84a];
+const LAVA_HOT_COLOR = 0xfff2b0;
+const LAVA_BED_COLORS = [0x2a1612, 0x3b2a26, 0x55301e, 0x4a1a0e];
+const LAVA_BED_FLASH_COLORS = [0x3b2a26, 0x55301e, 0x8a2008, 0xc23a0a, 0xff6a00];
 const SPEED_ZONE_DEPTH = -2;
 const SPEED_ZONE_PARTICLE_DEPTH = -1.5;
 const SPEED_ZONE_COLOR = 0x3fa9ff;
@@ -506,6 +515,57 @@ const CHAIN_STROKES = [
   { strand: 0, width: 2.5, color: 0x9fe0ff, alpha: 0.95 },
   { strand: 1, width: 1, color: 0xffffff, alpha: 0.9 },
 ] as const;
+
+function lavaHash(a: number, b: number, c: number): number {
+  let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ Math.imul(c, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+function lavaPixelColor(lava: LavaRenderState, px: number, py: number, frame: number): number {
+  const d = lavaSignedDistancePx(lava.zone, lava.reachTiles, px + LAVA_PX / 2, py + LAVA_PX / 2);
+  if (d === null || d <= 0) {
+    const ember = lava.phase === "emerging" && d !== null && d > -3 * LAVA_PX;
+    if (ember && lavaHash(px, py, frame) > 0.8) {
+      return LAVA_PALETTE[4]!;
+    }
+    const bed = lava.flashOn ? LAVA_BED_FLASH_COLORS : LAVA_BED_COLORS;
+    return bed[Math.floor(lavaHash(px, py, 7) * bed.length)]!;
+  }
+  if (d < LAVA_PX && lava.phase === "emerging") {
+    return LAVA_HOT_COLOR;
+  }
+  if (d < LAVA_PX && lava.phase === "retracting") {
+    return LAVA_BED_COLORS[0]!;
+  }
+  const flame = lavaHash(px, py + frame * LAVA_PX, frame >> 2);
+  if (lava.phase === "full" && flame > 0.97) {
+    return LAVA_HOT_COLOR;
+  }
+  const blob = lavaHash(px >> 3, py >> 3, frame >> 3);
+  const heatShift = lava.phase === "retracting" ? 2 : 0;
+  const shade = Math.floor((0.65 * flame + 0.35 * blob) * LAVA_PALETTE.length) + 1 - heatShift;
+  return LAVA_PALETTE[Math.max(0, Math.min(LAVA_PALETTE.length - 1, shade))]!;
+}
+
+function drawLava(
+  graphics: Phaser.GameObjects.Graphics,
+  lava: LavaRenderState,
+  nowMs: number,
+): void {
+  const { tileSize } = getActiveLayout();
+  const frame = Math.floor(nowMs / LAVA_FLICKER_MS);
+  for (const cell of lava.zone.cells) {
+    const x0 = cellOriginX(cell.col);
+    const y0 = cellOriginY(cell.row);
+    for (let py = y0; py < y0 + tileSize; py += LAVA_PX) {
+      for (let px = x0; px < x0 + tileSize; px += LAVA_PX) {
+        graphics.fillStyle(lavaPixelColor(lava, px, py, frame), 1);
+        graphics.fillRect(px, py, LAVA_PX, LAVA_PX);
+      }
+    }
+  }
+}
 
 function addSpeedZoneGlow(
   scene: Phaser.Scene,
@@ -606,6 +666,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   };
   const droppedWallGraphics = scene.add.graphics();
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const lavaGraphics = scene.add.graphics();
+  lavaGraphics.setDepth(LAVA_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
@@ -1059,6 +1121,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       timedTunnelGraphics.fillStyle(0xffcc33, 0.85);
       timedTunnelGraphics.fillRect(cellCenterX(0) - barW / 2, y, barW, barH);
       timedTunnelGraphics.fillRect(cellCenterX(layout.cols - 1) - barW / 2, y, barW, barH);
+    }
+
+    lavaGraphics.clear();
+    if (opts?.lava) {
+      drawLava(lavaGraphics, opts.lava, scene.time.now);
     }
 
     droppedWallGraphics.clear();

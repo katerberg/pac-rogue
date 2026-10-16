@@ -63,6 +63,7 @@ export type DeathLog = {
   row: number;
   ghost: GhostName | null;
   bossGhost: boolean;
+  lava: boolean;
   countdown: number;
   pelletsLeft: number;
   ghostMode: string;

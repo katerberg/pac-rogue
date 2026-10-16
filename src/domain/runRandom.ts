@@ -16,6 +16,7 @@ export type RandomStream =
   | "echo"
   | "frightened"
   | "timedTunnel"
+  | "lavaZone"
   | "speedZones"
   | "bot";
 
