@@ -16,9 +16,8 @@ import {
 } from "../../domain/maze";
 import {
   SPEED_ZONE_COUNT,
-  speedZoneFastVector,
   speedZoneGlowMask,
-  speedZonePulsePoints,
+  speedZoneParticles,
   type SpeedZone,
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
@@ -491,14 +490,13 @@ const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
 const SPEED_ZONE_DEPTH = -2;
-const SPEED_ZONE_PULSE_DEPTH = -1.5;
+const SPEED_ZONE_PARTICLE_DEPTH = -1.5;
 const SPEED_ZONE_COLOR = 0x3fa9ff;
 const SPEED_ZONE_FILL_ALPHA = 0.5;
 const SPEED_ZONE_GLOW_PEAK_ALPHA = 0.6;
 const SPEED_ZONE_GLOW_REACH_TILES = 0.7;
-const SPEED_ZONE_PULSE_COLOR = 0xd8f2ff;
-const SPEED_ZONE_PULSE_SIZE_TILES = 0.45;
-const SPEED_ZONE_PULSE_LINE_PX = 2;
+const SPEED_ZONE_PARTICLE_COLOR = 0xd8f2ff;
+const SPEED_ZONE_PARTICLE_BASE_RADIUS_PX = 1;
 const SPEED_ZONE_TEXTURE_KEYS = Array.from(
   { length: SPEED_ZONE_COUNT },
   (_, i) => `speed-zone-glow-${i}`,
@@ -547,25 +545,21 @@ function addSpeedZoneGlow(
   container.add(glow);
 }
 
-function strokeSpeedZonePulses(
+function drawSpeedZoneParticles(
   graphics: Phaser.GameObjects.Graphics,
   zone: SpeedZone,
   nowMs: number,
 ): void {
   const { tileSize } = getActiveLayout();
-  const { dx, dy } = speedZoneFastVector(zone);
-  const half = (tileSize * SPEED_ZONE_PULSE_SIZE_TILES) / 2;
   const originX = cellOriginX(0);
   const originY = cellOriginY(0);
-  for (const pulse of speedZonePulsePoints(zone, nowMs)) {
-    const x = originX + pulse.col * tileSize;
-    const y = originY + pulse.row * tileSize;
-    graphics.lineStyle(SPEED_ZONE_PULSE_LINE_PX, SPEED_ZONE_PULSE_COLOR, pulse.alpha);
-    graphics.beginPath();
-    graphics.moveTo(x - dx * half - dy * half, y - dy * half - dx * half);
-    graphics.lineTo(x + dx * half, y + dy * half);
-    graphics.lineTo(x - dx * half + dy * half, y - dy * half + dx * half);
-    graphics.strokePath();
+  for (const particle of speedZoneParticles(zone, nowMs)) {
+    graphics.fillStyle(SPEED_ZONE_PARTICLE_COLOR, particle.alpha);
+    graphics.fillCircle(
+      originX + particle.col * tileSize,
+      originY + particle.row * tileSize,
+      SPEED_ZONE_PARTICLE_BASE_RADIUS_PX * particle.size,
+    );
   }
 }
 
@@ -600,12 +594,12 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const speedZoneLayer = scene.add.container(0, 0);
   speedZoneLayer.setDepth(SPEED_ZONE_DEPTH);
-  const speedZonePulseGraphics = scene.add.graphics();
-  speedZonePulseGraphics.setDepth(SPEED_ZONE_PULSE_DEPTH).setBlendMode(Phaser.BlendModes.ADD);
+  const speedZoneParticleGraphics = scene.add.graphics();
+  speedZoneParticleGraphics.setDepth(SPEED_ZONE_PARTICLE_DEPTH).setBlendMode(Phaser.BlendModes.ADD);
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
   const clearSpeedZones = (): void => {
     speedZoneLayer.removeAll(true);
-    speedZonePulseGraphics.clear();
+    speedZoneParticleGraphics.clear();
     for (const key of SPEED_ZONE_TEXTURE_KEYS) {
       if (scene.textures.exists(key)) {
         scene.textures.remove(key);
@@ -1052,9 +1046,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       );
       drawnSpeedZones = speedZones;
     }
-    speedZonePulseGraphics.clear();
+    speedZoneParticleGraphics.clear();
     for (const zone of speedZones) {
-      strokeSpeedZonePulses(speedZonePulseGraphics, zone, scene.time.now);
+      drawSpeedZoneParticles(speedZoneParticleGraphics, zone, scene.time.now);
     }
 
     timedTunnelGraphics.clear();

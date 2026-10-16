@@ -519,6 +519,20 @@ describe("PlaySim", () => {
     expect(getActiveLayout().playerSolids.map((row) => row.join(","))).not.toEqual(base);
   });
 
+  it("skips the inverted maze and speed lanes when level modifiers are off", () => {
+    const solidsAt = (level: number, levelModifiers: boolean): string[] => {
+      startSim({ level, levelModifiers }, "one-map");
+      return getActiveLayout().playerSolids.map((row) => row.join(","));
+    };
+    const base = solidsAt(2, true);
+    expect(solidsAt(6, true)).toEqual([...base].reverse());
+    expect(solidsAt(6, false)).toEqual(base);
+    expect(startSim({ level: 6, levelModifiers: false }, "one-map").snapshot().speedZones).toEqual(
+      [],
+    );
+    expect(startSim({ level: 6 }, "one-map").snapshot().speedZones).toHaveLength(2);
+  });
+
   it("collects pellets while the player moves", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
     const events = runFrames(sim, 60, { keys: held("left") });

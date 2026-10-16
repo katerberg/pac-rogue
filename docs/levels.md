@@ -20,7 +20,9 @@ Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-
 
 - **Inverted** levels (`isInvertedMazeLevel`): the run's base map is row-reversed in `startBoard` (`invertMazeAscii`) so spawn and house flip with it.
 - **Timed tunnel** levels (`isTimedTunnelLevel`): one seeded tunnel row cycles open / warn / closed.
-- **Speed lane** levels (`isSpeedZoneLevel`, `src/domain/speedZones.ts`): two seeded straight lanes (3+ tiles, never turning) speed Dot-Man up when he moves in the lane's fast direction and slow him moving the other way; ghosts ignore them. Pulses run down the lane toward the fast end.
+- **Speed lane** levels (`isSpeedZoneLevel`, `src/domain/speedZones.ts`): two seeded straight lanes (3+ tiles, never turning) speed Dot-Man up when he moves in the lane's fast direction and slow him moving the other way; ghosts ignore them. Faint dust particles drift down the lane toward the fast end, so the direction is implied rather than drawn.
+
+Inverted and speed lane levels are **level modifiers**: `?levelModifiers=0` turns them off (see README Flags). Add new modifiers behind `PlayOptions.levelModifiers` too.
 
 ## Scatter and chase
 
