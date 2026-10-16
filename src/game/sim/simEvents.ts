@@ -72,6 +72,16 @@ export type SimEvent =
   | { type: "quarters"; pulse: boolean }
   | { type: "shields" }
   | { type: "shieldCrack"; index: number; progress: number }
+  | {
+      type: "powerPelletBreak";
+      id: number;
+      x: number;
+      y: number;
+      facingDx: number;
+      facingDy: number;
+      intensity: number;
+      progress: number;
+    }
   | { type: "walletCoins"; spend: MoneyTalksSpend | null }
   | { type: "bonus"; tier: number; filled: number }
   | { type: "fruitBonus" }

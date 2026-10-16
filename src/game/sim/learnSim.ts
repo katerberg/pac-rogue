@@ -157,7 +157,6 @@ import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import { applyRemoteTransference } from "../systems/remoteTransference";
-import { anyKeyHeld } from "../systems/heldKeys";
 import {
   collectFruit,
   fruitKindsOnBoard,
@@ -176,10 +175,21 @@ import { freezeClosestGhost } from "../systems/ghostFreeze";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { sendGhostOutOfHouse } from "../systems/ghostRelease";
-import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../systems/heldKeys";
+import {
+  NO_KEYS_HELD,
+  anyKeyHeld,
+  applyHeldKeys,
+  type HeldKeys,
+  type TurnTap,
+} from "../systems/heldKeys";
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
 import { playerFacing, playerPose } from "../systems/playerDirection";
+import {
+  startPowerPelletBreaks,
+  tickPowerPelletBreaks,
+  type ActivePowerPelletBreak,
+} from "./powerPelletBreaks";
 import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
@@ -261,6 +271,8 @@ export class LearnSim {
   private recallHoldGhostEids: number[] = [];
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
+  private powerPelletBreaks: ActivePowerPelletBreak[] = [];
+  private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
@@ -351,6 +363,9 @@ export class LearnSim {
 
   step(keys: HeldKeys, delta: number): SimEvent[] {
     this.events = [];
+    this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
+      this.events.push(event),
+    );
     if (this.warpGlide !== null) {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
@@ -501,6 +516,13 @@ export class LearnSim {
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
           this.releaseAll(dash.sweptPelletEids);
+          this.nextPowerPelletBreakId = startPowerPelletBreaks(
+            this.world,
+            this.powerPelletBreaks,
+            this.nextPowerPelletBreakId,
+            dash.sweptPowerPositions,
+            (event) => this.events.push(event),
+          );
           if (dash.sweptPowerRemoved > 0) {
             this.resolvePowerPelletTrigger(dash.sweptPowerRemoved);
           }
@@ -522,6 +544,13 @@ export class LearnSim {
       : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
     const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
+    this.nextPowerPelletBreakId = startPowerPelletBreaks(
+      this.world,
+      this.powerPelletBreaks,
+      this.nextPowerPelletBreakId,
+      playerFrame.removedPowerPositions,
+      (event) => this.events.push(event),
+    );
     this.releaseAll(removedEids);
     this.countCollected(removedEids.length);
     this.stepStreakEngine(playerFrame.removedCells, delta);

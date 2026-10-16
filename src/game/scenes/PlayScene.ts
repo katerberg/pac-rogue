@@ -13,6 +13,7 @@ import {
   type BarFxState,
 } from "../../domain/bonusBarFx";
 import { playTurnSparks } from "./turnSparks";
+import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
 import { bossTimerLabel } from "../../domain/bossRules";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
@@ -136,6 +137,7 @@ export class PlayScene extends Phaser.Scene {
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private shieldIcons: Phaser.GameObjects.Rectangle[] = [];
   private shieldCrackHalves: Phaser.GameObjects.Rectangle[] = [];
+  private powerPelletBreakFx!: PowerPelletBreakFx;
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
@@ -207,6 +209,8 @@ export class PlayScene extends Phaser.Scene {
     this.lifeIcons = [];
     this.shieldIcons = [];
     this.shieldCrackHalves = [];
+    this.powerPelletBreakFx?.clear();
+    this.powerPelletBreakFx = createPowerPelletBreakFx(this);
     this.quarterIcons = [];
     this.walletCoins = [];
     this.refreshQuartersHud(false);
@@ -457,12 +461,16 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "resetBoard":
         this.playRender.resetForNewBoard();
+        this.powerPelletBreakFx.clear();
         break;
       case "draw":
         this.playRender.draw(this.sim.world, event.options);
         break;
       case "bouncePowerPellet":
         this.playRender.bouncePowerPellet(event.eid);
+        break;
+      case "powerPelletBreak":
+        this.powerPelletBreakFx.apply(event);
         break;
       case "turnSparks":
         playTurnSparks(this, event);

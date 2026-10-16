@@ -52,6 +52,7 @@ import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import { playTurnSparks } from "./turnSparks";
 import { playStreakPop } from "./streakPop";
+import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
 import { addGhostIcon, createRender, preloadPlayArt, type PlayRender } from "../systems/render";
 import {
   addPixelText,
@@ -130,6 +131,7 @@ type UpgradeRow = {
 export class LearnScene extends Phaser.Scene {
   private sim!: LearnSim;
   private playRender!: PlayRender;
+  private powerPelletBreakFx!: PowerPelletBreakFx;
   private readHeldKeys!: () => HeldKeys;
   private overlay!: Phaser.GameObjects.Graphics;
   private seen: SeenRecord = emptySeenRecord();
@@ -167,6 +169,8 @@ export class LearnScene extends Phaser.Scene {
     this.hoverPreviewCard = null;
 
     this.playRender = createRender(this);
+    this.powerPelletBreakFx?.clear();
+    this.powerPelletBreakFx = createPowerPelletBreakFx(this);
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.applyEvents(this.sim.start());
 
@@ -225,6 +229,8 @@ export class LearnScene extends Phaser.Scene {
         this.playRender.draw(this.sim.world, event.options);
       } else if (event.type === "bouncePowerPellet") {
         this.playRender.bouncePowerPellet(event.eid);
+      } else if (event.type === "powerPelletBreak") {
+        this.powerPelletBreakFx.apply(event);
       } else if (event.type === "turnSparks") {
         playTurnSparks(this, event);
       } else if (event.type === "streakPop") {
