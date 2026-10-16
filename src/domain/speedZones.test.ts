@@ -106,6 +106,33 @@ describe("speedZoneParticles", () => {
     expect(b.every((p, i) => p.col <= a[i]!.col || p.alpha < 0.05)).toBe(true);
   });
 
+  it("accelerates particles: slower entering the lane than leaving it", () => {
+    const dt = 10;
+    const stepAt = (ms: number) =>
+      speedZoneParticles(lane, ms + dt).map((p, i) => ({
+        from: speedZoneParticles(lane, ms)[i]!,
+        to: p,
+      }));
+    const early: number[] = [];
+    const late: number[] = [];
+    for (let ms = 0; ms < 20000; ms += 37) {
+      for (const { from, to } of stepAt(ms)) {
+        const along = (from.col - lane.col) / lane.length;
+        const delta = to.col - from.col;
+        if (delta <= 0) {
+          continue;
+        }
+        if (along < 0.2) {
+          early.push(delta);
+        } else if (along > 0.8) {
+          late.push(delta);
+        }
+      }
+    }
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(mean(late)).toBeGreaterThan(mean(early) * 3);
+  });
+
   it("keeps every particle inside the lane, faint, and fading at the ends", () => {
     for (const zone of [lane, { ...lane, axis: "vertical" as const, fastDir: "up" as const }]) {
       const vertical = zone.axis === "vertical";

@@ -11,6 +11,7 @@ const SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC = 0.5;
 const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.6;
 const SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES = 0.6;
 const SPEED_ZONE_PARTICLE_PEAK_ALPHA = 0.45;
+const SPEED_ZONE_PARTICLE_LINEAR_SHARE = 0.2;
 
 export type SpeedZoneAxis = "horizontal" | "vertical";
 export type SpeedZoneFastDir = "up" | "down" | "left" | "right";
@@ -104,7 +105,10 @@ export function speedZoneParticles(zone: SpeedZone, nowMs: number): SpeedZonePar
       SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC + unitHash(key + 1) * SPEED_ZONE_PARTICLE_SPEED_SPREAD;
     const progress = (unitHash(key) + (seconds * tilesPerSec) / zone.length) % 1;
     const side = (unitHash(key + 2) - 0.5) * SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES;
-    const along = progress * zone.length;
+    const eased =
+      SPEED_ZONE_PARTICLE_LINEAR_SHARE * progress +
+      (1 - SPEED_ZONE_PARTICLE_LINEAR_SHARE) * progress * progress;
+    const along = eased * zone.length;
     return {
       col: startCol + dx * along + dy * side,
       row: startRow + dy * along + dx * side,
