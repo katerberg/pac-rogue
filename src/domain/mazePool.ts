@@ -53,7 +53,6 @@ export function mazePoolMap(index: number): MazePoolMap | null {
   return MAZE_POOL[index] ?? null;
 }
 
-/** Deterministic pool pick for a run (levels 2–8 share one base). */
 export function pickPoolIndex(runSeed: string): number {
   const roll = randomFromSeed(`${runSeed}:pool`)();
   return Math.floor(roll * MAZE_POOL.length) % MAZE_POOL.length;

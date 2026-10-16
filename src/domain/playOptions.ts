@@ -26,7 +26,6 @@ import {
 
 export type PlayOptions = {
   seed: string | null;
-  /** Named fixture, or dense pool index `0..mazePoolSize()-1`. */
   maze: MazeLayoutId | number | null;
   level: number | null;
   quarters: number | null;
@@ -64,13 +63,7 @@ export function parsePlayOptions(params: URLSearchParams): {
   };
   const seed = parseSeedParam(params);
   warnIf("seed", seed === null, "Unknown ?seed= value; expected 1-32 of A-Z a-z 0-9 _ -");
-  const mazeOverride = parseMazeOverride(params);
-  const maze =
-    mazeOverride === null
-      ? null
-      : mazeOverride.kind === "static"
-        ? mazeOverride.id
-        : mazeOverride.index;
+  const maze = parseMazeOverride(params);
   warnIf(
     "maze",
     maze === null,

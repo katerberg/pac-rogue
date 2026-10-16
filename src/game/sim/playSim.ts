@@ -2022,19 +2022,7 @@ export class PlaySim {
     } else if (selection.kind === "pool") {
       const map = mazePoolMap(selection.index);
       if (map) {
-        try {
-          const ascii = isInvertedMazeLevel(this.levelIndex)
-            ? invertMazeAscii(map.ascii)
-            : map.ascii;
-          activateAsciiLayout(ascii);
-          layoutLabel = `pool:${selection.index}`;
-        } catch (error) {
-          console.warn(
-            `maze activate failed for pool:${selection.index}; falling back to maze2`,
-            error,
-          );
-          activateLayout("maze2");
-        }
+        layoutLabel = this.activateRunAscii(map.ascii, `pool:${selection.index}`);
       } else {
         console.warn(`unknown pool index ${selection.index}; falling back to maze2`);
         activateLayout("maze2");
@@ -2042,19 +2030,7 @@ export class PlaySim {
     } else {
       const generated = this.generateBoard(selection.seed, boss);
       if (generated) {
-        try {
-          const ascii = isInvertedMazeLevel(this.levelIndex)
-            ? invertMazeAscii(generated.ascii)
-            : generated.ascii;
-          activateAsciiLayout(ascii);
-          layoutLabel = `gen:${generated.seedUsed}`;
-        } catch (error) {
-          console.warn(
-            `maze activate failed for seed ${generated.seedUsed}; falling back to maze2`,
-            error,
-          );
-          activateLayout("maze2");
-        }
+        layoutLabel = this.activateRunAscii(generated.ascii, `gen:${generated.seedUsed}`);
       } else {
         console.warn(
           `maze generate failed after ${GENERATE_MAX_ATTEMPTS} attempts for seed ${selection.seed}; falling back to maze2`,
@@ -2124,6 +2100,18 @@ export class PlaySim {
       this.world,
       this.bossState !== null ? null : lazyLooperRings(this.effectiveUpgrades()),
     );
+  }
+
+  private activateRunAscii(ascii: string, label: string): string {
+    try {
+      const board = isInvertedMazeLevel(this.levelIndex) ? invertMazeAscii(ascii) : ascii;
+      activateAsciiLayout(board);
+      return label;
+    } catch (error) {
+      console.warn(`maze activate failed for ${label}; falling back to maze2`, error);
+      activateLayout("maze2");
+      return "maze2";
+    }
   }
 
   private generateBoard(
