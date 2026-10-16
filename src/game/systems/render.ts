@@ -475,6 +475,7 @@ const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
 const SPEED_ZONE_DEPTH = -2;
+const SPEED_ZONE_PULSE_DEPTH = -1.5;
 const SPEED_ZONE_COLOR = 0x3fa9ff;
 const SPEED_ZONE_FILL_ALPHA = 0.5;
 const SPEED_ZONE_GLOW_PEAK_ALPHA = 0.6;
@@ -584,7 +585,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const speedZoneLayer = scene.add.container(0, 0);
   speedZoneLayer.setDepth(SPEED_ZONE_DEPTH);
   const speedZonePulseGraphics = scene.add.graphics();
-  speedZonePulseGraphics.setDepth(SPEED_ZONE_DEPTH).setBlendMode(Phaser.BlendModes.ADD);
+  speedZonePulseGraphics.setDepth(SPEED_ZONE_PULSE_DEPTH).setBlendMode(Phaser.BlendModes.ADD);
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
   const clearSpeedZones = (): void => {
     speedZoneLayer.removeAll(true);
