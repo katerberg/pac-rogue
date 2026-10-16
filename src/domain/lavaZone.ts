@@ -1,13 +1,13 @@
 import { cellOriginX, cellOriginY, TILE_SIZE, type MazeLayout, type MazeTile } from "./maze";
 
-export const LAVA_DORMANT_MS = 5000;
+export const LAVA_DORMANT_MS = 7000;
 export const LAVA_CRACK_WARN_MS = 1500;
 export const LAVA_CRACK_BLINK_MS = 250;
-export const LAVA_EMERGE_MS = 5000;
-export const LAVA_HOLD_MS = 2000;
-export const LAVA_RETRACT_MS = 5000;
+export const LAVA_EMERGE_MS = 3000;
+export const LAVA_HOLD_MS = 4000;
+export const LAVA_RETRACT_MS = 2000;
 export const LAVA_CYCLE_MS = LAVA_DORMANT_MS + LAVA_EMERGE_MS + LAVA_HOLD_MS + LAVA_RETRACT_MS;
-export const LAVA_MAX_REACH_TILES = 1.5;
+export const LAVA_MAX_REACH_TILES = 3.5;
 const LAVA_TOUCH_RADIUS_FRACTION = 0.6;
 
 export type LavaPhase = "dormant" | "warn" | "emerging" | "full" | "retracting";

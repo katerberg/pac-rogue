@@ -74,7 +74,7 @@ Simulation runs in headless sims (`src/game/sim/`); scenes, modals and the `rend
 
 - A **decision** (condition, gate, threshold, selection, state transition) belongs in the sim, a Phaser-free system or `src/domain/**`, never inline in a scene or bridge. If you touch one in a scene, move it out and leave the call.
 - Add a unit test that fails without the change; for a bug fix, confirm it fails against the old logic and say so in the PR.
-- Only the decision you touch; no neighbouring refactors.
+- Only the decision you touch; no neighboring refactors.
 - Exempt: pure wiring and presentation plumbing (GameObjects, tweens, depths, text layout, colour/size constants) and one-line pass-throughs to tested functions.
 
 The probe still covers that the scene calls the decision in every mode touched.

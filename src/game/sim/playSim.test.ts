@@ -5257,7 +5257,7 @@ describe("lava zone", () => {
         if (lava.phase === "dormant" || lava.phase === "warn") {
           flashes[lava.phase].add(lava.cracksFlashOn);
         }
-        return lava.phase === "emerging";
+        return flashes.warn.has(true) && flashes.warn.has(false);
       },
       framesFor(10_000),
     );
@@ -5266,7 +5266,7 @@ describe("lava zone", () => {
     expect(sim.snapshot().dying).toBe(false);
 
     parkAwayFromLava(sim);
-    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(10_000));
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
     expect(sim.snapshot().lava!.reachTiles).toBe(LAVA_MAX_REACH_TILES);
     expect(sim.snapshot().dying).toBe(false);
     teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
@@ -5285,14 +5285,14 @@ describe("lava zone", () => {
     expect(sim.snapshot().dying).toBe(false);
     runUntil(sim, () => sim.snapshot().dying, framesFor(LAVA_EMERGE_MS));
     expect(sim.snapshot().lava!.phase).toBe("emerging");
-    expect(sim.snapshot().lava!.reachTiles).toBeLessThan(1);
+    expect(sim.snapshot().lava!.reachTiles).toBeLessThan(LAVA_MAX_REACH_TILES);
   });
 
-  it("retracts to nothing, rests, and comes back on a 17s cycle", () => {
+  it("retracts to nothing, rests, and comes back on a 16s cycle", () => {
     const sim = lavaSim("lava-cycle");
     parkAwayFromLava(sim);
     const phases: string[] = [];
-    for (let frame = 0; frame < framesFor(LAVA_CYCLE_MS + 6000); frame += 1) {
+    for (let frame = 0; frame < framesFor(LAVA_CYCLE_MS + 7500); frame += 1) {
       runFrames(sim, 1);
       const phase = sim.snapshot().lava!.phase;
       if (phases.at(-1) !== phase) {

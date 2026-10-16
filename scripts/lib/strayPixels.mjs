@@ -9,7 +9,7 @@ function brightness(data, offset) {
 }
 
 // Counts dim pixels in the empty rows directly under each band of bright text, where
-// texture-edge bleed (a neighbouring atlas row or clamped sprite edge) shows up as dashes.
+// texture-edge bleed (a neighboring atlas row or clamped sprite edge) shows up as dashes.
 export function strayPixelsBelowText({ data, width, height }) {
   const solid = new Array(height).fill(0);
   const dim = new Array(height).fill(0);
