@@ -1759,6 +1759,7 @@ export class PlaySim {
   private enterStore(): void {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    this.boardLayoutLabel = "store";
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.turnTuning.reset();
@@ -2023,7 +2024,7 @@ export class PlaySim {
     } else if (selection.kind === "pool") {
       const map = mazePoolMap(selection.index);
       if (map) {
-        layoutLabel = this.activateRunAscii(map.ascii, `pool:${selection.index}`);
+        layoutLabel = this.activateRunAscii(map.ascii, `pool-${selection.index}`);
       } else {
         console.warn(`unknown pool index ${selection.index}; falling back to maze2`);
         activateLayout("maze2");

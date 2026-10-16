@@ -498,7 +498,7 @@ describe("PlaySim", () => {
       return getActiveLayout().playerSolids.map((row) => row.join(","));
     };
     const base = solidsAt(2);
-    expect(startSim({ level: 2 }, "one-map").snapshot().layout).toMatch(/^pool:\d+$/);
+    expect(startSim({ level: 2 }, "one-map").snapshot().layout).toMatch(/^pool-\d+$/);
     expect(solidsAt(3)).toEqual(base);
     expect(solidsAt(5)).toEqual(base);
     expect(solidsAt(8)).toEqual(base);
@@ -506,7 +506,7 @@ describe("PlaySim", () => {
     expect(solidsAt(7)).toEqual([...base].reverse());
     expect(solidsAt(2, "another-map")).not.toEqual(base);
     const forced = startSim({ level: 2, maze: 0 }, "force-pool");
-    expect(forced.snapshot().layout).toBe("pool:0");
+    expect(forced.snapshot().layout).toBe("pool-0");
     expect(getActiveLayout().ascii).toContain("#");
   });
 

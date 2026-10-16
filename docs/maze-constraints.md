@@ -20,7 +20,7 @@ The playfield is fixed; every layout uses one fixed tile size (`TILE_SIZE_PX`), 
 ## Play boards
 
 - Level 1: curated `mazeSmall`.
-- Levels 2–8: one map drawn from the committed pool (`src/domain/mazePool.json`, `pickPoolIndex(runSeed)`); the same base is reused for the run. Inversion (6–7) and timed tunnels (7–8) still apply on top. Layout label: `pool:<index>`.
+- Levels 2–8: one map drawn from the committed pool (`src/domain/mazePool.json`, `pickPoolIndex(runSeed)`); the same base is reused for the run. Inversion (6–7) and timed tunnels (7–8) still apply on top. Layout label: `pool-<index>`.
 - Level 9 (boss): still live-generated from `boardMazeSeed` (tunnel count can be forced); fallback `maze2` with a `console.warn` on failure.
 - `?maze=maze1|maze2|mazeSmall` forces that fixture for the first board; `?maze=<n>` forces pool index `n` (dense `0..count-1`).
 
