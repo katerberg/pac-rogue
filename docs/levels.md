@@ -1,6 +1,6 @@
 # Fixed level plan
 
-The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `levelRules.ts` is the source for speeds, schedules, thresholds and rosters). Level 1 is the hand-made `mazeSmall`; levels 2-8 replay one generated base map per run (`mazeGenerate.ts`, `boardMazeSeed`; rules in [maze-constraints.md](./maze-constraints.md); level 9 is a boss on its own generated board ([bosses.md](./bosses.md)).
+The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `levelRules.ts` is the source for speeds, schedules, thresholds and rosters). Level 1 is the hand-made `mazeSmall`; levels 2-8 replay one map from the committed pool (`mazePool.ts` / `mazePool.json`; rules in [maze-constraints.md](./maze-constraints.md); level 9 is a boss on its own generated board ([bosses.md](./bosses.md)).
 
 ## Flow
 
@@ -18,7 +18,7 @@ Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-
 
 ## Board variants
 
-- **Inverted** levels (`isInvertedMazeLevel`): the run's base map is row-reversed in `startBoard` (`invertMazeAscii`) so spawn and house flip with it.
+- **Inverted** levels (`isInvertedMazeLevel`): the run's pool base map is row-reversed in `startBoard` (`invertMazeAscii`) so spawn and house flip with it.
 - **Timed tunnel** levels (`isTimedTunnelLevel`): one seeded tunnel row cycles open / warn / closed.
 - **Speed lane** levels (`isSpeedZoneLevel`, `src/domain/speedZones.ts`): two seeded straight lanes (3+ tiles, never turning) speed Dot-Man up when he moves in the lane's fast direction and slow him moving the other way; ghosts ignore them. Faint dust particles drift down the lane toward the fast end, so the direction is implied rather than drawn.
 

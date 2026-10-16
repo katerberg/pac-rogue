@@ -157,6 +157,7 @@ import {
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
+import { mazePoolMap } from "../../domain/mazePool";
 import {
   addPelletsToProgress,
   applyPelletCollect,
@@ -463,6 +464,7 @@ export class PlaySim {
   private lastPlayerCell: Cell | null = null;
   private timeBonusDrain: TimeBonusDrain | null = null;
   private levelIndex = 1;
+  private boardLayoutLabel = "maze2";
   private rosterId = 0;
   private bossState: BossState | null = null;
   private bossMouths: BossTunnelMouth[] = [];
@@ -768,7 +770,7 @@ export class PlaySim {
       knobs: this.options.knobs,
       tuning: this.currentTuning,
       level: this.levelIndex,
-      layout: getActiveLayout().id,
+      layout: this.boardLayoutLabel,
       lives: this.lives,
       quarters: this.quarters,
       timeRemaining: this.clock.remaining,
@@ -1848,6 +1850,7 @@ export class PlaySim {
   private enterStore(): void {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    this.boardLayoutLabel = "store";
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.turnTuning.reset();
@@ -2098,7 +2101,7 @@ export class PlaySim {
     });
   }
 
-  private startBoard(layoutOverride: MazeLayoutId | null = null): void {
+  private startBoard(layoutOverride: MazeLayoutId | number | null = null): void {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
@@ -2111,20 +2114,18 @@ export class PlaySim {
     if (selection.kind === "static") {
       activateLayout(selection.id);
       layoutLabel = selection.id;
+    } else if (selection.kind === "pool") {
+      const map = mazePoolMap(selection.index);
+      if (map) {
+        layoutLabel = this.activateRunAscii(map.ascii, `pool-${selection.index}`);
+      } else {
+        console.warn(`unknown pool index ${selection.index}; falling back to maze2`);
+        activateLayout("maze2");
+      }
     } else {
       const generated = this.generateBoard(selection.seed, boss);
       if (generated) {
-        try {
-          const ascii = this.isInvertedLevel() ? invertMazeAscii(generated.ascii) : generated.ascii;
-          activateAsciiLayout(ascii);
-          layoutLabel = `gen:${generated.seedUsed}`;
-        } catch (error) {
-          console.warn(
-            `maze activate failed for seed ${generated.seedUsed}; falling back to maze2`,
-            error,
-          );
-          activateLayout("maze2");
-        }
+        layoutLabel = this.activateRunAscii(generated.ascii, `gen:${generated.seedUsed}`);
       } else {
         console.warn(
           `maze generate failed after ${GENERATE_MAX_ATTEMPTS} attempts for seed ${selection.seed}; falling back to maze2`,
@@ -2132,6 +2133,7 @@ export class PlaySim {
         activateLayout("maze2");
       }
     }
+    this.boardLayoutLabel = layoutLabel;
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
     spawnWalls(this.world);
@@ -2196,6 +2198,18 @@ export class PlaySim {
       this.world,
       this.bossState !== null ? null : lazyLooperRings(this.effectiveUpgrades()),
     );
+  }
+
+  private activateRunAscii(ascii: string, label: string): string {
+    try {
+      const board = this.isInvertedLevel() ? invertMazeAscii(ascii) : ascii;
+      activateAsciiLayout(board);
+      return label;
+    } catch (error) {
+      console.warn(`maze activate failed for ${label}; falling back to maze2`, error);
+      activateLayout("maze2");
+      return "maze2";
+    }
   }
 
   private generateBoard(

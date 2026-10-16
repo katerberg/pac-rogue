@@ -14,7 +14,7 @@ npx playwright install chromium
 
 ## Commands
 
-`package.json` `scripts` is the full list. The ones you need: `npm run dev` (human, :5173) / `dev:agent` (:5174), `build`, `test`, `lint`, `format`, `probe` (scripted live check), `visual` (headless canvas smoke), `check:ecs`, `verify` (the canonical gate: precommit checks + build + visual), `verify:record` and `check:ship` (ship-plan evidence), `balance` / `balance:compare` ([docs/BALANCE_BOTS.md](./docs/BALANCE_BOTS.md)), `maze:generate` (dev maze candidates for `/mazes/` curator; [docs/maze-constraints.md](./docs/maze-constraints.md)), `worker:dev`, `data:pull`.
+`package.json` `scripts` is the full list. The ones you need: `npm run dev` (human, :5173) / `dev:agent` (:5174), `build`, `test`, `lint`, `format`, `probe` (scripted live check), `visual` (headless canvas smoke), `check:ecs`, `verify` (the canonical gate: precommit checks + build + visual), `verify:record` and `check:ship` (ship-plan evidence), `balance` / `balance:compare` ([docs/BALANCE_BOTS.md](./docs/BALANCE_BOTS.md)), `maze:generate` (offline candidates to expand the committed maze pool; [docs/maze-constraints.md](./docs/maze-constraints.md)), `worker:dev`, `data:pull`.
 
 `npm install` points Git at `.githooks/`; the pre-commit hook runs `verify:precommit`. Humans and agents use different ports (`scripts/ports.json`, [docs/VERIFICATION.md](./docs/VERIFICATION.md)). CI (`.github/workflows/verify.yml`) runs `verify` on PRs and `main`.
 
@@ -26,8 +26,8 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | Flag | Values | Effect |
 | --- | --- | --- |
 | `play` | `1` | Skip the menu and boot straight into `PlayScene` (level 1 unless `level` is set). |
-| `maze` | `maze1` \| `maze2` \ Disables high-score saving. | `mazeSmall` | Force that layout for the **first** board of this Start; omit for level-1 `mazeSmall`. Levels ≥ 2 use the procedural generator unless this override is set for the first board. See [docs/maze-constraints.md](./docs/maze-constraints.md). |
-| `level` | positive integer | Start at that level index (ghost roster unlock + shared speed mul `1 + 0.05×(level−1)` for Maze-Man and ghosts); level ≥ 2 without `?maze=` starts on a generated board. Omit for level 1. Invalid → level 1. Fixed 9-level plan: values above 9 clamp to 9; `level=9` jumps straight into the boss fight. Disables high-score saving. |
+| `maze` | `maze1` \| `maze2` \| `mazeSmall` \| non-negative pool index | Force that layout for the **first** board of this Start; omit for level-1 `mazeSmall`. Levels 2–8 otherwise draw one map from the committed pool (`?maze=<n>` forces pool index `n`). See [docs/maze-constraints.md](./docs/maze-constraints.md). Disables high-score saving. |
+| `level` | positive integer | Start at that level index (ghost roster unlock + shared speed mul `1 + 0.05×(level−1)` for Maze-Man and ghosts); levels 2–8 without `?maze=` draw one map from the committed pool. Omit for level 1. Invalid → level 1. Fixed 9-level plan: values above 9 clamp to 9; `level=9` jumps straight into the boss fight. Disables high-score saving. |
 | `quarters` | non-negative integer | Start the run with that many quarters (HUD icons). Omit for 0. Invalid → 0. Disables high-score saving. |
 | `bonus` | integer 0..299 | Start the run with that much BONUS bar charge (300 fills it and pays a Quarter). Omit for 0. Invalid → 0. Disables high-score saving. See [docs/bonus.md](./docs/bonus.md). |
 | `enableUpgrade` | upgrade id (repeatable) | Grants each valid id into `owned` at `PlayScene` create (order preserved; duplicates skipped). Disables high-score saving. |

@@ -504,19 +504,22 @@ describe("PlaySim", () => {
     }
   });
 
-  it("plays levels 2-8 on one base map per run, inverted on inverted levels", () => {
-    const solidsAt = (level: number): string[] => {
-      startSim({ level }, "one-map");
+  it("plays levels 2-8 on one pool map per run, inverted on inverted levels", () => {
+    const solidsAt = (level: number, seed = "one-map"): string[] => {
+      startSim({ level }, seed);
       return getActiveLayout().playerSolids.map((row) => row.join(","));
     };
     const base = solidsAt(2);
+    expect(startSim({ level: 2 }, "one-map").snapshot().layout).toMatch(/^pool-\d+$/);
     expect(solidsAt(3)).toEqual(base);
     expect(solidsAt(5)).toEqual(base);
     expect(solidsAt(8)).toEqual(base);
     expect(solidsAt(6)).toEqual([...base].reverse());
     expect(solidsAt(7)).toEqual([...base].reverse());
-    startSim({ level: 2 }, "another-map");
-    expect(getActiveLayout().playerSolids.map((row) => row.join(","))).not.toEqual(base);
+    expect(solidsAt(2, "another-map")).not.toEqual(base);
+    const forced = startSim({ level: 2, maze: 0 }, "force-pool");
+    expect(forced.snapshot().layout).toBe("pool-0");
+    expect(getActiveLayout().ascii).toContain("#");
   });
 
   it("skips the inverted maze and speed lanes when level modifiers are off", () => {
@@ -2138,7 +2141,10 @@ describe("PlaySim", () => {
   });
 
   it("tapers scatter to one short window on level 8 and none on the level 9 boss", () => {
-    const l8 = startSim({ level: 8, infiniteLives: true, ghosts: [GHOST_KIND.blinky] }, "taper-8");
+    const l8 = startSim(
+      { level: 8, maze: "maze1", godMode: true, ghosts: [GHOST_KIND.blinky] },
+      "taper-8",
+    );
     expect(l8.snapshot().ghostMode).toBe("scatter");
     runFrames(l8, Math.ceil(3.5 * 60), { keys: held("left") });
     expect(l8.snapshot().ghostMode).toBe("chase");
