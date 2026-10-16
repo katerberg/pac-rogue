@@ -5222,9 +5222,20 @@ describe("lava zone", () => {
     const sim = lavaSim("lava-kill");
     const { col, row } = sim.snapshot().lava!;
     teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
-    runUntil(sim, () => sim.snapshot().lava!.phase === "warn", framesFor(10_000));
-    expect(sim.renderOptions().lava?.cracksFlashOn).toBeTypeOf("boolean");
-    runUntil(sim, () => sim.snapshot().lava!.phase === "emerging", framesFor(5000));
+    const flashes = { dormant: new Set<boolean>(), warn: new Set<boolean>() };
+    runUntil(
+      sim,
+      () => {
+        const lava = sim.snapshot().lava!;
+        if (lava.phase === "dormant" || lava.phase === "warn") {
+          flashes[lava.phase].add(lava.cracksFlashOn);
+        }
+        return lava.phase === "emerging";
+      },
+      framesFor(10_000),
+    );
+    expect([...flashes.dormant]).toEqual([false]);
+    expect(flashes.warn).toEqual(new Set([true, false]));
     expect(sim.snapshot().dying).toBe(false);
 
     parkAwayFromLava(sim);

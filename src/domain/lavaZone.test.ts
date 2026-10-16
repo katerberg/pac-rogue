@@ -83,7 +83,8 @@ describe("lava cycle", () => {
   it("flashes the cracks only while warning", () => {
     expect(lavaCracksFlashOn(1000)).toBe(false);
     expect(lavaCracksFlashOn(4000)).toBe(true);
-    expect(lavaCracksFlashOn(4100)).toBe(false);
+    expect(lavaCracksFlashOn(4250)).toBe(false);
+    expect(lavaCracksFlashOn(4500)).toBe(true);
     expect(lavaCracksFlashOn(6000)).toBe(false);
   });
 });

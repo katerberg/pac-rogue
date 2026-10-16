@@ -1,8 +1,8 @@
-import { EXPIRY_BLINK_MS } from "./expiryBlink";
 import { cellOriginX, cellOriginY, TILE_SIZE, type MazeLayout, type MazeTile } from "./maze";
 
 export const LAVA_DORMANT_MS = 5000;
 export const LAVA_CRACK_WARN_MS = 1500;
+export const LAVA_CRACK_BLINK_MS = 250;
 export const LAVA_EMERGE_MS = 5000;
 export const LAVA_HOLD_MS = 2000;
 export const LAVA_RETRACT_MS = 5000;
@@ -84,7 +84,7 @@ export function lavaReachTiles(elapsedMs: number): number {
 }
 
 export function lavaCracksFlashOn(elapsedMs: number): boolean {
-  return lavaPhase(elapsedMs) === "warn" && Math.floor(elapsedMs / EXPIRY_BLINK_MS) % 2 === 0;
+  return lavaPhase(elapsedMs) === "warn" && Math.floor(elapsedMs / LAVA_CRACK_BLINK_MS) % 2 === 0;
 }
 
 function walkable(board: LavaZoneBoard, col: number, row: number): boolean {

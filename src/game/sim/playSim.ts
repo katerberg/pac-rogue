@@ -1610,6 +1610,7 @@ export class PlaySim {
           cells: state.zone.cells.map(({ col, row }) => ({ col, row })),
           phase: state.phase,
           reachTiles: state.reachTiles,
+          cracksFlashOn: state.cracksFlashOn,
         };
   }
 

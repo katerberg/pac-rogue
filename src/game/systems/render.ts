@@ -495,7 +495,7 @@ const LAVA_FLICKER_MS = 90;
 const LAVA_PALETTE = [0x5c0a00, 0x9e1800, 0xd83a00, 0xff6a00, 0xffa21f, 0xffd84a];
 const LAVA_HOT_COLOR = 0xfff2b0;
 const LAVA_CRUST_COLORS = [0x2a1612, 0x3b2a26, 0x55301e];
-const LAVA_CRACK_DORMANT = 0x5a1c0c;
+const LAVA_CRACK_DORMANT = 0x6e2410;
 const LAVA_CRACK_WARN = 0x9a2a10;
 const LAVA_CRACK_FLASH = 0xffb030;
 const LAVA_EMBER_COUNT = 4;
@@ -598,7 +598,7 @@ function drawLava(
       const shade = Math.floor((0.55 * flame + 0.45 * centerHeat) * LAVA_PALETTE.length);
       return LAVA_PALETTE[Math.max(0, Math.min(LAVA_PALETTE.length - 1, shade - heatShift))]!;
     });
-    if (!rect.front) {
+    if (!rect.front || lava.phase === "full") {
       continue;
     }
     const edgeX = rect.dx > 0 ? rect.x + rect.width : rect.dx < 0 ? rect.x : midX;
