@@ -107,27 +107,20 @@ describe("speedZoneParticles", () => {
   });
 
   it("accelerates particles: slower entering the lane than leaving it", () => {
-    const dt = 10;
-    const stepAt = (ms: number) =>
-      speedZoneParticles(lane, ms + dt).map((p, i) => ({
-        from: speedZoneParticles(lane, ms)[i]!,
-        to: p,
-      }));
     const early: number[] = [];
     const late: number[] = [];
     for (let ms = 0; ms < 20000; ms += 37) {
-      for (const { from, to } of stepAt(ms)) {
-        const along = (from.col - lane.col) / lane.length;
-        const delta = to.col - from.col;
-        if (delta <= 0) {
-          continue;
-        }
-        if (along < 0.2) {
+      const from = speedZoneParticles(lane, ms);
+      const to = speedZoneParticles(lane, ms + 10);
+      from.forEach((p, i) => {
+        const delta = to[i]!.col - p.col;
+        const along = (p.col - lane.col) / lane.length;
+        if (delta > 0 && along < 0.2) {
           early.push(delta);
-        } else if (along > 0.8) {
+        } else if (delta > 0 && along > 0.8) {
           late.push(delta);
         }
-      }
+      });
     }
     const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
     expect(mean(late)).toBeGreaterThan(mean(early) * 3);
