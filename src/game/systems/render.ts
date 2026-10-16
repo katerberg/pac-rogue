@@ -555,8 +555,8 @@ function drawSpeedZoneParticles(
   for (const particle of speedZoneParticles(zone, nowMs)) {
     graphics.fillStyle(SPEED_ZONE_PARTICLE_COLOR, particle.alpha);
     const size = particle.size < 1 ? 2 : 3;
-    const x = Math.round(originX + particle.col * tileSize - size / 2);
-    const y = Math.round(originY + particle.row * tileSize - size / 2);
+    const x = originX + particle.col * tileSize - size / 2;
+    const y = originY + particle.row * tileSize - size / 2;
     graphics.fillRect(x, y, size, size);
   }
 }
