@@ -33,6 +33,7 @@
     "data:pull": "node scripts/data-pull.mjs",
     "balance": "node scripts/balance.mjs",
     "balance:compare": "node scripts/balance.mjs --compare",
+    "maze:generate": "node scripts/maze-generate.mjs",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {

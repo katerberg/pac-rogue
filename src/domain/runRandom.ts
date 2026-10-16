@@ -17,6 +17,7 @@ export type RandomStream =
   | "frightened"
   | "timedTunnel"
   | "lavaZone"
+  | "speedZones"
   | "bot";
 
 export type RunRandom = {

@@ -1,6 +1,7 @@
 import { layoutFromAscii, type MazeLayout, type SolidGrid } from "./maze";
 import { MAX_LEVEL } from "./levelRules";
 import { pickLayoutId, type MazeLayoutId } from "./mazeLayouts";
+import { pickPoolIndex } from "./mazePool";
 import {
   CENTER_PIECE,
   randomFromSeed,
@@ -723,18 +724,26 @@ export function generateMazeAsciiWithRetries(
 }
 
 export type BoardSelection =
-  { kind: "static"; id: MazeLayoutId } | { kind: "generate"; seed: string };
+  | { kind: "static"; id: MazeLayoutId }
+  | { kind: "pool"; index: number }
+  | { kind: "generate"; seed: string };
 
 export function resolveBoardSelection(
   levelIndex: number,
-  layoutOverride: MazeLayoutId | null,
+  layoutOverride: MazeLayoutId | number | null,
   runMazeSeed: string,
 ): BoardSelection {
+  if (typeof layoutOverride === "number") {
+    return { kind: "pool", index: layoutOverride };
+  }
   if (layoutOverride !== null) {
     return { kind: "static", id: layoutOverride };
   }
   if (levelIndex <= 1) {
     return { kind: "static", id: pickLayoutId(() => 0, null, levelIndex) };
   }
-  return { kind: "generate", seed: boardMazeSeed(runMazeSeed, levelIndex) };
+  if (levelIndex >= MAX_LEVEL) {
+    return { kind: "generate", seed: boardMazeSeed(runMazeSeed, levelIndex) };
+  }
+  return { kind: "pool", index: pickPoolIndex(runMazeSeed) };
 }

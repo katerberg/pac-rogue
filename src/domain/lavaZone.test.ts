@@ -30,23 +30,41 @@ function board(): LavaZoneBoard {
   };
 }
 
+const NONE = { tunnelRows: [], cells: [] };
+
 function centers(zones: readonly LavaZone[]): string[] {
   return zones.map((z) => `${z.col},${z.row}`).sort();
 }
 
 describe("lavaZoneCandidates", () => {
   it("centres only on straight hallway cells at least 2 tiles from an intersection", () => {
-    expect(centers(lavaZoneCandidates(board(), []))).toEqual(
+    expect(centers(lavaZoneCandidates(board(), NONE))).toEqual(
       ["1,2", "2,1", "2,3", "3,1", "3,3", "7,1", "7,3", "8,1", "8,3", "9,2"].sort(),
     );
   });
 
   it("keeps every lava cell off tunnel rows", () => {
-    expect(centers(lavaZoneCandidates(board(), [3]))).toEqual(["2,1", "3,1", "7,1", "8,1"]);
+    expect(centers(lavaZoneCandidates(board(), { tunnelRows: [3], cells: [] }))).toEqual([
+      "2,1",
+      "3,1",
+      "7,1",
+      "8,1",
+    ]);
+  });
+
+  it("keeps every lava cell off avoided cells such as speed lanes", () => {
+    const lane = [
+      { col: 4, row: 1 },
+      { col: 5, row: 1 },
+      { col: 6, row: 1 },
+    ];
+    expect(centers(lavaZoneCandidates(board(), { tunnelRows: [], cells: lane }))).toEqual(
+      ["1,2", "2,1", "2,3", "3,3", "7,3", "8,1", "8,3", "9,2"].sort(),
+    );
   });
 
   it("spreads along the corridor, around a corner, from the centre", () => {
-    const zone = lavaZoneCandidates(board(), []).find((z) => z.col === 2 && z.row === 1)!;
+    const zone = lavaZoneCandidates(board(), NONE).find((z) => z.col === 2 && z.row === 1)!;
     expect(zone.cells.map((c) => [c.col, c.row, c.distance])).toEqual([
       [2, 1, 0],
       [3, 1, 1],
@@ -55,10 +73,10 @@ describe("lavaZoneCandidates", () => {
   });
 
   it("picks a seeded candidate and none on a board without hallways", () => {
-    expect(pickLavaZone(board(), [], () => 0)).toMatchObject({ col: 2, row: 1 });
+    expect(pickLavaZone(board(), NONE, () => 0)).toMatchObject({ col: 2, row: 1 });
     const open = board();
     open.playerSolids = open.playerSolids.map((row) => row.map(() => false));
-    expect(pickLavaZone(open, [], () => 0)).toBeNull();
+    expect(pickLavaZone(open, NONE, () => 0)).toBeNull();
   });
 });
 
@@ -90,7 +108,7 @@ describe("lava cycle", () => {
 });
 
 describe("lavaRects", () => {
-  const zone = lavaZoneCandidates(board(), []).find((z) => z.col === 3 && z.row === 1)!;
+  const zone = lavaZoneCandidates(board(), NONE).find((z) => z.col === 3 && z.row === 1)!;
   const width = (reach: number) =>
     lavaRects(zone, reach).reduce((sum, r) => sum + r.width, 0) / TILE_SIZE;
 

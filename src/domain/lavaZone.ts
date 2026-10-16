@@ -33,6 +33,8 @@ export type LavaRenderState = {
   cracksFlashOn: boolean;
 };
 
+export type LavaAvoid = { tunnelRows: readonly number[]; cells: readonly MazeTile[] };
+
 export type LavaZoneBoard = Pick<
   MazeLayout,
   "cols" | "rows" | "playerSolids" | "house" | "door" | "playerSpawn"
@@ -98,13 +100,14 @@ function isIntersection(board: LavaZoneBoard, col: number, row: number): boolean
   return openSteps(board, col, row).length >= 3;
 }
 
-function cellAllowed(board: LavaZoneBoard, tunnelRows: readonly number[], cell: MazeTile): boolean {
+function cellAllowed(board: LavaZoneBoard, avoid: LavaAvoid, cell: MazeTile): boolean {
   const { col, row } = cell;
   return (
     col > 0 &&
     col < board.cols - 1 &&
     walkable(board, col, row) &&
-    !tunnelRows.includes(row) &&
+    !avoid.tunnelRows.includes(row) &&
+    !avoid.cells.some((c) => c.col === col && c.row === row) &&
     board.house[row]?.[col] !== true &&
     board.door[row]?.[col] !== true &&
     !(col === board.playerSpawn.col && row === board.playerSpawn.row)
@@ -134,19 +137,16 @@ function isStraightHallway(board: LavaZoneBoard, col: number, row: number): bool
   return open.length === 2 && open[0]!.dx === -open[1]!.dx && open[0]!.dy === -open[1]!.dy;
 }
 
-export function lavaZoneCandidates(
-  board: LavaZoneBoard,
-  tunnelRows: readonly number[],
-): LavaZone[] {
+export function lavaZoneCandidates(board: LavaZoneBoard, avoid: LavaAvoid): LavaZone[] {
   const zones: LavaZone[] = [];
   for (let row = 0; row < board.rows; row += 1) {
     for (let col = 0; col < board.cols; col += 1) {
-      if (!cellAllowed(board, tunnelRows, { col, row }) || !isStraightHallway(board, col, row)) {
+      if (!cellAllowed(board, avoid, { col, row }) || !isStraightHallway(board, col, row)) {
         continue;
       }
       const cells = lavaCellsFrom(board, col, row);
       const clear = (cell: LavaCell) =>
-        cellAllowed(board, tunnelRows, cell) && !isIntersection(board, cell.col, cell.row);
+        cellAllowed(board, avoid, cell) && !isIntersection(board, cell.col, cell.row);
       if (cells.every(clear)) {
         zones.push({ col, row, cells });
       }
@@ -157,10 +157,10 @@ export function lavaZoneCandidates(
 
 export function pickLavaZone(
   board: LavaZoneBoard,
-  tunnelRows: readonly number[],
+  avoid: LavaAvoid,
   nextRandom: () => number,
 ): LavaZone | null {
-  const candidates = lavaZoneCandidates(board, tunnelRows);
+  const candidates = lavaZoneCandidates(board, avoid);
   if (candidates.length === 0) {
     return null;
   }
