@@ -7,8 +7,11 @@ import { GHOST_ROSTERS, parseRosterId } from "./ghostRoster";
 import { parseGodModeFlag } from "./godModeFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
 import { parseKnobsFlag } from "./knobsFlag";
+import { parseLevelModifiersFlag } from "./levelModifiersFlag";
 import { parseInfiniteLivesFlag, parseLivesCountParam } from "./lives";
-import { parseMazeParam, type MazeLayoutId } from "./mazeLayouts";
+import type { MazeLayoutId } from "./mazeLayouts";
+import { parseMazeOverride } from "./mazeOverride";
+import { mazePoolSize } from "./mazePool";
 import { parseQuartersParam } from "./quartersFlag";
 import { highScoresDisabled } from "./runHistory";
 import { parseLevelParam } from "./runLevel";
@@ -24,7 +27,7 @@ import {
 
 export type PlayOptions = {
   seed: string | null;
-  maze: MazeLayoutId | null;
+  maze: MazeLayoutId | number | null;
   level: number | null;
   quarters: number | null;
   bonus: number | null;
@@ -40,6 +43,7 @@ export type PlayOptions = {
   maxLives: number | null;
   godMode: boolean;
   knobs: boolean;
+  levelModifiers: boolean;
   enableUpgrades: UpgradeId[];
   forceUpgrade: BaseUpgradeId | null;
   highScoresDisabled: boolean;
@@ -61,8 +65,12 @@ export function parsePlayOptions(params: URLSearchParams): {
   };
   const seed = parseSeedParam(params);
   warnIf("seed", seed === null, "Unknown ?seed= value; expected 1-32 of A-Z a-z 0-9 _ -");
-  const maze = parseMazeParam(params);
-  warnIf("maze", maze === null, "Unknown ?maze= value; expected maze1|maze2|mazeSmall");
+  const maze = parseMazeOverride(params);
+  warnIf(
+    "maze",
+    maze === null,
+    `Unknown ?maze= value; expected maze1|maze2|mazeSmall or pool index 0..${mazePoolSize() - 1}`,
+  );
   const level = parseLevelParam(params);
   warnIf("level", level === null, "Unknown ?level= value; expected positive integer");
   const quarters = parseQuartersParam(params);
@@ -106,6 +114,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       maxLives: maxLives ?? lives,
       godMode: parseGodModeFlag(params),
       knobs: parseKnobsFlag(params),
+      levelModifiers: parseLevelModifiersFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
       forceUpgrade: parseForceUpgradeParam(params),
       highScoresDisabled: highScoresDisabled(params),

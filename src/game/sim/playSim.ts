@@ -153,12 +153,22 @@ import {
   type LavaZone,
 } from "../../domain/lavaZone";
 import {
+  isSpeedZoneLevel,
+  pickSpeedZones,
+  speedZoneAt,
+  speedZoneEffect,
+  speedZoneMultiplier,
+  type SpeedZone,
+  type SpeedZoneEffect,
+} from "../../domain/speedZones";
+import {
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
   invertMazeAscii,
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
+import { mazePoolMap } from "../../domain/mazePool";
 import {
   addPelletsToProgress,
   applyPelletCollect,
@@ -348,6 +358,12 @@ import {
 import type { Direction } from "../components/Input";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { shieldCrackProgress } from "../../domain/shieldCrack";
+import { powerPelletBreakProgress } from "../../domain/powerPelletBreak";
+import {
+  startPowerPelletBreaks,
+  tickPowerPelletBreaks,
+  type ActivePowerPelletBreak,
+} from "./powerPelletBreaks";
 import { ghostAi } from "../systems/ghostAi";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { freezeClosestGhost } from "../systems/ghostFreeze";
@@ -459,6 +475,7 @@ export class PlaySim {
   private lastPlayerCell: Cell | null = null;
   private timeBonusDrain: TimeBonusDrain | null = null;
   private levelIndex = 1;
+  private boardLayoutLabel = "maze2";
   private rosterId = 0;
   private bossState: BossState | null = null;
   private bossMouths: BossTunnelMouth[] = [];
@@ -482,6 +499,7 @@ export class PlaySim {
   private timedTunnelElapsedMs = 0;
   private lavaZone: LavaZone | null = null;
   private lavaElapsedMs = 0;
+  private speedZones: SpeedZone[] = [];
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
@@ -504,6 +522,8 @@ export class PlaySim {
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private shieldCrack: { index: number; elapsedMs: number } | null = null;
+  private powerPelletBreaks: ActivePowerPelletBreak[] = [];
+  private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
   private interestPop: InterestPop | null = null;
   private lives: number;
@@ -735,6 +755,7 @@ export class PlaySim {
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
       lava: this.lavaRenderState(),
+      speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       pupilTarget: this.blinkyPupilTarget(),
     };
@@ -763,7 +784,7 @@ export class PlaySim {
       knobs: this.options.knobs,
       tuning: this.currentTuning,
       level: this.levelIndex,
-      layout: getActiveLayout().id,
+      layout: this.boardLayoutLabel,
       lives: this.lives,
       quarters: this.quarters,
       timeRemaining: this.clock.remaining,
@@ -815,6 +836,8 @@ export class PlaySim {
       },
       timedTunnel: this.timedTunnelSnapshot(),
       lava: this.lavaSnapshot(),
+      speedZones: this.speedZones,
+      playerSpeedZone: this.playerSpeedZone(),
       wallDrop: {
         armed: upgrades.wallDropArmed,
         wall:
@@ -839,6 +862,11 @@ export class PlaySim {
           : { count: this.interestPop.count, shown: interestCoinsShown(this.interestPop) },
       shieldCrackProgress:
         this.shieldCrack === null ? null : shieldCrackProgress(this.shieldCrack.elapsedMs),
+      powerPelletBreaks: this.powerPelletBreaks.map((brk) => ({
+        id: brk.id,
+        progress: powerPelletBreakProgress(brk.elapsedMs),
+        intensity: brk.intensity,
+      })),
       levelTransition: this.levelTransitionRemainingMs > 0,
       bossStageTransition: this.bossStageTransition !== null,
       intermission:
@@ -912,6 +940,9 @@ export class PlaySim {
     }
     this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
     this.tickShieldCrack(delta);
+    this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
+      this.emit(event),
+    );
     if (this.awaitingStartingCard) {
       if (input.uiOpen) {
         return;
@@ -1094,6 +1125,7 @@ export class PlaySim {
         (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.effectiveUpgrades()) : 1) *
         eatDragMultiplier(this.eatDragMs, this.currentTuning) *
         this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
+        speedZoneMultiplier(this.playerSpeedZone()) *
         (warping ? 0 : 1);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
@@ -1176,6 +1208,15 @@ export class PlaySim {
           if (hasUpgrade(this.effectiveUpgrades(), "passivePowerPelletRecharge")) {
             this.queueSecondChomp(dash.sweptPowerPositions);
           }
+          this.nextPowerPelletBreakId = startPowerPelletBreaks(
+            this.world,
+            this.powerPelletBreaks,
+            this.nextPowerPelletBreakId,
+            dash.sweptPowerPositions,
+            (event) => this.emit(event),
+            playerSpeed(this.currentTuning),
+            this.currentTuning,
+          );
           const dashStreakFires = this.applyStreakCells(dash.sweptCells);
           const collectResult = applyPelletCollect(
             this.pelletProgress,
@@ -1228,6 +1269,15 @@ export class PlaySim {
       ...playerFrame.removedPowerPositions,
       ...ghostFrame.removedPowerPositions,
     ];
+    this.nextPowerPelletBreakId = startPowerPelletBreaks(
+      this.world,
+      this.powerPelletBreaks,
+      this.nextPowerPelletBreakId,
+      playerFrame.removedPowerPositions,
+      (event) => this.emit(event),
+      playerSpeed(this.currentTuning),
+      this.currentTuning,
+    );
     for (const eid of removedPelletEids) {
       this.releaseDrawable(eid);
     }
@@ -1622,6 +1672,29 @@ export class PlaySim {
     );
   }
 
+  private isInvertedLevel(): boolean {
+    return this.options.levelModifiers && isInvertedMazeLevel(this.levelIndex);
+  }
+
+  private resetSpeedZones(): void {
+    this.speedZones =
+      this.options.levelModifiers && isSpeedZoneLevel(this.levelIndex)
+        ? pickSpeedZones(getActiveLayout(), this.random.stream("speedZones", this.levelIndex))
+        : [];
+  }
+
+  private playerSpeedZone(): SpeedZoneEffect | null {
+    const cell = playerCell(this.world);
+    const zone = cell === null ? null : speedZoneAt(this.speedZones, cell.col, cell.row);
+    if (zone === null) {
+      return null;
+    }
+    const eid = query(this.world, [Player, Velocity])[0];
+    return eid === undefined
+      ? null
+      : speedZoneEffect(zone, Velocity.x[eid] ?? 0, Velocity.y[eid] ?? 0);
+  }
+
   private tickTimedTunnel(deltaMs: number): void {
     if (this.timedTunnelGatedRow === null) {
       return;
@@ -1840,12 +1913,14 @@ export class PlaySim {
   private enterStore(): void {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    this.boardLayoutLabel = "store";
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     this.eatDragMs = 0;
     this.turnTuning.reset();
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
     this.tunnelDashAnim = null;
+    this.powerPelletBreaks = [];
     this.resetHyperspeedMovement();
     this.warpGlide = null;
     this.speedTrail = [];
@@ -1856,6 +1931,7 @@ export class PlaySim {
     spawnWalls(this.world);
     spawnPlayer(this.world);
     this.lavaZone = null;
+    this.speedZones = [];
 
     this.applyLifeRegen(STORE_REGEN_AMOUNT);
     this.store = createStoreState(
@@ -2089,7 +2165,7 @@ export class PlaySim {
     });
   }
 
-  private startBoard(layoutOverride: MazeLayoutId | null = null): void {
+  private startBoard(layoutOverride: MazeLayoutId | number | null = null): void {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
@@ -2102,22 +2178,18 @@ export class PlaySim {
     if (selection.kind === "static") {
       activateLayout(selection.id);
       layoutLabel = selection.id;
+    } else if (selection.kind === "pool") {
+      const map = mazePoolMap(selection.index);
+      if (map) {
+        layoutLabel = this.activateRunAscii(map.ascii, `pool-${selection.index}`);
+      } else {
+        console.warn(`unknown pool index ${selection.index}; falling back to maze2`);
+        activateLayout("maze2");
+      }
     } else {
       const generated = this.generateBoard(selection.seed, boss);
       if (generated) {
-        try {
-          const ascii = isInvertedMazeLevel(this.levelIndex)
-            ? invertMazeAscii(generated.ascii)
-            : generated.ascii;
-          activateAsciiLayout(ascii);
-          layoutLabel = `gen:${generated.seedUsed}`;
-        } catch (error) {
-          console.warn(
-            `maze activate failed for seed ${generated.seedUsed}; falling back to maze2`,
-            error,
-          );
-          activateLayout("maze2");
-        }
+        layoutLabel = this.activateRunAscii(generated.ascii, `gen:${generated.seedUsed}`);
       } else {
         console.warn(
           `maze generate failed after ${GENERATE_MAX_ATTEMPTS} attempts for seed ${selection.seed}; falling back to maze2`,
@@ -2125,6 +2197,7 @@ export class PlaySim {
         activateLayout("maze2");
       }
     }
+    this.boardLayoutLabel = layoutLabel;
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
     spawnWalls(this.world);
@@ -2146,7 +2219,7 @@ export class PlaySim {
     this.recorder.beginLevel({
       level: this.levelIndex,
       layout: layoutLabel,
-      inverted: selection.kind !== "static" && isInvertedMazeLevel(this.levelIndex),
+      inverted: selection.kind !== "static" && this.isInvertedLevel(),
       boss: boss !== null,
       countdownStart: this.clock.remaining,
       livesStart: this.lives,
@@ -2162,9 +2235,11 @@ export class PlaySim {
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
     this.tunnelDashAnim = null;
+    this.powerPelletBreaks = [];
     this.resetHyperspeedMovement();
     this.resetTimedTunnel();
     this.resetLavaZone();
+    this.resetSpeedZones();
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
@@ -2188,6 +2263,18 @@ export class PlaySim {
       this.world,
       this.bossState !== null ? null : lazyLooperRings(this.effectiveUpgrades()),
     );
+  }
+
+  private activateRunAscii(ascii: string, label: string): string {
+    try {
+      const board = this.isInvertedLevel() ? invertMazeAscii(ascii) : ascii;
+      activateAsciiLayout(board);
+      return label;
+    } catch (error) {
+      console.warn(`maze activate failed for ${label}; falling back to maze2`, error);
+      activateLayout("maze2");
+      return "maze2";
+    }
   }
 
   private generateBoard(

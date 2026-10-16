@@ -44,7 +44,14 @@ import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning"
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { LAVA_CYCLE_MS, LAVA_EMERGE_MS, LAVA_MAX_REACH_TILES } from "../../domain/lavaZone";
+import {
+  FAST_ZONE_MULTIPLIER,
+  SLOW_ZONE_MULTIPLIER,
+  speedZoneCells,
+  type SpeedZone,
+} from "../../domain/speedZones";
 import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
+import { POWER_PELLET_BREAK_MS } from "../../domain/powerPelletBreak";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
@@ -498,19 +505,36 @@ describe("PlaySim", () => {
     }
   });
 
-  it("plays levels 2-8 on one base map per run, inverted on inverted levels", () => {
-    const solidsAt = (level: number): string[] => {
-      startSim({ level }, "one-map");
+  it("plays levels 2-8 on one pool map per run, inverted on inverted levels", () => {
+    const solidsAt = (level: number, seed = "one-map"): string[] => {
+      startSim({ level }, seed);
       return getActiveLayout().playerSolids.map((row) => row.join(","));
     };
     const base = solidsAt(2);
+    expect(startSim({ level: 2 }, "one-map").snapshot().layout).toMatch(/^pool-\d+$/);
     expect(solidsAt(3)).toEqual(base);
     expect(solidsAt(5)).toEqual(base);
     expect(solidsAt(8)).toEqual(base);
     expect(solidsAt(6)).toEqual([...base].reverse());
     expect(solidsAt(7)).toEqual([...base].reverse());
-    startSim({ level: 2 }, "another-map");
-    expect(getActiveLayout().playerSolids.map((row) => row.join(","))).not.toEqual(base);
+    expect(solidsAt(2, "another-map")).not.toEqual(base);
+    const forced = startSim({ level: 2, maze: 0 }, "force-pool");
+    expect(forced.snapshot().layout).toBe("pool-0");
+    expect(getActiveLayout().ascii).toContain("#");
+  });
+
+  it("skips the inverted maze and speed lanes when level modifiers are off", () => {
+    const solidsAt = (level: number, levelModifiers: boolean): string[] => {
+      startSim({ level, levelModifiers }, "one-map");
+      return getActiveLayout().playerSolids.map((row) => row.join(","));
+    };
+    const base = solidsAt(2, true);
+    expect(solidsAt(6, true)).toEqual([...base].reverse());
+    expect(solidsAt(6, false)).toEqual(base);
+    expect(startSim({ level: 6, levelModifiers: false }, "one-map").snapshot().speedZones).toEqual(
+      [],
+    );
+    expect(startSim({ level: 6 }, "one-map").snapshot().speedZones).toHaveLength(2);
   });
 
   it("collects pellets while the player moves", () => {
@@ -2118,7 +2142,10 @@ describe("PlaySim", () => {
   });
 
   it("tapers scatter to one short window on level 8 and none on the level 9 boss", () => {
-    const l8 = startSim({ level: 8, infiniteLives: true, ghosts: [GHOST_KIND.blinky] }, "taper-8");
+    const l8 = startSim(
+      { level: 8, maze: "maze1", godMode: true, ghosts: [GHOST_KIND.blinky] },
+      "taper-8",
+    );
     expect(l8.snapshot().ghostMode).toBe("scatter");
     runFrames(l8, Math.ceil(3.5 * 60), { keys: held("left") });
     expect(l8.snapshot().ghostMode).toBe("chase");
@@ -5729,6 +5756,122 @@ describe("Cornucopia", () => {
   });
 });
 
+describe("speed zones", () => {
+  const KEY_FOR: Record<SpeedZone["fastDir"], "up" | "down" | "left" | "right"> = {
+    up: "up",
+    down: "down",
+    left: "left",
+    right: "right",
+  };
+  const OPPOSITE: Record<SpeedZone["fastDir"], SpeedZone["fastDir"]> = {
+    up: "down",
+    down: "up",
+    left: "right",
+    right: "left",
+  };
+
+  function laneMiddle(zone: SpeedZone): { col: number; row: number } {
+    return speedZoneCells(zone)[Math.floor(zone.length / 2)]!;
+  }
+
+  function speedMovingThrough(
+    zoneIndex: number,
+    dir: SpeedZone["fastDir"],
+    zonesOn: boolean,
+  ): { speed: number; effect: string | null } {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const zone = sim.snapshot().speedZones[zoneIndex]!;
+    if (!zonesOn) {
+      sim["speedZones"] = [];
+    }
+    const cell = laneMiddle(zone);
+    const player = playerEid(sim);
+    for (let frame = 0; frame < 2; frame += 1) {
+      sim["eatDragMs"] = 0;
+      Position.x[player] = cellCenterX(cell.col);
+      Position.y[player] = cellCenterY(cell.row);
+      runFrames(sim, 1, { keys: held(KEY_FOR[dir]) });
+    }
+    return { speed: Speed.px[player]!, effect: sim.snapshot().playerSpeedZone };
+  }
+
+  it("lays two straight seeded lanes of 3+ tiles on levels 5-8 only", () => {
+    for (const level of [5, 6, 7, 8]) {
+      const zones = startSim({ level }, "zones").snapshot().speedZones;
+      expect(zones).toHaveLength(2);
+      for (const zone of zones) {
+        expect(zone.length).toBeGreaterThanOrEqual(3);
+        for (const cell of speedZoneCells(zone)) {
+          expect(getActiveLayout().playerSolids[cell.row]![cell.col]).toBe(false);
+        }
+      }
+      expect(startSim({ level }, "zones").snapshot().speedZones).toEqual(zones);
+    }
+    for (const level of [1, 2, 4, 9]) {
+      expect(startSim({ level }, "zones").snapshot().speedZones).toEqual([]);
+    }
+  });
+
+  it("speeds Dot-Man up along the fast direction and slows him the other way", () => {
+    for (const index of [0, 1]) {
+      const fastDir = startSim({ level: 5 }, "zones").snapshot().speedZones[index]!.fastDir;
+      const slowDir = OPPOSITE[fastDir];
+      const fast = speedMovingThrough(index, fastDir, true);
+      const slow = speedMovingThrough(index, slowDir, true);
+      expect(fast.effect).toBe("fast");
+      expect(slow.effect).toBe("slow");
+      expect(fast.speed).toBeCloseTo(
+        speedMovingThrough(index, fastDir, false).speed * FAST_ZONE_MULTIPLIER,
+      );
+      expect(slow.speed).toBeCloseTo(
+        speedMovingThrough(index, slowDir, false).speed * SLOW_ZONE_MULTIPLIER,
+      );
+    }
+  });
+
+  it("has no effect while Dot-Man stands still in a lane", () => {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const cell = laneMiddle(sim.snapshot().speedZones[0]!);
+    teleportPlayer(sim, cellCenterX(cell.col), cellCenterY(cell.row));
+    runFrames(sim, 2);
+    expect(sim.snapshot().playerSpeedZone).toBeNull();
+  });
+
+  it("leaves ghost speed alone inside a lane", () => {
+    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
+    const zones = sim.snapshot().speedZones;
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    for (const zone of zones) {
+      const cell = laneMiddle(zone);
+      const ghostSpeed = (): number => {
+        Position.x[ghost] = cellCenterX(cell.col);
+        Position.y[ghost] = cellCenterY(cell.row);
+        runFrames(sim, 1);
+        return Speed.px[ghost]!;
+      };
+      sim["speedZones"] = zones;
+      const inLane = ghostSpeed();
+      sim["speedZones"] = [];
+      expect(ghostSpeed()).toBe(inLane);
+    }
+  });
+
+  it("clears the lanes when the store floor opens", () => {
+    const sim = startSim({ level: 5 }, "zones");
+    expect(sim.snapshot().speedZones).toHaveLength(2);
+    (sim as unknown as { enterStore(): void }).enterStore();
+    expect(sim.snapshot().inStore).toBe(true);
+    expect(sim.snapshot().speedZones).toEqual([]);
+    expect(sim.snapshot().playerSpeedZone).toBeNull();
+  });
+
+  it("draws the lanes for the render bridge", () => {
+    const sim = startSim({ level: 6 }, "zones");
+    expect(sim.renderOptions().speedZones).toEqual(sim.snapshot().speedZones);
+  });
+});
+
 describe("Wall Drop", () => {
   const RIGHT = { keys: held("right") };
   const LEFT = { keys: held("left") };
@@ -5921,5 +6064,118 @@ describe("Wall Drop", () => {
     runFrames(sim, 1);
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().wallDrop).toEqual({ armed: false, wall: null });
+  });
+});
+
+describe("power pellet break VFX", () => {
+  it("emits a facing-biased break at each collected power pellet through progress 1", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] }, "pp-break");
+    sim.start();
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const x = Position.x[power]!;
+    const y = Position.y[power]!;
+    teleportPlayer(sim, x, y);
+    const left = { keys: held("left") };
+    const events = runFrames(sim, 1, left);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "powerPelletBreak",
+        id: 1,
+        x,
+        y,
+        facingDx: -1,
+        facingDy: 0,
+        progress: 0,
+      }),
+    );
+    expect(sim.snapshot().powerPelletBreaks).toEqual([
+      expect.objectContaining({ id: 1, progress: 0 }),
+    ]);
+
+    const done = runUntil(sim, () => sim.snapshot().powerPelletBreaks.length === 0, 60, left);
+    expect(done).toContainEqual(
+      expect.objectContaining({
+        type: "powerPelletBreak",
+        id: 1,
+        x,
+        y,
+        facingDx: -1,
+        facingDy: 0,
+        progress: 1,
+      }),
+    );
+    expect(sim.snapshot().powerPelletBreaks).toEqual([]);
+    expect(Math.ceil(POWER_PELLET_BREAK_MS / FRAME_MS)).toBeLessThanOrEqual(60);
+  });
+
+  it("starts one break per power-pellet position in the same frame", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] }, "pp-break-2");
+    sim.start();
+    const powers = query(sim.world, [PowerPellet, Position]);
+    expect(powers.length).toBeGreaterThanOrEqual(2);
+    const a = powers[0]!;
+    const b = powers[1]!;
+    Position.x[b] = Position.x[a]!;
+    Position.y[b] = Position.y[a]!;
+    teleportPlayer(sim, Position.x[a]!, Position.y[a]!);
+    const events = runFrames(sim, 1, { keys: held("right") });
+    const breaks = events.filter((e) => e.type === "powerPelletBreak" && e.progress === 0);
+    expect(breaks).toHaveLength(2);
+    expect(breaks.every((e) => e.type === "powerPelletBreak" && e.facingDx === 1)).toBe(true);
+    expect(sim.snapshot().powerPelletBreaks).toHaveLength(2);
+  });
+
+  it("emits a facing-biased break when Tunnel Dash sweeps a power pellet", () => {
+    const sim = startSim(
+      { level: 2, maze: "maze1", enableUpgrades: ["passiveTunnelDash"] },
+      "pp-break-dash",
+    );
+    const row = horizontalTunnelRows()[0]!;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const x = cellCenterX(1);
+    const y = cellCenterY(row);
+    Position.x[power] = x;
+    Position.y[power] = y;
+    teleportPlayer(sim, cellCenterX(3), y);
+    Facing.direction[playerEid(sim)] = DIRECTION.left;
+    const left = { keys: held("left") };
+    const events = runFrames(sim, 1, left);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "powerPelletBreak",
+        id: 1,
+        x,
+        y,
+        facingDx: -1,
+        facingDy: 0,
+        progress: 0,
+      }),
+    );
+    expect(sim.snapshot().powerPelletBreaks).toEqual([
+      expect.objectContaining({ id: 1, progress: 0 }),
+    ]);
+    const done = runUntil(sim, () => sim.snapshot().powerPelletBreaks.length === 0, 60, left);
+    expect(done).toContainEqual(
+      expect.objectContaining({
+        type: "powerPelletBreak",
+        id: 1,
+        x,
+        y,
+        facingDx: -1,
+        facingDy: 0,
+        progress: 1,
+      }),
+    );
+    expect(sim.snapshot().powerPelletBreaks).toEqual([]);
+  });
+
+  it("clears in-flight breaks on board reset", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] }, "pp-break-reset");
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1, { keys: held("left") });
+    expect(sim.snapshot().powerPelletBreaks).toHaveLength(1);
+    (sim as unknown as { enterStore(): void }).enterStore();
+    expect(sim.snapshot().powerPelletBreaks).toEqual([]);
   });
 });

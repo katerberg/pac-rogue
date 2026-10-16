@@ -30,13 +30,18 @@ describe("mazeGenerate", () => {
     activateLayout("maze1");
   });
 
-  it("resolveBoardSelection prefers override, mazeSmall at level 1, generate afterward", () => {
+  it("resolveBoardSelection prefers override, mazeSmall at level 1, pool for 2-8, generate boss", () => {
     expect(resolveBoardSelection(1, "maze2", "run")).toEqual({ kind: "static", id: "maze2" });
     expect(resolveBoardSelection(5, "maze1", "run")).toEqual({ kind: "static", id: "maze1" });
+    expect(resolveBoardSelection(2, 7, "run")).toEqual({ kind: "pool", index: 7 });
     expect(resolveBoardSelection(1, null, "run")).toEqual({ kind: "static", id: "mazeSmall" });
-    expect(resolveBoardSelection(2, null, "run")).toEqual({
+    const mid = resolveBoardSelection(2, null, "run");
+    expect(mid.kind).toBe("pool");
+    expect(resolveBoardSelection(5, null, "run")).toEqual(mid);
+    expect(resolveBoardSelection(8, null, "run")).toEqual(mid);
+    expect(resolveBoardSelection(MAX_LEVEL, null, "run")).toEqual({
       kind: "generate",
-      seed: boardMazeSeed("run", 2),
+      seed: boardMazeSeed("run", MAX_LEVEL),
     });
   });
 
