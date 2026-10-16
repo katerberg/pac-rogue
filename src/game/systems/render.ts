@@ -4,6 +4,8 @@ import {
   actorDisplaySize,
   cellCenterX,
   cellCenterY,
+  cellOriginX,
+  cellOriginY,
   getActiveLayout,
   playerDisplaySize,
   pelletDisplaySize,
@@ -12,6 +14,12 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import {
+  LAVA_MAX_REACH_TILES,
+  lavaRects,
+  type LavaRect,
+  type LavaRenderState,
+} from "../../domain/lavaZone";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import { invertRgb24 } from "../../domain/bossRules";
@@ -460,6 +468,7 @@ export type RenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  lava?: LavaRenderState | null;
   droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
@@ -480,12 +489,147 @@ export type PlayRender = {
 const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
+const LAVA_DEPTH = -1.25;
+const LAVA_PX = 2;
+const LAVA_FLICKER_MS = 90;
+const LAVA_PALETTE = [0x5c0a00, 0x9e1800, 0xd83a00, 0xff6a00, 0xffa21f, 0xffd84a];
+const LAVA_HOT_COLOR = 0xfff2b0;
+const LAVA_CRUST_COLORS = [0x2a1612, 0x3b2a26, 0x55301e];
+const LAVA_CRACK_DORMANT = 0x5a1c0c;
+const LAVA_CRACK_WARN = 0x9a2a10;
+const LAVA_CRACK_FLASH = 0xffb030;
+const LAVA_EMBER_COUNT = 4;
 const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
   { strand: 0, width: 2.5, color: 0x9fe0ff, alpha: 0.95 },
   { strand: 1, width: 1, color: 0xffffff, alpha: 0.9 },
 ] as const;
+
+function lavaHash(a: number, b: number, c: number): number {
+  let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ Math.imul(c, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+function fillLavaPixels(
+  graphics: Phaser.GameObjects.Graphics,
+  rect: LavaRect,
+  colorAt: (px: number, py: number) => number | null,
+): void {
+  const x0 = Math.floor(rect.x / LAVA_PX) * LAVA_PX;
+  const y0 = Math.floor(rect.y / LAVA_PX) * LAVA_PX;
+  for (let py = y0; py < rect.y + rect.height; py += LAVA_PX) {
+    for (let px = x0; px < rect.x + rect.width; px += LAVA_PX) {
+      const color = colorAt(px, py);
+      if (color === null) {
+        continue;
+      }
+      const left = Math.max(px, rect.x);
+      const top = Math.max(py, rect.y);
+      const w = Math.min(px + LAVA_PX, rect.x + rect.width) - left;
+      const h = Math.min(py + LAVA_PX, rect.y + rect.height) - top;
+      if (w > 0 && h > 0) {
+        graphics.fillStyle(color, 1);
+        graphics.fillRect(left, top, w, h);
+      }
+    }
+  }
+}
+
+function drawLavaCracks(
+  graphics: Phaser.GameObjects.Graphics,
+  lava: LavaRenderState,
+  tileSize: number,
+): void {
+  const color = lava.cracksFlashOn
+    ? LAVA_CRACK_FLASH
+    : lava.phase === "warn"
+      ? LAVA_CRACK_WARN
+      : LAVA_CRACK_DORMANT;
+  const axisStep = lava.zone.cells.find((c) => c.distance === 1) ?? { dx: 1, dy: 0 };
+  for (const cell of lava.zone.cells) {
+    const horizontal = (cell.distance === 0 ? axisStep.dx : cell.dx) !== 0;
+    let offset = 0;
+    for (let along = 0; along < tileSize; along += LAVA_PX) {
+      offset += Math.round((lavaHash(cell.col, cell.row, along) - 0.5) * 2) * LAVA_PX;
+      offset = Math.max(-2 * LAVA_PX, Math.min(2 * LAVA_PX, offset));
+      const across = tileSize / 2 - LAVA_PX / 2 + offset;
+      const x = cellOriginX(cell.col) + (horizontal ? along : across);
+      const y = cellOriginY(cell.row) + (horizontal ? across : along);
+      if (lava.cracksFlashOn) {
+        graphics.fillStyle(LAVA_CRACK_FLASH, 0.3);
+        graphics.fillRect(x - LAVA_PX, y - LAVA_PX, LAVA_PX * 3, LAVA_PX * 3);
+      }
+      graphics.fillStyle(color, 1);
+      graphics.fillRect(x, y, LAVA_PX, LAVA_PX);
+    }
+  }
+}
+
+function drawLava(
+  graphics: Phaser.GameObjects.Graphics,
+  lava: LavaRenderState,
+  nowMs: number,
+): void {
+  const { tileSize } = getActiveLayout();
+  drawLavaCracks(graphics, lava, tileSize);
+  const frame = Math.floor(nowMs / LAVA_FLICKER_MS);
+  const retracting = lava.phase === "retracting";
+  if (retracting) {
+    for (const rect of lavaRects(lava.zone, LAVA_MAX_REACH_TILES)) {
+      fillLavaPixels(graphics, rect, (px, py) => {
+        const n = lavaHash(px, py, 7);
+        return LAVA_CRUST_COLORS[Math.floor(n * LAVA_CRUST_COLORS.length)]!;
+      });
+    }
+  }
+  const heatShift = retracting ? 2 : 0;
+  for (const rect of lavaRects(lava.zone, lava.reachTiles)) {
+    const midX = rect.x + rect.width / 2;
+    const midY = rect.y + rect.height / 2;
+    fillLavaPixels(graphics, rect, (px, py) => {
+      const across = rect.dx !== 0 ? Math.abs(py + 1 - midY) : Math.abs(px + 1 - midX);
+      const centerHeat = 1 - (2 * across) / tileSize;
+      const flame = lavaHash(px, py + frame * LAVA_PX, frame >> 2);
+      if (lava.phase === "full" && flame > 0.97) {
+        return LAVA_HOT_COLOR;
+      }
+      const shade = Math.floor((0.55 * flame + 0.45 * centerHeat) * LAVA_PALETTE.length);
+      return LAVA_PALETTE[Math.max(0, Math.min(LAVA_PALETTE.length - 1, shade - heatShift))]!;
+    });
+    if (!rect.front) {
+      continue;
+    }
+    const edgeX = rect.dx > 0 ? rect.x + rect.width : rect.dx < 0 ? rect.x : midX;
+    const edgeY = rect.dy > 0 ? rect.y + rect.height : rect.dy < 0 ? rect.y : midY;
+    const band = {
+      x: rect.dx !== 0 ? edgeX - (rect.dx > 0 ? LAVA_PX : 0) : rect.x,
+      y: rect.dy !== 0 ? edgeY - (rect.dy > 0 ? LAVA_PX : 0) : rect.y,
+      width: rect.dx !== 0 ? LAVA_PX : rect.width,
+      height: rect.dy !== 0 ? LAVA_PX : rect.height,
+    };
+    graphics.fillStyle(retracting ? LAVA_CRUST_COLORS[0]! : LAVA_HOT_COLOR, 1);
+    graphics.fillRect(band.x, band.y, band.width, band.height);
+    if (lava.phase !== "emerging") {
+      continue;
+    }
+    for (let i = 0; i < LAVA_EMBER_COUNT; i += 1) {
+      const life = (frame + i * 3) % 12;
+      const ahead = (1 + life) * LAVA_PX * 0.5;
+      const spread = (lavaHash(i, frame - life, rect.dx * 3 + rect.dy) - 0.5) * tileSize * 0.8;
+      const ex = rect.dx !== 0 ? edgeX + rect.dx * ahead : midX + spread;
+      const ey = rect.dy !== 0 ? edgeY + rect.dy * ahead : midY + spread;
+      graphics.fillStyle(LAVA_PALETTE[4]!, 1 - life / 12);
+      graphics.fillRect(
+        Math.floor(ex / LAVA_PX) * LAVA_PX,
+        Math.floor(ey / LAVA_PX) * LAVA_PX,
+        LAVA_PX,
+        LAVA_PX,
+      );
+    }
+  }
+}
 
 function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly ChainPoint[]) {
   graphics.beginPath();
@@ -518,6 +662,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const droppedWallGraphics = scene.add.graphics();
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const lavaGraphics = scene.add.graphics();
+  lavaGraphics.setDepth(LAVA_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
@@ -956,6 +1102,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       timedTunnelGraphics.fillStyle(0xffcc33, 0.85);
       timedTunnelGraphics.fillRect(cellCenterX(0) - barW / 2, y, barW, barH);
       timedTunnelGraphics.fillRect(cellCenterX(layout.cols - 1) - barW / 2, y, barW, barH);
+    }
+
+    lavaGraphics.clear();
+    if (opts?.lava) {
+      drawLava(lavaGraphics, opts.lava, scene.time.now);
     }
 
     droppedWallGraphics.clear();

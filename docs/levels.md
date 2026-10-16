@@ -20,6 +20,7 @@ Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-
 
 - **Inverted** levels (`isInvertedMazeLevel`): the run's base map is row-reversed in `startBoard` (`invertMazeAscii`) so spawn and house flip with it.
 - **Timed tunnel** levels (`isTimedTunnelLevel`): one seeded tunnel row cycles open / warn / closed.
+- **Lava** level (`isLavaZoneLevel`, `src/domain/lavaZone.ts`): one seeded lava patch, centred on a straight hallway at least 2 tiles from any intersection, cycles dormant (cracks flash before it opens) → creeping out from the centre → full → retracting. Touching it kills Dot-Man like a ghost catch; ghosts cross it freely. A life loss restarts the cycle dormant.
 
 ## Scatter and chase
 

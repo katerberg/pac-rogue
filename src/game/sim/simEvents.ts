@@ -7,6 +7,7 @@ import type { StorePromptView } from "../../domain/store";
 import type { FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
+import type { LavaRenderState } from "../../domain/lavaZone";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import type { DroppedWall } from "../../domain/wallDrop";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
@@ -34,6 +35,7 @@ export type SimRenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  lava?: LavaRenderState | null;
   droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };

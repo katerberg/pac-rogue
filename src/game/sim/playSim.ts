@@ -142,6 +142,17 @@ import {
   type TimedTunnelPhase,
 } from "../../domain/timedTunnel";
 import {
+  isLavaZoneLevel,
+  lavaCracksFlashOn,
+  lavaPhase,
+  lavaReachTiles,
+  lavaRects,
+  lavaTouchesCircle,
+  pickLavaZone,
+  type LavaRenderState,
+  type LavaZone,
+} from "../../domain/lavaZone";
+import {
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
   invertMazeAscii,
@@ -469,6 +480,8 @@ export class PlaySim {
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
+  private lavaZone: LavaZone | null = null;
+  private lavaElapsedMs = 0;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
@@ -721,6 +734,7 @@ export class PlaySim {
       wallAlpha: this.bossStageDraw?.wallAlpha,
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
+      lava: this.lavaRenderState(),
       droppedWall: this.runUpgrades.droppedWall,
       pupilTarget: this.blinkyPupilTarget(),
     };
@@ -800,6 +814,7 @@ export class PlaySim {
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
       },
       timedTunnel: this.timedTunnelSnapshot(),
+      lava: this.lavaSnapshot(),
       wallDrop: {
         armed: upgrades.wallDropArmed,
         wall:
@@ -979,6 +994,7 @@ export class PlaySim {
       ghostHarvest: ghostHarvestActive(this.runUpgrades),
     });
     this.tickTimedTunnel(delta);
+    this.lavaElapsedMs += delta;
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const turnTuningOpts =
@@ -1388,9 +1404,10 @@ export class PlaySim {
 
     const catchOptions = this.catchOptions();
     const caughtBy = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+    const lavaKill = caughtBy === null && this.playerTouchesLava(catchOptions);
     this.emitDraw();
 
-    if (caughtBy === null) {
+    if (caughtBy === null && !lavaKill) {
       this.recorder.nearMisses(this.world, getActiveLayout().tileSize);
       this.payNearMisses(catchOptions);
     } else {
@@ -1459,7 +1476,8 @@ export class PlaySim {
         col: deathCell?.col ?? -1,
         row: deathCell?.row ?? -1,
         ghost: ghostName(this.world, caughtBy),
-        bossGhost: hasComponent(this.world, caughtBy, BossGhost),
+        bossGhost: caughtBy !== null && hasComponent(this.world, caughtBy, BossGhost),
+        lava: lavaKill,
         countdown: this.clock.remaining,
         pelletsLeft: this.pelletProgress.pelletsRemaining,
         ghostMode: nameOf(GHOST_AI_MODE, this.previousEffectiveGhostMode),
@@ -1556,6 +1574,55 @@ export class PlaySim {
     this.timedTunnelGatedRow = pickTimedTunnelRow(
       horizontalTunnelRows(),
       this.random.stream("timedTunnel", this.levelIndex),
+    );
+  }
+
+  private resetLavaZone(): void {
+    this.lavaElapsedMs = 0;
+    this.lavaZone = isLavaZoneLevel(this.levelIndex)
+      ? pickLavaZone(
+          getActiveLayout(),
+          horizontalTunnelRows(),
+          this.random.stream("lavaZone", this.levelIndex),
+        )
+      : null;
+  }
+
+  private lavaRenderState(): LavaRenderState | null {
+    if (this.lavaZone === null) {
+      return null;
+    }
+    return {
+      zone: this.lavaZone,
+      phase: lavaPhase(this.lavaElapsedMs),
+      reachTiles: lavaReachTiles(this.lavaElapsedMs),
+      cracksFlashOn: lavaCracksFlashOn(this.lavaElapsedMs),
+    };
+  }
+
+  private lavaSnapshot() {
+    const state = this.lavaRenderState();
+    return state === null
+      ? null
+      : {
+          col: state.zone.col,
+          row: state.zone.row,
+          cells: state.zone.cells.map(({ col, row }) => ({ col, row })),
+          phase: state.phase,
+          reachTiles: state.reachTiles,
+        };
+  }
+
+  private playerTouchesLava(catchOptions: CatchOptions): boolean {
+    const eid = query(this.world, [Player, Position, Drawable])[0];
+    if (this.lavaZone === null || eid === undefined || catchOptions.playerInvulnerable === true) {
+      return false;
+    }
+    return lavaTouchesCircle(
+      lavaRects(this.lavaZone, lavaReachTiles(this.lavaElapsedMs)),
+      Position.x[eid] ?? 0,
+      Position.y[eid] ?? 0,
+      Drawable.radius[eid] ?? 0,
     );
   }
 
@@ -1792,6 +1859,7 @@ export class PlaySim {
     this.world = createWorld();
     spawnWalls(this.world);
     spawnPlayer(this.world);
+    this.lavaZone = null;
 
     this.applyLifeRegen(STORE_REGEN_AMOUNT);
     this.store = createStoreState(
@@ -2100,6 +2168,7 @@ export class PlaySim {
     this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.resetTimedTunnel();
+    this.resetLavaZone();
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
@@ -2947,6 +3016,7 @@ export class PlaySim {
   }
 
   private resetAfterLifeLoss(): void {
+    this.lavaElapsedMs = 0;
     this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.warpGlide = null;
