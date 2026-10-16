@@ -5297,6 +5297,25 @@ describe("lava zone", () => {
     expect(sim.snapshot().lava).toMatchObject({ phase: "dormant", reachTiles: 0 });
   });
 
+  it("catches a Hyperspeed dash that would skip over a thin sliver of lava", () => {
+    const sim = lavaSim("lava-dash", { enableUpgrades: ["powerPelletHyperspeed"] });
+    const lava = sim.snapshot().lava!;
+    const step = lava.cells.find(
+      (c) => isWalkable(2 * c.col - lava.col, 2 * c.row - lava.row) && c !== lava.cells[0],
+    )!;
+    const dx = step.col - lava.col;
+    const dy = step.row - lava.row;
+    const toward = dx > 0 ? "left" : dx < 0 ? "right" : dy > 0 ? "up" : "down";
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "emerging", framesFor(10_000));
+    expect(sim.snapshot().lava!.reachTiles).toBeLessThan(0.05);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], hyperspeedRemainingMs: 2000 };
+    teleportPlayer(sim, cellCenterX(lava.col + 2 * dx), cellCenterY(lava.row + 2 * dy));
+    runFrames(sim, 4, { keys: held(toward) });
+    expect(sim.snapshot().dying).toBe(true);
+    expect(lavaDeaths(sim)).toHaveLength(1);
+  });
+
   it("does not kill an invulnerable Dot-Man", () => {
     const sim = lavaSim("lava-god", { godMode: true });
     const { col, row } = sim.snapshot().lava!;

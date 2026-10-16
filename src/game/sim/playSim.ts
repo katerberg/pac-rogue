@@ -2541,7 +2541,8 @@ export class PlaySim {
       this.eatFrightenedGhosts();
       const catchOptions = this.catchOptions();
       const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-      if (hit !== null && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield())) {
+      const touched = hit !== null || this.playerTouchesLava(catchOptions);
+      if (touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield())) {
         caught = true;
         this.zeroPlayerSpeed();
       }

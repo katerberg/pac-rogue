@@ -218,6 +218,6 @@ export function lavaTouchesCircle(
   return rects.some((rect) => {
     const nx = Math.max(rect.x, Math.min(x, rect.x + rect.width));
     const ny = Math.max(rect.y, Math.min(y, rect.y + rect.height));
-    return rect.width > 0 && rect.height > 0 && Math.hypot(x - nx, y - ny) < r;
+    return Math.hypot(x - nx, y - ny) < r;
   });
 }
