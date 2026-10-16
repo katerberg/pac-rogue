@@ -143,10 +143,9 @@ import {
 } from "../../domain/timedTunnel";
 import {
   isLavaZoneLevel,
-  lavaCracksFlashOn,
+  lavaFlashOn,
   lavaPhase,
   lavaReachTiles,
-  lavaRects,
   lavaTouchesCircle,
   pickLavaZone,
   type LavaRenderState,
@@ -1651,7 +1650,7 @@ export class PlaySim {
       zone: this.lavaZone,
       phase: lavaPhase(this.lavaElapsedMs),
       reachTiles: lavaReachTiles(this.lavaElapsedMs),
-      cracksFlashOn: lavaCracksFlashOn(this.lavaElapsedMs),
+      flashOn: lavaFlashOn(this.lavaElapsedMs),
     };
   }
 
@@ -1670,7 +1669,8 @@ export class PlaySim {
       return false;
     }
     return lavaTouchesCircle(
-      lavaRects(this.lavaZone, lavaReachTiles(this.lavaElapsedMs)),
+      this.lavaZone,
+      lavaReachTiles(this.lavaElapsedMs),
       Position.x[eid] ?? 0,
       Position.y[eid] ?? 0,
       Drawable.radius[eid] ?? 0,

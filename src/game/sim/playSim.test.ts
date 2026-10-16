@@ -5273,7 +5273,7 @@ describe("lava zone", () => {
       () => {
         const lava = sim.snapshot().lava!;
         if (lava.phase === "dormant" || lava.phase === "warn") {
-          flashes[lava.phase].add(lava.cracksFlashOn);
+          flashes[lava.phase].add(lava.flashOn);
         }
         return lava.phase === "emerging";
       },

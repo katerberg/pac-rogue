@@ -14,12 +14,7 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
-import {
-  LAVA_MAX_REACH_TILES,
-  lavaRects,
-  type LavaRect,
-  type LavaRenderState,
-} from "../../domain/lavaZone";
+import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import {
   SPEED_ZONE_COUNT,
   speedZoneGlowMask,
@@ -501,11 +496,8 @@ const LAVA_PX = 2;
 const LAVA_FLICKER_MS = 90;
 const LAVA_PALETTE = [0x5c0a00, 0x9e1800, 0xd83a00, 0xff6a00, 0xffa21f, 0xffd84a];
 const LAVA_HOT_COLOR = 0xfff2b0;
-const LAVA_CRUST_COLORS = [0x2a1612, 0x3b2a26, 0x55301e];
-const LAVA_CRACK_DORMANT = 0x6e2410;
-const LAVA_CRACK_WARN = 0x9a2a10;
-const LAVA_CRACK_FLASH = 0xffb030;
-const LAVA_EMBER_COUNT = 4;
+const LAVA_BED_COLORS = [0x2a1612, 0x3b2a26, 0x55301e, 0x4a1a0e];
+const LAVA_BED_FLASH_COLORS = [0x3b2a26, 0x55301e, 0x8a2008, 0xc23a0a, 0xff6a00];
 const SPEED_ZONE_DEPTH = -2;
 const SPEED_ZONE_PARTICLE_DEPTH = -1.5;
 const SPEED_ZONE_COLOR = 0x3fa9ff;
@@ -530,59 +522,31 @@ function lavaHash(a: number, b: number, c: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-function fillLavaPixels(
-  graphics: Phaser.GameObjects.Graphics,
-  rect: LavaRect,
-  colorAt: (px: number, py: number) => number | null,
-): void {
-  const x0 = Math.floor(rect.x / LAVA_PX) * LAVA_PX;
-  const y0 = Math.floor(rect.y / LAVA_PX) * LAVA_PX;
-  for (let py = y0; py < rect.y + rect.height; py += LAVA_PX) {
-    for (let px = x0; px < rect.x + rect.width; px += LAVA_PX) {
-      const color = colorAt(px, py);
-      if (color === null) {
-        continue;
-      }
-      const left = Math.max(px, rect.x);
-      const top = Math.max(py, rect.y);
-      const w = Math.min(px + LAVA_PX, rect.x + rect.width) - left;
-      const h = Math.min(py + LAVA_PX, rect.y + rect.height) - top;
-      if (w > 0 && h > 0) {
-        graphics.fillStyle(color, 1);
-        graphics.fillRect(left, top, w, h);
+function lavaPixelColor(lava: LavaRenderState, px: number, py: number, frame: number): number {
+  const d = lavaSignedDistancePx(lava.zone, lava.reachTiles, px + LAVA_PX / 2, py + LAVA_PX / 2);
+  if (d === null || d <= 0) {
+    if (lava.phase === "emerging" && d !== null && d > -3 * LAVA_PX) {
+      if (lavaHash(px, py, frame) > 0.8) {
+        return LAVA_PALETTE[4]!;
       }
     }
+    const bed = lava.flashOn ? LAVA_BED_FLASH_COLORS : LAVA_BED_COLORS;
+    return bed[Math.floor(lavaHash(px, py, 7) * bed.length)]!;
   }
-}
-
-function drawLavaCracks(
-  graphics: Phaser.GameObjects.Graphics,
-  lava: LavaRenderState,
-  tileSize: number,
-): void {
-  const color = lava.cracksFlashOn
-    ? LAVA_CRACK_FLASH
-    : lava.phase === "warn"
-      ? LAVA_CRACK_WARN
-      : LAVA_CRACK_DORMANT;
-  const axisStep = lava.zone.cells.find((c) => c.distance === 1) ?? { dx: 1, dy: 0 };
-  for (const cell of lava.zone.cells) {
-    const horizontal = (cell.distance === 0 ? axisStep.dx : cell.dx) !== 0;
-    let offset = 0;
-    for (let along = 0; along < tileSize; along += LAVA_PX) {
-      offset += Math.round((lavaHash(cell.col, cell.row, along) - 0.5) * 2) * LAVA_PX;
-      offset = Math.max(-2 * LAVA_PX, Math.min(2 * LAVA_PX, offset));
-      const across = tileSize / 2 - LAVA_PX / 2 + offset;
-      const x = cellOriginX(cell.col) + (horizontal ? along : across);
-      const y = cellOriginY(cell.row) + (horizontal ? across : along);
-      if (lava.cracksFlashOn) {
-        graphics.fillStyle(LAVA_CRACK_FLASH, 0.3);
-        graphics.fillRect(x - LAVA_PX, y - LAVA_PX, LAVA_PX * 3, LAVA_PX * 3);
-      }
-      graphics.fillStyle(color, 1);
-      graphics.fillRect(x, y, LAVA_PX, LAVA_PX);
-    }
+  if (d < LAVA_PX && lava.phase === "emerging") {
+    return LAVA_HOT_COLOR;
   }
+  if (d < LAVA_PX && lava.phase === "retracting") {
+    return LAVA_BED_COLORS[0]!;
+  }
+  const flame = lavaHash(px, py + frame * LAVA_PX, frame >> 2);
+  if (lava.phase === "full" && flame > 0.97) {
+    return LAVA_HOT_COLOR;
+  }
+  const blob = lavaHash(px >> 3, py >> 3, frame >> 3);
+  const heatShift = lava.phase === "retracting" ? 2 : 0;
+  const shade = Math.floor((0.65 * flame + 0.35 * blob) * LAVA_PALETTE.length) + 1 - heatShift;
+  return LAVA_PALETTE[Math.max(0, Math.min(LAVA_PALETTE.length - 1, shade))]!;
 }
 
 function drawLava(
@@ -591,60 +555,15 @@ function drawLava(
   nowMs: number,
 ): void {
   const { tileSize } = getActiveLayout();
-  drawLavaCracks(graphics, lava, tileSize);
   const frame = Math.floor(nowMs / LAVA_FLICKER_MS);
-  const retracting = lava.phase === "retracting";
-  if (retracting) {
-    for (const rect of lavaRects(lava.zone, LAVA_MAX_REACH_TILES)) {
-      fillLavaPixels(graphics, rect, (px, py) => {
-        const n = lavaHash(px, py, 7);
-        return LAVA_CRUST_COLORS[Math.floor(n * LAVA_CRUST_COLORS.length)]!;
-      });
-    }
-  }
-  const heatShift = retracting ? 2 : 0;
-  for (const rect of lavaRects(lava.zone, lava.reachTiles)) {
-    const midX = rect.x + rect.width / 2;
-    const midY = rect.y + rect.height / 2;
-    fillLavaPixels(graphics, rect, (px, py) => {
-      const across = rect.dx !== 0 ? Math.abs(py + 1 - midY) : Math.abs(px + 1 - midX);
-      const centerHeat = 1 - (2 * across) / tileSize;
-      const flame = lavaHash(px, py + frame * LAVA_PX, frame >> 2);
-      if (lava.phase === "full" && flame > 0.97) {
-        return LAVA_HOT_COLOR;
+  for (const cell of lava.zone.cells) {
+    const x0 = cellOriginX(cell.col);
+    const y0 = cellOriginY(cell.row);
+    for (let py = y0; py < y0 + tileSize; py += LAVA_PX) {
+      for (let px = x0; px < x0 + tileSize; px += LAVA_PX) {
+        graphics.fillStyle(lavaPixelColor(lava, px, py, frame), 1);
+        graphics.fillRect(px, py, LAVA_PX, LAVA_PX);
       }
-      const shade = Math.floor((0.55 * flame + 0.45 * centerHeat) * LAVA_PALETTE.length);
-      return LAVA_PALETTE[Math.max(0, Math.min(LAVA_PALETTE.length - 1, shade - heatShift))]!;
-    });
-    if (!rect.front || lava.phase === "full") {
-      continue;
-    }
-    const edgeX = rect.dx > 0 ? rect.x + rect.width : rect.dx < 0 ? rect.x : midX;
-    const edgeY = rect.dy > 0 ? rect.y + rect.height : rect.dy < 0 ? rect.y : midY;
-    const band = {
-      x: rect.dx !== 0 ? edgeX - (rect.dx > 0 ? LAVA_PX : 0) : rect.x,
-      y: rect.dy !== 0 ? edgeY - (rect.dy > 0 ? LAVA_PX : 0) : rect.y,
-      width: rect.dx !== 0 ? LAVA_PX : rect.width,
-      height: rect.dy !== 0 ? LAVA_PX : rect.height,
-    };
-    graphics.fillStyle(retracting ? LAVA_CRUST_COLORS[0]! : LAVA_HOT_COLOR, 1);
-    graphics.fillRect(band.x, band.y, band.width, band.height);
-    if (lava.phase !== "emerging") {
-      continue;
-    }
-    for (let i = 0; i < LAVA_EMBER_COUNT; i += 1) {
-      const life = (frame + i * 3) % 12;
-      const ahead = (1 + life) * LAVA_PX * 0.5;
-      const spread = (lavaHash(i, frame - life, rect.dx * 3 + rect.dy) - 0.5) * tileSize * 0.8;
-      const ex = rect.dx !== 0 ? edgeX + rect.dx * ahead : midX + spread;
-      const ey = rect.dy !== 0 ? edgeY + rect.dy * ahead : midY + spread;
-      graphics.fillStyle(LAVA_PALETTE[4]!, 1 - life / 12);
-      graphics.fillRect(
-        Math.floor(ex / LAVA_PX) * LAVA_PX,
-        Math.floor(ey / LAVA_PX) * LAVA_PX,
-        LAVA_PX,
-        LAVA_PX,
-      );
     }
   }
 }

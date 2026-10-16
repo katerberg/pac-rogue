@@ -3,17 +3,17 @@ import {
   isLavaZoneLevel,
   LAVA_CYCLE_MS,
   LAVA_MAX_REACH_TILES,
-  lavaCracksFlashOn,
+  lavaFlashOn,
   lavaPhase,
   lavaReachTiles,
-  lavaRects,
+  lavaSignedDistancePx,
   lavaTouchesCircle,
   lavaZoneCandidates,
   pickLavaZone,
   type LavaZone,
   type LavaZoneBoard,
 } from "./lavaZone";
-import { cellCenterX, cellCenterY, cellOriginX, TILE_SIZE } from "./maze";
+import { cellCenterX, cellCenterY, cellOriginX, cellOriginY, TILE_SIZE } from "./maze";
 
 const ROWS = ["###########", "#.........#", "#.###.###.#", "#.........#", "###########"];
 
@@ -98,51 +98,71 @@ describe("lava cycle", () => {
     expect(at(LAVA_CYCLE_MS + 7500)).toEqual(["emerging", LAVA_MAX_REACH_TILES / 2]);
   });
 
-  it("flashes the cracks only while warning", () => {
-    expect(lavaCracksFlashOn(1000)).toBe(false);
-    expect(lavaCracksFlashOn(4000)).toBe(true);
-    expect(lavaCracksFlashOn(4250)).toBe(false);
-    expect(lavaCracksFlashOn(4500)).toBe(true);
-    expect(lavaCracksFlashOn(6000)).toBe(false);
+  it("flashes the bed only while warning", () => {
+    expect(lavaFlashOn(1000)).toBe(false);
+    expect(lavaFlashOn(4000)).toBe(true);
+    expect(lavaFlashOn(4250)).toBe(false);
+    expect(lavaFlashOn(4500)).toBe(true);
+    expect(lavaFlashOn(6000)).toBe(false);
   });
 });
 
-describe("lavaRects", () => {
-  const zone = lavaZoneCandidates(board(), NONE).find((z) => z.col === 3 && z.row === 1)!;
-  const width = (reach: number) =>
-    lavaRects(zone, reach).reduce((sum, r) => sum + r.width, 0) / TILE_SIZE;
+describe("lavaSignedDistancePx", () => {
+  const straight = lavaZoneCandidates(board(), NONE).find((z) => z.col === 3 && z.row === 1)!;
+  const cornered = lavaZoneCandidates(board(), NONE).find((z) => z.col === 2 && z.row === 1)!;
+  const at = (zone: LavaZone, reach: number, col: number, row: number, u: number, v: number) =>
+    lavaSignedDistancePx(
+      zone,
+      reach,
+      cellOriginX(col) + u * TILE_SIZE,
+      cellOriginY(row) + v * TILE_SIZE,
+    )!;
+  const coveredTiles = (reach: number) => {
+    let covered = 0;
+    for (let x = cellOriginX(1); x < cellOriginX(6); x += 0.25) {
+      const d = lavaSignedDistancePx(straight, reach, x, cellCenterY(1));
+      covered += d !== null && d > 0 ? 0.25 : 0;
+    }
+    return covered / TILE_SIZE;
+  };
 
   it("grows from the centre cell outward to 3 tiles", () => {
-    expect(lavaRects(zone, 0)).toEqual([]);
-    expect(width(0.25)).toBeCloseTo(0.5);
-    expect(width(1)).toBeCloseTo(2);
-    expect(width(LAVA_MAX_REACH_TILES)).toBeCloseTo(3);
+    expect(coveredTiles(0)).toBe(0);
+    expect(coveredTiles(0.25)).toBeCloseTo(0.5, 1);
+    expect(coveredTiles(1)).toBeCloseTo(2, 1);
+    expect(coveredTiles(LAVA_MAX_REACH_TILES)).toBeCloseTo(3, 1);
   });
 
-  it("fills a neighbour from the edge nearest the centre", () => {
-    const left = lavaRects(zone, 1).find((r) => r.x < cellOriginX(3))!;
-    expect(left.x).toBeCloseTo(cellOriginX(2) + TILE_SIZE / 2);
-    expect(left.x + left.width).toBeCloseTo(cellOriginX(3));
+  it("fills a straight neighbour from the edge nearest the centre, in px behind the front", () => {
+    expect(at(straight, 1, 2, 1, 0.75, 0.5)).toBeGreaterThan(0);
+    expect(at(straight, 1, 2, 1, 0.25, 0.5)).toBeLessThan(0);
+    expect(at(straight, 1, 4, 1, 0.25, 0.5)).toBeCloseTo(TILE_SIZE / 4);
+    expect(lavaSignedDistancePx(straight, 1, cellCenterX(6), cellCenterY(1))).toBeNull();
   });
 
-  it("marks the outermost span of each branch as the leading edge", () => {
-    const fronts = (reach: number) =>
-      lavaRects(zone, reach)
-        .filter((r) => r.front)
-        .map((r) => r.dx);
-    expect(fronts(0.25).sort()).toEqual([-1, 1]);
-    expect(fronts(1).sort()).toEqual([-1, 1]);
-    expect(lavaRects(zone, 1).filter((r) => !r.front)).toHaveLength(2);
+  it("sweeps a corner cell around its inside corner instead of sliding straight across", () => {
+    expect(cornered.cells.find((c) => c.col === 1)!.turn).toEqual({ dx: 0, dy: 1 });
+    expect(at(cornered, 1, 1, 1, 0.9, 0.1)).toBeGreaterThan(0);
+    expect(at(cornered, 1, 1, 1, 0.6, 0.9)).toBeLessThan(0);
+    expect(at(cornered, 1, 1, 1, 0.1, 0.9)).toBeLessThan(0);
+    for (const [u, v] of [
+      [0.1, 0.1],
+      [0.9, 0.9],
+      [0.1, 0.9],
+    ] as const) {
+      expect(at(cornered, LAVA_MAX_REACH_TILES, 1, 1, u, v)).toBeGreaterThan(0);
+    }
   });
 
   it("touches a circle that overlaps the lava, not one beside it", () => {
     const radius = TILE_SIZE / 2;
-    const rects = lavaRects(zone, 0.25);
-    expect(lavaTouchesCircle(rects, cellCenterX(3), cellCenterY(1), radius)).toBe(true);
-    expect(lavaTouchesCircle(rects, cellCenterX(4), cellCenterY(1), radius)).toBe(false);
-    expect(lavaTouchesCircle(lavaRects(zone, 1.5), cellCenterX(4), cellCenterY(1), radius)).toBe(
+    expect(lavaTouchesCircle(straight, 0.25, cellCenterX(3), cellCenterY(1), radius)).toBe(true);
+    expect(lavaTouchesCircle(straight, 0.25, cellCenterX(4), cellCenterY(1), radius)).toBe(false);
+    expect(lavaTouchesCircle(straight, 1.5, cellCenterX(4), cellCenterY(1), radius)).toBe(true);
+    expect(lavaTouchesCircle(straight, 1.5, cellCenterX(5), cellCenterY(1), radius)).toBe(false);
+    expect(lavaTouchesCircle(straight, 0.02, cellCenterX(3) + 3, cellCenterY(1), radius)).toBe(
       true,
     );
-    expect(lavaTouchesCircle(rects, cellCenterX(5), cellCenterY(1), radius)).toBe(false);
+    expect(lavaTouchesCircle(straight, 0, cellCenterX(3), cellCenterY(1), radius)).toBe(false);
   });
 });

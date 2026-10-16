@@ -1,8 +1,16 @@
-import { cellOriginX, cellOriginY, TILE_SIZE, type MazeLayout, type MazeTile } from "./maze";
+import {
+  cellOriginX,
+  cellOriginY,
+  TILE_SIZE,
+  worldToCol,
+  worldToRow,
+  type MazeLayout,
+  type MazeTile,
+} from "./maze";
 
 export const LAVA_DORMANT_MS = 5000;
-export const LAVA_CRACK_WARN_MS = 1500;
-export const LAVA_CRACK_BLINK_MS = 250;
+export const LAVA_WARN_MS = 1500;
+export const LAVA_FLASH_BLINK_MS = 250;
 export const LAVA_EMERGE_MS = 5000;
 export const LAVA_HOLD_MS = 2000;
 export const LAVA_RETRACT_MS = 5000;
@@ -12,25 +20,17 @@ const LAVA_TOUCH_RADIUS_FRACTION = 0.6;
 
 export type LavaPhase = "dormant" | "warn" | "emerging" | "full" | "retracting";
 
-export type LavaCell = MazeTile & { distance: number; dx: number; dy: number };
+type Step = { dx: number; dy: number };
+
+export type LavaCell = MazeTile & { distance: number; dx: number; dy: number; turn: Step | null };
 
 export type LavaZone = { col: number; row: number; cells: LavaCell[] };
-
-export type LavaRect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  dx: number;
-  dy: number;
-  front: boolean;
-};
 
 export type LavaRenderState = {
   zone: LavaZone;
   phase: LavaPhase;
   reachTiles: number;
-  cracksFlashOn: boolean;
+  flashOn: boolean;
 };
 
 export type LavaAvoid = { tunnelRows: readonly number[]; cells: readonly MazeTile[] };
@@ -57,7 +57,7 @@ function cycleTime(elapsedMs: number): number {
 
 export function lavaPhase(elapsedMs: number): LavaPhase {
   const t = cycleTime(elapsedMs);
-  if (t < LAVA_DORMANT_MS - LAVA_CRACK_WARN_MS) {
+  if (t < LAVA_DORMANT_MS - LAVA_WARN_MS) {
     return "dormant";
   }
   if (t < LAVA_DORMANT_MS) {
@@ -84,8 +84,8 @@ export function lavaReachTiles(elapsedMs: number): number {
   return LAVA_MAX_REACH_TILES * (1 - retractT / LAVA_RETRACT_MS);
 }
 
-export function lavaCracksFlashOn(elapsedMs: number): boolean {
-  return lavaPhase(elapsedMs) === "warn" && Math.floor(elapsedMs / LAVA_CRACK_BLINK_MS) % 2 === 0;
+export function lavaFlashOn(elapsedMs: number): boolean {
+  return lavaPhase(elapsedMs) === "warn" && Math.floor(elapsedMs / LAVA_FLASH_BLINK_MS) % 2 === 0;
 }
 
 function walkable(board: LavaZoneBoard, col: number, row: number): boolean {
@@ -116,7 +116,7 @@ function cellAllowed(board: LavaZoneBoard, avoid: LavaAvoid, cell: MazeTile): bo
 
 function lavaCellsFrom(board: LavaZoneBoard, col: number, row: number): LavaCell[] {
   const maxDistance = Math.ceil(LAVA_MAX_REACH_TILES - 0.5);
-  const cells: LavaCell[] = [{ col, row, distance: 0, dx: 0, dy: 0 }];
+  const cells: LavaCell[] = [{ col, row, distance: 0, dx: 0, dy: 0, turn: null }];
   for (let i = 0; i < cells.length; i += 1) {
     const from = cells[i]!;
     if (from.distance >= maxDistance) {
@@ -125,7 +125,9 @@ function lavaCellsFrom(board: LavaZoneBoard, col: number, row: number): LavaCell
     for (const s of openSteps(board, from.col, from.row)) {
       const next = { col: from.col + s.dx, row: from.row + s.dy };
       if (!cells.some((c) => c.col === next.col && c.row === next.row)) {
-        cells.push({ ...next, distance: from.distance + 1, dx: s.dx, dy: s.dy });
+        const turn =
+          openSteps(board, next.col, next.row).find((t) => t.dx * s.dx + t.dy * s.dy === 0) ?? null;
+        cells.push({ ...next, distance: from.distance + 1, dx: s.dx, dy: s.dy, turn });
       }
     }
   }
@@ -167,57 +169,75 @@ export function pickLavaZone(
   return candidates[Math.floor(nextRandom() * candidates.length)]!;
 }
 
-function spanRect(
-  cell: MazeTile,
-  step: { dx: number; dy: number },
-  from: number,
-  to: number,
-  front: boolean,
-): LavaRect {
-  const x = cellOriginX(cell.col);
-  const y = cellOriginY(cell.row);
-  const lo = Math.min(from, to) * TILE_SIZE;
-  const len = Math.abs(to - from) * TILE_SIZE;
-  const { dx, dy } = step;
-  return dx !== 0
-    ? { x: x + lo, y, width: len, height: TILE_SIZE, dx, dy, front }
-    : { x, y: y + lo, width: TILE_SIZE, height: len, dx, dy, front };
+function cellSignedDistance(
+  cell: LavaCell,
+  axis: Step,
+  maxDistance: number,
+  reachTiles: number,
+  u: number,
+  v: number,
+): number {
+  if (cell.distance === 0) {
+    return reachTiles >= 0.5 ? Infinity : reachTiles - Math.abs((axis.dx !== 0 ? u : v) - 0.5);
+  }
+  const fill = Math.min(1, reachTiles - (cell.distance - 0.5));
+  if (fill >= 1 && cell.distance < maxDistance) {
+    return Infinity;
+  }
+  const { dx, dy, turn } = cell;
+  if (turn === null || fill <= 0) {
+    const depth = dx !== 0 ? (dx > 0 ? u : 1 - u) : dy > 0 ? v : 1 - v;
+    return fill - depth;
+  }
+  const qx = u - (0.5 - dx / 2 + turn.dx / 2);
+  const qy = v - (0.5 - dy / 2 + turn.dy / 2);
+  const alongEntryEdge = -(qx * turn.dx + qy * turn.dy);
+  const alongExitEdge = qx * dx + qy * dy;
+  const swept = Math.atan2(alongExitEdge, alongEntryEdge);
+  return Math.hypot(qx, qy) * Math.sin((fill * Math.PI) / 2 - swept);
 }
 
-export function lavaRects(zone: LavaZone, reachTiles: number): LavaRect[] {
-  const maxDistance = Math.max(...zone.cells.map((c) => c.distance));
-  const rects: LavaRect[] = [];
-  for (const cell of zone.cells) {
-    if (cell.distance === 0) {
-      const half = Math.min(reachTiles, 0.5);
-      if (half > 0) {
-        for (const s of zone.cells.filter((c) => c.distance === 1)) {
-          rects.push(spanRect(cell, s, 0.5, 0.5 + (s.dx + s.dy) * half, half < 0.5));
-        }
-      }
-      continue;
-    }
-    const fill = Math.min(1, reachTiles - (cell.distance - 0.5));
-    if (fill <= 0) {
-      continue;
-    }
-    const entry = cell.dx + cell.dy > 0 ? 0 : 1;
-    const front = fill < 1 || cell.distance === maxDistance;
-    rects.push(spanRect(cell, cell, entry, entry + (cell.dx + cell.dy) * fill, front));
+export function lavaSignedDistancePx(
+  zone: LavaZone,
+  reachTiles: number,
+  x: number,
+  y: number,
+): number | null {
+  const col = worldToCol(x);
+  const row = worldToRow(y);
+  const cell = zone.cells.find((c) => c.col === col && c.row === row);
+  if (cell === undefined) {
+    return null;
   }
-  return rects;
+  const axis = zone.cells.find((c) => c.distance === 1) ?? { dx: 1, dy: 0 };
+  const maxDistance = Math.max(...zone.cells.map((c) => c.distance));
+  const u = (x - cellOriginX(col)) / TILE_SIZE;
+  const v = (y - cellOriginY(row)) / TILE_SIZE;
+  return cellSignedDistance(cell, axis, maxDistance, reachTiles, u, v) * TILE_SIZE;
 }
 
 export function lavaTouchesCircle(
-  rects: readonly LavaRect[],
+  zone: LavaZone,
+  reachTiles: number,
   x: number,
   y: number,
   radius: number,
 ): boolean {
+  if (reachTiles <= 0) {
+    return false;
+  }
   const r = radius * LAVA_TOUCH_RADIUS_FRACTION;
-  return rects.some((rect) => {
-    const nx = Math.max(rect.x, Math.min(x, rect.x + rect.width));
-    const ny = Math.max(rect.y, Math.min(y, rect.y + rect.height));
-    return Math.hypot(x - nx, y - ny) < r;
+  const atCentre = lavaSignedDistancePx(zone, reachTiles, x, y);
+  if (atCentre !== null) {
+    return atCentre > -r;
+  }
+  return Array.from({ length: 8 }, (_, i) => (i * Math.PI) / 4).some((angle) => {
+    const d = lavaSignedDistancePx(
+      zone,
+      reachTiles,
+      x + Math.cos(angle) * r,
+      y + Math.sin(angle) * r,
+    );
+    return d !== null && d > 0;
   });
 }
