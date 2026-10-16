@@ -1,0 +1,142 @@
+:root {
+  color-scheme: dark;
+  --surface: #0a0a12;
+  --surface-2: #12121c;
+  --ink: #f2f2f7;
+  --ink-2: #b9bbcc;
+  --ink-muted: #8a8ca0;
+  --rule: #34345a;
+  --accent: #ffd800;
+  --yes: #39c96b;
+  --no: #e05656;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--ink);
+  font:
+    13px/1.35 ui-monospace,
+    "SFMono-Regular",
+    Menlo,
+    Consolas,
+    monospace;
+}
+
+#mazes-root {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 12px;
+  max-width: none;
+}
+
+h1 {
+  margin: 0;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+  font-size: 1.05rem;
+  flex: 0 0 auto;
+}
+
+.notes {
+  margin: 0;
+  color: var(--ink-muted);
+  flex: 0 0 auto;
+}
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--ink-2);
+  flex: 0 0 auto;
+}
+
+.hud strong {
+  color: var(--ink);
+}
+
+.board-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  background: #000;
+  border: 1px solid var(--rule);
+  overflow: hidden;
+}
+
+.board-canvas {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  image-rendering: auto;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  background: var(--surface-2);
+  color: var(--ink);
+  padding: 8px 14px;
+  letter-spacing: 0.08em;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+button.yes {
+  background: #163522;
+  border-color: var(--yes);
+  color: var(--yes);
+}
+
+button.no {
+  background: #3a1818;
+  border-color: var(--no);
+  color: var(--no);
+}
+
+.keys {
+  margin-left: 8px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.empty-state,
+.done-state {
+  padding: 24px 16px;
+  border: 1px dashed var(--rule);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  flex: 1 1 auto;
+}
+
+.empty-state code,
+.done-state code {
+  color: var(--accent);
+}

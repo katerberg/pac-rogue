@@ -14,7 +14,7 @@ npx playwright install chromium
 
 ## Commands
 
-`package.json` `scripts` is the full list. The ones you need: `npm run dev` (human, :5173) / `dev:agent` (:5174), `build`, `test`, `lint`, `format`, `probe` (scripted live check), `visual` (headless canvas smoke), `check:ecs`, `verify` (the canonical gate: precommit checks + build + visual), `verify:record` and `check:ship` (ship-plan evidence), `balance` / `balance:compare` ([docs/BALANCE_BOTS.md](./docs/BALANCE_BOTS.md)), `worker:dev`, `data:pull`.
+`package.json` `scripts` is the full list. The ones you need: `npm run dev` (human, :5173) / `dev:agent` (:5174), `build`, `test`, `lint`, `format`, `probe` (scripted live check), `visual` (headless canvas smoke), `check:ecs`, `verify` (the canonical gate: precommit checks + build + visual), `verify:record` and `check:ship` (ship-plan evidence), `balance` / `balance:compare` ([docs/BALANCE_BOTS.md](./docs/BALANCE_BOTS.md)), `maze:generate` (dev maze candidates for `/mazes/` curator; [docs/maze-constraints.md](./docs/maze-constraints.md)), `worker:dev`, `data:pull`.
 
 `npm install` points Git at `.githooks/`; the pre-commit hook runs `verify:precommit`. Humans and agents use different ports (`scripts/ports.json`, [docs/VERIFICATION.md](./docs/VERIFICATION.md)). CI (`.github/workflows/verify.yml`) runs `verify` on PRs and `main`.
 

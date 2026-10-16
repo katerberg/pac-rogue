@@ -21,4 +21,14 @@ The playfield is fixed; every layout uses one fixed tile size (`TILE_SIZE_PX`), 
 
 Solved on a mirrored polyomino tiling with a fixed centre house and rasterized to 28x34 ASCII. Invariants the generator enforces (reject, never patch): pellet count near `GENERATED_PELLET_TARGET`; 1-2 tunnel rows on corridor rows only; **no 2x2 block of player-open cells** (no parallel corridors); **no dead ends**; no house-adjacent or spawn-adjacent dots. Boards are deterministic from `boardMazeSeed(runSeed, levelIndex)`: one base map per run shared by levels 2-8 (variants like inversion are applied on top), with the boss board keyed separately, with bounded retries, falling back to `maze2` with a `console.warn`. `?maze=` forces the first board.
 
+## Pool curation (dev)
+
+Play still uses the live generator for levels 2+. To curate a fixed pool for a later wiring change:
+
+1. `npm run maze:generate` (`--count N` overrides the script default) writes `artifacts/mazes/candidates.json` (gitignored).
+2. Open `/mazes/` on the human or agent **dev** server (candidates middleware is also wired for preview) and Yes/No each board (keys `Y`/`→` yes, `N`/`←` no, `U` undo; Reset clears decisions). Decisions stay in `localStorage` for that candidates batch.
+3. **Download pool** exports `maze-pool.json` of the Yes maps (~200 is the intended keep size; the tool does not enforce a cap).
+
+The curator shows upright bases only. Wiring that pool into levels 2–8 (one draw per run, boss still generated, invert on 6–7 kept) is a follow-up.
+
 Out of scope: vertical tunnels, non-rectangular grids, multi-house, canvas resize or scroll.
