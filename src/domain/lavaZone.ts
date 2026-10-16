@@ -8,14 +8,14 @@ import {
   type MazeTile,
 } from "./maze";
 
-export const LAVA_DORMANT_MS = 5000;
+export const LAVA_DORMANT_MS = 7000;
 export const LAVA_WARN_MS = 1500;
 export const LAVA_FLASH_BLINK_MS = 250;
-export const LAVA_EMERGE_MS = 5000;
-export const LAVA_HOLD_MS = 2000;
-export const LAVA_RETRACT_MS = 5000;
+export const LAVA_EMERGE_MS = 3000;
+export const LAVA_HOLD_MS = 4000;
+export const LAVA_RETRACT_MS = 2000;
 export const LAVA_CYCLE_MS = LAVA_DORMANT_MS + LAVA_EMERGE_MS + LAVA_HOLD_MS + LAVA_RETRACT_MS;
-export const LAVA_MAX_REACH_TILES = 1.5;
+export const LAVA_MAX_REACH_TILES = 3.5;
 const LAVA_TOUCH_RADIUS_FRACTION = 0.6;
 
 export type LavaPhase = "dormant" | "warn" | "emerging" | "full" | "retracting";
@@ -172,6 +172,7 @@ export function pickLavaZone(
 function cellSignedDistance(
   cell: LavaCell,
   axis: Step,
+  maxDistance: number,
   reachTiles: number,
   u: number,
   v: number,
@@ -180,6 +181,9 @@ function cellSignedDistance(
     return reachTiles >= 0.5 ? Infinity : reachTiles - Math.abs((axis.dx !== 0 ? u : v) - 0.5);
   }
   const fill = Math.min(1, reachTiles - (cell.distance - 0.5));
+  if (fill >= 1 && cell.distance < maxDistance) {
+    return Infinity;
+  }
   const { dx, dy, turn } = cell;
   if (turn === null || fill <= 0) {
     const depth = dx !== 0 ? (dx > 0 ? u : 1 - u) : dy > 0 ? v : 1 - v;
@@ -206,9 +210,10 @@ export function lavaSignedDistancePx(
     return null;
   }
   const axis = zone.cells.find((c) => c.distance === 1) ?? { dx: 1, dy: 0 };
+  const maxDistance = Math.max(...zone.cells.map((c) => c.distance));
   const u = (x - cellOriginX(col)) / TILE_SIZE;
   const v = (y - cellOriginY(row)) / TILE_SIZE;
-  return cellSignedDistance(cell, axis, reachTiles, u, v) * TILE_SIZE;
+  return cellSignedDistance(cell, axis, maxDistance, reachTiles, u, v) * TILE_SIZE;
 }
 
 export function lavaTouchesCircle(

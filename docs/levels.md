@@ -20,7 +20,7 @@ Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-
 
 - **Inverted** levels (`isInvertedMazeLevel`): the run's pool base map is row-reversed in `startBoard` (`invertMazeAscii`) so spawn and house flip with it.
 - **Timed tunnel** levels (`isTimedTunnelLevel`): one seeded tunnel row cycles open / warn / closed.
-- **Lava** level (`isLavaZoneLevel`, `src/domain/lavaZone.ts`): one seeded lava patch, centred on a straight hallway at least 2 tiles from any intersection and never on a speed lane cell, cycles dormant (a cooled bed, which glows with embers before it opens) → creeping out from the centre, sweeping around a corner cell → full → retracting. Touching it kills Dot-Man like a ghost catch; ghosts cross it freely. A life loss restarts the cycle dormant.
+- **Lava** level (`isLavaZoneLevel`, `src/domain/lavaZone.ts`): one seeded lava patch, centred on a straight hallway with no intersection or speed lane cell anywhere in its reach, cycles dormant (a cooled bed, which glows with embers before it opens) → creeping out from the centre, sweeping around a corner cell → full → retracting. Touching it kills Dot-Man like a ghost catch; ghosts cross it freely. A life loss restarts the cycle dormant.
 - **Speed lane** levels (`isSpeedZoneLevel`, `src/domain/speedZones.ts`): two seeded straight lanes (3+ tiles, never turning) speed Dot-Man up when he moves in the lane's fast direction and slow him moving the other way; ghosts ignore them. Faint pixel dust drifts down the lane toward the fast end, so the direction is implied rather than drawn.
 
 Inverted, speed lane and lava levels are **level modifiers**: `?levelModifiers=0` turns them off (see README Flags). Add new modifiers behind `PlayOptions.levelModifiers` too.
