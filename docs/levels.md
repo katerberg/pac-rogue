@@ -4,8 +4,7 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `lev
 
 ## Flow
 
-- Level 1 clear: no reward (a starting upgrade was already granted), straight to level 2.
-- Levels 2-8 clear: level-end [time bonus](./bonus.md#time-bonus) drain, then the pick-one [upgrade](./upgrades.md) modal, then the next board. Store floors ([store.md](./store.md)) sit between certain levels (`storeAfterLevel` in `store.ts`) and are where Quarters are spent.
+- Levels 1-8 clear: level-end [time bonus](./bonus.md#time-bonus) drain, then the pick-one [upgrade](./upgrades.md) modal, then the next board. Level 1 also grants a starting upgrade at board start. Store floors ([store.md](./store.md)) sit between certain levels (`storeAfterLevel` in `store.ts`) and are where Quarters are spent.
 - Level 9 clear needs both boss stages, then RUN COMPLETE. No upgrade offer, no time bonus, no high-score write (only last-life Game Over writes history).
 - `?level=` clamps to `MAX_LEVEL`, so `level=9` jumps into the boss.
 
@@ -21,6 +20,9 @@ Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-
 
 - **Inverted** levels (`isInvertedMazeLevel`): the run's pool base map is row-reversed in `startBoard` (`invertMazeAscii`) so spawn and house flip with it.
 - **Timed tunnel** levels (`isTimedTunnelLevel`): one seeded tunnel row cycles open / warn / closed.
+- **Speed lane** levels (`isSpeedZoneLevel`, `src/domain/speedZones.ts`): two seeded straight lanes (3+ tiles, never turning) speed Dot-Man up when he moves in the lane's fast direction and slow him moving the other way; ghosts ignore them. Faint dust particles drift down the lane toward the fast end, so the direction is implied rather than drawn.
+
+Inverted and speed lane levels are **level modifiers**: `?levelModifiers=0` turns them off (see README Flags). Add new modifiers behind `PlayOptions.levelModifiers` too.
 
 ## Scatter and chase
 

@@ -21,13 +21,12 @@ describe("MAX_LEVEL", () => {
 });
 
 describe("offersUpgradeAfterLevel", () => {
-  it("skips the first and final levels", () => {
-    expect(offersUpgradeAfterLevel(1)).toBe(false);
+  it("skips only the final (boss) level", () => {
     expect(offersUpgradeAfterLevel(MAX_LEVEL)).toBe(false);
   });
 
-  it("offers after every level in between", () => {
-    for (let level = 2; level < MAX_LEVEL; level++) {
+  it("offers after every playable level including level 1", () => {
+    for (let level = 1; level < MAX_LEVEL; level++) {
       expect(offersUpgradeAfterLevel(level)).toBe(true);
     }
   });

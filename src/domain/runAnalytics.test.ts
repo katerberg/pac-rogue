@@ -106,14 +106,12 @@ describe("runAnalytics", () => {
     const offered = run(2, "death");
     offered.levels[0]!.offer = {
       upgrades: ["passiveGhostSlow", "passiveExtraLife", "fruitFeast"],
-      quarters: 1,
       picked: "passiveGhostSlow",
       choiceMs: 100,
     };
     offered.levels[1]!.offer = {
       upgrades: ["passiveGhostSlow", "fruitFeast", "passiveExtraLife"],
-      quarters: 1,
-      picked: "quarters",
+      picked: null,
       choiceMs: 100,
     };
     const rows = upgradeRows([offered], FINISHED);

@@ -7,6 +7,7 @@ import { GHOST_ROSTERS, parseRosterId } from "./ghostRoster";
 import { parseGodModeFlag } from "./godModeFlag";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
 import { parseKnobsFlag } from "./knobsFlag";
+import { parseLevelModifiersFlag } from "./levelModifiersFlag";
 import { parseInfiniteLivesFlag, parseLivesCountParam } from "./lives";
 import type { MazeLayoutId } from "./mazeLayouts";
 import { parseMazeOverride } from "./mazeOverride";
@@ -42,6 +43,7 @@ export type PlayOptions = {
   maxLives: number | null;
   godMode: boolean;
   knobs: boolean;
+  levelModifiers: boolean;
   enableUpgrades: UpgradeId[];
   forceUpgrade: BaseUpgradeId | null;
   highScoresDisabled: boolean;
@@ -112,6 +114,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       maxLives: maxLives ?? lives,
       godMode: parseGodModeFlag(params),
       knobs: parseKnobsFlag(params),
+      levelModifiers: parseLevelModifiersFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
       forceUpgrade: parseForceUpgradeParam(params),
       highScoresDisabled: highScoresDisabled(params),

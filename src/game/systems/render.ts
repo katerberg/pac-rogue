@@ -4,6 +4,8 @@ import {
   actorDisplaySize,
   cellCenterX,
   cellCenterY,
+  cellOriginX,
+  cellOriginY,
   getActiveLayout,
   playerDisplaySize,
   pelletDisplaySize,
@@ -12,7 +14,14 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import {
+  SPEED_ZONE_COUNT,
+  speedZoneGlowMask,
+  speedZoneParticles,
+  type SpeedZone,
+} from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import { pixelWallRects } from "../../domain/pixelWall";
@@ -459,6 +468,8 @@ export type RenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  speedZones?: readonly SpeedZone[];
+  droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
 
@@ -478,12 +489,79 @@ export type PlayRender = {
 const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const SPEED_TRAIL_DEPTH = -1;
+const SPEED_ZONE_DEPTH = -2;
+const SPEED_ZONE_PARTICLE_DEPTH = -1.5;
+const SPEED_ZONE_COLOR = 0x3fa9ff;
+const SPEED_ZONE_FILL_ALPHA = 0.5;
+const SPEED_ZONE_GLOW_PEAK_ALPHA = 0.6;
+const SPEED_ZONE_GLOW_REACH_TILES = 0.7;
+const SPEED_ZONE_PARTICLE_COLOR = 0xd8f2ff;
+const SPEED_ZONE_PARTICLE_BASE_RADIUS_PX = 1;
+const SPEED_ZONE_TEXTURE_KEYS = Array.from(
+  { length: SPEED_ZONE_COUNT },
+  (_, i) => `speed-zone-glow-${i}`,
+);
 const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
   { strand: 0, width: 2.5, color: 0x9fe0ff, alpha: 0.95 },
   { strand: 1, width: 1, color: 0xffffff, alpha: 0.9 },
 ] as const;
+
+function addSpeedZoneGlow(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  zone: SpeedZone,
+  textureKey: string,
+): void {
+  const { tileSize } = getActiveLayout();
+  const reachPx = Math.round(tileSize * SPEED_ZONE_GLOW_REACH_TILES);
+  const mask = speedZoneGlowMask(zone, {
+    tileSize,
+    reachPx,
+    fillAlpha: SPEED_ZONE_FILL_ALPHA,
+    glowPeakAlpha: SPEED_ZONE_GLOW_PEAK_ALPHA,
+  });
+  const texture = scene.textures.createCanvas(textureKey, mask.width, mask.height);
+  if (texture === null) {
+    return;
+  }
+  const ctx = texture.getContext();
+  const image = ctx.createImageData(mask.width, mask.height);
+  mask.alpha.forEach((alpha, i) => {
+    image.data[i * 4] = (SPEED_ZONE_COLOR >> 16) & 0xff;
+    image.data[i * 4 + 1] = (SPEED_ZONE_COLOR >> 8) & 0xff;
+    image.data[i * 4 + 2] = SPEED_ZONE_COLOR & 0xff;
+    image.data[i * 4 + 3] = Math.round(alpha * 255);
+  });
+  ctx.putImageData(image, 0, 0);
+  texture.refresh();
+  const glow = scene.add.image(
+    cellOriginX(zone.col) - reachPx,
+    cellOriginY(zone.row) - reachPx,
+    textureKey,
+  );
+  glow.setOrigin(0, 0).setBlendMode(Phaser.BlendModes.ADD);
+  container.add(glow);
+}
+
+function drawSpeedZoneParticles(
+  graphics: Phaser.GameObjects.Graphics,
+  zone: SpeedZone,
+  nowMs: number,
+): void {
+  const { tileSize } = getActiveLayout();
+  const originX = cellOriginX(0);
+  const originY = cellOriginY(0);
+  for (const particle of speedZoneParticles(zone, nowMs)) {
+    graphics.fillStyle(SPEED_ZONE_PARTICLE_COLOR, particle.alpha);
+    graphics.fillCircle(
+      originX + particle.col * tileSize,
+      originY + particle.row * tileSize,
+      SPEED_ZONE_PARTICLE_BASE_RADIUS_PX * particle.size,
+    );
+  }
+}
 
 function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly ChainPoint[]) {
   graphics.beginPath();
@@ -514,6 +592,22 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const speedZoneLayer = scene.add.container(0, 0);
+  speedZoneLayer.setDepth(SPEED_ZONE_DEPTH);
+  const speedZoneParticleGraphics = scene.add.graphics();
+  speedZoneParticleGraphics.setDepth(SPEED_ZONE_PARTICLE_DEPTH).setBlendMode(Phaser.BlendModes.ADD);
+  let drawnSpeedZones: readonly SpeedZone[] | null = null;
+  const clearSpeedZones = (): void => {
+    speedZoneLayer.removeAll(true);
+    speedZoneParticleGraphics.clear();
+    for (const key of SPEED_ZONE_TEXTURE_KEYS) {
+      if (scene.textures.exists(key)) {
+        scene.textures.remove(key);
+      }
+    }
+  };
+  const droppedWallGraphics = scene.add.graphics();
+  droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
@@ -561,6 +655,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     drawnWallStyle = null;
     drawnMazeInverted = false;
     drawnWallAlpha = 1;
+    clearSpeedZones();
+    drawnSpeedZones = null;
   };
 
   const bouncePowerPellet = (eid: number): void => {
@@ -942,6 +1038,19 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
     }
 
+    const speedZones = opts?.speedZones ?? [];
+    if (speedZones !== drawnSpeedZones) {
+      clearSpeedZones();
+      speedZones.forEach((zone, i) =>
+        addSpeedZoneGlow(scene, speedZoneLayer, zone, SPEED_ZONE_TEXTURE_KEYS[i]!),
+      );
+      drawnSpeedZones = speedZones;
+    }
+    speedZoneParticleGraphics.clear();
+    for (const zone of speedZones) {
+      drawSpeedZoneParticles(speedZoneParticleGraphics, zone, scene.time.now);
+    }
+
     timedTunnelGraphics.clear();
     if (timedTunnel?.gateVisible === true) {
       const layout = getActiveLayout();
@@ -952,6 +1061,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       timedTunnelGraphics.fillStyle(0xffcc33, 0.85);
       timedTunnelGraphics.fillRect(cellCenterX(0) - barW / 2, y, barW, barH);
       timedTunnelGraphics.fillRect(cellCenterX(layout.cols - 1) - barW / 2, y, barW, barH);
+    }
+
+    droppedWallGraphics.clear();
+    const droppedWall = opts?.droppedWall ?? null;
+    if (droppedWall !== null) {
+      const look = droppedWallLook(droppedWall, scene.time.now, wallStyle.cornerRadius);
+      droppedWallGraphics.lineStyle(wallStyle.thickness, look.color, look.alpha);
+      droppedWallGraphics.strokeRoundedRect(
+        cellCenterX(droppedWall.col) - look.size / 2,
+        cellCenterY(droppedWall.row) - look.size / 2,
+        look.size,
+        look.size,
+        look.cornerRadius,
+      );
     }
 
     for (const [key, go] of drawableObjects) {

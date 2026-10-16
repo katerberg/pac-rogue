@@ -112,6 +112,7 @@ import {
   hauntedGhost,
   hauntedGhostEid,
   tickHaunt,
+  tickWallDrop,
   HAUNTING_MS,
   frozenGhostEid,
   getUpgradeDef,
@@ -154,8 +155,8 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
+import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import { applyRemoteTransference } from "../systems/remoteTransference";
-import { anyKeyHeld } from "../systems/heldKeys";
 import {
   collectFruit,
   fruitKindsOnBoard,
@@ -174,10 +175,21 @@ import { freezeClosestGhost } from "../systems/ghostFreeze";
 import { ghostExitHouse } from "../systems/ghostExitHouse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
 import { sendGhostOutOfHouse } from "../systems/ghostRelease";
-import { NO_KEYS_HELD, applyHeldKeys, type HeldKeys, type TurnTap } from "../systems/heldKeys";
+import {
+  NO_KEYS_HELD,
+  anyKeyHeld,
+  applyHeldKeys,
+  type HeldKeys,
+  type TurnTap,
+} from "../systems/heldKeys";
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRunState } from "./learnRunState";
 import { playerFacing, playerPose } from "../systems/playerDirection";
+import {
+  startPowerPelletBreaks,
+  tickPowerPelletBreaks,
+  type ActivePowerPelletBreak,
+} from "./powerPelletBreaks";
 import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
@@ -259,6 +271,8 @@ export class LearnSim {
   private recallHoldGhostEids: number[] = [];
   private recallHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
+  private powerPelletBreaks: ActivePowerPelletBreak[] = [];
+  private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
@@ -349,6 +363,9 @@ export class LearnSim {
 
   step(keys: HeldKeys, delta: number): SimEvent[] {
     this.events = [];
+    this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
+      this.events.push(event),
+    );
     if (this.warpGlide !== null) {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
@@ -392,6 +409,7 @@ export class LearnSim {
     }
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
     this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
+    this.learnUpgrades = tickWallDrop(this.learnUpgrades, delta);
     this.fireDueEchoes(delta);
     this.tickHaunt(delta);
     this.tickFright(delta);
@@ -435,21 +453,35 @@ export class LearnSim {
     });
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
-    const moveFrame = (frameDelta: number): void =>
+    const playerSolidsOverride = playerSolidsWithWall(
+      this.learnUpgrades,
+      wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
+    );
+    const moveFrame = (frameDelta: number): void => {
       movement(
         this.world,
         frameDelta,
-        wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
+        playerSolidsOverride,
         false,
         undefined,
         ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+        null,
+        this.learnUpgrades.droppedWall,
       );
+      this.learnUpgrades = trackWallOccupancy(this.world, this.learnUpgrades);
+    };
     if (hyperspeedActive(this.learnUpgrades)) {
       this.moveHyperspeed(delta, moveFrame);
     } else {
       moveFrame(delta);
     }
     ghostExitHouse(this.world);
+    this.learnUpgrades = dropWallOnReversal(
+      this.world,
+      this.learnUpgrades,
+      this.learnUpgrades.owned,
+      facingBeforeMove,
+    );
     this.noteTunnelExit(positionBeforeMove);
     this.pushTurnSparks(
       this.turnTuning.afterMove(
@@ -484,6 +516,13 @@ export class LearnSim {
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
           this.releaseAll(dash.sweptPelletEids);
+          this.nextPowerPelletBreakId = startPowerPelletBreaks(
+            this.world,
+            this.powerPelletBreaks,
+            this.nextPowerPelletBreakId,
+            dash.sweptPowerPositions,
+            (event) => this.events.push(event),
+          );
           if (dash.sweptPowerRemoved > 0) {
             this.resolvePowerPelletTrigger(dash.sweptPowerRemoved);
           }
@@ -505,6 +544,13 @@ export class LearnSim {
       : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
     const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
     const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
+    this.nextPowerPelletBreakId = startPowerPelletBreaks(
+      this.world,
+      this.powerPelletBreaks,
+      this.nextPowerPelletBreakId,
+      playerFrame.removedPowerPositions,
+      (event) => this.events.push(event),
+    );
     this.releaseAll(removedEids);
     this.countCollected(removedEids.length);
     this.stepStreakEngine(playerFrame.removedCells, delta);
@@ -540,12 +586,16 @@ export class LearnSim {
       undefined,
       ghostsBlockedFromTunnels(this.learnUpgrades.owned),
       frightenedGhostEids(this.learnUpgrades),
+      null,
+      this.learnUpgrades.droppedWall,
     );
     frightenedGhostAi(
       this.world,
       frightenedGhostEids(this.learnUpgrades),
       this.random.stream("frightened"),
       ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+      null,
+      this.learnUpgrades.droppedWall,
     );
     this.eatFrightenedGhosts();
 
@@ -580,6 +630,7 @@ export class LearnSim {
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
+        droppedWall: this.learnUpgrades.droppedWall,
       },
     });
     return this.takeEvents();
@@ -1423,6 +1474,8 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
     shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
+    wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
+    droppedWall: hasField("armWallDrop") ? state.droppedWall : null,
     ...(hasField("frightenGhostsMs")
       ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
       : NO_FRIGHT),

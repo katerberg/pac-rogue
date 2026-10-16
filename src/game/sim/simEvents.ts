@@ -7,7 +7,9 @@ import type { StorePromptView } from "../../domain/store";
 import type { FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
+import type { SpeedZone } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import type { DroppedWall } from "../../domain/wallDrop";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 
 export type { TimedTunnelRenderState };
@@ -33,6 +35,8 @@ export type SimRenderOptions = {
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
+  speedZones?: readonly SpeedZone[];
+  droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
 };
 
@@ -70,6 +74,16 @@ export type SimEvent =
   | { type: "quarters"; pulse: boolean }
   | { type: "shields" }
   | { type: "shieldCrack"; index: number; progress: number }
+  | {
+      type: "powerPelletBreak";
+      id: number;
+      x: number;
+      y: number;
+      facingDx: number;
+      facingDy: number;
+      intensity: number;
+      progress: number;
+    }
   | { type: "walletCoins"; spend: MoneyTalksSpend | null }
   | { type: "bonus"; tier: number; filled: number }
   | { type: "fruitBonus" }

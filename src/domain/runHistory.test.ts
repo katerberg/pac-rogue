@@ -112,6 +112,11 @@ describe("highScoresDisabled", () => {
     expect(highScoresDisabled(new URLSearchParams(`play=1&${flag}=x`))).toBe(true);
   });
 
+  it("stops saving only when ?levelModifiers=0 turns the modifiers off", () => {
+    expect(highScoresDisabled(new URLSearchParams("levelModifiers=0"))).toBe(true);
+    expect(highScoresDisabled(new URLSearchParams("levelModifiers=1"))).toBe(false);
+  });
+
   it("stops saving even when the flag's value is ignored as invalid", () => {
     expect(highScoresDisabled(new URLSearchParams("seed=not%20valid"))).toBe(true);
     expect(highScoresDisabled(new URLSearchParams("infiniteLives=0"))).toBe(true);
