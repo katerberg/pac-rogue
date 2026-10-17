@@ -358,7 +358,6 @@ export function createStoreOverlay(
         const { x, y } = panelCenter(slot, state.freebie);
         return buildPanel(x, y, i);
       });
-      gotIds = state.slots.map(() => null);
       freebieTile = state.freebie.taken ? null : buildFreebie(state.freebie);
     },
     sync: (state, prompt, deltaMs) => {

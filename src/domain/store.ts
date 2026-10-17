@@ -293,7 +293,7 @@ export function promptView(
   return { kind: quarters < price ? "needQuarters" : "confirm", slot, price };
 }
 
-export type StoreStepResult = {
+type StoreStepResult = {
   state: StoreState;
   purchase: StorePurchase | null;
   pickup: StoreFreebie["kind"] | null;
