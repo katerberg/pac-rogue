@@ -456,6 +456,7 @@ export class PlaySim {
   private readonly options: PlayOptions;
   private suppressInputUntilKeyRelease = false;
   private awaitingStartingCard = false;
+  private customMazeError: string | null = null;
   private awaitingChoice = false;
   private pendingChoice: UpgradeChoiceOffer | null = null;
   private clock: RunClock = createRunClock();
@@ -581,6 +582,7 @@ export class PlaySim {
     this.startBoard(options.mazeAscii !== null ? { ascii: options.mazeAscii } : options.maze);
 
     const startingUpgrade =
+      this.customMazeError === null &&
       this.levelIndex === 1 &&
       !options.jumpToUpgrade &&
       options.store === null &&
@@ -598,7 +600,15 @@ export class PlaySim {
     this.recorder.livesStart(this.lives);
     this.emit({ type: "lives", pulse: false });
     this.emitRunLog();
-    if (startingUpgrade === null) {
+    if (this.customMazeError !== null) {
+      this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
+      this.awaitingStartingCard = true;
+      this.emit({
+        type: "startingNotice",
+        title: "CUSTOM MAZE FAILED",
+        body: `${this.customMazeError.slice(0, 80)}\nFalling back to maze2. Press any key.`,
+      });
+    } else if (startingUpgrade === null) {
       this.showLevelBanner();
     } else {
       this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
@@ -2279,6 +2289,9 @@ export class PlaySim {
       return label;
     } catch (error) {
       console.warn(`maze activate failed for ${label}; falling back to maze2`, error);
+      if (label === "custom") {
+        this.customMazeError = error instanceof Error ? error.message : String(error);
+      }
       activateLayout("maze2");
       return "maze2";
     }

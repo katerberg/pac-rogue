@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
+import { getUpgradeDef, type UpgradeId, type UpgradeSchool } from "../../domain/upgrades";
 import { wrapText } from "../../domain/wrapText";
 import {
   addPixelText,
@@ -30,6 +30,7 @@ const STARTING_CARD_LABEL_MARGIN = 40;
 export type StartingUpgradeCard = {
   isActive: () => boolean;
   open: (id: UpgradeId) => void;
+  openNotice: (title: string, body: string) => void;
   tick: (deltaMs: number) => void;
   destroy: () => void;
 };
@@ -57,69 +58,75 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
     }
   };
 
+  const present = (
+    headerText: string,
+    labelText: string,
+    descriptionText: string,
+    school: UpgradeSchool | null,
+  ): void => {
+    clearViews();
+    elapsedMs = 0;
+    dim = scene.add
+      .rectangle(
+        PLAYFIELD_WIDTH / 2,
+        PLAYFIELD_HEIGHT / 2,
+        PLAYFIELD_WIDTH,
+        PLAYFIELD_HEIGHT,
+        0x000000,
+        0.65,
+      )
+      .setDepth(MODAL_DEPTH);
+    const bg = scene.add
+      .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
+      .setStrokeStyle(4, TEXT_COLOR_YELLOW);
+    const header = addPixelText(scene, 0, 0, headerText, MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
+    const label = addPixelText(
+      scene,
+      0,
+      0,
+      wrapText(labelText, LABEL_MAX_CHARS),
+      fitFontSize(labelText, BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN, MENU_TITLE_FONT_SIZE),
+      TEXT_COLOR_YELLOW,
+    );
+    const description = addPixelText(
+      scene,
+      0,
+      0,
+      wrapText(descriptionText, DESCRIPTION_MAX_CHARS),
+      UPGRADES_HUD_FONT_SIZE,
+      TEXT_COLOR_WHITE,
+    );
+    placePixelText(header, 0, -84, 0.5, 0.5);
+    layoutCardText(label, description, STARTING_CARD_BODY_CENTER_Y);
+    const watermark =
+      school === null ? null : addSchoolWatermark(scene, school, BUTTON_WIDTH, BUTTON_HEIGHT);
+    watermark?.setY(STARTING_CARD_BODY_CENTER_Y);
+    card = scene.add
+      .container(
+        PLAYFIELD_WIDTH / 2,
+        PLAYFIELD_HEIGHT / 2,
+        watermark === null
+          ? [bg, header, label, description]
+          : [bg, watermark, header, label, description],
+      )
+      .setDepth(MODAL_DEPTH + 1);
+    onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        return;
+      }
+      beginFade();
+    };
+    scene.input.keyboard?.on("keydown", onKeyDown);
+  };
+
   return {
     isActive: () => card !== null,
     open: (id) => {
-      clearViews();
-      elapsedMs = 0;
       const def = getUpgradeDef(id);
-      dim = scene.add
-        .rectangle(
-          PLAYFIELD_WIDTH / 2,
-          PLAYFIELD_HEIGHT / 2,
-          PLAYFIELD_WIDTH,
-          PLAYFIELD_HEIGHT,
-          0x000000,
-          0.65,
-        )
-        .setDepth(MODAL_DEPTH);
-      const bg = scene.add
-        .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
-        .setStrokeStyle(4, TEXT_COLOR_YELLOW);
-      const header = addPixelText(
-        scene,
-        0,
-        0,
-        "STARTING UPGRADE",
-        MENU_OPTION_FONT_SIZE,
-        TEXT_COLOR_WHITE,
-      );
-      const label = addPixelText(
-        scene,
-        0,
-        0,
-        wrapText(def.label, LABEL_MAX_CHARS),
-        fitFontSize(def.label, BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN, MENU_TITLE_FONT_SIZE),
-        TEXT_COLOR_YELLOW,
-      );
-      const description = addPixelText(
-        scene,
-        0,
-        0,
-        wrapText(def.description, DESCRIPTION_MAX_CHARS),
-        UPGRADES_HUD_FONT_SIZE,
-        TEXT_COLOR_WHITE,
-      );
-      placePixelText(header, 0, -84, 0.5, 0.5);
-      layoutCardText(label, description, STARTING_CARD_BODY_CENTER_Y);
-      const watermark = addSchoolWatermark(scene, def.school, BUTTON_WIDTH, BUTTON_HEIGHT);
-      watermark?.setY(STARTING_CARD_BODY_CENTER_Y);
-      card = scene.add
-        .container(
-          PLAYFIELD_WIDTH / 2,
-          PLAYFIELD_HEIGHT / 2,
-          watermark === null
-            ? [bg, header, label, description]
-            : [bg, watermark, header, label, description],
-        )
-        .setDepth(MODAL_DEPTH + 1);
-      onKeyDown = (event) => {
-        if (event.key === "Escape") {
-          return;
-        }
-        beginFade();
-      };
-      scene.input.keyboard?.on("keydown", onKeyDown);
+      present("STARTING UPGRADE", def.label, def.description, def.school);
+    },
+    openNotice: (title, body) => {
+      present("NOTICE", title, body, null);
     },
     tick: (deltaMs) => {
       if (card === null) {

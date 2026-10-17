@@ -534,6 +534,9 @@ export class PlayScene extends Phaser.Scene {
       case "startingUpgrade":
         this.startingUpgradeCard.open(event.id);
         break;
+      case "startingNotice":
+        this.startingUpgradeCard.openNotice(event.title, event.body);
+        break;
       case "upgradeOffer":
         this.upgradeChoiceModal.open(event.offer, (chosen) => {
           this.applyEvents(this.sim.chooseUpgrade(chosen), delta);
