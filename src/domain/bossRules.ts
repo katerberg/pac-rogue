@@ -46,7 +46,7 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     startGhosts: 2,
     stages: [
       { spawnPellets: 3, chainPairs: [] },
-      { spawnPellets: 5, chainPairs: [] },
+      { spawnPellets: 3, chainPairs: [] },
     ],
     maxHouseGhosts: 4,
     tunnelCount: 3,

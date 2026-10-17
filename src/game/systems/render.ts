@@ -26,6 +26,11 @@ import {
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
+import {
+  PROGRAMMER_EMPTY_SLOT_TILES,
+  programmerArrowPoints,
+  type ProgrammerQueueSlot,
+} from "../../domain/programmer";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import { pixelWallRects } from "../../domain/pixelWall";
@@ -60,7 +65,12 @@ import {
 } from "../../domain/playfield";
 import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
-import { brightenColor, playerTint, type PlayerTint } from "../../domain/playerTint";
+import {
+  brightenColor,
+  PLAYER_PROGRAMMING_TINT,
+  playerTint,
+  type PlayerTint,
+} from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
 import {
@@ -454,10 +464,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
     scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
   }
   for (const school of UPGRADE_SCHOOL_ORDER) {
-    const path = schoolArtPath(school);
-    if (path !== null) {
-      scene.load.image(schoolArtTextureKey(school), path);
-    }
+    scene.load.image(schoolArtTextureKey(school), schoolArtPath(school));
     scene.load.image(charmTextureKey(school), charmArtPath(school));
   }
 }
@@ -533,6 +540,7 @@ export type RenderOptions = {
   droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   charms?: readonly Charm[];
+  programmerQueue?: ProgrammerQueueSlot[] | null;
 };
 
 const CHARM_DEPTH = -0.5;
@@ -559,6 +567,7 @@ export type PlayRender = {
 
 const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
+const PROGRAMMER_QUEUE_DEPTH = 10;
 const SPEED_TRAIL_DEPTH = -1;
 const LAVA_DEPTH = -1.25;
 const LAVA_PX = 2;
@@ -741,6 +750,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const lavaGraphics = scene.add.graphics();
   lavaGraphics.setDepth(LAVA_DEPTH);
+  const programmerGraphics = scene.add.graphics();
+  programmerGraphics.setDepth(PROGRAMMER_QUEUE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
@@ -844,6 +855,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const turnFlash = turnFlashPulse(opts?.turnFlashRemainingMs ?? 0);
     const playerTintNow = playerTint({
       wallPassOn,
+      programmingOn: (opts?.programmerQueue ?? null) !== null,
       invulnRemainingMs: opts?.playerInvulnRemainingMs ?? 0,
       nowMs: scene.time.now,
       flashBrighten: turnFlash.brighten,
@@ -1347,6 +1359,18 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         look.size,
         look.cornerRadius,
       );
+    }
+
+    programmerGraphics.clear();
+    const tilePx = getActiveLayout().tileSize;
+    for (const slot of opts?.programmerQueue ?? []) {
+      programmerGraphics.fillStyle(PLAYER_PROGRAMMING_TINT, 1);
+      if (slot.dir === null) {
+        programmerGraphics.fillCircle(slot.x, slot.y, tilePx * PROGRAMMER_EMPTY_SLOT_TILES);
+      } else {
+        const [a, b, c] = programmerArrowPoints(slot.x, slot.y, slot.dir, tilePx);
+        programmerGraphics.fillTriangle(a!.x, a!.y, b!.x, b!.y, c!.x, c!.y);
+      }
     }
 
     for (const [key, go] of drawableObjects) {

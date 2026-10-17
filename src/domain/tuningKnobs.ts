@@ -90,7 +90,7 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("deathHoldMs", "Death", "Death hold", 0, 5000, 5, "ms"),
   range("readyPauseMs", "Death", "Ready pause", 0, 5000, 50, "ms"),
   range("bonusStreakIdleMs", "Bonus", "Streak idle", 50, 2000, 50, "ms"),
-  range("bossSwarmStartGhosts", "Boss", "Swarm start Blinkys", 2, 10, 1),
+  range("bossSwarmStartGhosts", "Boss", "Swarm start Blinkys", 2, 8, 1),
   range("pinkyLookahead", "Ghost AI", "Pinky lookahead", 0, 8, 1, "tiles"),
   range("inkyLookahead", "Ghost AI", "Inky lookahead", 0, 8, 1, "tiles"),
   range("clydeShyTiles", "Ghost AI", "Clyde shy radius", 0, 20, 1, "tiles"),

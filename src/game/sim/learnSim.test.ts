@@ -840,6 +840,110 @@ describe("LearnSim upgrade demos", () => {
     });
   });
 
+  describe("Programmer", () => {
+    const STEP = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } as const;
+    let pressClock = 1;
+
+    function press(sim: LearnSim, dir: keyof typeof STEP): ReturnType<LearnSim["step"]> {
+      pressClock += 1;
+      return sim.step({ ...NO_KEYS_HELD, [dir]: pressClock }, FRAME_MS);
+    }
+
+    function queueDirs(events: ReturnType<LearnSim["step"]>) {
+      const draw = events.find((event) => event.type === "draw")!;
+      return draw.type === "draw" ? draw.options.programmerQueue?.map((slot) => slot.dir) : null;
+    }
+
+    function chompAndOpenDir(
+      sim: LearnSim,
+      player: number,
+      holdDuringChomp = false,
+    ): keyof typeof STEP {
+      const at = posOf(query(sim.world, [PowerPellet, Position])[0]!);
+      const dir = (Object.keys(STEP) as (keyof typeof STEP)[]).find((key) =>
+        canEnterDirection(at.x, at.y, STEP[key][0], STEP[key][1]),
+      )!;
+      moveTo(player, at);
+      sim.step(holdDuringChomp ? held(dir) : NO_KEYS_HELD, FRAME_MS);
+      return dir;
+    }
+
+    it("stops Maze-Man on a power pellet and shows the presses as they are entered", () => {
+      const { sim, player } = setup("powerPelletProgrammer");
+      const dir = chompAndOpenDir(sim, player, true);
+      const stoppedAt = posOf(player);
+      for (let frame = 0; frame < 20; frame += 1) {
+        sim.step(held(dir), FRAME_MS);
+      }
+      expect(posOf(player)).toEqual(stoppedAt);
+      press(sim, dir);
+      expect(queueDirs(press(sim, dir))).toEqual([dir, dir, null, null, null]);
+      expect(posOf(player)).toEqual(stoppedAt);
+    });
+
+    it("runs the program at 10x speed, then hands control back", () => {
+      const plain = setup();
+      plain.sim.step(held("left"), FRAME_MS);
+      const plainSpeed = Speed.px[plain.player]!;
+
+      const { sim, player } = setup("powerPelletProgrammer");
+      const dir = chompAndOpenDir(sim, player);
+      for (let i = 0; i < 4; i += 1) {
+        press(sim, dir);
+      }
+      const before = posOf(player);
+      press(sim, dir);
+      const moved = Math.hypot(posOf(player).x - before.x, posOf(player).y - before.y);
+      expect(moved).toBeGreaterThan((plainSpeed * 5 * FRAME_MS) / 1000);
+      for (let frame = 0; frame < 240 && sim["learnUpgrades"].programmer !== null; frame += 1) {
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+      }
+      expect(sim["learnUpgrades"].programmer).toBeNull();
+      sim.step(held("left"), FRAME_MS);
+      expect(Speed.px[player]!).toBeCloseTo(plainSpeed);
+    });
+
+    it("Plus: stops again for a second set", () => {
+      const { sim, player } = setup("powerPelletProgrammer");
+      sim.toggleEnhanced("powerPelletProgrammer");
+      const dir = chompAndOpenDir(sim, player);
+      for (let i = 0; i < 5; i += 1) {
+        press(sim, dir);
+      }
+      for (
+        let frame = 0;
+        frame < 240 && sim["learnUpgrades"].programmer?.phase !== "recording";
+        frame += 1
+      ) {
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+      }
+      expect(sim["learnUpgrades"].programmer).toEqual({
+        phase: "recording",
+        presses: [],
+        setsLeft: 0,
+      });
+      const stoppedAt = posOf(player);
+      for (let frame = 0; frame < 20; frame += 1) {
+        sim.step(held(dir), FRAME_MS);
+      }
+      expect(posOf(player)).toEqual(stoppedAt);
+    });
+
+    it("does nothing without the upgrade, and toggling it off frees Maze-Man", () => {
+      const plain = setup();
+      chompPower(plain.sim, plain.player);
+      expect(plain.sim["learnUpgrades"].programmer).toBeNull();
+
+      const { sim, player } = setup("powerPelletProgrammer");
+      chompPower(sim, player);
+      expect(sim["learnUpgrades"].programmer).not.toBeNull();
+      sim.toggleUpgrade("powerPelletProgrammer");
+      expect(sim["learnUpgrades"].programmer).toBeNull();
+      const draw = sim.step(held("left"), FRAME_MS).find((event) => event.type === "draw")!;
+      expect(draw.type === "draw" && draw.options.programmerQueue).toBeNull();
+    });
+  });
+
   describe("Hyperspeed", () => {
     function chomp(sim: LearnSim, player: number): void {
       moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));

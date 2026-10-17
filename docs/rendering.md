@@ -17,13 +17,7 @@ Dot-Man is a round body PNG that never rotates, with a right-facing visor PNG dr
 
 ## Charm tail
 
-The charm bracelet (`src/domain/charmTail.ts`, knob defaults in `src/domain/charmTailParams.ts`, drawn by `render.ts`) must look the same at every display scale and device pixel ratio:
-
-- Size is fixed in world units (the Visuals > Charms knobs), never derived from `renderScaleOf`, `devicePixelRatio` or Dot-Man's size.
-- Charm textures (`charm-*`) are `smoothPixelArt` like Dot-Man and the ghosts; pixel-exact snapping is not a goal because it makes size jump between displays.
-- Charms never enter walls (maze-grid `blocked` test, bounce); bobble is a physics force, not a draw offset.
-
-Check by probing the same steps at `--dpr 1` and `--dpr 2` ([VERIFICATION.md](./VERIFICATION.md#live-check)).
+Charm bracelet (`src/domain/charmTail.ts`, knobs in `charmTailParams.ts`, drawn in `render.ts`): size is fixed in world units (Visuals > Charms knobs), never from `renderScaleOf` / DPR / Dot-Man; textures use `smoothPixelArt`; charms bounce off walls (`blocked`), bobble is physics not a draw offset. Probe at `--dpr 1` and `--dpr 2` ([VERIFICATION.md](./VERIFICATION.md#live-check)).
 
 ## Fonts
 

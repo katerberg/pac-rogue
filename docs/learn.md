@@ -26,16 +26,11 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 ## Parity
 
-LEARN must stay at parity with the main game: what `PlaySim` hands the renderer or the player, `LearnSim` hands too, unless the omission is deliberate.
-
-- `LearnSim` builds the same `SimRenderOptions` as `PlaySim.renderOptions()`. The parity test in `learnSim.test.ts` fails when `PlaySim` gains an option LEARN neither passes nor lists in `LEARN_OMITS_RENDER_OPTIONS` (only things LEARN has no state for, such as bosses, lava and the store).
-- The live check probes LEARN ([VERIFICATION.md](./VERIFICATION.md#modes-touched)); `pr-review` raises a missing counterpart as Major and `fix-pr-findings` fixes it.
+LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`.
 
 ## Upgrade fidelity
 
-LEARN feeds its `RunUpgrades` straight into the same domain and system functions as `PlaySim` (`applyPowerPelletEffects`, `freezeClosestGhost`, ...), not a reimplementation. Toggling a row calls `grantUpgrade` / `revokeUpgrade` and clears only timers whose effect fields nothing selected still owns (`clearStaleUpgradeTimers`).
-
-Rules for new upgrades: reuse the shared helper so LEARN gets it for free; if a new effect needs state LEARN lacks (store, lives, house release), say so in code and add the id to `LEARN_NO_EFFECT_UPGRADE_IDS` if nothing is visible. School Specialists are not listed in LEARN.
+LEARN feeds its `RunUpgrades` into the same domain/system helpers as `PlaySim`. Toggling a row calls `grantUpgrade` / `revokeUpgrade` and `clearStaleUpgradeTimers`. Every upgrade works in LEARN in the same PR via shared helpers / `src/game/systems` (see the [`new-upgrade` skill](../.agents/skills/new-upgrade/SKILL.md)); `LEARN_NO_EFFECT_UPGRADE_IDS` only for state LEARN lacks (store, lives, respawn). School Specialists are not listed.
 
 Known simplifications (everything else is a reuse of play code):
 
