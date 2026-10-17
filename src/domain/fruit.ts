@@ -142,7 +142,7 @@ export function fruitStackCenter(
   return null;
 }
 
-export const CORNUCOPIA_SPAWN_DEBOUNCE_MS = 3_000;
+export const CORNUCOPIA_SPAWN_DEBOUNCE_MS = 1_500;
 
 export type CornucopiaSpawnDecision = "spawn" | "defer" | "skip";
 

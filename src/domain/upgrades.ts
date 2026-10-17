@@ -892,13 +892,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletCornucopia",
     label: "Cornucopia",
     school: "harvest",
-    description:
-      "Power pellet: spawns a bonus fruit, if none is out. Waits 3s after any fruit spawn.",
+    description: "Power pellet: spawns a bonus fruit, if none is out.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Cornucopia spawns a fruit on every power pellet, even if a fruit is out.",
-      description:
-        "Power pellet: spawns a bonus fruit even beside others. Waits 3s after any fruit spawn.",
+      description: "Power pellet: spawns a bonus fruit even if there are others.",
       onPowerPellet: { cornucopiaFruit: true, cornucopiaAlongside: true },
     },
     onPowerPellet: { cornucopiaFruit: true },
