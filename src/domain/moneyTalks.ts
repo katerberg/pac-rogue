@@ -9,7 +9,7 @@ export const MONEY_TALKS_FADE_START = 0.6;
 export const QUARTER_HUD_LEFT = 12;
 const QUARTER_HUD_TOP = 8;
 const QUARTER_HUD_GAP = 4;
-export const QUARTER_PILE_SIZE = 5;
+const QUARTER_PILE_SIZE = 5;
 const QUARTER_PILE_STEP_Y = 2;
 
 export type Point = { x: number; y: number };
