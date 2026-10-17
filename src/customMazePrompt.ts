@@ -4,11 +4,11 @@ import { loadCustomMaze, saveCustomMaze } from "./game/storage/customMazeStorage
 
 const DEFAULT_SEED = "custom";
 
+function defaultMaze(): string {
+  return generateMazeAsciiWithRetries(DEFAULT_SEED)?.ascii ?? MAZE_ASCII_BY_ID.mazeSmall;
+}
+
 export function promptForCustomMaze(): Promise<void> {
-  const initial =
-    loadCustomMaze() ??
-    generateMazeAsciiWithRetries(DEFAULT_SEED)?.ascii ??
-    MAZE_ASCII_BY_ID.mazeSmall;
   return new Promise((resolve) => {
     const panel = document.createElement("div");
     panel.id = "custom-maze-prompt";
@@ -17,7 +17,7 @@ export function promptForCustomMaze(): Promise<void> {
     const text = document.createElement("textarea");
     text.id = "custom-maze-text";
     text.spellcheck = false;
-    text.value = initial;
+    text.value = loadCustomMaze() ?? defaultMaze();
     text.rows = 32;
     text.cols = 40;
     const start = document.createElement("button");
@@ -28,7 +28,15 @@ export function promptForCustomMaze(): Promise<void> {
       panel.remove();
       resolve();
     });
-    panel.append(label, text, start);
+    const reset = document.createElement("button");
+    reset.id = "custom-maze-reset";
+    reset.textContent = "Reset";
+    reset.addEventListener("click", () => {
+      text.value = defaultMaze();
+    });
+    const buttons = document.createElement("div");
+    buttons.append(reset, start);
+    panel.append(label, text, buttons);
     document.body.append(panel);
   });
 }
