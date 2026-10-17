@@ -56,8 +56,8 @@ import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
 import { POWER_PELLET_BREAK_MS } from "../../domain/powerPelletBreak";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
-  EXTRA_HUNGRY_COUNT,
   DEFY_DEATH_MS,
+  EXTRA_HUNGRY_COUNT,
   FREEZE_MS,
   HAUNTING_MS,
   frozenGhostEid,
