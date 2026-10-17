@@ -237,6 +237,7 @@ export const SECOND_CHOMP_PELLETS = 2;
 export const TUNNEL_DASH_SPEED_MUL = 10;
 
 export const FREEZE_ENHANCED_MS = 5000;
+export const CORNER_TELEPORT_HOLD_MS = 500;
 export const CORNER_TELEPORT_HOLD_ENHANCED_MS = 2000;
 export const INVULN_ENHANCED_MS = 5000;
 export const GHOST_HARVEST_ENHANCED_MS = 8000;
@@ -343,7 +344,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       description: "Power pellet flings every ghost into its corner and pins it there.",
       onPowerPellet: { cornerTeleportHoldMs: CORNER_TELEPORT_HOLD_ENHANCED_MS },
     },
-    onPowerPellet: { cornerTeleportHoldMs: 0 },
+    onPowerPellet: { cornerTeleportHoldMs: CORNER_TELEPORT_HOLD_MS },
   },
   {
     id: "powerPelletGhostRecall",
