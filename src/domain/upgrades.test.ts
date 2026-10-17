@@ -129,6 +129,7 @@ import {
   tickWallPass,
   upgradeLabels,
   wallPassActive,
+  type RunUpgrades,
   type UpgradeId,
   ALL_UPGRADE_IDS,
   carryEnhancement,
@@ -223,6 +224,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveShieldBreak",
   "powerPelletCornucopia",
   "powerPelletWallDrop",
+  "powerPelletProgrammer",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -444,6 +446,7 @@ describe("rare upgrades", () => {
     "powerPelletHyperspeed",
     "passiveShieldBreak",
     "passiveEcho",
+    "powerPelletProgrammer",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
@@ -658,6 +661,7 @@ describe("grantUpgrade", () => {
       collectExtraPellets: 0,
       frightenGhosts: false,
       cornucopiaFruit: null,
+      programmerStarted: false,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
@@ -676,6 +680,7 @@ describe("grantUpgrade", () => {
       collectExtraPellets: 0,
       frightenGhosts: false,
       cornucopiaFruit: null,
+      programmerStarted: false,
     });
   });
 
@@ -735,6 +740,7 @@ describe("freeze / power pellet", () => {
       collectExtraPellets: 0,
       frightenGhosts: false,
       cornucopiaFruit: null,
+      programmerStarted: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
@@ -761,6 +767,7 @@ describe("freeze / power pellet", () => {
       collectExtraPellets: 0,
       frightenGhosts: false,
       cornucopiaFruit: null,
+      programmerStarted: false,
     });
   });
 });
@@ -870,6 +877,7 @@ describe("invuln / power pellet", () => {
       collectExtraPellets: 0,
       frightenGhosts: false,
       cornucopiaFruit: null,
+      programmerStarted: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
@@ -1093,6 +1101,7 @@ describe("passiveOvercharge", () => {
       collectExtraPellets: 0,
       frightenGhosts: false,
       cornucopiaFruit: null,
+      programmerStarted: false,
     });
   });
 });
@@ -2033,5 +2042,42 @@ describe("Wall Drop", () => {
     const cleared = clearUpgradeTimers(applyPowerPelletEffects(second, 1).state);
     expect(cleared.droppedWall).toBeNull();
     expect(cleared.wallDropArmed).toBe(false);
+  });
+});
+
+describe("Programmer", () => {
+  it("a power pellet starts one recording set, or two with Programmer+", () => {
+    const base = applyPowerPelletEffects(createRunUpgrades(["powerPelletProgrammer"]), 1);
+    expect(base.programmerStarted).toBe(true);
+    expect(base.state.programmer).toEqual({ phase: "recording", presses: [], setsLeft: 0 });
+    const plus = applyPowerPelletEffects(createRunUpgrades(["powerPelletProgrammerPlus"]), 1);
+    expect(plus.state.programmer).toEqual({ phase: "recording", presses: [], setsLeft: 1 });
+    expect(applyPowerPelletEffects(createRunUpgrades(), 1).state.programmer).toBeNull();
+  });
+
+  it("a fresh power pellet restarts programming, and timer clears drop it", () => {
+    const running = {
+      ...createRunUpgrades(["powerPelletProgrammer"]),
+      programmer: { phase: "running", program: ["up"], heading: "left", setsLeft: 0 },
+    } satisfies RunUpgrades;
+    expect(applyPowerPelletEffects(running, 1).state.programmer).toEqual({
+      phase: "recording",
+      presses: [],
+      setsLeft: 0,
+    });
+    expect(clearUpgradeTimers(running).programmer).toBeNull();
+  });
+
+  it("is a rare automation upgrade that Overcharge leaves alone", () => {
+    expect(getUpgradeDef("powerPelletProgrammer")).toMatchObject({
+      school: "automation",
+      rare: true,
+      storePrice: STORE_RARE_UPGRADE_PRICE,
+    });
+    const state = applyPowerPelletEffects(
+      createRunUpgrades(["powerPelletProgrammerPlus", "passiveOvercharge"]),
+      1,
+    ).state;
+    expect(state.programmer?.setsLeft).toBe(1);
   });
 });

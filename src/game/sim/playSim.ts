@@ -133,6 +133,7 @@ import {
   horizontalTunnelRows,
   worldToCol,
   worldToRow,
+  type SolidGrid,
 } from "../../domain/maze";
 import {
   pickTimedTunnelRow,
@@ -252,6 +253,7 @@ import {
   interestPayout,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
+  HYPERSPEED_MUL,
   hyperspeedActive,
   hyperspeedMultiplier,
   spendHyperspeedShield,
@@ -392,6 +394,17 @@ import { enteringEmptyCell } from "../systems/enteringEmptyCell";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import {
+  programmerEnterCell,
+  programmerQueueSlots,
+  recordProgrammerPress,
+  type ProgrammerStep,
+} from "../../domain/programmer";
+import {
+  freshPressesInOrder,
+  holdPlayerForProgramming,
+  steerPlayerProgram,
+} from "../systems/programmer";
+import {
   clearPlayerDirectionInput,
   hasPlayerDirectionInput,
   playerFacing,
@@ -510,6 +523,7 @@ export class PlaySim {
   private hyperspeedDirection: Direction | null = null;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
   private hyperspeedFruitEaten = 0;
+  private programmerCell: { col: number; row: number } | null = null;
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private effectiveCache: { owned: readonly UpgradeId[]; effective: readonly UpgradeId[] } | null =
@@ -756,8 +770,7 @@ export class PlaySim {
       turnFlashRemainingMs: this.turnTuning.flashMs,
       playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
       playerSpeedTrail:
-        this.death === null &&
-        (speedBurstActive(this.runUpgrades) || hyperspeedActive(this.runUpgrades))
+        this.death === null && this.speedTrailActive()
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
@@ -772,7 +785,16 @@ export class PlaySim {
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       pupilTarget: this.blinkyPupilTarget(),
+      programmerQueue: this.programmerQueue(),
     };
+  }
+
+  private programmerQueue(): SimRenderOptions["programmerQueue"] {
+    const state = this.runUpgrades.programmer;
+    const player = this.playerPosition();
+    return state?.phase === "recording" && player !== null && this.death === null
+      ? programmerQueueSlots(state.presses, player.x, player.y, getActiveLayout().tileSize)
+      : null;
   }
 
   private blinkyPupilTarget(): SimRenderOptions["pupilTarget"] {
@@ -846,6 +868,7 @@ export class PlaySim {
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),
+        programmer: upgrades.programmer,
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
       },
       timedTunnel: this.timedTunnelSnapshot(),
@@ -1042,13 +1065,16 @@ export class PlaySim {
     this.lavaElapsedMs += delta;
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
+    const programming = this.runUpgrades.programmer !== null;
     const turnTuningOpts =
-      !diagonalAllowed && hasUpgrade(this.effectiveUpgrades(), "passiveTurnTuning")
+      !diagonalAllowed && !programming && hasUpgrade(this.effectiveUpgrades(), "passiveTurnTuning")
         ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
         : undefined;
     let turnTap: TurnTap | null = null;
     const warping = this.warpGlide !== null;
-    if (this.suppressInputUntilKeyRelease) {
+    if (programming) {
+      this.recordProgrammerPresses(input.keys);
+    } else if (this.suppressInputUntilKeyRelease) {
       if (!warping && !anyKeyHeld(input.keys)) {
         this.suppressInputUntilKeyRelease = false;
         applyHeldKeys(this.world, input.keys, { diagonalAllowed });
@@ -1131,16 +1157,23 @@ export class PlaySim {
       this.runUpgrades.hyperspeedTurnDelayMs > 0
         ? 0
         : levelSpeedMul * hyperspeedMultiplier(this.effectiveUpgrades());
-    const playerSpeedMul = hyperspeedActive(this.runUpgrades)
-      ? hyperspeedMul * (warping ? 0 : 1)
-      : levelSpeedMul *
-        playerSpeedMultiplier(this.effectiveUpgrades()) *
-        cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)) *
-        (speedBurstActive(this.runUpgrades) ? speedBurstMultiplier(this.effectiveUpgrades()) : 1) *
-        eatDragMultiplier(this.eatDragMs, this.currentTuning) *
-        this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
-        speedZoneMultiplier(this.playerSpeedZone()) *
-        (warping ? 0 : 1);
+    const programmerPhase = this.runUpgrades.programmer?.phase ?? null;
+    const playerSpeedMul =
+      programmerPhase === "recording" || warping
+        ? 0
+        : programmerPhase === "running"
+          ? levelSpeedMul * HYPERSPEED_MUL
+          : hyperspeedActive(this.runUpgrades)
+            ? hyperspeedMul
+            : levelSpeedMul *
+              playerSpeedMultiplier(this.effectiveUpgrades()) *
+              cellSpeedMultiplier(this.effectiveUpgrades(), enteringEmptyCell(this.world)) *
+              (speedBurstActive(this.runUpgrades)
+                ? speedBurstMultiplier(this.effectiveUpgrades())
+                : 1) *
+              eatDragMultiplier(this.eatDragMs, this.currentTuning) *
+              this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
+              speedZoneMultiplier(this.playerSpeedZone());
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -1175,8 +1208,10 @@ export class PlaySim {
       );
       this.runUpgrades = trackWallOccupancy(this.world, this.runUpgrades);
     };
-    if (hyperspeedActive(this.runUpgrades)) {
-      this.moveHyperspeed(delta, moveFrame);
+    if (programmerPhase === "running") {
+      this.moveHyperspeed(delta, moveFrame, () => this.noteProgrammerCell());
+    } else if (hyperspeedActive(this.runUpgrades)) {
+      this.moveHyperspeed(delta, moveFrame, () => this.noteHyperspeedTurn());
     } else {
       moveFrame(delta);
     }
@@ -2627,14 +2662,18 @@ export class PlaySim {
     }
   }
 
-  private moveHyperspeed(delta: number, moveFrame: (frameDelta: number) => void): void {
+  private moveHyperspeed(
+    delta: number,
+    moveFrame: (frameDelta: number) => void,
+    afterStep: () => void,
+  ): void {
     const speed = Speed.px[query(this.world, [Player, Speed])[0] ?? 0] ?? 0;
     const steps = hyperspeedSubstepCount((speed * delta) / 1000, getActiveLayout().tileSize);
     const stepDelta = delta / steps;
     let caught = false;
     for (let step = 0; step < steps; step += 1) {
       moveFrame(stepDelta);
-      this.noteHyperspeedTurn();
+      afterStep();
       if (caught) {
         continue;
       }
@@ -2671,6 +2710,62 @@ export class PlaySim {
     this.hyperspeedDirection = turn.lastDirection;
     if (turn.turned) {
       this.runUpgrades = startHyperspeedTurnDelay(this.runUpgrades);
+      this.zeroPlayerSpeed();
+    }
+  }
+
+  private recordProgrammerPresses(keys: HeldKeys): void {
+    for (const dir of freshPressesInOrder(this.prevKeys, keys)) {
+      const state = this.runUpgrades.programmer;
+      const cell = playerCell(this.world);
+      if (state?.phase !== "recording" || cell === null) {
+        return;
+      }
+      this.emit({ type: "sfx", id: "pelletMunch" });
+      const step = recordProgrammerPress(state, dir, this.programmerSolids(), cell.col, cell.row);
+      if (step.state?.phase === "running") {
+        this.programmerCell = cell;
+        this.recorder.activation("programmer");
+      }
+      this.applyProgrammerStep(step);
+    }
+  }
+
+  private programmerSolids(): SolidGrid {
+    return (
+      playerSolidsWithWall(
+        this.runUpgrades,
+        wallPassActive(this.runUpgrades) ? wallPassSolids(this.effectiveUpgrades()) : undefined,
+      ) ?? getActiveLayout().playerSolids
+    );
+  }
+
+  private noteProgrammerCell(): void {
+    const state = this.runUpgrades.programmer;
+    const cell = playerCell(this.world);
+    if (state?.phase !== "running" || cell === null) {
+      return;
+    }
+    if (cell.col === this.programmerCell?.col && cell.row === this.programmerCell.row) {
+      return;
+    }
+    this.programmerCell = cell;
+    this.applyProgrammerStep(
+      programmerEnterCell(state, this.programmerSolids(), cell.col, cell.row),
+    );
+  }
+
+  private applyProgrammerStep(step: ProgrammerStep): void {
+    this.runUpgrades = { ...this.runUpgrades, programmer: step.state };
+    if (step.state?.phase === "recording") {
+      holdPlayerForProgramming(this.world);
+      this.zeroPlayerSpeed();
+      return;
+    }
+    if (step.heading !== null) {
+      steerPlayerProgram(this.world, step.heading);
+    }
+    if (step.state === null) {
       this.zeroPlayerSpeed();
     }
   }
@@ -2972,6 +3067,10 @@ export class PlaySim {
     const before = this.runUpgrades;
     const powerEffects = applyPowerPelletEffects(before, powerRemoved, onlyBases, this.levelIndex);
     this.runUpgrades = powerEffects.state;
+    if (powerEffects.programmerStarted) {
+      holdPlayerForProgramming(this.world);
+      this.zeroPlayerSpeed();
+    }
     if (powerEffects.frightenGhosts) {
       const frightened = frightenGhosts(
         this.world,
@@ -3034,12 +3133,18 @@ export class PlaySim {
     }
   }
 
+  private speedTrailActive(): boolean {
+    return (
+      speedBurstActive(this.runUpgrades) ||
+      hyperspeedActive(this.runUpgrades) ||
+      this.runUpgrades.programmer?.phase === "running"
+    );
+  }
+
   private tickSpeedTrail(delta: number): void {
     const at = this.playerPosition();
     this.speedTrail =
-      at !== null && (speedBurstActive(this.runUpgrades) || hyperspeedActive(this.runUpgrades))
-        ? tickSpeedTrail(this.speedTrail, at, delta)
-        : [];
+      at !== null && this.speedTrailActive() ? tickSpeedTrail(this.speedTrail, at, delta) : [];
   }
 
   playerWorldPosition(): Point | null {

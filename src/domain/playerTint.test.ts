@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PLAYER_INVULN_TINT,
+  PLAYER_PROGRAMMING_TINT,
   PLAYER_WALL_PASS_TINT,
   brightenColor,
   playerTint,
@@ -39,6 +40,12 @@ describe("playerTint", () => {
       color: brightenColor(PLAYER_WALL_PASS_TINT, 0.2),
       mode: "multiply",
     });
+  });
+
+  it("holds the steady programming tint over gold, under wall pass", () => {
+    const programming = { ...idle, programmingOn: true, invulnRemainingMs: 3000 };
+    expect(playerTint(programming)).toEqual({ color: PLAYER_PROGRAMMING_TINT, mode: "multiply" });
+    expect(playerTint({ ...programming, wallPassOn: true })?.color).toBe(PLAYER_WALL_PASS_TINT);
   });
 
   it("blinks the gold tint in the last second", () => {

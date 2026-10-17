@@ -54,6 +54,9 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
 
 ### Locked by default (put in Proposed locks, never Decide)
 
+- **Trigger wording:** "pellet pickup", "on pickup" or "when you eat a pellet" means a **power
+  pellet** (`onPowerPellet`). Read it as a regular pellet only when the pitch says "regular",
+  "every" or "each" pellet. Never ask which one.
 - **Interactions:** Overcharge doubles `onPowerPellet` durations only when the effect is a
   power-pellet duration; Fruit Power arms every `onPowerPellet` field; Extra Hungry, Tunnel Dash
   sweeps, Death's Harvest and ghost-harvested pellets do **not** count as "eaten" unless the pitch
@@ -73,7 +76,7 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
 ### Decide bank (only when the pitch leaves it open)
 
 - **Trigger:** passive/always-on, `onPowerPellet`, fruit pickup, grant-time, on catch, on level
-  clear, or a counter.
+  clear, or a counter. A pellet pickup is a power pellet (see above), never a Decide item.
 - **A genuinely new rule:** an effect with no precedent among existing upgrades whose edge
   behaviour changes how it plays.
 - **A number the pitch implies but never gives**, when no existing upgrade suggests a sensible
