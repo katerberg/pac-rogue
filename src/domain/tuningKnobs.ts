@@ -13,9 +13,14 @@ export type KnobGroup =
   | "Scatter"
   | "Visuals";
 
-export type VisualsSubgroup = "Walls" | "Dot-Man" | "Background";
+export type VisualsSubgroup = "Walls" | "Dot-Man" | "Charms" | "Background";
 
-export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = ["Walls", "Dot-Man", "Background"];
+export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
+  "Walls",
+  "Dot-Man",
+  "Charms",
+  "Background",
+];
 
 type KnobBase = {
   key: TuningKey;
@@ -109,6 +114,21 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   { key: "wallColor", group: "Visuals", label: "Wall color", kind: "color", subgroup: "Walls" },
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px", "Walls"),
   range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×", "Dot-Man"),
+  { key: "charmTail", group: "Visuals", label: "Charm tail", kind: "toggle", subgroup: "Charms" },
+  range("charmSize", "Visuals", "Charm size", 4, 24, 0.5, "px", "Charms"),
+  range("charmSpacing", "Visuals", "Charm spacing", 0.3, 1.6, 0.05, "× size", "Charms"),
+  range("charmAnchorBack", "Visuals", "Hook distance", 0, 30, 0.5, "px", "Charms"),
+  range("charmWallRadius", "Visuals", "Wall radius", 0.1, 0.7, 0.05, "× size", "Charms"),
+  range("charmSpring", "Visuals", "Chain spring", 0.1, 4, 0.05, "×", "Charms"),
+  range("charmDamping", "Visuals", "Chain damping", 0.1, 4, 0.05, "×", "Charms"),
+  range("charmMinStretch", "Visuals", "Min stretch", 0.2, 1.2, 0.05, "× link", "Charms"),
+  range("charmMaxStretch", "Visuals", "Max stretch", 1, 2.5, 0.05, "× link", "Charms"),
+  range("charmBounce", "Visuals", "Wall bounce", 0, 1, 0.05, "×", "Charms"),
+  range("charmBobble", "Visuals", "Bobble", 0, 0.6, 0.01, "× link", "Charms"),
+  range("charmBobblePeriodMs", "Visuals", "Bobble period", 200, 2000, 50, "ms", "Charms"),
+  range("charmBaseAlpha", "Visuals", "Charm opacity", 0.2, 1, 0.05, "", "Charms"),
+  range("charmGlowAlpha", "Visuals", "Enhanced glow", 0, 1, 0.01, "", "Charms"),
+  range("charmGlowScale", "Visuals", "Glow size", 1, 3, 0.05, "× size", "Charms"),
   {
     key: "backgroundColor",
     group: "Visuals",
@@ -211,6 +231,27 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   wallColor: "Color of the wall outline (overrides the Settings maze color while knobs are on).",
   dotManChompSpeed:
     "How fast Dot-Man's mouth cycles while moving. 1× = one beat every 12 px of travel; default 1.25×. Visual only.",
+  charmTail:
+    "Show the charm bracelet: one school icon per owned upgrade on a chain behind Dot-Man. Visual only.",
+  charmSize:
+    "World-pixel width of each charm. Fixed in world units so it looks the same at every display scale.",
+  charmSpacing:
+    "Resting distance between charms along the chain, as a multiple of charm size. Below 1 they overlap.",
+  charmAnchorBack: "How far behind Dot-Man's center the chain is hooked on.",
+  charmWallRadius: "Collision radius of a charm against walls, as a multiple of charm size.",
+  charmSpring:
+    "How hard each charm is pulled back to its resting spot behind the one ahead. Higher = stiffer, less stretch.",
+  charmDamping: "How quickly charm motion dies out. Lower = more swingy.",
+  charmMinStretch:
+    "Closest a charm may get to the one ahead, as a multiple of the resting spacing.",
+  charmMaxStretch:
+    "Farthest a charm may get from the one ahead, as a multiple of the resting spacing.",
+  charmBounce: "Speed kept when a charm hits a wall. 0 = dead stop, 1 = perfect bounce.",
+  charmBobble: "Sideways wobble of each charm while moving, as a fraction of the spacing.",
+  charmBobblePeriodMs: "Time for one full bobble wave.",
+  charmBaseAlpha: "Opacity of plain (not enhanced) charms.",
+  charmGlowAlpha: "Opacity of the glow behind enhanced charms. 0 = no glow.",
+  charmGlowScale: "Size of the enhanced glow as a multiple of charm size.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
 };

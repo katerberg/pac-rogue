@@ -24,11 +24,13 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 - The board uses `pelletCellCenters()` (shared with `PlaySim`) and refills when empty. Power pellets regenerate when all are gone so effects stay demoable. One always-present fruit respawns after a short delay.
 - Spunky and Wardy keep their real release slot and targeting (`ghostTarget.ts`) but have no speed rules of their own.
 
+## Parity
+
+LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`.
+
 ## Upgrade fidelity
 
-LEARN feeds its `RunUpgrades` straight into the same domain and system functions as `PlaySim` (`applyPowerPelletEffects`, `freezeClosestGhost`, ...), not a reimplementation. Toggling a row calls `grantUpgrade` / `revokeUpgrade` and clears only timers whose effect fields nothing selected still owns (`clearStaleUpgradeTimers`).
-
-Rules for new upgrades: every upgrade works in LEARN in the same PR. Reuse the shared helper so LEARN gets it for free, and put per-frame driving (input, steering) in a `src/game/systems` function both sims call. Only an effect that needs state LEARN lacks (store, lives, respawn) may go in `LEARN_NO_EFFECT_UPGRADE_IDS`, and only if nothing is visible. School Specialists are not listed in LEARN.
+LEARN feeds its `RunUpgrades` into the same domain/system helpers as `PlaySim`. Toggling a row calls `grantUpgrade` / `revokeUpgrade` and `clearStaleUpgradeTimers`. Every upgrade works in LEARN in the same PR via shared helpers / `src/game/systems` (see the [`new-upgrade` skill](../.agents/skills/new-upgrade/SKILL.md)); `LEARN_NO_EFFECT_UPGRADE_IDS` only for state LEARN lacks (store, lives, respawn). School Specialists are not listed.
 
 Known simplifications (everything else is a reuse of play code):
 
