@@ -61,6 +61,10 @@ A finding is worth fixing only if **all** are true:
 If the “fix” needs a new helper, shared utility, API reshape, or multi-file
 refactor to feel clean → **Holler**, do not implement a half-measure.
 
+### LEARN parity findings
+
+A missing LEARN counterpart is **Fix**, never **Skip**: wire it into `LearnSim` / `LearnScene` with a test. **Holler** only for a documented intentional omission or a fix that would bloat the PR.
+
 ### Holler triggers (do not fix; call out loudly)
 
 - New abstraction / indirection for a single call site (not a pure, tested

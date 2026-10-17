@@ -9,6 +9,7 @@ import {
 } from "./hunter";
 import { levelScaledDurationMs } from "./levelScaledDuration";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
+import { PROGRAMMER_ENHANCED_SETS, startProgrammer, type ProgrammerState } from "./programmer";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 import { WALL_DROP_MS, type DroppedWall, type WallDropSpot } from "./wallDrop";
 
@@ -62,7 +63,8 @@ export type BaseUpgradeId =
   | "powerPelletHyperspeed"
   | "passiveShieldBreak"
   | "powerPelletCornucopia"
-  | "powerPelletWallDrop";
+  | "powerPelletWallDrop"
+  | "powerPelletProgrammer";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -161,6 +163,7 @@ export type UpgradeEffects = {
     cornucopiaFruit?: true;
     cornucopiaAlongside?: true;
     armWallDrop?: true;
+    programmerSets?: number;
   };
 };
 
@@ -220,7 +223,7 @@ export const GHOST_SLOW_MUL = 0.8;
 
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_RELIEF_PELLET_ADD = 15;
-export const EXTRA_HUNGRY_COUNT = 5;
+export const EXTRA_HUNGRY_COUNT = 8;
 export const STORE_UPGRADE_PRICE = 3;
 export const STORE_RARE_UPGRADE_PRICE = 4;
 export const RARE_MIN_OWNED = 2;
@@ -237,6 +240,7 @@ export const SECOND_CHOMP_PELLETS = 2;
 export const TUNNEL_DASH_SPEED_MUL = 10;
 
 export const FREEZE_ENHANCED_MS = 5000;
+export const CORNER_TELEPORT_HOLD_MS = 500;
 export const CORNER_TELEPORT_HOLD_ENHANCED_MS = 2000;
 export const INVULN_ENHANCED_MS = 5000;
 export const GHOST_HARVEST_ENHANCED_MS = 8000;
@@ -249,7 +253,7 @@ export const PICKUP_RANGE_ENHANCED_TILES = 2;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_ENHANCED_MS = 3000;
 export const GHOST_HOUSE_RELIEF_PELLET_ADD_ENHANCED = 25;
 export const EXTRA_LIFE_ENHANCED_LIVES = 2;
-export const EXTRA_HUNGRY_ENHANCED_COUNT = 10;
+export const EXTRA_HUNGRY_ENHANCED_COUNT = 14;
 export const PELLET_SURGE_COUNT = 1;
 export const PELLET_SURGE_ENHANCED_COUNT = 2;
 export const FRUIT_QUARTERS = 1;
@@ -343,7 +347,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       description: "Power pellet flings every ghost into its corner and pins it there.",
       onPowerPellet: { cornerTeleportHoldMs: CORNER_TELEPORT_HOLD_ENHANCED_MS },
     },
-    onPowerPellet: { cornerTeleportHoldMs: 0 },
+    onPowerPellet: { cornerTeleportHoldMs: CORNER_TELEPORT_HOLD_MS },
   },
   {
     id: "powerPelletGhostRecall",
@@ -433,11 +437,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletExtraHungry",
     label: "Extra Hungry",
     school: "automation",
-    description: "Power pellets also eat the 5 pellets farthest from you.",
+    description: "Power pellets also eat the 8 pellets farthest from you.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Extra Hungry eats the 10 farthest pellets instead of 5.",
-      description: "Power pellets also eat the 10 pellets farthest from you.",
+      enhanceNote: "Extra Hungry eats the 14 farthest pellets instead of 8.",
+      description: "Power pellets also eat the 14 pellets farthest from you.",
       onPowerPellet: { collectExtraPellets: EXTRA_HUNGRY_ENHANCED_COUNT },
     },
     onPowerPellet: { collectExtraPellets: EXTRA_HUNGRY_COUNT },
@@ -917,6 +921,21 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { armWallDrop: true },
   },
+  {
+    id: "powerPelletProgrammer",
+    label: "Programmer",
+    school: "automation",
+    description: "Power pellet: stop and program 5 turns, then blast through them at hyperspeed.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    enhanced: {
+      enhanceNote: "Programmer gives you a second set of 5 turns after the first.",
+      description:
+        "Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more.",
+      onPowerPellet: { programmerSets: PROGRAMMER_ENHANCED_SETS },
+    },
+    onPowerPellet: { programmerSets: 1 },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1094,6 +1113,7 @@ export type RunUpgrades = {
   ghostsEatenThisFright: number;
   wallDropArmed: boolean;
   droppedWall: DroppedWall | null;
+  programmer: ProgrammerState | null;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -1108,6 +1128,7 @@ export type PowerPelletApplyResult = {
   collectExtraPellets: number;
   frightenGhosts: boolean;
   cornucopiaFruit: CornucopiaMode | null;
+  programmerStarted: boolean;
 };
 
 export const NO_FRIGHT: Pick<
@@ -1140,6 +1161,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     ...NO_FRIGHT,
     wallDropArmed: false,
     droppedWall: null,
+    programmer: null,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -1195,6 +1217,8 @@ export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   return ALL_UPGRADE_IDS.filter(
     (id) =>
       !ownedBases.has(id) &&
+      !(id === "powerPelletHyperspeed" && ownedBases.has("powerPelletProgrammer")) &&
+      !(id === "powerPelletProgrammer" && ownedBases.has("powerPelletHyperspeed")) &&
       (getUpgradeDef(id).shieldBreak !== true || shieldsOwned) &&
       (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
       (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
@@ -1388,6 +1412,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     ...NO_FRIGHT,
     wallDropArmed: false,
     droppedWall: null,
+    programmer: null,
   };
 }
 
@@ -1612,6 +1637,7 @@ export function applyPowerPelletEffects(
       collectExtraPellets: 0,
       frightenGhosts: false,
       cornucopiaFruit: null,
+      programmerStarted: false,
     };
   }
 
@@ -1631,6 +1657,7 @@ export function applyPowerPelletEffects(
   let frightenMs: number | null = null;
   let cornucopiaFruit: CornucopiaMode | null = null;
   let armWallDrop = false;
+  let programmerSets = 0;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1707,6 +1734,9 @@ export function applyPowerPelletEffects(
     if (onPower.armWallDrop) {
       armWallDrop = true;
     }
+    if (onPower.programmerSets !== undefined) {
+      programmerSets = Math.max(programmerSets, onPower.programmerSets);
+    }
     if (onPower.frightenGhostsMs !== undefined) {
       const ms = hunterFrightenedMs(
         onPower.frightenGhostsMs,
@@ -1767,6 +1797,9 @@ export function applyPowerPelletEffects(
   if (armWallDrop) {
     next = { ...next, wallDropArmed: true };
   }
+  if (programmerSets > 0) {
+    next = { ...next, programmer: startProgrammer(programmerSets) };
+  }
 
   return {
     state: next,
@@ -1777,6 +1810,7 @@ export function applyPowerPelletEffects(
     collectExtraPellets,
     frightenGhosts: frightenMs !== null,
     cornucopiaFruit,
+    programmerStarted: programmerSets > 0,
   };
 }
 

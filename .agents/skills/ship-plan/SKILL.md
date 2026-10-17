@@ -41,7 +41,7 @@ to check before pushing.
 1. **Verify** per the `verification` skill (`npm run verify`, fix → rerun). For gameplay/presentation changes also do the
    [live check](../../../docs/VERIFICATION.md#live-check) with `npm run probe` for **every mode the diff
    touches**: assert behavior with `expect:`/`waitFor:`, Read the screenshots, and write down the
-   exact commands and what you saw.
+   exact commands and what you saw. **LEARN parity:** a player-visible change must reach `LearnSim` / `LearnScene` (or be a documented omission) and be probed in LEARN ([learn.md](../../../docs/learn.md#parity)); wire gaps in before moving on.
 2. **`simplify-pr`** on the scoped diff. Apply in-scope cuts. Save its report
    to `artifacts/ship-plan/simplify-pr.md`.
 3. **`no-comments`** on the scoped diff. Save its report to
@@ -81,7 +81,8 @@ exact output. A draft with an honest failure beats a green-looking PR.
   the GitHub compare URL. Do not claim a PR exists.
 - Build **Review pass** by pasting from the `artifacts/ship-plan/` files, not
   from memory.
-- PR body sections: **Summary**, **Verification** (commands run + result, and for
+- PR body sections: **Summary**, **Verification** (commands run + result, a **LEARN parity** line
+  saying it was wired in and probed or why not, and for
   gameplay work: each probe command verbatim, what it asserted, what the
   screenshots showed, and which [modes](../../../docs/VERIFICATION.md#modes-touched)
   were checked or deliberately not), **Review pass** (`pr-review`'s findings verbatim, since the

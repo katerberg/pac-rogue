@@ -9,8 +9,9 @@ import {
   notePace,
   parseRunLogRecord,
   removeLoadout,
+  RUN_LOG_PURGE_HEADROOM,
   RUN_LOG_SOFT_CAP,
-  runLogOverrun,
+  runLogNeedsPurge,
   syntheticRunLog,
   TEST_RUN_LOG_META,
 } from "./runLog";
@@ -82,10 +83,9 @@ describe("runLog", () => {
     expect(isNearMiss(16.1, 16)).toBe(false);
   });
 
-  it("overruns at the soft cap or after a quota failure", () => {
-    expect(runLogOverrun(RUN_LOG_SOFT_CAP - 1, false)).toBe(false);
-    expect(runLogOverrun(RUN_LOG_SOFT_CAP, false)).toBe(true);
-    expect(runLogOverrun(0, true)).toBe(true);
+  it("purges once within the headroom of the soft cap", () => {
+    expect(runLogNeedsPurge(RUN_LOG_SOFT_CAP - RUN_LOG_PURGE_HEADROOM - 1)).toBe(false);
+    expect(runLogNeedsPurge(RUN_LOG_SOFT_CAP - RUN_LOG_PURGE_HEADROOM)).toBe(true);
   });
 
   it("varies synthetic runs across levels, outcomes and loadouts", () => {

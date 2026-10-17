@@ -23,12 +23,7 @@ import {
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
-import {
-  SCHOOL_WATERMARK_ALPHA,
-  schoolArtPath,
-  schoolArtSize,
-  schoolArtTextureKey,
-} from "../../domain/schoolArt";
+import { SCHOOL_WATERMARK_ALPHA, schoolArtSize, schoolArtTextureKey } from "../../domain/schoolArt";
 import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { addDotManIcon, addQuarterIcon, addReverseIcon } from "../systems/render";
@@ -302,11 +297,7 @@ export function createStoreOverlay(
       const school = slotSchool(slot);
       const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
       glyph = addReverseIcon(scene, 0, TILE_GLYPH_Y, tile - 2).setTint(glyphColor);
-    } else if (
-      slot.kind === "upgrade" &&
-      tileSchool !== null &&
-      schoolArtPath(tileSchool) !== null
-    ) {
+    } else if (slot.kind === "upgrade" && tileSchool !== null) {
       const iconPx = schoolArtSize(size, size);
       glyph = scene.add
         .image(0, TILE_GLYPH_Y, schoolArtTextureKey(tileSchool))

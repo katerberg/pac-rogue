@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRunLog, TEST_RUN_LOG_META } from "../../domain/runLog";
-import { purgeOldestRuns, saveRunLog } from "./runLogStorage";
+import { saveRunLog } from "./runLogStorage";
 import {
   forgetUploaded,
   loadUploadState,
@@ -42,12 +42,11 @@ describe("runUploadStorage", () => {
 
   it("forgets the ids a run-log purge deletes", () => {
     installMemoryStorage();
-    const ids = Array.from({ length: 12 }, (_, i) => `run-${i}`);
+    const ids = Array.from({ length: 496 }, (_, i) => `run-${i}`);
     for (const id of ids) {
       saveRunLog({ ...createRunLog({ ...TEST_RUN_LOG_META, id }, "s", false), outcome: "death" });
       markUploaded(id);
     }
-    purgeOldestRuns();
-    expect(loadUploadState().uploaded).toEqual(["run-10", "run-11"]);
+    expect(loadUploadState().uploaded).toEqual(ids.slice(20));
   });
 });

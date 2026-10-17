@@ -22,6 +22,7 @@ Rules:
 - When a fix or feature changes a decision in a scene or `render.ts`, move that decision into the sim, a system or `src/domain/**` with a unit test that fails without the change (see docs/VERIFICATION.md#scene-and-render-logic).
 - Every gameplay feature or bug fix adds or extends a `PlaySim` integration test (see docs/VERIFICATION.md#sim-integration-tests).
 - All randomness goes through a named `RunRandom` stream (`src/domain/runRandom.ts`) so `?seed=` replays the run; never call `Math.random` or Phaser's RNG directly (ESLint enforces this).
+- **LEARN stays at parity with the main game.** What a player sees or does in `PlayScene` must also work in `LearnScene` / `LearnSim`, or be a documented omission ([parity](docs/learn.md#parity)). A gap is a Major `pr-review` finding and blocks `ship-plan`.
 - Keep `npm run check:ecs` green. Do not bypass ECS layer boundaries (see `docs/ARCHITECTURE.md`).
 - Use agent ports only (`npm run dev:agent` / preview+visual on 5174/4174). Never bind to or kill human ports 5173/4173.
 - Agent ports mute sound by default. Opt in with `?sound=1` only when testing audio (see README Flags).

@@ -16,7 +16,7 @@ Dot-Man: Phaser 4 for presentation, bitecs 0.4 for gameplay. This file holds str
 Boot order is `gameConfig.scene` (`src/game/config.ts`); the first scene is the entry (`?play=1` puts `PlayScene` first). Every scene calls `applyRenderScale(this)` first in `create()` and reads pointers in world units. Canvas scaling: [rendering.md](./rendering.md) (PIXEL ghost pupils are runtime Graphics).
 
 ```text
-MenuScene -> PlayScene | LearnScene | HighScoresScene | SettingsScene | RunLogOverrunScene
+MenuScene -> PlayScene | LearnScene | HighScoresScene | SettingsScene
 PlayScene -Escape-> PauseScene -> Resume | SettingsScene (returns to PauseScene) | Quit (no high-score write)
 PlayScene: clear -> level transition -> upgrade modal (levels 1-8) -> level 2 only: Blinky-chases-Dot-Man intermission (`intermission.ts`, timed in `PlaySim`) -> next board | store floor | boss | RUN COMPLETE
 PlayScene: caught -> death sequence -> reset, or GAME OVER -> MenuScene
