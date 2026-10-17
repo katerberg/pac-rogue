@@ -1157,10 +1157,12 @@ export function parseUpgradeId(raw: string | null): UpgradeId | null {
 
 export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
   const ids: UpgradeId[] = [];
-  for (const raw of params.getAll("enableUpgrade")) {
-    const id = parseUpgradeId(raw);
-    if (id !== null) {
-      ids.push(id);
+  for (const raw of [...params.getAll("enableUpgrade"), ...params.getAll("enableUpgrades")]) {
+    for (const part of raw.split(",")) {
+      const id = parseUpgradeId(part.trim());
+      if (id !== null) {
+        ids.push(id);
+      }
     }
   }
   return ids;
