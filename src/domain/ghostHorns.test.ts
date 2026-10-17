@@ -57,4 +57,13 @@ describe("ghostHornRects", () => {
     expect(rects.map((r) => r.x)).toEqual([6, 4, 24, 22]);
     expect(rects[0]).toMatchObject({ y: 0, w: 4, h: 2 });
   });
+
+  it("follows the eyes vertically: up stretches the tips, down shrinks them to the base", () => {
+    const up = ghostHornRects(8, 8, 16, 0, -1);
+    expect(up[0]).toMatchObject({ y: -1, h: 2 });
+    expect(up[1]).toMatchObject({ y: 1, h: 1 });
+    const down = ghostHornRects(8, 8, 16, 0, 1);
+    expect(down[0]).toMatchObject({ y: 1, h: 0 });
+    expect(down[1]).toMatchObject({ y: 1, h: 1 });
+  });
 });

@@ -42,6 +42,7 @@ export function ghostHornRects(
   cy: number,
   displaySize: number,
   lean: number,
+  lift = 0,
 ): HornRect[] {
   const scale = displaySize / GHOST_ART_SIZE_PX;
   const originX = cx - displaySize / 2;
@@ -49,9 +50,9 @@ export function ghostHornRects(
   return HORN_LEFT_EDGES_ART.flatMap((left) => [
     {
       x: originX + (left + lean * HORN_TIP_SHIFT_ART) * scale,
-      y: originY,
+      y: originY + lift * scale,
       w: HORN_TIP_WIDTH_ART * scale,
-      h: scale,
+      h: Math.max(0, 1 - lift) * scale,
     },
     { x: originX + left * scale, y: originY + scale, w: HORN_BASE_WIDTH_ART * scale, h: scale },
   ]);

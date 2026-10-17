@@ -252,11 +252,12 @@ function fillGhostHorns(
   cy: number,
   displaySize: number,
   lean: number,
+  lift: number,
   color: number,
 ): void {
   graphics.clear();
   graphics.fillStyle(color, 1);
-  for (const rect of ghostHornRects(cx, cy, displaySize, lean)) {
+  for (const rect of ghostHornRects(cx, cy, displaySize, lean, lift)) {
     graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
   }
 }
@@ -313,7 +314,7 @@ export function addGhostIcon(
   const color = skirtBaseColor(scene, textureKey);
   fillGhostSkirt(skirt, x, y, size, 0, color);
   if (drawableId === BLINKY_DRAWABLE_ID) {
-    fillGhostHorns(scene.add.graphics(), x, y, size, 0, color);
+    fillGhostHorns(scene.add.graphics(), x, y, size, 0, 0, color);
   }
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
@@ -346,7 +347,7 @@ export function addGhostSprite(
   const container = scene.add.container(x, y, [image, skirt]);
   if (drawableId === BLINKY_DRAWABLE_ID) {
     const horns = scene.add.graphics();
-    fillGhostHorns(horns, 0, 0, size, 0, color);
+    fillGhostHorns(horns, 0, 0, size, 0, 0, color);
     container.add(horns);
   }
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
@@ -999,8 +1000,30 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           skirt.phase,
           multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
         );
+        const hornsShown = id === BLINKY_DRAWABLE_ID && !frightenedLook && bodyAlpha > 0;
+        const pupilsShown =
+          bodyAlpha > 0 &&
+          ghostPupilsVisible({
+            inFrightenedSet: frightenedEids.has(eid),
+            drawKind: "primary",
+          });
+        let look: PupilLook = ghostPupilLookOffset(GHOST_DIR.none);
+        if (hornsShown || pupilsShown) {
+          const pupilTarget = opts?.pupilTarget;
+          if (pupilTarget?.eids.includes(eid)) {
+            look = ghostPupilLookToward(pupilTarget.x - x, pupilTarget.y - y);
+          } else {
+            const stepped = stepGhostPupilLook(
+              pupilLooks.get(eid),
+              facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
+              scene.time.now,
+            );
+            pupilLooks.set(eid, stepped.state);
+            look = stepped.look;
+          }
+        }
         skirt.horns.clear();
-        if (id === BLINKY_DRAWABLE_ID && !frightenedLook && bodyAlpha > 0) {
+        if (hornsShown) {
           const turn = stepGhostHornTurn(
             hornTurns.get(eid),
             facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
@@ -1014,31 +1037,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             y,
             size,
             turn.lean,
+            look.dy,
             multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
           );
         }
         skirt.pupils.clear();
         skirt.pupils.setAlpha(entityAlpha);
-        if (
-          bodyAlpha > 0 &&
-          ghostPupilsVisible({
-            inFrightenedSet: frightenedEids.has(eid),
-            drawKind: "primary",
-          })
-        ) {
-          const pupilTarget = opts?.pupilTarget;
-          let look: PupilLook;
-          if (pupilTarget?.eids.includes(eid)) {
-            look = ghostPupilLookToward(pupilTarget.x - x, pupilTarget.y - y);
-          } else {
-            const stepped = stepGhostPupilLook(
-              pupilLooks.get(eid),
-              facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
-              scene.time.now,
-            );
-            pupilLooks.set(eid, stepped.state);
-            look = stepped.look;
-          }
+        if (pupilsShown) {
           fillGhostPupils(skirt.pupils, x, y, size, look, ghostAlpha * (glideHead?.alpha ?? 1));
         }
         if (glide !== undefined) {
