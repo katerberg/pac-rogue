@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createRunLog,
   RUN_LOG_PURGE_COUNT,
+  RUN_LOG_PURGE_HEADROOM,
+  RUN_LOG_SOFT_CAP,
   TEST_RUN_LOG_META,
   type RunLogRecord,
 } from "../../domain/runLog";
@@ -11,18 +13,17 @@ import {
   loadAllRuns,
   runsNewestFirst,
   newRunLogMeta,
-  purgeOldestRuns,
   relabelAbandoned,
   RUN_LOG_INDEX_KEY,
   RUN_LOG_INSTALL_ID_KEY,
   RUN_LOG_RUN_KEY_PREFIX,
-  runLogOverrunActive,
   saveRunLog,
   storedRunCount,
 } from "./runLogStorage";
 
-function installMemoryStorage(options: { failWrites?: boolean } = {}) {
+function installMemoryStorage(options: { failWrites?: number } = {}) {
   const store = new Map<string, string>();
+  let failuresLeft = options.failWrites ?? 0;
   const memory: Storage = {
     get length() {
       return store.size;
@@ -40,7 +41,8 @@ function installMemoryStorage(options: { failWrites?: boolean } = {}) {
       store.delete(key);
     },
     setItem(key: string, value: string) {
-      if (options.failWrites === true) {
+      if (failuresLeft > 0) {
+        failuresLeft -= 1;
         throw new DOMException("full", "QuotaExceededError");
       }
       store.set(key, value);
@@ -93,27 +95,45 @@ describe("runLogStorage", () => {
     expect(store.get(`${RUN_LOG_RUN_KEY_PREFIX}corrupt`)).toBe("{oops");
   });
 
-  it("overruns at 500 runs and purges exactly the oldest ten", () => {
+  it("silently prunes the oldest twenty when a new run lands within 5 of the cap", () => {
     const store = installMemoryStorage();
-    fillSyntheticRuns(505);
-    expect(runLogOverrunActive()).toBe(true);
+    fillSyntheticRuns(RUN_LOG_SOFT_CAP - RUN_LOG_PURGE_HEADROOM);
+    expect(storedRunCount()).toBe(RUN_LOG_SOFT_CAP - RUN_LOG_PURGE_HEADROOM);
     const index = JSON.parse(store.get(RUN_LOG_INDEX_KEY)!) as string[];
-    purgeOldestRuns();
-    expect(storedRunCount()).toBe(505 - RUN_LOG_PURGE_COUNT);
-    expect(runLogOverrunActive()).toBe(false);
+    saveRunLog(recordWith("fresh"));
+    expect(storedRunCount()).toBe(
+      RUN_LOG_SOFT_CAP - RUN_LOG_PURGE_HEADROOM - RUN_LOG_PURGE_COUNT + 1,
+    );
     for (const id of index.slice(0, RUN_LOG_PURGE_COUNT)) {
       expect(store.has(`${RUN_LOG_RUN_KEY_PREFIX}${id}`)).toBe(false);
     }
     expect(store.has(`${RUN_LOG_RUN_KEY_PREFIX}${index[RUN_LOG_PURGE_COUNT]}`)).toBe(true);
+    expect(stored(store, "fresh").id).toBe("fresh");
   });
 
-  it("overruns after a failed save until a purge", () => {
-    installMemoryStorage({ failWrites: true });
-    saveRunLog(recordWith("a"));
-    expect(runLogOverrunActive()).toBe(true);
+  it("does not prune when re-saving an existing run near the cap", () => {
     installMemoryStorage();
-    purgeOldestRuns();
-    expect(runLogOverrunActive()).toBe(false);
+    fillSyntheticRuns(RUN_LOG_SOFT_CAP - RUN_LOG_PURGE_HEADROOM - 1);
+    saveRunLog(recordWith("live"));
+    saveRunLog(recordWith("live", "death"));
+    expect(storedRunCount()).toBe(RUN_LOG_SOFT_CAP - RUN_LOG_PURGE_HEADROOM);
+  });
+
+  it("prunes the oldest twenty and retries when a save hits the quota", () => {
+    const store = installMemoryStorage({ failWrites: 1 });
+    store.set(RUN_LOG_INDEX_KEY, JSON.stringify(Array.from({ length: 30 }, (_, i) => `r${i}`)));
+    saveRunLog(recordWith("fresh"));
+    expect(JSON.parse(store.get(RUN_LOG_INDEX_KEY)!)).toEqual([
+      ...Array.from({ length: 10 }, (_, i) => `r${i + 20}`),
+      "fresh",
+    ]);
+    expect(stored(store, "fresh").id).toBe("fresh");
+  });
+
+  it("gives up quietly when the quota failure persists", () => {
+    installMemoryStorage({ failWrites: Infinity });
+    expect(() => saveRunLog(recordWith("a"))).not.toThrow();
+    expect(storedRunCount()).toBe(0);
   });
 
   it("keeps one install id and fills meta from the URL params", () => {
@@ -155,7 +175,6 @@ describe("runLogStorage", () => {
   it("does nothing without localStorage", () => {
     vi.stubGlobal("localStorage", undefined);
     saveRunLog(recordWith("a"));
-    purgeOldestRuns();
     expect(storedRunCount()).toBe(0);
     expect(loadAllRuns()).toEqual({ runs: [], unreadable: 0 });
   });

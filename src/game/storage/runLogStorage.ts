@@ -1,7 +1,7 @@
 import {
   parseRunLogRecord,
   RUN_LOG_PURGE_COUNT,
-  runLogOverrun,
+  runLogNeedsPurge,
   syntheticRunLog,
   type RunLogMeta,
   type RunLogRecord,
@@ -14,8 +14,6 @@ declare const __GAME_VERSION__: string | undefined;
 export const RUN_LOG_INDEX_KEY = "pac-rogue.run-log.v1.index";
 export const RUN_LOG_RUN_KEY_PREFIX = "pac-rogue.run-log.v1.run.";
 export const RUN_LOG_INSTALL_ID_KEY = "pac-rogue.run-log.v1.install-id";
-
-let quotaFailed = false;
 
 function readStorage(): Storage | null {
   try {
@@ -79,14 +77,39 @@ export function saveRunLog(record: RunLogRecord): void {
     record.outcome !== "inProgress" && record.endedAt === null
       ? { ...record, endedAt: new Date().toISOString() }
       : record;
+  const json = JSON.stringify(stamped);
   try {
-    storage.setItem(runKey(record.id), JSON.stringify(stamped));
-    const index = loadIndex(storage);
-    if (!index.includes(record.id)) {
-      storage.setItem(RUN_LOG_INDEX_KEY, JSON.stringify([...index, record.id]));
-    }
+    writeRun(storage, record.id, json);
   } catch {
-    quotaFailed = true;
+    try {
+      purgeOldest(storage, loadIndex(storage));
+      writeRun(storage, record.id, json);
+    } catch {
+      return;
+    }
+  }
+}
+
+function purgeOldest(storage: Storage, index: string[]): string[] {
+  const purged = index.slice(0, RUN_LOG_PURGE_COUNT);
+  for (const id of purged) {
+    storage.removeItem(runKey(id));
+  }
+  const kept = index.slice(RUN_LOG_PURGE_COUNT);
+  storage.setItem(RUN_LOG_INDEX_KEY, JSON.stringify(kept));
+  forgetUploaded(purged);
+  return kept;
+}
+
+function writeRun(storage: Storage, id: string, json: string): void {
+  let index = loadIndex(storage);
+  const isNew = !index.includes(id);
+  if (isNew && runLogNeedsPurge(index.length)) {
+    index = purgeOldest(storage, index);
+  }
+  storage.setItem(runKey(id), json);
+  if (isNew) {
+    storage.setItem(RUN_LOG_INDEX_KEY, JSON.stringify([...index, id]));
   }
 }
 
@@ -154,29 +177,6 @@ export function* runsNewestFirst(skipId: (id: string) => boolean): Generator<Run
 export function storedRunCount(): number {
   const storage = readStorage();
   return storage === null ? 0 : loadIndex(storage).length;
-}
-
-export function runLogOverrunActive(): boolean {
-  return runLogOverrun(storedRunCount(), quotaFailed);
-}
-
-export function purgeOldestRuns(): void {
-  const storage = readStorage();
-  if (storage === null) {
-    return;
-  }
-  try {
-    const index = loadIndex(storage);
-    const purged = index.slice(0, RUN_LOG_PURGE_COUNT);
-    for (const id of purged) {
-      storage.removeItem(runKey(id));
-    }
-    storage.setItem(RUN_LOG_INDEX_KEY, JSON.stringify(index.slice(RUN_LOG_PURGE_COUNT)));
-    forgetUploaded(purged);
-    quotaFailed = false;
-  } catch {
-    return;
-  }
 }
 
 export function fillSyntheticRuns(count: number): void {

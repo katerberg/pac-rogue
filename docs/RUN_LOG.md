@@ -1,6 +1,6 @@
 # Run log
 
-Every `PlayScene` run is recorded to `localStorage`, always, with no flag, to feed balance analysis. Code: `src/domain/runLog.ts` (schema, `RunLogRecord` / `LevelLog` types and pure recorders), `src/game/sim/runRecorder.ts` (draft `PlaySim` fills), `src/game/storage/runLogStorage.ts` (keys, persistence), `RunLogOverrunScene.ts`. Storage is per origin, so agent ports keep their own log. Field names and shapes are the types; this file defines only what they don't say.
+Every `PlayScene` run is recorded to `localStorage`, always, with no flag, to feed balance analysis. Code: `src/domain/runLog.ts` (schema, `RunLogRecord` / `LevelLog` types and pure recorders), `src/game/sim/runRecorder.ts` (draft `PlaySim` fills), `src/game/storage/runLogStorage.ts` (keys, persistence). Storage is per origin, so agent ports keep their own log. Field names and shapes are the types; this file defines only what they don't say.
 
 ## When a run is saved
 
@@ -21,9 +21,9 @@ Level times are sim ms since the level started (pauses and the store do not coun
 - `quartersEarned` is split by source; Interest credits the level just cleared.
 - `deaths[]` records every catch, including ones Defy Death or Money Talks save.
 
-## RUN LOG FULL
+## Pruning
 
-At 500 stored runs, or after any save throws (quota), `MenuScene` hands off to `RunLogOverrunScene`: one action, PURGE OLDEST 10, which deletes outright and returns to the menu once below the cap. Runs keep saving past 500. Unparseable or unknown-`version` records stay, count toward the cap and are skipped when relabelling; a corrupt index reads as empty and the next save rewrites it. `?runLogFill=N` (agent ports only) writes N varied synthetic `debug` runs to reach this screen and fill `/data`.
+There is no prompt. Saving a new run within 5 of the 500-run cap, or any save that throws (quota), silently deletes the oldest 20 runs (and their upload marks), retrying a failed save once. Unparseable or unknown-`version` records stay, count toward the cap and are skipped when relabelling; a corrupt index reads as empty and the next save rewrites it. `?runLogFill=N` (agent ports only) writes N varied synthetic `debug` runs to reach the prune threshold and fill `/data`.
 
 ## Uploads
 
