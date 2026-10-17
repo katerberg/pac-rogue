@@ -1211,12 +1211,27 @@ export function grantLivesForUpgrade(id: UpgradeId): number {
   return UPGRADE_BY_ID.get(id)?.grantLives ?? 0;
 }
 
+/** Owning either removes the other from level-clear offers and store shelves. */
+const MUTUAL_EXCLUSIVES: ReadonlyArray<readonly [BaseUpgradeId, BaseUpgradeId]> = [
+  ["powerPelletHyperspeed", "powerPelletProgrammer"],
+];
+
+function exclusiveMateOwned(id: BaseUpgradeId, ownedBases: ReadonlySet<BaseUpgradeId>): boolean {
+  for (const [a, b] of MUTUAL_EXCLUSIVES) {
+    if ((id === a && ownedBases.has(b)) || (id === b && ownedBases.has(a))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   const ownedBases = new Set(owned.map(baseIdOf));
   const shieldsOwned = providesShields(owned);
   return ALL_UPGRADE_IDS.filter(
     (id) =>
       !ownedBases.has(id) &&
+      !exclusiveMateOwned(id, ownedBases) &&
       (getUpgradeDef(id).shieldBreak !== true || shieldsOwned) &&
       (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
       (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
