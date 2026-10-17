@@ -6450,6 +6450,23 @@ describe("Programmer", () => {
     expect(cell(sim)).toEqual(stoppedAt);
   });
 
+  it("with Hyperspeed also owned, still stops you and runs turns without the beat", () => {
+    const sim = start(["powerPelletProgrammer", "powerPelletHyperspeed"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(0);
+    runFrames(sim, 5);
+    expect(Speed.px[playerEid(sim)]).toBe(0);
+    const { program } = plannedRun(cell(sim));
+    for (const dir of program) {
+      press(sim, dir);
+    }
+    for (let frame = 0; sim.snapshot().timers.programmer !== null && frame < 240; frame += 1) {
+      runFrames(sim, 1);
+      expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBe(0);
+    }
+    expect(sim.snapshot().timers.programmer).toBeNull();
+  });
+
   it("a catch while programming clears it", () => {
     const sim = start(["powerPelletProgrammer"], { godMode: false, infiniteLives: true });
     chompPowerPellet(sim);
