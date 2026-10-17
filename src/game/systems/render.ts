@@ -436,10 +436,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
     scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
   }
   for (const school of UPGRADE_SCHOOL_ORDER) {
-    const path = schoolArtPath(school);
-    if (path !== null) {
-      scene.load.image(schoolArtTextureKey(school), path);
-    }
+    scene.load.image(schoolArtTextureKey(school), schoolArtPath(school));
   }
 }
 
