@@ -142,8 +142,26 @@ export function fruitStackCenter(
   return null;
 }
 
-export function cornucopiaMaySpawn(mode: "solo" | "alongside", fruitOnBoard: number): boolean {
-  return mode === "alongside" || fruitOnBoard === 0;
+export const CORNUCOPIA_SPAWN_DEBOUNCE_MS = 3_000;
+
+export type CornucopiaSpawnDecision = "spawn" | "defer" | "skip";
+
+export function cornucopiaSpawnDecision(
+  mode: "solo" | "alongside",
+  fruitOnBoard: number,
+  msSinceFruitSpawn: number,
+): CornucopiaSpawnDecision {
+  if (mode === "solo" && fruitOnBoard > 0) {
+    return "skip";
+  }
+  return msSinceFruitSpawn < CORNUCOPIA_SPAWN_DEBOUNCE_MS ? "defer" : "spawn";
+}
+
+export function mergeCornucopiaMode(
+  pending: "solo" | "alongside" | null,
+  mode: "solo" | "alongside",
+): "solo" | "alongside" {
+  return pending === "alongside" || mode === "alongside" ? "alongside" : "solo";
 }
 
 export type FruitPresenceAction = "none" | "spawn" | "replace" | "despawn";

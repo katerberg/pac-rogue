@@ -1,6 +1,7 @@
 import { query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { ECHO_DELAY_MS } from "../../domain/echo";
+import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import {
@@ -987,6 +988,10 @@ describe("LearnSim upgrade demos", () => {
   describe("Cornucopia", () => {
     const fruitCount = (sim: LearnSim): number => query(sim.world, [Fruit]).length;
 
+    const settle = (sim: LearnSim): void => {
+      (sim as unknown as { msSinceFruitSpawn: number }).msSinceFruitSpawn = Infinity;
+    };
+
     function eatPower(sim: LearnSim, player: number): void {
       moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
       sim.step(NO_KEYS_HELD, FRAME_MS);
@@ -998,8 +1003,18 @@ describe("LearnSim upgrade demos", () => {
       for (const eid of query(sim.world, [Fruit])) {
         removeEntity(sim.world, eid);
       }
+      settle(sim);
       eatPower(sim, player);
       expect(fruitCount(sim)).toBe(1);
+    });
+
+    it("debounces a power pellet eaten right after a fruit spawned", () => {
+      const { sim, player } = setup("powerPelletCornucopiaPlus");
+      const before = fruitCount(sim);
+      eatPower(sim, player);
+      expect(fruitCount(sim)).toBe(before);
+      runMs(sim, CORNUCOPIA_SPAWN_DEBOUNCE_MS + 100);
+      expect(fruitCount(sim)).toBe(before + 1);
     });
 
     it("does nothing while a fruit is out, but Plus always spawns one", () => {
@@ -1009,7 +1024,9 @@ describe("LearnSim upgrade demos", () => {
       expect(fruitCount(base.sim)).toBe(before);
 
       const plus = setup("powerPelletCornucopiaPlus");
+      settle(plus.sim);
       eatPower(plus.sim, plus.player);
+      settle(plus.sim);
       eatPower(plus.sim, plus.player);
       expect(fruitCount(plus.sim)).toBe(before + 2);
     });
@@ -1018,6 +1035,7 @@ describe("LearnSim upgrade demos", () => {
       const { sim, player } = setup("powerPelletCornucopiaPlus");
       let before = fruitCount(sim);
       for (let eaten = 1; eaten <= 4; eaten += 1) {
+        settle(sim);
         moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
         sim.step(NO_KEYS_HELD, FRAME_MS);
         sim.step(NO_KEYS_HELD, FRAME_MS);
@@ -1053,6 +1071,7 @@ describe("LearnSim upgrade demos", () => {
 
     it("eating its fruit leaves the always-present fruit and its respawn alone", () => {
       const { sim, player } = setup("powerPelletCornucopiaPlus");
+      settle(sim);
       eatPower(sim, player);
       expect(fruitCount(sim)).toBe(2);
       const [cornucopia] = (
@@ -1071,6 +1090,7 @@ describe("LearnSim upgrade demos", () => {
       const { sim, player } = setup("powerPelletCornucopia");
       sim.toggleUpgrade("fruitFeast");
       expect(fruitCount(sim)).toBe(0);
+      settle(sim);
       eatPower(sim, player);
       expect(fruitCount(sim)).toBe(1);
       (sim as unknown as { boardCollected: number }).boardCollected = 60;
@@ -1112,6 +1132,7 @@ describe("LearnSim upgrade demos", () => {
 
   it("a Cornucopia fruit expires, so it cannot hold scheduled fruit back forever", () => {
     const { sim, player } = setup("fruitFeast", "powerPelletCornucopia");
+    (sim as unknown as { msSinceFruitSpawn: number }).msSinceFruitSpawn = Infinity;
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     sim.step(NO_KEYS_HELD, FRAME_MS);
     moveTo(player, { x: 0, y: 0 });
