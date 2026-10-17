@@ -5731,6 +5731,31 @@ describe("Cornucopia", () => {
     expect(fruitCount(sim)).toBe(2);
   });
 
+  it("solo defers a power pellet eaten inside the window and spawns once it passes", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    sim["spawnFruitEntity"](false);
+    const regular = query(sim.world, [Fruit, Position])[0]!;
+    teleportPlayer(sim, Position.x[regular]!, Position.y[regular]!);
+    runFrames(sim, 1);
+    expect(fruitCount(sim)).toBe(0);
+    eatPower(sim);
+    expect(fruitCount(sim)).toBe(0);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS + 100));
+    expect(fruitCount(sim)).toBe(1);
+  });
+
+  it("solo drops a deferred spawn when a fruit is out at the end of the window", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    sim["spawnFruitEntity"](false);
+    const regular = query(sim.world, [Fruit, Position])[0]!;
+    teleportPlayer(sim, Position.x[regular]!, Position.y[regular]!);
+    runFrames(sim, 1);
+    eatPower(sim);
+    sim["spawnFruitEntity"](false);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS + 100));
+    expect(fruitCount(sim)).toBe(1);
+  });
+
   it("a deferred spawn is dropped when a life is lost", () => {
     const sim = start(["powerPelletCornucopiaPlus"]);
     eatNextPower(sim);
