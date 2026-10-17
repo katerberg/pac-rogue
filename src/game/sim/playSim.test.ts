@@ -56,6 +56,7 @@ import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
 import { POWER_PELLET_BREAK_MS } from "../../domain/powerPelletBreak";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
+  EXTRA_HUNGRY_COUNT,
   DEFY_DEATH_MS,
   FREEZE_MS,
   HAUNTING_MS,
@@ -2375,11 +2376,11 @@ describe("PlaySim bonus bar", () => {
     const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
     const collected = sim.snapshot().boardCollected;
     eatPelletAt(sim, power);
-    expect(sim.snapshot().boardCollected).toBe(collected + 6);
+    expect(sim.snapshot().boardCollected).toBe(collected + 1 + EXTRA_HUNGRY_COUNT);
     expect(sim.snapshot().bonus.streak).toBe(1);
   });
 
-  it("Extra Hungry eats the five farthest regular pellets", () => {
+  it("Extra Hungry eats the eight farthest regular pellets", () => {
     const sim = startCorridor({ enableUpgrades: ["powerPelletExtraHungry"] });
     const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
     const distFromPower = (eid: number) =>
@@ -2388,7 +2389,7 @@ describe("PlaySim bonus bar", () => {
       Array.from(query(sim.world, [Pellet, Position])).filter((eid) => eid !== power);
     const expected = regulars()
       .sort((a, b) => distFromPower(b) - distFromPower(a) || a - b)
-      .slice(0, 5);
+      .slice(0, EXTRA_HUNGRY_COUNT);
     eatPelletAt(sim, power);
     const remaining = new Set(regulars());
     expect(expected.filter((eid) => remaining.has(eid))).toEqual([]);

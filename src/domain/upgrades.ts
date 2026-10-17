@@ -220,7 +220,7 @@ export const GHOST_SLOW_MUL = 0.8;
 
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_RELIEF_PELLET_ADD = 15;
-export const EXTRA_HUNGRY_COUNT = 5;
+export const EXTRA_HUNGRY_COUNT = 8;
 export const STORE_UPGRADE_PRICE = 3;
 export const STORE_RARE_UPGRADE_PRICE = 4;
 export const RARE_MIN_OWNED = 2;
@@ -249,7 +249,7 @@ export const PICKUP_RANGE_ENHANCED_TILES = 2;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_ENHANCED_MS = 3000;
 export const GHOST_HOUSE_RELIEF_PELLET_ADD_ENHANCED = 25;
 export const EXTRA_LIFE_ENHANCED_LIVES = 2;
-export const EXTRA_HUNGRY_ENHANCED_COUNT = 10;
+export const EXTRA_HUNGRY_ENHANCED_COUNT = EXTRA_HUNGRY_COUNT * 2;
 export const PELLET_SURGE_COUNT = 1;
 export const PELLET_SURGE_ENHANCED_COUNT = 2;
 export const FRUIT_QUARTERS = 1;
@@ -433,11 +433,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletExtraHungry",
     label: "Extra Hungry",
     school: "automation",
-    description: "Power pellets also eat the 5 pellets farthest from you.",
+    description: "Power pellets also eat the 8 pellets farthest from you.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Extra Hungry eats the 10 farthest pellets instead of 5.",
-      description: "Power pellets also eat the 10 pellets farthest from you.",
+      enhanceNote: "Extra Hungry eats the 16 farthest pellets instead of 8.",
+      description: "Power pellets also eat the 16 pellets farthest from you.",
       onPowerPellet: { collectExtraPellets: EXTRA_HUNGRY_ENHANCED_COUNT },
     },
     onPowerPellet: { collectExtraPellets: EXTRA_HUNGRY_COUNT },
