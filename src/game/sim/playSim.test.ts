@@ -668,6 +668,28 @@ describe("PlaySim", () => {
     expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveMartyr");
   });
 
+  it("never offers Programmer when Hyperspeed is owned, or the reverse", () => {
+    const pad = ["passiveAfterburner", "passiveGhostSlow"] as const;
+    const withHyperspeed = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        enableUpgrades: [...pad, "powerPelletHyperspeed"],
+        forceUpgrade: "powerPelletProgrammer",
+      }),
+    ).upgrades;
+    expect(withHyperspeed).not.toContain("powerPelletProgrammer");
+    const withProgrammer = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        enableUpgrades: [...pad, "powerPelletProgrammer"],
+        forceUpgrade: "powerPelletHyperspeed",
+      }),
+    ).upgrades;
+    expect(withProgrammer).not.toContain("powerPelletHyperspeed");
+  });
+
   it("clears a board into an upgrade offer, then the next level", () => {
     const sim = startSim({ jumpToUpgrade: true });
     const offer = drainToOffer(sim);
