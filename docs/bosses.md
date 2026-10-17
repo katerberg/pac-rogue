@@ -16,7 +16,7 @@ Flags (also on `parsePlayOptions`; all disable high scores): `level=9` rolls a b
 ## Blinky Swarm
 
 - Board: generated with exactly three tunnel rows, never inverted (falls back to a regular board with a warning if none is found).
-- A few regular pellets are tagged `BossPellet` (`pickBossPelletCells`: farthest-point spread, away from the spawn). Each one eaten adds a Blinky at the next free tunnel mouth (`bossTunnelMouths`, skipping mouths with a Blinky nearby or on the player's row). The ghost count carries across the stage transition; max 10.
+- A few regular pellets are tagged `BossPellet` (`pickBossPelletCells`: farthest-point spread, away from the spawn). Each one eaten adds a Blinky at the next free tunnel mouth (`bossTunnelMouths`, skipping mouths with a Blinky nearby or on the player's row). The ghost count carries across the stage transition; capped by `maxBossGhosts` in `bossRules.ts`.
 - Blinkys treat a corridor holding another active Blinky as closed (`corridorOccupied`), so head-on Blinkys turn around.
 - On death the first few Blinkys restart in the house and the rest come straight out of the tunnels.
 
