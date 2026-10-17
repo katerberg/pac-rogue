@@ -35,7 +35,14 @@ export type ActivationKind =
   | "wallDrop";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
-  "fruit" | "bonusBar" | "deathsBounty" | "nearMiss" | "offer" | "interest" | "hunter";
+  | "fruit"
+  | "bonusBar"
+  | "deathsBounty"
+  | "nearMiss"
+  | "offer"
+  | "interest"
+  | "hunter"
+  | "storeFreebie";
 export type GhostName = keyof typeof GHOST_KIND;
 
 export type RunLogMeta = {

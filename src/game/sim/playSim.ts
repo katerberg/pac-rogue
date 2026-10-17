@@ -116,12 +116,10 @@ import {
 import {
   DEFAULT_MAX_LIVES,
   START_LIVES,
-  STORE_REGEN_AMOUNT,
   levelLivesIconFloor,
   levelRegenAmount,
   livesAfterLevelRegen,
   livesRemainingAfterCatch,
-  storeLifeRoom,
 } from "../../domain/lives";
 import {
   activateAsciiLayout,
@@ -197,7 +195,7 @@ import {
   STORE_FIRST_LEVEL,
   STORE_EXIT_SLIDE_TILES,
   createStoreState,
-  parseStoreSlots,
+  parseStoreLayout,
   pickMidStoreLevel,
   promptView,
   purchaseSchool,
@@ -208,6 +206,7 @@ import {
   storeSlotLabel,
   storeStep,
   type StoreExitDirection,
+  type StoreFreebie,
   type StorePurchase,
   type StoreState,
 } from "../../domain/store";
@@ -890,6 +889,7 @@ export class PlaySim {
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
       storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
+      storeFreebie: this.store?.freebie.taken === false ? this.store.freebie.kind : null,
       storeRoute: this.storeRoute,
       storePrompt:
         this.store === null
@@ -1954,17 +1954,12 @@ export class PlaySim {
     this.lavaZone = null;
     this.speedZones = [];
 
-    this.applyLifeRegen(STORE_REGEN_AMOUNT);
     this.store = createStoreState(
-      parseStoreSlots(STORE_MAZE_ASCII),
+      parseStoreLayout(STORE_MAZE_ASCII),
       this.runUpgrades.owned,
       this.random.stream("storeStock", this.levelIndex),
       this.levelIndex === STORE_FIRST_LEVEL,
-      storeLifeRoom(
-        this.lives,
-        lifeFloorBonus(this.effectiveUpgrades()),
-        this.options.maxLives ?? DEFAULT_MAX_LIVES,
-      ),
+      livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1) > this.lives,
       this.nextStoreSchool,
     );
     this.nextStoreSchool = null;
@@ -2082,6 +2077,9 @@ export class PlaySim {
       this.random.stream("storePurchase", this.levelIndex),
     );
     this.store = step.state;
+    if (step.pickup !== null) {
+      this.applyStorePickup(step.pickup);
+    }
     if (step.purchase !== null) {
       this.applyStorePurchase(step.purchase);
     }
@@ -2113,6 +2111,19 @@ export class PlaySim {
     );
   }
 
+  private applyStorePickup(kind: StoreFreebie["kind"]): void {
+    this.emitMunch();
+    if (kind === "quarter") {
+      this.quarters += 1;
+      this.recorder.quarters("storeFreebie", 1);
+      this.emit({ type: "quarters", pulse: true });
+      return;
+    }
+    this.recorder.livesRegenerated(this.lives, this.lives + 1);
+    this.lives += 1;
+    this.emit({ type: "lives", pulse: true });
+  }
+
   private applyStorePurchase(purchase: StorePurchase): void {
     this.recorder.storePurchase(purchase);
     this.nextStoreSchool = purchaseSchool(purchase) ?? this.nextStoreSchool;
@@ -2120,11 +2131,6 @@ export class PlaySim {
     this.interestPop = null;
     this.emit({ type: "quarters", pulse: false });
     this.emitMunch();
-    if (purchase.kind === "life") {
-      this.lives += 1;
-      this.emit({ type: "lives", pulse: true });
-      return;
-    }
     let id: UpgradeId;
     if (purchase.kind === "enhance") {
       id = enhancedIdOf(purchase.targetId);

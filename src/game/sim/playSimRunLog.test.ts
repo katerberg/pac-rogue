@@ -2,10 +2,8 @@ import { BOSS_STAGE_TOTAL_MS } from "../../domain/bossStageTransition";
 import { query } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { cellCenterX, cellCenterY, horizontalTunnelRows, TILE_SIZE } from "../../domain/maze";
-import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
 import type { RunLogRecord } from "../../domain/runLog";
-import { parseStoreSlots } from "../../domain/store";
 import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
@@ -212,14 +210,14 @@ describe("PlaySim run log", () => {
 
   it("records a store visit with its purchases on exit", () => {
     const { sim } = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
-    const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
-    teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
+    const corner = sim.storeState()!.slots[0]!;
+    teleportPlayer(sim, cellCenterX(corner.col), cellCenterY(corner.row));
     runFrames(sim, 1);
     runFrames(sim, 1, { storeToggle: true });
     runFrames(sim, 1, { storeConfirm: true });
     sim["exitStore"]();
     const visit = sim.runLogRecord().storeVisits[0]!;
-    expect(visit).toMatchObject({ quartersIn: 10, purchases: [{ kind: "life" }] });
+    expect(visit).toMatchObject({ quartersIn: 10, purchases: [{ kind: "upgrade" }] });
     expect(visit.quartersOut).toBeLessThan(10);
   });
 
@@ -230,7 +228,7 @@ describe("PlaySim run log", () => {
       quarters: 10,
       enableUpgrades: ["passiveGhostSlow"],
     });
-    const slot = parseStoreSlots(STORE_MAZE_ASCII).find((cell) => cell.kind === "enhance")!;
+    const slot = sim.storeState()!.slots.find((cell) => cell.kind === "enhance")!;
     teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
     runFrames(sim, 1);
     runFrames(sim, 1, { storeToggle: true });
