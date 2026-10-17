@@ -40,7 +40,7 @@ import {
   type HeadingStep,
   type VisorPose,
 } from "../../domain/dotManHeading";
-import { padTextureWithGutter } from "../renderScale";
+import { padTextureWithGutter, renderScaleOf } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -522,13 +522,13 @@ export type RenderOptions = {
   charms?: readonly Charm[];
 };
 
-const CHARM_SIZE_MUL = 0.4;
-const CHARM_LINK_MUL = 0.38;
+const CHARM_ART_SIZE_PX = 16;
+const CHARM_LINK_MUL = 1.1;
 const CHARM_ANCHOR_BACK_MUL = 0.45;
 const CHARM_DEPTH = -0.5;
 const CHARM_BASE_ALPHA = 0.85;
 const CHARM_BASE_TINT = 0xc4c4c4;
-const CHARM_GLOW_SCALE = 2.2;
+const CHARM_GLOW_SCALE = 1.4;
 const CHARM_GLOW_ALPHA = 0.06;
 const CHARM_GLOW_PULSE = 0.15;
 const CHARM_GLOW_PULSE_MS = 260;
@@ -901,8 +901,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       dtMs: number,
       keyPrefix: string,
     ): void => {
+      const canvasPx = 1 / renderScaleOf(scene);
+      const charmSize = CHARM_ART_SIZE_PX * canvasPx;
+      const snap = (v: number): number => Math.round(v / canvasPx) * canvasPx;
       const layout = {
-        linkPx: body.displayWidth * CHARM_LINK_MUL,
+        linkPx: charmSize * CHARM_LINK_MUL,
         anchorBackPx: body.displayWidth * CHARM_ANCHOR_BACK_MUL,
       };
       const pose = { x: anchor.x, y: anchor.y, heading: visual.angle };
@@ -911,7 +914,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           ? stepTail(visual.tail, pose, layout, dtMs)
           : layoutTail(charms.length, pose, layout);
       const now = scene.time.now;
-      const charmSize = body.displayWidth * CHARM_SIZE_MUL;
       const perpX = -Math.sin(visual.angle);
       const perpY = Math.cos(visual.angle);
       const hookX = anchor.x - Math.cos(visual.angle) * layout.anchorBackPx;
@@ -929,8 +931,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           return;
         }
         const sway = bobbleOffset(i, now, layout.linkPx, speedFactor);
-        const cx = bead.x + perpX * sway;
-        const cy = bead.y + perpY * sway;
+        const cx = snap(bead.x + perpX * sway);
+        const cy = snap(bead.y + perpY * sway);
         tailGraphics.lineTo(cx, cy);
         const place = (
           key: string,
