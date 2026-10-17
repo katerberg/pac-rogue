@@ -27,7 +27,11 @@ import {
 import type { IntermissionFrame } from "../../domain/intermission";
 import { wallStyleFor } from "../../domain/wallStyle";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
-import { moneyTalksCoinLook, quarterHudIconPosition } from "../../domain/moneyTalks";
+import {
+  moneyTalksCoinLook,
+  quarterHudIconPosition,
+  quarterHudIcons,
+} from "../../domain/moneyTalks";
 import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
@@ -62,6 +66,7 @@ import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
 import {
   addDotManIcon,
+  addDollarIcon,
   addQuarterIcon,
   createRender,
   preloadPlayArt,
@@ -845,13 +850,13 @@ export class PlayScene extends Phaser.Scene {
     const size = pelletDisplaySize();
     // Knobs panels cover the left gutter — park icons at the maze column so they stay visible.
     const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
-    for (let i = 0; i < this.sim.hud().quarters; i += 1) {
-      const { x, y } = quarterHudIconPosition(i, size, left);
+    quarterHudIcons(this.sim.hud().quarters).forEach((kind, slot) => {
+      const { x, y } = quarterHudIconPosition(slot, size, left);
       // Stay on chrome (not sideHud) so they remain visible with ?knobs=1.
-      const icon = addQuarterIcon(this, x, y, size);
+      const icon = (kind === "dollar" ? addDollarIcon : addQuarterIcon)(this, x, y, size);
       this.chrome.add(icon);
       this.quarterIcons.push(icon);
-    }
+    });
     const newest = this.quarterIcons[this.quarterIcons.length - 1];
     if (pulse && newest !== undefined) {
       this.pulseHudIcon(newest);
