@@ -7,10 +7,13 @@ import {
   cellOriginX,
   cellOriginY,
   getActiveLayout,
+  isSolid,
   playerDisplaySize,
   pelletDisplaySize,
   powerPelletDisplaySize,
   wallPathCommands,
+  worldToCol,
+  worldToRow,
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
@@ -99,11 +102,14 @@ import {
   nextSkirtWaveSign,
 } from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
+import {
+  DEFAULT_CHARM_TUNING,
+  charmLookFrom,
+  tailLayoutFrom,
+  type CharmTuning,
+} from "../../domain/charmTailParams";
 import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
 import {
-  bobbleOffset,
-  CHARM_SIZE_WORLD_PX,
-  CHARM_TAIL_LAYOUT,
   charmArtPath,
   charmTextureKey,
   layoutTail,
@@ -530,10 +536,7 @@ export type RenderOptions = {
 };
 
 const CHARM_DEPTH = -0.5;
-const CHARM_BASE_ALPHA = 0.85;
 const CHARM_BASE_TINT = 0xc4c4c4;
-const CHARM_GLOW_SCALE = 1.4;
-const CHARM_GLOW_ALPHA = 0.06;
 const CHARM_GLOW_PULSE = 0.15;
 const CHARM_GLOW_PULSE_MS = 260;
 const CHARM_CHAIN_COLOR = 0xd9d9d9;
@@ -550,6 +553,7 @@ export type PlayRender = {
   bouncePowerPellet: (eid: number) => void;
   setWallStyle: (style: WallStyle | null) => void;
   setDotManLook: (look: { chompSpeed: number }) => void;
+  setCharmTuning: (tuning: CharmTuning) => void;
   playerSpriteRotation: () => number | null;
 };
 
@@ -742,6 +746,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   let drawnWallAlpha = 1;
   let wallStyleOverride: WallStyle | null = null;
   let chompPixelsPerFrame = DOTMAN_CHOMP_PIXELS_PER_FRAME;
+  let charmLayout = tailLayoutFrom(DEFAULT_CHARM_TUNING);
+  let charmLook = charmLookFrom(DEFAULT_CHARM_TUNING);
   let bossPelletTint = 0xffffff;
 
   const destroyImage = (key: string): void => {
@@ -905,16 +911,20 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       dtMs: number,
       keyPrefix: string,
     ): void => {
-      const layout = CHARM_TAIL_LAYOUT;
-      const charmSize = CHARM_SIZE_WORLD_PX;
+      const layout = charmLayout;
+      const charmSize = charmLook.sizePx;
       const pose = { x: anchor.x, y: anchor.y, heading: visual.angle };
+      const blocked = (x: number, y: number): boolean => isSolid(worldToCol(x), worldToRow(y));
       visual.tail =
         visual.tail.length === charms.length
-          ? stepTail(visual.tail, pose, layout, dtMs)
-          : layoutTail(charms.length, pose, layout);
+          ? stepTail(visual.tail, pose, layout, {
+              dtMs,
+              nowMs: scene.time.now,
+              motion: speedFactor,
+              blocked,
+            })
+          : layoutTail(charms.length, pose, layout, blocked);
       const now = scene.time.now;
-      const perpX = -Math.sin(visual.angle);
-      const perpY = Math.cos(visual.angle);
       const hookX = anchor.x - Math.cos(visual.angle) * layout.anchorBackPx;
       const hookY = anchor.y - Math.sin(visual.angle) * layout.anchorBackPx;
       tailGraphics.lineStyle(
@@ -929,9 +939,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         if (!bead) {
           return;
         }
-        const sway = bobbleOffset(i, now, layout.linkPx, speedFactor);
-        const cx = bead.x + perpX * sway;
-        const cy = bead.y + perpY * sway;
+        const cx = bead.x;
+        const cy = bead.y;
         tailGraphics.lineTo(cx, cy);
         const place = (
           key: string,
@@ -956,14 +965,16 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           const pulse = 1 + CHARM_GLOW_PULSE * Math.sin(now / CHARM_GLOW_PULSE_MS + i);
           const glow = place(
             `${keyPrefix}:charm:${i}:glow`,
-            charmSize * CHARM_GLOW_SCALE * pulse,
-            CHARM_GLOW_ALPHA,
+            charmSize * charmLook.glowScale * pulse,
+            charmLook.glowAlpha,
             -0.01,
           );
           glow.setBlendMode(Phaser.BlendModes.ADD);
           place(`${keyPrefix}:charm:${i}`, charmSize, 1, 0).clearTint();
         } else {
-          place(`${keyPrefix}:charm:${i}`, charmSize, CHARM_BASE_ALPHA, 0).setTint(CHARM_BASE_TINT);
+          place(`${keyPrefix}:charm:${i}`, charmSize, charmLook.baseAlpha, 0).setTint(
+            CHARM_BASE_TINT,
+          );
         }
       });
       tailGraphics.strokePath();
@@ -1212,7 +1223,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         drawTail(
           go,
           visual,
-          opts?.charms ?? [],
+          charmLook.enabled ? (opts?.charms ?? []) : [],
           { x, y },
           frameMoved / frameDt / CHARM_SPEED_FULL_PX_PER_MS,
           frameDt,
@@ -1361,6 +1372,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     return angle === undefined ? null : Math.atan2(Math.sin(angle), Math.cos(angle));
   };
 
+  const setCharmTuning = (tuning: CharmTuning): void => {
+    charmLayout = tailLayoutFrom(tuning);
+    charmLook = charmLookFrom(tuning);
+  };
+
   const setDotManLook = (look: { chompSpeed: number }): void => {
     chompPixelsPerFrame = dotManChompPixelsPerFrame(look.chompSpeed);
   };
@@ -1372,6 +1388,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     bouncePowerPellet,
     setWallStyle,
     setDotManLook,
+    setCharmTuning,
     playerSpriteRotation,
   };
 }

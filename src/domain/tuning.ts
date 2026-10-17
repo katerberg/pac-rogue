@@ -1,3 +1,4 @@
+import { DEFAULT_CHARM_TUNING, type CharmTuning } from "./charmTailParams";
 import { DOTMAN_CHOMP_SPEED_DEFAULT } from "./dotManMouth";
 import { TUNING_KNOBS, type KnobDef } from "./tuningKnobs";
 
@@ -49,7 +50,7 @@ export type Tuning = {
   readonly dotManChompSpeed: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
-};
+} & CharmTuning;
 
 export type TuningKey = keyof Tuning;
 
@@ -101,6 +102,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   dotManChompSpeed: DOTMAN_CHOMP_SPEED_DEFAULT,
   wallCornerRadius: 8,
   backgroundColor: 0x1a1a2e,
+  ...DEFAULT_CHARM_TUNING,
 });
 
 const TUNING_STORAGE_VERSION = 1;
