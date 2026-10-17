@@ -25,7 +25,6 @@ import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import {
   PROGRAMMER_EMPTY_SLOT_TILES,
-  PROGRAMMER_QUEUE_COLOR,
   programmerArrowPoints,
   type ProgrammerQueueSlot,
 } from "../../domain/programmer";
@@ -63,7 +62,12 @@ import {
 } from "../../domain/playfield";
 import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
-import { brightenColor, playerTint, type PlayerTint } from "../../domain/playerTint";
+import {
+  brightenColor,
+  PLAYER_PROGRAMMING_TINT,
+  playerTint,
+  type PlayerTint,
+} from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
 import {
@@ -1234,11 +1238,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     programmerGraphics.clear();
     const tilePx = getActiveLayout().tileSize;
     for (const slot of opts?.programmerQueue ?? []) {
-      programmerGraphics.fillStyle(PROGRAMMER_QUEUE_COLOR, 1);
+      programmerGraphics.fillStyle(PLAYER_PROGRAMMING_TINT, 1);
       if (slot.dir === null) {
         programmerGraphics.fillCircle(slot.x, slot.y, tilePx * PROGRAMMER_EMPTY_SLOT_TILES);
       } else {
-        const [a, b, c] = programmerArrowPoints({ ...slot, dir: slot.dir }, tilePx);
+        const [a, b, c] = programmerArrowPoints(slot.x, slot.y, slot.dir, tilePx);
         programmerGraphics.fillTriangle(a!.x, a!.y, b!.x, b!.y, c!.x, c!.y);
       }
     }

@@ -9,12 +9,11 @@ import {
   recordProgrammerPress,
   startProgrammer,
   type ProgramDir,
-  type ProgrammerState,
+  type ProgrammerRunning,
+  type ProgrammerStep,
 } from "./programmer";
 
-// A plus sign: row 5 open from col 2 to 8, col 5 open from row 2 to 8, an
-// L-corner at (8, 5) turning up into (8, 4), and a T at (6, 5) branching down.
-function plusSolids(): SolidGrid {
+function plusWithCornerAndTee(): SolidGrid {
   const { rows, cols } = getActiveLayout();
   const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => true));
   for (let i = 2; i <= 8; i += 1) {
@@ -26,19 +25,18 @@ function plusSolids(): SolidGrid {
   return grid;
 }
 
-const SOLIDS = plusSolids();
+const SOLIDS = plusWithCornerAndTee();
 
-function running(heading: ProgramDir, program: ProgramDir[], setsLeft = 0): ProgrammerState {
+function running(heading: ProgramDir, program: ProgramDir[], setsLeft = 0): ProgrammerRunning {
   return { phase: "running", program, heading, setsLeft };
 }
 
 function record(presses: ProgramDir[], sets = 1, col = 5, row = 5) {
-  let step = {
-    state: startProgrammer(sets) as ProgrammerState | null,
-    heading: null as ProgramDir | null,
-  };
+  let step: ProgrammerStep = { state: startProgrammer(sets), heading: null };
   for (const dir of presses) {
-    step = recordProgrammerPress(step.state!, dir, SOLIDS, col, row);
+    if (step.state?.phase === "recording") {
+      step = recordProgrammerPress(step.state, dir, SOLIDS, col, row);
+    }
   }
   return step;
 }
@@ -145,10 +143,10 @@ describe("programmer queue look", () => {
   });
 
   it("points each arrow's tip the way it was pressed", () => {
-    const [tip] = programmerArrowPoints({ x: 50, y: 50, dir: "right" }, 20);
+    const [tip] = programmerArrowPoints(50, 50, "right", 20);
     expect(tip!.x).toBeGreaterThan(50);
     expect(tip!.y).toBe(50);
-    const [up] = programmerArrowPoints({ x: 50, y: 50, dir: "up" }, 20);
+    const [up] = programmerArrowPoints(50, 50, "up", 20);
     expect(up!.y).toBeLessThan(50);
   });
 });

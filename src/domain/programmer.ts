@@ -5,9 +5,14 @@ export type ProgramDir = "up" | "down" | "left" | "right";
 export const PROGRAMMER_PRESSES = 5;
 export const PROGRAMMER_ENHANCED_SETS = 2;
 
-export type ProgrammerState =
-  | { phase: "recording"; presses: ProgramDir[]; setsLeft: number }
-  | { phase: "running"; program: ProgramDir[]; heading: ProgramDir; setsLeft: number };
+export type ProgrammerRecording = { phase: "recording"; presses: ProgramDir[]; setsLeft: number };
+export type ProgrammerRunning = {
+  phase: "running";
+  program: ProgramDir[];
+  heading: ProgramDir;
+  setsLeft: number;
+};
+export type ProgrammerState = ProgrammerRecording | ProgrammerRunning;
 
 const STEP: Record<ProgramDir, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 },
@@ -23,7 +28,7 @@ const PERPENDICULAR: Record<ProgramDir, readonly ProgramDir[]> = {
   right: ["up", "down"],
 };
 
-export function startProgrammer(sets: number): ProgrammerState {
+export function startProgrammer(sets: number): ProgrammerRecording {
   return { phase: "recording", presses: [], setsLeft: sets - 1 };
 }
 
@@ -65,16 +70,13 @@ function finishRun(setsLeft: number, heading: ProgramDir | null): ProgrammerStep
 }
 
 export function recordProgrammerPress(
-  state: ProgrammerState,
+  state: ProgrammerRecording,
   dir: ProgramDir,
   solids: SolidGrid,
   col: number,
   row: number,
   presses: number = PROGRAMMER_PRESSES,
 ): ProgrammerStep {
-  if (state.phase !== "recording") {
-    return { state, heading: state.heading };
-  }
   const recorded = [...state.presses, dir];
   if (recorded.length < presses) {
     return { state: { ...state, presses: recorded }, heading: null };
@@ -83,14 +85,11 @@ export function recordProgrammerPress(
 }
 
 export function programmerEnterCell(
-  state: ProgrammerState,
+  state: ProgrammerRunning,
   solids: SolidGrid,
   col: number,
   row: number,
 ): ProgrammerStep {
-  if (state.phase !== "running") {
-    return { state, heading: null };
-  }
   const { heading } = state;
   const straight = openAt(solids, col, row, heading);
   if (!isIntersection(solids, col, row, heading)) {
@@ -130,17 +129,18 @@ export function programmerQueueSlots(
 
 export const PROGRAMMER_ARROW_TILES = 0.3;
 export const PROGRAMMER_EMPTY_SLOT_TILES = 0.08;
-export const PROGRAMMER_QUEUE_COLOR = 0x7ec8ff;
 
 export function programmerArrowPoints(
-  slot: ProgrammerQueueSlot & { dir: ProgramDir },
+  x: number,
+  y: number,
+  dir: ProgramDir,
   tilePx: number,
 ): { x: number; y: number }[] {
   const half = tilePx * PROGRAMMER_ARROW_TILES;
-  const { dx, dy } = STEP[slot.dir];
+  const { dx, dy } = STEP[dir];
   return [
-    { x: slot.x + dx * half, y: slot.y + dy * half },
-    { x: slot.x - dx * half - dy * half, y: slot.y - dy * half - dx * half },
-    { x: slot.x - dx * half + dy * half, y: slot.y - dy * half + dx * half },
+    { x: x + dx * half, y: y + dy * half },
+    { x: x - dx * half - dy * half, y: y - dy * half - dx * half },
+    { x: x - dx * half + dy * half, y: y - dy * half + dx * half },
   ];
 }

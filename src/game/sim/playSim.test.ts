@@ -6323,8 +6323,6 @@ describe("Programmer", () => {
     right: ["up", "down"],
   };
 
-  // Walks the maze tile by tile from `from`, turning at every intersection, to
-  // build a five-press program and the cells where each turn should happen.
   function plannedRun(from: { col: number; row: number }): {
     program: ProgramDir[];
     turnCells: { col: number; row: number }[];

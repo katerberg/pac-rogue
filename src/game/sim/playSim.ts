@@ -1185,10 +1185,7 @@ export class PlaySim {
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
       tuning: this.currentTuning,
     });
-    const playerSolidsOverride = playerSolidsWithWall(
-      this.runUpgrades,
-      wallPassActive(this.runUpgrades) ? wallPassSolids(this.effectiveUpgrades()) : undefined,
-    );
+    const playerSolids = this.playerSolids();
     if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
@@ -1199,7 +1196,7 @@ export class PlaySim {
       movement(
         this.world,
         frameDelta,
-        playerSolidsOverride,
+        playerSolids,
         false,
         playerPreTurnPx(this.currentTuning),
         this.ghostsBlockedFromTunnels(),
@@ -2722,7 +2719,7 @@ export class PlaySim {
         return;
       }
       this.emit({ type: "sfx", id: "pelletMunch" });
-      const step = recordProgrammerPress(state, dir, this.programmerSolids(), cell.col, cell.row);
+      const step = recordProgrammerPress(state, dir, this.playerSolids(), cell.col, cell.row);
       if (step.state?.phase === "running") {
         this.programmerCell = cell;
         this.recorder.activation("programmer");
@@ -2731,7 +2728,7 @@ export class PlaySim {
     }
   }
 
-  private programmerSolids(): SolidGrid {
+  private playerSolids(): SolidGrid {
     return (
       playerSolidsWithWall(
         this.runUpgrades,
@@ -2750,16 +2747,13 @@ export class PlaySim {
       return;
     }
     this.programmerCell = cell;
-    this.applyProgrammerStep(
-      programmerEnterCell(state, this.programmerSolids(), cell.col, cell.row),
-    );
+    this.applyProgrammerStep(programmerEnterCell(state, this.playerSolids(), cell.col, cell.row));
   }
 
   private applyProgrammerStep(step: ProgrammerStep): void {
     this.runUpgrades = { ...this.runUpgrades, programmer: step.state };
     if (step.state?.phase === "recording") {
-      holdPlayerForProgramming(this.world);
-      this.zeroPlayerSpeed();
+      this.holdForProgramming();
       return;
     }
     if (step.heading !== null) {
@@ -2768,6 +2762,11 @@ export class PlaySim {
     if (step.state === null) {
       this.zeroPlayerSpeed();
     }
+  }
+
+  private holdForProgramming(): void {
+    holdPlayerForProgramming(this.world);
+    this.zeroPlayerSpeed();
   }
 
   private resetHyperspeedMovement(): void {
@@ -3068,8 +3067,7 @@ export class PlaySim {
     const powerEffects = applyPowerPelletEffects(before, powerRemoved, onlyBases, this.levelIndex);
     this.runUpgrades = powerEffects.state;
     if (powerEffects.programmerStarted) {
-      holdPlayerForProgramming(this.world);
-      this.zeroPlayerSpeed();
+      this.holdForProgramming();
     }
     if (powerEffects.frightenGhosts) {
       const frightened = frightenGhosts(

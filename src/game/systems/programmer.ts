@@ -8,7 +8,7 @@ import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 import { freshKeys, type HeldKeys } from "./heldKeys";
 
-export const DIRECTION_FOR_PROGRAM: Record<ProgramDir, Direction> = {
+const DIRECTION_FOR_PROGRAM: Record<ProgramDir, Direction> = {
   up: DIRECTION.up,
   down: DIRECTION.down,
   left: DIRECTION.left,
