@@ -14,7 +14,9 @@ import {
   fruitFlickerAlpha,
   extendFruitLifetime,
   createFruitPresence,
-  cornucopiaMaySpawn,
+  cornucopiaSpawnDecision,
+  mergeCornucopiaMode,
+  CORNUCOPIA_SPAWN_DEBOUNCE_MS,
   fruitArtPath,
   fruitDrawableId,
   fruitKindFromDrawableId,
@@ -411,15 +413,35 @@ describe("fruitStackCenter", () => {
   });
 });
 
-describe("cornucopiaMaySpawn", () => {
-  it("solo spawns only onto an empty board", () => {
-    expect(cornucopiaMaySpawn("solo", 0)).toBe(true);
-    expect(cornucopiaMaySpawn("solo", 1)).toBe(false);
+describe("cornucopiaSpawnDecision", () => {
+  it("solo skips when a fruit is out, otherwise spawns", () => {
+    expect(cornucopiaSpawnDecision("solo", 0, Infinity)).toBe("spawn");
+    expect(cornucopiaSpawnDecision("solo", 1, Infinity)).toBe("skip");
   });
 
-  it("alongside always spawns", () => {
-    expect(cornucopiaMaySpawn("alongside", 0)).toBe(true);
-    expect(cornucopiaMaySpawn("alongside", 3)).toBe(true);
+  it("alongside spawns regardless of fruit on the board", () => {
+    expect(cornucopiaSpawnDecision("alongside", 0, Infinity)).toBe("spawn");
+    expect(cornucopiaSpawnDecision("alongside", 3, Infinity)).toBe("spawn");
+  });
+
+  it("defers within the debounce window after any fruit spawned, in both modes", () => {
+    const justUnder = CORNUCOPIA_SPAWN_DEBOUNCE_MS - 1;
+    expect(cornucopiaSpawnDecision("solo", 0, justUnder)).toBe("defer");
+    expect(cornucopiaSpawnDecision("alongside", 2, justUnder)).toBe("defer");
+    expect(cornucopiaSpawnDecision("solo", 0, CORNUCOPIA_SPAWN_DEBOUNCE_MS)).toBe("spawn");
+    expect(cornucopiaSpawnDecision("alongside", 2, CORNUCOPIA_SPAWN_DEBOUNCE_MS)).toBe("spawn");
+  });
+
+  it("skips rather than defers a solo request that would land on a fruit", () => {
+    expect(cornucopiaSpawnDecision("solo", 1, 0)).toBe("skip");
+  });
+});
+
+describe("mergeCornucopiaMode", () => {
+  it("keeps the stronger mode", () => {
+    expect(mergeCornucopiaMode(null, "solo")).toBe("solo");
+    expect(mergeCornucopiaMode("solo", "alongside")).toBe("alongside");
+    expect(mergeCornucopiaMode("alongside", "solo")).toBe("alongside");
   });
 });
 

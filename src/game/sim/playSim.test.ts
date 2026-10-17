@@ -4,6 +4,7 @@ import {
   createFruitPresence,
   FRUIT_FLICKER_MS,
   FRUIT_LIFETIME_MS,
+  CORNUCOPIA_SPAWN_DEBOUNCE_MS,
   nextFruitKind,
 } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
@@ -2497,7 +2498,7 @@ describe("Turn Tuning", () => {
     expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
   });
 
-  it("keeps Pac-Man gold through a turn flash while invulnerable", () => {
+  it("keeps Dot-Man gold through a turn flash while invulnerable", () => {
     const { sim, turn } = setup(true);
     sim["runUpgrades"] = { ...sim["runUpgrades"], invulnRemainingMs: INVULN_MS };
     cruiseFrom(sim, turn, 2);
@@ -5689,6 +5690,7 @@ describe("Cornucopia", () => {
   it("Plus spawns another fruit on every power pellet, even with its own fruit out", () => {
     const sim = start(["powerPelletCornucopiaPlus"]);
     eatNextPower(sim);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS));
     eatNextPower(sim);
     expect(fruitCount(sim)).toBe(2);
   });
@@ -5700,9 +5702,67 @@ describe("Cornucopia", () => {
     ] as const) {
       const sim = start([id]);
       sim["spawnFruitEntity"](false);
+      runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS));
       eatPower(sim);
       expect(fruitCount(sim)).toBe(expected);
     }
+  });
+
+  it("debounces: a power pellet within the window spawns once the window has passed", () => {
+    const sim = start(["powerPelletCornucopiaPlus"]);
+    eatNextPower(sim);
+    eatNextPower(sim);
+    eatNextPower(sim);
+    expect(fruitCount(sim)).toBe(1);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS - 200));
+    expect(fruitCount(sim)).toBe(1);
+    runFrames(sim, framesFor(400));
+    expect(fruitCount(sim)).toBe(2);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS * 2));
+    expect(fruitCount(sim)).toBe(2);
+  });
+
+  it("debounces against regular fruit spawns too", () => {
+    const sim = start(["powerPelletCornucopiaPlus"]);
+    sim["spawnFruitEntity"](true);
+    eatPower(sim);
+    expect(fruitCount(sim)).toBe(1);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS + 100));
+    expect(fruitCount(sim)).toBe(2);
+  });
+
+  it("solo defers a power pellet eaten inside the window and spawns once it passes", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    sim["spawnFruitEntity"](false);
+    const regular = query(sim.world, [Fruit, Position])[0]!;
+    teleportPlayer(sim, Position.x[regular]!, Position.y[regular]!);
+    runFrames(sim, 1);
+    expect(fruitCount(sim)).toBe(0);
+    eatPower(sim);
+    expect(fruitCount(sim)).toBe(0);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS + 100));
+    expect(fruitCount(sim)).toBe(1);
+  });
+
+  it("solo drops a deferred spawn when a fruit is out at the end of the window", () => {
+    const sim = start(["powerPelletCornucopia"]);
+    sim["spawnFruitEntity"](false);
+    const regular = query(sim.world, [Fruit, Position])[0]!;
+    teleportPlayer(sim, Position.x[regular]!, Position.y[regular]!);
+    runFrames(sim, 1);
+    eatPower(sim);
+    sim["spawnFruitEntity"](false);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS + 100));
+    expect(fruitCount(sim)).toBe(1);
+  });
+
+  it("a deferred spawn is dropped when a life is lost", () => {
+    const sim = start(["powerPelletCornucopiaPlus"]);
+    eatNextPower(sim);
+    eatNextPower(sim);
+    ghostOntoPlayer(sim);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS + 2_000));
+    expect(fruitCount(sim)).toBe(0);
   });
 
   it("expires after the fruit lifetime", () => {
@@ -5744,6 +5804,7 @@ describe("Cornucopia", () => {
     for (const eid of regularPelletEids(sim).slice(0, threshold)) {
       eatPelletAt(sim, eid);
     }
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS));
     eatNextPower(sim);
     expect(fruitCount(sim)).toBe(2);
     sim["fruitPresence"] = { ...sim["fruitPresence"], remainingMs: 50 };
@@ -5770,6 +5831,7 @@ describe("Cornucopia", () => {
     runFrames(sim, 1);
     expect(fruitCount(sim)).toBe(0);
     expect(sim.snapshot().bonus.charge).toBeGreaterThan(0);
+    runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS));
     eatNextPower(sim);
     expect(fruitCount(sim)).toBe(1);
   });

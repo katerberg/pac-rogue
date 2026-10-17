@@ -896,7 +896,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Cornucopia spawns a fruit on every power pellet, even if a fruit is out.",
-      description: "Power pellet: always spawns a bonus fruit, even beside others.",
+      description: "Power pellet: spawns a bonus fruit even if there are others.",
       onPowerPellet: { cornucopiaFruit: true, cornucopiaAlongside: true },
     },
     onPowerPellet: { cornucopiaFruit: true },

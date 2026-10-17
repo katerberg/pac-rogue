@@ -65,7 +65,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `passiveStartingShield` | Starting Shield | protection | Start every level with a shield. A ghost hit breaks it. | Start every level with 2 shields. Each ghost hit breaks one. |
 | `powerPelletHyperspeed` | Hyperspeed (rare) | speed | Power pellet: for 2s, run at 10x speed. Every turn costs a beat. | Power pellet: for 3s, run at 10x speed. A shield blocks one catch for 2s. |
 | `passiveShieldBreak` | Shield Break (rare) | protection | When a shield breaks, fire all power pellet effects. Power pellet effects no longer trigger at pickup. | When a shield breaks, fire all power pellet effects. Getting a shield at your maximum fires them too. |
-| `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a bonus fruit, if none is out. | Power pellet: always spawns a bonus fruit, even beside others. |
+| `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a bonus fruit, if none is out. | Power pellet: spawns a bonus fruit even if there are others. |
 | `powerPelletWallDrop` | Wall Drop | protection | Power pellet: your next reversal drops a wall behind you for 8s. | Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it. |
 
 ## Power pellets
