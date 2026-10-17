@@ -69,6 +69,7 @@ import {
   SHIELD_BREAK_INVULN_MS,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
   STARTING_UPGRADE_POOL,
+  CORNER_TELEPORT_HOLD_MS,
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   WALL_PASS_MS,
@@ -3155,8 +3156,14 @@ describe("PlaySim enhanced upgrades", () => {
     expect(sim.snapshot().timers.ghostWarpGlideMs).toBeGreaterThan(0);
 
     teleportPlayer(sim, cellCenterX(1), cellCenterY(1));
-    runFrames(sim, 30);
+    runFrames(sim, 4);
     expect(sim.snapshot().timers.ghostWarpGlideMs).toBe(0);
+    runFrames(sim, Math.floor((CORNER_TELEPORT_HOLD_MS - 150) / FRAME_MS));
+    for (const eid of active) {
+      expect({ x: Position.x[eid], y: Position.y[eid] }).toEqual(landings.get(eid));
+      expect(Speed.px[eid]).toBe(0);
+    }
+    runFrames(sim, 30);
     expect(
       active.some(
         (eid) =>
