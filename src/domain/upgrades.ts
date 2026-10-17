@@ -1217,6 +1217,8 @@ export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   return ALL_UPGRADE_IDS.filter(
     (id) =>
       !ownedBases.has(id) &&
+      !(id === "powerPelletHyperspeed" && ownedBases.has("powerPelletProgrammer")) &&
+      !(id === "powerPelletProgrammer" && ownedBases.has("powerPelletHyperspeed")) &&
       (getUpgradeDef(id).shieldBreak !== true || shieldsOwned) &&
       (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
       (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),

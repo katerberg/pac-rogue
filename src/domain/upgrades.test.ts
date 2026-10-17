@@ -434,6 +434,23 @@ describe("eligibleUpgrades", () => {
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
   });
+
+  it("keeps Hyperspeed and Programmer out of the pool when the other is owned", () => {
+    const pad: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
+    expect(eligibleUpgrades(pad)).toEqual(
+      expect.arrayContaining(["powerPelletHyperspeed", "powerPelletProgrammer"]),
+    );
+    for (const owned of ["powerPelletHyperspeed", "powerPelletHyperspeedPlus"] as const) {
+      const eligible = eligibleUpgrades([...pad, owned]);
+      expect(eligible).not.toContain("powerPelletProgrammer");
+      expect(eligible).not.toContain("powerPelletHyperspeed");
+    }
+    for (const owned of ["powerPelletProgrammer", "powerPelletProgrammerPlus"] as const) {
+      const eligible = eligibleUpgrades([...pad, owned]);
+      expect(eligible).not.toContain("powerPelletHyperspeed");
+      expect(eligible).not.toContain("powerPelletProgrammer");
+    }
+  });
 });
 
 describe("rare upgrades", () => {

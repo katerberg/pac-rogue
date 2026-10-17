@@ -99,7 +99,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 
 - **Timers** are separate and combine by "max wins": freeze (cyan tint on one ghost, zero speed, catch skip), Ghost Proof (gold tint, catch skip, ghosts keep moving), Defy Death (shares the gold tint; does not skip kills), wall pass (its tint wins). All clear on level advance and life-loss reset. Expiry while overlapping a ghost can kill on the same update.
 - **Shields** are a banked count, not a timer: they survive timer clears, empty on level advance, and clamp to the cap when the upgrade is lost.
-- **Programmer** owns player movement while active (`src/domain/programmer.ts`).
+- **Programmer** owns player movement while it runs (`src/domain/programmer.ts`): held keys only record presses, then the run uses Hyperspeed's multiplier and sub-stepped pickups and catches, without its turn beat. Hyperspeed and Programmer are mutually exclusive in `eligibleUpgrades` (owning either drops the other from offers and shelves).
 - **Speed**: `applyPlayerSpeed` / `applyGhostSpeed` in `PlaySim` combine the level ramp, owned multipliers, cell-based multipliers and active bursts every frame. Boss ghosts use a flat base.
 - **Catch order**: shield break, then Death's Harvest, then Defy Death, then Money Talks, then death. A break or save is not a death (no life lost, `deathsThisBoard` unchanged where the code says so).
 - **Boss level**: Lazy Looper is off; boss pellets are never optional.
