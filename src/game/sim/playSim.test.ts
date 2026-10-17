@@ -6344,6 +6344,18 @@ describe("Programmer", () => {
     return { program, turnCells };
   }
 
+  function runVisitingCells(sim: PlaySim): string[] {
+    const visited: string[] = [];
+    for (let ms = 0; sim.snapshot().timers.programmer !== null && ms < 4000; ms += 2) {
+      sim.step(IDLE_INPUT, 2);
+      const key = `${cell(sim).col},${cell(sim).row}`;
+      if (visited.at(-1) !== key) {
+        visited.push(key);
+      }
+    }
+    return visited;
+  }
+
   it("does nothing without the upgrade", () => {
     const sim = start([]);
     chompPowerPellet(sim);
@@ -6398,14 +6410,7 @@ describe("Programmer", () => {
     }
     expect(sim.snapshot().timers.programmer?.phase).toBe("running");
     const runningSpeed = Speed.px[playerEid(sim)]!;
-    const visited: string[] = [];
-    for (let ms = 0; sim.snapshot().timers.programmer !== null && ms < 4000; ms += 2) {
-      sim.step(IDLE_INPUT, 2);
-      const key = `${cell(sim).col},${cell(sim).row}`;
-      if (visited.at(-1) !== key) {
-        visited.push(key);
-      }
-    }
+    const visited = runVisitingCells(sim);
     expect(sim.snapshot().timers.programmer).toBeNull();
     const turnIndexes = turnCells.map((at) => visited.indexOf(`${at.col},${at.row}`));
     expect(turnIndexes.every((index) => index >= 0)).toBe(true);
@@ -6426,14 +6431,7 @@ describe("Programmer", () => {
     for (const dir of [program[0]!, blocked!, program[1]!, program[2]!, program[3]!]) {
       press(sim, dir);
     }
-    const visited: string[] = [];
-    for (let ms = 0; sim.snapshot().timers.programmer !== null && ms < 4000; ms += 2) {
-      sim.step(IDLE_INPUT, 2);
-      const key = `${cell(sim).col},${cell(sim).row}`;
-      if (visited.at(-1) !== key) {
-        visited.push(key);
-      }
-    }
+    const visited = runVisitingCells(sim);
     const turnIndexes = turnCells.slice(0, 3).map((at) => visited.indexOf(`${at.col},${at.row}`));
     expect(turnIndexes.every((index) => index >= 0)).toBe(true);
     expect([...turnIndexes].sort((a, b) => a - b)).toEqual(turnIndexes);
