@@ -33,7 +33,8 @@ export type ActivationKind =
   | "echo"
   | "frighten"
   | "ghostEaten"
-  | "wallDrop";
+  | "wallDrop"
+  | "programmer";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   "fruit" | "bonusBar" | "deathsBounty" | "nearMiss" | "offer" | "interest" | "hunter";

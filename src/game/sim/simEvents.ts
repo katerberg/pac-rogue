@@ -11,6 +11,7 @@ import type { LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import type { DroppedWall } from "../../domain/wallDrop";
+import type { ProgrammerQueueSlot } from "../../domain/programmer";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 
 export type { TimedTunnelRenderState };
@@ -40,6 +41,7 @@ export type SimRenderOptions = {
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
+  programmerQueue?: ProgrammerQueueSlot[] | null;
 };
 
 export type MoneyTalksSpend = {
