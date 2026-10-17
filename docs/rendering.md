@@ -17,16 +17,13 @@ Dot-Man is a round body PNG that never rotates, with a right-facing visor PNG dr
 
 ## Charm tail
 
-The charm bracelet (`src/domain/charmTail.ts` physics, `src/domain/charmTailParams.ts` knob-to-layout mapping, drawn by `render.ts`) follows one scale rule so it looks the same on every monitor and at every device pixel ratio:
+The charm bracelet (`src/domain/charmTail.ts`, knob defaults in `src/domain/charmTailParams.ts`, drawn by `render.ts`) must look the same at every display scale and device pixel ratio:
 
-- **Size is fixed in world units** (the `charm*` knobs under Visuals > Charms, `?knobs=1`), so a charm is the same share of the playfield everywhere. Never derive it from `renderScaleOf`, `devicePixelRatio` or physical pixels.
-- **No 1:1 tie to Dot-Man.** The 16 px school art is shrunk to its own world size; it does not inherit Dot-Man's art-pixel size.
-- **Shape is kept by smoothing, not snapping.** Charms use their own `charm-*` textures, which `isActorTextureKey` marks as `smoothPixelArt` like Dot-Man and the ghosts, so fractional canvas scales stay sharp. Pixel-exact art-pixel-to-canvas-pixel mapping is only possible at some scales and would make the size jump between displays, so it is not a goal.
-- The school watermark textures on cards stay crisp (`NEAREST`); charms never share them.
-- **Charms never enter walls.** The chain physics takes a `blocked` test from the maze grid and bounces beads off walls; bobble is a force inside the physics, never a draw-time offset. The chain line between beads is not clipped.
-- **Every tail factor is a knob** (`tuningKnobs.ts`); defaults live in `charmTailParams.ts`, not here.
+- Size is fixed in world units (the Visuals > Charms knobs), never derived from `renderScaleOf`, `devicePixelRatio` or Dot-Man's size.
+- Charm textures (`charm-*`) are `smoothPixelArt` like Dot-Man and the ghosts; pixel-exact snapping is not a goal because it makes size jump between displays.
+- Charms never enter walls (maze-grid `blocked` test, bounce); bobble is a physics force, not a draw offset.
 
-To check, probe the same steps at `--dpr 1` and `--dpr 2` and compare the charms in world units ([VERIFICATION.md](./VERIFICATION.md#live-check)).
+Check by probing the same steps at `--dpr 1` and `--dpr 2` ([VERIFICATION.md](./VERIFICATION.md#live-check)).
 
 ## Fonts
 

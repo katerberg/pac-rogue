@@ -25,6 +25,7 @@ description: >-
    - Visuals → `shot:`, then Read the PNG and say what you saw.
    - A failed step writes `artifacts/<name>-failure.{json,png}`. Read both before changing code.
    - Missing state → add a read-only snapshot field rather than guessing from pixels.
-3. Record: the probe command(s) verbatim, what they asserted, what the screenshots showed, and any mode left unchecked.
+3. LEARN parity: confirm the change reached `LearnSim` / `LearnScene` (or is a documented omission) and probe `?learnAll=1` ([learn.md](../../../docs/learn.md#parity)).
+4. Record: the probe command(s) verbatim, what they asserted, what the screenshots showed, and any mode left unchecked.
 
 UNVERIFIED IS NOT PASS.

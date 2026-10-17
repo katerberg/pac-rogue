@@ -38,7 +38,10 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
+import { defaultPlayOptions } from "../../domain/playOptions";
 import { LearnSim } from "./learnSim";
+import { PlaySim } from "./playSim";
+import type { SimEvent, SimRenderOptions } from "./simEvents";
 import { FRAME_MS, held } from "./simTesting";
 
 describe("LearnSim", () => {
@@ -1201,3 +1204,57 @@ describe("LearnSim upgrade demos", () => {
 });
 
 const held_right = held("right");
+
+const LEARN_OMITS_RENDER_OPTIONS: readonly (keyof SimRenderOptions)[] = [
+  "fruitRemainingMs",
+  "playerAlpha",
+  "entityAlpha",
+  "wallAlpha",
+  "mazeColorInverted",
+  "playerReviveProgress",
+  "bossChains",
+  "timedTunnel",
+  "lava",
+  "speedZones",
+  "pupilTarget",
+];
+
+function lastDrawOptions(events: SimEvent[]): SimRenderOptions {
+  const draw = events.filter((event) => event.type === "draw").at(-1);
+  if (draw === undefined || draw.type !== "draw") {
+    throw new Error("no draw event");
+  }
+  return draw.options;
+}
+
+describe("LearnSim parity with PlaySim drawing", () => {
+  it("passes every render option PlaySim does unless it is listed as intentionally omitted", () => {
+    const play = new PlaySim({ ...defaultPlayOptions(), level: 2 }, "parity");
+    play.start();
+    const playKeys = Object.keys(play.renderOptions());
+    const learn = new LearnSim("parity");
+    learn.start();
+    const learnKeys = Object.keys(lastDrawOptions(learn.step(NO_KEYS_HELD, FRAME_MS)));
+    const missing = playKeys.filter(
+      (key) =>
+        !learnKeys.includes(key) &&
+        !LEARN_OMITS_RENDER_OPTIONS.includes(key as keyof SimRenderOptions),
+    );
+    expect(
+      missing,
+      "PlaySim render options LEARN does not pass (see docs/learn.md#parity)",
+    ).toEqual([]);
+  });
+
+  it("draws one charm per selected upgrade, flagging enhanced ones", () => {
+    const sim = new LearnSim("charms");
+    sim.start();
+    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).charms).toEqual([]);
+    sim.toggleUpgrade("fruitFecundity");
+    sim.toggleUpgrade("passiveStartingShieldPlus");
+    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).charms).toEqual([
+      { school: "harvest", enhanced: false },
+      { school: "protection", enhanced: true },
+    ]);
+  });
+});

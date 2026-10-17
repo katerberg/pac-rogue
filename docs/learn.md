@@ -24,6 +24,13 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 - The board uses `pelletCellCenters()` (shared with `PlaySim`) and refills when empty. Power pellets regenerate when all are gone so effects stay demoable. One always-present fruit respawns after a short delay.
 - Spunky and Wardy keep their real release slot and targeting (`ghostTarget.ts`) but have no speed rules of their own.
 
+## Parity
+
+LEARN must stay at parity with the main game: what `PlaySim` hands the renderer or the player, `LearnSim` hands too, unless the omission is deliberate.
+
+- `LearnSim` builds the same `SimRenderOptions` as `PlaySim.renderOptions()`. The parity test in `learnSim.test.ts` fails when `PlaySim` gains an option LEARN neither passes nor lists in `LEARN_OMITS_RENDER_OPTIONS` (only things LEARN has no state for, such as bosses, lava and the store).
+- The live check probes LEARN ([VERIFICATION.md](./VERIFICATION.md#modes-touched)); `pr-review` raises a missing counterpart as Major and `fix-pr-findings` fixes it.
+
 ## Upgrade fidelity
 
 LEARN feeds its `RunUpgrades` straight into the same domain and system functions as `PlaySim` (`applyPowerPelletEffects`, `freezeClosestGhost`, ...), not a reimplementation. Toggling a row calls `grantUpgrade` / `revokeUpgrade` and clears only timers whose effect fields nothing selected still owns (`clearStaleUpgradeTimers`).

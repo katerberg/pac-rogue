@@ -57,6 +57,7 @@ Work through the diff systematically. For every changed file, evaluate against
 | **Maintainability** | Tight coupling, missing error handling, brittle assumptions                                                                                                                                                                                  |
 | **Tests**           | Missing coverage, brittle assertions, untested edge cases                                                                                                                                                                                    |
 | **Scene logic**     | A changed decision left inline in a scene / `render.ts` instead of the sim or a pure tested function; a gameplay change with no new/extended `PlaySim` test (AGENTS.md, docs/VERIFICATION.md#scene-and-render-logic, #sim-integration-tests) |
+| **LEARN parity**    | A player-visible change in `PlayScene` / `PlaySim` with no matching `LearnScene` / `LearnSim` change or documented omission (docs/learn.md#parity). **Always Major**                                                                         |
 | **Consistency**     | Deviations from patterns already established in the codebase                                                                                                                                                                                 |
 
 ## Step 3: Output
