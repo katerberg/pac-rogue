@@ -185,12 +185,12 @@ describe("PlaySim fruit lifetime", () => {
   it("reports the countdown to render and the snapshot so the fruit can flicker before it goes", () => {
     const sim = startWithFruit([]);
     expect(sim.renderOptions().fruitRemainingMs).toBe(FRUIT_LIFETIME_MS);
-    runFrames(sim, framesFor(FRUIT_LIFETIME_MS - 1_000));
+    runFrames(sim, framesFor(FRUIT_LIFETIME_MS - FRUIT_FLICKER_MS + 100));
     const { fruitRemainingMs } = sim.renderOptions();
     expect(fruitRemainingMs).toBeLessThanOrEqual(FRUIT_FLICKER_MS);
     expect(fruitRemainingMs).toBeGreaterThan(0);
     expect(sim.snapshot().timers.fruitMs).toBe(fruitRemainingMs);
-    runFrames(sim, framesFor(1_500));
+    runFrames(sim, framesFor(FRUIT_FLICKER_MS + 500));
     expect(sim.snapshot().fruit).toBe(false);
     expect(sim.renderOptions().fruitRemainingMs).toBe(0);
   });

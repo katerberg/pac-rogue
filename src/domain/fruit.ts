@@ -27,7 +27,7 @@ const FRUIT_DRAWABLE_PREFIX = "fruit-";
 export const FRUIT_LIFETIME_MS = DEFAULT_TUNING.fruitLifetimeMs;
 export const FRUIT_FEAST_GAP_MS = 5_000;
 
-export const FRUIT_FLICKER_MS = 2_000;
+export const FRUIT_FLICKER_MS = 3_000;
 
 export function fruitFlickerAlpha(remainingMs: number, nowMs: number): number {
   if (remainingMs <= 0 || remainingMs > FRUIT_FLICKER_MS) {
