@@ -9,6 +9,8 @@ export const MONEY_TALKS_FADE_START = 0.6;
 export const QUARTER_HUD_LEFT = 12;
 const QUARTER_HUD_TOP = 8;
 const QUARTER_HUD_GAP = 4;
+const DOLLAR_QUARTERS = 4;
+const DOLLAR_MIN_QUARTERS = 10;
 
 export type Point = { x: number; y: number };
 export type CoinLook = Point & { size: number; alpha: number };
@@ -21,14 +23,34 @@ export function lastLifeSaveCost(
   return cost !== null && lives <= 1 && quarters >= cost ? cost : null;
 }
 
+export type QuarterIconKind = "quarter" | "dollar";
+
+function dollarCount(quarters: number): number {
+  return quarters >= DOLLAR_MIN_QUARTERS ? Math.floor(quarters / DOLLAR_QUARTERS) : 0;
+}
+
+export function quarterHudIcons(quarters: number): QuarterIconKind[] {
+  const dollars = dollarCount(quarters);
+  return [
+    ...Array<QuarterIconKind>(dollars).fill("dollar"),
+    ...Array<QuarterIconKind>(quarters - dollars * DOLLAR_QUARTERS).fill("quarter"),
+  ];
+}
+
+function quarterHudSlot(index: number, quarters: number): number {
+  const dollars = dollarCount(quarters);
+  const inDollars = dollars * DOLLAR_QUARTERS;
+  return index < inDollars ? Math.floor(index / DOLLAR_QUARTERS) : dollars + index - inDollars;
+}
+
 /** `left` is the row's left edge (default gutter); knobs mode shifts into the maze column. */
 export function quarterHudIconPosition(
-  index: number,
+  slot: number,
   size: number,
   left: number = QUARTER_HUD_LEFT,
 ): Point {
   return {
-    x: left + size / 2 + index * (size + QUARTER_HUD_GAP),
+    x: left + size / 2 + slot * (size + QUARTER_HUD_GAP),
     y: QUARTER_HUD_TOP + size / 2,
   };
 }
@@ -65,7 +87,10 @@ export function moneyTalksCoinLook(
   if (t < 0 || t >= 1) {
     return null;
   }
-  const from = quarterHudIconPosition(quartersBefore - 1 - index, baseSize);
+  const from = quarterHudIconPosition(
+    quarterHudSlot(quartersBefore - 1 - index, quartersBefore),
+    baseSize,
+  );
   const eased = 1 - (1 - t) ** 3;
   const endSize = PLAYFIELD_WIDTH * MONEY_TALKS_END_SIZE_FRAC;
   return {

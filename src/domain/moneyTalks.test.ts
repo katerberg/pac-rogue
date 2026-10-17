@@ -7,6 +7,7 @@ import {
   moneyTalksCoinLook,
   moneyTalksLaunchedCount,
   quarterHudIconPosition,
+  quarterHudIcons,
 } from "./moneyTalks";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
@@ -20,6 +21,19 @@ describe("lastLifeSaveCost", () => {
     expect(lastLifeSaveCost(1, 2, 3)).toBeNull();
     expect(lastLifeSaveCost(2, 9, 3)).toBeNull();
     expect(lastLifeSaveCost(1, 9, null)).toBeNull();
+  });
+});
+
+describe("quarterHudIcons", () => {
+  it("shows plain quarters below ten", () => {
+    expect(quarterHudIcons(0)).toEqual([]);
+    expect(quarterHudIcons(9)).toEqual(Array(9).fill("quarter"));
+  });
+
+  it("collapses every four quarters into a leading dollar from ten up", () => {
+    expect(quarterHudIcons(10)).toEqual(["dollar", "dollar", "quarter", "quarter"]);
+    expect(quarterHudIcons(12)).toEqual(["dollar", "dollar", "dollar"]);
+    expect(quarterHudIcons(25)).toEqual([...Array(6).fill("dollar"), "quarter"]);
   });
 });
 
@@ -71,6 +85,14 @@ describe("moneyTalksCoinLook", () => {
     const mid = moneyTalksCoinLook(MONEY_TALKS_COIN_FLY_MS * 0.5, 0, 3, 3, 12)!;
     expect(mid.alpha).toBe(1);
     expect(mid.size).toBeLessThan(late.size);
+  });
+
+  it("launches spent quarters from the dollar that holds them", () => {
+    const first = moneyTalksCoinLook(0, 0, 2, 10, 12)!;
+    expect({ x: first.x, y: first.y }).toEqual(quarterHudIconPosition(3, 12));
+    const launch = MONEY_TALKS_WINDOW_MS - MONEY_TALKS_COIN_FLY_MS;
+    const second = moneyTalksCoinLook(launch, 1, 2, 10, 12)!;
+    expect({ x: second.x, y: second.y }).toEqual(quarterHudIconPosition(2, 12));
   });
 
   it("stretches a single coin across the whole window", () => {

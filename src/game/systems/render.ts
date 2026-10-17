@@ -111,6 +111,7 @@ import { Position } from "../components/Position";
 
 export const PELLET_TEXTURE_KEY = "pellet-dot";
 export const QUARTER_TEXTURE_KEY = "quarter";
+const DOLLAR_TEXTURE_KEY = "dollar";
 export const REVERSE_TEXTURE_KEY = "reverse";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
@@ -367,6 +368,15 @@ export function addQuarterIcon(
   return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
+export function addDollarIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, DOLLAR_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
 export function addReverseIcon(
   scene: Phaser.Scene,
   x: number,
@@ -386,6 +396,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(DOTMAN_VISOR_TEXTURE_KEY, "art/dot-man/visor.png");
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
+  scene.load.image(DOLLAR_TEXTURE_KEY, "art/other/dollar.png");
   scene.load.image(REVERSE_TEXTURE_KEY, "art/other/reverse.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
