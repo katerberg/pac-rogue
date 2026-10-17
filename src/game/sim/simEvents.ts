@@ -1,4 +1,5 @@
 import type { ChainSegment } from "../../domain/bossChain";
+import type { Charm } from "../../domain/charmTail";
 import type { IntermissionFrame } from "../../domain/intermission";
 import type { RunLogRecord } from "../../domain/runLog";
 import type { GhostKindId } from "../../domain/ghostKind";
@@ -40,6 +41,7 @@ export type SimRenderOptions = {
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
+  charms?: readonly Charm[];
 };
 
 export type MoneyTalksSpend = {
