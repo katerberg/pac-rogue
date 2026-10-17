@@ -76,6 +76,7 @@ import {
   hauntCageLines,
   hauntCageVisible,
 } from "../../domain/hauntCage";
+import { ghostHornRects, stepGhostHornTurn, type HornTurnState } from "../../domain/ghostHorns";
 import {
   GHOST_ART_SIZE_PX,
   GHOST_PUPIL_COLOR,
@@ -245,6 +246,21 @@ function fillGhostPupils(
   }
 }
 
+function fillGhostHorns(
+  graphics: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  displaySize: number,
+  lean: number,
+  color: number,
+): void {
+  graphics.clear();
+  graphics.fillStyle(color, 1);
+  for (const rect of ghostHornRects(cx, cy, displaySize, lean)) {
+    graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+}
+
 function skirtBaseColor(scene: Phaser.Scene, textureKey: string): number {
   return (
     scene.textures.getPixel(GHOST_SKIRT_SAMPLE_ART.x, GHOST_SKIRT_SAMPLE_ART.y, textureKey)
@@ -295,6 +311,9 @@ export function addGhostIcon(
   placeCroppedGhostBody(image, x, y, size);
   const skirt = scene.add.graphics();
   fillGhostSkirt(skirt, x, y, size, 0, skirtBaseColor(scene, textureKey));
+  if (drawableId === BLINKY_DRAWABLE_ID) {
+    fillGhostHorns(scene.add.graphics(), x, y, size, 0, skirtBaseColor(scene, textureKey));
+  }
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
@@ -324,6 +343,11 @@ export function addGhostSprite(
   const color = skirtBaseColor(scene, textureKey);
   fillGhostSkirt(skirt, 0, 0, size, 0, color);
   const container = scene.add.container(x, y, [image, skirt]);
+  if (drawableId === BLINKY_DRAWABLE_ID) {
+    const horns = scene.add.graphics();
+    fillGhostHorns(horns, 0, 0, size, 0, color);
+    container.add(horns);
+  }
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, 0, 0, size, look);
@@ -635,6 +659,7 @@ function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly 
 type GhostSkirt = {
   graphics: Phaser.GameObjects.Graphics;
   pupils: Phaser.GameObjects.Graphics;
+  horns: Phaser.GameObjects.Graphics;
   phase: number;
   lastX: number;
   lastY: number;
@@ -645,6 +670,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const pupilLooks = new Map<number, PupilLookState>();
+  const hornTurns = new Map<number, HornTurnState>();
   const ghostSkirts = new Map<number, GhostSkirt>();
   const wallGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
@@ -690,7 +716,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     const skirt = ghostSkirts.get(eid);
     skirt?.graphics.destroy();
     skirt?.pupils.destroy();
+    skirt?.horns.destroy();
     ghostSkirts.delete(eid);
+    hornTurns.delete(eid);
   };
 
   const releaseDrawable = (eid: number): void => {
@@ -713,6 +741,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
     playerVisuals.clear();
     pupilLooks.clear();
+    hornTurns.clear();
     wallGraphics.clear();
     wallGraphics.setAlpha(1);
     chainGraphics.setAlpha(1);
@@ -941,6 +970,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           skirt = {
             graphics: scene.add.graphics(),
             pupils: scene.add.graphics(),
+            horns: scene.add.graphics(),
             phase: 0,
             lastX: x,
             lastY: y,
@@ -968,6 +998,24 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           skirt.phase,
           multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
         );
+        skirt.horns.clear();
+        if (id === BLINKY_DRAWABLE_ID && !frightenedLook && bodyAlpha > 0) {
+          const turn = stepGhostHornTurn(
+            hornTurns.get(eid),
+            facingToGhostDir(Facing.direction[eid] ?? DIRECTION.none),
+            scene.time.now,
+          );
+          hornTurns.set(eid, turn.state);
+          skirt.horns.setAlpha(bodyAlpha);
+          fillGhostHorns(
+            skirt.horns,
+            x,
+            y,
+            size,
+            turn.lean,
+            multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+          );
+        }
         skirt.pupils.clear();
         skirt.pupils.setAlpha(entityAlpha);
         if (
