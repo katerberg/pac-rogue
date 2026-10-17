@@ -57,6 +57,7 @@ import { POWER_PELLET_BREAK_MS } from "../../domain/powerPelletBreak";
 import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
+  EXTRA_HUNGRY_COUNT,
   FREEZE_MS,
   HAUNTING_MS,
   frozenGhostEid,
@@ -68,6 +69,7 @@ import {
   SHIELD_BREAK_INVULN_MS,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
   STARTING_UPGRADE_POOL,
+  CORNER_TELEPORT_HOLD_MS,
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   WALL_PASS_MS,
@@ -185,12 +187,12 @@ describe("PlaySim fruit lifetime", () => {
   it("reports the countdown to render and the snapshot so the fruit can flicker before it goes", () => {
     const sim = startWithFruit([]);
     expect(sim.renderOptions().fruitRemainingMs).toBe(FRUIT_LIFETIME_MS);
-    runFrames(sim, framesFor(FRUIT_LIFETIME_MS - 1_000));
+    runFrames(sim, framesFor(FRUIT_LIFETIME_MS - FRUIT_FLICKER_MS + 100));
     const { fruitRemainingMs } = sim.renderOptions();
     expect(fruitRemainingMs).toBeLessThanOrEqual(FRUIT_FLICKER_MS);
     expect(fruitRemainingMs).toBeGreaterThan(0);
     expect(sim.snapshot().timers.fruitMs).toBe(fruitRemainingMs);
-    runFrames(sim, framesFor(1_500));
+    runFrames(sim, framesFor(FRUIT_FLICKER_MS + 500));
     expect(sim.snapshot().fruit).toBe(false);
     expect(sim.renderOptions().fruitRemainingMs).toBe(0);
   });
@@ -961,6 +963,32 @@ describe("PlaySim", () => {
       runUntil(sim, () => !sim.snapshot().dying, 240);
       expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
       expect(sim.snapshot().lives).toBe(livesBefore);
+    });
+
+    it("keeps board fruit through a Defy Death save, and clears it on a real life loss", () => {
+      const sim = startDefySim();
+      sim["spawnFruitEntity"](false);
+      sim["fruitPresence"] = {
+        ...sim["fruitPresence"],
+        active: true,
+        remainingMs: FRUIT_LIFETIME_MS,
+      };
+      expect(sim.snapshot().fruit).toBe(true);
+      const kindBefore = sim.snapshot().fruitKinds[0];
+
+      chompPowerPellet(sim);
+      getCaught(sim);
+      const fruitMsWhileDying = sim.snapshot().timers.fruitMs;
+      expect(fruitMsWhileDying).toBeGreaterThan(0);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().fruit).toBe(true);
+      expect(sim.snapshot().fruitKinds[0]).toBe(kindBefore);
+      expect(sim.snapshot().timers.fruitMs).toBe(fruitMsWhileDying);
+
+      getCaught(sim);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().fruit).toBe(false);
+      expect(sim.snapshot().timers.fruitMs).toBe(0);
     });
 
     it("feeds the invulnerability tint while the window is armed and clears it after", () => {
@@ -2389,11 +2417,11 @@ describe("PlaySim bonus bar", () => {
     const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
     const collected = sim.snapshot().boardCollected;
     eatPelletAt(sim, power);
-    expect(sim.snapshot().boardCollected).toBe(collected + 6);
+    expect(sim.snapshot().boardCollected).toBe(collected + 1 + EXTRA_HUNGRY_COUNT);
     expect(sim.snapshot().bonus.streak).toBe(1);
   });
 
-  it("Extra Hungry eats the five farthest regular pellets", () => {
+  it("Extra Hungry eats the eight farthest regular pellets", () => {
     const sim = startCorridor({ enableUpgrades: ["powerPelletExtraHungry"] });
     const power = Array.from(query(sim.world, [PowerPellet, Position]))[0]!;
     const distFromPower = (eid: number) =>
@@ -2402,7 +2430,7 @@ describe("PlaySim bonus bar", () => {
       Array.from(query(sim.world, [Pellet, Position])).filter((eid) => eid !== power);
     const expected = regulars()
       .sort((a, b) => distFromPower(b) - distFromPower(a) || a - b)
-      .slice(0, 5);
+      .slice(0, EXTRA_HUNGRY_COUNT);
     eatPelletAt(sim, power);
     const remaining = new Set(regulars());
     expect(expected.filter((eid) => remaining.has(eid))).toEqual([]);
@@ -3168,8 +3196,14 @@ describe("PlaySim enhanced upgrades", () => {
     expect(sim.snapshot().timers.ghostWarpGlideMs).toBeGreaterThan(0);
 
     teleportPlayer(sim, cellCenterX(1), cellCenterY(1));
-    runFrames(sim, 30);
+    runFrames(sim, 4);
     expect(sim.snapshot().timers.ghostWarpGlideMs).toBe(0);
+    runFrames(sim, Math.floor((CORNER_TELEPORT_HOLD_MS - 150) / FRAME_MS));
+    for (const eid of active) {
+      expect({ x: Position.x[eid], y: Position.y[eid] }).toEqual(landings.get(eid));
+      expect(Speed.px[eid]).toBe(0);
+    }
+    runFrames(sim, 30);
     expect(
       active.some(
         (eid) =>
@@ -5222,6 +5256,7 @@ describe("lava zone", () => {
     for (const eid of query(sim.world, [Ghost])) {
       removeEntity(sim.world, eid);
     }
+    runFrames(sim, 1, { keys: held("left") });
     return sim;
   }
 
@@ -5237,10 +5272,36 @@ describe("lava zone", () => {
       .deaths.filter((death) => death.lava);
   }
 
+  it("does not advance the cycle until Dot-Man starts moving", () => {
+    const sim = startSim({ level: 8, maze: "maze1", infiniteLives: true }, "lava-wait");
+    for (const eid of query(sim.world, [Ghost])) {
+      removeEntity(sim.world, eid);
+    }
+    expect(sim.snapshot().lava).toMatchObject({
+      phase: "dormant",
+      reachTiles: 0,
+      flashOn: false,
+      started: false,
+    });
+    runFrames(sim, framesFor(10_000));
+    expect(sim.snapshot().lava).toMatchObject({
+      phase: "dormant",
+      reachTiles: 0,
+      flashOn: false,
+      started: false,
+    });
+    runFrames(sim, 1, { keys: held("left") });
+    expect(sim.snapshot().lava!.started).toBe(true);
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "warn", framesFor(10_000));
+    expect(sim.snapshot().lava!.phase).toBe("warn");
+  });
+
   it("places one seeded zone on level 8 only, centred on a straight hallway away from intersections", () => {
     const lava = startSim({ level: 8, maze: "maze1" }, "lava-seed").snapshot().lava!;
     expect(startSim({ level: 8, maze: "maze1" }, "lava-seed").snapshot().lava).toEqual(lava);
     expect(lava.phase).toBe("dormant");
+    expect(lava.started).toBe(false);
     expect(lava.cells.length).toBeGreaterThanOrEqual(3);
     const open = (col: number, row: number) => isWalkable(col, row);
     const { col, row } = lava;
@@ -5355,7 +5416,9 @@ describe("lava zone", () => {
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
     runUntil(sim, () => !sim.snapshot().dying, 600);
-    expect(sim.snapshot().lava).toMatchObject({ phase: "dormant", reachTiles: 0 });
+    expect(sim.snapshot().lava).toMatchObject({ phase: "dormant", reachTiles: 0, started: false });
+    runFrames(sim, framesFor(10_000));
+    expect(sim.snapshot().lava).toMatchObject({ phase: "dormant", reachTiles: 0, started: false });
   });
 
   it("catches a Hyperspeed dash that would skip over a thin sliver of lava", () => {
@@ -5390,6 +5453,7 @@ describe("lava zone", () => {
   it("lets ghosts cross it unharmed", () => {
     const sim = startSim({ level: 8, maze: "maze1", godMode: true }, "lava-ghost");
     const { col, row } = sim.snapshot().lava!;
+    runFrames(sim, 1, { keys: held("left") });
     runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
     const ghost = query(sim.world, [Ghost, Position])[0]!;
     GhostPhase.value[ghost] = GHOST_PHASE.active;
