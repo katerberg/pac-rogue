@@ -4,7 +4,6 @@ import { loadCustomMaze, saveCustomMaze } from "./game/storage/customMazeStorage
 
 const DEFAULT_SEED = "custom";
 
-/** Local testing: blocks boot until a maze is pasted. Legend: see CLASSIC_MAZE_ASCII. */
 export function promptForCustomMaze(): Promise<void> {
   const initial =
     loadCustomMaze() ??
