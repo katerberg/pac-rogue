@@ -16,6 +16,7 @@ export type RunHistory = {
 
 export const HIGH_SCORE_DISABLING_FLAGS = [
   "seed",
+  "enableUpgrades",
   "maze",
   "level",
   "quarters",

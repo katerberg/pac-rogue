@@ -266,6 +266,19 @@ describe("parseEnableUpgradeParams / createRunUpgrades enabled", () => {
     ]);
   });
 
+  it("accepts comma-separated ids under enableUpgrade and enableUpgrades", () => {
+    expect(
+      parseEnableUpgradeParams(
+        new URLSearchParams("enableUpgrade=passiveGhostSlow,nope, passiveAfterburner"),
+      ),
+    ).toEqual(["passiveGhostSlow", "passiveAfterburner"]);
+    expect(
+      parseEnableUpgradeParams(
+        new URLSearchParams("enableUpgrades=powerPelletFreeze,passiveGhostSlowPlus"),
+      ),
+    ).toEqual(["powerPelletFreeze", "passiveGhostSlowPlus"]);
+  });
+
   it("returns empty when missing", () => {
     expect(parseEnableUpgradeParams(new URLSearchParams())).toEqual([]);
   });
