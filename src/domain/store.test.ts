@@ -17,6 +17,7 @@ import {
   swapIncomingSchool,
   storeAfterLevel,
   storePanelMode,
+  storeEntrance,
   storeStep,
   withStoreEntranceClosed,
   type StoreState,
@@ -96,7 +97,6 @@ describe("store layout", () => {
         { kind: "swap", col: 26, row: 32 },
       ],
       freebie: { col: 14, row: 17 },
-      entrance: { col: 0, row: 17 },
     });
   });
 
@@ -107,10 +107,11 @@ describe("store layout", () => {
 });
 
 describe("withStoreEntranceClosed", () => {
-  it("makes only the entrance cell solid", () => {
+  it("makes only the entrance, left of the spawn, solid", () => {
     const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
-    const { entrance } = parseStoreLayout(STORE_MAZE_ASCII);
-    const closed = withStoreEntranceClosed(layout.playerSolids, entrance);
+    const entrance = storeEntrance(layout);
+    expect(entrance).toEqual({ col: 0, row: layout.playerSpawn.row });
+    const closed = withStoreEntranceClosed(layout);
     expect(isWalkable(entrance.col, entrance.row, layout.playerSolids)).toBe(true);
     expect(isWalkable(entrance.col, entrance.row, closed)).toBe(false);
     const changed = closed.flatMap((line, row) =>

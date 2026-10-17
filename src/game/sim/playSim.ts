@@ -1959,13 +1959,9 @@ export class PlaySim {
     this.lavaZone = null;
     this.speedZones = [];
 
-    const storeLayout = parseStoreLayout(STORE_MAZE_ASCII);
-    this.storeSolids = withStoreEntranceClosed(
-      getActiveLayout().playerSolids,
-      storeLayout.entrance,
-    );
+    this.storeSolids = withStoreEntranceClosed(getActiveLayout());
     this.store = createStoreState(
-      storeLayout,
+      parseStoreLayout(STORE_MAZE_ASCII),
       this.runUpgrades.owned,
       this.random.stream("storeStock", this.levelIndex),
       this.levelIndex === STORE_FIRST_LEVEL,

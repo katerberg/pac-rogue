@@ -39,7 +39,7 @@ import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
-import { parseStoreLayout, swapIncomingSchool } from "../../domain/store";
+import { parseStoreLayout, storeEntrance, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -1516,7 +1516,7 @@ describe("PlaySim", () => {
     it("slides the player in through the left entrance as the store starts", () => {
       const sim = new PlaySim({ ...defaultPlayOptions(), store: 1, quarters: 0 }, "test");
       sim.start();
-      const { entrance } = parseStoreLayout(STORE_MAZE_ASCII);
+      const entrance = storeEntrance(getActiveLayout());
       const start = sim.snapshot();
       expect(start.storeEntering).toBe(true);
       expect(start.player!.x).toBeLessThan(cellCenterX(entrance.col));
@@ -1536,7 +1536,7 @@ describe("PlaySim", () => {
 
     it("closes the entrance behind the player: no walking or clicking out of it", () => {
       const sim = startSim({ store: 1, quarters: 0 });
-      const { entrance } = parseStoreLayout(STORE_MAZE_ASCII);
+      const entrance = storeEntrance(getActiveLayout());
       const doorway = { x: cellCenterX(entrance.col), y: cellCenterY(entrance.row) };
       expect(sim.storeExitUnder(doorway.x, doorway.y)).toBe(false);
       runFrames(sim, 1);
