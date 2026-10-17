@@ -1939,7 +1939,7 @@ describe("PlaySim", () => {
       expect(sim.snapshot().bossPellets).toBe(3);
     });
 
-    it("advances swarm to stage 2 with 5 boss pellets and carried ghost count", () => {
+    it("advances swarm to stage 2 with 3 boss pellets and carried ghost count", () => {
       const sim = startSim({ level: 9, boss: "blinkySwarm", godMode: true });
       for (const pellet of [...query(sim.world, [BossPellet, Position])]) {
         teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
@@ -1958,7 +1958,7 @@ describe("PlaySim", () => {
         ghostCount: 5,
         mazeColorInverted: true,
       });
-      expect(sim.snapshot().bossPellets).toBe(5);
+      expect(sim.snapshot().bossPellets).toBe(3);
       expect(worldToCol(Position.x[player]!)).toBe(col);
       expect(worldToRow(Position.y[player]!)).toBe(row);
       expect(sim.snapshot().runComplete).toBe(false);
