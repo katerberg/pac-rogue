@@ -41,6 +41,8 @@ describe("fruitFlickerAlpha", () => {
   it("blinks on and off in the final flicker window", () => {
     expect(fruitFlickerAlpha(FRUIT_FLICKER_MS, 0)).toBe(1);
     expect(fruitFlickerAlpha(FRUIT_FLICKER_MS, 100)).toBe(0);
+    expect(fruitFlickerAlpha(FRUIT_FLICKER_MS - 1_000, 200)).toBe(1);
+    expect(fruitFlickerAlpha(FRUIT_FLICKER_MS - 1_000, 300)).toBe(0);
     expect(fruitFlickerAlpha(500, 200)).toBe(1);
     expect(fruitFlickerAlpha(500, 300)).toBe(0);
   });

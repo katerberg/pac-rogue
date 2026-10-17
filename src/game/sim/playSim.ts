@@ -505,6 +505,7 @@ export class PlaySim {
   private timedTunnelElapsedMs = 0;
   private lavaZone: LavaZone | null = null;
   private lavaElapsedMs = 0;
+  private lavaStarted = false;
   private speedZones: SpeedZone[] = [];
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
@@ -1041,7 +1042,6 @@ export class PlaySim {
       ghostHarvest: ghostHarvestActive(this.runUpgrades),
     });
     this.tickTimedTunnel(delta);
-    this.lavaElapsedMs += delta;
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const turnTuningOpts =
@@ -1074,6 +1074,10 @@ export class PlaySim {
       );
     }
     const hasInput = hasPlayerDirectionInput(this.world);
+    this.lavaStarted = this.lavaStarted || hasInput;
+    if (this.lavaStarted) {
+      this.lavaElapsedMs += delta;
+    }
 
     this.ghostReleaseClock = tickGhostRelease(
       this.ghostReleaseClock,
@@ -1647,6 +1651,7 @@ export class PlaySim {
 
   private resetLavaZone(): void {
     this.lavaElapsedMs = 0;
+    this.lavaStarted = false;
     this.lavaZone =
       this.options.levelModifiers && isLavaZoneLevel(this.levelIndex)
         ? pickLavaZone(
@@ -1678,7 +1683,7 @@ export class PlaySim {
       return null;
     }
     const { zone, ...rest } = state;
-    return { ...zone, ...rest };
+    return { ...zone, ...rest, started: this.lavaStarted };
   }
 
   private playerTouchesLava(catchOptions: CatchOptions): boolean {
@@ -3129,6 +3134,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.lavaElapsedMs = 0;
+    this.lavaStarted = false;
     this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.warpGlide = null;
@@ -3206,13 +3212,15 @@ export class PlaySim {
       this.previousEffectiveGhostMode = this.settledGhostMode();
     }
 
-    this.clearFruitEntities();
-    this.fruitPresence = {
-      ...this.fruitPresence,
-      active: false,
-      remainingMs: 0,
-      gapMs: 0,
-    };
+    if (!this.reviveSplashPending) {
+      this.clearFruitEntities();
+      this.fruitPresence = {
+        ...this.fruitPresence,
+        active: false,
+        remainingMs: 0,
+        gapMs: 0,
+      };
+    }
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     if (hauntEid !== null && hauntMs !== null) {
