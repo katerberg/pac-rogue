@@ -5208,6 +5208,7 @@ describe("lava zone", () => {
     for (const eid of query(sim.world, [Ghost])) {
       removeEntity(sim.world, eid);
     }
+    runFrames(sim, 1, { keys: held("left") });
     return sim;
   }
 
@@ -5223,10 +5224,36 @@ describe("lava zone", () => {
       .deaths.filter((death) => death.lava);
   }
 
+  it("does not advance the cycle until Dot-Man starts moving", () => {
+    const sim = startSim({ level: 8, maze: "maze1", infiniteLives: true }, "lava-wait");
+    for (const eid of query(sim.world, [Ghost])) {
+      removeEntity(sim.world, eid);
+    }
+    expect(sim.snapshot().lava).toMatchObject({
+      phase: "dormant",
+      reachTiles: 0,
+      flashOn: false,
+      started: false,
+    });
+    runFrames(sim, framesFor(10_000));
+    expect(sim.snapshot().lava).toMatchObject({
+      phase: "dormant",
+      reachTiles: 0,
+      flashOn: false,
+      started: false,
+    });
+    runFrames(sim, 1, { keys: held("left") });
+    expect(sim.snapshot().lava!.started).toBe(true);
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "warn", framesFor(10_000));
+    expect(sim.snapshot().lava!.phase).toBe("warn");
+  });
+
   it("places one seeded zone on level 8 only, centred on a straight hallway away from intersections", () => {
     const lava = startSim({ level: 8, maze: "maze1" }, "lava-seed").snapshot().lava!;
     expect(startSim({ level: 8, maze: "maze1" }, "lava-seed").snapshot().lava).toEqual(lava);
     expect(lava.phase).toBe("dormant");
+    expect(lava.started).toBe(false);
     expect(lava.cells.length).toBeGreaterThanOrEqual(3);
     const open = (col: number, row: number) => isWalkable(col, row);
     const { col, row } = lava;
@@ -5341,7 +5368,9 @@ describe("lava zone", () => {
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
     runUntil(sim, () => !sim.snapshot().dying, 600);
-    expect(sim.snapshot().lava).toMatchObject({ phase: "dormant", reachTiles: 0 });
+    expect(sim.snapshot().lava).toMatchObject({ phase: "dormant", reachTiles: 0, started: false });
+    runFrames(sim, framesFor(10_000));
+    expect(sim.snapshot().lava).toMatchObject({ phase: "dormant", reachTiles: 0, started: false });
   });
 
   it("catches a Hyperspeed dash that would skip over a thin sliver of lava", () => {
@@ -5376,6 +5405,7 @@ describe("lava zone", () => {
   it("lets ghosts cross it unharmed", () => {
     const sim = startSim({ level: 8, maze: "maze1", godMode: true }, "lava-ghost");
     const { col, row } = sim.snapshot().lava!;
+    runFrames(sim, 1, { keys: held("left") });
     runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
     const ghost = query(sim.world, [Ghost, Position])[0]!;
     GhostPhase.value[ghost] = GHOST_PHASE.active;
