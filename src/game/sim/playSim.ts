@@ -131,6 +131,8 @@ import {
   horizontalTunnelRows,
   worldToCol,
   worldToRow,
+  playerSpawnCenter,
+  type SolidGrid,
 } from "../../domain/maze";
 import {
   pickTimedTunnelRow,
@@ -203,6 +205,7 @@ import {
   storeAfterLevel,
   storeExitAlpha,
   storeExitDirection,
+  withStoreEntranceClosed,
   storeSlotLabel,
   storeStep,
   type StoreExitDirection,
@@ -519,6 +522,8 @@ export class PlaySim {
   private nextStoreSchool: UpgradeSchool | null = null;
   private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
   private storeRoute: Cell | null = null;
+  private storeEntrySlidePx: number | null = null;
+  private storeSolids: SolidGrid = [];
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
   private fellAt: Point | null = null;
@@ -706,12 +711,12 @@ export class PlaySim {
     return (
       this.readsStoreKeys() &&
       !this.storeConfirmOpen() &&
-      storeExitCellAt(getActiveLayout().playerSolids, worldToCol(x), worldToRow(y)) !== null
+      storeExitCellAt(this.storeSolids, worldToCol(x), worldToRow(y)) !== null
     );
   }
 
   readsStoreKeys(): boolean {
-    return this.store !== null && this.storeExitSlide === null;
+    return this.store !== null && this.storeExitSlide === null && this.storeEntrySlidePx === null;
   }
 
   storeState(): StoreState | null {
@@ -891,6 +896,7 @@ export class PlaySim {
       storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
       storeFreebie: this.store?.freebie.taken === false ? this.store.freebie.kind : null,
       storeRoute: this.storeRoute,
+      storeEntering: this.storeEntrySlidePx !== null,
       storePrompt:
         this.store === null
           ? null
@@ -1953,8 +1959,13 @@ export class PlaySim {
     this.lavaZone = null;
     this.speedZones = [];
 
+    const storeLayout = parseStoreLayout(STORE_MAZE_ASCII);
+    this.storeSolids = withStoreEntranceClosed(
+      getActiveLayout().playerSolids,
+      storeLayout.entrance,
+    );
     this.store = createStoreState(
-      parseStoreLayout(STORE_MAZE_ASCII),
+      storeLayout,
       this.runUpgrades.owned,
       this.random.stream("storeStock", this.levelIndex),
       this.levelIndex === STORE_FIRST_LEVEL,
@@ -1970,6 +1981,34 @@ export class PlaySim {
     this.suppressInputUntilKeyRelease = true;
     this.showLevelBanner("STORE");
     this.emit({ type: "musicAfterFanfare", id: "storeMusic" });
+    this.beginStoreEntry();
+  }
+
+  private beginStoreEntry(): void {
+    const eid = query(this.world, [Player, Position])[0]!;
+    Position.x[eid] = (Position.x[eid] ?? 0) - STORE_EXIT_SLIDE_TILES * getActiveLayout().tileSize;
+    Facing.direction[eid] = DIRECTION.right;
+    this.storeEntrySlidePx = 0;
+    this.drawStore(storeExitAlpha(STORE_EXIT_SLIDE_TILES));
+  }
+
+  private tickStoreEntrySlide(delta: number): void {
+    applyPlayerSpeed(
+      this.world,
+      speedLevelMultiplier(this.levelIndex, this.currentTuning),
+      this.currentTuning,
+    );
+    this.storeEntrySlidePx! += slidePlayer(this.world, 1, 0, delta);
+    const remainingTiles =
+      STORE_EXIT_SLIDE_TILES - this.storeEntrySlidePx! / getActiveLayout().tileSize;
+    if (remainingTiles > 0) {
+      this.drawStore(storeExitAlpha(remainingTiles));
+      return;
+    }
+    const eid = query(this.world, [Player, Position])[0]!;
+    Position.x[eid] = playerSpawnCenter().x;
+    Facing.direction[eid] = DIRECTION.none;
+    this.storeEntrySlidePx = null;
     this.drawStore();
   }
 
@@ -2005,11 +2044,15 @@ export class PlaySim {
       this.tickStoreExitSlide(delta);
       return;
     }
+    if (this.storeEntrySlidePx !== null) {
+      this.tickStoreEntrySlide(delta);
+      return;
+    }
     const confirming = this.storeConfirmOpen();
     const layout = getActiveLayout();
     if (input.storePointer) {
       this.storeRoute = storeExitCellAt(
-        layout.playerSolids,
+        this.storeSolids,
         worldToCol(input.storePointer.x),
         worldToRow(input.storePointer.y),
       );
@@ -2023,7 +2066,7 @@ export class PlaySim {
       this.storeRoute &&
       from &&
       storeRouteStep(
-        layout.playerSolids,
+        this.storeSolids,
         from,
         this.storeRoute,
         (col, row) => slotIndexAtCell(store, col, row) !== null,
@@ -2048,7 +2091,7 @@ export class PlaySim {
       confirming ? 0 : speedLevelMultiplier(this.levelIndex, this.currentTuning),
       this.currentTuning,
     );
-    movement(this.world, delta, undefined, playerPreTurnPx(this.currentTuning));
+    movement(this.world, delta, this.storeSolids, playerPreTurnPx(this.currentTuning));
 
     const cell = playerCell(this.world);
     const exit = cell && storeExitDirection(cell.col, cell.row, layout.cols, layout.rows);
@@ -2177,6 +2220,7 @@ export class PlaySim {
       this.emit({ type: "quarters", pulse: false });
     }
     this.storeExitSlide = null;
+    this.storeEntrySlidePx = null;
     this.storeRoute = null;
     this.emit({ type: "storeClosed" });
     this.store = null;

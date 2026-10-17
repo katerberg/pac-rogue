@@ -106,6 +106,9 @@ const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
   const sim = new PlaySim({ ...defaultPlayOptions(), ...overrides }, seed);
   sim.start();
+  if (sim.snapshot().storeEntering) {
+    runUntil(sim, () => !sim.snapshot().storeEntering, 120);
+  }
   return sim;
 }
 
@@ -1507,6 +1510,41 @@ describe("PlaySim", () => {
     const sim = startSim({ store: 2, quarters: 10 });
     expect([5, 6]).toContain(sim.snapshot().level);
     expect(sim.storeState()).not.toBeNull();
+  });
+
+  describe("store entrance", () => {
+    it("slides the player in through the left entrance as the store starts", () => {
+      const sim = new PlaySim({ ...defaultPlayOptions(), store: 1, quarters: 0 }, "test");
+      sim.start();
+      const { entrance } = parseStoreLayout(STORE_MAZE_ASCII);
+      const start = sim.snapshot();
+      expect(start.storeEntering).toBe(true);
+      expect(start.player!.x).toBeLessThan(cellCenterX(entrance.col));
+      expect(start.player).toMatchObject({ row: entrance.row, facing: "right" });
+      expect(sim.readsStoreKeys()).toBe(false);
+      runFrames(sim, 5, { keys: held("up") });
+      expect(sim.snapshot().player!.y).toBe(start.player!.y);
+      expect(sim.snapshot().player!.x).toBeGreaterThan(start.player!.x);
+      runUntil(sim, () => !sim.snapshot().storeEntering, 120);
+      expect(sim.snapshot().player).toMatchObject({
+        col: entrance.col + 1,
+        row: entrance.row,
+        facing: "none",
+      });
+      expect(sim.readsStoreKeys()).toBe(true);
+    });
+
+    it("closes the entrance behind the player: no walking or clicking out of it", () => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      const { entrance } = parseStoreLayout(STORE_MAZE_ASCII);
+      const doorway = { x: cellCenterX(entrance.col), y: cellCenterY(entrance.row) };
+      expect(sim.storeExitUnder(doorway.x, doorway.y)).toBe(false);
+      runFrames(sim, 1);
+      runFrames(sim, 120, { keys: held("left") });
+      expect(sim.snapshot()).toMatchObject({ inStore: true, player: { col: entrance.col + 1 } });
+      runFrames(sim, 1, { storePointer: doorway });
+      expect(sim.snapshot().storeRoute).toBeNull();
+    });
   });
 
   describe("store movement matches a regular level", () => {

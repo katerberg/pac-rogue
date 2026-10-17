@@ -22,7 +22,11 @@ function startSim(
   seed = "runlog",
 ): { sim: PlaySim; events: SimEvent[] } {
   const sim = new PlaySim({ ...defaultPlayOptions(), ...overrides }, seed);
-  return { sim, events: sim.start() };
+  const events = sim.start();
+  if (sim.snapshot().storeEntering) {
+    events.push(...runUntil(sim, () => !sim.snapshot().storeEntering, 120));
+  }
+  return { sim, events };
 }
 
 function runLogs(events: readonly SimEvent[]): RunLogRecord[] {

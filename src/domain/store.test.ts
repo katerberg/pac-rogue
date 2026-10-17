@@ -18,6 +18,7 @@ import {
   storeAfterLevel,
   storePanelMode,
   storeStep,
+  withStoreEntranceClosed,
   type StoreState,
   type StoreStepInput,
 } from "./store";
@@ -54,7 +55,7 @@ function stateWith(owned: readonly UpgradeId[]): StoreState {
 }
 
 describe("store layout", () => {
-  it("builds with no pellets and one exit, jogged off the spawn row on the right", () => {
+  it("builds with no pellets, a left entrance on the spawn row and a jogged exit on the right", () => {
     const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
     expect(layout.pelletCount).toBe(0);
     const borderOpen: string[] = [];
@@ -65,8 +66,7 @@ describe("store layout", () => {
       }
     }
     const row = layout.playerSpawn.row;
-    expect(borderOpen).toEqual([`${layout.cols - 1},${row + 3}`]);
-    expect(isWalkable(0, row, layout.playerSolids)).toBe(false);
+    expect(borderOpen).toEqual([`0,${row}`, `${layout.cols - 1},${row + 3}`]);
     expect(isWalkable(layout.cols - 1, row, layout.playerSolids)).toBe(false);
     activateLayout("maze1");
   });
@@ -96,12 +96,28 @@ describe("store layout", () => {
         { kind: "swap", col: 26, row: 32 },
       ],
       freebie: { col: 14, row: 17 },
+      entrance: { col: 0, row: 17 },
     });
   });
 
   it("rejects a slot that is not a full 2x2 block, or a missing freebie", () => {
     expect(() => parseStoreLayout("#UU#\n#U-#")).toThrow(/2x2/);
     expect(() => parseStoreLayout("#UU#\n#UU#")).toThrow(/exactly one F/);
+  });
+});
+
+describe("withStoreEntranceClosed", () => {
+  it("makes only the entrance cell solid", () => {
+    const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    const { entrance } = parseStoreLayout(STORE_MAZE_ASCII);
+    const closed = withStoreEntranceClosed(layout.playerSolids, entrance);
+    expect(isWalkable(entrance.col, entrance.row, layout.playerSolids)).toBe(true);
+    expect(isWalkable(entrance.col, entrance.row, closed)).toBe(false);
+    const changed = closed.flatMap((line, row) =>
+      line.flatMap((solid, col) => (solid === layout.playerSolids[row]![col] ? [] : [col])),
+    );
+    expect(changed).toHaveLength(1);
+    activateLayout("maze1");
   });
 });
 

@@ -1,4 +1,5 @@
 import type { Cell } from "./bonusBar";
+import type { SolidGrid } from "./maze";
 import {
   baseIdOf,
   carryEnhancement,
@@ -29,7 +30,7 @@ type StoreSlotKind = "upgrade" | "swap" | "enhance";
 
 export type StoreSlotCell = { kind: StoreSlotKind; col: number; row: number };
 
-export type StoreLayout = { slots: StoreSlotCell[]; freebie: Cell };
+export type StoreLayout = { slots: StoreSlotCell[]; freebie: Cell; entrance: Cell };
 
 export type StoreFreebie = { kind: "life" | "quarter"; col: number; row: number; taken: boolean };
 
@@ -100,6 +101,8 @@ export type StorePromptView = {
 };
 
 const FREEBIE_CHAR = "F";
+const PLAYER_SPAWN_CHAR = "P";
+const WALL_CHAR = "#";
 
 const SLOT_KIND_BY_CHAR: Record<string, StoreSlotKind> = {
   U: "upgrade",
@@ -153,7 +156,17 @@ export function parseStoreLayout(ascii: string): StoreLayout {
   if (freebies.length !== 1) {
     throw new Error(`store needs exactly one ${FREEBIE_CHAR} cell, found ${freebies.length}`);
   }
-  return { slots: cells, freebie: freebies[0]! };
+  const spawnRow = lines.findIndex((line) => line.includes(PLAYER_SPAWN_CHAR));
+  if (spawnRow === -1 || lines[spawnRow]![0] === WALL_CHAR) {
+    throw new Error("store needs an entrance at the left end of the spawn row");
+  }
+  return { slots: cells, freebie: freebies[0]!, entrance: { col: 0, row: spawnRow } };
+}
+
+export function withStoreEntranceClosed(solids: SolidGrid, entrance: Cell): SolidGrid {
+  return solids.map((line, row) =>
+    line.map((solid, col) => solid || (col === entrance.col && row === entrance.row)),
+  );
 }
 
 export function createStoreState(

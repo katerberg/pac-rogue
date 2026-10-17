@@ -107,7 +107,10 @@ export class StoreBot {
   }
 
   private exitPoint(sim: PlaySim): { x: number; y: number } | null {
-    const { grid, tunnels } = this.observer.grid(false);
+    const { grid, tunnels: borderCells } = this.observer.grid(false);
+    const tunnels = borderCells.filter((cell) =>
+      sim.storeExitUnder(cellCenterX(cell % grid.cols), cellCenterY(Math.floor(cell / grid.cols))),
+    );
     const eid = playerEid(sim.world);
     const from =
       eid === undefined ? null : cellOf(grid, Position.x[eid] ?? 0, Position.y[eid] ?? 0);
