@@ -723,16 +723,22 @@ export function generateMazeAsciiWithRetries(
   return best ? { ascii: best.ascii, seedUsed: best.seedUsed } : null;
 }
 
+export type BoardOverride = MazeLayoutId | number | { ascii: string };
+
 export type BoardSelection =
   | { kind: "static"; id: MazeLayoutId }
+  | { kind: "custom"; ascii: string }
   | { kind: "pool"; index: number }
   | { kind: "generate"; seed: string };
 
 export function resolveBoardSelection(
   levelIndex: number,
-  layoutOverride: MazeLayoutId | number | null,
+  layoutOverride: BoardOverride | null,
   runMazeSeed: string,
 ): BoardSelection {
+  if (typeof layoutOverride === "object" && layoutOverride !== null) {
+    return { kind: "custom", ascii: layoutOverride.ascii };
+  }
   if (typeof layoutOverride === "number") {
     return { kind: "pool", index: layoutOverride };
   }

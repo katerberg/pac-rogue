@@ -34,6 +34,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "boss",
   "bossStageAdvance",
   "knobs",
+  "customMaze",
 ] as const;
 
 export function highScoresDisabled(params: URLSearchParams): boolean {

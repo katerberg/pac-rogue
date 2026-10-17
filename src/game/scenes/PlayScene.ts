@@ -32,6 +32,7 @@ import {
   quarterHudIconPosition,
   quarterHudIcons,
 } from "../../domain/moneyTalks";
+import { loadCustomMaze } from "../storage/customMazeStorage";
 import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
@@ -174,6 +175,9 @@ export class PlayScene extends Phaser.Scene {
       console.warn(warning);
     }
     this.sys.settings.data = {};
+    if (params.has("customMaze")) {
+      options.mazeAscii = loadCustomMaze();
+    }
     if (data.restartLevel !== undefined) {
       options.level = data.restartLevel;
       options.jumpToUpgrade = false;
@@ -534,6 +538,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "startingUpgrade":
         this.startingUpgradeCard.open(event.id);
+        break;
+      case "startingNotice":
+        this.startingUpgradeCard.openNotice(event.title, event.body);
         break;
       case "upgradeOffer":
         this.upgradeChoiceModal.open(event.offer, (chosen) => {
