@@ -34,6 +34,10 @@ describe("mazeGenerate", () => {
     expect(resolveBoardSelection(1, "maze2", "run")).toEqual({ kind: "static", id: "maze2" });
     expect(resolveBoardSelection(5, "maze1", "run")).toEqual({ kind: "static", id: "maze1" });
     expect(resolveBoardSelection(2, 7, "run")).toEqual({ kind: "pool", index: 7 });
+    expect(resolveBoardSelection(1, { ascii: "x" }, "run")).toEqual({
+      kind: "custom",
+      ascii: "x",
+    });
     expect(resolveBoardSelection(1, null, "run")).toEqual({ kind: "static", id: "mazeSmall" });
     const mid = resolveBoardSelection(2, null, "run");
     expect(mid.kind).toBe("pool");
