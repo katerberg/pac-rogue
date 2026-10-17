@@ -15,7 +15,6 @@ function pickStoreSlot(
   slots: readonly StoreSlot[],
   skip: ReadonlySet<number>,
   quarters: number,
-  lives: number,
   owned: readonly UpgradeId[],
   persona: Persona,
   rng: () => number,
@@ -29,10 +28,6 @@ function pickStoreSlot(
     return affordable.length === 0
       ? null
       : affordable[Math.floor(rng() * affordable.length)]!.index;
-  }
-  const life = open.find(({ slot }) => slot.kind === "life" && slotPrice(slot) <= quarters);
-  if (life !== undefined && lives <= persona.store.lifeAtOrBelow) {
-    return life.index;
   }
   let best: number | null = null;
   let bestScore = 0;
@@ -99,7 +94,6 @@ export class StoreBot {
         store.slots,
         this.skip,
         hud.quarters,
-        hud.lives,
         hud.upgrades,
         this.persona,
         this.rng,

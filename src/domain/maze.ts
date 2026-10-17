@@ -187,7 +187,7 @@ const PLAYER_SPAWN_CHAR = "P";
 const EMPTY_CORRIDOR_CHAR = "-";
 const EMPTY_CELL_CHAR = " ";
 const PELLET_CHARS = new Set([".", "@"]);
-const STORE_SLOT_CHARS = ["L", "U", "S", "E"] as const;
+const STORE_SLOT_CHARS = ["U", "S", "E", "F"] as const;
 const EMPTY_CORRIDOR_CHARS = new Set([
   EMPTY_CELL_CHAR,
   EMPTY_CORRIDOR_CHAR,
@@ -504,7 +504,10 @@ function applyOppositeEdgeSafety(walls: boolean[][], cols: number, rows: number)
   }
 }
 
-export function parseMaze(ascii: string = MAZE_ASCII_BY_ID.maze1): boolean[][] {
+export function parseMaze(
+  ascii: string = MAZE_ASCII_BY_ID.maze1,
+  oppositeEdgeSafety = true,
+): boolean[][] {
   const { lines, cols, rows } = readAsciiGrid(ascii);
   computeMazeGeometry(cols, rows);
 
@@ -519,7 +522,9 @@ export function parseMaze(ascii: string = MAZE_ASCII_BY_ID.maze1): boolean[][] {
     grid.push(walls);
   }
 
-  applyOppositeEdgeSafety(grid, cols, rows);
+  if (oppositeEdgeSafety) {
+    applyOppositeEdgeSafety(grid, cols, rows);
+  }
   return grid;
 }
 
@@ -675,8 +680,9 @@ function syncActiveGeometry(layout: MazeLayout): void {
 function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const { cols, rows } = readAsciiGrid(ascii);
   const geometry = computeMazeGeometry(cols, rows);
+  const isStore = id === "store";
   const playerSpawn = resolvePlayerSpawn(ascii, cols, rows);
-  const walls = parseMaze(ascii);
+  const walls = parseMaze(ascii, !isStore);
   const exterior = buildExterior(walls, playerSpawn);
   const house = parseHouse(ascii);
   const door = parseDoor(ascii);
@@ -685,7 +691,6 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const wallPassPlayerSolids = buildWallPassPlayerSolids(walls);
   const wallPassLoopPlayerSolids = emptyFlagGrid(cols, rows);
   assertHorizontalTunnels(playerSolids, cols, rows);
-  const isStore = id === "store";
   const ghostHouseSpawn = isStore ? playerSpawn : deriveGhostHouseSpawn(ascii, cols, rows);
   const ghostHouseExit = isStore
     ? playerSpawn
@@ -1138,12 +1143,6 @@ export function isAlignedForTurn(x: number, y: number, eps: number = TURN_ALIGN_
     return false;
   }
   return Math.abs(x - cellCenterX(col)) <= eps && Math.abs(y - cellCenterY(row)) <= eps;
-}
-
-export function snapToCellCenter(x: number, y: number): { x: number; y: number } {
-  const col = worldToCol(x);
-  const row = worldToRow(y);
-  return { x: cellCenterX(col), y: cellCenterY(row) };
 }
 
 export function snapPerpendicularToCenterline(

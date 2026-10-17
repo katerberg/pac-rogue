@@ -25,7 +25,6 @@ import {
   getActiveLayout,
   ghostHouseSpawnCenter,
   horizontalTunnelRows,
-  isAlignedForTurn,
   isWalkable,
   MAZE_OFFSET_X,
   MAZE_PIXEL_WIDTH,
@@ -40,7 +39,7 @@ import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
-import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
+import { parseStoreLayout, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -1150,54 +1149,59 @@ describe("PlaySim", () => {
     expect(storeSpeed(["passiveAfterburnerPlus"])).toBe(storeSpeed([]));
   });
 
-  it("regenerates one life on store entry", () => {
+  it("stocks a free centre life on store entry instead of regenerating one", () => {
     const fresh = new PlaySim(
       { ...defaultPlayOptions(), store: 1, lives: 2, maxLives: 4, quarters: 10 },
       "test",
     );
-    expect(fresh.start()).toContainEqual({ type: "lives", pulse: true });
-    expect(fresh.snapshot().lives).toBe(3);
-    expect(startSim({ store: 1, lives: 4, maxLives: 4, quarters: 10 }).snapshot().lives).toBe(4);
+    expect(fresh.start()).not.toContainEqual({ type: "lives", pulse: true });
+    expect(fresh.snapshot().lives).toBe(2);
+    expect(fresh.snapshot().storeFreebie).toBe("life");
+    const full = startSim({ store: 1, lives: 4, maxLives: 4, quarters: 10 });
+    expect(full.snapshot().lives).toBe(4);
+    expect(full.snapshot().storeFreebie).toBe("quarter");
   });
 
-  it("stacks Myogenesis level regen with store-entry regen", () => {
-    const stacked = startSim({
-      jumpToUpgrade: true,
-      level: 3,
-      enableUpgrades: ["passiveMyogenesis"],
-      lives: 1,
-      maxLives: 4,
-    });
-    (stacked as unknown as { lives: number }).lives = 1;
-    stacked.chooseUpgrade({ kind: "upgrade", id: drainToOffer(stacked).upgrades[0]! });
-    runUntil(stacked, () => stacked.snapshot().inStore, 240);
-    expect(stacked.snapshot().lives).toBe(3);
-
-    const natural = startSim({
-      jumpToUpgrade: true,
-      level: 3,
-      enableUpgrades: [],
-      lives: 1,
-      maxLives: 4,
-    });
-    (natural as unknown as { lives: number }).lives = 1;
-    natural.chooseUpgrade({ kind: "upgrade", id: drainToOffer(natural).upgrades[0]! });
-    runUntil(natural, () => natural.snapshot().inStore, 240);
-    expect(natural.snapshot().lives).toBe(2);
+  it("Myogenesis level regen still lands before the store, which then offers the free life", () => {
+    const enter = (enableUpgrades: UpgradeId[]) => {
+      const sim = startSim({
+        jumpToUpgrade: true,
+        level: 3,
+        enableUpgrades,
+        lives: 1,
+        maxLives: 4,
+      });
+      (sim as unknown as { lives: number }).lives = 1;
+      sim.chooseUpgrade({ kind: "upgrade", id: drainToOffer(sim).upgrades[0]! });
+      runUntil(sim, () => sim.snapshot().inStore, 240);
+      return sim.snapshot();
+    };
+    expect(enter(["passiveMyogenesis"])).toMatchObject({ lives: 2, storeFreebie: "life" });
+    expect(enter([])).toMatchObject({ lives: 1, storeFreebie: "life" });
   });
 
-  it("buys a life at the store", () => {
-    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
-    const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
-    const before = sim.snapshot();
-    teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
-    runFrames(sim, 1);
-    runFrames(sim, 1, { storeToggle: true });
-    const events = runFrames(sim, 1, { storeConfirm: true });
-    expect(sim.snapshot().quarters).toBeLessThan(before.quarters);
-    expect(sim.snapshot().lives).toBe(before.lives + 1);
-    expect(events).toContainEqual({ type: "lives", pulse: true });
-  });
+  it.each([
+    [2, "life", 3, 10],
+    [4, "quarter", 4, 11],
+  ] as const)(
+    "with %i lives, stepping on the centre freebie picks up a free %s",
+    (lives, kind, livesAfter, quartersAfter) => {
+      const sim = startSim({ store: 1, lives, maxLives: 4, quarters: 10 });
+      const { freebie } = parseStoreLayout(STORE_MAZE_ASCII);
+      teleportPlayer(sim, cellCenterX(freebie.col), cellCenterY(freebie.row));
+      const events = runFrames(sim, 1);
+      expect(events).toContainEqual(
+        kind === "life" ? { type: "lives", pulse: true } : { type: "quarters", pulse: true },
+      );
+      expect(sim.snapshot()).toMatchObject({
+        lives: livesAfter,
+        quarters: quartersAfter,
+        storeFreebie: null,
+      });
+      runFrames(sim, 5);
+      expect(sim.snapshot()).toMatchObject({ lives: livesAfter, quarters: quartersAfter });
+    },
+  );
 
   describe("Money Talks", () => {
     function getCaught(sim: PlaySim): SimEvent[] {
@@ -1320,8 +1324,8 @@ describe("PlaySim", () => {
   });
 
   describe("store tiles", () => {
-    function buy(sim: PlaySim, kind: "life" | "upgrade" | "swap" | "enhance", nth = 0): SimEvent[] {
-      const slot = parseStoreSlots(STORE_MAZE_ASCII).filter((cell) => cell.kind === kind)[nth]!;
+    function buy(sim: PlaySim, kind: "upgrade" | "swap" | "enhance", nth = 0): SimEvent[] {
+      const slot = sim.storeState()!.slots.filter((cell) => cell.kind === kind)[nth]!;
       teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
       runFrames(sim, 1);
       runFrames(sim, 1, { storeToggle: true });
@@ -1336,9 +1340,7 @@ describe("PlaySim", () => {
           { store: 1, level: 5, quarters: 10, lives: 4, maxLives: 4, enableUpgrades: [...owned] },
           `rare${n}`,
         );
-        const shelf = sim
-          .snapshot()
-          .storeStock!.filter((s) => s !== "life" && !s.includes(":")) as BaseUpgradeId[];
+        const shelf = sim.snapshot().storeStock!.filter((s) => !s.includes(":")) as BaseUpgradeId[];
         expect(shelf.filter(isRare).length).toBeLessThanOrEqual(1);
         const nth = shelf.findIndex(isRare);
         if (nth === -1) {
@@ -1356,9 +1358,7 @@ describe("PlaySim", () => {
       const owned = ALL_UPGRADE_IDS.filter((id) => !isRare(id));
       const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: owned });
       const shelf = (
-        sim
-          .snapshot()
-          .storeStock!.filter((s) => s !== "life" && !s.includes(":")) as BaseUpgradeId[]
+        sim.snapshot().storeStock!.filter((s) => !s.includes(":")) as BaseUpgradeId[]
       ).filter(isRare);
       expect(shelf).toHaveLength(1);
       buy(sim, "swap");
@@ -1385,36 +1385,17 @@ describe("PlaySim", () => {
       expect(getUpgradeDef(owned[0]!).school).toBe(school);
     });
 
-    it("the first store stocks two lives, two abilities and an enhancement", () => {
+    it("the first store fills the trade corner with a third upgrade", () => {
       const sim = startSim({
         store: 1,
-        lives: 1,
-        maxLives: 4,
         quarters: 10,
         enableUpgrades: ["passiveGhostSlow"],
       });
-      expect([...sim.snapshot().storeStock!].map((s) => s.split(":")[0]).sort()).toEqual([
-        "enhance",
-        "life",
-        "life",
-        expect.any(String),
-        expect.any(String),
-      ]);
-      expect(sim.snapshot().storeStock).toHaveLength(5);
+      const kinds = sim.storeState()!.slots.map((slot) => slot.kind);
+      expect(kinds).toEqual(["upgrade", "upgrade", "enhance", "upgrade"]);
     });
 
-    it("offers life tiles for room left after store-entry regen", () => {
-      const lifeTiles = (lives: number) =>
-        startSim({ store: 1, level: 5, quarters: 10, lives, maxLives: 4 })
-          .snapshot()
-          .storeStock!.filter((s) => s === "life").length;
-      expect(lifeTiles(4)).toBe(0);
-      expect(lifeTiles(3)).toBe(0);
-      expect(lifeTiles(2)).toBe(1);
-      expect(lifeTiles(1)).toBe(2);
-    });
-
-    it("a later store adds a trade tile and an enhancement tile", () => {
+    it("a later store shows two upgrades, an enhancement and a trade", () => {
       const sim = startSim({
         store: 1,
         lives: 1,
@@ -1424,49 +1405,33 @@ describe("PlaySim", () => {
         enableUpgrades: ["passiveGhostSlow"],
       });
       const stock = sim.snapshot().storeStock!;
-      expect(stock).toHaveLength(6);
+      expect(stock).toHaveLength(4);
       expect(stock).toContain("enhance:passiveGhostSlow");
       expect(stock).toContain("swap:passiveGhostSlow");
-    });
-
-    it("buying a life removes that tile and the second life tile stays", () => {
-      const sim = startSim({ store: 1, lives: 1, maxLives: 4, level: 5, quarters: 10 });
-      buy(sim, "life", 0);
-      expect(sim.snapshot().storeStock!.filter((s) => s === "life")).toHaveLength(1);
-    });
-
-    it("charges 1 for a life in the first store and 2 in later stores", () => {
-      const first = startSim({ store: 1, lives: 1, maxLives: 4, quarters: 10 });
-      buy(first, "life", 0);
-      expect(first.snapshot().quarters).toBe(9);
-      expect(first.snapshot().lives).toBe(3);
-
-      const later = startSim({ store: 2, lives: 1, maxLives: 4, quarters: 10 });
-      buy(later, "life", 0);
-      expect(later.snapshot().quarters).toBe(8);
-      expect(later.snapshot().lives).toBe(3);
     });
 
     it("the next store guarantees an upgrade of the school last bought", () => {
       const schoolOf = (id: string) => getUpgradeDef(id as UpgradeId).school;
       for (let n = 0; n < 12; n += 1) {
         const sim = startSim({ store: 1, level: 5, quarters: 10 }, `school${n}`);
-        const shelf = (): string[] =>
-          sim.snapshot().storeStock!.filter((s) => s !== "life" && !s.includes(":"));
+        const shelf = (): string[] => sim.snapshot().storeStock!.filter((s) => !s.includes(":"));
         buy(sim, "upgrade", 0);
         buy(sim, "upgrade", 1);
         const last = sim.snapshot().upgrades.at(-1)!;
-        teleportPlayer(sim, cellCenterX(10), cellCenterY(0));
+        teleportPlayer(sim, cellCenterX(31), cellCenterY(20));
         runUntil(sim, () => !sim.snapshot().inStore, 600);
         (sim as unknown as { enterStore(): void }).enterStore();
         expect(shelf().some((id) => schoolOf(id) === schoolOf(last))).toBe(true);
       }
     });
 
-    it("buying only a life sets no school guarantee", () => {
+    it("taking only the free pickup sets no school guarantee", () => {
       const sim = startSim({ store: 1, level: 5, quarters: 10 });
       expect((sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool).toBeNull();
-      buy(sim, "life");
+      const { freebie } = parseStoreLayout(STORE_MAZE_ASCII);
+      teleportPlayer(sim, cellCenterX(freebie.col), cellCenterY(freebie.row));
+      runFrames(sim, 1);
+      expect(sim.snapshot().storeFreebie).toBeNull();
       expect((sim as unknown as { nextStoreSchool: unknown }).nextStoreSchool).toBeNull();
     });
 
@@ -1544,64 +1509,97 @@ describe("PlaySim", () => {
     expect(sim.storeState()).not.toBeNull();
   });
 
-  it("settles on the tile after a diagonal store entry and resumes on a single key", () => {
-    const sim = startSim({ store: 1, lives: 1, maxLives: 4, quarters: 10 });
-    const life = sim
-      .storeState()!
-      .slots.filter((slot) => slot.kind === "life")
-      .at(-1)!;
-    const diagonal = { ...held("down"), right: 0 };
-    teleportPlayer(sim, cellCenterX(life.col - 1), cellCenterY(life.row - 1));
-    runFrames(sim, 1);
-    runFrames(sim, 120, { keys: diagonal });
-    expect(sim.storeState()?.activeSlot).not.toBeNull();
-    expect(sim.snapshot().storePrompt).toBe("confirm");
+  describe("store movement matches a regular level", () => {
+    it("keeps moving after release until a wall, like a level", () => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      runFrames(sim, 1);
+      runFrames(sim, 5, { keys: held("up") });
+      const released = sim.snapshot().player!;
+      runFrames(sim, 20);
+      expect(sim.snapshot().player!.y).toBeLessThan(released.y);
+      runUntil(sim, () => sim.snapshot().player?.facing === "none", 400);
+      expect(sim.snapshot().player).toMatchObject({ col: 1, row: 1 });
+    });
 
-    runFrames(sim, 30, { keys: diagonal });
-    const settled = sim.snapshot().player!;
-    expect(isAlignedForTurn(settled.x, settled.y)).toBe(true);
-    expect(settled.facing).toBe("none");
+    it("has no diagonals: two held keys move along one axis", () => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      runFrames(sim, 1);
+      const start = sim.snapshot().player!;
+      runFrames(sim, 10, { keys: { ...held("up"), right: 5 } });
+      const moved = sim.snapshot().player!;
+      expect(moved.facing).toBe("right");
+      expect(moved.y).toBe(start.y);
+      expect(moved.x).toBeGreaterThan(start.x);
+    });
 
-    runFrames(sim, 1, { storeChoice: "no" });
-    runFrames(sim, 1);
-    expect(sim.snapshot().storePrompt).toBeNull();
-    expect(sim.snapshot().inputSuppressed).toBe(false);
+    it("runs at the level's own speed, before speed upgrades", () => {
+      const speed = (options: Partial<PlayOptions>): number => {
+        const sim = startSim({ quarters: 0, ...options });
+        runFrames(sim, 2, { keys: held("right") });
+        return Speed.px[playerEid(sim)]!;
+      };
+      expect(speed({ store: 1 })).toBe(speed({ level: 3, enableUpgrades: [] }));
+    });
 
-    const at = { ...sim.snapshot().player! };
-    runFrames(sim, 10, { keys: held("up") });
-    expect(sim.snapshot().player?.y).toBeLessThan(at.y);
+    it("walking straight right along the middle row stops at the exit jog", () => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      const { freebie } = parseStoreLayout(STORE_MAZE_ASCII);
+      teleportPlayer(sim, cellCenterX(freebie.col + 1), cellCenterY(freebie.row));
+      runFrames(sim, 1);
+      runFrames(sim, 400, { keys: held("right") });
+      expect(sim.snapshot().inStore).toBe(true);
+      expect(sim.snapshot().player).toMatchObject({ row: freebie.row, facing: "none" });
+      runFrames(sim, 120, { keys: held("down") });
+      expect(sim.snapshot().inStore).toBe(true);
+      runUntil(sim, () => !sim.snapshot().inStore, 600, { keys: held("right") });
+      expect(sim.snapshot().inStore).toBe(false);
+    });
+
+    it("pauses the player while a BUY prompt is open, then resumes like a level", () => {
+      const sim = startSim({ store: 1, quarters: 10 });
+      runFrames(sim, 1);
+      runFrames(sim, 1, { storeClick: 1 });
+      runFrames(sim, 1);
+      expect(sim.snapshot().storePrompt).toBe("confirm");
+      const at = sim.snapshot().player!;
+      runFrames(sim, 20, { keys: held("up") });
+      expect(sim.snapshot().player).toMatchObject({ x: at.x, y: at.y });
+      runFrames(sim, 1, { storeChoice: "no" });
+      runFrames(sim, 1);
+      runFrames(sim, 10, { keys: held("up") });
+      expect(sim.snapshot().player!.y).toBeLessThan(at.y);
+    });
   });
 
   it.each([
     ["yes", true],
     ["no", false],
-  ] as const)("store modal click %s %s a life", (choice, buys) => {
-    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
-    const life = parseStoreSlots(STORE_MAZE_ASCII).find((slot) => slot.kind === "life")!;
+  ] as const)("store prompt click %s %s a corner upgrade", (choice, buys) => {
+    const sim = startSim({ store: 1, quarters: 10 });
+    const corner = sim.storeState()!.slots[0]!;
     const before = sim.snapshot();
-    teleportPlayer(sim, cellCenterX(life.col), cellCenterY(life.row));
+    teleportPlayer(sim, cellCenterX(corner.col), cellCenterY(corner.row));
     runFrames(sim, 1);
     runFrames(sim, 1, { storeChoice: choice });
-    expect(sim.snapshot().lives).toBe(before.lives + (buys ? 1 : 0));
+    expect(sim.snapshot().upgrades.length).toBe(before.upgrades.length + (buys ? 1 : 0));
     expect(sim.snapshot().quarters < before.quarters).toBe(buys);
   });
 
   it.each([
     ["yes", true],
     ["no", false],
-  ] as const)("clicking a store tile opens its modal and %s picks it", (choice, buys) => {
-    const sim = startSim({ store: 1, lives: 2, maxLives: 4, quarters: 10 });
+  ] as const)("clicking a store tile opens its prompt and %s picks it", (choice, buys) => {
+    const sim = startSim({ store: 1, quarters: 10 });
     const before = sim.snapshot();
-    const lifeIndex = sim.storeState()!.slots.findIndex((slot) => slot.kind === "life");
-    runFrames(sim, 1, { storeClick: lifeIndex });
-    expect(sim.storeState()?.activeSlot).toBe(lifeIndex);
+    runFrames(sim, 1, { storeClick: 1 });
+    expect(sim.storeState()?.activeSlot).toBe(1);
     runFrames(sim, 1, { storeChoice: choice });
-    expect(sim.snapshot().lives).toBe(before.lives + (buys ? 1 : 0));
+    expect(sim.snapshot().upgrades.length).toBe(before.upgrades.length + (buys ? 1 : 0));
     expect(sim.snapshot().quarters < before.quarters).toBe(buys);
   });
 
   describe("store exit click", () => {
-    const topTunnel = () => ({ x: cellCenterX(10), y: cellCenterY(0) });
+    const storeExit = () => ({ x: cellCenterX(31), y: cellCenterY(20) });
 
     function travelPx(sim: PlaySim, run: () => void) {
       const before = sim.snapshot().player!;
@@ -1613,16 +1611,16 @@ describe("PlaySim", () => {
     it("walks the player out a clicked tunnel at normal speed", () => {
       const keyed = startSim({ store: 1, quarters: 0 });
       runFrames(keyed, 1);
-      const keyedPx = travelPx(keyed, () => runFrames(keyed, 5, { keys: held("left") }));
+      const keyedPx = travelPx(keyed, () => runFrames(keyed, 5, { keys: held("right") }));
 
       const sim = startSim({ store: 1, quarters: 0 });
       const level = sim.snapshot().level;
       runFrames(sim, 1);
       const routedPx = travelPx(sim, () => {
-        runFrames(sim, 1, { storePointer: topTunnel() });
+        runFrames(sim, 1, { storePointer: storeExit() });
         runFrames(sim, 4);
       });
-      expect(sim.snapshot().storeRoute).toEqual({ col: 10, row: 0 });
+      expect(sim.snapshot().storeRoute).toEqual({ col: 31, row: 20 });
       expect(Math.abs(routedPx - keyedPx)).toBeLessThanOrEqual(1);
       runUntil(sim, () => sim.snapshot().level !== level, 1200);
       expect(sim.snapshot().inStore).toBe(false);
@@ -1634,23 +1632,16 @@ describe("PlaySim", () => {
       ["a click elsewhere", { storePointer: { x: cellCenterX(5), y: cellCenterY(16) } }],
     ] as const)("%s cancels the route", (_label, cancel) => {
       const sim = startSim({ store: 1, quarters: 0 });
-      runFrames(sim, 1, { storePointer: topTunnel() });
+      runFrames(sim, 1, { storePointer: storeExit() });
       runFrames(sim, 10);
       runFrames(sim, 1, cancel);
       expect(sim.snapshot().storeRoute).toBeNull();
-      runFrames(sim, 30);
-      const at = sim.snapshot().player;
-      runFrames(sim, 30);
-      expect(sim.snapshot().player).toEqual(at);
+      runUntil(sim, () => sim.snapshot().player?.facing === "none", 400);
+      expect(sim.snapshot().storeRoute).toBeNull();
       expect(sim.snapshot().inStore).toBe(true);
     });
 
-    it.each([
-      [10, 0],
-      [0, 10],
-      [21, 10],
-      [11, 20],
-    ])("routes around affordable tiles to the tunnel at %i,%i", (col, row) => {
+    it.each([[31, 20]])("routes around affordable tiles to the exit at %i,%i", (col, row) => {
       const sim = startSim({ store: 2, quarters: 10, lives: 2, maxLives: 4 });
       const level = sim.snapshot().level;
       runFrames(sim, 1, { storePointer: { x: cellCenterX(col), y: cellCenterY(row) } });
@@ -1664,18 +1655,17 @@ describe("PlaySim", () => {
 
     it("reports a tunnel under the pointer only while a click there would route", () => {
       const sim = startSim({ store: 1, quarters: 10, lives: 2, maxLives: 4 });
-      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(true);
+      expect(sim.storeExitUnder(storeExit().x, storeExit().y)).toBe(true);
       expect(sim.storeExitUnder(cellCenterX(10), cellCenterY(16))).toBe(false);
-      const lifeIndex = sim.storeState()!.slots.findIndex((slot) => slot.kind === "life");
-      runFrames(sim, 1, { storeClick: lifeIndex });
+      runFrames(sim, 1, { storeClick: 0 });
       expect(sim.snapshot().storePrompt).toBe("confirm");
-      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(false);
+      expect(sim.storeExitUnder(storeExit().x, storeExit().y)).toBe(false);
       runFrames(sim, 1, { storeChoice: "no" });
-      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(true);
+      expect(sim.storeExitUnder(storeExit().x, storeExit().y)).toBe(true);
       const level = sim.snapshot().level;
-      runFrames(sim, 1, { storePointer: topTunnel() });
+      runFrames(sim, 1, { storePointer: storeExit() });
       runUntil(sim, () => sim.snapshot().level !== level, 1200);
-      expect(sim.storeExitUnder(topTunnel().x, topTunnel().y)).toBe(false);
+      expect(sim.storeExitUnder(storeExit().x, storeExit().y)).toBe(false);
     });
 
     it("ignores clicks that are not on a tunnel", () => {
@@ -4144,7 +4134,7 @@ describe("Interest", () => {
 
   it("shows the real wallet as soon as a purchase lands mid pop-in", () => {
     const sim = storeWith(["passiveInterest"], 15);
-    const slot = parseStoreSlots(STORE_MAZE_ASCII).filter((cell) => cell.kind === "life")[0]!;
+    const slot = sim.storeState()!.slots[0]!;
     teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
     runFrames(sim, 1);
     runFrames(sim, 1, { storeToggle: true });
@@ -4158,7 +4148,7 @@ describe("Interest", () => {
     const sim = storeWith(["passiveInterest"], 15);
     expect(sim.hud().quarters).toBe(15);
     expect(sim.snapshot().interestPop).toEqual({ count: 5, shown: 0 });
-    teleportPlayer(sim, cellCenterX(10), cellCenterY(0));
+    teleportPlayer(sim, cellCenterX(31), cellCenterY(20));
     const level = sim.snapshot().level;
     const events = runUntil(sim, () => sim.snapshot().level !== level, 120);
     expect(sim.snapshot().interestPop).toBeNull();

@@ -3,22 +3,20 @@ import { activateAsciiLayout, activateLayout, isWalkable } from "./maze";
 import { STORE_MAZE_ASCII } from "./mazeLayouts";
 import {
   STORE_ENHANCE_PRICE,
-  STORE_LATER_LIFE_PRICE,
-  STORE_LIFE_PRICE,
   enhanceGlowAlpha,
   STORE_SWAP_PRICE,
   createStoreState,
-  lifePriceForStore,
   STORE_EXIT_SLIDE_TILES,
   storeExitAlpha,
   storeExitDirection,
-  parseStoreSlots,
+  parseStoreLayout,
   pickMidStoreLevel,
   promptView,
   purchaseSchool,
   slotPrice,
   swapIncomingSchool,
   storeAfterLevel,
+  storePanelMode,
   storeStep,
   type StoreState,
   type StoreStepInput,
@@ -36,8 +34,8 @@ const zeroRng = () => 0;
 
 function input(overrides: Partial<StoreStepInput>): StoreStepInput {
   return {
-    col: 1,
-    row: 1,
+    col: 14,
+    row: 5,
     toggle: false,
     enter: false,
     quarters: 10,
@@ -52,45 +50,58 @@ function confirmYes(state: StoreState, overrides: Partial<StoreStepInput>) {
 }
 
 function stateWith(owned: readonly UpgradeId[]): StoreState {
-  return createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, zeroRng);
+  return createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, zeroRng);
 }
 
 describe("store layout", () => {
-  it("builds with no pellets and opens tunnels on all four sides", () => {
+  it("builds with no pellets and one exit, jogged off the spawn row on the right", () => {
     const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
     expect(layout.pelletCount).toBe(0);
-    const last = layout.rows - 1;
-    expect(isWalkable(10, 0, layout.playerSolids)).toBe(true);
-    expect(isWalkable(11, last, layout.playerSolids)).toBe(true);
-    expect(isWalkable(0, 10, layout.playerSolids)).toBe(true);
-    expect(isWalkable(layout.cols - 1, 10, layout.playerSolids)).toBe(true);
+    const borderOpen: string[] = [];
+    for (let row = 0; row < layout.rows; row += 1) {
+      for (let col = 0; col < layout.cols; col += 1) {
+        const border = row === 0 || col === 0 || row === layout.rows - 1 || col === layout.cols - 1;
+        if (border && isWalkable(col, row, layout.playerSolids)) borderOpen.push(`${col},${row}`);
+      }
+    }
+    const row = layout.playerSpawn.row;
+    expect(borderOpen).toEqual([`${layout.cols - 1},${row + 3}`]);
+    expect(isWalkable(0, row, layout.playerSolids)).toBe(false);
+    expect(isWalkable(layout.cols - 1, row, layout.playerSolids)).toBe(false);
     activateLayout("maze1");
   });
 
-  it("is intro-sized with no ghost house and roomier than the intro maze", () => {
+  it("is single-file corridors with no ghost house", () => {
     const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
     expect(layout.house.flat().some(Boolean)).toBe(false);
-    const interior = layout.walls.slice(1, -1).flatMap((row) => row.slice(1, -1));
-    const coverage = interior.filter(Boolean).length / interior.length;
-    expect([layout.cols, layout.rows]).toEqual([22, 21]);
-    expect(coverage).toBeGreaterThan(0.35);
-    expect(coverage).toBeLessThan(0.5);
+    const open = (col: number, row: number) => isWalkable(col, row, layout.playerSolids);
+    const slots = parseStoreLayout(STORE_MAZE_ASCII).slots;
+    const inSlot = (col: number, row: number) =>
+      slots.some((s) => col >= s.col && col <= s.col + 1 && row >= s.row && row <= s.row + 1);
+    for (let row = 0; row < layout.rows - 1; row += 1) {
+      for (let col = 0; col < layout.cols - 1; col += 1) {
+        const block = open(col, row) && open(col + 1, row) && open(col, row + 1);
+        expect(block && open(col + 1, row + 1) && !inSlot(col, row)).toBe(false);
+      }
+    }
     activateLayout("maze1");
   });
 
-  it("parses two lives, two upgrades, one enhance and one swap slot in row/col order", () => {
-    expect(parseStoreSlots(STORE_MAZE_ASCII)).toEqual([
-      { kind: "upgrade", col: 2, row: 2 },
-      { kind: "upgrade", col: 18, row: 2 },
-      { kind: "life", col: 10, row: 8 },
-      { kind: "enhance", col: 4, row: 11 },
-      { kind: "swap", col: 5, row: 14 },
-      { kind: "life", col: 15, row: 14 },
-    ]);
+  it("parses upgrade, upgrade, enhance and swap corners and a centre freebie", () => {
+    expect(parseStoreLayout(STORE_MAZE_ASCII)).toEqual({
+      slots: [
+        { kind: "upgrade", col: 1, row: 1 },
+        { kind: "upgrade", col: 26, row: 1 },
+        { kind: "enhance", col: 1, row: 32 },
+        { kind: "swap", col: 26, row: 32 },
+      ],
+      freebie: { col: 14, row: 17 },
+    });
   });
 
-  it("rejects a slot that is not a full 2x2 block", () => {
-    expect(() => parseStoreSlots("#UU#\n#U-#")).toThrow(/2x2/);
+  it("rejects a slot that is not a full 2x2 block, or a missing freebie", () => {
+    expect(() => parseStoreLayout("#UU#\n#U-#")).toThrow(/2x2/);
+    expect(() => parseStoreLayout("#UU#\n#UU#")).toThrow(/exactly one F/);
   });
 });
 
@@ -107,14 +118,13 @@ describe("store schedule", () => {
 });
 
 describe("createStoreState", () => {
-  it("offers two lives, two distinct unowned upgrades, a swap and an enhancement", () => {
+  it("offers two distinct unowned upgrades, an enhancement and a swap", () => {
     const owned: UpgradeId[] = ["passiveAfterburner"];
     const state = stateWith(owned);
+    expect(state.slots.map((s) => s.kind)).toEqual(["upgrade", "upgrade", "enhance", "swap"]);
     const ids = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
-    expect(ids).toHaveLength(2);
     expect(new Set(ids).size).toBe(2);
     expect(ids).not.toContain("passiveAfterburner");
-    expect(state.slots.filter((s) => s.kind === "life")).toHaveLength(2);
     const swap = state.slots.find((s) => s.kind === "swap");
     expect(swap).toMatchObject({ outgoingId: "passiveAfterburner", sold: false });
     const enhance = state.slots.find((s) => s.kind === "enhance");
@@ -130,7 +140,7 @@ describe("createStoreState", () => {
         x = (x * 1103515245 + 12345) % 2147483648;
         return x / 2147483648;
       };
-      const state = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, rng);
+      const state = createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, rng);
       const rares = state.slots.filter((s) => s.kind === "upgrade" && isRare(s.id));
       expect(rares.length).toBeLessThanOrEqual(1);
       for (const slot of rares) {
@@ -157,7 +167,7 @@ describe("createStoreState", () => {
     const draws = 4000;
     let withRare = 0;
     for (let i = 0; i < draws; i += 1) {
-      const state = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, rng);
+      const state = createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, rng);
       withRare += state.slots.some((s) => s.kind === "upgrade" && s.id === "passiveMartyr") ? 1 : 0;
     }
     const expected = 0.5 / 3.5 + (3 / 3.5) * (0.5 / 2.5);
@@ -166,59 +176,38 @@ describe("createStoreState", () => {
 
   it("shelves no rare before two upgrades are owned", () => {
     for (const owned of [[], ["passiveAfterburner"]] as UpgradeId[][]) {
-      const state = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, () => 0.999);
+      const state = createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, () => 0.999);
       expect(state.slots.some((s) => s.kind === "upgrade" && isRare(s.id))).toBe(false);
     }
   });
 
-  it("the first store has lives, abilities and an enhancement but no swap", () => {
+  it("the first store fills the swap corner with another upgrade", () => {
     const first = createStoreState(
-      parseStoreSlots(STORE_MAZE_ASCII),
+      parseStoreLayout(STORE_MAZE_ASCII),
       ["passiveAfterburner"],
       zeroRng,
       true,
     );
-    expect(first.slots.map((s) => s.kind).sort()).toEqual([
-      "enhance",
-      "life",
-      "life",
-      "upgrade",
-      "upgrade",
-    ]);
+    expect(first.slots.map((s) => s.kind)).toEqual(["upgrade", "upgrade", "enhance", "upgrade"]);
   });
 
-  it("prices extra lives at 1 in the first store and 2 after", () => {
-    expect(lifePriceForStore(true)).toBe(STORE_LIFE_PRICE);
-    expect(lifePriceForStore(false)).toBe(STORE_LATER_LIFE_PRICE);
-    const first = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, true);
-    const later = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, false);
-    for (const slot of first.slots.filter((s) => s.kind === "life")) {
-      expect(slotPrice(slot)).toBe(STORE_LIFE_PRICE);
-    }
-    for (const slot of later.slots.filter((s) => s.kind === "life")) {
-      expect(slotPrice(slot)).toBe(STORE_LATER_LIFE_PRICE);
-    }
+  it("fills the enhance and swap corners with distinct upgrades when nothing is owned", () => {
+    const state = stateWith([]);
+    expect(state.slots.map((s) => s.kind)).toEqual(["upgrade", "upgrade", "upgrade", "upgrade"]);
+    const ids = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
+    expect(new Set(ids).size).toBe(4);
   });
 
-  it("offers only as many life tiles as there is room under the life cap", () => {
-    const lifeKinds = (room: number) =>
-      createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, false, room).slots.filter(
-        (s) => s.kind === "life",
-      );
-    expect(lifeKinds(0)).toHaveLength(0);
-    expect(lifeKinds(1)).toHaveLength(1);
-    expect(lifeKinds(2)).toHaveLength(2);
+  it("fills the enhance corner with an upgrade when everything owned is enhanced", () => {
+    const kinds = stateWith(["passiveAfterburnerPlus"]).slots.map((s) => s.kind);
+    expect(kinds).toEqual(["upgrade", "upgrade", "upgrade", "swap"]);
   });
 
-  it("omits the enhance slot when nothing owned is unenhanced", () => {
-    expect(stateWith([]).slots.some((s) => s.kind === "enhance")).toBe(false);
-    expect(stateWith(["passiveAfterburnerPlus"]).slots.some((s) => s.kind === "enhance")).toBe(
-      false,
-    );
-  });
-
-  it("omits the swap slot when nothing is owned", () => {
-    expect(stateWith([]).slots.some((s) => s.kind === "swap")).toBe(false);
+  it("stocks a free life in the centre when there is life room, else a free quarter", () => {
+    const freebie = (room: boolean) =>
+      createStoreState(parseStoreLayout(STORE_MAZE_ASCII), [], zeroRng, false, room).freebie;
+    expect(freebie(true)).toEqual({ kind: "life", col: 14, row: 17, taken: false });
+    expect(freebie(false)).toEqual({ kind: "quarter", col: 14, row: 17, taken: false });
   });
 
   it("omits upgrade slots that cannot be filled", () => {
@@ -241,11 +230,11 @@ describe("createStoreState school guarantee", () => {
           return x / 2147483648;
         };
         const state = createStoreState(
-          parseStoreSlots(STORE_MAZE_ASCII),
+          parseStoreLayout(STORE_MAZE_ASCII),
           [],
           rng,
           false,
-          Number.POSITIVE_INFINITY,
+          true,
           school,
         );
         const ids = upgradeIds(state);
@@ -259,11 +248,11 @@ describe("createStoreState school guarantee", () => {
   it("skips the guarantee when the school has nothing left to offer", () => {
     const owned = ALL_UPGRADE_IDS.filter((id) => getUpgradeDef(id).school === "speed");
     const state = createStoreState(
-      parseStoreSlots(STORE_MAZE_ASCII),
+      parseStoreLayout(STORE_MAZE_ASCII),
       owned,
       zeroRng,
       false,
-      Number.POSITIVE_INFINITY,
+      true,
       "speed",
     );
     expect(upgradeIds(state).every((id) => getUpgradeDef(id).school !== "speed")).toBe(true);
@@ -271,8 +260,7 @@ describe("createStoreState school guarantee", () => {
 });
 
 describe("purchaseSchool", () => {
-  it("reads the school of a bought or enhanced upgrade and ignores lives and random trades", () => {
-    expect(purchaseSchool({ kind: "life", price: 1 })).toBeNull();
+  it("reads the school of a bought or enhanced upgrade and ignores random trades", () => {
     expect(
       purchaseSchool({
         kind: "swap",
@@ -291,29 +279,28 @@ describe("purchaseSchool", () => {
 });
 
 describe("storeStep", () => {
-  const lifeCell = { col: 16, row: 15 };
   const upgradeCell = { col: 2, row: 2 };
-  const swapCell = { col: 5, row: 14 };
+  const swapCell = { col: 26, row: 32 };
+  const away = { col: 5, row: 1 };
 
   it("opens a NO-focused prompt on arrival, dismisses on NO, and re-opens after stepping off", () => {
     let state = stateWith([]);
-    state = storeStep(state, input(lifeCell), zeroRng).state;
+    state = storeStep(state, input(upgradeCell), zeroRng).state;
     expect(promptView(state, 10, [])?.kind).toBe("confirm");
     expect(state.confirmYes).toBe(false);
-    const declined = storeStep(state, input({ ...lifeCell, enter: true }), zeroRng);
+    const declined = storeStep(state, input({ ...upgradeCell, enter: true }), zeroRng);
     expect(declined.purchase).toBeNull();
     state = declined.state;
     expect(promptView(state, 10, [])).toBeNull();
-    state = storeStep(state, input({ ...lifeCell, col: 15 }), zeroRng).state;
+    state = storeStep(state, input({ ...upgradeCell, col: 1 }), zeroRng).state;
     expect(promptView(state, 10, [])).toBeNull();
-    state = storeStep(state, input({ col: 13, row: 16 }), zeroRng).state;
-    state = storeStep(state, input(lifeCell), zeroRng).state;
+    state = storeStep(state, input(away), zeroRng).state;
+    state = storeStep(state, input(upgradeCell), zeroRng).state;
     expect(promptView(state, 10, [])?.kind).toBe("confirm");
     expect(state.confirmYes).toBe(false);
   });
 
   it("opens a clicked slot's prompt away from it, and buys on YES", () => {
-    const away = { col: 13, row: 16 };
     const state = stateWith([]);
     const idx = state.slots.findIndex((slot) => slot.kind === "upgrade");
     let step = storeStep(state, input({ ...away, click: idx }), zeroRng);
@@ -326,7 +313,6 @@ describe("storeStep", () => {
   });
 
   it("closes a clicked slot's prompt on NO, and drops a clicked unaffordable one on movement", () => {
-    const away = { col: 13, row: 16 };
     const state = stateWith([]);
     const idx = state.slots.findIndex((slot) => slot.kind === "upgrade");
     let step = storeStep(state, input({ ...away, click: idx }), zeroRng);
@@ -342,51 +328,36 @@ describe("storeStep", () => {
 
   it("keeps the standing slot dismissed after a click elsewhere, and a click reopens it", () => {
     const state = stateWith([]);
-    const upgradeIdx = state.slots.findIndex((slot) => slot.kind === "upgrade");
-    const lifeIdx = state.slots.findIndex((slot) => slot.kind === "life");
-    let step = storeStep(state, input(lifeCell), zeroRng);
-    step = storeStep(step.state, input({ ...lifeCell, pick: "no" }), zeroRng);
+    let step = storeStep(state, input(upgradeCell), zeroRng);
+    step = storeStep(step.state, input({ ...upgradeCell, pick: "no" }), zeroRng);
     expect(promptView(step.state, 10, [])).toBeNull();
 
-    let other = storeStep(step.state, input({ ...lifeCell, click: upgradeIdx }), zeroRng);
-    other = storeStep(other.state, input({ ...lifeCell, pick: "no" }), zeroRng);
+    let other = storeStep(step.state, input({ ...upgradeCell, click: 1 }), zeroRng);
+    other = storeStep(other.state, input({ ...upgradeCell, pick: "no" }), zeroRng);
     expect(promptView(other.state, 10, [])).toBeNull();
-    other = storeStep(other.state, input(lifeCell), zeroRng);
+    other = storeStep(other.state, input(upgradeCell), zeroRng);
     expect(promptView(other.state, 10, [])).toBeNull();
 
-    const reopened = storeStep(step.state, input({ ...lifeCell, click: lifeIdx }), zeroRng);
+    const reopened = storeStep(step.state, input({ ...upgradeCell, click: 0 }), zeroRng);
     expect(promptView(reopened.state, 10, [])?.kind).toBe("confirm");
   });
 
   it("toggles between YES and NO", () => {
-    let state = storeStep(stateWith([]), input(lifeCell), zeroRng).state;
-    state = storeStep(state, input({ ...lifeCell, toggle: true }), zeroRng).state;
+    let state = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
+    state = storeStep(state, input({ ...upgradeCell, toggle: true }), zeroRng).state;
     expect(state.confirmYes).toBe(true);
-    state = storeStep(state, input({ ...lifeCell, toggle: true }), zeroRng).state;
+    state = storeStep(state, input({ ...upgradeCell, toggle: true }), zeroRng).state;
     expect(state.confirmYes).toBe(false);
   });
 
-  it("sells each life tile once and removes it", () => {
-    const state = storeStep(stateWith([]), input(lifeCell), zeroRng).state;
-    const step = confirmYes(state, lifeCell);
-    expect(step.purchase).toEqual({ kind: "life", price: STORE_LATER_LIFE_PRICE });
-    expect(promptView(step.state, 10, [])).toBeNull();
-    expect(storeStep(step.state, input(lifeCell), zeroRng).state.activeSlot).toBeNull();
-    const other = storeStep(step.state, input({ col: 10, row: 8 }), zeroRng).state;
-    expect(promptView(other, 10, [])?.kind).toBe("confirm");
-  });
-
-  it("sells a first-store life for 1 and blocks a later-store life at 1 Quarter", () => {
-    const first = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), [], zeroRng, true);
-    const bought = confirmYes(storeStep(first, input(lifeCell), zeroRng).state, {
-      ...lifeCell,
-      quarters: 1,
-    });
-    expect(bought.purchase).toEqual({ kind: "life", price: STORE_LIFE_PRICE });
-
-    const later = storeStep(stateWith([]), input({ ...lifeCell, quarters: 1 }), zeroRng).state;
-    expect(promptView(later, 1, [])?.kind).toBe("needQuarters");
-    expect(confirmYes(later, { ...lifeCell, quarters: 1 }).purchase).toBeNull();
+  it("hands over the centre freebie once on stepping onto it", () => {
+    const freebie = { col: 14, row: 17 };
+    const step = storeStep(stateWith([]), input(freebie), zeroRng);
+    expect(step.pickup).toBe("life");
+    expect(step.purchase).toBeNull();
+    expect(step.state.freebie.taken).toBe(true);
+    expect(storeStep(step.state, input(freebie), zeroRng).pickup).toBeNull();
+    expect(storeStep(stateWith([]), input(away), zeroRng).pickup).toBeNull();
   });
 
   it("shows no confirm and ignores keys without enough quarters", () => {
@@ -426,7 +397,7 @@ describe("storeStep", () => {
     for (let seed = 1; seed <= 40; seed += 1) {
       let x = seed;
       const rng = () => ((x = (x * 16807) % 2147483647) - 1) / 2147483646;
-      const stocked = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, rng);
+      const stocked = createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, rng);
       const swap = stocked.slots.find((s) => s.kind === "swap");
       if (swap?.kind !== "swap") throw new Error("no swap slot");
       const state = storeStep(stocked, input({ ...swapCell, owned }), rng).state;
@@ -469,9 +440,32 @@ describe("storeStep", () => {
   });
 });
 
+describe("storePanelMode", () => {
+  const upgradeCell = { col: 2, row: 2 };
+  const modes = (state: StoreState, quarters: number) =>
+    state.slots.map((_, i) => storePanelMode(state, promptView(state, quarters, []), i));
+
+  it("leaves every panel idle until a corner is stepped on", () => {
+    expect(modes(stateWith([]), 10)).toEqual(["idle", "idle", "idle", "idle"]);
+  });
+
+  it("offers the choice on the active panel and dims the other three", () => {
+    const state = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
+    expect(modes(state, 10)).toEqual(["choosing", "dimmed", "dimmed", "dimmed"]);
+  });
+
+  it("shows only info on an unaffordable active panel, and goes idle after NEVER MIND", () => {
+    const poor = storeStep(stateWith([]), input({ ...upgradeCell, quarters: 0 }), zeroRng).state;
+    expect(modes(poor, 0)).toEqual(["info", "dimmed", "dimmed", "dimmed"]);
+    const arrived = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
+    const declined = storeStep(arrived, input({ ...upgradeCell, pick: "no" }), zeroRng).state;
+    expect(modes(declined, 10)).toEqual(["idle", "idle", "idle", "idle"]);
+  });
+});
+
 describe("enhancement tile", () => {
-  const enhanceCell = { col: 4, row: 11 };
-  const swapCell = { col: 5, row: 14 };
+  const enhanceCell = { col: 1, row: 32 };
+  const swapCell = { col: 26, row: 32 };
 
   it("costs 2 and enhances its shown target", () => {
     const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];

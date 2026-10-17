@@ -3,13 +3,14 @@ import { fitFontSize } from "../../domain/fitFontSize";
 import { wrapCharsForBox } from "../../domain/textLayout";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import { mazeColorForIndex } from "../../domain/mazeColorSettings";
-import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
   STORE_ENHANCE_BORDER_COLOR,
   STORE_SLOT_SIZE,
   enhanceGlowAlpha,
   slotPrice,
+  storePanelMode,
   swapIncomingSchool,
+  type StoreFreebie,
   type StorePromptView,
   type StoreSlot,
   type StoreState,
@@ -37,23 +38,15 @@ import {
   addPixelText,
   HUD_FONT_SIZE,
   MENU_OPTION_FONT_SIZE,
-  MENU_TITLE_FONT_SIZE,
   placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
 import {
-  BUTTON_HEIGHT,
-  BUTTON_WIDTH,
-  DESCRIPTION_MAX_CHARS,
-  LABEL_MAX_CHARS,
-  MODAL_DEPTH,
-  CARD_DESCRIPTION_GAP,
   SCHOOL_COLORS,
   schoolBorderColor,
   setSchoolWatermark,
-  stackTexts,
   stackTextsFromTop,
 } from "./upgradeChoiceModal";
 
@@ -65,9 +58,10 @@ const PANEL_SIDE_PAD = 8;
 const PANEL_TOP_PAD = 12;
 const PANEL_ROW_GAP = 8;
 const PANEL_TITLE_MAX_CHARS = 10;
-const MODAL_TITLE_MARGIN = 40;
 const PANEL_BODY_MAX_CHARS = 18;
-const TOAST_MS = 2000;
+const PANEL_DIM_ALPHA = 0.3;
+const BUY_Y = PANEL_HEIGHT / 2 - 42;
+const NEVER_MIND_Y = PANEL_HEIGHT / 2 - 18;
 const TILE_DOT_PX = 2;
 const TILE_COIN_PX = 8;
 const TILE_COIN_GAP_PX = 1;
@@ -88,6 +82,12 @@ type PanelContent = {
   footer: string;
 };
 
+type Panel = {
+  root: Phaser.GameObjects.Container;
+  show: (content: PanelContent) => void;
+  showChoice: (confirmYes: boolean | null) => void;
+};
+
 function slotSchool(slot: StoreSlot): UpgradeSchool | null {
   if (slot.kind === "upgrade") {
     return getUpgradeDef(slot.id).school;
@@ -104,8 +104,6 @@ function slotRare(slot: StoreSlot): boolean {
 
 function slotTitle(slot: StoreSlot): string {
   switch (slot.kind) {
-    case "life":
-      return "EXTRA LIFE";
     case "swap":
       return "SWAP";
     case "enhance":
@@ -117,8 +115,6 @@ function slotTitle(slot: StoreSlot): string {
 
 function slotBody(slot: StoreSlot): string {
   switch (slot.kind) {
-    case "life":
-      return "+1 life.";
     case "swap":
       return swapBody(slot);
     case "enhance":
@@ -156,155 +152,124 @@ function coinRowXs(count: number, maxWidth: number): number[] {
   return Array.from({ length: count }, (_, i) => first + i * step);
 }
 
+function slotContent(slot: StoreSlot, footer: string): PanelContent {
+  return {
+    title: slotTitle(slot),
+    school: slotSchool(slot),
+    rare: slotRare(slot),
+    body: slotBody(slot),
+    footer,
+  };
+}
+
+function gotContent(id: UpgradeId): PanelContent {
+  const def = getUpgradeDef(id);
+  return {
+    title: def.label,
+    school: def.school,
+    rare: def.rare === true,
+    body: def.description,
+    footer: "GOT IT!",
+  };
+}
+
+function panelCenter(slot: StoreSlot, freebie: StoreFreebie): { x: number; y: number } {
+  const slotX = (cellCenterX(slot.col) + cellCenterX(slot.col + 1)) / 2;
+  const slotY = (cellCenterY(slot.row) + cellCenterY(slot.row + 1)) / 2;
+  return {
+    x: (slotX + cellCenterX(freebie.col)) / 2,
+    y: (slotY + cellCenterY(freebie.row)) / 2,
+  };
+}
+
 export function createStoreOverlay(
   scene: Phaser.Scene,
   onChoose: (choice: "yes" | "no") => void,
   onSelect: (index: number) => void,
 ): StoreOverlay {
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
-  let hoveredSlot: number | null = null;
-  let toast: { content: PanelContent; remainingMs: number } | null = null;
+  let panels: Panel[] = [];
+  let freebieTile: Phaser.GameObjects.GameObject | null = null;
   let glows: (Phaser.GameObjects.Rectangle | null)[] = [];
   let glowElapsedMs = 0;
+  let gotIds: (UpgradeId | null)[] = [];
+  let pendingGot: UpgradeId | null = null;
 
-  const panelX = (PLAYFIELD_WIDTH + getActiveLayout().offsetX + getActiveLayout().pixelWidth) / 2;
-  const panelY = cellCenterY(Math.floor(getActiveLayout().rows / 2));
-  const panelBg = scene.add
-    .rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x101820)
-    .setStrokeStyle(2, TEXT_COLOR_YELLOW);
-  const panelTitle = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-  const panelWatermark = scene.add
-    .image(0, 0, "")
-    .setAlpha(SCHOOL_WATERMARK_ALPHA)
-    .setVisible(false);
-  const panelBody = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
-  const panelFooter = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-  const panel = scene.add
-    .container(panelX, panelY, [panelBg, panelWatermark, panelTitle, panelBody, panelFooter])
-    .setDepth(PANEL_DEPTH)
-    .setVisible(false);
-  const panelRare = createRareFxToggle(scene, panel, PANEL_WIDTH, PANEL_HEIGHT);
-
-  const dim = scene.add
-    .rectangle(
-      PLAYFIELD_WIDTH / 2,
-      PLAYFIELD_HEIGHT / 2,
-      PLAYFIELD_WIDTH,
-      PLAYFIELD_HEIGHT,
-      0x000000,
-      0.5,
-    )
-    .setDepth(MODAL_DEPTH)
-    .setVisible(false);
-  const modalBg = scene.add
-    .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
-    .setStrokeStyle(4, TEXT_COLOR_YELLOW);
-  const modalTitle = addPixelText(
-    scene,
-    0,
-    0,
-    "",
-    MENU_TITLE_FONT_SIZE,
-    TEXT_COLOR_YELLOW,
-  ).setCenterAlign();
-  const modalWatermark = scene.add
-    .image(0, 0, "")
-    .setAlpha(SCHOOL_WATERMARK_ALPHA)
-    .setVisible(false);
-  const modalBody = addPixelText(
-    scene,
-    0,
-    0,
-    "",
-    UPGRADES_HUD_FONT_SIZE,
-    TEXT_COLOR_WHITE,
-  ).setCenterAlign();
-  const modalCost = addPixelText(scene, 0, 0, "", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
-  const modalSure = addPixelText(scene, 0, 0, "SURE?", MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
-  const modalYes = addPixelText(scene, 0, 0, "YES", MENU_OPTION_FONT_SIZE);
-  const modalNo = addPixelText(scene, 0, 0, "NO", MENU_OPTION_FONT_SIZE);
-  placePixelText(modalSure, -70, 80, 0.5, 0.5);
-  placePixelText(modalYes, 10, 80, 0.5, 0.5);
-  placePixelText(modalNo, 70, 80, 0.5, 0.5);
-  for (const [text, choice] of [
-    [modalYes, "yes"],
-    [modalNo, "no"],
-  ] as const) {
-    text.setInteractive({ useHandCursor: true }).on("pointerdown", () => onChoose(choice));
-  }
-  const modal = scene.add
-    .container(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2, [
-      modalBg,
-      modalWatermark,
-      modalTitle,
-      modalBody,
-      modalCost,
-      modalSure,
-      modalYes,
-      modalNo,
-    ])
-    .setDepth(MODAL_DEPTH + 1)
-    .setVisible(false);
-  const modalRare = createRareFxToggle(scene, modal, BUTTON_WIDTH, BUTTON_HEIGHT);
-
-  const showModal = (prompt: StorePromptView | null, confirmYes: boolean): void => {
-    dim.setVisible(prompt !== null);
-    modal.setVisible(prompt !== null);
-    if (prompt === null) {
-      return;
+  const buildPanel = (x: number, y: number, index: number): Panel => {
+    const bg = scene.add.rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x101820);
+    const zone = scene.add
+      .zone(0, 0, PANEL_WIDTH, PANEL_HEIGHT)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => onSelect(index));
+    const watermark = scene.add.image(0, 0, "").setAlpha(SCHOOL_WATERMARK_ALPHA).setVisible(false);
+    const title = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+    const body = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
+    const footer = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+    const buy = addPixelText(scene, 0, 0, "BUY", MENU_OPTION_FONT_SIZE);
+    const neverMind = addPixelText(scene, 0, 0, "NEVER MIND", MENU_OPTION_FONT_SIZE);
+    placePixelText(buy, 0, BUY_Y, 0.5, 0.5);
+    placePixelText(neverMind, 0, NEVER_MIND_Y, 0.5, 0.5);
+    for (const [text, choice] of [
+      [buy, "yes"],
+      [neverMind, "no"],
+    ] as const) {
+      text.setInteractive({ useHandCursor: true }).on("pointerdown", () => onChoose(choice));
     }
-    const title = slotTitle(prompt.slot);
-    modalTitle.setText(wrapText(title, LABEL_MAX_CHARS));
-    modalTitle.setFontSize(
-      fitFontSize(title, BUTTON_WIDTH - MODAL_TITLE_MARGIN, MENU_TITLE_FONT_SIZE),
-    );
-    modalBody.setText(wrapText(slotBody(prompt.slot), DESCRIPTION_MAX_CHARS));
-    modalCost.setText(`COST ${prompt.price}`);
-    const school = slotSchool(prompt.slot);
-    modalBg.setStrokeStyle(4, schoolBorderColor(school));
-    modalRare(slotRare(prompt.slot), schoolBorderColor(school));
-    setSchoolWatermark(modalWatermark, school, BUTTON_WIDTH, BUTTON_HEIGHT);
-    stackTexts(
-      [
-        { text: modalTitle, gapBelow: CARD_DESCRIPTION_GAP },
-        { text: modalBody, gapBelow: CARD_DESCRIPTION_GAP },
-        { text: modalCost, gapBelow: 0 },
-      ],
-      -20,
-    );
-    modalYes.setTint(confirmYes ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
-    modalNo.setTint(confirmYes ? TEXT_COLOR_WHITE : TEXT_COLOR_YELLOW);
+    const root = scene.add
+      .container(x, y, [bg, zone, watermark, title, body, footer, buy, neverMind])
+      .setDepth(PANEL_DEPTH);
+    const rareFx = createRareFxToggle(scene, root, PANEL_WIDTH, PANEL_HEIGHT);
+    let shown = "";
+    return {
+      root,
+      show: (content) => {
+        const key = JSON.stringify(content);
+        if (key === shown) {
+          return;
+        }
+        shown = key;
+        bg.setStrokeStyle(2, schoolBorderColor(content.school));
+        rareFx(content.rare, schoolBorderColor(content.school));
+        const titleSize = fitFontSize(
+          content.title,
+          PANEL_WIDTH - 2 * PANEL_SIDE_PAD,
+          HUD_FONT_SIZE,
+        );
+        const budget = (fontSize: number, max: number): number =>
+          Math.min(max, wrapCharsForBox(PANEL_WIDTH, fontSize, PANEL_SIDE_PAD));
+        title.setText(wrapText(content.title, budget(titleSize, PANEL_TITLE_MAX_CHARS)));
+        title.setFontSize(titleSize);
+        body.setText(wrapText(content.body, budget(UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS)));
+        footer.setText(content.footer);
+        setSchoolWatermark(watermark, content.school, PANEL_WIDTH, PANEL_HEIGHT);
+        stackTextsFromTop(
+          [
+            { text: title, gapBelow: PANEL_ROW_GAP },
+            { text: body, gapBelow: PANEL_ROW_GAP },
+            { text: footer, gapBelow: 0 },
+          ],
+          -PANEL_HEIGHT / 2 + PANEL_TOP_PAD,
+        );
+      },
+      showChoice: (confirmYes) => {
+        buy.setVisible(confirmYes !== null);
+        neverMind.setVisible(confirmYes !== null);
+        buy.setTint(confirmYes === true ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+        neverMind.setTint(confirmYes === false ? TEXT_COLOR_YELLOW : TEXT_COLOR_WHITE);
+      },
+    };
   };
 
-  const showPanel = (content: PanelContent | null): void => {
-    panel.setVisible(content !== null);
-    if (content === null) {
-      return;
-    }
-    panelBg.setStrokeStyle(2, schoolBorderColor(content.school));
-    panelRare(content.rare, schoolBorderColor(content.school));
-    const titleSize = fitFontSize(content.title, PANEL_WIDTH - 2 * PANEL_SIDE_PAD, HUD_FONT_SIZE);
-    const panelBudget = (fontSize: number, max: number): number =>
-      Math.min(max, wrapCharsForBox(PANEL_WIDTH, fontSize, PANEL_SIDE_PAD));
-    const titleBudget = panelBudget(titleSize, PANEL_TITLE_MAX_CHARS);
-    const bodyBudget = panelBudget(UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS);
-    panelTitle.setText(wrapText(content.title, titleBudget));
-    panelTitle.setFontSize(titleSize);
-    panelBody.setText(wrapText(content.body, bodyBudget));
-    panelFooter.setText(content.footer);
-    setSchoolWatermark(panelWatermark, content.school, PANEL_WIDTH, PANEL_HEIGHT);
-    const rowGap = PANEL_ROW_GAP;
-    const topY = -PANEL_HEIGHT / 2 + PANEL_TOP_PAD;
-    stackTextsFromTop(
-      [
-        { text: panelTitle, gapBelow: rowGap },
-        { text: panelBody, gapBelow: rowGap },
-        { text: panelFooter, gapBelow: 0 },
-      ],
-      topY,
-    );
+  const buildFreebie = (freebie: StoreFreebie): Phaser.GameObjects.GameObject => {
+    const size = getActiveLayout().tileSize - 2;
+    const x = cellCenterX(freebie.col);
+    const y = cellCenterY(freebie.row);
+    const icon =
+      freebie.kind === "life"
+        ? addDotManIcon(scene, x, y, size)
+        : addQuarterIcon(scene, x, y, size);
+    return icon.setDepth(TILE_DEPTH);
   };
-
   const buildTile = (slot: StoreSlot, index: number): Phaser.GameObjects.Container => {
     const tile = getActiveLayout().tileSize;
     const size = tile * STORE_SLOT_SIZE;
@@ -333,9 +298,7 @@ export function createStoreOverlay(
       addQuarterIcon(scene, cx, coinY, TILE_COIN_PX),
     );
     let glyph: Phaser.GameObjects.GameObject;
-    if (slot.kind === "life") {
-      glyph = addDotManIcon(scene, 0, TILE_GLYPH_Y, tile - 2);
-    } else if (slot.kind === "swap") {
+    if (slot.kind === "swap") {
       const school = slotSchool(slot);
       const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
       glyph = addReverseIcon(scene, 0, TILE_GLYPH_Y, tile - 2).setTint(glyphColor);
@@ -359,14 +322,6 @@ export function createStoreOverlay(
     }
     const zone = scene.add.zone(0, 0, size, size).setInteractive({ useHandCursor: true });
     zone.on("pointerdown", () => onSelect(index));
-    zone.on("pointerover", () => {
-      hoveredSlot = index;
-    });
-    zone.on("pointerout", () => {
-      if (hoveredSlot === index) {
-        hoveredSlot = null;
-      }
-    });
     const glow = enhance
       ? scene.add.rectangle(0, 0, size + 4, size + 4, STORE_ENHANCE_BORDER_COLOR, 0.3)
       : null;
@@ -380,20 +335,31 @@ export function createStoreOverlay(
     return container;
   };
 
-  const clearTiles = (): void => {
+  const clear = (): void => {
     for (const tile of tiles) {
       tile?.destroy(true);
     }
+    for (const panel of panels) {
+      panel.root.destroy(true);
+    }
+    freebieTile?.destroy();
     tiles = [];
+    panels = [];
+    freebieTile = null;
     glows = [];
-    hoveredSlot = null;
+    gotIds = [];
+    pendingGot = null;
   };
 
   return {
     open: (state) => {
-      clearTiles();
-      toast = null;
+      clear();
       tiles = state.slots.map(buildTile);
+      panels = state.slots.map((slot, i) => {
+        const { x, y } = panelCenter(slot, state.freebie);
+        return buildPanel(x, y, i);
+      });
+      freebieTile = state.freebie.taken ? null : buildFreebie(state.freebie);
     },
     sync: (state, prompt, deltaMs) => {
       state.slots.forEach((slot, i) => {
@@ -402,66 +368,35 @@ export function createStoreOverlay(
           tile.destroy(true);
           tiles[i] = null;
           glows[i] = null;
-          if (hoveredSlot === i) {
-            hoveredSlot = null;
-          }
+          gotIds[i] = pendingGot;
+          pendingGot = null;
         }
       });
+      if (state.freebie.taken && freebieTile !== null) {
+        freebieTile.destroy();
+        freebieTile = null;
+      }
       glowElapsedMs += deltaMs;
       for (const glow of glows) {
         glow?.setAlpha(enhanceGlowAlpha(glowElapsedMs));
       }
-      if (toast !== null) {
-        toast.remainingMs -= deltaMs;
-        if (toast.remainingMs <= 0) {
-          toast = null;
-        }
-      }
-      const confirming = prompt?.kind === "confirm";
-      showModal(confirming ? prompt : null, state.confirmYes);
-      if (confirming) {
-        showPanel(null);
-      } else if (prompt !== null) {
-        showPanel({
-          title: slotTitle(prompt.slot),
-          school: slotSchool(prompt.slot),
-          rare: slotRare(prompt.slot),
-          body: slotBody(prompt.slot),
-          footer: promptFooter(prompt),
-        });
-      } else if (toast !== null) {
-        showPanel(toast.content);
-      } else if (hoveredSlot !== null) {
-        const slot = state.slots[hoveredSlot]!;
-        showPanel({
-          title: slotTitle(slot),
-          school: slotSchool(slot),
-          rare: slotRare(slot),
-          body: slotBody(slot),
-          footer: `COST ${slotPrice(slot)}`,
-        });
-      } else {
-        showPanel(null);
-      }
+      panels.forEach((panel, i) => {
+        const slot = state.slots[i]!;
+        const got = gotIds[i] ?? null;
+        const mode = storePanelMode(state, prompt, i);
+        const footer = slot.sold
+          ? "SOLD"
+          : mode === "info" && prompt !== null
+            ? promptFooter(prompt)
+            : `COST ${slotPrice(slot)}`;
+        panel.show(got !== null ? gotContent(got) : slotContent(slot, footer));
+        panel.showChoice(mode === "choosing" ? state.confirmYes : null);
+        panel.root.setAlpha(mode === "dimmed" ? PANEL_DIM_ALPHA : 1);
+      });
     },
     showPurchased: (id) => {
-      const def = getUpgradeDef(id);
-      toast = {
-        content: {
-          title: def.label,
-          school: def.school,
-          rare: def.rare === true,
-          body: def.description,
-          footer: "GOT IT!",
-        },
-        remainingMs: TOAST_MS,
-      };
+      pendingGot = id;
     },
-    destroy: () => {
-      clearTiles();
-      panel.destroy(true);
-      dim.destroy();
-      modal.destroy(true);
-    },
+    destroy: clear,
   };
 }
