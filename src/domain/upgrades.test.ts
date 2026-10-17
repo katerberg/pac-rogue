@@ -62,12 +62,14 @@ import {
   AFTERBURNER_MUL,
   AFTERBURNER_ENHANCED_MUL,
   EXTRA_HUNGRY_COUNT,
+  EXTRA_HUNGRY_ENHANCED_COUNT,
   FRUIT_QUARTERS,
   FRUIT_QUARTERS_ENHANCED,
   MONEY_TALKS_ENHANCED_QUARTERS,
   MONEY_TALKS_QUARTERS,
   FRUIT_FECUNDITY_MUL,
   CORNER_TELEPORT_HOLD_ENHANCED_MS,
+  CORNER_TELEPORT_HOLD_MS,
   SPEED_BURST_MS,
   WALL_PASS_MS,
   STORE_RARE_UPGRADE_PRICE,
@@ -773,10 +775,10 @@ describe("freeze / power pellet", () => {
 });
 
 describe("scatter burst / multi power-pellet effects", () => {
-  it("requests a corner teleport with no hold when Scatter Burst is owned", () => {
+  it("requests a corner teleport with a short hold when Scatter Burst is owned", () => {
     expect(applyPowerPelletEffects(createRunUpgrades(), 1).cornerTeleportHoldMs).toBeNull();
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletScatterBurst");
-    expect(applyPowerPelletEffects(owned, 1).cornerTeleportHoldMs).toBe(0);
+    expect(applyPowerPelletEffects(owned, 1).cornerTeleportHoldMs).toBe(CORNER_TELEPORT_HOLD_MS);
   });
 
   it("fires all owned power-pellet effects together", () => {
@@ -796,7 +798,7 @@ describe("scatter burst / multi power-pellet effects", () => {
     const result = applyPowerPelletEffects(state, 1);
     expect(result.state.freezeRemainingMs).toBe(0);
     expect(result.freezeClosestMs).toBe(FREEZE_MS);
-    expect(result.cornerTeleportHoldMs).toBe(0);
+    expect(result.cornerTeleportHoldMs).toBe(CORNER_TELEPORT_HOLD_MS);
     expect(result.state.invulnRemainingMs).toBe(INVULN_MS);
     expect(result.state.speedBurstRemainingMs).toBe(SPEED_BURST_MS);
     expect(result.state.wallPassRemainingMs).toBe(WALL_PASS_MS);
@@ -1497,7 +1499,9 @@ describe("enhanced upgrades", () => {
     expect(apply("powerPelletGhostHarvesterPlus").state.ghostHarvestRemainingMs).toBe(8000);
     expect(apply("passiveDefyDeathPlus").state.defyDeathRemainingMs).toBe(8000);
     expect(apply("powerPelletGhostRecallPlus").recallGhostCount).toBe(2);
-    expect(apply("powerPelletExtraHungryPlus").collectExtraPellets).toBe(10);
+    expect(apply("powerPelletExtraHungryPlus").collectExtraPellets).toBe(
+      EXTRA_HUNGRY_ENHANCED_COUNT,
+    );
     expect(apply("powerPelletWallPassPlus").state.wallPassRemainingMs).toBe(6000);
   });
 
