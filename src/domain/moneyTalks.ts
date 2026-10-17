@@ -29,7 +29,6 @@ function dollarCount(quarters: number): number {
   return quarters >= DOLLAR_MIN_QUARTERS ? Math.floor(quarters / DOLLAR_QUARTERS) : 0;
 }
 
-/** From `DOLLAR_MIN_QUARTERS` up, every 4 Quarters collapse into a dollar, drawn first. */
 export function quarterHudIcons(quarters: number): QuarterIconKind[] {
   const dollars = dollarCount(quarters);
   return [
@@ -38,7 +37,6 @@ export function quarterHudIcons(quarters: number): QuarterIconKind[] {
   ];
 }
 
-/** HUD slot drawing the `index`-th Quarter of `quarters` (a dollar covers four). */
 function quarterHudSlot(index: number, quarters: number): number {
   const dollars = dollarCount(quarters);
   const inDollars = dollars * DOLLAR_QUARTERS;
