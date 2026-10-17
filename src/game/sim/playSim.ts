@@ -1204,7 +1204,7 @@ export class PlaySim {
       this.runUpgrades = trackWallOccupancy(this.world, this.runUpgrades);
     };
     if (programmerPhase === "running") {
-      this.moveHyperspeed(delta, moveFrame, () => this.followProgrammer());
+      this.moveHyperspeed(delta, moveFrame, () => this.stepProgrammer());
     } else if (hyperspeedActive(this.runUpgrades)) {
       this.moveHyperspeed(delta, moveFrame, () => this.noteHyperspeedTurn());
     } else {
@@ -2736,7 +2736,7 @@ export class PlaySim {
     );
   }
 
-  private followProgrammer(): void {
+  private stepProgrammer(): void {
     this.runUpgrades = {
       ...this.runUpgrades,
       programmer: followProgrammer(this.world, this.runUpgrades.programmer, this.playerSolids()),

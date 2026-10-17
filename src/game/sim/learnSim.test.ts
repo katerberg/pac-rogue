@@ -919,6 +919,11 @@ describe("LearnSim upgrade demos", () => {
         presses: [],
         setsLeft: 0,
       });
+      const stoppedAt = posOf(player);
+      for (let frame = 0; frame < 20; frame += 1) {
+        sim.step(held(dir), FRAME_MS);
+      }
+      expect(posOf(player)).toEqual(stoppedAt);
     });
 
     it("does nothing without the upgrade, and toggling it off frees Maze-Man", () => {
