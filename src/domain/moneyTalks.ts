@@ -9,6 +9,8 @@ export const MONEY_TALKS_FADE_START = 0.6;
 export const QUARTER_HUD_LEFT = 12;
 const QUARTER_HUD_TOP = 8;
 const QUARTER_HUD_GAP = 4;
+export const QUARTER_PILE_SIZE = 5;
+const QUARTER_PILE_STEP_Y = 2;
 
 export type Point = { x: number; y: number };
 export type CoinLook = Point & { size: number; alpha: number };
@@ -21,15 +23,21 @@ export function lastLifeSaveCost(
   return cost !== null && lives <= 1 && quarters >= cost ? cost : null;
 }
 
-/** `left` is the row's left edge (default gutter); knobs mode shifts into the maze column. */
+/**
+ * Quarters stack in piles of `QUARTER_PILE_SIZE`; each pile's first coin sits lowest and later
+ * coins rise, so the newest draws on top. `left` is the row's left edge (default gutter); knobs
+ * mode shifts into the maze column.
+ */
 export function quarterHudIconPosition(
   index: number,
   size: number,
   left: number = QUARTER_HUD_LEFT,
 ): Point {
+  const pile = Math.floor(index / QUARTER_PILE_SIZE);
+  const inPile = index % QUARTER_PILE_SIZE;
   return {
-    x: left + size / 2 + index * (size + QUARTER_HUD_GAP),
-    y: QUARTER_HUD_TOP + size / 2,
+    x: left + size / 2 + pile * (size + QUARTER_HUD_GAP),
+    y: QUARTER_HUD_TOP + size / 2 + (QUARTER_PILE_SIZE - 1 - inPile) * QUARTER_PILE_STEP_Y,
   };
 }
 

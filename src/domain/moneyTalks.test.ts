@@ -24,13 +24,23 @@ describe("lastLifeSaveCost", () => {
 });
 
 describe("quarterHudIconPosition", () => {
-  it("lays icons left to right along the top HUD row", () => {
-    expect(quarterHudIconPosition(0, 10)).toEqual({ x: 17, y: 13 });
-    expect(quarterHudIconPosition(2, 10)).toEqual({ x: 45, y: 13 });
+  it("stacks a pile of five, first coin lowest and newest on top", () => {
+    expect(quarterHudIconPosition(0, 10)).toEqual({ x: 17, y: 21 });
+    expect(quarterHudIconPosition(2, 10)).toEqual({ x: 17, y: 17 });
+    expect(quarterHudIconPosition(4, 10)).toEqual({ x: 17, y: 13 });
+  });
+
+  it("starts the next pile one slot to the right", () => {
+    expect(quarterHudIconPosition(5, 10)).toEqual({ x: 31, y: 21 });
+    expect(quarterHudIconPosition(9, 10)).toEqual({ x: 31, y: 13 });
+  });
+
+  it("keeps 25 quarters within five pile widths", () => {
+    expect(quarterHudIconPosition(24, 16).x - quarterHudIconPosition(0, 16).x).toBe(4 * 20);
   });
 
   it("accepts a custom left edge for knobs mode", () => {
-    expect(quarterHudIconPosition(0, 10, 84)).toEqual({ x: 89, y: 13 });
+    expect(quarterHudIconPosition(0, 10, 84)).toEqual({ x: 89, y: 21 });
   });
 });
 
