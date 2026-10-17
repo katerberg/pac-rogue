@@ -115,11 +115,9 @@ export class StoreBot {
       return null;
     }
     const dist = bfs(grid, from);
-    const farthest = sim.storeState()?.freebie.taken === false;
     let best = tunnels[0]!;
     for (const cell of tunnels) {
-      const closer = dist[cell]! < dist[best]!;
-      if (dist[cell]! >= 0 && (dist[best]! < 0 || closer !== farthest)) {
+      if (dist[cell]! >= 0 && (dist[best]! < 0 || dist[cell]! < dist[best]!)) {
         best = cell;
       }
     }

@@ -466,7 +466,6 @@ export class LearnSim {
         this.world,
         frameDelta,
         playerSolidsOverride,
-        false,
         undefined,
         ghostsBlockedFromTunnels(this.learnUpgrades.owned),
         null,

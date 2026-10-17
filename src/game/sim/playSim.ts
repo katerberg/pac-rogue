@@ -1167,7 +1167,6 @@ export class PlaySim {
         this.world,
         frameDelta,
         playerSolidsOverride,
-        false,
         playerPreTurnPx(this.currentTuning),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
@@ -2041,15 +2040,15 @@ export class PlaySim {
         this.suppressInputUntilKeyRelease = false;
       }
       if (!this.suppressInputUntilKeyRelease) {
-        applyHeldKeys(this.world, input.keys, { diagonalAllowed: true, stopOnRelease: true });
+        applyHeldKeys(this.world, input.keys);
       }
     }
     applyPlayerSpeed(
       this.world,
-      speedLevelMultiplier(this.levelIndex, this.currentTuning),
+      confirming ? 0 : speedLevelMultiplier(this.levelIndex, this.currentTuning),
       this.currentTuning,
     );
-    movement(this.world, delta, undefined, true);
+    movement(this.world, delta, undefined, playerPreTurnPx(this.currentTuning));
 
     const cell = playerCell(this.world);
     const exit = cell && storeExitDirection(cell.col, cell.row, layout.cols, layout.rows);

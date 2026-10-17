@@ -34,7 +34,7 @@ const zeroRng = () => 0;
 
 function input(overrides: Partial<StoreStepInput>): StoreStepInput {
   return {
-    col: 15,
+    col: 14,
     row: 5,
     toggle: false,
     enter: false,
@@ -54,7 +54,7 @@ function stateWith(owned: readonly UpgradeId[]): StoreState {
 }
 
 describe("store layout", () => {
-  it("builds with no pellets and opens exits only at both ends of the spawn row", () => {
+  it("builds with no pellets and one exit, jogged off the spawn row on the right", () => {
     const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
     expect(layout.pelletCount).toBe(0);
     const borderOpen: string[] = [];
@@ -65,14 +65,16 @@ describe("store layout", () => {
       }
     }
     const row = layout.playerSpawn.row;
-    expect(borderOpen).toEqual([`0,${row}`, `${layout.cols - 1},${row}`]);
+    expect(borderOpen).toEqual([`${layout.cols - 1},${row + 3}`]);
+    expect(isWalkable(0, row, layout.playerSolids)).toBe(false);
+    expect(isWalkable(layout.cols - 1, row, layout.playerSolids)).toBe(false);
     activateLayout("maze1");
   });
 
   it("is single-file corridors with no ghost house", () => {
     const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
     expect(layout.house.flat().some(Boolean)).toBe(false);
-    const open = (col: number, row: number) => layout.walls[row]?.[col] === false;
+    const open = (col: number, row: number) => isWalkable(col, row, layout.playerSolids);
     const slots = parseStoreLayout(STORE_MAZE_ASCII).slots;
     const inSlot = (col: number, row: number) =>
       slots.some((s) => col >= s.col && col <= s.col + 1 && row >= s.row && row <= s.row + 1);
@@ -89,11 +91,11 @@ describe("store layout", () => {
     expect(parseStoreLayout(STORE_MAZE_ASCII)).toEqual({
       slots: [
         { kind: "upgrade", col: 1, row: 1 },
-        { kind: "upgrade", col: 28, row: 1 },
+        { kind: "upgrade", col: 26, row: 1 },
         { kind: "enhance", col: 1, row: 32 },
-        { kind: "swap", col: 28, row: 32 },
+        { kind: "swap", col: 26, row: 32 },
       ],
-      freebie: { col: 15, row: 17 },
+      freebie: { col: 14, row: 17 },
     });
   });
 
@@ -204,8 +206,8 @@ describe("createStoreState", () => {
   it("stocks a free life in the centre when there is life room, else a free quarter", () => {
     const freebie = (room: boolean) =>
       createStoreState(parseStoreLayout(STORE_MAZE_ASCII), [], zeroRng, false, room).freebie;
-    expect(freebie(true)).toEqual({ kind: "life", col: 15, row: 17, taken: false });
-    expect(freebie(false)).toEqual({ kind: "quarter", col: 15, row: 17, taken: false });
+    expect(freebie(true)).toEqual({ kind: "life", col: 14, row: 17, taken: false });
+    expect(freebie(false)).toEqual({ kind: "quarter", col: 14, row: 17, taken: false });
   });
 
   it("omits upgrade slots that cannot be filled", () => {
@@ -278,7 +280,7 @@ describe("purchaseSchool", () => {
 
 describe("storeStep", () => {
   const upgradeCell = { col: 2, row: 2 };
-  const swapCell = { col: 28, row: 32 };
+  const swapCell = { col: 26, row: 32 };
   const away = { col: 5, row: 1 };
 
   it("opens a NO-focused prompt on arrival, dismisses on NO, and re-opens after stepping off", () => {
@@ -349,7 +351,7 @@ describe("storeStep", () => {
   });
 
   it("hands over the centre freebie once on stepping onto it", () => {
-    const freebie = { col: 15, row: 17 };
+    const freebie = { col: 14, row: 17 };
     const step = storeStep(stateWith([]), input(freebie), zeroRng);
     expect(step.pickup).toBe("life");
     expect(step.purchase).toBeNull();
@@ -463,7 +465,7 @@ describe("storePanelMode", () => {
 
 describe("enhancement tile", () => {
   const enhanceCell = { col: 1, row: 32 };
-  const swapCell = { col: 28, row: 32 };
+  const swapCell = { col: 26, row: 32 };
 
   it("costs 2 and enhances its shown target", () => {
     const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
