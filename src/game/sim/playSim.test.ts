@@ -80,6 +80,7 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import { ECHO_DELAY_MS } from "../../domain/echo";
+import type { ProgramDir } from "../../domain/programmer";
 import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
@@ -100,6 +101,7 @@ import { Velocity } from "../components/Velocity";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
 import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
+import { IDLE_INPUT, type SimInput } from "./simInput";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
@@ -6337,5 +6339,227 @@ describe("power pellet break VFX", () => {
     expect(count(events, "startingUpgrade")).toBe(0);
     expect(sim.snapshot().layout).toBe("maze2");
     expect(sim.snapshot().upgrades).toHaveLength(0);
+  });
+});
+
+describe("Programmer", () => {
+  const STEP: Record<ProgramDir, { dx: number; dy: number }> = {
+    up: { dx: 0, dy: -1 },
+    down: { dx: 0, dy: 1 },
+    left: { dx: -1, dy: 0 },
+    right: { dx: 1, dy: 0 },
+  };
+  let pressClock = 1;
+
+  function start(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim(
+      { level: 2, maze: "maze1", godMode: true, enableUpgrades, ...overrides },
+      "programmer",
+    );
+  }
+
+  function chompPowerPellet(sim: PlaySim, input: Partial<SimInput> = {}): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1, input);
+  }
+
+  function press(sim: PlaySim, dir: ProgramDir): void {
+    pressClock += 1;
+    runFrames(sim, 1, { keys: { ...NO_KEYS_HELD, [dir]: pressClock } });
+  }
+
+  function cell(sim: PlaySim): { col: number; row: number } {
+    const eid = playerEid(sim);
+    return { col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) };
+  }
+
+  function openDirs(at: { col: number; row: number }): ProgramDir[] {
+    return (Object.keys(STEP) as ProgramDir[]).filter((dir) =>
+      canEnterDirection(cellCenterX(at.col), cellCenterY(at.row), STEP[dir].dx, STEP[dir].dy),
+    );
+  }
+
+  const PERPENDICULAR: Record<ProgramDir, ProgramDir[]> = {
+    up: ["left", "right"],
+    down: ["left", "right"],
+    left: ["up", "down"],
+    right: ["up", "down"],
+  };
+
+  function plannedRun(from: { col: number; row: number }): {
+    program: ProgramDir[];
+    turnCells: { col: number; row: number }[];
+  } {
+    const cols = getActiveLayout().cols;
+    let heading = openDirs(from)[0]!;
+    const program: ProgramDir[] = [heading];
+    const turnCells: { col: number; row: number }[] = [];
+    let at = from;
+    for (let tiles = 0; program.length < 5 && tiles < 200; tiles += 1) {
+      at = { col: (at.col + STEP[heading].dx + cols) % cols, row: at.row + STEP[heading].dy };
+      const turn = PERPENDICULAR[heading].find((dir) => openDirs(at).includes(dir));
+      if (turn !== undefined) {
+        program.push(turn);
+        turnCells.push(at);
+        heading = turn;
+      }
+    }
+    return { program, turnCells };
+  }
+
+  function runVisitingCells(sim: PlaySim): string[] {
+    const visited: string[] = [];
+    for (let ms = 0; sim.snapshot().timers.programmer !== null && ms < 4000; ms += 2) {
+      sim.step(IDLE_INPUT, 2);
+      const key = `${cell(sim).col},${cell(sim).row}`;
+      if (visited.at(-1) !== key) {
+        visited.push(key);
+      }
+    }
+    return visited;
+  }
+
+  it("does nothing without the upgrade", () => {
+    const sim = start([]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.programmer).toBeNull();
+    expect(sim.renderOptions().programmerQueue).toBeNull();
+  });
+
+  it("stops you on a power pellet and ignores held keys until five presses are in", () => {
+    const sim = start(["powerPelletProgrammer"]);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const dir = openDirs({
+      col: worldToCol(Position.x[power]!),
+      row: worldToRow(Position.y[power]!),
+    })[0]!;
+    chompPowerPellet(sim, { keys: held(dir) });
+    const stoppedAt = cell(sim);
+    const eid = playerEid(sim);
+    expect(Position.x[eid]).toBe(cellCenterX(stoppedAt.col));
+    expect(sim.snapshot().timers.programmer).toEqual({
+      phase: "recording",
+      presses: [],
+      setsLeft: 0,
+    });
+    runFrames(sim, 30, { keys: held(dir) });
+    expect(cell(sim)).toEqual(stoppedAt);
+    expect(sim.snapshot().timers.programmer).toMatchObject({ presses: [] });
+
+    for (let i = 0; i < 4; i += 1) {
+      press(sim, dir);
+    }
+    expect(cell(sim)).toEqual(stoppedAt);
+    expect(sim.snapshot().timers.programmer).toMatchObject({
+      phase: "recording",
+      presses: [dir, dir, dir, dir],
+    });
+    expect(sim.renderOptions().programmerQueue?.map((slot) => slot.dir)).toEqual([
+      dir,
+      dir,
+      dir,
+      dir,
+      null,
+    ]);
+  });
+
+  it("runs the program at hyperspeed, turning at each intersection, then hands control back", () => {
+    const sim = start(["powerPelletProgrammer"]);
+    chompPowerPellet(sim);
+    const { program, turnCells } = plannedRun(cell(sim));
+    expect(turnCells).toHaveLength(4);
+    for (const dir of program) {
+      press(sim, dir);
+    }
+    expect(sim.snapshot().timers.programmer?.phase).toBe("running");
+    const runningSpeed = Speed.px[playerEid(sim)]!;
+    const visited = runVisitingCells(sim);
+    expect(sim.snapshot().timers.programmer).toBeNull();
+    const turnIndexes = turnCells.map((at) => visited.indexOf(`${at.col},${at.row}`));
+    expect(turnIndexes.every((index) => index >= 0)).toBe(true);
+    expect([...turnIndexes].sort((a, b) => a - b)).toEqual(turnIndexes);
+    const plain = start([]);
+    runFrames(plain, 2, { keys: held(program[0]!) });
+    expect(runningSpeed).toBeGreaterThan(Speed.px[playerEid(plain)]! * 9);
+  });
+
+  it("skips a blocked press and takes the next one at the same intersection", () => {
+    const sim = start(["powerPelletProgrammer"]);
+    chompPowerPellet(sim);
+    const { program, turnCells } = plannedRun(cell(sim));
+    const blocked = PERPENDICULAR[program[0]!].find(
+      (dir) => !openDirs(turnCells[0]!).includes(dir),
+    );
+    expect(blocked).toBeDefined();
+    for (const dir of [program[0]!, blocked!, program[1]!, program[2]!, program[3]!]) {
+      press(sim, dir);
+    }
+    const visited = runVisitingCells(sim);
+    const turnIndexes = turnCells.slice(0, 3).map((at) => visited.indexOf(`${at.col},${at.row}`));
+    expect(turnIndexes.every((index) => index >= 0)).toBe(true);
+    expect([...turnIndexes].sort((a, b) => a - b)).toEqual(turnIndexes);
+  });
+
+  it("a power pellet eaten mid-run starts programming over", () => {
+    const sim = start(["powerPelletProgrammer"]);
+    chompPowerPellet(sim);
+    const dir = openDirs(cell(sim))[0]!;
+    for (let i = 0; i < 5; i += 1) {
+      press(sim, dir);
+    }
+    expect(sim.snapshot().timers.programmer?.phase).toBe("running");
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.programmer).toEqual({
+      phase: "recording",
+      presses: [],
+      setsLeft: 0,
+    });
+  });
+
+  it("Plus: after the first set, stops you again for a second set of five", () => {
+    const sim = start(["powerPelletProgrammerPlus"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.programmer).toMatchObject({ setsLeft: 1 });
+    const dir = openDirs(cell(sim))[0]!;
+    for (let i = 0; i < 5; i += 1) {
+      press(sim, dir);
+    }
+    runUntil(sim, () => sim.snapshot().timers.programmer?.phase === "recording", 240);
+    expect(sim.snapshot().timers.programmer).toEqual({
+      phase: "recording",
+      presses: [],
+      setsLeft: 0,
+    });
+    const stoppedAt = cell(sim);
+    runFrames(sim, 20);
+    expect(cell(sim)).toEqual(stoppedAt);
+  });
+
+  it("with Hyperspeed also owned, still stops you and runs turns without the beat", () => {
+    const sim = start(["powerPelletProgrammer", "powerPelletHyperspeed"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(0);
+    runFrames(sim, 5);
+    expect(Speed.px[playerEid(sim)]).toBe(0);
+    const { program } = plannedRun(cell(sim));
+    for (const dir of program) {
+      press(sim, dir);
+    }
+    for (let frame = 0; sim.snapshot().timers.programmer !== null && frame < 240; frame += 1) {
+      runFrames(sim, 1);
+      expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBe(0);
+    }
+    expect(sim.snapshot().timers.programmer).toBeNull();
+  });
+
+  it("a catch while programming clears it", () => {
+    const sim = start(["powerPelletProgrammer"], { godMode: false, infiniteLives: true });
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.programmer).not.toBeNull();
+    ghostOntoPlayer(sim);
+    runUntil(sim, () => sim.snapshot().dying, 10);
+    runUntil(sim, () => !sim.snapshot().dying, 600);
+    expect(sim.snapshot().timers.programmer).toBeNull();
   });
 });

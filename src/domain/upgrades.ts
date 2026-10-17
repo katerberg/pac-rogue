@@ -9,6 +9,7 @@ import {
 } from "./hunter";
 import { levelScaledDurationMs } from "./levelScaledDuration";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
+import { PROGRAMMER_ENHANCED_SETS, startProgrammer, type ProgrammerState } from "./programmer";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
 import { WALL_DROP_MS, type DroppedWall, type WallDropSpot } from "./wallDrop";
 
@@ -62,7 +63,8 @@ export type BaseUpgradeId =
   | "powerPelletHyperspeed"
   | "passiveShieldBreak"
   | "powerPelletCornucopia"
-  | "powerPelletWallDrop";
+  | "powerPelletWallDrop"
+  | "powerPelletProgrammer";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -161,6 +163,7 @@ export type UpgradeEffects = {
     cornucopiaFruit?: true;
     cornucopiaAlongside?: true;
     armWallDrop?: true;
+    programmerSets?: number;
   };
 };
 
@@ -918,6 +921,21 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { armWallDrop: true },
   },
+  {
+    id: "powerPelletProgrammer",
+    label: "Programmer",
+    school: "automation",
+    description: "Power pellet: stop and program 5 turns, then blast through them at hyperspeed.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    enhanced: {
+      enhanceNote: "Programmer gives you a second set of 5 turns after the first.",
+      description:
+        "Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more.",
+      onPowerPellet: { programmerSets: PROGRAMMER_ENHANCED_SETS },
+    },
+    onPowerPellet: { programmerSets: 1 },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1095,6 +1113,7 @@ export type RunUpgrades = {
   ghostsEatenThisFright: number;
   wallDropArmed: boolean;
   droppedWall: DroppedWall | null;
+  programmer: ProgrammerState | null;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -1109,6 +1128,7 @@ export type PowerPelletApplyResult = {
   collectExtraPellets: number;
   frightenGhosts: boolean;
   cornucopiaFruit: CornucopiaMode | null;
+  programmerStarted: boolean;
 };
 
 export const NO_FRIGHT: Pick<
@@ -1141,6 +1161,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     ...NO_FRIGHT,
     wallDropArmed: false,
     droppedWall: null,
+    programmer: null,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -1389,6 +1410,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     ...NO_FRIGHT,
     wallDropArmed: false,
     droppedWall: null,
+    programmer: null,
   };
 }
 
@@ -1613,6 +1635,7 @@ export function applyPowerPelletEffects(
       collectExtraPellets: 0,
       frightenGhosts: false,
       cornucopiaFruit: null,
+      programmerStarted: false,
     };
   }
 
@@ -1632,6 +1655,7 @@ export function applyPowerPelletEffects(
   let frightenMs: number | null = null;
   let cornucopiaFruit: CornucopiaMode | null = null;
   let armWallDrop = false;
+  let programmerSets = 0;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1708,6 +1732,9 @@ export function applyPowerPelletEffects(
     if (onPower.armWallDrop) {
       armWallDrop = true;
     }
+    if (onPower.programmerSets !== undefined) {
+      programmerSets = Math.max(programmerSets, onPower.programmerSets);
+    }
     if (onPower.frightenGhostsMs !== undefined) {
       const ms = hunterFrightenedMs(
         onPower.frightenGhostsMs,
@@ -1768,6 +1795,9 @@ export function applyPowerPelletEffects(
   if (armWallDrop) {
     next = { ...next, wallDropArmed: true };
   }
+  if (programmerSets > 0) {
+    next = { ...next, programmer: startProgrammer(programmerSets) };
+  }
 
   return {
     state: next,
@@ -1778,6 +1808,7 @@ export function applyPowerPelletEffects(
     collectExtraPellets,
     frightenGhosts: frightenMs !== null,
     cornucopiaFruit,
+    programmerStarted: programmerSets > 0,
   };
 }
 

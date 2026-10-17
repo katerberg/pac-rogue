@@ -28,7 +28,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 LEARN feeds its `RunUpgrades` straight into the same domain and system functions as `PlaySim` (`applyPowerPelletEffects`, `freezeClosestGhost`, ...), not a reimplementation. Toggling a row calls `grantUpgrade` / `revokeUpgrade` and clears only timers whose effect fields nothing selected still owns (`clearStaleUpgradeTimers`).
 
-Rules for new upgrades: reuse the shared helper so LEARN gets it for free; if a new effect needs state LEARN lacks (store, lives, house release), say so in code and add the id to `LEARN_NO_EFFECT_UPGRADE_IDS` if nothing is visible. School Specialists are not listed in LEARN.
+Rules for new upgrades: every upgrade works in LEARN in the same PR. Reuse the shared helper so LEARN gets it for free, and put per-frame driving (input, steering) in a `src/game/systems` function both sims call. Only an effect that needs state LEARN lacks (store, lives, respawn) may go in `LEARN_NO_EFFECT_UPGRADE_IDS`, and only if nothing is visible. School Specialists are not listed in LEARN.
 
 Known simplifications (everything else is a reuse of play code):
 

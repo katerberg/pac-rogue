@@ -67,6 +67,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `passiveShieldBreak` | Shield Break (rare) | protection | When a shield breaks, fire all power pellet effects. Power pellet effects no longer trigger at pickup. | When a shield breaks, fire all power pellet effects. Getting a shield at your maximum fires them too. |
 | `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a bonus fruit, if none is out. | Power pellet: spawns a bonus fruit even if there are others. |
 | `powerPelletWallDrop` | Wall Drop | protection | Power pellet: your next reversal drops a wall behind you for 8s. | Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it. |
+| `powerPelletProgrammer` | Programmer (rare) | automation | Power pellet: stop and program 5 turns, then blast through them at hyperspeed. | Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more. |
 
 ## Power pellets
 
@@ -98,6 +99,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 
 - **Timers** are separate and combine by "max wins": freeze (cyan tint on one ghost, zero speed, catch skip), Ghost Proof (gold tint, catch skip, ghosts keep moving), Defy Death (shares the gold tint; does not skip kills), wall pass (its tint wins). All clear on level advance and life-loss reset. Expiry while overlapping a ghost can kill on the same update.
 - **Shields** are a banked count, not a timer: they survive timer clears, empty on level advance, and clamp to the cap when the upgrade is lost.
+- **Programmer** owns player movement while it runs (`src/domain/programmer.ts`): held keys only record presses, then the run uses Hyperspeed's multiplier and sub-stepped pickups and catches, without its turn beat.
 - **Speed**: `applyPlayerSpeed` / `applyGhostSpeed` in `PlaySim` combine the level ramp, owned multipliers, cell-based multipliers and active bursts every frame. Boss ghosts use a flat base.
 - **Catch order**: shield break, then Death's Harvest, then Defy Death, then Money Talks, then death. A break or save is not a death (no life lost, `deathsThisBoard` unchanged where the code says so).
 - **Boss level**: Lazy Looper is off; boss pellets are never optional.
