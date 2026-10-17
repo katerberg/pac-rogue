@@ -23,11 +23,7 @@ export function lastLifeSaveCost(
   return cost !== null && lives <= 1 && quarters >= cost ? cost : null;
 }
 
-/**
- * Quarters stack in piles of `QUARTER_PILE_SIZE`; each pile's first coin sits lowest and later
- * coins rise, so the newest draws on top. `left` is the row's left edge (default gutter); knobs
- * mode shifts into the maze column.
- */
+/** `left` is the row's left edge (default gutter); knobs mode shifts into the maze column. */
 export function quarterHudIconPosition(
   index: number,
   size: number,
