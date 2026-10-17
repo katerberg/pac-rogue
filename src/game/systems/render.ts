@@ -310,9 +310,10 @@ export function addGhostIcon(
   const image = scene.add.image(x, y, textureKey);
   placeCroppedGhostBody(image, x, y, size);
   const skirt = scene.add.graphics();
-  fillGhostSkirt(skirt, x, y, size, 0, skirtBaseColor(scene, textureKey));
+  const color = skirtBaseColor(scene, textureKey);
+  fillGhostSkirt(skirt, x, y, size, 0, color);
   if (drawableId === BLINKY_DRAWABLE_ID) {
-    fillGhostHorns(scene.add.graphics(), x, y, size, 0, skirtBaseColor(scene, textureKey));
+    fillGhostHorns(scene.add.graphics(), x, y, size, 0, color);
   }
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
