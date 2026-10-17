@@ -522,9 +522,9 @@ export type RenderOptions = {
   charms?: readonly Charm[];
 };
 
-const CHARM_SIZE_MUL = 0.125;
-const CHARM_LINK_MUL = 0.1875;
-const CHARM_ANCHOR_BACK_MUL = 0.1;
+const CHARM_SIZE_MUL = 0.4;
+const CHARM_LINK_MUL = 0.38;
+const CHARM_ANCHOR_BACK_MUL = 0.45;
 const CHARM_DEPTH = -0.5;
 const CHARM_BASE_ALPHA = 0.85;
 const CHARM_BASE_TINT = 0xc4c4c4;
