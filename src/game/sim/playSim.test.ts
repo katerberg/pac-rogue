@@ -34,7 +34,7 @@ import {
   worldToRow,
 } from "../../domain/maze";
 import { speedLevelMultiplier } from "../../domain/levelRules";
-import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
+import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
@@ -6196,5 +6196,11 @@ describe("power pellet break VFX", () => {
     expect(sim.snapshot().powerPelletBreaks).toHaveLength(1);
     (sim as unknown as { enterStore(): void }).enterStore();
     expect(sim.snapshot().powerPelletBreaks).toEqual([]);
+  });
+
+  it("plays a pasted custom maze as the first board", () => {
+    const sim = startSim({ mazeAscii: CLASSIC_MAZE_ASCII });
+    expect(getActiveLayout().ascii).toBe(CLASSIC_MAZE_ASCII);
+    expect(sim.snapshot().layout).toBe("custom");
   });
 });

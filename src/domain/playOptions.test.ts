@@ -41,6 +41,7 @@ describe("parsePlayOptions", () => {
     expect(options).toEqual({
       seed: "abc",
       maze: "maze1" as const,
+      mazeAscii: null,
       level: 4,
       quarters: 3,
       bonus: 120,

@@ -132,7 +132,6 @@ import {
   horizontalTunnelRows,
   worldToCol,
   worldToRow,
-  type MazeLayoutId,
 } from "../../domain/maze";
 import {
   pickTimedTunnelRow,
@@ -162,6 +161,7 @@ import {
   type SpeedZoneEffect,
 } from "../../domain/speedZones";
 import {
+  type BoardOverride,
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
   invertMazeAscii,
@@ -578,7 +578,7 @@ export class PlaySim {
     this.grantSpecialistLives();
     this.recordSeenUpgrades();
 
-    this.startBoard(options.maze);
+    this.startBoard(options.mazeAscii !== null ? { ascii: options.mazeAscii } : options.maze);
 
     const startingUpgrade =
       this.levelIndex === 1 &&
@@ -2170,7 +2170,7 @@ export class PlaySim {
     });
   }
 
-  private startBoard(layoutOverride: MazeLayoutId | number | null = null): void {
+  private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
@@ -2183,6 +2183,8 @@ export class PlaySim {
     if (selection.kind === "static") {
       activateLayout(selection.id);
       layoutLabel = selection.id;
+    } else if (selection.kind === "custom") {
+      layoutLabel = this.activateRunAscii(selection.ascii, "custom");
     } else if (selection.kind === "pool") {
       const map = mazePoolMap(selection.index);
       if (map) {
