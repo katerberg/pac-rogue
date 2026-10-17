@@ -1525,10 +1525,11 @@ describe("PlaySim", () => {
       const sim = startSim({ store: 1, quarters: 0 });
       runFrames(sim, 1);
       const start = sim.snapshot().player!;
-      runFrames(sim, 10, { keys: { ...held("up"), right: 0 } });
+      runFrames(sim, 10, { keys: { ...held("up"), right: 5 } });
       const moved = sim.snapshot().player!;
-      expect(["up", "right"]).toContain(moved.facing);
-      expect(moved.x === start.x || moved.y === start.y).toBe(true);
+      expect(moved.facing).toBe("right");
+      expect(moved.y).toBe(start.y);
+      expect(moved.x).toBeGreaterThan(start.x);
     });
 
     it("runs at the level's own speed, before speed upgrades", () => {
