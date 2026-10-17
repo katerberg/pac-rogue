@@ -25,8 +25,19 @@ export function charmsFor(owned: readonly UpgradeId[]): Charm[] {
   });
 }
 
+export const CHARM_SIZE_WORLD_PX = 14;
+
+export const CHARM_TAIL_LAYOUT: TailLayout = {
+  linkPx: CHARM_SIZE_WORLD_PX * 1.1,
+  anchorBackPx: 11,
+};
+
 export function charmArtPath(school: UpgradeSchool): string {
   return `art/schools/${school}.png`;
+}
+
+export function charmTextureKey(school: UpgradeSchool): string {
+  return `charm-${school}`;
 }
 
 function behind(anchor: TailAnchor, backPx: number): { x: number; y: number } {

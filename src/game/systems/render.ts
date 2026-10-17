@@ -40,7 +40,7 @@ import {
   type HeadingStep,
   type VisorPose,
 } from "../../domain/dotManHeading";
-import { padTextureWithGutter, renderScaleOf } from "../renderScale";
+import { padTextureWithGutter } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -99,10 +99,13 @@ import {
   nextSkirtWaveSign,
 } from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
-import { schoolArtTextureKey } from "../../domain/schoolArt";
+import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
 import {
   bobbleOffset,
+  CHARM_SIZE_WORLD_PX,
+  CHARM_TAIL_LAYOUT,
   charmArtPath,
+  charmTextureKey,
   layoutTail,
   stepTail,
   type Charm,
@@ -158,7 +161,7 @@ type PlayerVisual = {
 };
 
 function isActorTextureKey(key: string): boolean {
-  return key.startsWith("dotman-") || key.startsWith("ghost-");
+  return key.startsWith("dotman-") || key.startsWith("ghost-") || key.startsWith("charm-");
 }
 
 function pelletTextureKey(drawableId: string): string {
@@ -445,7 +448,11 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
     scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
   }
   for (const school of UPGRADE_SCHOOL_ORDER) {
-    scene.load.image(schoolArtTextureKey(school), charmArtPath(school));
+    const path = schoolArtPath(school);
+    if (path !== null) {
+      scene.load.image(schoolArtTextureKey(school), path);
+    }
+    scene.load.image(charmTextureKey(school), charmArtPath(school));
   }
 }
 
@@ -522,9 +529,6 @@ export type RenderOptions = {
   charms?: readonly Charm[];
 };
 
-const CHARM_ART_SIZE_PX = 16;
-const CHARM_LINK_MUL = 1.1;
-const CHARM_ANCHOR_BACK_MUL = 0.45;
 const CHARM_DEPTH = -0.5;
 const CHARM_BASE_ALPHA = 0.85;
 const CHARM_BASE_TINT = 0xc4c4c4;
@@ -901,13 +905,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       dtMs: number,
       keyPrefix: string,
     ): void => {
-      const canvasPx = 1 / renderScaleOf(scene);
-      const charmSize = CHARM_ART_SIZE_PX * canvasPx;
-      const snap = (v: number): number => Math.round(v / canvasPx) * canvasPx;
-      const layout = {
-        linkPx: charmSize * CHARM_LINK_MUL,
-        anchorBackPx: body.displayWidth * CHARM_ANCHOR_BACK_MUL,
-      };
+      const layout = CHARM_TAIL_LAYOUT;
+      const charmSize = CHARM_SIZE_WORLD_PX;
       const pose = { x: anchor.x, y: anchor.y, heading: visual.angle };
       visual.tail =
         visual.tail.length === charms.length
@@ -931,8 +930,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           return;
         }
         const sway = bobbleOffset(i, now, layout.linkPx, speedFactor);
-        const cx = snap(bead.x + perpX * sway);
-        const cy = snap(bead.y + perpY * sway);
+        const cx = bead.x + perpX * sway;
+        const cy = bead.y + perpY * sway;
         tailGraphics.lineTo(cx, cy);
         const place = (
           key: string,
@@ -943,10 +942,10 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           alive.add(key);
           let image = drawableObjects.get(key);
           if (!image) {
-            image = scene.add.image(cx, cy, schoolArtTextureKey(charm.school));
+            image = scene.add.image(cx, cy, charmTextureKey(charm.school));
             drawableObjects.set(key, image);
           }
-          image.setTexture(schoolArtTextureKey(charm.school));
+          image.setTexture(charmTextureKey(charm.school));
           image.setPosition(cx, cy);
           image.setDisplaySize(size, size);
           image.setAlpha(alpha * body.alpha);
