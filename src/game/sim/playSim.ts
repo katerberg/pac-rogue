@@ -65,7 +65,8 @@ import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTal
 import { interestCoinsShown, type InterestPop } from "../../domain/interest";
 import {
   createFruitPresence,
-  cornucopiaMaySpawn,
+  cornucopiaSpawnDecision,
+  mergeCornucopiaMode,
   extendFruitLifetime,
   fruitStackCenter,
   markFruitCollected,
@@ -310,6 +311,7 @@ import {
   type UpgradeId,
   type UpgradeSchool,
   remoteTransferEvery,
+  type CornucopiaMode,
 } from "../../domain/upgrades";
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
@@ -493,6 +495,8 @@ export class PlaySim {
     previousLevelFirstKind: null,
   };
   private cornucopiaFruit: { eid: number; ms: number }[] = [];
+  private msSinceFruitSpawn = Infinity;
+  private pendingCornucopia: CornucopiaMode | null = null;
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private secondChompUsed = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
@@ -1397,6 +1401,8 @@ export class PlaySim {
     }
 
     const stacksFruit = fruitStacksSideBySide(this.effectiveUpgrades());
+    this.msSinceFruitSpawn += Math.max(0, delta);
+    this.flushPendingCornucopia();
     this.tickCornucopiaFruit(delta);
     const fruitTick = tickFruitPresence(
       this.fruitPresence,
@@ -3238,6 +3244,16 @@ export class PlaySim {
 
   private resetCornucopiaFruit(): void {
     this.cornucopiaFruit = [];
+    this.pendingCornucopia = null;
+  }
+
+  private flushPendingCornucopia(): void {
+    if (this.pendingCornucopia === null) {
+      return;
+    }
+    const mode = this.pendingCornucopia;
+    this.pendingCornucopia = null;
+    this.spawnCornucopiaFruit(mode);
   }
 
   private noteFruitRemoved(eids: readonly number[]): void {
@@ -3280,13 +3296,19 @@ export class PlaySim {
     return rolled.kind;
   }
 
-  private spawnCornucopiaFruit(mode: "solo" | "alongside"): void {
+  private spawnCornucopiaFruit(mode: CornucopiaMode): void {
     const onBoard = fruitPositions(this.world);
+    const decision = cornucopiaSpawnDecision(mode, onBoard.length, this.msSinceFruitSpawn);
+    if (decision === "defer") {
+      this.pendingCornucopia = mergeCornucopiaMode(this.pendingCornucopia, mode);
+      return;
+    }
     const at = fruitStackCenter(onBoard);
-    if (at === null || !cornucopiaMaySpawn(mode, onBoard.length)) {
+    if (decision === "skip" || at === null) {
       return;
     }
     const kind = this.rollFruitKind();
+    this.msSinceFruitSpawn = 0;
     this.cornucopiaFruit.push({
       eid: spawnFruit(this.world, kind, at),
       ms: this.currentTuning.fruitLifetimeMs * fruitLifetimeMultiplier(this.effectiveUpgrades()),
@@ -3298,6 +3320,7 @@ export class PlaySim {
     if (!stack) {
       this.clearFruitEntities(true);
       const kind = this.rollFruitKind();
+      this.msSinceFruitSpawn = 0;
       spawnFruit(this.world, kind, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
       this.recorder.fruitSpawned(kind);
       return;
@@ -3305,6 +3328,7 @@ export class PlaySim {
     const center = fruitStackCenter(fruitPositions(this.world));
     if (center !== null) {
       const kind = this.rollFruitKind();
+      this.msSinceFruitSpawn = 0;
       spawnFruit(this.world, kind, center);
       this.recorder.fruitSpawned(kind);
     } else if (fruitPositions(this.world).length === 0) {

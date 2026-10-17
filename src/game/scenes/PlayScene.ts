@@ -135,7 +135,7 @@ export class PlayScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradeLines: Phaser.GameObjects.BitmapText[] = [];
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
-  private lifeIcons: Phaser.GameObjects.Image[] = [];
+  private lifeIcons: Phaser.GameObjects.Container[] = [];
   private shieldIcons: Phaser.GameObjects.Rectangle[] = [];
   private shieldCrackHalves: Phaser.GameObjects.Rectangle[] = [];
   private powerPelletBreakFx!: PowerPelletBreakFx;
@@ -833,7 +833,7 @@ export class PlayScene extends Phaser.Scene {
     return PLAYFIELD_HEIGHT - 8 - playerDisplaySize() / 2;
   }
 
-  private pulseHudIcon(icon: Phaser.GameObjects.Image): void {
+  private pulseHudIcon(icon: Phaser.GameObjects.Image | Phaser.GameObjects.Container): void {
     const baseScale = icon.scaleX;
     this.tweens.add({
       targets: icon,

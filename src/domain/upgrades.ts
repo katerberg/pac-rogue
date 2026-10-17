@@ -896,7 +896,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Cornucopia spawns a fruit on every power pellet, even if a fruit is out.",
-      description: "Power pellet: always spawns a bonus fruit, even beside others.",
+      description: "Power pellet: spawns a bonus fruit even if there are others.",
       onPowerPellet: { cornucopiaFruit: true, cornucopiaAlongside: true },
     },
     onPowerPellet: { cornucopiaFruit: true },
@@ -1157,10 +1157,12 @@ export function parseUpgradeId(raw: string | null): UpgradeId | null {
 
 export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
   const ids: UpgradeId[] = [];
-  for (const raw of params.getAll("enableUpgrade")) {
-    const id = parseUpgradeId(raw);
-    if (id !== null) {
-      ids.push(id);
+  for (const raw of [...params.getAll("enableUpgrade"), ...params.getAll("enableUpgrades")]) {
+    for (const part of raw.split(",")) {
+      const id = parseUpgradeId(part.trim());
+      if (id !== null) {
+        ids.push(id);
+      }
     }
   }
   return ids;

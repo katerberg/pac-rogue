@@ -29,11 +29,17 @@ import { pixelWallRects } from "../../domain/pixelWall";
 import { sameWallStyle, wallStyleFor, type WallStyle } from "../../domain/wallStyle";
 import {
   advanceDotManChomp,
-  DOTMAN_CHOMP_PIXEL_FRAMES,
   DOTMAN_CHOMP_PIXELS_PER_FRAME,
   dotManChompPixelsPerFrame,
+  dotManVisorLift,
 } from "../../domain/dotManMouth";
-import { headingAngle, stepHeading, type HeadingStep } from "../../domain/dotManHeading";
+import {
+  headingAngle,
+  stepHeading,
+  visorPose,
+  type HeadingStep,
+  type VisorPose,
+} from "../../domain/dotManHeading";
 import { padTextureWithGutter } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -127,7 +133,9 @@ const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
 const BOSS_PELLET_MIN_ALPHA = 0.6;
-const OPEN_MOUTH_FRAME = DOTMAN_CHOMP_PIXEL_FRAMES[0];
+const DOTMAN_BODY_TEXTURE_KEY = "dotman-body";
+const DOTMAN_VISOR_TEXTURE_KEY = "dotman-visor";
+const DOTMAN_ART_SIZE_PX = 16;
 type PlayerVisual = {
   targetAngle: number;
   angle: number;
@@ -136,18 +144,11 @@ type PlayerVisual = {
   cycleIndex: number;
   lastX: number;
   lastY: number;
-  textureKey: string;
 };
 
-function pacmanTextureKey(frame: number): string {
-  return `pacman-${frame}`;
-}
-
 function isActorTextureKey(key: string): boolean {
-  return key.startsWith("pacman-") || key.startsWith("ghost-");
+  return key.startsWith("dotman-") || key.startsWith("ghost-");
 }
-
-export const PLAYER_OPEN_MOUTH_TEXTURE_KEY = pacmanTextureKey(OPEN_MOUTH_FRAME);
 
 function pelletTextureKey(drawableId: string): string {
   return drawableId === POWER_PELLET_DRAWABLE_ID ? POWER_PELLET_TEXTURE_KEY : PELLET_TEXTURE_KEY;
@@ -199,7 +200,7 @@ function strokeWallPath(
 
 function textureKeyForDrawable(drawableId: string): string {
   if (drawableId === PLAYER_DRAWABLE_ID) {
-    return PLAYER_OPEN_MOUTH_TEXTURE_KEY;
+    return DOTMAN_BODY_TEXTURE_KEY;
   }
   const ghostTexture = GHOST_TEXTURE_BY_ID[drawableId];
   if (ghostTexture !== undefined) {
@@ -350,8 +351,11 @@ export function addDotManIcon(
   x: number,
   y: number,
   size: number,
-): Phaser.GameObjects.Image {
-  return scene.add.image(x, y, PLAYER_OPEN_MOUTH_TEXTURE_KEY).setDisplaySize(size, size);
+): Phaser.GameObjects.Container {
+  return scene.add.container(x, y, [
+    scene.add.image(0, 0, DOTMAN_BODY_TEXTURE_KEY).setDisplaySize(size, size),
+    scene.add.image(0, 0, DOTMAN_VISOR_TEXTURE_KEY).setDisplaySize(size, size),
+  ]);
 }
 
 export function addQuarterIcon(
@@ -378,9 +382,8 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
       padTextureWithGutter(scene.textures, key, isActorTextureKey(key));
     }
   });
-  for (const frame of [1, 2, 3] as const) {
-    scene.load.image(pacmanTextureKey(frame), `art/pacman/${frame}.png`);
-  }
+  scene.load.image(DOTMAN_BODY_TEXTURE_KEY, "art/dot-man/body.png");
+  scene.load.image(DOTMAN_VISOR_TEXTURE_KEY, "art/dot-man/visor.png");
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
   scene.load.image(REVERSE_TEXTURE_KEY, "art/other/reverse.png");
@@ -441,7 +444,6 @@ function ensurePlayerVisual(
       cycleIndex: 0,
       lastX: x,
       lastY: y,
-      textureKey: PLAYER_OPEN_MOUTH_TEXTURE_KEY,
     };
     playerVisuals.set(eid, visual);
   }
@@ -695,6 +697,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     destroySkirt(eid);
     destroyImage(String(eid));
     destroyImage(`${eid}:twin`);
+    destroyImage(`${eid}:visor`);
+    destroyImage(`${eid}:twin:visor`);
     playerVisuals.delete(eid);
   };
 
@@ -795,7 +799,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       applyTint: (go: Phaser.GameObjects.Image) => void,
       tag = "glide",
       depth = 0,
-      rotation = 0,
+      decorate?: (trailKey: string) => void,
     ): void => {
       for (let i = 0; i < glide.length; i += 1) {
         const trail = glide[i]!;
@@ -811,10 +815,35 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         trailGo.setTexture(textureKey);
         trailGo.setDisplaySize(size, size);
         trailGo.setPosition(trail.x, trail.y);
-        trailGo.setRotation(rotation);
         trailGo.setAlpha(trail.alpha * entityAlpha);
         applyTint(trailGo);
+        decorate?.(trailKey);
       }
+    };
+    const drawVisor = (bodyKey: string, pose: VisorPose, liftArtPx: number): void => {
+      const body = drawableObjects.get(bodyKey);
+      if (!body) {
+        return;
+      }
+      const visorKey = `${bodyKey}:visor`;
+      alive.add(visorKey);
+      let visor = drawableObjects.get(visorKey);
+      if (!visor) {
+        visor = scene.add.image(body.x, body.y, DOTMAN_VISOR_TEXTURE_KEY);
+        visor.setName(`${body.name}:visor`);
+        drawableObjects.set(visorKey, visor);
+      }
+      const liftPx = (liftArtPx * body.displayWidth) / DOTMAN_ART_SIZE_PX;
+      visor.setPosition(
+        body.x + Math.sin(pose.rotation) * liftPx,
+        body.y - Math.cos(pose.rotation) * liftPx,
+      );
+      visor.setDisplaySize(body.displayWidth, body.displayHeight);
+      visor.setRotation(pose.rotation);
+      visor.setFlipX(pose.flipX);
+      visor.setDepth(body.depth);
+      visor.setAlpha(body.alpha);
+      applyPlayerTint(visor, playerTintNow);
     };
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
@@ -972,7 +1001,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         const visual = ensurePlayerVisual(playerVisuals, eid, x, y, scene.time.now);
         const facing = Facing.direction[eid] ?? DIRECTION.none;
         const movingStep = facingToStep(facing);
-        let nextKey: string;
         if (movingStep) {
           visual.targetAngle = headingAngle(movingStep);
           const stepped = advanceDotManChomp(
@@ -982,12 +1010,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           );
           visual.chompCarry = stepped.carry;
           visual.cycleIndex = stepped.cycleIndex;
-          const frame =
-            DOTMAN_CHOMP_PIXEL_FRAMES[visual.cycleIndex % DOTMAN_CHOMP_PIXEL_FRAMES.length] ??
-            OPEN_MOUTH_FRAME;
-          nextKey = pacmanTextureKey(frame);
-        } else {
-          nextKey = pacmanTextureKey(OPEN_MOUTH_FRAME);
         }
         visual.angle = stepHeading(
           visual.angle,
@@ -995,12 +1017,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           scene.time.now - visual.lastNowMs,
         );
         visual.lastNowMs = scene.time.now;
-        go.setRotation(visual.angle);
-        if (nextKey !== visual.textureKey) {
-          go.setTexture(nextKey);
-          go.setDisplaySize(size, size);
-          visual.textureKey = nextKey;
-        }
+        const pose = visorPose(visual.angle);
+        const visorLift = dotManVisorLift(
+          { carry: visual.chompCarry, cycleIndex: visual.cycleIndex },
+          chompPixelsPerFrame,
+        );
+        const applyTintNow = (target: Phaser.GameObjects.Image): void =>
+          applyPlayerTint(target, playerTintNow);
         visual.lastX = x;
         visual.lastY = y;
 
@@ -1012,30 +1035,25 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           go.setDisplaySize(look.size, look.size);
           go.setAlpha(look.alpha);
         }
+        drawVisor(primaryKey, pose, visorLift);
 
-        if (glide !== undefined) {
+        const trail =
+          glide !== undefined
+            ? { sprites: glide.slice(1), tag: "glide", depth: 0 }
+            : speedTrail !== undefined && reviveProgress === undefined
+              ? { sprites: speedTrail, tag: "speed", depth: SPEED_TRAIL_DEPTH }
+              : null;
+        if (trail !== null) {
           drawGlideTrail(
             eid,
             id,
-            glide.slice(1),
-            visual.textureKey,
+            trail.sprites,
+            DOTMAN_BODY_TEXTURE_KEY,
             size,
-            (target) => applyPlayerTint(target, playerTintNow),
-            "glide",
-            0,
-            visual.angle,
-          );
-        } else if (speedTrail !== undefined && reviveProgress === undefined) {
-          drawGlideTrail(
-            eid,
-            id,
-            speedTrail,
-            visual.textureKey,
-            size,
-            (target) => applyPlayerTint(target, playerTintNow),
-            "speed",
-            SPEED_TRAIL_DEPTH,
-            visual.angle,
+            applyTintNow,
+            trail.tag,
+            trail.depth,
+            (trailKey) => drawVisor(trailKey, pose, visorLift),
           );
         }
         if (
@@ -1049,20 +1067,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
             alive.add(twinKey);
             let twinGo = drawableObjects.get(twinKey);
             if (!twinGo) {
-              twinGo = scene.add.image(twin.x, twin.y, visual.textureKey);
-              twinGo.setDisplaySize(size, size);
+              twinGo = scene.add.image(twin.x, twin.y, DOTMAN_BODY_TEXTURE_KEY);
               twinGo.setName(`${id}:twin`);
               drawableObjects.set(twinKey, twinGo);
             } else {
               twinGo.setPosition(twin.x, twin.y);
-              if (twinGo.texture.key !== visual.textureKey) {
-                twinGo.setTexture(visual.textureKey);
-                twinGo.setDisplaySize(size, size);
-              }
             }
             twinGo.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
-            twinGo.setRotation(visual.angle);
-            applyPlayerTint(twinGo, playerTintNow);
+            applyTintNow(twinGo);
+            drawVisor(twinKey, pose, visorLift);
           }
         }
       }
