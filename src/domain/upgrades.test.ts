@@ -62,6 +62,7 @@ import {
   AFTERBURNER_MUL,
   AFTERBURNER_ENHANCED_MUL,
   EXTRA_HUNGRY_COUNT,
+  EXTRA_HUNGRY_ENHANCED_COUNT,
   FRUIT_QUARTERS,
   FRUIT_QUARTERS_ENHANCED,
   MONEY_TALKS_ENHANCED_QUARTERS,
@@ -1488,7 +1489,9 @@ describe("enhanced upgrades", () => {
     expect(apply("powerPelletGhostHarvesterPlus").state.ghostHarvestRemainingMs).toBe(8000);
     expect(apply("passiveDefyDeathPlus").state.defyDeathRemainingMs).toBe(8000);
     expect(apply("powerPelletGhostRecallPlus").recallGhostCount).toBe(2);
-    expect(apply("powerPelletExtraHungryPlus").collectExtraPellets).toBe(10);
+    expect(apply("powerPelletExtraHungryPlus").collectExtraPellets).toBe(
+      EXTRA_HUNGRY_ENHANCED_COUNT,
+    );
     expect(apply("powerPelletWallPassPlus").state.wallPassRemainingMs).toBe(6000);
   });
 
