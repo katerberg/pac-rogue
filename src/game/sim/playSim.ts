@@ -133,7 +133,6 @@ import {
   horizontalTunnelRows,
   worldToCol,
   worldToRow,
-  type MazeLayoutId,
 } from "../../domain/maze";
 import {
   pickTimedTunnelRow,
@@ -163,6 +162,7 @@ import {
   type SpeedZoneEffect,
 } from "../../domain/speedZones";
 import {
+  type BoardOverride,
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
   invertMazeAscii,
@@ -458,6 +458,7 @@ export class PlaySim {
   private readonly options: PlayOptions;
   private suppressInputUntilKeyRelease = false;
   private awaitingStartingCard = false;
+  private customMazeError: string | null = null;
   private awaitingChoice = false;
   private pendingChoice: UpgradeChoiceOffer | null = null;
   private clock: RunClock = createRunClock();
@@ -582,9 +583,10 @@ export class PlaySim {
     this.grantSpecialistLives();
     this.recordSeenUpgrades();
 
-    this.startBoard(options.maze);
+    this.startBoard(options.mazeAscii !== null ? { ascii: options.mazeAscii } : options.maze);
 
     const startingUpgrade =
+      this.customMazeError === null &&
       this.levelIndex === 1 &&
       !options.jumpToUpgrade &&
       options.store === null &&
@@ -602,7 +604,15 @@ export class PlaySim {
     this.recorder.livesStart(this.lives);
     this.emit({ type: "lives", pulse: false });
     this.emitRunLog();
-    if (startingUpgrade === null) {
+    if (this.customMazeError !== null) {
+      this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
+      this.awaitingStartingCard = true;
+      this.emit({
+        type: "startingNotice",
+        title: "CUSTOM MAZE FAILED",
+        body: `${this.customMazeError.slice(0, 80)}\nFalling back to maze2. Press any key.`,
+      });
+    } else if (startingUpgrade === null) {
       this.showLevelBanner();
     } else {
       this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
@@ -2176,7 +2186,7 @@ export class PlaySim {
     });
   }
 
-  private startBoard(layoutOverride: MazeLayoutId | number | null = null): void {
+  private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
@@ -2189,6 +2199,8 @@ export class PlaySim {
     if (selection.kind === "static") {
       activateLayout(selection.id);
       layoutLabel = selection.id;
+    } else if (selection.kind === "custom") {
+      layoutLabel = this.activateRunAscii(selection.ascii, "custom");
     } else if (selection.kind === "pool") {
       const map = mazePoolMap(selection.index);
       if (map) {
@@ -2283,6 +2295,9 @@ export class PlaySim {
       return label;
     } catch (error) {
       console.warn(`maze activate failed for ${label}; falling back to maze2`, error);
+      if (label === "custom") {
+        this.customMazeError = error instanceof Error ? error.message : String(error);
+      }
       activateLayout("maze2");
       return "maze2";
     }

@@ -94,6 +94,7 @@ export type SimEvent =
   | { type: "timer" }
   | { type: "timerVisible"; visible: boolean }
   | { type: "startingUpgrade"; id: UpgradeId }
+  | { type: "startingNotice"; title: string; body: string }
   | { type: "upgradeOffer"; offer: UpgradeChoiceOffer }
   | { type: "newLevelModal" }
   | { type: "storeOpened" }

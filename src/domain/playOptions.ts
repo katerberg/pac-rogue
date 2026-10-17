@@ -28,6 +28,7 @@ import {
 export type PlayOptions = {
   seed: string | null;
   maze: MazeLayoutId | number | null;
+  mazeAscii: string | null;
   level: number | null;
   quarters: number | null;
   bonus: number | null;
@@ -99,6 +100,7 @@ export function parsePlayOptions(params: URLSearchParams): {
     options: {
       seed,
       maze,
+      mazeAscii: null,
       level: level ?? (boss !== null && !params.has("level") ? BOSS_LEVEL : null),
       quarters,
       bonus,
