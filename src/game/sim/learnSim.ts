@@ -458,20 +458,19 @@ export class LearnSim {
     const programmerPhase = this.learnUpgrades.programmer?.phase ?? null;
     applyPlayerSpeed(
       this.world,
-      programmerPhase === "recording"
+      programmerPhase === "recording" || warping
         ? 0
         : programmerPhase === "running"
-          ? levelSpeedMul * HYPERSPEED_MUL * (warping ? 0 : 1)
+          ? levelSpeedMul * HYPERSPEED_MUL
           : hyperspeedActive(this.learnUpgrades)
-            ? hyperspeedMul * (warping ? 0 : 1)
+            ? hyperspeedMul
             : levelSpeedMul *
               playerSpeedMultiplier(this.learnUpgrades.owned) *
               cellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
               (speedBurstActive(this.learnUpgrades)
                 ? speedBurstMultiplier(this.learnUpgrades.owned)
                 : 1) *
-              this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
-              (warping ? 0 : 1),
+              this.turnTuning.speedMultiplier(this.learnUpgrades.owned),
     );
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
