@@ -522,14 +522,14 @@ export type RenderOptions = {
   charms?: readonly Charm[];
 };
 
-const CHARM_SIZE_MUL = 0.5;
-const CHARM_LINK_MUL = 0.75;
-const CHARM_ANCHOR_BACK_MUL = 0.4;
+const CHARM_SIZE_MUL = 0.125;
+const CHARM_LINK_MUL = 0.1875;
+const CHARM_ANCHOR_BACK_MUL = 0.1;
 const CHARM_DEPTH = -0.5;
 const CHARM_BASE_ALPHA = 0.85;
 const CHARM_BASE_TINT = 0xc4c4c4;
 const CHARM_GLOW_SCALE = 2.2;
-const CHARM_GLOW_ALPHA = 0.6;
+const CHARM_GLOW_ALPHA = 0.06;
 const CHARM_GLOW_PULSE = 0.15;
 const CHARM_GLOW_PULSE_MS = 260;
 const CHARM_CHAIN_COLOR = 0xd9d9d9;
