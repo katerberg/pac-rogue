@@ -430,6 +430,7 @@ import {
   type TunnelDashAnimation,
 } from "../systems/tunnelDash";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
+import { charmsFor } from "../../domain/charmTail";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 import type { SimInput } from "./simInput";
@@ -773,6 +774,7 @@ export class PlaySim {
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       pupilTarget: this.blinkyPupilTarget(),
+      charms: charmsFor(this.effectiveUpgrades()),
     };
   }
 

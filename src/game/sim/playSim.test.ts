@@ -218,6 +218,20 @@ describe("PlaySim fruit lifetime", () => {
   });
 });
 
+describe("PlaySim charm tail", () => {
+  it("lists one charm per owned upgrade, flagging enhanced ones", () => {
+    const sim = startSim({ level: 2, enableUpgrades: [] });
+    expect(sim.renderOptions().charms).toEqual([]);
+    sim["runUpgrades"] = grantUpgrade(sim["runUpgrades"], "fruitFecundity");
+    expect(sim.renderOptions().charms).toEqual([{ school: "harvest", enhanced: false }]);
+    sim["runUpgrades"] = grantUpgrade(sim["runUpgrades"], "passiveStartingShieldPlus");
+    expect(sim.renderOptions().charms).toEqual([
+      { school: "harvest", enhanced: false },
+      { school: "protection", enhanced: true },
+    ]);
+  });
+});
+
 describe("PlaySim Fruit Fecundity+", () => {
   const framesFor = (ms: number): number => Math.ceil(ms / FRAME_MS);
 

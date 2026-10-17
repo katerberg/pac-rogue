@@ -100,6 +100,17 @@ import {
 } from "../../domain/ghostSkirt";
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
+import {
+  bobbleOffset,
+  CHARM_SIZE_WORLD_PX,
+  CHARM_TAIL_LAYOUT,
+  charmArtPath,
+  charmTextureKey,
+  layoutTail,
+  stepTail,
+  type Charm,
+  type TailBead,
+} from "../../domain/charmTail";
 import { UPGRADE_SCHOOL_ORDER, type HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
@@ -146,10 +157,11 @@ type PlayerVisual = {
   cycleIndex: number;
   lastX: number;
   lastY: number;
+  tail: TailBead[];
 };
 
 function isActorTextureKey(key: string): boolean {
-  return key.startsWith("dotman-") || key.startsWith("ghost-");
+  return key.startsWith("dotman-") || key.startsWith("ghost-") || key.startsWith("charm-");
 }
 
 function pelletTextureKey(drawableId: string): string {
@@ -440,6 +452,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
     if (path !== null) {
       scene.load.image(schoolArtTextureKey(school), path);
     }
+    scene.load.image(charmTextureKey(school), charmArtPath(school));
   }
 }
 
@@ -481,6 +494,7 @@ function ensurePlayerVisual(
       cycleIndex: 0,
       lastX: x,
       lastY: y,
+      tail: [],
     };
     playerVisuals.set(eid, visual);
   }
@@ -512,7 +526,19 @@ export type RenderOptions = {
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
+  charms?: readonly Charm[];
 };
+
+const CHARM_DEPTH = -0.5;
+const CHARM_BASE_ALPHA = 0.85;
+const CHARM_BASE_TINT = 0xc4c4c4;
+const CHARM_GLOW_SCALE = 1.4;
+const CHARM_GLOW_ALPHA = 0.06;
+const CHARM_GLOW_PULSE = 0.15;
+const CHARM_GLOW_PULSE_MS = 260;
+const CHARM_CHAIN_COLOR = 0xd9d9d9;
+const CHARM_CHAIN_ALPHA = 0.8;
+const CHARM_SPEED_FULL_PX_PER_MS = 0.08;
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
 const POWER_PELLET_BOUNCE_MS = 150;
@@ -687,6 +713,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const ghostSkirts = new Map<number, GhostSkirt>();
   const wallGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
+  const tailGraphics = scene.add.graphics();
+  tailGraphics.setDepth(CHARM_DEPTH - 0.1);
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
@@ -740,6 +768,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     destroyImage(`${eid}:twin`);
     destroyImage(`${eid}:visor`);
     destroyImage(`${eid}:twin:visor`);
+    for (const key of [...drawableObjects.keys()]) {
+      if (key.startsWith(`${eid}:charm:`)) {
+        destroyImage(key);
+      }
+    }
     playerVisuals.delete(eid);
   };
 
@@ -832,6 +865,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
 
     const alive = new Set<string>();
+    tailGraphics.clear();
     const drawGlideTrail = (
       eid: number,
       id: string,
@@ -861,6 +895,78 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         applyTint(trailGo);
         decorate?.(trailKey);
       }
+    };
+    const drawTail = (
+      body: Phaser.GameObjects.Image,
+      visual: PlayerVisual,
+      charms: readonly Charm[],
+      anchor: { x: number; y: number },
+      speedFactor: number,
+      dtMs: number,
+      keyPrefix: string,
+    ): void => {
+      const layout = CHARM_TAIL_LAYOUT;
+      const charmSize = CHARM_SIZE_WORLD_PX;
+      const pose = { x: anchor.x, y: anchor.y, heading: visual.angle };
+      visual.tail =
+        visual.tail.length === charms.length
+          ? stepTail(visual.tail, pose, layout, dtMs)
+          : layoutTail(charms.length, pose, layout);
+      const now = scene.time.now;
+      const perpX = -Math.sin(visual.angle);
+      const perpY = Math.cos(visual.angle);
+      const hookX = anchor.x - Math.cos(visual.angle) * layout.anchorBackPx;
+      const hookY = anchor.y - Math.sin(visual.angle) * layout.anchorBackPx;
+      tailGraphics.lineStyle(
+        Math.max(1, Math.round(body.displayWidth / DOTMAN_ART_SIZE_PX)),
+        CHARM_CHAIN_COLOR,
+        CHARM_CHAIN_ALPHA * body.alpha,
+      );
+      tailGraphics.beginPath();
+      tailGraphics.moveTo(hookX, hookY);
+      charms.forEach((charm, i) => {
+        const bead = visual.tail[i];
+        if (!bead) {
+          return;
+        }
+        const sway = bobbleOffset(i, now, layout.linkPx, speedFactor);
+        const cx = bead.x + perpX * sway;
+        const cy = bead.y + perpY * sway;
+        tailGraphics.lineTo(cx, cy);
+        const place = (
+          key: string,
+          size: number,
+          alpha: number,
+          depthOffset: number,
+        ): Phaser.GameObjects.Image => {
+          alive.add(key);
+          let image = drawableObjects.get(key);
+          if (!image) {
+            image = scene.add.image(cx, cy, charmTextureKey(charm.school));
+            drawableObjects.set(key, image);
+          }
+          image.setTexture(charmTextureKey(charm.school));
+          image.setPosition(cx, cy);
+          image.setDisplaySize(size, size);
+          image.setAlpha(alpha * body.alpha);
+          image.setDepth(CHARM_DEPTH + depthOffset);
+          return image;
+        };
+        if (charm.enhanced) {
+          const pulse = 1 + CHARM_GLOW_PULSE * Math.sin(now / CHARM_GLOW_PULSE_MS + i);
+          const glow = place(
+            `${keyPrefix}:charm:${i}:glow`,
+            charmSize * CHARM_GLOW_SCALE * pulse,
+            CHARM_GLOW_ALPHA,
+            -0.01,
+          );
+          glow.setBlendMode(Phaser.BlendModes.ADD);
+          place(`${keyPrefix}:charm:${i}`, charmSize, 1, 0).clearTint();
+        } else {
+          place(`${keyPrefix}:charm:${i}`, charmSize, CHARM_BASE_ALPHA, 0).setTint(CHARM_BASE_TINT);
+        }
+      });
+      tailGraphics.strokePath();
     };
     const drawVisor = (bodyKey: string, pose: VisorPose, liftArtPx: number): void => {
       const body = drawableObjects.get(bodyKey);
@@ -1089,6 +1195,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         );
         const applyTintNow = (target: Phaser.GameObjects.Image): void =>
           applyPlayerTint(target, playerTintNow);
+        const frameMoved = Math.hypot(x - visual.lastX, y - visual.lastY);
+        const frameDt = Math.max(scene.game.loop.delta, 1);
         visual.lastX = x;
         visual.lastY = y;
 
@@ -1101,6 +1209,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
           go.setAlpha(look.alpha);
         }
         drawVisor(primaryKey, pose, visorLift);
+        drawTail(
+          go,
+          visual,
+          opts?.charms ?? [],
+          { x, y },
+          frameMoved / frameDt / CHARM_SPEED_FULL_PX_PER_MS,
+          frameDt,
+          primaryKey,
+        );
 
         const trail =
           glide !== undefined
@@ -1148,6 +1265,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
 
     chainGraphics.clear();
     chainGraphics.setAlpha(entityAlpha);
+    tailGraphics.setAlpha(entityAlpha);
     const chains = opts?.bossChains ?? [];
     if (chains.length > 0) {
       const amplitude = getActiveLayout().tileSize * CHAIN_AMPLITUDE_TILES;

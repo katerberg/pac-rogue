@@ -15,6 +15,17 @@ Collision never depends on the drawing: every ghost catches with the same body c
 
 Dot-Man is a round body PNG that never rotates, with a right-facing visor PNG drawn on top (like ghost pupils). The visor eases to each new heading over a short turn (`dotManHeading.ts`); leftward headings mirror it instead of turning it upside down. It bobs smoothly up and down on a chomp beat tied to distance travelled (`dotManMouth.ts`). Afterimages and the wrap twin copy the head's visor pose. Icons (`addDotManIcon`, `addQuarterIcon` in `render.ts`) are plain images of the same textures. Chomp speed comes from the Visuals knobs.
 
+## Charm tail
+
+The charm bracelet (`src/domain/charmTail.ts`, drawn by `render.ts`) follows one scale rule so it looks the same on every monitor and at every device pixel ratio:
+
+- **Size is fixed in world units** (`CHARM_SIZE_WORLD_PX` and `CHARM_TAIL_LAYOUT`), so a charm is the same share of the playfield everywhere. Never derive it from `renderScaleOf`, `devicePixelRatio` or physical pixels.
+- **No 1:1 tie to Dot-Man.** The 16 px school art is shrunk to its own world size; it does not inherit Dot-Man's art-pixel size.
+- **Shape is kept by smoothing, not snapping.** Charms use their own `charm-*` textures, which `isActorTextureKey` marks as `smoothPixelArt` like Dot-Man and the ghosts, so fractional canvas scales stay sharp. Pixel-exact art-pixel-to-canvas-pixel mapping is only possible at some scales and would make the size jump between displays, so it is not a goal.
+- The school watermark textures on cards stay crisp (`NEAREST`); charms never share them.
+
+To check, probe the same steps at `--dpr 1` and `--dpr 2` and compare the charms in world units ([VERIFICATION.md](./VERIFICATION.md#live-check)).
+
 ## Fonts
 
 - IBM VGA 8x8 bitmasks (`font8x8Basic.ts`, atlas in `pixelFont.ts`); scenes create text with `addPixelText` / `placePixelText`.
