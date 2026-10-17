@@ -8,6 +8,7 @@ import {
   STORE_SLOT_SIZE,
   enhanceGlowAlpha,
   slotPrice,
+  storePanelMode,
   swapIncomingSchool,
   type StoreFreebie,
   type StorePromptView,
@@ -379,15 +380,18 @@ export function createStoreOverlay(
       for (const glow of glows) {
         glow?.setAlpha(enhanceGlowAlpha(glowElapsedMs));
       }
-      const active = prompt === null ? null : state.activeSlot;
       panels.forEach((panel, i) => {
         const slot = state.slots[i]!;
         const got = gotIds[i] ?? null;
-        const mine = i === active && prompt !== null;
-        const footer = slot.sold ? "SOLD" : mine ? promptFooter(prompt) : `COST ${slotPrice(slot)}`;
+        const mode = storePanelMode(state, prompt, i);
+        const footer = slot.sold
+          ? "SOLD"
+          : mode === "info" && prompt !== null
+            ? promptFooter(prompt)
+            : `COST ${slotPrice(slot)}`;
         panel.show(got !== null ? gotContent(got) : slotContent(slot, footer));
-        panel.showChoice(mine && prompt.kind === "confirm" ? state.confirmYes : null);
-        panel.root.setAlpha(active === null || mine ? 1 : PANEL_DIM_ALPHA);
+        panel.showChoice(mode === "choosing" ? state.confirmYes : null);
+        panel.root.setAlpha(mode === "dimmed" ? PANEL_DIM_ALPHA : 1);
       });
     },
     showPurchased: (id) => {

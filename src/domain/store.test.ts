@@ -16,6 +16,7 @@ import {
   slotPrice,
   swapIncomingSchool,
   storeAfterLevel,
+  storePanelMode,
   storeStep,
   type StoreState,
   type StoreStepInput,
@@ -434,6 +435,29 @@ describe("storeStep", () => {
     expect(promptView(state, 10, owned)?.kind).toBe("nothingToSwap");
     const step = confirmYes(state, { ...swapCell, owned });
     expect(step.purchase).toBeNull();
+  });
+});
+
+describe("storePanelMode", () => {
+  const upgradeCell = { col: 2, row: 2 };
+  const modes = (state: StoreState, quarters: number) =>
+    state.slots.map((_, i) => storePanelMode(state, promptView(state, quarters, []), i));
+
+  it("leaves every panel idle until a corner is stepped on", () => {
+    expect(modes(stateWith([]), 10)).toEqual(["idle", "idle", "idle", "idle"]);
+  });
+
+  it("offers the choice on the active panel and dims the other three", () => {
+    const state = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
+    expect(modes(state, 10)).toEqual(["choosing", "dimmed", "dimmed", "dimmed"]);
+  });
+
+  it("shows only info on an unaffordable active panel, and goes idle after NEVER MIND", () => {
+    const poor = storeStep(stateWith([]), input({ ...upgradeCell, quarters: 0 }), zeroRng).state;
+    expect(modes(poor, 0)).toEqual(["info", "dimmed", "dimmed", "dimmed"]);
+    const arrived = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
+    const declined = storeStep(arrived, input({ ...upgradeCell, pick: "no" }), zeroRng).state;
+    expect(modes(declined, 10)).toEqual(["idle", "idle", "idle", "idle"]);
   });
 });
 

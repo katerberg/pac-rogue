@@ -293,6 +293,22 @@ export function promptView(
   return { kind: quarters < price ? "needQuarters" : "confirm", slot, price };
 }
 
+export type StorePanelMode = "idle" | "dimmed" | "info" | "choosing";
+
+export function storePanelMode(
+  state: StoreState,
+  prompt: StorePromptView | null,
+  index: number,
+): StorePanelMode {
+  if (prompt === null || state.activeSlot === null) {
+    return "idle";
+  }
+  if (state.activeSlot !== index) {
+    return "dimmed";
+  }
+  return prompt.kind === "confirm" ? "choosing" : "info";
+}
+
 type StoreStepResult = {
   state: StoreState;
   purchase: StorePurchase | null;
