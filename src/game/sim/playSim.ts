@@ -3210,13 +3210,15 @@ export class PlaySim {
       this.previousEffectiveGhostMode = this.settledGhostMode();
     }
 
-    this.clearFruitEntities();
-    this.fruitPresence = {
-      ...this.fruitPresence,
-      active: false,
-      remainingMs: 0,
-      gapMs: 0,
-    };
+    if (!this.reviveSplashPending) {
+      this.clearFruitEntities();
+      this.fruitPresence = {
+        ...this.fruitPresence,
+        active: false,
+        remainingMs: 0,
+        gapMs: 0,
+      };
+    }
 
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
     if (hauntEid !== null && hauntMs !== null) {

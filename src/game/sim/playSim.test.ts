@@ -951,6 +951,32 @@ describe("PlaySim", () => {
       expect(sim.snapshot().lives).toBe(livesBefore);
     });
 
+    it("keeps board fruit through a Defy Death save, and clears it on a real life loss", () => {
+      const sim = startDefySim();
+      sim["spawnFruitEntity"](false);
+      sim["fruitPresence"] = {
+        ...sim["fruitPresence"],
+        active: true,
+        remainingMs: FRUIT_LIFETIME_MS,
+      };
+      expect(sim.snapshot().fruit).toBe(true);
+      const kindBefore = sim.snapshot().fruitKinds[0];
+
+      chompPowerPellet(sim);
+      getCaught(sim);
+      const fruitMsWhileDying = sim.snapshot().timers.fruitMs;
+      expect(fruitMsWhileDying).toBeGreaterThan(0);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().fruit).toBe(true);
+      expect(sim.snapshot().fruitKinds[0]).toBe(kindBefore);
+      expect(sim.snapshot().timers.fruitMs).toBe(fruitMsWhileDying);
+
+      getCaught(sim);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().fruit).toBe(false);
+      expect(sim.snapshot().timers.fruitMs).toBe(0);
+    });
+
     it("feeds the invulnerability tint while the window is armed and clears it after", () => {
       const sim = startDefySim();
       const tints = (events: SimEvent[]) =>
