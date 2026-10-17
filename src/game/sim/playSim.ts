@@ -393,16 +393,11 @@ import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
+import { programmerQueueSlots } from "../../domain/programmer";
 import {
-  programmerEnterCell,
-  programmerQueueSlots,
-  recordProgrammerPress,
-  type ProgrammerStep,
-} from "../../domain/programmer";
-import {
-  freshPressesInOrder,
+  followProgrammer,
   holdPlayerForProgramming,
-  steerPlayerProgram,
+  recordProgrammerKeys,
 } from "../systems/programmer";
 import {
   clearPlayerDirectionInput,
@@ -524,7 +519,6 @@ export class PlaySim {
   private hyperspeedDirection: Direction | null = null;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
   private hyperspeedFruitEaten = 0;
-  private programmerCell: { col: number; row: number } | null = null;
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private effectiveCache: { owned: readonly UpgradeId[]; effective: readonly UpgradeId[] } | null =
@@ -1210,7 +1204,7 @@ export class PlaySim {
       this.runUpgrades = trackWallOccupancy(this.world, this.runUpgrades);
     };
     if (programmerPhase === "running") {
-      this.moveHyperspeed(delta, moveFrame, () => this.noteProgrammerCell());
+      this.moveHyperspeed(delta, moveFrame, () => this.followProgrammer());
     } else if (hyperspeedActive(this.runUpgrades)) {
       this.moveHyperspeed(delta, moveFrame, () => this.noteHyperspeedTurn());
     } else {
@@ -2717,19 +2711,19 @@ export class PlaySim {
   }
 
   private recordProgrammerPresses(keys: HeldKeys): void {
-    for (const dir of freshPressesInOrder(this.prevKeys, keys)) {
-      const state = this.runUpgrades.programmer;
-      const cell = playerCell(this.world);
-      if (state?.phase !== "recording" || cell === null) {
-        return;
-      }
+    const tick = recordProgrammerKeys(
+      this.world,
+      this.runUpgrades.programmer,
+      this.prevKeys,
+      keys,
+      this.playerSolids(),
+    );
+    this.runUpgrades = { ...this.runUpgrades, programmer: tick.state };
+    for (let press = 0; press < tick.recorded; press += 1) {
       this.emit({ type: "sfx", id: "pelletMunch" });
-      const step = recordProgrammerPress(state, dir, this.playerSolids(), cell.col, cell.row);
-      if (step.state?.phase === "running") {
-        this.programmerCell = cell;
-        this.recorder.activation("programmer");
-      }
-      this.applyProgrammerStep(step);
+    }
+    if (tick.launched) {
+      this.recorder.activation("programmer");
     }
   }
 
@@ -2742,36 +2736,11 @@ export class PlaySim {
     );
   }
 
-  private noteProgrammerCell(): void {
-    const state = this.runUpgrades.programmer;
-    const cell = playerCell(this.world);
-    if (state?.phase !== "running" || cell === null) {
-      return;
-    }
-    if (cell.col === this.programmerCell?.col && cell.row === this.programmerCell.row) {
-      return;
-    }
-    this.programmerCell = cell;
-    this.applyProgrammerStep(programmerEnterCell(state, this.playerSolids(), cell.col, cell.row));
-  }
-
-  private applyProgrammerStep(step: ProgrammerStep): void {
-    this.runUpgrades = { ...this.runUpgrades, programmer: step.state };
-    if (step.state?.phase === "recording") {
-      this.holdForProgramming();
-      return;
-    }
-    if (step.heading !== null) {
-      steerPlayerProgram(this.world, step.heading);
-    }
-    if (step.state === null) {
-      this.zeroPlayerSpeed();
-    }
-  }
-
-  private holdForProgramming(): void {
-    holdPlayerForProgramming(this.world);
-    this.zeroPlayerSpeed();
+  private followProgrammer(): void {
+    this.runUpgrades = {
+      ...this.runUpgrades,
+      programmer: followProgrammer(this.world, this.runUpgrades.programmer, this.playerSolids()),
+    };
   }
 
   private resetHyperspeedMovement(): void {
@@ -3072,7 +3041,7 @@ export class PlaySim {
     const powerEffects = applyPowerPelletEffects(before, powerRemoved, onlyBases, this.levelIndex);
     this.runUpgrades = powerEffects.state;
     if (powerEffects.programmerStarted) {
-      this.holdForProgramming();
+      holdPlayerForProgramming(this.world);
     }
     if (powerEffects.frightenGhosts) {
       const frightened = frightenGhosts(

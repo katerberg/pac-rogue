@@ -2062,7 +2062,14 @@ describe("Programmer", () => {
   it("a fresh power pellet restarts programming, and timer clears drop it", () => {
     const running = {
       ...createRunUpgrades(["powerPelletProgrammer"]),
-      programmer: { phase: "running", program: ["up"], heading: "left", setsLeft: 0 },
+      programmer: {
+        phase: "running",
+        program: ["up"],
+        heading: "left",
+        setsLeft: 0,
+        col: 1,
+        row: 1,
+      },
     } satisfies RunUpgrades;
     expect(applyPowerPelletEffects(running, 1).state.programmer).toEqual({
       phase: "recording",

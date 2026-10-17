@@ -27,8 +27,14 @@ function plusWithCornerAndTee(): SolidGrid {
 
 const SOLIDS = plusWithCornerAndTee();
 
-function running(heading: ProgramDir, program: ProgramDir[], setsLeft = 0): ProgrammerRunning {
-  return { phase: "running", program, heading, setsLeft };
+function running(
+  heading: ProgramDir,
+  program: ProgramDir[],
+  setsLeft = 0,
+  col = 0,
+  row = 0,
+): ProgrammerRunning {
+  return { phase: "running", program, heading, setsLeft, col, row };
 }
 
 function record(presses: ProgramDir[], sets = 1, col = 5, row = 5) {
@@ -60,14 +66,14 @@ describe("recordProgrammerPress", () => {
     });
     expect(four.heading).toBeNull();
     const five = record(["right", "up", "left", "down", "up"]);
-    expect(five.state).toEqual(running("right", ["up", "left", "down", "up"]));
+    expect(five.state).toEqual(running("right", ["up", "left", "down", "up"], 0, 5, 5));
     expect(five.heading).toBe("right");
     expect(PROGRAMMER_PRESSES).toBe(5);
   });
 
   it("uses up blocked presses at the start, and ends when none fit", () => {
     const skipped = record(["up", "down", "right", "left", "left"], 1, 3, 5);
-    expect(skipped.state).toEqual(running("right", ["left", "left"]));
+    expect(skipped.state).toEqual(running("right", ["left", "left"], 0, 3, 5));
     const none = record(["up", "up", "down", "down", "up"], 1, 3, 5);
     expect(none).toEqual({ state: null, heading: null });
   });
@@ -82,12 +88,20 @@ describe("recordProgrammerPress", () => {
 describe("programmerEnterCell", () => {
   it("keeps going straight between intersections", () => {
     const state = running("right", ["up"]);
-    expect(programmerEnterCell(state, SOLIDS, 3, 5)).toEqual({ state, heading: "right" });
+    expect(programmerEnterCell(state, SOLIDS, 3, 5)).toEqual({
+      state: running("right", ["up"], 0, 3, 5),
+      heading: "right",
+    });
+  });
+
+  it("decides each tile once", () => {
+    const state = running("right", ["up"], 0, 5, 5);
+    expect(programmerEnterCell(state, SOLIDS, 5, 5)).toEqual({ state, heading: null });
   });
 
   it("takes the next press at an intersection", () => {
     expect(programmerEnterCell(running("right", ["up", "left"]), SOLIDS, 5, 5)).toEqual({
-      state: running("up", ["left"]),
+      state: running("up", ["left"], 0, 5, 5),
       heading: "up",
     });
   });
@@ -98,11 +112,11 @@ describe("programmerEnterCell", () => {
 
   it("skips a blocked press and takes the next one at the same intersection", () => {
     expect(programmerEnterCell(running("right", ["up", "down", "left"]), SOLIDS, 6, 5)).toEqual({
-      state: running("down", ["left"]),
+      state: running("down", ["left"], 0, 6, 5),
       heading: "down",
     });
     expect(programmerEnterCell(running("right", ["down", "up"]), SOLIDS, 8, 5)).toEqual({
-      state: running("up", []),
+      state: running("up", [], 0, 8, 5),
       heading: "up",
     });
   });

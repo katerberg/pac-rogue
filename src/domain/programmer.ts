@@ -11,6 +11,8 @@ export type ProgrammerRunning = {
   program: ProgramDir[];
   heading: ProgramDir;
   setsLeft: number;
+  col: number;
+  row: number;
 };
 export type ProgrammerState = ProgrammerRecording | ProgrammerRunning;
 
@@ -70,7 +72,7 @@ function launch(
     return finishRun(setsLeft, null);
   }
   return {
-    state: { phase: "running", program: taken.rest, heading: taken.dir, setsLeft },
+    state: { phase: "running", program: taken.rest, heading: taken.dir, setsLeft, col, row },
     heading: taken.dir,
   };
 }
@@ -100,16 +102,20 @@ export function programmerEnterCell(
   col: number,
   row: number,
 ): ProgrammerStep {
+  if (col === state.col && row === state.row) {
+    return { state, heading: null };
+  }
   const { heading } = state;
+  const moved = { ...state, col, row };
   const straight = openAt(solids, col, row, heading);
   if (!isIntersection(solids, col, row, heading)) {
-    return straight ? { state, heading } : finishRun(state.setsLeft, null);
+    return straight ? { state: moved, heading } : finishRun(state.setsLeft, null);
   }
   const taken = takeFirstOpen(state.program, solids, col, row);
   if (taken === null) {
     return finishRun(state.setsLeft, straight ? heading : null);
   }
-  return { state: { ...state, program: taken.rest, heading: taken.dir }, heading: taken.dir };
+  return { state: { ...moved, program: taken.rest, heading: taken.dir }, heading: taken.dir };
 }
 
 export type ProgrammerQueueSlot = { x: number; y: number; dir: ProgramDir | null };

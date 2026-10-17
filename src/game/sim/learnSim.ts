@@ -100,6 +100,7 @@ import {
   shieldOverflow,
   shieldPelletsCap,
   spendShield,
+  HYPERSPEED_MUL,
   hyperspeedActive,
   hyperspeedMultiplier,
   spendHyperspeedShield,
@@ -158,6 +159,13 @@ import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
+import {
+  followProgrammer,
+  holdPlayerForProgramming,
+  recordProgrammerKeys,
+} from "../systems/programmer";
+import { programmerQueueSlots, type ProgrammerQueueSlot } from "../../domain/programmer";
+import type { SolidGrid } from "../../domain/maze";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import {
   collectFruit,
@@ -376,12 +384,24 @@ export class LearnSim {
     this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
     const warping = this.warpGlide !== null;
     const diagonalAllowed = wallPassActive(this.learnUpgrades);
+    const programming = this.learnUpgrades.programmer !== null;
     const turnTuningOpts =
-      !diagonalAllowed && hasUpgrade(this.learnUpgrades.owned, "passiveTurnTuning")
+      !diagonalAllowed && !programming && hasUpgrade(this.learnUpgrades.owned, "passiveTurnTuning")
         ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
         : undefined;
     let turnTap: TurnTap | null = null;
-    if (!warping) {
+    if (programming) {
+      this.learnUpgrades = {
+        ...this.learnUpgrades,
+        programmer: recordProgrammerKeys(
+          this.world,
+          this.learnUpgrades.programmer,
+          this.prevKeys,
+          keys,
+          this.playerSolids(),
+        ).state,
+      };
+    } else if (!warping) {
       turnTap = applyHeldKeys(this.world, keys, { diagonalAllowed, turnTuning: turnTuningOpts });
     }
     if (turnTuningOpts) {
@@ -435,18 +455,23 @@ export class LearnSim {
       this.learnUpgrades.hyperspeedTurnDelayMs > 0
         ? 0
         : levelSpeedMul * hyperspeedMultiplier(this.learnUpgrades.owned);
+    const programmerPhase = this.learnUpgrades.programmer?.phase ?? null;
     applyPlayerSpeed(
       this.world,
-      hyperspeedActive(this.learnUpgrades)
-        ? hyperspeedMul * (warping ? 0 : 1)
-        : levelSpeedMul *
-            playerSpeedMultiplier(this.learnUpgrades.owned) *
-            cellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
-            (speedBurstActive(this.learnUpgrades)
-              ? speedBurstMultiplier(this.learnUpgrades.owned)
-              : 1) *
-            this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
-            (warping ? 0 : 1),
+      programmerPhase === "recording"
+        ? 0
+        : programmerPhase === "running"
+          ? levelSpeedMul * HYPERSPEED_MUL * (warping ? 0 : 1)
+          : hyperspeedActive(this.learnUpgrades)
+            ? hyperspeedMul * (warping ? 0 : 1)
+            : levelSpeedMul *
+              playerSpeedMultiplier(this.learnUpgrades.owned) *
+              cellSpeedMultiplier(this.learnUpgrades.owned, enteringEmptyCell(this.world)) *
+              (speedBurstActive(this.learnUpgrades)
+                ? speedBurstMultiplier(this.learnUpgrades.owned)
+                : 1) *
+              this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
+              (warping ? 0 : 1),
     );
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
@@ -457,15 +482,12 @@ export class LearnSim {
     });
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
-    const playerSolidsOverride = playerSolidsWithWall(
-      this.learnUpgrades,
-      wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
-    );
+    const playerSolids = this.playerSolids();
     const moveFrame = (frameDelta: number): void => {
       movement(
         this.world,
         frameDelta,
-        playerSolidsOverride,
+        playerSolids,
         false,
         undefined,
         ghostsBlockedFromTunnels(this.learnUpgrades.owned),
@@ -474,8 +496,19 @@ export class LearnSim {
       );
       this.learnUpgrades = trackWallOccupancy(this.world, this.learnUpgrades);
     };
-    if (hyperspeedActive(this.learnUpgrades)) {
-      this.moveHyperspeed(delta, moveFrame);
+    if (programmerPhase === "running") {
+      this.moveHyperspeed(delta, moveFrame, () => {
+        this.learnUpgrades = {
+          ...this.learnUpgrades,
+          programmer: followProgrammer(
+            this.world,
+            this.learnUpgrades.programmer,
+            this.playerSolids(),
+          ),
+        };
+      });
+    } else if (hyperspeedActive(this.learnUpgrades)) {
+      this.moveHyperspeed(delta, moveFrame, () => this.noteHyperspeedTurn());
     } else {
       moveFrame(delta);
     }
@@ -497,8 +530,7 @@ export class LearnSim {
     );
     const trailEid = query(this.world, [Player, Position])[0];
     this.speedTrail =
-      trailEid !== undefined &&
-      (speedBurstActive(this.learnUpgrades) || hyperspeedActive(this.learnUpgrades))
+      trailEid !== undefined && this.speedTrailActive()
         ? tickSpeedTrail(
             this.speedTrail,
             { x: Position.x[trailEid] ?? 0, y: Position.y[trailEid] ?? 0 },
@@ -627,14 +659,14 @@ export class LearnSim {
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
         dimGhostEid: this.helperBlinky,
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
-        playerSpeedTrail:
-          speedBurstActive(this.learnUpgrades) || hyperspeedActive(this.learnUpgrades)
-            ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
-            : undefined,
+        playerSpeedTrail: this.speedTrailActive()
+          ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
+          : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
+        programmerQueue: this.programmerQueue(),
       },
     });
     return this.takeEvents();
@@ -827,6 +859,9 @@ export class LearnSim {
   private firePowerPelletEffects(powerRemoved: number, echoBases?: readonly BaseUpgradeId[]): void {
     const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved, echoBases);
     this.learnUpgrades = powerEffects.state;
+    if (powerEffects.programmerStarted) {
+      holdPlayerForProgramming(this.world);
+    }
     if (echoBases === undefined && powerRemoved > 0) {
       this.learnUpgrades = queueEcho(this.learnUpgrades, this.random.stream("echo"));
     }
@@ -1094,7 +1129,11 @@ export class LearnSim {
     }
   }
 
-  private moveHyperspeed(delta: number, moveFrame: (frameDelta: number) => void): void {
+  private moveHyperspeed(
+    delta: number,
+    moveFrame: (frameDelta: number) => void,
+    afterStep: () => void,
+  ): void {
     const playerEid = query(this.world, [Player, Speed])[0];
     const speed = playerEid === undefined ? 0 : (Speed.px[playerEid] ?? 0);
     const steps = hyperspeedSubstepCount((speed * delta) / 1000, getActiveLayout().tileSize);
@@ -1102,16 +1141,7 @@ export class LearnSim {
     let caught = false;
     for (let step = 0; step < steps; step += 1) {
       moveFrame(stepDelta);
-      const turn = noteHyperspeedFacing(
-        this.hyperspeedDirection,
-        playerFacing(this.world),
-        this.learnUpgrades.hyperspeedTurnDelayMs > 0,
-      );
-      this.hyperspeedDirection = turn.lastDirection;
-      if (turn.turned) {
-        this.learnUpgrades = startHyperspeedTurnDelay(this.learnUpgrades);
-        applyPlayerSpeed(this.world, 0);
-      }
+      afterStep();
       if (caught) {
         continue;
       }
@@ -1129,6 +1159,44 @@ export class LearnSim {
         applyPlayerSpeed(this.world, 0);
       }
     }
+  }
+
+  private noteHyperspeedTurn(): void {
+    const turn = noteHyperspeedFacing(
+      this.hyperspeedDirection,
+      playerFacing(this.world),
+      this.learnUpgrades.hyperspeedTurnDelayMs > 0,
+    );
+    this.hyperspeedDirection = turn.lastDirection;
+    if (turn.turned) {
+      this.learnUpgrades = startHyperspeedTurnDelay(this.learnUpgrades);
+      applyPlayerSpeed(this.world, 0);
+    }
+  }
+
+  private playerSolids(): SolidGrid {
+    return (
+      playerSolidsWithWall(
+        this.learnUpgrades,
+        wallPassActive(this.learnUpgrades) ? wallPassSolids(this.learnUpgrades.owned) : undefined,
+      ) ?? getActiveLayout().playerSolids
+    );
+  }
+
+  private speedTrailActive(): boolean {
+    return (
+      speedBurstActive(this.learnUpgrades) ||
+      hyperspeedActive(this.learnUpgrades) ||
+      this.learnUpgrades.programmer?.phase === "running"
+    );
+  }
+
+  private programmerQueue(): ProgrammerQueueSlot[] | null {
+    const state = this.learnUpgrades.programmer;
+    const player = this.playerPosition();
+    return state?.phase === "recording" && player !== null
+      ? programmerQueueSlots(state.presses, player.x, player.y, getActiveLayout().tileSize)
+      : null;
   }
 
   private catchOptions(): CatchOptions {
@@ -1498,6 +1566,7 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
     wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
+    programmer: hasField("programmerSets") ? state.programmer : null,
     droppedWall: hasField("armWallDrop") ? state.droppedWall : null,
     ...(hasField("frightenGhostsMs")
       ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
