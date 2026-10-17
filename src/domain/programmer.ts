@@ -48,6 +48,16 @@ export function isIntersection(
 
 export type ProgrammerStep = { state: ProgrammerState | null; heading: ProgramDir | null };
 
+function takeFirstOpen(
+  program: readonly ProgramDir[],
+  solids: SolidGrid,
+  col: number,
+  row: number,
+): { dir: ProgramDir; rest: ProgramDir[] } | null {
+  const index = program.findIndex((dir) => openAt(solids, col, row, dir));
+  return index < 0 ? null : { dir: program[index]!, rest: program.slice(index + 1) };
+}
+
 function launch(
   program: ProgramDir[],
   setsLeft: number,
@@ -55,14 +65,14 @@ function launch(
   col: number,
   row: number,
 ): ProgrammerStep {
-  const rest = [...program];
-  while (rest.length > 0) {
-    const dir = rest.shift()!;
-    if (openAt(solids, col, row, dir)) {
-      return { state: { phase: "running", program: rest, heading: dir, setsLeft }, heading: dir };
-    }
+  const taken = takeFirstOpen(program, solids, col, row);
+  if (taken === null) {
+    return finishRun(setsLeft, null);
   }
-  return finishRun(setsLeft, null);
+  return {
+    state: { phase: "running", program: taken.rest, heading: taken.dir, setsLeft },
+    heading: taken.dir,
+  };
 }
 
 function finishRun(setsLeft: number, heading: ProgramDir | null): ProgrammerStep {
@@ -95,15 +105,11 @@ export function programmerEnterCell(
   if (!isIntersection(solids, col, row, heading)) {
     return straight ? { state, heading } : finishRun(state.setsLeft, null);
   }
-  const [next, ...rest] = state.program;
-  if (next === undefined) {
+  const taken = takeFirstOpen(state.program, solids, col, row);
+  if (taken === null) {
     return finishRun(state.setsLeft, straight ? heading : null);
   }
-  const turned = openAt(solids, col, row, next) ? next : straight ? heading : null;
-  if (turned === null) {
-    return finishRun(state.setsLeft, null);
-  }
-  return { state: { ...state, program: rest, heading: turned }, heading: turned };
+  return { state: { ...state, program: taken.rest, heading: taken.dir }, heading: taken.dir };
 }
 
 export type ProgrammerQueueSlot = { x: number; y: number; dir: ProgramDir | null };

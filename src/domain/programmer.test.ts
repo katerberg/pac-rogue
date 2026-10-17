@@ -96,15 +96,23 @@ describe("programmerEnterCell", () => {
     expect(programmerEnterCell(running("right", ["left"]), SOLIDS, 5, 5).heading).toBe("left");
   });
 
-  it("uses up a blocked press and keeps going straight", () => {
-    expect(programmerEnterCell(running("right", ["up", "down"]), SOLIDS, 6, 5)).toEqual({
-      state: running("right", ["down"]),
-      heading: "right",
+  it("skips a blocked press and takes the next one at the same intersection", () => {
+    expect(programmerEnterCell(running("right", ["up", "down", "left"]), SOLIDS, 6, 5)).toEqual({
+      state: running("down", ["left"]),
+      heading: "down",
+    });
+    expect(programmerEnterCell(running("right", ["down", "up"]), SOLIDS, 8, 5)).toEqual({
+      state: running("up", []),
+      heading: "up",
     });
   });
 
-  it("ends the run at a corner whose press is blocked", () => {
-    expect(programmerEnterCell(running("right", ["down", "up"]), SOLIDS, 8, 5)).toEqual({
+  it("when every remaining press is blocked, ends the run heading straight if it can", () => {
+    expect(programmerEnterCell(running("right", ["up", "up"]), SOLIDS, 6, 5)).toEqual({
+      state: null,
+      heading: "right",
+    });
+    expect(programmerEnterCell(running("right", ["down"]), SOLIDS, 8, 5)).toEqual({
       state: null,
       heading: null,
     });

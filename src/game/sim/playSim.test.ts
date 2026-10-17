@@ -6415,6 +6415,30 @@ describe("Programmer", () => {
     expect(runningSpeed).toBeGreaterThan(Speed.px[playerEid(plain)]! * 9);
   });
 
+  it("skips a blocked press and takes the next one at the same intersection", () => {
+    const sim = start(["powerPelletProgrammer"]);
+    chompPowerPellet(sim);
+    const { program, turnCells } = plannedRun(cell(sim));
+    const blocked = PERPENDICULAR[program[0]!].find(
+      (dir) => !openDirs(turnCells[0]!).includes(dir),
+    );
+    expect(blocked).toBeDefined();
+    for (const dir of [program[0]!, blocked!, program[1]!, program[2]!, program[3]!]) {
+      press(sim, dir);
+    }
+    const visited: string[] = [];
+    for (let ms = 0; sim.snapshot().timers.programmer !== null && ms < 4000; ms += 2) {
+      sim.step(IDLE_INPUT, 2);
+      const key = `${cell(sim).col},${cell(sim).row}`;
+      if (visited.at(-1) !== key) {
+        visited.push(key);
+      }
+    }
+    const turnIndexes = turnCells.slice(0, 3).map((at) => visited.indexOf(`${at.col},${at.row}`));
+    expect(turnIndexes.every((index) => index >= 0)).toBe(true);
+    expect([...turnIndexes].sort((a, b) => a - b)).toEqual(turnIndexes);
+  });
+
   it("a power pellet eaten mid-run starts programming over", () => {
     const sim = start(["powerPelletProgrammer"]);
     chompPowerPellet(sim);
