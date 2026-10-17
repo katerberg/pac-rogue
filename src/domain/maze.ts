@@ -20,7 +20,7 @@ export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
 
 export const MAZE_TOP_MARGIN_PX = 28;
 
-// Fixed pixel size for every maze tile, all layouts — Pac-Man, ghosts, and wall
+// Fixed pixel size for every maze tile, all layouts — Dot-Man, ghosts, and wall
 // strokes render at the same size regardless of grid dimensions. Capped by the
 // tallest layout in use (28x34 generated boards): floor((600-28)/34) = 16.
 export const TILE_SIZE_PX = 16;

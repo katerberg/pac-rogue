@@ -2498,7 +2498,7 @@ describe("Turn Tuning", () => {
     expect(sim.renderOptions().turnFlashRemainingMs).toBe(0);
   });
 
-  it("keeps Pac-Man gold through a turn flash while invulnerable", () => {
+  it("keeps Dot-Man gold through a turn flash while invulnerable", () => {
     const { sim, turn } = setup(true);
     sim["runUpgrades"] = { ...sim["runUpgrades"], invulnRemainingMs: INVULN_MS };
     cruiseFrom(sim, turn, 2);
