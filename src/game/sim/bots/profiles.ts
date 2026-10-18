@@ -10,7 +10,6 @@ export type MoveWeights = PlannerWeights & {
 };
 
 export type StorePolicy = {
-  lifeAtOrBelow: number;
   enhance: boolean;
   reserveQuarters: number;
   maxPurchases: number;
@@ -54,7 +53,6 @@ const BASE_WEIGHTS: MoveWeights = {
 };
 
 const BASE_STORE: StorePolicy = {
-  lifeAtOrBelow: 1,
   enhance: false,
   reserveQuarters: 0,
   maxPurchases: Number.POSITIVE_INFINITY,
@@ -65,13 +63,13 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     weights: { ...BASE_WEIGHTS, safety: 0.18, margin: 0.3, power: 0.6 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, protection: 2, death: 1.5 },
     randomPicks: false,
-    store: { ...BASE_STORE, lifeAtOrBelow: 2 },
+    store: BASE_STORE,
   },
   speedrunner: {
     weights: { ...BASE_WEIGHTS, pellet: 2, safety: 0.045, margin: 0, fruit: 0.3 },
     schoolPreference: { ...NEUTRAL_PREFERENCE, speed: 2, automation: 1.5 },
     randomPicks: false,
-    store: { ...BASE_STORE, lifeAtOrBelow: 0 },
+    store: BASE_STORE,
   },
   disrupter: {
     weights: { ...BASE_WEIGHTS, power: 1, powerHoldNearGhosts: true, frightChase: 7 },

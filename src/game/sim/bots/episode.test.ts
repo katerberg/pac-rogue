@@ -71,7 +71,7 @@ describe("runJob", { timeout: 60_000 }, () => {
 });
 
 describe("StoreBot", { timeout: 60_000 }, () => {
-  it("buys a life when low, then walks out of the store", () => {
+  it("shops, takes the free life on the way out, then leaves the store", () => {
     const sim = new PlaySim(
       { ...defaultPlayOptions(), store: 1, quarters: 10, lives: 1 },
       "store-bot",

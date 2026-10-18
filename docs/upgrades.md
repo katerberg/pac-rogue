@@ -18,7 +18,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | Id | Label | School | Base | Enhanced (`<id>Plus`) |
 | --- | --- | --- | --- | --- |
 | `powerPelletFreeze` | Freeze | disruption | Chomp a power pellet and the nearest ghost locks solid for 3s (shortening toward 2s by level 5). | Chomp a power pellet and the nearest ghost locks solid for 5s (shortening toward ~3.3s by level 5). |
-| `passiveAfterburner` | Afterburner | speed | Cleared corridors light your tail: +30% speed there, 10% slower over pellets. | Cleared corridors roar: +50% speed there, 10% slower over pellets. |
+| `passiveAfterburner` | Afterburner | speed | Cleared corridors light your tail: +30% speed there, 20% slower over pellets. | Cleared corridors roar: +50% speed there, 20% slower over pellets. |
 | `passiveGhostSlow` | Ghost Slow | disruption | The hunt softens. Ghosts drag their feet. | The hunt crawls. Ghosts wade through syrup. |
 | `powerPelletScatterBurst` | Scatter Burst | disruption | Power pellet flings every ghost into its corner. | Power pellet flings every ghost into its corner and pins it there. |
 | `powerPelletGhostRecall` | Ghost Recall | disruption | Power pellet yanks the nearest ghost straight home. | Power pellet yanks the two nearest ghosts straight home. |
@@ -68,6 +68,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a bonus fruit, if none is out. | Power pellet: spawns a bonus fruit even if there are others. |
 | `powerPelletWallDrop` | Wall Drop | protection | Power pellet: your next reversal drops a wall behind you for 8s. | Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it. |
 | `powerPelletProgrammer` | Programmer (rare) | automation | Power pellet: stop and program 5 turns, then blast through them at hyperspeed. | Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more. |
+| `passiveInheritance` | Inheritance | death | Clear a level: gain a Quarter for each empty life slot. | Clear a level: gain a Quarter for each time you died on it. |
 
 ## Power pellets
 
@@ -99,7 +100,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 
 - **Timers** are separate and combine by "max wins": freeze (cyan tint on one ghost, zero speed, catch skip), Ghost Proof (gold tint, catch skip, ghosts keep moving), Defy Death (shares the gold tint; does not skip kills), wall pass (its tint wins). All clear on level advance and life-loss reset. Expiry while overlapping a ghost can kill on the same update.
 - **Shields** are a banked count, not a timer: they survive timer clears, empty on level advance, and clamp to the cap when the upgrade is lost.
-- **Programmer** owns player movement while it runs (`src/domain/programmer.ts`): held keys only record presses, then the run uses Hyperspeed's multiplier and sub-stepped pickups and catches, without its turn beat. Hyperspeed and Programmer are mutually exclusive in `eligibleUpgrades` (owning either drops the other from offers and shelves).
+- **Programmer** owns movement while it runs (`src/domain/programmer.ts`): keys record presses, then a Hyperspeed-speed run without its turn beat. Mutually exclusive with Hyperspeed in `eligibleUpgrades`.
 - **Speed**: `applyPlayerSpeed` / `applyGhostSpeed` in `PlaySim` combine the level ramp, owned multipliers, cell-based multipliers and active bursts every frame. Boss ghosts use a flat base.
 - **Catch order**: shield break, then Death's Harvest, then Defy Death, then Money Talks, then death. A break or save is not a death (no life lost, `deathsThisBoard` unchanged where the code says so).
 - **Boss level**: Lazy Looper is off; boss pellets are never optional.

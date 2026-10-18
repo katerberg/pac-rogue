@@ -1,3 +1,5 @@
+import type { Cell } from "./bonusBar";
+import type { MazeLayout, SolidGrid } from "./maze";
 import {
   baseIdOf,
   carryEnhancement,
@@ -14,8 +16,6 @@ import {
   type UpgradeSchool,
 } from "./upgrades";
 
-export const STORE_LIFE_PRICE = 1;
-export const STORE_LATER_LIFE_PRICE = 2;
 export const STORE_SWAP_PRICE = 1;
 export const STORE_ENHANCE_PRICE = 2;
 export const STORE_ENHANCE_BORDER_COLOR = 0xffd24a;
@@ -26,12 +26,15 @@ export const STORE_SLOT_SIZE = 2;
 export const STORE_FIRST_LEVEL = 3;
 export const STORE_FINAL_LEVEL = 8;
 
-type StoreSlotKind = "life" | "upgrade" | "swap" | "enhance";
+type StoreSlotKind = "upgrade" | "swap" | "enhance";
 
 export type StoreSlotCell = { kind: StoreSlotKind; col: number; row: number };
 
+export type StoreLayout = { slots: StoreSlotCell[]; freebie: Cell };
+
+export type StoreFreebie = { kind: "life" | "quarter"; col: number; row: number; taken: boolean };
+
 export type StoreSlot =
-  | { kind: "life"; col: number; row: number; sold: boolean; price: number }
   | { kind: "upgrade"; col: number; row: number; id: BaseUpgradeId; sold: boolean }
   | {
       kind: "swap";
@@ -43,10 +46,6 @@ export type StoreSlot =
     }
   | { kind: "enhance"; col: number; row: number; targetId: BaseUpgradeId; sold: boolean };
 
-export function lifePriceForStore(firstStore: boolean): number {
-  return firstStore ? STORE_LIFE_PRICE : STORE_LATER_LIFE_PRICE;
-}
-
 export function storeSlotLabel(slot: StoreSlot): string {
   switch (slot.kind) {
     case "upgrade":
@@ -55,13 +54,12 @@ export function storeSlotLabel(slot: StoreSlot): string {
       return `swap:${slot.outgoingId}`;
     case "enhance":
       return `enhance:${slot.targetId}`;
-    case "life":
-      return "life";
   }
 }
 
 export type StoreState = {
   slots: readonly StoreSlot[];
+  freebie: StoreFreebie;
   activeSlot: number | null;
   dismissedSlot: number | null;
   clickedSlot: number | null;
@@ -71,7 +69,7 @@ export type StoreState = {
 export type StoreStepInput = {
   col: number;
   row: number;
-  toggle: boolean;
+  focus: "yes" | "no" | null;
   enter: boolean;
   pick?: "yes" | "no" | null;
   click?: number | null;
@@ -81,14 +79,12 @@ export type StoreStepInput = {
 };
 
 export type StorePurchase =
-  | { kind: "life"; price: number }
   | { kind: "upgrade"; id: UpgradeId; price: number }
   | { kind: "swap"; outgoingId: UpgradeId; incomingId: UpgradeId; price: number }
   | { kind: "enhance"; targetId: BaseUpgradeId; price: number };
 
 export function purchaseSchool(purchase: StorePurchase): UpgradeSchool | null {
   switch (purchase.kind) {
-    case "life":
     case "swap":
       return null;
     case "upgrade":
@@ -104,8 +100,9 @@ export type StorePromptView = {
   price: number;
 };
 
+const FREEBIE_CHAR = "F";
+
 const SLOT_KIND_BY_CHAR: Record<string, StoreSlotKind> = {
-  L: "life",
   U: "upgrade",
   S: "swap",
   E: "enhance",
@@ -127,13 +124,18 @@ export function storeLevelFor(storeIndex: 1 | 2 | 3, midStoreLevel: number): num
   return [STORE_FIRST_LEVEL, midStoreLevel, STORE_FINAL_LEVEL][storeIndex - 1]!;
 }
 
-export function parseStoreSlots(ascii: string): StoreSlotCell[] {
+export function parseStoreLayout(ascii: string): StoreLayout {
   const lines = ascii.split("\n");
   const claimed = new Set<string>();
   const cells: StoreSlotCell[] = [];
+  const freebies: Cell[] = [];
   lines.forEach((line, row) => {
     for (let col = 0; col < line.length; col += 1) {
       const ch = line[col]!;
+      if (ch === FREEBIE_CHAR) {
+        freebies.push({ col, row });
+        continue;
+      }
       const kind = SLOT_KIND_BY_CHAR[ch];
       if (!kind || claimed.has(`${col},${row}`)) {
         continue;
@@ -149,21 +151,35 @@ export function parseStoreSlots(ascii: string): StoreSlotCell[] {
       cells.push({ kind, col, row });
     }
   });
-  return cells;
+  if (freebies.length !== 1) {
+    throw new Error(`store needs exactly one ${FREEBIE_CHAR} cell, found ${freebies.length}`);
+  }
+  return { slots: cells, freebie: freebies[0]! };
+}
+
+export function storeEntrance(layout: MazeLayout): Cell {
+  return { col: 0, row: layout.playerSpawn.row };
+}
+
+export function withStoreEntranceClosed(layout: MazeLayout): SolidGrid {
+  const entrance = storeEntrance(layout);
+  return layout.playerSolids.map((line, row) =>
+    line.map((solid, col) => solid || (col === entrance.col && row === entrance.row)),
+  );
 }
 
 export function createStoreState(
-  cells: readonly StoreSlotCell[],
+  layout: StoreLayout,
   owned: readonly UpgradeId[],
   rng: () => number,
   firstStore = false,
-  lifeRoom = Number.POSITIVE_INFINITY,
+  lifeRoom = true,
   guaranteedSchool: UpgradeSchool | null = null,
   previouslyOffered: readonly BaseUpgradeId[] = [],
 ): StoreState {
+  const cells = layout.slots;
   let pool = eligibleUpgrades(owned).filter((id) => !previouslyOffered.includes(id));
   const slots: StoreSlot[] = [];
-  let lifeSlots = 0;
   const upgradeCells = cells.filter((cell) => cell.kind === "upgrade");
   const schoolPool =
     guaranteedSchool === null
@@ -195,26 +211,22 @@ export function createStoreState(
       slots.push({ kind: "upgrade", col, row, id: guaranteedId!, sold: false });
       continue;
     }
-    if (kind === "life") {
-      if (lifeSlots < lifeRoom) {
-        lifeSlots += 1;
-        slots.push({ kind, col, row, sold: false, price: lifePriceForStore(firstStore) });
-      }
-    } else if (kind === "upgrade" && pool.length > 0) {
+    if (kind === "swap" && !firstStore && tradeable.length > 0) {
+      const outgoingId = takeRandomFrom(tradeable, rng);
+      slots.push({ kind, col, row, outgoingId, incomingBaseId: null, sold: false });
+    } else if (enhanceTargets.has(cell)) {
+      slots.push({ kind: "enhance", col, row, targetId: enhanceTargets.get(cell)!, sold: false });
+    } else if (pool.length > 0) {
       const id = takeWeightedUpgrade(pool, rng);
-      slots.push({ kind, col, row, id, sold: false });
+      slots.push({ kind: "upgrade", col, row, id, sold: false });
       if (isRare(id)) {
         pool = pool.filter((other) => !isRare(other));
       }
-    } else if (kind === "swap" && !firstStore && tradeable.length > 0) {
-      const outgoingId = takeRandomFrom(tradeable, rng);
-      slots.push({ kind, col, row, outgoingId, incomingBaseId: null, sold: false });
-    } else if (kind === "enhance" && enhanceTargets.has(cell)) {
-      slots.push({ kind, col, row, targetId: enhanceTargets.get(cell)!, sold: false });
     }
   }
   const stocked: StoreState = {
     slots,
+    freebie: { ...layout.freebie, kind: lifeRoom ? "life" : "quarter", taken: false },
     activeSlot: null,
     dismissedSlot: null,
     clickedSlot: null,
@@ -235,8 +247,6 @@ export function offeredUpgradeIds(state: StoreState): BaseUpgradeId[] {
         return [slot.targetId];
       case "swap":
         return slot.incomingBaseId === null ? [] : [slot.incomingBaseId];
-      case "life":
-        return [];
     }
   });
 }
@@ -272,8 +282,6 @@ export function swapIncomingSchool(slot: StoreSlot & { kind: "swap" }): UpgradeS
 
 export function slotPrice(slot: StoreSlot): number {
   switch (slot.kind) {
-    case "life":
-      return slot.price;
     case "swap":
       return STORE_SWAP_PRICE;
     case "enhance":
@@ -321,7 +329,42 @@ export function promptView(
   return { kind: quarters < price ? "needQuarters" : "confirm", slot, price };
 }
 
+export type StorePanelMode = "idle" | "dimmed" | "info" | "choosing";
+
+export function storePanelMode(
+  state: StoreState,
+  prompt: StorePromptView | null,
+  index: number,
+): StorePanelMode {
+  if (prompt === null || state.activeSlot === null) {
+    return "idle";
+  }
+  if (state.activeSlot !== index) {
+    return "dimmed";
+  }
+  return prompt.kind === "confirm" ? "choosing" : "info";
+}
+
+type StoreStepResult = {
+  state: StoreState;
+  purchase: StorePurchase | null;
+  pickup: StoreFreebie["kind"] | null;
+};
+
 export function storeStep(
+  state: StoreState,
+  input: StoreStepInput,
+  rng: () => number,
+): StoreStepResult {
+  const { freebie } = state;
+  if (freebie.taken || freebie.col !== input.col || freebie.row !== input.row) {
+    return { ...slotStep(state, input, rng), pickup: null };
+  }
+  const taken = { ...state, freebie: { ...freebie, taken: true } };
+  return { ...slotStep(taken, input, rng), pickup: freebie.kind };
+}
+
+function slotStep(
   state: StoreState,
   input: StoreStepInput,
   rng: () => number,
@@ -358,8 +401,8 @@ export function storeStep(
     return { state: next, purchase: null };
   }
   const picked = input.pick ?? null;
-  if (picked === null && input.toggle) {
-    return { state: { ...next, confirmYes: !next.confirmYes }, purchase: null };
+  if (picked === null && input.focus !== null) {
+    return { state: { ...next, confirmYes: input.focus === "yes" }, purchase: null };
   }
   if (picked === null && !input.enter) {
     return { state: next, purchase: null };
@@ -388,9 +431,6 @@ export function storeStep(
     clickedSlot: null,
     confirmYes: false,
   };
-  if (slot.kind === "life") {
-    return { state: sold, purchase: { kind: "life", price: view.price } };
-  }
   if (slot.kind === "upgrade") {
     return { state: sold, purchase: { kind: "upgrade", id: slot.id, price: view.price } };
   }
