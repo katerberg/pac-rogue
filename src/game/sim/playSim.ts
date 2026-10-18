@@ -1697,9 +1697,10 @@ export class PlaySim {
             getActiveLayout(),
             {
               tunnelRows: horizontalTunnelRows(),
-              cells: [...(this.speedZoneShift?.from ?? []), ...this.speedZones].flatMap(
-                speedZoneCells,
-              ),
+              cells: (this.speedZoneShift
+                ? [...this.speedZoneShift.from, ...this.speedZoneShift.to]
+                : this.speedZones
+              ).flatMap(speedZoneCells),
             },
             this.random.stream("lavaZone", this.levelIndex),
           )

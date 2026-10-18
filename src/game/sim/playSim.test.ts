@@ -5359,13 +5359,13 @@ describe("lava zone", () => {
   });
 
   it("never puts a lava cell on a speed lane", () => {
-    for (let i = 0; i < 40; i += 1) {
-      const snap = startSim({ level: 8 }, `lava-lane-${i}`).snapshot();
-      const laneCells = new Set(
-        snap.speedZones.flatMap(speedZoneCells).map((c) => `${c.col},${c.row}`),
-      );
-      expect(snap.speedZones).toHaveLength(3);
-      for (const cell of snap.lava!.cells) {
+    for (const i of [...Array.from({ length: 40 }, (_, n) => n), 147]) {
+      const sim = startSim({ level: 8 }, `lava-lane-${i}`);
+      const lava = sim.snapshot().lava!;
+      const zones = settledZones(sim);
+      const laneCells = new Set(zones.flatMap(speedZoneCells).map((c) => `${c.col},${c.row}`));
+      expect(zones).toHaveLength(3);
+      for (const cell of lava.cells) {
         expect(laneCells.has(`${cell.col},${cell.row}`)).toBe(false);
       }
     }
