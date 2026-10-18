@@ -1763,7 +1763,7 @@ export class PlaySim {
       );
     const shift = speedZoneShift(previous!, current!);
     this.speedZoneShift = speedZoneShiftSteps(shift) > 0 ? shift : null;
-    this.speedZones = this.speedZoneShift ? speedZoneShiftFrame(shift, 0) : shift.to;
+    this.speedZones = speedZoneShiftFrame(shift, 0);
   }
 
   private tickSpeedZoneShift(deltaMs: number): void {
@@ -1776,12 +1776,10 @@ export class PlaySim {
     if (step === before) {
       return;
     }
-    if (step >= speedZoneShiftSteps(this.speedZoneShift)) {
-      this.speedZones = this.speedZoneShift.to;
-      this.speedZoneShift = null;
-      return;
-    }
     this.speedZones = speedZoneShiftFrame(this.speedZoneShift, step);
+    if (step >= speedZoneShiftSteps(this.speedZoneShift)) {
+      this.speedZoneShift = null;
+    }
   }
 
   private playerSpeedZone(): SpeedZoneEffect | null {

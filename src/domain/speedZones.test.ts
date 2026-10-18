@@ -4,7 +4,6 @@ import {
   FAST_ZONE_MULTIPLIER,
   flipSpeedZoneBoardRows,
   flipSpeedZoneRows,
-  isSpeedZoneLevel,
   pickSpeedZones,
   SLOW_ZONE_MULTIPLIER,
   SPEED_ZONE_END_DRIFT,
@@ -50,14 +49,12 @@ function lcg(seed: number): () => number {
 
 const lane: SpeedZone = { col: 2, row: 3, axis: "horizontal", length: 4, fastDir: "right" };
 
-describe("isSpeedZoneLevel / speedZoneCountForLevel", () => {
+describe("speedZoneCountForLevel", () => {
   it("adds lanes from level 4: one, one, two, three, three", () => {
     expect([4, 5, 6, 7, 8].map(speedZoneCountForLevel)).toEqual([1, 1, 2, 3, 3]);
     for (const level of [1, 2, 3, 9]) {
       expect(speedZoneCountForLevel(level)).toBe(0);
-      expect(isSpeedZoneLevel(level)).toBe(false);
     }
-    expect(isSpeedZoneLevel(4)).toBe(true);
   });
 });
 

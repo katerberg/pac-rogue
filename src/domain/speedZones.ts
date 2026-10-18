@@ -45,10 +45,6 @@ export function speedZoneCountForLevel(levelIndex: number): number {
   return SPEED_ZONE_COUNT_BY_LEVEL[levelIndex] ?? 0;
 }
 
-export function isSpeedZoneLevel(levelIndex: number): boolean {
-  return speedZoneCountForLevel(levelIndex) > 0;
-}
-
 export function speedZoneCells(zone: SpeedZoneShape): MazeTile[] {
   return Array.from({ length: zone.length }, (_, i) =>
     zone.axis === "horizontal"
@@ -217,15 +213,7 @@ export function pickSpeedZones(
   nextRandom: () => number,
   count: number,
   existing: readonly SpeedZone[] = [],
-): SpeedZone[] {
-  return pickFrom(laneCandidates(board), nextRandom, count, existing);
-}
-
-function pickFrom(
-  candidates: readonly SpeedZoneShape[],
-  nextRandom: () => number,
-  count: number,
-  existing: readonly SpeedZone[],
+  candidates: readonly SpeedZoneShape[] = laneCandidates(board),
 ): SpeedZone[] {
   const zones = [...existing];
   while (zones.length < count) {
@@ -314,7 +302,7 @@ export function speedZonesByLevel(
     }
     const nextRandom = streamFor(level);
     const drifted = driftSpeedZones(board, previous, nextRandom);
-    byLevel.push(pickFrom(candidates, nextRandom, count, drifted));
+    byLevel.push(pickSpeedZones(board, nextRandom, count, drifted, candidates));
   }
   return byLevel;
 }
@@ -342,7 +330,7 @@ export function flipSpeedZoneRows(zone: SpeedZone, rows: number): SpeedZone {
   return { ...zone, row: rows - rowSpan - zone.row, fastDir: FLIPPED_FAST_DIR[zone.fastDir] };
 }
 
-export type SpeedZoneShift = { from: SpeedZone[]; to: SpeedZone[] };
+export type SpeedZoneShift = { from: readonly SpeedZone[]; to: readonly SpeedZone[] };
 
 export function speedZoneShift(
   previous: readonly SpeedZone[],
@@ -357,7 +345,7 @@ export function speedZoneShift(
     const middle = Math.floor((start + end) / 2);
     return withSpan(zone, { start: middle, end: middle });
   });
-  return { from, to: [...next] };
+  return { from, to: next };
 }
 
 function stepToward(from: number, to: number, steps: number): number {
