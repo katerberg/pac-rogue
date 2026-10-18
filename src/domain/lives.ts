@@ -56,6 +56,10 @@ export function livesAfterLevelRegen(
   return missing > 0 ? lives + Math.min(regenAmount, missing) : lives;
 }
 
+export function emptyLifeSlots(lives: number, iconFloor = LEVEL_LIVES_ICON_FLOOR): number {
+  return Math.max(0, iconFloor - livesHudIconCount(lives));
+}
+
 export function storeLifeRoom(
   lives: number,
   floorBonus: number,

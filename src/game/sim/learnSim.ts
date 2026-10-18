@@ -267,6 +267,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveHaunting",
   "powerPelletHyperspeed",
   "passiveShieldBreak",
+  "passiveInheritance",
 ];
 
 export class LearnSim {
@@ -1100,7 +1101,10 @@ export class LearnSim {
     this.pendingPowerRespawns = [];
     this.boardCollected = 0;
     this.fruitPresence = createFruitPresence();
-    this.runState.levelClear(this.learnUpgrades.owned);
+    const inherited = this.runState.levelClear(this.learnUpgrades.owned);
+    if (inherited > 0) {
+      this.popup(`+${inherited} Q`);
+    }
   }
 
   private catchDemoOwned(): boolean {
@@ -1112,6 +1116,7 @@ export class LearnSim {
       hasUpgrade(this.learnUpgrades.owned, "fruitQuarterBounty") ||
       hasUpgrade(this.learnUpgrades.owned, "passiveDeathsBounty") ||
       hasUpgrade(this.learnUpgrades.owned, "passiveMoneyTalks") ||
+      hasUpgrade(this.learnUpgrades.owned, "passiveInheritance") ||
       hasUpgrade(this.learnUpgrades.owned, "passiveNearMiss")
     );
   }

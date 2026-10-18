@@ -68,6 +68,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a bonus fruit, if none is out. | Power pellet: spawns a bonus fruit even if there are others. |
 | `powerPelletWallDrop` | Wall Drop | protection | Power pellet: your next reversal drops a wall behind you for 8s. | Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it. |
 | `powerPelletProgrammer` | Programmer (rare) | automation | Power pellet: stop and program 5 turns, then blast through them at hyperspeed. | Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more. |
+| `passiveInheritance` | Inheritance | death | Clear a level: gain a Quarter for each empty life slot. | Clear a level: gain a Quarter for each time you died on it. |
 
 ## Power pellets
 

@@ -1,6 +1,7 @@
 import { addBonusCharge, createBonusBar, type BonusBar } from "../../domain/bonusBar";
 import {
   START_LIVES,
+  emptyLifeSlots,
   levelLivesIconFloor,
   levelRegenAmount,
   livesAfterLevelRegen,
@@ -11,6 +12,7 @@ import {
   deathsBountyCharge,
   grantLivesForUpgrade,
   hasUpgrade,
+  inheritancePayout,
   lifeFloorBonus,
   moneyTalksCost,
   regenToFull,
@@ -43,13 +45,21 @@ export class LearnRunState {
     this.quarters += count;
   }
 
-  levelClear(owned: readonly UpgradeId[]): void {
+  levelClear(owned: readonly UpgradeId[]): number {
+    const iconFloor = levelLivesIconFloor(lifeFloorBonus(owned));
+    const inherited = inheritancePayout(
+      owned,
+      emptyLifeSlots(this.lives, iconFloor),
+      this.deathsThisBoard,
+    );
+    this.quarters += inherited;
     this.deathsThisBoard = 0;
     this.lives = livesAfterLevelRegen(
       this.lives,
-      levelLivesIconFloor(lifeFloorBonus(owned)),
+      iconFloor,
       levelRegenAmount(hasUpgrade(owned, "passiveMyogenesis"), regenToFull(owned)),
     );
+    return inherited;
   }
 
   caught(owned: readonly UpgradeId[], defied: boolean): LearnCatchOutcome {

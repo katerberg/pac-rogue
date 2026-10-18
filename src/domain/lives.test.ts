@@ -3,6 +3,7 @@ import {
   MAX_LIVES_FLAG,
   START_LIVES,
   STORE_REGEN_AMOUNT,
+  emptyLifeSlots,
   levelLivesIconFloor,
   levelRegenAmount,
   livesAfterLevelRegen,
@@ -133,5 +134,14 @@ describe("storeLifeRoom", () => {
   it("counts the Extra Life floor bonus and maxLives", () => {
     expect(storeLifeRoom(4, 1)).toBe(1);
     expect(storeLifeRoom(3, 0, 10)).toBe(7);
+  });
+});
+
+describe("emptyLifeSlots", () => {
+  it("counts HUD icon slots below the floor, never negative", () => {
+    expect(emptyLifeSlots(4)).toBe(0);
+    expect(emptyLifeSlots(2)).toBe(2);
+    expect(emptyLifeSlots(1, levelLivesIconFloor(1))).toBe(4);
+    expect(emptyLifeSlots(9)).toBe(0);
   });
 });
