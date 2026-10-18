@@ -1,4 +1,3 @@
-import { charmsFor } from "../../domain/charmTail";
 import { addComponent, addEntity, createWorld, query, removeEntity, type World } from "bitecs";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { RELEASE_SLOT_BY_KIND } from "../../domain/ghostRoster";
@@ -683,7 +682,7 @@ export class LearnSim {
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
-        charms: charmsFor(this.learnUpgrades.owned),
+        shields: this.learnUpgrades.shieldsBanked,
         programmerQueue: this.programmerQueue(),
       },
     });

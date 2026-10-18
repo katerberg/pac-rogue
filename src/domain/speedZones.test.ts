@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  driftSpeedZones,
   FAST_ZONE_MULTIPLIER,
-  isSpeedZoneLevel,
+  flipSpeedZoneBoardRows,
+  flipSpeedZoneRows,
   pickSpeedZones,
   SLOW_ZONE_MULTIPLIER,
-  SPEED_ZONE_COUNT,
+  SPEED_ZONE_END_DRIFT,
   SPEED_ZONE_MAX_LENGTH,
   SPEED_ZONE_MIN_GAP_TILES,
   SPEED_ZONE_MIN_LENGTH,
@@ -13,7 +15,12 @@ import {
   speedZoneEffect,
   speedZoneGlowMask,
   speedZoneMultiplier,
+  speedZoneCountForLevel,
   speedZoneParticles,
+  speedZoneShift,
+  speedZoneShiftFrame,
+  speedZoneShiftSteps,
+  speedZonesByLevel,
   type SpeedZone,
   type SpeedZoneBoard,
 } from "./speedZones";
@@ -42,13 +49,11 @@ function lcg(seed: number): () => number {
 
 const lane: SpeedZone = { col: 2, row: 3, axis: "horizontal", length: 4, fastDir: "right" };
 
-describe("isSpeedZoneLevel", () => {
-  it("is true only for levels 5 through 8", () => {
-    for (const level of [5, 6, 7, 8]) {
-      expect(isSpeedZoneLevel(level)).toBe(true);
-    }
-    for (const level of [1, 2, 3, 4, 9]) {
-      expect(isSpeedZoneLevel(level)).toBe(false);
+describe("speedZoneCountForLevel", () => {
+  it("adds lanes from level 4: one, one, two, three, three", () => {
+    expect([4, 5, 6, 7, 8].map(speedZoneCountForLevel)).toEqual([1, 1, 2, 3, 3]);
+    for (const level of [1, 2, 3, 9]) {
+      expect(speedZoneCountForLevel(level)).toBe(0);
     }
   });
 });
@@ -178,8 +183,8 @@ describe("pickSpeedZones", () => {
 
   it("drops two straight lanes of 3-6 walkable tiles kept apart by the minimum gap", () => {
     for (let seed = 0; seed < 40; seed += 1) {
-      const zones = pickSpeedZones(maze, lcg(seed));
-      expect(zones).toHaveLength(SPEED_ZONE_COUNT);
+      const zones = pickSpeedZones(maze, lcg(seed), 2);
+      expect(zones).toHaveLength(2);
       for (const zone of zones) {
         expect(zone.length).toBeGreaterThanOrEqual(SPEED_ZONE_MIN_LENGTH);
         expect(zone.length).toBeLessThanOrEqual(SPEED_ZONE_MAX_LENGTH);
@@ -210,7 +215,7 @@ describe("pickSpeedZones", () => {
       playerSpawn: { col: 3, row: 1 },
     };
     for (let seed = 0; seed < 40; seed += 1) {
-      for (const zone of pickSpeedZones(blocked, lcg(seed))) {
+      for (const zone of pickSpeedZones(blocked, lcg(seed), 2)) {
         for (const cell of speedZoneCells(zone)) {
           expect(blocked.house[cell.row]![cell.col]).toBe(false);
           expect(blocked.door[cell.row]![cell.col]).toBe(false);
@@ -222,6 +227,120 @@ describe("pickSpeedZones", () => {
 
   it("returns no lanes when no straight run reaches three tiles", () => {
     const tiny = board(4, 4, (c, r) => !(r === 1 && c <= 2));
-    expect(pickSpeedZones(tiny, lcg(1))).toEqual([]);
+    expect(pickSpeedZones(tiny, lcg(1), 2)).toEqual([]);
+  });
+});
+
+describe("persistent lanes", () => {
+  const maze = board(24, 24, (c, r) => !(r % 6 === 1 || c % 6 === 1));
+  const streams = (seed: number) => (level: number) => lcg(seed * 100 + level);
+
+  function nearGap(a: SpeedZone, b: SpeedZone): boolean {
+    return speedZoneCells(a).some((ca) =>
+      speedZoneCells(b).some(
+        (cb) =>
+          Math.abs(ca.col - cb.col) < SPEED_ZONE_MIN_GAP_TILES &&
+          Math.abs(ca.row - cb.row) < SPEED_ZONE_MIN_GAP_TILES,
+      ),
+    );
+  }
+
+  it("keeps existing lanes when adding new ones", () => {
+    const first = pickSpeedZones(maze, lcg(3), 1);
+    const more = pickSpeedZones(maze, lcg(4), 3, first);
+    expect(more[0]).toEqual(first[0]);
+    expect(more).toHaveLength(3);
+  });
+
+  it("drifts each end by at most the drift range, staying a valid, spaced lane", () => {
+    const reach = Math.max(...SPEED_ZONE_END_DRIFT.map(Math.abs));
+    for (let seed = 0; seed < 40; seed += 1) {
+      const zones = pickSpeedZones(maze, lcg(seed), 3);
+      const drifted = driftSpeedZones(maze, zones, lcg(seed + 1));
+      drifted.forEach((zone, i) => {
+        const before = zones[i]!;
+        expect(zone.axis).toBe(before.axis);
+        expect(zone.fastDir).toBe(before.fastDir);
+        expect(zone.length).toBeGreaterThanOrEqual(SPEED_ZONE_MIN_LENGTH);
+        expect(zone.length).toBeLessThanOrEqual(SPEED_ZONE_MAX_LENGTH);
+        expect(
+          Math.abs(zone.col - before.col) + Math.abs(zone.row - before.row),
+        ).toBeLessThanOrEqual(reach);
+        expect(Math.abs(zone.length - before.length)).toBeLessThanOrEqual(reach * 2);
+        for (const cell of speedZoneCells(zone)) {
+          expect(maze.playerSolids[cell.row]![cell.col]).toBe(false);
+        }
+        drifted.forEach((other, j) => {
+          if (j !== i) {
+            expect(nearGap(zone, other)).toBe(false);
+          }
+        });
+      });
+    }
+  });
+
+  it("grows on average across levels", () => {
+    let growth = 0;
+    for (let seed = 0; seed < 60; seed += 1) {
+      const zones = pickSpeedZones(maze, lcg(seed), 3);
+      const drifted = driftSpeedZones(maze, zones, lcg(seed + 7));
+      growth += drifted.reduce((sum, z, i) => sum + z.length - zones[i]!.length, 0);
+    }
+    expect(growth).toBeGreaterThan(0);
+  });
+
+  it("replays the same lanes for a level and carries them from the previous level", () => {
+    for (let seed = 0; seed < 20; seed += 1) {
+      const byLevel = speedZonesByLevel(maze, 9, streams(seed)).slice(3);
+      expect(byLevel.map((zones) => zones.length)).toEqual([0, 1, 1, 2, 3, 3, 0]);
+      expect(speedZonesByLevel(maze, 7, streams(seed))[7]).toEqual(byLevel[4]);
+      for (let i = 2; i <= 5; i += 1) {
+        const prev = byLevel[i - 1]!;
+        byLevel[i]!.slice(0, prev.length).forEach((zone, j) => {
+          expect(zone.axis).toBe(prev[j]!.axis);
+          expect(zone.fastDir).toBe(prev[j]!.fastDir);
+          expect(
+            speedZoneCells(zone).some((c) => speedZoneAt(prev, c.col, c.row) === prev[j]),
+          ).toBe(true);
+        });
+      }
+    }
+  });
+
+  it("flips lanes onto a row-reversed board, mirroring vertical fast directions", () => {
+    const flippedBoard = flipSpeedZoneBoardRows(maze);
+    const vertical: SpeedZone = { col: 1, row: 2, axis: "vertical", length: 9, fastDir: "down" };
+    const flipped = flipSpeedZoneRows(vertical, maze.rows);
+    expect(flipped).toEqual({ ...vertical, row: maze.rows - 11, fastDir: "up" });
+    expect(flipSpeedZoneRows(flipped, maze.rows)).toEqual(vertical);
+    expect(flipSpeedZoneRows(lane, maze.rows)).toEqual({ ...lane, row: maze.rows - 1 - lane.row });
+    for (const zone of speedZonesByLevel(maze, 8, streams(1))[8]!) {
+      for (const cell of speedZoneCells(flipSpeedZoneRows(zone, maze.rows))) {
+        expect(flippedBoard.playerSolids[cell.row]![cell.col]).toBe(false);
+      }
+    }
+  });
+});
+
+describe("speedZoneShift", () => {
+  const before: SpeedZone = { col: 4, row: 3, axis: "horizontal", length: 9, fastDir: "left" };
+  const after: SpeedZone = { ...before, col: 6, length: 9 };
+  const added: SpeedZone = { col: 2, row: 8, axis: "vertical", length: 10, fastDir: "up" };
+
+  it("moves each end one tile per step and grows a new lane out from its middle", () => {
+    const shift = speedZoneShift([before], [after, added]);
+    expect(speedZoneShiftSteps(shift)).toBe(5);
+    expect(speedZoneShiftFrame(shift, 0)).toEqual([before]);
+    expect(speedZoneShiftFrame(shift, 1)).toEqual([
+      { ...before, col: 5, length: 9 },
+      { ...added, row: 12, length: 2 },
+    ]);
+    expect(speedZoneShiftFrame(shift, 5)).toEqual([after, added]);
+    expect(speedZoneShiftFrame(shift, 99)).toEqual([after, added]);
+  });
+
+  it("has no steps when nothing changed", () => {
+    expect(speedZoneShiftSteps(speedZoneShift([before], [before]))).toBe(0);
+    expect(speedZoneShiftSteps(speedZoneShift([], []))).toBe(0);
   });
 });

@@ -7,7 +7,7 @@ import {
   hunterFrightenedMs,
   type FrightenedGhosts,
 } from "./hunter";
-import { levelScaledDurationMs } from "./levelScaledDuration";
+import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
 import { PROGRAMMER_ENHANCED_SETS, startProgrammer, type ProgrammerState } from "./programmer";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
@@ -194,7 +194,7 @@ export type UpgradeDef = UpgradeEffects & {
 export const REMOTE_TRANSFER_EVERY_PELLETS = 5;
 export const FREEZE_MS = 3000;
 export const WALL_PASS_MS = 6000;
-export const INVULN_MS = 3000;
+export const INVULN_MS = 4000;
 export const SPEED_BURST_MS = 3000;
 export const HYPERSPEED_MS = 2000;
 export const HYPERSPEED_ENHANCED_MS = 3000;
@@ -483,13 +483,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletInvuln",
     label: "Ghost Proof",
     school: "protection",
-    description:
-      "Power pellet lets you pass through ghosts for 3s (shortening toward 2s by level 5).",
+    description: "Power pellet lets you pass through ghosts for 4s.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Ghost Proof lasts 5 seconds instead of 3 (still shortens by level).",
+      enhanceNote: "Ghost Proof lasts 5 seconds instead of 4 (still shortens by level).",
       description:
-        "Power pellet lets you pass through ghosts for 5s (shortening toward ~3.3s by level 5).",
+        "Power pellet lets you pass through ghosts for 5s (shortening toward ~3.8s by level 5).",
       onPowerPellet: { playerInvulnMs: INVULN_ENHANCED_MS },
     },
     onPowerPellet: { playerInvulnMs: INVULN_MS },
@@ -1767,11 +1766,11 @@ export function applyPowerPelletEffects(
     }
   }
 
-  const byLevel = (ms: number | null): number | null =>
-    ms === null ? null : levelScaledDurationMs(ms, levelIndex);
+  const byLevel = (ms: number | null, floorRatio?: number): number | null =>
+    ms === null ? null : levelScaledDurationMs(ms, levelIndex, floorRatio);
   freezeClosestMs = byLevel(freezeClosestMs);
   wallPassMs = byLevel(wallPassMs);
-  invulnMs = byLevel(invulnMs);
+  invulnMs = byLevel(invulnMs, INVULN_FLOOR_RATIO);
 
   const overcharge = overchargeMultiplier(owned);
   const scaled = (ms: number | null): number | null => (ms === null ? null : ms * overcharge);

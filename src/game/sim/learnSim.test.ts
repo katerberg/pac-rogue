@@ -1,6 +1,5 @@
 import { query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
-import { ECHO_DELAY_MS } from "../../domain/echo";
 import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
@@ -24,6 +23,7 @@ import {
   worldToRow,
 } from "../../domain/maze";
 import {
+  INVULN_MS,
   NEAR_MISS_CHARGE,
   UPGRADE_DEFS,
   baseIdOf,
@@ -573,7 +573,7 @@ describe("LearnSim upgrade demos", () => {
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(0);
     expect(sim.statusText()).toContain("SHIELDS 1/1");
-    runMs(sim, 3_100);
+    runMs(sim, INVULN_MS + 100);
     expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
     const after = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(after.type === "draw" && after.options.playerInvulnRemainingMs).toBeLessThanOrEqual(
@@ -621,7 +621,7 @@ describe("LearnSim upgrade demos", () => {
     expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
     expect(sim.statusText()).toContain("SHIELDS 0/1");
     expect(sim.statusText()).toContain("LIVES 4");
-    runMs(sim, 3_100);
+    runMs(sim, INVULN_MS + 100);
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
   });
 
@@ -1012,7 +1012,7 @@ describe("LearnSim upgrade demos", () => {
       const { sim, player } = setup(...ids);
       moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
       sim.step(NO_KEYS_HELD, FRAME_MS);
-      runMs(sim, ECHO_DELAY_MS + 500);
+      runMs(sim, INVULN_MS + 100);
       const draws = sim.step(NO_KEYS_HELD, FRAME_MS).filter((event) => event.type === "draw");
       const last = draws[draws.length - 1]!;
       return last.type === "draw" ? last.options.playerInvulnRemainingMs : 0;
@@ -1637,15 +1637,11 @@ describe("LearnSim parity with PlaySim drawing", () => {
     ).toEqual([]);
   });
 
-  it("draws one charm per selected upgrade, flagging enhanced ones", () => {
-    const sim = new LearnSim("charms");
+  it("draws one bracelet square per banked shield", () => {
+    const sim = new LearnSim("shields");
     sim.start();
-    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).charms).toEqual([]);
-    sim.toggleUpgrade("fruitFecundity");
-    sim.toggleUpgrade("passiveStartingShieldPlus");
-    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).charms).toEqual([
-      { school: "harvest", enhanced: false },
-      { school: "protection", enhanced: true },
-    ]);
+    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).shields).toBe(0);
+    sim.toggleUpgrade("passiveStartingShield");
+    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).shields).toBe(1);
   });
 });

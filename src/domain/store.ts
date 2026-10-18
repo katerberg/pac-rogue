@@ -175,9 +175,10 @@ export function createStoreState(
   firstStore = false,
   lifeRoom = true,
   guaranteedSchool: UpgradeSchool | null = null,
+  previouslyOffered: readonly BaseUpgradeId[] = [],
 ): StoreState {
   const cells = layout.slots;
-  let pool = eligibleUpgrades(owned);
+  let pool = eligibleUpgrades(owned).filter((id) => !previouslyOffered.includes(id));
   const slots: StoreSlot[] = [];
   const upgradeCells = cells.filter((cell) => cell.kind === "upgrade");
   const schoolPool =
@@ -193,24 +194,28 @@ export function createStoreState(
       (other) => other !== guaranteedId && !(isRare(guaranteedId!) && isRare(other)),
     );
   }
+  const enhanceTargets = new Map<StoreSlotCell, BaseUpgradeId>();
+  const enhanceable = enhanceableUpgrades(owned);
+  const freshEnhanceable = enhanceable.filter((id) => !previouslyOffered.includes(id));
+  const enhancePool = freshEnhanceable.length > 0 ? freshEnhanceable : enhanceable;
+  for (const cell of cells) {
+    if (cell.kind === "enhance" && enhancePool.length > 0) {
+      enhanceTargets.set(cell, takeRandomFrom(enhancePool, rng));
+    }
+  }
+  const enhanced = new Set(enhanceTargets.values());
+  const tradeable = owned.filter((id) => !enhanced.has(baseIdOf(id)));
   for (const cell of cells) {
     const { kind, col, row } = cell;
     if (cell === guaranteedCell) {
       slots.push({ kind: "upgrade", col, row, id: guaranteedId!, sold: false });
       continue;
     }
-    const targets = kind === "enhance" ? enhanceableUpgrades(owned) : [];
-    if (kind === "swap" && !firstStore && owned.length > 0) {
-      const outgoingId = takeRandomFrom([...owned], rng);
+    if (kind === "swap" && !firstStore && tradeable.length > 0) {
+      const outgoingId = takeRandomFrom(tradeable, rng);
       slots.push({ kind, col, row, outgoingId, incomingBaseId: null, sold: false });
-    } else if (targets.length > 0) {
-      slots.push({
-        kind: "enhance",
-        col,
-        row,
-        targetId: takeRandomFrom(targets, rng),
-        sold: false,
-      });
+    } else if (enhanceTargets.has(cell)) {
+      slots.push({ kind: "enhance", col, row, targetId: enhanceTargets.get(cell)!, sold: false });
     } else if (pool.length > 0) {
       const id = takeWeightedUpgrade(pool, rng);
       slots.push({ kind: "upgrade", col, row, id, sold: false });
@@ -227,7 +232,23 @@ export function createStoreState(
     clickedSlot: null,
     confirmYes: false,
   };
-  return { ...stocked, slots: slots.map((slot) => rollSwapIncoming(slot, stocked, owned, rng)) };
+  return {
+    ...stocked,
+    slots: slots.map((slot) => rollSwapIncoming(slot, stocked, owned, rng, previouslyOffered)),
+  };
+}
+
+export function offeredUpgradeIds(state: StoreState): BaseUpgradeId[] {
+  return state.slots.flatMap((slot) => {
+    switch (slot.kind) {
+      case "upgrade":
+        return [slot.id];
+      case "enhance":
+        return [slot.targetId];
+      case "swap":
+        return slot.incomingBaseId === null ? [] : [slot.incomingBaseId];
+    }
+  });
 }
 
 function rollSwapIncoming(
@@ -235,11 +256,14 @@ function rollSwapIncoming(
   state: StoreState,
   owned: readonly UpgradeId[],
   rng: () => number,
+  previouslyOffered: readonly BaseUpgradeId[],
 ): StoreSlot {
   if (slot.kind !== "swap") {
     return slot;
   }
-  const pool = swapIncomingPool(state, owned, slot.outgoingId);
+  const pool = swapIncomingPool(state, owned, slot.outgoingId).filter(
+    (id) => !previouslyOffered.includes(id),
+  );
   return { ...slot, incomingBaseId: pool.length > 0 ? takeWeightedUpgrade(pool, rng) : null };
 }
 
