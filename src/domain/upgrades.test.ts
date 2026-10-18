@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { levelScaledDurationMs } from "./levelScaledDuration";
+import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
 import {
   eatFrightenedGhost,
   frightenedGhostEids,
@@ -881,8 +881,8 @@ describe("invuln / power pellet", () => {
     const started = { ...createRunUpgrades(), invulnRemainingMs: INVULN_MS };
     expect(playerIsInvulnerable(started)).toBe(true);
     const mid = tickInvuln(started, 1000);
-    expect(mid.invulnRemainingMs).toBe(2000);
-    const done = tickInvuln(mid, 2500);
+    expect(mid.invulnRemainingMs).toBe(INVULN_MS - 1000);
+    const done = tickInvuln(mid, INVULN_MS);
     expect(done.invulnRemainingMs).toBe(0);
     expect(playerIsInvulnerable(done)).toBe(false);
   });
@@ -1544,7 +1544,7 @@ describe("enhanced upgrades", () => {
       createRunUpgrades(["powerPelletWarpFarthestPlus", "powerPelletInvuln", "passiveOvercharge"]),
       1,
     );
-    expect(proof.state.invulnRemainingMs).toBe(6000);
+    expect(proof.state.invulnRemainingMs).toBe(INVULN_MS * 2);
   });
 
   it("Overcharge Plus triples enhanced timers including Defy Death", () => {
@@ -1769,10 +1769,10 @@ describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
 
     expect(chomp(["powerPelletInvuln"]).state.invulnRemainingMs).toBe(INVULN_MS);
     expect(chomp(["powerPelletInvuln"], 5).state.invulnRemainingMs).toBe(
-      levelScaledDurationMs(INVULN_MS, 5),
+      levelScaledDurationMs(INVULN_MS, 5, INVULN_FLOOR_RATIO),
     );
     expect(chomp(["powerPelletInvulnPlus"], 5).state.invulnRemainingMs).toBe(
-      levelScaledDurationMs(INVULN_ENHANCED_MS, 5),
+      levelScaledDurationMs(INVULN_ENHANCED_MS, 5, INVULN_FLOOR_RATIO),
     );
 
     expect(chomp(["powerPelletWallPass"]).state.wallPassRemainingMs).toBe(WALL_PASS_MS);
@@ -1789,7 +1789,7 @@ describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
       levelScaledDurationMs(FREEZE_MS, 5) * OVERCHARGE_MUL,
     );
     expect(chomp(["powerPelletInvuln", "passiveOvercharge"], 5).state.invulnRemainingMs).toBe(
-      levelScaledDurationMs(INVULN_MS, 5) * OVERCHARGE_MUL,
+      levelScaledDurationMs(INVULN_MS, 5, INVULN_FLOOR_RATIO) * OVERCHARGE_MUL,
     );
     expect(chomp(["powerPelletWallPass", "passiveOvercharge"], 5).state.wallPassRemainingMs).toBe(
       levelScaledDurationMs(WALL_PASS_MS, 5) * OVERCHARGE_MUL,
@@ -1800,7 +1800,7 @@ describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
     expect(chomp(["powerPelletWarpFarthestPlus"], 5).state.invulnRemainingMs).toBe(2000);
     expect(
       chomp(["powerPelletWarpFarthestPlus", "powerPelletInvuln"], 5).state.invulnRemainingMs,
-    ).toBe(2000);
+    ).toBe(levelScaledDurationMs(INVULN_MS, 5, INVULN_FLOOR_RATIO));
   });
 });
 
