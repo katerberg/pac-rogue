@@ -4709,6 +4709,20 @@ describe("Tunnel Sanctuary", () => {
     expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
   });
 
+  it("starts the Tunnel Dash pull only once the player reaches the band tile's centre", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveTunnelDash"] });
+    const bandCol = 5;
+    teleportPlayer(sim, cellCenterX(bandCol + 3), cellCenterY(tunnelRow()));
+    runUntil(sim, () => worldToCol(Position.x[playerEid(sim)]!) === bandCol, 360, {
+      keys: held("left"),
+    });
+    runFrames(sim, 1, { keys: held("left") });
+    expect(Position.x[playerEid(sim)]!).toBeGreaterThan(cellCenterX(bandCol));
+    runUntil(sim, () => Position.x[playerEid(sim)]! > cellCenterX(20), 360, {
+      keys: held("left"),
+    });
+  });
+
   it("lets a ghost wrap through the tunnel in the base form and blocks it in the enhanced form", () => {
     for (const [id, wraps] of [
       ["passiveTunnelSanctuary", true],

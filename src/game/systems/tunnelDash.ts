@@ -50,6 +50,11 @@ export function applyTunnelDash(world: World): TunnelDashTrigger | null {
   if (edge === null || Facing.direction[eid] !== OUTWARD_DIRECTION[edge]) {
     return null;
   }
+  const x = Position.x[eid] ?? 0;
+  const pastCenter = edge === "left" ? x <= cellCenterX(col) : x >= cellCenterX(col);
+  if (!pastCenter) {
+    return null;
+  }
 
   const sweepFromCol = edge === "left" ? 0 : col;
   const sweepToCol = edge === "left" ? col : MAZE_COLS - 1;
