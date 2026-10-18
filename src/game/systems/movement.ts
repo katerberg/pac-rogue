@@ -14,7 +14,6 @@ import {
   inBounds,
   isAlignedForTurn,
   snapPerpendicularToCenterline,
-  snapToCellCenter,
   worldToCol,
   worldToRow,
   wrapPosition,
@@ -149,7 +148,6 @@ export function movement(
   world: World,
   deltaMs: number,
   playerSolidsOverride?: SolidGrid,
-  playerStopOnRelease = false,
   playerPreTurn: number = playerPreTurnPx(),
   ghostsBlockTunnels = false,
   blockTunnelRow: number | null = null,
@@ -196,27 +194,6 @@ export function movement(
     };
 
     if (speed > 0 && (isDiagonalDirection(facing) || isDiagonalDirection(nextIntent))) {
-      if (nextIntent === DIRECTION.none && playerStopOnRelease && !ghost) {
-        const center = snapToCellCenter(x, y);
-        const dx = center.x - x;
-        const dy = center.y - y;
-        const dist = Math.hypot(dx, dy);
-        if (dist === 0 || dist <= frameTravel) {
-          Position.x[eid] = center.x;
-          Position.y[eid] = center.y;
-          Velocity.x[eid] = 0;
-          Velocity.y[eid] = 0;
-          Facing.direction[eid] = DIRECTION.none;
-          continue;
-        }
-        const inv = 1 / dist;
-        Position.x[eid] = x + dx * inv * frameTravel;
-        Position.y[eid] = y + dy * inv * frameTravel;
-        Velocity.x[eid] = dx * inv * speed;
-        Velocity.y[eid] = dy * inv * speed;
-        Facing.direction[eid] = facing;
-        continue;
-      }
       const desired = nextIntent !== DIRECTION.none ? nextIntent : facing;
       const step = directionStep(desired);
       const norm = Math.hypot(step.dx, step.dy) || 1;
@@ -309,20 +286,6 @@ export function movement(
           facing = nextIntent;
           moveDt = committed.remainingDt;
         }
-      }
-    }
-
-    if (
-      !ghost &&
-      playerStopOnRelease &&
-      nextIntent === DIRECTION.none &&
-      facing !== DIRECTION.none
-    ) {
-      const stop = tryCommitCenterTurn(x, y, facing, frameTravel, speed, 0);
-      if (stop) {
-        x = stop.x;
-        y = stop.y;
-        facing = DIRECTION.none;
       }
     }
 

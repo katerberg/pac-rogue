@@ -19,7 +19,6 @@ export type TurnTap = { direction: Direction; aheadPx: number };
 
 export type HeldKeysOpts = {
   diagonalAllowed?: boolean;
-  stopOnRelease?: boolean;
   turnTuning?: { prevKeys: HeldKeys; solids: SolidGrid };
 };
 
@@ -68,7 +67,7 @@ export function applyHeldKeys(world: World, keys: HeldKeys, opts?: HeldKeysOpts)
     [DIRECTION.right, keys.right],
   ]);
   const held = combineAxisDirections(vertical, horizontal, opts?.diagonalAllowed === true);
-  if (held === DIRECTION.none && !opts?.stopOnRelease) {
+  if (held === DIRECTION.none) {
     return null;
   }
   const tuning = opts?.turnTuning;

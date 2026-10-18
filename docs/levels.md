@@ -39,7 +39,7 @@ Release is keyed to the roster **slot**, never the ghost's name. Nothing leaves 
 
 ## Lives
 
-Runs start at `START_LIVES`. Natural regen happens only on store entry (`livesAfterLevelRegen`, `lives.ts`) and tops up toward a floor of HUD icons, so a run that fell below it trickles back across store visits. Extra Life and Myogenesis modify the floor and level-clear regen.
+Runs start at `START_LIVES`. Natural regen is the free life in the centre of each store ([store.md](./store.md#layout-and-tiles)), offered only while the player is below a floor of HUD icons (`livesAfterLevelRegen`, `lives.ts`), so a run that fell below it trickles back across store visits. Extra Life and Myogenesis modify the floor and level-clear regen.
 
 ## Fruit
 

@@ -2,7 +2,6 @@ export const START_LIVES = 4;
 export const LEVEL_LIVES_ICON_FLOOR = 3;
 export const DEFAULT_MAX_LIVES = LEVEL_LIVES_ICON_FLOOR + 1;
 export const MAX_LIVES_FLAG = 99;
-export const STORE_REGEN_AMOUNT = 1;
 
 export function livesRemainingAfterCatch(lives: number): { lives: number; gameOver: boolean } {
   if (lives <= 1) {
@@ -58,12 +57,4 @@ export function livesAfterLevelRegen(
 
 export function emptyLifeSlots(lives: number, iconFloor = LEVEL_LIVES_ICON_FLOOR): number {
   return Math.max(0, iconFloor - livesHudIconCount(lives));
-}
-
-export function storeLifeRoom(
-  lives: number,
-  floorBonus: number,
-  maxLives = DEFAULT_MAX_LIVES,
-): number {
-  return Math.max(0, levelLivesIconFloor(floorBonus, maxLives) + 1 - lives);
 }

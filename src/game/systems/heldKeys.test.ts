@@ -61,13 +61,6 @@ describe("applyHeldKeys", () => {
     expect(Input.direction[eid]).toBe(DIRECTION.left);
   });
 
-  it("clears the direction on release only with stopOnRelease", () => {
-    const { world, eid } = playerWorld();
-    Input.direction[eid] = DIRECTION.left;
-    applyHeldKeys(world, NO_KEYS_HELD, { stopOnRelease: true });
-    expect(Input.direction[eid]).toBe(DIRECTION.none);
-  });
-
   it("picks the most recently pressed key, later axis on ties", () => {
     const { world, eid } = playerWorld();
     applyHeldKeys(world, { ...NO_KEYS_HELD, up: 5, left: 9 });

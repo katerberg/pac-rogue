@@ -579,9 +579,7 @@ export function layoutCardText(
   );
 }
 
-export const CARD_DESCRIPTION_GAP = DESCRIPTION_GAP;
-
-export function stackTexts(
+function stackTexts(
   stack: { text: Phaser.GameObjects.BitmapText; gapBelow: number }[],
   centerY: number,
 ): void {

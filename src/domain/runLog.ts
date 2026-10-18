@@ -44,7 +44,8 @@ export type QuarterSource =
   | "offer"
   | "interest"
   | "hunter"
-  | "inheritance";
+  | "inheritance"
+  | "storeFreebie";
 export type GhostName = keyof typeof GHOST_KIND;
 
 export type RunLogMeta = {

@@ -117,12 +117,10 @@ import {
   DEFAULT_MAX_LIVES,
   emptyLifeSlots,
   START_LIVES,
-  STORE_REGEN_AMOUNT,
   levelLivesIconFloor,
   levelRegenAmount,
   livesAfterLevelRegen,
   livesRemainingAfterCatch,
-  storeLifeRoom,
 } from "../../domain/lives";
 import {
   activateAsciiLayout,
@@ -134,6 +132,7 @@ import {
   horizontalTunnelRows,
   worldToCol,
   worldToRow,
+  playerSpawnCenter,
   type SolidGrid,
 } from "../../domain/maze";
 import {
@@ -199,7 +198,7 @@ import {
   STORE_FIRST_LEVEL,
   STORE_EXIT_SLIDE_TILES,
   createStoreState,
-  parseStoreSlots,
+  parseStoreLayout,
   pickMidStoreLevel,
   promptView,
   purchaseSchool,
@@ -207,9 +206,11 @@ import {
   storeAfterLevel,
   storeExitAlpha,
   storeExitDirection,
+  withStoreEntranceClosed,
   storeSlotLabel,
   storeStep,
   type StoreExitDirection,
+  type StoreFreebie,
   type StorePurchase,
   type StoreState,
 } from "../../domain/store";
@@ -532,6 +533,8 @@ export class PlaySim {
   private nextStoreSchool: UpgradeSchool | null = null;
   private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
   private storeRoute: Cell | null = null;
+  private storeEntrySlidePx: number | null = null;
+  private storeSolids: SolidGrid = [];
   private timerVisible = true;
   private death: DeathSequenceState | null = null;
   private fellAt: Point | null = null;
@@ -719,12 +722,12 @@ export class PlaySim {
     return (
       this.readsStoreKeys() &&
       !this.storeConfirmOpen() &&
-      storeExitCellAt(getActiveLayout().playerSolids, worldToCol(x), worldToRow(y)) !== null
+      storeExitCellAt(this.storeSolids, worldToCol(x), worldToRow(y)) !== null
     );
   }
 
   readsStoreKeys(): boolean {
-    return this.store !== null && this.storeExitSlide === null;
+    return this.store !== null && this.storeExitSlide === null && this.storeEntrySlidePx === null;
   }
 
   storeState(): StoreState | null {
@@ -912,7 +915,9 @@ export class PlaySim {
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
       storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
+      storeFreebie: this.store?.freebie.taken === false ? this.store.freebie.kind : null,
       storeRoute: this.storeRoute,
+      storeEntering: this.storeEntrySlidePx !== null,
       storePrompt:
         this.store === null
           ? null
@@ -1199,7 +1204,6 @@ export class PlaySim {
         this.world,
         frameDelta,
         playerSolids,
-        false,
         playerPreTurnPx(this.currentTuning),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
@@ -1989,17 +1993,13 @@ export class PlaySim {
     this.lavaZone = null;
     this.speedZones = [];
 
-    this.applyLifeRegen(STORE_REGEN_AMOUNT);
+    this.storeSolids = withStoreEntranceClosed(getActiveLayout());
     this.store = createStoreState(
-      parseStoreSlots(STORE_MAZE_ASCII),
+      parseStoreLayout(STORE_MAZE_ASCII),
       this.runUpgrades.owned,
       this.random.stream("storeStock", this.levelIndex),
       this.levelIndex === STORE_FIRST_LEVEL,
-      storeLifeRoom(
-        this.lives,
-        lifeFloorBonus(this.effectiveUpgrades()),
-        this.options.maxLives ?? DEFAULT_MAX_LIVES,
-      ),
+      livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1) > this.lives,
       this.nextStoreSchool,
     );
     this.nextStoreSchool = null;
@@ -2011,6 +2011,34 @@ export class PlaySim {
     this.suppressInputUntilKeyRelease = true;
     this.showLevelBanner("STORE");
     this.emit({ type: "musicAfterFanfare", id: "storeMusic" });
+    this.beginStoreEntry();
+  }
+
+  private beginStoreEntry(): void {
+    const eid = query(this.world, [Player, Position])[0]!;
+    Position.x[eid] = (Position.x[eid] ?? 0) - STORE_EXIT_SLIDE_TILES * getActiveLayout().tileSize;
+    Facing.direction[eid] = DIRECTION.right;
+    this.storeEntrySlidePx = 0;
+    this.drawStore(storeExitAlpha(STORE_EXIT_SLIDE_TILES));
+  }
+
+  private tickStoreEntrySlide(delta: number): void {
+    applyPlayerSpeed(
+      this.world,
+      speedLevelMultiplier(this.levelIndex, this.currentTuning),
+      this.currentTuning,
+    );
+    this.storeEntrySlidePx! += slidePlayer(this.world, 1, 0, delta);
+    const remainingTiles =
+      STORE_EXIT_SLIDE_TILES - this.storeEntrySlidePx! / getActiveLayout().tileSize;
+    if (remainingTiles > 0) {
+      this.drawStore(storeExitAlpha(remainingTiles));
+      return;
+    }
+    const eid = query(this.world, [Player, Position])[0]!;
+    Position.x[eid] = playerSpawnCenter().x;
+    Facing.direction[eid] = DIRECTION.none;
+    this.storeEntrySlidePx = null;
     this.drawStore();
   }
 
@@ -2046,11 +2074,15 @@ export class PlaySim {
       this.tickStoreExitSlide(delta);
       return;
     }
+    if (this.storeEntrySlidePx !== null) {
+      this.tickStoreEntrySlide(delta);
+      return;
+    }
     const confirming = this.storeConfirmOpen();
     const layout = getActiveLayout();
     if (input.storePointer) {
       this.storeRoute = storeExitCellAt(
-        layout.playerSolids,
+        this.storeSolids,
         worldToCol(input.storePointer.x),
         worldToRow(input.storePointer.y),
       );
@@ -2064,7 +2096,7 @@ export class PlaySim {
       this.storeRoute &&
       from &&
       storeRouteStep(
-        layout.playerSolids,
+        this.storeSolids,
         from,
         this.storeRoute,
         (col, row) => slotIndexAtCell(store, col, row) !== null,
@@ -2081,15 +2113,15 @@ export class PlaySim {
         this.suppressInputUntilKeyRelease = false;
       }
       if (!this.suppressInputUntilKeyRelease) {
-        applyHeldKeys(this.world, input.keys, { diagonalAllowed: true, stopOnRelease: true });
+        applyHeldKeys(this.world, input.keys);
       }
     }
     applyPlayerSpeed(
       this.world,
-      speedLevelMultiplier(this.levelIndex, this.currentTuning),
+      confirming ? 0 : speedLevelMultiplier(this.levelIndex, this.currentTuning),
       this.currentTuning,
     );
-    movement(this.world, delta, undefined, true);
+    movement(this.world, delta, this.storeSolids, playerPreTurnPx(this.currentTuning));
 
     const cell = playerCell(this.world);
     const exit = cell && storeExitDirection(cell.col, cell.row, layout.cols, layout.rows);
@@ -2106,7 +2138,7 @@ export class PlaySim {
       {
         col: cell?.col ?? -1,
         row: cell?.row ?? -1,
-        toggle: confirming && input.storeToggle,
+        focus: confirming ? input.storeFocus : null,
         enter: confirming && input.storeConfirm,
         pick: confirming ? (input.storeChoice ?? null) : null,
         click: confirming ? null : (input.storeClick ?? null),
@@ -2117,6 +2149,9 @@ export class PlaySim {
       this.random.stream("storePurchase", this.levelIndex),
     );
     this.store = step.state;
+    if (step.pickup !== null) {
+      this.applyStorePickup(step.pickup);
+    }
     if (step.purchase !== null) {
       this.applyStorePurchase(step.purchase);
     }
@@ -2148,6 +2183,19 @@ export class PlaySim {
     );
   }
 
+  private applyStorePickup(kind: StoreFreebie["kind"]): void {
+    this.emitMunch();
+    if (kind === "quarter") {
+      this.quarters += 1;
+      this.recorder.quarters("storeFreebie", 1);
+      this.emit({ type: "quarters", pulse: true });
+      return;
+    }
+    this.recorder.livesRegenerated(this.lives, this.lives + 1);
+    this.lives += 1;
+    this.emit({ type: "lives", pulse: true });
+  }
+
   private applyStorePurchase(purchase: StorePurchase): void {
     this.recorder.storePurchase(purchase);
     this.nextStoreSchool = purchaseSchool(purchase) ?? this.nextStoreSchool;
@@ -2155,11 +2203,6 @@ export class PlaySim {
     this.interestPop = null;
     this.emit({ type: "quarters", pulse: false });
     this.emitMunch();
-    if (purchase.kind === "life") {
-      this.lives += 1;
-      this.emit({ type: "lives", pulse: true });
-      return;
-    }
     let id: UpgradeId;
     if (purchase.kind === "enhance") {
       id = enhancedIdOf(purchase.targetId);
@@ -2207,6 +2250,7 @@ export class PlaySim {
       this.emit({ type: "quarters", pulse: false });
     }
     this.storeExitSlide = null;
+    this.storeEntrySlidePx = null;
     this.storeRoute = null;
     this.emit({ type: "storeClosed" });
     this.store = null;
