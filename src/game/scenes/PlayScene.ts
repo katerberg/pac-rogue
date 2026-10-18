@@ -405,6 +405,7 @@ export class PlayScene extends Phaser.Scene {
       this.pausedAtMs = null;
     }
     this.sim.suppressInputUntilRelease();
+    this.keyPressed = false;
     const timerVisible = this.timerText.visible;
     this.timerText.destroy();
     this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
