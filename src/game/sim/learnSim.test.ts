@@ -1078,6 +1078,21 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toContain("LIVES 3");
   });
 
+  it.each([
+    ["passiveInheritance", "+2 Q"],
+    ["passiveInheritancePlus", "+2 Q"],
+  ] as const)("%s pays Quarters when the board refills", (id, payout) => {
+    const { sim, player } = setup(id);
+    catchByGhost(sim, player);
+    runMs(sim, 1_600);
+    catchByGhost(sim, player);
+    runMs(sim, 1_600);
+    for (const eid of query(sim.world, [Pellet])) {
+      removeEntity(sim.world, eid);
+    }
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([payout]);
+  });
+
   it("Fruit Fecundity runs a timed fruit that lasts twice as long", () => {
     const { sim } = setup("fruitFecundity");
     expect(query(sim.world, [Fruit]).length).toBe(0);

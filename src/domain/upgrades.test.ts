@@ -138,6 +138,7 @@ import {
   getUpgradeDef,
   remoteTransferEvery,
   deathsBountyCharge,
+  inheritancePayout,
   lazyLooperRings,
   deathsHarvestRadiusTiles,
   enhanceGrantLives,
@@ -227,6 +228,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletCornucopia",
   "powerPelletWallDrop",
   "powerPelletProgrammer",
+  "passiveInheritance",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -1500,6 +1502,13 @@ describe("enhanced upgrades", () => {
     expect(charges("passiveDeathsBounty")).toEqual([300, 240, 192, 153, 122]);
     expect(charges("passiveDeathsBountyPlus")).toEqual([300, 270, 243, 218, 196]);
     expect(deathsBountyCharge([], 0)).toBe(0);
+  });
+
+  it("Inheritance pays per empty life slot, or per death on the level when enhanced", () => {
+    expect(inheritancePayout(["passiveInheritance"], 2, 5)).toBe(2);
+    expect(inheritancePayout(["passiveInheritancePlus"], 2, 5)).toBe(5);
+    expect(inheritancePayout(["passiveInheritancePlus"], 3, 0)).toBe(0);
+    expect(inheritancePayout([], 2, 5)).toBe(0);
   });
 
   it("Lazy Looper requires outer + inner rings, Plus only the outer ring", () => {

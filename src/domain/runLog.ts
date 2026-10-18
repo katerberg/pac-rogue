@@ -37,7 +37,14 @@ export type ActivationKind =
   | "programmer";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
-  "fruit" | "bonusBar" | "deathsBounty" | "nearMiss" | "offer" | "interest" | "hunter";
+  | "fruit"
+  | "bonusBar"
+  | "deathsBounty"
+  | "nearMiss"
+  | "offer"
+  | "interest"
+  | "hunter"
+  | "inheritance";
 export type GhostName = keyof typeof GHOST_KIND;
 
 export type RunLogMeta = {

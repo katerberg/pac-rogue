@@ -64,7 +64,8 @@ export type BaseUpgradeId =
   | "passiveShieldBreak"
   | "powerPelletCornucopia"
   | "powerPelletWallDrop"
-  | "powerPelletProgrammer";
+  | "powerPelletProgrammer"
+  | "passiveInheritance";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -115,6 +116,7 @@ export type UpgradeEffects = {
   remoteTransferEveryPellets?: number;
   deathsHarvestRadiusTiles?: number;
   deathsBountyDecay?: number;
+  inheritancePerDeath?: true;
   overchargeMul?: number;
   ghostTunnelSpeedRatio?: number;
   tunnelExitInvulnMs?: number;
@@ -261,6 +263,7 @@ export const FRUIT_QUARTERS_ENHANCED = 2;
 export const FRUIT_FEAST_ENHANCED_THRESHOLDS = [45, 100, 150, 200] as const;
 export const DEATHS_HARVEST_ENHANCED_RADIUS_TILES = 10;
 export const DEATHS_BOUNTY_ENHANCED_DECAY = 0.9;
+export const INHERITANCE_QUARTERS_PER_UNIT = 1;
 export const OVERCHARGE_ENHANCED_MUL = 3;
 export const GHOST_TUNNEL_ENHANCED_SPEED_RATIO = 0.3;
 export const SECOND_CHOMP_ENHANCED_MS = 7000;
@@ -935,6 +938,18 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       onPowerPellet: { programmerSets: PROGRAMMER_ENHANCED_SETS },
     },
     onPowerPellet: { programmerSets: 1 },
+  },
+  {
+    id: "passiveInheritance",
+    label: "Inheritance",
+    school: "death",
+    description: "Clear a level: gain a Quarter for each empty life slot.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote: "Inheritance pays per death on the level instead of per empty life slot.",
+      description: "Clear a level: gain a Quarter for each time you died on it.",
+      inheritancePerDeath: true,
+    },
   },
 ];
 
@@ -1910,6 +1925,18 @@ export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
 export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
   const decay = ownedValue(owned, "deathsBountyDecay");
   return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
+}
+
+export function inheritancePayout(
+  owned: readonly UpgradeId[],
+  emptyLifeSlots: number,
+  deathsOnLevel: number,
+): number {
+  if (!hasUpgrade(owned, "passiveInheritance")) {
+    return 0;
+  }
+  const units = ownedValue(owned, "inheritancePerDeath") === true ? deathsOnLevel : emptyLifeSlots;
+  return units * INHERITANCE_QUARTERS_PER_UNIT;
 }
 
 export function nearMissCharge(owned: readonly UpgradeId[]): number {

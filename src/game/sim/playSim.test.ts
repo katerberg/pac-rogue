@@ -6599,3 +6599,65 @@ describe("Programmer", () => {
     expect(sim.snapshot().timers.programmer).toBeNull();
   });
 });
+
+describe("Inheritance", () => {
+  function quartersAfterLevelClear(
+    enableUpgrades: UpgradeId[],
+    lives: number,
+    deaths: number,
+  ): number {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades });
+    const internals = sim as unknown as { lives: number; deathsThisBoard: number };
+    internals.lives = lives;
+    internals.deathsThisBoard = deaths;
+    runUntil(sim, () => sim.offer() !== null, 90);
+    return sim.snapshot().quarters;
+  }
+
+  const baseline = (lives: number, deaths: number): number =>
+    quartersAfterLevelClear([], lives, deaths);
+
+  it("pays a Quarter per empty life slot on level clear", () => {
+    expect(quartersAfterLevelClear(["passiveInheritance"], 2, 0)).toBe(baseline(2, 0) + 2);
+    expect(quartersAfterLevelClear(["passiveInheritance"], 4, 3)).toBe(baseline(4, 3));
+  });
+
+  it("pays a Quarter per death on the cleared level when enhanced", () => {
+    expect(quartersAfterLevelClear(["passiveInheritancePlus"], 2, 3)).toBe(baseline(2, 3) + 3);
+    expect(quartersAfterLevelClear(["passiveInheritancePlus"], 2, 0)).toBe(baseline(2, 0));
+  });
+
+  it("pays nothing when not owned", () => {
+    expect(quartersAfterLevelClear([], 1, 3)).toBe(baseline(1, 3));
+  });
+
+  it("pays before Myogenesis refills the empty slots", () => {
+    expect(quartersAfterLevelClear(["passiveInheritance", "passiveMyogenesisPlus"], 1, 0)).toBe(
+      baseline(1, 0) + 3,
+    );
+  });
+
+  it("counts real deaths on the level it clears", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveInheritancePlus"],
+      infiniteLives: true,
+    });
+    for (let i = 0; i < 2; i += 1) {
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+    }
+    expect(sim.snapshot().deathsThisBoard).toBe(2);
+    for (const eid of query(sim.world, [Ghost])) {
+      removeEntity(sim.world, eid);
+    }
+    for (const eid of Array.from(query(sim.world, [Pellet, Position]))) {
+      eatPelletAt(sim, eid);
+    }
+    const events = runUntil(sim, () => sim.offer() !== null, 600);
+    expect(events).toContainEqual({ type: "quarters", pulse: true });
+    expect(sim.snapshot().quarters).toBeGreaterThanOrEqual(2);
+  });
+});

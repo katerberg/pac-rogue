@@ -19,7 +19,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 ## Differences from play
 
 - Chase mode only, level-1 speeds, no Cruise Elroy. No sound, HUD timer, lives or history writes.
-- Contact never kills, except the **demo catch**: while any upgrade that reacts to a catch (Death's Harvest, Bounty, Defy Death, Extra Life, Myogenesis, Money Talks, Shield, Starting Shield, Haunting) is selected, a touch runs the same helpers a real catch does without resetting Maze-Man; a grace blink, a popup and a status line report the outcome.
+- Contact never kills, except the **demo catch**: while any upgrade that reacts to a catch (Death's Harvest, Bounty, Defy Death, Extra Life, Myogenesis, Inheritance, Money Talks, Shield, Starting Shield, Haunting) is selected, a touch runs the same helpers a real catch does without resetting Maze-Man; a grace blink, a popup and a status line report the outcome.
 - The chosen ghost spawns `active` at the house exit. Picking Inky also spawns a faded, harmless Blinky.
 - The board uses `pelletCellCenters()` (shared with `PlaySim`) and refills when empty. Power pellets regenerate when all are gone so effects stay demoable. One always-present fruit respawns after a short delay.
 - Spunky and Wardy keep their real release slot and targeting (`ghostTarget.ts`) but have no speed rules of their own.
@@ -36,7 +36,7 @@ Known simplifications (everything else is a reuse of play code):
 
 - **Ghost Recall:** snaps the ghost to the exit, holds it briefly, then releases it.
 - **Pellet Surge, Lazy Looper:** only the on-toggle half; Learn still refills the whole board.
-- **Defy Death, Extra Life, Myogenesis, Death's Harvest/Bounty, Money Talks, Haunting:** shown through the demo catch.
+- **Defy Death, Extra Life, Myogenesis, Death's Harvest/Bounty, Inheritance, Money Talks, Haunting:** shown through the demo catch.
 - **Fruit Fecundity / Feast:** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
 - **Martyr, Interest:** no visible effect (no respawn move, no store).
