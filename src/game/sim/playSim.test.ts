@@ -53,6 +53,8 @@ import {
   FAST_ZONE_MULTIPLIER,
   SLOW_ZONE_MULTIPLIER,
   SPEED_ZONE_MIN_LENGTH,
+  flipSpeedZoneRows,
+  SPEED_ZONE_SHIFT_STEP_MS,
   speedZoneCells,
   type SpeedZone,
 } from "../../domain/speedZones";
@@ -123,6 +125,11 @@ function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
 
 function playerEid(sim: PlaySim): number {
   return query(sim.world, [Player, Position])[0]!;
+}
+
+function settledZones(sim: PlaySim): SpeedZone[] {
+  runUntil(sim, () => !sim.snapshot().speedZonesShifting, 600);
+  return sim.snapshot().speedZones;
 }
 
 function teleportPlayer(sim: PlaySim, x: number, y: number): void {
@@ -561,7 +568,7 @@ describe("PlaySim", () => {
     expect(startSim({ level: 6, levelModifiers: false }, "one-map").snapshot().speedZones).toEqual(
       [],
     );
-    expect(startSim({ level: 6 }, "one-map").snapshot().speedZones).toHaveLength(2);
+    expect(settledZones(startSim({ level: 6 }, "one-map"))).toHaveLength(2);
   });
 
   it("collects pellets while the player moves", () => {
@@ -5422,13 +5429,13 @@ describe("lava zone", () => {
   });
 
   it("never puts a lava cell on a speed lane", () => {
-    for (let i = 0; i < 40; i += 1) {
-      const snap = startSim({ level: 8 }, `lava-lane-${i}`).snapshot();
-      const laneCells = new Set(
-        snap.speedZones.flatMap(speedZoneCells).map((c) => `${c.col},${c.row}`),
-      );
-      expect(snap.speedZones).toHaveLength(2);
-      for (const cell of snap.lava!.cells) {
+    for (const i of [...Array.from({ length: 40 }, (_, n) => n), 147]) {
+      const sim = startSim({ level: 8 }, `lava-lane-${i}`);
+      const lava = sim.snapshot().lava!;
+      const zones = settledZones(sim);
+      const laneCells = new Set(zones.flatMap(speedZoneCells).map((c) => `${c.col},${c.row}`));
+      expect(zones).toHaveLength(3);
+      for (const cell of lava.cells) {
         expect(laneCells.has(`${cell.col},${cell.row}`)).toBe(false);
       }
     }
@@ -5468,9 +5475,15 @@ describe("lava zone", () => {
   it("creeps out from the centre, so an outer cell is safe early and deadly later", () => {
     const sim = lavaSim("lava-creep");
     const outer = sim.snapshot().lava!.cells.at(-1)!;
-    teleportPlayer(sim, cellCenterX(outer.col), cellCenterY(outer.row));
+    parkAwayFromLava(sim);
     runUntil(sim, () => sim.snapshot().lava!.phase === "emerging", framesFor(10_000));
     runUntil(sim, () => sim.snapshot().lava!.reachTiles >= 0.5, framesFor(5000));
+    teleportPlayer(sim, cellCenterX(outer.col), cellCenterY(outer.row));
+    Velocity.x[playerEid(sim)] = 0;
+    Velocity.y[playerEid(sim)] = 0;
+    Input.direction[playerEid(sim)] = DIRECTION.none;
+    runFrames(sim, 1);
+    expect(sim.snapshot().player).toMatchObject({ col: outer.col, row: outer.row });
     expect(sim.snapshot().dying).toBe(false);
     runUntil(sim, () => sim.snapshot().dying, framesFor(LAVA_EMERGE_MS));
     expect(sim.snapshot().lava!.phase).toBe("emerging");
@@ -6032,8 +6045,8 @@ describe("speed zones", () => {
     dir: SpeedZone["fastDir"],
     zonesOn: boolean,
   ): { speed: number; effect: string | null } {
-    const sim = startSim({ level: 5, infiniteLives: true }, "zones");
-    const zone = sim.snapshot().speedZones[zoneIndex]!;
+    const sim = startSim({ level: 6, infiniteLives: true }, "zones");
+    const zone = settledZones(sim)[zoneIndex]!;
     if (!zonesOn) {
       sim["speedZones"] = [];
     }
@@ -6048,26 +6061,32 @@ describe("speed zones", () => {
     return { speed: Speed.px[player]!, effect: sim.snapshot().playerSpeedZone };
   }
 
-  it("lays two straight seeded lanes of SPEED_ZONE_MIN_LENGTH+ tiles on levels 5-8 only", () => {
-    for (const level of [5, 6, 7, 8]) {
-      const zones = startSim({ level }, "zones").snapshot().speedZones;
-      expect(zones).toHaveLength(2);
+  it("lays 1, 1, 2, 3, 3 straight seeded lanes of SPEED_ZONE_MIN_LENGTH+ tiles on levels 4-8", () => {
+    for (const [level, count] of [
+      [4, 1],
+      [5, 1],
+      [6, 2],
+      [7, 3],
+      [8, 3],
+    ] as const) {
+      const zones = settledZones(startSim({ level }, "zones"));
+      expect(zones).toHaveLength(count);
       for (const zone of zones) {
         expect(zone.length).toBeGreaterThanOrEqual(SPEED_ZONE_MIN_LENGTH);
         for (const cell of speedZoneCells(zone)) {
           expect(getActiveLayout().playerSolids[cell.row]![cell.col]).toBe(false);
         }
       }
-      expect(startSim({ level }, "zones").snapshot().speedZones).toEqual(zones);
+      expect(settledZones(startSim({ level }, "zones"))).toEqual(zones);
     }
-    for (const level of [1, 2, 4, 9]) {
+    for (const level of [1, 2, 3, 9]) {
       expect(startSim({ level }, "zones").snapshot().speedZones).toEqual([]);
     }
   });
 
   it("speeds Dot-Man up along the fast direction and slows him the other way", () => {
     for (const index of [0, 1]) {
-      const fastDir = startSim({ level: 5 }, "zones").snapshot().speedZones[index]!.fastDir;
+      const fastDir = settledZones(startSim({ level: 6 }, "zones"))[index]!.fastDir;
       const slowDir = OPPOSITE[fastDir];
       const fast = speedMovingThrough(index, fastDir, true);
       const slow = speedMovingThrough(index, slowDir, true);
@@ -6111,12 +6130,67 @@ describe("speed zones", () => {
   });
 
   it("clears the lanes when the store floor opens", () => {
-    const sim = startSim({ level: 5 }, "zones");
-    expect(sim.snapshot().speedZones).toHaveLength(2);
+    const sim = startSim({ level: 6 }, "zones");
+    expect(settledZones(sim)).toHaveLength(2);
     (sim as unknown as { enterStore(): void }).enterStore();
     expect(sim.snapshot().inStore).toBe(true);
     expect(sim.snapshot().speedZones).toEqual([]);
     expect(sim.snapshot().playerSpeedZone).toBeNull();
+  });
+
+  it("keeps each lane from the level before, nudged at the ends, and leaks it in tile by tile", () => {
+    for (const seed of ["zones", "drift-a", "drift-b"]) {
+      const four = settledZones(startSim({ level: 4 }, seed));
+      const sim = startSim({ level: 5 }, seed);
+      const five = settledZones(sim);
+      expect(five).toHaveLength(1);
+      expect(five[0]!.axis).toBe(four[0]!.axis);
+      expect(five[0]!.fastDir).toBe(four[0]!.fastDir);
+      const lane = (z: SpeedZone) => (z.axis === "horizontal" ? z.row : z.col);
+      expect(lane(five[0]!)).toBe(lane(four[0]!));
+      const start = (z: SpeedZone) => (z.axis === "horizontal" ? z.col : z.row);
+      expect(Math.abs(start(five[0]!) - start(four[0]!))).toBeLessThanOrEqual(2);
+      expect(Math.abs(five[0]!.length - four[0]!.length)).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("grows a new lane out from nothing at board start and only speeds the tiles it covers", () => {
+    const sim = startSim({ level: 4, infiniteLives: true }, "zones");
+    expect(sim.snapshot().speedZones).toEqual([]);
+    expect(sim.snapshot().speedZonesShifting).toBe(true);
+    const target = settledZones(startSim({ level: 4 }, "zones"))[0]!;
+    const end = speedZoneCells(target).at(-1)!;
+    teleportPlayer(sim, cellCenterX(end.col), cellCenterY(end.row));
+    runFrames(sim, 1, { keys: held(KEY_FOR[target.fastDir]) });
+    expect(sim.snapshot().playerSpeedZone).toBeNull();
+    runFrames(sim, Math.ceil((SPEED_ZONE_SHIFT_STEP_MS * 3) / FRAME_MS));
+    expect(sim.snapshot().speedZones[0]!.length).toBeGreaterThan(0);
+    expect(sim.snapshot().speedZones[0]!.length).toBeLessThan(target.length);
+    expect(settledZones(sim)).toEqual([target]);
+  });
+
+  it("mirrors the lanes with the upside-down maze on levels 6-7 and back on 8", () => {
+    const rows = (level: number, levelModifiers = true) => {
+      const sim = startSim({ level, levelModifiers }, "zones");
+      return { zones: settledZones(sim), rows: getActiveLayout().rows };
+    };
+    const five = rows(5).zones;
+    const six = rows(6);
+    const firstOnSix = flipSpeedZoneRows(six.zones[0]!, six.rows);
+    expect(firstOnSix.axis).toBe(five[0]!.axis);
+    expect(firstOnSix.fastDir).toBe(five[0]!.fastDir);
+    const lane = (z: SpeedZone) => (z.axis === "horizontal" ? z.row : z.col);
+    expect(lane(firstOnSix)).toBe(lane(five[0]!));
+    for (const zone of six.zones) {
+      for (const cell of speedZoneCells(zone)) {
+        expect(getActiveLayout().playerSolids[cell.row]![cell.col]).toBe(false);
+      }
+    }
+    const seven = rows(7);
+    const eight = rows(8).zones;
+    expect(eight.slice(0, 3).map((z) => z.fastDir)).toEqual(
+      seven.zones.map((z) => flipSpeedZoneRows(z, seven.rows).fastDir),
+    );
   });
 
   it("draws the lanes for the render bridge", () => {

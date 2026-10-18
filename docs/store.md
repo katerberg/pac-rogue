@@ -6,16 +6,16 @@ Quarters (from the [BONUS bar](./bonus.md) and the level-clear Quarters choice) 
 
 - Schedule: `storeAfterLevel(levelIndex, midStoreLevel)` (after level 3, a mid store after 5 or 6 rolled once per run, and after 8 before the boss). The level-clear upgrade modal resolves first, then the transition, then the store.
 - Entering stocks the tiles and the centre freebie and pays [Interest](./upgrades.md) if owned, all before the player can buy. There is no silent life regen on entry; the freebie replaces it.
-- `?store=1|2|3` starts in the Nth store (disables high scores; combine with `quarters` and `enableUpgrade`).
+- `?store=1|2|3` starts in the Nth store (disables high scores; combine with `quarters`, `enableUpgrade`).
 
 ## Layout and tiles
 
-`STORE_MAZE_ASCII` (`mazeLayouts.ts`) is the same fixed map every visit: single-file corridors around four wall blocks. Entry slides in from the left middle (input ignored); then `withStoreEntranceClosed` seals that cell so it cannot be used to leave. The only exit is a jogged pocket on the right (straight-right never exits). `parseStoreLayout` reads it:
+`STORE_MAZE_ASCII` (`mazeLayouts.ts`) is the same fixed map every visit: single-file corridors around four wall blocks. Entry slides in from the left middle (input ignored); `withStoreEntranceClosed` then seals that cell. The only exit is a jogged pocket on the right. `parseStoreLayout` reads it:
 
 - **Corners** are 2x2 slot blocks: `U` random unowned upgrade, `E` enhance (owned → Plus), `S` trade (lose a shown owned, gain a hidden random). Always four; an `E` or `S` with nothing to act on stocks as another upgrade.
 - **Centre** `F` is a freebie on step-on: a free life below the natural regen floor ([levels.md](./levels.md#lives)), else a free Quarter.
 - Prices: constants in `store.ts`. `createStoreState` rolls stock once: at most one rare, rares at half weight; a corner stays empty only when nothing is left to shelve. Nothing shows twice in a store or again in a later one (`offeredUpgradeIds`); `E` only prefers a fresh target.
-- **School carry-over:** last upgrade/enhance bought (not trades) sets the school the next store must shelve once on a `U` (`purchaseSchool`, `PlaySim.nextStoreSchool`). Consumed on entry, skipped when that school has nothing left; buying nothing clears it.
+- **School carry-over:** last upgrade/enhance bought (not trades) sets the school the next store must shelve once on a `U` (`purchaseSchool`, `PlaySim.nextStoreSchool`). Consumed on entry; buying nothing clears it.
 
 ## Movement
 
