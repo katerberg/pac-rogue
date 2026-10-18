@@ -143,7 +143,7 @@ describe("createStoreState", () => {
     }
   });
 
-  it("never re-offers an upgrade from previouslyOffered on any tile", () => {
+  it("never re-offers an upgrade from previouslyOffered on any tile while a fresh enhance target exists", () => {
     const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow", "fruitFeast"];
     for (let seed = 1; seed <= 100; seed += 1) {
       let x = seed;
@@ -164,6 +164,21 @@ describe("createStoreState", () => {
       );
       expect(offeredUpgradeIds(second).filter((id) => seen.includes(id))).toEqual([]);
     }
+  });
+
+  it("repeats an enhance target only when every enhanceable upgrade was already offered", () => {
+    const stocked = createStoreState(
+      parseStoreSlots(STORE_MAZE_ASCII),
+      ["passiveAfterburner"],
+      zeroRng,
+      false,
+      Number.POSITIVE_INFINITY,
+      null,
+      ["passiveAfterburner"],
+    );
+    expect(stocked.slots.find((s) => s.kind === "enhance")).toMatchObject({
+      targetId: "passiveAfterburner",
+    });
   });
 
   it("omits the swap when the only tradeable upgrade is the enhancement target", () => {

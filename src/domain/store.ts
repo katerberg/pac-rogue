@@ -179,7 +179,9 @@ export function createStoreState(
     );
   }
   const enhanceTargets = new Map<StoreSlotCell, BaseUpgradeId>();
-  const enhancePool = enhanceableUpgrades(owned).filter((id) => !previouslyOffered.includes(id));
+  const enhanceable = enhanceableUpgrades(owned);
+  const freshEnhanceable = enhanceable.filter((id) => !previouslyOffered.includes(id));
+  const enhancePool = freshEnhanceable.length > 0 ? freshEnhanceable : enhanceable;
   for (const cell of cells) {
     if (cell.kind === "enhance" && enhancePool.length > 0) {
       enhanceTargets.set(cell, takeRandomFrom(enhancePool, rng));
