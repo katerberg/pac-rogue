@@ -810,7 +810,7 @@ export class PlaySim {
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
       programmerQueue: this.programmerQueue(),
-      simulacrum: this.simulacrumRender(),
+      simulacrum: this.death === null ? this.twinDashBody() : null,
       simulacrumPop: simulacrumPopRender(this.simulacrumPop),
     };
   }
@@ -1727,10 +1727,6 @@ export class PlaySim {
     if (position !== null) {
       this.simulacrumPop = { ...position, elapsedMs: 0 };
     }
-  }
-
-  private simulacrumRender(): SimRenderOptions["simulacrum"] {
-    return this.death === null ? this.twinDashBody() : null;
   }
 
   private catchOptions(): CatchOptions {

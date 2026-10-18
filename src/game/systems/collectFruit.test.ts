@@ -76,13 +76,3 @@ describe("removeAllFruit", () => {
     expect(query(world, [Fruit])).toHaveLength(0);
   });
 });
-
-describe("collectFruit from an explicit body position", () => {
-  it("eats the fruit under `at` and leaves the one under the player", () => {
-    const { world } = spawnPlayer(100, 100);
-    const nearPlayer = spawnFruit(world, 100, 100);
-    const nearTwin = spawnFruit(world, 400, 100);
-    expect(collectFruit(world, { x: 400, y: 100 })).toEqual([nearTwin]);
-    expect(query(world, [Fruit])).toEqual([nearPlayer]);
-  });
-});

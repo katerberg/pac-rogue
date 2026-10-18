@@ -78,47 +78,6 @@ export function sharedZoneEffect(
   };
 }
 
-type Node = { index: number; g: number; f: number };
-
-function pushHeap(heap: Node[], node: Node): void {
-  heap.push(node);
-  let at = heap.length - 1;
-  while (at > 0) {
-    const parent = (at - 1) >> 1;
-    if (heap[parent]!.f <= heap[at]!.f) {
-      break;
-    }
-    [heap[parent], heap[at]] = [heap[at]!, heap[parent]!];
-    at = parent;
-  }
-}
-
-function popHeap(heap: Node[]): Node {
-  const top = heap[0]!;
-  const last = heap.pop()!;
-  if (heap.length > 0) {
-    heap[0] = last;
-    let at = 0;
-    for (;;) {
-      const left = at * 2 + 1;
-      const right = left + 1;
-      let smallest = at;
-      if (left < heap.length && heap[left]!.f < heap[smallest]!.f) {
-        smallest = left;
-      }
-      if (right < heap.length && heap[right]!.f < heap[smallest]!.f) {
-        smallest = right;
-      }
-      if (smallest === at) {
-        break;
-      }
-      [heap[smallest], heap[at]] = [heap[at]!, heap[smallest]!];
-      at = smallest;
-    }
-  }
-  return top;
-}
-
 export function pathLength(solids: SolidGrid, from: MazeTile, to: MazeTile): number {
   const rows = solids.length;
   const cols = solids[0]?.length ?? 0;
@@ -129,18 +88,23 @@ export function pathLength(solids: SolidGrid, from: MazeTile, to: MazeTile): num
     const dCol = Math.abs(col - to.col);
     return Math.min(dCol, cols - dCol) + Math.abs(row - to.row);
   };
-  const startIndex = from.row * cols + from.col;
   const goalIndex = to.row * cols + to.col;
-  const best = new Map<number, number>([[startIndex, 0]]);
-  const open: Node[] = [];
-  pushHeap(open, { index: startIndex, g: 0, f: heuristic(from.col, from.row) });
-  while (open.length > 0) {
-    const { index, g } = popHeap(open);
+  const best = new Map<number, number>([[from.row * cols + from.col, 0]]);
+  const open = new Set(best.keys());
+  while (open.size > 0) {
+    let index = -1;
+    let lowest = Number.POSITIVE_INFINITY;
+    for (const candidate of open) {
+      const f = best.get(candidate)! + heuristic(candidate % cols, Math.floor(candidate / cols));
+      if (f < lowest) {
+        lowest = f;
+        index = candidate;
+      }
+    }
+    open.delete(index);
+    const g = best.get(index)!;
     if (index === goalIndex) {
       return g;
-    }
-    if (g > (best.get(index) ?? Number.POSITIVE_INFINITY)) {
-      continue;
     }
     const col = index % cols;
     const row = Math.floor(index / cols);
@@ -156,10 +120,9 @@ export function pathLength(solids: SolidGrid, from: MazeTile, to: MazeTile): num
         continue;
       }
       const nextIndex = nextRow * cols + nextCol;
-      const nextG = g + 1;
-      if (nextG < (best.get(nextIndex) ?? Number.POSITIVE_INFINITY)) {
-        best.set(nextIndex, nextG);
-        pushHeap(open, { index: nextIndex, g: nextG, f: nextG + heuristic(nextCol, nextRow) });
+      if (g + 1 < (best.get(nextIndex) ?? Number.POSITIVE_INFINITY)) {
+        best.set(nextIndex, g + 1);
+        open.add(nextIndex);
       }
     }
   }
