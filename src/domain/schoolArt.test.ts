@@ -5,18 +5,16 @@ import { schoolArtPath, schoolArtTextureKey, schoolArtSize } from "./schoolArt";
 import { UPGRADE_SCHOOL_ORDER } from "./upgrades";
 
 describe("schoolArt", () => {
-  it("maps every school except neutral to art/schools/<school>.png", () => {
+  it("maps every school to art/schools/<school>.png", () => {
     for (const school of UPGRADE_SCHOOL_ORDER) {
-      expect(schoolArtPath(school)).toBe(school === "neutral" ? null : `art/schools/${school}.png`);
+      expect(schoolArtPath(school)).toBe(`art/schools/${school}.png`);
     }
   });
 
-  it("has a PNG in public/ for every school with art", () => {
+  it("has a PNG in public/ for every school", () => {
     for (const school of UPGRADE_SCHOOL_ORDER) {
       const path = schoolArtPath(school);
-      if (path !== null) {
-        expect(existsSync(join("public", path)), path).toBe(true);
-      }
+      expect(existsSync(join("public", path)), path).toBe(true);
     }
   });
 

@@ -5,7 +5,8 @@ import { ALL_UPGRADE_IDS, type BaseUpgradeId, type UpgradeId } from "./upgrades"
 
 export const RUN_LOG_VERSION = 1 as const;
 export const RUN_LOG_SOFT_CAP = 500;
-export const RUN_LOG_PURGE_COUNT = 10;
+export const RUN_LOG_PURGE_COUNT = 20;
+export const RUN_LOG_PURGE_HEADROOM = 5;
 export const NEAR_MISS_COOLDOWN_MS = 1000;
 export const HITCH_FRAME_MS = 50;
 export const HITCH_WINDOW_MS = 1000;
@@ -32,7 +33,8 @@ export type ActivationKind =
   | "echo"
   | "frighten"
   | "ghostEaten"
-  | "wallDrop";
+  | "wallDrop"
+  | "programmer";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   | "fruit"
@@ -304,8 +306,8 @@ export function isNearMiss(distancePx: number, tileSize: number): boolean {
   return distancePx <= tileSize;
 }
 
-export function runLogOverrun(storedCount: number, quotaFailed: boolean): boolean {
-  return storedCount >= RUN_LOG_SOFT_CAP || quotaFailed;
+export function runLogNeedsPurge(storedCount: number): boolean {
+  return storedCount >= RUN_LOG_SOFT_CAP - RUN_LOG_PURGE_HEADROOM;
 }
 
 const OUTCOMES: readonly RunOutcome[] = ["inProgress", "death", "complete", "quit", "abandoned"];

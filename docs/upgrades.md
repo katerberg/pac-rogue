@@ -27,7 +27,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `passiveGhostHouseDelay` | House Delay | disruption | Ghosts linger longer in the house before the hunt. | Ghosts sulk in the house far longer before the hunt. |
 | `passiveExtraLife` | Extra Life | death | One more chance, and lives regenerate up to 4. | Two more chances, and lives regenerate up to 5. |
 | `passivePelletToPower` | Pellet Surge | automation | Each board, one regular pellet becomes a power pellet. | Each board, two regular pellets become power pellets. |
-| `powerPelletExtraHungry` | Extra Hungry | automation | Power pellets also eat the 5 pellets farthest from you. | Power pellets also eat the 10 pellets farthest from you. |
+| `powerPelletExtraHungry` | Extra Hungry | automation | Power pellets also eat the 8 pellets farthest from you. | Power pellets also eat the 14 pellets farthest from you. |
 | `powerPelletWallPass` | Wall Pass (rare) | speed | Power pellet lets you slip through walls for 6s (shortening 0.5s a level to 4s). | Power pellet lets you slip through walls and loop around the maze edges for 6s (shortening to 4s by level 5). |
 | `powerPelletSpeedBurst` | Speed Burst | speed | Power pellet spikes your pace for a few seconds. | Power pellet spikes your pace hard for a few seconds. |
 | `powerPelletInvuln` | Ghost Proof | protection | Power pellet lets you pass through ghosts for 3s (shortening toward 2s by level 5). | Power pellet lets you pass through ghosts for 5s (shortening toward ~3.3s by level 5). |
@@ -67,6 +67,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `passiveShieldBreak` | Shield Break (rare) | protection | When a shield breaks, fire all power pellet effects. Power pellet effects no longer trigger at pickup. | When a shield breaks, fire all power pellet effects. Getting a shield at your maximum fires them too. |
 | `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a bonus fruit, if none is out. | Power pellet: spawns a bonus fruit even if there are others. |
 | `powerPelletWallDrop` | Wall Drop | protection | Power pellet: your next reversal drops a wall behind you for 8s. | Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it. |
+| `powerPelletProgrammer` | Programmer (rare) | automation | Power pellet: stop and program 5 turns, then blast through them at hyperspeed. | Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more. |
 
 ## Power pellets
 
@@ -98,6 +99,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 
 - **Timers** are separate and combine by "max wins": freeze (cyan tint on one ghost, zero speed, catch skip), Ghost Proof (gold tint, catch skip, ghosts keep moving), Defy Death (shares the gold tint; does not skip kills), wall pass (its tint wins). All clear on level advance and life-loss reset. Expiry while overlapping a ghost can kill on the same update.
 - **Shields** are a banked count, not a timer: they survive timer clears, empty on level advance, and clamp to the cap when the upgrade is lost.
+- **Programmer** owns movement while it runs (`src/domain/programmer.ts`): keys record presses, then a Hyperspeed-speed run without its turn beat. Mutually exclusive with Hyperspeed in `eligibleUpgrades`.
 - **Speed**: `applyPlayerSpeed` / `applyGhostSpeed` in `PlaySim` combine the level ramp, owned multipliers, cell-based multipliers and active bursts every frame. Boss ghosts use a flat base.
 - **Catch order**: shield break, then Death's Harvest, then Defy Death, then Money Talks, then death. A break or save is not a death (no life lost, `deathsThisBoard` unchanged where the code says so).
 - **Boss level**: Lazy Looper is off; boss pellets are never optional.

@@ -15,12 +15,7 @@ import {
   type UpgradeChoiceOption,
   type UpgradeSchool,
 } from "../../domain/upgrades";
-import {
-  SCHOOL_WATERMARK_ALPHA,
-  schoolArtPath,
-  schoolArtTextureKey,
-  schoolArtSize,
-} from "../../domain/schoolArt";
+import { SCHOOL_WATERMARK_ALPHA, schoolArtTextureKey, schoolArtSize } from "../../domain/schoolArt";
 import { wrapText } from "../../domain/wrapText";
 import { addRareFx } from "./rareFx";
 import {
@@ -547,10 +542,7 @@ export function addSchoolWatermark(
   school: UpgradeSchool,
   cardWidth = CHOICE_BUTTON_WIDTH,
   cardHeight = CHOICE_BUTTON_HEIGHT,
-): Phaser.GameObjects.Image | null {
-  if (schoolArtPath(school) === null) {
-    return null;
-  }
+): Phaser.GameObjects.Image {
   const image = scene.add.image(0, 0, schoolArtTextureKey(school));
   const size = schoolArtSize(cardWidth, cardHeight);
   return image.setDisplaySize(size, size).setAlpha(SCHOOL_WATERMARK_ALPHA);
@@ -562,9 +554,8 @@ export function setSchoolWatermark(
   cardWidth: number,
   cardHeight: number,
 ): void {
-  const hasArt = school !== null && schoolArtPath(school) !== null;
-  image.setVisible(hasArt);
-  if (hasArt) {
+  image.setVisible(school !== null);
+  if (school !== null) {
     const size = schoolArtSize(cardWidth, cardHeight);
     image.setTexture(schoolArtTextureKey(school)).setDisplaySize(size, size);
   }

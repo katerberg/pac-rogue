@@ -2,11 +2,13 @@ import { expiryTintOn } from "./expiryBlink";
 
 export const PLAYER_WALL_PASS_TINT = 0xd3d333;
 export const PLAYER_INVULN_TINT = 0xc48a00;
+export const PLAYER_PROGRAMMING_TINT = 0x7ec8ff;
 
 export type PlayerTint = { color: number; mode: "multiply" | "add" };
 
 type PlayerTintInput = {
   wallPassOn: boolean;
+  programmingOn?: boolean;
   invulnRemainingMs: number;
   nowMs: number;
   flashBrighten: number;
@@ -23,6 +25,9 @@ export function brightenColor(color: number, towardWhite: number): number {
 function baseTint(input: PlayerTintInput): number | null {
   if (input.wallPassOn) {
     return PLAYER_WALL_PASS_TINT;
+  }
+  if (input.programmingOn === true) {
+    return PLAYER_PROGRAMMING_TINT;
   }
   return expiryTintOn(input.invulnRemainingMs, input.nowMs) ? PLAYER_INVULN_TINT : null;
 }

@@ -5,8 +5,8 @@ const WATERMARK_FILL = 0.75;
 
 export const SCHOOL_WATERMARK_ALPHA = 0.16;
 
-export function schoolArtPath(school: UpgradeSchool): string | null {
-  return school === "neutral" ? null : `art/schools/${school}.png`;
+export function schoolArtPath(school: UpgradeSchool): string {
+  return `art/schools/${school}.png`;
 }
 
 export function schoolArtTextureKey(school: UpgradeSchool): string {

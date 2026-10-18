@@ -54,6 +54,9 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
 
 ### Locked by default (put in Proposed locks, never Decide)
 
+- **Trigger wording:** "pellet pickup", "on pickup" or "when you eat a pellet" means a **power
+  pellet** (`onPowerPellet`). Read it as a regular pellet only when the pitch says "regular",
+  "every" or "each" pellet. Never ask which one.
 - **Interactions:** Overcharge doubles `onPowerPellet` durations only when the effect is a
   power-pellet duration; Fruit Power arms every `onPowerPellet` field; Extra Hungry, Tunnel Dash
   sweeps, Death's Harvest and ghost-harvested pellets do **not** count as "eaten" unless the pitch
@@ -66,14 +69,15 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
   particles unless the pitch asks.
 - **Enhanced version:** if the pitch gives numbers, use them. If not, propose concrete numbers as a
   lock (one clear step up from base, no new behaviour). Do not ask for them.
-- **LEARN:** mirror it if the effect is simple and deterministic, otherwise
-  `LEARN_NO_EFFECT_UPGRADE_IDS`.
+- **LEARN parity (required):** works in LEARN in the same PR; complexity is not a skip.
+  `LEARN_NO_EFFECT_UPGRADE_IDS` only for state LEARN lacks (store, lives, respawn) —
+  Decide that, never lock it silently.
 - **Edge cases:** waived and listed under "Out of scope" with one line each.
 
 ### Decide bank (only when the pitch leaves it open)
 
 - **Trigger:** passive/always-on, `onPowerPellet`, fruit pickup, grant-time, on catch, on level
-  clear, or a counter.
+  clear, or a counter. A pellet pickup is a power pellet (see above), never a Decide item.
 - **A genuinely new rule:** an effect with no precedent among existing upgrades whose edge
   behaviour changes how it plays.
 - **A number the pitch implies but never gives**, when no existing upgrade suggests a sensible
@@ -121,7 +125,7 @@ Every upgrade PR touched all of these. Missing one fails `npm run verify` or lea
 | `src/game/sim/playSim.test.ts`                    | Add a `describe("<Label>")` block covering the owned path, the not-owned path and each interaction you locked.                                                                                                                                                                                                                                             |
 | `src/game/sim/simEvents.ts` / `render.ts`         | Only if there is new feedback. Keep the look curve in a domain function (see §5).                                                                                                                                                                                                                                                                          |
 | `src/game/sim/playSim.ts` `snapshot()` (`timers`) | Expose new timer or progress fields read-only (the snapshot shape is the reference; no doc table).                                                                                                                                                                                                                                                         |
-| LEARN                                             | Either mirror it in `learnSim.ts` (plus a `learnSim.test.ts` case), or append the id to `LEARN_NO_EFFECT_UPGRADE_IDS` in `LearnScene.ts`.                                                                                                                                                                                                                  |
+| LEARN (required)                                  | Mirror in `learnSim.ts` via a shared `src/game/systems` helper both sims call; add a `learnSim.test.ts` case; clear in `clearStaleUpgradeTimers`. `LEARN_NO_EFFECT_UPGRADE_IDS` only for Decide-approved exceptions.                                                                                                                                       |
 | `docs/upgrades.md`                                | Only when a cross-cutting rule changed (a new timer kind, a new catch-order step). No per-upgrade section or table row.                                                                                                                                                                                                                                    |
 | Other docs                                        | `levels.md`, `store.md` or `ARCHITECTURE.md` only when the rule they describe changed. Myogenesis needed `levels.md` and `store.md`.                                                                                                                                                                                                                       |
 
@@ -150,6 +154,8 @@ time before:
 - **Sound:** agent ports are muted. Use `sound=1` and assert the `sfx` event, not the audio.
 - **Modes:** list every mode the diff reaches (level 1, generated, inverted, store, boss, death,
   LEARN) and probe each. Anything left out goes under "Not checked" in the PR body.
+- **LEARN is always probed** (`?learnAll=1`, base and `+`): visual check; behaviour is
+  covered by `learnSim.test.ts`.
 
 ## 5. Feel-tuning follow-ups
 

@@ -1145,6 +1145,12 @@ export function isAlignedForTurn(x: number, y: number, eps: number = TURN_ALIGN_
   return Math.abs(x - cellCenterX(col)) <= eps && Math.abs(y - cellCenterY(row)) <= eps;
 }
 
+export function snapToCellCenter(x: number, y: number): { x: number; y: number } {
+  const col = worldToCol(x);
+  const row = worldToRow(y);
+  return { x: cellCenterX(col), y: cellCenterY(row) };
+}
+
 export function snapPerpendicularToCenterline(
   x: number,
   y: number,

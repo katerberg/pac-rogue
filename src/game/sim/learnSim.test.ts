@@ -38,7 +38,10 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
+import { defaultPlayOptions } from "../../domain/playOptions";
 import { LearnSim } from "./learnSim";
+import { PlaySim } from "./playSim";
+import type { SimEvent, SimRenderOptions } from "./simEvents";
 import { FRAME_MS, held } from "./simTesting";
 
 describe("LearnSim", () => {
@@ -837,6 +840,110 @@ describe("LearnSim upgrade demos", () => {
     });
   });
 
+  describe("Programmer", () => {
+    const STEP = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } as const;
+    let pressClock = 1;
+
+    function press(sim: LearnSim, dir: keyof typeof STEP): ReturnType<LearnSim["step"]> {
+      pressClock += 1;
+      return sim.step({ ...NO_KEYS_HELD, [dir]: pressClock }, FRAME_MS);
+    }
+
+    function queueDirs(events: ReturnType<LearnSim["step"]>) {
+      const draw = events.find((event) => event.type === "draw")!;
+      return draw.type === "draw" ? draw.options.programmerQueue?.map((slot) => slot.dir) : null;
+    }
+
+    function chompAndOpenDir(
+      sim: LearnSim,
+      player: number,
+      holdDuringChomp = false,
+    ): keyof typeof STEP {
+      const at = posOf(query(sim.world, [PowerPellet, Position])[0]!);
+      const dir = (Object.keys(STEP) as (keyof typeof STEP)[]).find((key) =>
+        canEnterDirection(at.x, at.y, STEP[key][0], STEP[key][1]),
+      )!;
+      moveTo(player, at);
+      sim.step(holdDuringChomp ? held(dir) : NO_KEYS_HELD, FRAME_MS);
+      return dir;
+    }
+
+    it("stops Maze-Man on a power pellet and shows the presses as they are entered", () => {
+      const { sim, player } = setup("powerPelletProgrammer");
+      const dir = chompAndOpenDir(sim, player, true);
+      const stoppedAt = posOf(player);
+      for (let frame = 0; frame < 20; frame += 1) {
+        sim.step(held(dir), FRAME_MS);
+      }
+      expect(posOf(player)).toEqual(stoppedAt);
+      press(sim, dir);
+      expect(queueDirs(press(sim, dir))).toEqual([dir, dir, null, null, null]);
+      expect(posOf(player)).toEqual(stoppedAt);
+    });
+
+    it("runs the program at 10x speed, then hands control back", () => {
+      const plain = setup();
+      plain.sim.step(held("left"), FRAME_MS);
+      const plainSpeed = Speed.px[plain.player]!;
+
+      const { sim, player } = setup("powerPelletProgrammer");
+      const dir = chompAndOpenDir(sim, player);
+      for (let i = 0; i < 4; i += 1) {
+        press(sim, dir);
+      }
+      const before = posOf(player);
+      press(sim, dir);
+      const moved = Math.hypot(posOf(player).x - before.x, posOf(player).y - before.y);
+      expect(moved).toBeGreaterThan((plainSpeed * 5 * FRAME_MS) / 1000);
+      for (let frame = 0; frame < 240 && sim["learnUpgrades"].programmer !== null; frame += 1) {
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+      }
+      expect(sim["learnUpgrades"].programmer).toBeNull();
+      sim.step(held("left"), FRAME_MS);
+      expect(Speed.px[player]!).toBeCloseTo(plainSpeed);
+    });
+
+    it("Plus: stops again for a second set", () => {
+      const { sim, player } = setup("powerPelletProgrammer");
+      sim.toggleEnhanced("powerPelletProgrammer");
+      const dir = chompAndOpenDir(sim, player);
+      for (let i = 0; i < 5; i += 1) {
+        press(sim, dir);
+      }
+      for (
+        let frame = 0;
+        frame < 240 && sim["learnUpgrades"].programmer?.phase !== "recording";
+        frame += 1
+      ) {
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+      }
+      expect(sim["learnUpgrades"].programmer).toEqual({
+        phase: "recording",
+        presses: [],
+        setsLeft: 0,
+      });
+      const stoppedAt = posOf(player);
+      for (let frame = 0; frame < 20; frame += 1) {
+        sim.step(held(dir), FRAME_MS);
+      }
+      expect(posOf(player)).toEqual(stoppedAt);
+    });
+
+    it("does nothing without the upgrade, and toggling it off frees Maze-Man", () => {
+      const plain = setup();
+      chompPower(plain.sim, plain.player);
+      expect(plain.sim["learnUpgrades"].programmer).toBeNull();
+
+      const { sim, player } = setup("powerPelletProgrammer");
+      chompPower(sim, player);
+      expect(sim["learnUpgrades"].programmer).not.toBeNull();
+      sim.toggleUpgrade("powerPelletProgrammer");
+      expect(sim["learnUpgrades"].programmer).toBeNull();
+      const draw = sim.step(held("left"), FRAME_MS).find((event) => event.type === "draw")!;
+      expect(draw.type === "draw" && draw.options.programmerQueue).toBeNull();
+    });
+  });
+
   describe("Hyperspeed", () => {
     function chomp(sim: LearnSim, player: number): void {
       moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
@@ -1201,3 +1308,57 @@ describe("LearnSim upgrade demos", () => {
 });
 
 const held_right = held("right");
+
+const LEARN_OMITS_RENDER_OPTIONS: readonly (keyof SimRenderOptions)[] = [
+  "fruitRemainingMs",
+  "playerAlpha",
+  "entityAlpha",
+  "wallAlpha",
+  "mazeColorInverted",
+  "playerReviveProgress",
+  "bossChains",
+  "timedTunnel",
+  "lava",
+  "speedZones",
+  "pupilTarget",
+];
+
+function lastDrawOptions(events: SimEvent[]): SimRenderOptions {
+  const draw = events.filter((event) => event.type === "draw").at(-1);
+  if (draw === undefined || draw.type !== "draw") {
+    throw new Error("no draw event");
+  }
+  return draw.options;
+}
+
+describe("LearnSim parity with PlaySim drawing", () => {
+  it("passes every render option PlaySim does unless it is listed as intentionally omitted", () => {
+    const play = new PlaySim({ ...defaultPlayOptions(), level: 2 }, "parity");
+    play.start();
+    const playKeys = Object.keys(play.renderOptions());
+    const learn = new LearnSim("parity");
+    learn.start();
+    const learnKeys = Object.keys(lastDrawOptions(learn.step(NO_KEYS_HELD, FRAME_MS)));
+    const missing = playKeys.filter(
+      (key) =>
+        !learnKeys.includes(key) &&
+        !LEARN_OMITS_RENDER_OPTIONS.includes(key as keyof SimRenderOptions),
+    );
+    expect(
+      missing,
+      "PlaySim render options LEARN does not pass (see docs/learn.md#parity)",
+    ).toEqual([]);
+  });
+
+  it("draws one charm per selected upgrade, flagging enhanced ones", () => {
+    const sim = new LearnSim("charms");
+    sim.start();
+    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).charms).toEqual([]);
+    sim.toggleUpgrade("fruitFecundity");
+    sim.toggleUpgrade("passiveStartingShieldPlus");
+    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).charms).toEqual([
+      { school: "harvest", enhanced: false },
+      { school: "protection", enhanced: true },
+    ]);
+  });
+});
