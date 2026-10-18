@@ -6,6 +6,7 @@ import {
   enhanceGlowAlpha,
   STORE_SWAP_PRICE,
   createStoreState,
+  offeredUpgradeIds,
   STORE_EXIT_SLIDE_TILES,
   storeExitAlpha,
   storeExitDirection,
@@ -27,6 +28,8 @@ import {
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   STORE_UPGRADE_PRICE,
+  baseIdOf,
+  enhancedIdOf,
   getUpgradeDef,
   isRare,
   type UpgradeId,
@@ -136,16 +139,79 @@ describe("store schedule", () => {
 
 describe("createStoreState", () => {
   it("offers two distinct unowned upgrades, an enhancement and a swap", () => {
-    const owned: UpgradeId[] = ["passiveAfterburner"];
+    const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
     const state = stateWith(owned);
     expect(state.slots.map((s) => s.kind)).toEqual(["upgrade", "upgrade", "enhance", "swap"]);
     const ids = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
     expect(new Set(ids).size).toBe(2);
     expect(ids).not.toContain("passiveAfterburner");
     const swap = state.slots.find((s) => s.kind === "swap");
-    expect(swap).toMatchObject({ outgoingId: "passiveAfterburner", sold: false });
+    expect(swap).toMatchObject({ sold: false });
     const enhance = state.slots.find((s) => s.kind === "enhance");
-    expect(enhance).toMatchObject({ targetId: "passiveAfterburner", sold: false });
+    expect(enhance).toMatchObject({ sold: false });
+  });
+
+  it("never targets the same upgrade with both the swap and the enhancement", () => {
+    for (let seed = 1; seed <= 200; seed += 1) {
+      let x = seed;
+      const rng = () => {
+        x = (x * 1103515245 + 12345) % 2147483648;
+        return x / 2147483648;
+      };
+      const state = createStoreState(
+        parseStoreLayout(STORE_MAZE_ASCII),
+        ["passiveAfterburner", "passiveGhostSlow", "fruitFeast"],
+        rng,
+      );
+      const swap = state.slots.find((s) => s.kind === "swap");
+      const enhance = state.slots.find((s) => s.kind === "enhance");
+      if (swap?.kind !== "swap" || enhance?.kind !== "enhance") throw new Error("missing tile");
+      expect(baseIdOf(swap.outgoingId)).not.toBe(enhance.targetId);
+    }
+  });
+
+  it("never re-offers an upgrade from previouslyOffered on any tile while a fresh enhance target exists", () => {
+    const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow", "fruitFeast"];
+    for (let seed = 1; seed <= 100; seed += 1) {
+      let x = seed;
+      const rng = () => {
+        x = (x * 1103515245 + 12345) % 2147483648;
+        return x / 2147483648;
+      };
+      const first = createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, rng);
+      const seen = offeredUpgradeIds(first);
+      const second = createStoreState(
+        parseStoreLayout(STORE_MAZE_ASCII),
+        owned,
+        rng,
+        false,
+        true,
+        null,
+        seen,
+      );
+      expect(offeredUpgradeIds(second).filter((id) => seen.includes(id))).toEqual([]);
+    }
+  });
+
+  it("repeats an enhance target only when every enhanceable upgrade was already offered", () => {
+    const stocked = createStoreState(
+      parseStoreLayout(STORE_MAZE_ASCII),
+      ["passiveAfterburner"],
+      zeroRng,
+      false,
+      true,
+      null,
+      ["passiveAfterburner"],
+    );
+    expect(stocked.slots.find((s) => s.kind === "enhance")).toMatchObject({
+      targetId: "passiveAfterburner",
+    });
+  });
+
+  it("omits the swap when the only tradeable upgrade is the enhancement target", () => {
+    const state = stateWith(["passiveAfterburner"]);
+    expect(state.slots.some((s) => s.kind === "enhance")).toBe(true);
+    expect(state.slots.some((s) => s.kind === "swap")).toBe(false);
   });
 
   it("shelves at most one rare, priced 4", () => {
@@ -398,7 +464,7 @@ describe("storeStep", () => {
   });
 
   it("swaps into an unowned upgrade that is not on the shelf", () => {
-    const owned: UpgradeId[] = ["passiveAfterburner"];
+    const owned: UpgradeId[] = ["passiveGhostSlow", "passiveAfterburner"];
     const state = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
     const shelf = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
     const step = confirmYes(state, { ...swapCell, owned });
@@ -414,7 +480,7 @@ describe("storeStep", () => {
   });
 
   it("swaps into the upgrade whose school the tile showed", () => {
-    const owned: UpgradeId[] = ["passiveAfterburner"];
+    const owned: UpgradeId[] = ["passiveGhostSlow", "passiveAfterburner"];
     for (let seed = 1; seed <= 40; seed += 1) {
       let x = seed;
       const rng = () => ((x = (x * 16807) % 2147483647) - 1) / 2147483646;
@@ -429,7 +495,7 @@ describe("storeStep", () => {
   });
 
   it("never swaps into a specialist the swap itself leaves below three", () => {
-    const owned: UpgradeId[] = ["passiveDefyDeath", "passiveMoneyTalks", "passiveMyogenesis"];
+    const owned: UpgradeId[] = ["passiveMoneyTalks", "passiveDefyDeath", "passiveMyogenesis"];
     const arrived = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
     const toggled = storeStep(arrived, input({ ...swapCell, owned, focus: "yes" }), zeroRng).state;
     const step = storeStep(toggled, input({ ...swapCell, owned, enter: true }), () => 0.9999);
@@ -451,7 +517,7 @@ describe("storeStep", () => {
   });
 
   it("reports nothing to swap when every other upgrade is owned or on the shelf", () => {
-    const shelfState = stateWith(["passiveAfterburner"]);
+    const shelfState = stateWith(["passiveGhostSlow", "passiveAfterburner"]);
     const shelf = shelfState.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
     const owned = ALL_UPGRADE_IDS.filter((id) => !shelf.includes(id));
     const state = storeStep(shelfState, input({ ...swapCell, owned }), zeroRng).state;
@@ -516,11 +582,16 @@ describe("enhancement tile", () => {
   });
 
   it("relabels the swap tile when its upgrade is enhanced", () => {
-    const owned: UpgradeId[] = ["passiveAfterburner"];
-    const state = storeStep(stateWith(owned), input({ ...enhanceCell, owned }), zeroRng).state;
+    const stocked = stateWith(["passiveAfterburner", "passiveGhostSlow"]);
+    const target = stocked.slots.find((s) => s.kind === "enhance");
+    const swap = stocked.slots.find((s) => s.kind === "swap");
+    if (target?.kind !== "enhance" || swap?.kind !== "swap") throw new Error("missing tile");
+    const owned: UpgradeId[] = [enhancedIdOf(target.targetId), swap.outgoingId];
+    const state = storeStep(stocked, input({ ...enhanceCell, owned }), zeroRng).state;
     const step = confirmYes(state, { ...enhanceCell, owned });
-    const swap = step.state.slots.find((s) => s.kind === "swap");
-    expect(swap).toMatchObject({ outgoingId: "passiveAfterburnerPlus" });
+    expect(step.state.slots.find((s) => s.kind === "swap")).toMatchObject({
+      outgoingId: enhancedIdOf(baseIdOf(swap.outgoingId)),
+    });
   });
 
   it("reports nothing to enhance when everything owned is enhanced", () => {

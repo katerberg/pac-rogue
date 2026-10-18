@@ -19,7 +19,7 @@ import {
 } from "../../domain/maze";
 import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import {
-  SPEED_ZONE_COUNT,
+  SPEED_ZONE_MAX_COUNT,
   speedZoneGlowMask,
   speedZoneParticles,
   type SpeedZone,
@@ -576,7 +576,7 @@ const SPEED_ZONE_GLOW_PEAK_ALPHA = 0.6;
 const SPEED_ZONE_GLOW_REACH_TILES = 0.7;
 const SPEED_ZONE_PARTICLE_COLOR = 0xd8f2ff;
 const SPEED_ZONE_TEXTURE_KEYS = Array.from(
-  { length: SPEED_ZONE_COUNT },
+  { length: SPEED_ZONE_MAX_COUNT },
   (_, i) => `speed-zone-glow-${i}`,
 );
 const CHAIN_AMPLITUDE_TILES = 0.25;

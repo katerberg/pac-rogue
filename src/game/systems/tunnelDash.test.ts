@@ -101,6 +101,20 @@ describe("applyTunnelDash", () => {
     ]);
   });
 
+  it("waits for the player to reach the band tile's centre before pulling", () => {
+    const left = spawnWorld(LEFT_BAND_COL, TUNNEL_ROW, DIRECTION.left);
+    Position.x[left.eid] = cellCenterX(LEFT_BAND_COL) + 1;
+    expect(applyTunnelDash(left.world)).toBeNull();
+    Position.x[left.eid] = cellCenterX(LEFT_BAND_COL);
+    expect(applyTunnelDash(left.world)).not.toBeNull();
+
+    const right = spawnWorld(RIGHT_BAND_COL, TUNNEL_ROW, DIRECTION.right);
+    Position.x[right.eid] = cellCenterX(RIGHT_BAND_COL) - 1;
+    expect(applyTunnelDash(right.world)).toBeNull();
+    Position.x[right.eid] = cellCenterX(RIGHT_BAND_COL);
+    expect(applyTunnelDash(right.world)).not.toBeNull();
+  });
+
   it("does not fire when facing inward inside a band", () => {
     const { world, eid } = spawnWorld(LEFT_BAND_COL, TUNNEL_ROW, DIRECTION.right);
 
