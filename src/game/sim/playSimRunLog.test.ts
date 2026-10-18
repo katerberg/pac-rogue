@@ -217,7 +217,7 @@ describe("PlaySim run log", () => {
     const corner = sim.storeState()!.slots[0]!;
     teleportPlayer(sim, cellCenterX(corner.col), cellCenterY(corner.row));
     runFrames(sim, 1);
-    runFrames(sim, 1, { storeToggle: true });
+    runFrames(sim, 1, { storeFocus: "yes" });
     runFrames(sim, 1, { storeConfirm: true });
     sim["exitStore"]();
     const visit = sim.runLogRecord().storeVisits[0]!;
@@ -235,7 +235,7 @@ describe("PlaySim run log", () => {
     const slot = sim.storeState()!.slots.find((cell) => cell.kind === "enhance")!;
     teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
     runFrames(sim, 1);
-    runFrames(sim, 1, { storeToggle: true });
+    runFrames(sim, 1, { storeFocus: "yes" });
     runFrames(sim, 1, { storeConfirm: true });
     expect(sim.runLogRecord().loadout).toEqual([
       { id: "passiveGhostSlow", source: "flag", level: 5, removedLevel: 5 },

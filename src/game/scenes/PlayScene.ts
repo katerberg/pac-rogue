@@ -147,7 +147,8 @@ export class PlayScene extends Phaser.Scene {
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
-  private storeToggleKeys: Phaser.Input.Keyboard.Key[] = [];
+  private storeYesKeys: Phaser.Input.Keyboard.Key[] = [];
+  private storeNoKeys: Phaser.Input.Keyboard.Key[] = [];
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
@@ -228,9 +229,8 @@ export class PlayScene extends Phaser.Scene {
     this.musicPendingFanfareEnd = null;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     const { KeyCodes } = Phaser.Input.Keyboard;
-    this.storeToggleKeys = [KeyCodes.LEFT, KeyCodes.RIGHT, KeyCodes.A, KeyCodes.D].map((code) =>
-      this.input.keyboard!.addKey(code),
-    );
+    this.storeYesKeys = [KeyCodes.UP, KeyCodes.W].map((code) => this.input.keyboard!.addKey(code));
+    this.storeNoKeys = [KeyCodes.DOWN, KeyCodes.S].map((code) => this.input.keyboard!.addKey(code));
     this.storeConfirmKeys = [KeyCodes.ENTER, KeyCodes.SPACE].map((code) =>
       this.input.keyboard!.addKey(code),
     );
@@ -345,8 +345,7 @@ export class PlayScene extends Phaser.Scene {
       {
         keys: this.readHeldKeys(),
         uiOpen: this.startingUpgradeCard.isActive() || this.upgradeChoiceModal.isActive(),
-        storeToggle:
-          readsStoreKeys && this.storeToggleKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
+        storeFocus: readsStoreKeys ? this.storeFocusPressed() : null,
         storeConfirm:
           readsStoreKeys &&
           this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
@@ -632,6 +631,14 @@ export class PlayScene extends Phaser.Scene {
       this.intermission.place(frame);
     }
     this.upgradeLines.forEach((line) => line.setVisible(frame === null));
+  }
+
+  private storeFocusPressed(): "yes" | "no" | null {
+    const pressed = (keys: Phaser.Input.Keyboard.Key[]) =>
+      keys.filter((key) => Phaser.Input.Keyboard.JustDown(key)).length > 0;
+    const yes = pressed(this.storeYesKeys);
+    const no = pressed(this.storeNoKeys);
+    return yes ? "yes" : no ? "no" : null;
   }
 
   private closeStoreUi(): void {

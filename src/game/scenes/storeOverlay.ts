@@ -66,6 +66,7 @@ const TILE_DOT_PX = 2;
 const TILE_COIN_PX = 8;
 const TILE_COIN_GAP_PX = 1;
 const TILE_GLYPH_Y = -5;
+const FREEBIE_ICON_INSET_PX = 6;
 
 export type StoreOverlay = {
   open: (state: StoreState) => void;
@@ -152,6 +153,16 @@ function coinRowXs(count: number, maxWidth: number): number[] {
   return Array.from({ length: count }, (_, i) => first + i * step);
 }
 
+function dotFrame(graphics: Phaser.GameObjects.Graphics, size: number): void {
+  const edge = size / 2 - 1;
+  for (let d = -edge; d < edge; d += TILE_DOT_PX * 2) {
+    graphics.fillRect(d, -edge, TILE_DOT_PX, 1);
+    graphics.fillRect(d, edge - 1, TILE_DOT_PX, 1);
+    graphics.fillRect(-edge, d, 1, TILE_DOT_PX);
+    graphics.fillRect(edge - 1, d, 1, TILE_DOT_PX);
+  }
+}
+
 function slotContent(slot: StoreSlot, footer: string): PanelContent {
   return {
     title: slotTitle(slot),
@@ -189,7 +200,7 @@ export function createStoreOverlay(
 ): StoreOverlay {
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let panels: Panel[] = [];
-  let freebieTile: Phaser.GameObjects.GameObject | null = null;
+  let freebieTile: Phaser.GameObjects.Container | null = null;
   let glows: (Phaser.GameObjects.Rectangle | null)[] = [];
   let glowElapsedMs = 0;
   let gotIds: (UpgradeId | null)[] = [];
@@ -260,15 +271,20 @@ export function createStoreOverlay(
     };
   };
 
-  const buildFreebie = (freebie: StoreFreebie): Phaser.GameObjects.GameObject => {
-    const size = getActiveLayout().tileSize - 2;
-    const x = cellCenterX(freebie.col);
-    const y = cellCenterY(freebie.row);
+  const buildFreebie = (freebie: StoreFreebie): Phaser.GameObjects.Container => {
+    const tile = getActiveLayout().tileSize;
+    const iconPx = tile - FREEBIE_ICON_INSET_PX;
+    const frame = scene.add
+      .graphics()
+      .fillStyle(mazeColorForIndex(loadMazeColorSettings().colorIndex), 1);
+    dotFrame(frame, tile);
     const icon =
       freebie.kind === "life"
-        ? addDotManIcon(scene, x, y, size)
-        : addQuarterIcon(scene, x, y, size);
-    return icon.setDepth(TILE_DEPTH);
+        ? addDotManIcon(scene, 0, 0, iconPx)
+        : addQuarterIcon(scene, 0, 0, iconPx);
+    return scene.add
+      .container(cellCenterX(freebie.col), cellCenterY(freebie.row), [frame, icon])
+      .setDepth(TILE_DEPTH);
   };
   const buildTile = (slot: StoreSlot, index: number): Phaser.GameObjects.Container => {
     const tile = getActiveLayout().tileSize;
@@ -286,13 +302,7 @@ export function createStoreOverlay(
           : schoolBorderColor(tileSchool),
       1,
     );
-    const edge = size / 2 - 1;
-    for (let d = -edge; d < edge; d += TILE_DOT_PX * 2) {
-      frame.fillRect(d, -edge, TILE_DOT_PX, 1);
-      frame.fillRect(d, edge - 1, TILE_DOT_PX, 1);
-      frame.fillRect(-edge, d, 1, TILE_DOT_PX);
-      frame.fillRect(edge - 1, d, 1, TILE_DOT_PX);
-    }
+    dotFrame(frame, size);
     const coinY = size / 2 - 3 - TILE_COIN_PX / 2;
     const coins = coinRowXs(slotPrice(slot), size - 6).map((cx) =>
       addQuarterIcon(scene, cx, coinY, TILE_COIN_PX),
@@ -342,7 +352,7 @@ export function createStoreOverlay(
     for (const panel of panels) {
       panel.root.destroy(true);
     }
-    freebieTile?.destroy();
+    freebieTile?.destroy(true);
     tiles = [];
     panels = [];
     freebieTile = null;
@@ -373,7 +383,7 @@ export function createStoreOverlay(
         }
       });
       if (state.freebie.taken && freebieTile !== null) {
-        freebieTile.destroy();
+        freebieTile.destroy(true);
         freebieTile = null;
       }
       glowElapsedMs += deltaMs;

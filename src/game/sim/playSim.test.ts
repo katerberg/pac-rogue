@@ -1331,7 +1331,7 @@ describe("PlaySim", () => {
       const slot = sim.storeState()!.slots.filter((cell) => cell.kind === kind)[nth]!;
       teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
       runFrames(sim, 1);
-      runFrames(sim, 1, { storeToggle: true });
+      runFrames(sim, 1, { storeFocus: "yes" });
       return runFrames(sim, 1, { storeConfirm: true });
     }
 
@@ -4175,7 +4175,7 @@ describe("Interest", () => {
     const slot = sim.storeState()!.slots[0]!;
     teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
     runFrames(sim, 1);
-    runFrames(sim, 1, { storeToggle: true });
+    runFrames(sim, 1, { storeFocus: "yes" });
     runFrames(sim, 1, { storeConfirm: true });
     expect(sim.snapshot().quarters).toBeLessThan(20);
     expect(sim.snapshot().interestPop).toBeNull();

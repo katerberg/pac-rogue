@@ -2104,7 +2104,7 @@ export class PlaySim {
       {
         col: cell?.col ?? -1,
         row: cell?.row ?? -1,
-        toggle: confirming && input.storeToggle,
+        focus: confirming ? input.storeFocus : null,
         enter: confirming && input.storeConfirm,
         pick: confirming ? (input.storeChoice ?? null) : null,
         click: confirming ? null : (input.storeClick ?? null),

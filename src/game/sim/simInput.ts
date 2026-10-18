@@ -3,7 +3,7 @@ import { NO_KEYS_HELD, type HeldKeys } from "../systems/heldKeys";
 export type SimInput = {
   keys: HeldKeys;
   uiOpen: boolean;
-  storeToggle: boolean;
+  storeFocus: "yes" | "no" | null;
   storeConfirm: boolean;
   storeChoice?: "yes" | "no" | null;
   storeClick?: number | null;
@@ -14,6 +14,6 @@ export type SimInput = {
 export const IDLE_INPUT: SimInput = {
   keys: NO_KEYS_HELD,
   uiOpen: false,
-  storeToggle: false,
+  storeFocus: null,
   storeConfirm: false,
 };

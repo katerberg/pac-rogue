@@ -69,7 +69,7 @@ export type StoreState = {
 export type StoreStepInput = {
   col: number;
   row: number;
-  toggle: boolean;
+  focus: "yes" | "no" | null;
   enter: boolean;
   pick?: "yes" | "no" | null;
   click?: number | null;
@@ -377,8 +377,8 @@ function slotStep(
     return { state: next, purchase: null };
   }
   const picked = input.pick ?? null;
-  if (picked === null && input.toggle) {
-    return { state: { ...next, confirmYes: !next.confirmYes }, purchase: null };
+  if (picked === null && input.focus !== null) {
+    return { state: { ...next, confirmYes: input.focus === "yes" }, purchase: null };
   }
   if (picked === null && !input.enter) {
     return { state: next, purchase: null };

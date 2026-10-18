@@ -38,7 +38,7 @@ function input(overrides: Partial<StoreStepInput>): StoreStepInput {
   return {
     col: 14,
     row: 5,
-    toggle: false,
+    focus: null,
     enter: false,
     quarters: 10,
     owned: [],
@@ -47,7 +47,7 @@ function input(overrides: Partial<StoreStepInput>): StoreStepInput {
 }
 
 function confirmYes(state: StoreState, overrides: Partial<StoreStepInput>) {
-  const toggled = storeStep(state, input({ ...overrides, toggle: true }), zeroRng).state;
+  const toggled = storeStep(state, input({ ...overrides, focus: "yes" }), zeroRng).state;
   return storeStep(toggled, input({ ...overrides, enter: true }), zeroRng);
 }
 
@@ -359,11 +359,15 @@ describe("storeStep", () => {
     expect(promptView(reopened.state, 10, [])?.kind).toBe("confirm");
   });
 
-  it("toggles between YES and NO", () => {
+  it("focuses BUY on up and NEVER MIND on down, staying put on repeats", () => {
     let state = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
-    state = storeStep(state, input({ ...upgradeCell, toggle: true }), zeroRng).state;
+    state = storeStep(state, input({ ...upgradeCell, focus: "yes" }), zeroRng).state;
     expect(state.confirmYes).toBe(true);
-    state = storeStep(state, input({ ...upgradeCell, toggle: true }), zeroRng).state;
+    state = storeStep(state, input({ ...upgradeCell, focus: "yes" }), zeroRng).state;
+    expect(state.confirmYes).toBe(true);
+    state = storeStep(state, input({ ...upgradeCell, focus: "no" }), zeroRng).state;
+    expect(state.confirmYes).toBe(false);
+    state = storeStep(state, input({ ...upgradeCell, focus: "no" }), zeroRng).state;
     expect(state.confirmYes).toBe(false);
   });
 
@@ -427,7 +431,7 @@ describe("storeStep", () => {
   it("never swaps into a specialist the swap itself leaves below three", () => {
     const owned: UpgradeId[] = ["passiveDefyDeath", "passiveMoneyTalks", "passiveMyogenesis"];
     const arrived = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
-    const toggled = storeStep(arrived, input({ ...swapCell, owned, toggle: true }), zeroRng).state;
+    const toggled = storeStep(arrived, input({ ...swapCell, owned, focus: "yes" }), zeroRng).state;
     const step = storeStep(toggled, input({ ...swapCell, owned, enter: true }), () => 0.9999);
     expect(step.purchase).toMatchObject({ kind: "swap", outgoingId: "passiveDefyDeath" });
     expect(step.purchase?.kind === "swap" && step.purchase.incomingId).not.toBe(
