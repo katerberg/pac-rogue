@@ -364,7 +364,6 @@ import {
 } from "../systems/hyperspeed";
 import type { Direction } from "../components/Input";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
-import { shieldCrackProgress } from "../../domain/shieldCrack";
 import { powerPelletBreakProgress } from "../../domain/powerPelletBreak";
 import {
   startPowerPelletBreaks,
@@ -441,7 +440,6 @@ import {
   type TunnelDashAnimation,
 } from "../systems/tunnelDash";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
-import { charmsFor } from "../../domain/charmTail";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 import type { SimInput } from "./simInput";
@@ -541,7 +539,6 @@ export class PlaySim {
   private caughtByEid: number | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
-  private shieldCrack: { index: number; elapsedMs: number } | null = null;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
@@ -786,7 +783,7 @@ export class PlaySim {
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       pupilTarget: this.blinkyPupilTarget(),
-      charms: charmsFor(this.effectiveUpgrades()),
+      shields: this.runUpgrades.shieldsBanked,
       programmerQueue: this.programmerQueue(),
     };
   }
@@ -899,8 +896,6 @@ export class PlaySim {
         this.interestPop === null
           ? null
           : { count: this.interestPop.count, shown: interestCoinsShown(this.interestPop) },
-      shieldCrackProgress:
-        this.shieldCrack === null ? null : shieldCrackProgress(this.shieldCrack.elapsedMs),
       powerPelletBreaks: this.powerPelletBreaks.map((brk) => ({
         id: brk.id,
         progress: powerPelletBreakProgress(brk.elapsedMs),
@@ -980,7 +975,6 @@ export class PlaySim {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
     this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
-    this.tickShieldCrack(delta);
     this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
       this.emit(event),
     );
@@ -2710,7 +2704,6 @@ export class PlaySim {
     const next = bankShields(this.runUpgrades, count);
     if (next !== this.runUpgrades) {
       this.runUpgrades = next;
-      this.emit({ type: "shields" });
     }
   }
 
@@ -2718,7 +2711,6 @@ export class PlaySim {
     const next = grantStartingShields(this.runUpgrades);
     if (next !== this.runUpgrades) {
       this.runUpgrades = next;
-      this.emit({ type: "shields" });
     }
   }
 
@@ -2840,26 +2832,11 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
-    this.shieldCrack = { index: spent.shieldsBanked, elapsedMs: 0 };
-    this.emit({ type: "shields" });
-    this.emit({ type: "shieldCrack", index: spent.shieldsBanked, progress: 0 });
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
     }
     this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
     return true;
-  }
-
-  private tickShieldCrack(delta: number): void {
-    if (this.shieldCrack === null) {
-      return;
-    }
-    this.shieldCrack.elapsedMs += delta;
-    const progress = shieldCrackProgress(this.shieldCrack.elapsedMs);
-    this.emit({ type: "shieldCrack", index: this.shieldCrack.index, progress });
-    if (progress >= 1) {
-      this.shieldCrack = null;
-    }
   }
 
   private fireDueEchoes(delta: number): boolean {
@@ -2996,7 +2973,6 @@ export class PlaySim {
     };
     this.levelIndex += 1;
     this.runUpgrades = { ...clearUpgradeTimers(this.runUpgrades), shieldsBanked: 0 };
-    this.emit({ type: "shields" });
     this.eatDragMs = 0;
     this.turnTuning.reset();
 

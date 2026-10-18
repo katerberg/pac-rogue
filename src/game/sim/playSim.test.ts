@@ -222,20 +222,6 @@ describe("PlaySim fruit lifetime", () => {
   });
 });
 
-describe("PlaySim charm tail", () => {
-  it("lists one charm per owned upgrade, flagging enhanced ones", () => {
-    const sim = startSim({ level: 2, enableUpgrades: [] });
-    expect(sim.renderOptions().charms).toEqual([]);
-    sim["runUpgrades"] = grantUpgrade(sim["runUpgrades"], "fruitFecundity");
-    expect(sim.renderOptions().charms).toEqual([{ school: "harvest", enhanced: false }]);
-    sim["runUpgrades"] = grantUpgrade(sim["runUpgrades"], "passiveStartingShieldPlus");
-    expect(sim.renderOptions().charms).toEqual([
-      { school: "harvest", enhanced: false },
-      { school: "protection", enhanced: true },
-    ]);
-  });
-});
-
 describe("PlaySim Fruit Fecundity+", () => {
   const framesFor = (ms: number): number => Math.ceil(ms / FRAME_MS);
 
@@ -3751,11 +3737,10 @@ describe("Shield", () => {
 
   it("banks a shield and still fires power-pellet effects at pickup", () => {
     const sim = startShieldSim(["passiveShieldPellets", "powerPelletInvuln"]);
-    const events = chompPowerPellet(sim);
+    chompPowerPellet(sim);
     expect(sim.snapshot().timers.shieldsBanked).toBe(1);
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
     expect(sim.hud().shields).toBe(1);
-    expect(events).toContainEqual({ type: "shields" });
   });
 
   it("holds 1 shield, or 3 with Shield Pellets+", () => {
@@ -3768,6 +3753,16 @@ describe("Shield", () => {
     expect(plus.snapshot().timers.shieldsBanked).toBe(3);
   });
 
+  it("passes the banked shield count to the renderer", () => {
+    const sim = startShieldSim(["passiveShieldPellets"]);
+    expect(sim.renderOptions().shields).toBe(0);
+    chompPowerPellets(sim, 1);
+    expect(sim.renderOptions().shields).toBe(1);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.renderOptions().shields).toBe(0);
+  });
+
   it("a catch breaks a shield, fires nothing and costs no life or death", () => {
     const sim = startShieldSim(["passiveShieldPellets", "powerPelletInvuln"]);
     chompPowerPellets(sim, 1);
@@ -3778,14 +3773,10 @@ describe("Shield", () => {
       dying: false,
       lives: livesBefore,
       deathsThisBoard: 0,
-      shieldCrackProgress: 0,
     });
     expect(sim.snapshot().timers.shieldsBanked).toBe(0);
     expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(SHIELD_BREAK_INVULN_MS);
-    expect(events).toContainEqual({ type: "shieldCrack", index: 0, progress: 0 });
     expect(events).not.toContainEqual({ type: "sfx", id: "death" });
-    const crack = runUntil(sim, () => sim.snapshot().shieldCrackProgress === null, 120);
-    expect(crack).toContainEqual({ type: "shieldCrack", index: 0, progress: 1 });
   });
 
   it("breaks the pellet streak and keeps the charge", () => {
@@ -3839,7 +3830,6 @@ describe("Shield", () => {
     const events = runFrames(sim, 1);
     expect(events).toContainEqual({ type: "sfx", id: "revive" });
     expect(sim.snapshot().timers.shieldsBanked).toBe(1);
-    expect(sim.snapshot().shieldCrackProgress).toBeNull();
   });
 
   it("does not trigger Defy Death's save but arms its window", () => {

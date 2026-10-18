@@ -12,14 +12,12 @@ export type CharmTuning = {
   readonly charmBobble: number;
   readonly charmBobblePeriodMs: number;
   readonly charmBaseAlpha: number;
-  readonly charmGlowAlpha: number;
-  readonly charmGlowScale: number;
 };
 
 export const DEFAULT_CHARM_TUNING: CharmTuning = {
   charmTail: true,
   charmSize: 10,
-  charmSpacing: 0.7,
+  charmSpacing: 1.3,
   charmAnchorBack: 10,
   charmWallRadius: 0.35,
   charmSpring: 1,
@@ -30,8 +28,6 @@ export const DEFAULT_CHARM_TUNING: CharmTuning = {
   charmBobble: 0.12,
   charmBobblePeriodMs: 700,
   charmBaseAlpha: 0.85,
-  charmGlowAlpha: 0.06,
-  charmGlowScale: 1.4,
 };
 
 const BASE_SPRING = 0.0006;
@@ -54,8 +50,6 @@ export type CharmLook = {
   enabled: boolean;
   sizePx: number;
   baseAlpha: number;
-  glowAlpha: number;
-  glowScale: number;
 };
 
 export function tailLayoutFrom(tuning: CharmTuning): TailLayout {
@@ -79,7 +73,5 @@ export function charmLookFrom(tuning: CharmTuning): CharmLook {
     enabled: tuning.charmTail,
     sizePx: tuning.charmSize,
     baseAlpha: tuning.charmBaseAlpha,
-    glowAlpha: tuning.charmGlowAlpha,
-    glowScale: tuning.charmGlowScale,
   };
 }

@@ -1,8 +1,4 @@
 import type { TailLayout } from "./charmTailParams";
-import { getUpgradeDef, type UpgradeId, type UpgradeSchool } from "./upgrades";
-
-export type Charm = { school: UpgradeSchool; enhanced: boolean };
-
 export type TailBead = { x: number; y: number; vx: number; vy: number };
 
 export type TailAnchor = { x: number; y: number; heading: number };
@@ -18,21 +14,6 @@ const SNAP_LINKS = 4;
 const MAX_STEP_MS = 40;
 const BOBBLE_PHASE = 1.1;
 const RING_POINTS = 8;
-
-export function charmsFor(owned: readonly UpgradeId[]): Charm[] {
-  return owned.map((id) => {
-    const def = getUpgradeDef(id);
-    return { school: def.school, enhanced: def.isEnhanced };
-  });
-}
-
-export function charmArtPath(school: UpgradeSchool): string {
-  return `art/schools/${school}.png`;
-}
-
-export function charmTextureKey(school: UpgradeSchool): string {
-  return `charm-${school}`;
-}
 
 function behind(anchor: TailAnchor, backPx: number): { x: number; y: number } {
   return {
@@ -67,6 +48,20 @@ export function layoutTail(
     beads.push({ x: free ? pos.x : anchor.x, y: free ? pos.y : anchor.y, vx: 0, vy: 0 });
   }
   return beads;
+}
+
+export function resizeTail(
+  beads: readonly TailBead[],
+  count: number,
+  anchor: TailAnchor,
+  layout: TailLayout,
+  blocked: TailEnv["blocked"] = () => false,
+): { beads: TailBead[]; dropped: TailBead[] } {
+  if (count >= beads.length) {
+    const grown = layoutTail(count, anchor, layout, blocked).slice(beads.length);
+    return { beads: [...beads, ...grown], dropped: [] };
+  }
+  return { beads: beads.slice(0, count), dropped: beads.slice(count) };
 }
 
 export function stepTail(

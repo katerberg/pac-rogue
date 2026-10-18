@@ -1376,15 +1376,11 @@ describe("LearnSim parity with PlaySim drawing", () => {
     ).toEqual([]);
   });
 
-  it("draws one charm per selected upgrade, flagging enhanced ones", () => {
-    const sim = new LearnSim("charms");
+  it("draws one bracelet square per banked shield", () => {
+    const sim = new LearnSim("shields");
     sim.start();
-    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).charms).toEqual([]);
-    sim.toggleUpgrade("fruitFecundity");
-    sim.toggleUpgrade("passiveStartingShieldPlus");
-    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).charms).toEqual([
-      { school: "harvest", enhanced: false },
-      { school: "protection", enhanced: true },
-    ]);
+    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).shields).toBe(0);
+    sim.toggleUpgrade("passiveStartingShield");
+    expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).shields).toBe(1);
   });
 });
