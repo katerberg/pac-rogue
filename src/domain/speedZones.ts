@@ -1,11 +1,20 @@
 import type { MazeLayout, MazeTile } from "./maze";
 
-export const SPEED_ZONE_COUNT = 2;
+const SPEED_ZONE_COUNT_BY_LEVEL: Readonly<Record<number, number>> = {
+  4: 1,
+  5: 1,
+  6: 2,
+  7: 3,
+  8: 3,
+};
+export const SPEED_ZONE_MAX_COUNT = Math.max(...Object.values(SPEED_ZONE_COUNT_BY_LEVEL));
 export const SPEED_ZONE_MIN_LENGTH = 9;
 export const SPEED_ZONE_MAX_LENGTH = 18;
 export const SPEED_ZONE_MIN_GAP_TILES = 4;
 export const SLOW_ZONE_MULTIPLIER = 0.3;
 export const FAST_ZONE_MULTIPLIER = 1.8;
+export const SPEED_ZONE_END_DRIFT = [-2, -1, 0, 1, 1, 2] as const;
+export const SPEED_ZONE_SHIFT_STEP_MS = 120;
 const SPEED_ZONE_PARTICLES_PER_TILE = 2;
 const SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC = 0.5;
 const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.6;
@@ -32,8 +41,12 @@ export type SpeedZoneBoard = Pick<
   "cols" | "rows" | "playerSolids" | "house" | "door" | "playerSpawn"
 >;
 
+export function speedZoneCountForLevel(levelIndex: number): number {
+  return SPEED_ZONE_COUNT_BY_LEVEL[levelIndex] ?? 0;
+}
+
 export function isSpeedZoneLevel(levelIndex: number): boolean {
-  return levelIndex >= 5 && levelIndex <= 8;
+  return speedZoneCountForLevel(levelIndex) > 0;
 }
 
 export function speedZoneCells(zone: SpeedZoneShape): MazeTile[] {
@@ -162,33 +175,60 @@ function cellAllowed(board: SpeedZoneBoard, col: number, row: number): boolean {
   );
 }
 
+function axisGap(aStart: number, aLength: number, bStart: number, bLength: number): number {
+  return Math.max(0, bStart - (aStart + aLength - 1), aStart - (bStart + bLength - 1));
+}
+
 function tooClose(a: SpeedZoneShape, b: SpeedZoneShape): boolean {
-  const bCells = speedZoneCells(b);
-  return speedZoneCells(a).some((ca) =>
-    bCells.some(
-      (cb) =>
-        Math.abs(ca.col - cb.col) < SPEED_ZONE_MIN_GAP_TILES &&
-        Math.abs(ca.row - cb.row) < SPEED_ZONE_MIN_GAP_TILES,
-    ),
+  const colSpan = (z: SpeedZoneShape) => (z.axis === "horizontal" ? z.length : 1);
+  const rowSpan = (z: SpeedZoneShape) => (z.axis === "vertical" ? z.length : 1);
+  return (
+    axisGap(a.col, colSpan(a), b.col, colSpan(b)) < SPEED_ZONE_MIN_GAP_TILES &&
+    axisGap(a.row, rowSpan(a), b.row, rowSpan(b)) < SPEED_ZONE_MIN_GAP_TILES
   );
 }
 
-export function pickSpeedZones(board: SpeedZoneBoard, nextRandom: () => number): SpeedZone[] {
+function laneAllowed(board: SpeedZoneBoard, lane: SpeedZoneShape): boolean {
+  return speedZoneCells(lane).every((cell) => cellAllowed(board, cell.col, cell.row));
+}
+
+function laneCandidates(board: SpeedZoneBoard): SpeedZoneShape[] {
   const candidates: SpeedZoneShape[] = [];
   for (const axis of ["horizontal", "vertical"] as const) {
+    const [dc, dr] = axis === "horizontal" ? [1, 0] : [0, 1];
     for (let row = 0; row < board.rows; row += 1) {
       for (let col = 0; col < board.cols; col += 1) {
-        for (let length = SPEED_ZONE_MIN_LENGTH; length <= SPEED_ZONE_MAX_LENGTH; length += 1) {
-          const lane = { col, row, axis, length };
-          if (speedZoneCells(lane).every((cell) => cellAllowed(board, cell.col, cell.row))) {
-            candidates.push(lane);
+        for (let length = 1; length <= SPEED_ZONE_MAX_LENGTH; length += 1) {
+          if (!cellAllowed(board, col + dc * (length - 1), row + dr * (length - 1))) {
+            break;
+          }
+          if (length >= SPEED_ZONE_MIN_LENGTH) {
+            candidates.push({ col, row, axis, length });
           }
         }
       }
     }
   }
-  const zones: SpeedZone[] = [];
-  while (zones.length < SPEED_ZONE_COUNT) {
+  return candidates;
+}
+
+export function pickSpeedZones(
+  board: SpeedZoneBoard,
+  nextRandom: () => number,
+  count: number,
+  existing: readonly SpeedZone[] = [],
+): SpeedZone[] {
+  return pickFrom(laneCandidates(board), nextRandom, count, existing);
+}
+
+function pickFrom(
+  candidates: readonly SpeedZoneShape[],
+  nextRandom: () => number,
+  count: number,
+  existing: readonly SpeedZone[],
+): SpeedZone[] {
+  const zones = [...existing];
+  while (zones.length < count) {
     const open = candidates.filter((c) => zones.every((zone) => !tooClose(zone, c)));
     if (open.length === 0) {
       break;
@@ -200,4 +240,150 @@ export function pickSpeedZones(board: SpeedZoneBoard, nextRandom: () => number):
     zones.push({ ...pick, fastDir });
   }
   return zones;
+}
+
+type LaneSpan = { start: number; end: number };
+
+function laneSpan(zone: SpeedZoneShape): LaneSpan {
+  const start = zone.axis === "horizontal" ? zone.col : zone.row;
+  return { start, end: start + zone.length };
+}
+
+function withSpan<Z extends SpeedZoneShape>(zone: Z, { start, end }: LaneSpan): Z {
+  return zone.axis === "horizontal"
+    ? { ...zone, col: start, length: end - start }
+    : { ...zone, row: start, length: end - start };
+}
+
+function driftEnd(
+  board: SpeedZoneBoard,
+  zone: SpeedZone,
+  others: readonly SpeedZone[],
+  end: keyof LaneSpan,
+  drift: number,
+): SpeedZone {
+  let current = zone;
+  const outward = end === "start" ? -1 : 1;
+  for (let i = 0; i < Math.abs(drift); i += 1) {
+    const span = laneSpan(current);
+    const next = withSpan(current, { ...span, [end]: span[end] + Math.sign(drift) * outward });
+    const fits =
+      next.length >= SPEED_ZONE_MIN_LENGTH &&
+      next.length <= SPEED_ZONE_MAX_LENGTH &&
+      laneAllowed(board, next) &&
+      others.every((other) => !tooClose(other, next));
+    if (!fits) {
+      break;
+    }
+    current = next;
+  }
+  return current;
+}
+
+function pickDrift(nextRandom: () => number): number {
+  return SPEED_ZONE_END_DRIFT[Math.floor(nextRandom() * SPEED_ZONE_END_DRIFT.length)]!;
+}
+
+export function driftSpeedZones(
+  board: SpeedZoneBoard,
+  zones: readonly SpeedZone[],
+  nextRandom: () => number,
+): SpeedZone[] {
+  const drifted = [...zones];
+  drifted.forEach((zone, i) => {
+    const others = drifted.filter((_, j) => j !== i);
+    const startMoved = driftEnd(board, zone, others, "start", pickDrift(nextRandom));
+    drifted[i] = driftEnd(board, startMoved, others, "end", pickDrift(nextRandom));
+  });
+  return drifted;
+}
+
+export function speedZonesByLevel(
+  board: SpeedZoneBoard,
+  throughLevel: number,
+  streamFor: (levelIndex: number) => () => number,
+): SpeedZone[][] {
+  const candidates = laneCandidates(board);
+  const byLevel: SpeedZone[][] = [[]];
+  for (let level = 1; level <= throughLevel; level += 1) {
+    const count = speedZoneCountForLevel(level);
+    const previous = byLevel[level - 1]!;
+    if (count === 0) {
+      byLevel.push([]);
+      continue;
+    }
+    const nextRandom = streamFor(level);
+    const drifted = driftSpeedZones(board, previous, nextRandom);
+    byLevel.push(pickFrom(candidates, nextRandom, count, drifted));
+  }
+  return byLevel;
+}
+
+export function flipSpeedZoneBoardRows(board: SpeedZoneBoard): SpeedZoneBoard {
+  return {
+    cols: board.cols,
+    rows: board.rows,
+    playerSolids: [...board.playerSolids].reverse(),
+    house: [...board.house].reverse(),
+    door: [...board.door].reverse(),
+    playerSpawn: { col: board.playerSpawn.col, row: board.rows - 1 - board.playerSpawn.row },
+  };
+}
+
+const FLIPPED_FAST_DIR: Record<SpeedZoneFastDir, SpeedZoneFastDir> = {
+  up: "down",
+  down: "up",
+  left: "left",
+  right: "right",
+};
+
+export function flipSpeedZoneRows(zone: SpeedZone, rows: number): SpeedZone {
+  const rowSpan = zone.axis === "vertical" ? zone.length : 1;
+  return { ...zone, row: rows - rowSpan - zone.row, fastDir: FLIPPED_FAST_DIR[zone.fastDir] };
+}
+
+export type SpeedZoneShift = { from: SpeedZone[]; to: SpeedZone[] };
+
+export function speedZoneShift(
+  previous: readonly SpeedZone[],
+  next: readonly SpeedZone[],
+): SpeedZoneShift {
+  const from = next.map((zone, i) => {
+    const before = previous[i];
+    if (before !== undefined) {
+      return before;
+    }
+    const { start, end } = laneSpan(zone);
+    const middle = Math.floor((start + end) / 2);
+    return withSpan(zone, { start: middle, end: middle });
+  });
+  return { from, to: [...next] };
+}
+
+function stepToward(from: number, to: number, steps: number): number {
+  return from + Math.sign(to - from) * Math.min(Math.abs(to - from), steps);
+}
+
+export function speedZoneShiftSteps({ from, to }: SpeedZoneShift): number {
+  return Math.max(
+    0,
+    ...to.map((zone, i) => {
+      const a = laneSpan(from[i]!);
+      const b = laneSpan(zone);
+      return Math.max(Math.abs(b.start - a.start), Math.abs(b.end - a.end));
+    }),
+  );
+}
+
+export function speedZoneShiftFrame({ from, to }: SpeedZoneShift, step: number): SpeedZone[] {
+  return to
+    .map((zone, i) => {
+      const a = laneSpan(from[i]!);
+      const b = laneSpan(zone);
+      return withSpan(zone, {
+        start: stepToward(a.start, b.start, step),
+        end: stepToward(a.end, b.end, step),
+      });
+    })
+    .filter((zone) => zone.length > 0);
 }

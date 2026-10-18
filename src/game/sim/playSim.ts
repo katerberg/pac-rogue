@@ -154,14 +154,20 @@ import {
   type LavaZone,
 } from "../../domain/lavaZone";
 import {
-  isSpeedZoneLevel,
-  pickSpeedZones,
+  flipSpeedZoneBoardRows,
+  flipSpeedZoneRows,
+  SPEED_ZONE_SHIFT_STEP_MS,
   speedZoneAt,
   speedZoneCells,
   speedZoneEffect,
   speedZoneMultiplier,
+  speedZoneShift,
+  speedZoneShiftFrame,
+  speedZoneShiftSteps,
+  speedZonesByLevel,
   type SpeedZone,
   type SpeedZoneEffect,
+  type SpeedZoneShift,
 } from "../../domain/speedZones";
 import {
   type BoardOverride,
@@ -517,6 +523,9 @@ export class PlaySim {
   private lavaElapsedMs = 0;
   private lavaStarted = false;
   private speedZones: SpeedZone[] = [];
+  private speedZoneShift: SpeedZoneShift | null = null;
+  private speedZoneShiftMs = 0;
+  private boardInverted = false;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
@@ -873,6 +882,7 @@ export class PlaySim {
       timedTunnel: this.timedTunnelSnapshot(),
       lava: this.lavaSnapshot(),
       speedZones: this.speedZones,
+      speedZonesShifting: this.speedZoneShift !== null,
       playerSpeedZone: this.playerSpeedZone(),
       wallDrop: {
         armed: upgrades.wallDropArmed,
@@ -1061,6 +1071,7 @@ export class PlaySim {
       ghostHarvest: ghostHarvestActive(this.runUpgrades),
     });
     this.tickTimedTunnel(delta);
+    this.tickSpeedZoneShift(delta);
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const programming = this.runUpgrades.programmer !== null;
@@ -1686,7 +1697,9 @@ export class PlaySim {
             getActiveLayout(),
             {
               tunnelRows: horizontalTunnelRows(),
-              cells: this.speedZones.flatMap(speedZoneCells),
+              cells: [...(this.speedZoneShift?.from ?? []), ...this.speedZones].flatMap(
+                speedZoneCells,
+              ),
             },
             this.random.stream("lavaZone", this.levelIndex),
           )
@@ -1733,10 +1746,42 @@ export class PlaySim {
   }
 
   private resetSpeedZones(): void {
-    this.speedZones =
-      this.options.levelModifiers && isSpeedZoneLevel(this.levelIndex)
-        ? pickSpeedZones(getActiveLayout(), this.random.stream("speedZones", this.levelIndex))
-        : [];
+    this.speedZoneShiftMs = 0;
+    if (!this.options.levelModifiers) {
+      this.speedZones = [];
+      this.speedZoneShift = null;
+      return;
+    }
+    const layout = getActiveLayout();
+    const base = this.boardInverted ? flipSpeedZoneBoardRows(layout) : layout;
+    const [previous, current] = speedZonesByLevel(base, this.levelIndex, (level) =>
+      this.random.stream("speedZones", level),
+    )
+      .slice(-2)
+      .map((zones) =>
+        this.boardInverted ? zones.map((zone) => flipSpeedZoneRows(zone, layout.rows)) : zones,
+      );
+    const shift = speedZoneShift(previous!, current!);
+    this.speedZoneShift = speedZoneShiftSteps(shift) > 0 ? shift : null;
+    this.speedZones = this.speedZoneShift ? speedZoneShiftFrame(shift, 0) : shift.to;
+  }
+
+  private tickSpeedZoneShift(deltaMs: number): void {
+    if (this.speedZoneShift === null) {
+      return;
+    }
+    const before = Math.floor(this.speedZoneShiftMs / SPEED_ZONE_SHIFT_STEP_MS);
+    this.speedZoneShiftMs += deltaMs;
+    const step = Math.floor(this.speedZoneShiftMs / SPEED_ZONE_SHIFT_STEP_MS);
+    if (step === before) {
+      return;
+    }
+    if (step >= speedZoneShiftSteps(this.speedZoneShift)) {
+      this.speedZones = this.speedZoneShift.to;
+      this.speedZoneShift = null;
+      return;
+    }
+    this.speedZones = speedZoneShiftFrame(this.speedZoneShift, step);
   }
 
   private playerSpeedZone(): SpeedZoneEffect | null {
@@ -1988,6 +2033,7 @@ export class PlaySim {
     spawnPlayer(this.world);
     this.lavaZone = null;
     this.speedZones = [];
+    this.speedZoneShift = null;
 
     this.applyLifeRegen(STORE_REGEN_AMOUNT);
     this.store = createStoreState(
@@ -2230,6 +2276,7 @@ export class PlaySim {
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
       : null;
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
+    this.boardInverted = false;
     let layoutLabel = "maze2";
     if (selection.kind === "static") {
       activateLayout(selection.id);
@@ -2325,8 +2372,9 @@ export class PlaySim {
 
   private activateRunAscii(ascii: string, label: string): string {
     try {
-      const board = this.isInvertedLevel() ? invertMazeAscii(ascii) : ascii;
-      activateAsciiLayout(board);
+      const inverted = this.isInvertedLevel();
+      activateAsciiLayout(inverted ? invertMazeAscii(ascii) : ascii);
+      this.boardInverted = inverted;
       return label;
     } catch (error) {
       console.warn(`maze activate failed for ${label}; falling back to maze2`, error);
