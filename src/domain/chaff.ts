@@ -144,6 +144,17 @@ export function decoyTile(decoy: ChaffDecoy): MazeTile {
     : { col: decoy.col + decoy.step.dx, row: decoy.row + decoy.step.dy };
 }
 
+export function decoyPx(decoy: ChaffDecoy): { x: number; y: number } {
+  return {
+    x:
+      cellCenterX(decoy.col) +
+      (cellCenterX(decoy.col + decoy.step.dx) - cellCenterX(decoy.col)) * decoy.progress,
+    y:
+      cellCenterY(decoy.row) +
+      (cellCenterY(decoy.row + decoy.step.dy) - cellCenterY(decoy.row)) * decoy.progress,
+  };
+}
+
 export type ChaffSprite = { x: number; y: number; dx: number; dy: number; remainingMs: number };
 
 export function chaffSprites(state: ChaffState | null): ChaffSprite[] {
@@ -151,12 +162,7 @@ export function chaffSprites(state: ChaffState | null): ChaffSprite[] {
     return [];
   }
   return state.decoys.map((decoy) => ({
-    x:
-      cellCenterX(decoy.col) +
-      (cellCenterX(decoy.col + decoy.step.dx) - cellCenterX(decoy.col)) * decoy.progress,
-    y:
-      cellCenterY(decoy.row) +
-      (cellCenterY(decoy.row + decoy.step.dy) - cellCenterY(decoy.row)) * decoy.progress,
+    ...decoyPx(decoy),
     dx: decoy.step.dx,
     dy: decoy.step.dy,
     remainingMs: state.remainingMs,

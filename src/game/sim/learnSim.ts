@@ -158,7 +158,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
-import { chaffSprites, decoyFacing, decoyTile, nearestDecoy } from "../../domain/chaff";
+import { chaffSprites, decoyFacing, decoyPx, decoyTile, nearestDecoy } from "../../domain/chaff";
 import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import {
@@ -344,10 +344,6 @@ export class LearnSim {
     const ghostX = Position.x[eid] ?? 0;
     const ghostY = Position.y[eid] ?? 0;
     const decoy = nearestDecoy(chaff?.decoys ?? [], worldToCol(ghostX), worldToRow(ghostY));
-    const decoyPx =
-      decoy === null || chaff === null
-        ? undefined
-        : chaffSprites({ remainingMs: chaff.remainingMs, decoys: [decoy] })[0];
     const ghostFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     return {
       kind: this.selected,
@@ -361,8 +357,8 @@ export class LearnSim {
       playerTile: decoy === null ? ctx.player : { ...decoyTile(decoy), facing: decoyFacing(decoy) },
       blinkyTile: ctx.blinky,
       playerPx:
-        decoyPx !== undefined
-          ? { x: decoyPx.x, y: decoyPx.y }
+        decoy !== null
+          ? decoyPx(decoy)
           : playerEid === undefined
             ? null
             : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 },
