@@ -162,11 +162,16 @@ function count(events: SimEvent[], type: SimEvent["type"]): number {
 }
 
 function settleSlots(sim: PlaySim): SimEvent[] {
-  return runUntil(sim, () => !sim.snapshot().slot.active && sim.snapshot().slot.queued === 0, 3000);
+  return runUntil(
+    sim,
+    () => !sim.snapshot().slot.active && sim.snapshot().slot.queued === 0,
+    3000,
+    { acknowledge: true },
+  );
 }
 
 function drainToOffer(sim: PlaySim): UpgradeChoiceOffer {
-  runUntil(sim, () => sim.offer() !== null, 900);
+  runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
   return sim.offer()!;
 }
 
@@ -657,7 +662,7 @@ describe("PlaySim", () => {
     const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: [...ALL_UPGRADE_IDS] });
     runFrames(sim, 90);
     expect(sim.offer()).toBeNull();
-    runUntil(sim, () => sim.snapshot().levelTransition, 900);
+    runUntil(sim, () => sim.snapshot().levelTransition, 900, { acknowledge: true });
     expect(sim.snapshot().levelTransition).toBe(true);
   });
 
@@ -816,7 +821,7 @@ describe("PlaySim", () => {
     expect(sim.offer()).toBeNull();
     eatPelletAt(sim, eids.at(-1)!);
     expect(query(sim.world, [Pellet, PowerPellet]).length).toBeGreaterThan(0);
-    runUntil(sim, () => sim.offer() !== null, 900);
+    runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     expect(sim.offer()).not.toBeNull();
   });
 
@@ -1202,7 +1207,7 @@ describe("PlaySim", () => {
   it("does not regenerate on level clear without Myogenesis", () => {
     const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
     (sim as unknown as { lives: number }).lives = 1;
-    const events = runUntil(sim, () => sim.offer() !== null, 900);
+    const events = runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     expect(events).not.toContainEqual({ type: "lives", pulse: true });
     expect(sim.snapshot().lives).toBe(1);
   });
@@ -1210,7 +1215,7 @@ describe("PlaySim", () => {
   it("Myogenesis regenerates one life before the upgrade offer", () => {
     const sim = startSim({ jumpToUpgrade: true, enableUpgrades: ["passiveMyogenesis"] });
     (sim as unknown as { lives: number }).lives = 1;
-    const events = runUntil(sim, () => sim.offer() !== null, 900);
+    const events = runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     expect(events).toContainEqual({ type: "lives", pulse: true });
     expect(sim.snapshot().lives).toBe(2);
   });
@@ -2583,6 +2588,29 @@ describe("PlaySim slot machine", () => {
     expect(after.upgrades.length - before.upgrades.length).toBe(totals.upgrades);
   });
 
+  it("holds on the final grid until the player acknowledges it", () => {
+    const sim = startSlotSim({ slot: { quarters: 1, upgrades: 0, lives: 0 }, quarters: 0 });
+    spinFromStreak(sim);
+    runUntil(sim, () => sim.snapshot().slot.held, 600, { keys: held("left") });
+    expect(sim.snapshot().quarters).toBe(1);
+    const before = sim.snapshot();
+    runFrames(sim, 600, { keys: held("left") });
+    expect(sim.snapshot().slot).toMatchObject({ active: true, held: true });
+    expect(sim.snapshot().player).toEqual(before.player);
+    expect(sim.snapshot().timeRemaining).toBe(before.timeRemaining);
+    runFrames(sim, 1, { acknowledge: true });
+    expect(sim.snapshot().slot.active).toBe(false);
+    runFrames(sim, 10, { keys: held("left") });
+    expect(sim.snapshot().player).not.toEqual(before.player);
+  });
+
+  it("ignores a press during the spin; only a press on the held grid closes it", () => {
+    const sim = startSlotSim({ slot: { quarters: 1, upgrades: 0, lives: 0 } });
+    spinFromStreak(sim);
+    runFrames(sim, 30, { acknowledge: true });
+    expect(sim.snapshot().slot).toMatchObject({ active: true, held: false });
+  });
+
   it("replays the same reels for the same seed", () => {
     const grids = [0, 1].map(() => {
       const sim = startSlotSim({}, "slots-replay");
@@ -2597,7 +2625,9 @@ describe("PlaySim slot machine", () => {
     spinFromStreak(sim);
     const school = sim.snapshot().slot.wins![0]!.symbol;
     const owned = sim.snapshot().upgrades.length;
-    const events = settleSlots(sim);
+    const events = runUntil(sim, () => sim.snapshot().slot.held, 600);
+    expect(sim.snapshot().slot.won).toEqual([sim.snapshot().upgrades.at(-1)]);
+    settleSlots(sim);
     const { upgrades } = sim.snapshot();
     expect(upgrades).toHaveLength(owned + 1);
     expect(getUpgradeDef(upgrades.at(-1)!).school).toBe(school);
@@ -2931,7 +2961,7 @@ describe("PlaySim level-end time bonus", () => {
     expect(sim.snapshot().bonus.draining).toBe(true);
     expect(sim.offer()).toBeNull();
     expect(sim.snapshot().timeRemaining).toBeLessThan(999);
-    const rest = runUntil(sim, () => !sim.snapshot().bonus.draining, 600);
+    const rest = runUntil(sim, () => !sim.snapshot().bonus.draining, 600, { acknowledge: true });
     expect(rest).toContainEqual({ type: "timeBonus", active: false });
     expect(sim.snapshot()).toMatchObject({ timeRemaining: 0, quarters: 1, bonus: { charge: 143 } });
     expect(sim.offer()).not.toBeNull();
@@ -2949,7 +2979,7 @@ describe("PlaySim level-end time bonus", () => {
 
   it("drains on level 1, then offers an upgrade before level 2", () => {
     const { sim } = startClear({ level: 1 });
-    runUntil(sim, () => !sim.snapshot().bonus.draining, 600);
+    runUntil(sim, () => !sim.snapshot().bonus.draining, 600, { acknowledge: true });
     expect(sim.snapshot().bonus.charge).toBe(143);
     takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 2, 120);
@@ -6890,7 +6920,7 @@ describe("Inheritance", () => {
     const internals = sim as unknown as { lives: number; deathsThisBoard: number };
     internals.lives = lives;
     internals.deathsThisBoard = deaths;
-    runUntil(sim, () => sim.offer() !== null, 900);
+    runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     return sim.snapshot().quarters;
   }
 
@@ -6931,7 +6961,7 @@ describe("Inheritance", () => {
       for (const eid of Array.from(query(sim.world, [Pellet, Position]))) {
         eatPelletAt(sim, eid);
       }
-      runUntil(sim, () => sim.offer() !== null, 600);
+      runUntil(sim, () => sim.offer() !== null, 600, { acknowledge: true });
       return sim.snapshot().quarters;
     };
     expect(quartersAfterTwoDeaths(["passiveInheritancePlus"])).toBe(quartersAfterTwoDeaths([]) + 2);

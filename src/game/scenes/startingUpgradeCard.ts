@@ -35,6 +35,47 @@ export type StartingUpgradeCard = {
   destroy: () => void;
 };
 
+export function addUpgradeCard(
+  scene: Phaser.Scene,
+  headerText: string,
+  labelText: string,
+  descriptionText: string,
+  school: UpgradeSchool | null,
+): Phaser.GameObjects.Container {
+  const bg = scene.add
+    .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
+    .setStrokeStyle(4, TEXT_COLOR_YELLOW);
+  const header = addPixelText(scene, 0, 0, headerText, MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
+  const label = addPixelText(
+    scene,
+    0,
+    0,
+    wrapText(labelText, LABEL_MAX_CHARS),
+    fitFontSize(labelText, BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN, MENU_TITLE_FONT_SIZE),
+    TEXT_COLOR_YELLOW,
+  );
+  const description = addPixelText(
+    scene,
+    0,
+    0,
+    wrapText(descriptionText, DESCRIPTION_MAX_CHARS),
+    UPGRADES_HUD_FONT_SIZE,
+    TEXT_COLOR_WHITE,
+  );
+  placePixelText(header, 0, -84, 0.5, 0.5);
+  layoutCardText(label, description, STARTING_CARD_BODY_CENTER_Y);
+  const watermark =
+    school === null ? null : addSchoolWatermark(scene, school, BUTTON_WIDTH, BUTTON_HEIGHT);
+  watermark?.setY(STARTING_CARD_BODY_CENTER_Y);
+  return scene.add.container(
+    0,
+    0,
+    watermark === null
+      ? [bg, header, label, description]
+      : [bg, watermark, header, label, description],
+  );
+}
+
 export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeCard {
   let elapsedMs = 0;
   let dim: Phaser.GameObjects.Rectangle | null = null;
@@ -76,39 +117,8 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         0.65,
       )
       .setDepth(MODAL_DEPTH);
-    const bg = scene.add
-      .rectangle(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 0x101820)
-      .setStrokeStyle(4, TEXT_COLOR_YELLOW);
-    const header = addPixelText(scene, 0, 0, headerText, MENU_OPTION_FONT_SIZE, TEXT_COLOR_WHITE);
-    const label = addPixelText(
-      scene,
-      0,
-      0,
-      wrapText(labelText, LABEL_MAX_CHARS),
-      fitFontSize(labelText, BUTTON_WIDTH - STARTING_CARD_LABEL_MARGIN, MENU_TITLE_FONT_SIZE),
-      TEXT_COLOR_YELLOW,
-    );
-    const description = addPixelText(
-      scene,
-      0,
-      0,
-      wrapText(descriptionText, DESCRIPTION_MAX_CHARS),
-      UPGRADES_HUD_FONT_SIZE,
-      TEXT_COLOR_WHITE,
-    );
-    placePixelText(header, 0, -84, 0.5, 0.5);
-    layoutCardText(label, description, STARTING_CARD_BODY_CENTER_Y);
-    const watermark =
-      school === null ? null : addSchoolWatermark(scene, school, BUTTON_WIDTH, BUTTON_HEIGHT);
-    watermark?.setY(STARTING_CARD_BODY_CENTER_Y);
-    card = scene.add
-      .container(
-        PLAYFIELD_WIDTH / 2,
-        PLAYFIELD_HEIGHT / 2,
-        watermark === null
-          ? [bg, header, label, description]
-          : [bg, watermark, header, label, description],
-      )
+    card = addUpgradeCard(scene, headerText, labelText, descriptionText, school)
+      .setPosition(PLAYFIELD_WIDTH / 2, PLAYFIELD_HEIGHT / 2)
       .setDepth(MODAL_DEPTH + 1);
     onKeyDown = (event) => {
       if (event.key === "Escape") {

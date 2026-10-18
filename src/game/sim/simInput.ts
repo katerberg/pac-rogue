@@ -9,6 +9,7 @@ export type SimInput = {
   storeClick?: number | null;
   storePointer?: { x: number; y: number } | null;
   storeCancelRoute?: boolean;
+  acknowledge?: boolean;
 };
 
 export const IDLE_INPUT: SimInput = {

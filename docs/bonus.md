@@ -27,5 +27,5 @@ Every bar fill (streaks, fruit, Near Miss, Death's Bounty, Hunter, time bonus) p
 - The outcome is rolled first from a weighted table, then a grid is built that shows exactly that many lines. Targets: nothing under 10%, at least 0.85 Quarters per spin, upgrades and lives each about 25%, multi-line hits about a third.
 - Lives are on the reels only below the life cap (the store free-life rule); at the cap life lines become Quarter lines.
 - School symbols lean toward owned schools (`slotSchoolWeights`, the level-offer affinity rate).
-- Feel: reels stop left to right; a third reel that could finish a school or life line is held longer; about a quarter of losing spins tease a near miss. A single-line spin takes about 3s; multi-line hits flash each line, then a finale.
+- Feel: reels stop left to right; a third reel that could finish a school or life line is held longer; about a quarter of losing spins tease a near miss. A single-line spin takes about 3s; multi-line hits flash each line, then a finale. The final grid then holds, with every winning line lit, until the player presses a key; any upgrades won show as cards under it.
 - Spins wait out death sequences and run back to back; the level-clear drain and offer wait for them.

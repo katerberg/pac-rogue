@@ -231,6 +231,13 @@ describe("slotFrame", () => {
     expect(end).toMatchObject({ finale: true, activeWin: null });
   });
 
+  it("holds on the final grid with every winning line lit once the payout ends", () => {
+    expect(slotFrame(spin, timeline, timeline.durationMs - 1).held).toBe(false);
+    const held = slotFrame(spin, timeline, timeline.durationMs);
+    expect(held).toMatchObject({ held: true, finale: false, activeWin: null });
+    expect(held.stopped).toEqual([true, true, true]);
+  });
+
   it("keeps a single win lit until the spin ends, with no finale", () => {
     const single = { ...spin, wins: [spin.wins[0]!], anticipation: false };
     const frame = slotFrame(single, slotTimeline(single), slotTimeline(single).durationMs - 1);

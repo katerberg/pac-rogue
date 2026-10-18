@@ -139,6 +139,7 @@ export class PlayScene extends Phaser.Scene {
   private powerPelletBreakFx!: PowerPelletBreakFx;
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private slotOverlay!: SlotOverlay;
+  private keyPressed = false;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private storeYesKeys: Phaser.Input.Keyboard.Key[] = [];
@@ -192,6 +193,12 @@ export class PlayScene extends Phaser.Scene {
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
     this.slotOverlay = createSlotOverlay(this);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.repeat && event.key !== "Escape") {
+        this.keyPressed = true;
+      }
+    };
+    this.input.keyboard?.on("keydown", onKeyDown);
     this.closeStoreUi();
     this.runEndMenu = null;
     this.intermission = null;
@@ -250,6 +257,7 @@ export class PlayScene extends Phaser.Scene {
     window.addEventListener("pagehide", onPageHide);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.off("keydown", onKeyDown);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onPageHide);
       this.applyEvents(this.sim.finishRun("quit"), 0);
@@ -347,9 +355,11 @@ export class PlayScene extends Phaser.Scene {
         storeClick: readsStoreKeys ? this.storeClick : null,
         storePointer: readsStoreKeys ? this.storePointer : null,
         storeCancelRoute: escDown,
+        acknowledge: this.keyPressed,
       },
       delta,
     );
+    this.keyPressed = false;
     this.storeChoice = null;
     this.storeClick = null;
     this.storePointer = null;

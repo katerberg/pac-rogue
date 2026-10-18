@@ -196,6 +196,7 @@ import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClo
 import {
   pickSlotUpgrade,
   rollSlotOutcome,
+  slotHeld,
   slotSchoolWeights,
   slotTimeline,
   spinSlot,
@@ -467,7 +468,13 @@ export const RUN_END_MENU_ARM_MS = 1000;
 
 export type RunEndChoice = "newGame" | "menu";
 
-export type SlotView = { spin: SlotSpin; timeline: SlotTimeline; elapsedMs: number; paid: number };
+export type SlotView = {
+  spin: SlotSpin;
+  timeline: SlotTimeline;
+  elapsedMs: number;
+  paid: number;
+  won: UpgradeId[];
+};
 
 export type PlayHud = {
   time: number;
@@ -868,6 +875,8 @@ export class PlaySim {
         grid: this.slot?.spin.grid ?? null,
         wins: this.slot?.spin.wins ?? null,
         paid: this.slot?.paid ?? null,
+        held: this.slot !== null && slotHeld(this.slot.timeline, this.slot.elapsedMs),
+        won: this.slot?.won ?? null,
       },
       deathsThisBoard: this.deathsThisBoard,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
@@ -1074,7 +1083,7 @@ export class PlaySim {
       return;
     }
 
-    if (this.tickSlot(delta)) {
+    if (this.tickSlot(input, delta)) {
       return;
     }
 
@@ -2728,7 +2737,7 @@ export class PlaySim {
     this.emit({ type: "quarters", pulse: true });
   }
 
-  private tickSlot(delta: number): boolean {
+  private tickSlot(input: SimInput, delta: number): boolean {
     if (this.slot === null) {
       const source = this.slotQueue.shift();
       if (source !== undefined) {
@@ -2743,16 +2752,19 @@ export class PlaySim {
       return false;
     }
     const slot = this.slot;
-    slot.elapsedMs += delta;
+    if (slotHeld(slot.timeline, slot.elapsedMs)) {
+      if (input.acknowledge === true) {
+        this.slot = null;
+      }
+      return true;
+    }
+    slot.elapsedMs = Math.min(slot.elapsedMs + delta, slot.timeline.durationMs);
     while (
       slot.paid < slot.spin.wins.length &&
       slot.elapsedMs >= slot.timeline.winStartsMs[slot.paid]!
     ) {
       this.paySlotWin(slot.spin.wins[slot.paid]!, slot.source);
       slot.paid += 1;
-    }
-    if (slot.elapsedMs >= slot.timeline.durationMs) {
-      this.slot = null;
     }
     return true;
   }
@@ -2762,7 +2774,7 @@ export class PlaySim {
     const rng = this.random.stream("slots");
     const outcome = this.options.slot ?? rollSlotOutcome(rng, livesOnReels);
     const spin = spinSlot(outcome, slotSchoolWeights(this.runUpgrades.owned), livesOnReels, rng);
-    this.slot = { spin, timeline: slotTimeline(spin), elapsedMs: 0, paid: 0, source };
+    this.slot = { spin, timeline: slotTimeline(spin), elapsedMs: 0, paid: 0, won: [], source };
     this.slotSpins += 1;
   }
 
@@ -2783,6 +2795,7 @@ export class PlaySim {
       this.emit({ type: "quarters", pulse: true });
       return;
     }
+    this.slot?.won.push(id);
     this.recorder.gained(id, "slots", this.levelIndex);
     this.runUpgrades = grantUpgrade(this.runUpgrades, id);
     this.applyGrantEffects(id);

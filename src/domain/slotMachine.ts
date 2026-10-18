@@ -289,11 +289,16 @@ export function parseSlotParam(params: URLSearchParams): SlotOutcome | null {
   return outcome.quarters + outcome.upgrades + outcome.lives <= SLOT_LINES.length ? outcome : null;
 }
 
+export function slotHeld(timeline: SlotTimeline, elapsedMs: number): boolean {
+  return elapsedMs >= timeline.durationMs;
+}
+
 export type SlotFrame = {
   stopped: boolean[];
   anticipating: boolean;
   activeWin: number | null;
   finale: boolean;
+  held: boolean;
 };
 
 const SLOT_STRIP: readonly SlotSymbol[] = [
@@ -318,10 +323,11 @@ export function slotFrame(spin: SlotSpin, timeline: SlotTimeline, elapsedMs: num
     spin.wins.length > 1
       ? timeline.winStartsMs[0]! + spin.wins.length * SLOT_MULTI_LINE_MS
       : Number.POSITIVE_INFINITY;
-  const finale = elapsedMs >= finaleStartMs;
+  const held = slotHeld(timeline, elapsedMs);
+  const finale = !held && elapsedMs >= finaleStartMs;
   let activeWin: number | null = null;
   timeline.winStartsMs.forEach((startMs, index) => {
-    if (!finale && elapsedMs >= startMs) {
+    if (!held && !finale && elapsedMs >= startMs) {
       activeWin = index;
     }
   });
@@ -330,6 +336,7 @@ export function slotFrame(spin: SlotSpin, timeline: SlotTimeline, elapsedMs: num
     anticipating: spin.anticipation && stopped[1] === true && stopped[2] === false,
     activeWin,
     finale,
+    held,
   };
 }
 
