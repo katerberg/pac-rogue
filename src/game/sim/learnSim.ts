@@ -158,7 +158,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
-import { chaffSprites } from "../../domain/chaff";
+import { chaffSprites, decoyFacing, decoyTile, nearestDecoy } from "../../domain/chaff";
 import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import {
@@ -336,12 +336,18 @@ export class LearnSim {
     if (eid === null || this.selected === null) {
       return null;
     }
-    const ctx = ghostAiContext(this.world);
+    const chaff = this.learnUpgrades.chaff;
+    const ctx = ghostAiContext(this.world, undefined, chaff?.decoys);
     const target = resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx);
     const playerEid = query(this.world, [Player, Position])[0];
     const helper = this.helperBlinky;
     const ghostX = Position.x[eid] ?? 0;
     const ghostY = Position.y[eid] ?? 0;
+    const decoy = nearestDecoy(chaff?.decoys ?? [], worldToCol(ghostX), worldToRow(ghostY));
+    const decoyPx =
+      decoy === null || chaff === null
+        ? undefined
+        : chaffSprites({ remainingMs: chaff.remainingMs, decoys: [decoy] })[0];
     const ghostFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     return {
       kind: this.selected,
@@ -352,12 +358,14 @@ export class LearnSim {
         targetAt: (tile) =>
           resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, tile),
       }),
-      playerTile: ctx.player,
+      playerTile: decoy === null ? ctx.player : { ...decoyTile(decoy), facing: decoyFacing(decoy) },
       blinkyTile: ctx.blinky,
       playerPx:
-        playerEid === undefined
-          ? null
-          : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 },
+        decoyPx !== undefined
+          ? { x: decoyPx.x, y: decoyPx.y }
+          : playerEid === undefined
+            ? null
+            : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 },
       blinkyPx: helper === null ? null : { x: Position.x[helper] ?? 0, y: Position.y[helper] ?? 0 },
       ghostPx: { x: ghostX, y: ghostY },
       ghostFacing,
