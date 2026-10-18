@@ -31,12 +31,13 @@ import {
   parseLearnAllMode,
   type SeenRecord,
 } from "../../domain/seenRecord";
-import { preloadSfx, startLoopingSfx } from "../audio/sfx";
+import { playPelletCollectSfx, playSfx, preloadSfx, startLoopingSfx } from "../audio/sfx";
 import {
   baseIdOf,
   enhancedIdOf,
   getUpgradeDef,
   groupUpgradesBySchool,
+  LEARN_NO_EFFECT_UPGRADE_IDS,
   learnEnhanceToggleState,
   learnUpgradeDefs,
   ownedFormOf,
@@ -114,7 +115,6 @@ const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
 const STATUS_GAP_Y = 10;
 const POPUP_RISE_PX = 28;
 const POPUP_MS = 1100;
-const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = ["passiveMartyr", "passiveInterest"];
 const HOVER_PREVIEW_DELAY_MS = 500;
 const HOVER_PREVIEW_Y_MIN = 90;
 const HOVER_PREVIEW_Y_MAX = 510;
@@ -237,6 +237,10 @@ export class LearnScene extends Phaser.Scene {
         playStreakPop(this, event);
       } else if (event.type === "learnPopup") {
         this.showPopup(event);
+      } else if (event.type === "sfx") {
+        playSfx(this, event.id);
+      } else if (event.type === "pelletSfx") {
+        playPelletCollectSfx(this, event.previousCollected, event.removed, event.powerRemoved);
       }
     }
     this.refreshStatus();

@@ -358,7 +358,7 @@ import {
 } from "../systems/collectPellets";
 import {
   emptyPlayerPelletFrame,
-  hyperspeedSubstepCount,
+  runHyperspeedSubsteps,
   mergePlayerPelletFrames,
   noteHyperspeedFacing,
 } from "../systems/hyperspeed";
@@ -2727,38 +2727,31 @@ export class PlaySim {
     moveFrame: (frameDelta: number) => void,
     afterStep: () => void,
   ): void {
-    const speed = Speed.px[query(this.world, [Player, Speed])[0] ?? 0] ?? 0;
-    const steps = hyperspeedSubstepCount((speed * delta) / 1000, getActiveLayout().tileSize);
-    const stepDelta = delta / steps;
-    let caught = false;
-    for (let step = 0; step < steps; step += 1) {
-      moveFrame(stepDelta);
-      afterStep();
-      if (caught) {
-        continue;
-      }
-      this.hyperspeedPellets = mergePlayerPelletFrames(
-        this.hyperspeedPellets,
-        collectPellets(this.world, {
-          radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
-          solids: getActiveLayout().playerSolids,
-        }),
-      );
-      const eatenFruit = collectFruit(this.world);
-      for (const eid of eatenFruit) {
-        this.releaseDrawable(eid);
-        this.hyperspeedFruitEaten += 1;
-      }
-      this.noteFruitRemoved(eatenFruit);
-      this.eatFrightenedGhosts();
-      const catchOptions = this.catchOptions();
-      const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-      const touched = hit !== null || this.playerTouchesLava(catchOptions);
-      if (touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield())) {
-        caught = true;
-        this.zeroPlayerSpeed();
-      }
-    }
+    runHyperspeedSubsteps(this.world, delta, {
+      moveFrame,
+      afterStep,
+      collect: () => {
+        this.hyperspeedPellets = mergePlayerPelletFrames(
+          this.hyperspeedPellets,
+          collectPellets(this.world, {
+            radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
+            solids: getActiveLayout().playerSolids,
+          }),
+        );
+        const eatenFruit = collectFruit(this.world);
+        for (const eid of eatenFruit) {
+          this.releaseDrawable(eid);
+          this.hyperspeedFruitEaten += 1;
+        }
+        this.noteFruitRemoved(eatenFruit);
+        this.eatFrightenedGhosts();
+        const catchOptions = this.catchOptions();
+        const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+        const touched = hit !== null || this.playerTouchesLava(catchOptions);
+        return touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield());
+      },
+      halt: () => this.zeroPlayerSpeed(),
+    });
   }
 
   private noteHyperspeedTurn(): void {

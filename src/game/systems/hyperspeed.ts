@@ -1,4 +1,8 @@
+import { query, type World } from "bitecs";
+import { getActiveLayout } from "../../domain/maze";
 import { DIRECTION, type Direction } from "../components/Input";
+import { Player } from "../components/Player";
+import { Speed } from "../components/Speed";
 import type { PlayerPelletFrame } from "./collectPellets";
 
 export const HYPERSPEED_STEP_TILE_FRACTION = 0.25;
@@ -10,6 +14,35 @@ export function hyperspeedSubstepCount(travelPx: number, tilePx: number): number
   }
   const steps = Math.ceil(travelPx / (tilePx * HYPERSPEED_STEP_TILE_FRACTION));
   return Math.min(HYPERSPEED_MAX_SUBSTEPS, Math.max(1, steps));
+}
+
+export type HyperspeedSubsteps = {
+  moveFrame: (frameDelta: number) => void;
+  afterStep: () => void;
+  collect: () => boolean;
+  halt: () => void;
+};
+
+export function runHyperspeedSubsteps(
+  world: World,
+  delta: number,
+  hooks: HyperspeedSubsteps,
+): void {
+  const speed = Speed.px[query(world, [Player, Speed])[0] ?? 0] ?? 0;
+  const steps = hyperspeedSubstepCount((speed * delta) / 1000, getActiveLayout().tileSize);
+  const stepDelta = delta / steps;
+  let caught = false;
+  for (let step = 0; step < steps; step += 1) {
+    hooks.moveFrame(stepDelta);
+    hooks.afterStep();
+    if (caught) {
+      continue;
+    }
+    if (hooks.collect()) {
+      caught = true;
+      hooks.halt();
+    }
+  }
 }
 
 export type HyperspeedTurn = { lastDirection: Direction | null; turned: boolean };
