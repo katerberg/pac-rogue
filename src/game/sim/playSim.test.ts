@@ -6872,4 +6872,20 @@ describe("Chaff", () => {
     expect(sim.snapshot().chaff).toHaveLength(0);
     expect(events.filter((e) => e.type === "chaffBurst")).toHaveLength(1);
   });
+
+  it("clears the decoy when a life is lost", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletChaff"],
+      infiniteLives: true,
+    });
+    eatPower(sim);
+    expect(sim.snapshot().chaff).toHaveLength(1);
+    ghostOntoPlayer(sim);
+    runUntil(sim, () => sim.snapshot().dying, 120);
+    runUntil(sim, () => !sim.snapshot().dying, 600);
+    expect(sim.snapshot().chaff).toEqual([]);
+    expect(sim.snapshot().timers.chaffMs).toBe(0);
+  });
 });
