@@ -1079,10 +1079,21 @@ describe("LearnSim upgrade demos", () => {
   });
 
   it.each([
-    ["passiveInheritance", "+2 Q"],
-    ["passiveInheritancePlus", "+2 Q"],
-  ] as const)("%s pays Quarters when the board refills", (id, payout) => {
-    const { sim, player } = setup(id);
+    ["passiveInheritance", []],
+    ["passiveInheritancePlus", ["+1 Q"]],
+  ] as const)("%s pays on board refill for a saved death", (id, payout) => {
+    const { sim, player } = setup(id, "passiveDefyDeath");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(popups(catchByGhost(sim, player))).toEqual(["SAVED"]);
+    for (const eid of query(sim.world, [Pellet])) {
+      removeEntity(sim.world, eid);
+    }
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual(payout);
+  });
+
+  it("Inheritance pays a Quarter per empty life slot when the board refills", () => {
+    const { sim, player } = setup("passiveInheritance");
     catchByGhost(sim, player);
     runMs(sim, 1_600);
     catchByGhost(sim, player);
@@ -1090,7 +1101,7 @@ describe("LearnSim upgrade demos", () => {
     for (const eid of query(sim.world, [Pellet])) {
       removeEntity(sim.world, eid);
     }
-    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([payout]);
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual(["+2 Q"]);
   });
 
   it("Fruit Fecundity runs a timed fruit that lasts twice as long", () => {

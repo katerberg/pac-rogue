@@ -6638,26 +6638,22 @@ describe("Inheritance", () => {
   });
 
   it("counts real deaths on the level it clears", () => {
-    const sim = startSim({
-      level: 2,
-      maze: "maze1",
-      enableUpgrades: ["passiveInheritancePlus"],
-      infiniteLives: true,
-    });
-    for (let i = 0; i < 2; i += 1) {
-      ghostOntoPlayer(sim);
-      runFrames(sim, 1);
-      runUntil(sim, () => !sim.snapshot().dying, 240);
-    }
-    expect(sim.snapshot().deathsThisBoard).toBe(2);
-    for (const eid of query(sim.world, [Ghost])) {
-      removeEntity(sim.world, eid);
-    }
-    for (const eid of Array.from(query(sim.world, [Pellet, Position]))) {
-      eatPelletAt(sim, eid);
-    }
-    const events = runUntil(sim, () => sim.offer() !== null, 600);
-    expect(events).toContainEqual({ type: "quarters", pulse: true });
-    expect(sim.snapshot().quarters).toBeGreaterThanOrEqual(2);
+    const quartersAfterTwoDeaths = (enableUpgrades: UpgradeId[]): number => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades, infiniteLives: true });
+      for (let i = 0; i < 2; i += 1) {
+        ghostOntoPlayer(sim);
+        runFrames(sim, 1);
+        runUntil(sim, () => !sim.snapshot().dying, 240);
+      }
+      for (const eid of query(sim.world, [Ghost])) {
+        removeEntity(sim.world, eid);
+      }
+      for (const eid of Array.from(query(sim.world, [Pellet, Position]))) {
+        eatPelletAt(sim, eid);
+      }
+      runUntil(sim, () => sim.offer() !== null, 600);
+      return sim.snapshot().quarters;
+    };
+    expect(quartersAfterTwoDeaths(["passiveInheritancePlus"])).toBe(quartersAfterTwoDeaths([]) + 2);
   });
 });
