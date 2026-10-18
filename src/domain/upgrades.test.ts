@@ -1784,6 +1784,12 @@ describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
     );
   });
 
+  it("Ghost Proof is 4s at level 1 and holds a 3s floor from level 5", () => {
+    expect([1, 5, 9].map((l) => chomp(["powerPelletInvuln"], l).state.invulnRemainingMs)).toEqual([
+      4000, 3000, 3000,
+    ]);
+  });
+
   it("Overcharge doubles the already-shortened L5 duration", () => {
     expect(chomp(["powerPelletFreeze", "passiveOvercharge"], 5).freezeClosestMs).toBe(
       levelScaledDurationMs(FREEZE_MS, 5) * OVERCHARGE_MUL,
