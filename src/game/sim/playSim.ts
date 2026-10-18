@@ -79,6 +79,7 @@ import {
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { blinkyEyesTrackPlayer } from "../../domain/ghostPupils";
+import type { GhostDir } from "../../domain/ghostPath";
 import { pickRosterId, RELEASE_SLOT_BY_KIND, type ReleaseSlot } from "../../domain/ghostRoster";
 import {
   createGhostModeClock,
@@ -324,7 +325,19 @@ import {
   type UpgradeSchool,
   remoteTransferEvery,
   type CornucopiaMode,
+  endSimulacrum,
+  simulacrumSavesLife,
 } from "../../domain/upgrades";
+import {
+  mirrorFacing,
+  sharedZoneEffect,
+  SIMULACRUM_POP_MS,
+  simulacrumPopProgress,
+  twinDesynced,
+  twinPoint,
+  twinZoneEffect,
+  type BodyTile,
+} from "../../domain/simulacrum";
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
@@ -550,6 +563,7 @@ export class PlaySim {
   private caughtByEid: number | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
+  private simulacrumPop: { x: number; y: number; elapsedMs: number } | null = null;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
@@ -796,6 +810,8 @@ export class PlaySim {
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
       programmerQueue: this.programmerQueue(),
+      simulacrum: this.simulacrumRender(),
+      simulacrumPop: this.simulacrumPopRender(),
     };
   }
 
@@ -883,6 +899,14 @@ export class PlaySim {
       },
       timedTunnel: this.timedTunnelSnapshot(),
       lava: this.lavaSnapshot(),
+      simulacrum: {
+        active: upgrades.simulacrumActive,
+        x: this.twinPosition()?.x ?? null,
+        y: this.twinPosition()?.y ?? null,
+        col: this.twinBody()?.col ?? null,
+        row: this.twinBody()?.row ?? null,
+        popProgress: this.simulacrumPopRender()?.progress ?? null,
+      },
       speedZones: this.speedZones,
       speedZonesShifting: this.speedZoneShift !== null,
       playerSpeedZone: this.playerSpeedZone(),
@@ -1166,6 +1190,8 @@ export class PlaySim {
     }
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
+    this.tickSimulacrumPop(delta);
+    this.checkSimulacrumPop();
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex, this.currentTuning);
     const hyperspeedMul =
       this.runUpgrades.hyperspeedTurnDelayMs > 0
@@ -1187,7 +1213,7 @@ export class PlaySim {
                 : 1) *
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
-              speedZoneMultiplier(this.playerSpeedZone());
+              speedZoneMultiplier(this.sharedZoneEffect().effect);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -1311,12 +1337,18 @@ export class PlaySim {
     this.clock = tickRunClock(this.clock, hasInput, delta, this.currentTuning);
     this.emit({ type: "timer" });
 
+    const twinPosition = this.twinPosition();
     const playerFrame = mergePlayerPelletFrames(
-      this.hyperspeedPellets,
-      collectPellets(this.world, {
-        radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
-        solids: getActiveLayout().playerSolids,
-      }),
+      mergePlayerPelletFrames(
+        this.hyperspeedPellets,
+        collectPellets(this.world, {
+          radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
+          solids: getActiveLayout().playerSolids,
+        }),
+      ),
+      twinPosition === null
+        ? emptyPlayerPelletFrame()
+        : collectPellets(this.world, { at: twinPosition }),
     );
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     const ghostFrame = ghostHarvestActive(this.runUpgrades)
@@ -1416,6 +1448,7 @@ export class PlaySim {
         frightenedGhostEids(this.runUpgrades),
         blockTunnelRow,
         this.runUpgrades.droppedWall,
+        this.twinBody(),
       );
       frightenedGhostAi(
         this.world,
@@ -1468,7 +1501,10 @@ export class PlaySim {
       this.spawnFruitEntity(stacksFruit);
     }
 
-    const removedFruitEids = collectFruit(this.world);
+    const removedFruitEids = [
+      ...collectFruit(this.world),
+      ...(twinPosition === null ? [] : collectFruit(this.world, twinPosition)),
+    ];
     for (const eid of removedFruitEids) {
       this.releaseDrawable(eid);
     }
@@ -1514,7 +1550,10 @@ export class PlaySim {
     this.eatFrightenedGhosts();
 
     const catchOptions = this.catchOptions();
-    const caughtBy = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+    const playerCaughtBy =
+      catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+    const twinCatch = playerCaughtBy === null ? this.twinCatch(catchOptions) : null;
+    const caughtBy = playerCaughtBy ?? twinCatch?.eid ?? null;
     const lavaKill = caughtBy === null && this.playerTouchesLava(catchOptions);
     this.emitDraw();
 
@@ -1528,7 +1567,20 @@ export class PlaySim {
       ) {
         return;
       }
-      const deathCell = playerCell(this.world);
+      if (
+        !lavaKill &&
+        this.runUpgrades.simulacrumActive &&
+        simulacrumSavesLife(this.effectiveUpgrades())
+      ) {
+        this.popSimulacrum();
+        if (playerCaughtBy !== null) {
+          this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
+        }
+        return;
+      }
+      const fellAt = twinCatch?.position ?? this.playerPosition();
+      const deathCell =
+        fellAt === null ? null : { col: worldToCol(fellAt.x), row: worldToRow(fellAt.y) };
       const ghostsOut = query(this.world, [Ghost, GhostPhase]).filter(
         (eid) => GhostPhase.value[eid] !== GHOST_PHASE.inHouse,
       ).length;
@@ -1537,6 +1589,7 @@ export class PlaySim {
         const harvested = harvestNearbyPellets(
           this.world,
           deathsHarvestRadiusTiles(this.effectiveUpgrades()),
+          fellAt ?? undefined,
         );
         harvestedCount = harvested.length;
         if (harvested.length > 0) {
@@ -1556,7 +1609,7 @@ export class PlaySim {
           }
         }
       }
-      this.fellAt = this.playerPosition();
+      this.fellAt = fellAt;
       this.caughtByEid = caughtBy;
       this.emit({ type: "loopStop", id: "gameplayMusic" });
       const defied = defyDeathActive(this.runUpgrades);
@@ -1607,6 +1660,94 @@ export class PlaySim {
       }
       this.death = beginDeathSequence(result.gameOver);
     }
+  }
+
+  private twinPosition(): Point | null {
+    const player = this.runUpgrades.simulacrumActive ? this.playerPosition() : null;
+    if (player === null) {
+      return null;
+    }
+    return twinPoint(player, getActiveLayout());
+  }
+
+  private twinBody(): BodyTile | null {
+    const position = this.twinPosition();
+    return position === null
+      ? null
+      : {
+          col: worldToCol(position.x),
+          row: worldToRow(position.y),
+          facing: mirrorFacing(playerFacing(this.world)) as GhostDir,
+        };
+  }
+
+  private twinCatch(options: CatchOptions): { eid: number; position: Point } | null {
+    const position = this.twinPosition();
+    if (position === null) {
+      return null;
+    }
+    const at = { ...options, at: position };
+    const eid = catchPlayer(this.world, at) ?? chainCatch(this.world, at);
+    return eid === null ? null : { eid, position };
+  }
+
+  private sharedZoneEffect(): ReturnType<typeof sharedZoneEffect> {
+    const player = this.playerSpeedZone();
+    const twin = this.twinBody();
+    const eid = query(this.world, [Player, Velocity])[0];
+    if (twin === null || eid === undefined) {
+      return sharedZoneEffect(player, null);
+    }
+    const velocity = { x: Velocity.x[eid] ?? 0, y: Velocity.y[eid] ?? 0 };
+    return sharedZoneEffect(player, twinZoneEffect(this.speedZones, twin, velocity));
+  }
+
+  private checkSimulacrumPop(): void {
+    if (!this.runUpgrades.simulacrumActive) {
+      return;
+    }
+    const cell = playerCell(this.world);
+    if (
+      cell !== null &&
+      (twinDesynced(this.playerSolids(), cell) || this.sharedZoneEffect().conflict)
+    ) {
+      this.popSimulacrum();
+    }
+  }
+
+  private popSimulacrum(): void {
+    const position = this.twinPosition();
+    this.runUpgrades = endSimulacrum(this.runUpgrades);
+    if (position !== null) {
+      this.simulacrumPop = { ...position, elapsedMs: 0 };
+    }
+  }
+
+  private tickSimulacrumPop(delta: number): void {
+    if (this.simulacrumPop === null) {
+      return;
+    }
+    this.simulacrumPop.elapsedMs += delta;
+    if (this.simulacrumPop.elapsedMs >= SIMULACRUM_POP_MS) {
+      this.simulacrumPop = null;
+    }
+  }
+
+  private simulacrumRender(): SimRenderOptions["simulacrum"] {
+    const position = this.death === null ? this.twinPosition() : null;
+    return position === null
+      ? null
+      : { ...position, facing: mirrorFacing(playerFacing(this.world)) };
+  }
+
+  private simulacrumPopRender(): SimRenderOptions["simulacrumPop"] {
+    return this.simulacrumPop === null
+      ? null
+      : {
+          x: this.simulacrumPop.x,
+          y: this.simulacrumPop.y,
+          progress: simulacrumPopProgress(this.simulacrumPop.elapsedMs),
+        };
   }
 
   private catchOptions(): CatchOptions {
@@ -2310,6 +2451,7 @@ export class PlaySim {
 
   private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
+    this.simulacrumPop = null;
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
     this.topUpStartingShields();
@@ -3165,6 +3307,9 @@ export class PlaySim {
         this.recorder.activation(kind);
       }
     }
+    if (powerEffects.simulacrumStarted) {
+      this.recorder.activation("simulacrum");
+    }
     if (powerEffects.collectExtraPellets > 0) {
       this.recorder.activation("collectExtra");
     }
@@ -3294,6 +3439,7 @@ export class PlaySim {
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
+    this.simulacrumPop = null;
     this.resetStreak();
     this.remoteTransferCounter = 0;
     const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt);

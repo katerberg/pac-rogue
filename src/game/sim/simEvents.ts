@@ -43,6 +43,8 @@ export type SimRenderOptions = {
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
+  simulacrum?: { x: number; y: number; facing: number } | null;
+  simulacrumPop?: { x: number; y: number; progress: number } | null;
 };
 
 export type MoneyTalksSpend = {

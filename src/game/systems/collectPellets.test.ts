@@ -217,3 +217,14 @@ describe("bitecs eid reuse", () => {
     expect(addEntity(world)).toBe(removed);
   });
 });
+
+describe("collectPellets from an explicit body position", () => {
+  it("eats pellets under `at` and leaves the ones under the player", () => {
+    const { world } = spawnPlayer(100, 100);
+    const nearPlayer = spawnPellet(world, 100, 100);
+    const nearTwin = spawnPellet(world, 400, 100);
+    const frame = collectPellets(world, { at: { x: 400, y: 100 } });
+    expect(frame.removedEids).toEqual([nearTwin]);
+    expect(query(world, [Pellet])).toEqual([nearPlayer]);
+  });
+});

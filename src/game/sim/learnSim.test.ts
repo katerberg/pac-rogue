@@ -1,4 +1,4 @@
-import { query, removeEntity } from "bitecs";
+import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
@@ -844,6 +844,130 @@ describe("LearnSim upgrade demos", () => {
       sim.toggleUpgrade("powerPelletWallDrop");
       expect(drawnWall(sim)).toBeNull();
       expect(sim["learnUpgrades"].wallDropArmed).toBe(false);
+    });
+  });
+
+  describe("Simulacrum", () => {
+    function centerX(): number {
+      const layout = getActiveLayout();
+      return layout.offsetX + layout.pixelWidth / 2;
+    }
+
+    function parkGhost(sim: LearnSim): void {
+      GhostPhase.value[sim.ghostEid!] = GHOST_PHASE.inHouse;
+    }
+
+    function twinOf(sim: LearnSim) {
+      return lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).simulacrum;
+    }
+
+    function ghostOnTwin(sim: LearnSim): void {
+      const twin = twinOf(sim)!;
+      const ghost = sim.ghostEid!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      moveTo(ghost, { x: twin.x, y: twin.y });
+    }
+
+    it("a power pellet adds a twin that mirrors Maze-Man across the middle", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      parkGhost(sim);
+      expect(twinOf(sim)).toBeNull();
+      chompPower(sim, player);
+      const twin = twinOf(sim)!;
+      expect(twin.x).toBeCloseTo(2 * centerX() - Position.x[player]!);
+      expect(twin.y).toBeCloseTo(Position.y[player]!);
+    });
+
+    it("does nothing without the upgrade", () => {
+      const { sim, player } = setup();
+      parkGhost(sim);
+      chompPower(sim, player);
+      expect(twinOf(sim)).toBeNull();
+    });
+
+    it("the twin eats pellets it stands on", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      parkGhost(sim);
+      chompPower(sim, player);
+      const target = query(sim.world, [Pellet, Position]).find(
+        (eid) =>
+          !hasComponent(sim.world, eid, PowerPellet) &&
+          Position.x[eid]! < centerX() - 2 * TILE_SIZE,
+      )!;
+      moveTo(player, { x: 2 * centerX() - Position.x[target]!, y: Position.y[target]! });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
+    });
+
+    it("a ghost catching the twin is a death, and it ends the twin", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      chompPower(sim, player);
+      ghostOnTwin(sim);
+      const events = sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(popups(events).join(" ")).toContain("LIFE LOST");
+      expect(sim["learnUpgrades"].simulacrumActive).toBe(false);
+    });
+
+    it("Plus: a ghost catching the twin only pops it", () => {
+      const { sim, player } = setup("powerPelletSimulacrumPlus");
+      chompPower(sim, player);
+      ghostOnTwin(sim);
+      const events = sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(popups(events)).toEqual(["TWIN POPPED"]);
+      const options = lastDrawOptions(events);
+      expect(options.simulacrum).toBeNull();
+      expect(options.simulacrumPop).not.toBeNull();
+      expect(options.playerInvulnRemainingMs).toBe(0);
+    });
+
+    it("Plus: a ghost catching Maze-Man pops the twin and grants a moment of safety", () => {
+      const { sim, player } = setup("powerPelletSimulacrumPlus");
+      chompPower(sim, player);
+      const events = catchByGhost(sim, player);
+      expect(popups(events)).toEqual(["TWIN POPPED"]);
+      expect(sim["learnUpgrades"].simulacrumActive).toBe(false);
+      expect(lastDrawOptions(events).playerInvulnRemainingMs).toBeGreaterThan(0);
+    });
+
+    it("pops when the mirrored cell is a wall and Maze-Man's is not", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      parkGhost(sim);
+      chompPower(sim, player);
+      const col = worldToCol(Position.x[player]!);
+      const row = worldToRow(Position.y[player]!);
+      sim["learnUpgrades"] = {
+        ...sim["learnUpgrades"],
+        droppedWall: {
+          col: getActiveLayout().cols - 1 - col,
+          row,
+          remainingMs: 5000,
+          passable: false,
+          awayStep: { dx: 1, dy: 0 },
+          vacated: true,
+        },
+      };
+      const options = lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS));
+      expect(options.simulacrum).toBeNull();
+      expect(options.simulacrumPop).not.toBeNull();
+    });
+
+    it("toggling it off removes the twin", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      parkGhost(sim);
+      chompPower(sim, player);
+      expect(twinOf(sim)).not.toBeNull();
+      sim.toggleUpgrade("powerPelletSimulacrum");
+      expect(twinOf(sim)).toBeNull();
+    });
+
+    it("the ghost's target overlay follows the nearer body", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      chompPower(sim, player);
+      const ghost = sim.ghostEid!;
+      const twin = twinOf(sim)!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      moveTo(ghost, { x: twin.x - 2 * TILE_SIZE, y: twin.y });
+      expect(sim.overlayModel()!.playerPx).toMatchObject({ x: twin.x, y: twin.y });
     });
   });
 
