@@ -27,10 +27,10 @@ Store floors loop `storeMusic` instead of `gameplayMusic`; leaving resumes it. S
 
 ## Buying
 
-Each corner's details (name, description, cost) are always shown in the wall block beside it, so nothing needs crossing to read. `storeStep` is the prompt state machine, fed the player's cell plus focus and confirm presses:
+Each corner's details show in the wall block beside it. `storeStep` is the prompt state machine (player cell, focus and confirm presses):
 
-- Stepping onto an affordable unsold corner (or clicking its tile or panel) dims the other three panels and adds `BUY` / `NEVER MIND` to its own, with NEVER MIND focused. Up (or W) focuses BUY and Down (or S) focuses NEVER MIND, matching their stacked layout; Enter / Space picks. While open, every key except focus, confirm and Escape is ignored and the player is held in place. NEVER MIND closes it; stepping off and back on re-opens it.
-- An unaffordable corner (or a swap or enhance with no valid target) shows the reason in its panel instead of the buttons.
+- Stepping onto an affordable unsold corner (or clicking its tile or panel) dims the other three panels and adds `BUY` / `NEVER MIND` to its own, NEVER MIND focused. Up/W focuses BUY, Down/S NEVER MIND; Enter/Space picks. While open, other keys except Escape are ignored and the player is held. NEVER MIND closes it; stepping back on re-opens it.
+- An unaffordable corner (or a swap/enhance with no valid target) shows the reason instead of the buttons.
 - Upgrade, swap and enhance grant through the same path as a level-clear pick, and the panel then shows what was gained. A swap carries enhancement to the incoming upgrade (`carryEnhancement`); an Extra Life's life is kept when it is swapped out. Enhance and trade targets are re-rolled at purchase if stale, and buying an enhance relabels a trade tile showing the same upgrade.
 
 ## Leaving

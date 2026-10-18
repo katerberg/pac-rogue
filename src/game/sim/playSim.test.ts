@@ -399,13 +399,13 @@ describe("PlaySim Afterburner", () => {
 
   it("speeds up entering a cell without a pellet and slows entering one with a pellet", () => {
     const ratios = speedRatios("passiveAfterburner");
-    expect(ratios.pellet).toBeCloseTo(0.9);
+    expect(ratios.pellet).toBeCloseTo(0.8);
     expect(ratios.empty).toBeCloseTo(1.3);
   });
 
-  it("Afterburner+ gives +50% and keeps the 10% pellet-cell slowdown", () => {
+  it("Afterburner+ gives +50% and keeps the 20% pellet-cell slowdown", () => {
     const ratios = speedRatios("passiveAfterburnerPlus");
-    expect(ratios.pellet).toBeCloseTo(0.9);
+    expect(ratios.pellet).toBeCloseTo(0.8);
     expect(ratios.empty).toBeCloseTo(1.5);
   });
 
@@ -6625,5 +6625,63 @@ describe("Programmer", () => {
     runUntil(sim, () => sim.snapshot().dying, 10);
     runUntil(sim, () => !sim.snapshot().dying, 600);
     expect(sim.snapshot().timers.programmer).toBeNull();
+  });
+});
+
+describe("Inheritance", () => {
+  function quartersAfterLevelClear(
+    enableUpgrades: UpgradeId[],
+    lives: number,
+    deaths: number,
+  ): number {
+    const sim = startSim({ jumpToUpgrade: true, enableUpgrades });
+    const internals = sim as unknown as { lives: number; deathsThisBoard: number };
+    internals.lives = lives;
+    internals.deathsThisBoard = deaths;
+    runUntil(sim, () => sim.offer() !== null, 90);
+    return sim.snapshot().quarters;
+  }
+
+  const baseline = (lives: number, deaths: number): number =>
+    quartersAfterLevelClear([], lives, deaths);
+
+  it("pays a Quarter per empty life slot on level clear", () => {
+    expect(quartersAfterLevelClear(["passiveInheritance"], 2, 0)).toBe(baseline(2, 0) + 2);
+    expect(quartersAfterLevelClear(["passiveInheritance"], 4, 3)).toBe(baseline(4, 3));
+  });
+
+  it("pays a Quarter per death on the cleared level when enhanced", () => {
+    expect(quartersAfterLevelClear(["passiveInheritancePlus"], 2, 3)).toBe(baseline(2, 3) + 3);
+    expect(quartersAfterLevelClear(["passiveInheritancePlus"], 2, 0)).toBe(baseline(2, 0));
+  });
+
+  it("pays nothing when not owned", () => {
+    expect(quartersAfterLevelClear([], 1, 3)).toBe(baseline(1, 3));
+  });
+
+  it("pays before Myogenesis refills the empty slots", () => {
+    expect(quartersAfterLevelClear(["passiveInheritance", "passiveMyogenesisPlus"], 1, 0)).toBe(
+      baseline(1, 0) + 3,
+    );
+  });
+
+  it("counts real deaths on the level it clears", () => {
+    const quartersAfterTwoDeaths = (enableUpgrades: UpgradeId[]): number => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades, infiniteLives: true });
+      for (let i = 0; i < 2; i += 1) {
+        ghostOntoPlayer(sim);
+        runFrames(sim, 1);
+        runUntil(sim, () => !sim.snapshot().dying, 240);
+      }
+      for (const eid of query(sim.world, [Ghost])) {
+        removeEntity(sim.world, eid);
+      }
+      for (const eid of Array.from(query(sim.world, [Pellet, Position]))) {
+        eatPelletAt(sim, eid);
+      }
+      runUntil(sim, () => sim.offer() !== null, 600);
+      return sim.snapshot().quarters;
+    };
+    expect(quartersAfterTwoDeaths(["passiveInheritancePlus"])).toBe(quartersAfterTwoDeaths([]) + 2);
   });
 });

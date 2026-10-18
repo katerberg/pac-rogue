@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_LIVES_FLAG,
   START_LIVES,
+  emptyLifeSlots,
   levelLivesIconFloor,
   levelRegenAmount,
   livesAfterLevelRegen,
@@ -116,5 +117,14 @@ describe("levelRegenAmount", () => {
     expect(livesAfterLevelRegen(3, 3, 2)).toBe(4);
     expect(livesAfterLevelRegen(4, 3, 2)).toBe(4);
     expect(livesAfterLevelRegen(3, 4, 2)).toBe(5);
+  });
+});
+
+describe("emptyLifeSlots", () => {
+  it("counts HUD icon slots below the floor, never negative", () => {
+    expect(emptyLifeSlots(4)).toBe(0);
+    expect(emptyLifeSlots(2)).toBe(2);
+    expect(emptyLifeSlots(1, levelLivesIconFloor(1))).toBe(4);
+    expect(emptyLifeSlots(9)).toBe(0);
   });
 });

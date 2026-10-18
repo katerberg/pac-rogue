@@ -115,6 +115,7 @@ import {
 } from "../../domain/levelRules";
 import {
   DEFAULT_MAX_LIVES,
+  emptyLifeSlots,
   START_LIVES,
   levelLivesIconFloor,
   levelRegenAmount,
@@ -229,6 +230,7 @@ import {
   shieldPelletsCap,
   spendShield,
   deathsBountyCharge,
+  inheritancePayout,
   defyDeathActive,
   confirmUpgradeChoice,
   createRunUpgrades,
@@ -2635,7 +2637,23 @@ export class PlaySim {
     this.emitRunLog();
   }
 
+  private payInheritance(): void {
+    const owned = this.effectiveUpgrades();
+    const payout = inheritancePayout(
+      owned,
+      emptyLifeSlots(this.lives, this.regenIconFloor()),
+      this.deathsThisBoard,
+    );
+    if (payout <= 0) {
+      return;
+    }
+    this.quarters += payout;
+    this.recorder.quarters("inheritance", payout);
+    this.emit({ type: "quarters", pulse: true });
+  }
+
   private finishLevelClear(): void {
+    this.payInheritance();
     this.applyLifeRegen(this.regenAmount());
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {
       this.beginLevelTransition();
