@@ -276,11 +276,7 @@ export function pickSlotUpgrade(
 }
 
 export function parseSlotParam(params: URLSearchParams): SlotOutcome | null {
-  const raw = params.get("slot");
-  if (raw === "0") {
-    return { quarters: 0, upgrades: 0, lives: 0 };
-  }
-  const match = raw === null || raw === "" ? null : /^(?:(\d)q)?(?:(\d)u)?(?:(\d)l)?$/.exec(raw);
+  const match = /^(?:0|(?=.)(?:(\d)q)?(?:(\d)u)?(?:(\d)l)?)$/.exec(params.get("slot") ?? "");
   if (match === null) {
     return null;
   }
