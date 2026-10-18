@@ -40,7 +40,7 @@ import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
-import { parseStoreSlots, swapIncomingSchool } from "../../domain/store";
+import { offeredUpgradeIds, parseStoreSlots, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -1541,6 +1541,27 @@ describe("PlaySim", () => {
         runUntil(sim, () => !sim.snapshot().inStore, 600);
         (sim as unknown as { enterStore(): void }).enterStore();
         expect(shelf().some((id) => schoolOf(id) === schoolOf(last))).toBe(true);
+      }
+    });
+
+    it("a later store never re-offers an upgrade an earlier store showed", () => {
+      for (let n = 0; n < 12; n += 1) {
+        const sim = startSim(
+          {
+            store: 1,
+            level: 5,
+            quarters: 10,
+            enableUpgrades: ["passiveGhostSlow", "passiveAfterburner", "passiveMoneyTalks"],
+          },
+          `repeat${n}`,
+        );
+        const offered = offeredUpgradeIds(sim.storeState()!);
+        teleportPlayer(sim, cellCenterX(10), cellCenterY(0));
+        runUntil(sim, () => !sim.snapshot().inStore, 600);
+        (sim as unknown as { enterStore(): void }).enterStore();
+        const again = offeredUpgradeIds(sim.storeState()!);
+        expect(offered.length).toBeGreaterThan(0);
+        expect(again.filter((id) => offered.includes(id))).toEqual([]);
       }
     });
 

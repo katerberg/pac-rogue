@@ -159,8 +159,9 @@ export function createStoreState(
   firstStore = false,
   lifeRoom = Number.POSITIVE_INFINITY,
   guaranteedSchool: UpgradeSchool | null = null,
+  previouslyOffered: readonly BaseUpgradeId[] = [],
 ): StoreState {
-  let pool = eligibleUpgrades(owned);
+  let pool = eligibleUpgrades(owned).filter((id) => !previouslyOffered.includes(id));
   const slots: StoreSlot[] = [];
   let lifeSlots = 0;
   const upgradeCells = cells.filter((cell) => cell.kind === "upgrade");
@@ -178,7 +179,7 @@ export function createStoreState(
     );
   }
   const enhanceTargets = new Map<StoreSlotCell, BaseUpgradeId>();
-  const enhancePool = enhanceableUpgrades(owned);
+  const enhancePool = enhanceableUpgrades(owned).filter((id) => !previouslyOffered.includes(id));
   for (const cell of cells) {
     if (cell.kind === "enhance" && enhancePool.length > 0) {
       enhanceTargets.set(cell, takeRandomFrom(enhancePool, rng));
@@ -217,7 +218,25 @@ export function createStoreState(
     clickedSlot: null,
     confirmYes: false,
   };
-  return { ...stocked, slots: slots.map((slot) => rollSwapIncoming(slot, stocked, owned, rng)) };
+  return {
+    ...stocked,
+    slots: slots.map((slot) => rollSwapIncoming(slot, stocked, owned, rng, previouslyOffered)),
+  };
+}
+
+export function offeredUpgradeIds(state: StoreState): BaseUpgradeId[] {
+  return state.slots.flatMap((slot) => {
+    switch (slot.kind) {
+      case "upgrade":
+        return [slot.id];
+      case "enhance":
+        return [slot.targetId];
+      case "swap":
+        return slot.incomingBaseId === null ? [] : [slot.incomingBaseId];
+      case "life":
+        return [];
+    }
+  });
 }
 
 function rollSwapIncoming(
@@ -225,11 +244,14 @@ function rollSwapIncoming(
   state: StoreState,
   owned: readonly UpgradeId[],
   rng: () => number,
+  previouslyOffered: readonly BaseUpgradeId[],
 ): StoreSlot {
   if (slot.kind !== "swap") {
     return slot;
   }
-  const pool = swapIncomingPool(state, owned, slot.outgoingId);
+  const pool = swapIncomingPool(state, owned, slot.outgoingId).filter(
+    (id) => !previouslyOffered.includes(id),
+  );
   return { ...slot, incomingBaseId: pool.length > 0 ? takeWeightedUpgrade(pool, rng) : null };
 }
 

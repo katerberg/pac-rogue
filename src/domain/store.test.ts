@@ -8,6 +8,7 @@ import {
   enhanceGlowAlpha,
   STORE_SWAP_PRICE,
   createStoreState,
+  offeredUpgradeIds,
   lifePriceForStore,
   STORE_EXIT_SLIDE_TILES,
   storeExitAlpha,
@@ -139,6 +140,29 @@ describe("createStoreState", () => {
       const enhance = state.slots.find((s) => s.kind === "enhance");
       if (swap?.kind !== "swap" || enhance?.kind !== "enhance") throw new Error("missing tile");
       expect(baseIdOf(swap.outgoingId)).not.toBe(enhance.targetId);
+    }
+  });
+
+  it("never re-offers an upgrade from previouslyOffered on any tile", () => {
+    const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow", "fruitFeast"];
+    for (let seed = 1; seed <= 100; seed += 1) {
+      let x = seed;
+      const rng = () => {
+        x = (x * 1103515245 + 12345) % 2147483648;
+        return x / 2147483648;
+      };
+      const first = createStoreState(parseStoreSlots(STORE_MAZE_ASCII), owned, rng);
+      const seen = offeredUpgradeIds(first);
+      const second = createStoreState(
+        parseStoreSlots(STORE_MAZE_ASCII),
+        owned,
+        rng,
+        false,
+        Number.POSITIVE_INFINITY,
+        null,
+        seen,
+      );
+      expect(offeredUpgradeIds(second).filter((id) => seen.includes(id))).toEqual([]);
     }
   });
 

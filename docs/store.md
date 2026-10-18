@@ -13,7 +13,7 @@ Quarters (from the [BONUS bar](./bonus.md) and the level-clear Quarters choice) 
 `STORE_MAZE_ASCII` (`mazeLayouts.ts`) is a hand-made room whose walls respect the rounded-stroke rules (never 1 tile thick, never touching only at a corner). Slot glyphs are walkable cells for the maze builder; `parseStoreSlots` turns each 2x2 block into a slot:
 
 - `L` extra life, `U` random unowned upgrade, `S` trade (lose a shown owned upgrade, gain a hidden random one), `E` enhance (a random owned, unenhanced upgrade becomes its Plus form).
-- Prices and counts: constants in `store.ts` (`storePriceFor`, `lifePriceForStore`, ...). `createStoreState` rolls stock once on entry: at most one rare shelved, rares at half weight, unfilled slots omitted, no `E` tile when nothing is enhanceable. No upgrade shows on two tiles: `U` tiles are distinct, a trade's incoming upgrade is off the shelf, and the `S` tile never trades away the `E` tile's target (no `S` tile when that leaves nothing to trade).
+- Prices and counts: constants in `store.ts` (`storePriceFor`, `lifePriceForStore`, ...). `createStoreState` rolls stock once on entry: at most one rare shelved, rares at half weight, unfilled slots omitted, no `E` tile when nothing is enhanceable. No upgrade shows on two tiles, or again in a later store (`offeredUpgradeIds`, kept per run in `PlaySim`), bought or not; tiles left with nothing are omitted.
 - **School carry-over:** the last upgrade or enhance bought (lives and trades don't count, since a trade's gain is random) sets the school that the _next_ store must shelve at least once on a `U` tile (`purchaseSchool`, `PlaySim.nextStoreSchool`). It is consumed on entry, skipped when that school has nothing eligible left, and buying nothing in a store clears it.
 
 ## Movement
