@@ -762,7 +762,7 @@ export class PlaySim {
     return this.pendingChoice;
   }
 
-  slotView(): SlotView | null {
+  slotView(): Readonly<SlotView> | null {
     return this.slot;
   }
 

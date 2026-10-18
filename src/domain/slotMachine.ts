@@ -92,9 +92,10 @@ export function slotOutcomeTable(livesOnReels: boolean): (SlotOutcome & { weight
 }
 
 export function rollSlotOutcome(rng: () => number, livesOnReels: boolean): SlotOutcome {
-  const table = slotOutcomeTable(livesOnReels);
-  let roll = rng() * table.reduce((sum, outcome) => sum + outcome.weight, 0);
-  const picked = table.find((outcome) => (roll -= outcome.weight) < 0) ?? table[0]!;
+  const picked = pickWeighted(
+    slotOutcomeTable(livesOnReels).map((outcome) => [outcome, outcome.weight] as const),
+    rng,
+  );
   return { quarters: picked.quarters, upgrades: picked.upgrades, lives: picked.lives };
 }
 

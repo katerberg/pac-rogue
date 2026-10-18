@@ -41,7 +41,7 @@ type Cell = {
   life: Phaser.GameObjects.Container;
 };
 
-export type SlotOverlay = { sync: (view: SlotView | null) => void };
+export type SlotOverlay = { sync: (view: Readonly<SlotView> | null) => void };
 
 function symbolColor(symbol: SlotSymbol): number {
   return symbol === "quarter"
