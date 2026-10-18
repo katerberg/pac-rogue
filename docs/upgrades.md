@@ -70,6 +70,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `powerPelletProgrammer` | Programmer (rare) | automation | Power pellet: stop and program 5 turns, then blast through them at hyperspeed. | Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more. |
 | `passiveInheritance` | Inheritance | death | Clear a level: gain a Quarter for each empty life slot. | Clear a level: gain a Quarter for each time you died on it. |
 | `powerPelletSimulacrum` | Simulacrum (rare) | harvest | Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you. | Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin. |
+| `powerPelletChaff` | Chaff | automation | Power pellet: drops a fake you in the center. Ghosts chase it until they touch it. | Power pellet: drops a fake you in each corner. Ghosts chase the nearest one. |
 
 ## Power pellets
 
@@ -100,6 +101,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 ## Cross-cutting rules
 
 - **Timers** are separate and combine by "max wins": freeze (cyan tint on one ghost, zero speed, catch skip), Ghost Proof (gold tint, catch skip, ghosts keep moving), Defy Death (shares the gold tint; does not skip kills), wall pass (its tint wins). All clear on level advance and life-loss reset. Expiry while overlapping a ghost can kill on the same update.
+- **Chaff decoys** replace the player as the chase target for every ghost (nearest decoy wins) through `GhostAiContext.decoys`; a ghost touching one removes it. They clear with the other timers.
 - **Shields** are a banked count, not a timer: they survive timer clears, empty on level advance, and clamp to the cap when the upgrade is lost.
 - **Programmer** owns movement while it runs (`src/domain/programmer.ts`): keys record presses, then a Hyperspeed-speed run without its turn beat. Mutually exclusive with Hyperspeed in `eligibleUpgrades`.
 - **Speed**: `applyPlayerSpeed` / `applyGhostSpeed` in `PlaySim` combine the level ramp, owned multipliers, cell-based multipliers and active bursts every frame. Boss ghosts use a flat base.

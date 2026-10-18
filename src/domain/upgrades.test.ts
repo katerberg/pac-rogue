@@ -232,6 +232,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletProgrammer",
   "passiveInheritance",
   "powerPelletSimulacrum",
+  "powerPelletChaff",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -2178,5 +2179,30 @@ describe("Simulacrum", () => {
   it("only the Plus form saves a life", () => {
     expect(simulacrumSavesLife(["powerPelletSimulacrum"])).toBe(false);
     expect(simulacrumSavesLife(["powerPelletSimulacrumPlus"])).toBe(true);
+  });
+});
+
+describe("Chaff", () => {
+  const fire = (owned: UpgradeId[]) =>
+    applyPowerPelletEffects(createRunUpgrades(owned), 1).state.chaff;
+
+  it("does nothing without the upgrade", () => {
+    expect(fire([])).toBeNull();
+  });
+
+  it("drops one decoy for 5s, or one per corner for 7s when enhanced", () => {
+    expect(fire(["powerPelletChaff"])).toMatchObject({ remainingMs: 5000 });
+    expect(fire(["powerPelletChaff"])?.decoys).toHaveLength(1);
+    expect(fire(["powerPelletChaffPlus"])).toMatchObject({ remainingMs: 7000 });
+    expect(fire(["powerPelletChaffPlus"])?.decoys).toHaveLength(4);
+  });
+
+  it("is a power-pellet duration, so Overcharge doubles it", () => {
+    expect(fire(["powerPelletChaff", "passiveOvercharge"])?.remainingMs).toBe(10_000);
+  });
+
+  it("clears with the other upgrade timers", () => {
+    const fired = applyPowerPelletEffects(createRunUpgrades(["powerPelletChaff"]), 1).state;
+    expect(clearUpgradeTimers(fired).chaff).toBeNull();
   });
 });

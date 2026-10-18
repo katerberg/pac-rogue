@@ -1,3 +1,4 @@
+import { decoyTile } from "../../domain/chaff";
 import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
@@ -759,6 +760,46 @@ describe("LearnSim upgrade demos", () => {
     catchByGhost(sim, player);
     sim.toggleUpgrade("passiveHaunting");
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
+  });
+
+  describe("Chaff", () => {
+    it("a power pellet drops a decoy and the sim bursts it when time runs out", () => {
+      const { sim, player } = setup("powerPelletChaff");
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+      expect(draw.type === "draw" && draw.options.chaff).toHaveLength(1);
+      const burst: unknown[] = [];
+      for (let frame = 0; frame < 400 && sim["learnUpgrades"].chaff !== null; frame += 1) {
+        burst.push(...sim.step(NO_KEYS_HELD, FRAME_MS).filter((e) => e.type === "chaffBurst"));
+      }
+      expect(sim["learnUpgrades"].chaff).toBeNull();
+      expect(burst).toHaveLength(1);
+    });
+
+    it("the overlay target and player marker follow the decoy, then return to Maze-Man", () => {
+      const { sim, player } = setup("powerPelletChaff");
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      const decoy = sim["learnUpgrades"].chaff!.decoys[0]!;
+      const model = sim.overlayModel()!;
+      expect(model.target).toEqual(decoyTile(decoy));
+      expect(model.playerTile).toMatchObject(decoyTile(decoy));
+      expect(model.playerPx).not.toEqual(posOf(player));
+      sim["learnUpgrades"] = { ...sim["learnUpgrades"], chaff: null };
+      expect(sim.overlayModel()!.playerTile).toMatchObject({
+        col: worldToCol(Position.x[player]!),
+        row: worldToRow(Position.y[player]!),
+      });
+    });
+
+    it("toggling the upgrade off clears a live decoy", () => {
+      const { sim, player } = setup("powerPelletChaff");
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(sim["learnUpgrades"].chaff).not.toBeNull();
+      sim.toggleUpgrade("powerPelletChaff");
+      expect(sim["learnUpgrades"].chaff).toBeNull();
+    });
   });
 
   describe("Wall Drop", () => {

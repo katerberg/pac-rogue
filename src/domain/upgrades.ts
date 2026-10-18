@@ -11,6 +11,7 @@ import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
 import { PROGRAMMER_ENHANCED_SETS, startProgrammer, type ProgrammerState } from "./programmer";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
+import { CHAFF_ENHANCED_MS, CHAFF_MS, startChaff, type ChaffState } from "./chaff";
 import { WALL_DROP_MS, type DroppedWall, type WallDropSpot } from "./wallDrop";
 
 export type BaseUpgradeId =
@@ -66,7 +67,8 @@ export type BaseUpgradeId =
   | "powerPelletWallDrop"
   | "powerPelletProgrammer"
   | "passiveInheritance"
-  | "powerPelletSimulacrum";
+  | "powerPelletSimulacrum"
+  | "powerPelletChaff";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -169,6 +171,8 @@ export type UpgradeEffects = {
     armWallDrop?: true;
     programmerSets?: number;
     simulacrum?: true;
+    chaffMs?: number;
+    chaffCorners?: true;
   };
 };
 
@@ -970,6 +974,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { simulacrum: true },
   },
+  {
+    id: "powerPelletChaff",
+    label: "Chaff",
+    school: "automation",
+    description:
+      "Power pellet: drops a fake you in the center. Ghosts chase it until they touch it.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote: "Chaff drops a decoy in each corner for 7 seconds instead of one in the center.",
+      description: "Power pellet: drops a fake you in each corner. Ghosts chase the nearest one.",
+      onPowerPellet: { chaffMs: CHAFF_ENHANCED_MS, chaffCorners: true },
+    },
+    onPowerPellet: { chaffMs: CHAFF_MS },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1151,6 +1169,7 @@ export type RunUpgrades = {
   hunterHeldEids: number[];
   ghostsEatenThisFright: number;
   wallDropArmed: boolean;
+  chaff: ChaffState | null;
   droppedWall: DroppedWall | null;
   programmer: ProgrammerState | null;
   simulacrumActive: boolean;
@@ -1201,6 +1220,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     pendingEchoes: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
+    chaff: null,
     droppedWall: null,
     programmer: null,
     simulacrumActive: false,
@@ -1453,6 +1473,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     pendingEchoes: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
+    chaff: null,
     droppedWall: null,
     programmer: null,
     simulacrumActive: false,
@@ -1703,6 +1724,8 @@ export function applyPowerPelletEffects(
   let armWallDrop = false;
   let programmerSets = 0;
   let simulacrum = false;
+  let chaffMs: number | null = null;
+  let chaffCorners = false;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1785,6 +1808,12 @@ export function applyPowerPelletEffects(
     if (onPower.simulacrum) {
       simulacrum = true;
     }
+    if (onPower.chaffMs !== undefined) {
+      chaffMs = chaffMs === null ? onPower.chaffMs : Math.max(chaffMs, onPower.chaffMs);
+    }
+    if (onPower.chaffCorners) {
+      chaffCorners = true;
+    }
     if (onPower.frightenGhostsMs !== undefined) {
       const ms = hunterFrightenedMs(
         onPower.frightenGhostsMs,
@@ -1813,6 +1842,7 @@ export function applyPowerPelletEffects(
   ghostHarvestMs = scaled(ghostHarvestMs);
   defyDeathMs = scaled(defyDeathMs);
   frightenMs = scaled(frightenMs);
+  chaffMs = scaled(chaffMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
@@ -1844,6 +1874,9 @@ export function applyPowerPelletEffects(
   }
   if (armWallDrop) {
     next = { ...next, wallDropArmed: true };
+  }
+  if (chaffMs !== null) {
+    next = { ...next, chaff: startChaff(chaffMs, chaffCorners) };
   }
   if (programmerSets > 0) {
     next = { ...next, programmer: startProgrammer(programmerSets) };

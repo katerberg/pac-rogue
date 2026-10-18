@@ -25,6 +25,7 @@ import {
   type SpeedZone,
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import { CHAFF_ALPHA, CHAFF_COLOR, type ChaffSprite } from "../../domain/chaff";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import {
   PROGRAMMER_EMPTY_SLOT_TILES,
@@ -539,6 +540,7 @@ export type RenderOptions = {
   lava?: LavaRenderState | null;
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
+  chaff?: ChaffSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
@@ -750,6 +752,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   };
   const droppedWallGraphics = scene.add.graphics();
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const chaffGraphics = scene.add.graphics();
+  chaffGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const lavaGraphics = scene.add.graphics();
   lavaGraphics.setDepth(LAVA_DEPTH);
   const programmerGraphics = scene.add.graphics();
@@ -1389,6 +1393,22 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         look.size,
         look.cornerRadius,
       );
+    }
+
+    chaffGraphics.clear();
+    for (const decoy of opts?.chaff ?? []) {
+      const alpha = !expiryTintOn(decoy.remainingMs, scene.time.now)
+        ? CHAFF_ALPHA / 3
+        : CHAFF_ALPHA;
+      const radius = actorDisplaySize() / 2;
+      const heading = Math.atan2(decoy.dy, decoy.dx);
+      const mouth = Math.PI / 5;
+      chaffGraphics.fillStyle(CHAFF_COLOR, alpha);
+      chaffGraphics.beginPath();
+      chaffGraphics.moveTo(decoy.x, decoy.y);
+      chaffGraphics.arc(decoy.x, decoy.y, radius, heading + mouth, heading + Math.PI * 2 - mouth);
+      chaffGraphics.closePath();
+      chaffGraphics.fillPath();
     }
 
     programmerGraphics.clear();

@@ -10,6 +10,7 @@ import type { SfxId } from "../../domain/sfxId";
 import type { LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import type { ChaffSprite } from "../../domain/chaff";
 import type { DroppedWall } from "../../domain/wallDrop";
 import type { ProgrammerQueueSlot } from "../../domain/programmer";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
@@ -40,6 +41,7 @@ export type SimRenderOptions = {
   lava?: LavaRenderState | null;
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
+  chaff?: ChaffSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
@@ -73,6 +75,7 @@ export type SimEvent =
       dy: number;
       count: number;
     }
+  | { type: "chaffBurst"; x: number; y: number }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "streakPop"; value: number; x: number; y: number }
   | { type: "intermission"; frame: IntermissionFrame | null }

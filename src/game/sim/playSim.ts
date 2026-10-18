@@ -426,6 +426,8 @@ import {
   playerFacing,
   steerPlayer,
 } from "../systems/playerDirection";
+import { chaffSprites } from "../../domain/chaff";
+import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
@@ -807,6 +809,7 @@ export class PlaySim {
       lava: this.lavaRenderState(),
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
+      chaff: chaffSprites(this.runUpgrades.chaff),
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
       programmerQueue: this.programmerQueue(),
@@ -880,6 +883,7 @@ export class PlaySim {
         hyperspeedShieldMs: upgrades.hyperspeedShieldRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
+        chaffMs: upgrades.chaff?.remainingMs ?? 0,
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
         wallDropMs:
           upgrades.droppedWall === null
@@ -912,6 +916,7 @@ export class PlaySim {
       speedZones: this.speedZones,
       speedZonesShifting: this.speedZoneShift !== null,
       playerSpeedZone: this.playerSpeedZone(),
+      chaff: chaffSprites(upgrades.chaff).map(({ x, y }) => ({ x, y })),
       wallDrop: {
         armed: upgrades.wallDropArmed,
         wall:
@@ -1181,6 +1186,7 @@ export class PlaySim {
     this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
     this.runUpgrades = tickHaunt(this.runUpgrades, delta);
     this.runUpgrades = tickWallDrop(this.runUpgrades, delta);
+    this.tickChaff(delta);
     this.runUpgrades = tickFrightened(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
@@ -1443,6 +1449,7 @@ export class PlaySim {
         blockTunnelRow,
         this.runUpgrades.droppedWall,
         this.twinBody(),
+        this.runUpgrades.chaff?.decoys,
       );
       frightenedGhostAi(
         this.world,
@@ -3288,6 +3295,9 @@ export class PlaySim {
         this.recorder.activation(kind);
       }
     }
+    if (after.chaff !== null && after.chaff !== before.chaff) {
+      this.recorder.activation("chaff");
+    }
     if (powerEffects.simulacrumStarted) {
       this.recorder.activation("simulacrum");
     }
@@ -3298,6 +3308,19 @@ export class PlaySim {
       this.spawnCornucopiaFruit(powerEffects.cornucopiaFruit);
     }
     return powerEffects;
+  }
+
+  private tickChaff(delta: number): void {
+    const result = advanceChaff(
+      this.world,
+      this.runUpgrades.chaff,
+      delta,
+      this.random.stream("chaff", this.levelIndex),
+    );
+    this.runUpgrades = { ...this.runUpgrades, chaff: result.state };
+    for (const tile of result.burst) {
+      this.emit({ type: "chaffBurst", x: cellCenterX(tile.col), y: cellCenterY(tile.row) });
+    }
   }
 
   private recordRecall(eid: number | null): void {

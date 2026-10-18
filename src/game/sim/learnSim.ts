@@ -169,6 +169,8 @@ import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { wallPassSolids } from "../systems/wallPassSolids";
+import { chaffSprites, decoyFacing, decoyPx, decoyTile, nearestDecoy } from "../../domain/chaff";
+import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import {
   followProgrammer,
@@ -348,7 +350,8 @@ export class LearnSim {
     if (eid === null || this.selected === null) {
       return null;
     }
-    const baseCtx = ghostAiContext(this.world);
+    const chaff = this.learnUpgrades.chaff;
+    const baseCtx = ghostAiContext(this.world, undefined, chaff?.decoys);
     const twin = this.twinBody();
     const ghostX = Position.x[eid] ?? 0;
     const ghostY = Position.y[eid] ?? 0;
@@ -368,6 +371,7 @@ export class LearnSim {
     const playerEid = query(this.world, [Player, Position])[0];
     const helper = this.helperBlinky;
     const twinPosition = ctx.player === twin ? this.twinPosition() : null;
+    const decoy = nearestDecoy(chaff?.decoys ?? [], worldToCol(ghostX), worldToRow(ghostY));
     const ghostFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     return {
       kind: this.selected,
@@ -378,13 +382,15 @@ export class LearnSim {
         targetAt: (tile) =>
           resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx, tile),
       }),
-      playerTile: ctx.player,
+      playerTile: decoy === null ? ctx.player : { ...decoyTile(decoy), facing: decoyFacing(decoy) },
       blinkyTile: ctx.blinky,
       playerPx:
-        twinPosition ??
-        (playerEid === undefined
-          ? null
-          : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 }),
+        decoy !== null
+          ? decoyPx(decoy)
+          : (twinPosition ??
+            (playerEid === undefined
+              ? null
+              : { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 })),
       blinkyPx: helper === null ? null : { x: Position.x[helper] ?? 0, y: Position.y[helper] ?? 0 },
       ghostPx: { x: ghostX, y: ghostY },
       ghostFacing,
@@ -468,6 +474,7 @@ export class LearnSim {
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
     this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
     this.learnUpgrades = tickWallDrop(this.learnUpgrades, delta);
+    this.tickChaff(delta);
     this.fireDueEchoes(delta);
     this.tickHaunt(delta);
     this.tickFright(delta);
@@ -665,6 +672,7 @@ export class LearnSim {
       null,
       this.learnUpgrades.droppedWall,
       this.twinBody(),
+      this.learnUpgrades.chaff?.decoys,
     );
     frightenedGhostAi(
       this.world,
@@ -714,6 +722,7 @@ export class LearnSim {
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
+        chaff: chaffSprites(this.learnUpgrades.chaff),
         shields: this.learnUpgrades.shieldsBanked,
         programmerQueue: this.programmerQueue(),
         simulacrum: this.twinDashBody(),
@@ -907,6 +916,19 @@ export class LearnSim {
     this.learnUpgrades = { ...this.learnUpgrades, pendingEchoes: echoTick.pending };
     for (const bases of echoTick.ready) {
       this.firePowerPelletEffects(1, bases);
+    }
+  }
+
+  private tickChaff(delta: number): void {
+    const result = advanceChaff(
+      this.world,
+      this.learnUpgrades.chaff,
+      delta,
+      this.random.stream("chaff"),
+    );
+    this.learnUpgrades = { ...this.learnUpgrades, chaff: result.state };
+    for (const tile of result.burst) {
+      this.events.push({ type: "chaffBurst", x: cellCenterX(tile.col), y: cellCenterY(tile.row) });
     }
   }
 
@@ -1708,6 +1730,7 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     simulacrumActive: hasField("simulacrum") && state.simulacrumActive,
     programmer: hasField("programmerSets") ? state.programmer : null,
     droppedWall: hasField("armWallDrop") ? state.droppedWall : null,
+    chaff: hasField("chaffMs") ? state.chaff : null,
     ...(hasField("frightenGhostsMs")
       ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
       : NO_FRIGHT),
