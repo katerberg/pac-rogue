@@ -454,8 +454,7 @@ import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { hunterFrightenLimit } from "../../domain/hunter";
 import {
-  applyTunnelDash,
-  mergeTunnelDashSweeps,
+  applyTunnelDashForBodies,
   tickTunnelDashAnimation,
   type DashBody,
   type TunnelDashAnimation,
@@ -1279,11 +1278,7 @@ export class PlaySim {
       hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash") &&
       !this.timedTunnelBlocksPlayerDash()
     ) {
-      const ownDash = applyTunnelDash(this.world);
-      const twinDashBody = ownDash === null ? null : this.twinDashBody();
-      const twinDash = twinDashBody === null ? null : applyTunnelDash(this.world, twinDashBody);
-      const dash =
-        ownDash !== null && twinDash !== null ? mergeTunnelDashSweeps(ownDash, twinDash) : ownDash;
+      const dash = applyTunnelDashForBodies(this.world, this.twinDashBody());
       if (dash !== null) {
         this.recorder.tunnelDash();
         this.recorder.powerPellets("tunnelDash", dash.sweptPowerRemoved);
@@ -1685,11 +1680,6 @@ export class PlaySim {
     const eid = catchPlayer(this.world, at) ?? chainCatch(this.world, at);
     const lava = eid === null && this.touchesLava(options, position);
     return eid === null && !lava ? null : { eid, lava, position };
-  }
-
-  private bodiesTouched(options: CatchOptions): boolean {
-    const hit = catchPlayer(this.world, options) ?? chainCatch(this.world, options);
-    return hit !== null || this.touchesLava(options) || this.twinCatch(options) !== null;
   }
 
   private collectBodyPellets(): PlayerPelletFrame {
@@ -2921,7 +2911,9 @@ export class PlaySim {
         this.noteFruitRemoved(eatenFruit);
         this.eatFrightenedGhosts();
         const catchOptions = this.catchOptions();
-        const touched = this.bodiesTouched(catchOptions);
+        const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+        const touched =
+          hit !== null || this.touchesLava(catchOptions) || this.twinCatch(catchOptions) !== null;
         return touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield());
       },
       halt: () => this.zeroPlayerSpeed(),

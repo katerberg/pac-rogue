@@ -240,8 +240,7 @@ import {
 } from "../../domain/ghostCornerWarp";
 import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import {
-  applyTunnelDash,
-  mergeTunnelDashSweeps,
+  applyTunnelDashForBodies,
   tickTunnelDashAnimation,
   type DashBody,
   type TunnelDashAnimation,
@@ -592,11 +591,7 @@ export class LearnSim {
       );
       this.noteTunnelExit(positionBeforeDash);
     } else if (hasUpgrade(this.learnUpgrades.owned, "passiveTunnelDash")) {
-      const ownDash = applyTunnelDash(this.world);
-      const twinDashBody = ownDash === null ? null : this.twinDashBody();
-      const twinDash = twinDashBody === null ? null : applyTunnelDash(this.world, twinDashBody);
-      const dash =
-        ownDash !== null && twinDash !== null ? mergeTunnelDashSweeps(ownDash, twinDash) : ownDash;
+      const dash = applyTunnelDashForBodies(this.world, this.twinDashBody());
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
           this.releaseAll(dash.sweptPelletEids);

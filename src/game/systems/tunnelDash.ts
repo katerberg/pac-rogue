@@ -63,6 +63,15 @@ export function mergeTunnelDashSweeps(
   };
 }
 
+export function applyTunnelDashForBodies(
+  world: World,
+  twin: DashBody | null,
+): TunnelDashTrigger | null {
+  const own = applyTunnelDash(world);
+  const twinSweep = own === null || twin === null ? null : applyTunnelDash(world, twin);
+  return own !== null && twinSweep !== null ? mergeTunnelDashSweeps(own, twinSweep) : own;
+}
+
 export function applyTunnelDash(
   world: World,
   body: DashBody | null = playerDashBody(world),
