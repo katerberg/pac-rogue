@@ -177,6 +177,14 @@ export function createStoreState(
       (other) => other !== guaranteedId && !(isRare(guaranteedId!) && isRare(other)),
     );
   }
+  const enhanceTargets = new Map<StoreSlotCell, BaseUpgradeId>();
+  const enhancePool = enhanceableUpgrades(owned);
+  for (const cell of cells) {
+    if (cell.kind === "enhance" && enhancePool.length > 0) {
+      enhanceTargets.set(cell, takeRandomFrom(enhancePool, rng));
+    }
+  }
+  const tradeable = owned.filter((id) => !new Set(enhanceTargets.values()).has(baseIdOf(id)));
   for (const cell of cells) {
     const { kind, col, row } = cell;
     if (cell === guaranteedCell) {
@@ -194,14 +202,11 @@ export function createStoreState(
       if (isRare(id)) {
         pool = pool.filter((other) => !isRare(other));
       }
-    } else if (kind === "swap" && !firstStore && owned.length > 0) {
-      const outgoingId = takeRandomFrom([...owned], rng);
+    } else if (kind === "swap" && !firstStore && tradeable.length > 0) {
+      const outgoingId = takeRandomFrom(tradeable, rng);
       slots.push({ kind, col, row, outgoingId, incomingBaseId: null, sold: false });
-    } else if (kind === "enhance") {
-      const targets = enhanceableUpgrades(owned);
-      if (targets.length > 0) {
-        slots.push({ kind, col, row, targetId: takeRandomFrom(targets, rng), sold: false });
-      }
+    } else if (kind === "enhance" && enhanceTargets.has(cell)) {
+      slots.push({ kind, col, row, targetId: enhanceTargets.get(cell)!, sold: false });
     }
   }
   const stocked: StoreState = {

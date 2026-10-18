@@ -1439,16 +1439,18 @@ describe("PlaySim", () => {
         store: 1,
         level: 5,
         quarters: 10,
-        enableUpgrades: ["passiveGhostSlow"],
+        enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
       });
       const swap = sim.storeState()!.slots.find((s) => s.kind === "swap");
       if (swap?.kind !== "swap") throw new Error("no swap slot");
       const school = swapIncomingSchool(swap);
       expect(school).not.toBeNull();
       buy(sim, "swap");
-      const owned = sim.snapshot().upgrades;
-      expect(owned).toHaveLength(1);
-      expect(getUpgradeDef(owned[0]!).school).toBe(school);
+      const gained = sim
+        .snapshot()
+        .upgrades.filter((id) => id !== "passiveGhostSlow" && id !== "passiveAfterburner");
+      expect(gained).toHaveLength(1);
+      expect(getUpgradeDef(gained[0]!).school).toBe(school);
     });
 
     it("the first store stocks two lives, two abilities and an enhancement", () => {
@@ -1487,12 +1489,25 @@ describe("PlaySim", () => {
         maxLives: 4,
         level: 5,
         quarters: 10,
-        enableUpgrades: ["passiveGhostSlow"],
+        enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
       });
       const stock = sim.snapshot().storeStock!;
       expect(stock).toHaveLength(6);
+      const enhance = stock.find((s) => s.startsWith("enhance:"))!.slice("enhance:".length);
+      const swap = stock.find((s) => s.startsWith("swap:"))!.slice("swap:".length);
+      expect(new Set([enhance, swap])).toEqual(new Set(["passiveGhostSlow", "passiveAfterburner"]));
+    });
+
+    it("a store with a single owned upgrade offers the enhancement but no trade", () => {
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow"],
+      });
+      const stock = sim.snapshot().storeStock!;
       expect(stock).toContain("enhance:passiveGhostSlow");
-      expect(stock).toContain("swap:passiveGhostSlow");
+      expect(stock.some((s) => s.startsWith("swap:"))).toBe(false);
     });
 
     it("buying a life removes that tile and the second life tile stays", () => {
