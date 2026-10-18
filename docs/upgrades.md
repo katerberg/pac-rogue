@@ -18,7 +18,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | Id | Label | School | Base | Enhanced (`<id>Plus`) |
 | --- | --- | --- | --- | --- |
 | `powerPelletFreeze` | Freeze | disruption | Chomp a power pellet and the nearest ghost locks solid for 3s (shortening toward 2s by level 5). | Chomp a power pellet and the nearest ghost locks solid for 5s (shortening toward ~3.3s by level 5). |
-| `passiveAfterburner` | Afterburner | speed | Cleared corridors light your tail: +30% speed there, 10% slower over pellets. | Cleared corridors roar: +50% speed there, 10% slower over pellets. |
+| `passiveAfterburner` | Afterburner | speed | Cleared corridors light your tail: +30% speed there, 20% slower over pellets. | Cleared corridors roar: +50% speed there, 20% slower over pellets. |
 | `passiveGhostSlow` | Ghost Slow | disruption | The hunt softens. Ghosts drag their feet. | The hunt crawls. Ghosts wade through syrup. |
 | `powerPelletScatterBurst` | Scatter Burst | disruption | Power pellet flings every ghost into its corner. | Power pellet flings every ghost into its corner and pins it there. |
 | `powerPelletGhostRecall` | Ghost Recall | disruption | Power pellet yanks the nearest ghost straight home. | Power pellet yanks the two nearest ghosts straight home. |

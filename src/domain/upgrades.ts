@@ -217,7 +217,7 @@ export const STREAK_ENGINE_ENHANCED_INVULN_MS = 3000;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
 export const AFTERBURNER_MUL = 1.3;
-export const AFTERBURNER_PELLET_MUL = 0.9;
+export const AFTERBURNER_PELLET_MUL = 0.8;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
 
@@ -312,12 +312,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveAfterburner",
     label: "Afterburner",
     school: "speed",
-    description: "Cleared corridors light your tail: +30% speed there, 10% slower over pellets.",
+    description: "Cleared corridors light your tail: +30% speed there, 20% slower over pellets.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote:
-        "Afterburner gives +50% speed on cleared tiles instead of +30%. Pellet cells still cost 10%.",
-      description: "Cleared corridors roar: +50% speed there, 10% slower over pellets.",
+        "Afterburner gives +50% speed on cleared tiles instead of +30%. Pellet cells still cost 20%.",
+      description: "Cleared corridors roar: +50% speed there, 20% slower over pellets.",
       emptyCellSpeedMul: AFTERBURNER_ENHANCED_MUL,
     },
     emptyCellSpeedMul: AFTERBURNER_MUL,

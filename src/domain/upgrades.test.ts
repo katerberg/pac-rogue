@@ -1453,8 +1453,8 @@ describe("enhanced upgrades", () => {
   it("returns base versus enhanced numbers from the owned list", () => {
     expect(cellSpeedMultiplier(["passiveAfterburner"], true)).toBe(1.3);
     expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], true)).toBe(1.5);
-    expect(cellSpeedMultiplier(["passiveAfterburner"], false)).toBe(0.9);
-    expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], false)).toBe(0.9);
+    expect(cellSpeedMultiplier(["passiveAfterburner"], false)).toBe(0.8);
+    expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], false)).toBe(0.8);
     expect(cellSpeedMultiplier([], true)).toBe(1);
     expect(AFTERBURNER_ENHANCED_MUL).toBe(1.5);
     expect(ghostSpeedMultiplier(["passiveGhostSlow"])).toBe(0.8);

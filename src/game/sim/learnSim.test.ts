@@ -174,7 +174,7 @@ describe("LearnSim", () => {
     const base = speedWhenMoving(1);
     sim.toggleUpgrade("passiveAfterburner");
     place();
-    expect(speedWhenMoving(1)).toBeCloseTo(base * 0.9);
+    expect(speedWhenMoving(1)).toBeCloseTo(base * 0.8);
     place();
     expect(speedWhenMoving(-1)).toBeCloseTo(base * 1.3);
   });
