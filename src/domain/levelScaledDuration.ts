@@ -1,6 +1,5 @@
 export const INVULN_FLOOR_RATIO = 3 / 4;
 
-/** Shortens a power-pellet duration from L1 full to a floor (⅔ by default) by L5. */
 export function levelScaledDurationMs(
   baseMs: number,
   levelIndex: number,
