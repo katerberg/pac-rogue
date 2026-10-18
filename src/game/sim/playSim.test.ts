@@ -6979,6 +6979,30 @@ describe("Simulacrum", () => {
       expect(span.filter((col) => pelletAt(sim, col, row) !== undefined)).toEqual([]);
     });
 
+    it("is caught by a ghost mid-path at hyperspeed, not only where a frame ends", () => {
+      const sim = start(["powerPelletSimulacrum", "powerPelletHyperspeed"]);
+      arm(sim);
+      const row = placeOnRow(sim, 3);
+      Facing.direction[playerEid(sim)] = DIRECTION.right;
+      runFrames(sim, 2, RIGHT);
+      const frameStep = (): number => {
+        const before = sim.snapshot().simulacrum.x!;
+        sim.step({ ...IDLE_INPUT, ...RIGHT }, 50);
+        return before - sim.snapshot().simulacrum.x!;
+      };
+      const startX = sim.snapshot().simulacrum.x!;
+      const travel = frameStep();
+      expect(travel).toBeGreaterThan(2 * TILE_SIZE);
+      teleportPlayer(sim, 2 * centerX() - startX, cellCenterY(row));
+      sim["runUpgrades"] = { ...sim["runUpgrades"], hyperspeedRemainingMs: 5000 };
+      const ghost = query(sim.world, [Ghost, Position])[0]!;
+      Position.x[ghost] = startX - travel / 2;
+      Position.y[ghost] = cellCenterY(row);
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      sim.step({ ...IDLE_INPUT, ...RIGHT }, 50);
+      expect(sim.snapshot().dying).toBe(true);
+    });
+
     it("dies on lava the player is not touching", () => {
       const sim = startSim({ level: 8, maze: "maze1", enableUpgrades: ["powerPelletSimulacrum"] });
       clearGhosts(sim);
