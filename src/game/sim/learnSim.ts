@@ -2,7 +2,7 @@ import { addComponent, addEntity, createWorld, query, removeEntity, type World }
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { RELEASE_SLOT_BY_KIND } from "../../domain/ghostRoster";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
-import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
+import { GHOST_PHASE } from "../../domain/ghostPhase";
 import {
   BONUS_BAR_MAX,
   FRUIT_BONUS_CHARGE,
@@ -16,7 +16,7 @@ import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import type { PlayerPelletFrame } from "../systems/collectPellets";
 import {
   emptyPlayerPelletFrame,
-  hyperspeedSubstepCount,
+  runHyperspeedSubsteps,
   mergePlayerPelletFrames,
   noteHyperspeedFacing,
 } from "../systems/hyperspeed";
@@ -35,7 +35,6 @@ import {
   type FruitPresence,
   type FruitSequenceState,
 } from "../../domain/fruit";
-import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import type { GhostDir } from "../../domain/ghostPath";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import { predictGhostPath } from "../../domain/learnOverlay";
@@ -65,6 +64,7 @@ import {
   fruitFeastThresholds,
   fruitLifetimeMultiplier,
   fruitPersistsUntilLevelEnd,
+  fruitStacksSideBySide,
   fruitQuartersPerFruit,
   grantLivesForUpgrade,
   hasUpgrade,
@@ -193,6 +193,7 @@ import {
   type TurnTap,
 } from "../systems/heldKeys";
 import { LearnHouseHold } from "./learnHouseHold";
+import { LearnRecall } from "./learnRecall";
 import { LearnRunState } from "./learnRunState";
 import { playerFacing, playerPose } from "../systems/playerDirection";
 import {
@@ -251,7 +252,7 @@ export type LearnOverlayModel = {
 
 export const NO_ELROY_PELLETS = Number.MAX_SAFE_INTEGER;
 const LEARN_LEVEL = 1;
-const LEARN_RECALL_HOLD_MS = 1500;
+const LEARN_EATEN_HOLD_MS = 1500;
 const FRUIT_RESPAWN_MS = 1000;
 const LEARN_CATCH_GRACE_MS = 1500;
 const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
@@ -275,12 +276,13 @@ export class LearnSim {
   private events: SimEvent[] = [];
   private hyperspeedDirection: Direction | null = null;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
+  private hyperspeedFruit: number[] = [];
   private selected: GhostKindId | null = null;
   private ghost: number | null = null;
   private helperBlinky: number | null = null;
   private learnUpgrades: RunUpgrades = createRunUpgrades();
-  private recallHoldGhostEids: number[] = [];
-  private recallHoldRemainingMs = 0;
+  private eatenHoldGhostEids: number[] = [];
+  private eatenHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
@@ -297,6 +299,7 @@ export class LearnSim {
   private pendingPowerRespawns: PendingPowerPelletRespawn[] = [];
   private readonly runState = new LearnRunState();
   private readonly houseHold = new LearnHouseHold();
+  private readonly recalled = new LearnRecall();
   private houseHoldEaten = 0;
   private catchGraceMs = 0;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
@@ -308,6 +311,7 @@ export class LearnSim {
     previousLevelFirstKind: null,
   };
   private boardCollected = 0;
+  private lifetimeCollected = 0;
 
   constructor(seed: string) {
     this.random = createRunRandom(seed);
@@ -441,14 +445,25 @@ export class LearnSim {
     this.turnTuning.tick(delta);
     this.catchGraceMs = Math.max(0, this.catchGraceMs - delta);
     this.releaseHeldGhost(delta, anyKeyHeld(keys));
+    this.recalled.tick(
+      this.world,
+      this.learnUpgrades.owned,
+      anyKeyHeld(keys),
+      delta,
+      this.houseHoldEaten,
+      [
+        ...this.learnUpgrades.hunterHeldEids,
+        ...[hauntedGhostEid(this.learnUpgrades), this.houseHold.eid].filter((eid) => eid !== null),
+      ],
+    );
 
-    if (this.recallHoldRemainingMs > 0) {
-      this.recallHoldRemainingMs = Math.max(0, this.recallHoldRemainingMs - delta);
-      if (this.recallHoldRemainingMs === 0) {
-        for (const eid of this.recallHoldGhostEids) {
+    if (this.eatenHoldRemainingMs > 0) {
+      this.eatenHoldRemainingMs = Math.max(0, this.eatenHoldRemainingMs - delta);
+      if (this.eatenHoldRemainingMs === 0) {
+        for (const eid of this.eatenHoldGhostEids) {
           this.releaseGhostFromHouse(eid);
         }
-        this.recallHoldGhostEids = [];
+        this.eatenHoldGhostEids = [];
       }
     }
 
@@ -551,6 +566,7 @@ export class LearnSim {
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
           this.releaseAll(dash.sweptPelletEids);
+          this.emitPelletSfx(dash.sweptPelletEids.length, dash.sweptPowerRemoved);
           this.nextPowerPelletBreakId = startPowerPelletBreaks(
             this.world,
             this.powerPelletBreaks,
@@ -588,6 +604,7 @@ export class LearnSim {
     );
     this.releaseAll(removedEids);
     this.countCollected(removedEids.length);
+    this.emitPelletSfx(removedEids.length, powerRemoved);
     this.stepStreakEngine(playerFrame.removedCells, delta);
     if (hasUpgrade(this.learnUpgrades.owned, "passivePowerPelletRecharge")) {
       this.pendingPowerRespawns = queuePowerPelletRespawns(
@@ -681,6 +698,7 @@ export class LearnSim {
       }
     }
     this.houseHold.clear();
+    this.recalled.clear();
     this.streakBar = createBonusBar();
     this.resetPellets();
 
@@ -699,8 +717,9 @@ export class LearnSim {
     this.learnUpgrades = clearUpgradeTimers(this.learnUpgrades);
     this.hyperspeedDirection = null;
     this.hyperspeedPellets = emptyPlayerPelletFrame();
-    this.recallHoldGhostEids = [];
-    this.recallHoldRemainingMs = 0;
+    this.hyperspeedFruit = [];
+    this.eatenHoldGhostEids = [];
+    this.eatenHoldRemainingMs = 0;
     this.ghostCornerWarps = [];
     if (hasUpgrade(this.learnUpgrades.owned, "passiveGhostHouseDelay")) {
       this.beginHouseHold();
@@ -931,28 +950,12 @@ export class LearnSim {
   }
 
   private recallClosestGhost(): void {
-    const playerEid = query(this.world, [Player, Position])[0];
-    if (playerEid === undefined) {
-      return;
-    }
-    const fromX = Position.x[playerEid] ?? 0;
-    const fromY = Position.y[playerEid] ?? 0;
-    const candidates = [];
-    for (const candidateEid of query(this.world, [Ghost, GhostPhase, Position])) {
-      candidates.push({
-        eid: candidateEid,
-        x: Position.x[candidateEid] ?? 0,
-        y: Position.y[candidateEid] ?? 0,
-        phase: (GhostPhase.value[candidateEid] ?? GHOST_PHASE.inHouse) as GhostPhaseValue,
-      });
-    }
-    const eid = pickClosestGhostEid(candidates, fromX, fromY, frozenGhostEid(this.learnUpgrades));
-    if (eid === null) {
-      return;
-    }
-    this.seatGhostAtExit(eid);
-    this.recallHoldGhostEids.push(eid);
-    this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
+    this.recalled.recall(
+      this.world,
+      this.learnUpgrades.owned,
+      this.houseHoldEaten,
+      frozenGhostEid(this.learnUpgrades),
+    );
   }
 
   private tickHaunt(delta: number): void {
@@ -999,8 +1002,8 @@ export class LearnSim {
         },
       ]);
       if (!holds) {
-        this.recallHoldGhostEids.push(eid);
-        this.recallHoldRemainingMs = LEARN_RECALL_HOLD_MS;
+        this.eatenHoldGhostEids.push(eid);
+        this.eatenHoldRemainingMs = LEARN_EATEN_HOLD_MS;
       }
       this.runState.addBonusCharge(ate.charge);
       this.popup(`+${ate.charge} BONUS`);
@@ -1076,6 +1079,19 @@ export class LearnSim {
     this.boardCollected += count;
   }
 
+  private emitPelletSfx(removed: number, powerRemoved: number): void {
+    if (removed <= 0) {
+      return;
+    }
+    this.events.push({
+      type: "pelletSfx",
+      previousCollected: this.lifetimeCollected,
+      removed,
+      powerRemoved,
+    });
+    this.lifetimeCollected += removed - powerRemoved;
+  }
+
   private regenPowerPellets(): void {
     if (this.pendingPowerRespawns.length > 0 || query(this.world, [PowerPellet]).length > 0) {
       return;
@@ -1138,31 +1154,26 @@ export class LearnSim {
     moveFrame: (frameDelta: number) => void,
     afterStep: () => void,
   ): void {
-    const playerEid = query(this.world, [Player, Speed])[0];
-    const speed = playerEid === undefined ? 0 : (Speed.px[playerEid] ?? 0);
-    const steps = hyperspeedSubstepCount((speed * delta) / 1000, getActiveLayout().tileSize);
-    const stepDelta = delta / steps;
-    let caught = false;
-    for (let step = 0; step < steps; step += 1) {
-      moveFrame(stepDelta);
-      afterStep();
-      if (caught) {
-        continue;
-      }
-      this.hyperspeedPellets = mergePlayerPelletFrames(
-        this.hyperspeedPellets,
-        collectPellets(this.world, {
-          radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
-          solids: getActiveLayout().playerSolids,
-        }),
-      );
-      this.eatFrightenedGhosts();
-      const hit = catchPlayer(this.world, this.catchOptions());
-      if (hit !== null && (defyDeathActive(this.learnUpgrades) || !this.breakHyperspeedShield())) {
-        caught = true;
-        applyPlayerSpeed(this.world, 0);
-      }
-    }
+    runHyperspeedSubsteps(this.world, delta, {
+      moveFrame,
+      afterStep,
+      collect: () => {
+        this.hyperspeedPellets = mergePlayerPelletFrames(
+          this.hyperspeedPellets,
+          collectPellets(this.world, {
+            radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
+            solids: getActiveLayout().playerSolids,
+          }),
+        );
+        this.hyperspeedFruit.push(...collectFruit(this.world));
+        this.eatFrightenedGhosts();
+        const hit = catchPlayer(this.world, this.catchOptions());
+        return (
+          hit !== null && (defyDeathActive(this.learnUpgrades) || !this.breakHyperspeedShield())
+        );
+      },
+      halt: () => applyPlayerSpeed(this.world, 0),
+    });
   }
 
   private noteHyperspeedTurn(): void {
@@ -1296,6 +1307,7 @@ export class LearnSim {
   private tickFruit(delta: number): void {
     const owned = this.learnUpgrades.owned;
     const scheduled = this.fruitScheduled();
+    const stacksFruit = fruitStacksSideBySide(owned);
     this.msSinceFruitSpawn += Math.max(0, delta);
     this.flushPendingCornucopia();
     this.tickCornucopiaFruit(delta);
@@ -1304,11 +1316,12 @@ export class LearnSim {
         feastBase: fruitFeastThresholds(owned),
         lifetimeMul: fruitLifetimeMultiplier(owned),
         persist: fruitPersistsUntilLevelEnd(owned),
+        stack: stacksFruit,
         blocked: this.cornucopiaFruit.size > 0 && !cornucopiaAlongsideOwned(owned),
       });
       this.fruitPresence = tick.state;
       if (tick.action === "spawn" || tick.action === "replace") {
-        this.spawnFruitEntity();
+        this.spawnFruitEntity(stacksFruit);
         this.boardCollected = 0;
         this.fruitPresence = { ...this.fruitPresence, nextThresholdIndex: 0 };
       } else if (tick.action === "despawn") {
@@ -1322,11 +1335,13 @@ export class LearnSim {
       }
     }
 
-    const removedFruitEids = collectFruit(this.world);
+    const removedFruitEids = [...this.hyperspeedFruit, ...collectFruit(this.world)];
+    this.hyperspeedFruit = [];
     if (removedFruitEids.length === 0) {
       return;
     }
     this.releaseAll(removedFruitEids);
+    this.events.push({ type: "sfx", id: "pelletMunch" }, { type: "sfx", id: "pelletMunch2" });
     const regularEaten = removedFruitEids.some((eid) => !this.cornucopiaFruit.has(eid));
     for (const eid of removedFruitEids) {
       this.cornucopiaFruit.delete(eid);
@@ -1423,6 +1438,7 @@ export class LearnSim {
     const triggers = remoteTransferTriggers(before, this.remoteTransferCounter, every);
     const transferredEids = applyRemoteTransference(this.world, triggers);
     this.releaseAll(transferredEids);
+    this.emitPelletSfx(transferredEids.length, 0);
     this.remoteTransferCounter += transferredEids.length;
   }
 
@@ -1462,11 +1478,22 @@ export class LearnSim {
     return rolled.kind;
   }
 
-  private spawnFruitEntity(): void {
-    this.releaseAll(removeAllFruit(this.world, this.cornucopiaFruit));
-    const kind = this.rollFruitKind();
-    this.msSinceFruitSpawn = 0;
-    spawnFruit(this.world, kind, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
+  private spawnFruitEntity(stack = false): void {
+    if (!stack) {
+      this.releaseAll(removeAllFruit(this.world, this.cornucopiaFruit));
+      const kind = this.rollFruitKind();
+      this.msSinceFruitSpawn = 0;
+      spawnFruit(this.world, kind, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
+      return;
+    }
+    const center = fruitStackCenter(fruitPositions(this.world));
+    if (center !== null) {
+      const kind = this.rollFruitKind();
+      this.msSinceFruitSpawn = 0;
+      spawnFruit(this.world, kind, center);
+    } else if (fruitPositions(this.world).length === 0) {
+      this.fruitPresence = markFruitCollected(this.fruitPresence);
+    }
   }
 
   private clearAllFruit(): void {

@@ -11,15 +11,15 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 ## Screen and overlay
 
 - Ghost slots on top, seen upgrades grouped by school beside the maze. Multiple upgrades can be selected at once (a local `RunUpgrades` bag, not a real run) and persist across ghost switches; only transient power-pellet timers, corner glides and recall holds reset.
-- Hovering an upgrade label shows the same card the level-clear picker uses (`buildUpgradeCardVisual`). A `+` mark on a selected row toggles its enhanced form (`LearnSim.toggleEnhanced`).
-- Selecting an upgrade with no observable effect here (`LEARN_NO_EFFECT_UPGRADE_IDS`) shows a "no visible effect" banner.
+- Hovering a label shows the level-clear picker card. A `+` mark on a selected row toggles its enhanced form (`LearnSim.toggleEnhanced`).
+- Selecting an upgrade with no observable effect here (`LEARN_NO_EFFECT_UPGRADE_IDS` in `src/domain/upgrades.ts`) shows a "no visible effect" banner.
 - The overlay is drawn each frame from `resolveGhostTarget` (the same function `ghostAi` uses) and the pure helpers in `src/domain/learnOverlay.ts`: a target reticle, the ghost's predicted greedy path, and gray derivation lines per ghost (Pinky look-ahead, Inky pivot, Clyde shy circle, Spunky aggro circle, Wardy rim line). Targeting math stays tile-based.
 - Controls: arrows/WASD, `1`-`6` or click to pick a ghost, click to toggle an upgrade, Esc or BACK to leave.
 
 ## Differences from play
 
-- Chase mode only, level-1 speeds, no Cruise Elroy. No sound, HUD timer, lives or history writes.
-- Contact never kills, except the **demo catch**: while any upgrade that reacts to a catch (Death's Harvest, Bounty, Defy Death, Extra Life, Myogenesis, Inheritance, Money Talks, Shield, Starting Shield, Haunting) is selected, a touch runs the same helpers a real catch does without resetting Maze-Man; a grace blink, a popup and a status line report the outcome.
+- Chase mode only, level-1 speeds, no Cruise Elroy. Pellet and fruit sounds play; no HUD timer, lives or history writes.
+- Contact never kills, except the **demo catch**: while any upgrade that reacts to a catch is selected, a touch runs the same helpers a real catch does without resetting Maze-Man; a popup and status line report it.
 - The chosen ghost spawns `active` at the house exit. Picking Inky also spawns a faded, harmless Blinky.
 - The board uses `pelletCellCenters()` (shared with `PlaySim`) and refills when empty. Power pellets regenerate when all are gone so effects stay demoable. One always-present fruit respawns after a short delay.
 - Spunky and Wardy keep their real release slot and targeting (`ghostTarget.ts`) but have no speed rules of their own.
@@ -34,10 +34,13 @@ LEARN feeds its `RunUpgrades` into the same domain/system helpers as `PlaySim`. 
 
 Known simplifications (everything else is a reuse of play code):
 
-- **Ghost Recall:** snaps the ghost to the exit, holds it briefly, then releases it.
-- **Pellet Surge, Lazy Looper:** only the on-toggle half; Learn still refills the whole board.
-- **Defy Death, Extra Life, Myogenesis, Death's Harvest/Bounty, Inheritance, Money Talks, Haunting:** shown through the demo catch.
-- **Fruit Fecundity / Feast:** replace the always-present fruit with the real `tickFruitPresence` schedule.
+- **Ghost Recall (+):** the real recall seats the ghost in the house; the real release rules free it once Maze-Man moves (`learnRecall.ts`).
+- **Pellet Surge, Lazy Looper:** on-toggle half only.
+- **Life, death and Quarter upgrades:** shown through the demo catch.
+- **Fruit Fecundity / Feast (+):** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
 - **Martyr, Interest:** no visible effect (no respawn move, no store).
-- **Enhanced-only effects** needing fruit timers, house release or lives (Fecundity+/Feast+ stacking, Quarter Bounty, Extra Life+, Myogenesis+) have no LEARN form.
+
+## Coverage gate
+
+Every listed upgrade needs a named test in `learnSim.test.ts` or a place in `LEARN_NO_EFFECT_UPGRADE_IDS` (`registrySync.test.ts`). Both sims call the shared slices (`runHyperspeedSubsteps`, `recallClosestGhostToHouse`) rather than copy them. Level modifiers, bosses, the store, specialists and multi-ghost play are deliberate omissions.

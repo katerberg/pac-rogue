@@ -1000,6 +1000,11 @@ export function ownedFormOf(owned: readonly UpgradeId[], baseId: BaseUpgradeId):
   return owned.find((id) => baseIdOf(id) === baseId) ?? null;
 }
 
+export const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [
+  "passiveMartyr",
+  "passiveInterest",
+];
+
 export type LearnEnhanceToggleState = "hidden" | "off" | "on";
 
 export function learnEnhanceToggleState(

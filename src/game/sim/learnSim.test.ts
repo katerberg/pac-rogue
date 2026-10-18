@@ -22,7 +22,15 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
-import { INVULN_MS, NEAR_MISS_CHARGE } from "../../domain/upgrades";
+import {
+  INVULN_MS,
+  NEAR_MISS_CHARGE,
+  UPGRADE_DEFS,
+  baseIdOf,
+  isEnhancedId,
+  isSpecialist,
+  type BaseUpgradeId,
+} from "../../domain/upgrades";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { WALL_DROP_MS, wallDropSpot, type CardinalStep } from "../../domain/wallDrop";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
@@ -1278,6 +1286,239 @@ describe("LearnSim upgrade demos", () => {
     expect(query(sim.world, [Fruit]).length).toBe(1);
   });
 
+  describe("power pellet effects", () => {
+    function chomp(sim: LearnSim, player: number): ReturnType<LearnSim["step"]> {
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      return sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+
+    const state = (sim: LearnSim) => sim["learnUpgrades"];
+
+    function wallPassMsAfterChomp(...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number {
+      const { sim, player } = setup(...ids);
+      chomp(sim, player);
+      return state(sim).wallPassRemainingMs;
+    }
+
+    it("Freeze locks the nearest ghost", () => {
+      const { sim, player } = setup("powerPelletFreeze");
+      chomp(sim, player);
+      expect(state(sim).freezeRemainingMs).toBeGreaterThan(0);
+      expect(state(sim).frozenGhostEid).toBe(sim.ghostEid);
+    });
+
+    it("Warp Farthest flings Maze-Man away from the pellet", () => {
+      const { sim, player } = setup("powerPelletWarpFarthest");
+      chomp(sim, player);
+      expect(sim["warpGlide"]).not.toBeNull();
+    });
+
+    it("Extra Hungry eats far pellets, more with Plus", () => {
+      const eaten = (...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number => {
+        const { sim, player } = setup(...ids);
+        const before = query(sim.world, [Pellet]).length;
+        chomp(sim, player);
+        return before - query(sim.world, [Pellet]).length;
+      };
+      const plain = eaten();
+      expect(eaten("powerPelletExtraHungry")).toBe(plain + 8);
+      expect(eaten("powerPelletExtraHungryPlus")).toBe(plain + 14);
+    });
+
+    it("Wall Pass, Speed Burst and Ghost Harvester arm their timers", () => {
+      const { sim, player } = setup(
+        "powerPelletWallPass",
+        "powerPelletSpeedBurst",
+        "powerPelletGhostHarvester",
+      );
+      chomp(sim, player);
+      expect(state(sim).wallPassRemainingMs).toBeGreaterThan(0);
+      expect(state(sim).speedBurstRemainingMs).toBeGreaterThan(0);
+      expect(state(sim).ghostHarvestRemainingMs).toBeGreaterThan(0);
+    });
+
+    it("Fruit Power fires pickup effects when fruit is eaten", () => {
+      const { sim, player } = setup("fruitPowerPellet", "powerPelletSpeedBurst");
+      eatFruit(sim, player);
+      expect(state(sim).speedBurstRemainingMs).toBeGreaterThan(0);
+    });
+
+    it("Overcharge lengthens the other power pellet timers", () => {
+      const plain = wallPassMsAfterChomp("powerPelletWallPass");
+      const charged = wallPassMsAfterChomp("powerPelletWallPass", "passiveOvercharge");
+      expect(charged).toBeGreaterThan(plain);
+    });
+
+    it("Tunnel Dash sweeps the tunnel row the moment Maze-Man faces out", () => {
+      const dashes = (...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): boolean => {
+        const { sim, player } = setup(...ids);
+        moveTo(player, { x: cellCenterX(1), y: cellCenterY(horizontalTunnelRows()[0]!) });
+        let dashing = false;
+        for (let i = 0; i < 5 && !dashing; i += 1) {
+          sim.step(held("left"), FRAME_MS);
+          dashing = sim["tunnelDashAnim"] !== null;
+        }
+        return dashing;
+      };
+      expect(dashes()).toBe(false);
+      expect(dashes("passiveTunnelDash")).toBe(true);
+    });
+
+    describe("Ghost Recall", () => {
+      const inHouse = (eid: number): boolean => GhostPhase.value[eid] === GHOST_PHASE.inHouse;
+
+      it("seats the nearest ghost in the house, then releases it by the house rules", () => {
+        const { sim, player } = setup("powerPelletGhostRecall");
+        const ghost = sim.ghostEid!;
+        const exit = getActiveLayout().ghostHouseExit;
+        chomp(sim, player);
+        expect(inHouse(ghost)).toBe(true);
+        expect(worldToRow(Position.y[ghost]!)).toBeGreaterThan(exit.row);
+        let released = false;
+        for (let t = 0; t < 12_000 && !released; t += FRAME_MS) {
+          sim.step(held("left"), FRAME_MS);
+          released = !inHouse(ghost);
+        }
+        expect(released).toBe(true);
+      });
+
+      it("does not release before Maze-Man moves", () => {
+        const { sim, player } = setup("powerPelletGhostRecall");
+        chomp(sim, player);
+        runMs(sim, 6_000);
+        expect(inHouse(sim.ghostEid!)).toBe(true);
+      });
+
+      it("Plus recalls the two nearest ghosts", () => {
+        const recalled = (id: "powerPelletGhostRecall" | "powerPelletGhostRecallPlus"): number => {
+          const sim = new LearnSim("learn");
+          sim.start();
+          sim.selectGhost(GHOST_KIND.inky);
+          sim.toggleUpgrade(id);
+          const player = query(sim.world, [Player, Position])[0]!;
+          chomp(sim, player);
+          return [sim.ghostEid!, sim.helperBlinkyEid!].filter(inHouse).length;
+        };
+        expect(recalled("powerPelletGhostRecall")).toBe(1);
+        expect(recalled("powerPelletGhostRecallPlus")).toBe(2);
+      });
+    });
+  });
+
+  describe("fruit and life Plus forms", () => {
+    const board = (sim: LearnSim) => sim as unknown as { boardCollected: number };
+
+    it("Hyperspeed eats fruit it passes through", () => {
+      const { sim, player } = setup("powerPelletHyperspeed", "fruitQuarterBounty");
+      const fruit = posOf(query(sim.world, [Fruit, Position])[0]!);
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      moveTo(player, { x: fruit.x - 2 * TILE_SIZE, y: fruit.y });
+      const events = sim.step(held("right"), 200);
+      expect(Position.x[player]!).toBeGreaterThan(fruit.x + TILE_SIZE);
+      expect(popups(events)).toEqual(["+1 Q"]);
+      expect(sim.statusText()).toContain("QUARTERS 1");
+    });
+
+    it("Fecundity+ keeps fruit and stacks the next one beside it", () => {
+      const fruitCount = (id: "fruitFecundity" | "fruitFecundityPlus"): number => {
+        const { sim } = setup(id);
+        for (let spawn = 0; spawn < 2; spawn += 1) {
+          board(sim).boardCollected = 70;
+          runMs(sim, 100);
+        }
+        return query(sim.world, [Fruit]).length;
+      };
+      expect(fruitCount("fruitFecundity")).toBe(1);
+      expect(fruitCount("fruitFecundityPlus")).toBe(2);
+    });
+
+    it("Feast+ schedules its first fruit earlier", () => {
+      const { sim } = setup("fruitFeastPlus");
+      expect(sim.statusText()).toContain("NEXT FRUIT AT 45 PELLETS");
+    });
+
+    it("Quarter Bounty+ pays two Quarters per fruit", () => {
+      const { sim, player } = setup("fruitQuarterBountyPlus");
+      expect(popups(eatFruit(sim, player))).toEqual(["+2 Q"]);
+      expect(sim.statusText()).toContain("QUARTERS 2");
+    });
+
+    const refill = (sim: LearnSim): void => {
+      for (const eid of query(sim.world, [Pellet])) {
+        removeEntity(sim.world, eid);
+      }
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    };
+
+    it("Extra Life+ grants two lives", () => {
+      const { sim, player } = setup("passiveExtraLifePlus");
+      expect(sim.statusText()).toContain("LIVES 6");
+      catchByGhost(sim, player);
+      expect(sim.statusText()).toContain("LIVES 5");
+    });
+
+    it("Extra Life+ raises the Myogenesis+ refill floor", () => {
+      const livesAfterRefill = (id: "passiveExtraLife" | "passiveExtraLifePlus"): string => {
+        const { sim, player } = setup(id, "passiveMyogenesisPlus");
+        for (let caught = 0; caught < 3; caught += 1) {
+          catchByGhost(sim, player);
+          runMs(sim, 1_600);
+        }
+        refill(sim);
+        return sim.statusText();
+      };
+      expect(livesAfterRefill("passiveExtraLife")).toContain("LIVES 5");
+      expect(livesAfterRefill("passiveExtraLifePlus")).toContain("LIVES 6");
+    });
+
+    it("Myogenesis+ refills every empty life on a board refill", () => {
+      const { sim, player } = setup("passiveMyogenesisPlus");
+      catchByGhost(sim, player);
+      runMs(sim, 1_600);
+      catchByGhost(sim, player);
+      runMs(sim, 1_600);
+      expect(sim.statusText()).toContain("LIVES 2");
+      refill(sim);
+      expect(sim.statusText()).toContain("LIVES 4");
+    });
+  });
+
+  describe("sound", () => {
+    const sfx = (events: SimEvent[]) =>
+      events.filter((event) => event.type === "pelletSfx" || event.type === "sfx");
+
+    it("chewing a pellet emits a pellet sound, a power pellet the power munch", () => {
+      const { sim, player } = setup();
+      const pellet = query(sim.world, [Pellet, Position]).find(
+        (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+      )!;
+      moveTo(player, posOf(pellet));
+      const chewed = sfx(sim.step(NO_KEYS_HELD, FRAME_MS));
+      expect(chewed).toContainEqual({
+        type: "pelletSfx",
+        previousCollected: 0,
+        removed: 1,
+        powerRemoved: 0,
+      });
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      expect(sfx(sim.step(NO_KEYS_HELD, FRAME_MS))).toContainEqual({
+        type: "pelletSfx",
+        previousCollected: 1,
+        removed: 1,
+        powerRemoved: 1,
+      });
+    });
+
+    it("eating fruit emits the munch sounds", () => {
+      const { sim, player } = setup();
+      expect(sfx(eatFruit(sim, player))).toEqual([
+        { type: "sfx", id: "pelletMunch" },
+        { type: "sfx", id: "pelletMunch2" },
+      ]);
+    });
+  });
+
   it("Fruit Feast schedules three fruit on the Feast thresholds", () => {
     const { sim } = setup("fruitFeast");
     expect(sim.statusText()).toContain("NEXT FRUIT AT 60 PELLETS");
@@ -1355,6 +1596,27 @@ function lastDrawOptions(events: SimEvent[]): SimRenderOptions {
   }
   return draw.options;
 }
+
+describe("LearnSim upgrade registry", () => {
+  const listed = UPGRADE_DEFS.filter((def) => !isSpecialist(def.id) && !isEnhancedId(def.id)).map(
+    (def) => def.id as BaseUpgradeId,
+  );
+
+  it.each(listed)("%s and its Plus form can be toggled and run", (baseId) => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.blinky);
+    sim.toggleUpgrade(baseId);
+    expect(sim.ownedUpgrades).toEqual([baseId]);
+    sim.toggleEnhanced(baseId);
+    for (let i = 0; i < 30; i += 1) {
+      sim.step(held("right"), FRAME_MS);
+    }
+    expect(sim.ownedUpgrades.map(baseIdOf)).toEqual([baseId]);
+    sim.toggleUpgrade(baseId);
+    expect(sim.ownedUpgrades).toEqual([]);
+  });
+});
 
 describe("LearnSim parity with PlaySim drawing", () => {
   it("passes every render option PlaySim does unless it is listed as intentionally omitted", () => {
