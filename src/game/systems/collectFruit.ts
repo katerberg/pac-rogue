@@ -6,15 +6,15 @@ import { Fruit } from "../components/Fruit";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-export function collectFruit(world: World): number[] {
+export function collectFruit(world: World, at?: { x: number; y: number }): number[] {
   const players = query(world, [Player, Position, Drawable]);
   if (players.length === 0) {
     return [];
   }
 
   const playerEid = players[0]!;
-  const px = Position.x[playerEid] ?? 0;
-  const py = Position.y[playerEid] ?? 0;
+  const px = at?.x ?? Position.x[playerEid] ?? 0;
+  const py = at?.y ?? Position.y[playerEid] ?? 0;
   const playerRadius = Drawable.radius[playerEid] ?? 0;
 
   const toRemove: number[] = [];

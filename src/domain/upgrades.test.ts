@@ -88,6 +88,8 @@ import {
   groupUpgradesBySchool,
   storePriceFor,
   applyPowerPelletEffects,
+  endSimulacrum,
+  simulacrumSavesLife,
   cornucopiaAlongsideOwned,
   confirmUpgradeChoice,
   createRunUpgrades,
@@ -229,6 +231,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletWallDrop",
   "powerPelletProgrammer",
   "passiveInheritance",
+  "powerPelletSimulacrum",
   "powerPelletChaff",
 ];
 
@@ -469,6 +472,7 @@ describe("rare upgrades", () => {
     "passiveShieldBreak",
     "passiveEcho",
     "powerPelletProgrammer",
+    "powerPelletSimulacrum",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
@@ -684,6 +688,7 @@ describe("grantUpgrade", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
+      simulacrumStarted: false,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
@@ -703,6 +708,7 @@ describe("grantUpgrade", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
+      simulacrumStarted: false,
     });
   });
 
@@ -763,6 +769,7 @@ describe("freeze / power pellet", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
+      simulacrumStarted: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
@@ -790,6 +797,7 @@ describe("freeze / power pellet", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
+      simulacrumStarted: false,
     });
   });
 });
@@ -900,6 +908,7 @@ describe("invuln / power pellet", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
+      simulacrumStarted: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
@@ -1124,6 +1133,7 @@ describe("passiveOvercharge", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
+      simulacrumStarted: false,
     });
   });
 });
@@ -2123,6 +2133,52 @@ describe("Programmer", () => {
       1,
     ).state;
     expect(state.programmer?.setsLeft).toBe(1);
+  });
+});
+
+describe("Simulacrum", () => {
+  it("is a rare harvest upgrade that Overcharge leaves alone", () => {
+    expect(getUpgradeDef("powerPelletSimulacrum")).toMatchObject({
+      school: "harvest",
+      rare: true,
+      storePrice: STORE_RARE_UPGRADE_PRICE,
+    });
+    const result = applyPowerPelletEffects(
+      createRunUpgrades(["powerPelletSimulacrum", "passiveOvercharge"]),
+      1,
+    );
+    expect(result.state.simulacrumActive).toBe(true);
+    expect(result.simulacrumStarted).toBe(true);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const result = applyPowerPelletEffects(createRunUpgrades(["passiveGhostSlow"]), 1);
+    expect(result.state.simulacrumActive).toBe(false);
+    expect(result.simulacrumStarted).toBe(false);
+  });
+
+  it("ignores a second power pellet while active", () => {
+    const first = applyPowerPelletEffects(createRunUpgrades(["powerPelletSimulacrum"]), 1).state;
+    const second = applyPowerPelletEffects(first, 1);
+    expect(second.simulacrumStarted).toBe(false);
+    expect(second.state.simulacrumActive).toBe(true);
+  });
+
+  it("starts again after it ends", () => {
+    const first = applyPowerPelletEffects(createRunUpgrades(["powerPelletSimulacrum"]), 1).state;
+    const ended = endSimulacrum(first);
+    expect(ended.simulacrumActive).toBe(false);
+    expect(applyPowerPelletEffects(ended, 1).simulacrumStarted).toBe(true);
+  });
+
+  it("is cleared by clearUpgradeTimers", () => {
+    const active = applyPowerPelletEffects(createRunUpgrades(["powerPelletSimulacrum"]), 1).state;
+    expect(clearUpgradeTimers(active).simulacrumActive).toBe(false);
+  });
+
+  it("only the Plus form saves a life", () => {
+    expect(simulacrumSavesLife(["powerPelletSimulacrum"])).toBe(false);
+    expect(simulacrumSavesLife(["powerPelletSimulacrumPlus"])).toBe(true);
   });
 });
 

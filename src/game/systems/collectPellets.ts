@@ -20,6 +20,7 @@ export type PlayerPelletFrame = PelletCollectFrame & { removedCells: Cell[] };
 export type CollectPelletsOptions = {
   radiusBonusPx?: number;
   solids?: SolidGrid;
+  at?: { x: number; y: number };
 };
 
 export function countPellets(world: World): number {
@@ -47,8 +48,8 @@ export function collectPellets(world: World, opts: CollectPelletsOptions = {}): 
   const solids = opts.solids;
 
   const playerEid = players[0]!;
-  const px = Position.x[playerEid] ?? 0;
-  const py = Position.y[playerEid] ?? 0;
+  const px = opts.at?.x ?? Position.x[playerEid] ?? 0;
+  const py = opts.at?.y ?? Position.y[playerEid] ?? 0;
   const playerRadius = Drawable.radius[playerEid] ?? 0;
 
   const toRemove: number[] = [];

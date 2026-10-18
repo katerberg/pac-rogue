@@ -5,7 +5,11 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 
-export function collectExtraPellets(world: World, count: number): number[] {
+export function collectExtraPellets(
+  world: World,
+  count: number,
+  from?: { x: number; y: number },
+): number[] {
   if (count <= 0) {
     return [];
   }
@@ -24,8 +28,8 @@ export function collectExtraPellets(world: World, count: number): number[] {
 
   const chosen = pickFurthestPelletEids(
     candidates,
-    Position.x[playerEid] ?? 0,
-    Position.y[playerEid] ?? 0,
+    from?.x ?? Position.x[playerEid] ?? 0,
+    from?.y ?? Position.y[playerEid] ?? 0,
     count,
   );
   for (const eid of chosen) {

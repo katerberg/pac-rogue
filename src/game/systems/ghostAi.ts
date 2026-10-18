@@ -8,6 +8,7 @@ import {
   type GhostCanEnter,
   type GhostDir,
 } from "../../domain/ghostPath";
+import { nearestBody, type BodyTile } from "../../domain/simulacrum";
 import { GHOST_AI_MODE, type GhostAiMode } from "../../domain/ghostMode";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
@@ -204,6 +205,7 @@ export function ghostAi(
   frightenedEids: ReadonlySet<number> = new Set(),
   blockTunnelRow: number | null = null,
   droppedWall: DroppedWall | null = null,
+  twin: BodyTile | null = null,
   decoys: readonly ChaffDecoy[] = [],
 ): void {
   const ctx = ghostAiContext(world, tuning, decoys);
@@ -236,10 +238,14 @@ export function ghostAi(
     }
 
     const isBossGhost = hasComponent(world, eid, BossGhost);
+    const ghostCtx =
+      twin === null
+        ? ctx
+        : { ...ctx, player: nearestBody({ col, row }, ctx.player, twin, rules.solids) };
     const target =
       isBossGhost && phase === GHOST_PHASE.active && mode === GHOST_AI_MODE.scatter
         ? { col: BossGhost.scatterCol[eid] ?? 0, row: BossGhost.scatterRow[eid] ?? 0 }
-        : resolveGhostTarget(eid, mode, pelletsRemaining, ctx);
+        : resolveGhostTarget(eid, mode, pelletsRemaining, ghostCtx);
 
     const storedFacing = facingNow;
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
