@@ -6950,6 +6950,128 @@ describe("Simulacrum", () => {
     expect(sim.snapshot().simulacrum.active).toBe(true);
   });
 
+  function pelletAt(sim: PlaySim, col: number, row: number): number | undefined {
+    return query(sim.world, [Pellet, Position]).find(
+      (eid) =>
+        !hasComponent(sim.world, eid, PowerPellet) &&
+        worldToCol(Position.x[eid]!) === col &&
+        worldToRow(Position.y[eid]!) === row,
+    );
+  }
+
+  function mirror(col: number): number {
+    return getActiveLayout().cols - 1 - col;
+  }
+
+  describe("is you", () => {
+    it("eats along the mirrored path at hyperspeed, not just where each frame ends", () => {
+      const sim = start(["powerPelletSimulacrum", "powerPelletHyperspeed"]);
+      clearGhosts(sim);
+      arm(sim);
+      expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(0);
+      const startCol = 3;
+      const row = placeOnRow(sim, startCol);
+      Facing.direction[playerEid(sim)] = DIRECTION.right;
+      runFrames(sim, 10, RIGHT);
+      const endCol = worldToCol(Position.x[playerEid(sim)]!);
+      expect(endCol - startCol).toBeGreaterThan(8);
+      const span = Array.from({ length: endCol - startCol + 1 }, (_, i) => mirror(startCol + i));
+      expect(span.filter((col) => pelletAt(sim, col, row) !== undefined)).toEqual([]);
+    });
+
+    it("dies on lava the player is not touching", () => {
+      const sim = startSim({ level: 8, maze: "maze1", enableUpgrades: ["powerPelletSimulacrum"] });
+      clearGhosts(sim);
+      sim["speedZones"] = [];
+      arm(sim);
+      const { col, row } = sim.snapshot().lava!;
+      runUntil(sim, () => sim.snapshot().lava!.phase === "full", 1500, { keys: held("left") });
+      const lives = sim.snapshot().lives;
+      teleportPlayer(sim, cellCenterX(mirror(col)), cellCenterY(row));
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+      expect(sim.snapshot().lives).toBe(lives - 1);
+      expect(lastDeath(sim)).toMatchObject({ lava: true, col, row });
+    });
+
+    it("Plus: lava only pops the twin", () => {
+      const sim = startSim({
+        level: 8,
+        maze: "maze1",
+        enableUpgrades: ["powerPelletSimulacrumPlus"],
+      });
+      clearGhosts(sim);
+      sim["speedZones"] = [];
+      arm(sim);
+      const { col, row } = sim.snapshot().lava!;
+      runUntil(sim, () => sim.snapshot().lava!.phase === "full", 1500, { keys: held("left") });
+      const lives = sim.snapshot().lives;
+      teleportPlayer(sim, cellCenterX(mirror(col)), cellCenterY(row));
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+      expect(sim.snapshot().lives).toBe(lives);
+      expect(sim.snapshot().simulacrum.active).toBe(false);
+    });
+
+    function twinReaches(enableUpgrades: UpgradeId[]): boolean {
+      const sim = start(["powerPelletSimulacrum", ...enableUpgrades]);
+      clearGhosts(sim);
+      arm(sim);
+      const row = openRow();
+      const twinCol = 8;
+      const own = pelletAt(sim, twinCol, row);
+      if (own !== undefined) {
+        removeEntity(sim.world, own);
+      }
+      const neighbor = pelletAt(sim, twinCol + 1, row)!;
+      teleportPlayer(sim, cellCenterX(mirror(twinCol)), cellCenterY(row));
+      runFrames(sim, 1);
+      return !query(sim.world, [Pellet]).includes(neighbor);
+    }
+
+    it("gets Pickup Range", () => {
+      expect(twinReaches([])).toBe(false);
+      expect(twinReaches(["passivePickupRange"])).toBe(true);
+    });
+
+    function pelletsGone(enableUpgrades: UpgradeId[]): number {
+      const sim = start(enableUpgrades);
+      clearGhosts(sim);
+      const before = query(sim.world, [Pellet]).length;
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      return before - query(sim.world, [Pellet]).length;
+    }
+
+    it("gets Extra Hungry", () => {
+      const solo = pelletsGone(["powerPelletExtraHungry"]);
+      const withTwin = pelletsGone(["powerPelletExtraHungry", "powerPelletSimulacrum"]);
+      expect(withTwin - solo).toBe(8);
+    });
+
+    it("gets Tunnel Dash sweeps", () => {
+      const row = horizontalTunnelRows()[0]!;
+      const sweep = (enableUpgrades: UpgradeId[]): [boolean, boolean] => {
+        const sim = start(enableUpgrades);
+        clearGhosts(sim);
+        arm(sim);
+        const [near, far] = regularPelletEids(sim).slice(0, 2) as [number, number];
+        Position.x[near] = cellCenterX(1);
+        Position.y[near] = cellCenterY(row);
+        Position.x[far] = cellCenterX(mirror(1));
+        Position.y[far] = cellCenterY(row);
+        teleportPlayer(sim, cellCenterX(3), cellCenterY(row));
+        Facing.direction[playerEid(sim)] = DIRECTION.left;
+        runFrames(sim, 1, { keys: held("left") });
+        const left = query(sim.world, [Pellet]);
+        return [!left.includes(near), !left.includes(far)];
+      };
+      expect(sweep(["powerPelletSimulacrum"])).toEqual([false, false]);
+      expect(sweep(["powerPelletSimulacrum", "passiveTunnelDash"])).toEqual([true, true]);
+    });
+  });
+
   it("ignores power pellets while active", () => {
     const sim = start(["powerPelletSimulacrum"]);
     clearGhosts(sim);

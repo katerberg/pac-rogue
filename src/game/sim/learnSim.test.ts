@@ -951,6 +951,87 @@ describe("LearnSim upgrade demos", () => {
       expect(options.simulacrumPop).not.toBeNull();
     });
 
+    function mirror(col: number): number {
+      return getActiveLayout().cols - 1 - col;
+    }
+
+    function regularPelletAt(sim: LearnSim, col: number, row: number): number | undefined {
+      return query(sim.world, [Pellet, Position]).find(
+        (eid) =>
+          !hasComponent(sim.world, eid, PowerPellet) &&
+          worldToCol(Position.x[eid]!) === col &&
+          worldToRow(Position.y[eid]!) === row,
+      );
+    }
+
+    it("eats along the mirrored path at hyperspeed", () => {
+      const { sim, player } = setup("powerPelletSimulacrum", "powerPelletHyperspeed");
+      parkGhost(sim);
+      chompPower(sim, player);
+      moveTo(player, { x: cellCenterX(3), y: cellCenterY(1) });
+      Facing.direction[player] = DIRECTION.right;
+      for (let frame = 0; frame < 10; frame += 1) {
+        sim.step(held("right"), FRAME_MS);
+      }
+      const endCol = worldToCol(Position.x[player]!);
+      expect(endCol - 3).toBeGreaterThan(5);
+      const span = Array.from({ length: endCol - 3 + 1 }, (_, i) => mirror(3 + i));
+      expect(span.filter((col) => regularPelletAt(sim, col, 1) !== undefined)).toEqual([]);
+    });
+
+    it("gets Pickup Range", () => {
+      const reaches = (extra: BaseUpgradeId[]): boolean => {
+        const { sim, player } = setup("powerPelletSimulacrum", ...extra);
+        parkGhost(sim);
+        chompPower(sim, player);
+        const own = regularPelletAt(sim, 5, 1);
+        if (own !== undefined) {
+          removeEntity(sim.world, own);
+        }
+        const neighbor = regularPelletAt(sim, 6, 1)!;
+        moveTo(player, { x: cellCenterX(mirror(5)), y: cellCenterY(1) });
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+        return !query(sim.world, [Pellet]).includes(neighbor);
+      };
+      expect(reaches([])).toBe(false);
+      expect(reaches(["passivePickupRange"])).toBe(true);
+    });
+
+    it("gets Extra Hungry", () => {
+      const eaten = (ids: BaseUpgradeId[]): number => {
+        const { sim, player } = setup(...ids);
+        parkGhost(sim);
+        const before = query(sim.world, [Pellet]).length;
+        chompPower(sim, player);
+        return before - query(sim.world, [Pellet]).length;
+      };
+      expect(
+        eaten(["powerPelletExtraHungry", "powerPelletSimulacrum"]) -
+          eaten(["powerPelletExtraHungry"]),
+      ).toBe(8);
+    });
+
+    it("gets Tunnel Dash sweeps", () => {
+      const row = horizontalTunnelRows()[0]!;
+      const swept = (extra: BaseUpgradeId[]): [boolean, boolean] => {
+        const { sim, player } = setup("powerPelletSimulacrum", ...extra);
+        parkGhost(sim);
+        chompPower(sim, player);
+        const [near, far] = query(sim.world, [Pellet, Position]).filter(
+          (eid) => !hasComponent(sim.world, eid, PowerPellet),
+        ) as [number, number];
+        moveTo(near, { x: cellCenterX(0), y: cellCenterY(row) });
+        moveTo(far, { x: cellCenterX(mirror(0)), y: cellCenterY(row) });
+        moveTo(player, { x: cellCenterX(1), y: cellCenterY(row) });
+        Facing.direction[player] = DIRECTION.left;
+        sim.step(held("left"), FRAME_MS);
+        const left = query(sim.world, [Pellet]);
+        return [!left.includes(near), !left.includes(far)];
+      };
+      expect(swept([])).toEqual([false, false]);
+      expect(swept(["passiveTunnelDash"])).toEqual([true, true]);
+    });
+
     it("toggling it off removes the twin", () => {
       const { sim, player } = setup("powerPelletSimulacrum");
       parkGhost(sim);

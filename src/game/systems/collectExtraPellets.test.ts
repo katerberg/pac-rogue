@@ -77,3 +77,14 @@ describe("collectExtraPellets", () => {
     expect(query(world, [Pellet])).toHaveLength(0);
   });
 });
+
+describe("collectExtraPellets from an explicit origin", () => {
+  it("picks the pellets farthest from `from` instead of from the player", () => {
+    const world = createWorld();
+    spawnPlayer(world, 0, 0);
+    const nearOrigin = spawnPellet(world, 1000, 0);
+    const farFromOrigin = spawnPellet(world, 0, 0);
+    expect(collectExtraPellets(world, 1, { x: 1000, y: 0 })).toEqual([farFromOrigin]);
+    expect(query(world, [Pellet])).toEqual([nearOrigin]);
+  });
+});

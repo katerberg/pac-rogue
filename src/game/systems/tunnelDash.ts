@@ -37,20 +37,48 @@ export type TunnelDashAnimation = {
   y: number;
 };
 
-export function applyTunnelDash(world: World): TunnelDashTrigger | null {
+export type DashBody = { x: number; y: number; facing: number };
+
+function playerDashBody(world: World): DashBody | null {
   const eid = query(world, [Player, Position, Facing])[0];
-  if (eid === undefined) {
+  return eid === undefined
+    ? null
+    : {
+        x: Position.x[eid] ?? 0,
+        y: Position.y[eid] ?? 0,
+        facing: Facing.direction[eid] ?? DIRECTION.none,
+      };
+}
+
+export function mergeTunnelDashSweeps(
+  a: TunnelDashTrigger,
+  b: TunnelDashTrigger,
+): TunnelDashTrigger {
+  return {
+    ...a,
+    sweptPelletEids: [...a.sweptPelletEids, ...b.sweptPelletEids],
+    sweptPowerRemoved: a.sweptPowerRemoved + b.sweptPowerRemoved,
+    sweptPowerPositions: [...a.sweptPowerPositions, ...b.sweptPowerPositions],
+    sweptCells: [...a.sweptCells, ...b.sweptCells],
+  };
+}
+
+export function applyTunnelDash(
+  world: World,
+  body: DashBody | null = playerDashBody(world),
+): TunnelDashTrigger | null {
+  if (body === null) {
     return null;
   }
 
-  const col = worldToCol(Position.x[eid] ?? 0);
-  const row = worldToRow(Position.y[eid] ?? 0);
+  const col = worldToCol(body.x);
+  const row = worldToRow(body.y);
   const solids = getActiveLayout().playerSolids;
   const edge = tunnelDashOutwardEdge(col, row, solids);
-  if (edge === null || Facing.direction[eid] !== OUTWARD_DIRECTION[edge]) {
+  if (edge === null || body.facing !== OUTWARD_DIRECTION[edge]) {
     return null;
   }
-  const x = Position.x[eid] ?? 0;
+  const x = body.x;
   const pastCenter = edge === "left" ? x <= cellCenterX(col) : x >= cellCenterX(col);
   if (!pastCenter) {
     return null;

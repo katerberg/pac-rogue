@@ -168,7 +168,6 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
-import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import {
@@ -179,13 +178,12 @@ import {
 import { programmerQueueSlots, type ProgrammerQueueSlot } from "../../domain/programmer";
 import type { SolidGrid } from "../../domain/maze";
 import { applyRemoteTransference } from "../systems/remoteTransference";
+import { fruitKindsOnBoard, fruitPositions, removeAllFruit } from "../systems/collectFruit";
 import {
-  collectFruit,
-  fruitKindsOnBoard,
-  fruitPositions,
-  removeAllFruit,
-} from "../systems/collectFruit";
-import { collectPellets } from "../systems/collectPellets";
+  collectExtraForBodies,
+  collectFruitForBodies,
+  collectPelletsForBodies,
+} from "../systems/collectBodies";
 import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
 import {
   ghostAi,
@@ -243,10 +241,12 @@ import {
 import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import {
   applyTunnelDash,
+  mergeTunnelDashSweeps,
   tickTunnelDashAnimation,
+  type DashBody,
   type TunnelDashAnimation,
 } from "../systems/tunnelDash";
-import type { SimEvent, SimRenderOptions } from "./simEvents";
+import type { SimEvent } from "./simEvents";
 import { playerCell } from "../systems/playerCell";
 import { tagOptionalPellets } from "../systems/lazyLooper";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
@@ -592,7 +592,11 @@ export class LearnSim {
       );
       this.noteTunnelExit(positionBeforeDash);
     } else if (hasUpgrade(this.learnUpgrades.owned, "passiveTunnelDash")) {
-      const dash = applyTunnelDash(this.world);
+      const ownDash = applyTunnelDash(this.world);
+      const twinDashBody = ownDash === null ? null : this.twinDashBody();
+      const twinDash = twinDashBody === null ? null : applyTunnelDash(this.world, twinDashBody);
+      const dash =
+        ownDash !== null && twinDash !== null ? mergeTunnelDashSweeps(ownDash, twinDash) : ownDash;
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {
           this.releaseAll(dash.sweptPelletEids);
@@ -613,19 +617,7 @@ export class LearnSim {
     }
 
     this.tickSimulacrum(delta);
-    const twinPosition = this.twinPosition();
-    const playerFrame = mergePlayerPelletFrames(
-      mergePlayerPelletFrames(
-        this.hyperspeedPellets,
-        collectPellets(this.world, {
-          radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
-          solids: getActiveLayout().playerSolids,
-        }),
-      ),
-      twinPosition === null
-        ? emptyPlayerPelletFrame()
-        : collectPellets(this.world, { at: twinPosition }),
-    );
+    const playerFrame = mergePlayerPelletFrames(this.hyperspeedPellets, this.collectBodyPellets());
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     const ghostFrame = ghostHarvestActive(this.learnUpgrades)
       ? harvestPelletsByGhosts(this.world)
@@ -729,7 +721,7 @@ export class LearnSim {
         droppedWall: this.learnUpgrades.droppedWall,
         shields: this.learnUpgrades.shieldsBanked,
         programmerQueue: this.programmerQueue(),
-        simulacrum: this.simulacrumRender(),
+        simulacrum: this.twinDashBody(),
         simulacrumPop: simulacrumPopRender(this.simulacrumPop),
       },
     });
@@ -950,7 +942,9 @@ export class LearnSim {
       );
     }
     if (powerEffects.collectExtraPellets > 0) {
-      this.releaseAll(collectExtraPellets(this.world, powerEffects.collectExtraPellets));
+      this.releaseAll(
+        collectExtraForBodies(this.world, powerEffects.collectExtraPellets, this.twinPosition()),
+      );
     }
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recallClosestGhost();
@@ -1205,11 +1199,22 @@ export class LearnSim {
     }
   }
 
-  private simulacrumRender(): SimRenderOptions["simulacrum"] {
+  private twinDashBody(): DashBody | null {
     const position = this.twinPosition();
     return position === null
       ? null
       : { ...position, facing: mirrorFacing(playerFacing(this.world)) };
+  }
+
+  private collectBodyPellets(): PlayerPelletFrame {
+    return collectPelletsForBodies(
+      this.world,
+      {
+        radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
+        solids: getActiveLayout().playerSolids,
+      },
+      this.twinPosition(),
+    );
   }
 
   private catchDemoOwned(): boolean {
@@ -1251,14 +1256,15 @@ export class LearnSim {
       collect: () => {
         this.hyperspeedPellets = mergePlayerPelletFrames(
           this.hyperspeedPellets,
-          collectPellets(this.world, {
-            radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
-            solids: getActiveLayout().playerSolids,
-          }),
+          this.collectBodyPellets(),
         );
-        this.hyperspeedFruit.push(...collectFruit(this.world));
+        this.hyperspeedFruit.push(...collectFruitForBodies(this.world, this.twinPosition()));
         this.eatFrightenedGhosts();
-        const hit = catchPlayer(this.world, this.catchOptions());
+        const options = this.catchOptions();
+        const twinAt = this.twinPosition();
+        const hit =
+          catchPlayer(this.world, options) ??
+          (twinAt === null ? null : catchPlayer(this.world, { ...options, at: twinAt }));
         return (
           hit !== null && (defyDeathActive(this.learnUpgrades) || !this.breakHyperspeedShield())
         );
@@ -1439,11 +1445,9 @@ export class LearnSim {
       }
     }
 
-    const twinAt = this.twinPosition();
     const removedFruitEids = [
       ...this.hyperspeedFruit,
-      ...collectFruit(this.world),
-      ...(twinAt === null ? [] : collectFruit(this.world, twinAt)),
+      ...collectFruitForBodies(this.world, this.twinPosition()),
     ];
     this.hyperspeedFruit = [];
     if (removedFruitEids.length === 0) {

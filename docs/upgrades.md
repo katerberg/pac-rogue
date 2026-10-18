@@ -104,7 +104,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 - **Programmer** owns movement while it runs (`src/domain/programmer.ts`): keys record presses, then a Hyperspeed-speed run without its turn beat. Mutually exclusive with Hyperspeed in `eligibleUpgrades`.
 - **Speed**: `applyPlayerSpeed` / `applyGhostSpeed` in `PlaySim` combine the level ramp, owned multipliers, cell-based multipliers and active bursts every frame. Boss ghosts use a flat base.
 - **Catch order**: shield break, then Simulacrum+ (pops the twin), then Death's Harvest, then Defy Death, then Money Talks, then death. A break or save is not a death (no life lost, `deathsThisBoard` unchanged where the code says so).
-- **Simulacrum** adds a second body: ghosts steer for whichever of you is nearer by A* path (`nearestBody`), and a catch of either body is a death from that body's spot. It has no timer; it ends on a pop, death, level advance or store entry.
+- **Simulacrum** adds a second body: ghosts steer for whichever of you is nearer by A* path (`nearestBody`), and a catch of either body is a death from that body's spot. It is a second you: it gets Pickup Range, Extra Hungry, Tunnel Dash sweeps, per-substep eating at hyperspeed and the lava. It has no timer; it ends on a pop, death, level advance or store entry.
 - **Boss level**: Lazy Looper is off; boss pellets are never optional.
 - **LEARN** mirrors upgrades through shared helpers and the demo catch; toggling an upgrade off must clear its stale timers (`clearStaleUpgradeTimers`).
 - **Run log** records activations per upgrade ([RUN_LOG.md](./RUN_LOG.md)).
