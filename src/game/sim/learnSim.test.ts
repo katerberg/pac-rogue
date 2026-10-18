@@ -1294,13 +1294,10 @@ describe("LearnSim upgrade demos", () => {
 
     const state = (sim: LearnSim) => sim["learnUpgrades"];
 
-    function timerAfterChomp(
-      key: "wallPassRemainingMs",
-      ...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]
-    ): number {
+    function wallPassMsAfterChomp(...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number {
       const { sim, player } = setup(...ids);
       chomp(sim, player);
-      return state(sim)[key];
+      return state(sim).wallPassRemainingMs;
     }
 
     it("Freeze locks the nearest ghost", () => {
@@ -1347,12 +1344,8 @@ describe("LearnSim upgrade demos", () => {
     });
 
     it("Overcharge lengthens the other power pellet timers", () => {
-      const plain = timerAfterChomp("wallPassRemainingMs", "powerPelletWallPass");
-      const charged = timerAfterChomp(
-        "wallPassRemainingMs",
-        "powerPelletWallPass",
-        "passiveOvercharge",
-      );
+      const plain = wallPassMsAfterChomp("powerPelletWallPass");
+      const charged = wallPassMsAfterChomp("powerPelletWallPass", "passiveOvercharge");
       expect(charged).toBeGreaterThan(plain);
     });
 
