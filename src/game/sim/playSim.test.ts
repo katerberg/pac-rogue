@@ -60,7 +60,7 @@ import {
 } from "../../domain/speedZones";
 import { WALL_DROP_MS, wallDropSpot } from "../../domain/wallDrop";
 import { POWER_PELLET_BREAK_MS } from "../../domain/powerPelletBreak";
-import { levelScaledDurationMs } from "../../domain/levelScaledDuration";
+import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "../../domain/levelScaledDuration";
 import {
   DEFY_DEATH_MS,
   EXTRA_HUNGRY_COUNT,
@@ -3047,8 +3047,8 @@ describe("PlaySim enhanced upgrades", () => {
     [
       "powerPelletInvuln",
       "invulnMs",
-      levelScaledDurationMs(INVULN_MS, 2),
-      levelScaledDurationMs(INVULN_ENHANCED_MS, 2),
+      levelScaledDurationMs(INVULN_MS, 2, INVULN_FLOOR_RATIO),
+      levelScaledDurationMs(INVULN_ENHANCED_MS, 2, INVULN_FLOOR_RATIO),
     ],
     ["powerPelletGhostHarvester", "ghostHarvestMs", 5000, 8000],
     [
@@ -3072,8 +3072,8 @@ describe("PlaySim enhanced upgrades", () => {
   });
 
   it("Overcharge triples enhanced timers (and only doubles with the base)", () => {
-    const doubled = levelScaledDurationMs(INVULN_MS, 2) * 2;
-    const tripled = levelScaledDurationMs(INVULN_ENHANCED_MS, 2) * 3;
+    const doubled = levelScaledDurationMs(INVULN_MS, 2, INVULN_FLOOR_RATIO) * 2;
+    const tripled = levelScaledDurationMs(INVULN_ENHANCED_MS, 2, INVULN_FLOOR_RATIO) * 3;
     const base = startSim({
       level: 2,
       maze: "maze1",
@@ -3779,7 +3779,7 @@ describe("debug tuning", () => {
 });
 
 describe("Shield", () => {
-  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
+  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2, INVULN_FLOOR_RATIO);
 
   function startShieldSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
     return startSim({ level: 2, maze: "maze1", enableUpgrades });
@@ -4866,7 +4866,8 @@ describe("Streak Engine", () => {
 
 describe("Echo", () => {
   const AFTER_ECHO_MS = ECHO_DELAY_MS + 500;
-  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2);
+  const AFTER_EXPIRY_MS = INVULN_MS + 100;
+  const LEVEL2_INVULN_MS = levelScaledDurationMs(INVULN_MS, 2, INVULN_FLOOR_RATIO);
 
   function startEcho(enableUpgrades: UpgradeId[], godMode = true): PlaySim {
     return startSim({ level: 2, maze: "maze1", godMode, enableUpgrades }, "echo1");
@@ -4895,7 +4896,7 @@ describe("Echo", () => {
     const sim = startEcho(["powerPelletInvuln"]);
     chompPowerPellet(sim);
     expect(sim.snapshot().timers.echoesMs).toEqual([]);
-    runMs(sim, AFTER_ECHO_MS);
+    runMs(sim, AFTER_EXPIRY_MS);
     expect(sim.snapshot().timers.invulnMs).toBe(0);
   });
 
@@ -4903,7 +4904,7 @@ describe("Echo", () => {
     const echoed = (id: UpgradeId): number => {
       const sim = startEcho([id, "powerPelletInvuln", "powerPelletSpeedBurst"]);
       chompPowerPellet(sim);
-      runMs(sim, AFTER_ECHO_MS);
+      runMs(sim, AFTER_EXPIRY_MS);
       const { invulnMs, speedBurstMs } = sim.snapshot().timers;
       return [invulnMs, speedBurstMs].filter((ms) => ms > 0).length;
     };
@@ -4924,7 +4925,7 @@ describe("Echo", () => {
   it("doubles the echoed duration with Overcharge", () => {
     const sim = startEcho(["passiveEcho", "powerPelletInvuln", "passiveOvercharge"]);
     chompPowerPellet(sim);
-    runMs(sim, 2 * LEVEL2_INVULN_MS - 100);
+    runMs(sim, ECHO_DELAY_MS + LEVEL2_INVULN_MS - 100);
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(LEVEL2_INVULN_MS);
   });
 
@@ -4959,7 +4960,7 @@ describe("level-scaled Freeze / Ghost Proof / Wall Pass", () => {
 
   it.each([
     ["powerPelletFreeze", "freezeMs", levelScaledDurationMs(FREEZE_MS, 5)],
-    ["powerPelletInvuln", "invulnMs", levelScaledDurationMs(INVULN_MS, 5)],
+    ["powerPelletInvuln", "invulnMs", levelScaledDurationMs(INVULN_MS, 5, INVULN_FLOOR_RATIO)],
     ["powerPelletWallPass", "wallPassMs", levelScaledDurationMs(WALL_PASS_MS, 5)],
   ] as const)("%s shortens to %i ms by level 5", (id, key, expected) => {
     const sim = startSim({ level: 5, maze: "maze1", enableUpgrades: [id] }, "level-scale");
