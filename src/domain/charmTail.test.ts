@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bobbleOffset,
-  charmsFor,
+  resizeTail,
   layoutTail,
   stepTail,
   type TailAnchor,
@@ -49,16 +49,21 @@ function clearOfWalls(bead: TailBead, radiusPx: number): boolean {
   return points.every(([dx, dy]) => !corridorBlocked(bead.x + dx, bead.y + dy));
 }
 
-describe("charmsFor", () => {
-  it("returns one charm per owned upgrade carrying school and enhanced flag", () => {
-    expect(charmsFor(["fruitFecundity", "passiveStartingShieldPlus"])).toEqual([
-      { school: "harvest", enhanced: false },
-      { school: "protection", enhanced: true },
-    ]);
+describe("resizeTail", () => {
+  it("keeps existing beads and lays new ones behind them when growing", () => {
+    const [first] = layoutTail(1, origin, LAYOUT);
+    const { beads, dropped } = resizeTail([first!], 3, origin, LAYOUT);
+    expect(beads).toHaveLength(3);
+    expect(beads[0]).toBe(first);
+    expect(beads.map((b) => b.x)).toEqual([86, 76, 66]);
+    expect(dropped).toEqual([]);
   });
 
-  it("is empty with no upgrades", () => {
-    expect(charmsFor([])).toEqual([]);
+  it("drops the last beads when shrinking and reports them", () => {
+    const tail = layoutTail(3, origin, LAYOUT);
+    const { beads, dropped } = resizeTail(tail, 1, origin, LAYOUT);
+    expect(beads).toEqual([tail[0]]);
+    expect(dropped).toEqual([tail[1], tail[2]]);
   });
 });
 
@@ -134,7 +139,7 @@ describe("stepTail", () => {
     expect(next[0]!.y).toBeCloseTo(300, 5);
   });
 
-  it("returns an empty tail for no charms", () => {
+  it("returns an empty tail for no beads", () => {
     expect(stepTail([], origin, LAYOUT, env())).toEqual([]);
   });
 

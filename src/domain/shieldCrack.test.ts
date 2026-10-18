@@ -5,7 +5,6 @@ import {
   SHIELD_CRACK_SPLIT_PX,
   shieldCrackLook,
   shieldCrackProgress,
-  shieldHudIconX,
 } from "./shieldCrack";
 
 describe("shieldCrackProgress", () => {
@@ -29,19 +28,5 @@ describe("shieldCrackLook", () => {
     const mid = shieldCrackLook(0.5);
     expect(mid.offsetX).toBeGreaterThan(SHIELD_CRACK_SPLIT_PX / 2);
     expect(mid.dropY).toBeLessThan(SHIELD_CRACK_FALL_PX / 2);
-  });
-});
-
-describe("shieldHudIconX", () => {
-  it("places shields right of the life icons", () => {
-    const lifeSize = 10;
-    const lastLifeRight = 12 + 2 * (lifeSize + 4) - 4;
-    const first = shieldHudIconX(2, 0, lifeSize);
-    expect(first - 3).toBeGreaterThan(lastLifeRight);
-    expect(shieldHudIconX(2, 1, lifeSize) - first).toBe(6 + 4);
-  });
-
-  it("starts at the left edge with no life icons", () => {
-    expect(shieldHudIconX(0, 0, 10)).toBe(12 + 3);
   });
 });

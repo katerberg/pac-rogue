@@ -15,9 +15,9 @@ Collision never depends on the drawing: every ghost catches with the same body c
 
 Dot-Man is a round body PNG that never rotates, with a right-facing visor PNG drawn on top (like ghost pupils). The visor eases to each new heading over a short turn (`dotManHeading.ts`); leftward headings mirror it instead of turning it upside down. It bobs smoothly up and down on a chomp beat tied to distance travelled (`dotManMouth.ts`). Afterimages and the wrap twin copy the head's visor pose. Icons (`addDotManIcon`, `addQuarterIcon` in `render.ts`) are plain images of the same textures. Chomp speed comes from the Visuals knobs.
 
-## Charm tail
+## Shield bracelet
 
-Charm bracelet (`src/domain/charmTail.ts`, knobs in `charmTailParams.ts`, drawn in `render.ts`): size is fixed in world units (Visuals > Charms knobs), never from `renderScaleOf` / DPR / Dot-Man; textures use `smoothPixelArt`; charms bounce off walls (`blocked`), bobble is physics not a draw offset. Probe at `--dpr 1` and `--dpr 2` ([VERIFICATION.md](./VERIFICATION.md#live-check)).
+One square per banked shield (`src/domain/charmTail.ts`, knobs in `charmTailParams.ts`, drawn in `render.ts`); a lost shield cracks off the end. Size is fixed in world units, never from `renderScaleOf` / DPR / Dot-Man; squares bounce off walls (`blocked`), bobble is physics. Probe at `--dpr 1` and `--dpr 2` ([VERIFICATION.md](./VERIFICATION.md#live-check)).
 
 ## Fonts
 

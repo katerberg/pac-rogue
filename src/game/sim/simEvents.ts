@@ -1,5 +1,4 @@
 import type { ChainSegment } from "../../domain/bossChain";
-import type { Charm } from "../../domain/charmTail";
 import type { IntermissionFrame } from "../../domain/intermission";
 import type { RunLogRecord } from "../../domain/runLog";
 import type { GhostKindId } from "../../domain/ghostKind";
@@ -42,7 +41,7 @@ export type SimRenderOptions = {
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
-  charms?: readonly Charm[];
+  shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
 };
 
@@ -78,8 +77,6 @@ export type SimEvent =
   | { type: "banner"; text: string; boss: boolean }
   | { type: "lives"; pulse: boolean }
   | { type: "quarters"; pulse: boolean }
-  | { type: "shields" }
-  | { type: "shieldCrack"; index: number; progress: number }
   | {
       type: "powerPelletBreak";
       id: number;
