@@ -158,6 +158,8 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { collectExtraPellets } from "../systems/collectExtraPellets";
 import { wallPassSolids } from "../systems/wallPassSolids";
+import { chaffSprites } from "../../domain/chaff";
+import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import {
   followProgrammer,
@@ -439,6 +441,7 @@ export class LearnSim {
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
     this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
     this.learnUpgrades = tickWallDrop(this.learnUpgrades, delta);
+    this.tickChaff(delta);
     this.fireDueEchoes(delta);
     this.tickHaunt(delta);
     this.tickFright(delta);
@@ -640,6 +643,7 @@ export class LearnSim {
       frightenedGhostEids(this.learnUpgrades),
       null,
       this.learnUpgrades.droppedWall,
+      this.learnUpgrades.chaff?.decoys,
     );
     frightenedGhostAi(
       this.world,
@@ -682,6 +686,7 @@ export class LearnSim {
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
+        chaff: chaffSprites(this.learnUpgrades.chaff),
         shields: this.learnUpgrades.shieldsBanked,
         programmerQueue: this.programmerQueue(),
       },
@@ -872,6 +877,19 @@ export class LearnSim {
     this.learnUpgrades = { ...this.learnUpgrades, pendingEchoes: echoTick.pending };
     for (const bases of echoTick.ready) {
       this.firePowerPelletEffects(1, bases);
+    }
+  }
+
+  private tickChaff(delta: number): void {
+    const result = advanceChaff(
+      this.world,
+      this.learnUpgrades.chaff,
+      delta,
+      this.random.stream("chaff"),
+    );
+    this.learnUpgrades = { ...this.learnUpgrades, chaff: result.state };
+    for (const tile of result.burst) {
+      this.events.push({ type: "chaffBurst", x: cellCenterX(tile.col), y: cellCenterY(tile.row) });
     }
   }
 
@@ -1599,6 +1617,7 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
     programmer: hasField("programmerSets") ? state.programmer : null,
     droppedWall: hasField("armWallDrop") ? state.droppedWall : null,
+    chaff: hasField("chaffMs") ? state.chaff : null,
     ...(hasField("frightenGhostsMs")
       ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
       : NO_FRIGHT),

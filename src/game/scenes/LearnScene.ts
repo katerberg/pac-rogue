@@ -52,6 +52,7 @@ import type { HeldKeys } from "../systems/heldKeys";
 import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import { playTurnSparks } from "./turnSparks";
+import { playChaffBurst } from "./chaffBurst";
 import { playStreakPop } from "./streakPop";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
 import { addGhostIcon, createRender, preloadPlayArt, type PlayRender } from "../systems/render";
@@ -231,6 +232,8 @@ export class LearnScene extends Phaser.Scene {
         this.playRender.bouncePowerPellet(event.eid);
       } else if (event.type === "powerPelletBreak") {
         this.powerPelletBreakFx.apply(event);
+      } else if (event.type === "chaffBurst") {
+        playChaffBurst(this, event);
       } else if (event.type === "turnSparks") {
         playTurnSparks(this, event);
       } else if (event.type === "streakPop") {

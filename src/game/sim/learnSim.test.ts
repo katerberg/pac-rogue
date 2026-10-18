@@ -761,6 +761,30 @@ describe("LearnSim upgrade demos", () => {
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
 
+  describe("Chaff", () => {
+    it("a power pellet drops a decoy and the sim bursts it when time runs out", () => {
+      const { sim, player } = setup("powerPelletChaff");
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+      expect(draw.type === "draw" && draw.options.chaff).toHaveLength(1);
+      const burst: unknown[] = [];
+      for (let frame = 0; frame < 400 && sim["learnUpgrades"].chaff !== null; frame += 1) {
+        burst.push(...sim.step(NO_KEYS_HELD, FRAME_MS).filter((e) => e.type === "chaffBurst"));
+      }
+      expect(sim["learnUpgrades"].chaff).toBeNull();
+      expect(burst).toHaveLength(1);
+    });
+
+    it("toggling the upgrade off clears a live decoy", () => {
+      const { sim, player } = setup("powerPelletChaff");
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(sim["learnUpgrades"].chaff).not.toBeNull();
+      sim.toggleUpgrade("powerPelletChaff");
+      expect(sim["learnUpgrades"].chaff).toBeNull();
+    });
+  });
+
   describe("Wall Drop", () => {
     const RIGHT: CardinalStep = { dx: 1, dy: 0 };
     const LEFT: CardinalStep = { dx: -1, dy: 0 };

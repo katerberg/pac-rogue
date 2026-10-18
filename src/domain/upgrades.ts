@@ -11,6 +11,7 @@ import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
 import { PROGRAMMER_ENHANCED_SETS, startProgrammer, type ProgrammerState } from "./programmer";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
+import { CHAFF_ENHANCED_MS, CHAFF_MS, startChaff, type ChaffState } from "./chaff";
 import { WALL_DROP_MS, type DroppedWall, type WallDropSpot } from "./wallDrop";
 
 export type BaseUpgradeId =
@@ -65,7 +66,8 @@ export type BaseUpgradeId =
   | "powerPelletCornucopia"
   | "powerPelletWallDrop"
   | "powerPelletProgrammer"
-  | "passiveInheritance";
+  | "passiveInheritance"
+  | "powerPelletChaff";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -166,6 +168,8 @@ export type UpgradeEffects = {
     cornucopiaAlongside?: true;
     armWallDrop?: true;
     programmerSets?: number;
+    chaffMs?: number;
+    chaffCorners?: true;
   };
 };
 
@@ -950,6 +954,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       inheritancePerDeath: true,
     },
   },
+  {
+    id: "powerPelletChaff",
+    label: "Chaff",
+    school: "automation",
+    description:
+      "Power pellet: drops a fake you in the center. Ghosts chase it until they touch it.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote: "Chaff drops a decoy in each corner for 7 seconds instead of one in the center.",
+      description: "Power pellet: drops a fake you in each corner. Ghosts chase the nearest one.",
+      onPowerPellet: { chaffMs: CHAFF_ENHANCED_MS, chaffCorners: true },
+    },
+    onPowerPellet: { chaffMs: CHAFF_MS },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1131,6 +1149,7 @@ export type RunUpgrades = {
   hunterHeldEids: number[];
   ghostsEatenThisFright: number;
   wallDropArmed: boolean;
+  chaff: ChaffState | null;
   droppedWall: DroppedWall | null;
   programmer: ProgrammerState | null;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
@@ -1179,6 +1198,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     pendingEchoes: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
+    chaff: null,
     droppedWall: null,
     programmer: null,
     lastDeclinedUpgradeId: null,
@@ -1430,6 +1450,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     pendingEchoes: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
+    chaff: null,
     droppedWall: null,
     programmer: null,
   };
@@ -1677,6 +1698,8 @@ export function applyPowerPelletEffects(
   let cornucopiaFruit: CornucopiaMode | null = null;
   let armWallDrop = false;
   let programmerSets = 0;
+  let chaffMs: number | null = null;
+  let chaffCorners = false;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1756,6 +1779,12 @@ export function applyPowerPelletEffects(
     if (onPower.programmerSets !== undefined) {
       programmerSets = Math.max(programmerSets, onPower.programmerSets);
     }
+    if (onPower.chaffMs !== undefined) {
+      chaffMs = chaffMs === null ? onPower.chaffMs : Math.max(chaffMs, onPower.chaffMs);
+    }
+    if (onPower.chaffCorners) {
+      chaffCorners = true;
+    }
     if (onPower.frightenGhostsMs !== undefined) {
       const ms = hunterFrightenedMs(
         onPower.frightenGhostsMs,
@@ -1784,6 +1813,7 @@ export function applyPowerPelletEffects(
   ghostHarvestMs = scaled(ghostHarvestMs);
   defyDeathMs = scaled(defyDeathMs);
   frightenMs = scaled(frightenMs);
+  chaffMs = scaled(chaffMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
@@ -1815,6 +1845,9 @@ export function applyPowerPelletEffects(
   }
   if (armWallDrop) {
     next = { ...next, wallDropArmed: true };
+  }
+  if (chaffMs !== null) {
+    next = { ...next, chaff: startChaff(chaffMs, chaffCorners) };
   }
   if (programmerSets > 0) {
     next = { ...next, programmer: startProgrammer(programmerSets) };

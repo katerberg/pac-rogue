@@ -6806,3 +6806,70 @@ describe("Inheritance", () => {
     expect(quartersAfterTwoDeaths(["passiveInheritancePlus"])).toBe(quartersAfterTwoDeaths([]) + 2);
   });
 });
+
+describe("Chaff", () => {
+  function start(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
+  }
+
+  function eatPower(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function activeGhost(sim: PlaySim): number {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    return ghost;
+  }
+
+  it("does nothing without the upgrade", () => {
+    const sim = start([]);
+    eatPower(sim);
+    expect(sim.snapshot().chaff).toEqual([]);
+    expect(sim.snapshot().timers.chaffMs).toBe(0);
+  });
+
+  it("drops one decoy that expires after 5s", () => {
+    const sim = start(["powerPelletChaff"]);
+    eatPower(sim);
+    expect(sim.snapshot().chaff).toHaveLength(1);
+    expect(sim.renderOptions().chaff).toHaveLength(1);
+    expect(sim.snapshot().timers.chaffMs).toBeGreaterThan(5000 - 2 * FRAME_MS);
+    const events = runUntil(sim, () => sim.snapshot().chaff.length === 0, 400);
+    expect(sim.snapshot().timers.chaffMs).toBe(0);
+    expect(events.filter((e) => e.type === "chaffBurst")).toHaveLength(1);
+  });
+
+  it("enhanced drops four decoys that last 7s", () => {
+    const sim = start(["powerPelletChaffPlus"]);
+    eatPower(sim);
+    expect(sim.snapshot().chaff).toHaveLength(4);
+    expect(sim.snapshot().timers.chaffMs).toBeGreaterThan(7000 - 2 * FRAME_MS);
+  });
+
+  it("re-triggering refreshes instead of stacking", () => {
+    const sim = start(["powerPelletChaff"]);
+    eatPower(sim);
+    runFrames(sim, 60);
+    const before = sim.snapshot().timers.chaffMs;
+    const second = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[second]!, Position.y[second]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().chaff).toHaveLength(1);
+    expect(sim.snapshot().timers.chaffMs).toBeGreaterThan(before);
+  });
+
+  it("ghosts chase the decoy, and a touch bursts it and sends them back to you", () => {
+    const sim = start(["powerPelletChaff"]);
+    const ghost = activeGhost(sim);
+    eatPower(sim);
+    const decoy = sim.snapshot().chaff[0]!;
+    Position.x[ghost] = decoy.x;
+    Position.y[ghost] = decoy.y;
+    const events = runFrames(sim, 1);
+    expect(sim.snapshot().chaff).toHaveLength(0);
+    expect(events.filter((e) => e.type === "chaffBurst")).toHaveLength(1);
+  });
+});

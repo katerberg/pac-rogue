@@ -28,6 +28,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { decoyFacing, decoyTile, nearestDecoy, type ChaffDecoy } from "../../domain/chaff";
 import type { DroppedWall } from "../../domain/wallDrop";
 import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
@@ -73,10 +74,15 @@ export type GhostAiContext = {
   player: { col: number; row: number; facing: GhostDir };
   blinky: { col: number; row: number };
   tuning?: Tuning;
+  decoys?: readonly ChaffDecoy[];
 };
 
-export function ghostAiContext(world: World, tuning: Tuning = DEFAULT_TUNING): GhostAiContext {
-  return { player: playerTileAndFacing(world), blinky: blinkyTile(world), tuning };
+export function ghostAiContext(
+  world: World,
+  tuning: Tuning = DEFAULT_TUNING,
+  decoys: readonly ChaffDecoy[] = [],
+): GhostAiContext {
+  return { player: playerTileAndFacing(world), blinky: blinkyTile(world), tuning, decoys };
 }
 
 export function resolveGhostTarget(
@@ -90,7 +96,9 @@ export function resolveGhostTarget(
   const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
   const col = tile?.col ?? worldToCol(Position.x[eid] ?? 0);
   const row = tile?.row ?? worldToRow(Position.y[eid] ?? 0);
-  const { player, blinky, tuning } = ctx;
+  const { blinky, tuning } = ctx;
+  const decoy = nearestDecoy(ctx.decoys ?? [], col, row);
+  const player = decoy === null ? ctx.player : { ...decoyTile(decoy), facing: decoyFacing(decoy) };
 
   if (kind === GHOST_KIND.pinky) {
     return pinkyTarget({
@@ -196,8 +204,9 @@ export function ghostAi(
   frightenedEids: ReadonlySet<number> = new Set(),
   blockTunnelRow: number | null = null,
   droppedWall: DroppedWall | null = null,
+  decoys: readonly ChaffDecoy[] = [],
 ): void {
-  const ctx = ghostAiContext(world, tuning);
+  const ctx = ghostAiContext(world, tuning, decoys);
 
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Input, Facing])) {
     const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
