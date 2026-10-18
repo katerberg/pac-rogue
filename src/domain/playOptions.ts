@@ -1,4 +1,5 @@
 import { parseBonusParam } from "./bonusFlag";
+import { parseSlotParam, type SlotOutcome } from "./slotMachine";
 import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
 import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
@@ -47,6 +48,7 @@ export type PlayOptions = {
   levelModifiers: boolean;
   enableUpgrades: UpgradeId[];
   forceUpgrade: BaseUpgradeId | null;
+  slot: SlotOutcome | null;
   highScoresDisabled: boolean;
 };
 
@@ -94,6 +96,8 @@ export function parsePlayOptions(params: URLSearchParams): {
   warnIf("boss", boss === null, "Unknown ?boss= value; expected blinkySwarm|chainedGhosts");
   const lives = parseLivesCountParam(params, "lives");
   warnIf("lives", lives === null, "Unknown ?lives= value; expected positive integer");
+  const slot = parseSlotParam(params);
+  warnIf("slot", slot === null, "Unknown ?slot= value; expected 0 or e.g. 2q1u1l (up to 5 lines)");
   const maxLives = parseLivesCountParam(params, "maxLives");
   warnIf("maxLives", maxLives === null, "Unknown ?maxLives= value; expected positive integer");
   return {
@@ -119,6 +123,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       levelModifiers: parseLevelModifiersFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
       forceUpgrade: parseForceUpgradeParam(params),
+      slot,
       highScoresDisabled: highScoresDisabled(params),
     },
     warnings,

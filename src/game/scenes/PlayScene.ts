@@ -80,6 +80,7 @@ import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
+import { createSlotOverlay, type SlotOverlay } from "./slotOverlay";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import {
   createUpgradeChoiceModal,
@@ -137,6 +138,7 @@ export class PlayScene extends Phaser.Scene {
   private lifeIcons: Phaser.GameObjects.Container[] = [];
   private powerPelletBreakFx!: PowerPelletBreakFx;
   private upgradeChoiceModal!: UpgradeChoiceModal;
+  private slotOverlay!: SlotOverlay;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private storeYesKeys: Phaser.Input.Keyboard.Key[] = [];
@@ -189,6 +191,7 @@ export class PlayScene extends Phaser.Scene {
     this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.sim.random.stream("upgradeFx"));
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
+    this.slotOverlay = createSlotOverlay(this);
     this.closeStoreUi();
     this.runEndMenu = null;
     this.intermission = null;
@@ -351,6 +354,7 @@ export class PlayScene extends Phaser.Scene {
     this.storeClick = null;
     this.storePointer = null;
     this.applyEvents(events, delta);
+    this.slotOverlay.sync(this.sim.slotView());
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
     this.runEndMenu?.tick(this.sim.runEndMenuArmed());

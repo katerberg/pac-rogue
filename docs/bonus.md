@@ -1,10 +1,10 @@
 # BONUS bar
 
-A persistent HUD meter that pays one **Quarter** each time it fills; the remainder carries over. Quarters are spent at [store floors](./store.md). Logic: `src/domain/bonusBar.ts` and `timeBonus.ts` (constants and tier table live there, pinned by `bonusBar.test.ts`), run by `PlaySim`. Presentation math: `bonusBarFx.ts`, drawn by `PlayScene`. `?bonus=<0..299>` sets the starting charge (disables high scores).
+A persistent HUD meter that spins the [slot machine](#slot-machine) each time it fills; the remainder carries over. Quarters are spent at [store floors](./store.md). Logic: `src/domain/bonusBar.ts` and `timeBonus.ts` (constants and tier table live there, pinned by `bonusBar.test.ts`), run by `PlaySim`. Presentation math: `bonusBarFx.ts`, drawn by `PlayScene`. `?bonus=<0..299>` sets the starting charge (disables high scores).
 
 ## Rules
 
-- A bump that overflows several times pays several Quarters. Charge lasts the whole run (deaths, level advances and stores keep it).
+- A bump that overflows several times queues several spins. Charge lasts the whole run (deaths, level advances and stores keep it).
 - Sources: pellet streaks, bonus fruit (half a bar, or Quarters directly with Quarter Bounty, no streak effect), Near Miss, Death's Bounty, and the level-end time bonus.
 - A **streak** counts pellets the player's own body collects (the player collect frame including Pickup Range, and the Tunnel Dash sweep; a power pellet counts as one). Extra Hungry, Remote Transference, Ghost Harvest and Death's Harvest removals neither extend nor break it. Each time it reaches a multiple of `BONUS_STREAK_TIER_SIZE` the bar bumps by `bonusTierBump(tier)`.
 - The streak breaks (charge kept) on stepping onto a blank tile, an idle gap, a death, a shield break, a new board or a store. Blank-tile check: a pellet is eaten shortly before the player's cell changes, so each eaten pellet credits its cell and entering a credited cell uses the credit; walking back over an eaten tile is a blank. Tunnels, the fruit tile and cleared corridors all break a streak.
@@ -17,4 +17,15 @@ The bar is drawn top center. It is a slotted pixel-art bar. Bumps animate by tie
 
 ## Time bonus
 
-Clearing a board drains the time left into the bar. The payout is quadratic in time left (`BONUS_TIME_SQUARE_DIVISOR`), so fast clears pay much more. The drain always takes `TIME_BONUS_DRAIN_MS` and pays the most valuable time first; Quarters are paid as the bar fills, so they are in hand before the upgrade offer. Order at a clear: fanfare, drain, upgrade offer (levels 1-8) or transition. No drain when the timer is 0 or on the level-9 clear. `PlaySim.step` holds all other gates while draining; `?jumpToUpgrade=1` drains the full timer.
+Clearing a board drains the time left into the bar. The payout is quadratic in time left (`BONUS_TIME_SQUARE_DIVISOR`), so fast clears pay much more. The drain always takes `TIME_BONUS_DRAIN_MS` and pays the most valuable time first; Spins play as the bar fills (the drain pauses for them), and the upgrade offer waits for the last one. Order at a clear: fanfare, drain, upgrade offer (levels 1-8) or transition. No drain when the timer is 0 or on the level-9 clear. `PlaySim.step` holds all other gates while draining; `?jumpToUpgrade=1` drains the full timer.
+
+## Slot machine
+
+Every bar fill (streaks, fruit, Near Miss, Death's Bounty, Hunter, time bonus) pauses play for one spin; direct Quarter payouts (Quarter Bounty, Interest, store freebie) do not spin. Logic: `src/domain/slotMachine.ts` (outcome table, grid composer, timeline, pinned by `slotMachine.test.ts`), run by `PlaySim` on the `slots` random stream. Drawn by `slotOverlay.ts` (placeholder art).
+
+- 3 reels × 3 rows, 5 paylines (3 rows, 2 diagonals). Three in a line pay: Quarters a Quarter, a school a random unowned upgrade of that school (a Quarter if none is left), a life a life.
+- The outcome is rolled first from a weighted table, then a grid is built that shows exactly that many lines. Targets: nothing under 10%, at least 0.85 Quarters per spin, upgrades and lives each about 25%, multi-line hits about a third.
+- Lives are on the reels only below the life cap (the store free-life rule); at the cap life lines become Quarter lines.
+- School symbols lean toward owned schools (`slotSchoolWeights`, the level-offer affinity rate).
+- Feel: reels stop left to right; a third reel that could finish a school or life line is held longer; about a quarter of losing spins tease a near miss. A single-line spin takes about 3s; multi-line hits flash each line, then a finale.
+- Spins wait out death sequences and run back to back; the level-clear drain and offer wait for them.
