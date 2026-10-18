@@ -184,7 +184,8 @@ export function createStoreState(
       enhanceTargets.set(cell, takeRandomFrom(enhancePool, rng));
     }
   }
-  const tradeable = owned.filter((id) => !new Set(enhanceTargets.values()).has(baseIdOf(id)));
+  const enhanced = new Set(enhanceTargets.values());
+  const tradeable = owned.filter((id) => !enhanced.has(baseIdOf(id)));
   for (const cell of cells) {
     const { kind, col, row } = cell;
     if (cell === guaranteedCell) {
