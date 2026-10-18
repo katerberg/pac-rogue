@@ -148,11 +148,12 @@ import {
 import {
   mirrorFacing,
   nearestBody,
-  SIMULACRUM_POP_MS,
-  simulacrumPopProgress,
+  simulacrumPopRender,
+  tickSimulacrumPop,
   twinDesynced,
   twinPoint,
   type BodyTile,
+  type SimulacrumPop,
 } from "../../domain/simulacrum";
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { Drawable } from "../components/Drawable";
@@ -311,7 +312,7 @@ export class LearnSim {
   private prevKeys: HeldKeys = NO_KEYS_HELD;
   private pendingPowerRespawns: PendingPowerPelletRespawn[] = [];
   private readonly runState = new LearnRunState();
-  private simulacrumPop: { x: number; y: number; elapsedMs: number } | null = null;
+  private simulacrumPop: SimulacrumPop | null = null;
   private readonly houseHold = new LearnHouseHold();
   private readonly recalled = new LearnRecall();
   private houseHoldEaten = 0;
@@ -729,7 +730,7 @@ export class LearnSim {
         shields: this.learnUpgrades.shieldsBanked,
         programmerQueue: this.programmerQueue(),
         simulacrum: this.simulacrumRender(),
-        simulacrumPop: this.simulacrumPopRender(),
+        simulacrumPop: simulacrumPopRender(this.simulacrumPop),
       },
     });
     return this.takeEvents();
@@ -1193,12 +1194,7 @@ export class LearnSim {
   }
 
   private tickSimulacrum(delta: number): void {
-    if (this.simulacrumPop !== null) {
-      this.simulacrumPop.elapsedMs += delta;
-      if (this.simulacrumPop.elapsedMs >= SIMULACRUM_POP_MS) {
-        this.simulacrumPop = null;
-      }
-    }
+    this.simulacrumPop = tickSimulacrumPop(this.simulacrumPop, delta);
     const cell = playerCell(this.world);
     if (
       this.learnUpgrades.simulacrumActive &&
@@ -1214,16 +1210,6 @@ export class LearnSim {
     return position === null
       ? null
       : { ...position, facing: mirrorFacing(playerFacing(this.world)) };
-  }
-
-  private simulacrumPopRender(): SimRenderOptions["simulacrumPop"] {
-    return this.simulacrumPop === null
-      ? null
-      : {
-          x: this.simulacrumPop.x,
-          y: this.simulacrumPop.y,
-          progress: simulacrumPopProgress(this.simulacrumPop.elapsedMs),
-        };
   }
 
   private catchDemoOwned(): boolean {

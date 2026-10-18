@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { GHOST_DIR } from "./ghostPath";
 import {
   SIMULACRUM_ALPHA,
-  SIMULACRUM_POP_MS,
   mirrorCol,
   mirrorFacing,
   mirrorX,
@@ -11,7 +10,8 @@ import {
   sharedZoneEffect,
   simulacrumDust,
   simulacrumPopLook,
-  simulacrumPopProgress,
+  simulacrumPopRender,
+  tickSimulacrumPop,
   twinDesynced,
   twinPoint,
   twinZoneEffect,
@@ -130,16 +130,30 @@ describe("nearestBody", () => {
   });
 });
 
+describe("pop timing", () => {
+  it("ticks until the pop is over, then clears", () => {
+    const pop = { x: 1, y: 2, elapsedMs: 0 };
+    const mid = tickSimulacrumPop(pop, 300)!;
+    expect(mid.elapsedMs).toBe(300);
+    expect(tickSimulacrumPop(mid, 500)).toBeNull();
+    expect(tickSimulacrumPop(null, 16)).toBeNull();
+  });
+});
+
 describe("pop look", () => {
   it("clamps progress", () => {
-    expect(simulacrumPopProgress(-5)).toBe(0);
-    expect(simulacrumPopProgress(SIMULACRUM_POP_MS * 2)).toBe(1);
+    const at = (elapsedMs: number) => simulacrumPopRender({ x: 3, y: 4, elapsedMs });
+    expect(at(0)).toEqual({ x: 3, y: 4, progress: 0 });
+    expect(at(350)!.progress).toBeCloseTo(0.5);
+    expect(simulacrumPopRender(null)).toBeNull();
   });
 
   it("stutter-blinks the body before it turns to dust", () => {
     const alphas = Array.from(
       { length: 9 },
-      (_, i) => simulacrumPopLook(simulacrumPopProgress(i * 40)).bodyAlpha,
+      (_, i) =>
+        simulacrumPopLook(simulacrumPopRender({ x: 0, y: 0, elapsedMs: i * 40 })!.progress)
+          .bodyAlpha,
     );
     expect(alphas[0]).toBe(SIMULACRUM_ALPHA);
     expect(new Set(alphas.slice(0, 8)).size).toBe(2);

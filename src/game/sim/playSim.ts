@@ -331,12 +331,13 @@ import {
 import {
   mirrorFacing,
   sharedZoneEffect,
-  SIMULACRUM_POP_MS,
-  simulacrumPopProgress,
+  simulacrumPopRender,
+  tickSimulacrumPop,
   twinDesynced,
   twinPoint,
   twinZoneEffect,
   type BodyTile,
+  type SimulacrumPop,
 } from "../../domain/simulacrum";
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
@@ -563,7 +564,7 @@ export class PlaySim {
   private caughtByEid: number | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
-  private simulacrumPop: { x: number; y: number; elapsedMs: number } | null = null;
+  private simulacrumPop: SimulacrumPop | null = null;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
@@ -811,7 +812,7 @@ export class PlaySim {
       shields: this.runUpgrades.shieldsBanked,
       programmerQueue: this.programmerQueue(),
       simulacrum: this.simulacrumRender(),
-      simulacrumPop: this.simulacrumPopRender(),
+      simulacrumPop: simulacrumPopRender(this.simulacrumPop),
     };
   }
 
@@ -840,6 +841,8 @@ export class PlaySim {
 
   snapshot() {
     const upgrades = this.runUpgrades;
+    const twinPosition = this.twinPosition();
+    const twinBody = this.twinBody();
     return {
       seed: this.random.seed,
       roster: this.rosterId,
@@ -901,11 +904,11 @@ export class PlaySim {
       lava: this.lavaSnapshot(),
       simulacrum: {
         active: upgrades.simulacrumActive,
-        x: this.twinPosition()?.x ?? null,
-        y: this.twinPosition()?.y ?? null,
-        col: this.twinBody()?.col ?? null,
-        row: this.twinBody()?.row ?? null,
-        popProgress: this.simulacrumPopRender()?.progress ?? null,
+        x: twinBody === null ? null : twinPosition!.x,
+        y: twinBody === null ? null : twinPosition!.y,
+        col: twinBody?.col ?? null,
+        row: twinBody?.row ?? null,
+        popProgress: simulacrumPopRender(this.simulacrumPop)?.progress ?? null,
       },
       speedZones: this.speedZones,
       speedZonesShifting: this.speedZoneShift !== null,
@@ -1190,7 +1193,7 @@ export class PlaySim {
     }
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
-    this.tickSimulacrumPop(delta);
+    this.simulacrumPop = tickSimulacrumPop(this.simulacrumPop, delta);
     this.checkSimulacrumPop();
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex, this.currentTuning);
     const hyperspeedMul =
@@ -1213,7 +1216,7 @@ export class PlaySim {
                 : 1) *
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
-              speedZoneMultiplier(this.sharedZoneEffect().effect);
+              speedZoneMultiplier(this.zoneEffects().effect);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -1691,7 +1694,7 @@ export class PlaySim {
     return eid === null ? null : { eid, position };
   }
 
-  private sharedZoneEffect(): ReturnType<typeof sharedZoneEffect> {
+  private zoneEffects(): ReturnType<typeof sharedZoneEffect> {
     const player = this.playerSpeedZone();
     const twin = this.twinBody();
     const eid = query(this.world, [Player, Velocity])[0];
@@ -1707,10 +1710,7 @@ export class PlaySim {
       return;
     }
     const cell = playerCell(this.world);
-    if (
-      cell !== null &&
-      (twinDesynced(this.playerSolids(), cell) || this.sharedZoneEffect().conflict)
-    ) {
+    if (cell !== null && (twinDesynced(this.playerSolids(), cell) || this.zoneEffects().conflict)) {
       this.popSimulacrum();
     }
   }
@@ -1723,31 +1723,11 @@ export class PlaySim {
     }
   }
 
-  private tickSimulacrumPop(delta: number): void {
-    if (this.simulacrumPop === null) {
-      return;
-    }
-    this.simulacrumPop.elapsedMs += delta;
-    if (this.simulacrumPop.elapsedMs >= SIMULACRUM_POP_MS) {
-      this.simulacrumPop = null;
-    }
-  }
-
   private simulacrumRender(): SimRenderOptions["simulacrum"] {
     const position = this.death === null ? this.twinPosition() : null;
     return position === null
       ? null
       : { ...position, facing: mirrorFacing(playerFacing(this.world)) };
-  }
-
-  private simulacrumPopRender(): SimRenderOptions["simulacrumPop"] {
-    return this.simulacrumPop === null
-      ? null
-      : {
-          x: this.simulacrumPop.x,
-          y: this.simulacrumPop.y,
-          progress: simulacrumPopProgress(this.simulacrumPop.elapsedMs),
-        };
   }
 
   private catchOptions(): CatchOptions {

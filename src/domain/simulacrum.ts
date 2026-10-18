@@ -1,5 +1,5 @@
 import { GHOST_DIR, type GhostDir } from "./ghostPath";
-import type { SolidGrid } from "./maze";
+import type { MazeTile, SolidGrid } from "./maze";
 import { speedZoneAt, speedZoneEffect, type SpeedZone, type SpeedZoneEffect } from "./speedZones";
 
 export const SIMULACRUM_ALPHA = 0.55;
@@ -16,8 +16,8 @@ const SIMULACRUM_DUST_PEAK_ALPHA = 0.9;
 const SIMULACRUM_DUST_FADE_POWER = 1.5;
 const SIMULACRUM_DUST_RISE_TILES = 0.6;
 
-export type Cell = { col: number; row: number };
-export type BodyTile = Cell & { facing: GhostDir };
+export type BodyTile = MazeTile & { facing: GhostDir };
+export type SimulacrumPop = { x: number; y: number; elapsedMs: number };
 
 export function mirrorX(x: number, centerX: number): number {
   return 2 * centerX - x;
@@ -51,7 +51,7 @@ function solidAt(solids: SolidGrid, col: number, row: number): boolean {
   return solids[row]?.[col] ?? true;
 }
 
-export function twinDesynced(solids: SolidGrid, player: Cell): boolean {
+export function twinDesynced(solids: SolidGrid, player: MazeTile): boolean {
   const cols = solids[0]?.length ?? 0;
   return (
     solidAt(solids, mirrorCol(player.col, cols), player.row) &&
@@ -61,7 +61,7 @@ export function twinDesynced(solids: SolidGrid, player: Cell): boolean {
 
 export function twinZoneEffect(
   zones: readonly SpeedZone[],
-  twin: Cell,
+  twin: MazeTile,
   velocity: { x: number; y: number },
 ): SpeedZoneEffect | null {
   const zone = speedZoneAt(zones, twin.col, twin.row);
@@ -119,7 +119,7 @@ function popHeap(heap: Node[]): Node {
   return top;
 }
 
-export function pathLength(solids: SolidGrid, from: Cell, to: Cell): number {
+export function pathLength(solids: SolidGrid, from: MazeTile, to: MazeTile): number {
   const rows = solids.length;
   const cols = solids[0]?.length ?? 0;
   if (solidAt(solids, to.col, to.row)) {
@@ -166,12 +166,12 @@ export function pathLength(solids: SolidGrid, from: Cell, to: Cell): number {
   return Number.POSITIVE_INFINITY;
 }
 
-function straightLineSq(a: Cell, b: Cell): number {
+function straightLineSq(a: MazeTile, b: MazeTile): number {
   return (a.col - b.col) ** 2 + (a.row - b.row) ** 2;
 }
 
 export function nearestBody(
-  ghost: Cell,
+  ghost: MazeTile,
   player: BodyTile,
   twin: BodyTile | null,
   solids: SolidGrid,
@@ -181,17 +181,29 @@ export function nearestBody(
   }
   const viaPlayer = pathLength(solids, ghost, player);
   const viaTwin = pathLength(solids, ghost, twin);
-  if (viaPlayer === viaTwin) {
-    const reachable = Number.isFinite(viaPlayer);
-    return !reachable && straightLineSq(ghost, twin) < straightLineSq(ghost, player)
-      ? twin
-      : player;
+  if (viaPlayer === viaTwin && !Number.isFinite(viaPlayer)) {
+    return straightLineSq(ghost, twin) < straightLineSq(ghost, player) ? twin : player;
   }
   return viaTwin < viaPlayer ? twin : player;
 }
 
-export function simulacrumPopProgress(elapsedMs: number): number {
-  return Math.min(1, Math.max(0, elapsedMs / SIMULACRUM_POP_MS));
+export function tickSimulacrumPop(
+  pop: SimulacrumPop | null,
+  deltaMs: number,
+): SimulacrumPop | null {
+  if (pop === null) {
+    return null;
+  }
+  const elapsedMs = pop.elapsedMs + deltaMs;
+  return elapsedMs >= SIMULACRUM_POP_MS ? null : { ...pop, elapsedMs };
+}
+
+export function simulacrumPopRender(
+  pop: SimulacrumPop | null,
+): { x: number; y: number; progress: number } | null {
+  return pop === null
+    ? null
+    : { x: pop.x, y: pop.y, progress: Math.min(1, pop.elapsedMs / SIMULACRUM_POP_MS) };
 }
 
 function unitHash(n: number): number {
