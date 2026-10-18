@@ -24,9 +24,10 @@ describe("chaff", () => {
     }
   });
 
-  it("random-walks onto walkable tiles and never past its time", () => {
+  it("random-walks onto walkable tiles", () => {
     const layout = getActiveLayout();
     let state = startChaff(CHAFF_MS, false);
+    const spawn = decoyTile(state.decoys[0]!);
     expect(state.remainingMs).toBe(CHAFF_MS);
     for (let i = 0; i < 100; i += 1) {
       const tick = tickChaff(state, 16, () => 0.37, []);
@@ -36,10 +37,7 @@ describe("chaff", () => {
         expect(isWalkable(tile.col, tile.row, layout.playerSolids)).toBe(true);
       }
     }
-    expect(
-      state.decoys[0]!.col !== chaffSpawnTiles(false)[0]!.col ||
-        state.decoys[0]!.row !== chaffSpawnTiles(false)[0]!.row,
-    ).toBe(true);
+    expect(decoyTile(state.decoys[0]!)).not.toEqual(spawn);
   });
 
   it("bursts every decoy when time runs out", () => {

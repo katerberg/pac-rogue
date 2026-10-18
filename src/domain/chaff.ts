@@ -114,9 +114,7 @@ function openSteps(decoy: ChaffDecoy, layout: MazeLayout): ChaffStep[] {
 
 function pickStep(decoy: ChaffDecoy, random: () => number, layout: MazeLayout): ChaffStep {
   const open = openSteps(decoy, layout);
-  const forward = open.filter(
-    (s) => !(s.dx === -decoy.step.dx && s.dy === -decoy.step.dy) || open.length === 1,
-  );
+  const forward = open.filter((s) => !(s.dx === -decoy.step.dx && s.dy === -decoy.step.dy));
   const choices = forward.length > 0 ? forward : open;
   return choices[Math.floor(random() * choices.length)] ?? STILL;
 }
