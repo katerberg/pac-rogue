@@ -204,6 +204,7 @@ import {
   STORE_FIRST_LEVEL,
   STORE_EXIT_SLIDE_TILES,
   createStoreState,
+  offeredUpgradeIds,
   parseStoreLayout,
   pickMidStoreLevel,
   promptView,
@@ -540,6 +541,7 @@ export class PlaySim {
   private midStoreLevel = 5;
   private store: StoreState | null = null;
   private nextStoreSchool: UpgradeSchool | null = null;
+  private storeOffered: BaseUpgradeId[] = [];
   private storeExitSlide: (StoreExitDirection & { traveledPx: number }) | null = null;
   private storeRoute: Cell | null = null;
   private storeEntrySlidePx: number | null = null;
@@ -2046,7 +2048,9 @@ export class PlaySim {
       this.levelIndex === STORE_FIRST_LEVEL,
       livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1) > this.lives,
       this.nextStoreSchool,
+      this.storeOffered,
     );
+    this.storeOffered.push(...offeredUpgradeIds(this.store));
     this.nextStoreSchool = null;
     this.payInterest();
     this.recorder.storeOpened(this.levelIndex, this.quarters, this.store.slots.map(storeSlotLabel));
