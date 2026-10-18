@@ -65,7 +65,8 @@ export type BaseUpgradeId =
   | "powerPelletCornucopia"
   | "powerPelletWallDrop"
   | "powerPelletProgrammer"
-  | "passiveInheritance";
+  | "passiveInheritance"
+  | "powerPelletSimulacrum";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -145,6 +146,7 @@ export type UpgradeEffects = {
   hunterHoldsEaten?: true;
   wallDropMs?: number;
   wallDropPassable?: true;
+  simulacrumSavesLife?: true;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -166,6 +168,7 @@ export type UpgradeEffects = {
     cornucopiaAlongside?: true;
     armWallDrop?: true;
     programmerSets?: number;
+    simulacrum?: true;
   };
 };
 
@@ -950,6 +953,23 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       inheritancePerDeath: true,
     },
   },
+  {
+    id: "powerPelletSimulacrum",
+    label: "Simulacrum",
+    school: "harvest",
+    description:
+      "Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    enhanced: {
+      enhanceNote:
+        "Simulacrum pops the twin instead of costing a life when a ghost catches either of you.",
+      description:
+        "Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin.",
+      simulacrumSavesLife: true,
+    },
+    onPowerPellet: { simulacrum: true },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1133,6 +1153,7 @@ export type RunUpgrades = {
   wallDropArmed: boolean;
   droppedWall: DroppedWall | null;
   programmer: ProgrammerState | null;
+  simulacrumActive: boolean;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -1148,6 +1169,7 @@ export type PowerPelletApplyResult = {
   frightenGhosts: boolean;
   cornucopiaFruit: CornucopiaMode | null;
   programmerStarted: boolean;
+  simulacrumStarted: boolean;
 };
 
 export const NO_FRIGHT: Pick<
@@ -1181,6 +1203,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     wallDropArmed: false,
     droppedWall: null,
     programmer: null,
+    simulacrumActive: false,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -1432,6 +1455,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     wallDropArmed: false,
     droppedWall: null,
     programmer: null,
+    simulacrumActive: false,
   };
 }
 
@@ -1657,6 +1681,7 @@ export function applyPowerPelletEffects(
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
+      simulacrumStarted: false,
     };
   }
 
@@ -1677,6 +1702,7 @@ export function applyPowerPelletEffects(
   let cornucopiaFruit: CornucopiaMode | null = null;
   let armWallDrop = false;
   let programmerSets = 0;
+  let simulacrum = false;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1756,6 +1782,9 @@ export function applyPowerPelletEffects(
     if (onPower.programmerSets !== undefined) {
       programmerSets = Math.max(programmerSets, onPower.programmerSets);
     }
+    if (onPower.simulacrum) {
+      simulacrum = true;
+    }
     if (onPower.frightenGhostsMs !== undefined) {
       const ms = hunterFrightenedMs(
         onPower.frightenGhostsMs,
@@ -1819,6 +1848,10 @@ export function applyPowerPelletEffects(
   if (programmerSets > 0) {
     next = { ...next, programmer: startProgrammer(programmerSets) };
   }
+  const simulacrumStarted = simulacrum && !state.simulacrumActive;
+  if (simulacrumStarted) {
+    next = { ...next, simulacrumActive: true };
+  }
 
   return {
     state: next,
@@ -1830,6 +1863,7 @@ export function applyPowerPelletEffects(
     frightenGhosts: frightenMs !== null,
     cornucopiaFruit,
     programmerStarted: programmerSets > 0,
+    simulacrumStarted,
   };
 }
 
@@ -1875,6 +1909,14 @@ function ownedValue<K extends Exclude<keyof UpgradeEffects, "onPowerPellet">>(
     }
   }
   return undefined;
+}
+
+export function simulacrumSavesLife(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "simulacrumSavesLife") === true;
+}
+
+export function endSimulacrum(state: RunUpgrades): RunUpgrades {
+  return state.simulacrumActive ? { ...state, simulacrumActive: false } : state;
 }
 
 export function fruitQuartersPerFruit(owned: readonly UpgradeId[]): number | null {

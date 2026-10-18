@@ -14,6 +14,7 @@ export type CatchOptions = {
   skipGhostEids?: ReadonlySet<number>;
   edibleGhostEids?: ReadonlySet<number>;
   playerInvulnerable?: boolean;
+  at?: { x: number; y: number };
 };
 
 export function catchPlayer(world: World, options?: CatchOptions): number | null {
@@ -29,8 +30,8 @@ export function catchPlayer(world: World, options?: CatchOptions): number | null
     return null;
   }
 
-  const px = Position.x[playerEid] ?? 0;
-  const py = Position.y[playerEid] ?? 0;
+  const px = options?.at?.x ?? Position.x[playerEid] ?? 0;
+  const py = options?.at?.y ?? Position.y[playerEid] ?? 0;
   const pr = Drawable.radius[playerEid] ?? 0;
 
   for (const eid of query(world, [Ghost, GhostPhase, Position, Drawable])) {

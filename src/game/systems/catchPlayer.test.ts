@@ -105,3 +105,14 @@ describe("catchPlayer", () => {
     expect(catchPlayer(world)).not.toBeNull();
   });
 });
+
+describe("catchPlayer from an explicit body position", () => {
+  it("tests overlap at `at` instead of at the player", () => {
+    const world = createWorld();
+    spawnPlayer(world, 100, 100);
+    const ghost = spawnGhost(world, 400, 100, GHOST_PHASE.active);
+    expect(catchPlayer(world)).toBeNull();
+    expect(catchPlayer(world, { at: { x: 400, y: 100 } })).toBe(ghost);
+    expect(catchPlayer(world, { at: { x: 400, y: 100 }, playerInvulnerable: true })).toBeNull();
+  });
+});
