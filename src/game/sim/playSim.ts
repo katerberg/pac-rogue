@@ -904,8 +904,8 @@ export class PlaySim {
       lava: this.lavaSnapshot(),
       simulacrum: {
         active: upgrades.simulacrumActive,
-        x: twinBody === null ? null : twinPosition!.x,
-        y: twinBody === null ? null : twinPosition!.y,
+        x: twinPosition?.x ?? null,
+        y: twinPosition?.y ?? null,
         col: twinBody?.col ?? null,
         row: twinBody?.row ?? null,
         popProgress: simulacrumPopRender(this.simulacrumPop)?.progress ?? null,

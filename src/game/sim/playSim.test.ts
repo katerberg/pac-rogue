@@ -6921,6 +6921,35 @@ describe("Simulacrum", () => {
     expect(sim.snapshot().boardCollected).toBeGreaterThanOrEqual(before + 2);
   });
 
+  it("eats fruit the twin stands on", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    clearGhosts(sim);
+    arm(sim);
+    const row = placeOnRow(sim, 17);
+    sim["spawnFruitEntity"](false);
+    const fruit = query(sim.world, [Fruit, Position])[0]!;
+    Position.x[fruit] = cellCenterX(getActiveLayout().cols - 1 - 17);
+    Position.y[fruit] = cellCenterY(row);
+    expect(sim.snapshot().fruit).toBe(true);
+    runFrames(sim, 1);
+    expect(sim.snapshot().fruit).toBe(false);
+  });
+
+  it("keeps the twin while both bodies are inside walls with Wall Pass", () => {
+    const sim = start(["powerPelletSimulacrum", "powerPelletWallPass"]);
+    clearGhosts(sim);
+    arm(sim);
+    expect(sim.snapshot().timers.wallPassMs).toBeGreaterThan(0);
+    const layout = getActiveLayout();
+    const col = 6;
+    const wallRow = Array.from({ length: layout.rows }, (_, row) => row).find(
+      (row) => !isWalkable(col, row) && !isWalkable(layout.cols - 1 - col, row),
+    )!;
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(wallRow));
+    runFrames(sim, 3);
+    expect(sim.snapshot().simulacrum.active).toBe(true);
+  });
+
   it("ignores power pellets while active", () => {
     const sim = start(["powerPelletSimulacrum"]);
     clearGhosts(sim);
