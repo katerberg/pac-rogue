@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activateAsciiLayout, activateLayout, isWalkable } from "./maze";
+import { activateAsciiLayout, activateLayout, isWalkable, wallPathCommands } from "./maze";
 import { STORE_MAZE_ASCII } from "./mazeLayouts";
 import {
   STORE_ENHANCE_PRICE,
@@ -20,6 +20,7 @@ import {
   storePanelMode,
   storeEntrance,
   storeStep,
+  wallBlockMasks,
   withStoreEntranceClosed,
   type StoreState,
   type StoreStepInput,
@@ -101,6 +102,21 @@ describe("store layout", () => {
       ],
       freebie: { col: 14, row: 17 },
     });
+  });
+
+  it("isolates the wall block that holds a corner's detail panel", () => {
+    const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    const { walls, exterior } = wallBlockMasks(layout.walls, { col: 8, row: 9 });
+    expect(walls[9]![8]).toBe(true);
+    expect(walls[0]![0]).toBe(false);
+    expect(walls[9]![18]).toBe(false);
+    expect(exterior[0]![0]).toBe(true);
+    expect(exterior[9]![8]).toBe(false);
+    const own = wallPathCommands(walls, exterior);
+    const all = wallPathCommands(layout.walls, layout.exterior);
+    expect(own.length).toBeGreaterThan(0);
+    expect(own.length).toBeLessThan(all.length);
+    activateLayout("maze1");
   });
 
   it("rejects a slot that is not a full 2x2 block, or a missing freebie", () => {

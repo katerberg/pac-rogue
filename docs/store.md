@@ -17,6 +17,8 @@ Quarters (from the [BONUS bar](./bonus.md) and the level-clear Quarters choice) 
 - Prices: constants in `store.ts`. `createStoreState` rolls stock once: at most one rare, rares at half weight; a corner stays empty only when nothing is left to shelve. Nothing shows twice in a store or again in a later one (`offeredUpgradeIds`); `E` only prefers a fresh target.
 - **School carry-over:** last upgrade/enhance bought (not trades) sets the school the next store must shelve once on a `U` (`purchaseSchool`, `PlaySim.nextStoreSchool`). Consumed on entry; buying nothing clears it.
 
+The detail panel has no outline of its own: the maze wall around the wall block holding it (`wallBlockMasks`) is drawn in the panel's school colour, and a rare's pulsing halo hugs that wall.
+
 ## Movement
 
 Same as a regular level (hold-to-wall, buffered turns, no diagonals). Speed upgrades do not apply — only the level speed curve. While a BUY / NEVER MIND prompt is open the player is held still.
