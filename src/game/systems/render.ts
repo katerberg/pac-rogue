@@ -1396,19 +1396,35 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     }
 
     chaffGraphics.clear();
-    for (const decoy of opts?.chaff ?? []) {
+    for (const [index, decoy] of (opts?.chaff ?? []).entries()) {
       const alpha = !expiryTintOn(decoy.remainingMs, scene.time.now)
         ? CHAFF_ALPHA / 3
         : CHAFF_ALPHA;
-      const radius = actorDisplaySize() / 2;
+      const size = actorDisplaySize();
       const heading = Math.atan2(decoy.dy, decoy.dx);
       const mouth = Math.PI / 5;
       chaffGraphics.fillStyle(CHAFF_COLOR, alpha);
       chaffGraphics.beginPath();
       chaffGraphics.moveTo(decoy.x, decoy.y);
-      chaffGraphics.arc(decoy.x, decoy.y, radius, heading + mouth, heading + Math.PI * 2 - mouth);
+      chaffGraphics.arc(decoy.x, decoy.y, size / 2, heading + mouth, heading + Math.PI * 2 - mouth);
       chaffGraphics.closePath();
       chaffGraphics.fillPath();
+
+      const visorKey = `chaff:${index}:visor`;
+      alive.add(visorKey);
+      let visor = drawableObjects.get(visorKey);
+      if (!visor) {
+        visor = scene.add.image(decoy.x, decoy.y, DOTMAN_VISOR_TEXTURE_KEY);
+        visor.setName(visorKey);
+        drawableObjects.set(visorKey, visor);
+      }
+      const pose = visorPose(heading);
+      visor.setPosition(decoy.x, decoy.y);
+      visor.setDisplaySize(size, size);
+      visor.setRotation(pose.rotation);
+      visor.setFlipX(pose.flipX);
+      visor.setDepth(HAUNT_CAGE_DEPTH);
+      visor.setAlpha(alpha);
     }
 
     programmerGraphics.clear();
