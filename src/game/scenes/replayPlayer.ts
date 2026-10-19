@@ -2,7 +2,19 @@ import Phaser from "phaser";
 import { invertRgb24 } from "../../domain/bossRules";
 import { brightenColor } from "../../domain/playerTint";
 import { pelletTint } from "../../domain/lazyLooper";
-import { wallPathCommands } from "../../domain/maze";
+import {
+  actorDisplaySize,
+  playerDisplaySize,
+  setActiveLayout,
+  wallPathCommands,
+} from "../../domain/maze";
+import {
+  DOTMAN_CHOMP_PIXELS_PER_FRAME,
+  advanceDotManChomp,
+  dotManVisorLift,
+  type DotManChomp,
+} from "../../domain/dotManMouth";
+import { stepHeading, visorPose } from "../../domain/dotManHeading";
 import {
   BLINKY_DRAWABLE_ID,
   BOSS_PELLET_DRAWABLE_ID,
@@ -14,6 +26,7 @@ import {
   frameAt,
   itemsAt,
   replayCursor,
+  REPLAY_SNAP_TILES,
   replaySpeed,
   type ReplayData,
   type ReplayGhostLook,
@@ -34,7 +47,7 @@ const BACKDROP_DEPTH = 899;
 const CONTENT_DEPTH = 900;
 const LABEL_DEPTH = 905;
 const LABEL_Y = 48;
-const ACTOR_SIZE = 16;
+const DOTMAN_ART_SIZE_PX = 16;
 const DEATH_RING_REAL_MS = 300;
 const DEATH_COLOR = 0xff3030;
 
@@ -67,15 +80,23 @@ export function createReplayPlayer(scene: Phaser.Scene, data: ReplayData): Repla
   const walls = scene.add.graphics().setDepth(CONTENT_DEPTH);
   const items = new Map<number, Phaser.GameObjects.Image>();
   const rings = scene.add.graphics().setDepth(CONTENT_DEPTH + 3);
-  const dotMan = addDotManIcon(scene, 0, 0, ACTOR_SIZE)
+  const dotMan = addDotManIcon(scene, 0, 0, DOTMAN_ART_SIZE_PX)
     .setDepth(CONTENT_DEPTH + 2)
     .setVisible(false);
+  const [dotManBody, dotManVisor] = dotMan.list as [
+    Phaser.GameObjects.Image,
+    Phaser.GameObjects.Image,
+  ];
+  let heading = 0;
+  let chomp: DotManChomp = { carry: 0, cycleIndex: 0 };
+  let lastPlayer: { x: number; y: number } | null = null;
   const ghosts = new Map<number, GhostSpriteHandle>();
   const looks = new Map<number, ReplayGhostLook>();
   const bossTint = brightenColor(style.color, 0.5);
   const label = addPixelText(scene, 0, 0, "", MENU_TITLE_FONT_SIZE).setDepth(LABEL_DEPTH);
   const speed = replaySpeed(data);
   const deathRingSimMs = DEATH_RING_REAL_MS * speed;
+  let lastRealDeltaMs = 0;
   let drawnSegment = -1;
   let drawnInverted = false;
   let elapsedMs = 0;
@@ -117,31 +138,68 @@ export function createReplayPlayer(scene: Phaser.Scene, data: ReplayData): Repla
   }
 
   function drawWalls(index: number, inverted: boolean): void {
-    const { maze } = data.segments[index]!;
-    const color = inverted ? invertRgb24(style.color) : style.color;
-    const commands = wallPathCommands(
-      maze.walls,
-      maze.exterior,
-      style.cornerRadius,
-      undefined,
-      undefined,
-      maze.door,
-    );
-    strokeWallPath(walls, commands, { ...style, color }, 1);
+    const { layout } = data.segments[index]!;
     if (index !== drawnSegment) {
+      setActiveLayout(layout);
       for (const ghost of ghosts.values()) {
         ghost.destroy();
       }
       ghosts.clear();
       looks.clear();
+      syncItems([]);
+      const size = playerDisplaySize();
+      dotManBody.setDisplaySize(size, size);
+      dotManVisor.setDisplaySize(size, size);
+      lastPlayer = null;
     }
+    const color = inverted ? invertRgb24(style.color) : style.color;
+    const commands = wallPathCommands(
+      layout.walls,
+      layout.exterior,
+      style.cornerRadius,
+      undefined,
+      undefined,
+      layout.door,
+    );
+    strokeWallPath(walls, commands, { ...style, color }, 1);
     drawnSegment = index;
     drawnInverted = inverted;
+  }
+
+  function poseDotMan(player: { x: number; y: number; angle: number; tint: number | null }): void {
+    const moved =
+      lastPlayer === null ? 0 : Math.hypot(player.x - lastPlayer.x, player.y - lastPlayer.y);
+    const snapPx = REPLAY_SNAP_TILES * data.segments[drawnSegment]!.tileSize;
+    if (moved > 0 && moved <= snapPx) {
+      chomp = advanceDotManChomp(chomp, moved, DOTMAN_CHOMP_PIXELS_PER_FRAME);
+    }
+    if (lastPlayer === null) {
+      heading = player.angle;
+    }
+    lastPlayer = { x: player.x, y: player.y };
+    heading = stepHeading(heading, player.angle, lastRealDeltaMs * speed);
+    const pose = visorPose(heading);
+    const lift =
+      (dotManVisorLift(chomp, DOTMAN_CHOMP_PIXELS_PER_FRAME) * dotManBody.displayWidth) /
+      DOTMAN_ART_SIZE_PX;
+    dotMan.setPosition(player.x, player.y);
+    dotManVisor.setPosition(Math.sin(pose.rotation) * lift, -Math.cos(pose.rotation) * lift);
+    dotManVisor.setRotation(pose.rotation);
+    dotManVisor.setFlipX(pose.flipX);
+    for (const part of [dotManBody, dotManVisor]) {
+      if (player.tint === null) {
+        part.clearTint();
+      } else {
+        part.setTint(player.tint);
+      }
+    }
+    dotMan.setVisible(true);
   }
 
   return {
     tick(realDeltaMs) {
       elapsedMs += realDeltaMs;
+      lastRealDeltaMs = realDeltaMs;
       const cursor = replayCursor(data, elapsedMs);
       last = {
         segmentIndex: cursor.segmentIndex,
@@ -176,16 +234,7 @@ export function createReplayPlayer(scene: Phaser.Scene, data: ReplayData): Repla
       syncItems(itemsAt(segment, cursor.simMs));
 
       if (view.player !== null) {
-        dotMan.setPosition(view.player.x, view.player.y);
-        dotMan.setRotation(view.player.angle);
-        dotMan.setVisible(true);
-        for (const part of dotMan.list as Phaser.GameObjects.Image[]) {
-          if (view.player.tint === null) {
-            part.clearTint();
-          } else {
-            part.setTint(view.player.tint);
-          }
-        }
+        poseDotMan(view.player);
       }
       const seen = new Set<number>();
       for (const ghost of view.ghosts) {
@@ -195,7 +244,7 @@ export function createReplayPlayer(scene: Phaser.Scene, data: ReplayData): Repla
           const drawableId =
             GHOST_DRAWABLE_BY_KIND[ghost.kind as keyof typeof GHOST_DRAWABLE_BY_KIND] ??
             BLINKY_DRAWABLE_ID;
-          sprite = addGhostSprite(scene, drawableId, ghost.x, ghost.y, ACTOR_SIZE);
+          sprite = addGhostSprite(scene, drawableId, ghost.x, ghost.y, actorDisplaySize());
           sprite.setDepth(CONTENT_DEPTH + 2);
           ghosts.set(ghost.eid, sprite);
         }
@@ -218,7 +267,7 @@ export function createReplayPlayer(scene: Phaser.Scene, data: ReplayData): Repla
         const age = (cursor.simMs - death.t) / deathRingSimMs;
         if (age >= 0 && age < 1) {
           rings.lineStyle(2, DEATH_COLOR, 1 - age);
-          rings.strokeCircle(death.x, death.y, ACTOR_SIZE * (0.5 + age * 1.5));
+          rings.strokeCircle(death.x, death.y, playerDisplaySize() * (0.5 + age * 1.5));
         }
       }
     },

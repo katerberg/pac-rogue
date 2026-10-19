@@ -34,7 +34,7 @@ describe("PlaySim run replay", () => {
     const [segment, ...rest] = sim.replay().segments;
     expect(rest).toEqual([]);
     expect(segment!.level).toBe(2);
-    expect(segment!.maze.walls.some((row) => row.some(Boolean))).toBe(true);
+    expect(segment!.layout.walls.some((row) => row.some(Boolean))).toBe(true);
     expect(segment!.frames[0]!.mazeColorInverted).toBe(false);
     expect(segment!.frames.length).toBeGreaterThan(10);
     const times = segment!.frames.map((frame) => frame.t);
@@ -72,7 +72,9 @@ describe("PlaySim run replay", () => {
     sim["jumpToLevelClear"]();
     runUntil(sim, () => sim.snapshot().level === 3, 1200, { acknowledge: true });
     runFrames(sim, 60);
-    expect(sim.replay().segments.map((segment) => segment.level)).toEqual([2, 3]);
+    const { segments } = sim.replay();
+    expect(segments.map((segment) => segment.level)).toEqual([2, 3]);
+    expect(segments[0]!.layout).not.toBe(segments[1]!.layout);
   });
 
   it("keeps the replay when a boss run completes", () => {

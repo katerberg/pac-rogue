@@ -1,4 +1,4 @@
-import type { SolidGrid } from "./maze";
+import type { MazeLayout } from "./maze";
 import { PLAYER_INVULN_TINT, PLAYER_PROGRAMMING_TINT, PLAYER_WALL_PASS_TINT } from "./playerTint";
 
 export const REPLAY_MAX_SPEED = 8;
@@ -38,7 +38,7 @@ export type ReplayDeath = { t: number; x: number; y: number };
 export type ReplaySegment = {
   level: number;
   tileSize: number;
-  maze: { walls: SolidGrid; exterior: SolidGrid; door: SolidGrid };
+  layout: MazeLayout;
   items: ReplayItemEvent[];
   frames: ReplayFrame[];
   deaths: ReplayDeath[];

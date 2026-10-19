@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { MazeLayout } from "./maze";
 import { PLAYER_INVULN_TINT, PLAYER_PROGRAMMING_TINT, PLAYER_WALL_PASS_TINT } from "./playerTint";
 import {
   REPLAY_LABEL_MS,
@@ -17,7 +18,7 @@ function segment(overrides: Partial<ReplaySegment> = {}): ReplaySegment {
   return {
     level: 1,
     tileSize: 16,
-    maze: { walls: [], exterior: [], door: [] },
+    layout: {} as MazeLayout,
     items: [],
     frames: [],
     deaths: [],

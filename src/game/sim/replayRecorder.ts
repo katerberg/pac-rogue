@@ -70,11 +70,7 @@ export class ReplayRecorder {
     const segment: ReplaySegment = {
       level,
       tileSize: TILE_SIZE,
-      maze: {
-        walls: getActiveLayout().walls,
-        exterior: getActiveLayout().exterior,
-        door: getActiveLayout().door,
-      },
+      layout: getActiveLayout(),
       items: [],
       frames: [],
       deaths: [],
