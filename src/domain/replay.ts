@@ -44,7 +44,7 @@ function segmentRealMs(segment: ReplaySegment): number {
   return REPLAY_LABEL_MS + segment.durationMs / REPLAY_SPEED;
 }
 
-export function replayTotalRealMs(data: ReplayData): number {
+function replayTotalRealMs(data: ReplayData): number {
   return data.segments.reduce((sum, segment) => sum + segmentRealMs(segment), 0);
 }
 

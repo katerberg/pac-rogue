@@ -1,7 +1,11 @@
 import Phaser from "phaser";
 import { MAZE_BACKGROUND_COLOR, WALL_STROKE_COLOR } from "../../domain/maze";
-import { GHOST_DRAWABLE_BY_KIND, PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { BLINKY_DRAWABLE_ID } from "../../domain/playfield";
+import {
+  BLINKY_DRAWABLE_ID,
+  GHOST_DRAWABLE_BY_KIND,
+  PLAYFIELD_HEIGHT,
+  PLAYFIELD_WIDTH,
+} from "../../domain/playfield";
 import {
   frameAt,
   itemsAt,
@@ -42,12 +46,12 @@ export type ReplayPlayerState = {
   loops: number;
 };
 
-export type ReplayPlayer = {
+export type ReplayPlayback = {
   tick(realDeltaMs: number): void;
   state(): ReplayPlayerState;
 };
 
-export function createReplayPlayer(scene: Phaser.Scene, data: ReplayData): ReplayPlayer {
+export function createReplayPlayer(scene: Phaser.Scene, data: ReplayData): ReplayPlayback {
   scene.add
     .rectangle(
       PLAYFIELD_WIDTH / 2,

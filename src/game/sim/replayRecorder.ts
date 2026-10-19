@@ -66,7 +66,6 @@ export class ReplayRecorder {
   private lastAngle = 0;
 
   beginSegment(world: World, level: number): void {
-    this.closeSegment();
     const segment: ReplaySegment = {
       level,
       tileSize: TILE_SIZE,
@@ -138,10 +137,6 @@ export class ReplayRecorder {
 
   data(): ReplayData {
     return { segments: this.segments.filter((segment) => segment.frames.length > 0) };
-  }
-
-  private closeSegment(): void {
-    this.current = null;
   }
 
   private diffItems(world: World): void {

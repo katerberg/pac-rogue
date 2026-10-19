@@ -76,7 +76,7 @@ import {
 import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/textLayout";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createIntermissionActors, type IntermissionActors } from "./intermissionActors";
-import { createReplayPlayer, type ReplayPlayer } from "./replayPlayer";
+import { createReplayPlayer, type ReplayPlayback } from "./replayPlayer";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
@@ -147,7 +147,7 @@ export class PlayScene extends Phaser.Scene {
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
-  private replayPlayer: ReplayPlayer | null = null;
+  private replayPlayer: ReplayPlayback | null = null;
   private deathFadeOverlay: Phaser.GameObjects.Rectangle | null = null;
   private intermission: IntermissionActors | null = null;
   private pausedAtMs: number | null = null;
