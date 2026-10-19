@@ -1,4 +1,5 @@
-import { query, removeEntity } from "bitecs";
+import { decoyTile } from "../../domain/chaff";
+import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
@@ -761,6 +762,46 @@ describe("LearnSim upgrade demos", () => {
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
 
+  describe("Chaff", () => {
+    it("a power pellet drops a decoy and the sim bursts it when time runs out", () => {
+      const { sim, player } = setup("powerPelletChaff");
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+      expect(draw.type === "draw" && draw.options.chaff).toHaveLength(1);
+      const burst: unknown[] = [];
+      for (let frame = 0; frame < 400 && sim["learnUpgrades"].chaff !== null; frame += 1) {
+        burst.push(...sim.step(NO_KEYS_HELD, FRAME_MS).filter((e) => e.type === "chaffBurst"));
+      }
+      expect(sim["learnUpgrades"].chaff).toBeNull();
+      expect(burst).toHaveLength(1);
+    });
+
+    it("the overlay target and player marker follow the decoy, then return to Maze-Man", () => {
+      const { sim, player } = setup("powerPelletChaff");
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      const decoy = sim["learnUpgrades"].chaff!.decoys[0]!;
+      const model = sim.overlayModel()!;
+      expect(model.target).toEqual(decoyTile(decoy));
+      expect(model.playerTile).toMatchObject(decoyTile(decoy));
+      expect(model.playerPx).not.toEqual(posOf(player));
+      sim["learnUpgrades"] = { ...sim["learnUpgrades"], chaff: null };
+      expect(sim.overlayModel()!.playerTile).toMatchObject({
+        col: worldToCol(Position.x[player]!),
+        row: worldToRow(Position.y[player]!),
+      });
+    });
+
+    it("toggling the upgrade off clears a live decoy", () => {
+      const { sim, player } = setup("powerPelletChaff");
+      moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(sim["learnUpgrades"].chaff).not.toBeNull();
+      sim.toggleUpgrade("powerPelletChaff");
+      expect(sim["learnUpgrades"].chaff).toBeNull();
+    });
+  });
+
   describe("Wall Drop", () => {
     const RIGHT: CardinalStep = { dx: 1, dy: 0 };
     const LEFT: CardinalStep = { dx: -1, dy: 0 };
@@ -844,6 +885,211 @@ describe("LearnSim upgrade demos", () => {
       sim.toggleUpgrade("powerPelletWallDrop");
       expect(drawnWall(sim)).toBeNull();
       expect(sim["learnUpgrades"].wallDropArmed).toBe(false);
+    });
+  });
+
+  describe("Simulacrum", () => {
+    function centerX(): number {
+      const layout = getActiveLayout();
+      return layout.offsetX + layout.pixelWidth / 2;
+    }
+
+    function parkGhost(sim: LearnSim): void {
+      GhostPhase.value[sim.ghostEid!] = GHOST_PHASE.inHouse;
+    }
+
+    function twinOf(sim: LearnSim) {
+      return lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).simulacrum;
+    }
+
+    function ghostOnTwin(sim: LearnSim): void {
+      const twin = twinOf(sim)!;
+      const ghost = sim.ghostEid!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      moveTo(ghost, { x: twin.x, y: twin.y });
+    }
+
+    it("a power pellet adds a twin that mirrors Maze-Man across the middle", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      parkGhost(sim);
+      expect(twinOf(sim)).toBeNull();
+      chompPower(sim, player);
+      const twin = twinOf(sim)!;
+      expect(twin.x).toBeCloseTo(2 * centerX() - Position.x[player]!);
+      expect(twin.y).toBeCloseTo(Position.y[player]!);
+    });
+
+    it("does nothing without the upgrade", () => {
+      const { sim, player } = setup();
+      parkGhost(sim);
+      chompPower(sim, player);
+      expect(twinOf(sim)).toBeNull();
+    });
+
+    it("the twin eats pellets it stands on", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      parkGhost(sim);
+      chompPower(sim, player);
+      const target = query(sim.world, [Pellet, Position]).find(
+        (eid) =>
+          !hasComponent(sim.world, eid, PowerPellet) &&
+          Position.x[eid]! < centerX() - 2 * TILE_SIZE,
+      )!;
+      moveTo(player, { x: 2 * centerX() - Position.x[target]!, y: Position.y[target]! });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
+    });
+
+    it("a ghost catching the twin is a death, and it ends the twin", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      chompPower(sim, player);
+      ghostOnTwin(sim);
+      const events = sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(popups(events).join(" ")).toContain("LIFE LOST");
+      expect(sim["learnUpgrades"].simulacrumActive).toBe(false);
+    });
+
+    it("Plus: a ghost catching the twin only pops it", () => {
+      const { sim, player } = setup("powerPelletSimulacrumPlus");
+      chompPower(sim, player);
+      ghostOnTwin(sim);
+      const events = sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(popups(events)).toEqual(["TWIN POPPED"]);
+      const options = lastDrawOptions(events);
+      expect(options.simulacrum).toBeNull();
+      expect(options.simulacrumPop).not.toBeNull();
+      expect(options.playerInvulnRemainingMs).toBe(0);
+    });
+
+    it("Plus: a ghost catching Maze-Man pops the twin and grants a moment of safety", () => {
+      const { sim, player } = setup("powerPelletSimulacrumPlus");
+      chompPower(sim, player);
+      const events = catchByGhost(sim, player);
+      expect(popups(events)).toEqual(["TWIN POPPED"]);
+      expect(sim["learnUpgrades"].simulacrumActive).toBe(false);
+      expect(lastDrawOptions(events).playerInvulnRemainingMs).toBeGreaterThan(0);
+    });
+
+    it("pops when the mirrored cell is a wall and Maze-Man's is not", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      parkGhost(sim);
+      chompPower(sim, player);
+      const col = worldToCol(Position.x[player]!);
+      const row = worldToRow(Position.y[player]!);
+      sim["learnUpgrades"] = {
+        ...sim["learnUpgrades"],
+        droppedWall: {
+          col: getActiveLayout().cols - 1 - col,
+          row,
+          remainingMs: 5000,
+          passable: false,
+          awayStep: { dx: 1, dy: 0 },
+          vacated: true,
+        },
+      };
+      const options = lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS));
+      expect(options.simulacrum).toBeNull();
+      expect(options.simulacrumPop).not.toBeNull();
+    });
+
+    function mirror(col: number): number {
+      return getActiveLayout().cols - 1 - col;
+    }
+
+    function regularPelletAt(sim: LearnSim, col: number, row: number): number | undefined {
+      return query(sim.world, [Pellet, Position]).find(
+        (eid) =>
+          !hasComponent(sim.world, eid, PowerPellet) &&
+          worldToCol(Position.x[eid]!) === col &&
+          worldToRow(Position.y[eid]!) === row,
+      );
+    }
+
+    it("eats along the mirrored path at hyperspeed", () => {
+      const { sim, player } = setup("powerPelletSimulacrum", "powerPelletHyperspeed");
+      parkGhost(sim);
+      chompPower(sim, player);
+      moveTo(player, { x: cellCenterX(3), y: cellCenterY(1) });
+      Facing.direction[player] = DIRECTION.right;
+      for (let frame = 0; frame < 10; frame += 1) {
+        sim.step(held("right"), FRAME_MS);
+      }
+      const endCol = worldToCol(Position.x[player]!);
+      expect(endCol - 3).toBeGreaterThan(5);
+      const span = Array.from({ length: endCol - 3 + 1 }, (_, i) => mirror(3 + i));
+      expect(span.filter((col) => regularPelletAt(sim, col, 1) !== undefined)).toEqual([]);
+    });
+
+    it("gets Pickup Range", () => {
+      const reaches = (extra: BaseUpgradeId[]): boolean => {
+        const { sim, player } = setup("powerPelletSimulacrum", ...extra);
+        parkGhost(sim);
+        chompPower(sim, player);
+        const own = regularPelletAt(sim, 5, 1);
+        if (own !== undefined) {
+          removeEntity(sim.world, own);
+        }
+        const neighbor = regularPelletAt(sim, 6, 1)!;
+        moveTo(player, { x: cellCenterX(mirror(5)), y: cellCenterY(1) });
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+        return !query(sim.world, [Pellet]).includes(neighbor);
+      };
+      expect(reaches([])).toBe(false);
+      expect(reaches(["passivePickupRange"])).toBe(true);
+    });
+
+    it("gets Extra Hungry", () => {
+      const eaten = (ids: BaseUpgradeId[]): number => {
+        const { sim, player } = setup(...ids);
+        parkGhost(sim);
+        const before = query(sim.world, [Pellet]).length;
+        chompPower(sim, player);
+        return before - query(sim.world, [Pellet]).length;
+      };
+      expect(
+        eaten(["powerPelletExtraHungry", "powerPelletSimulacrum"]) -
+          eaten(["powerPelletExtraHungry"]),
+      ).toBe(8);
+    });
+
+    it("gets Tunnel Dash sweeps", () => {
+      const row = horizontalTunnelRows()[0]!;
+      const swept = (extra: BaseUpgradeId[]): [boolean, boolean] => {
+        const { sim, player } = setup("powerPelletSimulacrum", ...extra);
+        parkGhost(sim);
+        chompPower(sim, player);
+        const [near, far] = query(sim.world, [Pellet, Position]).filter(
+          (eid) => !hasComponent(sim.world, eid, PowerPellet),
+        ) as [number, number];
+        moveTo(near, { x: cellCenterX(0), y: cellCenterY(row) });
+        moveTo(far, { x: cellCenterX(mirror(0)), y: cellCenterY(row) });
+        moveTo(player, { x: cellCenterX(1), y: cellCenterY(row) });
+        Facing.direction[player] = DIRECTION.left;
+        sim.step(held("left"), FRAME_MS);
+        const left = query(sim.world, [Pellet]);
+        return [!left.includes(near), !left.includes(far)];
+      };
+      expect(swept([])).toEqual([false, false]);
+      expect(swept(["passiveTunnelDash"])).toEqual([true, true]);
+    });
+
+    it("toggling it off removes the twin", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      parkGhost(sim);
+      chompPower(sim, player);
+      expect(twinOf(sim)).not.toBeNull();
+      sim.toggleUpgrade("powerPelletSimulacrum");
+      expect(twinOf(sim)).toBeNull();
+    });
+
+    it("the ghost's target overlay follows the nearer body", () => {
+      const { sim, player } = setup("powerPelletSimulacrum");
+      chompPower(sim, player);
+      const ghost = sim.ghostEid!;
+      const twin = twinOf(sim)!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      moveTo(ghost, { x: twin.x - 2 * TILE_SIZE, y: twin.y });
+      expect(sim.overlayModel()!.playerPx).toMatchObject({ x: twin.x, y: twin.y });
     });
   });
 

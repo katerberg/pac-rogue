@@ -34,7 +34,9 @@ export type ActivationKind =
   | "frighten"
   | "ghostEaten"
   | "wallDrop"
-  | "programmer";
+  | "chaff"
+  | "programmer"
+  | "simulacrum";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   | "fruit"

@@ -11,6 +11,7 @@ import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
 import { PROGRAMMER_ENHANCED_SETS, startProgrammer, type ProgrammerState } from "./programmer";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
+import { CHAFF_ENHANCED_MS, CHAFF_MS, startChaff, type ChaffState } from "./chaff";
 import { WALL_DROP_MS, type DroppedWall, type WallDropSpot } from "./wallDrop";
 
 export type BaseUpgradeId =
@@ -65,7 +66,9 @@ export type BaseUpgradeId =
   | "powerPelletCornucopia"
   | "powerPelletWallDrop"
   | "powerPelletProgrammer"
-  | "passiveInheritance";
+  | "passiveInheritance"
+  | "powerPelletSimulacrum"
+  | "powerPelletChaff";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -145,6 +148,7 @@ export type UpgradeEffects = {
   hunterHoldsEaten?: true;
   wallDropMs?: number;
   wallDropPassable?: true;
+  simulacrumSavesLife?: true;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -166,6 +170,9 @@ export type UpgradeEffects = {
     cornucopiaAlongside?: true;
     armWallDrop?: true;
     programmerSets?: number;
+    simulacrum?: true;
+    chaffMs?: number;
+    chaffCorners?: true;
   };
 };
 
@@ -950,6 +957,37 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       inheritancePerDeath: true,
     },
   },
+  {
+    id: "powerPelletSimulacrum",
+    label: "Simulacrum",
+    school: "harvest",
+    description:
+      "Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    enhanced: {
+      enhanceNote:
+        "Simulacrum pops the twin instead of costing a life when a ghost catches either of you.",
+      description:
+        "Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin.",
+      simulacrumSavesLife: true,
+    },
+    onPowerPellet: { simulacrum: true },
+  },
+  {
+    id: "powerPelletChaff",
+    label: "Chaff",
+    school: "automation",
+    description:
+      "Power pellet: drops a fake you in the center. Ghosts chase it until they touch it.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote: "Chaff drops a decoy in each corner for 7 seconds instead of one in the center.",
+      description: "Power pellet: drops a fake you in each corner. Ghosts chase the nearest one.",
+      onPowerPellet: { chaffMs: CHAFF_ENHANCED_MS, chaffCorners: true },
+    },
+    onPowerPellet: { chaffMs: CHAFF_MS },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1131,8 +1169,10 @@ export type RunUpgrades = {
   hunterHeldEids: number[];
   ghostsEatenThisFright: number;
   wallDropArmed: boolean;
+  chaff: ChaffState | null;
   droppedWall: DroppedWall | null;
   programmer: ProgrammerState | null;
+  simulacrumActive: boolean;
   lastDeclinedUpgradeId: BaseUpgradeId | null;
 };
 
@@ -1148,6 +1188,7 @@ export type PowerPelletApplyResult = {
   frightenGhosts: boolean;
   cornucopiaFruit: CornucopiaMode | null;
   programmerStarted: boolean;
+  simulacrumStarted: boolean;
 };
 
 export const NO_FRIGHT: Pick<
@@ -1179,8 +1220,10 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     pendingEchoes: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
+    chaff: null,
     droppedWall: null,
     programmer: null,
+    simulacrumActive: false,
     lastDeclinedUpgradeId: null,
   };
   for (const id of enabled) {
@@ -1430,8 +1473,10 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     pendingEchoes: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
+    chaff: null,
     droppedWall: null,
     programmer: null,
+    simulacrumActive: false,
   };
 }
 
@@ -1657,6 +1702,7 @@ export function applyPowerPelletEffects(
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
+      simulacrumStarted: false,
     };
   }
 
@@ -1677,6 +1723,9 @@ export function applyPowerPelletEffects(
   let cornucopiaFruit: CornucopiaMode | null = null;
   let armWallDrop = false;
   let programmerSets = 0;
+  let simulacrum = false;
+  let chaffMs: number | null = null;
+  let chaffCorners = false;
 
   const owned = effectiveOwned(state.owned);
   const firing =
@@ -1756,6 +1805,15 @@ export function applyPowerPelletEffects(
     if (onPower.programmerSets !== undefined) {
       programmerSets = Math.max(programmerSets, onPower.programmerSets);
     }
+    if (onPower.simulacrum) {
+      simulacrum = true;
+    }
+    if (onPower.chaffMs !== undefined) {
+      chaffMs = chaffMs === null ? onPower.chaffMs : Math.max(chaffMs, onPower.chaffMs);
+    }
+    if (onPower.chaffCorners) {
+      chaffCorners = true;
+    }
     if (onPower.frightenGhostsMs !== undefined) {
       const ms = hunterFrightenedMs(
         onPower.frightenGhostsMs,
@@ -1784,6 +1842,7 @@ export function applyPowerPelletEffects(
   ghostHarvestMs = scaled(ghostHarvestMs);
   defyDeathMs = scaled(defyDeathMs);
   frightenMs = scaled(frightenMs);
+  chaffMs = scaled(chaffMs);
   if (warpInvulnMs > 0) {
     invulnMs = Math.max(invulnMs ?? 0, warpInvulnMs);
   }
@@ -1816,8 +1875,15 @@ export function applyPowerPelletEffects(
   if (armWallDrop) {
     next = { ...next, wallDropArmed: true };
   }
+  if (chaffMs !== null) {
+    next = { ...next, chaff: startChaff(chaffMs, chaffCorners) };
+  }
   if (programmerSets > 0) {
     next = { ...next, programmer: startProgrammer(programmerSets) };
+  }
+  const simulacrumStarted = simulacrum && !state.simulacrumActive;
+  if (simulacrumStarted) {
+    next = { ...next, simulacrumActive: true };
   }
 
   return {
@@ -1830,6 +1896,7 @@ export function applyPowerPelletEffects(
     frightenGhosts: frightenMs !== null,
     cornucopiaFruit,
     programmerStarted: programmerSets > 0,
+    simulacrumStarted,
   };
 }
 
@@ -1875,6 +1942,14 @@ function ownedValue<K extends Exclude<keyof UpgradeEffects, "onPowerPellet">>(
     }
   }
   return undefined;
+}
+
+export function simulacrumSavesLife(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "simulacrumSavesLife") === true;
+}
+
+export function endSimulacrum(state: RunUpgrades): RunUpgrades {
+  return state.simulacrumActive ? { ...state, simulacrumActive: false } : state;
 }
 
 export function fruitQuartersPerFruit(owned: readonly UpgradeId[]): number | null {

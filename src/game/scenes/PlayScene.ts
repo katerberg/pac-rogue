@@ -13,6 +13,7 @@ import {
   type BarFxState,
 } from "../../domain/bonusBarFx";
 import { playTurnSparks } from "./turnSparks";
+import { playChaffBurst } from "./chaffBurst";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
 import { bossTimerLabel } from "../../domain/bossRules";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
@@ -486,6 +487,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "powerPelletBreak":
         this.powerPelletBreakFx.apply(event);
+        break;
+      case "chaffBurst":
+        playChaffBurst(this, event);
         break;
       case "turnSparks":
         playTurnSparks(this, event);

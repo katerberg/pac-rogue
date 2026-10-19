@@ -83,8 +83,8 @@ export function chainCatch(world: World, options: CatchOptions = {}): number | n
   if (playerEid === undefined) {
     return null;
   }
-  const px = Position.x[playerEid] ?? 0;
-  const py = Position.y[playerEid] ?? 0;
+  const px = options.at?.x ?? Position.x[playerEid] ?? 0;
+  const py = options.at?.y ?? Position.y[playerEid] ?? 0;
   const radius = Drawable.radius[playerEid] ?? 0;
   for (const chain of bossChains(world, options)) {
     if (!chainHitsCircle(chain, px, py, radius)) {

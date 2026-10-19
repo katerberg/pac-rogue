@@ -25,6 +25,7 @@ import {
   type SpeedZone,
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import { CHAFF_ALPHA, CHAFF_COLOR, type ChaffSprite } from "../../domain/chaff";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import {
   PROGRAMMER_EMPTY_SLOT_TILES,
@@ -48,6 +49,12 @@ import {
   type HeadingStep,
   type VisorPose,
 } from "../../domain/dotManHeading";
+import {
+  SIMULACRUM_ALPHA,
+  SIMULACRUM_TINT,
+  simulacrumDust,
+  simulacrumPopLook,
+} from "../../domain/simulacrum";
 import { padTextureWithGutter } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -533,9 +540,12 @@ export type RenderOptions = {
   lava?: LavaRenderState | null;
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
+  chaff?: ChaffSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
+  simulacrum?: { x: number; y: number; facing: number } | null;
+  simulacrumPop?: { x: number; y: number; progress: number } | null;
 };
 
 const CHARM_DEPTH = -0.5;
@@ -720,6 +730,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const chainGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
+  const simulacrumDustGraphics = scene.add.graphics();
+  let simulacrumAngle = 0;
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
@@ -740,6 +752,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   };
   const droppedWallGraphics = scene.add.graphics();
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const chaffGraphics = scene.add.graphics();
+  chaffGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const lavaGraphics = scene.add.graphics();
   lavaGraphics.setDepth(LAVA_DEPTH);
   const programmerGraphics = scene.add.graphics();
@@ -961,7 +975,12 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
       }
     };
-    const drawVisor = (bodyKey: string, pose: VisorPose, liftArtPx: number): void => {
+    const drawVisor = (
+      bodyKey: string,
+      pose: VisorPose,
+      liftArtPx: number,
+      untinted = false,
+    ): void => {
       const body = drawableObjects.get(bodyKey);
       if (!body) {
         return;
@@ -984,7 +1003,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       visor.setFlipX(pose.flipX);
       visor.setDepth(body.depth);
       visor.setAlpha(body.alpha);
-      applyPlayerTint(visor, playerTintNow);
+      if (untinted) {
+        visor.clearTint();
+      } else {
+        applyPlayerTint(visor, playerTintNow);
+      }
     };
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
@@ -1255,6 +1278,48 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
     }
 
+    const drawSimulacrum = (at: { x: number; y: number }, facing: number, alpha: number): void => {
+      const step = facingToStep(facing as Direction);
+      if (step !== null) {
+        simulacrumAngle = headingAngle(step);
+      }
+      const key = "simulacrum:body";
+      alive.add(key);
+      let body = drawableObjects.get(key);
+      if (!body) {
+        body = scene.add.image(at.x, at.y, DOTMAN_BODY_TEXTURE_KEY);
+        body.setName("simulacrum");
+        drawableObjects.set(key, body);
+      }
+      const size = displaySizeForDrawable(PLAYER_DRAWABLE_ID);
+      body.setPosition(at.x, at.y);
+      body.setDisplaySize(size, size);
+      body.setAlpha(alpha * entityAlpha);
+      body.setTint(SIMULACRUM_TINT);
+      body.setTintMode(Phaser.TintModes.FILL);
+      drawVisor(key, visorPose(simulacrumAngle), 0, true);
+    };
+    const simulacrum = opts?.simulacrum ?? null;
+    const simulacrumPop = opts?.simulacrumPop ?? null;
+    simulacrumDustGraphics.clear();
+    if (simulacrum !== null) {
+      drawSimulacrum(simulacrum, simulacrum.facing, SIMULACRUM_ALPHA);
+    } else if (simulacrumPop !== null) {
+      const look = simulacrumPopLook(simulacrumPop.progress);
+      if (look.bodyAlpha > 0) {
+        drawSimulacrum(simulacrumPop, DIRECTION.none, look.bodyAlpha);
+      }
+      for (const mote of simulacrumDust(look.dustProgress, getActiveLayout().tileSize)) {
+        simulacrumDustGraphics.fillStyle(SIMULACRUM_TINT, mote.alpha * entityAlpha);
+        simulacrumDustGraphics.fillRect(
+          simulacrumPop.x + mote.dx - mote.size / 2,
+          simulacrumPop.y + mote.dy - mote.size / 2,
+          mote.size,
+          mote.size,
+        );
+      }
+    }
+
     chainGraphics.clear();
     chainGraphics.setAlpha(entityAlpha);
     tailGraphics.setAlpha(entityAlpha);
@@ -1328,6 +1393,22 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         look.size,
         look.cornerRadius,
       );
+    }
+
+    chaffGraphics.clear();
+    for (const decoy of opts?.chaff ?? []) {
+      const alpha = !expiryTintOn(decoy.remainingMs, scene.time.now)
+        ? CHAFF_ALPHA / 3
+        : CHAFF_ALPHA;
+      const radius = actorDisplaySize() / 2;
+      const heading = Math.atan2(decoy.dy, decoy.dx);
+      const mouth = Math.PI / 5;
+      chaffGraphics.fillStyle(CHAFF_COLOR, alpha);
+      chaffGraphics.beginPath();
+      chaffGraphics.moveTo(decoy.x, decoy.y);
+      chaffGraphics.arc(decoy.x, decoy.y, radius, heading + mouth, heading + Math.PI * 2 - mouth);
+      chaffGraphics.closePath();
+      chaffGraphics.fillPath();
     }
 
     programmerGraphics.clear();

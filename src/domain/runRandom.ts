@@ -19,6 +19,7 @@ export type RandomStream =
   | "lavaZone"
   | "speedZones"
   | "slots"
+  | "chaff"
   | "bot";
 
 export type RunRandom = {

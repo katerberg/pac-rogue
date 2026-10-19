@@ -79,6 +79,7 @@ import {
 import { ghostHouseSeatCenters } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { blinkyEyesTrackPlayer } from "../../domain/ghostPupils";
+import type { GhostDir } from "../../domain/ghostPath";
 import { pickRosterId, RELEASE_SLOT_BY_KIND, type ReleaseSlot } from "../../domain/ghostRoster";
 import {
   createGhostModeClock,
@@ -335,7 +336,20 @@ import {
   type UpgradeSchool,
   remoteTransferEvery,
   type CornucopiaMode,
+  endSimulacrum,
+  simulacrumSavesLife,
 } from "../../domain/upgrades";
+import {
+  mirrorFacing,
+  sharedZoneEffect,
+  simulacrumPopRender,
+  tickSimulacrumPop,
+  twinDesynced,
+  twinPoint,
+  twinZoneEffect,
+  type BodyTile,
+  type SimulacrumPop,
+} from "../../domain/simulacrum";
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
@@ -359,17 +373,15 @@ import { stepNearMisses } from "../systems/nearMiss";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import { tickEchoes } from "../../domain/echo";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
-import { collectExtraPellets } from "../systems/collectExtraPellets";
+import {
+  collectExtraForBodies,
+  collectFruitForBodies,
+  collectPelletsForBodies,
+} from "../systems/collectBodies";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { wallPassSolids } from "../systems/wallPassSolids";
+import { fruitKindsOnBoard, fruitPositions, removeAllFruit } from "../systems/collectFruit";
 import {
-  collectFruit,
-  fruitKindsOnBoard,
-  fruitPositions,
-  removeAllFruit,
-} from "../systems/collectFruit";
-import {
-  collectPellets,
   countPellets,
   noRequiredPelletsLeft,
   type PlayerPelletFrame,
@@ -425,6 +437,8 @@ import {
   playerFacing,
   steerPlayer,
 } from "../systems/playerDirection";
+import { chaffSprites } from "../../domain/chaff";
+import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
@@ -453,8 +467,9 @@ import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { hunterFrightenLimit } from "../../domain/hunter";
 import {
-  applyTunnelDash,
+  applyTunnelDashForBodies,
   tickTunnelDashAnimation,
+  type DashBody,
   type TunnelDashAnimation,
 } from "../systems/tunnelDash";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
@@ -573,6 +588,7 @@ export class PlaySim {
   private caughtByEid: number | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
+  private simulacrumPop: SimulacrumPop | null = null;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
@@ -824,9 +840,12 @@ export class PlaySim {
       lava: this.lavaRenderState(),
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
+      chaff: chaffSprites(this.runUpgrades.chaff),
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
       programmerQueue: this.programmerQueue(),
+      simulacrum: this.death === null ? this.twinDashBody() : null,
+      simulacrumPop: simulacrumPopRender(this.simulacrumPop),
     };
   }
 
@@ -855,6 +874,8 @@ export class PlaySim {
 
   snapshot() {
     const upgrades = this.runUpgrades;
+    const twinPosition = this.twinPosition();
+    const twinBody = this.twinBody();
     return {
       seed: this.random.seed,
       roster: this.rosterId,
@@ -904,6 +925,7 @@ export class PlaySim {
         hyperspeedShieldMs: upgrades.hyperspeedShieldRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
+        chaffMs: upgrades.chaff?.remainingMs ?? 0,
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
         wallDropMs:
           upgrades.droppedWall === null
@@ -925,9 +947,18 @@ export class PlaySim {
       },
       timedTunnel: this.timedTunnelSnapshot(),
       lava: this.lavaSnapshot(),
+      simulacrum: {
+        active: upgrades.simulacrumActive,
+        x: twinPosition?.x ?? null,
+        y: twinPosition?.y ?? null,
+        col: twinBody?.col ?? null,
+        row: twinBody?.row ?? null,
+        popProgress: simulacrumPopRender(this.simulacrumPop)?.progress ?? null,
+      },
       speedZones: this.speedZones,
       speedZonesShifting: this.speedZoneShift !== null,
       playerSpeedZone: this.playerSpeedZone(),
+      chaff: chaffSprites(upgrades.chaff).map(({ x, y }) => ({ x, y })),
       wallDrop: {
         armed: upgrades.wallDropArmed,
         wall:
@@ -1201,6 +1232,7 @@ export class PlaySim {
     this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
     this.runUpgrades = tickHaunt(this.runUpgrades, delta);
     this.runUpgrades = tickWallDrop(this.runUpgrades, delta);
+    this.tickChaff(delta);
     this.runUpgrades = tickFrightened(this.runUpgrades, delta);
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
@@ -1212,6 +1244,8 @@ export class PlaySim {
     }
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
+    this.simulacrumPop = tickSimulacrumPop(this.simulacrumPop, delta);
+    this.checkSimulacrumPop();
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex, this.currentTuning);
     const hyperspeedMul =
       this.runUpgrades.hyperspeedTurnDelayMs > 0
@@ -1233,7 +1267,7 @@ export class PlaySim {
                 : 1) *
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
-              speedZoneMultiplier(this.playerSpeedZone());
+              speedZoneMultiplier(this.zoneEffects().effect);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -1296,7 +1330,7 @@ export class PlaySim {
       hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash") &&
       !this.timedTunnelBlocksPlayerDash()
     ) {
-      const dash = applyTunnelDash(this.world);
+      const dash = applyTunnelDashForBodies(this.world, this.twinDashBody());
       if (dash !== null) {
         this.recorder.tunnelDash();
         this.recorder.powerPellets("tunnelDash", dash.sweptPowerRemoved);
@@ -1357,13 +1391,7 @@ export class PlaySim {
     this.clock = tickRunClock(this.clock, hasInput, delta, this.currentTuning);
     this.emit({ type: "timer" });
 
-    const playerFrame = mergePlayerPelletFrames(
-      this.hyperspeedPellets,
-      collectPellets(this.world, {
-        radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
-        solids: getActiveLayout().playerSolids,
-      }),
-    );
+    const playerFrame = mergePlayerPelletFrames(this.hyperspeedPellets, this.collectBodyPellets());
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     const ghostFrame = ghostHarvestActive(this.runUpgrades)
       ? harvestPelletsByGhosts(this.world)
@@ -1415,7 +1443,11 @@ export class PlaySim {
     const powerEffects = this.applyPowerEffects(this.bankAndCountPickupFires(powerRemoved));
     let bonusRemoved = 0;
     if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
+      const bonusEids = collectExtraForBodies(
+        this.world,
+        powerEffects.collectExtraPellets,
+        this.twinPosition(),
+      );
       for (const eid of bonusEids) {
         this.releaseDrawable(eid);
       }
@@ -1462,6 +1494,8 @@ export class PlaySim {
         frightenedGhostEids(this.runUpgrades),
         blockTunnelRow,
         this.runUpgrades.droppedWall,
+        this.twinBody(),
+        this.runUpgrades.chaff?.decoys,
       );
       frightenedGhostAi(
         this.world,
@@ -1514,7 +1548,7 @@ export class PlaySim {
       this.spawnFruitEntity(stacksFruit);
     }
 
-    const removedFruitEids = collectFruit(this.world);
+    const removedFruitEids = collectFruitForBodies(this.world, this.twinPosition());
     for (const eid of removedFruitEids) {
       this.releaseDrawable(eid);
     }
@@ -1560,8 +1594,12 @@ export class PlaySim {
     this.eatFrightenedGhosts();
 
     const catchOptions = this.catchOptions();
-    const caughtBy = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-    const lavaKill = caughtBy === null && this.playerTouchesLava(catchOptions);
+    const playerCaughtBy =
+      catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+    const playerLava = playerCaughtBy === null && this.touchesLava(catchOptions);
+    const twinCatch = playerCaughtBy === null && !playerLava ? this.twinCatch(catchOptions) : null;
+    const caughtBy = playerCaughtBy ?? twinCatch?.eid ?? null;
+    const lavaKill = playerLava || twinCatch?.lava === true;
     this.emitDraw();
 
     if (caughtBy === null && !lavaKill) {
@@ -1574,7 +1612,16 @@ export class PlaySim {
       ) {
         return;
       }
-      const deathCell = playerCell(this.world);
+      if (this.runUpgrades.simulacrumActive && simulacrumSavesLife(this.effectiveUpgrades())) {
+        this.popSimulacrum();
+        if (twinCatch === null) {
+          this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
+        }
+        return;
+      }
+      const fellAt = twinCatch?.position ?? this.playerPosition();
+      const deathCell =
+        fellAt === null ? null : { col: worldToCol(fellAt.x), row: worldToRow(fellAt.y) };
       const ghostsOut = query(this.world, [Ghost, GhostPhase]).filter(
         (eid) => GhostPhase.value[eid] !== GHOST_PHASE.inHouse,
       ).length;
@@ -1583,6 +1630,7 @@ export class PlaySim {
         const harvested = harvestNearbyPellets(
           this.world,
           deathsHarvestRadiusTiles(this.effectiveUpgrades()),
+          fellAt ?? undefined,
         );
         harvestedCount = harvested.length;
         if (harvested.length > 0) {
@@ -1602,7 +1650,7 @@ export class PlaySim {
           }
         }
       }
-      this.fellAt = this.playerPosition();
+      this.fellAt = fellAt;
       this.caughtByEid = caughtBy;
       this.emit({ type: "loopStop", id: "gameplayMusic" });
       const defied = defyDeathActive(this.runUpgrades);
@@ -1652,6 +1700,85 @@ export class PlaySim {
         this.emitRunLog();
       }
       this.death = beginDeathSequence(result.gameOver);
+    }
+  }
+
+  private twinPosition(): Point | null {
+    const player = this.runUpgrades.simulacrumActive ? this.playerPosition() : null;
+    if (player === null) {
+      return null;
+    }
+    return twinPoint(player, getActiveLayout());
+  }
+
+  private twinBody(): BodyTile | null {
+    const position = this.twinPosition();
+    return position === null
+      ? null
+      : {
+          col: worldToCol(position.x),
+          row: worldToRow(position.y),
+          facing: mirrorFacing(playerFacing(this.world)) as GhostDir,
+        };
+  }
+
+  private twinCatch(
+    options: CatchOptions,
+  ): { eid: number | null; lava: boolean; position: Point } | null {
+    const position = this.twinPosition();
+    if (position === null) {
+      return null;
+    }
+    const at = { ...options, at: position };
+    const eid = catchPlayer(this.world, at) ?? chainCatch(this.world, at);
+    const lava = eid === null && this.touchesLava(options, position);
+    return eid === null && !lava ? null : { eid, lava, position };
+  }
+
+  private collectBodyPellets(): PlayerPelletFrame {
+    return collectPelletsForBodies(
+      this.world,
+      {
+        radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
+        solids: getActiveLayout().playerSolids,
+      },
+      this.twinPosition(),
+    );
+  }
+
+  private twinDashBody(): DashBody | null {
+    const position = this.twinPosition();
+    return position === null
+      ? null
+      : { ...position, facing: mirrorFacing(playerFacing(this.world)) };
+  }
+
+  private zoneEffects(): ReturnType<typeof sharedZoneEffect> {
+    const player = this.playerSpeedZone();
+    const twin = this.twinBody();
+    const eid = query(this.world, [Player, Velocity])[0];
+    if (twin === null || eid === undefined) {
+      return sharedZoneEffect(player, null);
+    }
+    const velocity = { x: Velocity.x[eid] ?? 0, y: Velocity.y[eid] ?? 0 };
+    return sharedZoneEffect(player, twinZoneEffect(this.speedZones, twin, velocity));
+  }
+
+  private checkSimulacrumPop(): void {
+    if (!this.runUpgrades.simulacrumActive) {
+      return;
+    }
+    const cell = playerCell(this.world);
+    if (cell !== null && (twinDesynced(this.playerSolids(), cell) || this.zoneEffects().conflict)) {
+      this.popSimulacrum();
+    }
+  }
+
+  private popSimulacrum(): void {
+    const position = this.twinPosition();
+    this.runUpgrades = endSimulacrum(this.runUpgrades);
+    if (position !== null) {
+      this.simulacrumPop = { ...position, elapsedMs: 0 };
     }
   }
 
@@ -1774,7 +1901,7 @@ export class PlaySim {
     return { ...zone, ...rest, started: this.lavaStarted };
   }
 
-  private playerTouchesLava(catchOptions: CatchOptions): boolean {
+  private touchesLava(catchOptions: CatchOptions, at?: Point): boolean {
     const eid = query(this.world, [Player, Position, Drawable])[0];
     if (this.lavaZone === null || eid === undefined || catchOptions.playerInvulnerable === true) {
       return false;
@@ -1782,8 +1909,8 @@ export class PlaySim {
     return lavaTouchesCircle(
       this.lavaZone,
       lavaReachTiles(this.lavaElapsedMs),
-      Position.x[eid] ?? 0,
-      Position.y[eid] ?? 0,
+      at?.x ?? Position.x[eid] ?? 0,
+      at?.y ?? Position.y[eid] ?? 0,
       Drawable.radius[eid] ?? 0,
     );
   }
@@ -2354,6 +2481,7 @@ export class PlaySim {
 
   private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
+    this.simulacrumPop = null;
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
     this.topUpStartingShields();
@@ -2892,12 +3020,9 @@ export class PlaySim {
       collect: () => {
         this.hyperspeedPellets = mergePlayerPelletFrames(
           this.hyperspeedPellets,
-          collectPellets(this.world, {
-            radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
-            solids: getActiveLayout().playerSolids,
-          }),
+          this.collectBodyPellets(),
         );
-        const eatenFruit = collectFruit(this.world);
+        const eatenFruit = collectFruitForBodies(this.world, this.twinPosition());
         for (const eid of eatenFruit) {
           this.releaseDrawable(eid);
           this.hyperspeedFruitEaten += 1;
@@ -2906,7 +3031,8 @@ export class PlaySim {
         this.eatFrightenedGhosts();
         const catchOptions = this.catchOptions();
         const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-        const touched = hit !== null || this.playerTouchesLava(catchOptions);
+        const touched =
+          hit !== null || this.touchesLava(catchOptions) || this.twinCatch(catchOptions) !== null;
         return touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield());
       },
       halt: () => this.zeroPlayerSpeed(),
@@ -3020,7 +3146,11 @@ export class PlaySim {
   ): boolean {
     const powerEffects = this.applyPowerEffects(powerRemoved, echoBases);
     if (powerEffects.collectExtraPellets > 0) {
-      const bonusEids = collectExtraPellets(this.world, powerEffects.collectExtraPellets);
+      const bonusEids = collectExtraForBodies(
+        this.world,
+        powerEffects.collectExtraPellets,
+        this.twinPosition(),
+      );
       for (const eid of bonusEids) {
         this.releaseDrawable(eid);
       }
@@ -3281,6 +3411,12 @@ export class PlaySim {
         this.recorder.activation(kind);
       }
     }
+    if (after.chaff !== null && after.chaff !== before.chaff) {
+      this.recorder.activation("chaff");
+    }
+    if (powerEffects.simulacrumStarted) {
+      this.recorder.activation("simulacrum");
+    }
     if (powerEffects.collectExtraPellets > 0) {
       this.recorder.activation("collectExtra");
     }
@@ -3288,6 +3424,19 @@ export class PlaySim {
       this.spawnCornucopiaFruit(powerEffects.cornucopiaFruit);
     }
     return powerEffects;
+  }
+
+  private tickChaff(delta: number): void {
+    const result = advanceChaff(
+      this.world,
+      this.runUpgrades.chaff,
+      delta,
+      this.random.stream("chaff", this.levelIndex),
+    );
+    this.runUpgrades = { ...this.runUpgrades, chaff: result.state };
+    for (const tile of result.burst) {
+      this.emit({ type: "chaffBurst", x: cellCenterX(tile.col), y: cellCenterY(tile.row) });
+    }
   }
 
   private recordRecall(eid: number | null): void {
@@ -3410,6 +3559,7 @@ export class PlaySim {
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
+    this.simulacrumPop = null;
     this.resetStreak();
     this.remoteTransferCounter = 0;
     const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt);
