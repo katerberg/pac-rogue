@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { activateAsciiLayout, activateLayout, isWalkable } from "./maze";
+import {
+  activateAsciiLayout,
+  activateLayout,
+  cellOriginX,
+  cellOriginY,
+  isWalkable,
+  wallPathCommands,
+} from "./maze";
 import { STORE_MAZE_ASCII } from "./mazeLayouts";
 import {
   STORE_ENHANCE_PRICE,
@@ -15,6 +22,7 @@ import {
   promptView,
   purchaseSchool,
   slotPrice,
+  slotWallExterior,
   swapIncomingSchool,
   storeAfterLevel,
   storePanelMode,
@@ -101,6 +109,29 @@ describe("store layout", () => {
       ],
       freebie: { col: 14, row: 17 },
     });
+  });
+
+  it("limits a slot's wall outline to the edges bordering its own 2x2 block", () => {
+    const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    const slot = { col: 1, row: 1 };
+    const exterior = slotWallExterior(slot, layout.rows, layout.cols);
+    const all = wallPathCommands(
+      layout.walls,
+      layout.walls.map((r) => r.map(() => false)),
+    );
+    const own = wallPathCommands(layout.walls, exterior);
+    expect(own.length).toBeGreaterThan(0);
+    expect(own.length).toBeLessThan(all.length);
+    const [x0, y0, x1, y1] = [
+      cellOriginX(slot.col) - 20,
+      cellOriginY(slot.row) - 20,
+      cellOriginX(slot.col + 2) + 20,
+      cellOriginY(slot.row + 2) + 20,
+    ];
+    for (const c of own) {
+      expect(c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1).toBe(true);
+    }
+    activateLayout("maze1");
   });
 
   it("rejects a slot that is not a full 2x2 block, or a missing freebie", () => {
