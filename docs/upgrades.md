@@ -32,7 +32,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `powerPelletSpeedBurst` | Speed Burst | speed | Power pellet spikes your pace for a few seconds. | Power pellet spikes your pace hard for a few seconds. |
 | `powerPelletInvuln` | Ghost Proof | protection | Power pellet lets you pass through ghosts for 4s. | Power pellet lets you pass through ghosts for 5s (shortening toward ~3.8s by level 5). |
 | `powerPelletGhostHarvester` | Ghost Harvester | automation | Power pellets make ghosts eat pellets for you for 5 seconds. | Power pellets make ghosts eat pellets for you for 8 seconds. |
-| `fruitPowerPellet` | Fruit Power (rare) | harvest | Bonus fruit hits like a power pellet, triggering every effect you own. | Bonus fruit hits like a power pellet and turns a pellet hot. |
+| `fruitPowerPellet` | Fruit Power (rare) | harvest | Bonus fruit fires a random one of your power-pellet effects. | Bonus fruit fires every power-pellet effect you own. |
 | `fruitQuarterBounty` | Quarter Bounty | harvest | Bonus fruit pays a Quarter instead of charging the bonus bar. | Bonus fruit pays two Quarters. |
 | `fruitFecundity` | Fruit Fecundity | harvest | Bonus fruit lingers twice as long. | Bonus fruit waits until the level ends, and uncollected ones pile up side by side. |
 | `fruitFeast` | Fruit Feast | harvest | Bonus fruit appears three times per level, each after the last is gone. | Bonus fruit appears four times per level, each after the last is gone. |

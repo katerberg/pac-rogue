@@ -149,7 +149,8 @@ import {
   enhancedIdOf,
   fruitFeastThresholds,
   fruitPersistsUntilLevelEnd,
-  fruitPowerConvertsPellet,
+  fruitPowerEffects,
+  pickFruitPowerBases,
   ghostTunnelSpeedRatio,
   ghostsBlockedFromTunnels,
   tunnelExitInvulnMs,
@@ -1503,7 +1504,9 @@ describe("enhanced upgrades", () => {
     expect(fruitFeastThresholds(["fruitFeastPlus"])).toEqual([45, 100, 150, 200]);
     expect(fruitPersistsUntilLevelEnd(["fruitFecundityPlus"])).toBe(true);
     expect(fruitPersistsUntilLevelEnd(["fruitFecundity"])).toBe(false);
-    expect(fruitPowerConvertsPellet(["fruitPowerPelletPlus"])).toBe(true);
+    expect(fruitPowerEffects(["fruitPowerPellet"])).toBe("one");
+    expect(fruitPowerEffects(["fruitPowerPelletPlus"])).toBe("all");
+    expect(fruitPowerEffects([])).toBeNull();
     expect(wallPassLoopOwned(["powerPelletWallPassPlus"])).toBe(true);
     expect(wallPassLoopOwned(["powerPelletWallPass"])).toBe(false);
   });
@@ -1762,6 +1765,25 @@ describe("Echo", () => {
     const echo = applyPowerPelletEffects(state, 1, ["powerPelletInvuln"]);
     expect(echo.state.invulnRemainingMs).toBe(INVULN_MS * 2);
     expect(echo.state.speedBurstRemainingMs).toBe(0);
+  });
+});
+
+describe("Fruit Power", () => {
+  it("picks one random owned power-pellet upgrade, or every one when enhanced", () => {
+    const owned = ["fruitPowerPellet", "powerPelletInvuln", "powerPelletFreeze"] as const;
+    expect(pickFruitPowerBases(owned, () => 0)).toEqual(["powerPelletInvuln"]);
+    expect(pickFruitPowerBases(owned, () => 0.99)).toEqual(["powerPelletFreeze"]);
+    expect(
+      pickFruitPowerBases(
+        ["fruitPowerPelletPlus", "powerPelletInvuln", "powerPelletFreeze"],
+        () => 0,
+      ),
+    ).toEqual(["powerPelletInvuln", "powerPelletFreeze"]);
+  });
+
+  it("picks nothing without Fruit Power or without power-pellet upgrades", () => {
+    expect(pickFruitPowerBases(["powerPelletInvuln"], () => 0)).toEqual([]);
+    expect(pickFruitPowerBases(["fruitPowerPellet", "passiveGhostSlow"], () => 0)).toEqual([]);
   });
 });
 

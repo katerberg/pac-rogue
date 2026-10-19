@@ -3028,16 +3028,25 @@ describe("PlaySim fruit bonus charge", () => {
     expect(plus.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 10 } });
   });
 
-  it("Fruit Power+ also turns a regular pellet into a power pellet", () => {
-    const sim = startWithFruit({ enableUpgrades: ["fruitPowerPelletPlus"] });
-    const before = query(sim.world, [Pellet, PowerPellet]).length;
-    eatFruit(sim);
-    expect(query(sim.world, [Pellet, PowerPellet]).length).toBe(before + 1);
-
-    const base = startWithFruit({ enableUpgrades: ["fruitPowerPellet"] });
-    const baseBefore = query(base.world, [Pellet, PowerPellet]).length;
+  it("Fruit Power fires one random power effect; Plus fires all; neither turns a pellet hot", () => {
+    const base = startWithFruit({
+      enableUpgrades: ["fruitPowerPellet", "powerPelletInvuln", "powerPelletSpeedBurst"],
+    });
+    const basePowerBefore = query(base.world, [Pellet, PowerPellet]).length;
     eatFruit(base);
-    expect(query(base.world, [Pellet, PowerPellet]).length).toBe(baseBefore);
+    const baseTimers = base.snapshot().timers;
+    const baseFired = Number(baseTimers.invulnMs > 0) + Number(baseTimers.speedBurstMs > 0);
+    expect(baseFired).toBe(1);
+    expect(query(base.world, [Pellet, PowerPellet]).length).toBe(basePowerBefore);
+
+    const plus = startWithFruit({
+      enableUpgrades: ["fruitPowerPelletPlus", "powerPelletInvuln", "powerPelletSpeedBurst"],
+    });
+    const plusPowerBefore = query(plus.world, [Pellet, PowerPellet]).length;
+    eatFruit(plus);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(0);
+    expect(plus.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+    expect(query(plus.world, [Pellet, PowerPellet]).length).toBe(plusPowerBefore);
   });
 });
 
