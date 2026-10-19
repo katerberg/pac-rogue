@@ -16,7 +16,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { PowerPellet } from "../components/PowerPellet";
-import { fruitKindsOnBoard } from "./collectFruit";
+import { fruitKindsOnBoard, fruitPositions } from "./collectFruit";
 
 export type ActorSnapshot = {
   x: number;
@@ -42,6 +42,8 @@ export type WorldSnapshot = {
   optionalPellets: number;
   fruit: boolean;
   fruitKinds: FruitKind[];
+  fruitCol: number | null;
+  fruitRow: number | null;
 };
 
 export function nameOf(table: Record<string, number>, value: number | undefined): string {
@@ -71,6 +73,7 @@ export function worldSnapshot(world: World): WorldSnapshot {
   }));
   const powerPellets = query(world, [PowerPellet]).length;
   const fruitKinds = fruitKindsOnBoard(world);
+  const fruitAt = fruitPositions(world)[0];
   return {
     player:
       playerEid === undefined
@@ -83,5 +86,7 @@ export function worldSnapshot(world: World): WorldSnapshot {
     optionalPellets: query(world, [OptionalPellet]).length,
     fruit: fruitKinds.length > 0,
     fruitKinds,
+    fruitCol: fruitAt === undefined ? null : worldToCol(fruitAt.x),
+    fruitRow: fruitAt === undefined ? null : worldToRow(fruitAt.y),
   };
 }

@@ -1,5 +1,5 @@
 import { hasComponent, query, removeEntity } from "bitecs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createFruitPresence,
   FRUIT_FLICKER_MS,
@@ -1129,16 +1129,10 @@ describe("PlaySim", () => {
   ])("saves a high score on Game Over unless debug flags are on (%s)", (disabled, saves) => {
     const sim = startSim({ level: 2, maze: "maze1", highScoresDisabled: disabled });
     const events: SimEvent[] = [];
-    for (let life = 0; life < 10 && !events.some((e) => e.type === "goToMenu"); life += 1) {
+    for (let life = 0; life < 10 && !sim.snapshot().runEnd; life += 1) {
       ghostOntoPlayer(sim);
       events.push(...runFrames(sim, 1));
-      events.push(
-        ...runUntil(
-          sim,
-          () => !sim.snapshot().dying || events.some((e) => e.type === "goToMenu"),
-          400,
-        ),
-      );
+      events.push(...runUntil(sim, () => !sim.snapshot().dying || sim.snapshot().runEnd, 400));
     }
     expect(events).toContainEqual({ type: "endText", title: "GAME OVER" });
     expect(count(events, "saveRun")).toBe(saves);
@@ -3021,16 +3015,25 @@ describe("PlaySim fruit bonus charge", () => {
     expect(plus.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 10 } });
   });
 
-  it("Fruit Power+ also turns a regular pellet into a power pellet", () => {
-    const sim = startWithFruit({ enableUpgrades: ["fruitPowerPelletPlus"] });
-    const before = query(sim.world, [Pellet, PowerPellet]).length;
-    eatFruit(sim);
-    expect(query(sim.world, [Pellet, PowerPellet]).length).toBe(before + 1);
-
-    const base = startWithFruit({ enableUpgrades: ["fruitPowerPellet"] });
-    const baseBefore = query(base.world, [Pellet, PowerPellet]).length;
+  it("Fruit Power fires one random power effect; Plus fires all; neither turns a pellet hot", () => {
+    const base = startWithFruit({
+      enableUpgrades: ["fruitPowerPellet", "powerPelletInvuln", "powerPelletSpeedBurst"],
+    });
+    const basePowerBefore = query(base.world, [Pellet, PowerPellet]).length;
     eatFruit(base);
-    expect(query(base.world, [Pellet, PowerPellet]).length).toBe(baseBefore);
+    const baseTimers = base.snapshot().timers;
+    const baseFired = Number(baseTimers.invulnMs > 0) + Number(baseTimers.speedBurstMs > 0);
+    expect(baseFired).toBe(1);
+    expect(query(base.world, [Pellet, PowerPellet]).length).toBe(basePowerBefore);
+
+    const plus = startWithFruit({
+      enableUpgrades: ["fruitPowerPelletPlus", "powerPelletInvuln", "powerPelletSpeedBurst"],
+    });
+    const plusPowerBefore = query(plus.world, [Pellet, PowerPellet]).length;
+    eatFruit(plus);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(0);
+    expect(plus.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+    expect(query(plus.world, [Pellet, PowerPellet]).length).toBe(plusPowerBefore);
   });
 });
 
@@ -6766,12 +6769,22 @@ describe("power pellet break VFX", () => {
   });
 
   it("shows a notice instead of the starting upgrade when the pasted maze fails", () => {
-    const sim = new PlaySim({ ...defaultPlayOptions(), mazeAscii: "#####" }, "test");
-    const events = sim.start();
-    expect(count(events, "startingNotice")).toBe(1);
-    expect(count(events, "startingUpgrade")).toBe(0);
-    expect(sim.snapshot().layout).toBe("maze2");
-    expect(sim.snapshot().upgrades).toHaveLength(0);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const sim = new PlaySim({ ...defaultPlayOptions(), mazeAscii: "#####" }, "test");
+      const events = sim.start();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /maze activate failed for custom; falling back to maze2: maze cols 5/,
+        ),
+      );
+      expect(count(events, "startingNotice")).toBe(1);
+      expect(count(events, "startingUpgrade")).toBe(0);
+      expect(sim.snapshot().layout).toBe("maze2");
+      expect(sim.snapshot().upgrades).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
@@ -7055,11 +7068,11 @@ describe("Inheritance", () => {
   });
 });
 
-describe("Simulacrum", () => {
+describe("Mirror", () => {
   const RIGHT = { keys: held("right") };
 
   function start(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
-    return startSim({ level: 2, maze: "maze1", enableUpgrades, ...overrides }, "simulacrum");
+    return startSim({ level: 2, maze: "maze1", enableUpgrades, ...overrides }, "mirror");
   }
 
   function clearGhosts(sim: PlaySim): void {
@@ -7089,7 +7102,7 @@ describe("Simulacrum", () => {
     const power = query(sim.world, [PowerPellet, Position])[0]!;
     teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
     runFrames(sim, 1);
-    expect(sim.snapshot().simulacrum.active).toBe(true);
+    expect(sim.snapshot().mirror.active).toBe(true);
   }
 
   function placeOnRow(sim: PlaySim, col: number): number {
@@ -7099,7 +7112,7 @@ describe("Simulacrum", () => {
   }
 
   function ghostOnTwin(sim: PlaySim): void {
-    const twin = sim.snapshot().simulacrum;
+    const twin = sim.snapshot().mirror;
     const ghost = query(sim.world, [Ghost, Position])[0]!;
     Position.x[ghost] = twin.x!;
     Position.y[ghost] = twin.y!;
@@ -7116,48 +7129,41 @@ describe("Simulacrum", () => {
     const power = query(sim.world, [PowerPellet, Position])[0]!;
     teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
     runFrames(sim, 3);
-    expect(sim.snapshot().simulacrum).toMatchObject({ active: false, x: null, popProgress: null });
-    expect(sim.renderOptions().simulacrum).toBeNull();
+    expect(sim.snapshot().mirror).toMatchObject({ active: false, x: null, popProgress: null });
+    expect(sim.renderOptions().mirror).toBeNull();
   });
 
   it("appears on a power pellet and mirrors the player across the middle", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);
     arm(sim);
     placeOnRow(sim, 4);
     runFrames(sim, 20, RIGHT);
     const player = playerEid(sim);
-    const twin = sim.snapshot().simulacrum;
+    const twin = sim.snapshot().mirror;
     expect(twin.x).toBeCloseTo(2 * centerX() - Position.x[player]!);
     expect(twin.y).toBeCloseTo(Position.y[player]!);
-    expect(sim.renderOptions().simulacrum).toMatchObject({ x: twin.x, y: twin.y });
+    expect(sim.renderOptions().mirror).toMatchObject({ x: twin.x, y: twin.y });
   });
 
-  it("lets the bodies walk through each other at the midline", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+  it("pops the twin when the bodies touch at the midline", () => {
+    const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);
     arm(sim);
     placeOnRow(sim, 10);
-    const player = playerEid(sim);
     const lives = sim.snapshot().lives;
-    let closest = Infinity;
-    runUntil(
-      sim,
-      () => {
-        closest = Math.min(closest, Math.abs(sim.snapshot().simulacrum.x! - Position.x[player]!));
-        return worldToCol(Position.x[player]!) >= 17;
-      },
-      600,
-      RIGHT,
+    runUntil(sim, () => !sim.snapshot().mirror.active, 600, RIGHT);
+    const player = playerEid(sim);
+    expect(Math.abs(2 * centerX() - Position.x[player]! - Position.x[player]!)).toBeLessThan(
+      TILE_SIZE / 2,
     );
-    expect(closest).toBeLessThan(TILE_SIZE / 2);
-    expect(sim.snapshot().simulacrum.active).toBe(true);
+    expect(sim.snapshot().mirror.popProgress).not.toBeNull();
     expect(sim.snapshot().dying).toBe(false);
     expect(sim.snapshot().lives).toBe(lives);
   });
 
   it("eats pellets the twin stands on", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);
     arm(sim);
     const target = regularPelletEids(sim).find((eid) => worldToCol(Position.x[eid]!) <= 5)!;
@@ -7169,7 +7175,7 @@ describe("Simulacrum", () => {
   });
 
   it("eats fruit the twin stands on", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);
     arm(sim);
     const row = placeOnRow(sim, 17);
@@ -7183,7 +7189,7 @@ describe("Simulacrum", () => {
   });
 
   it("keeps the twin while both bodies are inside walls with Wall Pass", () => {
-    const sim = start(["powerPelletSimulacrum", "powerPelletWallPass"]);
+    const sim = start(["powerPelletMirror", "powerPelletWallPass"]);
     clearGhosts(sim);
     arm(sim);
     expect(sim.snapshot().timers.wallPassMs).toBeGreaterThan(0);
@@ -7194,7 +7200,7 @@ describe("Simulacrum", () => {
     )!;
     teleportPlayer(sim, cellCenterX(col), cellCenterY(wallRow));
     runFrames(sim, 3);
-    expect(sim.snapshot().simulacrum.active).toBe(true);
+    expect(sim.snapshot().mirror.active).toBe(true);
   });
 
   function pelletAt(sim: PlaySim, col: number, row: number): number | undefined {
@@ -7212,7 +7218,7 @@ describe("Simulacrum", () => {
 
   describe("is you", () => {
     it("eats along the mirrored path at hyperspeed, not just where each frame ends", () => {
-      const sim = start(["powerPelletSimulacrum", "powerPelletHyperspeed"]);
+      const sim = start(["powerPelletMirror", "powerPelletHyperspeed"]);
       clearGhosts(sim);
       arm(sim);
       expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(0);
@@ -7227,17 +7233,17 @@ describe("Simulacrum", () => {
     });
 
     it("is caught by a ghost mid-path at hyperspeed, not only where a frame ends", () => {
-      const sim = start(["powerPelletSimulacrum", "powerPelletHyperspeed"]);
+      const sim = start(["powerPelletMirror", "powerPelletHyperspeed"]);
       arm(sim);
       const row = placeOnRow(sim, 3);
       Facing.direction[playerEid(sim)] = DIRECTION.right;
       runFrames(sim, 2, RIGHT);
       const frameStep = (): number => {
-        const before = sim.snapshot().simulacrum.x!;
+        const before = sim.snapshot().mirror.x!;
         sim.step({ ...IDLE_INPUT, ...RIGHT }, 50);
-        return before - sim.snapshot().simulacrum.x!;
+        return before - sim.snapshot().mirror.x!;
       };
-      const startX = sim.snapshot().simulacrum.x!;
+      const startX = sim.snapshot().mirror.x!;
       const travel = frameStep();
       expect(travel).toBeGreaterThan(2 * TILE_SIZE);
       teleportPlayer(sim, 2 * centerX() - startX, cellCenterY(row));
@@ -7251,7 +7257,7 @@ describe("Simulacrum", () => {
     });
 
     it("dies on lava the player is not touching", () => {
-      const sim = startSim({ level: 8, maze: "maze1", enableUpgrades: ["powerPelletSimulacrum"] });
+      const sim = startSim({ level: 8, maze: "maze1", enableUpgrades: ["powerPelletMirror"] });
       clearGhosts(sim);
       sim["speedZones"] = [];
       arm(sim);
@@ -7269,7 +7275,7 @@ describe("Simulacrum", () => {
       const sim = startSim({
         level: 8,
         maze: "maze1",
-        enableUpgrades: ["powerPelletSimulacrumPlus"],
+        enableUpgrades: ["powerPelletMirrorPlus"],
       });
       clearGhosts(sim);
       sim["speedZones"] = [];
@@ -7281,11 +7287,11 @@ describe("Simulacrum", () => {
       runFrames(sim, 1);
       expect(sim.snapshot().dying).toBe(false);
       expect(sim.snapshot().lives).toBe(lives);
-      expect(sim.snapshot().simulacrum.active).toBe(false);
+      expect(sim.snapshot().mirror.active).toBe(false);
     });
 
     function twinReaches(enableUpgrades: UpgradeId[]): boolean {
-      const sim = start(["powerPelletSimulacrum", ...enableUpgrades]);
+      const sim = start(["powerPelletMirror", ...enableUpgrades]);
       clearGhosts(sim);
       arm(sim);
       const row = openRow();
@@ -7317,7 +7323,7 @@ describe("Simulacrum", () => {
 
     it("gets Extra Hungry", () => {
       const solo = pelletsGone(["powerPelletExtraHungry"]);
-      const withTwin = pelletsGone(["powerPelletExtraHungry", "powerPelletSimulacrum"]);
+      const withTwin = pelletsGone(["powerPelletExtraHungry", "powerPelletMirror"]);
       expect(withTwin - solo).toBe(8);
     });
 
@@ -7338,59 +7344,59 @@ describe("Simulacrum", () => {
         const left = query(sim.world, [Pellet]);
         return [!left.includes(near), !left.includes(far)];
       };
-      expect(sweep(["powerPelletSimulacrum"])).toEqual([false, false]);
-      expect(sweep(["powerPelletSimulacrum", "passiveTunnelDash"])).toEqual([true, true]);
+      expect(sweep(["powerPelletMirror"])).toEqual([false, false]);
+      expect(sweep(["powerPelletMirror", "passiveTunnelDash"])).toEqual([true, true]);
     });
   });
 
   it("ignores power pellets while active", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);
     arm(sim);
     const total = query(sim.world, [PowerPellet]).length;
     runFrames(sim, 3);
     expect(query(sim.world, [PowerPellet]).length).toBeLessThan(total);
-    expect(sim.snapshot().simulacrum.active).toBe(true);
-    expect(sim.runLogRecord().levels.at(-1)!.activations.simulacrum).toBe(1);
+    expect(sim.snapshot().mirror.active).toBe(true);
+    expect(sim.runLogRecord().levels.at(-1)!.activations.mirror).toBe(1);
   });
 
   it("targets whichever body is nearer by path", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     arm(sim);
     placeOnRow(sim, 4);
     runFrames(sim, 1);
     const ghost = query(sim.world, [Ghost, Position])[0]!;
-    const twin = sim.snapshot().simulacrum;
+    const twin = sim.snapshot().mirror;
     Position.x[ghost] = twin.x! - 3 * TILE_SIZE;
     Position.y[ghost] = twin.y!;
     GhostPhase.value[ghost] = GHOST_PHASE.active;
     Facing.direction[ghost] = DIRECTION.none;
     sim["ghostModeClock"] = { ...sim["ghostModeClock"], mode: GHOST_AI_MODE.chase };
     sim["previousEffectiveGhostMode"] = GHOST_AI_MODE.chase;
-    const gap = (): number => Math.abs(Position.x[ghost]! - sim.snapshot().simulacrum.x!);
+    const gap = (): number => Math.abs(Position.x[ghost]! - sim.snapshot().mirror.x!);
     const before = gap();
     runFrames(sim, 20);
     expect(gap()).toBeLessThan(before);
   });
 
   it("counts a catch of the twin as a death from the twin's spot", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     arm(sim);
     placeOnRow(sim, 4);
     runFrames(sim, 1);
     const lives = sim.snapshot().lives;
-    const twinCol = sim.snapshot().simulacrum.col!;
+    const twinCol = sim.snapshot().mirror.col!;
     ghostOnTwin(sim);
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
     expect(sim.snapshot().lives).toBe(lives - 1);
     expect(lastDeath(sim)).toMatchObject({ col: twinCol, row: openRow() });
     runUntil(sim, () => !sim.snapshot().dying, 400);
-    expect(sim.snapshot().simulacrum.active).toBe(false);
+    expect(sim.snapshot().mirror.active).toBe(false);
   });
 
   it("counts a catch of the player as a normal death and removes the twin", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     arm(sim);
     placeOnRow(sim, 4);
     runFrames(sim, 1);
@@ -7399,23 +7405,23 @@ describe("Simulacrum", () => {
     runFrames(sim, 1);
     expect(sim.snapshot().lives).toBe(lives - 1);
     runUntil(sim, () => !sim.snapshot().dying, 400);
-    expect(sim.snapshot().simulacrum.active).toBe(false);
+    expect(sim.snapshot().mirror.active).toBe(false);
   });
 
   it("spares the twin and the player under Ghost Proof", () => {
-    const sim = start(["powerPelletSimulacrum", "powerPelletInvuln"]);
+    const sim = start(["powerPelletMirror", "powerPelletInvuln"]);
     arm(sim);
     placeOnRow(sim, 4);
     runFrames(sim, 1);
     ghostOnTwin(sim);
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(false);
-    expect(sim.snapshot().simulacrum.active).toBe(true);
+    expect(sim.snapshot().mirror.active).toBe(true);
   });
 
   describe("enhanced", () => {
     it("pops only the twin when a ghost catches it, without costing a life", () => {
-      const sim = start(["powerPelletSimulacrumPlus"]);
+      const sim = start(["powerPelletMirrorPlus"]);
       arm(sim);
       placeOnRow(sim, 4);
       runFrames(sim, 1);
@@ -7425,13 +7431,13 @@ describe("Simulacrum", () => {
       expect(sim.snapshot().dying).toBe(false);
       expect(sim.snapshot().lives).toBe(lives);
       expect(sim.snapshot().deathsThisBoard).toBe(0);
-      expect(sim.snapshot().simulacrum).toMatchObject({ active: false, x: null });
-      expect(sim.snapshot().simulacrum.popProgress).not.toBeNull();
-      expect(sim.renderOptions().simulacrumPop).not.toBeNull();
+      expect(sim.snapshot().mirror).toMatchObject({ active: false, x: null });
+      expect(sim.snapshot().mirror.popProgress).not.toBeNull();
+      expect(sim.renderOptions().mirrorPop).not.toBeNull();
     });
 
     it("pops the twin and shields the player when a ghost catches the player", () => {
-      const sim = start(["powerPelletSimulacrumPlus"]);
+      const sim = start(["powerPelletMirrorPlus"]);
       arm(sim);
       placeOnRow(sim, 4);
       runFrames(sim, 1);
@@ -7440,14 +7446,14 @@ describe("Simulacrum", () => {
       runFrames(sim, 1);
       expect(sim.snapshot().dying).toBe(false);
       expect(sim.snapshot().lives).toBe(lives);
-      expect(sim.snapshot().simulacrum.active).toBe(false);
+      expect(sim.snapshot().mirror.active).toBe(false);
       expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
       runFrames(sim, 10);
       expect(sim.snapshot().dying).toBe(false);
     });
 
     it("is a normal death again once the twin is gone", () => {
-      const sim = start(["powerPelletSimulacrumPlus"]);
+      const sim = start(["powerPelletMirrorPlus"]);
       arm(sim);
       placeOnRow(sim, 4);
       runFrames(sim, 1);
@@ -7460,20 +7466,20 @@ describe("Simulacrum", () => {
     });
 
     it("finishes the pop animation", () => {
-      const sim = start(["powerPelletSimulacrumPlus"]);
+      const sim = start(["powerPelletMirrorPlus"]);
       arm(sim);
       placeOnRow(sim, 4);
       runFrames(sim, 1);
       ghostOnTwin(sim);
       runFrames(sim, 1);
-      runUntil(sim, () => sim.snapshot().simulacrum.popProgress === null, 120);
-      expect(sim.renderOptions().simulacrumPop).toBeNull();
+      runUntil(sim, () => sim.snapshot().mirror.popProgress === null, 120);
+      expect(sim.renderOptions().mirrorPop).toBeNull();
     });
   });
 
   describe("speed zones", () => {
     function zoneRun(zoneFor: (row: number, playerCol: number, twinCol: number) => SpeedZone[]) {
-      const sim = start(["powerPelletSimulacrum"], { level: 6 });
+      const sim = start(["powerPelletMirror"], { level: 6 });
       const livesBefore = sim.snapshot().lives;
       clearGhosts(sim);
       settledZones(sim);
@@ -7505,8 +7511,8 @@ describe("Simulacrum", () => {
         lane(playerCol, row, "right"),
         lane(twinCol, row, "right"),
       ]);
-      expect(sim.snapshot().simulacrum.active).toBe(false);
-      expect(sim.snapshot().simulacrum.popProgress).not.toBeNull();
+      expect(sim.snapshot().mirror.active).toBe(false);
+      expect(sim.snapshot().mirror.popProgress).not.toBeNull();
       expect(sim.snapshot().dying).toBe(false);
       expect(sim.snapshot().lives).toBe(livesBefore);
     });
@@ -7516,23 +7522,23 @@ describe("Simulacrum", () => {
         lane(playerCol, row, "right"),
         lane(twinCol, row, "left"),
       ]);
-      expect(sim.snapshot().simulacrum.active).toBe(true);
+      expect(sim.snapshot().mirror.active).toBe(true);
       expect(sim.snapshot().playerSpeedZone).toBe("fast");
     });
 
     it("applies the zone to both bodies when only one is in it", () => {
       const open = zoneRun(() => []);
       const solo = zoneRun((row, playerCol) => [lane(playerCol, row, "right")]);
-      expect(solo.sim.snapshot().simulacrum.active).toBe(true);
+      expect(solo.sim.snapshot().mirror.active).toBe(true);
       expect(solo.speed).toBeCloseTo(open.speed * FAST_ZONE_MULTIPLIER);
       const twinOnly = zoneRun((row, _playerCol, twinCol) => [lane(twinCol, row, "left")]);
-      expect(twinOnly.sim.snapshot().simulacrum.active).toBe(true);
+      expect(twinOnly.sim.snapshot().mirror.active).toBe(true);
       expect(twinOnly.speed).toBeCloseTo(open.speed * FAST_ZONE_MULTIPLIER);
     });
   });
 
   it("pops when the mirrored cell is a wall the player cell is not", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);
     arm(sim);
     const col = 6;
@@ -7550,13 +7556,13 @@ describe("Simulacrum", () => {
       },
     };
     runFrames(sim, 1);
-    expect(sim.snapshot().simulacrum.active).toBe(false);
+    expect(sim.snapshot().mirror.active).toBe(false);
     expect(sim.snapshot().dying).toBe(false);
-    expect(sim.snapshot().simulacrum.popProgress).not.toBeNull();
+    expect(sim.snapshot().mirror.popProgress).not.toBeNull();
   });
 
   it("ends on level advance and can start again", () => {
-    const sim = start(["powerPelletSimulacrum"]);
+    const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);
     arm(sim);
     for (const eid of Array.from(query(sim.world, [Pellet, Position]))) {
@@ -7564,7 +7570,7 @@ describe("Simulacrum", () => {
     }
     takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 1200);
-    expect(sim.snapshot().simulacrum.active).toBe(false);
+    expect(sim.snapshot().mirror.active).toBe(false);
   });
 });
 

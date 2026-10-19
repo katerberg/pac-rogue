@@ -39,7 +39,7 @@ import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
-import { getUpgradeDef, upgradeLabels, type UpgradeId } from "../../domain/upgrades";
+import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import {
   isSfxPlaying,
   playPelletCollectSfx,
@@ -74,11 +74,16 @@ import {
   MENU_TITLE_FONT_SIZE,
   placePixelText,
   TEXT_COLOR_YELLOW,
-  UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/textLayout";
+import { schoolArtTextureKey } from "../../domain/schoolArt";
+import {
+  UPGRADE_HUD_COMPACT_SIZE,
+  upgradeHudIconPosition,
+  upgradeHudIconSize,
+} from "../../domain/upgradeHud";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createIntermissionActors, type IntermissionActors } from "./intermissionActors";
+import { createReplayPlayer, type ReplayPlayback } from "./replayPlayer";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
@@ -86,11 +91,7 @@ import { playStreakPop } from "./streakPop";
 import { createSlotOverlay, type SlotOverlay } from "./slotOverlay";
 import type { StoreDir } from "../../domain/store";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
-import {
-  createUpgradeChoiceModal,
-  SCHOOL_COLORS,
-  type UpgradeChoiceModal,
-} from "./upgradeChoiceModal";
+import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
 
 const HUD_ICON_LEFT_X = 12;
@@ -119,6 +120,8 @@ const CHROME_SHAKE_OFFSETS: readonly (readonly [number, number])[] = [
 
 type PlaySceneData = { restartLevel?: number; seed?: string };
 
+const RUN_END_FADE_IN_MS = 600;
+
 export class PlayScene extends Phaser.Scene {
   private sim!: PlaySim;
   private readHeldKeys!: () => HeldKeys;
@@ -138,7 +141,7 @@ export class PlayScene extends Phaser.Scene {
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
-  private upgradeLines: Phaser.GameObjects.BitmapText[] = [];
+  private upgradeIcons: Phaser.GameObjects.Image[] = [];
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Container[] = [];
   private powerPelletBreakFx!: PowerPelletBreakFx;
@@ -156,6 +159,8 @@ export class PlayScene extends Phaser.Scene {
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
+  private replayPlayer: ReplayPlayback | null = null;
+  private deathFadeOverlay: Phaser.GameObjects.Rectangle | null = null;
   private intermission: IntermissionActors | null = null;
   private pausedAtMs: number | null = null;
   private hiddenAtMs: number | null = null;
@@ -211,6 +216,8 @@ export class PlayScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown", onKeyDown);
     this.closeStoreUi();
     this.runEndMenu = null;
+    this.replayPlayer = null;
+    this.deathFadeOverlay = null;
     this.intermission = null;
 
     this.chrome = this.add.container(0, 0).setDepth(10);
@@ -220,7 +227,7 @@ export class PlayScene extends Phaser.Scene {
     this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
-    this.upgradeLines = [];
+    this.upgradeIcons = [];
 
     const bonusLabel = addPixelText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
     placePixelText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
@@ -387,15 +394,12 @@ export class PlayScene extends Phaser.Scene {
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
     this.runEndMenu?.tick(this.sim.runEndMenuArmed());
+    this.replayPlayer?.tick(delta);
     this.knobsPanel?.sync(this.sim.currentLevel());
   }
 
   public runSeed(): string {
     return this.sim.random.seed;
-  }
-
-  public ownedUpgrades(): readonly UpgradeId[] {
-    return this.sim.hud().upgrades;
   }
 
   public currentMusicId(): SfxId {
@@ -414,6 +418,7 @@ export class PlayScene extends Phaser.Scene {
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
       upgradeOfferEnhanced: this.upgradeChoiceModal.offer()?.enhanced ?? null,
       cursor: this.input.manager.canvas.style.cursor || "default",
+      replay: this.replayPlayer === null ? null : { active: true, ...this.replayPlayer.state() },
       runEndMenu: {
         open: this.runEndMenu !== null,
         selected: this.runEndMenu?.selected() ?? null,
@@ -459,7 +464,7 @@ export class PlayScene extends Phaser.Scene {
 
   private pauseForMenu(): void {
     this.pausedAtMs = performance.now();
-    this.upgradeLines.forEach((line) => line.setVisible(false));
+    this.upgradeIcons.forEach((icon) => icon.setVisible(false));
     this.clearStoreExitCursor();
     this.scene.pause();
     this.scene.launch("PauseScene");
@@ -595,12 +600,11 @@ export class PlayScene extends Phaser.Scene {
         this.startDeathFadeOverlay();
         break;
       case "endText":
+        this.startRunEndReplay();
         this.showCenteredEndText(event.title);
-        if (event.title === "RUN COMPLETE") {
-          this.runEndMenu = createRunEndMenu(this, (choice) => {
-            this.applyEvents(this.sim.chooseRunEnd(choice), delta);
-          });
-        }
+        this.runEndMenu = createRunEndMenu(this, (choice) => {
+          this.applyEvents(this.sim.chooseRunEnd(choice), delta);
+        });
         break;
       case "goToMenu":
         this.scene.start("MenuScene");
@@ -647,7 +651,7 @@ export class PlayScene extends Phaser.Scene {
       this.intermission ??= createIntermissionActors(this);
       this.intermission.place(frame);
     }
-    this.upgradeLines.forEach((line) => line.setVisible(frame === null));
+    this.upgradeIcons.forEach((icon) => icon.setVisible(frame === null));
   }
 
   private storeDirPressed(): StoreDir | null {
@@ -781,11 +785,27 @@ export class PlayScene extends Phaser.Scene {
       )
       .setDepth(1000)
       .setAlpha(0);
+    this.deathFadeOverlay = overlay;
     this.tweens.add({
       targets: overlay,
       alpha: 1,
       duration: DEATH_FADE_DURATION_MS,
     });
+  }
+
+  private startRunEndReplay(): void {
+    const fade = this.deathFadeOverlay;
+    if (fade !== null) {
+      this.tweens.killTweensOf(fade);
+      this.tweens.add({ targets: fade, alpha: 0, duration: RUN_END_FADE_IN_MS });
+    }
+    try {
+      const data = this.sim.replay();
+      this.replayPlayer = data.segments.length > 0 ? createReplayPlayer(this, data) : null;
+    } catch (error) {
+      console.warn("run-end replay failed to start", error);
+      this.replayPlayer = null;
+    }
   }
 
   private showCenteredEndText(title: string): void {
@@ -932,31 +952,27 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  public upgradeHudSlots(): { id: UpgradeId; x: number; y: number; size: number }[] {
+    const knobs = this.knobsPanel !== null;
+    const size = knobs ? UPGRADE_HUD_COMPACT_SIZE : upgradeHudIconSize(MAZE_OFFSET_X);
+    const left = knobs ? MAZE_OFFSET_X + 4 : undefined;
+    return this.sim.hud().upgrades.map((id, i) => ({
+      id,
+      size,
+      ...upgradeHudIconPosition(i, size, pelletDisplaySize(), left),
+    }));
+  }
+
   private refreshUpgradesHud(): void {
-    const owned = this.sim.hud().upgrades;
-    const labels = upgradeLabels(owned);
-    this.upgradeLines.forEach((line) => line.destroy());
-    this.upgradeLines = labels.map((label, i) => {
-      const line = addPixelText(
-        this,
-        12,
-        0,
-        label,
-        UPGRADES_HUD_FONT_SIZE,
-        SCHOOL_COLORS[getUpgradeDef(owned[i]).school],
-      );
-      line.setVisible(this.intermission === null);
-      this.sideHud.add(line);
-      return line;
+    this.upgradeIcons.forEach((icon) => icon.destroy());
+    this.upgradeIcons = this.upgradeHudSlots().map(({ id, x, y, size }) => {
+      const icon = this.add
+        .image(x, y, schoolArtTextureKey(getUpgradeDef(id).school))
+        .setDisplaySize(size, size)
+        .setVisible(this.intermission === null);
+      this.chrome.add(icon);
+      return icon;
     });
-    const first = this.upgradeLines[0];
-    if (first === undefined) {
-      return;
-    }
-    const lineHeight = first.getTextBounds(true).local.height;
-    const pitch = upgradeStackRowPitch(lineHeight);
-    const top = PLAYFIELD_HEIGHT / 2 - upgradeStackHeight(labels.length, lineHeight) / 2;
-    this.upgradeLines.forEach((line, i) => placePixelText(line, 12, top + pitch * i));
   }
 
   private timerLabel(): string {

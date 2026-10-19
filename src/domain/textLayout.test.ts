@@ -1,20 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  stackRowTops,
-  stackRowTopsFromTop,
-  upgradeStackHeight,
-  upgradeStackRowPitch,
-  wrapCharsForBox,
-} from "./textLayout";
-
-describe("upgrade stack", () => {
-  it("doubles the line height between rows so labels never touch", () => {
-    expect(upgradeStackRowPitch(8)).toBe(16);
-    expect(upgradeStackHeight(0, 8)).toBe(0);
-    expect(upgradeStackHeight(1, 8)).toBe(8);
-    expect(upgradeStackHeight(2, 8)).toBe(24);
-  });
-});
+import { stackRowTops, stackRowTopsFromTop, wrapCharsForBox } from "./textLayout";
 
 describe("wrapCharsForBox", () => {
   it("counts whole glyphs inside the side pads and never drops below one", () => {

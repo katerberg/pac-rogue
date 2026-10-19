@@ -36,6 +36,8 @@ describe("worldSnapshot", () => {
       optionalPellets: 0,
       fruit: false,
       fruitKinds: [],
+      fruitCol: null,
+      fruitRow: null,
     });
   });
 

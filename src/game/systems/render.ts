@@ -57,12 +57,7 @@ import {
   type HeadingStep,
   type VisorPose,
 } from "../../domain/dotManHeading";
-import {
-  SIMULACRUM_ALPHA,
-  SIMULACRUM_TINT,
-  simulacrumDust,
-  simulacrumPopLook,
-} from "../../domain/simulacrum";
+import { MIRROR_ALPHA, MIRROR_TINT, mirrorDust, mirrorPopLook } from "../../domain/mirror";
 import { padTextureWithGutter } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -84,6 +79,7 @@ import {
   brightenColor,
   PLAYER_PROGRAMMING_TINT,
   playerTint,
+  tintedColor,
   type PlayerTint,
 } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
@@ -194,7 +190,7 @@ function pelletTextureKey(drawableId: string): string {
   return drawableId === POWER_PELLET_DRAWABLE_ID ? POWER_PELLET_TEXTURE_KEY : PELLET_TEXTURE_KEY;
 }
 
-function displaySizeForDrawable(drawableId: string): number {
+export function displaySizeForDrawable(drawableId: string): number {
   if (drawableId === PELLET_DRAWABLE_ID) {
     return pelletDisplaySize();
   }
@@ -225,7 +221,7 @@ function bossPelletPulse(nowMs: number): { size: number; alpha: number } {
   };
 }
 
-function strokeWallPath(
+export function strokeWallPath(
   graphics: Phaser.GameObjects.Graphics,
   commands: readonly WallPathCommand[],
   style: WallStyle,
@@ -238,7 +234,7 @@ function strokeWallPath(
   }
 }
 
-function textureKeyForDrawable(drawableId: string): string {
+export function textureKeyForDrawable(drawableId: string): string {
   if (drawableId === PLAYER_DRAWABLE_ID) {
     return DOTMAN_BODY_TEXTURE_KEY;
   }
@@ -252,7 +248,7 @@ function textureKeyForDrawable(drawableId: string): string {
   return pelletTextureKey(drawableId);
 }
 
-function storedWallStyle(): WallStyle {
+export function storedWallStyle(): WallStyle {
   return wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
 }
 
@@ -367,7 +363,10 @@ export type GhostSpriteHandle = {
   setDepth(depth: number): void;
   destroy(): void;
   setSkirtPhase(phase: number): void;
+  setLook(look: GhostLook): void;
 };
+
+export type GhostLook = "normal" | "frightened" | "frozen";
 
 export function addGhostSprite(
   scene: Phaser.Scene,
@@ -381,16 +380,20 @@ export function addGhostSprite(
   const image = scene.add.image(0, 0, textureKey);
   placeCroppedGhostBody(image, 0, 0, size);
   const skirt = scene.add.graphics();
-  const color = skirtBaseColor(scene, textureKey);
-  fillGhostSkirt(skirt, 0, 0, size, 0, color);
+  const baseColor = skirtBaseColor(scene, textureKey);
+  let color = baseColor;
+  let skirtPhase = 0;
+  fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
   const container = scene.add.container(x, y, [image, skirt]);
+  let horns: Phaser.GameObjects.Graphics | null = null;
   if (drawableId === BLINKY_DRAWABLE_ID) {
-    const horns = scene.add.graphics();
+    horns = scene.add.graphics();
     fillGhostHorns(horns, 0, 0, size, 0, 0, color);
     container.add(horns);
   }
+  let pupils: Phaser.GameObjects.Graphics | null = null;
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
-    const pupils = scene.add.graphics();
+    pupils = scene.add.graphics();
     fillGhostPupils(pupils, 0, 0, size, look);
     container.add(pupils);
   }
@@ -406,7 +409,27 @@ export function addGhostSprite(
       container.destroy();
     },
     setSkirtPhase(phase) {
-      fillGhostSkirt(skirt, 0, 0, size, phase, color);
+      skirtPhase = phase;
+      fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
+    },
+    setLook(next) {
+      const frightened = next === "frightened";
+      image.setTexture(frightened ? FRIGHTENED_GHOST_TEXTURE_KEY : textureKey);
+      if (next === "frozen") {
+        image.setTint(GHOST_FROZEN_TINT);
+      } else {
+        image.clearTint();
+      }
+      const bodyColor = frightened
+        ? skirtBaseColor(scene, FRIGHTENED_GHOST_TEXTURE_KEY)
+        : baseColor;
+      color =
+        next === "frozen"
+          ? tintedColor(bodyColor, { color: GHOST_FROZEN_TINT, mode: "multiply" })
+          : bodyColor;
+      fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
+      horns?.setVisible(!frightened);
+      pupils?.setVisible(!frightened);
     },
   };
 }
@@ -553,8 +576,8 @@ export type RenderOptions = {
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
-  simulacrum?: { x: number; y: number; facing: number } | null;
-  simulacrumPop?: { x: number; y: number; progress: number } | null;
+  mirror?: { x: number; y: number; facing: number } | null;
+  mirrorPop?: { x: number; y: number; progress: number } | null;
 };
 
 const CHARM_DEPTH = -0.5;
@@ -741,8 +764,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const chainGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
-  const simulacrumDustGraphics = scene.add.graphics();
-  let simulacrumAngle = 0;
+  const mirrorDustGraphics = scene.add.graphics();
+  let mirrorAngle = 0;
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
@@ -1343,42 +1366,42 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
     }
 
-    const drawSimulacrum = (at: { x: number; y: number }, facing: number, alpha: number): void => {
+    const drawMirror = (at: { x: number; y: number }, facing: number, alpha: number): void => {
       const step = facingToStep(facing as Direction);
       if (step !== null) {
-        simulacrumAngle = headingAngle(step);
+        mirrorAngle = headingAngle(step);
       }
-      const key = "simulacrum:body";
+      const key = "mirror:body";
       alive.add(key);
       let body = drawableObjects.get(key);
       if (!body) {
         body = scene.add.image(at.x, at.y, DOTMAN_BODY_TEXTURE_KEY);
-        body.setName("simulacrum");
+        body.setName("mirror");
         drawableObjects.set(key, body);
       }
       const size = displaySizeForDrawable(PLAYER_DRAWABLE_ID);
       body.setPosition(at.x, at.y);
       body.setDisplaySize(size, size);
       body.setAlpha(alpha * entityAlpha);
-      body.setTint(SIMULACRUM_TINT);
+      body.setTint(MIRROR_TINT);
       body.setTintMode(Phaser.TintModes.FILL);
-      drawVisor(key, visorPose(simulacrumAngle), 0, true);
+      drawVisor(key, visorPose(mirrorAngle), 0, true);
     };
-    const simulacrum = opts?.simulacrum ?? null;
-    const simulacrumPop = opts?.simulacrumPop ?? null;
-    simulacrumDustGraphics.clear();
-    if (simulacrum !== null) {
-      drawSimulacrum(simulacrum, simulacrum.facing, SIMULACRUM_ALPHA);
-    } else if (simulacrumPop !== null) {
-      const look = simulacrumPopLook(simulacrumPop.progress);
+    const mirror = opts?.mirror ?? null;
+    const mirrorPop = opts?.mirrorPop ?? null;
+    mirrorDustGraphics.clear();
+    if (mirror !== null) {
+      drawMirror(mirror, mirror.facing, MIRROR_ALPHA);
+    } else if (mirrorPop !== null) {
+      const look = mirrorPopLook(mirrorPop.progress);
       if (look.bodyAlpha > 0) {
-        drawSimulacrum(simulacrumPop, DIRECTION.none, look.bodyAlpha);
+        drawMirror(mirrorPop, DIRECTION.none, look.bodyAlpha);
       }
-      for (const mote of simulacrumDust(look.dustProgress, getActiveLayout().tileSize)) {
-        simulacrumDustGraphics.fillStyle(SIMULACRUM_TINT, mote.alpha * entityAlpha);
-        simulacrumDustGraphics.fillRect(
-          simulacrumPop.x + mote.dx - mote.size / 2,
-          simulacrumPop.y + mote.dy - mote.size / 2,
+      for (const mote of mirrorDust(look.dustProgress, getActiveLayout().tileSize)) {
+        mirrorDustGraphics.fillStyle(MIRROR_TINT, mote.alpha * entityAlpha);
+        mirrorDustGraphics.fillRect(
+          mirrorPop.x + mote.dx - mote.size / 2,
+          mirrorPop.y + mote.dy - mote.size / 2,
           mote.size,
           mote.size,
         );

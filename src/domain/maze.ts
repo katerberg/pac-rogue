@@ -771,6 +771,11 @@ export function activateLayout(id: MazeLayoutId): MazeLayout {
   return activeLayout;
 }
 
+export function setActiveLayout(layout: MazeLayout): void {
+  activeLayout = layout;
+  syncActiveGeometry(layout);
+}
+
 export function activateAsciiLayout(
   ascii: string,
   id: "generated" | "store" = "generated",
