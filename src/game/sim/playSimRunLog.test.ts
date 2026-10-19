@@ -90,7 +90,7 @@ describe("PlaySim run log", () => {
 
   it("records the level clear, time bonus, offer pick and lives regen", () => {
     const { sim } = startSim({ jumpToUpgrade: true });
-    runUntil(sim, () => sim.offer() !== null, 120);
+    runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     const pick = sim.offer()!.upgrades[0]!;
     sim.chooseUpgrade({ kind: "upgrade", id: pick });
     const events = runUntil(sim, () => sim.snapshot().levelTransition, 60);
@@ -113,6 +113,9 @@ describe("PlaySim run log", () => {
     for (const eid of regular) {
       teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
       runFrames(sim, 1);
+      runUntil(sim, () => sim.slotView() === null && sim.snapshot().slot.queued === 0, 600, {
+        acknowledge: true,
+      });
     }
     expect(query(sim.world, [PowerPellet]).length).toBeGreaterThan(0);
     const level = sim.runLogRecord().levels[0]!;

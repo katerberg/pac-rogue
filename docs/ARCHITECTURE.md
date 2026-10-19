@@ -29,7 +29,7 @@ PlayScene: caught -> death sequence -> reset, or GAME OVER -> MenuScene
 
 ## Game loop
 
-`PlayScene.update` gathers input (Escape, modal UI), calls `PlaySim.step(input, delta)`, then applies the returned `SimEvent`s. `PlaySim.step` early-returns for blocking states (starting card, death sequence, run complete, intermission, level transition, store floor, pending upgrade offer, time-bonus drain) and otherwise runs the movement / collect / ghost / catch pipeline in a fixed order that is the source of truth in `playSim.ts`. Debug tuning (`?knobs=1`) passes a per-run `Tuning` into the sim; defaults equal the shipped constants.
+`PlayScene.update` gathers input (Escape, modal UI), calls `PlaySim.step(input, delta)`, then applies the returned `SimEvent`s. `PlaySim.step` early-returns for blocking states (starting card, death sequence, run complete, intermission, level transition, store floor, BONUS slot spin, time-bonus drain, pending upgrade offer) and otherwise runs the movement / collect / ghost / catch pipeline in a fixed order that is the source of truth in `playSim.ts`. Debug tuning (`?knobs=1`) passes a per-run `Tuning` into the sim; defaults equal the shipped constants.
 
 ## ECS boundary
 

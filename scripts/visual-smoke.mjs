@@ -94,6 +94,7 @@ async function main() {
 
     await page.goto(upgradeUrl, { waitUntil: "networkidle" });
     await page.waitForSelector("canvas", { timeout: 15_000 });
+    await acknowledgeSlotSpins(page);
     await page.waitForFunction(
       () =>
         globalThis.__PAC_ROGUE_DEBUG__
@@ -121,6 +122,23 @@ async function main() {
     throw error;
   } finally {
     await stopProcess(preview);
+  }
+}
+
+async function acknowledgeSlotSpins(page) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => {
+      const play = globalThis.__PAC_ROGUE_DEBUG__?.snapshot().play;
+      return { offer: play?.upgradeModalOpen === true, held: play?.slot?.held === true };
+    });
+    if (state.offer) {
+      return;
+    }
+    if (state.held) {
+      await page.keyboard.press("Space");
+    }
+    await page.waitForTimeout(100);
   }
 }
 

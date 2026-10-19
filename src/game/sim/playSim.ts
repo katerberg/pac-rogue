@@ -194,6 +194,17 @@ import {
   playerSpeed,
 } from "../../domain/playfield";
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
+import {
+  pickSlotUpgrade,
+  rollSlotOutcome,
+  slotHeld,
+  slotSchoolWeights,
+  slotTimeline,
+  spinSlot,
+  type SlotSpin,
+  type SlotTimeline,
+  type SlotWin,
+} from "../../domain/slotMachine";
 import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { elroyTier } from "../../domain/ghostSpeed";
@@ -472,6 +483,14 @@ export const RUN_END_MENU_ARM_MS = 1000;
 
 export type RunEndChoice = "newGame" | "menu";
 
+export type SlotView = {
+  spin: SlotSpin;
+  timeline: SlotTimeline;
+  elapsedMs: number;
+  paid: number;
+  won: UpgradeId[];
+};
+
 export type PlayHud = {
   time: number;
   timerVisible: boolean;
@@ -509,6 +528,10 @@ export class PlaySim {
   private bonus: BonusBar;
   private lastPlayerCell: Cell | null = null;
   private timeBonusDrain: TimeBonusDrain | null = null;
+  private slotQueue: QuarterSource[] = [];
+  private slot: (SlotView & { source: QuarterSource }) | null = null;
+  private slotSpins = 0;
+  private levelClearAwaitsSlots = false;
   private levelIndex = 1;
   private boardLayoutLabel = "maze2";
   private rosterId = 0;
@@ -608,7 +631,7 @@ export class PlaySim {
     this.midStoreLevel = pickMidStoreLevel(this.random.stream("midStore"));
     this.levelIndex =
       options.level ??
-      (options.jumpToUpgrade
+      (options.jumpToUpgrade || options.jumpToSpinner
         ? 2
         : options.store !== null
           ? storeLevelFor(options.store, this.midStoreLevel)
@@ -659,6 +682,10 @@ export class PlaySim {
       this.emit({ type: "startingUpgrade", id: startingUpgrade });
     }
     this.emit({ type: "loopStart", id: "gameplayMusic" });
+    if (options.jumpToSpinner) {
+      this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
+      this.slotQueue.push("bonusBar");
+    }
     if (options.jumpToUpgrade) {
       this.jumpToLevelClear();
     } else if (options.bossStageAdvance && this.bossState !== null) {
@@ -762,6 +789,10 @@ export class PlaySim {
     return this.pendingChoice;
   }
 
+  slotView(): Readonly<SlotView> | null {
+    return this.slot;
+  }
+
   currentLevel(): number {
     return this.levelIndex;
   }
@@ -860,6 +891,17 @@ export class PlaySim {
         streak: this.bonus.streak,
         max: BONUS_BAR_MAX,
         draining: this.timeBonusDrain !== null,
+      },
+      slot: {
+        spins: this.slotSpins,
+        queued: this.slotQueue.length,
+        active: this.slot !== null,
+        elapsedMs: this.slot?.elapsedMs ?? null,
+        grid: this.slot?.spin.grid ?? null,
+        wins: this.slot?.spin.wins ?? null,
+        paid: this.slot?.paid ?? null,
+        held: this.slot !== null && slotHeld(this.slot.timeline, this.slot.elapsedMs),
+        won: this.slot?.won ?? null,
       },
       deathsThisBoard: this.deathsThisBoard,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
@@ -1074,6 +1116,10 @@ export class PlaySim {
 
     if (this.store !== null) {
       this.tickStore(input, delta);
+      return;
+    }
+
+    if (this.tickSlot(input, delta)) {
       return;
     }
 
@@ -2022,10 +2068,8 @@ export class PlaySim {
   private applyBonus(result: BonusResult, source: QuarterSource = "bonusBar"): void {
     this.bonus = result.bar;
     this.recorder.bonus(result.tier, result.filled);
-    if (result.filled > 0) {
-      this.quarters += result.filled;
-      this.recorder.quarters(source, result.filled);
-      this.emit({ type: "quarters", pulse: false });
+    for (let fill = 0; fill < result.filled; fill += 1) {
+      this.slotQueue.push(source);
     }
     if (result.tier > 0 || result.filled > 0) {
       this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
@@ -2827,7 +2871,79 @@ export class PlaySim {
     this.emit({ type: "quarters", pulse: true });
   }
 
+  private tickSlot(input: SimInput, delta: number): boolean {
+    if (this.slot === null) {
+      const source = this.slotQueue.shift();
+      if (source !== undefined) {
+        this.startSlot(source);
+        return true;
+      }
+      if (this.levelClearAwaitsSlots) {
+        this.levelClearAwaitsSlots = false;
+        this.finishLevelClear();
+        return true;
+      }
+      return false;
+    }
+    const slot = this.slot;
+    if (slotHeld(slot.timeline, slot.elapsedMs)) {
+      if (input.acknowledge === true) {
+        this.slot = null;
+      }
+      return true;
+    }
+    slot.elapsedMs = Math.min(slot.elapsedMs + delta, slot.timeline.durationMs);
+    while (
+      slot.paid < slot.spin.wins.length &&
+      slot.elapsedMs >= slot.timeline.winStartsMs[slot.paid]!
+    ) {
+      this.paySlotWin(slot.spin.wins[slot.paid]!, slot.source);
+      slot.paid += 1;
+    }
+    return true;
+  }
+
+  private startSlot(source: QuarterSource): void {
+    const livesOnReels = livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1) > this.lives;
+    const rng = this.random.stream("slots");
+    const outcome = this.options.slot ?? rollSlotOutcome(rng, livesOnReels);
+    const spin = spinSlot(outcome, slotSchoolWeights(this.runUpgrades.owned), livesOnReels, rng);
+    this.slot = { spin, timeline: slotTimeline(spin), elapsedMs: 0, paid: 0, won: [], source };
+    this.slotSpins += 1;
+  }
+
+  private paySlotWin(win: SlotWin, source: QuarterSource): void {
+    if (win.symbol === "life") {
+      this.recorder.livesRegenerated(this.lives, this.lives + 1);
+      this.lives += 1;
+      this.emit({ type: "lives", pulse: true });
+      return;
+    }
+    const id =
+      win.symbol === "quarter"
+        ? null
+        : pickSlotUpgrade(this.runUpgrades.owned, win.symbol, this.random.stream("slots"));
+    if (id === null) {
+      this.quarters += 1;
+      this.recorder.quarters(source, 1);
+      this.emit({ type: "quarters", pulse: true });
+      return;
+    }
+    this.slot?.won.push(id);
+    this.recorder.gained(id, "slots", this.levelIndex);
+    this.runUpgrades = grantUpgrade(this.runUpgrades, id);
+    this.applyGrantEffects(id);
+    this.grantSpecialistLives();
+    this.emit({ type: "lives", pulse: false });
+    this.recordSeenUpgrades();
+    this.emit({ type: "upgrades" });
+  }
+
   private finishLevelClear(): void {
+    if (this.slot !== null || this.slotQueue.length > 0) {
+      this.levelClearAwaitsSlots = true;
+      return;
+    }
     this.payInheritance();
     this.applyLifeRegen(this.regenAmount());
     if (this.options.disableLevelUpgrades || !offersUpgradeAfterLevel(this.levelIndex)) {

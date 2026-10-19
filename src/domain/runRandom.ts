@@ -18,6 +18,7 @@ export type RandomStream =
   | "timedTunnel"
   | "lavaZone"
   | "speedZones"
+  | "slots"
   | "chaff"
   | "bot";
 
