@@ -26,7 +26,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 ## Parity
 
-LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`. Deliberate omission: the [run-end replay](./replay.md), since LEARN has no run end.
+LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, collapsed tunnels, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`. Deliberate omission: the [run-end replay](./replay.md), since LEARN has no run end.
 
 ## Upgrade fidelity
 
@@ -40,6 +40,7 @@ Known simplifications (everything else is a reuse of play code):
 - **Fruit Fecundity / Feast (+):** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
 - **Martyr, Interest:** no visible effect (no respawn move, no store).
+- **BONUS slot machine:** deliberate omission; LEARN bar fills still pay a Quarter directly ([bonus.md](./bonus.md#slot-machine)).
 
 ## Coverage gate
 

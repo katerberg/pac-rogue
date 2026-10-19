@@ -1,0 +1,424 @@
+import {
+  eligibleUpgrades,
+  getUpgradeDef,
+  schoolAffinityPoints,
+  SCHOOL_AFFINITY_COMMON_RATE,
+  takeWeightedUpgrade,
+  UPGRADE_SCHOOL_ORDER,
+  upgradeOfferWeight,
+  type BaseUpgradeId,
+  type UpgradeId,
+  type UpgradeSchool,
+} from "./upgrades";
+
+export type SlotSchool = Exclude<UpgradeSchool, "neutral">;
+export type SlotSymbol = "quarter" | "life" | SlotSchool;
+export type SlotOutcome = { quarters: number; upgrades: number; lives: number };
+export type SlotGrid = readonly (readonly SlotSymbol[])[];
+export type SlotWin = { line: number; symbol: SlotSymbol };
+export type SlotSpin = {
+  grid: SlotGrid;
+  wins: SlotWin[];
+  anticipation: boolean;
+  livesOnReels: boolean;
+};
+export type SlotTimeline = { reelStopsMs: number[]; winStartsMs: number[]; durationMs: number };
+type Cell = readonly [reel: number, row: number];
+
+export const SLOT_REELS = 3;
+export const SLOT_ROWS = 3;
+export const SLOT_SCHOOLS = UPGRADE_SCHOOL_ORDER.filter(
+  (school): school is SlotSchool => school !== "neutral",
+);
+export const SLOT_LINES: readonly (readonly Cell[])[] = [
+  [
+    [0, 0],
+    [1, 0],
+    [2, 0],
+  ],
+  [
+    [0, 1],
+    [1, 1],
+    [2, 1],
+  ],
+  [
+    [0, 2],
+    [1, 2],
+    [2, 2],
+  ],
+  [
+    [0, 0],
+    [1, 1],
+    [2, 2],
+  ],
+  [
+    [0, 2],
+    [1, 1],
+    [2, 0],
+  ],
+];
+
+const SLOT_OUTCOMES: readonly (SlotOutcome & { weight: number })[] = [
+  { weight: 7, quarters: 0, upgrades: 0, lives: 0 },
+  { weight: 28, quarters: 1, upgrades: 0, lives: 0 },
+  { weight: 12, quarters: 2, upgrades: 0, lives: 0 },
+  { weight: 3, quarters: 3, upgrades: 0, lives: 0 },
+  { weight: 1, quarters: 4, upgrades: 0, lives: 0 },
+  { weight: 0.5, quarters: 5, upgrades: 0, lives: 0 },
+  { weight: 16, quarters: 0, upgrades: 1, lives: 0 },
+  { weight: 6, quarters: 1, upgrades: 1, lives: 0 },
+  { weight: 1.5, quarters: 2, upgrades: 1, lives: 0 },
+  { weight: 0.5, quarters: 0, upgrades: 2, lives: 0 },
+  { weight: 16, quarters: 0, upgrades: 0, lives: 1 },
+  { weight: 6, quarters: 1, upgrades: 0, lives: 1 },
+  { weight: 1.5, quarters: 2, upgrades: 0, lives: 1 },
+  { weight: 1, quarters: 0, upgrades: 1, lives: 1 },
+];
+
+const FILLER_QUARTER_WEIGHT = 0.45;
+const FILLER_LIFE_WEIGHT = 0.08;
+const TEASE_CHANCE = 0.25;
+const PLACEMENT_ATTEMPTS = 200;
+const FILL_ATTEMPTS = 40;
+const TEASE_ATTEMPTS = 20;
+
+export const SLOT_REEL_STOP_MS = [800, 1200, 1600] as const;
+export const SLOT_ANTICIPATION_MS = 500;
+const SLOT_NO_WIN_HOLD_MS = 800;
+const SLOT_SINGLE_WIN_MS = 1400;
+const SLOT_MULTI_LINE_MS = 900;
+const SLOT_MULTI_FINALE_MS = 900;
+const SLOT_MISS_FLASH_MS = 200;
+export const SLOT_MEGA_BONUS_WINS = 3;
+export const SLOT_MEGA_BONUS_DELAY_MS = 2460;
+
+export function slotOutcomeTable(livesOnReels: boolean): (SlotOutcome & { weight: number })[] {
+  return SLOT_OUTCOMES.map((outcome) =>
+    livesOnReels
+      ? { ...outcome }
+      : { ...outcome, quarters: outcome.quarters + outcome.lives, lives: 0 },
+  );
+}
+
+export function rollSlotOutcome(rng: () => number, livesOnReels: boolean): SlotOutcome {
+  const picked = pickWeighted(
+    slotOutcomeTable(livesOnReels).map((outcome) => [outcome, outcome.weight] as const),
+    rng,
+  );
+  return { quarters: picked.quarters, upgrades: picked.upgrades, lives: picked.lives };
+}
+
+export function slotSchoolWeights(owned: readonly UpgradeId[]): Record<SlotSchool, number> {
+  return Object.fromEntries(
+    SLOT_SCHOOLS.map((school) => [
+      school,
+      1 + SCHOOL_AFFINITY_COMMON_RATE * schoolAffinityPoints(owned, school),
+    ]),
+  ) as Record<SlotSchool, number>;
+}
+
+function isSchool(symbol: SlotSymbol): symbol is SlotSchool {
+  return symbol !== "quarter" && symbol !== "life";
+}
+
+function payOrder(symbol: SlotSymbol): number {
+  return symbol === "quarter" ? 0 : symbol === "life" ? 1 : 2;
+}
+
+export function slotWins(grid: SlotGrid): SlotWin[] {
+  const wins: SlotWin[] = [];
+  SLOT_LINES.forEach((cells, line) => {
+    const [first, ...rest] = cells.map(([reel, row]) => grid[reel]![row]!);
+    if (rest.every((symbol) => symbol === first)) {
+      wins.push({ line, symbol: first! });
+    }
+  });
+  return wins.sort((a, b) => payOrder(a.symbol) - payOrder(b.symbol));
+}
+
+export function slotWinTotals(wins: readonly SlotWin[]): SlotOutcome {
+  return {
+    quarters: wins.filter((win) => win.symbol === "quarter").length,
+    lives: wins.filter((win) => win.symbol === "life").length,
+    upgrades: wins.filter((win) => isSchool(win.symbol)).length,
+  };
+}
+
+export function slotAnticipation(grid: SlotGrid): boolean {
+  return SLOT_LINES.some((cells) => {
+    const a = grid[cells[0]![0]]![cells[0]![1]]!;
+    const b = grid[cells[1]![0]]![cells[1]![1]]!;
+    return a === b && a !== "quarter";
+  });
+}
+
+function pickWeighted<T>(entries: readonly (readonly [T, number])[], rng: () => number): T {
+  let roll = rng() * entries.reduce((sum, [, weight]) => sum + weight, 0);
+  const picked = entries.find(([, weight]) => (roll -= weight) < 0) ?? entries[entries.length - 1]!;
+  return picked[0];
+}
+
+function shuffled<T>(items: readonly T[], rng: () => number): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.min(i, Math.floor(rng() * (i + 1)));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
+function sameOutcome(a: SlotOutcome, b: SlotOutcome): boolean {
+  return a.quarters === b.quarters && a.upgrades === b.upgrades && a.lives === b.lives;
+}
+
+type Placement = (SlotSymbol | null)[][];
+
+function placeOn(grid: Placement, [reel, row]: Cell, symbol: SlotSymbol): boolean {
+  const current = grid[reel]![row];
+  if (current !== null && current !== symbol) {
+    return false;
+  }
+  grid[reel]![row] = symbol;
+  return true;
+}
+
+function placeWins(
+  outcome: SlotOutcome,
+  schools: readonly (readonly [SlotSchool, number])[],
+  rng: () => number,
+): Placement | null {
+  const grid: Placement = Array.from({ length: SLOT_REELS }, () =>
+    Array<SlotSymbol | null>(SLOT_ROWS).fill(null),
+  );
+  const symbols: SlotSymbol[] = [
+    ...Array<SlotSymbol>(outcome.quarters).fill("quarter"),
+    ...Array<SlotSymbol>(outcome.lives).fill("life"),
+    ...Array.from({ length: outcome.upgrades }, () => pickWeighted(schools, rng)),
+  ];
+  const lines = shuffled(SLOT_LINES, rng);
+  return symbols.every((symbol, index) =>
+    lines[index]!.every((cell) => placeOn(grid, cell, symbol)),
+  )
+    ? grid
+    : null;
+}
+
+function tryFill(
+  wins: Placement,
+  outcome: SlotOutcome,
+  filler: readonly (readonly [SlotSymbol, number])[],
+  tease: boolean,
+  rng: () => number,
+): SlotSymbol[][] | null {
+  const grid = wins.map((reel) => [...reel]);
+  if (tease) {
+    const row = Math.floor(rng() * SLOT_ROWS);
+    const offRow = row === 0 ? 1 : row === SLOT_ROWS - 1 ? row - 1 : row + (rng() < 0.5 ? -1 : 1);
+    const symbol = pickWeighted<SlotSymbol>(
+      filler.filter(([candidate]) => candidate !== "quarter"),
+      rng,
+    );
+    const teased: Cell[] = [
+      [0, row],
+      [1, row],
+      [2, offRow],
+    ];
+    if (!teased.every((cell) => placeOn(grid, cell, symbol))) {
+      return null;
+    }
+  }
+  const filled = grid.map((reel) => reel.map((symbol) => symbol ?? pickWeighted(filler, rng)));
+  return sameOutcome(slotWinTotals(slotWins(filled)), outcome) ? filled : null;
+}
+
+export function composeSlotGrid(
+  outcome: SlotOutcome,
+  schoolWeights: Record<SlotSchool, number>,
+  livesOnReels: boolean,
+  rng: () => number,
+): SlotGrid {
+  const schools = SLOT_SCHOOLS.map((school) => [school, schoolWeights[school]] as const);
+  const schoolTotal = schools.reduce((sum, [, weight]) => sum + weight, 0);
+  const lifeWeight = livesOnReels ? FILLER_LIFE_WEIGHT : 0;
+  const schoolShare = 1 - FILLER_QUARTER_WEIGHT - lifeWeight;
+  const filler: (readonly [SlotSymbol, number])[] = [
+    ["quarter", FILLER_QUARTER_WEIGHT],
+    ...(livesOnReels ? [["life", lifeWeight] as const] : []),
+    ...schools.map(([school, weight]) => [school, (schoolShare * weight) / schoolTotal] as const),
+  ];
+  const wantTease = outcome.upgrades === 0 && outcome.lives === 0 && rng() < TEASE_CHANCE;
+  for (let placement = 0; placement < PLACEMENT_ATTEMPTS; placement += 1) {
+    const wins = placeWins(outcome, schools, rng);
+    for (let fill = 0; wins !== null && fill < FILL_ATTEMPTS; fill += 1) {
+      const grid = tryFill(wins, outcome, filler, wantTease && fill < TEASE_ATTEMPTS, rng);
+      if (grid !== null) {
+        return grid;
+      }
+    }
+  }
+  return Array.from({ length: SLOT_REELS }, (_, reel) =>
+    Array.from({ length: SLOT_ROWS }, (_, row) => SLOT_SCHOOLS[(reel * SLOT_ROWS + row) % 6]!),
+  );
+}
+
+export function spinSlot(
+  outcome: SlotOutcome,
+  schoolWeights: Record<SlotSchool, number>,
+  livesOnReels: boolean,
+  rng: () => number,
+): SlotSpin {
+  const grid = composeSlotGrid(outcome, schoolWeights, livesOnReels, rng);
+  return { grid, wins: slotWins(grid), anticipation: slotAnticipation(grid), livesOnReels };
+}
+
+export function slotTimeline(spin: SlotSpin): SlotTimeline {
+  const reelStopsMs = SLOT_REEL_STOP_MS.map((ms, reel) =>
+    reel === SLOT_REELS - 1 && spin.anticipation ? ms + SLOT_ANTICIPATION_MS : ms,
+  );
+  const payoutStartMs = reelStopsMs[SLOT_REELS - 1]!;
+  const count = spin.wins.length;
+  const winStartsMs = spin.wins.map((_, index) => payoutStartMs + index * SLOT_MULTI_LINE_MS);
+  const payoutMs =
+    count === 0
+      ? SLOT_NO_WIN_HOLD_MS
+      : count === 1
+        ? SLOT_SINGLE_WIN_MS
+        : count * SLOT_MULTI_LINE_MS + SLOT_MULTI_FINALE_MS;
+  return { reelStopsMs, winStartsMs, durationMs: payoutStartMs + payoutMs };
+}
+
+export function slotResultSfx(
+  winCount: number,
+): "slotFailure" | "slotSingleSuccess" | "slotMultiSuccess" {
+  return winCount === 0 ? "slotFailure" : winCount === 1 ? "slotSingleSuccess" : "slotMultiSuccess";
+}
+
+export function pickSlotUpgrade(
+  owned: readonly UpgradeId[],
+  school: SlotSchool,
+  rng: () => number,
+): BaseUpgradeId | null {
+  const pool = eligibleUpgrades(owned).filter((id) => getUpgradeDef(id).school === school);
+  return pool.length === 0
+    ? null
+    : takeWeightedUpgrade(pool, rng, (id) => upgradeOfferWeight(id, owned));
+}
+
+export function parseJumpToSpinnerFlag(params: URLSearchParams): boolean {
+  return params.get("jumpToSpinner") === "1";
+}
+
+export function parseSlotParam(params: URLSearchParams): SlotOutcome | null {
+  const match = /^(?:0|(?=.)(?:(\d)q)?(?:(\d)u)?(?:(\d)l)?)$/.exec(params.get("slot") ?? "");
+  if (match === null) {
+    return null;
+  }
+  const outcome = {
+    quarters: Number(match[1] ?? 0),
+    upgrades: Number(match[2] ?? 0),
+    lives: Number(match[3] ?? 0),
+  };
+  return outcome.quarters + outcome.upgrades + outcome.lives <= SLOT_LINES.length ? outcome : null;
+}
+
+export function slotHeld(timeline: SlotTimeline, elapsedMs: number): boolean {
+  return elapsedMs >= timeline.durationMs;
+}
+
+export type SlotTitle = "BONUS!" | "NO PRIZE";
+
+export type SlotFrame = {
+  stopped: boolean[];
+  anticipating: boolean;
+  activeWin: number | null;
+  finale: boolean;
+  held: boolean;
+  title: SlotTitle;
+  titleFlash: boolean;
+};
+
+const SLOT_STRIP: readonly SlotSymbol[] = [
+  "quarter",
+  "death",
+  "quarter",
+  "harvest",
+  "life",
+  "quarter",
+  "speed",
+  "automation",
+  "quarter",
+  "protection",
+  "quarter",
+  "disruption",
+];
+const SLOT_STRIP_NO_LIFE = SLOT_STRIP.filter((symbol) => symbol !== "life");
+const SLOT_SPIN_CELLS_PER_MS = 0.018;
+const SLOT_LAND_BOUNCE_MS = 160;
+const SLOT_LAND_BOUNCE_CELLS = 0.15;
+
+export function slotFrame(spin: SlotSpin, timeline: SlotTimeline, elapsedMs: number): SlotFrame {
+  const stopped = timeline.reelStopsMs.map((ms) => elapsedMs >= ms);
+  const finaleStartMs =
+    spin.wins.length > 1
+      ? timeline.winStartsMs[0]! + spin.wins.length * SLOT_MULTI_LINE_MS
+      : Number.POSITIVE_INFINITY;
+  const held = slotHeld(timeline, elapsedMs);
+  const finale = !held && elapsedMs >= finaleStartMs;
+  let activeWin: number | null = null;
+  timeline.winStartsMs.forEach((startMs, index) => {
+    if (!held && !finale && elapsedMs >= startMs) {
+      activeWin = index;
+    }
+  });
+  const missedAtMs = spin.wins.length === 0 ? timeline.reelStopsMs[SLOT_REELS - 1]! : null;
+  const missed = missedAtMs !== null && elapsedMs >= missedAtMs;
+  return {
+    stopped,
+    anticipating: spin.anticipation && stopped[1] === true && stopped[2] === false,
+    activeWin,
+    finale,
+    held,
+    title: missed ? "NO PRIZE" : "BONUS!",
+    titleFlash: missed && elapsedMs < missedAtMs + SLOT_MISS_FLASH_MS,
+  };
+}
+
+export type SlotReelCell = { symbol: SlotSymbol; y: number };
+
+export function slotReelCells(
+  spin: SlotSpin,
+  timeline: SlotTimeline,
+  reel: number,
+  elapsedMs: number,
+): SlotReelCell[] {
+  const stopMs = timeline.reelStopsMs[reel]!;
+  const landed = spin.grid[reel]!;
+  if (elapsedMs >= stopMs) {
+    const sinceMs = elapsedMs - stopMs;
+    const bounce =
+      sinceMs < SLOT_LAND_BOUNCE_MS
+        ? SLOT_LAND_BOUNCE_CELLS * Math.sin((Math.PI * sinceMs) / SLOT_LAND_BOUNCE_MS)
+        : 0;
+    return landed.map((symbol, row) => ({ symbol, y: row + bounce }));
+  }
+  const strip = spin.livesOnReels ? SLOT_STRIP : SLOT_STRIP_NO_LIFE;
+  const travel = Math.max(SLOT_ROWS, Math.round(stopMs * SLOT_SPIN_CELLS_PER_MS));
+  const position = (elapsedMs / stopMs) * travel;
+  const scrolled = Math.floor(position);
+  return [-1, 0, 1, 2].map((row) => {
+    const index = row - scrolled + travel;
+    const symbol =
+      index >= 0 && index < SLOT_ROWS
+        ? landed[index]!
+        : strip[(index + reel * 5 + strip.length) % strip.length]!;
+    return { symbol, y: row + position - scrolled };
+  });
+}
+
+export const SLOT_MUSIC_DUCK_GAIN = 0.25;
+const SLOT_MUSIC_DUCK_FADE_MS = 400;
+
+export function stepMusicDuck(gain: number, ducked: boolean, deltaMs: number): number {
+  const step = ((1 - SLOT_MUSIC_DUCK_GAIN) * deltaMs) / SLOT_MUSIC_DUCK_FADE_MS;
+  return ducked ? Math.max(SLOT_MUSIC_DUCK_GAIN, gain - step) : Math.min(1, gain + step);
+}

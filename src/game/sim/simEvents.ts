@@ -7,9 +7,11 @@ import type { StorePromptView } from "../../domain/store";
 import type { FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
+import type { CollapseRenderState } from "../../domain/collapseRubble";
 import type { LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import type { ChaffSprite } from "../../domain/chaff";
 import type { DroppedWall } from "../../domain/wallDrop";
 import type { ProgrammerQueueSlot } from "../../domain/programmer";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
@@ -38,11 +40,15 @@ export type SimRenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
+  collapse?: CollapseRenderState | null;
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
+  chaff?: ChaffSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
+  simulacrum?: { x: number; y: number; facing: number } | null;
+  simulacrumPop?: { x: number; y: number; progress: number } | null;
 };
 
 export type MoneyTalksSpend = {
@@ -71,6 +77,7 @@ export type SimEvent =
       dy: number;
       count: number;
     }
+  | { type: "chaffBurst"; x: number; y: number }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "streakPop"; value: number; x: number; y: number }
   | { type: "intermission"; frame: IntermissionFrame | null }

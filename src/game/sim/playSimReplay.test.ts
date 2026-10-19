@@ -70,7 +70,7 @@ describe("PlaySim run replay", () => {
     const sim = startSim({ level: 2, maze: "maze1", godMode: true, disableLevelUpgrades: true });
     runFrames(sim, 60);
     sim["jumpToLevelClear"]();
-    runUntil(sim, () => sim.snapshot().level === 3, 1200);
+    runUntil(sim, () => sim.snapshot().level === 3, 1200, { acknowledge: true });
     runFrames(sim, 60);
     expect(sim.replay().segments.map((segment) => segment.level)).toEqual([2, 3]);
   });

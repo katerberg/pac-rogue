@@ -5,15 +5,19 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
 
-export function harvestNearbyPellets(world: World, radiusTiles: number): number[] {
+export function harvestNearbyPellets(
+  world: World,
+  radiusTiles: number,
+  at?: { x: number; y: number },
+): number[] {
   const players = query(world, [Player, Position]);
   if (players.length === 0) {
     return [];
   }
 
   const playerEid = players[0]!;
-  const playerCol = worldToCol(Position.x[playerEid] ?? 0);
-  const playerRow = worldToRow(Position.y[playerEid] ?? 0);
+  const playerCol = worldToCol(at?.x ?? Position.x[playerEid] ?? 0);
+  const playerRow = worldToRow(at?.y ?? Position.y[playerEid] ?? 0);
   const radiusSq = radiusTiles * radiusTiles;
 
   const toRemove: number[] = [];

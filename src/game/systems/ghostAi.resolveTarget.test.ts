@@ -78,4 +78,20 @@ describe("resolveGhostTarget", () => {
     expect(clydeResult).toEqual(clydeTarget({ ...base, ghostCol: 12, ghostRow: 21 }));
     expect(clydeResult).toEqual(clydeScatterTarget());
   });
+
+  it("chases the nearest chaff decoy instead of the player", () => {
+    const { world, blinky, pinky } = buildWorld();
+    const far = { col: 2, row: 2, step: { dx: 0, dy: 1 }, progress: 0 };
+    const near = { col: 18, row: 6, step: { dx: -1, dy: 0 }, progress: 0 };
+    const ctx = ghostAiContext(world, undefined, [far, near]);
+    const mode = GHOST_AI_MODE.chase;
+    const base = { phase: GHOST_PHASE.active, mode, playerCol: 18, playerRow: 6 };
+
+    expect(resolveGhostTarget(blinky, mode, 200, ctx)).toEqual(
+      blinkyTarget({ ...base, playerCol: 2, playerRow: 2, pelletsRemaining: 200 }),
+    );
+    expect(resolveGhostTarget(pinky, mode, 200, ctx)).toEqual(
+      pinkyTarget({ ...base, playerFacing: DIRECTION.left }),
+    );
+  });
 });

@@ -7,7 +7,7 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
-import { applyTunnelDash, tickTunnelDashAnimation } from "./tunnelDash";
+import { applyTunnelDash, mergeTunnelDashSweeps, tickTunnelDashAnimation } from "./tunnelDash";
 
 const TUNNEL_ROW = 14;
 // Classic 28-col geometry: leftBand = floor(28*5/28) = 5 (cols 0-5), rightBand = floor(28*6/28) = 6 (cols 22-27).
@@ -176,5 +176,54 @@ describe("tickTunnelDashAnimation", () => {
     const world = createWorld();
     const anim = { targetX: 0, wrapToX: 0, y: 0 };
     expect(tickTunnelDashAnimation(world, anim, 16, 100)).toBeNull();
+  });
+});
+
+describe("applyTunnelDash for an explicit body", () => {
+  it("sweeps from the given body's position and facing, not the player's", () => {
+    const { world } = spawnWorld(OUTSIDE_BAND_COL, 5, DIRECTION.none);
+    const mine = spawnPellet(world, RIGHT_BAND_COL + 1, TUNNEL_ROW);
+    const dash = applyTunnelDash(world, {
+      x: cellCenterX(RIGHT_BAND_COL),
+      y: cellCenterY(TUNNEL_ROW),
+      facing: DIRECTION.right,
+    });
+    expect(dash?.sweptPelletEids).toEqual([mine]);
+    expect(query(world, [Pellet])).toHaveLength(0);
+  });
+
+  it("does nothing when the body faces away from the edge", () => {
+    const { world } = spawnWorld(OUTSIDE_BAND_COL, 5, DIRECTION.none);
+    expect(
+      applyTunnelDash(world, {
+        x: cellCenterX(LEFT_BAND_COL),
+        y: cellCenterY(TUNNEL_ROW),
+        facing: DIRECTION.right,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("mergeTunnelDashSweeps", () => {
+  it("adds the second sweep's pellets, power pellets and cells to the first", () => {
+    const sweep = (eid: number, power: number, col: number) => ({
+      animateToX: 1,
+      wrapToX: 2,
+      y: 3,
+      sweptPelletEids: [eid],
+      sweptPowerRemoved: power,
+      sweptPowerPositions: power > 0 ? [{ x: col, y: 0 }] : [],
+      sweptCells: [{ col, row: 1 }],
+    });
+    const merged = mergeTunnelDashSweeps(sweep(1, 1, 4), sweep(2, 0, 9));
+    expect(merged).toMatchObject({
+      animateToX: 1,
+      sweptPelletEids: [1, 2],
+      sweptPowerRemoved: 1,
+      sweptCells: [
+        { col: 4, row: 1 },
+        { col: 9, row: 1 },
+      ],
+    });
   });
 });

@@ -13,7 +13,9 @@ import {
   type BarFxState,
 } from "../../domain/bonusBarFx";
 import { playTurnSparks } from "./turnSparks";
+import { playChaffBurst } from "./chaffBurst";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
+import { stepMusicDuck } from "../../domain/slotMachine";
 import { bossTimerLabel } from "../../domain/bossRules";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
@@ -43,6 +45,7 @@ import {
   playPelletCollectSfx,
   playSfx,
   preloadSfx,
+  setMusicDuck,
   startLoopingSfx,
   stopLoopingSfx,
   type SfxId,
@@ -81,6 +84,8 @@ import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
+import { createSlotOverlay, type SlotOverlay } from "./slotOverlay";
+import type { StoreDir } from "../../domain/store";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import {
   createUpgradeChoiceModal,
@@ -124,6 +129,7 @@ export class PlayScene extends Phaser.Scene {
   private storeOverlay: StoreOverlay | null = null;
   private storeChoice: "yes" | "no" | null = null;
   private storeClick: number | null = null;
+  private storeDir: StoreDir | null = null;
   private storePointer: { x: number; y: number } | null = null;
   private pointerOverStoreExit = false;
   private chrome!: Phaser.GameObjects.Container;
@@ -140,10 +146,16 @@ export class PlayScene extends Phaser.Scene {
   private lifeIcons: Phaser.GameObjects.Container[] = [];
   private powerPelletBreakFx!: PowerPelletBreakFx;
   private upgradeChoiceModal!: UpgradeChoiceModal;
+  private slotOverlay!: SlotOverlay;
+  private musicDuck = 1;
+  private musicDuckApplied = 1;
+  private keyPressed = false;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
   private storeYesKeys: Phaser.Input.Keyboard.Key[] = [];
   private storeNoKeys: Phaser.Input.Keyboard.Key[] = [];
+  private storeLeftKeys: Phaser.Input.Keyboard.Key[] = [];
+  private storeRightKeys: Phaser.Input.Keyboard.Key[] = [];
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
@@ -179,6 +191,7 @@ export class PlayScene extends Phaser.Scene {
     if (data.restartLevel !== undefined) {
       options.level = data.restartLevel;
       options.jumpToUpgrade = false;
+      options.jumpToSpinner = false;
       options.store = null;
     }
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
@@ -194,6 +207,13 @@ export class PlayScene extends Phaser.Scene {
     this.upgradeChoiceModal = createUpgradeChoiceModal(this, this.sim.random.stream("upgradeFx"));
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
+    this.slotOverlay = createSlotOverlay(this);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.repeat && event.key !== "Escape") {
+        this.keyPressed = true;
+      }
+    };
+    this.input.keyboard?.on("keydown", onKeyDown);
     this.closeStoreUi();
     this.runEndMenu = null;
     this.replayPlayer = null;
@@ -228,6 +248,12 @@ export class PlayScene extends Phaser.Scene {
     const { KeyCodes } = Phaser.Input.Keyboard;
     this.storeYesKeys = [KeyCodes.UP, KeyCodes.W].map((code) => this.input.keyboard!.addKey(code));
     this.storeNoKeys = [KeyCodes.DOWN, KeyCodes.S].map((code) => this.input.keyboard!.addKey(code));
+    this.storeLeftKeys = [KeyCodes.LEFT, KeyCodes.A].map((code) =>
+      this.input.keyboard!.addKey(code),
+    );
+    this.storeRightKeys = [KeyCodes.RIGHT, KeyCodes.D].map((code) =>
+      this.input.keyboard!.addKey(code),
+    );
     this.storeConfirmKeys = [KeyCodes.ENTER, KeyCodes.SPACE].map((code) =>
       this.input.keyboard!.addKey(code),
     );
@@ -254,10 +280,12 @@ export class PlayScene extends Phaser.Scene {
     window.addEventListener("pagehide", onPageHide);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.off("keydown", onKeyDown);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onPageHide);
       this.applyEvents(this.sim.finishRun("quit"), 0);
       stopLoopingSfx(this, "gameplayMusic");
+      stopLoopingSfx(this, "interstitialMusic");
       stopLoopingSfx(this, "death");
       stopLoopingSfx(this, "revive");
       this.upgradeChoiceModal.destroy();
@@ -301,15 +329,7 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     this.storeOverlay.destroy();
-    this.storeOverlay = createStoreOverlay(
-      this,
-      (choice) => {
-        this.storeChoice = choice;
-      },
-      (index) => {
-        this.storeClick = index;
-      },
-    );
+    this.storeOverlay = this.createStoreOverlay();
     this.storeOverlay.open(state);
   }
 
@@ -339,11 +359,14 @@ export class PlayScene extends Phaser.Scene {
       this.upgradeChoiceModal.tick(delta);
     }
     const readsStoreKeys = this.sim.readsStoreKeys();
+    const keyDir = readsStoreKeys ? this.storeDirPressed() : null;
+    const storeDir = keyDir ?? (readsStoreKeys ? this.storeDir : null);
     const events = this.sim.step(
       {
         keys: this.readHeldKeys(),
         uiOpen: this.startingUpgradeCard.isActive() || this.upgradeChoiceModal.isActive(),
-        storeFocus: readsStoreKeys ? this.storeFocusPressed() : null,
+        storeFocus: keyDir === "up" ? "yes" : keyDir === "down" ? "no" : null,
+        storeDir,
         storeConfirm:
           readsStoreKeys &&
           this.storeConfirmKeys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
@@ -351,13 +374,23 @@ export class PlayScene extends Phaser.Scene {
         storeClick: readsStoreKeys ? this.storeClick : null,
         storePointer: readsStoreKeys ? this.storePointer : null,
         storeCancelRoute: escDown,
+        acknowledge: this.keyPressed,
       },
       delta,
     );
+    this.keyPressed = false;
     this.storeChoice = null;
     this.storeClick = null;
+    this.storeDir = null;
     this.storePointer = null;
     this.applyEvents(events, delta);
+    const slotView = this.sim.slotView();
+    this.slotOverlay.sync(slotView);
+    this.musicDuck = stepMusicDuck(this.musicDuck, slotView !== null, delta);
+    if (this.musicDuck !== 1 || this.musicDuckApplied !== 1) {
+      setMusicDuck(this, "gameplayMusic", this.musicDuck);
+      this.musicDuckApplied = this.musicDuck;
+    }
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
     this.runEndMenu?.tick(this.sim.runEndMenuArmed());
@@ -374,6 +407,9 @@ export class PlayScene extends Phaser.Scene {
   }
 
   public currentMusicId(): SfxId {
+    if (this.sim.intermissionActive()) {
+      return "interstitialMusic";
+    }
     return this.sim.storeState() !== null ? "storeMusic" : "gameplayMusic";
   }
 
@@ -400,6 +436,7 @@ export class PlayScene extends Phaser.Scene {
       this.pausedAtMs = null;
     }
     this.sim.suppressInputUntilRelease();
+    this.keyPressed = false;
     const timerVisible = this.timerText.visible;
     this.timerText.destroy();
     this.timerText = addPixelText(this, PLAYFIELD_WIDTH - 12, 8, this.timerLabel(), HUD_FONT_SIZE);
@@ -480,6 +517,9 @@ export class PlayScene extends Phaser.Scene {
       case "powerPelletBreak":
         this.powerPelletBreakFx.apply(event);
         break;
+      case "chaffBurst":
+        playChaffBurst(this, event);
+        break;
       case "turnSparks":
         playTurnSparks(this, event);
         break;
@@ -548,15 +588,7 @@ export class PlayScene extends Phaser.Scene {
         );
         break;
       case "storeOpened":
-        this.storeOverlay = createStoreOverlay(
-          this,
-          (choice) => {
-            this.storeChoice = choice;
-          },
-          (index) => {
-            this.storeClick = index;
-          },
-        );
+        this.storeOverlay = this.createStoreOverlay();
         this.storeOverlay.open(this.sim.storeState()!);
         break;
       case "storeSync":
@@ -626,12 +658,29 @@ export class PlayScene extends Phaser.Scene {
     this.upgradeLines.forEach((line) => line.setVisible(frame === null));
   }
 
-  private storeFocusPressed(): "yes" | "no" | null {
+  private storeDirPressed(): StoreDir | null {
     const pressed = (keys: Phaser.Input.Keyboard.Key[]) =>
       keys.filter((key) => Phaser.Input.Keyboard.JustDown(key)).length > 0;
-    const yes = pressed(this.storeYesKeys);
-    const no = pressed(this.storeNoKeys);
-    return yes ? "yes" : no ? "no" : null;
+    const up = pressed(this.storeYesKeys);
+    const down = pressed(this.storeNoKeys);
+    const left = pressed(this.storeLeftKeys);
+    const right = pressed(this.storeRightKeys);
+    return up ? "up" : down ? "down" : left ? "left" : right ? "right" : null;
+  }
+
+  private createStoreOverlay(): StoreOverlay {
+    return createStoreOverlay(
+      this,
+      (choice) => {
+        this.storeChoice = choice;
+      },
+      (index) => {
+        this.storeClick = index;
+      },
+      (dir) => {
+        this.storeDir = dir;
+      },
+    );
   }
 
   private closeStoreUi(): void {

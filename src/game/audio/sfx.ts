@@ -38,6 +38,11 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     url: "sound/store.ogg",
     volume: 1.0,
   },
+  interstitialMusic: {
+    key: "interstitial-music",
+    url: "sound/level-interstitial.ogg",
+    volume: 1.0,
+  },
   levelComplete: {
     key: "level-complete",
     url: "sound/levelComplete.ogg",
@@ -52,6 +57,31 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     key: "revive",
     url: "sound/revive.ogg",
     volume: 0.6,
+  },
+  slotSpin: {
+    key: "slot-spin",
+    url: "sound/slot-machine/slot-machine-upwards.ogg",
+    volume: 0.38,
+  },
+  slotFailure: {
+    key: "slot-failure",
+    url: "sound/slot-machine/slot-machine-failure.ogg",
+    volume: 0.28,
+  },
+  slotSingleSuccess: {
+    key: "slot-single-success",
+    url: "sound/slot-machine/slot-machine-singlesuccess.ogg",
+    volume: 0.23,
+  },
+  slotMultiSuccess: {
+    key: "slot-multi-success",
+    url: "sound/slot-machine/slot-machine-multisuccess.ogg",
+    volume: 0.43,
+  },
+  slotMegaBonus: {
+    key: "slot-mega-bonus",
+    url: "sound/slot-machine/slot-machine-mega-bonus.ogg",
+    volume: 0.69,
   },
 };
 
@@ -207,6 +237,17 @@ export function syncMusicPlayback(scene: Phaser.Scene, id: SfxId, settings: Audi
     return;
   }
   scene.sound.play(entry.key, { volume, loop: true });
+}
+
+export function setMusicDuck(scene: Phaser.Scene, id: SfxId, gain: number): void {
+  const entry = SFX_MANIFEST[id];
+  if (scene.game.config.audio.noAudio === true || !scene.sound.isPlaying(entry.key)) {
+    return;
+  }
+  const playing = scene.sound.get<Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound>(
+    entry.key,
+  );
+  playing?.setVolume(categoryVolume(loadAudioSettings(), id) * gain);
 }
 
 export function playPelletCollectSfx(

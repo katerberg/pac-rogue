@@ -28,6 +28,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "maxLives",
   "godMode",
   "jumpToUpgrade",
+  "jumpToSpinner",
   "forceUpgrade",
   "store",
   "ghosts",
@@ -35,6 +36,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "bossStageAdvance",
   "knobs",
   "customMaze",
+  "slot",
 ] as const;
 
 export function highScoresDisabled(params: URLSearchParams): boolean {

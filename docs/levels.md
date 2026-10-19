@@ -10,7 +10,7 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `lev
 
 ## Intermission
 
-After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man across the screen before level 3. `PlaySim` owns the timer and emits `intermission` events with actor positions; `PlayScene` only moves two sprites (`intermissionActors.ts`).
+After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man across the screen before level 3. `PlaySim` owns the timer and emits `intermission` events with actor positions; `PlayScene` only moves two sprites (`intermissionActors.ts`). The cutscene loops `interstitialMusic` (same volume as gameplay music; the pause-menu Settings controls it via `PlayScene.currentMusicId()`). LEARN has no level progression, so it has no counterpart.
 
 ## Speed
 
@@ -23,7 +23,9 @@ Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-
 - **Lava** level (`isLavaZoneLevel`, `src/domain/lavaZone.ts`): one seeded lava patch, centred on a straight hallway with no intersection or speed lane cell anywhere in its reach, cycles dormant (a cooled bed, which glows with embers before it opens) → creeping out from the centre, sweeping around a corner cell → full → retracting. The cycle waits for Dot-Man's first direction input (same as the run clock / ghost release), so the waiting period has no flow; a life loss restarts it dormant until he moves again. Touching it kills Dot-Man like a ghost catch; ghosts cross it freely.
 - **Speed lane** levels (`speedZoneCountForLevel`, `src/domain/speedZones.ts`): seeded straight lanes speed Dot-Man up when he moves in the lane's fast direction and slow him moving the other way; ghosts ignore them. Faint dust drifts toward the fast end. Lanes persist: each keeps its spot and direction while its ends drift (leaning longer), new ones join later, and board start leaks them tile by tile from last level's shape. `speedZonesByLevel` replays them from the seed; upside-down levels flip them.
 
-Inverted, speed lane and lava levels are **level modifiers**: `?levelModifiers=0` turns them off (see README Flags). Add new modifiers behind `PlayOptions.levelModifiers` too.
+- **Collapsed tunnels** (`src/domain/collapse.ts`, `COLLAPSE_LEVELS`): one collapse arrives on each listed level and stays for the rest of the pool levels. `pickCollapsePlan` runs once per run on the pool base map and only takes whole corridor runs between junctions, so nothing dead-ends or gets cut off. `PlaySim` writes the collapsed lanes into the board ASCII as walls (solids, pellets and pellet-scaled thresholds follow), mirrors them on the inverted levels, and replays speed lanes on the board with every collapse applied so a lane never sits where a collapse will land. The rubble is drawn over the merged wall (`src/domain/collapseRubble.ts`, look in `RUBBLE_STYLE`); dust motes fly off a collapse and settle beside it the first time it appears (`introMs`), then stay put on later levels.
+
+Inverted, speed lane, lava and collapse levels are **level modifiers**: `?levelModifiers=0` turns them off (see README Flags). Add new modifiers behind `PlayOptions.levelModifiers` too.
 
 ## Scatter and chase
 

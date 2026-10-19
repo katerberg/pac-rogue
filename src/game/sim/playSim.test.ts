@@ -34,6 +34,7 @@ import {
   worldToRow,
 } from "../../domain/maze";
 import { speedLevelMultiplier } from "../../domain/levelRules";
+import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
@@ -79,12 +80,14 @@ import {
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   WALL_PASS_MS,
+  baseIdOf,
   getUpgradeDef,
   isRare,
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
   type UpgradeId,
 } from "../../domain/upgrades";
+import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import type { ProgramDir } from "../../domain/programmer";
 import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
@@ -114,8 +117,10 @@ import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
+const ONE_QUARTER_SLOT = { quarters: 1, upgrades: 0, lives: 0 };
+
 function startSim(overrides: Partial<PlayOptions>, seed = "test"): PlaySim {
-  const sim = new PlaySim({ ...defaultPlayOptions(), ...overrides }, seed);
+  const sim = new PlaySim({ ...defaultPlayOptions(), slot: ONE_QUARTER_SLOT, ...overrides }, seed);
   sim.start();
   if (sim.snapshot().storeEntering) {
     runUntil(sim, () => !sim.snapshot().storeEntering, 120);
@@ -158,8 +163,17 @@ function count(events: SimEvent[], type: SimEvent["type"]): number {
   return events.filter((event) => event.type === type).length;
 }
 
+function settleSlots(sim: PlaySim): SimEvent[] {
+  return runUntil(
+    sim,
+    () => !sim.snapshot().slot.active && sim.snapshot().slot.queued === 0,
+    3000,
+    { acknowledge: true },
+  );
+}
+
 function drainToOffer(sim: PlaySim): UpgradeChoiceOffer {
-  runUntil(sim, () => sim.offer() !== null, 90);
+  runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
   return sim.offer()!;
 }
 
@@ -176,6 +190,7 @@ function regularPelletEids(sim: PlaySim): number[] {
 function eatPelletAt(sim: PlaySim, eid: number): void {
   teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
   runFrames(sim, 1);
+  settleSlots(sim);
 }
 
 describe("PlaySim fruit lifetime", () => {
@@ -533,10 +548,15 @@ describe("PlaySim", () => {
     const base = solidsAt(2);
     expect(startSim({ level: 2 }, "one-map").snapshot().layout).toMatch(/^pool-\d+$/);
     expect(solidsAt(3)).toEqual(base);
-    expect(solidsAt(5)).toEqual(base);
-    expect(solidsAt(8)).toEqual(base);
-    expect(solidsAt(6)).toEqual([...base].reverse());
-    expect(solidsAt(7)).toEqual([...base].reverse());
+    const noneBlocked = (rows: string[]): boolean =>
+      rows.every((row, r) =>
+        row.split(",").every((solid, c) => solid === "true" || base[r]!.split(",")[c] === "false"),
+      );
+    for (const level of [4, 5, 8]) {
+      expect(noneBlocked(solidsAt(level)), `level ${level} only adds walls`).toBe(true);
+    }
+    expect(solidsAt(6)).toEqual([...solidsAt(5)].reverse());
+    expect(solidsAt(7)).toEqual([...solidsAt(8)].reverse());
     expect(solidsAt(2, "another-map")).not.toEqual(base);
     const forced = startSim({ level: 2, maze: 0 }, "force-pool");
     expect(forced.snapshot().layout).toBe("pool-0");
@@ -549,7 +569,7 @@ describe("PlaySim", () => {
       return getActiveLayout().playerSolids.map((row) => row.join(","));
     };
     const base = solidsAt(2, true);
-    expect(solidsAt(6, true)).toEqual([...base].reverse());
+    expect(solidsAt(6, true)).toEqual([...solidsAt(5, true)].reverse());
     expect(solidsAt(6, false)).toEqual(base);
     expect(startSim({ level: 6, levelModifiers: false }, "one-map").snapshot().speedZones).toEqual(
       [],
@@ -649,7 +669,7 @@ describe("PlaySim", () => {
     const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: [...ALL_UPGRADE_IDS] });
     runFrames(sim, 90);
     expect(sim.offer()).toBeNull();
-    runUntil(sim, () => sim.snapshot().levelTransition, 90);
+    runUntil(sim, () => sim.snapshot().levelTransition, 900, { acknowledge: true });
     expect(sim.snapshot().levelTransition).toBe(true);
   });
 
@@ -732,6 +752,9 @@ describe("PlaySim", () => {
     expect(sim.snapshot().level).toBe(2);
     const rest = runUntil(sim, () => sim.snapshot().level === 3, 300);
     expect(sim.snapshot().intermission).toBeNull();
+    const all = [...events, ...rest];
+    expect(all).toContainEqual({ type: "musicAfterFanfare", id: "interstitialMusic" });
+    expect(all).toContainEqual({ type: "loopStop", id: "interstitialMusic" });
     expect(
       [...events, ...rest].some((event) => event.type === "intermission" && event.frame === null),
     ).toBe(true);
@@ -808,7 +831,7 @@ describe("PlaySim", () => {
     expect(sim.offer()).toBeNull();
     eatPelletAt(sim, eids.at(-1)!);
     expect(query(sim.world, [Pellet, PowerPellet]).length).toBeGreaterThan(0);
-    runUntil(sim, () => sim.offer() !== null, 90);
+    runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     expect(sim.offer()).not.toBeNull();
   });
 
@@ -1188,7 +1211,7 @@ describe("PlaySim", () => {
   it("does not regenerate on level clear without Myogenesis", () => {
     const sim = startSim({ jumpToUpgrade: true, enableUpgrades: [] });
     (sim as unknown as { lives: number }).lives = 1;
-    const events = runUntil(sim, () => sim.offer() !== null, 90);
+    const events = runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     expect(events).not.toContainEqual({ type: "lives", pulse: true });
     expect(sim.snapshot().lives).toBe(1);
   });
@@ -1196,7 +1219,7 @@ describe("PlaySim", () => {
   it("Myogenesis regenerates one life before the upgrade offer", () => {
     const sim = startSim({ jumpToUpgrade: true, enableUpgrades: ["passiveMyogenesis"] });
     (sim as unknown as { lives: number }).lives = 1;
-    const events = runUntil(sim, () => sim.offer() !== null, 90);
+    const events = runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     expect(events).toContainEqual({ type: "lives", pulse: true });
     expect(sim.snapshot().lives).toBe(2);
   });
@@ -1274,6 +1297,7 @@ describe("PlaySim", () => {
       for (let i = 0; i < 10 && sim.snapshot().lives > 1; i += 1) {
         getCaught(sim);
         runUntil(sim, () => !sim.snapshot().dying, 240);
+        settleSlots(sim);
       }
     }
 
@@ -1365,6 +1389,7 @@ describe("PlaySim", () => {
       const before = sim.snapshot().quarters;
       getCaught(sim);
       runUntil(sim, () => !sim.snapshot().dying, 240);
+      settleSlots(sim);
       expect(sim.snapshot()).toMatchObject({ lives: 1, quarters: before - 3 + 1 });
     });
 
@@ -1389,9 +1414,48 @@ describe("PlaySim", () => {
       const slot = sim.storeState()!.slots.filter((cell) => cell.kind === kind)[nth]!;
       teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
       runFrames(sim, 1);
+      if (kind === "swap") {
+        runFrames(sim, 1, { storeDir: "right" });
+        return runFrames(sim, 1, { storeDir: "right" });
+      }
       runFrames(sim, 1, { storeFocus: "yes" });
       return runFrames(sim, 1, { storeConfirm: true });
     }
+
+    it("sacrifices the power picked with up/down, not the stocked one", () => {
+      const owned = ["passiveGhostSlow", "passiveAfterburner"] as const;
+      const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: [...owned] });
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap");
+      if (swap?.kind !== "swap") throw new Error("no swap slot");
+      const keep = baseIdOf(swap.outgoingId);
+      const sacrificed = owned.find((id) => id !== keep)!;
+      teleportPlayer(sim, cellCenterX(swap.col), cellCenterY(swap.row));
+      runFrames(sim, 1);
+      runFrames(sim, 1, { storeDir: "up" });
+      expect(sim.storeState()!.sacrifice?.id).toBe(sacrificed);
+      runFrames(sim, 1, { storeDir: "right" });
+      const events = runFrames(sim, 1, { storeDir: "right" });
+      expect(events.some((event) => event.type === "storePurchased")).toBe(true);
+      expect(sim.snapshot().upgrades).toContain(keep);
+      expect(sim.snapshot().upgrades).not.toContain(sacrificed);
+      expect(sim.snapshot().quarters).toBe(9);
+    });
+
+    it("leaves the sacrifice selection on left without paying", () => {
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
+      });
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap")!;
+      teleportPlayer(sim, cellCenterX(swap.col), cellCenterY(swap.row));
+      runFrames(sim, 1);
+      runFrames(sim, 1, { storeDir: "left" });
+      expect(sim.snapshot().quarters).toBe(10);
+      expect(sim.snapshot().upgrades).toHaveLength(2);
+      expect(sim.storeState()!.slots.find((s) => s.kind === "swap")!.sold).toBe(false);
+    });
 
     it("sells a shelved rare for 4 Quarters, and never shelves two", () => {
       const owned = ["passiveGhostSlow", "passiveAfterburner"] as const;
@@ -2487,10 +2551,12 @@ describe("PlaySim bonus bar", () => {
     const events = runUntil(sim, () => sim.snapshot().bonus.streak >= 5, 120, {
       keys: held("left"),
     });
-    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.snapshot().quarters).toBe(0);
+    expect(sim.snapshot().slot.queued).toBe(1);
     expect(sim.snapshot().bonus.charge).toBe(1);
     expect(bonusEvents(events)).toEqual([{ type: "bonus", tier: 1, filled: 1 }]);
-    expect(events).toContainEqual({ type: "quarters", pulse: false });
+    expect(settleSlots(sim)).toContainEqual({ type: "quarters", pulse: true });
+    expect(sim.snapshot().quarters).toBe(1);
   });
 
   it("counts a power pellet once and ignores Extra Hungry's extra pellets", () => {
@@ -2531,6 +2597,191 @@ describe("PlaySim bonus bar", () => {
     takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
     expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 193 });
+  });
+});
+
+describe("PlaySim slot machine", () => {
+  function startSlotSim(overrides: Partial<PlayOptions> = {}, seed = "slots1"): PlaySim {
+    return startSim(
+      { level: 2, maze: "maze1", infiniteLives: true, bonus: 299, slot: null, ...overrides },
+      seed,
+    );
+  }
+
+  function spinFromStreak(sim: PlaySim): void {
+    runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") });
+  }
+
+  it("pauses play on a bar fill and pays every line the reels show", () => {
+    const sim = startSlotSim();
+    spinFromStreak(sim);
+    const before = sim.snapshot();
+    const totals = slotWinTotals(before.slot.wins!);
+    runFrames(sim, 30, { keys: held("left") });
+    const during = sim.snapshot();
+    expect(during.slot.active).toBe(true);
+    expect(during.player).toEqual(before.player);
+    expect(during.timeRemaining).toBe(before.timeRemaining);
+    expect(during.boardCollected).toBe(before.boardCollected);
+    settleSlots(sim);
+    const after = sim.snapshot();
+    expect(after.slot.spins).toBe(1);
+    expect(after.quarters - before.quarters).toBe(totals.quarters);
+    expect(after.lives - before.lives).toBe(totals.lives);
+    expect(after.upgrades.length - before.upgrades.length).toBe(totals.upgrades);
+  });
+
+  it("holds on the final grid until the player acknowledges it", () => {
+    const sim = startSlotSim({ slot: { quarters: 1, upgrades: 0, lives: 0 }, quarters: 0 });
+    spinFromStreak(sim);
+    runUntil(sim, () => sim.snapshot().slot.held, 600, { keys: held("left") });
+    expect(sim.snapshot().quarters).toBe(1);
+    const before = sim.snapshot();
+    runFrames(sim, 600, { keys: held("left") });
+    expect(sim.snapshot().slot).toMatchObject({ active: true, held: true });
+    expect(sim.snapshot().player).toEqual(before.player);
+    expect(sim.snapshot().timeRemaining).toBe(before.timeRemaining);
+    runFrames(sim, 1, { acknowledge: true });
+    expect(sim.snapshot().slot.active).toBe(false);
+    runFrames(sim, 10, { keys: held("left") });
+    expect(sim.snapshot().player).not.toEqual(before.player);
+  });
+
+  it("ignores a press during the spin; only a press on the held grid closes it", () => {
+    const sim = startSlotSim({ slot: { quarters: 1, upgrades: 0, lives: 0 } });
+    spinFromStreak(sim);
+    runFrames(sim, 30, { acknowledge: true });
+    expect(sim.snapshot().slot).toMatchObject({ active: true, held: false });
+  });
+
+  it("plays the spin sound at the start and one result sound per spin, named for its outcome", () => {
+    const cases = [
+      [{ quarters: 0, upgrades: 0, lives: 0 }, ["slotFailure"]],
+      [{ quarters: 1, upgrades: 0, lives: 0 }, ["slotSingleSuccess"]],
+      [{ quarters: 2, upgrades: 0, lives: 0 }, ["slotMultiSuccess"]],
+      [{ quarters: 3, upgrades: 0, lives: 0 }, ["slotMultiSuccess", "slotMegaBonus"]],
+    ] as const;
+    const slotSfx = [
+      "slotSpin",
+      "slotFailure",
+      "slotSingleSuccess",
+      "slotMultiSuccess",
+      "slotMegaBonus",
+    ];
+    for (const [slot, expected] of cases) {
+      const sim = startSlotSim({ slot });
+      const events = [
+        ...runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") }),
+        ...settleSlots(sim),
+      ];
+      const heard = events.flatMap((e) =>
+        e.type === "sfx" && slotSfx.includes(e.id) ? [e.id] : [],
+      );
+      expect(heard).toEqual(["slotSpin", ...expected]);
+    }
+  });
+
+  it("titles a miss NO PRIZE and a win BONUS! on the held grid", () => {
+    for (const [slot, title] of [
+      [{ quarters: 0, upgrades: 0, lives: 0 }, "NO PRIZE"],
+      [{ quarters: 1, upgrades: 0, lives: 0 }, "BONUS!"],
+    ] as const) {
+      const sim = startSlotSim({ slot });
+      spinFromStreak(sim);
+      runUntil(sim, () => sim.snapshot().slot.held, 600, { keys: held("left") });
+      const view = sim.slotView()!;
+      expect(slotFrame(view.spin, view.timeline, view.elapsedMs).title).toBe(title);
+    }
+  });
+
+  it("jumpToSpinner starts on level 2 with one spin queued", () => {
+    const sim = startSim({ jumpToSpinner: true, slot: null });
+    expect(sim.snapshot()).toMatchObject({ level: 2, quarters: 0 });
+    expect(sim.snapshot().slot.queued).toBe(1);
+    runFrames(sim, 1);
+    expect(sim.snapshot().slot.active).toBe(true);
+    settleSlots(sim);
+    expect(sim.snapshot().slot).toMatchObject({ spins: 1, active: false, queued: 0 });
+  });
+
+  it("replays the same reels for the same seed", () => {
+    const grids = [0, 1].map(() => {
+      const sim = startSlotSim({}, "slots-replay");
+      spinFromStreak(sim);
+      return sim.snapshot().slot.grid;
+    });
+    expect(grids[0]).toEqual(grids[1]);
+  });
+
+  it("grants a random upgrade from the school on the winning line", () => {
+    const sim = startSlotSim({ slot: { quarters: 0, upgrades: 1, lives: 0 } });
+    spinFromStreak(sim);
+    const school = sim.snapshot().slot.wins![0]!.symbol;
+    const owned = sim.snapshot().upgrades.length;
+    const events = runUntil(sim, () => sim.snapshot().slot.held, 600);
+    expect(sim.snapshot().slot.won).toEqual([sim.snapshot().upgrades.at(-1)]);
+    settleSlots(sim);
+    const { upgrades } = sim.snapshot();
+    expect(upgrades).toHaveLength(owned + 1);
+    expect(getUpgradeDef(upgrades.at(-1)!).school).toBe(school);
+    expect(events).toContainEqual({ type: "upgrades" });
+    expect(sim.runLogRecord().loadout.at(-1)).toMatchObject({ source: "slots", level: 2 });
+  });
+
+  it("pays a Quarter instead when the school has nothing left", () => {
+    const sim = startSlotSim({
+      slot: { quarters: 0, upgrades: 1, lives: 0 },
+      enableUpgrades: [...ALL_UPGRADE_IDS],
+      quarters: 0,
+    });
+    spinFromStreak(sim);
+    const owned = sim.snapshot().upgrades.length;
+    settleSlots(sim);
+    expect(sim.snapshot().upgrades).toHaveLength(owned);
+    expect(sim.snapshot().quarters).toBe(1);
+  });
+
+  it("adds a life on a life line while below the life cap", () => {
+    const sim = startSlotSim({
+      infiniteLives: false,
+      lives: 2,
+      maxLives: 4,
+      slot: { quarters: 0, upgrades: 0, lives: 1 },
+    });
+    spinFromStreak(sim);
+    settleSlots(sim);
+    expect(sim.snapshot().lives).toBe(3);
+  });
+
+  it("keeps the life symbol off the reels at the life cap", () => {
+    for (const seed of ["cap-a", "cap-b", "cap-c", "cap-d"]) {
+      const sim = startSlotSim({ infiniteLives: false, lives: 4, maxLives: 4 }, seed);
+      spinFromStreak(sim);
+      expect(sim.snapshot().slot.grid!.flat()).not.toContain("life");
+    }
+  });
+
+  it("runs one spin per fill, back to back, and pays them in order", () => {
+    const sim = startSlotSim({ slot: { quarters: 2, upgrades: 0, lives: 0 }, quarters: 0 });
+    sim["applyBonus"]({ bar: sim["bonus"], tier: 0, filled: 2 });
+    expect(sim.snapshot().slot.queued).toBe(2);
+    runFrames(sim, 1);
+    expect(sim.snapshot().slot).toMatchObject({ active: true, queued: 1 });
+    settleSlots(sim);
+    expect(sim.snapshot().slot.spins).toBe(2);
+    expect(sim.snapshot().quarters).toBe(4);
+  });
+
+  it("holds the time drain and the upgrade offer until the spin ends", () => {
+    const sim = startSlotSim({ jumpToUpgrade: true, slot: { quarters: 1, upgrades: 0, lives: 0 } });
+    runUntil(sim, () => sim.snapshot().slot.active, 120);
+    const remaining = sim.snapshot().timeRemaining;
+    expect(sim.snapshot().bonus.draining).toBe(true);
+    runFrames(sim, 60);
+    expect(sim.snapshot().timeRemaining).toBe(remaining);
+    expect(sim.offer()).toBeNull();
+    settleSlots(sim);
+    expect(drainToOffer(sim)).not.toBeNull();
   });
 });
 
@@ -2754,6 +3005,8 @@ describe("PlaySim fruit bonus charge", () => {
   it("pays a Quarter when fruit fills the bar", () => {
     const sim = startWithFruit({ quarters: 0, bonus: 200 });
     const events = eatFruit(sim);
+    expect(sim.snapshot().slot.queued).toBe(1);
+    settleSlots(sim);
     expect(sim.snapshot()).toMatchObject({ quarters: 1, bonus: { charge: 50 } });
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
   });
@@ -2788,7 +3041,7 @@ describe("PlaySim fruit bonus charge", () => {
 describe("PlaySim level-end time bonus", () => {
   function startClear(overrides: Partial<PlayOptions>): { sim: PlaySim; events: SimEvent[] } {
     const sim = new PlaySim(
-      { ...defaultPlayOptions(), jumpToUpgrade: true, ...overrides },
+      { ...defaultPlayOptions(), jumpToUpgrade: true, slot: ONE_QUARTER_SLOT, ...overrides },
       "drain",
     );
     return { sim, events: sim.start() };
@@ -2801,7 +3054,7 @@ describe("PlaySim level-end time bonus", () => {
     expect(sim.snapshot().bonus.draining).toBe(true);
     expect(sim.offer()).toBeNull();
     expect(sim.snapshot().timeRemaining).toBeLessThan(999);
-    const rest = runUntil(sim, () => !sim.snapshot().bonus.draining, 60);
+    const rest = runUntil(sim, () => !sim.snapshot().bonus.draining, 600, { acknowledge: true });
     expect(rest).toContainEqual({ type: "timeBonus", active: false });
     expect(sim.snapshot()).toMatchObject({ timeRemaining: 0, quarters: 1, bonus: { charge: 143 } });
     expect(sim.offer()).not.toBeNull();
@@ -2809,8 +3062,9 @@ describe("PlaySim level-end time bonus", () => {
 
   it("pays a Quarter mid-drain, before the offer opens", () => {
     const { sim } = startClear({ level: 2, bonus: 200, quarters: 0 });
-    const events = runUntil(sim, () => sim.snapshot().quarters === 1, 90);
+    const events = runUntil(sim, () => sim.snapshot().quarters === 1, 600);
     expect(sim.offer()).toBeNull();
+    expect(sim.snapshot().bonus.draining).toBe(true);
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
     drainToOffer(sim);
     expect(sim.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 43 } });
@@ -2818,7 +3072,7 @@ describe("PlaySim level-end time bonus", () => {
 
   it("drains on level 1, then offers an upgrade before level 2", () => {
     const { sim } = startClear({ level: 1 });
-    runUntil(sim, () => !sim.snapshot().bonus.draining, 90);
+    runUntil(sim, () => !sim.snapshot().bonus.draining, 600, { acknowledge: true });
     expect(sim.snapshot().bonus.charge).toBe(143);
     takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 2, 120);
@@ -3476,7 +3730,7 @@ describe("Death's Bounty", () => {
     ghostOntoPlayer(sim);
     const events = runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
-    return [...events, ...runUntil(sim, () => !sim.snapshot().dying, 240)];
+    return [...events, ...runUntil(sim, () => !sim.snapshot().dying, 240), ...settleSlots(sim)];
   }
 
   function bountyTotals(id: UpgradeId, deaths: number): number[] {
@@ -3503,8 +3757,11 @@ describe("Death's Bounty", () => {
     ghostOntoPlayer(sim);
     const events = runFrames(sim, 1);
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
-    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.snapshot().slot.queued).toBe(1);
     expect(sim.snapshot().bonus.charge).toBe(0);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    settleSlots(sim);
+    expect(sim.snapshot().quarters).toBe(1);
   });
 
   it("pays nothing when not owned", () => {
@@ -4197,6 +4454,7 @@ describe("Martyr", () => {
     const pelletsBefore = sim.snapshot().pelletsRemaining;
     const fell = dieAwayFromSpawn(sim);
     expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+    settleSlots(sim);
     expect(sim.snapshot().quarters).toBe(1);
     expect(sim.snapshot().pelletsRemaining).toBeLessThan(pelletsBefore - 1);
   });
@@ -5035,6 +5293,8 @@ describe("Hunter", () => {
     ghostOnto(sim, second!);
     expect(sim.snapshot().bonus.charge).toBe(charge + 225);
     ghostOnto(sim, third!);
+    expect(sim.snapshot().slot.queued).toBe(1);
+    settleSlots(sim);
     expect(sim.snapshot().quarters).toBe(quarters + 1);
     expect(sim.snapshot().bonus.charge).toBe(charge + 225);
     expect(sim.snapshot().ghostsEatenThisFright).toBe(3);
@@ -6753,7 +7013,7 @@ describe("Inheritance", () => {
     const internals = sim as unknown as { lives: number; deathsThisBoard: number };
     internals.lives = lives;
     internals.deathsThisBoard = deaths;
-    runUntil(sim, () => sim.offer() !== null, 90);
+    runUntil(sim, () => sim.offer() !== null, 900, { acknowledge: true });
     return sim.snapshot().quarters;
   }
 
@@ -6794,9 +7054,742 @@ describe("Inheritance", () => {
       for (const eid of Array.from(query(sim.world, [Pellet, Position]))) {
         eatPelletAt(sim, eid);
       }
-      runUntil(sim, () => sim.offer() !== null, 600);
+      runUntil(sim, () => sim.offer() !== null, 600, { acknowledge: true });
       return sim.snapshot().quarters;
     };
     expect(quartersAfterTwoDeaths(["passiveInheritancePlus"])).toBe(quartersAfterTwoDeaths([]) + 2);
+  });
+});
+
+describe("Simulacrum", () => {
+  const RIGHT = { keys: held("right") };
+
+  function start(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades, ...overrides }, "simulacrum");
+  }
+
+  function clearGhosts(sim: PlaySim): void {
+    for (const eid of query(sim.world, [Ghost])) {
+      removeEntity(sim.world, eid);
+    }
+  }
+
+  function centerX(): number {
+    const layout = getActiveLayout();
+    return layout.offsetX + layout.pixelWidth / 2;
+  }
+
+  function openRow(): number {
+    const layout = getActiveLayout();
+    for (let row = 2; row < layout.rows - 2; row += 1) {
+      if (
+        Array.from({ length: layout.cols - 4 }, (_, i) => i + 2).every((c) => isWalkable(c, row))
+      ) {
+        return row;
+      }
+    }
+    throw new Error("no open row");
+  }
+
+  function arm(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().simulacrum.active).toBe(true);
+  }
+
+  function placeOnRow(sim: PlaySim, col: number): number {
+    const row = openRow();
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    return row;
+  }
+
+  function ghostOnTwin(sim: PlaySim): void {
+    const twin = sim.snapshot().simulacrum;
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = twin.x!;
+    Position.y[ghost] = twin.y!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  function lastDeath(sim: PlaySim) {
+    return sim.runLogRecord().levels.at(-1)!.deaths.at(-1)!;
+  }
+
+  it("does nothing without the upgrade", () => {
+    const sim = start([]);
+    clearGhosts(sim);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 3);
+    expect(sim.snapshot().simulacrum).toMatchObject({ active: false, x: null, popProgress: null });
+    expect(sim.renderOptions().simulacrum).toBeNull();
+  });
+
+  it("appears on a power pellet and mirrors the player across the middle", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    clearGhosts(sim);
+    arm(sim);
+    placeOnRow(sim, 4);
+    runFrames(sim, 20, RIGHT);
+    const player = playerEid(sim);
+    const twin = sim.snapshot().simulacrum;
+    expect(twin.x).toBeCloseTo(2 * centerX() - Position.x[player]!);
+    expect(twin.y).toBeCloseTo(Position.y[player]!);
+    expect(sim.renderOptions().simulacrum).toMatchObject({ x: twin.x, y: twin.y });
+  });
+
+  it("lets the bodies walk through each other at the midline", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    clearGhosts(sim);
+    arm(sim);
+    placeOnRow(sim, 10);
+    const player = playerEid(sim);
+    const lives = sim.snapshot().lives;
+    let closest = Infinity;
+    runUntil(
+      sim,
+      () => {
+        closest = Math.min(closest, Math.abs(sim.snapshot().simulacrum.x! - Position.x[player]!));
+        return worldToCol(Position.x[player]!) >= 17;
+      },
+      600,
+      RIGHT,
+    );
+    expect(closest).toBeLessThan(TILE_SIZE / 2);
+    expect(sim.snapshot().simulacrum.active).toBe(true);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().lives).toBe(lives);
+  });
+
+  it("eats pellets the twin stands on", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    clearGhosts(sim);
+    arm(sim);
+    const target = regularPelletEids(sim).find((eid) => worldToCol(Position.x[eid]!) <= 5)!;
+    const before = sim.snapshot().boardCollected;
+    teleportPlayer(sim, 2 * centerX() - Position.x[target]!, Position.y[target]!);
+    runFrames(sim, 1);
+    expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
+    expect(sim.snapshot().boardCollected).toBeGreaterThanOrEqual(before + 2);
+  });
+
+  it("eats fruit the twin stands on", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    clearGhosts(sim);
+    arm(sim);
+    const row = placeOnRow(sim, 17);
+    sim["spawnFruitEntity"](false);
+    const fruit = query(sim.world, [Fruit, Position])[0]!;
+    Position.x[fruit] = cellCenterX(getActiveLayout().cols - 1 - 17);
+    Position.y[fruit] = cellCenterY(row);
+    expect(sim.snapshot().fruit).toBe(true);
+    runFrames(sim, 1);
+    expect(sim.snapshot().fruit).toBe(false);
+  });
+
+  it("keeps the twin while both bodies are inside walls with Wall Pass", () => {
+    const sim = start(["powerPelletSimulacrum", "powerPelletWallPass"]);
+    clearGhosts(sim);
+    arm(sim);
+    expect(sim.snapshot().timers.wallPassMs).toBeGreaterThan(0);
+    const layout = getActiveLayout();
+    const col = 6;
+    const wallRow = Array.from({ length: layout.rows }, (_, row) => row).find(
+      (row) => !isWalkable(col, row) && !isWalkable(layout.cols - 1 - col, row),
+    )!;
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(wallRow));
+    runFrames(sim, 3);
+    expect(sim.snapshot().simulacrum.active).toBe(true);
+  });
+
+  function pelletAt(sim: PlaySim, col: number, row: number): number | undefined {
+    return query(sim.world, [Pellet, Position]).find(
+      (eid) =>
+        !hasComponent(sim.world, eid, PowerPellet) &&
+        worldToCol(Position.x[eid]!) === col &&
+        worldToRow(Position.y[eid]!) === row,
+    );
+  }
+
+  function mirror(col: number): number {
+    return getActiveLayout().cols - 1 - col;
+  }
+
+  describe("is you", () => {
+    it("eats along the mirrored path at hyperspeed, not just where each frame ends", () => {
+      const sim = start(["powerPelletSimulacrum", "powerPelletHyperspeed"]);
+      clearGhosts(sim);
+      arm(sim);
+      expect(sim.snapshot().timers.hyperspeedMs).toBeGreaterThan(0);
+      const startCol = 3;
+      const row = placeOnRow(sim, startCol);
+      Facing.direction[playerEid(sim)] = DIRECTION.right;
+      runFrames(sim, 10, RIGHT);
+      const endCol = worldToCol(Position.x[playerEid(sim)]!);
+      expect(endCol - startCol).toBeGreaterThan(8);
+      const span = Array.from({ length: endCol - startCol + 1 }, (_, i) => mirror(startCol + i));
+      expect(span.filter((col) => pelletAt(sim, col, row) !== undefined)).toEqual([]);
+    });
+
+    it("is caught by a ghost mid-path at hyperspeed, not only where a frame ends", () => {
+      const sim = start(["powerPelletSimulacrum", "powerPelletHyperspeed"]);
+      arm(sim);
+      const row = placeOnRow(sim, 3);
+      Facing.direction[playerEid(sim)] = DIRECTION.right;
+      runFrames(sim, 2, RIGHT);
+      const frameStep = (): number => {
+        const before = sim.snapshot().simulacrum.x!;
+        sim.step({ ...IDLE_INPUT, ...RIGHT }, 50);
+        return before - sim.snapshot().simulacrum.x!;
+      };
+      const startX = sim.snapshot().simulacrum.x!;
+      const travel = frameStep();
+      expect(travel).toBeGreaterThan(2 * TILE_SIZE);
+      teleportPlayer(sim, 2 * centerX() - startX, cellCenterY(row));
+      sim["runUpgrades"] = { ...sim["runUpgrades"], hyperspeedRemainingMs: 5000 };
+      const ghost = query(sim.world, [Ghost, Position])[0]!;
+      Position.x[ghost] = startX - travel / 2;
+      Position.y[ghost] = cellCenterY(row);
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      sim.step({ ...IDLE_INPUT, ...RIGHT }, 50);
+      expect(sim.snapshot().dying).toBe(true);
+    });
+
+    it("dies on lava the player is not touching", () => {
+      const sim = startSim({ level: 8, maze: "maze1", enableUpgrades: ["powerPelletSimulacrum"] });
+      clearGhosts(sim);
+      sim["speedZones"] = [];
+      arm(sim);
+      const { col, row } = sim.snapshot().lava!;
+      runUntil(sim, () => sim.snapshot().lava!.phase === "full", 1500, { keys: held("left") });
+      const lives = sim.snapshot().lives;
+      teleportPlayer(sim, cellCenterX(mirror(col)), cellCenterY(row));
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+      expect(sim.snapshot().lives).toBe(lives - 1);
+      expect(lastDeath(sim)).toMatchObject({ lava: true, col, row });
+    });
+
+    it("Plus: lava only pops the twin", () => {
+      const sim = startSim({
+        level: 8,
+        maze: "maze1",
+        enableUpgrades: ["powerPelletSimulacrumPlus"],
+      });
+      clearGhosts(sim);
+      sim["speedZones"] = [];
+      arm(sim);
+      const { col, row } = sim.snapshot().lava!;
+      runUntil(sim, () => sim.snapshot().lava!.phase === "full", 1500, { keys: held("left") });
+      const lives = sim.snapshot().lives;
+      teleportPlayer(sim, cellCenterX(mirror(col)), cellCenterY(row));
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+      expect(sim.snapshot().lives).toBe(lives);
+      expect(sim.snapshot().simulacrum.active).toBe(false);
+    });
+
+    function twinReaches(enableUpgrades: UpgradeId[]): boolean {
+      const sim = start(["powerPelletSimulacrum", ...enableUpgrades]);
+      clearGhosts(sim);
+      arm(sim);
+      const row = openRow();
+      const twinCol = 8;
+      const own = pelletAt(sim, twinCol, row);
+      if (own !== undefined) {
+        removeEntity(sim.world, own);
+      }
+      const neighbor = pelletAt(sim, twinCol + 1, row)!;
+      teleportPlayer(sim, cellCenterX(mirror(twinCol)), cellCenterY(row));
+      runFrames(sim, 1);
+      return !query(sim.world, [Pellet]).includes(neighbor);
+    }
+
+    it("gets Pickup Range", () => {
+      expect(twinReaches([])).toBe(false);
+      expect(twinReaches(["passivePickupRange"])).toBe(true);
+    });
+
+    function pelletsGone(enableUpgrades: UpgradeId[]): number {
+      const sim = start(enableUpgrades);
+      clearGhosts(sim);
+      const before = query(sim.world, [Pellet]).length;
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      return before - query(sim.world, [Pellet]).length;
+    }
+
+    it("gets Extra Hungry", () => {
+      const solo = pelletsGone(["powerPelletExtraHungry"]);
+      const withTwin = pelletsGone(["powerPelletExtraHungry", "powerPelletSimulacrum"]);
+      expect(withTwin - solo).toBe(8);
+    });
+
+    it("gets Tunnel Dash sweeps", () => {
+      const row = horizontalTunnelRows()[0]!;
+      const sweep = (enableUpgrades: UpgradeId[]): [boolean, boolean] => {
+        const sim = start(enableUpgrades);
+        clearGhosts(sim);
+        arm(sim);
+        const [near, far] = regularPelletEids(sim).slice(0, 2) as [number, number];
+        Position.x[near] = cellCenterX(1);
+        Position.y[near] = cellCenterY(row);
+        Position.x[far] = cellCenterX(mirror(1));
+        Position.y[far] = cellCenterY(row);
+        teleportPlayer(sim, cellCenterX(3), cellCenterY(row));
+        Facing.direction[playerEid(sim)] = DIRECTION.left;
+        runFrames(sim, 1, { keys: held("left") });
+        const left = query(sim.world, [Pellet]);
+        return [!left.includes(near), !left.includes(far)];
+      };
+      expect(sweep(["powerPelletSimulacrum"])).toEqual([false, false]);
+      expect(sweep(["powerPelletSimulacrum", "passiveTunnelDash"])).toEqual([true, true]);
+    });
+  });
+
+  it("ignores power pellets while active", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    clearGhosts(sim);
+    arm(sim);
+    const total = query(sim.world, [PowerPellet]).length;
+    runFrames(sim, 3);
+    expect(query(sim.world, [PowerPellet]).length).toBeLessThan(total);
+    expect(sim.snapshot().simulacrum.active).toBe(true);
+    expect(sim.runLogRecord().levels.at(-1)!.activations.simulacrum).toBe(1);
+  });
+
+  it("targets whichever body is nearer by path", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    arm(sim);
+    placeOnRow(sim, 4);
+    runFrames(sim, 1);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    const twin = sim.snapshot().simulacrum;
+    Position.x[ghost] = twin.x! - 3 * TILE_SIZE;
+    Position.y[ghost] = twin.y!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Facing.direction[ghost] = DIRECTION.none;
+    sim["ghostModeClock"] = { ...sim["ghostModeClock"], mode: GHOST_AI_MODE.chase };
+    sim["previousEffectiveGhostMode"] = GHOST_AI_MODE.chase;
+    const gap = (): number => Math.abs(Position.x[ghost]! - sim.snapshot().simulacrum.x!);
+    const before = gap();
+    runFrames(sim, 20);
+    expect(gap()).toBeLessThan(before);
+  });
+
+  it("counts a catch of the twin as a death from the twin's spot", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    arm(sim);
+    placeOnRow(sim, 4);
+    runFrames(sim, 1);
+    const lives = sim.snapshot().lives;
+    const twinCol = sim.snapshot().simulacrum.col!;
+    ghostOnTwin(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    expect(sim.snapshot().lives).toBe(lives - 1);
+    expect(lastDeath(sim)).toMatchObject({ col: twinCol, row: openRow() });
+    runUntil(sim, () => !sim.snapshot().dying, 400);
+    expect(sim.snapshot().simulacrum.active).toBe(false);
+  });
+
+  it("counts a catch of the player as a normal death and removes the twin", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    arm(sim);
+    placeOnRow(sim, 4);
+    runFrames(sim, 1);
+    const lives = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().lives).toBe(lives - 1);
+    runUntil(sim, () => !sim.snapshot().dying, 400);
+    expect(sim.snapshot().simulacrum.active).toBe(false);
+  });
+
+  it("spares the twin and the player under Ghost Proof", () => {
+    const sim = start(["powerPelletSimulacrum", "powerPelletInvuln"]);
+    arm(sim);
+    placeOnRow(sim, 4);
+    runFrames(sim, 1);
+    ghostOnTwin(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().simulacrum.active).toBe(true);
+  });
+
+  describe("enhanced", () => {
+    it("pops only the twin when a ghost catches it, without costing a life", () => {
+      const sim = start(["powerPelletSimulacrumPlus"]);
+      arm(sim);
+      placeOnRow(sim, 4);
+      runFrames(sim, 1);
+      const lives = sim.snapshot().lives;
+      ghostOnTwin(sim);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+      expect(sim.snapshot().lives).toBe(lives);
+      expect(sim.snapshot().deathsThisBoard).toBe(0);
+      expect(sim.snapshot().simulacrum).toMatchObject({ active: false, x: null });
+      expect(sim.snapshot().simulacrum.popProgress).not.toBeNull();
+      expect(sim.renderOptions().simulacrumPop).not.toBeNull();
+    });
+
+    it("pops the twin and shields the player when a ghost catches the player", () => {
+      const sim = start(["powerPelletSimulacrumPlus"]);
+      arm(sim);
+      placeOnRow(sim, 4);
+      runFrames(sim, 1);
+      const lives = sim.snapshot().lives;
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+      expect(sim.snapshot().lives).toBe(lives);
+      expect(sim.snapshot().simulacrum.active).toBe(false);
+      expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
+      runFrames(sim, 10);
+      expect(sim.snapshot().dying).toBe(false);
+    });
+
+    it("is a normal death again once the twin is gone", () => {
+      const sim = start(["powerPelletSimulacrumPlus"]);
+      arm(sim);
+      placeOnRow(sim, 4);
+      runFrames(sim, 1);
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 120);
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+    });
+
+    it("finishes the pop animation", () => {
+      const sim = start(["powerPelletSimulacrumPlus"]);
+      arm(sim);
+      placeOnRow(sim, 4);
+      runFrames(sim, 1);
+      ghostOnTwin(sim);
+      runFrames(sim, 1);
+      runUntil(sim, () => sim.snapshot().simulacrum.popProgress === null, 120);
+      expect(sim.renderOptions().simulacrumPop).toBeNull();
+    });
+  });
+
+  describe("speed zones", () => {
+    function zoneRun(zoneFor: (row: number, playerCol: number, twinCol: number) => SpeedZone[]) {
+      const sim = start(["powerPelletSimulacrum"], { level: 6 });
+      const livesBefore = sim.snapshot().lives;
+      clearGhosts(sim);
+      settledZones(sim);
+      arm(sim);
+      const playerCol = 6;
+      const twinCol = getActiveLayout().cols - 1 - playerCol;
+      const row = openRow();
+      sim["speedZones"] = zoneFor(row, playerCol, twinCol);
+      const player = playerEid(sim);
+      for (let frame = 0; frame < 3; frame += 1) {
+        sim["eatDragMs"] = 0;
+        Position.x[player] = cellCenterX(playerCol);
+        Position.y[player] = cellCenterY(row);
+        runFrames(sim, 1, RIGHT);
+      }
+      return { sim, livesBefore, speed: Speed.px[player]! };
+    }
+
+    const lane = (col: number, row: number, fastDir: SpeedZone["fastDir"]): SpeedZone => ({
+      col: col - 1,
+      row,
+      axis: "horizontal",
+      length: 3,
+      fastDir,
+    });
+
+    it("pops the twin when the two bodies hit opposite zone effects", () => {
+      const { sim, livesBefore } = zoneRun((row, playerCol, twinCol) => [
+        lane(playerCol, row, "right"),
+        lane(twinCol, row, "right"),
+      ]);
+      expect(sim.snapshot().simulacrum.active).toBe(false);
+      expect(sim.snapshot().simulacrum.popProgress).not.toBeNull();
+      expect(sim.snapshot().dying).toBe(false);
+      expect(sim.snapshot().lives).toBe(livesBefore);
+    });
+
+    it("keeps the twin when both bodies get the same effect", () => {
+      const { sim } = zoneRun((row, playerCol, twinCol) => [
+        lane(playerCol, row, "right"),
+        lane(twinCol, row, "left"),
+      ]);
+      expect(sim.snapshot().simulacrum.active).toBe(true);
+      expect(sim.snapshot().playerSpeedZone).toBe("fast");
+    });
+
+    it("applies the zone to both bodies when only one is in it", () => {
+      const open = zoneRun(() => []);
+      const solo = zoneRun((row, playerCol) => [lane(playerCol, row, "right")]);
+      expect(solo.sim.snapshot().simulacrum.active).toBe(true);
+      expect(solo.speed).toBeCloseTo(open.speed * FAST_ZONE_MULTIPLIER);
+      const twinOnly = zoneRun((row, _playerCol, twinCol) => [lane(twinCol, row, "left")]);
+      expect(twinOnly.sim.snapshot().simulacrum.active).toBe(true);
+      expect(twinOnly.speed).toBeCloseTo(open.speed * FAST_ZONE_MULTIPLIER);
+    });
+  });
+
+  it("pops when the mirrored cell is a wall the player cell is not", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    clearGhosts(sim);
+    arm(sim);
+    const col = 6;
+    const row = placeOnRow(sim, col);
+    const mirror = getActiveLayout().cols - 1 - col;
+    sim["runUpgrades"] = {
+      ...sim["runUpgrades"],
+      droppedWall: {
+        col: mirror,
+        row,
+        remainingMs: 5000,
+        passable: false,
+        awayStep: { dx: 1, dy: 0 },
+        vacated: true,
+      },
+    };
+    runFrames(sim, 1);
+    expect(sim.snapshot().simulacrum.active).toBe(false);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().simulacrum.popProgress).not.toBeNull();
+  });
+
+  it("ends on level advance and can start again", () => {
+    const sim = start(["powerPelletSimulacrum"]);
+    clearGhosts(sim);
+    arm(sim);
+    for (const eid of Array.from(query(sim.world, [Pellet, Position]))) {
+      eatPelletAt(sim, eid);
+    }
+    takeFirstOffered(sim);
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 1200);
+    expect(sim.snapshot().simulacrum.active).toBe(false);
+  });
+});
+
+describe("Chaff", () => {
+  function start(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
+  }
+
+  function eatPower(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function activeGhost(sim: PlaySim): number {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    return ghost;
+  }
+
+  it("does nothing without the upgrade", () => {
+    const sim = start([]);
+    eatPower(sim);
+    expect(sim.snapshot().chaff).toEqual([]);
+    expect(sim.snapshot().timers.chaffMs).toBe(0);
+  });
+
+  it("drops one decoy that expires after 5s", () => {
+    const sim = start(["powerPelletChaff"]);
+    eatPower(sim);
+    expect(sim.snapshot().chaff).toHaveLength(1);
+    expect(sim.renderOptions().chaff).toHaveLength(1);
+    expect(sim.snapshot().timers.chaffMs).toBeGreaterThan(5000 - 2 * FRAME_MS);
+    const events = runUntil(sim, () => sim.snapshot().chaff.length === 0, 400);
+    expect(sim.snapshot().timers.chaffMs).toBe(0);
+    expect(events.filter((e) => e.type === "chaffBurst")).toHaveLength(1);
+  });
+
+  it("enhanced drops four decoys that last 7s", () => {
+    const sim = start(["powerPelletChaffPlus"]);
+    eatPower(sim);
+    expect(sim.snapshot().chaff).toHaveLength(4);
+    expect(sim.snapshot().timers.chaffMs).toBeGreaterThan(7000 - 2 * FRAME_MS);
+  });
+
+  it("re-triggering refreshes instead of stacking", () => {
+    const sim = start(["powerPelletChaff"]);
+    eatPower(sim);
+    runFrames(sim, 60);
+    const before = sim.snapshot().timers.chaffMs;
+    const second = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[second]!, Position.y[second]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().chaff).toHaveLength(1);
+    expect(sim.snapshot().timers.chaffMs).toBeGreaterThan(before);
+  });
+
+  it("ghosts chase the decoy, and a touch bursts it and sends them back to you", () => {
+    const sim = start(["powerPelletChaff"]);
+    const ghost = activeGhost(sim);
+    eatPower(sim);
+    const decoy = sim.snapshot().chaff[0]!;
+    Position.x[ghost] = decoy.x;
+    Position.y[ghost] = decoy.y;
+    const events = runFrames(sim, 1);
+    expect(sim.snapshot().chaff).toHaveLength(0);
+    expect(events.filter((e) => e.type === "chaffBurst")).toHaveLength(1);
+  });
+
+  it("clears the decoy when a life is lost", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletChaff"],
+      infiniteLives: true,
+    });
+    eatPower(sim);
+    expect(sim.snapshot().chaff).toHaveLength(1);
+    ghostOntoPlayer(sim);
+    runUntil(sim, () => sim.snapshot().dying, 120);
+    runUntil(sim, () => !sim.snapshot().dying, 600);
+    expect(sim.snapshot().chaff).toEqual([]);
+    expect(sim.snapshot().timers.chaffMs).toBe(0);
+  });
+});
+
+describe("collapsed tunnels", () => {
+  const SEED = "collapse-run";
+  const chainsAt = (level: number, overrides: Partial<PlayOptions> = {}) =>
+    startSim({ level, ...overrides }, SEED).snapshot().collapse;
+
+  it("adds one collapse on level 4, another on 5 and a third on 7, and keeps them", () => {
+    const counts = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => chainsAt(level).chains.length);
+    expect(counts).toEqual([0, 0, 0, 1, 2, 2, 3, 3, 0]);
+  });
+
+  it("flags only the collapse that arrives on this level as fresh", () => {
+    expect(chainsAt(4).fresh).toEqual([true]);
+    expect(chainsAt(5).fresh).toEqual([false, true]);
+    expect(chainsAt(6).fresh).toEqual([false, false]);
+    expect(chainsAt(7).fresh).toEqual([false, false, true]);
+    expect(chainsAt(8).fresh).toEqual([false, false, false]);
+  });
+
+  it("keeps the same collapses in the same place, mirrored on the inverted levels", () => {
+    const five = chainsAt(5).chains;
+    const six = chainsAt(6).chains;
+    const rows = getActiveLayout().rows;
+    expect(six).toEqual(
+      five.map((chain) => chain.map((cell) => ({ col: cell.col, row: rows - 1 - cell.row }))),
+    );
+    expect(chainsAt(7).chains.slice(0, 2)).toEqual(six);
+    expect(chainsAt(8).chains.slice(0, 2)).toEqual(five);
+  });
+
+  it("walls the collapsed lanes off for Dot-Man and the ghosts and drops their pellets", () => {
+    const plain = startSim({ level: 3 }, SEED);
+    const plainPellets = query(plain.world, [Pellet]).length;
+    for (const level of [4, 5, 7]) {
+      const sim = startSim({ level }, SEED);
+      const { chains } = sim.snapshot().collapse;
+      const layout = getActiveLayout();
+      const cells = chains.flat();
+      for (const { col, row } of cells) {
+        expect(layout.playerSolids[row]![col]).toBe(true);
+        expect(layout.ghostSolids[row]![col]).toBe(true);
+      }
+      const pellets = query(sim.world, [Pellet, Position]);
+      const onCollapse = pellets.filter((eid) =>
+        cells.some(
+          (c) => c.col === worldToCol(Position.x[eid]!) && c.row === worldToRow(Position.y[eid]!),
+        ),
+      );
+      expect(onCollapse).toEqual([]);
+      expect(pellets.length).toBeLessThan(plainPellets);
+      expect(layout.pelletCount).toBe(pellets.length);
+    }
+  });
+
+  it("leaves every remaining pellet reachable from the spawn", () => {
+    for (const seed of ["collapse-a", "collapse-b", "collapse-c", SEED]) {
+      for (const level of [4, 5, 7, 8]) {
+        const sim = startSim({ level }, seed);
+        const { playerSolids, playerSpawn } = getActiveLayout();
+        const seen = new Set<string>([`${playerSpawn.col},${playerSpawn.row}`]);
+        const queue = [playerSpawn];
+        for (let i = 0; i < queue.length; i += 1) {
+          const { col, row } = queue[i]!;
+          for (const [dc, dr] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ] as const) {
+            const next = { col: col + dc, row: row + dr };
+            const key = `${next.col},${next.row}`;
+            if (!seen.has(key) && isWalkable(next.col, next.row, playerSolids)) {
+              seen.add(key);
+              queue.push(next);
+            }
+          }
+        }
+        for (const eid of query(sim.world, [Pellet, Position])) {
+          const cell = `${worldToCol(Position.x[eid]!)},${worldToRow(Position.y[eid]!)}`;
+          expect(seen.has(cell), `${seed} level ${level} pellet at ${cell}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("replays speed lanes on the final collapsed board so they carry over when a lane collapses", () => {
+    const seeds = ["find-0", "find-1", "find-2", "find-5", "find-6", "find-8", "find-10"];
+    for (const seed of seeds) {
+      const four = settledZones(startSim({ level: 4 }, seed));
+      expect(startSim({ level: 5 }, seed).snapshot().speedZones, seed).toEqual(four);
+      const collapsed = new Set(
+        startSim({ level: 8 }, seed)
+          .snapshot()
+          .collapse.chains.flat()
+          .map((cell) => `${cell.col},${cell.row}`),
+      );
+      for (const zone of four) {
+        for (const cell of speedZoneCells(zone)) {
+          expect(collapsed.has(`${cell.col},${cell.row}`), seed).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("starts the dust intro at the board start and stops it at its full length", () => {
+    const sim = startSim({ level: 4 }, SEED);
+    expect(sim.snapshot().collapse.introMs).toBe(0);
+    runFrames(sim, 30, { keys: held("left") });
+    const early = sim.snapshot().collapse.introMs;
+    expect(early).toBeGreaterThan(0);
+    runFrames(sim, 400);
+    expect(sim.snapshot().collapse.introMs).toBeGreaterThan(early);
+    const settled = sim.snapshot().collapse.introMs;
+    runFrames(sim, 60);
+    expect(sim.snapshot().collapse.introMs).toBe(settled);
+  });
+
+  it("hands the renderer the rubble art only while collapses exist", () => {
+    expect(startSim({ level: 3 }, SEED).renderOptions().collapse).toBeNull();
+    const state = startSim({ level: 5 }, SEED).renderOptions().collapse;
+    expect(state?.arts).toHaveLength(2);
+    expect(state?.arts.map((art) => art.fresh)).toEqual([false, true]);
+    expect(state?.arts.every((art) => art.pixels.length > 0 && art.motes.length > 0)).toBe(true);
+  });
+
+  it("is a level modifier that ?levelModifiers=0 turns off, and the boss board has none", () => {
+    expect(chainsAt(7, { levelModifiers: false }).chains).toEqual([]);
+    expect(startSim({ level: 7, levelModifiers: false }, SEED).renderOptions().collapse).toBeNull();
+    expect(chainsAt(9).chains).toEqual([]);
+  });
+
+  it("replays the same collapses for the same seed and differs between seeds", () => {
+    expect(chainsAt(7)).toEqual(chainsAt(7));
+    const other = startSim({ level: 7 }, "collapse-other").snapshot().collapse.chains;
+    expect(other).not.toEqual(chainsAt(7).chains);
   });
 });

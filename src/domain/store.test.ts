@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activateAsciiLayout, activateLayout, isWalkable } from "./maze";
+import { activateAsciiLayout, activateLayout, isWalkable, wallPathCommands } from "./maze";
 import { STORE_MAZE_ASCII } from "./mazeLayouts";
 import {
   STORE_ENHANCE_PRICE,
@@ -11,6 +11,7 @@ import {
   storeExitAlpha,
   storeExitDirection,
   parseStoreLayout,
+  sacrificeHints,
   pickMidStoreLevel,
   promptView,
   purchaseSchool,
@@ -20,6 +21,7 @@ import {
   storePanelMode,
   storeEntrance,
   storeStep,
+  wallBlockMasks,
   withStoreEntranceClosed,
   type StoreState,
   type StoreStepInput,
@@ -52,6 +54,11 @@ function input(overrides: Partial<StoreStepInput>): StoreStepInput {
 function confirmYes(state: StoreState, overrides: Partial<StoreStepInput>) {
   const toggled = storeStep(state, input({ ...overrides, focus: "yes" }), zeroRng).state;
   return storeStep(toggled, input({ ...overrides, enter: true }), zeroRng);
+}
+
+function confirmSwap(state: StoreState, overrides: Partial<StoreStepInput>) {
+  const chosen = storeStep(state, input({ ...overrides, dir: "right" }), zeroRng).state;
+  return storeStep(chosen, input({ ...overrides, dir: "right" }), zeroRng);
 }
 
 function stateWith(owned: readonly UpgradeId[]): StoreState {
@@ -101,6 +108,21 @@ describe("store layout", () => {
       ],
       freebie: { col: 14, row: 17 },
     });
+  });
+
+  it("isolates the wall block that holds a corner's detail panel", () => {
+    const layout = activateAsciiLayout(STORE_MAZE_ASCII, "store");
+    const { walls, exterior } = wallBlockMasks(layout.walls, { col: 8, row: 9 });
+    expect(walls[9]![8]).toBe(true);
+    expect(walls[0]![0]).toBe(false);
+    expect(walls[9]![18]).toBe(false);
+    expect(exterior[0]![0]).toBe(true);
+    expect(exterior[9]![8]).toBe(false);
+    const own = wallPathCommands(walls, exterior);
+    const all = wallPathCommands(layout.walls, layout.exterior);
+    expect(own.length).toBeGreaterThan(0);
+    expect(own.length).toBeLessThan(all.length);
+    activateLayout("maze1");
   });
 
   it("rejects a slot that is not a full 2x2 block, or a missing freebie", () => {
@@ -467,7 +489,7 @@ describe("storeStep", () => {
     const owned: UpgradeId[] = ["passiveGhostSlow", "passiveAfterburner"];
     const state = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
     const shelf = state.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
-    const step = confirmYes(state, { ...swapCell, owned });
+    const step = confirmSwap(state, { ...swapCell, owned });
     expect(step.purchase).toMatchObject({
       kind: "swap",
       outgoingId: "passiveAfterburner",
@@ -488,7 +510,7 @@ describe("storeStep", () => {
       const swap = stocked.slots.find((s) => s.kind === "swap");
       if (swap?.kind !== "swap") throw new Error("no swap slot");
       const state = storeStep(stocked, input({ ...swapCell, owned }), rng).state;
-      const bought = confirmYes(state, { ...swapCell, owned }).purchase;
+      const bought = confirmSwap(state, { ...swapCell, owned }).purchase;
       if (bought?.kind !== "swap") throw new Error("no swap purchase");
       expect(swapIncomingSchool(swap)).toBe(getUpgradeDef(bought.incomingId).school);
     }
@@ -497,8 +519,8 @@ describe("storeStep", () => {
   it("never swaps into a specialist the swap itself leaves below three", () => {
     const owned: UpgradeId[] = ["passiveMoneyTalks", "passiveDefyDeath", "passiveMyogenesis"];
     const arrived = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
-    const toggled = storeStep(arrived, input({ ...swapCell, owned, focus: "yes" }), zeroRng).state;
-    const step = storeStep(toggled, input({ ...swapCell, owned, enter: true }), () => 0.9999);
+    const staged = storeStep(arrived, input({ ...swapCell, owned, dir: "right" }), zeroRng).state;
+    const step = storeStep(staged, input({ ...swapCell, owned, dir: "right" }), () => 0.9999);
     expect(step.purchase).toMatchObject({ kind: "swap", outgoingId: "passiveDefyDeath" });
     expect(step.purchase?.kind === "swap" && step.purchase.incomingId).not.toBe(
       "passiveDeathSpecialist",
@@ -510,7 +532,7 @@ describe("storeStep", () => {
     const arrived = storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
     const shelf = arrived.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
     expect(shelf.filter(isRare)).toHaveLength(1);
-    const step = confirmYes(arrived, { ...swapCell, owned });
+    const step = confirmSwap(arrived, { ...swapCell, owned });
     const incoming = step.purchase?.kind === "swap" ? step.purchase.incomingId : null;
     expect(incoming !== null && isRare(incoming)).toBe(true);
     expect(shelf).not.toContain(incoming);
@@ -522,8 +544,91 @@ describe("storeStep", () => {
     const owned = ALL_UPGRADE_IDS.filter((id) => !shelf.includes(id));
     const state = storeStep(shelfState, input({ ...swapCell, owned }), zeroRng).state;
     expect(promptView(state, 10, owned)?.kind).toBe("nothingToSwap");
-    const step = confirmYes(state, { ...swapCell, owned });
+    const step = confirmSwap(state, { ...swapCell, owned });
     expect(step.purchase).toBeNull();
+  });
+});
+
+describe("sacrifice selection", () => {
+  const swapCell = { col: 26, row: 32 };
+  const owned: UpgradeId[] = ["passiveGhostSlow", "passiveAfterburner", "passiveMoneyTalks"];
+  const arrive = () => storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
+  const press = (state: StoreState, dir: StoreStepInput["dir"]) =>
+    storeStep(state, input({ ...swapCell, owned, dir }), zeroRng);
+
+  it("starts on the stocked power and steps back on up and forward on down, wrapping", () => {
+    let state = arrive();
+    expect(state.sacrifice).toEqual({ id: "passiveAfterburner", stage: "power" });
+    state = press(state, "up").state;
+    expect(state.sacrifice?.id).toBe("passiveGhostSlow");
+    state = press(state, "up").state;
+    expect(state.sacrifice?.id).toBe("passiveMoneyTalks");
+    state = press(state, "down").state;
+    expect(state.sacrifice?.id).toBe("passiveGhostSlow");
+  });
+
+  it("sells the selected power, not the stocked one", () => {
+    let state = press(arrive(), "up").state;
+    state = press(state, "right").state;
+    expect(state.sacrifice?.stage).toBe("school");
+    const step = press(state, "right");
+    expect(step.purchase).toMatchObject({ kind: "swap", outgoingId: "passiveGhostSlow" });
+  });
+
+  it("ignores up and down on the school stage and goes back to the power on left", () => {
+    let state = press(arrive(), "right").state;
+    state = press(state, "up").state;
+    expect(state.sacrifice).toEqual({ id: "passiveAfterburner", stage: "school" });
+    state = press(state, "left").state;
+    expect(state.sacrifice).toEqual({ id: "passiveAfterburner", stage: "power" });
+  });
+
+  it("leaves the selection on left from the power stage without buying", () => {
+    const step = press(arrive(), "left");
+    expect(step.purchase).toBeNull();
+    expect(promptView(step.state, 10, owned)).toBeNull();
+  });
+
+  it("confirms with Enter on the school stage only", () => {
+    const staged = storeStep(arrive(), input({ ...swapCell, owned, enter: true }), zeroRng);
+    expect(staged.purchase).toBeNull();
+    expect(staged.state.sacrifice?.stage).toBe("school");
+    const bought = storeStep(staged.state, input({ ...swapCell, owned, enter: true }), zeroRng);
+    expect(bought.purchase).toMatchObject({ kind: "swap" });
+  });
+
+  it("restarts on the stocked power when the tile is re-entered", () => {
+    let state = press(arrive(), "up").state;
+    state = storeStep(state, input({ col: 5, row: 1, owned }), zeroRng).state;
+    state = storeStep(state, input({ ...swapCell, owned }), zeroRng).state;
+    expect(state.sacrifice).toEqual({ id: "passiveAfterburner", stage: "power" });
+  });
+
+  it("gains the school the tile promised even when the sacrificed power changes the pool", () => {
+    for (let seed = 1; seed <= 40; seed += 1) {
+      let x = seed;
+      const rng = () => ((x = (x * 16807) % 2147483647) - 1) / 2147483646;
+      const stocked = createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, rng);
+      const swap = stocked.slots.find((s) => s.kind === "swap");
+      if (swap?.kind !== "swap") throw new Error("no swap slot");
+      let state = storeStep(stocked, input({ ...swapCell, owned }), rng).state;
+      state = storeStep(state, input({ ...swapCell, owned, dir: "up" }), rng).state;
+      state = storeStep(state, input({ ...swapCell, owned, dir: "right" }), rng).state;
+      const bought = storeStep(state, input({ ...swapCell, owned, dir: "right" }), rng).purchase;
+      if (bought?.kind !== "swap") throw new Error("no swap purchase");
+      expect(getUpgradeDef(bought.incomingId).school).toBe(swapIncomingSchool(swap));
+    }
+  });
+
+  it("reports nothing to swap when nothing is owned", () => {
+    const stocked = stateWith(["passiveGhostSlow", "passiveAfterburner"]);
+    const state = storeStep(stocked, input({ ...swapCell, owned: [] }), zeroRng).state;
+    expect(promptView(state, 10, [])?.kind).toBe("nothingToSwap");
+  });
+
+  it("labels the hints per stage", () => {
+    expect(sacrificeHints("power")).toEqual({ vertical: true, left: "BACK", right: "BUY" });
+    expect(sacrificeHints("school")).toEqual({ vertical: false, left: "BACK", right: "CONFIRM" });
   });
 });
 
@@ -606,7 +711,7 @@ describe("enhancement tile", () => {
     const owned: UpgradeId[] = ["passiveAfterburnerPlus"];
     const stocked = stateWith(owned);
     const state = storeStep(stocked, input({ ...swapCell, owned }), zeroRng).state;
-    const step = confirmYes(state, { ...swapCell, owned });
+    const step = confirmSwap(state, { ...swapCell, owned });
     expect(step.purchase).toMatchObject({ kind: "swap", outgoingId: "passiveAfterburnerPlus" });
     const incoming = step.purchase?.kind === "swap" ? step.purchase.incomingId : "";
     expect(incoming.endsWith("Plus")).toBe(true);

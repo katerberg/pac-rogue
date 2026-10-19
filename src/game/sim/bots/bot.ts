@@ -122,6 +122,10 @@ export class Bot {
       this.reset();
       return IDLE_INPUT;
     }
+    if (sim.slotView() !== null) {
+      this.reset();
+      return { ...IDLE_INPUT, acknowledge: true };
+    }
     if (sim.storeState() !== null) {
       this.reset();
       return { ...IDLE_INPUT, ...this.store.input(sim, frameMs) };

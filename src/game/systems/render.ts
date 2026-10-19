@@ -17,6 +17,14 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import {
+  RUBBLE_TONE,
+  rubbleElapsedMs,
+  rubbleIntroSettled,
+  rubbleMotePosition,
+  rubblePalette,
+  type CollapseRenderState,
+} from "../../domain/collapseRubble";
 import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import {
   SPEED_ZONE_MAX_COUNT,
@@ -25,6 +33,7 @@ import {
   type SpeedZone,
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import { CHAFF_ALPHA, CHAFF_COLOR, type ChaffSprite } from "../../domain/chaff";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import {
   PROGRAMMER_EMPTY_SLOT_TILES,
@@ -33,7 +42,7 @@ import {
 } from "../../domain/programmer";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
-import { pixelWallRects } from "../../domain/pixelWall";
+import { pixelWallRects, WALL_ART_PX } from "../../domain/pixelWall";
 import { sameWallStyle, wallStyleFor, type WallStyle } from "../../domain/wallStyle";
 import {
   advanceDotManChomp,
@@ -48,6 +57,12 @@ import {
   type HeadingStep,
   type VisorPose,
 } from "../../domain/dotManHeading";
+import {
+  SIMULACRUM_ALPHA,
+  SIMULACRUM_TINT,
+  simulacrumDust,
+  simulacrumPopLook,
+} from "../../domain/simulacrum";
 import { padTextureWithGutter } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -157,8 +172,8 @@ const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
 const BOSS_PELLET_MIN_ALPHA = 0.6;
-const DOTMAN_BODY_TEXTURE_KEY = "dotman-body";
-const DOTMAN_VISOR_TEXTURE_KEY = "dotman-visor";
+export const DOTMAN_BODY_TEXTURE_KEY = "dotman-body";
+export const DOTMAN_VISOR_TEXTURE_KEY = "dotman-visor";
 const DOTMAN_ART_SIZE_PX = 16;
 type PlayerVisual = {
   targetAngle: number;
@@ -559,11 +574,15 @@ export type RenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
+  collapse?: CollapseRenderState | null;
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
+  chaff?: ChaffSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
+  simulacrum?: { x: number; y: number; facing: number } | null;
+  simulacrumPop?: { x: number; y: number; progress: number } | null;
 };
 
 const CHARM_DEPTH = -0.5;
@@ -745,9 +764,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const hornTurns = new Map<number, HornTurnState>();
   const ghostSkirts = new Map<number, GhostSkirt>();
   const wallGraphics = scene.add.graphics();
+  const collapseGraphics = scene.add.graphics();
+  const collapseMoteGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
+  const simulacrumDustGraphics = scene.add.graphics();
+  let simulacrumAngle = 0;
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
@@ -768,11 +791,15 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   };
   const droppedWallGraphics = scene.add.graphics();
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const chaffGraphics = scene.add.graphics();
+  chaffGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const lavaGraphics = scene.add.graphics();
   lavaGraphics.setDepth(LAVA_DEPTH);
   const programmerGraphics = scene.add.graphics();
   programmerGraphics.setDepth(PROGRAMMER_QUEUE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
+  let drawnCollapse: string | null = null;
+  let collapseMotesSettled = false;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
   let wallStyleOverride: WallStyle | null = null;
@@ -799,6 +826,55 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     hornTurns.delete(eid);
   };
 
+  const drawCollapse = (collapse: CollapseRenderState | null, style: WallStyle): void => {
+    if (collapse === null) {
+      if (drawnCollapse !== null) {
+        collapseGraphics.clear();
+        collapseMoteGraphics.clear();
+        drawnCollapse = null;
+      }
+      return;
+    }
+    const palette = rubblePalette(style.color, style.background);
+    const origin = { x: cellOriginX(0), y: cellOriginY(0) };
+    const key = `${collapse.key}:${style.color}:${style.background}`;
+    const changed = key !== drawnCollapse;
+    if (changed) {
+      collapseGraphics.clear();
+      for (const art of collapse.arts) {
+        for (const pixel of art.pixels) {
+          collapseGraphics.fillStyle(palette[pixel.tone]!, 1);
+          collapseGraphics.fillRect(
+            origin.x + pixel.x * WALL_ART_PX,
+            origin.y + pixel.y * WALL_ART_PX,
+            WALL_ART_PX,
+            WALL_ART_PX,
+          );
+        }
+      }
+      drawnCollapse = key;
+    }
+    const settled = rubbleIntroSettled(collapse);
+    if (!changed && settled && collapseMotesSettled) {
+      return;
+    }
+    collapseMoteGraphics.clear();
+    collapseMoteGraphics.fillStyle(palette[RUBBLE_TONE.light]!, 1);
+    for (const art of collapse.arts) {
+      const elapsed = rubbleElapsedMs(art, collapse.introMs);
+      for (const mote of art.motes) {
+        const at = rubbleMotePosition(mote, elapsed);
+        collapseMoteGraphics.fillRect(
+          origin.x + at.x * WALL_ART_PX,
+          origin.y + at.y * WALL_ART_PX,
+          WALL_ART_PX,
+          WALL_ART_PX,
+        );
+      }
+    }
+    collapseMotesSettled = settled;
+  };
+
   const releaseDrawable = (eid: number): void => {
     destroySkirt(eid);
     destroyImage(String(eid));
@@ -821,6 +897,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     pupilLooks.clear();
     hornTurns.clear();
     wallGraphics.clear();
+    collapseGraphics.clear();
+    collapseMoteGraphics.clear();
+    drawnCollapse = null;
     wallGraphics.setAlpha(1);
     chainGraphics.setAlpha(1);
     drawnWallStyle = null;
@@ -989,7 +1068,12 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         }
       }
     };
-    const drawVisor = (bodyKey: string, pose: VisorPose, liftArtPx: number): void => {
+    const drawVisor = (
+      bodyKey: string,
+      pose: VisorPose,
+      liftArtPx: number,
+      untinted = false,
+    ): void => {
       const body = drawableObjects.get(bodyKey);
       if (!body) {
         return;
@@ -1012,7 +1096,11 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       visor.setFlipX(pose.flipX);
       visor.setDepth(body.depth);
       visor.setAlpha(body.alpha);
-      applyPlayerTint(visor, playerTintNow);
+      if (untinted) {
+        visor.clearTint();
+      } else {
+        applyPlayerTint(visor, playerTintNow);
+      }
     };
     for (const eid of query(world, [Position, Drawable])) {
       const id = Drawable.id[eid] ?? "unknown";
@@ -1283,6 +1371,48 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
     }
 
+    const drawSimulacrum = (at: { x: number; y: number }, facing: number, alpha: number): void => {
+      const step = facingToStep(facing as Direction);
+      if (step !== null) {
+        simulacrumAngle = headingAngle(step);
+      }
+      const key = "simulacrum:body";
+      alive.add(key);
+      let body = drawableObjects.get(key);
+      if (!body) {
+        body = scene.add.image(at.x, at.y, DOTMAN_BODY_TEXTURE_KEY);
+        body.setName("simulacrum");
+        drawableObjects.set(key, body);
+      }
+      const size = displaySizeForDrawable(PLAYER_DRAWABLE_ID);
+      body.setPosition(at.x, at.y);
+      body.setDisplaySize(size, size);
+      body.setAlpha(alpha * entityAlpha);
+      body.setTint(SIMULACRUM_TINT);
+      body.setTintMode(Phaser.TintModes.FILL);
+      drawVisor(key, visorPose(simulacrumAngle), 0, true);
+    };
+    const simulacrum = opts?.simulacrum ?? null;
+    const simulacrumPop = opts?.simulacrumPop ?? null;
+    simulacrumDustGraphics.clear();
+    if (simulacrum !== null) {
+      drawSimulacrum(simulacrum, simulacrum.facing, SIMULACRUM_ALPHA);
+    } else if (simulacrumPop !== null) {
+      const look = simulacrumPopLook(simulacrumPop.progress);
+      if (look.bodyAlpha > 0) {
+        drawSimulacrum(simulacrumPop, DIRECTION.none, look.bodyAlpha);
+      }
+      for (const mote of simulacrumDust(look.dustProgress, getActiveLayout().tileSize)) {
+        simulacrumDustGraphics.fillStyle(SIMULACRUM_TINT, mote.alpha * entityAlpha);
+        simulacrumDustGraphics.fillRect(
+          simulacrumPop.x + mote.dx - mote.size / 2,
+          simulacrumPop.y + mote.dy - mote.size / 2,
+          mote.size,
+          mote.size,
+        );
+      }
+    }
+
     chainGraphics.clear();
     chainGraphics.setAlpha(entityAlpha);
     tailGraphics.setAlpha(entityAlpha);
@@ -1339,6 +1469,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       timedTunnelGraphics.fillRect(cellCenterX(layout.cols - 1) - barW / 2, y, barW, barH);
     }
 
+    drawCollapse(opts?.collapse ?? null, wallStyle);
+
     lavaGraphics.clear();
     if (opts?.lava) {
       drawLava(lavaGraphics, opts.lava, scene.time.now);
@@ -1356,6 +1488,38 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         look.size,
         look.cornerRadius,
       );
+    }
+
+    chaffGraphics.clear();
+    for (const [index, decoy] of (opts?.chaff ?? []).entries()) {
+      const alpha = !expiryTintOn(decoy.remainingMs, scene.time.now)
+        ? CHAFF_ALPHA / 3
+        : CHAFF_ALPHA;
+      const size = actorDisplaySize();
+      const heading = Math.atan2(decoy.dy, decoy.dx);
+      const mouth = Math.PI / 5;
+      chaffGraphics.fillStyle(CHAFF_COLOR, alpha);
+      chaffGraphics.beginPath();
+      chaffGraphics.moveTo(decoy.x, decoy.y);
+      chaffGraphics.arc(decoy.x, decoy.y, size / 2, heading + mouth, heading + Math.PI * 2 - mouth);
+      chaffGraphics.closePath();
+      chaffGraphics.fillPath();
+
+      const visorKey = `chaff:${index}:visor`;
+      alive.add(visorKey);
+      let visor = drawableObjects.get(visorKey);
+      if (!visor) {
+        visor = scene.add.image(decoy.x, decoy.y, DOTMAN_VISOR_TEXTURE_KEY);
+        visor.setName(visorKey);
+        drawableObjects.set(visorKey, visor);
+      }
+      const pose = visorPose(heading);
+      visor.setPosition(decoy.x, decoy.y);
+      visor.setDisplaySize(size, size);
+      visor.setRotation(pose.rotation);
+      visor.setFlipX(pose.flipX);
+      visor.setDepth(HAUNT_CAGE_DEPTH);
+      visor.setAlpha(alpha);
     }
 
     programmerGraphics.clear();
