@@ -163,8 +163,8 @@ const BOSS_PELLET_SIZE_MUL = 2;
 const BOSS_PELLET_PULSE_SIZE_MUL = 3;
 const BOSS_PELLET_PULSE_MS = 1000;
 const BOSS_PELLET_MIN_ALPHA = 0.6;
-const DOTMAN_BODY_TEXTURE_KEY = "dotman-body";
-const DOTMAN_VISOR_TEXTURE_KEY = "dotman-visor";
+export const DOTMAN_BODY_TEXTURE_KEY = "dotman-body";
+export const DOTMAN_VISOR_TEXTURE_KEY = "dotman-visor";
 const DOTMAN_ART_SIZE_PX = 16;
 type PlayerVisual = {
   targetAngle: number;

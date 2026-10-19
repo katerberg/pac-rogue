@@ -16,7 +16,12 @@ export type SlotSymbol = "quarter" | "life" | SlotSchool;
 export type SlotOutcome = { quarters: number; upgrades: number; lives: number };
 export type SlotGrid = readonly (readonly SlotSymbol[])[];
 export type SlotWin = { line: number; symbol: SlotSymbol };
-export type SlotSpin = { grid: SlotGrid; wins: SlotWin[]; anticipation: boolean };
+export type SlotSpin = {
+  grid: SlotGrid;
+  wins: SlotWin[];
+  anticipation: boolean;
+  livesOnReels: boolean;
+};
 export type SlotTimeline = { reelStopsMs: number[]; winStartsMs: number[]; durationMs: number };
 type Cell = readonly [reel: number, row: number];
 
@@ -73,8 +78,9 @@ const SLOT_OUTCOMES: readonly (SlotOutcome & { weight: number })[] = [
 const FILLER_QUARTER_WEIGHT = 0.45;
 const FILLER_LIFE_WEIGHT = 0.08;
 const TEASE_CHANCE = 0.25;
-const COMPOSE_ATTEMPTS = 200;
-const TEASE_ATTEMPTS = 100;
+const PLACEMENT_ATTEMPTS = 200;
+const FILL_ATTEMPTS = 40;
+const TEASE_ATTEMPTS = 20;
 
 export const SLOT_REEL_STOP_MS = [800, 1200, 1600] as const;
 export const SLOT_ANTICIPATION_MS = 500;
@@ -162,35 +168,46 @@ function sameOutcome(a: SlotOutcome, b: SlotOutcome): boolean {
   return a.quarters === b.quarters && a.upgrades === b.upgrades && a.lives === b.lives;
 }
 
-function tryCompose(
+type Placement = (SlotSymbol | null)[][];
+
+function placeOn(grid: Placement, [reel, row]: Cell, symbol: SlotSymbol): boolean {
+  const current = grid[reel]![row];
+  if (current !== null && current !== symbol) {
+    return false;
+  }
+  grid[reel]![row] = symbol;
+  return true;
+}
+
+function placeWins(
   outcome: SlotOutcome,
   schools: readonly (readonly [SlotSchool, number])[],
-  filler: readonly (readonly [SlotSymbol, number])[],
-  tease: boolean,
   rng: () => number,
-): SlotSymbol[][] | null {
-  const grid: (SlotSymbol | null)[][] = Array.from({ length: SLOT_REELS }, () =>
+): Placement | null {
+  const grid: Placement = Array.from({ length: SLOT_REELS }, () =>
     Array<SlotSymbol | null>(SLOT_ROWS).fill(null),
   );
-  const place = ([reel, row]: Cell, symbol: SlotSymbol): boolean => {
-    const current = grid[reel]![row];
-    if (current !== null && current !== symbol) {
-      return false;
-    }
-    grid[reel]![row] = symbol;
-    return true;
-  };
   const symbols: SlotSymbol[] = [
     ...Array<SlotSymbol>(outcome.quarters).fill("quarter"),
     ...Array<SlotSymbol>(outcome.lives).fill("life"),
     ...Array.from({ length: outcome.upgrades }, () => pickWeighted(schools, rng)),
   ];
   const lines = shuffled(SLOT_LINES, rng);
-  for (const [index, symbol] of symbols.entries()) {
-    if (!lines[index]!.every((cell) => place(cell, symbol))) {
-      return null;
-    }
-  }
+  return symbols.every((symbol, index) =>
+    lines[index]!.every((cell) => placeOn(grid, cell, symbol)),
+  )
+    ? grid
+    : null;
+}
+
+function tryFill(
+  wins: Placement,
+  outcome: SlotOutcome,
+  filler: readonly (readonly [SlotSymbol, number])[],
+  tease: boolean,
+  rng: () => number,
+): SlotSymbol[][] | null {
+  const grid = wins.map((reel) => [...reel]);
   if (tease) {
     const row = Math.floor(rng() * SLOT_ROWS);
     const offRow = row === 0 ? 1 : row === SLOT_ROWS - 1 ? row - 1 : row + (rng() < 0.5 ? -1 : 1);
@@ -203,7 +220,7 @@ function tryCompose(
       [1, row],
       [2, offRow],
     ];
-    if (!teased.every((cell) => place(cell, symbol))) {
+    if (!teased.every((cell) => placeOn(grid, cell, symbol))) {
       return null;
     }
   }
@@ -227,11 +244,13 @@ export function composeSlotGrid(
     ...schools.map(([school, weight]) => [school, (schoolShare * weight) / schoolTotal] as const),
   ];
   const wantTease = outcome.upgrades === 0 && outcome.lives === 0 && rng() < TEASE_CHANCE;
-  for (let attempt = 0; attempt < COMPOSE_ATTEMPTS; attempt += 1) {
-    const tease = wantTease && attempt < TEASE_ATTEMPTS;
-    const grid = tryCompose(outcome, schools, filler, tease, rng);
-    if (grid !== null) {
-      return grid;
+  for (let placement = 0; placement < PLACEMENT_ATTEMPTS; placement += 1) {
+    const wins = placeWins(outcome, schools, rng);
+    for (let fill = 0; wins !== null && fill < FILL_ATTEMPTS; fill += 1) {
+      const grid = tryFill(wins, outcome, filler, wantTease && fill < TEASE_ATTEMPTS, rng);
+      if (grid !== null) {
+        return grid;
+      }
     }
   }
   return Array.from({ length: SLOT_REELS }, (_, reel) =>
@@ -246,7 +265,7 @@ export function spinSlot(
   rng: () => number,
 ): SlotSpin {
   const grid = composeSlotGrid(outcome, schoolWeights, livesOnReels, rng);
-  return { grid, wins: slotWins(grid), anticipation: slotAnticipation(grid) };
+  return { grid, wins: slotWins(grid), anticipation: slotAnticipation(grid), livesOnReels };
 }
 
 export function slotTimeline(spin: SlotSpin): SlotTimeline {
@@ -319,7 +338,9 @@ const SLOT_STRIP: readonly SlotSymbol[] = [
   "quarter",
   "disruption",
 ];
-const SLOT_STRIP_STEP_MS = 70;
+const SLOT_SPIN_CELLS_PER_MS = 0.018;
+const SLOT_LAND_BOUNCE_MS = 160;
+const SLOT_LAND_BOUNCE_CELLS = 0.15;
 
 export function slotFrame(spin: SlotSpin, timeline: SlotTimeline, elapsedMs: number): SlotFrame {
   const stopped = timeline.reelStopsMs.map((ms) => elapsedMs >= ms);
@@ -344,7 +365,34 @@ export function slotFrame(spin: SlotSpin, timeline: SlotTimeline, elapsedMs: num
   };
 }
 
-export function slotSpinningSymbol(reel: number, row: number, elapsedMs: number): SlotSymbol {
-  const step = Math.floor(elapsedMs / SLOT_STRIP_STEP_MS);
-  return SLOT_STRIP[(step + row + reel * 5) % SLOT_STRIP.length]!;
+export type SlotReelCell = { symbol: SlotSymbol; y: number };
+
+export function slotReelCells(
+  spin: SlotSpin,
+  timeline: SlotTimeline,
+  reel: number,
+  elapsedMs: number,
+): SlotReelCell[] {
+  const stopMs = timeline.reelStopsMs[reel]!;
+  const landed = spin.grid[reel]!;
+  if (elapsedMs >= stopMs) {
+    const sinceMs = elapsedMs - stopMs;
+    const bounce =
+      sinceMs < SLOT_LAND_BOUNCE_MS
+        ? SLOT_LAND_BOUNCE_CELLS * Math.sin((Math.PI * sinceMs) / SLOT_LAND_BOUNCE_MS)
+        : 0;
+    return landed.map((symbol, row) => ({ symbol, y: row + bounce }));
+  }
+  const strip = spin.livesOnReels ? SLOT_STRIP : SLOT_STRIP.filter((symbol) => symbol !== "life");
+  const travel = Math.max(SLOT_ROWS, Math.round(stopMs * SLOT_SPIN_CELLS_PER_MS));
+  const position = (elapsedMs / stopMs) * travel;
+  const scrolled = Math.floor(position);
+  return [-1, 0, 1, 2].map((row) => {
+    const index = row - scrolled + travel;
+    const symbol =
+      index >= 0 && index < SLOT_ROWS
+        ? landed[index]!
+        : strip[(((index + reel * 5) % strip.length) + strip.length) % strip.length]!;
+    return { symbol, y: row + position - scrolled };
+  });
 }

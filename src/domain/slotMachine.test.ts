@@ -7,10 +7,12 @@ import {
   pickSlotUpgrade,
   rollSlotOutcome,
   SLOT_ANTICIPATION_MS,
+  SLOT_LINES,
   SLOT_REEL_STOP_MS,
   SLOT_SCHOOLS,
   slotAnticipation,
   slotFrame,
+  slotReelCells,
   slotOutcomeTable,
   slotSchoolWeights,
   slotTimeline,
@@ -73,6 +75,25 @@ describe("composeSlotGrid", () => {
           expect(slotWinTotals(slotWins(grid))).toEqual({ quarters, upgrades, lives });
         }
       }
+    }
+  });
+
+  it("lands a single win on every payline about equally often", () => {
+    const random = rng("lines");
+    const hits = SLOT_LINES.map(() => 0);
+    const spins = 3000;
+    for (let i = 0; i < spins; i += 1) {
+      const grid = composeSlotGrid(
+        { quarters: 1, upgrades: 0, lives: 0 },
+        evenSchools,
+        true,
+        random,
+      );
+      hits[slotWins(grid)[0]!.line]! += 1;
+    }
+    for (const count of hits) {
+      expect(count / spins).toBeGreaterThan(0.15);
+      expect(count / spins).toBeLessThan(0.25);
     }
   });
 
@@ -156,6 +177,7 @@ describe("slotTimeline", () => {
     grid: [],
     wins: Array.from({ length: wins }, (_, line) => ({ line, symbol: "quarter" as const })),
     anticipation,
+    livesOnReels: true,
   });
 
   it("lands a single-line spin in about three seconds", () => {
@@ -173,6 +195,43 @@ describe("slotTimeline", () => {
     const multi = slotTimeline(spinWith(3));
     expect(multi.winStartsMs[1]! - multi.winStartsMs[0]!).toBeGreaterThan(0);
     expect(multi.durationMs).toBeGreaterThan(slotTimeline(spinWith(1)).durationMs);
+  });
+});
+
+describe("slotReelCells", () => {
+  const random = rng("reels");
+  const spin = spinSlot({ quarters: 1, upgrades: 0, lives: 0 }, evenSchools, false, random);
+  const timeline = slotTimeline(spin);
+  const stopMs = timeline.reelStopsMs[0]!;
+
+  it("scrolls the strip down smoothly while the reel spins", () => {
+    const a = slotReelCells(spin, timeline, 0, 100);
+    const b = slotReelCells(spin, timeline, 0, 110);
+    expect(a).toHaveLength(4);
+    const offset = (cells: typeof a) => cells[0]!.y + 1;
+    expect(offset(b)).not.toBe(offset(a));
+    expect(Math.abs(offset(b) - offset(a))).toBeLessThan(0.5);
+    expect(a.every((cell) => cell.y >= -1 && cell.y < 3)).toBe(true);
+  });
+
+  it("lands on the grid without a jump", () => {
+    const before = slotReelCells(spin, timeline, 0, stopMs - 0.01);
+    const landed = slotReelCells(spin, timeline, 0, stopMs + 1000);
+    expect(landed).toEqual(spin.grid[0]!.map((symbol, row) => ({ symbol, y: row })));
+    for (const { symbol, y } of landed) {
+      const near = before.find((cell) => Math.abs(cell.y - y) < 0.01);
+      expect(near?.symbol).toBe(symbol);
+    }
+  });
+
+  it("bounces briefly on landing", () => {
+    expect(slotReelCells(spin, timeline, 0, stopMs + 80)[0]!.y).toBeGreaterThan(0);
+  });
+
+  it("never scrolls a life past at the life cap", () => {
+    for (let ms = 0; ms < stopMs; ms += 7) {
+      expect(slotReelCells(spin, timeline, 0, ms).map((cell) => cell.symbol)).not.toContain("life");
+    }
   });
 });
 
@@ -223,6 +282,7 @@ describe("slotFrame", () => {
       { line: 1, symbol: "speed" as const },
     ],
     anticipation: true,
+    livesOnReels: true,
   };
   const timeline = slotTimeline(spin);
 

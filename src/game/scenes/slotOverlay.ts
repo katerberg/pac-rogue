@@ -11,10 +11,14 @@ import {
   SLOT_REELS,
   SLOT_ROWS,
   slotFrame,
-  slotSpinningSymbol,
+  slotReelCells,
   type SlotSymbol,
 } from "../../domain/slotMachine";
-import { addDotManIcon, QUARTER_TEXTURE_KEY } from "../systems/render";
+import {
+  DOTMAN_BODY_TEXTURE_KEY,
+  DOTMAN_VISOR_TEXTURE_KEY,
+  QUARTER_TEXTURE_KEY,
+} from "../systems/render";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import type { SlotView } from "../sim/playSim";
 import {
@@ -50,11 +54,7 @@ const CARD_SPACING = 270;
 const WITH_CARDS_PANEL_Y = -100;
 const WITH_CARDS_CARD_Y = 110;
 
-type Cell = {
-  frame: Phaser.GameObjects.Rectangle;
-  image: Phaser.GameObjects.Image;
-  life: Phaser.GameObjects.Container;
-};
+type Sprite = { main: Phaser.GameObjects.Image; visor: Phaser.GameObjects.Image };
 
 export type SlotOverlay = { sync: (view: Readonly<SlotView> | null) => void };
 
@@ -105,15 +105,20 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
     scene.add.rectangle(reelX(reel), 0, CELL, reelHeight, REEL_COLOR),
   );
   panel.add([box, title, window, ...reels]);
-  const cells: Cell[][] = Array.from({ length: SLOT_REELS }, (_, reel) =>
-    Array.from({ length: SLOT_ROWS }, (_, row) => {
-      const x = reelX(reel);
-      const y = rowY(row);
-      const frame = scene.add.rectangle(x, y, CELL, CELL, REEL_COLOR, 0);
-      const image = scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(ICON, ICON);
-      const life = addDotManIcon(scene, x, y, ICON);
-      panel.add([frame, image, life]);
-      return { frame, image, life };
+  const highlights = Array.from({ length: SLOT_REELS }, (_, reel) =>
+    Array.from({ length: SLOT_ROWS }, (_, row) =>
+      scene.add.rectangle(reelX(reel), rowY(row), CELL, CELL, REEL_COLOR, 0),
+    ),
+  );
+  panel.add(highlights.flat());
+  const sprites: Sprite[][] = Array.from({ length: SLOT_REELS }, () =>
+    Array.from({ length: SLOT_ROWS + 1 }, () => {
+      const sprite = {
+        main: scene.add.image(0, 0, QUARTER_TEXTURE_KEY),
+        visor: scene.add.image(0, 0, DOTMAN_VISOR_TEXTURE_KEY),
+      };
+      panel.add([sprite.main, sprite.visor]);
+      return sprite;
     }),
   );
   panel.add(lines);
@@ -145,14 +150,33 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
   };
   setVisible(false);
 
-  const showSymbol = (cell: Cell, symbol: SlotSymbol) => {
-    cell.life.setVisible(symbol === "life");
-    cell.image.setVisible(symbol !== "life");
-    if (symbol !== "life") {
-      cell.image
-        .setTexture(symbol === "quarter" ? QUARTER_TEXTURE_KEY : schoolArtTextureKey(symbol))
-        .setDisplaySize(ICON, ICON);
-    }
+  const windowTop = -reelHeight / 2;
+  const windowBottom = reelHeight / 2;
+  const placeImage = (image: Phaser.GameObjects.Image, key: string, x: number, y: number) => {
+    image.setTexture(key).setPosition(x, y).setDisplaySize(ICON, ICON);
+    const top = y - ICON / 2;
+    const visibleTop = Math.max(top, windowTop);
+    const visibleBottom = Math.min(top + ICON, windowBottom);
+    const texelsPerPx = image.frame.height / ICON;
+    image
+      .setVisible(visibleBottom > visibleTop)
+      .setCrop(
+        0,
+        (visibleTop - top) * texelsPerPx,
+        image.frame.width,
+        Math.max(0, visibleBottom - visibleTop) * texelsPerPx,
+      );
+  };
+  const showSymbol = (sprite: Sprite, symbol: SlotSymbol, x: number, y: number) => {
+    const key =
+      symbol === "quarter"
+        ? QUARTER_TEXTURE_KEY
+        : symbol === "life"
+          ? DOTMAN_BODY_TEXTURE_KEY
+          : schoolArtTextureKey(symbol);
+    placeImage(sprite.main, key, x, y);
+    placeImage(sprite.visor, DOTMAN_VISOR_TEXTURE_KEY, x, y);
+    sprite.visor.setVisible(symbol === "life" && sprite.main.visible);
   };
 
   return {
@@ -178,15 +202,17 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
       for (let reel = 0; reel < SLOT_REELS; reel += 1) {
         const holding = reel === SLOT_REELS - 1 && frame.anticipating;
         reels[reel]!.setStrokeStyle(holding ? 3 : 0, HOLD_COLOR);
-        for (let row = 0; row < SLOT_ROWS; row += 1) {
-          const cell = cells[reel]![row]!;
-          const stopped = frame.stopped[reel] === true;
-          showSymbol(
-            cell,
-            stopped ? spin.grid[reel]![row]! : slotSpinningSymbol(reel, row, elapsedMs),
-          );
-          cell.frame.setFillStyle(REEL_COLOR, 0);
-        }
+        const strip = slotReelCells(spin, timeline, reel, elapsedMs);
+        sprites[reel]!.forEach((sprite, index) => {
+          const cell = strip[index];
+          if (cell === undefined) {
+            sprite.main.setVisible(false);
+            sprite.visor.setVisible(false);
+            return;
+          }
+          showSymbol(sprite, cell.symbol, reelX(reel), (cell.y - 1) * CELL);
+        });
+        highlights[reel]!.forEach((highlight) => highlight.setFillStyle(REEL_COLOR, 0));
       }
       lines.clear();
       const lit =
@@ -199,7 +225,7 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
         const cellsOnLine = SLOT_LINES[win.line]!;
         const color = symbolColor(win.symbol);
         for (const [reel, row] of cellsOnLine) {
-          cells[reel]![row]!.frame.setFillStyle(color, 0.45);
+          highlights[reel]![row]!.setFillStyle(color, 0.45);
         }
         const [first, , last] = cellsOnLine;
         lines.lineStyle(4, LINE_COLOR, 0.9);
