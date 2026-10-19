@@ -615,7 +615,7 @@ export class PlaySim {
     this.midStoreLevel = pickMidStoreLevel(this.random.stream("midStore"));
     this.levelIndex =
       options.level ??
-      (options.jumpToUpgrade
+      (options.jumpToUpgrade || options.jumpToSpinner
         ? 2
         : options.store !== null
           ? storeLevelFor(options.store, this.midStoreLevel)
@@ -666,6 +666,10 @@ export class PlaySim {
       this.emit({ type: "startingUpgrade", id: startingUpgrade });
     }
     this.emit({ type: "loopStart", id: "gameplayMusic" });
+    if (options.jumpToSpinner) {
+      this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
+      this.slotQueue.push("bonusBar");
+    }
     if (options.jumpToUpgrade) {
       this.jumpToLevelClear();
     } else if (options.bossStageAdvance && this.bossState !== null) {

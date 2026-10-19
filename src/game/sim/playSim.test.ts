@@ -2611,6 +2611,16 @@ describe("PlaySim slot machine", () => {
     expect(sim.snapshot().slot).toMatchObject({ active: true, held: false });
   });
 
+  it("jumpToSpinner starts on level 2 with one spin queued", () => {
+    const sim = startSim({ jumpToSpinner: true, slot: null });
+    expect(sim.snapshot()).toMatchObject({ level: 2, quarters: 0 });
+    expect(sim.snapshot().slot.queued).toBe(1);
+    runFrames(sim, 1);
+    expect(sim.snapshot().slot.active).toBe(true);
+    settleSlots(sim);
+    expect(sim.snapshot().slot).toMatchObject({ spins: 1, active: false, queued: 0 });
+  });
+
   it("replays the same reels for the same seed", () => {
     const grids = [0, 1].map(() => {
       const sim = startSlotSim({}, "slots-replay");

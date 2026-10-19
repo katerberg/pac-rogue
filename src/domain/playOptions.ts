@@ -1,5 +1,5 @@
 import { parseBonusParam } from "./bonusFlag";
-import { parseSlotParam, type SlotOutcome } from "./slotMachine";
+import { parseJumpToSpinnerFlag, parseSlotParam, type SlotOutcome } from "./slotMachine";
 import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
 import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
@@ -38,6 +38,7 @@ export type PlayOptions = {
   boss: BossId | null;
   bossStageAdvance: boolean;
   jumpToUpgrade: boolean;
+  jumpToSpinner: boolean;
   store: StoreIndex | null;
   disableLevelUpgrades: boolean;
   infiniteLives: boolean;
@@ -113,6 +114,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       boss,
       bossStageAdvance: parseBossStageAdvanceFlag(params),
       jumpToUpgrade: parseJumpToUpgradeFlag(params),
+      jumpToSpinner: parseJumpToSpinnerFlag(params),
       store: parseStoreFlag(params),
       disableLevelUpgrades: parseDisableLevelUpgradesFlag(params),
       infiniteLives: parseInfiniteLivesFlag(params),

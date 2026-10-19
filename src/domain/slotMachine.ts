@@ -276,6 +276,10 @@ export function pickSlotUpgrade(
     : takeWeightedUpgrade(pool, rng, (id) => upgradeOfferWeight(id, owned));
 }
 
+export function parseJumpToSpinnerFlag(params: URLSearchParams): boolean {
+  return params.get("jumpToSpinner") === "1";
+}
+
 export function parseSlotParam(params: URLSearchParams): SlotOutcome | null {
   const match = /^(?:0|(?=.)(?:(\d)q)?(?:(\d)u)?(?:(\d)l)?)$/.exec(params.get("slot") ?? "");
   if (match === null) {

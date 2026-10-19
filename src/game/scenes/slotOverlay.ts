@@ -27,9 +27,9 @@ import {
 import { addUpgradeCard } from "./startingUpgradeCard";
 import { SCHOOL_COLORS } from "./upgradeChoiceModal";
 
-const OVERLAY_DEPTH = 700;
+const OVERLAY_DEPTH = 850;
 const CELL = 44;
-const CELL_GAP = 6;
+const DIVIDER = 4;
 const ICON = 32;
 const PANEL_PAD = 14;
 const TITLE_GAP = 26;
@@ -37,7 +37,9 @@ const BACKDROP_ALPHA = 0.55;
 const PANEL_COLOR = 0x101028;
 const FRAME_COLOR = 0xffd800;
 const HOLD_COLOR = 0xff5a5a;
-const LINE_COLOR = 0xffffff;
+const REEL_COLOR = 0xffffff;
+const LINE_COLOR = 0x101028;
+const PULSE_COLOR = 0xffffff;
 const FINALE_PULSE_MS = 120;
 const FINALE_SCALE = 1.08;
 const QUARTER_TINT = 0xffd800;
@@ -64,12 +66,17 @@ function symbolColor(symbol: SlotSymbol): number {
       : SCHOOL_COLORS[symbol];
 }
 
-function cellOffset(index: number): number {
-  return (index - 1) * (CELL + CELL_GAP);
+function reelX(reel: number): number {
+  return (reel - 1) * (CELL + DIVIDER);
+}
+
+function rowY(row: number): number {
+  return (row - 1) * CELL;
 }
 
 export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
-  const span = SLOT_REELS * CELL + (SLOT_REELS - 1) * CELL_GAP;
+  const span = SLOT_REELS * CELL + (SLOT_REELS - 1) * DIVIDER;
+  const reelHeight = SLOT_ROWS * CELL;
   const backdrop = scene.add
     .rectangle(0, 0, 1, 1, 0x000000, BACKDROP_ALPHA)
     .setOrigin(0, 0)
@@ -85,14 +92,20 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
     )
     .setStrokeStyle(3, FRAME_COLOR);
   const title = addPixelText(scene, 0, 0, "BONUS!", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-  placePixelText(title, 0, -span / 2 - TITLE_GAP + 2, 0.5, 0);
+  placePixelText(title, 0, -reelHeight / 2 - TITLE_GAP + 2, 0.5, 0);
   const lines = scene.add.graphics();
-  panel.add([box, title]);
+  const window = scene.add
+    .rectangle(0, 0, span + DIVIDER * 2, reelHeight + DIVIDER * 2, FRAME_COLOR)
+    .setStrokeStyle(0);
+  const reels = Array.from({ length: SLOT_REELS }, (_, reel) =>
+    scene.add.rectangle(reelX(reel), 0, CELL, reelHeight, REEL_COLOR),
+  );
+  panel.add([box, title, window, ...reels]);
   const cells: Cell[][] = Array.from({ length: SLOT_REELS }, (_, reel) =>
     Array.from({ length: SLOT_ROWS }, (_, row) => {
-      const x = cellOffset(reel);
-      const y = cellOffset(row);
-      const frame = scene.add.rectangle(x, y, CELL, CELL, 0x000000).setStrokeStyle(2, FRAME_COLOR);
+      const x = reelX(reel);
+      const y = rowY(row);
+      const frame = scene.add.rectangle(x, y, CELL, CELL, REEL_COLOR, 0);
       const image = scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(ICON, ICON);
       const life = addDotManIcon(scene, x, y, ICON);
       panel.add([frame, image, life]);
@@ -136,7 +149,6 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
         .setTexture(symbol === "quarter" ? QUARTER_TEXTURE_KEY : schoolArtTextureKey(symbol))
         .setDisplaySize(ICON, ICON);
     }
-    cell.frame.setStrokeStyle(2, symbolColor(symbol));
   };
 
   return {
@@ -160,6 +172,8 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
       showCards(withCards ? view.won : []);
       prompt.setVisible(frame.held);
       for (let reel = 0; reel < SLOT_REELS; reel += 1) {
+        const holding = reel === SLOT_REELS - 1 && frame.anticipating;
+        reels[reel]!.setStrokeStyle(holding ? 3 : 0, HOLD_COLOR);
         for (let row = 0; row < SLOT_ROWS; row += 1) {
           const cell = cells[reel]![row]!;
           const stopped = frame.stopped[reel] === true;
@@ -167,10 +181,7 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
             cell,
             stopped ? spin.grid[reel]![row]! : slotSpinningSymbol(reel, row, elapsedMs),
           );
-          cell.frame.setFillStyle(0x000000);
-          if (!stopped && reel === SLOT_REELS - 1 && frame.anticipating) {
-            cell.frame.setStrokeStyle(3, HOLD_COLOR);
-          }
+          cell.frame.setFillStyle(REEL_COLOR, 0);
         }
       }
       lines.clear();
@@ -184,20 +195,15 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
         const cellsOnLine = SLOT_LINES[win.line]!;
         const color = symbolColor(win.symbol);
         for (const [reel, row] of cellsOnLine) {
-          cells[reel]![row]!.frame.setFillStyle(color, 0.35).setStrokeStyle(3, color);
+          cells[reel]![row]!.frame.setFillStyle(color, 0.45);
         }
         const [first, , last] = cellsOnLine;
         lines.lineStyle(4, LINE_COLOR, 0.9);
-        lines.lineBetween(
-          cellOffset(first![0]),
-          cellOffset(first![1]),
-          cellOffset(last![0]),
-          cellOffset(last![1]),
-        );
+        lines.lineBetween(reelX(first![0]), rowY(first![1]), reelX(last![0]), rowY(last![1]));
       }
       const pulse = frame.finale && Math.floor(elapsedMs / FINALE_PULSE_MS) % 2 === 0;
       panel.setScale(pulse ? FINALE_SCALE : 1);
-      box.setStrokeStyle(3, pulse ? LINE_COLOR : FRAME_COLOR);
+      box.setStrokeStyle(3, pulse ? PULSE_COLOR : FRAME_COLOR);
     },
   };
 }

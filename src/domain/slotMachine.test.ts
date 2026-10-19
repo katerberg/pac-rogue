@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createRunRandom } from "./runRandom";
 import {
   composeSlotGrid,
+  parseJumpToSpinnerFlag,
   parseSlotParam,
   pickSlotUpgrade,
   rollSlotOutcome,
@@ -190,6 +191,14 @@ describe("pickSlotUpgrade", () => {
       id = pickSlotUpgrade(owned, "speed", random);
     }
     expect(owned.length).toBeGreaterThan(1);
+  });
+});
+
+describe("parseJumpToSpinnerFlag", () => {
+  it("is true only for jumpToSpinner=1", () => {
+    expect(parseJumpToSpinnerFlag(new URLSearchParams("jumpToSpinner=1"))).toBe(true);
+    expect(parseJumpToSpinnerFlag(new URLSearchParams("jumpToSpinner=0"))).toBe(false);
+    expect(parseJumpToSpinnerFlag(new URLSearchParams())).toBe(false);
   });
 });
 

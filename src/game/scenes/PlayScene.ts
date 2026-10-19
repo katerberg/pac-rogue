@@ -177,6 +177,7 @@ export class PlayScene extends Phaser.Scene {
     if (data.restartLevel !== undefined) {
       options.level = data.restartLevel;
       options.jumpToUpgrade = false;
+      options.jumpToSpinner = false;
       options.store = null;
     }
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
