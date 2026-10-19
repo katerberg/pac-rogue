@@ -46,7 +46,6 @@ import { addRareFx } from "./rareFx";
 import {
   addPixelText,
   HUD_FONT_SIZE,
-  MENU_OPTION_FONT_SIZE,
   MENU_TITLE_FONT_SIZE,
   placePixelText,
   TEXT_COLOR_WHITE,
@@ -63,7 +62,7 @@ import {
 const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 208;
-const PANEL_HEIGHT = 124;
+const PANEL_HEIGHT = 128;
 const PANEL_SIDE_PAD = 8;
 const PANEL_TOP_PAD = 4;
 const PANEL_ROW_GAP = 2;
@@ -76,8 +75,10 @@ const SACRIFICE_PANEL_HEIGHT =
 const PANEL_DIM_ALPHA = 0.3;
 const PANEL_COIN_PX = 12;
 const PANEL_COIN_GAP_PX = 2;
-const BUY_FROM_BOTTOM = 28;
-const NEVER_MIND_FROM_BOTTOM = 10;
+const PANEL_COIN_PAD = PANEL_COIN_PX / 2;
+const CHOICE_FROM_BOTTOM = 12;
+const BUY_X = -52;
+const NEVER_MIND_X = 24;
 const FREEBIE_ICON_INSET_PX = 2;
 
 export type StoreOverlay = {
@@ -430,10 +431,10 @@ export function createStoreOverlay(
     const title = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
     const body = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
     const footer = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-    const buy = addPixelText(scene, 0, 0, "BUY", MENU_OPTION_FONT_SIZE);
-    const neverMind = addPixelText(scene, 0, 0, "NEVER MIND", MENU_OPTION_FONT_SIZE);
-    placePixelText(buy, 0, height / 2 - BUY_FROM_BOTTOM, 0.5, 0.5);
-    placePixelText(neverMind, 0, height / 2 - NEVER_MIND_FROM_BOTTOM, 0.5, 0.5);
+    const buy = addPixelText(scene, 0, 0, "BUY", UPGRADES_HUD_FONT_SIZE);
+    const neverMind = addPixelText(scene, 0, 0, "NEVER MIND", UPGRADES_HUD_FONT_SIZE);
+    placePixelText(buy, BUY_X, height / 2 - CHOICE_FROM_BOTTOM, 0.5, 0.5);
+    placePixelText(neverMind, NEVER_MIND_X, height / 2 - CHOICE_FROM_BOTTOM, 0.5, 0.5);
     for (const [text, choice] of [
       [buy, "yes"],
       [neverMind, "no"],
@@ -481,7 +482,7 @@ export function createStoreOverlay(
         const price = content.price ?? 0;
         const coinStep = PANEL_COIN_PX + PANEL_COIN_GAP_PX;
         const coinsTop =
-          -height / 2 + PANEL_TOP_PAD + title.getTextBounds(true).local.height + PANEL_ROW_GAP;
+          -height / 2 + PANEL_TOP_PAD + title.getTextBounds(true).local.height + PANEL_COIN_PAD;
         coins = Array.from({ length: price }, (_, i) => {
           const coin = addQuarterIcon(
             scene,
@@ -492,7 +493,8 @@ export function createStoreOverlay(
           root.add(coin);
           return coin;
         });
-        const titleGap = price > 0 ? PANEL_ROW_GAP + PANEL_COIN_PX + PANEL_ROW_GAP : PANEL_ROW_GAP;
+        const titleGap =
+          price > 0 ? PANEL_COIN_PAD + PANEL_COIN_PX + PANEL_COIN_PAD : PANEL_ROW_GAP;
         sacrificeView.show(content.sacrifice);
         if (content.sacrifice !== null) {
           watermark.setVisible(false);
