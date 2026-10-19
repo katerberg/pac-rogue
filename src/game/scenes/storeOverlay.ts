@@ -1,8 +1,10 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
 import { wrapCharsForBox } from "../../domain/textLayout";
-import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
-import { mazeColorForIndex } from "../../domain/mazeColorSettings";
+import { cellCenterX, cellCenterY, getActiveLayout, wallPathCommands } from "../../domain/maze";
+import { clampMazeColorIndex, mazeColorForIndex } from "../../domain/mazeColorSettings";
+import { pixelWallRects } from "../../domain/pixelWall";
+import { wallStyleFor } from "../../domain/wallStyle";
 import {
   STORE_ENHANCE_BORDER_COLOR,
   STORE_SLOT_SIZE,
@@ -11,6 +13,7 @@ import {
   slotPrice,
   storePanelMode,
   swapIncomingSchool,
+  wallBlockMasks,
   type StoreDir,
   type StoreFreebie,
   type StorePromptView,
@@ -30,7 +33,7 @@ import { wrapText } from "../../domain/wrapText";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import { addDotManIcon, addQuarterIcon, addReverseIcon } from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
-import { addRareFx, createRareFxToggle } from "./rareFx";
+import { addRareFx, createRareFxToggle, rectsHalo } from "./rareFx";
 import {
   addPixelText,
   HUD_FONT_SIZE,
@@ -50,6 +53,7 @@ import {
 
 const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
+const PANEL_WALL_DEPTH = 0.1;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
 const PANEL_SIDE_PAD = 8;
@@ -90,6 +94,7 @@ type PanelContent = {
 
 type Panel = {
   root: Phaser.GameObjects.Container;
+  wallRoot: Phaser.GameObjects.Container;
   show: (content: PanelContent) => void;
   showChoice: (confirmYes: boolean | null) => void;
 };
@@ -415,7 +420,8 @@ export function createStoreOverlay(
   let gotIds: (UpgradeId | null)[] = [];
   let pendingGot: UpgradeId | null = null;
 
-  const buildPanel = (x: number, y: number, index: number): Panel => {
+  const buildPanel = (slot: StoreSlot, freebie: StoreFreebie, index: number): Panel => {
+    const { x, y } = panelCenter(slot, freebie);
     const bg = scene.add.rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x101820);
     const zone = scene.add
       .zone(0, 0, PANEL_WIDTH, PANEL_HEIGHT)
@@ -449,18 +455,35 @@ export function createStoreOverlay(
         ...sacrificeView.objects,
       ])
       .setDepth(PANEL_DEPTH);
-    const rareFx = createRareFxToggle(scene, root, PANEL_WIDTH, PANEL_HEIGHT);
+    const layout = getActiveLayout();
+    const style = wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
+    const block = wallBlockMasks(layout.walls, {
+      col: Math.round((slot.col + 0.5 + freebie.col) / 2),
+      row: Math.round((slot.row + 0.5 + freebie.row) / 2),
+    });
+    const wallRects = pixelWallRects(
+      wallPathCommands(block.walls, block.exterior, style.cornerRadius),
+      style.thickness,
+    );
+    const wall = scene.add.graphics();
+    const wallRoot = scene.add.container(0, 0, [wall]).setDepth(PANEL_WALL_DEPTH);
+    const rareFx = createRareFxToggle(scene, wallRoot, rectsHalo(wallRects));
     let shown = "";
     return {
       root,
+      wallRoot,
       show: (content) => {
         const key = JSON.stringify(content);
         if (key === shown) {
           return;
         }
         shown = key;
-        bg.setStrokeStyle(2, schoolBorderColor(content.school));
-        rareFx(content.rare, schoolBorderColor(content.school));
+        const color = schoolBorderColor(content.school);
+        wall.clear().fillStyle(color, 1);
+        for (const rect of wallRects) {
+          wall.fillRect(rect.x, rect.y, rect.w, rect.h);
+        }
+        rareFx(content.rare, color);
         const titleSize = fitFontSize(
           content.title,
           PANEL_WIDTH - 2 * PANEL_SIDE_PAD,
@@ -585,6 +608,7 @@ export function createStoreOverlay(
     }
     for (const panel of panels) {
       panel.root.destroy(true);
+      panel.wallRoot.destroy(true);
     }
     freebieTile?.destroy(true);
     tiles = [];
@@ -599,10 +623,7 @@ export function createStoreOverlay(
     open: (state) => {
       clear();
       tiles = state.slots.map(buildTile);
-      panels = state.slots.map((slot, i) => {
-        const { x, y } = panelCenter(slot, state.freebie);
-        return buildPanel(x, y, i);
-      });
+      panels = state.slots.map((slot, i) => buildPanel(slot, state.freebie, i));
       freebieTile = state.freebie.taken ? null : buildFreebie(state.freebie);
     },
     sync: (state, prompt, deltaMs) => {
@@ -640,7 +661,9 @@ export function createStoreOverlay(
             : slotContent(slot, footer, i === state.activeSlot ? state.sacrifice : null, choosing),
         );
         panel.showChoice(choosing && slot.kind !== "swap" ? state.confirmYes : null);
-        panel.root.setAlpha(mode === "dimmed" ? PANEL_DIM_ALPHA : 1);
+        const alpha = mode === "dimmed" ? PANEL_DIM_ALPHA : 1;
+        panel.root.setAlpha(alpha);
+        panel.wallRoot.setAlpha(alpha);
       });
     },
     showPurchased: (id) => {
