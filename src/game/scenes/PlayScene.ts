@@ -76,6 +76,7 @@ import {
 import { upgradeStackHeight, upgradeStackRowPitch } from "../../domain/textLayout";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createIntermissionActors, type IntermissionActors } from "./intermissionActors";
+import { createReplayPlayer, type ReplayPlayer } from "./replayPlayer";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
@@ -114,6 +115,8 @@ const CHROME_SHAKE_OFFSETS: readonly (readonly [number, number])[] = [
 
 type PlaySceneData = { restartLevel?: number; seed?: string };
 
+const RUN_END_FADE_IN_MS = 600;
+
 export class PlayScene extends Phaser.Scene {
   private sim!: PlaySim;
   private readHeldKeys!: () => HeldKeys;
@@ -144,6 +147,8 @@ export class PlayScene extends Phaser.Scene {
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
+  private replayPlayer: ReplayPlayer | null = null;
+  private deathFadeOverlay: Phaser.GameObjects.Rectangle | null = null;
   private intermission: IntermissionActors | null = null;
   private pausedAtMs: number | null = null;
   private hiddenAtMs: number | null = null;
@@ -191,6 +196,8 @@ export class PlayScene extends Phaser.Scene {
     this.startingUpgradeCard = createStartingUpgradeCard(this);
     this.closeStoreUi();
     this.runEndMenu = null;
+    this.replayPlayer = null;
+    this.deathFadeOverlay = null;
     this.intermission = null;
 
     this.chrome = this.add.container(0, 0).setDepth(10);
@@ -354,6 +361,7 @@ export class PlayScene extends Phaser.Scene {
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
     this.runEndMenu?.tick(this.sim.runEndMenuArmed());
+    this.replayPlayer?.tick(delta);
     this.knobsPanel?.sync(this.sim.currentLevel());
   }
 
@@ -378,6 +386,7 @@ export class PlayScene extends Phaser.Scene {
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
       upgradeOfferEnhanced: this.upgradeChoiceModal.offer()?.enhanced ?? null,
       cursor: this.input.manager.canvas.style.cursor || "default",
+      replay: this.replayPlayer === null ? null : { active: true, ...this.replayPlayer.state() },
       runEndMenu: {
         open: this.runEndMenu !== null,
         selected: this.runEndMenu?.selected() ?? null,
@@ -563,12 +572,11 @@ export class PlayScene extends Phaser.Scene {
         this.startDeathFadeOverlay();
         break;
       case "endText":
+        this.startRunEndReplay();
         this.showCenteredEndText(event.title);
-        if (event.title === "RUN COMPLETE") {
-          this.runEndMenu = createRunEndMenu(this, (choice) => {
-            this.applyEvents(this.sim.chooseRunEnd(choice), delta);
-          });
-        }
+        this.runEndMenu = createRunEndMenu(this, (choice) => {
+          this.applyEvents(this.sim.chooseRunEnd(choice), delta);
+        });
         break;
       case "goToMenu":
         this.scene.start("MenuScene");
@@ -732,11 +740,27 @@ export class PlayScene extends Phaser.Scene {
       )
       .setDepth(1000)
       .setAlpha(0);
+    this.deathFadeOverlay = overlay;
     this.tweens.add({
       targets: overlay,
       alpha: 1,
       duration: DEATH_FADE_DURATION_MS,
     });
+  }
+
+  private startRunEndReplay(): void {
+    const fade = this.deathFadeOverlay;
+    if (fade !== null) {
+      this.tweens.killTweensOf(fade);
+      this.tweens.add({ targets: fade, alpha: 0, duration: RUN_END_FADE_IN_MS });
+    }
+    try {
+      const data = this.sim.replay();
+      this.replayPlayer = data.segments.length > 0 ? createReplayPlayer(this, data) : null;
+    } catch (error) {
+      console.warn("run-end replay failed to start", error);
+      this.replayPlayer = null;
+    }
   }
 
   private showCenteredEndText(title: string): void {

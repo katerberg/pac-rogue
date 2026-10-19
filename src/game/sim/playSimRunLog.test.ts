@@ -72,7 +72,7 @@ describe("PlaySim run log", () => {
       runFrames(sim, 5, { keys: held("left") });
       ghostOntoPlayer(sim);
       events.push(...runFrames(sim, 1));
-      events.push(...runUntil(sim, () => !sim.snapshot().dying, 600));
+      events.push(...runUntil(sim, () => !sim.snapshot().dying || sim.snapshot().runEnd, 600));
     }
     const record = runLogs(events).at(-1)!;
     expect(record.outcome).toBe("death");

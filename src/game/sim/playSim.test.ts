@@ -1111,16 +1111,10 @@ describe("PlaySim", () => {
   ])("saves a high score on Game Over unless debug flags are on (%s)", (disabled, saves) => {
     const sim = startSim({ level: 2, maze: "maze1", highScoresDisabled: disabled });
     const events: SimEvent[] = [];
-    for (let life = 0; life < 10 && !events.some((e) => e.type === "goToMenu"); life += 1) {
+    for (let life = 0; life < 10 && !sim.snapshot().runEnd; life += 1) {
       ghostOntoPlayer(sim);
       events.push(...runFrames(sim, 1));
-      events.push(
-        ...runUntil(
-          sim,
-          () => !sim.snapshot().dying || events.some((e) => e.type === "goToMenu"),
-          400,
-        ),
-      );
+      events.push(...runUntil(sim, () => !sim.snapshot().dying || sim.snapshot().runEnd, 400));
     }
     expect(events).toContainEqual({ type: "endText", title: "GAME OVER" });
     expect(count(events, "saveRun")).toBe(saves);
