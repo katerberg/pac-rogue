@@ -73,6 +73,11 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     url: "sound/slot-machine/slot-machine-multisuccess.ogg",
     volume: 0.43,
   },
+  slotMegaBonus: {
+    key: "slot-mega-bonus",
+    url: "sound/slot-machine/slot-machine-mega-bonus.ogg",
+    volume: 0.69,
+  },
 };
 
 const SFX_PREVIEW_ID: SfxId = "pelletMunch";

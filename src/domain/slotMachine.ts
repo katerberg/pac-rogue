@@ -89,6 +89,8 @@ const SLOT_SINGLE_WIN_MS = 1400;
 const SLOT_MULTI_LINE_MS = 900;
 const SLOT_MULTI_FINALE_MS = 900;
 const SLOT_MISS_FLASH_MS = 200;
+export const SLOT_MEGA_BONUS_WINS = 3;
+export const SLOT_MEGA_BONUS_DELAY_MS = 2460;
 
 export function slotOutcomeTable(livesOnReels: boolean): (SlotOutcome & { weight: number })[] {
   return SLOT_OUTCOMES.map((outcome) =>

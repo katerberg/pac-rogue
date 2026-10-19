@@ -10,4 +10,5 @@ export type SfxId =
   | "slotSpin"
   | "slotFailure"
   | "slotSingleSuccess"
-  | "slotMultiSuccess";
+  | "slotMultiSuccess"
+  | "slotMegaBonus";
