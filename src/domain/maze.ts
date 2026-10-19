@@ -698,7 +698,7 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const fruitSpawn = isStore
     ? playerSpawn
     : deriveFruitSpawn(ascii, cols, rows, playerSolids, ghostHouseSpawn.col);
-  const pelletCount = countPelletsInAscii(ascii, cols, rows, playerSolids);
+  const pelletCount = isStore ? 0 : countPelletsInAscii(ascii, cols, rows, playerSolids);
   if (pelletCount <= 0 && !isStore) {
     throw new Error(`maze ${id} has no pellets`);
   }

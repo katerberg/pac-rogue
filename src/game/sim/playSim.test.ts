@@ -40,12 +40,7 @@ import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
-import {
-  offeredUpgradeIds,
-  parseStoreLayout,
-  storeEntrance,
-  swapIncomingSchool,
-} from "../../domain/store";
+import { offeredUpgradeIds, parseStoreLayout, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
@@ -1681,7 +1676,7 @@ describe("PlaySim", () => {
     it("slides the player in through the left entrance as the store starts", () => {
       const sim = new PlaySim({ ...defaultPlayOptions(), store: 1, quarters: 0 }, "test");
       sim.start();
-      const entrance = storeEntrance(getActiveLayout());
+      const entrance = { col: 0, row: getActiveLayout().playerSpawn.row };
       const start = sim.snapshot();
       expect(start.storeEntering).toBe(true);
       expect(start.player!.x).toBeLessThan(cellCenterX(entrance.col));
@@ -1699,16 +1694,14 @@ describe("PlaySim", () => {
       expect(sim.readsStoreKeys()).toBe(true);
     });
 
-    it("closes the entrance behind the player: no walking or clicking out of it", () => {
+    it("leaves the store by walking back out the entrance", () => {
       const sim = startSim({ store: 1, quarters: 0 });
-      const entrance = storeEntrance(getActiveLayout());
-      const doorway = { x: cellCenterX(entrance.col), y: cellCenterY(entrance.row) };
-      expect(sim.storeExitUnder(doorway.x, doorway.y)).toBe(false);
+      const level = sim.snapshot().level;
+      runUntil(sim, () => !sim.snapshot().storeEntering, 120);
       runFrames(sim, 1);
-      runFrames(sim, 120, { keys: held("left") });
-      expect(sim.snapshot()).toMatchObject({ inStore: true, player: { col: entrance.col + 1 } });
-      runFrames(sim, 1, { storePointer: doorway });
-      expect(sim.snapshot().storeRoute).toBeNull();
+      runUntil(sim, () => !sim.snapshot().inStore, 600, { keys: held("left") });
+      expect(sim.snapshot()).toMatchObject({ inStore: false });
+      expect(sim.snapshot().level).not.toBe(level);
     });
   });
 
@@ -1716,12 +1709,13 @@ describe("PlaySim", () => {
     it("keeps moving after release until a wall, like a level", () => {
       const sim = startSim({ store: 1, quarters: 0 });
       runFrames(sim, 1);
-      runFrames(sim, 5, { keys: held("up") });
+      runFrames(sim, 5, { keys: held("right") });
       const released = sim.snapshot().player!;
       runFrames(sim, 20);
-      expect(sim.snapshot().player!.y).toBeLessThan(released.y);
+      expect(sim.snapshot().player!.x).toBeGreaterThan(released.x);
       runUntil(sim, () => sim.snapshot().player?.facing === "none", 400);
-      expect(sim.snapshot().player).toMatchObject({ col: 1, row: 1 });
+      const { freebie } = parseStoreLayout(STORE_MAZE_ASCII);
+      expect(sim.snapshot().player).toMatchObject({ col: freebie.col, row: freebie.row });
     });
 
     it("has no diagonals: two held keys move along one axis", () => {
@@ -1744,20 +1738,6 @@ describe("PlaySim", () => {
       expect(speed({ store: 1 })).toBe(speed({ level: 3, enableUpgrades: [] }));
     });
 
-    it("walking straight right along the middle row stops at the exit jog", () => {
-      const sim = startSim({ store: 1, quarters: 0 });
-      const { freebie } = parseStoreLayout(STORE_MAZE_ASCII);
-      teleportPlayer(sim, cellCenterX(freebie.col + 1), cellCenterY(freebie.row));
-      runFrames(sim, 1);
-      runFrames(sim, 400, { keys: held("right") });
-      expect(sim.snapshot().inStore).toBe(true);
-      expect(sim.snapshot().player).toMatchObject({ row: freebie.row, facing: "none" });
-      runFrames(sim, 120, { keys: held("down") });
-      expect(sim.snapshot().inStore).toBe(true);
-      runUntil(sim, () => !sim.snapshot().inStore, 600, { keys: held("right") });
-      expect(sim.snapshot().inStore).toBe(false);
-    });
-
     it("pauses the player while a BUY prompt is open, then resumes like a level", () => {
       const sim = startSim({ store: 1, quarters: 10 });
       runFrames(sim, 1);
@@ -1765,12 +1745,12 @@ describe("PlaySim", () => {
       runFrames(sim, 1);
       expect(sim.snapshot().storePrompt).toBe("confirm");
       const at = sim.snapshot().player!;
-      runFrames(sim, 20, { keys: held("up") });
+      runFrames(sim, 20, { keys: held("right") });
       expect(sim.snapshot().player).toMatchObject({ x: at.x, y: at.y });
       runFrames(sim, 1, { storeChoice: "no" });
       runFrames(sim, 1);
-      runFrames(sim, 10, { keys: held("up") });
-      expect(sim.snapshot().player!.y).toBeLessThan(at.y);
+      runFrames(sim, 10, { keys: held("right") });
+      expect(sim.snapshot().player!.x).toBeGreaterThan(at.x);
     });
   });
 
@@ -1802,7 +1782,7 @@ describe("PlaySim", () => {
   });
 
   describe("store exit click", () => {
-    const storeExit = () => ({ x: cellCenterX(31), y: cellCenterY(20) });
+    const storeExit = () => ({ x: cellCenterX(0), y: cellCenterY(10) });
 
     function travelPx(sim: PlaySim, run: () => void) {
       const before = sim.snapshot().player!;
@@ -1812,42 +1792,49 @@ describe("PlaySim", () => {
     }
 
     it("walks the player out a clicked tunnel at normal speed", () => {
-      const keyed = startSim({ store: 1, quarters: 0 });
-      runFrames(keyed, 1);
-      const keyedPx = travelPx(keyed, () => runFrames(keyed, 5, { keys: held("right") }));
+      const startAtFreebie = () => {
+        const sim = startSim({ store: 1, quarters: 0 });
+        const { freebie } = parseStoreLayout(STORE_MAZE_ASCII);
+        teleportPlayer(sim, cellCenterX(freebie.col), cellCenterY(freebie.row));
+        runFrames(sim, 1);
+        return sim;
+      };
+      const keyed = startAtFreebie();
+      const keyedPx = travelPx(keyed, () => runFrames(keyed, 5, { keys: held("left") }));
 
-      const sim = startSim({ store: 1, quarters: 0 });
+      const sim = startAtFreebie();
       const level = sim.snapshot().level;
-      runFrames(sim, 1);
       const routedPx = travelPx(sim, () => {
         runFrames(sim, 1, { storePointer: storeExit() });
         runFrames(sim, 4);
       });
-      expect(sim.snapshot().storeRoute).toEqual({ col: 31, row: 20 });
+      expect(sim.snapshot().storeRoute).toEqual({ col: 0, row: 10 });
       expect(Math.abs(routedPx - keyedPx)).toBeLessThanOrEqual(1);
       runUntil(sim, () => sim.snapshot().level !== level, 1200);
       expect(sim.snapshot().inStore).toBe(false);
     });
 
     it.each([
-      ["an arrow key", { keys: held("left") }],
+      ["an arrow key", { keys: held("up") }],
       ["Escape", { storeCancelRoute: true }],
       ["a click elsewhere", { storePointer: { x: cellCenterX(5), y: cellCenterY(16) } }],
     ] as const)("%s cancels the route", (_label, cancel) => {
       const sim = startSim({ store: 1, quarters: 0 });
+      const { freebie } = parseStoreLayout(STORE_MAZE_ASCII);
+      teleportPlayer(sim, cellCenterX(freebie.col), cellCenterY(freebie.row));
       runFrames(sim, 1, { storePointer: storeExit() });
       runFrames(sim, 10);
       runFrames(sim, 1, cancel);
       expect(sim.snapshot().storeRoute).toBeNull();
-      runUntil(sim, () => sim.snapshot().player?.facing === "none", 400);
+      runFrames(sim, 30);
       expect(sim.snapshot().storeRoute).toBeNull();
-      expect(sim.snapshot().inStore).toBe(true);
     });
 
-    it.each([[31, 20]])("routes around affordable tiles to the exit at %i,%i", (col, row) => {
+    it("routes around affordable tiles to the exit", () => {
       const sim = startSim({ store: 2, quarters: 10, lives: 2, maxLives: 4 });
       const level = sim.snapshot().level;
-      runFrames(sim, 1, { storePointer: { x: cellCenterX(col), y: cellCenterY(row) } });
+      teleportPlayer(sim, cellCenterX(12), cellCenterY(15));
+      runFrames(sim, 1, { storePointer: storeExit() });
       runUntil(
         sim,
         () => sim.snapshot().level !== level || sim.snapshot().storePrompt === "confirm",

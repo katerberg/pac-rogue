@@ -249,7 +249,6 @@ import {
   storeAfterLevel,
   storeExitAlpha,
   storeExitDirection,
-  withStoreEntranceClosed,
   storeSlotLabel,
   storeStep,
   type StoreExitDirection,
@@ -2251,7 +2250,7 @@ export class PlaySim {
     this.speedZoneShift = null;
     this.clearCollapse();
 
-    this.storeSolids = withStoreEntranceClosed(getActiveLayout());
+    this.storeSolids = getActiveLayout().playerSolids;
     this.store = createStoreState(
       parseStoreLayout(STORE_MAZE_ASCII),
       this.runUpgrades.owned,

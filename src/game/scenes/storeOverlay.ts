@@ -1,19 +1,16 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
 import { wrapCharsForBox } from "../../domain/textLayout";
-import { cellCenterX, cellCenterY, getActiveLayout, wallPathCommands } from "../../domain/maze";
-import { clampMazeColorIndex, mazeColorForIndex } from "../../domain/mazeColorSettings";
-import { pixelWallRects } from "../../domain/pixelWall";
-import { wallStyleFor } from "../../domain/wallStyle";
+import { cellCenterX, cellCenterY, getActiveLayout, pelletDisplaySize } from "../../domain/maze";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfieldBounds";
 import {
   STORE_ENHANCE_BORDER_COLOR,
-  STORE_SLOT_SIZE,
   enhanceGlowAlpha,
   sacrificeHints,
   slotPrice,
+  storeCorner,
   storePanelMode,
   swapIncomingSchool,
-  wallBlockMasks,
   type StoreDir,
   type StoreFreebie,
   type StorePromptView,
@@ -30,10 +27,14 @@ import {
 } from "../../domain/upgrades";
 import { SCHOOL_WATERMARK_ALPHA, schoolArtSize, schoolArtTextureKey } from "../../domain/schoolArt";
 import { wrapText } from "../../domain/wrapText";
-import { loadMazeColorSettings } from "../storage/mazeColorStorage";
-import { addDotManIcon, addQuarterIcon, addReverseIcon } from "../systems/render";
+import {
+  addDotManIcon,
+  addQuarterIcon,
+  addReverseIcon,
+  PELLET_TEXTURE_KEY,
+} from "../systems/render";
 import { glyphInkCenterOffsetX } from "./font8x8Basic";
-import { addRareFx, createRareFxToggle, rectsHalo } from "./rareFx";
+import { addRareFx } from "./rareFx";
 import {
   addPixelText,
   HUD_FONT_SIZE,
@@ -53,10 +54,10 @@ import {
 
 const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
-const PANEL_WALL_DEPTH = 0.1;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
 const PANEL_SIDE_PAD = 8;
+const PANEL_CORNER_MARGIN = 8;
 const PANEL_TOP_PAD = 12;
 const PANEL_ROW_GAP = 8;
 const PANEL_TITLE_MAX_CHARS = 10;
@@ -64,11 +65,7 @@ const PANEL_BODY_MAX_CHARS = 18;
 const PANEL_DIM_ALPHA = 0.3;
 const BUY_Y = PANEL_HEIGHT / 2 - 42;
 const NEVER_MIND_Y = PANEL_HEIGHT / 2 - 18;
-const TILE_DOT_PX = 2;
-const TILE_COIN_PX = 8;
-const TILE_COIN_GAP_PX = 1;
-const TILE_GLYPH_Y = -5;
-const FREEBIE_ICON_INSET_PX = 6;
+const FREEBIE_ICON_INSET_PX = 2;
 
 export type StoreOverlay = {
   open: (state: StoreState) => void;
@@ -86,7 +83,6 @@ type SacrificeView = {
 type PanelContent = {
   title: string;
   school: UpgradeSchool | null;
-  rare: boolean;
   body: string;
   footer: string;
   sacrifice: SacrificeView | null;
@@ -94,7 +90,6 @@ type PanelContent = {
 
 type Panel = {
   root: Phaser.GameObjects.Container;
-  wallRoot: Phaser.GameObjects.Container;
   show: (content: PanelContent) => void;
   showChoice: (confirmYes: boolean | null) => void;
 };
@@ -166,24 +161,6 @@ function promptFooter(prompt: StorePromptView): string {
   }
 }
 
-function coinRowXs(count: number, maxWidth: number): number[] {
-  const naturalStep = TILE_COIN_PX + TILE_COIN_GAP_PX;
-  const step =
-    count > 1 ? Math.min(naturalStep, (maxWidth - TILE_COIN_PX) / (count - 1)) : naturalStep;
-  const first = (-(count - 1) * step) / 2;
-  return Array.from({ length: count }, (_, i) => first + i * step);
-}
-
-function dotFrame(graphics: Phaser.GameObjects.Graphics, size: number): void {
-  const edge = size / 2 - 1;
-  for (let d = -edge; d < edge; d += TILE_DOT_PX * 2) {
-    graphics.fillRect(d, -edge, TILE_DOT_PX, 1);
-    graphics.fillRect(d, edge - 1, TILE_DOT_PX, 1);
-    graphics.fillRect(-edge, d, 1, TILE_DOT_PX);
-    graphics.fillRect(edge - 1, d, 1, TILE_DOT_PX);
-  }
-}
-
 function slotContent(
   slot: StoreSlot,
   footer: string,
@@ -201,7 +178,6 @@ function slotContent(
   return {
     title: slotTitle(slot),
     school: slotSchool(slot),
-    rare: slotRare(slot),
     body: slotBody(slot),
     footer,
     sacrifice: swapView,
@@ -213,7 +189,6 @@ function gotContent(id: UpgradeId): PanelContent {
   return {
     title: def.label,
     school: def.school,
-    rare: def.rare === true,
     body: def.description,
     footer: "GOT IT!",
     sacrifice: null,
@@ -229,11 +204,12 @@ function sacrificeBody(school: UpgradeSchool | null): string {
 }
 
 function panelCenter(slot: StoreSlot, freebie: StoreFreebie): { x: number; y: number } {
-  const slotX = (cellCenterX(slot.col) + cellCenterX(slot.col + 1)) / 2;
-  const slotY = (cellCenterY(slot.row) + cellCenterY(slot.row + 1)) / 2;
+  const { right, bottom } = storeCorner(slot, freebie);
+  const halfW = PANEL_WIDTH / 2 + PANEL_CORNER_MARGIN;
+  const halfH = PANEL_HEIGHT / 2 + PANEL_CORNER_MARGIN;
   return {
-    x: (slotX + cellCenterX(freebie.col)) / 2,
-    y: (slotY + cellCenterY(freebie.row)) / 2,
+    x: right ? PLAYFIELD_WIDTH - halfW : halfW,
+    y: bottom ? PLAYFIELD_HEIGHT - halfH : halfH,
   };
 }
 
@@ -415,6 +391,7 @@ export function createStoreOverlay(
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let panels: Panel[] = [];
   let freebieTile: Phaser.GameObjects.Container | null = null;
+  let dots: Phaser.GameObjects.Image[] = [];
   let glows: (Phaser.GameObjects.Rectangle | null)[] = [];
   let glowElapsedMs = 0;
   let gotIds: (UpgradeId | null)[] = [];
@@ -458,35 +435,15 @@ export function createStoreOverlay(
         ...sacrificeView.objects,
       ])
       .setDepth(PANEL_DEPTH);
-    const layout = getActiveLayout();
-    const style = wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
-    const block = wallBlockMasks(layout.walls, {
-      col: Math.round((slot.col + 0.5 + freebie.col) / 2),
-      row: Math.round((slot.row + 0.5 + freebie.row) / 2),
-    });
-    const wallRects = pixelWallRects(
-      wallPathCommands(block.walls, block.exterior, style.cornerRadius),
-      style.thickness,
-    );
-    const wall = scene.add.graphics();
-    const wallRoot = scene.add.container(0, 0, [wall]).setDepth(PANEL_WALL_DEPTH);
-    const rareFx = createRareFxToggle(scene, wallRoot, rectsHalo(wallRects));
     let shown = "";
     return {
       root,
-      wallRoot,
       show: (content) => {
         const key = JSON.stringify(content);
         if (key === shown) {
           return;
         }
         shown = key;
-        const color = schoolBorderColor(content.school);
-        wall.clear().fillStyle(color, 1);
-        for (const rect of wallRects) {
-          wall.fillRect(rect.x, rect.y, rect.w, rect.h);
-        }
-        rareFx(content.rare, color);
         const titleSize = fitFontSize(
           content.title,
           PANEL_WIDTH - 2 * PANEL_SIDE_PAD,
@@ -535,59 +492,41 @@ export function createStoreOverlay(
     };
   };
 
+  const buildDot = (cell: { col: number; row: number }): Phaser.GameObjects.Image => {
+    const size = pelletDisplaySize();
+    return scene.add
+      .image(cellCenterX(cell.col), cellCenterY(cell.row), PELLET_TEXTURE_KEY)
+      .setDisplaySize(size, size)
+      .setDepth(TILE_DEPTH);
+  };
   const buildFreebie = (freebie: StoreFreebie): Phaser.GameObjects.Container => {
-    const tile = getActiveLayout().tileSize;
-    const iconPx = tile - FREEBIE_ICON_INSET_PX;
-    const frame = scene.add
-      .graphics()
-      .fillStyle(mazeColorForIndex(loadMazeColorSettings().colorIndex), 1);
-    dotFrame(frame, tile);
+    const iconPx = getActiveLayout().tileSize - FREEBIE_ICON_INSET_PX;
     const icon =
       freebie.kind === "life"
         ? addDotManIcon(scene, 0, 0, iconPx)
         : addQuarterIcon(scene, 0, 0, iconPx);
     return scene.add
-      .container(cellCenterX(freebie.col), cellCenterY(freebie.row), [frame, icon])
+      .container(cellCenterX(freebie.col), cellCenterY(freebie.row), [icon])
       .setDepth(TILE_DEPTH);
   };
   const buildTile = (slot: StoreSlot, index: number): Phaser.GameObjects.Container => {
-    const tile = getActiveLayout().tileSize;
-    const size = tile * STORE_SLOT_SIZE;
-    const x = (cellCenterX(slot.col) + cellCenterX(slot.col + 1)) / 2;
-    const y = (cellCenterY(slot.row) + cellCenterY(slot.row + 1)) / 2;
+    const size = getActiveLayout().tileSize;
     const enhance = slot.kind === "enhance";
-    const frame = scene.add.graphics();
     const tileSchool = slotSchool(slot);
-    frame.fillStyle(
-      enhance
-        ? STORE_ENHANCE_BORDER_COLOR
-        : tileSchool === null
-          ? mazeColorForIndex(loadMazeColorSettings().colorIndex)
-          : schoolBorderColor(tileSchool),
-      1,
-    );
-    dotFrame(frame, size);
-    const coinY = size / 2 - 3 - TILE_COIN_PX / 2;
-    const coins = coinRowXs(slotPrice(slot), size - 6).map((cx) =>
-      addQuarterIcon(scene, cx, coinY, TILE_COIN_PX),
-    );
     let glyph: Phaser.GameObjects.GameObject;
     if (slot.kind === "swap") {
-      const school = slotSchool(slot);
-      const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
-      glyph = addReverseIcon(scene, 0, TILE_GLYPH_Y, tile - 2).setTint(glyphColor);
+      const glyphColor = tileSchool === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[tileSchool];
+      glyph = addReverseIcon(scene, 0, 0, size - 2).setTint(glyphColor);
     } else if (slot.kind === "upgrade" && tileSchool !== null) {
       const iconPx = schoolArtSize(size, size);
-      glyph = scene.add
-        .image(0, TILE_GLYPH_Y, schoolArtTextureKey(tileSchool))
-        .setDisplaySize(iconPx, iconPx);
+      glyph = scene.add.image(0, 0, schoolArtTextureKey(tileSchool)).setDisplaySize(iconPx, iconPx);
     } else {
       const char = enhance ? "+" : slotTitle(slot).charAt(0).toUpperCase();
-      const school = enhance ? null : slotSchool(slot);
+      const school = enhance ? null : tileSchool;
       const glyphColor = school === null ? TEXT_COLOR_YELLOW : SCHOOL_COLORS[school];
       const text = addPixelText(scene, 0, 0, char, HUD_FONT_SIZE, glyphColor);
       const inkOffset = (glyphInkCenterOffsetX(char) * HUD_FONT_SIZE) / 8;
-      placePixelText(text, inkOffset, TILE_GLYPH_Y, 0.5, 0.5);
+      placePixelText(text, inkOffset, 0, 0.5, 0.5);
       glyph = text;
     }
     const zone = scene.add.zone(0, 0, size, size).setInteractive({ useHandCursor: true });
@@ -597,7 +536,11 @@ export function createStoreOverlay(
       : null;
     glows[index] = glow;
     const container = scene.add
-      .container(x, y, [...(glow === null ? [] : [glow]), frame, glyph, ...coins, zone])
+      .container(cellCenterX(slot.col), cellCenterY(slot.row), [
+        ...(glow === null ? [] : [glow]),
+        glyph,
+        zone,
+      ])
       .setDepth(TILE_DEPTH);
     if (slotRare(slot)) {
       addRareFx(scene, container, size, size, schoolBorderColor(tileSchool));
@@ -611,9 +554,10 @@ export function createStoreOverlay(
     }
     for (const panel of panels) {
       panel.root.destroy(true);
-      panel.wallRoot.destroy(true);
     }
     freebieTile?.destroy(true);
+    dots.forEach((dot) => dot.destroy());
+    dots = [];
     tiles = [];
     panels = [];
     freebieTile = null;
@@ -625,6 +569,7 @@ export function createStoreOverlay(
   return {
     open: (state) => {
       clear();
+      dots = state.dots.map(buildDot);
       tiles = state.slots.map(buildTile);
       panels = state.slots.map((slot, i) => buildPanel(slot, state.freebie, i));
       freebieTile = state.freebie.taken ? null : buildFreebie(state.freebie);
@@ -666,7 +611,6 @@ export function createStoreOverlay(
         panel.showChoice(choosing && slot.kind !== "swap" ? state.confirmYes : null);
         const alpha = mode === "dimmed" ? PANEL_DIM_ALPHA : 1;
         panel.root.setAlpha(alpha);
-        panel.wallRoot.setAlpha(alpha);
       });
     },
     showPurchased: (id) => {

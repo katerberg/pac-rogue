@@ -1,10 +1,12 @@
+import type { Cell } from "../../../domain/bonusBar";
 import { cellCenterX, cellCenterY } from "../../../domain/maze";
 import { promptView, slotPrice, type StoreSlot } from "../../../domain/store";
 import { enhanceableUpgrades, type UpgradeId } from "../../../domain/upgrades";
 import { Position } from "../../components/Position";
 import type { PlaySim } from "../playSim";
 import type { SimInput } from "../simInput";
-import { bfs } from "./navigate";
+import { KEY_FOR_DIRECTION, NO_KEYS_HELD, type HeldKeys } from "../../systems/heldKeys";
+import { bfs, CARDINALS, cellIndex, neighbor } from "./navigate";
 import { cellOf, playerEid, type Observer } from "./observe";
 import { upgradeScore } from "./pick";
 import type { Persona } from "./profiles";
@@ -59,6 +61,7 @@ export class StoreBot {
   stalled = false;
   private elapsedMs = 0;
   private target: number | null = null;
+  private releaseKeys = false;
   private readonly skip = new Set<number>();
 
   constructor(
@@ -83,6 +86,7 @@ export class StoreBot {
         this.skip.add(this.target!);
         this.target = null;
       }
+      this.releaseKeys = true;
       return { storeChoice: yes ? "yes" : "no" };
     }
     if (this.target !== null) {
@@ -103,7 +107,34 @@ export class StoreBot {
         return { storeClick: next };
       }
     }
+    if (this.releaseKeys) {
+      this.releaseKeys = false;
+      return {};
+    }
+    const toFreebie = store.freebie.taken ? null : this.freebieKeys(sim, store.freebie);
+    if (toFreebie !== null) {
+      return { keys: toFreebie };
+    }
     return sim.storeRouting() ? {} : { storePointer: this.exitPoint(sim) };
+  }
+
+  private freebieKeys(sim: PlaySim, freebie: Cell): HeldKeys | null {
+    const { grid } = this.observer.grid(false);
+    const eid = playerEid(sim.world);
+    const from =
+      eid === undefined ? null : cellOf(grid, Position.x[eid] ?? 0, Position.y[eid] ?? 0);
+    if (from === null) {
+      return null;
+    }
+    const dist = bfs(grid, cellIndex(grid, freebie.col, freebie.row));
+    let best: { key: keyof HeldKeys; dist: number } | null = null;
+    for (const direction of CARDINALS) {
+      const next = neighbor(grid, from, direction);
+      if (next !== -1 && dist[next]! >= 0 && (best === null || dist[next]! < best.dist)) {
+        best = { key: KEY_FOR_DIRECTION[direction]!, dist: dist[next]! };
+      }
+    }
+    return best === null ? null : { ...NO_KEYS_HELD, [best.key]: this.elapsedMs };
   }
 
   private exitPoint(sim: PlaySim): { x: number; y: number } | null {
