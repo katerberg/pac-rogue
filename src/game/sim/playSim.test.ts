@@ -80,6 +80,7 @@ import {
   ALL_UPGRADE_IDS,
   STORE_RARE_UPGRADE_PRICE,
   WALL_PASS_MS,
+  baseIdOf,
   getUpgradeDef,
   isRare,
   type BaseUpgradeId,
@@ -1411,9 +1412,48 @@ describe("PlaySim", () => {
       const slot = sim.storeState()!.slots.filter((cell) => cell.kind === kind)[nth]!;
       teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
       runFrames(sim, 1);
+      if (kind === "swap") {
+        runFrames(sim, 1, { storeDir: "right" });
+        return runFrames(sim, 1, { storeDir: "right" });
+      }
       runFrames(sim, 1, { storeFocus: "yes" });
       return runFrames(sim, 1, { storeConfirm: true });
     }
+
+    it("sacrifices the power picked with up/down, not the stocked one", () => {
+      const owned = ["passiveGhostSlow", "passiveAfterburner"] as const;
+      const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: [...owned] });
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap");
+      if (swap?.kind !== "swap") throw new Error("no swap slot");
+      const keep = baseIdOf(swap.outgoingId);
+      const sacrificed = owned.find((id) => id !== keep)!;
+      teleportPlayer(sim, cellCenterX(swap.col), cellCenterY(swap.row));
+      runFrames(sim, 1);
+      runFrames(sim, 1, { storeDir: "up" });
+      expect(sim.storeState()!.sacrifice?.id).toBe(sacrificed);
+      runFrames(sim, 1, { storeDir: "right" });
+      const events = runFrames(sim, 1, { storeDir: "right" });
+      expect(events.some((event) => event.type === "storePurchased")).toBe(true);
+      expect(sim.snapshot().upgrades).toContain(keep);
+      expect(sim.snapshot().upgrades).not.toContain(sacrificed);
+      expect(sim.snapshot().quarters).toBe(9);
+    });
+
+    it("leaves the sacrifice selection on left without paying", () => {
+      const sim = startSim({
+        store: 1,
+        level: 5,
+        quarters: 10,
+        enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
+      });
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap")!;
+      teleportPlayer(sim, cellCenterX(swap.col), cellCenterY(swap.row));
+      runFrames(sim, 1);
+      runFrames(sim, 1, { storeDir: "left" });
+      expect(sim.snapshot().quarters).toBe(10);
+      expect(sim.snapshot().upgrades).toHaveLength(2);
+      expect(sim.storeState()!.slots.find((s) => s.kind === "swap")!.sold).toBe(false);
+    });
 
     it("sells a shelved rare for 4 Quarters, and never shelves two", () => {
       const owned = ["passiveGhostSlow", "passiveAfterburner"] as const;
