@@ -19,7 +19,7 @@ import {
 import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
 
-const UPGRADE_ICON_HOVER_SCALE = 1.25;
+const UPGRADE_ICON_HOVER_SCALE = 1.1;
 const UPGRADE_PREVIEW_Y_MIN = 90;
 const UPGRADE_PREVIEW_Y_MAX = 510;
 

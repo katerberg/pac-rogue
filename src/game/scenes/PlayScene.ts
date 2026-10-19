@@ -76,7 +76,11 @@ import {
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
 import { schoolArtTextureKey } from "../../domain/schoolArt";
-import { UPGRADE_HUD_ICON_SIZE, upgradeHudIconPosition } from "../../domain/upgradeHud";
+import {
+  UPGRADE_HUD_COMPACT_SIZE,
+  upgradeHudIconPosition,
+  upgradeHudIconSize,
+} from "../../domain/upgradeHud";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createIntermissionActors, type IntermissionActors } from "./intermissionActors";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
@@ -925,11 +929,13 @@ export class PlayScene extends Phaser.Scene {
   }
 
   public upgradeHudSlots(): { id: UpgradeId; x: number; y: number; size: number }[] {
-    const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
+    const knobs = this.knobsPanel !== null;
+    const size = knobs ? UPGRADE_HUD_COMPACT_SIZE : upgradeHudIconSize(MAZE_OFFSET_X);
+    const left = knobs ? MAZE_OFFSET_X + 4 : undefined;
     return this.sim.hud().upgrades.map((id, i) => ({
       id,
-      size: UPGRADE_HUD_ICON_SIZE,
-      ...upgradeHudIconPosition(i, pelletDisplaySize(), left),
+      size,
+      ...upgradeHudIconPosition(i, size, pelletDisplaySize(), left),
     }));
   }
 
