@@ -142,9 +142,9 @@ describe("boss stages", () => {
     expect(invertRgb24(0x123456)).toBe(0xedcba9);
   });
 
-  it("formats the broken timer as Time: 888 while glitching", () => {
-    expect(bossTimerLabel(true, 42)).toBe("Time: 888");
-    expect(bossTimerLabel(false, 42)).toBe("Time: 42");
+  it("formats the broken timer as 888 while glitching", () => {
+    expect(bossTimerLabel(true, 42)).toBe("888");
+    expect(bossTimerLabel(false, 42)).toBe("42");
   });
 });
 
