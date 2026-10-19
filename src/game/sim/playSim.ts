@@ -954,6 +954,7 @@ export class PlaySim {
       inStore: this.store !== null,
       storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
       storeFreebie: this.store?.freebie.taken === false ? this.store.freebie.kind : null,
+      storeSacrifice: this.store?.sacrifice ?? null,
       storeRoute: this.storeRoute,
       storeEntering: this.storeEntrySlidePx !== null,
       storePrompt:
@@ -2309,6 +2310,7 @@ export class PlaySim {
         col: cell?.col ?? -1,
         row: cell?.row ?? -1,
         focus: confirming ? input.storeFocus : null,
+        dir: confirming ? (input.storeDir ?? null) : null,
         enter: confirming && input.storeConfirm,
         pick: confirming ? (input.storeChoice ?? null) : null,
         click: confirming ? null : (input.storeClick ?? null),

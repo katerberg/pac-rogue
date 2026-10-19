@@ -1,9 +1,11 @@
+import type { StoreDir } from "../../domain/store";
 import { NO_KEYS_HELD, type HeldKeys } from "../systems/heldKeys";
 
 export type SimInput = {
   keys: HeldKeys;
   uiOpen: boolean;
   storeFocus: "yes" | "no" | null;
+  storeDir?: StoreDir | null;
   storeConfirm: boolean;
   storeChoice?: "yes" | "no" | null;
   storeClick?: number | null;
