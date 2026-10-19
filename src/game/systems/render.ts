@@ -17,6 +17,14 @@ import {
   wrappedTwinPosition,
   type WallPathCommand,
 } from "../../domain/maze";
+import {
+  RUBBLE_TONE,
+  rubbleElapsedMs,
+  rubbleIntroSettled,
+  rubbleMotePosition,
+  rubblePalette,
+  type CollapseRenderState,
+} from "../../domain/collapseRubble";
 import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import {
   SPEED_ZONE_MAX_COUNT,
@@ -34,7 +42,7 @@ import {
 } from "../../domain/programmer";
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
-import { pixelWallRects } from "../../domain/pixelWall";
+import { pixelWallRects, WALL_ART_PX } from "../../domain/pixelWall";
 import { sameWallStyle, wallStyleFor, type WallStyle } from "../../domain/wallStyle";
 import {
   advanceDotManChomp,
@@ -538,6 +546,7 @@ export type RenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
+  collapse?: CollapseRenderState | null;
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
@@ -727,6 +736,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const hornTurns = new Map<number, HornTurnState>();
   const ghostSkirts = new Map<number, GhostSkirt>();
   const wallGraphics = scene.add.graphics();
+  const collapseGraphics = scene.add.graphics();
+  const collapseMoteGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
@@ -759,6 +770,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const programmerGraphics = scene.add.graphics();
   programmerGraphics.setDepth(PROGRAMMER_QUEUE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
+  let drawnCollapse: string | null = null;
+  let collapseMotesSettled = false;
   let drawnMazeInverted = false;
   let drawnWallAlpha = 1;
   let wallStyleOverride: WallStyle | null = null;
@@ -785,6 +798,55 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     hornTurns.delete(eid);
   };
 
+  const drawCollapse = (collapse: CollapseRenderState | null, style: WallStyle): void => {
+    if (collapse === null) {
+      if (drawnCollapse !== null) {
+        collapseGraphics.clear();
+        collapseMoteGraphics.clear();
+        drawnCollapse = null;
+      }
+      return;
+    }
+    const palette = rubblePalette(style.color, style.background);
+    const origin = { x: cellOriginX(0), y: cellOriginY(0) };
+    const key = `${collapse.key}:${style.color}:${style.background}`;
+    const changed = key !== drawnCollapse;
+    if (changed) {
+      collapseGraphics.clear();
+      for (const art of collapse.arts) {
+        for (const pixel of art.pixels) {
+          collapseGraphics.fillStyle(palette[pixel.tone]!, 1);
+          collapseGraphics.fillRect(
+            origin.x + pixel.x * WALL_ART_PX,
+            origin.y + pixel.y * WALL_ART_PX,
+            WALL_ART_PX,
+            WALL_ART_PX,
+          );
+        }
+      }
+      drawnCollapse = key;
+    }
+    const settled = rubbleIntroSettled(collapse);
+    if (!changed && settled && collapseMotesSettled) {
+      return;
+    }
+    collapseMoteGraphics.clear();
+    collapseMoteGraphics.fillStyle(palette[RUBBLE_TONE.light]!, 1);
+    for (const art of collapse.arts) {
+      const elapsed = rubbleElapsedMs(art, collapse.introMs);
+      for (const mote of art.motes) {
+        const at = rubbleMotePosition(mote, elapsed);
+        collapseMoteGraphics.fillRect(
+          origin.x + at.x * WALL_ART_PX,
+          origin.y + at.y * WALL_ART_PX,
+          WALL_ART_PX,
+          WALL_ART_PX,
+        );
+      }
+    }
+    collapseMotesSettled = settled;
+  };
+
   const releaseDrawable = (eid: number): void => {
     destroySkirt(eid);
     destroyImage(String(eid));
@@ -807,6 +869,9 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     pupilLooks.clear();
     hornTurns.clear();
     wallGraphics.clear();
+    collapseGraphics.clear();
+    collapseMoteGraphics.clear();
+    drawnCollapse = null;
     wallGraphics.setAlpha(1);
     chainGraphics.setAlpha(1);
     drawnWallStyle = null;
@@ -1375,6 +1440,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       timedTunnelGraphics.fillRect(cellCenterX(0) - barW / 2, y, barW, barH);
       timedTunnelGraphics.fillRect(cellCenterX(layout.cols - 1) - barW / 2, y, barW, barH);
     }
+
+    drawCollapse(opts?.collapse ?? null, wallStyle);
 
     lavaGraphics.clear();
     if (opts?.lava) {

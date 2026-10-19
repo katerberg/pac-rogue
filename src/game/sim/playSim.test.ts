@@ -548,10 +548,15 @@ describe("PlaySim", () => {
     const base = solidsAt(2);
     expect(startSim({ level: 2 }, "one-map").snapshot().layout).toMatch(/^pool-\d+$/);
     expect(solidsAt(3)).toEqual(base);
-    expect(solidsAt(5)).toEqual(base);
-    expect(solidsAt(8)).toEqual(base);
-    expect(solidsAt(6)).toEqual([...base].reverse());
-    expect(solidsAt(7)).toEqual([...base].reverse());
+    const noneBlocked = (rows: string[]): boolean =>
+      rows.every((row, r) =>
+        row.split(",").every((solid, c) => solid === "true" || base[r]!.split(",")[c] === "false"),
+      );
+    for (const level of [4, 5, 8]) {
+      expect(noneBlocked(solidsAt(level)), `level ${level} only adds walls`).toBe(true);
+    }
+    expect(solidsAt(6)).toEqual([...solidsAt(5)].reverse());
+    expect(solidsAt(7)).toEqual([...solidsAt(8)].reverse());
     expect(solidsAt(2, "another-map")).not.toEqual(base);
     const forced = startSim({ level: 2, maze: 0 }, "force-pool");
     expect(forced.snapshot().layout).toBe("pool-0");
@@ -564,7 +569,7 @@ describe("PlaySim", () => {
       return getActiveLayout().playerSolids.map((row) => row.join(","));
     };
     const base = solidsAt(2, true);
-    expect(solidsAt(6, true)).toEqual([...base].reverse());
+    expect(solidsAt(6, true)).toEqual([...solidsAt(5, true)].reverse());
     expect(solidsAt(6, false)).toEqual(base);
     expect(startSim({ level: 6, levelModifiers: false }, "one-map").snapshot().speedZones).toEqual(
       [],
@@ -7615,5 +7620,142 @@ describe("Chaff", () => {
     runUntil(sim, () => !sim.snapshot().dying, 600);
     expect(sim.snapshot().chaff).toEqual([]);
     expect(sim.snapshot().timers.chaffMs).toBe(0);
+  });
+});
+
+describe("collapsed tunnels", () => {
+  const SEED = "collapse-run";
+  const chainsAt = (level: number, overrides: Partial<PlayOptions> = {}) =>
+    startSim({ level, ...overrides }, SEED).snapshot().collapse;
+
+  it("adds one collapse on level 4, another on 5 and a third on 7, and keeps them", () => {
+    const counts = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => chainsAt(level).chains.length);
+    expect(counts).toEqual([0, 0, 0, 1, 2, 2, 3, 3, 0]);
+  });
+
+  it("flags only the collapse that arrives on this level as fresh", () => {
+    expect(chainsAt(4).fresh).toEqual([true]);
+    expect(chainsAt(5).fresh).toEqual([false, true]);
+    expect(chainsAt(6).fresh).toEqual([false, false]);
+    expect(chainsAt(7).fresh).toEqual([false, false, true]);
+    expect(chainsAt(8).fresh).toEqual([false, false, false]);
+  });
+
+  it("keeps the same collapses in the same place, mirrored on the inverted levels", () => {
+    const five = chainsAt(5).chains;
+    const six = chainsAt(6).chains;
+    const rows = getActiveLayout().rows;
+    expect(six).toEqual(
+      five.map((chain) => chain.map((cell) => ({ col: cell.col, row: rows - 1 - cell.row }))),
+    );
+    expect(chainsAt(7).chains.slice(0, 2)).toEqual(six);
+    expect(chainsAt(8).chains.slice(0, 2)).toEqual(five);
+  });
+
+  it("walls the collapsed lanes off for Dot-Man and the ghosts and drops their pellets", () => {
+    const plain = startSim({ level: 3 }, SEED);
+    const plainPellets = query(plain.world, [Pellet]).length;
+    for (const level of [4, 5, 7]) {
+      const sim = startSim({ level }, SEED);
+      const { chains } = sim.snapshot().collapse;
+      const layout = getActiveLayout();
+      const cells = chains.flat();
+      for (const { col, row } of cells) {
+        expect(layout.playerSolids[row]![col]).toBe(true);
+        expect(layout.ghostSolids[row]![col]).toBe(true);
+      }
+      const pellets = query(sim.world, [Pellet, Position]);
+      const onCollapse = pellets.filter((eid) =>
+        cells.some(
+          (c) => c.col === worldToCol(Position.x[eid]!) && c.row === worldToRow(Position.y[eid]!),
+        ),
+      );
+      expect(onCollapse).toEqual([]);
+      expect(pellets.length).toBeLessThan(plainPellets);
+      expect(layout.pelletCount).toBe(pellets.length);
+    }
+  });
+
+  it("leaves every remaining pellet reachable from the spawn", () => {
+    for (const seed of ["collapse-a", "collapse-b", "collapse-c", SEED]) {
+      for (const level of [4, 5, 7, 8]) {
+        const sim = startSim({ level }, seed);
+        const { playerSolids, playerSpawn } = getActiveLayout();
+        const seen = new Set<string>([`${playerSpawn.col},${playerSpawn.row}`]);
+        const queue = [playerSpawn];
+        for (let i = 0; i < queue.length; i += 1) {
+          const { col, row } = queue[i]!;
+          for (const [dc, dr] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ] as const) {
+            const next = { col: col + dc, row: row + dr };
+            const key = `${next.col},${next.row}`;
+            if (!seen.has(key) && isWalkable(next.col, next.row, playerSolids)) {
+              seen.add(key);
+              queue.push(next);
+            }
+          }
+        }
+        for (const eid of query(sim.world, [Pellet, Position])) {
+          const cell = `${worldToCol(Position.x[eid]!)},${worldToRow(Position.y[eid]!)}`;
+          expect(seen.has(cell), `${seed} level ${level} pellet at ${cell}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("replays speed lanes on the final collapsed board so they carry over when a lane collapses", () => {
+    const seeds = ["find-0", "find-1", "find-2", "find-5", "find-6", "find-8", "find-10"];
+    for (const seed of seeds) {
+      const four = settledZones(startSim({ level: 4 }, seed));
+      expect(startSim({ level: 5 }, seed).snapshot().speedZones, seed).toEqual(four);
+      const collapsed = new Set(
+        startSim({ level: 8 }, seed)
+          .snapshot()
+          .collapse.chains.flat()
+          .map((cell) => `${cell.col},${cell.row}`),
+      );
+      for (const zone of four) {
+        for (const cell of speedZoneCells(zone)) {
+          expect(collapsed.has(`${cell.col},${cell.row}`), seed).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("starts the dust intro at the board start and stops it at its full length", () => {
+    const sim = startSim({ level: 4 }, SEED);
+    expect(sim.snapshot().collapse.introMs).toBe(0);
+    runFrames(sim, 30, { keys: held("left") });
+    const early = sim.snapshot().collapse.introMs;
+    expect(early).toBeGreaterThan(0);
+    runFrames(sim, 400);
+    expect(sim.snapshot().collapse.introMs).toBeGreaterThan(early);
+    const settled = sim.snapshot().collapse.introMs;
+    runFrames(sim, 60);
+    expect(sim.snapshot().collapse.introMs).toBe(settled);
+  });
+
+  it("hands the renderer the rubble art only while collapses exist", () => {
+    expect(startSim({ level: 3 }, SEED).renderOptions().collapse).toBeNull();
+    const state = startSim({ level: 5 }, SEED).renderOptions().collapse;
+    expect(state?.arts).toHaveLength(2);
+    expect(state?.arts.map((art) => art.fresh)).toEqual([false, true]);
+    expect(state?.arts.every((art) => art.pixels.length > 0 && art.motes.length > 0)).toBe(true);
+  });
+
+  it("is a level modifier that ?levelModifiers=0 turns off, and the boss board has none", () => {
+    expect(chainsAt(7, { levelModifiers: false }).chains).toEqual([]);
+    expect(startSim({ level: 7, levelModifiers: false }, SEED).renderOptions().collapse).toBeNull();
+    expect(chainsAt(9).chains).toEqual([]);
+  });
+
+  it("replays the same collapses for the same seed and differs between seeds", () => {
+    expect(chainsAt(7)).toEqual(chainsAt(7));
+    const other = startSim({ level: 7 }, "collapse-other").snapshot().collapse.chains;
+    expect(other).not.toEqual(chainsAt(7).chains);
   });
 });

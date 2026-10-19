@@ -17,6 +17,7 @@ export type RandomStream =
   | "frightened"
   | "timedTunnel"
   | "lavaZone"
+  | "collapse"
   | "speedZones"
   | "slots"
   | "chaff"

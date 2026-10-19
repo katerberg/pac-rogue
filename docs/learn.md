@@ -26,7 +26,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 ## Parity
 
-LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`.
+LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, collapsed tunnels, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`.
 
 ## Upgrade fidelity
 

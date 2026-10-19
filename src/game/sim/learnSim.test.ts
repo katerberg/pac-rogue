@@ -1831,6 +1831,7 @@ const LEARN_OMITS_RENDER_OPTIONS: readonly (keyof SimRenderOptions)[] = [
   "bossChains",
   "timedTunnel",
   "lava",
+  "collapse",
   "speedZones",
   "pupilTarget",
 ];

@@ -131,6 +131,9 @@ import {
   clampToGridCenters,
   getActiveLayout,
   horizontalTunnelRows,
+  layoutFromAscii,
+  wallPathCommands,
+  type MazeLayout,
   worldToCol,
   worldToRow,
   playerSpawnCenter,
@@ -143,6 +146,23 @@ import {
   timedTunnelPhaseRemainingMs,
   type TimedTunnelPhase,
 } from "../../domain/timedTunnel";
+import {
+  applyCollapse,
+  collapsedChainsFor,
+  flipChainRows,
+  isFreshCollapse,
+  pickCollapsePlan,
+  type CollapseChain,
+  type CollapsePlan,
+} from "../../domain/collapse";
+import {
+  buildRubbleArt,
+  RUBBLE_INTRO_MS,
+  rubbleBlockedPixels,
+  type CollapseArt,
+  type CollapseRenderState,
+} from "../../domain/collapseRubble";
+import { pixelWallRects } from "../../domain/pixelWall";
 import {
   isLavaZoneLevel,
   lavaFlashOn,
@@ -564,6 +584,12 @@ export class PlaySim {
   private speedZoneShift: SpeedZoneShift | null = null;
   private speedZoneShiftMs = 0;
   private boardInverted = false;
+  private collapsePlan: { poolIndex: number; plan: CollapsePlan; baseAscii: string } | null = null;
+  private collapseBoardCount = 0;
+  private collapseChains: CollapseChain[] = [];
+  private collapseArts: CollapseArt[] = [];
+  private collapseSpeedBoard: MazeLayout | null = null;
+  private collapseIntroMs = 0;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
@@ -842,6 +868,7 @@ export class PlaySim {
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
       lava: this.lavaRenderState(),
+      collapse: this.collapseRenderState(),
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       chaff: chaffSprites(this.runUpgrades.chaff),
@@ -951,6 +978,11 @@ export class PlaySim {
       },
       timedTunnel: this.timedTunnelSnapshot(),
       lava: this.lavaSnapshot(),
+      collapse: {
+        chains: this.collapseChains,
+        fresh: this.collapseArts.map((art) => art.fresh),
+        introMs: this.collapseIntroMs,
+      },
       simulacrum: {
         active: upgrades.simulacrumActive,
         x: twinPosition?.x ?? null,
@@ -1155,6 +1187,7 @@ export class PlaySim {
     });
     this.tickTimedTunnel(delta);
     this.tickSpeedZoneShift(delta);
+    this.collapseIntroMs = Math.min(RUBBLE_INTRO_MS, this.collapseIntroMs + delta);
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const programming = this.runUpgrades.programmer !== null;
@@ -1932,7 +1965,8 @@ export class PlaySim {
       return;
     }
     const layout = getActiveLayout();
-    const base = this.boardInverted ? flipSpeedZoneBoardRows(layout) : layout;
+    const base =
+      this.collapseSpeedBoard ?? (this.boardInverted ? flipSpeedZoneBoardRows(layout) : layout);
     const [previous, current] = speedZonesByLevel(base, this.levelIndex, (level) =>
       this.random.stream("speedZones", level),
     )
@@ -2209,6 +2243,7 @@ export class PlaySim {
     this.lavaZone = null;
     this.speedZones = [];
     this.speedZoneShift = null;
+    this.clearCollapse();
 
     this.storeSolids = withStoreEntranceClosed(getActiveLayout());
     this.store = createStoreState(
@@ -2496,6 +2531,7 @@ export class PlaySim {
       : null;
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
     this.boardInverted = false;
+    this.clearCollapse();
     let layoutLabel = "maze2";
     if (selection.kind === "static") {
       activateLayout(selection.id);
@@ -2505,7 +2541,11 @@ export class PlaySim {
     } else if (selection.kind === "pool") {
       const map = mazePoolMap(selection.index);
       if (map) {
-        layoutLabel = this.activateRunAscii(map.ascii, `pool-${selection.index}`);
+        layoutLabel = this.activateRunAscii(
+          map.ascii,
+          `pool-${selection.index}`,
+          this.collapseChainsFor(selection.index, map.ascii),
+        );
       } else {
         console.warn(`unknown pool index ${selection.index}; falling back to maze2`);
         activateLayout("maze2");
@@ -2589,11 +2629,78 @@ export class PlaySim {
     );
   }
 
-  private activateRunAscii(ascii: string, label: string): string {
+  private collapseChainsFor(poolIndex: number, baseAscii: string): CollapseChain[] | null {
+    if (!this.options.levelModifiers) {
+      return null;
+    }
+    if (this.collapsePlan?.poolIndex !== poolIndex) {
+      this.collapsePlan = {
+        poolIndex,
+        baseAscii,
+        plan: pickCollapsePlan(baseAscii, this.random.stream("collapse")),
+      };
+    }
+    return collapsedChainsFor(this.collapsePlan.plan, this.levelIndex);
+  }
+
+  private clearCollapse(): void {
+    this.collapseChains = [];
+    this.collapseArts = [];
+    this.collapseSpeedBoard = null;
+    this.collapseIntroMs = 0;
+  }
+
+  private setUpCollapse(chains: readonly CollapseChain[], inverted: boolean): void {
+    const held = this.collapsePlan;
+    if (held === null) {
+      return;
+    }
+    const layout = getActiveLayout();
+    this.collapseSpeedBoard = layoutFromAscii(applyCollapse(held.baseAscii, held.plan.chains));
+    if (chains.length === 0) {
+      return;
+    }
+    this.collapseChains = inverted ? flipChainRows(chains, layout.rows) : [...chains];
+    const board = {
+      ascii: layout.ascii,
+      tileSize: layout.tileSize,
+      blockedPixels: rubbleBlockedPixels(
+        layout.ascii,
+        layout.tileSize,
+        pixelWallRects(wallPathCommands(), this.currentTuning.wallThickness),
+        { x: layout.offsetX, y: layout.offsetY },
+      ),
+    };
+    this.collapseBoardCount += 1;
+    this.collapseArts = this.collapseChains.map((chain, index) => ({
+      ...buildRubbleArt(board, chain, held.plan.artSeed + index * 101),
+      fresh: isFreshCollapse(index, this.levelIndex),
+    }));
+  }
+
+  private collapseRenderState(): CollapseRenderState | null {
+    return this.collapseArts.length === 0
+      ? null
+      : {
+          key: `board-${this.collapseBoardCount}`,
+          arts: this.collapseArts,
+          introMs: this.collapseIntroMs,
+        };
+  }
+
+  private activateRunAscii(
+    ascii: string,
+    label: string,
+    chains: readonly CollapseChain[] | null = null,
+  ): string {
     try {
       const inverted = this.isInvertedLevel();
-      activateAsciiLayout(inverted ? invertMazeAscii(ascii) : ascii);
+      const collapsed = applyCollapse(ascii, chains ?? []);
+      activateAsciiLayout(inverted ? invertMazeAscii(collapsed) : collapsed);
       this.boardInverted = inverted;
+      if (chains !== null) {
+        this.setUpCollapse(chains, inverted);
+      }
       return label;
     } catch (error) {
       console.warn(`maze activate failed for ${label}; falling back to maze2`, error);
