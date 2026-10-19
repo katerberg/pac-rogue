@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  CHAFF_ALPHA,
+  CHAFF_BODY_TINT,
   CHAFF_ENHANCED_MS,
   CHAFF_MS,
+  CHAFF_VISOR_TINT,
   chaffSpawnTiles,
   decoyTile,
   nearestDecoy,
@@ -11,6 +14,12 @@ import {
 import { getActiveLayout, isWalkable } from "./maze";
 
 describe("chaff", () => {
+  it("uses frightened-blue body tint, a lighter visor tint, and full opacity", () => {
+    expect(CHAFF_BODY_TINT).toBe(0x001eff);
+    expect(CHAFF_VISOR_TINT).toBe(0x6678ff);
+    expect(CHAFF_ALPHA).toBe(1);
+  });
+
   it("spawns one walkable decoy near the center, or four near the corners", () => {
     const layout = getActiveLayout();
     const center = chaffSpawnTiles(false);

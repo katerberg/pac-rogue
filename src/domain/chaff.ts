@@ -13,7 +13,9 @@ export const CHAFF_MS = 5000;
 export const CHAFF_ENHANCED_MS = 7000;
 export const CHAFF_TILES_PER_SECOND = 6;
 export const CHAFF_COLOR = 0xffe066;
-export const CHAFF_ALPHA = 0.7;
+export const CHAFF_BODY_TINT = 0x001eff;
+export const CHAFF_VISOR_TINT = 0x6678ff;
+export const CHAFF_ALPHA = 1;
 
 export type ChaffStep = { dx: number; dy: number };
 
