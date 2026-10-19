@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
 import { wrapCharsForBox } from "../../domain/textLayout";
+import { PLAYFIELD_HEIGHT } from "../../domain/playfieldBounds";
 import {
   CLASSIC_MAZE_COLS,
   CLASSIC_MAZE_ROWS,
@@ -66,12 +67,17 @@ const PANEL_HEIGHT = 124;
 const PANEL_SIDE_PAD = 8;
 const PANEL_TOP_PAD = 4;
 const PANEL_ROW_GAP = 2;
+const PANEL_FOOTER_GAP = 6;
 const PANEL_TITLE_MAX_CHARS = 24;
 const PANEL_BODY_MAX_CHARS = 24;
 const PLAY_AREA = computeMazeGeometry(CLASSIC_MAZE_COLS, CLASSIC_MAZE_ROWS);
+const SACRIFICE_PANEL_HEIGHT =
+  PLAYFIELD_HEIGHT - (PLAY_AREA.offsetY + PLAY_AREA.pixelHeight - PANEL_HEIGHT);
 const PANEL_DIM_ALPHA = 0.3;
-const BUY_Y = PANEL_HEIGHT / 2 - 28;
-const NEVER_MIND_Y = PANEL_HEIGHT / 2 - 10;
+const PANEL_COIN_PX = 12;
+const PANEL_COIN_GAP_PX = 2;
+const BUY_FROM_BOTTOM = 28;
+const NEVER_MIND_FROM_BOTTOM = 10;
 const FREEBIE_ICON_INSET_PX = 2;
 
 export type StoreOverlay = {
@@ -90,6 +96,7 @@ type SacrificeView = {
 type PanelContent = {
   title: string;
   school: UpgradeSchool | null;
+  price: number | null;
   body: string;
   footer: string;
   sacrifice: SacrificeView | null;
@@ -106,14 +113,14 @@ const SACRIFICE_COIN_MARK = "#";
 const SACRIFICE_SCHOOL_MARK = "@@";
 const SACRIFICE_SCHOOL_ICON_PX = 12;
 const SACRIFICE_BODY_CHARS = 24;
-const SACRIFICE_SYMBOL_SIZE = 40;
-const SACRIFICE_SYMBOL_Y = 14;
+const SACRIFICE_SYMBOL_SIZE = 44;
+const SACRIFICE_SYMBOL_Y = 18;
 const SACRIFICE_LEFT_X = -40;
 const SACRIFICE_RIGHT_X = 40;
-const SACRIFICE_ARROW_GAP = 26;
-const SACRIFICE_HINT_Y = SACRIFICE_SYMBOL_Y + 42;
+const SACRIFICE_ARROW_GAP = 28;
+const SACRIFICE_HINT_Y = SACRIFICE_SYMBOL_Y + 52;
 const SACRIFICE_HINT_X = PANEL_WIDTH / 2 - PANEL_SIDE_PAD;
-const SACRIFICE_FOOTER_BOTTOM_Y = PANEL_HEIGHT / 2 - 8;
+const SACRIFICE_FOOTER_FROM_BOTTOM = 8;
 const SACRIFICE_SYMBOL_ALPHA = 0.3;
 const SACRIFICE_SELECTED_ALPHA = 0.55;
 const SACRIFICE_ARROW_SIZE = 6;
@@ -158,7 +165,7 @@ function slotBody(slot: StoreSlot): string {
 function promptFooter(prompt: StorePromptView): string {
   switch (prompt.kind) {
     case "confirm":
-      return `COST ${prompt.price}`;
+      return "";
     case "needQuarters":
       return `NEED ${prompt.price}\nQUARTERS`;
     case "nothingToSwap":
@@ -185,6 +192,7 @@ function slotContent(
   return {
     title: slotTitle(slot),
     school: slotSchool(slot),
+    price: slot.sold ? null : slotPrice(slot),
     body: slotBody(slot),
     footer,
     sacrifice: swapView,
@@ -196,6 +204,7 @@ function gotContent(id: UpgradeId): PanelContent {
   return {
     title: def.label,
     school: def.school,
+    price: null,
     body: def.description,
     footer: "GOT IT!",
     sacrifice: null,
@@ -210,13 +219,18 @@ function sacrificeBody(school: UpgradeSchool | null): string {
   );
 }
 
+function panelHeight(slot: StoreSlot): number {
+  return slot.kind === "swap" ? SACRIFICE_PANEL_HEIGHT : PANEL_HEIGHT;
+}
+
 function panelCenter(slot: StoreSlot, freebie: StoreFreebie): { x: number; y: number } {
   const { right, bottom } = storeCorner(slot, freebie);
   const left = PLAY_AREA.offsetX;
   const top = PLAY_AREA.offsetY;
+  const panelTop = bottom ? top + PLAY_AREA.pixelHeight - PANEL_HEIGHT : top;
   return {
     x: right ? left + PLAY_AREA.pixelWidth - PANEL_WIDTH / 2 : left + PANEL_WIDTH / 2,
-    y: bottom ? top + PLAY_AREA.pixelHeight - PANEL_HEIGHT / 2 : top + PANEL_HEIGHT / 2,
+    y: panelTop + panelHeight(slot) / 2,
   };
 }
 
@@ -406,9 +420,10 @@ export function createStoreOverlay(
 
   const buildPanel = (slot: StoreSlot, freebie: StoreFreebie, index: number): Panel => {
     const { x, y } = panelCenter(slot, freebie);
-    const bg = scene.add.rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x101820);
+    const height = panelHeight(slot);
+    const bg = scene.add.rectangle(0, 0, PANEL_WIDTH, height, 0x101820);
     const zone = scene.add
-      .zone(0, 0, PANEL_WIDTH, PANEL_HEIGHT)
+      .zone(0, 0, PANEL_WIDTH, height)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => onSelect(index));
     const watermark = scene.add.image(0, 0, "").setAlpha(SCHOOL_WATERMARK_ALPHA).setVisible(false);
@@ -417,8 +432,8 @@ export function createStoreOverlay(
     const footer = addPixelText(scene, 0, 0, "", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
     const buy = addPixelText(scene, 0, 0, "BUY", MENU_OPTION_FONT_SIZE);
     const neverMind = addPixelText(scene, 0, 0, "NEVER MIND", MENU_OPTION_FONT_SIZE);
-    placePixelText(buy, 0, BUY_Y, 0.5, 0.5);
-    placePixelText(neverMind, 0, NEVER_MIND_Y, 0.5, 0.5);
+    placePixelText(buy, 0, height / 2 - BUY_FROM_BOTTOM, 0.5, 0.5);
+    placePixelText(neverMind, 0, height / 2 - NEVER_MIND_FROM_BOTTOM, 0.5, 0.5);
     for (const [text, choice] of [
       [buy, "yes"],
       [neverMind, "no"],
@@ -442,6 +457,7 @@ export function createStoreOverlay(
         ...sacrificeView.objects,
       ])
       .setDepth(PANEL_DEPTH);
+    let coins: Phaser.GameObjects.Image[] = [];
     let shown = "";
     return {
       root,
@@ -461,33 +477,49 @@ export function createStoreOverlay(
         title.setText(wrapText(content.title, budget(titleSize, PANEL_TITLE_MAX_CHARS)));
         title.setFontSize(titleSize);
         footer.setText(content.footer);
+        coins.forEach((coin) => coin.destroy());
+        const price = content.price ?? 0;
+        const coinStep = PANEL_COIN_PX + PANEL_COIN_GAP_PX;
+        const coinsTop =
+          -height / 2 + PANEL_TOP_PAD + title.getTextBounds(true).local.height + PANEL_ROW_GAP;
+        coins = Array.from({ length: price }, (_, i) => {
+          const coin = addQuarterIcon(
+            scene,
+            (i - (price - 1) / 2) * coinStep,
+            coinsTop + PANEL_COIN_PX / 2,
+            PANEL_COIN_PX,
+          );
+          root.add(coin);
+          return coin;
+        });
+        const titleGap = price > 0 ? PANEL_ROW_GAP + PANEL_COIN_PX + PANEL_ROW_GAP : PANEL_ROW_GAP;
         sacrificeView.show(content.sacrifice);
         if (content.sacrifice !== null) {
           watermark.setVisible(false);
           body.setVisible(false);
           stackTextsFromTop(
             [
-              { text: title, gapBelow: PANEL_ROW_GAP },
+              { text: title, gapBelow: titleGap },
               { text: sacrificeView.pay, gapBelow: 0 },
             ],
-            -PANEL_HEIGHT / 2 + PANEL_TOP_PAD,
+            -height / 2 + PANEL_TOP_PAD,
           );
           sacrificeView.placeIcons();
-          placePixelText(footer, 0, SACRIFICE_FOOTER_BOTTOM_Y, 0.5, 1);
+          placePixelText(footer, 0, height / 2 - SACRIFICE_FOOTER_FROM_BOTTOM, 0.5, 1);
           footer.setVisible(content.sacrifice.stage === null);
           return;
         }
         body.setVisible(true);
         footer.setVisible(true);
         body.setText(wrapText(content.body, budget(UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS)));
-        setSchoolWatermark(watermark, content.school, PANEL_WIDTH, PANEL_HEIGHT);
+        setSchoolWatermark(watermark, content.school, PANEL_WIDTH, height);
         stackTextsFromTop(
           [
-            { text: title, gapBelow: PANEL_ROW_GAP },
-            { text: body, gapBelow: PANEL_ROW_GAP },
+            { text: title, gapBelow: titleGap },
+            { text: body, gapBelow: PANEL_FOOTER_GAP },
             { text: footer, gapBelow: 0 },
           ],
-          -PANEL_HEIGHT / 2 + PANEL_TOP_PAD,
+          -height / 2 + PANEL_TOP_PAD,
         );
       },
       showChoice: (confirmYes) => {
@@ -608,7 +640,7 @@ export function createStoreOverlay(
           ? "SOLD"
           : mode === "info" && prompt !== null
             ? promptFooter(prompt)
-            : `COST ${slotPrice(slot)}`;
+            : "";
         const choosing = mode === "choosing";
         panel.show(
           got !== null
