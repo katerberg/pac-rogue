@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PLAYER_INVULN_TINT, PLAYER_PROGRAMMING_TINT, PLAYER_WALL_PASS_TINT } from "./playerTint";
 import {
   REPLAY_LABEL_MS,
   REPLAY_MAX_SPEED,
@@ -6,6 +7,7 @@ import {
   frameAt,
   itemsAt,
   replayCursor,
+  replayPlayerTint,
   replaySpeed,
   type ReplayData,
   type ReplaySegment,
@@ -29,14 +31,14 @@ describe("frameAt", () => {
     {
       t: 0,
       mazeColorInverted: false,
-      player: { x: 0, y: 0, angle: 0 },
-      ghosts: [{ eid: 1, kind: 0, x: 0, y: 0 }],
+      player: { x: 0, y: 0, angle: 0, tint: null },
+      ghosts: [{ eid: 1, kind: 0, x: 0, y: 0, look: "normal" as const }],
     },
     {
       t: 100,
       mazeColorInverted: true,
-      player: { x: 10, y: 0, angle: 0 },
-      ghosts: [{ eid: 1, kind: 0, x: 20, y: 0 }],
+      player: { x: 10, y: 0, angle: 0, tint: null },
+      ghosts: [{ eid: 1, kind: 0, x: 20, y: 0, look: "normal" as const }],
     },
   ];
 
@@ -53,13 +55,13 @@ describe("frameAt", () => {
       {
         t: 100,
         mazeColorInverted: false,
-        player: { x: 200, y: 0, angle: 0 },
-        ghosts: [{ eid: 2, kind: 0, x: 5, y: 0 }],
+        player: { x: 200, y: 0, angle: 0, tint: null },
+        ghosts: [{ eid: 2, kind: 0, x: 5, y: 0, look: "normal" as const }],
       },
     ];
     const view = frameAt(segment({ frames: far }), 50);
     expect(view.player?.x).toBe(0);
-    expect(view.ghosts[0]).toEqual({ eid: 1, kind: 0, x: 0, y: 0 });
+    expect(view.ghosts[0]).toEqual({ eid: 1, kind: 0, x: 0, y: 0, look: "normal" });
   });
 
   it("holds the last frame past the end and is empty without frames", () => {
@@ -71,9 +73,9 @@ describe("frameAt", () => {
 describe("itemsAt", () => {
   it("applies add and remove events up to the time", () => {
     const items = [
-      { t: 0, op: "add" as const, eid: 1, kind: "pellet" as const, x: 1, y: 1 },
-      { t: 0, op: "add" as const, eid: 2, kind: "power" as const, x: 2, y: 2 },
-      { t: 50, op: "remove" as const, eid: 1, kind: "pellet" as const, x: 1, y: 1 },
+      { t: 0, op: "add" as const, eid: 1, art: "pellet", optional: false, x: 1, y: 1 },
+      { t: 0, op: "add" as const, eid: 2, art: "power-pellet", optional: false, x: 2, y: 2 },
+      { t: 50, op: "remove" as const, eid: 1, art: "pellet", optional: false, x: 1, y: 1 },
     ];
     expect(itemsAt(segment({ items }), 10).map((item) => item.eid)).toEqual([1, 2]);
     expect(itemsAt(segment({ items }), 50).map((item) => item.eid)).toEqual([2]);
@@ -134,5 +136,20 @@ describe("replayCursor", () => {
 
   it("is inert without segments", () => {
     expect(replayCursor({ segments: [] }, 5000)).toMatchObject({ simMs: 0, loops: 0 });
+  });
+});
+
+describe("replayPlayerTint", () => {
+  const base = { wallPass: false, programming: false, invulnRemainingMs: 0 };
+
+  it("prefers wall pass, then programming, then invulnerability", () => {
+    expect(replayPlayerTint({ ...base, invulnRemainingMs: 500 })).toBe(PLAYER_INVULN_TINT);
+    expect(replayPlayerTint({ ...base, programming: true, invulnRemainingMs: 500 })).toBe(
+      PLAYER_PROGRAMMING_TINT,
+    );
+    expect(replayPlayerTint({ ...base, wallPass: true, programming: true })).toBe(
+      PLAYER_WALL_PASS_TINT,
+    );
+    expect(replayPlayerTint(base)).toBeNull();
   });
 });

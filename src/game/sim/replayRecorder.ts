@@ -3,7 +3,7 @@ import {
   REPLAY_MAX_SIM_MS,
   REPLAY_SAMPLE_MS,
   type ReplayData,
-  type ReplayItemKind,
+  type ReplayGhostLook,
   type ReplaySegment,
 } from "../../domain/replay";
 import { getActiveLayout, TILE_SIZE } from "../../domain/maze";
@@ -13,13 +13,20 @@ import { DIRECTION } from "../components/Input";
 import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
+import { Drawable } from "../components/Drawable";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
-import { PowerPellet } from "../components/PowerPellet";
 
-type Item = { kind: ReplayItemKind; x: number; y: number };
+type Item = { art: string; optional: boolean; x: number; y: number };
+
+export type ReplayLook = {
+  mazeColorInverted: boolean;
+  playerTint: number | null;
+  frightened: ReadonlySet<number>;
+  frozenEid: number | null;
+};
 
 const ANGLE_BY_DIRECTION: Partial<Record<number, number>> = {
   [DIRECTION.right]: 0,
@@ -28,31 +35,26 @@ const ANGLE_BY_DIRECTION: Partial<Record<number, number>> = {
   [DIRECTION.up]: -Math.PI / 2,
 };
 
-function itemKind(world: World, eid: number): ReplayItemKind {
-  if (hasComponent(world, eid, BossPellet)) {
-    return "boss";
-  }
-  if (hasComponent(world, eid, Fruit)) {
-    return "fruit";
-  }
-  if (hasComponent(world, eid, PowerPellet)) {
-    return "power";
-  }
-  return hasComponent(world, eid, OptionalPellet) ? "optional" : "pellet";
-}
-
 function liveItems(world: World): Map<number, Item> {
   const items = new Map<number, Item>();
-  for (const component of [Pellet, BossPellet, Fruit, OptionalPellet]) {
-    for (const eid of query(world, [component, Position])) {
+  for (const component of [Pellet, BossPellet, Fruit]) {
+    for (const eid of query(world, [component, Position, Drawable])) {
       items.set(eid, {
-        kind: itemKind(world, eid),
+        art: Drawable.id[eid] ?? "",
+        optional: hasComponent(world, eid, OptionalPellet),
         x: Position.x[eid] ?? 0,
         y: Position.y[eid] ?? 0,
       });
     }
   }
   return items;
+}
+
+function ghostLook(eid: number, look: ReplayLook): ReplayGhostLook {
+  if (look.frozenEid === eid) {
+    return "frozen";
+  }
+  return look.frightened.has(eid) ? "frightened" : "normal";
 }
 
 export class ReplayRecorder {
@@ -86,7 +88,7 @@ export class ReplayRecorder {
     this.diffItems(world);
   }
 
-  sample(world: World, deltaMs: number, mazeColorInverted: boolean): void {
+  sample(world: World, deltaMs: number, look: () => ReplayLook): void {
     const segment = this.current;
     if (segment === null || this.totalMs >= REPLAY_MAX_SIM_MS) {
       return;
@@ -100,12 +102,13 @@ export class ReplayRecorder {
     }
     this.sinceSampleMs = 0;
     this.diffItems(world);
+    const now = look();
     const playerEid = query(world, [Player, Position])[0];
     this.lastAngle =
       ANGLE_BY_DIRECTION[Facing.direction[playerEid ?? 0] ?? DIRECTION.none] ?? this.lastAngle;
     segment.frames.push({
       t: this.clockMs,
-      mazeColorInverted,
+      mazeColorInverted: now.mazeColorInverted,
       player:
         playerEid === undefined
           ? null
@@ -113,12 +116,14 @@ export class ReplayRecorder {
               x: Position.x[playerEid] ?? 0,
               y: Position.y[playerEid] ?? 0,
               angle: this.lastAngle,
+              tint: now.playerTint,
             },
       ghosts: Array.from(query(world, [Ghost, Position]), (eid) => ({
         eid,
         kind: GhostKind.kind[eid] ?? 0,
         x: Position.x[eid] ?? 0,
         y: Position.y[eid] ?? 0,
+        look: ghostLook(eid, now),
       })),
     });
   }
@@ -148,7 +153,12 @@ export class ReplayRecorder {
     const now = liveItems(world);
     const unchanged = (eid: number, item: Item): boolean => {
       const before = this.known.get(eid);
-      return before?.kind === item.kind && before.x === item.x && before.y === item.y;
+      return (
+        before?.art === item.art &&
+        before.optional === item.optional &&
+        before.x === item.x &&
+        before.y === item.y
+      );
     };
     for (const [eid, item] of this.known) {
       const current = now.get(eid);

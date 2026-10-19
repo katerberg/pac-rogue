@@ -1,4 +1,5 @@
 import type { SolidGrid } from "./maze";
+import { PLAYER_INVULN_TINT, PLAYER_PROGRAMMING_TINT, PLAYER_WALL_PASS_TINT } from "./playerTint";
 
 export const REPLAY_MAX_SPEED = 8;
 export const REPLAY_MIN_LOOP_MS = 30_000;
@@ -7,10 +8,16 @@ export const REPLAY_MAX_SIM_MS = 60 * 60 * 1000;
 export const REPLAY_LABEL_MS = 700;
 export const REPLAY_SNAP_TILES = 2;
 
-export type ReplayItemKind = "pellet" | "power" | "fruit" | "boss" | "optional";
+export type ReplayGhostLook = "normal" | "frightened" | "frozen";
 
-export type ReplayPlayer = { x: number; y: number; angle: number };
-export type ReplayGhost = { eid: number; kind: number; x: number; y: number };
+export type ReplayPlayer = { x: number; y: number; angle: number; tint: number | null };
+export type ReplayGhost = {
+  eid: number;
+  kind: number;
+  x: number;
+  y: number;
+  look: ReplayGhostLook;
+};
 export type ReplayFrame = {
   t: number;
   player: ReplayPlayer | null;
@@ -21,7 +28,8 @@ export type ReplayItemEvent = {
   t: number;
   op: "add" | "remove";
   eid: number;
-  kind: ReplayItemKind;
+  art: string;
+  optional: boolean;
   x: number;
   y: number;
 };
@@ -147,4 +155,18 @@ export function itemsAt(segment: ReplaySegment, simMs: number): ReplayItemEvent[
     }
   }
   return [...live.values()];
+}
+
+export function replayPlayerTint(state: {
+  wallPass: boolean;
+  programming: boolean;
+  invulnRemainingMs: number;
+}): number | null {
+  if (state.wallPass) {
+    return PLAYER_WALL_PASS_TINT;
+  }
+  if (state.programming) {
+    return PLAYER_PROGRAMMING_TINT;
+  }
+  return state.invulnRemainingMs > 0 ? PLAYER_INVULN_TINT : null;
 }

@@ -450,8 +450,8 @@ import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 import type { SimInput } from "./simInput";
-import type { ReplayData } from "../../domain/replay";
-import { ReplayRecorder } from "./replayRecorder";
+import { replayPlayerTint, type ReplayData } from "../../domain/replay";
+import { ReplayRecorder, type ReplayLook } from "./replayRecorder";
 import { ghostName, RunRecorder } from "./runRecorder";
 
 export const LEVEL_TRANSITION_MS = 1000;
@@ -662,6 +662,20 @@ export class PlaySim {
     this.tick(input, delta);
     this.prevKeys = input.keys;
     return this.takeEvents();
+  }
+
+  private replayLook(): ReplayLook {
+    const opts = this.renderOptions();
+    return {
+      mazeColorInverted: opts.mazeColorInverted === true,
+      playerTint: replayPlayerTint({
+        wallPass: opts.wallPassActive === true,
+        programming: (opts.programmerQueue ?? null) !== null,
+        invulnRemainingMs: opts.playerInvulnRemainingMs ?? 0,
+      }),
+      frightened: new Set(opts.frightenedGhosts?.eids ?? []),
+      frozenEid: (opts.frozenGhostRemainingMs ?? 0) > 0 ? (opts.frozenGhostEid ?? null) : null,
+    };
   }
 
   replay(): ReplayData {
@@ -1075,7 +1089,7 @@ export class PlaySim {
       return;
     }
 
-    this.replayRecorder.sample(this.world, delta, this.bossState?.mazeColorInverted === true);
+    this.replayRecorder.sample(this.world, delta, () => this.replayLook());
     this.recorder.playFrame(delta, {
       freeze: frozenGhostEid(this.runUpgrades) !== null,
       invuln: playerIsInvulnerable(this.runUpgrades),

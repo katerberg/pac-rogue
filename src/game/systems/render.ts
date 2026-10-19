@@ -69,6 +69,7 @@ import {
   brightenColor,
   PLAYER_PROGRAMMING_TINT,
   playerTint,
+  tintedColor,
   type PlayerTint,
 } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
@@ -179,7 +180,7 @@ function pelletTextureKey(drawableId: string): string {
   return drawableId === POWER_PELLET_DRAWABLE_ID ? POWER_PELLET_TEXTURE_KEY : PELLET_TEXTURE_KEY;
 }
 
-function displaySizeForDrawable(drawableId: string): number {
+export function displaySizeForDrawable(drawableId: string): number {
   if (drawableId === PELLET_DRAWABLE_ID) {
     return pelletDisplaySize();
   }
@@ -223,7 +224,7 @@ export function strokeWallPath(
   }
 }
 
-function textureKeyForDrawable(drawableId: string): string {
+export function textureKeyForDrawable(drawableId: string): string {
   if (drawableId === PLAYER_DRAWABLE_ID) {
     return DOTMAN_BODY_TEXTURE_KEY;
   }
@@ -352,7 +353,10 @@ export type GhostSpriteHandle = {
   setDepth(depth: number): void;
   destroy(): void;
   setSkirtPhase(phase: number): void;
+  setLook(look: GhostLook): void;
 };
+
+export type GhostLook = "normal" | "frightened" | "frozen";
 
 export function addGhostSprite(
   scene: Phaser.Scene,
@@ -366,16 +370,20 @@ export function addGhostSprite(
   const image = scene.add.image(0, 0, textureKey);
   placeCroppedGhostBody(image, 0, 0, size);
   const skirt = scene.add.graphics();
-  const color = skirtBaseColor(scene, textureKey);
-  fillGhostSkirt(skirt, 0, 0, size, 0, color);
+  const baseColor = skirtBaseColor(scene, textureKey);
+  let color = baseColor;
+  let skirtPhase = 0;
+  fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
   const container = scene.add.container(x, y, [image, skirt]);
+  let horns: Phaser.GameObjects.Graphics | null = null;
   if (drawableId === BLINKY_DRAWABLE_ID) {
-    const horns = scene.add.graphics();
+    horns = scene.add.graphics();
     fillGhostHorns(horns, 0, 0, size, 0, 0, color);
     container.add(horns);
   }
+  let pupils: Phaser.GameObjects.Graphics | null = null;
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
-    const pupils = scene.add.graphics();
+    pupils = scene.add.graphics();
     fillGhostPupils(pupils, 0, 0, size, look);
     container.add(pupils);
   }
@@ -391,7 +399,27 @@ export function addGhostSprite(
       container.destroy();
     },
     setSkirtPhase(phase) {
-      fillGhostSkirt(skirt, 0, 0, size, phase, color);
+      skirtPhase = phase;
+      fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
+    },
+    setLook(next) {
+      const frightened = next === "frightened";
+      image.setTexture(frightened ? FRIGHTENED_GHOST_TEXTURE_KEY : textureKey);
+      if (next === "frozen") {
+        image.setTint(GHOST_FROZEN_TINT);
+      } else {
+        image.clearTint();
+      }
+      const bodyColor = frightened
+        ? skirtBaseColor(scene, FRIGHTENED_GHOST_TEXTURE_KEY)
+        : baseColor;
+      color =
+        next === "frozen"
+          ? tintedColor(bodyColor, { color: GHOST_FROZEN_TINT, mode: "multiply" })
+          : bodyColor;
+      fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
+      horns?.setVisible(!frightened);
+      pupils?.setVisible(!frightened);
     },
   };
 }
