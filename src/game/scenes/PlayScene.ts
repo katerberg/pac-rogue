@@ -274,6 +274,7 @@ export class PlayScene extends Phaser.Scene {
       window.removeEventListener("pagehide", onPageHide);
       this.applyEvents(this.sim.finishRun("quit"), 0);
       stopLoopingSfx(this, "gameplayMusic");
+      stopLoopingSfx(this, "interstitialMusic");
       stopLoopingSfx(this, "death");
       stopLoopingSfx(this, "revive");
       this.upgradeChoiceModal.destroy();
@@ -388,6 +389,9 @@ export class PlayScene extends Phaser.Scene {
   }
 
   public currentMusicId(): SfxId {
+    if (this.sim.intermissionActive()) {
+      return "interstitialMusic";
+    }
     return this.sim.storeState() !== null ? "storeMusic" : "gameplayMusic";
   }
 

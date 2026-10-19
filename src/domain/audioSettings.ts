@@ -37,7 +37,12 @@ export function effectiveVolume(manifestVolume: number, enabled: boolean, level:
 }
 
 export function categoryForSfx(id: string): AudioCategory {
-  return id === "gameplayMusic" || id === "menuMusic" || id === "storeMusic" ? "music" : "sfx";
+  return id === "gameplayMusic" ||
+    id === "menuMusic" ||
+    id === "storeMusic" ||
+    id === "interstitialMusic"
+    ? "music"
+    : "sfx";
 }
 
 export function parseAudioSettings(raw: string | null): AudioSettings {

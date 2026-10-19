@@ -38,6 +38,11 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     url: "sound/store.ogg",
     volume: 1.0,
   },
+  interstitialMusic: {
+    key: "interstitial-music",
+    url: "sound/level-interstitial.ogg",
+    volume: 1.0,
+  },
   levelComplete: {
     key: "level-complete",
     url: "sound/levelComplete.ogg",
