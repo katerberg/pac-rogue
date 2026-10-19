@@ -157,6 +157,31 @@ export function parseStoreLayout(ascii: string): StoreLayout {
   return { slots: cells, freebie: freebies[0]! };
 }
 
+export function wallBlockMasks(
+  walls: SolidGrid,
+  start: Cell,
+): { walls: SolidGrid; exterior: SolidGrid } {
+  const inBlock = walls.map((line) => line.map(() => false));
+  const stack = [start];
+  while (stack.length > 0) {
+    const { col, row } = stack.pop()!;
+    if (!walls[row]?.[col] || inBlock[row]![col]) {
+      continue;
+    }
+    inBlock[row]![col] = true;
+    stack.push(
+      { col: col + 1, row },
+      { col: col - 1, row },
+      { col, row: row + 1 },
+      { col, row: row - 1 },
+    );
+  }
+  return {
+    walls: inBlock,
+    exterior: walls.map((line, row) => line.map((wall, col) => wall && !inBlock[row]![col])),
+  };
+}
+
 export function storeEntrance(layout: MazeLayout): Cell {
   return { col: 0, row: layout.playerSpawn.row };
 }
