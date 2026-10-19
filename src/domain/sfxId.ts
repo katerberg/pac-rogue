@@ -6,4 +6,8 @@ export type SfxId =
   | "storeMusic"
   | "levelComplete"
   | "death"
-  | "revive";
+  | "revive"
+  | "slotSpin"
+  | "slotFailure"
+  | "slotSingleSuccess"
+  | "slotMultiSuccess";

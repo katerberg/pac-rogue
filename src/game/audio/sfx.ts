@@ -53,6 +53,26 @@ const SFX_MANIFEST: Record<SfxId, SfxEntry> = {
     url: "sound/revive.ogg",
     volume: 0.6,
   },
+  slotSpin: {
+    key: "slot-spin",
+    url: "sound/slot-machine/slot-machine-upwards.ogg",
+    volume: 0.38,
+  },
+  slotFailure: {
+    key: "slot-failure",
+    url: "sound/slot-machine/slot-machine-failure.ogg",
+    volume: 0.28,
+  },
+  slotSingleSuccess: {
+    key: "slot-single-success",
+    url: "sound/slot-machine/slot-machine-singlesuccess.ogg",
+    volume: 0.23,
+  },
+  slotMultiSuccess: {
+    key: "slot-multi-success",
+    url: "sound/slot-machine/slot-machine-multisuccess.ogg",
+    volume: 0.43,
+  },
 };
 
 const SFX_PREVIEW_ID: SfxId = "pelletMunch";

@@ -71,3 +71,10 @@ describe("musicDownloadInFlight", () => {
     expect(musicDownloadInFlight(LOADER.FILE_DESTROYED)).toBe(false);
   });
 });
+
+describe("slot machine sounds", () => {
+  it("are sound effects that preload with the rest", () => {
+    expect(loadsInBackground("slotSpin")).toBe(false);
+    expect(loadsInBackground("slotMultiSuccess")).toBe(false);
+  });
+});

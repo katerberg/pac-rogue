@@ -284,6 +284,12 @@ export function slotTimeline(spin: SlotSpin): SlotTimeline {
   return { reelStopsMs, winStartsMs, durationMs: payoutStartMs + payoutMs };
 }
 
+export function slotResultSfx(
+  winCount: number,
+): "slotFailure" | "slotSingleSuccess" | "slotMultiSuccess" {
+  return winCount === 0 ? "slotFailure" : winCount === 1 ? "slotSingleSuccess" : "slotMultiSuccess";
+}
+
 export function pickSlotUpgrade(
   owned: readonly UpgradeId[],
   school: SlotSchool,

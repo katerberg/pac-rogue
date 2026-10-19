@@ -2652,6 +2652,26 @@ describe("PlaySim slot machine", () => {
     expect(sim.snapshot().slot).toMatchObject({ active: true, held: false });
   });
 
+  it("plays the spin sound at the start and one result sound per spin, named for its outcome", () => {
+    const cases = [
+      [{ quarters: 0, upgrades: 0, lives: 0 }, "slotFailure"],
+      [{ quarters: 1, upgrades: 0, lives: 0 }, "slotSingleSuccess"],
+      [{ quarters: 2, upgrades: 0, lives: 0 }, "slotMultiSuccess"],
+    ] as const;
+    const slotSfx = ["slotSpin", "slotFailure", "slotSingleSuccess", "slotMultiSuccess"];
+    for (const [slot, expected] of cases) {
+      const sim = startSlotSim({ slot });
+      const events = [
+        ...runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") }),
+        ...settleSlots(sim),
+      ];
+      const heard = events.flatMap((e) =>
+        e.type === "sfx" && slotSfx.includes(e.id) ? [e.id] : [],
+      );
+      expect(heard).toEqual(["slotSpin", expected]);
+    }
+  });
+
   it("jumpToSpinner starts on level 2 with one spin queued", () => {
     const sim = startSim({ jumpToSpinner: true, slot: null });
     expect(sim.snapshot()).toMatchObject({ level: 2, quarters: 0 });
