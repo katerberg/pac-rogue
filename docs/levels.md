@@ -4,7 +4,7 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `lev
 
 ## Flow
 
-- Levels 1-8 clear: level-end [time bonus](./bonus.md#time-bonus) drain, then the pick-one [upgrade](./upgrades.md) modal, then the next board. Level 1 also grants a starting upgrade at board start. Store floors ([store.md](./store.md)) sit between certain levels (`storeAfterLevel` in `store.ts`) and are where Quarters are spent.
+- Levels 1-8 clear: level-end [time pennies](./pennies.md#time-pennies) drain, then the pick-one [upgrade](./upgrades.md) modal, then the next board. Level 1 also grants a starting upgrade at board start. Store floors ([store.md](./store.md)) sit between certain levels (`storeAfterLevel` in `store.ts`) and are where Quarters are spent.
 - Level 9 clear needs both boss stages, then RUN COMPLETE. No upgrade offer, no time bonus, no high-score write (only last-life Game Over writes history).
 - `?level=` clamps to `MAX_LEVEL`, so `level=9` jumps into the boss.
 
@@ -45,4 +45,4 @@ Runs start at `START_LIVES`. Natural regen is the free life in the centre of eac
 
 ## Fruit
 
-Spawns at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a BONUS bar rather than giving an upgrade. Art is picked from `public/art/fruit/` in a seeded per-level order (same helpers in `fruit.ts`) so concurrent fruit prefer distinct kinds and a level keeps its spawn order across retries.
+Spawns at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a Quarter of pennies rather than giving an upgrade. Art is picked from `public/art/fruit/` in a seeded per-level order (same helpers in `fruit.ts`) so concurrent fruit prefer distinct kinds and a level keeps its spawn order across retries.

@@ -1,4 +1,4 @@
-import type { Cell } from "./bonusBar";
+import type { Cell } from "./pennies";
 import type { MazeLayout, SolidGrid } from "./maze";
 import {
   baseIdOf,

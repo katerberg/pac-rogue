@@ -33,7 +33,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `powerPelletInvuln` | Ghost Proof | protection | Power pellet lets you pass through ghosts for 4s. | Power pellet lets you pass through ghosts for 5s (shortening toward ~3.8s by level 5). |
 | `powerPelletGhostHarvester` | Ghost Harvester | automation | Power pellets make ghosts eat pellets for you for 5 seconds. | Power pellets make ghosts eat pellets for you for 8 seconds. |
 | `fruitPowerPellet` | Fruit Power (rare) | harvest | Bonus fruit fires a random one of your power-pellet effects. | Bonus fruit fires every power-pellet effect you own. |
-| `fruitQuarterBounty` | Quarter Bounty | harvest | Bonus fruit pays a Quarter instead of charging the bonus bar. | Bonus fruit pays two Quarters. |
+| `fruitQuarterBounty` | Quarter Bounty | harvest | Bonus fruit pays a Quarter instead of adding pennies. | Bonus fruit pays two Quarters. |
 | `fruitFecundity` | Fruit Fecundity | harvest | Bonus fruit lingers twice as long. | Bonus fruit waits until the level ends, and uncollected ones pile up side by side. |
 | `fruitFeast` | Fruit Feast | harvest | Bonus fruit appears three times per level, each after the last is gone. | Bonus fruit appears four times per level, each after the last is gone. |
 | `passiveDeathsHarvest` | Death's Harvest | death | Dying harvests nearby pellets. | Dying harvests pellets within ten tiles. |
@@ -56,7 +56,7 @@ Base and enhanced effects side by side (the one-line card text from each def; me
 | `passiveDisruptionSpecialist` | Disruption Specialist | disruption | Own 3 other Disruption upgrades and every Disruption upgrade is enhanced. | Every Disruption upgrade you own is enhanced. |
 | `passiveMartyr` | Martyr (rare) | death | Dying scatters the ghosts to their corners. You respawn where you fell. | Dying sends every ghost home. You respawn where you fell. |
 | `passiveInterest` | Interest | automation | Entering a store pays 1 Quarter for every 3 you hold. | Entering a store pays 1 Quarter for every 2 you hold. |
-| `passiveNearMiss` | Near Miss | protection | Ghosts that brush past without catching you charge the BONUS bar. | Ghosts that brush past without catching you charge the BONUS bar double. |
+| `passiveNearMiss` | Near Miss | protection | Ghosts that brush past without catching you earn pennies. | Ghosts that brush past without catching you earn double pennies. |
 | `passiveHaunting` | Haunting | death | The ghost that last caught you stays caged in the ghost house for 10 seconds. | The ghost that last caught you stays caged in the ghost house for the level. |
 | `passiveTunnelSanctuary` | Tunnel Sanctuary | protection | Leaving a tunnel makes you ghost-proof for a second, but ghosts speed through them. | Leaving a tunnel makes you ghost-proof for a second, and ghosts can't use tunnels. |
 | `passiveStreakEngine` | Streak Engine (rare) | harvest | Every 30-pellet streak fires your power-pellet effects. | Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof. |

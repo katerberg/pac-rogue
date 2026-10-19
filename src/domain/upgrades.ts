@@ -1,4 +1,4 @@
-import { BONUS_BAR_MAX } from "./bonusBar";
+import { QUARTER_CHARGE } from "./pennies";
 import { ECHO_DELAY_MS, type EchoEffects, type PendingEcho, pickEchoBases } from "./echo";
 import type { LazyLooperRings } from "./lazyLooper";
 import {
@@ -531,7 +531,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitQuarterBounty",
     label: "Quarter Bounty",
     school: "harvest",
-    description: "Bonus fruit pays a Quarter instead of charging the bonus bar.",
+    description: "Bonus fruit pays a Quarter instead of adding pennies.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Quarter Bounty pays 2 Quarters per fruit instead of 1.",
@@ -770,12 +770,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveNearMiss",
     label: "Near Miss",
     school: "protection",
-    description: "Ghosts that brush past without catching you charge the BONUS bar.",
+    description: "Ghosts that brush past without catching you earn pennies.",
     storePrice: STORE_UPGRADE_PRICE,
     nearMissCharge: NEAR_MISS_CHARGE,
     enhanced: {
-      enhanceNote: "Near Miss charges the BONUS bar 30 per pass instead of 15.",
-      description: "Ghosts that brush past without catching you charge the BONUS bar double.",
+      enhanceNote: "Near Miss pays 2.4 pennies per pass instead of 1.2.",
+      description: "Ghosts that brush past without catching you earn double pennies.",
       nearMissCharge: NEAR_MISS_ENHANCED_CHARGE,
     },
   },
@@ -2011,7 +2011,7 @@ export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
 
 export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
   const decay = ownedValue(owned, "deathsBountyDecay");
-  return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
+  return decay === undefined ? 0 : Math.floor(QUARTER_CHARGE * decay ** priorDeaths);
 }
 
 export function inheritancePayout(

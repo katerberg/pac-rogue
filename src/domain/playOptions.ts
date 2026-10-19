@@ -1,4 +1,4 @@
-import { parseBonusParam } from "./bonusFlag";
+import { parsePenniesParam } from "./penniesFlag";
 import { parseJumpToSpinnerFlag, parseSlotParam, type SlotOutcome } from "./slotMachine";
 import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
 import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
@@ -32,7 +32,7 @@ export type PlayOptions = {
   mazeAscii: string | null;
   level: number | null;
   quarters: number | null;
-  bonus: number | null;
+  pennyCharge: number | null;
   ghosts: GhostKindId[] | null;
   roster: number | null;
   boss: BossId | null;
@@ -79,8 +79,12 @@ export function parsePlayOptions(params: URLSearchParams): {
   warnIf("level", level === null, "Unknown ?level= value; expected positive integer");
   const quarters = parseQuartersParam(params);
   warnIf("quarters", quarters === null, "Unknown ?quarters= value; expected non-negative integer");
-  const bonus = parseBonusParam(params);
-  warnIf("bonus", bonus === null, "Unknown ?bonus= value; expected an integer 0..299");
+  const pennyCharge = parsePenniesParam(params);
+  warnIf(
+    "pennyCharge",
+    pennyCharge === null,
+    "Unknown ?pennyCharge= value; expected an integer 0..299",
+  );
   const ghosts = parseGhostsParam(params);
   warnIf(
     "ghosts",
@@ -108,7 +112,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       mazeAscii: null,
       level: level ?? (boss !== null && !params.has("level") ? BOSS_LEVEL : null),
       quarters,
-      bonus,
+      pennyCharge,
       ghosts,
       roster,
       boss,

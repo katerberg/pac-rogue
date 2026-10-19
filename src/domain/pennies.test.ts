@@ -1,23 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
-  addBonusCharge,
+  addPennyCharge,
   applyStreakPellets,
-  BONUS_STREAK_IDLE_MS,
-  bonusTierBump,
+  PENNY_STREAK_IDLE_MS,
+  QUARTER_CHARGE,
+  formatPennies,
+  penniesInCharge,
+  PENNIES_PER_QUARTER,
+  CHARGE_PER_PENNY,
+  pennyTierBump,
   breakStreak,
-  createBonusBar,
+  createPennyPurse,
   enterCell,
   tickStreakIdle,
-  type BonusBar,
+  type PennyPurse,
   type Cell,
-} from "./bonusBar";
+} from "./pennies";
 
 function cells(count: number, row = 0, fromCol = 0): Cell[] {
   return Array.from({ length: count }, (_, i) => ({ col: fromCol + i, row }));
 }
 
-function runStreaks(lengths: number[]): { bar: BonusBar; filled: number } {
-  let bar = createBonusBar();
+function runStreaks(lengths: number[]): { bar: PennyPurse; filled: number } {
+  let bar = createPennyPurse();
   let filled = 0;
   for (const length of lengths) {
     const result = applyStreakPellets(bar, cells(length));
@@ -27,9 +32,9 @@ function runStreaks(lengths: number[]): { bar: BonusBar; filled: number } {
   return { bar, filled };
 }
 
-describe("bonusTierBump", () => {
+describe("pennyTierBump", () => {
   it("ramps 2, 3, 5, 8, 12, 16, then +5 per tier", () => {
-    expect([1, 2, 3, 4, 5, 6, 7, 8].map(bonusTierBump)).toEqual([2, 3, 5, 8, 12, 16, 21, 26]);
+    expect([1, 2, 3, 4, 5, 6, 7, 8].map(pennyTierBump)).toEqual([2, 3, 5, 8, 12, 16, 21, 26]);
   });
 });
 
@@ -53,7 +58,7 @@ describe("bonus economy reference", () => {
 
 describe("applyStreakPellets", () => {
   it("bumps only when a multiple of 5 is reached", () => {
-    const four = applyStreakPellets(createBonusBar(), cells(4));
+    const four = applyStreakPellets(createPennyPurse(), cells(4));
     expect(four.tier).toBe(0);
     expect(four.bar.charge).toBe(0);
     const five = applyStreakPellets(four.bar, cells(1, 1));
@@ -62,41 +67,41 @@ describe("applyStreakPellets", () => {
   });
 
   it("crosses one tier going from 4 to 6", () => {
-    const four = applyStreakPellets(createBonusBar(), cells(4)).bar;
+    const four = applyStreakPellets(createPennyPurse(), cells(4)).bar;
     const result = applyStreakPellets(four, cells(2, 1));
     expect(result.tier).toBe(1);
     expect(result.bar.charge).toBe(2);
   });
 
   it("sums every tier crossed in one call and reports the highest", () => {
-    const nine = applyStreakPellets(createBonusBar(), cells(9)).bar;
+    const nine = applyStreakPellets(createPennyPurse(), cells(9)).bar;
     const result = applyStreakPellets(nine, cells(7, 1));
     expect(result.tier).toBe(3);
     expect(result.bar.charge - nine.charge).toBe(8);
   });
 
   it("resets the idle clock", () => {
-    const bar = { ...createBonusBar(), streak: 1, idleMs: 300 };
+    const bar = { ...createPennyPurse(), streak: 1, idleMs: 300 };
     expect(applyStreakPellets(bar, cells(1)).bar.idleMs).toBe(0);
   });
 });
 
-describe("addBonusCharge", () => {
+describe("addPennyCharge", () => {
   it("pays one fill and carries the remainder", () => {
-    const result = addBonusCharge(createBonusBar(295), 16);
+    const result = addPennyCharge(createPennyPurse(295), 16);
     expect(result.filled).toBe(1);
     expect(result.bar.charge).toBe(11);
   });
 
   it("pays several fills at once", () => {
-    const result = addBonusCharge(createBonusBar(), 650);
+    const result = addPennyCharge(createPennyPurse(), 650);
     expect(result.filled).toBe(2);
     expect(result.bar.charge).toBe(50);
   });
 });
 
 describe("enterCell", () => {
-  const eaten = applyStreakPellets(createBonusBar(100), [{ col: 3, row: 4 }]).bar;
+  const eaten = applyStreakPellets(createPennyPurse(100), [{ col: 3, row: 4 }]).bar;
 
   it("keeps the streak when the cell holds a pellet", () => {
     expect(enterCell(eaten, { col: 9, row: 9 }, true)).toBe(eaten);
@@ -120,12 +125,30 @@ describe("enterCell", () => {
 
 describe("tickStreakIdle", () => {
   it("does nothing without a streak", () => {
-    expect(tickStreakIdle(createBonusBar(), 1000).idleMs).toBe(0);
+    expect(tickStreakIdle(createPennyPurse(), 1000).idleMs).toBe(0);
   });
 
   it("breaks the streak at the idle limit", () => {
-    const bar = applyStreakPellets(createBonusBar(), cells(3)).bar;
-    expect(tickStreakIdle(bar, BONUS_STREAK_IDLE_MS - 1).streak).toBe(3);
-    expect(tickStreakIdle(bar, BONUS_STREAK_IDLE_MS).streak).toBe(0);
+    const bar = applyStreakPellets(createPennyPurse(), cells(3)).bar;
+    expect(tickStreakIdle(bar, PENNY_STREAK_IDLE_MS - 1).streak).toBe(3);
+    expect(tickStreakIdle(bar, PENNY_STREAK_IDLE_MS).streak).toBe(0);
+  });
+});
+
+describe("penny denomination", () => {
+  it("splits a Quarter into 24 pennies of the same total charge", () => {
+    expect(CHARGE_PER_PENNY * PENNIES_PER_QUARTER).toBe(QUARTER_CHARGE);
+  });
+
+  it("counts whole pennies and never reaches a full Quarter", () => {
+    expect(penniesInCharge(0)).toBe(0);
+    expect(penniesInCharge(CHARGE_PER_PENNY - 0.01)).toBe(0);
+    expect(penniesInCharge(CHARGE_PER_PENNY)).toBe(1);
+    expect(penniesInCharge(QUARTER_CHARGE - 1)).toBe(PENNIES_PER_QUARTER - 1);
+  });
+
+  it("formats a charge as pennies to one decimal", () => {
+    expect(formatPennies(15)).toBe("1.2 PENNIES");
+    expect(formatPennies(150)).toBe("12 PENNIES");
   });
 });

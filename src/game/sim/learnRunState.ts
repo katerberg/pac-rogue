@@ -1,4 +1,4 @@
-import { addBonusCharge, createBonusBar, type BonusBar } from "../../domain/bonusBar";
+import { addPennyCharge, createPennyPurse, type PennyPurse } from "../../domain/pennies";
 import {
   START_LIVES,
   emptyLifeSlots,
@@ -27,7 +27,7 @@ export type LearnCatchOutcome = {
 
 export class LearnRunState {
   lives = START_LIVES;
-  bonus: BonusBar = createBonusBar();
+  pennies: PennyPurse = createPennyPurse();
   quarters = 0;
   private deathsThisBoard = 0;
 
@@ -35,9 +35,9 @@ export class LearnRunState {
     this.lives = Math.max(1, this.lives + delta);
   }
 
-  addBonusCharge(points: number): void {
-    const charged = addBonusCharge(this.bonus, points);
-    this.bonus = charged.bar;
+  addPennyCharge(points: number): void {
+    const charged = addPennyCharge(this.pennies, points);
+    this.pennies = charged.bar;
     this.quarters += charged.filled;
   }
 
@@ -79,7 +79,7 @@ export class LearnRunState {
     this.lives = result.lives;
     const bountyCharge = deathsBountyCharge(owned, this.deathsThisBoard);
     this.deathsThisBoard += 1;
-    this.addBonusCharge(bountyCharge);
+    this.addPennyCharge(bountyCharge);
     return { kind: saved ? "saved" : "lost", bountyCharge, quartersPaid: quartersPaid ?? 0 };
   }
 }
