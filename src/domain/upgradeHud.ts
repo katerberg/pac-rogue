@@ -6,7 +6,6 @@ export const UPGRADE_HUD_ICON_SIZE = 16;
 const UPGRADE_HUD_GAP = 4;
 const UPGRADE_HUD_TOP_GAP = 8;
 
-/** Row-major grid under the quarters row; `left` is the grid's left edge. */
 export function upgradeHudIconPosition(
   index: number,
   quarterSize: number,
