@@ -2,22 +2,23 @@ import { GHOST_DIR, type GhostDir } from "./ghostPath";
 import type { MazeTile, SolidGrid } from "./maze";
 import { speedZoneAt, speedZoneEffect, type SpeedZone, type SpeedZoneEffect } from "./speedZones";
 
-export const SIMULACRUM_ALPHA = 0.55;
-export const SIMULACRUM_TINT = 0xb48cff;
-export const SIMULACRUM_POP_MS = 700;
-const SIMULACRUM_POP_BLINK_SHARE = 0.5;
-const SIMULACRUM_POP_BLINK_STEP_MS = 60;
-const SIMULACRUM_POP_BLINK_DIM_ALPHA = 0.15;
-const SIMULACRUM_DUST_COUNT = 20;
-const SIMULACRUM_DUST_MIN_REACH_TILES = 0.8;
-const SIMULACRUM_DUST_REACH_SPREAD_TILES = 1.6;
-const SIMULACRUM_DUST_SIZE_TILES = 0.28;
-const SIMULACRUM_DUST_PEAK_ALPHA = 0.9;
-const SIMULACRUM_DUST_FADE_POWER = 1.5;
-const SIMULACRUM_DUST_RISE_TILES = 0.6;
+export const MIRROR_ALPHA = 0.55;
+export const MIRROR_TINT = 0xb48cff;
+export const MIRROR_POP_MS = 700;
+const MIRROR_TOUCH_TILES = 0.5;
+const MIRROR_POP_BLINK_SHARE = 0.5;
+const MIRROR_POP_BLINK_STEP_MS = 60;
+const MIRROR_POP_BLINK_DIM_ALPHA = 0.15;
+const MIRROR_DUST_COUNT = 20;
+const MIRROR_DUST_MIN_REACH_TILES = 0.8;
+const MIRROR_DUST_REACH_SPREAD_TILES = 1.6;
+const MIRROR_DUST_SIZE_TILES = 0.28;
+const MIRROR_DUST_PEAK_ALPHA = 0.9;
+const MIRROR_DUST_FADE_POWER = 1.5;
+const MIRROR_DUST_RISE_TILES = 0.6;
 
 export type BodyTile = MazeTile & { facing: GhostDir };
-export type SimulacrumPop = { x: number; y: number; elapsedMs: number };
+export type MirrorPop = { x: number; y: number; elapsedMs: number };
 
 export function mirrorX(x: number, centerX: number): number {
   return 2 * centerX - x;
@@ -28,6 +29,13 @@ export function twinPoint(
   layout: { offsetX: number; pixelWidth: number },
 ): { x: number; y: number } {
   return { x: mirrorX(player.x, layout.offsetX + layout.pixelWidth / 2), y: player.y };
+}
+
+export function twinTouchesPlayer(
+  player: { x: number; y: number },
+  layout: { offsetX: number; pixelWidth: number; tileSize: number },
+): boolean {
+  return Math.abs(twinPoint(player, layout).x - player.x) < layout.tileSize * MIRROR_TOUCH_TILES;
 }
 
 export function mirrorCol(col: number, cols: number): number {
@@ -150,23 +158,20 @@ export function nearestBody(
   return viaTwin < viaPlayer ? twin : player;
 }
 
-export function tickSimulacrumPop(
-  pop: SimulacrumPop | null,
-  deltaMs: number,
-): SimulacrumPop | null {
+export function tickMirrorPop(pop: MirrorPop | null, deltaMs: number): MirrorPop | null {
   if (pop === null) {
     return null;
   }
   const elapsedMs = pop.elapsedMs + deltaMs;
-  return elapsedMs >= SIMULACRUM_POP_MS ? null : { ...pop, elapsedMs };
+  return elapsedMs >= MIRROR_POP_MS ? null : { ...pop, elapsedMs };
 }
 
-export function simulacrumPopRender(
-  pop: SimulacrumPop | null,
+export function mirrorPopRender(
+  pop: MirrorPop | null,
 ): { x: number; y: number; progress: number } | null {
   return pop === null
     ? null
-    : { x: pop.x, y: pop.y, progress: Math.min(1, pop.elapsedMs / SIMULACRUM_POP_MS) };
+    : { x: pop.x, y: pop.y, progress: Math.min(1, pop.elapsedMs / MIRROR_POP_MS) };
 }
 
 function unitHash(n: number): number {
@@ -174,39 +179,38 @@ function unitHash(n: number): number {
   return x - Math.floor(x);
 }
 
-export function simulacrumPopLook(progress: number): { bodyAlpha: number; dustProgress: number } {
+export function mirrorPopLook(progress: number): { bodyAlpha: number; dustProgress: number } {
   const t = Math.min(1, Math.max(0, progress));
-  if (t >= SIMULACRUM_POP_BLINK_SHARE) {
+  if (t >= MIRROR_POP_BLINK_SHARE) {
     return {
       bodyAlpha: 0,
-      dustProgress: (t - SIMULACRUM_POP_BLINK_SHARE) / (1 - SIMULACRUM_POP_BLINK_SHARE),
+      dustProgress: (t - MIRROR_POP_BLINK_SHARE) / (1 - MIRROR_POP_BLINK_SHARE),
     };
   }
-  const step = Math.floor((t * SIMULACRUM_POP_MS) / SIMULACRUM_POP_BLINK_STEP_MS);
+  const step = Math.floor((t * MIRROR_POP_MS) / MIRROR_POP_BLINK_STEP_MS);
   return {
-    bodyAlpha: step % 2 === 0 ? SIMULACRUM_ALPHA : SIMULACRUM_POP_BLINK_DIM_ALPHA,
+    bodyAlpha: step % 2 === 0 ? MIRROR_ALPHA : MIRROR_POP_BLINK_DIM_ALPHA,
     dustProgress: 0,
   };
 }
 
-export type SimulacrumDust = { dx: number; dy: number; alpha: number; size: number };
+export type MirrorDust = { dx: number; dy: number; alpha: number; size: number };
 
-export function simulacrumDust(dustProgress: number, tilePx: number): SimulacrumDust[] {
+export function mirrorDust(dustProgress: number, tilePx: number): MirrorDust[] {
   if (dustProgress <= 0) {
     return [];
   }
   const p = Math.min(1, dustProgress);
   const eased = 1 - (1 - p) ** 3;
-  return Array.from({ length: SIMULACRUM_DUST_COUNT }, (_, i) => {
+  return Array.from({ length: MIRROR_DUST_COUNT }, (_, i) => {
     const angle = unitHash(i) * Math.PI * 2;
     const reach =
-      (SIMULACRUM_DUST_MIN_REACH_TILES + unitHash(i + 101) * SIMULACRUM_DUST_REACH_SPREAD_TILES) *
-      tilePx;
+      (MIRROR_DUST_MIN_REACH_TILES + unitHash(i + 101) * MIRROR_DUST_REACH_SPREAD_TILES) * tilePx;
     return {
       dx: Math.cos(angle) * reach * eased,
-      dy: Math.sin(angle) * reach * eased - SIMULACRUM_DUST_RISE_TILES * tilePx * p,
-      alpha: SIMULACRUM_DUST_PEAK_ALPHA * (1 - p) ** SIMULACRUM_DUST_FADE_POWER,
-      size: tilePx * SIMULACRUM_DUST_SIZE_TILES * (1 - p * 0.5),
+      dy: Math.sin(angle) * reach * eased - MIRROR_DUST_RISE_TILES * tilePx * p,
+      alpha: MIRROR_DUST_PEAK_ALPHA * (1 - p) ** MIRROR_DUST_FADE_POWER,
+      size: tilePx * MIRROR_DUST_SIZE_TILES * (1 - p * 0.5),
     };
   });
 }

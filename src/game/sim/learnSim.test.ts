@@ -888,7 +888,7 @@ describe("LearnSim upgrade demos", () => {
     });
   });
 
-  describe("Simulacrum", () => {
+  describe("Mirror", () => {
     function centerX(): number {
       const layout = getActiveLayout();
       return layout.offsetX + layout.pixelWidth / 2;
@@ -899,7 +899,7 @@ describe("LearnSim upgrade demos", () => {
     }
 
     function twinOf(sim: LearnSim) {
-      return lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).simulacrum;
+      return lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).mirror;
     }
 
     function ghostOnTwin(sim: LearnSim): void {
@@ -910,7 +910,7 @@ describe("LearnSim upgrade demos", () => {
     }
 
     it("a power pellet adds a twin that mirrors Maze-Man across the middle", () => {
-      const { sim, player } = setup("powerPelletSimulacrum");
+      const { sim, player } = setup("powerPelletMirror");
       parkGhost(sim);
       expect(twinOf(sim)).toBeNull();
       chompPower(sim, player);
@@ -927,7 +927,7 @@ describe("LearnSim upgrade demos", () => {
     });
 
     it("the twin eats pellets it stands on", () => {
-      const { sim, player } = setup("powerPelletSimulacrum");
+      const { sim, player } = setup("powerPelletMirror");
       parkGhost(sim);
       chompPower(sim, player);
       const target = query(sim.world, [Pellet, Position]).find(
@@ -940,38 +940,49 @@ describe("LearnSim upgrade demos", () => {
       expect(query(sim.world, [Pellet]).includes(target)).toBe(false);
     });
 
+    it("pops when Maze-Man touches the twin at the middle", () => {
+      const { sim, player } = setup("powerPelletMirror");
+      parkGhost(sim);
+      chompPower(sim, player);
+      moveTo(player, { x: centerX() + 1, y: Position.y[player]! });
+      const options = lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS));
+      expect(sim["learnUpgrades"].mirrorActive).toBe(false);
+      expect(options.mirror).toBeNull();
+      expect(options.mirrorPop).not.toBeNull();
+    });
+
     it("a ghost catching the twin is a death, and it ends the twin", () => {
-      const { sim, player } = setup("powerPelletSimulacrum");
+      const { sim, player } = setup("powerPelletMirror");
       chompPower(sim, player);
       ghostOnTwin(sim);
       const events = sim.step(NO_KEYS_HELD, FRAME_MS);
       expect(popups(events).join(" ")).toContain("LIFE LOST");
-      expect(sim["learnUpgrades"].simulacrumActive).toBe(false);
+      expect(sim["learnUpgrades"].mirrorActive).toBe(false);
     });
 
     it("Plus: a ghost catching the twin only pops it", () => {
-      const { sim, player } = setup("powerPelletSimulacrumPlus");
+      const { sim, player } = setup("powerPelletMirrorPlus");
       chompPower(sim, player);
       ghostOnTwin(sim);
       const events = sim.step(NO_KEYS_HELD, FRAME_MS);
       expect(popups(events)).toEqual(["TWIN POPPED"]);
       const options = lastDrawOptions(events);
-      expect(options.simulacrum).toBeNull();
-      expect(options.simulacrumPop).not.toBeNull();
+      expect(options.mirror).toBeNull();
+      expect(options.mirrorPop).not.toBeNull();
       expect(options.playerInvulnRemainingMs).toBe(0);
     });
 
     it("Plus: a ghost catching Maze-Man pops the twin and grants a moment of safety", () => {
-      const { sim, player } = setup("powerPelletSimulacrumPlus");
+      const { sim, player } = setup("powerPelletMirrorPlus");
       chompPower(sim, player);
       const events = catchByGhost(sim, player);
       expect(popups(events)).toEqual(["TWIN POPPED"]);
-      expect(sim["learnUpgrades"].simulacrumActive).toBe(false);
+      expect(sim["learnUpgrades"].mirrorActive).toBe(false);
       expect(lastDrawOptions(events).playerInvulnRemainingMs).toBeGreaterThan(0);
     });
 
     it("pops when the mirrored cell is a wall and Maze-Man's is not", () => {
-      const { sim, player } = setup("powerPelletSimulacrum");
+      const { sim, player } = setup("powerPelletMirror");
       parkGhost(sim);
       chompPower(sim, player);
       const col = worldToCol(Position.x[player]!);
@@ -988,8 +999,8 @@ describe("LearnSim upgrade demos", () => {
         },
       };
       const options = lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS));
-      expect(options.simulacrum).toBeNull();
-      expect(options.simulacrumPop).not.toBeNull();
+      expect(options.mirror).toBeNull();
+      expect(options.mirrorPop).not.toBeNull();
     });
 
     function mirror(col: number): number {
@@ -1006,7 +1017,7 @@ describe("LearnSim upgrade demos", () => {
     }
 
     it("eats along the mirrored path at hyperspeed", () => {
-      const { sim, player } = setup("powerPelletSimulacrum", "powerPelletHyperspeed");
+      const { sim, player } = setup("powerPelletMirror", "powerPelletHyperspeed");
       parkGhost(sim);
       chompPower(sim, player);
       moveTo(player, { x: cellCenterX(3), y: cellCenterY(1) });
@@ -1022,7 +1033,7 @@ describe("LearnSim upgrade demos", () => {
 
     it("gets Pickup Range", () => {
       const reaches = (extra: BaseUpgradeId[]): boolean => {
-        const { sim, player } = setup("powerPelletSimulacrum", ...extra);
+        const { sim, player } = setup("powerPelletMirror", ...extra);
         parkGhost(sim);
         chompPower(sim, player);
         const own = regularPelletAt(sim, 5, 1);
@@ -1047,15 +1058,14 @@ describe("LearnSim upgrade demos", () => {
         return before - query(sim.world, [Pellet]).length;
       };
       expect(
-        eaten(["powerPelletExtraHungry", "powerPelletSimulacrum"]) -
-          eaten(["powerPelletExtraHungry"]),
+        eaten(["powerPelletExtraHungry", "powerPelletMirror"]) - eaten(["powerPelletExtraHungry"]),
       ).toBe(8);
     });
 
     it("gets Tunnel Dash sweeps", () => {
       const row = horizontalTunnelRows()[0]!;
       const swept = (extra: BaseUpgradeId[]): [boolean, boolean] => {
-        const { sim, player } = setup("powerPelletSimulacrum", ...extra);
+        const { sim, player } = setup("powerPelletMirror", ...extra);
         parkGhost(sim);
         chompPower(sim, player);
         const [near, far] = query(sim.world, [Pellet, Position]).filter(
@@ -1074,16 +1084,16 @@ describe("LearnSim upgrade demos", () => {
     });
 
     it("toggling it off removes the twin", () => {
-      const { sim, player } = setup("powerPelletSimulacrum");
+      const { sim, player } = setup("powerPelletMirror");
       parkGhost(sim);
       chompPower(sim, player);
       expect(twinOf(sim)).not.toBeNull();
-      sim.toggleUpgrade("powerPelletSimulacrum");
+      sim.toggleUpgrade("powerPelletMirror");
       expect(twinOf(sim)).toBeNull();
     });
 
     it("the ghost's target overlay follows the nearer body", () => {
-      const { sim, player } = setup("powerPelletSimulacrum");
+      const { sim, player } = setup("powerPelletMirror");
       chompPower(sim, player);
       const ghost = sim.ghostEid!;
       const twin = twinOf(sim)!;

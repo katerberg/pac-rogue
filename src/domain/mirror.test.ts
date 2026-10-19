@@ -1,22 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { GHOST_DIR } from "./ghostPath";
 import {
-  SIMULACRUM_ALPHA,
+  MIRROR_ALPHA,
   mirrorCol,
   mirrorFacing,
   mirrorX,
   nearestBody,
   pathLength,
   sharedZoneEffect,
-  simulacrumDust,
-  simulacrumPopLook,
-  simulacrumPopRender,
-  tickSimulacrumPop,
+  mirrorDust,
+  mirrorPopLook,
+  mirrorPopRender,
+  tickMirrorPop,
   twinDesynced,
   twinPoint,
+  twinTouchesPlayer,
   twinZoneEffect,
   type BodyTile,
-} from "./simulacrum";
+} from "./mirror";
 import type { SpeedZone } from "./speedZones";
 
 function grid(rows: string[]): boolean[][] {
@@ -41,6 +42,20 @@ describe("mirror", () => {
     expect(mirrorFacing(GHOST_DIR.none)).toBe(GHOST_DIR.none);
     expect(mirrorFacing(5)).toBe(6);
     expect(mirrorFacing(8)).toBe(7);
+  });
+});
+
+describe("twinTouchesPlayer", () => {
+  const layout = { offsetX: 0, pixelWidth: 200, tileSize: 10 };
+
+  it("is true when the bodies are within half a tile of each other", () => {
+    expect(twinTouchesPlayer({ x: 100, y: 5 }, layout)).toBe(true);
+    expect(twinTouchesPlayer({ x: 102, y: 5 }, layout)).toBe(true);
+  });
+
+  it("is false once they are half a tile or more apart", () => {
+    expect(twinTouchesPlayer({ x: 103, y: 5 }, layout)).toBe(false);
+    expect(twinTouchesPlayer({ x: 40, y: 5 }, layout)).toBe(false);
   });
 });
 
@@ -133,43 +148,42 @@ describe("nearestBody", () => {
 describe("pop timing", () => {
   it("ticks until the pop is over, then clears", () => {
     const pop = { x: 1, y: 2, elapsedMs: 0 };
-    const mid = tickSimulacrumPop(pop, 300)!;
+    const mid = tickMirrorPop(pop, 300)!;
     expect(mid.elapsedMs).toBe(300);
-    expect(tickSimulacrumPop(mid, 500)).toBeNull();
-    expect(tickSimulacrumPop(null, 16)).toBeNull();
+    expect(tickMirrorPop(mid, 500)).toBeNull();
+    expect(tickMirrorPop(null, 16)).toBeNull();
   });
 });
 
 describe("pop look", () => {
   it("clamps progress", () => {
-    const at = (elapsedMs: number) => simulacrumPopRender({ x: 3, y: 4, elapsedMs });
+    const at = (elapsedMs: number) => mirrorPopRender({ x: 3, y: 4, elapsedMs });
     expect(at(0)).toEqual({ x: 3, y: 4, progress: 0 });
     expect(at(350)!.progress).toBeCloseTo(0.5);
-    expect(simulacrumPopRender(null)).toBeNull();
+    expect(mirrorPopRender(null)).toBeNull();
   });
 
   it("stutter-blinks the body before it turns to dust", () => {
     const alphas = Array.from(
       { length: 9 },
       (_, i) =>
-        simulacrumPopLook(simulacrumPopRender({ x: 0, y: 0, elapsedMs: i * 40 })!.progress)
-          .bodyAlpha,
+        mirrorPopLook(mirrorPopRender({ x: 0, y: 0, elapsedMs: i * 40 })!.progress).bodyAlpha,
     );
-    expect(alphas[0]).toBe(SIMULACRUM_ALPHA);
+    expect(alphas[0]).toBe(MIRROR_ALPHA);
     expect(new Set(alphas.slice(0, 8)).size).toBe(2);
-    expect(simulacrumPopLook(0.2).dustProgress).toBe(0);
+    expect(mirrorPopLook(0.2).dustProgress).toBe(0);
   });
 
   it("hides the body and disperses dust at the end", () => {
-    expect(simulacrumPopLook(0.75)).toMatchObject({ bodyAlpha: 0 });
-    expect(simulacrumPopLook(0.75).dustProgress).toBeCloseTo(0.5);
-    expect(simulacrumPopLook(1).dustProgress).toBe(1);
+    expect(mirrorPopLook(0.75)).toMatchObject({ bodyAlpha: 0 });
+    expect(mirrorPopLook(0.75).dustProgress).toBeCloseTo(0.5);
+    expect(mirrorPopLook(1).dustProgress).toBe(1);
   });
 
   it("makes no dust before the dust phase and fades it out by the end", () => {
-    expect(simulacrumDust(0, 16)).toEqual([]);
-    const mid = simulacrumDust(0.5, 16);
-    const end = simulacrumDust(1, 16);
+    expect(mirrorDust(0, 16)).toEqual([]);
+    const mid = mirrorDust(0.5, 16);
+    const end = mirrorDust(1, 16);
     expect(mid.length).toBeGreaterThan(8);
     expect(end.every((mote) => mote.alpha === 0)).toBe(true);
     expect(mid.some((mote) => mote.alpha > 0)).toBe(true);

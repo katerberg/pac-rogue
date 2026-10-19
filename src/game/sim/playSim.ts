@@ -360,20 +360,21 @@ import {
   type UpgradeSchool,
   remoteTransferEvery,
   type CornucopiaMode,
-  endSimulacrum,
-  simulacrumSavesLife,
+  endMirror,
+  mirrorSavesLife,
 } from "../../domain/upgrades";
 import {
   mirrorFacing,
   sharedZoneEffect,
-  simulacrumPopRender,
-  tickSimulacrumPop,
+  mirrorPopRender,
+  tickMirrorPop,
   twinDesynced,
+  twinTouchesPlayer,
   twinPoint,
   twinZoneEffect,
   type BodyTile,
-  type SimulacrumPop,
-} from "../../domain/simulacrum";
+  type MirrorPop,
+} from "../../domain/mirror";
 import { remoteTransferTriggers } from "../../domain/pelletCollectExtra";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
@@ -622,7 +623,7 @@ export class PlaySim {
   private caughtByEid: number | null = null;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
-  private simulacrumPop: SimulacrumPop | null = null;
+  private mirrorPop: MirrorPop | null = null;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
@@ -902,8 +903,8 @@ export class PlaySim {
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
       programmerQueue: this.programmerQueue(),
-      simulacrum: this.death === null ? this.twinDashBody() : null,
-      simulacrumPop: simulacrumPopRender(this.simulacrumPop),
+      mirror: this.death === null ? this.twinDashBody() : null,
+      mirrorPop: mirrorPopRender(this.mirrorPop),
     };
   }
 
@@ -1010,13 +1011,13 @@ export class PlaySim {
         fresh: this.collapseArts.map((art) => art.fresh),
         introMs: this.collapseIntroMs,
       },
-      simulacrum: {
-        active: upgrades.simulacrumActive,
+      mirror: {
+        active: upgrades.mirrorActive,
         x: twinPosition?.x ?? null,
         y: twinPosition?.y ?? null,
         col: twinBody?.col ?? null,
         row: twinBody?.row ?? null,
-        popProgress: simulacrumPopRender(this.simulacrumPop)?.progress ?? null,
+        popProgress: mirrorPopRender(this.mirrorPop)?.progress ?? null,
       },
       speedZones: this.speedZones,
       speedZonesShifting: this.speedZoneShift !== null,
@@ -1314,8 +1315,8 @@ export class PlaySim {
     }
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
-    this.simulacrumPop = tickSimulacrumPop(this.simulacrumPop, delta);
-    this.checkSimulacrumPop();
+    this.mirrorPop = tickMirrorPop(this.mirrorPop, delta);
+    this.checkMirrorPop();
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex, this.currentTuning);
     const hyperspeedMul =
       this.runUpgrades.hyperspeedTurnDelayMs > 0
@@ -1682,8 +1683,8 @@ export class PlaySim {
       ) {
         return;
       }
-      if (this.runUpgrades.simulacrumActive && simulacrumSavesLife(this.effectiveUpgrades())) {
-        this.popSimulacrum();
+      if (this.runUpgrades.mirrorActive && mirrorSavesLife(this.effectiveUpgrades())) {
+        this.popMirror();
         if (twinCatch === null) {
           this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
         }
@@ -1775,7 +1776,7 @@ export class PlaySim {
   }
 
   private twinPosition(): Point | null {
-    const player = this.runUpgrades.simulacrumActive ? this.playerPosition() : null;
+    const player = this.runUpgrades.mirrorActive ? this.playerPosition() : null;
     if (player === null) {
       return null;
     }
@@ -1835,21 +1836,28 @@ export class PlaySim {
     return sharedZoneEffect(player, twinZoneEffect(this.speedZones, twin, velocity));
   }
 
-  private checkSimulacrumPop(): void {
-    if (!this.runUpgrades.simulacrumActive) {
+  private checkMirrorPop(): void {
+    if (!this.runUpgrades.mirrorActive) {
       return;
     }
     const cell = playerCell(this.world);
-    if (cell !== null && (twinDesynced(this.playerSolids(), cell) || this.zoneEffects().conflict)) {
-      this.popSimulacrum();
+    const player = this.playerPosition();
+    if (
+      cell !== null &&
+      player !== null &&
+      (twinDesynced(this.playerSolids(), cell) ||
+        this.zoneEffects().conflict ||
+        twinTouchesPlayer(player, getActiveLayout()))
+    ) {
+      this.popMirror();
     }
   }
 
-  private popSimulacrum(): void {
+  private popMirror(): void {
     const position = this.twinPosition();
-    this.runUpgrades = endSimulacrum(this.runUpgrades);
+    this.runUpgrades = endMirror(this.runUpgrades);
     if (position !== null) {
-      this.simulacrumPop = { ...position, elapsedMs: 0 };
+      this.mirrorPop = { ...position, elapsedMs: 0 };
     }
   }
 
@@ -2557,7 +2565,7 @@ export class PlaySim {
 
   private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
-    this.simulacrumPop = null;
+    this.mirrorPop = null;
     this.deathsThisBoard = 0;
     this.nearMissesPaid = 0;
     this.topUpStartingShields();
@@ -3584,8 +3592,8 @@ export class PlaySim {
     if (after.chaff !== null && after.chaff !== before.chaff) {
       this.recorder.activation("chaff");
     }
-    if (powerEffects.simulacrumStarted) {
-      this.recorder.activation("simulacrum");
+    if (powerEffects.mirrorStarted) {
+      this.recorder.activation("mirror");
     }
     if (powerEffects.collectExtraPellets > 0) {
       this.recorder.activation("collectExtra");
@@ -3729,7 +3737,7 @@ export class PlaySim {
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
-    this.simulacrumPop = null;
+    this.mirrorPop = null;
     this.resetStreak();
     this.remoteTransferCounter = 0;
     const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt);

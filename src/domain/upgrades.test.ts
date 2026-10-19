@@ -88,8 +88,8 @@ import {
   groupUpgradesBySchool,
   storePriceFor,
   applyPowerPelletEffects,
-  endSimulacrum,
-  simulacrumSavesLife,
+  endMirror,
+  mirrorSavesLife,
   cornucopiaAlongsideOwned,
   confirmUpgradeChoice,
   createRunUpgrades,
@@ -231,7 +231,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletWallDrop",
   "powerPelletProgrammer",
   "passiveInheritance",
-  "powerPelletSimulacrum",
+  "powerPelletMirror",
   "powerPelletChaff",
 ];
 
@@ -472,7 +472,7 @@ describe("rare upgrades", () => {
     "passiveShieldBreak",
     "passiveEcho",
     "powerPelletProgrammer",
-    "powerPelletSimulacrum",
+    "powerPelletMirror",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
@@ -688,7 +688,7 @@ describe("grantUpgrade", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
-      simulacrumStarted: false,
+      mirrorStarted: false,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
@@ -708,7 +708,7 @@ describe("grantUpgrade", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
-      simulacrumStarted: false,
+      mirrorStarted: false,
     });
   });
 
@@ -769,7 +769,7 @@ describe("freeze / power pellet", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
-      simulacrumStarted: false,
+      mirrorStarted: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
@@ -797,7 +797,7 @@ describe("freeze / power pellet", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
-      simulacrumStarted: false,
+      mirrorStarted: false,
     });
   });
 });
@@ -908,7 +908,7 @@ describe("invuln / power pellet", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
-      simulacrumStarted: false,
+      mirrorStarted: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
@@ -1133,7 +1133,7 @@ describe("passiveOvercharge", () => {
       frightenGhosts: false,
       cornucopiaFruit: null,
       programmerStarted: false,
-      simulacrumStarted: false,
+      mirrorStarted: false,
     });
   });
 });
@@ -2136,49 +2136,49 @@ describe("Programmer", () => {
   });
 });
 
-describe("Simulacrum", () => {
+describe("Mirror", () => {
   it("is a rare harvest upgrade that Overcharge leaves alone", () => {
-    expect(getUpgradeDef("powerPelletSimulacrum")).toMatchObject({
+    expect(getUpgradeDef("powerPelletMirror")).toMatchObject({
       school: "harvest",
       rare: true,
       storePrice: STORE_RARE_UPGRADE_PRICE,
     });
     const result = applyPowerPelletEffects(
-      createRunUpgrades(["powerPelletSimulacrum", "passiveOvercharge"]),
+      createRunUpgrades(["powerPelletMirror", "passiveOvercharge"]),
       1,
     );
-    expect(result.state.simulacrumActive).toBe(true);
-    expect(result.simulacrumStarted).toBe(true);
+    expect(result.state.mirrorActive).toBe(true);
+    expect(result.mirrorStarted).toBe(true);
   });
 
   it("does nothing without the upgrade", () => {
     const result = applyPowerPelletEffects(createRunUpgrades(["passiveGhostSlow"]), 1);
-    expect(result.state.simulacrumActive).toBe(false);
-    expect(result.simulacrumStarted).toBe(false);
+    expect(result.state.mirrorActive).toBe(false);
+    expect(result.mirrorStarted).toBe(false);
   });
 
   it("ignores a second power pellet while active", () => {
-    const first = applyPowerPelletEffects(createRunUpgrades(["powerPelletSimulacrum"]), 1).state;
+    const first = applyPowerPelletEffects(createRunUpgrades(["powerPelletMirror"]), 1).state;
     const second = applyPowerPelletEffects(first, 1);
-    expect(second.simulacrumStarted).toBe(false);
-    expect(second.state.simulacrumActive).toBe(true);
+    expect(second.mirrorStarted).toBe(false);
+    expect(second.state.mirrorActive).toBe(true);
   });
 
   it("starts again after it ends", () => {
-    const first = applyPowerPelletEffects(createRunUpgrades(["powerPelletSimulacrum"]), 1).state;
-    const ended = endSimulacrum(first);
-    expect(ended.simulacrumActive).toBe(false);
-    expect(applyPowerPelletEffects(ended, 1).simulacrumStarted).toBe(true);
+    const first = applyPowerPelletEffects(createRunUpgrades(["powerPelletMirror"]), 1).state;
+    const ended = endMirror(first);
+    expect(ended.mirrorActive).toBe(false);
+    expect(applyPowerPelletEffects(ended, 1).mirrorStarted).toBe(true);
   });
 
   it("is cleared by clearUpgradeTimers", () => {
-    const active = applyPowerPelletEffects(createRunUpgrades(["powerPelletSimulacrum"]), 1).state;
-    expect(clearUpgradeTimers(active).simulacrumActive).toBe(false);
+    const active = applyPowerPelletEffects(createRunUpgrades(["powerPelletMirror"]), 1).state;
+    expect(clearUpgradeTimers(active).mirrorActive).toBe(false);
   });
 
   it("only the Plus form saves a life", () => {
-    expect(simulacrumSavesLife(["powerPelletSimulacrum"])).toBe(false);
-    expect(simulacrumSavesLife(["powerPelletSimulacrumPlus"])).toBe(true);
+    expect(mirrorSavesLife(["powerPelletMirror"])).toBe(false);
+    expect(mirrorSavesLife(["powerPelletMirrorPlus"])).toBe(true);
   });
 });
 

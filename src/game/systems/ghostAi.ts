@@ -8,7 +8,7 @@ import {
   type GhostCanEnter,
   type GhostDir,
 } from "../../domain/ghostPath";
-import { nearestBody, type BodyTile } from "../../domain/simulacrum";
+import { nearestBody, type BodyTile } from "../../domain/mirror";
 import { GHOST_AI_MODE, type GhostAiMode } from "../../domain/ghostMode";
 import { ghostMovementRules } from "../../domain/ghostMovement";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
