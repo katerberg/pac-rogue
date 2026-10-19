@@ -500,6 +500,8 @@ import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
 import type { SimInput } from "./simInput";
+import { replayPlayerTint, type ReplayData } from "../../domain/replay";
+import { ReplayRecorder, type ReplayLook } from "./replayRecorder";
 import { ghostName, RunRecorder } from "./runRecorder";
 
 export const LEVEL_TRANSITION_MS = 1000;
@@ -568,7 +570,7 @@ export class PlaySim {
   private intermissionElapsedMs: number | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
-  private runCompleteElapsedMs: number | null = null;
+  private runEndElapsedMs: number | null = null;
   private fruitPresence: FruitPresence = createFruitPresence();
   private fruitSequence: FruitSequenceState = {
     sequence: [],
@@ -633,6 +635,7 @@ export class PlaySim {
 
   private currentTuning: Tuning;
   private readonly recorder: RunRecorder;
+  private readonly replayRecorder = new ReplayRecorder();
 
   constructor(
     options: PlayOptions,
@@ -736,8 +739,26 @@ export class PlaySim {
     return this.takeEvents();
   }
 
+  private replayLook(): ReplayLook {
+    const opts = this.renderOptions();
+    return {
+      mazeColorInverted: opts.mazeColorInverted === true,
+      playerTint: replayPlayerTint({
+        wallPass: opts.wallPassActive === true,
+        programming: (opts.programmerQueue ?? null) !== null,
+        invulnRemainingMs: opts.playerInvulnRemainingMs ?? 0,
+      }),
+      frightened: new Set(opts.frightenedGhosts?.eids ?? []),
+      frozenEid: (opts.frozenGhostRemainingMs ?? 0) > 0 ? (opts.frozenGhostEid ?? null) : null,
+    };
+  }
+
+  replay(): ReplayData {
+    return this.replayRecorder.data();
+  }
+
   runEndMenuArmed(): boolean {
-    return this.runCompleteElapsedMs !== null && this.runCompleteElapsedMs >= RUN_END_MENU_ARM_MS;
+    return this.runEndElapsedMs !== null && this.runEndElapsedMs >= RUN_END_MENU_ARM_MS;
   }
 
   chooseRunEnd(choice: RunEndChoice): SimEvent[] {
@@ -1032,7 +1053,8 @@ export class PlaySim {
       bossStageTransition: this.bossStageTransition !== null,
       intermission:
         this.intermissionElapsedMs === null ? null : intermissionFrame(this.intermissionElapsedMs),
-      runComplete: this.runCompleteElapsedMs !== null,
+      runComplete: this.runEndElapsedMs !== null && this.recorder.outcome === "complete",
+      runEnd: this.runEndElapsedMs !== null,
       runEndMenuArmed: this.runEndMenuArmed(),
       highScoresDisabled: this.options.highScoresDisabled,
       inStore: this.store !== null,
@@ -1122,11 +1144,14 @@ export class PlaySim {
       }
       this.tickReviveSplash(delta);
       this.tickMoneyTalks(delta);
+      if (this.runEndElapsedMs !== null) {
+        this.runEndElapsedMs += delta;
+      }
       return;
     }
 
-    if (this.runCompleteElapsedMs !== null) {
-      this.runCompleteElapsedMs += delta;
+    if (this.runEndElapsedMs !== null) {
+      this.runEndElapsedMs += delta;
       return;
     }
 
@@ -1184,6 +1209,7 @@ export class PlaySim {
       return;
     }
 
+    this.replayRecorder.sample(this.world, delta, () => this.replayLook());
     this.recorder.playFrame(delta, {
       freeze: frozenGhostEid(this.runUpgrades) !== null,
       invuln: playerIsInvulnerable(this.runUpgrades),
@@ -1721,6 +1747,7 @@ export class PlaySim {
       this.lives = result.lives;
       this.emit({ type: "lives", pulse: false });
       const bountyPaid = !result.gameOver && this.payDeathsBounty();
+      this.replayRecorder.death(this.world);
       this.recorder.death({
         col: deathCell?.col ?? -1,
         row: deathCell?.row ?? -1,
@@ -2600,6 +2627,7 @@ export class PlaySim {
     this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.pelletProgress = createPelletProgress(countPellets(this.world));
+    this.replayRecorder.beginSegment(this.world, this.levelIndex);
     this.remoteTransferCounter = 0;
     this.fruitPresence = createFruitPresence();
     this.fruitSequence = { ...this.fruitSequence, spawnIndex: 0 };
@@ -3444,6 +3472,7 @@ export class PlaySim {
         break;
       case "showGameOver":
         this.emit({ type: "endText", title: "GAME OVER" });
+        this.runEndElapsedMs = 0;
         break;
       case "resume":
         this.death = null;
@@ -3453,10 +3482,6 @@ export class PlaySim {
           this.emitDraw({ playerReviveProgress: 1 });
         }
         this.emit({ type: "loopStart", id: "gameplayMusic" });
-        break;
-      case "goToMenu":
-        this.death = null;
-        this.emit({ type: "goToMenu" });
         break;
     }
   }
@@ -3505,7 +3530,7 @@ export class PlaySim {
   private beginRunComplete(): void {
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "endText", title: "RUN COMPLETE" });
-    this.runCompleteElapsedMs = 0;
+    this.runEndElapsedMs = 0;
     this.saveRun();
     this.recorder.finish("complete");
     this.emitRunLog();

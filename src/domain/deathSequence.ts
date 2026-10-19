@@ -2,14 +2,11 @@ import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
 export const DEATH_HOLD_MS = DEFAULT_TUNING.deathHoldMs;
 export const READY_PAUSE_MS = DEFAULT_TUNING.readyPauseMs;
-export const GAME_OVER_HOLD_MS = 2000;
 export const DEATH_FADE_DURATION_MS = 500;
 
-export type DeathSequencePhase =
-  "hold" | "ready" | "fadeToGameOver" | "gameOver" | "doneResume" | "doneMenu";
+export type DeathSequencePhase = "hold" | "ready" | "fadeToGameOver" | "gameOver" | "doneResume";
 
-export type DeathSequenceEvent =
-  "resetActors" | "startFade" | "showGameOver" | "resume" | "goToMenu";
+export type DeathSequenceEvent = "resetActors" | "startFade" | "showGameOver" | "resume";
 
 export type DeathSequenceState = {
   gameOver: boolean;
@@ -30,7 +27,7 @@ export function tickDeathSequence(
   deltaMs: number,
   tuning: Tuning = DEFAULT_TUNING,
 ): { state: DeathSequenceState; events: DeathSequenceEvent[] } {
-  if (state.phase === "doneResume" || state.phase === "doneMenu") {
+  if (state.phase === "doneResume") {
     return { state, events: [] };
   }
 
@@ -73,15 +70,6 @@ export function tickDeathSequence(
       events.push("showGameOver");
       next = { gameOver: true, phase: "gameOver", phaseElapsedMs: leftover };
       continue;
-    }
-
-    if (next.phase === "gameOver") {
-      if (next.phaseElapsedMs < GAME_OVER_HOLD_MS) {
-        break;
-      }
-      events.push("goToMenu");
-      next = { gameOver: true, phase: "doneMenu", phaseElapsedMs: 0 };
-      break;
     }
 
     break;

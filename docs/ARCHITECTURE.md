@@ -19,7 +19,7 @@ Boot order is `gameConfig.scene` (`src/game/config.ts`); the first scene is the 
 MenuScene -> PlayScene | LearnScene | HighScoresScene | SettingsScene
 PlayScene -Escape-> PauseScene -> Resume | SettingsScene (returns to PauseScene) | Quit (no high-score write)
 PlayScene: clear -> level transition -> upgrade modal (levels 1-8) -> level 2 only: Blinky-chases-Dot-Man intermission (`intermission.ts`, timed in `PlaySim`) -> next board | store floor | boss | RUN COMPLETE
-PlayScene: caught -> death sequence -> reset, or GAME OVER -> MenuScene
+PlayScene: caught -> death sequence -> reset, or GAME OVER -> run-end screen (as RUN COMPLETE: NEW GAME / MENU over the [replay](./replay.md))
 ```
 
 - Pausing halts `PlayScene.update` entirely, so any state (death, transition, modal) freezes and resumes in place. `scene.pause()` never touches audio.
