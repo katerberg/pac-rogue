@@ -1075,7 +1075,7 @@ export class PlaySim {
       return;
     }
 
-    this.replayRecorder.sample(this.world, delta);
+    this.replayRecorder.sample(this.world, delta, this.bossState?.mazeColorInverted === true);
     this.recorder.playFrame(delta, {
       freeze: frozenGhostEid(this.runUpgrades) !== null,
       invuln: playerIsInvulnerable(this.runUpgrades),

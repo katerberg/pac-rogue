@@ -210,7 +210,7 @@ function bossPelletPulse(nowMs: number): { size: number; alpha: number } {
   };
 }
 
-function strokeWallPath(
+export function strokeWallPath(
   graphics: Phaser.GameObjects.Graphics,
   commands: readonly WallPathCommand[],
   style: WallStyle,
@@ -237,7 +237,7 @@ function textureKeyForDrawable(drawableId: string): string {
   return pelletTextureKey(drawableId);
 }
 
-function storedWallStyle(): WallStyle {
+export function storedWallStyle(): WallStyle {
   return wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
 }
 

@@ -6,7 +6,7 @@ import {
   type ReplayItemKind,
   type ReplaySegment,
 } from "../../domain/replay";
-import { TILE_SIZE } from "../../domain/maze";
+import { getActiveLayout, TILE_SIZE } from "../../domain/maze";
 import { BossPellet } from "../components/BossPellet";
 import { Facing } from "../components/Facing";
 import { DIRECTION } from "../components/Input";
@@ -18,7 +18,6 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
-import { Wall } from "../components/Wall";
 
 type Item = { kind: ReplayItemKind; x: number; y: number };
 
@@ -69,10 +68,11 @@ export class ReplayRecorder {
     const segment: ReplaySegment = {
       level,
       tileSize: TILE_SIZE,
-      walls: Array.from(query(world, [Wall, Position]), (eid) => ({
-        x: Position.x[eid] ?? 0,
-        y: Position.y[eid] ?? 0,
-      })),
+      maze: {
+        walls: getActiveLayout().walls,
+        exterior: getActiveLayout().exterior,
+        door: getActiveLayout().door,
+      },
       items: [],
       frames: [],
       deaths: [],
@@ -86,7 +86,7 @@ export class ReplayRecorder {
     this.diffItems(world);
   }
 
-  sample(world: World, deltaMs: number): void {
+  sample(world: World, deltaMs: number, mazeColorInverted: boolean): void {
     const segment = this.current;
     if (segment === null || this.totalMs >= REPLAY_MAX_SIM_MS) {
       return;
@@ -105,6 +105,7 @@ export class ReplayRecorder {
       ANGLE_BY_DIRECTION[Facing.direction[playerEid ?? 0] ?? DIRECTION.none] ?? this.lastAngle;
     segment.frames.push({
       t: this.clockMs,
+      mazeColorInverted,
       player:
         playerEid === undefined
           ? null

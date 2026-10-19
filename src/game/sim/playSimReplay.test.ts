@@ -32,7 +32,8 @@ describe("PlaySim run replay", () => {
     const [segment, ...rest] = sim.replay().segments;
     expect(rest).toEqual([]);
     expect(segment!.level).toBe(2);
-    expect(segment!.walls.length).toBeGreaterThan(0);
+    expect(segment!.maze.walls.some((row) => row.some(Boolean))).toBe(true);
+    expect(segment!.frames[0]!.mazeColorInverted).toBe(false);
     expect(segment!.frames.length).toBeGreaterThan(10);
     const times = segment!.frames.map((frame) => frame.t);
     expect(times).toEqual([...times].sort((a, b) => a - b));

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   REPLAY_LABEL_MS,
-  REPLAY_SPEED,
+  REPLAY_MAX_SPEED,
+  REPLAY_MIN_LOOP_MS,
   frameAt,
   itemsAt,
   replayCursor,
+  replaySpeed,
   type ReplayData,
   type ReplaySegment,
 } from "./replay";
@@ -13,7 +15,7 @@ function segment(overrides: Partial<ReplaySegment> = {}): ReplaySegment {
   return {
     level: 1,
     tileSize: 16,
-    walls: [],
+    maze: { walls: [], exterior: [], door: [] },
     items: [],
     frames: [],
     deaths: [],
@@ -24,20 +26,36 @@ function segment(overrides: Partial<ReplaySegment> = {}): ReplaySegment {
 
 describe("frameAt", () => {
   const frames = [
-    { t: 0, player: { x: 0, y: 0, angle: 0 }, ghosts: [{ eid: 1, kind: 0, x: 0, y: 0 }] },
-    { t: 100, player: { x: 10, y: 0, angle: 0 }, ghosts: [{ eid: 1, kind: 0, x: 20, y: 0 }] },
+    {
+      t: 0,
+      mazeColorInverted: false,
+      player: { x: 0, y: 0, angle: 0 },
+      ghosts: [{ eid: 1, kind: 0, x: 0, y: 0 }],
+    },
+    {
+      t: 100,
+      mazeColorInverted: true,
+      player: { x: 10, y: 0, angle: 0 },
+      ghosts: [{ eid: 1, kind: 0, x: 20, y: 0 }],
+    },
   ];
 
   it("interpolates midway between samples", () => {
     const view = frameAt(segment({ frames }), 50);
     expect(view.player?.x).toBeCloseTo(5);
     expect(view.ghosts[0]?.x).toBeCloseTo(10);
+    expect(view.mazeColorInverted).toBe(false);
   });
 
   it("snaps instead of sliding across a jump larger than the snap distance", () => {
     const far = [
       frames[0]!,
-      { t: 100, player: { x: 200, y: 0, angle: 0 }, ghosts: [{ eid: 2, kind: 0, x: 5, y: 0 }] },
+      {
+        t: 100,
+        mazeColorInverted: false,
+        player: { x: 200, y: 0, angle: 0 },
+        ghosts: [{ eid: 2, kind: 0, x: 5, y: 0 }],
+      },
     ];
     const view = frameAt(segment({ frames: far }), 50);
     expect(view.player?.x).toBe(0);
@@ -46,7 +64,7 @@ describe("frameAt", () => {
 
   it("holds the last frame past the end and is empty without frames", () => {
     expect(frameAt(segment({ frames }), 999).player?.x).toBe(10);
-    expect(frameAt(segment(), 0)).toEqual({ player: null, ghosts: [] });
+    expect(frameAt(segment(), 0)).toEqual({ player: null, ghosts: [], mazeColorInverted: false });
   });
 });
 
@@ -62,18 +80,44 @@ describe("itemsAt", () => {
   });
 });
 
+describe("replaySpeed", () => {
+  const run = (durationMs: number): ReplayData => ({ segments: [segment({ durationMs })] });
+
+  it("slows a short run so the loop lasts the minimum loop length", () => {
+    const data = run(6000);
+    const speed = replaySpeed(data);
+    expect(speed).toBeLessThan(1);
+    const loopMs = REPLAY_LABEL_MS + 6000 / speed;
+    expect(loopMs).toBeCloseTo(REPLAY_MIN_LOOP_MS);
+  });
+
+  it("caps long runs at the maximum speed", () => {
+    expect(replaySpeed(run(20 * 60_000))).toBe(REPLAY_MAX_SPEED);
+  });
+
+  it("is at the maximum when the labels alone fill the minimum loop", () => {
+    const many: ReplayData = { segments: Array.from({ length: 60 }, () => segment()) };
+    expect(replaySpeed(many)).toBeLessThanOrEqual(REPLAY_MAX_SPEED);
+  });
+});
+
 describe("replayCursor", () => {
   const data: ReplayData = {
-    segments: [segment({ durationMs: 2000 }), segment({ level: 2, durationMs: 4000 })],
+    segments: [segment({ durationMs: 60_000 }), segment({ level: 2, durationMs: 120_000 })],
   };
-  const firstLength = REPLAY_LABEL_MS + 2000 / REPLAY_SPEED;
-  const total = firstLength + REPLAY_LABEL_MS + 4000 / REPLAY_SPEED;
+  const speed = replaySpeed(data);
+  const firstLength = REPLAY_LABEL_MS + 60_000 / speed;
+  const total = firstLength + REPLAY_LABEL_MS + 120_000 / speed;
 
-  it("shows the label first, then plays at replay speed", () => {
+  it("shows the label first, then plays at the computed speed", () => {
     expect(replayCursor(data, 0)).toMatchObject({ segmentIndex: 0, labelVisible: true });
     const playing = replayCursor(data, REPLAY_LABEL_MS + 10);
     expect(playing).toMatchObject({ segmentIndex: 0, labelVisible: false });
-    expect(playing.simMs).toBeCloseTo(10 * REPLAY_SPEED);
+    expect(playing.simMs).toBeCloseTo(10 * speed);
+  });
+
+  it("loops no sooner than the minimum loop length", () => {
+    expect(total).toBeGreaterThanOrEqual(REPLAY_MIN_LOOP_MS - 1);
   });
 
   it("moves to the next segment and loops back with a loop count", () => {
