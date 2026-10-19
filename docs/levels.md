@@ -10,7 +10,7 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `lev
 
 ## Intermission
 
-After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man across the screen before level 3. `PlaySim` owns the timer and emits `intermission` events with actor positions; `PlayScene` only moves two sprites (`intermissionActors.ts`).
+After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man across the screen before level 3. `PlaySim` owns the timer and emits `intermission` events with actor positions; `PlayScene` only moves two sprites (`intermissionActors.ts`). The cutscene loops `interstitialMusic` (same volume as gameplay music; the pause-menu Settings controls it via `PlayScene.currentMusicId()`). LEARN has no level progression, so it has no counterpart.
 
 ## Speed
 
