@@ -1,5 +1,4 @@
 import type { Cell } from "./bonusBar";
-import type { MazeLayout, SolidGrid } from "./maze";
 import {
   baseIdOf,
   carryEnhancement,
@@ -22,7 +21,6 @@ export const STORE_ENHANCE_BORDER_COLOR = 0xffd24a;
 const ENHANCE_GLOW_PERIOD_MS = 1600;
 const ENHANCE_GLOW_MIN_ALPHA = 0.12;
 const ENHANCE_GLOW_MAX_ALPHA = 0.5;
-export const STORE_SLOT_SIZE = 2;
 export const STORE_FIRST_LEVEL = 3;
 export const STORE_FINAL_LEVEL = 8;
 
@@ -30,7 +28,7 @@ type StoreSlotKind = "upgrade" | "swap" | "enhance";
 
 export type StoreSlotCell = { kind: StoreSlotKind; col: number; row: number };
 
-export type StoreLayout = { slots: StoreSlotCell[]; freebie: Cell };
+export type StoreLayout = { slots: StoreSlotCell[]; freebie: Cell; dots: Cell[] };
 
 export type StoreFreebie = { kind: "life" | "quarter"; col: number; row: number; taken: boolean };
 
@@ -59,11 +57,16 @@ export function storeSlotLabel(slot: StoreSlot): string {
 
 export type StoreDir = "up" | "down" | "left" | "right";
 
+export function storeFocusForDir(dir: StoreDir | null): "yes" | "no" | null {
+  return dir === "left" ? "yes" : dir === "right" ? "no" : null;
+}
+
 export type StoreSacrifice = { id: UpgradeId; stage: "power" | "school" };
 
 export type StoreState = {
   slots: readonly StoreSlot[];
   freebie: StoreFreebie;
+  dots: readonly Cell[];
   activeSlot: number | null;
   dismissedSlot: number | null;
   clickedSlot: number | null;
@@ -107,6 +110,7 @@ export type StorePromptView = {
 };
 
 const FREEBIE_CHAR = "F";
+const DOT_CHAR = ".";
 
 const SLOT_KIND_BY_CHAR: Record<string, StoreSlotKind> = {
   U: "upgrade",
@@ -131,72 +135,32 @@ export function storeLevelFor(storeIndex: 1 | 2 | 3, midStoreLevel: number): num
 }
 
 export function parseStoreLayout(ascii: string): StoreLayout {
-  const lines = ascii.split("\n");
-  const claimed = new Set<string>();
   const cells: StoreSlotCell[] = [];
   const freebies: Cell[] = [];
-  lines.forEach((line, row) => {
+  const dots: Cell[] = [];
+  ascii.split("\n").forEach((line, row) => {
     for (let col = 0; col < line.length; col += 1) {
       const ch = line[col]!;
+      const kind = SLOT_KIND_BY_CHAR[ch];
       if (ch === FREEBIE_CHAR) {
         freebies.push({ col, row });
-        continue;
+      } else if (ch === DOT_CHAR) {
+        dots.push({ col, row });
+      } else if (kind) {
+        cells.push({ kind, col, row });
       }
-      const kind = SLOT_KIND_BY_CHAR[ch];
-      if (!kind || claimed.has(`${col},${row}`)) {
-        continue;
-      }
-      for (let dy = 0; dy < STORE_SLOT_SIZE; dy += 1) {
-        for (let dx = 0; dx < STORE_SLOT_SIZE; dx += 1) {
-          if (lines[row + dy]?.[col + dx] !== ch || claimed.has(`${col + dx},${row + dy}`)) {
-            throw new Error(`store slot ${ch} at ${col},${row} is not a full 2x2 block`);
-          }
-          claimed.add(`${col + dx},${row + dy}`);
-        }
-      }
-      cells.push({ kind, col, row });
     }
   });
   if (freebies.length !== 1) {
     throw new Error(`store needs exactly one ${FREEBIE_CHAR} cell, found ${freebies.length}`);
   }
-  return { slots: cells, freebie: freebies[0]! };
+  return { slots: cells, freebie: freebies[0]!, dots };
 }
 
-export function wallBlockMasks(
-  walls: SolidGrid,
-  start: Cell,
-): { walls: SolidGrid; exterior: SolidGrid } {
-  const inBlock = walls.map((line) => line.map(() => false));
-  const stack = [start];
-  while (stack.length > 0) {
-    const { col, row } = stack.pop()!;
-    if (!walls[row]?.[col] || inBlock[row]![col]) {
-      continue;
-    }
-    inBlock[row]![col] = true;
-    stack.push(
-      { col: col + 1, row },
-      { col: col - 1, row },
-      { col, row: row + 1 },
-      { col, row: row - 1 },
-    );
-  }
-  return {
-    walls: inBlock,
-    exterior: walls.map((line, row) => line.map((wall, col) => wall && !inBlock[row]![col])),
-  };
-}
+export type StoreCorner = { right: boolean; bottom: boolean };
 
-export function storeEntrance(layout: MazeLayout): Cell {
-  return { col: 0, row: layout.playerSpawn.row };
-}
-
-export function withStoreEntranceClosed(layout: MazeLayout): SolidGrid {
-  const entrance = storeEntrance(layout);
-  return layout.playerSolids.map((line, row) =>
-    line.map((solid, col) => solid || (col === entrance.col && row === entrance.row)),
-  );
+export function storeCorner(slot: { col: number; row: number }, freebie: Cell): StoreCorner {
+  return { right: slot.col > freebie.col, bottom: slot.row > freebie.row };
 }
 
 export function createStoreState(
@@ -258,6 +222,7 @@ export function createStoreState(
   const stocked: StoreState = {
     slots,
     freebie: { ...layout.freebie, kind: lifeRoom ? "life" : "quarter", taken: false },
+    dots: layout.dots,
     activeSlot: null,
     dismissedSlot: null,
     clickedSlot: null,
@@ -324,14 +289,7 @@ export function slotPrice(slot: StoreSlot): number {
 }
 
 export function slotIndexAtCell(state: StoreState, col: number, row: number): number | null {
-  const index = state.slots.findIndex(
-    (slot) =>
-      !slot.sold &&
-      col >= slot.col &&
-      col < slot.col + STORE_SLOT_SIZE &&
-      row >= slot.row &&
-      row < slot.row + STORE_SLOT_SIZE,
-  );
+  const index = state.slots.findIndex((slot) => !slot.sold && slot.col === col && slot.row === row);
   return index === -1 ? null : index;
 }
 
@@ -381,6 +339,7 @@ type StoreStepResult = {
   state: StoreState;
   purchase: StorePurchase | null;
   pickup: StoreFreebie["kind"] | null;
+  dotPicked: boolean;
 };
 
 export function storeStep(
@@ -388,12 +347,15 @@ export function storeStep(
   input: StoreStepInput,
   rng: () => number,
 ): StoreStepResult {
-  const { freebie } = state;
+  const dots = state.dots.filter((dot) => dot.col !== input.col || dot.row !== input.row);
+  const dotPicked = dots.length !== state.dots.length;
+  const eaten = dotPicked ? { ...state, dots } : state;
+  const { freebie } = eaten;
   if (freebie.taken || freebie.col !== input.col || freebie.row !== input.row) {
-    return { ...slotStep(state, input, rng), pickup: null };
+    return { ...slotStep(eaten, input, rng), pickup: null, dotPicked };
   }
-  const taken = { ...state, freebie: { ...freebie, taken: true } };
-  return { ...slotStep(taken, input, rng), pickup: freebie.kind };
+  const taken = { ...eaten, freebie: { ...freebie, taken: true } };
+  return { ...slotStep(taken, input, rng), pickup: freebie.kind, dotPicked };
 }
 
 function slotStep(
