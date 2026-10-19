@@ -2747,9 +2747,10 @@ export class PlaySim {
       }
       return label;
     } catch (error) {
-      console.warn(`maze activate failed for ${label}; falling back to maze2`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`maze activate failed for ${label}; falling back to maze2: ${message}`);
       if (label === "custom") {
-        this.customMazeError = error instanceof Error ? error.message : String(error);
+        this.customMazeError = message;
       }
       activateLayout("maze2");
       return "maze2";
