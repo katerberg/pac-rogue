@@ -852,6 +852,62 @@ describe("PlaySim", () => {
     expect(Math.abs(Position.x[eid]! - cx)).toBeGreaterThan(0);
   });
 
+  it("does not catch on a perpendicular turn even when a fast ghost overlaps", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: false, godMode: false });
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(7), cy);
+    runUntil(sim, () => Position.x[eid]! <= cx + 8, 60, { keys: held("left") });
+    teleportPlayer(sim, cx + 3, cy);
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cx + TILE_SIZE;
+    Position.y[ghost] = cy;
+    Speed.px[ghost] = PLAYER_SPEED * 3;
+
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("still catches after turn catch grace expires", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: false, godMode: false });
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(7), cy);
+    runUntil(sim, () => Position.x[eid]! <= cx + 8, 60, { keys: held("left") });
+    teleportPlayer(sim, cx, cy);
+    Facing.direction[eid] = DIRECTION.left;
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    runFrames(sim, 20, { keys: held("up") });
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBe(0);
+
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("still catches on a reverse with no turn catch grace", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: false, godMode: false });
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(12), cellCenterY(1));
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+    runFrames(sim, 1, { keys: held("left") });
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("right") });
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBe(0);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
   it("moves Maze-Man at the level-2 speed along an empty corridor", () => {
     const sim = startSim({ level: 2, maze: "maze1", godMode: true });
     const eid = playerEid(sim);
@@ -5976,6 +6032,18 @@ describe("Hyperspeed", () => {
     expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBe(0);
     runFrames(sim, 2, RIGHT);
     expect(Position.x[playerEid(sim)]).toBeGreaterThan(x + TILE_SIZE);
+  });
+
+  it("does not catch during the hyperspeed turn hold when a ghost overlaps", () => {
+    const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
+    chompPowerPellet(sim);
+    runFrames(sim, 8, UP);
+    runFrames(sim, 1, RIGHT);
+    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(150);
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 4, RIGHT);
+    expect(sim.snapshot().dying).toBe(false);
   });
 
   it("is caught by a ghost on the path", () => {

@@ -440,9 +440,15 @@ import {
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
+  isPerpendicularTurn,
   type HeldKeys,
   type TurnTap,
 } from "../systems/heldKeys";
+import {
+  startTurnCatchGrace,
+  tickTurnCatchGrace,
+  turnCatchGraceActive,
+} from "../../domain/turnCatchGrace";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
@@ -601,6 +607,7 @@ export class PlaySim {
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
+  private turnCatchGraceMs = 0;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
   private hyperspeedFruitEaten = 0;
   private ghostCornerWarps: GhostCornerWarp[] = [];
@@ -999,6 +1006,7 @@ export class PlaySim {
         cornucopiaFruitMs: Math.max(0, ...this.cornucopiaFruit.map((fruit) => fruit.ms)),
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
+        turnCatchGraceMs: this.turnCatchGraceMs,
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),
         programmer: upgrades.programmer,
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
@@ -1294,6 +1302,7 @@ export class PlaySim {
       snapPlayerToNearestWalkable(this.world);
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
+    this.turnCatchGraceMs = tickTurnCatchGrace(this.turnCatchGraceMs, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
     this.runUpgrades = tickHyperspeed(this.runUpgrades, delta);
     if (!hyperspeedActive(this.runUpgrades)) {
@@ -1380,12 +1389,14 @@ export class PlaySim {
     this.updateWallDrop(facingBeforeMove);
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
+    const facingAfterMove = playerFacing(this.world);
+    this.noteTurnCatchGrace(facingBeforeMove, facingAfterMove);
     this.emitTurnSparks(
       this.turnTuning.afterMove(
         this.world,
         this.effectiveUpgrades(),
         facingBeforeMove,
-        playerFacing(this.world),
+        facingAfterMove,
       ),
     );
     if (this.tunnelDashAnim !== null) {
@@ -1871,7 +1882,14 @@ export class PlaySim {
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
       edibleGhostEids: frightenedGhostEids(this.runUpgrades),
       playerInvulnerable: this.options.godMode || playerIsInvulnerable(this.runUpgrades),
+      turnCatchGrace: turnCatchGraceActive(this.turnCatchGraceMs),
     };
+  }
+
+  private noteTurnCatchGrace(facingBefore: Direction, facingAfter: Direction): void {
+    if (isPerpendicularTurn(facingBefore, facingAfter)) {
+      this.turnCatchGraceMs = startTurnCatchGrace(this.turnCatchGraceMs);
+    }
   }
 
   private releaseAdds(): GhostReleaseAdds {
@@ -3229,15 +3247,16 @@ export class PlaySim {
   }
 
   private noteHyperspeedTurn(): void {
-    const turn = noteHyperspeedFacing(
-      this.hyperspeedDirection,
-      playerFacing(this.world),
-      this.runUpgrades.hyperspeedTurnDelayMs > 0,
-    );
+    const facing = playerFacing(this.world);
+    const previous = this.hyperspeedDirection;
+    const turn = noteHyperspeedFacing(previous, facing, this.runUpgrades.hyperspeedTurnDelayMs > 0);
     this.hyperspeedDirection = turn.lastDirection;
     if (turn.turned) {
       this.runUpgrades = startHyperspeedTurnDelay(this.runUpgrades);
       this.zeroPlayerSpeed();
+      if (previous !== null) {
+        this.noteTurnCatchGrace(previous, facing);
+      }
     }
   }
 
@@ -3278,6 +3297,7 @@ export class PlaySim {
     this.hyperspeedDirection = null;
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     this.hyperspeedFruitEaten = 0;
+    this.turnCatchGraceMs = 0;
   }
 
   private zeroPlayerSpeed(): void {
@@ -3454,6 +3474,7 @@ export class PlaySim {
     this.runUpgrades = { ...clearUpgradeTimers(this.runUpgrades), shieldsBanked: 0 };
     this.eatDragMs = 0;
     this.turnTuning.reset();
+    this.turnCatchGraceMs = 0;
 
     this.startBoard(null);
     this.emit({ type: "upgrades" });
@@ -3834,6 +3855,7 @@ export class PlaySim {
     }
     this.eatDragMs = 0;
     this.turnTuning.reset();
+    this.turnCatchGraceMs = 0;
 
     this.clock = {
       ...this.clock,

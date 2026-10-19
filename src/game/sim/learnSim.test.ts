@@ -1255,6 +1255,12 @@ describe("LearnSim upgrade demos", () => {
       expect(Position.x[player]).toBe(x);
     });
 
+    it("skips the demo catch during turn catch grace", () => {
+      const { sim, player } = setup("passiveDeathsHarvest");
+      sim["turnCatchGraceMs"] = 200;
+      expect(popups(catchByGhost(sim, player))).toEqual([]);
+    });
+
     it("drops the timers when the upgrade is toggled off", () => {
       const { sim, player } = setup("powerPelletHyperspeed");
       chomp(sim, player);

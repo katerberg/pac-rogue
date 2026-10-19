@@ -89,6 +89,13 @@ describe("catchPlayer", () => {
     expect(catchPlayer(world, { playerInvulnerable: true })).toBeNull();
   });
 
+  it("does not catch during turn catch grace", () => {
+    const world = createWorld();
+    spawnPlayer(world, 100, 100);
+    spawnGhost(world, 100, 100, GHOST_PHASE.active);
+    expect(catchPlayer(world, { turnCatchGrace: true })).toBeNull();
+  });
+
   it("does not catch on a graze that falls short of the required overlap", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 100);
