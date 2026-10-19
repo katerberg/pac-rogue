@@ -747,6 +747,9 @@ describe("PlaySim", () => {
     expect(sim.snapshot().level).toBe(2);
     const rest = runUntil(sim, () => sim.snapshot().level === 3, 300);
     expect(sim.snapshot().intermission).toBeNull();
+    const all = [...events, ...rest];
+    expect(all).toContainEqual({ type: "musicAfterFanfare", id: "interstitialMusic" });
+    expect(all).toContainEqual({ type: "loopStop", id: "interstitialMusic" });
     expect(
       [...events, ...rest].some((event) => event.type === "intermission" && event.frame === null),
     ).toBe(true);

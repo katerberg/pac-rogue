@@ -781,6 +781,10 @@ export class PlaySim {
     return this.store !== null && this.storeExitSlide === null && this.storeEntrySlidePx === null;
   }
 
+  intermissionActive(): boolean {
+    return this.intermissionElapsedMs !== null;
+  }
+
   storeState(): StoreState | null {
     return this.store;
   }
@@ -2779,6 +2783,7 @@ export class PlaySim {
     this.bossStageDraw = { entityAlpha: 0, wallAlpha: 0 };
     this.emitDraw();
     this.emit({ type: "intermission", frame: intermissionFrame(0) });
+    this.emit({ type: "musicAfterFanfare", id: "interstitialMusic" });
   }
 
   private tickIntermission(delta: number): void {
@@ -2791,6 +2796,7 @@ export class PlaySim {
     this.intermissionElapsedMs = null;
     this.bossStageDraw = null;
     this.emit({ type: "intermission", frame: null });
+    this.emit({ type: "loopStop", id: "interstitialMusic" });
     this.advanceToNextLevel();
   }
 

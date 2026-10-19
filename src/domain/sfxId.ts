@@ -4,6 +4,7 @@ export type SfxId =
   | "gameplayMusic"
   | "menuMusic"
   | "storeMusic"
+  | "interstitialMusic"
   | "levelComplete"
   | "death"
   | "revive";

@@ -45,6 +45,7 @@ describe("loadsInBackground", () => {
   it("defers music so scenes start without waiting on it", () => {
     expect(loadsInBackground("menuMusic")).toBe(true);
     expect(loadsInBackground("storeMusic")).toBe(true);
+    expect(loadsInBackground("interstitialMusic")).toBe(true);
     expect(loadsInBackground("gameplayMusic")).toBe(true);
   });
 
