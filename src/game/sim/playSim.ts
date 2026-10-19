@@ -1037,6 +1037,7 @@ export class PlaySim {
       inStore: this.store !== null,
       storeStock: this.store?.slots.filter((slot) => !slot.sold).map(storeSlotLabel) ?? null,
       storeFreebie: this.store?.freebie.taken === false ? this.store.freebie.kind : null,
+      storeDots: this.store?.dots.length ?? null,
       storeSacrifice: this.store?.sacrifice ?? null,
       storeRoute: this.storeRoute,
       storeEntering: this.storeEntrySlidePx !== null,
@@ -2411,6 +2412,9 @@ export class PlaySim {
       this.random.stream("storePurchase", this.levelIndex),
     );
     this.store = step.state;
+    if (step.dotPicked) {
+      this.emitMunch();
+    }
     if (step.pickup !== null) {
       this.applyStorePickup(step.pickup);
     }

@@ -335,6 +335,7 @@ type StoreStepResult = {
   state: StoreState;
   purchase: StorePurchase | null;
   pickup: StoreFreebie["kind"] | null;
+  dotPicked: boolean;
 };
 
 export function storeStep(
@@ -342,12 +343,15 @@ export function storeStep(
   input: StoreStepInput,
   rng: () => number,
 ): StoreStepResult {
-  const { freebie } = state;
+  const dots = state.dots.filter((dot) => dot.col !== input.col || dot.row !== input.row);
+  const dotPicked = dots.length !== state.dots.length;
+  const eaten = dotPicked ? { ...state, dots } : state;
+  const { freebie } = eaten;
   if (freebie.taken || freebie.col !== input.col || freebie.row !== input.row) {
-    return { ...slotStep(state, input, rng), pickup: null };
+    return { ...slotStep(eaten, input, rng), pickup: null, dotPicked };
   }
-  const taken = { ...state, freebie: { ...freebie, taken: true } };
-  return { ...slotStep(taken, input, rng), pickup: freebie.kind };
+  const taken = { ...eaten, freebie: { ...freebie, taken: true } };
+  return { ...slotStep(taken, input, rng), pickup: freebie.kind, dotPicked };
 }
 
 function slotStep(

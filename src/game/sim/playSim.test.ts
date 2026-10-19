@@ -1672,6 +1672,34 @@ describe("PlaySim", () => {
     expect(sim.storeState()).not.toBeNull();
   });
 
+  describe("store dots", () => {
+    it("picks a dot up on running over it with no quarters or bonus effect", () => {
+      const sim = startSim({ store: 1, quarters: 5 });
+      const dots = sim.storeState()!.dots;
+      const dot = dots[0]!;
+      const before = sim.snapshot();
+      teleportPlayer(sim, cellCenterX(dot.col), cellCenterY(dot.row));
+      runFrames(sim, 1);
+      expect(sim.storeState()!.dots).toHaveLength(dots.length - 1);
+      const after = sim.snapshot();
+      expect(after).toMatchObject({
+        quarters: before.quarters,
+        bonus: before.bonus,
+        inStore: true,
+      });
+    });
+
+    it("plays the munch sound for a dot but not twice for the same cell", () => {
+      const sim = startSim({ store: 1, quarters: 0 });
+      const dot = sim.storeState()!.dots[0]!;
+      teleportPlayer(sim, cellCenterX(dot.col), cellCenterY(dot.row));
+      const munches = () =>
+        sim.step(IDLE_INPUT, 16).filter((e) => e.type === "sfx" && e.id === "pelletMunch").length;
+      expect(munches()).toBe(1);
+      expect(munches()).toBe(0);
+    });
+  });
+
   describe("store entrance", () => {
     it("slides the player in through the left entrance as the store starts", () => {
       const sim = new PlaySim({ ...defaultPlayOptions(), store: 1, quarters: 0 }, "test");
@@ -1833,7 +1861,7 @@ describe("PlaySim", () => {
     it("routes around affordable tiles to the exit", () => {
       const sim = startSim({ store: 2, quarters: 10, lives: 2, maxLives: 4 });
       const level = sim.snapshot().level;
-      teleportPlayer(sim, cellCenterX(12), cellCenterY(15));
+      teleportPlayer(sim, cellCenterX(25), cellCenterY(15));
       runFrames(sim, 1, { storePointer: storeExit() });
       runUntil(
         sim,

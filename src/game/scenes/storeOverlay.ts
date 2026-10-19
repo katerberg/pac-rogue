@@ -34,6 +34,7 @@ import {
   type UpgradeSchool,
 } from "../../domain/upgrades";
 import { SCHOOL_WATERMARK_ALPHA, schoolArtSize, schoolArtTextureKey } from "../../domain/schoolArt";
+import { pelletTint } from "../../domain/lazyLooper";
 import { wrapText } from "../../domain/wrapText";
 import {
   addDotManIcon,
@@ -80,6 +81,8 @@ const CHOICE_FROM_BOTTOM = 12;
 const BUY_X = -52;
 const NEVER_MIND_X = 24;
 const FREEBIE_ICON_INSET_PX = 2;
+const DOT_POP_SCALE = 1.8;
+const DOT_POP_MS = 140;
 
 export type StoreOverlay = {
   open: (state: StoreState) => void;
@@ -413,7 +416,7 @@ export function createStoreOverlay(
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let panels: Panel[] = [];
   let freebieTile: Phaser.GameObjects.Container | null = null;
-  let dots: Phaser.GameObjects.Image[] = [];
+  const dots = new Map<string, Phaser.GameObjects.Image>();
   let glows: (Phaser.GameObjects.Rectangle | null)[] = [];
   let glowElapsedMs = 0;
   let gotIds: (UpgradeId | null)[] = [];
@@ -533,12 +536,23 @@ export function createStoreOverlay(
     };
   };
 
+  const dotKey = (cell: { col: number; row: number }): string => `${cell.col},${cell.row}`;
   const buildDot = (cell: { col: number; row: number }): Phaser.GameObjects.Image => {
     const size = pelletDisplaySize();
     return scene.add
       .image(cellCenterX(cell.col), cellCenterY(cell.row), PELLET_TEXTURE_KEY)
       .setDisplaySize(size, size)
+      .setTint(pelletTint(true)!)
       .setDepth(TILE_DEPTH);
+  };
+  const popDot = (dot: Phaser.GameObjects.Image): void => {
+    scene.tweens.add({
+      targets: dot,
+      scale: dot.scale * DOT_POP_SCALE,
+      alpha: 0,
+      duration: DOT_POP_MS,
+      onComplete: () => dot.destroy(),
+    });
   };
   const buildFreebie = (freebie: StoreFreebie): Phaser.GameObjects.Container => {
     const iconPx = getActiveLayout().tileSize - FREEBIE_ICON_INSET_PX;
@@ -598,7 +612,7 @@ export function createStoreOverlay(
     }
     freebieTile?.destroy(true);
     dots.forEach((dot) => dot.destroy());
-    dots = [];
+    dots.clear();
     tiles = [];
     panels = [];
     freebieTile = null;
@@ -610,12 +624,19 @@ export function createStoreOverlay(
   return {
     open: (state) => {
       clear();
-      dots = state.dots.map(buildDot);
+      state.dots.forEach((cell) => dots.set(dotKey(cell), buildDot(cell)));
       tiles = state.slots.map(buildTile);
       panels = state.slots.map((slot, i) => buildPanel(slot, state.freebie, i));
       freebieTile = state.freebie.taken ? null : buildFreebie(state.freebie);
     },
     sync: (state, prompt, deltaMs) => {
+      const remaining = new Set(state.dots.map(dotKey));
+      for (const [key, dot] of dots) {
+        if (!remaining.has(key)) {
+          popDot(dot);
+          dots.delete(key);
+        }
+      }
       state.slots.forEach((slot, i) => {
         const tile = tiles[i];
         if (tile && slot.sold) {

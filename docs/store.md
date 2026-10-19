@@ -10,11 +10,11 @@ Quarters (from the [BONUS bar](./bonus.md) and the level-clear Quarters choice) 
 
 ## Layout and tiles
 
-`STORE_MAZE_ASCII` (`mazeLayouts.ts`) is the same fixed, deliberately low-fi map every visit: a tiny room of one-cell corridors around wall blocks, entered along a short corridor from the left. The entrance stays open and is also the exit. `parseStoreLayout` reads it:
+`STORE_MAZE_ASCII` (`mazeLayouts.ts`) is the same fixed, deliberately low-fi map every visit: a tiny room of one-cell corridors around wall blocks, entered along a long corridor from the left edge of the play area. The entrance stays open and is also the exit. `parseStoreLayout` reads it:
 
 - **Corners** are single cells: `U` random unowned upgrade, `E` enhance (owned → Plus), `S` SACRIFICE (lose an owned power of the player's choosing, gain a hidden random one of the shown school). Always four; an `E` or `S` with nothing to act on stocks as another upgrade.
 - **Centre** `F` is a freebie on step-on: a free life below the natural regen floor ([levels.md](./levels.md#lives)), else a free Quarter.
-- **Dots** (`.`) are decoration only: the overlay draws them on open room cells, never collectible, never counted as pellets.
+- **Dots** (`.`) are faded pellets (the [Lazy Looper](./upgrades.md) tint) drawn on open room cells. Running over one picks it up with the pellet munch sound and a small pop: no score, Quarters, bonus or other effect, and they never count as pellets (`storeStep`'s `dotPicked`). The entry corridor is as wide as every other board so the store never reaches into the sidebars.
 - Prices: constants in `store.ts`. `createStoreState` rolls stock once: at most one rare, rares at half weight; a corner stays empty only when nothing is left to shelve. Nothing shows twice in a store or again in a later one (`offeredUpgradeIds`); `E` only prefers a fresh target.
 - **School carry-over:** last upgrade/enhance bought (not trades) sets the school the next store must shelve once on a `U` (`purchaseSchool`, `PlaySim.nextStoreSchool`). Consumed on entry; buying nothing clears it.
 

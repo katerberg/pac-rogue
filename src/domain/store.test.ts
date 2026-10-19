@@ -39,7 +39,7 @@ const zeroRng = () => 0;
 
 function input(overrides: Partial<StoreStepInput>): StoreStepInput {
   return {
-    col: 8,
+    col: 16,
     row: 4,
     focus: null,
     enter: false,
@@ -117,12 +117,12 @@ describe("store layout", () => {
   it("parses one-cell upgrade, upgrade, enhance and swap corners, a centre freebie and dots", () => {
     const layout = parseStoreLayout(STORE_MAZE_ASCII);
     expect(layout.slots).toEqual([
-      { kind: "upgrade", col: 5, row: 5 },
-      { kind: "upgrade", col: 16, row: 7 },
-      { kind: "enhance", col: 7, row: 13 },
-      { kind: "swap", col: 18, row: 15 },
+      { kind: "upgrade", col: 13, row: 5 },
+      { kind: "upgrade", col: 24, row: 7 },
+      { kind: "enhance", col: 15, row: 13 },
+      { kind: "swap", col: 26, row: 15 },
     ]);
-    expect(layout.freebie).toEqual({ col: 10, row: 10 });
+    expect(layout.freebie).toEqual({ col: 18, row: 10 });
     expect(layout.dots).toHaveLength(STORE_MAZE_ASCII.split(".").length - 1);
     expect(layout.dots).not.toContainEqual(layout.freebie);
   });
@@ -139,6 +139,22 @@ describe("store layout", () => {
 
   it("rejects a store without exactly one freebie", () => {
     expect(() => parseStoreLayout("#U#\n#U#")).toThrow(/exactly one F/);
+  });
+});
+
+describe("store dots", () => {
+  it("eats a dot once on stepping onto it and changes nothing else", () => {
+    const state = stateWith([]);
+    const dot = state.dots[0]!;
+    const first = storeStep(state, input({ col: dot.col, row: dot.row }), zeroRng);
+    expect(first.dotPicked).toBe(true);
+    expect(first.state.dots).toHaveLength(state.dots.length - 1);
+    expect(first.state.dots).not.toContainEqual(dot);
+    expect(first.purchase).toBeNull();
+    expect(first.pickup).toBeNull();
+    const again = storeStep(first.state, input({ col: dot.col, row: dot.row }), zeroRng);
+    expect(again.dotPicked).toBe(false);
+    expect(again.state.dots).toHaveLength(first.state.dots.length);
   });
 });
 
@@ -306,8 +322,8 @@ describe("createStoreState", () => {
   it("stocks a free life in the centre when there is life room, else a free quarter", () => {
     const freebie = (room: boolean) =>
       createStoreState(parseStoreLayout(STORE_MAZE_ASCII), [], zeroRng, false, room).freebie;
-    expect(freebie(true)).toEqual({ kind: "life", col: 10, row: 10, taken: false });
-    expect(freebie(false)).toEqual({ kind: "quarter", col: 10, row: 10, taken: false });
+    expect(freebie(true)).toEqual({ kind: "life", col: 18, row: 10, taken: false });
+    expect(freebie(false)).toEqual({ kind: "quarter", col: 18, row: 10, taken: false });
   });
 
   it("omits upgrade slots that cannot be filled", () => {
@@ -379,8 +395,8 @@ describe("purchaseSchool", () => {
 });
 
 describe("storeStep", () => {
-  const upgradeCell = { col: 5, row: 5 };
-  const swapCell = { col: 18, row: 15 };
+  const upgradeCell = { col: 13, row: 5 };
+  const swapCell = { col: 26, row: 15 };
   const away = { col: 5, row: 1 };
 
   it("opens a NO-focused prompt on arrival, dismisses on NO, and re-opens after stepping off", () => {
@@ -455,7 +471,7 @@ describe("storeStep", () => {
   });
 
   it("hands over the centre freebie once on stepping onto it", () => {
-    const freebie = { col: 10, row: 10 };
+    const freebie = { col: 18, row: 10 };
     const step = storeStep(stateWith([]), input(freebie), zeroRng);
     expect(step.pickup).toBe("life");
     expect(step.purchase).toBeNull();
@@ -545,7 +561,7 @@ describe("storeStep", () => {
 });
 
 describe("sacrifice selection", () => {
-  const swapCell = { col: 18, row: 15 };
+  const swapCell = { col: 26, row: 15 };
   const owned: UpgradeId[] = ["passiveGhostSlow", "passiveAfterburner", "passiveMoneyTalks"];
   const arrive = () => storeStep(stateWith(owned), input({ ...swapCell, owned }), zeroRng).state;
   const press = (state: StoreState, dir: StoreStepInput["dir"]) =>
@@ -628,7 +644,7 @@ describe("sacrifice selection", () => {
 });
 
 describe("storePanelMode", () => {
-  const upgradeCell = { col: 5, row: 5 };
+  const upgradeCell = { col: 13, row: 5 };
   const modes = (state: StoreState, quarters: number) =>
     state.slots.map((_, i) => storePanelMode(state, promptView(state, quarters, []), i));
 
@@ -651,8 +667,8 @@ describe("storePanelMode", () => {
 });
 
 describe("enhancement tile", () => {
-  const enhanceCell = { col: 7, row: 13 };
-  const swapCell = { col: 18, row: 15 };
+  const enhanceCell = { col: 15, row: 13 };
+  const swapCell = { col: 26, row: 15 };
 
   it("costs 2 and enhances its shown target", () => {
     const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
