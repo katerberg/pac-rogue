@@ -444,11 +444,7 @@ import {
   type HeldKeys,
   type TurnTap,
 } from "../systems/heldKeys";
-import {
-  startTurnCatchGrace,
-  tickTurnCatchGrace,
-  turnCatchGraceActive,
-} from "../../domain/turnCatchGrace";
+import { TURN_CATCH_GRACE_MS, tickTurnCatchGrace } from "../../domain/turnCatchGrace";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
@@ -1882,13 +1878,13 @@ export class PlaySim {
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
       edibleGhostEids: frightenedGhostEids(this.runUpgrades),
       playerInvulnerable: this.options.godMode || playerIsInvulnerable(this.runUpgrades),
-      turnCatchGrace: turnCatchGraceActive(this.turnCatchGraceMs),
+      turnCatchGrace: this.turnCatchGraceMs > 0,
     };
   }
 
   private noteTurnCatchGrace(facingBefore: Direction, facingAfter: Direction): void {
     if (isPerpendicularTurn(facingBefore, facingAfter)) {
-      this.turnCatchGraceMs = startTurnCatchGrace(this.turnCatchGraceMs);
+      this.turnCatchGraceMs = TURN_CATCH_GRACE_MS;
     }
   }
 

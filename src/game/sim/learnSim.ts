@@ -207,11 +207,7 @@ import {
   type HeldKeys,
   type TurnTap,
 } from "../systems/heldKeys";
-import {
-  startTurnCatchGrace,
-  tickTurnCatchGrace,
-  turnCatchGraceActive,
-} from "../../domain/turnCatchGrace";
+import { TURN_CATCH_GRACE_MS, tickTurnCatchGrace } from "../../domain/turnCatchGrace";
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRecall } from "./learnRecall";
 import { LearnRunState } from "./learnRunState";
@@ -1325,7 +1321,7 @@ export class LearnSim {
 
   private noteTurnCatchGrace(facingBefore: Direction, facingAfter: Direction): void {
     if (isPerpendicularTurn(facingBefore, facingAfter)) {
-      this.turnCatchGraceMs = startTurnCatchGrace(this.turnCatchGraceMs);
+      this.turnCatchGraceMs = TURN_CATCH_GRACE_MS;
     }
   }
 
@@ -1360,7 +1356,7 @@ export class LearnSim {
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
       edibleGhostEids: frightenedGhostEids(this.learnUpgrades),
       playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
-      turnCatchGrace: turnCatchGraceActive(this.turnCatchGraceMs),
+      turnCatchGrace: this.turnCatchGraceMs > 0,
     };
   }
 
