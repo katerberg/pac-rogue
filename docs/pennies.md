@@ -15,7 +15,7 @@ Charge is stored in fractions of a Quarter (a Quarter is `QUARTER_CHARGE`), so t
 
 ## HUD
 
-The pennies drop in one by one along the top center, up to a full row. A full row sweeps left, shrinking into the Quarter row, and the new Quarter pulses as it lands. Several Quarters collapse one after another. Streak tiers hop the row, and higher tiers shake the HUD chrome (one `Container`, so shakes never move the maze or camera). State for probes: `play.pennies.{charge,count,streak,max,draining}` and the row's own `pennyRow.{shown,collapsing,landed,backlog}` fields from `PlayScene.debugSnapshot()`.
+The pennies drop in one by one along the top center, up to a full row. A full row sweeps left and stacks on the slot the new Quarter will take; the Quarter appears (and pulses) only once the stack is complete. Several Quarters collapse one after another. Streak tiers hop the row, and higher tiers shake the HUD chrome (one `Container`, so shakes never move the maze or camera). State for probes: `play.pennies.{charge,count,streak,max,draining}` and the row's own `pennyRow.{shown,collapsing,landed,backlog,quartersShown}` fields from `PlayScene.debugSnapshot()`.
 
 ## Time pennies
 

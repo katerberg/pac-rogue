@@ -9,6 +9,7 @@ import {
   pennyBumpFx,
   pennyCollapsing,
   pennyHopOffset,
+  quartersShownDuringCollapse,
   pennyLooks,
   slowPennyFx,
   stepPennyFx,
@@ -22,7 +23,6 @@ const GEO: PennyGeometry = {
   step: 10,
   size: 12,
   target: { x: 20, y: 14 },
-  targetSize: 16,
 };
 
 function run(s: PennyFxState, ms: number, charge: number, frameMs = 16): PennyFxState {
@@ -82,21 +82,35 @@ describe("penny row", () => {
     expect(s.row).toHaveLength(2);
   });
 
-  it("sweeps pennies to the quarter, leftmost first, and hides them on arrival", () => {
+  it("sweeps pennies onto the quarter's slot, leftmost first, and stacks them there until the quarter shows", () => {
     let s = fillPennyFx(createPennyFx(QUARTER_CHARGE - CHARGE_PER_PENNY), 1);
-    s = run(s, 400, 0);
-    expect(pennyCollapsing(s)).toBe(true);
+    while (!pennyCollapsing(s)) {
+      s = stepPennyFx(s, 16, 0);
+    }
     s = run(s, 150, 0);
-    const looks = pennyLooks(s, GEO);
-    expect(looks.length).toBeGreaterThan(0);
-    expect(looks[0]!.x).toBeLessThan(GEO.x0);
-    expect(looks[looks.length - 1]!.x).toBeCloseTo(
-      GEO.x0 + (looks.length - 1 + (PENNIES_PER_QUARTER - looks.length)) * GEO.step,
-      0,
-    );
-    expect(looks[0]!.size).toBeLessThan(GEO.size);
-    s = run(s, PENNY_COLLAPSE_MS, 0);
+    const midway = pennyLooks(s, GEO);
+    expect(midway[0]!.x).toBeLessThan(GEO.x0);
+    expect(midway[midway.length - 1]!.x).toBeGreaterThan(midway[0]!.x);
+    expect(midway.every((l) => l.size === GEO.size)).toBe(true);
+    s = run(s, PENNY_COLLAPSE_MS - 150 - 60, 0);
+    expect(s.landed).toBe(0);
+    const stacked = pennyLooks(s, GEO);
+    expect(stacked).toHaveLength(PENNIES_PER_QUARTER);
+    for (const look of stacked) {
+      expect(look.x).toBeCloseTo(GEO.target.x, 5);
+      expect(look.y).toBeCloseTo(GEO.target.y, 5);
+    }
+    s = run(s, 120, 0);
+    expect(s.landed).toBe(1);
     expect(pennyLooks(s, GEO)).toEqual([]);
+  });
+
+  it("withholds each paid Quarter from the HUD until its collapse lands", () => {
+    let s = fillPennyFx(createPennyFx(0), 2);
+    expect(quartersShownDuringCollapse(5, s)).toBe(3);
+    s = run(s, 6000, 0);
+    expect(quartersShownDuringCollapse(5, s)).toBe(5);
+    expect(quartersShownDuringCollapse(1, fillPennyFx(createPennyFx(0), 3))).toBe(0);
   });
 
   it("pays several quarters one collapse at a time", () => {

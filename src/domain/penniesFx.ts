@@ -3,15 +3,17 @@ import { PENNIES_PER_QUARTER, penniesInCharge } from "./pennies";
 export const PENNY_DROP_MS = 220;
 const PENNY_COLLAPSE_STAGGER_MS = 14;
 const PENNY_COLLAPSE_TRAVEL_MS = 420;
+const PENNY_COLLAPSE_HOLD_MS = 90;
 export const PENNY_COLLAPSE_MS =
-  PENNY_COLLAPSE_STAGGER_MS * (PENNIES_PER_QUARTER - 1) + PENNY_COLLAPSE_TRAVEL_MS;
+  PENNY_COLLAPSE_STAGGER_MS * (PENNIES_PER_QUARTER - 1) +
+  PENNY_COLLAPSE_TRAVEL_MS +
+  PENNY_COLLAPSE_HOLD_MS;
 const DROP_INTERVAL_MS = 40;
 const FAST_DROP_INTERVAL_MS = 20;
 const SLOW_DROP_INTERVAL_MS = 90;
 const FAST_DROP_BACKLOG = 12;
 const DROP_HEIGHT_PX = 18;
 const COLLAPSE_ARC_PX = 10;
-const COLLAPSE_END_SIZE_FRAC = 0.6;
 const CHROME_SHAKE_TIER = 8;
 const HOP_BASE_MS = 260;
 const HOP_WOBBLE_MS = 130;
@@ -37,7 +39,6 @@ export type PennyGeometry = {
   step: number;
   size: number;
   target: { x: number; y: number };
-  targetSize: number;
 };
 
 export type PennyLook = { x: number; y: number; size: number; alpha: number };
@@ -79,6 +80,10 @@ export function bumpPennyFx(s: PennyFxState, fx: PennyBumpFx): PennyFxState {
 
 export function pennyBacklog(s: PennyFxState, charge: number): number {
   return Math.max(0, s.wraps * PENNIES_PER_QUARTER + penniesInCharge(charge) - s.dropped);
+}
+
+export function quartersShownDuringCollapse(quarters: number, s: PennyFxState): number {
+  return Math.max(0, quarters - (s.wraps - s.landed));
 }
 
 export function pennyCollapsing(s: PennyFxState): boolean {
@@ -167,14 +172,11 @@ export function pennyLooks(s: PennyFxState, geo: PennyGeometry): PennyLook[] {
         (s.nowMs - s.collapseStartMs - i * PENNY_COLLAPSE_STAGGER_MS) / PENNY_COLLAPSE_TRAVEL_MS,
       ),
     );
-    if (k >= 1) {
-      return;
-    }
     const e = k * k;
     looks.push({
       x: x0 + (geo.target.x - x0) * e,
       y: geo.y + (geo.target.y - geo.y) * e - COLLAPSE_ARC_PX * Math.sin(Math.PI * k),
-      size: geo.size + (geo.targetSize * COLLAPSE_END_SIZE_FRAC - geo.size) * e,
+      size: geo.size,
       alpha: 1,
     });
   });

@@ -8,6 +8,7 @@ import {
   pennyBacklog,
   pennyBumpFx,
   pennyCollapsing,
+  quartersShownDuringCollapse,
   pennyLooks,
   slowPennyFx,
   stepPennyFx,
@@ -419,6 +420,7 @@ export class PlayScene extends Phaser.Scene {
         shown: this.pennyFx.row.length,
         collapsing: pennyCollapsing(this.pennyFx),
         landed: this.pennyFx.landed,
+        quartersShown: this.shownQuarters(),
         backlog: pennyBacklog(this.pennyFx, this.sim.hud().penniesCharge),
       },
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
@@ -879,7 +881,7 @@ export class PlayScene extends Phaser.Scene {
     const size = pelletDisplaySize();
     // Knobs panels cover the left gutter — park icons at the maze column so they stay visible.
     const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
-    quarterHudIcons(this.sim.hud().quarters).forEach((kind, slot) => {
+    quarterHudIcons(this.shownQuarters()).forEach((kind, slot) => {
       const { x, y } = quarterHudIconPosition(slot, size, left);
       // Stay on chrome (not sideHud) so they remain visible with ?knobs=1.
       const icon = (kind === "dollar" ? addDollarIcon : addQuarterIcon)(this, x, y, size);
@@ -890,6 +892,17 @@ export class PlayScene extends Phaser.Scene {
     if (pulse && newest !== undefined) {
       this.pulseHudIcon(newest);
     }
+  }
+
+  private shownQuarters(): number {
+    return quartersShownDuringCollapse(this.sim.hud().quarters, this.pennyFx);
+  }
+
+  private nextQuarterPosition(): { x: number; y: number } {
+    const size = pelletDisplaySize();
+    const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
+    const slot = quarterHudIcons(this.shownQuarters() + 1).length - 1;
+    return quarterHudIconPosition(slot, size, left);
   }
 
   private drawWalletCoins(spend: MoneyTalksSpend | null): void {
@@ -922,6 +935,7 @@ export class PlayScene extends Phaser.Scene {
     }
     if (filled > 0) {
       this.pennyFx = fillPennyFx(this.pennyFx, filled);
+      this.refreshQuartersHud(false);
     }
   }
 
@@ -945,10 +959,7 @@ export class PlayScene extends Phaser.Scene {
     const landedBefore = this.pennyFx.landed;
     this.pennyFx = stepPennyFx(this.pennyFx, delta, this.sim.hud().penniesCharge);
     if (this.pennyFx.landed > landedBefore) {
-      const newest = this.quarterIcons[this.quarterIcons.length - 1];
-      if (newest !== undefined) {
-        this.pulseHudIcon(newest);
-      }
+      this.refreshQuartersHud(true);
       playSfx(this, "pelletMunch");
       playSfx(this, "pelletMunch2");
     }
@@ -958,17 +969,12 @@ export class PlayScene extends Phaser.Scene {
   private pennyGeometry(): PennyGeometry {
     const size = pelletDisplaySize();
     const step = size - PENNY_STEP_TRIM;
-    const newest = this.quarterIcons[this.quarterIcons.length - 1];
     return {
       x0: PLAYFIELD_WIDTH / 2 - (step * PENNIES_PER_QUARTER) / 2 + size / 2,
       y: PENNY_ROW_Y + size / 2,
       step,
       size,
-      target: {
-        x: newest?.x ?? HUD_ICON_LEFT_X + size / 2,
-        y: newest?.y ?? PENNY_ROW_Y + size / 2,
-      },
-      targetSize: size,
+      target: this.nextQuarterPosition(),
     };
   }
 
