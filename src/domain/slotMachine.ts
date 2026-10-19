@@ -338,6 +338,7 @@ const SLOT_STRIP: readonly SlotSymbol[] = [
   "quarter",
   "disruption",
 ];
+const SLOT_STRIP_NO_LIFE = SLOT_STRIP.filter((symbol) => symbol !== "life");
 const SLOT_SPIN_CELLS_PER_MS = 0.018;
 const SLOT_LAND_BOUNCE_MS = 160;
 const SLOT_LAND_BOUNCE_CELLS = 0.15;
@@ -383,7 +384,7 @@ export function slotReelCells(
         : 0;
     return landed.map((symbol, row) => ({ symbol, y: row + bounce }));
   }
-  const strip = spin.livesOnReels ? SLOT_STRIP : SLOT_STRIP.filter((symbol) => symbol !== "life");
+  const strip = spin.livesOnReels ? SLOT_STRIP : SLOT_STRIP_NO_LIFE;
   const travel = Math.max(SLOT_ROWS, Math.round(stopMs * SLOT_SPIN_CELLS_PER_MS));
   const position = (elapsedMs / stopMs) * travel;
   const scrolled = Math.floor(position);
@@ -392,7 +393,7 @@ export function slotReelCells(
     const symbol =
       index >= 0 && index < SLOT_ROWS
         ? landed[index]!
-        : strip[(((index + reel * 5) % strip.length) + strip.length) % strip.length]!;
+        : strip[(index + reel * 5 + strip.length) % strip.length]!;
     return { symbol, y: row + position - scrolled };
   });
 }
