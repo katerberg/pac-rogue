@@ -2112,8 +2112,10 @@ export class PlaySim {
   private applyBonus(result: BonusResult, source: QuarterSource = "bonusBar"): void {
     this.bonus = result.bar;
     this.recorder.bonus(result.tier, result.filled);
-    for (let fill = 0; fill < result.filled; fill += 1) {
-      this.slotQueue.push(source);
+    if (result.filled > 0) {
+      this.quarters += result.filled;
+      this.recorder.quarters(source, result.filled);
+      this.emit({ type: "quarters", pulse: true });
     }
     if (result.tier > 0 || result.filled > 0) {
       this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
