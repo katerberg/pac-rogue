@@ -57,12 +57,7 @@ import {
   type HeadingStep,
   type VisorPose,
 } from "../../domain/dotManHeading";
-import {
-  SIMULACRUM_ALPHA,
-  SIMULACRUM_TINT,
-  simulacrumDust,
-  simulacrumPopLook,
-} from "../../domain/simulacrum";
+import { MIRROR_ALPHA, MIRROR_TINT, mirrorDust, mirrorPopLook } from "../../domain/mirror";
 import { padTextureWithGutter } from "../renderScale";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
@@ -553,8 +548,8 @@ export type RenderOptions = {
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   programmerQueue?: ProgrammerQueueSlot[] | null;
-  simulacrum?: { x: number; y: number; facing: number } | null;
-  simulacrumPop?: { x: number; y: number; progress: number } | null;
+  mirror?: { x: number; y: number; facing: number } | null;
+  mirrorPop?: { x: number; y: number; progress: number } | null;
 };
 
 const CHARM_DEPTH = -0.5;
@@ -741,8 +736,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   const chainGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
-  const simulacrumDustGraphics = scene.add.graphics();
-  let simulacrumAngle = 0;
+  const mirrorDustGraphics = scene.add.graphics();
+  let mirrorAngle = 0;
   const cageGraphics = scene.add.graphics();
   cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const timedTunnelGraphics = scene.add.graphics();
@@ -1343,42 +1338,42 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
     }
 
-    const drawSimulacrum = (at: { x: number; y: number }, facing: number, alpha: number): void => {
+    const drawMirror = (at: { x: number; y: number }, facing: number, alpha: number): void => {
       const step = facingToStep(facing as Direction);
       if (step !== null) {
-        simulacrumAngle = headingAngle(step);
+        mirrorAngle = headingAngle(step);
       }
-      const key = "simulacrum:body";
+      const key = "mirror:body";
       alive.add(key);
       let body = drawableObjects.get(key);
       if (!body) {
         body = scene.add.image(at.x, at.y, DOTMAN_BODY_TEXTURE_KEY);
-        body.setName("simulacrum");
+        body.setName("mirror");
         drawableObjects.set(key, body);
       }
       const size = displaySizeForDrawable(PLAYER_DRAWABLE_ID);
       body.setPosition(at.x, at.y);
       body.setDisplaySize(size, size);
       body.setAlpha(alpha * entityAlpha);
-      body.setTint(SIMULACRUM_TINT);
+      body.setTint(MIRROR_TINT);
       body.setTintMode(Phaser.TintModes.FILL);
-      drawVisor(key, visorPose(simulacrumAngle), 0, true);
+      drawVisor(key, visorPose(mirrorAngle), 0, true);
     };
-    const simulacrum = opts?.simulacrum ?? null;
-    const simulacrumPop = opts?.simulacrumPop ?? null;
-    simulacrumDustGraphics.clear();
-    if (simulacrum !== null) {
-      drawSimulacrum(simulacrum, simulacrum.facing, SIMULACRUM_ALPHA);
-    } else if (simulacrumPop !== null) {
-      const look = simulacrumPopLook(simulacrumPop.progress);
+    const mirror = opts?.mirror ?? null;
+    const mirrorPop = opts?.mirrorPop ?? null;
+    mirrorDustGraphics.clear();
+    if (mirror !== null) {
+      drawMirror(mirror, mirror.facing, MIRROR_ALPHA);
+    } else if (mirrorPop !== null) {
+      const look = mirrorPopLook(mirrorPop.progress);
       if (look.bodyAlpha > 0) {
-        drawSimulacrum(simulacrumPop, DIRECTION.none, look.bodyAlpha);
+        drawMirror(mirrorPop, DIRECTION.none, look.bodyAlpha);
       }
-      for (const mote of simulacrumDust(look.dustProgress, getActiveLayout().tileSize)) {
-        simulacrumDustGraphics.fillStyle(SIMULACRUM_TINT, mote.alpha * entityAlpha);
-        simulacrumDustGraphics.fillRect(
-          simulacrumPop.x + mote.dx - mote.size / 2,
-          simulacrumPop.y + mote.dy - mote.size / 2,
+      for (const mote of mirrorDust(look.dustProgress, getActiveLayout().tileSize)) {
+        mirrorDustGraphics.fillStyle(MIRROR_TINT, mote.alpha * entityAlpha);
+        mirrorDustGraphics.fillRect(
+          mirrorPop.x + mote.dx - mote.size / 2,
+          mirrorPop.y + mote.dy - mote.size / 2,
           mote.size,
           mote.size,
         );
