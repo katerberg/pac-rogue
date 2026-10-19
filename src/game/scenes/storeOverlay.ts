@@ -139,16 +139,12 @@ function slotTitle(slot: StoreSlot): string {
 function slotBody(slot: StoreSlot): string {
   switch (slot.kind) {
     case "swap":
-      return swapBody(slot);
+      return sacrificeBody(swapIncomingSchool(slot));
     case "enhance":
       return getUpgradeDef(enhancedIdOf(slot.targetId)).enhanceNote!;
     case "upgrade":
       return getUpgradeDef(slot.id).description;
   }
-}
-
-function swapBody(slot: StoreSlot & { kind: "swap" }): string {
-  return sacrificeBody(swapIncomingSchool(slot));
 }
 
 function promptFooter(prompt: StorePromptView): string {
