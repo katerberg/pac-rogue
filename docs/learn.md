@@ -18,7 +18,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 ## Differences from play
 
-- Chase mode only, level-1 speeds, no Cruise Elroy. Pellet and fruit sounds play; no HUD timer, lives or history writes.
+- Chase mode only, level-1 speeds, no Cruise Elroy. Pellet and fruit sounds play; no HUD timer, lives, owned-upgrade icons or history writes.
 - Contact never kills, except the **demo catch**: while any upgrade that reacts to a catch is selected, a touch runs the same helpers a real catch does without resetting Maze-Man; a popup and status line report it.
 - The chosen ghost spawns `active` at the house exit. Picking Inky also spawns a faded, harmless Blinky.
 - The board uses `pelletCellCenters()` (shared with `PlaySim`) and refills when empty. Power pellets regenerate when all are gone so effects stay demoable. One always-present fruit respawns after a short delay.
@@ -26,7 +26,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 ## Parity
 
-LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, collapsed tunnels, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`.
+LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, collapsed tunnels, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`. Deliberate omission: the [run-end replay](./replay.md), since LEARN has no run end.
 
 ## Upgrade fidelity
 

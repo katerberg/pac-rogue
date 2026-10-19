@@ -9,7 +9,7 @@ export type RandomStream =
   | "storeStock"
   | "storePurchase"
   | "pelletToPower"
-  | "fruitPowerConvert"
+  | "fruitPower"
   | "bossPick"
   | "bossScatter"
   | "bossShake"

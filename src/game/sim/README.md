@@ -13,7 +13,8 @@ const sim = new PlaySim(options /* PlayOptions */, seed);
 const startEvents = sim.start(); // board, starting upgrade, banners, music …
 const events = sim.step(input /* SimInput */, deltaMs); // one frame
 sim.chooseUpgrade(option); // answers a pending level-clear offer
-sim.chooseRunEnd("newGame"); // answers the Run Complete menu ("newGame" / "menu")
+sim.chooseRunEnd("newGame"); // answers the run-end menu after Game Over or Run Complete ("newGame" / "menu")
+sim.replay(); // recorded segments for the run-end replay (docs/replay.md)
 ```
 
 - `options` come from `parsePlayOptions(parseQueryParams(location.search))` in the game and from `{ ...defaultPlayOptions(), ...overrides }` in tests (`src/domain/playOptions.ts`).

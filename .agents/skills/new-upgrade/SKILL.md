@@ -58,7 +58,7 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
   pellet** (`onPowerPellet`). Read it as a regular pellet only when the pitch says "regular",
   "every" or "each" pellet. Never ask which one.
 - **Interactions:** Overcharge doubles `onPowerPellet` durations only when the effect is a
-  power-pellet duration; Fruit Power arms every `onPowerPellet` field; Extra Hungry, Tunnel Dash
+  power-pellet duration; Fruit Power fires one/all `onPowerPellet` fields (base/enhanced); Extra Hungry, Tunnel Dash
   sweeps, Death's Harvest and ghost-harvested pellets do **not** count as "eaten" unless the pitch
   says so; Extra Life icon floor and `infiniteLives` are unchanged; boss level 9 pellets are never
   removed or converted; store floors, inverted boards and the level-1 starting pool are untouched.

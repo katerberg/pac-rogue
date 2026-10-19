@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   DEATH_FADE_DURATION_MS,
   DEATH_HOLD_MS,
-  GAME_OVER_HOLD_MS,
   READY_PAUSE_MS,
   beginDeathSequence,
   tickDeathSequence,
@@ -47,25 +46,25 @@ describe("tickDeathSequence", () => {
     expect(tick.events).not.toContain("resume");
   });
 
-  it("final: showGameOver after fade, then goToMenu after hold", () => {
+  it("final: showGameOver after fade, then holds on the game over phase", () => {
     let state = beginDeathSequence(true);
     let tick = tickDeathSequence(state, DEATH_HOLD_MS);
     state = tick.state;
     tick = tickDeathSequence(state, DEATH_FADE_DURATION_MS);
     expect(tick.events).toEqual(["showGameOver"]);
     expect(tick.state.phase).toBe("gameOver");
-    tick = tickDeathSequence(tick.state, GAME_OVER_HOLD_MS);
-    expect(tick.events).toEqual(["goToMenu"]);
-    expect(tick.state.phase).toBe("doneMenu");
+    tick = tickDeathSequence(tick.state, 60_000);
+    expect(tick.events).toEqual([]);
+    expect(tick.state.phase).toBe("gameOver");
   });
 
-  it("final: large delta emits startFade, showGameOver, goToMenu in order", () => {
+  it("final: large delta emits startFade, showGameOver in order and never goToMenu", () => {
     const tick = tickDeathSequence(
       beginDeathSequence(true),
-      DEATH_HOLD_MS + DEATH_FADE_DURATION_MS + GAME_OVER_HOLD_MS + 100,
+      DEATH_HOLD_MS + DEATH_FADE_DURATION_MS + 60_000,
     );
-    expect(tick.events).toEqual(["startFade", "showGameOver", "goToMenu"]);
-    expect(tick.state.phase).toBe("doneMenu");
+    expect(tick.events).toEqual(["startFade", "showGameOver"]);
+    expect(tick.state.phase).toBe("gameOver");
   });
 
   it("terminal phases emit no further events", () => {
@@ -73,7 +72,7 @@ describe("tickDeathSequence", () => {
     expect(tickDeathSequence(resumed.state, 500).events).toEqual([]);
     const menu = tickDeathSequence(
       beginDeathSequence(true),
-      DEATH_HOLD_MS + DEATH_FADE_DURATION_MS + GAME_OVER_HOLD_MS,
+      DEATH_HOLD_MS + DEATH_FADE_DURATION_MS,
     );
     expect(tickDeathSequence(menu.state, 500).events).toEqual([]);
   });
