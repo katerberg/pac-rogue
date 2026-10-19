@@ -22,7 +22,6 @@ import {
   enhancedIdOf,
   getUpgradeDef,
   isRare,
-  UPGRADE_SCHOOL_LABELS,
   type UpgradeId,
   type UpgradeSchool,
 } from "../../domain/upgrades";
@@ -97,6 +96,8 @@ type Panel = {
 
 const SACRIFICE_TITLE = "SACRIFICE";
 const SACRIFICE_COIN_MARK = "#";
+const SACRIFICE_SCHOOL_MARK = "@@";
+const SACRIFICE_SCHOOL_ICON_PX = 12;
 const SACRIFICE_BODY_CHARS = 19;
 const SACRIFICE_SYMBOL_SIZE = 48;
 const SACRIFICE_SYMBOL_Y = 8;
@@ -215,9 +216,9 @@ function gotContent(id: UpgradeId): PanelContent {
 }
 
 function sacrificeBody(school: UpgradeSchool | null): string {
-  const name = school === null ? "?" : UPGRADE_SCHOOL_LABELS[school].toUpperCase();
+  const gain = school === null ? "?" : SACRIFICE_SCHOOL_MARK;
   return wrapText(
-    `Pay ${SACRIFICE_COIN_MARK} and lose power. Gain a random ${name} power.`,
+    `Pay ${SACRIFICE_COIN_MARK} and lose power. Gain a random ${gain} power.`,
     SACRIFICE_BODY_CHARS,
   );
 }
@@ -235,7 +236,7 @@ type SacrificeParts = {
   objects: Phaser.GameObjects.GameObject[];
   pay: Phaser.GameObjects.BitmapText;
   show: (view: SacrificeView | null) => void;
-  placeCoin: () => void;
+  placeIcons: () => void;
 };
 
 const ARROW_DIRS: readonly StoreDir[] = ["up", "down", "left", "right"];
@@ -270,6 +271,13 @@ function arrowPoints(dir: StoreDir, x: number, y: number): [number, number][] {
   }
 }
 
+type TextMark = { line: number; col: number; width: number };
+
+function textMarkAt(lines: readonly string[], mark: string): TextMark | null {
+  const line = lines.findIndex((text) => text.includes(mark));
+  return line === -1 ? null : { line, col: lines[line]!.indexOf(mark), width: mark.length };
+}
+
 function buildSacrificeView(scene: Phaser.Scene, onDir: (dir: StoreDir) => void): SacrificeParts {
   const symbol = (x: number): Phaser.GameObjects.Image =>
     scene.add
@@ -284,6 +292,7 @@ function buildSacrificeView(scene: Phaser.Scene, onDir: (dir: StoreDir) => void)
     TEXT_COLOR_WHITE,
   ).setCenterAlign();
   const coin = addQuarterIcon(scene, 0, 0, UPGRADES_HUD_FONT_SIZE);
+  const schoolIcon = scene.add.image(0, 0, "");
   const leftArt = symbol(SACRIFICE_LEFT_X);
   const rightArt = symbol(SACRIFICE_RIGHT_X);
   const leftLabel = addPixelText(
@@ -314,12 +323,13 @@ function buildSacrificeView(scene: Phaser.Scene, onDir: (dir: StoreDir) => void)
     rightMark,
     pay,
     coin,
+    schoolIcon,
     arrows,
     ...zones,
     leftHint,
     rightHint,
   ];
-  let coinAt: { line: number; col: number } | null = null;
+  let marks: { coin: TextMark | null; school: TextMark | null } = { coin: null, school: null };
   return {
     objects,
     pay,
@@ -332,9 +342,19 @@ function buildSacrificeView(scene: Phaser.Scene, onDir: (dir: StoreDir) => void)
         return;
       }
       const wrapped = sacrificeBody(view.incomingSchool).split("\n");
-      const line = wrapped.findIndex((text) => text.includes(SACRIFICE_COIN_MARK));
-      coinAt = { line, col: wrapped[line]!.indexOf(SACRIFICE_COIN_MARK) };
-      pay.setText(wrapped.join("\n").replace(SACRIFICE_COIN_MARK, " "));
+      marks = {
+        coin: textMarkAt(wrapped, SACRIFICE_COIN_MARK),
+        school: textMarkAt(wrapped, SACRIFICE_SCHOOL_MARK),
+      };
+      pay.setText(
+        wrapped.join("\n").replace(SACRIFICE_COIN_MARK, " ").replace(SACRIFICE_SCHOOL_MARK, "  "),
+      );
+      schoolIcon.setVisible(marks.school !== null);
+      if (view.incomingSchool !== null) {
+        schoolIcon
+          .setTexture(schoolArtTextureKey(view.incomingSchool))
+          .setDisplaySize(SACRIFICE_SCHOOL_ICON_PX, SACRIFICE_SCHOOL_ICON_PX);
+      }
       const outgoing = getUpgradeDef(view.outgoingId);
       leftArt
         .setTexture(schoolArtTextureKey(outgoing.school))
@@ -381,23 +401,25 @@ function buildSacrificeView(scene: Phaser.Scene, onDir: (dir: StoreDir) => void)
         placePixelText(rightHint, SACRIFICE_HINT_X, SACRIFICE_HINT_Y, 1, 0.5);
       }
     },
-    placeCoin: () => {
-      if (coinAt === null) {
-        return;
-      }
+    placeIcons: () => {
       const lines = pay.text.split("\n");
       const widest = Math.max(...lines.map((text) => text.length));
       const bounds = pay.getTextBounds(true).local;
       const pitch =
         lines.length > 1 ? (bounds.height - UPGRADES_HUD_FONT_SIZE) / (lines.length - 1) : 0;
-      const half = UPGRADES_HUD_FONT_SIZE / 2;
-      coin.setPosition(
-        pay.x +
-          ((widest - lines[coinAt.line]!.length) * UPGRADES_HUD_FONT_SIZE) / 2 +
-          coinAt.col * UPGRADES_HUD_FONT_SIZE +
-          half,
-        pay.y + coinAt.line * pitch + half,
-      );
+      const place = (icon: Phaser.GameObjects.Image, mark: TextMark | null) => {
+        if (mark === null) {
+          return;
+        }
+        icon.setPosition(
+          pay.x +
+            ((widest - lines[mark.line]!.length) * UPGRADES_HUD_FONT_SIZE) / 2 +
+            (mark.col + mark.width / 2) * UPGRADES_HUD_FONT_SIZE,
+          pay.y + mark.line * pitch + UPGRADES_HUD_FONT_SIZE / 2,
+        );
+      };
+      place(coin, marks.coin);
+      place(schoolIcon, marks.school);
     },
   };
 }
@@ -483,7 +505,7 @@ export function createStoreOverlay(
             ],
             -PANEL_HEIGHT / 2 + PANEL_TOP_PAD,
           );
-          sacrificeView.placeCoin();
+          sacrificeView.placeIcons();
           placePixelText(footer, 0, SACRIFICE_FOOTER_BOTTOM_Y, 0.5, 1);
           footer.setVisible(content.sacrifice.stage === null);
           return;
