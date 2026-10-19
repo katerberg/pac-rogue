@@ -2307,7 +2307,3 @@ export function groupUpgradesBySchool(
     };
   }).filter((group) => group.defs.length > 0);
 }
-
-export function upgradeLabels(owned: readonly UpgradeId[]): string[] {
-  return owned.map((id) => UPGRADE_BY_ID.get(id)?.label ?? id);
-}
