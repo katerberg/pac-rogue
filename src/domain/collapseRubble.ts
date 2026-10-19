@@ -127,6 +127,14 @@ function chunkAt(x: number, y: number, size: number, seed: number): { id: number
   return { id, gap: second - nearest };
 }
 
+export function rubbleElapsedMs(art: Pick<CollapseArt, "fresh">, introMs: number): number {
+  return art.fresh ? introMs : Infinity;
+}
+
+export function rubbleIntroSettled(state: CollapseRenderState): boolean {
+  return state.arts.every((art) => !art.fresh) || state.introMs >= RUBBLE_INTRO_MS;
+}
+
 export function rubbleMotePosition(
   mote: RubbleMote,
   elapsedMs: number,

@@ -18,8 +18,9 @@ import {
   type WallPathCommand,
 } from "../../domain/maze";
 import {
-  RUBBLE_INTRO_MS,
   RUBBLE_TONE,
+  rubbleElapsedMs,
+  rubbleIntroSettled,
   rubbleMotePosition,
   rubblePalette,
   type CollapseRenderState,
@@ -825,14 +826,14 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       }
       drawnCollapse = key;
     }
-    const settled = collapse.arts.every((art) => !art.fresh) || collapse.introMs >= RUBBLE_INTRO_MS;
+    const settled = rubbleIntroSettled(collapse);
     if (!changed && settled && collapseMotesSettled) {
       return;
     }
     collapseMoteGraphics.clear();
     collapseMoteGraphics.fillStyle(palette[RUBBLE_TONE.light]!, 1);
     for (const art of collapse.arts) {
-      const elapsed = art.fresh ? collapse.introMs : Infinity;
+      const elapsed = rubbleElapsedMs(art, collapse.introMs);
       for (const mote of art.motes) {
         const at = rubbleMotePosition(mote, elapsed);
         collapseMoteGraphics.fillRect(

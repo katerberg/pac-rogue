@@ -2663,7 +2663,7 @@ export class PlaySim {
       blockedPixels: rubbleBlockedPixels(
         layout.ascii,
         layout.tileSize,
-        pixelWallRects(wallPathCommands(), DEFAULT_TUNING.wallThickness),
+        pixelWallRects(wallPathCommands(), this.currentTuning.wallThickness),
         { x: layout.offsetX, y: layout.offsetY },
       ),
     };

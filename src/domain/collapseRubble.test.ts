@@ -5,6 +5,8 @@ import {
   RUBBLE_INTRO_MS,
   RUBBLE_TONE,
   rubbleBlockedPixels,
+  rubbleElapsedMs,
+  rubbleIntroSettled,
   rubbleMotePosition,
   rubblePalette,
 } from "./collapseRubble";
@@ -96,6 +98,25 @@ describe("rubbleMotePosition", () => {
       landed: true,
     });
     expect(rubbleMotePosition(mote, Infinity).landed).toBe(true);
+  });
+});
+
+describe("dust intro timing", () => {
+  const state = (fresh: boolean[], introMs: number) => ({
+    key: "k",
+    introMs,
+    arts: fresh.map((f) => ({ ...art[0]!, fresh: f })),
+  });
+
+  it("only a fresh collapse runs on the intro clock; older ones are already landed", () => {
+    expect(rubbleElapsedMs({ fresh: true }, 400)).toBe(400);
+    expect(rubbleElapsedMs({ fresh: false }, 400)).toBe(Infinity);
+  });
+
+  it("is settled at once with no fresh collapse, else only after the full intro", () => {
+    expect(rubbleIntroSettled(state([false, false], 0))).toBe(true);
+    expect(rubbleIntroSettled(state([false, true], RUBBLE_INTRO_MS - 1))).toBe(false);
+    expect(rubbleIntroSettled(state([false, true], RUBBLE_INTRO_MS))).toBe(true);
   });
 });
 
