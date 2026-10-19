@@ -320,7 +320,6 @@ describe("movement", () => {
   });
 
   it("moves along both axes at normalized speed when a diagonal is fully open", () => {
-    // Classic 1-tile-wide corridor mazes have no genuinely open 2x2 area, so use an open room.
     const wallRow = "#".repeat(20);
     const roomRow = `#${"-".repeat(18)}#`;
     activateAsciiLayout([wallRow, ...Array(19).fill(roomRow), wallRow].join("\n"), "store");
