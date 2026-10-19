@@ -94,9 +94,13 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
   const title = addPixelText(scene, 0, 0, "BONUS!", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
   placePixelText(title, 0, -reelHeight / 2 - TITLE_GAP + 2, 0.5, 0);
   const lines = scene.add.graphics();
-  const window = scene.add
-    .rectangle(0, 0, span + DIVIDER * 2, reelHeight + DIVIDER * 2, FRAME_COLOR)
-    .setStrokeStyle(0);
+  const window = scene.add.rectangle(
+    0,
+    0,
+    span + DIVIDER * 2,
+    reelHeight + DIVIDER * 2,
+    FRAME_COLOR,
+  );
   const reels = Array.from({ length: SLOT_REELS }, (_, reel) =>
     scene.add.rectangle(reelX(reel), 0, CELL, reelHeight, REEL_COLOR),
   );
