@@ -107,7 +107,7 @@ export type UpgradeEffects = {
   fruitQuarters?: number;
   fruitPersistsUntilLevelEnd?: true;
   fruitStacksSideBySide?: true;
-  fruitPowerConvertsPellet?: true;
+  fruitPowerEffects?: EchoEffects;
   fruitFeastThresholds?: readonly number[];
   pelletCollectRadiusBonusPx?: number;
   grantLives?: number;
@@ -517,13 +517,14 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitPowerPellet",
     label: "Fruit Power",
     school: "harvest",
-    description: "Bonus fruit hits like a power pellet, triggering every effect you own.",
+    description: "Bonus fruit fires a random one of your power-pellet effects.",
     storePrice: STORE_RARE_UPGRADE_PRICE,
     rare: true,
+    fruitPowerEffects: "one",
     enhanced: {
-      enhanceNote: "Fruit Power also turns a random pellet into a power pellet.",
-      description: "Bonus fruit hits like a power pellet and turns a pellet hot.",
-      fruitPowerConvertsPellet: true,
+      enhanceNote: "Fruit Power fires every power-pellet effect you own instead of one at random.",
+      description: "Bonus fruit fires every power-pellet effect you own.",
+      fruitPowerEffects: "all",
     },
   },
   {
@@ -1964,8 +1965,18 @@ export function fruitStacksSideBySide(owned: readonly UpgradeId[]): boolean {
   return ownedValue(owned, "fruitStacksSideBySide") === true;
 }
 
-export function fruitPowerConvertsPellet(owned: readonly UpgradeId[]): boolean {
-  return ownedValue(owned, "fruitPowerConvertsPellet") === true;
+export function fruitPowerEffects(owned: readonly UpgradeId[]): EchoEffects | null {
+  return ownedValue(owned, "fruitPowerEffects") ?? null;
+}
+
+export function pickFruitPowerBases(
+  owned: readonly UpgradeId[],
+  rng: () => number,
+): BaseUpgradeId[] {
+  const powerBases = owned
+    .filter((id) => getUpgradeDef(id).onPowerPellet !== undefined)
+    .map(baseIdOf);
+  return pickEchoBases(fruitPowerEffects(owned), powerBases, rng);
 }
 
 export function fruitFeastThresholds(owned: readonly UpgradeId[]): readonly number[] | null {

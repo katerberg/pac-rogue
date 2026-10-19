@@ -1593,10 +1593,18 @@ describe("LearnSim upgrade demos", () => {
       expect(state(sim).ghostHarvestRemainingMs).toBeGreaterThan(0);
     });
 
-    it("Fruit Power fires pickup effects when fruit is eaten", () => {
-      const { sim, player } = setup("fruitPowerPellet", "powerPelletSpeedBurst");
-      eatFruit(sim, player);
-      expect(state(sim).speedBurstRemainingMs).toBeGreaterThan(0);
+    it("Fruit Power fires one random power effect; Plus fires all", () => {
+      const base = setup("fruitPowerPellet", "powerPelletSpeedBurst", "powerPelletInvuln");
+      eatFruit(base.sim, base.player);
+      const baseState = state(base.sim);
+      expect(
+        Number(baseState.speedBurstRemainingMs > 0) + Number(baseState.invulnRemainingMs > 0),
+      ).toBe(1);
+
+      const plus = setup("fruitPowerPelletPlus", "powerPelletSpeedBurst", "powerPelletInvuln");
+      eatFruit(plus.sim, plus.player);
+      expect(state(plus.sim).speedBurstRemainingMs).toBeGreaterThan(0);
+      expect(state(plus.sim).invulnRemainingMs).toBeGreaterThan(0);
     });
 
     it("Overcharge lengthens the other power pellet timers", () => {

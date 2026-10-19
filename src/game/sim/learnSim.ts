@@ -109,6 +109,7 @@ import {
   createRunUpgrades,
   clearUpgradeTimers,
   echoEffects,
+  pickFruitPowerBases,
   queueEcho,
   armHaunt,
   hauntedGhost,
@@ -1492,7 +1493,17 @@ export class LearnSim {
     }
     this.payFruit(removedFruitEids.length);
     if (hasUpgrade(owned, "fruitPowerPellet")) {
-      this.resolvePowerPelletTrigger(1);
+      const overflow = shieldOverflow(this.learnUpgrades, 1);
+      if (shieldPelletsCap(owned) !== null) {
+        this.learnUpgrades = bankShields(this.learnUpgrades, 1);
+      }
+      const fires = powerPelletPickupFires(owned, 1, overflow);
+      if (fires > 0) {
+        const bases = pickFruitPowerBases(owned, this.random.stream("fruitPower"));
+        if (bases.length > 0) {
+          this.firePowerPelletEffects(fires, bases);
+        }
+      }
     }
   }
 

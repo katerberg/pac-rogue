@@ -315,7 +315,7 @@ import {
   enhancedIdOf,
   wallPassLoopOwned,
   fruitFeastThresholds,
-  fruitPowerConvertsPellet,
+  pickFruitPowerBases,
   fruitPersistsUntilLevelEnd,
   fruitStacksSideBySide,
   ghostTunnelSpeedRatio,
@@ -1640,13 +1640,17 @@ export class PlaySim {
         this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
       }
       this.fruitPresence = markFruitCollected(fruitTick.state, this.regularFruitRemains());
-      if (fruitPowerConvertsPellet(this.effectiveUpgrades())) {
-        this.applyPelletSurge(1, "fruitPowerConvert");
-      }
       if (hasUpgrade(this.effectiveUpgrades(), "fruitPowerPellet")) {
         this.recorder.powerPellets("fruit", 1);
-        if (this.resolvePowerPelletTrigger(1)) {
-          return;
+        const fires = this.bankAndCountPickupFires(1);
+        if (fires > 0) {
+          const bases = pickFruitPowerBases(
+            this.effectiveUpgrades(),
+            this.random.stream("fruitPower", this.levelIndex),
+          );
+          if (bases.length > 0 && this.firePowerPelletEffects(fires, bases)) {
+            return;
+          }
         }
       }
     } else if (fruitTick.action === "despawn") {
