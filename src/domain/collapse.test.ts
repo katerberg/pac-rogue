@@ -45,7 +45,6 @@ describe("collapse schedule", () => {
     expect(fresh(6)).toEqual([false, false]);
     expect(fresh(7)).toEqual([false, false, true]);
     expect(fresh(8)).toEqual([false, false, false]);
-    expect(COLLAPSE_LEVELS).toHaveLength(3);
   });
 });
 

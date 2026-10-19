@@ -90,18 +90,14 @@ function neighbours(graph: Graph, cell: number, removed: ReadonlySet<number>): n
   return out;
 }
 
-function findSpawn(graph: Graph): number | null {
+function startCell(graph: Graph): number {
   for (let row = 0; row < graph.rows; row += 1) {
     const col = graph.lines[row]!.indexOf("P");
     if (col >= 0) {
       return key(graph, col, row);
     }
   }
-  return null;
-}
-
-function startCell(graph: Graph): number {
-  return findSpawn(graph) ?? [...graph.nodes][0]!;
+  return [...graph.nodes][0]!;
 }
 
 function staysOneMaze(graph: Graph, removed: ReadonlySet<number>): boolean {

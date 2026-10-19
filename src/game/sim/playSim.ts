@@ -133,6 +133,7 @@ import {
   horizontalTunnelRows,
   layoutFromAscii,
   wallPathCommands,
+  type MazeLayout,
   worldToCol,
   worldToRow,
   playerSpawnCenter,
@@ -587,7 +588,7 @@ export class PlaySim {
   private collapseBoardCount = 0;
   private collapseChains: CollapseChain[] = [];
   private collapseArts: CollapseArt[] = [];
-  private collapseSpeedBoard: ReturnType<typeof layoutFromAscii> | null = null;
+  private collapseSpeedBoard: MazeLayout | null = null;
   private collapseIntroMs = 0;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
