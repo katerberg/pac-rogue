@@ -31,6 +31,8 @@ Bar fills pay a Quarter directly and do not spin. A world pickup (art: `public/a
 - Multiple machines may sit on the board at once. They do not appear on store floors or the boss; carried machines stay invisible through a store and respawn on the next play board. Anything still held when the boss board starts is dropped (so a miss on level 8 is gone after the final store).
 - Play only; LEARN omits the pickup ([learn.md](./learn.md#parity)). Debug: `?slotMachine=1` places one on each eligible board start. Probe state: `play.slotPickup.{progress,cells,awaitingPlacement,count}`.
 
+### Spin
+
 - 3 reels × 3 rows, 5 paylines (3 rows, 2 diagonals). Three in a line pay: Quarters a Quarter, a school a random unowned upgrade of that school (a Quarter if none is left), a life a life.
 - The outcome is rolled first from a weighted table, then a grid is built that shows exactly that many lines. Targets: nothing under 10%, at least 0.85 Quarters per spin, upgrades and lives each about 25%, multi-line hits about a third.
 - Lives are on the reels only below the life cap (the store free-life rule); at the cap life lines become Quarter lines.

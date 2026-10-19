@@ -48,11 +48,16 @@ export function remapSlotPickupCell(
 export function pickSlotPickupCell(
   rng: () => number,
   solids: SolidGrid = getActiveLayout().playerSolids,
+  avoid: readonly SlotPickupCell[] = [],
 ): SlotPickupCell {
   const spawn = getActiveLayout().playerSpawn;
+  const blocked = new Set<string>([
+    `${spawn.col},${spawn.row}`,
+    ...avoid.map((cell) => `${cell.col},${cell.row}`),
+  ]);
   const walkable = walkableCellCenters(solids);
-  const awayFromSpawn = walkable.filter((cell) => cell.col !== spawn.col || cell.row !== spawn.row);
-  const pool = awayFromSpawn.length > 0 ? awayFromSpawn : walkable;
+  const preferred = walkable.filter((cell) => !blocked.has(`${cell.col},${cell.row}`));
+  const pool = preferred.length > 0 ? preferred : walkable;
   const picked = takeRandomFrom(pool, rng);
   return { col: picked.col, row: picked.row };
 }

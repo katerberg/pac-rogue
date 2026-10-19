@@ -67,4 +67,11 @@ describe("pickSlotPickupCell", () => {
     expect(isWalkable(cell.col, cell.row)).toBe(true);
     expect(cell).not.toEqual({ col: spawn.col, row: spawn.row });
   });
+
+  it("honors extra avoid cells when another walkable tile exists", () => {
+    activateLayout("mazeSmall");
+    const first = pickSlotPickupCell(() => 0);
+    const second = pickSlotPickupCell(() => 0, undefined, [first]);
+    expect(second).not.toEqual(first);
+  });
 });

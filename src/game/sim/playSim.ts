@@ -3084,8 +3084,25 @@ export class PlaySim {
     this.placeAndSpawnSlotPickup();
   }
 
+  private slotPickupAvoidCells(): SlotPickupCell[] {
+    const avoid: SlotPickupCell[] = [];
+    const player = this.playerPosition();
+    if (player !== null) {
+      avoid.push({ col: worldToCol(player.x), row: worldToRow(player.y) });
+    }
+    const twin = this.twinPosition();
+    if (twin !== null) {
+      avoid.push({ col: worldToCol(twin.x), row: worldToRow(twin.y) });
+    }
+    return avoid;
+  }
+
   private placeAndSpawnSlotPickup(): void {
-    const cell = pickSlotPickupCell(this.random.stream("slotPickup", this.levelIndex));
+    const cell = pickSlotPickupCell(
+      this.random.stream("slotPickup", this.levelIndex),
+      getActiveLayout().playerSolids,
+      this.slotPickupAvoidCells(),
+    );
     this.slotPickupCells.push(cell);
     spawnSlotMachine(this.world, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) });
   }
@@ -3108,18 +3125,16 @@ export class PlaySim {
         row: flipSlotPickupRow(cell.row, rows),
       }));
     }
+    const avoid = this.slotPickupAvoidCells();
+    const solids = getActiveLayout().playerSolids;
+    const rng = this.random.stream("slotPickup", this.levelIndex);
     while (this.slotPickupsAwaitingPlacement > 0) {
       this.slotPickupsAwaitingPlacement -= 1;
-      this.slotPickupCells.push(
-        pickSlotPickupCell(this.random.stream("slotPickup", this.levelIndex)),
-      );
+      this.slotPickupCells.push(pickSlotPickupCell(rng, solids, avoid));
     }
     if (this.options.slotMachine && this.slotPickupCells.length === 0) {
-      this.slotPickupCells.push(
-        pickSlotPickupCell(this.random.stream("slotPickup", this.levelIndex)),
-      );
+      this.slotPickupCells.push(pickSlotPickupCell(rng, solids, avoid));
     }
-    const solids = getActiveLayout().playerSolids;
     this.slotPickupCells = this.slotPickupCells.map((cell) =>
       remapSlotPickupCell(cell.col, cell.row, solids),
     );
@@ -3138,9 +3153,10 @@ export class PlaySim {
       const idx = this.slotPickupCells.findIndex(
         (cell) => cell.col === item.col && cell.row === item.row,
       );
-      if (idx >= 0) {
-        this.slotPickupCells.splice(idx, 1);
+      if (idx < 0) {
+        continue;
       }
+      this.slotPickupCells.splice(idx, 1);
       this.slotQueue.push("slotPickup");
     }
   }

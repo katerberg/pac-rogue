@@ -2854,6 +2854,31 @@ describe("PlaySim slot-machine world pickup", () => {
     expect(sim.snapshot().slotPickup.cells).toEqual(cells);
   });
 
+  it("flips carried cell rows when the board turns upside down", () => {
+    const sim = startSim(
+      {
+        level: 5,
+        slotMachine: true,
+        disableLevelUpgrades: true,
+        jumpToUpgrade: true,
+      },
+      "slot-pick-invert",
+    );
+    const before = sim.snapshot().slotPickup.cells[0]!;
+    const rows = getActiveLayout().rows;
+    const expectedRow = rows - 1 - before.row;
+    runUntil(sim, () => sim.snapshot().level === 6 && !sim.snapshot().levelTransition, 900, {
+      acknowledge: true,
+    });
+    expect(sim.snapshot().level).toBe(6);
+    const after = sim.snapshot().slotPickup.cells[0]!;
+    expect(after.col).toBe(before.col);
+    expect(isWalkable(after.col, after.row)).toBe(true);
+    if (isWalkable(before.col, expectedRow)) {
+      expect(after.row).toBe(expectedRow);
+    }
+  });
+
   it("hides through a store and respawns on the next play board", () => {
     const sim = startSim({ level: 3, slotMachine: true, levelModifiers: false }, "slot-pick-store");
     expect(sim.snapshot().slotPickup.count).toBe(1);
@@ -2896,10 +2921,12 @@ describe("PlaySim slot-machine world pickup", () => {
       acknowledge: true,
     });
     expect(sim.snapshot().slotPickup.count).toBeGreaterThan(0);
+    sim["grantQuarters"](4, "inheritance", true);
+    expect(sim.snapshot().slotPickup.awaitingPlacement).toBeGreaterThanOrEqual(1);
     (sim as unknown as { exitStore(): void }).exitStore();
     expect(sim.snapshot().level).toBe(9);
     expect(sim.snapshot().boss).not.toBeNull();
-    expect(sim.snapshot().slotPickup.count).toBe(0);
+    expect(sim.snapshot().slotPickup).toMatchObject({ count: 0, awaitingPlacement: 0 });
   });
 
   it("remaps a carried cell that collapse turns into a wall", () => {
