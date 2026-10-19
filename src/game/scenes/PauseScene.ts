@@ -3,6 +3,7 @@ import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { clamp } from "../../domain/clamp";
 import { hoverPreviewX } from "../../domain/learnUpgradeColumns";
+import { schoolArtTextureKey } from "../../domain/schoolArt";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import type { PlayScene } from "./PlayScene";
 import { addSeedLabel } from "./seedLabel";
@@ -14,14 +15,11 @@ import {
   placeSelectableMenuOption,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
-  UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
 import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
 
-const UPGRADE_LIST_X = 12;
-const UPGRADE_ROW_GAP = 16;
-const UPGRADE_LIST_TITLE_GAP = 24;
+const UPGRADE_ICON_HOVER_SCALE = 1.1;
 const UPGRADE_PREVIEW_Y_MIN = 90;
 const UPGRADE_PREVIEW_Y_MAX = 510;
 
@@ -148,7 +146,7 @@ export class PauseScene extends Phaser.Scene {
     this.refreshMenu();
 
     this.upgradePreview = null;
-    this.buildUpgradeList((this.scene.get("PlayScene") as PlayScene).ownedUpgrades());
+    this.buildUpgradeList((this.scene.get("PlayScene") as PlayScene).upgradeHudSlots());
 
     if (this.input.keyboard === null) {
       return;
@@ -249,37 +247,21 @@ export class PauseScene extends Phaser.Scene {
     }
   }
 
-  private buildUpgradeList(owned: readonly UpgradeId[]): void {
-    if (owned.length === 0) {
-      return;
-    }
-    const top = PLAYFIELD_HEIGHT / 2 - ((owned.length - 1) * UPGRADE_ROW_GAP) / 2;
-    const titleY = top - UPGRADE_LIST_TITLE_GAP;
-    const title = addPixelText(
-      this,
-      UPGRADE_LIST_X,
-      titleY,
-      "UPGRADES",
-      UPGRADES_HUD_FONT_SIZE,
-      TEXT_COLOR_YELLOW,
-    );
-    placePixelText(title, UPGRADE_LIST_X, titleY, 0, 0.5);
-
-    owned.forEach((id, i) => {
-      const y = top + i * UPGRADE_ROW_GAP;
-      const def = getUpgradeDef(id);
-      const row = addPixelText(this, UPGRADE_LIST_X, y, def.label, UPGRADES_HUD_FONT_SIZE);
-      placePixelText(row, UPGRADE_LIST_X, y, 0, 0.5);
-      row.setInteractive({ useHandCursor: true });
-      row.on("pointerover", (pointer: Phaser.Input.Pointer) => {
-        row.setTint(TEXT_COLOR_YELLOW);
+  private buildUpgradeList(slots: ReturnType<PlayScene["upgradeHudSlots"]>): void {
+    for (const { id, x, y, size } of slots) {
+      const icon = this.add
+        .image(x, y, schoolArtTextureKey(getUpgradeDef(id).school))
+        .setDisplaySize(size, size)
+        .setInteractive({ useHandCursor: true });
+      icon.on("pointerover", (pointer: Phaser.Input.Pointer) => {
+        icon.setDisplaySize(size * UPGRADE_ICON_HOVER_SCALE, size * UPGRADE_ICON_HOVER_SCALE);
         this.showUpgradePreview(id, pointer.worldY);
       });
-      row.on("pointerout", () => {
-        row.setTint(TEXT_COLOR_WHITE);
+      icon.on("pointerout", () => {
+        icon.setDisplaySize(size, size);
         this.hideUpgradePreview();
       });
-    });
+    }
   }
 
   private showUpgradePreview(id: UpgradeId, pointerY: number): void {

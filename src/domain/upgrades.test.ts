@@ -131,7 +131,6 @@ import {
   tickPowerPelletRespawns,
   tickSpeedBurst,
   tickWallPass,
-  upgradeLabels,
   wallPassActive,
   type RunUpgrades,
   type UpgradeId,
@@ -993,12 +992,6 @@ describe("speed multipliers / labels", () => {
     expect(playerSpeedMultiplier(["passiveAfterburner"])).toBe(1);
     expect(ghostSpeedMultiplier(["passiveGhostSlow"])).toBe(GHOST_SLOW_MUL);
     expect(ghostSpeedMultiplier(["passiveAfterburner"])).toBe(1);
-  });
-
-  it("maps owned ids to labels in order", () => {
-    expect(
-      upgradeLabels(["passiveGhostSlow", "passiveAfterburner", "powerPelletScatterBurst"]),
-    ).toEqual(["Ghost Slow", "Afterburner", "Scatter Burst"]);
   });
 });
 

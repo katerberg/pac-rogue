@@ -1,16 +1,3 @@
-const UPGRADE_STACK_PITCH_MUL = 2;
-
-export function upgradeStackRowPitch(lineHeightPx: number): number {
-  return lineHeightPx * UPGRADE_STACK_PITCH_MUL;
-}
-
-export function upgradeStackHeight(lineCount: number, lineHeightPx: number): number {
-  if (lineCount <= 0) {
-    return 0;
-  }
-  return lineHeightPx + (lineCount - 1) * upgradeStackRowPitch(lineHeightPx);
-}
-
 export function wrapCharsForBox(boxWidthPx: number, fontSize: number, sidePadPx: number): number {
   const inner = Math.max(1, boxWidthPx - 2 * sidePadPx);
   return Math.max(1, Math.floor(inner / Math.max(1, fontSize)));
