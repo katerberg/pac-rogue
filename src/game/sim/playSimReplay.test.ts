@@ -5,6 +5,7 @@ import { REPLAY_MAX_SIM_MS, REPLAY_SAMPLE_MS } from "../../domain/replay";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
+import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
@@ -89,6 +90,16 @@ describe("PlaySim run replay", () => {
     const { segments } = sim.replay();
     expect(segments).toHaveLength(1);
     expect(segments[0]!.frames.length).toBeGreaterThan(5);
+  });
+
+  it("records a replaced entity as remove then add", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    runFrames(sim, 10);
+    const [pellet] = query(sim.world, [Pellet, Position]);
+    Position.x[pellet!] = Position.x[pellet!]! + 3;
+    runFrames(sim, 10);
+    const events = sim.replay().segments[0]!.items.filter((event) => event.eid === pellet);
+    expect(events.map((event) => event.op)).toEqual(["add", "remove", "add"]);
   });
 
   it("has no replay before any play frame", () => {

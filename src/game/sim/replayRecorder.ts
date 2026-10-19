@@ -145,13 +145,18 @@ export class ReplayRecorder {
       return;
     }
     const now = liveItems(world);
+    const unchanged = (eid: number, item: Item): boolean => {
+      const before = this.known.get(eid);
+      return before?.kind === item.kind && before.x === item.x && before.y === item.y;
+    };
     for (const [eid, item] of this.known) {
-      if (!now.has(eid)) {
+      const current = now.get(eid);
+      if (current === undefined || !unchanged(eid, current)) {
         segment.items.push({ t: this.clockMs, op: "remove", eid, ...item });
       }
     }
     for (const [eid, item] of now) {
-      if (!this.known.has(eid)) {
+      if (!unchanged(eid, item)) {
         segment.items.push({ t: this.clockMs, op: "add", eid, ...item });
       }
     }

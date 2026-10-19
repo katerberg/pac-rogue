@@ -7,6 +7,7 @@ import {
   PLAYFIELD_WIDTH,
 } from "../../domain/playfield";
 import {
+  REPLAY_SPEED,
   frameAt,
   itemsAt,
   replayCursor,
@@ -22,7 +23,7 @@ const LABEL_DEPTH = 905;
 const LABEL_Y = 48;
 const ACTOR_SIZE = 16;
 const DEATH_RING_REAL_MS = 300;
-const DEATH_RING_SIM_MS = DEATH_RING_REAL_MS * 10;
+const DEATH_RING_SIM_MS = DEATH_RING_REAL_MS * REPLAY_SPEED;
 const PELLET_COLOR = 0xffb8ae;
 const POWER_COLOR = 0xffffff;
 const FRUIT_COLOR = 0xff3030;
