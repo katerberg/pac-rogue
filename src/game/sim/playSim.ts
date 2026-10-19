@@ -1883,9 +1883,14 @@ export class PlaySim {
   }
 
   private noteTurnCatchGrace(facingBefore: Direction, facingAfter: Direction): void {
-    if (isPerpendicularTurn(facingBefore, facingAfter)) {
-      this.turnCatchGraceMs = TURN_CATCH_GRACE_MS;
+    if (!isPerpendicularTurn(facingBefore, facingAfter)) {
+      return;
     }
+    this.turnCatchGraceMs = Math.max(
+      this.turnCatchGraceMs,
+      TURN_CATCH_GRACE_MS,
+      this.runUpgrades.hyperspeedTurnDelayMs,
+    );
   }
 
   private releaseAdds(): GhostReleaseAdds {
@@ -3217,9 +3222,16 @@ export class PlaySim {
     moveFrame: (frameDelta: number) => void,
     afterStep: () => void,
   ): void {
+    let facingBefore = playerFacing(this.world);
     runHyperspeedSubsteps(this.world, delta, {
-      moveFrame,
-      afterStep,
+      moveFrame: (frameDelta) => {
+        facingBefore = playerFacing(this.world);
+        moveFrame(frameDelta);
+      },
+      afterStep: () => {
+        afterStep();
+        this.noteTurnCatchGrace(facingBefore, playerFacing(this.world));
+      },
       collect: () => {
         this.hyperspeedPellets = mergePlayerPelletFrames(
           this.hyperspeedPellets,
@@ -3250,9 +3262,11 @@ export class PlaySim {
     if (turn.turned) {
       this.runUpgrades = startHyperspeedTurnDelay(this.runUpgrades);
       this.zeroPlayerSpeed();
-      if (previous !== null) {
-        this.noteTurnCatchGrace(previous, facing);
-      }
+      this.turnCatchGraceMs = Math.max(
+        this.turnCatchGraceMs,
+        TURN_CATCH_GRACE_MS,
+        this.runUpgrades.hyperspeedTurnDelayMs,
+      );
     }
   }
 

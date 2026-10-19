@@ -1278,9 +1278,16 @@ export class LearnSim {
     moveFrame: (frameDelta: number) => void,
     afterStep: () => void,
   ): void {
+    let facingBefore = playerFacing(this.world);
     runHyperspeedSubsteps(this.world, delta, {
-      moveFrame,
-      afterStep,
+      moveFrame: (frameDelta) => {
+        facingBefore = playerFacing(this.world);
+        moveFrame(frameDelta);
+      },
+      afterStep: () => {
+        afterStep();
+        this.noteTurnCatchGrace(facingBefore, playerFacing(this.world));
+      },
       collect: () => {
         this.hyperspeedPellets = mergePlayerPelletFrames(
           this.hyperspeedPellets,
@@ -1313,16 +1320,23 @@ export class LearnSim {
     if (turn.turned) {
       this.learnUpgrades = startHyperspeedTurnDelay(this.learnUpgrades);
       applyPlayerSpeed(this.world, 0);
-      if (previous !== null) {
-        this.noteTurnCatchGrace(previous, facing);
-      }
+      this.turnCatchGraceMs = Math.max(
+        this.turnCatchGraceMs,
+        TURN_CATCH_GRACE_MS,
+        this.learnUpgrades.hyperspeedTurnDelayMs,
+      );
     }
   }
 
   private noteTurnCatchGrace(facingBefore: Direction, facingAfter: Direction): void {
-    if (isPerpendicularTurn(facingBefore, facingAfter)) {
-      this.turnCatchGraceMs = TURN_CATCH_GRACE_MS;
+    if (!isPerpendicularTurn(facingBefore, facingAfter)) {
+      return;
     }
+    this.turnCatchGraceMs = Math.max(
+      this.turnCatchGraceMs,
+      TURN_CATCH_GRACE_MS,
+      this.learnUpgrades.hyperspeedTurnDelayMs,
+    );
   }
 
   private playerSolids(): SolidGrid {

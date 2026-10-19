@@ -5781,6 +5781,19 @@ describe("lava zone", () => {
     }
   });
 
+  it("still dies on lava while turn catch grace is active", () => {
+    const sim = lavaSim("lava-turn-grace", { infiniteLives: false });
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
+    const { col, row } = sim.snapshot().lava!;
+    sim["turnCatchGraceMs"] = 200;
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    expect(sim.snapshot().dying).toBe(true);
+    expect(lavaDeaths(sim)).toHaveLength(1);
+  });
+
   it("is harmless while dormant and warning, then kills Dot-Man at full reach", () => {
     const sim = lavaSim("lava-kill");
     const { col, row } = sim.snapshot().lava!;
@@ -6041,9 +6054,12 @@ describe("Hyperspeed", () => {
     runFrames(sim, 1, RIGHT);
     expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(150);
     expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
-    ghostOntoPlayer(sim);
-    runFrames(sim, 4, RIGHT);
-    expect(sim.snapshot().dying).toBe(false);
+    while (sim.snapshot().timers.hyperspeedTurnDelayMs > 0) {
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1, RIGHT);
+      expect(sim.snapshot().dying).toBe(false);
+      expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    }
   });
 
   it("is caught by a ghost on the path", () => {
