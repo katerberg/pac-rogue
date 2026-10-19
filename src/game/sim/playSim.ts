@@ -3087,10 +3087,6 @@ export class PlaySim {
   private placeAndSpawnSlotPickup(): void {
     const cell = pickSlotPickupCell(this.random.stream("slotPickup", this.levelIndex));
     this.slotPickupCells.push(cell);
-    this.spawnSlotMachineEntity(cell);
-  }
-
-  private spawnSlotMachineEntity(cell: SlotPickupCell): void {
     spawnSlotMachine(this.world, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) });
   }
 
@@ -3128,7 +3124,7 @@ export class PlaySim {
       remapSlotPickupCell(cell.col, cell.row, solids),
     );
     for (const cell of this.slotPickupCells) {
-      this.spawnSlotMachineEntity(cell);
+      spawnSlotMachine(this.world, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) });
     }
     this.previousPlayBoardInverted = inverted;
   }

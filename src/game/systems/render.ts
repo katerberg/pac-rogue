@@ -201,9 +201,6 @@ export function displaySizeForDrawable(drawableId: string): number {
   if (drawableId === BOSS_PELLET_DRAWABLE_ID) {
     return pelletDisplaySize() * BOSS_PELLET_SIZE_MUL;
   }
-  if (drawableId === SLOT_MACHINE_DRAWABLE_ID) {
-    return playerDisplaySize();
-  }
   return isActorDrawableId(drawableId) ? actorDisplaySize() : playerDisplaySize();
 }
 
