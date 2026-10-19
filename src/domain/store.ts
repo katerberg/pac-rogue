@@ -157,19 +157,6 @@ export function parseStoreLayout(ascii: string): StoreLayout {
   return { slots: cells, freebie: freebies[0]! };
 }
 
-export function slotWallExterior(slot: Cell, rows: number, cols: number): SolidGrid {
-  return Array.from({ length: rows }, (_, row) =>
-    Array.from({ length: cols }, (_, col) => {
-      const inSlot =
-        col >= slot.col &&
-        col < slot.col + STORE_SLOT_SIZE &&
-        row >= slot.row &&
-        row < slot.row + STORE_SLOT_SIZE;
-      return !inSlot;
-    }),
-  );
-}
-
 export function storeEntrance(layout: MazeLayout): Cell {
   return { col: 0, row: layout.playerSpawn.row };
 }

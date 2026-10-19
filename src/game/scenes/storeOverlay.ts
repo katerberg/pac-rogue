@@ -1,16 +1,13 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
 import { wrapCharsForBox } from "../../domain/textLayout";
-import { cellCenterX, cellCenterY, getActiveLayout, wallPathCommands } from "../../domain/maze";
-import { clampMazeColorIndex, mazeColorForIndex } from "../../domain/mazeColorSettings";
-import { pixelWallRects } from "../../domain/pixelWall";
-import { wallStyleFor } from "../../domain/wallStyle";
+import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
+import { mazeColorForIndex } from "../../domain/mazeColorSettings";
 import {
   STORE_ENHANCE_BORDER_COLOR,
   STORE_SLOT_SIZE,
   enhanceGlowAlpha,
   slotPrice,
-  slotWallExterior,
   storePanelMode,
   swapIncomingSchool,
   type StoreFreebie,
@@ -49,7 +46,6 @@ import {
 } from "./upgradeChoiceModal";
 
 const TILE_DEPTH = -1;
-const SLOT_WALL_DEPTH = 0.1;
 const PANEL_DEPTH = 20;
 const PANEL_WIDTH = 168;
 const PANEL_HEIGHT = 190;
@@ -200,7 +196,6 @@ export function createStoreOverlay(
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let panels: Panel[] = [];
   let freebieTile: Phaser.GameObjects.Container | null = null;
-  let slotWalls: (Phaser.GameObjects.Graphics | null)[] = [];
   let glows: (Phaser.GameObjects.Rectangle | null)[] = [];
   let glowElapsedMs = 0;
   let gotIds: (UpgradeId | null)[] = [];
@@ -286,33 +281,23 @@ export function createStoreOverlay(
       .container(cellCenterX(freebie.col), cellCenterY(freebie.row), [frame, icon])
       .setDepth(TILE_DEPTH);
   };
-  const buildSlotWall = (slot: StoreSlot, color: number): Phaser.GameObjects.Graphics => {
-    const layout = getActiveLayout();
-    const style = wallStyleFor(null, clampMazeColorIndex(loadMazeColorSettings().colorIndex));
-    const commands = wallPathCommands(
-      layout.walls,
-      slotWallExterior(slot, layout.rows, layout.cols),
-      style.cornerRadius,
-    );
-    const graphics = scene.add.graphics().setDepth(SLOT_WALL_DEPTH).fillStyle(color, 1);
-    for (const rect of pixelWallRects(commands, style.thickness)) {
-      graphics.fillRect(rect.x, rect.y, rect.w, rect.h);
-    }
-    return graphics;
-  };
   const buildTile = (slot: StoreSlot, index: number): Phaser.GameObjects.Container => {
     const tile = getActiveLayout().tileSize;
     const size = tile * STORE_SLOT_SIZE;
     const x = (cellCenterX(slot.col) + cellCenterX(slot.col + 1)) / 2;
     const y = (cellCenterY(slot.row) + cellCenterY(slot.row + 1)) / 2;
     const enhance = slot.kind === "enhance";
+    const frame = scene.add.graphics();
     const tileSchool = slotSchool(slot);
-    const wallColor = enhance
-      ? STORE_ENHANCE_BORDER_COLOR
-      : tileSchool === null
-        ? null
-        : schoolBorderColor(tileSchool);
-    slotWalls[index] = wallColor === null ? null : buildSlotWall(slot, wallColor);
+    frame.fillStyle(
+      enhance
+        ? STORE_ENHANCE_BORDER_COLOR
+        : tileSchool === null
+          ? mazeColorForIndex(loadMazeColorSettings().colorIndex)
+          : schoolBorderColor(tileSchool),
+      1,
+    );
+    dotFrame(frame, size);
     const coinY = size / 2 - 3 - TILE_COIN_PX / 2;
     const coins = coinRowXs(slotPrice(slot), size - 6).map((cx) =>
       addQuarterIcon(scene, cx, coinY, TILE_COIN_PX),
@@ -343,7 +328,7 @@ export function createStoreOverlay(
       : null;
     glows[index] = glow;
     const container = scene.add
-      .container(x, y, [...(glow === null ? [] : [glow]), glyph, ...coins, zone])
+      .container(x, y, [...(glow === null ? [] : [glow]), frame, glyph, ...coins, zone])
       .setDepth(TILE_DEPTH);
     if (slotRare(slot)) {
       addRareFx(scene, container, size, size, schoolBorderColor(tileSchool));
@@ -359,10 +344,6 @@ export function createStoreOverlay(
       panel.root.destroy(true);
     }
     freebieTile?.destroy(true);
-    for (const wall of slotWalls) {
-      wall?.destroy();
-    }
-    slotWalls = [];
     tiles = [];
     panels = [];
     freebieTile = null;
@@ -387,8 +368,6 @@ export function createStoreOverlay(
         if (tile && slot.sold) {
           tile.destroy(true);
           tiles[i] = null;
-          slotWalls[i]?.destroy();
-          slotWalls[i] = null;
           glows[i] = null;
           gotIds[i] = pendingGot;
           pendingGot = null;

@@ -13,7 +13,6 @@ Quarters (from the [BONUS bar](./bonus.md) and the level-clear Quarters choice) 
 `STORE_MAZE_ASCII` (`mazeLayouts.ts`) is the same fixed map every visit: single-file corridors around four wall blocks. Entry slides in from the left middle (input ignored); `withStoreEntranceClosed` then seals that cell. The only exit is a jogged pocket on the right. `parseStoreLayout` reads it:
 
 - **Corners** are 2x2 slot blocks: `U` random unowned upgrade, `E` enhance (owned → Plus), `S` trade (lose a shown owned, gain a hidden random). Always four; an `E` or `S` with nothing to act on stocks as another upgrade.
-- Each corner has no card outline: the maze wall bordering its 2x2 block is redrawn in the school colour (gold for enhance; `slotWallExterior`), and a rare keeps the pulsing halo. The wall reverts to the maze colour when the slot sells.
 - **Centre** `F` is a freebie on step-on: a free life below the natural regen floor ([levels.md](./levels.md#lives)), else a free Quarter.
 - Prices: constants in `store.ts`. `createStoreState` rolls stock once: at most one rare, rares at half weight; a corner stays empty only when nothing is left to shelve. Nothing shows twice in a store or again in a later one (`offeredUpgradeIds`); `E` only prefers a fresh target.
 - **School carry-over:** last upgrade/enhance bought (not trades) sets the school the next store must shelve once on a `U` (`purchaseSchool`, `PlaySim.nextStoreSchool`). Consumed on entry; buying nothing clears it.
