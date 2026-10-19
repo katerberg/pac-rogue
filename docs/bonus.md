@@ -4,7 +4,7 @@ A persistent HUD meter that pays a Quarter each time it fills; the remainder car
 
 ## Rules
 
-- A bump that overflows several times queues several spins. Charge lasts the whole run (deaths, level advances and stores keep it).
+- A bump that overflows several times pays several Quarters. Charge lasts the whole run (deaths, level advances and stores keep it).
 - Sources: pellet streaks, bonus fruit (half a bar, or Quarters directly with Quarter Bounty, no streak effect), Near Miss, Death's Bounty, and the level-end time bonus.
 - A **streak** counts pellets the player's own body collects (the player collect frame including Pickup Range, and the Tunnel Dash sweep; a power pellet counts as one). Extra Hungry, Remote Transference, Ghost Harvest and Death's Harvest removals neither extend nor break it. Each time it reaches a multiple of `BONUS_STREAK_TIER_SIZE` the bar bumps by `bonusTierBump(tier)`.
 - The streak breaks (charge kept) on stepping onto a blank tile, an idle gap, a death, a shield break, a new board or a store. Blank-tile check: a pellet is eaten shortly before the player's cell changes, so each eaten pellet credits its cell and entering a credited cell uses the credit; walking back over an eaten tile is a blank. Tunnels, the fruit tile and cleared corridors all break a streak.
@@ -17,7 +17,7 @@ The bar is drawn top center. It is a slotted pixel-art bar. Bumps animate by tie
 
 ## Time bonus
 
-Clearing a board drains the time left into the bar. The payout is quadratic in time left (`BONUS_TIME_SQUARE_DIVISOR`), so fast clears pay much more. The drain always takes `TIME_BONUS_DRAIN_MS` and pays the most valuable time first; Spins play as the bar fills (the drain pauses for them), and the upgrade offer waits for the last one. Order at a clear: fanfare, drain, upgrade offer (levels 1-8) or transition. No drain when the timer is 0 or on the level-9 clear. `PlaySim.step` holds all other gates while draining; `?jumpToUpgrade=1` drains the full timer.
+Clearing a board drains the time left into the bar. The payout is quadratic in time left (`BONUS_TIME_SQUARE_DIVISOR`), so fast clears pay much more. The drain always takes `TIME_BONUS_DRAIN_MS` and pays the most valuable time first; Bar fills during the drain pay Quarters without pausing it, and the upgrade offer waits only for any queued slot spin. Order at a clear: fanfare, drain, upgrade offer (levels 1-8) or transition. No drain when the timer is 0 or on the level-9 clear. `PlaySim.step` holds all other gates while draining; `?jumpToUpgrade=1` drains the full timer.
 
 ## Slot machine
 
