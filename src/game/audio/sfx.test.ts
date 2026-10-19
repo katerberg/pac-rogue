@@ -6,6 +6,7 @@ import {
   musicDownloadInFlight,
   musicIdForContext,
   pelletCollectSfxId,
+  setMusicDuck,
 } from "./sfx";
 
 const requirePhaser = createRequire(import.meta.url);
@@ -69,5 +70,12 @@ describe("musicDownloadInFlight", () => {
     expect(musicDownloadInFlight(LOADER.FILE_ERRORED)).toBe(false);
     expect(musicDownloadInFlight(LOADER.FILE_COMPLETE)).toBe(false);
     expect(musicDownloadInFlight(LOADER.FILE_DESTROYED)).toBe(false);
+  });
+});
+
+describe("setMusicDuck", () => {
+  it("does nothing when audio is disabled, where the sound manager has no playback API", () => {
+    const scene = { game: { config: { audio: { noAudio: true } } }, sound: {} };
+    expect(() => setMusicDuck(scene as never, "gameplayMusic", 0.25)).not.toThrow();
   });
 });

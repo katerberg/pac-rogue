@@ -236,7 +236,7 @@ export function syncMusicPlayback(scene: Phaser.Scene, id: SfxId, settings: Audi
 
 export function setMusicDuck(scene: Phaser.Scene, id: SfxId, gain: number): void {
   const entry = SFX_MANIFEST[id];
-  if (!scene.sound.isPlaying(entry.key)) {
+  if (scene.game.config.audio.noAudio === true || !scene.sound.isPlaying(entry.key)) {
     return;
   }
   const playing = scene.sound.get<Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound>(
