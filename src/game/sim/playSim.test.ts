@@ -2789,6 +2789,137 @@ describe("PlaySim slot machine", () => {
   });
 });
 
+describe("PlaySim slot-machine world pickup", () => {
+  it("spawns one machine every four non-slot Quarters", () => {
+    const sim = startSim({ level: 2, maze: "maze1" }, "slot-pick-spawn");
+    expect(sim.snapshot().slotPickup).toMatchObject({
+      progress: 0,
+      count: 0,
+      awaitingPlacement: 0,
+    });
+    sim["grantQuarters"](3, "inheritance", true);
+    expect(sim.snapshot().slotPickup).toMatchObject({ progress: 3, count: 0 });
+    sim["grantQuarters"](1, "inheritance", true);
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    expect(sim.snapshot().slotPickup.progress).toBe(0);
+    expect(sim.snapshot().slotPickup.cells).toHaveLength(1);
+  });
+
+  it("does not advance progress from slot-spin Quarter payouts", () => {
+    const sim = startSim(
+      { level: 2, maze: "maze1", slot: { quarters: 1, upgrades: 0, lives: 0 }, quarters: 0 },
+      "slot-pick-pay",
+    );
+    sim["grantQuarters"](3, "inheritance", true);
+    expect(sim.snapshot().slotPickup.progress).toBe(3);
+    sim["slotQueue"].push("bonusBar");
+    runFrames(sim, 1);
+    settleSlots(sim);
+    expect(sim.snapshot().quarters).toBeGreaterThan(0);
+    expect(sim.snapshot().slotPickup).toMatchObject({ progress: 3, count: 0 });
+  });
+
+  it("queues a slot spin when the player crosses a machine", () => {
+    const sim = startSim(
+      { level: 2, maze: "maze1", slotMachine: true, slot: { quarters: 0, upgrades: 0, lives: 0 } },
+      "slot-pick-collect",
+    );
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    const cell = sim.snapshot().slotPickup.cells[0]!;
+    teleportPlayer(sim, cellCenterX(cell.col), cellCenterY(cell.row));
+    runFrames(sim, 1);
+    expect(sim.snapshot().slotPickup.count).toBe(0);
+    expect(sim.snapshot().slot.active || sim.snapshot().slot.queued > 0).toBe(true);
+    settleSlots(sim);
+    expect(sim.snapshot().slot.spins).toBe(1);
+  });
+
+  it("keeps exact cells across a level advance on the pool map", () => {
+    const sim = startSim(
+      {
+        level: 2,
+        slotMachine: true,
+        disableLevelUpgrades: true,
+        jumpToUpgrade: true,
+        levelModifiers: false,
+      },
+      "slot-pick-carry",
+    );
+    const cells = sim.snapshot().slotPickup.cells.map((cell) => ({ ...cell }));
+    expect(cells).toHaveLength(1);
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 900, {
+      acknowledge: true,
+    });
+    expect(sim.snapshot().level).toBe(3);
+    expect(sim.snapshot().slotPickup.cells).toEqual(cells);
+  });
+
+  it("hides through a store and respawns on the next play board", () => {
+    const sim = startSim({ level: 3, slotMachine: true, levelModifiers: false }, "slot-pick-store");
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    const cells = sim.snapshot().slotPickup.cells.map((cell) => ({ ...cell }));
+    (sim as unknown as { enterStore(): void }).enterStore();
+    runUntil(sim, () => !sim.snapshot().storeEntering, 120);
+    expect(sim.snapshot().inStore).toBe(true);
+    expect(sim.snapshot().slotPickup.cells).toEqual(cells);
+    (sim as unknown as { exitStore(): void }).exitStore();
+    expect(sim.snapshot().level).toBe(4);
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    expect(sim.snapshot().slotPickup.cells).toEqual(cells);
+  });
+
+  it("banks spawns earned in the store until the next play board", () => {
+    const sim = startSim({ store: 1, level: 3, levelModifiers: false }, "slot-pick-await");
+    expect(sim.snapshot().inStore).toBe(true);
+    sim["grantQuarters"](4, "inheritance", true);
+    expect(sim.snapshot().slotPickup).toMatchObject({
+      awaitingPlacement: 1,
+      count: 0,
+    });
+    (sim as unknown as { exitStore(): void }).exitStore();
+    expect(sim.snapshot().slotPickup).toMatchObject({ awaitingPlacement: 0, count: 1 });
+  });
+
+  it("drops carried machines when the boss board starts", () => {
+    const sim = startSim(
+      {
+        level: 8,
+        slotMachine: true,
+        disableLevelUpgrades: true,
+        jumpToUpgrade: true,
+        levelModifiers: false,
+      },
+      "slot-pick-boss",
+    );
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    runUntil(sim, () => sim.snapshot().inStore && !sim.snapshot().storeEntering, 1200, {
+      acknowledge: true,
+    });
+    expect(sim.snapshot().slotPickup.count).toBeGreaterThan(0);
+    (sim as unknown as { exitStore(): void }).exitStore();
+    expect(sim.snapshot().level).toBe(9);
+    expect(sim.snapshot().boss).not.toBeNull();
+    expect(sim.snapshot().slotPickup.count).toBe(0);
+  });
+
+  it("remaps a carried cell that collapse turns into a wall", () => {
+    const sim = startSim({ level: 5, slotMachine: true }, "slot-pick-collapse");
+    const wall = sim.snapshot().collapse.chains[0]?.[0];
+    expect(wall).toBeDefined();
+    sim["slotPickupCells"] = [{ col: wall!.col, row: wall!.row }];
+    sim["previousPlayBoardInverted"] = sim["boardInverted"];
+    (sim as unknown as { startBoard(override: null): void }).startBoard(null);
+    const cell = sim.snapshot().slotPickup.cells[0]!;
+    expect(isWalkable(cell.col, cell.row)).toBe(true);
+    expect(cell).not.toEqual({ col: wall!.col, row: wall!.row });
+  });
+
+  it("places a machine when ?slotMachine=1 starts an eligible board", () => {
+    const sim = startSim({ level: 2, maze: "maze1", slotMachine: true }, "slot-pick-flag");
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+  });
+});
+
 describe("Turn Tuning", () => {
   function findSideTurn(): { col: number; row: number } {
     const { playerSolids, cols, rows } = getActiveLayout();

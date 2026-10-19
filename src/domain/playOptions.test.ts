@@ -29,6 +29,7 @@ describe("parsePlayOptions", () => {
       enableUpgrades: [],
       forceUpgrade: null,
       slot: null,
+      slotMachine: false,
       highScoresDisabled: false,
     });
   });
@@ -36,7 +37,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&roster=3&boss=chainedGhosts&bossStageAdvance=1&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&levelModifiers=0&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus&slot=1q1u&jumpToSpinner=1",
+        "seed=abc&maze=maze1&level=4&quarters=3&bonus=120&ghosts=pinky&roster=3&boss=chainedGhosts&bossStageAdvance=1&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&levelModifiers=0&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus&slot=1q1u&jumpToSpinner=1&slotMachine=1",
       ),
     );
     expect(warnings).toEqual([]);
@@ -64,6 +65,7 @@ describe("parsePlayOptions", () => {
       enableUpgrades: ["powerPelletFreeze"],
       forceUpgrade: "passiveRemoteTransference",
       slot: { quarters: 1, upgrades: 1, lives: 0 },
+      slotMachine: true,
       highScoresDisabled: true,
     });
   });

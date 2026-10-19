@@ -21,7 +21,15 @@ Clearing a board drains the time left into the bar. The payout is quadratic in t
 
 ## Slot machine
 
-Bar fills pay a Quarter directly and do not spin. The machine is kept for special events to come: push onto `PlaySim`'s `slotQueue` to spin it (`?jumpToSpinner=1` does this at start). Logic: `src/domain/slotMachine.ts` (outcome table, grid composer, timeline, pinned by `slotMachine.test.ts`), run by `PlaySim` on the `slots` random stream. Drawn by `slotOverlay.ts` (placeholder art).
+Bar fills pay a Quarter directly and do not spin. A world pickup (art: `public/art/other/slot-machine.png`) appears every four Quarters gained from non-spin sources; walking over it queues one spin on `PlaySim`'s `slotQueue` (same gate as `?jumpToSpinner=1`). Logic: counter/placement in `src/domain/slotPickup.ts`, spin table in `src/domain/slotMachine.ts`, both run by `PlaySim`. Drawn by `slotOverlay.ts` (placeholder art) and the maze render path.
+
+### World pickup
+
+- Every 4 Quarters from BONUS fills, fruit bounty, Interest, Inheritance, or store freebies advances a remainder counter (`SLOT_PICKUP_QUARTERS` in `slotPickup.ts`). Quarters won on the reels do not count. Spending Quarters does not move the counter. Starting `?quarters=` does not count.
+- Spawn cell is a seeded random walkable tile (`slotPickup` stream); pellets may share the cell. Ghost-house floors are already excluded by `playerSolids`; the player spawn cell is avoided when another walkable tile exists.
+- Unclaimed machines keep exact `{col,row}` across level changes. On upside-down levels the row flips with the board. If collapse (or a maze change) makes the cell solid, it remaps to the nearest walkable cell.
+- Multiple machines may sit on the board at once. They do not appear on store floors or the boss; carried machines stay invisible through a store and respawn on the next play board. Anything still held when the boss board starts is dropped (so a miss on level 8 is gone after the final store).
+- Play only; LEARN omits the pickup ([learn.md](./learn.md#parity)). Debug: `?slotMachine=1` places one on each eligible board start. Probe state: `play.slotPickup.{progress,cells,awaitingPlacement,count}`.
 
 - 3 reels × 3 rows, 5 paylines (3 rows, 2 diagonals). Three in a line pay: Quarters a Quarter, a school a random unowned upgrade of that school (a Quarter if none is left), a life a life.
 - The outcome is rolled first from a weighted table, then a grid is built that shows exactly that many lines. Targets: nothing under 10%, at least 0.85 Quarters per spin, upgrades and lives each about 25%, multi-line hits about a third.
