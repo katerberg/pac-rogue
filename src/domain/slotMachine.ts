@@ -88,6 +88,7 @@ const SLOT_NO_WIN_HOLD_MS = 800;
 const SLOT_SINGLE_WIN_MS = 1400;
 const SLOT_MULTI_LINE_MS = 900;
 const SLOT_MULTI_FINALE_MS = 900;
+const SLOT_MISS_FLASH_MS = 200;
 
 export function slotOutcomeTable(livesOnReels: boolean): (SlotOutcome & { weight: number })[] {
   return SLOT_OUTCOMES.map((outcome) =>
@@ -322,12 +323,16 @@ export function slotHeld(timeline: SlotTimeline, elapsedMs: number): boolean {
   return elapsedMs >= timeline.durationMs;
 }
 
+export type SlotTitle = "BONUS!" | "NO PRIZE";
+
 export type SlotFrame = {
   stopped: boolean[];
   anticipating: boolean;
   activeWin: number | null;
   finale: boolean;
   held: boolean;
+  title: SlotTitle;
+  titleFlash: boolean;
 };
 
 const SLOT_STRIP: readonly SlotSymbol[] = [
@@ -363,12 +368,16 @@ export function slotFrame(spin: SlotSpin, timeline: SlotTimeline, elapsedMs: num
       activeWin = index;
     }
   });
+  const missedAtMs = spin.wins.length === 0 ? timeline.reelStopsMs[SLOT_REELS - 1]! : null;
+  const missed = missedAtMs !== null && elapsedMs >= missedAtMs;
   return {
     stopped,
     anticipating: spin.anticipation && stopped[1] === true && stopped[2] === false,
     activeWin,
     finale,
     held,
+    title: missed ? "NO PRIZE" : "BONUS!",
+    titleFlash: missed && elapsedMs < missedAtMs + SLOT_MISS_FLASH_MS,
   };
 }
 
@@ -402,4 +411,12 @@ export function slotReelCells(
         : strip[(index + reel * 5 + strip.length) % strip.length]!;
     return { symbol, y: row + position - scrolled };
   });
+}
+
+export const SLOT_MUSIC_DUCK_GAIN = 0.25;
+const SLOT_MUSIC_DUCK_FADE_MS = 400;
+
+export function stepMusicDuck(gain: number, ducked: boolean, deltaMs: number): number {
+  const step = ((1 - SLOT_MUSIC_DUCK_GAIN) * deltaMs) / SLOT_MUSIC_DUCK_FADE_MS;
+  return ducked ? Math.max(SLOT_MUSIC_DUCK_GAIN, gain - step) : Math.min(1, gain + step);
 }

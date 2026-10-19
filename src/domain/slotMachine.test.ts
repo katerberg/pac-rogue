@@ -11,7 +11,9 @@ import {
   SLOT_REEL_STOP_MS,
   SLOT_SCHOOLS,
   slotAnticipation,
+  SLOT_MUSIC_DUCK_GAIN,
   slotFrame,
+  stepMusicDuck,
   slotReelCells,
   slotOutcomeTable,
   slotSchoolWeights,
@@ -311,5 +313,43 @@ describe("slotFrame", () => {
     const single = { ...spin, wins: [spin.wins[0]!], anticipation: false };
     const frame = slotFrame(single, slotTimeline(single), slotTimeline(single).durationMs - 1);
     expect(frame).toMatchObject({ activeWin: 0, finale: false, anticipating: false });
+  });
+});
+
+describe("slot miss title", () => {
+  const miss = { grid: [], wins: [], anticipation: false, livesOnReels: true };
+  const timeline = slotTimeline(miss);
+  const stop = timeline.reelStopsMs[2]!;
+
+  it("reads BONUS! while spinning and NO PRIZE once the reels stop on a miss", () => {
+    expect(slotFrame(miss, timeline, stop - 1).title).toBe("BONUS!");
+    expect(slotFrame(miss, timeline, stop).title).toBe("NO PRIZE");
+    expect(slotFrame(miss, timeline, timeline.durationMs).title).toBe("NO PRIZE");
+  });
+
+  it("flashes once, right as the reels stop", () => {
+    expect(slotFrame(miss, timeline, stop - 1).titleFlash).toBe(false);
+    expect(slotFrame(miss, timeline, stop).titleFlash).toBe(true);
+    expect(slotFrame(miss, timeline, stop + 500).titleFlash).toBe(false);
+  });
+
+  it("keeps BONUS! and never flashes on a win", () => {
+    const win = { ...miss, wins: [{ line: 0, symbol: "quarter" as const }] };
+    const frame = slotFrame(win, slotTimeline(win), slotTimeline(win).durationMs);
+    expect(frame).toMatchObject({ title: "BONUS!", titleFlash: false });
+  });
+});
+
+describe("stepMusicDuck", () => {
+  it("fades down to a quarter while ducked and never below", () => {
+    const half = stepMusicDuck(1, true, 200);
+    expect(half).toBeLessThan(1);
+    expect(half).toBeGreaterThan(SLOT_MUSIC_DUCK_GAIN);
+    expect(stepMusicDuck(1, true, 10_000)).toBe(SLOT_MUSIC_DUCK_GAIN);
+  });
+
+  it("fades back up to full volume and never above", () => {
+    expect(stepMusicDuck(SLOT_MUSIC_DUCK_GAIN, false, 100)).toBeGreaterThan(SLOT_MUSIC_DUCK_GAIN);
+    expect(stepMusicDuck(SLOT_MUSIC_DUCK_GAIN, false, 10_000)).toBe(1);
   });
 });

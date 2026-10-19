@@ -15,6 +15,7 @@ import {
 import { playTurnSparks } from "./turnSparks";
 import { playChaffBurst } from "./chaffBurst";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
+import { stepMusicDuck } from "../../domain/slotMachine";
 import { bossTimerLabel } from "../../domain/bossRules";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
@@ -44,6 +45,7 @@ import {
   playPelletCollectSfx,
   playSfx,
   preloadSfx,
+  setMusicDuck,
   startLoopingSfx,
   stopLoopingSfx,
   type SfxId,
@@ -142,6 +144,8 @@ export class PlayScene extends Phaser.Scene {
   private powerPelletBreakFx!: PowerPelletBreakFx;
   private upgradeChoiceModal!: UpgradeChoiceModal;
   private slotOverlay!: SlotOverlay;
+  private musicDuck = 1;
+  private musicDuckApplied = 1;
   private keyPressed = false;
   private startingUpgradeCard!: StartingUpgradeCard;
   private keyEsc!: Phaser.Input.Keyboard.Key;
@@ -373,6 +377,11 @@ export class PlayScene extends Phaser.Scene {
     this.storePointer = null;
     this.applyEvents(events, delta);
     this.slotOverlay.sync(this.sim.slotView());
+    this.musicDuck = stepMusicDuck(this.musicDuck, this.sim.slotView() !== null, delta);
+    if (this.musicDuck !== 1 || this.musicDuckApplied !== 1) {
+      setMusicDuck(this, "gameplayMusic", this.musicDuck);
+      this.musicDuckApplied = this.musicDuck;
+    }
     this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
     this.drawBonusBar();
     this.runEndMenu?.tick(this.sim.runEndMenuArmed());

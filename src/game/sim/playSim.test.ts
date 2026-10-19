@@ -87,7 +87,7 @@ import {
   type UpgradeChoiceOffer,
   type UpgradeId,
 } from "../../domain/upgrades";
-import { slotWinTotals } from "../../domain/slotMachine";
+import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import type { ProgramDir } from "../../domain/programmer";
 import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
@@ -2669,6 +2669,19 @@ describe("PlaySim slot machine", () => {
         e.type === "sfx" && slotSfx.includes(e.id) ? [e.id] : [],
       );
       expect(heard).toEqual(["slotSpin", expected]);
+    }
+  });
+
+  it("titles a miss NO PRIZE and a win BONUS! on the held grid", () => {
+    for (const [slot, title] of [
+      [{ quarters: 0, upgrades: 0, lives: 0 }, "NO PRIZE"],
+      [{ quarters: 1, upgrades: 0, lives: 0 }, "BONUS!"],
+    ] as const) {
+      const sim = startSlotSim({ slot });
+      spinFromStreak(sim);
+      runUntil(sim, () => sim.snapshot().slot.held, 600, { keys: held("left") });
+      const view = sim.slotView()!;
+      expect(slotFrame(view.spin, view.timeline, view.elapsedMs).title).toBe(title);
     }
   });
 

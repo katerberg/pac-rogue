@@ -92,7 +92,8 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
     )
     .setStrokeStyle(3, FRAME_COLOR);
   const title = addPixelText(scene, 0, 0, "BONUS!", HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-  placePixelText(title, 0, -reelHeight / 2 - TITLE_GAP + 2, 0.5, 0);
+  const titleY = -reelHeight / 2 - TITLE_GAP + 2;
+  placePixelText(title, 0, titleY, 0.5, 0);
   const lines = scene.add.graphics();
   const window = scene.add.rectangle(
     0,
@@ -231,7 +232,13 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
         lines.lineStyle(4, LINE_COLOR, 0.9);
         lines.lineBetween(reelX(first![0]), rowY(first![1]), reelX(last![0]), rowY(last![1]));
       }
-      const pulse = frame.finale && Math.floor(elapsedMs / FINALE_PULSE_MS) % 2 === 0;
+      if (title.text !== frame.title) {
+        title.setText(frame.title);
+        placePixelText(title, 0, titleY, 0.5, 0);
+      }
+      title.setTint(frame.titleFlash ? PULSE_COLOR : TEXT_COLOR_YELLOW);
+      const pulse =
+        frame.titleFlash || (frame.finale && Math.floor(elapsedMs / FINALE_PULSE_MS) % 2 === 0);
       panel.setScale(pulse ? FINALE_SCALE : 1);
       box.setStrokeStyle(3, pulse ? PULSE_COLOR : FRAME_COLOR);
     },
