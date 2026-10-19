@@ -12,6 +12,7 @@ import {
   storeExitDirection,
   parseStoreLayout,
   storeCorner,
+  storeFocusForDir,
   sacrificeHints,
   pickMidStoreLevel,
   promptView,
@@ -139,6 +140,16 @@ describe("store layout", () => {
 
   it("rejects a store without exactly one freebie", () => {
     expect(() => parseStoreLayout("#U#\n#U#")).toThrow(/exactly one F/);
+  });
+});
+
+describe("storeFocusForDir", () => {
+  it("maps left to BUY and right to NEVER MIND, ignoring up and down", () => {
+    expect(storeFocusForDir("left")).toBe("yes");
+    expect(storeFocusForDir("right")).toBe("no");
+    expect(storeFocusForDir("up")).toBeNull();
+    expect(storeFocusForDir("down")).toBeNull();
+    expect(storeFocusForDir(null)).toBeNull();
   });
 });
 
@@ -458,7 +469,7 @@ describe("storeStep", () => {
     expect(promptView(reopened.state, 10, [])?.kind).toBe("confirm");
   });
 
-  it("focuses BUY on up and NEVER MIND on down, staying put on repeats", () => {
+  it("focuses BUY on left and NEVER MIND on right, staying put on repeats", () => {
     let state = storeStep(stateWith([]), input(upgradeCell), zeroRng).state;
     state = storeStep(state, input({ ...upgradeCell, focus: "yes" }), zeroRng).state;
     expect(state.confirmYes).toBe(true);

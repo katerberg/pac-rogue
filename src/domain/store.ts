@@ -57,6 +57,10 @@ export function storeSlotLabel(slot: StoreSlot): string {
 
 export type StoreDir = "up" | "down" | "left" | "right";
 
+export function storeFocusForDir(dir: StoreDir | null): "yes" | "no" | null {
+  return dir === "left" ? "yes" : dir === "right" ? "no" : null;
+}
+
 export type StoreSacrifice = { id: UpgradeId; stage: "power" | "school" };
 
 export type StoreState = {

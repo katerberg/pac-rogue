@@ -89,7 +89,7 @@ import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
 import { createSlotOverlay, type SlotOverlay } from "./slotOverlay";
-import type { StoreDir } from "../../domain/store";
+import { storeFocusForDir, type StoreDir } from "../../domain/store";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
@@ -365,7 +365,7 @@ export class PlayScene extends Phaser.Scene {
       {
         keys: this.readHeldKeys(),
         uiOpen: this.startingUpgradeCard.isActive() || this.upgradeChoiceModal.isActive(),
-        storeFocus: keyDir === "up" ? "yes" : keyDir === "down" ? "no" : null,
+        storeFocus: storeFocusForDir(keyDir),
         storeDir,
         storeConfirm:
           readsStoreKeys &&
