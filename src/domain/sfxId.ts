@@ -7,4 +7,9 @@ export type SfxId =
   | "interstitialMusic"
   | "levelComplete"
   | "death"
-  | "revive";
+  | "revive"
+  | "slotSpin"
+  | "slotFailure"
+  | "slotSingleSuccess"
+  | "slotMultiSuccess"
+  | "slotMegaBonus";

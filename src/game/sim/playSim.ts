@@ -217,7 +217,11 @@ import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClo
 import {
   pickSlotUpgrade,
   rollSlotOutcome,
+  SLOT_MEGA_BONUS_DELAY_MS,
+  SLOT_MEGA_BONUS_WINS,
+  SLOT_REELS,
   slotHeld,
+  slotResultSfx,
   slotSchoolWeights,
   slotTimeline,
   spinSlot,
@@ -549,7 +553,9 @@ export class PlaySim {
   private lastPlayerCell: Cell | null = null;
   private timeBonusDrain: TimeBonusDrain | null = null;
   private slotQueue: QuarterSource[] = [];
-  private slot: (SlotView & { source: QuarterSource }) | null = null;
+  private slot:
+    (SlotView & { source: QuarterSource; resultSounded: boolean; megaSounded: boolean }) | null =
+    null;
   private slotSpins = 0;
   private levelClearAwaitsSlots = false;
   private levelIndex = 1;
@@ -3006,6 +3012,18 @@ export class PlaySim {
       return true;
     }
     slot.elapsedMs = Math.min(slot.elapsedMs + delta, slot.timeline.durationMs);
+    if (!slot.resultSounded && slot.elapsedMs >= slot.timeline.reelStopsMs[SLOT_REELS - 1]!) {
+      slot.resultSounded = true;
+      this.emit({ type: "sfx", id: slotResultSfx(slot.spin.wins.length) });
+    }
+    if (
+      !slot.megaSounded &&
+      slot.spin.wins.length >= SLOT_MEGA_BONUS_WINS &&
+      slot.elapsedMs >= slot.timeline.reelStopsMs[SLOT_REELS - 1]! + SLOT_MEGA_BONUS_DELAY_MS
+    ) {
+      slot.megaSounded = true;
+      this.emit({ type: "sfx", id: "slotMegaBonus" });
+    }
     while (
       slot.paid < slot.spin.wins.length &&
       slot.elapsedMs >= slot.timeline.winStartsMs[slot.paid]!
@@ -3021,8 +3039,18 @@ export class PlaySim {
     const rng = this.random.stream("slots");
     const outcome = this.options.slot ?? rollSlotOutcome(rng, livesOnReels);
     const spin = spinSlot(outcome, slotSchoolWeights(this.runUpgrades.owned), livesOnReels, rng);
-    this.slot = { spin, timeline: slotTimeline(spin), elapsedMs: 0, paid: 0, won: [], source };
+    this.slot = {
+      spin,
+      timeline: slotTimeline(spin),
+      elapsedMs: 0,
+      paid: 0,
+      won: [],
+      source,
+      resultSounded: false,
+      megaSounded: false,
+    };
     this.slotSpins += 1;
+    this.emit({ type: "sfx", id: "slotSpin" });
   }
 
   private paySlotWin(win: SlotWin, source: QuarterSource): void {

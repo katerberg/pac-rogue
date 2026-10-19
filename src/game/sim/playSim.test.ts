@@ -87,7 +87,7 @@ import {
   type UpgradeChoiceOffer,
   type UpgradeId,
 } from "../../domain/upgrades";
-import { slotWinTotals } from "../../domain/slotMachine";
+import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import type { ProgramDir } from "../../domain/programmer";
 import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
@@ -2658,6 +2658,46 @@ describe("PlaySim slot machine", () => {
     spinFromStreak(sim);
     runFrames(sim, 30, { acknowledge: true });
     expect(sim.snapshot().slot).toMatchObject({ active: true, held: false });
+  });
+
+  it("plays the spin sound at the start and one result sound per spin, named for its outcome", () => {
+    const cases = [
+      [{ quarters: 0, upgrades: 0, lives: 0 }, ["slotFailure"]],
+      [{ quarters: 1, upgrades: 0, lives: 0 }, ["slotSingleSuccess"]],
+      [{ quarters: 2, upgrades: 0, lives: 0 }, ["slotMultiSuccess"]],
+      [{ quarters: 3, upgrades: 0, lives: 0 }, ["slotMultiSuccess", "slotMegaBonus"]],
+    ] as const;
+    const slotSfx = [
+      "slotSpin",
+      "slotFailure",
+      "slotSingleSuccess",
+      "slotMultiSuccess",
+      "slotMegaBonus",
+    ];
+    for (const [slot, expected] of cases) {
+      const sim = startSlotSim({ slot });
+      const events = [
+        ...runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") }),
+        ...settleSlots(sim),
+      ];
+      const heard = events.flatMap((e) =>
+        e.type === "sfx" && slotSfx.includes(e.id) ? [e.id] : [],
+      );
+      expect(heard).toEqual(["slotSpin", ...expected]);
+    }
+  });
+
+  it("titles a miss NO PRIZE and a win BONUS! on the held grid", () => {
+    for (const [slot, title] of [
+      [{ quarters: 0, upgrades: 0, lives: 0 }, "NO PRIZE"],
+      [{ quarters: 1, upgrades: 0, lives: 0 }, "BONUS!"],
+    ] as const) {
+      const sim = startSlotSim({ slot });
+      spinFromStreak(sim);
+      runUntil(sim, () => sim.snapshot().slot.held, 600, { keys: held("left") });
+      const view = sim.slotView()!;
+      expect(slotFrame(view.spin, view.timeline, view.elapsedMs).title).toBe(title);
+    }
   });
 
   it("jumpToSpinner starts on level 2 with one spin queued", () => {
