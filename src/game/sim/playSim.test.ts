@@ -6780,16 +6780,21 @@ describe("power pellet break VFX", () => {
 
   it("shows a notice instead of the starting upgrade when the pasted maze fails", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const sim = new PlaySim({ ...defaultPlayOptions(), mazeAscii: "#####" }, "test");
-    const events = sim.start();
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringMatching(/maze activate failed for custom; falling back to maze2: maze cols 5/),
-    );
-    warn.mockRestore();
-    expect(count(events, "startingNotice")).toBe(1);
-    expect(count(events, "startingUpgrade")).toBe(0);
-    expect(sim.snapshot().layout).toBe("maze2");
-    expect(sim.snapshot().upgrades).toHaveLength(0);
+    try {
+      const sim = new PlaySim({ ...defaultPlayOptions(), mazeAscii: "#####" }, "test");
+      const events = sim.start();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /maze activate failed for custom; falling back to maze2: maze cols 5/,
+        ),
+      );
+      expect(count(events, "startingNotice")).toBe(1);
+      expect(count(events, "startingUpgrade")).toBe(0);
+      expect(sim.snapshot().layout).toBe("maze2");
+      expect(sim.snapshot().upgrades).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
