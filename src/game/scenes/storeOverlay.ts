@@ -442,6 +442,9 @@ export function createStoreOverlay(
       text.setInteractive({ useHandCursor: true }).on("pointerdown", () => onChoose(choice));
     }
     const sacrificeView = buildSacrificeView(scene, onDir);
+    sacrificeView.show(null);
+    buy.setVisible(false);
+    neverMind.setVisible(false);
     const root = scene.add
       .container(x, y, [
         bg,
