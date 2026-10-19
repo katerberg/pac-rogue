@@ -2544,12 +2544,11 @@ describe("PlaySim bonus bar", () => {
     const events = runUntil(sim, () => sim.snapshot().bonus.streak >= 5, 120, {
       keys: held("left"),
     });
-    expect(sim.snapshot().quarters).toBe(0);
-    expect(sim.snapshot().slot.queued).toBe(1);
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.snapshot().slot).toMatchObject({ queued: 0, active: false, spins: 0 });
     expect(sim.snapshot().bonus.charge).toBe(1);
     expect(bonusEvents(events)).toEqual([{ type: "bonus", tier: 1, filled: 1 }]);
-    expect(settleSlots(sim)).toContainEqual({ type: "quarters", pulse: true });
-    expect(sim.snapshot().quarters).toBe(1);
+    expect(events).toContainEqual({ type: "quarters", pulse: true });
   });
 
   it("counts a power pellet once and ignores Extra Hungry's extra pellets", () => {
@@ -2602,10 +2601,11 @@ describe("PlaySim slot machine", () => {
   }
 
   function spinFromStreak(sim: PlaySim): void {
+    sim["slotQueue"].push("bonusBar");
     runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") });
   }
 
-  it("pauses play on a bar fill and pays every line the reels show", () => {
+  it("pauses play on a queued spin and pays every line the reels show", () => {
     const sim = startSlotSim();
     spinFromStreak(sim);
     const before = sim.snapshot();
@@ -2663,6 +2663,7 @@ describe("PlaySim slot machine", () => {
     ];
     for (const [slot, expected] of cases) {
       const sim = startSlotSim({ slot });
+      sim["slotQueue"].push("bonusBar");
       const events = [
         ...runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") }),
         ...settleSlots(sim),
@@ -2756,7 +2757,7 @@ describe("PlaySim slot machine", () => {
 
   it("runs one spin per fill, back to back, and pays them in order", () => {
     const sim = startSlotSim({ slot: { quarters: 2, upgrades: 0, lives: 0 }, quarters: 0 });
-    sim["applyBonus"]({ bar: sim["bonus"], tier: 0, filled: 2 });
+    sim["slotQueue"].push("bonusBar", "bonusBar");
     expect(sim.snapshot().slot.queued).toBe(2);
     runFrames(sim, 1);
     expect(sim.snapshot().slot).toMatchObject({ active: true, queued: 1 });
@@ -2767,7 +2768,10 @@ describe("PlaySim slot machine", () => {
 
   it("holds the time drain and the upgrade offer until the spin ends", () => {
     const sim = startSlotSim({ jumpToUpgrade: true, slot: { quarters: 1, upgrades: 0, lives: 0 } });
-    runUntil(sim, () => sim.snapshot().slot.active, 120);
+    runUntil(sim, () => sim.snapshot().bonus.draining, 120);
+    sim["slotQueue"].push("bonusBar");
+    runFrames(sim, 1);
+    expect(sim.snapshot().slot.active).toBe(true);
     const remaining = sim.snapshot().timeRemaining;
     expect(sim.snapshot().bonus.draining).toBe(true);
     runFrames(sim, 60);
@@ -2998,8 +3002,7 @@ describe("PlaySim fruit bonus charge", () => {
   it("pays a Quarter when fruit fills the bar", () => {
     const sim = startWithFruit({ quarters: 0, bonus: 200 });
     const events = eatFruit(sim);
-    expect(sim.snapshot().slot.queued).toBe(1);
-    settleSlots(sim);
+    expect(sim.snapshot().slot.queued).toBe(0);
     expect(sim.snapshot()).toMatchObject({ quarters: 1, bonus: { charge: 50 } });
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
   });
@@ -3750,10 +3753,9 @@ describe("Death's Bounty", () => {
     ghostOntoPlayer(sim);
     const events = runFrames(sim, 1);
     expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
-    expect(sim.snapshot().slot.queued).toBe(1);
+    expect(sim.snapshot().slot.queued).toBe(0);
     expect(sim.snapshot().bonus.charge).toBe(0);
     runUntil(sim, () => !sim.snapshot().dying, 240);
-    settleSlots(sim);
     expect(sim.snapshot().quarters).toBe(1);
   });
 
@@ -5286,8 +5288,7 @@ describe("Hunter", () => {
     ghostOnto(sim, second!);
     expect(sim.snapshot().bonus.charge).toBe(charge + 225);
     ghostOnto(sim, third!);
-    expect(sim.snapshot().slot.queued).toBe(1);
-    settleSlots(sim);
+    expect(sim.snapshot().slot.queued).toBe(0);
     expect(sim.snapshot().quarters).toBe(quarters + 1);
     expect(sim.snapshot().bonus.charge).toBe(charge + 225);
     expect(sim.snapshot().ghostsEatenThisFright).toBe(3);
