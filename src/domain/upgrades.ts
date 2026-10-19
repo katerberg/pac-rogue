@@ -1973,10 +1973,7 @@ export function pickFruitPowerBases(
   owned: readonly UpgradeId[],
   rng: () => number,
 ): BaseUpgradeId[] {
-  const powerBases = owned
-    .filter((id) => getUpgradeDef(id).onPowerPellet !== undefined)
-    .map(baseIdOf);
-  return pickEchoBases(fruitPowerEffects(owned), powerBases, rng);
+  return pickEchoBases(fruitPowerEffects(owned), ownedPowerPelletBases(owned), rng);
 }
 
 export function fruitFeastThresholds(owned: readonly UpgradeId[]): readonly number[] | null {
@@ -2053,12 +2050,13 @@ export function echoEffects(owned: readonly UpgradeId[]): EchoEffects | null {
   return ownedValue(owned, "echoEffects") ?? null;
 }
 
+function ownedPowerPelletBases(owned: readonly UpgradeId[]): BaseUpgradeId[] {
+  return owned.filter((id) => getUpgradeDef(id).onPowerPellet !== undefined).map(baseIdOf);
+}
+
 export function queueEcho(state: RunUpgrades, rng: () => number): RunUpgrades {
   const owned = effectiveOwned(state.owned);
-  const powerBases = owned
-    .filter((id) => getUpgradeDef(id).onPowerPellet !== undefined)
-    .map(baseIdOf);
-  const bases = pickEchoBases(echoEffects(owned), powerBases, rng);
+  const bases = pickEchoBases(echoEffects(owned), ownedPowerPelletBases(owned), rng);
   if (bases.length === 0) {
     return state;
   }
