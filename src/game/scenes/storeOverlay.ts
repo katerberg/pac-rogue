@@ -1,8 +1,15 @@
 import Phaser from "phaser";
 import { fitFontSize } from "../../domain/fitFontSize";
 import { wrapCharsForBox } from "../../domain/textLayout";
-import { cellCenterX, cellCenterY, getActiveLayout, pelletDisplaySize } from "../../domain/maze";
-import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfieldBounds";
+import {
+  CLASSIC_MAZE_COLS,
+  CLASSIC_MAZE_ROWS,
+  cellCenterX,
+  cellCenterY,
+  computeMazeGeometry,
+  getActiveLayout,
+  pelletDisplaySize,
+} from "../../domain/maze";
 import {
   STORE_ENHANCE_BORDER_COLOR,
   enhanceGlowAlpha,
@@ -54,17 +61,17 @@ import {
 
 const TILE_DEPTH = -1;
 const PANEL_DEPTH = 20;
-const PANEL_WIDTH = 168;
-const PANEL_HEIGHT = 190;
+const PANEL_WIDTH = 208;
+const PANEL_HEIGHT = 124;
 const PANEL_SIDE_PAD = 8;
-const PANEL_CORNER_MARGIN = 8;
-const PANEL_TOP_PAD = 12;
-const PANEL_ROW_GAP = 8;
-const PANEL_TITLE_MAX_CHARS = 10;
-const PANEL_BODY_MAX_CHARS = 18;
+const PANEL_TOP_PAD = 4;
+const PANEL_ROW_GAP = 2;
+const PANEL_TITLE_MAX_CHARS = 24;
+const PANEL_BODY_MAX_CHARS = 24;
+const PLAY_AREA = computeMazeGeometry(CLASSIC_MAZE_COLS, CLASSIC_MAZE_ROWS);
 const PANEL_DIM_ALPHA = 0.3;
-const BUY_Y = PANEL_HEIGHT / 2 - 42;
-const NEVER_MIND_Y = PANEL_HEIGHT / 2 - 18;
+const BUY_Y = PANEL_HEIGHT / 2 - 28;
+const NEVER_MIND_Y = PANEL_HEIGHT / 2 - 10;
 const FREEBIE_ICON_INSET_PX = 2;
 
 export type StoreOverlay = {
@@ -98,12 +105,12 @@ const SACRIFICE_TITLE = "SACRIFICE";
 const SACRIFICE_COIN_MARK = "#";
 const SACRIFICE_SCHOOL_MARK = "@@";
 const SACRIFICE_SCHOOL_ICON_PX = 12;
-const SACRIFICE_BODY_CHARS = 19;
-const SACRIFICE_SYMBOL_SIZE = 48;
-const SACRIFICE_SYMBOL_Y = 8;
-const SACRIFICE_LEFT_X = -34;
-const SACRIFICE_RIGHT_X = 46;
-const SACRIFICE_ARROW_GAP = 30;
+const SACRIFICE_BODY_CHARS = 24;
+const SACRIFICE_SYMBOL_SIZE = 40;
+const SACRIFICE_SYMBOL_Y = 14;
+const SACRIFICE_LEFT_X = -40;
+const SACRIFICE_RIGHT_X = 40;
+const SACRIFICE_ARROW_GAP = 26;
 const SACRIFICE_HINT_Y = SACRIFICE_SYMBOL_Y + 42;
 const SACRIFICE_HINT_X = PANEL_WIDTH / 2 - PANEL_SIDE_PAD;
 const SACRIFICE_FOOTER_BOTTOM_Y = PANEL_HEIGHT / 2 - 8;
@@ -205,11 +212,11 @@ function sacrificeBody(school: UpgradeSchool | null): string {
 
 function panelCenter(slot: StoreSlot, freebie: StoreFreebie): { x: number; y: number } {
   const { right, bottom } = storeCorner(slot, freebie);
-  const halfW = PANEL_WIDTH / 2 + PANEL_CORNER_MARGIN;
-  const halfH = PANEL_HEIGHT / 2 + PANEL_CORNER_MARGIN;
+  const left = PLAY_AREA.offsetX;
+  const top = PLAY_AREA.offsetY;
   return {
-    x: right ? PLAYFIELD_WIDTH - halfW : halfW,
-    y: bottom ? PLAYFIELD_HEIGHT - halfH : halfH,
+    x: right ? left + PLAY_AREA.pixelWidth - PANEL_WIDTH / 2 : left + PANEL_WIDTH / 2,
+    y: bottom ? top + PLAY_AREA.pixelHeight - PANEL_HEIGHT / 2 : top + PANEL_HEIGHT / 2,
   };
 }
 
