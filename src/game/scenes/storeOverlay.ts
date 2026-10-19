@@ -239,36 +239,17 @@ type SacrificeParts = {
   placeIcons: () => void;
 };
 
-const ARROW_DIRS: readonly StoreDir[] = ["up", "down", "left", "right"];
+const ARROW_DIRS = ["up", "down"] as const;
 
-function arrowPoints(dir: StoreDir, x: number, y: number): [number, number][] {
+function arrowPoints(dir: (typeof ARROW_DIRS)[number], x: number, y: number): [number, number][] {
   const r = SACRIFICE_ARROW_SIZE;
-  switch (dir) {
-    case "up":
-      return [
-        [x, y - r],
-        [x - r, y + r - 2],
-        [x + r, y + r - 2],
-      ];
-    case "down":
-      return [
-        [x, y + r],
-        [x - r, y - r + 2],
-        [x + r, y - r + 2],
-      ];
-    case "left":
-      return [
-        [x - r, y],
-        [x + r - 2, y - r],
-        [x + r - 2, y + r],
-      ];
-    case "right":
-      return [
-        [x + r, y],
-        [x - r + 2, y - r],
-        [x - r + 2, y + r],
-      ];
-  }
+  const tip = dir === "up" ? y - r : y + r;
+  const base = dir === "up" ? y + r - 2 : y - r + 2;
+  return [
+    [x, tip],
+    [x - r, base],
+    [x + r, base],
+  ];
 }
 
 type TextMark = { line: number; col: number; width: number };
@@ -379,13 +360,9 @@ function buildSacrificeView(scene: Phaser.Scene, onDir: (dir: StoreDir) => void)
       const selectedX = view.stage === "school" ? SACRIFICE_RIGHT_X : SACRIFICE_LEFT_X;
       arrows.fillStyle(TEXT_COLOR_YELLOW, 1);
       ARROW_DIRS.forEach((dir, i) => {
-        const shown = hints !== null && (hints.vertical || dir === "left" || dir === "right");
-        const cx =
-          selectedX +
-          (dir === "left" ? -SACRIFICE_ARROW_GAP : dir === "right" ? SACRIFICE_ARROW_GAP : 0);
-        const cy =
-          SACRIFICE_SYMBOL_Y +
-          (dir === "up" ? -SACRIFICE_ARROW_GAP : dir === "down" ? SACRIFICE_ARROW_GAP : 0);
+        const shown = hints !== null && hints.vertical;
+        const cx = selectedX;
+        const cy = SACRIFICE_SYMBOL_Y + (dir === "up" ? -SACRIFICE_ARROW_GAP : SACRIFICE_ARROW_GAP);
         zones[i]!.setPosition(cx, cy).setVisible(shown);
         if (shown) {
           const [a, b, c] = arrowPoints(dir, cx, cy);
