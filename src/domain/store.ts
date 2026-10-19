@@ -57,6 +57,10 @@ export function storeSlotLabel(slot: StoreSlot): string {
   }
 }
 
+export type StoreDir = "up" | "down" | "left" | "right";
+
+export type StoreSacrifice = { id: UpgradeId; stage: "power" | "school" };
+
 export type StoreState = {
   slots: readonly StoreSlot[];
   freebie: StoreFreebie;
@@ -64,6 +68,7 @@ export type StoreState = {
   dismissedSlot: number | null;
   clickedSlot: number | null;
   confirmYes: boolean;
+  sacrifice: StoreSacrifice | null;
 };
 
 export type StoreStepInput = {
@@ -71,6 +76,7 @@ export type StoreStepInput = {
   row: number;
   focus: "yes" | "no" | null;
   enter: boolean;
+  dir?: StoreDir | null;
   pick?: "yes" | "no" | null;
   click?: number | null;
   moving?: boolean;
@@ -231,6 +237,7 @@ export function createStoreState(
     dismissedSlot: null,
     clickedSlot: null,
     confirmYes: false,
+    sacrifice: null,
   };
   return {
     ...stocked,
@@ -320,7 +327,7 @@ export function promptView(
   }
   const slot = state.slots[state.activeSlot]!;
   const price = slotPrice(slot);
-  if (slot.kind === "swap" && swapPool(state, owned).length === 0) {
+  if (slot.kind === "swap" && (owned.length === 0 || swapPool(state, owned).length === 0)) {
     return { kind: "nothingToSwap", slot, price };
   }
   if (slot.kind === "enhance" && enhanceableUpgrades(owned).length === 0) {
@@ -395,41 +402,59 @@ function slotStep(
           ? cellAt
           : null,
     confirmYes: at === state.activeSlot && state.confirmYes,
+    sacrifice:
+      at === null
+        ? null
+        : at === state.activeSlot && state.sacrifice !== null
+          ? state.sacrifice
+          : defaultSacrifice(state.slots[at]!, input.owned),
   };
   const view = promptView(next, input.quarters, input.owned);
   if (at === null || view?.kind !== "confirm") {
     return { state: next, purchase: null };
   }
-  const picked = input.pick ?? null;
-  if (picked === null && input.focus !== null) {
-    return { state: { ...next, confirmYes: input.focus === "yes" }, purchase: null };
+  let current = next;
+  let yes: boolean;
+  if (view.slot.kind === "swap") {
+    const nav = sacrificeNav(next, input);
+    if (nav.choice === null) {
+      return { state: nav.state, purchase: null };
+    }
+    current = nav.state;
+    yes = nav.choice === "yes";
+  } else {
+    const picked = input.pick ?? null;
+    if (picked === null && input.focus !== null) {
+      return { state: { ...next, confirmYes: input.focus === "yes" }, purchase: null };
+    }
+    if (picked === null && !input.enter) {
+      return { state: next, purchase: null };
+    }
+    yes = picked === null ? next.confirmYes : picked === "yes";
   }
-  if (picked === null && !input.enter) {
-    return { state: next, purchase: null };
-  }
-  const yes = picked === null ? next.confirmYes : picked === "yes";
   if (!yes) {
     return {
       state: {
-        ...next,
+        ...current,
         activeSlot: clicked === null ? at : cellAt,
-        dismissedSlot: clicked === null || clicked === cellAt ? at : next.dismissedSlot,
+        dismissedSlot: clicked === null || clicked === cellAt ? at : current.dismissedSlot,
         clickedSlot: null,
         confirmYes: false,
       },
       purchase: null,
     };
   }
-  next.confirmYes = true;
+  current.confirmYes = true;
 
   const slot = view.slot;
-  const slots = next.slots.map((s, i) => (i === at ? { ...s, sold: true } : s));
+  const slots = current.slots.map((s, i) => (i === at ? { ...s, sold: true } : s));
   const sold: StoreState = {
-    ...next,
+    ...current,
     slots,
     activeSlot: null,
     clickedSlot: null,
     confirmYes: false,
+    sacrifice: null,
   };
   if (slot.kind === "upgrade") {
     return { state: sold, purchase: { kind: "upgrade", id: slot.id, price: view.price } };
@@ -447,13 +472,21 @@ function slotStep(
       purchase: { kind: "enhance", targetId, price: view.price },
     };
   }
-  const outgoingId =
-    input.owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId)) ?? slot.outgoingId;
-  const afterSwap = swapIncomingPool(next, input.owned, outgoingId);
+  const outgoingId = input.owned.find((id) => id === current.sacrifice?.id) ?? input.owned[0]!;
+  const afterSwap = swapIncomingPool(current, input.owned, outgoingId);
+  const school = swapIncomingSchool(slot);
+  const sameSchool =
+    school === null ? [] : afterSwap.filter((id) => getUpgradeDef(id).school === school);
+  const rerollPool =
+    sameSchool.length > 0
+      ? sameSchool
+      : afterSwap.length > 0
+        ? afterSwap
+        : swapPool(current, input.owned);
   const incomingBase =
     slot.incomingBaseId !== null && afterSwap.includes(slot.incomingBaseId)
       ? slot.incomingBaseId
-      : takeWeightedUpgrade(afterSwap.length > 0 ? afterSwap : swapPool(next, input.owned), rng);
+      : takeWeightedUpgrade(rerollPool, rng);
   return {
     state: sold,
     purchase: {
@@ -463,6 +496,55 @@ function slotStep(
       price: view.price,
     },
   };
+}
+
+export function sacrificeHints(stage: StoreSacrifice["stage"]): {
+  vertical: boolean;
+  left: string;
+  right: string;
+} {
+  return stage === "power"
+    ? { vertical: true, left: "BACK", right: "BUY" }
+    : { vertical: false, left: "BACK", right: "CONFIRM" };
+}
+
+function defaultSacrifice(slot: StoreSlot, owned: readonly UpgradeId[]): StoreSacrifice | null {
+  if (slot.kind !== "swap" || owned.length === 0) {
+    return null;
+  }
+  const stocked = owned.find((id) => baseIdOf(id) === baseIdOf(slot.outgoingId));
+  return { id: stocked ?? owned[0]!, stage: "power" };
+}
+
+function sacrificeNav(
+  state: StoreState,
+  input: StoreStepInput,
+): { state: StoreState; choice: "yes" | "no" | null } {
+  const sacrifice = state.sacrifice;
+  if (sacrifice === null) {
+    return { state, choice: "no" };
+  }
+  if (input.pick) {
+    return { state, choice: input.pick };
+  }
+  const dir = input.dir ?? null;
+  const stage = (next: StoreSacrifice["stage"]) => ({
+    state: { ...state, sacrifice: { ...sacrifice, stage: next } },
+    choice: null,
+  });
+  if (sacrifice.stage === "school") {
+    if (dir === "left") return stage("power");
+    return { state, choice: dir === "right" || input.enter ? "yes" : null };
+  }
+  if (dir === "left") return { state, choice: "no" };
+  if (dir === "right" || input.enter) return stage("school");
+  if (dir === "up" || dir === "down") {
+    const at = input.owned.findIndex((id) => id === sacrifice.id);
+    const step = dir === "up" ? -1 : 1;
+    const id = input.owned[(at + step + input.owned.length) % input.owned.length]!;
+    return { state: { ...state, sacrifice: { ...sacrifice, id } }, choice: null };
+  }
+  return { state, choice: null };
 }
 
 export const STORE_EXIT_SLIDE_TILES = 2;

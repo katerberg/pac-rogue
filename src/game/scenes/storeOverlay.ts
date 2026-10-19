@@ -7,11 +7,14 @@ import {
   STORE_ENHANCE_BORDER_COLOR,
   STORE_SLOT_SIZE,
   enhanceGlowAlpha,
+  sacrificeHints,
   slotPrice,
   storePanelMode,
   swapIncomingSchool,
+  type StoreDir,
   type StoreFreebie,
   type StorePromptView,
+  type StoreSacrifice,
   type StoreSlot,
   type StoreState,
 } from "../../domain/store";
@@ -33,6 +36,7 @@ import {
   addPixelText,
   HUD_FONT_SIZE,
   MENU_OPTION_FONT_SIZE,
+  MENU_TITLE_FONT_SIZE,
   placePixelText,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
@@ -70,12 +74,19 @@ export type StoreOverlay = {
   destroy: () => void;
 };
 
+type SacrificeView = {
+  outgoingId: UpgradeId;
+  incomingSchool: UpgradeSchool | null;
+  stage: StoreSacrifice["stage"] | null;
+};
+
 type PanelContent = {
   title: string;
   school: UpgradeSchool | null;
   rare: boolean;
   body: string;
   footer: string;
+  sacrifice: SacrificeView | null;
 };
 
 type Panel = {
@@ -83,6 +94,22 @@ type Panel = {
   show: (content: PanelContent) => void;
   showChoice: (confirmYes: boolean | null) => void;
 };
+
+const SACRIFICE_TITLE = "SACRIFICE";
+const SACRIFICE_COIN_MARK = "#";
+const SACRIFICE_BODY_CHARS = 19;
+const SACRIFICE_SYMBOL_SIZE = 48;
+const SACRIFICE_SYMBOL_Y = 8;
+const SACRIFICE_LEFT_X = -34;
+const SACRIFICE_RIGHT_X = 46;
+const SACRIFICE_ARROW_GAP = 30;
+const SACRIFICE_HINT_Y = SACRIFICE_SYMBOL_Y + 42;
+const SACRIFICE_HINT_X = PANEL_WIDTH / 2 - PANEL_SIDE_PAD;
+const SACRIFICE_FOOTER_BOTTOM_Y = PANEL_HEIGHT / 2 - 8;
+const SACRIFICE_SYMBOL_ALPHA = 0.3;
+const SACRIFICE_SELECTED_ALPHA = 0.55;
+const SACRIFICE_ARROW_SIZE = 6;
+const SACRIFICE_LABEL_MAX_PX = 72;
 
 function slotSchool(slot: StoreSlot): UpgradeSchool | null {
   if (slot.kind === "upgrade") {
@@ -101,7 +128,7 @@ function slotRare(slot: StoreSlot): boolean {
 function slotTitle(slot: StoreSlot): string {
   switch (slot.kind) {
     case "swap":
-      return "SWAP";
+      return SACRIFICE_TITLE;
     case "enhance":
       return getUpgradeDef(enhancedIdOf(slot.targetId)).label;
     case "upgrade":
@@ -121,10 +148,7 @@ function slotBody(slot: StoreSlot): string {
 }
 
 function swapBody(slot: StoreSlot & { kind: "swap" }): string {
-  const lost = getUpgradeDef(slot.outgoingId);
-  const incoming = swapIncomingSchool(slot);
-  const gain = incoming === null ? "?" : UPGRADE_SCHOOL_LABELS[incoming];
-  return `Lose ${lost.label}. Gain random ${gain} upgrade.`;
+  return sacrificeBody(swapIncomingSchool(slot));
 }
 
 function promptFooter(prompt: StorePromptView): string {
@@ -158,13 +182,27 @@ function dotFrame(graphics: Phaser.GameObjects.Graphics, size: number): void {
   }
 }
 
-function slotContent(slot: StoreSlot, footer: string): PanelContent {
+function slotContent(
+  slot: StoreSlot,
+  footer: string,
+  sacrifice: StoreSacrifice | null,
+  choosing: boolean,
+): PanelContent {
+  const swapView: SacrificeView | null =
+    slot.kind === "swap" && !slot.sold
+      ? {
+          outgoingId: sacrifice?.id ?? slot.outgoingId,
+          incomingSchool: swapIncomingSchool(slot),
+          stage: choosing ? (sacrifice?.stage ?? null) : null,
+        }
+      : null;
   return {
     title: slotTitle(slot),
     school: slotSchool(slot),
     rare: slotRare(slot),
     body: slotBody(slot),
     footer,
+    sacrifice: swapView,
   };
 }
 
@@ -176,7 +214,16 @@ function gotContent(id: UpgradeId): PanelContent {
     rare: def.rare === true,
     body: def.description,
     footer: "GOT IT!",
+    sacrifice: null,
   };
+}
+
+function sacrificeBody(school: UpgradeSchool | null): string {
+  const name = school === null ? "?" : UPGRADE_SCHOOL_LABELS[school].toUpperCase();
+  return wrapText(
+    `Pay ${SACRIFICE_COIN_MARK} and lose power. Gain a random ${name} power.`,
+    SACRIFICE_BODY_CHARS,
+  );
 }
 
 function panelCenter(slot: StoreSlot, freebie: StoreFreebie): { x: number; y: number } {
@@ -188,10 +235,182 @@ function panelCenter(slot: StoreSlot, freebie: StoreFreebie): { x: number; y: nu
   };
 }
 
+type SacrificeParts = {
+  objects: Phaser.GameObjects.GameObject[];
+  pay: Phaser.GameObjects.BitmapText;
+  show: (view: SacrificeView | null) => void;
+  placeCoin: () => void;
+};
+
+const ARROW_DIRS: readonly StoreDir[] = ["up", "down", "left", "right"];
+
+function arrowPoints(dir: StoreDir, x: number, y: number): [number, number][] {
+  const r = SACRIFICE_ARROW_SIZE;
+  switch (dir) {
+    case "up":
+      return [
+        [x, y - r],
+        [x - r, y + r - 2],
+        [x + r, y + r - 2],
+      ];
+    case "down":
+      return [
+        [x, y + r],
+        [x - r, y - r + 2],
+        [x + r, y - r + 2],
+      ];
+    case "left":
+      return [
+        [x - r, y],
+        [x + r - 2, y - r],
+        [x + r - 2, y + r],
+      ];
+    case "right":
+      return [
+        [x + r, y],
+        [x - r + 2, y - r],
+        [x - r + 2, y + r],
+      ];
+  }
+}
+
+function buildSacrificeView(scene: Phaser.Scene, onDir: (dir: StoreDir) => void): SacrificeParts {
+  const symbol = (x: number): Phaser.GameObjects.Image =>
+    scene.add
+      .image(x, SACRIFICE_SYMBOL_Y, "")
+      .setDisplaySize(SACRIFICE_SYMBOL_SIZE, SACRIFICE_SYMBOL_SIZE);
+  const pay = addPixelText(
+    scene,
+    0,
+    0,
+    "",
+    UPGRADES_HUD_FONT_SIZE,
+    TEXT_COLOR_WHITE,
+  ).setCenterAlign();
+  const coin = addQuarterIcon(scene, 0, 0, UPGRADES_HUD_FONT_SIZE);
+  const leftArt = symbol(SACRIFICE_LEFT_X);
+  const rightArt = symbol(SACRIFICE_RIGHT_X);
+  const leftLabel = addPixelText(
+    scene,
+    0,
+    0,
+    "",
+    UPGRADES_HUD_FONT_SIZE,
+    TEXT_COLOR_WHITE,
+  ).setCenterAlign();
+  const rightMark = addPixelText(scene, 0, 0, "?", MENU_TITLE_FONT_SIZE, TEXT_COLOR_WHITE);
+  placePixelText(rightMark, SACRIFICE_RIGHT_X, SACRIFICE_SYMBOL_Y, 0.5, 0.5);
+  const arrows = scene.add.graphics();
+  const zones = ARROW_DIRS.map((dir) =>
+    scene.add
+      .zone(0, 0, SACRIFICE_ARROW_SIZE * 4, SACRIFICE_ARROW_SIZE * 4)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => onDir(dir)),
+  );
+  const leftHint = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+  const rightHint = addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+  leftHint.setInteractive({ useHandCursor: true }).on("pointerdown", () => onDir("left"));
+  rightHint.setInteractive({ useHandCursor: true }).on("pointerdown", () => onDir("right"));
+  const objects = [
+    leftArt,
+    rightArt,
+    leftLabel,
+    rightMark,
+    pay,
+    coin,
+    arrows,
+    ...zones,
+    leftHint,
+    rightHint,
+  ];
+  let coinAt: { line: number; col: number } | null = null;
+  return {
+    objects,
+    pay,
+    show: (view) => {
+      for (const object of objects) {
+        (object as Phaser.GameObjects.Components.Visible).setVisible(view !== null);
+      }
+      arrows.clear();
+      if (view === null) {
+        return;
+      }
+      const wrapped = sacrificeBody(view.incomingSchool).split("\n");
+      const line = wrapped.findIndex((text) => text.includes(SACRIFICE_COIN_MARK));
+      coinAt = { line, col: wrapped[line]!.indexOf(SACRIFICE_COIN_MARK) };
+      pay.setText(wrapped.join("\n").replace(SACRIFICE_COIN_MARK, " "));
+      const outgoing = getUpgradeDef(view.outgoingId);
+      leftArt
+        .setTexture(schoolArtTextureKey(outgoing.school))
+        .setDisplaySize(SACRIFICE_SYMBOL_SIZE, SACRIFICE_SYMBOL_SIZE);
+      leftLabel.setText(wrapText(outgoing.label, SACRIFICE_LABEL_MAX_PX / UPGRADES_HUD_FONT_SIZE));
+      placePixelText(leftLabel, SACRIFICE_LEFT_X, SACRIFICE_SYMBOL_Y, 0.5, 0.5);
+      rightArt.setVisible(view.incomingSchool !== null);
+      rightMark.setVisible(view.incomingSchool === null);
+      if (view.incomingSchool !== null) {
+        rightArt
+          .setTexture(schoolArtTextureKey(view.incomingSchool))
+          .setDisplaySize(SACRIFICE_SYMBOL_SIZE, SACRIFICE_SYMBOL_SIZE);
+      }
+      leftArt.setAlpha(view.stage === "power" ? SACRIFICE_SELECTED_ALPHA : SACRIFICE_SYMBOL_ALPHA);
+      rightArt.setAlpha(
+        view.stage === "school" ? SACRIFICE_SELECTED_ALPHA : SACRIFICE_SYMBOL_ALPHA,
+      );
+      rightMark.setAlpha(
+        view.stage === "school" ? SACRIFICE_SELECTED_ALPHA : SACRIFICE_SYMBOL_ALPHA,
+      );
+      const hints = view.stage === null ? null : sacrificeHints(view.stage);
+      const selectedX = view.stage === "school" ? SACRIFICE_RIGHT_X : SACRIFICE_LEFT_X;
+      arrows.fillStyle(TEXT_COLOR_YELLOW, 1);
+      ARROW_DIRS.forEach((dir, i) => {
+        const shown = hints !== null && (hints.vertical || dir === "left" || dir === "right");
+        const cx =
+          selectedX +
+          (dir === "left" ? -SACRIFICE_ARROW_GAP : dir === "right" ? SACRIFICE_ARROW_GAP : 0);
+        const cy =
+          SACRIFICE_SYMBOL_Y +
+          (dir === "up" ? -SACRIFICE_ARROW_GAP : dir === "down" ? SACRIFICE_ARROW_GAP : 0);
+        zones[i]!.setPosition(cx, cy).setVisible(shown);
+        if (shown) {
+          const [a, b, c] = arrowPoints(dir, cx, cy);
+          arrows.fillTriangle(a![0], a![1], b![0], b![1], c![0], c![1]);
+        }
+      });
+      leftHint.setVisible(hints !== null);
+      rightHint.setVisible(hints !== null);
+      if (hints !== null) {
+        leftHint.setText(`< ${hints.left}`);
+        rightHint.setText(`${hints.right} >`);
+        placePixelText(leftHint, -SACRIFICE_HINT_X, SACRIFICE_HINT_Y, 0, 0.5);
+        placePixelText(rightHint, SACRIFICE_HINT_X, SACRIFICE_HINT_Y, 1, 0.5);
+      }
+    },
+    placeCoin: () => {
+      if (coinAt === null) {
+        return;
+      }
+      const lines = pay.text.split("\n");
+      const widest = Math.max(...lines.map((text) => text.length));
+      const bounds = pay.getTextBounds(true).local;
+      const pitch =
+        lines.length > 1 ? (bounds.height - UPGRADES_HUD_FONT_SIZE) / (lines.length - 1) : 0;
+      const half = UPGRADES_HUD_FONT_SIZE / 2;
+      coin.setPosition(
+        pay.x +
+          ((widest - lines[coinAt.line]!.length) * UPGRADES_HUD_FONT_SIZE) / 2 +
+          coinAt.col * UPGRADES_HUD_FONT_SIZE +
+          half,
+        pay.y + coinAt.line * pitch + half,
+      );
+    },
+  };
+}
+
 export function createStoreOverlay(
   scene: Phaser.Scene,
   onChoose: (choice: "yes" | "no") => void,
   onSelect: (index: number) => void,
+  onDir: (dir: StoreDir) => void,
 ): StoreOverlay {
   let tiles: (Phaser.GameObjects.Container | null)[] = [];
   let panels: Panel[] = [];
@@ -221,8 +440,19 @@ export function createStoreOverlay(
     ] as const) {
       text.setInteractive({ useHandCursor: true }).on("pointerdown", () => onChoose(choice));
     }
+    const sacrificeView = buildSacrificeView(scene, onDir);
     const root = scene.add
-      .container(x, y, [bg, zone, watermark, title, body, footer, buy, neverMind])
+      .container(x, y, [
+        bg,
+        zone,
+        watermark,
+        title,
+        body,
+        footer,
+        buy,
+        neverMind,
+        ...sacrificeView.objects,
+      ])
       .setDepth(PANEL_DEPTH);
     const rareFx = createRareFxToggle(scene, root, PANEL_WIDTH, PANEL_HEIGHT);
     let shown = "";
@@ -245,8 +475,26 @@ export function createStoreOverlay(
           Math.min(max, wrapCharsForBox(PANEL_WIDTH, fontSize, PANEL_SIDE_PAD));
         title.setText(wrapText(content.title, budget(titleSize, PANEL_TITLE_MAX_CHARS)));
         title.setFontSize(titleSize);
-        body.setText(wrapText(content.body, budget(UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS)));
         footer.setText(content.footer);
+        sacrificeView.show(content.sacrifice);
+        if (content.sacrifice !== null) {
+          watermark.setVisible(false);
+          body.setVisible(false);
+          stackTextsFromTop(
+            [
+              { text: title, gapBelow: PANEL_ROW_GAP },
+              { text: sacrificeView.pay, gapBelow: 0 },
+            ],
+            -PANEL_HEIGHT / 2 + PANEL_TOP_PAD,
+          );
+          sacrificeView.placeCoin();
+          placePixelText(footer, 0, SACRIFICE_FOOTER_BOTTOM_Y, 0.5, 1);
+          footer.setVisible(content.sacrifice.stage === null);
+          return;
+        }
+        body.setVisible(true);
+        footer.setVisible(true);
+        body.setText(wrapText(content.body, budget(UPGRADES_HUD_FONT_SIZE, PANEL_BODY_MAX_CHARS)));
         setSchoolWatermark(watermark, content.school, PANEL_WIDTH, PANEL_HEIGHT);
         stackTextsFromTop(
           [
@@ -390,8 +638,13 @@ export function createStoreOverlay(
           : mode === "info" && prompt !== null
             ? promptFooter(prompt)
             : `COST ${slotPrice(slot)}`;
-        panel.show(got !== null ? gotContent(got) : slotContent(slot, footer));
-        panel.showChoice(mode === "choosing" ? state.confirmYes : null);
+        const choosing = mode === "choosing";
+        panel.show(
+          got !== null
+            ? gotContent(got)
+            : slotContent(slot, footer, i === state.activeSlot ? state.sacrifice : null, choosing),
+        );
+        panel.showChoice(choosing && slot.kind !== "swap" ? state.confirmYes : null);
         panel.root.setAlpha(mode === "dimmed" ? PANEL_DIM_ALPHA : 1);
       });
     },
