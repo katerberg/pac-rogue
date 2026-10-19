@@ -376,8 +376,9 @@ export class PlayScene extends Phaser.Scene {
     this.storeDir = null;
     this.storePointer = null;
     this.applyEvents(events, delta);
-    this.slotOverlay.sync(this.sim.slotView());
-    this.musicDuck = stepMusicDuck(this.musicDuck, this.sim.slotView() !== null, delta);
+    const slotView = this.sim.slotView();
+    this.slotOverlay.sync(slotView);
+    this.musicDuck = stepMusicDuck(this.musicDuck, slotView !== null, delta);
     if (this.musicDuck !== 1 || this.musicDuckApplied !== 1) {
       setMusicDuck(this, "gameplayMusic", this.musicDuck);
       this.musicDuckApplied = this.musicDuck;
