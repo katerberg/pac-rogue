@@ -7,6 +7,7 @@ import type { StorePromptView } from "../../domain/store";
 import type { FrightenedGhosts } from "../../domain/hunter";
 import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
+import type { CollapseRenderState } from "../../domain/collapseRubble";
 import type { LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
@@ -39,6 +40,7 @@ export type SimRenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
+  collapse?: CollapseRenderState | null;
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
