@@ -77,7 +77,7 @@ import {
   type FruitPresence,
   type FruitSequenceState,
 } from "../../domain/fruit";
-import { ghostHouseSeatCenters, maxGhostsForHouse } from "../../domain/ghostHouseSeats";
+import { ghostHouseSeatCenters, houseSeatCount } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { blinkyEyesTrackPlayer } from "../../domain/ghostPupils";
 import type { GhostDir } from "../../domain/ghostPath";
@@ -2694,7 +2694,7 @@ export class PlaySim {
     } else {
       const ghostKinds = (
         this.options.ghosts ?? ghostKindsForLevel(this.levelIndex, this.rosterId)
-      ).slice(0, maxGhostsForHouse());
+      ).slice(0, houseSeatCount());
       ghostKinds.forEach((kind, index) => {
         this.spawnGhost(kind, this.options.ghosts === null ? (index as ReleaseSlot) : undefined);
       });

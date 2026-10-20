@@ -4,7 +4,6 @@ import {
   assignHouseSeats,
   ghostHouseSeatCenters,
   houseSeatCount,
-  maxGhostsForHouse,
   nearestHouseSeatIndex,
   spreadSeatIndices,
 } from "./ghostHouseSeats";
@@ -47,7 +46,6 @@ describe("ghostHouseSeats", () => {
   it("caps seats on mazeSmall's 4-wide house so sprites do not stack", () => {
     activateLayout("mazeSmall");
     expect(houseSeatCount()).toBe(3);
-    expect(maxGhostsForHouse()).toBe(3);
     const seats = ghostHouseSeatCenters();
     expect(seats).toHaveLength(3);
     expect(seats[0]!.x).toBeLessThan(seats[1]!.x);
@@ -57,7 +55,6 @@ describe("ghostHouseSeats", () => {
   it("fits a single seat in a 2-wide house spawn row", () => {
     activateAsciiLayout(tinyHouseMazeAscii());
     expect(houseSeatCount()).toBe(1);
-    expect(maxGhostsForHouse()).toBe(1);
     const spawn = getActiveLayout().ghostHouseSpawn;
     const seats = ghostHouseSeatCenters();
     expect(seats).toHaveLength(1);

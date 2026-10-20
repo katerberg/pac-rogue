@@ -25,14 +25,9 @@ function houseFloorColsOnSpawnRow(): number[] {
   return colsOnRow;
 }
 
-/** Seats (and in-house ghosts) that fit without stacking: one fewer than spawn-row floors, capped. */
 export function houseSeatCount(): number {
   const floors = houseFloorColsOnSpawnRow().length;
   return Math.max(1, Math.min(HOUSE_SEAT_COUNT, floors - 1));
-}
-
-export function maxGhostsForHouse(): number {
-  return houseSeatCount();
 }
 
 export function spreadSeatIndices(ghostCount: number, seatCount: number): number[] {
