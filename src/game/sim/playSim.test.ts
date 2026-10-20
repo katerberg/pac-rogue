@@ -5391,6 +5391,22 @@ describe("Tithe", () => {
     expect(streakGainedByThree(sim)).toBe(6);
   });
 
+  it("pays streak pennies from the doubled count", () => {
+    const withTithe = startTithe(["powerPelletTithe"]);
+    chompPower(withTithe);
+    expect(withTithe.snapshot().pennies.streak).toBe(1);
+    expect(withTithe.snapshot().pennies.charge).toBe(0);
+    eatRegular(withTithe, 5);
+    expect(withTithe.snapshot().pennies.streak).toBe(11);
+    expect(withTithe.snapshot().pennies.charge).toBe(5);
+
+    const without = startTithe([]);
+    chompPower(without);
+    eatRegular(without, 5);
+    expect(without.snapshot().pennies.streak).toBe(6);
+    expect(without.snapshot().pennies.charge).toBe(2);
+  });
+
   it("returns to normal speed and streak once the window ends", () => {
     const sim = startTithe(["powerPelletTithe"]);
     runFrames(sim, 1);
