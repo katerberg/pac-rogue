@@ -1295,16 +1295,18 @@ export function grantLivesForUpgrade(id: UpgradeId): number {
 export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   const ownedBases = new Set(owned.map(baseIdOf));
   const shieldsOwned = providesShields(owned);
-  return ALL_UPGRADE_IDS.filter(
-    (id) =>
+  return ALL_UPGRADE_IDS.filter((id) => {
+    const def = getUpgradeDef(id);
+    const needsShields = def.shieldBreak === true || def.reactiveArmor === true;
+    return (
       !ownedBases.has(id) &&
       !(id === "powerPelletHyperspeed" && ownedBases.has("powerPelletProgrammer")) &&
       !(id === "powerPelletProgrammer" && ownedBases.has("powerPelletHyperspeed")) &&
-      (getUpgradeDef(id).shieldBreak !== true || shieldsOwned) &&
-      (getUpgradeDef(id).reactiveArmor !== true || shieldsOwned) &&
+      (!needsShields || shieldsOwned) &&
       (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
-      (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
-  );
+      (!isSpecialist(id) || schoolCount(owned, def.school) >= SPECIALIST_THRESHOLD)
+    );
+  });
 }
 
 export function takeRandomFrom<T>(pool: T[], rng: () => number): T {
