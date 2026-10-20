@@ -853,12 +853,28 @@ function executiveSummarySection(summary: Summary): string[] {
   const singlesSeeds = summary.seedsPerArm.singles ?? 0;
   const thin = singlesSeeds > 0 && singlesSeeds < SIGNAL_SEEDS;
   const verdict = h.untrustworthy
-    ? "UNTRUSTWORTHY — fix stalls/errors before trusting rankings."
-    : summary.partial
-      ? "PARTIAL — unfinished run; treat rankings as provisional."
-      : thin
-        ? `OK but thin sample (singles seeds/arm=${singlesSeeds} < ${SIGNAL_SEEDS}); rankings are leads, not proof.`
-        : "OK — health gate passed.";
+    ? "UNTRUSTWORTHY — fix stalls before trusting rankings."
+    : h.errors > 0
+      ? `Errors present (${h.errors}) — treat rankings as provisional until bots are clean.`
+      : summary.partial
+        ? "PARTIAL — unfinished run; treat rankings as provisional."
+        : thin
+          ? `OK but thin sample (singles seeds/arm=${singlesSeeds} < ${SIGNAL_SEEDS}); rankings are leads, not proof.`
+          : "OK — health gate passed.";
+
+  const list = (items: readonly string[], empty: string) =>
+    items.length === 0 ? [`_${empty}_`, ""] : [...items.map((item, i) => `${i + 1}. ${item}`), ""];
+
+  if (h.untrustworthy) {
+    return [
+      "## Executive summary",
+      "",
+      `**Takeaway:** ${verdict}`,
+      "",
+      "_Rankings and watchouts omitted while the run is UNTRUSTWORTHY._",
+      "",
+    ];
+  }
 
   const leads = extremeByUpgrade(singlesLeads(summary));
   const watchouts = [
@@ -876,10 +892,7 @@ function executiveSummarySection(summary: Summary): string[] {
     ...rosterWatchouts(summary),
     ...spreadWatchouts(leads),
     ...specialistWatchouts(summary),
-  ];
-
-  const list = (items: readonly string[], empty: string) =>
-    items.length === 0 ? [`_${empty}_`, ""] : [...items.map((item, i) => `${i + 1}. ${item}`), ""];
+  ].slice(0, EXEC_TOP * 2);
 
   return [
     "## Executive summary",

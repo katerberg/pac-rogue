@@ -87,7 +87,10 @@ describe("summarize", () => {
   it("marks a batch with too many stalls as untrustworthy", () => {
     const summary = summarize([result({}, { outcome: "stalled" }), result({})], meta);
     expect(summary.health.untrustworthy).toBe(true);
-    expect(renderReport(summary)).toContain("UNTRUSTWORTHY");
+    const report = renderReport(summary);
+    expect(report).toContain("UNTRUSTWORTHY");
+    expect(report).toContain("Rankings and watchouts omitted");
+    expect(report).not.toContain("### Most overperforming");
   });
 
   it("computes pair synergy from the single and baseline arms", () => {
