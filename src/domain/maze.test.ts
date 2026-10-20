@@ -58,9 +58,13 @@ import {
   wrappedTwinPosition,
   worldToCol,
   worldToRow,
+  HOUSE_FLOOR_MIN_COLS,
+  HOUSE_FLOOR_MIN_ROWS,
+  HOUSE_SPAWN_ROW_MIN_FLOORS,
+  layoutFromAscii,
 } from "./maze";
 import { invertMazeAscii } from "./mazeGenerate";
-import { SMALL_MAZE_ASCII } from "./mazeLayouts";
+import { SMALL_MAZE_ASCII, TINY_HOUSE_MAZE_ASCII } from "./mazeLayouts";
 import { GHOST_PHASE } from "./ghostTarget";
 
 describe("maze", () => {
@@ -792,5 +796,27 @@ describe("maze", () => {
     expect(fillet).toHaveLength(WALL_CORNER_CURVE_MIN_STEPS + 1);
     expect(last?.type).toBe("line");
     expect(last && near(last, expectedEnd)).toBe(true);
+  });
+
+  it("accepts a 2x2 ghost house floor and rejects anything smaller", () => {
+    expect(HOUSE_FLOOR_MIN_COLS).toBe(2);
+    expect(HOUSE_FLOOR_MIN_ROWS).toBe(2);
+    expect(HOUSE_SPAWN_ROW_MIN_FLOORS).toBe(2);
+
+    const layout = layoutFromAscii(TINY_HOUSE_MAZE_ASCII, "generated");
+    expect(layout.ghostHouseSpawn).toEqual({ col: 10, row: 6 });
+    expect(layout.ghostHouseExit.col).toBe(10);
+    expect(
+      isWalkable(layout.ghostHouseExit.col, layout.ghostHouseExit.row, layout.playerSolids),
+    ).toBe(true);
+    expect(isWalkable(layout.fruitSpawn.col, layout.fruitSpawn.row, layout.playerSolids)).toBe(
+      true,
+    );
+
+    const oneByTwo = TINY_HOUSE_MAZE_ASCII.replace("###HH###", "####H###").replace(
+      "###HH###",
+      "####H###",
+    );
+    expect(() => layoutFromAscii(oneByTwo, "generated")).toThrow(/ghost house floors 1x2/);
   });
 });

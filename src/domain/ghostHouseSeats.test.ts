@@ -5,7 +5,14 @@ import {
   ghostHouseSeatCenters,
   nearestHouseSeatIndex,
 } from "./ghostHouseSeats";
-import { activateLayout, cellCenterX, cellCenterY, getActiveLayout } from "./maze";
+import {
+  activateAsciiLayout,
+  activateLayout,
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+} from "./maze";
+import { TINY_HOUSE_MAZE_ASCII } from "./mazeLayouts";
 
 describe("ghostHouseSeats", () => {
   afterEach(() => {
@@ -78,5 +85,17 @@ describe("ghostHouseSeats", () => {
       [4, 3],
     ]);
     expect(nearestHouseSeatIndex(center.x, center.y, seats)).toBeGreaterThanOrEqual(0);
+  });
+
+  it("interpolates four seats across a 2-wide house spawn row", () => {
+    activateAsciiLayout(TINY_HOUSE_MAZE_ASCII);
+    const seats = ghostHouseSeatCenters();
+    expect(seats).toHaveLength(HOUSE_SEAT_COUNT);
+    expect(seats[0]!.x).toBe(cellCenterX(10));
+    expect(seats[3]!.x).toBe(cellCenterX(11));
+    expect(seats[0]!.x).toBeLessThan(seats[1]!.x);
+    expect(seats[1]!.x).toBeLessThan(seats[2]!.x);
+    expect(seats[2]!.x).toBeLessThan(seats[3]!.x);
+    expect(seats.every((seat) => seat.y === cellCenterY(6))).toBe(true);
   });
 });
