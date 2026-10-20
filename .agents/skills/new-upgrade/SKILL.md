@@ -90,6 +90,12 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
 - **B. Store and pools:** `storePrice: STORE_UPGRADE_PRICE`, same pool as every other upgrade.
   The level-clear offer and the store draw from `ALL_UPGRADE_IDS`; the level-1 starting upgrade
   draws only from the curated `STARTING_UPGRADE_POOL` (add the new id there only if asked).
+- **B2. Rarity / pool growth:** default **common**. Set `rare: true` only when the pitch says
+  rare / build-around. Rare budget goal: about `TARGET_RARES_PER_SCHOOL` rares per non-neutral
+  school (~13 with neutral); prefer filling a short school over bloating one. **Do not retune
+  offer weights when adding a common** — level-clear and store rates are `RARE_OFFER_MASS` /
+  `STORE_RARE_OFFER_MASS` proportions over the live eligible pool (`docs/upgrades.md` § Schools
+  and rarity). Adding a rare changes identity variety, not the mass target; still no weight edit.
 - **C. Logic placement:** decisions go in a pure domain helper or a Phaser-free system with
   unit tests. `PlaySim` only calls it. No scene logic, and no plugin bus.
 - **D. Timers:** any new timer lives on `RunUpgrades`. It is cleared by `clearUpgradeTimers`
