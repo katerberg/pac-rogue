@@ -30,6 +30,7 @@ Steps (comma-separated):
   press:<Key>            tap a key
   down:<Key> / up:<Key>  press or release a key and leave it, so expect:/waitFor: can run mid-move
   click:<x>:<y>          click at game coordinates (800x600), scaled onto the canvas
+  wheel:<x>:<y>:<deltaY> move to game coords then mouse-wheel (positive deltaY = scroll down)
   hover:<x>:<y>          move the mouse to game coordinates, scaled onto the canvas
   shot:<label>           screenshot to artifacts/<name>-<label>.png
   pageShot:<label>       full-viewport screenshot (includes DOM overlays such as ?knobs=1 panels)
@@ -154,6 +155,26 @@ async function runStep(page, canvas, step, name) {
         box.x + (Number(a) / game.width) * box.width,
         box.y + (Number(b) / game.height) * box.height,
       );
+      break;
+    }
+    case "wheel": {
+      const box = await canvas.boundingBox();
+      if (box === null) {
+        throw new Error("canvas has no bounding box");
+      }
+      const game = await worldSize(page);
+      const parts = step.split(":");
+      const wx = Number(parts[1]);
+      const wy = Number(parts[2]);
+      const deltaY = Number(parts[3]);
+      if (![wx, wy, deltaY].every(Number.isFinite)) {
+        throw new Error(`Bad wheel step "${step}"; use wheel:<x>:<y>:<deltaY>`);
+      }
+      await page.mouse.move(
+        box.x + (wx / game.width) * box.width,
+        box.y + (wy / game.height) * box.height,
+      );
+      await page.mouse.wheel(0, deltaY);
       break;
     }
     case "hover": {

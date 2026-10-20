@@ -8,6 +8,20 @@ import {
   splitSchoolColumns,
   type LearnColumn,
 } from "../../domain/learnUpgradeColumns";
+import {
+  LEARN_UPGRADE_CLIP_BOTTOM,
+  LEARN_UPGRADE_CLIP_TOP,
+  LEARN_UPGRADE_COLUMN_X,
+  LEARN_UPGRADE_HEADER_GAP,
+  LEARN_UPGRADE_ROW_GAP,
+  LEARN_UPGRADE_ROW_WIDTH,
+  applyLearnUpgradeWheel,
+  learnUpgradeColumnAt,
+  learnUpgradeContentHeight,
+  learnUpgradeRowVisible,
+  learnUpgradeScrollExtent,
+} from "../../domain/learnUpgradeScroll";
+import { UPGRADE_SLOT_HINT_GLYPH, upgradeSlotHintAngleDeg } from "../../domain/upgradeChoiceHints";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import {
   GHOST_COLOR_BY_KIND,
@@ -101,11 +115,6 @@ const DERIVATION_ALPHA = 0.8;
 const DERIVATION_WIDTH = 2;
 const PIVOT_DOT_RADIUS = 3;
 const CIRCLE_SEGMENTS = 48;
-const UPGRADE_COLUMN_X = { left: 20, right: 596 } as const;
-const UPGRADE_ROW_START_Y = 100;
-const UPGRADE_ROW_GAP = 16;
-const UPGRADE_HEADER_GAP = 20;
-const UPGRADE_ROW_WIDTH = 190;
 const CHECKBOX_STROKE = 2;
 const UPGRADE_CHECK_SIZE = 10;
 const UPGRADE_CHECK_GAP = 4;
@@ -121,13 +130,29 @@ const HOVER_PREVIEW_DELAY_MS = 500;
 const HOVER_PREVIEW_Y_MIN = 90;
 const HOVER_PREVIEW_Y_MAX = 510;
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
+type UpgradeHeader = {
+  column: LearnColumn;
+  baseY: number;
+  label: Phaser.GameObjects.BitmapText;
+};
 type UpgradeRow = {
   id: BaseUpgradeId;
+  column: LearnColumn;
+  baseY: number;
+  labelX: number;
+  plusX: number;
+  checkBox: Phaser.GameObjects.Shape;
   checkMark: Phaser.GameObjects.Shape;
   label: Phaser.GameObjects.BitmapText;
   plus: Phaser.GameObjects.BitmapText;
   plusBox: Phaser.GameObjects.Shape;
+  checkZone: Phaser.GameObjects.Zone;
+  labelZone: Phaser.GameObjects.Zone;
   plusZone: Phaser.GameObjects.Zone;
+};
+type ColumnScrollCues = {
+  up: Phaser.GameObjects.BitmapText;
+  down: Phaser.GameObjects.BitmapText;
 };
 
 export class LearnScene extends Phaser.Scene {
@@ -140,7 +165,11 @@ export class LearnScene extends Phaser.Scene {
   private seen: SeenRecord = emptySeenRecord();
   private reticlePx: PixelPoint | null = null;
   private slots: GhostSlot[] = [];
+  private upgradeHeaders: UpgradeHeader[] = [];
   private upgradeRows: UpgradeRow[] = [];
+  private scrollOffset: Record<LearnColumn, number> = { left: 0, right: 0 };
+  private scrollExtent: Record<LearnColumn, number> = { left: 0, right: 0 };
+  private scrollCues!: Record<LearnColumn, ColumnScrollCues>;
   private noEffectBanner!: Phaser.GameObjects.BitmapText;
   private statusText!: Phaser.GameObjects.BitmapText;
   private ghostNameText!: Phaser.GameObjects.BitmapText;
@@ -206,9 +235,38 @@ export class LearnScene extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.FIVE,
       Phaser.Input.Keyboard.KeyCodes.SIX,
     ].map((code) => keyboard.addKey(code));
+    this.input.on(
+      "wheel",
+      (
+        pointer: Phaser.Input.Pointer,
+        _over: Phaser.GameObjects.GameObject[],
+        _deltaX: number,
+        deltaY: number,
+      ) => {
+        this.onUpgradeWheel(pointer.worldX, pointer.worldY, deltaY);
+      },
+    );
 
     this.selectGhost(SLOT_KINDS[0]!);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cancelUpgradePreview());
+  }
+
+  public debugSnapshot(): {
+    scroll: {
+      left: number;
+      right: number;
+      leftExtent: number;
+      rightExtent: number;
+    };
+  } {
+    return {
+      scroll: {
+        left: this.scrollOffset.left,
+        right: this.scrollOffset.right,
+        leftExtent: this.scrollExtent.left,
+        rightExtent: this.scrollExtent.right,
+      },
+    };
   }
 
   update(_time: number, delta: number): void {
@@ -313,11 +371,19 @@ export class LearnScene extends Phaser.Scene {
 
   private buildUpgradeRows(): void {
     this.upgradeRows = [];
+    this.upgradeHeaders = [];
+    this.scrollOffset = { left: 0, right: 0 };
+    this.scrollExtent = { left: 0, right: 0 };
+    this.scrollCues = {
+      left: this.buildScrollCues("left"),
+      right: this.buildScrollCues("right"),
+    };
     const columns = splitSchoolColumns(groupUpgradesBySchool(learnUpgradeDefs(this.seen.upgrades)));
     for (const column of ["left", "right"] as const) {
-      let y = UPGRADE_ROW_START_Y - UPGRADE_ROW_GAP;
+      let y = LEARN_UPGRADE_CLIP_TOP - LEARN_UPGRADE_ROW_GAP;
+      let upgradeCount = 0;
       for (const { school, defs } of columns[column]) {
-        y += UPGRADE_HEADER_GAP;
+        y += LEARN_UPGRADE_HEADER_GAP;
         const header = addPixelText(
           this,
           0,
@@ -326,21 +392,56 @@ export class LearnScene extends Phaser.Scene {
           UPGRADES_HUD_FONT_SIZE,
           SCHOOL_COLORS[school],
         );
-        placePixelText(header, UPGRADE_COLUMN_X[column], y, 0, 0.5);
+        placePixelText(header, LEARN_UPGRADE_COLUMN_X[column], y, 0, 0.5);
+        this.upgradeHeaders.push({ column, baseY: y, label: header });
         for (const def of defs) {
-          y += UPGRADE_ROW_GAP;
+          y += LEARN_UPGRADE_ROW_GAP;
+          upgradeCount += 1;
           this.buildUpgradeRow(def, column, y);
         }
       }
+      this.scrollExtent[column] = learnUpgradeScrollExtent(
+        learnUpgradeContentHeight(columns[column].length, upgradeCount),
+      );
     }
+    this.applyUpgradeScroll();
+  }
+
+  private buildScrollCues(column: LearnColumn): ColumnScrollCues {
+    const x = LEARN_UPGRADE_COLUMN_X[column] + LEARN_UPGRADE_ROW_WIDTH / 2;
+    const up = addPixelText(
+      this,
+      x,
+      LEARN_UPGRADE_CLIP_TOP - 8,
+      UPGRADE_SLOT_HINT_GLYPH,
+      UPGRADES_HUD_FONT_SIZE,
+      TEXT_COLOR_YELLOW,
+    )
+      .setOrigin(0.5, 0.5)
+      .setAngle(upgradeSlotHintAngleDeg("up"))
+      .setDepth(OVERLAY_DEPTH + 1)
+      .setVisible(false);
+    const down = addPixelText(
+      this,
+      x,
+      LEARN_UPGRADE_CLIP_BOTTOM + 8,
+      UPGRADE_SLOT_HINT_GLYPH,
+      UPGRADES_HUD_FONT_SIZE,
+      TEXT_COLOR_YELLOW,
+    )
+      .setOrigin(0.5, 0.5)
+      .setAngle(upgradeSlotHintAngleDeg("down"))
+      .setDepth(OVERLAY_DEPTH + 1)
+      .setVisible(false);
+    return { up, down };
   }
 
   private buildUpgradeRow(def: UpgradeDef, column: LearnColumn, y: number): void {
-    const columnX = UPGRADE_COLUMN_X[column];
-    const plusX = columnX + UPGRADE_ROW_WIDTH - UPGRADE_PLUS_INSET;
+    const columnX = LEARN_UPGRADE_COLUMN_X[column];
+    const plusX = columnX + LEARN_UPGRADE_ROW_WIDTH - UPGRADE_PLUS_INSET;
     const checkboxX = columnX + UPGRADE_CHECK_SIZE / 2;
     const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
-    this.add
+    const checkBox = this.add
       .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
       .setStrokeStyle(CHECKBOX_STROKE, TEXT_COLOR_WHITE);
     const checkMark = this.add
@@ -368,7 +469,7 @@ export class LearnScene extends Phaser.Scene {
       0.5,
     );
     plus.setVisible(false);
-    const rowHitH = UPGRADE_ROW_GAP - 2;
+    const rowHitH = LEARN_UPGRADE_ROW_GAP - 2;
     const checkZoneW = UPGRADE_CHECK_SIZE + UPGRADE_CHECK_GAP;
     const checkZone = this.add.zone(columnX + checkZoneW / 2, y, checkZoneW, rowHitH);
     checkZone.setInteractive({ useHandCursor: true });
@@ -386,7 +487,78 @@ export class LearnScene extends Phaser.Scene {
     const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, rowHitH);
     plusZone.on("pointerdown", () => this.toggleEnhanced(def.baseId));
     plusZone.on("pointerover", () => this.cancelUpgradePreview());
-    this.upgradeRows.push({ id: def.baseId, checkMark, label, plus, plusBox, plusZone });
+    this.upgradeRows.push({
+      id: def.baseId,
+      column,
+      baseY: y,
+      labelX,
+      plusX,
+      checkBox,
+      checkMark,
+      label,
+      plus,
+      plusBox,
+      checkZone,
+      labelZone,
+      plusZone,
+    });
+  }
+
+  private onUpgradeWheel(worldX: number, worldY: number, deltaY: number): void {
+    const column = learnUpgradeColumnAt(worldX, worldY);
+    if (column === null || this.scrollExtent[column] <= 0 || deltaY === 0) {
+      return;
+    }
+    const next = applyLearnUpgradeWheel(
+      this.scrollOffset[column],
+      deltaY,
+      this.scrollExtent[column],
+    );
+    if (next === this.scrollOffset[column]) {
+      return;
+    }
+    this.scrollOffset[column] = next;
+    this.cancelUpgradePreview();
+    this.applyUpgradeScroll();
+  }
+
+  private applyUpgradeScroll(): void {
+    for (const header of this.upgradeHeaders) {
+      const offset = this.scrollOffset[header.column];
+      const y = header.baseY - offset;
+      placePixelText(header.label, LEARN_UPGRADE_COLUMN_X[header.column], y, 0, 0.5);
+      header.label.setVisible(learnUpgradeRowVisible(header.baseY, offset));
+    }
+    for (const row of this.upgradeRows) {
+      const offset = this.scrollOffset[row.column];
+      const y = row.baseY - offset;
+      row.checkBox.setY(y);
+      row.checkMark.setY(y);
+      placePixelText(row.label, row.labelX, y, 0, 0.5);
+      row.plusBox.setY(y);
+      placePixelText(
+        row.plus,
+        row.plusX + (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8,
+        y + (glyphInkCenterOffsetY("+") * UPGRADES_HUD_FONT_SIZE) / 8,
+        0.5,
+        0.5,
+      );
+      row.checkZone.setY(y);
+      row.labelZone.setY(y);
+      row.plusZone.setY(y);
+    }
+    this.refreshUpgradeRows();
+    this.refreshScrollCues();
+  }
+
+  private refreshScrollCues(): void {
+    for (const column of ["left", "right"] as const) {
+      const extent = this.scrollExtent[column];
+      const offset = this.scrollOffset[column];
+      const cues = this.scrollCues[column];
+      cues.up.setVisible(extent > 0 && offset > 0);
+      cues.down.setVisible(extent > 0 && offset < extent);
+    }
   }
 
   private upgradeMarks(): UpgradeMark[] {
@@ -395,17 +567,29 @@ export class LearnScene extends Phaser.Scene {
 
   private refreshUpgradeRows(): void {
     for (const row of this.upgradeRows) {
+      const inView = learnUpgradeRowVisible(row.baseY, this.scrollOffset[row.column]);
       const state = learnEnhanceToggleState(this.sim.ownedUpgrades, row.id);
-      row.checkMark.setVisible(state !== "hidden");
-      row.plus.setVisible(state !== "hidden");
-      row.plusBox.setVisible(state !== "hidden");
+      const selected = state !== "hidden";
+      row.checkBox.setVisible(inView);
+      row.label.setVisible(inView);
+      row.checkMark.setVisible(inView && selected);
+      row.plus.setVisible(inView && selected);
+      row.plusBox.setVisible(inView && selected);
       row.plusBox.setFillStyle(RARE_LABEL_COLOR, state === "on" ? 1 : 0);
       row.plus.setTint(state === "on" ? UPGRADE_PLUS_ON_TINT : RARE_LABEL_COLOR);
       row.label.setText(getUpgradeDef(state === "on" ? enhancedIdOf(row.id) : row.id).label);
-      if (state === "hidden") {
+      if (!inView) {
+        row.checkZone.disableInteractive();
+        row.labelZone.disableInteractive();
         row.plusZone.disableInteractive();
       } else {
-        row.plusZone.setInteractive({ useHandCursor: true });
+        row.checkZone.setInteractive({ useHandCursor: true });
+        row.labelZone.setInteractive({ useHandCursor: true });
+        if (selected) {
+          row.plusZone.setInteractive({ useHandCursor: true });
+        } else {
+          row.plusZone.disableInteractive();
+        }
       }
     }
   }
