@@ -429,6 +429,21 @@ describe("pickStartingUpgrade", () => {
     expect(pickStartingUpgrade([], () => 0.9999)).toBe(pool[pool.length - 1]);
     expect(pickStartingUpgrade([pool[0]!], () => 0)).toBe(pool[1]);
   });
+
+  it("returns preferred when that id is still eligible", () => {
+    expect(pickStartingUpgrade([], () => 0.9999, "powerPelletFreeze")).toBe("powerPelletFreeze");
+    expect(pickStartingUpgrade(["powerPelletInvuln"], () => 0, "powerPelletFreeze")).toBe(
+      "powerPelletFreeze",
+    );
+  });
+
+  it("falls back to rng when preferred is already owned", () => {
+    const pool = STARTING_UPGRADE_POOL;
+    expect(pickStartingUpgrade(["powerPelletFreeze"], () => 0, "powerPelletFreeze")).toBe(pool[0]);
+    expect(pickStartingUpgrade(["powerPelletFreezePlus"], () => 0.9999, "powerPelletFreeze")).toBe(
+      pool[pool.length - 1],
+    );
+  });
 });
 
 describe("eligibleUpgrades", () => {
