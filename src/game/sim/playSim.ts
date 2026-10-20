@@ -3309,6 +3309,7 @@ export class PlaySim {
       this.random.stream("upgradeOffer", this.levelIndex),
       enhancedOfferChance(this.levelIndex),
       this.options.forceUpgrade,
+      this.levelIndex,
     );
     if (offer.upgrades.length === 0) {
       this.beginLevelTransition();

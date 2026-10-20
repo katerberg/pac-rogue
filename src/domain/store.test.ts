@@ -27,12 +27,16 @@ import {
 } from "./store";
 import {
   ALL_UPGRADE_IDS,
+  RARE_OFFER_MASS,
+  STORE_RARE_OFFER_MASS,
   STORE_RARE_UPGRADE_PRICE,
   STORE_UPGRADE_PRICE,
   baseIdOf,
   enhancedIdOf,
   getUpgradeDef,
   isRare,
+  rareWeightForPool,
+  type BaseUpgradeId,
   type UpgradeId,
 } from "./upgrades";
 
@@ -278,7 +282,7 @@ describe("createStoreState", () => {
     expect(shelvedRare).toBeGreaterThan(0);
   });
 
-  it("shelves a rare at half a common's weight", () => {
+  it("shelves a rare at half the level-clear rare mass", () => {
     const left: UpgradeId[] = [
       "passiveStreakEngine",
       "passiveGhostSlow",
@@ -299,8 +303,10 @@ describe("createStoreState", () => {
         ? 1
         : 0;
     }
-    const expected = 0.5 / 3.5 + (3 / 3.5) * (0.5 / 2.5);
+    const w = rareWeightForPool(left as BaseUpgradeId[], STORE_RARE_OFFER_MASS);
+    const expected = w / (3 + w) + (3 / (3 + w)) * (w / (2 + w));
     expect(Math.abs(withRare / draws - expected)).toBeLessThan(0.03);
+    expect(STORE_RARE_OFFER_MASS).toBe(RARE_OFFER_MASS / 2);
   });
 
   it("shelves no rare before two upgrades are owned", () => {

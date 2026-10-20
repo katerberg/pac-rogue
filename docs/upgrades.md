@@ -34,8 +34,8 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 ## Schools and rarity
 
 - `school` is required on every def: a color tag on every upgrade card, the Specialist rule, and soft affinity on level-clear offers. Neutral is no school for either rule. School colors: `SCHOOL_COLORS`.
-- **Rare** defs set `rare: true` and the higher `storePrice`. Rares are gated until a minimum number of upgrades is owned, are never in the starting pool, draw at reduced weight (`takeWeightedUpgrade`), and at most one rare is shelved per store (the trade tile is exempt). Rare cards get `addRareFx` (`src/game/scenes/rareFx.ts`).
-- **Affinity** (`upgradeOfferWeight`): level-clear offers are weighted toward schools already owned; invisible, uncapped, and not applied to the starting upgrade or store draws.
+- **Rare** defs set `rare: true` and the higher `storePrice`. Rares are never in the starting pool; they unlock after `RARE_MIN_OWNED` upgrades and only on level-clear offers at `clearLevelIndex >= RARE_MIN_CLEAR_LEVEL`. Level-clear draws target a fixed rare **mass** (`RARE_OFFER_MASS` via `rareWeightForPool` over the live eligible pool) so adding commons does not require retuning weights; the store uses half that mass (`STORE_RARE_OFFER_MASS`) and shelves at most one rare (trade tile exempt). Budget goal: about `TARGET_RARES_PER_SCHOOL` rares per non-neutral school (~13 with neutral). Rare cards get `addRareFx` (`src/game/scenes/rareFx.ts`).
+- **Affinity** (`upgradeOfferWeight`): level-clear offers are weighted toward schools already owned; invisible, uncapped, and not applied to the starting upgrade or store draws. Affinity multiplies on top of the mass-derived rare base weight.
 
 ## Grant rules
 

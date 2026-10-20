@@ -1,6 +1,8 @@
 import {
   eligibleUpgrades,
   getUpgradeDef,
+  rareWeightForPool,
+  RARE_OFFER_MASS,
   schoolAffinityPoints,
   SCHOOL_AFFINITY_COMMON_RATE,
   takeWeightedUpgrade,
@@ -301,7 +303,9 @@ export function pickSlotUpgrade(
   const pool = eligibleUpgrades(owned).filter((id) => getUpgradeDef(id).school === school);
   return pool.length === 0
     ? null
-    : takeWeightedUpgrade(pool, rng, (id) => upgradeOfferWeight(id, owned));
+    : takeWeightedUpgrade(pool, rng, (id) =>
+        upgradeOfferWeight(id, owned, rareWeightForPool(pool, RARE_OFFER_MASS)),
+      );
 }
 
 export function parseJumpToSpinnerFlag(params: URLSearchParams): boolean {

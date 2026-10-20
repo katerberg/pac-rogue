@@ -722,6 +722,19 @@ describe("PlaySim", () => {
     expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveStreakEngine");
   });
 
+  it("keeps rares out of the level-1 clear offer even when two upgrades are owned", () => {
+    const offer = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 1,
+        enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
+        forceUpgrade: "passiveStreakEngine",
+      }),
+    );
+    expect(offer.upgrades).not.toContain("passiveStreakEngine");
+    expect(offer.upgrades.every((id) => !isRare(id))).toBe(true);
+  });
+
   it("never offers Programmer when Hyperspeed is owned, or the reverse", () => {
     const pad = ["passiveAfterburner", "passiveGhostSlow"] as const;
     const withHyperspeed = drainToOffer(
