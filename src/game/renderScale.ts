@@ -4,8 +4,13 @@ import { crispArtQuad, type DeviceTransform } from "../domain/pixelArt";
 import { canvasDisplayZoom, canvasSizeFor, renderScaleFor } from "../domain/renderScale";
 
 type PixelArtMark = { pixelArt?: boolean };
-type ArtImage = Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
-type Snapped = { image: ArtImage; x: number; y: number; scaleX: number; scaleY: number };
+type Snapped = {
+  image: Phaser.GameObjects.Image;
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+};
 
 export function windowCanvas(): { width: number; height: number; zoom: number } {
   const { innerWidth, innerHeight } = window;
@@ -49,9 +54,9 @@ export function applyRenderScale(scene: Phaser.Scene): void {
   });
 }
 
-function isPixelArt(object: Phaser.GameObjects.GameObject): object is ArtImage {
+function isPixelArt(object: Phaser.GameObjects.GameObject): object is Phaser.GameObjects.Image {
   return (
-    (object instanceof Phaser.GameObjects.Image || object instanceof Phaser.GameObjects.Sprite) &&
+    object instanceof Phaser.GameObjects.Image &&
     (object.texture.customData as PixelArtMark).pixelArt === true
   );
 }
