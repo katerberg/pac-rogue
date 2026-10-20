@@ -9,24 +9,25 @@ import {
   type World,
 } from "bitecs";
 import {
-  addBonusCharge,
+  addPennyCharge,
   applyStreakPellets,
-  BONUS_BAR_MAX,
+  QUARTER_CHARGE,
+  penniesInCharge,
   breakStreak,
-  createBonusBar,
+  createPennyPurse,
   enterCell,
   FRUIT_BONUS_CHARGE,
   tickStreakIdle,
-  type BonusBar,
-  type BonusResult,
+  type PennyPurse,
+  type PennyResult,
   type Cell,
-} from "../../domain/bonusBar";
+} from "../../domain/pennies";
 import {
-  createTimeBonusDrain,
-  timeBonusPoints,
-  tickTimeBonusDrain,
-  type TimeBonusDrain,
-} from "../../domain/timeBonus";
+  createTimePennyDrain,
+  timePennyCharge,
+  tickTimePennyDrain,
+  type TimePennyDrain,
+} from "../../domain/timePennies";
 import {
   bossTunnelMouths,
   pickBossPelletCells,
@@ -533,7 +534,7 @@ export type PlayHud = {
   timerVisible: boolean;
   lives: number;
   quarters: number;
-  bonusCharge: number;
+  penniesCharge: number;
   upgrades: readonly UpgradeId[];
   collected: number;
   shields: number;
@@ -562,12 +563,12 @@ export class PlaySim {
   private streakPopCount = 0;
   private lastStreakPop: number | null = null;
   private quarters = 0;
-  private bonus: BonusBar;
+  private pennies: PennyPurse;
   private slotPickupProgress = 0;
   private slotPickupCells: SlotPickupCell[] = [];
   private slotPickupsAwaitingPlacement = 0;
   private lastPlayerCell: Cell | null = null;
-  private timeBonusDrain: TimeBonusDrain | null = null;
+  private timePennyDrain: TimePennyDrain | null = null;
   private slotQueue: QuarterSource[] = [];
   private slot:
     (SlotView & { source: QuarterSource; resultSounded: boolean; megaSounded: boolean }) | null =
@@ -662,7 +663,7 @@ export class PlaySim {
     this.random = createRunRandom(seed);
     this.recorder = new RunRecorder(runLogMeta, seed, options.highScoresDisabled);
     this.quarters = options.quarters ?? 0;
-    this.bonus = createBonusBar(options.bonus ?? 0);
+    this.pennies = createPennyPurse(options.pennyCharge ?? 0);
     this.lives = options.lives ?? START_LIVES;
   }
 
@@ -733,7 +734,7 @@ export class PlaySim {
     this.emit({ type: "loopStart", id: "gameplayMusic" });
     if (options.jumpToSpinner) {
       this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
-      this.slotQueue.push("bonusBar");
+      this.slotQueue.push("pennyBar");
     }
     if (options.jumpToUpgrade) {
       this.jumpToLevelClear();
@@ -878,7 +879,7 @@ export class PlaySim {
         (this.interestPop === null
           ? 0
           : this.interestPop.count - interestCoinsShown(this.interestPop)),
-      bonusCharge: this.bonus.charge,
+      penniesCharge: this.pennies.charge,
       upgrades: this.effectiveUpgrades(),
       collected: this.lifetimeCollected,
       shields: this.runUpgrades.shieldsBanked,
@@ -958,11 +959,12 @@ export class PlaySim {
       lives: this.lives,
       quarters: this.quarters,
       timeRemaining: this.clock.remaining,
-      bonus: {
-        charge: this.bonus.charge,
-        streak: this.bonus.streak,
-        max: BONUS_BAR_MAX,
-        draining: this.timeBonusDrain !== null,
+      pennies: {
+        charge: this.pennies.charge,
+        streak: this.pennies.streak,
+        max: QUARTER_CHARGE,
+        count: penniesInCharge(this.pennies.charge),
+        draining: this.timePennyDrain !== null,
       },
       slot: {
         spins: this.slotSpins,
@@ -1212,8 +1214,8 @@ export class PlaySim {
       return;
     }
 
-    if (this.timeBonusDrain !== null) {
-      this.tickTimeBonus(this.timeBonusDrain, delta);
+    if (this.timePennyDrain !== null) {
+      this.tickTimePennies(this.timePennyDrain, delta);
       return;
     }
 
@@ -1513,7 +1515,7 @@ export class PlaySim {
     if (playerFrame.removedCells.length > 0) {
       streakFires = this.applyStreakCells(playerFrame.removedCells);
     } else {
-      this.bonus = tickStreakIdle(this.bonus, delta, this.currentTuning.bonusStreakIdleMs);
+      this.pennies = tickStreakIdle(this.pennies, delta, this.currentTuning.pennyStreakIdleMs);
     }
     const removed = removedPelletEids.length;
     this.eatDragMs = eatDragAfterCollect(
@@ -1658,9 +1660,9 @@ export class PlaySim {
       if (fruitQuarters !== null) {
         this.grantQuarters(fruitEaten * fruitQuarters, "fruit", false);
       } else {
-        const fruitCharge = addBonusCharge(this.bonus, fruitEaten * FRUIT_BONUS_CHARGE);
+        const fruitCharge = addPennyCharge(this.pennies, fruitEaten * FRUIT_BONUS_CHARGE);
         this.emit({ type: "fruitBonus" });
-        this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
+        this.applyPennies({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
       }
       this.fruitPresence = markFruitCollected(fruitTick.state, this.regularFruitRemains());
       if (hasUpgrade(this.effectiveUpgrades(), "fruitPowerPellet")) {
@@ -1944,8 +1946,8 @@ export class PlaySim {
       this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, [
         { eid, glide: startWarpGlide(from, to), holdMs: 0 },
       ]);
-      const charged = addBonusCharge(this.bonus, ate.charge);
-      this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "hunter");
+      const charged = addPennyCharge(this.pennies, ate.charge);
+      this.applyPennies({ bar: charged.bar, tier: 0, filled: charged.filled }, "hunter");
       this.recorder.activation("ghostEaten");
     }
     if (eaten.length > 0) {
@@ -2165,30 +2167,34 @@ export class PlaySim {
       const eatenThisFrame = this.hyperspeedPellets.removedCells.some(
         (eaten) => eaten.col === cell.col && eaten.row === cell.row,
       );
-      this.bonus = enterCell(this.bonus, cell, eatenThisFrame || pelletAtCell(this.world, cell));
+      this.pennies = enterCell(
+        this.pennies,
+        cell,
+        eatenThisFrame || pelletAtCell(this.world, cell),
+      );
     }
     this.lastPlayerCell = cell;
   }
 
-  private applyBonus(result: BonusResult, source: QuarterSource = "bonusBar"): void {
-    this.bonus = result.bar;
+  private applyPennies(result: PennyResult, source: QuarterSource = "pennyBar"): void {
+    this.pennies = result.bar;
     this.recorder.bonus(result.tier, result.filled);
     if (result.filled > 0) {
       this.grantQuarters(result.filled, source, true);
     }
     if (result.tier > 0 || result.filled > 0) {
-      this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
+      this.emit({ type: "pennies", tier: result.tier, filled: result.filled });
     }
   }
 
   private applyStreakCells(cells: readonly Cell[]): number {
-    const prevStreak = this.bonus.streak;
-    this.applyBonus(applyStreakPellets(this.bonus, cells));
+    const prevStreak = this.pennies.streak;
+    this.applyPennies(applyStreakPellets(this.pennies, cells));
     const every = streakEngineEvery(this.effectiveUpgrades());
     if (every === null) {
       return 0;
     }
-    for (const pop of streakPops(prevStreak, this.bonus.streak, every)) {
+    for (const pop of streakPops(prevStreak, this.pennies.streak, every)) {
       const cell = cells[pop.cellIndex]!;
       this.streakPopCount += 1;
       this.lastStreakPop = pop.value;
@@ -2199,7 +2205,7 @@ export class PlaySim {
         y: cellCenterY(cell.row),
       });
     }
-    return streakEngineFires(prevStreak, this.bonus.streak, every);
+    return streakEngineFires(prevStreak, this.pennies.streak, every);
   }
 
   private fireStreakEngine(fires: number): boolean {
@@ -2217,8 +2223,8 @@ export class PlaySim {
   private payDeathsBounty(): boolean {
     const charge = deathsBountyCharge(this.effectiveUpgrades(), this.deathsThisBoard);
     this.deathsThisBoard += 1;
-    const charged = addBonusCharge(this.bonus, charge);
-    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "deathsBounty");
+    const charged = addPennyCharge(this.pennies, charge);
+    this.applyPennies({ bar: charged.bar, tier: 0, filled: charged.filled }, "deathsBounty");
     return charge > 0;
   }
 
@@ -2233,12 +2239,12 @@ export class PlaySim {
       return;
     }
     this.nearMissesPaid += step.completed;
-    const charged = addBonusCharge(this.bonus, step.completed * charge);
-    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "nearMiss");
+    const charged = addPennyCharge(this.pennies, step.completed * charge);
+    this.applyPennies({ bar: charged.bar, tier: 0, filled: charged.filled }, "nearMiss");
   }
 
   private resetStreak(): void {
-    this.bonus = breakStreak(this.bonus);
+    this.pennies = breakStreak(this.pennies);
     this.lastPlayerCell = null;
     this.nearMissPasses = createNearMissPasses();
   }
@@ -2897,16 +2903,16 @@ export class PlaySim {
     this.notePellets();
     this.recorder.levelCleared(
       this.clock.remaining,
-      isBossLevel(this.levelIndex) ? 0 : timeBonusPoints(this.clock.remaining),
+      isBossLevel(this.levelIndex) ? 0 : timePennyCharge(this.clock.remaining),
     );
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "sfx", id: "levelComplete" });
     this.emitDraw();
-    this.timeBonusDrain = isBossLevel(this.levelIndex)
+    this.timePennyDrain = isBossLevel(this.levelIndex)
       ? null
-      : createTimeBonusDrain(this.clock.remaining);
-    if (this.timeBonusDrain !== null) {
-      this.emit({ type: "timeBonus", active: true });
+      : createTimePennyDrain(this.clock.remaining);
+    if (this.timePennyDrain !== null) {
+      this.emit({ type: "timePennies", active: true });
       return;
     }
     this.finishLevelClear();
@@ -3015,17 +3021,17 @@ export class PlaySim {
     this.resetStreak();
   }
 
-  private tickTimeBonus(drain: TimeBonusDrain, delta: number): void {
-    const tick = tickTimeBonusDrain(drain, delta);
-    this.timeBonusDrain = tick.drain;
+  private tickTimePennies(drain: TimePennyDrain, delta: number): void {
+    const tick = tickTimePennyDrain(drain, delta);
+    this.timePennyDrain = tick.drain;
     this.clock = { ...this.clock, remaining: tick.remaining };
     this.emit({ type: "timer" });
-    const charged = addBonusCharge(this.bonus, tick.points);
-    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled });
+    const charged = addPennyCharge(this.pennies, tick.points);
+    this.applyPennies({ bar: charged.bar, tier: 0, filled: charged.filled });
     this.emitDraw();
     if (tick.done) {
-      this.timeBonusDrain = null;
-      this.emit({ type: "timeBonus", active: false });
+      this.timePennyDrain = null;
+      this.emit({ type: "timePennies", active: false });
       this.finishLevelClear();
     }
   }

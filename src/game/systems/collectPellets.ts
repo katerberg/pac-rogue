@@ -1,6 +1,6 @@
 import { hasComponent, query, removeEntity, type World } from "bitecs";
 import { hasPelletLineOfSight } from "../../domain/pelletLos";
-import type { Cell } from "../../domain/bonusBar";
+import type { Cell } from "../../domain/pennies";
 import { worldToCol, worldToRow, type SolidGrid } from "../../domain/maze";
 import { Drawable } from "../components/Drawable";
 import { OptionalPellet } from "../components/OptionalPellet";

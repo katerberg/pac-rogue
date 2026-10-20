@@ -57,7 +57,7 @@ describe("TUNING_KNOBS", () => {
       "Timer",
       "Fruit",
       "Death",
-      "Bonus",
+      "Pennies",
       "Boss",
       "Ghost AI",
       "Release",

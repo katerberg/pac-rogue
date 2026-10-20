@@ -1451,7 +1451,7 @@ describe("PlaySim", () => {
       const sim = moneySim({
         enableUpgrades: ["passiveMoneyTalks", "passiveDeathsBounty"],
         quarters: 3,
-        bonus: 68,
+        pennyCharge: 68,
       });
       const before = sim.snapshot().quarters;
       getCaught(sim);
@@ -1750,7 +1750,7 @@ describe("PlaySim", () => {
       const after = sim.snapshot();
       expect(after).toMatchObject({
         quarters: before.quarters,
-        bonus: before.bonus,
+        pennies: before.pennies,
         inStore: true,
       });
     });
@@ -2595,53 +2595,60 @@ describe("Ghost Harvester", () => {
   });
 });
 
-describe("PlaySim bonus bar", () => {
+describe("PlaySim pennies", () => {
   function startCorridor(overrides: Partial<PlayOptions> = {}): PlaySim {
     return startSim({ level: 2, maze: "maze1", infiniteLives: true, ...overrides }, "bonus1");
   }
 
-  function bonusEvents(events: SimEvent[]): Extract<SimEvent, { type: "bonus" }>[] {
-    return events.filter((e): e is Extract<SimEvent, { type: "bonus" }> => e.type === "bonus");
+  function penniesEvents(events: SimEvent[]): Extract<SimEvent, { type: "pennies" }>[] {
+    return events.filter((e): e is Extract<SimEvent, { type: "pennies" }> => e.type === "pennies");
   }
 
   it("bumps the bar when a streak reaches 5", () => {
     const sim = startCorridor();
-    const events = runUntil(sim, () => sim.snapshot().bonus.streak >= 5, 120, {
+    const events = runUntil(sim, () => sim.snapshot().pennies.streak >= 5, 120, {
       keys: held("left"),
     });
-    expect(sim.snapshot().bonus.charge).toBe(2);
-    expect(bonusEvents(events)).toEqual([{ type: "bonus", tier: 1, filled: 0 }]);
+    expect(sim.snapshot().pennies.charge).toBe(2);
+    expect(penniesEvents(events)).toEqual([{ type: "pennies", tier: 1, filled: 0 }]);
   });
 
   it("breaks the streak when the player walks back over eaten tiles", () => {
     const sim = startCorridor();
-    runUntil(sim, () => sim.snapshot().bonus.streak >= 6, 120, { keys: held("left") });
-    const { charge } = sim.snapshot().bonus;
+    runUntil(sim, () => sim.snapshot().pennies.streak >= 6, 120, { keys: held("left") });
+    const { charge } = sim.snapshot().pennies;
     const collected = sim.snapshot().boardCollected;
-    runUntil(sim, () => sim.snapshot().bonus.streak === 0, 30, { keys: held("right") });
+    runUntil(sim, () => sim.snapshot().pennies.streak === 0, 30, { keys: held("right") });
     expect(sim.snapshot().boardCollected).toBe(collected);
-    expect(sim.snapshot().bonus.charge).toBe(charge);
+    expect(sim.snapshot().pennies.charge).toBe(charge);
   });
 
   it("breaks the streak after stopping against a wall", () => {
     const sim = startCorridor();
-    runUntil(sim, () => sim.snapshot().bonus.streak === 7, 120, { keys: held("left") });
+    runUntil(sim, () => sim.snapshot().pennies.streak === 7, 120, { keys: held("left") });
     runFrames(sim, 20, { keys: held("left") });
-    expect(sim.snapshot().bonus.streak).toBe(7);
+    expect(sim.snapshot().pennies.streak).toBe(7);
     runFrames(sim, 10, { keys: held("left") });
-    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 2 });
+    expect(sim.snapshot().pennies).toMatchObject({ streak: 0, charge: 2 });
     expect(sim.snapshot().boardCollected).toBe(7);
   });
 
+  it("reports whole pennies in the charge and wraps to the remainder when a Quarter pays", () => {
+    const sim = startCorridor({ pennyCharge: 299, quarters: 0 });
+    expect(sim.snapshot().pennies).toMatchObject({ charge: 299, count: 23, max: 300 });
+    runUntil(sim, () => sim.snapshot().pennies.streak >= 5, 120, { keys: held("left") });
+    expect(sim.snapshot()).toMatchObject({ quarters: 1, pennies: { charge: 1, count: 0 } });
+  });
+
   it("pays a Quarter when the bar fills and carries the rest", () => {
-    const sim = startCorridor({ bonus: 299, quarters: 0 });
-    const events = runUntil(sim, () => sim.snapshot().bonus.streak >= 5, 120, {
+    const sim = startCorridor({ pennyCharge: 299, quarters: 0 });
+    const events = runUntil(sim, () => sim.snapshot().pennies.streak >= 5, 120, {
       keys: held("left"),
     });
     expect(sim.snapshot().quarters).toBe(1);
     expect(sim.snapshot().slot).toMatchObject({ queued: 0, active: false, spins: 0 });
-    expect(sim.snapshot().bonus.charge).toBe(1);
-    expect(bonusEvents(events)).toEqual([{ type: "bonus", tier: 1, filled: 1 }]);
+    expect(sim.snapshot().pennies.charge).toBe(1);
+    expect(penniesEvents(events)).toEqual([{ type: "pennies", tier: 1, filled: 1 }]);
     expect(events).toContainEqual({ type: "quarters", pulse: true });
   });
 
@@ -2651,7 +2658,7 @@ describe("PlaySim bonus bar", () => {
     const collected = sim.snapshot().boardCollected;
     eatPelletAt(sim, power);
     expect(sim.snapshot().boardCollected).toBe(collected + 1 + EXTRA_HUNGRY_COUNT);
-    expect(sim.snapshot().bonus.streak).toBe(1);
+    expect(sim.snapshot().pennies.streak).toBe(1);
   });
 
   it("Extra Hungry eats the eight farthest regular pellets", () => {
@@ -2670,32 +2677,32 @@ describe("PlaySim bonus bar", () => {
   });
 
   it("resets the streak on death and keeps the charge", () => {
-    const sim = startCorridor({ bonus: 40 });
-    runUntil(sim, () => sim.snapshot().bonus.streak >= 5, 120, { keys: held("left") });
+    const sim = startCorridor({ pennyCharge: 40 });
+    runUntil(sim, () => sim.snapshot().pennies.streak >= 5, 120, { keys: held("left") });
     ghostOntoPlayer(sim);
     runFrames(sim, 1);
     runUntil(sim, () => !sim.snapshot().dying, 240);
-    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 42 });
+    expect(sim.snapshot().pennies).toMatchObject({ streak: 0, charge: 42 });
   });
 
   it("keeps the charge, plus the time bonus, across a level advance", () => {
-    const sim = startSim({ jumpToUpgrade: true, bonus: 50 });
+    const sim = startSim({ jumpToUpgrade: true, pennyCharge: 50 });
     takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
-    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge: 193 });
+    expect(sim.snapshot().pennies).toMatchObject({ streak: 0, charge: 193 });
   });
 });
 
 describe("PlaySim slot machine", () => {
   function startSlotSim(overrides: Partial<PlayOptions> = {}, seed = "slots1"): PlaySim {
     return startSim(
-      { level: 2, maze: "maze1", infiniteLives: true, bonus: 299, slot: null, ...overrides },
+      { level: 2, maze: "maze1", infiniteLives: true, pennyCharge: 299, slot: null, ...overrides },
       seed,
     );
   }
 
   function spinFromStreak(sim: PlaySim): void {
-    sim["slotQueue"].push("bonusBar");
+    sim["slotQueue"].push("pennyBar");
     runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") });
   }
 
@@ -2757,7 +2764,7 @@ describe("PlaySim slot machine", () => {
     ];
     for (const [slot, expected] of cases) {
       const sim = startSlotSim({ slot });
-      sim["slotQueue"].push("bonusBar");
+      sim["slotQueue"].push("pennyBar");
       const events = [
         ...runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") }),
         ...settleSlots(sim),
@@ -2851,7 +2858,7 @@ describe("PlaySim slot machine", () => {
 
   it("runs one spin per fill, back to back, and pays them in order", () => {
     const sim = startSlotSim({ slot: { quarters: 2, upgrades: 0, lives: 0 }, quarters: 0 });
-    sim["slotQueue"].push("bonusBar", "bonusBar");
+    sim["slotQueue"].push("pennyBar", "pennyBar");
     expect(sim.snapshot().slot.queued).toBe(2);
     runFrames(sim, 1);
     expect(sim.snapshot().slot).toMatchObject({ active: true, queued: 1 });
@@ -2862,12 +2869,12 @@ describe("PlaySim slot machine", () => {
 
   it("holds the time drain and the upgrade offer until the spin ends", () => {
     const sim = startSlotSim({ jumpToUpgrade: true, slot: { quarters: 1, upgrades: 0, lives: 0 } });
-    runUntil(sim, () => sim.snapshot().bonus.draining, 120);
-    sim["slotQueue"].push("bonusBar");
+    runUntil(sim, () => sim.snapshot().pennies.draining, 120);
+    sim["slotQueue"].push("pennyBar");
     runFrames(sim, 1);
     expect(sim.snapshot().slot.active).toBe(true);
     const remaining = sim.snapshot().timeRemaining;
-    expect(sim.snapshot().bonus.draining).toBe(true);
+    expect(sim.snapshot().pennies.draining).toBe(true);
     runFrames(sim, 60);
     expect(sim.snapshot().timeRemaining).toBe(remaining);
     expect(sim.offer()).toBeNull();
@@ -2899,7 +2906,7 @@ describe("PlaySim slot-machine world pickup", () => {
     );
     sim["grantQuarters"](3, "inheritance", true);
     expect(sim.snapshot().slotPickup.progress).toBe(3);
-    sim["slotQueue"].push("bonusBar");
+    sim["slotQueue"].push("pennyBar");
     runFrames(sim, 1);
     settleSlots(sim);
     expect(sim.snapshot().quarters).toBeGreaterThan(0);
@@ -3215,7 +3222,7 @@ describe("PlaySim fruit bonus charge", () => {
   it("charges half a bar and pays no Quarter on its own", () => {
     const sim = startWithFruit({ quarters: 0 });
     const events = eatFruit(sim);
-    expect(sim.snapshot()).toMatchObject({ quarters: 0, bonus: { charge: 150 } });
+    expect(sim.snapshot()).toMatchObject({ quarters: 0, pennies: { charge: 150 } });
     expect(events).not.toContainEqual({ type: "quarters", pulse: false });
     expect(events).toContainEqual({ type: "fruitBonus" });
   });
@@ -3226,25 +3233,29 @@ describe("PlaySim fruit bonus charge", () => {
   });
 
   it("pays a Quarter when fruit fills the bar", () => {
-    const sim = startWithFruit({ quarters: 0, bonus: 200 });
+    const sim = startWithFruit({ quarters: 0, pennyCharge: 200 });
     const events = eatFruit(sim);
     expect(sim.snapshot().slot.queued).toBe(0);
-    expect(sim.snapshot()).toMatchObject({ quarters: 1, bonus: { charge: 50 } });
-    expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
+    expect(sim.snapshot()).toMatchObject({ quarters: 1, pennies: { charge: 50 } });
+    expect(events).toContainEqual({ type: "pennies", tier: 0, filled: 1 });
   });
 
   it("Quarter Bounty pays a Quarter instead of charging the bar; Plus pays two", () => {
-    const base = startWithFruit({ quarters: 0, bonus: 10, enableUpgrades: ["fruitQuarterBounty"] });
+    const base = startWithFruit({
+      quarters: 0,
+      pennyCharge: 10,
+      enableUpgrades: ["fruitQuarterBounty"],
+    });
     eatFruit(base);
-    expect(base.snapshot()).toMatchObject({ quarters: 1, bonus: { charge: 10 } });
+    expect(base.snapshot()).toMatchObject({ quarters: 1, pennies: { charge: 10 } });
 
     const plus = startWithFruit({
       quarters: 0,
-      bonus: 10,
+      pennyCharge: 10,
       enableUpgrades: ["fruitQuarterBountyPlus"],
     });
     eatFruit(plus);
-    expect(plus.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 10 } });
+    expect(plus.snapshot()).toMatchObject({ quarters: 2, pennies: { charge: 10 } });
   });
 
   it("Fruit Power fires one random power effect; Plus fires all; neither turns a pellet hot", () => {
@@ -3280,31 +3291,35 @@ describe("PlaySim level-end time bonus", () => {
 
   it("drains the timer into the bar before the upgrade offer", () => {
     const { sim, events } = startClear({ level: 2 });
-    expect(events).toContainEqual({ type: "timeBonus", active: true });
+    expect(events).toContainEqual({ type: "timePennies", active: true });
     runFrames(sim, 30);
-    expect(sim.snapshot().bonus.draining).toBe(true);
+    expect(sim.snapshot().pennies.draining).toBe(true);
     expect(sim.offer()).toBeNull();
     expect(sim.snapshot().timeRemaining).toBeLessThan(999);
-    const rest = runUntil(sim, () => !sim.snapshot().bonus.draining, 600, { acknowledge: true });
-    expect(rest).toContainEqual({ type: "timeBonus", active: false });
-    expect(sim.snapshot()).toMatchObject({ timeRemaining: 0, quarters: 1, bonus: { charge: 143 } });
+    const rest = runUntil(sim, () => !sim.snapshot().pennies.draining, 600, { acknowledge: true });
+    expect(rest).toContainEqual({ type: "timePennies", active: false });
+    expect(sim.snapshot()).toMatchObject({
+      timeRemaining: 0,
+      quarters: 1,
+      pennies: { charge: 143 },
+    });
     expect(sim.offer()).not.toBeNull();
   });
 
   it("pays a Quarter mid-drain, before the offer opens", () => {
-    const { sim } = startClear({ level: 2, bonus: 200, quarters: 0 });
+    const { sim } = startClear({ level: 2, pennyCharge: 200, quarters: 0 });
     const events = runUntil(sim, () => sim.snapshot().quarters === 1, 600);
     expect(sim.offer()).toBeNull();
-    expect(sim.snapshot().bonus.draining).toBe(true);
-    expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
+    expect(sim.snapshot().pennies.draining).toBe(true);
+    expect(events).toContainEqual({ type: "pennies", tier: 0, filled: 1 });
     drainToOffer(sim);
-    expect(sim.snapshot()).toMatchObject({ quarters: 2, bonus: { charge: 43 } });
+    expect(sim.snapshot()).toMatchObject({ quarters: 2, pennies: { charge: 43 } });
   });
 
   it("drains on level 1, then offers an upgrade before level 2", () => {
     const { sim } = startClear({ level: 1 });
-    runUntil(sim, () => !sim.snapshot().bonus.draining, 600, { acknowledge: true });
-    expect(sim.snapshot().bonus.charge).toBe(143);
+    runUntil(sim, () => !sim.snapshot().pennies.draining, 600, { acknowledge: true });
+    expect(sim.snapshot().pennies.charge).toBe(143);
     takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 2, 120);
   });
@@ -3315,7 +3330,7 @@ describe("PlaySim level-end time bonus", () => {
       "drain",
     );
     const startEvents = sim.start();
-    expect(startEvents.some((e) => e.type === "timeBonus")).toBe(false);
+    expect(startEvents.some((e) => e.type === "timePennies")).toBe(false);
     runUntil(
       sim,
       () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
@@ -3323,8 +3338,8 @@ describe("PlaySim level-end time bonus", () => {
     );
     sim["jumpToLevelClear"]();
     const events = runFrames(sim, 90);
-    expect(events.some((e) => e.type === "timeBonus")).toBe(false);
-    expect(sim.snapshot().bonus).toMatchObject({ charge: 0, draining: false });
+    expect(events.some((e) => e.type === "timePennies")).toBe(false);
+    expect(sim.snapshot().pennies).toMatchObject({ charge: 0, draining: false });
     expect(events).toContainEqual({ type: "endText", title: "RUN COMPLETE" });
   });
 });
@@ -3965,12 +3980,12 @@ describe("Death's Bounty", () => {
   }
 
   function bountyTotals(id: UpgradeId, deaths: number): number[] {
-    const sim = startBounty([id], { bonus: 100 });
+    const sim = startBounty([id], { pennyCharge: 100 });
     const totals: number[] = [];
     for (let i = 0; i < deaths; i += 1) {
       dieAndRespawn(sim);
-      const { quarters, bonus } = sim.snapshot();
-      totals.push(quarters * bonus.max + bonus.charge);
+      const { quarters, pennies } = sim.snapshot();
+      totals.push(quarters * pennies.max + pennies.charge);
     }
     return totals;
   }
@@ -3983,22 +3998,22 @@ describe("Death's Bounty", () => {
     expect(bountyTotals("passiveDeathsBountyPlus", 3)).toEqual([400, 670, 913]);
   });
 
-  it("pays the Quarter through the bonus bar fill at the catch", () => {
+  it("pays the Quarter through the penny fill at the catch", () => {
     const sim = startBounty(["passiveDeathsBounty"]);
     ghostOntoPlayer(sim);
     const events = runFrames(sim, 1);
-    expect(events).toContainEqual({ type: "bonus", tier: 0, filled: 1 });
+    expect(events).toContainEqual({ type: "pennies", tier: 0, filled: 1 });
     expect(sim.snapshot().slot.queued).toBe(0);
-    expect(sim.snapshot().bonus.charge).toBe(0);
+    expect(sim.snapshot().pennies.charge).toBe(0);
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().quarters).toBe(1);
   });
 
   it("pays nothing when not owned", () => {
-    const sim = startBounty([], { bonus: 100 });
+    const sim = startBounty([], { pennyCharge: 100 });
     dieAndRespawn(sim);
     expect(sim.snapshot().quarters).toBe(0);
-    expect(sim.snapshot().bonus.charge).toBe(100);
+    expect(sim.snapshot().pennies.charge).toBe(100);
   });
 
   it("pays on a Defy Death save", () => {
@@ -4316,22 +4331,22 @@ describe("Shield", () => {
         maze: "maze1",
         infiniteLives: true,
         enableUpgrades: ["passiveShieldPellets"],
-        bonus: 40,
+        pennyCharge: 40,
       },
       "shield-streak",
     );
     chompPowerPellet(sim);
     expect(sim.snapshot().timers.shieldsBanked).toBe(1);
-    while (sim.snapshot().bonus.streak < 5) {
+    while (sim.snapshot().pennies.streak < 5) {
       const eid = regularPelletEids(sim)[0]!;
       teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
       runFrames(sim, 1);
     }
-    const { charge, streak } = sim.snapshot().bonus;
+    const { charge, streak } = sim.snapshot().pennies;
     expect(streak).toBeGreaterThanOrEqual(5);
     ghostOntoPlayer(sim);
     runFrames(sim, 1);
-    expect(sim.snapshot().bonus).toMatchObject({ streak: 0, charge });
+    expect(sim.snapshot().pennies).toMatchObject({ streak: 0, charge });
     expect(sim.snapshot().timers.shieldsBanked).toBe(0);
     expect(sim.snapshot().dying).toBe(false);
   });
@@ -4790,7 +4805,13 @@ describe("Interest", () => {
 
 describe("Near Miss", () => {
   function startNearMiss(enableUpgrades: UpgradeId[]): PlaySim {
-    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades, bonus: 100 });
+    return startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades,
+      pennyCharge: 100,
+    });
   }
 
   function ghostBesidePlayer(sim: PlaySim, ghost: number): void {
@@ -4810,17 +4831,17 @@ describe("Near Miss", () => {
     return [...events, ...runFrames(sim, 1)];
   }
 
-  it("charges the BONUS bar 15 when a ghost brushes past", () => {
+  it("earns 15 charge in pennies when a ghost brushes past", () => {
     const sim = startNearMiss(["passiveNearMiss"]);
     passGhost(sim);
     expect(sim.snapshot().nearMissesPaid).toBe(1);
-    expect(sim.snapshot().bonus.charge).toBe(100 + NEAR_MISS_CHARGE);
+    expect(sim.snapshot().pennies.charge).toBe(100 + NEAR_MISS_CHARGE);
   });
 
   it("charges 30 when enhanced", () => {
     const sim = startNearMiss(["passiveNearMissPlus"]);
     passGhost(sim);
-    expect(sim.snapshot().bonus.charge).toBe(100 + NEAR_MISS_ENHANCED_CHARGE);
+    expect(sim.snapshot().pennies.charge).toBe(100 + NEAR_MISS_ENHANCED_CHARGE);
   });
 
   it("pays every separate pass", () => {
@@ -4828,7 +4849,7 @@ describe("Near Miss", () => {
     passGhost(sim);
     passGhost(sim);
     expect(sim.snapshot().nearMissesPaid).toBe(2);
-    expect(sim.snapshot().bonus.charge).toBe(100 + 2 * NEAR_MISS_CHARGE);
+    expect(sim.snapshot().pennies.charge).toBe(100 + 2 * NEAR_MISS_CHARGE);
   });
 
   it("pays again on a fresh touch after separating by only a little", () => {
@@ -4848,7 +4869,7 @@ describe("Near Miss", () => {
     const sim = startNearMiss([]);
     passGhost(sim);
     expect(sim.snapshot().nearMissesPaid).toBe(0);
-    expect(sim.snapshot().bonus.charge).toBe(100);
+    expect(sim.snapshot().pennies.charge).toBe(100);
   });
 
   it("pays on contact even while the ghost stays touching, once", () => {
@@ -4856,7 +4877,7 @@ describe("Near Miss", () => {
     ghostBesidePlayer(sim, query(sim.world, [Ghost, Position])[0]!);
     runFrames(sim, 3);
     expect(sim.snapshot().nearMissesPaid).toBe(1);
-    expect(sim.snapshot().bonus.charge).toBe(100 + NEAR_MISS_CHARGE);
+    expect(sim.snapshot().pennies.charge).toBe(100 + NEAR_MISS_CHARGE);
   });
 
   it("pays nothing when the ghost catches you", () => {
@@ -4867,7 +4888,7 @@ describe("Near Miss", () => {
     runUntil(sim, () => !sim.snapshot().dying, 240);
     runFrames(sim, 1);
     expect(sim.snapshot().nearMissesPaid).toBe(0);
-    expect(sim.snapshot().bonus.charge).toBe(100);
+    expect(sim.snapshot().pennies.charge).toBe(100);
   });
 
   it("pays nothing for the frozen ghost", () => {
@@ -5238,7 +5259,7 @@ describe("Streak Engine", () => {
 
   function eatUntilStreak(sim: PlaySim, streak: number): SimEvent[] {
     const events: SimEvent[] = [];
-    while (sim.snapshot().bonus.streak < streak) {
+    while (sim.snapshot().pennies.streak < streak) {
       const eid = regularPelletEids(sim)[0]!;
       teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
       events.push(...runFrames(sim, 1));
@@ -5269,7 +5290,7 @@ describe("Streak Engine", () => {
     const sim = startStreak(["passiveStreakEngine", "powerPelletSpeedBurst"]);
     eatUntilStreak(sim, 20);
     runFrames(sim, 40);
-    expect(sim.snapshot().bonus.streak).toBe(0);
+    expect(sim.snapshot().pennies.streak).toBe(0);
     eatUntilStreak(sim, 29);
     expect(sim.snapshot().timers.speedBurstMs).toBe(0);
   });
@@ -5510,7 +5531,7 @@ describe("Hunter", () => {
     letGhostsOut(sim, 3);
     chompPowerPellet(sim);
     const [first, second, third] = outOfHouse(sim);
-    const charge = sim.snapshot().bonus.charge;
+    const charge = sim.snapshot().pennies.charge;
     const quarters = sim.snapshot().quarters;
 
     const events = ghostOnto(sim, first!);
@@ -5518,14 +5539,14 @@ describe("Hunter", () => {
     expect(GhostPhase.value[first!]).toBe(GHOST_PHASE.inHouse);
     expect(sim.renderOptions().ghostWarpGlides?.[first!]).toBeDefined();
     expect(events).toContainEqual({ type: "sfx", id: "pelletMunch2" });
-    expect(sim.snapshot().bonus.charge).toBe(charge + 75);
+    expect(sim.snapshot().pennies.charge).toBe(charge + 75);
 
     ghostOnto(sim, second!);
-    expect(sim.snapshot().bonus.charge).toBe(charge + 225);
+    expect(sim.snapshot().pennies.charge).toBe(charge + 225);
     ghostOnto(sim, third!);
     expect(sim.snapshot().slot.queued).toBe(0);
     expect(sim.snapshot().quarters).toBe(quarters + 1);
-    expect(sim.snapshot().bonus.charge).toBe(charge + 225);
+    expect(sim.snapshot().pennies.charge).toBe(charge + 225);
     expect(sim.snapshot().ghostsEatenThisFright).toBe(3);
     expect(sim.snapshot().dying).toBe(false);
   });
@@ -6153,12 +6174,12 @@ describe("Hyperspeed", () => {
   it("keeps the pellet streak alive through a power pellet and the hyperspeed run after it", () => {
     const sim = startHyper(["powerPelletHyperspeed"]);
     chompPowerPellet(sim);
-    expect(sim.snapshot().bonus.streak).toBe(1);
+    expect(sim.snapshot().pennies.streak).toBe(1);
     const boardBefore = sim.snapshot().boardCollected;
     let previous = 1;
     for (let frame = 0; frame < 8; frame += 1) {
       runFrames(sim, 1, DOWN);
-      const { streak } = sim.snapshot().bonus;
+      const { streak } = sim.snapshot().pennies;
       expect(streak).toBeGreaterThanOrEqual(previous);
       previous = streak;
     }
@@ -6559,7 +6580,7 @@ describe("Cornucopia", () => {
     teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
     runFrames(sim, 1);
     expect(fruitCount(sim)).toBe(0);
-    expect(sim.snapshot().bonus.charge).toBeGreaterThan(0);
+    expect(sim.snapshot().pennies.charge).toBeGreaterThan(0);
     runFrames(sim, framesFor(CORNUCOPIA_SPAWN_DEBOUNCE_MS));
     eatNextPower(sim);
     expect(fruitCount(sim)).toBe(1);

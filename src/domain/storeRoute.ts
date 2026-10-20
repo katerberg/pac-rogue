@@ -1,5 +1,5 @@
 import type { SolidGrid } from "./maze";
-import type { Cell } from "./bonusBar";
+import type { Cell } from "./pennies";
 
 export type RouteStep = { dx: number; dy: number };
 
