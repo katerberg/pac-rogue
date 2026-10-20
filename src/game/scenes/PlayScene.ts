@@ -5,15 +5,19 @@ import {
   bumpPennyFx,
   createPennyFx,
   fillPennyFx,
+  holdPennyFx,
   pennyBacklog,
   pennyBumpFx,
   pennyCollapsing,
   quartersShownDuringCollapse,
   pennyLooks,
+  pennyStackLooks,
+  releasePennyFx,
   slowPennyFx,
   stepPennyFx,
   type PennyFxState,
   type PennyGeometry,
+  type PennyLook,
 } from "../../domain/penniesFx";
 import { playTurnSparks } from "./turnSparks";
 import { playChaffBurst } from "./chaffBurst";
@@ -144,6 +148,7 @@ export class PlayScene extends Phaser.Scene {
   private knobsPanel: KnobsPanel | null = null;
   private chromeShake: Phaser.Time.TimerEvent | null = null;
   private pennyIcons: Phaser.GameObjects.Image[] = [];
+  private pennyStackIcons: Phaser.GameObjects.Image[] = [];
   private pennyFx!: PennyFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
@@ -241,6 +246,7 @@ export class PlayScene extends Phaser.Scene {
     this.chrome.add(this.upgradeDrain);
 
     this.pennyIcons = [];
+    this.pennyStackIcons = [];
     this.pennyFx = createPennyFx(this.sim.hud().penniesCharge);
     this.sideHud.add(this.timerText);
     this.lifeIcons = [];
@@ -580,8 +586,10 @@ export class PlayScene extends Phaser.Scene {
       case "timePennies":
         if (event.active) {
           this.timerText.setTint(TIME_BONUS_TINT);
+          this.pennyFx = holdPennyFx(this.pennyFx);
         } else {
           this.timerText.clearTint();
+          this.pennyFx = releasePennyFx(this.pennyFx, this.sim.hud().penniesCharge);
         }
         break;
       case "startingUpgrade":
@@ -986,17 +994,24 @@ export class PlayScene extends Phaser.Scene {
       step,
       size,
       target: this.nextQuarterPosition(),
+      stack: { x: PLAYFIELD_WIDTH - 12 - size * 5, y: PENNY_ROW_Y + size / 2 },
     };
   }
 
   private drawPennies(): void {
-    const looks = pennyLooks(this.pennyFx, this.pennyGeometry());
-    while (this.pennyIcons.length < looks.length) {
+    const geo = this.pennyGeometry();
+    const charge = this.sim.hud().penniesCharge;
+    this.placePennyIcons(this.pennyIcons, pennyLooks(this.pennyFx, geo));
+    this.placePennyIcons(this.pennyStackIcons, pennyStackLooks(this.pennyFx, charge, geo));
+  }
+
+  private placePennyIcons(icons: Phaser.GameObjects.Image[], looks: PennyLook[]): void {
+    while (icons.length < looks.length) {
       const icon = addPennyIcon(this, 0, 0, pelletDisplaySize());
       this.addHudIcon(icon);
-      this.pennyIcons.push(icon);
+      icons.push(icon);
     }
-    this.pennyIcons.forEach((icon, i) => {
+    icons.forEach((icon, i) => {
       const look = looks[i];
       icon.setVisible(look !== undefined);
       if (look !== undefined) {
@@ -1049,7 +1064,12 @@ export class PlayScene extends Phaser.Scene {
 
   private liftHudIconsAboveRunEnd(): void {
     const upgradeMarks = this.upgradeIcons.map(({ mark }) => mark);
-    for (const icon of [...upgradeMarks, ...this.quarterIcons, ...this.pennyIcons]) {
+    for (const icon of [
+      ...upgradeMarks,
+      ...this.quarterIcons,
+      ...this.pennyIcons,
+      ...this.pennyStackIcons,
+    ]) {
       this.chrome.remove(icon);
       this.add.existing(icon);
       icon.setDepth(RUN_END_HUD_DEPTH);

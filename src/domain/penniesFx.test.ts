@@ -6,6 +6,9 @@ import {
   bumpPennyFx,
   createPennyFx,
   fillPennyFx,
+  holdPennyFx,
+  pennyStackLooks,
+  releasePennyFx,
   pennyBumpFx,
   pennyCollapsing,
   pennyHopOffset,
@@ -23,6 +26,7 @@ const GEO: PennyGeometry = {
   step: 10,
   size: 12,
   target: { x: 20, y: 14 },
+  stack: { x: 700, y: 30 },
 };
 
 function run(s: PennyFxState, ms: number, charge: number, frameMs = 16): PennyFxState {
@@ -134,5 +138,47 @@ describe("penny row", () => {
     expect(pennyHopOffset(s)).toBeLessThan(0);
     s = run(s, 1000, 4 * CHARGE_PER_PENNY);
     expect(pennyHopOffset(s)).toBe(0);
+  });
+});
+
+describe("time penny stack", () => {
+  it("holds earned pennies in a stack instead of dropping them into the row", () => {
+    const charge = 4 * CHARGE_PER_PENNY;
+    const s = run(holdPennyFx(createPennyFx(0)), 500, charge);
+    expect(s.row).toHaveLength(0);
+    expect(pennyStackLooks(s, charge, GEO)).toHaveLength(4);
+  });
+
+  it("shows every earned penny, spilling into more stacks side by side", () => {
+    const charge = 14 * CHARGE_PER_PENNY;
+    const s = fillPennyFx(holdPennyFx(createPennyFx(0)), 1);
+    const looks = pennyStackLooks(s, charge, GEO);
+    expect(looks).toHaveLength(PENNIES_PER_QUARTER + 14);
+    const columns = new Set(looks.map((l) => l.x));
+    expect(columns.size).toBe(Math.ceil(looks.length / 6));
+    expect(Math.max(...columns)).toBe(GEO.stack.x);
+  });
+
+  it("slides the stack's own pennies, top of the far stack first, into their slots", () => {
+    const charge = 8 * CHARGE_PER_PENNY;
+    let s = run(holdPennyFx(createPennyFx(0)), 200, charge);
+    const stack = pennyStackLooks(s, charge, GEO);
+    s = releasePennyFx(s, charge);
+    s = stepPennyFx(s, 1, charge);
+    expect(s.row).toHaveLength(1);
+    expect(pennyLooks(s, GEO)[0]).toMatchObject(stack[7]!);
+    expect(pennyStackLooks(s, charge, GEO)).toEqual(stack.slice(0, 7));
+    s = run(s, 800, charge);
+    expect(pennyLooks(s, GEO).map((l) => [l.x, l.y])).toEqual(
+      Array.from({ length: 8 }, (_, i) => [GEO.x0 + i * GEO.step, GEO.y]),
+    );
+    expect(pennyStackLooks(s, charge, GEO)).toHaveLength(0);
+  });
+
+  it("still collapses a full row into a quarter after the slide", () => {
+    let s = releasePennyFx(fillPennyFx(holdPennyFx(createPennyFx(0)), 1), 0);
+    s = run(s, 2500, 0);
+    expect(s.landed).toBe(1);
+    expect(s.row).toHaveLength(0);
   });
 });
