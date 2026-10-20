@@ -38,6 +38,7 @@ import {
   quarterHudIcons,
 } from "../../domain/moneyTalks";
 import { loadCustomMaze } from "../storage/customMazeStorage";
+import { preferredStartingUpgrade } from "../../domain/newPlayer";
 import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
@@ -59,7 +60,7 @@ import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/d
 import { loadLastRoster, saveLastRoster } from "../storage/lastRosterStorage";
 import { saveRun } from "../storage/runHistoryStorage";
 import { drainRunUploads } from "../net/apiClient";
-import { newRunLogMeta, saveRunLog } from "../storage/runLogStorage";
+import { newRunLogMeta, saveRunLog, storedRunCount } from "../storage/runLogStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
@@ -197,6 +198,7 @@ export class PlayScene extends Phaser.Scene {
       options.jumpToSpinner = false;
       options.store = null;
     }
+    options.forceStartingUpgrade = preferredStartingUpgrade(storedRunCount());
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
     const runLogMeta = newRunLogMeta(params);
     const seed =

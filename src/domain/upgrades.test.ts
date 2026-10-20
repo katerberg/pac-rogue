@@ -25,7 +25,7 @@ import {
   SHIELD_PELLETS_ENHANCED_CAP,
   applyShieldBreakInvuln,
   applyTunnelExitInvuln,
-  martyrGhostPlacement,
+  reanimationMode,
   HAUNTING_MS,
   armHaunt,
   dropWall,
@@ -219,7 +219,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveAutomationSpecialist",
   "passiveProtectionSpecialist",
   "passiveDisruptionSpecialist",
-  "passiveMartyr",
+  "passiveReanimation",
   "passiveInterest",
   "passiveNearMiss",
   "passiveHaunting",
@@ -433,6 +433,21 @@ describe("pickStartingUpgrade", () => {
     expect(pickStartingUpgrade([], () => 0.9999)).toBe(pool[pool.length - 1]);
     expect(pickStartingUpgrade([pool[0]!], () => 0)).toBe(pool[1]);
   });
+
+  it("returns preferred when that id is still eligible", () => {
+    expect(pickStartingUpgrade([], () => 0.9999, "powerPelletFreeze")).toBe("powerPelletFreeze");
+    expect(pickStartingUpgrade(["powerPelletInvuln"], () => 0, "powerPelletFreeze")).toBe(
+      "powerPelletFreeze",
+    );
+  });
+
+  it("falls back to rng when preferred is already owned", () => {
+    const pool = STARTING_UPGRADE_POOL;
+    expect(pickStartingUpgrade(["powerPelletFreeze"], () => 0, "powerPelletFreeze")).toBe(pool[0]);
+    expect(pickStartingUpgrade(["powerPelletFreezePlus"], () => 0.9999, "powerPelletFreeze")).toBe(
+      pool[pool.length - 1],
+    );
+  });
 });
 
 describe("eligibleUpgrades", () => {
@@ -471,7 +486,6 @@ describe("rare upgrades", () => {
     "fruitPowerPellet",
     "passiveOvercharge",
     "passiveLazyLooper",
-    "passiveMartyr",
     "passiveStreakEngine",
     "powerPelletHunter",
     "powerPelletHyperspeed",
@@ -499,12 +513,12 @@ describe("rare upgrades", () => {
 
   it("is drawn at half a common's weight, removing the pick from the pool", () => {
     const draw = (roll: number) => {
-      const pool: BaseUpgradeId[] = ["passiveMartyr", "passiveGhostSlow"];
+      const pool: BaseUpgradeId[] = ["passiveStreakEngine", "passiveGhostSlow"];
       return { picked: takeWeightedUpgrade(pool, () => roll), pool };
     };
-    expect(draw(0)).toEqual({ picked: "passiveMartyr", pool: ["passiveGhostSlow"] });
-    expect(draw(0.33).picked).toBe("passiveMartyr");
-    expect(draw(0.34)).toEqual({ picked: "passiveGhostSlow", pool: ["passiveMartyr"] });
+    expect(draw(0)).toEqual({ picked: "passiveStreakEngine", pool: ["passiveGhostSlow"] });
+    expect(draw(0.33).picked).toBe("passiveStreakEngine");
+    expect(draw(0.34)).toEqual({ picked: "passiveGhostSlow", pool: ["passiveStreakEngine"] });
     expect(draw(0.9999).picked).toBe("passiveGhostSlow");
     const commons: BaseUpgradeId[] = ["passiveGhostSlow", "passiveAfterburner", "fruitFeast"];
     expect(takeWeightedUpgrade([...commons], () => 0.5)).toBe(
@@ -515,7 +529,7 @@ describe("rare upgrades", () => {
 
   it("is drawn at half a common's weight in a closed pool when school affinity is idle", () => {
     const left: BaseUpgradeId[] = [
-      "passiveMartyr",
+      "passiveStreakEngine",
       "passiveGhostSlow",
       "passiveAfterburner",
       "fruitFeast",
@@ -539,7 +553,7 @@ describe("rare upgrades", () => {
         takeWeightedUpgrade(pool, rng, (id) => upgradeOfferWeight(id, owned)),
         takeWeightedUpgrade(pool, rng, (id) => upgradeOfferWeight(id, owned)),
       ];
-      withRare += picked.includes("passiveMartyr") ? 1 : 0;
+      withRare += picked.includes("passiveStreakEngine") ? 1 : 0;
     }
     const expected = 1 - (3 / 3.5) * (2 / 2.5) * (1 / 1.5);
     expect(Math.abs(withRare / draws - expected)).toBeLessThan(0.03);
@@ -547,7 +561,7 @@ describe("rare upgrades", () => {
 
   it("shows up in a level-clear offer at half a common's weight times school affinity", () => {
     const left: BaseUpgradeId[] = [
-      "passiveMartyr",
+      "passiveStreakEngine",
       "passiveGhostSlow",
       "passiveAfterburner",
       "fruitFeast",
@@ -563,9 +577,9 @@ describe("rare upgrades", () => {
     for (let i = 0; i < draws; i += 1) {
       const offer = pickUpgradeChoiceOffer(owned, null, rng);
       expect(offer.upgrades).toHaveLength(2);
-      withRare += offer.upgrades.includes("passiveMartyr") ? 1 : 0;
+      withRare += offer.upgrades.includes("passiveStreakEngine") ? 1 : 0;
     }
-    const commons = left.filter((id) => id !== "passiveMartyr");
+    const commons = left.filter((id) => id !== "passiveStreakEngine");
     let pNone = 0;
     for (let i = 0; i < commons.length; i += 1) {
       for (let j = 0; j < commons.length; j += 1) {
@@ -608,7 +622,7 @@ describe("school offer affinity", () => {
   it("counts owned upgrades of a school including specialists and Plus forms", () => {
     expect(schoolAffinityPoints([], "death")).toBe(0);
     expect(schoolAffinityPoints(deathOwned, "death")).toBe(3);
-    expect(schoolAffinityPoints(["passiveExtraLifePlus", "passiveMartyr"], "death")).toBe(2);
+    expect(schoolAffinityPoints(["passiveExtraLifePlus", "passiveHaunting"], "death")).toBe(2);
     expect(schoolAffinityPoints(deathOwned, "harvest")).toBe(0);
   });
 
@@ -618,14 +632,15 @@ describe("school offer affinity", () => {
   });
 
   it("weights matching-school commons and rares by affinity rates, times rare half-weight", () => {
+    const harvestOwned: UpgradeId[] = ["fruitQuarterBounty", "fruitFecundity", "fruitFeast"];
     expect(SCHOOL_AFFINITY_COMMON_RATE).toBe(0.25);
     expect(SCHOOL_AFFINITY_RARE_RATE).toBe(0.15);
     expect(upgradeOfferWeight("passiveGhostSlow", [])).toBe(1);
-    expect(upgradeOfferWeight("passiveMartyr", [])).toBe(RARE_OFFER_WEIGHT);
+    expect(upgradeOfferWeight("passiveStreakEngine", [])).toBe(RARE_OFFER_WEIGHT);
     expect(upgradeOfferWeight("passiveMyogenesis", deathOwned)).toBe(
       1 + SCHOOL_AFFINITY_COMMON_RATE * 3,
     );
-    expect(upgradeOfferWeight("passiveMartyr", deathOwned)).toBe(
+    expect(upgradeOfferWeight("passiveStreakEngine", harvestOwned)).toBe(
       (1 + SCHOOL_AFFINITY_RARE_RATE * 3) * RARE_OFFER_WEIGHT,
     );
     expect(upgradeOfferWeight("passiveGhostSlow", deathOwned)).toBe(1);
@@ -637,7 +652,7 @@ describe("school offer affinity", () => {
   });
 
   it("biases weighted draws toward matching schools; default takeWeightedUpgrade stays rare-only", () => {
-    expect(takeWeightedUpgrade(["passiveMartyr", "passiveGhostSlow"], () => 0.34)).toBe(
+    expect(takeWeightedUpgrade(["passiveStreakEngine", "passiveGhostSlow"], () => 0.34)).toBe(
       "passiveGhostSlow",
     );
 
@@ -1028,11 +1043,11 @@ describe("moneyTalksCost", () => {
   });
 });
 
-describe("Martyr", () => {
-  it("sends ghosts to their corners, or home when enhanced", () => {
-    expect(martyrGhostPlacement([])).toBeNull();
-    expect(martyrGhostPlacement(["passiveMartyr"])).toBe("corners");
-    expect(martyrGhostPlacement(["passiveMartyrPlus"])).toBe("house");
+describe("Reanimation", () => {
+  it("respawns where you fell, or next to a power pellet when enhanced", () => {
+    expect(reanimationMode([])).toBeNull();
+    expect(reanimationMode(["passiveReanimation"])).toBe("fell");
+    expect(reanimationMode(["passiveReanimationPlus"])).toBe("nearPowerPellet");
   });
 });
 

@@ -61,7 +61,7 @@ import {
   type DeathSequenceState,
 } from "../../domain/deathSequence";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
-import { respawnCenter } from "../../domain/martyr";
+import { respawnCenter } from "../../domain/reanimation";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
 import { interestCoinsShown, type InterestPop } from "../../domain/interest";
 import {
@@ -284,7 +284,6 @@ import {
   cornucopiaAlongsideOwned,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
-  martyrGhostPlacement,
   hauntDurationMs,
   armHaunt,
   tickHaunt,
@@ -392,6 +391,7 @@ import { DIRECTION, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossChains, chainCatch } from "../systems/bossChain";
@@ -707,7 +707,11 @@ export class PlaySim {
       !options.jumpToUpgrade &&
       options.store === null &&
       !options.disableLevelUpgrades
-        ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
+        ? pickStartingUpgrade(
+            this.runUpgrades.owned,
+            this.random.stream("startingUpgrade"),
+            options.forceStartingUpgrade,
+          )
         : null;
     if (startingUpgrade !== null) {
       this.recorder.gained(startingUpgrade, "start", this.levelIndex);
@@ -3910,7 +3914,11 @@ export class PlaySim {
     this.mirrorPop = null;
     this.resetStreak();
     this.remoteTransferCounter = 0;
-    const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt);
+    const powerPellets = Array.from(query(this.world, [PowerPellet, Position]), (eid) => ({
+      x: Position.x[eid]!,
+      y: Position.y[eid]!,
+    }));
+    const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt, powerPellets);
     this.fellAt = null;
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
       Position.x[eid] = playerSpawn.x;
@@ -3938,8 +3946,6 @@ export class PlaySim {
       }
     }
     this.caughtByEid = null;
-    const toCorners =
-      this.bossState === null && martyrGhostPlacement(this.effectiveUpgrades()) === "corners";
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -3954,9 +3960,7 @@ export class PlaySim {
       Input.direction[eid] = DIRECTION.none;
       Facing.direction[eid] = DIRECTION.none;
       Speed.px[eid] = 0;
-      if (!toCorners || eid === hauntEid || GhostPhase.value[eid] !== GHOST_PHASE.active) {
-        GhostPhase.value[eid] = GHOST_PHASE.inHouse;
-      }
+      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
       Ghost.decidedCol[eid] = Number.NaN;
       Ghost.decidedRow[eid] = Number.NaN;
     }
@@ -3975,10 +3979,6 @@ export class PlaySim {
       this.afterLifeRelease,
       { heldGhostEids: hauntEid === null ? [] : [hauntEid] },
     );
-    if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
-      this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
-      this.previousEffectiveGhostMode = this.settledGhostMode();
-    }
 
     if (!this.reviveSplashPending) {
       this.clearFruitEntities();
