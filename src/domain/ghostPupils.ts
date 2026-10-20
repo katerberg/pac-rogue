@@ -91,7 +91,6 @@ export function ghostPupilRects(
   look: PupilLook,
 ): PupilRect[] {
   const scale = displaySize / GHOST_ART_SIZE_PX;
-  // Whole art pixels only, so an eased or aimed look never lands between art pixels.
   const dx = Math.round(look.dx);
   const dy = Math.round(look.dy);
   const w = GHOST_PUPIL_ART_PX * scale;

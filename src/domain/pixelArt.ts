@@ -1,10 +1,6 @@
-// Pixel art stays pixel-perfect only when every art pixel covers the same whole number of
-// device pixels and the art's edges land on device-pixel boundaries.
-
 const QUARTER_TURN = Math.PI / 2;
 const TURN_EPSILON = 1e-6;
 
-// Below half a device pixel per art pixel the art cannot be crisp, so it keeps its size.
 export function crispDevicePx(devicePx: number, artPx: number): number {
   const perArtPx = Math.round(devicePx / artPx);
   return perArtPx < 1 ? devicePx : perArtPx * artPx;
@@ -36,10 +32,6 @@ export type ArtQuad = {
 /** Local → device: `device = offset + local * scale`. */
 export type DeviceTransform = { offsetX: number; offsetY: number; scaleX: number; scaleY: number };
 
-/**
- * Resize a pixel-art quad to whole device pixels per art pixel and nudge its position so its
- * edges sit on the device grid. Arbitrary rotations or mirrored parents keep their position.
- */
 export function crispArtQuad(
   quad: ArtQuad,
   artWidth: number,

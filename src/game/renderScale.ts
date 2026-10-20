@@ -61,10 +61,6 @@ function isPixelArt(object: Phaser.GameObjects.GameObject): object is Phaser.Gam
   );
 }
 
-/**
- * Just before a frame renders, size and place every pixel-art image so each art pixel covers
- * the same whole number of device pixels; `restore` puts the authored values back afterwards.
- */
 function snapPixelArt(
   list: readonly Phaser.GameObjects.GameObject[],
   toDevice: DeviceTransform,

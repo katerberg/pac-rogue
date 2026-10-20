@@ -15,7 +15,6 @@ export function renderScaleFor(
 
 const FLOOR_EPSILON = 1e-6;
 
-// Floors so the canvas never outgrows the view, which would force the browser to resample it.
 export function canvasSizeFor(scale: number): { width: number; height: number } {
   return {
     width: Math.floor(PLAYFIELD_WIDTH * scale + FLOOR_EPSILON),
@@ -23,8 +22,6 @@ export function canvasSizeFor(scale: number): { width: number; height: number } 
   };
 }
 
-// CSS pixels per canvas pixel: exactly one device pixel each, unless the view is too small to
-// hold the minimum-scale canvas, which must then shrink to fit.
 export function canvasDisplayZoom(
   canvas: { width: number; height: number },
   viewWidth: number,

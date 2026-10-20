@@ -14,7 +14,6 @@ const url = `${baseUrl}?maze=maze1`;
 const upgradeUrl = `${baseUrl}?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference&seed=smoke`;
 
 const FRACTIONAL_SCALE_VIEWPORT = { width: 802, height: 634 };
-// A 14" laptop at 2x: a render scale of ~3.27, where art used to land on 3- and 4-pixel rows.
 const HI_DPI_FRACTIONAL = { viewport: { width: 1512, height: 982 }, deviceScaleFactor: 2 };
 const HUD_QUARTERS = 5;
 const ART_PX = 16;

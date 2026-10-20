@@ -1,5 +1,3 @@
-// Finds each piece of pixel art in a canvas region (split by background columns) and counts
-// art pixels that are not one solid, whole-device-pixel block.
 export function artBlockReport({ data, width }, region, artPx) {
   const pixel = (x, y) => {
     const offset = (y * width + x) * 4;
