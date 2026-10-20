@@ -49,7 +49,7 @@ describe("sidebarBandRects", () => {
       color: solid,
     });
 
-    const rightSolid = rects.find((r) => r.color === solid && r.x > OFFSET_X);
+    const rightSolid = rects.find((r) => r.color === solid && r.w > 1 && r.x > OFFSET_X);
     expect(rightSolid).toEqual({
       x: OFFSET_X + MAZE_W + SIDEBAR_FADE_PX,
       y: 0,
@@ -63,11 +63,9 @@ describe("sidebarBandRects", () => {
     expect(leftFadeNearMaze?.w).toBe(1);
     expect(leftFadeFar?.w).toBe(1);
     expect(leftFadeNearMaze?.color).toBe(
-      brightenColor(MAZE_BG, (SIDEBAR_BRIGHTEN * 1) / (SIDEBAR_FADE_PX + 1)),
+      brightenColor(MAZE_BG, (SIDEBAR_BRIGHTEN * 1) / SIDEBAR_FADE_PX),
     );
-    expect(leftFadeFar?.color).toBe(
-      brightenColor(MAZE_BG, (SIDEBAR_BRIGHTEN * 2) / (SIDEBAR_FADE_PX + 1)),
-    );
+    expect(leftFadeFar?.color).toBe(solid);
 
     const mazeRight = OFFSET_X + MAZE_W;
     const rightFadeNearMaze = rects.find((r) => r.x === mazeRight);
@@ -88,8 +86,14 @@ describe("sidebarBandRects", () => {
     });
     expect(rects).toHaveLength(2);
     expect(rects.every((r) => r.w === 1 && r.h === PLAY_H)).toBe(true);
-    expect(rects[0]).toMatchObject({ x: 0, color: brightenColor(MAZE_BG, SIDEBAR_BRIGHTEN / 3) });
-    expect(rects[1]).toMatchObject({ x: 99, color: brightenColor(MAZE_BG, SIDEBAR_BRIGHTEN / 3) });
+    expect(rects[0]).toMatchObject({
+      x: 0,
+      color: brightenColor(MAZE_BG, SIDEBAR_BRIGHTEN / SIDEBAR_FADE_PX),
+    });
+    expect(rects[1]).toMatchObject({
+      x: 99,
+      color: brightenColor(MAZE_BG, SIDEBAR_BRIGHTEN / SIDEBAR_FADE_PX),
+    });
   });
 
   it("returns no rects when a side has zero gutter", () => {

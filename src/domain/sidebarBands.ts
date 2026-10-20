@@ -53,7 +53,7 @@ export function sidebarBandRects(args: {
 }
 
 function fadeBrighten(stepFromMaze: number): number {
-  return (SIDEBAR_BRIGHTEN * stepFromMaze) / (SIDEBAR_FADE_PX + 1);
+  return (SIDEBAR_BRIGHTEN * stepFromMaze) / SIDEBAR_FADE_PX;
 }
 
 function pushSide(
