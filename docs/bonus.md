@@ -25,11 +25,7 @@ Bar fills pay a Quarter directly and do not spin. A world pickup (art: `public/a
 
 ### World pickup
 
-- Every 4 Quarters from BONUS fills, fruit bounty, Interest, Inheritance, or store freebies advances a remainder counter (`SLOT_PICKUP_QUARTERS` in `slotPickup.ts`). Quarters won on the reels do not count. Spending Quarters does not move the counter. Starting `?quarters=` does not count.
-- Spawn cell is a seeded random walkable tile (`slotPickup` stream); pellets may share the cell. Ghost-house floors are already excluded by `playerSolids`; the player spawn cell is avoided when another walkable tile exists.
-- Unclaimed machines keep exact `{col,row}` across level changes. On upside-down levels the row flips with the board. If collapse (or a maze change) makes the cell solid, it remaps to the nearest walkable cell.
-- Multiple machines may sit on the board at once. They do not appear on store floors or the boss; carried machines stay invisible through a store and respawn on the next play board. Anything still held when the boss board starts is dropped (so a miss on level 8 is gone after the final store).
-- Play only; LEARN omits the pickup ([learn.md](./learn.md#parity)). Debug: `?slotMachine=1` places one on each eligible board start. Probe state: `play.slotPickup.{progress,cells,awaitingPlacement,count}`.
+Rules and constants: `src/domain/slotPickup.ts` (run by `PlaySim`). Non-spin Quarter gains advance a remainder counter; reel payouts and spends do not. Spawn is a seeded walkable cell (`slotPickup` stream; pellets may share it). Unclaimed machines keep `{col,row}` across levels (row flips with upside-down boards; solid cells remap), stay invisible through stores, and drop on the boss. Play only ([learn.md](./learn.md#parity)). Debug: `?slotMachine=1`. Probe: `play.slotPickup.*`.
 
 ### Spin
 
