@@ -18,6 +18,10 @@ Card text for every id (base and enhanced): [upgrade-list.md](./upgrade-list.md#
 
 Power pellets are inert unless an owned def reacts. `applyPowerPelletEffects` walks **all** owned defs and applies every `onPowerPellet` field in one shot; `PlaySim` then runs the follow-up calls (freeze, corner warp, recall, warp, Extra Hungry, Hunter fright, Cornucopia). The same function is the single trigger path for a chomp, Ghost Harvester pellets, a Tunnel Dash sweep, Fruit Power, Streak Engine, Echo and Shield Break, so a new `onPowerPellet` effect works for all of them. Timed effects refresh (not stack) on re-trigger and are level-scaled via `levelScaledDurationMs` unless noted in code. Overcharge multiplies the durations of every other owned effect.
 
+## HUD timers
+
+The owned-upgrade icons (and LEARN's check marks) pulse when the upgrade fires and darken from the top as its timer runs out, so a refreshed timer snaps back to full. Which `RunUpgrades` timer drives each icon, and the pulse rule, live in [`upgradeTimers.ts`](../src/domain/upgradeTimers.ts); a new timed upgrade adds its reading there.
+
 ## Enhanced upgrades
 
 Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.md) or granted with `?enableUpgrade=<id>Plus`. Offers and shelves only ever list base ids (plus a small chance a level-clear card is rolled enhanced; `enhancedOfferChance`).
@@ -30,8 +34,8 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 ## Schools and rarity
 
 - `school` is required on every def: a color tag on every upgrade card, the Specialist rule, and soft affinity on level-clear offers. Neutral is no school for either rule. School colors: `SCHOOL_COLORS`.
-- **Rare** defs set `rare: true` and the higher `storePrice`. Rares are gated until a minimum number of upgrades is owned, are never in the starting pool, draw at reduced weight (`takeWeightedUpgrade`), and at most one rare is shelved per store (the trade tile is exempt). Rare cards get `addRareFx` (`src/game/scenes/rareFx.ts`).
-- **Affinity** (`upgradeOfferWeight`): level-clear offers are weighted toward schools already owned; invisible, uncapped, and not applied to the starting upgrade or store draws.
+- **Rare** defs set `rare: true` and the higher `storePrice`. Rares are never in the starting pool; they unlock after `RARE_MIN_OWNED` upgrades and only on level-clear offers at `clearLevelIndex >= RARE_MIN_CLEAR_LEVEL`. Level-clear draws target a fixed rare **mass** (`RARE_OFFER_MASS` via `rareWeightForPool` over the live eligible pool) so adding commons does not require retuning weights; the store uses half that mass (`STORE_RARE_OFFER_MASS`) and shelves at most one rare (trade tile exempt). Budget goal: about `TARGET_RARES_PER_SCHOOL` rares per non-neutral school (~13 with neutral). Rare cards get `addRareFx` (`src/game/scenes/rareFx.ts`).
+- **Affinity** (`upgradeOfferWeight`): level-clear offers are weighted toward schools already owned; invisible, uncapped, and not applied to the starting upgrade or store draws. Affinity multiplies on top of the mass-derived rare base weight.
 
 ## Grant rules
 
