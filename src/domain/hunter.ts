@@ -1,4 +1,4 @@
-import { BONUS_BAR_MAX } from "./bonusBar";
+import { QUARTER_CHARGE } from "./pennies";
 import type { BossId } from "./bossRules";
 import { expiryTintOn } from "./expiryBlink";
 import { GHOST_DIR, reverseGhostDir, type GhostDir } from "./ghostPath";
@@ -23,7 +23,7 @@ export function hunterFrightenedMs(
 }
 
 export function hunterEatCharge(eatenBefore: number): number {
-  return BONUS_BAR_MAX * 2 ** (eatenBefore + 1 - HUNTER_FULL_BAR_EAT);
+  return QUARTER_CHARGE * 2 ** (eatenBefore + 1 - HUNTER_FULL_BAR_EAT);
 }
 
 export function hunterFrightenLimit(bossId: BossId | null): number | null {

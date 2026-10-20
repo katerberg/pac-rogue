@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   driftSpeedZones,
   FAST_ZONE_MULTIPLIER,
-  flipSpeedZoneBoardRows,
-  flipSpeedZoneRows,
   pickSpeedZones,
   SLOW_ZONE_MULTIPLIER,
   SPEED_ZONE_END_DRIFT,
@@ -303,20 +301,6 @@ describe("persistent lanes", () => {
             speedZoneCells(zone).some((c) => speedZoneAt(prev, c.col, c.row) === prev[j]),
           ).toBe(true);
         });
-      }
-    }
-  });
-
-  it("flips lanes onto a row-reversed board, mirroring vertical fast directions", () => {
-    const flippedBoard = flipSpeedZoneBoardRows(maze);
-    const vertical: SpeedZone = { col: 1, row: 2, axis: "vertical", length: 9, fastDir: "down" };
-    const flipped = flipSpeedZoneRows(vertical, maze.rows);
-    expect(flipped).toEqual({ ...vertical, row: maze.rows - 11, fastDir: "up" });
-    expect(flipSpeedZoneRows(flipped, maze.rows)).toEqual(vertical);
-    expect(flipSpeedZoneRows(lane, maze.rows)).toEqual({ ...lane, row: maze.rows - 1 - lane.row });
-    for (const zone of speedZonesByLevel(maze, 8, streams(1))[8]!) {
-      for (const cell of speedZoneCells(flipSpeedZoneRows(zone, maze.rows))) {
-        expect(flippedBoard.playerSolids[cell.row]![cell.col]).toBe(false);
       }
     }
   });

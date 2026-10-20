@@ -1,5 +1,5 @@
 import { hasComponent, query, removeEntity, type World } from "bitecs";
-import type { Cell } from "../../domain/bonusBar";
+import type { Cell } from "../../domain/pennies";
 import {
   cellCenterX,
   cellCenterY,

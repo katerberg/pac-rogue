@@ -40,7 +40,7 @@ Known simplifications (everything else is a reuse of play code):
 - **Fruit Fecundity / Feast (+):** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
 - **Reanimation, Interest:** no visible effect (no respawn move, no store).
-- **BONUS slot machine / world pickup:** deliberate omission; bar fills pay a Quarter directly and the every-four slot-machine maze pickup never appears ([bonus.md](./bonus.md#slot-machine)).
+- **Slot machine / world pickup:** deliberate omission; full penny rows pay a Quarter directly and the every-four slot-machine maze pickup never appears ([pennies.md](./pennies.md#slot-machine)).
 
 ## Coverage gate
 

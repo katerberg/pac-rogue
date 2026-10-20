@@ -1,32 +1,42 @@
 import { DEFAULT_TUNING } from "./tuning";
 
-export const BONUS_BAR_MAX = 300;
-export const BONUS_STREAK_TIER_SIZE = 5;
-export const BONUS_STREAK_IDLE_MS = DEFAULT_TUNING.bonusStreakIdleMs;
-export const FRUIT_BONUS_CHARGE = BONUS_BAR_MAX / 2;
+export const QUARTER_CHARGE = 300;
+export const PENNIES_PER_QUARTER = 24;
+export const CHARGE_PER_PENNY = QUARTER_CHARGE / PENNIES_PER_QUARTER;
+export const PENNY_STREAK_TIER_SIZE = 5;
+export const PENNY_STREAK_IDLE_MS = DEFAULT_TUNING.pennyStreakIdleMs;
+export const FRUIT_BONUS_CHARGE = QUARTER_CHARGE / 2;
 const BONUS_TIER_BUMPS = [2, 3, 5, 8, 12, 16] as const;
 const BONUS_TIER_BUMP_STEP = 5;
 
+export function penniesInCharge(charge: number): number {
+  return Math.min(PENNIES_PER_QUARTER - 1, Math.floor(Math.max(0, charge) / CHARGE_PER_PENNY));
+}
+
+export function formatPennies(charge: number): string {
+  return `${Number((charge / CHARGE_PER_PENNY).toFixed(1))} PENNIES`;
+}
+
 export type Cell = { col: number; row: number };
 
-export type BonusBar = {
+export type PennyPurse = {
   charge: number;
   streak: number;
   idleMs: number;
   credited: ReadonlySet<string>;
 };
 
-export type BonusResult = { bar: BonusBar; tier: number; filled: number };
+export type PennyResult = { bar: PennyPurse; tier: number; filled: number };
 
 function cellKey(cell: Cell): string {
   return `${cell.col},${cell.row}`;
 }
 
-export function createBonusBar(charge = 0): BonusBar {
+export function createPennyPurse(charge = 0): PennyPurse {
   return { charge, streak: 0, idleMs: 0, credited: new Set() };
 }
 
-export function bonusTierBump(tier: number): number {
+export function pennyTierBump(tier: number): number {
   if (tier <= BONUS_TIER_BUMPS.length) {
     return BONUS_TIER_BUMPS[tier - 1] ?? 0;
   }
@@ -34,13 +44,16 @@ export function bonusTierBump(tier: number): number {
   return last + BONUS_TIER_BUMP_STEP * (tier - BONUS_TIER_BUMPS.length);
 }
 
-export function addBonusCharge(bar: BonusBar, points: number): { bar: BonusBar; filled: number } {
+export function addPennyCharge(
+  bar: PennyPurse,
+  points: number,
+): { bar: PennyPurse; filled: number } {
   const total = bar.charge + Math.max(0, points);
-  const filled = Math.floor(total / BONUS_BAR_MAX);
-  return { bar: { ...bar, charge: total % BONUS_BAR_MAX }, filled };
+  const filled = Math.floor(total / QUARTER_CHARGE);
+  return { bar: { ...bar, charge: total % QUARTER_CHARGE }, filled };
 }
 
-export function applyStreakPellets(bar: BonusBar, cells: readonly Cell[]): BonusResult {
+export function applyStreakPellets(bar: PennyPurse, cells: readonly Cell[]): PennyResult {
   if (cells.length === 0) {
     return { bar, tier: 0, filled: 0 };
   }
@@ -49,21 +62,21 @@ export function applyStreakPellets(bar: BonusBar, cells: readonly Cell[]): Bonus
   for (const cell of cells) {
     credited.add(cellKey(cell));
   }
-  const fromTier = Math.floor(bar.streak / BONUS_STREAK_TIER_SIZE);
-  const toTier = Math.floor(streak / BONUS_STREAK_TIER_SIZE);
+  const fromTier = Math.floor(bar.streak / PENNY_STREAK_TIER_SIZE);
+  const toTier = Math.floor(streak / PENNY_STREAK_TIER_SIZE);
   let bump = 0;
   for (let tier = fromTier + 1; tier <= toTier; tier += 1) {
-    bump += bonusTierBump(tier);
+    bump += pennyTierBump(tier);
   }
-  const charged = addBonusCharge({ ...bar, streak, idleMs: 0, credited }, bump);
+  const charged = addPennyCharge({ ...bar, streak, idleMs: 0, credited }, bump);
   return { bar: charged.bar, tier: toTier > fromTier ? toTier : 0, filled: charged.filled };
 }
 
-export function breakStreak(bar: BonusBar): BonusBar {
+export function breakStreak(bar: PennyPurse): PennyPurse {
   return { charge: bar.charge, streak: 0, idleMs: 0, credited: new Set() };
 }
 
-export function enterCell(bar: BonusBar, cell: Cell, hasPellet: boolean): BonusBar {
+export function enterCell(bar: PennyPurse, cell: Cell, hasPellet: boolean): PennyPurse {
   if (hasPellet) {
     return bar;
   }
@@ -77,10 +90,10 @@ export function enterCell(bar: BonusBar, cell: Cell, hasPellet: boolean): BonusB
 }
 
 export function tickStreakIdle(
-  bar: BonusBar,
+  bar: PennyPurse,
   deltaMs: number,
-  idleLimitMs: number = BONUS_STREAK_IDLE_MS,
-): BonusBar {
+  idleLimitMs: number = PENNY_STREAK_IDLE_MS,
+): PennyPurse {
   if (bar.streak === 0) {
     return bar;
   }

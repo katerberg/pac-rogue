@@ -307,29 +307,6 @@ export function speedZonesByLevel(
   return byLevel;
 }
 
-export function flipSpeedZoneBoardRows(board: SpeedZoneBoard): SpeedZoneBoard {
-  return {
-    cols: board.cols,
-    rows: board.rows,
-    playerSolids: [...board.playerSolids].reverse(),
-    house: [...board.house].reverse(),
-    door: [...board.door].reverse(),
-    playerSpawn: { col: board.playerSpawn.col, row: board.rows - 1 - board.playerSpawn.row },
-  };
-}
-
-const FLIPPED_FAST_DIR: Record<SpeedZoneFastDir, SpeedZoneFastDir> = {
-  up: "down",
-  down: "up",
-  left: "left",
-  right: "right",
-};
-
-export function flipSpeedZoneRows(zone: SpeedZone, rows: number): SpeedZone {
-  const rowSpan = zone.axis === "vertical" ? zone.length : 1;
-  return { ...zone, row: rows - rowSpan - zone.row, fastDir: FLIPPED_FAST_DIR[zone.fastDir] };
-}
-
 export type SpeedZoneShift = { from: readonly SpeedZone[]; to: readonly SpeedZone[] };
 
 export function speedZoneShift(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBonusBar, tickStreakIdle } from "./bonusBar";
+import { createPennyPurse, tickStreakIdle } from "./pennies";
 import { beginDeathSequence, tickDeathSequence } from "./deathSequence";
 import { eatDragAfterCollect, eatDragMultiplier } from "./eatDrag";
 import { createFruitPresence, tickFruitPresence } from "./fruit";
@@ -74,7 +74,7 @@ describe("tuning threads into gameplay helpers", () => {
   });
 
   it("breaks the bonus streak after the tuned idle", () => {
-    const bar = { ...createBonusBar(), streak: 3 };
+    const bar = { ...createPennyPurse(), streak: 3 };
     expect(tickStreakIdle(bar, 100, 100).streak).toBe(0);
     expect(tickStreakIdle(bar, 100).streak).toBe(3);
   });

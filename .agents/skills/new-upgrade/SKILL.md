@@ -61,7 +61,7 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
   power-pellet duration; Fruit Power fires one/all `onPowerPellet` fields (base/enhanced); Extra Hungry, Tunnel Dash
   sweeps, Death's Harvest and ghost-harvested pellets do **not** count as "eaten" unless the pitch
   says so; Extra Life icon floor and `infiniteLives` are unchanged; boss level 9 pellets are never
-  removed or converted; store floors, inverted boards and the level-1 starting pool are untouched.
+  removed or converted; store floors and the level-1 starting pool are untouched.
 - **Numbers:** scale to maze size when the pitch gives a pellet count; otherwise use the pitch's
   absolute value. Use named constants.
 - **Collisions with an active timer:** refresh on re-trigger, never stack.
@@ -100,8 +100,8 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
 - **K. Enhanced:** every upgrade ships with its `enhanced` override on its `BASE_UPGRADE_DEFS` row (the
   type requires it). Test both forms (`<id>` and `<id>Plus`) in `upgrades.test.ts` and
   `PlaySim`. New effect fields are read through `ownedValue`-style helpers, never by id checks.
-- **G. Docs:** none for the id, numbers or description (the def is the source of truth and
-  `docs/` links to code). Update `docs/upgrades.md` or `docs/learn.md` only when a cross-cutting rule changed.
+- **G. Docs:** add the mirrored card-text row to `docs/upgrade-list.md` (`registrySync.test.ts`
+  enforces it). Update `docs/upgrades.md` or `docs/learn.md` only when a cross-cutting rule changed.
 - **H. Live check:** `npm run probe` with `seed=` and `enableUpgrade=<id>`. Assert against the
   snapshot and add any missing snapshot field.
 - **I. Out of scope:** stacking, new art, and rebalancing existing upgrades.
@@ -126,7 +126,8 @@ Every upgrade PR touched all of these. Missing one fails `npm run verify` or lea
 | `src/game/sim/simEvents.ts` / `render.ts`         | Only if there is new feedback. Keep the look curve in a domain function (see §5).                                                                                                                                                                                                                                                                          |
 | `src/game/sim/playSim.ts` `snapshot()` (`timers`) | Expose new timer or progress fields read-only (the snapshot shape is the reference; no doc table).                                                                                                                                                                                                                                                         |
 | LEARN (required)                                  | Mirror in `learnSim.ts` via a shared `src/game/systems` helper both sims call; add a `learnSim.test.ts` case; clear in `clearStaleUpgradeTimers`. `LEARN_NO_EFFECT_UPGRADE_IDS` only for Decide-approved exceptions.                                                                                                                                       |
-| `docs/upgrades.md`                                | Only when a cross-cutting rule changed (a new timer kind, a new catch-order step). No per-upgrade section or table row.                                                                                                                                                                                                                                    |
+| `docs/upgrade-list.md`                            | Add the base/enhanced card-text row (`registrySync.test.ts` fails when it drifts).                                                                                                                                                                                                                                                                         |
+| `docs/upgrades.md`                                | Only when a cross-cutting rule changed (a new timer kind, a new catch-order step). No per-upgrade prose section.                                                                                                                                                                                                                                           |
 | Other docs                                        | `levels.md`, `store.md` or `ARCHITECTURE.md` only when the rule they describe changed. Myogenesis needed `levels.md` and `store.md`.                                                                                                                                                                                                                       |
 
 which is the main source of merge conflicts.
@@ -152,7 +153,7 @@ time before:
   - `waitFor:` that value mid-animation, then `shot:`.
   - Do not stretch tweens by hand for the capture.
 - **Sound:** agent ports are muted. Use `sound=1` and assert the `sfx` event, not the audio.
-- **Modes:** list every mode the diff reaches (level 1, generated, inverted, store, boss, death,
+- **Modes:** list every mode the diff reaches (level 1, generated, store, boss, death,
   LEARN) and probe each. Anything left out goes under "Not checked" in the PR body.
 - **LEARN is always probed** (`?learnAll=1`, base and `+`): visual check; behaviour is
   covered by `learnSim.test.ts`.

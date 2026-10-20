@@ -1,4 +1,4 @@
-import { BONUS_BAR_MAX } from "./bonusBar";
+import { QUARTER_CHARGE } from "./pennies";
 import { ECHO_DELAY_MS, type EchoEffects, type PendingEcho, pickEchoBases } from "./echo";
 import type { LazyLooperRings } from "./lazyLooper";
 import {
@@ -517,13 +517,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitPowerPellet",
     label: "Fruit Power",
     school: "harvest",
-    description: "Bonus fruit fires a random one of your power-pellet effects.",
+    description: "Fruit fires a random one of your power-pellet effects.",
     storePrice: STORE_RARE_UPGRADE_PRICE,
     rare: true,
     fruitPowerEffects: "one",
     enhanced: {
       enhanceNote: "Fruit Power fires every power-pellet effect you own instead of one at random.",
-      description: "Bonus fruit fires every power-pellet effect you own.",
+      description: "Fruit fires every power-pellet effect you own.",
       fruitPowerEffects: "all",
     },
   },
@@ -531,11 +531,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitQuarterBounty",
     label: "Quarter Bounty",
     school: "harvest",
-    description: "Bonus fruit pays a Quarter instead of charging the bonus bar.",
+    description: "Fruit pays a Quarter instead of adding pennies.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Quarter Bounty pays 2 Quarters per fruit instead of 1.",
-      description: "Bonus fruit pays two Quarters.",
+      description: "Fruit pays two Quarters.",
       fruitQuarters: FRUIT_QUARTERS_ENHANCED,
     },
     fruitQuarters: FRUIT_QUARTERS,
@@ -544,13 +544,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitFecundity",
     label: "Fruit Fecundity",
     school: "harvest",
-    description: "Bonus fruit lingers twice as long.",
+    description: "Fruit lingers twice as long.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote:
         "Fruit Fecundity keeps fruit until the level ends, and extra fruit sit side by side.",
-      description:
-        "Bonus fruit waits until the level ends, and uncollected ones pile up side by side.",
+      description: "Fruit waits until the level ends, and uncollected ones pile up side by side.",
       fruitPersistsUntilLevelEnd: true,
       fruitStacksSideBySide: true,
     },
@@ -560,12 +559,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitFeast",
     label: "Fruit Feast",
     school: "harvest",
-    description: "Bonus fruit appears three times per level, each after the last is gone.",
+    description: "Fruit appears three times per level, each after the last is gone.",
     storePrice: STORE_UPGRADE_PRICE,
     fruitFeastThresholds: BASE_FEAST_FRUIT_SPAWN_THRESHOLDS,
     enhanced: {
       enhanceNote: "Fruit Feast spawns 4 fruit per level instead of 3.",
-      description: "Bonus fruit appears four times per level, each after the last is gone.",
+      description: "Fruit appears four times per level, each after the last is gone.",
       fruitFeastThresholds: FRUIT_FEAST_ENHANCED_THRESHOLDS,
     },
   },
@@ -769,12 +768,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveNearMiss",
     label: "Near Miss",
     school: "protection",
-    description: "Ghosts that brush past without catching you charge the BONUS bar.",
+    description: "Ghosts that brush past without catching you earn pennies.",
     storePrice: STORE_UPGRADE_PRICE,
     nearMissCharge: NEAR_MISS_CHARGE,
     enhanced: {
-      enhanceNote: "Near Miss charges the BONUS bar 30 per pass instead of 15.",
-      description: "Ghosts that brush past without catching you charge the BONUS bar double.",
+      enhanceNote: "Near Miss pays 2.4 pennies per pass instead of 1.2.",
+      description: "Ghosts that brush past without catching you earn double pennies.",
       nearMissCharge: NEAR_MISS_ENHANCED_CHARGE,
     },
   },
@@ -905,11 +904,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletCornucopia",
     label: "Cornucopia",
     school: "harvest",
-    description: "Power pellet: spawns a bonus fruit, if none is out.",
+    description: "Power pellet: spawns a fruit, if none is out.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Cornucopia spawns a fruit on every power pellet, even if a fruit is out.",
-      description: "Power pellet: spawns a bonus fruit even if there are others.",
+      description: "Power pellet: spawns an extra fruit even if there are others.",
       onPowerPellet: { cornucopiaFruit: true, cornucopiaAlongside: true },
     },
     onPowerPellet: { cornucopiaFruit: true },
@@ -2010,7 +2009,7 @@ export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
 
 export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
   const decay = ownedValue(owned, "deathsBountyDecay");
-  return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
+  return decay === undefined ? 0 : Math.floor(QUARTER_CHARGE * decay ** priorDeaths);
 }
 
 export function inheritancePayout(
