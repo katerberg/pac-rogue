@@ -17,7 +17,7 @@ const MAZE_W = 448;
 describe("sidebarBackgroundColor", () => {
   it("brightens the maze background by SIDEBAR_BRIGHTEN", () => {
     expect(sidebarBackgroundColor(MAZE_BG)).toBe(brightenColor(MAZE_BG, SIDEBAR_BRIGHTEN));
-    expect(SIDEBAR_BRIGHTEN).toBe(0.06);
+    expect(SIDEBAR_BRIGHTEN).toBe(0.02);
   });
 
   it("tracks a different maze background (knobs-relative)", () => {
@@ -38,7 +38,7 @@ describe("sidebarBandRects", () => {
     });
 
     expect(SIDEBAR_FADE_PX).toBe(2);
-    expect(SIDEBAR_MAZE_GRACE_PX).toBe(4);
+    expect(SIDEBAR_MAZE_GRACE_PX).toBe(10);
     expect(rects.every((r) => r.y === 0 && r.h === PLAY_H)).toBe(true);
 
     const leftBandEnd = OFFSET_X - SIDEBAR_MAZE_GRACE_PX;

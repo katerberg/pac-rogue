@@ -1,8 +1,8 @@
 import { brightenColor } from "./playerTint";
 
-export const SIDEBAR_BRIGHTEN = 0.06;
+export const SIDEBAR_BRIGHTEN = 0.02;
 export const SIDEBAR_FADE_PX = 2;
-export const SIDEBAR_MAZE_GRACE_PX = 4;
+export const SIDEBAR_MAZE_GRACE_PX = 10;
 
 export type SidebarBandRect = {
   x: number;
