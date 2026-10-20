@@ -51,7 +51,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveNearMiss` | Near Miss | protection | Ghosts that brush past without catching you earn pennies. | Ghosts that brush past without catching you earn double pennies. |
 | `passiveHaunting` | Haunting | death | The ghost that last caught you stays caged in the ghost house for 10 seconds. | The ghost that last caught you stays caged in the ghost house for the level. |
 | `passiveTunnelSanctuary` | Tunnel Sanctuary | protection | Leaving a tunnel makes you ghost-proof for a second, but ghosts speed through them. | Leaving a tunnel makes you ghost-proof for a second, and ghosts can't use tunnels. |
-| `passiveStreakEngine` | Streak Engine (rare) | harvest | Every 30-pellet streak fires your power-pellet effects. | Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof. |
+| `passiveStreakEngine` | Streak Engine | harvest | Every 30-pellet streak fires your power-pellet effects. | Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof. |
 | `passiveEcho` | Echo (rare) | automation | Power pellets fire a random one of your power effects again 3 seconds later. | Power pellets fire all of your power effects again 3 seconds later. |
 | `powerPelletHunter` | Hunter (rare) | disruption | Power pellets frighten ghosts. Eat them! | Power pellets frighten ghosts. Eaten ghosts stay home until the fright ends. |
 | `passiveStartingShield` | Starting Shield | protection | Start every level with a shield. A ghost hit breaks it. | Start every level with 2 shields. Each ghost hit breaks one. |

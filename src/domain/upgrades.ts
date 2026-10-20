@@ -828,8 +828,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Streak Engine",
     school: "harvest",
     description: "Every 30-pellet streak fires your power-pellet effects.",
-    storePrice: STORE_RARE_UPGRADE_PRICE,
-    rare: true,
+    storePrice: STORE_UPGRADE_PRICE,
     streakEngineEvery: STREAK_ENGINE_EVERY,
     enhanced: {
       enhanceNote: "Streak Engine also grants 3 seconds of Ghost Proof on every 30-pellet streak.",

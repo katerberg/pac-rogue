@@ -499,7 +499,6 @@ describe("rare upgrades", () => {
     "fruitPowerPellet",
     "passiveOvercharge",
     "passiveLazyLooper",
-    "passiveStreakEngine",
     "powerPelletHunter",
     "powerPelletHyperspeed",
     "passiveShieldBreak",
@@ -528,11 +527,9 @@ describe("rare upgrades", () => {
     expect(RARE_OFFER_MASS).toBe(1 / 15);
     expect(STORE_RARE_OFFER_MASS).toBe(RARE_OFFER_MASS / 2);
     expect(rareWeightForPool(["passiveGhostSlow", "passiveAfterburner"], RARE_OFFER_MASS)).toBe(0);
-    expect(rareWeightForPool(["passiveStreakEngine", "passiveOvercharge"], RARE_OFFER_MASS)).toBe(
-      1,
-    );
+    expect(rareWeightForPool(["fruitPowerPellet", "passiveOvercharge"], RARE_OFFER_MASS)).toBe(1);
     const pool: BaseUpgradeId[] = [
-      "passiveStreakEngine",
+      "fruitPowerPellet",
       "passiveGhostSlow",
       "passiveAfterburner",
       "fruitFeast",
@@ -544,7 +541,7 @@ describe("rare upgrades", () => {
   });
 
   it("keeps rare mass stable when the common pool doubles", () => {
-    const rares: BaseUpgradeId[] = ["passiveStreakEngine", "passiveOvercharge"];
+    const rares: BaseUpgradeId[] = ["fruitPowerPellet", "passiveOvercharge"];
     const smallCommons: BaseUpgradeId[] = [
       "passiveGhostSlow",
       "passiveAfterburner",
@@ -568,18 +565,18 @@ describe("rare upgrades", () => {
   });
 
   it("draws at the store mass by default and removes the pick from the pool", () => {
-    const poolPair: BaseUpgradeId[] = ["passiveStreakEngine", "passiveGhostSlow"];
+    const poolPair: BaseUpgradeId[] = ["fruitPowerPellet", "passiveGhostSlow"];
     const w = rareWeightForPool(poolPair, STORE_RARE_OFFER_MASS);
     const rareShare = w / (w + 1);
     const draw = (roll: number) => {
       const pool = [...poolPair];
       return { picked: takeWeightedUpgrade(pool, () => roll, storeUpgradeWeight(pool)), pool };
     };
-    expect(draw(0)).toEqual({ picked: "passiveStreakEngine", pool: ["passiveGhostSlow"] });
-    expect(draw(rareShare - 0.0001).picked).toBe("passiveStreakEngine");
+    expect(draw(0)).toEqual({ picked: "fruitPowerPellet", pool: ["passiveGhostSlow"] });
+    expect(draw(rareShare - 0.0001).picked).toBe("fruitPowerPellet");
     expect(draw(rareShare + 0.0001)).toEqual({
       picked: "passiveGhostSlow",
-      pool: ["passiveStreakEngine"],
+      pool: ["fruitPowerPellet"],
     });
     const commons: BaseUpgradeId[] = ["passiveGhostSlow", "passiveAfterburner", "fruitFeast"];
     expect(takeWeightedUpgrade([...commons], () => 0.5, storeUpgradeWeight(commons))).toBe(
@@ -589,7 +586,7 @@ describe("rare upgrades", () => {
 
   it("shows up in a level-clear offer at target mass times school affinity", () => {
     const left: BaseUpgradeId[] = [
-      "passiveStreakEngine",
+      "fruitPowerPellet",
       "passiveGhostSlow",
       "passiveAfterburner",
       "fruitFeast",
@@ -605,9 +602,9 @@ describe("rare upgrades", () => {
     for (let i = 0; i < draws; i += 1) {
       const offer = pickUpgradeChoiceOffer(owned, null, rng, 0, null, RARE_MIN_CLEAR_LEVEL);
       expect(offer.upgrades).toHaveLength(2);
-      withRare += offer.upgrades.includes("passiveStreakEngine") ? 1 : 0;
+      withRare += offer.upgrades.includes("fruitPowerPellet") ? 1 : 0;
     }
-    const commons = left.filter((id) => id !== "passiveStreakEngine");
+    const commons = left.filter((id) => id !== "fruitPowerPellet");
     let pNone = 0;
     for (let i = 0; i < commons.length; i += 1) {
       for (let j = 0; j < commons.length; j += 1) {
@@ -682,17 +679,17 @@ describe("school offer affinity", () => {
   it("weights matching-school commons and rares by affinity rates, times rare base weight", () => {
     const harvestOwned: UpgradeId[] = ["fruitQuarterBounty", "fruitFecundity", "fruitFeast"];
     const rareBase = rareWeightForPool(
-      ["passiveStreakEngine", "passiveGhostSlow", "passiveMyogenesis"],
+      ["fruitPowerPellet", "passiveGhostSlow", "passiveMyogenesis"],
       RARE_OFFER_MASS,
     );
     expect(SCHOOL_AFFINITY_COMMON_RATE).toBe(0.5);
     expect(SCHOOL_AFFINITY_RARE_RATE).toBe(0.3);
     expect(upgradeOfferWeight("passiveGhostSlow", [], rareBase)).toBe(1);
-    expect(upgradeOfferWeight("passiveStreakEngine", [], rareBase)).toBe(rareBase);
+    expect(upgradeOfferWeight("fruitPowerPellet", [], rareBase)).toBe(rareBase);
     expect(upgradeOfferWeight("passiveMyogenesis", deathOwned, rareBase)).toBe(
       1 + SCHOOL_AFFINITY_COMMON_RATE * 3,
     );
-    expect(upgradeOfferWeight("passiveStreakEngine", harvestOwned, rareBase)).toBe(
+    expect(upgradeOfferWeight("fruitPowerPellet", harvestOwned, rareBase)).toBe(
       (1 + SCHOOL_AFFINITY_RARE_RATE * 3) * rareBase,
     );
     expect(upgradeOfferWeight("passiveGhostSlow", deathOwned, rareBase)).toBe(1);
@@ -707,9 +704,9 @@ describe("school offer affinity", () => {
   it("biases weighted draws toward matching schools; store default stays rare-mass only", () => {
     expect(
       takeWeightedUpgrade(
-        ["passiveStreakEngine", "passiveGhostSlow"],
+        ["fruitPowerPellet", "passiveGhostSlow"],
         () => 0.34,
-        storeUpgradeWeight(["passiveStreakEngine", "passiveGhostSlow"]),
+        storeUpgradeWeight(["fruitPowerPellet", "passiveGhostSlow"]),
       ),
     ).toBe("passiveGhostSlow");
 
@@ -1756,6 +1753,12 @@ describe("School Specialists", () => {
 });
 
 describe("Streak Engine", () => {
+  it("is a common upgrade at the common store price", () => {
+    expect(isRare("passiveStreakEngine")).toBe(false);
+    expect(isRare("passiveStreakEnginePlus")).toBe(false);
+    expect(storePriceFor("passiveStreakEngine")).toBe(STORE_UPGRADE_PRICE);
+  });
+
   it("fires every 30 pellets in both forms", () => {
     expect(streakEngineEvery([])).toBeNull();
     expect(streakEngineEvery(["passiveStreakEngine"])).toBe(STREAK_ENGINE_EVERY);
