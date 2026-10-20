@@ -103,6 +103,7 @@ const HUD_ICON_LEFT_X = 12;
 const HUD_ICON_GAP = 4;
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
+const RUN_END_HUD_DEPTH = 1001;
 const BOSS_BANNER_SLAM_MS = 220;
 const BOSS_BANNER_HOLD_MS = 1200;
 const BOSS_BANNER_FADE_MS = 800;
@@ -613,6 +614,7 @@ export class PlayScene extends Phaser.Scene {
         this.runEndMenu = createRunEndMenu(this, (choice) => {
           this.applyEvents(this.sim.chooseRunEnd(choice), delta);
         });
+        this.liftHudIconsAboveRunEnd();
         break;
       case "goToMenu":
         this.scene.start("MenuScene");
@@ -883,7 +885,7 @@ export class PlayScene extends Phaser.Scene {
       const { x, y } = quarterHudIconPosition(slot, size, left);
       // Stay on chrome (not sideHud) so they remain visible with ?knobs=1.
       const icon = (kind === "dollar" ? addDollarIcon : addQuarterIcon)(this, x, y, size);
-      this.chrome.add(icon);
+      this.addHudIcon(icon);
       this.quarterIcons.push(icon);
     });
     const newest = this.quarterIcons[this.quarterIcons.length - 1];
@@ -980,7 +982,7 @@ export class PlayScene extends Phaser.Scene {
     const looks = pennyLooks(this.pennyFx, this.pennyGeometry());
     while (this.pennyIcons.length < looks.length) {
       const icon = addPennyIcon(this, 0, 0, pelletDisplaySize());
-      this.chrome.add(icon);
+      this.addHudIcon(icon);
       this.pennyIcons.push(icon);
     }
     this.pennyIcons.forEach((icon, i) => {
@@ -1010,9 +1012,25 @@ export class PlayScene extends Phaser.Scene {
         .image(x, y, schoolArtTextureKey(getUpgradeDef(id).school))
         .setDisplaySize(size, size)
         .setVisible(this.intermission === null);
-      this.chrome.add(icon);
+      this.addHudIcon(icon);
       return icon;
     });
+  }
+
+  private addHudIcon(icon: Phaser.GameObjects.Image): void {
+    if (this.runEndMenu === null) {
+      this.chrome.add(icon);
+    } else {
+      icon.setDepth(RUN_END_HUD_DEPTH);
+    }
+  }
+
+  private liftHudIconsAboveRunEnd(): void {
+    for (const icon of [...this.upgradeIcons, ...this.quarterIcons, ...this.pennyIcons]) {
+      this.chrome.remove(icon);
+      this.add.existing(icon);
+      icon.setDepth(RUN_END_HUD_DEPTH);
+    }
   }
 
   private timerLabel(): string {
