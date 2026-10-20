@@ -61,7 +61,7 @@ import {
   type DeathSequenceState,
 } from "../../domain/deathSequence";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
-import { respawnCenter } from "../../domain/martyr";
+import { respawnCenter } from "../../domain/reanimation";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
 import { interestCoinsShown, type InterestPop } from "../../domain/interest";
 import {
@@ -270,6 +270,8 @@ import {
   queueEcho,
   powerPelletPickupFires,
   shieldBreakOwned,
+  reactiveArmorOwned,
+  reactiveArmorRadiusTiles,
   shieldOverflow,
   shieldPelletsCap,
   spendShield,
@@ -282,7 +284,6 @@ import {
   cornucopiaAlongsideOwned,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
-  martyrGhostPlacement,
   hauntDurationMs,
   armHaunt,
   tickHaunt,
@@ -393,6 +394,7 @@ import { DIRECTION, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossChains, chainCatch } from "../systems/bossChain";
@@ -438,6 +440,7 @@ import {
   placeInHouseGhostsAtPredictedSeats,
 } from "../systems/ghostHouseSeating";
 import { recallClosestGhostToHouse, sendGhostToHouse } from "../systems/ghostRecall";
+import { applyReactiveArmor } from "../systems/reactiveArmor";
 import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
@@ -638,6 +641,7 @@ export class PlaySim {
   private death: DeathSequenceState | null = null;
   private fellAt: Point | null = null;
   private caughtByEid: number | null = null;
+  private lastReactiveArmorSent = 0;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private mirrorPop: MirrorPop | null = null;
@@ -706,7 +710,11 @@ export class PlaySim {
       !options.jumpToUpgrade &&
       options.store === null &&
       !options.disableLevelUpgrades
-        ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
+        ? pickStartingUpgrade(
+            this.runUpgrades.owned,
+            this.random.stream("startingUpgrade"),
+            options.forceStartingUpgrade,
+          )
         : null;
     if (startingUpgrade !== null) {
       this.recorder.gained(startingUpgrade, "start", this.levelIndex);
@@ -987,6 +995,7 @@ export class PlaySim {
         count: this.slotPickupCells.length,
       },
       deathsThisBoard: this.deathsThisBoard,
+      lastReactiveArmorSent: this.lastReactiveArmorSent,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       nearMissesPaid: this.nearMissesPaid,
       frightenedGhosts: [...frightenedGhostEids(upgrades)].map((eid) => ghostName(this.world, eid)),
@@ -1715,7 +1724,7 @@ export class PlaySim {
     } else {
       if (
         !defyDeathActive(this.runUpgrades) &&
-        (this.breakShield() || this.breakHyperspeedShield())
+        (this.breakShield(caughtBy) || this.breakHyperspeedShield(caughtBy))
       ) {
         return;
       }
@@ -2605,6 +2614,7 @@ export class PlaySim {
     this.resetStreak();
     this.mirrorPop = null;
     this.deathsThisBoard = 0;
+    this.lastReactiveArmorSent = 0;
     this.nearMissesPaid = 0;
     this.topUpStartingShields();
     const boss = isBossLevel(this.levelIndex)
@@ -3354,9 +3364,12 @@ export class PlaySim {
         this.eatFrightenedGhosts();
         const catchOptions = this.catchOptions();
         const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-        const touched =
-          hit !== null || this.touchesLava(catchOptions) || this.twinCatch(catchOptions) !== null;
-        return touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield());
+        const twin = hit === null ? this.twinCatch(catchOptions) : null;
+        const caughtBy = hit ?? twin?.eid ?? null;
+        const touched = caughtBy !== null || this.touchesLava(catchOptions) || twin !== null;
+        return (
+          touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield(caughtBy))
+        );
       },
       halt: () => this.zeroPlayerSpeed(),
     });
@@ -3420,7 +3433,7 @@ export class PlaySim {
     applyPlayerSpeed(this.world, 0, this.currentTuning);
   }
 
-  private breakHyperspeedShield(): boolean {
+  private breakHyperspeedShield(caughtBy: number | null): boolean {
     const spent = spendHyperspeedShield(this.runUpgrades);
     if (spent === null) {
       return false;
@@ -3428,6 +3441,7 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
+    this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
       this.runUpgrades = { ...this.runUpgrades, hyperspeedShieldRemainingMs: 0 };
@@ -3435,7 +3449,7 @@ export class PlaySim {
     return true;
   }
 
-  private breakShield(): boolean {
+  private breakShield(caughtBy: number | null): boolean {
     const spent = spendShield(this.runUpgrades);
     if (spent === null) {
       return false;
@@ -3443,11 +3457,34 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
+    this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
     }
     this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
     return true;
+  }
+
+  private fireReactiveArmor(caughtBy: number | null): void {
+    const owned = this.effectiveUpgrades();
+    if (!reactiveArmorOwned(owned)) {
+      return;
+    }
+    const sent = applyReactiveArmor(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.boardCollected,
+      this.afterLifeRelease,
+      this.releaseAdds(),
+      {
+        contactEid: caughtBy,
+        radiusTiles: reactiveArmorRadiusTiles(owned),
+      },
+    );
+    this.lastReactiveArmorSent = sent.length;
+    if (sent.length > 0) {
+      this.recorder.activation("reactiveArmor");
+    }
   }
 
   private fireDueEchoes(delta: number): boolean {
@@ -3886,7 +3923,11 @@ export class PlaySim {
     this.mirrorPop = null;
     this.resetStreak();
     this.remoteTransferCounter = 0;
-    const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt);
+    const powerPellets = Array.from(query(this.world, [PowerPellet, Position]), (eid) => ({
+      x: Position.x[eid]!,
+      y: Position.y[eid]!,
+    }));
+    const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt, powerPellets);
     this.fellAt = null;
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
       Position.x[eid] = playerSpawn.x;
@@ -3914,8 +3955,6 @@ export class PlaySim {
       }
     }
     this.caughtByEid = null;
-    const toCorners =
-      this.bossState === null && martyrGhostPlacement(this.effectiveUpgrades()) === "corners";
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -3930,9 +3969,7 @@ export class PlaySim {
       Input.direction[eid] = DIRECTION.none;
       Facing.direction[eid] = DIRECTION.none;
       Speed.px[eid] = 0;
-      if (!toCorners || eid === hauntEid || GhostPhase.value[eid] !== GHOST_PHASE.active) {
-        GhostPhase.value[eid] = GHOST_PHASE.inHouse;
-      }
+      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
       Ghost.decidedCol[eid] = Number.NaN;
       Ghost.decidedRow[eid] = Number.NaN;
     }
@@ -3951,10 +3988,6 @@ export class PlaySim {
       this.afterLifeRelease,
       { heldGhostEids: hauntEid === null ? [] : [hauntEid] },
     );
-    if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
-      this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
-      this.previousEffectiveGhostMode = this.settledGhostMode();
-    }
 
     if (!this.reviveSplashPending) {
       this.clearFruitEntities();

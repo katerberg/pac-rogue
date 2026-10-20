@@ -46,7 +46,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveAutomationSpecialist` | Automation Specialist | automation | Own 3 other Automation upgrades and every Automation upgrade is enhanced. | Every Automation upgrade you own is enhanced. |
 | `passiveProtectionSpecialist` | Protection Specialist | protection | Own 3 other Protection upgrades and every Protection upgrade is enhanced. | Every Protection upgrade you own is enhanced. |
 | `passiveDisruptionSpecialist` | Disruption Specialist | disruption | Own 3 other Disruption upgrades and every Disruption upgrade is enhanced. | Every Disruption upgrade you own is enhanced. |
-| `passiveMartyr` | Martyr (rare) | death | Dying scatters the ghosts to their corners. You respawn where you fell. | Dying sends every ghost home. You respawn where you fell. |
+| `passiveReanimation` | Reanimation | death | You respawn where you fell. | You respawn next to a power pellet if available. |
 | `passiveInterest` | Interest | automation | Entering a store pays 1 Quarter for every 3 you hold. | Entering a store pays 1 Quarter for every 2 you hold. |
 | `passiveNearMiss` | Near Miss | protection | Ghosts that brush past without catching you earn pennies. | Ghosts that brush past without catching you earn double pennies. |
 | `passiveHaunting` | Haunting | death | The ghost that last caught you stays caged in the ghost house for 10 seconds. | The ghost that last caught you stays caged in the ghost house for the level. |
@@ -63,4 +63,5 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveInheritance` | Inheritance | death | Clear a level: gain a Quarter for each empty life slot. | Clear a level: gain a Quarter for each time you died on it. |
 | `powerPelletMirror` | Mirror (rare) | harvest | Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you. If you touch your twin it pops. | Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin. If you touch your twin it pops. |
 | `powerPelletChaff` | Chaff | automation | Power pellet: drops a fake you in the center. Ghosts chase it until they touch it. | Power pellet: drops a fake you in each corner. Ghosts chase the nearest one. |
+| `passiveReactiveArmor` | Reactive Armor | protection | When a shield breaks, the ghost that touched you is sent to the ghost house. | When a shield breaks, all nearby ghosts are sent to the ghost house. |
 | `powerPelletTithe` | Tithe | harvest | Power pellet: move 10% slower for 5 seconds, but pellets count double toward your streak. | Power pellet: move 10% slower for 8 seconds, but pellets count double toward your streak. |

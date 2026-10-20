@@ -50,6 +50,7 @@ export type PlayOptions = {
   levelModifiers: boolean;
   enableUpgrades: UpgradeId[];
   forceUpgrade: BaseUpgradeId | null;
+  forceStartingUpgrade: BaseUpgradeId | null;
   slot: SlotOutcome | null;
   slotMachine: boolean;
   highScoresDisabled: boolean;
@@ -131,6 +132,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       levelModifiers: parseLevelModifiersFlag(params),
       enableUpgrades: parseEnableUpgradeParams(params),
       forceUpgrade: parseForceUpgradeParam(params),
+      forceStartingUpgrade: null,
       slot,
       slotMachine: parseSlotMachineFlag(params),
       highScoresDisabled: highScoresDisabled(params),
