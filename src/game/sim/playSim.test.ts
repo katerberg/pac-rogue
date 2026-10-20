@@ -42,6 +42,7 @@ import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield"
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import { offeredUpgradeIds, parseStoreLayout, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
+import { TURN_CATCH_GRACE_MS } from "../../domain/turnCatchGrace";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { LAVA_CYCLE_MS, LAVA_EMERGE_MS, LAVA_MAX_REACH_TILES } from "../../domain/lavaZone";
@@ -83,6 +84,7 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
+import { remapSlotPickupCell } from "../../domain/slotPickup";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import type { ProgramDir } from "../../domain/programmer";
 import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
@@ -850,6 +852,85 @@ describe("PlaySim", () => {
     expect(Position.y[eid]!).toBeLessThan(before.y - travel / 2);
     expect(Math.abs(Position.x[eid]! - cx)).toBeLessThan(Math.abs(before.x - cx));
     expect(Math.abs(Position.x[eid]! - cx)).toBeGreaterThan(0);
+  });
+
+  it("does not catch on a perpendicular turn even when a fast ghost overlaps", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: false, godMode: false });
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(7), cy);
+    runUntil(sim, () => Position.x[eid]! <= cx + 8, 60, { keys: held("left") });
+    teleportPlayer(sim, cx + 3, cy);
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Position.x[ghost] = cx + TILE_SIZE;
+    Position.y[ghost] = cy;
+    Speed.px[ghost] = PLAYER_SPEED * 3;
+
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("still catches after turn catch grace expires", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: false, godMode: false });
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(7), cy);
+    runUntil(sim, () => Position.x[eid]! <= cx + 8, 60, { keys: held("left") });
+    teleportPlayer(sim, cx, cy);
+    Facing.direction[eid] = DIRECTION.left;
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    runFrames(sim, 6, { keys: held("up") });
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBe(0);
+
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("cannot phase through a ghost by turning into it", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: false, godMode: false });
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(7), cy);
+    runUntil(sim, () => Position.x[eid]! <= cx + 8, 60, { keys: held("left") });
+    teleportPlayer(sim, cx + 3, cy);
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().dying).toBe(false);
+    while (sim.snapshot().timers.turnCatchGraceMs > 0) {
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1, { keys: held("up") });
+    }
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("still catches on a reverse with no turn catch grace", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: false, godMode: false });
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(12), cellCenterY(1));
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+    runFrames(sim, 1, { keys: held("left") });
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("right") });
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBe(0);
+    expect(sim.snapshot().dying).toBe(true);
   });
 
   it("moves Maze-Man at the level-2 speed along an empty corridor", () => {
@@ -2801,6 +2882,159 @@ describe("PlaySim slot machine", () => {
     expect(sim.offer()).toBeNull();
     settleSlots(sim);
     expect(drainToOffer(sim)).not.toBeNull();
+  });
+});
+
+describe("PlaySim slot-machine world pickup", () => {
+  it("spawns one machine every four non-slot Quarters", () => {
+    const sim = startSim({ level: 2, maze: "maze1" }, "slot-pick-spawn");
+    expect(sim.snapshot().slotPickup).toMatchObject({
+      progress: 0,
+      count: 0,
+      awaitingPlacement: 0,
+    });
+    sim["grantQuarters"](3, "inheritance", true);
+    expect(sim.snapshot().slotPickup).toMatchObject({ progress: 3, count: 0 });
+    sim["grantQuarters"](1, "inheritance", true);
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    expect(sim.snapshot().slotPickup.progress).toBe(0);
+    expect(sim.snapshot().slotPickup.cells).toHaveLength(1);
+  });
+
+  it("does not advance progress from slot-spin Quarter payouts", () => {
+    const sim = startSim(
+      { level: 2, maze: "maze1", slot: { quarters: 1, upgrades: 0, lives: 0 }, quarters: 0 },
+      "slot-pick-pay",
+    );
+    sim["grantQuarters"](3, "inheritance", true);
+    expect(sim.snapshot().slotPickup.progress).toBe(3);
+    sim["slotQueue"].push("bonusBar");
+    runFrames(sim, 1);
+    settleSlots(sim);
+    expect(sim.snapshot().quarters).toBeGreaterThan(0);
+    expect(sim.snapshot().slotPickup).toMatchObject({ progress: 3, count: 0 });
+  });
+
+  it("queues a slot spin when the player crosses a machine", () => {
+    const sim = startSim(
+      { level: 2, maze: "maze1", slotMachine: true, slot: { quarters: 0, upgrades: 0, lives: 0 } },
+      "slot-pick-collect",
+    );
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    const cell = sim.snapshot().slotPickup.cells[0]!;
+    teleportPlayer(sim, cellCenterX(cell.col), cellCenterY(cell.row));
+    runFrames(sim, 1);
+    expect(sim.snapshot().slotPickup.count).toBe(0);
+    expect(sim.snapshot().slot.active || sim.snapshot().slot.queued > 0).toBe(true);
+    settleSlots(sim);
+    expect(sim.snapshot().slot.spins).toBe(1);
+  });
+
+  it("keeps exact cells across a level advance on the pool map", () => {
+    const sim = startSim(
+      {
+        level: 2,
+        slotMachine: true,
+        disableLevelUpgrades: true,
+        jumpToUpgrade: true,
+        levelModifiers: false,
+      },
+      "slot-pick-carry",
+    );
+    const cells = sim.snapshot().slotPickup.cells.map((cell) => ({ ...cell }));
+    expect(cells).toHaveLength(1);
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 900, {
+      acknowledge: true,
+    });
+    expect(sim.snapshot().level).toBe(3);
+    expect(sim.snapshot().slotPickup.cells).toEqual(cells);
+  });
+
+  it("flips carried cell rows when the board turns upside down", () => {
+    const sim = startSim(
+      {
+        level: 5,
+        slotMachine: true,
+        disableLevelUpgrades: true,
+        jumpToUpgrade: true,
+      },
+      "slot-pick-invert",
+    );
+    const before = sim.snapshot().slotPickup.cells[0]!;
+    const rows = getActiveLayout().rows;
+    runUntil(sim, () => sim.snapshot().level === 6 && !sim.snapshot().levelTransition, 900, {
+      acknowledge: true,
+    });
+    expect(sim.snapshot().level).toBe(6);
+    const after = sim.snapshot().slotPickup.cells[0]!;
+    expect(after).toEqual(remapSlotPickupCell(before.col, rows - 1 - before.row));
+  });
+
+  it("hides through a store and respawns on the next play board", () => {
+    const sim = startSim({ level: 3, slotMachine: true, levelModifiers: false }, "slot-pick-store");
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    const cells = sim.snapshot().slotPickup.cells.map((cell) => ({ ...cell }));
+    (sim as unknown as { enterStore(): void }).enterStore();
+    runUntil(sim, () => !sim.snapshot().storeEntering, 120);
+    expect(sim.snapshot().inStore).toBe(true);
+    expect(sim.snapshot().slotPickup.cells).toEqual(cells);
+    (sim as unknown as { exitStore(): void }).exitStore();
+    expect(sim.snapshot().level).toBe(4);
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    expect(sim.snapshot().slotPickup.cells).toEqual(cells);
+  });
+
+  it("banks spawns earned in the store until the next play board", () => {
+    const sim = startSim({ store: 1, level: 3, levelModifiers: false }, "slot-pick-await");
+    expect(sim.snapshot().inStore).toBe(true);
+    sim["grantQuarters"](4, "inheritance", true);
+    expect(sim.snapshot().slotPickup).toMatchObject({
+      awaitingPlacement: 1,
+      count: 0,
+    });
+    (sim as unknown as { exitStore(): void }).exitStore();
+    expect(sim.snapshot().slotPickup).toMatchObject({ awaitingPlacement: 0, count: 1 });
+  });
+
+  it("drops carried machines when the boss board starts", () => {
+    const sim = startSim(
+      {
+        level: 8,
+        slotMachine: true,
+        disableLevelUpgrades: true,
+        jumpToUpgrade: true,
+        levelModifiers: false,
+      },
+      "slot-pick-boss",
+    );
+    expect(sim.snapshot().slotPickup.count).toBe(1);
+    runUntil(sim, () => sim.snapshot().inStore && !sim.snapshot().storeEntering, 1200, {
+      acknowledge: true,
+    });
+    expect(sim.snapshot().slotPickup.count).toBeGreaterThan(0);
+    sim["grantQuarters"](4, "inheritance", true);
+    expect(sim.snapshot().slotPickup.awaitingPlacement).toBeGreaterThanOrEqual(1);
+    (sim as unknown as { exitStore(): void }).exitStore();
+    expect(sim.snapshot().level).toBe(9);
+    expect(sim.snapshot().boss).not.toBeNull();
+    expect(sim.snapshot().slotPickup).toMatchObject({ count: 0, awaitingPlacement: 0 });
+  });
+
+  it("remaps a carried cell that collapse turns into a wall", () => {
+    const sim = startSim({ level: 5, slotMachine: true }, "slot-pick-collapse");
+    const wall = sim.snapshot().collapse.chains[0]?.[0];
+    expect(wall).toBeDefined();
+    sim["slotPickupCells"] = [{ col: wall!.col, row: wall!.row }];
+    sim["previousPlayBoardInverted"] = sim["boardInverted"];
+    (sim as unknown as { startBoard(override: null): void }).startBoard(null);
+    const cell = sim.snapshot().slotPickup.cells[0]!;
+    expect(isWalkable(cell.col, cell.row)).toBe(true);
+    expect(cell).not.toEqual({ col: wall!.col, row: wall!.row });
+  });
+
+  it("places a machine when ?slotMachine=1 starts an eligible board", () => {
+    const sim = startSim({ level: 2, maze: "maze1", slotMachine: true }, "slot-pick-flag");
+    expect(sim.snapshot().slotPickup.count).toBe(1);
   });
 });
 
@@ -5725,6 +5959,19 @@ describe("lava zone", () => {
     }
   });
 
+  it("still dies on lava while turn catch grace is active", () => {
+    const sim = lavaSim("lava-turn-grace", { infiniteLives: false });
+    parkAwayFromLava(sim);
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
+    const { col, row } = sim.snapshot().lava!;
+    sim["turnCatchGraceMs"] = TURN_CATCH_GRACE_MS;
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    expect(sim.snapshot().dying).toBe(true);
+    expect(lavaDeaths(sim)).toHaveLength(1);
+  });
+
   it("is harmless while dormant and warning, then kills Dot-Man at full reach", () => {
     const sim = lavaSim("lava-kill");
     const { col, row } = sim.snapshot().lava!;
@@ -5976,6 +6223,49 @@ describe("Hyperspeed", () => {
     expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBe(0);
     runFrames(sim, 2, RIGHT);
     expect(Position.x[playerEid(sim)]).toBeGreaterThan(x + TILE_SIZE);
+  });
+
+  it("does not catch on the hyperspeed turn beat, then catches once grace ends", () => {
+    const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
+    chompPowerPellet(sim);
+    const player = playerEid(sim);
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    teleportPlayer(sim, cellCenterX(8), cy);
+    Facing.direction[player] = DIRECTION.left;
+    Input.direction[player] = DIRECTION.left;
+    runUntil(sim, () => Position.x[player]! <= cx + 8, 30, { keys: held("left") });
+    teleportPlayer(sim, cx + 3, cy);
+    Facing.direction[player] = DIRECTION.left;
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().dying).toBe(false);
+    while (sim.snapshot().timers.turnCatchGraceMs > 0) {
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1, { keys: held("up") });
+    }
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("still catches on a hyperspeed reverse with no turn catch grace", () => {
+    const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
+    chompPowerPellet(sim);
+    const player = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(10), cellCenterY(1));
+    Facing.direction[player] = DIRECTION.left;
+    Input.direction[player] = DIRECTION.left;
+    runFrames(sim, 2, { keys: held("left") });
+    expect(sim.snapshot().player!.facing).toBe("left");
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, RIGHT);
+    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(150);
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBe(0);
+    expect(sim.snapshot().dying).toBe(true);
   });
 
   it("is caught by a ghost on the path", () => {

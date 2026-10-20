@@ -14,6 +14,8 @@ import {
   playerRadius,
   PLAYER_SPEED,
   POWER_PELLET_DRAWABLE_ID,
+  SLOT_MACHINE_DRAWABLE_ID,
+  SLOT_MACHINE_RADIUS,
 } from "../../domain/playfield";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
@@ -23,6 +25,7 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
+import { SlotMachine } from "../components/SlotMachine";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { Wall } from "../components/Wall";
@@ -94,5 +97,17 @@ export function spawnFruit(
   Fruit.kind[eid] = kind;
   Drawable.id[eid] = fruitDrawableId(kind);
   Drawable.radius[eid] = FRUIT_RADIUS;
+  return eid;
+}
+
+export function spawnSlotMachine(world: World, at: { x: number; y: number }): number {
+  const eid = addEntity(world);
+  addComponent(world, eid, SlotMachine);
+  addComponent(world, eid, Position);
+  addComponent(world, eid, Drawable);
+  Position.x[eid] = at.x;
+  Position.y[eid] = at.y;
+  Drawable.id[eid] = SLOT_MACHINE_DRAWABLE_ID;
+  Drawable.radius[eid] = SLOT_MACHINE_RADIUS;
   return eid;
 }

@@ -213,6 +213,13 @@ import {
   playerPreTurnPx,
   playerSpeed,
 } from "../../domain/playfield";
+import {
+  flipSlotPickupRow,
+  pickSlotPickupCell,
+  remapSlotPickupCell,
+  tickSlotPickupProgress,
+  type SlotPickupCell,
+} from "../../domain/slotPickup";
 import { createRunClock, tickRunClock, type RunClock } from "../../domain/runClock";
 import {
   pickSlotUpgrade,
@@ -440,9 +447,11 @@ import {
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
+  isPerpendicularTurn,
   type HeldKeys,
   type TurnTap,
 } from "../systems/heldKeys";
+import { TURN_CATCH_GRACE_MS, tickTurnCatchGrace } from "../../domain/turnCatchGrace";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
@@ -498,7 +507,15 @@ import {
 } from "../systems/tunnelDash";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
-import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
+import {
+  spawnBoardPellets,
+  spawnFruit,
+  spawnPellet,
+  spawnPlayer,
+  spawnSlotMachine,
+  spawnWalls,
+} from "./spawn";
+import { collectSlotMachinesForBodies } from "../systems/collectSlotMachines";
 import type { SimInput } from "./simInput";
 import { replayPlayerTint, type ReplayData } from "../../domain/replay";
 import { ReplayRecorder, type ReplayLook } from "./replayRecorder";
@@ -552,6 +569,10 @@ export class PlaySim {
   private lastStreakPop: number | null = null;
   private quarters = 0;
   private bonus: BonusBar;
+  private slotPickupProgress = 0;
+  private slotPickupCells: SlotPickupCell[] = [];
+  private slotPickupsAwaitingPlacement = 0;
+  private previousPlayBoardInverted: boolean | null = null;
   private lastPlayerCell: Cell | null = null;
   private timeBonusDrain: TimeBonusDrain | null = null;
   private slotQueue: QuarterSource[] = [];
@@ -601,6 +622,7 @@ export class PlaySim {
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
+  private turnCatchGraceMs = 0;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
   private hyperspeedFruitEaten = 0;
   private ghostCornerWarps: GhostCornerWarp[] = [];
@@ -961,6 +983,12 @@ export class PlaySim {
         held: this.slot !== null && slotHeld(this.slot.timeline, this.slot.elapsedMs),
         won: this.slot?.won ?? null,
       },
+      slotPickup: {
+        progress: this.slotPickupProgress,
+        cells: this.slotPickupCells.map((cell) => ({ ...cell })),
+        awaitingPlacement: this.slotPickupsAwaitingPlacement,
+        count: this.slotPickupCells.length,
+      },
       deathsThisBoard: this.deathsThisBoard,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       nearMissesPaid: this.nearMissesPaid,
@@ -999,6 +1027,7 @@ export class PlaySim {
         cornucopiaFruitMs: Math.max(0, ...this.cornucopiaFruit.map((fruit) => fruit.ms)),
         turnBoostMs: this.turnTuning.boostMs,
         turnFlashMs: this.turnTuning.flashMs,
+        turnCatchGraceMs: this.turnCatchGraceMs,
         warpGlideMs: warpGlideRemainingMs(this.warpGlide),
         programmer: upgrades.programmer,
         ghostWarpGlideMs: ghostWarpGlideRemainingMs(this.ghostCornerWarps),
@@ -1294,6 +1323,7 @@ export class PlaySim {
       snapPlayerToNearestWalkable(this.world);
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
+    this.turnCatchGraceMs = tickTurnCatchGrace(this.turnCatchGraceMs, delta);
     this.runUpgrades = tickSpeedBurst(this.runUpgrades, delta);
     this.runUpgrades = tickHyperspeed(this.runUpgrades, delta);
     if (!hyperspeedActive(this.runUpgrades)) {
@@ -1380,12 +1410,14 @@ export class PlaySim {
     this.updateWallDrop(facingBeforeMove);
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
+    const facingAfterMove = playerFacing(this.world);
+    this.noteTurnCatchGrace(facingBeforeMove, facingAfterMove);
     this.emitTurnSparks(
       this.turnTuning.afterMove(
         this.world,
         this.effectiveUpgrades(),
         facingBeforeMove,
-        playerFacing(this.world),
+        facingAfterMove,
       ),
     );
     if (this.tunnelDashAnim !== null) {
@@ -1624,6 +1656,7 @@ export class PlaySim {
       this.releaseDrawable(eid);
     }
     this.noteFruitRemoved(removedFruitEids);
+    this.collectSlotPickupEntities();
     const fruitEaten = removedFruitEids.length + this.hyperspeedFruitEaten;
     this.hyperspeedFruitEaten = 0;
     if (fruitEaten > 0) {
@@ -1631,9 +1664,7 @@ export class PlaySim {
       this.recorder.fruitEaten(fruitEaten);
       const fruitQuarters = fruitQuartersPerFruit(this.effectiveUpgrades());
       if (fruitQuarters !== null) {
-        this.quarters += fruitEaten * fruitQuarters;
-        this.recorder.quarters("fruit", fruitEaten * fruitQuarters);
-        this.emit({ type: "quarters", pulse: false });
+        this.grantQuarters(fruitEaten * fruitQuarters, "fruit", false);
       } else {
         const fruitCharge = addBonusCharge(this.bonus, fruitEaten * FRUIT_BONUS_CHARGE);
         this.emit({ type: "fruitBonus" });
@@ -1871,7 +1902,15 @@ export class PlaySim {
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
       edibleGhostEids: frightenedGhostEids(this.runUpgrades),
       playerInvulnerable: this.options.godMode || playerIsInvulnerable(this.runUpgrades),
+      turnCatchGrace: this.turnCatchGraceMs > 0,
     };
+  }
+
+  private noteTurnCatchGrace(facingBefore: Direction, facingAfter: Direction): void {
+    if (!isPerpendicularTurn(facingBefore, facingAfter)) {
+      return;
+    }
+    this.turnCatchGraceMs = Math.max(this.turnCatchGraceMs, TURN_CATCH_GRACE_MS);
   }
 
   private releaseAdds(): GhostReleaseAdds {
@@ -2152,9 +2191,7 @@ export class PlaySim {
     this.bonus = result.bar;
     this.recorder.bonus(result.tier, result.filled);
     if (result.filled > 0) {
-      this.quarters += result.filled;
-      this.recorder.quarters(source, result.filled);
-      this.emit({ type: "quarters", pulse: true });
+      this.grantQuarters(result.filled, source, true);
     }
     if (result.tier > 0 || result.filled > 0) {
       this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
@@ -2348,8 +2385,7 @@ export class PlaySim {
     if (interest <= 0) {
       return;
     }
-    this.quarters += interest;
-    this.recorder.quarters("interest", interest);
+    this.grantQuarters(interest, "interest", false, false);
     this.interestPop = { count: interest, elapsedMs: 0 };
   }
 
@@ -2491,9 +2527,7 @@ export class PlaySim {
   private applyStorePickup(kind: StoreFreebie["kind"]): void {
     this.emitMunch();
     if (kind === "quarter") {
-      this.quarters += 1;
-      this.recorder.quarters("storeFreebie", 1);
-      this.emit({ type: "quarters", pulse: true });
+      this.grantQuarters(1, "storeFreebie", true);
       return;
     }
     this.recorder.livesRegenerated(this.lives, this.lives + 1);
@@ -2678,6 +2712,7 @@ export class PlaySim {
       this.world,
       this.bossState !== null ? null : lazyLooperRings(this.effectiveUpgrades()),
     );
+    this.syncSlotPickupsOntoBoard();
   }
 
   private collapseChainsFor(poolIndex: number, baseAscii: string): CollapseChain[] | null {
@@ -3031,9 +3066,117 @@ export class PlaySim {
     if (payout <= 0) {
       return;
     }
-    this.quarters += payout;
-    this.recorder.quarters("inheritance", payout);
-    this.emit({ type: "quarters", pulse: true });
+    this.grantQuarters(payout, "inheritance", true);
+  }
+
+  private grantQuarters(
+    amount: number,
+    source: QuarterSource,
+    pulse: boolean,
+    emitEvent = true,
+  ): void {
+    if (amount <= 0) {
+      return;
+    }
+    this.quarters += amount;
+    this.recorder.quarters(source, amount);
+    if (emitEvent) {
+      this.emit({ type: "quarters", pulse });
+    }
+    const { progress, spawns } = tickSlotPickupProgress(this.slotPickupProgress, amount);
+    this.slotPickupProgress = progress;
+    for (let i = 0; i < spawns; i += 1) {
+      this.enqueueSlotPickup();
+    }
+  }
+
+  private slotPickupBoardEligible(): boolean {
+    return this.store === null && !isBossLevel(this.levelIndex);
+  }
+
+  private enqueueSlotPickup(): void {
+    if (!this.slotPickupBoardEligible()) {
+      this.slotPickupsAwaitingPlacement += 1;
+      return;
+    }
+    this.placeAndSpawnSlotPickup();
+  }
+
+  private slotPickupAvoidCells(): SlotPickupCell[] {
+    const avoid: SlotPickupCell[] = [];
+    const player = this.playerPosition();
+    if (player !== null) {
+      avoid.push({ col: worldToCol(player.x), row: worldToRow(player.y) });
+    }
+    const twin = this.twinPosition();
+    if (twin !== null) {
+      avoid.push({ col: worldToCol(twin.x), row: worldToRow(twin.y) });
+    }
+    return avoid;
+  }
+
+  private placeAndSpawnSlotPickup(): void {
+    const cell = pickSlotPickupCell(
+      this.random.stream("slotPickup", this.levelIndex),
+      getActiveLayout().playerSolids,
+      this.slotPickupAvoidCells(),
+    );
+    this.slotPickupCells.push(cell);
+    spawnSlotMachine(this.world, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) });
+  }
+
+  private syncSlotPickupsOntoBoard(): void {
+    if (isBossLevel(this.levelIndex)) {
+      this.slotPickupCells = [];
+      this.slotPickupsAwaitingPlacement = 0;
+      this.previousPlayBoardInverted = null;
+      return;
+    }
+    if (!this.slotPickupBoardEligible()) {
+      return;
+    }
+    const inverted = this.boardInverted;
+    if (this.previousPlayBoardInverted !== null && this.previousPlayBoardInverted !== inverted) {
+      const rows = getActiveLayout().rows;
+      this.slotPickupCells = this.slotPickupCells.map((cell) => ({
+        col: cell.col,
+        row: flipSlotPickupRow(cell.row, rows),
+      }));
+    }
+    const avoid = this.slotPickupAvoidCells();
+    const solids = getActiveLayout().playerSolids;
+    const rng = this.random.stream("slotPickup", this.levelIndex);
+    while (this.slotPickupsAwaitingPlacement > 0) {
+      this.slotPickupsAwaitingPlacement -= 1;
+      this.slotPickupCells.push(pickSlotPickupCell(rng, solids, avoid));
+    }
+    if (this.options.slotMachine && this.slotPickupCells.length === 0) {
+      this.slotPickupCells.push(pickSlotPickupCell(rng, solids, avoid));
+    }
+    this.slotPickupCells = this.slotPickupCells.map((cell) =>
+      remapSlotPickupCell(cell.col, cell.row, solids),
+    );
+    for (const cell of this.slotPickupCells) {
+      spawnSlotMachine(this.world, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) });
+    }
+    this.previousPlayBoardInverted = inverted;
+  }
+
+  private collectSlotPickupEntities(): void {
+    if (!this.slotPickupBoardEligible()) {
+      return;
+    }
+    for (const item of collectSlotMachinesForBodies(this.world, this.twinPosition())) {
+      this.releaseDrawable(item.eid);
+      const idx = this.slotPickupCells.findIndex(
+        (cell) => cell.col === item.col && cell.row === item.row,
+      );
+      if (idx < 0) {
+        continue;
+      }
+      this.slotPickupCells.splice(idx, 1);
+      this.slotQueue.push("slotPickup");
+    }
   }
 
   private tickSlot(input: SimInput, delta: number): boolean {
@@ -3203,9 +3346,16 @@ export class PlaySim {
     moveFrame: (frameDelta: number) => void,
     afterStep: () => void,
   ): void {
+    let facingBefore = playerFacing(this.world);
     runHyperspeedSubsteps(this.world, delta, {
-      moveFrame,
-      afterStep,
+      moveFrame: (frameDelta) => {
+        facingBefore = playerFacing(this.world);
+        moveFrame(frameDelta);
+      },
+      afterStep: () => {
+        afterStep();
+        this.noteTurnCatchGrace(facingBefore, playerFacing(this.world));
+      },
       collect: () => {
         this.hyperspeedPellets = mergePlayerPelletFrames(
           this.hyperspeedPellets,
@@ -3217,6 +3367,7 @@ export class PlaySim {
           this.hyperspeedFruitEaten += 1;
         }
         this.noteFruitRemoved(eatenFruit);
+        this.collectSlotPickupEntities();
         this.eatFrightenedGhosts();
         const catchOptions = this.catchOptions();
         const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
@@ -3229,15 +3380,16 @@ export class PlaySim {
   }
 
   private noteHyperspeedTurn(): void {
-    const turn = noteHyperspeedFacing(
-      this.hyperspeedDirection,
-      playerFacing(this.world),
-      this.runUpgrades.hyperspeedTurnDelayMs > 0,
-    );
+    const facing = playerFacing(this.world);
+    const previous = this.hyperspeedDirection;
+    const turn = noteHyperspeedFacing(previous, facing, this.runUpgrades.hyperspeedTurnDelayMs > 0);
     this.hyperspeedDirection = turn.lastDirection;
     if (turn.turned) {
       this.runUpgrades = startHyperspeedTurnDelay(this.runUpgrades);
       this.zeroPlayerSpeed();
+      if (previous !== null) {
+        this.noteTurnCatchGrace(previous, facing);
+      }
     }
   }
 
@@ -3278,6 +3430,7 @@ export class PlaySim {
     this.hyperspeedDirection = null;
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     this.hyperspeedFruitEaten = 0;
+    this.turnCatchGraceMs = 0;
   }
 
   private zeroPlayerSpeed(): void {
@@ -3454,6 +3607,7 @@ export class PlaySim {
     this.runUpgrades = { ...clearUpgradeTimers(this.runUpgrades), shieldsBanked: 0 };
     this.eatDragMs = 0;
     this.turnTuning.reset();
+    this.turnCatchGraceMs = 0;
 
     this.startBoard(null);
     this.emit({ type: "upgrades" });
@@ -3834,6 +3988,7 @@ export class PlaySim {
     }
     this.eatDragMs = 0;
     this.turnTuning.reset();
+    this.turnCatchGraceMs = 0;
 
     this.clock = {
       ...this.clock,
