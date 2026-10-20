@@ -15,6 +15,9 @@ const FAST_DROP_BACKLOG = 12;
 const DROP_HEIGHT_PX = 18;
 const COLLAPSE_ARC_PX = 10;
 const CHROME_SHAKE_TIER = 8;
+const PENNY_SLIDE_MS = 320;
+const STACK_MAX_VISIBLE = 8;
+const STACK_STEP_PX = 3;
 const HOP_BASE_MS = 260;
 const HOP_WOBBLE_MS = 130;
 const SETTLED_MS = -1e9;
@@ -31,6 +34,9 @@ export type PennyFxState = {
   collapseStartMs: number | null;
   landed: number;
   hop: { startMs: number; amp: number; wobbles: number } | null;
+  timeHold: boolean;
+  slideStartMs: number;
+  slideEndMs: number;
 };
 
 export type PennyGeometry = {
@@ -39,6 +45,7 @@ export type PennyGeometry = {
   step: number;
   size: number;
   target: { x: number; y: number };
+  stack: { x: number; y: number };
 };
 
 export type PennyLook = { x: number; y: number; size: number; alpha: number };
@@ -63,7 +70,24 @@ export function createPennyFx(charge: number): PennyFxState {
     collapseStartMs: null,
     landed: 0,
     hop: null,
+    timeHold: false,
+    slideStartMs: SETTLED_MS,
+    slideEndMs: SETTLED_MS,
   };
+}
+
+export function holdPennyFx(s: PennyFxState): PennyFxState {
+  return { ...s, timeHold: true };
+}
+
+export function releasePennyFx(s: PennyFxState): PennyFxState {
+  return { ...s, timeHold: false, slideStartMs: s.nowMs, slideEndMs: Infinity };
+}
+
+export function pennyStackCount(s: PennyFxState, charge: number): number {
+  return s.timeHold || s.slideEndMs === Infinity
+    ? Math.min(STACK_MAX_VISIBLE, pennyBacklog(s, charge))
+    : 0;
 }
 
 export function fillPennyFx(s: PennyFxState, filled: number): PennyFxState {
@@ -99,7 +123,7 @@ function dropInterval(backlog: number, slow: boolean): number {
 
 export function stepPennyFx(s: PennyFxState, deltaMs: number, charge: number): PennyFxState {
   const nowMs = s.nowMs + Math.max(0, deltaMs);
-  let { row, dropped, lastDropMs, slowDrops, collapseStartMs, landed, hop } = s;
+  let { row, dropped, lastDropMs, slowDrops, collapseStartMs, landed, hop, slideEndMs } = s;
   if (hop !== null && nowMs > hop.startMs + HOP_BASE_MS + HOP_WOBBLE_MS * hop.wobbles) {
     hop = null;
   }
@@ -114,16 +138,34 @@ export function stepPennyFx(s: PennyFxState, deltaMs: number, charge: number): P
       if (nowMs - row[row.length - 1]! >= PENNY_DROP_MS) {
         collapseStartMs = nowMs;
       }
-    } else if (backlog > 0 && nowMs - lastDropMs >= dropInterval(backlog, slowDrops)) {
+    } else if (
+      !s.timeHold &&
+      backlog > 0 &&
+      nowMs - lastDropMs >= dropInterval(backlog, slowDrops)
+    ) {
       row = [...row, nowMs];
       dropped += 1;
       lastDropMs = nowMs;
     }
   }
+  if (!s.timeHold && slideEndMs === Infinity && pennyBacklog({ ...s, dropped }, charge) === 0) {
+    slideEndMs = lastDropMs;
+  }
   if (slowDrops && backlog === 0 && collapseStartMs === null) {
     slowDrops = false;
   }
-  return { ...s, nowMs, row, dropped, lastDropMs, slowDrops, collapseStartMs, landed, hop };
+  return {
+    ...s,
+    nowMs,
+    row,
+    dropped,
+    lastDropMs,
+    slowDrops,
+    collapseStartMs,
+    landed,
+    hop,
+    slideEndMs,
+  };
 }
 
 function easeOutBounce(k: number): number {
@@ -160,6 +202,17 @@ export function pennyLooks(s: PennyFxState, geo: PennyGeometry): PennyLook[] {
   s.row.forEach((bornMs, i) => {
     const x0 = geo.x0 + i * geo.step;
     if (s.collapseStartMs === null) {
+      if (bornMs >= s.slideStartMs && bornMs <= s.slideEndMs) {
+        const k = Math.min(1, (s.nowMs - bornMs) / PENNY_SLIDE_MS);
+        const e = 1 - (1 - k) * (1 - k);
+        looks.push({
+          x: geo.stack.x + (x0 - geo.stack.x) * e,
+          y: geo.stack.y + (geo.y + hop - geo.stack.y) * e,
+          size: geo.size,
+          alpha: 1,
+        });
+        return;
+      }
       const k = Math.min(1, (s.nowMs - bornMs) / PENNY_DROP_MS);
       const y = geo.y + hop - DROP_HEIGHT_PX * (1 - easeOutBounce(k));
       looks.push({ x: x0, y, size: geo.size, alpha: Math.min(1, k * 4) });
@@ -181,4 +234,13 @@ export function pennyLooks(s: PennyFxState, geo: PennyGeometry): PennyLook[] {
     });
   });
   return looks;
+}
+
+export function pennyStackLooks(s: PennyFxState, charge: number, geo: PennyGeometry): PennyLook[] {
+  return Array.from({ length: pennyStackCount(s, charge) }, (_, i) => ({
+    x: geo.stack.x,
+    y: geo.stack.y + i * STACK_STEP_PX,
+    size: geo.size,
+    alpha: 1,
+  }));
 }

@@ -6,6 +6,10 @@ import {
   bumpPennyFx,
   createPennyFx,
   fillPennyFx,
+  holdPennyFx,
+  pennyStackCount,
+  pennyStackLooks,
+  releasePennyFx,
   pennyBumpFx,
   pennyCollapsing,
   pennyHopOffset,
@@ -23,6 +27,7 @@ const GEO: PennyGeometry = {
   step: 10,
   size: 12,
   target: { x: 20, y: 14 },
+  stack: { x: 700, y: 30 },
 };
 
 function run(s: PennyFxState, ms: number, charge: number, frameMs = 16): PennyFxState {
@@ -134,5 +139,49 @@ describe("penny row", () => {
     expect(pennyHopOffset(s)).toBeLessThan(0);
     s = run(s, 1000, 4 * CHARGE_PER_PENNY);
     expect(pennyHopOffset(s)).toBe(0);
+  });
+});
+
+describe("time penny stack", () => {
+  it("holds earned pennies in a stack instead of dropping them into the row", () => {
+    let s = holdPennyFx(createPennyFx(0));
+    s = run(s, 500, 4 * CHARGE_PER_PENNY);
+    expect(s.row).toHaveLength(0);
+    expect(pennyStackCount(s, 4 * CHARGE_PER_PENNY)).toBe(4);
+    expect(pennyStackLooks(s, 4 * CHARGE_PER_PENNY, GEO)).toHaveLength(4);
+  });
+
+  it("caps the visible stack height", () => {
+    const s = holdPennyFx(createPennyFx(0));
+    expect(pennyStackCount(s, 20 * CHARGE_PER_PENNY)).toBe(8);
+  });
+
+  it("on release the pennies slide left from the stack to their slots", () => {
+    const charge = 3 * CHARGE_PER_PENNY;
+    let s = holdPennyFx(createPennyFx(0));
+    s = run(s, 200, charge);
+    s = releasePennyFx(s);
+    s = stepPennyFx(s, 1, charge);
+    const first = pennyLooks(s, GEO)[0]!;
+    expect(first.x).toBeGreaterThan(GEO.x0);
+    expect(first.x).toBeLessThanOrEqual(GEO.stack.x);
+    s = run(s, 600, charge);
+    expect(s.row).toHaveLength(3);
+    expect(pennyLooks(s, GEO).map((l) => [l.x, l.y])).toEqual([
+      [GEO.x0, GEO.y],
+      [GEO.x0 + GEO.step, GEO.y],
+      [GEO.x0 + 2 * GEO.step, GEO.y],
+    ]);
+    expect(pennyStackCount(s, charge)).toBe(0);
+  });
+
+  it("still collapses a full row into a quarter after the slide", () => {
+    let s = holdPennyFx(createPennyFx(0));
+    s = fillPennyFx(s, 1);
+    s = run(s, 300, 0);
+    s = releasePennyFx(s);
+    s = run(s, 2000, 0);
+    expect(s.landed).toBe(1);
+    expect(s.row).toHaveLength(0);
   });
 });
