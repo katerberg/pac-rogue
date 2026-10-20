@@ -40,7 +40,7 @@ export type ActivationKind =
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   | "fruit"
-  | "bonusBar"
+  | "pennyBar"
   | "deathsBounty"
   | "nearMiss"
   | "offer"

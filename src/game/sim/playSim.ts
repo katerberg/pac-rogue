@@ -742,7 +742,7 @@ export class PlaySim {
     this.emit({ type: "loopStart", id: "gameplayMusic" });
     if (options.jumpToSpinner) {
       this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
-      this.slotQueue.push("bonusBar");
+      this.slotQueue.push("pennyBar");
     }
     if (options.jumpToUpgrade) {
       this.jumpToLevelClear();
@@ -2193,7 +2193,7 @@ export class PlaySim {
     this.lastPlayerCell = cell;
   }
 
-  private applyPennies(result: PennyResult, source: QuarterSource = "bonusBar"): void {
+  private applyPennies(result: PennyResult, source: QuarterSource = "pennyBar"): void {
     this.pennies = result.bar;
     this.recorder.bonus(result.tier, result.filled);
     if (result.filled > 0) {

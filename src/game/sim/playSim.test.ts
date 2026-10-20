@@ -2711,7 +2711,7 @@ describe("PlaySim slot machine", () => {
   }
 
   function spinFromStreak(sim: PlaySim): void {
-    sim["slotQueue"].push("bonusBar");
+    sim["slotQueue"].push("pennyBar");
     runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") });
   }
 
@@ -2773,7 +2773,7 @@ describe("PlaySim slot machine", () => {
     ];
     for (const [slot, expected] of cases) {
       const sim = startSlotSim({ slot });
-      sim["slotQueue"].push("bonusBar");
+      sim["slotQueue"].push("pennyBar");
       const events = [
         ...runUntil(sim, () => sim.snapshot().slot.active, 180, { keys: held("left") }),
         ...settleSlots(sim),
@@ -2867,7 +2867,7 @@ describe("PlaySim slot machine", () => {
 
   it("runs one spin per fill, back to back, and pays them in order", () => {
     const sim = startSlotSim({ slot: { quarters: 2, upgrades: 0, lives: 0 }, quarters: 0 });
-    sim["slotQueue"].push("bonusBar", "bonusBar");
+    sim["slotQueue"].push("pennyBar", "pennyBar");
     expect(sim.snapshot().slot.queued).toBe(2);
     runFrames(sim, 1);
     expect(sim.snapshot().slot).toMatchObject({ active: true, queued: 1 });
@@ -2879,7 +2879,7 @@ describe("PlaySim slot machine", () => {
   it("holds the time drain and the upgrade offer until the spin ends", () => {
     const sim = startSlotSim({ jumpToUpgrade: true, slot: { quarters: 1, upgrades: 0, lives: 0 } });
     runUntil(sim, () => sim.snapshot().pennies.draining, 120);
-    sim["slotQueue"].push("bonusBar");
+    sim["slotQueue"].push("pennyBar");
     runFrames(sim, 1);
     expect(sim.snapshot().slot.active).toBe(true);
     const remaining = sim.snapshot().timeRemaining;
@@ -2915,7 +2915,7 @@ describe("PlaySim slot-machine world pickup", () => {
     );
     sim["grantQuarters"](3, "inheritance", true);
     expect(sim.snapshot().slotPickup.progress).toBe(3);
-    sim["slotQueue"].push("bonusBar");
+    sim["slotQueue"].push("pennyBar");
     runFrames(sim, 1);
     settleSlots(sim);
     expect(sim.snapshot().quarters).toBeGreaterThan(0);
