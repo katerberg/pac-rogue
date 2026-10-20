@@ -1061,7 +1061,6 @@ const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
   UPGRADE_DEFS.map((def) => [def.id, def]),
 );
 
-/** LowerCamel of a card label with punctuation stripped (`Second Chomp` → `secondChomp`). */
 export function upgradeLabelAlias(label: string): string {
   const words = label
     .replace(/[^a-zA-Z0-9\s]+/g, "")
