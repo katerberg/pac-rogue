@@ -23,7 +23,13 @@ Clearing a board drains the time left into the pennies. The payout is quadratic 
 
 ## Slot machine
 
-A full row pays a Quarter directly and do not spin. The machine is kept for special events to come: push onto `PlaySim`'s `slotQueue` to spin it (`?jumpToSpinner=1` does this at start). Logic: `src/domain/slotMachine.ts` (outcome table, grid composer, timeline, pinned by `slotMachine.test.ts`), run by `PlaySim` on the `slots` random stream. Drawn by `slotOverlay.ts` (placeholder art).
+Full penny rows pay a Quarter directly and do not spin. A world pickup (art: `public/art/other/slot-machine.png`) appears every four Quarters gained from non-spin sources; walking over it queues one spin on `PlaySim`'s `slotQueue` (same gate as `?jumpToSpinner=1`). Logic: counter/placement in `src/domain/slotPickup.ts`, spin table in `src/domain/slotMachine.ts`, both run by `PlaySim`. Drawn by `slotOverlay.ts` (placeholder art) and the maze render path.
+
+### World pickup
+
+Rules and constants: `src/domain/slotPickup.ts` (run by `PlaySim`). Non-spin Quarter gains advance a remainder counter; reel payouts and spends do not. Spawn is a seeded walkable cell (`slotPickup` stream; pellets may share it). Unclaimed machines keep `{col,row}` across levels (row flips with upside-down boards; solid cells remap), stay invisible through stores, and drop on the boss. Play only ([learn.md](./learn.md#parity)). Debug: `?slotMachine=1`. Probe: `play.slotPickup.*`.
+
+### Spin
 
 - 3 reels × 3 rows, 5 paylines (3 rows, 2 diagonals). Three in a line pay: Quarters a Quarter, a school a random unowned upgrade of that school (a Quarter if none is left), a life a life.
 - The outcome is rolled first from a weighted table, then a grid is built that shows exactly that many lines. Targets: nothing under 10%, at least 0.85 Quarters per spin, upgrades and lives each about 25%, multi-line hits about a third.

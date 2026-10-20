@@ -76,7 +76,7 @@ export function chainPartnerEid(world: World, eid: number): number | null {
 }
 
 export function chainCatch(world: World, options: CatchOptions = {}): number | null {
-  if (options.playerInvulnerable === true) {
+  if (options.playerInvulnerable === true || options.turnCatchGrace === true) {
     return null;
   }
   const playerEid = query(world, [Player, Position, Drawable])[0];

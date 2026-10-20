@@ -63,6 +63,10 @@ export function isActorDrawableId(drawableId: string): boolean {
 
 export const FRUIT_RADIUS = 8;
 
+export const SLOT_MACHINE_DRAWABLE_ID = "slot-machine";
+
+export const SLOT_MACHINE_RADIUS = FRUIT_RADIUS;
+
 export function playfieldMinX(radius = playerRadius()): number {
   return radius;
 }

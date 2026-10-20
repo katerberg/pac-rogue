@@ -205,9 +205,11 @@ import {
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
+  isPerpendicularTurn,
   type HeldKeys,
   type TurnTap,
 } from "../systems/heldKeys";
+import { TURN_CATCH_GRACE_MS, tickTurnCatchGrace } from "../../domain/turnCatchGrace";
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRecall } from "./learnRecall";
 import { LearnRunState } from "./learnRunState";
@@ -294,6 +296,7 @@ export class LearnSim {
   readonly random: RunRandom;
   private events: SimEvent[] = [];
   private hyperspeedDirection: Direction | null = null;
+  private turnCatchGraceMs = 0;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
   private hyperspeedFruit: number[] = [];
   private selected: GhostKindId | null = null;
@@ -470,6 +473,7 @@ export class LearnSim {
       snapPlayerToNearestWalkable(this.world);
     }
     this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
+    this.turnCatchGraceMs = tickTurnCatchGrace(this.turnCatchGraceMs, delta);
     this.learnUpgrades = tickSpeedBurst(this.learnUpgrades, delta);
     this.learnUpgrades = tickHyperspeed(this.learnUpgrades, delta);
     if (!hyperspeedActive(this.learnUpgrades)) {
@@ -574,12 +578,14 @@ export class LearnSim {
       facingBeforeMove,
     );
     this.noteTunnelExit(positionBeforeMove);
+    const facingAfterMove = playerFacing(this.world);
+    this.noteTurnCatchGrace(facingBeforeMove, facingAfterMove);
     this.pushTurnSparks(
       this.turnTuning.afterMove(
         this.world,
         this.learnUpgrades.owned,
         facingBeforeMove,
-        playerFacing(this.world),
+        facingAfterMove,
       ),
     );
     const trailEid = query(this.world, [Player, Position])[0];
@@ -764,6 +770,7 @@ export class LearnSim {
     this.learnUpgrades = clearUpgradeTimers(this.learnUpgrades);
     this.mirrorPop = null;
     this.hyperspeedDirection = null;
+    this.turnCatchGraceMs = 0;
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     this.hyperspeedFruit = [];
     this.eatenHoldGhostEids = [];
@@ -1273,9 +1280,16 @@ export class LearnSim {
     moveFrame: (frameDelta: number) => void,
     afterStep: () => void,
   ): void {
+    let facingBefore = playerFacing(this.world);
     runHyperspeedSubsteps(this.world, delta, {
-      moveFrame,
-      afterStep,
+      moveFrame: (frameDelta) => {
+        facingBefore = playerFacing(this.world);
+        moveFrame(frameDelta);
+      },
+      afterStep: () => {
+        afterStep();
+        this.noteTurnCatchGrace(facingBefore, playerFacing(this.world));
+      },
       collect: () => {
         this.hyperspeedPellets = mergePlayerPelletFrames(
           this.hyperspeedPellets,
@@ -1297,16 +1311,28 @@ export class LearnSim {
   }
 
   private noteHyperspeedTurn(): void {
+    const facing = playerFacing(this.world);
+    const previous = this.hyperspeedDirection;
     const turn = noteHyperspeedFacing(
-      this.hyperspeedDirection,
-      playerFacing(this.world),
+      previous,
+      facing,
       this.learnUpgrades.hyperspeedTurnDelayMs > 0,
     );
     this.hyperspeedDirection = turn.lastDirection;
     if (turn.turned) {
       this.learnUpgrades = startHyperspeedTurnDelay(this.learnUpgrades);
       applyPlayerSpeed(this.world, 0);
+      if (previous !== null) {
+        this.noteTurnCatchGrace(previous, facing);
+      }
     }
+  }
+
+  private noteTurnCatchGrace(facingBefore: Direction, facingAfter: Direction): void {
+    if (!isPerpendicularTurn(facingBefore, facingAfter)) {
+      return;
+    }
+    this.turnCatchGraceMs = Math.max(this.turnCatchGraceMs, TURN_CATCH_GRACE_MS);
   }
 
   private playerSolids(): SolidGrid {
@@ -1340,6 +1366,7 @@ export class LearnSim {
       skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
       edibleGhostEids: frightenedGhostEids(this.learnUpgrades),
       playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
+      turnCatchGrace: this.turnCatchGraceMs > 0,
     };
   }
 

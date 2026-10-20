@@ -33,7 +33,12 @@ import {
   type SpeedZone,
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
-import { CHAFF_ALPHA, CHAFF_COLOR, type ChaffSprite } from "../../domain/chaff";
+import {
+  CHAFF_ALPHA,
+  CHAFF_BODY_TINT,
+  CHAFF_VISOR_TINT,
+  type ChaffSprite,
+} from "../../domain/chaff";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import {
   PROGRAMMER_EMPTY_SLOT_TILES,
@@ -72,6 +77,7 @@ import {
   PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
+  SLOT_MACHINE_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
@@ -245,6 +251,9 @@ export function textureKeyForDrawable(drawableId: string): string {
   }
   if (isFruitDrawableId(drawableId)) {
     return drawableId;
+  }
+  if (drawableId === SLOT_MACHINE_DRAWABLE_ID) {
+    return SLOT_MACHINE_DRAWABLE_ID;
   }
   return pelletTextureKey(drawableId);
 }
@@ -497,6 +506,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(PENNY_TEXTURE_KEY, "art/other/penny.png");
   scene.load.image(REVERSE_TEXTURE_KEY, "art/other/reverse.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
+  scene.load.image(SLOT_MACHINE_DRAWABLE_ID, "art/other/slot-machine.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
   scene.load.image(INKY_TEXTURE_KEY, "art/ghosts/inky.png");
@@ -797,8 +807,6 @@ export function createRender(scene: Phaser.Scene): PlayRender {
   };
   const droppedWallGraphics = scene.add.graphics();
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
-  const chaffGraphics = scene.add.graphics();
-  chaffGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const lavaGraphics = scene.add.graphics();
   lavaGraphics.setDepth(LAVA_DEPTH);
   const programmerGraphics = scene.add.graphics();
@@ -1116,6 +1124,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         id !== PELLET_DRAWABLE_ID &&
         id !== POWER_PELLET_DRAWABLE_ID &&
         id !== BOSS_PELLET_DRAWABLE_ID &&
+        id !== SLOT_MACHINE_DRAWABLE_ID &&
         !isFruitDrawableId(id) &&
         ghostTexture === undefined
       ) {
@@ -1496,20 +1505,26 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       );
     }
 
-    chaffGraphics.clear();
     for (const [index, decoy] of (opts?.chaff ?? []).entries()) {
       const alpha = !expiryTintOn(decoy.remainingMs, scene.time.now)
         ? CHAFF_ALPHA / 3
         : CHAFF_ALPHA;
       const size = actorDisplaySize();
       const heading = Math.atan2(decoy.dy, decoy.dx);
-      const mouth = Math.PI / 5;
-      chaffGraphics.fillStyle(CHAFF_COLOR, alpha);
-      chaffGraphics.beginPath();
-      chaffGraphics.moveTo(decoy.x, decoy.y);
-      chaffGraphics.arc(decoy.x, decoy.y, size / 2, heading + mouth, heading + Math.PI * 2 - mouth);
-      chaffGraphics.closePath();
-      chaffGraphics.fillPath();
+      const bodyKey = `chaff:${index}:body`;
+      alive.add(bodyKey);
+      let body = drawableObjects.get(bodyKey);
+      if (!body) {
+        body = scene.add.image(decoy.x, decoy.y, DOTMAN_BODY_TEXTURE_KEY);
+        body.setName(bodyKey);
+        drawableObjects.set(bodyKey, body);
+      }
+      body.setPosition(decoy.x, decoy.y);
+      body.setDisplaySize(size, size);
+      body.setDepth(HAUNT_CAGE_DEPTH);
+      body.setAlpha(alpha);
+      body.setTint(CHAFF_BODY_TINT);
+      body.setTintMode(Phaser.TintModes.FILL);
 
       const visorKey = `chaff:${index}:visor`;
       alive.add(visorKey);
@@ -1526,6 +1541,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       visor.setFlipX(pose.flipX);
       visor.setDepth(HAUNT_CAGE_DEPTH);
       visor.setAlpha(alpha);
+      visor.setTint(CHAFF_VISOR_TINT);
+      visor.setTintMode(Phaser.TintModes.FILL);
     }
 
     programmerGraphics.clear();

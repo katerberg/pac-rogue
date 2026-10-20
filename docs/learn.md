@@ -18,7 +18,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 ## Differences from play
 
-- Chase mode only, level-1 speeds, no Cruise Elroy. Pellet and fruit sounds play; no HUD timer, lives or history writes.
+- Chase mode only, level-1 speeds, no Cruise Elroy. Pellet and fruit sounds play; no HUD timer, lives, owned-upgrade icons or history writes.
 - Contact never kills, except the **demo catch**: while any upgrade that reacts to a catch is selected, a touch runs the same helpers a real catch does without resetting Maze-Man; a popup and status line report it.
 - The chosen ghost spawns `active` at the house exit. Picking Inky also spawns a faded, harmless Blinky.
 - The board uses `pelletCellCenters()` (shared with `PlaySim`) and refills when empty. Power pellets regenerate when all are gone so effects stay demoable. One always-present fruit respawns after a short delay.
@@ -40,7 +40,7 @@ Known simplifications (everything else is a reuse of play code):
 - **Fruit Fecundity / Feast (+):** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
 - **Martyr, Interest:** no visible effect (no respawn move, no store).
-- **BONUS slot machine:** deliberate omission for special-event spins; full penny rows pay a Quarter directly in both modes ([pennies.md](./pennies.md#slot-machine)).
+- **Slot machine / world pickup:** deliberate omission; full penny rows pay a Quarter directly and the every-four slot-machine maze pickup never appears ([pennies.md](./pennies.md#slot-machine)).
 
 ## Coverage gate
 

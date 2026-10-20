@@ -38,7 +38,7 @@ import { WALL_DROP_MS, wallDropSpot, type CardinalStep } from "../../domain/wall
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
-import { DIRECTION } from "../components/Input";
+import { DIRECTION, Input } from "../components/Input";
 import { GhostPhase } from "../components/GhostPhase";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -1256,6 +1256,34 @@ describe("LearnSim upgrade demos", () => {
       const x = Position.x[player]!;
       sim.step(held("left"), FRAME_MS);
       expect(Position.x[player]).toBe(x);
+    });
+
+    it("arms turn catch grace on a perpendicular turn and skips the demo catch", () => {
+      const { sim, player } = setup("passiveDeathsHarvest");
+      const { playerSolids, cols, rows } = getActiveLayout();
+      const open = (col: number, row: number, dx: number, dy: number) =>
+        canEnterDirection(cellCenterX(col), cellCenterY(row), dx, dy, playerSolids);
+      let turn: { col: number; row: number } | null = null;
+      for (let row = 1; row < rows - 1 && turn === null; row += 1) {
+        for (let col = 3; col < cols - 1; col += 1) {
+          const straight = [3, 2, 1].every((back) => open(col - back, row, 1, 0));
+          const sideless = [3, 2, 1].every(
+            (back) => !open(col - back, row, 0, -1) && !open(col - back, row, 0, 1),
+          );
+          if (straight && sideless && open(col, row, 0, -1)) {
+            turn = { col, row };
+            break;
+          }
+        }
+      }
+      expect(turn).not.toBeNull();
+      moveTo(player, { x: cellCenterX(turn!.col) - 3, y: cellCenterY(turn!.row) });
+      Facing.direction[player] = DIRECTION.right;
+      Input.direction[player] = DIRECTION.right;
+      sim.step(held("up"), FRAME_MS);
+      expect(Facing.direction[player]).toBe(DIRECTION.up);
+      expect(sim["turnCatchGraceMs"]).toBeGreaterThan(0);
+      expect(popups(catchByGhost(sim, player))).toEqual([]);
     });
 
     it("drops the timers when the upgrade is toggled off", () => {

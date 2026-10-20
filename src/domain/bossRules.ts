@@ -156,7 +156,7 @@ export function invertRgb24(color: number): number {
 }
 
 export function bossTimerLabel(glitch: boolean, remaining: number): string {
-  return glitch ? "Time: 888" : `Time: ${remaining}`;
+  return glitch ? "888" : String(remaining);
 }
 
 export function recordBossPelletsEaten(state: BossState, remaining: number): BossState {

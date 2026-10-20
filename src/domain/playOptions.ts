@@ -1,5 +1,6 @@
 import { parsePenniesParam } from "./penniesFlag";
 import { parseJumpToSpinnerFlag, parseSlotParam, type SlotOutcome } from "./slotMachine";
+import { parseSlotMachineFlag } from "./slotMachineFlag";
 import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
 import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
@@ -50,6 +51,7 @@ export type PlayOptions = {
   enableUpgrades: UpgradeId[];
   forceUpgrade: BaseUpgradeId | null;
   slot: SlotOutcome | null;
+  slotMachine: boolean;
   highScoresDisabled: boolean;
 };
 
@@ -130,6 +132,7 @@ export function parsePlayOptions(params: URLSearchParams): {
       enableUpgrades: parseEnableUpgradeParams(params),
       forceUpgrade: parseForceUpgradeParam(params),
       slot,
+      slotMachine: parseSlotMachineFlag(params),
       highScoresDisabled: highScoresDisabled(params),
     },
     warnings,

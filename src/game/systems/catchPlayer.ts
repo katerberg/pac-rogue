@@ -14,11 +14,13 @@ export type CatchOptions = {
   skipGhostEids?: ReadonlySet<number>;
   edibleGhostEids?: ReadonlySet<number>;
   playerInvulnerable?: boolean;
+  /** Silent post-turn catch skip; does not tint or block lava. */
+  turnCatchGrace?: boolean;
   at?: { x: number; y: number };
 };
 
 export function catchPlayer(world: World, options?: CatchOptions): number | null {
-  if (options?.playerInvulnerable === true) {
+  if (options?.playerInvulnerable === true || options?.turnCatchGrace === true) {
     return null;
   }
 
