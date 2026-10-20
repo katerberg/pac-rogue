@@ -53,11 +53,15 @@ export function addPennyCharge(
   return { bar: { ...bar, charge: total % QUARTER_CHARGE }, filled };
 }
 
-export function applyStreakPellets(bar: PennyPurse, cells: readonly Cell[]): PennyResult {
+export function applyStreakPellets(
+  bar: PennyPurse,
+  cells: readonly Cell[],
+  weight = 1,
+): PennyResult {
   if (cells.length === 0) {
     return { bar, tier: 0, filled: 0 };
   }
-  const streak = bar.streak + cells.length;
+  const streak = bar.streak + cells.length * weight;
   const credited = new Set(bar.credited);
   for (const cell of cells) {
     credited.add(cellKey(cell));

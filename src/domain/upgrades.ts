@@ -68,7 +68,8 @@ export type BaseUpgradeId =
   | "powerPelletProgrammer"
   | "passiveInheritance"
   | "powerPelletMirror"
-  | "powerPelletChaff";
+  | "powerPelletChaff"
+  | "powerPelletTithe";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -127,6 +128,8 @@ export type UpgradeEffects = {
   secondChompMs?: number;
   secondChompPellets?: number;
   speedBurstMul?: number;
+  titheSpeedMul?: number;
+  titheStreakWeight?: number;
   hyperspeedMul?: number;
   turnBoostMs?: number;
   turnPerfectPx?: number;
@@ -160,6 +163,7 @@ export type UpgradeEffects = {
     hyperspeedMs?: number;
     hyperspeedShieldMs?: number;
     ghostHarvestMs?: number;
+    titheMs?: number;
     defyDeathMs?: number;
     recallClosestGhosts?: number;
     warpPlayerFarthest?: true;
@@ -209,6 +213,9 @@ export const HYPERSPEED_SHIELD_MS = 2000;
 export const HYPERSPEED_MUL = 10;
 export const HYPERSPEED_TURN_DELAY_MS = 200;
 export const GHOST_HARVEST_MS = 5000;
+export const TITHE_MS = 5000;
+export const TITHE_SPEED_MUL = 0.9;
+export const TITHE_STREAK_WEIGHT = 2;
 export const DEFY_DEATH_MS = 5000;
 export const HAUNTING_MS = 10_000;
 export const HAUNTING_ENHANCED_MS = Number.POSITIVE_INFINITY;
@@ -253,6 +260,7 @@ export const CORNER_TELEPORT_HOLD_MS = 500;
 export const CORNER_TELEPORT_HOLD_ENHANCED_MS = 2000;
 export const INVULN_ENHANCED_MS = 5000;
 export const GHOST_HARVEST_ENHANCED_MS = 8000;
+export const TITHE_ENHANCED_MS = 8000;
 export const DEFY_DEATH_ENHANCED_MS = 8000;
 export const WARP_TOP_INVULN_MS = 2000;
 export const AFTERBURNER_ENHANCED_MUL = 1.5;
@@ -988,6 +996,23 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { chaffMs: CHAFF_MS },
   },
+  {
+    id: "powerPelletTithe",
+    label: "Tithe",
+    school: "harvest",
+    description:
+      "Power pellet: move 10% slower for 5 seconds, but pellets count double toward your streak.",
+    storePrice: STORE_UPGRADE_PRICE,
+    titheSpeedMul: TITHE_SPEED_MUL,
+    titheStreakWeight: TITHE_STREAK_WEIGHT,
+    enhanced: {
+      enhanceNote: "Tithe lasts 8 seconds instead of 5.",
+      description:
+        "Power pellet: move 10% slower for 8 seconds, but pellets count double toward your streak.",
+      onPowerPellet: { titheMs: TITHE_ENHANCED_MS },
+    },
+    onPowerPellet: { titheMs: TITHE_MS },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1159,6 +1184,7 @@ export type RunUpgrades = {
   hyperspeedTurnDelayMs: number;
   hyperspeedShieldRemainingMs: number;
   ghostHarvestRemainingMs: number;
+  titheRemainingMs: number;
   defyDeathRemainingMs: number;
   hauntRemainingMs: number;
   hauntedGhostEid: number | null;
@@ -1213,6 +1239,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     hyperspeedTurnDelayMs: 0,
     hyperspeedShieldRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
+    titheRemainingMs: 0,
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
@@ -1467,6 +1494,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     hyperspeedTurnDelayMs: 0,
     hyperspeedShieldRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
+    titheRemainingMs: 0,
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
@@ -1625,6 +1653,16 @@ export function spendHyperspeedShield(state: RunUpgrades): RunUpgrades | null {
   return applyShieldBreakInvuln({ ...state, hyperspeedShieldRemainingMs: 0 });
 }
 
+export function tickTithe(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.titheRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    titheRemainingMs: Math.max(0, state.titheRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function tickGhostHarvest(state: RunUpgrades, deltaMs: number): RunUpgrades {
   if (state.ghostHarvestRemainingMs <= 0) {
     return state;
@@ -1714,6 +1752,7 @@ export function applyPowerPelletEffects(
   let hyperspeedMs: number | null = null;
   let hyperspeedShieldMs: number | null = null;
   let ghostHarvestMs: number | null = null;
+  let titheMs: number | null = null;
   let defyDeathMs: number | null = null;
   let recallGhostCount = 0;
   let warpInvulnMs = 0;
@@ -1770,6 +1809,9 @@ export function applyPowerPelletEffects(
         hyperspeedShieldMs === null
           ? onPower.hyperspeedShieldMs
           : Math.max(hyperspeedShieldMs, onPower.hyperspeedShieldMs);
+    }
+    if (onPower.titheMs !== undefined) {
+      titheMs = titheMs === null ? onPower.titheMs : Math.max(titheMs, onPower.titheMs);
     }
     if (onPower.ghostHarvestMs !== undefined) {
       ghostHarvestMs =
@@ -1840,6 +1882,7 @@ export function applyPowerPelletEffects(
   hyperspeedMs = scaled(hyperspeedMs);
   hyperspeedShieldMs = scaled(hyperspeedShieldMs);
   ghostHarvestMs = scaled(ghostHarvestMs);
+  titheMs = scaled(titheMs);
   defyDeathMs = scaled(defyDeathMs);
   frightenMs = scaled(frightenMs);
   chaffMs = scaled(chaffMs);
@@ -1862,6 +1905,9 @@ export function applyPowerPelletEffects(
   }
   if (hyperspeedShieldMs !== null) {
     next = { ...next, hyperspeedShieldRemainingMs: hyperspeedShieldMs };
+  }
+  if (titheMs !== null) {
+    next = { ...next, titheRemainingMs: titheMs };
   }
   if (ghostHarvestMs !== null) {
     next = { ...next, ghostHarvestRemainingMs: ghostHarvestMs };
@@ -2204,6 +2250,18 @@ export function speedBurstActive(state: RunUpgrades): boolean {
 
 export function hyperspeedActive(state: RunUpgrades): boolean {
   return state.hyperspeedRemainingMs > 0;
+}
+
+export function titheActive(state: RunUpgrades): boolean {
+  return state.titheRemainingMs > 0;
+}
+
+export function titheSpeedMultiplier(state: RunUpgrades, owned: readonly UpgradeId[]): number {
+  return titheActive(state) ? (ownedValue(owned, "titheSpeedMul") ?? 1) : 1;
+}
+
+export function titheStreakWeight(state: RunUpgrades, owned: readonly UpgradeId[]): number {
+  return titheActive(state) ? (ownedValue(owned, "titheStreakWeight") ?? 1) : 1;
 }
 
 export function ghostHarvestActive(state: RunUpgrades): boolean {

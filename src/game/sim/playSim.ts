@@ -300,6 +300,9 @@ import {
   interestPayout,
   deathsHarvestRadiusTiles,
   speedBurstMultiplier,
+  tickTithe,
+  titheSpeedMultiplier,
+  titheStreakWeight,
   HYPERSPEED_MUL,
   hyperspeedActive,
   hyperspeedMultiplier,
@@ -1004,6 +1007,7 @@ export class PlaySim {
         hyperspeedTurnDelayMs: upgrades.hyperspeedTurnDelayMs,
         hyperspeedShieldMs: upgrades.hyperspeedShieldRemainingMs,
         ghostHarvestMs: upgrades.ghostHarvestRemainingMs,
+        titheMs: upgrades.titheRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
         chaffMs: upgrades.chaff?.remainingMs ?? 0,
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
@@ -1324,6 +1328,7 @@ export class PlaySim {
       this.hyperspeedDirection = null;
     }
     this.runUpgrades = tickGhostHarvest(this.runUpgrades, delta);
+    this.runUpgrades = tickTithe(this.runUpgrades, delta);
     this.runUpgrades = tickDefyDeath(this.runUpgrades, delta);
     this.runUpgrades = tickHaunt(this.runUpgrades, delta);
     this.runUpgrades = tickWallDrop(this.runUpgrades, delta);
@@ -1347,7 +1352,7 @@ export class PlaySim {
         ? 0
         : levelSpeedMul * hyperspeedMultiplier(this.effectiveUpgrades());
     const programmerPhase = this.runUpgrades.programmer?.phase ?? null;
-    const playerSpeedMul =
+    const rawPlayerSpeedMul =
       programmerPhase === "recording" || warping
         ? 0
         : programmerPhase === "running"
@@ -1363,6 +1368,8 @@ export class PlaySim {
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
               speedZoneMultiplier(this.zoneEffects().effect);
+    const playerSpeedMul =
+      rawPlayerSpeedMul * titheSpeedMultiplier(this.runUpgrades, this.effectiveUpgrades());
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
       ghostSpeedMul:
@@ -2189,12 +2196,13 @@ export class PlaySim {
 
   private applyStreakCells(cells: readonly Cell[]): number {
     const prevStreak = this.pennies.streak;
-    this.applyPennies(applyStreakPellets(this.pennies, cells));
+    const weight = titheStreakWeight(this.runUpgrades, this.effectiveUpgrades());
+    this.applyPennies(applyStreakPellets(this.pennies, cells, weight));
     const every = streakEngineEvery(this.effectiveUpgrades());
     if (every === null) {
       return 0;
     }
-    for (const pop of streakPops(prevStreak, this.pennies.streak, every)) {
+    for (const pop of streakPops(prevStreak, this.pennies.streak, every, weight)) {
       const cell = cells[pop.cellIndex]!;
       this.streakPopCount += 1;
       this.lastStreakPop = pop.value;
@@ -3719,6 +3727,7 @@ export class PlaySim {
       ["speedBurst", before.speedBurstRemainingMs, after.speedBurstRemainingMs],
       ["hyperspeed", before.hyperspeedRemainingMs, after.hyperspeedRemainingMs],
       ["ghostHarvest", before.ghostHarvestRemainingMs, after.ghostHarvestRemainingMs],
+      ["tithe", before.titheRemainingMs, after.titheRemainingMs],
       ["defyDeath", before.defyDeathRemainingMs, after.defyDeathRemainingMs],
     ] as const;
     for (const [kind, was, now] of timers) {

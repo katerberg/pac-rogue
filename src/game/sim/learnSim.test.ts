@@ -25,6 +25,7 @@ import {
   worldToRow,
 } from "../../domain/maze";
 import {
+  TITHE_SPEED_MUL,
   INVULN_MS,
   NEAR_MISS_CHARGE,
   UPGRADE_DEFS,
@@ -1356,6 +1357,43 @@ describe("LearnSim upgrade demos", () => {
       const { sim, player } = setup("passiveStreakEngine");
       sim.toggleEnhanced("passiveStreakEngine");
       expect(invulnMs(eatPellets(sim, player, 30))).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Tithe", () => {
+    function pelletSpeed(sim: LearnSim, player: number): number {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      return Speed.px[player]!;
+    }
+
+    function chompPower(sim: LearnSim, player: number): void {
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      moveTo(player, posOf(power));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+
+    it("slows Maze-Man to 0.9x after a power pellet and restores speed on toggle off", () => {
+      const { sim, player } = setup("powerPelletTithe");
+      const base = pelletSpeed(sim, player);
+      chompPower(sim, player);
+      expect(pelletSpeed(sim, player)).toBeCloseTo(base * TITHE_SPEED_MUL);
+      sim.toggleUpgrade("powerPelletTithe");
+      expect(pelletSpeed(sim, player)).toBeCloseTo(base);
+    });
+
+    it("counts pellets twice toward the Streak Engine while active", () => {
+      const { sim, player } = setup("powerPelletTithe", "passiveStreakEngine");
+      chompPower(sim, player);
+      const events: ReturnType<LearnSim["step"]> = [];
+      for (let eaten = 0; eaten < 15; eaten += 1) {
+        const pellet = query(sim.world, [Pellet, Position]).find(
+          (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+        )!;
+        moveTo(player, posOf(pellet));
+        events.push(...sim.step(NO_KEYS_HELD, FRAME_MS));
+      }
+      const pops = events.flatMap((event) => (event.type === "streakPop" ? [event.value] : []));
+      expect(pops).toEqual([5, 10, 15, 20, 25, 30]);
     });
   });
 

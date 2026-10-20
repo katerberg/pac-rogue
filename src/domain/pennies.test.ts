@@ -66,6 +66,12 @@ describe("applyStreakPellets", () => {
     expect(five.bar.charge).toBe(2);
   });
 
+  it("counts each pellet by its weight toward the streak", () => {
+    const result = applyStreakPellets(createPennyPurse(), cells(3), 2);
+    expect(result.bar.streak).toBe(6);
+    expect(result.tier).toBe(1);
+  });
+
   it("crosses one tier going from 4 to 6", () => {
     const four = applyStreakPellets(createPennyPurse(), cells(4)).bar;
     const result = applyStreakPellets(four, cells(2, 1));

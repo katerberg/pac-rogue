@@ -39,6 +39,7 @@ Known simplifications (everything else is a reuse of play code):
 - **Life, death and Quarter upgrades:** shown through the demo catch.
 - **Fruit Fecundity / Feast (+):** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
+- **Tithe:** the slow-down always shows; the doubled streak only shows through Streak Engine, since LEARN has no penny HUD.
 - **Martyr, Interest:** no visible effect (no respawn move, no store).
 - **Slot machine / world pickup:** deliberate omission; full penny rows pay a Quarter directly and the every-four slot-machine maze pickup never appears ([pennies.md](./pennies.md#slot-machine)).
 

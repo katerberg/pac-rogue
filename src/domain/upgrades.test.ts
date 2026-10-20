@@ -27,6 +27,14 @@ import {
   applyTunnelExitInvuln,
   martyrGhostPlacement,
   HAUNTING_MS,
+  TITHE_ENHANCED_MS,
+  TITHE_MS,
+  TITHE_SPEED_MUL,
+  TITHE_STREAK_WEIGHT,
+  tickTithe,
+  titheActive,
+  titheSpeedMultiplier,
+  titheStreakWeight,
   armHaunt,
   dropWall,
   droppedWallBlocksPlayer,
@@ -233,6 +241,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveInheritance",
   "powerPelletMirror",
   "powerPelletChaff",
+  "powerPelletTithe",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -2194,6 +2203,45 @@ describe("Mirror", () => {
   it("only the Plus form saves a life", () => {
     expect(mirrorSavesLife(["powerPelletMirror"])).toBe(false);
     expect(mirrorSavesLife(["powerPelletMirrorPlus"])).toBe(true);
+  });
+});
+
+describe("Tithe", () => {
+  const fire = (owned: UpgradeId[]) => applyPowerPelletEffects(createRunUpgrades(owned), 1).state;
+
+  it("does nothing without the upgrade", () => {
+    const state = fire([]);
+    expect(titheActive(state)).toBe(false);
+    expect(titheSpeedMultiplier(state, [])).toBe(1);
+    expect(titheStreakWeight(state, [])).toBe(1);
+  });
+
+  it("lasts 5s, or 8s when enhanced", () => {
+    expect(fire(["powerPelletTithe"]).titheRemainingMs).toBe(TITHE_MS);
+    expect(fire(["powerPelletTithePlus"]).titheRemainingMs).toBe(TITHE_ENHANCED_MS);
+  });
+
+  it("slows to 0.9x and doubles the streak only while active, in both forms", () => {
+    for (const id of ["powerPelletTithe", "powerPelletTithePlus"] as const) {
+      const owned: UpgradeId[] = [id];
+      const idle = createRunUpgrades(owned);
+      expect(titheSpeedMultiplier(idle, owned)).toBe(1);
+      expect(titheStreakWeight(idle, owned)).toBe(1);
+      const active = fire(owned);
+      expect(titheSpeedMultiplier(active, owned)).toBe(TITHE_SPEED_MUL);
+      expect(titheStreakWeight(active, owned)).toBe(TITHE_STREAK_WEIGHT);
+    }
+  });
+
+  it("is a power-pellet duration, so Overcharge doubles it", () => {
+    expect(fire(["powerPelletTithe", "passiveOvercharge"]).titheRemainingMs).toBe(10_000);
+  });
+
+  it("ticks down, then clears with the other upgrade timers", () => {
+    const fired = fire(["powerPelletTithe"]);
+    expect(tickTithe(fired, 1000).titheRemainingMs).toBe(TITHE_MS - 1000);
+    expect(tickTithe(fired, TITHE_MS * 2).titheRemainingMs).toBe(0);
+    expect(clearUpgradeTimers(fired).titheRemainingMs).toBe(0);
   });
 });
 
