@@ -108,7 +108,6 @@ import {
 import {
   enhancedOfferChance,
   ghostKindsForLevel,
-  isInvertedMazeLevel,
   isTimedTunnelLevel,
   MAX_LEVEL,
   offersUpgradeAfterLevel,
@@ -149,7 +148,6 @@ import {
 import {
   applyCollapse,
   collapsedChainsFor,
-  flipChainRows,
   isFreshCollapse,
   pickCollapsePlan,
   type CollapseChain,
@@ -174,8 +172,6 @@ import {
   type LavaZone,
 } from "../../domain/lavaZone";
 import {
-  flipSpeedZoneBoardRows,
-  flipSpeedZoneRows,
   SPEED_ZONE_SHIFT_STEP_MS,
   speedZoneAt,
   speedZoneCells,
@@ -193,7 +189,6 @@ import {
   type BoardOverride,
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
-  invertMazeAscii,
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
@@ -214,7 +209,6 @@ import {
   playerSpeed,
 } from "../../domain/playfield";
 import {
-  flipSlotPickupRow,
   pickSlotPickupCell,
   remapSlotPickupCell,
   tickSlotPickupProgress,
@@ -583,7 +577,6 @@ export class PlaySim {
   private slotPickupProgress = 0;
   private slotPickupCells: SlotPickupCell[] = [];
   private slotPickupsAwaitingPlacement = 0;
-  private previousPlayBoardInverted: boolean | null = null;
   private lastPlayerCell: Cell | null = null;
   private timeBonusDrain: TimeBonusDrain | null = null;
   private slotQueue: QuarterSource[] = [];
@@ -623,7 +616,6 @@ export class PlaySim {
   private speedZones: SpeedZone[] = [];
   private speedZoneShift: SpeedZoneShift | null = null;
   private speedZoneShiftMs = 0;
-  private boardInverted = false;
   private collapsePlan: { poolIndex: number; plan: CollapsePlan; baseAscii: string } | null = null;
   private collapseBoardCount = 0;
   private collapseChains: CollapseChain[] = [];
@@ -2067,10 +2059,6 @@ export class PlaySim {
     );
   }
 
-  private isInvertedLevel(): boolean {
-    return this.options.levelModifiers && isInvertedMazeLevel(this.levelIndex);
-  }
-
   private resetSpeedZones(): void {
     this.speedZoneShiftMs = 0;
     if (!this.options.levelModifiers) {
@@ -2079,15 +2067,10 @@ export class PlaySim {
       return;
     }
     const layout = getActiveLayout();
-    const base =
-      this.collapseSpeedBoard ?? (this.boardInverted ? flipSpeedZoneBoardRows(layout) : layout);
+    const base = this.collapseSpeedBoard ?? layout;
     const [previous, current] = speedZonesByLevel(base, this.levelIndex, (level) =>
       this.random.stream("speedZones", level),
-    )
-      .slice(-2)
-      .map((zones) =>
-        this.boardInverted ? zones.map((zone) => flipSpeedZoneRows(zone, layout.rows)) : zones,
-      );
+    ).slice(-2);
     const shift = speedZoneShift(previous!, current!);
     this.speedZoneShift = speedZoneShiftSteps(shift) > 0 ? shift : null;
     this.speedZones = speedZoneShiftFrame(shift, 0);
@@ -2644,7 +2627,6 @@ export class PlaySim {
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
       : null;
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
-    this.boardInverted = false;
     this.clearCollapse();
     let layoutLabel = "maze2";
     if (selection.kind === "static") {
@@ -2697,7 +2679,6 @@ export class PlaySim {
     this.recorder.beginLevel({
       level: this.levelIndex,
       layout: layoutLabel,
-      inverted: selection.kind !== "static" && this.isInvertedLevel(),
       boss: boss !== null,
       countdownStart: this.clock.remaining,
       livesStart: this.lives,
@@ -2766,7 +2747,7 @@ export class PlaySim {
     this.collapseIntroMs = 0;
   }
 
-  private setUpCollapse(chains: readonly CollapseChain[], inverted: boolean): void {
+  private setUpCollapse(chains: readonly CollapseChain[]): void {
     const held = this.collapsePlan;
     if (held === null) {
       return;
@@ -2776,7 +2757,7 @@ export class PlaySim {
     if (chains.length === 0) {
       return;
     }
-    this.collapseChains = inverted ? flipChainRows(chains, layout.rows) : [...chains];
+    this.collapseChains = [...chains];
     const board = {
       ascii: layout.ascii,
       tileSize: layout.tileSize,
@@ -2810,12 +2791,10 @@ export class PlaySim {
     chains: readonly CollapseChain[] | null = null,
   ): string {
     try {
-      const inverted = this.isInvertedLevel();
       const collapsed = applyCollapse(ascii, chains ?? []);
-      activateAsciiLayout(inverted ? invertMazeAscii(collapsed) : collapsed);
-      this.boardInverted = inverted;
+      activateAsciiLayout(collapsed);
       if (chains !== null) {
-        this.setUpCollapse(chains, inverted);
+        this.setUpCollapse(chains);
       }
       return label;
     } catch (error) {
@@ -3159,19 +3138,10 @@ export class PlaySim {
     if (isBossLevel(this.levelIndex)) {
       this.slotPickupCells = [];
       this.slotPickupsAwaitingPlacement = 0;
-      this.previousPlayBoardInverted = null;
       return;
     }
     if (!this.slotPickupBoardEligible()) {
       return;
-    }
-    const inverted = this.boardInverted;
-    if (this.previousPlayBoardInverted !== null && this.previousPlayBoardInverted !== inverted) {
-      const rows = getActiveLayout().rows;
-      this.slotPickupCells = this.slotPickupCells.map((cell) => ({
-        col: cell.col,
-        row: flipSlotPickupRow(cell.row, rows),
-      }));
     }
     const avoid = this.slotPickupAvoidCells();
     const solids = getActiveLayout().playerSolids;
@@ -3189,7 +3159,6 @@ export class PlaySim {
     for (const cell of this.slotPickupCells) {
       spawnSlotMachine(this.world, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) });
     }
-    this.previousPlayBoardInverted = inverted;
   }
 
   private collectSlotPickupEntities(): void {

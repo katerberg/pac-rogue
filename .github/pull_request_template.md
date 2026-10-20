@@ -19,7 +19,7 @@
   - Asserted (`expect:` / `waitFor:`):
   - Screenshots read, and what they showed:
 
-- Modes touched: <!-- level 1 / generated / inverted / store / boss / upgrade modal / death / pause / LEARN -->
+- Modes touched: <!-- level 1 / generated / store / boss / upgrade modal / death / pause / LEARN -->
   - Probed:
   - Not checked (and why):
 

@@ -4,7 +4,6 @@ import {
   collapseCountForLevel,
   collapsedChainsFor,
   COLLAPSE_LEVELS,
-  flipChainRows,
   isFreshCollapse,
   pickCollapsePlan,
 } from "./collapse";
@@ -117,13 +116,9 @@ describe("pickCollapsePlan", () => {
 });
 
 describe("collapse helpers", () => {
-  it("takes the first chains for a level and mirrors rows for an inverted board", () => {
+  it("takes the first chains for a level", () => {
     const { plan } = plans[8]!;
     expect(collapsedChainsFor(plan, 4)).toEqual(plan.chains.slice(0, 1));
     expect(collapsedChainsFor(plan, 9)).toEqual([]);
-    const rows = MAZE_POOL[8]!.ascii.split("\n").length;
-    const flipped = flipChainRows(plan.chains, rows);
-    expect(flipChainRows(flipped, rows)).toEqual(plan.chains);
-    expect(flipped[0]![0]!.row).toBe(rows - 1 - plan.chains[0]![0]!.row);
   });
 });

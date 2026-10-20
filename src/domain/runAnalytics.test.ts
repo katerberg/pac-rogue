@@ -32,7 +32,6 @@ function run(
     beginLevelLog(record, {
       level,
       layout: "maze1",
-      inverted: false,
       boss: false,
       countdownStart: 999,
       livesStart: 3,
