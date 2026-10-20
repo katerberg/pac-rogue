@@ -103,6 +103,10 @@ describe("renderReport", () => {
     const report = renderReport(summarize(results, meta));
     for (const heading of [
       "## Health",
+      "## Executive summary",
+      "### Most overperforming",
+      "### Most underperforming",
+      "### Watchouts",
       "## Builds",
       "### Difficulty curve",
       "## Singles",
@@ -113,6 +117,110 @@ describe("renderReport", () => {
     ]) {
       expect(report).toContain(heading);
     }
+  });
+
+  it("ranks over and under performers in the executive summary", () => {
+    const many = (arm: string, profile: string, progress: number, n = 40) =>
+      Array.from({ length: n }, (_, i) =>
+        result(
+          {
+            arm,
+            profile,
+            seed: `${arm}-${profile}-${i}`,
+            upgrades: arm === "none" ? [] : ([arm] as Job["upgrades"]),
+          },
+          { progress: progress + (i % 2) * 0.005 },
+        ),
+      );
+    const batch = [
+      ...many("none", "cautious@average", 0.4),
+      ...many("none", "casual@expert", 0.45),
+      ...many("passiveGhostSlow", "cautious@average", 0.85),
+      ...many("passiveGhostSlow", "casual@expert", 0.9),
+      ...many("passiveExtraLife", "cautious@average", 0.25),
+      ...many("passiveExtraLife", "casual@expert", 0.3),
+      result(
+        { experiment: "builds", arm: "build", profile: "casual@expert", level: undefined },
+        {
+          levelReached: 7,
+          offers: [
+            {
+              level: 2,
+              offered: ["passiveGhostSlow", "passiveExtraLife"],
+              took: "passiveGhostSlow",
+            },
+          ],
+          finalLoadout: ["passiveGhostSlow"],
+        },
+      ),
+      ...Array.from({ length: 20 }, (_, i) =>
+        result(
+          {
+            experiment: "builds",
+            arm: "build",
+            profile: "casual@expert",
+            seed: `build-pass-${i}`,
+            level: undefined,
+          },
+          {
+            levelReached: 4,
+            offers: [
+              {
+                level: 2,
+                offered: ["passiveGhostSlow", "passiveExtraLife"],
+                took: "passiveExtraLife",
+              },
+            ],
+            finalLoadout: ["passiveExtraLife"],
+          },
+        ),
+      ),
+    ];
+    const report = renderReport(
+      summarize(batch, { ...meta, seedsPerArm: { ...meta.seedsPerArm, singles: 60 } }),
+    );
+    expect(report).toContain("**Takeaway:** OK — health gate passed.");
+    const overIdx = report.indexOf("### Most overperforming");
+    const underIdx = report.indexOf("### Most underperforming");
+    const overBlock = report.slice(overIdx, underIdx);
+    const underBlock = report.slice(underIdx, report.indexOf("### Watchouts"));
+    expect(overBlock).toContain("passiveGhostSlow");
+    expect(overBlock).toContain("mean Δ progress");
+    expect(underBlock).toContain("passiveExtraLife");
+  });
+
+  it("flags thin samples in the takeaway", () => {
+    const report = renderReport(summarize(results, meta));
+    expect(report).toContain("thin sample");
+  });
+
+  it("calls out difficulty spikes in watchouts", () => {
+    const builds = Array.from({ length: 30 }, (_, i) =>
+      result(
+        {
+          experiment: "builds",
+          arm: "build",
+          profile: "cautious@average",
+          seed: `curve-${i}`,
+          level: undefined,
+        },
+        {
+          levelReached: i < 25 ? 5 : 7,
+          progress: i < 25 ? 0.5 : 1,
+          deaths:
+            i < 25
+              ? [
+                  { level: 5, ghost: "blinky", ghostMode: "chase" },
+                  { level: 5, ghost: "blinky", ghostMode: "chase" },
+                ]
+              : [],
+          offers: [],
+          finalLoadout: [],
+        },
+      ),
+    );
+    const report = renderReport(summarize(builds, meta));
+    expect(report).toContain("**Difficulty spike");
   });
 });
 

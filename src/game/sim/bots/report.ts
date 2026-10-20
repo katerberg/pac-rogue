@@ -594,6 +594,332 @@ function enemiesSection(summary: Summary): string[] {
   ];
 }
 
+const EXEC_TOP = 5;
+const SIGNAL_SEEDS = 50;
+const SPIKE_DROP = 0.2;
+const LETHALITY_RATIO = 1.75;
+const SPREAD_FLOOR = 0.15;
+const SPECIALIST_DELTA = 0.1;
+
+type SinglesLead = {
+  name: string;
+  level: string;
+  mean: number;
+  spread: number;
+  separated: number;
+  profiles: number;
+  minN: number;
+  best: string;
+  worst: string;
+};
+
+function singlesLeads(summary: Summary): SinglesLead[] {
+  const leads: SinglesLead[] = [];
+  for (const level of levelsOf(summary, "singles")) {
+    const none = summary.arms[`singles|none|${level}`];
+    if (none === undefined) {
+      continue;
+    }
+    for (const [key, byProfile] of Object.entries(summary.arms)) {
+      if (!key.startsWith("singles|") || !key.endsWith(`|${level}`) || key.includes("|none|")) {
+        continue;
+      }
+      const deltas = Object.entries(byProfile)
+        .filter(([p]) => none[p] !== undefined)
+        .map(([p, m]) => ({
+          p,
+          d: m.progress.value - none[p]!.progress.value,
+          separated: separated(m.progress, none[p]!.progress),
+          n: m.n,
+        }))
+        .sort((a, b) => b.d - a.d);
+      if (deltas.length === 0) {
+        continue;
+      }
+      const top = deltas[0]!;
+      const bottom = deltas.at(-1)!;
+      leads.push({
+        name: key.split("|")[1]!,
+        level: level.slice(1),
+        mean: deltas.reduce((s, d) => s + d.d, 0) / deltas.length,
+        spread: top.d - bottom.d,
+        separated: deltas.filter((d) => d.separated).length,
+        profiles: deltas.length,
+        minN: Math.min(...deltas.map((d) => d.n)),
+        best: `${top.p} ${num(top.d)}`,
+        worst: `${bottom.p} ${num(bottom.d)}`,
+      });
+    }
+  }
+  return leads;
+}
+
+/** One row per upgrade: the level where |mean Δ| is largest. */
+function extremeByUpgrade(leads: readonly SinglesLead[]): SinglesLead[] {
+  const best = new Map<string, SinglesLead>();
+  for (const lead of leads) {
+    const prev = best.get(lead.name);
+    if (prev === undefined || Math.abs(lead.mean) > Math.abs(prev.mean)) {
+      best.set(lead.name, lead);
+    }
+  }
+  return [...best.values()];
+}
+
+function buildValueHint(summary: Summary, id: string): string | null {
+  const profiles = Object.keys(summary.builds).sort();
+  const preferred =
+    profiles.find((p) => p.startsWith("casual@")) ??
+    profiles.find((p) => p.includes("casual")) ??
+    profiles[0];
+  if (preferred === undefined) {
+    return null;
+  }
+  const row = summary.builds[preferred]!.upgradeValue.find((v) => v.id === id);
+  if (row === undefined) {
+    return null;
+  }
+  return `build value (${preferred}): ${num(row.delta)} levels (took n=${row.took.n}, passed n=${row.passed.n})`;
+}
+
+function formatLead(lead: SinglesLead, summary: Summary): string {
+  const sep =
+    lead.separated === 0
+      ? "no separated profiles"
+      : `separated for ${lead.separated}/${lead.profiles} profiles`;
+  const parts = [
+    `mean Δ progress ${num(lead.mean)} at L${lead.level} (${sep}; min n=${lead.minN})`,
+    `best ${lead.best}, worst ${lead.worst}`,
+  ];
+  const build = buildValueHint(summary, lead.name);
+  if (build !== null) {
+    parts.push(build);
+  }
+  return `**${lead.name}** — ${parts.join("; ")}.`;
+}
+
+function pickLeads(leads: readonly SinglesLead[], direction: "over" | "under"): SinglesLead[] {
+  const ranked = [...leads].sort((a, b) =>
+    direction === "over" ? b.mean - a.mean : a.mean - b.mean,
+  );
+  const withSignal = ranked.filter((l) =>
+    direction === "over" ? l.mean > 0 && l.separated > 0 : l.mean < 0 && l.separated > 0,
+  );
+  const pool =
+    withSignal.length > 0
+      ? withSignal
+      : ranked.filter((l) => (direction === "over" ? l.mean > 0 : l.mean < 0));
+  return pool.slice(0, EXEC_TOP);
+}
+
+function difficultyWatchouts(summary: Summary): string[] {
+  const out: string[] = [];
+  for (const [profile, build] of Object.entries(summary.builds).sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    for (let i = 0; i < build.curve.length - 1; i++) {
+      const from = build.curve[i]!;
+      const to = build.curve[i + 1]!;
+      const drop = from.reached - to.reached;
+      if (drop >= SPIKE_DROP) {
+        out.push(
+          `**Difficulty spike (${profile}):** reach L${from.level}→L${to.level} drops ${pct(from.reached)} → ${pct(to.reached)} (Δ ${pct(drop)}); deaths on L${from.level} among runners: ${num(from.deaths, 1)}.`,
+        );
+      }
+    }
+  }
+  return out.slice(0, EXEC_TOP);
+}
+
+function pairWatchouts(summary: Summary): string[] {
+  const ranked = meanSynergyByPair(summary);
+  if (ranked.length === 0) {
+    return [];
+  }
+  const out: string[] = [];
+  const top = ranked[0]!;
+  if (top.value > 0.05) {
+    out.push(
+      `**Strong pair synergy:** ${top.pair} mean synergy ${num(top.value)} (pair − A − B + none on L5 progress).`,
+    );
+  }
+  const bottom = ranked.at(-1)!;
+  if (bottom.value < -0.05) {
+    out.push(`**Weak / cancelling pair:** ${bottom.pair} mean synergy ${num(bottom.value)}.`);
+  }
+  return out;
+}
+
+function ghostWatchouts(summary: Summary): string[] {
+  const out: string[] = [];
+  for (const [profile, ghosts] of Object.entries(summary.ghosts).sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const rows = Object.entries(ghosts)
+      .filter(([, g]) => g.outMinutes > 0)
+      .map(([kind, g]) => ({ kind, ...g }))
+      .sort((a, b) => b.perMinute - a.perMinute);
+    if (rows.length < 2) {
+      continue;
+    }
+    const top = rows[0]!;
+    const second = rows[1]!.perMinute;
+    const baseline =
+      second > 0 ? second : rows.slice(1).reduce((s, r) => s + r.perMinute, 0) / (rows.length - 1);
+    if (baseline <= 0) {
+      if (top.catches >= 5) {
+        out.push(
+          `**Lethal ghost (${profile}):** ${top.kind} at ${num(top.perMinute)} catches/min (${top.catches} catches; others near zero).`,
+        );
+      }
+      continue;
+    }
+    if (top.perMinute >= baseline * LETHALITY_RATIO) {
+      out.push(
+        `**Lethal ghost (${profile}):** ${top.kind} at ${num(top.perMinute)} catches/min (${num(top.perMinute / baseline, 1)}× next; ${top.catches} catches).`,
+      );
+    }
+  }
+  return out.slice(0, EXEC_TOP);
+}
+
+function spreadWatchouts(summary: Summary): string[] {
+  return extremeByUpgrade(singlesLeads(summary))
+    .filter((l) => l.profiles >= 2 && l.spread >= SPREAD_FLOOR)
+    .sort((a, b) => b.spread - a.spread)
+    .slice(0, EXEC_TOP)
+    .map(
+      (l) =>
+        `**Play-style dependent:** ${l.name} at L${l.level} spread ${num(l.spread)} (best ${l.best}, worst ${l.worst}).`,
+    );
+}
+
+function specialistWatchouts(summary: Summary): string[] {
+  const out: { text: string; abs: number }[] = [];
+  for (const [key, byProfile] of Object.entries(summary.arms)) {
+    const [experiment, arm, level] = key.split("|");
+    if (experiment !== "schools" || arm!.endsWith("+specialist")) {
+      continue;
+    }
+    const withSpecialist = summary.arms[`schools|${arm}+specialist|${level}`];
+    if (withSpecialist === undefined) {
+      continue;
+    }
+    for (const [profile, metrics] of Object.entries(byProfile)) {
+      const plus = withSpecialist[profile];
+      if (plus === undefined) {
+        continue;
+      }
+      const delta = plus.progress.value - metrics.progress.value;
+      if (Math.abs(delta) < SPECIALIST_DELTA) {
+        continue;
+      }
+      out.push({
+        text: `**School Specialist (${arm!.replace("school:", "")}, L${level!.slice(1)}, ${profile}):** Δ progress ${num(delta)}${separated(plus.progress, metrics.progress) ? "*" : ""} vs the 3-upgrade school arm.`,
+        abs: Math.abs(delta),
+      });
+    }
+  }
+  return out
+    .sort((a, b) => b.abs - a.abs)
+    .slice(0, EXEC_TOP)
+    .map((o) => o.text);
+}
+
+function rosterWatchouts(summary: Summary): string[] {
+  const profiles = profilesIn(summary, "enemies|");
+  if (profiles.length === 0) {
+    return [];
+  }
+  const rosterArms = Object.entries(summary.arms).filter(([key]) =>
+    key.startsWith("enemies|roster"),
+  );
+  if (rosterArms.length < 2) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const profile of profiles) {
+    const rows = rosterArms
+      .map(([key, byProfile]) => ({
+        board: key.split("|")[1]!,
+        clear: byProfile[profile]?.clearRate.value,
+      }))
+      .filter((r): r is { board: string; clear: number } => r.clear !== undefined)
+      .sort((a, b) => a.clear - b.clear);
+    if (rows.length < 2) {
+      continue;
+    }
+    const worst = rows[0]!;
+    const best = rows.at(-1)!;
+    if (best.clear - worst.clear >= 0.2) {
+      out.push(
+        `**Hard roster (${profile}):** ${worst.board} clears at ${pct(worst.clear)} vs ${best.board} at ${pct(best.clear)}.`,
+      );
+    }
+  }
+  return out.slice(0, EXEC_TOP);
+}
+
+function executiveSummarySection(summary: Summary): string[] {
+  const h = summary.health;
+  const singlesSeeds = summary.seedsPerArm.singles ?? 0;
+  const thin = singlesSeeds > 0 && singlesSeeds < SIGNAL_SEEDS;
+  const verdict = h.untrustworthy
+    ? "UNTRUSTWORTHY — fix stalls/errors before trusting rankings."
+    : summary.partial
+      ? "PARTIAL — unfinished run; treat rankings as provisional."
+      : thin
+        ? `OK but thin sample (singles seeds/arm=${singlesSeeds} < ${SIGNAL_SEEDS}); rankings are leads, not proof.`
+        : "OK — health gate passed.";
+
+  const leads = extremeByUpgrade(singlesLeads(summary));
+  const over = pickLeads(leads, "over");
+  const under = pickLeads(leads, "under");
+  const watchouts = [
+    ...(h.errors > 0
+      ? [
+          `**Errors:** ${h.errors} episode(s) failed${h.errorSamples[0] ? ` (e.g. ${h.errorSamples[0]})` : ""}.`,
+        ]
+      : []),
+    ...(h.storeStalls > 0
+      ? [`**Store stalls:** ${h.storeStalls} episode(s) stalled in the store.`]
+      : []),
+    ...difficultyWatchouts(summary),
+    ...pairWatchouts(summary),
+    ...ghostWatchouts(summary),
+    ...rosterWatchouts(summary),
+    ...spreadWatchouts(summary),
+    ...specialistWatchouts(summary),
+  ];
+
+  const list = (items: readonly string[], empty: string) =>
+    items.length === 0 ? [`_${empty}_`, ""] : [...items.map((item, i) => `${i + 1}. ${item}`), ""];
+
+  return [
+    "## Executive summary",
+    "",
+    `**Takeaway:** ${verdict}`,
+    "",
+    "Rankings use singles Δ board progress vs the no-upgrade arm (one row per upgrade at its strongest level). `*` / “separated” means 95% intervals do not overlap. Build value is mean level reached when taken vs offered and passed (`casual` is least biased).",
+    "",
+    "### Most overperforming",
+    "",
+    ...list(
+      over.map((l) => formatLead(l, summary)),
+      leads.length === 0 ? "No singles data." : "No positive singles Δ to report.",
+    ),
+    "### Most underperforming",
+    "",
+    ...list(
+      under.map((l) => formatLead(l, summary)),
+      leads.length === 0 ? "No singles data." : "No negative singles Δ to report.",
+    ),
+    "### Watchouts",
+    "",
+    ...list(watchouts, "Nothing jumped out beyond the upgrade rankings."),
+  ];
+}
+
 export function renderReport(summary: Summary): string {
   const h = summary.health;
   const banner = [
@@ -624,6 +950,7 @@ export function renderReport(summary: Summary): string {
     ),
     ...h.errorSamples.map((e) => `- ${e}`),
     ...(h.errorSamples.length > 0 ? [""] : []),
+    ...executiveSummarySection(summary),
     ...buildsSection(summary),
     ...singlesSection(summary),
     ...pairsSection(summary),
