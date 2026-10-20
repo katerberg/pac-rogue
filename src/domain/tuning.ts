@@ -44,7 +44,7 @@ export type Tuning = {
   readonly fruitThreshold2: number;
   readonly deathHoldMs: number;
   readonly readyPauseMs: number;
-  readonly bonusStreakIdleMs: number;
+  readonly pennyStreakIdleMs: number;
   readonly wallThickness: number;
   readonly wallColor: number;
   readonly dotManChompSpeed: number;
@@ -96,7 +96,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   fruitThreshold2: 170,
   deathHoldMs: 845,
   readyPauseMs: 1000,
-  bonusStreakIdleMs: 400,
+  pennyStreakIdleMs: 400,
   wallThickness: 1.5,
   wallColor: 0x2121ff,
   dotManChompSpeed: DOTMAN_CHOMP_SPEED_DEFAULT,

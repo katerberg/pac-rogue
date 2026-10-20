@@ -1,5 +1,5 @@
 import { query, type World } from "bitecs";
-import type { Cell } from "../../domain/bonusBar";
+import type { Cell } from "../../domain/pennies";
 import { worldToCol, worldToRow } from "../../domain/maze";
 import { Pellet } from "../components/Pellet";
 import { Position } from "../components/Position";
