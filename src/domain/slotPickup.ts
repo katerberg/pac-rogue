@@ -29,10 +29,6 @@ export function tickSlotPickupProgress(
   };
 }
 
-export function flipSlotPickupRow(row: number, rows: number): number {
-  return rows - 1 - row;
-}
-
 export function remapSlotPickupCell(
   col: number,
   row: number,

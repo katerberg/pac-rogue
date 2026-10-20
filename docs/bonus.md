@@ -25,7 +25,7 @@ Bar fills pay a Quarter directly and do not spin. A world pickup (art: `public/a
 
 ### World pickup
 
-Rules and constants: `src/domain/slotPickup.ts` (run by `PlaySim`). Non-spin Quarter gains advance a remainder counter; reel payouts and spends do not. Spawn is a seeded walkable cell (`slotPickup` stream; pellets may share it). Unclaimed machines keep `{col,row}` across levels (row flips with upside-down boards; solid cells remap), stay invisible through stores, and drop on the boss. Play only ([learn.md](./learn.md#parity)). Debug: `?slotMachine=1`. Probe: `play.slotPickup.*`.
+Rules and constants: `src/domain/slotPickup.ts` (run by `PlaySim`). Non-spin Quarter gains advance a remainder counter; reel payouts and spends do not. Spawn is a seeded walkable cell (`slotPickup` stream; pellets may share it). Unclaimed machines keep `{col,row}` across levels (solid cells remap), stay invisible through stores, and drop on the boss. Play only ([learn.md](./learn.md#parity)). Debug: `?slotMachine=1`. Probe: `play.slotPickup.*`.
 
 ### Spin
 

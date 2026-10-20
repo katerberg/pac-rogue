@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activateLayout, getActiveLayout, isWalkable } from "./maze";
 import {
-  flipSlotPickupRow,
   pickSlotPickupCell,
   remapSlotPickupCell,
   SLOT_PICKUP_QUARTERS,
@@ -23,14 +22,6 @@ describe("tickSlotPickupProgress", () => {
 
   it("uses the shared threshold constant", () => {
     expect(SLOT_PICKUP_QUARTERS).toBe(4);
-  });
-});
-
-describe("flipSlotPickupRow", () => {
-  it("mirrors rows like collapse flipChainRows", () => {
-    expect(flipSlotPickupRow(0, 10)).toBe(9);
-    expect(flipSlotPickupRow(4, 10)).toBe(5);
-    expect(flipSlotPickupRow(flipSlotPickupRow(3, 10), 10)).toBe(3);
   });
 });
 
