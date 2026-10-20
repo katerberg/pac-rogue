@@ -267,7 +267,7 @@ export class PlayScene extends Phaser.Scene {
         this.input.setDefaultCursor(overExit ? "pointer" : "default");
       }
     });
-    this.playRender = createRender(this);
+    this.playRender = createRender(this, { sidebarBands: true });
     if (options.knobs) {
       this.openKnobsPanel(tuning);
     }
