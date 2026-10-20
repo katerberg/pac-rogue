@@ -138,6 +138,8 @@ type UpgradeRow = {
   id: BaseUpgradeId;
   column: LearnColumn;
   baseY: number;
+  labelX: number;
+  plusX: number;
   checkBox: Phaser.GameObjects.Shape;
   checkMark: Phaser.GameObjects.Shape;
   label: Phaser.GameObjects.BitmapText;
@@ -470,6 +472,8 @@ export class LearnScene extends Phaser.Scene {
       id: def.baseId,
       column,
       baseY: y,
+      labelX,
+      plusX,
       checkBox,
       checkMark,
       label,
@@ -509,17 +513,13 @@ export class LearnScene extends Phaser.Scene {
     for (const row of this.upgradeRows) {
       const offset = this.scrollOffset[row.column];
       const y = row.baseY - offset;
-      const columnX = LEARN_UPGRADE_COLUMN_X[row.column];
-      const plusX = columnX + LEARN_UPGRADE_ROW_WIDTH - UPGRADE_PLUS_INSET;
-      const checkboxX = columnX + UPGRADE_CHECK_SIZE / 2;
-      const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
       row.checkBox.setY(y);
       row.checkMark.setY(y);
-      placePixelText(row.label, labelX, y, 0, 0.5);
+      placePixelText(row.label, row.labelX, y, 0, 0.5);
       row.plusBox.setY(y);
       placePixelText(
         row.plus,
-        plusX + (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8,
+        row.plusX + (glyphInkCenterOffsetX("+") * UPGRADES_HUD_FONT_SIZE) / 8,
         y + (glyphInkCenterOffsetY("+") * UPGRADES_HUD_FONT_SIZE) / 8,
         0.5,
         0.5,

@@ -1,8 +1,6 @@
 import type { LearnColumn } from "./learnUpgradeColumns";
 
-/** Top of the clipped upgrade list (matches prior fixed layout start). */
 export const LEARN_UPGRADE_CLIP_TOP = 100;
-/** Bottom of the clip — clears the BACK label at y=550. */
 export const LEARN_UPGRADE_CLIP_BOTTOM = 530;
 export const LEARN_UPGRADE_ROW_GAP = 16;
 export const LEARN_UPGRADE_HEADER_GAP = 20;
@@ -16,7 +14,6 @@ export function learnUpgradeViewportHeight(
   return Math.max(0, clipBottom - clipTop);
 }
 
-/** Vertical span of a school column using the LearnScene layout recurrence. */
 export function learnUpgradeContentHeight(
   schoolCount: number,
   upgradeCount: number,
@@ -45,7 +42,6 @@ export function clampLearnUpgradeScroll(offset: number, extent: number): number 
   return offset > extent ? extent : offset;
 }
 
-/** Positive deltaY (wheel down) increases offset so content moves up. */
 export function applyLearnUpgradeWheel(offset: number, deltaY: number, extent: number): number {
   return clampLearnUpgradeScroll(offset + deltaY, extent);
 }
