@@ -703,7 +703,11 @@ export class PlaySim {
       !options.jumpToUpgrade &&
       options.store === null &&
       !options.disableLevelUpgrades
-        ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
+        ? pickStartingUpgrade(
+            this.runUpgrades.owned,
+            this.random.stream("startingUpgrade"),
+            options.forceStartingUpgrade,
+          )
         : null;
     if (startingUpgrade !== null) {
       this.recorder.gained(startingUpgrade, "start", this.levelIndex);
