@@ -89,7 +89,6 @@ export const SMALL_MAZE_ASCII = `######################
 #.@................@.#
 ######################`;
 
-/** mazeSmall with house floors shrunk to 2x2 (door stays 2-wide). */
 export function tinyHouseMazeAscii(): string {
   let houseRows = 0;
   return SMALL_MAZE_ASCII.replace(/#HHHHHH#/g, () => {
