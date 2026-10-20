@@ -9,6 +9,7 @@ Collision never depends on the drawing: every ghost catches with the same body c
 - **The canvas matches physical pixels.** World coordinates stay fixed; the canvas is the world size times `renderScaleFor(window, devicePixelRatio)` (`src/domain/renderScale.ts`). Every scene calls `applyRenderScale(this)` first in `create()`, reads pointers with `pointer.worldX/worldY` (never `pointer.x/y`) and uses `renderScaleOf(scene)` where canvas pixels matter.
 - Pixel art uses Phaser's `smoothPixelArt`; graphics are multisampled. Fractional scales can bleed texture edges (`visual` checks for this).
 - Walls are one Graphics of hard-edged art-pixel rects rasterized from the domain path commands (`src/domain/pixelWall.ts`), so corners are stair-stepped, not anti-aliased; the wall look (colour, thickness, corner radius, background) comes from `wallStyleFor` and the Visuals knobs (`?knobs=1`).
+- **Play sidebar bands:** the camera clear stays the maze background for the full playfield height in the maze column; Play paints slightly lighter full-height gutter fills with a soft seam (`src/domain/sidebarBands.ts`, enabled via `createRender(scene, true)`). Learn leaves bands off ([parity](./learn.md#parity)).
 - Code: `systems/render.ts` is the bridge from ECS `Drawable`s to Phaser objects.
 
 ## Dot-Man and Quarters
