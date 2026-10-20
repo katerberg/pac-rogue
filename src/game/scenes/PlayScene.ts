@@ -578,7 +578,7 @@ export class PlayScene extends Phaser.Scene {
           this.pennyFx = holdPennyFx(this.pennyFx);
         } else {
           this.timerText.clearTint();
-          this.pennyFx = releasePennyFx(this.pennyFx);
+          this.pennyFx = releasePennyFx(this.pennyFx, this.sim.hud().penniesCharge);
         }
         break;
       case "startingUpgrade":
