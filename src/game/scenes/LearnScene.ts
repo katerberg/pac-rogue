@@ -21,6 +21,7 @@ import {
   learnUpgradeRowVisible,
   learnUpgradeScrollExtent,
 } from "../../domain/learnUpgradeScroll";
+import { UPGRADE_SLOT_HINT_GLYPH, upgradeSlotHintAngleDeg } from "../../domain/upgradeChoiceHints";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import {
   GHOST_COLOR_BY_KIND,
@@ -408,12 +409,30 @@ export class LearnScene extends Phaser.Scene {
 
   private buildScrollCues(column: LearnColumn): ColumnScrollCues {
     const x = LEARN_UPGRADE_COLUMN_X[column] + LEARN_UPGRADE_ROW_WIDTH / 2;
-    const up = addPixelText(this, 0, 0, "^", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-    const down = addPixelText(this, 0, 0, "v", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
-    placePixelText(up, x, LEARN_UPGRADE_CLIP_TOP - 8, 0.5, 0.5);
-    placePixelText(down, x, LEARN_UPGRADE_CLIP_BOTTOM + 8, 0.5, 0.5);
-    up.setDepth(OVERLAY_DEPTH + 1).setVisible(false);
-    down.setDepth(OVERLAY_DEPTH + 1).setVisible(false);
+    const up = addPixelText(
+      this,
+      x,
+      LEARN_UPGRADE_CLIP_TOP - 8,
+      UPGRADE_SLOT_HINT_GLYPH,
+      UPGRADES_HUD_FONT_SIZE,
+      TEXT_COLOR_YELLOW,
+    )
+      .setOrigin(0.5, 0.5)
+      .setAngle(upgradeSlotHintAngleDeg("up"))
+      .setDepth(OVERLAY_DEPTH + 1)
+      .setVisible(false);
+    const down = addPixelText(
+      this,
+      x,
+      LEARN_UPGRADE_CLIP_BOTTOM + 8,
+      UPGRADE_SLOT_HINT_GLYPH,
+      UPGRADES_HUD_FONT_SIZE,
+      TEXT_COLOR_YELLOW,
+    )
+      .setOrigin(0.5, 0.5)
+      .setAngle(upgradeSlotHintAngleDeg("down"))
+      .setDepth(OVERLAY_DEPTH + 1)
+      .setVisible(false);
     return { up, down };
   }
 
