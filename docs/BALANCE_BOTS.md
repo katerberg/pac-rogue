@@ -30,6 +30,7 @@ Experiments: `builds` (play from the level-2 offer to the boss), `singles` (one 
 ## Reading the report
 
 - **Health first.** Errors or over 2% `stalled` means the bots got stuck: the report says `UNTRUSTWORTHY` at the top; fix that before trusting anything.
+- **Executive summary** (right after Health): one-line takeaway, the most over/underperforming upgrades (singles Δ progress with a short why, plus build value when present), and watchouts (difficulty spikes, pair synergies, lethal ghosts, hard rosters, play-style spread, school specialists). Thin seeds/arm (< 50) are called out as leads only. Detail tables below are the evidence.
 - **Board progress** (1 for a clear, else the share of pellets eaten before game over) is the main forced-test metric. `*` means the 95% intervals don't overlap.
 - **Difficulty curve** (Builds): share of runs reaching each level and deaths spent on it. A steep drop between two levels is a difficulty spike; compare `@expert` with `@average` to see who it hits.
 - **Upgrade value** compares mean level reached when taken vs offered and passed, which removes most of the "long runs collect more upgrades" bias. `casual` picks at random, so its rows are cleanest. School mixes and co-owned pairs carry survivorship bias: leads, not proof.
