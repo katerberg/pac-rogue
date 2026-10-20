@@ -3,6 +3,7 @@ import { brightenColor } from "./playerTint";
 import {
   SIDEBAR_BRIGHTEN,
   SIDEBAR_FADE_PX,
+  SIDEBAR_MAZE_GRACE_PX,
   sidebarBackgroundColor,
   sidebarBandRects,
 } from "./sidebarBands";
@@ -16,7 +17,7 @@ const MAZE_W = 448;
 describe("sidebarBackgroundColor", () => {
   it("brightens the maze background by SIDEBAR_BRIGHTEN", () => {
     expect(sidebarBackgroundColor(MAZE_BG)).toBe(brightenColor(MAZE_BG, SIDEBAR_BRIGHTEN));
-    expect(SIDEBAR_BRIGHTEN).toBe(0.1);
+    expect(SIDEBAR_BRIGHTEN).toBe(0.06);
   });
 
   it("tracks a different maze background (knobs-relative)", () => {
@@ -27,7 +28,7 @@ describe("sidebarBackgroundColor", () => {
 });
 
 describe("sidebarBandRects", () => {
-  it("returns full-height left and right fills with a soft fade into the maze column", () => {
+  it("returns full-height left and right fills with grace and a soft fade into the maze column", () => {
     const rects = sidebarBandRects({
       playfieldWidth: PLAY_W,
       playfieldHeight: PLAY_H,
@@ -37,29 +38,32 @@ describe("sidebarBandRects", () => {
     });
 
     expect(SIDEBAR_FADE_PX).toBe(2);
+    expect(SIDEBAR_MAZE_GRACE_PX).toBe(4);
     expect(rects.every((r) => r.y === 0 && r.h === PLAY_H)).toBe(true);
 
+    const leftBandEnd = OFFSET_X - SIDEBAR_MAZE_GRACE_PX;
+    const rightBandStart = OFFSET_X + MAZE_W + SIDEBAR_MAZE_GRACE_PX;
     const solid = sidebarBackgroundColor(MAZE_BG);
     const leftSolid = rects.find((r) => r.x === 0 && r.color === solid);
     expect(leftSolid).toEqual({
       x: 0,
       y: 0,
-      w: OFFSET_X - SIDEBAR_FADE_PX,
+      w: leftBandEnd - SIDEBAR_FADE_PX,
       h: PLAY_H,
       color: solid,
     });
 
     const rightSolid = rects.find((r) => r.color === solid && r.w > 1 && r.x > OFFSET_X);
     expect(rightSolid).toEqual({
-      x: OFFSET_X + MAZE_W + SIDEBAR_FADE_PX,
+      x: rightBandStart + SIDEBAR_FADE_PX,
       y: 0,
-      w: PLAY_W - (OFFSET_X + MAZE_W + SIDEBAR_FADE_PX),
+      w: PLAY_W - (rightBandStart + SIDEBAR_FADE_PX),
       h: PLAY_H,
       color: solid,
     });
 
-    const leftFadeNearMaze = rects.find((r) => r.x === OFFSET_X - 1);
-    const leftFadeFar = rects.find((r) => r.x === OFFSET_X - 2);
+    const leftFadeNearMaze = rects.find((r) => r.x === leftBandEnd - 1);
+    const leftFadeFar = rects.find((r) => r.x === leftBandEnd - 2);
     expect(leftFadeNearMaze?.w).toBe(1);
     expect(leftFadeFar?.w).toBe(1);
     expect(leftFadeNearMaze?.color).toBe(
@@ -67,21 +71,20 @@ describe("sidebarBandRects", () => {
     );
     expect(leftFadeFar?.color).toBe(solid);
 
-    const mazeRight = OFFSET_X + MAZE_W;
-    const rightFadeNearMaze = rects.find((r) => r.x === mazeRight);
-    const rightFadeFar = rects.find((r) => r.x === mazeRight + 1);
+    const rightFadeNearMaze = rects.find((r) => r.x === rightBandStart);
+    const rightFadeFar = rects.find((r) => r.x === rightBandStart + 1);
     expect(rightFadeNearMaze?.color).toBe(leftFadeNearMaze?.color);
     expect(rightFadeFar?.color).toBe(leftFadeFar?.color);
 
-    expect(rects.some((r) => r.x >= OFFSET_X && r.x + r.w <= OFFSET_X + MAZE_W)).toBe(false);
+    expect(rects.some((r) => r.x >= leftBandEnd && r.x + r.w <= rightBandStart)).toBe(false);
   });
 
-  it("clamps fade when the gutter is narrower than SIDEBAR_FADE_PX", () => {
+  it("clamps fade when the gutter after grace is narrower than SIDEBAR_FADE_PX", () => {
     const rects = sidebarBandRects({
       playfieldWidth: 100,
       playfieldHeight: PLAY_H,
-      mazeOffsetX: 1,
-      mazePixelWidth: 98,
+      mazeOffsetX: SIDEBAR_MAZE_GRACE_PX + 1,
+      mazePixelWidth: 100 - 2 * (SIDEBAR_MAZE_GRACE_PX + 1),
       mazeBackground: MAZE_BG,
     });
     expect(rects).toHaveLength(2);
@@ -96,11 +99,11 @@ describe("sidebarBandRects", () => {
     });
   });
 
-  it("returns no rects when a side has zero gutter", () => {
+  it("returns no rects when grace consumes the gutters", () => {
     const rects = sidebarBandRects({
-      playfieldWidth: 448,
+      playfieldWidth: 448 + 2 * SIDEBAR_MAZE_GRACE_PX,
       playfieldHeight: PLAY_H,
-      mazeOffsetX: 0,
+      mazeOffsetX: SIDEBAR_MAZE_GRACE_PX,
       mazePixelWidth: 448,
       mazeBackground: MAZE_BG,
     });

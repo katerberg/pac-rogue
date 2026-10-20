@@ -1,7 +1,8 @@
 import { brightenColor } from "./playerTint";
 
-export const SIDEBAR_BRIGHTEN = 0.1;
+export const SIDEBAR_BRIGHTEN = 0.06;
 export const SIDEBAR_FADE_PX = 2;
+export const SIDEBAR_MAZE_GRACE_PX = 4;
 
 export type SidebarBandRect = {
   x: number;
@@ -30,18 +31,20 @@ export function sidebarBandRects(args: {
 
   const solid = sidebarBackgroundColor(mazeBackground);
   const mazeRight = mazeOffsetX + mazePixelWidth;
+  const leftBandEnd = Math.max(0, mazeOffsetX - SIDEBAR_MAZE_GRACE_PX);
+  const rightBandStart = Math.min(playfieldWidth, mazeRight + SIDEBAR_MAZE_GRACE_PX);
   const rects: SidebarBandRect[] = [];
 
   pushSide(rects, {
     solidStart: 0,
-    solidEnd: mazeOffsetX,
+    solidEnd: leftBandEnd,
     fadeTowardMaze: true,
     height: playfieldHeight,
     mazeBackground,
     solid,
   });
   pushSide(rects, {
-    solidStart: mazeRight,
+    solidStart: rightBandStart,
     solidEnd: playfieldWidth,
     fadeTowardMaze: false,
     height: playfieldHeight,
