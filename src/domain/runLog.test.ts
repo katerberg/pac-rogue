@@ -21,7 +21,6 @@ function levelOf() {
   return beginLevelLog(record, {
     level: 1,
     layout: "maze1",
-    inverted: false,
     boss: false,
     countdownStart: 999,
     livesStart: 3,

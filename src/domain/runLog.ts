@@ -41,7 +41,7 @@ export type ActivationKind =
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   | "fruit"
-  | "bonusBar"
+  | "pennyBar"
   | "deathsBounty"
   | "nearMiss"
   | "offer"
@@ -102,7 +102,6 @@ export type OfferLog = {
 export type LevelLog = {
   level: number;
   layout: string;
-  inverted: boolean;
   boss: boolean;
   cleared: boolean;
   simMs: number;
@@ -178,7 +177,7 @@ export type RunLogRecord = RunLogMeta & {
 
 export type LevelLogInit = Pick<
   LevelLog,
-  "level" | "layout" | "inverted" | "boss" | "countdownStart" | "livesStart"
+  "level" | "layout" | "boss" | "countdownStart" | "livesStart"
 >;
 
 export function createRunLog(meta: RunLogMeta, seed: string, debug: boolean): RunLogRecord {
@@ -352,7 +351,6 @@ export function syntheticRunLog(index: number, meta: RunLogMeta): RunLogRecord {
     const log = beginLevelLog(record, {
       level,
       layout: "maze1",
-      inverted: false,
       boss: false,
       countdownStart: 0,
       livesStart: 0,

@@ -1054,7 +1054,7 @@ describe("interestPayout", () => {
 });
 
 describe("Near Miss", () => {
-  it("charges the BONUS bar per pass, double when enhanced", () => {
+  it("earns pennies per pass, double when enhanced", () => {
     expect(nearMissCharge([])).toBe(0);
     expect(nearMissCharge(["passiveNearMiss"])).toBe(NEAR_MISS_CHARGE);
     expect(nearMissCharge(["passiveNearMissPlus"])).toBe(NEAR_MISS_ENHANCED_CHARGE);

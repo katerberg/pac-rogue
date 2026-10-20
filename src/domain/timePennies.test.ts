@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  createTimeBonusDrain,
-  tickTimeBonusDrain,
-  TIME_BONUS_DRAIN_MS,
-  timeBonusPoints,
+  createTimePennyDrain,
+  tickTimePennyDrain,
+  TIME_PENNY_DRAIN_MS,
+  timePennyCharge,
   type TimeBonusTick,
-} from "./timeBonus";
+} from "./timePennies";
 
 const FRAME_MS = 1000 / 60;
 
 function drainAll(remaining: number): TimeBonusTick[] {
-  let drain = createTimeBonusDrain(remaining)!;
+  let drain = createTimePennyDrain(remaining)!;
   const ticks: TimeBonusTick[] = [];
   for (let i = 0; i < 200; i += 1) {
-    const tick = tickTimeBonusDrain(drain, FRAME_MS);
+    const tick = tickTimePennyDrain(drain, FRAME_MS);
     ticks.push(tick);
     drain = tick.drain;
     if (tick.done) {
@@ -23,29 +23,29 @@ function drainAll(remaining: number): TimeBonusTick[] {
   return ticks;
 }
 
-describe("timeBonusPoints", () => {
+describe("timePennyCharge", () => {
   it("pays the square of the time left, so fast clears pay far more", () => {
-    expect(timeBonusPoints(999)).toBe(443);
-    expect(timeBonusPoints(700)).toBe(217);
-    expect(timeBonusPoints(450)).toBe(90);
-    expect(timeBonusPoints(225)).toBe(22);
-    expect(timeBonusPoints(47)).toBe(0);
-    expect(timeBonusPoints(-10)).toBe(0);
+    expect(timePennyCharge(999)).toBe(443);
+    expect(timePennyCharge(700)).toBe(217);
+    expect(timePennyCharge(450)).toBe(90);
+    expect(timePennyCharge(225)).toBe(22);
+    expect(timePennyCharge(47)).toBe(0);
+    expect(timePennyCharge(-10)).toBe(0);
   });
 });
 
-describe("createTimeBonusDrain", () => {
+describe("createTimePennyDrain", () => {
   it("skips an empty timer", () => {
-    expect(createTimeBonusDrain(0)).toBeNull();
+    expect(createTimePennyDrain(0)).toBeNull();
   });
 });
 
-describe("tickTimeBonusDrain", () => {
+describe("tickTimePennyDrain", () => {
   it("drains the full timer in a fixed time and pays every point once", () => {
     const ticks = drainAll(999);
     const last = ticks[ticks.length - 1]!;
     expect(last.done).toBe(true);
-    expect(ticks.length * FRAME_MS).toBeLessThanOrEqual(TIME_BONUS_DRAIN_MS + FRAME_MS);
+    expect(ticks.length * FRAME_MS).toBeLessThanOrEqual(TIME_PENNY_DRAIN_MS + FRAME_MS);
     expect(ticks.reduce((sum, t) => sum + t.points, 0)).toBe(443);
     expect(last.remaining).toBe(0);
     const remaining = ticks.map((t) => t.remaining);
@@ -59,7 +59,7 @@ describe("tickTimeBonusDrain", () => {
 
   it("takes the same time for a small remainder", () => {
     const ticks = drainAll(100);
-    expect(ticks.length * FRAME_MS).toBeGreaterThan(TIME_BONUS_DRAIN_MS - FRAME_MS);
+    expect(ticks.length * FRAME_MS).toBeGreaterThan(TIME_PENNY_DRAIN_MS - FRAME_MS);
     expect(ticks.reduce((sum, t) => sum + t.points, 0)).toBe(4);
   });
 });
