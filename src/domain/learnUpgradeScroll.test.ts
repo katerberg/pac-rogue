@@ -37,11 +37,16 @@ describe("learnUpgradeScrollExtent", () => {
     expect(learnUpgradeScrollExtent(viewport - 1)).toBe(0);
   });
 
-  it("returns the overflow for the learnAll right column", () => {
-    const content = learnUpgradeContentHeight(4, 24);
+  it("returns the overflow when a column is taller than the clip band", () => {
     const viewport = learnUpgradeViewportHeight();
-    expect(content).toBeGreaterThan(viewport);
-    expect(learnUpgradeScrollExtent(content)).toBe(content - viewport);
+    const content = viewport + 48;
+    expect(learnUpgradeScrollExtent(content)).toBe(48);
+  });
+
+  it("spans from the ghost-slot tops through the BACK label bottom", () => {
+    expect(LEARN_UPGRADE_CLIP_TOP).toBe(66);
+    expect(LEARN_UPGRADE_CLIP_BOTTOM).toBe(558);
+    expect(learnUpgradeViewportHeight()).toBe(492);
   });
 });
 
@@ -87,9 +92,11 @@ describe("learnUpgradeColumnAt", () => {
 });
 
 describe("learnUpgradeRowVisible", () => {
+  const firstHeaderY = LEARN_UPGRADE_CLIP_TOP - LEARN_UPGRADE_ROW_GAP + LEARN_UPGRADE_HEADER_GAP;
+
   it("hides rows scrolled above the clip top", () => {
-    expect(learnUpgradeRowVisible(104, 0)).toBe(true);
-    expect(learnUpgradeRowVisible(104, 40)).toBe(false);
+    expect(learnUpgradeRowVisible(firstHeaderY, 0)).toBe(true);
+    expect(learnUpgradeRowVisible(firstHeaderY, 40)).toBe(false);
   });
 
   it("hides rows below the clip bottom", () => {
@@ -99,8 +106,7 @@ describe("learnUpgradeRowVisible", () => {
   });
 
   it("keeps the first header in view at scroll 0", () => {
-    const firstHeaderY = LEARN_UPGRADE_CLIP_TOP - LEARN_UPGRADE_ROW_GAP + LEARN_UPGRADE_HEADER_GAP;
-    expect(firstHeaderY).toBe(104);
+    expect(firstHeaderY).toBe(70);
     expect(learnUpgradeRowVisible(firstHeaderY, 0)).toBe(true);
     expect(LEARN_UPGRADE_CLIP_TOP).toBeLessThan(firstHeaderY);
   });

@@ -1,7 +1,7 @@
 import type { LearnColumn } from "./learnUpgradeColumns";
 
-export const LEARN_UPGRADE_CLIP_TOP = 100;
-export const LEARN_UPGRADE_CLIP_BOTTOM = 530;
+export const LEARN_UPGRADE_CLIP_TOP = 66;
+export const LEARN_UPGRADE_CLIP_BOTTOM = 558;
 export const LEARN_UPGRADE_ROW_GAP = 16;
 export const LEARN_UPGRADE_HEADER_GAP = 20;
 export const LEARN_UPGRADE_COLUMN_X = { left: 20, right: 596 } as const;
