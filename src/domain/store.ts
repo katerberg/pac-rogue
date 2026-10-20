@@ -1,4 +1,4 @@
-import type { Cell } from "./bonusBar";
+import type { Cell } from "./pennies";
 import {
   baseIdOf,
   carryEnhancement,

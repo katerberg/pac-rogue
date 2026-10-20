@@ -48,6 +48,8 @@ import {
 import { invertRgb24 } from "../../domain/bossRules";
 import { clampMazeColorIndex } from "../../domain/mazeColorSettings";
 import { pixelWallRects, WALL_ART_PX } from "../../domain/pixelWall";
+import { sidebarBandRects } from "../../domain/sidebarBands";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfieldBounds";
 import { sameWallStyle, wallStyleFor, type WallStyle } from "../../domain/wallStyle";
 import {
   advanceDotManChomp,
@@ -151,6 +153,7 @@ import { Position } from "../components/Position";
 export const PELLET_TEXTURE_KEY = "pellet-dot";
 export const QUARTER_TEXTURE_KEY = "quarter";
 const DOLLAR_TEXTURE_KEY = "dollar";
+const PENNY_TEXTURE_KEY = "penny";
 export const REVERSE_TEXTURE_KEY = "reverse";
 const POWER_PELLET_TEXTURE_KEY = "power-pellet";
 const BLINKY_TEXTURE_KEY = "ghost-blinky";
@@ -464,6 +467,15 @@ export function addQuarterIcon(
   return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
+export function addPennyIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, PENNY_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
 export function addDollarIcon(
   scene: Phaser.Scene,
   x: number,
@@ -493,6 +505,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
   scene.load.image(DOLLAR_TEXTURE_KEY, "art/other/dollar.png");
+  scene.load.image(PENNY_TEXTURE_KEY, "art/other/penny.png");
   scene.load.image(REVERSE_TEXTURE_KEY, "art/other/reverse.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
   scene.load.image(SLOT_MACHINE_DRAWABLE_ID, "art/other/slot-machine.png");
@@ -594,6 +607,7 @@ const CHARM_DEPTH = -0.5;
 const CHARM_CHAIN_COLOR = 0xd9d9d9;
 const CHARM_CHAIN_ALPHA = 0.8;
 const CHARM_SPEED_FULL_PX_PER_MS = 0.08;
+const SIDEBAR_DEPTH = -3;
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
 const POWER_PELLET_BOUNCE_MS = 150;
@@ -762,12 +776,15 @@ type GhostSkirt = {
   waveSign: number;
 };
 
-export function createRender(scene: Phaser.Scene): PlayRender {
+export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const pupilLooks = new Map<number, PupilLookState>();
   const hornTurns = new Map<number, HornTurnState>();
   const ghostSkirts = new Map<number, GhostSkirt>();
+  const sidebarGraphics = sidebarBands ? scene.add.graphics() : null;
+  sidebarGraphics?.setDepth(SIDEBAR_DEPTH);
+  let drawnSidebarKey: string | null = null;
   const wallGraphics = scene.add.graphics();
   const collapseGraphics = scene.add.graphics();
   const collapseMoteGraphics = scene.add.graphics();
@@ -887,6 +904,29 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     playerVisuals.delete(eid);
   };
 
+  const paintSidebarBands = (mazeBackground: number): void => {
+    if (sidebarGraphics === null) {
+      return;
+    }
+    const layout = getActiveLayout();
+    const key = `${mazeBackground}:${layout.offsetX}:${layout.pixelWidth}`;
+    if (key === drawnSidebarKey) {
+      return;
+    }
+    sidebarGraphics.clear();
+    for (const rect of sidebarBandRects({
+      playfieldWidth: PLAYFIELD_WIDTH,
+      playfieldHeight: PLAYFIELD_HEIGHT,
+      mazeOffsetX: layout.offsetX,
+      mazePixelWidth: layout.pixelWidth,
+      mazeBackground,
+    })) {
+      sidebarGraphics.fillStyle(rect.color, 1);
+      sidebarGraphics.fillRect(rect.x, rect.y, rect.w, rect.h);
+    }
+    drawnSidebarKey = key;
+  };
+
   const resetForNewBoard = (): void => {
     for (const go of drawableObjects.values()) {
       scene.tweens.killTweensOf(go);
@@ -899,6 +939,8 @@ export function createRender(scene: Phaser.Scene): PlayRender {
     playerVisuals.clear();
     pupilLooks.clear();
     hornTurns.clear();
+    sidebarGraphics?.clear();
+    drawnSidebarKey = null;
     wallGraphics.clear();
     collapseGraphics.clear();
     collapseMoteGraphics.clear();
@@ -967,12 +1009,13 @@ export function createRender(scene: Phaser.Scene): PlayRender {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
       strokeWallPath(wallGraphics, commands, wallStyle, 1);
-      if (wallStyleOverride !== null) {
-        scene.cameras.main.setBackgroundColor(wallStyle.background);
+      if (wallStyleOverride !== null || sidebarBands) {
+        scene.cameras.main.setBackgroundColor(baseWallStyle.background);
       }
       drawnWallStyle = wallStyle;
       drawnMazeInverted = mazeInverted;
     }
+    paintSidebarBands(baseWallStyle.background);
     const wallAlpha = opts?.wallAlpha ?? 1;
     if (wallAlpha !== drawnWallAlpha) {
       wallGraphics.setAlpha(wallAlpha);

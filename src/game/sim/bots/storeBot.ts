@@ -1,4 +1,4 @@
-import type { Cell } from "../../../domain/bonusBar";
+import type { Cell } from "../../../domain/pennies";
 import { cellCenterX, cellCenterY } from "../../../domain/maze";
 import { promptView, slotPrice, type StoreSlot } from "../../../domain/store";
 import { enhanceableUpgrades, type UpgradeId } from "../../../domain/upgrades";

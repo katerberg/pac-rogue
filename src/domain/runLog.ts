@@ -25,10 +25,12 @@ export type ActivationKind =
   | "speedBurst"
   | "hyperspeed"
   | "ghostHarvest"
+  | "tithe"
   | "defyDeath"
   | "collectExtra"
   | "pelletSurge"
   | "shieldBreak"
+  | "reactiveArmor"
   | "streakEngine"
   | "echo"
   | "frighten"
@@ -40,7 +42,7 @@ export type ActivationKind =
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   | "fruit"
-  | "bonusBar"
+  | "pennyBar"
   | "deathsBounty"
   | "nearMiss"
   | "offer"

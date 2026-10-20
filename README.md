@@ -31,17 +31,17 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `maze` | `maze1` \| `maze2` \| `mazeSmall` \| pool index | Force the **first** board layout; omit for level-1 `mazeSmall`. Levels 2–8 otherwise draw from the committed pool. [maze-constraints.md](./docs/maze-constraints.md). |
 | `level` | positive integer | Start at that level (roster unlock + shared speed mul). Clamps to `MAX_LEVEL`; `level=9` is the boss. |
 | `quarters` | non-negative integer | Starting Quarters (HUD). |
-| `bonus` | integer 0..299 | Starting BONUS bar charge. [bonus.md](./docs/bonus.md). |
+| `pennyCharge` | integer 0..299 | Starting penny charge. [pennies.md](./docs/pennies.md). |
 | `jumpToSpinner` | `1` | Queue one slot spin at board start (defaults start level to 2). Pair with `slot`. |
-| `slot` | `0` or e.g. `1q`, `2q1u`, `1l` | Force every slot spin's line counts. [bonus.md](./docs/bonus.md#slot-machine). |
-| `slotMachine` | `1` | Place one slot-machine world pickup on each eligible Play board start. [bonus.md](./docs/bonus.md#slot-machine). |
+| `slot` | `0` or e.g. `1q`, `2q1u`, `1l` | Force every slot spin's line counts. [pennies.md](./docs/pennies.md#slot-machine). |
+| `slotMachine` | `1` | Place one slot-machine world pickup on each eligible Play board start. [pennies.md](./docs/pennies.md#slot-machine). |
 | `enableUpgrade` (alias `enableUpgrades`) | upgrade id; repeatable or comma-separated | Grant each valid id into `owned` at create. |
 | `disableLevelUpgrades` | `1` | Skip starting upgrade and level-clear (1–8) choice modal. |
 | `infiniteLives` | `1` | Death sequence plays; never spend a life / Game Over. |
 | `lives` | integer 1..99 | Start with that many lives (also sets `maxLives` unless given). |
 | `maxLives` | integer 1..99 | Cap for store free-life / Myogenesis regen (Extra Life still raises its floor). |
 | `godMode` | `1` | Ghosts pass through without catch. |
-| `jumpToUpgrade` | `1` | Clear the first board into the upgrade modal (after time-bonus drain). Defaults start level to 2. |
+| `jumpToUpgrade` | `1` | Clear the first board into the upgrade modal (after time-penny drain). Defaults start level to 2. |
 | `store` | `1` | Start in a store floor (level 3 unless `level` is set). [store.md](./docs/store.md). |
 | `forceUpgrade` | upgrade id | Guarantee that (base) id in every level-clear offer while eligible. |
 | `ghosts` | ghost names (comma-separated) | Replace every level's roster (`blinky` \| `pinky` \| `inky` \| `clyde` \| `spunky` \| `wardy`). |
@@ -73,7 +73,7 @@ Live game: <https://katerberg.github.io/pac-rogue/>. Pushes to `main` deploy Pag
 Start with [AGENTS.md](./AGENTS.md). Code is the reference for values and shapes; these cover intent and rules:
 
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md), [docs/VERIFICATION.md](./docs/VERIFICATION.md)
-- Gameplay: [levels](./docs/levels.md), [upgrades](./docs/upgrades.md), [upgrade list](./docs/upgrade-list.md), [bonus](./docs/bonus.md), [store](./docs/store.md), [bosses](./docs/bosses.md), [learn](./docs/learn.md), [maze constraints](./docs/maze-constraints.md)
+- Gameplay: [levels](./docs/levels.md), [upgrades](./docs/upgrades.md), [upgrade list](./docs/upgrade-list.md), [pennies](./docs/pennies.md), [store](./docs/store.md), [bosses](./docs/bosses.md), [learn](./docs/learn.md), [new player](./docs/new-player.md), [maze constraints](./docs/maze-constraints.md)
 - Presentation and data: [rendering](./docs/rendering.md), [run log](./docs/RUN_LOG.md), [balance bots](./docs/BALANCE_BOTS.md), [privacy](./docs/PRIVACY.md), [worker](./worker/README.md), [sim harness](./src/game/sim/README.md)
 - Agent workflows: `.agents/skills/*/SKILL.md`
 

@@ -1,4 +1,4 @@
-import { BONUS_BAR_MAX } from "./bonusBar";
+import { QUARTER_CHARGE } from "./pennies";
 import { ECHO_DELAY_MS, type EchoEffects, type PendingEcho, pickEchoBases } from "./echo";
 import type { LazyLooperRings } from "./lazyLooper";
 import {
@@ -52,7 +52,7 @@ export type BaseUpgradeId =
   | "passiveAutomationSpecialist"
   | "passiveProtectionSpecialist"
   | "passiveDisruptionSpecialist"
-  | "passiveMartyr"
+  | "passiveReanimation"
   | "passiveInterest"
   | "passiveNearMiss"
   | "passiveHaunting"
@@ -68,7 +68,9 @@ export type BaseUpgradeId =
   | "powerPelletProgrammer"
   | "passiveInheritance"
   | "powerPelletMirror"
-  | "powerPelletChaff";
+  | "powerPelletChaff"
+  | "passiveReactiveArmor"
+  | "powerPelletTithe";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -96,7 +98,7 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
   "neutral",
 ];
 
-export type MartyrGhostPlacement = "corners" | "house";
+export type ReanimationMode = "fell" | "nearPowerPellet";
 
 export type UpgradeEffects = {
   playerSpeedMul?: number;
@@ -127,6 +129,8 @@ export type UpgradeEffects = {
   secondChompMs?: number;
   secondChompPellets?: number;
   speedBurstMul?: number;
+  titheSpeedMul?: number;
+  titheStreakWeight?: number;
   hyperspeedMul?: number;
   turnBoostMs?: number;
   turnPerfectPx?: number;
@@ -136,7 +140,9 @@ export type UpgradeEffects = {
   startingShields?: number;
   shieldBreak?: true;
   shieldOverflowFires?: true;
-  martyrGhosts?: MartyrGhostPlacement;
+  reactiveArmor?: true;
+  reactiveArmorRadiusTiles?: number;
+  reanimation?: ReanimationMode;
   interestPerQuarters?: number;
   nearMissCharge?: number;
   hauntMs?: number;
@@ -160,6 +166,7 @@ export type UpgradeEffects = {
     hyperspeedMs?: number;
     hyperspeedShieldMs?: number;
     ghostHarvestMs?: number;
+    titheMs?: number;
     defyDeathMs?: number;
     recallClosestGhosts?: number;
     warpPlayerFarthest?: true;
@@ -209,6 +216,9 @@ export const HYPERSPEED_SHIELD_MS = 2000;
 export const HYPERSPEED_MUL = 10;
 export const HYPERSPEED_TURN_DELAY_MS = 200;
 export const GHOST_HARVEST_MS = 5000;
+export const TITHE_MS = 5000;
+export const TITHE_SPEED_MUL = 0.9;
+export const TITHE_STREAK_WEIGHT = 2;
 export const DEFY_DEATH_MS = 5000;
 export const HAUNTING_MS = 10_000;
 export const HAUNTING_ENHANCED_MS = Number.POSITIVE_INFINITY;
@@ -237,11 +247,12 @@ export const STORE_UPGRADE_PRICE = 3;
 export const STORE_RARE_UPGRADE_PRICE = 4;
 export const RARE_MIN_OWNED = 2;
 export const RARE_OFFER_WEIGHT = 0.5;
-export const SCHOOL_AFFINITY_COMMON_RATE = 0.25;
-export const SCHOOL_AFFINITY_RARE_RATE = 0.15;
+export const SCHOOL_AFFINITY_COMMON_RATE = 0.5;
+export const SCHOOL_AFFINITY_RARE_RATE = 0.3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 2;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
+export const REACTIVE_ARMOR_RADIUS_TILES = 4;
 export const DEATHS_BOUNTY_DECAY = 0.8;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
@@ -253,6 +264,7 @@ export const CORNER_TELEPORT_HOLD_MS = 500;
 export const CORNER_TELEPORT_HOLD_ENHANCED_MS = 2000;
 export const INVULN_ENHANCED_MS = 5000;
 export const GHOST_HARVEST_ENHANCED_MS = 8000;
+export const TITHE_ENHANCED_MS = 8000;
 export const DEFY_DEATH_ENHANCED_MS = 8000;
 export const WARP_TOP_INVULN_MS = 2000;
 export const AFTERBURNER_ENHANCED_MUL = 1.5;
@@ -517,13 +529,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitPowerPellet",
     label: "Fruit Power",
     school: "harvest",
-    description: "Bonus fruit fires a random one of your power-pellet effects.",
+    description: "Fruit fires a random one of your power-pellet effects.",
     storePrice: STORE_RARE_UPGRADE_PRICE,
     rare: true,
     fruitPowerEffects: "one",
     enhanced: {
       enhanceNote: "Fruit Power fires every power-pellet effect you own instead of one at random.",
-      description: "Bonus fruit fires every power-pellet effect you own.",
+      description: "Fruit fires every power-pellet effect you own.",
       fruitPowerEffects: "all",
     },
   },
@@ -531,11 +543,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitQuarterBounty",
     label: "Quarter Bounty",
     school: "harvest",
-    description: "Bonus fruit pays a Quarter instead of charging the bonus bar.",
+    description: "Fruit pays a Quarter instead of adding pennies.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Quarter Bounty pays 2 Quarters per fruit instead of 1.",
-      description: "Bonus fruit pays two Quarters.",
+      description: "Fruit pays two Quarters.",
       fruitQuarters: FRUIT_QUARTERS_ENHANCED,
     },
     fruitQuarters: FRUIT_QUARTERS,
@@ -544,13 +556,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitFecundity",
     label: "Fruit Fecundity",
     school: "harvest",
-    description: "Bonus fruit lingers twice as long.",
+    description: "Fruit lingers twice as long.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote:
         "Fruit Fecundity keeps fruit until the level ends, and extra fruit sit side by side.",
-      description:
-        "Bonus fruit waits until the level ends, and uncollected ones pile up side by side.",
+      description: "Fruit waits until the level ends, and uncollected ones pile up side by side.",
       fruitPersistsUntilLevelEnd: true,
       fruitStacksSideBySide: true,
     },
@@ -560,12 +571,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "fruitFeast",
     label: "Fruit Feast",
     school: "harvest",
-    description: "Bonus fruit appears three times per level, each after the last is gone.",
+    description: "Fruit appears three times per level, each after the last is gone.",
     storePrice: STORE_UPGRADE_PRICE,
     fruitFeastThresholds: BASE_FEAST_FRUIT_SPAWN_THRESHOLDS,
     enhanced: {
       enhanceNote: "Fruit Feast spawns 4 fruit per level instead of 3.",
-      description: "Bonus fruit appears four times per level, each after the last is gone.",
+      description: "Fruit appears four times per level, each after the last is gone.",
       fruitFeastThresholds: FRUIT_FEAST_ENHANCED_THRESHOLDS,
     },
   },
@@ -740,17 +751,16 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   specialistDef("protection", "passiveProtectionSpecialist"),
   specialistDef("disruption", "passiveDisruptionSpecialist"),
   {
-    id: "passiveMartyr",
-    label: "Martyr",
+    id: "passiveReanimation",
+    label: "Reanimation",
     school: "death",
-    description: "Dying scatters the ghosts to their corners. You respawn where you fell.",
-    storePrice: STORE_RARE_UPGRADE_PRICE,
-    rare: true,
-    martyrGhosts: "corners",
+    description: "You respawn where you fell.",
+    storePrice: STORE_UPGRADE_PRICE,
+    reanimation: "fell",
     enhanced: {
-      enhanceNote: "Martyr sends the ghosts back into the ghost house instead of their corners.",
-      description: "Dying sends every ghost home. You respawn where you fell.",
-      martyrGhosts: "house",
+      enhanceNote: "Reanimation puts you next to a power pellet when one is still on the board.",
+      description: "You respawn next to a power pellet if available.",
+      reanimation: "nearPowerPellet",
     },
   },
   {
@@ -770,12 +780,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveNearMiss",
     label: "Near Miss",
     school: "protection",
-    description: "Ghosts that brush past without catching you charge the BONUS bar.",
+    description: "Ghosts that brush past without catching you earn pennies.",
     storePrice: STORE_UPGRADE_PRICE,
     nearMissCharge: NEAR_MISS_CHARGE,
     enhanced: {
-      enhanceNote: "Near Miss charges the BONUS bar 30 per pass instead of 15.",
-      description: "Ghosts that brush past without catching you charge the BONUS bar double.",
+      enhanceNote: "Near Miss pays 2.4 pennies per pass instead of 1.2.",
+      description: "Ghosts that brush past without catching you earn double pennies.",
       nearMissCharge: NEAR_MISS_ENHANCED_CHARGE,
     },
   },
@@ -906,11 +916,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletCornucopia",
     label: "Cornucopia",
     school: "harvest",
-    description: "Power pellet: spawns a bonus fruit, if none is out.",
+    description: "Power pellet: spawns a fruit, if none is out.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Cornucopia spawns a fruit on every power pellet, even if a fruit is out.",
-      description: "Power pellet: spawns a bonus fruit even if there are others.",
+      description: "Power pellet: spawns an extra fruit even if there are others.",
       onPowerPellet: { cornucopiaFruit: true, cornucopiaAlongside: true },
     },
     onPowerPellet: { cornucopiaFruit: true },
@@ -989,6 +999,37 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { chaffMs: CHAFF_MS },
   },
+  {
+    id: "passiveReactiveArmor",
+    label: "Reactive Armor",
+    school: "protection",
+    description: "When a shield breaks, the ghost that touched you is sent to the ghost house.",
+    storePrice: STORE_UPGRADE_PRICE,
+    reactiveArmor: true,
+    enhanced: {
+      enhanceNote:
+        "Reactive Armor sends nearby ghosts within 4 tiles home, not just the one that touched you.",
+      description: "When a shield breaks, all nearby ghosts are sent to the ghost house.",
+      reactiveArmorRadiusTiles: REACTIVE_ARMOR_RADIUS_TILES,
+    },
+  },
+  {
+    id: "powerPelletTithe",
+    label: "Tithe",
+    school: "harvest",
+    description:
+      "Power pellet: move 10% slower for 5 seconds, but pellets count double toward your streak.",
+    storePrice: STORE_UPGRADE_PRICE,
+    titheSpeedMul: TITHE_SPEED_MUL,
+    titheStreakWeight: TITHE_STREAK_WEIGHT,
+    enhanced: {
+      enhanceNote: "Tithe lasts 8 seconds instead of 5.",
+      description:
+        "Power pellet: move 10% slower for 8 seconds, but pellets count double toward your streak.",
+      onPowerPellet: { titheMs: TITHE_ENHANCED_MS },
+    },
+    onPowerPellet: { titheMs: TITHE_MS },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1040,7 +1081,7 @@ export function ownedFormOf(owned: readonly UpgradeId[], baseId: BaseUpgradeId):
 }
 
 export const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [
-  "passiveMartyr",
+  "passiveReanimation",
   "passiveInterest",
 ];
 
@@ -1160,6 +1201,7 @@ export type RunUpgrades = {
   hyperspeedTurnDelayMs: number;
   hyperspeedShieldRemainingMs: number;
   ghostHarvestRemainingMs: number;
+  titheRemainingMs: number;
   defyDeathRemainingMs: number;
   hauntRemainingMs: number;
   hauntedGhostEid: number | null;
@@ -1214,6 +1256,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     hyperspeedTurnDelayMs: 0,
     hyperspeedShieldRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
+    titheRemainingMs: 0,
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
@@ -1277,15 +1320,18 @@ export function grantLivesForUpgrade(id: UpgradeId): number {
 export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
   const ownedBases = new Set(owned.map(baseIdOf));
   const shieldsOwned = providesShields(owned);
-  return ALL_UPGRADE_IDS.filter(
-    (id) =>
+  return ALL_UPGRADE_IDS.filter((id) => {
+    const def = getUpgradeDef(id);
+    const needsShields = def.shieldBreak === true || def.reactiveArmor === true;
+    return (
       !ownedBases.has(id) &&
       !(id === "powerPelletHyperspeed" && ownedBases.has("powerPelletProgrammer")) &&
       !(id === "powerPelletProgrammer" && ownedBases.has("powerPelletHyperspeed")) &&
-      (getUpgradeDef(id).shieldBreak !== true || shieldsOwned) &&
+      (!needsShields || shieldsOwned) &&
       (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
-      (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
-  );
+      (!isSpecialist(id) || schoolCount(owned, def.school) >= SPECIALIST_THRESHOLD)
+    );
+  });
 }
 
 export function takeRandomFrom<T>(pool: T[], rng: () => number): T {
@@ -1389,10 +1435,14 @@ export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
 export function pickStartingUpgrade(
   owned: readonly UpgradeId[],
   rng: () => number,
+  preferred: BaseUpgradeId | null = null,
 ): BaseUpgradeId | null {
   const eligible = STARTING_UPGRADE_POOL.filter((id) => !hasUpgrade(owned, id));
   if (eligible.length === 0) {
     return null;
+  }
+  if (preferred !== null && eligible.includes(preferred)) {
+    return preferred;
   }
   return takeRandomFrom(eligible, rng);
 }
@@ -1468,6 +1518,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     hyperspeedTurnDelayMs: 0,
     hyperspeedShieldRemainingMs: 0,
     ghostHarvestRemainingMs: 0,
+    titheRemainingMs: 0,
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
@@ -1626,6 +1677,16 @@ export function spendHyperspeedShield(state: RunUpgrades): RunUpgrades | null {
   return applyShieldBreakInvuln({ ...state, hyperspeedShieldRemainingMs: 0 });
 }
 
+export function tickTithe(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.titheRemainingMs <= 0) {
+    return state;
+  }
+  return {
+    ...state,
+    titheRemainingMs: Math.max(0, state.titheRemainingMs - Math.max(0, deltaMs)),
+  };
+}
+
 export function tickGhostHarvest(state: RunUpgrades, deltaMs: number): RunUpgrades {
   if (state.ghostHarvestRemainingMs <= 0) {
     return state;
@@ -1726,6 +1787,7 @@ export function applyPowerPelletEffects(
   let hyperspeedMs: number | null = null;
   let hyperspeedShieldMs: number | null = null;
   let ghostHarvestMs: number | null = null;
+  let titheMs: number | null = null;
   let defyDeathMs: number | null = null;
   let recallGhostCount = 0;
   let warpInvulnMs = 0;
@@ -1780,6 +1842,9 @@ export function applyPowerPelletEffects(
         hyperspeedShieldMs === null
           ? onPower.hyperspeedShieldMs
           : Math.max(hyperspeedShieldMs, onPower.hyperspeedShieldMs);
+    }
+    if (onPower.titheMs !== undefined) {
+      titheMs = titheMs === null ? onPower.titheMs : Math.max(titheMs, onPower.titheMs);
     }
     if (onPower.ghostHarvestMs !== undefined) {
       ghostHarvestMs =
@@ -1850,6 +1915,7 @@ export function applyPowerPelletEffects(
   hyperspeedMs = scaled(hyperspeedMs);
   hyperspeedShieldMs = scaled(hyperspeedShieldMs);
   ghostHarvestMs = scaled(ghostHarvestMs);
+  titheMs = scaled(titheMs);
   defyDeathMs = scaled(defyDeathMs);
   frightenMs = scaled(frightenMs);
   chaffMs = scaled(chaffMs);
@@ -1872,6 +1938,9 @@ export function applyPowerPelletEffects(
   }
   if (hyperspeedShieldMs !== null) {
     next = { ...next, hyperspeedShieldRemainingMs: hyperspeedShieldMs };
+  }
+  if (titheMs !== null) {
+    next = { ...next, titheRemainingMs: titheMs };
   }
   if (ghostHarvestMs !== null) {
     next = { ...next, ghostHarvestRemainingMs: ghostHarvestMs };
@@ -2020,7 +2089,7 @@ export function deathsHarvestRadiusTiles(owned: readonly UpgradeId[]): number {
 
 export function deathsBountyCharge(owned: readonly UpgradeId[], priorDeaths: number): number {
   const decay = ownedValue(owned, "deathsBountyDecay");
-  return decay === undefined ? 0 : Math.floor(BONUS_BAR_MAX * decay ** priorDeaths);
+  return decay === undefined ? 0 : Math.floor(QUARTER_CHARGE * decay ** priorDeaths);
 }
 
 export function inheritancePayout(
@@ -2047,8 +2116,8 @@ export function streakEngineInvulnMs(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "streakEngineInvulnMs") ?? 0;
 }
 
-export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
-  return ownedValue(owned, "martyrGhosts") ?? null;
+export function reanimationMode(owned: readonly UpgradeId[]): ReanimationMode | null {
+  return ownedValue(owned, "reanimation") ?? null;
 }
 
 export function hauntDurationMs(owned: readonly UpgradeId[]): number | null {
@@ -2216,6 +2285,18 @@ export function hyperspeedActive(state: RunUpgrades): boolean {
   return state.hyperspeedRemainingMs > 0;
 }
 
+export function titheActive(state: RunUpgrades): boolean {
+  return state.titheRemainingMs > 0;
+}
+
+export function titheSpeedMultiplier(state: RunUpgrades, owned: readonly UpgradeId[]): number {
+  return titheActive(state) ? (ownedValue(owned, "titheSpeedMul") ?? 1) : 1;
+}
+
+export function titheStreakWeight(state: RunUpgrades, owned: readonly UpgradeId[]): number {
+  return titheActive(state) ? (ownedValue(owned, "titheStreakWeight") ?? 1) : 1;
+}
+
 export function ghostHarvestActive(state: RunUpgrades): boolean {
   return state.ghostHarvestRemainingMs > 0;
 }
@@ -2254,6 +2335,17 @@ export function providesShields(owned: readonly UpgradeId[]): boolean {
 
 export function shieldBreakOwned(owned: readonly UpgradeId[]): boolean {
   return ownedValue(owned, "shieldBreak") === true;
+}
+
+export function reactiveArmorOwned(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "reactiveArmor") === true;
+}
+
+export function reactiveArmorRadiusTiles(owned: readonly UpgradeId[]): number | null {
+  if (!reactiveArmorOwned(owned)) {
+    return null;
+  }
+  return ownedValue(owned, "reactiveArmorRadiusTiles") ?? null;
 }
 
 export function shieldOverflow(state: RunUpgrades, count: number): number {
