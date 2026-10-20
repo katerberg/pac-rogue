@@ -1734,18 +1734,11 @@ describe("LearnSim upgrade demos", () => {
         expect(inHouse(ghost)).toBe(true);
         expect(worldToRow(Position.y[ghost]!)).toBeGreaterThan(exit.row);
         let released = false;
-        for (let t = 0; t < 12_000 && !released; t += FRAME_MS) {
-          sim.step(held("left"), FRAME_MS);
+        for (let t = 0; t < 5_000 && !released; t += FRAME_MS) {
+          sim.step(NO_KEYS_HELD, FRAME_MS);
           released = !inHouse(ghost);
         }
         expect(released).toBe(true);
-      });
-
-      it("does not release before Maze-Man moves", () => {
-        const { sim, player } = setup("powerPelletGhostRecall");
-        chomp(sim, player);
-        runMs(sim, 6_000);
-        expect(inHouse(sim.ghostEid!)).toBe(true);
       });
 
       it("Plus recalls the two nearest ghosts", () => {

@@ -34,7 +34,7 @@ LEARN feeds its `RunUpgrades` into the same domain/system helpers as `PlaySim`. 
 
 Known simplifications (everything else is a reuse of play code):
 
-- **Ghost Recall (+):** the real recall seats the ghost in the house; the real release rules free it once Maze-Man moves (`learnRecall.ts`).
+- **Ghost Recall (+):** the real recall seats the ghost in the house; the real release rules free it on the house timer (`learnRecall.ts`), matching Play’s already-running board clock.
 - **Pellet Surge, Lazy Looper:** on-toggle half only.
 - **Life, death and Quarter upgrades:** shown through the demo catch.
 - **Fruit Fecundity / Feast (+):** replace the always-present fruit with the real `tickFruitPresence` schedule.
