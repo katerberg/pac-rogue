@@ -1077,6 +1077,32 @@ const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
   UPGRADE_DEFS.map((def) => [def.id, def]),
 );
 
+export function upgradeLabelAlias(label: string): string {
+  const words = label
+    .replace(/[^a-zA-Z0-9\s]+/g, "")
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+  return words
+    .map((word, index) =>
+      index === 0
+        ? word.toLowerCase()
+        : `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`,
+    )
+    .join("");
+}
+
+const UPGRADE_ALIAS_TO_BASE: ReadonlyMap<string, BaseUpgradeId> = (() => {
+  const map = new Map<string, BaseUpgradeId>();
+  for (const def of BASE_UPGRADE_DEFS) {
+    const key = upgradeLabelAlias(def.label).toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, def.id);
+    }
+  }
+  return map;
+})();
+
 export const ALL_UPGRADE_IDS: readonly BaseUpgradeId[] = BASE_UPGRADE_DEFS.map((def) => def.id);
 
 export function baseIdOf(id: UpgradeId): BaseUpgradeId {
@@ -1299,7 +1325,23 @@ export function parseUpgradeId(raw: string | null): UpgradeId | null {
   if (raw === null) {
     return null;
   }
-  return UPGRADE_BY_ID.has(raw as UpgradeId) ? (raw as UpgradeId) : null;
+  if (UPGRADE_BY_ID.has(raw as UpgradeId)) {
+    return raw as UpgradeId;
+  }
+  const plus = /plus$/i.test(raw);
+  const baseRaw = plus ? raw.slice(0, -4) : raw;
+  if (baseRaw.length === 0) {
+    return null;
+  }
+  const baseId = UPGRADE_ALIAS_TO_BASE.get(baseRaw.toLowerCase());
+  if (baseId === undefined) {
+    return null;
+  }
+  if (!plus) {
+    return baseId;
+  }
+  const enhanced = enhancedIdOf(baseId);
+  return UPGRADE_BY_ID.has(enhanced) ? enhanced : null;
 }
 
 export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
