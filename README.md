@@ -53,7 +53,7 @@ Append query params to any local URL (`5173` / `5174` / preview ports). Invalid 
 | `customMaze` | `1` | Local testing: before boot, shows a text box pre-filled with the last pasted maze (or a generated one) to paste ASCII in the maze-file syntax; the pasted board is the first board of the run (a bad paste falls back to `maze2` with a console warning). Persists in localStorage (`pac-rogue.custom-maze.v1`). Disables high-score saving. |
 | `sound` | `1` | On agent ports only: opt in to audio (muted by default). Human ports keep sound on. |
 
-Every upgrade id (`ALL_UPGRADE_IDS`, see [docs/upgrades.md](./docs/upgrades.md#upgrade-table)) is accepted by `enableUpgrade` / `forceUpgrade`, and every id also accepts a `Plus` suffix for its enhanced form (e.g. `?enableUpgrade=passiveAfterburnerPlus`).
+Every upgrade id (`ALL_UPGRADE_IDS` in [`src/domain/upgrades.ts`](./src/domain/upgrades.ts)) is accepted by `enableUpgrade` / `forceUpgrade`, and every id also accepts a `Plus` suffix for its enhanced form (e.g. `?enableUpgrade=passiveAfterburnerPlus`).
 
 ```text
 http://127.0.0.1:5174/?play=1&level=2&seed=demo&enableUpgrade=powerPelletFreeze
