@@ -47,12 +47,15 @@ export function ghostHornRects(
   const scale = displaySize / GHOST_ART_SIZE_PX;
   const originX = cx - displaySize / 2;
   const originY = cy - displaySize / 2;
+  // Whole art pixels only, so an eased lean or lift never lands between art pixels.
+  const tipShift = Math.round(lean * HORN_TIP_SHIFT_ART);
+  const tipLift = Math.round(lift);
   return HORN_LEFT_EDGES_ART.flatMap((left) => [
     {
-      x: originX + (left + lean * HORN_TIP_SHIFT_ART) * scale,
-      y: originY + lift * scale,
+      x: originX + (left + tipShift) * scale,
+      y: originY + tipLift * scale,
       w: HORN_TIP_WIDTH_ART * scale,
-      h: Math.max(0, 1 - lift) * scale,
+      h: Math.max(0, 1 - tipLift) * scale,
     },
     { x: originX + left * scale, y: originY + scale, w: HORN_BASE_WIDTH_ART * scale, h: scale },
   ]);
