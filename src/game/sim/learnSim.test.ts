@@ -585,6 +585,17 @@ describe("LearnSim upgrade demos", () => {
     );
   });
 
+  it("Reactive Armor sends the contacting ghost home when a shield breaks", () => {
+    const { sim, player } = setup("passiveShieldPellets", "passiveReactiveArmor");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    const ghost = sim.ghostEid!;
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    expect(sim.statusText()).toContain("SHIELDS 0/1");
+  });
+
   it("Shield Break+ fires pickup effects when the bank is full", () => {
     const { sim, player } = setup(
       "passiveShieldPellets",
