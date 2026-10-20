@@ -28,6 +28,14 @@ describe("streakPops", () => {
     ]);
   });
 
+  it("maps a weighted streak back to the pellet that completed the milestone", () => {
+    expect(streakPops(4, 6, STREAK_ENGINE_EVERY, 2)).toEqual([{ value: 5, cellIndex: 0 }]);
+    expect(streakPops(0, 10, STREAK_ENGINE_EVERY, 2)).toEqual([
+      { value: 5, cellIndex: 2 },
+      { value: 10, cellIndex: 4 },
+    ]);
+  });
+
   it("cycles 5 through 30, then starts again at 5", () => {
     const values = streakPops(0, 65, STREAK_ENGINE_EVERY).map((pop) => pop.value);
     expect(values.slice(0, 6)).toEqual([5, 10, 15, 20, 25, 30]);

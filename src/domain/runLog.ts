@@ -25,6 +25,7 @@ export type ActivationKind =
   | "speedBurst"
   | "hyperspeed"
   | "ghostHarvest"
+  | "tithe"
   | "defyDeath"
   | "collectExtra"
   | "pelletSurge"

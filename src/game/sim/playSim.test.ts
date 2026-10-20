@@ -70,6 +70,9 @@ import {
   NEAR_MISS_ENHANCED_CHARGE,
   SHIELD_BREAK_INVULN_MS,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
+  TITHE_ENHANCED_MS,
+  TITHE_MS,
+  TITHE_SPEED_MUL,
   STARTING_UPGRADE_POOL,
   CORNER_TELEPORT_HOLD_MS,
   ALL_UPGRADE_IDS,
@@ -5343,6 +5346,102 @@ describe("Tunnel Sanctuary", () => {
     Input.direction[ghost] = DIRECTION.right;
     runFrames(sim, 30);
     expect(Position.x[ghost]!).toBeGreaterThan(cellCenterX(0) + 2);
+  });
+});
+
+describe("Tithe", () => {
+  function startTithe(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades }, "tithe1");
+  }
+
+  function chompPower(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function settledSpeed(sim: PlaySim): number {
+    runUntil(sim, () => sim.snapshot().timers.eatDragMs === 0, 240);
+    runFrames(sim, 1);
+    return Speed.px[playerEid(sim)]!;
+  }
+
+  function eatRegular(sim: PlaySim, count: number): void {
+    for (let eaten = 0; eaten < count; eaten += 1) {
+      const eid = regularPelletEids(sim)[0]!;
+      teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+      runFrames(sim, 1);
+    }
+  }
+
+  function streakGainedByThree(sim: PlaySim): number {
+    const before = sim.snapshot().pennies.streak;
+    eatRegular(sim, 3);
+    return sim.snapshot().pennies.streak - before;
+  }
+
+  it("slows Maze-Man to 0.9x and counts each pellet twice for the window", () => {
+    const sim = startTithe(["powerPelletTithe"]);
+    runFrames(sim, 1);
+    const baseSpeed = Speed.px[playerEid(sim)]!;
+    expect(streakGainedByThree(sim)).toBe(3);
+    chompPower(sim);
+    expect(sim.snapshot().timers.titheMs).toBeGreaterThan(0);
+    expect(settledSpeed(sim)).toBeCloseTo(baseSpeed * TITHE_SPEED_MUL);
+    expect(streakGainedByThree(sim)).toBe(6);
+  });
+
+  it("returns to normal speed and streak once the window ends", () => {
+    const sim = startTithe(["powerPelletTithe"]);
+    runFrames(sim, 1);
+    const baseSpeed = Speed.px[playerEid(sim)]!;
+    chompPower(sim);
+    runUntil(sim, () => sim.snapshot().timers.titheMs === 0, 600);
+    runFrames(sim, 1);
+    expect(Speed.px[playerEid(sim)]!).toBeCloseTo(baseSpeed);
+    expect(streakGainedByThree(sim)).toBe(3);
+  });
+
+  it("lasts 5 seconds, or 8 when enhanced", () => {
+    const base = startTithe(["powerPelletTithe"]);
+    chompPower(base);
+    expect(base.snapshot().timers.titheMs).toBeGreaterThan(TITHE_MS - 100);
+    expect(base.snapshot().timers.titheMs).toBeLessThanOrEqual(TITHE_MS);
+
+    const plus = startTithe(["powerPelletTithePlus"]);
+    chompPower(plus);
+    expect(plus.snapshot().timers.titheMs).toBeGreaterThan(TITHE_ENHANCED_MS - 100);
+    expect(plus.snapshot().timers.titheMs).toBeLessThanOrEqual(TITHE_ENHANCED_MS);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startTithe([]);
+    runFrames(sim, 1);
+    const baseSpeed = Speed.px[playerEid(sim)]!;
+    chompPower(sim);
+    expect(sim.snapshot().timers.titheMs).toBe(0);
+    expect(settledSpeed(sim)).toBeCloseTo(baseSpeed);
+    expect(streakGainedByThree(sim)).toBe(3);
+  });
+
+  it("doubles the Streak Engine count and still pops on real pellets", () => {
+    const sim = startTithe(["powerPelletTithe", "passiveStreakEngine", "powerPelletSpeedBurst"]);
+    chompPower(sim);
+    const events: SimEvent[] = [];
+    while (sim.snapshot().pennies.streak < 30) {
+      const eid = regularPelletEids(sim)[0]!;
+      teleportPlayer(sim, Position.x[eid]!, Position.y[eid]!);
+      events.push(...runFrames(sim, 1));
+    }
+    const pops = events.flatMap((event) => (event.type === "streakPop" ? [event.value] : []));
+    expect(pops).toEqual([5, 10, 15, 20, 25, 30]);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+
+  it("is doubled by Overcharge", () => {
+    const sim = startTithe(["powerPelletTithe", "passiveOvercharge"]);
+    chompPower(sim);
+    expect(sim.snapshot().timers.titheMs).toBeGreaterThan(2 * TITHE_MS - 100);
   });
 });
 

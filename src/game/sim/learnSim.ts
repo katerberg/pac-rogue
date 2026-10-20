@@ -88,6 +88,9 @@ import {
   pelletSurgeCount,
   lazyLooperRings,
   speedBurstMultiplier,
+  tickTithe,
+  titheSpeedMultiplier,
+  titheStreakWeight,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   applyShieldBreakInvuln,
@@ -483,6 +486,7 @@ export class LearnSim {
       this.hyperspeedDirection = null;
     }
     this.learnUpgrades = tickGhostHarvest(this.learnUpgrades, delta);
+    this.learnUpgrades = tickTithe(this.learnUpgrades, delta);
     this.learnUpgrades = tickDefyDeath(this.learnUpgrades, delta);
     this.learnUpgrades = tickWallDrop(this.learnUpgrades, delta);
     this.tickChaff(delta);
@@ -519,8 +523,7 @@ export class LearnSim {
         ? 0
         : levelSpeedMul * hyperspeedMultiplier(this.learnUpgrades.owned);
     const programmerPhase = this.learnUpgrades.programmer?.phase ?? null;
-    applyPlayerSpeed(
-      this.world,
+    const rawPlayerSpeedMul =
       programmerPhase === "recording" || warping
         ? 0
         : programmerPhase === "running"
@@ -533,7 +536,10 @@ export class LearnSim {
               (speedBurstActive(this.learnUpgrades)
                 ? speedBurstMultiplier(this.learnUpgrades.owned)
                 : 1) *
-              this.turnTuning.speedMultiplier(this.learnUpgrades.owned),
+              this.turnTuning.speedMultiplier(this.learnUpgrades.owned);
+    applyPlayerSpeed(
+      this.world,
+      rawPlayerSpeedMul * titheSpeedMultiplier(this.learnUpgrades, this.learnUpgrades.owned),
     );
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
@@ -1005,8 +1011,9 @@ export class LearnSim {
       return;
     }
     const prevStreak = this.streakBar.streak;
-    this.streakBar = applyStreakPellets(this.streakBar, cells).bar;
-    for (const pop of streakPops(prevStreak, this.streakBar.streak, every)) {
+    const weight = titheStreakWeight(this.learnUpgrades, this.learnUpgrades.owned);
+    this.streakBar = applyStreakPellets(this.streakBar, cells, weight).bar;
+    for (const pop of streakPops(prevStreak, this.streakBar.streak, every, weight)) {
       const cell = cells[pop.cellIndex]!;
       this.events.push({
         type: "streakPop",
@@ -1783,6 +1790,7 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
       ? state.hyperspeedShieldRemainingMs
       : 0,
     ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
+    titheRemainingMs: hasField("titheMs") ? state.titheRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
     shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],

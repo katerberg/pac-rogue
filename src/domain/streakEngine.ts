@@ -11,13 +11,21 @@ export function streakEngineFires(prevStreak: number, nextStreak: number, every:
   return Math.floor(nextStreak / every) - Math.floor(prevStreak / every);
 }
 
-export function streakPops(prevStreak: number, nextStreak: number, cycle: number): StreakPop[] {
+export function streakPops(
+  prevStreak: number,
+  nextStreak: number,
+  cycle: number,
+  weight = 1,
+): StreakPop[] {
   const pops: StreakPop[] = [];
   const from = Math.floor(prevStreak / PENNY_STREAK_TIER_SIZE) + 1;
   const to = Math.floor(nextStreak / PENNY_STREAK_TIER_SIZE);
   for (let milestone = from; milestone <= to; milestone += 1) {
     const count = milestone * PENNY_STREAK_TIER_SIZE;
-    pops.push({ value: ((count - 1) % cycle) + 1, cellIndex: count - prevStreak - 1 });
+    pops.push({
+      value: ((count - 1) % cycle) + 1,
+      cellIndex: Math.floor((count - prevStreak - 1) / weight),
+    });
   }
   return pops;
 }
