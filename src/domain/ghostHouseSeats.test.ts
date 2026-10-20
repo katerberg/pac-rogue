@@ -10,6 +10,7 @@ import {
 import {
   activateAsciiLayout,
   activateLayout,
+  actorDisplaySize,
   cellCenterX,
   cellCenterY,
   getActiveLayout,
@@ -50,6 +51,9 @@ describe("ghostHouseSeats", () => {
     expect(seats).toHaveLength(3);
     expect(seats[0]!.x).toBeLessThan(seats[1]!.x);
     expect(seats[1]!.x).toBeLessThan(seats[2]!.x);
+    for (let i = 1; i < seats.length; i += 1) {
+      expect(seats[i]!.x - seats[i - 1]!.x).toBeGreaterThanOrEqual(actorDisplaySize());
+    }
   });
 
   it("fits a single seat in a 2-wide house spawn row", () => {

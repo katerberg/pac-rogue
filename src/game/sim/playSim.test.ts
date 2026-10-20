@@ -7344,6 +7344,16 @@ describe("power pellet break VFX", () => {
     expect(gap).toBeGreaterThanOrEqual(actorDisplaySize());
   });
 
+  it("trims a full roster on mazeSmall to the house seat cap without stacking", () => {
+    const sim = startSim({ level: 3, maze: "mazeSmall", roster: 0 }, "house-cap");
+    const ghosts = [...sim.snapshot().ghosts].sort((a, b) => a.x - b.x);
+    expect(ghosts).toHaveLength(3);
+    expect(ghosts.every((g) => g.phase === "inHouse")).toBe(true);
+    for (let i = 1; i < ghosts.length; i += 1) {
+      expect(ghosts[i]!.x - ghosts[i - 1]!.x).toBeGreaterThanOrEqual(actorDisplaySize());
+    }
+  });
+
   it("shows a notice instead of the starting upgrade when the pasted maze fails", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     try {
