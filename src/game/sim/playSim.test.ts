@@ -7272,11 +7272,17 @@ describe("power pellet break VFX", () => {
 
   it("plays a custom maze whose ghost house is only 2x2", () => {
     const ascii = tinyHouseMazeAscii();
-    const sim = startSim({ mazeAscii: ascii });
+    const sim = startSim({
+      mazeAscii: ascii,
+      level: 3,
+      ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde],
+    });
     expect(getActiveLayout().ascii).toBe(ascii);
     expect(sim.snapshot().layout).toBe("custom");
     expect(getActiveLayout().ghostHouseSpawn).toEqual({ col: 10, row: 6 });
-    expect(sim.snapshot().ghosts.length).toBeGreaterThan(0);
+    runFrames(sim, 30, { keys: held("up") });
+    expect(sim.snapshot().ghosts).toHaveLength(4);
+    expect(sim.snapshot().ghosts.map((g) => g.phase)).not.toContain("inHouse");
   });
 
   it("shows a notice instead of the starting upgrade when the pasted maze fails", () => {
