@@ -24,10 +24,10 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `powerPelletSpeedBurst` | Speed Burst | speed | Power pellet spikes your pace for a few seconds. | Power pellet spikes your pace hard for a few seconds. |
 | `powerPelletInvuln` | Ghost Proof | protection | Power pellet lets you pass through ghosts for 4s. | Power pellet lets you pass through ghosts for 5s (shortening toward ~3.8s by level 5). |
 | `powerPelletGhostHarvester` | Ghost Harvester | automation | Power pellets make ghosts eat pellets for you for 5 seconds. | Power pellets make ghosts eat pellets for you for 8 seconds. |
-| `fruitPowerPellet` | Fruit Power (rare) | harvest | Bonus fruit fires a random one of your power-pellet effects. | Bonus fruit fires every power-pellet effect you own. |
-| `fruitQuarterBounty` | Quarter Bounty | harvest | Bonus fruit pays a Quarter instead of charging the bonus bar. | Bonus fruit pays two Quarters. |
-| `fruitFecundity` | Fruit Fecundity | harvest | Bonus fruit lingers twice as long. | Bonus fruit waits until the level ends, and uncollected ones pile up side by side. |
-| `fruitFeast` | Fruit Feast | harvest | Bonus fruit appears three times per level, each after the last is gone. | Bonus fruit appears four times per level, each after the last is gone. |
+| `fruitPowerPellet` | Fruit Power (rare) | harvest | Fruit fires a random one of your power-pellet effects. | Fruit fires every power-pellet effect you own. |
+| `fruitQuarterBounty` | Quarter Bounty | harvest | Fruit pays a Quarter instead of adding pennies. | Fruit pays two Quarters. |
+| `fruitFecundity` | Fruit Fecundity | harvest | Fruit lingers twice as long. | Fruit waits until the level ends, and uncollected ones pile up side by side. |
+| `fruitFeast` | Fruit Feast | harvest | Fruit appears three times per level, each after the last is gone. | Fruit appears four times per level, each after the last is gone. |
 | `passiveDeathsHarvest` | Death's Harvest | death | Dying harvests nearby pellets. | Dying harvests pellets within ten tiles. |
 | `passiveOvercharge` | Overcharge (rare) | neutral | Doubles the duration of every other power pellet timer you're running. | Triples the duration of every other power pellet timer you're running. |
 | `passiveTunnelDash` | Tunnel Dash | speed | Tunnels move you the instant you touch them. | Tunnels move you the instant you touch them, and ghosts crawl through them. |
@@ -46,9 +46,9 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveAutomationSpecialist` | Automation Specialist | automation | Own 3 other Automation upgrades and every Automation upgrade is enhanced. | Every Automation upgrade you own is enhanced. |
 | `passiveProtectionSpecialist` | Protection Specialist | protection | Own 3 other Protection upgrades and every Protection upgrade is enhanced. | Every Protection upgrade you own is enhanced. |
 | `passiveDisruptionSpecialist` | Disruption Specialist | disruption | Own 3 other Disruption upgrades and every Disruption upgrade is enhanced. | Every Disruption upgrade you own is enhanced. |
-| `passiveMartyr` | Martyr (rare) | death | Dying scatters the ghosts to their corners. You respawn where you fell. | Dying sends every ghost home. You respawn where you fell. |
+| `passiveReanimation` | Reanimation | death | You respawn where you fell. | You respawn next to a power pellet if available. |
 | `passiveInterest` | Interest | automation | Entering a store pays 1 Quarter for every 3 you hold. | Entering a store pays 1 Quarter for every 2 you hold. |
-| `passiveNearMiss` | Near Miss | protection | Ghosts that brush past without catching you charge the BONUS bar. | Ghosts that brush past without catching you charge the BONUS bar double. |
+| `passiveNearMiss` | Near Miss | protection | Ghosts that brush past without catching you earn pennies. | Ghosts that brush past without catching you earn double pennies. |
 | `passiveHaunting` | Haunting | death | The ghost that last caught you stays caged in the ghost house for 10 seconds. | The ghost that last caught you stays caged in the ghost house for the level. |
 | `passiveTunnelSanctuary` | Tunnel Sanctuary | protection | Leaving a tunnel makes you ghost-proof for a second, but ghosts speed through them. | Leaving a tunnel makes you ghost-proof for a second, and ghosts can't use tunnels. |
 | `passiveStreakEngine` | Streak Engine (rare) | harvest | Every 30-pellet streak fires your power-pellet effects. | Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof. |
@@ -57,9 +57,10 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveStartingShield` | Starting Shield | protection | Start every level with a shield. A ghost hit breaks it. | Start every level with 2 shields. Each ghost hit breaks one. |
 | `powerPelletHyperspeed` | Hyperspeed (rare) | speed | Power pellet: for 2s, run at 10x speed. Every turn costs a beat. | Power pellet: for 3s, run at 10x speed. A shield blocks one catch for 2s. |
 | `passiveShieldBreak` | Shield Break (rare) | protection | When a shield breaks, fire all power pellet effects. Power pellet effects no longer trigger at pickup. | When a shield breaks, fire all power pellet effects. Getting a shield at your maximum fires them too. |
-| `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a bonus fruit, if none is out. | Power pellet: spawns a bonus fruit even if there are others. |
+| `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a fruit, if none is out. | Power pellet: spawns an extra fruit even if there are others. |
 | `powerPelletWallDrop` | Wall Drop | protection | Power pellet: your next reversal drops a wall behind you for 8s. | Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it. |
 | `powerPelletProgrammer` | Programmer (rare) | automation | Power pellet: stop and program 5 turns, then blast through them at hyperspeed. | Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more. |
 | `passiveInheritance` | Inheritance | death | Clear a level: gain a Quarter for each empty life slot. | Clear a level: gain a Quarter for each time you died on it. |
 | `powerPelletMirror` | Mirror (rare) | harvest | Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you. If you touch your twin it pops. | Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin. If you touch your twin it pops. |
 | `powerPelletChaff` | Chaff | automation | Power pellet: drops a fake you in the center. Ghosts chase it until they touch it. | Power pellet: drops a fake you in each corner. Ghosts chase the nearest one. |
+| `passiveReactiveArmor` | Reactive Armor | protection | When a shield breaks, the ghost that touched you is sent to the ghost house. | When a shield breaks, all nearby ghosts are sent to the ghost house. |

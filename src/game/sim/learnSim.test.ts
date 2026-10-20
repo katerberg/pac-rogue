@@ -1,4 +1,5 @@
 import { decoyTile } from "../../domain/chaff";
+import { formatPennies } from "../../domain/pennies";
 import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
@@ -430,14 +431,16 @@ describe("LearnSim upgrade demos", () => {
     }
   }
 
-  it("Near Miss charges the BONUS bar when the ghost touches", () => {
+  it("Near Miss earns pennies when the ghost touches", () => {
     const { sim, player } = setup("passiveNearMiss");
     const ghost = sim.ghostEid!;
     GhostPhase.value[ghost] = GHOST_PHASE.active;
     const at = posOf(ghost);
     moveTo(player, { x: at.x + 0.5 * TILE_SIZE, y: at.y });
-    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([`+${NEAR_MISS_CHARGE} BONUS`]);
-    expect(sim.statusText()).toContain(`BONUS ${NEAR_MISS_CHARGE}/300`);
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([
+      `+${formatPennies(NEAR_MISS_CHARGE)}`,
+    ]);
+    expect(sim.statusText()).toContain("PENNIES 1/24");
     expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([]);
   });
 
@@ -512,8 +515,8 @@ describe("LearnSim upgrade demos", () => {
 
   it("fruit pays bonus charge without Quarter Bounty", () => {
     const { sim, player } = setup("passiveDeathsBounty");
-    expect(popups(eatFruit(sim, player))).toEqual(["+150 BONUS"]);
-    expect(sim.statusText()).toContain("BONUS 150/300");
+    expect(popups(eatFruit(sim, player))).toEqual(["+12 PENNIES"]);
+    expect(sim.statusText()).toContain("PENNIES 12/24");
   });
 
   it("a ghost touch stays harmless without a death-side upgrade", () => {
@@ -539,12 +542,12 @@ describe("LearnSim upgrade demos", () => {
     expect(query(sim.world, [Pellet]).length).toBeLessThan(before);
   });
 
-  it("Death's Bounty fills the bonus bar with decaying payouts", () => {
+  it("Death's Bounty earns pennies with decaying payouts", () => {
     const { sim, player } = setup("passiveDeathsBounty");
-    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST\n+300 BONUS"]);
+    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST\n+24 PENNIES"]);
     expect(sim.statusText()).toContain("QUARTERS 1");
     runMs(sim, 1_600);
-    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST\n+240 BONUS"]);
+    expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST\n+19.2 PENNIES"]);
   });
 
   it("an armed Defy Death saves the life and is consumed", () => {
@@ -580,6 +583,17 @@ describe("LearnSim upgrade demos", () => {
     expect(after.type === "draw" && after.options.playerInvulnRemainingMs).toBeLessThanOrEqual(
       1000,
     );
+  });
+
+  it("Reactive Armor sends the contacting ghost home when a shield breaks", () => {
+    const { sim, player } = setup("passiveShieldPellets", "passiveReactiveArmor");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    const ghost = sim.ghostEid!;
+    expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    expect(sim.statusText()).toContain("SHIELDS 0/1");
   });
 
   it("Shield Break+ fires pickup effects when the bank is full", () => {
@@ -692,12 +706,12 @@ describe("LearnSim upgrade demos", () => {
     return sim.step(NO_KEYS_HELD, FRAME_MS);
   }
 
-  it("Hunter frightens the ghost; eating it pays BONUS and seats it in the house briefly", () => {
+  it("Hunter frightens the ghost; eating it pays pennies and seats it in the house briefly", () => {
     const { sim, player } = setup("powerPelletHunter");
     const ghost = sim.ghostEid!;
     const draw = chompPower(sim, player).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.frightenedGhosts?.eids).toEqual([ghost]);
-    expect(popups(catchByGhost(sim, player))).toEqual(["+75 BONUS"]);
+    expect(popups(catchByGhost(sim, player))).toEqual(["+6 PENNIES"]);
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
     const spawn = ghostHouseSpawnCenter();
     const exit = getActiveLayout().ghostHouseExit;

@@ -1,17 +1,20 @@
 import Phaser from "phaser";
 import { parseQueryParams } from "../../domain/queryParams";
+import { PENNIES_PER_QUARTER } from "../../domain/pennies";
 import {
-  barRects,
-  BONUS_ART_SCALE,
-  BONUS_BAR_ART_W,
-  bonusBumpFx,
-  bumpBarFx,
-  createBarFx,
-  fillBarFx,
-  slowFillBarFx,
-  stepBarFx,
-  type BarFxState,
-} from "../../domain/bonusBarFx";
+  bumpPennyFx,
+  createPennyFx,
+  fillPennyFx,
+  pennyBacklog,
+  pennyBumpFx,
+  pennyCollapsing,
+  quartersShownDuringCollapse,
+  pennyLooks,
+  slowPennyFx,
+  stepPennyFx,
+  type PennyFxState,
+  type PennyGeometry,
+} from "../../domain/penniesFx";
 import { playTurnSparks } from "./turnSparks";
 import { playChaffBurst } from "./chaffBurst";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
@@ -35,6 +38,7 @@ import {
   quarterHudIcons,
 } from "../../domain/moneyTalks";
 import { loadCustomMaze } from "../storage/customMazeStorage";
+import { preferredStartingUpgrade } from "../../domain/newPlayer";
 import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
@@ -56,13 +60,14 @@ import { clearDebugTuning, loadDebugTuning, saveDebugTuning } from "../storage/d
 import { loadLastRoster, saveLastRoster } from "../storage/lastRosterStorage";
 import { saveRun } from "../storage/runHistoryStorage";
 import { drainRunUploads } from "../net/apiClient";
-import { newRunLogMeta, saveRunLog } from "../storage/runLogStorage";
+import { newRunLogMeta, saveRunLog, storedRunCount } from "../storage/runLogStorage";
 import { loadSeenRecord, saveSeenRecord } from "../storage/seenRecordStorage";
 import type { HeldKeys } from "../systems/heldKeys";
 import { createHeldKeysReader } from "../systems/playerInput";
 import {
   addDotManIcon,
   addDollarIcon,
+  addPennyIcon,
   addQuarterIcon,
   createRender,
   preloadPlayArt,
@@ -105,9 +110,8 @@ const BOSS_BANNER_START_SCALE = 3;
 const BOSS_BANNER_COLOR = 0xff3b3b;
 const BOSS_SHAKE_MS = 400;
 const BOSS_SHAKE_INTENSITY = 0.02;
-const BONUS_BAR_X = PLAYFIELD_WIDTH / 2 - (BONUS_BAR_ART_W * BONUS_ART_SCALE) / 2;
-const BONUS_BAR_Y = 8;
-const BONUS_LABEL_GAP = 8;
+const PENNY_ROW_Y = 8;
+const PENNY_STEP_TRIM = 2;
 const TIME_BONUS_TINT = 0xffd800;
 const CHROME_SHAKE_STEP_MS = 90;
 const CHROME_SHAKE_OFFSETS: readonly (readonly [number, number])[] = [
@@ -136,8 +140,8 @@ export class PlayScene extends Phaser.Scene {
   private sideHud!: Phaser.GameObjects.Container;
   private knobsPanel: KnobsPanel | null = null;
   private chromeShake: Phaser.Time.TimerEvent | null = null;
-  private bonusGfx!: Phaser.GameObjects.Graphics;
-  private barFx!: BarFxState;
+  private pennyIcons: Phaser.GameObjects.Image[] = [];
+  private pennyFx!: PennyFxState;
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
@@ -194,6 +198,7 @@ export class PlayScene extends Phaser.Scene {
       options.jumpToSpinner = false;
       options.store = null;
     }
+    options.forceStartingUpgrade = preferredStartingUpgrade(storedRunCount());
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
     const runLogMeta = newRunLogMeta(params);
     const seed =
@@ -229,12 +234,9 @@ export class PlayScene extends Phaser.Scene {
 
     this.upgradeIcons = [];
 
-    const bonusLabel = addPixelText(this, 0, 0, "BONUS", HUD_FONT_SIZE);
-    placePixelText(bonusLabel, BONUS_BAR_X - BONUS_LABEL_GAP, BONUS_BAR_Y, 1, 0);
-    this.bonusGfx = this.add.graphics({ x: BONUS_BAR_X, y: BONUS_BAR_Y });
-    this.barFx = createBarFx(this.sim.hud().bonusCharge);
+    this.pennyIcons = [];
+    this.pennyFx = createPennyFx(this.sim.hud().penniesCharge);
     this.sideHud.add(this.timerText);
-    this.chrome.add([bonusLabel, this.bonusGfx]);
     this.lifeIcons = [];
     this.powerPelletBreakFx?.clear();
     this.powerPelletBreakFx = createPowerPelletBreakFx(this);
@@ -391,8 +393,7 @@ export class PlayScene extends Phaser.Scene {
       setMusicDuck(this, "gameplayMusic", this.musicDuck);
       this.musicDuckApplied = this.musicDuck;
     }
-    this.barFx = stepBarFx(this.barFx, delta, this.sim.hud().bonusCharge);
-    this.drawBonusBar();
+    this.stepPennies(delta);
     this.runEndMenu?.tick(this.sim.runEndMenuArmed());
     this.replayPlayer?.tick(delta);
     this.knobsPanel?.sync(this.sim.currentLevel());
@@ -413,6 +414,13 @@ export class PlayScene extends Phaser.Scene {
     return {
       ...this.sim.snapshot(),
       playerSpriteRotation: this.playRender.playerSpriteRotation(),
+      pennyRow: {
+        shown: this.pennyFx.row.length,
+        collapsing: pennyCollapsing(this.pennyFx),
+        landed: this.pennyFx.landed,
+        quartersShown: this.shownQuarters(),
+        backlog: pennyBacklog(this.pennyFx, this.sim.hud().penniesCharge),
+      },
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
@@ -541,11 +549,11 @@ export class PlayScene extends Phaser.Scene {
       case "walletCoins":
         this.drawWalletCoins(event.spend);
         break;
-      case "bonus":
-        this.applyBonusFx(event.tier, event.filled);
+      case "pennies":
+        this.applyPenniesFx(event.tier, event.filled);
         break;
       case "fruitBonus":
-        this.barFx = slowFillBarFx(this.barFx);
+        this.pennyFx = slowPennyFx(this.pennyFx);
         break;
       case "upgrades":
         this.refreshUpgradesHud();
@@ -558,7 +566,7 @@ export class PlayScene extends Phaser.Scene {
       case "timerVisible":
         this.timerText.setVisible(event.visible);
         break;
-      case "timeBonus":
+      case "timePennies":
         if (event.active) {
           this.timerText.setTint(TIME_BONUS_TINT);
         } else {
@@ -871,7 +879,7 @@ export class PlayScene extends Phaser.Scene {
     const size = pelletDisplaySize();
     // Knobs panels cover the left gutter — park icons at the maze column so they stay visible.
     const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
-    quarterHudIcons(this.sim.hud().quarters).forEach((kind, slot) => {
+    quarterHudIcons(this.shownQuarters()).forEach((kind, slot) => {
       const { x, y } = quarterHudIconPosition(slot, size, left);
       // Stay on chrome (not sideHud) so they remain visible with ?knobs=1.
       const icon = (kind === "dollar" ? addDollarIcon : addQuarterIcon)(this, x, y, size);
@@ -882,6 +890,17 @@ export class PlayScene extends Phaser.Scene {
     if (pulse && newest !== undefined) {
       this.pulseHudIcon(newest);
     }
+  }
+
+  private shownQuarters(): number {
+    return quartersShownDuringCollapse(this.sim.hud().quarters, this.pennyFx);
+  }
+
+  private nextQuarterPosition(): { x: number; y: number } {
+    const size = pelletDisplaySize();
+    const left = this.knobsPanel !== null ? MAZE_OFFSET_X + 4 : undefined;
+    const slot = quarterHudIcons(this.shownQuarters() + 1).length - 1;
+    return quarterHudIconPosition(slot, size, left);
   }
 
   private drawWalletCoins(spend: MoneyTalksSpend | null): void {
@@ -904,22 +923,17 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private applyBonusFx(tier: number, filled: number): void {
+  private applyPenniesFx(tier: number, filled: number): void {
     if (tier > 0) {
-      const fx = bonusBumpFx(tier);
-      this.barFx = bumpBarFx(this.barFx, fx);
-      if (fx.kind === "punch" && fx.chromeShake) {
+      const fx = pennyBumpFx(tier);
+      this.pennyFx = bumpPennyFx(this.pennyFx, fx);
+      if (fx.chromeShake) {
         this.shakeChrome();
       }
     }
     if (filled > 0) {
-      this.barFx = fillBarFx(this.barFx, filled);
-      const newest = this.quarterIcons[this.quarterIcons.length - 1];
-      if (newest !== undefined) {
-        this.pulseHudIcon(newest);
-      }
-      playSfx(this, "pelletMunch");
-      playSfx(this, "pelletMunch2");
+      this.pennyFx = fillPennyFx(this.pennyFx, filled);
+      this.refreshQuartersHud(false);
     }
   }
 
@@ -939,17 +953,43 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private drawBonusBar(): void {
-    this.bonusGfx.clear();
-    for (const rect of barRects(this.barFx)) {
-      this.bonusGfx.fillStyle(rect.color, 1);
-      this.bonusGfx.fillRect(
-        rect.x * BONUS_ART_SCALE,
-        rect.y * BONUS_ART_SCALE,
-        rect.w * BONUS_ART_SCALE,
-        rect.h * BONUS_ART_SCALE,
-      );
+  private stepPennies(delta: number): void {
+    const landedBefore = this.pennyFx.landed;
+    this.pennyFx = stepPennyFx(this.pennyFx, delta, this.sim.hud().penniesCharge);
+    if (this.pennyFx.landed > landedBefore) {
+      this.refreshQuartersHud(true);
+      playSfx(this, "pelletMunch");
+      playSfx(this, "pelletMunch2");
     }
+    this.drawPennies();
+  }
+
+  private pennyGeometry(): PennyGeometry {
+    const size = pelletDisplaySize();
+    const step = size - PENNY_STEP_TRIM;
+    return {
+      x0: PLAYFIELD_WIDTH / 2 - (step * PENNIES_PER_QUARTER) / 2 + size / 2,
+      y: PENNY_ROW_Y + size / 2,
+      step,
+      size,
+      target: this.nextQuarterPosition(),
+    };
+  }
+
+  private drawPennies(): void {
+    const looks = pennyLooks(this.pennyFx, this.pennyGeometry());
+    while (this.pennyIcons.length < looks.length) {
+      const icon = addPennyIcon(this, 0, 0, pelletDisplaySize());
+      this.chrome.add(icon);
+      this.pennyIcons.push(icon);
+    }
+    this.pennyIcons.forEach((icon, i) => {
+      const look = looks[i];
+      icon.setVisible(look !== undefined);
+      if (look !== undefined) {
+        icon.setPosition(look.x, look.y).setDisplaySize(look.size, look.size).setAlpha(look.alpha);
+      }
+    });
   }
 
   public upgradeHudSlots(): { id: UpgradeId; x: number; y: number; size: number }[] {

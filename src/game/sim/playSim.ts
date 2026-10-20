@@ -9,24 +9,25 @@ import {
   type World,
 } from "bitecs";
 import {
-  addBonusCharge,
+  addPennyCharge,
   applyStreakPellets,
-  BONUS_BAR_MAX,
+  QUARTER_CHARGE,
+  penniesInCharge,
   breakStreak,
-  createBonusBar,
+  createPennyPurse,
   enterCell,
   FRUIT_BONUS_CHARGE,
   tickStreakIdle,
-  type BonusBar,
-  type BonusResult,
+  type PennyPurse,
+  type PennyResult,
   type Cell,
-} from "../../domain/bonusBar";
+} from "../../domain/pennies";
 import {
-  createTimeBonusDrain,
-  timeBonusPoints,
-  tickTimeBonusDrain,
-  type TimeBonusDrain,
-} from "../../domain/timeBonus";
+  createTimePennyDrain,
+  timePennyCharge,
+  tickTimePennyDrain,
+  type TimePennyDrain,
+} from "../../domain/timePennies";
 import {
   bossTunnelMouths,
   pickBossPelletCells,
@@ -60,7 +61,7 @@ import {
   type DeathSequenceState,
 } from "../../domain/deathSequence";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
-import { respawnCenter } from "../../domain/martyr";
+import { respawnCenter } from "../../domain/reanimation";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
 import { interestCoinsShown, type InterestPop } from "../../domain/interest";
 import {
@@ -108,7 +109,6 @@ import {
 import {
   enhancedOfferChance,
   ghostKindsForLevel,
-  isInvertedMazeLevel,
   isTimedTunnelLevel,
   MAX_LEVEL,
   offersUpgradeAfterLevel,
@@ -149,7 +149,6 @@ import {
 import {
   applyCollapse,
   collapsedChainsFor,
-  flipChainRows,
   isFreshCollapse,
   pickCollapsePlan,
   type CollapseChain,
@@ -174,8 +173,6 @@ import {
   type LavaZone,
 } from "../../domain/lavaZone";
 import {
-  flipSpeedZoneBoardRows,
-  flipSpeedZoneRows,
   SPEED_ZONE_SHIFT_STEP_MS,
   speedZoneAt,
   speedZoneCells,
@@ -193,7 +190,6 @@ import {
   type BoardOverride,
   GENERATE_MAX_ATTEMPTS,
   generateMazeAsciiWithRetries,
-  invertMazeAscii,
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
 import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
@@ -214,7 +210,6 @@ import {
   playerSpeed,
 } from "../../domain/playfield";
 import {
-  flipSlotPickupRow,
   pickSlotPickupCell,
   remapSlotPickupCell,
   tickSlotPickupProgress,
@@ -275,6 +270,8 @@ import {
   queueEcho,
   powerPelletPickupFires,
   shieldBreakOwned,
+  reactiveArmorOwned,
+  reactiveArmorRadiusTiles,
   shieldOverflow,
   shieldPelletsCap,
   spendShield,
@@ -287,7 +284,6 @@ import {
   cornucopiaAlongsideOwned,
   fruitLifetimeMultiplier,
   fruitQuartersPerFruit,
-  martyrGhostPlacement,
   hauntDurationMs,
   armHaunt,
   tickHaunt,
@@ -395,6 +391,7 @@ import { DIRECTION, Input } from "../components/Input";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossChains, chainCatch } from "../systems/bossChain";
@@ -440,6 +437,7 @@ import {
   placeInHouseGhostsAtPredictedSeats,
 } from "../systems/ghostHouseSeating";
 import { recallClosestGhostToHouse, sendGhostToHouse } from "../systems/ghostRecall";
+import { applyReactiveArmor } from "../systems/reactiveArmor";
 import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
@@ -539,7 +537,7 @@ export type PlayHud = {
   timerVisible: boolean;
   lives: number;
   quarters: number;
-  bonusCharge: number;
+  penniesCharge: number;
   upgrades: readonly UpgradeId[];
   collected: number;
   shields: number;
@@ -568,13 +566,12 @@ export class PlaySim {
   private streakPopCount = 0;
   private lastStreakPop: number | null = null;
   private quarters = 0;
-  private bonus: BonusBar;
+  private pennies: PennyPurse;
   private slotPickupProgress = 0;
   private slotPickupCells: SlotPickupCell[] = [];
   private slotPickupsAwaitingPlacement = 0;
-  private previousPlayBoardInverted: boolean | null = null;
   private lastPlayerCell: Cell | null = null;
-  private timeBonusDrain: TimeBonusDrain | null = null;
+  private timePennyDrain: TimePennyDrain | null = null;
   private slotQueue: QuarterSource[] = [];
   private slot:
     (SlotView & { source: QuarterSource; resultSounded: boolean; megaSounded: boolean }) | null =
@@ -612,7 +609,6 @@ export class PlaySim {
   private speedZones: SpeedZone[] = [];
   private speedZoneShift: SpeedZoneShift | null = null;
   private speedZoneShiftMs = 0;
-  private boardInverted = false;
   private collapsePlan: { poolIndex: number; plan: CollapsePlan; baseAscii: string } | null = null;
   private collapseBoardCount = 0;
   private collapseChains: CollapseChain[] = [];
@@ -642,6 +638,7 @@ export class PlaySim {
   private death: DeathSequenceState | null = null;
   private fellAt: Point | null = null;
   private caughtByEid: number | null = null;
+  private lastReactiveArmorSent = 0;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private mirrorPop: MirrorPop | null = null;
@@ -670,7 +667,7 @@ export class PlaySim {
     this.random = createRunRandom(seed);
     this.recorder = new RunRecorder(runLogMeta, seed, options.highScoresDisabled);
     this.quarters = options.quarters ?? 0;
-    this.bonus = createBonusBar(options.bonus ?? 0);
+    this.pennies = createPennyPurse(options.pennyCharge ?? 0);
     this.lives = options.lives ?? START_LIVES;
   }
 
@@ -710,7 +707,11 @@ export class PlaySim {
       !options.jumpToUpgrade &&
       options.store === null &&
       !options.disableLevelUpgrades
-        ? pickStartingUpgrade(this.runUpgrades.owned, this.random.stream("startingUpgrade"))
+        ? pickStartingUpgrade(
+            this.runUpgrades.owned,
+            this.random.stream("startingUpgrade"),
+            options.forceStartingUpgrade,
+          )
         : null;
     if (startingUpgrade !== null) {
       this.recorder.gained(startingUpgrade, "start", this.levelIndex);
@@ -741,7 +742,7 @@ export class PlaySim {
     this.emit({ type: "loopStart", id: "gameplayMusic" });
     if (options.jumpToSpinner) {
       this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
-      this.slotQueue.push("bonusBar");
+      this.slotQueue.push("pennyBar");
     }
     if (options.jumpToUpgrade) {
       this.jumpToLevelClear();
@@ -886,7 +887,7 @@ export class PlaySim {
         (this.interestPop === null
           ? 0
           : this.interestPop.count - interestCoinsShown(this.interestPop)),
-      bonusCharge: this.bonus.charge,
+      penniesCharge: this.pennies.charge,
       upgrades: this.effectiveUpgrades(),
       collected: this.lifetimeCollected,
       shields: this.runUpgrades.shieldsBanked,
@@ -966,11 +967,12 @@ export class PlaySim {
       lives: this.lives,
       quarters: this.quarters,
       timeRemaining: this.clock.remaining,
-      bonus: {
-        charge: this.bonus.charge,
-        streak: this.bonus.streak,
-        max: BONUS_BAR_MAX,
-        draining: this.timeBonusDrain !== null,
+      pennies: {
+        charge: this.pennies.charge,
+        streak: this.pennies.streak,
+        max: QUARTER_CHARGE,
+        count: penniesInCharge(this.pennies.charge),
+        draining: this.timePennyDrain !== null,
       },
       slot: {
         spins: this.slotSpins,
@@ -990,6 +992,7 @@ export class PlaySim {
         count: this.slotPickupCells.length,
       },
       deathsThisBoard: this.deathsThisBoard,
+      lastReactiveArmorSent: this.lastReactiveArmorSent,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       nearMissesPaid: this.nearMissesPaid,
       frightenedGhosts: [...frightenedGhostEids(upgrades)].map((eid) => ghostName(this.world, eid)),
@@ -1220,8 +1223,8 @@ export class PlaySim {
       return;
     }
 
-    if (this.timeBonusDrain !== null) {
-      this.tickTimeBonus(this.timeBonusDrain, delta);
+    if (this.timePennyDrain !== null) {
+      this.tickTimePennies(this.timePennyDrain, delta);
       return;
     }
 
@@ -1521,7 +1524,7 @@ export class PlaySim {
     if (playerFrame.removedCells.length > 0) {
       streakFires = this.applyStreakCells(playerFrame.removedCells);
     } else {
-      this.bonus = tickStreakIdle(this.bonus, delta, this.currentTuning.bonusStreakIdleMs);
+      this.pennies = tickStreakIdle(this.pennies, delta, this.currentTuning.pennyStreakIdleMs);
     }
     const removed = removedPelletEids.length;
     this.eatDragMs = eatDragAfterCollect(
@@ -1666,9 +1669,9 @@ export class PlaySim {
       if (fruitQuarters !== null) {
         this.grantQuarters(fruitEaten * fruitQuarters, "fruit", false);
       } else {
-        const fruitCharge = addBonusCharge(this.bonus, fruitEaten * FRUIT_BONUS_CHARGE);
+        const fruitCharge = addPennyCharge(this.pennies, fruitEaten * FRUIT_BONUS_CHARGE);
         this.emit({ type: "fruitBonus" });
-        this.applyBonus({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
+        this.applyPennies({ bar: fruitCharge.bar, tier: 0, filled: fruitCharge.filled });
       }
       this.fruitPresence = markFruitCollected(fruitTick.state, this.regularFruitRemains());
       if (hasUpgrade(this.effectiveUpgrades(), "fruitPowerPellet")) {
@@ -1714,7 +1717,7 @@ export class PlaySim {
     } else {
       if (
         !defyDeathActive(this.runUpgrades) &&
-        (this.breakShield() || this.breakHyperspeedShield())
+        (this.breakShield(caughtBy) || this.breakHyperspeedShield(caughtBy))
       ) {
         return;
       }
@@ -1952,8 +1955,8 @@ export class PlaySim {
       this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, [
         { eid, glide: startWarpGlide(from, to), holdMs: 0 },
       ]);
-      const charged = addBonusCharge(this.bonus, ate.charge);
-      this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "hunter");
+      const charged = addPennyCharge(this.pennies, ate.charge);
+      this.applyPennies({ bar: charged.bar, tier: 0, filled: charged.filled }, "hunter");
       this.recorder.activation("ghostEaten");
     }
     if (eaten.length > 0) {
@@ -2037,10 +2040,6 @@ export class PlaySim {
     );
   }
 
-  private isInvertedLevel(): boolean {
-    return this.options.levelModifiers && isInvertedMazeLevel(this.levelIndex);
-  }
-
   private resetSpeedZones(): void {
     this.speedZoneShiftMs = 0;
     if (!this.options.levelModifiers) {
@@ -2049,15 +2048,10 @@ export class PlaySim {
       return;
     }
     const layout = getActiveLayout();
-    const base =
-      this.collapseSpeedBoard ?? (this.boardInverted ? flipSpeedZoneBoardRows(layout) : layout);
+    const base = this.collapseSpeedBoard ?? layout;
     const [previous, current] = speedZonesByLevel(base, this.levelIndex, (level) =>
       this.random.stream("speedZones", level),
-    )
-      .slice(-2)
-      .map((zones) =>
-        this.boardInverted ? zones.map((zone) => flipSpeedZoneRows(zone, layout.rows)) : zones,
-      );
+    ).slice(-2);
     const shift = speedZoneShift(previous!, current!);
     this.speedZoneShift = speedZoneShiftSteps(shift) > 0 ? shift : null;
     this.speedZones = speedZoneShiftFrame(shift, 0);
@@ -2182,30 +2176,34 @@ export class PlaySim {
       const eatenThisFrame = this.hyperspeedPellets.removedCells.some(
         (eaten) => eaten.col === cell.col && eaten.row === cell.row,
       );
-      this.bonus = enterCell(this.bonus, cell, eatenThisFrame || pelletAtCell(this.world, cell));
+      this.pennies = enterCell(
+        this.pennies,
+        cell,
+        eatenThisFrame || pelletAtCell(this.world, cell),
+      );
     }
     this.lastPlayerCell = cell;
   }
 
-  private applyBonus(result: BonusResult, source: QuarterSource = "bonusBar"): void {
-    this.bonus = result.bar;
+  private applyPennies(result: PennyResult, source: QuarterSource = "pennyBar"): void {
+    this.pennies = result.bar;
     this.recorder.bonus(result.tier, result.filled);
     if (result.filled > 0) {
       this.grantQuarters(result.filled, source, true);
     }
     if (result.tier > 0 || result.filled > 0) {
-      this.emit({ type: "bonus", tier: result.tier, filled: result.filled });
+      this.emit({ type: "pennies", tier: result.tier, filled: result.filled });
     }
   }
 
   private applyStreakCells(cells: readonly Cell[]): number {
-    const prevStreak = this.bonus.streak;
-    this.applyBonus(applyStreakPellets(this.bonus, cells));
+    const prevStreak = this.pennies.streak;
+    this.applyPennies(applyStreakPellets(this.pennies, cells));
     const every = streakEngineEvery(this.effectiveUpgrades());
     if (every === null) {
       return 0;
     }
-    for (const pop of streakPops(prevStreak, this.bonus.streak, every)) {
+    for (const pop of streakPops(prevStreak, this.pennies.streak, every)) {
       const cell = cells[pop.cellIndex]!;
       this.streakPopCount += 1;
       this.lastStreakPop = pop.value;
@@ -2216,7 +2214,7 @@ export class PlaySim {
         y: cellCenterY(cell.row),
       });
     }
-    return streakEngineFires(prevStreak, this.bonus.streak, every);
+    return streakEngineFires(prevStreak, this.pennies.streak, every);
   }
 
   private fireStreakEngine(fires: number): boolean {
@@ -2234,8 +2232,8 @@ export class PlaySim {
   private payDeathsBounty(): boolean {
     const charge = deathsBountyCharge(this.effectiveUpgrades(), this.deathsThisBoard);
     this.deathsThisBoard += 1;
-    const charged = addBonusCharge(this.bonus, charge);
-    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "deathsBounty");
+    const charged = addPennyCharge(this.pennies, charge);
+    this.applyPennies({ bar: charged.bar, tier: 0, filled: charged.filled }, "deathsBounty");
     return charge > 0;
   }
 
@@ -2250,12 +2248,12 @@ export class PlaySim {
       return;
     }
     this.nearMissesPaid += step.completed;
-    const charged = addBonusCharge(this.bonus, step.completed * charge);
-    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled }, "nearMiss");
+    const charged = addPennyCharge(this.pennies, step.completed * charge);
+    this.applyPennies({ bar: charged.bar, tier: 0, filled: charged.filled }, "nearMiss");
   }
 
   private resetStreak(): void {
-    this.bonus = breakStreak(this.bonus);
+    this.pennies = breakStreak(this.pennies);
     this.lastPlayerCell = null;
     this.nearMissPasses = createNearMissPasses();
   }
@@ -2608,13 +2606,13 @@ export class PlaySim {
     this.resetStreak();
     this.mirrorPop = null;
     this.deathsThisBoard = 0;
+    this.lastReactiveArmorSent = 0;
     this.nearMissesPaid = 0;
     this.topUpStartingShields();
     const boss = isBossLevel(this.levelIndex)
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
       : null;
     const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
-    this.boardInverted = false;
     this.clearCollapse();
     let layoutLabel = "maze2";
     if (selection.kind === "static") {
@@ -2667,7 +2665,6 @@ export class PlaySim {
     this.recorder.beginLevel({
       level: this.levelIndex,
       layout: layoutLabel,
-      inverted: selection.kind !== "static" && this.isInvertedLevel(),
       boss: boss !== null,
       countdownStart: this.clock.remaining,
       livesStart: this.lives,
@@ -2736,7 +2733,7 @@ export class PlaySim {
     this.collapseIntroMs = 0;
   }
 
-  private setUpCollapse(chains: readonly CollapseChain[], inverted: boolean): void {
+  private setUpCollapse(chains: readonly CollapseChain[]): void {
     const held = this.collapsePlan;
     if (held === null) {
       return;
@@ -2746,7 +2743,7 @@ export class PlaySim {
     if (chains.length === 0) {
       return;
     }
-    this.collapseChains = inverted ? flipChainRows(chains, layout.rows) : [...chains];
+    this.collapseChains = [...chains];
     const board = {
       ascii: layout.ascii,
       tileSize: layout.tileSize,
@@ -2780,12 +2777,10 @@ export class PlaySim {
     chains: readonly CollapseChain[] | null = null,
   ): string {
     try {
-      const inverted = this.isInvertedLevel();
       const collapsed = applyCollapse(ascii, chains ?? []);
-      activateAsciiLayout(inverted ? invertMazeAscii(collapsed) : collapsed);
-      this.boardInverted = inverted;
+      activateAsciiLayout(collapsed);
       if (chains !== null) {
-        this.setUpCollapse(chains, inverted);
+        this.setUpCollapse(chains);
       }
       return label;
     } catch (error) {
@@ -2918,16 +2913,16 @@ export class PlaySim {
     this.notePellets();
     this.recorder.levelCleared(
       this.clock.remaining,
-      isBossLevel(this.levelIndex) ? 0 : timeBonusPoints(this.clock.remaining),
+      isBossLevel(this.levelIndex) ? 0 : timePennyCharge(this.clock.remaining),
     );
     this.emit({ type: "loopStop", id: "gameplayMusic" });
     this.emit({ type: "sfx", id: "levelComplete" });
     this.emitDraw();
-    this.timeBonusDrain = isBossLevel(this.levelIndex)
+    this.timePennyDrain = isBossLevel(this.levelIndex)
       ? null
-      : createTimeBonusDrain(this.clock.remaining);
-    if (this.timeBonusDrain !== null) {
-      this.emit({ type: "timeBonus", active: true });
+      : createTimePennyDrain(this.clock.remaining);
+    if (this.timePennyDrain !== null) {
+      this.emit({ type: "timePennies", active: true });
       return;
     }
     this.finishLevelClear();
@@ -3036,17 +3031,17 @@ export class PlaySim {
     this.resetStreak();
   }
 
-  private tickTimeBonus(drain: TimeBonusDrain, delta: number): void {
-    const tick = tickTimeBonusDrain(drain, delta);
-    this.timeBonusDrain = tick.drain;
+  private tickTimePennies(drain: TimePennyDrain, delta: number): void {
+    const tick = tickTimePennyDrain(drain, delta);
+    this.timePennyDrain = tick.drain;
     this.clock = { ...this.clock, remaining: tick.remaining };
     this.emit({ type: "timer" });
-    const charged = addBonusCharge(this.bonus, tick.points);
-    this.applyBonus({ bar: charged.bar, tier: 0, filled: charged.filled });
+    const charged = addPennyCharge(this.pennies, tick.points);
+    this.applyPennies({ bar: charged.bar, tier: 0, filled: charged.filled });
     this.emitDraw();
     if (tick.done) {
-      this.timeBonusDrain = null;
-      this.emit({ type: "timeBonus", active: false });
+      this.timePennyDrain = null;
+      this.emit({ type: "timePennies", active: false });
       this.finishLevelClear();
     }
   }
@@ -3129,19 +3124,10 @@ export class PlaySim {
     if (isBossLevel(this.levelIndex)) {
       this.slotPickupCells = [];
       this.slotPickupsAwaitingPlacement = 0;
-      this.previousPlayBoardInverted = null;
       return;
     }
     if (!this.slotPickupBoardEligible()) {
       return;
-    }
-    const inverted = this.boardInverted;
-    if (this.previousPlayBoardInverted !== null && this.previousPlayBoardInverted !== inverted) {
-      const rows = getActiveLayout().rows;
-      this.slotPickupCells = this.slotPickupCells.map((cell) => ({
-        col: cell.col,
-        row: flipSlotPickupRow(cell.row, rows),
-      }));
     }
     const avoid = this.slotPickupAvoidCells();
     const solids = getActiveLayout().playerSolids;
@@ -3159,7 +3145,6 @@ export class PlaySim {
     for (const cell of this.slotPickupCells) {
       spawnSlotMachine(this.world, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) });
     }
-    this.previousPlayBoardInverted = inverted;
   }
 
   private collectSlotPickupEntities(): void {
@@ -3371,9 +3356,12 @@ export class PlaySim {
         this.eatFrightenedGhosts();
         const catchOptions = this.catchOptions();
         const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-        const touched =
-          hit !== null || this.touchesLava(catchOptions) || this.twinCatch(catchOptions) !== null;
-        return touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield());
+        const twin = hit === null ? this.twinCatch(catchOptions) : null;
+        const caughtBy = hit ?? twin?.eid ?? null;
+        const touched = caughtBy !== null || this.touchesLava(catchOptions) || twin !== null;
+        return (
+          touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield(caughtBy))
+        );
       },
       halt: () => this.zeroPlayerSpeed(),
     });
@@ -3437,7 +3425,7 @@ export class PlaySim {
     applyPlayerSpeed(this.world, 0, this.currentTuning);
   }
 
-  private breakHyperspeedShield(): boolean {
+  private breakHyperspeedShield(caughtBy: number | null): boolean {
     const spent = spendHyperspeedShield(this.runUpgrades);
     if (spent === null) {
       return false;
@@ -3445,6 +3433,7 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
+    this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
       this.runUpgrades = { ...this.runUpgrades, hyperspeedShieldRemainingMs: 0 };
@@ -3452,7 +3441,7 @@ export class PlaySim {
     return true;
   }
 
-  private breakShield(): boolean {
+  private breakShield(caughtBy: number | null): boolean {
     const spent = spendShield(this.runUpgrades);
     if (spent === null) {
       return false;
@@ -3460,11 +3449,34 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
+    this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
     }
     this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
     return true;
+  }
+
+  private fireReactiveArmor(caughtBy: number | null): void {
+    const owned = this.effectiveUpgrades();
+    if (!reactiveArmorOwned(owned)) {
+      return;
+    }
+    const sent = applyReactiveArmor(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.boardCollected,
+      this.afterLifeRelease,
+      this.releaseAdds(),
+      {
+        contactEid: caughtBy,
+        radiusTiles: reactiveArmorRadiusTiles(owned),
+      },
+    );
+    this.lastReactiveArmorSent = sent.length;
+    if (sent.length > 0) {
+      this.recorder.activation("reactiveArmor");
+    }
   }
 
   private fireDueEchoes(delta: number): boolean {
@@ -3902,7 +3914,11 @@ export class PlaySim {
     this.mirrorPop = null;
     this.resetStreak();
     this.remoteTransferCounter = 0;
-    const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt);
+    const powerPellets = Array.from(query(this.world, [PowerPellet, Position]), (eid) => ({
+      x: Position.x[eid]!,
+      y: Position.y[eid]!,
+    }));
+    const playerSpawn = respawnCenter(this.effectiveUpgrades(), this.fellAt, powerPellets);
     this.fellAt = null;
     for (const eid of query(this.world, [Player, Position, Velocity, Input, Facing])) {
       Position.x[eid] = playerSpawn.x;
@@ -3930,8 +3946,6 @@ export class PlaySim {
       }
     }
     this.caughtByEid = null;
-    const toCorners =
-      this.bossState === null && martyrGhostPlacement(this.effectiveUpgrades()) === "corners";
     for (const eid of query(this.world, [
       Ghost,
       GhostPhase,
@@ -3946,9 +3960,7 @@ export class PlaySim {
       Input.direction[eid] = DIRECTION.none;
       Facing.direction[eid] = DIRECTION.none;
       Speed.px[eid] = 0;
-      if (!toCorners || eid === hauntEid || GhostPhase.value[eid] !== GHOST_PHASE.active) {
-        GhostPhase.value[eid] = GHOST_PHASE.inHouse;
-      }
+      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
       Ghost.decidedCol[eid] = Number.NaN;
       Ghost.decidedRow[eid] = Number.NaN;
     }
@@ -3967,10 +3979,6 @@ export class PlaySim {
       this.afterLifeRelease,
       { heldGhostEids: hauntEid === null ? [] : [hauntEid] },
     );
-    if (toCorners && teleportGhostsToCorners(this.world, 0).length > 0) {
-      this.ghostModeClock = startGhostModeClock(this.levelIndex, this.currentTuning);
-      this.previousEffectiveGhostMode = this.settledGhostMode();
-    }
 
     if (!this.reviveSplashPending) {
       this.clearFruitEntities();

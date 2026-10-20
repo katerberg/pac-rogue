@@ -4,14 +4,16 @@ import { RELEASE_SLOT_BY_KIND } from "../../domain/ghostRoster";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import {
-  BONUS_BAR_MAX,
+  PENNIES_PER_QUARTER,
+  formatPennies,
+  penniesInCharge,
   FRUIT_BONUS_CHARGE,
   applyStreakPellets,
-  createBonusBar,
+  createPennyPurse,
   tickStreakIdle,
-  type BonusBar,
+  type PennyPurse,
   type Cell,
-} from "../../domain/bonusBar";
+} from "../../domain/pennies";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import type { PlayerPelletFrame } from "../systems/collectPellets";
 import {
@@ -97,6 +99,8 @@ import {
   shieldBankCap,
   powerPelletPickupFires,
   shieldBreakOwned,
+  reactiveArmorOwned,
+  reactiveArmorRadiusTiles,
   shieldOverflow,
   shieldPelletsCap,
   spendShield,
@@ -222,6 +226,7 @@ import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
+import { pickReactiveArmorGhosts } from "../systems/reactiveArmor";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
@@ -324,7 +329,7 @@ export class LearnSim {
   private houseHoldEaten = 0;
   private catchGraceMs = 0;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
-  private streakBar: BonusBar = createBonusBar();
+  private streakBar: PennyPurse = createPennyPurse();
   private fruitPresence: FruitPresence = createFruitPresence();
   private fruitSequence: FruitSequenceState = {
     sequence: [],
@@ -750,7 +755,7 @@ export class LearnSim {
     }
     this.houseHold.clear();
     this.recalled.clear();
-    this.streakBar = createBonusBar();
+    this.streakBar = createPennyPurse();
     this.resetPellets();
 
     const exit = getActiveLayout().ghostHouseExit;
@@ -992,7 +997,7 @@ export class LearnSim {
   private stepStreakEngine(cells: readonly Cell[], delta: number): void {
     const every = streakEngineEvery(this.learnUpgrades.owned);
     if (every === null) {
-      this.streakBar = createBonusBar();
+      this.streakBar = createPennyPurse();
       return;
     }
     if (cells.length === 0) {
@@ -1073,8 +1078,8 @@ export class LearnSim {
         this.eatenHoldGhostEids.push(eid);
         this.eatenHoldRemainingMs = LEARN_EATEN_HOLD_MS;
       }
-      this.runState.addBonusCharge(ate.charge);
-      this.popup(`+${ate.charge} BONUS`);
+      this.runState.addPennyCharge(ate.charge);
+      this.popup(`+${formatPennies(ate.charge)}`);
     }
   }
 
@@ -1301,7 +1306,7 @@ export class LearnSim {
           catchPlayer(this.world, options) ??
           (twinAt === null ? null : catchPlayer(this.world, { ...options, at: twinAt }));
         return (
-          hit !== null && (defyDeathActive(this.learnUpgrades) || !this.breakHyperspeedShield())
+          hit !== null && (defyDeathActive(this.learnUpgrades) || !this.breakHyperspeedShield(hit))
         );
       },
       halt: () => applyPlayerSpeed(this.world, 0),
@@ -1368,12 +1373,13 @@ export class LearnSim {
     };
   }
 
-  private breakHyperspeedShield(): boolean {
+  private breakHyperspeedShield(caughtBy: number | null): boolean {
     const spent = spendHyperspeedShield(this.learnUpgrades);
     if (spent === null) {
       return false;
     }
     this.learnUpgrades = spent;
+    this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.learnUpgrades.owned)) {
       this.firePowerPelletEffects(1);
       this.learnUpgrades = { ...this.learnUpgrades, hyperspeedShieldRemainingMs: 0 };
@@ -1382,15 +1388,28 @@ export class LearnSim {
     return true;
   }
 
+  private fireReactiveArmor(caughtBy: number | null): void {
+    const owned = this.learnUpgrades.owned;
+    if (!reactiveArmorOwned(owned)) {
+      return;
+    }
+    const eids = pickReactiveArmorGhosts(this.world, {
+      contactEid: caughtBy,
+      radiusTiles: reactiveArmorRadiusTiles(owned),
+    });
+    this.recalled.sendHome(this.world, eids, owned, this.houseHoldEaten);
+  }
+
   private resolveDemoCatch(caughtBy: number, twinAt: { x: number; y: number } | null): void {
-    this.streakBar = createBonusBar();
+    this.streakBar = createPennyPurse();
     const defied = defyDeathActive(this.learnUpgrades);
-    if (!defied && this.breakHyperspeedShield()) {
+    if (!defied && this.breakHyperspeedShield(caughtBy)) {
       return;
     }
     const spent = defied ? null : spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
+      this.fireReactiveArmor(caughtBy);
       if (shieldBreakOwned(this.learnUpgrades.owned)) {
         this.firePowerPelletEffects(1);
       }
@@ -1436,7 +1455,7 @@ export class LearnSim {
       lines.push(`-${outcome.quartersPaid} Q`);
     }
     if (outcome.bountyCharge > 0) {
-      lines.push(`+${outcome.bountyCharge} BONUS`);
+      lines.push(`+${formatPennies(outcome.bountyCharge)}`);
     }
     this.catchGraceMs = LEARN_CATCH_GRACE_MS;
     this.popup(lines.join("\n"));
@@ -1543,8 +1562,8 @@ export class LearnSim {
     const step = stepNearMisses(this.world, this.nearMissPasses, catchOptions);
     this.nearMissPasses = step.passes;
     if (step.completed > 0) {
-      this.runState.addBonusCharge(step.completed * charge);
-      this.popup(`+${step.completed * charge} BONUS`);
+      this.runState.addPennyCharge(step.completed * charge);
+      this.popup(`+${formatPennies(step.completed * charge)}`);
     }
   }
 
@@ -1554,9 +1573,9 @@ export class LearnSim {
       this.runState.addQuarters(count * quarters);
       this.popup(`+${count * quarters} Q`);
     } else {
-      this.runState.addBonusCharge(count * FRUIT_BONUS_CHARGE);
+      this.runState.addPennyCharge(count * FRUIT_BONUS_CHARGE);
       if (this.bonusDemoOwned()) {
-        this.popup(`+${count * FRUIT_BONUS_CHARGE} BONUS`);
+        this.popup(`+${formatPennies(count * FRUIT_BONUS_CHARGE)}`);
       }
     }
   }
@@ -1573,7 +1592,7 @@ export class LearnSim {
     }
     if (this.bonusDemoOwned()) {
       lines.push(
-        `BONUS ${Math.floor(this.runState.bonus.charge)}/${BONUS_BAR_MAX}  QUARTERS ${this.runState.quarters}`,
+        `PENNIES ${penniesInCharge(this.runState.pennies.charge)}/${PENNIES_PER_QUARTER}  QUARTERS ${this.runState.quarters}`,
       );
     }
     const house = this.houseHold.status(owned, this.houseHoldEaten);

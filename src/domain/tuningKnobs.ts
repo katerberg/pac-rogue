@@ -6,7 +6,7 @@ export type KnobGroup =
   | "Timer"
   | "Fruit"
   | "Death"
-  | "Bonus"
+  | "Pennies"
   | "Boss"
   | "Ghost AI"
   | "Release"
@@ -45,7 +45,7 @@ export const LEFT_KNOB_GROUPS: readonly KnobGroup[] = [
   "Timer",
   "Fruit",
   "Death",
-  "Bonus",
+  "Pennies",
   "Boss",
   "Ghost AI",
   "Release",
@@ -89,7 +89,7 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("fruitThreshold2", "Fruit", "Second fruit at", 1, 300, 1, "dots"),
   range("deathHoldMs", "Death", "Death hold", 0, 5000, 5, "ms"),
   range("readyPauseMs", "Death", "Ready pause", 0, 5000, 50, "ms"),
-  range("bonusStreakIdleMs", "Bonus", "Streak idle", 50, 2000, 50, "ms"),
+  range("pennyStreakIdleMs", "Pennies", "Streak idle", 50, 2000, 50, "ms"),
   range("bossSwarmStartGhosts", "Boss", "Swarm start Blinkys", 2, 8, 1),
   range("pinkyLookahead", "Ghost AI", "Pinky lookahead", 0, 8, 1, "tiles"),
   range("inkyLookahead", "Ghost AI", "Inky lookahead", 0, 8, 1, "tiles"),
@@ -193,8 +193,8 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Board dots eaten before the second fruit appears (level 2 and up), scaled to the board's dot count.",
   deathHoldMs: "Freeze after Maze-Man is caught, before actors reset (or Game Over starts).",
   readyPauseMs: "Pause after actors reset from a death before play resumes.",
-  bonusStreakIdleMs:
-    "How long Maze-Man can go without eating a dot before the BONUS pellet streak breaks.",
+  pennyStreakIdleMs:
+    "How long Maze-Man can go without eating a dot before the pennies pellet streak breaks.",
   pinkyLookahead: "Pinky chases the tile this many tiles ahead of Maze-Man's facing.",
   inkyLookahead:
     "Inky's pivot is this many tiles ahead of Maze-Man; Inky targets Blinky's tile mirrored through that pivot.",

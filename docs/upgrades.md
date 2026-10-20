@@ -35,7 +35,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 
 ## Grant rules
 
-- Level 1 grants one random **starting upgrade** from `STARTING_UPGRADE_POOL` (a no-button card, `startingUpgradeCard.ts`). Later level advances and `level>=2` starts never grant one.
+- Level 1 grants one random **starting upgrade** from `STARTING_UPGRADE_POOL` (a no-button card, `startingUpgradeCard.ts`). Later level advances and `level>=2` starts never grant one. On a new device’s first play, that grant prefers Freeze — [new-player.md](./new-player.md#first-play-on-a-new-device).
 - Clearing levels 1-8 (`offersUpgradeAfterLevel`) opens the pick-one modal: two upgrades at left/right. There is no skip or Quarters fallback; if nothing is eligible the offer is skipped. Never offered after level 9 or from fruit.
 - `pickUpgradeChoiceOffer`: no repeated ids, prefers excluding `lastDeclinedUpgradeId` (the one card not taken from the last offer), applies a forced id, and rolls enhancement **last** so seeded offers on other levels stay unchanged.
 - The sim is fully frozen while the modal is open or animating; keys held through open are ignored until released. No dismiss: the player must pick.
@@ -47,7 +47,8 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 - **Shields** are a banked count, not a timer: they survive timer clears, empty on level advance, and clamp to the cap when the upgrade is lost.
 - **Programmer** owns movement while it runs (`src/domain/programmer.ts`): keys record presses, then a Hyperspeed-speed run without its turn beat. Mutually exclusive with Hyperspeed in `eligibleUpgrades`.
 - **Speed**: `applyPlayerSpeed` / `applyGhostSpeed` in `PlaySim` combine the level ramp, owned multipliers, cell-based multipliers and active bursts every frame. Boss ghosts use a flat base.
-- **Catch order**: shield break, then Mirror+ (pops the twin), then Death's Harvest, then Defy Death, then Money Talks, then death. A break or save is not a death (no life lost, `deathsThisBoard` unchanged where the code says so).
+- **Catch order**: shield break (Reactive Armor sends ghost(s) home if owned, then Shield Break fires if owned), then Mirror+ (pops the twin), then Death's Harvest, then Defy Death, then Money Talks, then death. A break or save is not a death (no life lost, `deathsThisBoard` unchanged where the code says so).
+- **Respawn placement**: life loss and saves (Defy Death, Money Talks) share one reset. Without Reanimation that reset puts you at the player spawn; with Reanimation, `respawnCenter` wins over that spawn path (base: where you fell; Plus: beside a remaining power pellet, else where you fell).
 - **Mirror** adds a second body: ghosts steer for whichever of you is nearer by A* path (`nearestBody`), and a catch of either body is a death from that body's spot. It is a second you: it gets Pickup Range, Extra Hungry, Tunnel Dash sweeps, per-substep eating at hyperspeed and the lava. It has no timer; it ends on a pop (a mirrored-wall or speed-zone mismatch, or you and the twin touching at the midline), death, level advance or store entry.
 - **Boss level**: Lazy Looper is off; boss pellets are never optional.
 - **LEARN** mirrors upgrades through shared helpers and the demo catch; toggling an upgrade off must clear its stale timers (`clearStaleUpgradeTimers`).

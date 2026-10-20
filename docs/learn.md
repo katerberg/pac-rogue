@@ -26,7 +26,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 ## Parity
 
-LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, collapsed tunnels, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`. Deliberate omissions: the [run-end replay](./replay.md), since LEARN has no run end; Play-only [sidebar bands](./rendering.md) (`createRender(scene)` without the bands flag).
+LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, collapsed tunnels, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`. Deliberate omissions: the [run-end replay](./replay.md), since LEARN has no run end; Play-only [sidebar bands](./rendering.md) (`createRender(scene)` without the bands flag); the [first-play Freeze starting upgrade](./new-player.md#first-play-on-a-new-device), since LEARN has no starting-upgrade card or run log.
 
 ## Upgrade fidelity
 
@@ -39,8 +39,8 @@ Known simplifications (everything else is a reuse of play code):
 - **Life, death and Quarter upgrades:** shown through the demo catch.
 - **Fruit Fecundity / Feast (+):** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
-- **Martyr, Interest:** no visible effect (no respawn move, no store).
-- **BONUS slot machine / world pickup:** deliberate omission; bar fills pay a Quarter directly and the every-four slot-machine maze pickup never appears ([bonus.md](./bonus.md#slot-machine)).
+- **Reanimation, Interest:** no visible effect (no respawn move, no store).
+- **Slot machine / world pickup:** deliberate omission; full penny rows pay a Quarter directly and the every-four slot-machine maze pickup never appears ([pennies.md](./pennies.md#slot-machine)).
 
 ## Coverage gate
 

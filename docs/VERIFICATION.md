@@ -54,7 +54,7 @@ On agent ports `window.__PAC_ROGUE_DEBUG__.snapshot()` returns read-only JSON (w
 A change in shared code (movement, input, render, systems) can reach every `PlayScene` path. List the modes the diff can reach and probe each; anything unprobed goes under "not checked" in the PR body.
 
 - Level 1 board: `play=1&maze=mazeSmall`
-- Pool base map (levels 2-8, same map every level for a seed): `play=1&level=2`; inverted (6-7): `level=6`; force index: `maze=0`
+- Pool base map (levels 2-8, same map every level for a seed): `play=1&level=2`; force index: `maze=0`
 - Store floor: `play=1&store=1&quarters=10`
 - Boss (level 9): `play=1&boss=blinkySwarm` / `boss=chainedGhosts`; stage transition: `bossStageAdvance=1`
 - Level-clear upgrade modal: `play=1&jumpToUpgrade=1`

@@ -95,9 +95,9 @@ export type SimEvent =
       progress: number;
     }
   | { type: "walletCoins"; spend: MoneyTalksSpend | null }
-  | { type: "bonus"; tier: number; filled: number }
+  | { type: "pennies"; tier: number; filled: number }
   | { type: "fruitBonus" }
-  | { type: "timeBonus"; active: boolean }
+  | { type: "timePennies"; active: boolean }
   | { type: "upgrades" }
   | { type: "timer" }
   | { type: "timerVisible"; visible: boolean }
