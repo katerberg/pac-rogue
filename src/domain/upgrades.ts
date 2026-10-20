@@ -246,13 +246,9 @@ export const EXTRA_HUNGRY_COUNT = 8;
 export const STORE_UPGRADE_PRICE = 3;
 export const STORE_RARE_UPGRADE_PRICE = 4;
 export const RARE_MIN_OWNED = 2;
-/** Pre-affinity share of level-clear offer mass held by rares; see `rareWeightForPool`. */
 export const RARE_OFFER_MASS = 1 / 15;
-/** Store shelves use half the level-clear rare mass. */
 export const STORE_RARE_OFFER_MASS = RARE_OFFER_MASS / 2;
-/** Rares stay out of the level-clear offer until this clear `levelIndex`. */
 export const RARE_MIN_CLEAR_LEVEL = 2;
-/** Docs/skill budget: ~2 rares per non-neutral school (≈13 with neutral). Not a CI gate. */
 export const TARGET_RARES_PER_SCHOOL = 2;
 export const SCHOOL_AFFINITY_COMMON_RATE = 0.5;
 export const SCHOOL_AFFINITY_RARE_RATE = 0.3;
@@ -1363,7 +1359,6 @@ export function schoolAffinityPoints(owned: readonly UpgradeId[], school: Upgrad
   return owned.filter((id) => getUpgradeDef(id).school === school).length;
 }
 
-/** Pre-affinity rare weight so rares hold `rareMass` of the pool's total mass. */
 export function rareWeightForPool(pool: readonly BaseUpgradeId[], rareMass: number): number {
   let commons = 0;
   let rares = 0;

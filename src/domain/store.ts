@@ -8,7 +8,6 @@ import {
   getUpgradeDef,
   isRare,
   storePriceFor,
-  storeUpgradeWeight,
   takeRandomFrom,
   takeWeightedUpgrade,
   type BaseUpgradeId,
@@ -185,7 +184,7 @@ export function createStoreState(
   let guaranteedId: BaseUpgradeId | null = null;
   if (schoolPool.length > 0 && upgradeCells.length > 0) {
     guaranteedCell = takeRandomFrom([...upgradeCells], rng);
-    guaranteedId = takeWeightedUpgrade(schoolPool, rng, storeUpgradeWeight(schoolPool));
+    guaranteedId = takeWeightedUpgrade(schoolPool, rng);
     pool = pool.filter(
       (other) => other !== guaranteedId && !(isRare(guaranteedId!) && isRare(other)),
     );
@@ -213,7 +212,7 @@ export function createStoreState(
     } else if (enhanceTargets.has(cell)) {
       slots.push({ kind: "enhance", col, row, targetId: enhanceTargets.get(cell)!, sold: false });
     } else if (pool.length > 0) {
-      const id = takeWeightedUpgrade(pool, rng, storeUpgradeWeight(pool));
+      const id = takeWeightedUpgrade(pool, rng);
       slots.push({ kind: "upgrade", col, row, id, sold: false });
       if (isRare(id)) {
         pool = pool.filter((other) => !isRare(other));
@@ -262,11 +261,7 @@ function rollSwapIncoming(
   const pool = swapIncomingPool(state, owned, slot.outgoingId).filter(
     (id) => !previouslyOffered.includes(id),
   );
-  return {
-    ...slot,
-    incomingBaseId:
-      pool.length > 0 ? takeWeightedUpgrade(pool, rng, storeUpgradeWeight(pool)) : null,
-  };
+  return { ...slot, incomingBaseId: pool.length > 0 ? takeWeightedUpgrade(pool, rng) : null };
 }
 
 function swapIncomingPool(
@@ -478,7 +473,7 @@ function slotStep(
   const incomingBase =
     slot.incomingBaseId !== null && afterSwap.includes(slot.incomingBaseId)
       ? slot.incomingBaseId
-      : takeWeightedUpgrade(rerollPool, rng, storeUpgradeWeight(rerollPool));
+      : takeWeightedUpgrade(rerollPool, rng);
   return {
     state: sold,
     purchase: {
