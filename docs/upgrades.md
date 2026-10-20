@@ -10,9 +10,9 @@ Each upgrade's id, label, school, rarity, price, effect fields and one-line desc
 - Debug flags (`enableUpgrade`, `forceUpgrade`, `disableLevelUpgrades`, `jumpToUpgrade`) are documented on `parsePlayOptions`. Any of them disables high-score saving.
 - LEARN coverage: [learn.md](./learn.md#upgrade-fidelity).
 
-## Upgrade catalog
+## Upgrade list
 
-Base ids: `ALL_UPGRADE_IDS` in [`src/domain/upgrades.ts`](../src/domain/upgrades.ts). Do not add a mirrored table here.
+Card text for every id (base and enhanced): [upgrade-list.md](./upgrade-list.md#upgrade-table). `registrySync.test.ts` keeps that table in lockstep with `UPGRADE_DEFS`.
 
 ## Power pellets
 

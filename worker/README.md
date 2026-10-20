@@ -1,6 +1,13 @@
 # dot-man-api Worker
 
-Cloudflare Worker + D1 database that receives finished runs from the game and serves the global high-score board. [docs/PRIVACY.md](../docs/PRIVACY.md) is what players are told; the owner's one-time setup is in the [root README](../README.md#global-runs-and-high-scores).
+Cloudflare Worker + D1 database that receives finished runs from the game and serves the global high-score board. [docs/PRIVACY.md](../docs/PRIVACY.md) is what players are told.
+
+## Owner one-time setup
+
+1. Cloudflare account with a `workers.dev` subdomain; D1 database `dot-man-api` (id in `worker/wrangler.toml`).
+2. API token with Workers edit + D1 edit. GitHub environment `production` (main only) secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` — not repository secrets.
+3. Deploy Worker (`deploy-worker.yml` on `main` or **Actions → Worker deploy**), then set Worker secret `IP_HASH_KEY` (see [Secret](#secret)).
+4. Repository variable `API_URL` = `https://dot-man-api.<subdomain>.workers.dev` (no trailing slash); run **GitHub Pages deploy**. Confirm `POST …/runs → 201` on a live Game Over.
 
 ## Design
 

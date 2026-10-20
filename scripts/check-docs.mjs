@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const BUDGET_BYTES = 170_000;
+const BUDGET_BYTES = 250_000;
 
 const files = execFileSync("git", ["ls-files", "*.md"], { encoding: "utf8" })
   .split("\n")

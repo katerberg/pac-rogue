@@ -30,7 +30,7 @@ Written for a Sonnet-class model. Background: [docs/BALANCE_BOTS.md](../../../do
    - **Broken combos**: top Pairs synergies, top Co-owned pairs, School Specialist Δ that dwarfs the single-upgrade Δs.
    - **Enemies**: ghosts whose lethality is far above the others for most profiles; rosters with much lower clear rates.
    - **Persona-dependent**: the top of Cross-profile spread (an upgrade that only works for one style).
-4. **Find the knob** for each candidate: the upgrade's def in [`src/domain/upgrades.ts`](../../../src/domain/upgrades.ts) (named constants next to the helper that uses them) or a tuning knob in `src/domain/tuning.ts`. For ghosts, [docs/levels.md](../../../docs/levels.md) (rosters, speed ramp) and `src/domain/ghostTarget.ts`.
+4. **Find the knob** for each candidate: the upgrade's row in [docs/upgrade-list.md](../../../docs/upgrade-list.md) plus named constants in [`src/domain/upgrades.ts`](../../../src/domain/upgrades.ts), or a tuning knob in `src/domain/tuning.ts`. For ghosts, [docs/levels.md](../../../docs/levels.md) (rosters, speed ramp) and `src/domain/ghostTarget.ts`.
 
 ## Output
 

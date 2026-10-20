@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ALL_UPGRADE_IDS,
   LEARN_NO_EFFECT_UPGRADE_IDS,
+  UPGRADE_DEFS,
   isSpecialist,
   type BaseUpgradeId,
 } from "../../domain/upgrades";
@@ -56,5 +57,23 @@ describe("LEARN upgrade coverage", () => {
 
   it("drops an upgrade from the no-effect list once it has a LearnSim test", () => {
     expect(LEARN_NO_EFFECT_UPGRADE_IDS.filter(covered)).toEqual([]);
+  });
+});
+
+describe("docs/upgrade-list.md upgrade table", () => {
+  const cell = (text: string): string => text.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+  const defs = new Map<string, (typeof UPGRADE_DEFS)[number]>(
+    UPGRADE_DEFS.map((def) => [def.id, def]),
+  );
+
+  it("has one up-to-date row per upgrade", () => {
+    const doc = read("docs/upgrade-list.md");
+    const stale = ALL_UPGRADE_IDS.filter((id) => {
+      const base = defs.get(id)!;
+      const plus = defs.get(`${id}Plus`);
+      const row = `| \`${id}\` | ${cell(base.label)}${base.rare ? " (rare)" : ""} | ${base.school} | ${cell(base.description)} | ${cell(plus?.description ?? "")} |`;
+      return !doc.includes(`\n${row}\n`);
+    });
+    expect(stale, "update these rows in the Upgrade table of docs/upgrade-list.md").toEqual([]);
   });
 });
