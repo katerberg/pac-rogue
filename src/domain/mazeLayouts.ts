@@ -89,6 +89,14 @@ export const SMALL_MAZE_ASCII = `######################
 #.@................@.#
 ######################`;
 
+export function tinyHouseMazeAscii(): string {
+  let houseRows = 0;
+  return SMALL_MAZE_ASCII.replace(/#HHHHHH#/g, () => {
+    houseRows += 1;
+    return houseRows <= 2 ? "###HH###" : "########";
+  });
+}
+
 export const MAZE_ASCII_BY_ID: Record<MazeLayoutId, string> = {
   maze1: CLASSIC_MAZE_ASCII,
   maze2: MSPAC_MAZE_ASCII,

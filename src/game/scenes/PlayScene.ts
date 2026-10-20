@@ -108,6 +108,8 @@ const HUD_ICON_LEFT_X = 12;
 const HUD_ICON_GAP = 4;
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
+const RUN_END_HUD_DEPTH = 1001;
+const RUN_END_WALLET_ALPHA = 0.5;
 const BOSS_BANNER_SLAM_MS = 220;
 const BOSS_BANNER_HOLD_MS = 1200;
 const BOSS_BANNER_FADE_MS = 800;
@@ -630,6 +632,7 @@ export class PlayScene extends Phaser.Scene {
         this.runEndMenu = createRunEndMenu(this, (choice) => {
           this.applyEvents(this.sim.chooseRunEnd(choice), delta);
         });
+        this.liftHudIconsAboveRunEnd();
         break;
       case "goToMenu":
         this.scene.start("MenuScene");
@@ -900,7 +903,8 @@ export class PlayScene extends Phaser.Scene {
       const { x, y } = quarterHudIconPosition(slot, size, left);
       // Stay on chrome (not sideHud) so they remain visible with ?knobs=1.
       const icon = (kind === "dollar" ? addDollarIcon : addQuarterIcon)(this, x, y, size);
-      this.chrome.add(icon);
+      this.addHudIcon(icon);
+      icon.setAlpha(this.walletAlpha(1));
       this.quarterIcons.push(icon);
     });
     const newest = this.quarterIcons[this.quarterIcons.length - 1];
@@ -1004,14 +1008,17 @@ export class PlayScene extends Phaser.Scene {
   private placePennyIcons(icons: Phaser.GameObjects.Image[], looks: PennyLook[]): void {
     while (icons.length < looks.length) {
       const icon = addPennyIcon(this, 0, 0, pelletDisplaySize());
-      this.chrome.add(icon);
+      this.addHudIcon(icon);
       icons.push(icon);
     }
     icons.forEach((icon, i) => {
       const look = looks[i];
       icon.setVisible(look !== undefined);
       if (look !== undefined) {
-        icon.setPosition(look.x, look.y).setDisplaySize(look.size, look.size).setAlpha(look.alpha);
+        icon
+          .setPosition(look.x, look.y)
+          .setDisplaySize(look.size, look.size)
+          .setAlpha(this.walletAlpha(look.alpha));
       }
     });
   }
@@ -1037,10 +1044,39 @@ export class PlayScene extends Phaser.Scene {
         .image(x, y, schoolArtTextureKey(getUpgradeDef(id).school))
         .setDisplaySize(size, size)
         .setVisible(this.intermission === null);
-      this.chrome.add(icon);
+      this.addHudIcon(icon);
       return { id: baseIdOf(id), mark: icon };
     });
     this.chrome.bringToTop(this.upgradeDrain);
+  }
+
+  private addHudIcon(icon: Phaser.GameObjects.Image): void {
+    if (this.runEndMenu === null) {
+      this.chrome.add(icon);
+    } else {
+      icon.setDepth(RUN_END_HUD_DEPTH);
+    }
+  }
+
+  private walletAlpha(alpha: number): number {
+    return this.runEndMenu === null ? alpha : alpha * RUN_END_WALLET_ALPHA;
+  }
+
+  private liftHudIconsAboveRunEnd(): void {
+    const upgradeMarks = this.upgradeIcons.map(({ mark }) => mark);
+    for (const icon of [
+      ...upgradeMarks,
+      ...this.quarterIcons,
+      ...this.pennyIcons,
+      ...this.pennyStackIcons,
+    ]) {
+      this.chrome.remove(icon);
+      this.add.existing(icon);
+      icon.setDepth(RUN_END_HUD_DEPTH);
+    }
+    for (const icon of this.quarterIcons) {
+      icon.setAlpha(this.walletAlpha(1));
+    }
   }
 
   private timerLabel(): string {

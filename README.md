@@ -35,7 +35,7 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `jumpToSpinner` | `1` | Queue one slot spin at board start (defaults start level to 2). Pair with `slot`. |
 | `slot` | `0` or e.g. `1q`, `2q1u`, `1l` | Force every slot spin's line counts. [pennies.md](./docs/pennies.md#slot-machine). |
 | `slotMachine` | `1` | Place one slot-machine world pickup on each eligible Play board start. [pennies.md](./docs/pennies.md#slot-machine). |
-| `enableUpgrade` (alias `enableUpgrades`) | upgrade id; repeatable or comma-separated | Grant each valid id into `owned` at create. |
+| `enableUpgrade` (alias `enableUpgrades`) | upgrade id or label lowerCamel; repeatable or comma-separated | Grant each valid id into `owned` at create. |
 | `disableLevelUpgrades` | `1` | Skip starting upgrade and level-clear (1–8) choice modal. |
 | `infiniteLives` | `1` | Death sequence plays; never spend a life / Game Over. |
 | `lives` | integer 1..99 | Start with that many lives (also sets `maxLives` unless given). |
@@ -43,7 +43,7 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `godMode` | `1` | Ghosts pass through without catch. |
 | `jumpToUpgrade` | `1` | Clear the first board into the upgrade modal (after time-penny drain). Defaults start level to 2. |
 | `store` | `1` | Start in a store floor (level 3 unless `level` is set). [store.md](./docs/store.md). |
-| `forceUpgrade` | upgrade id | Guarantee that (base) id in every level-clear offer while eligible. |
+| `forceUpgrade` | upgrade id or label lowerCamel | Guarantee that (base) id in every level-clear offer while eligible. |
 | `ghosts` | ghost names (comma-separated) | Replace every level's roster (`blinky` \| `pinky` \| `inky` \| `clyde` \| `spunky` \| `wardy`). |
 | `roster` | `0` … `5` | Force one curated roster for the run. [levels.md](./docs/levels.md#ghost-roster). |
 | `boss` | `blinkySwarm` \| `chainedGhosts` | Force that boss; without `level`, start in the fight. [bosses.md](./docs/bosses.md). |
@@ -56,7 +56,7 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `customMaze` | `1` | Paste-ASCII first board before boot (`pac-rogue.custom-maze.v1`). |
 | `sound` | `1` | Agent ports only: opt in to audio (muted by default). |
 
-Every upgrade id (`ALL_UPGRADE_IDS`; inventory [docs/upgrade-list.md](./docs/upgrade-list.md#upgrade-table)) is accepted by `enableUpgrade` / `forceUpgrade`, including a `Plus` suffix for the enhanced form (e.g. `?enableUpgrade=passiveAfterburnerPlus`).
+Every upgrade id (`ALL_UPGRADE_IDS`; inventory [docs/upgrade-list.md](./docs/upgrade-list.md#upgrade-table)) is accepted by `enableUpgrade` / `forceUpgrade`, including a `Plus` suffix for the enhanced form (e.g. `?enableUpgrade=passiveAfterburnerPlus`). Label lowerCamel aliases also work in any casing (e.g. `?enableUpgrade=secondChomp` or `secondChompPlus` for Second Chomp); canonical ids still win when both match.
 
 ```text
 http://127.0.0.1:5174/?play=1&level=2&seed=demo&enableUpgrade=powerPelletFreeze
