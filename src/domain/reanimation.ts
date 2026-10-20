@@ -20,15 +20,6 @@ const ORTHOGONAL = [
   { dCol: 0, dRow: 1 },
 ] as const;
 
-function nearerCell(
-  a: { col: number; row: number; dist: number },
-  b: { col: number; row: number; dist: number },
-): boolean {
-  return (
-    a.dist < b.dist || (a.dist === b.dist && (a.row < b.row || (a.row === b.row && a.col < b.col)))
-  );
-}
-
 export function nearestWalkableBesidePowerPellet(
   fell: Point,
   powerPellets: readonly Point[],
@@ -51,9 +42,13 @@ export function nearestWalkableBesidePowerPellet(
       }
       const dx = col - fromCol;
       const dy = row - fromRow;
-      const candidate = { col, row, dist: dx * dx + dy * dy };
-      if (best === null || nearerCell(candidate, best)) {
-        best = candidate;
+      const dist = dx * dx + dy * dy;
+      if (
+        best === null ||
+        dist < best.dist ||
+        (dist === best.dist && (row < best.row || (row === best.row && col < best.col)))
+      ) {
+        best = { col, row, dist };
       }
     }
   }

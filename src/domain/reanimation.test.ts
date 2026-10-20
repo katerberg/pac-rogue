@@ -38,28 +38,23 @@ describe("respawnCenter", () => {
   it("respawns beside a power pellet when enhanced and one remains", () => {
     const { playerSolids } = getActiveLayout();
     let pellet: { col: number; row: number } | null = null;
-    let beside: { col: number; row: number } | null = null;
     for (let row = 1; row < playerSolids.length && pellet === null; row += 1) {
       for (let col = 1; col < (playerSolids[row]?.length ?? 0); col += 1) {
         if (!isWalkable(col, row, playerSolids)) {
           continue;
         }
-        const neighbors = [
+        const hasNeighbor = [
           { col: col - 1, row },
           { col: col + 1, row },
           { col, row: row - 1 },
           { col, row: row + 1 },
-        ];
-        const walkable = neighbors.find((n) => isWalkable(n.col, n.row, playerSolids));
-        if (walkable === undefined) {
-          continue;
+        ].some((n) => isWalkable(n.col, n.row, playerSolids));
+        if (hasNeighbor) {
+          pellet = { col, row };
         }
-        pellet = { col, row };
-        beside = walkable;
       }
     }
     expect(pellet).not.toBeNull();
-    expect(beside).not.toBeNull();
     const power = { x: cellCenterX(pellet!.col), y: cellCenterY(pellet!.row) };
     const center = respawnCenter(["passiveReanimationPlus"], fell, [power]);
     expect(isWalkable(worldToCol(center.x), worldToRow(center.y), playerSolids)).toBe(true);
