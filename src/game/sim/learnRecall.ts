@@ -32,9 +32,7 @@ export class LearnRecall {
     pelletsEaten: number,
     frozenEid: number | null,
   ): void {
-    if (this.eids.length === 0) {
-      this.clock = createGhostReleaseClock(LEARN_LEVEL, pelletsEaten);
-    }
+    this.ensureClock(pelletsEaten);
     const eid = recallClosestGhostToHouse(
       world,
       this.clock,
@@ -57,15 +55,19 @@ export class LearnRecall {
     if (eids.length === 0) {
       return;
     }
-    if (this.eids.length === 0) {
-      this.clock = createGhostReleaseClock(LEARN_LEVEL, pelletsEaten);
-    }
-    this.clock = { ...this.clock, started: true };
+    this.ensureClock(pelletsEaten);
     const adds = this.adds(owned, []);
     for (const eid of eids) {
       sendGhostToHouse(world, eid, this.clock, pelletsEaten, false, adds);
       this.eids.push(eid);
     }
+  }
+
+  private ensureClock(pelletsEaten: number): void {
+    if (this.eids.length === 0) {
+      this.clock = createGhostReleaseClock(LEARN_LEVEL, pelletsEaten);
+    }
+    this.clock = { ...this.clock, started: true };
   }
 
   tick(
