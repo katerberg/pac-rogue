@@ -597,6 +597,21 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toContain("SHIELDS 0/1");
   });
 
+  it("Reactive Armor releases the house ghost on the house timer without another keypress", () => {
+    const { sim, player } = setup("passiveShieldPellets", "passiveReactiveArmor");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    const ghost = sim.ghostEid!;
+    catchByGhost(sim, player);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    let released = false;
+    for (let t = 0; t < 5_000 && !released; t += FRAME_MS) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      released = GhostPhase.value[ghost] !== GHOST_PHASE.inHouse;
+    }
+    expect(released).toBe(true);
+  });
+
   it("Shield Break+ fires pickup effects when the bank is full", () => {
     const { sim, player } = setup(
       "passiveShieldPellets",
