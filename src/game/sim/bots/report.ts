@@ -654,7 +654,6 @@ function singlesLeads(summary: Summary): SinglesLead[] {
   return leads;
 }
 
-/** One row per upgrade: the level where |mean Δ| is largest. */
 function extremeByUpgrade(leads: readonly SinglesLead[]): SinglesLead[] {
   const best = new Map<string, SinglesLead>();
   for (const lead of leads) {
@@ -668,10 +667,7 @@ function extremeByUpgrade(leads: readonly SinglesLead[]): SinglesLead[] {
 
 function buildValueHint(summary: Summary, id: string): string | null {
   const profiles = Object.keys(summary.builds).sort();
-  const preferred =
-    profiles.find((p) => p.startsWith("casual@")) ??
-    profiles.find((p) => p.includes("casual")) ??
-    profiles[0];
+  const preferred = profiles.find((p) => p.startsWith("casual@")) ?? profiles[0];
   if (preferred === undefined) {
     return null;
   }
@@ -699,17 +695,11 @@ function formatLead(lead: SinglesLead, summary: Summary): string {
 }
 
 function pickLeads(leads: readonly SinglesLead[], direction: "over" | "under"): SinglesLead[] {
-  const ranked = [...leads].sort((a, b) =>
-    direction === "over" ? b.mean - a.mean : a.mean - b.mean,
-  );
-  const withSignal = ranked.filter((l) =>
-    direction === "over" ? l.mean > 0 && l.separated > 0 : l.mean < 0 && l.separated > 0,
-  );
-  const pool =
-    withSignal.length > 0
-      ? withSignal
-      : ranked.filter((l) => (direction === "over" ? l.mean > 0 : l.mean < 0));
-  return pool.slice(0, EXEC_TOP);
+  const wantPositive = direction === "over";
+  const ranked = [...leads].sort((a, b) => (wantPositive ? b.mean - a.mean : a.mean - b.mean));
+  const signed = ranked.filter((l) => (wantPositive ? l.mean > 0 : l.mean < 0));
+  const withSignal = signed.filter((l) => l.separated > 0);
+  return (withSignal.length > 0 ? withSignal : signed).slice(0, EXEC_TOP);
 }
 
 function difficultyWatchouts(summary: Summary): string[] {
@@ -763,10 +753,8 @@ function ghostWatchouts(summary: Summary): string[] {
       continue;
     }
     const top = rows[0]!;
-    const second = rows[1]!.perMinute;
-    const baseline =
-      second > 0 ? second : rows.slice(1).reduce((s, r) => s + r.perMinute, 0) / (rows.length - 1);
-    if (baseline <= 0) {
+    const next = rows[1]!.perMinute;
+    if (next <= 0) {
       if (top.catches >= 5) {
         out.push(
           `**Lethal ghost (${profile}):** ${top.kind} at ${num(top.perMinute)} catches/min (${top.catches} catches; others near zero).`,
@@ -774,17 +762,17 @@ function ghostWatchouts(summary: Summary): string[] {
       }
       continue;
     }
-    if (top.perMinute >= baseline * LETHALITY_RATIO) {
+    if (top.perMinute >= next * LETHALITY_RATIO) {
       out.push(
-        `**Lethal ghost (${profile}):** ${top.kind} at ${num(top.perMinute)} catches/min (${num(top.perMinute / baseline, 1)}× next; ${top.catches} catches).`,
+        `**Lethal ghost (${profile}):** ${top.kind} at ${num(top.perMinute)} catches/min (${num(top.perMinute / next, 1)}× next; ${top.catches} catches).`,
       );
     }
   }
   return out.slice(0, EXEC_TOP);
 }
 
-function spreadWatchouts(summary: Summary): string[] {
-  return extremeByUpgrade(singlesLeads(summary))
+function spreadWatchouts(leads: readonly SinglesLead[]): string[] {
+  return [...leads]
     .filter((l) => l.profiles >= 2 && l.spread >= SPREAD_FLOOR)
     .sort((a, b) => b.spread - a.spread)
     .slice(0, EXEC_TOP)
@@ -873,8 +861,6 @@ function executiveSummarySection(summary: Summary): string[] {
         : "OK — health gate passed.";
 
   const leads = extremeByUpgrade(singlesLeads(summary));
-  const over = pickLeads(leads, "over");
-  const under = pickLeads(leads, "under");
   const watchouts = [
     ...(h.errors > 0
       ? [
@@ -888,7 +874,7 @@ function executiveSummarySection(summary: Summary): string[] {
     ...pairWatchouts(summary),
     ...ghostWatchouts(summary),
     ...rosterWatchouts(summary),
-    ...spreadWatchouts(summary),
+    ...spreadWatchouts(leads),
     ...specialistWatchouts(summary),
   ];
 
@@ -905,13 +891,13 @@ function executiveSummarySection(summary: Summary): string[] {
     "### Most overperforming",
     "",
     ...list(
-      over.map((l) => formatLead(l, summary)),
+      pickLeads(leads, "over").map((l) => formatLead(l, summary)),
       leads.length === 0 ? "No singles data." : "No positive singles Δ to report.",
     ),
     "### Most underperforming",
     "",
     ...list(
-      under.map((l) => formatLead(l, summary)),
+      pickLeads(leads, "under").map((l) => formatLead(l, summary)),
       leads.length === 0 ? "No singles data." : "No negative singles Δ to report.",
     ),
     "### Watchouts",
