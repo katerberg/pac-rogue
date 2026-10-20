@@ -83,6 +83,7 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
+import { remapSlotPickupCell } from "../../domain/slotPickup";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import type { ProgramDir } from "../../domain/programmer";
 import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
@@ -2881,17 +2882,12 @@ describe("PlaySim slot-machine world pickup", () => {
     );
     const before = sim.snapshot().slotPickup.cells[0]!;
     const rows = getActiveLayout().rows;
-    const expectedRow = rows - 1 - before.row;
     runUntil(sim, () => sim.snapshot().level === 6 && !sim.snapshot().levelTransition, 900, {
       acknowledge: true,
     });
     expect(sim.snapshot().level).toBe(6);
     const after = sim.snapshot().slotPickup.cells[0]!;
-    expect(after.col).toBe(before.col);
-    expect(isWalkable(after.col, after.row)).toBe(true);
-    if (isWalkable(before.col, expectedRow)) {
-      expect(after.row).toBe(expectedRow);
-    }
+    expect(after).toEqual(remapSlotPickupCell(before.col, rows - 1 - before.row));
   });
 
   it("hides through a store and respawns on the next play board", () => {
