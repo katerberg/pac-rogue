@@ -18,6 +18,7 @@ import {
   BOSS_STAGE_TOTAL_MS,
 } from "../../domain/bossStageTransition";
 import {
+  actorDisplaySize,
   canEnterDirection,
   cellCenterX,
   cellCenterY,
@@ -7329,9 +7330,18 @@ describe("power pellet break VFX", () => {
     expect(getActiveLayout().ascii).toBe(ascii);
     expect(sim.snapshot().layout).toBe("custom");
     expect(getActiveLayout().ghostHouseSpawn).toEqual({ col: 10, row: 9 });
+    expect(sim.snapshot().ghosts).toHaveLength(1);
     runFrames(sim, 30, { keys: held("up") });
-    expect(sim.snapshot().ghosts).toHaveLength(4);
     expect(sim.snapshot().ghosts.map((g) => g.phase)).not.toContain("inHouse");
+  });
+
+  it("seats level-1 mazeSmall ghosts apart instead of stacking them", () => {
+    const sim = startSim({ level: 1, maze: "mazeSmall", roster: 0 }, "house-seats");
+    const ghosts = sim.snapshot().ghosts;
+    expect(ghosts).toHaveLength(2);
+    expect(ghosts.every((g) => g.phase === "inHouse")).toBe(true);
+    const gap = Math.abs(ghosts[0]!.x - ghosts[1]!.x);
+    expect(gap).toBeGreaterThanOrEqual(actorDisplaySize());
   });
 
   it("shows a notice instead of the starting upgrade when the pasted maze fails", () => {

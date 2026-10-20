@@ -14,7 +14,7 @@ The playfield is fixed; every layout uses one fixed tile size (`TILE_SIZE_PX`), 
 
 ## Ghost house, tunnels
 
-- Every layout except the store has a house: 2-wide door on top, a floor meeting `HOUSE_FLOOR_MIN_*` / `HOUSE_SPAWN_ROW_MIN_FLOORS` in `maze.ts` (seats interpolate across the spawn-row width), an exit above the door and a fruit cell below the house, all **derived** from the ASCII.
+- Every layout except the store has a house: 2-wide door on top, a floor meeting `HOUSE_FLOOR_MIN_*` / `HOUSE_SPAWN_ROW_MIN_FLOORS` in `maze.ts` (seat count and in-house ghost cap come from spawn-row width via `houseSeatCount` in `ghostHouseSeats.ts`; seats interpolate across that width), an exit above the door and a fruit cell below the house, all **derived** from the ASCII.
 - Tunnels are horizontal only, at least one per board, never adjacent. The slow band is a fraction of columns, so it scales with width. Scatter targets and pellet-based thresholds also scale with the layout.
 
 ## Play boards

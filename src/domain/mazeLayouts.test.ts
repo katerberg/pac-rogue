@@ -106,7 +106,7 @@ describe("maze layouts", () => {
       }
     }
     expect(smallTunnels.length).toEqual(1);
-    expect(ghostHouseSeatCenters()).toHaveLength(4);
+    expect(ghostHouseSeatCenters()).toHaveLength(3);
     expect(small.door.some((row) => row.some(Boolean))).toBe(true);
     expect(small.house.some((row) => row.some(Boolean))).toBe(true);
     expect(blinkyScatterTarget()).toEqual({ col: 19, row: -3 });

@@ -32,7 +32,7 @@ Speed lane, lava and collapse levels are **level modifiers**: `?levelModifiers=0
 
 ## Ghost roster
 
-Blinky is always present. The other three come from one of six curated rosters (`pickRosterId`, the `roster` seed stream; `?roster=0..5` forces one): a front arm (Pinky or Wardy) in slot 1, a flank in slot 2 (Inky, or the other front arm) and a relief ghost in slot 3 (Clyde or Spunky). `ghostKindsForLevel` introduces slots in order: level 1 slots 0-1, level 2 slots 0-2, level 3+ all four through level 8. Targeting per ghost: `ghostTarget.ts`.
+Blinky is always present. The other three come from one of six curated rosters (`pickRosterId`, the `roster` seed stream; `?roster=0..5` forces one): a front arm (Pinky or Wardy) in slot 1, a flank in slot 2 (Inky, or the other front arm) and a relief ghost in slot 3 (Clyde or Spunky). `ghostKindsForLevel` introduces slots in order: level 1 slots 0-1, level 2 slots 0-2, level 3+ all four through level 8, then the board's `maxGhostsForHouse` trims the list so a narrow house never stacks sprites. Targeting per ghost: `ghostTarget.ts`.
 
 ## Ghost house release
 
