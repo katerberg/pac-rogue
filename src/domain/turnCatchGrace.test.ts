@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import { TURN_CATCH_GRACE_MS, tickTurnCatchGrace } from "./turnCatchGrace";
 
 describe("turnCatchGrace", () => {
-  it("is shorter than a tile of travel so you cannot phase through a ghost on a turn", () => {
-    // At default player speed (~7.315 tiles/s), this is well under half a tile.
-    expect(TURN_CATCH_GRACE_MS).toBeLessThan(100);
+  it("stays at the short corner-commit window", () => {
+    expect(TURN_CATCH_GRACE_MS).toBe(48);
   });
 
   it("ticks down and expires", () => {

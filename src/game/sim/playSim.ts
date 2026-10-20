@@ -3258,7 +3258,9 @@ export class PlaySim {
     if (turn.turned) {
       this.runUpgrades = startHyperspeedTurnDelay(this.runUpgrades);
       this.zeroPlayerSpeed();
-      this.turnCatchGraceMs = Math.max(this.turnCatchGraceMs, TURN_CATCH_GRACE_MS);
+      if (previous !== null) {
+        this.noteTurnCatchGrace(previous, facing);
+      }
     }
   }
 

@@ -6074,20 +6074,43 @@ describe("Hyperspeed", () => {
   it("does not catch on the hyperspeed turn beat, then catches once grace ends", () => {
     const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
     chompPowerPellet(sim);
-    runFrames(sim, 8, UP);
-    runFrames(sim, 1, RIGHT);
-    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(150);
+    const player = playerEid(sim);
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    teleportPlayer(sim, cellCenterX(8), cy);
+    Facing.direction[player] = DIRECTION.left;
+    Input.direction[player] = DIRECTION.left;
+    runUntil(sim, () => Position.x[player]! <= cx + 8, 30, { keys: held("left") });
+    teleportPlayer(sim, cx + 3, cy);
+    Facing.direction[player] = DIRECTION.left;
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().player!.facing).toBe("up");
     expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
     ghostOntoPlayer(sim);
-    runFrames(sim, 1, RIGHT);
+    runFrames(sim, 1, { keys: held("up") });
     expect(sim.snapshot().dying).toBe(false);
     while (sim.snapshot().timers.turnCatchGraceMs > 0) {
       ghostOntoPlayer(sim);
-      runFrames(sim, 1, RIGHT);
+      runFrames(sim, 1, { keys: held("up") });
     }
-    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(0);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("still catches on a hyperspeed reverse with no turn catch grace", () => {
+    const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
+    chompPowerPellet(sim);
+    const player = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(10), cellCenterY(1));
+    Facing.direction[player] = DIRECTION.left;
+    Input.direction[player] = DIRECTION.left;
+    runFrames(sim, 2, { keys: held("left") });
+    expect(sim.snapshot().player!.facing).toBe("left");
     ghostOntoPlayer(sim);
     runFrames(sim, 1, RIGHT);
+    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(150);
+    expect(sim.snapshot().timers.turnCatchGraceMs).toBe(0);
     expect(sim.snapshot().dying).toBe(true);
   });
 

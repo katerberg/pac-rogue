@@ -1320,7 +1320,9 @@ export class LearnSim {
     if (turn.turned) {
       this.learnUpgrades = startHyperspeedTurnDelay(this.learnUpgrades);
       applyPlayerSpeed(this.world, 0);
-      this.turnCatchGraceMs = Math.max(this.turnCatchGraceMs, TURN_CATCH_GRACE_MS);
+      if (previous !== null) {
+        this.noteTurnCatchGrace(previous, facing);
+      }
     }
   }
 
