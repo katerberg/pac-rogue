@@ -246,7 +246,10 @@ export const EXTRA_HUNGRY_COUNT = 8;
 export const STORE_UPGRADE_PRICE = 3;
 export const STORE_RARE_UPGRADE_PRICE = 4;
 export const RARE_MIN_OWNED = 2;
-export const RARE_OFFER_WEIGHT = 0.5;
+export const RARE_OFFER_MASS = 1 / 15;
+export const STORE_RARE_OFFER_MASS = RARE_OFFER_MASS / 2;
+export const RARE_MIN_CLEAR_LEVEL = 2;
+export const TARGET_RARES_PER_SCHOOL = 2;
 export const SCHOOL_AFFINITY_COMMON_RATE = 0.5;
 export const SCHOOL_AFFINITY_RARE_RATE = 0.3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 2;
@@ -1317,18 +1320,26 @@ export function grantLivesForUpgrade(id: UpgradeId): number {
   return UPGRADE_BY_ID.get(id)?.grantLives ?? 0;
 }
 
-export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
+export function eligibleUpgrades(
+  owned: readonly UpgradeId[],
+  options?: { clearLevelIndex?: number },
+): BaseUpgradeId[] {
   const ownedBases = new Set(owned.map(baseIdOf));
   const shieldsOwned = providesShields(owned);
+  const clearLevelIndex = options?.clearLevelIndex;
   return ALL_UPGRADE_IDS.filter((id) => {
     const def = getUpgradeDef(id);
     const needsShields = def.shieldBreak === true || def.reactiveArmor === true;
+    const rareOk =
+      !isRare(id) ||
+      (owned.length >= RARE_MIN_OWNED &&
+        (clearLevelIndex === undefined || clearLevelIndex >= RARE_MIN_CLEAR_LEVEL));
     return (
       !ownedBases.has(id) &&
       !(id === "powerPelletHyperspeed" && ownedBases.has("powerPelletProgrammer")) &&
       !(id === "powerPelletProgrammer" && ownedBases.has("powerPelletHyperspeed")) &&
       (!needsShields || shieldsOwned) &&
-      (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
+      rareOk &&
       (!isSpecialist(id) || schoolCount(owned, def.school) >= SPECIALIST_THRESHOLD)
     );
   });
@@ -1348,20 +1359,47 @@ export function schoolAffinityPoints(owned: readonly UpgradeId[], school: Upgrad
   return owned.filter((id) => getUpgradeDef(id).school === school).length;
 }
 
-export function upgradeOfferWeight(id: BaseUpgradeId, owned: readonly UpgradeId[]): number {
+export function rareWeightForPool(pool: readonly BaseUpgradeId[], rareMass: number): number {
+  let commons = 0;
+  let rares = 0;
+  for (const id of pool) {
+    if (isRare(id)) {
+      rares += 1;
+    } else {
+      commons += 1;
+    }
+  }
+  if (rares === 0) {
+    return 0;
+  }
+  if (commons === 0) {
+    return 1;
+  }
+  return (rareMass * commons) / (rares * (1 - rareMass));
+}
+
+export function upgradeOfferWeight(
+  id: BaseUpgradeId,
+  owned: readonly UpgradeId[],
+  rareBaseWeight: number,
+): number {
   const school = getUpgradeDef(id).school;
   const points = schoolAffinityPoints(owned, school);
   const schoolMult =
     school === "neutral" || points === 0
       ? 1
       : 1 + (isRare(id) ? SCHOOL_AFFINITY_RARE_RATE : SCHOOL_AFFINITY_COMMON_RATE) * points;
-  return schoolMult * (isRare(id) ? RARE_OFFER_WEIGHT : 1);
+  return schoolMult * (isRare(id) ? rareBaseWeight : 1);
+}
+
+export function storeUpgradeWeight(pool: readonly BaseUpgradeId[]): (id: BaseUpgradeId) => number {
+  return (id) => (isRare(id) ? rareWeightForPool(pool, STORE_RARE_OFFER_MASS) : 1);
 }
 
 export function takeWeightedUpgrade(
   pool: BaseUpgradeId[],
   rng: () => number,
-  weight: (id: BaseUpgradeId) => number = (id) => (isRare(id) ? RARE_OFFER_WEIGHT : 1),
+  weight: (id: BaseUpgradeId) => number = storeUpgradeWeight(pool),
 ): BaseUpgradeId {
   let roll = rng() * pool.reduce((sum, id) => sum + weight(id), 0);
   const index = pool.findIndex((id) => (roll -= weight(id)) < 0);
@@ -1390,16 +1428,19 @@ export function pickUpgradeChoiceOffer(
   rng: () => number,
   enhancedChance = 0,
   forced: BaseUpgradeId | null = null,
+  clearLevelIndex = RARE_MIN_CLEAR_LEVEL,
 ): UpgradeChoiceOffer {
-  const eligible = eligibleUpgrades(owned);
+  const eligible = eligibleUpgrades(owned, { clearLevelIndex });
   const desiredCount = Math.min(UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS, eligible.length);
 
   const preferred = eligible.filter((id) => id !== lastDeclined);
   const picked: BaseUpgradeId[] = [];
   const drawPool = [...preferred];
-  const weight = (id: BaseUpgradeId) => upgradeOfferWeight(id, owned);
   while (picked.length < desiredCount && drawPool.length > 0) {
-    picked.push(takeWeightedUpgrade(drawPool, rng, weight));
+    const rareBase = rareWeightForPool(drawPool, RARE_OFFER_MASS);
+    picked.push(
+      takeWeightedUpgrade(drawPool, rng, (id) => upgradeOfferWeight(id, owned, rareBase)),
+    );
   }
 
   if (
@@ -1747,6 +1788,17 @@ export function hunterHoldsEaten(owned: readonly UpgradeId[]): boolean {
   return ownedValue(owned, "hunterHoldsEaten") === true;
 }
 
+export function firingPowerUpgrades(
+  owned: readonly UpgradeId[],
+  onlyBases?: readonly BaseUpgradeId[],
+): UpgradeId[] {
+  return effectiveOwned(owned).filter(
+    (id) =>
+      UPGRADE_BY_ID.get(id)?.onPowerPellet !== undefined &&
+      (onlyBases === undefined || onlyBases.includes(baseIdOf(id))),
+  );
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
@@ -1791,9 +1843,7 @@ export function applyPowerPelletEffects(
   let chaffCorners = false;
 
   const owned = effectiveOwned(state.owned);
-  const firing =
-    onlyBases === undefined ? owned : owned.filter((id) => onlyBases.includes(baseIdOf(id)));
-  for (const id of firing) {
+  for (const id of firingPowerUpgrades(state.owned, onlyBases)) {
     const onPower = UPGRADE_BY_ID.get(id)?.onPowerPellet;
     if (!onPower) {
       continue;

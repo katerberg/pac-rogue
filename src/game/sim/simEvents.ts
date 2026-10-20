@@ -5,7 +5,12 @@ import type { GhostKindId } from "../../domain/ghostKind";
 import type { TurnFeedbackKind } from "../../domain/turnTuning";
 import type { StorePromptView } from "../../domain/store";
 import type { FrightenedGhosts } from "../../domain/hunter";
-import type { HauntedGhost, UpgradeChoiceOffer, UpgradeId } from "../../domain/upgrades";
+import type {
+  BaseUpgradeId,
+  HauntedGhost,
+  UpgradeChoiceOffer,
+  UpgradeId,
+} from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
 import type { CollapseRenderState } from "../../domain/collapseRubble";
 import type { LavaRenderState } from "../../domain/lavaZone";
@@ -99,6 +104,7 @@ export type SimEvent =
   | { type: "fruitBonus" }
   | { type: "timePennies"; active: boolean }
   | { type: "upgrades" }
+  | { type: "upgradePulse"; ids: BaseUpgradeId[] }
   | { type: "timer" }
   | { type: "timerVisible"; visible: boolean }
   | { type: "startingUpgrade"; id: UpgradeId }

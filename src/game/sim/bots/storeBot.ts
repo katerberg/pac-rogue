@@ -62,6 +62,7 @@ export class StoreBot {
   private elapsedMs = 0;
   private target: number | null = null;
   private releaseKeys = false;
+  private walkArmed = false;
   private readonly skip = new Set<number>();
 
   constructor(
@@ -71,12 +72,18 @@ export class StoreBot {
   ) {}
 
   input(sim: PlaySim, deltaMs: number): Partial<SimInput> {
-    this.elapsedMs += deltaMs;
-    this.stalled ||= this.elapsedMs > STORE_STALL_MS;
     const store = sim.storeState();
     if (store === null || !sim.readsStoreKeys()) {
+      this.elapsedMs = 0;
+      this.stalled = false;
+      this.target = null;
+      this.releaseKeys = false;
+      this.walkArmed = false;
+      this.skip.clear();
       return {};
     }
+    this.elapsedMs += deltaMs;
+    this.stalled ||= this.elapsedMs > STORE_STALL_MS;
     const hud = sim.hud();
     const prompt = promptView(store, hud.quarters, hud.upgrades);
     if (prompt?.kind === "confirm") {
@@ -107,13 +114,16 @@ export class StoreBot {
         return { storeClick: next };
       }
     }
-    if (this.releaseKeys) {
+    if (this.releaseKeys || !this.walkArmed) {
       this.releaseKeys = false;
+      this.walkArmed = true;
       return {};
     }
-    const toFreebie = store.freebie.taken ? null : this.freebieKeys(sim, store.freebie);
-    if (toFreebie !== null) {
-      return { keys: toFreebie };
+    if (!this.stalled && !store.freebie.taken) {
+      const toFreebie = this.freebieKeys(sim, store.freebie);
+      if (toFreebie !== null) {
+        return { keys: toFreebie };
+      }
     }
     return sim.storeRouting() ? {} : { storePointer: this.exitPoint(sim) };
   }
@@ -126,7 +136,11 @@ export class StoreBot {
     if (from === null) {
       return null;
     }
-    const dist = bfs(grid, cellIndex(grid, freebie.col, freebie.row));
+    const freebieIndex = cellIndex(grid, freebie.col, freebie.row);
+    if (from === freebieIndex) {
+      return null;
+    }
+    const dist = bfs(grid, freebieIndex);
     let best: { key: keyof HeldKeys; dist: number } | null = null;
     for (const direction of CARDINALS) {
       const next = neighbor(grid, from, direction);
