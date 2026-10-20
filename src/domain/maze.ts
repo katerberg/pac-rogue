@@ -14,9 +14,9 @@ export const MAZE_ROWS_MIN = 21;
 export const MAZE_ROWS_MAX = 36;
 export const MIN_TILE_SIZE = 12;
 export const MIN_MAZE_OFFSET_X = 80;
-export const HOUSE_FLOOR_MIN_COLS = 6;
-export const HOUSE_FLOOR_MIN_ROWS = 3;
-export const HOUSE_SPAWN_ROW_MIN_FLOORS = 4;
+export const HOUSE_FLOOR_MIN_COLS = 2;
+export const HOUSE_FLOOR_MIN_ROWS = 2;
+export const HOUSE_SPAWN_ROW_MIN_FLOORS = 2;
 
 export const MAZE_TOP_MARGIN_PX = 28;
 

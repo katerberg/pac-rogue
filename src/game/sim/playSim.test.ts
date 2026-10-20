@@ -35,7 +35,7 @@ import {
 } from "../../domain/maze";
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
-import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
+import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
@@ -177,6 +177,32 @@ function drainToOffer(sim: PlaySim): UpgradeChoiceOffer {
 
 function takeFirstOffered(sim: PlaySim): void {
   sim.chooseUpgrade({ kind: "upgrade", id: drainToOffer(sim).upgrades[0]! });
+}
+
+function cellSpeedRatios(id: UpgradeId | null): { empty: number; pellet: number } {
+  const baseline = startSim({ level: 2, maze: "maze1" });
+  const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: id === null ? [] : [id] });
+  const target = regularPelletEids(sim)[0]!;
+  const col = worldToCol(Position.x[target]!);
+  const row = worldToRow(Position.y[target]!);
+  const measure = (world: PlaySim, vx: number): number => {
+    const pellets = Array.from(query(world.world, [Pellet, Position]));
+    const keep = regularPelletEids(world).find(
+      (eid) => worldToCol(Position.x[eid]!) === col && worldToRow(Position.y[eid]!) === row,
+    );
+    for (const eid of pellets) {
+      if (eid !== keep) {
+        removeEntity(world.world, eid);
+      }
+    }
+    teleportPlayer(world, cellCenterX(col - 1), cellCenterY(row));
+    Velocity.x[playerEid(world)] = vx;
+    Velocity.y[playerEid(world)] = 0;
+    runFrames(world, 1);
+    return Speed.px[playerEid(world)]!;
+  };
+  const base = measure(baseline, 1);
+  return { pellet: measure(sim, 1) / base, empty: measure(sim, -1) / base };
 }
 
 function regularPelletEids(sim: PlaySim): number[] {
@@ -382,48 +408,36 @@ describe("PlaySim fruit feast", () => {
 });
 
 describe("PlaySim Afterburner", () => {
-  function speedRatios(id: UpgradeId | null): { empty: number; pellet: number } {
-    const baseline = startSim({ level: 2, maze: "maze1" });
-    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: id === null ? [] : [id] });
-    const target = regularPelletEids(sim)[0]!;
-    const col = worldToCol(Position.x[target]!);
-    const row = worldToRow(Position.y[target]!);
-    const measure = (world: PlaySim, vx: number): number => {
-      const pellets = Array.from(query(world.world, [Pellet, Position]));
-      const keep = regularPelletEids(world).find(
-        (eid) => worldToCol(Position.x[eid]!) === col && worldToRow(Position.y[eid]!) === row,
-      );
-      for (const eid of pellets) {
-        if (eid !== keep) {
-          removeEntity(world.world, eid);
-        }
-      }
-      teleportPlayer(world, cellCenterX(col - 1), cellCenterY(row));
-      Velocity.x[playerEid(world)] = vx;
-      Velocity.y[playerEid(world)] = 0;
-      runFrames(world, 1);
-      return Speed.px[playerEid(world)]!;
-    };
-    const base = measure(baseline, 1);
-    return { pellet: measure(sim, 1) / base, empty: measure(sim, -1) / base };
-  }
-
   it("speeds up entering a cell without a pellet and slows entering one with a pellet", () => {
-    const ratios = speedRatios("passiveAfterburner");
+    const ratios = cellSpeedRatios("passiveAfterburner");
     expect(ratios.pellet).toBeCloseTo(0.8);
     expect(ratios.empty).toBeCloseTo(1.3);
   });
 
   it("Afterburner+ gives +50% and keeps the 20% pellet-cell slowdown", () => {
-    const ratios = speedRatios("passiveAfterburnerPlus");
+    const ratios = cellSpeedRatios("passiveAfterburnerPlus");
     expect(ratios.pellet).toBeCloseTo(0.8);
     expect(ratios.empty).toBeCloseTo(1.5);
   });
 
   it("changes nothing without the upgrade", () => {
-    const ratios = speedRatios(null);
+    const ratios = cellSpeedRatios(null);
     expect(ratios.empty).toBeCloseTo(1);
     expect(ratios.pellet).toBeCloseTo(1);
+  });
+});
+
+describe("PlaySim Mole", () => {
+  it("speeds up entering a pellet cell and slows entering an empty cell", () => {
+    const ratios = cellSpeedRatios("passiveMole");
+    expect(ratios.pellet).toBeCloseTo(1.2);
+    expect(ratios.empty).toBeCloseTo(0.8);
+  });
+
+  it("Mole+ gives +30% on pellets and keeps the 20% empty-cell slowdown", () => {
+    const ratios = cellSpeedRatios("passiveMolePlus");
+    expect(ratios.pellet).toBeCloseTo(1.3);
+    expect(ratios.empty).toBeCloseTo(0.8);
   });
 });
 
@@ -715,11 +729,24 @@ describe("PlaySim", () => {
           jumpToUpgrade: true,
           level: 4,
           enableUpgrades: owned,
-          forceUpgrade: "passiveStreakEngine",
+          forceUpgrade: "fruitPowerPellet",
         }),
       ).upgrades;
     expect(offer(["passiveGhostSlow"]).filter(isRare)).toEqual([]);
-    expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveStreakEngine");
+    expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("fruitPowerPellet");
+  });
+
+  it("offers Streak Engine at level clear without the rare ownership gate", () => {
+    const offer = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        enableUpgrades: ["passiveGhostSlow"],
+        forceUpgrade: "passiveStreakEngine",
+      }),
+    ).upgrades;
+    expect(offer).toContain("passiveStreakEngine");
+    expect(isRare("passiveStreakEngine")).toBe(false);
   });
 
   it("keeps rares out of the level-1 clear offer even when two upgrades are owned", () => {
@@ -728,10 +755,10 @@ describe("PlaySim", () => {
         jumpToUpgrade: true,
         level: 1,
         enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
-        forceUpgrade: "passiveStreakEngine",
+        forceUpgrade: "fruitPowerPellet",
       }),
     );
-    expect(offer.upgrades).not.toContain("passiveStreakEngine");
+    expect(offer.upgrades).not.toContain("fruitPowerPellet");
     expect(offer.upgrades.every((id) => !isRare(id))).toBe(true);
   });
 
@@ -755,6 +782,28 @@ describe("PlaySim", () => {
       }),
     ).upgrades;
     expect(withProgrammer).not.toContain("powerPelletHyperspeed");
+  });
+
+  it("never offers Mole when Afterburner is owned, or the reverse", () => {
+    const pad = ["passiveGhostSlow", "fruitFeast"] as const;
+    const withAfterburner = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        enableUpgrades: [...pad, "passiveAfterburner"],
+        forceUpgrade: "passiveMole",
+      }),
+    ).upgrades;
+    expect(withAfterburner).not.toContain("passiveMole");
+    const withMole = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        enableUpgrades: [...pad, "passiveMole"],
+        forceUpgrade: "passiveAfterburner",
+      }),
+    ).upgrades;
+    expect(withMole).not.toContain("passiveAfterburner");
   });
 
   it("clears a board into an upgrade offer, then the next level", () => {
@@ -7268,6 +7317,21 @@ describe("power pellet break VFX", () => {
     const sim = startSim({ mazeAscii: CLASSIC_MAZE_ASCII });
     expect(getActiveLayout().ascii).toBe(CLASSIC_MAZE_ASCII);
     expect(sim.snapshot().layout).toBe("custom");
+  });
+
+  it("plays a custom maze whose ghost house is only 2x2", () => {
+    const ascii = tinyHouseMazeAscii();
+    const sim = startSim({
+      mazeAscii: ascii,
+      level: 3,
+      ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde],
+    });
+    expect(getActiveLayout().ascii).toBe(ascii);
+    expect(sim.snapshot().layout).toBe("custom");
+    expect(getActiveLayout().ghostHouseSpawn).toEqual({ col: 10, row: 6 });
+    runFrames(sim, 30, { keys: held("up") });
+    expect(sim.snapshot().ghosts).toHaveLength(4);
+    expect(sim.snapshot().ghosts.map((g) => g.phase)).not.toContain("inHouse");
   });
 
   it("shows a notice instead of the starting upgrade when the pasted maze fails", () => {

@@ -1,6 +1,7 @@
 import type Phaser from "phaser";
 import { storedRunCount } from "../storage/runLogStorage";
 import { HighScoresScene } from "./HighScoresScene";
+import { LearnScene } from "./LearnScene";
 import { PlayScene } from "./PlayScene";
 import { SettingsScene } from "./SettingsScene";
 
@@ -12,6 +13,7 @@ declare global {
       snapshot: () => {
         scenes: Record<string, SceneStatus>;
         play: ReturnType<PlayScene["debugSnapshot"]> | null;
+        learn: ReturnType<LearnScene["debugSnapshot"]> | null;
         settings: ReturnType<SettingsScene["debugSnapshot"]> | null;
         highScores: ReturnType<HighScoresScene["debugSnapshot"]> | null;
         runLog: { stored: number };
@@ -49,11 +51,13 @@ export function installDebugHook(game: Phaser.Game): void {
         }
       }
       const play = game.scene.getScene("PlayScene");
+      const learn = game.scene.getScene("LearnScene");
       const settings = game.scene.getScene("SettingsScene");
       const highScores = game.scene.getScene("HighScoresScene");
       return {
         scenes,
         play: play instanceof PlayScene && "PlayScene" in scenes ? play.debugSnapshot() : null,
+        learn: learn instanceof LearnScene && "LearnScene" in scenes ? learn.debugSnapshot() : null,
         settings:
           settings instanceof SettingsScene && "SettingsScene" in scenes
             ? settings.debugSnapshot()

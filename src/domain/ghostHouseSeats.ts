@@ -19,10 +19,8 @@ function houseFloorColsOnSpawnRow(): number[] {
       colsOnRow.push(col);
     }
   }
-  if (colsOnRow.length < HOUSE_SEAT_COUNT) {
-    throw new Error(
-      `ghost house spawn row ${row} has ${colsOnRow.length} floor cells; need ${HOUSE_SEAT_COUNT}`,
-    );
+  if (colsOnRow.length === 0) {
+    throw new Error(`ghost house spawn row ${row} has no floor cells`);
   }
   return colsOnRow;
 }

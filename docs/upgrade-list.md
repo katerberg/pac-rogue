@@ -20,7 +20,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveExtraLife` | Extra Life | death | One more chance, and lives regenerate up to 4. | Two more chances, and lives regenerate up to 5. |
 | `passivePelletToPower` | Pellet Surge | automation | Each board, one regular pellet becomes a power pellet. | Each board, two regular pellets become power pellets. |
 | `powerPelletExtraHungry` | Extra Hungry | automation | Power pellets also eat the 8 pellets farthest from you. | Power pellets also eat the 14 pellets farthest from you. |
-| `powerPelletWallPass` | Wall Pass (rare) | speed | Power pellet lets you slip through walls for 6s (shortening 0.5s a level to 4s). | Power pellet lets you slip through walls and loop around the maze edges for 6s (shortening to 4s by level 5). |
+| `powerPelletWallPass` | Wall Pass | speed | Power pellet lets you slip through walls for 6s (shortening 0.5s a level to 4s). | Power pellet lets you slip through walls and loop around the maze edges for 6s (shortening to 4s by level 5). |
 | `powerPelletSpeedBurst` | Speed Burst | speed | Power pellet spikes your pace for a few seconds. | Power pellet spikes your pace hard for a few seconds. |
 | `powerPelletInvuln` | Ghost Proof | protection | Power pellet lets you pass through ghosts for 4s. | Power pellet lets you pass through ghosts for 5s (shortening toward ~3.8s by level 5). |
 | `powerPelletGhostHarvester` | Ghost Harvester | automation | Power pellets make ghosts eat pellets for you for 5 seconds. | Power pellets make ghosts eat pellets for you for 8 seconds. |
@@ -51,7 +51,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveNearMiss` | Near Miss | protection | Ghosts that brush past without catching you earn pennies. | Ghosts that brush past without catching you earn double pennies. |
 | `passiveHaunting` | Haunting | death | The ghost that last caught you stays caged in the ghost house for 10 seconds. | The ghost that last caught you stays caged in the ghost house for the level. |
 | `passiveTunnelSanctuary` | Tunnel Sanctuary | protection | Leaving a tunnel makes you ghost-proof for a second, but ghosts speed through them. | Leaving a tunnel makes you ghost-proof for a second, and ghosts can't use tunnels. |
-| `passiveStreakEngine` | Streak Engine (rare) | harvest | Every 30-pellet streak fires your power-pellet effects. | Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof. |
+| `passiveStreakEngine` | Streak Engine | harvest | Every 30-pellet streak fires your power-pellet effects. | Every 30-pellet streak fires your power-pellet effects and grants Ghost Proof. |
 | `passiveEcho` | Echo (rare) | automation | Power pellets fire a random one of your power effects again 3 seconds later. | Power pellets fire all of your power effects again 3 seconds later. |
 | `powerPelletHunter` | Hunter (rare) | disruption | Power pellets frighten ghosts. Eat them! | Power pellets frighten ghosts. Eaten ghosts stay home until the fright ends. |
 | `passiveStartingShield` | Starting Shield | protection | Start every level with a shield. A ghost hit breaks it. | Start every level with 2 shields. Each ghost hit breaks one. |
@@ -65,3 +65,4 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `powerPelletChaff` | Chaff | automation | Power pellet: drops a fake you in the center. Ghosts chase it until they touch it. | Power pellet: drops a fake you in each corner. Ghosts chase the nearest one. |
 | `passiveReactiveArmor` | Reactive Armor | protection | When a shield breaks, the ghost that touched you is sent to the ghost house. | When a shield breaks, all nearby ghosts are sent to the ghost house. |
 | `powerPelletTithe` | Tithe | harvest | Power pellet: move 10% slower for 5 seconds, but pellets count double toward your streak. | Power pellet: move 10% slower for 8 seconds, but pellets count double toward your streak. |
+| `passiveMole` | Mole | harvest | Dig the pellet veins: +20% speed over pellets, 20% slower on cleared tiles. | Dig deeper: +30% speed over pellets, 20% slower on cleared tiles. |

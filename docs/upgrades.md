@@ -7,7 +7,7 @@ Each upgrade's id, label, school, rarity, price, effect fields and one-line desc
 - `RunUpgrades` (domain) holds `owned` ids plus the upgrade timers and counters; `PlaySim` owns one per run. No ECS components for upgrades.
 - Effects are data on the def: passive multipliers and `onPowerPellet` fields. A **new kind** of effect extends the def shape and adds one resolve site (domain helper + `PlaySim` call). No plugin bus.
 - Choice UI is `src/game/scenes/upgradeChoiceModal.ts`; offer math stays in domain (`pickUpgradeChoiceOffer`, `confirmUpgradeChoice`, `declineUpgrades`).
-- Debug flags (`enableUpgrade`, `forceUpgrade`, `disableLevelUpgrades`, `jumpToUpgrade`) are documented on `parsePlayOptions`. Any of them disables high-score saving.
+- Debug flags (`enableUpgrade`, `forceUpgrade`, `disableLevelUpgrades`, `jumpToUpgrade`) are documented on `parsePlayOptions`. `enableUpgrade` / `forceUpgrade` also accept each upgrade's label as lowerCamel (any casing; `Plus` for enhanced). Any of them disables high-score saving.
 - LEARN coverage: [learn.md](./learn.md#upgrade-fidelity).
 
 ## Upgrade list

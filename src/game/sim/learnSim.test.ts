@@ -54,6 +54,41 @@ import { PlaySim } from "./playSim";
 import type { SimEvent, SimRenderOptions } from "./simEvents";
 import { FRAME_MS, held } from "./simTesting";
 
+function learnCellSpeedsAfterToggle(id: BaseUpgradeId): {
+  towardPellet: number;
+  towardEmpty: number;
+} {
+  const sim = new LearnSim("learn");
+  sim.start();
+  const player = query(sim.world, [Player, Position])[0]!;
+  const speedWhenMoving = (vx: number): number => {
+    Velocity.x[player] = vx;
+    Velocity.y[player] = 0;
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    return Speed.px[player]!;
+  };
+  const target = query(sim.world, [Pellet, Position])[0]!;
+  const col = worldToCol(Position.x[target]!);
+  const row = worldToRow(Position.y[target]!);
+  for (const eid of query(sim.world, [Pellet, Position])) {
+    if (eid !== target) {
+      removeEntity(sim.world, eid);
+    }
+  }
+  const place = () => {
+    Position.x[player] = cellCenterX(col - 1);
+    Position.y[player] = cellCenterY(row);
+  };
+  place();
+  const base = speedWhenMoving(1);
+  sim.toggleUpgrade(id);
+  place();
+  const towardPellet = speedWhenMoving(1) / base;
+  place();
+  const towardEmpty = speedWhenMoving(-1) / base;
+  return { towardPellet, towardEmpty };
+}
+
 describe("LearnSim", () => {
   it("runs a chosen ghost and moves the player", () => {
     const sim = new LearnSim("learn");
@@ -159,34 +194,15 @@ describe("LearnSim", () => {
   });
 
   it("Afterburner speeds the player up faster entering an empty cell and slower entering a pellet cell", () => {
-    const sim = new LearnSim("learn");
-    sim.start();
-    const player = query(sim.world, [Player, Position])[0]!;
-    const speedWhenMoving = (vx: number): number => {
-      Velocity.x[player] = vx;
-      Velocity.y[player] = 0;
-      sim.step(NO_KEYS_HELD, FRAME_MS);
-      return Speed.px[player]!;
-    };
-    const target = query(sim.world, [Pellet, Position])[0]!;
-    const col = worldToCol(Position.x[target]!);
-    const row = worldToRow(Position.y[target]!);
-    for (const eid of query(sim.world, [Pellet, Position])) {
-      if (eid !== target) {
-        removeEntity(sim.world, eid);
-      }
-    }
-    const place = () => {
-      Position.x[player] = cellCenterX(col - 1);
-      Position.y[player] = cellCenterY(row);
-    };
-    place();
-    const base = speedWhenMoving(1);
-    sim.toggleUpgrade("passiveAfterburner");
-    place();
-    expect(speedWhenMoving(1)).toBeCloseTo(base * 0.8);
-    place();
-    expect(speedWhenMoving(-1)).toBeCloseTo(base * 1.3);
+    const { towardPellet, towardEmpty } = learnCellSpeedsAfterToggle("passiveAfterburner");
+    expect(towardPellet).toBeCloseTo(0.8);
+    expect(towardEmpty).toBeCloseTo(1.3);
+  });
+
+  it("Mole speeds the player up faster entering a pellet cell and slower entering an empty cell", () => {
+    const { towardPellet, towardEmpty } = learnCellSpeedsAfterToggle("passiveMole");
+    expect(towardPellet).toBeCloseTo(1.2);
+    expect(towardEmpty).toBeCloseTo(0.8);
   });
 
   it("turns one pellet into a power pellet when Pellet Surge is toggled on", () => {
