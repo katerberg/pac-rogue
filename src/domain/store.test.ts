@@ -284,7 +284,7 @@ describe("createStoreState", () => {
 
   it("shelves a rare at half the level-clear rare mass", () => {
     const left: UpgradeId[] = [
-      "passiveStreakEngine",
+      "fruitPowerPellet",
       "passiveGhostSlow",
       "passiveAfterburner",
       "fruitFeast",
@@ -299,7 +299,7 @@ describe("createStoreState", () => {
     let withRare = 0;
     for (let i = 0; i < draws; i += 1) {
       const state = createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, rng);
-      withRare += state.slots.some((s) => s.kind === "upgrade" && s.id === "passiveStreakEngine")
+      withRare += state.slots.some((s) => s.kind === "upgrade" && s.id === "fruitPowerPellet")
         ? 1
         : 0;
     }

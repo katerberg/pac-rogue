@@ -729,11 +729,24 @@ describe("PlaySim", () => {
           jumpToUpgrade: true,
           level: 4,
           enableUpgrades: owned,
-          forceUpgrade: "passiveStreakEngine",
+          forceUpgrade: "fruitPowerPellet",
         }),
       ).upgrades;
     expect(offer(["passiveGhostSlow"]).filter(isRare)).toEqual([]);
-    expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveStreakEngine");
+    expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("fruitPowerPellet");
+  });
+
+  it("offers Streak Engine at level clear without the rare ownership gate", () => {
+    const offer = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        enableUpgrades: ["passiveGhostSlow"],
+        forceUpgrade: "passiveStreakEngine",
+      }),
+    ).upgrades;
+    expect(offer).toContain("passiveStreakEngine");
+    expect(isRare("passiveStreakEngine")).toBe(false);
   });
 
   it("keeps rares out of the level-1 clear offer even when two upgrades are owned", () => {
@@ -742,10 +755,10 @@ describe("PlaySim", () => {
         jumpToUpgrade: true,
         level: 1,
         enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
-        forceUpgrade: "passiveStreakEngine",
+        forceUpgrade: "fruitPowerPellet",
       }),
     );
-    expect(offer.upgrades).not.toContain("passiveStreakEngine");
+    expect(offer.upgrades).not.toContain("fruitPowerPellet");
     expect(offer.upgrades.every((id) => !isRare(id))).toBe(true);
   });
 
