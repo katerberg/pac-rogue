@@ -296,6 +296,8 @@ describe("parseUpgradeId", () => {
   });
 
   it("resolves every base label alias and prefers canonical ids", () => {
+    const aliasKeys = BASE_UPGRADE_DEFS.map((def) => upgradeLabelAlias(def.label).toLowerCase());
+    expect(new Set(aliasKeys).size).toBe(aliasKeys.length);
     for (const def of BASE_UPGRADE_DEFS) {
       const alias = upgradeLabelAlias(def.label);
       expect(parseUpgradeId(alias)).toBe(def.id);
