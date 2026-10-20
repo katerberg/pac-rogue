@@ -20,6 +20,7 @@ export type RandomStream =
   | "collapse"
   | "speedZones"
   | "slots"
+  | "slotPickup"
   | "chaff"
   | "bot";
 

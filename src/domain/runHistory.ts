@@ -37,6 +37,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "knobs",
   "customMaze",
   "slot",
+  "slotMachine",
 ] as const;
 
 export function highScoresDisabled(params: URLSearchParams): boolean {

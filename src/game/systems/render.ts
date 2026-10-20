@@ -77,6 +77,7 @@ import {
   PINKY_DRAWABLE_ID,
   PLAYER_DRAWABLE_ID,
   POWER_PELLET_DRAWABLE_ID,
+  SLOT_MACHINE_DRAWABLE_ID,
 } from "../../domain/playfield";
 import { expiryTintOn } from "../../domain/expiryBlink";
 import { turnFlashPulse } from "../../domain/turnTuning";
@@ -249,6 +250,9 @@ export function textureKeyForDrawable(drawableId: string): string {
   }
   if (isFruitDrawableId(drawableId)) {
     return drawableId;
+  }
+  if (drawableId === SLOT_MACHINE_DRAWABLE_ID) {
+    return SLOT_MACHINE_DRAWABLE_ID;
   }
   return pelletTextureKey(drawableId);
 }
@@ -491,6 +495,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(DOLLAR_TEXTURE_KEY, "art/other/dollar.png");
   scene.load.image(REVERSE_TEXTURE_KEY, "art/other/reverse.png");
   scene.load.image(POWER_PELLET_TEXTURE_KEY, "art/other/power-pellet.png");
+  scene.load.image(SLOT_MACHINE_DRAWABLE_ID, "art/other/slot-machine.png");
   scene.load.image(BLINKY_TEXTURE_KEY, "art/ghosts/blinky.png");
   scene.load.image(PINKY_TEXTURE_KEY, "art/ghosts/pinky.png");
   scene.load.image(INKY_TEXTURE_KEY, "art/ghosts/inky.png");
@@ -1108,6 +1113,7 @@ export function createRender(scene: Phaser.Scene): PlayRender {
         id !== PELLET_DRAWABLE_ID &&
         id !== POWER_PELLET_DRAWABLE_ID &&
         id !== BOSS_PELLET_DRAWABLE_ID &&
+        id !== SLOT_MACHINE_DRAWABLE_ID &&
         !isFruitDrawableId(id) &&
         ghostTexture === undefined
       ) {
