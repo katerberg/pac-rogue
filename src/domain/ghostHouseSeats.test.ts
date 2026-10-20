@@ -96,6 +96,6 @@ describe("ghostHouseSeats", () => {
     expect(seats[0]!.x).toBeLessThan(seats[1]!.x);
     expect(seats[1]!.x).toBeLessThan(seats[2]!.x);
     expect(seats[2]!.x).toBeLessThan(seats[3]!.x);
-    expect(seats.every((seat) => seat.y === cellCenterY(6))).toBe(true);
+    expect(seats.every((seat) => seat.y === cellCenterY(9))).toBe(true);
   });
 });

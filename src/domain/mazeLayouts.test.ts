@@ -89,11 +89,10 @@ describe("maze layouts", () => {
   it("loads variable-size fixtures", () => {
     const small = activateLayout("mazeSmall");
     expect(small.cols).toBe(22);
-    expect(small.rows).toBe(21);
+    expect(small.rows).toBe(25);
     expect(small.tileSize).toBeGreaterThanOrEqual(12);
     expect(small.offsetX).toBeGreaterThanOrEqual(80);
-    expect(small.pelletCount).toBeGreaterThanOrEqual(110);
-    expect(small.pelletCount).toBeLessThanOrEqual(130);
+    expect(small.pelletCount).toBe(136);
     expect(small.ascii.includes("P")).toBe(true);
     expect(isWalkable(small.playerSpawn.col, small.playerSpawn.row, small.playerSolids)).toBe(true);
     expect(isWalkable(small.fruitSpawn.col, small.fruitSpawn.row, small.playerSolids)).toBe(true);
@@ -112,8 +111,8 @@ describe("maze layouts", () => {
     expect(small.house.some((row) => row.some(Boolean))).toBe(true);
     expect(blinkyScatterTarget()).toEqual({ col: 19, row: -3 });
     expect(pinkyScatterTarget()).toEqual({ col: 2, row: -3 });
-    expect(inkyScatterTarget()).toEqual({ col: 21, row: 23 });
-    expect(clydeScatterTarget()).toEqual({ col: 0, row: 23 });
+    expect(inkyScatterTarget()).toEqual({ col: 21, row: 27 });
+    expect(clydeScatterTarget()).toEqual({ col: 0, row: 27 });
   });
 
   it("rejects unknown maze glyphs", () => {
