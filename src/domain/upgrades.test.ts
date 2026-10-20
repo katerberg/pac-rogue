@@ -97,7 +97,9 @@ import {
   upgradeOfferWeight,
   takeRandomFrom,
   takeWeightedUpgrade,
+  BASE_UPGRADE_DEFS,
   UPGRADE_DEFS,
+  upgradeLabelAlias,
   UPGRADE_SCHOOL_LABELS,
   UPGRADE_SCHOOL_ORDER,
   groupUpgradesBySchool,
@@ -278,6 +280,30 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId("nope")).toBeNull();
     expect(parseUpgradeId(null)).toBeNull();
     expect(parseUpgradeId("")).toBeNull();
+  });
+
+  it("accepts label lowerCamel aliases in any casing, including Plus", () => {
+    expect(parseUpgradeId("secondChomp")).toBe("passivePowerPelletRecharge");
+    expect(parseUpgradeId("SecondChomp")).toBe("passivePowerPelletRecharge");
+    expect(parseUpgradeId("secondchomp")).toBe("passivePowerPelletRecharge");
+    expect(parseUpgradeId("secondChompPlus")).toBe("passivePowerPelletRechargePlus");
+    expect(parseUpgradeId("SECONDCHOMPPLUS")).toBe("passivePowerPelletRechargePlus");
+    expect(parseUpgradeId("deathsHarvest")).toBe("passiveDeathsHarvest");
+    expect(parseUpgradeId("deathsBounty")).toBe("passiveDeathsBounty");
+    expect(parseUpgradeId("freeze")).toBe("powerPelletFreeze");
+    expect(parseUpgradeId("ghostProof")).toBe("powerPelletInvuln");
+    expect(parseUpgradeId("pelletSurge")).toBe("passivePelletToPower");
+  });
+
+  it("resolves every base label alias and prefers canonical ids", () => {
+    for (const def of BASE_UPGRADE_DEFS) {
+      const alias = upgradeLabelAlias(def.label);
+      expect(parseUpgradeId(alias)).toBe(def.id);
+      expect(parseUpgradeId(alias.toUpperCase())).toBe(def.id);
+      expect(parseUpgradeId(`${alias}Plus`)).toBe(`${def.id}Plus`);
+      expect(parseUpgradeId(def.id)).toBe(def.id);
+      expect(parseUpgradeId(`${def.id}Plus`)).toBe(`${def.id}Plus`);
+    }
   });
 });
 
@@ -1536,6 +1562,14 @@ describe("enhanced upgrades", () => {
   it("accepts Plus ids in enableUpgrade", () => {
     const ids = parseEnableUpgradeParams(new URLSearchParams("enableUpgrade=passiveGhostSlowPlus"));
     expect(ids).toEqual(["passiveGhostSlowPlus"]);
+  });
+
+  it("accepts label aliases in enableUpgrade and enableUpgrades", () => {
+    expect(
+      parseEnableUpgradeParams(
+        new URLSearchParams("enableUpgrade=secondChomp,freezePlus&enableUpgrades=GhostSlow"),
+      ),
+    ).toEqual(["passivePowerPelletRecharge", "powerPelletFreezePlus", "passiveGhostSlow"]);
   });
 
   it("returns base versus enhanced numbers from the owned list", () => {
