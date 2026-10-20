@@ -39,7 +39,7 @@ Known simplifications (everything else is a reuse of play code):
 - **Life, death and Quarter upgrades:** shown through the demo catch.
 - **Fruit Fecundity / Feast (+):** replace the always-present fruit with the real `tickFruitPresence` schedule.
 - **Ghost House Delay:** holds the chosen ghost at the exit using the real release rules.
-- **Martyr, Interest:** no visible effect (no respawn move, no store).
+- **Reanimation, Interest:** no visible effect (no respawn move, no store).
 - **BONUS slot machine / world pickup:** deliberate omission; bar fills pay a Quarter directly and the every-four slot-machine maze pickup never appears ([bonus.md](./bonus.md#slot-machine)).
 
 ## Coverage gate

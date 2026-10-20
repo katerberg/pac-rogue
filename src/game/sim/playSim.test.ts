@@ -692,11 +692,11 @@ describe("PlaySim", () => {
           jumpToUpgrade: true,
           level: 4,
           enableUpgrades: owned,
-          forceUpgrade: "passiveMartyr",
+          forceUpgrade: "passiveStreakEngine",
         }),
       ).upgrades;
     expect(offer(["passiveGhostSlow"]).filter(isRare)).toEqual([]);
-    expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveMartyr");
+    expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveStreakEngine");
   });
 
   it("never offers Programmer when Hyperspeed is owned, or the reverse", () => {
@@ -4646,8 +4646,8 @@ describe("PlaySim ghost catch overlap", () => {
   });
 });
 
-describe("Martyr", () => {
-  function startMartyr(enableUpgrades: UpgradeId[]): PlaySim {
+describe("Reanimation", () => {
+  function startReanimation(enableUpgrades: UpgradeId[]): PlaySim {
     return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades });
   }
 
@@ -4665,52 +4665,55 @@ describe("Martyr", () => {
     return { col: fell.col, row: fell.row };
   }
 
-  it("respawns at spawn without Martyr", () => {
-    const sim = startMartyr([]);
+  it("respawns at spawn without Reanimation", () => {
+    const sim = startReanimation([]);
     const spawn = { ...sim.snapshot().player! };
     dieAwayFromSpawn(sim);
     expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
   });
 
-  it("Martyr sends ghosts that were out to their Scatter Burst corners", () => {
-    const sim = startMartyr(["passiveMartyr"]);
+  it("respawns where the player fell", () => {
+    const sim = startReanimation(["passiveReanimation"]);
     const fell = dieAwayFromSpawn(sim);
     const { player, ghosts } = sim.snapshot();
     expect(player).toMatchObject({ col: fell.col, row: fell.row });
     expect(Position.x[playerEid(sim)]).toBe(cellCenterX(fell.col));
     expect(Position.y[playerEid(sim)]).toBe(cellCenterY(fell.row));
-    const out = ghosts.filter((ghost) => ghost.phase === "active");
-    expect(out.length).toBeGreaterThan(0);
-    for (const ghost of out) {
-      const corner = ghostTeleportCell(
-        scatterTargetForKind(GhostKind.kind[ghost.eid] as GhostKindId),
-        fell,
-      );
-      expect(ghost).toMatchObject({ col: corner.col, row: corner.row });
-    }
-    const home = ghosts.filter((ghost) => ghost.phase !== "active");
-    expect(home.every((ghost) => ghost.phase === "inHouse")).toBe(true);
-  });
-
-  it("Martyr starts the scatter/chase clock so cornered ghosts move on to chase", () => {
-    const sim = startMartyr(["passiveMartyr"]);
-    dieAwayFromSpawn(sim);
-    expect(sim.snapshot().ghostMode).toBe("scatter");
-    runUntil(sim, () => sim.snapshot().ghostMode === "chase", 60 * 30);
-    expect(sim.snapshot().ghostMode).toBe("chase");
-  });
-
-  it("Martyr+ respawns where the player fell with every ghost in the house", () => {
-    const sim = startMartyr(["passiveMartyrPlus"]);
-    const fell = dieAwayFromSpawn(sim);
-    const { player, ghosts } = sim.snapshot();
-    expect(player).toMatchObject({ col: fell.col, row: fell.row });
     expect(ghosts.length).toBeGreaterThan(0);
     expect(ghosts.every((ghost) => ghost.phase === "inHouse")).toBe(true);
   });
 
+  it("enhanced respawns next to a remaining power pellet", () => {
+    const sim = startReanimation(["passiveReanimationPlus"]);
+    const powers = query(sim.world, [PowerPellet, Position]);
+    expect(powers.length).toBeGreaterThan(0);
+    const fell = dieAwayFromSpawn(sim);
+    const player = sim.snapshot().player!;
+    expect(player).not.toMatchObject({ col: fell.col, row: fell.row });
+    const besidePower = powers.some((eid) => {
+      const dCol = Math.abs(player.col - worldToCol(Position.x[eid]!));
+      const dRow = Math.abs(player.row - worldToRow(Position.y[eid]!));
+      return dCol + dRow === 1;
+    });
+    expect(besidePower).toBe(true);
+  });
+
+  it("enhanced falls back to where the player fell when no power pellet remains", () => {
+    const sim = startReanimation(["passiveReanimationPlus"]);
+    for (const eid of [...query(sim.world, [PowerPellet])]) {
+      removeEntity(sim.world, eid);
+    }
+    expect(query(sim.world, [PowerPellet])).toHaveLength(0);
+    const fell = dieAwayFromSpawn(sim);
+    expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+  });
+
   it("stacks with Death's Bounty and Death's Harvest", () => {
-    const sim = startMartyr(["passiveMartyr", "passiveDeathsBounty", "passiveDeathsHarvest"]);
+    const sim = startReanimation([
+      "passiveReanimation",
+      "passiveDeathsBounty",
+      "passiveDeathsHarvest",
+    ]);
     const pelletsBefore = sim.snapshot().pelletsRemaining;
     const fell = dieAwayFromSpawn(sim);
     expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
@@ -4723,7 +4726,7 @@ describe("Martyr", () => {
     const sim = startSim({
       level: 2,
       maze: "maze1",
-      enableUpgrades: ["passiveMartyr", "passiveDefyDeath"],
+      enableUpgrades: ["passiveReanimation", "passiveDefyDeath"],
     });
     const spawn = sim.snapshot().player!;
     const power = query(sim.world, [PowerPellet, Position])[0]!;
@@ -5013,19 +5016,17 @@ describe("Haunting", () => {
     expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
   });
 
-  it("still sends the caged ghost home when Martyr sends the others to their corners", () => {
-    const sim = startHaunting(["passiveMartyr", "passiveHaunting"]);
+  it("still cages the killer when Reanimation is owned", () => {
+    const sim = startHaunting(["passiveReanimation", "passiveHaunting"]);
     runFrames(sim, 20, LEFT);
     const killer = query(sim.world, [Ghost, Position])[0]!;
-    const others = query(sim.world, [Ghost, Position]).filter((eid) => eid !== killer);
-    for (const eid of others) {
+    for (const eid of query(sim.world, [Ghost, Position]).filter((eid) => eid !== killer)) {
       GhostPhase.value[eid] = GHOST_PHASE.active;
     }
     ghostOntoPlayer(sim);
     runFrames(sim, 1);
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(inHouse(killer)).toBe(true);
-    expect(others.some((eid) => !inHouse(eid))).toBe(true);
     expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
   });
 
