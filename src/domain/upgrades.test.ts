@@ -612,8 +612,8 @@ describe("school offer affinity", () => {
   });
 
   it("weights matching-school commons and rares by affinity rates, times rare half-weight", () => {
-    expect(SCHOOL_AFFINITY_COMMON_RATE).toBe(0.25);
-    expect(SCHOOL_AFFINITY_RARE_RATE).toBe(0.15);
+    expect(SCHOOL_AFFINITY_COMMON_RATE).toBe(0.5);
+    expect(SCHOOL_AFFINITY_RARE_RATE).toBe(0.3);
     expect(upgradeOfferWeight("passiveGhostSlow", [])).toBe(1);
     expect(upgradeOfferWeight("passiveMartyr", [])).toBe(RARE_OFFER_WEIGHT);
     expect(upgradeOfferWeight("passiveMyogenesis", deathOwned)).toBe(
