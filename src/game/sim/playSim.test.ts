@@ -4721,32 +4721,37 @@ describe("Reanimation", () => {
     expect(sim.snapshot().pelletsRemaining).toBeLessThan(pelletsBefore - 1);
   });
 
-  it("respawns in place on a Defy Death save", () => {
-    const sim = startSim({
-      level: 2,
-      maze: "maze1",
-      enableUpgrades: ["passiveReanimation", "passiveDefyDeath"],
-    });
-    const spawn = sim.snapshot().player!;
-    const power = query(sim.world, [PowerPellet, Position])[0]!;
-    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
-    runFrames(sim, 1);
-    const fell = sim.snapshot().player!;
-    expect(fell.row).not.toBe(spawn.row);
-    const lives = sim.snapshot().lives;
-    ghostOntoPlayer(sim);
-    runFrames(sim, 1);
-    runUntil(sim, () => !sim.snapshot().dying, 240);
-    expect(sim.snapshot().lives).toBe(lives);
-    expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+  it("wins over the default spawn-on-save path on a Defy Death save", () => {
+    const spawnAt = (enableUpgrades: UpgradeId[]) => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades });
+      const spawn = { ...sim.snapshot().player! };
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      const fell = { ...sim.snapshot().player! };
+      expect(fell.row).not.toBe(spawn.row);
+      const lives = sim.snapshot().lives;
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().lives).toBe(lives);
+      return { spawn, fell, player: sim.snapshot().player! };
+    };
+
+    const without = spawnAt(["passiveDefyDeath"]);
+    expect(without.player).toMatchObject({ col: without.spawn.col, row: without.spawn.row });
+
+    const withBase = spawnAt(["passiveReanimation", "passiveDefyDeath"]);
+    expect(withBase.player).toMatchObject({ col: withBase.fell.col, row: withBase.fell.row });
   });
 
-  it("enhanced respawns next to a power pellet on a Defy Death save", () => {
+  it("enhanced wins over spawn-on-save and warps beside a power pellet on Defy Death", () => {
     const sim = startSim({
       level: 2,
       maze: "maze1",
       enableUpgrades: ["passiveReanimationPlus", "passiveDefyDeath"],
     });
+    const spawn = { ...sim.snapshot().player! };
     const powersBefore = query(sim.world, [PowerPellet, Position]);
     expect(powersBefore.length).toBeGreaterThan(1);
     const power = powersBefore[0]!;
@@ -4758,6 +4763,7 @@ describe("Reanimation", () => {
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().lives).toBe(lives);
     const player = sim.snapshot().player!;
+    expect(player).not.toMatchObject({ col: spawn.col, row: spawn.row });
     const remaining = query(sim.world, [PowerPellet, Position]);
     expect(remaining.length).toBeGreaterThan(0);
     const besidePower = remaining.some((eid) => {
@@ -4766,6 +4772,38 @@ describe("Reanimation", () => {
       return dCol + dRow === 1;
     });
     expect(besidePower).toBe(true);
+  });
+
+  it("wins over the default spawn-on-save path on a Money Talks save", () => {
+    const runSave = (enableUpgrades: UpgradeId[]) => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        lives: 1,
+        maxLives: 4,
+        quarters: 5,
+        enableUpgrades,
+      });
+      const spawn = { ...sim.snapshot().player! };
+      const pellet = regularPelletEids(sim).find(
+        (eid) => worldToRow(Position.y[eid]!) !== spawn.row,
+      )!;
+      eatPelletAt(sim, pellet);
+      const fell = { ...sim.snapshot().player! };
+      expect(fell.row).not.toBe(spawn.row);
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().lives).toBe(1);
+      return { spawn, fell, player: sim.snapshot().player! };
+    };
+
+    const without = runSave(["passiveMoneyTalks"]);
+    expect(without.player).toMatchObject({ col: without.spawn.col, row: without.spawn.row });
+
+    const withBase = runSave(["passiveMoneyTalks", "passiveReanimation"]);
+    expect(withBase.player).toMatchObject({ col: withBase.fell.col, row: withBase.fell.row });
   });
 });
 
