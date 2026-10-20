@@ -35,10 +35,6 @@ export function applyCollapse(ascii: string, chains: readonly CollapseChain[]): 
   return lines.map((line) => line.join("")).join("\n");
 }
 
-export function flipChainRows(chains: readonly CollapseChain[], rows: number): CollapseChain[] {
-  return chains.map((chain) => chain.map((cell) => ({ col: cell.col, row: rows - 1 - cell.row })));
-}
-
 type Graph = {
   cols: number;
   rows: number;
