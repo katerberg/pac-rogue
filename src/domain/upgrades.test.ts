@@ -495,7 +495,6 @@ describe("eligibleUpgrades", () => {
 
 describe("rare upgrades", () => {
   const RARE_IDS = [
-    "powerPelletWallPass",
     "fruitPowerPellet",
     "passiveOvercharge",
     "passiveLazyLooper",

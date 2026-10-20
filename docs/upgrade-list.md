@@ -20,7 +20,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveExtraLife` | Extra Life | death | One more chance, and lives regenerate up to 4. | Two more chances, and lives regenerate up to 5. |
 | `passivePelletToPower` | Pellet Surge | automation | Each board, one regular pellet becomes a power pellet. | Each board, two regular pellets become power pellets. |
 | `powerPelletExtraHungry` | Extra Hungry | automation | Power pellets also eat the 8 pellets farthest from you. | Power pellets also eat the 14 pellets farthest from you. |
-| `powerPelletWallPass` | Wall Pass (rare) | speed | Power pellet lets you slip through walls for 6s (shortening 0.5s a level to 4s). | Power pellet lets you slip through walls and loop around the maze edges for 6s (shortening to 4s by level 5). |
+| `powerPelletWallPass` | Wall Pass | speed | Power pellet lets you slip through walls for 6s (shortening 0.5s a level to 4s). | Power pellet lets you slip through walls and loop around the maze edges for 6s (shortening to 4s by level 5). |
 | `powerPelletSpeedBurst` | Speed Burst | speed | Power pellet spikes your pace for a few seconds. | Power pellet spikes your pace hard for a few seconds. |
 | `powerPelletInvuln` | Ghost Proof | protection | Power pellet lets you pass through ghosts for 4s. | Power pellet lets you pass through ghosts for 5s (shortening toward ~3.8s by level 5). |
 | `powerPelletGhostHarvester` | Ghost Harvester | automation | Power pellets make ghosts eat pellets for you for 5 seconds. | Power pellets make ghosts eat pellets for you for 8 seconds. |

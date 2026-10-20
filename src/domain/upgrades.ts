@@ -476,8 +476,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Wall Pass",
     school: "speed",
     description: "Power pellet lets you slip through walls for 6s (shortening 0.5s a level to 4s).",
-    storePrice: STORE_RARE_UPGRADE_PRICE,
-    rare: true,
+    storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote:
         "Wall Pass also lets you loop around every edge of the maze (duration still shortens by level).",
