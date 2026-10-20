@@ -35,6 +35,7 @@ export function stepNearMisses(
       ),
       catchable:
         catchOptions.playerInvulnerable !== true &&
+        catchOptions.turnCatchGrace !== true &&
         eid !== catchOptions.frozenGhostEid &&
         catchOptions.skipGhostEids?.has(eid) !== true &&
         catchOptions.edibleGhostEids?.has(eid) !== true,
