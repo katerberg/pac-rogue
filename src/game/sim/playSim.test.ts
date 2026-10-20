@@ -614,6 +614,35 @@ describe("PlaySim", () => {
     expect(without.snapshot().upgrades).toHaveLength(0);
   });
 
+  it("forceStartingUpgrade grants that id on level 1 when eligible", () => {
+    const opts = {
+      ...defaultPlayOptions(),
+      maze: "mazeSmall" as const,
+      forceStartingUpgrade: "powerPelletFreeze" as const,
+    };
+    const sim = new PlaySim(opts, "test");
+    const events = sim.start();
+    expect(count(events, "startingUpgrade")).toBe(1);
+    expect(sim.snapshot().upgrades).toEqual(["powerPelletFreeze"]);
+    const card = events.find((e) => e.type === "startingUpgrade");
+    expect(card).toMatchObject({ type: "startingUpgrade", id: "powerPelletFreeze" });
+  });
+
+  it("forceStartingUpgrade falls back when that id is already owned", () => {
+    const opts = {
+      ...defaultPlayOptions(),
+      maze: "mazeSmall" as const,
+      enableUpgrades: ["powerPelletFreeze" as const],
+      forceStartingUpgrade: "powerPelletFreeze" as const,
+    };
+    const sim = new PlaySim(opts, "test");
+    sim.start();
+    expect(sim.snapshot().upgrades).toHaveLength(2);
+    expect(sim.snapshot().upgrades[0]).toBe("powerPelletFreeze");
+    expect(sim.snapshot().upgrades[1]).not.toBe("powerPelletFreeze");
+    expect(STARTING_UPGRADE_POOL).toContain(sim.snapshot().upgrades[1]);
+  });
+
   it("draws the level-1 starting upgrade only from the starting pool", () => {
     const opts = { ...defaultPlayOptions(), maze: "mazeSmall" as const };
     const allButOne = STARTING_UPGRADE_POOL.slice(1);

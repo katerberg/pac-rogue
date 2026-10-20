@@ -1388,10 +1388,14 @@ export const STARTING_UPGRADE_POOL: readonly BaseUpgradeId[] = [
 export function pickStartingUpgrade(
   owned: readonly UpgradeId[],
   rng: () => number,
+  preferred: BaseUpgradeId | null = null,
 ): BaseUpgradeId | null {
   const eligible = STARTING_UPGRADE_POOL.filter((id) => !hasUpgrade(owned, id));
   if (eligible.length === 0) {
     return null;
+  }
+  if (preferred !== null && eligible.includes(preferred)) {
+    return preferred;
   }
   return takeRandomFrom(eligible, rng);
 }
