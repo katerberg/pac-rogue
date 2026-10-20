@@ -981,7 +981,7 @@ export class PlayScene extends Phaser.Scene {
       step,
       size,
       target: this.nextQuarterPosition(),
-      stack: { x: this.timerText.getBounds().left - size, y: PENNY_ROW_Y + size / 2 },
+      stack: { x: PLAYFIELD_WIDTH - 12 - size * 5, y: PENNY_ROW_Y + size / 2 },
     };
   }
 
