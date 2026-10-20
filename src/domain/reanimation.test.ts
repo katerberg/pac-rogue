@@ -85,4 +85,37 @@ describe("nearestWalkableBesidePowerPellet", () => {
   it("returns null when there are no power pellets", () => {
     expect(nearestWalkableBesidePowerPellet({ x: 0, y: 0 }, [])).toBeNull();
   });
+
+  it("picks the walkable neighbor nearest the fall cell", () => {
+    const { playerSolids } = getActiveLayout();
+    const far = { col: 1, row: 3 };
+    const near = { col: 26, row: 3 };
+    expect(isWalkable(far.col, far.row, playerSolids)).toBe(true);
+    expect(isWalkable(near.col, near.row, playerSolids)).toBe(true);
+    const fell = { x: cellCenterX(near.col), y: cellCenterY(near.row + 1) };
+    const center = nearestWalkableBesidePowerPellet(fell, [
+      { x: cellCenterX(far.col), y: cellCenterY(far.row) },
+      { x: cellCenterX(near.col), y: cellCenterY(near.row) },
+    ]);
+    expect(center).not.toBeNull();
+    expect(
+      Math.abs(worldToCol(center!.x) - near.col) + Math.abs(worldToRow(center!.y) - near.row),
+    ).toBe(1);
+  });
+
+  it("returns null when a power pellet has no walkable orthogonal neighbor", () => {
+    const wallLocked = { x: cellCenterX(0), y: cellCenterY(0) };
+    expect(
+      nearestWalkableBesidePowerPellet({ x: cellCenterX(1), y: cellCenterY(1) }, [wallLocked]),
+    ).toBeNull();
+  });
+});
+
+describe("respawnCenter and power pellets", () => {
+  it("base Reanimation ignores remaining power pellets", () => {
+    const cell = walkableCellAwayFromSpawn();
+    const fell = { x: cellCenterX(cell.col), y: cellCenterY(cell.row) };
+    const power = { x: cellCenterX(1), y: cellCenterY(3) };
+    expect(respawnCenter(["passiveReanimation"], fell, [power])).toEqual(fell);
+  });
 });

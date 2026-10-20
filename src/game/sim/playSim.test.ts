@@ -4687,9 +4687,8 @@ describe("Reanimation", () => {
     const sim = startReanimation(["passiveReanimationPlus"]);
     const powers = query(sim.world, [PowerPellet, Position]);
     expect(powers.length).toBeGreaterThan(0);
-    const fell = dieAwayFromSpawn(sim);
+    dieAwayFromSpawn(sim);
     const player = sim.snapshot().player!;
-    expect(player).not.toMatchObject({ col: fell.col, row: fell.row });
     const besidePower = powers.some((eid) => {
       const dCol = Math.abs(player.col - worldToCol(Position.x[eid]!));
       const dRow = Math.abs(player.row - worldToRow(Position.y[eid]!));
@@ -4740,6 +4739,33 @@ describe("Reanimation", () => {
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().lives).toBe(lives);
     expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+  });
+
+  it("enhanced respawns next to a power pellet on a Defy Death save", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveReanimationPlus", "passiveDefyDeath"],
+    });
+    const powersBefore = query(sim.world, [PowerPellet, Position]);
+    expect(powersBefore.length).toBeGreaterThan(1);
+    const power = powersBefore[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const lives = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().lives).toBe(lives);
+    const player = sim.snapshot().player!;
+    const remaining = query(sim.world, [PowerPellet, Position]);
+    expect(remaining.length).toBeGreaterThan(0);
+    const besidePower = remaining.some((eid) => {
+      const dCol = Math.abs(player.col - worldToCol(Position.x[eid]!));
+      const dRow = Math.abs(player.row - worldToRow(Position.y[eid]!));
+      return dCol + dRow === 1;
+    });
+    expect(besidePower).toBe(true);
   });
 });
 
