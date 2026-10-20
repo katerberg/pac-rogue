@@ -5810,7 +5810,7 @@ describe("lava zone", () => {
     parkAwayFromLava(sim);
     runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
     const { col, row } = sim.snapshot().lava!;
-    sim["turnCatchGraceMs"] = 48;
+    sim["turnCatchGraceMs"] = TURN_CATCH_GRACE_MS;
     teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
     runFrames(sim, 1);
     expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
