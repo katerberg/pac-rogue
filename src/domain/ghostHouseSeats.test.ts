@@ -12,7 +12,7 @@ import {
   cellCenterY,
   getActiveLayout,
 } from "./maze";
-import { TINY_HOUSE_MAZE_ASCII } from "./mazeLayouts";
+import { tinyHouseMazeAscii } from "./mazeLayouts";
 
 describe("ghostHouseSeats", () => {
   afterEach(() => {
@@ -88,7 +88,7 @@ describe("ghostHouseSeats", () => {
   });
 
   it("interpolates four seats across a 2-wide house spawn row", () => {
-    activateAsciiLayout(TINY_HOUSE_MAZE_ASCII);
+    activateAsciiLayout(tinyHouseMazeAscii());
     const seats = ghostHouseSeatCenters();
     expect(seats).toHaveLength(HOUSE_SEAT_COUNT);
     expect(seats[0]!.x).toBe(cellCenterX(10));

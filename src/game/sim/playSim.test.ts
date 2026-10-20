@@ -35,11 +35,7 @@ import {
 } from "../../domain/maze";
 import { speedLevelMultiplier } from "../../domain/levelRules";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
-import {
-  CLASSIC_MAZE_ASCII,
-  STORE_MAZE_ASCII,
-  TINY_HOUSE_MAZE_ASCII,
-} from "../../domain/mazeLayouts";
+import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
@@ -7275,8 +7271,9 @@ describe("power pellet break VFX", () => {
   });
 
   it("plays a custom maze whose ghost house is only 2x2", () => {
-    const sim = startSim({ mazeAscii: TINY_HOUSE_MAZE_ASCII });
-    expect(getActiveLayout().ascii).toBe(TINY_HOUSE_MAZE_ASCII);
+    const ascii = tinyHouseMazeAscii();
+    const sim = startSim({ mazeAscii: ascii });
+    expect(getActiveLayout().ascii).toBe(ascii);
     expect(sim.snapshot().layout).toBe("custom");
     expect(getActiveLayout().ghostHouseSpawn).toEqual({ col: 10, row: 6 });
     expect(sim.snapshot().ghosts.length).toBeGreaterThan(0);

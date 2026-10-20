@@ -64,7 +64,7 @@ import {
   layoutFromAscii,
 } from "./maze";
 import { invertMazeAscii } from "./mazeGenerate";
-import { SMALL_MAZE_ASCII, TINY_HOUSE_MAZE_ASCII } from "./mazeLayouts";
+import { SMALL_MAZE_ASCII, tinyHouseMazeAscii } from "./mazeLayouts";
 import { GHOST_PHASE } from "./ghostTarget";
 
 describe("maze", () => {
@@ -803,7 +803,8 @@ describe("maze", () => {
     expect(HOUSE_FLOOR_MIN_ROWS).toBe(2);
     expect(HOUSE_SPAWN_ROW_MIN_FLOORS).toBe(2);
 
-    const layout = layoutFromAscii(TINY_HOUSE_MAZE_ASCII, "generated");
+    const ascii = tinyHouseMazeAscii();
+    const layout = layoutFromAscii(ascii, "generated");
     expect(layout.ghostHouseSpawn).toEqual({ col: 10, row: 6 });
     expect(layout.ghostHouseExit.col).toBe(10);
     expect(
@@ -813,10 +814,7 @@ describe("maze", () => {
       true,
     );
 
-    const oneByTwo = TINY_HOUSE_MAZE_ASCII.replace("###HH###", "####H###").replace(
-      "###HH###",
-      "####H###",
-    );
+    const oneByTwo = ascii.replaceAll("###HH###", "####H###");
     expect(() => layoutFromAscii(oneByTwo, "generated")).toThrow(/ghost house floors 1x2/);
   });
 });

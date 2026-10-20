@@ -89,28 +89,14 @@ export const SMALL_MAZE_ASCII = `######################
 #.@................@.#
 ######################`;
 
-/** mazeSmall with a 2x2 house floor (still a 2-wide door). For custom-maze / size tests. */
-export const TINY_HOUSE_MAZE_ASCII = `######################
-#....................#
-#@#####.######.#####@#
-#.#####.######.#####.#
-#.....----------.....#
-#.####-###==###-####.#
-#-####-###HH###-####-#
---####-###HH###-####--
-#-####-########-####-#
-#.####-########-####.#
-#.....----------.....#
-#.####.########.####.#
-#.####.########.####.#
-#....................#
-###.##############.###
-###.##############.###
-#......---P----......#
-#.####.########.####.#
-#.####.########.####.#
-#.@................@.#
-######################`;
+/** mazeSmall with house floors shrunk to 2x2 (door stays 2-wide). */
+export function tinyHouseMazeAscii(): string {
+  let houseRows = 0;
+  return SMALL_MAZE_ASCII.replace(/#HHHHHH#/g, () => {
+    houseRows += 1;
+    return houseRows <= 2 ? "###HH###" : "########";
+  });
+}
 
 export const MAZE_ASCII_BY_ID: Record<MazeLayoutId, string> = {
   maze1: CLASSIC_MAZE_ASCII,
