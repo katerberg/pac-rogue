@@ -91,6 +91,25 @@ describe("StoreBot", { timeout: 60_000 }, () => {
     expect(bot.purchases).toBeGreaterThan(0);
     expect(bot.stalled).toBe(false);
   });
+
+  it("leaves without buying when nothing is affordable", () => {
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), store: 1, quarters: 0, lives: 3 },
+      "store-bot-broke",
+    );
+    sim.start();
+    const bot = new StoreBot(
+      PERSONAS.cautious,
+      createRunRandom("store-bot-broke").stream("bot"),
+      new Observer(),
+    );
+    for (let i = 0; i < 60 * 30 && sim.storeState() !== null; i += 1) {
+      sim.step({ ...IDLE_INPUT, ...bot.input(sim, FRAME_MS) }, FRAME_MS);
+    }
+    expect(sim.storeState()).toBeNull();
+    expect(bot.purchases).toBe(0);
+    expect(bot.stalled).toBe(false);
+  });
 });
 
 describe("gaussianFrom", () => {

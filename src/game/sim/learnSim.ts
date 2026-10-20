@@ -93,6 +93,7 @@ import {
   titheStreakWeight,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
+  firingPowerUpgrades,
   applyShieldBreakInvuln,
   applyStreakEngineInvuln,
   streakEngineEvery,
@@ -153,6 +154,11 @@ import {
   endMirror,
   mirrorSavesLife,
 } from "../../domain/upgrades";
+import {
+  advanceUpgradeTimers,
+  upgradeTimerFractions,
+  type UpgradeTimers,
+} from "../../domain/upgradeTimers";
 import {
   mirrorFacing,
   nearestBody,
@@ -309,6 +315,8 @@ export class LearnSim {
   private ghost: number | null = null;
   private helperBlinky: number | null = null;
   private learnUpgrades: RunUpgrades = createRunUpgrades();
+  private upgradeTimers: UpgradeTimers = {};
+  private firedUpgrades: BaseUpgradeId[] = [];
   private eatenHoldGhostEids: number[] = [];
   private eatenHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
@@ -412,6 +420,10 @@ export class LearnSim {
 
   get ownedUpgrades(): readonly UpgradeId[] {
     return this.learnUpgrades.owned;
+  }
+
+  upgradeTimerFractions(): Partial<Record<BaseUpgradeId, number>> {
+    return upgradeTimerFractions(this.upgradeTimers);
   }
 
   start(): SimEvent[] {
@@ -748,6 +760,16 @@ export class LearnSim {
         mirrorPop: mirrorPopRender(this.mirrorPop),
       },
     });
+    const { timers, pulses } = advanceUpgradeTimers(
+      this.upgradeTimers,
+      this.learnUpgrades,
+      this.firedUpgrades,
+    );
+    this.upgradeTimers = timers;
+    this.firedUpgrades = [];
+    if (pulses.length > 0) {
+      this.events.push({ type: "upgradePulse", ids: pulses });
+    }
     return this.takeEvents();
   }
 
@@ -953,6 +975,11 @@ export class LearnSim {
   }
 
   private firePowerPelletEffects(powerRemoved: number, echoBases?: readonly BaseUpgradeId[]): void {
+    if (powerRemoved > 0) {
+      this.firedUpgrades.push(
+        ...firingPowerUpgrades(this.learnUpgrades.owned, echoBases).map(baseIdOf),
+      );
+    }
     const powerEffects = applyPowerPelletEffects(this.learnUpgrades, powerRemoved, echoBases);
     this.learnUpgrades = powerEffects.state;
     if (powerEffects.programmerStarted) {

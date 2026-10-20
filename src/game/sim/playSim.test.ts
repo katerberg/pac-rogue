@@ -722,6 +722,19 @@ describe("PlaySim", () => {
     expect(offer(["passiveGhostSlow", "passiveAfterburner"])).toContain("passiveStreakEngine");
   });
 
+  it("keeps rares out of the level-1 clear offer even when two upgrades are owned", () => {
+    const offer = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 1,
+        enableUpgrades: ["passiveGhostSlow", "passiveAfterburner"],
+        forceUpgrade: "passiveStreakEngine",
+      }),
+    );
+    expect(offer.upgrades).not.toContain("passiveStreakEngine");
+    expect(offer.upgrades.every((id) => !isRare(id))).toBe(true);
+  });
+
   it("never offers Programmer when Hyperspeed is owned, or the reverse", () => {
     const pad = ["passiveAfterburner", "passiveGhostSlow"] as const;
     const withHyperspeed = drainToOffer(
@@ -8276,6 +8289,49 @@ describe("collapsed tunnels", () => {
     expect(chainsAt(7)).toEqual(chainsAt(7));
     const other = startSim({ level: 7 }, "collapse-other").snapshot().collapse.chains;
     expect(other).not.toEqual(chainsAt(7).chains);
+  });
+});
+
+describe("upgrade HUD timers", () => {
+  function chompPowerPellet(sim: PlaySim): SimEvent[] {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    return runFrames(sim, 1);
+  }
+
+  it("pulses fired upgrades and drains timed ones from full to empty", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["powerPelletSpeedBurst", "powerPelletScatterBurst", "passiveGhostSlow"],
+    });
+    expect(sim.hud().upgradeTimers).toEqual({});
+    const events = chompPowerPellet(sim);
+    const pulses = events.flatMap((event) => (event.type === "upgradePulse" ? event.ids : []));
+    expect(pulses.sort()).toEqual(["powerPelletScatterBurst", "powerPelletSpeedBurst"]);
+    expect(sim.hud().upgradeTimers.powerPelletSpeedBurst).toBe(1);
+    expect(sim.hud().upgradeTimers.powerPelletScatterBurst).toBeUndefined();
+
+    runFrames(sim, 30);
+    const draining = sim.hud().upgradeTimers.powerPelletSpeedBurst!;
+    expect(draining).toBeGreaterThan(0);
+    expect(draining).toBeLessThan(1);
+    expect(sim.snapshot().upgradePulses.count).toBe(1);
+
+    runUntil(sim, () => sim.snapshot().timers.speedBurstMs === 0, 600);
+    runFrames(sim, 1);
+    expect(sim.hud().upgradeTimers).toEqual({});
+  });
+
+  it("pulses nothing when Shield Break holds power effects back at pickup", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveShieldBreak", "passiveShieldPellets", "powerPelletSpeedBurst"],
+    });
+    const events = chompPowerPellet(sim);
+    expect(events.some((event) => event.type === "upgradePulse")).toBe(false);
+    expect(sim.hud().upgradeTimers).toEqual({});
   });
 });
 

@@ -47,7 +47,7 @@ import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
-import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
+import { baseIdOf, getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import {
   isSfxPlaying,
   playPelletCollectSfx,
@@ -97,6 +97,7 @@ import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
+import { drawUpgradeDrain, pulseUpgradeMarks, type UpgradeMark } from "./upgradeTimerFx";
 import { createSlotOverlay, type SlotOverlay } from "./slotOverlay";
 import { storeFocusForDir, type StoreDir } from "../../domain/store";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
@@ -150,7 +151,8 @@ export class PlayScene extends Phaser.Scene {
   private quarterIcons: Phaser.GameObjects.Image[] = [];
   private walletCoins: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
-  private upgradeIcons: Phaser.GameObjects.Image[] = [];
+  private upgradeIcons: UpgradeMark[] = [];
+  private upgradeDrain!: Phaser.GameObjects.Graphics;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Container[] = [];
   private powerPelletBreakFx!: PowerPelletBreakFx;
@@ -238,6 +240,8 @@ export class PlayScene extends Phaser.Scene {
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
     this.upgradeIcons = [];
+    this.upgradeDrain = this.add.graphics();
+    this.chrome.add(this.upgradeDrain);
 
     this.pennyIcons = [];
     this.pennyStackIcons = [];
@@ -400,6 +404,7 @@ export class PlayScene extends Phaser.Scene {
       this.musicDuckApplied = this.musicDuck;
     }
     this.stepPennies(delta);
+    drawUpgradeDrain(this.upgradeDrain, this.upgradeIcons, this.sim.hud().upgradeTimers);
     this.runEndMenu?.tick(this.sim.runEndMenuArmed());
     this.replayPlayer?.tick(delta);
     this.knobsPanel?.sync(this.sim.currentLevel());
@@ -478,7 +483,8 @@ export class PlayScene extends Phaser.Scene {
 
   private pauseForMenu(): void {
     this.pausedAtMs = performance.now();
-    this.upgradeIcons.forEach((icon) => icon.setVisible(false));
+    this.upgradeIcons.forEach(({ mark }) => mark.setVisible(false));
+    this.upgradeDrain.clear();
     this.clearStoreExitCursor();
     this.scene.pause();
     this.scene.launch("PauseScene");
@@ -563,6 +569,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "upgrades":
         this.refreshUpgradesHud();
+        break;
+      case "upgradePulse":
+        pulseUpgradeMarks(this, this.upgradeIcons, event.ids);
         break;
       case "timer":
         this.timerText.setText(this.timerLabel());
@@ -667,7 +676,7 @@ export class PlayScene extends Phaser.Scene {
       this.intermission ??= createIntermissionActors(this);
       this.intermission.place(frame);
     }
-    this.upgradeIcons.forEach((icon) => icon.setVisible(frame === null));
+    this.upgradeIcons.forEach(({ mark }) => mark.setVisible(frame === null));
   }
 
   private storeDirPressed(): StoreDir | null {
@@ -1019,15 +1028,19 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private refreshUpgradesHud(): void {
-    this.upgradeIcons.forEach((icon) => icon.destroy());
+    this.upgradeIcons.forEach(({ mark }) => {
+      this.tweens.killTweensOf(mark);
+      mark.destroy();
+    });
     this.upgradeIcons = this.upgradeHudSlots().map(({ id, x, y, size }) => {
       const icon = this.add
         .image(x, y, schoolArtTextureKey(getUpgradeDef(id).school))
         .setDisplaySize(size, size)
         .setVisible(this.intermission === null);
       this.chrome.add(icon);
-      return icon;
+      return { id: baseIdOf(id), mark: icon };
     });
+    this.chrome.bringToTop(this.upgradeDrain);
   }
 
   private timerLabel(): string {
