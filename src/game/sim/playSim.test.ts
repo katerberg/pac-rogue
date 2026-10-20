@@ -42,6 +42,7 @@ import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield"
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import { offeredUpgradeIds, parseStoreLayout, swapIncomingSchool } from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
+import { TURN_CATCH_GRACE_MS } from "../../domain/turnCatchGrace";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { LAVA_CYCLE_MS, LAVA_EMERGE_MS, LAVA_MAX_REACH_TILES } from "../../domain/lavaZone";
@@ -887,9 +888,32 @@ describe("PlaySim", () => {
     Facing.direction[eid] = DIRECTION.left;
     runFrames(sim, 1, { keys: held("up") });
     expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
-    runFrames(sim, 20, { keys: held("up") });
+    runFrames(sim, 6, { keys: held("up") });
     expect(sim.snapshot().timers.turnCatchGraceMs).toBe(0);
 
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("cannot phase through a ghost by turning into it", () => {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives: false, godMode: false });
+    const cx = cellCenterX(6);
+    const cy = cellCenterY(5);
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(7), cy);
+    runUntil(sim, () => Position.x[eid]! <= cx + 8, 60, { keys: held("left") });
+    teleportPlayer(sim, cx + 3, cy);
+    Facing.direction[eid] = DIRECTION.left;
+    Input.direction[eid] = DIRECTION.left;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, { keys: held("up") });
+    expect(sim.snapshot().player!.facing).toBe("up");
+    expect(sim.snapshot().dying).toBe(false);
+    while (sim.snapshot().timers.turnCatchGraceMs > 0) {
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1, { keys: held("up") });
+    }
     ghostOntoPlayer(sim);
     runFrames(sim, 1, { keys: held("up") });
     expect(sim.snapshot().dying).toBe(true);
@@ -5786,7 +5810,7 @@ describe("lava zone", () => {
     parkAwayFromLava(sim);
     runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
     const { col, row } = sim.snapshot().lava!;
-    sim["turnCatchGraceMs"] = 200;
+    sim["turnCatchGraceMs"] = 48;
     teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
     runFrames(sim, 1);
     expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
@@ -6047,19 +6071,24 @@ describe("Hyperspeed", () => {
     expect(Position.x[playerEid(sim)]).toBeGreaterThan(x + TILE_SIZE);
   });
 
-  it("does not catch during the hyperspeed turn hold when a ghost overlaps", () => {
+  it("does not catch on the hyperspeed turn beat, then catches once grace ends", () => {
     const sim = startHyper(["powerPelletHyperspeed"], { infiniteLives: false });
     chompPowerPellet(sim);
     runFrames(sim, 8, UP);
     runFrames(sim, 1, RIGHT);
     expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(150);
     expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
-    while (sim.snapshot().timers.hyperspeedTurnDelayMs > 0) {
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, RIGHT);
+    expect(sim.snapshot().dying).toBe(false);
+    while (sim.snapshot().timers.turnCatchGraceMs > 0) {
       ghostOntoPlayer(sim);
       runFrames(sim, 1, RIGHT);
-      expect(sim.snapshot().dying).toBe(false);
-      expect(sim.snapshot().timers.turnCatchGraceMs).toBeGreaterThan(0);
     }
+    expect(sim.snapshot().timers.hyperspeedTurnDelayMs).toBeGreaterThan(0);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1, RIGHT);
+    expect(sim.snapshot().dying).toBe(true);
   });
 
   it("is caught by a ghost on the path", () => {

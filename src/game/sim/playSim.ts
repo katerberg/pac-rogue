@@ -1886,11 +1886,7 @@ export class PlaySim {
     if (!isPerpendicularTurn(facingBefore, facingAfter)) {
       return;
     }
-    this.turnCatchGraceMs = Math.max(
-      this.turnCatchGraceMs,
-      TURN_CATCH_GRACE_MS,
-      this.runUpgrades.hyperspeedTurnDelayMs,
-    );
+    this.turnCatchGraceMs = Math.max(this.turnCatchGraceMs, TURN_CATCH_GRACE_MS);
   }
 
   private releaseAdds(): GhostReleaseAdds {
@@ -3262,11 +3258,7 @@ export class PlaySim {
     if (turn.turned) {
       this.runUpgrades = startHyperspeedTurnDelay(this.runUpgrades);
       this.zeroPlayerSpeed();
-      this.turnCatchGraceMs = Math.max(
-        this.turnCatchGraceMs,
-        TURN_CATCH_GRACE_MS,
-        this.runUpgrades.hyperspeedTurnDelayMs,
-      );
+      this.turnCatchGraceMs = Math.max(this.turnCatchGraceMs, TURN_CATCH_GRACE_MS);
     }
   }
 

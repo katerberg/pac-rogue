@@ -1320,11 +1320,7 @@ export class LearnSim {
     if (turn.turned) {
       this.learnUpgrades = startHyperspeedTurnDelay(this.learnUpgrades);
       applyPlayerSpeed(this.world, 0);
-      this.turnCatchGraceMs = Math.max(
-        this.turnCatchGraceMs,
-        TURN_CATCH_GRACE_MS,
-        this.learnUpgrades.hyperspeedTurnDelayMs,
-      );
+      this.turnCatchGraceMs = Math.max(this.turnCatchGraceMs, TURN_CATCH_GRACE_MS);
     }
   }
 
@@ -1332,11 +1328,7 @@ export class LearnSim {
     if (!isPerpendicularTurn(facingBefore, facingAfter)) {
       return;
     }
-    this.turnCatchGraceMs = Math.max(
-      this.turnCatchGraceMs,
-      TURN_CATCH_GRACE_MS,
-      this.learnUpgrades.hyperspeedTurnDelayMs,
-    );
+    this.turnCatchGraceMs = Math.max(this.turnCatchGraceMs, TURN_CATCH_GRACE_MS);
   }
 
   private playerSolids(): SolidGrid {
