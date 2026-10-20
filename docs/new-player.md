@@ -6,7 +6,7 @@ Stub for future tutorial / onboarding documentation. Rules that shape a first se
 
 A browser with an empty run log (`storedRunCount() === 0`) is treated as a new device. The first level-1 run that would grant a starting upgrade always prefers **Freeze** (`powerPelletFreeze`) when that id is still eligible; otherwise the usual random draw from `STARTING_UPGRADE_POOL` runs. See `preferredStartingUpgrade` in [`src/domain/newPlayer.ts`](../src/domain/newPlayer.ts) and `pickStartingUpgrade` in [`src/domain/upgrades.ts`](../src/domain/upgrades.ts).
 
-After that first run starts, the run log is non-empty, so later New Game starts use the normal random starting upgrade. Clearing site data makes the device “new” again.
+After any run starts on this device, the run log is non-empty, so later New Game starts use the normal random starting upgrade (including a first boot that skipped the starting grant via \`level>=2\` / store / debug flags). Clearing site data makes the device “new” again.
 
 Same gates as any starting upgrade: skipped for `level>=2`, store starts, `jumpToUpgrade`, `disableLevelUpgrades`, or a failed custom maze ([upgrades.md](./upgrades.md#grant-rules)).
 
