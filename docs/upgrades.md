@@ -18,6 +18,10 @@ Card text for every id (base and enhanced): [upgrade-list.md](./upgrade-list.md#
 
 Power pellets are inert unless an owned def reacts. `applyPowerPelletEffects` walks **all** owned defs and applies every `onPowerPellet` field in one shot; `PlaySim` then runs the follow-up calls (freeze, corner warp, recall, warp, Extra Hungry, Hunter fright, Cornucopia). The same function is the single trigger path for a chomp, Ghost Harvester pellets, a Tunnel Dash sweep, Fruit Power, Streak Engine, Echo and Shield Break, so a new `onPowerPellet` effect works for all of them. Timed effects refresh (not stack) on re-trigger and are level-scaled via `levelScaledDurationMs` unless noted in code. Overcharge multiplies the durations of every other owned effect.
 
+## HUD timers
+
+The owned-upgrade icons (and LEARN's check marks) pulse when the upgrade fires and darken from the top as its timer runs out, so a refreshed timer snaps back to full. Which `RunUpgrades` timer drives each icon, and the pulse rule, live in [`upgradeTimers.ts`](../src/domain/upgradeTimers.ts); a new timed upgrade adds its reading there.
+
 ## Enhanced upgrades
 
 Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.md) or granted with `?enableUpgrade=<id>Plus`. Offers and shelves only ever list base ids (plus a small chance a level-clear card is rolled enhanced; `enhancedOfferChance`).

@@ -1998,3 +1998,22 @@ describe("LearnSim parity with PlaySim drawing", () => {
     expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).shields).toBe(1);
   });
 });
+
+describe("LearnSim upgrade HUD timers", () => {
+  it("pulses a fired upgrade and drains its timer like PlaySim", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.toggleUpgrade("powerPelletSpeedBurst");
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const player = query(sim.world, [Player, Position])[0]!;
+    Position.x[player] = Position.x[power]!;
+    Position.y[player] = Position.y[power]!;
+    const events = sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(events).toContainEqual({ type: "upgradePulse", ids: ["powerPelletSpeedBurst"] });
+    expect(sim.upgradeTimerFractions().powerPelletSpeedBurst).toBe(1);
+    for (let i = 0; i < 30; i += 1) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+    }
+    expect(sim.upgradeTimerFractions().powerPelletSpeedBurst).toBeLessThan(1);
+  });
+});

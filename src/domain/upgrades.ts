@@ -1747,6 +1747,17 @@ export function hunterHoldsEaten(owned: readonly UpgradeId[]): boolean {
   return ownedValue(owned, "hunterHoldsEaten") === true;
 }
 
+export function firingPowerUpgrades(
+  owned: readonly UpgradeId[],
+  onlyBases?: readonly BaseUpgradeId[],
+): UpgradeId[] {
+  return effectiveOwned(owned).filter(
+    (id) =>
+      UPGRADE_BY_ID.get(id)?.onPowerPellet !== undefined &&
+      (onlyBases === undefined || onlyBases.includes(baseIdOf(id))),
+  );
+}
+
 export function applyPowerPelletEffects(
   state: RunUpgrades,
   powerRemoved: number,
@@ -1791,9 +1802,7 @@ export function applyPowerPelletEffects(
   let chaffCorners = false;
 
   const owned = effectiveOwned(state.owned);
-  const firing =
-    onlyBases === undefined ? owned : owned.filter((id) => onlyBases.includes(baseIdOf(id)));
-  for (const id of firing) {
+  for (const id of firingPowerUpgrades(state.owned, onlyBases)) {
     const onPower = UPGRADE_BY_ID.get(id)?.onPowerPellet;
     if (!onPower) {
       continue;

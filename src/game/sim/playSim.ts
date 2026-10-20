@@ -259,9 +259,15 @@ import {
   type StoreState,
 } from "../../domain/store";
 import {
+  advanceUpgradeTimers,
+  upgradeTimerFractions,
+  type UpgradeTimers,
+} from "../../domain/upgradeTimers";
+import {
   cellSpeedMultiplier,
   TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
+  firingPowerUpgrades,
   applyShieldBreakInvuln,
   applyStreakEngineInvuln,
   bankShields,
@@ -542,6 +548,7 @@ export type PlayHud = {
   quarters: number;
   penniesCharge: number;
   upgrades: readonly UpgradeId[];
+  upgradeTimers: Partial<Record<BaseUpgradeId, number>>;
   collected: number;
   shields: number;
 };
@@ -568,6 +575,10 @@ export class PlaySim {
   private nearMissesPaid = 0;
   private streakPopCount = 0;
   private lastStreakPop: number | null = null;
+  private upgradeTimers: UpgradeTimers = {};
+  private firedUpgrades: BaseUpgradeId[] = [];
+  private upgradePulseCount = 0;
+  private lastUpgradePulse: BaseUpgradeId[] = [];
   private quarters = 0;
   private pennies: PennyPurse;
   private slotPickupProgress = 0;
@@ -762,7 +773,23 @@ export class PlaySim {
     this.recorder.advance(delta);
     this.tick(input, delta);
     this.prevKeys = input.keys;
+    this.advanceUpgradeTimers();
     return this.takeEvents();
+  }
+
+  private advanceUpgradeTimers(): void {
+    const { timers, pulses } = advanceUpgradeTimers(
+      this.upgradeTimers,
+      this.runUpgrades,
+      this.firedUpgrades,
+    );
+    this.upgradeTimers = timers;
+    this.firedUpgrades = [];
+    if (pulses.length > 0) {
+      this.upgradePulseCount += 1;
+      this.lastUpgradePulse = pulses;
+      this.emit({ type: "upgradePulse", ids: pulses });
+    }
   }
 
   private replayLook(): ReplayLook {
@@ -892,6 +919,7 @@ export class PlaySim {
           : this.interestPop.count - interestCoinsShown(this.interestPop)),
       penniesCharge: this.pennies.charge,
       upgrades: this.effectiveUpgrades(),
+      upgradeTimers: upgradeTimerFractions(this.upgradeTimers),
       collected: this.lifetimeCollected,
       shields: this.runUpgrades.shieldsBanked,
     };
@@ -1002,6 +1030,8 @@ export class PlaySim {
       hunterHeld: upgrades.hunterHeldEids.map((eid) => ghostName(this.world, eid)),
       ghostsEatenThisFright: upgrades.ghostsEatenThisFright,
       streakPops: { count: this.streakPopCount, last: this.lastStreakPop },
+      upgradePulses: { count: this.upgradePulseCount, last: this.lastUpgradePulse },
+      upgradeTimers: upgradeTimerFractions(this.upgradeTimers),
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.settledGhostMode()),
@@ -3729,6 +3759,9 @@ export class PlaySim {
   private applyPowerEffects(powerRemoved: number, onlyBases?: readonly BaseUpgradeId[]) {
     const before = this.runUpgrades;
     const powerEffects = applyPowerPelletEffects(before, powerRemoved, onlyBases, this.levelIndex);
+    if (powerRemoved > 0) {
+      this.firedUpgrades.push(...firingPowerUpgrades(before.owned, onlyBases).map(baseIdOf));
+    }
     this.runUpgrades = powerEffects.state;
     if (powerEffects.programmerStarted) {
       holdPlayerForProgramming(this.world);

@@ -55,6 +55,7 @@ import { playTurnSparks } from "./turnSparks";
 import { playChaffBurst } from "./chaffBurst";
 import { playStreakPop } from "./streakPop";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
+import { drawUpgradeDrain, pulseUpgradeMarks, type UpgradeMark } from "./upgradeTimerFx";
 import { addGhostIcon, createRender, preloadPlayArt, type PlayRender } from "../systems/render";
 import {
   addPixelText,
@@ -135,6 +136,7 @@ export class LearnScene extends Phaser.Scene {
   private powerPelletBreakFx!: PowerPelletBreakFx;
   private readHeldKeys!: () => HeldKeys;
   private overlay!: Phaser.GameObjects.Graphics;
+  private upgradeDrain!: Phaser.GameObjects.Graphics;
   private seen: SeenRecord = emptySeenRecord();
   private reticlePx: PixelPoint | null = null;
   private slots: GhostSlot[] = [];
@@ -180,6 +182,7 @@ export class LearnScene extends Phaser.Scene {
     this.ghostNameText = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
     this.buildGhostSlots();
     this.buildUpgradeRows();
+    this.upgradeDrain = this.add.graphics();
     this.buildBackButton();
 
     this.noEffectBanner = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
@@ -220,6 +223,7 @@ export class LearnScene extends Phaser.Scene {
     });
     this.applyEvents(this.sim.step(this.readHeldKeys(), delta));
     this.drawOverlay(delta);
+    drawUpgradeDrain(this.upgradeDrain, this.upgradeMarks(), this.sim.upgradeTimerFractions());
   }
 
   private applyEvents(events: readonly SimEvent[]): void {
@@ -232,6 +236,8 @@ export class LearnScene extends Phaser.Scene {
         this.playRender.bouncePowerPellet(event.eid);
       } else if (event.type === "powerPelletBreak") {
         this.powerPelletBreakFx.apply(event);
+      } else if (event.type === "upgradePulse") {
+        pulseUpgradeMarks(this, this.upgradeMarks(), event.ids);
       } else if (event.type === "chaffBurst") {
         playChaffBurst(this, event);
       } else if (event.type === "turnSparks") {
@@ -381,6 +387,10 @@ export class LearnScene extends Phaser.Scene {
     plusZone.on("pointerdown", () => this.toggleEnhanced(def.baseId));
     plusZone.on("pointerover", () => this.cancelUpgradePreview());
     this.upgradeRows.push({ id: def.baseId, checkMark, label, plus, plusBox, plusZone });
+  }
+
+  private upgradeMarks(): UpgradeMark[] {
+    return this.upgradeRows.map((row) => ({ id: row.id, mark: row.checkMark }));
   }
 
   private refreshUpgradeRows(): void {
