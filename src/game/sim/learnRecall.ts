@@ -13,7 +13,7 @@ import {
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { ghostHouseSeating } from "../systems/ghostHouseSeating";
-import { recallClosestGhostToHouse } from "../systems/ghostRecall";
+import { recallClosestGhostToHouse, sendGhostToHouse } from "../systems/ghostRecall";
 import { ghostRelease } from "../systems/ghostRelease";
 
 const LEARN_LEVEL = 1;
@@ -44,6 +44,25 @@ export class LearnRecall {
       frozenEid,
     );
     if (eid !== null) {
+      this.eids.push(eid);
+    }
+  }
+
+  sendHome(
+    world: World,
+    eids: readonly number[],
+    owned: readonly UpgradeId[],
+    pelletsEaten: number,
+  ): void {
+    if (eids.length === 0) {
+      return;
+    }
+    if (this.eids.length === 0) {
+      this.clock = createGhostReleaseClock(LEARN_LEVEL, pelletsEaten);
+    }
+    const adds = this.adds(owned, []);
+    for (const eid of eids) {
+      sendGhostToHouse(world, eid, this.clock, pelletsEaten, false, adds);
       this.eids.push(eid);
     }
   }

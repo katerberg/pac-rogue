@@ -68,7 +68,8 @@ export type BaseUpgradeId =
   | "powerPelletProgrammer"
   | "passiveInheritance"
   | "powerPelletMirror"
-  | "powerPelletChaff";
+  | "powerPelletChaff"
+  | "passiveReactiveArmor";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -136,6 +137,8 @@ export type UpgradeEffects = {
   startingShields?: number;
   shieldBreak?: true;
   shieldOverflowFires?: true;
+  reactiveArmor?: true;
+  reactiveArmorRadiusTiles?: number;
   martyrGhosts?: MartyrGhostPlacement;
   interestPerQuarters?: number;
   nearMissCharge?: number;
@@ -242,6 +245,7 @@ export const SCHOOL_AFFINITY_RARE_RATE = 0.15;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 2;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
+export const REACTIVE_ARMOR_RADIUS_TILES = 4;
 export const DEATHS_BOUNTY_DECAY = 0.8;
 export const OVERCHARGE_MUL = 2;
 export const SECOND_CHOMP_MS = 10_000;
@@ -989,6 +993,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { chaffMs: CHAFF_MS },
   },
+  {
+    id: "passiveReactiveArmor",
+    label: "Reactive Armor",
+    school: "protection",
+    description: "When a shield breaks, the ghost that touched you is sent to the ghost house.",
+    storePrice: STORE_UPGRADE_PRICE,
+    reactiveArmor: true,
+    enhanced: {
+      enhanceNote:
+        "Reactive Armor sends nearby ghosts within 4 tiles home, not just the one that touched you.",
+      description: "When a shield breaks, all nearby ghosts are sent to the ghost house.",
+      reactiveArmorRadiusTiles: REACTIVE_ARMOR_RADIUS_TILES,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1283,6 +1301,7 @@ export function eligibleUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[] {
       !(id === "powerPelletHyperspeed" && ownedBases.has("powerPelletProgrammer")) &&
       !(id === "powerPelletProgrammer" && ownedBases.has("powerPelletHyperspeed")) &&
       (getUpgradeDef(id).shieldBreak !== true || shieldsOwned) &&
+      (getUpgradeDef(id).reactiveArmor !== true || shieldsOwned) &&
       (!isRare(id) || owned.length >= RARE_MIN_OWNED) &&
       (!isSpecialist(id) || schoolCount(owned, getUpgradeDef(id).school) >= SPECIALIST_THRESHOLD),
   );
@@ -2245,6 +2264,17 @@ export function providesShields(owned: readonly UpgradeId[]): boolean {
 
 export function shieldBreakOwned(owned: readonly UpgradeId[]): boolean {
   return ownedValue(owned, "shieldBreak") === true;
+}
+
+export function reactiveArmorOwned(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "reactiveArmor") === true;
+}
+
+export function reactiveArmorRadiusTiles(owned: readonly UpgradeId[]): number | null {
+  if (!reactiveArmorOwned(owned)) {
+    return null;
+  }
+  return ownedValue(owned, "reactiveArmorRadiusTiles") ?? null;
 }
 
 export function shieldOverflow(state: RunUpgrades, count: number): number {

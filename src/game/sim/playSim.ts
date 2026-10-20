@@ -275,6 +275,8 @@ import {
   queueEcho,
   powerPelletPickupFires,
   shieldBreakOwned,
+  reactiveArmorOwned,
+  reactiveArmorRadiusTiles,
   shieldOverflow,
   shieldPelletsCap,
   spendShield,
@@ -440,6 +442,7 @@ import {
   placeInHouseGhostsAtPredictedSeats,
 } from "../systems/ghostHouseSeating";
 import { recallClosestGhostToHouse, sendGhostToHouse } from "../systems/ghostRecall";
+import { applyReactiveArmor } from "../systems/reactiveArmor";
 import { ghostRelease } from "../systems/ghostRelease";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { applyGhostSpeed } from "../systems/ghostSpeed";
@@ -642,6 +645,7 @@ export class PlaySim {
   private death: DeathSequenceState | null = null;
   private fellAt: Point | null = null;
   private caughtByEid: number | null = null;
+  private lastReactiveArmorSent = 0;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private mirrorPop: MirrorPop | null = null;
@@ -990,6 +994,7 @@ export class PlaySim {
         count: this.slotPickupCells.length,
       },
       deathsThisBoard: this.deathsThisBoard,
+      lastReactiveArmorSent: this.lastReactiveArmorSent,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       nearMissesPaid: this.nearMissesPaid,
       frightenedGhosts: [...frightenedGhostEids(upgrades)].map((eid) => ghostName(this.world, eid)),
@@ -1714,7 +1719,7 @@ export class PlaySim {
     } else {
       if (
         !defyDeathActive(this.runUpgrades) &&
-        (this.breakShield() || this.breakHyperspeedShield())
+        (this.breakShield(caughtBy) || this.breakHyperspeedShield(caughtBy))
       ) {
         return;
       }
@@ -2608,6 +2613,7 @@ export class PlaySim {
     this.resetStreak();
     this.mirrorPop = null;
     this.deathsThisBoard = 0;
+    this.lastReactiveArmorSent = 0;
     this.nearMissesPaid = 0;
     this.topUpStartingShields();
     const boss = isBossLevel(this.levelIndex)
@@ -3371,9 +3377,12 @@ export class PlaySim {
         this.eatFrightenedGhosts();
         const catchOptions = this.catchOptions();
         const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
-        const touched =
-          hit !== null || this.touchesLava(catchOptions) || this.twinCatch(catchOptions) !== null;
-        return touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield());
+        const twin = hit === null ? this.twinCatch(catchOptions) : null;
+        const caughtBy = hit ?? twin?.eid ?? null;
+        const touched = caughtBy !== null || this.touchesLava(catchOptions) || twin !== null;
+        return (
+          touched && (defyDeathActive(this.runUpgrades) || !this.breakHyperspeedShield(caughtBy))
+        );
       },
       halt: () => this.zeroPlayerSpeed(),
     });
@@ -3437,7 +3446,7 @@ export class PlaySim {
     applyPlayerSpeed(this.world, 0, this.currentTuning);
   }
 
-  private breakHyperspeedShield(): boolean {
+  private breakHyperspeedShield(caughtBy: number | null): boolean {
     const spent = spendHyperspeedShield(this.runUpgrades);
     if (spent === null) {
       return false;
@@ -3445,6 +3454,7 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
+    this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
       this.runUpgrades = { ...this.runUpgrades, hyperspeedShieldRemainingMs: 0 };
@@ -3452,7 +3462,7 @@ export class PlaySim {
     return true;
   }
 
-  private breakShield(): boolean {
+  private breakShield(caughtBy: number | null): boolean {
     const spent = spendShield(this.runUpgrades);
     if (spent === null) {
       return false;
@@ -3460,11 +3470,34 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
+    this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
     }
     this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
     return true;
+  }
+
+  private fireReactiveArmor(caughtBy: number | null): void {
+    const owned = this.effectiveUpgrades();
+    if (!reactiveArmorOwned(owned)) {
+      return;
+    }
+    const sent = applyReactiveArmor(
+      this.world,
+      this.ghostReleaseClock,
+      this.pelletProgress.boardCollected,
+      this.afterLifeRelease,
+      this.releaseAdds(),
+      {
+        contactEid: caughtBy,
+        radiusTiles: reactiveArmorRadiusTiles(owned),
+      },
+    );
+    this.lastReactiveArmorSent = sent.length;
+    if (sent.length > 0) {
+      this.recorder.activation("reactiveArmor");
+    }
   }
 
   private fireDueEchoes(delta: number): boolean {

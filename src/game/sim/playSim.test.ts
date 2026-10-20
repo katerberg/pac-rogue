@@ -8111,3 +8111,105 @@ describe("collapsed tunnels", () => {
     expect(other).not.toEqual(chainsAt(7).chains);
   });
 });
+
+describe("Reactive Armor", () => {
+  function startArmorSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  function chomp(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function ghostPhase(sim: PlaySim, eid: number): string {
+    return sim.snapshot().ghosts.find((g) => g.eid === eid)!.phase;
+  }
+
+  it("sends the contacting ghost home when a shield breaks", () => {
+    const sim = startArmorSim(["passiveShieldPellets", "passiveReactiveArmor"]);
+    chomp(sim);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    const contact = query(sim.world, [Ghost, Position])[0]!;
+    const player = playerEid(sim);
+    Position.x[contact] = Position.x[player]!;
+    Position.y[contact] = Position.y[player]!;
+    GhostPhase.value[contact] = GHOST_PHASE.active;
+    const livesBefore = sim.snapshot().lives;
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({
+      dying: false,
+      lives: livesBefore,
+      deathsThisBoard: 0,
+    });
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    expect(sim.snapshot().lastReactiveArmorSent).toBe(1);
+    expect(ghostPhase(sim, contact)).toBe("inHouse");
+  });
+
+  it("does not send the ghost home without Reactive Armor", () => {
+    const sim = startArmorSim(["passiveShieldPellets"]);
+    chomp(sim);
+    const contact = query(sim.world, [Ghost, Position])[0]!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().lastReactiveArmorSent).toBe(0);
+    expect(ghostPhase(sim, contact)).not.toBe("inHouse");
+  });
+
+  it("Plus sends every nearby ghost home, not far ones", () => {
+    const sim = startArmorSim(["passiveShieldPellets", "passiveReactiveArmorPlus"]);
+    chomp(sim);
+    const player = playerEid(sim);
+    const ghosts = query(sim.world, [Ghost, Position]);
+    expect(ghosts.length).toBeGreaterThanOrEqual(3);
+    const [contact, near, far] = ghosts;
+    const px = Position.x[player]!;
+    const py = Position.y[player]!;
+    Position.x[contact!] = px;
+    Position.y[contact!] = py;
+    GhostPhase.value[contact!] = GHOST_PHASE.active;
+    Position.x[near!] = px + 2 * TILE_SIZE;
+    Position.y[near!] = py;
+    GhostPhase.value[near!] = GHOST_PHASE.active;
+    Position.x[far!] = px + 6 * TILE_SIZE;
+    Position.y[far!] = py;
+    GhostPhase.value[far!] = GHOST_PHASE.active;
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().lastReactiveArmorSent).toBeGreaterThanOrEqual(2);
+    expect(ghostPhase(sim, contact!)).toBe("inHouse");
+    expect(ghostPhase(sim, near!)).toBe("inHouse");
+    expect(ghostPhase(sim, far!)).not.toBe("inHouse");
+  });
+
+  it("fires on a Hyperspeed+ shield break", () => {
+    const sim = startArmorSim(["powerPelletHyperspeedPlus", "passiveReactiveArmor"]);
+    sim["runUpgrades"] = {
+      ...sim["runUpgrades"],
+      hyperspeedRemainingMs: 3000,
+      hyperspeedShieldRemainingMs: 2000,
+    };
+    const contact = query(sim.world, [Ghost, Position])[0]!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().timers.hyperspeedShieldMs).toBe(0);
+    expect(ghostPhase(sim, contact)).toBe("inHouse");
+  });
+
+  it("does not fire when armed Defy Death keeps the shield", () => {
+    const sim = startArmorSim(["passiveShieldPellets", "passiveReactiveArmor", "passiveDefyDeath"]);
+    chomp(sim);
+    expect(sim.snapshot().timers.defyDeathMs).toBeGreaterThan(0);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    const contact = query(sim.world, [Ghost, Position])[0]!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    expect(ghostPhase(sim, contact)).not.toBe("inHouse");
+  });
+});

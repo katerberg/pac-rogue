@@ -97,6 +97,8 @@ import {
   shieldBankCap,
   powerPelletPickupFires,
   shieldBreakOwned,
+  reactiveArmorOwned,
+  reactiveArmorRadiusTiles,
   shieldOverflow,
   shieldPelletsCap,
   spendShield,
@@ -222,6 +224,7 @@ import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
+import { pickReactiveArmorGhosts } from "../systems/reactiveArmor";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
@@ -1301,7 +1304,7 @@ export class LearnSim {
           catchPlayer(this.world, options) ??
           (twinAt === null ? null : catchPlayer(this.world, { ...options, at: twinAt }));
         return (
-          hit !== null && (defyDeathActive(this.learnUpgrades) || !this.breakHyperspeedShield())
+          hit !== null && (defyDeathActive(this.learnUpgrades) || !this.breakHyperspeedShield(hit))
         );
       },
       halt: () => applyPlayerSpeed(this.world, 0),
@@ -1368,12 +1371,13 @@ export class LearnSim {
     };
   }
 
-  private breakHyperspeedShield(): boolean {
+  private breakHyperspeedShield(caughtBy: number | null): boolean {
     const spent = spendHyperspeedShield(this.learnUpgrades);
     if (spent === null) {
       return false;
     }
     this.learnUpgrades = spent;
+    this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.learnUpgrades.owned)) {
       this.firePowerPelletEffects(1);
       this.learnUpgrades = { ...this.learnUpgrades, hyperspeedShieldRemainingMs: 0 };
@@ -1382,15 +1386,28 @@ export class LearnSim {
     return true;
   }
 
+  private fireReactiveArmor(caughtBy: number | null): void {
+    const owned = this.learnUpgrades.owned;
+    if (!reactiveArmorOwned(owned)) {
+      return;
+    }
+    const eids = pickReactiveArmorGhosts(this.world, {
+      contactEid: caughtBy,
+      radiusTiles: reactiveArmorRadiusTiles(owned),
+    });
+    this.recalled.sendHome(this.world, eids, owned, this.houseHoldEaten);
+  }
+
   private resolveDemoCatch(caughtBy: number, twinAt: { x: number; y: number } | null): void {
     this.streakBar = createBonusBar();
     const defied = defyDeathActive(this.learnUpgrades);
-    if (!defied && this.breakHyperspeedShield()) {
+    if (!defied && this.breakHyperspeedShield(caughtBy)) {
       return;
     }
     const spent = defied ? null : spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
+      this.fireReactiveArmor(caughtBy);
       if (shieldBreakOwned(this.learnUpgrades.owned)) {
         this.firePowerPelletEffects(1);
       }

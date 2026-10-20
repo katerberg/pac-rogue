@@ -51,6 +51,9 @@ import {
   providesShields,
   shieldBankCap,
   shieldBreakOwned,
+  reactiveArmorOwned,
+  reactiveArmorRadiusTiles,
+  REACTIVE_ARMOR_RADIUS_TILES,
   shieldOverflow,
   startingShieldCount,
   STARTING_SHIELD_COUNT,
@@ -233,6 +236,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveInheritance",
   "powerPelletMirror",
   "powerPelletChaff",
+  "passiveReactiveArmor",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -433,7 +437,9 @@ describe("pickStartingUpgrade", () => {
 
 describe("eligibleUpgrades", () => {
   it("excludes owned ids", () => {
-    const unlocked = ALL_IDS.filter((id) => !isSpecialist(id) && !isRare(id));
+    const unlocked = ALL_IDS.filter(
+      (id) => !isSpecialist(id) && !isRare(id) && getUpgradeDef(id).reactiveArmor !== true,
+    );
     expect(eligibleUpgrades([])).toEqual(unlocked);
     expect(eligibleUpgrades(["passiveAfterburner"])).toEqual(
       unlocked.filter((id) => id !== "passiveAfterburner"),
@@ -1405,7 +1411,9 @@ describe("enhanced upgrades", () => {
   it("keeps Plus ids out of every pool", () => {
     expect(ALL_UPGRADE_IDS.some((id) => isEnhancedId(id))).toBe(false);
     expect(eligibleUpgrades([])).toEqual(
-      ALL_UPGRADE_IDS.filter((id) => !isSpecialist(id) && !isRare(id)),
+      ALL_UPGRADE_IDS.filter(
+        (id) => !isSpecialist(id) && !isRare(id) && getUpgradeDef(id).reactiveArmor !== true,
+      ),
     );
     expect(eligibleUpgrades(["passiveGhostSlowPlus"])).not.toContain("passiveGhostSlow");
   });
@@ -2024,6 +2032,42 @@ describe("Shield Break", () => {
   it("has no overflow without a pellet shield source", () => {
     const state = { ...createRunUpgrades(["passiveStartingShield"]), shieldsBanked: 1 };
     expect(shieldOverflow(state, 3)).toBe(0);
+  });
+});
+
+describe("Reactive Armor", () => {
+  const twoOwned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
+
+  it("is offered only while a shield source is owned", () => {
+    expect(eligibleUpgrades(twoOwned)).not.toContain("passiveReactiveArmor");
+    for (const source of [
+      "passiveShieldPellets",
+      "passiveShieldPelletsPlus",
+      "passiveStartingShield",
+      "powerPelletHyperspeedPlus",
+    ] as const) {
+      expect(eligibleUpgrades([...twoOwned, source])).toContain("passiveReactiveArmor");
+    }
+    expect(eligibleUpgrades([...twoOwned, "powerPelletHyperspeed"])).not.toContain(
+      "passiveReactiveArmor",
+    );
+  });
+
+  it("is never a starting upgrade and is common", () => {
+    expect(STARTING_UPGRADE_POOL).not.toContain("passiveReactiveArmor");
+    expect(isRare("passiveReactiveArmor")).toBe(false);
+    expect(storePriceFor("passiveReactiveArmor")).toBe(STORE_UPGRADE_PRICE);
+  });
+
+  it("reports owned and radius for base vs Plus", () => {
+    expect(reactiveArmorOwned([])).toBe(false);
+    expect(reactiveArmorOwned(["passiveReactiveArmor"])).toBe(true);
+    expect(reactiveArmorOwned(["passiveReactiveArmorPlus"])).toBe(true);
+    expect(reactiveArmorRadiusTiles(["passiveReactiveArmor"])).toBeNull();
+    expect(reactiveArmorRadiusTiles(["passiveReactiveArmorPlus"])).toBe(
+      REACTIVE_ARMOR_RADIUS_TILES,
+    );
+    expect(reactiveArmorRadiusTiles([])).toBeNull();
   });
 });
 

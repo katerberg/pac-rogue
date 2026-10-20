@@ -29,6 +29,7 @@ export type ActivationKind =
   | "collectExtra"
   | "pelletSurge"
   | "shieldBreak"
+  | "reactiveArmor"
   | "streakEngine"
   | "echo"
   | "frighten"
