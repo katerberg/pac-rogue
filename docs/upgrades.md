@@ -12,7 +12,7 @@ Each upgrade's id, label, school, rarity, price, effect fields and one-line desc
 
 ## Upgrade catalog
 
-Ids, labels, schools, rarities, prices, effect fields and card text live in `UPGRADE_DEFS` / `BASE_UPGRADE_DEFS` in [`src/domain/upgrades.ts`](../src/domain/upgrades.ts). `ALL_UPGRADE_IDS` is the base-id list. Do not mirror rows here — that restates values the code already holds and burns the markdown size budget.
+Base ids: `ALL_UPGRADE_IDS` in [`src/domain/upgrades.ts`](../src/domain/upgrades.ts). Do not add a mirrored table here.
 
 ## Power pellets
 
