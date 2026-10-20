@@ -427,6 +427,52 @@ describe("PlaySim Afterburner", () => {
   });
 });
 
+describe("PlaySim Mole", () => {
+  function speedRatios(id: UpgradeId | null): { empty: number; pellet: number } {
+    const baseline = startSim({ level: 2, maze: "maze1" });
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: id === null ? [] : [id] });
+    const target = regularPelletEids(sim)[0]!;
+    const col = worldToCol(Position.x[target]!);
+    const row = worldToRow(Position.y[target]!);
+    const measure = (world: PlaySim, vx: number): number => {
+      const pellets = Array.from(query(world.world, [Pellet, Position]));
+      const keep = regularPelletEids(world).find(
+        (eid) => worldToCol(Position.x[eid]!) === col && worldToRow(Position.y[eid]!) === row,
+      );
+      for (const eid of pellets) {
+        if (eid !== keep) {
+          removeEntity(world.world, eid);
+        }
+      }
+      teleportPlayer(world, cellCenterX(col - 1), cellCenterY(row));
+      Velocity.x[playerEid(world)] = vx;
+      Velocity.y[playerEid(world)] = 0;
+      runFrames(world, 1);
+      return Speed.px[playerEid(world)]!;
+    };
+    const base = measure(baseline, 1);
+    return { pellet: measure(sim, 1) / base, empty: measure(sim, -1) / base };
+  }
+
+  it("speeds up entering a pellet cell and slows entering an empty cell", () => {
+    const ratios = speedRatios("passiveMole");
+    expect(ratios.pellet).toBeCloseTo(1.2);
+    expect(ratios.empty).toBeCloseTo(0.8);
+  });
+
+  it("Mole+ gives +30% on pellets and keeps the 20% empty-cell slowdown", () => {
+    const ratios = speedRatios("passiveMolePlus");
+    expect(ratios.pellet).toBeCloseTo(1.3);
+    expect(ratios.empty).toBeCloseTo(0.8);
+  });
+
+  it("changes nothing without the upgrade", () => {
+    const ratios = speedRatios(null);
+    expect(ratios.empty).toBeCloseTo(1);
+    expect(ratios.pellet).toBeCloseTo(1);
+  });
+});
+
 describe("PlaySim remote transference", () => {
   function startOwned(): PlaySim {
     return startSim({ level: 2, enableUpgrades: ["passiveRemoteTransference"] });
@@ -755,6 +801,28 @@ describe("PlaySim", () => {
       }),
     ).upgrades;
     expect(withProgrammer).not.toContain("powerPelletHyperspeed");
+  });
+
+  it("never offers Mole when Afterburner is owned, or the reverse", () => {
+    const pad = ["passiveGhostSlow", "fruitFeast"] as const;
+    const withAfterburner = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        enableUpgrades: [...pad, "passiveAfterburner"],
+        forceUpgrade: "passiveMole",
+      }),
+    ).upgrades;
+    expect(withAfterburner).not.toContain("passiveMole");
+    const withMole = drainToOffer(
+      startSim({
+        jumpToUpgrade: true,
+        level: 4,
+        enableUpgrades: [...pad, "passiveMole"],
+        forceUpgrade: "passiveAfterburner",
+      }),
+    ).upgrades;
+    expect(withMole).not.toContain("passiveAfterburner");
   });
 
   it("clears a board into an upgrade offer, then the next level", () => {

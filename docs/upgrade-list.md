@@ -65,3 +65,4 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `powerPelletChaff` | Chaff | automation | Power pellet: drops a fake you in the center. Ghosts chase it until they touch it. | Power pellet: drops a fake you in each corner. Ghosts chase the nearest one. |
 | `passiveReactiveArmor` | Reactive Armor | protection | When a shield breaks, the ghost that touched you is sent to the ghost house. | When a shield breaks, all nearby ghosts are sent to the ghost house. |
 | `powerPelletTithe` | Tithe | harvest | Power pellet: move 10% slower for 5 seconds, but pellets count double toward your streak. | Power pellet: move 10% slower for 8 seconds, but pellets count double toward your streak. |
+| `passiveMole` | Mole | harvest | Dig the pellet veins: +20% speed over pellets, 20% slower on cleared tiles. | Dig deeper: +30% speed over pellets, 20% slower on cleared tiles. |

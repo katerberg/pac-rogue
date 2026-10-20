@@ -72,6 +72,9 @@ import {
   PLAYER_SPEED_BURST_MUL,
   AFTERBURNER_MUL,
   AFTERBURNER_ENHANCED_MUL,
+  MOLE_PELLET_MUL,
+  MOLE_EMPTY_MUL,
+  MOLE_ENHANCED_PELLET_MUL,
   EXTRA_HUNGRY_COUNT,
   EXTRA_HUNGRY_ENHANCED_COUNT,
   FRUIT_QUARTERS,
@@ -250,6 +253,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletChaff",
   "passiveReactiveArmor",
   "powerPelletTithe",
+  "passiveMole",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -470,7 +474,7 @@ describe("eligibleUpgrades", () => {
     );
     expect(eligibleUpgrades([])).toEqual(unlocked);
     expect(eligibleUpgrades(["passiveAfterburner"])).toEqual(
-      unlocked.filter((id) => id !== "passiveAfterburner"),
+      unlocked.filter((id) => id !== "passiveAfterburner" && id !== "passiveMole"),
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
   });
@@ -489,6 +493,23 @@ describe("eligibleUpgrades", () => {
       const eligible = eligibleUpgrades([...pad, owned]);
       expect(eligible).not.toContain("powerPelletHyperspeed");
       expect(eligible).not.toContain("powerPelletProgrammer");
+    }
+  });
+
+  it("keeps Mole and Afterburner out of the pool when the other is owned", () => {
+    const pad: UpgradeId[] = ["passiveGhostSlow", "fruitFeast"];
+    expect(eligibleUpgrades(pad)).toEqual(
+      expect.arrayContaining(["passiveMole", "passiveAfterburner"]),
+    );
+    for (const owned of ["passiveAfterburner", "passiveAfterburnerPlus"] as const) {
+      const eligible = eligibleUpgrades([...pad, owned]);
+      expect(eligible).not.toContain("passiveMole");
+      expect(eligible).not.toContain("passiveAfterburner");
+    }
+    for (const owned of ["passiveMole", "passiveMolePlus"] as const) {
+      const eligible = eligibleUpgrades([...pad, owned]);
+      expect(eligible).not.toContain("passiveAfterburner");
+      expect(eligible).not.toContain("passiveMole");
     }
   });
 });
@@ -1543,8 +1564,13 @@ describe("enhanced upgrades", () => {
     expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], true)).toBe(1.5);
     expect(cellSpeedMultiplier(["passiveAfterburner"], false)).toBe(0.8);
     expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], false)).toBe(0.8);
+    expect(cellSpeedMultiplier(["passiveMole"], false)).toBe(MOLE_PELLET_MUL);
+    expect(cellSpeedMultiplier(["passiveMole"], true)).toBe(MOLE_EMPTY_MUL);
+    expect(cellSpeedMultiplier(["passiveMolePlus"], false)).toBe(MOLE_ENHANCED_PELLET_MUL);
+    expect(cellSpeedMultiplier(["passiveMolePlus"], true)).toBe(MOLE_EMPTY_MUL);
     expect(cellSpeedMultiplier([], true)).toBe(1);
     expect(AFTERBURNER_ENHANCED_MUL).toBe(1.5);
+    expect(MOLE_ENHANCED_PELLET_MUL).toBe(1.3);
     expect(ghostSpeedMultiplier(["passiveGhostSlow"])).toBe(0.8);
     expect(ghostSpeedMultiplier(["passiveGhostSlowPlus"])).toBe(0.65);
     expect(speedBurstMultiplier(["powerPelletSpeedBurst"])).toBe(1.25);
