@@ -5308,7 +5308,7 @@ describe("Tithe", () => {
     expect(streakGainedByThree(sim)).toBe(3);
   });
 
-  it("lasts 5 seconds, 8 when enhanced, and refreshes rather than stacks", () => {
+  it("lasts 5 seconds, or 8 when enhanced", () => {
     const base = startTithe(["powerPelletTithe"]);
     chompPower(base);
     expect(base.snapshot().timers.titheMs).toBeGreaterThan(TITHE_MS - 100);

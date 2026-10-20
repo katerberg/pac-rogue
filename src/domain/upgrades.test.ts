@@ -2233,6 +2233,12 @@ describe("Tithe", () => {
     }
   });
 
+  it("refreshes on a second power pellet instead of stacking", () => {
+    const first = fire(["powerPelletTithe"]);
+    const again = applyPowerPelletEffects(tickTithe(first, 3000), 1).state;
+    expect(again.titheRemainingMs).toBe(TITHE_MS);
+  });
+
   it("is a power-pellet duration, so Overcharge doubles it", () => {
     expect(fire(["powerPelletTithe", "passiveOvercharge"]).titheRemainingMs).toBe(10_000);
   });
