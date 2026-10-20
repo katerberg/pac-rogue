@@ -61,7 +61,7 @@ leaves the behaviour genuinely ambiguous **and** a wrong guess changes player-vi
   power-pellet duration; Fruit Power fires one/all `onPowerPellet` fields (base/enhanced); Extra Hungry, Tunnel Dash
   sweeps, Death's Harvest and ghost-harvested pellets do **not** count as "eaten" unless the pitch
   says so; Extra Life icon floor and `infiniteLives` are unchanged; boss level 9 pellets are never
-  removed or converted; store floors, inverted boards and the level-1 starting pool are untouched.
+  removed or converted; store floors and the level-1 starting pool are untouched.
 - **Numbers:** scale to maze size when the pitch gives a pellet count; otherwise use the pitch's
   absolute value. Use named constants.
 - **Collisions with an active timer:** refresh on re-trigger, never stack.
@@ -153,7 +153,7 @@ time before:
   - `waitFor:` that value mid-animation, then `shot:`.
   - Do not stretch tweens by hand for the capture.
 - **Sound:** agent ports are muted. Use `sound=1` and assert the `sfx` event, not the audio.
-- **Modes:** list every mode the diff reaches (level 1, generated, inverted, store, boss, death,
+- **Modes:** list every mode the diff reaches (level 1, generated, store, boss, death,
   LEARN) and probe each. Anything left out goes under "Not checked" in the PR body.
 - **LEARN is always probed** (`?learnAll=1`, base and `+`): visual check; behaviour is
   covered by `learnSim.test.ts`.

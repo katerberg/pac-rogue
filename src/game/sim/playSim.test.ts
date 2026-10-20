@@ -50,7 +50,6 @@ import {
   FAST_ZONE_MULTIPLIER,
   SLOW_ZONE_MULTIPLIER,
   SPEED_ZONE_MIN_LENGTH,
-  flipSpeedZoneRows,
   SPEED_ZONE_SHIFT_STEP_MS,
   speedZoneCells,
   type SpeedZone,
@@ -84,7 +83,6 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
-import { remapSlotPickupCell } from "../../domain/slotPickup";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import type { ProgramDir } from "../../domain/programmer";
 import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
@@ -537,7 +535,7 @@ describe("PlaySim", () => {
     }
   });
 
-  it("plays levels 2-8 on one pool map per run, inverted on inverted levels", () => {
+  it("plays levels 2-8 on one pool map per run", () => {
     const solidsAt = (level: number, seed = "one-map"): string[] => {
       startSim({ level }, seed);
       return getActiveLayout().playerSolids.map((row) => row.join(","));
@@ -549,25 +547,18 @@ describe("PlaySim", () => {
       rows.every((row, r) =>
         row.split(",").every((solid, c) => solid === "true" || base[r]!.split(",")[c] === "false"),
       );
-    for (const level of [4, 5, 8]) {
+    for (const level of [4, 5, 6, 7, 8]) {
       expect(noneBlocked(solidsAt(level)), `level ${level} only adds walls`).toBe(true);
     }
-    expect(solidsAt(6)).toEqual([...solidsAt(5)].reverse());
-    expect(solidsAt(7)).toEqual([...solidsAt(8)].reverse());
+    expect(solidsAt(6)).toEqual(solidsAt(5));
+    expect(solidsAt(7)).toEqual(solidsAt(8));
     expect(solidsAt(2, "another-map")).not.toEqual(base);
     const forced = startSim({ level: 2, maze: 0 }, "force-pool");
     expect(forced.snapshot().layout).toBe("pool-0");
     expect(getActiveLayout().ascii).toContain("#");
   });
 
-  it("skips the inverted maze and speed lanes when level modifiers are off", () => {
-    const solidsAt = (level: number, levelModifiers: boolean): string[] => {
-      startSim({ level, levelModifiers }, "one-map");
-      return getActiveLayout().playerSolids.map((row) => row.join(","));
-    };
-    const base = solidsAt(2, true);
-    expect(solidsAt(6, true)).toEqual([...solidsAt(5, true)].reverse());
-    expect(solidsAt(6, false)).toEqual(base);
+  it("skips speed lanes when level modifiers are off", () => {
     expect(startSim({ level: 6, levelModifiers: false }, "one-map").snapshot().speedZones).toEqual(
       [],
     );
@@ -2957,26 +2948,6 @@ describe("PlaySim slot-machine world pickup", () => {
     expect(sim.snapshot().slotPickup.cells).toEqual(cells);
   });
 
-  it("flips carried cell rows when the board turns upside down", () => {
-    const sim = startSim(
-      {
-        level: 5,
-        slotMachine: true,
-        disableLevelUpgrades: true,
-        jumpToUpgrade: true,
-      },
-      "slot-pick-invert",
-    );
-    const before = sim.snapshot().slotPickup.cells[0]!;
-    const rows = getActiveLayout().rows;
-    runUntil(sim, () => sim.snapshot().level === 6 && !sim.snapshot().levelTransition, 900, {
-      acknowledge: true,
-    });
-    expect(sim.snapshot().level).toBe(6);
-    const after = sim.snapshot().slotPickup.cells[0]!;
-    expect(after).toEqual(remapSlotPickupCell(before.col, rows - 1 - before.row));
-  });
-
   it("hides through a store and respawns on the next play board", () => {
     const sim = startSim({ level: 3, slotMachine: true, levelModifiers: false }, "slot-pick-store");
     expect(sim.snapshot().slotPickup.count).toBe(1);
@@ -3032,7 +3003,6 @@ describe("PlaySim slot-machine world pickup", () => {
     const wall = sim.snapshot().collapse.chains[0]?.[0];
     expect(wall).toBeDefined();
     sim["slotPickupCells"] = [{ col: wall!.col, row: wall!.row }];
-    sim["previousPlayBoardInverted"] = sim["boardInverted"];
     (sim as unknown as { startBoard(override: null): void }).startBoard(null);
     const cell = sim.snapshot().slotPickup.cells[0]!;
     expect(isWalkable(cell.col, cell.row)).toBe(true);
@@ -6764,28 +6734,15 @@ describe("speed zones", () => {
     expect(settledZones(sim)).toEqual([target]);
   });
 
-  it("mirrors the lanes with the upside-down maze on levels 6-7 and back on 8", () => {
-    const rows = (level: number, levelModifiers = true) => {
-      const sim = startSim({ level, levelModifiers }, "zones");
-      return { zones: settledZones(sim), rows: getActiveLayout().rows };
-    };
-    const five = rows(5).zones;
-    const six = rows(6);
-    const firstOnSix = flipSpeedZoneRows(six.zones[0]!, six.rows);
-    expect(firstOnSix.axis).toBe(five[0]!.axis);
-    expect(firstOnSix.fastDir).toBe(five[0]!.fastDir);
-    const lane = (z: SpeedZone) => (z.axis === "horizontal" ? z.row : z.col);
-    expect(lane(firstOnSix)).toBe(lane(five[0]!));
-    for (const zone of six.zones) {
-      for (const cell of speedZoneCells(zone)) {
-        expect(getActiveLayout().playerSolids[cell.row]![cell.col]).toBe(false);
+  it("keeps lane cells walkable on levels that have speed lanes", () => {
+    for (const level of [5, 6, 7, 8]) {
+      const sim = startSim({ level }, "zones");
+      for (const zone of settledZones(sim)) {
+        for (const cell of speedZoneCells(zone)) {
+          expect(getActiveLayout().playerSolids[cell.row]![cell.col]).toBe(false);
+        }
       }
     }
-    const seven = rows(7);
-    const eight = rows(8).zones;
-    expect(eight.slice(0, 3).map((z) => z.fastDir)).toEqual(
-      seven.zones.map((z) => flipSpeedZoneRows(z, seven.rows).fastDir),
-    );
   });
 
   it("draws the lanes for the render bridge", () => {
@@ -8014,14 +7971,10 @@ describe("collapsed tunnels", () => {
     expect(chainsAt(8).fresh).toEqual([false, false, false]);
   });
 
-  it("keeps the same collapses in the same place, mirrored on the inverted levels", () => {
+  it("keeps the same collapses in the same place across pool levels", () => {
     const five = chainsAt(5).chains;
-    const six = chainsAt(6).chains;
-    const rows = getActiveLayout().rows;
-    expect(six).toEqual(
-      five.map((chain) => chain.map((cell) => ({ col: cell.col, row: rows - 1 - cell.row }))),
-    );
-    expect(chainsAt(7).chains.slice(0, 2)).toEqual(six);
+    expect(chainsAt(6).chains).toEqual(five);
+    expect(chainsAt(7).chains.slice(0, 2)).toEqual(five);
     expect(chainsAt(8).chains.slice(0, 2)).toEqual(five);
   });
 

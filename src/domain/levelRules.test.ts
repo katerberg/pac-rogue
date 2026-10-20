@@ -7,7 +7,6 @@ import {
   ghostBaseSpeedRatio,
   ghostKindsForLevel,
   ghostModeWavesForLevel,
-  isInvertedMazeLevel,
   isTimedTunnelLevel,
   MAX_LEVEL,
   offersUpgradeAfterLevel,
@@ -154,16 +153,6 @@ describe("ghostModeWavesForLevel", () => {
 
   it("clamps below 1 to level 1 schedule", () => {
     expect(ghostModeWavesForLevel(0)).toEqual(ghostModeWavesForLevel(1));
-  });
-});
-
-describe("isInvertedMazeLevel", () => {
-  it("is true only for levels 6 and 7", () => {
-    expect(isInvertedMazeLevel(6)).toBe(true);
-    expect(isInvertedMazeLevel(7)).toBe(true);
-    for (const level of [1, 2, 3, 4, 5, 8]) {
-      expect(isInvertedMazeLevel(level)).toBe(false);
-    }
   });
 });
 
