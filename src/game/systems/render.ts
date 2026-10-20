@@ -765,19 +765,13 @@ type GhostSkirt = {
   waveSign: number;
 };
 
-export type CreateRenderOptions = {
-  /** Play-only: lighter full-height gutter bands. Learn leaves this off. */
-  sidebarBands?: boolean;
-};
-
-export function createRender(scene: Phaser.Scene, options: CreateRenderOptions = {}): PlayRender {
+export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRender {
   const drawableObjects = new Map<string, Phaser.GameObjects.Image>();
   const playerVisuals = new Map<number, PlayerVisual>();
   const pupilLooks = new Map<number, PupilLookState>();
   const hornTurns = new Map<number, HornTurnState>();
   const ghostSkirts = new Map<number, GhostSkirt>();
-  const sidebarBandsEnabled = options.sidebarBands === true;
-  const sidebarGraphics = sidebarBandsEnabled ? scene.add.graphics() : null;
+  const sidebarGraphics = sidebarBands ? scene.add.graphics() : null;
   sidebarGraphics?.setDepth(SIDEBAR_DEPTH);
   let drawnSidebarKey: string | null = null;
   const wallGraphics = scene.add.graphics();
@@ -1004,7 +998,7 @@ export function createRender(scene: Phaser.Scene, options: CreateRenderOptions =
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
       strokeWallPath(wallGraphics, commands, wallStyle, 1);
-      if (wallStyleOverride !== null || sidebarBandsEnabled) {
+      if (wallStyleOverride !== null || sidebarBands) {
         scene.cameras.main.setBackgroundColor(baseWallStyle.background);
       }
       drawnWallStyle = wallStyle;

@@ -1,9 +1,6 @@
 import { brightenColor } from "./playerTint";
 
-/** How much lighter gutter bands are than the maze background (toward white). */
 export const SIDEBAR_BRIGHTEN = 0.1;
-
-/** Soft seam width in world pixels between solid sidebar and maze column. */
 export const SIDEBAR_FADE_PX = 2;
 
 export type SidebarBandRect = {
@@ -18,10 +15,7 @@ export function sidebarBackgroundColor(mazeBackground: number): number {
   return brightenColor(mazeBackground, SIDEBAR_BRIGHTEN);
 }
 
-/**
- * Full-height left/right gutter fills plus a stepped soft fade into the maze
- * column. Camera clear stays `mazeBackground`; only these rects are painted.
- */
+/** Camera clear stays `mazeBackground`; only these rects are painted. */
 export function sidebarBandRects(args: {
   playfieldWidth: number;
   playfieldHeight: number;
@@ -59,7 +53,6 @@ export function sidebarBandRects(args: {
 }
 
 function fadeBrighten(stepFromMaze: number): number {
-  // stepFromMaze: 1 = nearest maze (dimmest lift), FADE_PX = farthest (strongest).
   return (SIDEBAR_BRIGHTEN * stepFromMaze) / (SIDEBAR_FADE_PX + 1);
 }
 
@@ -88,7 +81,6 @@ function pushSide(
       rects.push({ x: solidStart, y: 0, w: solidWidth, h: height, color: solid });
     }
     for (let i = 0; i < fadePx; i += 1) {
-      // i=0 farthest from maze (stronger), i=fadePx-1 nearest maze (weaker).
       const stepFromMaze = fadePx - i;
       rects.push({
         x: solidStart + solidWidth + i,
@@ -102,7 +94,6 @@ function pushSide(
   }
 
   for (let i = 0; i < fadePx; i += 1) {
-    // i=0 nearest maze (weaker), i=fadePx-1 farthest among fade (stronger).
     const stepFromMaze = i + 1;
     rects.push({
       x: solidStart + i,
