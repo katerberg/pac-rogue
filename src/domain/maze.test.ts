@@ -805,7 +805,7 @@ describe("maze", () => {
 
     const ascii = tinyHouseMazeAscii();
     const layout = layoutFromAscii(ascii, "generated");
-    expect(layout.ghostHouseSpawn).toEqual({ col: 10, row: 6 });
+    expect(layout.ghostHouseSpawn).toEqual({ col: 10, row: 9 });
     expect(layout.ghostHouseExit.col).toBe(10);
     expect(
       isWalkable(layout.ghostHouseExit.col, layout.ghostHouseExit.row, layout.playerSolids),
@@ -814,7 +814,7 @@ describe("maze", () => {
       true,
     );
 
-    const oneByTwo = ascii.replaceAll("###HH###", "####H###");
+    const oneByTwo = ascii.replaceAll("##HH##", "###H##");
     expect(() => layoutFromAscii(oneByTwo, "generated")).toThrow(/ghost house floors 1x2/);
   });
 });
