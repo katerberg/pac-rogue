@@ -104,6 +104,7 @@ const HUD_ICON_GAP = 4;
 const LEVEL_BANNER_FADE_MS = 1500;
 const WALLET_COIN_DEPTH = 900;
 const RUN_END_HUD_DEPTH = 1001;
+const RUN_END_WALLET_ALPHA = 0.5;
 const BOSS_BANNER_SLAM_MS = 220;
 const BOSS_BANNER_HOLD_MS = 1200;
 const BOSS_BANNER_FADE_MS = 800;
@@ -886,6 +887,7 @@ export class PlayScene extends Phaser.Scene {
       // Stay on chrome (not sideHud) so they remain visible with ?knobs=1.
       const icon = (kind === "dollar" ? addDollarIcon : addQuarterIcon)(this, x, y, size);
       this.addHudIcon(icon);
+      icon.setAlpha(this.walletAlpha(1));
       this.quarterIcons.push(icon);
     });
     const newest = this.quarterIcons[this.quarterIcons.length - 1];
@@ -989,7 +991,10 @@ export class PlayScene extends Phaser.Scene {
       const look = looks[i];
       icon.setVisible(look !== undefined);
       if (look !== undefined) {
-        icon.setPosition(look.x, look.y).setDisplaySize(look.size, look.size).setAlpha(look.alpha);
+        icon
+          .setPosition(look.x, look.y)
+          .setDisplaySize(look.size, look.size)
+          .setAlpha(this.walletAlpha(look.alpha));
       }
     });
   }
@@ -1025,11 +1030,18 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  private walletAlpha(alpha: number): number {
+    return this.runEndMenu === null ? alpha : alpha * RUN_END_WALLET_ALPHA;
+  }
+
   private liftHudIconsAboveRunEnd(): void {
     for (const icon of [...this.upgradeIcons, ...this.quarterIcons, ...this.pennyIcons]) {
       this.chrome.remove(icon);
       this.add.existing(icon);
       icon.setDepth(RUN_END_HUD_DEPTH);
+    }
+    for (const icon of this.quarterIcons) {
+      icon.setAlpha(this.walletAlpha(1));
     }
   }
 
