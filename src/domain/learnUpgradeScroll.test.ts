@@ -8,7 +8,7 @@ import {
   LEARN_UPGRADE_ROW_WIDTH,
   applyLearnUpgradeWheel,
   clampLearnUpgradeScroll,
-  learnUpgradeColumnAtX,
+  learnUpgradeColumnAt,
   learnUpgradeContentHeight,
   learnUpgradeRowVisible,
   learnUpgradeScrollExtent,
@@ -63,14 +63,26 @@ describe("clampLearnUpgradeScroll / applyLearnUpgradeWheel", () => {
   });
 });
 
-describe("learnUpgradeColumnAtX", () => {
+describe("learnUpgradeColumnAt", () => {
+  const midY = (LEARN_UPGRADE_CLIP_TOP + LEARN_UPGRADE_CLIP_BOTTOM) / 2;
+
   it("hits each gutter and ignores the maze", () => {
-    expect(learnUpgradeColumnAtX(LEARN_UPGRADE_COLUMN_X.left)).toBe("left");
-    expect(learnUpgradeColumnAtX(LEARN_UPGRADE_COLUMN_X.left + LEARN_UPGRADE_ROW_WIDTH - 1)).toBe(
-      "left",
-    );
-    expect(learnUpgradeColumnAtX(LEARN_UPGRADE_COLUMN_X.right)).toBe("right");
-    expect(learnUpgradeColumnAtX(400)).toBeNull();
+    expect(learnUpgradeColumnAt(LEARN_UPGRADE_COLUMN_X.left, midY)).toBe("left");
+    expect(
+      learnUpgradeColumnAt(LEARN_UPGRADE_COLUMN_X.left + LEARN_UPGRADE_ROW_WIDTH - 1, midY),
+    ).toBe("left");
+    expect(learnUpgradeColumnAt(LEARN_UPGRADE_COLUMN_X.right, midY)).toBe("right");
+    expect(learnUpgradeColumnAt(400, midY)).toBeNull();
+  });
+
+  it("ignores the column strip outside the clip band", () => {
+    expect(
+      learnUpgradeColumnAt(LEARN_UPGRADE_COLUMN_X.left, LEARN_UPGRADE_CLIP_TOP - 1),
+    ).toBeNull();
+    expect(
+      learnUpgradeColumnAt(LEARN_UPGRADE_COLUMN_X.right, LEARN_UPGRADE_CLIP_BOTTOM),
+    ).toBeNull();
+    expect(learnUpgradeColumnAt(LEARN_UPGRADE_COLUMN_X.left, LEARN_UPGRADE_CLIP_TOP)).toBe("left");
   });
 });
 

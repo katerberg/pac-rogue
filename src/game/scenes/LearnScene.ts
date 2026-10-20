@@ -16,7 +16,7 @@ import {
   LEARN_UPGRADE_ROW_GAP,
   LEARN_UPGRADE_ROW_WIDTH,
   applyLearnUpgradeWheel,
-  learnUpgradeColumnAtX,
+  learnUpgradeColumnAt,
   learnUpgradeContentHeight,
   learnUpgradeRowVisible,
   learnUpgradeScrollExtent,
@@ -242,7 +242,7 @@ export class LearnScene extends Phaser.Scene {
         _deltaX: number,
         deltaY: number,
       ) => {
-        this.onUpgradeWheel(pointer.worldX, deltaY);
+        this.onUpgradeWheel(pointer.worldX, pointer.worldY, deltaY);
       },
     );
 
@@ -485,8 +485,8 @@ export class LearnScene extends Phaser.Scene {
     });
   }
 
-  private onUpgradeWheel(worldX: number, deltaY: number): void {
-    const column = learnUpgradeColumnAtX(worldX);
+  private onUpgradeWheel(worldX: number, worldY: number, deltaY: number): void {
+    const column = learnUpgradeColumnAt(worldX, worldY);
     if (column === null || this.scrollExtent[column] <= 0 || deltaY === 0) {
       return;
     }

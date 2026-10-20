@@ -46,11 +46,17 @@ export function applyLearnUpgradeWheel(offset: number, deltaY: number, extent: n
   return clampLearnUpgradeScroll(offset + deltaY, extent);
 }
 
-export function learnUpgradeColumnAtX(
+export function learnUpgradeColumnAt(
   worldX: number,
+  worldY: number,
   columnX: Readonly<Record<LearnColumn, number>> = LEARN_UPGRADE_COLUMN_X,
   rowWidth: number = LEARN_UPGRADE_ROW_WIDTH,
+  clipTop: number = LEARN_UPGRADE_CLIP_TOP,
+  clipBottom: number = LEARN_UPGRADE_CLIP_BOTTOM,
 ): LearnColumn | null {
+  if (worldY < clipTop || worldY >= clipBottom) {
+    return null;
+  }
   for (const column of ["left", "right"] as const) {
     const x = columnX[column];
     if (worldX >= x && worldX < x + rowWidth) {
