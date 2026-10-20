@@ -52,7 +52,7 @@ export type BaseUpgradeId =
   | "passiveAutomationSpecialist"
   | "passiveProtectionSpecialist"
   | "passiveDisruptionSpecialist"
-  | "passiveMartyr"
+  | "passiveReanimation"
   | "passiveInterest"
   | "passiveNearMiss"
   | "passiveHaunting"
@@ -96,7 +96,7 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
   "neutral",
 ];
 
-export type MartyrGhostPlacement = "corners" | "house";
+export type ReanimationMode = "fell" | "nearPowerPellet";
 
 export type UpgradeEffects = {
   playerSpeedMul?: number;
@@ -136,7 +136,7 @@ export type UpgradeEffects = {
   startingShields?: number;
   shieldBreak?: true;
   shieldOverflowFires?: true;
-  martyrGhosts?: MartyrGhostPlacement;
+  reanimation?: ReanimationMode;
   interestPerQuarters?: number;
   nearMissCharge?: number;
   hauntMs?: number;
@@ -739,17 +739,16 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
   specialistDef("protection", "passiveProtectionSpecialist"),
   specialistDef("disruption", "passiveDisruptionSpecialist"),
   {
-    id: "passiveMartyr",
-    label: "Martyr",
+    id: "passiveReanimation",
+    label: "Reanimation",
     school: "death",
-    description: "Dying scatters the ghosts to their corners. You respawn where you fell.",
-    storePrice: STORE_RARE_UPGRADE_PRICE,
-    rare: true,
-    martyrGhosts: "corners",
+    description: "You respawn where you fell.",
+    storePrice: STORE_UPGRADE_PRICE,
+    reanimation: "fell",
     enhanced: {
-      enhanceNote: "Martyr sends the ghosts back into the ghost house instead of their corners.",
-      description: "Dying sends every ghost home. You respawn where you fell.",
-      martyrGhosts: "house",
+      enhanceNote: "Reanimation puts you next to a power pellet when one is still on the board.",
+      description: "You respawn next to a power pellet if available.",
+      reanimation: "nearPowerPellet",
     },
   },
   {
@@ -1039,7 +1038,7 @@ export function ownedFormOf(owned: readonly UpgradeId[], baseId: BaseUpgradeId):
 }
 
 export const LEARN_NO_EFFECT_UPGRADE_IDS: readonly BaseUpgradeId[] = [
-  "passiveMartyr",
+  "passiveReanimation",
   "passiveInterest",
 ];
 
@@ -2037,8 +2036,8 @@ export function streakEngineInvulnMs(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "streakEngineInvulnMs") ?? 0;
 }
 
-export function martyrGhostPlacement(owned: readonly UpgradeId[]): MartyrGhostPlacement | null {
-  return ownedValue(owned, "martyrGhosts") ?? null;
+export function reanimationMode(owned: readonly UpgradeId[]): ReanimationMode | null {
+  return ownedValue(owned, "reanimation") ?? null;
 }
 
 export function hauntDurationMs(owned: readonly UpgradeId[]): number | null {

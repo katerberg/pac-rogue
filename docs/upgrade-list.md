@@ -46,7 +46,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveAutomationSpecialist` | Automation Specialist | automation | Own 3 other Automation upgrades and every Automation upgrade is enhanced. | Every Automation upgrade you own is enhanced. |
 | `passiveProtectionSpecialist` | Protection Specialist | protection | Own 3 other Protection upgrades and every Protection upgrade is enhanced. | Every Protection upgrade you own is enhanced. |
 | `passiveDisruptionSpecialist` | Disruption Specialist | disruption | Own 3 other Disruption upgrades and every Disruption upgrade is enhanced. | Every Disruption upgrade you own is enhanced. |
-| `passiveMartyr` | Martyr (rare) | death | Dying scatters the ghosts to their corners. You respawn where you fell. | Dying sends every ghost home. You respawn where you fell. |
+| `passiveReanimation` | Reanimation | death | You respawn where you fell. | You respawn next to a power pellet if available. |
 | `passiveInterest` | Interest | automation | Entering a store pays 1 Quarter for every 3 you hold. | Entering a store pays 1 Quarter for every 2 you hold. |
 | `passiveNearMiss` | Near Miss | protection | Ghosts that brush past without catching you earn pennies. | Ghosts that brush past without catching you earn double pennies. |
 | `passiveHaunting` | Haunting | death | The ghost that last caught you stays caged in the ghost house for 10 seconds. | The ghost that last caught you stays caged in the ghost house for the level. |

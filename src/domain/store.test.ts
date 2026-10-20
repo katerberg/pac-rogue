@@ -280,7 +280,7 @@ describe("createStoreState", () => {
 
   it("shelves a rare at half a common's weight", () => {
     const left: UpgradeId[] = [
-      "passiveMartyr",
+      "passiveStreakEngine",
       "passiveGhostSlow",
       "passiveAfterburner",
       "fruitFeast",
@@ -295,7 +295,9 @@ describe("createStoreState", () => {
     let withRare = 0;
     for (let i = 0; i < draws; i += 1) {
       const state = createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, rng);
-      withRare += state.slots.some((s) => s.kind === "upgrade" && s.id === "passiveMartyr") ? 1 : 0;
+      withRare += state.slots.some((s) => s.kind === "upgrade" && s.id === "passiveStreakEngine")
+        ? 1
+        : 0;
     }
     const expected = 0.5 / 3.5 + (3 / 3.5) * (0.5 / 2.5);
     expect(Math.abs(withRare / draws - expected)).toBeLessThan(0.03);
