@@ -654,7 +654,7 @@ export class LearnSim {
         PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
       );
       this.noteTunnelExit(positionBeforeDash);
-    } else if (hasUpgrade(this.learnUpgrades.owned, "passiveTunnelDash")) {
+    } else if (!bouncing && hasUpgrade(this.learnUpgrades.owned, "passiveTunnelDash")) {
       const dash = applyTunnelDashForBodies(this.world, this.twinDashBody());
       if (dash !== null) {
         if (dash.sweptPelletEids.length > 0) {

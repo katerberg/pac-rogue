@@ -4846,6 +4846,43 @@ describe("Shield bounce", () => {
     expect(Facing.direction[ghost]).not.toBe(DIRECTION.none);
   });
 
+  it("does not start a Tunnel Dash while Dot-Man is airborne", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveStartingShield", "passiveTunnelDash"],
+    });
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    const at = { x: cellCenterX(6), y: cellCenterY(horizontalTunnelRows()[0]!) };
+    place(playerEid(sim), at);
+    place(ghost, at, NUDGE_PX);
+    runFrames(sim, 1);
+    expect(sim.snapshot().shieldBounce.player?.step).toEqual({ dx: -1, dy: 0 });
+    runUntil(sim, () => sim.snapshot().shieldBounce.player === null, 30, {
+      keys: { ...NO_KEYS_HELD },
+    });
+    expect(sim["tunnelDashAnim"]).toBeNull();
+    expect(Position.x[playerEid(sim)]!).toBeLessThan(cellCenterX(6));
+  });
+
+  it("bounces only Dot-Man when Reactive Armor sends the ghost home", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveStartingShield", "passiveReactiveArmor"],
+    });
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    const at = corridorCell((col, row) => openRun(col, row, -3, 4));
+    place(playerEid(sim), at);
+    place(ghost, at, -NUDGE_PX);
+    runFrames(sim, 1);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    expect(sim.snapshot().shieldBounce.ghosts).toEqual([]);
+    expect(sim.snapshot().shieldBounce.player?.step).toEqual({ dx: 1, dy: 0 });
+  });
+
   it("keeps the immunity fallback for a lava break", () => {
     const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveStartingShield"] });
     sim["breakShield"](null, null);
@@ -6256,6 +6293,7 @@ describe("timed tunnels", () => {
     Position.y[playerEid(sim)] = cellCenterY(row);
     advanceToPhase(sim, "closed");
     expect(sim["tunnelDashAnim"]).toBeNull();
+    expect(Position.x[playerEid(sim)]!).toBeLessThan(cellCenterX(6));
     const x = Position.x[playerEid(sim)]!;
     expect(x).toBeGreaterThanOrEqual(clampToGridCenters(-1e9, 0).x);
     expect(x).toBeLessThanOrEqual(clampToGridCenters(1e9, 0).x);

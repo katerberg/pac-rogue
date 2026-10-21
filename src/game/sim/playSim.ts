@@ -1497,6 +1497,7 @@ export class PlaySim {
       );
       this.noteTunnelExit(positionBeforeDash);
     } else if (
+      !bouncing &&
       hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash") &&
       !this.timedTunnelBlocksPlayerDash()
     ) {
