@@ -1442,6 +1442,9 @@ export class LearnSim {
         this.hyperspeedFruit.push(...collectFruitForBodies(this.world, this.twinPosition()));
         this.eatFrightenedGhosts();
         const options = this.catchOptions();
+        if (this.tryBreakPeel(options, NO_KEYS_HELD)) {
+          return false;
+        }
         const twinAt = this.twinPosition();
         const hit =
           catchPlayer(this.world, options) ??
