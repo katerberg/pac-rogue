@@ -239,7 +239,7 @@ export const NEAR_MISS_ENHANCED_CHARGE = 30;
 export const AFTERBURNER_MUL = 1.3;
 export const AFTERBURNER_PELLET_MUL = 0.8;
 export const MOLE_PELLET_MUL = 1.2;
-export const MOLE_EMPTY_MUL = 0.8;
+export const MOLE_EMPTY_MUL = 0.9;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
 
@@ -1039,11 +1039,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveMole",
     label: "Mole",
     school: "harvest",
-    description: "Dig the pellet veins: +20% speed over pellets, 20% slower on cleared tiles.",
+    description: "Dig the pellet veins: +20% speed over pellets, 10% slower on cleared tiles.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Mole gives +30% on pellet tiles instead of +20%. Cleared tiles still cost 20%.",
-      description: "Dig deeper: +30% speed over pellets, 20% slower on cleared tiles.",
+      enhanceNote: "Mole gives +30% on pellet tiles instead of +20%. Cleared tiles still cost 10%.",
+      description: "Dig deeper: +30% speed over pellets, 10% slower on cleared tiles.",
       pelletCellSpeedMul: MOLE_ENHANCED_PELLET_MUL,
     },
     pelletCellSpeedMul: MOLE_PELLET_MUL,
