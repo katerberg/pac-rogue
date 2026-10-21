@@ -1449,7 +1449,6 @@ export class LearnSim {
       this.firePowerPelletEffects(1);
       this.learnUpgrades = { ...this.learnUpgrades, hyperspeedShieldRemainingMs: 0 };
     }
-    this.popup("SHIELD BROKEN");
     return true;
   }
 
@@ -1494,7 +1493,6 @@ export class LearnSim {
         );
         this.bounceStaleKeys = keys;
       }
-      this.popup("SHIELD BROKEN");
       return;
     }
     const owned = this.learnUpgrades.owned;
@@ -1665,10 +1663,6 @@ export class LearnSim {
     const lines: string[] = [];
     if (this.catchDemoOwned()) {
       lines.push(`LIVES ${this.runState.lives}`);
-    }
-    const shieldCap = shieldBankCap(owned);
-    if (shieldCap > 0) {
-      lines.push(`SHIELDS ${this.learnUpgrades.shieldsBanked}/${shieldCap}`);
     }
     if (this.bonusDemoOwned()) {
       lines.push(

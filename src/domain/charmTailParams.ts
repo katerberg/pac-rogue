@@ -15,7 +15,7 @@ export type CharmTuning = {
 };
 
 export const DEFAULT_CHARM_TUNING: CharmTuning = {
-  charmTail: true,
+  charmTail: false,
   charmSize: 10,
   charmSpacing: 1.3,
   charmAnchorBack: 10,
