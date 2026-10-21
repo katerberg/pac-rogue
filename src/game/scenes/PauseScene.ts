@@ -3,7 +3,7 @@ import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { clamp } from "../../domain/clamp";
 import { hoverPreviewX } from "../../domain/learnUpgradeColumns";
-import { schoolArtTextureKey } from "../../domain/schoolArt";
+import { upgradeIconTexture } from "../upgradeArt";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import type { PlayScene } from "./PlayScene";
 import { addSeedLabel } from "./seedLabel";
@@ -250,7 +250,7 @@ export class PauseScene extends Phaser.Scene {
   private buildUpgradeList(slots: ReturnType<PlayScene["upgradeHudSlots"]>): void {
     for (const { id, x, y, size } of slots) {
       const icon = this.add
-        .image(x, y, schoolArtTextureKey(getUpgradeDef(id).school))
+        .image(x, y, upgradeIconTexture(id))
         .setDisplaySize(size, size)
         .setInteractive({ useHandCursor: true });
       icon.on("pointerover", (pointer: Phaser.Input.Pointer) => {

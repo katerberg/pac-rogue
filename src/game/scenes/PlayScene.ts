@@ -47,7 +47,7 @@ import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
-import { baseIdOf, getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
+import { baseIdOf, type UpgradeId } from "../../domain/upgrades";
 import {
   isSfxPlaying,
   playPelletCollectSfx,
@@ -84,7 +84,7 @@ import {
   placePixelText,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
-import { schoolArtTextureKey } from "../../domain/schoolArt";
+import { upgradeIconTexture } from "../upgradeArt";
 import {
   UPGRADE_HUD_COMPACT_SIZE,
   upgradeHudIconPosition,
@@ -435,6 +435,10 @@ export class PlayScene extends Phaser.Scene {
         backlog: pennyBacklog(this.pennyFx, this.sim.hud().penniesCharge),
       },
       startingUpgradeCardOpen: this.startingUpgradeCard.isActive(),
+      hudUpgradeIcons: this.upgradeIcons.map(({ id, mark }) => ({
+        id,
+        texture: mark instanceof Phaser.GameObjects.Image ? mark.texture.key : null,
+      })),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
       upgradeOfferEnhanced: this.upgradeChoiceModal.offer()?.enhanced ?? null,
@@ -1041,7 +1045,7 @@ export class PlayScene extends Phaser.Scene {
     });
     this.upgradeIcons = this.upgradeHudSlots().map(({ id, x, y, size }) => {
       const icon = this.add
-        .image(x, y, schoolArtTextureKey(getUpgradeDef(id).school))
+        .image(x, y, upgradeIconTexture(id))
         .setDisplaySize(size, size)
         .setVisible(this.intermission === null);
       this.addHudIcon(icon);
