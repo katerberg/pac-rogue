@@ -29,7 +29,7 @@ describe("remapSlotPickupCell", () => {
   it("keeps a walkable cell and snaps a solid one to the nearest walkable", () => {
     activateLayout("mazeSmall");
     const solids = getActiveLayout().playerSolids;
-    const walkable = { col: 7, row: 1 };
+    const walkable = { col: 10, row: 1 };
     expect(isWalkable(walkable.col, walkable.row, solids)).toBe(true);
     expect(remapSlotPickupCell(walkable.col, walkable.row, solids)).toEqual(walkable);
 

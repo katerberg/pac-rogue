@@ -1069,7 +1069,7 @@ describe("LearnSim upgrade demos", () => {
       const { sim, player } = setup("powerPelletMirror", "powerPelletHyperspeed");
       parkGhost(sim);
       chompPower(sim, player);
-      const startCol = 7;
+      const startCol = 10;
       moveTo(player, { x: cellCenterX(startCol), y: cellCenterY(1) });
       Facing.direction[player] = DIRECTION.right;
       for (let frame = 0; frame < 10; frame += 1) {
@@ -1086,12 +1086,12 @@ describe("LearnSim upgrade demos", () => {
         const { sim, player } = setup("powerPelletMirror", ...extra);
         parkGhost(sim);
         chompPower(sim, player);
-        const own = regularPelletAt(sim, 8, 1);
+        const own = regularPelletAt(sim, 11, 1);
         if (own !== undefined) {
           removeEntity(sim.world, own);
         }
-        const neighbor = regularPelletAt(sim, 9, 1)!;
-        moveTo(player, { x: cellCenterX(mirror(8)), y: cellCenterY(1) });
+        const neighbor = regularPelletAt(sim, 12, 1)!;
+        moveTo(player, { x: cellCenterX(mirror(11)), y: cellCenterY(1) });
         sim.step(NO_KEYS_HELD, FRAME_MS);
         return !query(sim.world, [Pellet]).includes(neighbor);
       };

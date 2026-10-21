@@ -88,7 +88,7 @@ describe("maze layouts", () => {
 
   it("loads variable-size fixtures", () => {
     const small = activateLayout("mazeSmall");
-    expect(small.cols).toBe(22);
+    expect(small.cols).toBe(28);
     expect(small.rows).toBe(25);
     expect(small.tileSize).toBeGreaterThanOrEqual(12);
     expect(small.offsetX).toBeGreaterThanOrEqual(80);
@@ -109,9 +109,9 @@ describe("maze layouts", () => {
     expect(ghostHouseSeatCenters()).toHaveLength(3);
     expect(small.door.some((row) => row.some(Boolean))).toBe(true);
     expect(small.house.some((row) => row.some(Boolean))).toBe(true);
-    expect(blinkyScatterTarget()).toEqual({ col: 19, row: -3 });
+    expect(blinkyScatterTarget()).toEqual({ col: 25, row: -3 });
     expect(pinkyScatterTarget()).toEqual({ col: 2, row: -3 });
-    expect(inkyScatterTarget()).toEqual({ col: 21, row: 27 });
+    expect(inkyScatterTarget()).toEqual({ col: 27, row: 27 });
     expect(clydeScatterTarget()).toEqual({ col: 0, row: 27 });
   });
 
