@@ -655,6 +655,7 @@ export class PlaySim {
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private shieldBounce: ShieldBounce = NO_SHIELD_BOUNCE;
   private peelTail: TailBead[] = [];
+  private peelHeading = 0;
   private peelClockMs = 0;
   private bounceStaleKeys: HeldKeys | null = null;
   private frameKeys: HeldKeys = NO_KEYS_HELD;
@@ -2714,6 +2715,7 @@ export class PlaySim {
     this.lastReactiveArmorSent = 0;
     this.nearMissesPaid = 0;
     this.peelTail = [];
+    this.peelHeading = 0;
     this.topUpStartingShields();
     const boss = isBossLevel(this.levelIndex)
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
@@ -3443,13 +3445,20 @@ export class PlaySim {
   private stepPeelTail(delta: number): void {
     this.peelClockMs += Math.max(0, delta);
     const solids = this.playerSolids();
-    const stepped = stepBananaPeelTail(this.world, this.peelTail, this.runUpgrades.peelsBanked, {
-      dtMs: delta,
-      nowMs: this.peelClockMs,
-      motion: 1,
-      blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
-    });
+    const stepped = stepBananaPeelTail(
+      this.world,
+      this.peelTail,
+      this.runUpgrades.peelsBanked,
+      {
+        dtMs: delta,
+        nowMs: this.peelClockMs,
+        motion: 1,
+        blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
+      },
+      this.peelHeading,
+    );
     this.peelTail = stepped.beads;
+    this.peelHeading = stepped.heading;
   }
 
   private tryBreakPeel(catchOptions: CatchOptions): boolean {
@@ -3469,13 +3478,20 @@ export class PlaySim {
     this.recorder.activation("shieldBreak");
     this.resetStreak();
     const solids = this.playerSolids();
-    const resized = stepBananaPeelTail(this.world, this.peelTail, this.runUpgrades.peelsBanked, {
-      dtMs: 0,
-      nowMs: this.peelClockMs,
-      motion: 0,
-      blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
-    });
+    const resized = stepBananaPeelTail(
+      this.world,
+      this.peelTail,
+      this.runUpgrades.peelsBanked,
+      {
+        dtMs: 0,
+        nowMs: this.peelClockMs,
+        motion: 0,
+        blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
+      },
+      this.peelHeading,
+    );
     this.peelTail = resized.beads;
+    this.peelHeading = resized.heading;
     for (const bead of resized.dropped) {
       this.emit({ type: "peelCrack", x: bead.x, y: bead.y });
     }
@@ -3814,6 +3830,7 @@ export class PlaySim {
       peelsBanked: 0,
     };
     this.peelTail = [];
+    this.peelHeading = 0;
     this.eatDragMs = 0;
     this.turnTuning.reset();
     this.turnCatchGraceMs = 0;

@@ -8952,11 +8952,11 @@ describe("Banana Trail", () => {
     runFrames(sim, 40, { keys: held("right") });
     const before = sim.snapshot().peels.map((peel) => ({ ...peel }));
     expect(before).toHaveLength(3);
+    expect(before[0]!.x).toBeLessThan(Position.x[player]!);
     runFrames(sim, 1, { keys: held("left") });
     const after = sim.snapshot().peels;
     const hops = before.map((peel, i) => Math.hypot(after[i]!.x - peel.x, after[i]!.y - peel.y));
     expect(Math.max(...hops)).toBeLessThan(TILE_SIZE);
-    expect(after[0]!.x).toBeGreaterThan(before[0]!.x);
     for (let i = 0; i < 45; i += 1) {
       runFrames(sim, 1, { keys: held("left") });
     }

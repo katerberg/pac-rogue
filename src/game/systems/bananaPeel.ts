@@ -1,6 +1,6 @@
 import { query, type World } from "bitecs";
 import { circlesOverlap } from "../../domain/circles";
-import { headingAngle, type HeadingStep } from "../../domain/dotManHeading";
+import { headingAngle, stepHeading, type HeadingStep } from "../../domain/dotManHeading";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import {
   bananaPeelBeadRadiusPx,
@@ -32,16 +32,22 @@ function facingToHeadingStep(facing: Direction): HeadingStep | null {
   }
 }
 
-export function peelTailAnchor(world: World): { x: number; y: number; heading: number } | null {
+export function peelTailAnchor(
+  world: World,
+  heading: number,
+  dtMs: number,
+): { x: number; y: number; heading: number } | null {
   const pose = playerPose(world);
   if (pose === null) {
     return null;
   }
   const step = facingToHeadingStep(pose.facing);
+  // Keep the last heading when Dot-Man stops so peels don't snap into a wall behind a default 0°.
+  const nextHeading = step === null ? heading : stepHeading(heading, headingAngle(step), dtMs);
   return {
     x: pose.x,
     y: pose.y,
-    heading: step === null ? 0 : headingAngle(step),
+    heading: nextHeading,
   };
 }
 
@@ -55,16 +61,26 @@ export function stepBananaPeelTail(
     motion: number;
     blocked: (x: number, y: number) => boolean;
   },
+  heading = 0,
   layout: TailLayout = bananaPeelLayout(),
-): { beads: TailBead[]; dropped: TailBead[] } {
-  const anchor = peelTailAnchor(world);
-  if (anchor === null || peelsBanked <= 0) {
-    return { beads: [], dropped: beads.length > 0 ? [...beads] : [] };
+): { beads: TailBead[]; dropped: TailBead[]; heading: number } {
+  const pose = playerPose(world);
+  if (pose === null || peelsBanked <= 0) {
+    return { beads: [], dropped: beads.length > 0 ? [...beads] : [], heading };
+  }
+  const facingStep = facingToHeadingStep(pose.facing);
+  // First bead of a fresh trail snaps to the current facing instead of swinging from 0°.
+  const seedHeading =
+    beads.length === 0 && facingStep !== null ? headingAngle(facingStep) : heading;
+  const anchor = peelTailAnchor(world, seedHeading, env.dtMs);
+  if (anchor === null) {
+    return { beads: [], dropped: beads.length > 0 ? [...beads] : [], heading };
   }
   const resized = resizeTail(beads, peelsBanked, anchor, layout, env.blocked);
   return {
     beads: stepTail(resized.beads, anchor, layout, env),
     dropped: resized.dropped,
+    heading: anchor.heading,
   };
 }
 
