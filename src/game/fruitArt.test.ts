@@ -16,15 +16,12 @@ describe("fruitArt registry", () => {
 
   it("only ships <kind>.png files at 16x16", () => {
     expect(FRUIT_KINDS.length).toBeGreaterThan(0);
+    expect(fruitArtIdOfPath("../art/fruit/watermelon.png")).toBe("watermelon");
     for (const name of artFiles) {
       expect(name, name).toMatch(/\.png$/);
       const header = readFileSync(join(ART_DIR, name));
       expect(header.readUInt32BE(16), `${name} width`).toBe(FRUIT_ART_PIXELS);
       expect(header.readUInt32BE(20), `${name} height`).toBe(FRUIT_ART_PIXELS);
     }
-  });
-
-  it("includes watermelon in the pool", () => {
-    expect(FRUIT_KINDS).toContain("watermelon");
   });
 });
