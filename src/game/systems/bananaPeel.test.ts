@@ -44,7 +44,32 @@ describe("bananaPeel system", () => {
   it("anchors the peel trail behind the player facing", () => {
     const world = createWorld();
     spawnPlayer(world, 100, 50);
-    expect(peelTailAnchor(world)).toMatchObject({ x: 100, y: 50, heading: 0 });
+    expect(peelTailAnchor(world, 0, 16)).toMatchObject({ x: 100, y: 50, heading: 0 });
+  });
+
+  it("turns the peel heading smoothly on reverse instead of flipping instantly", () => {
+    const world = createWorld();
+    const player = spawnPlayer(world, 100, 50);
+    const first = peelTailAnchor(world, 0, 16)!;
+    expect(first.heading).toBe(0);
+    Facing.direction[player] = DIRECTION.left;
+    const turned = peelTailAnchor(world, first.heading, 16)!;
+    // Shortest turn from right→left goes through up (negative heading).
+    expect(turned.heading).toBeLessThan(0);
+    expect(Math.abs(turned.heading)).toBeLessThan(Math.PI);
+  });
+
+  it("keeps the last peel heading when Dot-Man stops", () => {
+    const world = createWorld();
+    const player = spawnPlayer(world, 100, 50);
+    Facing.direction[player] = DIRECTION.left;
+    let heading = 0;
+    for (let i = 0; i < 20; i += 1) {
+      heading = peelTailAnchor(world, heading, 16)!.heading;
+    }
+    expect(Math.cos(heading)).toBeCloseTo(-1, 5);
+    Facing.direction[player] = DIRECTION.none;
+    expect(peelTailAnchor(world, heading, 16)!.heading).toBe(heading);
   });
 
   it("steps peels to match the banked count", () => {

@@ -9075,6 +9075,30 @@ describe("Banana Trail", () => {
     expect(sim.snapshot().timers.peelsBanked).toBe(1);
   });
 
+  it("slides peels through Dot-Man on reverse instead of jumping them to the new hook", () => {
+    const sim = startBananaSim(["passiveBananaShieldPlus"]);
+    for (let i = 0; i < 3; i += 1) {
+      chompPowerPellet(sim);
+    }
+    expect(sim.snapshot().timers.peelsBanked).toBe(3);
+    const player = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(12), cellCenterY(1));
+    Facing.direction[player] = DIRECTION.right;
+    runFrames(sim, 40, { keys: held("right") });
+    const before = sim.snapshot().peels.map((peel) => ({ ...peel }));
+    expect(before).toHaveLength(3);
+    expect(before[0]!.x).toBeLessThan(Position.x[player]!);
+    runFrames(sim, 1, { keys: held("left") });
+    const after = sim.snapshot().peels;
+    const hops = before.map((peel, i) => Math.hypot(after[i]!.x - peel.x, after[i]!.y - peel.y));
+    expect(Math.max(...hops)).toBeLessThan(TILE_SIZE);
+    for (let i = 0; i < 45; i += 1) {
+      runFrames(sim, 1, { keys: held("left") });
+    }
+    const settled = sim.snapshot().peels[0]!;
+    expect(settled.x).toBeGreaterThan(Position.x[player]!);
+  });
+
   it("fires Shield Break when a peel slips", () => {
     const sim = startBananaSim([
       "passiveBananaShield",

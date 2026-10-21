@@ -345,6 +345,7 @@ export class LearnSim {
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private shieldBounce: ShieldBounce = NO_SHIELD_BOUNCE;
   private peelTail: TailBead[] = [];
+  private peelHeading = 0;
   private peelClockMs = 0;
   private bounceStaleKeys: HeldKeys | null = null;
   private fruitRespawnRemainingMs: number | null = null;
@@ -999,13 +1000,20 @@ export class LearnSim {
   private stepPeelTail(delta: number): void {
     this.peelClockMs += Math.max(0, delta);
     const solids = this.playerSolids();
-    const stepped = stepBananaPeelTail(this.world, this.peelTail, this.learnUpgrades.peelsBanked, {
-      dtMs: delta,
-      nowMs: this.peelClockMs,
-      motion: 1,
-      blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
-    });
+    const stepped = stepBananaPeelTail(
+      this.world,
+      this.peelTail,
+      this.learnUpgrades.peelsBanked,
+      {
+        dtMs: delta,
+        nowMs: this.peelClockMs,
+        motion: 1,
+        blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
+      },
+      this.peelHeading,
+    );
     this.peelTail = stepped.beads;
+    this.peelHeading = stepped.heading;
   }
 
   private tryBreakPeel(catchOptions: CatchOptions): boolean {
@@ -1027,13 +1035,20 @@ export class LearnSim {
     this.learnUpgrades = spent;
     this.streakBar = createPennyPurse();
     const solids = this.playerSolids();
-    const resized = stepBananaPeelTail(this.world, this.peelTail, this.learnUpgrades.peelsBanked, {
-      dtMs: 0,
-      nowMs: this.peelClockMs,
-      motion: 0,
-      blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
-    });
+    const resized = stepBananaPeelTail(
+      this.world,
+      this.peelTail,
+      this.learnUpgrades.peelsBanked,
+      {
+        dtMs: 0,
+        nowMs: this.peelClockMs,
+        motion: 0,
+        blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
+      },
+      this.peelHeading,
+    );
     this.peelTail = resized.beads;
+    this.peelHeading = resized.heading;
     for (const bead of resized.dropped) {
       this.events.push({ type: "peelCrack", x: bead.x, y: bead.y });
     }
