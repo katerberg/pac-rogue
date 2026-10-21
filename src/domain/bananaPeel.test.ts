@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   bananaPeelBeadRadiusPx,
   bananaPeelCrackHalfPose,
-  bananaPeelCracksAfterDrop,
   bananaPeelLayout,
   bananaPeelSprites,
 } from "./bananaPeel";
@@ -14,18 +13,6 @@ describe("bananaPeel", () => {
 
   it("uses charm layout radius for peel collision", () => {
     expect(bananaPeelBeadRadiusPx(bananaPeelLayout())).toBeGreaterThan(0);
-  });
-
-  it("adds a crack for each dropped peel and keeps unfinished cracks", () => {
-    const existing = [{ x: 0, y: 0, startMs: 1000 }];
-    const next = bananaPeelCracksAfterDrop(2, 1, [{ x: 10, y: 20 }], 1200, existing);
-    expect(next).toHaveLength(2);
-    expect(next.at(-1)).toMatchObject({ x: 10, y: 20, startMs: 1200 });
-  });
-
-  it("does not crack when peels stay the same or grow", () => {
-    expect(bananaPeelCracksAfterDrop(1, 1, [{ x: 1, y: 1 }], 0, [])).toEqual([]);
-    expect(bananaPeelCracksAfterDrop(0, 1, [], 0, [])).toEqual([]);
   });
 
   it("splits crack halves left and right", () => {

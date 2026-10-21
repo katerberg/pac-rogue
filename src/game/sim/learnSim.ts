@@ -754,9 +754,7 @@ export class LearnSim {
 
     const catchOptions = this.catchOptions();
     this.stepPeelTail(delta);
-    if (this.tryBreakPeel(catchOptions, keys)) {
-      // peel slip handled
-    } else {
+    if (!this.tryBreakPeel(catchOptions, keys)) {
       const demo = this.catchDemoOwned();
       const playerCaught = demo ? catchPlayer(this.world, catchOptions) : null;
       const twinAt = this.twinPosition();

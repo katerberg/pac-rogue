@@ -1,4 +1,4 @@
-import { shieldCrackLook, shieldCrackProgress } from "./shieldCrack";
+import { shieldCrackLook } from "./shieldCrack";
 import { DEFAULT_CHARM_TUNING, tailLayoutFrom, type TailLayout } from "./charmTailParams";
 import type { TailBead } from "./charmTail";
 
@@ -36,20 +36,6 @@ export function bananaPeelBeadRadiusPx(layout: TailLayout = bananaPeelLayout()):
 
 export function bananaPeelSprites(beads: readonly TailBead[]): { x: number; y: number }[] {
   return beads.map((bead) => ({ x: bead.x, y: bead.y }));
-}
-
-export function bananaPeelCracksAfterDrop(
-  previousPeels: number,
-  peels: number,
-  dropped: readonly { x: number; y: number }[],
-  nowMs: number,
-  existing: readonly BananaPeelCrack[],
-): BananaPeelCrack[] {
-  const cracks = existing.filter((crack) => shieldCrackProgress(nowMs - crack.startMs) < 1);
-  if (peels >= previousPeels || dropped.length === 0) {
-    return [...cracks];
-  }
-  return [...cracks, ...dropped.map((at) => ({ x: at.x, y: at.y, startMs: nowMs }))];
 }
 
 export function bananaPeelCrackHalfPose(
