@@ -9033,6 +9033,33 @@ describe("Martyr", () => {
     dieOnce(sim);
     expect(sim.snapshot().timers.invulnMs).toBe(0);
   });
+
+  it("restores the life when Martyr clears the board on a would-be game over", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      lives: 1,
+      enableUpgrades: ["passiveMartyr", "powerPelletExtraHungry"],
+    });
+    expect(sim.snapshot().lives).toBe(1);
+    const eids = query(sim.world, [Pellet, Position]).filter(
+      (eid) => !hasComponent(sim.world, eid, PowerPellet),
+    );
+    // Leave only Extra Hungry's bite so the Martyr fire clears the board.
+    for (const eid of eids.slice(EXTRA_HUNGRY_COUNT)) {
+      removeEntity(sim.world, eid);
+      sim["pelletProgress"] = {
+        ...sim["pelletProgress"],
+        pelletsRemaining: Math.max(0, sim["pelletProgress"].pelletsRemaining - 1),
+      };
+    }
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().lives).toBe(1);
+    expect(sim.snapshot().gameOver).not.toBe(true);
+  });
 });
 
 describe("Possession", () => {
