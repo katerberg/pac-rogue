@@ -53,11 +53,11 @@ describe("ghostBaseSpeedRatio", () => {
     expect(ghostBaseSpeedRatio(5)).toBe(1);
   });
 
-  it("keeps climbing past parity after level 5, capping at 1.1 by level 7–8", () => {
+  it("keeps climbing past parity after level 5, capping at 1.2 by level 9", () => {
     expect(ghostBaseSpeedRatio(6)).toBeCloseTo(1.05);
     expect(ghostBaseSpeedRatio(7)).toBeCloseTo(1.1);
-    expect(ghostBaseSpeedRatio(8)).toBeCloseTo(1.1);
-    expect(ghostBaseSpeedRatio(MAX_LEVEL)).toBeCloseTo(1.1);
+    expect(ghostBaseSpeedRatio(8)).toBeCloseTo(1.15);
+    expect(ghostBaseSpeedRatio(MAX_LEVEL)).toBeCloseTo(1.2);
   });
 
   it("clamps below 1 to level 1 ratio", () => {
