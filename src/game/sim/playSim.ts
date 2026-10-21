@@ -233,7 +233,7 @@ import {
 } from "../../domain/slotMachine";
 import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
-import { elroyTier } from "../../domain/ghostSpeed";
+import { ELROY_TIER, elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
@@ -580,6 +580,7 @@ export class PlaySim {
   private lifetimeCollected = 0;
   private remoteTransferCounter = 0;
   private deathsThisBoard = 0;
+  private elroySuppressed = false;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
   private nearMissesPaid = 0;
   private streakPopCount = 0;
@@ -1047,6 +1048,8 @@ export class PlaySim {
       upgradeTimers: upgradeTimerFractions(this.upgradeTimers),
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
+      elroySuppressed: this.elroySuppressed,
+      elroyTier: elroyTier(this.pelletsForElroy(), this.currentTuning),
       ghostMode: nameOf(GHOST_AI_MODE, this.settledGhostMode()),
       shieldBounce: this.shieldBounce,
       upgrades: upgrades.owned,
@@ -1426,7 +1429,7 @@ export class PlaySim {
     const playerSpeedMul =
       rawPlayerSpeedMul * titheSpeedMultiplier(this.runUpgrades, this.effectiveUpgrades());
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
-    applyGhostSpeed(this.world, this.pelletProgress.pelletsRemaining, this.levelIndex, {
+    applyGhostSpeed(this.world, this.pelletsForElroy(), this.levelIndex, {
       ghostSpeedMul:
         (this.bossState === null ? levelSpeedMul : 1) *
         ghostSpeedMultiplier(this.effectiveUpgrades()),
@@ -1659,7 +1662,7 @@ export class PlaySim {
       ghostAi(
         this.world,
         ghostMode,
-        this.pelletProgress.pelletsRemaining,
+        this.pelletsForElroy(),
         this.currentTuning,
         this.ghostsBlockedFromTunnels(),
         frightenedGhostEids(this.runUpgrades),
@@ -1844,11 +1847,21 @@ export class PlaySim {
       const saved = defied || boughtFor !== null;
       this.reviveSplashPending = saved;
       this.emit({ type: "sfx", id: saved ? "revive" : "death" });
+      const livesBefore = this.lives;
+      const elroyAtDeath = elroyTier(this.pelletsForElroy(), this.currentTuning);
       const result =
         this.options.infiniteLives || saved
           ? { lives: this.lives, gameOver: false }
           : livesRemainingAfterCatch(this.lives);
       this.lives = result.lives;
+      if (
+        this.lives < livesBefore &&
+        elroyAtDeath !== ELROY_TIER.none &&
+        caughtBy !== null &&
+        GhostKind.kind[caughtBy] === GHOST_KIND.blinky
+      ) {
+        this.elroySuppressed = true;
+      }
       this.emit({ type: "lives", pulse: false });
       const bountyPaid = !result.gameOver && this.payDeathsBounty();
       this.replayRecorder.death(this.world);
@@ -1861,7 +1874,7 @@ export class PlaySim {
         countdown: this.clock.remaining,
         pelletsLeft: this.pelletProgress.pelletsRemaining,
         ghostMode: nameOf(GHOST_AI_MODE, this.previousEffectiveGhostMode),
-        elroyTier: elroyTier(this.pelletProgress.pelletsRemaining, this.currentTuning),
+        elroyTier: elroyAtDeath,
         ghostsOut,
         livesAfter: this.lives,
         defied,
@@ -2030,6 +2043,10 @@ export class PlaySim {
     if (eaten.length > 0) {
       this.emitMunch();
     }
+  }
+
+  private pelletsForElroy(): number {
+    return this.elroySuppressed ? Number.MAX_SAFE_INTEGER : this.pelletProgress.pelletsRemaining;
   }
 
   private ghostsBlockedFromTunnels(): boolean {
@@ -2676,6 +2693,7 @@ export class PlaySim {
     this.resetStreak();
     this.mirrorPop = null;
     this.deathsThisBoard = 0;
+    this.elroySuppressed = false;
     this.lastReactiveArmorSent = 0;
     this.nearMissesPaid = 0;
     this.topUpStartingShields();

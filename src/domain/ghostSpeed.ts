@@ -46,13 +46,21 @@ export function elroyTier(pelletsRemaining: number, tuning: Tuning = DEFAULT_TUN
   return ELROY_TIER.none;
 }
 
+const LEVEL_1_ELROY_BONUS_SCALE = 0.5;
+
+function elroyRatioForLevel(elroyRatio: number, levelIndex: number, tuning: Tuning): number {
+  const scale = levelIndex === 1 ? LEVEL_1_ELROY_BONUS_SCALE : 1;
+  const base = ghostBaseSpeedRatio(levelIndex, tuning);
+  return base + scale * (elroyRatio - base);
+}
+
 function baseOrElroyRatio(pelletsRemaining: number, levelIndex: number, tuning: Tuning): number {
   const tier = elroyTier(pelletsRemaining, tuning);
   if (tier === ELROY_TIER.elroy2) {
-    return tuning.elroy2Ratio;
+    return elroyRatioForLevel(tuning.elroy2Ratio, levelIndex, tuning);
   }
   if (tier === ELROY_TIER.elroy1) {
-    return tuning.elroy1Ratio;
+    return elroyRatioForLevel(tuning.elroy1Ratio, levelIndex, tuning);
   }
   return ghostBaseSpeedRatio(levelIndex, tuning);
 }
