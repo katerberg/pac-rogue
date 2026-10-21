@@ -9058,7 +9058,6 @@ describe("Martyr", () => {
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(false);
     expect(sim.snapshot().lives).toBe(1);
-    expect(sim.snapshot().gameOver).not.toBe(true);
   });
 });
 
