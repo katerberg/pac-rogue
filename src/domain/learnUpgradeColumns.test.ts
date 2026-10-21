@@ -49,11 +49,18 @@ describe("hoverPreviewX", () => {
 });
 
 describe("learnHoverPreviewCenter", () => {
-  it("centers the card on BACK at the bottom of the playfield", () => {
+  it("keeps BACK in the shared constant used by the BACK label", () => {
     expect(LEARN_BACK_Y).toBe(PLAYFIELD_HEIGHT - 50);
-    expect(learnHoverPreviewCenter()).toEqual({
+  });
+
+  it("sits the card flush with the playfield bottom so it cannot clip", () => {
+    const cardHeight = 150;
+    const center = learnHoverPreviewCenter(cardHeight);
+    expect(center).toEqual({
       x: PLAYFIELD_WIDTH / 2,
-      y: LEARN_BACK_Y,
+      y: PLAYFIELD_HEIGHT - cardHeight / 2,
     });
+    expect(center.y + cardHeight / 2).toBe(PLAYFIELD_HEIGHT);
+    expect(center.y).toBeLessThan(LEARN_BACK_Y);
   });
 });

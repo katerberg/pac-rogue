@@ -42,7 +42,7 @@ export const DESCRIPTION_MAX_CHARS = 28;
 // Choice-modal button sizing: smaller than the starting-upgrade card box so all four
 // up/down/left/right slots fit on screen without overlapping.
 const CHOICE_BUTTON_WIDTH = 230;
-const CHOICE_BUTTON_HEIGHT = 150;
+export const CHOICE_BUTTON_HEIGHT = 150;
 const CHOICE_LABEL_MAX_CHARS = 8;
 const CHOICE_DESCRIPTION_MAX_CHARS = 22;
 const CHOICE_LABEL_FONT_SIZE = 22;

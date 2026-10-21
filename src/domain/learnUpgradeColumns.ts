@@ -24,6 +24,9 @@ export function hoverPreviewX(column: LearnColumn): number {
   return column === "left" ? HOVER_PREVIEW_INSET_X : PLAYFIELD_WIDTH - HOVER_PREVIEW_INSET_X;
 }
 
-export function learnHoverPreviewCenter(): { x: number; y: number } {
-  return { x: PLAYFIELD_WIDTH / 2, y: LEARN_BACK_Y };
+export function learnHoverPreviewCenter(cardHeight: number): { x: number; y: number } {
+  return {
+    x: PLAYFIELD_WIDTH / 2,
+    y: PLAYFIELD_HEIGHT - Math.max(0, cardHeight) / 2,
+  };
 }

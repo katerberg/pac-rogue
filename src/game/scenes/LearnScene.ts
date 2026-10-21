@@ -87,6 +87,7 @@ import {
 import { wrapText } from "../../domain/wrapText";
 import {
   buildUpgradeCardVisual,
+  CHOICE_BUTTON_HEIGHT,
   SCHOOL_COLORS,
   MODAL_DEPTH,
   type UpgradeCardVisual,
@@ -676,7 +677,7 @@ export class LearnScene extends Phaser.Scene {
 
   private showUpgradePreview(id: UpgradeId): void {
     const def = getUpgradeDef(ownedFormOf(this.sim.ownedUpgrades, baseIdOf(id)) ?? id);
-    const { x, y } = learnHoverPreviewCenter();
+    const { x, y } = learnHoverPreviewCenter(CHOICE_BUTTON_HEIGHT);
     const visual = buildUpgradeCardVisual(this, x, y, {
       label: def.label,
       description: def.description,
