@@ -262,7 +262,7 @@ describe("createStoreState", () => {
     expect(state.slots.some((s) => s.kind === "swap")).toBe(false);
   });
 
-  it("shelves at most one rare, priced 4", () => {
+  it("shelves at most one rare, priced 5", () => {
     const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
     let shelvedRare = 0;
     for (let seed = 1; seed <= 200; seed += 1) {
@@ -689,7 +689,7 @@ describe("enhancement tile", () => {
   const enhanceCell = { col: 15, row: 13 };
   const swapCell = { col: 26, row: 15 };
 
-  it("costs 2 and enhances its shown target", () => {
+  it("costs 3 and enhances its shown target", () => {
     const owned: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
     const stocked = stateWith(owned);
     const target = stocked.slots.find((s) => s.kind === "enhance");
@@ -700,7 +700,7 @@ describe("enhancement tile", () => {
       targetId: target?.kind === "enhance" ? target.targetId : null,
       price: STORE_ENHANCE_PRICE,
     });
-    expect(STORE_ENHANCE_PRICE).toBe(2);
+    expect(STORE_ENHANCE_PRICE).toBe(3);
   });
 
   it("re-picks when the shown target is no longer unenhanced", () => {

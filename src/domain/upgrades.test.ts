@@ -562,13 +562,13 @@ describe("rare upgrades", () => {
     }
   });
 
-  it("costs 4 in the store, and every other upgrade 3", () => {
+  it("costs 5 in the store, and every other upgrade 4", () => {
     for (const id of ALL_UPGRADE_IDS) {
       expect(storePriceFor(id), id).toBe(
         isRare(id) ? STORE_RARE_UPGRADE_PRICE : STORE_UPGRADE_PRICE,
       );
     }
-    expect(STORE_RARE_UPGRADE_PRICE).toBe(4);
+    expect(STORE_RARE_UPGRADE_PRICE).toBe(5);
   });
 
   it("derives rare weight from target mass over the live pool", () => {

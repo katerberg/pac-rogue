@@ -41,7 +41,13 @@ import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
-import { offeredUpgradeIds, parseStoreLayout, swapIncomingSchool } from "../../domain/store";
+import {
+  offeredUpgradeIds,
+  parseStoreLayout,
+  STORE_ENHANCE_PRICE,
+  STORE_SWAP_PRICE,
+  swapIncomingSchool,
+} from "../../domain/store";
 import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning";
 import { TURN_CATCH_GRACE_MS } from "../../domain/turnCatchGrace";
 import { turnFlashPulse } from "../../domain/turnTuning";
@@ -1600,7 +1606,7 @@ describe("PlaySim", () => {
       expect(events.some((event) => event.type === "storePurchased")).toBe(true);
       expect(sim.snapshot().upgrades).toContain(keep);
       expect(sim.snapshot().upgrades).not.toContain(sacrificed);
-      expect(sim.snapshot().quarters).toBe(9);
+      expect(sim.snapshot().quarters).toBe(10 - STORE_SWAP_PRICE);
     });
 
     it("leaves the sacrifice selection on left without paying", () => {
@@ -1619,7 +1625,7 @@ describe("PlaySim", () => {
       expect(sim.storeState()!.slots.find((s) => s.kind === "swap")!.sold).toBe(false);
     });
 
-    it("sells a shelved rare for 4 Quarters, and never shelves two", () => {
+    it("sells a shelved rare for STORE_RARE_UPGRADE_PRICE Quarters, and never shelves two", () => {
       const owned = ["passiveGhostSlow", "passiveAfterburner"] as const;
       let bought = false;
       for (let n = 0; n < 60 && !bought; n += 1) {
@@ -1776,7 +1782,7 @@ describe("PlaySim", () => {
       expect(hint()).toBe(school);
     });
 
-    it("enhancement costs 2, swaps the owned upgrade for its Plus form and keeps order", () => {
+    it("enhancement costs STORE_ENHANCE_PRICE, swaps the owned upgrade for its Plus form and keeps order", () => {
       const sim = startSim({
         store: 1,
         level: 5,
@@ -1784,7 +1790,7 @@ describe("PlaySim", () => {
         enableUpgrades: ["passiveGhostSlow"],
       });
       const events = buy(sim, "enhance");
-      expect(sim.snapshot().quarters).toBe(8);
+      expect(sim.snapshot().quarters).toBe(10 - STORE_ENHANCE_PRICE);
       expect(sim.snapshot().upgrades).toEqual(["passiveGhostSlowPlus"]);
       expect(events).toContainEqual({ type: "storePurchased", id: "passiveGhostSlowPlus" });
       expect(sim.snapshot().storeStock!.some((s) => s.startsWith("enhance"))).toBe(false);
