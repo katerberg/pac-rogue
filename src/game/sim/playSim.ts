@@ -1848,8 +1848,7 @@ export class PlaySim {
       this.reviveSplashPending = saved;
       this.emit({ type: "sfx", id: saved ? "revive" : "death" });
       const livesBefore = this.lives;
-      const elroyWasActive =
-        elroyTier(this.pelletsForElroy(), this.currentTuning) !== ELROY_TIER.none;
+      const elroyAtDeath = elroyTier(this.pelletsForElroy(), this.currentTuning);
       const result =
         this.options.infiniteLives || saved
           ? { lives: this.lives, gameOver: false }
@@ -1857,7 +1856,7 @@ export class PlaySim {
       this.lives = result.lives;
       if (
         this.lives < livesBefore &&
-        elroyWasActive &&
+        elroyAtDeath !== ELROY_TIER.none &&
         caughtBy !== null &&
         GhostKind.kind[caughtBy] === GHOST_KIND.blinky
       ) {
@@ -1875,7 +1874,7 @@ export class PlaySim {
         countdown: this.clock.remaining,
         pelletsLeft: this.pelletProgress.pelletsRemaining,
         ghostMode: nameOf(GHOST_AI_MODE, this.previousEffectiveGhostMode),
-        elroyTier: elroyTier(this.pelletsForElroy(), this.currentTuning),
+        elroyTier: elroyAtDeath,
         ghostsOut,
         livesAfter: this.lives,
         defied,
