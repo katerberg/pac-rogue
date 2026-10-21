@@ -174,7 +174,6 @@ export function diffFromDefault(tuning: Tuning): TuningOverrides {
   return diff;
 }
 
-/** Early ramp (start/step) through this level; remaining headroom to the cap spans the next three. */
 const GHOST_RATIO_LATE_PIVOT_LEVEL = 5;
 const GHOST_RATIO_LATE_SPAN_LEVELS = 3;
 
