@@ -18,6 +18,7 @@ import {
   BOSS_STAGE_TOTAL_MS,
 } from "../../domain/bossStageTransition";
 import {
+  actorDisplaySize,
   canEnterDirection,
   cellCenterX,
   cellCenterY,
@@ -7329,9 +7330,28 @@ describe("power pellet break VFX", () => {
     expect(getActiveLayout().ascii).toBe(ascii);
     expect(sim.snapshot().layout).toBe("custom");
     expect(getActiveLayout().ghostHouseSpawn).toEqual({ col: 10, row: 9 });
+    expect(sim.snapshot().ghosts).toHaveLength(1);
     runFrames(sim, 30, { keys: held("up") });
-    expect(sim.snapshot().ghosts).toHaveLength(4);
     expect(sim.snapshot().ghosts.map((g) => g.phase)).not.toContain("inHouse");
+  });
+
+  it("seats level-1 mazeSmall ghosts apart instead of stacking them", () => {
+    const sim = startSim({ level: 1, maze: "mazeSmall", roster: 0 }, "house-seats");
+    const ghosts = sim.snapshot().ghosts;
+    expect(ghosts).toHaveLength(2);
+    expect(ghosts.every((g) => g.phase === "inHouse")).toBe(true);
+    const gap = Math.abs(ghosts[0]!.x - ghosts[1]!.x);
+    expect(gap).toBeGreaterThanOrEqual(actorDisplaySize());
+  });
+
+  it("trims a full roster on mazeSmall to the house seat cap without stacking", () => {
+    const sim = startSim({ level: 3, maze: "mazeSmall", roster: 0 }, "house-cap");
+    const ghosts = [...sim.snapshot().ghosts].sort((a, b) => a.x - b.x);
+    expect(ghosts).toHaveLength(3);
+    expect(ghosts.every((g) => g.phase === "inHouse")).toBe(true);
+    for (let i = 1; i < ghosts.length; i += 1) {
+      expect(ghosts[i]!.x - ghosts[i - 1]!.x).toBeGreaterThanOrEqual(actorDisplaySize());
+    }
   });
 
   it("shows a notice instead of the starting upgrade when the pasted maze fails", () => {
