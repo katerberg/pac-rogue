@@ -19,12 +19,26 @@ function houseFloorColsOnSpawnRow(): number[] {
       colsOnRow.push(col);
     }
   }
-  if (colsOnRow.length < HOUSE_SEAT_COUNT) {
-    throw new Error(
-      `ghost house spawn row ${row} has ${colsOnRow.length} floor cells; need ${HOUSE_SEAT_COUNT}`,
-    );
+  if (colsOnRow.length === 0) {
+    throw new Error(`ghost house spawn row ${row} has no floor cells`);
   }
   return colsOnRow;
+}
+
+export function houseSeatCount(): number {
+  const floors = houseFloorColsOnSpawnRow().length;
+  return Math.max(1, Math.min(HOUSE_SEAT_COUNT, floors - 1));
+}
+
+export function spreadSeatIndices(ghostCount: number, seatCount: number): number[] {
+  if (ghostCount <= 0 || seatCount <= 0) {
+    return [];
+  }
+  const n = Math.min(ghostCount, seatCount);
+  if (n === 1) {
+    return [Math.floor((seatCount - 1) / 2)];
+  }
+  return Array.from({ length: n }, (_, i) => Math.round((i * (seatCount - 1)) / (n - 1)));
 }
 
 export function ghostHouseSeatCenters(): HouseSeat[] {
@@ -33,9 +47,13 @@ export function ghostHouseSeatCenters(): HouseSeat[] {
   const y = cellCenterY(row);
   const leftX = cellCenterX(floorCols[0]!);
   const rightX = cellCenterX(floorCols[floorCols.length - 1]!);
+  const count = houseSeatCount();
+  if (count === 1) {
+    return [{ x: (leftX + rightX) / 2, y }];
+  }
   const seats: HouseSeat[] = [];
-  for (let i = 0; i < HOUSE_SEAT_COUNT; i += 1) {
-    const t = i / (HOUSE_SEAT_COUNT - 1);
+  for (let i = 0; i < count; i += 1) {
+    const t = i / (count - 1);
     seats.push({ x: leftX + t * (rightX - leftX), y });
   }
   return seats;
@@ -92,5 +110,6 @@ export function assignHouseSeats(
     return new Map(orderedEids.map((eid, i) => [eid, occupiedIndices[i]!]));
   }
 
-  return new Map(orderedEids.map((eid, i) => [eid, i]));
+  const indices = spreadSeatIndices(n, seats.length);
+  return new Map(orderedEids.slice(0, indices.length).map((eid, i) => [eid, indices[i]!]));
 }

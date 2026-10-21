@@ -54,6 +54,41 @@ import { PlaySim } from "./playSim";
 import type { SimEvent, SimRenderOptions } from "./simEvents";
 import { FRAME_MS, held } from "./simTesting";
 
+function learnCellSpeedsAfterToggle(id: BaseUpgradeId): {
+  towardPellet: number;
+  towardEmpty: number;
+} {
+  const sim = new LearnSim("learn");
+  sim.start();
+  const player = query(sim.world, [Player, Position])[0]!;
+  const speedWhenMoving = (vx: number): number => {
+    Velocity.x[player] = vx;
+    Velocity.y[player] = 0;
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    return Speed.px[player]!;
+  };
+  const target = query(sim.world, [Pellet, Position])[0]!;
+  const col = worldToCol(Position.x[target]!);
+  const row = worldToRow(Position.y[target]!);
+  for (const eid of query(sim.world, [Pellet, Position])) {
+    if (eid !== target) {
+      removeEntity(sim.world, eid);
+    }
+  }
+  const place = () => {
+    Position.x[player] = cellCenterX(col - 1);
+    Position.y[player] = cellCenterY(row);
+  };
+  place();
+  const base = speedWhenMoving(1);
+  sim.toggleUpgrade(id);
+  place();
+  const towardPellet = speedWhenMoving(1) / base;
+  place();
+  const towardEmpty = speedWhenMoving(-1) / base;
+  return { towardPellet, towardEmpty };
+}
+
 describe("LearnSim", () => {
   it("runs a chosen ghost and moves the player", () => {
     const sim = new LearnSim("learn");
@@ -124,7 +159,7 @@ describe("LearnSim", () => {
     const model = sim.overlayModel()!;
     expect(model.target).toEqual(spunkyPostTarget());
     expect(model.target.row).toBeLessThan(0);
-    expect(model.path.length).toBeGreaterThan(40);
+    expect(model.path.length).toBeGreaterThan(20);
   });
 
   it("the Wardy waits on the rim ahead of Maze-Man, then strikes once he nears an edge", () => {
@@ -159,34 +194,15 @@ describe("LearnSim", () => {
   });
 
   it("Afterburner speeds the player up faster entering an empty cell and slower entering a pellet cell", () => {
-    const sim = new LearnSim("learn");
-    sim.start();
-    const player = query(sim.world, [Player, Position])[0]!;
-    const speedWhenMoving = (vx: number): number => {
-      Velocity.x[player] = vx;
-      Velocity.y[player] = 0;
-      sim.step(NO_KEYS_HELD, FRAME_MS);
-      return Speed.px[player]!;
-    };
-    const target = query(sim.world, [Pellet, Position])[0]!;
-    const col = worldToCol(Position.x[target]!);
-    const row = worldToRow(Position.y[target]!);
-    for (const eid of query(sim.world, [Pellet, Position])) {
-      if (eid !== target) {
-        removeEntity(sim.world, eid);
-      }
-    }
-    const place = () => {
-      Position.x[player] = cellCenterX(col - 1);
-      Position.y[player] = cellCenterY(row);
-    };
-    place();
-    const base = speedWhenMoving(1);
-    sim.toggleUpgrade("passiveAfterburner");
-    place();
-    expect(speedWhenMoving(1)).toBeCloseTo(base * 0.8);
-    place();
-    expect(speedWhenMoving(-1)).toBeCloseTo(base * 1.3);
+    const { towardPellet, towardEmpty } = learnCellSpeedsAfterToggle("passiveAfterburner");
+    expect(towardPellet).toBeCloseTo(0.8);
+    expect(towardEmpty).toBeCloseTo(1.3);
+  });
+
+  it("Mole speeds the player up faster entering a pellet cell and slower entering an empty cell", () => {
+    const { towardPellet, towardEmpty } = learnCellSpeedsAfterToggle("passiveMole");
+    expect(towardPellet).toBeCloseTo(1.2);
+    expect(towardEmpty).toBeCloseTo(0.8);
   });
 
   it("turns one pellet into a power pellet when Pellet Surge is toggled on", () => {
@@ -466,7 +482,8 @@ describe("LearnSim upgrade demos", () => {
     sim.step(NO_KEYS_HELD, FRAME_MS);
     const count = () => query(sim.world, [PowerPellet]).length;
     const eaten = count();
-    moveTo(player, { x: at.x, y: at.y + 200 });
+    const fruit = getActiveLayout().fruitSpawn;
+    moveTo(player, { x: cellCenterX(fruit.col), y: cellCenterY(fruit.row) });
     runMs(sim, 9_000);
     expect(count()).toBe(eaten);
     runMs(sim, 1_200);
@@ -481,7 +498,8 @@ describe("LearnSim upgrade demos", () => {
       moveTo(player, at);
       sim.step(NO_KEYS_HELD, FRAME_MS);
     }
-    moveTo(player, { x: positions[0]!.x, y: positions[0]!.y + 200 });
+    const fruit = getActiveLayout().fruitSpawn;
+    moveTo(player, { x: cellCenterX(fruit.col), y: cellCenterY(fruit.row) });
     expect(query(sim.world, [PowerPellet]).length).toBe(0);
     runMs(sim, 9_000);
     expect(query(sim.world, [PowerPellet]).length).toBe(0);
@@ -1050,14 +1068,15 @@ describe("LearnSim upgrade demos", () => {
       const { sim, player } = setup("powerPelletMirror", "powerPelletHyperspeed");
       parkGhost(sim);
       chompPower(sim, player);
-      moveTo(player, { x: cellCenterX(3), y: cellCenterY(1) });
+      const startCol = 7;
+      moveTo(player, { x: cellCenterX(startCol), y: cellCenterY(1) });
       Facing.direction[player] = DIRECTION.right;
       for (let frame = 0; frame < 10; frame += 1) {
         sim.step(held("right"), FRAME_MS);
       }
       const endCol = worldToCol(Position.x[player]!);
-      expect(endCol - 3).toBeGreaterThan(5);
-      const span = Array.from({ length: endCol - 3 + 1 }, (_, i) => mirror(3 + i));
+      expect(endCol - startCol).toBeGreaterThan(5);
+      const span = Array.from({ length: endCol - startCol + 1 }, (_, i) => mirror(startCol + i));
       expect(span.filter((col) => regularPelletAt(sim, col, 1) !== undefined)).toEqual([]);
     });
 
@@ -1066,12 +1085,12 @@ describe("LearnSim upgrade demos", () => {
         const { sim, player } = setup("powerPelletMirror", ...extra);
         parkGhost(sim);
         chompPower(sim, player);
-        const own = regularPelletAt(sim, 5, 1);
+        const own = regularPelletAt(sim, 8, 1);
         if (own !== undefined) {
           removeEntity(sim.world, own);
         }
-        const neighbor = regularPelletAt(sim, 6, 1)!;
-        moveTo(player, { x: cellCenterX(mirror(5)), y: cellCenterY(1) });
+        const neighbor = regularPelletAt(sim, 9, 1)!;
+        moveTo(player, { x: cellCenterX(mirror(8)), y: cellCenterY(1) });
         sim.step(NO_KEYS_HELD, FRAME_MS);
         return !query(sim.world, [Pellet]).includes(neighbor);
       };
@@ -1153,11 +1172,25 @@ describe("LearnSim upgrade demos", () => {
       holdDuringChomp = false,
     ): keyof typeof STEP {
       const at = posOf(query(sim.world, [PowerPellet, Position])[0]!);
-      const dir = (Object.keys(STEP) as (keyof typeof STEP)[]).find((key) =>
+      // Prefer horizontal so the program stays on one corridor; mazeSmall also
+      // stacks powers vertically in the same column.
+      const dir = (["right", "left", "up", "down"] as const).find((key) =>
         canEnterDirection(at.x, at.y, STEP[key][0], STEP[key][1]),
       )!;
       moveTo(player, at);
       sim.step(holdDuringChomp ? held(dir) : NO_KEYS_HELD, FRAME_MS);
+      // Clear only powers ahead on this corridor. Leave at least one elsewhere
+      // so LearnSim's empty-board power regen does not refill the path.
+      const row = worldToRow(at.y);
+      const col = worldToCol(at.x);
+      const horizontal = dir === "left" || dir === "right";
+      for (const eid of query(sim.world, [PowerPellet, Position])) {
+        const pc = worldToCol(Position.x[eid]!);
+        const pr = worldToRow(Position.y[eid]!);
+        if (horizontal ? pr === row : pc === col) {
+          removeEntity(sim.world, eid);
+        }
+      }
       return dir;
     }
 

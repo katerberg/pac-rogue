@@ -72,6 +72,9 @@ import {
   PLAYER_SPEED_BURST_MUL,
   AFTERBURNER_MUL,
   AFTERBURNER_ENHANCED_MUL,
+  MOLE_PELLET_MUL,
+  MOLE_EMPTY_MUL,
+  MOLE_ENHANCED_PELLET_MUL,
   EXTRA_HUNGRY_COUNT,
   EXTRA_HUNGRY_ENHANCED_COUNT,
   FRUIT_QUARTERS,
@@ -97,7 +100,9 @@ import {
   upgradeOfferWeight,
   takeRandomFrom,
   takeWeightedUpgrade,
+  BASE_UPGRADE_DEFS,
   UPGRADE_DEFS,
+  upgradeLabelAlias,
   UPGRADE_SCHOOL_LABELS,
   UPGRADE_SCHOOL_ORDER,
   groupUpgradesBySchool,
@@ -250,6 +255,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletChaff",
   "passiveReactiveArmor",
   "powerPelletTithe",
+  "passiveMole",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -278,6 +284,32 @@ describe("parseUpgradeId", () => {
     expect(parseUpgradeId("nope")).toBeNull();
     expect(parseUpgradeId(null)).toBeNull();
     expect(parseUpgradeId("")).toBeNull();
+  });
+
+  it("accepts label lowerCamel aliases in any casing, including Plus", () => {
+    expect(parseUpgradeId("secondChomp")).toBe("passivePowerPelletRecharge");
+    expect(parseUpgradeId("SecondChomp")).toBe("passivePowerPelletRecharge");
+    expect(parseUpgradeId("secondchomp")).toBe("passivePowerPelletRecharge");
+    expect(parseUpgradeId("secondChompPlus")).toBe("passivePowerPelletRechargePlus");
+    expect(parseUpgradeId("SECONDCHOMPPLUS")).toBe("passivePowerPelletRechargePlus");
+    expect(parseUpgradeId("deathsHarvest")).toBe("passiveDeathsHarvest");
+    expect(parseUpgradeId("deathsBounty")).toBe("passiveDeathsBounty");
+    expect(parseUpgradeId("freeze")).toBe("powerPelletFreeze");
+    expect(parseUpgradeId("ghostProof")).toBe("powerPelletInvuln");
+    expect(parseUpgradeId("pelletSurge")).toBe("passivePelletToPower");
+  });
+
+  it("resolves every base label alias and prefers canonical ids", () => {
+    const aliasKeys = BASE_UPGRADE_DEFS.map((def) => upgradeLabelAlias(def.label).toLowerCase());
+    expect(new Set(aliasKeys).size).toBe(aliasKeys.length);
+    for (const def of BASE_UPGRADE_DEFS) {
+      const alias = upgradeLabelAlias(def.label);
+      expect(parseUpgradeId(alias)).toBe(def.id);
+      expect(parseUpgradeId(alias.toUpperCase())).toBe(def.id);
+      expect(parseUpgradeId(`${alias}Plus`)).toBe(`${def.id}Plus`);
+      expect(parseUpgradeId(def.id)).toBe(def.id);
+      expect(parseUpgradeId(`${def.id}Plus`)).toBe(`${def.id}Plus`);
+    }
   });
 });
 
@@ -470,7 +502,7 @@ describe("eligibleUpgrades", () => {
     );
     expect(eligibleUpgrades([])).toEqual(unlocked);
     expect(eligibleUpgrades(["passiveAfterburner"])).toEqual(
-      unlocked.filter((id) => id !== "passiveAfterburner"),
+      unlocked.filter((id) => id !== "passiveAfterburner" && id !== "passiveMole"),
     );
     expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
   });
@@ -491,6 +523,23 @@ describe("eligibleUpgrades", () => {
       expect(eligible).not.toContain("powerPelletProgrammer");
     }
   });
+
+  it("keeps Mole and Afterburner out of the pool when the other is owned", () => {
+    const pad: UpgradeId[] = ["passiveGhostSlow", "fruitFeast"];
+    expect(eligibleUpgrades(pad)).toEqual(
+      expect.arrayContaining(["passiveMole", "passiveAfterburner"]),
+    );
+    for (const owned of ["passiveAfterburner", "passiveAfterburnerPlus"] as const) {
+      const eligible = eligibleUpgrades([...pad, owned]);
+      expect(eligible).not.toContain("passiveMole");
+      expect(eligible).not.toContain("passiveAfterburner");
+    }
+    for (const owned of ["passiveMole", "passiveMolePlus"] as const) {
+      const eligible = eligibleUpgrades([...pad, owned]);
+      expect(eligible).not.toContain("passiveAfterburner");
+      expect(eligible).not.toContain("passiveMole");
+    }
+  });
 });
 
 describe("rare upgrades", () => {
@@ -498,7 +547,6 @@ describe("rare upgrades", () => {
     "fruitPowerPellet",
     "passiveOvercharge",
     "passiveLazyLooper",
-    "passiveStreakEngine",
     "powerPelletHunter",
     "powerPelletHyperspeed",
     "passiveShieldBreak",
@@ -527,11 +575,9 @@ describe("rare upgrades", () => {
     expect(RARE_OFFER_MASS).toBe(1 / 15);
     expect(STORE_RARE_OFFER_MASS).toBe(RARE_OFFER_MASS / 2);
     expect(rareWeightForPool(["passiveGhostSlow", "passiveAfterburner"], RARE_OFFER_MASS)).toBe(0);
-    expect(rareWeightForPool(["passiveStreakEngine", "passiveOvercharge"], RARE_OFFER_MASS)).toBe(
-      1,
-    );
+    expect(rareWeightForPool(["fruitPowerPellet", "passiveOvercharge"], RARE_OFFER_MASS)).toBe(1);
     const pool: BaseUpgradeId[] = [
-      "passiveStreakEngine",
+      "fruitPowerPellet",
       "passiveGhostSlow",
       "passiveAfterburner",
       "fruitFeast",
@@ -543,7 +589,7 @@ describe("rare upgrades", () => {
   });
 
   it("keeps rare mass stable when the common pool doubles", () => {
-    const rares: BaseUpgradeId[] = ["passiveStreakEngine", "passiveOvercharge"];
+    const rares: BaseUpgradeId[] = ["fruitPowerPellet", "passiveOvercharge"];
     const smallCommons: BaseUpgradeId[] = [
       "passiveGhostSlow",
       "passiveAfterburner",
@@ -567,18 +613,18 @@ describe("rare upgrades", () => {
   });
 
   it("draws at the store mass by default and removes the pick from the pool", () => {
-    const poolPair: BaseUpgradeId[] = ["passiveStreakEngine", "passiveGhostSlow"];
+    const poolPair: BaseUpgradeId[] = ["fruitPowerPellet", "passiveGhostSlow"];
     const w = rareWeightForPool(poolPair, STORE_RARE_OFFER_MASS);
     const rareShare = w / (w + 1);
     const draw = (roll: number) => {
       const pool = [...poolPair];
       return { picked: takeWeightedUpgrade(pool, () => roll, storeUpgradeWeight(pool)), pool };
     };
-    expect(draw(0)).toEqual({ picked: "passiveStreakEngine", pool: ["passiveGhostSlow"] });
-    expect(draw(rareShare - 0.0001).picked).toBe("passiveStreakEngine");
+    expect(draw(0)).toEqual({ picked: "fruitPowerPellet", pool: ["passiveGhostSlow"] });
+    expect(draw(rareShare - 0.0001).picked).toBe("fruitPowerPellet");
     expect(draw(rareShare + 0.0001)).toEqual({
       picked: "passiveGhostSlow",
-      pool: ["passiveStreakEngine"],
+      pool: ["fruitPowerPellet"],
     });
     const commons: BaseUpgradeId[] = ["passiveGhostSlow", "passiveAfterburner", "fruitFeast"];
     expect(takeWeightedUpgrade([...commons], () => 0.5, storeUpgradeWeight(commons))).toBe(
@@ -588,7 +634,7 @@ describe("rare upgrades", () => {
 
   it("shows up in a level-clear offer at target mass times school affinity", () => {
     const left: BaseUpgradeId[] = [
-      "passiveStreakEngine",
+      "fruitPowerPellet",
       "passiveGhostSlow",
       "passiveAfterburner",
       "fruitFeast",
@@ -604,9 +650,9 @@ describe("rare upgrades", () => {
     for (let i = 0; i < draws; i += 1) {
       const offer = pickUpgradeChoiceOffer(owned, null, rng, 0, null, RARE_MIN_CLEAR_LEVEL);
       expect(offer.upgrades).toHaveLength(2);
-      withRare += offer.upgrades.includes("passiveStreakEngine") ? 1 : 0;
+      withRare += offer.upgrades.includes("fruitPowerPellet") ? 1 : 0;
     }
-    const commons = left.filter((id) => id !== "passiveStreakEngine");
+    const commons = left.filter((id) => id !== "fruitPowerPellet");
     let pNone = 0;
     for (let i = 0; i < commons.length; i += 1) {
       for (let j = 0; j < commons.length; j += 1) {
@@ -681,17 +727,17 @@ describe("school offer affinity", () => {
   it("weights matching-school commons and rares by affinity rates, times rare base weight", () => {
     const harvestOwned: UpgradeId[] = ["fruitQuarterBounty", "fruitFecundity", "fruitFeast"];
     const rareBase = rareWeightForPool(
-      ["passiveStreakEngine", "passiveGhostSlow", "passiveMyogenesis"],
+      ["fruitPowerPellet", "passiveGhostSlow", "passiveMyogenesis"],
       RARE_OFFER_MASS,
     );
     expect(SCHOOL_AFFINITY_COMMON_RATE).toBe(0.5);
     expect(SCHOOL_AFFINITY_RARE_RATE).toBe(0.3);
     expect(upgradeOfferWeight("passiveGhostSlow", [], rareBase)).toBe(1);
-    expect(upgradeOfferWeight("passiveStreakEngine", [], rareBase)).toBe(rareBase);
+    expect(upgradeOfferWeight("fruitPowerPellet", [], rareBase)).toBe(rareBase);
     expect(upgradeOfferWeight("passiveMyogenesis", deathOwned, rareBase)).toBe(
       1 + SCHOOL_AFFINITY_COMMON_RATE * 3,
     );
-    expect(upgradeOfferWeight("passiveStreakEngine", harvestOwned, rareBase)).toBe(
+    expect(upgradeOfferWeight("fruitPowerPellet", harvestOwned, rareBase)).toBe(
       (1 + SCHOOL_AFFINITY_RARE_RATE * 3) * rareBase,
     );
     expect(upgradeOfferWeight("passiveGhostSlow", deathOwned, rareBase)).toBe(1);
@@ -706,9 +752,9 @@ describe("school offer affinity", () => {
   it("biases weighted draws toward matching schools; store default stays rare-mass only", () => {
     expect(
       takeWeightedUpgrade(
-        ["passiveStreakEngine", "passiveGhostSlow"],
+        ["fruitPowerPellet", "passiveGhostSlow"],
         () => 0.34,
-        storeUpgradeWeight(["passiveStreakEngine", "passiveGhostSlow"]),
+        storeUpgradeWeight(["fruitPowerPellet", "passiveGhostSlow"]),
       ),
     ).toBe("passiveGhostSlow");
 
@@ -1537,13 +1583,26 @@ describe("enhanced upgrades", () => {
     expect(ids).toEqual(["passiveGhostSlowPlus"]);
   });
 
+  it("accepts label aliases in enableUpgrade and enableUpgrades", () => {
+    expect(
+      parseEnableUpgradeParams(
+        new URLSearchParams("enableUpgrade=secondChomp,freezePlus&enableUpgrades=GhostSlow"),
+      ),
+    ).toEqual(["passivePowerPelletRecharge", "powerPelletFreezePlus", "passiveGhostSlow"]);
+  });
+
   it("returns base versus enhanced numbers from the owned list", () => {
     expect(cellSpeedMultiplier(["passiveAfterburner"], true)).toBe(1.3);
     expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], true)).toBe(1.5);
     expect(cellSpeedMultiplier(["passiveAfterburner"], false)).toBe(0.8);
     expect(cellSpeedMultiplier(["passiveAfterburnerPlus"], false)).toBe(0.8);
+    expect(cellSpeedMultiplier(["passiveMole"], false)).toBe(MOLE_PELLET_MUL);
+    expect(cellSpeedMultiplier(["passiveMole"], true)).toBe(MOLE_EMPTY_MUL);
+    expect(cellSpeedMultiplier(["passiveMolePlus"], false)).toBe(MOLE_ENHANCED_PELLET_MUL);
+    expect(cellSpeedMultiplier(["passiveMolePlus"], true)).toBe(MOLE_EMPTY_MUL);
     expect(cellSpeedMultiplier([], true)).toBe(1);
     expect(AFTERBURNER_ENHANCED_MUL).toBe(1.5);
+    expect(MOLE_ENHANCED_PELLET_MUL).toBe(1.3);
     expect(ghostSpeedMultiplier(["passiveGhostSlow"])).toBe(0.8);
     expect(ghostSpeedMultiplier(["passiveGhostSlowPlus"])).toBe(0.65);
     expect(speedBurstMultiplier(["powerPelletSpeedBurst"])).toBe(1.25);
@@ -1755,6 +1814,12 @@ describe("School Specialists", () => {
 });
 
 describe("Streak Engine", () => {
+  it("is a common upgrade at the common store price", () => {
+    expect(isRare("passiveStreakEngine")).toBe(false);
+    expect(isRare("passiveStreakEnginePlus")).toBe(false);
+    expect(storePriceFor("passiveStreakEngine")).toBe(STORE_UPGRADE_PRICE);
+  });
+
   it("fires every 30 pellets in both forms", () => {
     expect(streakEngineEvery([])).toBeNull();
     expect(streakEngineEvery(["passiveStreakEngine"])).toBe(STREAK_ENGINE_EVERY);

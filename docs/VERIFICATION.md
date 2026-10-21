@@ -47,7 +47,7 @@ npm run probe -- --query "play=1&maze=mazeSmall&seed=recipe" --name left --steps
 
 ### Game-state snapshot
 
-On agent ports `window.__PAC_ROGUE_DEBUG__.snapshot()` returns read-only JSON (wired in `src/game/scenes/installDebugHook.ts`). Its shape is `PlaySim.snapshot()` (the `play.*` sim fields) plus the scene-only fields in `PlayScene.debugSnapshot()` and `SettingsScene.debugSnapshot()`, with top-level `scenes`, `settings`, `highScores`, `runLog` and `sounds`. To see it, add a `dump:<name>` step to a probe. When a check needs state the snapshot lacks, add a read-only field in the same PR instead of reading pixels.
+On agent ports `window.__PAC_ROGUE_DEBUG__.snapshot()` returns read-only JSON (wired in `src/game/scenes/installDebugHook.ts`). Its shape is `PlaySim.snapshot()` (the `play.*` sim fields) plus the scene-only fields in `PlayScene.debugSnapshot()`, `LearnScene.debugSnapshot()` (`learn.*`, e.g. `learn.scroll`), `SettingsScene.debugSnapshot()`, and `HighScoresScene.debugSnapshot()`, with top-level `scenes`, `settings`, `highScores`, `runLog` and `sounds`. To see it, add a `dump:<name>` step to a probe. When a check needs state the snapshot lacks, add a read-only field in the same PR instead of reading pixels.
 
 ### Modes touched
 
@@ -62,7 +62,7 @@ A change in shared code (movement, input, render, systems) can reach every `Play
 - Pause / Settings / Resume: `press:Escape`, then `click:` menu rows
 - Knobs panel: `play=1&knobs=1` (DOM: `domFill:` / `domClick:` / `pageShot:`)
 - `/data` page: `runLogFill=120`, then `goto:/data`; assert `data.*`
-- LEARN sandbox: menu, Learn, or `learnAll=1` (snapshot has only `scenes.LearnScene`, so screenshot-only). Probe it for any change that has a main-game counterpart ([parity](./learn.md#parity))
+- LEARN sandbox: menu, Learn, or `learnAll=1` (assert `learn.*` when the check needs state; screenshots for visuals). Probe it for any change that has a main-game counterpart ([parity](./learn.md#parity))
 
 ## Seeded runs
 

@@ -70,7 +70,8 @@ export type BaseUpgradeId =
   | "powerPelletMirror"
   | "powerPelletChaff"
   | "passiveReactiveArmor"
-  | "powerPelletTithe";
+  | "powerPelletTithe"
+  | "passiveMole";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -237,6 +238,8 @@ export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
 export const AFTERBURNER_MUL = 1.3;
 export const AFTERBURNER_PELLET_MUL = 0.8;
+export const MOLE_PELLET_MUL = 1.2;
+export const MOLE_EMPTY_MUL = 0.8;
 export const PLAYER_SPEED_BURST_MUL = 1.25;
 export const GHOST_SLOW_MUL = 0.8;
 
@@ -271,6 +274,7 @@ export const TITHE_ENHANCED_MS = 8000;
 export const DEFY_DEATH_ENHANCED_MS = 8000;
 export const WARP_TOP_INVULN_MS = 2000;
 export const AFTERBURNER_ENHANCED_MUL = 1.5;
+export const MOLE_ENHANCED_PELLET_MUL = 1.3;
 export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
 export const GHOST_SLOW_ENHANCED_MUL = 0.65;
 export const PICKUP_RANGE_ENHANCED_TILES = 2;
@@ -827,8 +831,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Streak Engine",
     school: "harvest",
     description: "Every 30-pellet streak fires your power-pellet effects.",
-    storePrice: STORE_RARE_UPGRADE_PRICE,
-    rare: true,
+    storePrice: STORE_UPGRADE_PRICE,
     streakEngineEvery: STREAK_ENGINE_EVERY,
     enhanced: {
       enhanceNote: "Streak Engine also grants 3 seconds of Ghost Proof on every 30-pellet streak.",
@@ -1032,6 +1035,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     },
     onPowerPellet: { titheMs: TITHE_MS },
   },
+  {
+    id: "passiveMole",
+    label: "Mole",
+    school: "harvest",
+    description: "Dig the pellet veins: +20% speed over pellets, 20% slower on cleared tiles.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote: "Mole gives +30% on pellet tiles instead of +20%. Cleared tiles still cost 20%.",
+      description: "Dig deeper: +30% speed over pellets, 20% slower on cleared tiles.",
+      pelletCellSpeedMul: MOLE_ENHANCED_PELLET_MUL,
+    },
+    pelletCellSpeedMul: MOLE_PELLET_MUL,
+    emptyCellSpeedMul: MOLE_EMPTY_MUL,
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1059,6 +1076,32 @@ export const UPGRADE_DEFS: readonly UpgradeDef[] = [
 const UPGRADE_BY_ID: ReadonlyMap<UpgradeId, UpgradeDef> = new Map(
   UPGRADE_DEFS.map((def) => [def.id, def]),
 );
+
+export function upgradeLabelAlias(label: string): string {
+  const words = label
+    .replace(/[^a-zA-Z0-9\s]+/g, "")
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+  return words
+    .map((word, index) =>
+      index === 0
+        ? word.toLowerCase()
+        : `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`,
+    )
+    .join("");
+}
+
+const UPGRADE_ALIAS_TO_BASE: ReadonlyMap<string, BaseUpgradeId> = (() => {
+  const map = new Map<string, BaseUpgradeId>();
+  for (const def of BASE_UPGRADE_DEFS) {
+    const key = upgradeLabelAlias(def.label).toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, def.id);
+    }
+  }
+  return map;
+})();
 
 export const ALL_UPGRADE_IDS: readonly BaseUpgradeId[] = BASE_UPGRADE_DEFS.map((def) => def.id);
 
@@ -1282,7 +1325,23 @@ export function parseUpgradeId(raw: string | null): UpgradeId | null {
   if (raw === null) {
     return null;
   }
-  return UPGRADE_BY_ID.has(raw as UpgradeId) ? (raw as UpgradeId) : null;
+  if (UPGRADE_BY_ID.has(raw as UpgradeId)) {
+    return raw as UpgradeId;
+  }
+  const plus = /plus$/i.test(raw);
+  const baseRaw = plus ? raw.slice(0, -4) : raw;
+  if (baseRaw.length === 0) {
+    return null;
+  }
+  const baseId = UPGRADE_ALIAS_TO_BASE.get(baseRaw.toLowerCase());
+  if (baseId === undefined) {
+    return null;
+  }
+  if (!plus) {
+    return baseId;
+  }
+  const enhanced = enhancedIdOf(baseId);
+  return UPGRADE_BY_ID.has(enhanced) ? enhanced : null;
 }
 
 export function parseEnableUpgradeParams(params: URLSearchParams): UpgradeId[] {
@@ -1337,6 +1396,8 @@ export function eligibleUpgrades(
       !ownedBases.has(id) &&
       !(id === "powerPelletHyperspeed" && ownedBases.has("powerPelletProgrammer")) &&
       !(id === "powerPelletProgrammer" && ownedBases.has("powerPelletHyperspeed")) &&
+      !(id === "passiveMole" && ownedBases.has("passiveAfterburner")) &&
+      !(id === "passiveAfterburner" && ownedBases.has("passiveMole")) &&
       (!needsShields || shieldsOwned) &&
       rareOk &&
       (!isSpecialist(id) || schoolCount(owned, def.school) >= SPECIALIST_THRESHOLD)

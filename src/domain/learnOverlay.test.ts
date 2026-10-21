@@ -16,45 +16,45 @@ beforeEach(() => {
 });
 
 describe("predictGhostPath", () => {
-  it("walks the top corridor to the target", () => {
+  it("walks the mid corridor to the target", () => {
     const path = predictGhostPath({
-      start: { col: 1, row: 1 },
+      start: { col: 1, row: 7 },
       facing: GHOST_DIR.right,
-      targetAt: () => ({ col: 20, row: 1 }),
+      targetAt: () => ({ col: 20, row: 7 }),
     });
-    expect(path[0]).toEqual({ col: 1, row: 1 });
-    expect(path.at(-1)).toEqual({ col: 20, row: 1 });
-    expect(path.every((tile) => tile.row === 1)).toBe(true);
+    expect(path[0]).toEqual({ col: 1, row: 7 });
+    expect(path.at(-1)).toEqual({ col: 20, row: 7 });
+    expect(path.every((tile) => tile.row === 7)).toBe(true);
   });
 
   it("never reverses and stops at maxSteps", () => {
     const path = predictGhostPath({
-      start: { col: 10, row: 1 },
+      start: { col: 10, row: 7 },
       facing: GHOST_DIR.right,
-      targetAt: () => ({ col: 1, row: 1 }),
+      targetAt: () => ({ col: 1, row: 7 }),
       maxSteps: 5,
     });
-    expect(path[1]).toEqual({ col: 11, row: 1 });
+    expect(path[1]).toEqual({ col: 11, row: 7 });
     expect(path).toHaveLength(6);
   });
 });
 
 describe("predictGhostPath with a target that changes along the path", () => {
   it("follows the target resolved at each tile, not the one from the start", () => {
-    const start = { col: 1, row: 1 };
-    const farLeft = { col: 0, row: 1 };
-    const farRight = { col: 20, row: 1 };
+    const start = { col: 7, row: 1 };
+    const farA = { col: 0, row: 0 };
+    const farB = { col: 21, row: 24 };
     const fixed = predictGhostPath({
       start,
-      facing: GHOST_DIR.right,
-      targetAt: () => farLeft,
-      maxSteps: 12,
+      facing: GHOST_DIR.left,
+      targetAt: () => farA,
+      maxSteps: 16,
     });
     const switching = predictGhostPath({
       start,
-      facing: GHOST_DIR.right,
-      targetAt: (tile) => (tile.col >= 5 ? farRight : farLeft),
-      maxSteps: 12,
+      facing: GHOST_DIR.left,
+      targetAt: (tile) => (tile.col <= 4 ? farB : farA),
+      maxSteps: 16,
     });
     expect(switching).not.toEqual(fixed);
     expect(switching.slice(0, 5)).toEqual(fixed.slice(0, 5));
@@ -64,17 +64,17 @@ describe("predictGhostPath with a target that changes along the path", () => {
 describe("predictGhostPath loops", () => {
   it("ends once a tile is reached again heading the same way, not on the first revisit", () => {
     const path = predictGhostPath({
-      start: { col: 6, row: 10 },
+      start: { col: 4, row: 9 },
       facing: GHOST_DIR.down,
-      targetAt: () => ({ col: 10, row: 11 }),
+      targetAt: () => ({ col: 10, row: 10 }),
     });
     expect(path.length).toBeLessThan(LEARN_PATH_MAX_STEPS);
   });
 
   it("keeps going through a tile it crosses a second time from another direction", () => {
     const path = predictGhostPath({
-      start: { col: 10, row: 4 },
-      facing: GHOST_DIR.left,
+      start: { col: 7, row: 1 },
+      facing: GHOST_DIR.right,
       targetAt: () => ({ col: 11, row: -3 }),
     });
     const keys = path.map((tile) => `${tile.col},${tile.row}`);

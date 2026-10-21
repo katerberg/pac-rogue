@@ -19,7 +19,7 @@ The pennies drop in one by one along the top center, up to a full row. A full ro
 
 ## Time pennies
 
-Clearing a board drains the time left into the pennies. The payout is quadratic in time left (`PENNY_TIME_SQUARE_DIVISOR`), so fast clears pay much more. The drain always takes `TIME_PENNY_DRAIN_MS` and pays the most valuable time first; Full rows during the drain pay Quarters without pausing it, and the upgrade offer waits only for any queued slot spin. Order at a clear: fanfare, drain, upgrade offer (levels 1-8) or transition. No drain when the timer is 0 or on the level-9 clear. `PlaySim.step` holds all other gates while draining; `?jumpToUpgrade=1` drains the full timer.
+Clearing a board drains the time left into the pennies. The payout is quadratic in time left (`PENNY_TIME_SQUARE_DIVISOR`), so fast clears pay much more. The drain always takes `TIME_PENNY_DRAIN_MS` and pays the most valuable time first; Full rows during the drain pay Quarters without pausing it, and the upgrade offer waits only for any queued slot spin. While draining, every earned penny appears in stacks beside the timer (the row holds its drops); when the drain ends those same pennies slide left into the row, farthest stack first (`holdPennyFx` / `releasePennyFx`), and a full row collapses into a Quarter as usual. Order at a clear: fanfare, drain, upgrade offer (levels 1-8) or transition. No drain when the timer is 0 or on the level-9 clear. `PlaySim.step` holds all other gates while draining; `?jumpToUpgrade=1` drains the full timer.
 
 ## Slot machine
 
