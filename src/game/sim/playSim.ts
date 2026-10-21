@@ -158,7 +158,7 @@ import {
 import {
   applyTunnelBoringAscii,
   openBoredCellsOnLayout,
-  refillTunnelBoringCharges,
+  tunnelBoringChargesForBoard,
   TUNNEL_BORING_CHARGES_PER_LEVEL,
 } from "../../domain/tunnelBoring";
 import {
@@ -2794,9 +2794,8 @@ export class PlaySim {
     this.resetCornucopiaFruit();
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
-    this.tunnelBoringCharges = refillTunnelBoringCharges(
+    this.tunnelBoringCharges = tunnelBoringChargesForBoard(
       hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring"),
-      0,
     );
     this.tunnelDashAnim = null;
     this.powerPelletBreaks = [];

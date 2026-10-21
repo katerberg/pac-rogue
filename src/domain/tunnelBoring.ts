@@ -80,7 +80,6 @@ export function applyTunnelBoringAscii(ascii: string, cells: readonly MazeTile[]
   return lines.map((line) => line.join("")).join("\n");
 }
 
-/** Force bored cells open after layout build (beats opposite-edge safety on exterior). */
 export function openBoredCellsOnLayout(layout: MazeLayout, cells: readonly MazeTile[]): MazeLayout {
   if (cells.length === 0) {
     return layout;
@@ -107,10 +106,6 @@ export function openBoredCellsOnLayout(layout: MazeLayout, cells: readonly MazeT
   return layout;
 }
 
-export function refillTunnelBoringCharges(owned: boolean, current: number): number {
-  return owned ? TUNNEL_BORING_CHARGES_PER_LEVEL : current;
-}
-
-export function spendTunnelBoringCharge(charges: number): number {
-  return Math.max(0, charges - 1);
+export function tunnelBoringChargesForBoard(owned: boolean): number {
+  return owned ? TUNNEL_BORING_CHARGES_PER_LEVEL : 0;
 }

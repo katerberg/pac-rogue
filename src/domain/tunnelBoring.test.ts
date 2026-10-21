@@ -3,8 +3,8 @@ import { activateLayout, getActiveLayout, isWalkable, layoutFromAscii } from "./
 import {
   applyTunnelBoringAscii,
   openBoredCellsOnLayout,
-  spendTunnelBoringCharge,
   TUNNEL_BORING_CHARGES_PER_LEVEL,
+  tunnelBoringChargesForBoard,
   tunnelBoringTarget,
 } from "./tunnelBoring";
 
@@ -94,9 +94,9 @@ describe("applyTunnelBoringAscii / openBoredCellsOnLayout", () => {
 });
 
 describe("tunnel boring charges", () => {
-  it("spends one charge and refills to the per-level cap", () => {
+  it("refills to the per-level cap when owned", () => {
     expect(TUNNEL_BORING_CHARGES_PER_LEVEL).toBe(1);
-    expect(spendTunnelBoringCharge(1)).toBe(0);
-    expect(spendTunnelBoringCharge(0)).toBe(0);
+    expect(tunnelBoringChargesForBoard(true)).toBe(1);
+    expect(tunnelBoringChargesForBoard(false)).toBe(0);
   });
 });

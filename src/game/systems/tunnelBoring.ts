@@ -3,7 +3,6 @@ import { activateAsciiLayout, getActiveLayout, type MazeTile } from "../../domai
 import {
   applyTunnelBoringAscii,
   openBoredCellsOnLayout,
-  spendTunnelBoringCharge,
   tunnelBoringTarget,
 } from "../../domain/tunnelBoring";
 import { Facing } from "../components/Facing";
@@ -50,7 +49,7 @@ export function tryTunnelBoring(world: World, charges: number): TunnelBoringAtte
   return {
     cell: target,
     direction: intent,
-    charges: spendTunnelBoringCharge(charges),
+    charges: Math.max(0, charges - 1),
   };
 }
 
