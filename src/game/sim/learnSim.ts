@@ -52,7 +52,9 @@ import {
   pelletCellCenters,
   worldToCol,
   worldToRow,
+  type MazeTile,
 } from "../../domain/maze";
+import { openBoredCellsOnLayout, TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/tunnelBoring";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
@@ -187,6 +189,11 @@ import { wallPassSolids } from "../systems/wallPassSolids";
 import { chaffSprites, decoyFacing, decoyPx, decoyTile, nearestDecoy } from "../../domain/chaff";
 import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
+import {
+  adoptTunnelBoringFacing,
+  applyBoredCellsToActiveLayout,
+  tryTunnelBoring,
+} from "../systems/tunnelBoring";
 import {
   followProgrammer,
   holdPlayerForProgramming,
@@ -329,6 +336,8 @@ export class LearnSim {
   private eatenHoldGhostEids: number[] = [];
   private eatenHoldRemainingMs = 0;
   private tunnelDashAnim: TunnelDashAnimation | null = null;
+  private tunnelBoringCharges = 0;
+  private tunnelBoredCells: MazeTile[] = [];
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
@@ -578,6 +587,7 @@ export class LearnSim {
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
+    this.tryBoreTunnel();
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const playerSolids = this.playerSolids();
@@ -851,6 +861,12 @@ export class LearnSim {
     if (turningOn && baseIdOf(id) === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([id]));
     }
+    if (turningOn && baseIdOf(id) === "passiveTunnelBoring") {
+      this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
+    if (!turningOn && baseIdOf(id) === "passiveTunnelBoring") {
+      this.tunnelBoringCharges = 0;
+    }
     if (baseIdOf(id) === "passiveLazyLooper") {
       this.tagOptionalPellets();
     }
@@ -1053,6 +1069,25 @@ export class LearnSim {
     if (powerEffects.cornucopiaFruit !== null) {
       this.spawnCornucopiaFruit(powerEffects.cornucopiaFruit);
     }
+    if (powerEffects.tunnelBoringRecharge) {
+      this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
+  }
+
+  private tryBoreTunnel(): void {
+    if (!hasUpgrade(this.learnUpgrades.owned, "passiveTunnelBoring")) {
+      return;
+    }
+    const attempt = tryTunnelBoring(this.world, this.tunnelBoringCharges);
+    if (attempt === null) {
+      return;
+    }
+    this.tunnelBoredCells = [...this.tunnelBoredCells, attempt.cell];
+    this.tunnelBoringCharges = attempt.charges;
+    applyBoredCellsToActiveLayout([attempt.cell]);
+    openBoredCellsOnLayout(getActiveLayout(), this.tunnelBoredCells);
+    adoptTunnelBoringFacing(this.world, attempt.direction);
+    this.events.push({ type: "resetBoard" });
   }
 
   private stepStreakEngine(cells: readonly Cell[], delta: number): void {

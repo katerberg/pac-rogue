@@ -20,6 +20,7 @@ import {
   ghostHouseSpawnCenter,
   hasLeftGhostHouse,
   horizontalTunnelRows,
+  isWalkable,
   TILE_SIZE,
   worldToCol,
   worldToRow,
@@ -1959,6 +1960,96 @@ describe("LearnSim upgrade demos", () => {
     }
     expect(posOf(ghost)).toEqual(held);
     expect(sim.statusText()).toContain("PELLETS");
+  });
+
+  describe("Tunnel Boring", () => {
+    function boreSpot(): {
+      col: number;
+      row: number;
+      dx: number;
+      dy: number;
+      dir: "left" | "right" | "up" | "down";
+    } {
+      const layout = getActiveLayout();
+      const dirs = [
+        { dx: 1, dy: 0, dir: "right" as const },
+        { dx: -1, dy: 0, dir: "left" as const },
+        { dx: 0, dy: 1, dir: "down" as const },
+        { dx: 0, dy: -1, dir: "up" as const },
+      ];
+      for (let row = 1; row < layout.rows - 1; row += 1) {
+        for (let col = 1; col < layout.cols - 1; col += 1) {
+          if (!isWalkable(col, row, layout.playerSolids)) {
+            continue;
+          }
+          for (const step of dirs) {
+            const target = { col: col + step.dx, row: row + step.dy };
+            if (
+              !isWalkable(target.col, target.row, layout.playerSolids) &&
+              !layout.house[target.row]?.[target.col] &&
+              !layout.door[target.row]?.[target.col]
+            ) {
+              const fromHouse = [
+                [0, -1],
+                [0, 1],
+                [-1, 0],
+                [1, 0],
+              ].some(
+                ([dx, dy]) =>
+                  layout.house[target.row + dy!]?.[target.col + dx!] ||
+                  layout.door[target.row + dy!]?.[target.col + dx!],
+              );
+              if (!fromHouse) {
+                return { col, row, ...step };
+              }
+            }
+          }
+        }
+      }
+      throw new Error("no bore spot");
+    }
+
+    it("while stopped, pressing into a wall bores it open once", () => {
+      const { sim, player } = setup("passiveTunnelBoring");
+      expect(sim["tunnelBoringCharges"]).toBe(1);
+      const spot = boreSpot();
+      moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
+      Facing.direction[player] = DIRECTION.none;
+      Velocity.x[player] = 0;
+      Velocity.y[player] = 0;
+      sim.step(held(spot.dir), FRAME_MS);
+      expect(sim["tunnelBoringCharges"]).toBe(0);
+      expect(sim["tunnelBoredCells"]).toEqual([
+        { col: spot.col + spot.dx, row: spot.row + spot.dy },
+      ]);
+      expect(isWalkable(spot.col + spot.dx, spot.row + spot.dy)).toBe(true);
+      sim.step(held(spot.dir), FRAME_MS);
+      expect(sim["tunnelBoredCells"]).toHaveLength(1);
+    });
+
+    it("Plus recharges the drill on a power pellet", () => {
+      const { sim, player } = setup("passiveTunnelBoring");
+      sim.toggleEnhanced("passiveTunnelBoring");
+      const spot = boreSpot();
+      moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
+      Facing.direction[player] = DIRECTION.none;
+      sim.step(held(spot.dir), FRAME_MS);
+      expect(sim["tunnelBoringCharges"]).toBe(0);
+      chompPower(sim, player);
+      expect(sim["tunnelBoringCharges"]).toBe(1);
+    });
+
+    it("does nothing without the upgrade", () => {
+      const { sim, player } = setup();
+      const spot = boreSpot();
+      const wall = { col: spot.col + spot.dx, row: spot.row + spot.dy };
+      expect(isWalkable(wall.col, wall.row)).toBe(false);
+      moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
+      Facing.direction[player] = DIRECTION.none;
+      sim.step(held(spot.dir), FRAME_MS);
+      expect(isWalkable(wall.col, wall.row)).toBe(false);
+      expect(sim["tunnelBoredCells"]).toEqual([]);
+    });
   });
 });
 

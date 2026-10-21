@@ -71,7 +71,8 @@ export type BaseUpgradeId =
   | "powerPelletChaff"
   | "passiveReactiveArmor"
   | "powerPelletTithe"
-  | "passiveMole";
+  | "passiveMole"
+  | "passiveTunnelBoring";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
@@ -181,6 +182,7 @@ export type UpgradeEffects = {
     mirror?: true;
     chaffMs?: number;
     chaffCorners?: true;
+    tunnelBoringRecharge?: true;
   };
 };
 
@@ -1049,6 +1051,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     pelletCellSpeedMul: MOLE_PELLET_MUL,
     emptyCellSpeedMul: MOLE_EMPTY_MUL,
   },
+  {
+    id: "passiveTunnelBoring",
+    label: "Tunnel Boring",
+    school: "speed",
+    description:
+      "Once per level, while stopped, press into a wall to bore it open for the rest of the map.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote: "Tunnel Boring drills also recharge when you chomp a power pellet.",
+      description:
+        "Once per level, while stopped, press into a wall to bore it open. Power pellets recharge the drill.",
+      onPowerPellet: { tunnelBoringRecharge: true },
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1277,6 +1293,7 @@ export type PowerPelletApplyResult = {
   cornucopiaFruit: CornucopiaMode | null;
   programmerStarted: boolean;
   mirrorStarted: boolean;
+  tunnelBoringRecharge: boolean;
 };
 
 export const NO_FRIGHT: Pick<
@@ -1877,6 +1894,7 @@ export function applyPowerPelletEffects(
       cornucopiaFruit: null,
       programmerStarted: false,
       mirrorStarted: false,
+      tunnelBoringRecharge: false,
     };
   }
 
@@ -1901,6 +1919,7 @@ export function applyPowerPelletEffects(
   let mirror = false;
   let chaffMs: number | null = null;
   let chaffCorners = false;
+  let tunnelBoringRecharge = false;
 
   const owned = effectiveOwned(state.owned);
   for (const id of firingPowerUpgrades(state.owned, onlyBases)) {
@@ -1977,6 +1996,9 @@ export function applyPowerPelletEffects(
     }
     if (onPower.armWallDrop) {
       armWallDrop = true;
+    }
+    if (onPower.tunnelBoringRecharge) {
+      tunnelBoringRecharge = true;
     }
     if (onPower.programmerSets !== undefined) {
       programmerSets = Math.max(programmerSets, onPower.programmerSets);
@@ -2077,6 +2099,7 @@ export function applyPowerPelletEffects(
     cornucopiaFruit,
     programmerStarted: programmerSets > 0,
     mirrorStarted,
+    tunnelBoringRecharge,
   };
 }
 
