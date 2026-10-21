@@ -34,7 +34,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
-import { speedLevelMultiplier } from "../../domain/levelRules";
+import { ghostBaseSpeedRatio, speedLevelMultiplier } from "../../domain/levelRules";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
@@ -2566,6 +2566,112 @@ describe("PlaySim", () => {
     expect(sim.snapshot().ghostMode).toBe("chase");
     runFrames(sim, 60 * 8);
     expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
+  describe("Cruise Elroy", () => {
+    function eatDownTo(sim: PlaySim, left: number): void {
+      for (const eid of regularPelletEids(sim)) {
+        if (sim.snapshot().pelletsRemaining <= left) {
+          return;
+        }
+        eatPelletAt(sim, eid);
+      }
+    }
+
+    function kindOntoPlayer(sim: PlaySim, kind: GhostKindId): void {
+      const ghost = query(sim.world, [Ghost, GhostKind, Position]).find(
+        (eid) => GhostKind.kind[eid] === kind,
+      )!;
+      const player = playerEid(sim);
+      Position.x[ghost] = Position.x[player]!;
+      Position.y[ghost] = Position.y[player]!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+    }
+
+    function blinkySpeed(sim: PlaySim): number {
+      const eid = query(sim.world, [Ghost, GhostKind]).find(
+        (e) => GhostKind.kind[e] === GHOST_KIND.blinky,
+      )!;
+      return Speed.px[eid]!;
+    }
+
+    function waitBlinkyActive(sim: PlaySim): void {
+      runUntil(
+        sim,
+        () => sim.snapshot().ghosts.find((g) => g.kind === "blinky")?.phase === "active",
+        3000,
+        { keys: held("left") },
+      );
+      runFrames(sim, 1, { keys: held("left") });
+    }
+
+    it("suppresses Elroy for the rest of the board after Blinky takes a life", () => {
+      const sim = startSim(
+        { level: 2, maze: "maze1", ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] },
+        "elroy-life",
+      );
+      const livesBefore = sim.snapshot().lives;
+      eatDownTo(sim, 10);
+      waitBlinkyActive(sim);
+      expect(sim.snapshot().elroyTier).toBe(2);
+      const elroySpeed = blinkySpeed(sim);
+      expect(elroySpeed).toBeGreaterThan(0);
+      kindOntoPlayer(sim, GHOST_KIND.blinky);
+      runFrames(sim, 1);
+      expect(sim.snapshot().lives).toBe(livesBefore - 1);
+      expect(sim.snapshot().elroySuppressed).toBe(true);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      waitBlinkyActive(sim);
+      expect(sim.snapshot().elroyTier).toBe(0);
+      expect(sim.snapshot().elroySuppressed).toBe(true);
+      expect(blinkySpeed(sim)).toBeLessThan(elroySpeed);
+      expect(blinkySpeed(sim)).toBeCloseTo(
+        PLAYER_SPEED * ghostBaseSpeedRatio(2) * speedLevelMultiplier(2),
+      );
+    });
+
+    it("keeps Elroy when a non-Blinky ghost takes the life", () => {
+      const sim = startSim(
+        { level: 2, maze: "maze1", ghosts: [GHOST_KIND.blinky, GHOST_KIND.pinky] },
+        "elroy-pinky-kill",
+      );
+      const livesBefore = sim.snapshot().lives;
+      eatDownTo(sim, 10);
+      waitBlinkyActive(sim);
+      expect(sim.snapshot().elroyTier).toBe(2);
+      kindOntoPlayer(sim, GHOST_KIND.pinky);
+      runFrames(sim, 1);
+      expect(sim.snapshot().lives).toBe(livesBefore - 1);
+      expect(sim.snapshot().elroySuppressed).toBe(false);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      waitBlinkyActive(sim);
+      expect(sim.snapshot().elroyTier).toBe(2);
+    });
+
+    it("keeps Elroy when Defy Death saves without spending a life", () => {
+      const sim = startSim(
+        {
+          level: 2,
+          maze: "maze1",
+          ghosts: [GHOST_KIND.blinky],
+          enableUpgrades: ["passiveDefyDeath"],
+        },
+        "elroy-defy",
+      );
+      eatDownTo(sim, 10);
+      waitBlinkyActive(sim);
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      const livesBefore = sim.snapshot().lives;
+      kindOntoPlayer(sim, GHOST_KIND.blinky);
+      runFrames(sim, 1);
+      expect(sim.snapshot().lives).toBe(livesBefore);
+      expect(sim.snapshot().elroySuppressed).toBe(false);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      waitBlinkyActive(sim);
+      expect(sim.snapshot().elroyTier).toBe(2);
+    });
   });
 
   it("moves ghosts at tunnel speed while they leave the house, then at full speed", () => {
