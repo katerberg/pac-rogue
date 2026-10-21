@@ -7523,7 +7523,7 @@ describe("power pellet break VFX", () => {
     });
     expect(getActiveLayout().ascii).toBe(ascii);
     expect(sim.snapshot().layout).toBe("custom");
-    expect(getActiveLayout().ghostHouseSpawn).toEqual({ col: 10, row: 9 });
+    expect(getActiveLayout().ghostHouseSpawn).toEqual({ col: 13, row: 9 });
     expect(sim.snapshot().ghosts).toHaveLength(1);
     runFrames(sim, 30, { keys: held("up") });
     expect(sim.snapshot().ghosts.map((g) => g.phase)).not.toContain("inHouse");

@@ -805,8 +805,8 @@ describe("maze", () => {
 
     const ascii = tinyHouseMazeAscii();
     const layout = layoutFromAscii(ascii, "generated");
-    expect(layout.ghostHouseSpawn).toEqual({ col: 10, row: 9 });
-    expect(layout.ghostHouseExit.col).toBe(10);
+    expect(layout.ghostHouseSpawn).toEqual({ col: 13, row: 9 });
+    expect(layout.ghostHouseExit.col).toBe(13);
     expect(
       isWalkable(layout.ghostHouseExit.col, layout.ghostHouseExit.row, layout.playerSolids),
     ).toBe(true);
