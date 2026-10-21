@@ -8846,7 +8846,7 @@ describe("Reactive Armor", () => {
   });
 });
 
-describe("Banana Shield", () => {
+describe("Banana Trail", () => {
   function startBananaSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
     return startSim({ level: 2, maze: "maze1", enableUpgrades });
   }
@@ -8874,7 +8874,7 @@ describe("Banana Shield", () => {
     expect(sim.renderOptions().peels).toHaveLength(1);
   });
 
-  it("holds 1 peel, or 3 with Banana Shield+", () => {
+  it("holds 1 peel, or 3 with Banana Trail+", () => {
     const base = startBananaSim(["passiveBananaShield"]);
     chompPowerPellet(base);
     chompPowerPellet(base);

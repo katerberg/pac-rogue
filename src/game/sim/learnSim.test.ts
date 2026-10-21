@@ -814,7 +814,7 @@ describe("LearnSim upgrade demos", () => {
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
 
-  describe("Banana Shield", () => {
+  describe("Banana Trail", () => {
     it("banks a peel on power pellet and slips when a ghost touches it", () => {
       const { sim, player } = setup("passiveBananaShield");
       chompPower(sim, player);

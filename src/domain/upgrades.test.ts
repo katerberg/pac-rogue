@@ -1395,7 +1395,7 @@ describe("banana peels", () => {
     expect(providesShields([])).toBe(false);
   });
 
-  it("empties peels when Banana Shield is revoked and keeps them through timer clears", () => {
+  it("empties peels when Banana Trail is revoked and keeps them through timer clears", () => {
     const banked = bankPeels(createRunUpgrades(["passiveBananaShieldPlus"]), 3);
     expect(revokeUpgrade(banked, "passiveBananaShieldPlus").peelsBanked).toBe(0);
     expect(clearUpgradeTimers(banked).peelsBanked).toBe(3);
