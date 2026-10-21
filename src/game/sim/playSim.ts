@@ -458,6 +458,15 @@ import {
   type HeldKeys,
   type TurnTap,
 } from "../systems/heldKeys";
+import { settleShieldBounce, startShieldBounce, tickShieldBounce } from "../systems/shieldBounce";
+import {
+  NO_SHIELD_BOUNCE,
+  maskStaleKeys,
+  shieldBounceCatchSkips,
+  shieldBounceHeldGhosts,
+  shieldBounceSpriteOffsets,
+  type ShieldBounce,
+} from "../../domain/shieldBounce";
 import { TURN_CATCH_GRACE_MS, tickTurnCatchGrace } from "../../domain/turnCatchGrace";
 import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningState";
 import { movement } from "../systems/movement";
@@ -636,6 +645,9 @@ export class PlaySim {
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
   private hyperspeedFruitEaten = 0;
   private ghostCornerWarps: GhostCornerWarp[] = [];
+  private shieldBounce: ShieldBounce = NO_SHIELD_BOUNCE;
+  private bounceStaleKeys: HeldKeys | null = null;
+  private frameKeys: HeldKeys = NO_KEYS_HELD;
   private runUpgrades: RunUpgrades = createRunUpgrades();
   private effectiveCache: { owned: readonly UpgradeId[]; effective: readonly UpgradeId[] } | null =
     null;
@@ -941,6 +953,7 @@ export class PlaySim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
+      spriteOffsets: shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
       hauntedGhost: hauntedGhost(this.runUpgrades),
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
@@ -1035,6 +1048,7 @@ export class PlaySim {
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
       ghostMode: nameOf(GHOST_AI_MODE, this.settledGhostMode()),
+      shieldBounce: this.shieldBounce,
       upgrades: upgrades.owned,
       effectiveUpgrades: this.effectiveUpgrades(),
       timers: {
@@ -1188,6 +1202,7 @@ export class PlaySim {
   }
 
   private tick(input: SimInput, delta: number): void {
+    this.frameKeys = input.keys;
     if (this.warpGlide !== null) {
       this.warpGlide = tickWarpGlide(this.warpGlide, delta);
     }
@@ -1296,6 +1311,7 @@ export class PlaySim {
         : undefined;
     let turnTap: TurnTap | null = null;
     const warping = this.warpGlide !== null;
+    const bouncing = this.shieldBounce.player !== null;
     if (programming) {
       this.recordProgrammerPresses(input.keys);
     } else if (this.suppressInputUntilKeyRelease) {
@@ -1303,8 +1319,8 @@ export class PlaySim {
         this.suppressInputUntilKeyRelease = false;
         applyHeldKeys(this.world, input.keys, { diagonalAllowed });
       }
-    } else if (!warping) {
-      turnTap = applyHeldKeys(this.world, input.keys, {
+    } else if (!warping && !bouncing) {
+      turnTap = applyHeldKeys(this.world, maskStaleKeys(input.keys, this.bounceStaleKeys), {
         diagonalAllowed,
         turnTuning: turnTuningOpts,
       });
@@ -1392,7 +1408,7 @@ export class PlaySim {
         : levelSpeedMul * hyperspeedMultiplier(this.effectiveUpgrades());
     const programmerPhase = this.runUpgrades.programmer?.phase ?? null;
     const rawPlayerSpeedMul =
-      programmerPhase === "recording" || warping
+      programmerPhase === "recording" || warping || bouncing
         ? 0
         : programmerPhase === "running"
           ? levelSpeedMul * HYPERSPEED_MUL
@@ -1415,7 +1431,10 @@ export class PlaySim {
         (this.bossState === null ? levelSpeedMul : 1) *
         ghostSpeedMultiplier(this.effectiveUpgrades()),
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
-      heldGhostEids: heldGhostEids(this.ghostCornerWarps),
+      heldGhostEids: new Set([
+        ...heldGhostEids(this.ghostCornerWarps),
+        ...shieldBounceHeldGhosts(this.shieldBounce),
+      ]),
       frightenedGhostEids: frightenedGhostEids(this.runUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
       tuning: this.currentTuning,
@@ -1427,6 +1446,12 @@ export class PlaySim {
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const blockTunnelRow = this.closedGatedTunnelRow();
+    this.shieldBounce = tickShieldBounce(this.world, this.shieldBounce, delta, {
+      playerSolids,
+      ghostsBlockTunnels: this.ghostsBlockedFromTunnels(),
+      blockTunnelRow,
+      droppedWall: this.runUpgrades.droppedWall,
+    });
     const moveFrame = (frameDelta: number): void => {
       movement(
         this.world,
@@ -1439,7 +1464,9 @@ export class PlaySim {
       );
       this.runUpgrades = trackWallOccupancy(this.world, this.runUpgrades);
     };
-    if (programmerPhase === "running") {
+    if (bouncing) {
+      moveFrame(delta);
+    } else if (programmerPhase === "running") {
       this.moveHyperspeed(delta, moveFrame, () => this.stepProgrammer());
     } else if (hyperspeedActive(this.runUpgrades)) {
       this.moveHyperspeed(delta, moveFrame, () => this.noteHyperspeedTurn());
@@ -1470,6 +1497,7 @@ export class PlaySim {
       );
       this.noteTunnelExit(positionBeforeDash);
     } else if (
+      !bouncing &&
       hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash") &&
       !this.timedTunnelBlocksPlayerDash()
     ) {
@@ -1754,7 +1782,7 @@ export class PlaySim {
     } else {
       if (
         !defyDeathActive(this.runUpgrades) &&
-        (this.breakShield(caughtBy) || this.breakHyperspeedShield(caughtBy))
+        (this.breakShield(caughtBy, playerCaughtBy) || this.breakHyperspeedShield(caughtBy))
       ) {
         return;
       }
@@ -1939,7 +1967,10 @@ export class PlaySim {
   private catchOptions(): CatchOptions {
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
-      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      skipGhostEids: new Set([
+        ...glidingGhostEids(this.ghostCornerWarps),
+        ...shieldBounceCatchSkips(this.shieldBounce),
+      ]),
       edibleGhostEids: frightenedGhostEids(this.runUpgrades),
       playerInvulnerable: this.options.godMode || playerIsInvulnerable(this.runUpgrades),
       turnCatchGrace: this.turnCatchGraceMs > 0,
@@ -2355,6 +2386,7 @@ export class PlaySim {
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
+    this.shieldBounce = NO_SHIELD_BOUNCE;
     this.resetStreak();
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
@@ -2729,6 +2761,7 @@ export class PlaySim {
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
+    this.shieldBounce = NO_SHIELD_BOUNCE;
     this.afterLifeRelease = false;
     placeInHouseGhostsAtPredictedSeats(
       this.world,
@@ -3068,6 +3101,7 @@ export class PlaySim {
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
+    this.shieldBounce = NO_SHIELD_BOUNCE;
     this.resetStreak();
   }
 
@@ -3482,7 +3516,7 @@ export class PlaySim {
     return true;
   }
 
-  private breakShield(caughtBy: number | null): boolean {
+  private breakShield(caughtBy: number | null, bounceFrom: number | null): boolean {
     const spent = spendShield(this.runUpgrades);
     if (spent === null) {
       return false;
@@ -3490,11 +3524,22 @@ export class PlaySim {
     this.runUpgrades = spent;
     this.recorder.activation("shieldBreak");
     this.resetStreak();
+    const bounce = bounceFrom === null ? null : startShieldBounce(this.world, bounceFrom);
     this.fireReactiveArmor(caughtBy);
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
     }
-    this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
+    if (bounce === null) {
+      this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
+      return true;
+    }
+    this.shieldBounce = settleShieldBounce(
+      this.shieldBounce,
+      bounce,
+      this.warpGlide !== null,
+      heldGhostEids(this.ghostCornerWarps),
+    );
+    this.bounceStaleKeys = this.frameKeys;
     return true;
   }
 
@@ -3956,6 +4001,7 @@ export class PlaySim {
     this.warpGlide = null;
     this.speedTrail = [];
     this.ghostCornerWarps = [];
+    this.shieldBounce = NO_SHIELD_BOUNCE;
     this.mirrorPop = null;
     this.resetStreak();
     this.remoteTransferCounter = 0;

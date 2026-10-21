@@ -52,6 +52,11 @@ import { DEFAULT_TUNING, resolveTuning, type Tuning } from "../../domain/tuning"
 import { TURN_CATCH_GRACE_MS } from "../../domain/turnCatchGrace";
 import { turnFlashPulse } from "../../domain/turnTuning";
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
+import {
+  GHOST_WALL_STUN_MS,
+  SHIELD_BOUNCE_MS,
+  SHIELD_BOUNCE_TILES,
+} from "../../domain/shieldBounce";
 import { LAVA_CYCLE_MS, LAVA_EMERGE_MS, LAVA_MAX_REACH_TILES } from "../../domain/lavaZone";
 import {
   FAST_ZONE_MULTIPLIER,
@@ -154,6 +159,11 @@ function ghostOntoPlayer(sim: PlaySim): void {
   Position.x[ghost] = Position.x[player]!;
   Position.y[ghost] = Position.y[player]!;
   GhostPhase.value[ghost] = GHOST_PHASE.active;
+}
+
+function bounceIdle(sim: PlaySim): boolean {
+  const { player, ghosts, stunned } = sim.snapshot().shieldBounce;
+  return player === null && ghosts.length === 0 && stunned.length === 0;
 }
 
 function reviveProgresses(events: SimEvent[]): number[] {
@@ -4452,21 +4462,6 @@ describe("Shield", () => {
     expect(sim.snapshot().dying).toBe(false);
   });
 
-  it("grants 1s of immunity on its own, multiplied by Overcharge", () => {
-    const sim = startShieldSim(["passiveShieldPellets"]);
-    chompPowerPellet(sim);
-    ghostOntoPlayer(sim);
-    runFrames(sim, 1);
-    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(SHIELD_BREAK_INVULN_MS - 2 * FRAME_MS);
-    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(SHIELD_BREAK_INVULN_MS);
-
-    const overcharged = startShieldSim(["passiveShieldPellets", "passiveOvercharge"]);
-    chompPowerPellet(overcharged);
-    ghostOntoPlayer(overcharged);
-    runFrames(overcharged, 1);
-    expect(overcharged.snapshot().timers.invulnMs).toBeGreaterThan(SHIELD_BREAK_INVULN_MS);
-  });
-
   it("an active Defy Death window saves the catch and keeps the shield", () => {
     const sim = startShieldSim(["passiveShieldPellets", "passiveDefyDeath"]);
     chompPowerPellet(sim);
@@ -4638,7 +4633,7 @@ describe("Starting Shield", () => {
     runFrames(sim, 1);
     expect(sim.snapshot()).toMatchObject({ dying: false, lives: livesBefore });
     expect(sim.snapshot().timers.shieldsBanked).toBe(0);
-    runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 400);
+    runUntil(sim, () => bounceIdle(sim), 400);
     ghostOntoPlayer(sim);
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
@@ -4666,9 +4661,10 @@ describe("Starting Shield", () => {
     ghostOntoPlayer(sim);
     runFrames(sim, 1);
     expect(sim.snapshot().timers.shieldsBanked).toBe(0);
-    runUntil(sim, () => sim.snapshot().timers.invulnMs === 0, 400);
+    runUntil(sim, () => bounceIdle(sim), 400);
     ghostOntoPlayer(sim);
     runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
     runUntil(sim, () => !sim.snapshot().dying, 400);
     expect(sim.snapshot().timers.shieldsBanked).toBe(0);
   });
@@ -4697,7 +4693,6 @@ describe("Starting Shield", () => {
     ghostOntoPlayer(alone);
     runFrames(alone, 1);
     expect(alone.snapshot().timers).toMatchObject({ shieldsBanked: 0, speedBurstMs: 0 });
-    expect(alone.snapshot().timers.invulnMs).toBeGreaterThan(0);
 
     const paired = startShieldSim([
       "passiveStartingShield",
@@ -4707,6 +4702,198 @@ describe("Starting Shield", () => {
     ghostOntoPlayer(paired);
     runFrames(paired, 1);
     expect(paired.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+});
+
+describe("Shield bounce", () => {
+  const NUDGE_PX = 4;
+
+  function corridorCell(fits: (col: number, row: number) => boolean): { x: number; y: number } {
+    const { cols, rows } = getActiveLayout();
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 4; col < cols - 4; col += 1) {
+        if (fits(col, row)) {
+          return { x: cellCenterX(col), y: cellCenterY(row) };
+        }
+      }
+    }
+    throw new Error("no matching corridor cell");
+  }
+
+  const openRun = (col: number, row: number, from: number, to: number): boolean => {
+    for (let step = from; step <= to; step += 1) {
+      if (!isWalkable(col + step, row)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  function breakSim(): { sim: PlaySim; player: number; ghost: number } {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveStartingShield"] });
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    return { sim, player: playerEid(sim), ghost };
+  }
+
+  function place(eid: number, at: { x: number; y: number }, dx = 0): void {
+    Position.x[eid] = at.x + dx;
+    Position.y[eid] = at.y;
+  }
+
+  it("bounces Dot-Man and the ghost apart with no immunity, then both keep going the new way", () => {
+    const { sim, player, ghost } = breakSim();
+    const at = corridorCell((col, row) => openRun(col, row, -3, 4));
+    place(player, at);
+    place(ghost, at, -NUDGE_PX);
+    const holdLeft = { keys: { ...NO_KEYS_HELD, left: 7 } };
+    runFrames(sim, 1, holdLeft);
+    expect(sim.snapshot()).toMatchObject({ dying: false });
+    expect(sim.snapshot().timers).toMatchObject({ shieldsBanked: 0, invulnMs: 0 });
+    expect(sim.snapshot().shieldBounce.player?.step).toEqual({ dx: 1, dy: 0 });
+    expect(sim.snapshot().shieldBounce.ghosts).toEqual([
+      { eid: ghost, step: { dx: -1, dy: 0 }, elapsedMs: 0 },
+    ]);
+    expect(Facing.direction[player]).toBe(DIRECTION.right);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.left);
+    const playerStart = Position.x[player]!;
+    const ghostStart = Position.x[ghost]!;
+
+    runUntil(sim, () => bounceIdle(sim), 30, holdLeft);
+    expect(Position.x[player]! - playerStart).toBeCloseTo(SHIELD_BOUNCE_TILES * TILE_SIZE, 0);
+    expect(ghostStart - Position.x[ghost]!).toBeCloseTo(SHIELD_BOUNCE_TILES * TILE_SIZE, 0);
+
+    const afterX = Position.x[player]!;
+    runFrames(sim, 4, holdLeft);
+    expect(Position.x[player]!).toBeGreaterThan(afterX);
+    expect(Facing.direction[player]).toBe(DIRECTION.right);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.left);
+
+    runFrames(sim, 2, { keys: { ...NO_KEYS_HELD, left: 8 } });
+    expect(Facing.direction[player]).toBe(DIRECTION.left);
+  });
+
+  it("takes 300ms and hops in an arc", () => {
+    const { sim, player, ghost } = breakSim();
+    const at = corridorCell((col, row) => openRun(col, row, -3, 4));
+    place(player, at);
+    place(ghost, at, -NUDGE_PX);
+    runFrames(sim, 1);
+    const frames = Math.ceil(SHIELD_BOUNCE_MS / FRAME_MS);
+    runFrames(sim, Math.floor(frames / 2));
+    const hop = sim.renderOptions().spriteOffsets?.[player];
+    expect(hop?.y).toBeLessThan(-TILE_SIZE / 4);
+    runFrames(sim, frames - Math.floor(frames / 2) - 1);
+    expect(sim.snapshot().shieldBounce.player).not.toBeNull();
+    runFrames(sim, 1);
+    expect(bounceIdle(sim)).toBe(true);
+    expect(sim.renderOptions().spriteOffsets).toBeUndefined();
+  });
+
+  it("carries ghosts overlapping the breaking ghost along with it", () => {
+    const { sim, player, ghost } = breakSim();
+    const [, rider, bystander] = query(sim.world, [Ghost, Position]);
+    const at = corridorCell((col, row) => openRun(col, row, -3, 4));
+    place(player, at);
+    place(ghost, at, -NUDGE_PX);
+    place(rider!, at, -NUDGE_PX - 2);
+    GhostPhase.value[rider!] = GHOST_PHASE.active;
+    const far = corridorCell(
+      (col, row) => openRun(col, row, -1, 1) && Math.abs(cellCenterY(row) - at.y) > 4 * TILE_SIZE,
+    );
+    place(bystander!, far);
+    GhostPhase.value[bystander!] = GHOST_PHASE.active;
+    runFrames(sim, 1);
+    expect(
+      sim
+        .snapshot()
+        .shieldBounce.ghosts.map((body) => body.eid)
+        .sort(),
+    ).toEqual([ghost, rider!].sort());
+    expect(Facing.direction[rider!]).toBe(DIRECTION.left);
+    const riderStart = Position.x[rider!]!;
+    runUntil(sim, () => sim.snapshot().shieldBounce.ghosts.length === 0, 30);
+    expect(riderStart - Position.x[rider!]!).toBeCloseTo(SHIELD_BOUNCE_TILES * TILE_SIZE, 0);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("hands Dot-Man control back as soon as he hits a wall", () => {
+    const { sim, player, ghost } = breakSim();
+    const at = corridorCell((col, row) => !isWalkable(col + 1, row) && openRun(col, row, -4, 0));
+    place(player, at);
+    place(ghost, at, -NUDGE_PX);
+    runFrames(sim, 1);
+    expect(sim.snapshot().shieldBounce.player).not.toBeNull();
+    runFrames(sim, 1);
+    expect(sim.snapshot().shieldBounce.player).toBeNull();
+    expect(sim.snapshot().shieldBounce.ghosts).toHaveLength(1);
+    expect(Position.x[player]).toBe(at.x);
+    runFrames(sim, 1, { keys: { ...NO_KEYS_HELD, left: 1 } });
+    expect(Input.direction[player]).toBe(DIRECTION.left);
+  });
+
+  it("stuns a ghost that hits a wall for 750ms, then it re-picks its way ignoring its facing", () => {
+    const { sim, player, ghost } = breakSim();
+    const at = corridorCell((col, row) => !isWalkable(col + 1, row) && openRun(col, row, -4, 0));
+    place(ghost, at);
+    place(player, at, -NUDGE_PX);
+    runFrames(sim, 2);
+    expect(sim.snapshot().shieldBounce.ghosts).toEqual([]);
+    expect(sim.snapshot().shieldBounce.stunned).toEqual([
+      { eid: ghost, remainingMs: GHOST_WALL_STUN_MS },
+    ]);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.none);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.y).toBe(0);
+    runFrames(sim, Math.floor(GHOST_WALL_STUN_MS / FRAME_MS) - 1);
+    expect(Position.x[ghost]).toBe(at.x);
+    expect(sim.snapshot().shieldBounce.stunned).toHaveLength(1);
+    runUntil(sim, () => sim.snapshot().shieldBounce.stunned.length === 0, 3);
+    runUntil(sim, () => Position.x[ghost] !== at.x || Position.y[ghost] !== at.y, 30);
+    expect(Facing.direction[ghost]).not.toBe(DIRECTION.none);
+  });
+
+  it("does not start a Tunnel Dash while Dot-Man is airborne", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveStartingShield", "passiveTunnelDash"],
+    });
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    const at = { x: cellCenterX(6), y: cellCenterY(horizontalTunnelRows()[0]!) };
+    place(playerEid(sim), at);
+    place(ghost, at, NUDGE_PX);
+    runFrames(sim, 1);
+    expect(sim.snapshot().shieldBounce.player?.step).toEqual({ dx: -1, dy: 0 });
+    runUntil(sim, () => sim.snapshot().shieldBounce.player === null, 30, {
+      keys: { ...NO_KEYS_HELD },
+    });
+    expect(sim["tunnelDashAnim"]).toBeNull();
+    expect(Position.x[playerEid(sim)]!).toBeLessThan(cellCenterX(6));
+  });
+
+  it("bounces only Dot-Man when Reactive Armor sends the ghost home", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveStartingShield", "passiveReactiveArmor"],
+    });
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    const at = corridorCell((col, row) => openRun(col, row, -3, 4));
+    place(playerEid(sim), at);
+    place(ghost, at, -NUDGE_PX);
+    runFrames(sim, 1);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    expect(sim.snapshot().shieldBounce.ghosts).toEqual([]);
+    expect(sim.snapshot().shieldBounce.player?.step).toEqual({ dx: 1, dy: 0 });
+  });
+
+  it("keeps the immunity fallback for a lava break", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveStartingShield"] });
+    sim["breakShield"](null, null);
+    expect(sim.snapshot().timers.invulnMs).toBe(SHIELD_BREAK_INVULN_MS);
+    expect(bounceIdle(sim)).toBe(true);
   });
 });
 
@@ -6112,6 +6299,7 @@ describe("timed tunnels", () => {
     Position.y[playerEid(sim)] = cellCenterY(row);
     advanceToPhase(sim, "closed");
     expect(sim["tunnelDashAnim"]).toBeNull();
+    expect(Position.x[playerEid(sim)]!).toBeLessThan(cellCenterX(6));
     const x = Position.x[playerEid(sim)]!;
     expect(x).toBeGreaterThanOrEqual(clampToGridCenters(-1e9, 0).x);
     expect(x).toBeLessThanOrEqual(clampToGridCenters(1e9, 0).x);

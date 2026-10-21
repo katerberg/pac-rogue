@@ -605,6 +605,7 @@ export type RenderOptions = {
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
+  spriteOffsets?: Record<number, { x: number; y: number }>;
   hauntedGhost?: HauntedGhost | null;
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
@@ -1192,8 +1193,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             ? ghostWarpGlides?.[eid]
             : undefined;
       const glideHead = glide?.[0];
-      const x = glideHead?.x ?? Position.x[eid] ?? 0;
-      const y = glideHead?.y ?? Position.y[eid] ?? 0;
+      const offset = opts?.spriteOffsets?.[eid];
+      const x = (glideHead?.x ?? Position.x[eid] ?? 0) + (offset?.x ?? 0);
+      const y = (glideHead?.y ?? Position.y[eid] ?? 0) + (offset?.y ?? 0);
       const size = displaySizeForDrawable(id);
       const radius = Drawable.radius[eid] ?? size / 2;
       const ghostTint =
