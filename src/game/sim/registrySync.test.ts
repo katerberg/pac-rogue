@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { isLowPowerId } from "../../domain/lowPowerUpgrades";
 import {
   ALL_UPGRADE_IDS,
   LEARN_NO_EFFECT_UPGRADE_IDS,
@@ -21,8 +22,11 @@ const KNOWN_UNTESTED_UPGRADES: ReadonlySet<BaseUpgradeId> = new Set([
 
 describe("upgrade registry completeness", () => {
   const playSimTests = read("src/game/sim/playSim.test.ts");
+  const coversAllLowPower = playSimTests.includes("it.each(LOW_POWER_IDS)");
   const covered = (id: BaseUpgradeId): boolean =>
-    playSimTests.includes(`"${id}"`) || playSimTests.includes(`"${id}Plus"`);
+    playSimTests.includes(`"${id}"`) ||
+    playSimTests.includes(`"${id}Plus"`) ||
+    (coversAllLowPower && isLowPowerId(id));
 
   it("has a PlaySim test for every upgrade, except the known gaps", () => {
     const missing = ALL_UPGRADE_IDS.filter(
@@ -42,8 +46,11 @@ describe("upgrade registry completeness", () => {
 
 describe("LEARN upgrade coverage", () => {
   const learnTests = read("src/game/sim/learnSim.test.ts");
+  const coversAllLowPower = learnTests.includes("it.each(LOW_POWER_IDS)");
   const covered = (id: BaseUpgradeId): boolean =>
-    learnTests.includes(`"${id}"`) || learnTests.includes(`"${id}Plus"`);
+    learnTests.includes(`"${id}"`) ||
+    learnTests.includes(`"${id}Plus"`) ||
+    (coversAllLowPower && isLowPowerId(id));
 
   it("has a LearnSim test for every listed upgrade, or marks it no-effect", () => {
     const missing = ALL_UPGRADE_IDS.filter(

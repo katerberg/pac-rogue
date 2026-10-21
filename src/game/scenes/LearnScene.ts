@@ -63,6 +63,7 @@ import {
   type UpgradeDef,
   type UpgradeId,
 } from "../../domain/upgrades";
+import { isLowPowerId } from "../../domain/lowPowerUpgrades";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
 import { createHeldKeysReader } from "../systems/playerInput";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -593,8 +594,9 @@ export class LearnScene extends Phaser.Scene {
       row.checkBox.setVisible(inView);
       row.label.setVisible(inView);
       row.checkMark.setVisible(inView && selected);
-      row.plus.setVisible(inView && selected);
-      row.plusBox.setVisible(inView && selected);
+      const enhanceable = selected && !isLowPowerId(row.id);
+      row.plus.setVisible(inView && enhanceable);
+      row.plusBox.setVisible(inView && enhanceable);
       row.plusBox.setFillStyle(RARE_LABEL_COLOR, state === "on" ? 1 : 0);
       row.plus.setTint(state === "on" ? UPGRADE_PLUS_ON_TINT : RARE_LABEL_COLOR);
       row.label.setText(getUpgradeDef(state === "on" ? enhancedIdOf(row.id) : row.id).label);
@@ -605,7 +607,7 @@ export class LearnScene extends Phaser.Scene {
       } else {
         row.checkZone.setInteractive({ useHandCursor: true });
         row.labelZone.setInteractive({ useHandCursor: true });
-        if (selected) {
+        if (enhanceable) {
           row.plusZone.setInteractive({ useHandCursor: true });
         } else {
           row.plusZone.disableInteractive();

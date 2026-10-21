@@ -895,17 +895,6 @@ export function isGhostTunnelSlow(col: number, row: number): boolean {
   return horizontalTunnelBandEdge(col, cols) !== null;
 }
 
-export function tunnelDashOutwardEdge(
-  col: number,
-  row: number,
-  solids: SolidGrid = getActiveLayout().playerSolids,
-): "left" | "right" | null {
-  if (!isWalkable(col, row, solids) || !hasHorizontalTunnel(row, solids)) {
-    return null;
-  }
-  return horizontalTunnelBandEdge(col, getActiveLayout().cols);
-}
-
 export function inBounds(col: number, row: number): boolean {
   return col >= 0 && col < MAZE_COLS && row >= 0 && row < MAZE_ROWS;
 }

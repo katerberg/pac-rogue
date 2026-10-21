@@ -6,6 +6,12 @@ import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import {
+  LOW_POWER_IDS,
+  LOW_POWER_SLOWDOWN_CUT,
+  LOW_POWER_SPEED_ADD,
+  isLowPowerId,
+} from "../../domain/lowPowerUpgrades";
+import {
   SPUNKY_AGGRO_TILES,
   WARDY_STRIKE_TILES,
   rimDistance,
@@ -1115,27 +1121,6 @@ describe("LearnSim upgrade demos", () => {
       ).toBe(8);
     });
 
-    it("gets Tunnel Dash sweeps", () => {
-      const row = horizontalTunnelRows()[0]!;
-      const swept = (extra: BaseUpgradeId[]): [boolean, boolean] => {
-        const { sim, player } = setup("powerPelletMirror", ...extra);
-        parkGhost(sim);
-        chompPower(sim, player);
-        const [near, far] = query(sim.world, [Pellet, Position]).filter(
-          (eid) => !hasComponent(sim.world, eid, PowerPellet),
-        ) as [number, number];
-        moveTo(near, { x: cellCenterX(0), y: cellCenterY(row) });
-        moveTo(far, { x: cellCenterX(mirror(0)), y: cellCenterY(row) });
-        moveTo(player, { x: cellCenterX(1), y: cellCenterY(row) });
-        Facing.direction[player] = DIRECTION.left;
-        sim.step(held("left"), FRAME_MS);
-        const left = query(sim.world, [Pellet]);
-        return [!left.includes(near), !left.includes(far)];
-      };
-      expect(swept([])).toEqual([false, false]);
-      expect(swept(["passiveTunnelDash"])).toEqual([true, true]);
-    });
-
     it("toggling it off removes the twin", () => {
       const { sim, player } = setup("powerPelletMirror");
       parkGhost(sim);
@@ -1745,21 +1730,6 @@ describe("LearnSim upgrade demos", () => {
       expect(charged).toBeGreaterThan(plain);
     });
 
-    it("Tunnel Dash sweeps the tunnel row the moment Maze-Man faces out", () => {
-      const dashes = (...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): boolean => {
-        const { sim, player } = setup(...ids);
-        moveTo(player, { x: cellCenterX(1), y: cellCenterY(horizontalTunnelRows()[0]!) });
-        let dashing = false;
-        for (let i = 0; i < 5 && !dashing; i += 1) {
-          sim.step(held("left"), FRAME_MS);
-          dashing = sim["tunnelDashAnim"] !== null;
-        }
-        return dashing;
-      };
-      expect(dashes()).toBe(false);
-      expect(dashes("passiveTunnelDash")).toBe(true);
-    });
-
     describe("Ghost Recall", () => {
       const inHouse = (eid: number): boolean => GhostPhase.value[eid] === GHOST_PHASE.inHouse;
 
@@ -1913,6 +1883,34 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toContain("NEXT FRUIT AT 60 PELLETS");
   });
 
+  it("Speed speeds Maze-Man up", () => {
+    const speed = (...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number => {
+      const { sim, player } = setup(...ids);
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      return Speed.px[player]!;
+    };
+    expect(speed("lowSpeed") / speed()).toBeCloseTo(1 + LOW_POWER_SPEED_ADD);
+  });
+
+  it("a ghost slowdown slows the selected ghost only", () => {
+    const ghostSpeed = (...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number => {
+      const { sim } = setup(...ids);
+      const ghost = sim.ghostEid!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      return Speed.px[ghost]!;
+    };
+    expect(ghostSpeed("lowSlowdownBlinky") / ghostSpeed()).toBeCloseTo(1 - LOW_POWER_SLOWDOWN_CUT);
+    expect(ghostSpeed("lowSlowdownClyde")).toBeCloseTo(ghostSpeed());
+  });
+
+  it("a ghost house delay holds only the selected ghost in the house", () => {
+    const held = setup("lowHouseDelayBlinky");
+    expect(held.sim.statusText()).toContain("MOVE TO START");
+    const free = setup("lowHouseDelayClyde");
+    expect(free.sim.statusText()).toBe("");
+  });
+
   it("House Delay holds the ghost until the delayed release", () => {
     const { sim, player } = setup("passiveGhostHouseDelay");
     const ghost = sim.ghostEid!;
@@ -1988,9 +1986,24 @@ function lastDrawOptions(events: SimEvent[]): SimRenderOptions {
 }
 
 describe("LearnSim upgrade registry", () => {
-  const listed = UPGRADE_DEFS.filter((def) => !isSpecialist(def.id) && !isEnhancedId(def.id)).map(
-    (def) => def.id as BaseUpgradeId,
-  );
+  const listed = UPGRADE_DEFS.filter(
+    (def) => !isSpecialist(def.id) && !isEnhancedId(def.id) && !isLowPowerId(def.id),
+  ).map((def) => def.id as BaseUpgradeId);
+
+  it.each(LOW_POWER_IDS)("%s toggles on and off and runs, with no Plus form", (id) => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.blinky);
+    sim.toggleUpgrade(id);
+    expect(sim.ownedUpgrades).toEqual([id]);
+    sim.toggleEnhanced(id);
+    expect(sim.ownedUpgrades).toEqual([id]);
+    for (let i = 0; i < 30; i += 1) {
+      sim.step(held("right"), FRAME_MS);
+    }
+    sim.toggleUpgrade(id);
+    expect(sim.ownedUpgrades).toEqual([]);
+  });
 
   it.each(listed)("%s and its Plus form can be toggled and run", (baseId) => {
     const sim = new LearnSim("learn");
