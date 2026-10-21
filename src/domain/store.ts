@@ -15,8 +15,8 @@ import {
   type UpgradeSchool,
 } from "./upgrades";
 
-export const STORE_SWAP_PRICE = 1;
-export const STORE_ENHANCE_PRICE = 2;
+export const STORE_SWAP_PRICE = 2;
+export const STORE_ENHANCE_PRICE = 3;
 export const STORE_ENHANCE_BORDER_COLOR = 0xffd24a;
 const ENHANCE_GLOW_PERIOD_MS = 1600;
 const ENHANCE_GLOW_MIN_ALPHA = 0.12;
