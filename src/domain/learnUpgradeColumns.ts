@@ -1,7 +1,9 @@
-import { PLAYFIELD_WIDTH } from "./playfieldBounds";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 import type { groupUpgradesBySchool } from "./upgrades";
 
 export const LEARN_SCHOOLS_PER_COLUMN = 3;
+
+export const LEARN_BACK_Y = PLAYFIELD_HEIGHT - 50;
 
 export type LearnColumn = "left" | "right";
 
@@ -20,4 +22,8 @@ export function splitSchoolColumns(
 
 export function hoverPreviewX(column: LearnColumn): number {
   return column === "left" ? HOVER_PREVIEW_INSET_X : PLAYFIELD_WIDTH - HOVER_PREVIEW_INSET_X;
+}
+
+export function learnHoverPreviewCenter(): { x: number; y: number } {
+  return { x: PLAYFIELD_WIDTH / 2, y: LEARN_BACK_Y };
 }

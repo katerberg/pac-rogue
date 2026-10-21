@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { PLAYFIELD_WIDTH } from "./playfieldBounds";
-import { hoverPreviewX, splitSchoolColumns, type SchoolGroup } from "./learnUpgradeColumns";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
+import {
+  LEARN_BACK_Y,
+  hoverPreviewX,
+  learnHoverPreviewCenter,
+  splitSchoolColumns,
+  type SchoolGroup,
+} from "./learnUpgradeColumns";
 import { UPGRADE_SCHOOL_ORDER } from "./upgrades";
 
 const groups = (count: number): SchoolGroup[] =>
@@ -39,5 +45,15 @@ describe("hoverPreviewX", () => {
   it("mirrors the preview anchor across the playfield", () => {
     expect(hoverPreviewX("left")).toBe(110);
     expect(hoverPreviewX("right")).toBe(PLAYFIELD_WIDTH - 110);
+  });
+});
+
+describe("learnHoverPreviewCenter", () => {
+  it("centers the card on BACK at the bottom of the playfield", () => {
+    expect(LEARN_BACK_Y).toBe(PLAYFIELD_HEIGHT - 50);
+    expect(learnHoverPreviewCenter()).toEqual({
+      x: PLAYFIELD_WIDTH / 2,
+      y: LEARN_BACK_Y,
+    });
   });
 });
