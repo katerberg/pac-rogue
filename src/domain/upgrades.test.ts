@@ -54,7 +54,12 @@ import {
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
   bankShields,
+  bankPeels,
+  bananaPeelCap,
+  BANANA_SHIELD_CAP,
+  BANANA_SHIELD_ENHANCED_CAP,
   grantStartingShields,
+  peelBankCap,
   powerPelletPickupFires,
   providesShields,
   shieldBankCap,
@@ -68,6 +73,7 @@ import {
   STARTING_SHIELD_ENHANCED_COUNT,
   shieldPelletsCap,
   spendShield,
+  spendPeel,
   OVERCHARGE_MUL,
   PLAYER_SPEED_BURST_MUL,
   AFTERBURNER_MUL,
@@ -256,6 +262,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveReactiveArmor",
   "powerPelletTithe",
   "passiveMole",
+  "passiveBananaShield",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -1355,6 +1362,43 @@ describe("defy death / power pellet", () => {
     const armed = applyPowerPelletEffects(state, 1).state;
     expect(armed.defyDeathRemainingMs).toBe(DEFY_DEATH_MS * OVERCHARGE_MUL);
     expect(clearUpgradeTimers(armed).defyDeathRemainingMs).toBe(0);
+  });
+});
+
+describe("banana peels", () => {
+  it("has no peel cap unless owned; caps at 1 base and 3 enhanced", () => {
+    expect(bananaPeelCap([])).toBeNull();
+    expect(bananaPeelCap(["passiveBananaShield"])).toBe(BANANA_SHIELD_CAP);
+    expect(bananaPeelCap(["passiveBananaShieldPlus"])).toBe(BANANA_SHIELD_ENHANCED_CAP);
+    expect(peelBankCap(["passiveBananaShieldPlus"])).toBe(3);
+  });
+
+  it("banks peels separately from shields", () => {
+    const state = createRunUpgrades(["passiveBananaShield", "passiveShieldPellets"]);
+    const banked = bankShields(bankPeels(state, 1), 1);
+    expect(banked.peelsBanked).toBe(1);
+    expect(banked.shieldsBanked).toBe(1);
+    expect(bankPeels(bankPeels(createRunUpgrades(["passiveBananaShield"]), 1), 1).peelsBanked).toBe(
+      1,
+    );
+    expect(bankPeels(createRunUpgrades(["passiveBananaShieldPlus"]), 5).peelsBanked).toBe(3);
+  });
+
+  it("spends one peel, or returns null when empty", () => {
+    const plus = bankPeels(createRunUpgrades(["passiveBananaShieldPlus"]), 3);
+    expect(spendPeel(plus)?.peelsBanked).toBe(2);
+    expect(spendPeel(createRunUpgrades(["passiveBananaShieldPlus"]))).toBeNull();
+  });
+
+  it("counts as a shield source for Shield Break eligibility", () => {
+    expect(providesShields(["passiveBananaShield"])).toBe(true);
+    expect(providesShields([])).toBe(false);
+  });
+
+  it("empties peels when Banana Trail is revoked and keeps them through timer clears", () => {
+    const banked = bankPeels(createRunUpgrades(["passiveBananaShieldPlus"]), 3);
+    expect(revokeUpgrade(banked, "passiveBananaShieldPlus").peelsBanked).toBe(0);
+    expect(clearUpgradeTimers(banked).peelsBanked).toBe(3);
   });
 });
 

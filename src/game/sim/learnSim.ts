@@ -48,11 +48,15 @@ import {
   cellCenterY,
   getActiveLayout,
   ghostHouseSpawnCenter,
+  isSolid,
   isWalkable,
   pelletCellCenters,
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { bananaPeelSprites } from "../../domain/bananaPeel";
+import type { TailBead } from "../../domain/charmTail";
+import { ghostTouchingPeel, stepBananaPeelTail } from "../systems/bananaPeel";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
@@ -99,8 +103,11 @@ import {
   streakEngineEvery,
   streakEngineInvulnMs,
   bankShields,
+  bankPeels,
+  bananaPeelCap,
   grantStartingShields,
   shieldBankCap,
+  peelBankCap,
   powerPelletPickupFires,
   shieldBreakOwned,
   reactiveArmorOwned,
@@ -108,6 +115,7 @@ import {
   shieldOverflow,
   shieldPelletsCap,
   spendShield,
+  spendPeel,
   HYPERSPEED_MUL,
   hyperspeedActive,
   hyperspeedMultiplier,
@@ -310,6 +318,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveShieldBreak",
   "passiveInheritance",
   "powerPelletMirror",
+  "passiveBananaShield",
 ];
 
 export class LearnSim {
@@ -335,6 +344,8 @@ export class LearnSim {
   private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private shieldBounce: ShieldBounce = NO_SHIELD_BOUNCE;
+  private peelTail: TailBead[] = [];
+  private peelClockMs = 0;
   private bounceStaleKeys: HeldKeys | null = null;
   private fruitRespawnRemainingMs: number | null = null;
   private cornucopiaFruit = new Map<number, number>();
@@ -742,19 +753,22 @@ export class LearnSim {
     this.eatFrightenedGhosts();
 
     const catchOptions = this.catchOptions();
-    const demo = this.catchDemoOwned();
-    const playerCaught = demo ? catchPlayer(this.world, catchOptions) : null;
-    const twinAt = this.twinPosition();
-    const twinCaught =
-      demo && playerCaught === null && twinAt !== null
-        ? catchPlayer(this.world, { ...catchOptions, at: twinAt })
-        : null;
-    const caught = playerCaught ?? twinCaught;
-    if (caught === null) {
-      this.payNearMisses(catchOptions);
-    } else {
-      this.nearMissPasses = createNearMissPasses();
-      this.resolveDemoCatch(caught, playerCaught === null ? twinAt : null, keys);
+    this.stepPeelTail(delta);
+    if (!this.tryBreakPeel(catchOptions)) {
+      const demo = this.catchDemoOwned();
+      const playerCaught = demo ? catchPlayer(this.world, catchOptions) : null;
+      const twinAt = this.twinPosition();
+      const twinCaught =
+        demo && playerCaught === null && twinAt !== null
+          ? catchPlayer(this.world, { ...catchOptions, at: twinAt })
+          : null;
+      const caught = playerCaught ?? twinCaught;
+      if (caught === null) {
+        this.payNearMisses(catchOptions);
+      } else {
+        this.nearMissPasses = createNearMissPasses();
+        this.resolveDemoCatch(caught, playerCaught === null ? twinAt : null, keys);
+      }
     }
 
     this.events.push({
@@ -782,6 +796,7 @@ export class LearnSim {
         droppedWall: this.learnUpgrades.droppedWall,
         chaff: chaffSprites(this.learnUpgrades.chaff),
         shields: this.learnUpgrades.shieldsBanked,
+        peels: bananaPeelSprites(this.peelTail),
         programmerQueue: this.programmerQueue(),
         mirror: this.twinDashBody(),
         mirrorPop: mirrorPopRender(this.mirrorPop),
@@ -972,10 +987,72 @@ export class LearnSim {
     if (shieldPelletsCap(owned) !== null) {
       this.learnUpgrades = bankShields(this.learnUpgrades, powerRemoved);
     }
+    if (bananaPeelCap(owned) !== null) {
+      this.learnUpgrades = bankPeels(this.learnUpgrades, powerRemoved);
+    }
     const fires = powerPelletPickupFires(owned, powerRemoved, overflow);
     if (fires > 0) {
       this.firePowerPelletEffects(fires);
     }
+  }
+
+  private stepPeelTail(delta: number): void {
+    this.peelClockMs += Math.max(0, delta);
+    const solids = this.playerSolids();
+    const stepped = stepBananaPeelTail(this.world, this.peelTail, this.learnUpgrades.peelsBanked, {
+      dtMs: delta,
+      nowMs: this.peelClockMs,
+      motion: 1,
+      blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
+    });
+    this.peelTail = stepped.beads;
+  }
+
+  private tryBreakPeel(catchOptions: CatchOptions): boolean {
+    if (this.learnUpgrades.peelsBanked <= 0) {
+      return false;
+    }
+    const ghostEid = ghostTouchingPeel(this.world, this.peelTail, catchOptions);
+    if (ghostEid === null) {
+      return false;
+    }
+    return this.breakPeel(ghostEid);
+  }
+
+  private breakPeel(ghostEid: number): boolean {
+    const spent = spendPeel(this.learnUpgrades);
+    if (spent === null) {
+      return false;
+    }
+    this.learnUpgrades = spent;
+    this.streakBar = createPennyPurse();
+    const solids = this.playerSolids();
+    const resized = stepBananaPeelTail(this.world, this.peelTail, this.learnUpgrades.peelsBanked, {
+      dtMs: 0,
+      nowMs: this.peelClockMs,
+      motion: 0,
+      blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
+    });
+    this.peelTail = resized.beads;
+    for (const bead of resized.dropped) {
+      this.events.push({ type: "peelCrack", x: bead.x, y: bead.y });
+    }
+    const bounce = startShieldBounce(this.world, ghostEid, { bouncePlayer: false });
+    this.fireReactiveArmor(ghostEid);
+    if (shieldBreakOwned(this.learnUpgrades.owned)) {
+      this.firePowerPelletEffects(1);
+    }
+    if (bounce === null) {
+      this.learnUpgrades = applyShieldBreakInvuln(this.learnUpgrades);
+    } else {
+      this.shieldBounce = settleShieldBounce(
+        this.shieldBounce,
+        bounce,
+        this.warpGlide !== null,
+        heldGhostEids(this.ghostCornerWarps),
+      );
+    }
+    return true;
   }
 
   private fireDueEchoes(delta: number): void {
@@ -1363,6 +1440,9 @@ export class LearnSim {
         this.hyperspeedFruit.push(...collectFruitForBodies(this.world, this.twinPosition()));
         this.eatFrightenedGhosts();
         const options = this.catchOptions();
+        if (this.tryBreakPeel(options)) {
+          return false;
+        }
         const twinAt = this.twinPosition();
         const hit =
           catchPlayer(this.world, options) ??
@@ -1621,6 +1701,9 @@ export class LearnSim {
       if (shieldPelletsCap(owned) !== null) {
         this.learnUpgrades = bankShields(this.learnUpgrades, 1);
       }
+      if (bananaPeelCap(owned) !== null) {
+        this.learnUpgrades = bankPeels(this.learnUpgrades, 1);
+      }
       const fires = powerPelletPickupFires(owned, 1, overflow);
       if (fires > 0) {
         const bases = pickFruitPowerBases(owned, this.random.stream("fruitPower"));
@@ -1860,6 +1943,7 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     titheRemainingMs: hasField("titheMs") ? state.titheRemainingMs : 0,
     defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
     shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
+    peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
     wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
     mirrorActive: hasField("mirror") && state.mirrorActive,

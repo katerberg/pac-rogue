@@ -306,6 +306,8 @@ export class LearnScene extends Phaser.Scene {
         pulseUpgradeMarks(this, this.upgradeMarks(), event.ids);
       } else if (event.type === "chaffBurst") {
         playChaffBurst(this, event);
+      } else if (event.type === "peelCrack") {
+        this.playRender.queuePeelCrack(event.x, event.y);
       } else if (event.type === "turnSparks") {
         playTurnSparks(this, event);
       } else if (event.type === "streakPop") {
