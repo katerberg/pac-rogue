@@ -1603,11 +1603,23 @@ export class LearnSim {
     lines.push(
       outcome.kind === "saved" ? "SAVED" : outcome.kind === "reset" ? "LIVES RESET" : "LIFE LOST",
     );
+    let hauntedEid: number | null = null;
     if (hasUpgrade(owned, "passiveHaunting")) {
       this.releaseHauntedGhost();
       this.seatGhostAtExit(caughtBy);
       this.learnUpgrades = armHaunt(this.learnUpgrades, caughtBy, HAUNTING_MS);
+      hauntedEid = caughtBy;
       lines.push("HAUNTED");
+    }
+    if (outcome.kind === "saved") {
+      const player = this.playerPosition();
+      if (player !== null) {
+        const warps = teleportGhostsToCorners(this.world, 0, {
+          onlyOnCell: { col: worldToCol(player.x), row: worldToRow(player.y) },
+          excludeEids: hauntedEid === null ? undefined : new Set([hauntedEid]),
+        });
+        this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, warps);
+      }
     }
     if (outcome.quartersPaid > 0) {
       lines.push(`-${outcome.quartersPaid} Q`);

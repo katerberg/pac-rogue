@@ -1320,6 +1320,51 @@ describe("PlaySim", () => {
       expect(sim.snapshot().lives).toBe(1);
       expect(events.some((e) => e.type === "endText" || e.type === "saveRun")).toBe(false);
     });
+
+    it("leaves ghosts where they are on a save, scattering only those on the respawn tile", () => {
+      const sim = startDefySim();
+      const spawn = { ...sim.snapshot().player! };
+      const ghosts = query(sim.world, [Ghost, Position, GhostPhase]);
+      expect(ghosts.length).toBeGreaterThanOrEqual(2);
+      const catcher = ghosts[0]!;
+      const onSpawn = ghosts[1]!;
+      chompPowerPellet(sim);
+      const fell = { ...sim.snapshot().player! };
+      expect(fell.col !== spawn.col || fell.row !== spawn.row).toBe(true);
+      for (const eid of ghosts) {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+      }
+      Position.x[onSpawn] = cellCenterX(spawn.col);
+      Position.y[onSpawn] = cellCenterY(spawn.row);
+      const onSpawnKind = GhostKind.kind[onSpawn] as GhostKindId;
+      const expectedScatter = ghostTeleportCell(scatterTargetForKind(onSpawnKind), {
+        col: spawn.col,
+        row: spawn.row,
+      });
+      ghostOntoPlayer(sim);
+      expect(Position.x[catcher]).toBe(Position.x[playerEid(sim)]);
+      const catcherAt = { x: Position.x[catcher]!, y: Position.y[catcher]! };
+      runFrames(sim, 1);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
+      expect(GhostPhase.value[catcher]).toBe(GHOST_PHASE.active);
+      expect({ x: Position.x[catcher], y: Position.y[catcher] }).toEqual(catcherAt);
+      expect(GhostPhase.value[onSpawn]).toBe(GHOST_PHASE.active);
+      expect({ x: Position.x[onSpawn], y: Position.y[onSpawn] }).toEqual({
+        x: cellCenterX(expectedScatter.col),
+        y: cellCenterY(expectedScatter.row),
+      });
+    });
+
+    it("still cages every ghost on a real life loss", () => {
+      const sim = startDefySim();
+      for (const eid of query(sim.world, [Ghost, GhostPhase])) {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+      }
+      getCaught(sim);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().ghosts.every((ghost) => ghost.phase === "inHouse")).toBe(true);
+    });
   });
 
   it.each([
