@@ -11,6 +11,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 ## Screen and overlay
 
 - Ghost slots on top, seen upgrades grouped by school beside the maze. Multiple upgrades can be selected at once (a local `RunUpgrades` bag, not a real run) and persist across ghost switches; only transient power-pellet timers, corner glides and recall holds reset.
+- Opaque full-height fills behind each upgrade column (`learnUpgradeBarRects`) use the Play sidebar tint so the maze clips under the bars instead of showing through the labels.
 - Each side list uses the gutters from the top of the ghost slots down through the bottom of BACK (`learnUpgradeScroll.ts`); when a column overflows that band, the mouse wheel over the gutter scrolls it independently, with rotated `>` chevron cues when more rows sit above or below.
 - Hovering a label shows the level-clear picker card. A `+` mark on a selected row toggles its enhanced form (`LearnSim.toggleEnhanced`).
 - Selecting an upgrade with no observable effect here (`LEARN_NO_EFFECT_UPGRADE_IDS` in `src/domain/upgrades.ts`) shows a "no visible effect" banner.
