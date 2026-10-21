@@ -1196,15 +1196,14 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       const now = scene.time.now;
       const bubbleSize = bubbleShieldDisplaySize(playerSize);
       if (trackBreaks) {
-        const next = bubbleShieldCracksAfterDrop(
+        visual.bubbleCracks = bubbleShieldCracksAfterDrop(
           visual.bubbleShields,
           shields,
           at,
           now,
           visual.bubbleCracks,
         );
-        visual.bubbleShields = next.shields;
-        visual.bubbleCracks = next.cracks;
+        visual.bubbleShields = shields;
       }
       const textureKey = bubbleShieldTextureKey(shields);
       if (textureKey !== null) {

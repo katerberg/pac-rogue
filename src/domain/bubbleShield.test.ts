@@ -30,21 +30,18 @@ describe("bubbleShieldCracksAfterDrop", () => {
   it("spawns one crack per lost shield using the pre-drop texture", () => {
     const at = { x: 10, y: 20 };
     const dropped = bubbleShieldCracksAfterDrop(2, 1, at, 100, []);
-    expect(dropped.shields).toBe(1);
-    expect(dropped.cracks).toEqual([
-      { x: 10, y: 20, startMs: 100, textureKey: BUBBLE_SHIELD_MULTI_KEY },
-    ]);
-    const last = bubbleShieldCracksAfterDrop(1, 0, at, 200, dropped.cracks);
-    expect(last.cracks).toHaveLength(2);
-    expect(last.cracks[1]).toMatchObject({
+    expect(dropped).toEqual([{ x: 10, y: 20, startMs: 100, textureKey: BUBBLE_SHIELD_MULTI_KEY }]);
+    const last = bubbleShieldCracksAfterDrop(1, 0, at, 200, dropped);
+    expect(last).toHaveLength(2);
+    expect(last[1]).toMatchObject({
       startMs: 200,
       textureKey: BUBBLE_SHIELD_SINGLE_KEY,
     });
   });
 
   it("does not crack when shields rise or stay put", () => {
-    expect(bubbleShieldCracksAfterDrop(0, 1, { x: 0, y: 0 }, 0, []).cracks).toEqual([]);
-    expect(bubbleShieldCracksAfterDrop(2, 2, { x: 0, y: 0 }, 0, []).cracks).toEqual([]);
+    expect(bubbleShieldCracksAfterDrop(0, 1, { x: 0, y: 0 }, 0, [])).toEqual([]);
+    expect(bubbleShieldCracksAfterDrop(2, 2, { x: 0, y: 0 }, 0, [])).toEqual([]);
   });
 
   it("drops finished cracks", () => {
@@ -54,8 +51,7 @@ describe("bubbleShieldCracksAfterDrop", () => {
       startMs: 0,
       textureKey: BUBBLE_SHIELD_SINGLE_KEY,
     };
-    const kept = bubbleShieldCracksAfterDrop(1, 1, { x: 0, y: 0 }, SHIELD_CRACK_MS, [stale]);
-    expect(kept.cracks).toEqual([]);
+    expect(bubbleShieldCracksAfterDrop(1, 1, { x: 0, y: 0 }, SHIELD_CRACK_MS, [stale])).toEqual([]);
   });
 });
 

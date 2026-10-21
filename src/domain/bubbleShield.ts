@@ -5,7 +5,6 @@ export const BUBBLE_SHIELD_MULTI_KEY = "bubble-shield-multiple";
 export const BUBBLE_SHIELD_SINGLE_PATH = "art/other/bubble-shield.png";
 export const BUBBLE_SHIELD_MULTI_PATH = "art/other/bubble-shield-multiple.png";
 export const BUBBLE_SHIELD_ART_SIZE_PX = 16;
-/** World px of padding beyond Dot-Man's display size on each side. */
 export const BUBBLE_SHIELD_PAD_PX = 4;
 
 export type BubbleShieldCrack = {
@@ -45,21 +44,21 @@ export function bubbleShieldCracksAfterDrop(
   at: { x: number; y: number },
   nowMs: number,
   existing: readonly BubbleShieldCrack[],
-): { shields: number; cracks: BubbleShieldCrack[] } {
+): BubbleShieldCrack[] {
   const cracks = existing.filter((crack) => shieldCrackProgress(nowMs - crack.startMs) < 1);
   if (shields >= previousShields) {
-    return { shields, cracks: [...cracks] };
+    return [...cracks];
   }
   const textureKey = bubbleShieldTextureKey(previousShields);
   if (textureKey === null) {
-    return { shields, cracks: [...cracks] };
+    return [...cracks];
   }
   const lost = previousShields - shields;
   const next = [...cracks];
   for (let i = 0; i < lost; i += 1) {
     next.push({ x: at.x, y: at.y, startMs: nowMs, textureKey });
   }
-  return { shields, cracks: next };
+  return next;
 }
 
 export function bubbleShieldCrackHalfPose(
