@@ -5,6 +5,7 @@ import type { TailBead } from "./charmTail";
 export const BANANA_PEEL_TEXTURE_KEY = "banana-peel";
 export const BANANA_PEEL_PATH = "art/other/banana-peel.png";
 export const BANANA_PEEL_ART_SIZE_PX = 16;
+export const BANANA_PEEL_DISPLAY_SIZE_PX = 13;
 export const PEEL_CATCH_MIN_OVERLAP_FRACTION = 0.3;
 
 export type BananaPeelCrack = {

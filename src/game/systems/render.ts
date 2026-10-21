@@ -145,6 +145,7 @@ import {
   type BubbleShieldCrack,
 } from "../../domain/bubbleShield";
 import {
+  BANANA_PEEL_DISPLAY_SIZE_PX,
   BANANA_PEEL_PATH,
   BANANA_PEEL_TEXTURE_KEY,
   bananaPeelCrackHalfPose,
@@ -1767,7 +1768,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
     }
 
-    const peelSize = DEFAULT_CHARM_TUNING.charmSize;
+    const peelSize = BANANA_PEEL_DISPLAY_SIZE_PX;
     const peels = opts?.peels ?? [];
     for (let i = 0; i < peels.length; i += 1) {
       const peel = peels[i]!;
