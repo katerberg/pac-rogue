@@ -8973,3 +8973,139 @@ describe("Banana Trail", () => {
     expect(sim.snapshot().peels).toEqual([]);
   });
 });
+
+describe("Martyr", () => {
+  const LEFT = { keys: held("left") };
+
+  function dieOnce(sim: PlaySim): void {
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+  }
+
+  it("fires owned power-pellet effects on a real death", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "powerPelletInvuln"],
+    });
+    dieOnce(sim);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
+  });
+
+  it("base skips Defy Death saves; Plus fires on them", () => {
+    const base = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "passiveDefyDeath", "powerPelletInvuln"],
+    });
+    const power = query(base.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(base, Position.x[power]!, Position.y[power]!);
+    runFrames(base, 1);
+    expect(base.snapshot().timers.defyDeathMs).toBeGreaterThan(0);
+    const livesBefore = base.snapshot().lives;
+    const invulnBefore = base.snapshot().timers.invulnMs;
+    ghostOntoPlayer(base);
+    runFrames(base, 1);
+    expect(base.snapshot().lives).toBe(livesBefore);
+    // Base Martyr does not re-fire invuln on a save (timer only ticks down).
+    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(invulnBefore);
+
+    const plus = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyrPlus", "passiveDefyDeath", "powerPelletInvuln"],
+    });
+    const power2 = query(plus.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(plus, Position.x[power2]!, Position.y[power2]!);
+    runFrames(plus, 1);
+    ghostOntoPlayer(plus);
+    runFrames(plus, 1);
+    // Plus Martyr re-fires invuln on the Defy Death save.
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(3000);
+  });
+
+  it("skips when infiniteLives is on", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["passiveMartyr", "powerPelletInvuln"],
+    });
+    dieOnce(sim);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+  });
+});
+
+describe("Possession", () => {
+  const LEFT = { keys: held("left") };
+
+  function startPossession(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  function enterPossession(sim: PlaySim): number {
+    runFrames(sim, 20, LEFT);
+    const killer = query(sim.world, [Ghost, Position])[0]!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().possessing).toBe(true);
+    expect(sim.snapshot().timers.possessionMs).toBeGreaterThan(0);
+    expect(sim.snapshot().dying).toBe(false);
+    return killer;
+  }
+
+  it("possesses the catching ghost and frightens the others", () => {
+    const sim = startPossession(["passivePossession"]);
+    const killer = enterPossession(sim);
+    expect(sim.snapshot().possessedGhost).toBe(ghostName(sim.world, killer));
+    expect(sim.snapshot().frightenedGhosts.length).toBeGreaterThan(0);
+    expect(sim.snapshot().frightenedGhosts).not.toContain(ghostName(sim.world, killer));
+  });
+
+  it("ends into the normal death hold, then respawns", () => {
+    const sim = startPossession(["passivePossession"]);
+    enterPossession(sim);
+    runUntil(sim, () => sim.snapshot().dying === true, 400);
+    expect(sim.snapshot().possessing).toBe(false);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("Possession+ haunts the steered ghost after the death hold", () => {
+    const sim = startPossession(["passivePossessionPlus"]);
+    const killer = enterPossession(sim);
+    runUntil(sim, () => !sim.snapshot().dying && sim.snapshot().hauntedGhost !== null, 500);
+    expect(sim.snapshot().hauntedGhost).toBe(ghostName(sim.world, killer));
+    expect(sim.snapshot().timers.hauntMs).toBe(5000);
+  });
+
+  it("skips on lava and with infiniteLives", () => {
+    const infinite = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["passivePossession"],
+    });
+    runFrames(infinite, 20, LEFT);
+    ghostOntoPlayer(infinite);
+    runFrames(infinite, 1);
+    expect(infinite.snapshot().possessing).toBe(false);
+    expect(infinite.snapshot().dying).toBe(true);
+  });
+
+  it("eats regular pellets without growing the streak", () => {
+    const sim = startPossession(["passivePossession"]);
+    const killer = enterPossession(sim);
+    const before = sim.snapshot().boardCollected;
+    const streakBefore = sim.snapshot().pennies?.streak ?? 0;
+    const pellet = query(sim.world, [Pellet, Position]).find(
+      (eid) => !hasComponent(sim.world, eid, PowerPellet),
+    )!;
+    Position.x[killer] = Position.x[pellet]!;
+    Position.y[killer] = Position.y[pellet]!;
+    runFrames(sim, 1);
+    expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
+    expect(sim.snapshot().pennies?.streak ?? 0).toBe(streakBefore);
+  });
+});

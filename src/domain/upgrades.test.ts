@@ -263,6 +263,8 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletTithe",
   "passiveMole",
   "passiveBananaShield",
+  "passiveMartyr",
+  "passivePossession",
 ];
 
 const STUB_IDS: BaseUpgradeId[] = [
@@ -560,6 +562,8 @@ describe("rare upgrades", () => {
     "passiveEcho",
     "powerPelletProgrammer",
     "powerPelletMirror",
+    "passiveMartyr",
+    "passivePossession",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
