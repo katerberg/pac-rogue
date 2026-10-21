@@ -20,6 +20,7 @@ import {
   GHOST_WALL_STUN_MS,
   SHIELD_BOUNCE_MS,
   bounceAwaySteps,
+  bounceSlipSign,
   bounceTravelPx,
   type BounceBody,
   mergeShieldBounce,
@@ -209,7 +210,11 @@ export function tickShieldBounce(
     } else if (next.crashed) {
       Facing.direction[body.eid] = DIRECTION.none;
       Input.direction[body.eid] = DIRECTION.none;
-      stunned.push({ eid: body.eid, remainingMs: GHOST_WALL_STUN_MS });
+      stunned.push({
+        eid: body.eid,
+        remainingMs: GHOST_WALL_STUN_MS,
+        slipSign: bounceSlipSign(body.step),
+      });
     }
   }
 

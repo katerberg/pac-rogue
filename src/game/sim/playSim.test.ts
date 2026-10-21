@@ -4953,7 +4953,7 @@ describe("Shield bounce", () => {
     expect(Input.direction[player]).toBe(DIRECTION.left);
   });
 
-  it("stuns a ghost that hits a wall for 750ms, then it re-picks its way ignoring its facing", () => {
+  it("stuns a ghost that hits a wall for 750ms with a slip rotation, then it re-picks its way ignoring its facing", () => {
     const { sim, player, ghost } = breakSim();
     const at = corridorCell((col, row) => !isWalkable(col + 1, row) && openRun(col, row, -4, 0));
     place(ghost, at);
@@ -4961,14 +4961,22 @@ describe("Shield bounce", () => {
     runFrames(sim, 2);
     expect(sim.snapshot().shieldBounce.ghosts).toEqual([]);
     expect(sim.snapshot().shieldBounce.stunned).toEqual([
-      { eid: ghost, remainingMs: GHOST_WALL_STUN_MS },
+      { eid: ghost, remainingMs: GHOST_WALL_STUN_MS, slipSign: 1 },
     ]);
     expect(Facing.direction[ghost]).toBe(DIRECTION.none);
     expect(sim.renderOptions().spriteOffsets?.[ghost]?.y).toBe(0);
-    runFrames(sim, Math.floor(GHOST_WALL_STUN_MS / FRAME_MS) - 1);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.rotation).toBe(0);
+    const remaining = (): number => sim.snapshot().shieldBounce.stunned[0]?.remainingMs ?? 0;
+    runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.82, 20);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.rotation).toBeGreaterThan(0.2);
+    runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.6, 20);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.rotation).toBeLessThan(-0.05);
+    runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.2, 40);
     expect(Position.x[ghost]).toBe(at.x);
     expect(sim.snapshot().shieldBounce.stunned).toHaveLength(1);
-    runUntil(sim, () => sim.snapshot().shieldBounce.stunned.length === 0, 3);
+    const lateRotation = sim.renderOptions().spriteOffsets?.[ghost]?.rotation ?? 0;
+    expect(Math.abs(lateRotation)).toBeLessThan(0.02);
+    runUntil(sim, () => sim.snapshot().shieldBounce.stunned.length === 0, 20);
     runUntil(sim, () => Position.x[ghost] !== at.x || Position.y[ghost] !== at.y, 30);
     expect(Facing.direction[ghost]).not.toBe(DIRECTION.none);
   });

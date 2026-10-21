@@ -635,7 +635,7 @@ export type RenderOptions = {
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
-  spriteOffsets?: Record<number, { x: number; y: number }>;
+  spriteOffsets?: Record<number, { x: number; y: number; rotation?: number }>;
   hauntedGhost?: HauntedGhost | null;
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
@@ -1391,7 +1391,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         const bodyAlpha = ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1);
         go.setAlpha(bodyAlpha);
         const crisp = crispGhost(scene, x, y, size);
+        const slipRotation = offset?.rotation ?? 0;
         placeCroppedGhostBody(go, crisp.x, crisp.y, crisp.size);
+        go.setRotation(slipRotation);
         let skirt = ghostSkirts.get(eid);
         if (skirt === undefined) {
           skirt = {
@@ -1416,11 +1418,13 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         );
         skirt.lastX = x;
         skirt.lastY = y;
+        skirt.graphics.setPosition(crisp.x, crisp.y);
+        skirt.graphics.setRotation(slipRotation);
         skirt.graphics.setAlpha(bodyAlpha);
         fillGhostSkirt(
           skirt.graphics,
-          crisp.x,
-          crisp.y,
+          0,
+          0,
           crisp.size,
           skirt.phase,
           multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
@@ -1447,6 +1451,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             look = stepped.look;
           }
         }
+        skirt.horns.setPosition(crisp.x, crisp.y);
+        skirt.horns.setRotation(slipRotation);
         skirt.horns.clear();
         if (hornsShown) {
           const turn = stepGhostHornTurn(
@@ -1458,21 +1464,23 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           skirt.horns.setAlpha(bodyAlpha);
           fillGhostHorns(
             skirt.horns,
-            crisp.x,
-            crisp.y,
+            0,
+            0,
             crisp.size,
             turn.lean,
             look.dy,
             multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
           );
         }
+        skirt.pupils.setPosition(crisp.x, crisp.y);
+        skirt.pupils.setRotation(slipRotation);
         skirt.pupils.clear();
         skirt.pupils.setAlpha(entityAlpha);
         if (pupilsShown) {
           fillGhostPupils(
             skirt.pupils,
-            crisp.x,
-            crisp.y,
+            0,
+            0,
             crisp.size,
             look,
             ghostAlpha * (glideHead?.alpha ?? 1),
@@ -1481,6 +1489,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         if (glide !== undefined) {
           drawGlideTrail(eid, id, glide.slice(1), go.texture.key, size, applyGhostTint);
         }
+      } else {
+        go.setRotation(0);
       }
 
       if (id === PLAYER_DRAWABLE_ID) {
