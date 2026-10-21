@@ -58,6 +58,10 @@ export function bounceSlipSign(step: BounceStep): number {
   return step.dx !== 0 ? Math.sign(step.dx) : Math.sign(step.dy) || 1;
 }
 
+function signedAngle(angle: number, slipSign: number): number {
+  return (Math.sign(slipSign) || 1) * angle;
+}
+
 function easeOut(t: number): number {
   const clamped = Math.min(1, Math.max(0, t));
   return 1 - (1 - clamped) * (1 - clamped);
@@ -75,40 +79,30 @@ export function bounceArcPx(elapsedMs: number, tileSize: number): number {
   return ARC_PEAK_TILES * tileSize * Math.sin(Math.PI * t);
 }
 
-/**
- * Bounce-phase slip tip: ease to a slight lean, hold, then ease upright if the bounce finishes
- * without a wall (so the tip does not pop off).
- */
 export function bounceSlipRotation(elapsedMs: number, slipSign: number): number {
   const t = Math.min(1, Math.max(0, elapsedMs / SHIELD_BOUNCE_MS));
-  const sign = slipSign === 0 ? 1 : Math.sign(slipSign);
-  return (
-    sign *
+  return signedAngle(
     lerpKeys(t, [
       { at: 0, angle: 0 },
       { at: 0.35, angle: SLIP_PEAK_RAD },
       { at: 0.7, angle: SLIP_PEAK_RAD },
       { at: 1, angle: 0 },
-    ])
+    ]),
+    slipSign,
   );
 }
 
-/**
- * Wall-stun recovery over GHOST_WALL_STUN_MS: start tipped (from the bounce), overcorrect,
- * settle upright, then hold steady. Same duration as the old sideways shudder.
- */
 export function stunSlipRotation(remainingMs: number, slipSign: number): number {
   const elapsed = GHOST_WALL_STUN_MS - Math.max(0, remainingMs);
   const t = Math.min(1, Math.max(0, elapsed / GHOST_WALL_STUN_MS));
-  const sign = slipSign === 0 ? 1 : Math.sign(slipSign);
-  return (
-    sign *
+  return signedAngle(
     lerpKeys(t, [
       { at: 0, angle: SLIP_PEAK_RAD },
       { at: 0.28, angle: OVERCORRECT_RAD },
       { at: 0.55, angle: 0 },
       { at: 1, angle: 0 },
-    ])
+    ]),
+    slipSign,
   );
 }
 
