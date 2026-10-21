@@ -13,10 +13,8 @@ export type LearnUpgradeBarRect = {
   y: number;
   w: number;
   h: number;
-  column: LearnColumn;
 };
 
-/** Full-height fills behind each upgrade column so the maze clips under the bars. */
 export function learnUpgradeBarRects(
   playfieldWidth: number = PLAYFIELD_WIDTH,
   playfieldHeight: number = PLAYFIELD_HEIGHT,
@@ -30,7 +28,7 @@ export function learnUpgradeBarRects(
   const rightStart = Math.max(0, Math.min(playfieldWidth, columnX.right));
   const rects: LearnUpgradeBarRect[] = [];
   if (leftEnd > 0) {
-    rects.push({ x: 0, y: 0, w: leftEnd, h: playfieldHeight, column: "left" });
+    rects.push({ x: 0, y: 0, w: leftEnd, h: playfieldHeight });
   }
   if (rightStart < playfieldWidth) {
     rects.push({
@@ -38,7 +36,6 @@ export function learnUpgradeBarRects(
       y: 0,
       w: playfieldWidth - rightStart,
       h: playfieldHeight,
-      column: "right",
     });
   }
   return rects;

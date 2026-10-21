@@ -110,7 +110,6 @@ const SLOT_STROKE_COLOR = 0x444444;
 const RARE_LABEL_COLOR = 0xffd700;
 const BACK_Y = 550;
 const OVERLAY_DEPTH = 5;
-/** Above maze drawables; upgrade labels/checkboxes sit one higher. */
 const UPGRADE_BAR_DEPTH = 3;
 const UPGRADE_UI_DEPTH = 4;
 const PATH_ALPHA = 0.6;

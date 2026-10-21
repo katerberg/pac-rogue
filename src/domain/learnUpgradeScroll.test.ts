@@ -25,14 +25,12 @@ describe("learnUpgradeBarRects", () => {
         y: 0,
         w: LEARN_UPGRADE_COLUMN_X.left + LEARN_UPGRADE_ROW_WIDTH,
         h: PLAYFIELD_HEIGHT,
-        column: "left",
       },
       {
         x: LEARN_UPGRADE_COLUMN_X.right,
         y: 0,
         w: PLAYFIELD_WIDTH - LEARN_UPGRADE_COLUMN_X.right,
         h: PLAYFIELD_HEIGHT,
-        column: "right",
       },
     ]);
   });
