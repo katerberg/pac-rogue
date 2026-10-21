@@ -515,8 +515,9 @@ describe("PlaySim", () => {
 
   it.each([
     [5, 1],
-    [6, 1.05],
-    [8, 1.1],
+    [6, 1 + 0.2 / 3],
+    [7, 1 + 0.4 / 3],
+    [8, 1.2],
   ] as const)(
     "moves open-maze ghosts on level %i at %f× Maze-Man (past-parity ramp)",
     (level, ratio) => {

@@ -63,7 +63,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   preTurnPx: 4,
   ghostRatioStart: 0.8,
   ghostRatioStep: 0.05,
-  ghostRatioCap: 1.1,
+  ghostRatioCap: 1.2,
   ghostTunnelRatio: 0.6,
   ghostHouseExitRatio: 0.5,
   elroy1Ratio: 1,
@@ -174,11 +174,24 @@ export function diffFromDefault(tuning: Tuning): TuningOverrides {
   return diff;
 }
 
+const GHOST_RATIO_LATE_PIVOT_LEVEL = 5;
+const GHOST_RATIO_LATE_SPAN_LEVELS = 3;
+
 export function ghostBaseSpeedRatio(levelIndex: number, tuning: Tuning = DEFAULT_TUNING): number {
   const level = Math.max(1, levelIndex);
+  const early =
+    tuning.ghostRatioStart +
+    tuning.ghostRatioStep * (Math.min(level, GHOST_RATIO_LATE_PIVOT_LEVEL) - 1);
+  if (level <= GHOST_RATIO_LATE_PIVOT_LEVEL) {
+    return Math.min(tuning.ghostRatioCap, early);
+  }
+  const headroom = tuning.ghostRatioCap - early;
+  if (headroom <= 0) {
+    return tuning.ghostRatioCap;
+  }
   return Math.min(
     tuning.ghostRatioCap,
-    tuning.ghostRatioStart + tuning.ghostRatioStep * (level - 1),
+    early + (headroom / GHOST_RATIO_LATE_SPAN_LEVELS) * (level - GHOST_RATIO_LATE_PIVOT_LEVEL),
   );
 }
 
