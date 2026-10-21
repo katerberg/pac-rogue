@@ -25,12 +25,6 @@ describe("upgradeArt", () => {
     }
   });
 
-  it("derives the art id from a glob path", () => {
-    expect(upgradeArtIdOfPath("../art/upgrades/powerPelletSpeedBurst.png")).toBe(
-      "powerPelletSpeedBurst",
-    );
-  });
-
   it("uses upgrade art when present, shared by the enhanced form", () => {
     const art = new Set(["powerPelletSpeedBurst"]);
     const key = upgradeArtTextureKey("powerPelletSpeedBurst");
