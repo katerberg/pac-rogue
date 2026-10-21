@@ -32,7 +32,7 @@ Rules and constants: `src/domain/slotPickup.ts` (run by `PlaySim`). Non-spin Qua
 ### Spin
 
 - 3 reels × 3 rows, 5 paylines (3 rows, 2 diagonals). Three in a line pay: Quarters a Quarter, a school a random unowned upgrade of that school (a Quarter if none is left), a life a life.
-- The outcome is rolled first from a weighted table, then a grid is built that shows exactly that many lines. Targets: nothing under 10%, at least 0.85 Quarters per spin, upgrades and lives each about 25%, multi-line hits about a third.
+- The outcome is rolled first from a weighted table, then a grid is built that shows exactly that many lines. Targets: nothing under 10%, at least 0.65 Quarters per spin, upgrades and lives each about 25%, multi-line hits under a quarter.
 - Lives are on the reels only below the life cap (the store free-life rule); at the cap life lines become Quarter lines.
 - School symbols lean toward owned schools (`slotSchoolWeights`, the level-offer affinity rate).
 - Feel: reels stop left to right; a third reel that could finish a school or life line is held longer; about a quarter of losing spins tease a near miss. A single-line spin takes about 3s; multi-line hits flash each line, then a finale. The final grid then holds, with every winning line lit, until the player presses a key; any upgrades won show as cards under it.
