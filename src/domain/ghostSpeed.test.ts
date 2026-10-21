@@ -6,13 +6,10 @@ import {
   resolveGhostSpeed,
   resolveGhostSpeedForKind,
 } from "./ghostSpeed";
-import { ghostBaseSpeedRatio } from "./levelRules";
 import { PLAYER_SPEED } from "./playfield";
-import { DEFAULT_TUNING } from "./tuning";
 
-const LEVEL_1_BASE = ghostBaseSpeedRatio(1);
-const LEVEL_1_ELROY1 = LEVEL_1_BASE + 0.5 * (DEFAULT_TUNING.elroy1Ratio - LEVEL_1_BASE);
-const LEVEL_1_ELROY2 = LEVEL_1_BASE + 0.5 * (DEFAULT_TUNING.elroy2Ratio - LEVEL_1_BASE);
+const LEVEL_1_ELROY1 = 0.96;
+const LEVEL_1_ELROY2 = 1;
 
 describe("ghostSpeed", () => {
   it("uses level-ramped base, Elroy, and tunnel speeds", () => {
