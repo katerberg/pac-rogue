@@ -4894,7 +4894,7 @@ describe("Shield bounce", () => {
     expect(Facing.direction[player]).toBe(DIRECTION.left);
   });
 
-  it("takes 300ms and hops in an arc", () => {
+  it("takes 300ms and hops in an arc, tipping the ghost as it slips", () => {
     const { sim, player, ghost } = breakSim();
     const at = corridorCell((col, row) => openRun(col, row, -3, 4));
     place(player, at);
@@ -4904,6 +4904,10 @@ describe("Shield bounce", () => {
     runFrames(sim, Math.floor(frames / 2));
     const hop = sim.renderOptions().spriteOffsets?.[player];
     expect(hop?.y).toBeLessThan(-TILE_SIZE / 4);
+    expect(hop?.rotation).toBeUndefined();
+    expect(Math.abs(sim.renderOptions().spriteOffsets?.[ghost]?.rotation ?? 0)).toBeGreaterThan(
+      0.2,
+    );
     runFrames(sim, frames - Math.floor(frames / 2) - 1);
     expect(sim.snapshot().shieldBounce.player).not.toBeNull();
     runFrames(sim, 1);
@@ -4965,11 +4969,9 @@ describe("Shield bounce", () => {
     ]);
     expect(Facing.direction[ghost]).toBe(DIRECTION.none);
     expect(sim.renderOptions().spriteOffsets?.[ghost]?.y).toBe(0);
-    expect(sim.renderOptions().spriteOffsets?.[ghost]?.rotation).toBe(0);
-    const remaining = (): number => sim.snapshot().shieldBounce.stunned[0]?.remainingMs ?? 0;
-    runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.82, 20);
     expect(sim.renderOptions().spriteOffsets?.[ghost]?.rotation).toBeGreaterThan(0.2);
-    runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.6, 20);
+    const remaining = (): number => sim.snapshot().shieldBounce.stunned[0]?.remainingMs ?? 0;
+    runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.72, 20);
     expect(sim.renderOptions().spriteOffsets?.[ghost]?.rotation).toBeLessThan(-0.05);
     runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.2, 40);
     expect(Position.x[ghost]).toBe(at.x);

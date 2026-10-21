@@ -7,6 +7,23 @@ const SLIP_PEAK_RAD = 0.32;
 /** Overshoot past upright while recovering, radians (~-9°). */
 const OVERCORRECT_RAD = -0.16;
 
+function smoothstep(u: number): number {
+  const t = Math.min(1, Math.max(0, u));
+  return t * t * (3 - 2 * t);
+}
+
+function lerpKeys(t: number, keys: { at: number; angle: number }[]): number {
+  for (let i = 1; i < keys.length; i += 1) {
+    const prev = keys[i - 1]!;
+    const next = keys[i]!;
+    if (t <= next.at) {
+      const u = (t - prev.at) / (next.at - prev.at);
+      return prev.angle + (next.angle - prev.angle) * smoothstep(u);
+    }
+  }
+  return keys[keys.length - 1]?.angle ?? 0;
+}
+
 export type BounceStep = { dx: number; dy: number };
 export type BounceBody = { eid: number; step: BounceStep; elapsedMs: number };
 export type GhostStun = { eid: number; remainingMs: number; slipSign: number };
@@ -59,30 +76,40 @@ export function bounceArcPx(elapsedMs: number, tileSize: number): number {
 }
 
 /**
- * Wall-stun slip pose over GHOST_WALL_STUN_MS: tip (slip) → overcorrect → settle → hold steady.
- * `remainingMs` counts down from GHOST_WALL_STUN_MS; `slipSign` is the bounce travel direction.
+ * Bounce-phase slip tip: ease to a slight lean, hold, then ease upright if the bounce finishes
+ * without a wall (so the tip does not pop off).
+ */
+export function bounceSlipRotation(elapsedMs: number, slipSign: number): number {
+  const t = Math.min(1, Math.max(0, elapsedMs / SHIELD_BOUNCE_MS));
+  const sign = slipSign === 0 ? 1 : Math.sign(slipSign);
+  return (
+    sign *
+    lerpKeys(t, [
+      { at: 0, angle: 0 },
+      { at: 0.35, angle: SLIP_PEAK_RAD },
+      { at: 0.7, angle: SLIP_PEAK_RAD },
+      { at: 1, angle: 0 },
+    ])
+  );
+}
+
+/**
+ * Wall-stun recovery over GHOST_WALL_STUN_MS: start tipped (from the bounce), overcorrect,
+ * settle upright, then hold steady. Same duration as the old sideways shudder.
  */
 export function stunSlipRotation(remainingMs: number, slipSign: number): number {
   const elapsed = GHOST_WALL_STUN_MS - Math.max(0, remainingMs);
   const t = Math.min(1, Math.max(0, elapsed / GHOST_WALL_STUN_MS));
   const sign = slipSign === 0 ? 1 : Math.sign(slipSign);
-  const keys: { at: number; angle: number }[] = [
-    { at: 0, angle: 0 },
-    { at: 0.18, angle: SLIP_PEAK_RAD },
-    { at: 0.4, angle: OVERCORRECT_RAD },
-    { at: 0.7, angle: 0 },
-    { at: 1, angle: 0 },
-  ];
-  for (let i = 1; i < keys.length; i += 1) {
-    const prev = keys[i - 1]!;
-    const next = keys[i]!;
-    if (t <= next.at) {
-      const u = (t - prev.at) / (next.at - prev.at);
-      const smooth = u * u * (3 - 2 * u);
-      return sign * (prev.angle + (next.angle - prev.angle) * smooth);
-    }
-  }
-  return 0;
+  return (
+    sign *
+    lerpKeys(t, [
+      { at: 0, angle: SLIP_PEAK_RAD },
+      { at: 0.28, angle: OVERCORRECT_RAD },
+      { at: 0.55, angle: 0 },
+      { at: 1, angle: 0 },
+    ])
+  );
 }
 
 export function mergeShieldBounce(current: ShieldBounce, incoming: ShieldBounce): ShieldBounce {
@@ -117,7 +144,16 @@ export function shieldBounceSpriteOffsets(
     return undefined;
   }
   return Object.fromEntries([
-    ...bodies.map((body) => [body.eid, { x: 0, y: -bounceArcPx(body.elapsedMs, tileSize) }]),
+    ...bodies.map((body) => [
+      body.eid,
+      {
+        x: 0,
+        y: -bounceArcPx(body.elapsedMs, tileSize),
+        ...(body.eid === bounce.player?.eid
+          ? {}
+          : { rotation: bounceSlipRotation(body.elapsedMs, bounceSlipSign(body.step)) }),
+      },
+    ]),
     ...bounce.stunned.map((stun) => [
       stun.eid,
       { x: 0, y: 0, rotation: stunSlipRotation(stun.remainingMs, stun.slipSign) },
