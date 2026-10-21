@@ -1449,7 +1449,6 @@ export class LearnSim {
       this.firePowerPelletEffects(1);
       this.learnUpgrades = { ...this.learnUpgrades, hyperspeedShieldRemainingMs: 0 };
     }
-    this.popup("SHIELD BROKEN");
     return true;
   }
 
@@ -1494,7 +1493,6 @@ export class LearnSim {
         );
         this.bounceStaleKeys = keys;
       }
-      this.popup("SHIELD BROKEN");
       return;
     }
     const owned = this.learnUpgrades.owned;
