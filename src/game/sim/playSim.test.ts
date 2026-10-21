@@ -9008,7 +9008,6 @@ describe("Martyr", () => {
     ghostOntoPlayer(base);
     runFrames(base, 1);
     expect(base.snapshot().lives).toBe(livesBefore);
-    // Base Martyr does not re-fire invuln on a save (timer only ticks down).
     expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(invulnBefore);
 
     const plus = startSim({
@@ -9021,7 +9020,6 @@ describe("Martyr", () => {
     runFrames(plus, 1);
     ghostOntoPlayer(plus);
     runFrames(plus, 1);
-    // Plus Martyr re-fires invuln on the Defy Death save.
     expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(3000);
   });
 

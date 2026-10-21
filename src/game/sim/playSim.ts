@@ -3974,7 +3974,6 @@ export class PlaySim {
     const pendingGameOver = this.possessionPendingGameOver;
     this.runUpgrades = endPossession(this.runUpgrades);
     this.possessionPendingGameOver = false;
-    // possessionHauntAfterMs stays set until resetAfterLifeLoss applies it.
     if (pendingGameOver) {
       this.saveRun();
       this.recorder.finish("death");
