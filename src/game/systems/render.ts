@@ -65,7 +65,8 @@ import {
   type VisorPose,
 } from "../../domain/dotManHeading";
 import { MIRROR_ALPHA, MIRROR_TINT, mirrorDust, mirrorPopLook } from "../../domain/mirror";
-import { padTextureWithGutter } from "../renderScale";
+import { padTextureWithGutter, renderScaleOf } from "../renderScale";
+import { crispWorldPx, snapToDevicePx } from "../../domain/pixelArt";
 import { loadMazeColorSettings } from "../storage/mazeColorStorage";
 import {
   BLINKY_DRAWABLE_ID,
@@ -190,10 +191,6 @@ type PlayerVisual = {
   tail: TailBead[];
   cracks: { x: number; y: number; startMs: number }[];
 };
-
-function isActorTextureKey(key: string): boolean {
-  return key.startsWith("dotman-") || key.startsWith("ghost-");
-}
 
 function pelletTextureKey(drawableId: string): string {
   return drawableId === POWER_PELLET_DRAWABLE_ID ? POWER_PELLET_TEXTURE_KEY : PELLET_TEXTURE_KEY;
@@ -347,6 +344,24 @@ function placeCroppedGhostBody(
   image.setPosition(cx, cy);
 }
 
+/**
+ * Ghost overlays are Graphics drawn on the body's art grid, so snap the ghost's center and size
+ * to the device grid up front instead of leaving it to the pixel-art pass.
+ */
+function crispGhost(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): { x: number; y: number; size: number } {
+  const scale = renderScaleOf(scene);
+  return {
+    x: snapToDevicePx(x, scale),
+    y: snapToDevicePx(y, scale),
+    size: crispWorldPx(size, GHOST_ART_SIZE_PX, scale),
+  };
+}
+
 export function addGhostIcon(
   scene: Phaser.Scene,
   drawableId: string,
@@ -355,17 +370,18 @@ export function addGhostIcon(
   size: number,
 ): void {
   const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
-  const image = scene.add.image(x, y, textureKey);
-  placeCroppedGhostBody(image, x, y, size);
+  const crisp = crispGhost(scene, x, y, size);
+  const image = scene.add.image(crisp.x, crisp.y, textureKey);
+  placeCroppedGhostBody(image, crisp.x, crisp.y, crisp.size);
   const skirt = scene.add.graphics();
   const color = skirtBaseColor(scene, textureKey);
-  fillGhostSkirt(skirt, x, y, size, 0, color);
+  fillGhostSkirt(skirt, crisp.x, crisp.y, crisp.size, 0, color);
   if (drawableId === BLINKY_DRAWABLE_ID) {
-    fillGhostHorns(scene.add.graphics(), x, y, size, 0, 0, color);
+    fillGhostHorns(scene.add.graphics(), crisp.x, crisp.y, crisp.size, 0, 0, color);
   }
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
-    fillGhostPupils(pupils, x, y, size, ghostPupilLookOffset(GHOST_DIR.none));
+    fillGhostPupils(pupils, crisp.x, crisp.y, crisp.size, ghostPupilLookOffset(GHOST_DIR.none));
   }
 }
 
@@ -389,30 +405,32 @@ export function addGhostSprite(
   look: PupilLook = ghostPupilLookOffset(GHOST_DIR.none),
 ): GhostSpriteHandle {
   const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
+  const crisp = crispGhost(scene, x, y, size);
   const image = scene.add.image(0, 0, textureKey);
-  placeCroppedGhostBody(image, 0, 0, size);
+  placeCroppedGhostBody(image, 0, 0, crisp.size);
   const skirt = scene.add.graphics();
   const baseColor = skirtBaseColor(scene, textureKey);
   let color = baseColor;
   let skirtPhase = 0;
-  fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
-  const container = scene.add.container(x, y, [image, skirt]);
+  fillGhostSkirt(skirt, 0, 0, crisp.size, skirtPhase, color);
+  const container = scene.add.container(crisp.x, crisp.y, [image, skirt]);
   let horns: Phaser.GameObjects.Graphics | null = null;
   if (drawableId === BLINKY_DRAWABLE_ID) {
     horns = scene.add.graphics();
-    fillGhostHorns(horns, 0, 0, size, 0, 0, color);
+    fillGhostHorns(horns, 0, 0, crisp.size, 0, 0, color);
     container.add(horns);
   }
   let pupils: Phaser.GameObjects.Graphics | null = null;
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     pupils = scene.add.graphics();
-    fillGhostPupils(pupils, 0, 0, size, look);
+    fillGhostPupils(pupils, 0, 0, crisp.size, look);
     container.add(pupils);
   }
   return {
     container,
     setPosition(nx, ny) {
-      container.setPosition(nx, ny);
+      const at = crispGhost(scene, nx, ny, crisp.size);
+      container.setPosition(at.x, at.y);
     },
     setDepth(depth) {
       container.setDepth(depth);
@@ -422,7 +440,7 @@ export function addGhostSprite(
     },
     setSkirtPhase(phase) {
       skirtPhase = phase;
-      fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
+      fillGhostSkirt(skirt, 0, 0, crisp.size, skirtPhase, color);
     },
     setLook(next) {
       const frightened = next === "frightened";
@@ -439,7 +457,7 @@ export function addGhostSprite(
         next === "frozen"
           ? tintedColor(bodyColor, { color: GHOST_FROZEN_TINT, mode: "multiply" })
           : bodyColor;
-      fillGhostSkirt(skirt, 0, 0, size, skirtPhase, color);
+      fillGhostSkirt(skirt, 0, 0, crisp.size, skirtPhase, color);
       horns?.setVisible(!frightened);
       pupils?.setVisible(!frightened);
     },
@@ -497,7 +515,7 @@ export function addReverseIcon(
 export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.on(Phaser.Loader.Events.FILE_COMPLETE, (key: string, type: string) => {
     if (type === "image") {
-      padTextureWithGutter(scene.textures, key, isActorTextureKey(key));
+      padTextureWithGutter(scene.textures, key);
     }
   });
   scene.load.image(DOTMAN_BODY_TEXTURE_KEY, "art/dot-man/body.png");
@@ -1241,7 +1259,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         applyGhostTint(go);
         const bodyAlpha = ghostAlpha * entityAlpha * (glideHead?.alpha ?? 1);
         go.setAlpha(bodyAlpha);
-        placeCroppedGhostBody(go, x, y, size);
+        const crisp = crispGhost(scene, x, y, size);
+        placeCroppedGhostBody(go, crisp.x, crisp.y, crisp.size);
         let skirt = ghostSkirts.get(eid);
         if (skirt === undefined) {
           skirt = {
@@ -1269,9 +1288,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         skirt.graphics.setAlpha(bodyAlpha);
         fillGhostSkirt(
           skirt.graphics,
-          x,
-          y,
-          size,
+          crisp.x,
+          crisp.y,
+          crisp.size,
           skirt.phase,
           multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
         );
@@ -1308,9 +1327,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           skirt.horns.setAlpha(bodyAlpha);
           fillGhostHorns(
             skirt.horns,
-            x,
-            y,
-            size,
+            crisp.x,
+            crisp.y,
+            crisp.size,
             turn.lean,
             look.dy,
             multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
@@ -1319,7 +1338,14 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         skirt.pupils.clear();
         skirt.pupils.setAlpha(entityAlpha);
         if (pupilsShown) {
-          fillGhostPupils(skirt.pupils, x, y, size, look, ghostAlpha * (glideHead?.alpha ?? 1));
+          fillGhostPupils(
+            skirt.pupils,
+            crisp.x,
+            crisp.y,
+            crisp.size,
+            look,
+            ghostAlpha * (glideHead?.alpha ?? 1),
+          );
         }
         if (glide !== undefined) {
           drawGlideTrail(eid, id, glide.slice(1), go.texture.key, size, applyGhostTint);

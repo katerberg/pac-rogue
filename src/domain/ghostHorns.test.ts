@@ -66,4 +66,12 @@ describe("ghostHornRects", () => {
     expect(down[0]).toMatchObject({ y: 1, h: 0 });
     expect(down[1]).toMatchObject({ y: 1, h: 1 });
   });
+
+  it("keeps eased leans and lifts on whole art pixels", () => {
+    for (const rect of ghostHornRects(8, 8, 16, 0.4, -0.6)) {
+      for (const edge of [rect.x, rect.y, rect.w, rect.h]) {
+        expect(Number.isInteger(edge)).toBe(true);
+      }
+    }
+  });
 });

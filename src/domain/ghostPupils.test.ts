@@ -71,6 +71,13 @@ describe("ghostPupilRects", () => {
     expect(looking[0]!.x - rest[0]!.x).toBeCloseTo(GHOST_PUPIL_LOOK_OFFSET_ART * scale);
     expect(looking[0]!.y).toBeCloseTo(rest[0]!.y);
   });
+
+  it("keeps eased or aimed looks on whole art pixels", () => {
+    for (const rect of ghostPupilRects(8, 8, GHOST_ART_SIZE_PX, { dx: 0.7, dy: -0.3 })) {
+      expect(Number.isInteger(rect.x)).toBe(true);
+      expect(Number.isInteger(rect.y)).toBe(true);
+    }
+  });
 });
 
 describe("stepGhostPupilLook", () => {

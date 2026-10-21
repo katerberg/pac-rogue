@@ -14,7 +14,7 @@ Never: assume visual correctness from compile, lint, tests or a green `visual` e
 
 `npm run verify` runs `typecheck`, `lint`, `format:check`, `check:ecs`, `check:docs` (broken doc links and a markdown size budget), `test`, `build`, then `visual` (see `package.json`). `verify:precommit` is the first six and is what `.githooks/pre-commit` runs. CI (`.github/workflows/verify.yml`) runs `verify` and posts the smoke screenshot on PRs.
 
-`npm run visual` serves `dist/` on the agent preview port and captures the menu-to-play, upgrade-offer and fractional-scale (stray-pixel) screenshots into `artifacts/`; see `scripts/visual-smoke.mjs`. **Read the images** when claiming visual verification; a zero exit is not evidence.
+`npm run visual` serves `dist/` on the agent preview port and captures the menu-to-play, upgrade-offer and fractional-scale (stray-pixel; pixel-perfect HUD quarters at ~3.27x, see [rendering.md](./rendering.md#rendering-model)) screenshots into `artifacts/`; see `scripts/visual-smoke.mjs`. **Read the images** when claiming visual verification; a zero exit is not evidence.
 
 ## Ports
 
