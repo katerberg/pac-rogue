@@ -7,6 +7,7 @@ import {
   CORNUCOPIA_SPAWN_DEBOUNCE_MS,
   nextFruitKind,
 } from "../../domain/fruit";
+import { FRUIT_KINDS } from "../fruitArt";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_ROSTERS, rosterIdForSeed } from "../../domain/ghostRoster";
@@ -342,6 +343,33 @@ describe("PlaySim Fruit Fecundity+", () => {
     expect(kinds[0]).not.toBe(kinds[1]);
   });
 
+  it("can spawn watermelon from the art-folder fruit pool", () => {
+    expect(FRUIT_KINDS).toContain("watermelon");
+    const others = FRUIT_KINDS.filter((kind) => kind !== "watermelon");
+    expect(
+      nextFruitKind({
+        seed: "fruit-watermelon",
+        level: 2,
+        spawnIndex: 1,
+        previousLevelFirstKind: null,
+        onBoard: others,
+        alreadyChosen: undefined,
+        kinds: FRUIT_KINDS,
+      }),
+    ).toBe("watermelon");
+
+    const sim = startSim({ level: 2, maze: "maze1" }, "fruit-watermelon");
+    sim["fruitSequence"] = {
+      sequence: ["watermelon"],
+      spawnIndex: 0,
+      previousLevelFirstKind: null,
+    };
+    const [first] = getActiveLayout().fruitThresholds;
+    eatPellets(sim, first);
+    teleportPlayer(sim, 0, 0);
+    expect(sim.snapshot().fruitKinds).toEqual(["watermelon"]);
+  });
+
   it("keeps the first fruit kind when the level's spawn sequence is replayed", () => {
     const seed = "fruit-replay";
     const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["fruitFecundityPlus"] }, seed);
@@ -364,6 +392,7 @@ describe("PlaySim Fruit Fecundity+", () => {
         previousLevelFirstKind: null,
         onBoard: [],
         alreadyChosen: firstKind,
+        kinds: FRUIT_KINDS,
       }),
     );
   });

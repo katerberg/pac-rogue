@@ -77,6 +77,7 @@ import {
   type FruitPresence,
   type FruitSequenceState,
 } from "../../domain/fruit";
+import { FRUIT_KINDS } from "../fruitArt";
 import { ghostHouseSeatCenters, houseSeatCount } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { blinkyEyesTrackPlayer } from "../../domain/ghostPupils";
@@ -4305,6 +4306,7 @@ export class PlaySim {
       this.random.seed,
       this.levelIndex,
       fruitKindsOnBoard(this.world),
+      FRUIT_KINDS,
     );
     this.fruitSequence = rolled.state;
     return rolled.kind;

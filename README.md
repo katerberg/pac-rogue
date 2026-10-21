@@ -79,4 +79,4 @@ Start with [AGENTS.md](./AGENTS.md). Code is the reference for values and shapes
 
 ## Art
 
-Art courtesy of [Pixelaholic](https://pixelaholic.itch.io/pac-man-game-art)
+Art courtesy of [Pixelaholic](https://pixelaholic.itch.io/pac-man-game-art). Drop a 16×16 PNG into [`src/art/fruit/`](./src/art/fruit) to add a fruit to the pool (no code change); upgrade HUD icons go in [`src/art/upgrades/`](./src/art/upgrades) ([docs/levels.md](./docs/levels.md#fruit), [docs/upgrades.md](./docs/upgrades.md#upgrade-art)).

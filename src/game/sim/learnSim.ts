@@ -37,6 +37,7 @@ import {
   type FruitPresence,
   type FruitSequenceState,
 } from "../../domain/fruit";
+import { FRUIT_KINDS } from "../fruitArt";
 import type { GhostDir } from "../../domain/ghostPath";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import { predictGhostPath } from "../../domain/learnOverlay";
@@ -1846,6 +1847,7 @@ export class LearnSim {
       this.random.seed,
       LEARN_LEVEL,
       fruitKindsOnBoard(this.world),
+      FRUIT_KINDS,
     );
     this.fruitSequence = rolled.state;
     return rolled.kind;
