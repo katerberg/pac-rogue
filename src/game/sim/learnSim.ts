@@ -1053,7 +1053,6 @@ export class LearnSim {
       );
       this.bounceStaleKeys = keys;
     }
-    this.popup("PEEL SLIP");
     return true;
   }
 

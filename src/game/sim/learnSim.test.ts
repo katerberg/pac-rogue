@@ -830,7 +830,7 @@ describe("LearnSim upgrade demos", () => {
       const events = sim.step(NO_KEYS_HELD, FRAME_MS);
       expect(sim["learnUpgrades"].peelsBanked).toBe(0);
       expect(events.some((event) => event.type === "peelCrack")).toBe(true);
-      expect(popups(events).some((text) => text.includes("PEEL SLIP"))).toBe(true);
+      expect(popups(events)).toEqual([]);
     });
 
     it("toggling the upgrade off clears banked peels", () => {
