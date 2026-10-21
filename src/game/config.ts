@@ -3,7 +3,7 @@ import { parseQueryParams } from "../domain/queryParams";
 import { colorToCssHex, MAZE_BACKGROUND_COLOR } from "../domain/maze";
 import { bootSceneKey } from "../domain/playFlag";
 import { isSoundEnabled } from "../domain/soundFlag";
-import { followWindowRenderScale, windowCanvasSize } from "./renderScale";
+import { followWindowRenderScale, windowCanvas } from "./renderScale";
 import { HighScoresScene } from "./scenes/HighScoresScene";
 import { LearnScene } from "./scenes/LearnScene";
 import { MenuScene } from "./scenes/MenuScene";
@@ -24,16 +24,19 @@ const audioContext = soundEnabled ? createInteractiveAudioContext() : undefined;
 const allScenes = [MenuScene, LearnScene, HighScoresScene, SettingsScene, PlayScene, PauseScene];
 const firstScene = { PlayScene, LearnScene, MenuScene }[bootSceneKey(urlParams)];
 const bootScenes = [firstScene, ...allScenes.filter((scene) => scene !== firstScene)];
+const canvas = windowCanvas();
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "game-container",
-  ...windowCanvasSize(),
+  width: canvas.width,
+  height: canvas.height,
   backgroundColor: colorToCssHex(MAZE_BACKGROUND_COLOR),
   banner: false,
   scene: bootScenes,
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.NONE,
+    zoom: canvas.zoom,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: {

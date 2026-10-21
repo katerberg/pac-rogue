@@ -91,7 +91,8 @@ export function ghostPupilRects(
   look: PupilLook,
 ): PupilRect[] {
   const scale = displaySize / GHOST_ART_SIZE_PX;
-  const { dx, dy } = look;
+  const dx = Math.round(look.dx);
+  const dy = Math.round(look.dy);
   const w = GHOST_PUPIL_ART_PX * scale;
   const h = GHOST_PUPIL_ART_PX * scale;
   const half = displaySize / 2;

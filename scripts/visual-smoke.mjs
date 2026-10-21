@@ -2,16 +2,22 @@ import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { chromium } from "playwright";
+import { artBlockReport } from "./lib/artBlocks.mjs";
 import { readPixels, strayPixelsBelowText } from "./lib/strayPixels.mjs";
 import { chromiumLaunchOptions, ports, root, stopProcess, waitForServer } from "./lib/server.mjs";
 const playArtifactPath = join(root, "artifacts", "visual-smoke.png");
 const menuArtifactPath = join(root, "artifacts", "visual-smoke-menu.png");
 const upgradeArtifactPath = join(root, "artifacts", "visual-smoke-upgrade.png");
+const artArtifactPath = join(root, "artifacts", "visual-smoke-art.png");
 const baseUrl = `http://127.0.0.1:${ports.agentPreview}/`;
 const url = `${baseUrl}?maze=maze1`;
 const upgradeUrl = `${baseUrl}?play=1&jumpToUpgrade=1&forceUpgrade=passiveRemoteTransference&seed=smoke`;
 
 const FRACTIONAL_SCALE_VIEWPORT = { width: 802, height: 634 };
+const HI_DPI_FRACTIONAL = { viewport: { width: 1512, height: 982 }, deviceScaleFactor: 2 };
+const HUD_QUARTERS = 5;
+const ART_PX = 16;
+const HUD_QUARTER_REGION = { x: 0, y: 0, width: 140, height: 40 };
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
@@ -51,6 +57,31 @@ async function assertCrispMenuText(browser) {
   if (stray > 0) {
     throw new Error(
       `Menu text has ${stray} stray pixels under its glyphs at ${FRACTIONAL_SCALE_VIEWPORT.width}x${FRACTIONAL_SCALE_VIEWPORT.height} (texture edge bleed); see ${menuArtifactPath}`,
+    );
+  }
+}
+
+async function assertPixelPerfectArt(browser) {
+  const page = await browser.newPage(HI_DPI_FRACTIONAL);
+  await page.goto(`${baseUrl}?play=1&level=2&maze=maze1&seed=smoke&quarters=${HUD_QUARTERS}`, {
+    waitUntil: "networkidle",
+  });
+  await page.waitForSelector("canvas", { timeout: 15_000 });
+  await waitForActiveScene(page, "PlayScene");
+  await page.waitForTimeout(500);
+  const shot = await page.locator("canvas").first().screenshot({ path: artArtifactPath });
+  const pixels = await readPixels(page, shot);
+  await page.close();
+  const scale = pixels.width / GAME_WIDTH;
+  const region = Object.fromEntries(
+    Object.entries(HUD_QUARTER_REGION).map(([key, value]) => [key, Math.round(value * scale)]),
+  );
+  const quarters = artBlockReport(pixels, region, ART_PX);
+  const sizes = new Set(quarters.map((quarter) => quarter.perArtPx));
+  const bad = quarters.filter((quarter) => quarter.badBlocks > 0);
+  if (quarters.length !== HUD_QUARTERS || bad.length > 0 || sizes.size !== 1) {
+    throw new Error(
+      `HUD quarters are not pixel-perfect at render scale ${scale.toFixed(3)}: ${JSON.stringify(quarters)}; see ${artArtifactPath}`,
     );
   }
 }
@@ -106,11 +137,13 @@ async function main() {
     await page.waitForTimeout(2_000);
     await page.locator("canvas").first().screenshot({ path: upgradeArtifactPath });
     await assertCrispMenuText(browser);
+    await assertPixelPerfectArt(browser);
     await browser.close();
 
     console.log(
       `Visual smoke OK — menu text crisp at ${FRACTIONAL_SCALE_VIEWPORT.width}x${FRACTIONAL_SCALE_VIEWPORT.height}: ${menuArtifactPath}`,
     );
+    console.log(`Visual smoke OK — art pixel-perfect at ~3.27x: ${artArtifactPath}`);
     console.log(`Visual smoke OK — upgrade: ${upgradeArtifactPath}`);
     console.log(`Visual smoke OK — play: ${playArtifactPath}`);
   } catch (error) {
