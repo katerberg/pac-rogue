@@ -134,6 +134,17 @@ import {
 import { showsFrightenedLook, type FrightenedGhosts } from "../../domain/hunter";
 import { SHIELD_COLOR, shieldCrackLook, shieldCrackProgress } from "../../domain/shieldCrack";
 import {
+  BUBBLE_SHIELD_MULTI_KEY,
+  BUBBLE_SHIELD_MULTI_PATH,
+  BUBBLE_SHIELD_SINGLE_KEY,
+  BUBBLE_SHIELD_SINGLE_PATH,
+  bubbleShieldCrackHalfPose,
+  bubbleShieldCracksAfterDrop,
+  bubbleShieldDisplaySize,
+  bubbleShieldTextureKey,
+  type BubbleShieldCrack,
+} from "../../domain/bubbleShield";
+import {
   DEFAULT_CHARM_TUNING,
   charmLookFrom,
   tailLayoutFrom,
@@ -190,6 +201,8 @@ type PlayerVisual = {
   lastY: number;
   tail: TailBead[];
   cracks: { x: number; y: number; startMs: number }[];
+  bubbleShields: number;
+  bubbleCracks: BubbleShieldCrack[];
 };
 
 function pelletTextureKey(drawableId: string): string {
@@ -520,6 +533,8 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   });
   scene.load.image(DOTMAN_BODY_TEXTURE_KEY, "art/dot-man/body.png");
   scene.load.image(DOTMAN_VISOR_TEXTURE_KEY, "art/dot-man/visor.png");
+  scene.load.image(BUBBLE_SHIELD_SINGLE_KEY, BUBBLE_SHIELD_SINGLE_PATH);
+  scene.load.image(BUBBLE_SHIELD_MULTI_KEY, BUBBLE_SHIELD_MULTI_PATH);
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
   scene.load.image(DOLLAR_TEXTURE_KEY, "art/other/dollar.png");
@@ -582,6 +597,8 @@ function ensurePlayerVisual(
       lastY: y,
       tail: [],
       cracks: [],
+      bubbleShields: 0,
+      bubbleCracks: [],
     };
     playerVisuals.set(eid, visual);
   }
@@ -626,6 +643,7 @@ const CHARM_DEPTH = -0.5;
 const CHARM_CHAIN_COLOR = 0xd9d9d9;
 const CHARM_CHAIN_ALPHA = 0.8;
 const CHARM_SPEED_FULL_PX_PER_MS = 0.08;
+const BUBBLE_SHIELD_DEPTH = 0.5;
 const SIDEBAR_DEPTH = -3;
 
 const POWER_PELLET_BOUNCE_MUL = 1.5;
@@ -1133,6 +1151,99 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         }
       }
     };
+    const placeBubbleImage = (
+      key: string,
+      name: string,
+      textureKey: string,
+      x: number,
+      y: number,
+      displayWidth: number,
+      displayHeight: number,
+      alpha: number,
+      rotation: number,
+      crop: { x: number; y: number; w: number; h: number } | null,
+    ): void => {
+      alive.add(key);
+      let image = drawableObjects.get(key);
+      if (!image) {
+        image = scene.add.image(x, y, textureKey);
+        image.setName(name);
+        image.setDepth(BUBBLE_SHIELD_DEPTH);
+        drawableObjects.set(key, image);
+      }
+      if (image.texture.key !== textureKey) {
+        image.setTexture(textureKey);
+      }
+      if (crop === null) {
+        image.setCrop();
+      } else {
+        image.setCrop(crop.x, crop.y, crop.w, crop.h);
+      }
+      image.setPosition(x, y);
+      image.setDisplaySize(displayWidth, displayHeight);
+      image.setRotation(rotation);
+      image.setAlpha(alpha);
+    };
+    const drawBubbleShield = (
+      bodyKey: string,
+      body: Phaser.GameObjects.Image,
+      visual: PlayerVisual,
+      shields: number,
+      at: { x: number; y: number },
+      playerSize: number,
+      trackBreaks: boolean,
+    ): void => {
+      const now = scene.time.now;
+      const bubbleSize = bubbleShieldDisplaySize(playerSize);
+      if (trackBreaks) {
+        const next = bubbleShieldCracksAfterDrop(
+          visual.bubbleShields,
+          shields,
+          at,
+          now,
+          visual.bubbleCracks,
+        );
+        visual.bubbleShields = next.shields;
+        visual.bubbleCracks = next.cracks;
+      }
+      const textureKey = bubbleShieldTextureKey(shields);
+      if (textureKey !== null) {
+        placeBubbleImage(
+          `${bodyKey}:bubble`,
+          `${body.name}:bubble`,
+          textureKey,
+          at.x,
+          at.y,
+          bubbleSize,
+          bubbleSize,
+          body.alpha,
+          0,
+          null,
+        );
+      }
+      if (!trackBreaks) {
+        return;
+      }
+      for (let i = 0; i < visual.bubbleCracks.length; i += 1) {
+        const crack = visual.bubbleCracks[i]!;
+        const progress = shieldCrackProgress(now - crack.startMs);
+        for (const side of [-1, 1] as const) {
+          const half = bubbleShieldCrackHalfPose(crack, side, bubbleSize, progress);
+          placeBubbleImage(
+            `${bodyKey}:bubble-crack:${i}:${side}`,
+            `${body.name}:bubble-crack`,
+            crack.textureKey,
+            half.x,
+            half.y,
+            half.displayWidth,
+            half.displayHeight,
+            body.alpha * half.alpha,
+            half.rotation,
+            { x: half.cropX, y: half.cropY, w: half.cropW, h: half.cropH },
+          );
+        }
+      }
+    };
     const drawVisor = (
       bodyKey: string,
       pose: VisorPose,
@@ -1393,10 +1504,12 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           go.setAlpha(look.alpha);
         }
         drawVisor(primaryKey, pose, visorLift);
+        const shields = opts?.shields ?? 0;
+        drawBubbleShield(primaryKey, go, visual, shields, { x, y }, size, true);
         drawTail(
           go,
           visual,
-          charmLook.enabled ? (opts?.shields ?? 0) : 0,
+          charmLook.enabled ? shields : 0,
           { x, y },
           frameMoved / frameDt / CHARM_SPEED_FULL_PX_PER_MS,
           frameDt,
@@ -1441,6 +1554,15 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             twinGo.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
             applyTintNow(twinGo);
             drawVisor(twinKey, pose, visorLift);
+            drawBubbleShield(
+              twinKey,
+              twinGo,
+              visual,
+              opts?.shields ?? 0,
+              { x: twin.x, y: twin.y },
+              size,
+              false,
+            );
           }
         }
       }
