@@ -72,12 +72,7 @@ export function startShieldBounce(world: World, ghostEid: number): ShieldBounce 
   const gx = Position.x[ghostEid] ?? 0;
   const gy = Position.y[ghostEid] ?? 0;
   const gr = Drawable.radius[ghostEid] ?? 0;
-  const playerFacing = stepOf(Facing.direction[playerEid]);
-  const fallback = stepOf(Facing.direction[ghostEid]) ??
-    (playerFacing === null ? null : { dx: -playerFacing.dx, dy: -playerFacing.dy }) ?? {
-      dx: 1,
-      dy: 0,
-    };
+  const fallback = stepOf(Facing.direction[ghostEid]) ?? { dx: 1, dy: 0 };
   const steps = bounceAwaySteps(
     { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 },
     { x: gx, y: gy },
