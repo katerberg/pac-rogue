@@ -12,8 +12,11 @@ describe("ghostSpeed", () => {
   it("uses level-ramped base, Elroy, and tunnel speeds", () => {
     expect(resolveGhostSpeed(50, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.8);
     expect(resolveGhostSpeed(50, false, 5)).toBeCloseTo(PLAYER_SPEED);
-    expect(resolveGhostSpeed(20, false, 1)).toBeCloseTo(GHOST_ELROY1_SPEED);
-    expect(resolveGhostSpeed(10, false, 1)).toBeCloseTo(GHOST_ELROY2_SPEED);
+    // Level 1: half the Elroy bump over the 0.8 base (elroy1 1.0 → 0.9, elroy2 1.0625 → 0.93125).
+    expect(resolveGhostSpeed(20, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.9);
+    expect(resolveGhostSpeed(10, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.93125);
+    expect(resolveGhostSpeed(20, false, 2)).toBeCloseTo(GHOST_ELROY1_SPEED);
+    expect(resolveGhostSpeed(10, false, 2)).toBeCloseTo(GHOST_ELROY2_SPEED);
     for (const level of [1, 2, 3, 4, 5, 8]) {
       expect(resolveGhostSpeed(10, true, level)).toBeCloseTo(PLAYER_SPEED * 0.6);
       expect(resolveGhostSpeed(10, true, level, 0.3)).toBeCloseTo(PLAYER_SPEED * 0.3);
@@ -21,8 +24,11 @@ describe("ghostSpeed", () => {
     expect(GHOST_ELROY1_SPEED).toBeCloseTo(PLAYER_SPEED);
   });
 
-  it("applies Elroy only to Blinky, unaffected by level", () => {
+  it("applies Elroy only to Blinky; full bonus from level 2 up", () => {
     expect(resolveGhostSpeedForKind(GHOST_KIND.blinky, 10, false, 1)).toBeCloseTo(
+      PLAYER_SPEED * 0.93125,
+    );
+    expect(resolveGhostSpeedForKind(GHOST_KIND.blinky, 10, false, 2)).toBeCloseTo(
       GHOST_ELROY2_SPEED,
     );
     expect(resolveGhostSpeedForKind(GHOST_KIND.pinky, 10, false, 1)).toBeCloseTo(
@@ -38,7 +44,7 @@ describe("ghostSpeed", () => {
       PLAYER_SPEED * 0.5,
     );
     expect(resolveGhostSpeedForKind(GHOST_KIND.blinky, 10, false, 1, true)).toBeCloseTo(
-      GHOST_ELROY2_SPEED,
+      PLAYER_SPEED * 0.93125,
     );
   });
 });
