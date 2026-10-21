@@ -46,21 +46,20 @@ export function elroyTier(pelletsRemaining: number, tuning: Tuning = DEFAULT_TUN
   return ELROY_TIER.none;
 }
 
-const LEVEL_1_ELROY_BONUS_SCALE = 0.5;
+const LEVEL_1_ELROY1_RATIO = 0.96;
+const LEVEL_1_ELROY2_RATIO = 1;
 
-function elroyRatioForLevel(elroyRatio: number, levelIndex: number, tuning: Tuning): number {
-  const scale = levelIndex === 1 ? LEVEL_1_ELROY_BONUS_SCALE : 1;
-  const base = ghostBaseSpeedRatio(levelIndex, tuning);
-  return base + scale * (elroyRatio - base);
+function elroyRatioForLevel(elroyRatio: number, levelIndex: number, level1Cap: number): number {
+  return levelIndex === 1 ? Math.min(elroyRatio, level1Cap) : elroyRatio;
 }
 
 function baseOrElroyRatio(pelletsRemaining: number, levelIndex: number, tuning: Tuning): number {
   const tier = elroyTier(pelletsRemaining, tuning);
   if (tier === ELROY_TIER.elroy2) {
-    return elroyRatioForLevel(tuning.elroy2Ratio, levelIndex, tuning);
+    return elroyRatioForLevel(tuning.elroy2Ratio, levelIndex, LEVEL_1_ELROY2_RATIO);
   }
   if (tier === ELROY_TIER.elroy1) {
-    return elroyRatioForLevel(tuning.elroy1Ratio, levelIndex, tuning);
+    return elroyRatioForLevel(tuning.elroy1Ratio, levelIndex, LEVEL_1_ELROY1_RATIO);
   }
   return ghostBaseSpeedRatio(levelIndex, tuning);
 }

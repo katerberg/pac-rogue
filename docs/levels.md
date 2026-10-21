@@ -14,7 +14,7 @@ After level 2 clears (and its upgrade choice resolves), the transition freeze is
 
 ## Speed
 
-Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-exit and boss speeds are ratios of it, so they hold at any base. Both sides gain a per-level multiplier (`speedLevelMultiplier`); ghosts also start slower and catch up (`ghostBaseSpeedRatio`) so level 1 is forgiving. On level 1 only, Blinky's Cruise Elroy bump over that base is halved (`ghostSpeed.ts`) so the end-board sprint is milder. If Blinky takes a life while Elroy is active, Elroy stays off for the rest of that board (`PlaySim`); saves that do not spend a life leave it on. Timers (durations, waves, idle release, fruit) are wall-clock, independent of speed.
+Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-exit and boss speeds are ratios of it, so they hold at any base. Both sides gain a per-level multiplier (`speedLevelMultiplier`); ghosts also start slower and catch up (`ghostBaseSpeedRatio`) so level 1 is forgiving. On level 1 only, Blinky's Cruise Elroy ratios are soft-capped below the full tuning values (`ghostSpeed.ts`) so the end-board sprint is milder. If Blinky takes a life while Elroy is active, Elroy stays off for the rest of that board (`PlaySim`); saves that do not spend a life leave it on. Timers (durations, waves, idle release, fruit) are wall-clock, independent of speed.
 
 ## Board variants
 
