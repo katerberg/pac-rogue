@@ -1625,7 +1625,7 @@ describe("PlaySim", () => {
       expect(sim.storeState()!.slots.find((s) => s.kind === "swap")!.sold).toBe(false);
     });
 
-    it("sells a shelved rare for STORE_RARE_UPGRADE_PRICE Quarters, and never shelves two", () => {
+    it("sells a shelved rare for 5 Quarters, and never shelves two", () => {
       const owned = ["passiveGhostSlow", "passiveAfterburner"] as const;
       let bought = false;
       for (let n = 0; n < 60 && !bought; n += 1) {
@@ -1782,7 +1782,7 @@ describe("PlaySim", () => {
       expect(hint()).toBe(school);
     });
 
-    it("enhancement costs STORE_ENHANCE_PRICE, swaps the owned upgrade for its Plus form and keeps order", () => {
+    it("enhancement costs 3, swaps the owned upgrade for its Plus form and keeps order", () => {
       const sim = startSim({
         store: 1,
         level: 5,
