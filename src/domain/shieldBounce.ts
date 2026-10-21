@@ -2,17 +2,37 @@ export const SHIELD_BOUNCE_MS = 300;
 export const SHIELD_BOUNCE_TILES = 1.5;
 export const GHOST_WALL_STUN_MS = 750;
 const ARC_PEAK_TILES = 0.4;
-const STUN_SHAKE_PX = 1.5;
-const STUN_SHAKE_PERIOD_MS = 80;
+/** Slight tip while slipping, radians (~18°). */
+const SLIP_PEAK_RAD = 0.32;
+/** Overshoot past upright while recovering, radians (~-9°). */
+const OVERCORRECT_RAD = -0.16;
+
+function smoothstep(u: number): number {
+  const t = Math.min(1, Math.max(0, u));
+  return t * t * (3 - 2 * t);
+}
+
+function lerpKeys(t: number, keys: { at: number; angle: number }[]): number {
+  for (let i = 1; i < keys.length; i += 1) {
+    const prev = keys[i - 1]!;
+    const next = keys[i]!;
+    if (t <= next.at) {
+      const u = (t - prev.at) / (next.at - prev.at);
+      return prev.angle + (next.angle - prev.angle) * smoothstep(u);
+    }
+  }
+  return keys[keys.length - 1]?.angle ?? 0;
+}
 
 export type BounceStep = { dx: number; dy: number };
 export type BounceBody = { eid: number; step: BounceStep; elapsedMs: number };
-export type GhostStun = { eid: number; remainingMs: number };
+export type GhostStun = { eid: number; remainingMs: number; slipSign: number };
 export type ShieldBounce = {
   player: BounceBody | null;
   ghosts: BounceBody[];
   stunned: GhostStun[];
 };
+export type SpriteOffset = { x: number; y: number; rotation?: number };
 
 export const NO_SHIELD_BOUNCE: ShieldBounce = { player: null, ghosts: [], stunned: [] };
 
@@ -34,6 +54,14 @@ export function bounceAwaySteps(
   return { player: away, ghost: { dx: 0 - away.dx, dy: 0 - away.dy } };
 }
 
+export function bounceSlipSign(step: BounceStep): number {
+  return step.dx !== 0 ? Math.sign(step.dx) : Math.sign(step.dy) || 1;
+}
+
+function signedAngle(angle: number, slipSign: number): number {
+  return (Math.sign(slipSign) || 1) * angle;
+}
+
 function easeOut(t: number): number {
   const clamped = Math.min(1, Math.max(0, t));
   return 1 - (1 - clamped) * (1 - clamped);
@@ -51,8 +79,31 @@ export function bounceArcPx(elapsedMs: number, tileSize: number): number {
   return ARC_PEAK_TILES * tileSize * Math.sin(Math.PI * t);
 }
 
-export function stunShakePx(remainingMs: number): number {
-  return STUN_SHAKE_PX * Math.sin((2 * Math.PI * remainingMs) / STUN_SHAKE_PERIOD_MS);
+export function bounceSlipRotation(elapsedMs: number, slipSign: number): number {
+  const t = Math.min(1, Math.max(0, elapsedMs / SHIELD_BOUNCE_MS));
+  return signedAngle(
+    lerpKeys(t, [
+      { at: 0, angle: 0 },
+      { at: 0.35, angle: SLIP_PEAK_RAD },
+      { at: 0.7, angle: SLIP_PEAK_RAD },
+      { at: 1, angle: 0 },
+    ]),
+    slipSign,
+  );
+}
+
+export function stunSlipRotation(remainingMs: number, slipSign: number): number {
+  const elapsed = GHOST_WALL_STUN_MS - Math.max(0, remainingMs);
+  const t = Math.min(1, Math.max(0, elapsed / GHOST_WALL_STUN_MS));
+  return signedAngle(
+    lerpKeys(t, [
+      { at: 0, angle: SLIP_PEAK_RAD },
+      { at: 0.28, angle: OVERCORRECT_RAD },
+      { at: 0.55, angle: 0 },
+      { at: 1, angle: 0 },
+    ]),
+    slipSign,
+  );
 }
 
 export function mergeShieldBounce(current: ShieldBounce, incoming: ShieldBounce): ShieldBounce {
@@ -81,14 +132,26 @@ export function shieldBounceHeldGhosts(bounce: ShieldBounce): Set<number> {
 export function shieldBounceSpriteOffsets(
   bounce: ShieldBounce,
   tileSize: number,
-): Record<number, Point> | undefined {
+): Record<number, SpriteOffset> | undefined {
   const bodies = bounce.player === null ? bounce.ghosts : [bounce.player, ...bounce.ghosts];
   if (bodies.length === 0 && bounce.stunned.length === 0) {
     return undefined;
   }
   return Object.fromEntries([
-    ...bodies.map((body) => [body.eid, { x: 0, y: -bounceArcPx(body.elapsedMs, tileSize) }]),
-    ...bounce.stunned.map((stun) => [stun.eid, { x: stunShakePx(stun.remainingMs), y: 0 }]),
+    ...bodies.map((body) => [
+      body.eid,
+      {
+        x: 0,
+        y: -bounceArcPx(body.elapsedMs, tileSize),
+        ...(body.eid === bounce.player?.eid
+          ? {}
+          : { rotation: bounceSlipRotation(body.elapsedMs, bounceSlipSign(body.step)) }),
+      },
+    ]),
+    ...bounce.stunned.map((stun) => [
+      stun.eid,
+      { x: 0, y: 0, rotation: stunSlipRotation(stun.remainingMs, stun.slipSign) },
+    ]),
   ]);
 }
 

@@ -529,8 +529,9 @@ describe("PlaySim", () => {
 
   it.each([
     [5, 1],
-    [6, 1.05],
-    [8, 1.1],
+    [6, 1 + 0.2 / 3],
+    [7, 1 + 0.4 / 3],
+    [8, 1.2],
   ] as const)(
     "moves open-maze ghosts on level %i at %f× Maze-Man (past-parity ramp)",
     (level, ratio) => {
@@ -4900,7 +4901,7 @@ describe("Shield bounce", () => {
     expect(Facing.direction[player]).toBe(DIRECTION.left);
   });
 
-  it("takes 300ms and hops in an arc", () => {
+  it("takes 300ms and hops in an arc, tipping the ghost as it slips", () => {
     const { sim, player, ghost } = breakSim();
     const at = corridorCell((col, row) => openRun(col, row, -3, 4));
     place(player, at);
@@ -4910,6 +4911,10 @@ describe("Shield bounce", () => {
     runFrames(sim, Math.floor(frames / 2));
     const hop = sim.renderOptions().spriteOffsets?.[player];
     expect(hop?.y).toBeLessThan(-TILE_SIZE / 4);
+    expect(hop?.rotation).toBeUndefined();
+    expect(Math.abs(sim.renderOptions().spriteOffsets?.[ghost]?.rotation ?? 0)).toBeGreaterThan(
+      0.2,
+    );
     runFrames(sim, frames - Math.floor(frames / 2) - 1);
     expect(sim.snapshot().shieldBounce.player).not.toBeNull();
     runFrames(sim, 1);
@@ -4959,7 +4964,7 @@ describe("Shield bounce", () => {
     expect(Input.direction[player]).toBe(DIRECTION.left);
   });
 
-  it("stuns a ghost that hits a wall for 750ms, then it re-picks its way ignoring its facing", () => {
+  it("stuns a ghost that hits a wall for 750ms with a slip rotation, then it re-picks its way ignoring its facing", () => {
     const { sim, player, ghost } = breakSim();
     const at = corridorCell((col, row) => !isWalkable(col + 1, row) && openRun(col, row, -4, 0));
     place(ghost, at);
@@ -4967,14 +4972,20 @@ describe("Shield bounce", () => {
     runFrames(sim, 2);
     expect(sim.snapshot().shieldBounce.ghosts).toEqual([]);
     expect(sim.snapshot().shieldBounce.stunned).toEqual([
-      { eid: ghost, remainingMs: GHOST_WALL_STUN_MS },
+      { eid: ghost, remainingMs: GHOST_WALL_STUN_MS, slipSign: 1 },
     ]);
     expect(Facing.direction[ghost]).toBe(DIRECTION.none);
     expect(sim.renderOptions().spriteOffsets?.[ghost]?.y).toBe(0);
-    runFrames(sim, Math.floor(GHOST_WALL_STUN_MS / FRAME_MS) - 1);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.rotation).toBeGreaterThan(0.2);
+    const remaining = (): number => sim.snapshot().shieldBounce.stunned[0]?.remainingMs ?? 0;
+    runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.72, 20);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.rotation).toBeLessThan(-0.05);
+    runUntil(sim, () => remaining() <= GHOST_WALL_STUN_MS * 0.2, 40);
     expect(Position.x[ghost]).toBe(at.x);
     expect(sim.snapshot().shieldBounce.stunned).toHaveLength(1);
-    runUntil(sim, () => sim.snapshot().shieldBounce.stunned.length === 0, 3);
+    const lateRotation = sim.renderOptions().spriteOffsets?.[ghost]?.rotation ?? 0;
+    expect(Math.abs(lateRotation)).toBeLessThan(0.02);
+    runUntil(sim, () => sim.snapshot().shieldBounce.stunned.length === 0, 20);
     runUntil(sim, () => Position.x[ghost] !== at.x || Position.y[ghost] !== at.y, 30);
     expect(Facing.direction[ghost]).not.toBe(DIRECTION.none);
   });
@@ -8851,5 +8862,132 @@ describe("PlaySim low-power upgrades", () => {
     runFrames(sim, 90);
     const offered = sim.offer()?.upgrades ?? [];
     expect(offered.filter((id) => isLowPowerId(id))).toEqual([]);
+  });
+});
+
+describe("Banana Trail", () => {
+  function startBananaSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  function chompPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function ghostOntoPeel(sim: PlaySim): void {
+    const peel = sim.snapshot().peels[0];
+    expect(peel).toBeDefined();
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = peel!.x;
+    Position.y[ghost] = peel!.y;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  it("banks a peel on power pellet pickup", () => {
+    const sim = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(1);
+    expect(sim.snapshot().peels).toHaveLength(1);
+    expect(sim.renderOptions().peels).toHaveLength(1);
+  });
+
+  it("holds 1 peel, or 3 with Banana Trail+", () => {
+    const base = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(base);
+    chompPowerPellet(base);
+    expect(base.snapshot().timers.peelsBanked).toBe(1);
+
+    const plus = startBananaSim(["passiveBananaShieldPlus"]);
+    for (let i = 0; i < 4; i += 1) {
+      chompPowerPellet(plus);
+    }
+    expect(plus.snapshot().timers.peelsBanked).toBe(3);
+    expect(plus.snapshot().peels).toHaveLength(3);
+  });
+
+  it("a ghost on a peel slips, bounces, and spends the peel without a death", () => {
+    const sim = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(sim);
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPeel(sim);
+    const events = runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({
+      dying: false,
+      lives: livesBefore,
+      deathsThisBoard: 0,
+    });
+    expect(sim.snapshot().timers.peelsBanked).toBe(0);
+    expect(bounceIdle(sim)).toBe(false);
+    expect(events).not.toContainEqual({ type: "sfx", id: "death" });
+    expect(events.some((event) => event.type === "peelCrack")).toBe(true);
+  });
+
+  it("a peel slip bounces only the ghost — Dot-Man keeps control", () => {
+    const sim = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(sim);
+    const player = playerEid(sim);
+    ghostOntoPeel(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().shieldBounce.player).toBeNull();
+    expect(sim.snapshot().shieldBounce.ghosts.length).toBeGreaterThan(0);
+    Facing.direction[player] = DIRECTION.right;
+    Input.direction[player] = DIRECTION.right;
+    runFrames(sim, 1, { keys: { ...NO_KEYS_HELD, left: 1 } });
+    expect(Input.direction[player]).toBe(DIRECTION.left);
+  });
+
+  it("a body catch with peels still behind you is still a death", () => {
+    const sim = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(1);
+    const player = playerEid(sim);
+    // Open corridor so the peel sits behind Dot-Man instead of snapping onto him.
+    teleportPlayer(sim, cellCenterX(12), cellCenterY(1));
+    Facing.direction[player] = DIRECTION.right;
+    runFrames(sim, 2);
+    const peel = sim.snapshot().peels[0]!;
+    expect(Math.hypot(peel.x - Position.x[player]!, peel.y - Position.y[player]!)).toBeGreaterThan(
+      playerRadius(),
+    );
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({ dying: true, lives: livesBefore - 1 });
+    expect(sim.snapshot().timers.peelsBanked).toBe(1);
+  });
+
+  it("fires Shield Break when a peel slips", () => {
+    const sim = startBananaSim([
+      "passiveBananaShield",
+      "passiveShieldBreak",
+      "powerPelletSpeedBurst",
+    ]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+    ghostOntoPeel(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.peelsBanked).toBe(0);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+
+  it("empties peels on level advance", () => {
+    const sim = startBananaSim(["passiveBananaShieldPlus"]);
+    chompPowerPellet(sim);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(2);
+    sim["jumpToLevelClear"]();
+    takeFirstOffered(sim);
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
+    expect(sim.snapshot().timers.peelsBanked).toBe(0);
+    expect(sim.snapshot().peels).toEqual([]);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startBananaSim(["powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(0);
+    expect(sim.snapshot().peels).toEqual([]);
   });
 });

@@ -65,6 +65,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveReactiveArmor` | Reactive Armor | protection | When a shield breaks, the ghost that touched you is sent to the ghost house. | When a shield breaks, all nearby ghosts are sent to the ghost house. |
 | `powerPelletTithe` | Tithe | harvest | Power pellet: move 10% slower for 5 seconds, but pellets count double toward your streak. | Power pellet: move 10% slower for 8 seconds, but pellets count double toward your streak. |
 | `passiveMole` | Mole | harvest | Dig the pellet veins: +20% speed over pellets, 10% slower on cleared tiles. | Dig deeper: +30% speed over pellets, 10% slower on cleared tiles. |
+| `passiveBananaShield` | Banana Trail | protection | Power pellets trail a banana peel behind you. A ghost that hits it slips and bounces back. | Power pellets trail banana peels behind you. Store up to 3. Each ghost slip breaks one. |
 | `lowSpeed` | Speed | neutral | +3% Dot-Man speed. Stacks. |  |
 | `lowTunnelSpeed` | Tunnel Speed | neutral | +8% Dot-Man speed inside tunnels. Stacks. |  |
 | `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 8% slower inside tunnels. Stacks. |  |

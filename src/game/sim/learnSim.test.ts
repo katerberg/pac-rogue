@@ -820,6 +820,40 @@ describe("LearnSim upgrade demos", () => {
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.active);
   });
 
+  describe("Banana Trail", () => {
+    it("banks a peel on power pellet and slips when a ghost touches it", () => {
+      const { sim, player } = setup("passiveBananaShield");
+      chompPower(sim, player);
+      expect(sim["learnUpgrades"].peelsBanked).toBe(1);
+      const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw");
+      expect(draw?.type === "draw" && draw.options.peels).toHaveLength(1);
+      const peel = draw && draw.type === "draw" ? draw.options.peels![0]! : null;
+      expect(peel).not.toBeNull();
+      const ghost = sim.ghostEid!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      Position.x[ghost] = peel!.x;
+      Position.y[ghost] = peel!.y;
+      const events = sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(sim["learnUpgrades"].peelsBanked).toBe(0);
+      expect(events.some((event) => event.type === "peelCrack")).toBe(true);
+      expect(popups(events)).toEqual([]);
+      expect(sim["shieldBounce"].player).toBeNull();
+      expect(sim["shieldBounce"].ghosts.length).toBeGreaterThan(0);
+      Facing.direction[player] = DIRECTION.right;
+      Input.direction[player] = DIRECTION.right;
+      sim.step({ ...NO_KEYS_HELD, left: 1 }, FRAME_MS);
+      expect(Input.direction[player]).toBe(DIRECTION.left);
+    });
+
+    it("toggling the upgrade off clears banked peels", () => {
+      const { sim, player } = setup("passiveBananaShieldPlus");
+      chompPower(sim, player);
+      expect(sim["learnUpgrades"].peelsBanked).toBe(1);
+      sim.toggleUpgrade("passiveBananaShield");
+      expect(sim["learnUpgrades"].peelsBanked).toBe(0);
+    });
+  });
+
   describe("Chaff", () => {
     it("a power pellet drops a decoy and the sim bursts it when time runs out", () => {
       const { sim, player } = setup("powerPelletChaff");
