@@ -1084,8 +1084,7 @@ export class LearnSim {
     }
     this.tunnelBoredCells = [...this.tunnelBoredCells, attempt.cell];
     this.tunnelBoringCharges = attempt.charges;
-    applyBoredCellsToActiveLayout([attempt.cell]);
-    openBoredCellsOnLayout(getActiveLayout(), this.tunnelBoredCells);
+    applyBoredCellsToActiveLayout(this.tunnelBoredCells);
     adoptTunnelBoringFacing(this.world, attempt.direction);
     this.events.push({ type: "resetBoard" });
   }

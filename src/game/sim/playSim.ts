@@ -2940,8 +2940,7 @@ export class PlaySim {
         : [attempt.cell];
     this.tunnelBored = { mapKey, cells };
     this.tunnelBoringCharges = attempt.charges;
-    applyBoredCellsToActiveLayout([attempt.cell]);
-    openBoredCellsOnLayout(getActiveLayout(), cells);
+    applyBoredCellsToActiveLayout(cells);
     adoptTunnelBoringFacing(this.world, attempt.direction);
     this.emit({ type: "resetBoard" });
     this.recorder.activation("tunnelBoring");

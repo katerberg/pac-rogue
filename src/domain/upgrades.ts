@@ -1061,7 +1061,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     enhanced: {
       enhanceNote: "Tunnel Boring drills also recharge when you chomp a power pellet.",
       description:
-        "Once per level, while stopped, press into a wall to bore it open. Power pellets recharge the drill.",
+        "Once per level, while stopped, press into a wall to bore it open for the rest of the map. Power pellets recharge the drill.",
       onPowerPellet: { tunnelBoringRecharge: true },
     },
   },

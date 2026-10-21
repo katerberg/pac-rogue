@@ -8949,6 +8949,16 @@ describe("Tunnel Boring", () => {
     expect(sim.snapshot().tunnelBoring.charges).toBe(1);
   });
 
+  it("base form does not recharge on power pellet pickup", () => {
+    const sim = start(["passiveTunnelBoring"]);
+    pressBore(sim);
+    expect(sim.snapshot().tunnelBoring.charges).toBe(0);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().tunnelBoring.charges).toBe(0);
+  });
+
   it("keeps bored cells on the next pool board with the same map", () => {
     const sim = startSim(
       {

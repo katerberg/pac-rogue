@@ -38,14 +38,39 @@ describe("tunnelBoringTarget", () => {
     expect(tunnelBoringTarget(spawn.col, spawn.row, 1, 0, layout)).toBeNull();
   });
 
-  it("rejects ghost-house neighbors", () => {
+  it("rejects walls that neighbor the ghost house or door", () => {
     const layout = getActiveLayout();
-    const exit = layout.ghostHouseExit;
-    const from = { col: exit.col, row: exit.row + 1 };
-    if (isWalkable(from.col, from.row, layout.playerSolids)) {
-      expect(tunnelBoringTarget(from.col, from.row, 0, -1, layout)).toBeNull();
+    let found: { col: number; row: number; dx: number; dy: number } | null = null;
+    const dirs = [
+      { dx: 1, dy: 0 },
+      { dx: -1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: 0, dy: -1 },
+    ];
+    for (let row = 1; row < layout.rows - 1 && found === null; row += 1) {
+      for (let col = 1; col < layout.cols - 1 && found === null; col += 1) {
+        if (!isWalkable(col, row, layout.playerSolids)) {
+          continue;
+        }
+        for (const step of dirs) {
+          const target = { col: col + step.dx, row: row + step.dy };
+          if (isWalkable(target.col, target.row, layout.playerSolids)) {
+            continue;
+          }
+          const nearHouse = dirs.some(
+            ({ dx, dy }) =>
+              layout.house[target.row + dy]?.[target.col + dx] ||
+              layout.door[target.row + dy]?.[target.col + dx],
+          );
+          if (nearHouse) {
+            found = { col, row, ...step };
+            break;
+          }
+        }
+      }
     }
-    expect(tunnelBoringTarget(exit.col, exit.row, 0, 0, layout)).toBeNull();
+    expect(found).not.toBeNull();
+    expect(tunnelBoringTarget(found!.col, found!.row, found!.dx, found!.dy, layout)).toBeNull();
   });
 
   it("allows edge walls outside the ghost house", () => {
