@@ -583,12 +583,12 @@ describe("LearnSim upgrade demos", () => {
     const { sim, player } = setup("passiveShieldPellets", "passiveDefyDeath");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     sim.step(NO_KEYS_HELD, FRAME_MS);
-    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     expect(popups(catchByGhost(sim, player))).toEqual(["SAVED"]);
-    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     runMs(sim, 1_600);
     expect(popups(catchByGhost(sim, player))).toEqual([]);
-    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(0);
   });
 
   it("Shield fires pickup effects and banks a shield; its break fires nothing", () => {
@@ -596,10 +596,10 @@ describe("LearnSim upgrade demos", () => {
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(0);
-    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     runMs(sim, INVULN_MS + 100);
     expect(popups(catchByGhost(sim, player))).toEqual([]);
-    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(0);
     const after = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(after.type === "draw" && after.options.playerInvulnRemainingMs).toBe(0);
     const hops = after.type === "draw" ? after.options.spriteOffsets : undefined;
@@ -611,11 +611,11 @@ describe("LearnSim upgrade demos", () => {
     const { sim, player } = setup("passiveShieldPellets", "passiveReactiveArmor");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     sim.step(NO_KEYS_HELD, FRAME_MS);
-    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     const ghost = sim.ghostEid!;
     expect(popups(catchByGhost(sim, player))).toEqual([]);
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
-    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(0);
   });
 
   it("Reactive Armor releases the house ghost on the house timer without another keypress", () => {
@@ -642,7 +642,7 @@ describe("LearnSim upgrade demos", () => {
     const [first, second] = query(sim.world, [PowerPellet, Position]);
     moveTo(player, posOf(first!));
     sim.step(NO_KEYS_HELD, FRAME_MS);
-    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     moveTo(player, posOf(second!));
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBeGreaterThan(0);
@@ -665,13 +665,13 @@ describe("LearnSim upgrade demos", () => {
       "passiveShieldBreak",
       "powerPelletInvuln",
     );
-    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(0);
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.playerInvulnRemainingMs).toBe(0);
-    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     expect(popups(catchByGhost(sim, player))).toEqual([]);
-    expect(sim.statusText()).toContain("SHIELDS 0/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(0);
     expect(sim.statusText()).toContain("LIVES 4");
     runMs(sim, INVULN_MS + 100);
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
@@ -684,9 +684,9 @@ describe("LearnSim upgrade demos", () => {
       moveTo(player, posOf(power));
       sim.step(NO_KEYS_HELD, FRAME_MS);
     }
-    expect(sim.statusText()).toContain("SHIELDS 3/3");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(3);
     sim.toggleEnhanced("passiveShieldPellets");
-    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     sim.toggleUpgrade("passiveShieldPellets");
     sim.toggleUpgrade("passiveExtraLife");
     expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST"]);
@@ -694,12 +694,13 @@ describe("LearnSim upgrade demos", () => {
 
   it("Starting Shield gives a shield now and after a board refill, and breaks on a catch", () => {
     const { sim, player } = setup("passiveStartingShieldPlus");
-    expect(sim.statusText()).toContain("SHIELDS 2/2");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(2);
     expect(popups(catchByGhost(sim, player))).toEqual([]);
-    expect(sim.statusText()).toContain("SHIELDS 1/2");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     sim.toggleEnhanced("passiveStartingShield");
-    expect(sim.statusText()).toContain("SHIELDS 1/1");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(1);
     sim.toggleUpgrade("passiveStartingShield");
+    expect(sim["learnUpgrades"].shieldsBanked).toBe(0);
     expect(sim.statusText()).not.toContain("SHIELDS");
   });
 

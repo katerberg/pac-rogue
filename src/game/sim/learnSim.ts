@@ -1664,10 +1664,6 @@ export class LearnSim {
     if (this.catchDemoOwned()) {
       lines.push(`LIVES ${this.runState.lives}`);
     }
-    const shieldCap = shieldBankCap(owned);
-    if (shieldCap > 0) {
-      lines.push(`SHIELDS ${this.learnUpgrades.shieldsBanked}/${shieldCap}`);
-    }
     if (this.bonusDemoOwned()) {
       lines.push(
         `PENNIES ${penniesInCharge(this.runState.pennies.charge)}/${PENNIES_PER_QUARTER}  QUARTERS ${this.runState.quarters}`,
