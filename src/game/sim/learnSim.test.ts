@@ -202,7 +202,7 @@ describe("LearnSim", () => {
   it("Mole speeds the player up faster entering a pellet cell and slower entering an empty cell", () => {
     const { towardPellet, towardEmpty } = learnCellSpeedsAfterToggle("passiveMole");
     expect(towardPellet).toBeCloseTo(1.2);
-    expect(towardEmpty).toBeCloseTo(0.8);
+    expect(towardEmpty).toBeCloseTo(0.9);
   });
 
   it("turns one pellet into a power pellet when Pellet Surge is toggled on", () => {

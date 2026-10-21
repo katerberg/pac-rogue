@@ -448,13 +448,13 @@ describe("PlaySim Mole", () => {
   it("speeds up entering a pellet cell and slows entering an empty cell", () => {
     const ratios = cellSpeedRatios("passiveMole");
     expect(ratios.pellet).toBeCloseTo(1.2);
-    expect(ratios.empty).toBeCloseTo(0.8);
+    expect(ratios.empty).toBeCloseTo(0.9);
   });
 
-  it("Mole+ gives +30% on pellets and keeps the 20% empty-cell slowdown", () => {
+  it("Mole+ gives +30% on pellets and keeps the 10% empty-cell slowdown", () => {
     const ratios = cellSpeedRatios("passiveMolePlus");
     expect(ratios.pellet).toBeCloseTo(1.3);
-    expect(ratios.empty).toBeCloseTo(0.8);
+    expect(ratios.empty).toBeCloseTo(0.9);
   });
 });
 
