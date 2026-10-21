@@ -599,9 +599,10 @@ describe("LearnSim upgrade demos", () => {
     runMs(sim, INVULN_MS + 100);
     expect(popups(catchByGhost(sim, player))).toEqual(["SHIELD BROKEN"]);
     const after = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
-    expect(after.type === "draw" && after.options.playerInvulnRemainingMs).toBeLessThanOrEqual(
-      1000,
-    );
+    expect(after.type === "draw" && after.options.playerInvulnRemainingMs).toBe(0);
+    const hops = after.type === "draw" ? after.options.spriteOffsets : undefined;
+    expect(hops?.[player]?.y).toBeLessThan(0);
+    expect(hops?.[sim.ghostEid!]?.y).toBeLessThan(0);
   });
 
   it("Reactive Armor sends the contacting ghost home when a shield breaks", () => {

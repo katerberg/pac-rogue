@@ -40,6 +40,7 @@ export type SimRenderOptions = {
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
+  spriteOffsets?: Record<number, { x: number; y: number }>;
   hauntedGhost?: HauntedGhost | null;
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];

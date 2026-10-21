@@ -220,6 +220,15 @@ import {
   type HeldKeys,
   type TurnTap,
 } from "../systems/heldKeys";
+import { settleShieldBounce, startShieldBounce, tickShieldBounce } from "../systems/shieldBounce";
+import {
+  NO_SHIELD_BOUNCE,
+  maskStaleKeys,
+  shieldBounceCatchSkips,
+  shieldBounceHeldGhosts,
+  shieldBounceSpriteOffsets,
+  type ShieldBounce,
+} from "../../domain/shieldBounce";
 import { TURN_CATCH_GRACE_MS, tickTurnCatchGrace } from "../../domain/turnCatchGrace";
 import { LearnHouseHold } from "./learnHouseHold";
 import { LearnRecall } from "./learnRecall";
@@ -325,6 +334,8 @@ export class LearnSim {
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private ghostCornerWarps: GhostCornerWarp[] = [];
+  private shieldBounce: ShieldBounce = NO_SHIELD_BOUNCE;
+  private bounceStaleKeys: HeldKeys | null = null;
   private fruitRespawnRemainingMs: number | null = null;
   private cornucopiaFruit = new Map<number, number>();
   private msSinceFruitSpawn = Infinity;
@@ -448,6 +459,7 @@ export class LearnSim {
     }
     this.ghostCornerWarps = tickGhostCornerWarps(this.ghostCornerWarps, delta);
     const warping = this.warpGlide !== null;
+    const bouncing = this.shieldBounce.player !== null;
     const diagonalAllowed = wallPassActive(this.learnUpgrades);
     const programming = this.learnUpgrades.programmer !== null;
     const turnTuningOpts =
@@ -466,8 +478,11 @@ export class LearnSim {
           this.playerSolids(),
         ).state,
       };
-    } else if (!warping) {
-      turnTap = applyHeldKeys(this.world, keys, { diagonalAllowed, turnTuning: turnTuningOpts });
+    } else if (!warping && !bouncing) {
+      turnTap = applyHeldKeys(this.world, maskStaleKeys(keys, this.bounceStaleKeys), {
+        diagonalAllowed,
+        turnTuning: turnTuningOpts,
+      });
     }
     if (turnTuningOpts) {
       this.pushTurnSparks(
@@ -536,7 +551,7 @@ export class LearnSim {
         : levelSpeedMul * hyperspeedMultiplier(this.learnUpgrades.owned);
     const programmerPhase = this.learnUpgrades.programmer?.phase ?? null;
     const rawPlayerSpeedMul =
-      programmerPhase === "recording" || warping
+      programmerPhase === "recording" || warping || bouncing
         ? 0
         : programmerPhase === "running"
           ? levelSpeedMul * HYPERSPEED_MUL
@@ -556,13 +571,22 @@ export class LearnSim {
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
-      heldGhostEids: heldGhostEids(this.ghostCornerWarps),
+      heldGhostEids: new Set([
+        ...heldGhostEids(this.ghostCornerWarps),
+        ...shieldBounceHeldGhosts(this.shieldBounce),
+      ]),
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const playerSolids = this.playerSolids();
+    this.shieldBounce = tickShieldBounce(this.world, this.shieldBounce, delta, {
+      playerSolids,
+      ghostsBlockTunnels: ghostsBlockedFromTunnels(this.learnUpgrades.owned),
+      blockTunnelRow: null,
+      droppedWall: this.learnUpgrades.droppedWall,
+    });
     const moveFrame = (frameDelta: number): void => {
       movement(
         this.world,
@@ -575,7 +599,9 @@ export class LearnSim {
       );
       this.learnUpgrades = trackWallOccupancy(this.world, this.learnUpgrades);
     };
-    if (programmerPhase === "running") {
+    if (bouncing) {
+      moveFrame(delta);
+    } else if (programmerPhase === "running") {
       this.moveHyperspeed(delta, moveFrame, () => {
         this.learnUpgrades = {
           ...this.learnUpgrades,
@@ -728,7 +754,7 @@ export class LearnSim {
       this.payNearMisses(catchOptions);
     } else {
       this.nearMissPasses = createNearMissPasses();
-      this.resolveDemoCatch(caught, playerCaught === null ? twinAt : null);
+      this.resolveDemoCatch(caught, playerCaught === null ? twinAt : null, keys);
     }
 
     this.events.push({
@@ -750,6 +776,7 @@ export class LearnSim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
+        spriteOffsets: shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
@@ -807,6 +834,7 @@ export class LearnSim {
     this.eatenHoldGhostEids = [];
     this.eatenHoldRemainingMs = 0;
     this.ghostCornerWarps = [];
+    this.shieldBounce = NO_SHIELD_BOUNCE;
     if (hasUpgrade(this.learnUpgrades.owned, "passiveGhostHouseDelay")) {
       this.beginHouseHold();
     }
@@ -1400,7 +1428,10 @@ export class LearnSim {
   private catchOptions(): CatchOptions {
     return {
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
-      skipGhostEids: glidingGhostEids(this.ghostCornerWarps),
+      skipGhostEids: new Set([
+        ...glidingGhostEids(this.ghostCornerWarps),
+        ...shieldBounceCatchSkips(this.shieldBounce),
+      ]),
       edibleGhostEids: frightenedGhostEids(this.learnUpgrades),
       playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
       turnCatchGrace: this.turnCatchGraceMs > 0,
@@ -1434,7 +1465,11 @@ export class LearnSim {
     this.recalled.sendHome(this.world, eids, owned, this.houseHoldEaten);
   }
 
-  private resolveDemoCatch(caughtBy: number, twinAt: { x: number; y: number } | null): void {
+  private resolveDemoCatch(
+    caughtBy: number,
+    twinAt: { x: number; y: number } | null,
+    keys: HeldKeys,
+  ): void {
     this.streakBar = createPennyPurse();
     const defied = defyDeathActive(this.learnUpgrades);
     if (!defied && this.breakHyperspeedShield(caughtBy)) {
@@ -1443,11 +1478,22 @@ export class LearnSim {
     const spent = defied ? null : spendShield(this.learnUpgrades);
     if (spent !== null) {
       this.learnUpgrades = spent;
+      const bounce = twinAt === null ? startShieldBounce(this.world, caughtBy) : null;
       this.fireReactiveArmor(caughtBy);
       if (shieldBreakOwned(this.learnUpgrades.owned)) {
         this.firePowerPelletEffects(1);
       }
-      this.learnUpgrades = applyShieldBreakInvuln(this.learnUpgrades);
+      if (bounce === null) {
+        this.learnUpgrades = applyShieldBreakInvuln(this.learnUpgrades);
+      } else {
+        this.shieldBounce = settleShieldBounce(
+          this.shieldBounce,
+          bounce,
+          this.warpGlide !== null,
+          heldGhostEids(this.ghostCornerWarps),
+        );
+        this.bounceStaleKeys = keys;
+      }
       this.popup("SHIELD BROKEN");
       return;
     }
