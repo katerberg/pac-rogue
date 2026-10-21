@@ -69,18 +69,19 @@ export function stepBananaPeelTail(
     return { beads: [], dropped: beads.length > 0 ? [...beads] : [], heading };
   }
   const facingStep = facingToHeadingStep(pose.facing);
-  // First bead of a fresh trail snaps to the current facing instead of swinging from 0°.
+  // Fresh trails snap to facing; ongoing trails keep swinging from the prior heading.
   const seedHeading =
     beads.length === 0 && facingStep !== null ? headingAngle(facingStep) : heading;
-  const anchor = peelTailAnchor(world, seedHeading, env.dtMs);
-  if (anchor === null) {
-    return { beads: [], dropped: beads.length > 0 ? [...beads] : [], heading };
-  }
+  const nextHeading =
+    facingStep === null
+      ? seedHeading
+      : stepHeading(seedHeading, headingAngle(facingStep), env.dtMs);
+  const anchor = { x: pose.x, y: pose.y, heading: nextHeading };
   const resized = resizeTail(beads, peelsBanked, anchor, layout, env.blocked);
   return {
     beads: stepTail(resized.beads, anchor, layout, env),
     dropped: resized.dropped,
-    heading: anchor.heading,
+    heading: nextHeading,
   };
 }
 
