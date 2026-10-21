@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 import {
   LEARN_UPGRADE_CLIP_BOTTOM,
   LEARN_UPGRADE_CLIP_TOP,
@@ -8,12 +9,39 @@ import {
   LEARN_UPGRADE_ROW_WIDTH,
   applyLearnUpgradeWheel,
   clampLearnUpgradeScroll,
+  learnUpgradeBarRects,
   learnUpgradeColumnAt,
   learnUpgradeContentHeight,
   learnUpgradeRowVisible,
   learnUpgradeScrollExtent,
   learnUpgradeViewportHeight,
 } from "./learnUpgradeScroll";
+
+describe("learnUpgradeBarRects", () => {
+  it("covers each gutter through the upgrade column so the maze clips underneath", () => {
+    expect(learnUpgradeBarRects()).toEqual([
+      {
+        x: 0,
+        y: 0,
+        w: LEARN_UPGRADE_COLUMN_X.left + LEARN_UPGRADE_ROW_WIDTH,
+        h: PLAYFIELD_HEIGHT,
+        column: "left",
+      },
+      {
+        x: LEARN_UPGRADE_COLUMN_X.right,
+        y: 0,
+        w: PLAYFIELD_WIDTH - LEARN_UPGRADE_COLUMN_X.right,
+        h: PLAYFIELD_HEIGHT,
+        column: "right",
+      },
+    ]);
+  });
+
+  it("returns no rects for a zero-sized playfield", () => {
+    expect(learnUpgradeBarRects(0, PLAYFIELD_HEIGHT)).toEqual([]);
+    expect(learnUpgradeBarRects(PLAYFIELD_WIDTH, 0)).toEqual([]);
+  });
+});
 
 describe("learnUpgradeContentHeight", () => {
   it("matches the LearnScene school/row recurrence", () => {

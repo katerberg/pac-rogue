@@ -1,4 +1,5 @@
 import type { LearnColumn } from "./learnUpgradeColumns";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 export const LEARN_UPGRADE_CLIP_TOP = 66;
 export const LEARN_UPGRADE_CLIP_BOTTOM = 558;
@@ -6,6 +7,42 @@ export const LEARN_UPGRADE_ROW_GAP = 16;
 export const LEARN_UPGRADE_HEADER_GAP = 20;
 export const LEARN_UPGRADE_COLUMN_X = { left: 20, right: 596 } as const;
 export const LEARN_UPGRADE_ROW_WIDTH = 190;
+
+export type LearnUpgradeBarRect = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  column: LearnColumn;
+};
+
+/** Full-height fills behind each upgrade column so the maze clips under the bars. */
+export function learnUpgradeBarRects(
+  playfieldWidth: number = PLAYFIELD_WIDTH,
+  playfieldHeight: number = PLAYFIELD_HEIGHT,
+  columnX: Readonly<Record<LearnColumn, number>> = LEARN_UPGRADE_COLUMN_X,
+  rowWidth: number = LEARN_UPGRADE_ROW_WIDTH,
+): readonly LearnUpgradeBarRect[] {
+  if (!(playfieldWidth > 0) || !(playfieldHeight > 0) || !(rowWidth > 0)) {
+    return [];
+  }
+  const leftEnd = Math.min(playfieldWidth, columnX.left + rowWidth);
+  const rightStart = Math.max(0, Math.min(playfieldWidth, columnX.right));
+  const rects: LearnUpgradeBarRect[] = [];
+  if (leftEnd > 0) {
+    rects.push({ x: 0, y: 0, w: leftEnd, h: playfieldHeight, column: "left" });
+  }
+  if (rightStart < playfieldWidth) {
+    rects.push({
+      x: rightStart,
+      y: 0,
+      w: playfieldWidth - rightStart,
+      h: playfieldHeight,
+      column: "right",
+    });
+  }
+  return rects;
+}
 
 export function learnUpgradeViewportHeight(
   clipTop: number = LEARN_UPGRADE_CLIP_TOP,

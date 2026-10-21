@@ -16,11 +16,13 @@ import {
   LEARN_UPGRADE_ROW_GAP,
   LEARN_UPGRADE_ROW_WIDTH,
   applyLearnUpgradeWheel,
+  learnUpgradeBarRects,
   learnUpgradeColumnAt,
   learnUpgradeContentHeight,
   learnUpgradeRowVisible,
   learnUpgradeScrollExtent,
 } from "../../domain/learnUpgradeScroll";
+import { sidebarBackgroundColor } from "../../domain/sidebarBands";
 import { UPGRADE_SLOT_HINT_GLYPH, upgradeSlotHintAngleDeg } from "../../domain/upgradeChoiceHints";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import {
@@ -36,6 +38,7 @@ import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  MAZE_BACKGROUND_COLOR,
   TILE_SIZE,
 } from "../../domain/maze";
 import { GHOST_DRAWABLE_BY_KIND, PLAYFIELD_WIDTH } from "../../domain/playfield";
@@ -107,6 +110,9 @@ const SLOT_STROKE_COLOR = 0x444444;
 const RARE_LABEL_COLOR = 0xffd700;
 const BACK_Y = 550;
 const OVERLAY_DEPTH = 5;
+/** Above maze drawables; upgrade labels/checkboxes sit one higher. */
+const UPGRADE_BAR_DEPTH = 3;
+const UPGRADE_UI_DEPTH = 4;
 const PATH_ALPHA = 0.6;
 const PATH_WIDTH = 3;
 const RETICLE_SIZE = 10;
@@ -210,8 +216,9 @@ export class LearnScene extends Phaser.Scene {
     placePixelText(title, PLAYFIELD_WIDTH / 2, TITLE_Y, 0.5, 0.5);
     this.ghostNameText = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
     this.buildGhostSlots();
+    this.paintUpgradeBars();
     this.buildUpgradeRows();
-    this.upgradeDrain = this.add.graphics();
+    this.upgradeDrain = this.add.graphics().setDepth(UPGRADE_UI_DEPTH);
     this.buildBackButton();
 
     this.noEffectBanner = addPixelText(this, 0, 0, "", UPGRADES_HUD_FONT_SIZE)
@@ -369,6 +376,15 @@ export class LearnScene extends Phaser.Scene {
     }
   }
 
+  private paintUpgradeBars(): void {
+    const bars = this.add.graphics().setDepth(UPGRADE_BAR_DEPTH);
+    const color = sidebarBackgroundColor(MAZE_BACKGROUND_COLOR);
+    bars.fillStyle(color, 1);
+    for (const rect of learnUpgradeBarRects()) {
+      bars.fillRect(rect.x, rect.y, rect.w, rect.h);
+    }
+  }
+
   private buildUpgradeRows(): void {
     this.upgradeRows = [];
     this.upgradeHeaders = [];
@@ -393,6 +409,7 @@ export class LearnScene extends Phaser.Scene {
           SCHOOL_COLORS[school],
         );
         placePixelText(header, LEARN_UPGRADE_COLUMN_X[column], y, 0, 0.5);
+        header.setDepth(UPGRADE_UI_DEPTH);
         this.upgradeHeaders.push({ column, baseY: y, label: header });
         for (const def of defs) {
           y += LEARN_UPGRADE_ROW_GAP;
@@ -419,7 +436,7 @@ export class LearnScene extends Phaser.Scene {
     )
       .setOrigin(0.5, 0.5)
       .setAngle(upgradeSlotHintAngleDeg("up"))
-      .setDepth(OVERLAY_DEPTH + 1)
+      .setDepth(UPGRADE_UI_DEPTH)
       .setVisible(false);
     const down = addPixelText(
       this,
@@ -431,7 +448,7 @@ export class LearnScene extends Phaser.Scene {
     )
       .setOrigin(0.5, 0.5)
       .setAngle(upgradeSlotHintAngleDeg("down"))
-      .setDepth(OVERLAY_DEPTH + 1)
+      .setDepth(UPGRADE_UI_DEPTH)
       .setVisible(false);
     return { up, down };
   }
@@ -443,10 +460,12 @@ export class LearnScene extends Phaser.Scene {
     const labelX = checkboxX + UPGRADE_CHECK_SIZE / 2 + UPGRADE_CHECK_GAP;
     const checkBox = this.add
       .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE, UPGRADE_CHECK_SIZE)
-      .setStrokeStyle(CHECKBOX_STROKE, TEXT_COLOR_WHITE);
+      .setStrokeStyle(CHECKBOX_STROKE, TEXT_COLOR_WHITE)
+      .setDepth(UPGRADE_UI_DEPTH);
     const checkMark = this.add
       .rectangle(checkboxX, y, UPGRADE_CHECK_SIZE - 4, UPGRADE_CHECK_SIZE - 4, RARE_LABEL_COLOR)
-      .setVisible(false);
+      .setVisible(false)
+      .setDepth(UPGRADE_UI_DEPTH);
     const label = addPixelText(
       this,
       0,
@@ -456,10 +475,12 @@ export class LearnScene extends Phaser.Scene {
       def.rare === true ? RARE_LABEL_COLOR : TEXT_COLOR_WHITE,
     );
     placePixelText(label, labelX, y, 0, 0.5);
+    label.setDepth(UPGRADE_UI_DEPTH);
     const plusBox = this.add
       .rectangle(plusX, y, UPGRADE_PLUS_BOX_SIZE, UPGRADE_PLUS_BOX_SIZE)
       .setStrokeStyle(CHECKBOX_STROKE, RARE_LABEL_COLOR)
-      .setVisible(false);
+      .setVisible(false)
+      .setDepth(UPGRADE_UI_DEPTH);
     const plus = addPixelText(this, 0, 0, "+", UPGRADES_HUD_FONT_SIZE, RARE_LABEL_COLOR);
     placePixelText(
       plus,
@@ -468,7 +489,7 @@ export class LearnScene extends Phaser.Scene {
       0.5,
       0.5,
     );
-    plus.setVisible(false);
+    plus.setVisible(false).setDepth(UPGRADE_UI_DEPTH);
     const rowHitH = LEARN_UPGRADE_ROW_GAP - 2;
     const checkZoneW = UPGRADE_CHECK_SIZE + UPGRADE_CHECK_GAP;
     const checkZone = this.add.zone(columnX + checkZoneW / 2, y, checkZoneW, rowHitH);
