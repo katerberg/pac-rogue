@@ -9,6 +9,7 @@ import {
   LOW_POWER_IDS,
   LOW_POWER_SLOWDOWN_CUT,
   LOW_POWER_SPEED_ADD,
+  LOW_POWER_TUNNEL_SPEED_ADD,
   isLowPowerId,
 } from "../../domain/lowPowerUpgrades";
 import {
@@ -1924,6 +1925,24 @@ describe("LearnSim upgrade demos", () => {
       return Speed.px[player]!;
     };
     expect(speed("lowSpeed") / speed()).toBeCloseTo(1 + LOW_POWER_SPEED_ADD);
+  });
+
+  it("Tunnel Speed speeds Maze-Man up only inside a tunnel", () => {
+    const speedAt = (
+      col: number,
+      row: number,
+      ...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]
+    ) => {
+      const { sim, player } = setup(...ids);
+      moveTo(player, { x: cellCenterX(col), y: cellCenterY(row) });
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      return Speed.px[player]!;
+    };
+    const row = horizontalTunnelRows()[0]!;
+    expect(speedAt(0, row, "lowTunnelSpeed") / speedAt(0, row)).toBeCloseTo(
+      1 + LOW_POWER_TUNNEL_SPEED_ADD,
+    );
+    expect(speedAt(13, 11, "lowTunnelSpeed")).toBeCloseTo(speedAt(13, 11));
   });
 
   it("a ghost slowdown slows the selected ghost only", () => {

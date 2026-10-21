@@ -81,12 +81,7 @@ import { ghostHouseSeatCenters, houseSeatCount } from "../../domain/ghostHouseSe
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { blinkyEyesTrackPlayer } from "../../domain/ghostPupils";
 import type { GhostDir } from "../../domain/ghostPath";
-import {
-  GHOST_ROSTERS,
-  pickRosterId,
-  RELEASE_SLOT_BY_KIND,
-  type ReleaseSlot,
-} from "../../domain/ghostRoster";
+import { pickRosterId, RELEASE_SLOT_BY_KIND, type ReleaseSlot } from "../../domain/ghostRoster";
 import {
   createGhostModeClock,
   GHOST_AI_MODE,
@@ -2005,7 +2000,7 @@ export class PlaySim {
   }
 
   private rosterKinds(): readonly GhostKindId[] {
-    return GHOST_ROSTERS[this.rosterId]!;
+    return ghostKindsForLevel(this.levelIndex + 1, this.rosterId);
   }
 
   private pelletsForElroy(): number {
