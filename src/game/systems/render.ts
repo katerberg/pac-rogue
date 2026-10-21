@@ -1505,16 +1505,21 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         drawVisor(primaryKey, pose, visorLift);
         const shields = opts?.shields ?? 0;
         if (!charmLook.enabled) {
+          visual.tail = [];
+          visual.cracks = [];
           drawBubbleShield(primaryKey, go, visual, shields, { x, y }, size, true);
+        } else {
+          visual.bubbleShields = shields;
+          visual.bubbleCracks = [];
+          drawTail(
+            go,
+            visual,
+            shields,
+            { x, y },
+            frameMoved / frameDt / CHARM_SPEED_FULL_PX_PER_MS,
+            frameDt,
+          );
         }
-        drawTail(
-          go,
-          visual,
-          charmLook.enabled ? shields : 0,
-          { x, y },
-          frameMoved / frameDt / CHARM_SPEED_FULL_PX_PER_MS,
-          frameDt,
-        );
 
         const trail =
           glide !== undefined
@@ -1560,7 +1565,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
                 twinKey,
                 twinGo,
                 visual,
-                opts?.shields ?? 0,
+                shields,
                 { x: twin.x, y: twin.y },
                 size,
                 false,
