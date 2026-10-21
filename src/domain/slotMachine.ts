@@ -61,19 +61,19 @@ export const SLOT_LINES: readonly (readonly Cell[])[] = [
 ];
 
 const SLOT_OUTCOMES: readonly (SlotOutcome & { weight: number })[] = [
-  { weight: 7, quarters: 0, upgrades: 0, lives: 0 },
-  { weight: 28, quarters: 1, upgrades: 0, lives: 0 },
-  { weight: 12, quarters: 2, upgrades: 0, lives: 0 },
-  { weight: 3, quarters: 3, upgrades: 0, lives: 0 },
-  { weight: 1, quarters: 4, upgrades: 0, lives: 0 },
-  { weight: 0.5, quarters: 5, upgrades: 0, lives: 0 },
-  { weight: 16, quarters: 0, upgrades: 1, lives: 0 },
-  { weight: 6, quarters: 1, upgrades: 1, lives: 0 },
-  { weight: 1.5, quarters: 2, upgrades: 1, lives: 0 },
-  { weight: 0.5, quarters: 0, upgrades: 2, lives: 0 },
-  { weight: 16, quarters: 0, upgrades: 0, lives: 1 },
-  { weight: 6, quarters: 1, upgrades: 0, lives: 1 },
-  { weight: 1.5, quarters: 2, upgrades: 0, lives: 1 },
+  { weight: 8, quarters: 0, upgrades: 0, lives: 0 },
+  { weight: 33, quarters: 1, upgrades: 0, lives: 0 },
+  { weight: 8, quarters: 2, upgrades: 0, lives: 0 },
+  { weight: 2, quarters: 3, upgrades: 0, lives: 0 },
+  { weight: 0.5, quarters: 4, upgrades: 0, lives: 0 },
+  { weight: 0.25, quarters: 5, upgrades: 0, lives: 0 },
+  { weight: 19.25, quarters: 0, upgrades: 1, lives: 0 },
+  { weight: 3.5, quarters: 1, upgrades: 1, lives: 0 },
+  { weight: 0.75, quarters: 2, upgrades: 1, lives: 0 },
+  { weight: 0.25, quarters: 0, upgrades: 2, lives: 0 },
+  { weight: 19.25, quarters: 0, upgrades: 0, lives: 1 },
+  { weight: 3.5, quarters: 1, upgrades: 0, lives: 1 },
+  { weight: 0.75, quarters: 2, upgrades: 0, lives: 1 },
   { weight: 1, quarters: 0, upgrades: 1, lives: 1 },
 ];
 

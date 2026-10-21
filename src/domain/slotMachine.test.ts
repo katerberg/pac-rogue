@@ -37,6 +37,7 @@ function tableStats(livesOnReels: boolean) {
     table.reduce((sum, o) => sum + o.weight * pick(o), 0) / total;
   return {
     nothing: share((o) => o.quarters + o.upgrades + o.lives === 0),
+    multi: share((o) => o.quarters + o.upgrades + o.lives > 1),
     anyUpgrade: share((o) => o.upgrades > 0),
     anyLife: share((o) => o.lives > 0),
     quarters: mean((o) => o.quarters),
@@ -44,11 +45,12 @@ function tableStats(livesOnReels: boolean) {
 }
 
 describe("slot outcome table", () => {
-  it("pays nothing under 10% of the time and averages at least 0.85 Quarters", () => {
+  it("pays nothing under 10%, multi under a quarter, and averages at least 0.65 Quarters", () => {
     for (const livesOnReels of [true, false]) {
       const stats = tableStats(livesOnReels);
       expect(stats.nothing).toBeLessThan(0.1);
-      expect(stats.quarters).toBeGreaterThanOrEqual(0.85);
+      expect(stats.multi).toBeLessThan(0.25);
+      expect(stats.quarters).toBeGreaterThanOrEqual(0.65);
       expect(stats.anyUpgrade).toBeCloseTo(0.25, 2);
     }
   });
