@@ -140,6 +140,8 @@ import {
   type CharmTuning,
 } from "../../domain/charmTailParams";
 import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
+import { upgradeArtTextureKey } from "../../domain/upgradeArt";
+import { UPGRADE_ART_URLS } from "../upgradeArt";
 import { resizeTail, stepTail, type TailBead } from "../../domain/charmTail";
 import { UPGRADE_SCHOOL_ORDER, type HauntedGhost } from "../../domain/upgrades";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
@@ -539,6 +541,9 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   }
   for (const school of UPGRADE_SCHOOL_ORDER) {
     scene.load.image(schoolArtTextureKey(school), schoolArtPath(school));
+  }
+  for (const [baseId, url] of UPGRADE_ART_URLS) {
+    scene.load.image(upgradeArtTextureKey(baseId), url);
   }
 }
 

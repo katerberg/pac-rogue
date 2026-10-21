@@ -59,6 +59,10 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 - **LEARN** mirrors upgrades through shared helpers and the demo catch; toggling an upgrade off must clear its stale timers (`clearStaleUpgradeTimers`).
 - **Run log** records activations per upgrade ([RUN_LOG.md](./RUN_LOG.md)).
 
+## Upgrade art
+
+The left-column upgrade icons (play HUD, pause list) use a 48x48 PNG named `<baseUpgradeId>.png` in [`src/art/upgrades/`](../src/art/upgrades) when one exists, and the scaled-up school icon otherwise. Dropping a file in is the whole change: [`src/game/upgradeArt.ts`](../src/game/upgradeArt.ts) globs the folder, and the enhanced form shares its base's art. A new upgrade never needs art. `upgradeArt.test.ts` fails on a misnamed file or a wrong size.
+
 ## Adding an upgrade
 
 Use the [`new-upgrade` skill](../.agents/skills/new-upgrade/SKILL.md) for the full touch-point list. In short: add a `BaseUpgradeId` and a row at the end of `BASE_UPGRADE_DEFS` with its required `enhanced` override, reuse existing effect fields where possible, add a `PlaySim` test (`registrySync.test.ts` enforces one), and cover it in LEARN.

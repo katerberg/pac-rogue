@@ -98,6 +98,9 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
+import { schoolArtTextureKey } from "../../domain/schoolArt";
+import { upgradeArtTextureKey } from "../../domain/upgradeArt";
+import { upgradeIconTexture } from "../upgradeArt";
 import { ECHO_DELAY_MS } from "../../domain/echo";
 import type { ProgramDir } from "../../domain/programmer";
 import { lazyLooperRequiredCells } from "../../domain/lazyLooper";
@@ -1123,6 +1126,18 @@ describe("PlaySim", () => {
       });
       expect(defyWindowAfterPowerPellet(below)).toBeLessThanOrEqual(DEFY_DEATH_MS);
       expect(below.hud().upgrades).toContain("passiveDefyDeath");
+    });
+
+    it("HUD icons use upgrade art when it exists and the school icon otherwise", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: ["powerPelletSpeedBurst", "passiveGhostSlow"],
+      });
+      expect(sim.hud().upgrades.map(upgradeIconTexture)).toEqual([
+        upgradeArtTextureKey("powerPelletSpeedBurst"),
+        schoolArtTextureKey("disruption"),
+      ]);
     });
 
     it("Death Specialist Plus enhances a lone Death upgrade", () => {
