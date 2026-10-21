@@ -27,16 +27,13 @@ describe("bubbleShieldDisplaySize", () => {
 });
 
 describe("bubbleShieldCracksAfterDrop", () => {
-  it("spawns one crack per lost shield using the pre-drop texture", () => {
+  it("spawns one crack using the pre-drop texture, even if several shields drop", () => {
     const at = { x: 10, y: 20 };
-    const dropped = bubbleShieldCracksAfterDrop(2, 1, at, 100, []);
+    const dropped = bubbleShieldCracksAfterDrop(3, 0, at, 100, []);
     expect(dropped).toEqual([{ x: 10, y: 20, startMs: 100, textureKey: BUBBLE_SHIELD_MULTI_KEY }]);
-    const last = bubbleShieldCracksAfterDrop(1, 0, at, 200, dropped);
-    expect(last).toHaveLength(2);
-    expect(last[1]).toMatchObject({
-      startMs: 200,
-      textureKey: BUBBLE_SHIELD_SINGLE_KEY,
-    });
+    expect(bubbleShieldCracksAfterDrop(1, 0, at, 200, [])).toEqual([
+      { x: 10, y: 20, startMs: 200, textureKey: BUBBLE_SHIELD_SINGLE_KEY },
+    ]);
   });
 
   it("does not crack when shields rise or stay put", () => {

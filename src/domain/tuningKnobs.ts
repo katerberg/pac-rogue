@@ -117,7 +117,7 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   {
     key: "charmTail",
     group: "Visuals",
-    label: "Shield bracelet",
+    label: "Shield bracelet (replaces bubble)",
     kind: "toggle",
     subgroup: "Bracelet",
   },

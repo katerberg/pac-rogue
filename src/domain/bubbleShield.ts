@@ -53,12 +53,7 @@ export function bubbleShieldCracksAfterDrop(
   if (textureKey === null) {
     return [...cracks];
   }
-  const lost = previousShields - shields;
-  const next = [...cracks];
-  for (let i = 0; i < lost; i += 1) {
-    next.push({ x: at.x, y: at.y, startMs: nowMs, textureKey });
-  }
-  return next;
+  return [...cracks, { x: at.x, y: at.y, startMs: nowMs, textureKey }];
 }
 
 export function bubbleShieldCrackHalfPose(

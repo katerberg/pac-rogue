@@ -1504,7 +1504,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         }
         drawVisor(primaryKey, pose, visorLift);
         const shields = opts?.shields ?? 0;
-        drawBubbleShield(primaryKey, go, visual, shields, { x, y }, size, true);
+        if (!charmLook.enabled) {
+          drawBubbleShield(primaryKey, go, visual, shields, { x, y }, size, true);
+        }
         drawTail(
           go,
           visual,
@@ -1553,15 +1555,17 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             twinGo.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
             applyTintNow(twinGo);
             drawVisor(twinKey, pose, visorLift);
-            drawBubbleShield(
-              twinKey,
-              twinGo,
-              visual,
-              opts?.shields ?? 0,
-              { x: twin.x, y: twin.y },
-              size,
-              false,
-            );
+            if (!charmLook.enabled) {
+              drawBubbleShield(
+                twinKey,
+                twinGo,
+                visual,
+                opts?.shields ?? 0,
+                { x: twin.x, y: twin.y },
+                size,
+                false,
+              );
+            }
           }
         }
       }
