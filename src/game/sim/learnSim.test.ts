@@ -831,6 +831,12 @@ describe("LearnSim upgrade demos", () => {
       expect(sim["learnUpgrades"].peelsBanked).toBe(0);
       expect(events.some((event) => event.type === "peelCrack")).toBe(true);
       expect(popups(events)).toEqual([]);
+      expect(sim["shieldBounce"].player).toBeNull();
+      expect(sim["shieldBounce"].ghosts.length).toBeGreaterThan(0);
+      Facing.direction[player] = DIRECTION.right;
+      Input.direction[player] = DIRECTION.right;
+      sim.step({ ...NO_KEYS_HELD, left: 1 }, FRAME_MS);
+      expect(Input.direction[player]).toBe(DIRECTION.left);
     });
 
     it("toggling the upgrade off clears banked peels", () => {

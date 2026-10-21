@@ -3479,7 +3479,7 @@ export class PlaySim {
     for (const bead of resized.dropped) {
       this.emit({ type: "peelCrack", x: bead.x, y: bead.y });
     }
-    const bounce = startShieldBounce(this.world, ghostEid);
+    const bounce = startShieldBounce(this.world, ghostEid, { bouncePlayer: false });
     this.fireReactiveArmor(ghostEid);
     if (shieldBreakOwned(this.effectiveUpgrades())) {
       this.firePowerPelletEffects(1);
@@ -3494,7 +3494,6 @@ export class PlaySim {
       this.warpGlide !== null,
       heldGhostEids(this.ghostCornerWarps),
     );
-    this.bounceStaleKeys = this.frameKeys;
     return true;
   }
 

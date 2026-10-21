@@ -8905,6 +8905,20 @@ describe("Banana Shield", () => {
     expect(events.some((event) => event.type === "peelCrack")).toBe(true);
   });
 
+  it("a peel slip bounces only the ghost — Dot-Man keeps control", () => {
+    const sim = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(sim);
+    const player = playerEid(sim);
+    ghostOntoPeel(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().shieldBounce.player).toBeNull();
+    expect(sim.snapshot().shieldBounce.ghosts.length).toBeGreaterThan(0);
+    Facing.direction[player] = DIRECTION.right;
+    Input.direction[player] = DIRECTION.right;
+    runFrames(sim, 1, { keys: { ...NO_KEYS_HELD, left: 1 } });
+    expect(Input.direction[player]).toBe(DIRECTION.left);
+  });
+
   it("a body catch with peels still behind you is still a death", () => {
     const sim = startBananaSim(["passiveBananaShield"]);
     chompPowerPellet(sim);

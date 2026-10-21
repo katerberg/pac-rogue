@@ -754,7 +754,7 @@ export class LearnSim {
 
     const catchOptions = this.catchOptions();
     this.stepPeelTail(delta);
-    if (!this.tryBreakPeel(catchOptions, keys)) {
+    if (!this.tryBreakPeel(catchOptions)) {
       const demo = this.catchDemoOwned();
       const playerCaught = demo ? catchPlayer(this.world, catchOptions) : null;
       const twinAt = this.twinPosition();
@@ -1008,7 +1008,7 @@ export class LearnSim {
     this.peelTail = stepped.beads;
   }
 
-  private tryBreakPeel(catchOptions: CatchOptions, keys: HeldKeys): boolean {
+  private tryBreakPeel(catchOptions: CatchOptions): boolean {
     if (this.learnUpgrades.peelsBanked <= 0) {
       return false;
     }
@@ -1016,10 +1016,10 @@ export class LearnSim {
     if (ghostEid === null) {
       return false;
     }
-    return this.breakPeel(ghostEid, keys);
+    return this.breakPeel(ghostEid);
   }
 
-  private breakPeel(ghostEid: number, keys: HeldKeys): boolean {
+  private breakPeel(ghostEid: number): boolean {
     const spent = spendPeel(this.learnUpgrades);
     if (spent === null) {
       return false;
@@ -1037,7 +1037,7 @@ export class LearnSim {
     for (const bead of resized.dropped) {
       this.events.push({ type: "peelCrack", x: bead.x, y: bead.y });
     }
-    const bounce = startShieldBounce(this.world, ghostEid);
+    const bounce = startShieldBounce(this.world, ghostEid, { bouncePlayer: false });
     this.fireReactiveArmor(ghostEid);
     if (shieldBreakOwned(this.learnUpgrades.owned)) {
       this.firePowerPelletEffects(1);
@@ -1051,7 +1051,6 @@ export class LearnSim {
         this.warpGlide !== null,
         heldGhostEids(this.ghostCornerWarps),
       );
-      this.bounceStaleKeys = keys;
     }
     return true;
   }
@@ -1441,7 +1440,7 @@ export class LearnSim {
         this.hyperspeedFruit.push(...collectFruitForBodies(this.world, this.twinPosition()));
         this.eatFrightenedGhosts();
         const options = this.catchOptions();
-        if (this.tryBreakPeel(options, NO_KEYS_HELD)) {
+        if (this.tryBreakPeel(options)) {
           return false;
         }
         const twinAt = this.twinPosition();

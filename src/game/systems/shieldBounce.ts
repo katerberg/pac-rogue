@@ -64,7 +64,17 @@ function clearGhostDecision(eid: number): void {
   Ghost.decidedRow[eid] = Number.NaN;
 }
 
-export function startShieldBounce(world: World, ghostEid: number): ShieldBounce | null {
+export type StartShieldBounceOpts = {
+  /** false = ghost-only bounce (peel slips). Default true. */
+  bouncePlayer?: boolean;
+};
+
+export function startShieldBounce(
+  world: World,
+  ghostEid: number,
+  opts?: StartShieldBounceOpts,
+): ShieldBounce | null {
+  const bouncePlayer = opts?.bouncePlayer !== false;
   const playerEid = query(world, [Player, Position])[0];
   if (playerEid === undefined) {
     return null;
@@ -91,13 +101,15 @@ export function startShieldBounce(world: World, ghostEid: number): ShieldBounce 
           Drawable.radius[eid] ?? 0,
         )),
   );
-  head(playerEid, steps.player);
+  if (bouncePlayer) {
+    head(playerEid, steps.player);
+  }
   for (const eid of ghostEids) {
     head(eid, steps.ghost);
     clearGhostDecision(eid);
   }
   return {
-    player: { eid: playerEid, step: steps.player, elapsedMs: 0 },
+    player: bouncePlayer ? { eid: playerEid, step: steps.player, elapsedMs: 0 } : null,
     ghosts: ghostEids.map((eid) => ({ eid, step: steps.ghost, elapsedMs: 0 })),
     stunned: [],
   };
