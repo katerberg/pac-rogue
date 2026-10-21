@@ -2,6 +2,8 @@ import { query, type World } from "bitecs";
 import type { GhostKindId } from "../../domain/ghostKind";
 import {
   LOW_POWER_TRACTION_DRAG_MS,
+  lowPowerGhostSpeedMul,
+  lowPowerVortexMul,
   lowPowerTractionCopies,
   lowPowerTractionMul,
 } from "../../domain/lowPowerUpgrades";
@@ -58,7 +60,12 @@ export class GhostTractionState {
     }
   }
 
-  multiplier(eid: number, owned: readonly UpgradeId[], kind: GhostKindId): number {
-    return this.dragMs.has(eid) ? lowPowerTractionMul(lowPowerTractionCopies(owned, kind)) : 1;
+  speedMultiplier(
+    owned: readonly UpgradeId[],
+  ): (eid: number, kind: GhostKindId, inTunnel: boolean) => number {
+    return (eid, kind, inTunnel) =>
+      lowPowerGhostSpeedMul(owned, kind) *
+      (inTunnel ? lowPowerVortexMul(owned) : 1) *
+      (this.dragMs.has(eid) ? lowPowerTractionMul(lowPowerTractionCopies(owned, kind)) : 1);
   }
 }

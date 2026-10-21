@@ -520,11 +520,9 @@ import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { hunterFrightenLimit } from "../../domain/hunter";
 import {
   isLowPowerId,
-  lowPowerGhostSpeedMul,
   lowPowerKindReleaseAdds,
   lowPowerPlayerSpeedMul,
   lowPowerPreTurnBonusPx,
-  lowPowerVortexMul,
 } from "../../domain/lowPowerUpgrades";
 import { GhostTractionState, playerInTunnel } from "../systems/lowPowerGhosts";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
@@ -1438,10 +1436,7 @@ export class PlaySim {
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     this.ghostTraction.tick(this.world, this.effectiveUpgrades(), delta);
     applyGhostSpeed(this.world, this.pelletsForElroy(), this.levelIndex, {
-      extraSpeedMul: (eid, kind, inTunnel) =>
-        lowPowerGhostSpeedMul(this.effectiveUpgrades(), kind) *
-        (inTunnel ? lowPowerVortexMul(this.effectiveUpgrades()) : 1) *
-        this.ghostTraction.multiplier(eid, this.effectiveUpgrades(), kind),
+      extraSpeedMul: this.ghostTraction.speedMultiplier(this.effectiveUpgrades()),
       ghostSpeedMul:
         (this.bossState === null ? levelSpeedMul : 1) *
         ghostSpeedMultiplier(this.effectiveUpgrades()),

@@ -268,12 +268,10 @@ import {
 } from "../../domain/ghostCornerWarp";
 import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import {
-  lowPowerGhostSpeedMul,
   isLowPowerId,
   lowPowerHouseDelayMs,
   lowPowerPlayerSpeedMul,
   lowPowerPreTurnBonusPx,
-  lowPowerVortexMul,
 } from "../../domain/lowPowerUpgrades";
 import { GhostTractionState, playerInTunnel } from "../systems/lowPowerGhosts";
 import type { SimEvent, SimRenderOptions } from "./simEvents";
@@ -573,10 +571,7 @@ export class LearnSim {
     );
     this.ghostTraction.tick(this.world, this.learnUpgrades.owned, delta);
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
-      extraSpeedMul: (eid, kind, inTunnel) =>
-        lowPowerGhostSpeedMul(this.learnUpgrades.owned, kind) *
-        (inTunnel ? lowPowerVortexMul(this.learnUpgrades.owned) : 1) *
-        this.ghostTraction.multiplier(eid, this.learnUpgrades.owned, kind),
+      extraSpeedMul: this.ghostTraction.speedMultiplier(this.learnUpgrades.owned),
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
       heldGhostEids: new Set([
