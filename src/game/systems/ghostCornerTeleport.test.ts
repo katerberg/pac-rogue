@@ -64,4 +64,27 @@ describe("teleportGhostsToCorners", () => {
     expect({ x: Position.x[elsewhere], y: Position.y[elsewhere] }).toEqual(elsewhereAt);
     expect(query(world, [Ghost])).toHaveLength(2);
   });
+
+  it("excludeEid skips a ghost even when it matches onlyOnCell", () => {
+    const world = createWorld();
+    const spawn = getActiveLayout().playerSpawn;
+    const player = addEntity(world);
+    addComponent(world, player, Player);
+    addComponent(world, player, Position);
+    Position.x[player] = cellCenterX(spawn.col);
+    Position.y[player] = cellCenterY(spawn.row);
+
+    const kept = spawnGhost(world, spawn.col, spawn.row, GHOST_KIND.blinky);
+    const flung = spawnGhost(world, spawn.col, spawn.row, GHOST_KIND.pinky);
+    const keptAt = { x: Position.x[kept]!, y: Position.y[kept]! };
+    const expected = ghostTeleportCell(scatterTargetForKind(GHOST_KIND.pinky), spawn);
+
+    const warps = teleportGhostsToCorners(world, 0, { onlyOnCell: spawn, excludeEid: kept });
+    expect(warps.map((warp) => warp.eid)).toEqual([flung]);
+    expect({ x: Position.x[kept], y: Position.y[kept] }).toEqual(keptAt);
+    expect({ x: Position.x[flung], y: Position.y[flung] }).toEqual({
+      x: cellCenterX(expected.col),
+      y: cellCenterY(expected.row),
+    });
+  });
 });

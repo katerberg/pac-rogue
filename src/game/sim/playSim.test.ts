@@ -1365,6 +1365,65 @@ describe("PlaySim", () => {
       runUntil(sim, () => !sim.snapshot().dying, 240);
       expect(sim.snapshot().ghosts.every((ghost) => ghost.phase === "inHouse")).toBe(true);
     });
+
+    it("with Reanimation scatters the catcher off the fell tile", () => {
+      const sim = startSim({
+        level: 2,
+        maze: "maze1",
+        enableUpgrades: ["passiveDefyDeath", "passiveReanimation"],
+      });
+      chompPowerPellet(sim);
+      const fell = { ...sim.snapshot().player! };
+      const catcher = query(sim.world, [Ghost, Position])[0]!;
+      GhostPhase.value[catcher] = GHOST_PHASE.active;
+      ghostOntoPlayer(sim);
+      expect(worldToCol(Position.x[catcher]!)).toBe(fell.col);
+      expect(worldToRow(Position.y[catcher]!)).toBe(fell.row);
+      runFrames(sim, 1);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().player).toMatchObject({ col: fell.col, row: fell.row });
+      expect(GhostPhase.value[catcher]).toBe(GHOST_PHASE.active);
+      const kind = GhostKind.kind[catcher] as GhostKindId;
+      const expected = ghostTeleportCell(scatterTargetForKind(kind), {
+        col: fell.col,
+        row: fell.row,
+      });
+      expect({
+        col: worldToCol(Position.x[catcher]!),
+        row: worldToRow(Position.y[catcher]!),
+      }).toEqual(expected);
+    });
+
+    it("leaves boss ghosts in place on a save instead of wiping the roster", () => {
+      const sim = startSim({
+        level: 9,
+        boss: "blinkySwarm",
+        enableUpgrades: ["passiveDefyDeath"],
+        infiniteLives: true,
+      });
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      const ghosts = query(sim.world, [Ghost, Position, GhostPhase]);
+      expect(ghosts.length).toBeGreaterThanOrEqual(2);
+      const catcher = ghosts[0]!;
+      const bystander = ghosts[1]!;
+      for (const eid of ghosts) {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+      }
+      Position.x[bystander] = cellCenterX(2);
+      Position.y[bystander] = cellCenterY(2);
+      const bystanderAt = { x: Position.x[bystander]!, y: Position.y[bystander]! };
+      const eidsBefore = new Set(ghosts);
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      const eidsAfter = new Set(query(sim.world, [Ghost]));
+      expect(eidsAfter).toEqual(eidsBefore);
+      expect(GhostPhase.value[catcher]).toBe(GHOST_PHASE.active);
+      expect(GhostPhase.value[bystander]).toBe(GHOST_PHASE.active);
+      expect({ x: Position.x[bystander], y: Position.y[bystander] }).toEqual(bystanderAt);
+    });
   });
 
   it.each([
@@ -1617,6 +1676,26 @@ describe("PlaySim", () => {
       getCaught(sim);
       runUntil(sim, () => !sim.snapshot().dying, 240);
       expect(sim.snapshot()).toMatchObject({ lives: 1, quarters: 3 });
+    });
+
+    it("leaves off-respawn ghosts in place on a Money Talks save", () => {
+      const sim = moneySim({ enableUpgrades: ["passiveMoneyTalks"], quarters: 3 });
+      const spawn = { ...sim.snapshot().player! };
+      const ghosts = query(sim.world, [Ghost, Position, GhostPhase]);
+      const catcher = ghosts[0]!;
+      const bystander = ghosts[1]!;
+      for (const eid of ghosts) {
+        GhostPhase.value[eid] = GHOST_PHASE.active;
+      }
+      Position.x[bystander] = cellCenterX(spawn.col === 1 ? 3 : 1);
+      Position.y[bystander] = cellCenterY(1);
+      const bystanderAt = { x: Position.x[bystander]!, y: Position.y[bystander]! };
+      getCaught(sim);
+      expect(Position.x[catcher]).toBe(Position.x[playerEid(sim)]);
+      runUntil(sim, () => !sim.snapshot().dying, 240);
+      expect(sim.snapshot().lives).toBe(1);
+      expect(GhostPhase.value[bystander]).toBe(GHOST_PHASE.active);
+      expect({ x: Position.x[bystander], y: Position.y[bystander] }).toEqual(bystanderAt);
     });
 
     it("keeps a Death's Bounty Quarter paid during the save", () => {
@@ -5560,12 +5639,23 @@ describe("Haunting", () => {
     teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
     runFrames(sim, 1);
     const lives = sim.snapshot().lives;
-    const killer = query(sim.world, [Ghost, Position])[0]!;
+    const ghosts = query(sim.world, [Ghost, Position, GhostPhase]);
+    const killer = ghosts[0]!;
+    const bystander = ghosts[1]!;
+    for (const eid of ghosts) {
+      GhostPhase.value[eid] = GHOST_PHASE.active;
+    }
+    Position.x[bystander] = cellCenterX(1);
+    Position.y[bystander] = cellCenterY(1);
+    const bystanderAt = { x: Position.x[bystander]!, y: Position.y[bystander]! };
     ghostOntoPlayer(sim);
     runFrames(sim, 1);
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().lives).toBe(lives);
     expect(sim.snapshot().hauntedGhost).toBe(nameOf(sim, killer));
+    expect(inHouse(killer)).toBe(true);
+    expect(GhostPhase.value[bystander]).toBe(GHOST_PHASE.active);
+    expect({ x: Position.x[bystander], y: Position.y[bystander] }).toEqual(bystanderAt);
   });
 
   it("does not haunt on a shield break", () => {

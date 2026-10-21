@@ -599,6 +599,23 @@ describe("LearnSim upgrade demos", () => {
     });
   });
 
+  it("Defy Death + Haunting cages the killer instead of scattering it", () => {
+    const { sim, player } = setup("passiveDefyDeath", "passiveHaunting");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    const ghost = sim.ghostEid!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    moveTo(player, posOf(ghost));
+    expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual(["SAVED\nHAUNTED"]);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    const exit = getActiveLayout().ghostHouseExit;
+    expect({ col: worldToCol(Position.x[ghost]!), row: worldToRow(Position.y[ghost]!) }).toEqual(
+      exit,
+    );
+    const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
+    expect(draw.type === "draw" && draw.options.hauntedGhost?.eid).toBe(ghost);
+  });
+
   it("an armed Defy Death saves the life before a shield is spent", () => {
     const { sim, player } = setup("passiveShieldPellets", "passiveDefyDeath");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
