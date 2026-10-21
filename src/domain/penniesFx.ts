@@ -13,7 +13,6 @@ const FAST_DROP_INTERVAL_MS = 20;
 const SLOW_DROP_INTERVAL_MS = 90;
 const FAST_DROP_BACKLOG = 12;
 const DROP_HEIGHT_PX = 18;
-const COLLAPSE_ARC_PX = 10;
 const CHROME_SHAKE_TIER = 8;
 const PENNY_SLIDE_MS = 320;
 const STACK_HEIGHT = 6;
@@ -227,7 +226,7 @@ export function pennyLooks(s: PennyFxState, geo: PennyGeometry): PennyLook[] {
         const e = 1 - (1 - k) * (1 - k);
         looks.push({
           x: from.x + (x0 - from.x) * e,
-          y: from.y + (geo.y + hop - from.y) * e,
+          y: geo.y + hop,
           size: geo.size,
           alpha: 1,
         });
@@ -248,7 +247,7 @@ export function pennyLooks(s: PennyFxState, geo: PennyGeometry): PennyLook[] {
     const e = k * k;
     looks.push({
       x: x0 + (geo.target.x - x0) * e,
-      y: geo.y + (geo.target.y - geo.y) * e - COLLAPSE_ARC_PX * Math.sin(Math.PI * k),
+      y: geo.y + (geo.target.y - geo.y) * e,
       size: geo.size,
       alpha: 1,
     });

@@ -96,6 +96,11 @@ describe("penny row", () => {
     expect(midway[0]!.x).toBeLessThan(GEO.x0);
     expect(midway[midway.length - 1]!.x).toBeGreaterThan(midway[0]!.x);
     expect(midway.every((l) => l.size === GEO.size)).toBe(true);
+    for (const [i, look] of midway.entries()) {
+      const x0 = GEO.x0 + i * GEO.step;
+      const t = (look.x - x0) / (GEO.target.x - x0);
+      expect(look.y).toBeCloseTo(GEO.y + (GEO.target.y - GEO.y) * t, 5);
+    }
     s = run(s, PENNY_COLLAPSE_MS - 150 - 60, 0);
     expect(s.landed).toBe(0);
     const stacked = pennyLooks(s, GEO);
@@ -159,15 +164,19 @@ describe("time penny stack", () => {
     expect(Math.max(...columns)).toBe(GEO.stack.x);
   });
 
-  it("slides the stack's own pennies, top of the far stack first, into their slots", () => {
+  it("slides the stack's own pennies, top of the far stack first, straight across into their slots", () => {
     const charge = 8 * CHARGE_PER_PENNY;
     let s = run(holdPennyFx(createPennyFx(0)), 200, charge);
     const stack = pennyStackLooks(s, charge, GEO);
     s = releasePennyFx(s, charge);
     s = stepPennyFx(s, 1, charge);
     expect(s.row).toHaveLength(1);
-    expect(pennyLooks(s, GEO)[0]).toMatchObject(stack[7]!);
+    expect(pennyLooks(s, GEO)[0]).toMatchObject({ x: stack[7]!.x, y: GEO.y, size: GEO.size });
     expect(pennyStackLooks(s, charge, GEO)).toEqual(stack.slice(0, 7));
+    s = run(s, 80, charge);
+    for (const look of pennyLooks(s, GEO)) {
+      expect(look.y).toBe(GEO.y);
+    }
     s = run(s, 800, charge);
     expect(pennyLooks(s, GEO).map((l) => [l.x, l.y])).toEqual(
       Array.from({ length: 8 }, (_, i) => [GEO.x0 + i * GEO.step, GEO.y]),
