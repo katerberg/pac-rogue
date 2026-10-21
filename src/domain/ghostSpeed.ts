@@ -46,15 +46,12 @@ export function elroyTier(pelletsRemaining: number, tuning: Tuning = DEFAULT_TUN
   return ELROY_TIER.none;
 }
 
-/** Level 1 only: keep half of the Elroy speed bump over the level's base ghost ratio. */
 const LEVEL_1_ELROY_BONUS_SCALE = 0.5;
 
 function elroyRatioForLevel(elroyRatio: number, levelIndex: number, tuning: Tuning): number {
-  if (levelIndex !== 1) {
-    return elroyRatio;
-  }
+  const scale = levelIndex === 1 ? LEVEL_1_ELROY_BONUS_SCALE : 1;
   const base = ghostBaseSpeedRatio(levelIndex, tuning);
-  return base + LEVEL_1_ELROY_BONUS_SCALE * (elroyRatio - base);
+  return base + scale * (elroyRatio - base);
 }
 
 function baseOrElroyRatio(pelletsRemaining: number, levelIndex: number, tuning: Tuning): number {

@@ -12,7 +12,6 @@ describe("ghostSpeed", () => {
   it("uses level-ramped base, Elroy, and tunnel speeds", () => {
     expect(resolveGhostSpeed(50, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.8);
     expect(resolveGhostSpeed(50, false, 5)).toBeCloseTo(PLAYER_SPEED);
-    // Level 1: half the Elroy bump over the 0.8 base (elroy1 1.0 → 0.9, elroy2 1.0625 → 0.93125).
     expect(resolveGhostSpeed(20, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.9);
     expect(resolveGhostSpeed(10, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.93125);
     expect(resolveGhostSpeed(20, false, 2)).toBeCloseTo(GHOST_ELROY1_SPEED);
