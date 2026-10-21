@@ -8835,3 +8835,116 @@ describe("Reactive Armor", () => {
     expect(ghostPhase(sim, contact)).not.toBe("inHouse");
   });
 });
+
+describe("Banana Shield", () => {
+  function startBananaSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  function chompPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  function ghostOntoPeel(sim: PlaySim): void {
+    const peel = sim.snapshot().peels[0];
+    expect(peel).toBeDefined();
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = peel!.x;
+    Position.y[ghost] = peel!.y;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  it("banks a peel on power pellet pickup", () => {
+    const sim = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(1);
+    expect(sim.snapshot().peels).toHaveLength(1);
+    expect(sim.renderOptions().peels).toHaveLength(1);
+  });
+
+  it("holds 1 peel, or 3 with Banana Shield+", () => {
+    const base = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(base);
+    chompPowerPellet(base);
+    expect(base.snapshot().timers.peelsBanked).toBe(1);
+
+    const plus = startBananaSim(["passiveBananaShieldPlus"]);
+    for (let i = 0; i < 4; i += 1) {
+      chompPowerPellet(plus);
+    }
+    expect(plus.snapshot().timers.peelsBanked).toBe(3);
+    expect(plus.snapshot().peels).toHaveLength(3);
+  });
+
+  it("a ghost on a peel slips, bounces, and spends the peel without a death", () => {
+    const sim = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(sim);
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPeel(sim);
+    const events = runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({
+      dying: false,
+      lives: livesBefore,
+      deathsThisBoard: 0,
+    });
+    expect(sim.snapshot().timers.peelsBanked).toBe(0);
+    expect(bounceIdle(sim)).toBe(false);
+    expect(events).not.toContainEqual({ type: "sfx", id: "death" });
+    expect(events.some((event) => event.type === "peelCrack")).toBe(true);
+  });
+
+  it("a body catch with peels still behind you is still a death", () => {
+    const sim = startBananaSim(["passiveBananaShield"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(1);
+    const player = playerEid(sim);
+    // Open corridor so the peel sits behind Dot-Man instead of snapping onto him.
+    teleportPlayer(sim, cellCenterX(12), cellCenterY(1));
+    Facing.direction[player] = DIRECTION.right;
+    runFrames(sim, 2);
+    const peel = sim.snapshot().peels[0]!;
+    expect(Math.hypot(peel.x - Position.x[player]!, peel.y - Position.y[player]!)).toBeGreaterThan(
+      playerRadius(),
+    );
+    const livesBefore = sim.snapshot().lives;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot()).toMatchObject({ dying: true, lives: livesBefore - 1 });
+    expect(sim.snapshot().timers.peelsBanked).toBe(1);
+  });
+
+  it("fires Shield Break when a peel slips", () => {
+    const sim = startBananaSim([
+      "passiveBananaShield",
+      "passiveShieldBreak",
+      "powerPelletSpeedBurst",
+    ]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.speedBurstMs).toBe(0);
+    ghostOntoPeel(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.peelsBanked).toBe(0);
+    expect(sim.snapshot().timers.speedBurstMs).toBeGreaterThan(0);
+  });
+
+  it("empties peels on level advance", () => {
+    const sim = startBananaSim(["passiveBananaShieldPlus"]);
+    chompPowerPellet(sim);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(2);
+    sim["jumpToLevelClear"]();
+    takeFirstOffered(sim);
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 500);
+    expect(sim.snapshot().timers.peelsBanked).toBe(0);
+    expect(sim.snapshot().peels).toEqual([]);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startBananaSim(["powerPelletInvuln"]);
+    chompPowerPellet(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(0);
+    expect(sim.snapshot().peels).toEqual([]);
+  });
+});

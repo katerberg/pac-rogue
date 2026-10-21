@@ -52,6 +52,7 @@ export type SimRenderOptions = {
   chaff?: ChaffSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
+  peels?: { x: number; y: number }[];
   programmerQueue?: ProgrammerQueueSlot[] | null;
   mirror?: { x: number; y: number; facing: number } | null;
   mirrorPop?: { x: number; y: number; progress: number } | null;
@@ -84,6 +85,7 @@ export type SimEvent =
       count: number;
     }
   | { type: "chaffBurst"; x: number; y: number }
+  | { type: "peelCrack"; x: number; y: number }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "streakPop"; value: number; x: number; y: number }
   | { type: "intermission"; frame: IntermissionFrame | null }

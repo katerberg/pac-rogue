@@ -145,6 +145,12 @@ import {
   type BubbleShieldCrack,
 } from "../../domain/bubbleShield";
 import {
+  BANANA_PEEL_PATH,
+  BANANA_PEEL_TEXTURE_KEY,
+  bananaPeelCrackHalfPose,
+  type BananaPeelCrack,
+} from "../../domain/bananaPeel";
+import {
   DEFAULT_CHARM_TUNING,
   charmLookFrom,
   tailLayoutFrom,
@@ -537,6 +543,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(DOTMAN_VISOR_TEXTURE_KEY, "art/dot-man/visor.png");
   scene.load.image(BUBBLE_SHIELD_SINGLE_KEY, BUBBLE_SHIELD_SINGLE_PATH);
   scene.load.image(BUBBLE_SHIELD_MULTI_KEY, BUBBLE_SHIELD_MULTI_PATH);
+  scene.load.image(BANANA_PEEL_TEXTURE_KEY, BANANA_PEEL_PATH);
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
   scene.load.image(DOLLAR_TEXTURE_KEY, "art/other/dollar.png");
@@ -639,6 +646,7 @@ export type RenderOptions = {
   chaff?: ChaffSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
+  peels?: { x: number; y: number }[];
   programmerQueue?: ProgrammerQueueSlot[] | null;
   mirror?: { x: number; y: number; facing: number } | null;
   mirrorPop?: { x: number; y: number; progress: number } | null;
@@ -659,6 +667,7 @@ export type PlayRender = {
   releaseDrawable: (eid: number) => void;
   resetForNewBoard: () => void;
   bouncePowerPellet: (eid: number) => void;
+  queuePeelCrack: (x: number, y: number) => void;
   setWallStyle: (style: WallStyle | null) => void;
   setDotManLook: (look: { chompSpeed: number }) => void;
   setCharmTuning: (tuning: CharmTuning) => void;
@@ -866,6 +875,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   let drawnWallAlpha = 1;
   let wallStyleOverride: WallStyle | null = null;
   let chompPixelsPerFrame = DOTMAN_CHOMP_PIXELS_PER_FRAME;
+  let peelCracks: BananaPeelCrack[] = [];
   let charmLayout = tailLayoutFrom(DEFAULT_CHARM_TUNING);
   let charmLook = charmLookFrom(DEFAULT_CHARM_TUNING);
   let bossPelletTint = 0xffffff;
@@ -994,6 +1004,11 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     drawnWallAlpha = 1;
     clearSpeedZones();
     drawnSpeedZones = null;
+    peelCracks = [];
+  };
+
+  const queuePeelCrack = (x: number, y: number): void => {
+    peelCracks.push({ x, y, startMs: scene.time.now });
   };
 
   const bouncePowerPellet = (eid: number): void => {
@@ -1752,6 +1767,51 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
     }
 
+    const peelSize = DEFAULT_CHARM_TUNING.charmSize;
+    const peels = opts?.peels ?? [];
+    for (let i = 0; i < peels.length; i += 1) {
+      const peel = peels[i]!;
+      const key = `peel:${i}`;
+      alive.add(key);
+      let image = drawableObjects.get(key);
+      if (!image) {
+        image = scene.add.image(peel.x, peel.y, BANANA_PEEL_TEXTURE_KEY);
+        image.setName("banana-peel");
+        image.setDepth(CHARM_DEPTH);
+        drawableObjects.set(key, image);
+      }
+      image.setTexture(BANANA_PEEL_TEXTURE_KEY);
+      image.setPosition(peel.x, peel.y);
+      image.setDisplaySize(peelSize, peelSize);
+      image.setAlpha(DEFAULT_CHARM_TUNING.charmBaseAlpha);
+      image.setRotation(0);
+      image.setCrop();
+    }
+    const nowMs = scene.time.now;
+    peelCracks = peelCracks.filter((crack) => shieldCrackProgress(nowMs - crack.startMs) < 1);
+    for (let i = 0; i < peelCracks.length; i += 1) {
+      const crack = peelCracks[i]!;
+      const progress = shieldCrackProgress(nowMs - crack.startMs);
+      for (const side of [-1, 1] as const) {
+        const half = bananaPeelCrackHalfPose(crack, side, peelSize, progress);
+        const key = `peel-crack:${i}:${side}`;
+        alive.add(key);
+        let image = drawableObjects.get(key);
+        if (!image) {
+          image = scene.add.image(half.x, half.y, BANANA_PEEL_TEXTURE_KEY);
+          image.setName("banana-peel-crack");
+          image.setDepth(CHARM_DEPTH);
+          drawableObjects.set(key, image);
+        }
+        image.setTexture(BANANA_PEEL_TEXTURE_KEY);
+        image.setPosition(half.x, half.y);
+        image.setDisplaySize(half.displayWidth, half.displayHeight);
+        image.setRotation(half.rotation);
+        image.setAlpha(half.alpha);
+        image.setCrop(half.cropX, half.cropY, half.cropW, half.cropH);
+      }
+    }
+
     for (const [key, go] of drawableObjects) {
       if (!alive.has(key)) {
         if (!key.includes(":")) {
@@ -1789,6 +1849,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     releaseDrawable,
     resetForNewBoard,
     bouncePowerPellet,
+    queuePeelCrack,
     setWallStyle,
     setDotManLook,
     setCharmTuning,
