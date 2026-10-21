@@ -6,14 +6,20 @@ import {
   resolveGhostSpeed,
   resolveGhostSpeedForKind,
 } from "./ghostSpeed";
+import { ghostBaseSpeedRatio } from "./levelRules";
 import { PLAYER_SPEED } from "./playfield";
+import { DEFAULT_TUNING } from "./tuning";
+
+const LEVEL_1_BASE = ghostBaseSpeedRatio(1);
+const LEVEL_1_ELROY1 = LEVEL_1_BASE + 0.5 * (DEFAULT_TUNING.elroy1Ratio - LEVEL_1_BASE);
+const LEVEL_1_ELROY2 = LEVEL_1_BASE + 0.5 * (DEFAULT_TUNING.elroy2Ratio - LEVEL_1_BASE);
 
 describe("ghostSpeed", () => {
   it("uses level-ramped base, Elroy, and tunnel speeds", () => {
     expect(resolveGhostSpeed(50, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.8);
     expect(resolveGhostSpeed(50, false, 5)).toBeCloseTo(PLAYER_SPEED);
-    expect(resolveGhostSpeed(20, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.9);
-    expect(resolveGhostSpeed(10, false, 1)).toBeCloseTo(PLAYER_SPEED * 0.93125);
+    expect(resolveGhostSpeed(20, false, 1)).toBeCloseTo(PLAYER_SPEED * LEVEL_1_ELROY1);
+    expect(resolveGhostSpeed(10, false, 1)).toBeCloseTo(PLAYER_SPEED * LEVEL_1_ELROY2);
     expect(resolveGhostSpeed(20, false, 2)).toBeCloseTo(GHOST_ELROY1_SPEED);
     expect(resolveGhostSpeed(10, false, 2)).toBeCloseTo(GHOST_ELROY2_SPEED);
     for (const level of [1, 2, 3, 4, 5, 8]) {
@@ -25,7 +31,7 @@ describe("ghostSpeed", () => {
 
   it("applies Elroy only to Blinky; full bonus from level 2 up", () => {
     expect(resolveGhostSpeedForKind(GHOST_KIND.blinky, 10, false, 1)).toBeCloseTo(
-      PLAYER_SPEED * 0.93125,
+      PLAYER_SPEED * LEVEL_1_ELROY2,
     );
     expect(resolveGhostSpeedForKind(GHOST_KIND.blinky, 10, false, 2)).toBeCloseTo(
       GHOST_ELROY2_SPEED,
@@ -43,7 +49,7 @@ describe("ghostSpeed", () => {
       PLAYER_SPEED * 0.5,
     );
     expect(resolveGhostSpeedForKind(GHOST_KIND.blinky, 10, false, 1, true)).toBeCloseTo(
-      PLAYER_SPEED * 0.93125,
+      PLAYER_SPEED * LEVEL_1_ELROY2,
     );
   });
 });
