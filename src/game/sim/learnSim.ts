@@ -54,7 +54,7 @@ import {
   worldToRow,
   type MazeTile,
 } from "../../domain/maze";
-import { openBoredCellsOnLayout, TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/tunnelBoring";
+import { TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/tunnelBoring";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
