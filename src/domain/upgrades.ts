@@ -1062,7 +1062,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     peelCap: BANANA_SHIELD_CAP,
     enhanced: {
-      enhanceNote: "Stores up to 3 peels instead of 1.",
+      enhanceNote: "Banana Trail stores up to 3 peels instead of 1.",
       description:
         "Power pellets trail banana peels behind you. Store up to 3. Each ghost slip breaks one.",
       peelCap: BANANA_SHIELD_ENHANCED_CAP,
