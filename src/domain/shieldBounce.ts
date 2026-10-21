@@ -18,7 +18,6 @@ export const NO_SHIELD_BOUNCE: ShieldBounce = { player: null, ghosts: [], stunne
 
 type Point = { x: number; y: number };
 
-/** Player flies away from the ghost along the dominant axis; the ghost flies the other way. */
 export function bounceAwaySteps(
   player: Point,
   ghost: Point,
@@ -65,7 +64,6 @@ export function mergeShieldBounce(current: ShieldBounce, incoming: ShieldBounce)
   };
 }
 
-/** Ghosts the player cannot touch: mid-bounce, plus stunned ones while the player is still airborne. */
 export function shieldBounceCatchSkips(bounce: ShieldBounce): Set<number> {
   return new Set([
     ...bounce.ghosts.map((body) => body.eid),
@@ -73,7 +71,6 @@ export function shieldBounceCatchSkips(bounce: ShieldBounce): Set<number> {
   ]);
 }
 
-/** Ghosts whose own movement is suspended (bouncing or stunned). */
 export function shieldBounceHeldGhosts(bounce: ShieldBounce): Set<number> {
   return new Set([
     ...bounce.ghosts.map((body) => body.eid),
@@ -95,7 +92,6 @@ export function shieldBounceSpriteOffsets(
   ]);
 }
 
-/** Drops held keys still from the same press as `stale`, so a key held into a bounce doesn't steer out of it. */
 export function maskStaleKeys<K extends string>(
   keys: Record<K, number | null>,
   stale: Record<K, number | null> | null,

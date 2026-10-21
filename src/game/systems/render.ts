@@ -587,7 +587,6 @@ export type RenderOptions = {
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
-  /** Draw-only nudge per entity (shield-bounce hop, stun shake); Position stays the truth. */
   spriteOffsets?: Record<number, { x: number; y: number }>;
   hauntedGhost?: HauntedGhost | null;
   frightenedGhosts?: FrightenedGhosts | null;

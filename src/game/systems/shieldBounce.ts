@@ -63,7 +63,6 @@ function clearGhostDecision(eid: number): void {
   Ghost.decidedRow[eid] = Number.NaN;
 }
 
-/** Bounces the player and the ghost that broke the shield apart, along with any ghosts overlapping it. */
 export function startShieldBounce(world: World, ghostEid: number): ShieldBounce | null {
   const playerEid = query(world, [Player, Position])[0];
   if (playerEid === undefined) {
@@ -103,7 +102,6 @@ export function startShieldBounce(world: World, ghostEid: number): ShieldBounce 
   };
 }
 
-/** Folds a bounce started before the break's side effects into `current`, dropping bodies those effects already moved. */
 export function settleShieldBounce(
   current: ShieldBounce,
   started: ShieldBounce,
@@ -119,8 +117,7 @@ export function settleShieldBounce(
   });
 }
 
-/** Moves `px` along the bounce; true when a wall stopped it. */
-function slide(world: World, body: BounceBody, px: number, move: BounceMovement): boolean {
+function slideHitsWall(world: World, body: BounceBody, px: number, move: BounceMovement): boolean {
   const { eid, step } = body;
   const isGhost = hasComponent(world, eid, Ghost);
   let x = Position.x[eid] ?? 0;
@@ -166,12 +163,6 @@ function slide(world: World, body: BounceBody, px: number, move: BounceMovement)
   return blocked();
 }
 
-/**
- * Advances a bounce. A bouncing body holds its bounce heading; it ends after
- * SHIELD_BOUNCE_MS still heading that way, or early on a wall: the player gets
- * control back, a ghost shakes in place for GHOST_WALL_STUN_MS then re-picks
- * its direction ignoring its old facing.
- */
 export function tickShieldBounce(
   world: World,
   bounce: ShieldBounce,
@@ -180,7 +171,12 @@ export function tickShieldBounce(
 ): ShieldBounce {
   const tileSize = getActiveLayout().tileSize;
   const advance = (body: BounceBody): { body: BounceBody | null; crashed: boolean } => {
-    const crashed = slide(world, body, bounceTravelPx(body.elapsedMs, deltaMs, tileSize), move);
+    const crashed = slideHitsWall(
+      world,
+      body,
+      bounceTravelPx(body.elapsedMs, deltaMs, tileSize),
+      move,
+    );
     const elapsedMs = body.elapsedMs + deltaMs;
     head(body.eid, body.step);
     if (hasComponent(world, body.eid, Ghost)) {
