@@ -18,17 +18,10 @@ import { Velocity } from "../components/Velocity";
 
 export const SHARED_CORNER_STAGGER_MS = 500;
 
-export type CornerTeleportFilter = {
-  /** Only teleport active ghosts whose tile matches. */
-  onlyOnCell?: MazeTile;
-  /** Skip these eids even if they match the cell filter. */
-  excludeEids?: ReadonlySet<number>;
-};
-
 export function teleportGhostsToCorners(
   world: World,
   holdMs: number,
-  filter: CornerTeleportFilter = {},
+  opts: { onlyOnCell?: MazeTile; excludeEid?: number | null } = {},
 ): GhostCornerWarp[] {
   const playerEid = query(world, [Player, Position])[0];
   if (playerEid === undefined) {
@@ -45,13 +38,13 @@ export function teleportGhostsToCorners(
     if (GhostPhase.value[eid] !== GHOST_PHASE.active) {
       continue;
     }
-    if (filter.excludeEids?.has(eid) === true) {
+    if (eid === opts.excludeEid) {
       continue;
     }
-    if (filter.onlyOnCell !== undefined) {
+    if (opts.onlyOnCell !== undefined) {
       const col = worldToCol(Position.x[eid] ?? 0);
       const row = worldToRow(Position.y[eid] ?? 0);
-      if (col !== filter.onlyOnCell.col || row !== filter.onlyOnCell.row) {
+      if (col !== opts.onlyOnCell.col || row !== opts.onlyOnCell.row) {
         continue;
       }
     }

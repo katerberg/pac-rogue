@@ -4133,22 +4133,15 @@ export class PlaySim {
 
     const save = this.reviveSplashPending;
     const hauntMs = hauntDurationMs(this.effectiveUpgrades());
-    let hauntEid = this.bossState === null && hauntMs !== null ? this.caughtByEid : null;
+    let hauntEid = hauntMs !== null ? this.caughtByEid : null;
     if (this.bossState !== null && !save) {
-      const caughtKind =
-        hauntMs !== null && this.caughtByEid !== null
-          ? (GhostKind.kind[this.caughtByEid] as GhostKindId)
-          : null;
+      const caughtKind = hauntEid !== null ? (GhostKind.kind[hauntEid] as GhostKindId) : null;
       for (const eid of [...query(this.world, [Ghost])]) {
         removeEntity(this.world, eid);
         this.releaseDrawable(eid);
       }
       this.spawnBossGhostsForLife();
-      if (caughtKind !== null) {
-        hauntEid = this.pickBossHauntGhost(caughtKind);
-      }
-    } else if (this.bossState !== null && hauntMs !== null) {
-      hauntEid = this.caughtByEid;
+      hauntEid = caughtKind !== null ? this.pickBossHauntGhost(caughtKind) : null;
     }
     this.caughtByEid = null;
 
@@ -4169,7 +4162,7 @@ export class PlaySim {
       };
       const warps = teleportGhostsToCorners(this.world, 0, {
         onlyOnCell: respawnCell,
-        excludeEids: hauntEid === null ? undefined : new Set([hauntEid]),
+        excludeEid: hauntEid,
       });
       this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, warps);
     } else {
@@ -4206,9 +4199,6 @@ export class PlaySim {
         this.afterLifeRelease,
         { heldGhostEids: hauntEid === null ? [] : [hauntEid] },
       );
-    }
-
-    if (!save) {
       this.clearFruitEntities();
       this.fruitPresence = {
         ...this.fruitPresence,
