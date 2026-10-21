@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { PLAYFIELD_WIDTH } from "./playfieldBounds";
-import { hoverPreviewX, splitSchoolColumns, type SchoolGroup } from "./learnUpgradeColumns";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
+import {
+  LEARN_BACK_Y,
+  hoverPreviewX,
+  learnHoverPreviewCenter,
+  splitSchoolColumns,
+  type SchoolGroup,
+} from "./learnUpgradeColumns";
 import { UPGRADE_SCHOOL_ORDER } from "./upgrades";
 
 const groups = (count: number): SchoolGroup[] =>
@@ -39,5 +45,22 @@ describe("hoverPreviewX", () => {
   it("mirrors the preview anchor across the playfield", () => {
     expect(hoverPreviewX("left")).toBe(110);
     expect(hoverPreviewX("right")).toBe(PLAYFIELD_WIDTH - 110);
+  });
+});
+
+describe("learnHoverPreviewCenter", () => {
+  it("keeps BACK in the shared constant used by the BACK label", () => {
+    expect(LEARN_BACK_Y).toBe(PLAYFIELD_HEIGHT - 50);
+  });
+
+  it("sits the card flush with the playfield bottom so it cannot clip", () => {
+    const cardHeight = 150;
+    const center = learnHoverPreviewCenter(cardHeight);
+    expect(center).toEqual({
+      x: PLAYFIELD_WIDTH / 2,
+      y: PLAYFIELD_HEIGHT - cardHeight / 2,
+    });
+    expect(center.y + cardHeight / 2).toBe(PLAYFIELD_HEIGHT);
+    expect(center.y).toBeLessThan(LEARN_BACK_Y);
   });
 });
