@@ -168,9 +168,10 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "How many pixels before or after a junction centre Maze-Man can start a turn and cut the corner. 0 = turn only at the exact centre.",
   ghostRatioStart:
     "Ghost speed at level 1 as a fraction of Maze-Man's speed (0.8 = ghosts 20% slower).",
-  ghostRatioStep: "How much the ghost speed ratio grows each level until it reaches the cap.",
+  ghostRatioStep:
+    "How much the ghost speed ratio grows each level through level 5 (after that, leftover headroom to the cap is spread evenly across levels 6–8).",
   ghostRatioCap:
-    "Highest ghost speed ratio the per-level growth can reach (1.0 = parity with Maze-Man; default 1.2 lets ghosts climb past parity through late levels, reaching the cap by level 9).",
+    "Highest ghost speed ratio the per-level growth can reach (1.0 = parity with Maze-Man; default 1.2 is reached by level 8 via the late ramp from level 5).",
   ghostTunnelRatio:
     "Ghost speed inside side tunnels as a fraction of Maze-Man's base speed (the level ramp and upgrades still multiply it).",
   ghostHouseExitRatio:

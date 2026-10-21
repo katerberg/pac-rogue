@@ -45,13 +45,15 @@ describe("applyGhostSpeed", () => {
     expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 1 * 0.75);
   });
 
-  it("resolves past-parity base speed on levels 6–9 (cap 1.2)", () => {
+  it("resolves past-parity base speed on levels 6–9 (late ramp to cap 1.2 by L8)", () => {
     const world = createWorld();
     const eid = spawnGhost(world, GHOST_PHASE.active);
     applyGhostSpeed(world, 100, 6, { ghostSpeedMul: 0.75 });
-    expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 1.05 * 0.75);
+    expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * (1 + 0.2 / 3) * 0.75);
+    applyGhostSpeed(world, 100, 7, { ghostSpeedMul: 0.75 });
+    expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * (1 + 0.4 / 3) * 0.75);
     applyGhostSpeed(world, 100, 8, { ghostSpeedMul: 0.75 });
-    expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 1.15 * 0.75);
+    expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 1.2 * 0.75);
     applyGhostSpeed(world, 100, 9, { ghostSpeedMul: 0.75 });
     expect(Speed.px[eid]).toBeCloseTo(PLAYER_SPEED * 1.2 * 0.75);
   });

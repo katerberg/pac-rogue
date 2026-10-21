@@ -174,11 +174,25 @@ export function diffFromDefault(tuning: Tuning): TuningOverrides {
   return diff;
 }
 
+/** Early ramp (start/step) through this level; remaining headroom to the cap spans the next three. */
+const GHOST_RATIO_LATE_PIVOT_LEVEL = 5;
+const GHOST_RATIO_LATE_SPAN_LEVELS = 3;
+
 export function ghostBaseSpeedRatio(levelIndex: number, tuning: Tuning = DEFAULT_TUNING): number {
   const level = Math.max(1, levelIndex);
+  const early =
+    tuning.ghostRatioStart +
+    tuning.ghostRatioStep * (Math.min(level, GHOST_RATIO_LATE_PIVOT_LEVEL) - 1);
+  if (level <= GHOST_RATIO_LATE_PIVOT_LEVEL) {
+    return Math.min(tuning.ghostRatioCap, early);
+  }
+  const headroom = tuning.ghostRatioCap - early;
+  if (headroom <= 0) {
+    return tuning.ghostRatioCap;
+  }
   return Math.min(
     tuning.ghostRatioCap,
-    tuning.ghostRatioStart + tuning.ghostRatioStep * (level - 1),
+    early + (headroom / GHOST_RATIO_LATE_SPAN_LEVELS) * (level - GHOST_RATIO_LATE_PIVOT_LEVEL),
   );
 }
 
