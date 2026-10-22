@@ -30,7 +30,9 @@ import {
   SPEED_ZONE_MAX_COUNT,
   speedZoneGlowMask,
   speedZoneParticles,
+  DEFAULT_SPEED_ZONE_DUST_SPEEDS,
   type SpeedZone,
+  type SpeedZoneDustSpeeds,
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import {
@@ -666,6 +668,7 @@ export type PlayRender = {
   queuePeelCrack: (x: number, y: number) => void;
   setWallStyle: (style: WallStyle | null) => void;
   setDotManLook: (look: { chompSpeed: number }) => void;
+  setSpeedZoneDust: (speeds: SpeedZoneDustSpeeds) => void;
   setCharmTuning: (tuning: CharmTuning) => void;
   playerSpriteRotation: () => number | null;
 };
@@ -791,11 +794,12 @@ function drawSpeedZoneParticles(
   graphics: Phaser.GameObjects.Graphics,
   zone: SpeedZone,
   nowMs: number,
+  speeds: SpeedZoneDustSpeeds,
 ): void {
   const { tileSize } = getActiveLayout();
   const originX = cellOriginX(0);
   const originY = cellOriginY(0);
-  for (const particle of speedZoneParticles(zone, nowMs)) {
+  for (const particle of speedZoneParticles(zone, nowMs, speeds)) {
     graphics.fillStyle(SPEED_ZONE_PARTICLE_COLOR, particle.alpha);
     const size = particle.size < 1 ? 2 : 3;
     const x = originX + particle.col * tileSize - size / 2;
@@ -849,6 +853,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const speedZoneParticleGraphics = scene.add.graphics();
   speedZoneParticleGraphics.setDepth(SPEED_ZONE_PARTICLE_DEPTH);
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
+  let speedZoneDustSpeeds = DEFAULT_SPEED_ZONE_DUST_SPEEDS;
   const clearSpeedZones = (): void => {
     speedZoneLayer.removeAll(true);
     speedZoneParticleGraphics.clear();
@@ -1685,7 +1690,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
     speedZoneParticleGraphics.clear();
     for (const zone of speedZones) {
-      drawSpeedZoneParticles(speedZoneParticleGraphics, zone, scene.time.now);
+      drawSpeedZoneParticles(speedZoneParticleGraphics, zone, scene.time.now, speedZoneDustSpeeds);
     }
 
     timedTunnelGraphics.clear();
@@ -1850,6 +1855,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     chompPixelsPerFrame = dotManChompPixelsPerFrame(look.chompSpeed);
   };
 
+  const setSpeedZoneDust = (speeds: SpeedZoneDustSpeeds): void => {
+    speedZoneDustSpeeds = speeds;
+  };
+
   return {
     draw,
     releaseDrawable,
@@ -1858,6 +1867,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     queuePeelCrack,
     setWallStyle,
     setDotManLook,
+    setSpeedZoneDust,
     setCharmTuning,
     playerSpriteRotation,
   };

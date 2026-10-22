@@ -1,5 +1,9 @@
 import { DEFAULT_CHARM_TUNING, type CharmTuning } from "./charmTailParams";
 import { DOTMAN_CHOMP_SPEED_DEFAULT } from "./dotManMouth";
+import {
+  SPEED_ZONE_DUST_ENTRY_TILES_PER_SEC,
+  SPEED_ZONE_DUST_EXIT_TILES_PER_SEC,
+} from "./speedZones";
 import { TUNING_KNOBS, type KnobDef } from "./tuningKnobs";
 
 export type Tuning = {
@@ -48,6 +52,8 @@ export type Tuning = {
   readonly wallThickness: number;
   readonly wallColor: number;
   readonly dotManChompSpeed: number;
+  readonly speedZoneDustEntry: number;
+  readonly speedZoneDustExit: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
 } & CharmTuning;
@@ -100,6 +106,8 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   wallThickness: 1.5,
   wallColor: 0x2121ff,
   dotManChompSpeed: DOTMAN_CHOMP_SPEED_DEFAULT,
+  speedZoneDustEntry: SPEED_ZONE_DUST_ENTRY_TILES_PER_SEC,
+  speedZoneDustExit: SPEED_ZONE_DUST_EXIT_TILES_PER_SEC,
   wallCornerRadius: 8,
   backgroundColor: 0x1a1a2e,
   ...DEFAULT_CHARM_TUNING,
