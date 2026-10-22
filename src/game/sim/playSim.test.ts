@@ -914,6 +914,29 @@ describe("PlaySim", () => {
     expect(picked).toEqual(new Set(INTERMISSION_IDS));
   });
 
+  it("plays a different intermission after level 4 than after level 2", () => {
+    for (let i = 0; i < 12; i++) {
+      const sim = startSim({ jumpToUpgrade: true }, `twice${i}`);
+      takeFirstOffered(sim);
+      runUntil(sim, () => sim.snapshot().intermission !== null, 120);
+      const afterTwo = sim.snapshot().intermission!.id;
+      runUntil(sim, () => sim.snapshot().level === 3, 600);
+      sim["jumpToLevelClear"]();
+      takeFirstOffered(sim);
+      runUntil(sim, () => sim.snapshot().storeEntering, 600);
+      sim["exitStore"]();
+      runUntil(sim, () => sim.snapshot().level === 4, 600);
+      expect(sim.snapshot().intermission).toBeNull();
+      sim["jumpToLevelClear"]();
+      takeFirstOffered(sim);
+      runUntil(sim, () => sim.snapshot().intermission !== null, 120);
+      expect(sim.snapshot().level).toBe(4);
+      expect(sim.snapshot().intermission!.id).not.toBe(afterTwo);
+      runUntil(sim, () => sim.snapshot().level === 5, 600);
+      expect(sim.snapshot().intermission).toBeNull();
+    }
+  });
+
   it.each(INTERMISSION_IDS)("?intermission=%s plays that cutscene through to level 3", (id) => {
     const sim = new PlaySim({ ...defaultPlayOptions(), intermission: id, level: 2 }, "each");
     sim.start();

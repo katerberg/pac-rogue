@@ -657,6 +657,7 @@ export class PlaySim {
   private bossStageTransition: BossStageTransition | null = null;
   private bossStageDraw: { entityAlpha: number; wallAlpha: number } | null = null;
   private intermission: IntermissionRun | null = null;
+  private lastIntermission: IntermissionId | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runEndElapsedMs: number | null = null;
@@ -3209,7 +3210,10 @@ export class PlaySim {
   }
 
   private beginIntermission(): void {
-    const id = this.options.intermission ?? pickIntermission(this.random.stream("intermission"));
+    const id =
+      this.options.intermission ??
+      pickIntermission(this.random.stream("intermission"), this.lastIntermission);
+    this.lastIntermission = id;
     const ghostKinds = [...query(this.world, [Ghost, GhostKind])].map(
       (eid) => GhostKind.kind[eid] as GhostKindId,
     );
