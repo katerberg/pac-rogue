@@ -364,7 +364,7 @@ import {
   enhancedIdOf,
   wallPassLoopOwned,
   floatingZoneEffect,
-  floatsOverLava,
+  floatsOverHazards,
   fruitFeastThresholds,
   pickFruitPowerBases,
   fruitPersistsUntilLevelEnd,
@@ -703,6 +703,7 @@ export class PlaySim {
   private collapseSpeedBoard: MazeLayout | null = null;
   private collapseIntroMs = 0;
   private sinkholeChain: CollapseChain | null = null;
+  private sinkholeLayouts: { open: MazeLayout; blocked: MazeLayout } | null = null;
   private sinkholeArt: SinkholeArt | null = null;
   private sinkholeBoardCount = 0;
   private sinkholeIntroMs = 0;
@@ -1414,6 +1415,7 @@ export class PlaySim {
     this.tickSpeedZoneShift(delta);
     this.collapseIntroMs = Math.min(RUBBLE_INTRO_MS, this.collapseIntroMs + delta);
     this.sinkholeIntroMs = Math.min(SINKHOLE_INTRO_MS, this.sinkholeIntroMs + delta);
+    this.syncSinkholeFloat();
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const programming = this.runUpgrades.programmer !== null;
@@ -2271,7 +2273,7 @@ export class PlaySim {
       this.lavaZone === null ||
       eid === undefined ||
       catchOptions.playerInvulnerable === true ||
-      floatsOverLava(this.effectiveUpgrades())
+      floatsOverHazards(this.effectiveUpgrades())
     ) {
       return false;
     }
@@ -2965,6 +2967,7 @@ export class PlaySim {
     this.collapseSpeedBoard = null;
     this.collapseIntroMs = 0;
     this.sinkholeChain = null;
+    this.sinkholeLayouts = null;
     this.sinkholeArt = null;
     this.sinkholeIntroMs = 0;
   }
@@ -3011,6 +3014,18 @@ export class PlaySim {
     }));
   }
 
+  private syncSinkholeFloat(): void {
+    if (this.sinkholeLayouts === null) {
+      return;
+    }
+    const wanted = floatsOverHazards(this.effectiveUpgrades())
+      ? this.sinkholeLayouts.open
+      : this.sinkholeLayouts.blocked;
+    if (getActiveLayout() !== wanted) {
+      setActiveLayout(wanted);
+    }
+  }
+
   private sinkholeRenderState(): SinkholeRenderState | null {
     return this.sinkholeArt === null
       ? null
@@ -3051,7 +3066,9 @@ export class PlaySim {
       activateAsciiLayout(bored);
       openBoredCellsOnLayout(getActiveLayout(), boredCells);
       if (sinkhole !== null) {
-        setActiveLayout(withSinkholes(getActiveLayout(), sinkhole));
+        const open = getActiveLayout();
+        this.sinkholeLayouts = { open, blocked: withSinkholes(open, sinkhole) };
+        this.syncSinkholeFloat();
       }
       if (chains !== null) {
         this.setUpCollapse(chains, sinkhole);

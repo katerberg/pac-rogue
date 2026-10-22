@@ -178,7 +178,7 @@ export type UpgradeEffects = {
   wallDropMs?: number;
   wallDropPassable?: true;
   mirrorSavesLife?: true;
-  floatsOverLava?: true;
+  floatsOverHazards?: true;
   floatsOverSlowZones?: true;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
@@ -1129,12 +1129,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveFloating",
     label: "Floating",
     school: "speed",
-    description: "Pass over lava unharmed.",
+    description: "Pass over lava and sinkholes unharmed.",
     storePrice: STORE_UPGRADE_PRICE,
-    floatsOverLava: true,
+    floatsOverHazards: true,
     enhanced: {
       enhanceNote: "Floating also stops the slow side of speed zones from slowing you.",
-      description: "Pass over lava unharmed and move through the slow side of speed zones freely.",
+      description:
+        "Pass over lava and sinkholes unharmed and move through the slow side of speed zones freely.",
       floatsOverSlowZones: true,
     },
   },
@@ -2435,8 +2436,8 @@ export function possessionHauntMs(owned: readonly UpgradeId[]): number | null {
   return ownedValue(owned, "possessionHauntMs") ?? null;
 }
 
-export function floatsOverLava(owned: readonly UpgradeId[]): boolean {
-  return ownedValue(owned, "floatsOverLava") === true;
+export function floatsOverHazards(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "floatsOverHazards") === true;
 }
 
 export function floatingZoneEffect(

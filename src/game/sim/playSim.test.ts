@@ -8946,38 +8946,52 @@ describe("sinkhole", () => {
     }
   });
 
-  it("stops Dot-Man at the edge while a ghost may enter the same cell", () => {
-    const sim = startSim({ level: 6 }, SEED);
+  const approach = (sim: PlaySim) => {
     const cells = sim.snapshot().sinkhole.cells!;
     const inChain = new Set(cells.map(cellKey));
     const first = cells[0]!;
     const layout = getActiveLayout();
-    const outside = [
+    const side = [
       { dc: 1, dr: 0, key: "left" },
       { dc: -1, dr: 0, key: "right" },
       { dc: 0, dr: 1, key: "up" },
       { dc: 0, dr: -1, key: "down" },
     ]
-      .map((side) => ({
-        ...side,
-        from: { col: first.col + side.dc, row: first.row + side.dr },
+      .map((entry) => ({
+        ...entry,
+        from: { col: first.col + entry.dc, row: first.row + entry.dr },
       }))
       .find(
-        (side) =>
-          !inChain.has(cellKey(side.from)) &&
-          isWalkable(side.from.col, side.from.row, layout.playerSolids),
+        (entry) =>
+          !inChain.has(cellKey(entry.from)) &&
+          isWalkable(entry.from.col, entry.from.row, layout.playerSolids),
       )!;
-    teleportPlayer(sim, cellCenterX(outside.from.col), cellCenterY(outside.from.row));
-    runFrames(sim, 90, { keys: held(outside.key as "left" | "right" | "up" | "down") });
+    teleportPlayer(sim, cellCenterX(side.from.col), cellCenterY(side.from.row));
+    runFrames(sim, 90, { keys: held(side.key as "left" | "right" | "up" | "down") });
     const eid = playerEid(sim);
     const at = { col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) };
-    expect(inChain.has(cellKey(at))).toBe(false);
+    return { inside: inChain.has(cellKey(at)), first, side };
+  };
+
+  it("stops Dot-Man at the edge while a ghost may enter the same cell", () => {
+    const { inside, first, side } = approach(startSim({ level: 6 }, SEED));
+    expect(inside).toBe(false);
     const rules = ghostMovementRules(GHOST_PHASE.active);
-    const dx = first.col - outside.from.col;
-    const dy = first.row - outside.from.row;
     expect(
-      rules.canEnter(cellCenterX(outside.from.col), cellCenterY(outside.from.row), dx, dy),
+      rules.canEnter(
+        cellCenterX(side.from.col),
+        cellCenterY(side.from.row),
+        first.col - side.from.col,
+        first.row - side.from.row,
+      ),
     ).toBe(true);
+  });
+
+  it("lets a floating Dot-Man pass over it, enhanced or not", () => {
+    for (const id of ["passiveFloating", "passiveFloatingPlus"] as const) {
+      const sim = startSim({ level: 6, enableUpgrades: [id] }, SEED);
+      expect(approach(sim).inside, id).toBe(true);
+    }
   });
 
   it("flags only the level-6 sinkhole as fresh and runs its opening clock to full length", () => {
