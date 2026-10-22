@@ -94,6 +94,7 @@ import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createIntermissionActors, type IntermissionActors } from "./intermissionActors";
 import { createReplayPlayer, type ReplayPlayback } from "./replayPlayer";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
+import { createUpgradeHoverPreview, type UpgradeHoverPreview } from "./upgradeHoverPreview";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
@@ -172,6 +173,7 @@ export class PlayScene extends Phaser.Scene {
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
+  private upgradeHoverPreview: UpgradeHoverPreview | null = null;
   private replayPlayer: ReplayPlayback | null = null;
   private deathFadeOverlay: Phaser.GameObjects.Rectangle | null = null;
   private intermission: IntermissionActors | null = null;
@@ -231,6 +233,7 @@ export class PlayScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown", onKeyDown);
     this.closeStoreUi();
     this.runEndMenu = null;
+    this.upgradeHoverPreview = null;
     this.replayPlayer = null;
     this.deathFadeOverlay = null;
     this.intermission = null;
@@ -645,6 +648,7 @@ export class PlayScene extends Phaser.Scene {
           this.applyEvents(this.sim.chooseRunEnd(choice), delta);
         });
         this.liftHudIconsAboveRunEnd();
+        this.makeUpgradeIconsHoverable();
         break;
       case "goToMenu":
         this.scene.start("MenuScene");
@@ -1066,6 +1070,9 @@ export class PlayScene extends Phaser.Scene {
       this.addHudIcon(icon);
       return { id: baseIdOf(id), mark: icon };
     });
+    if (this.runEndMenu !== null) {
+      this.makeUpgradeIconsHoverable();
+    }
     this.chrome.bringToTop(this.upgradeDrain);
   }
 
@@ -1079,6 +1086,16 @@ export class PlayScene extends Phaser.Scene {
 
   private walletAlpha(alpha: number): number {
     return this.runEndMenu === null ? alpha : alpha * RUN_END_WALLET_ALPHA;
+  }
+
+  private makeUpgradeIconsHoverable(): void {
+    this.upgradeHoverPreview?.hide();
+    this.upgradeHoverPreview = createUpgradeHoverPreview(this, RUN_END_HUD_DEPTH + 1);
+    const slots = this.upgradeHudSlots();
+    this.upgradeIcons.forEach(({ mark }, i) => {
+      const { id, copies, size } = slots[i]!;
+      this.upgradeHoverPreview!.attach(mark, { id, copies, size });
+    });
   }
 
   private liftHudIconsAboveRunEnd(): void {

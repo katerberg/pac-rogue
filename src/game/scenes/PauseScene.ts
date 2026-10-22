@@ -1,10 +1,7 @@
 import Phaser from "phaser";
 import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../domain/keyRepeat";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
-import { clamp } from "../../domain/clamp";
-import { hoverPreviewX } from "../../domain/learnUpgradeColumns";
 import { upgradeIconTexture } from "../upgradeArt";
-import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import type { PlayScene } from "./PlayScene";
 import { addSeedLabel } from "./seedLabel";
 import {
@@ -16,12 +13,9 @@ import {
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
 } from "./pixelFont";
-import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
+import { MODAL_DEPTH } from "./upgradeChoiceModal";
+import { createUpgradeHoverPreview, type UpgradeHoverPreview } from "./upgradeHoverPreview";
 import { applyRenderScale } from "../renderScale";
-
-const UPGRADE_ICON_HOVER_SCALE = 1.1;
-const UPGRADE_PREVIEW_Y_MIN = 90;
-const UPGRADE_PREVIEW_Y_MAX = 510;
 
 const RESUME_INDEX = 0;
 const SETTINGS_INDEX = 1;
@@ -52,7 +46,7 @@ export class PauseScene extends Phaser.Scene {
   private yesText!: Phaser.GameObjects.BitmapText;
   private noText!: Phaser.GameObjects.BitmapText;
 
-  private upgradePreview: UpgradeCardVisual | null = null;
+  private upgradePreview!: UpgradeHoverPreview;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -145,7 +139,7 @@ export class PauseScene extends Phaser.Scene {
 
     this.refreshMenu();
 
-    this.upgradePreview = null;
+    this.upgradePreview = createUpgradeHoverPreview(this, MODAL_DEPTH + 1);
     this.buildUpgradeList((this.scene.get("PlayScene") as PlayScene).upgradeHudSlots());
 
     if (this.input.keyboard === null) {
@@ -249,38 +243,9 @@ export class PauseScene extends Phaser.Scene {
 
   private buildUpgradeList(slots: ReturnType<PlayScene["upgradeHudSlots"]>): void {
     for (const { id, copies, x, y, size } of slots) {
-      const icon = this.add
-        .image(x, y, upgradeIconTexture(id))
-        .setDisplaySize(size, size)
-        .setInteractive({ useHandCursor: true });
-      icon.on("pointerover", (pointer: Phaser.Input.Pointer) => {
-        icon.setDisplaySize(size * UPGRADE_ICON_HOVER_SCALE, size * UPGRADE_ICON_HOVER_SCALE);
-        this.showUpgradePreview(id, copies, pointer.worldY);
-      });
-      icon.on("pointerout", () => {
-        icon.setDisplaySize(size, size);
-        this.hideUpgradePreview();
-      });
+      const icon = this.add.image(x, y, upgradeIconTexture(id)).setDisplaySize(size, size);
+      this.upgradePreview.attach(icon, { id, copies, size });
     }
-  }
-
-  private showUpgradePreview(id: UpgradeId, copies: number, pointerY: number): void {
-    this.hideUpgradePreview();
-    const def = getUpgradeDef(id);
-    const y = clamp(pointerY, UPGRADE_PREVIEW_Y_MIN, UPGRADE_PREVIEW_Y_MAX);
-    const visual = buildUpgradeCardVisual(this, hoverPreviewX("right"), y, {
-      label: copies > 1 ? `${def.label} x${copies}` : def.label,
-      description: def.description,
-      school: def.school,
-      rare: def.rare === true,
-    });
-    visual.root.setDepth(MODAL_DEPTH + 1);
-    this.upgradePreview = visual;
-  }
-
-  private hideUpgradePreview(): void {
-    this.upgradePreview?.root.destroy(true);
-    this.upgradePreview = null;
   }
 
   private focusRow(index: number): void {
