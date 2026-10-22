@@ -3216,7 +3216,16 @@ export class PlaySim {
     }
     const open = openBoredCells(this.tunnelBored.cells, this.tunnelBore);
     applyBoredCellsToActiveLayout(open);
-    this.clearBoredRubble(open);
+    const touchesRubble = opened.some((cell) =>
+      this.collapseChains.some((chain) =>
+        chain.some(
+          (link) => Math.abs(link.col - cell.col) <= 1 && Math.abs(link.row - cell.row) <= 1,
+        ),
+      ),
+    );
+    if (touchesRubble) {
+      this.clearBoredRubble(open);
+    }
   }
 
   private stepTunnelBoring(delta: number): void {

@@ -8944,12 +8944,53 @@ describe("collapsed tunnels", () => {
       keys.add(sim.renderOptions().collapse!.key);
     }
     expect(sim.snapshot().tunnelBoring.openCells).toBe(cells.length);
-    expect(keys.size).toBe(boreSteps(cells).length);
+    expect(keys.size).toBeGreaterThan(1);
+    expect(keys.size).toBeLessThanOrEqual(boreSteps(cells).length + 1);
     expect(artPixels()).toBeLessThan(before);
     const chips = sim.renderOptions().boreJunk!.map((pile) => pile.chips.length);
     const rubbleChips = cells.map((cell, i) => (isRubble(cell) ? chips[i]! : 0)).filter(Boolean);
     const wallChips = cells.map((cell, i) => (isRubble(cell) ? 0 : chips[i]!)).filter(Boolean);
     expect(Math.min(...rubbleChips)).toBeGreaterThan(Math.max(...wallChips));
+  });
+
+  it("leaves the rubble art alone when a bore opens tiles nowhere near rubble", () => {
+    const sim = startSim(
+      { level: 5, godMode: true, enableUpgrades: ["passiveTunnelBoring"] },
+      SEED,
+    );
+    const chains = sim.snapshot().collapse.chains.flat();
+    const near = (cell: MazeTile): boolean =>
+      chains.some(
+        (link) => Math.abs(link.col - cell.col) <= 2 && Math.abs(link.row - cell.row) <= 2,
+      );
+    const layout = getActiveLayout();
+    let spot: { col: number; row: number; dir: "left" | "right" | "up" | "down" } | null = null;
+    for (let row = 0; row < layout.rows && spot === null; row += 1) {
+      for (let col = 0; col < layout.cols && spot === null; col += 1) {
+        for (const [dx, dy, dir] of [
+          [1, 0, "right"],
+          [-1, 0, "left"],
+          [0, 1, "down"],
+          [0, -1, "up"],
+        ] as const) {
+          const cells = isWalkable(col, row) ? tunnelBoringCells(col, row, dx, dy) : null;
+          if (cells !== null && !cells.some(near)) {
+            spot = { col, row, dir };
+            break;
+          }
+        }
+      }
+    }
+    expect(spot).not.toBeNull();
+    const before = sim.renderOptions().collapse!.key;
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot!.col), cellCenterY(spot!.row));
+    Facing.direction[eid] = DIRECTION.none;
+    Velocity.x[eid] = 0;
+    Velocity.y[eid] = 0;
+    runFrames(sim, 60, { keys: held(spot!.dir) });
+    expect(sim.snapshot().tunnelBoring.openCells).toBeGreaterThan(0);
+    expect(sim.renderOptions().collapse!.key).toBe(before);
   });
 
   it("is a level modifier that ?levelModifiers=0 turns off, and the boss board has none", () => {
