@@ -687,6 +687,7 @@ export type RenderOptions = {
 };
 
 const CHARM_DEPTH = -0.5;
+const FRUIT_DEPTH = -0.25;
 const CHARM_CHAIN_COLOR = 0xd9d9d9;
 const CHARM_CHAIN_ALPHA = 0.8;
 const CHARM_SPEED_FULL_PX_PER_MS = 0.08;
@@ -1396,6 +1397,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         go = scene.add.image(x, y, textureKeyForDrawable(id));
         go.setDisplaySize(size, size);
         go.setName(id);
+        if (isFruitDrawableId(id)) {
+          go.setDepth(FRUIT_DEPTH);
+        }
         drawableObjects.set(primaryKey, go);
         if (id === PLAYER_DRAWABLE_ID) {
           ensurePlayerVisual(playerVisuals, eid, x, y, scene.time.now);
