@@ -110,8 +110,8 @@ describe("speedZoneParticles", () => {
   });
 
   it("accelerates particles: visibly slower entering the lane than leaving it", () => {
-    const early = { distance: 0, weight: 0, max: 0 };
-    const late = { distance: 0, weight: 0, min: Infinity };
+    const early = { distance: 0, weight: 0, deltas: [] as number[] };
+    const late = { distance: 0, weight: 0, deltas: [] as number[] };
     for (let ms = 0; ms < 20000; ms += 37) {
       const from = speedZoneParticles(lane, ms);
       const to = speedZoneParticles(lane, ms + 10);
@@ -122,18 +122,14 @@ describe("speedZoneParticles", () => {
         if (delta > 0 && bucket !== null) {
           bucket.distance += delta * p.alpha;
           bucket.weight += p.alpha;
-        }
-        if (delta > 0 && bucket === early) {
-          early.max = Math.max(early.max, delta);
-        } else if (delta > 0 && bucket === late) {
-          late.min = Math.min(late.min, delta);
+          bucket.deltas.push(delta);
         }
       });
     }
     const ratio = late.distance / late.weight / (early.distance / early.weight);
     expect(ratio).toBeGreaterThan(2);
     expect(ratio).toBeLessThan(3);
-    expect(late.min).toBeGreaterThan(early.max);
+    expect(Math.min(...late.deltas)).toBeGreaterThan(Math.max(...early.deltas));
   });
 
   it("keeps every particle inside the lane, faint, and fading at the ends", () => {
