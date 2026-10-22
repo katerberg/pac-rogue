@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LOW_POWER_IDS, LOW_POWER_MAX_COPIES, isLowPowerId } from "./lowPowerUpgrades";
 import { activateAsciiLayout, activateLayout, isWalkable } from "./maze";
 import { STORE_MAZE_ASCII } from "./mazeLayouts";
 import {
@@ -67,6 +68,11 @@ function confirmSwap(state: StoreState, overrides: Partial<StoreStepInput>) {
 function stateWith(owned: readonly UpgradeId[]): StoreState {
   return createStoreState(parseStoreLayout(STORE_MAZE_ASCII), owned, zeroRng);
 }
+
+const MAXED_LOW_POWER = LOW_POWER_IDS.flatMap((id) =>
+  Array.from({ length: LOW_POWER_MAX_COPIES }, () => id),
+);
+const CORE_UPGRADE_IDS = ALL_UPGRADE_IDS.filter((id) => !isLowPowerId(id));
 
 describe("store layout", () => {
   it("builds with no pellets and a single open mouth on the left edge, on the spawn row", () => {
@@ -346,7 +352,7 @@ describe("createStoreState", () => {
   });
 
   it("omits upgrade slots that cannot be filled", () => {
-    const owned = ALL_UPGRADE_IDS.slice(1);
+    const owned = [...CORE_UPGRADE_IDS.slice(1), ...MAXED_LOW_POWER];
     const upgrades = stateWith(owned).slots.filter((s) => s.kind === "upgrade");
     expect(upgrades).toHaveLength(1);
   });
@@ -571,7 +577,7 @@ describe("storeStep", () => {
   it("reports nothing to swap when every other upgrade is owned or on the shelf", () => {
     const shelfState = stateWith(["passiveGhostSlow", "passiveAfterburner"]);
     const shelf = shelfState.slots.flatMap((s) => (s.kind === "upgrade" ? [s.id] : []));
-    const owned = ALL_UPGRADE_IDS.filter((id) => !shelf.includes(id));
+    const owned = [...CORE_UPGRADE_IDS.filter((id) => !shelf.includes(id)), ...MAXED_LOW_POWER];
     const state = storeStep(shelfState, input({ ...swapCell, owned }), zeroRng).state;
     expect(promptView(state, 10, owned)?.kind).toBe("nothingToSwap");
     const step = confirmSwap(state, { ...swapCell, owned });

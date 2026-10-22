@@ -16,7 +16,7 @@ Card text for every id (base and enhanced): [upgrade-list.md](./upgrade-list.md#
 
 ## Power pellets
 
-Power pellets are inert unless an owned def reacts. `applyPowerPelletEffects` walks **all** owned defs and applies every `onPowerPellet` field in one shot; `PlaySim` then runs the follow-up calls (freeze, corner warp, recall, warp, Extra Hungry, Hunter fright, Cornucopia). The same function is the single trigger path for a chomp, Ghost Harvester pellets, a Tunnel Dash sweep, Fruit Power, Streak Engine, Echo and Shield Break, so a new `onPowerPellet` effect works for all of them. Timed effects refresh (not stack) on re-trigger and are level-scaled via `levelScaledDurationMs` unless noted in code. Overcharge multiplies the durations of every other owned effect.
+Power pellets are inert unless an owned def reacts. `applyPowerPelletEffects` walks **all** owned defs and applies every `onPowerPellet` field in one shot; `PlaySim` then runs the follow-up calls (freeze, corner warp, recall, warp, Extra Hungry, Hunter fright, Cornucopia). The same function is the single trigger path for a chomp, Ghost Harvester pellets, Fruit Power, Streak Engine, Echo and Shield Break, so a new `onPowerPellet` effect works for all of them. Timed effects refresh (not stack) on re-trigger and are level-scaled via `levelScaledDurationMs` unless noted in code. Overcharge multiplies the durations of every other owned effect.
 
 ## HUD timers
 
@@ -30,6 +30,16 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 - Each `BASE_UPGRADE_DEFS` row requires an `enhanced` override (description, `enhanceNote`, changed effect fields); the type rejects a row without one. `UPGRADE_DEFS` derives the Plus rows; `ALL_UPGRADE_IDS` is base-only.
 - `enhanceUpgrade` swaps in place and once. A store swap carries the enhancement to the incoming upgrade (`carryEnhancement`). Grant side effects on enhancing (extra life, pellet conversion) are part of the enhanced def.
 - A School Specialist makes every owned upgrade of its school act enhanced (`effectiveUpgrades`), with a threshold of other owned upgrades for the base form and none for the Plus form.
+
+## Low-power upgrades
+
+A fallback family of neutral, common, passive upgrades (Speed, Tunnel Speed, Tunnel Vortex, Turning Speed, and per-ghost Slowdown, House Delay and Traction), defined in [`src/domain/lowPowerUpgrades.ts`](../src/domain/lowPowerUpgrades.ts). They differ from every other upgrade in three ways:
+
+- **Repeatable and additive.** `owned` holds one entry per copy, up to `LOW_POWER_MAX_COPIES`, and each copy adds its flat step. They never leave the offer or store pool until the cap, and are drawn at `LOW_POWER_OFFER_WEIGHT` (a quarter) of a normal upgrade. The HUD and pause list group copies into one icon.
+- **Never enhanced.** No `Plus` form, never an enhance target, not carried by a swap or a Specialist, and never rolled enhanced on a level-clear card. They are not trade-ins at a store swap.
+- **Roster-aware.** A per-ghost upgrade is only offered when that ghost is in the run's roster; `eligibleUpgrades` takes the roster, and the offer and store paths pass it.
+
+Effects are static multipliers applied at the existing speed, turn-window and ghost-release sites; Traction drags a ghost briefly after it turns, since ghosts only turn at tile centers. Bots do not test them.
 
 ## Schools and rarity
 
@@ -55,7 +65,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 - **Speed**: `applyPlayerSpeed` / `applyGhostSpeed` in `PlaySim` combine the level ramp, owned multipliers, cell-based multipliers and active bursts every frame. Boss ghosts use a flat base.
 - **Catch order**: banana peel slip (ghost-only bounce / shield-break hooks), then shield break (Reactive Armor sends ghost(s) home if owned, then Shield Break fires if owned), then Mirror+ (pops the twin), then Death's Harvest, then Defy Death, then Money Talks, then Martyr (fires all owned power-pellet effects on a life loss, and on a save when enhanced), then Possession (5s control of the catching ghost before the death hold; skipped on lava / `infiniteLives`), then death. A break or save is not a death (no life lost, `deathsThisBoard` unchanged where the code says so). If Martyr or Possession clears the board, the lost life is restored and the run continues into level clear (including a would-be game-over death).
 - **Respawn placement**: life loss and saves (Defy Death, Money Talks) share one reset. Without Reanimation that reset puts you at the player spawn; with Reanimation, `respawnCenter` wins over that spawn path (base: where you fell; Plus: beside a remaining power pellet, else where you fell). Possession ends into that same reset path; Possession+ arms a 5s haunt on the steered ghost (max with Haunting when both are owned). On a real life loss every ghost returns to the house; on a save ghosts stay put, except any active ghost on the respawn tile is flung to its corner (Haunting still cages the killer first).
-- **Mirror** adds a second body: ghosts steer for whichever of you is nearer by A* path (`nearestBody`), and a catch of either body is a death from that body's spot. It is a second you: it gets Pickup Range, Extra Hungry, Tunnel Dash sweeps, per-substep eating at hyperspeed and the lava. It has no timer; it ends on a pop (a mirrored-wall or speed-zone mismatch, or you and the twin touching at the midline), death, level advance or store entry.
+- **Mirror** adds a second body: ghosts steer for whichever of you is nearer by A* path (`nearestBody`), and a catch of either body is a death from that body's spot. It is a second you: it gets Pickup Range, Extra Hungry, per-substep eating at hyperspeed and the lava. It has no timer; it ends on a pop (a mirrored-wall or speed-zone mismatch, or you and the twin touching at the midline), death, level advance or store entry.
 - **Boss level**: Lazy Looper is off; boss pellets are never optional.
 - **LEARN** mirrors upgrades through shared helpers and the demo catch; toggling an upgrade off must clear its stale timers (`clearStaleUpgradeTimers`).
 - **Run log** records activations per upgrade ([RUN_LOG.md](./RUN_LOG.md)).

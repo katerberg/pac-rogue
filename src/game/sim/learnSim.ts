@@ -37,6 +37,7 @@ import {
   type FruitPresence,
   type FruitSequenceState,
 } from "../../domain/fruit";
+import { FRUIT_KINDS } from "../fruitArt";
 import type { GhostDir } from "../../domain/ghostPath";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import { predictGhostPath } from "../../domain/learnOverlay";
@@ -58,7 +59,7 @@ import { bananaPeelSprites } from "../../domain/bananaPeel";
 import type { TailBead } from "../../domain/charmTail";
 import { ghostTouchingPeel, stepBananaPeelTail } from "../systems/bananaPeel";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
-import { GHOST_DRAWABLE_BY_KIND, ghostRadius, PLAYER_SPEED } from "../../domain/playfield";
+import { GHOST_DRAWABLE_BY_KIND, ghostRadius, playerPreTurnPx } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
   baseIdOf,
@@ -95,7 +96,6 @@ import {
   tickTithe,
   titheSpeedMultiplier,
   titheStreakWeight,
-  TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   firingPowerUpgrades,
   applyShieldBreakInvuln,
@@ -292,12 +292,16 @@ import {
 } from "../../domain/ghostCornerWarp";
 import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import {
-  applyTunnelDashForBodies,
-  tickTunnelDashAnimation,
-  type DashBody,
-  type TunnelDashAnimation,
-} from "../systems/tunnelDash";
-import type { SimEvent } from "./simEvents";
+  isLowPowerId,
+  lowPowerCopies,
+  lowPowerHouseDelayMs,
+  type LowPowerUpgradeId,
+  withLowPowerCopies,
+  lowPowerPlayerSpeedMul,
+  lowPowerPreTurnBonusPx,
+} from "../../domain/lowPowerUpgrades";
+import { GhostTractionState, playerInTunnel } from "../systems/lowPowerGhosts";
+import type { SimEvent, SimRenderOptions } from "./simEvents";
 import { playerCell } from "../systems/playerCell";
 import { tagOptionalPellets } from "../systems/lazyLooper";
 import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
@@ -342,6 +346,7 @@ export class LearnSim {
   world: World = createWorld();
   readonly random: RunRandom;
   private events: SimEvent[] = [];
+  private readonly ghostTraction = new GhostTractionState();
   private hyperspeedDirection: Direction | null = null;
   private turnCatchGraceMs = 0;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
@@ -354,7 +359,6 @@ export class LearnSim {
   private firedUpgrades: BaseUpgradeId[] = [];
   private eatenHoldGhostEids: number[] = [];
   private eatenHoldRemainingMs = 0;
-  private tunnelDashAnim: TunnelDashAnimation | null = null;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
@@ -610,12 +614,15 @@ export class LearnSim {
               (speedBurstActive(this.learnUpgrades)
                 ? speedBurstMultiplier(this.learnUpgrades.owned)
                 : 1) *
-              this.turnTuning.speedMultiplier(this.learnUpgrades.owned);
+              this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
+              lowPowerPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world));
     applyPlayerSpeed(
       this.world,
       rawPlayerSpeedMul * titheSpeedMultiplier(this.learnUpgrades, this.learnUpgrades.owned),
     );
+    this.ghostTraction.tick(this.world, this.learnUpgrades.owned, delta);
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
+      extraSpeedMul: this.ghostTraction.speedMultiplier(this.learnUpgrades.owned),
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
       heldGhostEids: new Set([
@@ -639,7 +646,7 @@ export class LearnSim {
         this.world,
         frameDelta,
         playerSolids,
-        undefined,
+        playerPreTurnPx() + lowPowerPreTurnBonusPx(this.learnUpgrades.owned),
         ghostsBlockedFromTunnels(this.learnUpgrades.owned),
         null,
         this.learnUpgrades.droppedWall,
@@ -691,36 +698,6 @@ export class LearnSim {
             delta,
           )
         : [];
-
-    if (this.tunnelDashAnim !== null) {
-      const positionBeforeDash = this.playerPosition();
-      this.tunnelDashAnim = tickTunnelDashAnimation(
-        this.world,
-        this.tunnelDashAnim,
-        delta,
-        PLAYER_SPEED * TUNNEL_DASH_SPEED_MUL,
-      );
-      this.noteTunnelExit(positionBeforeDash);
-    } else if (!bouncing && hasUpgrade(this.learnUpgrades.owned, "passiveTunnelDash")) {
-      const dash = applyTunnelDashForBodies(this.world, this.twinDashBody());
-      if (dash !== null) {
-        if (dash.sweptPelletEids.length > 0) {
-          this.releaseAll(dash.sweptPelletEids);
-          this.emitPelletSfx(dash.sweptPelletEids.length, dash.sweptPowerRemoved);
-          this.nextPowerPelletBreakId = startPowerPelletBreaks(
-            this.world,
-            this.powerPelletBreaks,
-            this.nextPowerPelletBreakId,
-            dash.sweptPowerPositions,
-            (event) => this.events.push(event),
-          );
-          if (dash.sweptPowerRemoved > 0) {
-            this.resolvePowerPelletTrigger(dash.sweptPowerRemoved);
-          }
-        }
-        this.tunnelDashAnim = { targetX: dash.animateToX, wrapToX: dash.wrapToX, y: dash.y };
-      }
-    }
 
     this.tickMirror(delta);
     const playerFrame = possessionActive(this.learnUpgrades)
@@ -853,7 +830,7 @@ export class LearnSim {
         shields: this.learnUpgrades.shieldsBanked,
         peels: bananaPeelSprites(this.peelTail),
         programmerQueue: this.programmerQueue(),
-        mirror: this.twinDashBody(),
+        mirror: this.twinRenderBody(),
         mirrorPop: mirrorPopRender(this.mirrorPop),
       },
     });
@@ -905,7 +882,7 @@ export class LearnSim {
     this.eatenHoldRemainingMs = 0;
     this.ghostCornerWarps = [];
     this.shieldBounce = NO_SHIELD_BOUNCE;
-    if (hasUpgrade(this.learnUpgrades.owned, "passiveGhostHouseDelay")) {
+    if (this.houseHoldWanted(this.learnUpgrades.owned)) {
       this.beginHouseHold();
     }
     return this.takeEvents();
@@ -927,10 +904,26 @@ export class LearnSim {
     return this.takeEvents();
   }
 
+  upgradeCopies(id: LowPowerUpgradeId): number {
+    return lowPowerCopies(this.learnUpgrades.owned, id);
+  }
+
+  adjustUpgradeCopies(id: LowPowerUpgradeId, delta: number): SimEvent[] {
+    this.events = [];
+    const current = this.upgradeCopies(id);
+    if (current > 0) {
+      this.applyToggled({
+        ...this.learnUpgrades,
+        owned: withLowPowerCopies(this.learnUpgrades.owned, id, current + delta),
+      });
+    }
+    return this.takeEvents();
+  }
+
   toggleEnhanced(baseId: BaseUpgradeId): SimEvent[] {
     this.events = [];
     const current = ownedFormOf(this.learnUpgrades.owned, baseId);
-    if (current === null) {
+    if (current === null || isLowPowerId(baseId)) {
       return this.takeEvents();
     }
     const enhancing = !isEnhancedId(current);
@@ -974,12 +967,19 @@ export class LearnSim {
       this.turnTuning.reset();
     }
     this.runState.addLives(sumGrantedLives(after) - sumGrantedLives(before));
-    this.syncHouseHold(hasUpgrade(before, "passiveGhostHouseDelay"));
+    this.syncHouseHold(this.houseHoldWanted(before));
     this.syncFruitMode(wasScheduled, fruitLifetimeMultiplier(after) / lifetimeBefore);
   }
 
+  private houseHoldWanted(owned: readonly UpgradeId[]): boolean {
+    return (
+      hasUpgrade(owned, "passiveGhostHouseDelay") ||
+      (this.selected !== null && lowPowerHouseDelayMs(owned, this.selected) > 0)
+    );
+  }
+
   private syncHouseHold(wasOwned: boolean): void {
-    const owned = hasUpgrade(this.learnUpgrades.owned, "passiveGhostHouseDelay");
+    const owned = this.houseHoldWanted(this.learnUpgrades.owned);
     if (owned && !wasOwned) {
       this.beginHouseHold();
     } else if (!owned && this.houseHold.eid !== null) {
@@ -1445,7 +1445,7 @@ export class LearnSim {
     }
   }
 
-  private twinDashBody(): DashBody | null {
+  private twinRenderBody(): NonNullable<SimRenderOptions["mirror"]> | null {
     const position = this.twinPosition();
     return position === null
       ? null
@@ -1954,6 +1954,7 @@ export class LearnSim {
       this.random.seed,
       LEARN_LEVEL,
       fruitKindsOnBoard(this.world),
+      FRUIT_KINDS,
     );
     this.fruitSequence = rolled.state;
     return rolled.kind;

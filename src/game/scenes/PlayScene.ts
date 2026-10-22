@@ -47,7 +47,7 @@ import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
-import { baseIdOf, type UpgradeId } from "../../domain/upgrades";
+import { baseIdOf, ownedUpgradeStacks, type UpgradeId } from "../../domain/upgrades";
 import {
   isSfxPlaying,
   playPelletCollectSfx,
@@ -1030,12 +1030,19 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  public upgradeHudSlots(): { id: UpgradeId; x: number; y: number; size: number }[] {
+  public upgradeHudSlots(): {
+    id: UpgradeId;
+    copies: number;
+    x: number;
+    y: number;
+    size: number;
+  }[] {
     const knobs = this.knobsPanel !== null;
     const size = knobs ? UPGRADE_HUD_COMPACT_SIZE : upgradeHudIconSize(MAZE_OFFSET_X);
     const left = knobs ? MAZE_OFFSET_X + 4 : undefined;
-    return this.sim.hud().upgrades.map((id, i) => ({
+    return ownedUpgradeStacks(this.sim.hud().upgrades).map(({ id, copies }, i) => ({
       id,
+      copies,
       size,
       ...upgradeHudIconPosition(i, size, pelletDisplaySize(), left),
     }));

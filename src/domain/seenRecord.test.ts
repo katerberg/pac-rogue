@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "./ghostKind";
+import { ALL_UPGRADE_IDS } from "./upgrades";
 import {
   allSeenRecord,
   emptySeenRecord,
@@ -90,7 +91,7 @@ describe("allSeenRecord / parseLearnAllMode", () => {
   it("covers every ghost and upgrade", () => {
     const all = allSeenRecord();
     expect(all.ghosts).toHaveLength(6);
-    expect(all.upgrades).toHaveLength(60);
+    expect(all.upgrades).toHaveLength(ALL_UPGRADE_IDS.length);
   });
 
   it("only accepts learnAll=1 or learnAll=0", () => {

@@ -10,6 +10,7 @@ import {
   tickGhostRelease,
   type GhostReleaseClock,
 } from "../../domain/ghostRelease";
+import { lowPowerKindReleaseAdds } from "../../domain/lowPowerUpgrades";
 import {
   ghostHouseReliefPelletAdd,
   ghostHouseReleaseDelayAddMs,
@@ -22,6 +23,7 @@ export class LearnHouseHold {
   private clock: GhostReleaseClock = createGhostReleaseClock(LEARN_LEVEL);
   private heldEid: number | null = null;
   private heldSlot: ReleaseSlot = RELEASE_SLOT.anchor;
+  private heldKind: GhostKindId = 0;
 
   get eid(): number | null {
     return this.heldEid;
@@ -31,6 +33,7 @@ export class LearnHouseHold {
     this.clock = createGhostReleaseClock(LEARN_LEVEL);
     this.heldEid = eid;
     this.heldSlot = RELEASE_SLOT_BY_KIND[kind];
+    this.heldKind = kind;
   }
 
   clear(): void {
@@ -47,12 +50,10 @@ export class LearnHouseHold {
       return null;
     }
     this.clock = tickGhostRelease(this.clock, hasInput, delta, pelletsEaten);
-    const delayAddMs = ghostHouseReleaseDelayAddMs(owned);
+    const adds = this.adds(owned);
     const due =
-      shouldReleaseSlot(this.heldSlot, this.clock, pelletsEaten, false, {
-        delayAddMs,
-        reliefPelletAdd: ghostHouseReliefPelletAdd(owned),
-      }) || idleReleaseDue(this.clock, delayAddMs);
+      shouldReleaseSlot(this.heldSlot, this.clock, pelletsEaten, false, adds) ||
+      idleReleaseDue(this.clock, adds.delayAddMs);
     if (!due) {
       return null;
     }
@@ -69,10 +70,21 @@ export class LearnHouseHold {
       return "GHOST HELD IN HOUSE - MOVE TO START";
     }
     if (isTimeGatedRelease(this.heldSlot, false)) {
-      const delay = releaseDelayMs(this.heldSlot, ghostHouseReleaseDelayAddMs(owned));
+      const delay = releaseDelayMs(this.heldSlot, this.adds(owned).delayAddMs);
       return `HOUSE RELEASE IN ${(Math.max(0, delay - this.clock.elapsedMs) / 1000).toFixed(1)}S`;
     }
-    const dots = releaseDots(this.heldSlot, LEARN_LEVEL, false, ghostHouseReliefPelletAdd(owned));
+    const adds = this.adds(owned);
+    const dots =
+      releaseDots(this.heldSlot, LEARN_LEVEL, false, adds.reliefPelletAdd) + adds.pelletAdd;
     return `HOUSE RELEASE IN ${Math.max(0, dots - pelletsEaten)} PELLETS`;
+  }
+
+  private adds(owned: readonly UpgradeId[]) {
+    const kind = lowPowerKindReleaseAdds(owned)(this.heldKind);
+    return {
+      delayAddMs: ghostHouseReleaseDelayAddMs(owned) + kind.delayMs,
+      reliefPelletAdd: ghostHouseReliefPelletAdd(owned),
+      pelletAdd: kind.pellets,
+    };
   }
 }
