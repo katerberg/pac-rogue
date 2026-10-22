@@ -72,7 +72,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `lowSpeed` | Speed | neutral | +6% Dot-Man speed. Stacks. |  |
 | `lowTunnelSpeed` | Tunnel Speed | neutral | +16% Dot-Man speed inside tunnels. Stacks. |  |
 | `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 16% slower inside tunnels. Stacks. |  |
-| `lowTurning` | Turning Speed | neutral | Dot-Man corners 1.2px earlier. Stacks. |  |
+| `lowTurning` | Traction | neutral | Dot-Man corners 1.2px earlier. Stacks. |  |
 | `lowSlowdownBlinky` | Blinky Slowdown | neutral | Blinky moves 8% slower. Stacks. |  |
 | `lowHouseDelayBlinky` | Blinky House Delay | neutral | Blinky leaves the ghost house 1.5s (or 2 pellets) later. Stacks. |  |
 | `lowTractionBlinky` | Blinky Traction | neutral | Blinky loses 16% speed after each turn. Stacks. |  |

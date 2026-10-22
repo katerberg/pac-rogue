@@ -96,14 +96,9 @@ export const LOW_POWER_DEFS: readonly UpgradeDef[] = [
     `Ghosts are ${pct(LOW_POWER_VORTEX_CUT)}% slower inside tunnels. Stacks.`,
     { kind: "vortex" },
   ),
-  lowDef(
-    "lowTurning",
-    "Turning Speed",
-    `Dot-Man corners ${LOW_POWER_TURN_PX_ADD}px earlier. Stacks.`,
-    {
-      kind: "turning",
-    },
-  ),
+  lowDef("lowTurning", "Traction", `Dot-Man corners ${LOW_POWER_TURN_PX_ADD}px earlier. Stacks.`, {
+    kind: "turning",
+  }),
   ...perGhostDefs(),
 ];
 
