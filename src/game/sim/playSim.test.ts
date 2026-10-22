@@ -3407,6 +3407,19 @@ describe("PlaySim slot-machine world pickup", () => {
   });
 });
 
+describe("PlaySim ?fruit=1", () => {
+  it("starts each board with a fruit already out", () => {
+    const sim = startSim({ level: 2, maze: "maze1", fruit: true });
+    expect(sim.snapshot().fruit).toBe(true);
+    expect(query(sim.world, [Fruit, Position])).toHaveLength(1);
+  });
+
+  it("starts with no fruit when the flag is off", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    expect(sim.snapshot().fruit).toBe(false);
+  });
+});
+
 describe("Turn Tuning", () => {
   function findSideTurn(): { col: number; row: number } {
     const { playerSolids, cols, rows } = getActiveLayout();
