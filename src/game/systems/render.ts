@@ -93,13 +93,7 @@ import {
 } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
-import {
-  FRUIT_KINDS,
-  fruitArtPath,
-  fruitDrawableId,
-  fruitFlickerAlpha,
-  isFruitDrawableId,
-} from "../../domain/fruit";
+import { fruitDrawableId, fruitFlickerAlpha, isFruitDrawableId } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
 import {
@@ -159,6 +153,7 @@ import {
 } from "../../domain/charmTailParams";
 import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
 import { upgradeArtTextureKey } from "../../domain/upgradeArt";
+import { FRUIT_ART_URLS } from "../fruitArt";
 import { UPGRADE_ART_URLS } from "../upgradeArt";
 import { resizeTail, stepTail, type TailBead } from "../../domain/charmTail";
 import { UPGRADE_SCHOOL_ORDER, type HauntedGhost } from "../../domain/upgrades";
@@ -559,8 +554,8 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(SPUNKY_TEXTURE_KEY, "art/ghosts/spunky.png");
   scene.load.image(WARDY_TEXTURE_KEY, "art/ghosts/wardy.png");
   scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
-  for (const kind of FRUIT_KINDS) {
-    scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
+  for (const [kind, url] of FRUIT_ART_URLS) {
+    scene.load.image(fruitDrawableId(kind), url);
   }
   for (const school of UPGRADE_SCHOOL_ORDER) {
     scene.load.image(schoolArtTextureKey(school), schoolArtPath(school));
