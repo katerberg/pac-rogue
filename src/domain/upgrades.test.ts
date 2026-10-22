@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { randomFromSeed } from "./mazeTiling";
 import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
 import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId } from "./trinkets";
 import {
@@ -2514,5 +2515,27 @@ describe("clearStaleUpgradeTimers", () => {
       frozenGhostEid: null,
       wallPassRemainingMs: 2000,
     });
+  });
+});
+
+describe("Trinkets and the slot cap", () => {
+  const ALMOST_ALL = ALL_UPGRADE_IDS.filter((id) => !isTrinketId(id)).slice(2);
+
+  it("never offers two Trinkets on one level-clear card", () => {
+    for (let n = 0; n < 200; n += 1) {
+      const offer = pickUpgradeChoiceOffer(ALMOST_ALL, null, randomFromSeed(`trinket${n}`));
+      expect(offer.upgrades.filter(isTrinketId).length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("doesn't count Trinkets toward the rare gate", () => {
+    const rare = "passiveOvercharge";
+    expect(eligibleUpgrades(["powerPelletFreeze", "lowSpeed"])).not.toContain(rare);
+    expect(eligibleUpgrades(["powerPelletFreeze", "passiveAfterburner"])).toContain(rare);
+  });
+
+  it("doesn't count Trinkets toward a Specialist", () => {
+    const owned = ["powerPelletFreeze", "lowSpeed", "lowSpeed", "lowTurning"] as const;
+    expect(eligibleUpgrades([...owned])).not.toContain("passiveSpeedSpecialist");
   });
 });

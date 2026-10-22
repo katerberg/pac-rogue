@@ -119,6 +119,10 @@ export function isTrinketId(id: string): id is TrinketUpgradeId {
   return LOW_BY_ID.has(id);
 }
 
+export function slotCount(owned: readonly UpgradeId[]): number {
+  return owned.filter((id) => !isTrinketId(id)).length;
+}
+
 export function trinketGhostOf(id: TrinketUpgradeId): GhostKindId | null {
   return LOW_BY_ID.get(id)?.trinket?.ghost ?? null;
 }

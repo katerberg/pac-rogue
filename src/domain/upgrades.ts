@@ -5,6 +5,7 @@ import {
   TRINKET_OFFER_WEIGHT,
   TRINKET_IDS,
   isTrinketId,
+  slotCount,
   trinketEligible,
   type TrinketEffect,
   type TrinketUpgradeId,
@@ -265,6 +266,7 @@ export const EXTRA_HUNGRY_COUNT = 8;
 export const STORE_UPGRADE_PRICE = 4;
 export const STORE_RARE_UPGRADE_PRICE = 5;
 export const RARE_MIN_OWNED = 2;
+export const MAX_RUN_UPGRADES = 6;
 export const RARE_OFFER_MASS = 1 / 15;
 export const STORE_RARE_OFFER_MASS = RARE_OFFER_MASS / 2;
 export const RARE_MIN_CLEAR_LEVEL = 2;
@@ -1440,7 +1442,7 @@ export function eligibleUpgrades(
     const needsShields = def.shieldBreak === true || def.reactiveArmor === true;
     const rareOk =
       !isRare(id) ||
-      (owned.length >= RARE_MIN_OWNED &&
+      (slotCount(owned) >= RARE_MIN_OWNED &&
         (clearLevelIndex === undefined || clearLevelIndex >= RARE_MIN_CLEAR_LEVEL));
     return (
       !ownedBases.has(id) &&
@@ -1537,6 +1539,14 @@ export type UpgradeChoiceOffer = {
   enhanced: BaseUpgradeId[];
 };
 
+export function dropTrinkets(pool: BaseUpgradeId[]): void {
+  for (let i = pool.length - 1; i >= 0; i -= 1) {
+    if (isTrinketId(pool[i]!)) {
+      pool.splice(i, 1);
+    }
+  }
+}
+
 export function pickUpgradeChoiceOffer(
   owned: readonly UpgradeId[],
   lastDeclined: BaseUpgradeId | null,
@@ -1554,16 +1564,19 @@ export function pickUpgradeChoiceOffer(
   const drawPool = [...preferred];
   while (picked.length < desiredCount && drawPool.length > 0) {
     const rareBase = rareWeightForPool(drawPool, RARE_OFFER_MASS);
-    picked.push(
-      takeWeightedUpgrade(drawPool, rng, (id) => upgradeOfferWeight(id, owned, rareBase)),
-    );
+    const id = takeWeightedUpgrade(drawPool, rng, (id) => upgradeOfferWeight(id, owned, rareBase));
+    picked.push(id);
+    if (isTrinketId(id)) {
+      dropTrinkets(drawPool);
+    }
   }
 
   if (
     picked.length < desiredCount &&
     lastDeclined !== null &&
     eligible.includes(lastDeclined) &&
-    !picked.includes(lastDeclined)
+    !picked.includes(lastDeclined) &&
+    !(isTrinketId(lastDeclined) && picked.some(isTrinketId))
   ) {
     picked.push(lastDeclined);
   }

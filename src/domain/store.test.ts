@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { randomFromSeed } from "./mazeTiling";
 import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId } from "./trinkets";
 import { activateAsciiLayout, activateLayout, isWalkable } from "./maze";
 import { STORE_MAZE_ASCII } from "./mazeLayouts";
@@ -779,5 +780,20 @@ describe("storeExitAlpha", () => {
     expect(storeExitAlpha(1.25)).toBeCloseTo(0.5);
     expect(storeExitAlpha(STORE_EXIT_SLIDE_TILES)).toBe(0);
     expect(storeExitAlpha(STORE_EXIT_SLIDE_TILES + 1)).toBe(0);
+  });
+});
+
+describe("Trinkets on the shelves", () => {
+  it("never shelves two Trinkets in one store", () => {
+    const owned = ALL_UPGRADE_IDS.filter((id) => !isTrinketId(id)).slice(2);
+    for (let n = 0; n < 200; n += 1) {
+      const state = createStoreState(
+        parseStoreLayout(STORE_MAZE_ASCII),
+        owned,
+        randomFromSeed(`shelf${n}`),
+      );
+      const shelf = state.slots.filter((slot) => slot.kind === "upgrade");
+      expect(shelf.filter((slot) => isTrinketId(slot.id)).length).toBeLessThanOrEqual(1);
+    }
   });
 });

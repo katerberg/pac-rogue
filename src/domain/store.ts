@@ -2,6 +2,7 @@ import type { Cell } from "./pennies";
 import type { GhostKindId } from "./ghostKind";
 import { isTrinketId } from "./trinkets";
 import {
+  dropTrinkets,
   baseIdOf,
   carryEnhancement,
   eligibleUpgrades,
@@ -190,7 +191,10 @@ export function createStoreState(
     guaranteedCell = takeRandomFrom([...upgradeCells], rng);
     guaranteedId = takeWeightedUpgrade(schoolPool, rng);
     pool = pool.filter(
-      (other) => other !== guaranteedId && !(isRare(guaranteedId!) && isRare(other)),
+      (other) =>
+        other !== guaranteedId &&
+        !(isRare(guaranteedId!) && isRare(other)) &&
+        !(isTrinketId(guaranteedId!) && isTrinketId(other)),
     );
   }
   const enhanceTargets = new Map<StoreSlotCell, BaseUpgradeId>();
@@ -220,6 +224,9 @@ export function createStoreState(
       slots.push({ kind: "upgrade", col, row, id, sold: false });
       if (isRare(id)) {
         pool = pool.filter((other) => !isRare(other));
+      }
+      if (isTrinketId(id)) {
+        dropTrinkets(pool);
       }
     }
   }
