@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { randomFromSeed } from "./mazeTiling";
 import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
-import { LOW_POWER_IDS, LOW_POWER_MAX_COPIES, isLowPowerId } from "./lowPowerUpgrades";
+import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId } from "./trinkets";
 import {
+  clearStaleUpgradeTimers,
   eatFrightenedGhost,
   frightenedGhostEids,
   frightenedGhosts,
@@ -271,12 +273,12 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveFloating",
 ];
 
-const MAXED_LOW: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
-  Array.from({ length: LOW_POWER_MAX_COPIES }, () => id),
+const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
+  Array.from({ length: TRINKET_MAX_COPIES }, () => id),
 );
 const FULL_OWNED: UpgradeId[] = [...ALL_IDS, ...MAXED_LOW];
 const withoutLow = (ids: readonly BaseUpgradeId[]): BaseUpgradeId[] =>
-  ids.filter((id) => !isLowPowerId(id));
+  ids.filter((id) => !isTrinketId(id));
 
 const STUB_IDS: BaseUpgradeId[] = [
   "fruitPowerPellet",
@@ -2509,6 +2511,48 @@ describe("Chaff", () => {
   it("clears with the other upgrade timers", () => {
     const fired = applyPowerPelletEffects(createRunUpgrades(["powerPelletChaff"]), 1).state;
     expect(clearUpgradeTimers(fired).chaff).toBeNull();
+  });
+});
+
+describe("clearStaleUpgradeTimers", () => {
+  it("clears a revoked upgrade's timer and keeps an owned one's", () => {
+    const live = {
+      ...createRunUpgrades(["powerPelletFreeze", "powerPelletWallPass"]),
+      freezeRemainingMs: 4000,
+      frozenGhostEid: 3,
+      wallPassRemainingMs: 2000,
+    };
+    const after = clearStaleUpgradeTimers(
+      ["powerPelletWallPass"],
+      revokeUpgrade(live, "powerPelletFreeze"),
+    );
+    expect(after).toMatchObject({
+      freezeRemainingMs: 0,
+      frozenGhostEid: null,
+      wallPassRemainingMs: 2000,
+    });
+  });
+});
+
+describe("Trinkets and the slot cap", () => {
+  const ALMOST_ALL = ALL_UPGRADE_IDS.filter((id) => !isTrinketId(id)).slice(2);
+
+  it("never offers two Trinkets on one level-clear card", () => {
+    for (let n = 0; n < 200; n += 1) {
+      const offer = pickUpgradeChoiceOffer(ALMOST_ALL, null, randomFromSeed(`trinket${n}`));
+      expect(offer.upgrades.filter(isTrinketId).length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("doesn't count Trinkets toward the rare gate", () => {
+    const rare = "passiveOvercharge";
+    expect(eligibleUpgrades(["powerPelletFreeze", "lowSpeed"])).not.toContain(rare);
+    expect(eligibleUpgrades(["powerPelletFreeze", "passiveAfterburner"])).toContain(rare);
+  });
+
+  it("doesn't count Trinkets toward a Specialist", () => {
+    const owned = ["powerPelletFreeze", "lowSpeed", "lowSpeed", "lowTurning"] as const;
+    expect(eligibleUpgrades([...owned])).not.toContain("passiveSpeedSpecialist");
   });
 });
 

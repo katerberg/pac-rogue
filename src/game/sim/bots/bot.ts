@@ -1,7 +1,7 @@
 import { GHOST_PHASE } from "../../../domain/ghostPhase";
 import { createRunRandom } from "../../../domain/runRandom";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../../domain/maze";
-import type { UpgradeChoiceOption } from "../../../domain/upgrades";
+import type { UpgradeChoiceOption, UpgradeId } from "../../../domain/upgrades";
 import { Facing } from "../../components/Facing";
 import { DIRECTION, type Direction } from "../../components/Input";
 import { Position } from "../../components/Position";
@@ -12,7 +12,7 @@ import { IDLE_INPUT, type SimInput } from "../simInput";
 import { bestExit, neighbor, openExits, reverseOf, type CardinalDirection } from "./navigate";
 import { planExits, SURVIVABLE_SCORE, type PlannerState, type PlannerWeights } from "./planner";
 import { cellOf, Observer, playerEid, sampleGhosts, type GhostSample } from "./observe";
-import { pickOffer } from "./pick";
+import { pickOffer, pickSalvage } from "./pick";
 import { profileFor, type MoveWeights, type Profile } from "./profiles";
 import { StoreBot } from "./storeBot";
 
@@ -112,6 +112,13 @@ export class Bot {
     return offer === null
       ? null
       : pickOffer(offer, sim.hud().upgrades, this.profile.persona, this.rng);
+  }
+
+  salvage(sim: PlaySim): UpgradeId | null {
+    const prompt = sim.salvagePrompt();
+    return prompt === null
+      ? null
+      : pickSalvage(prompt.incoming, sim.hud().upgrades, this.profile.persona, this.rng);
   }
 
   step(sim: PlaySim): SimInput {

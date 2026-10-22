@@ -1,14 +1,15 @@
 import { QUARTER_CHARGE } from "./pennies";
 import {
-  LOW_POWER_DEFS,
-  LOW_POWER_MAX_COPIES,
-  LOW_POWER_OFFER_WEIGHT,
-  LOW_POWER_IDS,
-  isLowPowerId,
-  lowPowerEligible,
-  type LowPowerEffect,
-  type LowPowerUpgradeId,
-} from "./lowPowerUpgrades";
+  TRINKET_DEFS,
+  TRINKET_MAX_COPIES,
+  TRINKET_OFFER_WEIGHT,
+  TRINKET_IDS,
+  isTrinketId,
+  slotCount,
+  trinketEligible,
+  type TrinketEffect,
+  type TrinketUpgradeId,
+} from "./trinkets";
 import type { GhostKindId } from "./ghostKind";
 import type { SpeedZoneEffect } from "./speedZones";
 import { ECHO_DELAY_MS, type EchoEffects, type PendingEcho, pickEchoBases } from "./echo";
@@ -89,7 +90,7 @@ export type CoreUpgradeId =
   | "passivePossession"
   | "passiveFloating";
 
-export type BaseUpgradeId = CoreUpgradeId | LowPowerUpgradeId;
+export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
 
@@ -119,7 +120,7 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
 export type ReanimationMode = "fell" | "nearPowerPellet";
 
 export type UpgradeEffects = {
-  lowPower?: LowPowerEffect;
+  trinket?: TrinketEffect;
   playerSpeedMul?: number;
   emptyCellSpeedMul?: number;
   pelletCellSpeedMul?: number;
@@ -276,6 +277,7 @@ export const EXTRA_HUNGRY_COUNT = 8;
 export const STORE_UPGRADE_PRICE = 4;
 export const STORE_RARE_UPGRADE_PRICE = 5;
 export const RARE_MIN_OWNED = 2;
+export const MAX_RUN_UPGRADES = 6;
 export const RARE_OFFER_MASS = 1 / 15;
 export const STORE_RARE_OFFER_MASS = RARE_OFFER_MASS / 2;
 export const RARE_MIN_CLEAR_LEVEL = 2;
@@ -1160,7 +1162,7 @@ function toEnhancedDef(def: BaseUpgradeDef): UpgradeDef {
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   ...BASE_UPGRADE_DEFS.map(toBaseDef),
-  ...LOW_POWER_DEFS,
+  ...TRINKET_DEFS,
   ...BASE_UPGRADE_DEFS.map(toEnhancedDef),
 ];
 
@@ -1187,7 +1189,7 @@ const UPGRADE_ALIAS_TO_BASE: ReadonlyMap<string, BaseUpgradeId> = (() => {
   const map = new Map<string, BaseUpgradeId>();
   const entries = [
     ...BASE_UPGRADE_DEFS.map((def) => [def.label, def.id] as const),
-    ...LOW_POWER_DEFS.map((def) => [def.label, def.baseId] as const),
+    ...TRINKET_DEFS.map((def) => [def.label, def.baseId] as const),
   ];
   for (const [label, id] of entries) {
     const key = upgradeLabelAlias(label).toLowerCase();
@@ -1200,7 +1202,7 @@ const UPGRADE_ALIAS_TO_BASE: ReadonlyMap<string, BaseUpgradeId> = (() => {
 
 export const ALL_UPGRADE_IDS: readonly BaseUpgradeId[] = [
   ...BASE_UPGRADE_DEFS.map((def) => def.id),
-  ...LOW_POWER_IDS,
+  ...TRINKET_IDS,
 ];
 
 export function baseIdOf(id: UpgradeId): BaseUpgradeId {
@@ -1255,7 +1257,7 @@ export function enhanceableUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[
   const specialistEnhanced = new Set<UpgradeId>(specialistEnhancedBases(owned));
   return owned.filter(
     (id): id is BaseUpgradeId =>
-      !isEnhancedId(id) && !isLowPowerId(id) && !specialistEnhanced.has(id),
+      !isEnhancedId(id) && !isTrinketId(id) && !specialistEnhanced.has(id),
   );
 }
 
@@ -1285,7 +1287,7 @@ export function effectiveOwned(owned: readonly UpgradeId[]): readonly UpgradeId[
   return owned.map((id) => {
     const def = getUpgradeDef(id);
     const threshold = thresholds.get(def.school);
-    if (def.isEnhanced || isSpecialist(id) || isLowPowerId(id) || threshold === undefined) {
+    if (def.isEnhanced || isSpecialist(id) || isTrinketId(id) || threshold === undefined) {
       return id;
     }
     return schoolCount(owned, def.school) >= threshold ? enhancedIdOf(def.baseId) : id;
@@ -1298,7 +1300,7 @@ export function specialistEnhancedBases(owned: readonly UpgradeId[]): BaseUpgrad
 }
 
 export function carryEnhancement(outgoingId: UpgradeId, incomingBaseId: BaseUpgradeId): UpgradeId {
-  return isEnhancedId(outgoingId) && !isLowPowerId(incomingBaseId)
+  return isEnhancedId(outgoingId) && !isTrinketId(incomingBaseId)
     ? enhancedIdOf(incomingBaseId)
     : incomingBaseId;
 }
@@ -1509,14 +1511,14 @@ export function eligibleUpgrades(
   const shieldsOwned = providesShields(owned);
   const clearLevelIndex = options?.clearLevelIndex;
   return ALL_UPGRADE_IDS.filter((id) => {
-    if (isLowPowerId(id)) {
-      return lowPowerEligible(owned, id, options?.roster);
+    if (isTrinketId(id)) {
+      return trinketEligible(owned, id, options?.roster);
     }
     const def = getUpgradeDef(id);
     const needsShields = def.shieldBreak === true || def.reactiveArmor === true;
     const rareOk =
       !isRare(id) ||
-      (owned.length >= RARE_MIN_OWNED &&
+      (slotCount(owned) >= RARE_MIN_OWNED &&
         (clearLevelIndex === undefined || clearLevelIndex >= RARE_MIN_CLEAR_LEVEL));
     return (
       !ownedBases.has(id) &&
@@ -1552,7 +1554,7 @@ export function rareWeightForPool(pool: readonly BaseUpgradeId[], rareMass: numb
     if (isRare(id)) {
       rares += 1;
     } else {
-      commons += isLowPowerId(id) ? LOW_POWER_OFFER_WEIGHT : 1;
+      commons += isTrinketId(id) ? TRINKET_OFFER_WEIGHT : 1;
     }
   }
   if (rares === 0) {
@@ -1564,8 +1566,8 @@ export function rareWeightForPool(pool: readonly BaseUpgradeId[], rareMass: numb
   return (rareMass * commons) / (rares * (1 - rareMass));
 }
 
-function lowPowerOfferWeight(id: BaseUpgradeId): number {
-  return isLowPowerId(id) ? LOW_POWER_OFFER_WEIGHT : 1;
+function trinketOfferWeight(id: BaseUpgradeId): number {
+  return isTrinketId(id) ? TRINKET_OFFER_WEIGHT : 1;
 }
 
 export function upgradeOfferWeight(
@@ -1579,12 +1581,12 @@ export function upgradeOfferWeight(
     school === "neutral" || points === 0
       ? 1
       : 1 + (isRare(id) ? SCHOOL_AFFINITY_RARE_RATE : SCHOOL_AFFINITY_COMMON_RATE) * points;
-  return schoolMult * (isRare(id) ? rareBaseWeight : lowPowerOfferWeight(id));
+  return schoolMult * (isRare(id) ? rareBaseWeight : trinketOfferWeight(id));
 }
 
 export function storeUpgradeWeight(pool: readonly BaseUpgradeId[]): (id: BaseUpgradeId) => number {
   return (id) =>
-    isRare(id) ? rareWeightForPool(pool, STORE_RARE_OFFER_MASS) : lowPowerOfferWeight(id);
+    isRare(id) ? rareWeightForPool(pool, STORE_RARE_OFFER_MASS) : trinketOfferWeight(id);
 }
 
 export function takeWeightedUpgrade(
@@ -1613,6 +1615,14 @@ export type UpgradeChoiceOffer = {
   enhanced: BaseUpgradeId[];
 };
 
+export function dropTrinkets(pool: BaseUpgradeId[]): void {
+  for (let i = pool.length - 1; i >= 0; i -= 1) {
+    if (isTrinketId(pool[i]!)) {
+      pool.splice(i, 1);
+    }
+  }
+}
+
 export function pickUpgradeChoiceOffer(
   owned: readonly UpgradeId[],
   lastDeclined: BaseUpgradeId | null,
@@ -1630,16 +1640,19 @@ export function pickUpgradeChoiceOffer(
   const drawPool = [...preferred];
   while (picked.length < desiredCount && drawPool.length > 0) {
     const rareBase = rareWeightForPool(drawPool, RARE_OFFER_MASS);
-    picked.push(
-      takeWeightedUpgrade(drawPool, rng, (id) => upgradeOfferWeight(id, owned, rareBase)),
-    );
+    const id = takeWeightedUpgrade(drawPool, rng, (id) => upgradeOfferWeight(id, owned, rareBase));
+    picked.push(id);
+    if (isTrinketId(id)) {
+      dropTrinkets(drawPool);
+    }
   }
 
   if (
     picked.length < desiredCount &&
     lastDeclined !== null &&
     eligible.includes(lastDeclined) &&
-    !picked.includes(lastDeclined)
+    !picked.includes(lastDeclined) &&
+    !(isTrinketId(lastDeclined) && picked.some(isTrinketId))
   ) {
     picked.push(lastDeclined);
   }
@@ -1651,7 +1664,7 @@ export function pickUpgradeChoiceOffer(
   shuffleInPlace(upgrades, rng);
   const enhanced =
     enhancedChance > 0
-      ? upgrades.filter((id) => !isLowPowerId(id)).filter(() => rng() < enhancedChance)
+      ? upgrades.filter((id) => !isTrinketId(id)).filter(() => rng() < enhancedChance)
       : [];
   return { upgrades, enhanced };
 }
@@ -1683,7 +1696,7 @@ export function pickStartingUpgrade(
   return takeRandomFrom(eligible, rng);
 }
 
-function withDeclined(state: RunUpgrades, declined: readonly BaseUpgradeId[]): RunUpgrades {
+export function withDeclined(state: RunUpgrades, declined: readonly BaseUpgradeId[]): RunUpgrades {
   if (declined.length !== 1) {
     return state;
   }
@@ -1707,8 +1720,8 @@ export function confirmUpgradeChoice(
 }
 
 export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
-  if (isLowPowerId(id)) {
-    return state.owned.filter((owner) => owner === id).length >= LOW_POWER_MAX_COPIES
+  if (isTrinketId(id)) {
+    return state.owned.filter((owner) => owner === id).length >= TRINKET_MAX_COPIES
       ? state
       : { ...state, owned: [...state.owned, id] };
   }
@@ -1735,6 +1748,49 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
     ...(owned.some((id) => getUpgradeDef(id).onPowerPellet?.frightenGhostsMs !== undefined)
       ? {}
       : NO_FRIGHT),
+  };
+}
+
+export function clearStaleUpgradeTimers(
+  owned: readonly UpgradeId[],
+  state: RunUpgrades,
+): RunUpgrades {
+  const hasField = (key: keyof NonNullable<UpgradeDef["onPowerPellet"]>): boolean =>
+    owned.some((id) => getUpgradeDef(id).onPowerPellet?.[key] !== undefined);
+  return {
+    ...state,
+    freezeRemainingMs: hasField("freezeClosestGhostMs") ? state.freezeRemainingMs : 0,
+    frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
+    wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
+    invulnRemainingMs:
+      hasField("playerInvulnMs") ||
+      hasField("warpInvulnMs") ||
+      owned.some((id) => getUpgradeDef(id).tunnelExitInvulnMs !== undefined) ||
+      streakEngineInvulnMs(owned) > 0
+        ? state.invulnRemainingMs
+        : 0,
+    speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
+    hyperspeedRemainingMs: hasField("hyperspeedMs") ? state.hyperspeedRemainingMs : 0,
+    hyperspeedTurnDelayMs: hasField("hyperspeedMs") ? state.hyperspeedTurnDelayMs : 0,
+    hyperspeedShieldRemainingMs: hasField("hyperspeedShieldMs")
+      ? state.hyperspeedShieldRemainingMs
+      : 0,
+    ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
+    titheRemainingMs: hasField("titheMs") ? state.titheRemainingMs : 0,
+    defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
+    shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
+    peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
+    pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
+    wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
+    mirrorActive: hasField("mirror") && state.mirrorActive,
+    programmer: hasField("programmerSets") ? state.programmer : null,
+    droppedWall: hasField("armWallDrop") ? state.droppedWall : null,
+    chaff: hasField("chaffMs") ? state.chaff : null,
+    ...(hasField("frightenGhostsMs") || hasUpgrade(owned, "passivePossession")
+      ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
+      : NO_FRIGHT),
+    possessionRemainingMs: hasUpgrade(owned, "passivePossession") ? state.possessionRemainingMs : 0,
+    possessedGhostEid: hasUpgrade(owned, "passivePossession") ? state.possessedGhostEid : null,
   };
 }
 
