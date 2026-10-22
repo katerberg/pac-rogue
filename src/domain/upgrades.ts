@@ -1662,6 +1662,47 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
   };
 }
 
+export function clearStaleUpgradeTimers(
+  owned: readonly UpgradeId[],
+  state: RunUpgrades,
+): RunUpgrades {
+  const hasField = (key: keyof NonNullable<UpgradeDef["onPowerPellet"]>): boolean =>
+    owned.some((id) => getUpgradeDef(id).onPowerPellet?.[key] !== undefined);
+  return {
+    ...state,
+    freezeRemainingMs: hasField("freezeClosestGhostMs") ? state.freezeRemainingMs : 0,
+    frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
+    wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
+    invulnRemainingMs:
+      hasField("playerInvulnMs") ||
+      hasField("warpInvulnMs") ||
+      owned.some((id) => getUpgradeDef(id).tunnelExitInvulnMs !== undefined) ||
+      streakEngineInvulnMs(owned) > 0
+        ? state.invulnRemainingMs
+        : 0,
+    speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
+    hyperspeedRemainingMs: hasField("hyperspeedMs") ? state.hyperspeedRemainingMs : 0,
+    hyperspeedTurnDelayMs: hasField("hyperspeedMs") ? state.hyperspeedTurnDelayMs : 0,
+    hyperspeedShieldRemainingMs: hasField("hyperspeedShieldMs")
+      ? state.hyperspeedShieldRemainingMs
+      : 0,
+    ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
+    titheRemainingMs: hasField("titheMs") ? state.titheRemainingMs : 0,
+    defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
+    shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
+    peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
+    pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
+    wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
+    mirrorActive: hasField("mirror") && state.mirrorActive,
+    programmer: hasField("programmerSets") ? state.programmer : null,
+    droppedWall: hasField("armWallDrop") ? state.droppedWall : null,
+    chaff: hasField("chaffMs") ? state.chaff : null,
+    ...(hasField("frightenGhostsMs")
+      ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
+      : NO_FRIGHT),
+  };
+}
+
 export function enhanceUpgrade(state: RunUpgrades, baseId: BaseUpgradeId): RunUpgrades {
   if (!state.owned.includes(baseId)) {
     return state;

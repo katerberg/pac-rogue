@@ -277,6 +277,7 @@ import {
   bananaPeelCap,
   grantStartingShields,
   clearUpgradeTimers,
+  clearStaleUpgradeTimers,
   queueEcho,
   powerPelletPickupFires,
   shieldBreakOwned,
@@ -2563,6 +2564,7 @@ export class PlaySim {
       if (purchase.kind === "swap") {
         this.recorder.lost(purchase.outgoingId, this.levelIndex);
         this.runUpgrades = revokeUpgrade(this.runUpgrades, purchase.outgoingId);
+        this.runUpgrades = clearStaleUpgradeTimers(this.runUpgrades.owned, this.runUpgrades);
       }
       id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
       this.recorder.gained(id, "store", this.levelIndex);

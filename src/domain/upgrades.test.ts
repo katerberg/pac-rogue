@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
 import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId } from "./trinkets";
 import {
+  clearStaleUpgradeTimers,
   eatFrightenedGhost,
   frightenedGhostEids,
   frightenedGhosts,
@@ -2493,5 +2494,25 @@ describe("Chaff", () => {
   it("clears with the other upgrade timers", () => {
     const fired = applyPowerPelletEffects(createRunUpgrades(["powerPelletChaff"]), 1).state;
     expect(clearUpgradeTimers(fired).chaff).toBeNull();
+  });
+});
+
+describe("clearStaleUpgradeTimers", () => {
+  it("clears a revoked upgrade's timer and keeps an owned one's", () => {
+    const live = {
+      ...createRunUpgrades(["powerPelletFreeze", "powerPelletWallPass"]),
+      freezeRemainingMs: 4000,
+      frozenGhostEid: 3,
+      wallPassRemainingMs: 2000,
+    };
+    const after = clearStaleUpgradeTimers(
+      ["powerPelletWallPass"],
+      revokeUpgrade(live, "powerPelletFreeze"),
+    );
+    expect(after).toMatchObject({
+      freezeRemainingMs: 0,
+      frozenGhostEid: null,
+      wallPassRemainingMs: 2000,
+    });
   });
 });

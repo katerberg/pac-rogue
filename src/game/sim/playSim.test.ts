@@ -1762,6 +1762,24 @@ describe("PlaySim", () => {
       expect(sim.snapshot().quarters).toBe(10 - STORE_SWAP_PRICE);
     });
 
+    it("clears the sacrificed upgrade's live timers on a swap", () => {
+      const owned = ["powerPelletFreeze", "passiveAfterburner"] as const;
+      const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: [...owned] });
+      sim["runUpgrades"] = { ...sim["runUpgrades"], freezeRemainingMs: 4000, frozenGhostEid: 7 };
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap")!;
+      teleportPlayer(sim, cellCenterX(swap.col), cellCenterY(swap.row));
+      runFrames(sim, 1);
+      if (sim.storeState()!.sacrifice?.id !== "powerPelletFreeze") {
+        runFrames(sim, 1, { storeDir: "up" });
+      }
+      expect(sim.storeState()!.sacrifice?.id).toBe("powerPelletFreeze");
+      runFrames(sim, 1, { storeDir: "right" });
+      runFrames(sim, 1, { storeDir: "right" });
+      expect(sim.snapshot().upgrades).not.toContain("powerPelletFreeze");
+      expect(sim["runUpgrades"].freezeRemainingMs).toBe(0);
+      expect(sim["runUpgrades"].frozenGhostEid).toBeNull();
+    });
+
     it("leaves the sacrifice selection on left without paying", () => {
       const sim = startSim({
         store: 1,
