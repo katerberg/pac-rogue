@@ -3097,17 +3097,22 @@ export class PlaySim {
     this.collapseIntroMs = 0;
   }
 
-  private setUpCollapse(chains: readonly CollapseChain[]): void {
+  private setUpCollapse(chains: readonly CollapseChain[], bored: readonly MazeTile[]): void {
     const held = this.collapsePlan;
     if (held === null) {
       return;
     }
-    const layout = getActiveLayout();
     this.collapseSpeedBoard = layoutFromAscii(applyCollapse(held.baseAscii, held.plan.chains));
     if (chains.length === 0) {
       return;
     }
     this.collapseChains = [...chains];
+    this.buildCollapseArts(held.plan.artSeed, bored);
+  }
+
+  private buildCollapseArts(artSeed: number, bored: readonly MazeTile[]): void {
+    const layout = getActiveLayout();
+    const boredKeys = new Set(bored.map((cell) => `${cell.col},${cell.row}`));
     const board = {
       ascii: layout.ascii,
       tileSize: layout.tileSize,
@@ -3120,9 +3125,19 @@ export class PlaySim {
     };
     this.collapseBoardCount += 1;
     this.collapseArts = this.collapseChains.map((chain, index) => ({
-      ...buildRubbleArt(board, chain, held.plan.artSeed + index * 101),
+      ...buildRubbleArt(
+        board,
+        chain.filter((cell) => !boredKeys.has(`${cell.col},${cell.row}`)),
+        artSeed + index * 101,
+      ),
       fresh: isFreshCollapse(index, this.levelIndex),
     }));
+  }
+
+  private clearBoredRubble(bored: readonly MazeTile[]): void {
+    if (this.collapsePlan !== null && this.collapseChains.length > 0) {
+      this.buildCollapseArts(this.collapsePlan.plan.artSeed, bored);
+    }
   }
 
   private collapseRenderState(): CollapseRenderState | null {
@@ -3147,7 +3162,7 @@ export class PlaySim {
       activateAsciiLayout(bored);
       openBoredCellsOnLayout(getActiveLayout(), boredCells);
       if (chains !== null) {
-        this.setUpCollapse(chains);
+        this.setUpCollapse(chains, boredCells);
       }
       return label;
     } catch (error) {
@@ -3192,6 +3207,7 @@ export class PlaySim {
     this.tunnelBored = { mapKey, cells };
     this.tunnelBoringCharges = attempt.charges;
     applyBoredCellsToActiveLayout(cells);
+    this.clearBoredRubble(cells);
     adoptTunnelBoringFacing(this.world, attempt.direction);
     this.emit({ type: "resetBoard" });
     this.recorder.activation("tunnelBoring");
