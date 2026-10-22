@@ -83,3 +83,16 @@ export function trinketPoolLayout<Id>(
   }
   return cards;
 }
+
+const UPGRADE_HUD_TEXT_GAP = 12;
+
+export function upgradeHudTextAnchor(
+  boxes: readonly { x: number; y: number; size: number }[],
+  iconSize: number,
+  quarterSize: number,
+  left: number = QUARTER_HUD_LEFT,
+): { x: number; y: number } {
+  const middle = upgradeHudIconPosition(1, iconSize, quarterSize, left);
+  const bottom = Math.max(middle.y + iconSize / 2, ...boxes.map((box) => box.y + box.size / 2));
+  return { x: middle.x, y: bottom + UPGRADE_HUD_TEXT_GAP };
+}

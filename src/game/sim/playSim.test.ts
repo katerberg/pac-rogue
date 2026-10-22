@@ -9204,7 +9204,7 @@ describe("PlaySim salvage", () => {
     expect(sim.snapshot().salvage.open).toBe(true);
   });
 
-  it("SALVAGE NEW keeps the six and adds one Trinket", () => {
+  it("salvaging the new card keeps the six and adds one Trinket", () => {
     const { sim } = offerAtCap();
     const events = sim.salvageNew();
     const gained = events.find((e) => e.type === "salvage");
@@ -9215,7 +9215,7 @@ describe("PlaySim salvage", () => {
     expect(sim.runLogRecord().loadout.at(-1)).toMatchObject({ source: "salvage" });
   });
 
-  it("REPLACE salvages the outgoing card and keeps the new one", () => {
+  it("salvaging an owned card keeps the new one", () => {
     const { sim, picked } = offerAtCap();
     sim.salvageReplace("passiveGhostSlow");
     expect(slotIds(sim)).toEqual([...SIX.filter((id) => id !== "passiveGhostSlow"), picked]);
@@ -9225,7 +9225,7 @@ describe("PlaySim salvage", () => {
     ).toMatchObject({ removedLevel: 4 });
   });
 
-  it("rejects REPLACE with a Trinket or an unowned id", () => {
+  it("refuses to salvage a Trinket or an unowned id at the prompt", () => {
     const { sim } = offerAtCap();
     expect(sim.salvageReplace("lowSpeed")).toEqual([]);
     expect(sim.salvageReplace("passiveExtraLife")).toEqual([]);

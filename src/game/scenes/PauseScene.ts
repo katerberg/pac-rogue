@@ -17,7 +17,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addTrinketCard, createSalvageOverlay, type SalvageOverlay } from "./salvageOverlay";
+import { addTrinketCard, createSalvagePanel, type SalvagePanel } from "./salvagePanel";
 import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
 
@@ -57,7 +57,7 @@ export class PauseScene extends Phaser.Scene {
 
   private upgradePreview: UpgradeCardVisual | null = null;
   private upgradeList: Phaser.GameObjects.GameObject[] = [];
-  private salvageUi!: SalvageOverlay;
+  private salvageUi!: SalvagePanel;
   private salvageHint!: Phaser.GameObjects.BitmapText;
   private keyT!: Phaser.Input.Keyboard.Key;
 
@@ -156,7 +156,7 @@ export class PauseScene extends Phaser.Scene {
     this.upgradeList = [];
     this.salvageHint = addPixelText(this, ROW_CENTER_X, SALVAGE_HINT_Y, "", UPGRADES_HUD_FONT_SIZE);
     this.buildUpgradeList();
-    this.salvageUi = createSalvageOverlay(this);
+    this.salvageUi = createSalvagePanel(this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.salvageUi.destroy());
 
     if (this.input.keyboard === null) {
@@ -182,8 +182,9 @@ export class PauseScene extends Phaser.Scene {
     this.moveCooldownMs = Math.max(0, this.moveCooldownMs - delta);
 
     const escDown = Phaser.Input.Keyboard.JustDown(this.keyEsc);
-    if (this.salvageUi.mode() !== null) {
-      this.salvageUi.tick(delta, escDown);
+    const salvaging = this.salvageUi.mode() !== null;
+    this.salvageUi.tick(delta, salvaging && escDown);
+    if (salvaging) {
       return;
     }
 
@@ -193,7 +194,7 @@ export class PauseScene extends Phaser.Scene {
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
-      this.openSalvagePicker(0, false);
+      this.openSalvagePicker(0);
       return;
     }
 
@@ -294,7 +295,7 @@ export class PauseScene extends Phaser.Scene {
         icon.setDisplaySize(size, size);
         this.hideUpgradePreview();
       });
-      icon.on("pointerdown", () => this.openSalvagePicker(index, true));
+      icon.on("pointerdown", () => this.openSalvagePicker(index));
       return icon;
     });
     for (const { id, copies, x, y, size } of play.trinketPoolCards()) {
@@ -309,22 +310,23 @@ export class PauseScene extends Phaser.Scene {
     placePixelText(this.salvageHint, ROW_CENTER_X, SALVAGE_HINT_Y, 0.5, 0.5);
   }
 
-  private openSalvagePicker(start: number, confirming: boolean): void {
+  private openSalvagePicker(start: number): void {
     const play = this.playScene();
     if (!play.canSalvageNow()) {
       return;
     }
     this.hideUpgradePreview();
-    this.salvageUi.openPicker(play.salvageItems(), {
+    this.salvageUi.open({
+      items: play.upgradeHudSlots(),
+      text: play.panelText(),
+      alert: false,
+      cancellable: true,
       start,
-      confirming,
       onPick: (id) => {
         const result = play.salvageFromPause(id);
         this.buildUpgradeList();
         if (result !== null) {
-          this.salvageUi.reveal(result.gained, play.poolTarget(result.gained), () =>
-            this.buildUpgradeList(),
-          );
+          this.salvageUi.toast(result.gained, play.poolTarget(result.gained), play.panelText());
         }
       },
     });

@@ -3,6 +3,7 @@ import {
   TRINKET_LAYER_OFFSET,
   TRINKET_POOL_COLUMNS,
   trinketPoolLayout,
+  upgradeHudTextAnchor,
   UPGRADE_HUD_COLUMNS,
   UPGRADE_HUD_COMPACT_SIZE,
   upgradeHudIconPosition,
@@ -87,5 +88,18 @@ describe("trinketPoolLayout", () => {
     expect(rowEnd.x + rowEnd.size / 2).toBeLessThanOrEqual(lastIcon.x + ICON / 2);
     expect(cards[TRINKET_POOL_COLUMNS]!.x).toBe(cards[0]!.x);
     expect(cards[TRINKET_POOL_COLUMNS]!.y).toBeGreaterThan(cards[0]!.y);
+  });
+});
+
+describe("upgradeHudTextAnchor", () => {
+  it("centers on the middle grid column under the lowest box", () => {
+    const middle = upgradeHudIconPosition(1, 40, 16);
+    const low = { x: 10, y: 300, size: 20 };
+    expect(upgradeHudTextAnchor([low], 40, 16)).toEqual({ x: middle.x, y: 322 });
+  });
+
+  it("sits under the first row when nothing is owned", () => {
+    const middle = upgradeHudIconPosition(1, 40, 16);
+    expect(upgradeHudTextAnchor([], 40, 16)).toEqual({ x: middle.x, y: middle.y + 32 });
   });
 });

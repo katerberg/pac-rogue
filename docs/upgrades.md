@@ -46,11 +46,11 @@ Effects are static multipliers applied at the existing speed, turn-window and gh
 
 A run holds at most `MAX_RUN_UPGRADES` slot upgrades; Trinkets and a base/Plus pair count as described above. The rules live in [`src/domain/salvage.ts`](../src/domain/salvage.ts) and `PlaySim`.
 
-- A level-clear pick, store `U` purchase or slot win that would exceed the cap queues a prompt instead of granting (`needsSalvage`). The sim freezes on it; there is no dismiss. **SALVAGE NEW** turns the new card into a Trinket; **REPLACE...** salvages an owned upgrade and keeps the new one. Several grants queue and open one at a time; slot wins wait until the final grid is dismissed.
+- A level-clear pick, store `U` purchase or slot win that would exceed the cap queues a prompt instead of granting (`needsSalvage`). The sim freezes on it; there is no dismiss. Everything happens in the left HUD panel: the new card joins as a 7th icon, a dotted red outline blinks with SLOTS FULL (`salvageAlertFrame`), then SALVAGE REQUIRED puts a selector on the new card. Arrows move it over all seven (`salvageSelectionStep`); Enter, Space, `T` or a click salvages the selected one at once, which keeps the other six. Several grants queue and open one at a time; slot wins wait until the final grid is dismissed.
 - **Salvage** revokes the upgrade, clears its live state (`clearStaleUpgradeTimers`), and grants a uniform random eligible Trinket from the `salvage` stream, or a Quarter when none is eligible. An Extra Life's life is kept.
-- On demand, `T` (or a click) salvages from the pause screen, the level-clear card and the slot final grid, behind a SALVAGE? YES / NO confirm (`salvagePickerStep`). Refused during death, transitions and while a prompt is queued.
+- On demand, `T` (or a click in the pause list) opens the same selector over the owned slots from the pause screen, the level-clear card and the slot final grid; Esc backs out. Refused during death, transitions and while a prompt is queued.
 - Exempt: the level-1 starting upgrade and the debug flags never prompt. LEARN has no cap ([parity](./learn.md#parity)).
-- The revealed Trinket shows full-size until a key, a click or `TRINKET_REVEAL_AUTO_MS`, then flies to its pool card. The run log records the loss and a `salvage` gain.
+- The Trinket lands in the pool with a short in-panel label (`trinketToastAlpha`). The run log records the loss and a `salvage` gain.
 
 ## Schools and rarity
 
