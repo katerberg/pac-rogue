@@ -5,6 +5,8 @@ import {
   eatFrightenedGhost,
   frightenedGhostEids,
   frightenedGhosts,
+  floatingZoneEffect,
+  floatsOverLava,
   hunterHoldsEaten,
   tickFrightened,
   DEFY_DEATH_ENHANCED_MS,
@@ -266,6 +268,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveTunnelBoring",
   "passiveMartyr",
   "passivePossession",
+  "passiveFloating",
 ];
 
 const MAXED_LOW: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
@@ -2506,5 +2509,22 @@ describe("Chaff", () => {
   it("clears with the other upgrade timers", () => {
     const fired = applyPowerPelletEffects(createRunUpgrades(["powerPelletChaff"]), 1).state;
     expect(clearUpgradeTimers(fired).chaff).toBeNull();
+  });
+});
+
+describe("Floating", () => {
+  it("floats over lava in both forms and not without it", () => {
+    expect(floatsOverLava([])).toBe(false);
+    expect(floatsOverLava(["passiveFloating"])).toBe(true);
+    expect(floatsOverLava(["passiveFloatingPlus"])).toBe(true);
+  });
+
+  it("only the enhanced form ignores the slow side of a speed zone", () => {
+    for (const owned of [[], ["passiveFloating"]] as const) {
+      expect(floatingZoneEffect(owned, "slow")).toBe("slow");
+    }
+    expect(floatingZoneEffect(["passiveFloatingPlus"], "slow")).toBeNull();
+    expect(floatingZoneEffect(["passiveFloatingPlus"], "fast")).toBe("fast");
+    expect(floatingZoneEffect(["passiveFloatingPlus"], null)).toBeNull();
   });
 });

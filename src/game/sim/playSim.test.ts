@@ -8526,8 +8526,11 @@ describe("Mirror", () => {
   });
 
   describe("speed zones", () => {
-    function zoneRun(zoneFor: (row: number, playerCol: number, twinCol: number) => SpeedZone[]) {
-      const sim = start(["powerPelletMirror"], { level: 6 });
+    function zoneRun(
+      zoneFor: (row: number, playerCol: number, twinCol: number) => SpeedZone[],
+      extra: readonly UpgradeId[] = [],
+    ) {
+      const sim = start(["powerPelletMirror", ...extra], { level: 6 });
       const livesBefore = sim.snapshot().lives;
       clearGhosts(sim);
       settledZones(sim);
@@ -8563,6 +8566,15 @@ describe("Mirror", () => {
       expect(sim.snapshot().mirror.popProgress).not.toBeNull();
       expect(sim.snapshot().dying).toBe(false);
       expect(sim.snapshot().lives).toBe(livesBefore);
+    });
+
+    it("Floating+ spares the twin when one body is on the slow side", () => {
+      const { sim } = zoneRun(
+        (row, playerCol, twinCol) => [lane(playerCol, row, "right"), lane(twinCol, row, "right")],
+        ["passiveFloatingPlus"],
+      );
+      expect(sim.snapshot().mirror.active).toBe(true);
+      expect(sim.snapshot().playerSpeedZone).toBe("fast");
     });
 
     it("keeps the twin when both bodies get the same effect", () => {
@@ -9688,5 +9700,91 @@ describe("Tunnel Boring", () => {
       expect(isWalkable(cell.col, cell.row)).toBe(true);
     }
     expect(sim.snapshot().tunnelBoring.charges).toBe(1);
+  });
+});
+
+describe("Floating", () => {
+  const framesFor = (ms: number): number => Math.ceil(ms / FRAME_MS);
+
+  function lavaSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    const sim = startSim(
+      { level: 8, maze: "maze1", infiniteLives: true, enableUpgrades },
+      "floating-lava",
+    );
+    for (const eid of query(sim.world, [Ghost])) {
+      removeEntity(sim.world, eid);
+    }
+    runFrames(sim, 1, { keys: held("left") });
+    return sim;
+  }
+
+  function standInFullLava(sim: PlaySim): void {
+    const { col, row } = sim.snapshot().lava!;
+    const spawn = getActiveLayout().playerSpawn;
+    teleportPlayer(sim, cellCenterX(spawn.col), cellCenterY(spawn.row));
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 10);
+  }
+
+  it.each(["passiveFloating", "passiveFloatingPlus"] as const)(
+    "%s lets Dot-Man stand in full lava",
+    (id) => {
+      const sim = lavaSim([id]);
+      standInFullLava(sim);
+      expect(sim.snapshot().dying).toBe(false);
+    },
+  );
+
+  it("kills Dot-Man in full lava without it", () => {
+    const sim = lavaSim([]);
+    standInFullLava(sim);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  function speedThroughSlowSide(id: PlayOptions["enableUpgrades"]): {
+    speed: number;
+    effect: string | null;
+  } {
+    const sim = startSim({ level: 6, infiniteLives: true, enableUpgrades: id }, "zones");
+    const zone = settledZones(sim)[0]!;
+    const cell = speedZoneCells(zone)[Math.floor(zone.length / 2)]!;
+    const slowDir = { up: "down", down: "up", left: "right", right: "left" }[zone.fastDir] as
+      "up" | "down" | "left" | "right";
+    const player = playerEid(sim);
+    for (let frame = 0; frame < 2; frame += 1) {
+      sim["eatDragMs"] = 0;
+      Position.x[player] = cellCenterX(cell.col);
+      Position.y[player] = cellCenterY(cell.row);
+      runFrames(sim, 1, { keys: held(slowDir) });
+    }
+    return { speed: Speed.px[player]!, effect: sim.snapshot().playerSpeedZone };
+  }
+
+  it("slows the slow side of a speed zone at base and not when enhanced", () => {
+    const none = speedThroughSlowSide([]);
+    const base = speedThroughSlowSide(["passiveFloating"]);
+    const plus = speedThroughSlowSide(["passiveFloatingPlus"]);
+    expect(none.effect).toBe("slow");
+    expect(base).toEqual(none);
+    expect(plus.effect).toBeNull();
+    expect(plus.speed).toBeCloseTo(none.speed / SLOW_ZONE_MULTIPLIER);
+  });
+
+  it("keeps the fast side boost when enhanced", () => {
+    const sim = startSim(
+      { level: 6, infiniteLives: true, enableUpgrades: ["passiveFloatingPlus"] },
+      "zones",
+    );
+    const zone = settledZones(sim)[0]!;
+    const cell = speedZoneCells(zone)[Math.floor(zone.length / 2)]!;
+    const player = playerEid(sim);
+    for (let frame = 0; frame < 2; frame += 1) {
+      sim["eatDragMs"] = 0;
+      Position.x[player] = cellCenterX(cell.col);
+      Position.y[player] = cellCenterY(cell.row);
+      runFrames(sim, 1, { keys: held(zone.fastDir) });
+    }
+    expect(sim.snapshot().playerSpeedZone).toBe("fast");
   });
 });
