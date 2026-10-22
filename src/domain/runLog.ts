@@ -39,6 +39,7 @@ export type ActivationKind =
   | "chaff"
   | "programmer"
   | "mirror"
+  | "tunnelBoring"
   | "martyr"
   | "possession";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";

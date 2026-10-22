@@ -54,7 +54,9 @@ import {
   pelletCellCenters,
   worldToCol,
   worldToRow,
+  type MazeTile,
 } from "../../domain/maze";
+import { mergeBoredCells, TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/tunnelBoring";
 import { bananaPeelSprites } from "../../domain/bananaPeel";
 import type { TailBead } from "../../domain/charmTail";
 import { ghostTouchingPeel, stepBananaPeelTail } from "../systems/bananaPeel";
@@ -203,6 +205,11 @@ import { wallPassSolids } from "../systems/wallPassSolids";
 import { chaffSprites, decoyFacing, decoyPx, decoyTile, nearestDecoy } from "../../domain/chaff";
 import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
+import {
+  adoptTunnelBoringFacing,
+  applyBoredCellsToActiveLayout,
+  tryTunnelBoring,
+} from "../systems/tunnelBoring";
 import {
   followProgrammer,
   holdPlayerForProgramming,
@@ -359,6 +366,8 @@ export class LearnSim {
   private firedUpgrades: BaseUpgradeId[] = [];
   private eatenHoldGhostEids: number[] = [];
   private eatenHoldRemainingMs = 0;
+  private tunnelBoringCharges = 0;
+  private tunnelBoredCells: MazeTile[] = [];
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
@@ -539,6 +548,7 @@ export class LearnSim {
         ),
       );
     }
+    const prevKeys = this.prevKeys;
     this.prevKeys = keys;
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
@@ -632,6 +642,7 @@ export class LearnSim {
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
+    this.tryBoreTunnel(prevKeys, keys);
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const playerSolids = this.playerSolids();
@@ -897,6 +908,12 @@ export class LearnSim {
     this.applyToggled(toggled);
     if (turningOn && baseIdOf(id) === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([id]));
+    }
+    if (turningOn && baseIdOf(id) === "passiveTunnelBoring") {
+      this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
+    if (!turningOn && baseIdOf(id) === "passiveTunnelBoring") {
+      this.tunnelBoringCharges = 0;
     }
     if (baseIdOf(id) === "passiveLazyLooper") {
       this.tagOptionalPellets();
@@ -1199,6 +1216,24 @@ export class LearnSim {
     if (powerEffects.cornucopiaFruit !== null) {
       this.spawnCornucopiaFruit(powerEffects.cornucopiaFruit);
     }
+    if (powerEffects.tunnelBoringRecharge) {
+      this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
+  }
+
+  private tryBoreTunnel(prevKeys: HeldKeys, keys: HeldKeys): void {
+    if (!hasUpgrade(this.learnUpgrades.owned, "passiveTunnelBoring")) {
+      return;
+    }
+    const attempt = tryTunnelBoring(this.world, this.tunnelBoringCharges, prevKeys, keys);
+    if (attempt === null) {
+      return;
+    }
+    this.tunnelBoredCells = mergeBoredCells(this.tunnelBoredCells, attempt.cells);
+    this.tunnelBoringCharges = attempt.charges;
+    applyBoredCellsToActiveLayout(this.tunnelBoredCells);
+    adoptTunnelBoringFacing(this.world, attempt.direction);
+    this.events.push({ type: "resetBoard" });
   }
 
   private stepStreakEngine(cells: readonly Cell[], delta: number): void {

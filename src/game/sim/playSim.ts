@@ -140,6 +140,7 @@ import {
   layoutFromAscii,
   wallPathCommands,
   type MazeLayout,
+  type MazeTile,
   worldToCol,
   worldToRow,
   playerSpawnCenter,
@@ -163,6 +164,12 @@ import {
   type CollapseChain,
   type CollapsePlan,
 } from "../../domain/collapse";
+import {
+  applyTunnelBoringAscii,
+  mergeBoredCells,
+  openBoredCellsOnLayout,
+  TUNNEL_BORING_CHARGES_PER_LEVEL,
+} from "../../domain/tunnelBoring";
 import {
   buildRubbleArt,
   RUBBLE_INTRO_MS,
@@ -519,6 +526,11 @@ import {
 import { chaffSprites } from "../../domain/chaff";
 import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
+import {
+  adoptTunnelBoringFacing,
+  applyBoredCellsToActiveLayout,
+  tryTunnelBoring,
+} from "../systems/tunnelBoring";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
@@ -655,6 +667,8 @@ export class PlaySim {
   private pendingCornucopia: CornucopiaMode | null = null;
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private secondChompUsed = 0;
+  private tunnelBoringCharges = 0;
+  private tunnelBored: { mapKey: string; cells: MazeTile[] } | null = null;
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
   private readonly ghostTraction = new GhostTractionState();
@@ -1171,6 +1185,10 @@ export class PlaySim {
                 passable: upgrades.droppedWall.passable,
               },
       },
+      tunnelBoring: {
+        charges: this.tunnelBoringCharges,
+        cells: this.tunnelBored?.cells.map((cell) => ({ ...cell })) ?? [],
+      },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
       reviveProgress:
@@ -1522,10 +1540,11 @@ export class PlaySim {
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
       tuning: this.currentTuning,
     });
-    const playerSolids = this.playerSolids();
     if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
+    this.tryBoreTunnel();
+    const playerSolids = this.playerSolids();
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const blockTunnelRow = this.closedGatedTunnelRow();
@@ -2772,6 +2791,10 @@ export class PlaySim {
     if (selection.kind === "static") {
       activateLayout(selection.id);
       layoutLabel = selection.id;
+      const bored = this.boredCellsForMap(layoutLabel);
+      if (bored.length > 0) {
+        applyBoredCellsToActiveLayout(bored);
+      }
     } else if (selection.kind === "custom") {
       layoutLabel = this.activateRunAscii(selection.ascii, "custom");
     } else if (selection.kind === "pool") {
@@ -2836,6 +2859,9 @@ export class PlaySim {
     this.resetCornucopiaFruit();
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
+    this.tunnelBoringCharges = hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring")
+      ? TUNNEL_BORING_CHARGES_PER_LEVEL
+      : 0;
     this.powerPelletBreaks = [];
     this.resetHyperspeedMovement();
     this.resetTimedTunnel();
@@ -2943,7 +2969,10 @@ export class PlaySim {
   ): string {
     try {
       const collapsed = applyCollapse(ascii, chains ?? []);
-      activateAsciiLayout(collapsed);
+      const boredCells = this.boredCellsForMap(label);
+      const bored = applyTunnelBoringAscii(collapsed, boredCells);
+      activateAsciiLayout(bored);
+      openBoredCellsOnLayout(getActiveLayout(), boredCells);
       if (chains !== null) {
         this.setUpCollapse(chains);
       }
@@ -2957,6 +2986,42 @@ export class PlaySim {
       activateLayout("maze2");
       return "maze2";
     }
+  }
+
+  private boredCellsForMap(mapKey: string): readonly MazeTile[] {
+    if (this.tunnelBored === null) {
+      return [];
+    }
+    if (this.tunnelBored.mapKey !== mapKey) {
+      this.tunnelBored = null;
+      return [];
+    }
+    return this.tunnelBored.cells;
+  }
+
+  private tryBoreTunnel(): void {
+    if (!hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring")) {
+      return;
+    }
+    const attempt = tryTunnelBoring(
+      this.world,
+      this.tunnelBoringCharges,
+      this.prevKeys,
+      this.frameKeys,
+    );
+    if (attempt === null) {
+      return;
+    }
+    const mapKey = this.boardLayoutLabel;
+    const prior =
+      this.tunnelBored !== null && this.tunnelBored.mapKey === mapKey ? this.tunnelBored.cells : [];
+    const cells = mergeBoredCells(prior, attempt.cells);
+    this.tunnelBored = { mapKey, cells };
+    this.tunnelBoringCharges = attempt.charges;
+    applyBoredCellsToActiveLayout(cells);
+    adoptTunnelBoringFacing(this.world, attempt.direction);
+    this.emit({ type: "resetBoard" });
+    this.recorder.activation("tunnelBoring");
   }
 
   private generateBoard(
@@ -3855,6 +3920,9 @@ export class PlaySim {
     if (baseIdOf(id) === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([id]));
     }
+    if (baseIdOf(id) === "passiveTunnelBoring") {
+      this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
     if (id === "fruitFecundity") {
       this.fruitPresence = extendFruitLifetime(this.fruitPresence, FRUIT_FECUNDITY_MUL);
     }
@@ -4103,6 +4171,9 @@ export class PlaySim {
     }
     if (powerEffects.cornucopiaFruit !== null) {
       this.spawnCornucopiaFruit(powerEffects.cornucopiaFruit);
+    }
+    if (powerEffects.tunnelBoringRecharge) {
+      this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
     }
     return powerEffects;
   }
