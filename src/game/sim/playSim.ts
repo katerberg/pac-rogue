@@ -2954,13 +2954,10 @@ export class PlaySim {
       return;
     }
     this.collapseChains = [...chains];
-    this.buildCollapseArts(held, bored);
+    this.buildCollapseArts(held.plan.artSeed, bored);
   }
 
-  private buildCollapseArts(
-    held: NonNullable<typeof this.collapsePlan>,
-    bored: readonly MazeTile[],
-  ): void {
+  private buildCollapseArts(artSeed: number, bored: readonly MazeTile[]): void {
     const layout = getActiveLayout();
     const boredKeys = new Set(bored.map((cell) => `${cell.col},${cell.row}`));
     const board = {
@@ -2978,17 +2975,16 @@ export class PlaySim {
       ...buildRubbleArt(
         board,
         chain.filter((cell) => !boredKeys.has(`${cell.col},${cell.row}`)),
-        held.plan.artSeed + index * 101,
+        artSeed + index * 101,
       ),
       fresh: isFreshCollapse(index, this.levelIndex),
     }));
   }
 
   private clearBoredRubble(bored: readonly MazeTile[]): void {
-    if (this.collapsePlan === null || this.collapseChains.length === 0) {
-      return;
+    if (this.collapsePlan !== null && this.collapseChains.length > 0) {
+      this.buildCollapseArts(this.collapsePlan.plan.artSeed, bored);
     }
-    this.buildCollapseArts(this.collapsePlan, bored);
   }
 
   private collapseRenderState(): CollapseRenderState | null {
