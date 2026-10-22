@@ -2,6 +2,7 @@ import { QUARTER_CHARGE } from "./pennies";
 import {
   LOW_POWER_DEFS,
   LOW_POWER_MAX_COPIES,
+  LOW_POWER_OFFER_WEIGHT,
   LOW_POWER_IDS,
   isLowPowerId,
   lowPowerEligible,
@@ -1475,7 +1476,7 @@ export function rareWeightForPool(pool: readonly BaseUpgradeId[], rareMass: numb
     if (isRare(id)) {
       rares += 1;
     } else {
-      commons += 1;
+      commons += isLowPowerId(id) ? LOW_POWER_OFFER_WEIGHT : 1;
     }
   }
   if (rares === 0) {
@@ -1485,6 +1486,10 @@ export function rareWeightForPool(pool: readonly BaseUpgradeId[], rareMass: numb
     return 1;
   }
   return (rareMass * commons) / (rares * (1 - rareMass));
+}
+
+function lowPowerOfferWeight(id: BaseUpgradeId): number {
+  return isLowPowerId(id) ? LOW_POWER_OFFER_WEIGHT : 1;
 }
 
 export function upgradeOfferWeight(
@@ -1498,11 +1503,12 @@ export function upgradeOfferWeight(
     school === "neutral" || points === 0
       ? 1
       : 1 + (isRare(id) ? SCHOOL_AFFINITY_RARE_RATE : SCHOOL_AFFINITY_COMMON_RATE) * points;
-  return schoolMult * (isRare(id) ? rareBaseWeight : 1);
+  return schoolMult * (isRare(id) ? rareBaseWeight : lowPowerOfferWeight(id));
 }
 
 export function storeUpgradeWeight(pool: readonly BaseUpgradeId[]): (id: BaseUpgradeId) => number {
-  return (id) => (isRare(id) ? rareWeightForPool(pool, STORE_RARE_OFFER_MASS) : 1);
+  return (id) =>
+    isRare(id) ? rareWeightForPool(pool, STORE_RARE_OFFER_MASS) : lowPowerOfferWeight(id);
 }
 
 export function takeWeightedUpgrade(
@@ -1644,11 +1650,7 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
   if (!hasUpgrade(state.owned, baseId)) {
     return state;
   }
-  const lowCopy = isLowPowerId(id) ? state.owned.lastIndexOf(id) : -1;
-  const owned =
-    lowCopy === -1
-      ? state.owned.filter((owned) => baseIdOf(owned) !== baseId)
-      : state.owned.filter((_, index) => index !== lowCopy);
+  const owned = state.owned.filter((owned) => baseIdOf(owned) !== baseId);
   return {
     ...state,
     owned,

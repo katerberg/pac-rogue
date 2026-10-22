@@ -3,6 +3,7 @@ import type { UpgradeDef, UpgradeId } from "./upgrades";
 
 export const LOW_POWER_MAX_COPIES = 10;
 export const LOW_POWER_STORE_PRICE = 3;
+export const LOW_POWER_OFFER_WEIGHT = 0.25;
 
 export const LOW_POWER_SPEED_ADD = 0.03;
 export const LOW_POWER_TUNNEL_SPEED_ADD = 0.08;
@@ -135,6 +136,15 @@ function kindCopies(owned: readonly UpgradeId[], kind: LowPowerKind, ghost?: Gho
     }
   }
   return count;
+}
+
+export function withLowPowerCopies(
+  owned: readonly UpgradeId[],
+  id: LowPowerUpgradeId,
+  copies: number,
+): UpgradeId[] {
+  const clamped = Math.min(LOW_POWER_MAX_COPIES, Math.max(1, copies));
+  return [...owned.filter((other) => other !== id), ...Array.from({ length: clamped }, () => id)];
 }
 
 export function lowPowerEligible(

@@ -277,7 +277,10 @@ import {
 import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import {
   isLowPowerId,
+  lowPowerCopies,
   lowPowerHouseDelayMs,
+  type LowPowerUpgradeId,
+  withLowPowerCopies,
   lowPowerPlayerSpeedMul,
   lowPowerPreTurnBonusPx,
 } from "../../domain/lowPowerUpgrades";
@@ -841,6 +844,22 @@ export class LearnSim {
     }
     if (baseIdOf(id) === "passiveLazyLooper") {
       this.tagOptionalPellets();
+    }
+    return this.takeEvents();
+  }
+
+  upgradeCopies(id: LowPowerUpgradeId): number {
+    return lowPowerCopies(this.learnUpgrades.owned, id);
+  }
+
+  adjustUpgradeCopies(id: LowPowerUpgradeId, delta: number): SimEvent[] {
+    this.events = [];
+    const current = this.upgradeCopies(id);
+    if (current > 0) {
+      this.applyToggled({
+        ...this.learnUpgrades,
+        owned: withLowPowerCopies(this.learnUpgrades.owned, id, current + delta),
+      });
     }
     return this.takeEvents();
   }

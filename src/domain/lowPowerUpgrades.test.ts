@@ -7,6 +7,7 @@ import {
   LOW_POWER_HOUSE_DELAY_MS,
   LOW_POWER_IDS,
   LOW_POWER_MAX_COPIES,
+  LOW_POWER_OFFER_WEIGHT,
   LOW_POWER_MIN_SPEED_MUL,
   LOW_POWER_SLOWDOWN_CUT,
   LOW_POWER_SPEED_ADD,
@@ -30,6 +31,9 @@ import {
   createRunUpgrades,
   ownedUpgradeStacks,
   pickUpgradeChoiceOffer,
+  rareWeightForPool,
+  storeUpgradeWeight,
+  upgradeOfferWeight,
   revokeUpgrade,
   type UpgradeId,
 } from "./upgrades";
@@ -57,6 +61,22 @@ describe("low-power registry", () => {
   });
 });
 
+describe("low-power offer weight", () => {
+  it("is a quarter of a normal upgrade's in level-clear and store draws", () => {
+    expect(upgradeOfferWeight("lowSpeed", [], 0)).toBe(LOW_POWER_OFFER_WEIGHT);
+    expect(upgradeOfferWeight("passiveMole", [], 0)).toBe(1);
+    const pool = ["lowSpeed", "passiveMole"] as const;
+    const weigh = storeUpgradeWeight([...pool]);
+    expect(weigh("lowSpeed") / weigh("passiveMole")).toBe(0.25);
+  });
+
+  it("does not count towards the rare mass as a full common", () => {
+    expect(rareWeightForPool(["fruitPowerPellet", "lowSpeed"], 0.1)).toBeLessThan(
+      rareWeightForPool(["fruitPowerPellet", "passiveMole"], 0.1),
+    );
+  });
+});
+
 describe("low-power stacking", () => {
   it("grants copies up to the cap and then stops", () => {
     let state = createRunUpgrades([]);
@@ -66,12 +86,12 @@ describe("low-power stacking", () => {
     expect(state.owned).toHaveLength(LOW_POWER_MAX_COPIES);
   });
 
-  it("stays eligible until the cap, and revokes one copy at a time", () => {
+  it("stays eligible until the cap, and revokes every copy at once", () => {
     const owned = copies("lowSpeed", LOW_POWER_MAX_COPIES - 1);
     expect(eligibleUpgrades(owned)).toContain("lowSpeed");
     expect(eligibleUpgrades([...owned, "lowSpeed"])).not.toContain("lowSpeed");
     const after = revokeUpgrade({ ...createRunUpgrades([]), owned }, "lowSpeed");
-    expect(after.owned).toHaveLength(LOW_POWER_MAX_COPIES - 2);
+    expect(after.owned).toEqual([]);
   });
 
   it("only offers a ghost's upgrades when it is in the roster", () => {

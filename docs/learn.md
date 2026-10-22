@@ -47,4 +47,4 @@ Known simplifications (everything else is a reuse of play code):
 
 ## Coverage gate
 
-Every listed upgrade needs a named test in `learnSim.test.ts` or a place in `LEARN_NO_EFFECT_UPGRADE_IDS` (`registrySync.test.ts`). Both sims call the shared slices (`runHyperspeedSubsteps`, `recallClosestGhostToHouse`) rather than copy them. Level modifiers, bosses, the store, specialists and multi-ghost play are deliberate omissions. Low-power upgrades toggle as a single copy (no stacking), and a per-ghost one only acts on the ghost currently selected.
+Every listed upgrade needs a named test in `learnSim.test.ts` or a place in `LEARN_NO_EFFECT_UPGRADE_IDS` (`registrySync.test.ts`). Both sims call the shared slices (`runHyperspeedSubsteps`, `recallClosestGhostToHouse`) rather than copy them. Level modifiers, bosses, the store, specialists and multi-ghost play are deliberate omissions. Low-power upgrades start at one copy and show a count with chevrons to step it up to the cap, and a per-ghost one only acts on the ghost currently selected.

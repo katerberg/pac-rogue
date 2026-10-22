@@ -7,6 +7,7 @@ import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorne
 import { GHOST_KIND } from "../../domain/ghostKind";
 import {
   LOW_POWER_IDS,
+  LOW_POWER_MAX_COPIES,
   LOW_POWER_SLOWDOWN_CUT,
   LOW_POWER_SPEED_ADD,
   LOW_POWER_TUNNEL_SPEED_ADD,
@@ -1917,6 +1918,29 @@ describe("LearnSim upgrade demos", () => {
     const { sim } = setup("fruitFeast");
     expect(sim.statusText()).toContain("NEXT FRUIT AT 60 PELLETS");
   });
+
+  it("copies of a low-power upgrade step between 1 and the cap, and toggling off clears them all", () => {
+    const { sim, player } = setup("lowSpeed");
+    expect(sim.upgradeCopies("lowSpeed")).toBe(1);
+    sim.adjustUpgradeCopies("lowSpeed", -1);
+    expect(sim.upgradeCopies("lowSpeed")).toBe(1);
+    sim.adjustUpgradeCopies("lowSpeed", 2);
+    expect(sim.upgradeCopies("lowSpeed")).toBe(3);
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(Speed.px[player]! / setupSpeed()).toBeCloseTo(1 + 3 * LOW_POWER_SPEED_ADD);
+    sim.adjustUpgradeCopies("lowSpeed", 100);
+    expect(sim.upgradeCopies("lowSpeed")).toBe(LOW_POWER_MAX_COPIES);
+    sim.toggleUpgrade("lowSpeed");
+    expect(sim.ownedUpgrades).toEqual([]);
+    sim.adjustUpgradeCopies("lowSpeed", 1);
+    expect(sim.upgradeCopies("lowSpeed")).toBe(0);
+  });
+
+  function setupSpeed(): number {
+    const { sim, player } = setup();
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    return Speed.px[player]!;
+  }
 
   it("Speed speeds Maze-Man up", () => {
     const speed = (...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number => {
