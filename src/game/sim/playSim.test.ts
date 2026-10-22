@@ -9742,49 +9742,35 @@ describe("Floating", () => {
     expect(sim.snapshot().dying).toBe(true);
   });
 
-  function speedThroughSlowSide(id: PlayOptions["enableUpgrades"]): {
-    speed: number;
-    effect: string | null;
-  } {
-    const sim = startSim({ level: 6, infiniteLives: true, enableUpgrades: id }, "zones");
+  function laneRun(
+    enableUpgrades: PlayOptions["enableUpgrades"],
+    side: "fast" | "slow",
+  ): { speed: number; effect: string | null } {
+    const sim = startSim({ level: 6, infiniteLives: true, enableUpgrades }, "zones");
     const zone = settledZones(sim)[0]!;
     const cell = speedZoneCells(zone)[Math.floor(zone.length / 2)]!;
-    const slowDir = { up: "down", down: "up", left: "right", right: "left" }[zone.fastDir] as
-      "up" | "down" | "left" | "right";
+    const opposite = { up: "down", down: "up", left: "right", right: "left" } as const;
+    const dir = side === "fast" ? zone.fastDir : opposite[zone.fastDir];
     const player = playerEid(sim);
     for (let frame = 0; frame < 2; frame += 1) {
       sim["eatDragMs"] = 0;
       Position.x[player] = cellCenterX(cell.col);
       Position.y[player] = cellCenterY(cell.row);
-      runFrames(sim, 1, { keys: held(slowDir) });
+      runFrames(sim, 1, { keys: held(dir) });
     }
     return { speed: Speed.px[player]!, effect: sim.snapshot().playerSpeedZone };
   }
 
   it("slows the slow side of a speed zone at base and not when enhanced", () => {
-    const none = speedThroughSlowSide([]);
-    const base = speedThroughSlowSide(["passiveFloating"]);
-    const plus = speedThroughSlowSide(["passiveFloatingPlus"]);
+    const none = laneRun([], "slow");
+    const plus = laneRun(["passiveFloatingPlus"], "slow");
     expect(none.effect).toBe("slow");
-    expect(base).toEqual(none);
+    expect(laneRun(["passiveFloating"], "slow")).toEqual(none);
     expect(plus.effect).toBeNull();
     expect(plus.speed).toBeCloseTo(none.speed / SLOW_ZONE_MULTIPLIER);
   });
 
   it("keeps the fast side boost when enhanced", () => {
-    const sim = startSim(
-      { level: 6, infiniteLives: true, enableUpgrades: ["passiveFloatingPlus"] },
-      "zones",
-    );
-    const zone = settledZones(sim)[0]!;
-    const cell = speedZoneCells(zone)[Math.floor(zone.length / 2)]!;
-    const player = playerEid(sim);
-    for (let frame = 0; frame < 2; frame += 1) {
-      sim["eatDragMs"] = 0;
-      Position.x[player] = cellCenterX(cell.col);
-      Position.y[player] = cellCenterY(cell.row);
-      runFrames(sim, 1, { keys: held(zone.fastDir) });
-    }
-    expect(sim.snapshot().playerSpeedZone).toBe("fast");
+    expect(laneRun(["passiveFloatingPlus"], "fast").effect).toBe("fast");
   });
 });
