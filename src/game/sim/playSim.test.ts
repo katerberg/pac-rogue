@@ -3414,6 +3414,18 @@ describe("PlaySim ?fruit=1", () => {
     expect(query(sim.world, [Fruit, Position])).toHaveLength(1);
   });
 
+  it("still spawns the pellet-threshold fruit after the flag fruit expires", () => {
+    const sim = startSim({ level: 2, maze: "maze1", fruit: true });
+    runFrames(sim, Math.ceil((FRUIT_LIFETIME_MS + 500) / FRAME_MS));
+    expect(sim.snapshot().fruit).toBe(false);
+    const [threshold] = getActiveLayout().fruitThresholds;
+    for (const eid of regularPelletEids(sim).slice(0, threshold)) {
+      eatPelletAt(sim, eid);
+    }
+    teleportPlayer(sim, 0, 0);
+    expect(sim.snapshot().fruit).toBe(true);
+  });
+
   it("starts with no fruit when the flag is off", () => {
     const sim = startSim({ level: 2, maze: "maze1" });
     expect(sim.snapshot().fruit).toBe(false);

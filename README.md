@@ -34,7 +34,7 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `pennyCharge` | integer 0..299 | Starting penny charge. [pennies.md](./docs/pennies.md). |
 | `jumpToSpinner` | `1` | Queue one slot spin at board start (defaults start level to 2). Pair with `slot`. |
 | `slot` | `0` or e.g. `1q`, `2q1u`, `1l` | Force every slot spin's line counts. [pennies.md](./docs/pennies.md#slot-machine). |
-| `fruit` | `1` | Spawn a fruit at the start of every board (normal lifetime; pellet-threshold fruit still follows). |
+| `fruit` | `1` | Spawn a fruit at the start of every board (normal lifetime; pellet-threshold fruit still follows). Play only; LEARN always shows a fruit. |
 | `slotMachine` | `1` | Place one slot-machine world pickup on each eligible Play board start. [pennies.md](./docs/pennies.md#slot-machine). |
 | `enableUpgrade` (alias `enableUpgrades`) | upgrade id or label lowerCamel; repeatable or comma-separated | Grant each valid id into `owned` at create. |
 | `disableLevelUpgrades` | `1` | Skip starting upgrade and level-clear (1–8) choice modal. |
