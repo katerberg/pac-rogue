@@ -8340,6 +8340,22 @@ describe("Mirror", () => {
       expect(lastDeath(sim)).toMatchObject({ lava: true, col, row });
     });
 
+    it("Floating lets the twin stand in lava", () => {
+      const sim = startSim({
+        level: 8,
+        maze: "maze1",
+        enableUpgrades: ["powerPelletMirror", "passiveFloating"],
+      });
+      clearGhosts(sim);
+      sim["speedZones"] = [];
+      arm(sim);
+      const { col, row } = sim.snapshot().lava!;
+      runUntil(sim, () => sim.snapshot().lava!.phase === "full", 1500, { keys: held("left") });
+      teleportPlayer(sim, cellCenterX(mirror(col)), cellCenterY(row));
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+    });
+
     it("Plus: lava only pops the twin", () => {
       const sim = startSim({
         level: 8,
