@@ -109,27 +109,31 @@ describe("speedZoneParticles", () => {
     expect(b.every((p, i) => p.col <= a[i]!.col || p.alpha < 0.05)).toBe(true);
   });
 
-  it("accelerates particles: slower entering the lane than leaving it", () => {
-    const early: number[] = [];
-    const late: number[] = [];
+  it("accelerates particles: visibly slower entering the lane than leaving it", () => {
+    const early = { distance: 0, weight: 0, max: 0 };
+    const late = { distance: 0, weight: 0, min: Infinity };
     for (let ms = 0; ms < 20000; ms += 37) {
       const from = speedZoneParticles(lane, ms);
       const to = speedZoneParticles(lane, ms + 10);
       from.forEach((p, i) => {
         const delta = to[i]!.col - p.col;
         const along = (p.col - lane.col) / lane.length;
-        if (delta > 0 && along < 0.2) {
-          early.push(delta);
-        } else if (delta > 0 && along > 0.8) {
-          late.push(delta);
+        const bucket = along < 0.2 ? early : along > 0.8 ? late : null;
+        if (delta > 0 && bucket !== null) {
+          bucket.distance += delta * p.alpha;
+          bucket.weight += p.alpha;
+        }
+        if (delta > 0 && bucket === early) {
+          early.max = Math.max(early.max, delta);
+        } else if (delta > 0 && bucket === late) {
+          late.min = Math.min(late.min, delta);
         }
       });
     }
-    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-    const ratio = mean(late) / mean(early);
-    expect(ratio).toBeGreaterThan(1.5);
-    expect(ratio).toBeLessThan(2.2);
-    expect(Math.min(...late)).toBeGreaterThan(Math.max(...early));
+    const ratio = late.distance / late.weight / (early.distance / early.weight);
+    expect(ratio).toBeGreaterThan(2);
+    expect(ratio).toBeLessThan(3);
+    expect(late.min).toBeGreaterThan(early.max);
   });
 
   it("keeps every particle inside the lane, faint, and fading at the ends", () => {

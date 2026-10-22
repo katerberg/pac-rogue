@@ -20,7 +20,8 @@ const SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC = 0.5;
 const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.1;
 const SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES = 0.6;
 const SPEED_ZONE_PARTICLE_PEAK_ALPHA = 0.45;
-const SPEED_ZONE_PARTICLE_LINEAR_SHARE = 2 / 3;
+const SPEED_ZONE_PARTICLE_LINEAR_SHARE = 0.4;
+const SPEED_ZONE_PARTICLE_FADE_SHARE = 0.12;
 
 export type SpeedZoneAxis = "horizontal" | "vertical";
 export type SpeedZoneFastDir = "up" | "down" | "left" | "right";
@@ -121,7 +122,13 @@ export function speedZoneParticles(zone: SpeedZone, nowMs: number): SpeedZonePar
     return {
       col: startCol + dx * along + dy * side,
       row: startRow + dy * along + dx * side,
-      alpha: SPEED_ZONE_PARTICLE_PEAK_ALPHA * Math.sin(Math.PI * progress),
+      alpha:
+        SPEED_ZONE_PARTICLE_PEAK_ALPHA *
+        Math.min(
+          1,
+          progress / SPEED_ZONE_PARTICLE_FADE_SHARE,
+          (1 - progress) / SPEED_ZONE_PARTICLE_FADE_SHARE,
+        ),
       size: 0.5 + unitHash(key + 3),
     };
   });
