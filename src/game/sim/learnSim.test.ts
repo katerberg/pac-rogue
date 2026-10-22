@@ -28,10 +28,12 @@ import {
   ghostHouseSpawnCenter,
   hasLeftGhostHouse,
   horizontalTunnelRows,
+  isWalkable,
   TILE_SIZE,
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { tunnelBoringCells } from "../../domain/tunnelBoring";
 import {
   TITHE_SPEED_MUL,
   INVULN_MS,
@@ -2072,6 +2074,97 @@ describe("LearnSim upgrade demos", () => {
     expect(posOf(ghost)).toEqual(held);
     expect(sim.statusText()).toContain("PELLETS");
   });
+
+  describe("Tunnel Boring", () => {
+    function boreSpot(): {
+      col: number;
+      row: number;
+      dx: number;
+      dy: number;
+      dir: "left" | "right" | "up" | "down";
+    } {
+      const layout = getActiveLayout();
+      const dirs = [
+        { dx: 1, dy: 0, dir: "right" as const },
+        { dx: -1, dy: 0, dir: "left" as const },
+        { dx: 0, dy: 1, dir: "down" as const },
+        { dx: 0, dy: -1, dir: "up" as const },
+      ];
+      for (let row = 1; row < layout.rows - 1; row += 1) {
+        for (let col = 1; col < layout.cols - 1; col += 1) {
+          if (!isWalkable(col, row, layout.playerSolids)) {
+            continue;
+          }
+          for (const step of dirs) {
+            const target = { col: col + step.dx, row: row + step.dy };
+            if (
+              !isWalkable(target.col, target.row, layout.playerSolids) &&
+              !layout.house[target.row]?.[target.col] &&
+              !layout.door[target.row]?.[target.col]
+            ) {
+              const fromHouse = [
+                [0, -1],
+                [0, 1],
+                [-1, 0],
+                [1, 0],
+              ].some(
+                ([dx, dy]) =>
+                  layout.house[target.row + dy!]?.[target.col + dx!] ||
+                  layout.door[target.row + dy!]?.[target.col + dx!],
+              );
+              if (!fromHouse && tunnelBoringCells(col, row, step.dx, step.dy) !== null) {
+                return { col, row, ...step };
+              }
+            }
+          }
+        }
+      }
+      throw new Error("no bore spot");
+    }
+
+    it("while stopped, pressing into a wall punches through once", () => {
+      const { sim, player } = setup("passiveTunnelBoring");
+      expect(sim["tunnelBoringCharges"]).toBe(1);
+      const spot = boreSpot();
+      const expected = tunnelBoringCells(spot.col, spot.row, spot.dx, spot.dy)!;
+      moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
+      Facing.direction[player] = DIRECTION.none;
+      Velocity.x[player] = 0;
+      Velocity.y[player] = 0;
+      sim.step(held(spot.dir), FRAME_MS);
+      expect(sim["tunnelBoringCharges"]).toBe(0);
+      expect(sim["tunnelBoredCells"]).toEqual(expected);
+      for (const cell of expected) {
+        expect(isWalkable(cell.col, cell.row)).toBe(true);
+      }
+      sim.step(held(spot.dir), FRAME_MS);
+      expect(sim["tunnelBoredCells"]).toEqual(expected);
+    });
+
+    it("Plus recharges the drill on a power pellet", () => {
+      const { sim, player } = setup("passiveTunnelBoring");
+      sim.toggleEnhanced("passiveTunnelBoring");
+      const spot = boreSpot();
+      moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
+      Facing.direction[player] = DIRECTION.none;
+      sim.step(held(spot.dir), FRAME_MS);
+      expect(sim["tunnelBoringCharges"]).toBe(0);
+      chompPower(sim, player);
+      expect(sim["tunnelBoringCharges"]).toBe(1);
+    });
+
+    it("does nothing without the upgrade", () => {
+      const { sim, player } = setup();
+      const spot = boreSpot();
+      const wall = { col: spot.col + spot.dx, row: spot.row + spot.dy };
+      expect(isWalkable(wall.col, wall.row)).toBe(false);
+      moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
+      Facing.direction[player] = DIRECTION.none;
+      sim.step(held(spot.dir), FRAME_MS);
+      expect(isWalkable(wall.col, wall.row)).toBe(false);
+      expect(sim["tunnelBoredCells"]).toEqual([]);
+    });
+  });
 });
 
 const held_right = held("right");
@@ -2179,5 +2272,75 @@ describe("LearnSim upgrade HUD timers", () => {
       sim.step(NO_KEYS_HELD, FRAME_MS);
     }
     expect(sim.upgradeTimerFractions().powerPelletSpeedBurst).toBeLessThan(1);
+  });
+});
+
+describe("Martyr and Possession (LEARN)", () => {
+  function setup(...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]) {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.blinky);
+    for (const id of ids) {
+      sim.toggleUpgrade(id);
+    }
+    const player = query(sim.world, [Player, Position])[0]!;
+    return { sim, player };
+  }
+
+  function moveTo(player: number, at: { x: number; y: number }): void {
+    Position.x[player] = at.x;
+    Position.y[player] = at.y;
+  }
+
+  function posOf(eid: number): { x: number; y: number } {
+    return { x: Position.x[eid]!, y: Position.y[eid]! };
+  }
+
+  function popups(events: ReturnType<LearnSim["step"]>): string[] {
+    return events.flatMap((event) => (event.type === "learnPopup" ? [event.text] : []));
+  }
+
+  function catchByGhost(sim: LearnSim, player: number): ReturnType<LearnSim["step"]> {
+    const ghost = sim.ghostEid!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    moveTo(player, posOf(ghost));
+    return sim.step(NO_KEYS_HELD, FRAME_MS);
+  }
+
+  it("Martyr fires power effects on a demo catch", () => {
+    const { sim, player } = setup("passiveMartyr", "powerPelletInvuln");
+    const text = popups(catchByGhost(sim, player)).join("\n");
+    expect(text).toContain("MARTYR");
+    expect(sim["learnUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
+  });
+
+  it("Possession starts a controllable fright window on demo catch", () => {
+    const { sim, player } = setup("passivePossession");
+    const ghost = sim.ghostEid!;
+    expect(popups(catchByGhost(sim, player)).join("\n")).toContain("POSSESSING");
+    expect(sim["learnUpgrades"].possessionRemainingMs).toBeGreaterThan(0);
+    expect(sim["learnUpgrades"].possessedGhostEid).toBe(ghost);
+    for (let t = 0; t < 5200; t += FRAME_MS) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      if (sim["learnUpgrades"].possessionRemainingMs <= 0) {
+        break;
+      }
+    }
+    expect(sim["learnUpgrades"].possessionRemainingMs).toBe(0);
+    expect(sim["learnUpgrades"].possessedGhostEid).toBeNull();
+  });
+
+  it("Possession+ haunts the steered ghost after possession ends", () => {
+    const { sim, player } = setup("passivePossessionPlus");
+    const ghost = sim.ghostEid!;
+    catchByGhost(sim, player);
+    for (let t = 0; t < 5200; t += FRAME_MS) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      if (sim["learnUpgrades"].hauntRemainingMs > 0) {
+        break;
+      }
+    }
+    expect(sim["learnUpgrades"].hauntedGhostEid).toBe(ghost);
+    expect(sim["learnUpgrades"].hauntRemainingMs).toBe(5000);
   });
 });

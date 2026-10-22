@@ -34,6 +34,8 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `pennyCharge` | integer 0..299 | Starting penny charge. [pennies.md](./docs/pennies.md). |
 | `jumpToSpinner` | `1` | Queue one slot spin at board start (defaults start level to 2). Pair with `slot`. |
 | `slot` | `0` or e.g. `1q`, `2q1u`, `1l` | Force every slot spin's line counts. [pennies.md](./docs/pennies.md#slot-machine). |
+| `fruit` | `1` | Spawn a fruit at the start of every board (normal lifetime; pellet-threshold fruit still follows). Play only; LEARN always shows a fruit. |
+| `intermission` | `blinkyChase` \| `bananaGrab` | Play that level-2 cutscene: the run opens in it (level 2 unless `level` is set) and continues to level 3; with `jumpToUpgrade` it plays after the modal instead. [levels.md](./docs/levels.md#intermission). |
 | `slotMachine` | `1` | Place one slot-machine world pickup on each eligible Play board start. [pennies.md](./docs/pennies.md#slot-machine). |
 | `enableUpgrade` (alias `enableUpgrades`) | upgrade id or label lowerCamel; repeatable or comma-separated | Grant each valid id into `owned` at create. |
 | `disableLevelUpgrades` | `1` | Skip starting upgrade and level-clear (1–8) choice modal. |
@@ -79,4 +81,4 @@ Start with [AGENTS.md](./AGENTS.md). Code is the reference for values and shapes
 
 ## Art
 
-Art courtesy of [Pixelaholic](https://pixelaholic.itch.io/pac-man-game-art)
+Art courtesy of [Pixelaholic](https://pixelaholic.itch.io/pac-man-game-art). Drop a 16×16 PNG into [`src/art/fruit/`](./src/art/fruit) to add a fruit to the pool (no code change); upgrade HUD icons go in [`src/art/upgrades/`](./src/art/upgrades) ([docs/levels.md](./docs/levels.md#fruit), [docs/upgrades.md](./docs/upgrades.md#upgrade-art)).

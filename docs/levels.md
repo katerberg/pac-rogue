@@ -10,7 +10,10 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `lev
 
 ## Intermission
 
-After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man across the screen before level 3. `PlaySim` owns the timer and emits `intermission` events with actor positions; `PlayScene` only moves two sprites (`intermissionActors.ts`). The cutscene loops `interstitialMusic` (same volume as gameplay music; the pause-menu Settings controls it via `PlayScene.currentMusicId()`). LEARN has no level progression, so it has no counterpart.
+After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene with the board hidden, then level 3. Which cutscene plays is drawn from the `intermission` `RunRandom` stream over the registry in `src/domain/intermission.ts` (`?intermission=<id>` forces one and opens the run in it; see the README Flags).
+
+- Each cutscene is one pure script file (`intermission<Name>.ts`, type `IntermissionScript` in `intermissionScript.ts`): a duration plus `beatAt(elapsedMs)`, which returns a named beat (for probes and tests) and the actors on screen (Dot-Man, ghosts, props), each with a stable key.
+- Adding a cutscene is a new script plus one registry entry. `PlaySim` owns the timer and emits `intermission` frames; `PlayScene` (`intermissionActors.ts`) creates, moves and removes one view per actor key and needs no change unless a script uses a new actor kind. The cutscene loops `interstitialMusic` (same volume as gameplay music; the pause-menu Settings controls it via `PlayScene.currentMusicId()`). LEARN has no level progression, so it has no counterpart.
 
 ## Speed
 
@@ -23,6 +26,7 @@ Maze-Man's base is `PLAYER_SPEED` (`playfield.ts`). Ghost, tunnel, Elroy, house-
 - **Speed lane** levels (`speedZoneCountForLevel`, `src/domain/speedZones.ts`): seeded straight lanes speed Dot-Man up when he moves in the lane's fast direction and slow him moving the other way; ghosts ignore them. Faint dust drifts toward the fast end. Lanes persist: each keeps its spot and direction while its ends drift (leaning longer), new ones join later, and board start leaks them tile by tile from last level's shape. `speedZonesByLevel` replays them from the seed.
 
 - **Collapsed tunnels** (`src/domain/collapse.ts`, `COLLAPSE_LEVELS`): one collapse arrives on each listed level and stays for the rest of the pool levels. `pickCollapsePlan` runs once per run on the pool base map and only takes whole corridor runs between junctions, so nothing dead-ends or gets cut off. `PlaySim` writes the collapsed lanes into the board ASCII as walls (solids, pellets and pellet-scaled thresholds follow), and replays speed lanes on the board with every collapse applied so a lane never sits where a collapse will land. The rubble is drawn over the merged wall (`src/domain/collapseRubble.ts`, look in `RUBBLE_STYLE`); dust motes fly off a collapse and settle beside it the first time it appears (`introMs`), then stay put on later levels.
+- **Tunnel Boring openings** (`src/domain/tunnelBoring.ts`, upgrade `passiveTunnelBoring`): a bore punches consecutive wall cells until a corridor (or, at the exterior, opens the opposite edge into a wrap tunnel). Bored cells rewrite the board ASCII to empty corridor and stay open for later boards that reuse the same base map (pool levels 2–8), the same way collapses persist. Level 1 and boss boards keep holes only for that board. Ghosts walk bored cells; ghost-house walls cannot be bored.
 
 Speed lane, lava and collapse levels are **level modifiers**: `?levelModifiers=0` turns them off (see README Flags). Add new modifiers behind `PlayOptions.levelModifiers` too.
 
@@ -44,4 +48,4 @@ Runs start at `START_LIVES`. Natural regen is the free life in the centre of eac
 
 ## Fruit
 
-Spawns at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a Quarter of pennies rather than giving an upgrade. Art is picked from `public/art/fruit/` in a seeded per-level order (same helpers in `fruit.ts`) so concurrent fruit prefer distinct kinds and a level keeps its spawn order across retries.
+Spawns at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a Quarter of pennies rather than giving an upgrade. The pool is every 16×16 PNG in [`src/art/fruit/`](../src/art/fruit); drop a file in and it joins the seeded per-level order ([`src/game/fruitArt.ts`](../src/game/fruitArt.ts) globs the folder, same pattern as [upgrade art](./upgrades.md#upgrade-art)). Concurrent fruit prefer distinct kinds and a level keeps its spawn order across retries.

@@ -58,15 +58,7 @@ export function anyKeyHeld(keys: HeldKeys): boolean {
 }
 
 export function applyHeldKeys(world: World, keys: HeldKeys, opts?: HeldKeysOpts): TurnTap | null {
-  const vertical = axisWinner([
-    [DIRECTION.up, keys.up],
-    [DIRECTION.down, keys.down],
-  ]);
-  const horizontal = axisWinner([
-    [DIRECTION.left, keys.left],
-    [DIRECTION.right, keys.right],
-  ]);
-  const held = combineAxisDirections(vertical, horizontal, opts?.diagonalAllowed === true);
+  const held = heldDirection(keys, opts?.diagonalAllowed === true);
   if (held === DIRECTION.none) {
     return null;
   }
@@ -83,6 +75,27 @@ export function applyHeldKeys(world: World, keys: HeldKeys, opts?: HeldKeysOpts)
     Input.direction[eid] = held;
   }
   return tap;
+}
+
+/** Steer a non-player body (e.g. a possessed ghost) with the same held-key rules. */
+export function applyHeldKeysToEid(eid: number, keys: HeldKeys): void {
+  const held = heldDirection(keys, false);
+  if (held === DIRECTION.none) {
+    return;
+  }
+  Input.direction[eid] = held;
+}
+
+function heldDirection(keys: HeldKeys, diagonalAllowed: boolean): Direction {
+  const vertical = axisWinner([
+    [DIRECTION.up, keys.up],
+    [DIRECTION.down, keys.down],
+  ]);
+  const horizontal = axisWinner([
+    [DIRECTION.left, keys.left],
+    [DIRECTION.right, keys.right],
+  ]);
+  return combineAxisDirections(vertical, horizontal, diagonalAllowed);
 }
 
 function turnTuningVerdict(

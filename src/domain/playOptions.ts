@@ -1,12 +1,19 @@
 import { parsePenniesParam } from "./penniesFlag";
 import { parseJumpToSpinnerFlag, parseSlotParam, type SlotOutcome } from "./slotMachine";
 import { parseSlotMachineFlag } from "./slotMachineFlag";
+import { parseFruitFlag } from "./fruitFlag";
 import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
 import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
 import { GHOST_ROSTERS, parseRosterId } from "./ghostRoster";
 import { parseGodModeFlag } from "./godModeFlag";
+import {
+  INTERMISSION_AFTER_LEVEL,
+  INTERMISSION_IDS,
+  parseIntermissionParam,
+  type IntermissionId,
+} from "./intermission";
 import { parseJumpToUpgradeFlag } from "./jumpToUpgradeFlag";
 import { parseKnobsFlag } from "./knobsFlag";
 import { parseLevelModifiersFlag } from "./levelModifiersFlag";
@@ -53,6 +60,8 @@ export type PlayOptions = {
   forceStartingUpgrade: BaseUpgradeId | null;
   slot: SlotOutcome | null;
   slotMachine: boolean;
+  fruit: boolean;
+  intermission: IntermissionId | null;
   highScoresDisabled: boolean;
 };
 
@@ -106,6 +115,12 @@ export function parsePlayOptions(params: URLSearchParams): {
   warnIf("lives", lives === null, "Unknown ?lives= value; expected positive integer");
   const slot = parseSlotParam(params);
   warnIf("slot", slot === null, "Unknown ?slot= value; expected 0 or e.g. 2q1u1l (up to 5 lines)");
+  const intermission = parseIntermissionParam(params);
+  warnIf(
+    "intermission",
+    intermission === null,
+    `Unknown ?intermission= value; expected ${INTERMISSION_IDS.join("|")}`,
+  );
   const maxLives = parseLivesCountParam(params, "maxLives");
   warnIf("maxLives", maxLives === null, "Unknown ?maxLives= value; expected positive integer");
   return {
@@ -113,7 +128,15 @@ export function parsePlayOptions(params: URLSearchParams): {
       seed,
       maze,
       mazeAscii: null,
-      level: level ?? (boss !== null && !params.has("level") ? BOSS_LEVEL : null),
+      level:
+        level ??
+        (params.has("level")
+          ? null
+          : boss !== null
+            ? BOSS_LEVEL
+            : intermission !== null
+              ? INTERMISSION_AFTER_LEVEL
+              : null),
       quarters,
       pennyCharge,
       ghosts,
@@ -135,6 +158,8 @@ export function parsePlayOptions(params: URLSearchParams): {
       forceStartingUpgrade: null,
       slot,
       slotMachine: parseSlotMachineFlag(params),
+      fruit: parseFruitFlag(params),
+      intermission,
       highScoresDisabled: highScoresDisabled(params),
     },
     warnings,

@@ -1,4 +1,5 @@
 import { EXPIRY_BLINK_MS } from "./expiryBlink";
+import type { FruitKind } from "./fruitArt";
 import { randomFromSeed } from "./mazeTiling";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 import {
@@ -11,16 +12,7 @@ import {
   worldToRow,
 } from "./maze";
 
-export const FRUIT_KINDS = [
-  "apple",
-  "banana",
-  "blueberry",
-  "cherries",
-  "pear",
-  "strawberry",
-] as const;
-
-export type FruitKind = (typeof FRUIT_KINDS)[number];
+export type { FruitKind } from "./fruitArt";
 
 const FRUIT_DRAWABLE_PREFIX = "fruit-";
 
@@ -36,10 +28,6 @@ export function fruitFlickerAlpha(remainingMs: number, nowMs: number): number {
   return Math.floor(nowMs / EXPIRY_BLINK_MS) % 2 === 0 ? 1 : 0;
 }
 
-export function fruitArtPath(kind: FruitKind): string {
-  return `art/fruit/${kind}.png`;
-}
-
 export function fruitDrawableId(kind: FruitKind): string {
   return `${FRUIT_DRAWABLE_PREFIX}${kind}`;
 }
@@ -48,12 +36,12 @@ export function isFruitDrawableId(id: string): boolean {
   return id.startsWith(FRUIT_DRAWABLE_PREFIX);
 }
 
-export function fruitKindFromDrawableId(id: string): FruitKind | null {
+export function fruitKindFromDrawableId(id: string, kinds: readonly FruitKind[]): FruitKind | null {
   if (!isFruitDrawableId(id)) {
     return null;
   }
   const kind = id.slice(FRUIT_DRAWABLE_PREFIX.length);
-  return (FRUIT_KINDS as readonly string[]).includes(kind) ? (kind as FruitKind) : null;
+  return kinds.includes(kind) ? kind : null;
 }
 
 export type NextFruitKindArgs = {
@@ -63,13 +51,14 @@ export type NextFruitKindArgs = {
   previousLevelFirstKind: FruitKind | null;
   onBoard: readonly FruitKind[];
   alreadyChosen: FruitKind | undefined;
+  kinds: readonly FruitKind[];
 };
 
 export function nextFruitKind(args: NextFruitKindArgs): FruitKind {
   if (args.alreadyChosen !== undefined) {
     return args.alreadyChosen;
   }
-  let pool: FruitKind[] = [...FRUIT_KINDS];
+  let pool: FruitKind[] = [...args.kinds];
   if (args.spawnIndex === 0 && args.previousLevelFirstKind !== null) {
     const withoutPrev = pool.filter((kind) => kind !== args.previousLevelFirstKind);
     if (withoutPrev.length > 0) {
@@ -94,6 +83,7 @@ export function takeFruitKind(
   seed: string,
   level: number,
   onBoard: readonly FruitKind[],
+  kinds: readonly FruitKind[],
 ): { kind: FruitKind; state: FruitSequenceState } {
   const spawnIndex = state.spawnIndex;
   const kind = nextFruitKind({
@@ -103,6 +93,7 @@ export function takeFruitKind(
     previousLevelFirstKind: state.previousLevelFirstKind,
     onBoard,
     alreadyChosen: state.sequence[spawnIndex],
+    kinds,
   });
   const sequence = state.sequence.slice();
   sequence[spawnIndex] = kind;
