@@ -106,16 +106,16 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import {
-  LOW_POWER_IDS,
-  LOW_POWER_MAX_COPIES,
-  LOW_POWER_SLOWDOWN_CUT,
-  LOW_POWER_SPEED_ADD,
-  LOW_POWER_TUNNEL_SPEED_ADD,
-  LOW_POWER_VORTEX_CUT,
-  LOW_POWER_HOUSE_DELAY_MS,
-  LOW_POWER_TRACTION_CUT,
-  isLowPowerId,
-} from "../../domain/lowPowerUpgrades";
+  TRINKET_IDS,
+  TRINKET_MAX_COPIES,
+  TRINKET_SLOWDOWN_CUT,
+  TRINKET_SPEED_ADD,
+  TRINKET_TUNNEL_SPEED_ADD,
+  TRINKET_VORTEX_CUT,
+  TRINKET_HOUSE_DELAY_MS,
+  TRINKET_TRACTION_CUT,
+  isTrinketId,
+} from "../../domain/trinkets";
 import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
 import { schoolArtTextureKey } from "../../domain/schoolArt";
 import { upgradeArtTextureKey } from "../../domain/upgradeArt";
@@ -149,8 +149,8 @@ import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
-const MAXED_LOW_POWER: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
-  Array.from({ length: LOW_POWER_MAX_COPIES }, () => id),
+const MAXED_TRINKETS: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
+  Array.from({ length: TRINKET_MAX_COPIES }, () => id),
 );
 
 const ONE_QUARTER_SLOT = { quarters: 1, upgrades: 0, lives: 0 };
@@ -760,7 +760,7 @@ describe("PlaySim", () => {
     const sim = startSim({
       jumpToUpgrade: true,
       level: 4,
-      enableUpgrades: [...ALL_UPGRADE_IDS, ...MAXED_LOW_POWER],
+      enableUpgrades: [...ALL_UPGRADE_IDS, ...MAXED_TRINKETS],
     });
     runFrames(sim, 90);
     expect(sim.offer()).toBeNull();
@@ -1887,6 +1887,24 @@ describe("PlaySim", () => {
       expect(sim.snapshot().quarters).toBe(10 - STORE_SWAP_PRICE);
     });
 
+    it("clears the sacrificed upgrade's live timers on a swap", () => {
+      const owned = ["powerPelletFreeze", "passiveAfterburner"] as const;
+      const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: [...owned] });
+      sim["runUpgrades"] = { ...sim["runUpgrades"], freezeRemainingMs: 4000, frozenGhostEid: 7 };
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap")!;
+      teleportPlayer(sim, cellCenterX(swap.col), cellCenterY(swap.row));
+      runFrames(sim, 1);
+      if (sim.storeState()!.sacrifice?.id !== "powerPelletFreeze") {
+        runFrames(sim, 1, { storeDir: "up" });
+      }
+      expect(sim.storeState()!.sacrifice?.id).toBe("powerPelletFreeze");
+      runFrames(sim, 1, { storeDir: "right" });
+      runFrames(sim, 1, { storeDir: "right" });
+      expect(sim.snapshot().upgrades).not.toContain("powerPelletFreeze");
+      expect(sim["runUpgrades"].freezeRemainingMs).toBe(0);
+      expect(sim["runUpgrades"].frozenGhostEid).toBeNull();
+    });
+
     it("leaves the sacrifice selection on left without paying", () => {
       const sim = startSim({
         store: 1,
@@ -1927,8 +1945,8 @@ describe("PlaySim", () => {
 
     it("trades into a rare even when the shelf already shows one", () => {
       const owned = [
-        ...ALL_UPGRADE_IDS.filter((id) => !isRare(id) && !isLowPowerId(id)),
-        ...MAXED_LOW_POWER,
+        ...ALL_UPGRADE_IDS.filter((id) => !isRare(id) && !isTrinketId(id)),
+        ...MAXED_TRINKETS,
       ];
       const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: owned });
       const shelf = (
@@ -9011,7 +9029,7 @@ describe("Reactive Armor", () => {
   });
 });
 
-describe("PlaySim low-power upgrades", () => {
+describe("PlaySim Trinkets", () => {
   const copies = (id: UpgradeId, n: number): UpgradeId[] => Array.from({ length: n }, () => id);
   const speedOf = (eid: number): number => Speed.px[eid]!;
 
@@ -9043,21 +9061,21 @@ describe("PlaySim low-power upgrades", () => {
     return speedOf(eid);
   }
 
-  it.each(LOW_POWER_IDS)("%s stacks up to the cap and no further", (id) => {
+  it.each(TRINKET_IDS)("%s stacks up to the cap and no further", (id) => {
     const sim = startSim({
       level: 2,
-      enableUpgrades: copies(id, LOW_POWER_MAX_COPIES + 3),
+      enableUpgrades: copies(id, TRINKET_MAX_COPIES + 3),
     });
     expect(sim.snapshot().upgrades.filter((owned) => owned === id)).toHaveLength(
-      LOW_POWER_MAX_COPIES,
+      TRINKET_MAX_COPIES,
     );
   });
 
   it("Speed adds a flat share of Dot-Man's speed per copy", () => {
     const base = playerSpeedAt([], 13, 11);
-    expect(playerSpeedAt(["lowSpeed"], 13, 11) / base).toBeCloseTo(1 + LOW_POWER_SPEED_ADD);
+    expect(playerSpeedAt(["lowSpeed"], 13, 11) / base).toBeCloseTo(1 + TRINKET_SPEED_ADD);
     expect(playerSpeedAt(copies("lowSpeed", 3), 13, 11) / base).toBeCloseTo(
-      1 + 3 * LOW_POWER_SPEED_ADD,
+      1 + 3 * TRINKET_SPEED_ADD,
     );
   });
 
@@ -9065,7 +9083,7 @@ describe("PlaySim low-power upgrades", () => {
     const tunnelRow = horizontalTunnelRows()[0]!;
     const base = playerSpeedAt([], 0, tunnelRow);
     expect(playerSpeedAt(copies("lowTunnelSpeed", 2), 0, tunnelRow) / base).toBeCloseTo(
-      1 + 2 * LOW_POWER_TUNNEL_SPEED_ADD,
+      1 + 2 * TRINKET_TUNNEL_SPEED_ADD,
     );
     expect(playerSpeedAt(copies("lowTunnelSpeed", 2), 13, 11)).toBeCloseTo(
       playerSpeedAt([], 13, 11),
@@ -9077,7 +9095,7 @@ describe("PlaySim low-power upgrades", () => {
     const base = ghostSpeedOf([], GHOST_KIND.blinky, tunnel);
     expect(
       ghostSpeedOf(copies("lowTunnelVortex", 2), GHOST_KIND.blinky, tunnel) / base,
-    ).toBeCloseTo(1 - 2 * LOW_POWER_VORTEX_CUT);
+    ).toBeCloseTo(1 - 2 * TRINKET_VORTEX_CUT);
     expect(ghostSpeedOf(copies("lowTunnelVortex", 2), GHOST_KIND.blinky)).toBeCloseTo(
       ghostSpeedOf([], GHOST_KIND.blinky),
     );
@@ -9086,7 +9104,7 @@ describe("PlaySim low-power upgrades", () => {
   it("a ghost slowdown slows only the named ghost", () => {
     const base = ghostSpeedOf([], GHOST_KIND.blinky);
     expect(ghostSpeedOf(copies("lowSlowdownBlinky", 3), GHOST_KIND.blinky) / base).toBeCloseTo(
-      1 - 3 * LOW_POWER_SLOWDOWN_CUT,
+      1 - 3 * TRINKET_SLOWDOWN_CUT,
     );
     expect(ghostSpeedOf(copies("lowSlowdownBlinky", 3), GHOST_KIND.inky)).toBeCloseTo(
       ghostSpeedOf([], GHOST_KIND.inky),
@@ -9118,7 +9136,7 @@ describe("PlaySim low-power upgrades", () => {
       const before = speedOf(eid);
       Facing.direction[eid] = DIRECTION.up;
       runFrames(sim, 1);
-      return speedOf(eid) < before * (1 - LOW_POWER_TRACTION_CUT / 2);
+      return speedOf(eid) < before * (1 - TRINKET_TRACTION_CUT / 2);
     };
     expect(dragged(["lowTractionBlinky"], GHOST_KIND.blinky)).toBe(true);
     expect(dragged(["lowTractionBlinky"], GHOST_KIND.inky)).toBe(false);
@@ -9140,8 +9158,8 @@ describe("PlaySim low-power upgrades", () => {
     };
     const plain = releaseMs([]);
     const delayed = releaseMs(copies("lowHouseDelayBlinky", 2));
-    expect(delayed - plain).toBeGreaterThanOrEqual(2 * LOW_POWER_HOUSE_DELAY_MS - 2 * FRAME_MS);
-    expect(delayed - plain).toBeLessThanOrEqual(2 * LOW_POWER_HOUSE_DELAY_MS + 2 * FRAME_MS);
+    expect(delayed - plain).toBeGreaterThanOrEqual(2 * TRINKET_HOUSE_DELAY_MS - 2 * FRAME_MS);
+    expect(delayed - plain).toBeLessThanOrEqual(2 * TRINKET_HOUSE_DELAY_MS + 2 * FRAME_MS);
   });
 
   it("offers a ghost's upgrades only when the ghost is in the run's roster", () => {
@@ -9157,24 +9175,24 @@ describe("PlaySim low-power upgrades", () => {
         offered.add(id);
       }
     }
-    expect([...offered].some((id) => isLowPowerId(id))).toBe(true);
+    expect([...offered].some((id) => isTrinketId(id))).toBe(true);
     const ghostName = Object.entries(GHOST_KIND).find(([, v]) => v === missing)![0];
     const suffix = ghostName.charAt(0).toUpperCase() + ghostName.slice(1);
-    expect([...offered].filter((id) => id.endsWith(suffix) && isLowPowerId(id))).toEqual([]);
+    expect([...offered].filter((id) => id.endsWith(suffix) && isTrinketId(id))).toEqual([]);
   });
 
-  it("taking an owned low-power upgrade from an offer adds another copy", () => {
+  it("taking an owned Trinket from an offer adds another copy", () => {
     const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: ["lowSpeed"] });
     drainToOffer(sim);
     sim.chooseUpgrade({ kind: "upgrade", id: "lowSpeed" });
     expect(sim.snapshot().upgrades.filter((id) => id === "lowSpeed")).toHaveLength(2);
   });
 
-  it("the cap keeps any low-power upgrade out of the pool once it is reached", () => {
-    const sim = startSim({ level: 4, jumpToUpgrade: true, enableUpgrades: MAXED_LOW_POWER });
+  it("the cap keeps any Trinket out of the pool once it is reached", () => {
+    const sim = startSim({ level: 4, jumpToUpgrade: true, enableUpgrades: MAXED_TRINKETS });
     runFrames(sim, 90);
     const offered = sim.offer()?.upgrades ?? [];
-    expect(offered.filter((id) => isLowPowerId(id))).toEqual([]);
+    expect(offered.filter((id) => isTrinketId(id))).toEqual([]);
   });
 });
 
@@ -9329,6 +9347,226 @@ describe("Banana Trail", () => {
   });
 });
 
+describe("PlaySim salvage", () => {
+  const SIX: UpgradeId[] = [
+    "powerPelletFreeze",
+    "passiveAfterburner",
+    "passiveGhostSlow",
+    "powerPelletScatterBurst",
+    "powerPelletGhostRecall",
+    "powerPelletWarpFarthest",
+  ];
+
+  function slotIds(sim: PlaySim): UpgradeId[] {
+    return sim.snapshot().upgrades.filter((id) => !isTrinketId(id));
+  }
+
+  function trinketIds(sim: PlaySim): UpgradeId[] {
+    return sim.snapshot().upgrades.filter((id) => isTrinketId(id));
+  }
+
+  function offerAtCap(seed = "salvage"): { sim: PlaySim; picked: BaseUpgradeId } {
+    const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: SIX }, seed);
+    const offer = drainToOffer(sim);
+    const picked = offer.upgrades.find((id) => !isTrinketId(id))!;
+    sim.chooseUpgrade({ kind: "upgrade", id: picked });
+    return { sim, picked };
+  }
+
+  it("opens a prompt for a level-clear pick at 6 and freezes the sim", () => {
+    const { sim, picked } = offerAtCap();
+    expect(sim.snapshot().salvage).toMatchObject({ open: true, incoming: picked, slotCount: 6 });
+    const before = sim.snapshot().timeRemaining;
+    runFrames(sim, 30);
+    expect(sim.snapshot().timeRemaining).toBe(before);
+    expect(sim.snapshot().salvage.open).toBe(true);
+  });
+
+  it("salvaging the new card keeps the six and adds one Trinket", () => {
+    const { sim } = offerAtCap();
+    const events = sim.salvageNew();
+    const gained = events.find((e) => e.type === "salvage");
+    expect(gained).toMatchObject({ type: "salvage", quarters: 0 });
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toEqual([(gained as { gained: UpgradeId }).gained]);
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, trinketCount: 1 });
+    expect(sim.runLogRecord().loadout.at(-1)).toMatchObject({ source: "salvage" });
+  });
+
+  it("salvaging an owned card keeps the new one", () => {
+    const { sim, picked } = offerAtCap();
+    sim.salvageReplace("passiveGhostSlow");
+    expect(slotIds(sim)).toEqual([...SIX.filter((id) => id !== "passiveGhostSlow"), picked]);
+    expect(trinketIds(sim)).toHaveLength(1);
+    expect(
+      sim.runLogRecord().loadout.find((entry) => entry.id === "passiveGhostSlow"),
+    ).toMatchObject({ removedLevel: 4 });
+  });
+
+  it("refuses to salvage a Trinket or an unowned id at the prompt", () => {
+    const { sim } = offerAtCap();
+    expect(sim.salvageReplace("lowSpeed")).toEqual([]);
+    expect(sim.salvageReplace("passiveExtraLife")).toEqual([]);
+    expect(sim.snapshot().salvage.open).toBe(true);
+  });
+
+  it("salvagePick salvages the new card when it is picked, else the picked owned card", () => {
+    const kept = offerAtCap();
+    kept.sim.salvagePick(kept.picked);
+    expect(slotIds(kept.sim)).toEqual(SIX);
+    const swapped = offerAtCap();
+    swapped.sim.salvagePick("passiveGhostSlow");
+    expect(slotIds(swapped.sim)).toEqual([
+      ...SIX.filter((id) => id !== "passiveGhostSlow"),
+      swapped.picked,
+    ]);
+    expect(trinketIds(swapped.sim)).toHaveLength(1);
+  });
+
+  it("replays the same Trinket for the same seed", () => {
+    const gained = ["a", "b"].map(() => {
+      const { sim } = offerAtCap("salvage-seed");
+      sim.salvageNew();
+      return trinketIds(sim);
+    });
+    expect(gained[0]).toEqual(gained[1]);
+  });
+
+  it("keeps the life an Extra Life already paid", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: false,
+      lives: 2,
+      maxLives: 6,
+      enableUpgrades: ["passiveExtraLife"],
+    });
+    const lives = sim.snapshot().lives;
+    sim.salvageOwned("passiveExtraLife");
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().upgrades).not.toContain("passiveExtraLife");
+  });
+
+  it("salvages on demand under the cap and rejects a Trinket", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["lowSpeed", ...SIX.slice(0, 2)],
+    });
+    expect(sim.salvageOwned("lowSpeed")).toEqual([]);
+    const events = sim.salvageOwned("passiveAfterburner");
+    expect(events.some((e) => e.type === "salvage")).toBe(true);
+    expect(slotIds(sim)).toEqual(["powerPelletFreeze"]);
+    expect(trinketIds(sim)).toHaveLength(2);
+  });
+
+  it("clears a live freeze when Freeze is salvaged mid-level", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
+    sim["runUpgrades"] = { ...sim["runUpgrades"], freezeRemainingMs: 4000, frozenGhostEid: 5 };
+    sim.salvageOwned("powerPelletFreeze");
+    expect(sim["runUpgrades"]).toMatchObject({ freezeRemainingMs: 0, frozenGhostEid: null });
+  });
+
+  it("pays a Quarter, logged as salvage, when no Trinket is eligible", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      quarters: 0,
+      enableUpgrades: ["powerPelletFreeze", ...MAXED_TRINKETS],
+    });
+    const events = sim.salvageOwned("powerPelletFreeze");
+    expect(events).toContainEqual({ type: "salvage", gained: null, quarters: 1 });
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.runLogRecord().levels.at(-1)!.quartersEarned.salvage).toBe(1);
+  });
+
+  it("refuses on-demand salvage during a death sequence", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
+    sim["death"] = {} as never;
+    expect(sim.salvageOwned("powerPelletFreeze")).toEqual([]);
+    expect(sim.snapshot().salvage.canSalvage).toBe(false);
+  });
+
+  it("never prompts for the starting upgrade or debug flags past 6", () => {
+    const sim = startSim({ maze: "mazeSmall", enableUpgrades: [...SIX, "passiveExtraLife"] });
+    runFrames(sim, 5, { uiOpen: true });
+    expect(slotIds(sim).length).toBeGreaterThanOrEqual(7);
+    expect(sim.snapshot().salvage.open).toBe(false);
+  });
+
+  it("opens the prompt after a store U purchase at 6, with the Quarters spent", () => {
+    const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: SIX });
+    const slot = sim
+      .storeState()!
+      .slots.find((cell) => cell.kind === "upgrade" && !isTrinketId(cell.id))!;
+    if (slot.kind !== "upgrade") throw new Error("no upgrade tile");
+    teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
+    runFrames(sim, 1);
+    runFrames(sim, 1, { storeFocus: "yes" });
+    runFrames(sim, 1, { storeConfirm: true });
+    expect(sim.snapshot().quarters).toBeLessThan(10);
+    expect(sim.snapshot().salvage).toMatchObject({
+      open: true,
+      incoming: slot.id,
+    });
+    expect(slotIds(sim)).toEqual(SIX);
+    sim.salvageNew();
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toHaveLength(1);
+  });
+
+  it("grants a neutral slot win's Trinket at 6 without a prompt", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: SIX });
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage.open).toBe(false);
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toHaveLength(1);
+  });
+
+  it("prompts for a neutral Overcharge win at 6, and pays a Quarter once the pool is empty", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      quarters: 0,
+      enableUpgrades: [...SIX, ...MAXED_TRINKETS],
+    });
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage).toMatchObject({ open: true, incoming: "passiveOvercharge" });
+    sim.salvageReplace("passiveGhostSlow");
+    expect(sim.snapshot().upgrades).toContain("passiveOvercharge");
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage.open).toBe(false);
+    expect(sim.snapshot().quarters).toBe(2);
+  });
+
+  it("holds slot wins at 6 until the final grid is dismissed, one prompt per upgrade", () => {
+    const sim = startSim(
+      {
+        level: 2,
+        maze: "maze1",
+        infiniteLives: true,
+        pennyCharge: 299,
+        slot: { quarters: 0, upgrades: 2, lives: 0 },
+        enableUpgrades: SIX,
+      },
+      "salvage-slots",
+    );
+    sim["slotQueue"].push("pennyBar");
+    runUntil(sim, () => sim.snapshot().slot.held, 900, { keys: held("left") });
+    const won = sim.snapshot().slot.won!.filter((id) => !isTrinketId(id));
+    expect(won).toHaveLength(2);
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, queued: won.length });
+    runFrames(sim, 1, { acknowledge: true });
+    expect(sim.snapshot().salvage.open).toBe(won.length > 0);
+    for (const incoming of won) {
+      expect(sim.snapshot().salvage.incoming).toBe(incoming);
+      sim.salvageNew();
+    }
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, queued: 0 });
+    expect(new Set(won).size).toBe(won.length);
+  });
+});
+
 describe("Martyr", () => {
   const LEFT = { keys: held("left") };
 
@@ -9446,6 +9684,14 @@ describe("Possession", () => {
     expect(sim.snapshot().dying).toBe(false);
     return killer;
   }
+
+  it("refuses to salvage anything while a possession defers the death", () => {
+    const sim = startPossession(["passivePossession", "powerPelletFreeze"]);
+    enterPossession(sim);
+    expect(sim.snapshot().salvage.canSalvage).toBe(false);
+    expect(sim.salvageOwned("passivePossession")).toEqual([]);
+    expect(sim.snapshot().possessing).toBe(true);
+  });
 
   it("hides the player and marks the possessed ghost for the renderer", () => {
     const sim = startPossession(["passivePossession"]);

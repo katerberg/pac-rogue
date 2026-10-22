@@ -3,26 +3,26 @@ import { GHOST_KIND } from "./ghostKind";
 import { releaseAddsForKind, shouldReleaseSlot, createGhostReleaseClock } from "./ghostRelease";
 import { RELEASE_SLOT, GHOST_ROSTERS } from "./ghostRoster";
 import {
-  LOW_POWER_DEFS,
-  LOW_POWER_HOUSE_DELAY_MS,
-  LOW_POWER_IDS,
-  LOW_POWER_MAX_COPIES,
-  LOW_POWER_OFFER_WEIGHT,
-  LOW_POWER_STORE_PRICE,
-  LOW_POWER_MIN_SPEED_MUL,
-  LOW_POWER_SLOWDOWN_CUT,
-  LOW_POWER_SPEED_ADD,
-  LOW_POWER_TUNNEL_SPEED_ADD,
-  LOW_POWER_VORTEX_CUT,
-  lowPowerCopyControls,
-  lowPowerGhostSpeedMul,
-  lowPowerHouseDelayMs,
-  lowPowerPlayerSpeedMul,
-  lowPowerPreTurnBonusPx,
-  lowPowerTractionCopies,
-  lowPowerTractionMul,
-  lowPowerVortexMul,
-} from "./lowPowerUpgrades";
+  TRINKET_DEFS,
+  TRINKET_HOUSE_DELAY_MS,
+  TRINKET_IDS,
+  TRINKET_MAX_COPIES,
+  TRINKET_OFFER_WEIGHT,
+  TRINKET_STORE_PRICE,
+  TRINKET_MIN_SPEED_MUL,
+  TRINKET_SLOWDOWN_CUT,
+  TRINKET_SPEED_ADD,
+  TRINKET_TUNNEL_SPEED_ADD,
+  TRINKET_VORTEX_CUT,
+  trinketCopyControls,
+  trinketGhostSpeedMul,
+  trinketHouseDelayMs,
+  trinketPlayerSpeedMul,
+  trinketPreTurnBonusPx,
+  trinketTractionCopies,
+  trinketTractionMul,
+  trinketVortexMul,
+} from "./trinkets";
 import {
   ALL_UPGRADE_IDS,
   carryEnhancement,
@@ -43,23 +43,23 @@ import {
 const copies = (id: UpgradeId, n: number): UpgradeId[] => Array.from({ length: n }, () => id);
 const [BLINKY_ROSTER] = GHOST_ROSTERS;
 
-describe("low-power registry", () => {
+describe("Trinket registry", () => {
   it("has a neutral, non-rare, non-enhanceable def for every id", () => {
-    for (const def of LOW_POWER_DEFS) {
+    for (const def of TRINKET_DEFS) {
       expect(def.school).toBe("neutral");
       expect(def.rare).toBeUndefined();
       expect(def.isEnhanced).toBe(false);
       expect(ALL_UPGRADE_IDS).toContain(def.id);
       expect(getUpgradeDef(`${def.id}Plus` as UpgradeId)).toBeUndefined();
     }
-    expect(LOW_POWER_IDS).toHaveLength(4 + 3 * 6);
+    expect(TRINKET_IDS).toHaveLength(4 + 3 * 6);
   });
 
-  it("costs LOW_POWER_STORE_PRICE in the store", () => {
-    for (const def of LOW_POWER_DEFS) {
-      expect(def.storePrice).toBe(LOW_POWER_STORE_PRICE);
+  it("costs TRINKET_STORE_PRICE in the store", () => {
+    for (const def of TRINKET_DEFS) {
+      expect(def.storePrice).toBe(TRINKET_STORE_PRICE);
     }
-    expect(LOW_POWER_STORE_PRICE).toBe(2);
+    expect(TRINKET_STORE_PRICE).toBe(2);
   });
 
   it("is never offered an enhancement", () => {
@@ -70,9 +70,9 @@ describe("low-power registry", () => {
   });
 });
 
-describe("low-power offer weight", () => {
+describe("Trinket offer weight", () => {
   it("is a quarter of a normal upgrade's in level-clear and store draws", () => {
-    expect(upgradeOfferWeight("lowSpeed", [], 0)).toBe(LOW_POWER_OFFER_WEIGHT);
+    expect(upgradeOfferWeight("lowSpeed", [], 0)).toBe(TRINKET_OFFER_WEIGHT);
     expect(upgradeOfferWeight("passiveMole", [], 0)).toBe(1);
     const pool = ["lowSpeed", "passiveMole"] as const;
     const weigh = storeUpgradeWeight([...pool]);
@@ -86,25 +86,25 @@ describe("low-power offer weight", () => {
   });
 });
 
-describe("low-power copy controls", () => {
+describe("Trinket copy controls", () => {
   it("disables down at one copy and up at the cap", () => {
-    expect(lowPowerCopyControls(1)).toEqual({ down: false, up: true });
-    expect(lowPowerCopyControls(5)).toEqual({ down: true, up: true });
-    expect(lowPowerCopyControls(LOW_POWER_MAX_COPIES)).toEqual({ down: true, up: false });
+    expect(trinketCopyControls(1)).toEqual({ down: false, up: true });
+    expect(trinketCopyControls(5)).toEqual({ down: true, up: true });
+    expect(trinketCopyControls(TRINKET_MAX_COPIES)).toEqual({ down: true, up: false });
   });
 });
 
-describe("low-power stacking", () => {
+describe("Trinket stacking", () => {
   it("grants copies up to the cap and then stops", () => {
     let state = createRunUpgrades([]);
-    for (let i = 0; i < LOW_POWER_MAX_COPIES + 2; i += 1) {
+    for (let i = 0; i < TRINKET_MAX_COPIES + 2; i += 1) {
       state = grantUpgrade(state, "lowSpeed");
     }
-    expect(state.owned).toHaveLength(LOW_POWER_MAX_COPIES);
+    expect(state.owned).toHaveLength(TRINKET_MAX_COPIES);
   });
 
   it("stays eligible until the cap, and revokes every copy at once", () => {
-    const owned = copies("lowSpeed", LOW_POWER_MAX_COPIES - 1);
+    const owned = copies("lowSpeed", TRINKET_MAX_COPIES - 1);
     expect(eligibleUpgrades(owned)).toContain("lowSpeed");
     expect(eligibleUpgrades([...owned, "lowSpeed"])).not.toContain("lowSpeed");
     const after = revokeUpgrade({ ...createRunUpgrades([]), owned }, "lowSpeed");
@@ -129,46 +129,42 @@ describe("low-power stacking", () => {
   });
 });
 
-describe("low-power effects", () => {
+describe("Trinket effects", () => {
   it("adds player speed per copy, and tunnel speed only in a tunnel", () => {
-    expect(lowPowerPlayerSpeedMul([], false)).toBe(1);
-    expect(lowPowerPlayerSpeedMul(copies("lowSpeed", 3), false)).toBeCloseTo(
-      1 + 3 * LOW_POWER_SPEED_ADD,
+    expect(trinketPlayerSpeedMul([], false)).toBe(1);
+    expect(trinketPlayerSpeedMul(copies("lowSpeed", 3), false)).toBeCloseTo(
+      1 + 3 * TRINKET_SPEED_ADD,
     );
     const tunnel = copies("lowTunnelSpeed", 2);
-    expect(lowPowerPlayerSpeedMul(tunnel, false)).toBe(1);
-    expect(lowPowerPlayerSpeedMul(tunnel, true)).toBeCloseTo(1 + 2 * LOW_POWER_TUNNEL_SPEED_ADD);
+    expect(trinketPlayerSpeedMul(tunnel, false)).toBe(1);
+    expect(trinketPlayerSpeedMul(tunnel, true)).toBeCloseTo(1 + 2 * TRINKET_TUNNEL_SPEED_ADD);
   });
 
   it("slows only the named ghost, and floors at the minimum multiplier", () => {
     const owned = copies("lowSlowdownClyde", 2);
-    expect(lowPowerGhostSpeedMul(owned, GHOST_KIND.clyde)).toBeCloseTo(
-      1 - 2 * LOW_POWER_SLOWDOWN_CUT,
-    );
-    expect(lowPowerGhostSpeedMul(owned, GHOST_KIND.blinky)).toBe(1);
-    expect(lowPowerGhostSpeedMul(copies("lowSlowdownClyde", 100), GHOST_KIND.clyde)).toBe(
-      LOW_POWER_MIN_SPEED_MUL,
+    expect(trinketGhostSpeedMul(owned, GHOST_KIND.clyde)).toBeCloseTo(1 - 2 * TRINKET_SLOWDOWN_CUT);
+    expect(trinketGhostSpeedMul(owned, GHOST_KIND.blinky)).toBe(1);
+    expect(trinketGhostSpeedMul(copies("lowSlowdownClyde", 100), GHOST_KIND.clyde)).toBe(
+      TRINKET_MIN_SPEED_MUL,
     );
   });
 
   it("cuts ghost tunnel speed, widens the turn window and drags per ghost", () => {
-    expect(lowPowerVortexMul(copies("lowTunnelVortex", 2))).toBeCloseTo(
-      1 - 2 * LOW_POWER_VORTEX_CUT,
-    );
-    expect(lowPowerPreTurnBonusPx([])).toBe(0);
-    expect(lowPowerPreTurnBonusPx(copies("lowTurning", 2))).toBeGreaterThan(0);
+    expect(trinketVortexMul(copies("lowTunnelVortex", 2))).toBeCloseTo(1 - 2 * TRINKET_VORTEX_CUT);
+    expect(trinketPreTurnBonusPx([])).toBe(0);
+    expect(trinketPreTurnBonusPx(copies("lowTurning", 2))).toBeGreaterThan(0);
     const owned = copies("lowTractionInky", 2);
-    expect(lowPowerTractionCopies(owned, GHOST_KIND.inky)).toBe(2);
-    expect(lowPowerTractionCopies(owned, GHOST_KIND.blinky)).toBe(0);
-    expect(lowPowerTractionMul(2)).toBeLessThan(1);
+    expect(trinketTractionCopies(owned, GHOST_KIND.inky)).toBe(2);
+    expect(trinketTractionCopies(owned, GHOST_KIND.blinky)).toBe(0);
+    expect(trinketTractionMul(2)).toBeLessThan(1);
   });
 
   it("delays only the named ghost's release, in time and in pellets", () => {
     const owned = copies("lowHouseDelayBlinky", 2);
-    expect(lowPowerHouseDelayMs(owned, GHOST_KIND.blinky)).toBe(2 * LOW_POWER_HOUSE_DELAY_MS);
-    expect(lowPowerHouseDelayMs(owned, GHOST_KIND.pinky)).toBe(0);
+    expect(trinketHouseDelayMs(owned, GHOST_KIND.blinky)).toBe(2 * TRINKET_HOUSE_DELAY_MS);
+    expect(trinketHouseDelayMs(owned, GHOST_KIND.pinky)).toBe(0);
     const kindAdds = (kind: number) => ({
-      delayMs: lowPowerHouseDelayMs(owned, kind as 0),
+      delayMs: trinketHouseDelayMs(owned, kind as 0),
       pellets: kind === GHOST_KIND.blinky ? 2 : 0,
     });
     const clock = { ...createGhostReleaseClock(1), started: true, elapsedMs: 1000 };

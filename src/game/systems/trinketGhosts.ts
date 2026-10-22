@@ -1,12 +1,12 @@
 import { query, type World } from "bitecs";
 import type { GhostKindId } from "../../domain/ghostKind";
 import {
-  LOW_POWER_TRACTION_DRAG_MS,
-  lowPowerGhostSpeedMul,
-  lowPowerVortexMul,
-  lowPowerTractionCopies,
-  lowPowerTractionMul,
-} from "../../domain/lowPowerUpgrades";
+  TRINKET_TRACTION_DRAG_MS,
+  trinketGhostSpeedMul,
+  trinketVortexMul,
+  trinketTractionCopies,
+  trinketTractionMul,
+} from "../../domain/trinkets";
 import { GHOST_PHASE } from "../../domain/ghostTarget";
 import { isGhostTunnelSlow, worldToCol, worldToRow } from "../../domain/maze";
 import type { UpgradeId } from "../../domain/upgrades";
@@ -50,12 +50,8 @@ export class GhostTractionState {
       const previous = this.lastFacing.get(eid);
       this.lastFacing.set(eid, facing);
       const kind = (GhostKind.kind[eid] ?? 0) as GhostKindId;
-      if (
-        previous !== undefined &&
-        previous !== facing &&
-        lowPowerTractionCopies(owned, kind) > 0
-      ) {
-        this.dragMs.set(eid, LOW_POWER_TRACTION_DRAG_MS);
+      if (previous !== undefined && previous !== facing && trinketTractionCopies(owned, kind) > 0) {
+        this.dragMs.set(eid, TRINKET_TRACTION_DRAG_MS);
       }
     }
   }
@@ -64,8 +60,8 @@ export class GhostTractionState {
     owned: readonly UpgradeId[],
   ): (eid: number, kind: GhostKindId, inTunnel: boolean) => number {
     return (eid, kind, inTunnel) =>
-      lowPowerGhostSpeedMul(owned, kind) *
-      (inTunnel ? lowPowerVortexMul(owned) : 1) *
-      (this.dragMs.has(eid) ? lowPowerTractionMul(lowPowerTractionCopies(owned, kind)) : 1);
+      trinketGhostSpeedMul(owned, kind) *
+      (inTunnel ? trinketVortexMul(owned) : 1) *
+      (this.dragMs.has(eid) ? trinketTractionMul(trinketTractionCopies(owned, kind)) : 1);
   }
 }

@@ -67,6 +67,21 @@ function finished(sim: PlaySim, job: Job, startLevel: number): EpisodeOutcome | 
   return sim.currentLevel() > startLevel || sim.storeState() !== null ? "clear" : null;
 }
 
+export function answerPrompts(sim: PlaySim, bot: Bot): void {
+  const choice = bot.pick(sim);
+  if (choice !== null) {
+    sim.chooseUpgrade(choice);
+  }
+  if (sim.salvagePrompt() !== null) {
+    const outgoing = bot.salvage(sim);
+    if (outgoing === null) {
+      sim.salvageNew();
+    } else {
+      sim.salvageReplace(outgoing);
+    }
+  }
+}
+
 export function runJob(job: Job): EpisodeResult {
   const sim = new PlaySim(optionsFor(job), job.seed);
   const bot = new Bot(job.profile, job.seed, FRAME_MS);
@@ -79,10 +94,7 @@ export function runJob(job: Job): EpisodeResult {
     let level = startLevel;
     let levelMs = 0;
     while (outcome === null) {
-      const choice = bot.pick(sim);
-      if (choice !== null) {
-        sim.chooseUpgrade(choice);
-      }
+      answerPrompts(sim, bot);
       const events = sim.step(bot.step(sim), FRAME_MS);
       simMs += FRAME_MS;
       levelMs += FRAME_MS;

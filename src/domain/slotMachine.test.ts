@@ -23,7 +23,14 @@ import {
   spinSlot,
   type SlotGrid,
 } from "./slotMachine";
-import { eligibleUpgrades, getUpgradeDef, type BaseUpgradeId } from "./upgrades";
+import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId } from "./trinkets";
+import {
+  eligibleUpgrades,
+  getUpgradeDef,
+  UPGRADE_SCHOOL_ORDER,
+  type BaseUpgradeId,
+  type UpgradeId,
+} from "./upgrades";
 
 const rng = (seed: string) => createRunRandom(seed).stream("slots");
 const evenSchools = slotSchoolWeights([]);
@@ -353,5 +360,39 @@ describe("stepMusicDuck", () => {
   it("fades back up to full volume and never above", () => {
     expect(stepMusicDuck(SLOT_MUSIC_DUCK_GAIN, false, 100)).toBeGreaterThan(SLOT_MUSIC_DUCK_GAIN);
     expect(stepMusicDuck(SLOT_MUSIC_DUCK_GAIN, false, 10_000)).toBe(1);
+  });
+});
+
+describe("neutral reel symbol", () => {
+  it("puts neutral on the reels at the same base weight as every school", () => {
+    expect([...SLOT_SCHOOLS]).toEqual([...UPGRADE_SCHOOL_ORDER]);
+    expect(new Set(Object.values(evenSchools))).toEqual(new Set([1]));
+    expect(slotSchoolWeights(["lowSpeed", "lowSpeed", "passiveOvercharge"]).neutral).toBe(1);
+  });
+
+  it("shows exactly the rolled lines when a neutral line wins", () => {
+    const random = rng("neutral-line");
+    let neutralWins = 0;
+    for (let i = 0; i < 300; i += 1) {
+      const outcome = { quarters: 1, upgrades: 1, lives: 0 };
+      const spin = spinSlot(outcome, evenSchools, false, random);
+      if (spin.wins.some((win) => win.symbol === "neutral")) {
+        neutralWins += 1;
+        expect(slotWinTotals(spin.wins)).toEqual(outcome);
+      }
+    }
+    expect(neutralWins).toBeGreaterThan(0);
+  });
+
+  it("pays a Trinket or Overcharge, and nothing once both are gone", () => {
+    const random = rng("neutral-pick");
+    for (let i = 0; i < 50; i += 1) {
+      const id = pickSlotUpgrade(["powerPelletFreeze", "passiveAfterburner"], "neutral", random)!;
+      expect(isTrinketId(id) || id === "passiveOvercharge").toBe(true);
+    }
+    const maxed: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
+      Array.from({ length: TRINKET_MAX_COPIES }, () => id),
+    );
+    expect(pickSlotUpgrade([...maxed, "passiveOvercharge"], "neutral", random)).toBeNull();
   });
 });
