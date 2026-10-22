@@ -1172,17 +1172,12 @@ export class PlayScene extends Phaser.Scene {
 
   private openSalvageRequired(): void {
     this.refreshUpgradesHud();
-    const items = this.upgradeHudSlots();
     this.salvageUi.open({
-      items,
+      items: this.upgradeHudSlots(),
       text: this.panelText(),
       alert: true,
       cancellable: false,
-      onPick: (id, index) =>
-        this.applyEvents(
-          index === items.length - 1 ? this.sim.salvageNew() : this.sim.salvageReplace(id),
-          0,
-        ),
+      onPick: (id) => this.applyEvents(this.sim.salvagePick(id), 0),
     });
   }
 

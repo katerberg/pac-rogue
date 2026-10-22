@@ -9232,6 +9232,19 @@ describe("PlaySim salvage", () => {
     expect(sim.snapshot().salvage.open).toBe(true);
   });
 
+  it("salvagePick salvages the new card when it is picked, else the picked owned card", () => {
+    const kept = offerAtCap();
+    kept.sim.salvagePick(kept.picked);
+    expect(slotIds(kept.sim)).toEqual(SIX);
+    const swapped = offerAtCap();
+    swapped.sim.salvagePick("passiveGhostSlow");
+    expect(slotIds(swapped.sim)).toEqual([
+      ...SIX.filter((id) => id !== "passiveGhostSlow"),
+      swapped.picked,
+    ]);
+    expect(trinketIds(swapped.sim)).toHaveLength(1);
+  });
+
   it("replays the same Trinket for the same seed", () => {
     const gained = ["a", "b"].map(() => {
       const { sim } = offerAtCap("salvage-seed");

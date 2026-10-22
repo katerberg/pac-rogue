@@ -947,6 +947,14 @@ export class PlaySim {
     return this.takeEvents();
   }
 
+  salvagePick(id: UpgradeId): SimEvent[] {
+    const prompt = this.salvagePrompt();
+    if (prompt === null) {
+      return [];
+    }
+    return id === prompt.incoming ? this.salvageNew() : this.salvageReplace(id);
+  }
+
   salvageOwned(id: UpgradeId): SimEvent[] {
     this.events = [];
     if (!this.canSalvageNow() || !canSalvage(this.runUpgrades.owned, id)) {
