@@ -74,10 +74,12 @@ describe("layoutTail", () => {
     expect(beads.every((b) => b.y === 100)).toBe(true);
   });
 
-  it("puts a bead on the anchor instead of inside a wall", () => {
+  it("pulls a wall-blocked bead back along the trail instead of leaving it in the wall", () => {
     const beads = layoutTail(2, origin, LAYOUT, (x) => x < 80);
     expect(beads[0]!.x).toBe(86);
-    expect(beads[1]).toMatchObject({ x: 100, y: 100 });
+    expect(beads[1]!.x).toBeGreaterThanOrEqual(80);
+    expect(beads[1]!.x).toBeLessThan(100);
+    expect(beads[1]!.y).toBe(100);
   });
 });
 
@@ -97,6 +99,62 @@ describe("stepTail", () => {
     const settled = settle(turned, 3);
     expect(settled[2]!.y).toBeCloseTo(100 - 4 - 30, 0);
     expect(settled[2]!.x).toBeCloseTo(100, 0);
+  });
+
+  it("slides through the anchor on reverse instead of teleporting to the new hook", () => {
+    let beads = settle(origin, 3);
+    const before = beads.map((b) => ({ x: b.x, y: b.y }));
+    const reversed: TailAnchor = { x: 100, y: 100, heading: Math.PI };
+    beads = stepTail(beads, reversed, LAYOUT, env({ motion: 1 }));
+    // Soft stretch correction caps the hop; spring can add a little, but never a hook teleport.
+    const maxHop = LAYOUT.linkPx * 0.6;
+    for (let i = 0; i < beads.length; i++) {
+      expect(Math.hypot(beads[i]!.x - before[i]!.x, beads[i]!.y - before[i]!.y)).toBeLessThan(
+        maxHop,
+      );
+    }
+    expect(beads[0]!.x).toBeGreaterThan(before[0]!.x);
+    expect(beads[0]!.x).toBeLessThan(100);
+    let x = 100;
+    for (let i = 0; i < 40; i++) {
+      x -= 2;
+      beads = stepTail(
+        beads,
+        { x, y: 100, heading: Math.PI },
+        LAYOUT,
+        env({ nowMs: i * 16, motion: 1 }),
+      );
+    }
+    expect(beads[0]!.x).toBeGreaterThan(x);
+  });
+
+  it("does not teleport beads onto the anchor when a reverse stretch is blocked by walls", () => {
+    const corridor = (_x: number, y: number): boolean => !(y >= 90 && y <= 110);
+    const inCorridor = (bead: TailBead): boolean => {
+      const r = LAYOUT.radiusPx;
+      return (
+        !corridor(bead.x, bead.y) &&
+        !corridor(bead.x + r, bead.y) &&
+        !corridor(bead.x - r, bead.y) &&
+        !corridor(bead.x, bead.y + r) &&
+        !corridor(bead.x, bead.y - r)
+      );
+    };
+    let beads = settle(origin, 3);
+    for (let i = 0; i < 20; i++) {
+      beads = stepTail(beads, origin, LAYOUT, env({ blocked: corridor }));
+    }
+    const reversed: TailAnchor = { x: 100, y: 100, heading: Math.PI };
+    const before = beads.map((b) => ({ x: b.x, y: b.y }));
+    beads = stepTail(beads, reversed, LAYOUT, env({ blocked: corridor, motion: 1 }));
+    const maxHop = LAYOUT.linkPx * 0.6;
+    for (let i = 0; i < beads.length; i++) {
+      expect(Math.hypot(beads[i]!.x - before[i]!.x, beads[i]!.y - before[i]!.y)).toBeLessThan(
+        maxHop,
+      );
+      expect(Math.hypot(beads[i]!.x - 100, beads[i]!.y - 100)).toBeGreaterThan(LAYOUT.radiusPx);
+      expect(inCorridor(beads[i]!)).toBe(true);
+    }
   });
 
   it("never stretches a link past the cap while dragged", () => {
