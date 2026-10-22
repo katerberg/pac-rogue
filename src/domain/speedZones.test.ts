@@ -99,14 +99,15 @@ describe("speedZoneEffect", () => {
 
 describe("speedZoneParticles", () => {
   it("drifts particles toward the fast end without a fixed cadence", () => {
-    const first = speedZoneParticles(lane, 0);
-    const later = speedZoneParticles(lane, 50);
+    const speeds = { entryTilesPerSec: 0.5, exitTilesPerSec: 1 };
+    const first = speedZoneParticles(lane, 0, speeds);
+    const later = speedZoneParticles(lane, 50, speeds);
     expect(first).toHaveLength(lane.length * 2);
     expect(later.every((p, i) => p.col >= first[i]!.col || p.alpha < 0.05)).toBe(true);
     expect(new Set(first.map((p) => p.col.toFixed(3))).size).toBeGreaterThan(lane.length);
     const left = { ...lane, fastDir: "left" as const };
-    const a = speedZoneParticles(left, 0);
-    const b = speedZoneParticles(left, 50);
+    const a = speedZoneParticles(left, 0, speeds);
+    const b = speedZoneParticles(left, 50, speeds);
     expect(b.every((p, i) => p.col <= a[i]!.col || p.alpha < 0.05)).toBe(true);
   });
 
