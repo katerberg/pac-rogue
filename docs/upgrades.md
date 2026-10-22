@@ -33,7 +33,7 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 
 ## Low-power upgrades
 
-A fallback family of neutral, common, passive upgrades (Speed, Tunnel Speed, Tunnel Vortex, Turning Speed, and per-ghost Slowdown, House Delay and Traction), defined in [`src/domain/lowPowerUpgrades.ts`](../src/domain/lowPowerUpgrades.ts). They differ from every other upgrade in three ways:
+A fallback family of neutral, common, passive upgrades (Speed, Tunnel Speed, Tunnel Vortex, Traction, and per-ghost Slowdown, House Delay and Traction), defined in [`src/domain/lowPowerUpgrades.ts`](../src/domain/lowPowerUpgrades.ts). They differ from every other upgrade in three ways:
 
 - **Repeatable and additive.** `owned` holds one entry per copy, up to `LOW_POWER_MAX_COPIES`, and each copy adds its flat step. They never leave the offer or store pool until the cap, and are drawn at `LOW_POWER_OFFER_WEIGHT` (a quarter) of a normal upgrade. The HUD and pause list group copies into one icon.
 - **Never enhanced.** No `Plus` form, never an enhance target, not carried by a swap or a Specialist, and never rolled enhanced on a level-clear card. They are not trade-ins at a store swap.
