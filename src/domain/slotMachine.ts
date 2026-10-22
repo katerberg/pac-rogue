@@ -1,3 +1,4 @@
+import type { GhostKindId } from "./ghostKind";
 import {
   eligibleUpgrades,
   getUpgradeDef,
@@ -13,7 +14,7 @@ import {
   type UpgradeSchool,
 } from "./upgrades";
 
-export type SlotSchool = Exclude<UpgradeSchool, "neutral">;
+export type SlotSchool = UpgradeSchool;
 export type SlotSymbol = "quarter" | "life" | SlotSchool;
 export type SlotOutcome = { quarters: number; upgrades: number; lives: number };
 export type SlotGrid = readonly (readonly SlotSymbol[])[];
@@ -29,9 +30,7 @@ type Cell = readonly [reel: number, row: number];
 
 export const SLOT_REELS = 3;
 export const SLOT_ROWS = 3;
-export const SLOT_SCHOOLS = UPGRADE_SCHOOL_ORDER.filter(
-  (school): school is SlotSchool => school !== "neutral",
-);
+export const SLOT_SCHOOLS: readonly SlotSchool[] = UPGRADE_SCHOOL_ORDER;
 export const SLOT_LINES: readonly (readonly Cell[])[] = [
   [
     [0, 0],
@@ -259,7 +258,10 @@ export function composeSlotGrid(
     }
   }
   return Array.from({ length: SLOT_REELS }, (_, reel) =>
-    Array.from({ length: SLOT_ROWS }, (_, row) => SLOT_SCHOOLS[(reel * SLOT_ROWS + row) % 6]!),
+    Array.from(
+      { length: SLOT_ROWS },
+      (_, row) => SLOT_SCHOOLS[(reel * SLOT_ROWS + row) % SLOT_SCHOOLS.length]!,
+    ),
   );
 }
 
@@ -299,8 +301,11 @@ export function pickSlotUpgrade(
   owned: readonly UpgradeId[],
   school: SlotSchool,
   rng: () => number,
+  roster?: readonly GhostKindId[],
 ): BaseUpgradeId | null {
-  const pool = eligibleUpgrades(owned).filter((id) => getUpgradeDef(id).school === school);
+  const pool = eligibleUpgrades(owned, { roster }).filter(
+    (id) => getUpgradeDef(id).school === school,
+  );
   return pool.length === 0
     ? null
     : takeWeightedUpgrade(pool, rng, (id) =>

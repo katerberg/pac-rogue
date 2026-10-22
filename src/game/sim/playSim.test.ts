@@ -9324,6 +9324,30 @@ describe("PlaySim salvage", () => {
     expect(trinketIds(sim)).toHaveLength(1);
   });
 
+  it("grants a neutral slot win's Trinket at 6 without a prompt", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: SIX });
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage.open).toBe(false);
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toHaveLength(1);
+  });
+
+  it("prompts for a neutral Overcharge win at 6, and pays a Quarter once the pool is empty", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      quarters: 0,
+      enableUpgrades: [...SIX, ...MAXED_TRINKETS],
+    });
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage).toMatchObject({ open: true, incoming: "passiveOvercharge" });
+    sim.salvageReplace("passiveGhostSlow");
+    expect(sim.snapshot().upgrades).toContain("passiveOvercharge");
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage.open).toBe(false);
+    expect(sim.snapshot().quarters).toBe(2);
+  });
+
   it("holds slot wins at 6 until the final grid is dismissed, one prompt per upgrade", () => {
     const sim = startSim(
       {

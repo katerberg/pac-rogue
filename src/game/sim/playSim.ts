@@ -3400,6 +3400,7 @@ export class PlaySim {
             [...this.runUpgrades.owned, ...this.salvageQueue.map((entry) => entry.incoming)],
             win.symbol,
             this.random.stream("slots"),
+            this.rosterKinds(),
           );
     if (id === null) {
       this.quarters += 1;
