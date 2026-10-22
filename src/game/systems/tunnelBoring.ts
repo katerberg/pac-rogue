@@ -43,13 +43,13 @@ export function tryTunnelBoring(world: World, charges: number): TunnelBoringAtte
     return null;
   }
   const cells = tunnelBoringCells(cell.col, cell.row, step.dx, step.dy);
-  if (cells === null || cells.length === 0) {
+  if (cells === null) {
     return null;
   }
   return {
     cells,
     direction: intent,
-    charges: Math.max(0, charges - 1),
+    charges: charges - 1,
   };
 }
 

@@ -83,10 +83,10 @@ function punchSolidRun(
   return { cells, hitCorridor: false, exitedMap: true };
 }
 
-function dedupeCells(cells: readonly MazeTile[]): MazeTile[] {
+export function mergeBoredCells(prior: readonly MazeTile[], next: readonly MazeTile[]): MazeTile[] {
   const seen = new Set<string>();
   const out: MazeTile[] = [];
-  for (const cell of cells) {
+  for (const cell of [...prior, ...next]) {
     const key = `${cell.col},${cell.row}`;
     if (seen.has(key)) {
       continue;
@@ -95,10 +95,6 @@ function dedupeCells(cells: readonly MazeTile[]): MazeTile[] {
     out.push(cell);
   }
   return out;
-}
-
-export function mergeBoredCells(prior: readonly MazeTile[], next: readonly MazeTile[]): MazeTile[] {
-  return dedupeCells([...prior, ...next]);
 }
 
 /**
@@ -141,48 +137,13 @@ export function tunnelBoringCells(
     return null;
   }
 
-  let farStartCol: number;
-  let farStartRow: number;
-  let inwardDx: number;
-  let inwardDy: number;
-  if (dx > 0) {
-    farStartCol = 0;
-    farStartRow = edge.row;
-    inwardDx = 1;
-    inwardDy = 0;
-  } else if (dx < 0) {
-    farStartCol = layout.cols - 1;
-    farStartRow = edge.row;
-    inwardDx = -1;
-    inwardDy = 0;
-  } else if (dy > 0) {
-    farStartCol = edge.col;
-    farStartRow = 0;
-    inwardDx = 0;
-    inwardDy = 1;
-  } else {
-    farStartCol = edge.col;
-    farStartRow = layout.rows - 1;
-    inwardDx = 0;
-    inwardDy = -1;
-  }
-
-  const far = punchSolidRun(farStartCol, farStartRow, inwardDx, inwardDy, layout);
+  const farStartCol = dx !== 0 ? (dx > 0 ? 0 : layout.cols - 1) : edge.col;
+  const farStartRow = dy !== 0 ? (dy > 0 ? 0 : layout.rows - 1) : edge.row;
+  const far = punchSolidRun(farStartCol, farStartRow, dx, dy, layout);
   if (far === null) {
     return null;
   }
-  return dedupeCells([...near.cells, ...far.cells]);
-}
-
-export function tunnelBoringTarget(
-  col: number,
-  row: number,
-  dx: number,
-  dy: number,
-  layout: MazeLayout = getActiveLayout(),
-): MazeTile | null {
-  const cells = tunnelBoringCells(col, row, dx, dy, layout);
-  return cells?.[0] ?? null;
+  return mergeBoredCells(near.cells, far.cells);
 }
 
 export function applyTunnelBoringAscii(ascii: string, cells: readonly MazeTile[]): string {
@@ -226,8 +187,4 @@ export function openBoredCellsOnLayout(layout: MazeLayout, cells: readonly MazeT
     }
   }
   return layout;
-}
-
-export function tunnelBoringChargesForBoard(owned: boolean): number {
-  return owned ? TUNNEL_BORING_CHARGES_PER_LEVEL : 0;
 }

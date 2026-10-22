@@ -14,12 +14,10 @@ import {
   mergeBoredCells,
   openBoredCellsOnLayout,
   TUNNEL_BORING_CHARGES_PER_LEVEL,
-  tunnelBoringChargesForBoard,
   tunnelBoringCells,
-  tunnelBoringTarget,
 } from "./tunnelBoring";
 
-describe("tunnelBoringTarget", () => {
+describe("tunnelBoringCells", () => {
   beforeEach(() => {
     activateLayout("mazeSmall");
   });
@@ -38,15 +36,15 @@ describe("tunnelBoringTarget", () => {
       }
     }
     expect(found).not.toBeNull();
-    const target = tunnelBoringTarget(found!.col, found!.row, found!.dx, found!.dy, layout);
-    expect(target).toEqual({ col: found!.col + found!.dx, row: found!.row + found!.dy });
+    const cells = tunnelBoringCells(found!.col, found!.row, found!.dx, found!.dy, layout);
+    expect(cells?.[0]).toEqual({ col: found!.col + found!.dx, row: found!.row + found!.dy });
   });
 
   it("rejects already-open cells and zero steps", () => {
     const layout = getActiveLayout();
     const spawn = layout.playerSpawn;
-    expect(tunnelBoringTarget(spawn.col, spawn.row, 0, 0, layout)).toBeNull();
-    expect(tunnelBoringTarget(spawn.col, spawn.row, 1, 0, layout)).toBeNull();
+    expect(tunnelBoringCells(spawn.col, spawn.row, 0, 0, layout)).toBeNull();
+    expect(tunnelBoringCells(spawn.col, spawn.row, 1, 0, layout)).toBeNull();
   });
 
   it("rejects walls that neighbor the ghost house or door", () => {
@@ -81,7 +79,7 @@ describe("tunnelBoringTarget", () => {
       }
     }
     expect(found).not.toBeNull();
-    expect(tunnelBoringTarget(found!.col, found!.row, found!.dx, found!.dy, layout)).toBeNull();
+    expect(tunnelBoringCells(found!.col, found!.row, found!.dx, found!.dy, layout)).toBeNull();
   });
 
   it("allows edge walls outside the ghost house", () => {
@@ -89,23 +87,17 @@ describe("tunnelBoringTarget", () => {
     let found: { col: number; row: number } | null = null;
     for (let col = 1; col < layout.cols - 1 && found === null; col += 1) {
       if (isWalkable(col, 1, layout.playerSolids) && !isWalkable(col, 0, layout.playerSolids)) {
-        const target = tunnelBoringTarget(col, 1, 0, -1, layout);
-        if (target !== null) {
+        const cells = tunnelBoringCells(col, 1, 0, -1, layout);
+        if (cells !== null) {
           found = { col, row: 1 };
         }
       }
     }
     expect(found).not.toBeNull();
-    expect(tunnelBoringTarget(found!.col, found!.row, 0, -1, layout)).toEqual({
+    expect(tunnelBoringCells(found!.col, found!.row, 0, -1, layout)?.[0]).toEqual({
       col: found!.col,
       row: 0,
     });
-  });
-});
-
-describe("tunnelBoringCells", () => {
-  beforeEach(() => {
-    activateLayout("mazeSmall");
   });
 
   it("punches every solid cell until the far corridor", () => {
@@ -187,7 +179,7 @@ describe("applyTunnelBoringAscii / openBoredCellsOnLayout", () => {
     const layout = getActiveLayout();
     let from: { col: number; row: number } | null = null;
     for (let col = 1; col < layout.cols - 1; col += 1) {
-      if (layout.walls[0]?.[col] && tunnelBoringTarget(col, 1, 0, -1, layout) !== null) {
+      if (layout.walls[0]?.[col] && tunnelBoringCells(col, 1, 0, -1, layout) !== null) {
         from = { col, row: 1 };
         break;
       }
@@ -204,9 +196,7 @@ describe("applyTunnelBoringAscii / openBoredCellsOnLayout", () => {
 });
 
 describe("tunnel boring charges", () => {
-  it("refills to the per-level cap when owned", () => {
+  it("caps at one charge per level", () => {
     expect(TUNNEL_BORING_CHARGES_PER_LEVEL).toBe(1);
-    expect(tunnelBoringChargesForBoard(true)).toBe(1);
-    expect(tunnelBoringChargesForBoard(false)).toBe(0);
   });
 });

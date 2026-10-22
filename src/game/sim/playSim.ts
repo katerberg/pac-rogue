@@ -163,7 +163,6 @@ import {
   applyTunnelBoringAscii,
   mergeBoredCells,
   openBoredCellsOnLayout,
-  tunnelBoringChargesForBoard,
   TUNNEL_BORING_CHARGES_PER_LEVEL,
 } from "../../domain/tunnelBoring";
 import {
@@ -2749,7 +2748,6 @@ export class PlaySim {
       const bored = this.boredCellsForMap(layoutLabel);
       if (bored.length > 0) {
         applyBoredCellsToActiveLayout(bored);
-        openBoredCellsOnLayout(getActiveLayout(), bored);
       }
     } else if (selection.kind === "custom") {
       layoutLabel = this.activateRunAscii(selection.ascii, "custom");
@@ -2815,9 +2813,9 @@ export class PlaySim {
     this.resetCornucopiaFruit();
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
-    this.tunnelBoringCharges = tunnelBoringChargesForBoard(
-      hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring"),
-    );
+    this.tunnelBoringCharges = hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring")
+      ? TUNNEL_BORING_CHARGES_PER_LEVEL
+      : 0;
     this.tunnelDashAnim = null;
     this.powerPelletBreaks = [];
     this.resetHyperspeedMovement();
@@ -2937,10 +2935,11 @@ export class PlaySim {
   }
 
   private boredCellsForMap(mapKey: string): readonly MazeTile[] {
-    if (this.tunnelBored === null || this.tunnelBored.mapKey !== mapKey) {
-      if (this.tunnelBored !== null && this.tunnelBored.mapKey !== mapKey) {
-        this.tunnelBored = null;
-      }
+    if (this.tunnelBored === null) {
+      return [];
+    }
+    if (this.tunnelBored.mapKey !== mapKey) {
+      this.tunnelBored = null;
       return [];
     }
     return this.tunnelBored.cells;
