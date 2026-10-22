@@ -9634,6 +9634,14 @@ describe("Possession", () => {
     return killer;
   }
 
+  it("refuses to salvage anything while a possession defers the death", () => {
+    const sim = startPossession(["passivePossession", "powerPelletFreeze"]);
+    enterPossession(sim);
+    expect(sim.snapshot().salvage.canSalvage).toBe(false);
+    expect(sim.salvageOwned("passivePossession")).toEqual([]);
+    expect(sim.snapshot().possessing).toBe(true);
+  });
+
   it("hides the player and marks the possessed ghost for the renderer", () => {
     const sim = startPossession(["passivePossession"]);
     expect(sim.renderOptions().playerAlpha).toBeUndefined();

@@ -961,6 +961,7 @@ export class PlaySim {
     return (
       this.salvageQueue.length === 0 &&
       this.death === null &&
+      !possessionActive(this.runUpgrades) &&
       this.runEndElapsedMs === null &&
       this.bossStageTransition === null &&
       this.intermission === null &&

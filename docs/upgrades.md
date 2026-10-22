@@ -48,7 +48,7 @@ A run holds at most `MAX_RUN_UPGRADES` slot upgrades; Trinkets and a base/Plus p
 
 - A level-clear pick, store `U` purchase or slot win that would exceed the cap queues a prompt instead of granting (`needsSalvage`). The sim freezes on it; there is no dismiss. Everything happens in the left HUD panel: the new card joins as a 7th icon, a dotted red outline blinks with SLOTS FULL (`salvageAlertFrame`), then SALVAGE REQUIRED puts a selector on the new card. Arrows move it over all seven (`salvageSelectionStep`); Enter, Space, `T` or a click salvages the selected one at once, which keeps the other six. Several grants queue and open one at a time; slot wins wait until the final grid is dismissed.
 - **Salvage** revokes the upgrade, clears its live state (`clearStaleUpgradeTimers`), and grants a uniform random eligible Trinket from the `salvage` stream, or a Quarter when none is eligible. An Extra Life's life is kept.
-- On demand, `T` (or a click in the pause list) opens the same selector over the owned slots from the pause screen, the level-clear card and the slot final grid; Esc backs out. Refused during death, transitions and while a prompt is queued.
+- On demand, `T` (or a click in the pause list) opens the same selector over the owned slots from the pause screen, the level-clear card and the slot final grid; Esc backs out. Refused during death (including a Possession that defers it), transitions and while a prompt is queued.
 - Exempt: the level-1 starting upgrade and the debug flags never prompt. LEARN has no cap ([parity](./learn.md#parity)).
 - The Trinket lands in the pool with a short in-panel label (`trinketToastAlpha`). The run log records the loss and a `salvage` gain.
 
