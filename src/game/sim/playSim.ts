@@ -2855,7 +2855,12 @@ export class PlaySim {
     if (!hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring")) {
       return;
     }
-    const attempt = tryTunnelBoring(this.world, this.tunnelBoringCharges);
+    const attempt = tryTunnelBoring(
+      this.world,
+      this.tunnelBoringCharges,
+      this.prevKeys,
+      this.frameKeys,
+    );
     if (attempt === null) {
       return;
     }

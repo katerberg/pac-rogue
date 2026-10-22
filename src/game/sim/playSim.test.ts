@@ -9216,6 +9216,27 @@ describe("Tunnel Boring", () => {
     return expected;
   }
 
+  it("needs a fresh press at rest: a held key never bores until released and re-pressed", () => {
+    const sim = start();
+    const spot = boreSpot();
+    const eid = playerEid(sim);
+    const rest = () => {
+      teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
+      Facing.direction[eid] = DIRECTION.none;
+      Velocity.x[eid] = 0;
+      Velocity.y[eid] = 0;
+    };
+    Facing.direction[eid] = DIRECTION.up;
+    runFrames(sim, 1, { keys: held(spot.dir) });
+    rest();
+    runFrames(sim, 5, { keys: held(spot.dir) });
+    expect(sim.snapshot().tunnelBoring.cells).toHaveLength(0);
+    runFrames(sim, 1, { keys: NO_KEYS_HELD });
+    rest();
+    runFrames(sim, 1, { keys: held(spot.dir) });
+    expect(sim.snapshot().tunnelBoring.cells.length).toBeGreaterThan(0);
+  });
+
   it("does nothing without the upgrade", () => {
     const sim = start([]);
     const spot = boreSpot();

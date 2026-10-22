@@ -520,6 +520,7 @@ export class LearnSim {
         ),
       );
     }
+    const prevKeys = this.prevKeys;
     this.prevKeys = keys;
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
@@ -605,7 +606,7 @@ export class LearnSim {
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
-    this.tryBoreTunnel();
+    this.tryBoreTunnel(prevKeys, keys);
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const playerSolids = this.playerSolids();
@@ -1165,11 +1166,11 @@ export class LearnSim {
     }
   }
 
-  private tryBoreTunnel(): void {
+  private tryBoreTunnel(prevKeys: HeldKeys, keys: HeldKeys): void {
     if (!hasUpgrade(this.learnUpgrades.owned, "passiveTunnelBoring")) {
       return;
     }
-    const attempt = tryTunnelBoring(this.world, this.tunnelBoringCharges);
+    const attempt = tryTunnelBoring(this.world, this.tunnelBoringCharges, prevKeys, keys);
     if (attempt === null) {
       return;
     }

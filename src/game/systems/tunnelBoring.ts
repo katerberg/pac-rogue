@@ -8,7 +8,7 @@ import {
 import { Facing } from "../components/Facing";
 import { DIRECTION, Input, type Direction } from "../components/Input";
 import { Player } from "../components/Player";
-import { CARDINAL_STEP } from "./heldKeys";
+import { CARDINAL_STEP, freshKeys, KEY_FOR_DIRECTION, type HeldKeys } from "./heldKeys";
 import { playerCell } from "./playerCell";
 import { playerFacing } from "./playerDirection";
 
@@ -18,7 +18,13 @@ export type TunnelBoringAttempt = {
   charges: number;
 };
 
-export function tryTunnelBoring(world: World, charges: number): TunnelBoringAttempt | null {
+/** Bores only on a fresh key press into the wall while at rest, so held or buffered input never fires it. */
+export function tryTunnelBoring(
+  world: World,
+  charges: number,
+  prevKeys: HeldKeys,
+  keys: HeldKeys,
+): TunnelBoringAttempt | null {
   if (charges <= 0) {
     return null;
   }
@@ -32,6 +38,10 @@ export function tryTunnelBoring(world: World, charges: number): TunnelBoringAtte
   }
   const intent = (Input.direction[eid] ?? DIRECTION.none) as Direction;
   if (intent === DIRECTION.none) {
+    return null;
+  }
+  const key = KEY_FOR_DIRECTION[intent];
+  if (key === undefined || !freshKeys(prevKeys, keys).includes(key)) {
     return null;
   }
   const step = CARDINAL_STEP[intent];
