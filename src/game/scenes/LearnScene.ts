@@ -65,8 +65,8 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import {
-  LOW_POWER_MAX_COPIES,
   isLowPowerId,
+  lowPowerCopyControls,
   type LowPowerUpgradeId,
 } from "../../domain/lowPowerUpgrades";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
@@ -696,8 +696,7 @@ export class LearnScene extends Phaser.Scene {
       return;
     }
     const copies = this.sim.upgradeCopies(row.id as LowPowerUpgradeId);
-    const canDown = copies > 1;
-    const canUp = copies < LOW_POWER_MAX_COPIES;
+    const { down: canDown, up: canUp } = lowPowerCopyControls(copies);
     control.text.setText(String(Math.max(1, copies)));
     placePixelText(
       control.text,

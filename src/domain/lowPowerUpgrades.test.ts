@@ -13,6 +13,7 @@ import {
   LOW_POWER_SPEED_ADD,
   LOW_POWER_TUNNEL_SPEED_ADD,
   LOW_POWER_VORTEX_CUT,
+  lowPowerCopyControls,
   lowPowerGhostSpeedMul,
   lowPowerHouseDelayMs,
   lowPowerPlayerSpeedMul,
@@ -74,6 +75,14 @@ describe("low-power offer weight", () => {
     expect(rareWeightForPool(["fruitPowerPellet", "lowSpeed"], 0.1)).toBeLessThan(
       rareWeightForPool(["fruitPowerPellet", "passiveMole"], 0.1),
     );
+  });
+});
+
+describe("low-power copy controls", () => {
+  it("disables down at one copy and up at the cap", () => {
+    expect(lowPowerCopyControls(1)).toEqual({ down: false, up: true });
+    expect(lowPowerCopyControls(5)).toEqual({ down: true, up: true });
+    expect(lowPowerCopyControls(LOW_POWER_MAX_COPIES)).toEqual({ down: true, up: false });
   });
 });
 

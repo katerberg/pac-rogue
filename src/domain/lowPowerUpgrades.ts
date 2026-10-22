@@ -147,6 +147,10 @@ export function withLowPowerCopies(
   return [...owned.filter((other) => other !== id), ...Array.from({ length: clamped }, () => id)];
 }
 
+export function lowPowerCopyControls(copies: number): { down: boolean; up: boolean } {
+  return { down: copies > 1, up: copies < LOW_POWER_MAX_COPIES };
+}
+
 export function lowPowerEligible(
   owned: readonly UpgradeId[],
   id: LowPowerUpgradeId,
