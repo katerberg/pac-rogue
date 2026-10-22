@@ -1,14 +1,14 @@
 import { QUARTER_CHARGE } from "./pennies";
 import {
-  LOW_POWER_DEFS,
-  LOW_POWER_MAX_COPIES,
-  LOW_POWER_OFFER_WEIGHT,
-  LOW_POWER_IDS,
-  isLowPowerId,
-  lowPowerEligible,
-  type LowPowerEffect,
-  type LowPowerUpgradeId,
-} from "./lowPowerUpgrades";
+  TRINKET_DEFS,
+  TRINKET_MAX_COPIES,
+  TRINKET_OFFER_WEIGHT,
+  TRINKET_IDS,
+  isTrinketId,
+  trinketEligible,
+  type TrinketEffect,
+  type TrinketUpgradeId,
+} from "./trinkets";
 import type { GhostKindId } from "./ghostKind";
 import { ECHO_DELAY_MS, type EchoEffects, type PendingEcho, pickEchoBases } from "./echo";
 import type { LazyLooperRings } from "./lazyLooper";
@@ -84,7 +84,7 @@ export type CoreUpgradeId =
   | "passiveMole"
   | "passiveBananaShield";
 
-export type BaseUpgradeId = CoreUpgradeId | LowPowerUpgradeId;
+export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
 export type UpgradeId = BaseUpgradeId | EnhancedUpgradeId;
 
@@ -114,7 +114,7 @@ export const UPGRADE_SCHOOL_ORDER: readonly UpgradeSchool[] = [
 export type ReanimationMode = "fell" | "nearPowerPellet";
 
 export type UpgradeEffects = {
-  lowPower?: LowPowerEffect;
+  trinket?: TrinketEffect;
   playerSpeedMul?: number;
   emptyCellSpeedMul?: number;
   pelletCellSpeedMul?: number;
@@ -1089,7 +1089,7 @@ function toEnhancedDef(def: BaseUpgradeDef): UpgradeDef {
 
 export const UPGRADE_DEFS: readonly UpgradeDef[] = [
   ...BASE_UPGRADE_DEFS.map(toBaseDef),
-  ...LOW_POWER_DEFS,
+  ...TRINKET_DEFS,
   ...BASE_UPGRADE_DEFS.map(toEnhancedDef),
 ];
 
@@ -1116,7 +1116,7 @@ const UPGRADE_ALIAS_TO_BASE: ReadonlyMap<string, BaseUpgradeId> = (() => {
   const map = new Map<string, BaseUpgradeId>();
   const entries = [
     ...BASE_UPGRADE_DEFS.map((def) => [def.label, def.id] as const),
-    ...LOW_POWER_DEFS.map((def) => [def.label, def.baseId] as const),
+    ...TRINKET_DEFS.map((def) => [def.label, def.baseId] as const),
   ];
   for (const [label, id] of entries) {
     const key = upgradeLabelAlias(label).toLowerCase();
@@ -1129,7 +1129,7 @@ const UPGRADE_ALIAS_TO_BASE: ReadonlyMap<string, BaseUpgradeId> = (() => {
 
 export const ALL_UPGRADE_IDS: readonly BaseUpgradeId[] = [
   ...BASE_UPGRADE_DEFS.map((def) => def.id),
-  ...LOW_POWER_IDS,
+  ...TRINKET_IDS,
 ];
 
 export function baseIdOf(id: UpgradeId): BaseUpgradeId {
@@ -1184,7 +1184,7 @@ export function enhanceableUpgrades(owned: readonly UpgradeId[]): BaseUpgradeId[
   const specialistEnhanced = new Set<UpgradeId>(specialistEnhancedBases(owned));
   return owned.filter(
     (id): id is BaseUpgradeId =>
-      !isEnhancedId(id) && !isLowPowerId(id) && !specialistEnhanced.has(id),
+      !isEnhancedId(id) && !isTrinketId(id) && !specialistEnhanced.has(id),
   );
 }
 
@@ -1214,7 +1214,7 @@ export function effectiveOwned(owned: readonly UpgradeId[]): readonly UpgradeId[
   return owned.map((id) => {
     const def = getUpgradeDef(id);
     const threshold = thresholds.get(def.school);
-    if (def.isEnhanced || isSpecialist(id) || isLowPowerId(id) || threshold === undefined) {
+    if (def.isEnhanced || isSpecialist(id) || isTrinketId(id) || threshold === undefined) {
       return id;
     }
     return schoolCount(owned, def.school) >= threshold ? enhancedIdOf(def.baseId) : id;
@@ -1227,7 +1227,7 @@ export function specialistEnhancedBases(owned: readonly UpgradeId[]): BaseUpgrad
 }
 
 export function carryEnhancement(outgoingId: UpgradeId, incomingBaseId: BaseUpgradeId): UpgradeId {
-  return isEnhancedId(outgoingId) && !isLowPowerId(incomingBaseId)
+  return isEnhancedId(outgoingId) && !isTrinketId(incomingBaseId)
     ? enhancedIdOf(incomingBaseId)
     : incomingBaseId;
 }
@@ -1433,8 +1433,8 @@ export function eligibleUpgrades(
   const shieldsOwned = providesShields(owned);
   const clearLevelIndex = options?.clearLevelIndex;
   return ALL_UPGRADE_IDS.filter((id) => {
-    if (isLowPowerId(id)) {
-      return lowPowerEligible(owned, id, options?.roster);
+    if (isTrinketId(id)) {
+      return trinketEligible(owned, id, options?.roster);
     }
     const def = getUpgradeDef(id);
     const needsShields = def.shieldBreak === true || def.reactiveArmor === true;
@@ -1476,7 +1476,7 @@ export function rareWeightForPool(pool: readonly BaseUpgradeId[], rareMass: numb
     if (isRare(id)) {
       rares += 1;
     } else {
-      commons += isLowPowerId(id) ? LOW_POWER_OFFER_WEIGHT : 1;
+      commons += isTrinketId(id) ? TRINKET_OFFER_WEIGHT : 1;
     }
   }
   if (rares === 0) {
@@ -1488,8 +1488,8 @@ export function rareWeightForPool(pool: readonly BaseUpgradeId[], rareMass: numb
   return (rareMass * commons) / (rares * (1 - rareMass));
 }
 
-function lowPowerOfferWeight(id: BaseUpgradeId): number {
-  return isLowPowerId(id) ? LOW_POWER_OFFER_WEIGHT : 1;
+function trinketOfferWeight(id: BaseUpgradeId): number {
+  return isTrinketId(id) ? TRINKET_OFFER_WEIGHT : 1;
 }
 
 export function upgradeOfferWeight(
@@ -1503,12 +1503,12 @@ export function upgradeOfferWeight(
     school === "neutral" || points === 0
       ? 1
       : 1 + (isRare(id) ? SCHOOL_AFFINITY_RARE_RATE : SCHOOL_AFFINITY_COMMON_RATE) * points;
-  return schoolMult * (isRare(id) ? rareBaseWeight : lowPowerOfferWeight(id));
+  return schoolMult * (isRare(id) ? rareBaseWeight : trinketOfferWeight(id));
 }
 
 export function storeUpgradeWeight(pool: readonly BaseUpgradeId[]): (id: BaseUpgradeId) => number {
   return (id) =>
-    isRare(id) ? rareWeightForPool(pool, STORE_RARE_OFFER_MASS) : lowPowerOfferWeight(id);
+    isRare(id) ? rareWeightForPool(pool, STORE_RARE_OFFER_MASS) : trinketOfferWeight(id);
 }
 
 export function takeWeightedUpgrade(
@@ -1575,7 +1575,7 @@ export function pickUpgradeChoiceOffer(
   shuffleInPlace(upgrades, rng);
   const enhanced =
     enhancedChance > 0
-      ? upgrades.filter((id) => !isLowPowerId(id)).filter(() => rng() < enhancedChance)
+      ? upgrades.filter((id) => !isTrinketId(id)).filter(() => rng() < enhancedChance)
       : [];
   return { upgrades, enhanced };
 }
@@ -1631,8 +1631,8 @@ export function confirmUpgradeChoice(
 }
 
 export function grantUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
-  if (isLowPowerId(id)) {
-    return state.owned.filter((owner) => owner === id).length >= LOW_POWER_MAX_COPIES
+  if (isTrinketId(id)) {
+    return state.owned.filter((owner) => owner === id).length >= TRINKET_MAX_COPIES
       ? state
       : { ...state, owned: [...state.owned, id] };
   }

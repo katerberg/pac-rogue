@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
-import { LOW_POWER_IDS, LOW_POWER_MAX_COPIES, isLowPowerId } from "./lowPowerUpgrades";
+import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId } from "./trinkets";
 import {
   eatFrightenedGhost,
   frightenedGhostEids,
@@ -265,12 +265,12 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveBananaShield",
 ];
 
-const MAXED_LOW: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
-  Array.from({ length: LOW_POWER_MAX_COPIES }, () => id),
+const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
+  Array.from({ length: TRINKET_MAX_COPIES }, () => id),
 );
 const FULL_OWNED: UpgradeId[] = [...ALL_IDS, ...MAXED_LOW];
 const withoutLow = (ids: readonly BaseUpgradeId[]): BaseUpgradeId[] =>
-  ids.filter((id) => !isLowPowerId(id));
+  ids.filter((id) => !isTrinketId(id));
 
 const STUB_IDS: BaseUpgradeId[] = [
   "fruitPowerPellet",

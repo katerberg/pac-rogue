@@ -97,16 +97,16 @@ import {
   type UpgradeId,
 } from "../../domain/upgrades";
 import {
-  LOW_POWER_IDS,
-  LOW_POWER_MAX_COPIES,
-  LOW_POWER_SLOWDOWN_CUT,
-  LOW_POWER_SPEED_ADD,
-  LOW_POWER_TUNNEL_SPEED_ADD,
-  LOW_POWER_VORTEX_CUT,
-  LOW_POWER_HOUSE_DELAY_MS,
-  LOW_POWER_TRACTION_CUT,
-  isLowPowerId,
-} from "../../domain/lowPowerUpgrades";
+  TRINKET_IDS,
+  TRINKET_MAX_COPIES,
+  TRINKET_SLOWDOWN_CUT,
+  TRINKET_SPEED_ADD,
+  TRINKET_TUNNEL_SPEED_ADD,
+  TRINKET_VORTEX_CUT,
+  TRINKET_HOUSE_DELAY_MS,
+  TRINKET_TRACTION_CUT,
+  isTrinketId,
+} from "../../domain/trinkets";
 import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
 import { schoolArtTextureKey } from "../../domain/schoolArt";
 import { upgradeArtTextureKey } from "../../domain/upgradeArt";
@@ -140,8 +140,8 @@ import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
-const MAXED_LOW_POWER: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
-  Array.from({ length: LOW_POWER_MAX_COPIES }, () => id),
+const MAXED_TRINKETS: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
+  Array.from({ length: TRINKET_MAX_COPIES }, () => id),
 );
 
 const ONE_QUARTER_SLOT = { quarters: 1, upgrades: 0, lives: 0 };
@@ -723,7 +723,7 @@ describe("PlaySim", () => {
     const sim = startSim({
       jumpToUpgrade: true,
       level: 4,
-      enableUpgrades: [...ALL_UPGRADE_IDS, ...MAXED_LOW_POWER],
+      enableUpgrades: [...ALL_UPGRADE_IDS, ...MAXED_TRINKETS],
     });
     runFrames(sim, 90);
     expect(sim.offer()).toBeNull();
@@ -1802,8 +1802,8 @@ describe("PlaySim", () => {
 
     it("trades into a rare even when the shelf already shows one", () => {
       const owned = [
-        ...ALL_UPGRADE_IDS.filter((id) => !isRare(id) && !isLowPowerId(id)),
-        ...MAXED_LOW_POWER,
+        ...ALL_UPGRADE_IDS.filter((id) => !isRare(id) && !isTrinketId(id)),
+        ...MAXED_TRINKETS,
       ];
       const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: owned });
       const shelf = (
@@ -8833,7 +8833,7 @@ describe("Reactive Armor", () => {
   });
 });
 
-describe("PlaySim low-power upgrades", () => {
+describe("PlaySim Trinkets", () => {
   const copies = (id: UpgradeId, n: number): UpgradeId[] => Array.from({ length: n }, () => id);
   const speedOf = (eid: number): number => Speed.px[eid]!;
 
@@ -8865,21 +8865,21 @@ describe("PlaySim low-power upgrades", () => {
     return speedOf(eid);
   }
 
-  it.each(LOW_POWER_IDS)("%s stacks up to the cap and no further", (id) => {
+  it.each(TRINKET_IDS)("%s stacks up to the cap and no further", (id) => {
     const sim = startSim({
       level: 2,
-      enableUpgrades: copies(id, LOW_POWER_MAX_COPIES + 3),
+      enableUpgrades: copies(id, TRINKET_MAX_COPIES + 3),
     });
     expect(sim.snapshot().upgrades.filter((owned) => owned === id)).toHaveLength(
-      LOW_POWER_MAX_COPIES,
+      TRINKET_MAX_COPIES,
     );
   });
 
   it("Speed adds a flat share of Dot-Man's speed per copy", () => {
     const base = playerSpeedAt([], 13, 11);
-    expect(playerSpeedAt(["lowSpeed"], 13, 11) / base).toBeCloseTo(1 + LOW_POWER_SPEED_ADD);
+    expect(playerSpeedAt(["lowSpeed"], 13, 11) / base).toBeCloseTo(1 + TRINKET_SPEED_ADD);
     expect(playerSpeedAt(copies("lowSpeed", 3), 13, 11) / base).toBeCloseTo(
-      1 + 3 * LOW_POWER_SPEED_ADD,
+      1 + 3 * TRINKET_SPEED_ADD,
     );
   });
 
@@ -8887,7 +8887,7 @@ describe("PlaySim low-power upgrades", () => {
     const tunnelRow = horizontalTunnelRows()[0]!;
     const base = playerSpeedAt([], 0, tunnelRow);
     expect(playerSpeedAt(copies("lowTunnelSpeed", 2), 0, tunnelRow) / base).toBeCloseTo(
-      1 + 2 * LOW_POWER_TUNNEL_SPEED_ADD,
+      1 + 2 * TRINKET_TUNNEL_SPEED_ADD,
     );
     expect(playerSpeedAt(copies("lowTunnelSpeed", 2), 13, 11)).toBeCloseTo(
       playerSpeedAt([], 13, 11),
@@ -8899,7 +8899,7 @@ describe("PlaySim low-power upgrades", () => {
     const base = ghostSpeedOf([], GHOST_KIND.blinky, tunnel);
     expect(
       ghostSpeedOf(copies("lowTunnelVortex", 2), GHOST_KIND.blinky, tunnel) / base,
-    ).toBeCloseTo(1 - 2 * LOW_POWER_VORTEX_CUT);
+    ).toBeCloseTo(1 - 2 * TRINKET_VORTEX_CUT);
     expect(ghostSpeedOf(copies("lowTunnelVortex", 2), GHOST_KIND.blinky)).toBeCloseTo(
       ghostSpeedOf([], GHOST_KIND.blinky),
     );
@@ -8908,7 +8908,7 @@ describe("PlaySim low-power upgrades", () => {
   it("a ghost slowdown slows only the named ghost", () => {
     const base = ghostSpeedOf([], GHOST_KIND.blinky);
     expect(ghostSpeedOf(copies("lowSlowdownBlinky", 3), GHOST_KIND.blinky) / base).toBeCloseTo(
-      1 - 3 * LOW_POWER_SLOWDOWN_CUT,
+      1 - 3 * TRINKET_SLOWDOWN_CUT,
     );
     expect(ghostSpeedOf(copies("lowSlowdownBlinky", 3), GHOST_KIND.inky)).toBeCloseTo(
       ghostSpeedOf([], GHOST_KIND.inky),
@@ -8940,7 +8940,7 @@ describe("PlaySim low-power upgrades", () => {
       const before = speedOf(eid);
       Facing.direction[eid] = DIRECTION.up;
       runFrames(sim, 1);
-      return speedOf(eid) < before * (1 - LOW_POWER_TRACTION_CUT / 2);
+      return speedOf(eid) < before * (1 - TRINKET_TRACTION_CUT / 2);
     };
     expect(dragged(["lowTractionBlinky"], GHOST_KIND.blinky)).toBe(true);
     expect(dragged(["lowTractionBlinky"], GHOST_KIND.inky)).toBe(false);
@@ -8962,8 +8962,8 @@ describe("PlaySim low-power upgrades", () => {
     };
     const plain = releaseMs([]);
     const delayed = releaseMs(copies("lowHouseDelayBlinky", 2));
-    expect(delayed - plain).toBeGreaterThanOrEqual(2 * LOW_POWER_HOUSE_DELAY_MS - 2 * FRAME_MS);
-    expect(delayed - plain).toBeLessThanOrEqual(2 * LOW_POWER_HOUSE_DELAY_MS + 2 * FRAME_MS);
+    expect(delayed - plain).toBeGreaterThanOrEqual(2 * TRINKET_HOUSE_DELAY_MS - 2 * FRAME_MS);
+    expect(delayed - plain).toBeLessThanOrEqual(2 * TRINKET_HOUSE_DELAY_MS + 2 * FRAME_MS);
   });
 
   it("offers a ghost's upgrades only when the ghost is in the run's roster", () => {
@@ -8979,24 +8979,24 @@ describe("PlaySim low-power upgrades", () => {
         offered.add(id);
       }
     }
-    expect([...offered].some((id) => isLowPowerId(id))).toBe(true);
+    expect([...offered].some((id) => isTrinketId(id))).toBe(true);
     const ghostName = Object.entries(GHOST_KIND).find(([, v]) => v === missing)![0];
     const suffix = ghostName.charAt(0).toUpperCase() + ghostName.slice(1);
-    expect([...offered].filter((id) => id.endsWith(suffix) && isLowPowerId(id))).toEqual([]);
+    expect([...offered].filter((id) => id.endsWith(suffix) && isTrinketId(id))).toEqual([]);
   });
 
-  it("taking an owned low-power upgrade from an offer adds another copy", () => {
+  it("taking an owned Trinket from an offer adds another copy", () => {
     const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: ["lowSpeed"] });
     drainToOffer(sim);
     sim.chooseUpgrade({ kind: "upgrade", id: "lowSpeed" });
     expect(sim.snapshot().upgrades.filter((id) => id === "lowSpeed")).toHaveLength(2);
   });
 
-  it("the cap keeps any low-power upgrade out of the pool once it is reached", () => {
-    const sim = startSim({ level: 4, jumpToUpgrade: true, enableUpgrades: MAXED_LOW_POWER });
+  it("the cap keeps any Trinket out of the pool once it is reached", () => {
+    const sim = startSim({ level: 4, jumpToUpgrade: true, enableUpgrades: MAXED_TRINKETS });
     runFrames(sim, 90);
     const offered = sim.offer()?.upgrades ?? [];
-    expect(offered.filter((id) => isLowPowerId(id))).toEqual([]);
+    expect(offered.filter((id) => isTrinketId(id))).toEqual([]);
   });
 });
 

@@ -1,6 +1,6 @@
 import type { Cell } from "./pennies";
 import type { GhostKindId } from "./ghostKind";
-import { isLowPowerId } from "./lowPowerUpgrades";
+import { isTrinketId } from "./trinkets";
 import {
   baseIdOf,
   carryEnhancement,
@@ -203,7 +203,7 @@ export function createStoreState(
     }
   }
   const enhanced = new Set(enhanceTargets.values());
-  const tradeable = owned.filter((id) => !enhanced.has(baseIdOf(id)) && !isLowPowerId(id));
+  const tradeable = owned.filter((id) => !enhanced.has(baseIdOf(id)) && !isTrinketId(id));
   for (const cell of cells) {
     const { kind, col, row } = cell;
     if (cell === guaranteedCell) {

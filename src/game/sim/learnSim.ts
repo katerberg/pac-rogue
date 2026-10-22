@@ -276,15 +276,15 @@ import {
 } from "../../domain/ghostCornerWarp";
 import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import {
-  isLowPowerId,
-  lowPowerCopies,
-  lowPowerHouseDelayMs,
-  type LowPowerUpgradeId,
-  withLowPowerCopies,
-  lowPowerPlayerSpeedMul,
-  lowPowerPreTurnBonusPx,
-} from "../../domain/lowPowerUpgrades";
-import { GhostTractionState, playerInTunnel } from "../systems/lowPowerGhosts";
+  isTrinketId,
+  trinketCopies,
+  trinketHouseDelayMs,
+  type TrinketUpgradeId,
+  withTrinketCopies,
+  trinketPlayerSpeedMul,
+  trinketPreTurnBonusPx,
+} from "../../domain/trinkets";
+import { GhostTractionState, playerInTunnel } from "../systems/trinketGhosts";
 import type { SimEvent, SimRenderOptions } from "./simEvents";
 import { playerCell } from "../systems/playerCell";
 import { tagOptionalPellets } from "../systems/lazyLooper";
@@ -579,7 +579,7 @@ export class LearnSim {
                 ? speedBurstMultiplier(this.learnUpgrades.owned)
                 : 1) *
               this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
-              lowPowerPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world));
+              trinketPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world));
     applyPlayerSpeed(
       this.world,
       rawPlayerSpeedMul * titheSpeedMultiplier(this.learnUpgrades, this.learnUpgrades.owned),
@@ -610,7 +610,7 @@ export class LearnSim {
         this.world,
         frameDelta,
         playerSolids,
-        playerPreTurnPx() + lowPowerPreTurnBonusPx(this.learnUpgrades.owned),
+        playerPreTurnPx() + trinketPreTurnBonusPx(this.learnUpgrades.owned),
         ghostsBlockedFromTunnels(this.learnUpgrades.owned),
         null,
         this.learnUpgrades.droppedWall,
@@ -849,17 +849,17 @@ export class LearnSim {
     return this.takeEvents();
   }
 
-  upgradeCopies(id: LowPowerUpgradeId): number {
-    return lowPowerCopies(this.learnUpgrades.owned, id);
+  upgradeCopies(id: TrinketUpgradeId): number {
+    return trinketCopies(this.learnUpgrades.owned, id);
   }
 
-  adjustUpgradeCopies(id: LowPowerUpgradeId, delta: number): SimEvent[] {
+  adjustUpgradeCopies(id: TrinketUpgradeId, delta: number): SimEvent[] {
     this.events = [];
     const current = this.upgradeCopies(id);
     if (current > 0) {
       this.applyToggled({
         ...this.learnUpgrades,
-        owned: withLowPowerCopies(this.learnUpgrades.owned, id, current + delta),
+        owned: withTrinketCopies(this.learnUpgrades.owned, id, current + delta),
       });
     }
     return this.takeEvents();
@@ -868,7 +868,7 @@ export class LearnSim {
   toggleEnhanced(baseId: BaseUpgradeId): SimEvent[] {
     this.events = [];
     const current = ownedFormOf(this.learnUpgrades.owned, baseId);
-    if (current === null || isLowPowerId(baseId)) {
+    if (current === null || isTrinketId(baseId)) {
       return this.takeEvents();
     }
     const enhancing = !isEnhancedId(current);
@@ -919,7 +919,7 @@ export class LearnSim {
   private houseHoldWanted(owned: readonly UpgradeId[]): boolean {
     return (
       hasUpgrade(owned, "passiveGhostHouseDelay") ||
-      (this.selected !== null && lowPowerHouseDelayMs(owned, this.selected) > 0)
+      (this.selected !== null && trinketHouseDelayMs(owned, this.selected) > 0)
     );
   }
 

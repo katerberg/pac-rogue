@@ -521,12 +521,12 @@ import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { hunterFrightenLimit } from "../../domain/hunter";
 import {
-  isLowPowerId,
-  lowPowerKindReleaseAdds,
-  lowPowerPlayerSpeedMul,
-  lowPowerPreTurnBonusPx,
-} from "../../domain/lowPowerUpgrades";
-import { GhostTractionState, playerInTunnel } from "../systems/lowPowerGhosts";
+  isTrinketId,
+  trinketKindReleaseAdds,
+  trinketPlayerSpeedMul,
+  trinketPreTurnBonusPx,
+} from "../../domain/trinkets";
+import { GhostTractionState, playerInTunnel } from "../systems/trinketGhosts";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import {
@@ -851,7 +851,7 @@ export class PlaySim {
       return [];
     }
     this.pendingChoice = null;
-    const alreadyOwned = !isLowPowerId(chosen.id) && hasUpgrade(this.runUpgrades.owned, chosen.id);
+    const alreadyOwned = !isTrinketId(chosen.id) && hasUpgrade(this.runUpgrades.owned, chosen.id);
     const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
     this.recorder.picked(chosen.id);
     this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id, grantedId);
@@ -1437,7 +1437,7 @@ export class PlaySim {
                 : 1) *
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
-              lowPowerPlayerSpeedMul(this.effectiveUpgrades(), playerInTunnel(this.world)) *
+              trinketPlayerSpeedMul(this.effectiveUpgrades(), playerInTunnel(this.world)) *
               speedZoneMultiplier(this.zoneEffects().effect);
     const playerSpeedMul =
       rawPlayerSpeedMul * titheSpeedMultiplier(this.runUpgrades, this.effectiveUpgrades());
@@ -1475,7 +1475,7 @@ export class PlaySim {
         this.world,
         frameDelta,
         playerSolids,
-        playerPreTurnPx(this.currentTuning) + lowPowerPreTurnBonusPx(this.effectiveUpgrades()),
+        playerPreTurnPx(this.currentTuning) + trinketPreTurnBonusPx(this.effectiveUpgrades()),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
         this.runUpgrades.droppedWall,
@@ -1956,7 +1956,7 @@ export class PlaySim {
     return {
       delayAddMs: ghostHouseReleaseDelayAddMs(this.effectiveUpgrades()),
       reliefPelletAdd: ghostHouseReliefPelletAdd(this.effectiveUpgrades()),
-      kindAdds: lowPowerKindReleaseAdds(this.effectiveUpgrades()),
+      kindAdds: trinketKindReleaseAdds(this.effectiveUpgrades()),
       tuning: this.currentTuning,
       heldGhostEids: [...(haunted === null ? [] : [haunted]), ...this.runUpgrades.hunterHeldEids],
     };
