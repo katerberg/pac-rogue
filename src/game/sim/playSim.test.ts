@@ -8853,6 +8853,18 @@ describe("collapsed tunnels", () => {
     expect(state?.arts.every((art) => art.pixels.length > 0 && art.motes.length > 0)).toBe(true);
   });
 
+  it("clears the rubble art off collapsed cells that tunnel boring opens", () => {
+    const sim = startSim({ level: 5, enableUpgrades: ["passiveTunnelBoring"] }, SEED);
+    const before = sim.renderOptions().collapse!;
+    const chain = sim.snapshot().collapse.chains[0]!;
+    sim["clearBoredRubble"](chain);
+    const after = sim.renderOptions().collapse!;
+    expect(after.key).not.toBe(before.key);
+    expect(after.arts[0]!.pixels.length).toBeLessThan(before.arts[0]!.pixels.length / 2);
+    expect(after.arts[1]!.pixels).toEqual(before.arts[1]!.pixels);
+    expect(after.arts.map((art) => art.fresh)).toEqual(before.arts.map((art) => art.fresh));
+  });
+
   it("is a level modifier that ?levelModifiers=0 turns off, and the boss board has none", () => {
     expect(chainsAt(7, { levelModifiers: false }).chains).toEqual([]);
     expect(startSim({ level: 7, levelModifiers: false }, SEED).renderOptions().collapse).toBeNull();
