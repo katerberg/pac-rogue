@@ -82,7 +82,9 @@ export type CoreUpgradeId =
   | "passiveReactiveArmor"
   | "powerPelletTithe"
   | "passiveMole"
-  | "passiveBananaShield";
+  | "passiveBananaShield"
+  | "passiveMartyr"
+  | "passivePossession";
 
 export type BaseUpgradeId = CoreUpgradeId | LowPowerUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -161,6 +163,9 @@ export type UpgradeEffects = {
   interestPerQuarters?: number;
   nearMissCharge?: number;
   hauntMs?: number;
+  martyrOnSave?: true;
+  possessionMs?: number;
+  possessionHauntMs?: number;
   streakEngineEvery?: number;
   streakEngineInvulnMs?: number;
   specialistThreshold?: number;
@@ -274,6 +279,8 @@ export const SCHOOL_AFFINITY_RARE_RATE = 0.3;
 export const UPGRADE_CHOICE_MAX_UPGRADE_OPTIONS = 2;
 export const FRUIT_FECUNDITY_MUL = 2;
 export const DEATHS_HARVEST_RADIUS_TILES = 6;
+export const POSSESSION_MS = 5000;
+export const POSSESSION_HAUNT_MS = 5000;
 export const REACTIVE_ARMOR_RADIUS_TILES = 4;
 export const DEATHS_BOUNTY_DECAY = 0.8;
 export const OVERCHARGE_MUL = 2;
@@ -1068,6 +1075,36 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       peelCap: BANANA_SHIELD_ENHANCED_CAP,
     },
   },
+  {
+    id: "passiveMartyr",
+    label: "Martyr",
+    school: "death",
+    description: "Dying fires every power-pellet effect you own.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    enhanced: {
+      enhanceNote: "Martyr also fires when Defy Death or Money Talks saves you.",
+      description:
+        "Dying — or a Defy Death / Money Talks save — fires every power-pellet effect you own.",
+      martyrOnSave: true,
+    },
+  },
+  {
+    id: "passivePossession",
+    label: "Possession",
+    school: "death",
+    description:
+      "Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    possessionMs: POSSESSION_MS,
+    enhanced: {
+      enhanceNote: "Possession haunts the ghost you steered for 5 seconds after you leave it.",
+      description:
+        "Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. That ghost is haunted for 5s after.",
+      possessionHauntMs: POSSESSION_HAUNT_MS,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1290,6 +1327,8 @@ export type RunUpgrades = {
   defyDeathRemainingMs: number;
   hauntRemainingMs: number;
   hauntedGhostEid: number | null;
+  possessionRemainingMs: number;
+  possessedGhostEid: number | null;
   shieldsBanked: number;
   peelsBanked: number;
   pendingEchoes: PendingEcho[];
@@ -1346,6 +1385,8 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
+    possessionRemainingMs: 0,
+    possessedGhostEid: null,
     shieldsBanked: 0,
     peelsBanked: 0,
     pendingEchoes: [],
@@ -1688,6 +1729,8 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     defyDeathRemainingMs: 0,
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
+    possessionRemainingMs: 0,
+    possessedGhostEid: null,
     pendingEchoes: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
@@ -1700,6 +1743,60 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
 
 export function armHaunt(state: RunUpgrades, ghostEid: number, durationMs: number): RunUpgrades {
   return { ...state, hauntRemainingMs: durationMs, hauntedGhostEid: ghostEid };
+}
+
+export function armPossession(
+  state: RunUpgrades,
+  ghostEid: number,
+  durationMs: number,
+  frightenedEids: readonly number[],
+): RunUpgrades {
+  return {
+    ...state,
+    possessionRemainingMs: durationMs,
+    possessedGhostEid: ghostEid,
+    frightenedRemainingMs: durationMs,
+    frightenedGhostEids: [...frightenedEids],
+    ghostsEatenThisFright: 0,
+  };
+}
+
+export function tickPossession(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.possessionRemainingMs <= 0) {
+    return state;
+  }
+  const remaining = Math.max(0, state.possessionRemainingMs - Math.max(0, deltaMs));
+  if (remaining > 0) {
+    return {
+      ...state,
+      possessionRemainingMs: remaining,
+      // Own the fright window for the possession duration (do not also tickFrightened).
+      frightenedRemainingMs: remaining,
+    };
+  }
+  return {
+    ...state,
+    possessionRemainingMs: 0,
+    possessedGhostEid: null,
+    ...NO_FRIGHT,
+  };
+}
+
+export function possessionActive(state: RunUpgrades): boolean {
+  return state.possessionRemainingMs > 0 && state.possessedGhostEid !== null;
+}
+
+export function possessedGhostEid(state: RunUpgrades): number | null {
+  return possessionActive(state) ? state.possessedGhostEid : null;
+}
+
+export function endPossession(state: RunUpgrades): RunUpgrades {
+  return {
+    ...state,
+    possessionRemainingMs: 0,
+    possessedGhostEid: null,
+    ...NO_FRIGHT,
+  };
 }
 
 export function tickHaunt(state: RunUpgrades, deltaMs: number): RunUpgrades {
@@ -2288,6 +2385,18 @@ export function reanimationMode(owned: readonly UpgradeId[]): ReanimationMode | 
 
 export function hauntDurationMs(owned: readonly UpgradeId[]): number | null {
   return ownedValue(owned, "hauntMs") ?? null;
+}
+
+export function possessionDurationMs(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "possessionMs") ?? null;
+}
+
+export function possessionHauntMs(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "possessionHauntMs") ?? null;
+}
+
+export function martyrFiresOnSave(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "martyrOnSave") === true;
 }
 
 export function echoEffects(owned: readonly UpgradeId[]): EchoEffects | null {

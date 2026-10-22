@@ -180,6 +180,7 @@ const SPUNKY_TEXTURE_KEY = "ghost-spunky";
 const WARDY_TEXTURE_KEY = "ghost-wardy";
 const FRIGHTENED_GHOST_TEXTURE_KEY = "ghost-frightened";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
+const GHOST_POSSESSED_COLOR = 0xffee00;
 export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -622,6 +623,7 @@ export type RenderOptions = {
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
   dimGhostEid?: number | null;
+  possessedGhostEid?: number | null;
   playerAlpha?: number;
   entityAlpha?: number;
   wallAlpha?: number;
@@ -1030,6 +1032,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const draw = (world: World, opts?: RenderOptions): void => {
     const frozenEid = opts?.frozenGhostEid ?? null;
     const dimGhostEid = opts?.dimGhostEid ?? null;
+    const possessedEid = opts?.possessedGhostEid ?? null;
     const entityAlpha = opts?.entityAlpha ?? 1;
     const playerAlphaOpt = opts?.playerAlpha;
     const playerAlpha = (playerAlphaOpt ?? 1) * entityAlpha;
@@ -1332,8 +1335,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           ? GHOST_FROZEN_TINT
           : null;
       const ghostAlpha = dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1;
+      const possessedLook = ghostTexture !== undefined && eid === possessedEid;
       const frightenedLook =
         ghostTexture !== undefined &&
+        !possessedLook &&
         (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse &&
         showsFrightenedLook(opts?.frightenedGhosts, eid, scene.time.now);
 
@@ -1376,7 +1381,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           go.setTexture(ghostKey);
         }
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
-          if (ghostTint === null) {
+          target.setTintMode(possessedLook ? Phaser.TintModes.FILL : Phaser.TintModes.MULTIPLY);
+          if (possessedLook) {
+            target.setTint(GHOST_POSSESSED_COLOR);
+          } else if (ghostTint === null) {
             target.clearTint();
           } else {
             target.setTint(ghostTint);
@@ -1422,7 +1430,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           0,
           crisp.size,
           skirt.phase,
-          multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+          possessedLook
+            ? GHOST_POSSESSED_COLOR
+            : multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
         );
         const hornsShown = id === BLINKY_DRAWABLE_ID && !frightenedLook && bodyAlpha > 0;
         const pupilsShown =
@@ -1464,7 +1474,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             crisp.size,
             turn.lean,
             look.dy,
-            multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+            possessedLook
+              ? GHOST_POSSESSED_COLOR
+              : multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
           );
         }
         skirt.pupils.setPosition(crisp.x, crisp.y);

@@ -298,10 +298,17 @@ import {
   fruitQuartersPerFruit,
   hauntDurationMs,
   armHaunt,
+  armPossession,
   tickHaunt,
+  tickPossession,
   tickWallDrop,
+  endPossession,
   hauntedGhost,
   hauntedGhostEid,
+  possessionActive,
+  possessedGhostEid,
+  possessionDurationMs,
+  possessionHauntMs,
   eatFrightenedGhost,
   frightenedGhostEids,
   frightenedGhosts,
@@ -411,7 +418,18 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossChains, chainCatch } from "../systems/bossChain";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
-import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
+import {
+  catchPlayer,
+  edibleGhostsTouchingEid,
+  edibleGhostsTouchingPlayer,
+  type CatchOptions,
+} from "../systems/catchPlayer";
+import { harvestPelletsByGhost } from "../systems/possessionHarvest";
+import {
+  lifeAfterDeathClear,
+  shouldFireMartyr,
+  shouldStartPossession,
+} from "../../domain/possession";
 import { stepNearMisses } from "../systems/nearMiss";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import { tickEchoes } from "../../domain/echo";
@@ -460,6 +478,7 @@ import {
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
+  applyHeldKeysToEid,
   isPerpendicularTurn,
   type HeldKeys,
   type TurnTap,
@@ -675,6 +694,9 @@ export class PlaySim {
   private death: DeathSequenceState | null = null;
   private fellAt: Point | null = null;
   private caughtByEid: number | null = null;
+  private possessionPendingGameOver = false;
+  private possessionLivesBefore = 0;
+  private possessionHauntAfterMs: number | null = null;
   private lastReactiveArmorSent = 0;
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
@@ -952,6 +974,8 @@ export class PlaySim {
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
+      possessedGhostEid: possessedGhostEid(this.runUpgrades),
+      ...(possessionActive(this.runUpgrades) ? { playerAlpha: 0 } : {}),
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
       fruitRemainingMs: this.flickerFruitMs(),
       wallPassActive: wallPassActive(this.runUpgrades),
@@ -1050,6 +1074,8 @@ export class PlaySim {
       deathsThisBoard: this.deathsThisBoard,
       lastReactiveArmorSent: this.lastReactiveArmorSent,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
+      possessedGhost: ghostName(this.world, possessedGhostEid(upgrades)),
+      possessing: possessionActive(upgrades),
       nearMissesPaid: this.nearMissesPaid,
       frightenedGhosts: [...frightenedGhostEids(upgrades)].map((eid) => ghostName(this.world, eid)),
       hunterHeld: upgrades.hunterHeldEids.map((eid) => ghostName(this.world, eid)),
@@ -1078,6 +1104,7 @@ export class PlaySim {
         defyDeathMs: upgrades.defyDeathRemainingMs,
         chaffMs: upgrades.chaff?.remainingMs ?? 0,
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
+        possessionMs: upgrades.possessionRemainingMs,
         wallDropMs:
           upgrades.droppedWall === null
             ? 0
@@ -1242,6 +1269,7 @@ export class PlaySim {
       }
       this.tickReviveSplash(delta);
       this.tickMoneyTalks(delta);
+      this.tickDeathEffects(delta);
       if (this.runEndElapsedMs !== null) {
         this.runEndElapsedMs += delta;
       }
@@ -1321,14 +1349,24 @@ export class PlaySim {
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const programming = this.runUpgrades.programmer !== null;
+    const possessing = possessionActive(this.runUpgrades);
+    const possessedEid = possessedGhostEid(this.runUpgrades);
     const turnTuningOpts =
-      !diagonalAllowed && !programming && hasUpgrade(this.effectiveUpgrades(), "passiveTurnTuning")
+      !diagonalAllowed &&
+      !programming &&
+      !possessing &&
+      hasUpgrade(this.effectiveUpgrades(), "passiveTurnTuning")
         ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
         : undefined;
     let turnTap: TurnTap | null = null;
     const warping = this.warpGlide !== null;
     const bouncing = this.shieldBounce.player !== null;
-    if (programming) {
+    if (possessing && possessedEid !== null) {
+      applyHeldKeysToEid(possessedEid, input.keys);
+      for (const eid of query(this.world, [Player, Input])) {
+        Input.direction[eid] = DIRECTION.none;
+      }
+    } else if (programming) {
       this.recordProgrammerPresses(input.keys);
     } else if (this.suppressInputUntilKeyRelease) {
       if (!warping && !anyKeyHeld(input.keys)) {
@@ -1404,7 +1442,16 @@ export class PlaySim {
     this.runUpgrades = tickHaunt(this.runUpgrades, delta);
     this.runUpgrades = tickWallDrop(this.runUpgrades, delta);
     this.tickChaff(delta);
-    this.runUpgrades = tickFrightened(this.runUpgrades, delta);
+    if (possessionActive(this.runUpgrades)) {
+      const possessionBefore = true;
+      this.runUpgrades = tickPossession(this.runUpgrades, delta);
+      if (possessionBefore && !possessionActive(this.runUpgrades)) {
+        this.finishPossession();
+        return;
+      }
+    } else {
+      this.runUpgrades = tickFrightened(this.runUpgrades, delta);
+    }
     const respawnTick = tickPowerPelletRespawns(this.pendingPowerPelletRespawns, delta);
     this.pendingPowerPelletRespawns = respawnTick.pending;
     for (const pos of respawnTick.ready) {
@@ -1424,7 +1471,7 @@ export class PlaySim {
         : levelSpeedMul * hyperspeedMultiplier(this.effectiveUpgrades());
     const programmerPhase = this.runUpgrades.programmer?.phase ?? null;
     const rawPlayerSpeedMul =
-      programmerPhase === "recording" || warping || bouncing
+      programmerPhase === "recording" || warping || bouncing || possessing
         ? 0
         : programmerPhase === "running"
           ? levelSpeedMul * HYPERSPEED_MUL
@@ -1515,16 +1562,29 @@ export class PlaySim {
     this.clock = tickRunClock(this.clock, hasInput, delta, this.currentTuning);
     this.emit({ type: "timer" });
 
-    const playerFrame = mergePlayerPelletFrames(this.hyperspeedPellets, this.collectBodyPellets());
+    const playerFrame = possessionActive(this.runUpgrades)
+      ? emptyPlayerPelletFrame()
+      : mergePlayerPelletFrames(this.hyperspeedPellets, this.collectBodyPellets());
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     const ghostFrame = ghostHarvestActive(this.runUpgrades)
       ? harvestPelletsByGhosts(this.world)
       : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
-    const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
-    const removedPelletEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
+    const possessed = possessedGhostEid(this.runUpgrades);
+    const possessionFrame =
+      possessed === null
+        ? { powerRemoved: 0, removedEids: [] as number[], removedPowerPositions: [] }
+        : harvestPelletsByGhost(this.world, possessed);
+    const powerRemoved =
+      playerFrame.powerRemoved + ghostFrame.powerRemoved + possessionFrame.powerRemoved;
+    const removedPelletEids = [
+      ...playerFrame.removedEids,
+      ...ghostFrame.removedEids,
+      ...possessionFrame.removedEids,
+    ];
     const removedPowerPositions = [
       ...playerFrame.removedPowerPositions,
       ...ghostFrame.removedPowerPositions,
+      ...possessionFrame.removedPowerPositions,
     ];
     this.nextPowerPelletBreakId = startPowerPelletBreaks(
       this.world,
@@ -1615,7 +1675,12 @@ export class PlaySim {
         this.pelletsForElroy(),
         this.currentTuning,
         this.ghostsBlockedFromTunnels(),
-        frightenedGhostEids(this.runUpgrades),
+        new Set([
+          ...frightenedGhostEids(this.runUpgrades),
+          ...(possessedGhostEid(this.runUpgrades) === null
+            ? []
+            : [possessedGhostEid(this.runUpgrades)!]),
+        ]),
         blockTunnelRow,
         this.runUpgrades.droppedWall,
         this.twinBody(),
@@ -1818,6 +1883,48 @@ export class PlaySim {
         this.elroySuppressed = true;
       }
       this.emit({ type: "lives", pulse: false });
+      const lifeLost = this.lives < livesBefore;
+      const owned = this.effectiveUpgrades();
+      if (
+        shouldFireMartyr(owned, {
+          infiniteLives: this.options.infiniteLives === true,
+          lifeLost,
+          saved,
+        })
+      ) {
+        this.recorder.activation("martyr");
+        const cleared = this.firePowerPelletEffects(1);
+        this.emitDraw();
+        if (cleared) {
+          this.lives = lifeAfterDeathClear(livesBefore);
+          this.emit({ type: "lives", pulse: true });
+          this.replayRecorder.death(this.world);
+          this.recorder.death({
+            col: deathCell?.col ?? -1,
+            row: deathCell?.row ?? -1,
+            ghost: ghostName(this.world, caughtBy),
+            bossGhost: caughtBy !== null && hasComponent(this.world, caughtBy, BossGhost),
+            lava: lavaKill,
+            countdown: this.clock.remaining,
+            pelletsLeft: this.pelletProgress.pelletsRemaining,
+            ghostMode: nameOf(GHOST_AI_MODE, this.previousEffectiveGhostMode),
+            elroyTier: elroyAtDeath,
+            ghostsOut,
+            livesAfter: this.lives,
+            defied,
+            moneyTalks: boughtFor !== null,
+            bountyPaid: false,
+            harvested: harvestedCount,
+          });
+          return;
+        }
+      }
+      const startPossession = shouldStartPossession(owned, {
+        infiniteLives: this.options.infiniteLives === true,
+        lifeLost,
+        lava: lavaKill,
+        caughtBy,
+      });
       const bountyPaid = !result.gameOver && this.payDeathsBounty();
       this.replayRecorder.death(this.world);
       this.recorder.death({
@@ -1837,6 +1944,10 @@ export class PlaySim {
         bountyPaid,
         harvested: harvestedCount,
       });
+      if (startPossession && caughtBy !== null) {
+        this.beginPossession(caughtBy, result.gameOver, livesBefore);
+        return;
+      }
       if (result.gameOver) {
         this.saveRun();
         this.recorder.finish("death");
@@ -1938,9 +2049,15 @@ export class PlaySim {
       skipGhostEids: new Set([
         ...glidingGhostEids(this.ghostCornerWarps),
         ...shieldBounceCatchSkips(this.shieldBounce),
+        ...(possessedGhostEid(this.runUpgrades) === null
+          ? []
+          : [possessedGhostEid(this.runUpgrades)!]),
       ]),
       edibleGhostEids: frightenedGhostEids(this.runUpgrades),
-      playerInvulnerable: this.options.godMode || playerIsInvulnerable(this.runUpgrades),
+      playerInvulnerable:
+        this.options.godMode ||
+        playerIsInvulnerable(this.runUpgrades) ||
+        possessionActive(this.runUpgrades),
       turnCatchGrace: this.turnCatchGraceMs > 0,
     };
   }
@@ -1965,10 +2082,14 @@ export class PlaySim {
 
   private eatFrightenedGhosts(): void {
     const gliding = glidingGhostEids(this.ghostCornerWarps);
-    const eaten = edibleGhostsTouchingPlayer(
-      this.world,
-      new Set([...frightenedGhostEids(this.runUpgrades)].filter((eid) => !gliding.has(eid))),
+    const edible = new Set(
+      [...frightenedGhostEids(this.runUpgrades)].filter((eid) => !gliding.has(eid)),
     );
+    const possessed = possessedGhostEid(this.runUpgrades);
+    const eaten =
+      possessed === null
+        ? edibleGhostsTouchingPlayer(this.world, edible)
+        : edibleGhostsTouchingEid(this.world, possessed, edible);
     for (const eid of eaten) {
       if (eid === frozenGhostEid(this.runUpgrades)) {
         this.runUpgrades = { ...this.runUpgrades, freezeRemainingMs: 0, frozenGhostEid: null };
@@ -2933,6 +3054,9 @@ export class PlaySim {
   }
 
   private triggerLevelClear(): void {
+    if (possessionActive(this.runUpgrades)) {
+      this.clearPossessionForLevelClear();
+    }
     if (this.bossState !== null && !isFinalBossStage(this.bossState)) {
       this.beginBossStageTransition();
       return;
@@ -3766,6 +3890,45 @@ export class PlaySim {
     });
   }
 
+  private beginPossession(ghostEid: number, pendingGameOver: boolean, livesBefore: number): void {
+    const duration = possessionDurationMs(this.effectiveUpgrades()) ?? 0;
+    const others = [...query(this.world, [Ghost, GhostPhase])].filter(
+      (eid) => eid !== ghostEid && GhostPhase.value[eid] !== GHOST_PHASE.inHouse,
+    );
+    this.runUpgrades = armPossession(this.runUpgrades, ghostEid, duration, others);
+    this.possessionPendingGameOver = pendingGameOver;
+    this.possessionLivesBefore = livesBefore;
+    this.possessionHauntAfterMs = possessionHauntMs(this.effectiveUpgrades());
+    this.recorder.activation("possession");
+    for (const eid of query(this.world, [Player, Velocity, Input])) {
+      Velocity.x[eid] = 0;
+      Velocity.y[eid] = 0;
+      Input.direction[eid] = DIRECTION.none;
+    }
+    this.emitDraw();
+  }
+
+  private finishPossession(): void {
+    const pendingGameOver = this.possessionPendingGameOver;
+    this.runUpgrades = endPossession(this.runUpgrades);
+    this.possessionPendingGameOver = false;
+    if (pendingGameOver) {
+      this.saveRun();
+      this.recorder.finish("death");
+      this.emitRunLog();
+    }
+    this.death = beginDeathSequence(pendingGameOver);
+  }
+
+  private clearPossessionForLevelClear(): void {
+    this.runUpgrades = endPossession(this.runUpgrades);
+    this.lives = lifeAfterDeathClear(this.possessionLivesBefore);
+    this.possessionPendingGameOver = false;
+    this.possessionHauntAfterMs = null;
+    this.possessionLivesBefore = 0;
+    this.emit({ type: "lives", pulse: true });
+  }
+
   private handleDeathEvent(event: DeathSequenceEvent): void {
     switch (event) {
       case "resetActors":
@@ -3795,6 +3958,17 @@ export class PlaySim {
         }
         this.emit({ type: "loopStart", id: "gameplayMusic" });
         break;
+    }
+  }
+
+  private tickDeathEffects(delta: number): void {
+    this.tickChaff(delta);
+    if (
+      this.ghostCornerWarps.length > 0 ||
+      this.warpGlide !== null ||
+      this.runUpgrades.chaff !== null
+    ) {
+      this.emitDraw();
     }
   }
 
@@ -4065,7 +4239,15 @@ export class PlaySim {
     }
 
     const save = this.reviveSplashPending;
-    const hauntMs = hauntDurationMs(this.effectiveUpgrades());
+    const hauntFromHaunting = hauntDurationMs(this.effectiveUpgrades());
+    const hauntFromPossession = this.possessionHauntAfterMs;
+    this.possessionHauntAfterMs = null;
+    const hauntMs =
+      hauntFromHaunting === null
+        ? hauntFromPossession
+        : hauntFromPossession === null
+          ? hauntFromHaunting
+          : Math.max(hauntFromHaunting, hauntFromPossession);
     let hauntEid = hauntMs !== null ? this.caughtByEid : null;
     if (this.bossState !== null && !save) {
       const caughtKind = hauntEid !== null ? (GhostKind.kind[hauntEid] as GhostKindId) : null;

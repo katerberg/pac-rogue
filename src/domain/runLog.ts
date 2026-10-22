@@ -38,7 +38,9 @@ export type ActivationKind =
   | "wallDrop"
   | "chaff"
   | "programmer"
-  | "mirror";
+  | "mirror"
+  | "martyr"
+  | "possession";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   | "fruit"

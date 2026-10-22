@@ -66,6 +66,8 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `powerPelletTithe` | Tithe | harvest | Power pellet: move 10% slower for 5 seconds, but pellets count double toward your streak. | Power pellet: move 10% slower for 8 seconds, but pellets count double toward your streak. |
 | `passiveMole` | Mole | harvest | Dig the pellet veins: +20% speed over pellets, 10% slower on cleared tiles. | Dig deeper: +30% speed over pellets, 10% slower on cleared tiles. |
 | `passiveBananaShield` | Banana Trail | protection | Power pellets trail a banana peel behind you. A ghost that hits it slips and bounces back. | Power pellets trail banana peels behind you. Store up to 3. Each ghost slip breaks one. |
+| `passiveMartyr` | Martyr (rare) | death | Dying fires every power-pellet effect you own. | Dying — or a Defy Death / Money Talks save — fires every power-pellet effect you own. |
+| `passivePossession` | Possession (rare) | death | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. That ghost is haunted for 5s after. |
 | `lowSpeed` | Speed | neutral | +3% Dot-Man speed. Stacks. |  |
 | `lowTunnelSpeed` | Tunnel Speed | neutral | +8% Dot-Man speed inside tunnels. Stacks. |  |
 | `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 8% slower inside tunnels. Stacks. |  |

@@ -263,6 +263,8 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletTithe",
   "passiveMole",
   "passiveBananaShield",
+  "passiveMartyr",
+  "passivePossession",
 ];
 
 const MAXED_LOW: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
@@ -567,6 +569,8 @@ describe("rare upgrades", () => {
     "passiveEcho",
     "powerPelletProgrammer",
     "powerPelletMirror",
+    "passiveMartyr",
+    "passivePossession",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
