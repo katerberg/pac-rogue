@@ -60,19 +60,19 @@ function perGhostDefs(): UpgradeDef[] {
     return [
       lowDef(
         `lowSlowdown${Name}`,
-        `${Name} Slowdown`,
+        `Slowdown: ${Name}`,
         `${Name} moves ${pct(LOW_POWER_SLOWDOWN_CUT)}% slower. Stacks.`,
         { kind: "slowdown", ghost },
       ),
       lowDef(
         `lowHouseDelay${Name}`,
-        `${Name} House Delay`,
+        `Delay: ${Name}`,
         `${Name} leaves the ghost house ${LOW_POWER_HOUSE_DELAY_MS / 1000}s (or ${LOW_POWER_HOUSE_PELLETS} pellets) later. Stacks.`,
         { kind: "houseDelay", ghost },
       ),
       lowDef(
         `lowTraction${Name}`,
-        `${Name} Traction`,
+        `Traction: ${Name}`,
         `${Name} loses ${pct(LOW_POWER_TRACTION_CUT)}% speed after each turn. Stacks.`,
         { kind: "traction", ghost },
       ),
