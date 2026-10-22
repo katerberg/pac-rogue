@@ -19,7 +19,6 @@ export const BORE_JUNK_SETTLE_MS = MAX_DELAY_MS + MIN_FLIGHT_MS + FLIGHT_SPREAD_
 
 export type BoreJunkChip = RubbleMote & { tone: RubbleTone };
 
-/** Debris one bored cell leaves on the floor; chips fly off the drilled face, then lie still. */
 export type BoreJunk = { chips: readonly BoreJunkChip[]; ageMs: number };
 
 export function boreJunk(

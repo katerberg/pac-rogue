@@ -113,7 +113,6 @@ function withJunk(
   };
 }
 
-/** Starts a bore at its first step; a bore still in flight finishes at once. */
 export function beginTunnelBore(
   bore: TunnelBore,
   attempt: TunnelBoringAttempt,
@@ -121,15 +120,13 @@ export function beginTunnelBore(
 ): BoreStep {
   const step = CARDINAL_STEP[attempt.direction] ?? { dx: 0, dy: 0 };
   const prior = bore.progress;
-  const finished =
-    prior === null ? [] : boreCellsOpened({ ...prior, opened: prior.steps.length }, prior.opened);
+  const finished = prior === null ? [] : prior.steps.slice(prior.opened).flat();
   const progress = startBore(attempt.cells, step.dx, step.dy);
   const flushed = prior === null ? bore : withJunk(bore, null, prior, finished, isRubble).bore;
   const started = withJunk(flushed, progress, step, boreCellsOpened(progress), isRubble);
   return { bore: started.bore, opened: [...finished, ...started.opened] };
 }
 
-/** Advances the bore front past Dot-Man (or on its timer) and ages the junk. */
 export function stepTunnelBore(
   world: World,
   bore: TunnelBore,
@@ -152,7 +149,6 @@ export function stepTunnelBore(
   );
 }
 
-/** Bored cells open on the board right now: everything except the steps the front has not reached. */
 export function openBoredCells(all: readonly MazeTile[], bore: TunnelBore): MazeTile[] {
   const progress = bore.progress;
   if (progress === null) {

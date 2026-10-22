@@ -239,7 +239,6 @@ export function openBoredCellsOnLayout(layout: MazeLayout, cells: readonly MazeT
 export const TUNNEL_BORING_SPEED_MUL = 0.75;
 export const TUNNEL_BORE_STEP_MS = 360;
 
-/** A bore in flight: steps open in order, ahead of Dot-Man or on a timer, whichever is first. */
 export type BoreProgress = {
   steps: readonly (readonly MazeTile[])[];
   opened: number;
@@ -252,7 +251,6 @@ function adjacent(a: MazeTile, b: MazeTile): boolean {
   return Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
 }
 
-/** Cells in bore order; a wrap jump joins the far edge to the near edge's step so no edge opens alone. */
 export function boreSteps(cells: readonly MazeTile[]): MazeTile[][] {
   const steps: MazeTile[][] = [];
   cells.forEach((cell, index) => {
