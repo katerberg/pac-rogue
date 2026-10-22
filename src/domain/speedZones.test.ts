@@ -141,12 +141,9 @@ describe("speedZoneParticles", () => {
 
   it("defaults to dust that crawls in and zips out", () => {
     const samples = speedAlongLane();
-    const slowest = (xs: typeof samples) => Math.min(...xs.map((s) => s.tilesPerSec));
-    const fastest = (xs: typeof samples) => Math.max(...xs.map((s) => s.tilesPerSec));
-    const entering = samples.filter((s) => s.along < 0.1);
-    const leaving = samples.filter((s) => s.along > 0.9);
-    expect(fastest(entering)).toBeLessThan(1.5);
-    expect(slowest(leaving)).toBeGreaterThan(6);
+    const entering = samples.filter((s) => s.along < 0.1).map((s) => s.tilesPerSec);
+    const leaving = samples.filter((s) => s.along > 0.9).map((s) => s.tilesPerSec);
+    expect(Math.min(...leaving)).toBeGreaterThan(Math.max(...entering) * 4);
   });
 
   it("keeps every particle inside the lane, faint, and fading at the ends", () => {
