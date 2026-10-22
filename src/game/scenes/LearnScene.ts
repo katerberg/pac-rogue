@@ -4,7 +4,8 @@ import { freshSeed, parseSeedParam } from "../../domain/runRandom";
 import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
 import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
-  hoverPreviewX,
+  LEARN_BACK_Y,
+  learnHoverPreviewCenter,
   splitSchoolColumns,
   type LearnColumn,
 } from "../../domain/learnUpgradeColumns";
@@ -86,6 +87,7 @@ import {
 import { wrapText } from "../../domain/wrapText";
 import {
   buildUpgradeCardVisual,
+  CHOICE_BUTTON_HEIGHT,
   SCHOOL_COLORS,
   MODAL_DEPTH,
   type UpgradeCardVisual,
@@ -108,7 +110,6 @@ const GHOST_NAME_Y = SLOT_Y - SLOT_SIZE / 2 - 8;
 const SLOT_STROKE = 4;
 const SLOT_STROKE_COLOR = 0x444444;
 const RARE_LABEL_COLOR = 0xffd700;
-const BACK_Y = 550;
 const OVERLAY_DEPTH = 5;
 const UPGRADE_BAR_DEPTH = OVERLAY_DEPTH + 1;
 const UPGRADE_UI_DEPTH = OVERLAY_DEPTH + 2;
@@ -132,8 +133,6 @@ const STATUS_GAP_Y = 10;
 const POPUP_RISE_PX = 28;
 const POPUP_MS = 1100;
 const HOVER_PREVIEW_DELAY_MS = 500;
-const HOVER_PREVIEW_Y_MIN = 90;
-const HOVER_PREVIEW_Y_MAX = 510;
 type GhostSlot = { kind: GhostKindId; frame: Phaser.GameObjects.Graphics; x: number };
 type UpgradeHeader = {
   column: LearnColumn;
@@ -264,7 +263,9 @@ export class LearnScene extends Phaser.Scene {
       leftExtent: number;
       rightExtent: number;
     };
+    hoverPreview: { x: number; y: number } | null;
   } {
+    const preview = this.hoverPreviewCard;
     return {
       scroll: {
         left: this.scrollOffset.left,
@@ -272,6 +273,7 @@ export class LearnScene extends Phaser.Scene {
         leftExtent: this.scrollExtent.left,
         rightExtent: this.scrollExtent.right,
       },
+      hoverPreview: preview === null ? null : { x: preview.root.x, y: preview.root.y },
     };
   }
 
@@ -307,6 +309,8 @@ export class LearnScene extends Phaser.Scene {
         pulseUpgradeMarks(this, this.upgradeMarks(), event.ids);
       } else if (event.type === "chaffBurst") {
         playChaffBurst(this, event);
+      } else if (event.type === "peelCrack") {
+        this.playRender.queuePeelCrack(event.x, event.y);
       } else if (event.type === "turnSparks") {
         playTurnSparks(this, event);
       } else if (event.type === "streakPop") {
@@ -503,9 +507,7 @@ export class LearnScene extends Phaser.Scene {
     const labelZone = this.add.zone(labelZoneLeft + labelZoneW / 2, y, labelZoneW, rowHitH);
     labelZone.setInteractive({ useHandCursor: true });
     labelZone.on("pointerdown", () => this.toggleUpgrade(def.id));
-    labelZone.on("pointerover", (pointer: Phaser.Input.Pointer) =>
-      this.scheduleUpgradePreview(def.id, column, pointer.worldY),
-    );
+    labelZone.on("pointerover", () => this.scheduleUpgradePreview(def.id));
     labelZone.on("pointerout", () => this.cancelUpgradePreview());
     const plusZone = this.add.zone(plusX, y, UPGRADE_PLUS_ZONE_WIDTH, rowHitH);
     plusZone.on("pointerdown", () => this.toggleEnhanced(def.baseId));
@@ -670,18 +672,18 @@ export class LearnScene extends Phaser.Scene {
     );
   }
 
-  private scheduleUpgradePreview(id: UpgradeId, column: LearnColumn, pointerY: number): void {
+  private scheduleUpgradePreview(id: UpgradeId): void {
     this.cancelUpgradePreview();
     this.hoverPreviewTimer = setTimeout(() => {
       this.hoverPreviewTimer = null;
-      this.showUpgradePreview(id, column, pointerY);
+      this.showUpgradePreview(id);
     }, HOVER_PREVIEW_DELAY_MS);
   }
 
-  private showUpgradePreview(id: UpgradeId, column: LearnColumn, pointerY: number): void {
+  private showUpgradePreview(id: UpgradeId): void {
     const def = getUpgradeDef(ownedFormOf(this.sim.ownedUpgrades, baseIdOf(id)) ?? id);
-    const y = Math.min(HOVER_PREVIEW_Y_MAX, Math.max(HOVER_PREVIEW_Y_MIN, pointerY));
-    const visual = buildUpgradeCardVisual(this, hoverPreviewX(column), y, {
+    const { x, y } = learnHoverPreviewCenter(CHOICE_BUTTON_HEIGHT);
+    const visual = buildUpgradeCardVisual(this, x, y, {
       label: def.label,
       description: def.description,
       school: def.school,
@@ -702,7 +704,7 @@ export class LearnScene extends Phaser.Scene {
 
   private buildBackButton(): void {
     const back = addPixelText(this, 0, 0, "BACK", MENU_OPTION_FONT_SIZE);
-    placePixelText(back, PLAYFIELD_WIDTH / 2, BACK_Y, 0.5, 0.5);
+    placePixelText(back, PLAYFIELD_WIDTH / 2, LEARN_BACK_Y, 0.5, 0.5);
     back.setInteractive({ useHandCursor: true });
     back.on("pointerover", () => back.setTint(TEXT_COLOR_YELLOW));
     back.on("pointerout", () => back.setTint(TEXT_COLOR_WHITE));

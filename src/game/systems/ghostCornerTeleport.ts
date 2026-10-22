@@ -3,7 +3,7 @@ import { scatterTargetForKind, ghostTeleportCell } from "../../domain/ghostCorne
 import type { GhostCornerWarp } from "../../domain/ghostCornerWarp";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
-import { cellCenterX, cellCenterY, worldToCol, worldToRow } from "../../domain/maze";
+import { cellCenterX, cellCenterY, worldToCol, worldToRow, type MazeTile } from "../../domain/maze";
 import { startWarpGlide } from "../../domain/warpGlide";
 import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
@@ -18,7 +18,11 @@ import { Velocity } from "../components/Velocity";
 
 export const SHARED_CORNER_STAGGER_MS = 500;
 
-export function teleportGhostsToCorners(world: World, holdMs: number): GhostCornerWarp[] {
+export function teleportGhostsToCorners(
+  world: World,
+  holdMs: number,
+  opts: { onlyOnCell?: MazeTile; excludeEid?: number | null } = {},
+): GhostCornerWarp[] {
   const playerEid = query(world, [Player, Position])[0];
   if (playerEid === undefined) {
     return [];
@@ -33,6 +37,16 @@ export function teleportGhostsToCorners(world: World, holdMs: number): GhostCorn
   for (const eid of query(world, [Ghost, GhostKind, GhostPhase, Position, Velocity, Speed])) {
     if (GhostPhase.value[eid] !== GHOST_PHASE.active) {
       continue;
+    }
+    if (eid === opts.excludeEid) {
+      continue;
+    }
+    if (opts.onlyOnCell !== undefined) {
+      const col = worldToCol(Position.x[eid] ?? 0);
+      const row = worldToRow(Position.y[eid] ?? 0);
+      if (col !== opts.onlyOnCell.col || row !== opts.onlyOnCell.row) {
+        continue;
+      }
     }
     const target = hasComponent(world, eid, BossGhost)
       ? { col: BossGhost.scatterCol[eid] ?? 0, row: BossGhost.scatterRow[eid] ?? 0 }

@@ -72,6 +72,7 @@ export type BaseUpgradeId =
   | "passiveReactiveArmor"
   | "powerPelletTithe"
   | "passiveMole"
+  | "passiveBananaShield"
   | "passiveTunnelBoring";
 
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -139,6 +140,7 @@ export type UpgradeEffects = {
   deathQuarterCost?: number;
   lazyLooperRings?: LazyLooperRings;
   shieldCap?: number;
+  peelCap?: number;
   startingShields?: number;
   shieldBreak?: true;
   shieldOverflowFires?: true;
@@ -232,6 +234,8 @@ export const SHIELD_PELLETS_ENHANCED_CAP = 3;
 export const SHIELD_BREAK_INVULN_MS = 1000;
 export const STARTING_SHIELD_COUNT = 1;
 export const STARTING_SHIELD_ENHANCED_COUNT = 2;
+export const BANANA_SHIELD_CAP = 1;
+export const BANANA_SHIELD_ENHANCED_CAP = 3;
 export const TUNNEL_SANCTUARY_INVULN_MS = 1000;
 export const TUNNEL_SANCTUARY_GHOST_TUNNEL_RATIO = 0.9;
 export const STREAK_ENGINE_EVERY = 30;
@@ -1052,6 +1056,21 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     emptyCellSpeedMul: MOLE_EMPTY_MUL,
   },
   {
+    id: "passiveBananaShield",
+    label: "Banana Trail",
+    school: "protection",
+    description:
+      "Power pellets trail a banana peel behind you. A ghost that hits it slips and bounces back.",
+    storePrice: STORE_UPGRADE_PRICE,
+    peelCap: BANANA_SHIELD_CAP,
+    enhanced: {
+      enhanceNote: "Banana Trail stores up to 3 peels instead of 1.",
+      description:
+        "Power pellets trail banana peels behind you. Store up to 3. Each ghost slip breaks one.",
+      peelCap: BANANA_SHIELD_ENHANCED_CAP,
+    },
+  },
+  {
     id: "passiveTunnelBoring",
     label: "Tunnel Boring",
     school: "speed",
@@ -1267,6 +1286,7 @@ export type RunUpgrades = {
   hauntRemainingMs: number;
   hauntedGhostEid: number | null;
   shieldsBanked: number;
+  peelsBanked: number;
   pendingEchoes: PendingEcho[];
   frightenedRemainingMs: number;
   frightenedGhostEids: number[];
@@ -1323,6 +1343,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     hauntRemainingMs: 0,
     hauntedGhostEid: null,
     shieldsBanked: 0,
+    peelsBanked: 0,
     pendingEchoes: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
@@ -1608,6 +1629,7 @@ export function revokeUpgrade(state: RunUpgrades, id: UpgradeId): RunUpgrades {
     ...state,
     owned,
     shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
+    peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
     ...(owned.some((id) => getUpgradeDef(id).onPowerPellet?.frightenGhostsMs !== undefined)
       ? {}
       : NO_FRIGHT),
@@ -2451,10 +2473,32 @@ export function providesShields(owned: readonly UpgradeId[]): boolean {
     const def = getUpgradeDef(id);
     return (
       def.shieldCap !== undefined ||
+      def.peelCap !== undefined ||
       def.startingShields !== undefined ||
       def.onPowerPellet?.hyperspeedShieldMs !== undefined
     );
   });
+}
+
+export function bananaPeelCap(owned: readonly UpgradeId[]): number | null {
+  return ownedValue(owned, "peelCap") ?? null;
+}
+
+export function peelBankCap(owned: readonly UpgradeId[]): number {
+  return bananaPeelCap(owned) ?? 0;
+}
+
+export function bankPeels(state: RunUpgrades, count: number): RunUpgrades {
+  const cap = peelBankCap(effectiveOwned(state.owned));
+  const peelsBanked = Math.min(cap, state.peelsBanked + Math.max(0, count));
+  return peelsBanked === state.peelsBanked ? state : { ...state, peelsBanked };
+}
+
+export function spendPeel(state: RunUpgrades): RunUpgrades | null {
+  if (state.peelsBanked <= 0) {
+    return null;
+  }
+  return { ...state, peelsBanked: state.peelsBanked - 1 };
 }
 
 export function shieldBreakOwned(owned: readonly UpgradeId[]): boolean {

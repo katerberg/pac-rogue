@@ -131,6 +131,7 @@ import {
   clampToGridCenters,
   getActiveLayout,
   horizontalTunnelRows,
+  isSolid,
   layoutFromAscii,
   wallPathCommands,
   type MazeLayout,
@@ -140,6 +141,9 @@ import {
   playerSpawnCenter,
   type SolidGrid,
 } from "../../domain/maze";
+import { bananaPeelSprites } from "../../domain/bananaPeel";
+import type { TailBead } from "../../domain/charmTail";
+import { ghostTouchingPeel, stepBananaPeelTail } from "../systems/bananaPeel";
 import {
   pickTimedTunnelRow,
   timedTunnelGateVisible,
@@ -278,6 +282,8 @@ import {
   applyShieldBreakInvuln,
   applyStreakEngineInvuln,
   bankShields,
+  bankPeels,
+  bananaPeelCap,
   grantStartingShields,
   clearUpgradeTimers,
   queueEcho,
@@ -288,6 +294,7 @@ import {
   shieldOverflow,
   shieldPelletsCap,
   spendShield,
+  spendPeel,
   deathsBountyCharge,
   inheritancePayout,
   defyDeathActive,
@@ -661,6 +668,9 @@ export class PlaySim {
   private hyperspeedFruitEaten = 0;
   private ghostCornerWarps: GhostCornerWarp[] = [];
   private shieldBounce: ShieldBounce = NO_SHIELD_BOUNCE;
+  private peelTail: TailBead[] = [];
+  private peelHeading = 0;
+  private peelClockMs = 0;
   private bounceStaleKeys: HeldKeys | null = null;
   private frameKeys: HeldKeys = NO_KEYS_HELD;
   private runUpgrades: RunUpgrades = createRunUpgrades();
@@ -983,6 +993,7 @@ export class PlaySim {
       chaff: chaffSprites(this.runUpgrades.chaff),
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
+      peels: bananaPeelSprites(this.peelTail),
       programmerQueue: this.programmerQueue(),
       mirror: this.death === null ? this.twinDashBody() : null,
       mirrorPop: mirrorPopRender(this.mirrorPop),
@@ -1088,6 +1099,7 @@ export class PlaySim {
               ? upgrades.droppedWall.remainingMs
               : -1,
         shieldsBanked: upgrades.shieldsBanked,
+        peelsBanked: upgrades.peelsBanked,
         echoesMs: upgrades.pendingEchoes.map((echo) => echo.remainingMs),
         frightenedMs: upgrades.frightenedRemainingMs,
         eatDragMs: this.eatDragMs,
@@ -1119,6 +1131,7 @@ export class PlaySim {
       speedZonesShifting: this.speedZoneShift !== null,
       playerSpeedZone: this.playerSpeedZone(),
       chaff: chaffSprites(upgrades.chaff).map(({ x, y }) => ({ x, y })),
+      peels: bananaPeelSprites(this.peelTail),
       wallDrop: {
         armed: upgrades.wallDropArmed,
         wall:
@@ -1790,6 +1803,11 @@ export class PlaySim {
     this.eatFrightenedGhosts();
 
     const catchOptions = this.catchOptions();
+    this.stepPeelTail(delta);
+    if (this.tryBreakPeel(catchOptions)) {
+      this.emitDraw();
+      return;
+    }
     const playerCaughtBy =
       catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
     const playerLava = playerCaughtBy === null && this.touchesLava(catchOptions);
@@ -2715,6 +2733,8 @@ export class PlaySim {
     this.elroySuppressed = false;
     this.lastReactiveArmorSent = 0;
     this.nearMissesPaid = 0;
+    this.peelTail = [];
+    this.peelHeading = 0;
     this.topUpStartingShields();
     const boss = isBossLevel(this.levelIndex)
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
@@ -3463,6 +3483,9 @@ export class PlaySim {
     if (shieldPelletsCap(this.effectiveUpgrades()) !== null) {
       this.bankShields(powerRemoved);
     }
+    if (bananaPeelCap(this.effectiveUpgrades()) !== null) {
+      this.bankPeels(powerRemoved);
+    }
     return powerPelletPickupFires(this.effectiveUpgrades(), powerRemoved, overflow);
   }
 
@@ -3471,6 +3494,84 @@ export class PlaySim {
     if (next !== this.runUpgrades) {
       this.runUpgrades = next;
     }
+  }
+
+  private bankPeels(count: number): void {
+    const next = bankPeels(this.runUpgrades, count);
+    if (next !== this.runUpgrades) {
+      this.runUpgrades = next;
+    }
+  }
+
+  private stepPeelTail(delta: number): void {
+    this.peelClockMs += Math.max(0, delta);
+    const solids = this.playerSolids();
+    const stepped = stepBananaPeelTail(
+      this.world,
+      this.peelTail,
+      this.runUpgrades.peelsBanked,
+      {
+        dtMs: delta,
+        nowMs: this.peelClockMs,
+        motion: 1,
+        blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
+      },
+      this.peelHeading,
+    );
+    this.peelTail = stepped.beads;
+    this.peelHeading = stepped.heading;
+  }
+
+  private tryBreakPeel(catchOptions: CatchOptions): boolean {
+    if (this.runUpgrades.peelsBanked <= 0) {
+      return false;
+    }
+    const ghostEid = ghostTouchingPeel(this.world, this.peelTail, catchOptions);
+    return ghostEid !== null && this.breakPeel(ghostEid);
+  }
+
+  private breakPeel(ghostEid: number): boolean {
+    const spent = spendPeel(this.runUpgrades);
+    if (spent === null) {
+      return false;
+    }
+    this.runUpgrades = spent;
+    this.recorder.activation("shieldBreak");
+    this.resetStreak();
+    const solids = this.playerSolids();
+    const resized = stepBananaPeelTail(
+      this.world,
+      this.peelTail,
+      this.runUpgrades.peelsBanked,
+      {
+        dtMs: 0,
+        nowMs: this.peelClockMs,
+        motion: 0,
+        blocked: (x, y) => isSolid(worldToCol(x), worldToRow(y), solids),
+      },
+      this.peelHeading,
+    );
+    this.peelTail = resized.beads;
+    this.peelHeading = resized.heading;
+    for (const bead of resized.dropped) {
+      this.emit({ type: "peelCrack", x: bead.x, y: bead.y });
+    }
+    const bounce = startShieldBounce(this.world, ghostEid, { bouncePlayer: false });
+    this.fireReactiveArmor(ghostEid);
+    if (shieldBreakOwned(this.effectiveUpgrades())) {
+      this.firePowerPelletEffects(1);
+    }
+    if (bounce === null) {
+      this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
+      return true;
+    }
+    this.shieldBounce = settleShieldBounce(
+      this.shieldBounce,
+      bounce,
+      this.warpGlide !== null,
+      heldGhostEids(this.ghostCornerWarps),
+    );
+    return true;
   }
 
   private topUpStartingShields(): void {
@@ -3509,6 +3610,9 @@ export class PlaySim {
         this.collectSlotPickupEntities();
         this.eatFrightenedGhosts();
         const catchOptions = this.catchOptions();
+        if (this.tryBreakPeel(catchOptions)) {
+          return false;
+        }
         const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
         const twin = hit === null ? this.twinCatch(catchOptions) : null;
         const caughtBy = hit ?? twin?.eid ?? null;
@@ -3784,7 +3888,13 @@ export class PlaySim {
         this.fruitSequence.sequence[0] ?? this.fruitSequence.previousLevelFirstKind,
     };
     this.levelIndex += 1;
-    this.runUpgrades = { ...clearUpgradeTimers(this.runUpgrades), shieldsBanked: 0 };
+    this.runUpgrades = {
+      ...clearUpgradeTimers(this.runUpgrades),
+      shieldsBanked: 0,
+      peelsBanked: 0,
+    };
+    this.peelTail = [];
+    this.peelHeading = 0;
     this.eatDragMs = 0;
     this.turnTuning.reset();
     this.turnCatchGraceMs = 0;
@@ -4105,58 +4215,74 @@ export class PlaySim {
       Facing.direction[eid] = DIRECTION.none;
     }
 
+    const save = this.reviveSplashPending;
     const hauntMs = hauntDurationMs(this.effectiveUpgrades());
-    let hauntEid = this.bossState === null && hauntMs !== null ? this.caughtByEid : null;
-    if (this.bossState !== null) {
-      const caughtKind =
-        hauntMs !== null && this.caughtByEid !== null
-          ? (GhostKind.kind[this.caughtByEid] as GhostKindId)
-          : null;
+    let hauntEid = hauntMs !== null ? this.caughtByEid : null;
+    if (this.bossState !== null && !save) {
+      const caughtKind = hauntEid !== null ? (GhostKind.kind[hauntEid] as GhostKindId) : null;
       for (const eid of [...query(this.world, [Ghost])]) {
         removeEntity(this.world, eid);
         this.releaseDrawable(eid);
       }
       this.spawnBossGhostsForLife();
-      if (caughtKind !== null) {
-        hauntEid = this.pickBossHauntGhost(caughtKind);
-      }
+      hauntEid = caughtKind !== null ? this.pickBossHauntGhost(caughtKind) : null;
     }
     this.caughtByEid = null;
-    for (const eid of query(this.world, [
-      Ghost,
-      GhostPhase,
-      Position,
-      Velocity,
-      Input,
-      Facing,
-      Speed,
-    ])) {
-      Velocity.x[eid] = 0;
-      Velocity.y[eid] = 0;
-      Input.direction[eid] = DIRECTION.none;
-      Facing.direction[eid] = DIRECTION.none;
-      Speed.px[eid] = 0;
-      GhostPhase.value[eid] = GHOST_PHASE.inHouse;
-      Ghost.decidedCol[eid] = Number.NaN;
-      Ghost.decidedRow[eid] = Number.NaN;
-    }
 
-    this.ghostReleaseClock = createGhostReleaseClock(
-      this.levelIndex,
-      this.pelletProgress.boardCollected,
-    );
-    this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
-    this.previousEffectiveGhostMode = this.settledGhostMode();
-    this.afterLifeRelease = true;
-    placeInHouseGhostsAtPredictedSeats(
-      this.world,
-      this.ghostReleaseClock,
-      this.pelletProgress.boardCollected,
-      this.afterLifeRelease,
-      { heldGhostEids: hauntEid === null ? [] : [hauntEid] },
-    );
+    if (save) {
+      if (hauntEid !== null) {
+        sendGhostToHouse(
+          this.world,
+          hauntEid,
+          this.ghostReleaseClock,
+          this.pelletProgress.boardCollected,
+          this.afterLifeRelease,
+          { heldGhostEids: [hauntEid] },
+        );
+      }
+      const respawnCell = {
+        col: worldToCol(playerSpawn.x),
+        row: worldToRow(playerSpawn.y),
+      };
+      const warps = teleportGhostsToCorners(this.world, 0, {
+        onlyOnCell: respawnCell,
+        excludeEid: hauntEid,
+      });
+      this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, warps);
+    } else {
+      for (const eid of query(this.world, [
+        Ghost,
+        GhostPhase,
+        Position,
+        Velocity,
+        Input,
+        Facing,
+        Speed,
+      ])) {
+        Velocity.x[eid] = 0;
+        Velocity.y[eid] = 0;
+        Input.direction[eid] = DIRECTION.none;
+        Facing.direction[eid] = DIRECTION.none;
+        Speed.px[eid] = 0;
+        GhostPhase.value[eid] = GHOST_PHASE.inHouse;
+        Ghost.decidedCol[eid] = Number.NaN;
+        Ghost.decidedRow[eid] = Number.NaN;
+      }
 
-    if (!this.reviveSplashPending) {
+      this.ghostReleaseClock = createGhostReleaseClock(
+        this.levelIndex,
+        this.pelletProgress.boardCollected,
+      );
+      this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
+      this.previousEffectiveGhostMode = this.settledGhostMode();
+      this.afterLifeRelease = true;
+      placeInHouseGhostsAtPredictedSeats(
+        this.world,
+        this.ghostReleaseClock,
+        this.pelletProgress.boardCollected,
+        this.afterLifeRelease,
+        { heldGhostEids: hauntEid === null ? [] : [hauntEid] },
+      );
       this.clearFruitEntities();
       this.fruitPresence = {
         ...this.fruitPresence,

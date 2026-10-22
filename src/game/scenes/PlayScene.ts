@@ -542,6 +542,9 @@ export class PlayScene extends Phaser.Scene {
       case "chaffBurst":
         playChaffBurst(this, event);
         break;
+      case "peelCrack":
+        this.playRender.queuePeelCrack(event.x, event.y);
+        break;
       case "turnSparks":
         playTurnSparks(this, event);
         break;

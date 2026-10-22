@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
+  GHOST_WALL_STUN_MS,
   NO_SHIELD_BOUNCE,
   SHIELD_BOUNCE_MS,
   SHIELD_BOUNCE_TILES,
   bounceArcPx,
   bounceAwaySteps,
+  bounceSlipRotation,
+  bounceSlipSign,
   bounceTravelPx,
   maskStaleKeys,
   mergeShieldBounce,
   shieldBounceCatchSkips,
   shieldBounceHeldGhosts,
   shieldBounceSpriteOffsets,
+  stunSlipRotation,
 } from "./shieldBounce";
 
 const LEFT = { dx: -1, dy: 0 };
@@ -52,11 +56,44 @@ describe("bounce timing", () => {
   });
 });
 
+describe("slip rotation", () => {
+  it("tips during the bounce then eases upright if the bounce finishes clear", () => {
+    expect(bounceSlipRotation(0, 1)).toBe(0);
+    expect(bounceSlipRotation(SHIELD_BOUNCE_MS * 0.5, 1)).toBeGreaterThan(0.2);
+    expect(Math.abs(bounceSlipRotation(SHIELD_BOUNCE_MS, 1))).toBeLessThan(0.02);
+  });
+
+  it("starts tipped on wall stun, overcorrects, then settles over GHOST_WALL_STUN_MS", () => {
+    expect(stunSlipRotation(GHOST_WALL_STUN_MS, 1)).toBeCloseTo(0.32);
+    const over = stunSlipRotation(GHOST_WALL_STUN_MS * 0.72, 1);
+    const settled = stunSlipRotation(GHOST_WALL_STUN_MS * 0.2, 1);
+    expect(over).toBeLessThan(-0.05);
+    expect(Math.abs(settled)).toBeLessThan(0.02);
+    expect(stunSlipRotation(0, 1)).toBe(0);
+  });
+
+  it("mirrors the curve for the opposite slip sign", () => {
+    expect(stunSlipRotation(GHOST_WALL_STUN_MS, -1)).toBeCloseTo(
+      -stunSlipRotation(GHOST_WALL_STUN_MS, 1),
+    );
+    expect(bounceSlipRotation(SHIELD_BOUNCE_MS * 0.5, -1)).toBeCloseTo(
+      -bounceSlipRotation(SHIELD_BOUNCE_MS * 0.5, 1),
+    );
+  });
+
+  it("reads slip sign from the bounce step", () => {
+    expect(bounceSlipSign({ dx: 1, dy: 0 })).toBe(1);
+    expect(bounceSlipSign({ dx: -1, dy: 0 })).toBe(-1);
+    expect(bounceSlipSign({ dx: 0, dy: 1 })).toBe(1);
+    expect(bounceSlipSign({ dx: 0, dy: -1 })).toBe(-1);
+  });
+});
+
 describe("shield bounce state", () => {
   const bounce = {
     player: { eid: 1, step: LEFT, elapsedMs: 0 },
-    ghosts: [{ eid: 2, step: { dx: 1, dy: 0 }, elapsedMs: 0 }],
-    stunned: [{ eid: 3, remainingMs: 100 }],
+    ghosts: [{ eid: 2, step: { dx: 1, dy: 0 }, elapsedMs: 150 }],
+    stunned: [{ eid: 3, remainingMs: GHOST_WALL_STUN_MS * 0.72, slipSign: 1 }],
   };
 
   it("skips stunned ghosts for catches only while the player is still airborne", () => {
@@ -65,13 +102,17 @@ describe("shield bounce state", () => {
     expect([...shieldBounceHeldGhosts({ ...bounce, player: null })].sort()).toEqual([2, 3]);
   });
 
-  it("lifts bouncing bodies and shakes stunned ghosts sideways", () => {
+  it("lifts bouncing bodies, tips bouncing ghosts, and overcorrects stunned ghosts", () => {
     const offsets = shieldBounceSpriteOffsets(
       { ...bounce, player: { ...bounce.player, elapsedMs: 150 } },
       16,
     )!;
     expect(offsets[1]!.y).toBeLessThan(0);
+    expect(offsets[1]!.rotation).toBeUndefined();
+    expect(offsets[2]!.rotation).toBeGreaterThan(0.2);
     expect(offsets[3]!.y).toBe(0);
+    expect(offsets[3]!.x).toBe(0);
+    expect(offsets[3]!.rotation).toBeLessThan(-0.05);
     expect(shieldBounceSpriteOffsets(NO_SHIELD_BOUNCE, 16)).toBeUndefined();
   });
 
