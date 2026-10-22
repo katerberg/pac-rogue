@@ -13,7 +13,7 @@ export const HITCH_WINDOW_MS = 1000;
 export const LAST_PELLETS_COUNT = 10;
 
 export type RunOutcome = "inProgress" | "death" | "complete" | "quit" | "abandoned";
-export type UpgradeSource = "start" | "offer" | "store" | "enhance" | "flag" | "slots";
+export type UpgradeSource = "start" | "offer" | "store" | "enhance" | "flag" | "slots" | "salvage";
 export type PowerPelletSource = "player" | "ghostHarvest" | "fruit";
 export type ActivationKind =
   | "freeze"
@@ -53,7 +53,8 @@ export type QuarterSource =
   | "hunter"
   | "inheritance"
   | "storeFreebie"
-  | "slotPickup";
+  | "slotPickup"
+  | "salvage";
 export type GhostName = keyof typeof GHOST_KIND;
 
 export type RunLogMeta = {

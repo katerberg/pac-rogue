@@ -10,7 +10,7 @@ import {
   tickGhostRelease,
   type GhostReleaseClock,
 } from "../../domain/ghostRelease";
-import { lowPowerKindReleaseAdds } from "../../domain/lowPowerUpgrades";
+import { trinketKindReleaseAdds } from "../../domain/trinkets";
 import {
   ghostHouseReliefPelletAdd,
   ghostHouseReleaseDelayAddMs,
@@ -80,7 +80,7 @@ export class LearnHouseHold {
   }
 
   private adds(owned: readonly UpgradeId[]) {
-    const kind = lowPowerKindReleaseAdds(owned)(this.heldKind);
+    const kind = trinketKindReleaseAdds(owned)(this.heldKind);
     return {
       delayAddMs: ghostHouseReleaseDelayAddMs(owned) + kind.delayMs,
       reliefPelletAdd: ghostHouseReliefPelletAdd(owned),
