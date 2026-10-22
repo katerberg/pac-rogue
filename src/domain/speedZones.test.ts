@@ -15,6 +15,7 @@ import {
   speedZoneMultiplier,
   speedZoneCountForLevel,
   speedZoneParticles,
+  type SpeedZoneDustSpeeds,
   speedZoneShift,
   speedZoneShiftFrame,
   speedZoneShiftSteps,
@@ -98,35 +99,51 @@ describe("speedZoneEffect", () => {
 
 describe("speedZoneParticles", () => {
   it("drifts particles toward the fast end without a fixed cadence", () => {
-    const first = speedZoneParticles(lane, 0);
-    const later = speedZoneParticles(lane, 50);
+    const speeds = { entryTilesPerSec: 0.5, exitTilesPerSec: 1 };
+    const first = speedZoneParticles(lane, 0, speeds);
+    const later = speedZoneParticles(lane, 50, speeds);
     expect(first).toHaveLength(lane.length * 2);
     expect(later.every((p, i) => p.col >= first[i]!.col || p.alpha < 0.05)).toBe(true);
     expect(new Set(first.map((p) => p.col.toFixed(3))).size).toBeGreaterThan(lane.length);
     const left = { ...lane, fastDir: "left" as const };
-    const a = speedZoneParticles(left, 0);
-    const b = speedZoneParticles(left, 50);
+    const a = speedZoneParticles(left, 0, speeds);
+    const b = speedZoneParticles(left, 50, speeds);
     expect(b.every((p, i) => p.col <= a[i]!.col || p.alpha < 0.05)).toBe(true);
   });
 
-  it("accelerates particles: slower entering the lane than leaving it", () => {
-    const early: number[] = [];
-    const late: number[] = [];
+  const speedAlongLane = (speeds?: SpeedZoneDustSpeeds) => {
+    const samples: { along: number; tilesPerSec: number }[] = [];
     for (let ms = 0; ms < 20000; ms += 37) {
-      const from = speedZoneParticles(lane, ms);
-      const to = speedZoneParticles(lane, ms + 10);
-      from.forEach((p, i) => {
+      const to = speedZoneParticles(lane, ms + 10, speeds);
+      speedZoneParticles(lane, ms, speeds).forEach((p, i) => {
         const delta = to[i]!.col - p.col;
-        const along = (p.col - lane.col) / lane.length;
-        if (delta > 0 && along < 0.2) {
-          early.push(delta);
-        } else if (delta > 0 && along > 0.8) {
-          late.push(delta);
+        if (delta > 0) {
+          samples.push({ along: (p.col - lane.col) / lane.length, tilesPerSec: delta / 0.01 });
         }
       });
     }
-    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-    expect(mean(late)).toBeGreaterThan(mean(early) * 3);
+    return samples;
+  };
+
+  it("ramps dust speed evenly from the entry speed to the exit speed", () => {
+    for (const speeds of [
+      { entryTilesPerSec: 0.5, exitTilesPerSec: 4 },
+      { entryTilesPerSec: 2, exitTilesPerSec: 2 },
+    ]) {
+      for (const { along, tilesPerSec } of speedAlongLane(speeds)) {
+        const expected =
+          speeds.entryTilesPerSec + (speeds.exitTilesPerSec - speeds.entryTilesPerSec) * along;
+        expect(tilesPerSec / expected).toBeGreaterThan(0.98);
+        expect(tilesPerSec / expected).toBeLessThan(1.12);
+      }
+    }
+  });
+
+  it("defaults to dust that crawls in and zips out", () => {
+    const samples = speedAlongLane();
+    const entering = samples.filter((s) => s.along < 0.1).map((s) => s.tilesPerSec);
+    const leaving = samples.filter((s) => s.along > 0.9).map((s) => s.tilesPerSec);
+    expect(Math.min(...leaving)).toBeGreaterThan(Math.max(...entering) * 4);
   });
 
   it("keeps every particle inside the lane, faint, and fading at the ends", () => {
