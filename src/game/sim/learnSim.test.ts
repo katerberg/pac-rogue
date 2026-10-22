@@ -458,6 +458,20 @@ describe("LearnSim upgrade demos", () => {
     }
   }
 
+  it("Floating toggles on and off without disturbing play (LEARN has no lava or speed zones)", () => {
+    const { sim, player } = setup();
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    const speed = Speed.px[player]!;
+    for (const id of ["passiveFloating", "passiveFloatingPlus"] as const) {
+      sim.toggleUpgrade(id);
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(sim.ownedUpgrades).toContain(id);
+      expect(Speed.px[player]).toBe(speed);
+      sim.toggleUpgrade(id);
+      expect(sim.ownedUpgrades).not.toContain(id);
+    }
+  });
+
   it("Near Miss earns pennies when the ghost touches", () => {
     const { sim, player } = setup("passiveNearMiss");
     const ghost = sim.ghostEid!;

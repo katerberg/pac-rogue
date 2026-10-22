@@ -368,6 +368,8 @@ import {
   enhanceUpgrade,
   enhancedIdOf,
   wallPassLoopOwned,
+  floatingZoneEffect,
+  floatsOverLava,
   fruitFeastThresholds,
   pickFruitPowerBases,
   fruitPersistsUntilLevelEnd,
@@ -677,6 +679,7 @@ export class PlaySim {
   private bossStageTransition: BossStageTransition | null = null;
   private bossStageDraw: { entityAlpha: number; wallAlpha: number } | null = null;
   private intermission: IntermissionRun | null = null;
+  private lastIntermission: IntermissionId | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runEndElapsedMs: number | null = null;
@@ -1312,7 +1315,7 @@ export class PlaySim {
       },
       speedZones: this.speedZones,
       speedZonesShifting: this.speedZoneShift !== null,
-      playerSpeedZone: this.playerSpeedZone(),
+      playerSpeedZone: floatingZoneEffect(this.effectiveUpgrades(), this.playerSpeedZone()),
       chaff: chaffSprites(upgrades.chaff).map(({ x, y }) => ({ x, y })),
       peels: bananaPeelSprites(this.peelTail),
       wallDrop: {
@@ -2201,14 +2204,18 @@ export class PlaySim {
   }
 
   private zoneEffects(): ReturnType<typeof sharedZoneEffect> {
-    const player = this.playerSpeedZone();
+    const owned = this.effectiveUpgrades();
+    const player = floatingZoneEffect(owned, this.playerSpeedZone());
     const twin = this.twinBody();
     const eid = query(this.world, [Player, Velocity])[0];
     if (twin === null || eid === undefined) {
       return sharedZoneEffect(player, null);
     }
     const velocity = { x: Velocity.x[eid] ?? 0, y: Velocity.y[eid] ?? 0 };
-    return sharedZoneEffect(player, twinZoneEffect(this.speedZones, twin, velocity));
+    return sharedZoneEffect(
+      player,
+      floatingZoneEffect(owned, twinZoneEffect(this.speedZones, twin, velocity)),
+    );
   }
 
   private checkMirrorPop(): void {
@@ -2387,7 +2394,12 @@ export class PlaySim {
 
   private touchesLava(catchOptions: CatchOptions, at?: Point): boolean {
     const eid = query(this.world, [Player, Position, Drawable])[0];
-    if (this.lavaZone === null || eid === undefined || catchOptions.playerInvulnerable === true) {
+    if (
+      this.lavaZone === null ||
+      eid === undefined ||
+      catchOptions.playerInvulnerable === true ||
+      floatsOverLava(this.effectiveUpgrades())
+    ) {
       return false;
     }
     return lavaTouchesCircle(
@@ -3362,7 +3374,10 @@ export class PlaySim {
   }
 
   private beginIntermission(): void {
-    const id = this.options.intermission ?? pickIntermission(this.random.stream("intermission"));
+    const id =
+      this.options.intermission ??
+      pickIntermission(this.random.stream("intermission"), this.lastIntermission);
+    this.lastIntermission = id;
     const ghostKinds = [...query(this.world, [Ghost, GhostKind])].map(
       (eid) => GhostKind.kind[eid] as GhostKindId,
     );

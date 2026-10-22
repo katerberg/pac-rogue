@@ -7,6 +7,8 @@ import {
   eatFrightenedGhost,
   frightenedGhostEids,
   frightenedGhosts,
+  floatingZoneEffect,
+  floatsOverLava,
   hunterHoldsEaten,
   tickFrightened,
   DEFY_DEATH_ENHANCED_MS,
@@ -268,6 +270,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveTunnelBoring",
   "passiveMartyr",
   "passivePossession",
+  "passiveFloating",
 ];
 
 const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
@@ -2550,5 +2553,22 @@ describe("Trinkets and the slot cap", () => {
   it("doesn't count Trinkets toward a Specialist", () => {
     const owned = ["powerPelletFreeze", "lowSpeed", "lowSpeed", "lowTurning"] as const;
     expect(eligibleUpgrades([...owned])).not.toContain("passiveSpeedSpecialist");
+  });
+});
+
+describe("Floating", () => {
+  it("floats over lava in both forms and not without it", () => {
+    expect(floatsOverLava([])).toBe(false);
+    expect(floatsOverLava(["passiveFloating"])).toBe(true);
+    expect(floatsOverLava(["passiveFloatingPlus"])).toBe(true);
+  });
+
+  it("only the enhanced form ignores the slow side of a speed zone", () => {
+    for (const owned of [[], ["passiveFloating"]] as const) {
+      expect(floatingZoneEffect(owned, "slow")).toBe("slow");
+    }
+    expect(floatingZoneEffect(["passiveFloatingPlus"], "slow")).toBeNull();
+    expect(floatingZoneEffect(["passiveFloatingPlus"], "fast")).toBe("fast");
+    expect(floatingZoneEffect(["passiveFloatingPlus"], null)).toBeNull();
   });
 });

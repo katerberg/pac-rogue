@@ -14,6 +14,7 @@ import {
 } from "./intermissionScript";
 
 export const INTERMISSION_AFTER_LEVEL = 2;
+const INTERMISSION_LEVELS: readonly number[] = [INTERMISSION_AFTER_LEVEL, 4];
 
 const INTERMISSION_SCRIPTS = {
   blinkyChase,
@@ -33,11 +34,15 @@ export const INTERMISSION_IDS = Object.keys(INTERMISSION_SCRIPTS) as Intermissio
 export type IntermissionFrame = IntermissionBeat & { id: IntermissionId; done: boolean };
 
 export function hasIntermissionAfter(levelIndex: number): boolean {
-  return levelIndex === INTERMISSION_AFTER_LEVEL;
+  return INTERMISSION_LEVELS.includes(levelIndex);
 }
 
-export function pickIntermission(next: () => number): IntermissionId {
-  return INTERMISSION_IDS[Math.floor(next() * INTERMISSION_IDS.length)]!;
+export function pickIntermission(
+  next: () => number,
+  previous: IntermissionId | null = null,
+): IntermissionId {
+  const pool = INTERMISSION_IDS.filter((id) => id !== previous);
+  return pool[Math.floor(next() * pool.length)]!;
 }
 
 export function intermissionFrame(
