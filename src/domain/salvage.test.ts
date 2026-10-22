@@ -5,7 +5,6 @@ import {
   canSalvage,
   isAtCap,
   needsSalvage,
-  replaceWithNew,
   rollTrinket,
   salvageNew,
   salvageUpgrade,
@@ -107,20 +106,6 @@ describe("salvage", () => {
   it("salvaging the new card keeps the six and adds a Trinket", () => {
     const result = salvageNew(createRunUpgrades(SIX), ROSTER, randomFromSeed("n"));
     expect(result.state.owned.slice(0, 6)).toEqual(SIX);
-    expect(slotCount(result.state.owned)).toBe(6);
-    expect(isTrinketId(result.gained!)).toBe(true);
-  });
-
-  it("replace keeps the incoming card and drops the outgoing one", () => {
-    const result = replaceWithNew(
-      createRunUpgrades(SIX),
-      "passiveGhostSlow",
-      "passiveExtraLife",
-      ROSTER,
-      randomFromSeed("p"),
-    );
-    expect(result.state.owned).not.toContain("passiveGhostSlow");
-    expect(result.state.owned).toContain("passiveExtraLife");
     expect(slotCount(result.state.owned)).toBe(6);
     expect(isTrinketId(result.gained!)).toBe(true);
   });

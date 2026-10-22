@@ -107,6 +107,7 @@ export type SimEvent =
   | { type: "fruitBonus" }
   | { type: "timePennies"; active: boolean }
   | { type: "upgrades" }
+  | { type: "salvage"; gained: UpgradeId | null; quarters: number }
   | { type: "upgradePulse"; ids: BaseUpgradeId[] }
   | { type: "timer" }
   | { type: "timerVisible"; visible: boolean }

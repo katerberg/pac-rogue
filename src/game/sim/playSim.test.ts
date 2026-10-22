@@ -9168,3 +9168,186 @@ describe("Banana Trail", () => {
     expect(sim.snapshot().peels).toEqual([]);
   });
 });
+
+describe("PlaySim salvage", () => {
+  const SIX: UpgradeId[] = [
+    "powerPelletFreeze",
+    "passiveAfterburner",
+    "passiveGhostSlow",
+    "powerPelletScatterBurst",
+    "powerPelletGhostRecall",
+    "powerPelletWarpFarthest",
+  ];
+
+  function slotIds(sim: PlaySim): UpgradeId[] {
+    return sim.snapshot().upgrades.filter((id) => !isTrinketId(id));
+  }
+
+  function trinketIds(sim: PlaySim): UpgradeId[] {
+    return sim.snapshot().upgrades.filter((id) => isTrinketId(id));
+  }
+
+  function offerAtCap(seed = "salvage"): { sim: PlaySim; picked: BaseUpgradeId } {
+    const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: SIX }, seed);
+    const offer = drainToOffer(sim);
+    const picked = offer.upgrades.find((id) => !isTrinketId(id))!;
+    sim.chooseUpgrade({ kind: "upgrade", id: picked });
+    return { sim, picked };
+  }
+
+  it("opens a prompt for a level-clear pick at 6 and freezes the sim", () => {
+    const { sim, picked } = offerAtCap();
+    expect(sim.snapshot().salvage).toMatchObject({ open: true, incoming: picked, slotCount: 6 });
+    const before = sim.snapshot().timeRemaining;
+    runFrames(sim, 30);
+    expect(sim.snapshot().timeRemaining).toBe(before);
+    expect(sim.snapshot().salvage.open).toBe(true);
+  });
+
+  it("SALVAGE NEW keeps the six and adds one Trinket", () => {
+    const { sim } = offerAtCap();
+    const events = sim.salvageNew();
+    const gained = events.find((e) => e.type === "salvage");
+    expect(gained).toMatchObject({ type: "salvage", quarters: 0 });
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toEqual([(gained as { gained: UpgradeId }).gained]);
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, trinketCount: 1 });
+    expect(sim.runLogRecord().loadout.at(-1)).toMatchObject({ source: "salvage" });
+  });
+
+  it("REPLACE salvages the outgoing card and keeps the new one", () => {
+    const { sim, picked } = offerAtCap();
+    sim.salvageReplace("passiveGhostSlow");
+    expect(slotIds(sim)).toEqual([...SIX.filter((id) => id !== "passiveGhostSlow"), picked]);
+    expect(trinketIds(sim)).toHaveLength(1);
+    expect(
+      sim.runLogRecord().loadout.find((entry) => entry.id === "passiveGhostSlow"),
+    ).toMatchObject({ removedLevel: 4 });
+  });
+
+  it("rejects REPLACE with a Trinket or an unowned id", () => {
+    const { sim } = offerAtCap();
+    expect(sim.salvageReplace("lowSpeed")).toEqual([]);
+    expect(sim.salvageReplace("passiveExtraLife")).toEqual([]);
+    expect(sim.snapshot().salvage.open).toBe(true);
+  });
+
+  it("replays the same Trinket for the same seed", () => {
+    const gained = ["a", "b"].map(() => {
+      const { sim } = offerAtCap("salvage-seed");
+      sim.salvageNew();
+      return trinketIds(sim);
+    });
+    expect(gained[0]).toEqual(gained[1]);
+  });
+
+  it("keeps the life an Extra Life already paid", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: false,
+      lives: 2,
+      maxLives: 6,
+      enableUpgrades: ["passiveExtraLife"],
+    });
+    const lives = sim.snapshot().lives;
+    sim.salvageOwned("passiveExtraLife");
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().upgrades).not.toContain("passiveExtraLife");
+  });
+
+  it("salvages on demand under the cap and rejects a Trinket", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["lowSpeed", ...SIX.slice(0, 2)],
+    });
+    expect(sim.salvageOwned("lowSpeed")).toEqual([]);
+    const events = sim.salvageOwned("passiveAfterburner");
+    expect(events.some((e) => e.type === "salvage")).toBe(true);
+    expect(slotIds(sim)).toEqual(["powerPelletFreeze"]);
+    expect(trinketIds(sim)).toHaveLength(2);
+  });
+
+  it("clears a live freeze when Freeze is salvaged mid-level", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
+    sim["runUpgrades"] = { ...sim["runUpgrades"], freezeRemainingMs: 4000, frozenGhostEid: 5 };
+    sim.salvageOwned("powerPelletFreeze");
+    expect(sim["runUpgrades"]).toMatchObject({ freezeRemainingMs: 0, frozenGhostEid: null });
+  });
+
+  it("pays a Quarter, logged as salvage, when no Trinket is eligible", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      quarters: 0,
+      enableUpgrades: ["powerPelletFreeze", ...MAXED_TRINKETS],
+    });
+    const events = sim.salvageOwned("powerPelletFreeze");
+    expect(events).toContainEqual({ type: "salvage", gained: null, quarters: 1 });
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.runLogRecord().levels.at(-1)!.quartersEarned.salvage).toBe(1);
+  });
+
+  it("refuses on-demand salvage during a death sequence", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
+    sim["death"] = {} as never;
+    expect(sim.salvageOwned("powerPelletFreeze")).toEqual([]);
+    expect(sim.snapshot().salvage.canSalvage).toBe(false);
+  });
+
+  it("never prompts for the starting upgrade or debug flags past 6", () => {
+    const sim = startSim({ maze: "mazeSmall", enableUpgrades: [...SIX, "passiveExtraLife"] });
+    runFrames(sim, 5, { uiOpen: true });
+    expect(slotIds(sim).length).toBeGreaterThanOrEqual(7);
+    expect(sim.snapshot().salvage.open).toBe(false);
+  });
+
+  it("opens the prompt after a store U purchase at 6, with the Quarters spent", () => {
+    const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: SIX });
+    const slot = sim
+      .storeState()!
+      .slots.find((cell) => cell.kind === "upgrade" && !isTrinketId(cell.id))!;
+    if (slot.kind !== "upgrade") throw new Error("no upgrade tile");
+    teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
+    runFrames(sim, 1);
+    runFrames(sim, 1, { storeFocus: "yes" });
+    runFrames(sim, 1, { storeConfirm: true });
+    expect(sim.snapshot().quarters).toBeLessThan(10);
+    expect(sim.snapshot().salvage).toMatchObject({
+      open: true,
+      incoming: slot.id,
+    });
+    expect(slotIds(sim)).toEqual(SIX);
+    sim.salvageNew();
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toHaveLength(1);
+  });
+
+  it("holds slot wins at 6 until the final grid is dismissed, one prompt per upgrade", () => {
+    const sim = startSim(
+      {
+        level: 2,
+        maze: "maze1",
+        infiniteLives: true,
+        pennyCharge: 299,
+        slot: { quarters: 0, upgrades: 2, lives: 0 },
+        enableUpgrades: SIX,
+      },
+      "salvage-slots",
+    );
+    sim["slotQueue"].push("pennyBar");
+    runUntil(sim, () => sim.snapshot().slot.held, 900, { keys: held("left") });
+    const won = sim.snapshot().slot.won!.filter((id) => !isTrinketId(id));
+    expect(won).toHaveLength(2);
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, queued: won.length });
+    runFrames(sim, 1, { acknowledge: true });
+    expect(sim.snapshot().salvage.open).toBe(won.length > 0);
+    for (const incoming of won) {
+      expect(sim.snapshot().salvage.incoming).toBe(incoming);
+      sim.salvageNew();
+    }
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, queued: 0 });
+    expect(new Set(won).size).toBe(won.length);
+  });
+});

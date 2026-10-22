@@ -72,17 +72,3 @@ export function salvageNew(
 ): SalvageResult {
   return payTrinket(state, roster, rng);
 }
-
-export function replaceWithNew(
-  state: RunUpgrades,
-  outgoingId: UpgradeId,
-  incomingId: UpgradeId,
-  roster: readonly GhostKindId[] | undefined,
-  rng: () => number,
-): SalvageResult {
-  if (!canSalvage(state.owned, outgoingId)) {
-    return { state, gained: null, quarters: 0 };
-  }
-  const salvaged = salvageUpgrade(state, outgoingId, roster, rng);
-  return { ...salvaged, state: grantUpgrade(salvaged.state, incomingId) };
-}

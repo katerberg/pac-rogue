@@ -1620,7 +1620,7 @@ export function pickStartingUpgrade(
   return takeRandomFrom(eligible, rng);
 }
 
-function withDeclined(state: RunUpgrades, declined: readonly BaseUpgradeId[]): RunUpgrades {
+export function withDeclined(state: RunUpgrades, declined: readonly BaseUpgradeId[]): RunUpgrades {
   if (declined.length !== 1) {
     return state;
   }

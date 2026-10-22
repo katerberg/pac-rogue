@@ -234,7 +234,21 @@ import {
   type SlotTimeline,
   type SlotWin,
 } from "../../domain/slotMachine";
-import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
+import {
+  TEST_RUN_LOG_META,
+  type QuarterSource,
+  type RunLogMeta,
+  type UpgradeSource,
+} from "../../domain/runLog";
+import {
+  canSalvage,
+  isAtCap,
+  needsSalvage,
+  salvageNew,
+  salvageUpgrade,
+  slotCount,
+  type SalvageResult,
+} from "../../domain/salvage";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { ELROY_TIER, elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
@@ -278,6 +292,8 @@ import {
   grantStartingShields,
   clearUpgradeTimers,
   clearStaleUpgradeTimers,
+  isEnhancedId,
+  withDeclined,
   queueEcho,
   powerPelletPickupFires,
   shieldBreakOwned,
@@ -523,6 +539,7 @@ import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { hunterFrightenLimit } from "../../domain/hunter";
 import {
   isTrinketId,
+  trinketCounts,
   trinketKindReleaseAdds,
   trinketPlayerSpeedMul,
   trinketPreTurnBonusPx,
@@ -604,6 +621,8 @@ export class PlaySim {
   private lastPlayerCell: Cell | null = null;
   private timePennyDrain: TimePennyDrain | null = null;
   private slotQueue: QuarterSource[] = [];
+  private salvageQueue: { incoming: UpgradeId; source: UpgradeSource }[] = [];
+  private awaitingSalvageReveal = false;
   private slot:
     (SlotView & { source: QuarterSource; resultSounded: boolean; megaSounded: boolean }) | null =
     null;
@@ -855,6 +874,14 @@ export class PlaySim {
     const alreadyOwned = !isTrinketId(chosen.id) && hasUpgrade(this.runUpgrades.owned, chosen.id);
     const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
     this.recorder.picked(chosen.id);
+    if (!alreadyOwned && needsSalvage(this.runUpgrades.owned, grantedId)) {
+      this.runUpgrades = withDeclined(
+        this.runUpgrades,
+        offer.upgrades.filter((id) => id !== chosen.id),
+      );
+      this.salvageQueue.push({ incoming: grantedId, source: "offer" });
+      return this.takeEvents();
+    }
     this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id, grantedId);
     if (!alreadyOwned) {
       this.recorder.gained(grantedId, "offer", this.levelIndex);
@@ -868,6 +895,96 @@ export class PlaySim {
     }
     this.emit({ type: "upgrades" });
     return this.takeEvents();
+  }
+
+  salvagePrompt(): { incoming: UpgradeId; source: UpgradeSource } | null {
+    return this.slot === null ? (this.salvageQueue[0] ?? null) : null;
+  }
+
+  canSalvageNow(): boolean {
+    return (
+      this.salvageQueue.length === 0 &&
+      this.death === null &&
+      this.runEndElapsedMs === null &&
+      this.bossStageTransition === null &&
+      this.intermissionElapsedMs === null &&
+      this.levelTransitionRemainingMs === 0
+    );
+  }
+
+  salvageNew(): SimEvent[] {
+    this.events = [];
+    const prompt = this.salvagePrompt();
+    if (prompt === null) {
+      return [];
+    }
+    this.salvageQueue.shift();
+    this.applySalvage(
+      salvageNew(this.runUpgrades, this.rosterKinds(), this.random.stream("salvage")),
+      null,
+    );
+    return this.takeEvents();
+  }
+
+  salvageReplace(outgoingId: UpgradeId): SimEvent[] {
+    this.events = [];
+    const prompt = this.salvagePrompt();
+    if (prompt === null || !canSalvage(this.runUpgrades.owned, outgoingId)) {
+      return [];
+    }
+    this.salvageQueue.shift();
+    this.applySalvage(
+      salvageUpgrade(
+        this.runUpgrades,
+        outgoingId,
+        this.rosterKinds(),
+        this.random.stream("salvage"),
+      ),
+      outgoingId,
+    );
+    this.grantNow(prompt.incoming, prompt.source);
+    this.emit({ type: "lives", pulse: false });
+    return this.takeEvents();
+  }
+
+  salvageOwned(id: UpgradeId): SimEvent[] {
+    this.events = [];
+    if (!this.canSalvageNow() || !canSalvage(this.runUpgrades.owned, id)) {
+      return [];
+    }
+    this.applySalvage(
+      salvageUpgrade(this.runUpgrades, id, this.rosterKinds(), this.random.stream("salvage")),
+      id,
+    );
+    return this.takeEvents();
+  }
+
+  private applySalvage(result: SalvageResult, outgoingId: UpgradeId | null): void {
+    const lost = this.runUpgrades.owned.find(
+      (id) => outgoingId !== null && baseIdOf(id) === baseIdOf(outgoingId),
+    );
+    if (lost !== undefined) {
+      this.recorder.lost(lost, this.levelIndex);
+    }
+    this.runUpgrades = result.state;
+    if (result.gained !== null) {
+      this.recorder.gained(result.gained, "salvage", this.levelIndex);
+    }
+    this.grantQuarters(result.quarters, "salvage", true);
+    this.awaitingSalvageReveal = true;
+    this.recordSeenUpgrades();
+    this.emit({ type: "salvage", gained: result.gained, quarters: result.quarters });
+    this.emit({ type: "upgrades" });
+  }
+
+  private grantNow(id: UpgradeId, source: UpgradeSource): void {
+    this.recorder.gained(id, source, this.levelIndex);
+    this.runUpgrades = grantUpgrade(this.runUpgrades, id);
+    if (isEnhancedId(id)) {
+      this.enhanceLivesPaid.add(baseIdOf(id));
+    }
+    this.applyGrantEffects(id);
+    this.grantSpecialistLives();
   }
 
   finishRun(outcome: "quit"): SimEvent[] {
@@ -1041,6 +1158,16 @@ export class PlaySim {
         held: this.slot !== null && slotHeld(this.slot.timeline, this.slot.elapsedMs),
         won: this.slot?.won ?? null,
       },
+      salvage: {
+        open: this.salvagePrompt() !== null,
+        incoming: this.salvagePrompt()?.incoming ?? null,
+        queued: this.salvageQueue.length,
+        slotCount: slotCount(upgrades.owned),
+        cap: isAtCap(upgrades.owned),
+        trinketCount: upgrades.owned.length - slotCount(upgrades.owned),
+        canSalvage: this.canSalvageNow(),
+      },
+      trinkets: trinketCounts(upgrades.owned),
       slotPickup: {
         progress: this.slotPickupProgress,
         cells: this.slotPickupCells.map((cell) => ({ ...cell })),
@@ -1277,6 +1404,18 @@ export class PlaySim {
         }
       }
       return;
+    }
+
+    if (this.salvagePrompt() !== null) {
+      return;
+    }
+
+    if (this.awaitingSalvageReveal) {
+      if (input.uiOpen) {
+        return;
+      }
+      this.awaitingSalvageReveal = false;
+      this.suppressInputUntilKeyRelease = true;
     }
 
     if (this.store !== null) {
@@ -2567,10 +2706,11 @@ export class PlaySim {
         this.runUpgrades = clearStaleUpgradeTimers(this.runUpgrades.owned, this.runUpgrades);
       }
       id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
-      this.recorder.gained(id, "store", this.levelIndex);
-      this.runUpgrades = grantUpgrade(this.runUpgrades, id);
-      this.applyGrantEffects(id);
-      this.grantSpecialistLives();
+      if (purchase.kind !== "swap" && needsSalvage(this.runUpgrades.owned, id)) {
+        this.salvageQueue.push({ incoming: id, source: "store" });
+      } else {
+        this.grantNow(id, "store");
+      }
     }
     this.emit({
       type: "lives",
@@ -3256,7 +3396,11 @@ export class PlaySim {
     const id =
       win.symbol === "quarter"
         ? null
-        : pickSlotUpgrade(this.runUpgrades.owned, win.symbol, this.random.stream("slots"));
+        : pickSlotUpgrade(
+            [...this.runUpgrades.owned, ...this.salvageQueue.map((entry) => entry.incoming)],
+            win.symbol,
+            this.random.stream("slots"),
+          );
     if (id === null) {
       this.quarters += 1;
       this.recorder.quarters(source, 1);
@@ -3264,10 +3408,11 @@ export class PlaySim {
       return;
     }
     this.slot?.won.push(id);
-    this.recorder.gained(id, "slots", this.levelIndex);
-    this.runUpgrades = grantUpgrade(this.runUpgrades, id);
-    this.applyGrantEffects(id);
-    this.grantSpecialistLives();
+    if (needsSalvage(this.runUpgrades.owned, id)) {
+      this.salvageQueue.push({ incoming: id, source: "slots" });
+      return;
+    }
+    this.grantNow(id, "slots");
     this.emit({ type: "lives", pulse: false });
     this.recordSeenUpgrades();
     this.emit({ type: "upgrades" });

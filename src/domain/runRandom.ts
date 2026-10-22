@@ -21,6 +21,7 @@ export type RandomStream =
   | "speedZones"
   | "slots"
   | "slotPickup"
+  | "salvage"
   | "chaff"
   | "bot";
 

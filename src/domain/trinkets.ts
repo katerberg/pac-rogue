@@ -123,6 +123,18 @@ export function slotCount(owned: readonly UpgradeId[]): number {
   return owned.filter((id) => !isTrinketId(id)).length;
 }
 
+export function trinketCounts(
+  owned: readonly UpgradeId[],
+): Partial<Record<TrinketUpgradeId, number>> {
+  const counts: Partial<Record<TrinketUpgradeId, number>> = {};
+  for (const id of owned) {
+    if (isTrinketId(id)) {
+      counts[id] = (counts[id] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
 export function trinketGhostOf(id: TrinketUpgradeId): GhostKindId | null {
   return LOW_BY_ID.get(id)?.trinket?.ghost ?? null;
 }
