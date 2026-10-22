@@ -2692,6 +2692,7 @@ export class PlaySim {
     this.emit({ type: "quarters", pulse: false });
     this.emitMunch();
     let id: UpgradeId;
+    let queued = false;
     if (purchase.kind === "enhance") {
       id = enhancedIdOf(purchase.targetId);
       this.recorder.lost(purchase.targetId, this.levelIndex);
@@ -2706,7 +2707,8 @@ export class PlaySim {
         this.runUpgrades = clearStaleUpgradeTimers(this.runUpgrades.owned, this.runUpgrades);
       }
       id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
-      if (purchase.kind !== "swap" && needsSalvage(this.runUpgrades.owned, id)) {
+      queued = purchase.kind !== "swap" && needsSalvage(this.runUpgrades.owned, id);
+      if (queued) {
         this.salvageQueue.push({ incoming: id, source: "store" });
       } else {
         this.grantNow(id, "store");
@@ -2714,7 +2716,7 @@ export class PlaySim {
     }
     this.emit({
       type: "lives",
-      pulse: grantLivesForUpgrade(id) > 0 || baseIdOf(id) === "passiveMyogenesis",
+      pulse: !queued && (grantLivesForUpgrade(id) > 0 || baseIdOf(id) === "passiveMyogenesis"),
     });
     this.recordSeenUpgrades();
     this.emit({ type: "upgrades" });

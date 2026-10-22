@@ -22,7 +22,12 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { buildUpgradeCardVisual, MODAL_DEPTH, SCHOOL_COLORS } from "./upgradeChoiceModal";
+import {
+  buildUpgradeCardVisual,
+  CHOICE_BUTTON_WIDTH,
+  MODAL_DEPTH,
+  SCHOOL_COLORS,
+} from "./upgradeChoiceModal";
 
 const DEPTH = MODAL_DEPTH + 10;
 const CENTER_X = PLAYFIELD_WIDTH / 2;
@@ -36,7 +41,6 @@ const ROW_ICON_SIZE = 24;
 const CONFIRM_Y = 470;
 const HINT_Y = 520;
 const FLY_MS = 450;
-const CARD_WIDTH = 230;
 
 export type SalvageOverlayMode = "prompt" | "picker" | "reveal";
 export type PoolTarget = { x: number; y: number; size: number };
@@ -309,7 +313,7 @@ export function createSalvageOverlay(scene: Phaser.Scene): SalvageOverlay {
           targets: root,
           x: target.x,
           y: target.y,
-          scale: target.size / CARD_WIDTH,
+          scale: target.size / CHOICE_BUTTON_WIDTH,
           duration: FLY_MS,
           ease: "Quad.easeIn",
           onComplete: done,

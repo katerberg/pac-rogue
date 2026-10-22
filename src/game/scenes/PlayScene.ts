@@ -1174,7 +1174,7 @@ export class PlayScene extends Phaser.Scene {
     this.trinketCards.forEach((card) => card.destroy());
     this.trinketCards = this.trinketPoolCards().map(({ x, y, size }) => {
       const card = addTrinketCard(this, x, y, size).setVisible(this.intermission === null);
-      this.chrome.add(card);
+      this.addHudIcon(card);
       return card;
     });
     this.upgradeIcons = this.upgradeHudSlots().map(({ id, x, y, size }) => {
@@ -1188,7 +1188,7 @@ export class PlayScene extends Phaser.Scene {
     this.chrome.bringToTop(this.upgradeDrain);
   }
 
-  private addHudIcon(icon: Phaser.GameObjects.Image): void {
+  private addHudIcon(icon: Phaser.GameObjects.Image | Phaser.GameObjects.Container): void {
     if (this.runEndMenu === null) {
       this.chrome.add(icon);
     } else {
@@ -1204,6 +1204,7 @@ export class PlayScene extends Phaser.Scene {
     const upgradeMarks = this.upgradeIcons.map(({ mark }) => mark);
     for (const icon of [
       ...upgradeMarks,
+      ...this.trinketCards,
       ...this.quarterIcons,
       ...this.pennyIcons,
       ...this.pennyStackIcons,
