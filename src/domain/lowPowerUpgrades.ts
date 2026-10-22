@@ -5,14 +5,14 @@ export const LOW_POWER_MAX_COPIES = 10;
 export const LOW_POWER_STORE_PRICE = 2;
 export const LOW_POWER_OFFER_WEIGHT = 0.25;
 
-export const LOW_POWER_SPEED_ADD = 0.03;
-export const LOW_POWER_TUNNEL_SPEED_ADD = 0.08;
-export const LOW_POWER_VORTEX_CUT = 0.08;
-export const LOW_POWER_TURN_PX_ADD = 0.6;
-export const LOW_POWER_SLOWDOWN_CUT = 0.04;
-export const LOW_POWER_HOUSE_DELAY_MS = 750;
-export const LOW_POWER_HOUSE_PELLETS = 1;
-export const LOW_POWER_TRACTION_CUT = 0.08;
+export const LOW_POWER_SPEED_ADD = 0.06;
+export const LOW_POWER_TUNNEL_SPEED_ADD = 0.16;
+export const LOW_POWER_VORTEX_CUT = 0.16;
+export const LOW_POWER_TURN_PX_ADD = 1.2;
+export const LOW_POWER_SLOWDOWN_CUT = 0.08;
+export const LOW_POWER_HOUSE_DELAY_MS = 1500;
+export const LOW_POWER_HOUSE_PELLETS = 2;
+export const LOW_POWER_TRACTION_CUT = 0.16;
 export const LOW_POWER_TRACTION_DRAG_MS = 300;
 export const LOW_POWER_MIN_SPEED_MUL = 0.3;
 
@@ -67,7 +67,7 @@ function perGhostDefs(): UpgradeDef[] {
       lowDef(
         `lowHouseDelay${Name}`,
         `${Name} House Delay`,
-        `${Name} leaves the ghost house ${LOW_POWER_HOUSE_DELAY_MS / 1000}s (or ${LOW_POWER_HOUSE_PELLETS} pellet) later. Stacks.`,
+        `${Name} leaves the ghost house ${LOW_POWER_HOUSE_DELAY_MS / 1000}s (or ${LOW_POWER_HOUSE_PELLETS} pellets) later. Stacks.`,
         { kind: "houseDelay", ghost },
       ),
       lowDef(
