@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createRunRandom } from "../../../domain/runRandom";
 import { defaultPlayOptions } from "../../../domain/playOptions";
+import { isTrinketId } from "../../../domain/trinkets";
 import { pickStartingUpgrade } from "../../../domain/upgrades";
 import { PlaySim } from "../playSim";
 import { IDLE_INPUT } from "../simInput";
 import { FRAME_MS } from "../simTesting";
-import { gaussianFrom } from "./bot";
-import { runJob } from "./episode";
+import { Bot, gaussianFrom } from "./bot";
+import { answerPrompts, runJob } from "./episode";
 import { Observer } from "./observe";
 import { PERSONAS } from "./profiles";
 import { StoreBot } from "./storeBot";
@@ -51,6 +52,31 @@ describe("runJob", { timeout: 60_000 }, () => {
     });
     expect(result.outcome).not.toBe("error");
   }, 20_000);
+
+  it("answers the salvage prompt at the 6-slot cap", () => {
+    const six = [
+      "powerPelletInvuln",
+      "passiveShieldPellets",
+      "passiveExtraLife",
+      "passiveDefyDeath",
+      "passiveAfterburner",
+      "powerPelletWallPass",
+    ] as const;
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), level: 4, jumpToUpgrade: true, enableUpgrades: [...six] },
+      "bal-cap",
+    );
+    sim.start();
+    const bot = new Bot("cautious@expert", "bal-cap", FRAME_MS);
+    for (let frame = 0; frame < 600 && sim.offer() === null; frame += 1) {
+      sim.step(IDLE_INPUT, FRAME_MS);
+    }
+    answerPrompts(sim, bot);
+    const owned = sim.hud().upgrades;
+    expect(sim.salvagePrompt()).toBeNull();
+    expect(owned.filter((id) => !isTrinketId(id))).toHaveLength(6);
+    expect(owned.some(isTrinketId)).toBe(true);
+  });
 
   it("plays one-level tests without stalling", () => {
     const outcomes = ["bal-0", "bal-1", "bal-2"].map(

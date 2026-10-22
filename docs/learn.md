@@ -28,7 +28,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 
 ## Parity
 
-LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, collapsed tunnels, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`. Deliberate omissions: the [run-end replay](./replay.md), since LEARN has no run end; Play-only [sidebar bands](./rendering.md) (`createRender(scene)` without the bands flag); the [first-play Freeze starting upgrade](./new-player.md#first-play-on-a-new-device), since LEARN has no starting-upgrade card or run log; the [upgrade art](./upgrades.md#upgrade-art) HUD icons, since LEARN lists upgrades as a text checklist with no icon column.
+LEARN stays at parity with play unless the omission is deliberate. `LearnSim` must pass the same `SimRenderOptions` as `PlaySim.renderOptions()`, or list the gap in `LEARN_OMITS_RENDER_OPTIONS` (bosses, lava, collapsed tunnels, store). Live checks probe LEARN; missing counterparts are Major in `pr-review`. Deliberate omissions: the [run-end replay](./replay.md), since LEARN has no run end; Play-only [sidebar bands](./rendering.md) (`createRender(scene)` without the bands flag); the [first-play Freeze starting upgrade](./new-player.md#first-play-on-a-new-device), since LEARN has no starting-upgrade card or run log; the [upgrade art](./upgrades.md#upgrade-art) HUD icons, since LEARN lists upgrades as a text checklist with no icon column; the [slot cap and salvage](./upgrades.md#slot-cap-and-salvage), since LEARN toggles any number of upgrades freely.
 
 ## Upgrade fidelity
 
@@ -47,4 +47,4 @@ Known simplifications (everything else is a reuse of play code):
 
 ## Coverage gate
 
-Every listed upgrade needs a named test in `learnSim.test.ts` or a place in `LEARN_NO_EFFECT_UPGRADE_IDS` (`registrySync.test.ts`). Both sims call the shared slices (`runHyperspeedSubsteps`, `recallClosestGhostToHouse`) rather than copy them. Level modifiers, bosses, the store, specialists and multi-ghost play are deliberate omissions. Low-power upgrades start at one copy and show a count with chevrons to step it up to the cap, and a per-ghost one only acts on the ghost currently selected.
+Every listed upgrade needs a named test in `learnSim.test.ts` or a place in `LEARN_NO_EFFECT_UPGRADE_IDS` (`registrySync.test.ts`). Both sims call the shared slices (`runHyperspeedSubsteps`, `recallClosestGhostToHouse`) rather than copy them. Level modifiers, bosses, the store, specialists and multi-ghost play are deliberate omissions. Trinkets start at one copy and show a count with chevrons to step it up to the cap, and a per-ghost one only acts on the ghost currently selected.

@@ -58,6 +58,8 @@ type Sprite = { main: Phaser.GameObjects.Image; visor: Phaser.GameObjects.Image 
 
 export type SlotOverlay = { sync: (view: Readonly<SlotView> | null) => void };
 
+const NEUTRAL_REEL_TINT = 0x505860;
+
 function symbolColor(symbol: SlotSymbol): number {
   return symbol === "quarter"
     ? QUARTER_TINT
@@ -176,6 +178,7 @@ export function createSlotOverlay(scene: Phaser.Scene): SlotOverlay {
           ? DOTMAN_BODY_TEXTURE_KEY
           : schoolArtTextureKey(symbol);
     placeImage(sprite.main, key, x, y);
+    sprite.main.setTint(symbol === "neutral" ? NEUTRAL_REEL_TINT : 0xffffff);
     placeImage(sprite.visor, DOTMAN_VISOR_TEXTURE_KEY, x, y);
     sprite.visor.setVisible(symbol === "life" && sprite.main.visible);
   };

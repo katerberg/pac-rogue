@@ -12,13 +12,13 @@ Every `PlayScene` run is recorded to `localStorage`, always, with no flag, to fe
 
 Level times are sim ms since the level started (pauses and the store do not count).
 
-- `loadout[].source`: `start`, `offer`, `store`, `enhance` (the Plus id; the base entry gets `removedLevel`) or `flag` (`?enableUpgrade`). A store swap sets `removedLevel` on the outgoing upgrade.
+- `loadout[].source`: `start`, `offer`, `store`, `enhance` (the Plus id; the base entry gets `removedLevel`), `flag` (`?enableUpgrade`), `slots` or `salvage` (the Trinket a salvage paid). A store swap or a salvage sets `removedLevel` on the outgoing upgrade.
 - `pace.p25..p100`: sim time and countdown when that share of the board's pellets was gone; `p100` is also set at the clear, which can leave power pellets behind.
 - `countdownEnd`: the timer at the clear, before the time-bonus drain.
 - `nearMisses`: a non-house ghost within 1 tile of the player's centre without a catch, at most once per ghost per second.
 - `idleMs`: after the first move, time the player did not move. `tilesTraveled` excludes wraps and warp glides.
 - `activations`: per power-pellet trigger and per timer start; `shieldBreak` counts a spent shield on a catch (not a death).
-- `quartersEarned` is split by source; Interest credits the level just cleared.
+- `quartersEarned` is split by source (`salvage` when no Trinket was left to pay); Interest credits the level just cleared.
 - `deaths[]` records every catch, including ones Defy Death or Money Talks save.
 
 ## Pruning
