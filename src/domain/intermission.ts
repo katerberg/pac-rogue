@@ -37,7 +37,10 @@ export function hasIntermissionAfter(levelIndex: number): boolean {
   return INTERMISSION_LEVELS.includes(levelIndex);
 }
 
-export function pickIntermission(next: () => number, previous?: IntermissionId): IntermissionId {
+export function pickIntermission(
+  next: () => number,
+  previous: IntermissionId | null = null,
+): IntermissionId {
   const pool = INTERMISSION_IDS.filter((id) => id !== previous);
   return pool[Math.floor(next() * pool.length)]!;
 }

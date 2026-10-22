@@ -3212,7 +3212,7 @@ export class PlaySim {
   private beginIntermission(): void {
     const id =
       this.options.intermission ??
-      pickIntermission(this.random.stream("intermission"), this.lastIntermission ?? undefined);
+      pickIntermission(this.random.stream("intermission"), this.lastIntermission);
     this.lastIntermission = id;
     const ghostKinds = [...query(this.world, [Ghost, GhostKind])].map(
       (eid) => GhostKind.kind[eid] as GhostKindId,
