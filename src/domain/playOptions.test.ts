@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GHOST_KIND } from "./ghostKind";
+import { INTERMISSION_IDS } from "./intermission";
 import { defaultPlayOptions, parsePlayOptions } from "./playOptions";
 
 describe("parsePlayOptions", () => {
@@ -93,7 +94,7 @@ describe("parsePlayOptions", () => {
       "Unknown ?roster= value; expected an integer 0..5",
       "Unknown ?boss= value; expected blinkySwarm|chainedGhosts",
       "Unknown ?lives= value; expected positive integer",
-      "Unknown ?intermission= value; expected blinkyChase|bananaGrab",
+      `Unknown ?intermission= value; expected ${INTERMISSION_IDS.join("|")}`,
       "Unknown ?maxLives= value; expected positive integer",
     ]);
   });

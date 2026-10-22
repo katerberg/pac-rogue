@@ -16,11 +16,10 @@ export const FAST_ZONE_MULTIPLIER = 1.8;
 export const SPEED_ZONE_END_DRIFT = [-2, -1, 0, 1, 1, 2] as const;
 export const SPEED_ZONE_SHIFT_STEP_MS = 120;
 const SPEED_ZONE_PARTICLES_PER_TILE = 2;
-const SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC = 0.5;
-const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.6;
+const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.1;
 const SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES = 0.6;
 const SPEED_ZONE_PARTICLE_PEAK_ALPHA = 0.45;
-const SPEED_ZONE_PARTICLE_LINEAR_SHARE = 0.2;
+const SPEED_ZONE_PARTICLE_FADE_SHARE = 0.12;
 
 export type SpeedZoneAxis = "horizontal" | "vertical";
 export type SpeedZoneFastDir = "up" | "down" | "left" | "right";
@@ -96,12 +95,23 @@ export function speedZoneFastVector(zone: SpeedZone): { dx: number; dy: number }
 
 export type SpeedZoneParticle = { col: number; row: number; alpha: number; size: number };
 
+export type SpeedZoneDustSpeeds = { entryTilesPerSec: number; exitTilesPerSec: number };
+
+export const DEFAULT_SPEED_ZONE_DUST_SPEEDS: SpeedZoneDustSpeeds = {
+  entryTilesPerSec: 0.2,
+  exitTilesPerSec: 11,
+};
+
 function unitHash(n: number): number {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
 }
 
-export function speedZoneParticles(zone: SpeedZone, nowMs: number): SpeedZoneParticle[] {
+export function speedZoneParticles(
+  zone: SpeedZone,
+  nowMs: number,
+  speeds: SpeedZoneDustSpeeds = DEFAULT_SPEED_ZONE_DUST_SPEEDS,
+): SpeedZoneParticle[] {
   const { dx, dy } = speedZoneFastVector(zone);
   const startCol = dx < 0 ? zone.col + zone.length : zone.col + (dx === 0 ? 0.5 : 0);
   const startRow = dy < 0 ? zone.row + zone.length : zone.row + (dy === 0 ? 0.5 : 0);
@@ -110,18 +120,29 @@ export function speedZoneParticles(zone: SpeedZone, nowMs: number): SpeedZonePar
   const seconds = nowMs / 1000;
   return Array.from({ length: count }, (_, i) => {
     const key = seed * 101 + i;
-    const tilesPerSec =
-      SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC + unitHash(key + 1) * SPEED_ZONE_PARTICLE_SPEED_SPREAD;
-    const progress = (unitHash(key) + (seconds * tilesPerSec) / zone.length) % 1;
+    const scale = 1 + unitHash(key + 1) * SPEED_ZONE_PARTICLE_SPEED_SPREAD;
+    const entry = speeds.entryTilesPerSec * scale;
+    const exit = speeds.exitTilesPerSec * scale;
+    const growth = (exit - entry) / zone.length;
+    const flat = Math.abs(growth) < 1e-9;
+    const crossingSec = flat ? zone.length / entry : Math.log(exit / entry) / growth;
+    const t = (unitHash(key) * crossingSec + seconds) % crossingSec;
+    const along = Math.min(
+      zone.length,
+      flat ? entry * t : (entry / growth) * Math.expm1(growth * t),
+    );
+    const progress = along / zone.length;
     const side = (unitHash(key + 2) - 0.5) * SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES;
-    const eased =
-      SPEED_ZONE_PARTICLE_LINEAR_SHARE * progress +
-      (1 - SPEED_ZONE_PARTICLE_LINEAR_SHARE) * progress * progress;
-    const along = eased * zone.length;
     return {
       col: startCol + dx * along + dy * side,
       row: startRow + dy * along + dx * side,
-      alpha: SPEED_ZONE_PARTICLE_PEAK_ALPHA * Math.sin(Math.PI * progress),
+      alpha:
+        SPEED_ZONE_PARTICLE_PEAK_ALPHA *
+        Math.min(
+          1,
+          progress / SPEED_ZONE_PARTICLE_FADE_SHARE,
+          (1 - progress) / SPEED_ZONE_PARTICLE_FADE_SHARE,
+        ),
       size: 0.5 + unitHash(key + 3),
     };
   });
