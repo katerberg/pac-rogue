@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickCollapsePlan, applyCollapse, type CollapseChain } from "./collapse";
+import { pickCollapsePlan, applyCollapse } from "./collapse";
 import { MAZE_POOL } from "./mazePool";
 import { randomFromSeed } from "./mazeTiling";
 import {
@@ -151,17 +151,11 @@ describe("buildSinkholeArt", () => {
       ({ chain }) =>
         new Set(chain.map((c) => c.col)).size > 1 && new Set(chain.map((c) => c.row)).size > 1,
     );
-    if (bent === undefined) {
-      return;
-    }
-    const built = buildSinkholeArt(
-      { ascii: bent.ascii, tileSize: TILE },
-      bent.chain as CollapseChain,
-      bent.seed,
-    );
-    const width = bent.ascii.split("\n")[0]!.length * TILE;
+    expect(bent).toBeDefined();
+    const built = buildSinkholeArt({ ascii: bent!.ascii, tileSize: TILE }, bent!.chain, bent!.seed);
+    const width = bent!.ascii.split("\n")[0]!.length * TILE;
     const { grid } = paint(built, OPEN, width, 0);
-    for (const { col, row } of bent.chain) {
+    for (const { col, row } of bent!.chain) {
       expect(isVoid(grid.get((row * TILE + TILE / 2) * width + col * TILE + TILE / 2))).toBe(true);
     }
   });
