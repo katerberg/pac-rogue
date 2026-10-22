@@ -7,6 +7,7 @@ import {
   CORNUCOPIA_SPAWN_DEBOUNCE_MS,
   nextFruitKind,
 } from "../../domain/fruit";
+import { FRUIT_KINDS } from "../fruitArt";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_ROSTERS, rosterIdForSeed } from "../../domain/ghostRoster";
@@ -40,6 +41,7 @@ import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
+import { INTERMISSION_IDS } from "../../domain/intermission";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import {
@@ -358,6 +360,33 @@ describe("PlaySim Fruit Fecundity+", () => {
     expect(kinds[0]).not.toBe(kinds[1]);
   });
 
+  it("can spawn watermelon from the art-folder fruit pool", () => {
+    expect(FRUIT_KINDS).toContain("watermelon");
+    const others = FRUIT_KINDS.filter((kind) => kind !== "watermelon");
+    expect(
+      nextFruitKind({
+        seed: "fruit-watermelon",
+        level: 2,
+        spawnIndex: 1,
+        previousLevelFirstKind: null,
+        onBoard: others,
+        alreadyChosen: undefined,
+        kinds: FRUIT_KINDS,
+      }),
+    ).toBe("watermelon");
+
+    const sim = startSim({ level: 2, maze: "maze1" }, "fruit-watermelon");
+    sim["fruitSequence"] = {
+      sequence: ["watermelon"],
+      spawnIndex: 0,
+      previousLevelFirstKind: null,
+    };
+    const [first] = getActiveLayout().fruitThresholds;
+    eatPellets(sim, first);
+    teleportPlayer(sim, 0, 0);
+    expect(sim.snapshot().fruitKinds).toEqual(["watermelon"]);
+  });
+
   it("keeps the first fruit kind when the level's spawn sequence is replayed", () => {
     const seed = "fruit-replay";
     const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["fruitFecundityPlus"] }, seed);
@@ -380,6 +409,7 @@ describe("PlaySim Fruit Fecundity+", () => {
         previousLevelFirstKind: null,
         onBoard: [],
         alreadyChosen: firstKind,
+        kinds: FRUIT_KINDS,
       }),
     );
   });
@@ -846,26 +876,62 @@ describe("PlaySim", () => {
     expect(sim.snapshot().upgrades).toContain(chosen);
   });
 
-  it("plays the Blinky chase intermission between level 2 and level 3", () => {
-    const sim = startSim({ jumpToUpgrade: true });
+  it("plays the forced intermission between level 2 and level 3", () => {
+    const sim = startSim({ jumpToUpgrade: true, intermission: "blinkyChase" });
     takeFirstOffered(sim);
     const events = runUntil(sim, () => sim.snapshot().intermission !== null, 120);
     expect(sim.snapshot().level).toBe(2);
     expect(sim.snapshot().levelTransition).toBe(false);
     const first = sim.snapshot().intermission!;
+    expect(first.id).toBe("blinkyChase");
     runFrames(sim, 60);
     const later = sim.snapshot().intermission!;
-    expect(later.blinkyX).toBeGreaterThan(first.blinkyX);
-    expect(later.dotManX).toBeGreaterThan(later.blinkyX);
+    const x = (frame: typeof first, key: string) => frame.actors.find((a) => a.key === key)!.x;
+    expect(x(later, "blinky")).toBeGreaterThan(x(first, "blinky"));
+    expect(x(later, "dotMan")).toBeGreaterThan(x(later, "blinky"));
     expect(sim.snapshot().level).toBe(2);
     const rest = runUntil(sim, () => sim.snapshot().level === 3, 300);
     expect(sim.snapshot().intermission).toBeNull();
     const all = [...events, ...rest];
     expect(all).toContainEqual({ type: "musicAfterFanfare", id: "interstitialMusic" });
     expect(all).toContainEqual({ type: "loopStop", id: "interstitialMusic" });
-    expect(
-      [...events, ...rest].some((event) => event.type === "intermission" && event.frame === null),
-    ).toBe(true);
+    expect(all.some((event) => event.type === "intermission" && event.frame === null)).toBe(true);
+  });
+
+  it("picks the level-2 intermission at random per seed from every registered one", () => {
+    const picked = new Set<string>();
+    for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+      const sim = startSim({ jumpToUpgrade: true }, seed);
+      takeFirstOffered(sim);
+      runUntil(sim, () => sim.snapshot().intermission !== null, 120);
+      picked.add(sim.snapshot().intermission!.id);
+    }
+    expect(picked).toEqual(new Set(INTERMISSION_IDS));
+  });
+
+  it("opens ?intermission=bananaGrab straight into the banana grab, then plays level 3", () => {
+    const sim = new PlaySim({ ...defaultPlayOptions(), intermission: "bananaGrab", level: 2 }, "t");
+    const startEvents = sim.start();
+    expect(sim.snapshot().level).toBe(2);
+    expect(sim.snapshot().intermission).toMatchObject({ id: "bananaGrab", beat: "chase" });
+    expect(startEvents).not.toContainEqual({ type: "loopStart", id: "gameplayMusic" });
+    expect(startEvents).toContainEqual({ type: "musicAfterFanfare", id: "interstitialMusic" });
+    const beats: string[] = [];
+    const rest = runUntil(
+      sim,
+      () => {
+        const beat = sim.snapshot().intermission?.beat;
+        if (beat !== undefined && beats.at(-1) !== beat) {
+          beats.push(beat);
+        }
+        return sim.snapshot().level === 3;
+      },
+      400,
+    );
+    expect(beats).toEqual(["chase", "peel", "bounce", "exit"]);
+    expect(sim.snapshot().intermission).toBeNull();
+    expect(rest).toContainEqual({ type: "loopStop", id: "interstitialMusic" });
+    expect(rest).toContainEqual({ type: "musicAfterFanfare", id: "gameplayMusic" });
   });
 
   it("offers an upgrade after clearing level 1, then skips the intermission", () => {
@@ -3377,6 +3443,31 @@ describe("PlaySim slot-machine world pickup", () => {
   it("places a machine when ?slotMachine=1 starts an eligible board", () => {
     const sim = startSim({ level: 2, maze: "maze1", slotMachine: true }, "slot-pick-flag");
     expect(sim.snapshot().slotPickup.count).toBe(1);
+  });
+});
+
+describe("PlaySim ?fruit=1", () => {
+  it("starts each board with a fruit already out", () => {
+    const sim = startSim({ level: 2, maze: "maze1", fruit: true });
+    expect(sim.snapshot().fruit).toBe(true);
+    expect(query(sim.world, [Fruit, Position])).toHaveLength(1);
+  });
+
+  it("still spawns the pellet-threshold fruit after the flag fruit expires", () => {
+    const sim = startSim({ level: 2, maze: "maze1", fruit: true });
+    runFrames(sim, Math.ceil((FRUIT_LIFETIME_MS + 500) / FRAME_MS));
+    expect(sim.snapshot().fruit).toBe(false);
+    const [threshold] = getActiveLayout().fruitThresholds;
+    for (const eid of regularPelletEids(sim).slice(0, threshold)) {
+      eatPelletAt(sim, eid);
+    }
+    teleportPlayer(sim, 0, 0);
+    expect(sim.snapshot().fruit).toBe(true);
+  });
+
+  it("starts with no fruit when the flag is off", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    expect(sim.snapshot().fruit).toBe(false);
   });
 });
 
@@ -9150,6 +9241,188 @@ describe("Banana Trail", () => {
     chompPowerPellet(sim);
     expect(sim.snapshot().timers.peelsBanked).toBe(0);
     expect(sim.snapshot().peels).toEqual([]);
+  });
+});
+
+describe("Martyr", () => {
+  const LEFT = { keys: held("left") };
+
+  function dieOnce(sim: PlaySim): void {
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+  }
+
+  it("fires owned power-pellet effects on a real death", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "powerPelletInvuln"],
+    });
+    dieOnce(sim);
+    expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
+  });
+
+  it("base skips Defy Death saves; Plus fires on them", () => {
+    const base = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "passiveDefyDeath", "powerPelletInvuln"],
+    });
+    const power = query(base.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(base, Position.x[power]!, Position.y[power]!);
+    runFrames(base, 1);
+    expect(base.snapshot().timers.defyDeathMs).toBeGreaterThan(0);
+    const livesBefore = base.snapshot().lives;
+    const invulnBefore = base.snapshot().timers.invulnMs;
+    ghostOntoPlayer(base);
+    runFrames(base, 1);
+    expect(base.snapshot().lives).toBe(livesBefore);
+    expect(base.snapshot().timers.invulnMs).toBeLessThanOrEqual(invulnBefore);
+
+    const plus = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyrPlus", "passiveDefyDeath", "powerPelletInvuln"],
+    });
+    const power2 = query(plus.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(plus, Position.x[power2]!, Position.y[power2]!);
+    runFrames(plus, 1);
+    ghostOntoPlayer(plus);
+    runFrames(plus, 1);
+    expect(plus.snapshot().timers.invulnMs).toBeGreaterThan(3000);
+  });
+
+  it("skips when infiniteLives is on", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["passiveMartyr", "powerPelletInvuln"],
+    });
+    dieOnce(sim);
+    expect(sim.snapshot().timers.invulnMs).toBe(0);
+  });
+
+  it("animates Scatter Burst's ghost glides through the death hold", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "powerPelletScatterBurst"],
+    });
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    const draws = runFrames(sim, 12).flatMap((e) => (e.type === "draw" ? [e.options] : []));
+    expect(sim.snapshot().dying).toBe(true);
+    expect(draws.some((d) => Object.keys(d.ghostWarpGlides ?? {}).length > 0)).toBe(true);
+  });
+
+  it("restores the life when Martyr clears the board on a would-be game over", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      lives: 1,
+      enableUpgrades: ["passiveMartyr", "powerPelletExtraHungry"],
+    });
+    expect(sim.snapshot().lives).toBe(1);
+    const eids = query(sim.world, [Pellet, Position]).filter(
+      (eid) => !hasComponent(sim.world, eid, PowerPellet),
+    );
+    // Leave only Extra Hungry's bite so the Martyr fire clears the board.
+    for (const eid of eids.slice(EXTRA_HUNGRY_COUNT)) {
+      removeEntity(sim.world, eid);
+      sim["pelletProgress"] = {
+        ...sim["pelletProgress"],
+        pelletsRemaining: Math.max(0, sim["pelletProgress"].pelletsRemaining - 1),
+      };
+    }
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().lives).toBe(1);
+  });
+});
+
+describe("Possession", () => {
+  const LEFT = { keys: held("left") };
+
+  function startPossession(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades });
+  }
+
+  function enterPossession(sim: PlaySim): number {
+    runFrames(sim, 20, LEFT);
+    const killer = query(sim.world, [Ghost, Position])[0]!;
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().possessing).toBe(true);
+    expect(sim.snapshot().timers.possessionMs).toBeGreaterThan(0);
+    expect(sim.snapshot().dying).toBe(false);
+    return killer;
+  }
+
+  it("hides the player and marks the possessed ghost for the renderer", () => {
+    const sim = startPossession(["passivePossession"]);
+    expect(sim.renderOptions().playerAlpha).toBeUndefined();
+    const killer = enterPossession(sim);
+    const options = sim.renderOptions();
+    expect(options.playerAlpha).toBe(0);
+    expect(options.possessedGhostEid).toBe(killer);
+  });
+
+  it("possesses the catching ghost and frightens the others", () => {
+    const sim = startPossession(["passivePossession"]);
+    const killer = enterPossession(sim);
+    expect(sim.snapshot().possessedGhost).toBe(ghostName(sim.world, killer));
+    expect(sim.snapshot().frightenedGhosts.length).toBeGreaterThan(0);
+    expect(sim.snapshot().frightenedGhosts).not.toContain(ghostName(sim.world, killer));
+  });
+
+  it("ends into the normal death hold, then respawns", () => {
+    const sim = startPossession(["passivePossession"]);
+    enterPossession(sim);
+    runUntil(sim, () => sim.snapshot().dying === true, 400);
+    expect(sim.snapshot().possessing).toBe(false);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("Possession+ haunts the steered ghost after the death hold", () => {
+    const sim = startPossession(["passivePossessionPlus"]);
+    const killer = enterPossession(sim);
+    runUntil(sim, () => !sim.snapshot().dying && sim.snapshot().hauntedGhost !== null, 500);
+    expect(sim.snapshot().hauntedGhost).toBe(ghostName(sim.world, killer));
+    expect(sim.snapshot().timers.hauntMs).toBe(5000);
+  });
+
+  it("skips on lava and with infiniteLives", () => {
+    const infinite = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: true,
+      enableUpgrades: ["passivePossession"],
+    });
+    runFrames(infinite, 20, LEFT);
+    ghostOntoPlayer(infinite);
+    runFrames(infinite, 1);
+    expect(infinite.snapshot().possessing).toBe(false);
+    expect(infinite.snapshot().dying).toBe(true);
+  });
+
+  it("eats regular pellets without growing the streak", () => {
+    const sim = startPossession(["passivePossession"]);
+    const killer = enterPossession(sim);
+    const before = sim.snapshot().boardCollected;
+    const streakBefore = sim.snapshot().pennies?.streak ?? 0;
+    const pellet = query(sim.world, [Pellet, Position]).find(
+      (eid) => !hasComponent(sim.world, eid, PowerPellet),
+    )!;
+    Position.x[killer] = Position.x[pellet]!;
+    Position.y[killer] = Position.y[pellet]!;
+    runFrames(sim, 1);
+    expect(sim.snapshot().boardCollected).toBeGreaterThan(before);
+    expect(sim.snapshot().pennies?.streak ?? 0).toBe(streakBefore);
   });
 });
 

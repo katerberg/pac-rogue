@@ -22,6 +22,7 @@ export type RandomStream =
   | "slots"
   | "slotPickup"
   | "chaff"
+  | "intermission"
   | "bot";
 
 export type RunRandom = {

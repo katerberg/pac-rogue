@@ -2274,3 +2274,73 @@ describe("LearnSim upgrade HUD timers", () => {
     expect(sim.upgradeTimerFractions().powerPelletSpeedBurst).toBeLessThan(1);
   });
 });
+
+describe("Martyr and Possession (LEARN)", () => {
+  function setup(...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]) {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.blinky);
+    for (const id of ids) {
+      sim.toggleUpgrade(id);
+    }
+    const player = query(sim.world, [Player, Position])[0]!;
+    return { sim, player };
+  }
+
+  function moveTo(player: number, at: { x: number; y: number }): void {
+    Position.x[player] = at.x;
+    Position.y[player] = at.y;
+  }
+
+  function posOf(eid: number): { x: number; y: number } {
+    return { x: Position.x[eid]!, y: Position.y[eid]! };
+  }
+
+  function popups(events: ReturnType<LearnSim["step"]>): string[] {
+    return events.flatMap((event) => (event.type === "learnPopup" ? [event.text] : []));
+  }
+
+  function catchByGhost(sim: LearnSim, player: number): ReturnType<LearnSim["step"]> {
+    const ghost = sim.ghostEid!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    moveTo(player, posOf(ghost));
+    return sim.step(NO_KEYS_HELD, FRAME_MS);
+  }
+
+  it("Martyr fires power effects on a demo catch", () => {
+    const { sim, player } = setup("passiveMartyr", "powerPelletInvuln");
+    const text = popups(catchByGhost(sim, player)).join("\n");
+    expect(text).toContain("MARTYR");
+    expect(sim["learnUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
+  });
+
+  it("Possession starts a controllable fright window on demo catch", () => {
+    const { sim, player } = setup("passivePossession");
+    const ghost = sim.ghostEid!;
+    expect(popups(catchByGhost(sim, player)).join("\n")).toContain("POSSESSING");
+    expect(sim["learnUpgrades"].possessionRemainingMs).toBeGreaterThan(0);
+    expect(sim["learnUpgrades"].possessedGhostEid).toBe(ghost);
+    for (let t = 0; t < 5200; t += FRAME_MS) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      if (sim["learnUpgrades"].possessionRemainingMs <= 0) {
+        break;
+      }
+    }
+    expect(sim["learnUpgrades"].possessionRemainingMs).toBe(0);
+    expect(sim["learnUpgrades"].possessedGhostEid).toBeNull();
+  });
+
+  it("Possession+ haunts the steered ghost after possession ends", () => {
+    const { sim, player } = setup("passivePossessionPlus");
+    const ghost = sim.ghostEid!;
+    catchByGhost(sim, player);
+    for (let t = 0; t < 5200; t += FRAME_MS) {
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      if (sim["learnUpgrades"].hauntRemainingMs > 0) {
+        break;
+      }
+    }
+    expect(sim["learnUpgrades"].hauntedGhostEid).toBe(ghost);
+    expect(sim["learnUpgrades"].hauntRemainingMs).toBe(5000);
+  });
+});
