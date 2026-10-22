@@ -53,7 +53,7 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `learnAll` | `1` \| `0` | Boot into LEARN (without `play=1`). `1` lists every upgrade; `0` lists none. Read-only. [learn.md](./docs/learn.md). |
 | `runLogFill` | integer 0..600 | Agent ports only: seed that many synthetic `debug` runs at boot. [RUN_LOG.md](./docs/RUN_LOG.md). |
 | `seed` | 1-32 of `A-Z a-z 0-9 _ -` | Fix every random roll so the URL replays. [VERIFICATION.md](./docs/VERIFICATION.md#seeded-runs). |
-| `levelModifiers` | `0` | Opt out of speed-lane / collapse / lava modifiers. [levels.md](./docs/levels.md). |
+| `levelModifiers` | `0` | Opt out of speed-lane / collapse / sinkhole / lava modifiers. [levels.md](./docs/levels.md). |
 | `knobs` | `1` | Live tuning panels over the gutters; table in `src/domain/tuningKnobs.ts`. |
 | `customMaze` | `1` | Paste-ASCII first board before boot (`pac-rogue.custom-maze.v1`). |
 | `sound` | `1` | Agent ports only: opt in to audio (muted by default). |

@@ -131,6 +131,8 @@ import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
+import { ghostMovementRules } from "../../domain/ghostMovement";
+import { SINKHOLE_INTRO_MS } from "../../domain/sinkholeArt";
 import { DIRECTION, Input } from "../components/Input";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
@@ -8835,6 +8837,150 @@ describe("collapsed tunnels", () => {
     expect(chainsAt(7)).toEqual(chainsAt(7));
     const other = startSim({ level: 7 }, "collapse-other").snapshot().collapse.chains;
     expect(other).not.toEqual(chainsAt(7).chains);
+  });
+});
+
+describe("sinkhole", () => {
+  const SEED = "collapse-run";
+  const sinkholeAt = (level: number, overrides: Partial<PlayOptions> = {}) =>
+    startSim({ level, ...overrides }, SEED).snapshot().sinkhole;
+  const cellKey = (cell: MazeTile): string => `${cell.col},${cell.row}`;
+
+  it("appears on level 6 as a single corridor run and stays through the pool levels", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => sinkholeAt(level).cells !== null)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+    ]);
+    const six = sinkholeAt(6).cells!;
+    expect(six.length).toBeGreaterThanOrEqual(3);
+    expect(six.length).toBeLessThanOrEqual(5);
+    expect(sinkholeAt(7).cells).toEqual(six);
+    expect(sinkholeAt(8).cells).toEqual(six);
+  });
+
+  it("is a level modifier that ?levelModifiers=0 turns off", () => {
+    expect(sinkholeAt(6, { levelModifiers: false }).cells).toBeNull();
+    expect(startSim({ level: 6, levelModifiers: false }, SEED).renderOptions().sinkhole).toBeNull();
+  });
+
+  it("blocks Dot-Man in its cells but lets the ghosts cross, and drops their pellets", () => {
+    const sim = startSim({ level: 6 }, SEED);
+    const layout = getActiveLayout();
+    const cells = sim.snapshot().sinkhole.cells!;
+    for (const { col, row } of cells) {
+      expect(layout.playerSolids[row]![col]).toBe(true);
+      expect(layout.wallPassPlayerSolids[row]![col]).toBe(true);
+      expect(layout.ghostActiveSolids[row]![col]).toBe(false);
+      expect(layout.ghostSolids[row]![col]).toBe(false);
+    }
+    const pellets = query(sim.world, [Pellet, Position]);
+    const inside = pellets.filter((eid) =>
+      cells.some(
+        (c) => c.col === worldToCol(Position.x[eid]!) && c.row === worldToRow(Position.y[eid]!),
+      ),
+    );
+    expect(inside).toEqual([]);
+    expect(layout.pelletCount).toBe(pellets.length);
+  });
+
+  it("keeps every remaining pellet reachable around it", () => {
+    for (const seed of ["collapse-a", "collapse-b", "collapse-c", SEED]) {
+      const sim = startSim({ level: 6 }, seed);
+      const { playerSolids, playerSpawn } = getActiveLayout();
+      const seen = new Set<string>([cellKey(playerSpawn)]);
+      const queue = [playerSpawn];
+      for (let i = 0; i < queue.length; i += 1) {
+        const { col, row } = queue[i]!;
+        for (const [dc, dr] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as const) {
+          const next = { col: col + dc, row: row + dr };
+          if (!seen.has(cellKey(next)) && isWalkable(next.col, next.row, playerSolids)) {
+            seen.add(cellKey(next));
+            queue.push(next);
+          }
+        }
+      }
+      for (const eid of query(sim.world, [Pellet, Position])) {
+        const cell = { col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) };
+        expect(seen.has(cellKey(cell)), `${seed} pellet at ${cellKey(cell)}`).toBe(true);
+      }
+    }
+  });
+
+  it("stops Dot-Man at the edge while a ghost may enter the same cell", () => {
+    const sim = startSim({ level: 6 }, SEED);
+    const cells = sim.snapshot().sinkhole.cells!;
+    const inChain = new Set(cells.map(cellKey));
+    const first = cells[0]!;
+    const layout = getActiveLayout();
+    const outside = [
+      { dc: 1, dr: 0, key: "left" },
+      { dc: -1, dr: 0, key: "right" },
+      { dc: 0, dr: 1, key: "up" },
+      { dc: 0, dr: -1, key: "down" },
+    ]
+      .map((side) => ({
+        ...side,
+        from: { col: first.col + side.dc, row: first.row + side.dr },
+      }))
+      .find(
+        (side) =>
+          !inChain.has(cellKey(side.from)) &&
+          isWalkable(side.from.col, side.from.row, layout.playerSolids),
+      )!;
+    teleportPlayer(sim, cellCenterX(outside.from.col), cellCenterY(outside.from.row));
+    runFrames(sim, 90, { keys: held(outside.key as "left" | "right" | "up" | "down") });
+    const eid = playerEid(sim);
+    const at = { col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) };
+    expect(inChain.has(cellKey(at))).toBe(false);
+    const rules = ghostMovementRules(GHOST_PHASE.active);
+    const dx = first.col - outside.from.col;
+    const dy = first.row - outside.from.row;
+    expect(
+      rules.canEnter(cellCenterX(outside.from.col), cellCenterY(outside.from.row), dx, dy),
+    ).toBe(true);
+  });
+
+  it("flags only the level-6 sinkhole as fresh and runs its opening clock to full length", () => {
+    expect(sinkholeAt(6).fresh).toBe(true);
+    expect(sinkholeAt(7).fresh).toBe(false);
+    const sim = startSim({ level: 6 }, SEED);
+    expect(sim.snapshot().sinkhole.introMs).toBe(0);
+    runFrames(sim, 30, { keys: held("left") });
+    const early = sim.snapshot().sinkhole.introMs;
+    expect(early).toBeGreaterThan(0);
+    runFrames(sim, 600, { keys: held("left") });
+    expect(sim.snapshot().sinkhole.introMs).toBeGreaterThan(early);
+    const settled = sim.snapshot().sinkhole.introMs;
+    expect(settled).toBe(SINKHOLE_INTRO_MS);
+    runFrames(sim, 60);
+    expect(sim.snapshot().sinkhole.introMs).toBe(settled);
+  });
+
+  it("hands the renderer its art only while a sinkhole exists", () => {
+    expect(startSim({ level: 5 }, SEED).renderOptions().sinkhole).toBeNull();
+    const state = startSim({ level: 6 }, SEED).renderOptions().sinkhole;
+    expect(state?.fresh).toBe(true);
+    expect(state?.art.pixels.length).toBeGreaterThan(0);
+    expect(startSim({ level: 7 }, SEED).renderOptions().sinkhole?.fresh).toBe(false);
+  });
+
+  it("replays the same sinkhole for the same seed and differs between seeds", () => {
+    expect(sinkholeAt(6)).toEqual(sinkholeAt(6));
+    expect(startSim({ level: 6 }, "collapse-other").snapshot().sinkhole.cells).not.toEqual(
+      sinkholeAt(6).cells,
+    );
   });
 });
 

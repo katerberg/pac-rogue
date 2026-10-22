@@ -133,6 +133,8 @@ import {
 } from "../../domain/lives";
 import {
   activateAsciiLayout,
+  setActiveLayout,
+  withSinkholes,
   activateLayout,
   cellCenterX,
   cellCenterY,
@@ -160,12 +162,21 @@ import {
 } from "../../domain/timedTunnel";
 import {
   applyCollapse,
+  applySinkhole,
   collapsedChainsFor,
   isFreshCollapse,
+  isFreshSinkhole,
   pickCollapsePlan,
+  sinkholeFor,
   type CollapseChain,
   type CollapsePlan,
 } from "../../domain/collapse";
+import {
+  buildSinkholeArt,
+  SINKHOLE_INTRO_MS,
+  type SinkholeArt,
+  type SinkholeRenderState,
+} from "../../domain/sinkholeArt";
 import {
   applyTunnelBoringAscii,
   mergeBoredCells,
@@ -689,6 +700,10 @@ export class PlaySim {
   private collapseArts: CollapseArt[] = [];
   private collapseSpeedBoard: MazeLayout | null = null;
   private collapseIntroMs = 0;
+  private sinkholeChain: CollapseChain | null = null;
+  private sinkholeArt: SinkholeArt | null = null;
+  private sinkholeBoardCount = 0;
+  private sinkholeIntroMs = 0;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
@@ -1032,6 +1047,7 @@ export class PlaySim {
       timedTunnel: this.timedTunnelRenderState(),
       lava: this.lavaRenderState(),
       collapse: this.collapseRenderState(),
+      sinkhole: this.sinkholeRenderState(),
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       chaff: chaffSprites(this.runUpgrades.chaff),
@@ -1165,6 +1181,11 @@ export class PlaySim {
         chains: this.collapseChains,
         fresh: this.collapseArts.map((art) => art.fresh),
         introMs: this.collapseIntroMs,
+      },
+      sinkhole: {
+        cells: this.sinkholeChain,
+        fresh: this.sinkholeChain !== null && isFreshSinkhole(this.levelIndex),
+        introMs: this.sinkholeIntroMs,
       },
       mirror: {
         active: upgrades.mirrorActive,
@@ -1390,6 +1411,7 @@ export class PlaySim {
     this.tickTimedTunnel(delta);
     this.tickSpeedZoneShift(delta);
     this.collapseIntroMs = Math.min(RUBBLE_INTRO_MS, this.collapseIntroMs + delta);
+    this.sinkholeIntroMs = Math.min(SINKHOLE_INTRO_MS, this.sinkholeIntroMs + delta);
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const programming = this.runUpgrades.programmer !== null;
@@ -2931,15 +2953,32 @@ export class PlaySim {
     this.collapseArts = [];
     this.collapseSpeedBoard = null;
     this.collapseIntroMs = 0;
+    this.sinkholeChain = null;
+    this.sinkholeArt = null;
+    this.sinkholeIntroMs = 0;
   }
 
-  private setUpCollapse(chains: readonly CollapseChain[]): void {
+  private setUpCollapse(chains: readonly CollapseChain[], sinkhole: CollapseChain | null): void {
     const held = this.collapsePlan;
     if (held === null) {
       return;
     }
     const layout = getActiveLayout();
-    this.collapseSpeedBoard = layoutFromAscii(applyCollapse(held.baseAscii, held.plan.chains));
+    this.collapseSpeedBoard = layoutFromAscii(
+      applyCollapse(
+        held.baseAscii,
+        held.plan.sinkhole === null ? held.plan.chains : [...held.plan.chains, held.plan.sinkhole],
+      ),
+    );
+    if (sinkhole !== null) {
+      this.sinkholeChain = sinkhole;
+      this.sinkholeBoardCount += 1;
+      this.sinkholeArt = buildSinkholeArt(
+        { ascii: layout.ascii, tileSize: layout.tileSize },
+        sinkhole,
+        held.plan.artSeed + 404,
+      );
+    }
     if (chains.length === 0) {
       return;
     }
@@ -2961,6 +3000,23 @@ export class PlaySim {
     }));
   }
 
+  private sinkholeRenderState(): SinkholeRenderState | null {
+    return this.sinkholeArt === null
+      ? null
+      : {
+          key: `board-${this.sinkholeBoardCount}`,
+          art: this.sinkholeArt,
+          elapsedMs: this.sinkholeIntroMs,
+          fresh: isFreshSinkhole(this.levelIndex),
+        };
+  }
+
+  private sinkholeChainFor(): CollapseChain | null {
+    return this.options.levelModifiers && this.collapsePlan !== null
+      ? sinkholeFor(this.collapsePlan.plan, this.levelIndex)
+      : null;
+  }
+
   private collapseRenderState(): CollapseRenderState | null {
     return this.collapseArts.length === 0
       ? null
@@ -2977,13 +3033,17 @@ export class PlaySim {
     chains: readonly CollapseChain[] | null = null,
   ): string {
     try {
-      const collapsed = applyCollapse(ascii, chains ?? []);
+      const sinkhole = chains === null ? null : this.sinkholeChainFor();
+      const collapsed = applySinkhole(applyCollapse(ascii, chains ?? []), sinkhole);
       const boredCells = this.boredCellsForMap(label);
       const bored = applyTunnelBoringAscii(collapsed, boredCells);
       activateAsciiLayout(bored);
       openBoredCellsOnLayout(getActiveLayout(), boredCells);
+      if (sinkhole !== null) {
+        setActiveLayout(withSinkholes(getActiveLayout(), sinkhole));
+      }
       if (chains !== null) {
-        this.setUpCollapse(chains);
+        this.setUpCollapse(chains, sinkhole);
       }
       return label;
     } catch (error) {

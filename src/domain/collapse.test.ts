@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   applyCollapse,
+  applySinkhole,
   collapseCountForLevel,
   collapsedChainsFor,
   COLLAPSE_LEVELS,
   isFreshCollapse,
+  isFreshSinkhole,
   pickCollapsePlan,
+  SINKHOLE_LEVEL,
+  sinkholeFor,
+  type CollapsePlan,
 } from "./collapse";
 import { layoutFromAscii } from "./maze";
 import { MAZE_POOL } from "./mazePool";
@@ -16,6 +21,9 @@ const plans = MAZE_POOL.map((map) => ({
   map,
   plan: pickCollapsePlan(map.ascii, randomFromSeed(`collapse:${map.id}`)),
 }));
+
+const withSinkhole = (plan: CollapsePlan) =>
+  plan.sinkhole === null ? plan.chains : [...plan.chains, plan.sinkhole];
 
 function openNeighbours(lines: string[], col: number, row: number): number {
   const wrap = lines[row]![0] !== "#" && lines[row]![lines[0]!.length - 1] !== "#";
@@ -63,11 +71,15 @@ describe("pickCollapsePlan", () => {
   it.each(plans.map((entry) => [entry.map.id, entry] as const))(
     "pool %i never traps or cuts off any tile",
     (_id, { map, plan }) => {
-      const collapsed = applyCollapse(map.ascii, plan.chains);
+      const collapsed = applyCollapse(map.ascii, withSinkhole(plan));
       const lines = collapsed.split("\n");
-      const cells = new Set(plan.chains.flat().map((c) => `${c.col},${c.row}`));
-      expect(cells.size).toBe(plan.chains.flat().length);
-      for (const chain of plan.chains) {
+      const cells = new Set(
+        withSinkhole(plan)
+          .flat()
+          .map((c) => `${c.col},${c.row}`),
+      );
+      expect(cells.size).toBe(withSinkhole(plan).flat().length);
+      for (const chain of withSinkhole(plan)) {
         for (const { col, row } of chain) {
           expect(map.ascii.split("\n")[row]![col]).not.toBe("@");
           expect(lines[row]![col]).toBe("#");
@@ -96,7 +108,7 @@ describe("pickCollapsePlan", () => {
           if ("H=P".includes(ch)) protectedCells.push([col, row]);
         }),
       );
-      const all = plan.chains.flatMap((chain, i) => chain.map((cell) => ({ cell, i })));
+      const all = withSinkhole(plan).flatMap((chain, i) => chain.map((cell) => ({ cell, i })));
       for (const { cell } of all) {
         for (const [col, row] of protectedCells) {
           expect(Math.abs(col - cell.col) + Math.abs(row - cell.row)).toBeGreaterThan(3);
@@ -112,6 +124,44 @@ describe("pickCollapsePlan", () => {
         }
       }
     }
+  });
+});
+
+describe("sinkhole schedule", () => {
+  it("arrives on level 6, stays on the pool levels and skips the boss", () => {
+    const { plan } = plans.find(({ plan: p }) => p.sinkhole !== null)!;
+    const present = Array.from({ length: MAX_LEVEL }, (_, i) => sinkholeFor(plan, i + 1) !== null);
+    expect(present).toEqual([false, false, false, false, false, true, true, true, false]);
+    expect(SINKHOLE_LEVEL).toBe(6);
+    expect([5, 6, 7].map(isFreshSinkhole)).toEqual([false, true, false]);
+  });
+
+  it("finds a sinkhole run on most pool maps without moving the rubble chains", () => {
+    const found = plans.filter(({ plan }) => plan.sinkhole !== null);
+    expect(found.length / plans.length).toBeGreaterThan(0.9);
+    for (const { plan } of found) {
+      expect(plan.sinkhole!.length).toBeGreaterThanOrEqual(3);
+      expect(plan.sinkhole!.length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("clears pellets from the run but leaves walls and the rest of the board alone", () => {
+    const { map, plan } = plans.find(({ plan: p }) => p.sinkhole !== null)!;
+    const lines = applySinkhole(map.ascii, plan.sinkhole).split("\n");
+    const before = map.ascii.split("\n");
+    const run = new Set(plan.sinkhole!.map((c) => `${c.col},${c.row}`));
+    for (let row = 0; row < lines.length; row += 1) {
+      for (let col = 0; col < lines[0]!.length; col += 1) {
+        const was = before[row]![col]!;
+        const now = lines[row]![col]!;
+        if (run.has(`${col},${row}`) && ".@".includes(was)) {
+          expect(now).toBe(" ");
+        } else {
+          expect(now).toBe(was);
+        }
+      }
+    }
+    expect(applySinkhole(map.ascii, null)).toBe(map.ascii);
   });
 });
 

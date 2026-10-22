@@ -219,6 +219,7 @@ export function openBoredCellsOnLayout(layout: MazeLayout, cells: readonly MazeT
     mutableGrid(layout.exterior),
     mutableGrid(layout.ghostSolids),
     mutableGrid(layout.playerSolids),
+    mutableGrid(layout.ghostActiveSolids),
     mutableGrid(layout.wallPassPlayerSolids),
     mutableGrid(layout.wallPassLoopPlayerSolids),
   ];
