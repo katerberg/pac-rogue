@@ -8340,6 +8340,22 @@ describe("Mirror", () => {
       expect(lastDeath(sim)).toMatchObject({ lava: true, col, row });
     });
 
+    it("Floating lets the twin stand in lava", () => {
+      const sim = startSim({
+        level: 8,
+        maze: "maze1",
+        enableUpgrades: ["powerPelletMirror", "passiveFloating"],
+      });
+      clearGhosts(sim);
+      sim["speedZones"] = [];
+      arm(sim);
+      const { col, row } = sim.snapshot().lava!;
+      runUntil(sim, () => sim.snapshot().lava!.phase === "full", 1500, { keys: held("left") });
+      teleportPlayer(sim, cellCenterX(mirror(col)), cellCenterY(row));
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(false);
+    });
+
     it("Plus: lava only pops the twin", () => {
       const sim = startSim({
         level: 8,
@@ -8526,8 +8542,11 @@ describe("Mirror", () => {
   });
 
   describe("speed zones", () => {
-    function zoneRun(zoneFor: (row: number, playerCol: number, twinCol: number) => SpeedZone[]) {
-      const sim = start(["powerPelletMirror"], { level: 6 });
+    function zoneRun(
+      zoneFor: (row: number, playerCol: number, twinCol: number) => SpeedZone[],
+      extra: readonly UpgradeId[] = [],
+    ) {
+      const sim = start(["powerPelletMirror", ...extra], { level: 6 });
       const livesBefore = sim.snapshot().lives;
       clearGhosts(sim);
       settledZones(sim);
@@ -8563,6 +8582,15 @@ describe("Mirror", () => {
       expect(sim.snapshot().mirror.popProgress).not.toBeNull();
       expect(sim.snapshot().dying).toBe(false);
       expect(sim.snapshot().lives).toBe(livesBefore);
+    });
+
+    it("Floating+ spares the twin when one body is on the slow side", () => {
+      const { sim } = zoneRun(
+        (row, playerCol, twinCol) => [lane(playerCol, row, "right"), lane(twinCol, row, "right")],
+        ["passiveFloatingPlus"],
+      );
+      expect(sim.snapshot().mirror.active).toBe(true);
+      expect(sim.snapshot().playerSpeedZone).toBe("fast");
     });
 
     it("keeps the twin when both bodies get the same effect", () => {
@@ -9065,7 +9093,7 @@ describe("PlaySim low-power upgrades", () => {
     );
   });
 
-  it("Turning Speed widens the window Dot-Man can corner early in", () => {
+  it("Traction widens the window Dot-Man can corner early in", () => {
     const turnedAfter = (upgrades: UpgradeId[]): boolean => {
       const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: upgrades });
       const cx = cellCenterX(6);
@@ -9688,5 +9716,77 @@ describe("Tunnel Boring", () => {
       expect(isWalkable(cell.col, cell.row)).toBe(true);
     }
     expect(sim.snapshot().tunnelBoring.charges).toBe(1);
+  });
+});
+
+describe("Floating", () => {
+  const framesFor = (ms: number): number => Math.ceil(ms / FRAME_MS);
+
+  function lavaSim(enableUpgrades: PlayOptions["enableUpgrades"]): PlaySim {
+    const sim = startSim(
+      { level: 8, maze: "maze1", infiniteLives: true, enableUpgrades },
+      "floating-lava",
+    );
+    for (const eid of query(sim.world, [Ghost])) {
+      removeEntity(sim.world, eid);
+    }
+    runFrames(sim, 1, { keys: held("left") });
+    return sim;
+  }
+
+  function standInFullLava(sim: PlaySim): void {
+    const { col, row } = sim.snapshot().lava!;
+    const spawn = getActiveLayout().playerSpawn;
+    teleportPlayer(sim, cellCenterX(spawn.col), cellCenterY(spawn.row));
+    runUntil(sim, () => sim.snapshot().lava!.phase === "full", framesFor(15_000));
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 10);
+  }
+
+  it.each(["passiveFloating", "passiveFloatingPlus"] as const)(
+    "%s lets Dot-Man stand in full lava",
+    (id) => {
+      const sim = lavaSim([id]);
+      standInFullLava(sim);
+      expect(sim.snapshot().dying).toBe(false);
+    },
+  );
+
+  it("kills Dot-Man in full lava without it", () => {
+    const sim = lavaSim([]);
+    standInFullLava(sim);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  function laneRun(
+    enableUpgrades: PlayOptions["enableUpgrades"],
+    side: "fast" | "slow",
+  ): { speed: number; effect: string | null } {
+    const sim = startSim({ level: 6, infiniteLives: true, enableUpgrades }, "zones");
+    const zone = settledZones(sim)[0]!;
+    const cell = speedZoneCells(zone)[Math.floor(zone.length / 2)]!;
+    const opposite = { up: "down", down: "up", left: "right", right: "left" } as const;
+    const dir = side === "fast" ? zone.fastDir : opposite[zone.fastDir];
+    const player = playerEid(sim);
+    for (let frame = 0; frame < 2; frame += 1) {
+      sim["eatDragMs"] = 0;
+      Position.x[player] = cellCenterX(cell.col);
+      Position.y[player] = cellCenterY(cell.row);
+      runFrames(sim, 1, { keys: held(dir) });
+    }
+    return { speed: Speed.px[player]!, effect: sim.snapshot().playerSpeedZone };
+  }
+
+  it("slows the slow side of a speed zone at base and not when enhanced", () => {
+    const none = laneRun([], "slow");
+    const plus = laneRun(["passiveFloatingPlus"], "slow");
+    expect(none.effect).toBe("slow");
+    expect(laneRun(["passiveFloating"], "slow")).toEqual(none);
+    expect(plus.effect).toBeNull();
+    expect(plus.speed).toBeCloseTo(none.speed / SLOW_ZONE_MULTIPLIER);
+  });
+
+  it("keeps the fast side boost when enhanced", () => {
+    expect(laneRun(["passiveFloatingPlus"], "fast").effect).toBe("fast");
   });
 });

@@ -69,25 +69,26 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveTunnelBoring` | Tunnel Boring | speed | Once per level, while stopped, press into a wall to punch through until open space — exterior walls open a wrap tunnel to the far side. | Once per level, while stopped, press into a wall to punch through until open space — exterior walls open a wrap tunnel to the far side. Power pellets recharge the drill. |
 | `passiveMartyr` | Martyr (rare) | death | Dying fires every power-pellet effect you own. | Dying — or a Defy Death / Money Talks save — fires every power-pellet effect you own. |
 | `passivePossession` | Possession (rare) | death | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. That ghost is haunted for 5s after. |
-| `lowSpeed` | Speed | neutral | +3% Dot-Man speed. Stacks. |  |
-| `lowTunnelSpeed` | Tunnel Speed | neutral | +8% Dot-Man speed inside tunnels. Stacks. |  |
-| `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 8% slower inside tunnels. Stacks. |  |
-| `lowTurning` | Turning Speed | neutral | Dot-Man corners 0.6px earlier. Stacks. |  |
-| `lowSlowdownBlinky` | Slowdown: Blinky | neutral | Blinky moves 4% slower. Stacks. |  |
-| `lowHouseDelayBlinky` | Delay: Blinky | neutral | Blinky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionBlinky` | Traction: Blinky | neutral | Blinky loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownPinky` | Slowdown: Pinky | neutral | Pinky moves 4% slower. Stacks. |  |
-| `lowHouseDelayPinky` | Delay: Pinky | neutral | Pinky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionPinky` | Traction: Pinky | neutral | Pinky loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownInky` | Slowdown: Inky | neutral | Inky moves 4% slower. Stacks. |  |
-| `lowHouseDelayInky` | Delay: Inky | neutral | Inky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionInky` | Traction: Inky | neutral | Inky loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownClyde` | Slowdown: Clyde | neutral | Clyde moves 4% slower. Stacks. |  |
-| `lowHouseDelayClyde` | Delay: Clyde | neutral | Clyde leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionClyde` | Traction: Clyde | neutral | Clyde loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownSpunky` | Slowdown: Spunky | neutral | Spunky moves 4% slower. Stacks. |  |
-| `lowHouseDelaySpunky` | Delay: Spunky | neutral | Spunky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionSpunky` | Traction: Spunky | neutral | Spunky loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownWardy` | Slowdown: Wardy | neutral | Wardy moves 4% slower. Stacks. |  |
-| `lowHouseDelayWardy` | Delay: Wardy | neutral | Wardy leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionWardy` | Traction: Wardy | neutral | Wardy loses 8% speed after each turn. Stacks. |  |
+| `passiveFloating` | Floating | speed | Pass over lava unharmed. | Pass over lava unharmed and move through the slow side of speed zones freely. |
+| `lowSpeed` | Speed | neutral | +6% Dot-Man speed. Stacks. |  |
+| `lowTunnelSpeed` | Tunnel Speed | neutral | +16% Dot-Man speed inside tunnels. Stacks. |  |
+| `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 16% slower inside tunnels. Stacks. |  |
+| `lowTurning` | Traction | neutral | Dot-Man corners 1.2px earlier. Stacks. |  |
+| `lowSlowdownBlinky` | Slowdown: Blinky | neutral | Blinky moves 8% slower. Stacks. |  |
+| `lowHouseDelayBlinky` | Delay: Blinky | neutral | Blinky leaves the ghost house 1.5s (or 2 pellets) later. Stacks. |  |
+| `lowTractionBlinky` | Traction: Blinky | neutral | Blinky loses 16% speed after each turn. Stacks. |  |
+| `lowSlowdownPinky` | Slowdown: Pinky | neutral | Pinky moves 8% slower. Stacks. |  |
+| `lowHouseDelayPinky` | Delay: Pinky | neutral | Pinky leaves the ghost house 1.5s (or 2 pellets) later. Stacks. |  |
+| `lowTractionPinky` | Traction: Pinky | neutral | Pinky loses 16% speed after each turn. Stacks. |  |
+| `lowSlowdownInky` | Slowdown: Inky | neutral | Inky moves 8% slower. Stacks. |  |
+| `lowHouseDelayInky` | Delay: Inky | neutral | Inky leaves the ghost house 1.5s (or 2 pellets) later. Stacks. |  |
+| `lowTractionInky` | Traction: Inky | neutral | Inky loses 16% speed after each turn. Stacks. |  |
+| `lowSlowdownClyde` | Slowdown: Clyde | neutral | Clyde moves 8% slower. Stacks. |  |
+| `lowHouseDelayClyde` | Delay: Clyde | neutral | Clyde leaves the ghost house 1.5s (or 2 pellets) later. Stacks. |  |
+| `lowTractionClyde` | Traction: Clyde | neutral | Clyde loses 16% speed after each turn. Stacks. |  |
+| `lowSlowdownSpunky` | Slowdown: Spunky | neutral | Spunky moves 8% slower. Stacks. |  |
+| `lowHouseDelaySpunky` | Delay: Spunky | neutral | Spunky leaves the ghost house 1.5s (or 2 pellets) later. Stacks. |  |
+| `lowTractionSpunky` | Traction: Spunky | neutral | Spunky loses 16% speed after each turn. Stacks. |  |
+| `lowSlowdownWardy` | Slowdown: Wardy | neutral | Wardy moves 8% slower. Stacks. |  |
+| `lowHouseDelayWardy` | Delay: Wardy | neutral | Wardy leaves the ghost house 1.5s (or 2 pellets) later. Stacks. |  |
+| `lowTractionWardy` | Traction: Wardy | neutral | Wardy loses 16% speed after each turn. Stacks. |  |

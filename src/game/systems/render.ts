@@ -99,12 +99,11 @@ import { fruitDrawableId, fruitFlickerAlpha, isFruitDrawableId } from "../../dom
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
 import {
-  HAUNT_CAGE_ALPHA,
-  HAUNT_CAGE_COLOR,
-  HAUNT_CAGE_LINE_PX,
-  hauntCageLines,
-  hauntCageVisible,
-} from "../../domain/hauntCage";
+  HAUNT_GHOST_COLOR,
+  HAUNT_LOCK_KEY,
+  HAUNT_LOCK_PATH,
+  hauntLockVisible,
+} from "../../domain/hauntLock";
 import { ghostHornRects, stepGhostHornTurn, type HornTurnState } from "../../domain/ghostHorns";
 import {
   GHOST_ART_SIZE_PX,
@@ -577,6 +576,7 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(BUBBLE_SHIELD_SINGLE_KEY, BUBBLE_SHIELD_SINGLE_PATH);
   scene.load.image(BUBBLE_SHIELD_MULTI_KEY, BUBBLE_SHIELD_MULTI_PATH);
   scene.load.image(BANANA_PEEL_TEXTURE_KEY, BANANA_PEEL_PATH);
+  scene.load.image(HAUNT_LOCK_KEY, HAUNT_LOCK_PATH);
   scene.load.image(PELLET_TEXTURE_KEY, "art/other/dot.png");
   scene.load.image(QUARTER_TEXTURE_KEY, "art/other/quarter.png");
   scene.load.image(DOLLAR_TEXTURE_KEY, "art/other/dollar.png");
@@ -687,6 +687,7 @@ export type RenderOptions = {
 };
 
 const CHARM_DEPTH = -0.5;
+const FRUIT_DEPTH = -0.25;
 const CHARM_CHAIN_COLOR = 0xd9d9d9;
 const CHARM_CHAIN_ALPHA = 0.8;
 const CHARM_SPEED_FULL_PX_PER_MS = 0.08;
@@ -880,8 +881,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   tailGraphics.setDepth(CHARM_DEPTH);
   const mirrorDustGraphics = scene.add.graphics();
   let mirrorAngle = 0;
-  const cageGraphics = scene.add.graphics();
-  cageGraphics.setDepth(HAUNT_CAGE_DEPTH);
+  const hauntLock = scene.add
+    .image(0, 0, HAUNT_LOCK_KEY)
+    .setDepth(HAUNT_CAGE_DEPTH)
+    .setVisible(false);
   const timedTunnelGraphics = scene.add.graphics();
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const speedZoneLayer = scene.add.container(0, 0);
@@ -1072,6 +1075,11 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     const frozenEid = opts?.frozenGhostEid ?? null;
     const dimGhostEid = opts?.dimGhostEid ?? null;
     const possessedEid = opts?.possessedGhostEid ?? null;
+    const haunted = opts?.hauntedGhost ?? null;
+    const hauntedEid =
+      haunted !== null && hauntLockVisible(haunted.remainingMs, scene.time.now)
+        ? haunted.eid
+        : null;
     const entityAlpha = opts?.entityAlpha ?? 1;
     const playerAlphaOpt = opts?.playerAlpha;
     const playerAlpha = (playerAlphaOpt ?? 1) * entityAlpha;
@@ -1375,9 +1383,12 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           : null;
       const ghostAlpha = dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1;
       const possessedLook = ghostTexture !== undefined && eid === possessedEid;
+      const hauntedLook = ghostTexture !== undefined && eid === hauntedEid;
+      const flatLook = possessedLook || hauntedLook;
+      const flatColor = hauntedLook ? HAUNT_GHOST_COLOR : GHOST_POSSESSED_COLOR;
       const frightenedLook =
         ghostTexture !== undefined &&
-        !possessedLook &&
+        !flatLook &&
         (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse &&
         showsFrightenedLook(opts?.frightenedGhosts, eid, scene.time.now);
 
@@ -1386,6 +1397,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         go = scene.add.image(x, y, textureKeyForDrawable(id));
         go.setDisplaySize(size, size);
         go.setName(id);
+        if (isFruitDrawableId(id)) {
+          go.setDepth(FRUIT_DEPTH);
+        }
         drawableObjects.set(primaryKey, go);
         if (id === PLAYER_DRAWABLE_ID) {
           ensurePlayerVisual(playerVisuals, eid, x, y, scene.time.now);
@@ -1420,9 +1434,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           go.setTexture(ghostKey);
         }
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
-          target.setTintMode(possessedLook ? Phaser.TintModes.FILL : Phaser.TintModes.MULTIPLY);
-          if (possessedLook) {
-            target.setTint(GHOST_POSSESSED_COLOR);
+          target.setTintMode(flatLook ? Phaser.TintModes.FILL : Phaser.TintModes.MULTIPLY);
+          if (flatLook) {
+            target.setTint(flatColor);
           } else if (ghostTint === null) {
             target.clearTint();
           } else {
@@ -1469,13 +1483,12 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           0,
           crisp.size,
           skirt.phase,
-          possessedLook
-            ? GHOST_POSSESSED_COLOR
-            : multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+          flatLook ? flatColor : multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
         );
         const hornsShown = id === BLINKY_DRAWABLE_ID && !frightenedLook && bodyAlpha > 0;
         const pupilsShown =
           bodyAlpha > 0 &&
+          !hauntedLook &&
           ghostPupilsVisible({
             inFrightenedSet: frightenedEids.has(eid),
             drawKind: "primary",
@@ -1513,9 +1526,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             crisp.size,
             turn.lean,
             look.dy,
-            possessedLook
-              ? GHOST_POSSESSED_COLOR
-              : multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+            flatLook ? flatColor : multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
           );
         }
         skirt.pupils.setPosition(crisp.x, crisp.y);
@@ -1712,18 +1723,14 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
     }
 
-    cageGraphics.clear();
-    const haunted = opts?.hauntedGhost ?? null;
-    if (haunted !== null && hauntCageVisible(haunted.remainingMs, scene.time.now)) {
-      const id = Drawable.id[haunted.eid] ?? "unknown";
-      cageGraphics.lineStyle(HAUNT_CAGE_LINE_PX, HAUNT_CAGE_COLOR, HAUNT_CAGE_ALPHA);
-      for (const line of hauntCageLines(
-        Position.x[haunted.eid] ?? 0,
-        Position.y[haunted.eid] ?? 0,
-        displaySizeForDrawable(id),
-      )) {
-        cageGraphics.lineBetween(line.x1, line.y1, line.x2, line.y2);
-      }
+    if (hauntedEid !== null) {
+      const lockSize = displaySizeForDrawable(Drawable.id[hauntedEid] ?? "unknown");
+      hauntLock
+        .setPosition(Position.x[hauntedEid] ?? 0, Position.y[hauntedEid] ?? 0)
+        .setDisplaySize(lockSize, lockSize)
+        .setVisible(true);
+    } else {
+      hauntLock.setVisible(false);
     }
 
     const speedZones = opts?.speedZones ?? [];

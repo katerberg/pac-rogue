@@ -10,6 +10,7 @@ import {
   type LowPowerUpgradeId,
 } from "./lowPowerUpgrades";
 import type { GhostKindId } from "./ghostKind";
+import type { SpeedZoneEffect } from "./speedZones";
 import { ECHO_DELAY_MS, type EchoEffects, type PendingEcho, pickEchoBases } from "./echo";
 import type { LazyLooperRings } from "./lazyLooper";
 import {
@@ -85,7 +86,8 @@ export type CoreUpgradeId =
   | "passiveBananaShield"
   | "passiveTunnelBoring"
   | "passiveMartyr"
-  | "passivePossession";
+  | "passivePossession"
+  | "passiveFloating";
 
 export type BaseUpgradeId = CoreUpgradeId | LowPowerUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -176,6 +178,8 @@ export type UpgradeEffects = {
   wallDropMs?: number;
   wallDropPassable?: true;
   mirrorSavesLife?: true;
+  floatsOverLava?: true;
+  floatsOverSlowZones?: true;
   onPowerPellet?: {
     freezeClosestGhostMs?: number;
     cornerTeleportHoldMs?: number;
@@ -1119,6 +1123,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       description:
         "Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. That ghost is haunted for 5s after.",
       possessionHauntMs: POSSESSION_HAUNT_MS,
+    },
+  },
+  {
+    id: "passiveFloating",
+    label: "Floating",
+    school: "speed",
+    description: "Pass over lava unharmed.",
+    storePrice: STORE_UPGRADE_PRICE,
+    floatsOverLava: true,
+    enhanced: {
+      enhanceNote: "Floating also stops the slow side of speed zones from slowing you.",
+      description: "Pass over lava unharmed and move through the slow side of speed zones freely.",
+      floatsOverSlowZones: true,
     },
   },
 ];
@@ -2416,6 +2433,17 @@ export function possessionDurationMs(owned: readonly UpgradeId[]): number | null
 
 export function possessionHauntMs(owned: readonly UpgradeId[]): number | null {
   return ownedValue(owned, "possessionHauntMs") ?? null;
+}
+
+export function floatsOverLava(owned: readonly UpgradeId[]): boolean {
+  return ownedValue(owned, "floatsOverLava") === true;
+}
+
+export function floatingZoneEffect(
+  owned: readonly UpgradeId[],
+  effect: SpeedZoneEffect | null,
+): SpeedZoneEffect | null {
+  return effect === "slow" && ownedValue(owned, "floatsOverSlowZones") === true ? null : effect;
 }
 
 export function martyrFiresOnSave(owned: readonly UpgradeId[]): boolean {
