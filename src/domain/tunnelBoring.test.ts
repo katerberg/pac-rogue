@@ -10,10 +10,18 @@ import {
   wrapPosition,
 } from "./maze";
 import {
+  advanceBore,
   applyTunnelBoringAscii,
+  boreCellsOpened,
+  boreSettled,
+  boreSteps,
+  boringSpeedMultiplier,
   mergeBoredCells,
   openBoredCellsOnLayout,
+  startBore,
+  TUNNEL_BORE_STEP_MS,
   TUNNEL_BORING_CHARGES_PER_LEVEL,
+  TUNNEL_BORING_SPEED_MUL,
   tunnelBoringCells,
 } from "./tunnelBoring";
 
@@ -199,5 +207,59 @@ describe("applyTunnelBoringAscii / openBoredCellsOnLayout", () => {
 describe("tunnel boring charges", () => {
   it("caps at one charge per level", () => {
     expect(TUNNEL_BORING_CHARGES_PER_LEVEL).toBe(1);
+  });
+});
+
+describe("bore progress", () => {
+  const run = [
+    { col: 3, row: 1 },
+    { col: 2, row: 1 },
+    { col: 1, row: 1 },
+    { col: 0, row: 1 },
+    { col: 27, row: 1 },
+    { col: 26, row: 1 },
+  ];
+
+  it("orders steps along the bore and opens a wrap's two edges together", () => {
+    expect(boreSteps(run)).toEqual([
+      [{ col: 3, row: 1 }],
+      [{ col: 2, row: 1 }],
+      [{ col: 1, row: 1 }],
+      [
+        { col: 0, row: 1 },
+        { col: 27, row: 1 },
+      ],
+      [{ col: 26, row: 1 }],
+    ]);
+  });
+
+  it("starts with the first step open and opens one step per timer tick", () => {
+    let bore = startBore(run, -1, 0);
+    expect(boreCellsOpened(bore)).toEqual([run[0]]);
+    bore = advanceBore(bore, TUNNEL_BORE_STEP_MS - 1, null);
+    expect(bore.opened).toBe(1);
+    bore = advanceBore(bore, 1, null);
+    expect(bore.opened).toBe(2);
+    bore = advanceBore(bore, TUNNEL_BORE_STEP_MS * 10, null);
+    expect(bore.opened).toBe(5);
+    expect(boreSettled(bore, null)).toBe(true);
+  });
+
+  it("opens the step past Dot-Man's tile ahead of the timer, and never closes one", () => {
+    let bore = startBore(run, -1, 0);
+    bore = advanceBore(bore, 1, { col: 3, row: 1 });
+    expect(boreCellsOpened(bore, 1)).toEqual([run[1]]);
+    bore = advanceBore(bore, 1, { col: 1, row: 1 });
+    expect(boreCellsOpened(bore, 2)).toEqual([run[2], run[3], run[4]]);
+    bore = advanceBore(bore, 1, { col: 9, row: 9 });
+    expect(bore.opened).toBe(4);
+  });
+
+  it("slows Dot-Man only on a tile of a bore in flight, until he leaves it", () => {
+    const bore = advanceBore(startBore(run, -1, 0), TUNNEL_BORE_STEP_MS * 10, null);
+    expect(boringSpeedMultiplier(bore, { col: 26, row: 1 })).toBe(TUNNEL_BORING_SPEED_MUL);
+    expect(boreSettled(bore, { col: 26, row: 1 })).toBe(false);
+    expect(boringSpeedMultiplier(bore, { col: 25, row: 1 })).toBe(1);
+    expect(boringSpeedMultiplier(null, { col: 26, row: 1 })).toBe(1);
   });
 });

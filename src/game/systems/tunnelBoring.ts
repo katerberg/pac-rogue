@@ -1,9 +1,16 @@
 import { query, type World } from "bitecs";
 import { activateAsciiLayout, getActiveLayout, type MazeTile } from "../../domain/maze";
+import { ageBoreJunk, boreJunk, type BoreJunk } from "../../domain/boreJunk";
 import {
+  advanceBore,
   applyTunnelBoringAscii,
+  boreCellsOpened,
+  boreSettled,
+  boringSpeedMultiplier,
   openBoredCellsOnLayout,
+  startBore,
   tunnelBoringCells,
+  type BoreProgress,
 } from "../../domain/tunnelBoring";
 import { Facing } from "../components/Facing";
 import { DIRECTION, Input, type Direction } from "../components/Input";
@@ -78,4 +85,88 @@ export function adoptTunnelBoringFacing(world: World, direction: Direction): voi
     Input.direction[eid] = direction;
     Facing.direction[eid] = direction;
   }
+}
+
+export type TunnelBore = { progress: BoreProgress | null; junk: readonly BoreJunk[] };
+
+export const NO_TUNNEL_BORE: TunnelBore = { progress: null, junk: [] };
+
+type BoreStep = { bore: TunnelBore; opened: MazeTile[] };
+
+function withJunk(
+  bore: TunnelBore,
+  progress: BoreProgress | null,
+  dug: { dx: number; dy: number },
+  opened: MazeTile[],
+  isRubble: (cell: MazeTile) => boolean,
+): BoreStep {
+  const { tileSize } = getActiveLayout();
+  return {
+    bore: {
+      progress,
+      junk: [
+        ...bore.junk,
+        ...opened.map((cell) => boreJunk(cell, dug.dx, dug.dy, tileSize, isRubble(cell))),
+      ],
+    },
+    opened,
+  };
+}
+
+/** Starts a bore at its first step; a bore still in flight finishes at once. */
+export function beginTunnelBore(
+  bore: TunnelBore,
+  attempt: TunnelBoringAttempt,
+  isRubble: (cell: MazeTile) => boolean,
+): BoreStep {
+  const step = CARDINAL_STEP[attempt.direction] ?? { dx: 0, dy: 0 };
+  const prior = bore.progress;
+  const finished =
+    prior === null ? [] : boreCellsOpened({ ...prior, opened: prior.steps.length }, prior.opened);
+  const progress = startBore(attempt.cells, step.dx, step.dy);
+  const flushed = prior === null ? bore : withJunk(bore, null, prior, finished, isRubble).bore;
+  const started = withJunk(flushed, progress, step, boreCellsOpened(progress), isRubble);
+  return { bore: started.bore, opened: [...finished, ...started.opened] };
+}
+
+/** Advances the bore front past Dot-Man (or on its timer) and ages the junk. */
+export function stepTunnelBore(
+  world: World,
+  bore: TunnelBore,
+  deltaMs: number,
+  isRubble: (cell: MazeTile) => boolean,
+): BoreStep {
+  const aged = { ...bore, junk: ageBoreJunk(bore.junk, deltaMs) };
+  const prior = bore.progress;
+  if (prior === null) {
+    return { bore: aged, opened: [] };
+  }
+  const at = playerCell(world);
+  const progress = advanceBore(prior, deltaMs, at);
+  return withJunk(
+    aged,
+    boreSettled(progress, at) ? null : progress,
+    progress,
+    boreCellsOpened(progress, prior.opened),
+    isRubble,
+  );
+}
+
+/** Bored cells open on the board right now: everything except the steps the front has not reached. */
+export function openBoredCells(all: readonly MazeTile[], bore: TunnelBore): MazeTile[] {
+  const progress = bore.progress;
+  if (progress === null) {
+    return [...all];
+  }
+  const pending = new Set(
+    progress.steps
+      .slice(progress.opened)
+      .flat()
+      .map((cell) => `${cell.col},${cell.row}`),
+  );
+  return all.filter((cell) => !pending.has(`${cell.col},${cell.row}`));
+}
+
+export function tunnelBoringSpeedMul(world: World, bore: TunnelBore): number {
+  return boringSpeedMultiplier(bore.progress, playerCell(world));
 }

@@ -33,7 +33,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
-import { tunnelBoringCells } from "../../domain/tunnelBoring";
+import { boreSteps, tunnelBoringCells } from "../../domain/tunnelBoring";
 import {
   TITHE_SPEED_MUL,
   INVULN_MS,
@@ -2148,11 +2148,46 @@ describe("LearnSim upgrade demos", () => {
       sim.step(held(spot.dir), FRAME_MS);
       expect(sim["tunnelBoringCharges"]).toBe(0);
       expect(sim["tunnelBoredCells"]).toEqual(expected);
+      const first = boreSteps(expected)[0]!;
+      expect(sim.tunnelBoringDebug()).toMatchObject({
+        openCells: first.length,
+        junkCells: first.length,
+      });
+      for (
+        let t = 0;
+        t < 4_000 && sim.tunnelBoringDebug().openCells < expected.length;
+        t += FRAME_MS
+      ) {
+        sim.step(held(spot.dir), FRAME_MS);
+      }
       for (const cell of expected) {
         expect(isWalkable(cell.col, cell.row)).toBe(true);
       }
+      expect(sim.tunnelBoringDebug().junkCells).toBe(expected.length);
       sim.step(held(spot.dir), FRAME_MS);
       expect(sim["tunnelBoredCells"]).toEqual(expected);
+    });
+
+    it("slows Dot-Man 25% while he is inside the bore", () => {
+      const { sim, player } = setup("passiveTunnelBoring");
+      const spot = boreSpot();
+      const expected = tunnelBoringCells(spot.col, spot.row, spot.dx, spot.dy)!;
+      moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
+      Facing.direction[player] = DIRECTION.none;
+      Velocity.x[player] = 0;
+      Velocity.y[player] = 0;
+      sim.step(held(spot.dir), FRAME_MS);
+      const inBore = (): boolean =>
+        expected.some(
+          (cell) =>
+            cell.col === worldToCol(Position.x[player]!) &&
+            cell.row === worldToRow(Position.y[player]!),
+        );
+      for (let t = 0; t < 2_000 && !inBore(); t += FRAME_MS) {
+        sim.step(held(spot.dir), FRAME_MS);
+      }
+      expect(inBore()).toBe(true);
+      expect(sim.tunnelBoringDebug().slowed).toBe(true);
     });
 
     it("Plus recharges the drill on a power pellet", () => {
