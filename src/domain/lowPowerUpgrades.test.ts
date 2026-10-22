@@ -8,6 +8,7 @@ import {
   LOW_POWER_IDS,
   LOW_POWER_MAX_COPIES,
   LOW_POWER_OFFER_WEIGHT,
+  LOW_POWER_STORE_PRICE,
   LOW_POWER_MIN_SPEED_MUL,
   LOW_POWER_SLOWDOWN_CUT,
   LOW_POWER_SPEED_ADD,
@@ -52,6 +53,13 @@ describe("low-power registry", () => {
       expect(getUpgradeDef(`${def.id}Plus` as UpgradeId)).toBeUndefined();
     }
     expect(LOW_POWER_IDS).toHaveLength(4 + 3 * 6);
+  });
+
+  it("costs LOW_POWER_STORE_PRICE in the store", () => {
+    for (const def of LOW_POWER_DEFS) {
+      expect(def.storePrice).toBe(LOW_POWER_STORE_PRICE);
+    }
+    expect(LOW_POWER_STORE_PRICE).toBe(2);
   });
 
   it("is never offered an enhancement", () => {

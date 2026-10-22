@@ -2,7 +2,7 @@ import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import type { UpgradeDef, UpgradeId } from "./upgrades";
 
 export const LOW_POWER_MAX_COPIES = 10;
-export const LOW_POWER_STORE_PRICE = 3;
+export const LOW_POWER_STORE_PRICE = 2;
 export const LOW_POWER_OFFER_WEIGHT = 0.25;
 
 export const LOW_POWER_SPEED_ADD = 0.03;
