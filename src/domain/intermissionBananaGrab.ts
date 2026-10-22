@@ -14,13 +14,12 @@ export const BANANA_GRAB_PELLET_X = 520;
 export const BANANA_GRAB_PELLET_MS = 2000;
 const DOT_MAN_SPEED = (BANANA_GRAB_PELLET_X + HALF) / BANANA_GRAB_PELLET_MS;
 export const BANANA_GRAB_PEEL_X = BANANA_GRAB_PELLET_X - 50;
-const CLYDE_AT_PELLET_X = BANANA_GRAB_PELLET_X - 200;
+const CLYDE_AT_PELLET_X = BANANA_GRAB_PELLET_X - 240;
 const CLYDE_SPEED = 0.45;
 const CLYDE_START_X = CLYDE_AT_PELLET_X - CLYDE_SPEED * BANANA_GRAB_PELLET_MS;
 const CLYDE_HIT_X = BANANA_GRAB_PEEL_X - HALF * 0.7;
 export const BANANA_GRAB_HIT_MS =
   BANANA_GRAB_PELLET_MS + (CLYDE_HIT_X - CLYDE_AT_PELLET_X) / CLYDE_SPEED;
-const PEEL_LINGER_MS = 200;
 const BOUNCE_MS = 500;
 const BOUNCE_BACK_PX = 120;
 const BOUNCE_HOP_PX = 40;
@@ -68,7 +67,7 @@ export const bananaGrab: IntermissionScript = {
         x: BANANA_GRAB_PELLET_X,
         y: INTERMISSION_Y,
       });
-    } else if (elapsedMs < BANANA_GRAB_HIT_MS + PEEL_LINGER_MS) {
+    } else if (elapsedMs < BOUNCE_END_MS) {
       actors.push({ kind: "bananaPeel", key: "peel", x: BANANA_GRAB_PEEL_X, y: INTERMISSION_Y });
     }
     actors.push(clyde(elapsedMs, bob), {

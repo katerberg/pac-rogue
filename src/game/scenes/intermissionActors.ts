@@ -3,7 +3,8 @@ import { advanceGhostSkirtPhase } from "../../domain/ghostSkirt";
 import type { IntermissionFrame } from "../../domain/intermission";
 import {
   INTERMISSION_ACTOR_SIZE,
-  INTERMISSION_PROP_SIZE,
+  INTERMISSION_PEEL_SIZE,
+  INTERMISSION_PELLET_SIZE,
   type IntermissionActor,
 } from "../../domain/intermissionScript";
 import {
@@ -63,9 +64,9 @@ function createView(scene: Phaser.Scene, actor: IntermissionActor): ActorView {
     case "dotMan":
       return objectView(addDotManIcon(scene, 0, 0, INTERMISSION_ACTOR_SIZE));
     case "powerPellet":
-      return objectView(addPowerPelletIcon(scene, 0, 0, INTERMISSION_PROP_SIZE));
+      return objectView(addPowerPelletIcon(scene, 0, 0, INTERMISSION_PELLET_SIZE));
     case "bananaPeel":
-      return objectView(addBananaPeelIcon(scene, 0, 0, INTERMISSION_PROP_SIZE));
+      return objectView(addBananaPeelIcon(scene, 0, 0, INTERMISSION_PEEL_SIZE));
   }
 }
 

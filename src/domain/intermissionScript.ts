@@ -2,7 +2,8 @@ import type { GhostDir } from "./ghostPath";
 import { PLAYFIELD_HEIGHT } from "./playfieldBounds";
 
 export const INTERMISSION_ACTOR_SIZE = 56;
-export const INTERMISSION_PROP_SIZE = 24;
+export const INTERMISSION_PELLET_SIZE = 24;
+export const INTERMISSION_PEEL_SIZE = 40;
 export const INTERMISSION_Y = PLAYFIELD_HEIGHT / 2;
 const BOB_STEP_MS = 120;
 const BOB_PX = 3;
