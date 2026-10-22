@@ -2728,6 +2728,15 @@ export class PlaySim {
       this.bossState !== null ? null : lazyLooperRings(this.effectiveUpgrades()),
     );
     this.syncSlotPickupsOntoBoard();
+    if (this.options.fruit) {
+      this.fruitPresence = {
+        ...this.fruitPresence,
+        active: true,
+        remainingMs:
+          this.currentTuning.fruitLifetimeMs * fruitLifetimeMultiplier(this.effectiveUpgrades()),
+      };
+      this.spawnFruitEntity(fruitStacksSideBySide(this.effectiveUpgrades()));
+    }
   }
 
   private collapseChainsFor(poolIndex: number, baseAscii: string): CollapseChain[] | null {
