@@ -280,6 +280,7 @@ export class LearnScene extends Phaser.Scene {
       rightExtent: number;
     };
     hoverPreview: { x: number; y: number } | null;
+    owned: readonly UpgradeId[];
   } {
     const preview = this.hoverPreviewCard;
     return {
@@ -290,6 +291,7 @@ export class LearnScene extends Phaser.Scene {
         rightExtent: this.scrollExtent.right,
       },
       hoverPreview: preview === null ? null : { x: preview.root.x, y: preview.root.y },
+      owned: this.sim.ownedUpgrades,
     };
   }
 
