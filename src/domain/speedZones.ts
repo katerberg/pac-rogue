@@ -20,8 +20,6 @@ const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.1;
 const SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES = 0.6;
 const SPEED_ZONE_PARTICLE_PEAK_ALPHA = 0.45;
 const SPEED_ZONE_PARTICLE_FADE_SHARE = 0.12;
-export const SPEED_ZONE_DUST_ENTRY_TILES_PER_SEC = 0.25;
-export const SPEED_ZONE_DUST_EXIT_TILES_PER_SEC = 8;
 
 export type SpeedZoneAxis = "horizontal" | "vertical";
 export type SpeedZoneFastDir = "up" | "down" | "left" | "right";
@@ -100,8 +98,8 @@ export type SpeedZoneParticle = { col: number; row: number; alpha: number; size:
 export type SpeedZoneDustSpeeds = { entryTilesPerSec: number; exitTilesPerSec: number };
 
 export const DEFAULT_SPEED_ZONE_DUST_SPEEDS: SpeedZoneDustSpeeds = {
-  entryTilesPerSec: SPEED_ZONE_DUST_ENTRY_TILES_PER_SEC,
-  exitTilesPerSec: SPEED_ZONE_DUST_EXIT_TILES_PER_SEC,
+  entryTilesPerSec: 0.25,
+  exitTilesPerSec: 8,
 };
 
 function unitHash(n: number): number {
@@ -126,12 +124,12 @@ export function speedZoneParticles(
     const entry = speeds.entryTilesPerSec * scale;
     const exit = speeds.exitTilesPerSec * scale;
     const growth = (exit - entry) / zone.length;
-    const crossingSec =
-      Math.abs(growth) < 1e-9 ? zone.length / entry : Math.log(exit / entry) / growth;
+    const flat = Math.abs(growth) < 1e-9;
+    const crossingSec = flat ? zone.length / entry : Math.log(exit / entry) / growth;
     const t = (unitHash(key) * crossingSec + seconds) % crossingSec;
     const along = Math.min(
       zone.length,
-      Math.abs(growth) < 1e-9 ? entry * t : (entry / growth) * Math.expm1(growth * t),
+      flat ? entry * t : (entry / growth) * Math.expm1(growth * t),
     );
     const progress = along / zone.length;
     const side = (unitHash(key + 2) - 0.5) * SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES;
