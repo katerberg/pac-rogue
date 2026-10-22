@@ -43,7 +43,6 @@ import {
   playerFarthestFromGhostsCell,
   playerFarthestFromGhostsSpawn,
   pelletCellCenters,
-  tunnelDashOutwardEdge,
   PLAYER_CORRIDOR_CLEARANCE_PX,
   WALL_CORNER_RADIUS,
   WALL_CORNER_CURVE_MIN_STEPS,
@@ -179,18 +178,7 @@ describe("maze", () => {
     expect(isTunnelMouth(13, MAZE_ROWS - 1)).toBe(false);
   });
 
-  it("tunnelDashOutwardEdge covers the whole tunnel band, not just the boundary cell", () => {
-    // Classic 28-col geometry: leftBand = floor(28*5/28) = 5, rightBand = floor(28*6/28) = 6.
-    expect(tunnelDashOutwardEdge(0, 14)).toBe("left");
-    expect(tunnelDashOutwardEdge(5, 14)).toBe("left");
-    expect(tunnelDashOutwardEdge(6, 14)).toBeNull();
-    expect(tunnelDashOutwardEdge(21, 14)).toBeNull();
-    expect(tunnelDashOutwardEdge(22, 14)).toBe("right");
-    expect(tunnelDashOutwardEdge(MAZE_COLS - 1, 14)).toBe("right");
-    expect(tunnelDashOutwardEdge(0, 10)).toBeNull();
-  });
-
-  it("isGhostTunnelSlow shares the same band boundaries as tunnelDashOutwardEdge", () => {
+  it("isGhostTunnelSlow covers the tunnel band boundaries", () => {
     expect(isGhostTunnelSlow(5, 14)).toBe(true);
     expect(isGhostTunnelSlow(6, 14)).toBe(false);
     expect(isGhostTunnelSlow(22, 14)).toBe(true);

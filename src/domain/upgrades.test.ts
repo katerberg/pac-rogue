@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
+import { LOW_POWER_IDS, LOW_POWER_MAX_COPIES, isLowPowerId } from "./lowPowerUpgrades";
 import {
   eatFrightenedGhost,
   frightenedGhostEids,
@@ -226,7 +227,6 @@ const ALL_IDS: BaseUpgradeId[] = [
   "fruitFeast",
   "passiveDeathsHarvest",
   "passiveOvercharge",
-  "passiveTunnelDash",
   "passivePowerPelletRecharge",
   "passiveRemoteTransference",
   "passiveMyogenesis",
@@ -266,11 +266,17 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveTunnelBoring",
 ];
 
+const MAXED_LOW: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
+  Array.from({ length: LOW_POWER_MAX_COPIES }, () => id),
+);
+const FULL_OWNED: UpgradeId[] = [...ALL_IDS, ...MAXED_LOW];
+const withoutLow = (ids: readonly BaseUpgradeId[]): BaseUpgradeId[] =>
+  ids.filter((id) => !isLowPowerId(id));
+
 const STUB_IDS: BaseUpgradeId[] = [
   "fruitPowerPellet",
   "passiveDeathsHarvest",
   "passiveOvercharge",
-  "passiveTunnelDash",
   "passivePowerPelletRecharge",
   "passiveRemoteTransference",
 ];
@@ -370,12 +376,12 @@ describe("parseDisableLevelUpgradesFlag", () => {
 
 describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   it("offers no upgrades when none are eligible", () => {
-    const offer = pickUpgradeChoiceOffer(ALL_IDS, null, () => 0);
+    const offer = pickUpgradeChoiceOffer(FULL_OWNED, null, () => 0);
     expect(offer.upgrades).toEqual([]);
   });
 
   it("returns a single upgrade option when only one eligible", () => {
-    const owned = ALL_IDS.filter((id) => id !== "powerPelletWarpFarthest");
+    const owned = [...ALL_IDS.filter((id) => id !== "powerPelletWarpFarthest"), ...MAXED_LOW];
     const offer = pickUpgradeChoiceOffer(owned, null, () => 0);
     expect(offer.upgrades).toEqual(["powerPelletWarpFarthest"]);
   });
@@ -410,9 +416,10 @@ describe("pickUpgradeChoiceOffer / confirmUpgradeChoice", () => {
   });
 
   it("re-includes lastDeclined when needed to fill the offer", () => {
-    const owned = ALL_IDS.filter(
-      (id) => id !== "passiveGhostSlow" && id !== "powerPelletWarpFarthest",
-    );
+    const owned = [
+      ...ALL_IDS.filter((id) => id !== "passiveGhostSlow" && id !== "powerPelletWarpFarthest"),
+      ...MAXED_LOW,
+    ];
     const offer = pickUpgradeChoiceOffer(owned, "passiveGhostSlow", () => 0);
     expect(offer.upgrades).toEqual(
       expect.arrayContaining(["passiveGhostSlow", "powerPelletWarpFarthest"]),
@@ -508,11 +515,11 @@ describe("eligibleUpgrades", () => {
     const unlocked = ALL_IDS.filter(
       (id) => !isSpecialist(id) && !isRare(id) && getUpgradeDef(id).reactiveArmor !== true,
     );
-    expect(eligibleUpgrades([])).toEqual(unlocked);
-    expect(eligibleUpgrades(["passiveAfterburner"])).toEqual(
+    expect(withoutLow(eligibleUpgrades([]))).toEqual(unlocked);
+    expect(withoutLow(eligibleUpgrades(["passiveAfterburner"]))).toEqual(
       unlocked.filter((id) => id !== "passiveAfterburner" && id !== "passiveMole"),
     );
-    expect(eligibleUpgrades(ALL_IDS)).toEqual([]);
+    expect(eligibleUpgrades(FULL_OWNED)).toEqual([]);
   });
 
   it("keeps Hyperspeed and Programmer out of the pool when the other is owned", () => {
@@ -565,13 +572,13 @@ describe("rare upgrades", () => {
 
   it("marks the build-around upgrades rare, in both forms", () => {
     expect(ALL_UPGRADE_IDS.filter(isRare).sort()).toEqual([...RARE_IDS].sort());
-    for (const id of ALL_UPGRADE_IDS) {
+    for (const id of ALL_IDS) {
       expect(isRare(enhancedIdOf(id)), id).toBe(isRare(id));
     }
   });
 
-  it("costs 5 in the store, and every other upgrade 4", () => {
-    for (const id of ALL_UPGRADE_IDS) {
+  it("costs 5 in the store, and every other core upgrade 4", () => {
+    for (const id of ALL_IDS) {
       expect(storePriceFor(id), id).toBe(
         isRare(id) ? STORE_RARE_UPGRADE_PRICE : STORE_UPGRADE_PRICE,
       );
@@ -647,7 +654,7 @@ describe("rare upgrades", () => {
       "passiveAfterburner",
       "fruitFeast",
     ];
-    const owned = ALL_UPGRADE_IDS.filter((id) => !left.includes(id));
+    const owned = [...ALL_IDS.filter((id) => !left.includes(id)), ...MAXED_LOW];
     let x = 7;
     const rng = () => {
       x = (x * 1103515245 + 12345) % 2147483648;
@@ -1564,7 +1571,7 @@ describe("upgrade schools", () => {
 
 describe("enhanced upgrades", () => {
   it("derives a Plus def for every base id with a + label and the same school", () => {
-    for (const id of ALL_UPGRADE_IDS) {
+    for (const id of ALL_IDS) {
       const base = getUpgradeDef(id);
       const plus = getUpgradeDef(enhancedIdOf(id));
       expect(plus.isEnhanced).toBe(true);
@@ -1579,8 +1586,8 @@ describe("enhanced upgrades", () => {
 
   it("keeps Plus ids out of every pool", () => {
     expect(ALL_UPGRADE_IDS.some((id) => isEnhancedId(id))).toBe(false);
-    expect(eligibleUpgrades([])).toEqual(
-      ALL_UPGRADE_IDS.filter(
+    expect(withoutLow(eligibleUpgrades([]))).toEqual(
+      ALL_IDS.filter(
         (id) => !isSpecialist(id) && !isRare(id) && getUpgradeDef(id).reactiveArmor !== true,
       ),
     );
@@ -1669,11 +1676,8 @@ describe("enhanced upgrades", () => {
     expect(remoteTransferEvery(["passiveRemoteTransferencePlus"])).toBe(3);
     expect(turnBoostMs(["passiveTurnTuningPlus"])).toBe(750);
     expect(turnPerfectPx(["passiveTurnTuningPlus"])).toBe(12);
-    expect(ghostTunnelSpeedRatio(["passiveTunnelDash"])).toBeNull();
-    expect(ghostTunnelSpeedRatio(["passiveTunnelDashPlus"])).toBe(0.3);
     expect(ghostTunnelSpeedRatio(["passiveTunnelSanctuary"])).toBe(0.9);
     expect(ghostTunnelSpeedRatio(["passiveTunnelSanctuaryPlus"])).toBeNull();
-    expect(ghostTunnelSpeedRatio(["passiveTunnelDashPlus", "passiveTunnelSanctuary"])).toBe(0.9);
     expect(tunnelExitInvulnMs(["passiveTunnelSanctuary"])).toBe(1000);
     expect(tunnelExitInvulnMs(["passiveTunnelSanctuaryPlus"])).toBe(1000);
     expect(tunnelExitInvulnMs([])).toBe(0);

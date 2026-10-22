@@ -1,3 +1,4 @@
+import type { GhostKindId } from "./ghostKind";
 import { RELEASE_SLOT, type ReleaseSlot } from "./ghostRoster";
 import { scaleToActiveLayout } from "./maze";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
@@ -84,9 +85,23 @@ export function shouldReleaseGhostAt(clock: GhostReleaseClock, delayMs: number):
 export type GhostReleaseAdds = {
   delayAddMs?: number;
   reliefPelletAdd?: number;
+  pelletAdd?: number;
+  kindAdds?: (kind: GhostKindId) => { delayMs: number; pellets: number };
   tuning?: Tuning;
   heldGhostEids?: readonly number[];
 };
+
+export function releaseAddsForKind(adds: GhostReleaseAdds, kind: GhostKindId): GhostReleaseAdds {
+  const extra = adds.kindAdds?.(kind);
+  if (extra === undefined || (extra.delayMs === 0 && extra.pellets === 0)) {
+    return adds;
+  }
+  return {
+    ...adds,
+    delayAddMs: (adds.delayAddMs ?? 0) + extra.delayMs,
+    pelletAdd: (adds.pelletAdd ?? 0) + extra.pellets,
+  };
+}
 
 export function isTimeGatedRelease(slot: ReleaseSlot, afterLifeRelease: boolean): boolean {
   return slot === RELEASE_SLOT.anchor || (slot === RELEASE_SLOT.front && !afterLifeRelease);
@@ -152,6 +167,8 @@ export function shouldReleaseSlot(
   const dots = afterLifeRelease ? collectedCount - clock.baselineCollected : collectedCount;
   return (
     clock.started &&
-    dots >= releaseDots(slot, clock.level, afterLifeRelease, adds.reliefPelletAdd, adds.tuning)
+    dots >=
+      releaseDots(slot, clock.level, afterLifeRelease, adds.reliefPelletAdd, adds.tuning) +
+        (adds.pelletAdd ?? 0)
   );
 }

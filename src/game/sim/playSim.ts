@@ -128,7 +128,6 @@ import {
   activateLayout,
   cellCenterX,
   cellCenterY,
-  clampToGridCenters,
   getActiveLayout,
   horizontalTunnelRows,
   isSolid,
@@ -276,7 +275,6 @@ import {
 } from "../../domain/upgradeTimers";
 import {
   cellSpeedMultiplier,
-  TUNNEL_DASH_SPEED_MUL,
   applyPowerPelletEffects,
   firingPowerUpgrades,
   applyShieldBreakInvuln,
@@ -535,11 +533,12 @@ import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { hunterFrightenLimit } from "../../domain/hunter";
 import {
-  applyTunnelDashForBodies,
-  tickTunnelDashAnimation,
-  type DashBody,
-  type TunnelDashAnimation,
-} from "../systems/tunnelDash";
+  isLowPowerId,
+  lowPowerKindReleaseAdds,
+  lowPowerPlayerSpeedMul,
+  lowPowerPreTurnBonusPx,
+} from "../../domain/lowPowerUpgrades";
+import { GhostTractionState, playerInTunnel } from "../systems/lowPowerGhosts";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import {
@@ -645,9 +644,9 @@ export class PlaySim {
   private secondChompUsed = 0;
   private tunnelBoringCharges = 0;
   private tunnelBored: { mapKey: string; cells: MazeTile[] } | null = null;
-  private tunnelDashAnim: TunnelDashAnimation | null = null;
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
+  private readonly ghostTraction = new GhostTractionState();
   private lavaZone: LavaZone | null = null;
   private lavaElapsedMs = 0;
   private lavaStarted = false;
@@ -866,7 +865,7 @@ export class PlaySim {
       return [];
     }
     this.pendingChoice = null;
-    const alreadyOwned = hasUpgrade(this.runUpgrades.owned, chosen.id);
+    const alreadyOwned = !isLowPowerId(chosen.id) && hasUpgrade(this.runUpgrades.owned, chosen.id);
     const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
     this.recorder.picked(chosen.id);
     this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id, grantedId);
@@ -995,7 +994,7 @@ export class PlaySim {
       shields: this.runUpgrades.shieldsBanked,
       peels: bananaPeelSprites(this.peelTail),
       programmerQueue: this.programmerQueue(),
-      mirror: this.death === null ? this.twinDashBody() : null,
+      mirror: this.death === null ? this.twinRenderBody() : null,
       mirrorPop: mirrorPopRender(this.mirrorPop),
     };
   }
@@ -1456,11 +1455,14 @@ export class PlaySim {
                 : 1) *
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
+              lowPowerPlayerSpeedMul(this.effectiveUpgrades(), playerInTunnel(this.world)) *
               speedZoneMultiplier(this.zoneEffects().effect);
     const playerSpeedMul =
       rawPlayerSpeedMul * titheSpeedMultiplier(this.runUpgrades, this.effectiveUpgrades());
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
+    this.ghostTraction.tick(this.world, this.effectiveUpgrades(), delta);
     applyGhostSpeed(this.world, this.pelletsForElroy(), this.levelIndex, {
+      extraSpeedMul: this.ghostTraction.speedMultiplier(this.effectiveUpgrades()),
       ghostSpeedMul:
         (this.bossState === null ? levelSpeedMul : 1) *
         ghostSpeedMultiplier(this.effectiveUpgrades()),
@@ -1492,7 +1494,7 @@ export class PlaySim {
         this.world,
         frameDelta,
         playerSolids,
-        playerPreTurnPx(this.currentTuning),
+        playerPreTurnPx(this.currentTuning) + lowPowerPreTurnBonusPx(this.effectiveUpgrades()),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
         this.runUpgrades.droppedWall,
@@ -1522,72 +1524,6 @@ export class PlaySim {
         facingAfterMove,
       ),
     );
-    if (this.tunnelDashAnim !== null) {
-      const positionBeforeDash = this.playerPosition();
-      this.tunnelDashAnim = tickTunnelDashAnimation(
-        this.world,
-        this.tunnelDashAnim,
-        delta,
-        playerSpeed(this.currentTuning) * TUNNEL_DASH_SPEED_MUL,
-      );
-      this.noteTunnelExit(positionBeforeDash);
-    } else if (
-      !bouncing &&
-      hasUpgrade(this.effectiveUpgrades(), "passiveTunnelDash") &&
-      !this.timedTunnelBlocksPlayerDash()
-    ) {
-      const dash = applyTunnelDashForBodies(this.world, this.twinDashBody());
-      if (dash !== null) {
-        this.recorder.tunnelDash();
-        this.recorder.powerPellets("tunnelDash", dash.sweptPowerRemoved);
-        if (dash.sweptPelletEids.length > 0) {
-          for (const eid of dash.sweptPelletEids) {
-            this.releaseDrawable(eid);
-          }
-          this.emit({
-            type: "pelletSfx",
-            previousCollected: this.lifetimeCollected,
-            removed: dash.sweptPelletEids.length,
-            powerRemoved: dash.sweptPowerRemoved,
-          });
-          if (hasUpgrade(this.effectiveUpgrades(), "passivePowerPelletRecharge")) {
-            this.queueSecondChomp(dash.sweptPowerPositions);
-          }
-          this.nextPowerPelletBreakId = startPowerPelletBreaks(
-            this.world,
-            this.powerPelletBreaks,
-            this.nextPowerPelletBreakId,
-            dash.sweptPowerPositions,
-            (event) => this.emit(event),
-            playerSpeed(this.currentTuning),
-            this.currentTuning,
-          );
-          const dashStreakFires = this.applyStreakCells(dash.sweptCells);
-          const collectResult = applyPelletCollect(
-            this.pelletProgress,
-            dash.sweptPelletEids.length,
-            noRequiredPelletsLeft(this.world),
-          );
-          this.pelletProgress = collectResult.progress;
-          this.lifetimeCollected += dash.sweptPelletEids.length;
-          if (
-            dash.sweptPowerRemoved > 0 &&
-            this.resolvePowerPelletTrigger(dash.sweptPowerRemoved)
-          ) {
-            return;
-          }
-          if (this.fireStreakEngine(dashStreakFires)) {
-            return;
-          }
-          if (collectResult.shouldRecordClear) {
-            this.triggerLevelClear();
-            return;
-          }
-        }
-        this.tunnelDashAnim = { targetX: dash.animateToX, wrapToX: dash.wrapToX, y: dash.y };
-      }
-    }
-
     this.checkStreakCell();
 
     if (ghostExitHouse(this.world) && !this.ghostModeClock.active) {
@@ -1971,7 +1907,7 @@ export class PlaySim {
     );
   }
 
-  private twinDashBody(): DashBody | null {
+  private twinRenderBody(): NonNullable<SimRenderOptions["mirror"]> | null {
     const position = this.twinPosition();
     return position === null
       ? null
@@ -2039,6 +1975,7 @@ export class PlaySim {
     return {
       delayAddMs: ghostHouseReleaseDelayAddMs(this.effectiveUpgrades()),
       reliefPelletAdd: ghostHouseReliefPelletAdd(this.effectiveUpgrades()),
+      kindAdds: lowPowerKindReleaseAdds(this.effectiveUpgrades()),
       tuning: this.currentTuning,
       heldGhostEids: [...(haunted === null ? [] : [haunted]), ...this.runUpgrades.hunterHeldEids],
     };
@@ -2080,6 +2017,10 @@ export class PlaySim {
     if (eaten.length > 0) {
       this.emitMunch();
     }
+  }
+
+  private rosterKinds(): readonly GhostKindId[] {
+    return ghostKindsForLevel(this.levelIndex + 1, this.rosterId);
   }
 
   private pelletsForElroy(): number {
@@ -2211,16 +2152,7 @@ export class PlaySim {
     if (this.timedTunnelGatedRow === null) {
       return;
     }
-    const phaseBefore = timedTunnelPhase(this.timedTunnelElapsedMs);
     this.timedTunnelElapsedMs += deltaMs;
-    const phaseAfter = timedTunnelPhase(this.timedTunnelElapsedMs);
-    if (
-      phaseBefore !== "closed" &&
-      phaseAfter === "closed" &&
-      !this.timedTunnelWallPassLoopActive()
-    ) {
-      this.cancelTunnelDashForTimedClose();
-    }
   }
 
   private closedGatedTunnelRow(): number | null {
@@ -2232,32 +2164,6 @@ export class PlaySim {
       return null;
     }
     return this.timedTunnelGatedRow;
-  }
-
-  private timedTunnelBlocksPlayerDash(): boolean {
-    const closedRow = this.closedGatedTunnelRow();
-    if (closedRow === null) {
-      return false;
-    }
-    const at = this.playerPosition();
-    return at !== null && worldToRow(at.y) === closedRow;
-  }
-
-  private cancelTunnelDashForTimedClose(): void {
-    if (this.tunnelDashAnim === null || this.timedTunnelGatedRow === null) {
-      return;
-    }
-    const eid = query(this.world, [Player, Position])[0];
-    if (eid === undefined) {
-      return;
-    }
-    if (worldToRow(Position.y[eid] ?? 0) !== this.timedTunnelGatedRow) {
-      return;
-    }
-    this.tunnelDashAnim = null;
-    const clamped = clampToGridCenters(Position.x[eid] ?? 0, Position.y[eid] ?? 0);
-    Position.x[eid] = clamped.x;
-    Position.y[eid] = clamped.y;
   }
 
   private timedTunnelSnapshot(): {
@@ -2434,7 +2340,6 @@ export class PlaySim {
     this.turnTuning.reset();
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
-    this.tunnelDashAnim = null;
     this.powerPelletBreaks = [];
     this.resetHyperspeedMovement();
     this.warpGlide = null;
@@ -2460,6 +2365,7 @@ export class PlaySim {
       livesAfterLevelRegen(this.lives, this.regenIconFloor(), 1) > this.lives,
       this.nextStoreSchool,
       this.storeOffered,
+      this.rosterKinds(),
     );
     this.storeOffered.push(...offeredUpgradeIds(this.store));
     this.nextStoreSchool = null;
@@ -2728,6 +2634,7 @@ export class PlaySim {
 
   private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
+    this.ghostTraction.reset();
     this.mirrorPop = null;
     this.deathsThisBoard = 0;
     this.elroySuppressed = false;
@@ -2816,7 +2723,6 @@ export class PlaySim {
     this.tunnelBoringCharges = hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring")
       ? TUNNEL_BORING_CHARGES_PER_LEVEL
       : 0;
-    this.tunnelDashAnim = null;
     this.powerPelletBreaks = [];
     this.resetHyperspeedMovement();
     this.resetTimedTunnel();
@@ -3194,7 +3100,6 @@ export class PlaySim {
       this.pelletProgress.boardCollected,
       this.afterLifeRelease,
     );
-    this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.warpGlide = null;
     this.speedTrail = [];
@@ -3444,6 +3349,7 @@ export class PlaySim {
       enhancedOfferChance(this.levelIndex),
       this.options.forceUpgrade,
       this.levelIndex,
+      this.rosterKinds(),
     );
     if (offer.upgrades.length === 0) {
       this.beginLevelTransition();
@@ -4188,9 +4094,9 @@ export class PlaySim {
   }
 
   private resetAfterLifeLoss(): void {
+    this.ghostTraction.reset();
     this.lavaElapsedMs = 0;
     this.lavaStarted = false;
-    this.tunnelDashAnim = null;
     this.resetHyperspeedMovement();
     this.warpGlide = null;
     this.speedTrail = [];

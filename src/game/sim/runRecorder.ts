@@ -175,12 +175,6 @@ export class RunRecorder {
     }
   }
 
-  tunnelDash(): void {
-    if (this.level !== null) {
-      this.level.tunnelDashes += 1;
-    }
-  }
-
   powerPellets(source: PowerPelletSource, count: number): void {
     if (this.level !== null && count > 0) {
       this.level.powerPellets[source] += count;
