@@ -32,6 +32,7 @@ describe("parsePlayOptions", () => {
       slot: null,
       slotMachine: false,
       fruit: false,
+      intermission: null,
       highScoresDisabled: false,
     });
   });
@@ -39,7 +40,7 @@ describe("parsePlayOptions", () => {
   it("reads every flag", () => {
     const { options, warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=abc&maze=maze1&level=4&quarters=3&pennyCharge=120&ghosts=pinky&roster=3&boss=chainedGhosts&bossStageAdvance=1&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&levelModifiers=0&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus&slot=1q1u&jumpToSpinner=1&slotMachine=1&fruit=1",
+        "seed=abc&maze=maze1&level=4&quarters=3&pennyCharge=120&ghosts=pinky&roster=3&boss=chainedGhosts&bossStageAdvance=1&jumpToUpgrade=1&store=1&disableLevelUpgrades=1&infiniteLives=1&lives=2&maxLives=6&godMode=1&knobs=1&levelModifiers=0&enableUpgrade=powerPelletFreeze&forceUpgrade=passiveRemoteTransferencePlus&slot=1q1u&jumpToSpinner=1&slotMachine=1&fruit=1&intermission=bananaGrab",
       ),
     );
     expect(warnings).toEqual([]);
@@ -70,6 +71,7 @@ describe("parsePlayOptions", () => {
       slot: { quarters: 1, upgrades: 1, lives: 0 },
       slotMachine: true,
       fruit: true,
+      intermission: "bananaGrab",
       highScoresDisabled: true,
     });
   });
@@ -77,7 +79,7 @@ describe("parsePlayOptions", () => {
   it("warns once per invalid flag, in flag order", () => {
     const { warnings } = parsePlayOptions(
       new URLSearchParams(
-        "seed=a%20b&maze=nope&level=0&quarters=-1&pennyCharge=300&roster=6&boss=nope&lives=0&maxLives=x",
+        "seed=a%20b&maze=nope&level=0&quarters=-1&pennyCharge=300&roster=6&boss=nope&lives=0&intermission=nope&maxLives=x",
       ),
     );
     expect(warnings).toEqual([
@@ -91,6 +93,7 @@ describe("parsePlayOptions", () => {
       "Unknown ?roster= value; expected an integer 0..5",
       "Unknown ?boss= value; expected blinkySwarm|chainedGhosts",
       "Unknown ?lives= value; expected positive integer",
+      "Unknown ?intermission= value; expected blinkyChase|bananaGrab",
       "Unknown ?maxLives= value; expected positive integer",
     ]);
   });
@@ -105,6 +108,21 @@ describe("parsePlayOptions", () => {
       parsePlayOptions(new URLSearchParams("boss=chainedGhosts&level=3")).options,
     ).toMatchObject({ boss: "chainedGhosts", level: 3 });
     expect(parsePlayOptions(new URLSearchParams("boss=nope")).options.level).toBeNull();
+  });
+
+  it("starts at the intermission level for ?intermission= unless ?level= is given", () => {
+    expect(parsePlayOptions(new URLSearchParams("intermission=bananaGrab")).options).toMatchObject({
+      intermission: "bananaGrab",
+      level: 2,
+      highScoresDisabled: true,
+    });
+    expect(
+      parsePlayOptions(new URLSearchParams("intermission=blinkyChase&level=5")).options,
+    ).toMatchObject({ intermission: "blinkyChase", level: 5 });
+    expect(parsePlayOptions(new URLSearchParams("intermission=nope")).options).toMatchObject({
+      intermission: null,
+      level: null,
+    });
   });
 
   it("defaults maxLives to lives unless maxLives is set", () => {

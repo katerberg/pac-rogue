@@ -39,6 +39,7 @@ export const HIGH_SCORE_DISABLING_FLAGS = [
   "slot",
   "slotMachine",
   "fruit",
+  "intermission",
 ] as const;
 
 export function highScoresDisabled(params: URLSearchParams): boolean {

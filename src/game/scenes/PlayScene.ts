@@ -206,6 +206,7 @@ export class PlayScene extends Phaser.Scene {
       options.jumpToUpgrade = false;
       options.jumpToSpinner = false;
       options.store = null;
+      options.intermission = null;
     }
     options.forceStartingUpgrade = preferredStartingUpgrade(storedRunCount());
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;

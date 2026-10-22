@@ -409,6 +409,7 @@ export type GhostSpriteHandle = {
   destroy(): void;
   setSkirtPhase(phase: number): void;
   setLook(look: GhostLook): void;
+  setPupilLook(look: PupilLook): void;
 };
 
 export type GhostLook = "normal" | "frightened" | "frozen";
@@ -478,6 +479,12 @@ export function addGhostSprite(
       horns?.setVisible(!frightened);
       pupils?.setVisible(!frightened);
     },
+    setPupilLook(next) {
+      if (pupils !== null) {
+        pupils.clear();
+        fillGhostPupils(pupils, 0, 0, crisp.size, next);
+      }
+    },
   };
 }
 
@@ -500,6 +507,24 @@ export function addQuarterIcon(
   size: number,
 ): Phaser.GameObjects.Image {
   return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
+export function addPowerPelletIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, POWER_PELLET_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
+export function addBananaPeelIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, BANANA_PEEL_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
 export function addPennyIcon(
